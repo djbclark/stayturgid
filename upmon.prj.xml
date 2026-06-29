@@ -15,11 +15,22 @@
 			<tm>59</tm>
 		</Time>
 	</Profile>
+	<Profile sr="prof201" ve="2">
+		<cdate>1751226000000</cdate>
+		<edate>1751226000000</edate>
+		<flags>0</flags>
+		<id>201</id>
+		<mid0>100</mid0>
+		<nme>ADB_Boot_Restore</nme>
+		<Event sr="con0" ve="2">
+			<code>2</code>
+		</Event>
+	</Profile>
 	<Project sr="proj0" ve="2">
 		<cdate>1751226000000</cdate>
 		<id>7039e243-d549-44a5-b52b-848399f906b7</id>
 		<name>upmon</name>
-		<pids>200</pids>
+		<pids>200,201</pids>
 		<tids>100</tids>
 	</Project>
 	<Task sr="task100">
@@ -39,6 +50,19 @@
 			<Int sr="arg0" val="2"/>
 			<Str sr="arg1" ve="3">adb_wifi_enabled</Str>
 			<Str sr="arg2" ve="3">1</Str>
+		</Action>
+		<Action sr="act2a" ve="7">
+			<code>123</code>
+			<se>false</se>
+			<Str sr="arg0" ve="3">/data/data/com.termux/files/usr/bin/adb tcpip 5555</Str>
+			<Int sr="arg1" val="0"/>
+			<Int sr="arg2" val="0"/>
+			<Str sr="arg3" ve="3"/>
+			<Str sr="arg4" ve="3"/>
+			<Str sr="arg5" ve="3"/>
+			<Int sr="arg6" val="1"/>
+			<Int sr="arg7" val="0"/>
+			<Int sr="arg8" val="0"/>
 		</Action>
 		<Action sr="act2" ve="7">
 			<code>123</code>
