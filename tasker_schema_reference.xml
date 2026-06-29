@@ -1,0 +1,349 @@
+<TaskerData sr="" dvi="1" tv="6.7.4-beta">
+	<Profile sr="prof12" ve="2">
+		<cdate>1781096388616</cdate>
+		<clp>true</clp>
+		<edate>1745000000000</edate>
+		<flags>40</flags>
+		<id>12</id>
+		<mid0>11</mid0>
+		<nme>Daily Frozen App Audit</nme>
+		<Time sr="con0">
+			<fh>10</fh>
+			<fm>0</fm>
+			<th>10</th>
+			<tm>0</tm>
+		</Time>
+	</Profile>
+	<Project sr="proj0" ve="2">
+		<cdate>1745000000000</cdate>
+		<clr>4285681247</clr>
+		<id>a3c126e2-5ce4-4f45-855b-d89238fe080e</id>
+		<name>Frozen Auditor</name>
+		<pids>12</pids>
+		<tids>11</tids>
+	</Project>
+	<Task sr="task11">
+		<cdate>1745000000000</cdate>
+		<edate>1745000000000</edate>
+		<id>11</id>
+		<nme>Audit Frozen Apps</nme>
+		<pri>100</pri>
+		<Action sr="act0" ve="7">
+			<code>342</code>
+			<Int sr="arg0" val="5"/>
+			<Str sr="arg1" ve="3">Documents/my_frozen_apps.txt</Str>
+			<Str sr="arg2" ve="3">%exists</Str>
+			<Int sr="arg3" val="0"/>
+			<Int sr="arg4" val="1"/>
+		</Action>
+		<Action sr="act1" ve="7">
+			<code>37</code>
+			<ConditionList sr="if">
+				<Condition sr="c0" ve="3">
+					<lhs>%exists</lhs>
+					<op>0</op>
+					<rhs>false</rhs>
+				</Condition>
+			</ConditionList>
+		</Action>
+		<Action sr="act10" ve="7">
+			<code>38</code>
+		</Action>
+		<Action sr="act11" ve="7">
+			<code>598</code>
+			<Str sr="arg0" ve="3">%manifest_raw</Str>
+			<Str sr="arg1" ve="3">\r</Str>
+			<Int sr="arg2" val="0"/>
+			<Int sr="arg3" val="0"/>
+			<Int sr="arg4" val="0"/>
+			<Str sr="arg5" ve="3"/>
+			<Int sr="arg6" val="1"/>
+			<Str sr="arg7" ve="3"/>
+		</Action>
+		<Action sr="act12" ve="7">
+			<code>590</code>
+			<Str sr="arg0" ve="3">%manifest_raw</Str>
+			<Str sr="arg1" ve="3">\n</Str>
+			<Int sr="arg2" val="0"/>
+			<Int sr="arg3" val="0"/>
+		</Action>
+		<Action sr="act13" ve="7">
+			<code>123</code>
+			<se>false</se>
+			<Str sr="arg0" ve="3">pm list packages -d | cut -d: -f2</Str>
+			<Int sr="arg1" val="0"/>
+			<Int sr="arg2" val="1"/>
+			<Str sr="arg3" ve="3">%disabled_raw</Str>
+			<Str sr="arg4" ve="3"/>
+			<Str sr="arg5" ve="3"/>
+			<Int sr="arg6" val="1"/>
+			<Int sr="arg7" val="0"/>
+			<Int sr="arg8" val="0"/>
+		</Action>
+		<Action sr="act14" ve="7">
+			<code>37</code>
+			<ConditionList sr="if">
+				<Condition sr="c0" ve="3">
+					<lhs>%err</lhs>
+					<op>12</op>
+				</Condition>
+			</ConditionList>
+		</Action>
+		<Action sr="act15" ve="7">
+			<code>523</code>
+			<Str sr="arg0" ve="3">Tasker Error</Str>
+			<Str sr="arg1" ve="3">Failed to get frozen apps: %errmsg</Str>
+			<Str sr="arg10" ve="3">0,200,100,200</Str>
+			<Str sr="arg11" ve="3">AI Errors</Str>
+			<Str sr="arg12" ve="3"/>
+			<Int sr="arg13" val="0"/>
+			<Str sr="arg14" ve="3"/>
+			<Str sr="arg15" ve="3"/>
+			<Img sr="arg2" ve="2">
+				<uri>android.resource://net.dinglisch.android.taskerm/drawable/mw_alert_error_outline</uri>
+			</Img>
+			<Int sr="arg3" val="0"/>
+			<Int sr="arg4" val="0"/>
+			<Int sr="arg5" val="5"/>
+			<Int sr="arg6" val="0"/>
+			<Int sr="arg7" val="0"/>
+			<Int sr="arg8" val="0"/>
+			<Str sr="arg9" ve="3"/>
+		</Action>
+		<Action sr="act16" ve="7">
+			<code>137</code>
+			<Int sr="arg0" val="1"/>
+			<Str sr="arg1" ve="3"/>
+		</Action>
+		<Action sr="act17" ve="7">
+			<code>38</code>
+		</Action>
+		<Action sr="act18" ve="7">
+			<code>598</code>
+			<Str sr="arg0" ve="3">%disabled_raw</Str>
+			<Str sr="arg1" ve="3">\r</Str>
+			<Int sr="arg2" val="0"/>
+			<Int sr="arg3" val="0"/>
+			<Int sr="arg4" val="0"/>
+			<Str sr="arg5" ve="3"/>
+			<Int sr="arg6" val="1"/>
+			<Str sr="arg7" ve="3"/>
+		</Action>
+		<Action sr="act19" ve="7">
+			<code>590</code>
+			<Str sr="arg0" ve="3">%disabled_raw</Str>
+			<Str sr="arg1" ve="3">\n</Str>
+			<Int sr="arg2" val="0"/>
+			<Int sr="arg3" val="0"/>
+		</Action>
+		<Action sr="act2" ve="7">
+			<code>410</code>
+			<Str sr="arg0" ve="3">Documents/my_frozen_apps.txt</Str>
+			<Str sr="arg1" ve="3">com.example.app</Str>
+			<Int sr="arg2" val="0"/>
+			<Int sr="arg3" val="1"/>
+		</Action>
+		<Action sr="act20" ve="7">
+			<code>357</code>
+			<Str sr="arg0" ve="3">%errors</Str>
+		</Action>
+		<Action sr="act21" ve="7">
+			<code>39</code>
+			<Str sr="arg0" ve="3">%index</Str>
+			<Str sr="arg1" ve="3">1:%disabled_raw(#)</Str>
+			<Int sr="arg2" val="0"/>
+		</Action>
+		<Action sr="act22" ve="7">
+			<code>547</code>
+			<Str sr="arg0" ve="3">%current_pkg</Str>
+			<Str sr="arg1" ve="3">%disabled_raw(%index)</Str>
+			<Int sr="arg2" val="0"/>
+			<Int sr="arg3" val="0"/>
+			<Int sr="arg4" val="0"/>
+			<Int sr="arg5" val="3"/>
+			<Int sr="arg6" val="0"/>
+		</Action>
+		<Action sr="act23" ve="7">
+			<code>37</code>
+			<ConditionList sr="if">
+				<bool0>And</bool0>
+				<bool1>And</bool1>
+				<Condition sr="c0" ve="3">
+					<lhs>%current_pkg</lhs>
+					<op>12</op>
+				</Condition>
+				<Condition sr="c1" ve="3">
+					<lhs>%current_pkg</lhs>
+					<op>1</op>
+					<rhs></rhs>
+				</Condition>
+				<Condition sr="c2" ve="3">
+					<lhs>%manifest_raw(#?%current_pkg)</lhs>
+					<op>8</op>
+					<rhs>0</rhs>
+				</Condition>
+			</ConditionList>
+		</Action>
+		<Action sr="act24" ve="7">
+			<code>355</code>
+			<Str sr="arg0" ve="3">%errors</Str>
+			<Int sr="arg1" val="999999"/>
+			<Str sr="arg2" ve="3">%current_pkg</Str>
+			<Int sr="arg3" val="0"/>
+		</Action>
+		<Action sr="act25" ve="7">
+			<code>38</code>
+		</Action>
+		<Action sr="act26" ve="7">
+			<code>40</code>
+		</Action>
+		<Action sr="act27" ve="7">
+			<code>37</code>
+			<ConditionList sr="if">
+				<Condition sr="c0" ve="3">
+					<lhs>%errors(#)</lhs>
+					<op>7</op>
+					<rhs>0</rhs>
+				</Condition>
+			</ConditionList>
+		</Action>
+		<Action sr="act28" ve="7">
+			<code>592</code>
+			<Str sr="arg0" ve="3">%errors</Str>
+			<Str sr="arg1" ve="3">\n</Str>
+			<Int sr="arg2" val="0"/>
+		</Action>
+		<Action sr="act29" ve="7">
+			<code>410</code>
+			<Str sr="arg0" ve="3">Documents/shortcut_audit_errors.txt</Str>
+			<Str sr="arg1" ve="3">%errors</Str>
+			<Int sr="arg2" val="0"/>
+			<Int sr="arg3" val="1"/>
+		</Action>
+		<Action sr="act3" ve="7">
+			<code>548</code>
+			<Str sr="arg0" ve="3">Created missing my_frozen_apps.txt. Please populate it with package names.</Str>
+			<Int sr="arg1" val="1"/>
+			<Str sr="arg10" ve="3"/>
+			<Int sr="arg11" val="1"/>
+			<Int sr="arg12" val="0"/>
+			<Str sr="arg13" ve="3"/>
+			<Int sr="arg14" val="0"/>
+			<Str sr="arg15" ve="3"/>
+			<Int sr="arg2" val="1"/>
+			<Str sr="arg3" ve="3"/>
+			<Str sr="arg4" ve="3"/>
+			<Str sr="arg5" ve="3"/>
+			<Str sr="arg6" ve="3"/>
+			<Str sr="arg7" ve="3"/>
+			<Str sr="arg8" ve="3"/>
+			<Int sr="arg9" val="1"/>
+		</Action>
+		<Action sr="act30" ve="7">
+			<code>523</code>
+			<Str sr="arg0" ve="3">Frozen Apps Audit</Str>
+			<Str sr="arg1" ve="3">Missing shortcuts for %errors(#) apps. Check Documents/shortcut_audit_errors.txt</Str>
+			<Str sr="arg10" ve="3"/>
+			<Str sr="arg11" ve="3"/>
+			<Str sr="arg12" ve="3"/>
+			<Int sr="arg13" val="0"/>
+			<Str sr="arg14" ve="3"/>
+			<Str sr="arg15" ve="3"/>
+			<Img sr="arg2" ve="2">
+				<uri>android.resource://net.dinglisch.android.taskerm/drawable/mw_alert_warning</uri>
+			</Img>
+			<Int sr="arg3" val="0"/>
+			<Int sr="arg4" val="0"/>
+			<Int sr="arg5" val="4"/>
+			<Int sr="arg6" val="0"/>
+			<Int sr="arg7" val="0"/>
+			<Int sr="arg8" val="0"/>
+			<Str sr="arg9" ve="3"/>
+		</Action>
+		<Action sr="act31" ve="7">
+			<code>43</code>
+		</Action>
+		<Action sr="act32" ve="7">
+			<code>523</code>
+			<Str sr="arg0" ve="3">✅ Audit Passed</Str>
+			<Str sr="arg1" ve="3">All frozen apps have shortcuts.</Str>
+			<Str sr="arg10" ve="3"/>
+			<Str sr="arg11" ve="3"/>
+			<Str sr="arg12" ve="3"/>
+			<Int sr="arg13" val="0"/>
+			<Str sr="arg14" ve="3"/>
+			<Str sr="arg15" ve="3"/>
+			<Img sr="arg2" ve="2">
+				<uri>android.resource://net.dinglisch.android.taskerm/drawable/mw_action_done</uri>
+			</Img>
+			<Int sr="arg3" val="0"/>
+			<Int sr="arg4" val="0"/>
+			<Int sr="arg5" val="3"/>
+			<Int sr="arg6" val="0"/>
+			<Int sr="arg7" val="0"/>
+			<Int sr="arg8" val="0"/>
+			<Str sr="arg9" ve="3"/>
+		</Action>
+		<Action sr="act33" ve="7">
+			<code>406</code>
+			<se>false</se>
+			<Str sr="arg0" ve="3">Documents/shortcut_audit_errors.txt</Str>
+			<Int sr="arg1" val="0"/>
+			<Int sr="arg2" val="0"/>
+			<Int sr="arg3" val="1"/>
+		</Action>
+		<Action sr="act34" ve="7">
+			<code>38</code>
+		</Action>
+		<Action sr="act4" ve="7">
+			<code>137</code>
+			<Int sr="arg0" val="0"/>
+			<Str sr="arg1" ve="3"/>
+		</Action>
+		<Action sr="act5" ve="7">
+			<code>38</code>
+		</Action>
+		<Action sr="act6" ve="7">
+			<code>417</code>
+			<se>false</se>
+			<Str sr="arg0" ve="3">Documents/my_frozen_apps.txt</Str>
+			<Str sr="arg1" ve="3">%manifest_raw</Str>
+			<Int sr="arg2" val="0"/>
+		</Action>
+		<Action sr="act7" ve="7">
+			<code>37</code>
+			<ConditionList sr="if">
+				<Condition sr="c0" ve="3">
+					<lhs>%err</lhs>
+					<op>12</op>
+				</Condition>
+			</ConditionList>
+		</Action>
+		<Action sr="act8" ve="7">
+			<code>523</code>
+			<Str sr="arg0" ve="3">Tasker Error</Str>
+			<Str sr="arg1" ve="3">%errmsg</Str>
+			<Str sr="arg10" ve="3">0,200,100,200</Str>
+			<Str sr="arg11" ve="3">AI Errors</Str>
+			<Str sr="arg12" ve="3"/>
+			<Int sr="arg13" val="0"/>
+			<Str sr="arg14" ve="3"/>
+			<Str sr="arg15" ve="3"/>
+			<Img sr="arg2" ve="2">
+				<uri>android.resource://net.dinglisch.android.taskerm/drawable/mw_alert_error_outline</uri>
+			</Img>
+			<Int sr="arg3" val="0"/>
+			<Int sr="arg4" val="0"/>
+			<Int sr="arg5" val="5"/>
+			<Int sr="arg6" val="0"/>
+			<Int sr="arg7" val="0"/>
+			<Int sr="arg8" val="0"/>
+			<Str sr="arg9" ve="3"/>
+		</Action>
+		<Action sr="act9" ve="7">
+			<code>137</code>
+			<Int sr="arg0" val="1"/>
+			<Str sr="arg1" ve="3"/>
+		</Action>
+	</Task>
+</TaskerData>
