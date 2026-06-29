@@ -72,109 +72,55 @@ Profile to create: `ADB_Interval_Check` — Time type, every 20 minutes, trigger
 
 ---
 
-## NEXT STEP (blocked by import mechanism)
+## COMPLETED STEPS (as of 2026-06-29)
 
-**Problem**: Tasker's "Import Project" refuses to import `upmon.prj.xml` because a project named `upmon` already exists on the device.
+### ✅ Step 1 — Tasker project imported and active
+- Deleted empty upmon project via maestro flow (`.maestro/playbooks/tasker_import_upmon.yaml`)
+- Imported `upmon.prj.xml` via Tasker UI (long-press house → Import Project)
+- **TASKS tab**: `ADB_Core_Watchdog` present ✅
+- **PROFILES tab**: `ADB_Interval_Check` present and **enabled** (toggle ON) ✅
 
-**Solution options** (try in order):
+### ✅ Step 2 — Termux SSH fixed
+- Key generated: `~/.ssh/termux_key` (ed25519)
+- Installed via Termux UI (bash script on /sdcard, typed into Termux terminal)
+- **Direct WiFi SSH is blocked by Android firewall** — use ADB port forward instead:
+  ```bash
+  adb -s 35261JEHN12374 forward tcp:8022 tcp:8022
+  ssh -i ~/.ssh/termux_key -p 8022 localhost
+  ```
 
-### Option A — Import task file directly (try first)
-Tasker can import `.tsk.xml` files via the TASKS tab import flow:
-1. In Tasker, tap the **TASKS** tab
-2. Long-press anywhere in the empty task list (or use the menu)
-3. Look for **Import Task** option
-4. Navigate to `/sdcard/Tasker/tasks/ADB_Core_Watchdog.tsk.xml`
+### ✅ Step 3 — Recovery script deployed
+- `~/adb_shizuku_watchdog.sh` deployed on device via SSH-over-ADB-forward
+- Checks port 5555, attempts recovery via `adb tcpip 5555` if closed
+- Logs to `~/adb_shizuku_watchdog.log`
 
-Push the task file first:
-```bash
-adb -s 35261JEHN12374 push ~/upmon-handoff/ADB_Core_Watchdog.tsk.xml /sdcard/Tasker/tasks/ADB_Core_Watchdog.tsk.xml
-```
-
-### Option B — Delete and re-import full project
-```bash
-# 1. In Tasker: long-press upmon tab → Delete (this removes the empty project)
-# 2. Then import the full project:
-adb -s 35261JEHN12374 push ~/upmon-handoff/upmon.prj.xml /sdcard/Tasker/projects/upmon.prj.xml
-# 3. In Tasker: long-press house icon → Import Project → select upmon
-```
-
-### Option C — Use Tasker's internal backup/restore
-Navigate to Tasker menu → Data → Restore → and point at the XML.
-
-### After task is imported
-1. Move task to `upmon` project (long-press task → Move to Project → upmon)
-2. Create the `ADB_Interval_Check` profile:
-   - In `upmon` project, PROFILES tab → tap + → Time → Every → 20 minutes
-   - Link it to `ADB_Core_Watchdog` task
-3. Enable the profile
+### ✅ Step 4 — Termux:Boot persistence configured
+- `~/.termux/boot/start-adb.sh` deployed — fires on boot, waits 30s for WiFi, runs `adb tcpip 5555`
 
 ---
 
-## Step after Tasker import: Termux recovery script
+## REMAINING STEP
 
-Once SSH is fixed (`ssh u0_a590@pixel7a-termux -p 8022` works):
+### Step 5 — Test: reboot and verify ← **DO THIS NEXT**
 
 ```bash
-# Write this to ~/adb_shizuku_watchdog.sh on the Pixel:
-ssh u0_a590@pixel7a-termux -p 8022 'cat > ~/adb_shizuku_watchdog.sh' << 'SCRIPT'
-#!/data/data/com.termux/files/usr/bin/bash
-LOG_FILE="/data/data/com.termux/files/home/adb_shizuku_watchdog.log"
-exec 1> >(tee -a "$LOG_FILE") 2>&1
+# 1. Reboot the device (physically or via adb):
+adb -s 35261JEHN12374 reboot
 
-echo "=== $(date) - Watchdog Run ==="
+# 2. Wait ~90 seconds for boot + WiFi + Termux:Boot 30s delay
 
-if ss -tln | grep -q ':5555 '; then
-    echo "[OK] Port 5555 listening."
-    exit 0
-fi
+# 3. Re-establish ADB (USB auto-reconnects):
+adb -s 35261JEHN12374 shell "ss -tln | grep :5555"
+# Expected: LISTEN line on :5555
 
-echo "[INFO] Port 5555 closed. Attempting recovery..."
-
-CURRENT_PORT=$(ss -tlnp 2>/dev/null | grep -E 'adbd' | head -1 | awk -F: '{print $2}' | cut -d' ' -f1 | tr -d ' ')
-
-if [ -z "$CURRENT_PORT" ]; then
-    echo "[WARN] Could not find adb port."
-    exit 1
-fi
-
-adb connect "127.0.0.1:$CURRENT_PORT" >/dev/null 2>&1
-adb -s "127.0.0.1:$CURRENT_PORT" tcpip 5555
-sleep 3
-adb connect 127.0.0.1:5555 >/dev/null 2>&1
-
-adb -s 127.0.0.1:5555 shell sh /storage/emulated/0/Android/data/moe.shizuku.privileged.api/start.sh
-
-sleep 2
-if ss -tln | grep -q ':5555 '; then
-    echo "[SUCCESS] Port 5555 now listening."
-else
-    echo "[ERROR] Failed to restore port 5555."
-    exit 1
-fi
-SCRIPT
-
-ssh u0_a590@pixel7a-termux -p 8022 'chmod +x ~/adb_shizuku_watchdog.sh'
+# 4. Optionally re-establish ADB forward for SSH:
+adb -s 35261JEHN12374 forward tcp:8022 tcp:8022
+ssh -i ~/.ssh/termux_key -p 8022 localhost 'cat ~/adb_shizuku_watchdog.log | tail -10'
 ```
 
-Boot persistence via `com.termux.boot`: place a launcher script in `~/.termux/boot/`.
+If port 5555 is listening after cold reboot without any manual intervention, upmon is working.
 
----
-
-## Reboot-persistence problem (unresolved)
-
-`persist.adb.tcp.port` is blank → port 5555 dies on reboot.
-Current mitigation: Tasker 20-min profile re-enables it + Termux recovery script.
-True fix requires either:
-- The custom Shizuku fork (`thedjchi-beta`) that forces `tcpip 5555` on boot/Wi-Fi connect (not installed — stock Shizuku is present)
-- Or a Termux:Boot script that runs `adb tcpip 5555` on device boot (simpler, try this first)
-
-Termux:Boot launcher for `~/.termux/boot/start-adb.sh`:
-```bash
-#!/data/data/com.termux/files/usr/bin/bash
-sleep 30  # wait for Wi-Fi
-adb connect 127.0.0.1:5555 || true
-adb tcpip 5555 || true
-```
+**Note**: `adb -s 35261JEHN12374 forward tcp:8022 tcp:8022` must be re-run after each USB reconnect (forwards don't persist across adb server restarts).
 
 ---
 

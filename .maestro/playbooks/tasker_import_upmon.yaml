@@ -1,0 +1,30 @@
+appId: net.dinglisch.android.taskerm
+---
+# Step 1: Handle the "Delete Contents / Keep Contents" dialog that's already open
+- tapOn:
+    text: "Delete Contents"
+- takeScreenshot: /tmp/maestro_t1_deleted
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# Step 2: Long-press the house/home icon in the bottom nav (coordinates: ~50,1489 on 720x1560)
+- longPressOn:
+    point: "7%,95%"
+- takeScreenshot: /tmp/maestro_t2_house_menu
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# Step 3: Tap "Import Project"
+- tapOn:
+    text: "Import Project"
+- takeScreenshot: /tmp/maestro_t3_file_picker
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Step 4: Select the upmon project file
+- tapOn:
+    text: "upmon"
+- takeScreenshot: /tmp/maestro_t4_done
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: /tmp/maestro_t5_final
