@@ -353,10 +353,11 @@ exit();</Str>
 		<Action sr="act6" ve="7">
 			<code>129</code>
 			<label>// Set the update data
-// ★ BUMP "version" HERE AND REPUBLISH TO TASKERNET TO TRIGGER AN UPDATE NOTIFICATION</label>
+// ★ TO RELEASE AN UPDATE: bump "version", update "changelog", push to GitHub master</label>
 			<Str sr="arg0" ve="3">var updaterData = [
   {
     "taskernet_url": "https://taskernet.com/shares/?user=AS35m8lVOCqN0zylSnJKY8pBzCqkgDU8h624gr9CWqSAxD9myEt6n3OjyI4TtJhMtmw%2B&amp;id=Project%3Astayturgid",
+    "raw_xml_url": "https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.prj.xml",
     "version": "1.0",
     "changelog": "stayturgid 1.0:\n\n- Keeps ADB port 5555 and Shizuku alive across reboots (no root)\n- ADB_Boot_Restore profile fires on device boot\n- ADB_Core_Watchdog runs every 20 minutes\n- Notification on ADB or Shizuku failure"
   }

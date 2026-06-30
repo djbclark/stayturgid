@@ -175,26 +175,65 @@ mac/
 
 ## Auto-update mechanism
 
-`stayturgid_update_check.tsk.xml` uses a local XML flow — no TaskerNet dependency for the actual install:
+`stayturgid_update_check.tsk.xml` is designed to use a fully local XML flow — no TaskerNet servers involved in the actual install, only in version detection.
 
-1. Reads `act6` `updateData`: `taskernet_url` (for version detection only), `version`, `changelog`, `raw_xml_url` (GitHub raw URL for download)
-2. Fetches TaskerNet JSON, regex-extracts `"version": "..."` from the embedded XML
-3. If newer: shows Update / Skip notification
-4. **Update:** downloads `.prj.xml` from `raw_xml_url` (GitHub) → saves to `Tasker/Updates/ProjectUpdate.prj.xml` → Open File (Tasker intercepts) → AutoInput clicks IMPORT, then OVERWRITE → Go Home → delete temp file
-5. **Skip:** dismisses notification
+### How it works (target design)
 
-**To release an update:**
-1. Make changes, export from Tasker, pull to Mac
-2. Bump `"version"` and update `"changelog"` in `act6` of `stayturgid_update_check.tsk.xml`
-3. Verify `"raw_xml_url"` in `act6` points to the correct GitHub raw URL
-4. Commit and push — that's it; no TaskerNet republish needed for the download path
+1. `act6` (JavaScript) sets local variables from `updaterData`: `%taskernet_url`, `%raw_xml_url`, `%version`, `%changelog`
+2. `act9` (JavaScript) builds the TaskerNet API URL from `%taskernet_url` → `%taskernet_xml`
+3. `act10` (HTTP Request) fetches the TaskerNet JSON for the project — this returns JSON containing the raw project XML as a string
+4. `act11` (Regex Match) extracts `"version": "..."` from that JSON — the version string is embedded inside `act6`'s JavaScript in the published XML, so the regex finds it there
+5. `act13` (JavaScript) compares local `%version` to fetched `%taskernet_version`; sets `%updatestatus` to true/false
+6. If update available: shows a sticky notification with Update / Skip buttons (each button calls back into this task with `par1=user_input`, `par2=update` or `par2=skip`)
+7. **Update path (act19–act30):**
+   - HTTP Request: GET `%raw_xml_url` → save to `/sdcard/Tasker/Updates/ProjectUpdate.prj.xml`
+   - Wait 1s (file write settle)
+   - Open/view the file (fires Android VIEW intent → Tasker intercepts `.prj.xml` → shows Import dialog)
+   - Wait 3s (Import UI render buffer)
+   - AutoInput Action: click text "IMPORT" (timeout 20s)
+   - Wait 1s
+   - AutoInput Action: click text "OVERWRITE" (timeout 20s)
+   - Go Home
+   - Delete `/sdcard/Tasker/Updates/ProjectUpdate.prj.xml`
+   - Task Stop
+8. **Skip path (act31–act36):** cancel notification, flash "Skipped...", stop
 
-GitHub raw URL for the project XML:
+### Current implementation status
+
+`act6` ✅ — `raw_xml_url` has been added pointing to the GitHub raw URL:
 ```
 https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.prj.xml
 ```
 
-**Status:** The update-check task XML exists in `tasker/auto-update/stayturgid_update_check.tsk.xml` and needs to be updated with the local XML flow (current version still uses the TaskerNet `taskershare://` import path). See HACKING.md → "Publishing an update" for the full implementation design.
+**act20–act22 ❌ — still the old TaskerNet path:**
+- act20 is JavaScript that builds a `taskershare://` URI from `%taskernet_url`
+- act21 is Browse URL opening that `taskershare://` URI (sends user to TaskerNet to download)
+- act22 is Task Stop
+
+These three actions need to be replaced with the 9-action local XML sequence described above. The renumbering: current acts 23–29 become acts 30–36 after inserting 6 extra actions.
+
+### Why these can't be edited directly in the XML file
+
+Tasker uses internal integer action codes (e.g., 339 = HTTP Request, 547 = Variable Set). If you use the wrong code, Tasker silently ignores the action on import. The new actions needed here include:
+- **Wait** (actual timed pause — different code from Task Stop which is code 137)
+- **Open File / VIEW intent** — either via Browse URL with `file://` path, or Run Shell with `am start -a android.intent.action.VIEW ...`
+- **AutoInput plugin action** — uses Tasker's plugin framework with a nested Bundle structure that is version-specific to AutoInput
+- **Go Home** — unknown code without looking it up from a live Tasker export
+- **Delete File** — unknown code without looking it up
+
+The safest path: make these changes via Tasker's UI on the device, export the project, pull the XML back, and commit. Tasker generates correct codes and plugin Bundle structures automatically.
+
+### To release an update (once implementation is complete)
+
+1. Make changes to the project, test on device
+2. Export project from Tasker → pull to Mac: `adb pull /sdcard/Tasker/stayturgid.prj.xml ~/stayturgid/tasker/stayturgid.prj.xml`
+3. In `tasker/auto-update/stayturgid_update_check.tsk.xml` `act6`, bump `"version"` and update `"changelog"`
+4. Commit and push to GitHub master — that's the entire release; no TaskerNet action needed
+
+GitHub raw URL (already set in act6):
+```
+https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.prj.xml
+```
 
 ---
 
@@ -211,9 +250,70 @@ https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.p
 
 ## Next steps
 
-1. **Implement local XML update in `stayturgid_update_check.tsk.xml`** — replace the current `taskershare://` import action with: HTTP Request (download XML from GitHub raw) → Open File → AutoInput IMPORT → AutoInput OVERWRITE → Go Home → Delete file. See HACKING.md for the full design.
-2. **Import `stayturgid_update_check` into device Tasker** and wire to a daily trigger profile (after step 1 is done)
-3. **Notification channel fix propagation** — `ADB_Core_Watchdog.tsk.xml` now uses `stayturgid` channel; re-import this task to device if previously had `upmon`
+### Step 1 — Implement local XML update path in Tasker UI on device
+
+Open Tasker on the device, navigate to `stayturgid_Update_Check` task (or import it fresh from `tasker/auto-update/stayturgid_update_check.tsk.xml`). Make these changes:
+
+**act6 (JavaScript "Set the update data"):** `raw_xml_url` is already present in the XML file. Just verify it survived import — it should set `%raw_xml_url` to:
+```
+https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.prj.xml
+```
+
+**Delete act20** (the JavaScript action that builds a `taskershare://` URI from `%taskernet_url` — this whole approach is being replaced).
+
+**Replace act21** (Browse URL opening `taskershare://`) with these 9 new actions in this exact order:
+
+| Position | Action | Configuration |
+|----------|--------|---------------|
+| 1 | HTTP Request | Method: GET · URL: `%raw_xml_url` · File to save output: `Tasker/Updates/ProjectUpdate.prj.xml` |
+| 2 | Wait | 1 second (lets file write complete before open) |
+| 3 | Run Shell | `mkdir -p /sdcard/Tasker/Updates` (idempotent; creates dir if missing) |
+| 4 | Run Shell | `am start -a android.intent.action.VIEW -d "file:///sdcard/Tasker/Updates/ProjectUpdate.prj.xml"` (fires Android VIEW intent; Tasker intercepts `.prj.xml` and shows import dialog) |
+| 5 | Wait | 3 seconds (buffer for Tasker import UI to render; bump to 5s on slow device) |
+| 6 | Plugin → AutoInput → AutoInput Action | Type: Text · Value: `IMPORT` · Action: Click · Timeout: 20s |
+| 7 | Wait | 1 second |
+| 8 | Plugin → AutoInput → AutoInput Action | Type: Text · Value: `OVERWRITE` · Action: Click · Timeout: 20s |
+| 9 | Go Home | Page: 0 |
+| 10 | Delete File | File: `Tasker/Updates/ProjectUpdate.prj.xml` |
+
+**Delete act22** (the original Task Stop — the Else/If block that follows already has its own Stop at the end).
+
+After edits, export: **long-press stayturgid tab → Export → As File**. Pull to Mac:
+```bash
+adb pull /sdcard/Tasker/stayturgid.prj.xml ~/stayturgid/tasker/stayturgid.prj.xml
+# Also pull the update check task if exported separately:
+adb pull /sdcard/Tasker/stayturgid_Update_Check.tsk.xml ~/stayturgid/tasker/auto-update/stayturgid_update_check.tsk.xml
+```
+
+> Why Run Shell for file open instead of Browse URL: Android 11+ restricts `file://` URIs in cross-process intents. `am start` fires the intent directly from the shell process, bypassing that restriction. The `.prj.xml` extension is registered to Tasker, so the import dialog appears automatically.
+
+> Why these can't be edited directly in the XML: Tasker action codes are undocumented internal integers. Wrong codes are silently ignored on import. AutoInput plugin actions use a nested Bundle structure specific to the installed AutoInput version. Always make these changes in Tasker's UI, then export.
+
+### Step 2 — Test the update flow
+
+Set `"version": "0.0"` in act6 temporarily (forces `0.0 < 1.0` comparison → update always triggered). Run the task manually. Verify:
+1. Notification appears with Update / Skip buttons
+2. Tap Update → file downloads to `/sdcard/Tasker/Updates/ProjectUpdate.prj.xml`
+3. Tasker import dialog appears
+4. AutoInput clicks IMPORT, then OVERWRITE
+5. Home screen
+6. Temp file deleted: `adb shell "ls /sdcard/Tasker/Updates/"` should be empty
+
+Reset `"version": "1.0"` after test passes.
+
+### Step 3 — Wire update check to a daily trigger
+
+Create a new Tasker profile: Time → 10:00 → Every day → Task: `stayturgid_Update_Check`. Export and commit.
+
+### Step 4 — Notification channel propagation
+
+`ADB_Core_Watchdog.tsk.xml` in repo uses `stayturgid` channel. If device still has old `upmon` channel version, re-import the task or project.
+
+### Step 5 — Evaluate removing TaskerNet from version detection
+
+Currently version detection still hits TaskerNet (fetches project JSON, regex-extracts `"version"` from the embedded XML). Two options to evaluate:
+- **Keep hybrid** (current): TaskerNet for version detection, GitHub for download. Simple, no extra files needed.
+- **GitHub-only**: Add a `version.json` file to the repo, fetch that for version detection. Removes all TaskerNet dependency. Would require a new HTTP Request action and updated parse logic in the version-check task.
 
 See **HACKING.md** for the full development environment setup (all tool versions, Obtainium sources, clean-install walkthrough).
 
