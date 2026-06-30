@@ -1,0 +1,484 @@
+<TaskerData sr="" dvi="1" tv="6.2.12-rc">
+	<Task sr="task100">
+		<cdate>1700398514961</cdate>
+		<edate>1701538915773</edate>
+		<id>100</id>
+		<nme>stayturgid_Update_Check</nme>
+		<pri>100</pri>
+		<Action sr="act0" ve="7">
+			<code>300</code>
+			<label>stayturgid Update Check
+Based on Task Auto Update by Joker (u/Bushido---)
+Original: https://taskernet.com/shares/?user=AS35m8n7%2B%2FhaeKBj3hNzHKtnU27LX%2BE4bd60KiPGki8mGxMAzSIDZAELwOTVhQxZ25YrHYlft5k%3D&amp;id=Task%3ATask+Auto+Update</label>
+		</Action>
+		<Action sr="act1" ve="7">
+			<code>37</code>
+			<coll>true</coll>
+			<ConditionList sr="if">
+				<Condition sr="c0" ve="3">
+					<lhs>%par1</lhs>
+					<op>2</op>
+					<rhs>user_input</rhs>
+				</Condition>
+			</ConditionList>
+		</Action>
+		<Action sr="act10" ve="7">
+			<code>339</code>
+			<Bundle sr="arg0">
+				<Vals sr="val">
+					<net.dinglisch.android.tasker.RELEVANT_VARIABLES>&lt;StringArray sr=""&gt;&lt;_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES0&gt;%http_cookies
+Cookies
+The cookies the server sent in the response in the Cookie:COOKIE_VALUE format. You can use this directly in the 'Headers' field of the HTTP Request action&lt;/_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES0&gt;&lt;_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES1&gt;%http_data
+Data
+Data that the server responded from the HTTP request.&lt;/_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES1&gt;&lt;_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES2&gt;%http_file_output
+File Output
+Will always contain the file's full path even if you specified a directory as the File to save.&lt;/_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES2&gt;&lt;_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES3&gt;%http_response_code
+Response Code
+The HTTP Code the server responded&lt;/_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES3&gt;&lt;_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES4&gt;%http_headers()
+Response Headers
+The HTTP Headers the server sent in the response. Each header is in the 'key:value' format&lt;/_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES4&gt;&lt;_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES5&gt;%http_response_length
+Response Length
+The size of the response in bytes&lt;/_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES5&gt;&lt;/StringArray&gt;</net.dinglisch.android.tasker.RELEVANT_VARIABLES>
+					<net.dinglisch.android.tasker.RELEVANT_VARIABLES-type>[Ljava.lang.String;</net.dinglisch.android.tasker.RELEVANT_VARIABLES-type>
+				</Vals>
+			</Bundle>
+			<Int sr="arg1" val="0"/>
+			<Int sr="arg10" val="0"/>
+			<Int sr="arg11" val="0"/>
+			<Int sr="arg12" val="1"/>
+			<Str sr="arg2" ve="3">%taskernet_xml</Str>
+			<Str sr="arg3" ve="3"/>
+			<Str sr="arg4" ve="3"/>
+			<Str sr="arg5" ve="3"/>
+			<Str sr="arg6" ve="3"/>
+			<Str sr="arg7" ve="3"/>
+			<Int sr="arg8" val="60"/>
+			<Int sr="arg9" val="0"/>
+		</Action>
+		<Action sr="act11" ve="7">
+			<code>396</code>
+			<label>// Get taskernet version number</label>
+			<Bundle sr="arg0">
+				<Vals sr="val">
+					<net.dinglisch.android.tasker.RELEVANT_VARIABLES>&lt;StringArray sr=""&gt;&lt;_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES0&gt;%mt_groups()
+Groups
+&lt;/_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES0&gt;&lt;_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES1&gt;%mt_match_found
+Is Match
+true if there was a match, false otherwise&lt;/_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES1&gt;&lt;_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES2&gt;%mt_match
+Match
+Can also be accessed as an array&lt;/_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES2&gt;&lt;/StringArray&gt;</net.dinglisch.android.tasker.RELEVANT_VARIABLES>
+					<net.dinglisch.android.tasker.RELEVANT_VARIABLES-type>[Ljava.lang.String;</net.dinglisch.android.tasker.RELEVANT_VARIABLES-type>
+				</Vals>
+			</Bundle>
+			<Int sr="arg1" val="1"/>
+			<Str sr="arg2" ve="3">%http_data</Str>
+			<Str sr="arg3" ve="3">version\\": \\"([^\\"]+)\\</Str>
+			<Str sr="arg4" ve="3">version\\": \\"([^\\"]+)\\</Str>
+		</Action>
+		<Action sr="act12" ve="7">
+			<code>547</code>
+			<Str sr="arg0" ve="3">%taskernet_version</Str>
+			<Str sr="arg1" ve="3">%mt_groups(1)</Str>
+			<Int sr="arg2" val="0"/>
+			<Int sr="arg3" val="0"/>
+			<Int sr="arg4" val="0"/>
+			<Int sr="arg5" val="3"/>
+			<Int sr="arg6" val="1"/>
+		</Action>
+		<Action sr="act13" ve="7">
+			<code>129</code>
+			<label>// Compare currentVersion with targetVersion; if targetVersion is higher, then set result to true
+
+» Version 1.2.3.ab
+1 → Major Update
+2 → Feature Update
+3 → Fix/Bug Updates
+4 → Alpha/Beta Status
+↳ 1.2.3.ab = Major.Minor.Patch.AlphaBeta releases</label>
+			<Str sr="arg0" ve="3">var currentVersion = local("version");
+var targetVersion = local("taskernet_version");
+
+function isValidVersion(version) {
+    return /^[0-9]+([.][0-9]+|[a-z])*$/.test(version);
+}
+
+function compareVersions(current, target) {
+    if (!isValidVersion(current) || !isValidVersion(target)) {
+        flash("Invalid version number(s)");
+        return;
+    }
+
+    var currentParts = current.split(/\.|([a-z])/).filter(Boolean);
+    var targetParts = target.split(/\.|([a-z])/).filter(Boolean);
+
+    for (var i = 0; i &lt; Math.max(currentParts.length, targetParts.length); i++) {
+        var currentVal = currentParts[i] || 0;
+        var targetVal = targetParts[i] || 0;
+
+        if (isNaN(currentVal)) {
+            if (currentVal &gt; targetVal) {
+                setLocal("updatestatus", false);
+                return;
+            } else if (currentVal &lt; targetVal) {
+                setLocal("updatestatus", true);
+                return;
+            }
+        } else {
+            currentVal = parseInt(currentVal);
+            targetVal = parseInt(targetVal);
+
+            if (currentVal &gt; targetVal) {
+                setLocal("updatestatus", false);
+                return;
+            } else if (currentVal &lt; targetVal) {
+                setLocal("updatestatus", true);
+                return;
+            }
+        }
+    }
+
+    setLocal("updatestatus", false);
+}
+
+compareVersions(currentVersion, targetVersion);
+
+exit();</Str>
+			<Str sr="arg1" ve="3"/>
+			<Int sr="arg2" val="0"/>
+			<Int sr="arg3" val="50"/>
+		</Action>
+		<Action sr="act14" ve="7">
+			<code>37</code>
+			<coll>false</coll>
+			<ConditionList sr="if">
+				<Condition sr="c0" ve="3">
+					<lhs>%updatestatus</lhs>
+					<op>2</op>
+					<rhs>true</rhs>
+				</Condition>
+			</ConditionList>
+		</Action>
+		<Action sr="act15" ve="7">
+			<code>523</code>
+			<Str sr="arg0" ve="3">%title</Str>
+			<Str sr="arg1" ve="3">Version: %taskernet_version
+
+%whatsnew: %changelog</Str>
+			<Str sr="arg10" ve="3"/>
+			<Str sr="arg11" ve="3">stayturgid</Str>
+			<Img sr="arg2" ve="2"/>
+			<Int sr="arg3" val="0"/>
+			<Int sr="arg4" val="0"/>
+			<Int sr="arg5" val="5"/>
+			<Int sr="arg6" val="1"/>
+			<Int sr="arg7" val="0"/>
+			<Int sr="arg8" val="0"/>
+			<Str sr="arg9" ve="3"/>
+			<ListElementItem sr="item0">
+				<label>%skip</label>
+				<Action sr="action" ve="7">
+					<code>130</code>
+					<Str sr="arg0" ve="3">%task_name</Str>
+					<Int sr="arg1">
+						<var>%priority</var>
+					</Int>
+					<Int sr="arg10" val="1"/>
+					<Str sr="arg2" ve="3">user_input</Str>
+					<Str sr="arg3" ve="3">skip</Str>
+					<Str sr="arg4" ve="3"/>
+					<Int sr="arg5" val="0"/>
+					<Int sr="arg6" val="1"/>
+					<Str sr="arg7" ve="3"/>
+					<Int sr="arg8" val="0"/>
+					<Int sr="arg9" val="1"/>
+				</Action>
+			</ListElementItem>
+			<ListElementItem sr="item1">
+				<label>%update</label>
+				<Action sr="action" ve="7">
+					<code>130</code>
+					<Str sr="arg0" ve="3">%task_name</Str>
+					<Int sr="arg1">
+						<var>%priority</var>
+					</Int>
+					<Int sr="arg10" val="1"/>
+					<Str sr="arg2" ve="3">user_input</Str>
+					<Str sr="arg3" ve="3">update</Str>
+					<Str sr="arg4" ve="3"/>
+					<Int sr="arg5" val="0"/>
+					<Int sr="arg6" val="1"/>
+					<Str sr="arg7" ve="3"/>
+					<Int sr="arg8" val="0"/>
+					<Int sr="arg9" val="1"/>
+				</Action>
+			</ListElementItem>
+		</Action>
+		<Action sr="act16" ve="7">
+			<code>512</code>
+			<on>false</on>
+			<Int sr="arg0" val="0"/>
+		</Action>
+		<Action sr="act17" ve="7">
+			<code>38</code>
+		</Action>
+		<Action sr="act18" ve="7">
+			<code>137</code>
+			<label>🔴Wait for user input...🔴</label>
+			<Int sr="arg0" val="0"/>
+			<Str sr="arg1" ve="3"/>
+		</Action>
+		<Action sr="act19" ve="7">
+			<code>39</code>
+			<coll>false</coll>
+			<label>🟠 Update Action</label>
+			<Str sr="arg0" ve="3">%exec</Str>
+			<Str sr="arg1" ve="3">1</Str>
+			<Int sr="arg2" val="1"/>
+		</Action>
+		<Action sr="act2" ve="7">
+			<code>135</code>
+			<Int sr="arg0" val="1"/>
+			<Int sr="arg1" val="1"/>
+			<Str sr="arg2" ve="3">🟠 Update Action</Str>
+			<ConditionList sr="if">
+				<Condition sr="c0" ve="3">
+					<lhs>%par2</lhs>
+					<op>2</op>
+					<rhs>update</rhs>
+				</Condition>
+			</ConditionList>
+		</Action>
+		<Action sr="act20" ve="7">
+			<code>129</code>
+			<label>// Get taskernet import link for tasker</label>
+			<Str sr="arg0" ve="3">var inputUrl = local("taskernet_url");
+inputUrl = inputUrl.replace(/#$/, '');
+var userMatch = inputUrl.match(/user=([^&amp;]+)/);
+var idMatch = inputUrl.match(/id=([^&amp;]+)/);
+if (userMatch &amp;&amp; idMatch) {
+    var encodedId = idMatch[1].replace(/\+/g, '%20');
+    var taskershareLink = "taskershare://" + userMatch[1] + "/" + encodedId;
+    setLocal("taskernet_importlink", taskershareLink);
+} else {
+    flash("Invalid URL");
+}
+
+exit();</Str>
+			<Str sr="arg1" ve="3"/>
+			<Int sr="arg2" val="0"/>
+			<Int sr="arg3" val="45"/>
+		</Action>
+		<Action sr="act21" ve="7">
+			<code>104</code>
+			<label>// Open update in tasker</label>
+			<Str sr="arg0" ve="3">%taskernet_importlink</Str>
+			<App sr="arg1"/>
+			<Int sr="arg2" val="0"/>
+			<Str sr="arg3" ve="3"/>
+		</Action>
+		<Action sr="act22" ve="7">
+			<code>137</code>
+			<Int sr="arg0" val="0"/>
+			<Str sr="arg1" ve="3"/>
+		</Action>
+		<Action sr="act23" ve="7">
+			<code>40</code>
+		</Action>
+		<Action sr="act24" ve="7">
+			<code>39</code>
+			<coll>false</coll>
+			<label>🟠 Skip Action</label>
+			<Str sr="arg0" ve="3">%exec</Str>
+			<Str sr="arg1" ve="3">1</Str>
+			<Int sr="arg2" val="1"/>
+		</Action>
+		<Action sr="act25" ve="7">
+			<code>513</code>
+			<se>false</se>
+		</Action>
+		<Action sr="act26" ve="7">
+			<code>779</code>
+			<Str sr="arg0" ve="3">%title</Str>
+			<Int sr="arg1" val="0"/>
+		</Action>
+		<Action sr="act27" ve="7">
+			<code>548</code>
+			<Str sr="arg0" ve="3">Skipped...</Str>
+			<Int sr="arg1" val="0"/>
+			<Str sr="arg10" ve="3"/>
+			<Int sr="arg11" val="1"/>
+			<Int sr="arg12" val="0"/>
+			<Str arg13="" ve="3"/>
+			<Int sr="arg14" val="0"/>
+			<Str sr="arg15" ve="3"/>
+			<Int sr="arg2" val="0"/>
+			<Str sr="arg3" ve="3"/>
+			<Str sr="arg4" ve="3"/>
+			<Str sr="arg5" ve="3"/>
+			<Str sr="arg6" ve="3"/>
+			<Str sr="arg7" ve="3"/>
+			<Str sr="arg8" ve="3"/>
+			<Int sr="arg9" val="1"/>
+		</Action>
+		<Action sr="act28" ve="7">
+			<code>137</code>
+			<Int sr="arg0" val="0"/>
+			<Str sr="arg1" ve="3"/>
+		</Action>
+		<Action sr="act29" ve="7">
+			<code>40</code>
+		</Action>
+		<Action sr="act3" ve="7">
+			<code>135</code>
+			<Int sr="arg0" val="1"/>
+			<Int sr="arg1" val="1"/>
+			<Str sr="arg2" ve="3">🟠 Skip Action</Str>
+			<ConditionList sr="if">
+				<Condition sr="c0" ve="3">
+					<lhs>%par2</lhs>
+					<op>2</op>
+					<rhs>skip</rhs>
+				</Condition>
+			</ConditionList>
+		</Action>
+		<Action sr="act4" ve="7">
+			<code>38</code>
+		</Action>
+		<Action sr="act5" ve="7">
+			<code>347</code>
+			<Int sr="arg0" val="9"/>
+			<Str sr="arg1" ve="3"/>
+			<Str sr="arg2" ve="3">%task_name</Str>
+		</Action>
+		<Action sr="act6" ve="7">
+			<code>129</code>
+			<label>// Set the update data
+// ★ BUMP "version" HERE AND REPUBLISH TO TASKERNET TO TRIGGER AN UPDATE NOTIFICATION</label>
+			<Str sr="arg0" ve="3">var updaterData = [
+  {
+    "taskernet_url": "https://taskernet.com/shares/?user=AS35m8lVOCqN0zylSnJKY8pBzCqkgDU8h624gr9CWqSAxD9myEt6n3OjyI4TtJhMtmw%2B&amp;id=Project%3Astayturgid",
+    "version": "1.0",
+    "changelog": "stayturgid 1.0:\n\n- Keeps ADB port 5555 and Shizuku alive across reboots (no root)\n- ADB_Boot_Restore profile fires on device boot\n- ADB_Core_Watchdog runs every 20 minutes\n- Notification on ADB or Shizuku failure"
+  }
+];
+
+for (var key in updaterData[0]) {
+  if (updaterData[0].hasOwnProperty(key)) {
+    var variableName = key;
+    var value = updaterData[0][key];
+    setLocal(variableName, value);
+  }
+}
+
+exit();</Str>
+			<Str sr="arg1" ve="3"/>
+			<Int sr="arg2" val="0"/>
+			<Int sr="arg3" val="50"/>
+		</Action>
+		<Action sr="act7" ve="7">
+			<code>123</code>
+			<label>// Get the system language</label>
+			<Str sr="arg0" ve="3">getprop persist.sys.locale</Str>
+			<Int sr="arg1" val="0"/>
+			<Int sr="arg2" val="0"/>
+			<Str sr="arg3" ve="3">%locale</Str>
+			<Str sr="arg4" ve="3"/>
+			<Str sr="arg5" ve="3"/>
+			<Int sr="arg6" val="1"/>
+			<Int sr="arg7" val="0"/>
+		</Action>
+		<Action sr="act8" ve="7">
+			<code>129</code>
+			<label>// Set the strings for multilingual support</label>
+			<Str sr="arg0" ve="3">var translations = {
+  "en": {
+    "title": "New Update Is Available",
+    "update": "Update",
+    "skip": "Skip",
+    "whatsnew": "What's New"
+  },
+  "de": {
+    "title": "Neues Update ist verfügbar",
+    "update": "Update",
+    "skip": "Überspringen",
+    "whatsnew": "Was ist Neu"
+  },
+  "fr": {
+    "title": "Une nouvelle mise à jour est disponible",
+    "update": "Mise à jour",
+    "skip": "Passer",
+    "whatsnew": "Quoi de neuf"
+  },
+  "ru": {
+    "title": "Доступно новое обновление",
+    "update": "Обновление",
+    "skip": "Пропустить",
+    "whatsnew": "Что нового"
+  },
+  "tr": {
+    "title": "Yeni Güncelleme Mevcut",
+    "update": "Güncelleme",
+    "skip": "Atla",
+    "whatsnew": "Yenilikler"
+  },
+  "zh": {
+    "title": "新版本可用",
+    "update": "更新",
+    "skip": "跳过",
+    "whatsnew": "有什么新功能"
+  }
+};
+
+function extractLanguage(input) {
+    const parts = input.split('-');
+    const languageCode = parts[0].toLowerCase();
+    return languageCode;
+}
+
+function setTranslations(selectedLanguage, fallbackLanguage) {
+  selectedLanguage = extractLanguage(selectedLanguage);
+
+  if (!translations[selectedLanguage]) {
+    flash("Selected language not found, falling back to default.");
+    selectedLanguage = fallbackLanguage;
+  }
+
+  for (var key in translations[fallbackLanguage]) {
+    setLocal(key, translations[selectedLanguage]?.[key] || translations[fallbackLanguage][key]);
+  }
+}
+
+var selectedLanguage = local("locale");
+var fallbackLanguage = "en";
+
+setTranslations(selectedLanguage, fallbackLanguage);
+
+exit();</Str>
+			<Str sr="arg1" ve="3"/>
+			<Int sr="arg2" val="0"/>
+			<Int sr="arg3" val="50"/>
+		</Action>
+		<Action sr="act9" ve="7">
+			<code>129</code>
+			<label>// Get taskernet xml url</label>
+			<Str sr="arg0" ve="3">var inputUrl = local("taskernet_url");
+
+inputUrl = inputUrl.replace(/#$/, '');
+
+var userMatch = inputUrl.match(/user=([^&amp;]+)/);
+var idMatch = inputUrl.match(/id=([^&amp;]+)/);
+
+if (userMatch &amp;&amp; idMatch) {
+    var dynamicUrl = "https://taskernet.com/_ah/api/datashare/v1/sharedata/" + userMatch[1] + "/" + idMatch[1] + "?a=0&amp;xml=true";
+    setLocal("taskernet_xml", dynamicUrl);
+} else {
+    flash("Invalid URL");
+}
+
+exit();</Str>
+			<Str sr="arg1" ve="3"/>
+			<Int sr="arg2" val="0"/>
+			<Int sr="arg3" val="45"/>
+		</Action>
+	</Task>
+</TaskerData>

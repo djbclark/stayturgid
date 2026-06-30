@@ -122,8 +122,12 @@ ssh -i ~/.ssh/termux_key -p 8022 localhost
 
 ```
 tasker/
-  stayturgid.prj.xml       — Tasker project (import this)
-  ADB_Core_Watchdog.tsk.xml — Task XML (included in project)
+  stayturgid.prj.xml            — Tasker project (import this)
+  ADB_Core_Watchdog.tsk.xml     — Task XML (included in project)
+  auto-update/
+    stayturgid_update_check.tsk.xml — Update-check task (import separately)
+    Task_Auto_Update.tsk.xml        — Original upstream task (reference)
+    README.md                       — Auto-update integration docs
 termux/boot/
   start-adb.sh             — Deploy to ~/.termux/boot/ on device
 .maestro/playbooks/        — Maestro automation flows (dev/setup)
