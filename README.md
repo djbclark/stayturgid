@@ -2,6 +2,14 @@
 
 Keeps wireless ADB (port 5555) and Shizuku alive on Android across reboots — without root.
 
+## TaskerNet
+
+Import the stayturgid Tasker project directly:
+
+**https://taskernet.com/shares/?user=AS35m8lVOCqN0zylSnJKY8pBzCqkgDU8h624gr9CWqSAxD9myEt6n3OjyI4TtJhMtMw%2B&id=Project%3Astayturgid**
+
+Or follow the manual install steps below.
+
 ## How it works
 
 After each cold reboot:
