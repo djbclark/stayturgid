@@ -43,7 +43,7 @@
 			<Int sr="arg7" val="0"/>
 			<Int sr="arg8" val="0"/>
 		</Action>
-		<Action sr="act3a" ve="7">
+		<Action sr="act4" ve="7">
 			<code>123</code>
 			<se>false</se>
 			<Str sr="arg0" ve="3">pgrep sshd &gt; /dev/null 2&gt;&amp;1 &amp;&amp; echo "SSHD_OK" || echo "NO_SSHD"</Str>
@@ -56,7 +56,7 @@
 			<Int sr="arg7" val="0"/>
 			<Int sr="arg8" val="0"/>
 		</Action>
-		<Action sr="act4" ve="7">
+		<Action sr="act5" ve="7">
 			<code>37</code>
 			<ConditionList sr="if">
 				<bool0>Or</bool0>
@@ -78,7 +78,7 @@
 				</Condition>
 			</ConditionList>
 		</Action>
-		<Action sr="act5" ve="7">
+		<Action sr="act6" ve="7">
 			<code>523</code>
 			<Str sr="arg0" ve="3">&#x26A0; ADB / Shizuku / SSHD Failure</Str>
 			<Str sr="arg1" ve="3">Port:%PORT_CHECK Shizuku:%SHIZUKU_CHECK SSHD:%SSHD_CHECK — Check device.</Str>
@@ -99,7 +99,7 @@
 			<Int sr="arg8" val="0"/>
 			<Str sr="arg9" ve="3"/>
 		</Action>
-		<Action sr="act6" ve="7">
+		<Action sr="act7" ve="7">
 			<code>38</code>
 		</Action>
 	</Task>
