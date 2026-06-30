@@ -43,10 +43,24 @@
 			<Int sr="arg7" val="0"/>
 			<Int sr="arg8" val="0"/>
 		</Action>
+		<Action sr="act3a" ve="7">
+			<code>123</code>
+			<se>false</se>
+			<Str sr="arg0" ve="3">pgrep sshd &gt; /dev/null 2&gt;&amp;1 &amp;&amp; echo "SSHD_OK" || echo "NO_SSHD"</Str>
+			<Int sr="arg1" val="0"/>
+			<Int sr="arg2" val="0"/>
+			<Str sr="arg3" ve="3">%SSHD_CHECK</Str>
+			<Str sr="arg4" ve="3"/>
+			<Str sr="arg5" ve="3"/>
+			<Int sr="arg6" val="1"/>
+			<Int sr="arg7" val="0"/>
+			<Int sr="arg8" val="0"/>
+		</Action>
 		<Action sr="act4" ve="7">
 			<code>37</code>
 			<ConditionList sr="if">
 				<bool0>Or</bool0>
+				<bool1>Or</bool1>
 				<Condition sr="c0" ve="3">
 					<lhs>%PORT_CHECK</lhs>
 					<op>2</op>
@@ -57,12 +71,17 @@
 					<op>2</op>
 					<rhs>NO_SHIZUKU</rhs>
 				</Condition>
+				<Condition sr="c2" ve="3">
+					<lhs>%SSHD_CHECK</lhs>
+					<op>2</op>
+					<rhs>NO_SSHD</rhs>
+				</Condition>
 			</ConditionList>
 		</Action>
 		<Action sr="act5" ve="7">
 			<code>523</code>
-			<Str sr="arg0" ve="3">&#x26A0; Wireless ADB / Shizuku Failure</Str>
-			<Str sr="arg1" ve="3">Port:%PORT_CHECK Shizuku:%SHIZUKU_CHECK — Settings enforced. Check device.</Str>
+			<Str sr="arg0" ve="3">&#x26A0; ADB / Shizuku / SSHD Failure</Str>
+			<Str sr="arg1" ve="3">Port:%PORT_CHECK Shizuku:%SHIZUKU_CHECK SSHD:%SSHD_CHECK — Check device.</Str>
 			<Str sr="arg10" ve="3"/>
 			<Str sr="arg11" ve="3">upmon</Str>
 			<Str sr="arg12" ve="3"/>

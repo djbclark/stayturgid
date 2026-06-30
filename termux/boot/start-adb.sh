@@ -12,3 +12,10 @@ sleep 30
 # Shizuku TCP mode (the primary mechanism) usually beats this to it.
 adb connect 127.0.0.1:5555 || true
 adb tcpip 5555 || true
+
+# Keep sshd alive — Tasker watchdog checks its status and notifies on failure,
+# but this loop is the self-healing mechanism (runs as Termux user, right UID).
+while true; do
+    pgrep sshd > /dev/null 2>&1 || sshd
+    sleep 300
+done &
