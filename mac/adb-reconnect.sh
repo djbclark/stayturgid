@@ -17,7 +17,13 @@ fi
 # Exit silently if already connected and healthy
 "$ADB" devices 2>/dev/null | grep -qF "${DEVICE}"$'\t'"device" && exit 0
 
-# Attempt reconnect and log the outcome
+# Attempt reconnect, log, and notify
 echo "$(date '+%Y-%m-%d %H:%M:%S')  reconnecting ${DEVICE}" >> "$LOG"
 result=$("$ADB" connect "$DEVICE" 2>&1)
 echo "$(date '+%Y-%m-%d %H:%M:%S')  ${result}" >> "$LOG"
+
+if echo "$result" | grep -qF "connected to"; then
+    osascript -e "display notification \"Reconnected ${DEVICE}\" with title \"stayturgid\""
+else
+    osascript -e "display notification \"Failed: ${result}\" with title \"stayturgid\""
+fi
