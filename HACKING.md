@@ -49,7 +49,6 @@ This document gets a developer from a clean Android + macOS install to a fully w
 | Python | 3.14.6 | `brew install python` |
 | pipx | 1.15.0 | `brew install pipx` |
 | uiautomator2 (Python) | 3.7.0 | `pipx install uiautomator2` |
-| Maestro CLI | 2.6.1 | `curl -Ls "https://get.maestro.mobile.dev" \| bash` |
 | Claude Code (AI agent) | current | `npm install -g @anthropic-ai/claude-code` |
 | git | current | `brew install git` |
 
@@ -307,22 +306,7 @@ d.screenshot('/tmp/screen.png')               # take screenshot
 
 > **Gotcha:** If `d(text='SomeButton').exists` returns False when the button is visible, Tasker likely has a dismissable popup (e.g., "NLI: warning: disconnected") covering the UI. Click `d(text='OK').click()` to dismiss it first.
 
-### 2.3 Install Maestro CLI (fallback tool only)
-
-Maestro is **not the primary development tool** — use uiautomator2 and Termux:API instead. Maestro is kept as a fallback when debugging suspected uiautomator2 bugs.
-
-```bash
-curl -Ls "https://get.maestro.mobile.dev" | bash
-```
-
-This installs to `~/.maestro/bin/maestro`. Current version: **2.6.1**.
-
-Usage (only when uiautomator2 is behaving unexpectedly):
-```bash
-~/.maestro/bin/maestro --udid 35261JEHN12374 test some_flow.yaml
-```
-
-### 2.4 SSH key for Termux
+### 2.3 SSH key for Termux
 
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/termux_key
@@ -345,7 +329,7 @@ adb -s 35261JEHN12374 forward tcp:8022 tcp:8022
 ssh termux
 ```
 
-### 2.5 Install the Mac-side launchd keepalive
+### 2.4 Install the Mac-side launchd keepalive
 
 This runs `adb connect` every 60 seconds, handles DHCP IP changes, and sends a macOS notification on reconnect or failure.
 
@@ -360,7 +344,7 @@ Logs: `~/Library/Logs/stayturgid-adb-reconnect.log`
 
 Unload: `launchctl unload ~/Library/LaunchAgents/com.djbclark.stayturgid.adb-reconnect.plist`
 
-### 2.6 Install Claude Code (AI development agent)
+### 2.5 Install Claude Code (AI development agent)
 
 ```bash
 npm install -g @anthropic-ai/claude-code
@@ -444,32 +428,57 @@ termux-clipboard-get
 termux-sensor -s "Accelerometer" -n 1
 ```
 
-### Publishing a stayturgid update to TaskerNet
+### Publishing an update
 
-1. Make changes, test them on device.
-2. Bump `"version"` in `act6` of `tasker/auto-update/stayturgid_update_check.tsk.xml`.
-3. Update `"changelog"` in the same act6.
-4. Export updated project from Tasker → pull to Mac → commit.
-5. In Tasker on device: **long-press project tab → Share on TaskerNet** → overwrite the existing share.
+The update flow uses GitHub as the source of truth. When you push a new version of `stayturgid.prj.xml` to `master`, any device running `stayturgid_Update_Check` will detect it on the next daily check and offer to install it automatically via AutoInput.
 
-Users who have `stayturgid_Update_Check` running will see an Update notification on their next daily check.
+#### Release steps
 
-### TaskerNet API (undocumented)
+1. Make changes and test them on device.
+2. Export the project from Tasker: **long-press project tab → Export → As File** → saves to `/sdcard/Tasker/`.
+3. Pull to Mac and commit:
+   ```bash
+   adb pull /sdcard/Tasker/stayturgid.prj.xml ~/stayturgid/tasker/stayturgid.prj.xml
+   cd ~/stayturgid
+   # Bump version in auto-update task (see below), then:
+   git add tasker/ && git commit -m "Release vX.Y"
+   git push
+   ```
+4. Bump `"version"` in `act6` of `tasker/auto-update/stayturgid_update_check.tsk.xml` and update `"changelog"`. Set `%raw_xml_url` to the GitHub raw URL of `stayturgid.prj.xml`:
+   ```
+   https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.prj.xml
+   ```
 
-Fetch any shared task/project XML:
-```
-GET https://taskernet.com/_ah/api/datashare/v1/sharedata/<user-id>/<encoded-id>?a=0&xml=true
-```
-Returns JSON: `{"shareData": "<raw XML>", "extension": "tsk", "fileName": "..."}`
+#### How the auto-update works (local XML flow)
 
-Example for stayturgid:
+The update check task (`stayturgid_Update_Check`) uses a fully local flow — no TaskerNet server required at update time:
+
+1. **Version check:** Fetches the raw XML from GitHub, regex-extracts `"version": "X.Y"` from `act6`'s embedded JavaScript, compares to local version.
+2. **If newer:** Shows a notification with Update / Skip buttons.
+3. **Update tapped:**
+   - HTTP Request downloads `stayturgid.prj.xml` from GitHub raw URL → saves to `Tasker/Updates/ProjectUpdate.prj.xml`
+   - Open File action on the `.prj.xml` — Android/Tasker intercepts and shows the native Import UI
+   - AutoInput clicks **IMPORT**, waits 1 second, clicks **OVERWRITE**
+   - Go Home
+   - Delete `Tasker/Updates/ProjectUpdate.prj.xml`
+4. **Skip tapped:** Dismisses notification, shows "Skipped..." flash.
+
+> **GitHub raw URL note:** Use `raw.githubusercontent.com/...` not the normal GitHub page URL. The page URL returns HTML which Tasker cannot parse as XML.
+
+> **Wait buffer:** The 3-second wait before AutoInput clicks "IMPORT" can be bumped to 4–5 seconds on slower devices if AutoInput times out.
+
+#### TaskerNet (version detection only)
+
+The version string is detected by fetching the TaskerNet API response for the project and regex-matching `"version": "..."` inside the XML that's embedded in the JSON. TaskerNet is only used to read the current published version — the actual project XML download and import use GitHub directly.
+
+Fetch current published XML (for debugging):
 ```bash
 curl "https://taskernet.com/_ah/api/datashare/v1/sharedata/AS35m8lVOCqN0zylSnJKY8pBzCqkgDU8h624gr9CWqSAxD9myEt6n3OjyI4TtJhMtmw%2B/Project%3Astayturgid?a=0&xml=true"
 ```
 
-### TaskerNet tag constraint
+#### TaskerNet tag constraint (if re-publishing)
 
-Tags on TaskerNet shares must exist in the TaskerNet tag database — free-text tags return HTTP 400. Use the magnifying-glass "Choose" button in Tasker's share UI to browse valid tags. Current stayturgid tags: **Security, Shizuku, WiFi**.
+Tags must exist in the TaskerNet tag database — free-text tags return HTTP 400. Use the magnifying-glass "Choose" button in Tasker's share UI. Current stayturgid tags: **Security, Shizuku, WiFi**.
 
 ---
 

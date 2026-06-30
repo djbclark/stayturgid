@@ -112,12 +112,11 @@ Both must be standalone — not buried in other text.
 | Tool | Version | Install |
 |------|---------|---------|
 | Homebrew | current | `brew` |
-| ADB (platform-tools) | bundled with Android Studio or `brew install android-platform-tools` | `/opt/homebrew/bin/adb` |
-| uiautomator2 | latest via pipx | `pipx install uiautomator2` |
-| Python | 3.14 (Homebrew) | `brew install python` |
-| pipx | current | `brew install pipx` |
+| ADB (platform-tools) | 1.0.41 / 37.0.0-14910828 | `brew install android-platform-tools` → `/opt/homebrew/bin/adb` |
+| uiautomator2 | 3.7.0 via pipx | `pipx install uiautomator2` |
+| Python | 3.14.6 (Homebrew) | `brew install python` |
+| pipx | 1.15.0 | `brew install pipx` |
 | git | current | Homebrew |
-| Maestro CLI | v2.6.1 | `~/.maestro/bin/maestro` |
 
 SSH key for Termux: `~/.ssh/termux_key` (ed25519, deployed to Termux `~/.ssh/authorized_keys`)
 
@@ -176,23 +175,26 @@ mac/
 
 ## Auto-update mechanism
 
-`stayturgid_update_check.tsk.xml` implements update notifications via the "Task Auto Update" pattern by Joker (u/Bushido---). It:
-1. Reads `updateData` in `act6` — contains `taskernet_url`, `version`, `changelog`
-2. Fetches the TaskerNet project XML via the undocumented API
-3. Regex-extracts the `"version": "..."` string from the returned JSON (which contains the XML)
-4. Compares to local `version`; if TaskerNet is newer, shows Update/Skip notification
-5. Update button → opens `taskershare://` URI to trigger Tasker's native import UI
+`stayturgid_update_check.tsk.xml` uses a local XML flow — no TaskerNet dependency for the actual install:
 
-**To release an update:** bump `"version": "1.0"` in `act6` of `stayturgid_update_check.tsk.xml`, update `"changelog"`, export the stayturgid project from Tasker, republish to TaskerNet. The URL never changes.
+1. Reads `act6` `updateData`: `taskernet_url` (for version detection only), `version`, `changelog`, `raw_xml_url` (GitHub raw URL for download)
+2. Fetches TaskerNet JSON, regex-extracts `"version": "..."` from the embedded XML
+3. If newer: shows Update / Skip notification
+4. **Update:** downloads `.prj.xml` from `raw_xml_url` (GitHub) → saves to `Tasker/Updates/ProjectUpdate.prj.xml` → Open File (Tasker intercepts) → AutoInput clicks IMPORT, then OVERWRITE → Go Home → delete temp file
+5. **Skip:** dismisses notification
 
-**Future option — local XML update (no TaskerNet dependency):**
-Per Grok's suggestion, it's possible to bypass TaskerNet entirely by:
-1. Downloading the `.prj.xml` directly from GitHub raw URL via HTTP Request
-2. Saving to `Tasker/Updates/ProjectUpdate.prj.xml`
-3. Using Tasker's `Open File` action on the `.prj.xml` — Tasker intercepts and shows Import UI
-4. AutoInput clicks "IMPORT" then "OVERWRITE"
-5. Delete the temp file
-This would work without TaskerNet servers and keep the project private. Not implemented yet.
+**To release an update:**
+1. Make changes, export from Tasker, pull to Mac
+2. Bump `"version"` and update `"changelog"` in `act6` of `stayturgid_update_check.tsk.xml`
+3. Verify `"raw_xml_url"` in `act6` points to the correct GitHub raw URL
+4. Commit and push — that's it; no TaskerNet republish needed for the download path
+
+GitHub raw URL for the project XML:
+```
+https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.prj.xml
+```
+
+**Status:** The update-check task XML exists in `tasker/auto-update/stayturgid_update_check.tsk.xml` and needs to be updated with the local XML flow (current version still uses the TaskerNet `taskershare://` import path). See HACKING.md → "Publishing an update" for the full implementation design.
 
 ---
 
@@ -209,8 +211,8 @@ This would work without TaskerNet servers and keep the project private. Not impl
 
 ## Next steps
 
-1. **Import `stayturgid_update_check` into device Tasker** and wire to a daily trigger profile
-2. **Local XML update path** — evaluate replacing TaskerNet-based update with GitHub raw URL → AutoInput flow (see auto-update section above for Grok's design)
+1. **Implement local XML update in `stayturgid_update_check.tsk.xml`** — replace the current `taskershare://` import action with: HTTP Request (download XML from GitHub raw) → Open File → AutoInput IMPORT → AutoInput OVERWRITE → Go Home → Delete file. See HACKING.md for the full design.
+2. **Import `stayturgid_update_check` into device Tasker** and wire to a daily trigger profile (after step 1 is done)
 3. **Notification channel fix propagation** — `ADB_Core_Watchdog.tsk.xml` now uses `stayturgid` channel; re-import this task to device if previously had `upmon`
 
 See **HACKING.md** for the full development environment setup (all tool versions, Obtainium sources, clean-install walkthrough).
