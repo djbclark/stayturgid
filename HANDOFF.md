@@ -210,9 +210,10 @@ This would work without TaskerNet servers and keep the project private. Not impl
 ## Next steps
 
 1. **Import `stayturgid_update_check` into device Tasker** and wire to a daily trigger profile
-2. **HACKING.md** — document the full development environment for new contributors (versions, sources, Obtainium lines, clean-install setup steps)
-3. **Local XML update path** — evaluate replacing TaskerNet-based update with GitHub raw URL → AutoInput flow (see auto-update section above)
-4. **Notification channel fix propagation** — `ADB_Core_Watchdog.tsk.xml` now uses `stayturgid` channel; re-import this task to device if previously had `upmon`
+2. **Local XML update path** — evaluate replacing TaskerNet-based update with GitHub raw URL → AutoInput flow (see auto-update section above for Grok's design)
+3. **Notification channel fix propagation** — `ADB_Core_Watchdog.tsk.xml` now uses `stayturgid` channel; re-import this task to device if previously had `upmon`
+
+See **HACKING.md** for the full development environment setup (all tool versions, Obtainium sources, clean-install walkthrough).
 
 ---
 
