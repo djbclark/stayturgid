@@ -71,6 +71,36 @@ pgrep -f shizuku && echo SHIZUKU_OK
 # Expected: SHIZUKU_OK
 ```
 
+## Mac-side keepalive
+
+The device-side setup keeps port 5555 open across reboots, but `adb connect` on the Mac side drops when the Mac sleeps or the network flaps. A launchd agent reconnects it automatically every 60 seconds.
+
+```bash
+# Make the script executable
+chmod +x ~/stayturgid/mac/adb-reconnect.sh
+
+# Install and start the launchd agent
+cp ~/stayturgid/mac/com.djbclark.stayturgid.adb-reconnect.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.djbclark.stayturgid.adb-reconnect.plist
+```
+
+Verify it loaded:
+
+```bash
+launchctl list | grep stayturgid
+# Expected: a line with com.djbclark.stayturgid.adb-reconnect (exit code 0)
+```
+
+Reconnect events are logged to `~/Library/Logs/stayturgid-adb-reconnect.log`. The script exits silently when the device is already connected, so the log is quiet during normal operation.
+
+To unload:
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.djbclark.stayturgid.adb-reconnect.plist
+```
+
+> **Note:** The plist hardcodes `/Users/djbclark/stayturgid/mac/adb-reconnect.sh`. Edit it if you cloned the repo elsewhere.
+
 ## SSH access to Termux
 
 Direct WiFi SSH is blocked by Android's firewall. Use ADB port-forward instead:
