@@ -555,29 +555,37 @@ Key args:
 
 Output variable `%http_file_output` always contains the full absolute path of the saved file.
 
-### AutoInput plugin action (code 1732635924)
+### AutoInput Gestures action (code 778682267) — used for import dialog clicks
 
-The plugin code `1732635924` is specific to Tasker 6.7.5-beta. It may differ in older versions.
+The auto-update task uses **AutoInput Gestures** (not AutoInput Actions/text-click) to click the import dialogs. This uses AutoInput's AccessibilityService to perform touch gestures at specific screen coordinates.
 
-The action needs a nested Bundle with these keys:
-- `ActionId` — text to find on screen (e.g., `IMPORT`)
-- `ActionType` — `16` = click
-- `FieldSelectionType` — `0` = match by text
-- `plugintypeid` — `com.joaomgcd.autoinput.intent.IntentPerformAction`
-- `plugininstanceid` — a UUID that AutoInput uses to look up stored config (must match what's in AutoInput's local DB)
+**Key property:** Coordinates are stored **inline** in the `parameters` JSON field inside the Tasker Bundle. AutoInput reads them directly at runtime — no device-specific DB lookup, so fresh UUIDs work on any device.
 
-**plugininstanceid values (from development device):**
-- IMPORT: `75e60f28-41ac-4048-83fd-b55de4bef613`
-- OVERWRITE: `e72f5a3d-1985-4cc5-80d7-d56d29721b91`
+```xml
+<parameters>{"endPoint":"X,Y","initialPoint":"X,Y","duration":"100","generatedValues":{}}</parameters>
+```
 
-These UUIDs are tied to the AutoInput configuration on the specific device. If you reinstall AutoInput or use a different device, you'll need to:
-1. Create an `AIProbe` Tasker task with AutoInput actions configured to click "IMPORT" and "OVERWRITE"
-2. Export the task from Tasker → `/sdcard/Tasker/tasks/AIProbe.tsk.xml`
-3. Pull it: `adb pull /sdcard/Tasker/tasks/AIProbe.tsk.xml /tmp/AIProbe.tsk.xml`
-4. Extract the `plugininstanceid` values from the XML
-5. Replace the UUIDs in `stayturgid_update_check.tsk.xml`
+Setting `initialPoint == endPoint` performs a tap (zero-distance swipe).
 
-See `HANDOFF.md` → "Discovered Tasker action codes" for the full Bundle XML structure.
+**Dialog button coordinates (Google Pixel 7a, 1080×2400, Android 16):**
+
+| Dialog | Button | Coordinates |
+|--------|--------|-------------|
+| 1 "Are you sure?" | YES | (894, 2058) |
+| 2 "Task already exists, overwrite?" | YES | (894, 1385) |
+| 3 "Import To Project" | stayturgid row | (493, 1423) |
+| 4 "Do you want to run?" | NO | (726, 1385) |
+
+See `HANDOFF.md` → "AutoInput Gestures Bundle structure" for the full XML template.
+
+**AutoInput Actions text-click (code 1732635924) — AVOID**
+
+The text-click action requires a UUID that matches a config stored in AutoInput's on-device DB. This UUID is device-specific (must be created via the AutoInput UI) and cannot be constructed from scratch. Use the Gestures action instead for new click automations.
+
+**Android 16 click mechanisms — what fails from Tasker's background process:**
+- `uiautomator dump` / `input tap` — permission denied
+- `sendevent` — SELinux blocks even with gid=1004
+- `am broadcast FIRE_SETTING` with flat extras — AutoInput ignores (needs nested Bundle)
 
 ---
 

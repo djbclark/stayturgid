@@ -18,27 +18,34 @@ On the Mac side, a launchd agent (`com.djbclark.stayturgid.adb-reconnect`) runs 
 
 ---
 
-## Current project status (as of 2026-06-30)
+## Current project status (as of 2026-07-01)
 
 - ✅ Port 5555 survives cold reboots (verified 2026-06-29)
 - ✅ sshd survives cold reboots (Termux:Boot + self-heal loop)
 - ✅ Tasker watchdog with failure notifications
 - ✅ Mac-side launchd keepalive with macOS notification on reconnect/failure
 - ✅ Published to TaskerNet: `https://taskernet.com/shares/?user=AS35m8lVOCqN0zylSnJKY8pBzCqkgDU8h624gr9CWqSAxD9myEt6n3OjyI4TtJhMtmw%2B&id=Project%3Astayturgid`
-- ✅ Auto-update mechanism implemented — local XML download+import path complete; task imported to device
-  - act20: Run Shell `mkdir -p /sdcard/Tasker/Updates`
-  - act21: HTTP Request GET `%raw_xml_url` → file save arg7=`Tasker/Updates/stayturgid.prj.xml`
-  - act22: Wait 1s
-  - act23: Run Shell `am start -a android.intent.action.VIEW -d "file://%http_file_output"`
-  - act24: Wait 3s
-  - act25: AutoInput IMPORT click (code 1732635924, UUID `75e60f28-41ac-4048-83fd-b55de4bef613`)
-  - act26: Wait 1s
-  - act27: AutoInput OVERWRITE click (code 1732635924, UUID `e72f5a3d-1985-4cc5-80d7-d56d29721b91`)
-  - act28: Go Home (code 25)
-  - act29: Delete File `%http_file_output` (code 406)
-  - act30–act36: Skip path (formerly act23–act29)
-- 🔲 Auto-update flow NOT yet tested end-to-end (Step 2)
+- ✅ Auto-update download+import task XML complete — uses **AutoInput Gestures** (coordinate taps) to click through 4 import dialogs
+- ⚠️ Auto-update dialog sequence: **dialog 1 click confirmed working** (YES at 894,2058); dialogs 2–4 not yet confirmed end-to-end
 - 🔲 `stayturgid_update_check` not yet wired to a trigger profile (Step 3)
+
+**Current import action sequence (act20–act43):**
+- act20: Run Shell `mkdir -p /sdcard/Tasker/Updates`
+- act21: HTTP Request GET `%raw_xml_url` → file save `Tasker/Updates/stayturgid_update_check.tsk.xml`
+- act22: Wait 1s
+- act23: Run Shell `am start -n net.dinglisch.android.taskerm/...ActivityImportTaskerDataFromXml -d "content://...Tasker%2FUpdates%2Fstayturgid_update_check.tsk.xml"` (content:// URI required on Android 10+; file:// silently fails)
+- act24: Wait 3s
+- act25: **AutoInput Gestures** tap (894, 2058) — dialog 1 "Are you sure?" YES ✅ **CONFIRMED WORKING**
+- act37: Wait 2s
+- act38: **AutoInput Gestures** tap (894, 1385) — dialog 2 "Task already exists, overwrite?" YES
+- act39: Wait 2s
+- act40: **AutoInput Gestures** tap (493, 1423) — dialog 3 "Import To Project" → stayturgid row
+- act41: Wait 2s
+- act42: **AutoInput Gestures** tap (726, 1385) — dialog 4 "Do you want to run?" NO
+- act43: Wait 1s
+- act28: Go Home
+- act29: Delete File `%http_file_output`
+- act30: End If
 
 ---
 
@@ -187,68 +194,117 @@ mac/
 
 ## Auto-update mechanism
 
-`stayturgid_update_check.tsk.xml` is designed to use a fully local XML flow — no TaskerNet servers involved in the actual install, only in version detection.
+`stayturgid_update_check.tsk.xml` uses a fully local XML flow — no TaskerNet servers at install time, only for version detection.
 
-### How it works (target design)
+### How it works
 
 1. `act6` (JavaScript) sets local variables from `updaterData`: `%taskernet_url`, `%raw_xml_url`, `%version`, `%changelog`
-2. `act9` (JavaScript) builds the TaskerNet API URL from `%taskernet_url` → `%taskernet_xml`
-3. `act10` (HTTP Request) fetches the TaskerNet JSON for the project — this returns JSON containing the raw project XML as a string
-4. `act11` (Regex Match) extracts `"version": "..."` from that JSON — the version string is embedded inside `act6`'s JavaScript in the published XML, so the regex finds it there
-5. `act13` (JavaScript) compares local `%version` to fetched `%taskernet_version`; sets `%updatestatus` to true/false
-6. If update available: shows a sticky notification with Update / Skip buttons (each button calls back into this task with `par1=user_input`, `par2=update` or `par2=skip`)
-7. **Update path (act19–act30):**
-   - HTTP Request: GET `%raw_xml_url` → save to `/sdcard/Tasker/Updates/ProjectUpdate.prj.xml`
-   - Wait 1s (file write settle)
-   - Open/view the file (fires Android VIEW intent → Tasker intercepts `.prj.xml` → shows Import dialog)
-   - Wait 3s (Import UI render buffer)
-   - AutoInput Action: click text "IMPORT" (timeout 20s)
-   - Wait 1s
-   - AutoInput Action: click text "OVERWRITE" (timeout 20s)
-   - Go Home
-   - Delete `/sdcard/Tasker/Updates/ProjectUpdate.prj.xml`
-   - Task Stop
-8. **Skip path (act31–act36):** cancel notification, flash "Skipped...", stop
+2. `act9` (JavaScript) builds the TaskerNet API URL → `%taskernet_xml`
+3. `act10` (HTTP Request) fetches TaskerNet JSON (returns project XML embedded in JSON)
+4. `act11` (Regex Match) extracts `"version": "..."` from that JSON
+5. `act13` (JavaScript) compares `%version` to `%taskernet_version`; sets `%updatestatus`
+6. If update available: sticky notification with Update / Skip buttons (callbacks with `par1=user_input`, `par2=update` or `par2=skip`)
+7. **Update path:** see current action sequence in "Current project status" above
+8. **Skip path (act31+):** cancel notification, flash "Skipped...", stop
 
-### Current implementation status
+**TestUpdateTrigger** (on-device helper task): calls `stayturgid_Update_Check` with `par1=user_input, par2=update`, which bypasses the version check and forces the update download+import path. Useful for testing without bumping version.json. Do NOT delete from device until e2e is confirmed.
 
-`act6` ✅ — `raw_xml_url` points to GitHub raw URL:
+### Android 16 click mechanism — what works and what doesn't
+
+**Confirmed BROKEN from Tasker's background process on Android 16:**
+- `uiautomator dump` — permission denied
+- `input tap X Y` — permission denied  
+- `sendevent /dev/input/eventN` — SELinux blocks even with gid=1004 (input group)
+- `am broadcast FIRE_SETTING` with flat string extras — AutoInput ignores; requires nested Bundle which `am broadcast --es` cannot provide
+
+**CONFIRMED WORKING:**
+- **AutoInput Gestures** (plugin code `778682267`, plugintypeid `com.joaomgcd.autoinput.intent.IntentGestures`) — uses AutoInput's AccessibilityService to perform touch gestures. **Coordinates are stored INLINE** in the `parameters` JSON field inside the Tasker Bundle — NOT looked up from AutoInput's DB by UUID. This means fresh UUIDs work, no per-device DB setup needed.
+
+### Import dialog coordinates (Google Pixel 7a, 1080×2400, Android 16)
+
+| Dialog | Text | Button | Coordinates |
+|--------|------|--------|-------------|
+| 1 | "Are you sure?" | YES | (894, 2058) — bounds [810,1987][978,2129] |
+| 2 | "Task already exists, overwrite?" | YES | (894, 1385) — bounds [810,1314][978,1456] |
+| 3 | "Import To Project" | stayturgid row | (493, 1423) — bounds [101,1360][885,1486] |
+| 4 | "Do you want to run?" | NO | (726, 1385) — bounds [642,1314][810,1456] |
+
+Dialog 3 (Import To Project) position depends on how many Tasker projects exist and their order. If the device has projects in a different order, (493, 1423) may land on the wrong row — use AutoInput text-click instead for robustness (requires UI config to get the UUID).
+
+**JINA Drawer overlay gotcha:** The JINA Drawer sidebar handle sits at [1018,118][1080,387]. This overlaps the Tasker ⋮ menu button at [975,128][1080,254]. Clicking x=1027 hits the JINA handle and silently fails. Click x≈985 instead.
+
+### AutoInput Gestures Bundle structure (full XML)
+
+```xml
+<Action sr="actN" ve="7">
+    <code>778682267</code>
+    <Bundle sr="arg0">
+        <Vals sr="val">
+            <EnableDisableAccessibilityService>&lt;null&gt;</EnableDisableAccessibilityService>
+            <EnableDisableAccessibilityService-type>java.lang.String</EnableDisableAccessibilityService-type>
+            <GestureType>0</GestureType>
+            <GestureType-type>java.lang.String</GestureType-type>
+            <Password>&lt;null&gt;</Password>
+            <Password-type>java.lang.String</Password-type>
+            <com.twofortyfouram.locale.intent.extra.BLURB>Gesture Type: Swipe
+Start Point: X,Y
+End Point: X,Y
+Duration: 100</com.twofortyfouram.locale.intent.extra.BLURB>
+            <com.twofortyfouram.locale.intent.extra.BLURB-type>java.lang.String</com.twofortyfouram.locale.intent.extra.BLURB-type>
+            <net.dinglisch.android.tasker.JSON_ENCODED_KEYS>parameters</net.dinglisch.android.tasker.JSON_ENCODED_KEYS>
+            <net.dinglisch.android.tasker.JSON_ENCODED_KEYS-type>java.lang.String</net.dinglisch.android.tasker.JSON_ENCODED_KEYS-type>
+            <net.dinglisch.android.tasker.RELEVANT_VARIABLES>... (copy from existing action)</net.dinglisch.android.tasker.RELEVANT_VARIABLES>
+            <net.dinglisch.android.tasker.RELEVANT_VARIABLES-type>[Ljava.lang.String;</net.dinglisch.android.tasker.RELEVANT_VARIABLES-type>
+            <net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>parameters GestureType plugininstanceid plugintypeid </net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS>
+            <net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS-type>java.lang.String</net.dinglisch.android.tasker.extras.VARIABLE_REPLACE_KEYS-type>
+            <net.dinglisch.android.tasker.subbundled>true</net.dinglisch.android.tasker.subbundled>
+            <net.dinglisch.android.tasker.subbundled-type>java.lang.Boolean</net.dinglisch.android.tasker.subbundled-type>
+            <parameters>{"endPoint":"X,Y","initialPoint":"X,Y","duration":"100","generatedValues":{}}</parameters>
+            <parameters-type>java.lang.String</parameters-type>
+            <plugininstanceid>ANY-FRESH-UUID-WORKS</plugininstanceid>
+            <plugininstanceid-type>java.lang.String</plugininstanceid-type>
+            <plugintypeid>com.joaomgcd.autoinput.intent.IntentGestures</plugintypeid>
+            <plugintypeid-type>java.lang.String</plugintypeid-type>
+        </Vals>
+    </Bundle>
+    <Str sr="arg1" ve="3">com.joaomgcd.autoinput</Str>
+    <Str sr="arg2" ve="3">com.joaomgcd.autoinput.activity.ActivityConfigGestures</Str>
+    <Int sr="arg3" val="60"/>
+    <Int sr="arg4" val="1"/>
+</Action>
 ```
-https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.prj.xml
-```
 
-**act20–act29 ✅ — local XML path implemented (2026-06-30):** The old TaskerNet actions (JavaScript + Browse URL + Task Stop) have been replaced with the 10-action local import sequence above. File: `tasker/auto-update/stayturgid_update_check.tsk.xml`, imported to device under the `stayturgid` project.
+A zero-distance swipe (initialPoint = endPoint) acts as a tap. Set X,Y in both the BLURB and the `parameters` JSON. The `plugininstanceid` UUID does not need to match any stored AutoInput config — coordinates are read directly from the inline `parameters` field.
 
 ### Discovered Tasker action codes and arg layouts
 
-All action codes and arg layouts below are confirmed from live exports on Tasker 6.7.5-beta. You CAN edit the task XML directly using these.
+All confirmed from live Tasker 6.7.5-beta exports.
 
 | Action | Code | Key args |
 |--------|------|----------|
 | Wait | 30 | arg0=ms, **arg1=seconds**, arg2=minutes, arg3=hours, arg4=days |
 | Run Shell | 123 | arg0=command, arg1=root(0/1), arg2=timeout, arg3=output_var, arg6=1(store) |
-| HTTP Request | 339 | arg1=method(0=GET), arg2=URL, arg3=headers, arg4=query_params, **arg7=file_save_path**, arg8=timeout |
+| HTTP Request | 339 | arg1=method(0=GET), arg2=URL, arg7=file_save_path, arg8=timeout |
 | JavaScript | 129 | arg0=script |
 | Task Stop | 137 | arg0=0(normal) |
 | Go Home | 25 | arg0=page(0=main) |
 | Delete File | 406 | arg0=path, arg1=0 |
 | End If | 40 | (no args) |
 | Else/If | 39 | arg0=variable, arg1=value, arg2=comparison |
-| AutoInput plugin | **1732635924** | arg0=Bundle(see below), arg1=package, arg2=activity, arg3=timeout, arg4=1 |
+| AutoInput Gestures | **778682267** | arg0=Bundle (see above), arg1=`com.joaomgcd.autoinput`, arg2=`...ActivityConfigGestures`, arg3=60, arg4=1 |
+| AutoInput Actions (text-click) | **1732635924** | requires stored DB config keyed by UUID — avoid; use Gestures instead |
 
 **Wait arg critical gotcha:** arg1=seconds, arg2=**minutes**. Setting arg2=3 gives 3 minutes, not 3 seconds!
 
-**AutoInput Bundle structure** (use verbatim — the plugininstanceid must match what's stored in AutoInput's DB on the device):
-- `ActionId`: text to match (e.g., `IMPORT`)
-- `ActionType`: `16` (click)
-- `FieldSelectionType`: `0` (by text)
-- `plugintypeid`: `com.joaomgcd.autoinput.intent.IntentPerformAction`
-- `plugininstanceid` for IMPORT: `75e60f28-41ac-4048-83fd-b55de4bef613`
-- `plugininstanceid` for OVERWRITE: `e72f5a3d-1985-4cc5-80d7-d56d29721b91`
+**am start content:// URI (Android 10+):** `file://` URIs fail silently for import. Use the content:// provider form:
+```
+am start -n "net.dinglisch.android.taskerm/com.joaomgcd.taskerm.datashare.import.ActivityImportTaskerDataFromXml" \
+  -a android.intent.action.VIEW \
+  -d "content://com.android.externalstorage.documents/document/primary%3ATasker%2FUpdates%2Fstayturgid_update_check.tsk.xml" \
+  -t "text/xml" --grant-read-uri-permission
+```
 
-These UUIDs were created by configuring AutoInput on the device and pulling the export (AIProbe task method). See full Bundle XML in `AIProbe.tsk.xml` (was at `/tmp/AIProbe.tsk.xml`, was on-device at `/sdcard/Tasker/tasks/AIProbe.tsk.xml` — purge it post-development).
-
-**How the AutoInput UUIDs were obtained:** Created an `AIProbe` Tasker task on the device with two AutoInput actions (IMPORT and OVERWRITE), verified via BLURB text, exported to `/sdcard/Tasker/tasks/AIProbe.tsk.xml`, pulled with `adb pull`. The UUIDs are now embedded in `stayturgid_update_check.tsk.xml`.
+**Tasker project export (for pulling current in-memory state):** ADB backup (`adb backup net.dinglisch.android.taskerm`) returns empty 47-byte file — both Tasker and AutoInput have `allowBackup=false`. Use: long-press project tab in Tasker → Export → XML to Storage → saves to `/sdcard/Tasker/projects/<name>.prj.xml`.
 
 ### To release an update (once implementation is complete)
 
@@ -281,17 +337,32 @@ https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.p
 
 The task XML was edited directly on Mac (`tasker/auto-update/stayturgid_update_check.tsk.xml`) using the discovered action codes and imported to the device. See "Discovered Tasker action codes" section for reference.
 
-### Step 2 — Test the update flow (CURRENT NEXT STEP)
+### Step 2 — Confirm full 4-dialog gesture sequence (CURRENT NEXT STEP)
 
-Set `"version": "0.0"` in act6 temporarily (forces `0.0 < 1.0` comparison → update always triggered). Run the task manually. Verify:
-1. Notification appears with Update / Skip buttons
-2. Tap Update → file downloads to `/sdcard/Tasker/Updates/ProjectUpdate.prj.xml`
-3. Tasker import dialog appears
-4. AutoInput clicks IMPORT, then OVERWRITE
-5. Home screen
-6. Temp file deleted: `adb shell "ls /sdcard/Tasker/Updates/"` should be empty
+Dialog 1 (YES at 894,2058) is confirmed working. The full 4-dialog flow in the task has not been observed end-to-end yet.
 
-Reset `"version": "1.0"` after test passes.
+**To test:** Run `TestUpdateTrigger` from Tasker UI (it passes `par1=user_input, par2=update` which bypasses version check). Watch with uiautomator2:
+
+```python
+import sys, time
+sys.path.insert(0, '/Users/djbclark/.local/pipx/venvs/uiautomator2/lib/python3.14/site-packages')
+import uiautomator2 as u2
+import xml.etree.ElementTree as ET, subprocess
+
+d = u2.connect('35261JEHN12374')
+subprocess.run(['adb', '-s', '35261JEHN12374', 'shell', 'am', 'broadcast',
+    '-a', 'net.dinglisch.android.tasker.ACTION_TASK', '-e', 'task_name', 'TestUpdateTrigger'])
+for i in range(30):
+    time.sleep(1)
+    root = ET.fromstring(d.dump_hierarchy())
+    texts = {e.get('text','') for e in root.iter() if e.get('text')}
+    if any(t in texts for t in ('YES','NO','Import')):
+        print(f"t={i+1}: DIALOG: {texts & {'YES','NO','Import','OK'}}")
+```
+
+Verify all 4 dialogs are auto-clicked and the task completes cleanly (Tasker TASKS tab still shows `stayturgid_Update_Check`; no import dialog stuck on screen; `/sdcard/Tasker/Updates/` empty after).
+
+**If dialog 3 fails** (Import To Project tap lands on wrong row): coordinate (493,1423) assumes stayturgid is at a specific row. If there are more Tasker projects on the device, the row position may differ. Fix: configure an AutoInput text-click action (code 1732635924) via the Tasker/AutoInput UI to click "stayturgid" by text, extract its UUID from a task export, and replace act40 with that action.
 
 ### Step 3 — Wire update check to a daily trigger
 
