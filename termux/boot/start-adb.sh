@@ -2,6 +2,13 @@
 # Termux:Boot script — runs on every boot after first unlock
 # Deploy to: ~/.termux/boot/start-adb.sh on device
 
+# Ensure Termux binaries are on PATH (needed when run from runit context)
+export PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/sbin:$PATH
+export HOME=/data/data/com.termux/files/home
+export PREFIX=/data/data/com.termux/files/usr
+export TMPDIR=/data/data/com.termux/files/usr/tmp
+export LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib
+
 # Start SSH server so the device is reachable via ADB port-forward
 sshd
 

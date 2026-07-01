@@ -589,6 +589,124 @@ The text-click action requires a UUID that matches a config stored in AutoInput'
 
 ---
 
+## Part 5b — Samsung Galaxy S24 specific setup (discovered 2026-07-01)
+
+### Shizuku: "Start via Wireless debugging" fails on Samsung
+
+Samsung's SSL implementation throws `javax.net.ssl.SSLProtocolException: SSLV3_ALERT_CERTIFICATE_UNKNOWN` when Shizuku tries to connect to the Wireless Debugging service on port ~38279. **Do not use "Start via Wireless debugging" on Samsung.**
+
+Use **"Start by connecting to a computer"** instead:
+1. Connect device via USB ADB
+2. In Shizuku → Settings → "Start by connecting to a computer"
+3. Tap "View command" to get the actual path (it changes per install), then run it from Mac:
+   ```bash
+   adb -s RFCX219CHKA shell /data/app/~~.../moe.shizuku.privileged.api-...=/lib/arm64/libshizuku.so
+   ```
+4. After Shizuku starts via ADB method, port 5555 does NOT auto-open. Manually trigger:
+   ```bash
+   adb -s RFCX219CHKA tcpip 5555
+   ```
+
+### Battery optimization blocks Shizuku toggles on Samsung
+
+Before Shizuku's "Start on boot" and "Watchdog" toggles will respond:
+```bash
+adb shell dumpsys deviceidle whitelist +moe.shizuku.privileged.api
+```
+Then the toggles work.
+
+### Termux: sshd requires explicit environment when started from runit or run-as
+
+On Samsung (tested Android 16), sshd fails silently when started via runit (which uses minimal env). The `runsv sshd` process runs but sshd never actually starts.
+
+**Root cause:** PATH does not include Termux's bin dir, so sshd's wrapper script can't find its deps.
+
+**Fix for runit service** (`$PREFIX/var/service/sshd/run`):
+```bash
+#!/data/data/com.termux/files/usr/bin/bash
+export PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/sbin:$PATH
+export HOME=/data/data/com.termux/files/home
+export PREFIX=/data/data/com.termux/files/usr
+export TMPDIR=/data/data/com.termux/files/usr/tmp
+export LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib
+exec sshd -D -e 2>&1
+```
+
+**run-as with Termux:** Must provide full path to Termux bash AND set env:
+```bash
+adb -s RFCX219CHKA shell "run-as com.termux /data/data/com.termux/files/usr/bin/bash -c '
+  export PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/sbin:\$PATH
+  export HOME=/data/data/com.termux/files/home
+  export PREFIX=/data/data/com.termux/files/usr
+  sshd
+'"
+```
+
+**Termux:Boot script** (already includes env vars — see `termux/boot/start-adb.sh`).
+
+### Tasker import on Samsung/Android 16: `am start -d content://` fails
+
+On Samsung Android 16, `adb shell am start -d content://com.android.externalstorage...` to import Tasker XML files fails because UID 2000 (shell) cannot grant URI permissions for ExternalStorageProvider. The `--grant-read-uri-permission` flag doesn't help.
+
+**Workaround for PROJECT import:** works via Tasker's built-in file picker:
+```
+Long-press project tab (home icon, bottom of Tasker screen) → Import Project → select file
+```
+Project file must be in `/sdcard/Tasker/projects/` first (push via ADB, it works fine).
+
+**Workaround for TASK import:** Tasker doesn't have a built-in task file picker. Wrap the `.tsk.xml` in a proper project XML (with a `<Project>` element listing it), push as `.prj.xml` to `/sdcard/Tasker/projects/`, then import as a project:
+```python
+# Wrap task in project XML
+prj_xml = '''<?xml version="1.0" encoding="UTF-8"?>
+<TaskerData sr="" dvi="1" tv="6.7.5-beta">
+    <Project sr="proj0" ve="2">
+        <cdate>TIMESTAMP_MS</cdate>
+        <id>UUID</id>
+        <name>ImportName</name>
+        <tids>TASK_ID</tids>
+    </Project>
+    TASK_XML_HERE
+</TaskerData>'''
+```
+The task's `sr` attribute must match the ID in `<tids>`. Avoids ID collision by using a high number (999).
+
+### Tasker permissions needed on Samsung (grant via ADB)
+
+```bash
+adb shell pm grant net.dinglisch.android.taskerm android.permission.WRITE_SECURE_SETTINGS
+adb shell pm grant net.dinglisch.android.taskerm android.permission.READ_PHONE_STATE
+adb shell pm grant net.dinglisch.android.taskerm android.permission.READ_CALL_LOG
+adb shell dumpsys deviceidle whitelist +net.dinglisch.android.taskerm
+adb shell appops set net.dinglisch.android.taskerm MANAGE_EXTERNAL_STORAGE allow
+```
+
+### Termux packages: must match signing source
+
+When Termux main app is installed from GitHub releases (via Obtainium), all add-ons must also come from GitHub — not F-Droid. Mixing sources causes `INSTALL_FAILED_SHARED_USER_INCOMPATIBLE`.
+
+GitHub release pages:
+- Termux:Boot — `github.com/termux/termux-boot/releases`
+- Termux:API — `github.com/termux/termux-api/releases`  
+- Termux:Tasker — `github.com/termux/termux-tasker/releases`
+
+If Play Protect blocks the install: `adb shell settings put global package_verifier_enable 0` before installing, re-enable after.
+
+### S24 Termux SSH access (for future sessions)
+
+```bash
+adb -s RFCX219CHKA shell "run-as com.termux /data/data/com.termux/files/usr/bin/bash -c '
+  export PATH=/data/data/com.termux/files/usr/bin:\$PATH
+  export HOME=/data/data/com.termux/files/home
+  pkill sshd 2>/dev/null; sshd
+'"
+adb -s RFCX219CHKA forward tcp:8022 tcp:8022
+ssh -i ~/.ssh/termux_key -p 8022 -o StrictHostKeyChecking=no localhost
+```
+
+After SSH is up, all further setup can be done cleanly without dealing with terminal background noise.
+
+---
+
 ## Part 6 — Verification checklist
 
 After a cold reboot and PIN unlock, wait ~60 seconds, then run from the Mac:

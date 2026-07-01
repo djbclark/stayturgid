@@ -20,6 +20,7 @@ On the Mac side, a launchd agent (`com.djbclark.stayturgid.adb-reconnect`) runs 
 
 ## Current project status (as of 2026-07-01)
 
+### Pixel 7a
 - ✅ Port 5555 survives cold reboots (verified 2026-06-29)
 - ✅ sshd survives cold reboots (Termux:Boot + self-heal loop)
 - ✅ Tasker watchdog with failure notifications
@@ -27,7 +28,24 @@ On the Mac side, a launchd agent (`com.djbclark.stayturgid.adb-reconnect`) runs 
 - ✅ Published to TaskerNet: `https://taskernet.com/shares/?user=AS35m8lVOCqN0zylSnJKY8pBzCqkgDU8h624gr9CWqSAxD9myEt6n3OjyI4TtJhMtmw%2B&id=Project%3Astayturgid`
 - ✅ Auto-update download+import task XML complete — uses **AutoInput Gestures** (coordinate taps) to click through 4 import dialogs
 - ⚠️ Auto-update dialog sequence: **dialog 1 click confirmed working** (YES at 894,2058); dialogs 2–4 not yet confirmed end-to-end
-- 🔲 `stayturgid_update_check` not yet wired to a trigger profile (Step 3)
+- ⚠️ `stayturgid_update_check` daily trigger profile not yet committed to repo
+
+### Samsung Galaxy S24 (RFCX219CHKA) — initial setup COMPLETE 2026-07-01
+- ✅ Termux installed (GitHub signed), sshd running on port 8022
+- ✅ Packages installed: openssh, android-tools, wget, git, python, curl, termux-api, runit
+- ✅ `~/.termux/boot/start-adb.sh` deployed + Termux:Boot app opened (boot script will run on reboot)
+- ✅ Termux runit sshd service fixed with proper env vars (PATH, HOME, PREFIX, TMPDIR, LD_LIBRARY_PATH)
+- ✅ SSH key deployed to Termux `~/.ssh/authorized_keys`
+- ✅ Tasker 6.7.5-beta installed + setup wizard complete + permissions granted
+- ✅ stayturgid project imported (ADB_Boot_Restore, ADB_Interval_Check, ADB_Core_Watchdog)
+- ✅ stayturgid_Update_Check task imported (lives in "UpdateCheck_Import" project as import workaround)
+- ✅ Daily trigger profile created: Time 10:00AM–10:01AM → stayturgid_Update_Check
+- ⚠️ Daily trigger profile shows with * prefix in Tasker UI (cosmetic — persists across force-stop/restart, IS saved)
+- ⚠️ stayturgid_Update_Check is in "UpdateCheck_Import" project, not "stayturgid" project (functional, but messy)
+- ⚠️ Shizuku "Start via Wireless debugging" fails on Samsung (SSL cert error) — currently no Shizuku on S24
+- ⚠️ Without Shizuku, `adb tcpip 5555` must be triggered manually after each reboot (until a workaround is found)
+- 🔲 AutoInput plugin not yet configured/tested on S24
+- 🔲 End-to-end auto-update flow not tested on S24
 
 **Current import action sequence (act20–act43):**
 - act20: Run Shell `mkdir -p /sdcard/Tasker/Updates`
@@ -60,6 +78,8 @@ On the Mac side, a launchd agent (`com.djbclark.stayturgid.adb-reconnect`) runs 
 
 ## Device facts
 
+### Google Pixel 7a (primary)
+
 | Field | Value |
 |-------|-------|
 | Device | Google Pixel 7a |
@@ -79,6 +99,34 @@ Connect wirelessly:
 adb connect 192.168.68.62:5555
 # or let the mac script discover it:
 adb -s 35261JEHN12374 shell "ip addr show wlan0" | grep "inet "
+```
+
+### Samsung Galaxy S24 (secondary — setup in progress)
+
+| Field | Value |
+|-------|-------|
+| Device | Samsung Galaxy S24 (SM-S921U1) |
+| Android | 16 (SDK 36) |
+| USB serial | `RFCX219CHKA` |
+| Wireless ADB | not yet set up (Shizuku thedjchi "Start via Wireless debugging" fails on Samsung) |
+| SSH to Termux | `adb -s RFCX219CHKA forward tcp:8022 tcp:8022` then `ssh -i ~/.ssh/termux_key -p 8022 -o StrictHostKeyChecking=no localhost` |
+| Tasker | `net.dinglisch.android.taskerm` v6.7.5-beta |
+| Shizuku | NOT installed / functional (thedjchi TCP mode doesn't work on Samsung — SSL error) |
+| Termux | `com.termux` (GitHub signed — from Obtainium) |
+| Termux:Boot | `com.termux.boot` (GitHub signed) |
+| Termux:API app | `com.termux.api` (GitHub signed) |
+| Termux:Tasker | `com.termux.tasker` (GitHub signed) |
+| AutoInput | installed but not yet configured |
+
+S24 Termux SSH quick connect:
+```bash
+adb -s RFCX219CHKA shell "run-as com.termux /data/data/com.termux/files/usr/bin/bash -c '
+  export PATH=/data/data/com.termux/files/usr/bin:\$PATH
+  export HOME=/data/data/com.termux/files/home
+  pkill sshd 2>/dev/null; sshd
+'"
+adb -s RFCX219CHKA forward tcp:8022 tcp:8022
+ssh -i ~/.ssh/termux_key -p 8022 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null localhost
 ```
 
 ---
@@ -337,7 +385,11 @@ https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.p
 
 The task XML was edited directly on Mac (`tasker/auto-update/stayturgid_update_check.tsk.xml`) using the discovered action codes and imported to the device. See "Discovered Tasker action codes" section for reference.
 
-### Step 2 — Confirm full 4-dialog gesture sequence (CURRENT NEXT STEP)
+### ✅ Step 1b — S24 initial setup (COMPLETE as of 2026-07-01)
+
+Termux, sshd, packages, Tasker, stayturgid project, update check task, and daily trigger all set up on S24. See "Current project status → Samsung Galaxy S24" section above for details and remaining gaps.
+
+### Step 2 — Confirm full 4-dialog gesture sequence (CURRENT NEXT STEP — Pixel 7a)
 
 Dialog 1 (YES at 894,2058) is confirmed working. The full 4-dialog flow in the task has not been observed end-to-end yet.
 
