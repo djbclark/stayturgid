@@ -1,0 +1,1 @@
+{"version": "1.0", "changelog": "stayturgid 1.0:\n\n- Keeps ADB port 5555 and Shizuku alive across reboots (no root)\n- ADB_Boot_Restore profile fires on device boot\n- ADB_Core_Watchdog runs every 20 minutes\n- Notification on ADB or Shizuku failure"}

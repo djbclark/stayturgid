@@ -289,7 +289,7 @@ The size of the response in bytes&lt;/_array_net.dinglisch.android.tasker.RELEVA
 			<Str sr="arg4" ve="3"/>
 			<Str sr="arg5" ve="3"/>
 			<Str sr="arg6" ve="3"/>
-			<Str sr="arg7" ve="3">Tasker/Updates/stayturgid.prj.xml</Str>
+			<Str sr="arg7" ve="3">Tasker/Updates/stayturgid_update_check.tsk.xml</Str>
 			<Int sr="arg8" val="60"/>
 			<Int sr="arg9" val="0"/>
 		</Action>
@@ -303,8 +303,8 @@ The size of the response in bytes&lt;/_array_net.dinglisch.android.tasker.RELEVA
 		</Action>
 		<Action sr="act23" ve="7">
 			<code>123</code>
-			<label>// Open project XML in Tasker to trigger import dialog</label>
-			<Str sr="arg0" ve="3">am start -a android.intent.action.VIEW -d "file://%http_file_output"</Str>
+			<label>// Import task file via Tasker's import activity (content:// URI required on Android 10+)</label>
+			<Str sr="arg0" ve="3">am start -n "net.dinglisch.android.taskerm/com.joaomgcd.taskerm.datashare.import.ActivityImportTaskerDataFromXml" -a android.intent.action.VIEW -d "content://com.android.externalstorage.documents/document/primary%3ATasker%2FUpdates%2Fstayturgid_update_check.tsk.xml" -t "text/xml" --grant-read-uri-permission</Str>
 			<Int sr="arg1" val="0"/>
 			<Int sr="arg2" val="0"/>
 			<Str sr="arg3" ve="3"/>
@@ -325,7 +325,7 @@ The size of the response in bytes&lt;/_array_net.dinglisch.android.tasker.RELEVA
 			<code>1732635924</code>
 			<Bundle sr="arg0">
 				<Vals sr="val">
-					<ActionId>IMPORT</ActionId>
+					<ActionId>YES</ActionId>
 					<ActionId-type>java.lang.String</ActionId-type>
 					<ActionType>16</ActionType>
 					<ActionType-type>java.lang.String</ActionType-type>
@@ -350,7 +350,7 @@ The size of the response in bytes&lt;/_array_net.dinglisch.android.tasker.RELEVA
 					<TextToWrite>&lt;null&gt;</TextToWrite>
 					<TextToWrite-type>java.lang.String</TextToWrite-type>
 					<com.twofortyfouram.locale.intent.extra.BLURB>Type: Text
-Value: IMPORT
+Value: YES
 Action : Click</com.twofortyfouram.locale.intent.extra.BLURB>
 					<com.twofortyfouram.locale.intent.extra.BLURB-type>java.lang.String</com.twofortyfouram.locale.intent.extra.BLURB-type>
 					<net.dinglisch.android.tasker.RELEVANT_VARIABLES>&lt;StringArray sr=""&gt;&lt;_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES0&gt;%err
@@ -386,7 +386,7 @@ Only available if you select &amp;lt;b&amp;gt;Continue Task After Error&amp;lt;/
 			<code>1732635924</code>
 			<Bundle sr="arg0">
 				<Vals sr="val">
-					<ActionId>OVERWRITE</ActionId>
+					<ActionId>YES</ActionId>
 					<ActionId-type>java.lang.String</ActionId-type>
 					<ActionType>16</ActionType>
 					<ActionType-type>java.lang.String</ActionType-type>
@@ -411,7 +411,7 @@ Only available if you select &amp;lt;b&amp;gt;Continue Task After Error&amp;lt;/
 					<TextToWrite>&lt;null&gt;</TextToWrite>
 					<TextToWrite-type>java.lang.String</TextToWrite-type>
 					<com.twofortyfouram.locale.intent.extra.BLURB>Type: Text
-Value: OVERWRITE
+Value: YES
 Action : Click</com.twofortyfouram.locale.intent.extra.BLURB>
 					<com.twofortyfouram.locale.intent.extra.BLURB-type>java.lang.String</com.twofortyfouram.locale.intent.extra.BLURB-type>
 					<net.dinglisch.android.tasker.RELEVANT_VARIABLES>&lt;StringArray sr=""&gt;&lt;_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES0&gt;%err
@@ -520,7 +520,8 @@ Only available if you select &amp;lt;b&amp;gt;Continue Task After Error&amp;lt;/
 			<Str sr="arg0" ve="3">var updaterData = [
   {
     "taskernet_url": "https://taskernet.com/shares/?user=AS35m8lVOCqN0zylSnJKY8pBzCqkgDU8h624gr9CWqSAxD9myEt6n3OjyI4TtJhMtmw%2B&amp;id=Project%3Astayturgid",
-    "raw_xml_url": "https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.prj.xml",
+    "version_check_url": "https://raw.githubusercontent.com/djbclark/stayturgid/master/version.json",
+    "raw_xml_url": "https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/auto-update/stayturgid_update_check.tsk.xml",
     "version": "1.0",
     "changelog": "stayturgid 1.0:\n\n- Keeps ADB port 5555 and Shizuku alive across reboots (no root)\n- ADB_Boot_Restore profile fires on device boot\n- ADB_Core_Watchdog runs every 20 minutes\n- Notification on ADB or Shizuku failure"
   }
@@ -625,20 +626,7 @@ exit();</Str>
 		<Action sr="act9" ve="7">
 			<code>129</code>
 			<label>// Get taskernet xml url</label>
-			<Str sr="arg0" ve="3">var inputUrl = local("taskernet_url");
-
-inputUrl = inputUrl.replace(/#$/, '');
-
-var userMatch = inputUrl.match(/user=([^&amp;]+)/);
-var idMatch = inputUrl.match(/id=([^&amp;]+)/);
-
-if (userMatch &amp;&amp; idMatch) {
-    var dynamicUrl = "https://taskernet.com/_ah/api/datashare/v1/sharedata/" + userMatch[1] + "/" + idMatch[1] + "?a=0&amp;xml=true";
-    setLocal("taskernet_xml", dynamicUrl);
-} else {
-    flash("Invalid URL");
-}
-
+			<Str sr="arg0" ve="3">setLocal("taskernet_xml", local("version_check_url"));
 exit();</Str>
 			<Str sr="arg1" ve="3"/>
 			<Int sr="arg2" val="0"/>
