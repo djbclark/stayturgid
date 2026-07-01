@@ -40,12 +40,14 @@ On the Mac side, a launchd agent (`com.djbclark.stayturgid.adb-reconnect`) runs 
 - ✅ stayturgid project imported (ADB_Boot_Restore, ADB_Interval_Check, ADB_Core_Watchdog)
 - ✅ stayturgid_Update_Check task imported (lives in "UpdateCheck_Import" project as import workaround)
 - ✅ Daily trigger profile created: Time 10:00AM–10:01AM → stayturgid_Update_Check
-- ⚠️ Daily trigger profile shows with * prefix in Tasker UI (cosmetic — persists across force-stop/restart, IS saved)
-- ⚠️ stayturgid_Update_Check is in "UpdateCheck_Import" project, not "stayturgid" project (functional, but messy)
+- ✅ Daily trigger profile renamed to "Daily_Update_Check" (no * prefix) — in stayturgid project
+- ✅ stayturgid_Update_Check task is in "stayturgid" project alongside ADB_Core_Watchdog
 - ⚠️ Shizuku "Start via Wireless debugging" fails on Samsung (SSL cert error) — currently no Shizuku on S24
 - ⚠️ Without Shizuku, `adb tcpip 5555` must be triggered manually after each reboot (until a workaround is found)
 - 🔲 AutoInput plugin not yet configured/tested on S24
 - 🔲 End-to-end auto-update flow not tested on S24
+
+S24 Tasker project snapshot saved to `tasker/s24_stayturgid.prj.xml` (separate from the Pixel 7a's `tasker/stayturgid.prj.xml` — S24 has different internal task/profile IDs).
 
 **Current import action sequence (act20–act43):**
 - act20: Run Shell `mkdir -p /sdcard/Tasker/Updates`
