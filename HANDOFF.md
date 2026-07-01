@@ -370,6 +370,26 @@ https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.p
 
 ---
 
+## Pixel 7a accessibility state — verify at session start
+
+Known-good `enabled_accessibility_services` (as of 2026-07-01):
+```
+com.samruston.buzzkill/com.samruston.buzzkill.background.accessibility.WorkaroundAccessibilityService
+net.dinglisch.android.taskerm/net.dinglisch.android.taskerm.MyAccessibilityService
+com.joaomgcd.autoinput/com.joaomgcd.autoinput.service.ServiceAccessibilityV2
+com.notch.touch/com.notch.touch.lock.tas
+com.wispr.flowapp/com.wispr.flowapp.service.FlowAccessibilityService
+```
+
+At the start of each session, verify these are all still enabled:
+```bash
+adb shell settings get secure enabled_accessibility_services | tr ':' '\n'
+```
+
+⚠️ A previous session accidentally wiped accessibility services by running `settings put secure enabled_accessibility_services <value>` which **replaces** (not appends) the list. If any are missing, restore with the full colon-separated list above. See HACKING.md Part 5b for the safe append protocol.
+
+---
+
 ## Known issues / gotchas
 
 - **uiautomator2 `d.exists()` returns False:** Usually means a Tasker "NLI: warning: disconnected" popup is blocking the UI. Fix: `d(text='OK').click()` to dismiss first.

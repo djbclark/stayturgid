@@ -589,7 +589,65 @@ The text-click action requires a UUID that matches a config stored in AutoInput'
 
 ---
 
-## Part 5b — Samsung Galaxy S24 specific setup (discovered 2026-07-01)
+## Part 5b — Cross-device testing safety rules (discovered 2026-07-01)
+
+### NEVER replace `enabled_accessibility_services` — always append
+
+`settings put secure enabled_accessibility_services <value>` **replaces the entire list**. Running it with just one service wipes every other accessibility service on the device (screen readers, switch access, AutoInput, Tasker, Wispr Flow, Buzzkill — all gone silently).
+
+**Protocol when you need to enable an accessibility service for testing:**
+
+```bash
+# 1. Save original list
+ORIG=$(adb shell settings get secure enabled_accessibility_services)
+echo "ORIG: $ORIG"
+
+# 2. Append new service (do NOT replace)
+adb shell settings put secure enabled_accessibility_services \
+  "${ORIG}:com.example.app/com.example.app.MyService"
+
+# 3. ... do testing ...
+
+# 4. ALWAYS restore original list when done
+adb shell settings put secure enabled_accessibility_services "$ORIG"
+```
+
+Also applies to any setting that is a colon-separated list:
+`enabled_input_methods`, `enabled_notification_listeners`, etc.
+
+**Verify current state before and after any accessibility change:**
+```bash
+adb shell settings get secure enabled_accessibility_services | tr ':' '\n'
+```
+
+If accessibility services are accidentally wiped, restore from a known-good list recorded at session start. The Pixel 7a's known-good list (as of 2026-07-01):
+```
+com.samruston.buzzkill/com.samruston.buzzkill.background.accessibility.WorkaroundAccessibilityService
+net.dinglisch.android.taskerm/net.dinglisch.android.taskerm.MyAccessibilityService
+com.joaomgcd.autoinput/com.joaomgcd.autoinput.service.ServiceAccessibilityV2
+com.notch.touch/com.notch.touch.lock.tas
+com.wispr.flowapp/com.wispr.flowapp.service.FlowAccessibilityService
+```
+
+Restore:
+```bash
+adb -s 35261JEHN12374 shell settings put secure enabled_accessibility_services \
+  "com.samruston.buzzkill/com.samruston.buzzkill.background.accessibility.WorkaroundAccessibilityService:net.dinglisch.android.taskerm/net.dinglisch.android.taskerm.MyAccessibilityService:com.joaomgcd.autoinput/com.joaomgcd.autoinput.service.ServiceAccessibilityV2:com.notch.touch/com.notch.touch.lock.tas:com.wispr.flowapp/com.wispr.flowapp.service.FlowAccessibilityService"
+```
+
+### At the start of every session: snapshot device state
+
+Before touching any device settings, record:
+```bash
+adb shell settings get secure enabled_accessibility_services
+adb shell settings get secure default_input_method
+adb shell settings get global package_verifier_enable
+```
+…and restore all of them at the end.
+
+---
+
+## Part 5b-s24 — Samsung Galaxy S24 specific setup (discovered 2026-07-01)
 
 ### Shizuku: "Start via Wireless debugging" fails on Samsung
 
