@@ -245,11 +245,16 @@ In Tasker: long-press the project tab → **Import Project** → select `staytur
 ### 1.7 Import the update-check task (optional but recommended)
 
 ```bash
-adb push ~/stayturgid/tasker/auto-update/stayturgid_update_check.tsk.xml /sdcard/Tasker/stayturgid_update_check.tsk.xml
+adb push ~/stayturgid/tasker/auto-update/stayturgid_update_check.tsk.xml /sdcard/Tasker/tasks/stayturgid_Update_Check.tsk.xml
 ```
-In Tasker: **+** → **Import Task** → navigate to `/sdcard/Tasker/stayturgid_update_check.tsk.xml`.
 
-Add a trigger profile (Time → 10:00 → every day → task: `stayturgid_Update_Check`).
+In Tasker: go to the **TASKS** tab → long-press on any existing task (or blank space) → tap **Import Task** → select `stayturgid_Update_Check`.
+
+> Note: The file goes to `/sdcard/Tasker/tasks/` (not `/sdcard/Tasker/`). The Import Task picker shows this directory by default.
+
+> If reimporting after a change: same procedure — Tasker will create a new copy (doesn't auto-overwrite). If a duplicate appears with the same name, delete the old one in the TASKS list.
+
+Add a trigger profile: in the **PROFILES** tab, tap **+** → Time → 10:00 → Every day → set Entry task to `stayturgid_Update_Check`.
 
 ---
 
@@ -482,7 +487,101 @@ Tags must exist in the TaskerNet tag database — free-text tags return HTTP 400
 
 ---
 
-## Part 5 — Verification checklist
+## Part 5 — Tasker XML reference (discovered 2026-06-30)
+
+These action codes and arg layouts are confirmed from live Tasker 6.7.5-beta exports on the development device. You can use them to edit `.tsk.xml` files directly on Mac without touching the Tasker UI.
+
+### Action codes
+
+| Action | Code | Notes |
+|--------|------|-------|
+| Comment | 300 | arg0=text (label only) |
+| If | 37 | Condition in `<ConditionList>` |
+| Else/If | 39 | arg0=var, arg1=value, arg2=op |
+| End If | 40 | no args |
+| Goto | 135 | — |
+| Regex Match | 396 | — |
+| Variable Set | 547 | arg0=name, arg1=value |
+| JavaScript | 129 | arg0=script |
+| Run Shell | 123 | arg0=cmd, arg1=root, arg2=timeout, arg3=output_var, arg6=1(store) |
+| HTTP Request | 339 | see below |
+| Wait | 30 | **arg0=ms, arg1=secs, arg2=mins, arg3=hours, arg4=days** |
+| Task Stop | 137 | arg0=0 |
+| Go Home | 25 | arg0=page (0=main) |
+| Delete File | 406 | arg0=path, arg1=0 |
+| AutoInput plugin | **1732635924** | see below (version-specific code for Tasker 6.7.5-beta) |
+| Show Notification | 523 | — |
+| Cancel Notification | 513 | — |
+| Cancel Notification by Tag | 779 | arg0=tag |
+| Variable Flash | 548 | arg0=text |
+| Screen On/Off | 512 | — |
+| Task | 130 | call another task |
+
+### Wait action — CRITICAL GOTCHA
+
+The Wait action (code 30) has a counter-intuitive arg order:
+- `arg0` = **milliseconds**
+- `arg1` = **seconds**
+- `arg2` = **minutes**
+- `arg3` = **hours**
+- `arg4` = **days**
+
+A 1-second wait:
+```xml
+<Action sr="actX" ve="7">
+    <code>30</code>
+    <Int sr="arg0" val="0"/>
+    <Int sr="arg1" val="1"/>
+    <Int sr="arg2" val="0"/>
+    <Int sr="arg3" val="0"/>
+    <Int sr="arg4" val="0"/>
+</Action>
+```
+
+A 3-second wait: same but `arg1` = 3.
+
+### HTTP Request action (code 339)
+
+Key args:
+- `arg1` = method (0=GET, 1=POST, 2=HEAD, 3=PUT, 4=DELETE, 5=PATCH)
+- `arg2` = URL
+- `arg3` = headers (optional)
+- `arg4` = query params (optional)
+- `arg5` = unknown (leave empty)
+- `arg6` = unknown (leave empty)
+- **`arg7` = file/directory to save output** (set this to save the response to a file)
+- `arg8` = timeout in seconds (60 recommended)
+- `arg9–arg12` = flags (0, 0, 0, 1 — copy from existing action)
+
+Output variable `%http_file_output` always contains the full absolute path of the saved file.
+
+### AutoInput plugin action (code 1732635924)
+
+The plugin code `1732635924` is specific to Tasker 6.7.5-beta. It may differ in older versions.
+
+The action needs a nested Bundle with these keys:
+- `ActionId` — text to find on screen (e.g., `IMPORT`)
+- `ActionType` — `16` = click
+- `FieldSelectionType` — `0` = match by text
+- `plugintypeid` — `com.joaomgcd.autoinput.intent.IntentPerformAction`
+- `plugininstanceid` — a UUID that AutoInput uses to look up stored config (must match what's in AutoInput's local DB)
+
+**plugininstanceid values (from development device):**
+- IMPORT: `75e60f28-41ac-4048-83fd-b55de4bef613`
+- OVERWRITE: `e72f5a3d-1985-4cc5-80d7-d56d29721b91`
+
+These UUIDs are tied to the AutoInput configuration on the specific device. If you reinstall AutoInput or use a different device, you'll need to:
+1. Create an `AIProbe` Tasker task with AutoInput actions configured to click "IMPORT" and "OVERWRITE"
+2. Export the task from Tasker → `/sdcard/Tasker/tasks/AIProbe.tsk.xml`
+3. Pull it: `adb pull /sdcard/Tasker/tasks/AIProbe.tsk.xml /tmp/AIProbe.tsk.xml`
+4. Extract the `plugininstanceid` values from the XML
+5. Replace the UUIDs in `stayturgid_update_check.tsk.xml`
+
+See `HANDOFF.md` → "Discovered Tasker action codes" for the full Bundle XML structure.
+
+---
+
+## Part 6 — Verification checklist
 
 After a cold reboot and PIN unlock, wait ~60 seconds, then run from the Mac:
 

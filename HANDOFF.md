@@ -25,8 +25,20 @@ On the Mac side, a launchd agent (`com.djbclark.stayturgid.adb-reconnect`) runs 
 - ✅ Tasker watchdog with failure notifications
 - ✅ Mac-side launchd keepalive with macOS notification on reconnect/failure
 - ✅ Published to TaskerNet: `https://taskernet.com/shares/?user=AS35m8lVOCqN0zylSnJKY8pBzCqkgDU8h624gr9CWqSAxD9myEt6n3OjyI4TtJhMtmw%2B&id=Project%3Astayturgid`
-- ✅ Auto-update mechanism (`tasker/auto-update/stayturgid_update_check.tsk.xml`) — based on Task Auto Update by Joker; checks TaskerNet for newer version and shows Update/Skip notification
-- 🔲 `stayturgid_update_check` not yet imported into device Tasker or wired to a trigger profile
+- ✅ Auto-update mechanism implemented — local XML download+import path complete; task imported to device
+  - act20: Run Shell `mkdir -p /sdcard/Tasker/Updates`
+  - act21: HTTP Request GET `%raw_xml_url` → file save arg7=`Tasker/Updates/stayturgid.prj.xml`
+  - act22: Wait 1s
+  - act23: Run Shell `am start -a android.intent.action.VIEW -d "file://%http_file_output"`
+  - act24: Wait 3s
+  - act25: AutoInput IMPORT click (code 1732635924, UUID `75e60f28-41ac-4048-83fd-b55de4bef613`)
+  - act26: Wait 1s
+  - act27: AutoInput OVERWRITE click (code 1732635924, UUID `e72f5a3d-1985-4cc5-80d7-d56d29721b91`)
+  - act28: Go Home (code 25)
+  - act29: Delete File `%http_file_output` (code 406)
+  - act30–act36: Skip path (formerly act23–act29)
+- 🔲 Auto-update flow NOT yet tested end-to-end (Step 2)
+- 🔲 `stayturgid_update_check` not yet wired to a trigger profile (Step 3)
 
 ---
 
@@ -200,28 +212,43 @@ mac/
 
 ### Current implementation status
 
-`act6` ✅ — `raw_xml_url` has been added pointing to the GitHub raw URL:
+`act6` ✅ — `raw_xml_url` points to GitHub raw URL:
 ```
 https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.prj.xml
 ```
 
-**act20–act22 ❌ — still the old TaskerNet path:**
-- act20 is JavaScript that builds a `taskershare://` URI from `%taskernet_url`
-- act21 is Browse URL opening that `taskershare://` URI (sends user to TaskerNet to download)
-- act22 is Task Stop
+**act20–act29 ✅ — local XML path implemented (2026-06-30):** The old TaskerNet actions (JavaScript + Browse URL + Task Stop) have been replaced with the 10-action local import sequence above. File: `tasker/auto-update/stayturgid_update_check.tsk.xml`, imported to device under the `stayturgid` project.
 
-These three actions need to be replaced with the 9-action local XML sequence described above. The renumbering: current acts 23–29 become acts 30–36 after inserting 6 extra actions.
+### Discovered Tasker action codes and arg layouts
 
-### Why these can't be edited directly in the XML file
+All action codes and arg layouts below are confirmed from live exports on Tasker 6.7.5-beta. You CAN edit the task XML directly using these.
 
-Tasker uses internal integer action codes (e.g., 339 = HTTP Request, 547 = Variable Set). If you use the wrong code, Tasker silently ignores the action on import. The new actions needed here include:
-- **Wait** (actual timed pause — different code from Task Stop which is code 137)
-- **Open File / VIEW intent** — either via Browse URL with `file://` path, or Run Shell with `am start -a android.intent.action.VIEW ...`
-- **AutoInput plugin action** — uses Tasker's plugin framework with a nested Bundle structure that is version-specific to AutoInput
-- **Go Home** — unknown code without looking it up from a live Tasker export
-- **Delete File** — unknown code without looking it up
+| Action | Code | Key args |
+|--------|------|----------|
+| Wait | 30 | arg0=ms, **arg1=seconds**, arg2=minutes, arg3=hours, arg4=days |
+| Run Shell | 123 | arg0=command, arg1=root(0/1), arg2=timeout, arg3=output_var, arg6=1(store) |
+| HTTP Request | 339 | arg1=method(0=GET), arg2=URL, arg3=headers, arg4=query_params, **arg7=file_save_path**, arg8=timeout |
+| JavaScript | 129 | arg0=script |
+| Task Stop | 137 | arg0=0(normal) |
+| Go Home | 25 | arg0=page(0=main) |
+| Delete File | 406 | arg0=path, arg1=0 |
+| End If | 40 | (no args) |
+| Else/If | 39 | arg0=variable, arg1=value, arg2=comparison |
+| AutoInput plugin | **1732635924** | arg0=Bundle(see below), arg1=package, arg2=activity, arg3=timeout, arg4=1 |
 
-The safest path: make these changes via Tasker's UI on the device, export the project, pull the XML back, and commit. Tasker generates correct codes and plugin Bundle structures automatically.
+**Wait arg critical gotcha:** arg1=seconds, arg2=**minutes**. Setting arg2=3 gives 3 minutes, not 3 seconds!
+
+**AutoInput Bundle structure** (use verbatim — the plugininstanceid must match what's stored in AutoInput's DB on the device):
+- `ActionId`: text to match (e.g., `IMPORT`)
+- `ActionType`: `16` (click)
+- `FieldSelectionType`: `0` (by text)
+- `plugintypeid`: `com.joaomgcd.autoinput.intent.IntentPerformAction`
+- `plugininstanceid` for IMPORT: `75e60f28-41ac-4048-83fd-b55de4bef613`
+- `plugininstanceid` for OVERWRITE: `e72f5a3d-1985-4cc5-80d7-d56d29721b91`
+
+These UUIDs were created by configuring AutoInput on the device and pulling the export (AIProbe task method). See full Bundle XML in `AIProbe.tsk.xml` (was at `/tmp/AIProbe.tsk.xml`, was on-device at `/sdcard/Tasker/tasks/AIProbe.tsk.xml` — purge it post-development).
+
+**How the AutoInput UUIDs were obtained:** Created an `AIProbe` Tasker task on the device with two AutoInput actions (IMPORT and OVERWRITE), verified via BLURB text, exported to `/sdcard/Tasker/tasks/AIProbe.tsk.xml`, pulled with `adb pull`. The UUIDs are now embedded in `stayturgid_update_check.tsk.xml`.
 
 ### To release an update (once implementation is complete)
 
@@ -250,46 +277,11 @@ https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.p
 
 ## Next steps
 
-### Step 1 — Implement local XML update path in Tasker UI on device
+### ✅ Step 1 — Implement local XML update path (COMPLETE as of 2026-06-30)
 
-Open Tasker on the device, navigate to `stayturgid_Update_Check` task (or import it fresh from `tasker/auto-update/stayturgid_update_check.tsk.xml`). Make these changes:
+The task XML was edited directly on Mac (`tasker/auto-update/stayturgid_update_check.tsk.xml`) using the discovered action codes and imported to the device. See "Discovered Tasker action codes" section for reference.
 
-**act6 (JavaScript "Set the update data"):** `raw_xml_url` is already present in the XML file. Just verify it survived import — it should set `%raw_xml_url` to:
-```
-https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.prj.xml
-```
-
-**Delete act20** (the JavaScript action that builds a `taskershare://` URI from `%taskernet_url` — this whole approach is being replaced).
-
-**Replace act21** (Browse URL opening `taskershare://`) with these 9 new actions in this exact order:
-
-| Position | Action | Configuration |
-|----------|--------|---------------|
-| 1 | HTTP Request | Method: GET · URL: `%raw_xml_url` · File to save output: `Tasker/Updates/ProjectUpdate.prj.xml` |
-| 2 | Wait | 1 second (lets file write complete before open) |
-| 3 | Run Shell | `mkdir -p /sdcard/Tasker/Updates` (idempotent; creates dir if missing) |
-| 4 | Run Shell | `am start -a android.intent.action.VIEW -d "file:///sdcard/Tasker/Updates/ProjectUpdate.prj.xml"` (fires Android VIEW intent; Tasker intercepts `.prj.xml` and shows import dialog) |
-| 5 | Wait | 3 seconds (buffer for Tasker import UI to render; bump to 5s on slow device) |
-| 6 | Plugin → AutoInput → AutoInput Action | Type: Text · Value: `IMPORT` · Action: Click · Timeout: 20s |
-| 7 | Wait | 1 second |
-| 8 | Plugin → AutoInput → AutoInput Action | Type: Text · Value: `OVERWRITE` · Action: Click · Timeout: 20s |
-| 9 | Go Home | Page: 0 |
-| 10 | Delete File | File: `Tasker/Updates/ProjectUpdate.prj.xml` |
-
-**Delete act22** (the original Task Stop — the Else/If block that follows already has its own Stop at the end).
-
-After edits, export: **long-press stayturgid tab → Export → As File**. Pull to Mac:
-```bash
-adb pull /sdcard/Tasker/stayturgid.prj.xml ~/stayturgid/tasker/stayturgid.prj.xml
-# Also pull the update check task if exported separately:
-adb pull /sdcard/Tasker/stayturgid_Update_Check.tsk.xml ~/stayturgid/tasker/auto-update/stayturgid_update_check.tsk.xml
-```
-
-> Why Run Shell for file open instead of Browse URL: Android 11+ restricts `file://` URIs in cross-process intents. `am start` fires the intent directly from the shell process, bypassing that restriction. The `.prj.xml` extension is registered to Tasker, so the import dialog appears automatically.
-
-> Why these can't be edited directly in the XML: Tasker action codes are undocumented internal integers. Wrong codes are silently ignored on import. AutoInput plugin actions use a nested Bundle structure specific to the installed AutoInput version. Always make these changes in Tasker's UI, then export.
-
-### Step 2 — Test the update flow
+### Step 2 — Test the update flow (CURRENT NEXT STEP)
 
 Set `"version": "0.0"` in act6 temporarily (forces `0.0 < 1.0` comparison → update always triggered). Run the task manually. Verify:
 1. Notification appears with Update / Skip buttons
