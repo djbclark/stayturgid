@@ -99,7 +99,7 @@ scrcpy -s RFCX219CHKA --stay-awake        # live mirror during automation
 - Note: AutoInput crashed once mid-automation ("AutoInput keeps stopping") — recovered by dismissing and relaunching Tasker
 - ✅ **Obtainium full catalog imported** (32 apps; merges without duplicates)
 - ✅ **AutoJs6 v6.7.0 installed**, `RUN_COMMAND` granted, project deployed, `repair-bridge.sh` validated
-- ⚠️ AutoJs6 watchdog not runtime-tested on 7a
+- ✅ Obtainium full catalog + AutoJs6 installed; **stays on Tasker** (`mode=tasker`); Termux boot/repair scripts synced with S24 (2026-07-05 USB)
 - **Leave on Tasker mode** unless explicitly testing AutoJs6
 
 ### Samsung Galaxy S24 (RFCX219CHKA) — initial setup COMPLETE 2026-07-01
@@ -205,7 +205,7 @@ Turn the notify-only watchdog into a repairer. Per subsystem: try layered repair
 - ✅ **7a reconnect launchd agent** updated with its real LAN + Tailscale IPs (was running arg-less/default before).
 - ✅ **Dead-man's switch**: `mac/access-monitor.sh` + `com.djbclark.stayturgid.access-monitor.plist` (every 5 min). Checks every ADB address AND an SSH port-8022 probe per device; fires a macOS notification (with sound) only after ~10 min of total outage across ALL paths, and once on recovery. Per-device consecutive-fail state in `~/.config/stayturgid/access-monitor/`. Installed + loaded; tested (both devices reachable → counters 0).
 - ✅ **Low-battery alarm** in `termux/boot/start-adb.sh` self-heal loop: `termux-battery-status` every 5 min; if ≤30% and not charging → `termux-notification` (max priority) + `termux-toast`, auto-cleared on recovery. Deployed to S24 + loop restarted live; notification/toast/remove path tested working. **Rationale: Tasker can't reliably read charging state; Termux:API can.**
-- 🔲 Same battery alarm + `termux-wake-lock` boot script not yet redeployed to the 7a (its boot script predates these edits).
+- ✅ **Same stack redeployed to 7a (2026-07-05, USB):** `start-adb.sh` (74-line, wake-lock + battery alarm + AutoJs6 nudge no-op in tasker mode), `stayturgid-repair.sh` (TMPDIR fix), `claude-presence.sh`; boot loop restarted; `mode=tasker` written explicitly.
 - 🔲 Watchdog Tailscale probe (check tun0 / ping 100.100.100.100, relaunch app if down) — next watchdog revision
 
 S24 Tasker project snapshot saved to `tasker/s24_stayturgid.prj.xml` (separate from the Pixel 7a's `tasker/stayturgid.prj.xml` — S24 has different internal task/profile IDs).
