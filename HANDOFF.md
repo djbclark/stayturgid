@@ -86,7 +86,7 @@ scrcpy -s RFCX219CHKA --stay-awake        # live mirror during automation
 - ✅ **Watchdog Tailscale probe:** `autojs6/lib/tailscale.js` — tun0 + ping `100.100.100.100`, notify + relaunch `com.tailscale.ipn` if down
 - ✅ **Test scripts:** `test-tailscale-probe-once.js`, `test-stale-loop-once.js`, `test-locked-screen-catastrophic-once.js`; Mac runner `autojs6/mac/run-test.sh`
 - ✅ `COMPARISON.md` remaining rows validated S24 2026-07-05 (locked-screen, stale-loop, Tailscale probe)
-- ✅ Pushed to GitHub `master` @ `33ed452` (Tailscale probe + Obtainium Shizuku installer + COMPARISON close-out)
+- ✅ Pushed to GitHub `master` @ `e4e6c26`+ (doc alignment, repair flock/sshd race fix, delayed trigger)
 
 ### Pixel 7a — WRAPPED UP 2026-07-05 (maintenance-only)
 - ✅ Port 5555 survives cold reboots (verified 2026-06-29)

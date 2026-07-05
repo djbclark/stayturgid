@@ -9,13 +9,39 @@
 # (Tasker+AutoInput or reboot). Prints one STATUS line for the caller.
 
 export PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/sbin:$PATH
+export PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+export HOME="${HOME:-/data/data/com.termux/files/home}"
 # Termux adb daemon writes logs under TMPDIR; without this, localhost:5555 checks fail.
-export TMPDIR="${TMPDIR:-${PREFIX:-/data/data/com.termux/files/usr}/tmp}"
+export TMPDIR="${TMPDIR:-${PREFIX}/tmp}"
 mkdir -p "$TMPDIR" 2>/dev/null
+LOCKFILE="${PREFIX}/tmp/stayturgid-repair.lock"
 LOG="$HOME/.stayturgid-repair.log"           # Termux-writable primary log
 SDLOG=/sdcard/stayturgid_watchdog.log        # shared log (best effort; needs storage perm)
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 log() { local m="$(ts) [repair] $*"; echo "$m" >> "$LOG" 2>/dev/null; echo "$m" >> "$SDLOG" 2>/dev/null; }
+
+exec 9>"$LOCKFILE"
+if ! flock -n 9; then
+    SSHD=unknown; PORT=unknown; SHIZUKU=unknown; SH=""
+    if sshd_up; then
+        SSHD=up
+    elif sshd_listening; then
+        SSHD=up
+    else
+        SSHD=unknown
+    fi
+    if adb connect localhost:5555 >/dev/null 2>&1 && \
+       [ "$(adb -s localhost:5555 shell id -u 2>/dev/null | tr -d '\r')" = "2000" ]; then
+        SH="adb -s localhost:5555 shell"; PORT=open
+        $SH "pgrep -f shizuku_server" >/dev/null 2>&1 && SHIZUKU=up || SHIZUKU=down
+    else
+        PORT=CLOSED_NO_SHELL
+    fi
+    STATUS="STATUS port=$PORT shizuku=$SHIZUKU sshd=$SSHD shell=$([ -n "$SH" ] && echo yes || echo no)"
+    log "$STATUS rc=0 (skipped-duplicate)"
+    echo "$STATUS"
+    exit 0
+fi
 
 rc=0
 
@@ -25,14 +51,17 @@ sshd_listening() {
 }
 
 sshd_up() {
-    pgrep -x sshd >/dev/null 2>&1 || sshd_listening
+    pgrep -x sshd >/dev/null 2>&1 || pgrep -f '[s]shd' >/dev/null 2>&1 || sshd_listening
 }
 
 # --- 1. sshd (same uid as this script; also accept :8022 listen to avoid pgrep races) ---
 if sshd_up; then
     SSHD=up
 else
-    sshd 2>/dev/null; sleep 1   # sshd daemonizes and may return non-zero even on success
+    if ! sshd_listening; then
+        sshd 2>/dev/null
+    fi
+    sleep 2
     if sshd_up; then
         SSHD=restarted; log "sshd was down -> restarted"
     else

@@ -16,15 +16,24 @@ var TASKER_WRAPPER = config.TERMUX_HOME + "/.termux/tasker/stayturgid-repair";
  */
 function invokeRepair() {
     var beforeMs = log.latestRepairTimestampMs() || 0;
-
     var runCommand = tryRunCommand();
-    // Always arm the file trigger too — RUN_COMMAND can return without executing
-    // (e.g. Termux not warmed up, allow-external-apps not yet loaded).
-    tryTriggerFile();
+    var start = Date.now();
+    var triggerArmed = false;
+
+    // Immediate trigger only when RUN_COMMAND could not start at all.
+    if (!runCommand.started) {
+        tryTriggerFile();
+        triggerArmed = true;
+    }
 
     var deadline = Date.now() + 12000;
     while (Date.now() < deadline) {
         sleep(500);
+        // Delayed backup trigger if RUN_COMMAND started but no fresh STATUS yet.
+        if (!triggerArmed && runCommand.started && (Date.now() - start) > 5000) {
+            tryTriggerFile();
+            triggerArmed = true;
+        }
         var afterMs = log.latestRepairTimestampMs();
         if (afterMs !== null && afterMs > beforeMs) {
             return {
@@ -35,6 +44,10 @@ function invokeRepair() {
                 afterMs: afterMs,
             };
         }
+    }
+
+    if (!triggerArmed) {
+        tryTriggerFile();
     }
 
     log.append("[watchdog] termux bridge timeout method="
