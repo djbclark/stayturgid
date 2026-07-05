@@ -134,7 +134,15 @@ Rebooted S24 over Tailscale, one PIN unlock, measured at 159s uptime — **every
 ### TODO (queued): make Tasker import/export ROCK SOLID (own sub-project, reusable)
 User directive 2026-07-05: the Tasker project import/export has been finicky all along (empty imports from XML comments, ghost projects from "Delete Contents", silent My Files failures). Build it into something rock-solid and **reusable across projects** — eventually spun out as its own separate project. Develop/test/debug it in a **dedicated sub-folder** here (e.g. `tasker-io/`) rather than against the live `stayturgid` project, so experiments can't corrupt the real one. Goal: a documented, tested, repeatable import/export procedure (or script) usable in any Tasker project. This is a *tail-end* item — after the watchdog repairer.
 
-### Watchdog rebuild plan (detect → repair → re-check → notify) — TODO
+### ✅ Tasker watchdog repairer (7a) — BUILT + LIVE 2026-07-05
+ADB_Core_Watchdog rebuilt as an 18-action repairer, imported into the live 7a project (clean reimport), verified: test run logged `[watchdog] port=open sshd=up fresh=FRESH` and correctly skipped repair/notify when healthy. Both profiles (ADB_Interval_Check interval + ADB_Boot_Restore boot) enabled.
+- **Detection**: reads the Termux repair-loop STATUS from `/sdcard/stayturgid_watchdog.log` (avoids unreliable Tasker-uid process/socket visibility).
+- **Catastrophic repair** (`%WD_PORT ~ CLOSED_NO_SHELL` = 5555 down + no shell): launch Shizuku → AutoInput-tap Start (227,1992) → notify. Only path that can recover when the Termux shell channel is gone.
+- **Notify** on sshd-down and on stale repair-loop (>15 min = boot loop likely dead).
+- Division of labor: Termux boot loop (5 min) does all shell repairs + logging; Tasker watchdog (20 min + boot) adds the AutoInput catastrophic recovery + user notifications.
+- **Not yet tested**: the catastrophic AutoInput path end-to-end (needs Shizuku actually dead + 5555 down to simulate; disruptive). Logic + AutoInput action verified present and correctly conditioned.
+
+### Watchdog rebuild plan (detect → repair → re-check → notify) — DONE (see above)
 Turn the notify-only watchdog into a repairer. Per subsystem: try layered repairs, re-check, notify ONLY if still down. Include AutoInput fallbacks even where not currently needed (per user).
 1. **Port 5555 down:** (a) Termux `adb connect localhost:5555 && adb tcpip 5555`; (b) Shizuku START broadcast (best-effort); (c) AutoInput: launch Shizuku → tap "Start" (reopens 5555 via TCP mode).
 2. **Shizuku down:** (a) START broadcast; (b) AutoInput launch+Start.
