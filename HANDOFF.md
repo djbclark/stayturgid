@@ -107,6 +107,7 @@ S24 Tasker project snapshot saved to `tasker/s24_stayturgid.prj.xml` (separate f
 - **Mac path:** `~/stayturgid/`
 - **GitHub:** `github.com/djbclark/stayturgid` (private)
 - **Branch:** `master`
+- **Transport:** HTTPS via `gh` CLI credential helper (switched from SSH 2026-07-05; `gh auth login` web flow, GitHub account uses Google SSO). Commit **signing** still uses 1Password SSH keys — if commits fail with "failed to fill whole buffer", 1Password is locked.
 - **Working directory for AI sessions:** `~/upmon-handoff/` (legacy name, kept as-is)
 
 ---
