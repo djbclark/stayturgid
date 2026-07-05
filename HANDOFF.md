@@ -140,7 +140,7 @@ ADB_Core_Watchdog rebuilt as an 18-action repairer, imported into the live 7a pr
 - **Catastrophic repair** (`%WD_PORT ~ CLOSED_NO_SHELL` = 5555 down + no shell): launch Shizuku → AutoInput-tap Start (227,1992) → notify. Only path that can recover when the Termux shell channel is gone.
 - **Notify** on sshd-down and on stale repair-loop (>15 min = boot loop likely dead).
 - Division of labor: Termux boot loop (5 min) does all shell repairs + logging; Tasker watchdog (20 min + boot) adds the AutoInput catastrophic recovery + user notifications.
-- **Not yet tested**: the catastrophic AutoInput path end-to-end (needs Shizuku actually dead + 5555 down to simulate; disruptive). Logic + AutoInput action verified present and correctly conditioned.
+- **Catastrophic path VALIDATED 2026-07-05** (via log-injection of `port=CLOSED_NO_SHELL`, boot loop paused): watchdog fired the notification "⚠ ADB 5555 down — auto-repairing (7a)", logged `[watchdog] port=CLOSED_NO_SHELL`, launched Shizuku, and the **AutoInput gesture tapped Start and restarted shizuku_server (pid changed) — 5555 stayed open**. First attempt revealed the AutoInput action aborts the task *after* it runs, so notify/log were reordered to run BEFORE the AutoInput block (AutoInput is the last action; an abort no longer suppresses the alert). Real-world caveat: AutoInput can't tap behind a locked screen — the notification still fires, and the boot loop keeps retrying shell repairs.
 
 ### Watchdog rebuild plan (detect → repair → re-check → notify) — DONE (see above)
 Turn the notify-only watchdog into a repairer. Per subsystem: try layered repairs, re-check, notify ONLY if still down. Include AutoInput fallbacks even where not currently needed (per user).
