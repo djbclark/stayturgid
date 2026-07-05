@@ -1,0 +1,27 @@
+{
+  "name": "stayturgid",
+  "packageName": "com.djbclark.stayturgid.autojs6",
+  "versionName": "0.1.0",
+  "versionCode": 1,
+  "main": "main.js",
+  "launchConfig": {
+    "displaySplash": false,
+    "hideLogs": true,
+    "stableMode": true
+  },
+  "optimization": {
+    "removeOpenCv": true,
+    "removeMlKit": true
+  },
+  "permissionConfig": {
+    "manifestPermissions": [
+      "android.permission.FOREGROUND_SERVICE",
+      "android.permission.POST_NOTIFICATIONS",
+      "android.permission.WAKE_LOCK",
+      "android.permission.RECEIVE_BOOT_COMPLETED"
+    ],
+    "requestListOnStartup": [
+      "android.permission.POST_NOTIFICATIONS"
+    ]
+  }
+}

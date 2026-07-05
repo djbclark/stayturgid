@@ -9,6 +9,9 @@
 # (Tasker+AutoInput or reboot). Prints one STATUS line for the caller.
 
 export PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/sbin:$PATH
+# Termux adb daemon writes logs under TMPDIR; without this, localhost:5555 checks fail.
+export TMPDIR="${TMPDIR:-${PREFIX:-/data/data/com.termux/files/usr}/tmp}"
+mkdir -p "$TMPDIR" 2>/dev/null
 LOG="$HOME/.stayturgid-repair.log"           # Termux-writable primary log
 SDLOG=/sdcard/stayturgid_watchdog.log        # shared log (best effort; needs storage perm)
 ts() { date '+%Y-%m-%d %H:%M:%S'; }

@@ -39,6 +39,8 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 1. **Termux:Tasker — ✅ IMPLEMENTED on 7a (runtime validation pending).** The watchdog is now **v3**: act0 calls `stayturgid-repair` via the Termux:Tasker plugin (action code `1256900802`, exact format from the official `termux-tasker` template — fetched, not guessed) and reads `%stdout` (STATUS line) + `%result` (exit code) in **real time** each cycle, instead of a log line up to 5 min stale. Bridge set up: `allow-external-apps=true` in `~/.termux/termux.properties`, wrapper at `~/.termux/tasker/stayturgid-repair` (execs `~/stayturgid-repair.sh`; verified runs → exit 0). Imported via the `tasker-io` intent method (clean). `RunCommandService` mechanism confirmed (permission-gated by `com.termux.permission.RUN_COMMAND`, which the plugin holds — an adb-shell test is correctly rejected). **Not yet runtime-validated end-to-end** — couldn't force a manual run because a Tasker "Import Task/Set Sort" **context-menu popup** kept covering the task list (dismiss it by tapping empty space ~`(270,780)` — now handled in `tasker_io.goto_main`), plus a Tailscale ADB dropout. **The 20-min `ADB_Interval_Check` schedule will validate it: look for a `[watchdog] … (termux:tasker)` line + a fresh `[repair] STATUS` in `/sdcard/stayturgid_watchdog.log`.** Safe to leave live: if the bridge returns empty, act5 fires a "bridge failed" notification and the catastrophic branch simply won't match — no broken loop. **Left behind:** an empty throwaway task `TT_fmt` in the stayturgid project (from probing the plugin format before I found the template) — delete it next session.
 2. **Ansible-ify the Termux userland setup.** Turn the manual per-device rebuild (pkg install, restore `.ssh`, boot script, repair/presence scripts, Termux:Boot re-register) into an **idempotent playbook run over SSH/Tailscale**. Makes device rebuilds (like the 7a Termux swap) a one-command replay and scales to future devices. Scope = Termux userland only (the layer we control without root); OS-level bits stay with ADB/Shizuku/Obtainium.
 3. **Add [SuperMonster003/AutoJs6](https://github.com/SuperMonster003/AutoJs6) as an ALTERNATIVE to Tasker+AutoInput** (user request 2026-07-05). AutoJs6 is a maintained Auto.js fork — a JavaScript automation engine using the Accessibility Service. Build a parallel AutoJs6 implementation of the watchdog/repair role so the user can run **either** Tasker+AutoInput **or** AutoJs6 — **no integration, no cross-fallback for now**. They must be **mutually exclusive / locked**: if one is active, the other must not be (e.g. only one accessibility-driven automation enabled at a time; a guard that disables/refuses the other). After building, **compare the two approaches** — technical pros/cons (robustness, element-finding vs coordinate taps, Git-friendliness, install/signature/Play-Protect, battery/background survival, Android-version resilience) and managerial pros/cons (maintainability, collaboration, versioning, learning curve, fork/maintenance risk). This is the **last** roadmap item.
+   - **✅ IMPLEMENTED + validated on S24 2026-07-05:** `autojs6/` sub-project — `main.js` + `lib/` modules mirror `ADB_Core_Watchdog` v3 (Termux `RUN_COMMAND` → `stayturgid-repair.sh`, catastrophic Shizuku Start tap via accessibility, shared `/sdcard/stayturgid_watchdog.log`, mode guard via `/sdcard/stayturgid_automation_mode.txt`). Deploy: `autojs6/mac/deploy.sh`; mode switch: `autojs6/mac/set-automation-mode.sh`. Comparison: `autojs6/COMPARISON.md` (S24 production pick). Mac scripts use `mac/resolve-adb.sh` (USB serial when plugged in, else Tailscale).
+   - **2026-07-05 — deployed to both phones:** AutoJs6 v6.7.0 + Obtainium on 7a and S24. **S24 is production AutoJs6 device** (`mode=autojs6`, Tasker watchdog profiles disabled). **7a remains on Tasker** unless explicitly migrated.
 
 **Tooling assessment (options considered, decisions made):**
 - **Ansible over Termux/SSH** — ✅ adopting (see #2). Best-fit config management for the userland layer; prerequisites already in place (sshd + keys + Tailscale).
@@ -55,7 +57,31 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 
 ## Current project status (as of 2026-07-05)
 
-### Pixel 7a
+### 🎯 Active development device: **Galaxy S24 (USB `RFCX219CHKA`)**
+The Pixel 7a is **wrapped up** for this workstream (see below). Use the S24 over **USB when plugged in**; Mac scripts (`mac/resolve-adb.sh`) auto-pick USB serial and fall back to Tailscale wireless when unplugged.
+
+```bash
+adb -s RFCX219CHKA shell echo OK          # USB (preferred when attached)
+adb -s RFCX219CHKA forward tcp:8022 tcp:8022 && ssh s24 'echo OK'
+scrcpy -s RFCX219CHKA --stay-awake        # live mirror during automation
+./autojs6/mac/setup-autojs6.sh s24 s24    # resolves to RFCX219CHKA when USB present
+```
+
+**2026-07-05 session 3 — S24 AutoJs6 + Obtainium (USB dev handoff):**
+- ✅ AutoJs6 v6.7.0 installed via USB; `RUN_COMMAND` granted; battery whitelist added
+- ✅ `stayturgid-repair.sh` + `repair-bridge.sh` deployed via SSH; bridge running
+- ✅ AutoJs6 project deployed to `/sdcard/Scripts/stayturgid` with device override `s24`
+- ✅ Obtainium: AutoJs6 registered + full `stayturgid-apps.json` catalog imported (Automation + Stayturgid categories)
+- ✅ **AutoJs6 watchdog LIVE on S24:** `main.js` running (Task tab shows Running task [1]); boot cycle `port=open sshd=up invoke=ok`
+- ✅ Tasker watchdog profiles **disabled** via `tasker-io` reimport (`--no-enable` on `ADB_Boot_Restore` + `ADB_Interval_Check`)
+- ✅ `autojs6/mac/start-watchdog.sh` — relaunch main.js over USB/Tailscale ADB
+- ✅ **Termux boot relaunch** for AutoJs6: `start-autojs6-watchdog.sh` + 5-min `boot-launcher.js` nudge in `start-adb.sh` (ASCII paths only; no AutoJs6 timed-task UI required)
+- ✅ **Cold-reboot validation (AutoJs6 stack):** one PIN unlock → `boot-launcher.js` at ~18:18 and ~18:44, `port=open sshd=up invoke=ok`; Termux `sshd` self-restarted after unlock
+- ✅ **`stayturgid-repair.sh` TMPDIR fix:** Termux `adb` daemon needs `TMPDIR=$PREFIX/tmp` or localhost:5555 checks falsely report `CLOSED_NO_SHELL`
+- ✅ **Runtime validation (2026-07-05):** sshd kill → repair-bridge ~2s; `test-watchdog-once` invoke=ok; `test-catastrophic-once` Shizuku Start text-tap ok=true
+- 🔲 `COMPARISON.md` remaining rows: locked-screen catastrophic, stale-loop (15 min), Tailscale probe
+
+### Pixel 7a — WRAPPED UP 2026-07-05 (maintenance-only)
 - ✅ Port 5555 survives cold reboots (verified 2026-06-29)
 - ✅ sshd survives cold reboots (Termux:Boot + self-heal loop)
 - ✅ Tasker watchdog with failure notifications
@@ -71,6 +97,10 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 - ✅ **Custom Setting namespace bug fixed and reimported** (System→Global for adb_enabled/adb_wifi_enabled), verified in the Tasker editor showing Type=Global; both profiles re-enabled
 - ⚠️ Repo project now differs from the **TaskerNet-published** copy (still has the old bug) — republish to TaskerNet when convenient
 - Note: AutoInput crashed once mid-automation ("AutoInput keeps stopping") — recovered by dismissing and relaunching Tasker
+- ✅ **Obtainium full catalog imported** (32 apps; merges without duplicates)
+- ✅ **AutoJs6 v6.7.0 installed**, `RUN_COMMAND` granted, project deployed, `repair-bridge.sh` validated
+- ⚠️ AutoJs6 watchdog not runtime-tested on 7a
+- **Leave on Tasker mode** unless explicitly testing AutoJs6
 
 ### Samsung Galaxy S24 (RFCX219CHKA) — initial setup COMPLETE 2026-07-01
 - ✅ Termux installed (GitHub signed), sshd running on port 8022
@@ -253,24 +283,24 @@ adb connect 192.168.68.62:5555
 adb -s 35261JEHN12374 shell "ip addr show wlan0" | grep "inet "
 ```
 
-### Samsung Galaxy S24 (secondary — setup in progress)
+### Samsung Galaxy S24 (primary dev device — USB `RFCX219CHKA`)
 
 | Field | Value |
 |-------|-------|
 | Device | Samsung Galaxy S24 (SM-S921U1) |
 | Android | 16 (SDK 36) |
-| USB serial | `RFCX219CHKA` |
-| Wireless ADB | **preferred: `adb connect 100.123.218.30:5555` (Tailscale, stable)**; LAN IP is DHCP (was .63, then .55 — do not hardcode). Port 5555 opened via `adb tcpip 5555` over USB; Shizuku thedjchi "Start via Wireless debugging" still fails on Samsung, so 5555 does not survive reboot yet |
-| Tailscale | `com.tailscale.ipn` v1.98.8 via Obtainium; tailnet name `dannys24`, IP `100.123.218.30`; signed in as djbclark@gmail.com |
-| SSH (direct) | `ssh -i ~/.ssh/termux_key -p 8022 djbclark@100.123.218.30` — works over Tailscale with no ADB forward |
-| SSH to Termux | `adb -s RFCX219CHKA forward tcp:8022 tcp:8022` then `ssh -i ~/.ssh/termux_key -p 8022 -o StrictHostKeyChecking=no localhost` |
-| Tasker | `net.dinglisch.android.taskerm` v6.7.5-beta |
-| Shizuku | NOT installed / functional (thedjchi TCP mode doesn't work on Samsung — SSL error) |
-| Termux | `com.termux` (GitHub signed — from Obtainium) |
-| Termux:Boot | `com.termux.boot` (GitHub signed) |
-| Termux:API app | `com.termux.api` (GitHub signed) |
-| Termux:Tasker | `com.termux.tasker` (GitHub signed) |
-| AutoInput | installed but not yet configured |
+| USB serial | `RFCX219CHKA` (**use this when plugged in**) |
+| Wireless ADB | `adb connect 100.123.218.30:5555` (Tailscale, stable); LAN IP is DHCP — do not hardcode |
+| Tailscale | `com.tailscale.ipn` v1.98.8; tailnet name `dannys24`, IP `100.123.218.30` |
+| SSH (direct) | `ssh s24` (alias → Tailscale, key auth, no 1Password dialog) |
+| SSH via USB | `adb -s RFCX219CHKA forward tcp:8022 tcp:8022` then `ssh -p 8022 localhost` |
+| Tasker | `net.dinglisch.android.taskerm` v6.7.5-beta — **active automation stack** |
+| Shizuku | `moe.shizuku.privileged.api` (thedjchi) — survives cold reboot (verified 2026-07-05) |
+| AutoJs6 | `org.autojs.autojs6` v6.7.0 — **watchdog LIVE** (mode=autojs6, `main.js` running) |
+| Termux | GitHub-signed stack via Obtainium (`com.termux` + addons) |
+| Obtainium | Full stayturgid catalog imported (Automation + Stayturgid categories) |
+| Automation mode | `/sdcard/stayturgid_automation_mode.txt` = `autojs6` (testing) |
+| AutoJs6 watchdog | **Validated 2026-07-05** — `test-watchdog-once.js` → `port=open sshd=up invoke=ok` |
 
 S24 Termux SSH quick connect:
 ```bash
@@ -343,9 +373,9 @@ Both must be standalone — not buried in other text. If you pick up a second ph
 So it's obvious *from the phone itself* that automation is live, call the presence script at the start and end of each device session. It uses torch + vibration + an ongoing status-bar notification only — nothing on the screen surface, so it never interferes with UI dumps/taps/screenshots. (Screen flashing or color inversion WAS considered and rejected: overlays can cover tap targets and inversion corrupts screenshots.)
 
 ```bash
-ssh s24 '~/claude-presence.sh on  "Galaxy S24"'   # 3 torch pulses + vibrate + ongoing "🤖 Claude is using ..." notification
-ssh s24 '~/claude-presence.sh off "Galaxy S24"'   # removes notification + 2 pulses + vibrate
-# same for p7a / "Pixel 7a"
+ssh s24 '~/claude-presence.sh on  "Galaxy S24" Auto'   # ongoing "🤖 Auto is using ..." notification
+ssh s24 '~/claude-presence.sh off "Galaxy S24" Auto'   # removes notification + 2 pulses + vibrate
+# same for p7a / "Pixel 7a"; agent name is 3rd arg or STAYTURGID_AGENT env (default: Auto)
 ```
 
 Script lives at `termux/claude-presence.sh` in the repo and `~/claude-presence.sh` on each device. Pair `on` with the USING announcement and `off` with FREE. If SSH is down but ADB is up, run it via `adb -s <dev> shell "run-as ... claude-presence.sh on"` or just skip to the text announcement.
@@ -384,9 +414,17 @@ tasker/
     stayturgid_update_check.tsk.xml     — update-check task pre-configured for stayturgid
     Task_Auto_Update.tsk.xml            — original upstream task from TaskerNet (reference)
     README.md                           — integration docs for auto-update
+autojs6/                                — AutoJs6 alternative to Tasker+AutoInput (mutually exclusive)
+  main.js                               — watchdog entry (20 min + boot manual)
+  lib/                                  — guard, termux bridge, shizuku UI repair, notifications
+  mac/deploy.sh, set-automation-mode.sh — adb deploy + mode file
+obtainium/                              — Obtainium import JSON for all GitHub-sideloaded APKs
+  stayturgid-apps.json                  — full catalog (Termux, Shizuku, Tailscale, AutoJs6)
+  mac/sync-to-device.sh                 — push + open Obtainium import on device
 termux/boot/
   start-adb.sh                          — deploy to ~/.termux/boot/ on device
 mac/
+  resolve-adb.sh                        — USB-first ADB target resolver (p7a/s24 aliases)
   adb-reconnect.sh                      — Mac-side keepalive script (run by launchd)
   com.djbclark.stayturgid.adb-reconnect.plist — launchd agent (runs every 60s)
 ```

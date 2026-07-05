@@ -3,8 +3,10 @@
 # Deployed to ~/claude-presence.sh on each device; called over SSH/ADB by the
 # agent at the start and end of a device session.
 #
-#   claude-presence.sh on  [label]   # torch+vibrate pulse, then ongoing notification
-#   claude-presence.sh off [label]   # torch+vibrate pulse, remove notification
+#   claude-presence.sh on  [label] [agent]   # torch+vibrate pulse, then ongoing notification
+#   claude-presence.sh off [label] [agent]   # torch+vibrate pulse, remove notification
+#
+# Agent name: 3rd argument, or STAYTURGID_AGENT env var (default: Auto).
 #
 # Off the screen surface entirely (torch, vibration, status-bar notification),
 # PLUS whole-screen color inversion while the session runs. Inversion is applied
@@ -22,7 +24,8 @@
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
 ACTION="$1"
 LABEL="${2:-this phone}"
-NID="claude-presence"
+AGENT="${STAYTURGID_AGENT:-${3:-Auto}}"
+NID="stayturgid-presence"
 
 invert() {  # $1 = 1|0 — best-effort whole-screen inversion via the 5555 shell
     adb connect localhost:5555 >/dev/null 2>&1 && \
@@ -44,7 +47,7 @@ case "$ACTION" in
         pulse 3
         termux-notification --id "$NID" --ongoing --alert-once \
             --priority high --icon developer_board \
-            --title "🤖 Claude is using $LABEL" \
+            --title "🤖 $AGENT is using $LABEL" \
             --content "Automation in progress — started $(date '+%H:%M:%S'). This clears when the run ends." \
             2>/dev/null
         echo "presence ON ($LABEL)"
@@ -52,12 +55,13 @@ case "$ACTION" in
     off)
         invert 0
         termux-notification-remove "$NID" 2>/dev/null
+        termux-notification-remove "claude-presence" 2>/dev/null  # legacy id
         pulse 2
         termux-vibrate -d 250 2>/dev/null
         echo "presence OFF ($LABEL)"
         ;;
     *)
-        echo "usage: claude-presence.sh on|off [label]" >&2
+        echo "usage: claude-presence.sh on|off [label] [agent]" >&2
         exit 2
         ;;
 esac

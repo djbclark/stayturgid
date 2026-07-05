@@ -1,0 +1,96 @@
+var config = require("./config.js");
+var log = require("./log.js");
+
+var TERMUX_PKG = "com.termux";
+var RUN_SERVICE = "com.termux.app.RunCommandService";
+var RUN_ACTION = "com.termux.RUN_COMMAND";
+var TRIGGER_FILE = "/sdcard/stayturgid_repair_now";
+var TASKER_WRAPPER = config.TERMUX_HOME + "/.termux/tasker/stayturgid-repair";
+
+/**
+ * Invoke stayturgid-repair.sh in Termux.
+ *
+ * Primary: RUN_COMMAND intent (needs AutoJs6 v6.4.1+ with
+ * com.termux.permission.RUN_COMMAND granted + allow-external-apps=true).
+ * Fallback: touch /sdcard/stayturgid_repair_now for repair-bridge.sh (2s poll).
+ */
+function invokeRepair() {
+    var beforeMs = log.latestRepairTimestampMs() || 0;
+
+    var runCommand = tryRunCommand();
+    // Always arm the file trigger too — RUN_COMMAND can return without executing
+    // (e.g. Termux not warmed up, allow-external-apps not yet loaded).
+    tryTriggerFile();
+
+    var deadline = Date.now() + 12000;
+    while (Date.now() < deadline) {
+        sleep(500);
+        var afterMs = log.latestRepairTimestampMs();
+        if (afterMs !== null && afterMs > beforeMs) {
+            return {
+                ok: true,
+                fresh: true,
+                method: runCommand.started ? "run_command" : "trigger_file",
+                beforeMs: beforeMs,
+                afterMs: afterMs,
+            };
+        }
+    }
+
+    log.append("[watchdog] termux bridge timeout method="
+        + (runCommand.started ? "run_command" : "trigger_file")
+        + (runCommand.error ? " err=" + runCommand.error : ""));
+    return { ok: false, fresh: false, method: runCommand.started ? "run_command" : "trigger_file" };
+}
+
+function tryRunCommand() {
+    try {
+        app.startService({
+            action: RUN_ACTION,
+            packageName: TERMUX_PKG,
+            className: RUN_SERVICE,
+            extras: {
+                "com.termux.RUN_COMMAND_PATH": config.REPAIR_SCRIPT,
+                "com.termux.RUN_COMMAND_BACKGROUND": "true",
+                "com.termux.RUN_COMMAND_WORKDIR": config.TERMUX_HOME,
+            },
+        });
+        return { started: true };
+    } catch (e) {
+        // Fallback path uses tasker wrapper path when direct script path blocked
+        try {
+            app.startService({
+                action: RUN_ACTION,
+                packageName: TERMUX_PKG,
+                className: RUN_SERVICE,
+                extras: {
+                    "com.termux.RUN_COMMAND_PATH": TASKER_WRAPPER,
+                    "com.termux.RUN_COMMAND_BACKGROUND": "true",
+                    "com.termux.RUN_COMMAND_WORKDIR": config.TERMUX_HOME,
+                },
+            });
+            return { started: true };
+        } catch (e2) {
+            return { started: false, error: String(e2) };
+        }
+    }
+}
+
+function tryTriggerFile() {
+    try {
+        files.write(TRIGGER_FILE, String(Date.now()));
+    } catch (e) {
+        log.append("[watchdog] trigger file write failed: " + e);
+    }
+}
+
+function bridgeFailed(invokeResult) {
+    if (!invokeResult || !invokeResult.fresh) return true;
+    return log.latestRepairStatus() === null;
+}
+
+module.exports = {
+    invokeRepair: invokeRepair,
+    bridgeFailed: bridgeFailed,
+    TRIGGER_FILE: TRIGGER_FILE,
+};

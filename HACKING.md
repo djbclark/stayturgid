@@ -142,6 +142,18 @@ AutoInput's **"Auto Dismiss Keyguard"** standalone feature (Standalone Features 
 
 **Watchdog design implication:** don't rely on AutoInput dismissing the keyguard from the background. When the watchdog needs UI interaction, prefer the shell path (`adb -s localhost:5555 shell input …` while 5555 is up); reserve AutoInput for the catastrophic (5555-down) case and, if needed there, wake the screen rather than trigger the crash-prone auto-dismiss.
 
+#### AutoJs6 (stayturgid watchdog alternative)
+
+JavaScript automation engine — mutually exclusive alternative to Tasker+AutoInput for the watchdog layer. See `autojs6/README.md`.
+
+**Source:** https://github.com/SuperMonster003/AutoJs6/releases
+
+**Obtainium URL** (add this in Obtainium → Add App, or import `obtainium/autojs6-only.json` via `obtainium/mac/sync-to-device.sh`):
+```
+https://github.com/SuperMonster003/AutoJs6
+```
+APK filter: `arm64-v8a` (or enable auto-filter-by-arch). Grant **Run commands in Termux environment** after install.
+
 #### Tailscale
 
 Gives the device a stable `100.x.y.z` IP that survives DHCP lease changes and network switches — so `adb connect <tailscale-ip>:5555` and SSH keep working without hunting for the current WiFi IP. (The S24's LAN IP changed mid-session once and broke every hardcoded `adb connect`; Tailscale eliminates that failure mode.)
