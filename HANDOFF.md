@@ -60,7 +60,9 @@ On the Mac side, a launchd agent (`com.djbclark.stayturgid.adb-reconnect`) runs 
 - ✅ `mac/adb-reconnect.sh` rewritten: takes `[serial] [lan_ip] [tailscale_ip]` args, tries cached → USB-discovered LAN → Tailscale in order; per-serial IP cache; S24 launchd agent installed + loaded (`com.djbclark.stayturgid.adb-reconnect-s24.plist`)
 - ⚠️ S24 LAN IP is DHCP and **changed mid-session .63→.55** — never hardcode it; use the Tailscale IP
 - ⚠️ Watchdog notification fix-text still references a hardcoded LAN IP — update to `100.123.218.30` on next watchdog XML revision
-- 🔲 Tailscale **Always-on VPN** not yet enabled (manual: Settings → Connections → More → VPN → gear on Tailscale → Always-on) — do this so the tailnet survives reboots
+- ✅ Tailscale **Always-on VPN** enabled 2026-07-05 (verified: `settings get secure always_on_vpn_app` → `com.tailscale.ipn`); "Block connections without VPN" deliberately left OFF — it would sever LAN ADB/mDNS whenever the tunnel blips
+- ⚠️ **2026-07-05 02:40: S24 at 17% battery and discharging — the USB data cable is NOT charging it.** Phone must live on a real charger or all remote access dies with the battery
+- 🔲 Pixel 7a XMLs in repo had the same Custom Setting namespace bug (arg0=2/System) — **fixed in repo 2026-07-05** but not yet deployed to the 7a (unreachable) and the TaskerNet-published project still has the old bug; redeploy + republish when 7a work resumes
 - 🔲 Watchdog Tailscale probe (check tun0 / ping 100.100.100.100, relaunch app if down) — next watchdog revision
 
 S24 Tasker project snapshot saved to `tasker/s24_stayturgid.prj.xml` (separate from the Pixel 7a's `tasker/stayturgid.prj.xml` — S24 has different internal task/profile IDs).
@@ -107,7 +109,8 @@ S24 Tasker project snapshot saved to `tasker/s24_stayturgid.prj.xml` (separate f
 - **Mac path:** `~/stayturgid/`
 - **GitHub:** `github.com/djbclark/stayturgid` (private)
 - **Branch:** `master`
-- **Transport:** HTTPS via `gh` CLI credential helper (switched from SSH 2026-07-05; `gh auth login` web flow, GitHub account uses Google SSO). Commit **signing** still uses 1Password SSH keys — if commits fail with "failed to fill whole buffer", 1Password is locked.
+- **Transport:** HTTPS via `gh` CLI credential helper (switched from SSH 2026-07-05; `gh auth login` web flow, GitHub account uses Google SSO).
+- **Commit signing:** dedicated signing-only key `~/.ssh/git_signing_key` (passphrase-less, registered on GitHub as a signing key, `verified: true` confirmed) — fully autonomous, no 1Password prompt. The old 1Password key stays registered so past commits remain Verified. `gpg.ssh.allowedSignersFile=~/.ssh/allowed_signers` enables local `git log --show-signature`.
 - **Working directory for AI sessions:** `~/upmon-handoff/` (legacy name, kept as-is)
 
 ---

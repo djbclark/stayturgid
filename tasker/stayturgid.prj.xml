@@ -41,13 +41,13 @@
 		<pri>100</pri>
 		<Action sr="act0" ve="7">
 			<code>235</code>
-			<Int sr="arg0" val="2"/>
+			<Int sr="arg0" val="0"/>
 			<Str sr="arg1" ve="3">adb_enabled</Str>
 			<Str sr="arg2" ve="3">1</Str>
 		</Action>
 		<Action sr="act1" ve="7">
 			<code>235</code>
-			<Int sr="arg0" val="2"/>
+			<Int sr="arg0" val="0"/>
 			<Str sr="arg1" ve="3">adb_wifi_enabled</Str>
 			<Str sr="arg2" ve="3">1</Str>
 		</Action>
