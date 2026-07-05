@@ -27,7 +27,31 @@ adb tcpip 5555 || true
 
 # Keep sshd alive — Tasker watchdog checks its status and notifies on failure,
 # but this loop is the self-healing mechanism (runs as Termux user, right UID).
+# Also fires a low-battery alarm: if the device is discharging below the
+# threshold, the whole remote-access stack dies with the battery, so warn
+# loudly and repeatedly (Tasker can't reliably read charging state; Termux:API can).
+BATT_THRESHOLD=30
+BATT_ALARMED=0
 while true; do
     pgrep sshd > /dev/null 2>&1 || sshd
+
+    batt=$(termux-battery-status 2>/dev/null)
+    if [ -n "$batt" ]; then
+        pct=$(echo "$batt" | grep -o '"percentage": *[0-9]*' | grep -o '[0-9]*')
+        status=$(echo "$batt" | grep -o '"status": *"[^"]*"' | cut -d'"' -f4)
+        if [ -n "$pct" ] && [ "$pct" -le "$BATT_THRESHOLD" ] && [ "$status" != "CHARGING" ] && [ "$status" != "FULL" ]; then
+            if [ "$BATT_ALARMED" -eq 0 ]; then
+                termux-notification --id stayturgid-batt --priority max \
+                    --title "⚠ stayturgid: battery ${pct}% & NOT charging" \
+                    --content "Remote access dies when this device powers off. Plug in a charger." 2>/dev/null
+                termux-toast "stayturgid: battery ${pct}%, not charging — plug in!" 2>/dev/null
+                BATT_ALARMED=1
+            fi
+        else
+            [ "$BATT_ALARMED" -eq 1 ] && termux-notification-remove stayturgid-batt 2>/dev/null
+            BATT_ALARMED=0
+        fi
+    fi
+
     sleep 300
 done &

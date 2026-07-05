@@ -3,17 +3,14 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.djbclark.stayturgid.adb-reconnect</string>
+    <string>com.djbclark.stayturgid.access-monitor</string>
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/djbclark/stayturgid/mac/adb-reconnect.sh</string>
-        <string>35261JEHN12374</string>
-        <string>192.168.68.57:5555</string>
-        <string>100.65.230.108:5555</string>
+        <string>/Users/djbclark/stayturgid/mac/access-monitor.sh</string>
     </array>
     <key>StartInterval</key>
-    <integer>60</integer>
+    <integer>300</integer>
     <key>RunAtLoad</key>
     <true/>
     <key>StandardOutPath</key>

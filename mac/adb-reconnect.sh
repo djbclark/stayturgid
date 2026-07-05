@@ -41,8 +41,16 @@ CURRENT_IP=$("$ADB" -s "$DEVICE_SERIAL" shell \
     "ip addr show wlan0 2>/dev/null | grep 'inet '" 2>/dev/null \
     | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 
+# mDNS: if Wireless Debugging is on, the device advertises a TLS endpoint
+# (adb-<SERIAL>-xxxx _adb-tls-connect._tcp ip:port). Works after reboot with
+# no USB and no port 5555, as long as this host's key is paired/authorized.
+MDNS_ADDR=$("$ADB" mdns services 2>/dev/null \
+    | grep -F "adb-${DEVICE_SERIAL}" | grep -F '_adb-tls-connect' \
+    | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+:[0-9]+' | head -1)
+
 CANDIDATES="$CACHED"
 [ -n "$CURRENT_IP" ] && CANDIDATES="${CURRENT_IP}:5555 $CANDIDATES"
+[ -n "$MDNS_ADDR" ] && CANDIDATES="$CANDIDATES $MDNS_ADDR"
 [ -n "$TAILSCALE_IP" ] && CANDIDATES="$CANDIDATES $TAILSCALE_IP"
 
 for DEVICE in $CANDIDATES; do

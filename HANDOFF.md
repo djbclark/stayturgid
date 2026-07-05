@@ -30,6 +30,13 @@ On the Mac side, a launchd agent (`com.djbclark.stayturgid.adb-reconnect`) runs 
 - ⚠️ Auto-update dialog sequence: **dialog 1 click confirmed working** (YES at 894,2058); dialogs 2–4 not yet confirmed end-to-end
 - ⚠️ `stayturgid_update_check` daily trigger profile not yet committed to repo
 
+**2026-07-05 session — 7a reconnected and repaired via Tailscale:**
+- ✅ Reconnected via `100.65.230.108:38435` (Tailscale mDNS TLS endpoint), then reopened stable port 5555; health check green (Shizuku running, sshd up, port 5555 listening, battery 100%, 4 apps deviceidle-whitelisted)
+- ✅ **Live project was 25 KB vs the repo's stale 4 KB** — exported the live version, committed it to `tasker/stayturgid.prj.xml` (was losing uncommitted Tasker work). Contains 2 profiles + 3 tasks (adds `TestUpdateTrigger`)
+- ✅ **Custom Setting namespace bug fixed and reimported** (System→Global for adb_enabled/adb_wifi_enabled), verified in the Tasker editor showing Type=Global; both profiles re-enabled
+- ⚠️ Repo project now differs from the **TaskerNet-published** copy (still has the old bug) — republish to TaskerNet when convenient
+- Note: AutoInput crashed once mid-automation ("AutoInput keeps stopping") — recovered by dismissing and relaunching Tasker
+
 ### Samsung Galaxy S24 (RFCX219CHKA) — initial setup COMPLETE 2026-07-01
 - ✅ Termux installed (GitHub signed), sshd running on port 8022
 - ✅ Packages installed: openssh, android-tools, wget, git, python, curl, termux-api, runit
@@ -62,7 +69,14 @@ On the Mac side, a launchd agent (`com.djbclark.stayturgid.adb-reconnect`) runs 
 - ⚠️ Watchdog notification fix-text still references a hardcoded LAN IP — update to `100.123.218.30` on next watchdog XML revision
 - ✅ Tailscale **Always-on VPN** enabled 2026-07-05 (verified: `settings get secure always_on_vpn_app` → `com.tailscale.ipn`); "Block connections without VPN" deliberately left OFF — it would sever LAN ADB/mDNS whenever the tunnel blips
 - ⚠️ **2026-07-05 02:40: S24 at 17% battery and discharging — the USB data cable is NOT charging it.** Phone must live on a real charger or all remote access dies with the battery
-- 🔲 Pixel 7a XMLs in repo had the same Custom Setting namespace bug (arg0=2/System) — **fixed in repo 2026-07-05** but not yet deployed to the 7a (unreachable) and the TaskerNet-published project still has the old bug; redeploy + republish when 7a work resumes
+- ✅ Pixel 7a XMLs Custom Setting namespace bug — **fixed in repo AND deployed to the 7a 2026-07-05** (reimported, verified Type=Global in editor). TaskerNet-published copy still stale — republish when convenient.
+
+### Remote-access hardening implemented 2026-07-05 (session 2)
+- ✅ **mDNS TLS fallback** added to `adb-reconnect.sh` — discovers `adb-<SERIAL>-xxxx._adb-tls-connect._tcp` via `adb mdns services`; reconnects after reboot with no USB / no port 5555 (as long as this host is paired). Candidate order now: cached → USB-discovered LAN → mDNS TLS → Tailscale.
+- ✅ **7a reconnect launchd agent** updated with its real LAN + Tailscale IPs (was running arg-less/default before).
+- ✅ **Dead-man's switch**: `mac/access-monitor.sh` + `com.djbclark.stayturgid.access-monitor.plist` (every 5 min). Checks every ADB address AND an SSH port-8022 probe per device; fires a macOS notification (with sound) only after ~10 min of total outage across ALL paths, and once on recovery. Per-device consecutive-fail state in `~/.config/stayturgid/access-monitor/`. Installed + loaded; tested (both devices reachable → counters 0).
+- ✅ **Low-battery alarm** in `termux/boot/start-adb.sh` self-heal loop: `termux-battery-status` every 5 min; if ≤30% and not charging → `termux-notification` (max priority) + `termux-toast`, auto-cleared on recovery. Deployed to S24 + loop restarted live; notification/toast/remove path tested working. **Rationale: Tasker can't reliably read charging state; Termux:API can.**
+- 🔲 Same battery alarm + `termux-wake-lock` boot script not yet redeployed to the 7a (its boot script predates these edits).
 - 🔲 Watchdog Tailscale probe (check tun0 / ping 100.100.100.100, relaunch app if down) — next watchdog revision
 
 S24 Tasker project snapshot saved to `tasker/s24_stayturgid.prj.xml` (separate from the Pixel 7a's `tasker/stayturgid.prj.xml` — S24 has different internal task/profile IDs).

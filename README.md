@@ -106,6 +106,17 @@ launchctl list | grep stayturgid
 
 Reconnect events are logged to `~/Library/Logs/stayturgid-adb-reconnect.log`. The script exits silently when the device is already connected, so the log is quiet during normal operation.
 
+### Dead-man's switch
+
+`mac/access-monitor.sh` (via `com.djbclark.stayturgid.access-monitor.plist`, every 5 min) is the alarm that fires when a device is unreachable on **every** path — all ADB addresses *and* an SSH port-8022 probe. It only notifies after ~10 minutes of total outage (so a brief network blip stays quiet) and notifies once again on recovery. This is the "something is actually wrong" signal, distinct from the reconnect agent which silently self-heals transient drops.
+
+```bash
+cp ~/stayturgid/mac/com.djbclark.stayturgid.access-monitor.plist ~/Library/LaunchAgents/
+launchctl load ~/Library/LaunchAgents/com.djbclark.stayturgid.access-monitor.plist
+```
+
+Edit the `DEVICES` array in `access-monitor.sh` to match your devices' LAN/Tailscale addresses.
+
 To unload:
 
 ```bash
