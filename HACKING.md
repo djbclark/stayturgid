@@ -126,6 +126,22 @@ Play Store: search "AutoInput" by joaomgcd. Required for the auto-update import 
 
 Current version: **3.0.12**.
 
+##### AutoInput crash-loop on Android 16 ("AutoInput keeps stopping") — root cause + fix (2026-07-05)
+
+Confirmed from the system crash log (`dumpsys dropbox --print`), not guessed:
+```
+ForegroundServiceStartNotAllowedException: Service.startForeground() not allowed
+due to mAllowStartForeground false: com.joaomgcd.autoinput/.service.ServiceDismissKeyguard
+```
+AutoInput's **"Auto Dismiss Keyguard"** standalone feature (Standalone Features → Auto Dismiss Keyguard, was **ON**) starts `ServiceDismissKeyguard` as a foreground service on **every screen-on**. Android 12+/16 blocks a background app from starting an FGS (`mAllowStartForeground false`), so it throws and crash-loops on each screen-on — independent of any Tasker automation.
+
+**Fixes applied (Pixel 7a):**
+1. **Battery-optimization exemption** for `com.joaomgcd.autoinput`, `net.dinglisch.android.taskerm`, `com.joaomgcd.taskersettings` (`dumpsys deviceidle whitelist +<pkg>`; or Settings → App → Battery → Unrestricted). Battery-exempt apps are allowed the background FGS start, which is the root-cause fix. After this, screen-on no longer reproduced the crash.
+2. **"Accessibility In Foreground" was already ON** — this is the sanctioned Android 8+ way to keep the accessibility service alive (persistent low-priority FGS notification). It is the *better* alternative to AutoInput's **"Enable Just When Needed"** (which was OFF): for a watchdog that must invoke AutoInput on-demand at unpredictable times, keeping the service alive beats spinning it up per action (slower, and toggling the service touches `enabled_accessibility_services` — the list we must never clobber). So we deliberately kept Foreground ON and did **not** enable Just-When-Needed.
+3. **Definitive fallback if it ever recurs:** disable **Auto Dismiss Keyguard** (removes the crashing service entirely — it wasn't working on Android 16 anyway), and/or update AutoInput to the **latest beta** (Play Store → AutoInput → join beta; the dev patches `foregroundServiceType`/FGS-start changes there first). Manual step — AutoInput is a paid Play app, so beta enrollment is via the Play listing.
+
+**Watchdog design implication:** don't rely on AutoInput dismissing the keyguard from the background. When the watchdog needs UI interaction, prefer the shell path (`adb -s localhost:5555 shell input …` while 5555 is up); reserve AutoInput for the catastrophic (5555-down) case and, if needed there, wake the screen rather than trigger the crash-prone auto-dismiss.
+
 #### Tailscale
 
 Gives the device a stable `100.x.y.z` IP that survives DHCP lease changes and network switches — so `adb connect <tailscale-ip>:5555` and SSH keep working without hunting for the current WiFi IP. (The S24's LAN IP changed mid-session once and broke every hardcoded `adb connect`; Tailscale eliminates that failure mode.)
