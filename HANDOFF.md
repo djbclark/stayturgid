@@ -18,14 +18,15 @@ On the Mac side, a launchd agent (`com.djbclark.stayturgid.adb-reconnect`) runs 
 
 ---
 
-## ⏭️ RESUME HERE (next session) — 2026-07-05 end
+## ✅ 7a Termux → GitHub/Obtainium swap — DONE 2026-07-05
 
-**In progress: replace 7a's googleplay Termux with GitHub build (paused before destructive step).**
-- Why: `com.termux` on the 7a is the **googleplay build** (`vgoogleplay.2026.06.21`); its addons (`com.termux.api` 0.53.0, boot, tasker) are **F-Droid builds** → signature mismatch → `termux-api` broken ("not available on Google Play"). So presence indicator + boot-loop battery alarm silently no-op on the 7a.
-- Fix: uninstall `com.termux`, reinstall from GitHub via Obtainium (github.com/termux/termux-app — same signing key as F-Droid, matches the addons), then rebuild.
-- **Backup already taken** (before any wipe): `~/stayturgid-device-backups/termux-home-7a-20260705-073847.tgz` (416 MB full home incl. `.ssh/{authorized_keys,id_ed25519_github,config}`, `.termux/boot/start-adb.sh`) + `pkg-list-7a-20260705-073847.txt` (182 pkgs).
-- **Resume steps:** (1) `adb -s 35261JEHN12374 uninstall com.termux` (wipes home — backed up; SSH dies but ADB-over-Tailscale via Shizuku survives). (2) Obtainium → add `github.com/termux/termux-app` → install. (3) Open Termux; `pkg install -y openssh android-tools termux-api python wget curl git runit termux-services`; restore `.ssh` + `.termux/boot/start-adb.sh` from backup; deploy `stayturgid-repair.sh` + `claude-presence.sh`; re-register Termux:Boot (open the app once); `sshd`. (4) Test: `ssh p7a`, `termux-battery-status`, `~/claude-presence.sh on "Pixel 7a"` (torch+notif should now WORK), boot loop. (5) Also replace Play-Store `com.termux.styling` and move addons to Obtainium tracking.
-- **Paused because** the Bash tool safety classifier (claude-opus-4-8) went temporarily unavailable mid-step; don't start the uninstall until Bash is reliable.
+The 7a's `com.termux` was the **googleplay build** while its addons were **F-Droid** → signature mismatch → `termux-api` dead (presence indicator + battery alarm were silent no-ops). Fixed by moving the **entire shared-uid Termux ecosystem to GitHub-debug builds** (all match each other) and tracking them in Obtainium.
+
+**Final 7a state (all github-debug signed, all Obtainium-tracked for auto-update):** com.termux 0.118.3, com.termux.api 0.53.0, com.termux.boot 0.8.1, com.termux.tasker 0.9.0, com.termux.styling 0.32.1, com.termux.widget 0.15.0, com.termux.window(float) 0.17.0. `termux-api` now WORKS (verified: presence torch+notification fire, `termux-battery-status` ok). SSH restored (`ssh p7a`, key auth; **Termux uid changed u0_a590→u0_a591**, ssh config updated). sshd up, boot loop running.
+- **`com.termux.gui` has NO GitHub release** → left uninstalled (can't share-uid-align it with github com.termux). `com.termux.x11` doesn't share the uid (stays, already Obtainium). Third-party termux apps (io.github.*, com.gardockt.*, com.maazm7d.*) don't share uid — left as-is.
+- Backup of the old home: `~/stayturgid-device-backups/termux-home-7a-20260705-073847.tgz` + `7a-restore-stage/`.
+
+**Reusable procedure (also in HACKING.md):** back up `$HOME` via SSH → `adb uninstall` all shared-uid com.termux.* → `gh release download` the `+github(-|.)debug` APKs (main is per-arch `arm64-v8a`, addons universal) → **disable Play Protect verifier** (`verifier_verify_adb_installs`/`package_verifier_enable`→0, `package_verifier_user_consent`→-1; **user-approved, restore all to 1 when done**) since Play Protect gates github-debug installs with a fingerprint prompt → `adb install` each → launch Termux (bootstrap), grant storage → `pkg install` + restore `.ssh`/`.termux/boot` + scripts → re-register Termux:Boot → add every app to Obtainium (`obtainium://add/github.com/termux/<repo>`) for auto-updates.
 
 ### New TODOs queued 2026-07-05 (do after the Termux swap + watchdog repairer)
 1. **Update/republish the TaskerNet project** — the published share still has the old Custom Setting namespace bug (fixed in repo + on both devices). Re-export current `stayturgid` and republish to TaskerNet.
