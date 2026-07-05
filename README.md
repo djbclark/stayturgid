@@ -4,6 +4,8 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 
 Repo layout: `tasker/` (Tasker project + watchdog), `termux/` (boot + self-heal scripts), `mac/` (launchd reconnect + access-monitor), `tasker-io/` (reliable Tasker import tooling), `autojs6/` (mutually exclusive AutoJs6 alternative to Tasker+AutoInput), `obtainium/` (Obtainium configs for GitHub-sideloaded APKs). Developer setup and internals are in **HACKING.md**; the current state and roadmap are in **HANDOFF.md**.
 
+**Production stacks (2026-07-05):** Galaxy S24 runs **AutoJs6** (`mode=autojs6`, Tasker watchdog profiles off). Pixel 7a stays on **Tasker+AutoInput** (`mode=tasker`). Never run both automation stacks on one device.
+
 ## TaskerNet
 
 Import the stayturgid Tasker project directly:
@@ -18,7 +20,7 @@ After each cold reboot:
 
 1. **Shizuku** ([thedjchi fork](https://github.com/thedjchi/Shizuku)) starts automatically via Android's Wireless Debugging with *TCP mode* enabled — this opens port 5555 without any USB connection.
 2. **Termux:Boot** fires `~/.termux/boot/start-adb.sh`, starting `sshd` so the device is reachable via SSH-over-ADB-forward.
-3. **Tasker** (`ADB_Boot_Restore` profile) runs `ADB_Core_Watchdog` at boot and every 20 minutes — enforces ADB settings and sends a notification if port 5555 or Shizuku goes down.
+3. **Watchdog layer** (one per device — Tasker *or* AutoJs6): runs `ADB_Core_Watchdog` / `autojs6/main.js` at boot and every 20 minutes — real-time Termux repair, Tailscale probe, notifications, and catastrophic Shizuku UI repair when port 5555 is down.
 
 ## Prerequisites
 
@@ -29,6 +31,8 @@ After each cold reboot:
 | Termux | `com.termux` | Install from F-Droid |
 | Termux:Boot | `com.termux.boot` | Install from F-Droid |
 | Tailscale | `com.tailscale.ipn` | Optional but recommended — stable device IP for `adb connect`/SSH (see HACKING.md §1.2) |
+| AutoJs6 | `org.autojs.autojs6` | S24 production watchdog stack — see `autojs6/README.md` |
+| Obtainium | `dev.imranr.obtainium` | Tracks GitHub-sideloaded APKs; use `enable-shizuku-installer.sh` for quieter installs |
 | Android | 11+ | Wireless Debugging required |
 
 ### Grant Tasker `WRITE_SECURE_SETTINGS`

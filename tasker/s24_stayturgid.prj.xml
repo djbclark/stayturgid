@@ -164,7 +164,7 @@
 			<Str sr="arg1" ve="3">%WATCHDOG_TIME — Port 5555 is not listening. Mac cannot connect to S24 wirelessly.
 FIX (USB connected): On Mac run:
   adb -s RFCX219CHKA tcpip 5555
-  adb connect 192.168.68.63:5555
+  adb connect 100.123.218.30:5555
 FIX (no USB): Reconnect USB cable to Mac first, then run the above.
 DEBUG: Check /sdcard/stayturgid_watchdog.log
 Shizuku=%SHIZUKU_CHECK | tcpip_attempt=%TCPIP_RESULT</Str>

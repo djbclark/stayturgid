@@ -19,12 +19,21 @@ log() { local m="$(ts) [repair] $*"; echo "$m" >> "$LOG" 2>/dev/null; echo "$m" 
 
 rc=0
 
-# --- 1. sshd (same uid as this script, so plain pgrep is reliable) ---
-if pgrep -x sshd >/dev/null 2>&1; then
+sshd_listening() {
+    ss -tln 2>/dev/null | grep -q ':8022 ' || \
+        netstat -tln 2>/dev/null | grep -q ':8022 '
+}
+
+sshd_up() {
+    pgrep -x sshd >/dev/null 2>&1 || sshd_listening
+}
+
+# --- 1. sshd (same uid as this script; also accept :8022 listen to avoid pgrep races) ---
+if sshd_up; then
     SSHD=up
 else
     sshd 2>/dev/null; sleep 1   # sshd daemonizes and may return non-zero even on success
-    if pgrep -x sshd >/dev/null 2>&1; then
+    if sshd_up; then
         SSHD=restarted; log "sshd was down -> restarted"
     else
         SSHD=FAILED; rc=1; log "sshd restart FAILED"

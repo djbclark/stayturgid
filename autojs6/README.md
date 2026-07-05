@@ -43,6 +43,9 @@ Parallel implementation of the **Tasker + AutoInput watchdog layer** using [Auto
 
 # Launch watchdog (after mode switch + a11y enabled):
 ./mac/start-watchdog.sh s24 s24
+
+# Run a one-shot test script:
+./mac/run-test.sh s24 test-watchdog-once.js
 ```
 
 **ADB target:** Mac scripts source `mac/resolve-adb.sh` — `s24`/`p7a` aliases use USB serial when the phone is plugged in, else Tailscale wireless.
@@ -156,7 +159,7 @@ autojs6/
     watchdog.js           — one cycle logic
   devices/p7a.js, s24.js
   scripts/switch-to-*.js, test-*-once.js
-  mac/deploy.sh, set-automation-mode.sh, grant-shizuku.sh
+  mac/deploy.sh, set-automation-mode.sh, grant-shizuku.sh, run-test.sh
   COMPARISON.md           — Tasker vs AutoJs6 evaluation framework
 ```
 

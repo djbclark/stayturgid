@@ -81,8 +81,12 @@ scrcpy -s RFCX219CHKA --stay-awake        # live mirror during automation
 - ✅ **Runtime validation (2026-07-05):** sshd kill → repair-bridge ~2s; `test-watchdog-once` invoke=ok; `test-catastrophic-once` Shizuku Start text-tap ok=true
 - ✅ **Shizuku authorized apps synced for AutoJs6 mode:** `autojs6/mac/grant-shizuku.sh` patches `/data/local/tmp/shizuku/shizuku.json` + `pm grant/revoke` — AutoJs6 allowed, Tasker denied (manager UI is json-driven, not pm-only)
 - ✅ **Obtainium updates (2026-07-05 evening):** Shizuku 13.7.0, Termux:Styling/Widget/Float installed; AutoJs6 6.7.0 refreshed; `obtainium/mac/apply-updates.sh` added; Play Protect may block github-debug installs (verifier disable or manual **More details → Install anyway**)
+- ✅ **Obtainium Shizuku installer:** `obtainium/mac/enable-shizuku-installer.sh` — grants API_V23, syncs `shizuku.json`, toggles UI (confirmed on S24 2026-07-05)
 - ✅ **Termux overlay permission:** `SYSTEM_ALERT_WINDOW` granted for `com.termux` + `com.termux.window` (Termux:Float)
+- ✅ **Watchdog Tailscale probe:** `autojs6/lib/tailscale.js` — tun0 + ping `100.100.100.100`, notify + relaunch `com.tailscale.ipn` if down
+- ✅ **Test scripts:** `test-tailscale-probe-once.js`, `test-stale-loop-once.js`, `test-locked-screen-catastrophic-once.js`; Mac runner `autojs6/mac/run-test.sh`
 - ✅ `COMPARISON.md` remaining rows validated S24 2026-07-05 (locked-screen, stale-loop, Tailscale probe)
+- ✅ Pushed to GitHub `master` @ `33ed452` (Tailscale probe + Obtainium Shizuku installer + COMPARISON close-out)
 
 ### Pixel 7a — WRAPPED UP 2026-07-05 (maintenance-only)
 - ✅ Port 5555 survives cold reboots (verified 2026-06-29)
@@ -105,7 +109,10 @@ scrcpy -s RFCX219CHKA --stay-awake        # live mirror during automation
 - ✅ Obtainium full catalog + AutoJs6 installed; **stays on Tasker** (`mode=tasker`); Termux boot/repair scripts synced with S24 (2026-07-05 USB)
 - **Leave on Tasker mode** unless explicitly testing AutoJs6
 
-### Samsung Galaxy S24 (RFCX219CHKA) — initial setup COMPLETE 2026-07-01
+### Samsung Galaxy S24 (RFCX219CHKA) — **production AutoJs6** (Tasker archived on device)
+
+> Historical bullets below (2026-07-01 initial setup) are superseded where they conflict — Shizuku, port 5555, and AutoJs6 watchdog are all validated 2026-07-05.
+
 - ✅ Termux installed (GitHub signed), sshd running on port 8022
 - ✅ Packages installed: openssh, android-tools, wget, git, python, curl, termux-api, runit
 - ✅ `~/.termux/boot/start-adb.sh` deployed + Termux:Boot app opened (boot script will run on reboot)
@@ -117,10 +124,10 @@ scrcpy -s RFCX219CHKA --stay-awake        # live mirror during automation
 - ✅ Daily trigger profile created: Time 10:00AM–10:01AM → stayturgid_Update_Check
 - ✅ Daily trigger profile renamed to "Daily_Update_Check" (no * prefix) — in stayturgid project
 - ✅ stayturgid_Update_Check task is in "stayturgid" project alongside ADB_Core_Watchdog
-- ⚠️ Shizuku "Start via Wireless debugging" fails on Samsung (SSL cert error) — currently no Shizuku on S24
-- ⚠️ Without Shizuku, `adb tcpip 5555` must be triggered manually after each reboot (until a workaround is found)
-- 🔲 AutoInput plugin not yet configured/tested on S24
-- 🔲 End-to-end auto-update flow not tested on S24
+- ~~Shizuku SSL / no Shizuku~~ → **resolved:** Shizuku 13.7.0 + wireless-debug Start text-tap validated (AutoJs6 catastrophic path)
+- ~~Manual adb tcpip after reboot~~ → **resolved:** Shizuku TCP mode + cold-reboot validation
+- ~~AutoInput on S24~~ → **deferred:** S24 uses AutoJs6; Tasker profiles disabled
+- ~~End-to-end auto-update on S24~~ → **deferred:** auto-update remains Tasker-only; 7a path when needed
 
 ### S24 session 2026-07-05 — verbose watchdog imported and VERIFIED WORKING
 - ✅ **ADB_Core_Watchdog rewritten** (17 actions): timestamps, guarded Termux-adb call, port/Shizuku/sshd probes, file logging to `/sdcard/stayturgid_watchdog.log`, three separate verbose notifications with per-failure fix instructions
@@ -133,8 +140,8 @@ scrcpy -s RFCX219CHKA --stay-awake        # live mirror during automation
 - ✅ Battery-optimization exemptions added (deviceidle whitelist): Tailscale, Termux, Tasker
 - ✅ `start-adb.sh` updated with `termux-wake-lock` + deployed to S24 via SSH-over-Tailscale (checksums verified); wake-lock acquired live
 - ✅ `mac/adb-reconnect.sh` rewritten: takes `[serial] [lan_ip] [tailscale_ip]` args, tries cached → USB-discovered LAN → Tailscale in order; per-serial IP cache; S24 launchd agent installed + loaded (`com.djbclark.stayturgid.adb-reconnect-s24.plist`)
-- ⚠️ S24 LAN IP is DHCP and **changed mid-session .63→.55** — never hardcode it; use the Tailscale IP
-- ⚠️ Watchdog notification fix-text still references a hardcoded LAN IP — update to `100.123.218.30` on next watchdog XML revision
+- ⚠️ S24 LAN IP is DHCP — never hardcode it; use Tailscale `100.123.218.30`
+- ✅ Tasker notification fix-text in `s24_stayturgid.prj.xml` updated to Tailscale IP (Tasker profiles disabled on S24; AutoJs6 notify uses dynamic text)
 - ✅ Tailscale **Always-on VPN** enabled 2026-07-05 (verified: `settings get secure always_on_vpn_app` → `com.tailscale.ipn`); "Block connections without VPN" deliberately left OFF — it would sever LAN ADB/mDNS whenever the tunnel blips
 - ⚠️ **2026-07-05 02:40: S24 at 17% battery and discharging — the USB data cable is NOT charging it.** Phone must live on a real charger or all remote access dies with the battery
 - ✅ Pixel 7a XMLs Custom Setting namespace bug — **fixed in repo AND deployed to the 7a 2026-07-05** (reimported, verified Type=Global in editor). TaskerNet-published copy still stale — republish when convenient.
@@ -297,13 +304,13 @@ adb -s 35261JEHN12374 shell "ip addr show wlan0" | grep "inet "
 | Tailscale | `com.tailscale.ipn` v1.98.8; tailnet name `dannys24`, IP `100.123.218.30` |
 | SSH (direct) | `ssh s24` (alias → Tailscale, key auth, no 1Password dialog) |
 | SSH via USB | `adb -s RFCX219CHKA forward tcp:8022 tcp:8022` then `ssh -p 8022 localhost` |
-| Tasker | `net.dinglisch.android.taskerm` v6.7.5-beta — **active automation stack** |
+| Tasker | `net.dinglisch.android.taskerm` v6.7.5-beta — **profiles disabled** (archived fallback) |
 | Shizuku | `moe.shizuku.privileged.api` (thedjchi) — survives cold reboot (verified 2026-07-05) |
-| AutoJs6 | `org.autojs.autojs6` v6.7.0 — **watchdog LIVE** (mode=autojs6, `main.js` running) |
+| AutoJs6 | `org.autojs.autojs6` v6.7.0 — **production watchdog** (mode=autojs6, `main.js` running) |
 | Termux | GitHub-signed stack via Obtainium (`com.termux` + addons) |
-| Obtainium | Full stayturgid catalog imported (Automation + Stayturgid categories) |
-| Automation mode | `/sdcard/stayturgid_automation_mode.txt` = `autojs6` (testing) |
-| AutoJs6 watchdog | **Validated 2026-07-05** — `test-watchdog-once.js` → `port=open sshd=up invoke=ok` |
+| Obtainium | Full stayturgid catalog; **Shizuku installer enabled** (`enable-shizuku-installer.sh`) |
+| Automation mode | `/sdcard/stayturgid_automation_mode.txt` = `autojs6` |
+| AutoJs6 watchdog | **Validated 2026-07-05** — watchdog + catastrophic + stale-loop + locked-screen + Tailscale probe |
 
 S24 Termux SSH quick connect:
 ```bash
@@ -419,11 +426,13 @@ tasker/
     README.md                           — integration docs for auto-update
 autojs6/                                — AutoJs6 alternative to Tasker+AutoInput (mutually exclusive)
   main.js                               — watchdog entry (20 min + boot manual)
-  lib/                                  — guard, termux bridge, shizuku UI repair, notifications
-  mac/deploy.sh, set-automation-mode.sh — adb deploy + mode file
+  lib/                                  — guard, termux bridge, shizuku/tailscale, notifications
+  mac/deploy.sh, set-automation-mode.sh, run-test.sh, grant-shizuku.sh
 obtainium/                              — Obtainium import JSON for all GitHub-sideloaded APKs
   stayturgid-apps.json                  — full catalog (Termux, Shizuku, Tailscale, AutoJs6)
   mac/sync-to-device.sh                 — push + open Obtainium import on device
+  mac/apply-updates.sh                  — drive bulk update UI from Mac
+  mac/enable-shizuku-installer.sh       — one-time: quieter installs via Shizuku API
 termux/boot/
   start-adb.sh                          — deploy to ~/.termux/boot/ on device
 mac/

@@ -166,6 +166,17 @@ Select: "GitHub Releases" → filter for `.apk`.
 
 After install: sign in, and in Tailscale settings consider enabling **VPN On-Demand / Always-on VPN** so the tunnel survives reboots.
 
+#### Obtainium — quieter installs via Shizuku
+
+After Shizuku is running and Obtainium is in the manager's authorized-app list:
+
+```bash
+chmod +x obtainium/mac/enable-shizuku-installer.sh
+./obtainium/mac/enable-shizuku-installer.sh s24   # phone unlocked
+```
+
+This grants `moe.shizuku.manager.permission.API_V23`, merges Obtainium into `/data/local/tmp/shizuku/shizuku.json`, and toggles **Use Dhizuku, Shizuku or Sui to install** in Obtainium settings (approves the Shizuku permission dialog if shown). Bulk updates: `./obtainium/mac/apply-updates.sh s24`.
+
 ---
 
 ### 1.3 Configure Shizuku (thedjchi fork)
