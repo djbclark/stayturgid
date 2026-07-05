@@ -110,6 +110,15 @@ Rebooted S24 over Tailscale, one PIN unlock, measured at 159s uptime — **every
 - **Proven auth-free restart (use this for the watchdog):** launch `moe.shizuku.privileged.api` MainActivity → AutoInput-tap the **"Start"** button (wireless-debugging start). Verified working earlier (started shizuku_server pid 3109, no SSL error). Button center on S24 (scrolled to top of that section): ~**(227,1977)** — recalibrate, it moves with scroll.
 - Shizuku notification permission must be granted for the pairing/start flow (`pm grant moe.shizuku.privileged.api android.permission.POST_NOTIFICATIONS`).
 
+### Repair channel CONFIRMED (tested 2026-07-05)
+- **`adb -s localhost:5555 shell` from Termux = full shell uid 2000** (groups incl. `input`,`adb`,`log`). So while 5555 is open, the repair layer can run `input tap`, `settings put`, `setprop`, `am`, `svc` with shell privileges — **no AutoInput and no Shizuku auth token needed.** This is the primary repair channel.
+- Shizuku automation **START/STOP broadcasts REQUIRE the per-install auth token even when sent as shell** (verified: without it → `auth_errors` notification, `notify(1450, channel=auth_errors)`). Don't rely on broadcasts.
+- **Catastrophic case** (5555 closed AND Shizuku down): no shell reachable → only Tasker+AutoInput (tap Shizuku "Start") or a reboot recovers. This is the one place AutoInput is irreplaceable.
+- Division of labor: **Termux layer** = `stayturgid-repair.sh` (sshd + shell-based repairs via localhost:5555, runs from boot loop + called by watchdog). **Tasker layer** = detection, notifications, and the AutoInput catastrophic fallback.
+
+### TODO (queued): make Tasker import/export ROCK SOLID (own sub-project, reusable)
+User directive 2026-07-05: the Tasker project import/export has been finicky all along (empty imports from XML comments, ghost projects from "Delete Contents", silent My Files failures). Build it into something rock-solid and **reusable across projects** — eventually spun out as its own separate project. Develop/test/debug it in a **dedicated sub-folder** here (e.g. `tasker-io/`) rather than against the live `stayturgid` project, so experiments can't corrupt the real one. Goal: a documented, tested, repeatable import/export procedure (or script) usable in any Tasker project. This is a *tail-end* item — after the watchdog repairer.
+
 ### Watchdog rebuild plan (detect → repair → re-check → notify) — TODO
 Turn the notify-only watchdog into a repairer. Per subsystem: try layered repairs, re-check, notify ONLY if still down. Include AutoInput fallbacks even where not currently needed (per user).
 1. **Port 5555 down:** (a) Termux `adb connect localhost:5555 && adb tcpip 5555`; (b) Shizuku START broadcast (best-effort); (c) AutoInput: launch Shizuku → tap "Start" (reopens 5555 via TCP mode).

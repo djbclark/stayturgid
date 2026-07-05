@@ -33,7 +33,14 @@ adb tcpip 5555 || true
 BATT_THRESHOLD=30
 BATT_ALARMED=0
 while true; do
-    pgrep sshd > /dev/null 2>&1 || sshd
+    # Full Termux-side self-heal (sshd + privileged checks/repairs via
+    # Shizuku's localhost:5555 shell, logged). Falls back to a bare sshd
+    # restart if the repair script isn't deployed yet.
+    if [ -x "$HOME/stayturgid-repair.sh" ]; then
+        "$HOME/stayturgid-repair.sh" >/dev/null 2>&1
+    else
+        pgrep sshd > /dev/null 2>&1 || sshd
+    fi
 
     batt=$(termux-battery-status 2>/dev/null)
     if [ -n "$batt" ]; then
