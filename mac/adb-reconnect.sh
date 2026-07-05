@@ -2,14 +2,21 @@
 # Reconnects wireless ADB if the device has dropped.
 # Intended to run every 60 seconds via launchd — exits silently when already connected.
 #
-# IP discovery: if the known IP fails, attempts to find the current device IP
-# via USB (serial DEVICE_SERIAL). This handles DHCP changes across reboots.
-# The discovered IP is cached to DEVICE_FILE for subsequent runs.
+# Usage: adb-reconnect.sh [DEVICE_SERIAL] [DEFAULT_IP:PORT] [TAILSCALE_IP:PORT]
+#   No args = Pixel 7a defaults (backwards compatible with the original plist).
+#
+# Connection candidates, tried in order until one succeeds:
+#   1. last known-good address (cached in DEVICE_FILE)
+#   2. current LAN IP discovered over USB (handles DHCP changes)
+#   3. the device's Tailscale address (stable; works off-LAN and across
+#      DHCP changes — this is the fallback of last resort and also the
+#      repair path when the LAN address is unreachable)
 
 ADB=/opt/homebrew/bin/adb
-DEVICE_SERIAL=35261JEHN12374
-DEVICE_FILE=$HOME/.config/stayturgid/device_ip
-DEFAULT_IP=192.168.68.62:5555
+DEVICE_SERIAL=${1:-35261JEHN12374}
+DEFAULT_IP=${2:-192.168.68.62:5555}
+TAILSCALE_IP=${3:-}
+DEVICE_FILE=$HOME/.config/stayturgid/device_ip_${DEVICE_SERIAL}
 LOG=$HOME/Library/Logs/stayturgid-adb-reconnect.log
 MAX_LINES=1000
 
@@ -21,30 +28,36 @@ if [ -f "$LOG" ] && [ "$(wc -l < "$LOG")" -gt "$MAX_LINES" ]; then
 fi
 
 # Load last known IP (fall back to default on first run)
-DEVICE=$(cat "$DEVICE_FILE" 2>/dev/null || echo "$DEFAULT_IP")
+CACHED=$(cat "$DEVICE_FILE" 2>/dev/null || echo "$DEFAULT_IP")
 
-# Exit silently if already connected and healthy
-"$ADB" devices 2>/dev/null | grep -qF "${DEVICE}"$'\t'"device" && exit 0
+# Exit silently if already connected and healthy (any candidate address)
+for addr in "$CACHED" "$TAILSCALE_IP"; do
+    [ -n "$addr" ] || continue
+    "$ADB" devices 2>/dev/null | grep -qF "${addr}"$'\t'"device" && exit 0
+done
 
-# Not connected — try USB to discover the current IP in case DHCP changed it
+# Not connected — try USB to discover the current LAN IP in case DHCP changed it
 CURRENT_IP=$("$ADB" -s "$DEVICE_SERIAL" shell \
     "ip addr show wlan0 2>/dev/null | grep 'inet '" 2>/dev/null \
     | grep -oE '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 
-if [ -n "$CURRENT_IP" ] && [ "${CURRENT_IP}:5555" != "$DEVICE" ]; then
-    DEVICE="${CURRENT_IP}:5555"
-    mkdir -p "$(dirname "$DEVICE_FILE")"
-    echo "$DEVICE" > "$DEVICE_FILE"
-    echo "$(date '+%Y-%m-%d %H:%M:%S')  IP changed → ${DEVICE}" >> "$LOG"
-fi
+CANDIDATES="$CACHED"
+[ -n "$CURRENT_IP" ] && CANDIDATES="${CURRENT_IP}:5555 $CANDIDATES"
+[ -n "$TAILSCALE_IP" ] && CANDIDATES="$CANDIDATES $TAILSCALE_IP"
 
-# Attempt reconnect, log, and notify
-echo "$(date '+%Y-%m-%d %H:%M:%S')  reconnecting ${DEVICE}" >> "$LOG"
-result=$("$ADB" connect "$DEVICE" 2>&1)
-echo "$(date '+%Y-%m-%d %H:%M:%S')  ${result}" >> "$LOG"
+for DEVICE in $CANDIDATES; do
+    echo "$(date '+%Y-%m-%d %H:%M:%S')  [${DEVICE_SERIAL}] trying ${DEVICE}" >> "$LOG"
+    result=$("$ADB" connect "$DEVICE" 2>&1)
+    echo "$(date '+%Y-%m-%d %H:%M:%S')  [${DEVICE_SERIAL}] ${result}" >> "$LOG"
+    if echo "$result" | grep -qF "connected to"; then
+        if [ "$DEVICE" != "$CACHED" ]; then
+            mkdir -p "$(dirname "$DEVICE_FILE")"
+            echo "$DEVICE" > "$DEVICE_FILE"
+        fi
+        osascript -e "display notification \"Reconnected ${DEVICE}\" with title \"stayturgid\""
+        exit 0
+    fi
+done
 
-if echo "$result" | grep -qF "connected to"; then
-    osascript -e "display notification \"Reconnected ${DEVICE}\" with title \"stayturgid\""
-else
-    osascript -e "display notification \"Failed: ${result}\" with title \"stayturgid\""
-fi
+osascript -e "display notification \"Failed: ${DEVICE_SERIAL} unreachable on all addresses\" with title \"stayturgid\""
+exit 1

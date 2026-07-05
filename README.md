@@ -26,6 +26,7 @@ After each cold reboot:
 | Shizuku (thedjchi fork) | `moe.shizuku.privileged.api` | v13.6+ beta — **not** the Play Store version |
 | Termux | `com.termux` | Install from F-Droid |
 | Termux:Boot | `com.termux.boot` | Install from F-Droid |
+| Tailscale | `com.tailscale.ipn` | Optional but recommended — stable device IP for `adb connect`/SSH (see HACKING.md §1.2) |
 | Android | 11+ | Wireless Debugging required |
 
 ### Grant Tasker `WRITE_SECURE_SETTINGS`
@@ -83,13 +84,17 @@ pgrep -f shizuku && echo SHIZUKU_OK
 
 The device-side setup keeps port 5555 open across reboots, but `adb connect` on the Mac side drops when the Mac sleeps or the network flaps. A launchd agent reconnects it automatically every 60 seconds.
 
+The script takes optional args — `adb-reconnect.sh [serial] [lan_ip:port] [tailscale_ip:port]` — and tries the cached address, then the USB-discovered LAN IP, then the Tailscale IP. With no args it defaults to the Pixel 7a. One plist per device:
+
 ```bash
 # Make the script executable
 chmod +x ~/stayturgid/mac/adb-reconnect.sh
 
-# Install and start the launchd agent
+# Install and start the launchd agents (7a default + S24 with Tailscale fallback)
 cp ~/stayturgid/mac/com.djbclark.stayturgid.adb-reconnect.plist ~/Library/LaunchAgents/
+cp ~/stayturgid/mac/com.djbclark.stayturgid.adb-reconnect-s24.plist ~/Library/LaunchAgents/
 launchctl load ~/Library/LaunchAgents/com.djbclark.stayturgid.adb-reconnect.plist
+launchctl load ~/Library/LaunchAgents/com.djbclark.stayturgid.adb-reconnect-s24.plist
 ```
 
 Verify it loaded:

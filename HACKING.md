@@ -126,6 +126,18 @@ Play Store: search "AutoInput" by joaomgcd. Required for the auto-update import 
 
 Current version: **3.0.12**.
 
+#### Tailscale
+
+Gives the device a stable `100.x.y.z` IP that survives DHCP lease changes and network switches — so `adb connect <tailscale-ip>:5555` and SSH keep working without hunting for the current WiFi IP. (The S24's LAN IP changed mid-session once and broke every hardcoded `adb connect`; Tailscale eliminates that failure mode.)
+
+**Obtainium URL** (add this in Obtainium → Add App):
+```
+https://github.com/tailscale/tailscale-android
+```
+Select: "GitHub Releases" → filter for `.apk`.
+
+After install: sign in, and in Tailscale settings consider enabling **VPN On-Demand / Always-on VPN** so the tunnel survives reboots.
+
 ---
 
 ### 1.3 Configure Shizuku (thedjchi fork)
@@ -516,6 +528,41 @@ These action codes and arg layouts are confirmed from live Tasker 6.7.5-beta exp
 | Variable Flash | 548 | arg0=text |
 | Screen On/Off | 512 | — |
 | Task | 130 | call another task |
+
+### Custom Setting action (code 235) — namespace mapping GOTCHA (discovered 2026-07-05)
+
+`arg0` selects the settings namespace from the dropdown in **alphabetical order**:
+
+| arg0 | Namespace |
+|------|-----------|
+| 0 | **Global** |
+| 1 | Secure |
+| 2 | System |
+
+Do NOT assume 0=system. The original watchdog wrote `adb_enabled`/`adb_wifi_enabled` with arg0=2 (System) — silently useless, since **both settings live in Global** (verified on S24: `settings get global adb_enabled` → 1, secure/system → null). This was why the watchdog never actually restored ADB. Writing to Global/Secure requires `pm grant net.dinglisch.android.taskerm android.permission.WRITE_SECURE_SETTINGS`.
+
+Other args: arg1=setting name, arg2=value, arg3=0.
+
+### XML comments break Tasker import (discovered 2026-07-02)
+
+Tasker's XML parser does NOT handle `<!-- ... -->` comments inside project/task XML. A file containing them imports as an **empty project** (structure created, no tasks/profiles, no error shown). Strip all comments before pushing:
+
+```bash
+python3 -c "import re,sys; p=sys.argv[1]; s=open(p).read(); open(p,'w').write(re.sub(r'<!--.*?-->','',s,flags=re.DOTALL))" file.prj.xml
+```
+
+### Import fails with "a project with that name already exists" — ghost project GOTCHA (discovered 2026-07-05)
+
+Tasker's project-tab **Delete → "Delete Contents"** does NOT fully remove the project — the project shell survives in Tasker's internal data (its tab may even disappear from the UI while tasks/profiles remain hidden under it). Any later import of a same-named project then fails; via My Files/content-URI the failure is **silent**, via long-press project tab → **Import Project** you at least get the real error message.
+
+Reliable clean reimport sequence:
+1. Delete all profiles first (long-press → select all → trash; tasks can't be deleted while profiles reference them)
+2. Delete all tasks
+3. Long-press project tab → Delete → **Keep Contents** (this removes the shell)
+4. Push the XML to `/sdcard/Tasker/projects/`
+5. Long-press any project tab → **Import Project** → pick the file (this path shows real errors, unlike the My Files → Open-with-Tasker path)
+
+Also: editing `/sdcard/Tasker/projects/*.prj.xml` directly does nothing — Tasker only reads those files during an explicit import; live data is in the app's private storage.
 
 ### Wait action — CRITICAL GOTCHA
 

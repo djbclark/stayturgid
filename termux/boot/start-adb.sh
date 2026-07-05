@@ -9,7 +9,12 @@ export PREFIX=/data/data/com.termux/files/usr
 export TMPDIR=/data/data/com.termux/files/usr/tmp
 export LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib
 
+# Hold a wakelock so Doze can't freeze Termux (and with it sshd + the
+# self-heal loop below). Requires Termux:API app; no-op if missing.
+termux-wake-lock 2>/dev/null || true
+
 # Start SSH server so the device is reachable via ADB port-forward
+# (or directly via the Tailscale IP on port 8022 when Tailscale is up)
 sshd
 
 # Wait for WiFi/network to settle

@@ -18,7 +18,7 @@ On the Mac side, a launchd agent (`com.djbclark.stayturgid.adb-reconnect`) runs 
 
 ---
 
-## Current project status (as of 2026-07-01)
+## Current project status (as of 2026-07-05)
 
 ### Pixel 7a
 - ✅ Port 5555 survives cold reboots (verified 2026-06-29)
@@ -47,7 +47,40 @@ On the Mac side, a launchd agent (`com.djbclark.stayturgid.adb-reconnect`) runs 
 - 🔲 AutoInput plugin not yet configured/tested on S24
 - 🔲 End-to-end auto-update flow not tested on S24
 
+### S24 session 2026-07-05 — verbose watchdog imported and VERIFIED WORKING
+- ✅ **ADB_Core_Watchdog rewritten** (17 actions): timestamps, guarded Termux-adb call, port/Shizuku/sshd probes, file logging to `/sdcard/stayturgid_watchdog.log`, three separate verbose notifications with per-failure fix instructions
+- ✅ **Root cause of watchdog never restoring ADB found**: old task wrote `adb_enabled`/`adb_wifi_enabled` with Custom Setting type **System** (arg0=2); both settings actually live in **Global**. Custom Setting arg0 mapping is **0=Global, 1=Secure, 2=System** (alphabetical dropdown order — HACKING.md "Tasker XML" section)
+- ✅ Import verified: test run wrote correct log line AND flipped `global adb_wifi_enabled` 0→1 (wireless debugging re-enabled by the watchdog itself); all 3 notifications fired with correct titles
+- ✅ Tasker granted `WRITE_SECURE_SETTINGS` (needed for Global/Secure writes)
+- ✅ Tailscale added to Obtainium (github.com/tailscale/tailscale-android) and installed (`com.tailscale.ipn` v1.98.8); user signed in — S24 is **`dannys24` = `100.123.218.30`** on the tailnet (the `daniels-s24` entry is a stale 53-day-old registration, can be deleted in the admin console)
+- ✅ **ADB over Tailscale verified**: `adb connect 100.123.218.30:5555`
+- ✅ **Direct SSH over Tailscale verified**: `ssh -i ~/.ssh/termux_key -p 8022 djbclark@100.123.218.30` — no ADB forward needed (Android's WiFi SSH block doesn't apply to the tun interface)
+- ✅ Battery-optimization exemptions added (deviceidle whitelist): Tailscale, Termux, Tasker
+- ✅ `start-adb.sh` updated with `termux-wake-lock` + deployed to S24 via SSH-over-Tailscale (checksums verified); wake-lock acquired live
+- ✅ `mac/adb-reconnect.sh` rewritten: takes `[serial] [lan_ip] [tailscale_ip]` args, tries cached → USB-discovered LAN → Tailscale in order; per-serial IP cache; S24 launchd agent installed + loaded (`com.djbclark.stayturgid.adb-reconnect-s24.plist`)
+- ⚠️ S24 LAN IP is DHCP and **changed mid-session .63→.55** — never hardcode it; use the Tailscale IP
+- ⚠️ Watchdog notification fix-text still references a hardcoded LAN IP — update to `100.123.218.30` on next watchdog XML revision
+- 🔲 Tailscale **Always-on VPN** not yet enabled (manual: Settings → Connections → More → VPN → gear on Tailscale → Always-on) — do this so the tailnet survives reboots
+- 🔲 Watchdog Tailscale probe (check tun0 / ping 100.100.100.100, relaunch app if down) — next watchdog revision
+
 S24 Tasker project snapshot saved to `tasker/s24_stayturgid.prj.xml` (separate from the Pixel 7a's `tasker/stayturgid.prj.xml` — S24 has different internal task/profile IDs).
+
+### Remote-access resilience plan (S24) — target: ≥2 independent methods, each able to repair the other
+
+| # | Method | Path | Depends on | Can repair |
+|---|--------|------|-----------|------------|
+| 1 | ADB over WiFi | `adb connect <ip>:5555` | port 5555 open (Shizuku TCP / `adb tcpip`), `adb_enabled`+`adb_wifi_enabled` global settings | restart sshd (via Tasker intent / Termux:Boot), fix Tasker, reinstall apps |
+| 2 | SSH to Termux | `ssh -p 8022` (currently only via ADB forward; direct once Tailscale is up) | sshd running, Termux alive | re-open port 5555 (`adb tcpip` via Termux android-tools + Wireless-Debugging pair, or Shizuku `rish settings put …`) |
+| 3 | On-device auto-repair | Tasker watchdog every 20 min + boot | Tasker + WRITE_SECURE_SETTINGS | re-enables adb settings, notifies user with manual fix steps |
+
+**Hardening still to do (in order):**
+1. **Finish Tailscale sign-in** → both methods get a stable `100.x` IP, reachable off-LAN; SSH no longer needs the ADB forward (Android's WiFi firewall doesn't apply to the tun interface)
+2. Tailscale settings: enable **Always-on VPN** (Android Settings → VPN → gear) so it survives reboots
+3. Battery-optimization exemptions for Tailscale, Termux, Tasker (`Settings → Apps → … → Battery → Unrestricted`) so Doze can't kill any leg
+4. `termux-wake-lock` in `~/.termux/boot/start-adb.sh`, and run sshd under runit (already installed) for auto-restart
+5. Add a Tailscale probe to the watchdog (check `tun0` / ping `100.100.100.100`, notify + `am start` Tailscale if down)
+6. Extend `mac/adb-reconnect.sh` to fall back to the Tailscale IP when the LAN IP fails
+7. Deploy the same stack to the Pixel 7a when it's back in scope
 
 **Current import action sequence (act20–act43):**
 - act20: Run Shell `mkdir -p /sdcard/Tasker/Updates`
@@ -110,7 +143,9 @@ adb -s 35261JEHN12374 shell "ip addr show wlan0" | grep "inet "
 | Device | Samsung Galaxy S24 (SM-S921U1) |
 | Android | 16 (SDK 36) |
 | USB serial | `RFCX219CHKA` |
-| Wireless ADB | not yet set up (Shizuku thedjchi "Start via Wireless debugging" fails on Samsung) |
+| Wireless ADB | **preferred: `adb connect 100.123.218.30:5555` (Tailscale, stable)**; LAN IP is DHCP (was .63, then .55 — do not hardcode). Port 5555 opened via `adb tcpip 5555` over USB; Shizuku thedjchi "Start via Wireless debugging" still fails on Samsung, so 5555 does not survive reboot yet |
+| Tailscale | `com.tailscale.ipn` v1.98.8 via Obtainium; tailnet name `dannys24`, IP `100.123.218.30`; signed in as djbclark@gmail.com |
+| SSH (direct) | `ssh -i ~/.ssh/termux_key -p 8022 djbclark@100.123.218.30` — works over Tailscale with no ADB forward |
 | SSH to Termux | `adb -s RFCX219CHKA forward tcp:8022 tcp:8022` then `ssh -i ~/.ssh/termux_key -p 8022 -o StrictHostKeyChecking=no localhost` |
 | Tasker | `net.dinglisch.android.taskerm` v6.7.5-beta |
 | Shizuku | NOT installed / functional (thedjchi TCP mode doesn't work on Samsung — SSL error) |
@@ -161,7 +196,20 @@ ssh -i ~/.ssh/termux_key -p 8022 -o StrictHostKeyChecking=no -o UserKnownHostsFi
   adb shell am broadcast -a com.termux.api.battery_status ...
   ```
 
-- **Maestro mobile exception:** If uiautomator2 can't find an element that should be there, or a tap isn't registering, use Maestro (`~/.maestro/bin/maestro --udid 35261JEHN12374`) as a diagnostic to rule out tool bugs vs app state. Always tell the user: (1) why uiautomator2 wasn't sufficient, (2) what Maestro was used for, (3) what the result was.
+- **Raw ADB fallback (verified reliable 2026-07-05):** when the uiautomator2 service (or any higher-level tool) breaks — e.g. after `adb tcpip` restarts adbd — this loop always works and needs nothing on the device:
+  ```bash
+  adb shell uiautomator dump /sdcard/ui.xml          # element tree with text + bounds
+  adb shell cat /sdcard/ui.xml | <parse bounds>      # centre = ((x1+x2)/2, (y1+y2)/2)
+  adb shell input tap X Y                            # tap / input swipe X Y X Y 1000 = long-press
+  adb exec-out screencap -p > /tmp/screen.png        # visual check
+  ```
+  Caveats: one dump per step (slow, ~2s); coordinates shift between selection modes (Tasker's top-bar buttons move as selection count changes — re-dump before every tap); `input swipe` same-point with duration is the long-press idiom.
+
+- **Maestro mobile exception:** If uiautomator2 can't find an element that should be there, or a tap isn't registering, use Maestro (`~/.maestro/bin/maestro --udid 35261JEHN12374`) as a diagnostic to rule out tool bugs vs app state. Always tell the user: (1) why uiautomator2 wasn't sufficient, (2) what Maestro was used for, (3) what the result was. **Known Maestro failure mode (2026-07-05): its gRPC channel dies permanently when adbd restarts (`adb tcpip`) or the device reconnects — `StatusRuntimeException: UNAVAILABLE`, `Unable to launch app`. Fall back to raw ADB rather than restarting Maestro mid-task.**
+
+- **Keeping the device awake during automation:** `adb shell svc power stayon true` (screen stays on while powered; set `false` when done). The lock screen after adbd restart still needs a manual PIN — plan around it: do everything needing UI in one unlocked window.
+
+- **scrcpy (installed, v4.0):** live screen mirror + control from the Mac. Best tool for watching automation in real time and for manual intervention without picking up the phone; works over the same ADB connection (`scrcpy -s RFCX219CHKA`, or `scrcpy -s 100.123.218.30:5555` over Tailscale). `--stay-awake` keeps the screen on while mirroring.
 
 ### Phone announcement protocol (CRITICAL)
 Before any device interaction, output this as a standalone message:
