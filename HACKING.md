@@ -434,6 +434,18 @@ ssh -i ~/.ssh/termux_key -p 8022 localhost
 
 > **XML format gotcha:** Tasker action IDs must be strictly sequential integers (`act0`, `act1`, `act2`...). Non-sequential IDs (e.g. `act3a`) are silently ignored on import. Always export from Tasker rather than editing the XML by hand unless you're careful about this.
 
+#### Reliable task import (use `tasker-io/`, not the manual reimport dance)
+
+Editing a project XML on the Mac then getting it back onto the device used to require the fragile "delete all profiles → delete all tasks → delete project shell → Import Project" UI dance (top-bar trash/export icons shift position with the selection count; context menus pop up unpredictably). **Don't do that for task updates.** Instead use the `tasker-io/` helper, which drives Tasker's `ActivityImportTaskerDataFromXml` **intent** with a DocumentsProvider content URI — a single-task **overwrite** import with only text-button dialogs:
+
+```bash
+cd tasker-io
+python3 tasker_io.py <serial> wrap-task ../tasker/stayturgid.prj.xml task21 /tmp/ADB_Core_Watchdog.tsk.xml
+python3 tasker_io.py <serial> import-task /tmp/ADB_Core_Watchdog.tsk.xml
+```
+
+The task keeps its `id`, so profile references stay wired. See `tasker-io/README.md` for the full method, prior-art notes (Taskomater tools; no clean root-free import exists), the gotcha table, and the full-project reimport fallback for structural changes.
+
 ### Using uiautomator2 for device automation
 
 Use for: tapping buttons in Tasker UI, reading screen state, automating setup steps.

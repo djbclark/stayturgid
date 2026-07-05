@@ -1,6 +1,8 @@
 # stayturgid
 
-Keeps wireless ADB (port 5555) and Shizuku alive on Android across reboots — without root.
+Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android phones** across reboots, and makes them reliably reachable over Tailscale via **two independent, mutually-repairing methods (ADB + SSH)**. Runs on a Pixel 7a and a Galaxy S24 (both Android 16).
+
+Repo layout: `tasker/` (Tasker project + watchdog), `termux/` (boot + self-heal scripts), `mac/` (launchd reconnect + access-monitor), `tasker-io/` (reliable Tasker import tooling). Developer setup and internals are in **HACKING.md**; the current state and roadmap are in **HANDOFF.md**.
 
 ## TaskerNet
 

@@ -6,7 +6,7 @@
 
 ## What this project does
 
-**stayturgid** keeps wireless ADB (port 5555) and Shizuku alive on a Google Pixel 7a running Android 16, across cold reboots, without root.
+**stayturgid** keeps wireless ADB (port 5555), Shizuku, and SSH alive on **two personal, unrooted consumer phones** — a Google Pixel 7a and a Samsung Galaxy S24 (SM-S921U1), both Android 16 — across cold reboots, and makes them reliably reachable from the Mac over Tailscale via **two independent, mutually-repairing methods (ADB + SSH)**.
 
 After a reboot and PIN unlock:
 1. **Shizuku** (thedjchi fork) auto-starts via Android Wireless Debugging and uses TCP mode to call `adb tcpip 5555` — this is what opens port 5555 without USB.
@@ -32,6 +32,25 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 1. **Update/republish the TaskerNet project** — the published share still has the old Custom Setting namespace bug (fixed in repo + on both devices). Re-export current `stayturgid` and republish to TaskerNet.
 2. **Move version-detection off TaskerNet** — `stayturgid_update_check` should detect new versions from **GitHub** (raw `version.json` / releases), not TaskerNet. Remove the TaskerNet dependency entirely (was HANDOFF "Step 5").
 3. **Smart phone-use presence/consent dialog** — before Claude uses a phone, **detect whether the user is actively using it** (screen on + recent interaction / foreground app not idle). If in use, pop a **30-second countdown dialog** (Tasker/`termux-dialog`) with **default = Continue** and three options: **(a) Let Claude use the phone (default on timeout)**, **(b) Pause — don't use this phone until Claude is explicitly told to continue on it**, **(c) Check again in 10 minutes**. This extends the current `claude-presence.sh` (which only announces) into a two-way consent gate per device. Note: needs working `termux-api` (so depends on TODO for the 7a Termux swap).
+
+## 🧭 Roadmap & tooling decisions (2026-07-05)
+
+**Immediate next steps (in order):**
+1. **Adopt the Termux:Tasker plugin where helpful.** It's installed (`com.termux.tasker`, github build) but currently **unused** — our Tasker↔Termux link is file-based (Tasker reads `/sdcard/stayturgid_watchdog.log`, which the Termux boot loop writes every 5 min). The win: let the Tasker watchdog **call `stayturgid-repair.sh` directly via Termux:Tasker (stdin/stdout)** and read its **exit code in real time**, instead of acting on a log line up to 5 min stale. Needs `allow-external-apps=true` in `~/.termux/termux.properties` and the script in `~/.termux/tasker/`.
+2. **Ansible-ify the Termux userland setup.** Turn the manual per-device rebuild (pkg install, restore `.ssh`, boot script, repair/presence scripts, Termux:Boot re-register) into an **idempotent playbook run over SSH/Tailscale**. Makes device rebuilds (like the 7a Termux swap) a one-command replay and scales to future devices. Scope = Termux userland only (the layer we control without root); OS-level bits stay with ADB/Shizuku/Obtainium.
+
+**Tooling assessment (options considered, decisions made):**
+- **Ansible over Termux/SSH** — ✅ adopting (see #2). Best-fit config management for the userland layer; prerequisites already in place (sshd + keys + Tailscale).
+- **Termux:Tasker hybrid** — ✅ adopting (#1). We already use a variant (Tasker triggers + Termux scripts); the plugin tightens it.
+- **Auto.js / AutoX** — ❌ not now. Overkill for our tiny UI-automation surface (one Shizuku "Start" tap); a second accessibility engine + fork-maintenance risk. Revisit only if UI automation grows into its own project.
+- **MDM (Headwind / Esper / SOTI)** — ❌ wrong shape. Assumes Device-Owner provisioning (factory reset into a managed/kiosk state) — inappropriate for personal daily-driver phones. Only relevant for a fleet of dedicated devices.
+- **Root (KernelSU / APatch)** — ❌ advised against. Would dissolve the Shizuku/AutoInput/Tasker-import fragility on the 7a, but the **S24 SM-S921U1 (US model) has a permanently locked bootloader → almost certainly can't be rooted**, giving an asymmetric fleet; and rooting the daily-driver 7a means bootloader unlock (factory reset) + likely Play Integrity breakage. Only worth it if a device is dedicated to automation.
+- **Webkey / proprietary remote channels** — ❌ adds dependency more than robustness; we already have two independent channels (ADB + SSH over Tailscale). Prefer hardening cross-device mutual repair over a third proprietary relay.
+
+**Recently completed (2026-07-05):**
+- ✅ `tasker-io/` sub-project — reliable Tasker task import via the `ActivityImportTaskerDataFromXml` **intent** (text-button dialogs only), replacing the flaky delete-everything reimport dance. See `tasker-io/README.md`.
+- ✅ 7a Tasker watchdog **repairer** (log-detect → notify → launch Shizuku → AutoInput-tap Start), catastrophic path validated.
+- ✅ 7a Termux ecosystem moved to GitHub/Obtainium (termux-api works).
 
 ## Current project status (as of 2026-07-05)
 
@@ -558,6 +577,8 @@ adb shell settings get secure enabled_accessibility_services | tr ':' '\n'
 ---
 
 ## Next steps
+
+> **⚠️ This numbered section is historical (the original 2026-06-30 update-mechanism plan). For the CURRENT roadmap and priorities, see "🧭 Roadmap & tooling decisions (2026-07-05)" near the top of this file.** The steps below are kept for context on the auto-update work.
 
 ### ✅ Step 1 — Implement local XML update path (COMPLETE as of 2026-06-30)
 
