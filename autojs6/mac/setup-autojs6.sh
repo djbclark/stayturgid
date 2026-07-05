@@ -88,7 +88,7 @@ On device:
   2. Settings → Apps → AutoJs6 → Permissions → Additional →
      "Run commands in Termux environment" (if shown)
   3. When ready to test AutoJs6 stack ONLY:
-     ./set-automation-mode.sh $1 autojs6
+     ./set-automation-mode.sh $1 autojs6   # also syncs Shizuku authorized apps
      Disable Tasker+AutoInput a11y, disable stayturgid Tasker profiles
      Run scripts/test-watchdog-once.js (or main.js)
 

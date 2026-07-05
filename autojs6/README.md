@@ -47,6 +47,8 @@ Parallel implementation of the **Tasker + AutoInput watchdog layer** using [Auto
 
 **ADB target:** Mac scripts source `mac/resolve-adb.sh` — `s24`/`p7a` aliases use USB serial when the phone is plugged in, else Tailscale wireless.
 
+**Shizuku authorized apps:** The manager UI reads `/data/local/tmp/shizuku/shizuku.json`, not just `pm grant`. When switching modes, run `./mac/grant-shizuku.sh s24 autojs6` (or use `set-automation-mode.sh`, which calls it automatically) to allow AutoJs6 and deny Tasker.
+
 **Termux bridge:** AutoJs6 v6.4.1+ declares `com.termux.permission.RUN_COMMAND`; grant via setup script or Settings → AutoJs6 → Additional permissions. Fallback: `termux/repair-bridge.sh` (2s trigger file poll) — started automatically by `setup-autojs6.sh` over SSH. The bridge trigger is **always armed** alongside RUN_COMMAND (RUN_COMMAND can start without executing if Termux is cold).
 
 **Rhino note:** AutoJs6 uses Mozilla Rhino — do not use `(?i)` inline regex flags; use `/pattern/i` instead.

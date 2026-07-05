@@ -79,6 +79,7 @@ scrcpy -s RFCX219CHKA --stay-awake        # live mirror during automation
 - ✅ **Cold-reboot validation (AutoJs6 stack):** one PIN unlock → `boot-launcher.js` at ~18:18 and ~18:44, `port=open sshd=up invoke=ok`; Termux `sshd` self-restarted after unlock
 - ✅ **`stayturgid-repair.sh` TMPDIR fix:** Termux `adb` daemon needs `TMPDIR=$PREFIX/tmp` or localhost:5555 checks falsely report `CLOSED_NO_SHELL`
 - ✅ **Runtime validation (2026-07-05):** sshd kill → repair-bridge ~2s; `test-watchdog-once` invoke=ok; `test-catastrophic-once` Shizuku Start text-tap ok=true
+- ✅ **Shizuku authorized apps synced for AutoJs6 mode:** `autojs6/mac/grant-shizuku.sh` patches `/data/local/tmp/shizuku/shizuku.json` + `pm grant/revoke` — AutoJs6 allowed, Tasker denied (manager UI is json-driven, not pm-only)
 - 🔲 `COMPARISON.md` remaining rows: locked-screen catastrophic, stale-loop (15 min), Tailscale probe
 
 ### Pixel 7a — WRAPPED UP 2026-07-05 (maintenance-only)

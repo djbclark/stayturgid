@@ -17,6 +17,12 @@ esac
 echo "$MODE" | adb -s "$SERIAL" shell "cat > /sdcard/stayturgid_automation_mode.txt"
 echo "Wrote automation mode '${MODE}' on ${SERIAL}"
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [[ -x "$SCRIPT_DIR/grant-shizuku.sh" ]]; then
+  echo "Syncing Shizuku authorized apps for mode=${MODE}..."
+  "$SCRIPT_DIR/grant-shizuku.sh" "$1" "$MODE" || echo "WARN: Shizuku grant sync failed (is Shizuku up?)" >&2
+fi
+
 if [[ "$MODE" == "autojs6" ]]; then
   cat <<'EOF'
 
