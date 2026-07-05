@@ -67,6 +67,11 @@ def goto_main(d, max_steps=10):
         # Never accidentally exit Tasker
         if "Do you really want to exit Tasker?" in t and d(text="NO").exists:
             d(text="NO").click(); time.sleep(1); continue
+        # A Tasker tab context-menu popup ("Import Task"/"Set Sort", "Import Project"…)
+        # covers the list and intercepts taps/reads but has NO button to press and does
+        # NOT respond to Back — dismiss it by tapping empty space low on the screen.
+        if ("Import Task" in t or "Set Sort" in t or "Import Project" in t) and MAIN_TABS & t:
+            d.click(270, 780); time.sleep(0.6); continue
         # Dismiss common interrupting dialogs / menus
         dismissed = False
         for lbl in ("Got it", "Don't Show Again", "STOP REMINDING", "OK", "NO", "Cancel"):
