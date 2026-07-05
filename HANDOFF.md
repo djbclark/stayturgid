@@ -249,15 +249,26 @@ ssh -i ~/.ssh/termux_key -p 8022 -o StrictHostKeyChecking=no -o UserKnownHostsFi
 - **scrcpy (installed, v4.0):** live screen mirror + control from the Mac. Best tool for watching automation in real time and for manual intervention without picking up the phone; works over the same ADB connection (`scrcpy -s RFCX219CHKA`, or `scrcpy -s 100.123.218.30:5555` over Tailscale). `--stay-awake` keeps the screen on while mirroring.
 
 ### Phone announcement protocol (CRITICAL)
-Before any device interaction, output this as a standalone message:
+**Name the specific phone(s)** you're about to use / done with — "Pixel 7a", "Galaxy S24", or both. Before any device interaction, output this as a standalone message (fill in the device):
 
-**🚨📱🚨🚨📱🚨 USING USING USING**
+**🚨📱🚨 USING — &lt;phone(s)&gt; 🚨📱🚨**
 
-When done with the device and not expecting to touch it again until the next user reply:
+When done with those device(s) and not expecting to touch them again until the next user reply:
 
-**✅📱✅✅📱✅ FREE FREE FREE**
+**✅📱✅ FREE — &lt;phone(s)&gt; ✅📱✅**
 
-Both must be standalone — not buried in other text.
+Both must be standalone — not buried in other text. If you pick up a second phone mid-run, announce it too.
+
+### On-device presence indicator (CRITICAL — run alongside the announcement)
+So it's obvious *from the phone itself* that automation is live, call the presence script at the start and end of each device session. It uses torch + vibration + an ongoing status-bar notification only — nothing on the screen surface, so it never interferes with UI dumps/taps/screenshots. (Screen flashing or color inversion WAS considered and rejected: overlays can cover tap targets and inversion corrupts screenshots.)
+
+```bash
+ssh s24 '~/claude-presence.sh on  "Galaxy S24"'   # 3 torch pulses + vibrate + ongoing "🤖 Claude is using ..." notification
+ssh s24 '~/claude-presence.sh off "Galaxy S24"'   # removes notification + 2 pulses + vibrate
+# same for p7a / "Pixel 7a"
+```
+
+Script lives at `termux/claude-presence.sh` in the repo and `~/claude-presence.sh` on each device. Pair `on` with the USING announcement and `off` with FREE. If SSH is down but ADB is up, run it via `adb -s <dev> shell "run-as ... claude-presence.sh on"` or just skip to the text announcement.
 
 ---
 
