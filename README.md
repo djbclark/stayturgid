@@ -127,7 +127,29 @@ launchctl unload ~/Library/LaunchAgents/com.djbclark.stayturgid.adb-reconnect.pl
 
 ## SSH access to Termux
 
-Direct WiFi SSH is blocked by Android's firewall. Use ADB port-forward instead:
+**Preferred — over Tailscale (no USB, works off-LAN):** Android's on-LAN WiFi SSH firewall does not apply to the Tailscale interface, so you can SSH straight to the device:
+
+```bash
+ssh s24    # or: ssh p7a
+```
+
+These aliases are defined in `~/.ssh/config` and pin `IdentityFile ~/.ssh/termux_key` with `IdentityAgent none` — the last part matters: without it a global `Host *` block routes SSH through the 1Password agent and pops an unlock dialog on every connection. The `none` override keeps the phones off the agent while leaving 1Password in place for GitHub/other hosts. Example block:
+
+```
+Host p7a 100.65.230.108
+    HostName 100.65.230.108
+    Port 8022
+    User u0_a590            # any name works — Termux sshd authenticates by key
+    IdentityFile ~/.ssh/termux_key
+    IdentitiesOnly yes
+    IdentityAgent none
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+```
+
+The device's `authorized_keys` must contain `~/.ssh/termux_key.pub`. If `run-as` is blocked (non-debuggable Termux build), deploy via shared storage: `adb push ~/.ssh/termux_key.pub /sdcard/Download/`, grant Termux `READ_EXTERNAL_STORAGE`, then in Termux `cat /sdcard/Download/termux_key.pub >> ~/.ssh/authorized_keys`.
+
+**Fallback — over ADB port-forward (on-LAN, no Tailscale):**
 
 ```bash
 adb forward tcp:8022 tcp:8022

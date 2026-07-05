@@ -71,6 +71,25 @@ On the Mac side, a launchd agent (`com.djbclark.stayturgid.adb-reconnect`) runs 
 - ⚠️ **2026-07-05 02:40: S24 at 17% battery and discharging — the USB data cable is NOT charging it.** Phone must live on a real charger or all remote access dies with the battery
 - ✅ Pixel 7a XMLs Custom Setting namespace bug — **fixed in repo AND deployed to the 7a 2026-07-05** (reimported, verified Type=Global in editor). TaskerNet-published copy still stale — republish when convenient.
 
+### Supervised cold-reboot test — Pixel 7a, 2026-07-05 ✅
+Rebooted the 7a over Tailscale (no USB), user did a single PIN unlock, then measured recovery with no further intervention:
+
+| Layer | Result |
+|-------|--------|
+| Tailscale (always-on VPN) | ✅ `tun0=100.65.230.108` up automatically after unlock — **always-on VPN is what makes the tailnet leg reboot-proof; enable it on every device** |
+| sshd :8022 | ✅ up (Termux:Boot) |
+| Shizuku | ✅ running |
+| Termux boot loop | ✅ running |
+| Port 5555 (wireless ADB) | ⚠️ DOWN at 206s, self-restored to LISTENING by ~338s (≈5.5 min post-boot). Recovers on its own, just not instantly |
+| `adb_wifi_enabled` (global) | stayed 0 — cosmetic on Pixel; ADB via 5555 works regardless |
+
+**Bottom line: after reboot + one unlock, the 7a is reachable via BOTH ADB-over-Tailscale and SSH-over-Tailscale within ~5–6 min, zero further intervention.** Enabling Tailscale always-on VPN on the 7a (was off — `always_on_vpn` was null; the S24 already had it) was the key fix this session.
+
+### SSH access hardening 2026-07-05
+- **1Password SSH-agent dialog eliminated for Termux hosts.** `~/.ssh/config` had a global `Host *` block forcing `IdentityAgent` to the 1Password agent, so every ssh (incl. to phones) popped a 1Password unlock. Added device blocks **above** `Host *` (first-match wins) for aliases **`s24`** and **`p7a`** (+ their Tailscale IPs / MagicDNS names) with `IdentityAgent none`, `IdentitiesOnly yes`, `IdentityFile ~/.ssh/termux_key`, `StrictHostKeyChecking no`. Now `ssh s24` / `ssh p7a` connect with no dialog; `ssh github.com` etc. still use 1Password (git untouched).
+- **7a Termux key deploy:** the 7a's Termux never had this Mac's key in `authorized_keys` (S24 did). `run-as` is blocked (7a Termux is a non-debuggable build) and RunCommandService wasn't reachable, so deployed via `/sdcard`: `adb push termux_key.pub /sdcard/Download/`, grant Termux `READ_EXTERNAL_STORAGE`, then a Termux one-liner appended it. Both phones now have working SSH. (Note: Termux sshd ignores the login username — `ssh djbclark@` and `ssh u0_aXXX@` both authenticate by key.)
+- Quick connect now: **`ssh s24`** / **`ssh p7a`** (no flags needed).
+
 ### Remote-access hardening implemented 2026-07-05 (session 2)
 - ✅ **mDNS TLS fallback** added to `adb-reconnect.sh` — discovers `adb-<SERIAL>-xxxx._adb-tls-connect._tcp` via `adb mdns services`; reconnects after reboot with no USB / no port 5555 (as long as this host is paired). Candidate order now: cached → USB-discovered LAN → mDNS TLS → Tailscale.
 - ✅ **7a reconnect launchd agent** updated with its real LAN + Tailscale IPs (was running arg-less/default before).

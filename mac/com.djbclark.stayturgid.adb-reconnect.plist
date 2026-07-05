@@ -9,7 +9,7 @@
         <string>/bin/bash</string>
         <string>/Users/djbclark/stayturgid/mac/adb-reconnect.sh</string>
         <string>35261JEHN12374</string>
-        <string>192.168.68.57:5555</string>
+        <string>192.168.68.64:5555</string>
         <string>100.65.230.108:5555</string>
     </array>
     <key>StartInterval</key>
