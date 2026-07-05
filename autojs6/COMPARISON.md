@@ -14,7 +14,7 @@ Run each scenario on Pixel 7a and Galaxy S24 with **cold reboot + single PIN unl
 | `CLOSED_NO_SHELL` catastrophic | ✅ 7a log-injection + AutoInput tap (2026-07-05) | ✅ UI tap via text match `Start` (S24 2026-07-05); full port-down injection not attempted (5555 too resilient) | Use `scripts/test-catastrophic-once.js` for UI path |
 | Locked screen during catastrophic | ✅ notify fires; tap waits (7a) | ✅ screen off → `ok=false`, Start skipped (S24 2026-07-05) | `test-locked-screen-catastrophic-once.js` |
 | Repair loop stale (Termux frozen) | | ✅ synthetic 20-min-old line → stale notify before invoke (S24 2026-07-05) | `test-stale-loop-once.js` (no 15-min wait) |
-| Tailscale down | | ✅ tun0+ping probe + relaunch in watchdog (S24 healthy path 2026-07-05) | `test-tailscale-probe-once.js`; down-path relaunch not live-tested |
+| Tailscale down | | ✅ live test: force-stop → probe `up=false` → watchdog notify+relaunch → recovery (S24 2026-07-05) | `autojs6/mac/test-tailscale-down.sh` (USB) |
 | Auto-update 4-dialog import | | | Tasker only today |
 
 ## Technical criteria
@@ -50,7 +50,7 @@ Run each scenario on Pixel 7a and Galaxy S24 with **cold reboot + single PIN unl
 | 2026-07-05 | 7a | AI | AutoJs6 installed; RUN_COMMAND granted; repair-bridge trigger ~2s; full watchdog cycle blocked until AutoJs6 a11y enabled | TBD |
 | 2026-07-05 | S24 | AI | Cold reboot + one unlock: Termux boot → `boot-launcher.js` → `main.js`; watchdog `trigger=boot` `invoke=ok`; sshd self-restarted; Shizuku+5555 up; TMPDIR fix needed for Termux `adb` repair checks | AutoJs6 lean for dev |
 | 2026-07-05 | S24 | AI | Runtime tests: sshd kill → repair-bridge restart ~2s; `test-watchdog-once` invoke=ok; `test-catastrophic-once` Shizuku Start text-tap ok=true | **AutoJs6 for S24 production** |
-| 2026-07-05 | S24 | AI | Tailscale probe in watchdog; stale-loop + locked-screen catastrophic tests; Obtainium Shizuku installer enabled via `enable-shizuku-installer.sh` | AutoJs6 production hardened |
+| 2026-07-05 | S24 | AI | Tailscale-down live test via USB: coord ping fail after force-stop, watchdog `tun=false ping=false`, relaunch → `up=true` | AutoJs6 production hardened |
 
 ## Recommendation template (complete after testing)
 

@@ -1,0 +1,16 @@
+---
+# Shared Termux userland variables (see role defaults for overrides).
+stayturgid_termux_packages:
+  - openssh
+  - android-tools
+  - wget
+  - git
+  - python
+  - curl
+  - termux-api
+  - runit
+
+stayturgid_boot_scripts:
+  - start-adb.sh
+  - start-repair-bridge.sh
+  - start-autojs6-watchdog.sh

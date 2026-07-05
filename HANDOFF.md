@@ -37,7 +37,7 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 
 **Immediate next steps (in order):**
 1. **Termux:Tasker — ✅ IMPLEMENTED on 7a (runtime validation pending).** The watchdog is now **v3**: act0 calls `stayturgid-repair` via the Termux:Tasker plugin (action code `1256900802`, exact format from the official `termux-tasker` template — fetched, not guessed) and reads `%stdout` (STATUS line) + `%result` (exit code) in **real time** each cycle, instead of a log line up to 5 min stale. Bridge set up: `allow-external-apps=true` in `~/.termux/termux.properties`, wrapper at `~/.termux/tasker/stayturgid-repair` (execs `~/stayturgid-repair.sh`; verified runs → exit 0). Imported via the `tasker-io` intent method (clean). `RunCommandService` mechanism confirmed (permission-gated by `com.termux.permission.RUN_COMMAND`, which the plugin holds — an adb-shell test is correctly rejected). **Not yet runtime-validated end-to-end** — couldn't force a manual run because a Tasker "Import Task/Set Sort" **context-menu popup** kept covering the task list (dismiss it by tapping empty space ~`(270,780)` — now handled in `tasker_io.goto_main`), plus a Tailscale ADB dropout. **The 20-min `ADB_Interval_Check` schedule will validate it: look for a `[watchdog] … (termux:tasker)` line + a fresh `[repair] STATUS` in `/sdcard/stayturgid_watchdog.log`.** Safe to leave live: if the bridge returns empty, act5 fires a "bridge failed" notification and the catastrophic branch simply won't match — no broken loop. **Left behind:** an empty throwaway task `TT_fmt` in the stayturgid project (from probing the plugin format before I found the template) — delete it next session.
-2. **Ansible-ify the Termux userland setup.** Turn the manual per-device rebuild (pkg install, restore `.ssh`, boot script, repair/presence scripts, Termux:Boot re-register) into an **idempotent playbook run over SSH/Tailscale**. Makes device rebuilds (like the 7a Termux swap) a one-command replay and scales to future devices. Scope = Termux userland only (the layer we control without root); OS-level bits stay with ADB/Shizuku/Obtainium.
+2. **Ansible-ify the Termux userland setup.** — **✅ SKELETON 2026-07-05:** `ansible/` playbook + `termux_userland` role (`ansible/playbooks/termux-userland.yml`, `ansible/mac/deploy-termux.sh`). S24-only in inventory; run `ansible-playbook … --limit s24`. OS-level bits (Shizuku, Obtainium, a11y) stay manual.
 3. **Add [SuperMonster003/AutoJs6](https://github.com/SuperMonster003/AutoJs6) as an ALTERNATIVE to Tasker+AutoInput** (user request 2026-07-05). AutoJs6 is a maintained Auto.js fork — a JavaScript automation engine using the Accessibility Service. Build a parallel AutoJs6 implementation of the watchdog/repair role so the user can run **either** Tasker+AutoInput **or** AutoJs6 — **no integration, no cross-fallback for now**. They must be **mutually exclusive / locked**: if one is active, the other must not be (e.g. only one accessibility-driven automation enabled at a time; a guard that disables/refuses the other). After building, **compare the two approaches** — technical pros/cons (robustness, element-finding vs coordinate taps, Git-friendliness, install/signature/Play-Protect, battery/background survival, Android-version resilience) and managerial pros/cons (maintainability, collaboration, versioning, learning curve, fork/maintenance risk). This is the **last** roadmap item.
    - **✅ IMPLEMENTED + validated on S24 2026-07-05:** `autojs6/` sub-project — `main.js` + `lib/` modules mirror `ADB_Core_Watchdog` v3 (Termux `RUN_COMMAND` → `stayturgid-repair.sh`, catastrophic Shizuku Start tap via accessibility, shared `/sdcard/stayturgid_watchdog.log`, mode guard via `/sdcard/stayturgid_automation_mode.txt`). Deploy: `autojs6/mac/deploy.sh`; mode switch: `autojs6/mac/set-automation-mode.sh`. Comparison: `autojs6/COMPARISON.md` (S24 production pick). Mac scripts use `mac/resolve-adb.sh` (USB serial when plugged in, else Tailscale).
    - **2026-07-05 — deployed to both phones:** AutoJs6 v6.7.0 + Obtainium on 7a and S24. **S24 is production AutoJs6 device** (`mode=autojs6`, Tasker watchdog profiles disabled). **7a remains on Tasker** unless explicitly migrated.
@@ -85,8 +85,9 @@ scrcpy -s RFCX219CHKA --stay-awake        # live mirror during automation
 - ✅ **Termux overlay permission:** `SYSTEM_ALERT_WINDOW` granted for `com.termux` + `com.termux.window` (Termux:Float)
 - ✅ **Watchdog Tailscale probe:** `autojs6/lib/tailscale.js` — tun0 + ping `100.100.100.100`, notify + relaunch `com.tailscale.ipn` if down
 - ✅ **Test scripts:** `test-tailscale-probe-once.js`, `test-stale-loop-once.js`, `test-locked-screen-catastrophic-once.js`; Mac runner `autojs6/mac/run-test.sh`
-- ✅ `COMPARISON.md` remaining rows validated S24 2026-07-05 (locked-screen, stale-loop, Tailscale probe)
-- ✅ Pushed to GitHub `master` @ `e4e6c26`+ (doc alignment, repair flock/sshd race fix, delayed trigger)
+- ✅ **Tailscale-down live test (2026-07-05):** `autojs6/mac/test-tailscale-down.sh` — force-stop → `probe up=false` → watchdog cycle → relaunch → `up=true` (USB)
+- ✅ **Ansible Termux skeleton:** `ansible/playbooks/termux-userland.yml` + `ansible/mac/deploy-termux.sh` (S24 in inventory)
+- ✅ Pushed to GitHub `master` @ `e5d89de`+ (doc alignment, repair flock, Tailscale-down live test, Ansible skeleton)
 
 ### Pixel 7a — WRAPPED UP 2026-07-05 (maintenance-only)
 - ✅ Port 5555 survives cold reboots (verified 2026-06-29)
@@ -433,6 +434,9 @@ obtainium/                              — Obtainium import JSON for all GitHub
   mac/sync-to-device.sh                 — push + open Obtainium import on device
   mac/apply-updates.sh                  — drive bulk update UI from Mac
   mac/enable-shizuku-installer.sh       — one-time: quieter installs via Shizuku API
+ansible/                                — Termux userland playbook (SSH/Tailscale)
+  playbooks/termux-userland.yml
+  mac/deploy-termux.sh
 termux/boot/
   start-adb.sh                          — deploy to ~/.termux/boot/ on device
 mac/

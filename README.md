@@ -2,7 +2,7 @@
 
 Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android phones** across reboots, and makes them reliably reachable over Tailscale via **two independent, mutually-repairing methods (ADB + SSH)**. Runs on a Pixel 7a and a Galaxy S24 (both Android 16).
 
-Repo layout: `tasker/` (Tasker project + watchdog), `termux/` (boot + self-heal scripts), `mac/` (launchd reconnect + access-monitor), `tasker-io/` (reliable Tasker import tooling), `autojs6/` (mutually exclusive AutoJs6 alternative to Tasker+AutoInput), `obtainium/` (Obtainium configs for GitHub-sideloaded APKs). Developer setup and internals are in **HACKING.md**; the current state and roadmap are in **HANDOFF.md**.
+Repo layout: `tasker/` (Tasker project + watchdog), `termux/` (boot + self-heal scripts), `mac/` (launchd reconnect + access-monitor), `tasker-io/` (reliable Tasker import tooling), `autojs6/` (mutually exclusive AutoJs6 alternative to Tasker+AutoInput), `obtainium/` (Obtainium configs for GitHub-sideloaded APKs), `ansible/` (Termux userland playbook over SSH). Developer setup and internals are in **HACKING.md**; the current state and roadmap are in **HANDOFF.md**.
 
 **Production stacks (2026-07-05):** Galaxy S24 runs **AutoJs6** (`mode=autojs6`, Tasker watchdog profiles off). Pixel 7a stays on **Tasker+AutoInput** (`mode=tasker`). Never run both automation stacks on one device.
 

@@ -1,0 +1,13 @@
+---
+# Idempotent Termux userland deploy for stayturgid.
+# Scope: scripts, boot hooks, packages — NOT Shizuku/Tasker/Obtainium/OS settings.
+#
+# Usage (from repo root):
+#   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/termux-userland.yml --limit s24
+#
+# Requires: SSH to Termux on port 8022 (Tailscale or USB forward).
+- name: stayturgid Termux userland
+  hosts: stayturgid
+  gather_facts: false
+  roles:
+    - role: termux_userland

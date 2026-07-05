@@ -137,6 +137,10 @@ adb shell am start -a android.intent.action.VIEW \
 # Locked screen catastrophic (lock first via adb shell input keyevent 26)
 # …/scripts/test-locked-screen-catastrophic-once.js
 # Expect: shizuku Start skipped — screen off … ok=false
+
+# Tailscale down (live — use USB; Tailscale SSH may blip)
+./mac/test-tailscale-down.sh s24
+# Expect: probe up=false → watchdog tailscale tun=false → after-relaunch up=true
 ```
 
 **Obtainium quieter installs:** `./obtainium/mac/enable-shizuku-installer.sh s24` (unlocked screen).
