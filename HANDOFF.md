@@ -18,6 +18,20 @@ On the Mac side, a launchd agent (`com.djbclark.stayturgid.adb-reconnect`) runs 
 
 ---
 
+## ⏭️ RESUME HERE (next session) — 2026-07-05 end
+
+**In progress: replace 7a's googleplay Termux with GitHub build (paused before destructive step).**
+- Why: `com.termux` on the 7a is the **googleplay build** (`vgoogleplay.2026.06.21`); its addons (`com.termux.api` 0.53.0, boot, tasker) are **F-Droid builds** → signature mismatch → `termux-api` broken ("not available on Google Play"). So presence indicator + boot-loop battery alarm silently no-op on the 7a.
+- Fix: uninstall `com.termux`, reinstall from GitHub via Obtainium (github.com/termux/termux-app — same signing key as F-Droid, matches the addons), then rebuild.
+- **Backup already taken** (before any wipe): `~/stayturgid-device-backups/termux-home-7a-20260705-073847.tgz` (416 MB full home incl. `.ssh/{authorized_keys,id_ed25519_github,config}`, `.termux/boot/start-adb.sh`) + `pkg-list-7a-20260705-073847.txt` (182 pkgs).
+- **Resume steps:** (1) `adb -s 35261JEHN12374 uninstall com.termux` (wipes home — backed up; SSH dies but ADB-over-Tailscale via Shizuku survives). (2) Obtainium → add `github.com/termux/termux-app` → install. (3) Open Termux; `pkg install -y openssh android-tools termux-api python wget curl git runit termux-services`; restore `.ssh` + `.termux/boot/start-adb.sh` from backup; deploy `stayturgid-repair.sh` + `claude-presence.sh`; re-register Termux:Boot (open the app once); `sshd`. (4) Test: `ssh p7a`, `termux-battery-status`, `~/claude-presence.sh on "Pixel 7a"` (torch+notif should now WORK), boot loop. (5) Also replace Play-Store `com.termux.styling` and move addons to Obtainium tracking.
+- **Paused because** the Bash tool safety classifier (claude-opus-4-8) went temporarily unavailable mid-step; don't start the uninstall until Bash is reliable.
+
+### New TODOs queued 2026-07-05 (do after the Termux swap + watchdog repairer)
+1. **Update/republish the TaskerNet project** — the published share still has the old Custom Setting namespace bug (fixed in repo + on both devices). Re-export current `stayturgid` and republish to TaskerNet.
+2. **Move version-detection off TaskerNet** — `stayturgid_update_check` should detect new versions from **GitHub** (raw `version.json` / releases), not TaskerNet. Remove the TaskerNet dependency entirely (was HANDOFF "Step 5").
+3. **Smart phone-use presence/consent dialog** — before Claude uses a phone, **detect whether the user is actively using it** (screen on + recent interaction / foreground app not idle). If in use, pop a **30-second countdown dialog** (Tasker/`termux-dialog`) with **default = Continue** and three options: **(a) Let Claude use the phone (default on timeout)**, **(b) Pause — don't use this phone until Claude is explicitly told to continue on it**, **(c) Check again in 10 minutes**. This extends the current `claude-presence.sh` (which only announces) into a two-way consent gate per device. Note: needs working `termux-api` (so depends on TODO for the 7a Termux swap).
+
 ## Current project status (as of 2026-07-05)
 
 ### Pixel 7a
