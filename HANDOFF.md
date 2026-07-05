@@ -90,6 +90,34 @@ Rebooted the 7a over Tailscale (no USB), user did a single PIN unlock, then meas
 - **7a Termux key deploy:** the 7a's Termux never had this Mac's key in `authorized_keys` (S24 did). `run-as` is blocked (7a Termux is a non-debuggable build) and RunCommandService wasn't reachable, so deployed via `/sdcard`: `adb push termux_key.pub /sdcard/Download/`, grant Termux `READ_EXTERNAL_STORAGE`, then a Termux one-liner appended it. Both phones now have working SSH. (Note: Termux sshd ignores the login username — `ssh djbclark@` and `ssh u0_aXXX@` both authenticate by key.)
 - Quick connect now: **`ssh s24`** / **`ssh p7a`** (no flags needed).
 
+### S24 cold-reboot test — 2026-07-05 ✅ (Shizuku reboot survival FIXED)
+Rebooted S24 over Tailscale, one PIN unlock, measured at 159s uptime — **everything self-healed with zero intervention:**
+
+| Layer | Result |
+|-------|--------|
+| Shizuku | ✅ auto-started (BootCompleteReceiver fired — confirmed in `pm dump`, "Start reason: boot", 07:02:18) |
+| Port 5555 | ✅ reopened (Shizuku TCP mode) |
+| sshd :8022 | ✅ up (Termux:Boot) |
+| Tailscale always-on | ✅ tun0 up right after unlock |
+| Termux boot loop | ✅ running |
+
+**What fixed it:** establishing Shizuku's persistent wireless-debugging pairing this session (`u0_a383@localhost / shizuku` now in Settings→Wireless debugging→Paired devices). The old "Shizuku doesn't survive reboot on Samsung" belief is obsolete. `adb_wifi_enabled` reads 0 after boot but 5555 is open anyway — the flag is cosmetic on Samsung; Shizuku opens 5555 via its own path. **Corollary: the watchdog's `Custom Setting adb_wifi_enabled=1` (act2) is a no-op on the S24** and secure-setting writes cannot enable the wireless-debugging *service* on Samsung (only the UI toggle does).
+
+### Shizuku repair primitives (tested live 2026-07-05, for the watchdog rebuild)
+- **Shizuku has its own process watchdog:** `kill shizuku_server` → respawns instantly (pid 16716→20329). Process crashes already self-heal.
+- **shizuku_server runs as `shell` uid**, separate from the manager app (uid 10395) — survives `am force-stop moe.shizuku.privileged.api`. Very resilient.
+- **Automation broadcasts** (from `pm dump`): START = `am broadcast -a moe.shizuku.privileged.api.START -n moe.shizuku.privileged.api/moe.shizuku.manager.receiver.ManualStartReceiver`; STOP = same with `.ManualStopReceiver` + action `.STOP`. **BUT they need the per-install auth token** (`View intents` screen shows `auth: <token>`, e.g. `H1wdWH0VlCSvZRi5WI2KkzOI`) — broadcasts without it are silently ignored (verified). Token changes on reinstall, so this path is fragile.
+- **Proven auth-free restart (use this for the watchdog):** launch `moe.shizuku.privileged.api` MainActivity → AutoInput-tap the **"Start"** button (wireless-debugging start). Verified working earlier (started shizuku_server pid 3109, no SSL error). Button center on S24 (scrolled to top of that section): ~**(227,1977)** — recalibrate, it moves with scroll.
+- Shizuku notification permission must be granted for the pairing/start flow (`pm grant moe.shizuku.privileged.api android.permission.POST_NOTIFICATIONS`).
+
+### Watchdog rebuild plan (detect → repair → re-check → notify) — TODO
+Turn the notify-only watchdog into a repairer. Per subsystem: try layered repairs, re-check, notify ONLY if still down. Include AutoInput fallbacks even where not currently needed (per user).
+1. **Port 5555 down:** (a) Termux `adb connect localhost:5555 && adb tcpip 5555`; (b) Shizuku START broadcast (best-effort); (c) AutoInput: launch Shizuku → tap "Start" (reopens 5555 via TCP mode).
+2. **Shizuku down:** (a) START broadcast; (b) AutoInput launch+Start.
+3. **sshd down:** Termux restart (the boot loop already self-heals; watchdog triggers as backup).
+4. **Wireless-debugging service off (Samsung fallback, even if unneeded):** AutoInput open `ADB_WIRELESS_SETTINGS` → tap the toggle on.
+5. Log every attempt to `/sdcard/stayturgid_watchdog.log`; notify with specific remaining-failure detail only after repairs fail.
+
 ### Remote-access hardening implemented 2026-07-05 (session 2)
 - ✅ **mDNS TLS fallback** added to `adb-reconnect.sh` — discovers `adb-<SERIAL>-xxxx._adb-tls-connect._tcp` via `adb mdns services`; reconnects after reboot with no USB / no port 5555 (as long as this host is paired). Candidate order now: cached → USB-discovered LAN → mDNS TLS → Tailscale.
 - ✅ **7a reconnect launchd agent** updated with its real LAN + Tailscale IPs (was running arg-less/default before).
