@@ -82,7 +82,7 @@ scrcpy -s RFCX219CHKA --stay-awake        # live mirror during automation
 - ✅ **Shizuku authorized apps synced for AutoJs6 mode:** `autojs6/mac/grant-shizuku.sh` patches `/data/local/tmp/shizuku/shizuku.json` + `pm grant/revoke` — AutoJs6 allowed, Tasker denied (manager UI is json-driven, not pm-only)
 - ✅ **Obtainium updates (2026-07-05 evening):** Shizuku 13.7.0, Termux:Styling/Widget/Float installed; AutoJs6 6.7.0 refreshed; `obtainium/mac/apply-updates.sh` added; Play Protect may block github-debug installs (verifier disable or manual **More details → Install anyway**)
 - ✅ **Termux overlay permission:** `SYSTEM_ALERT_WINDOW` granted for `com.termux` + `com.termux.window` (Termux:Float)
-- 🔲 `COMPARISON.md` remaining rows: locked-screen catastrophic, stale-loop (15 min), Tailscale probe
+- ✅ `COMPARISON.md` remaining rows validated S24 2026-07-05 (locked-screen, stale-loop, Tailscale probe)
 
 ### Pixel 7a — WRAPPED UP 2026-07-05 (maintenance-only)
 - ✅ Port 5555 survives cold reboots (verified 2026-06-29)
@@ -209,7 +209,7 @@ Turn the notify-only watchdog into a repairer. Per subsystem: try layered repair
 - ✅ **Dead-man's switch**: `mac/access-monitor.sh` + `com.djbclark.stayturgid.access-monitor.plist` (every 5 min). Checks every ADB address AND an SSH port-8022 probe per device; fires a macOS notification (with sound) only after ~10 min of total outage across ALL paths, and once on recovery. Per-device consecutive-fail state in `~/.config/stayturgid/access-monitor/`. Installed + loaded; tested (both devices reachable → counters 0).
 - ✅ **Low-battery alarm** in `termux/boot/start-adb.sh` self-heal loop: `termux-battery-status` every 5 min; if ≤30% and not charging → `termux-notification` (max priority) + `termux-toast`, auto-cleared on recovery. Deployed to S24 + loop restarted live; notification/toast/remove path tested working. **Rationale: Tasker can't reliably read charging state; Termux:API can.**
 - ✅ **Same stack redeployed to 7a (2026-07-05, USB):** `start-adb.sh` (74-line, wake-lock + battery alarm + AutoJs6 nudge no-op in tasker mode), `stayturgid-repair.sh` (TMPDIR fix), `claude-presence.sh`; boot loop restarted; `mode=tasker` written explicitly.
-- 🔲 Watchdog Tailscale probe (check tun0 / ping 100.100.100.100, relaunch app if down) — next watchdog revision
+- ✅ Watchdog Tailscale probe (`autojs6/lib/tailscale.js` — tun0 + ping 100.100.100.100, relaunch if down)
 
 S24 Tasker project snapshot saved to `tasker/s24_stayturgid.prj.xml` (separate from the Pixel 7a's `tasker/stayturgid.prj.xml` — S24 has different internal task/profile IDs).
 
@@ -226,7 +226,7 @@ S24 Tasker project snapshot saved to `tasker/s24_stayturgid.prj.xml` (separate f
 2. Tailscale settings: enable **Always-on VPN** (Android Settings → VPN → gear) so it survives reboots
 3. Battery-optimization exemptions for Tailscale, Termux, Tasker (`Settings → Apps → … → Battery → Unrestricted`) so Doze can't kill any leg
 4. `termux-wake-lock` in `~/.termux/boot/start-adb.sh`, and run sshd under runit (already installed) for auto-restart
-5. Add a Tailscale probe to the watchdog (check `tun0` / ping `100.100.100.100`, notify + `am start` Tailscale if down)
+5. ✅ Add a Tailscale probe to the watchdog (check `tun0` / ping `100.100.100.100`, notify + `am start` Tailscale if down) — `autojs6/lib/tailscale.js`
 6. Extend `mac/adb-reconnect.sh` to fall back to the Tailscale IP when the LAN IP fails
 7. Deploy the same stack to the Pixel 7a when it's back in scope
 

@@ -71,13 +71,14 @@ No cross-fallback: if mode is `tasker`, this script refuses to start even if lef
 
 Mirrors `ADB_Core_Watchdog` v3:
 
-1. Invoke `stayturgid-repair.sh` via Termux `RUN_COMMAND` (real-time, not stale log)
-2. Parse latest `[repair] STATUS` from `/sdcard/stayturgid_watchdog.log`
-3. Notify if bridge failed, sshd down, or repair loop stale (>15 min)
-4. If `port=CLOSED_NO_SHELL`: notify → launch Shizuku → tap **Start** (text match, coord fallback)
-5. Re-invoke repair after catastrophic UI path
+1. Check repair loop stale (>15 min since last `[repair]` line) **before** invoke
+2. Invoke `stayturgid-repair.sh` via Termux `RUN_COMMAND` (real-time, not stale log)
+3. Parse latest `[repair] STATUS` from `/sdcard/stayturgid_watchdog.log`
+4. Notify if bridge failed, sshd down, or Tailscale down (`tun0` + ping `100.100.100.100`)
+5. If `port=CLOSED_NO_SHELL`: notify → launch Shizuku → tap **Start** (text match, coord fallback)
+6. Re-invoke repair after catastrophic UI path
 
-**Caveat:** UI repair requires an **unlocked screen** (same as AutoInput path).
+**Caveat:** UI repair requires an **unlocked screen** (same as AutoInput path). Screen-off skips the Shizuku tap.
 
 ## Device profiles
 
@@ -121,7 +122,21 @@ adb shell am start -a android.intent.action.VIEW \
   -t "text/javascript" \
   -n org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity
 # Expect: [watchdog] shizuku Start tapped (text match) … ok=true
+
+# Tailscale probe (healthy path)
+# …/scripts/test-tailscale-probe-once.js
+# Expect: tailscale-probe-test tun=true ping=true up=true
+
+# Stale loop (synthetic 20-min-old [repair] line — no 15-min wait)
+# …/scripts/test-stale-loop-once.js
+# Expect: isStaleBefore=true + "Repair loop stale" notification
+
+# Locked screen catastrophic (lock first via adb shell input keyevent 26)
+# …/scripts/test-locked-screen-catastrophic-once.js
+# Expect: shizuku Start skipped — screen off … ok=false
 ```
+
+**Obtainium quieter installs:** `./obtainium/mac/enable-shizuku-installer.sh s24` (unlocked screen).
 
 ## File layout
 
@@ -136,11 +151,12 @@ autojs6/
     notify.js             — Android notifications
     termux.js             — RUN_COMMAND bridge
     shizuku.js            — catastrophic UI repair
+    tailscale.js          — tun0 + coord ping probe, relaunch
     repair.js             — repair orchestration
     watchdog.js           — one cycle logic
   devices/p7a.js, s24.js
-  scripts/switch-to-*.js
-  mac/deploy.sh, set-automation-mode.sh
+  scripts/switch-to-*.js, test-*-once.js
+  mac/deploy.sh, set-automation-mode.sh, grant-shizuku.sh
   COMPARISON.md           — Tasker vs AutoJs6 evaluation framework
 ```
 

@@ -7,6 +7,8 @@ module.exports = {
     // Fallback tap (1080x2340-ish, scroll to top of wireless-debug section)
     shizukuStartCoords: { x: 227, y: 1977 },
     tailscaleIp: "100.123.218.30",
+    tailscalePackage: "com.tailscale.ipn",
+    tailscaleActivity: "com.tailscale.ipn.MainActivity",
     notifyTag: "(S24)",
     // Samsung: secure-setting writes cannot enable the wireless-debugging service;
     // UI toggle is the fallback when Shizuku alone is insufficient.

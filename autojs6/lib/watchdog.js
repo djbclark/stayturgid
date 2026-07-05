@@ -3,6 +3,7 @@ var log = require("./log.js");
 var notify = require("./notify.js");
 var termux = require("./termux.js");
 var repair = require("./repair.js");
+var tailscale = require("./tailscale.js");
 
 /**
  * One watchdog cycle — mirrors ADB_Core_Watchdog v3 division of labor:
@@ -12,6 +13,15 @@ var repair = require("./repair.js");
 function runCycle(trigger, profile) {
     var tag = profile.notifyTag || "";
     var time = log.append("[watchdog] cycle start trigger=" + trigger + " (autojs6)");
+
+    // Stale boot loop: check before real-time invoke (invoke refreshes [repair] timestamps).
+    if (log.isRepairLoopStale()) {
+        notify.show(
+            "⚠ Repair loop stale " + tag,
+            time + " — No [repair] log line in 15+ min; Termux boot loop may be dead. "
+                + "Open Termux or reboot."
+        );
+    }
 
     // Real-time Termux repair (like Termux:Tasker act0)
     var invoke = termux.invokeRepair();
@@ -39,12 +49,14 @@ function runCycle(trigger, profile) {
         );
     }
 
-    if (log.isRepairLoopStale()) {
+    var ts = tailscale.check(profile);
+    log.append("[watchdog] tailscale tun=" + ts.tun + " ping=" + ts.ping + " up=" + ts.up);
+    if (!ts.up) {
         notify.show(
-            "⚠ Repair loop stale " + tag,
-            time + " — No [repair] log line in 15+ min; Termux boot loop may be dead. "
-                + "Open Termux or reboot."
+            "⚠ Tailscale down " + tag,
+            time + " — tun0 or ping " + tailscale.COORD_PING_HOST + " failed; relaunching Tailscale."
         );
+        tailscale.relaunch(profile);
     }
 
     if (port === "CLOSED_NO_SHELL") {

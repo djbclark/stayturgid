@@ -36,11 +36,12 @@ Re-importing updates existing entries; it does not remove other Obtainium apps.
 ## Apply pending updates (from Mac)
 
 ```bash
-chmod +x obtainium/mac/apply-updates.sh
+chmod +x obtainium/mac/apply-updates.sh obtainium/mac/enable-shizuku-installer.sh
 ./obtainium/mac/apply-updates.sh s24   # phone unlocked
+./obtainium/mac/enable-shizuku-installer.sh s24   # one-time: quieter installs via Shizuku
 ```
 
-Enable **Use Shizuku/Dhizuku/Sui to install** in Obtainium settings for fewer dialogs. GitHub-debug Termux addons may need Play Protect verifier disabled during install (`HACKING.md`). AutoJs6 can show an update badge at the latest tag when the installed APK hash differs — reinstalling the current release clears it.
+Enable **Use Shizuku/Dhizuku/Sui to install** in Obtainium settings for fewer dialogs (or run `enable-shizuku-installer.sh` above). GitHub-debug Termux addons may need Play Protect verifier disabled during install (`HACKING.md`). AutoJs6 can show an update badge at the latest tag when the installed APK hash differs — reinstalling the current release clears it.
 
 ## Manual add (one app)
 

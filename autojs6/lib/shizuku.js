@@ -36,6 +36,10 @@ function findStartButton() {
  * Requires an unlocked screen — same caveat as the Tasker path.
  */
 function tapStartButton(profile) {
+    if (!device.isScreenOn()) {
+        log.append("[watchdog] shizuku Start skipped — screen off (unlock for UI tap)");
+        return false;
+    }
     launchManager(profile);
     var btn = findStartButton();
     if (btn) {
