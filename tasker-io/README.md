@@ -42,6 +42,45 @@ am start -n net.dinglisch.android.taskerm/com.joaomgcd.taskerm.datashare.import.
 
 This is what `tasker_io.import_task()` automates.
 
+### The FULL dialog chain (fixed 2026-07-05, second pass)
+
+The chain above is incomplete — after overwrite-YES there is an **"Import To Project"
+project chooser, even when overwriting an existing task**. Unhandled, `goto_main()`
+backed out of it and **silently cancelled the whole import while still returning True**
+— the cause of several phantom "import: OK" runs. The real chain:
+
+1. *"Import Data … Are you sure?"* → **YES**
+2. *"… already exists. Want to overwrite it?"* → **YES**
+3. *"Import To Project"* → tap the target project row **by text** (`--project`, default
+   `stayturgid`)
+4. task: *"Do you want to run … right away?"* → NO (or `--run-after`)
+   profile: *"Do you want to enable … right away?"* → YES (or `--no-enable`)
+
+`import_task()` now handles all four and only reports OK when it reached a terminal
+dialog (or verifiably returned to the main screen).
+
+### Profile import (.prf.xml)
+
+The same intent imports **profiles**: wrap `<Profile>` + every task its `midN` references
+in `<TaskerData>`, suffix `.prf.xml` (`wrap-profile` subcommand). Same dialog chain, with
+"enable right away?" as the terminal dialog. Verified on the 7a. **Overwrite matches by
+name** and keeps profile↔task wiring.
+
+### Samsung gotcha: shell cannot grant content:// URIs (S24, One UI / Android 16)
+
+On the S24, `am start … --grant-read-uri-permission` fails with
+`SecurityException: UID 2000 does not have permission to content://…` (the system checks
+the *caller's* access before granting — Pixel allows it, Samsung doesn't), and without
+the grant flag Tasker shows "Import failed". **On Samsung, the intent-import path is
+unavailable from adb shell**; fall back to editing in the Tasker UI (e.g. the profile's
+Time context) or import from an on-device automation that legitimately holds the URI.
+
+### The "Import Task / Set Sort" popup — cause found
+
+Tapping an **already-selected** main tab header (e.g. TASKS while on TASKS) opens that
+tab's context menu — that's where the mystery popup comes from. Never re-tap the current
+tab; `goto_main()` dismisses it by tapping empty space, but avoid summoning it at all.
+
 ## Prior art (web/forum search, 2026-07-05)
 
 - **[Taskomater/Tasker-XML-Info](https://github.com/Taskomater/Tasker-XML-Info)** — the
