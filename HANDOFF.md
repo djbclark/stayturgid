@@ -80,6 +80,8 @@ scrcpy -s RFCX219CHKA --stay-awake        # live mirror during automation
 - ✅ **`stayturgid-repair.sh` TMPDIR fix:** Termux `adb` daemon needs `TMPDIR=$PREFIX/tmp` or localhost:5555 checks falsely report `CLOSED_NO_SHELL`
 - ✅ **Runtime validation (2026-07-05):** sshd kill → repair-bridge ~2s; `test-watchdog-once` invoke=ok; `test-catastrophic-once` Shizuku Start text-tap ok=true
 - ✅ **Shizuku authorized apps synced for AutoJs6 mode:** `autojs6/mac/grant-shizuku.sh` patches `/data/local/tmp/shizuku/shizuku.json` + `pm grant/revoke` — AutoJs6 allowed, Tasker denied (manager UI is json-driven, not pm-only)
+- ✅ **Obtainium updates (2026-07-05 evening):** Shizuku 13.7.0, Termux:Styling/Widget/Float installed; AutoJs6 6.7.0 refreshed; `obtainium/mac/apply-updates.sh` added; Play Protect may block github-debug installs (verifier disable or manual **More details → Install anyway**)
+- ✅ **Termux overlay permission:** `SYSTEM_ALERT_WINDOW` granted for `com.termux` + `com.termux.window` (Termux:Float)
 - 🔲 `COMPARISON.md` remaining rows: locked-screen catastrophic, stale-loop (15 min), Tailscale probe
 
 ### Pixel 7a — WRAPPED UP 2026-07-05 (maintenance-only)
