@@ -10,6 +10,7 @@
 
 set -euo pipefail
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
+export LC_ALL=C   # deterministic sort/grep/awk regardless of device locale
 
 STATE_FILE="$HOME/.stayturgid_batt_alerted"
 COLOR_DIR="$HOME/.stayturgid/battery-colors"

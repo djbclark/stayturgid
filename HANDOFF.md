@@ -68,6 +68,22 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 
 **Legacy third-party automation** removed from both devices (2026-07-06). Fleet uses AutoJs6 only.
 
+### Idempotency + determinism pass — 2026-07-06 (late night) ✅
+
+- **Termux mirror pinned** to the official Cloudflare CDN
+  (`packages-cf.termux.dev`) via Ansible (`stayturgid_termux_mirror`,
+  copied to sources.list before any pkg op). Was: each device on a DIFFERENT
+  randomly-rotated mirror (p7a=krnk.org — the one that gave sync failures,
+  s24=utermux.dev). Now deterministic + reliable; device tier asserts it.
+- **LC_ALL=C** exported in the Termux parsing scripts (repair, battery-alarm,
+  agent-presence, screen-awake-guard, check-repo-version) so sort/grep/awk of
+  dumpsys output is locale-independent.
+- Verified idempotent: back-to-back `deploy-fleet.sh` runs report changed=0.
+- **Deliberately NOT changed** (would add downside): `set -e` in the boot/loop/
+  runtime scripts (a boot loop must survive individual command failures);
+  package version pinning (blocks security updates); UTC log timestamps
+  (local time is more debuggable). Documented here so it isn't "fixed" later.
+
 ### pytest + ansible-test collection migration — 2026-07-06 (late night) ✅
 
 - Idiomatic Python/Ansible test tooling per the official guide

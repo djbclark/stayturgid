@@ -9,6 +9,7 @@
 # (AutoJs6 UI repair or reboot). Prints one STATUS line for the caller.
 
 export PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/sbin:$PATH
+export LC_ALL=C   # deterministic sort/grep/awk regardless of device locale
 export PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 export HOME="${HOME:-/data/data/com.termux/files/home}"
 # Termux adb daemon writes logs under TMPDIR; without this, localhost:5555 checks fail.

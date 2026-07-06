@@ -15,6 +15,7 @@
 # screen_off_timeout is remembered so "Restore lock" knows what normal was.
 
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
+export LC_ALL=C   # deterministic sort/grep/awk regardless of device locale
 export TMPDIR="${TMPDIR:-/data/data/com.termux/files/usr/tmp}"
 
 ACTION="${1:-check}"

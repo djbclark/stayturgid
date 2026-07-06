@@ -64,6 +64,9 @@ tn=$(adb -s localhost:5555 shell "dumpsys notification --noredact" </dev/null 2>
     | grep -cE 'pkg=net\.dinglisch\.android\.taskerm.*(Watchdog bridge|stayturgid)')
 tf=$(adb -s localhost:5555 shell "grep -rl -iE 'ADB_Core_Watchdog|ADB_Interval_Check|Watchdog bridge' /sdcard/Tasker 2>/dev/null" </dev/null 2>/dev/null | grep -cv "/configs/")
 echo "taskerlegacy=notif:${tn:-0},files:${tf:-0}"
+# Determinism: mirror pinned to the CDN, not a random rotation pick
+grep -qF 'packages-cf.termux.dev' "$PREFIX/etc/apt/sources.list" 2>/dev/null \
+    && echo "mirror=pinned" || echo "mirror=UNPINNED"
 for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh check-repo-version.sh stayturgid-battery-alarm.sh screen-awake-guard.sh; do
     printf 'md5 %s %s\n' "$f" "$(md5sum "$HOME/$f" 2>/dev/null | cut -d" " -f1)"
 done
@@ -102,6 +105,9 @@ REMOTE
         tap_fail "$host: no legacy Tasker stayturgid remnants" \
             "$val — swipe stale Tasker notifications / archive /sdcard/Tasker leftovers"
     fi
+    val="$(printf '%s\n' "$report" | sed -n 's/^mirror=//p')"
+    [ "$val" = "pinned" ] && tap_ok "$host: Termux mirror pinned (deterministic pkg update)" \
+                         || tap_fail "$host: Termux mirror pinned" "$val — run ./mac/deploy-fleet.sh"
 
     # Deployment drift: deployed scripts vs repo (informational TODO, not a failure)
     drift=""

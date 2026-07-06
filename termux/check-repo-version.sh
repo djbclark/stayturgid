@@ -6,6 +6,7 @@
 set -euo pipefail
 
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
+export LC_ALL=C   # deterministic sort/grep/awk regardless of device locale
 
 URL="https://raw.githubusercontent.com/djbclark/stayturgid/master/version.json"
 STAMP="$HOME/.stayturgid_repo_version"

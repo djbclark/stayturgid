@@ -35,6 +35,7 @@
 # clear by hand: settings put secure accessibility_display_inversion_enabled 0
 
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
+export LC_ALL=C   # deterministic sort/grep/awk regardless of device locale
 ACTION="$1"
 LABEL="${2:-this phone}"
 AGENT="${3:-${STAYTURGID_AGENT:-Auto}}"

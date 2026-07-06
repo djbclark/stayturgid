@@ -42,3 +42,8 @@ stayturgid_battery_color_assets:
   - black.png
 
 stayturgid_allow_external_apps: true
+
+# Pin a single reliable mirror instead of Termux's random per-run rotation:
+# deterministic + avoids the intermittent "Mirror sync in progress" failures.
+# packages-cf.termux.dev is the official Cloudflare CDN (highest default weight).
+stayturgid_termux_mirror: https://packages-cf.termux.dev/apt/termux-main
