@@ -17,15 +17,14 @@ You need only:
 ansible-playbook ansible/playbooks/termux-userland.yml \
   -i 'myphone ansible_host=192.168.1.50 ansible_port=8022 ansible_user=u0_aXXX' \
   -e ansible_python_interpreter=/data/data/com.termux/files/usr/bin/python \
-  -e stayturgid_automation_mode= \
   -e stayturgid_device_id=
 ```
 
-Omit or empty `stayturgid_automation_mode` / `stayturgid_device_id` if you are not using AutoJs6/Tasker mode files.
+Omit `stayturgid_device_id` if not using device override files.
 
 Copy [inventory/example-standalone.yml](inventory/example-standalone.yml) as a starting point for a single phone.
 
-**Out of scope** (configure separately): Shizuku pairing, Tasker/AutoJs6, Obtainium, `WRITE_SECURE_SETTINGS`, battery whitelist, SSH key bootstrap.
+**Out of scope** (configure separately): Shizuku pairing, AutoJs6 install, Obtainium, `WRITE_SECURE_SETTINGS`, battery whitelist, SSH key bootstrap.
 
 The deployed `~/claude-presence.sh` includes the consent `gate` action ([termux/README.md](../termux/README.md)).
 
@@ -41,7 +40,7 @@ The deployed `~/claude-presence.sh` includes the consent `gate` action ([termux/
 # S24 (AutoJs6 production)
 ./ansible/mac/deploy-termux.sh s24
 
-# 7a (Tasker)
+# 7a (AutoJs6)
 ./ansible/mac/deploy-termux.sh p7a
 ```
 
@@ -56,7 +55,7 @@ STATUS port=open shizuku=up sshd=up shell=yes
 | Host | SSH | Mode | Notes |
 |------|-----|------|-------|
 | `s24` | `100.123.218.30:8022` | `autojs6` | Production AutoJs6 device |
-| `p7a` | `100.65.230.108:8022` | `tasker` | Tasker production device |
+| `p7a` | `100.65.230.108:8022` | `autojs6` | AutoJs6 production |
 
 To add the 7a later, uncomment/add under `stayturgid.hosts` in `inventory/hosts.yml`.
 

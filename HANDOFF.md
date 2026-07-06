@@ -13,10 +13,54 @@
 After a reboot and PIN unlock:
 1. **Shizuku** (thedjchi fork) auto-starts via Android Wireless Debugging and uses TCP mode to call `adb tcpip 5555` — this is what opens port 5555 without USB.
 2. **Termux:Boot** fires `~/.termux/boot/start-adb.sh` → starts `sshd`, then loops self-healing sshd every 5 min.
-3. **Tasker** `ADB_Boot_Restore` profile fires on boot → runs `ADB_Core_Watchdog` task.
-4. **Tasker** `ADB_Interval_Check` profile runs `ADB_Core_Watchdog` every 20 min — checks port 5555, Shizuku process, sshd, and fires a notification if any fail.
+3. **AutoJs6** `main.js` (20 min interval + boot via `boot-launcher.js`) → Termux `RUN_COMMAND` → `stayturgid-repair.sh`, notifications, Shizuku UI repair if needed.
 
 On the Mac side, a launchd agent (`com.djbclark.stayturgid.adb-reconnect`) runs every 60 seconds and reconnects `adb connect <ip>:5555` if it drops, handling DHCP IP changes automatically.
+
+---
+
+## ✅ Tasker removed from stayturgid (2026-07-06)
+
+**Done in repo:** Deleted `tasker/`, `tasker-io/`, Termux:Tasker wrapper, Tasker auto-update tasks, Maestro Tasker playbooks, and all stayturgid code paths that installed or configured Tasker/AutoInput. **Both fleet phones** use **AutoJs6 only** for the watchdog.
+
+**On devices:** stayturgid Tasker project files purged via `autojs6/mac/purge-stayturgid-from-tasker.sh`. Tasker/AutoInput/Termux:Tasker **remain installed** for the user's other projects — stayturgid does not uninstall them.
+
+**Updates without Tasker:** Bump `version.json`, push to GitHub, run `./ansible/mac/deploy-termux.sh` and `./autojs6/mac/deploy.sh` from the Mac. Optional on-device notifier: `termux/check-repo-version.sh`.
+
+### Ongoing goal: zero Tasker footprint (research)
+
+| Scope | Status | Notes |
+|-------|--------|-------|
+| stayturgid **codebase** | ✅ Achieved 2026-07-06 | No Tasker XML, tasker-io, or Termux:Tasker bridge in repo |
+| stayturgid **config on devices** | ✅ Achieved | Watchdog = AutoJs6; stayturgid exports removed from `/sdcard/Tasker/` |
+| **Uninstall Tasker** from phones | ❌ Out of scope | User may use Tasker for unrelated automation; stayturgid must not touch it |
+| **Uninstall Termux:Tasker** addon | Optional | Only needed if nothing else uses `~/.termux/tasker/`; safe to keep installed |
+| **Uninstall AutoInput** | Optional | Not required by stayturgid; other Tasker projects may still use it |
+
+**Why Tasker was in stayturgid historically**
+
+1. **Watchdog** — periodic repair + Shizuku catastrophic UI tap. Replaced by AutoJs6 (`autojs6/`), validated on S24 2026-07-05 and rolled to 7a 2026-07-06.
+2. **Auto-update** — `stayturgid_Update_Check` downloaded task XML from GitHub and drove four Tasker import dialogs via AutoInput gestures. **Removed** — fragile (dialog Y coords drifted; only one AutoInput gesture per Tasker task run; text-click needed per-device UUIDs). Replaced by Mac-side Ansible + `version.json` + optional Termux notification script.
+3. **Termux:Tasker bridge** — real-time `%stdout` from repair script. Replaced by AutoJs6 `RUN_COMMAND` (primary) and `repair-bridge.sh` (fallback).
+
+**What would be needed for “never install Tasker for stayturgid” (already true post-2026-07-06)**
+
+Nothing further in software — new phones follow `autojs6/mac/setup-autojs6.sh` only.
+
+**What would be needed to delete Tasker from the phones entirely**
+
+Not a stayturgid concern. User deletes other Tasker projects manually, then uninstalls Tasker from Settings.
+
+**External bugs that blocked Tasker-based auto-update (why we deleted it rather than fix)**
+
+| Issue | Component | Impact |
+|-------|-----------|--------|
+| Dialog button Y coords change with nav bar / UI | Tasker import Activity | AutoInput gesture missed → “User cancelled” |
+| Only first AutoInput **Gestures** action runs per task | AutoInput + Tasker | Dialogs 2–4 never tapped in one task |
+| Text-click actions need UUID in AutoInput DB | AutoInput PerformAction | Not portable in Git XML |
+| Samsung blocks intent import from `adb shell` | Tasker on S24 | Mac `tasker-io` required for imports anyway |
+
+None of these affect the AutoJs6 stack.
 
 ---
 

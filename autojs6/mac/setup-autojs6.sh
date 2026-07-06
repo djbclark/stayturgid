@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 # Install AutoJs6, grant Termux bridge perms, deploy project, start repair-bridge.
 # Usage: ./setup-autojs6.sh <serial|p7a|s24> [device-id]
-#
-# Does NOT switch automation mode or disable Tasker — deploy-only + install.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -70,8 +68,8 @@ fi
 # 6. Deploy AutoJs6 project
 "$SCRIPT_DIR/deploy.sh" "$1" "$DEVICE_ID"
 
-# 7. Default mode stays tasker until user switches
-adb -s "$SERIAL" shell "test -f /sdcard/stayturgid_automation_mode.txt || echo tasker > /sdcard/stayturgid_automation_mode.txt"
+# 7. Mark device for AutoJs6 stack (legacy marker file; optional)
+adb -s "$SERIAL" shell "echo autojs6 > /sdcard/stayturgid_automation_mode.txt"
 
 # 8. Register AutoJs6 in Obtainium for GitHub release updates
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -82,16 +80,14 @@ fi
 
 cat <<EOF
 
-=== Setup complete (Tasker mode unchanged) ===
+=== Setup complete ===
 
 On device:
   1. Open AutoJs6 → enable Accessibility service
   2. Settings → Apps → AutoJs6 → Permissions → Additional →
      "Run commands in Termux environment" (if shown)
-  3. When ready to test AutoJs6 stack ONLY:
-     ./set-automation-mode.sh $1 autojs6   # also syncs Shizuku authorized apps
-     Disable Tasker+AutoInput a11y, disable stayturgid Tasker profiles
-     Run scripts/test-watchdog-once.js (or main.js)
+  3. ./set-automation-mode.sh $1
+  4. ./start-watchdog.sh $1   # or run main.js in AutoJs6
 
 Logs:
   adb -s $SERIAL shell tail -f /sdcard/stayturgid_watchdog.log

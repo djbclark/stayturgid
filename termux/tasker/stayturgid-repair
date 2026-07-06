@@ -1,7 +1,0 @@
-#!/data/data/com.termux/files/usr/bin/bash
-# Termux:Tasker entry point. Deploy to ~/.termux/tasker/stayturgid-repair (chmod +x).
-# Tasker's Termux:Tasker plugin action runs this; with "wait for result" it captures
-# stdout -> %stdout (the STATUS line) and the exit code -> %result (0 healthy, 1 = a
-# subsystem still down / catastrophic → the watchdog then does the AutoInput recovery).
-# Requires allow-external-apps=true in ~/.termux/termux.properties.
-exec "$HOME/stayturgid-repair.sh"

@@ -1,176 +1,71 @@
-# stayturgid — AutoJs6 alternative stack
+# stayturgid — AutoJs6 watchdog
 
-Parallel **watchdog** using [AutoJs6](https://github.com/SuperMonster003/AutoJs6). Run **either** this **or** [Tasker](../tasker/README.md) on a device — not both. Depends on [termux/](../termux/README.md) for repair scripts unless you replace them.
+JavaScript watchdog using [AutoJs6](https://github.com/SuperMonster003/AutoJs6). **Only** automation stack in this repo (Tasker removed 2026-07-06). Depends on [termux/](../termux/README.md) for repair scripts.
 
-**Full project:** [../README.md](../README.md) · **Docs index:** [../docs/README.md](../docs/README.md)
+**Full project:** [../README.md](../README.md) · [docs/README.md](../docs/README.md)
 
-## What this replaces
+## What it does
 
-| Tasker + AutoInput | AutoJs6 |
-|--------------------|---------|
-| `ADB_Core_Watchdog` (20 min + boot) | `main.js` + 20 min `setInterval` |
-| Termux:Tasker → `stayturgid-repair` | Termux `RUN_COMMAND` intent → same script |
-| AutoInput gesture → Shizuku "Start" | Accessibility text/coord tap in `lib/shizuku.js` |
-| Tasker notifications | `lib/notify.js` (Android notification channel `stayturgid`) |
-| Shared log `/sdcard/stayturgid_watchdog.log` | Same log file, `[watchdog] … (autojs6)` prefix |
+| Function | Implementation |
+|----------|----------------|
+| 20 min + boot watchdog | `main.js` + `setInterval`; boot via `boot-launcher.js` / Termux:Boot |
+| Real-time repair | Termux `RUN_COMMAND` → `~/stayturgid-repair.sh` |
+| Catastrophic Shizuku repair | `lib/shizuku.js` — accessibility tap on **Start** |
+| Notifications | `lib/notify.js` — channel `stayturgid` |
+| Logging | `/sdcard/stayturgid_watchdog.log` with `(autojs6)` prefix |
 
-## What this does **not** replace
-
-- Termux:Boot self-heal loop (`termux/boot/start-adb.sh`)
-- `stayturgid-repair.sh` (shell repairs via localhost:5555)
-- Shizuku TCP mode, Mac `adb-reconnect.sh`, `access-monitor.sh`
-- Tasker auto-update flow (still Tasker+AutoInput only for now)
+Does **not** replace: Termux:Boot self-heal, Shizuku, Mac `adb-reconnect.sh`, Obtainium APK updates.
 
 ## Prerequisites
 
-1. **AutoJs6** installed (`org.autojs.autojs6`) — GitHub release or **Obtainium** (`obtainium/mac/sync-to-device.sh p7a autojs6`)
-2. **Termux** with `allow-external-apps=true` and `~/stayturgid-repair.sh` deployed (same as Tasker path)
-3. **Shizuku** (thedjchi fork) paired and working
+1. AutoJs6 (`org.autojs.autojs6`) — `setup-autojs6.sh` or Obtainium
+2. Termux with `allow-external-apps=true` and repair scripts deployed
+3. Shizuku (thedjchi fork), TCP mode
 4. AutoJs6 **accessibility service** enabled
-5. Tasker + AutoInput accessibility **disabled** when using this stack
 
-## Quick start
-
-### From Mac
+## Quick start (Mac)
 
 ```bash
-# Full install + deploy + repair-bridge (leaves Tasker mode unchanged)
-./mac/setup-autojs6.sh s24 s24          # USB preferred when plugged in; or p7a p7a
+./mac/setup-autojs6.sh p7a p7a    # or s24 s24
+./mac/set-automation-mode.sh p7a  # Shizuku grant for AutoJs6
+./mac/start-watchdog.sh p7a
 
-# Or deploy only (AutoJs6 already installed):
-./mac/deploy.sh s24 s24
-
-# Switch mode when ready to test AutoJs6 stack:
-./mac/set-automation-mode.sh s24 autojs6
-
-# Launch watchdog (after mode switch + a11y enabled):
-./mac/start-watchdog.sh s24 s24
-
-# Run a one-shot test script:
-./mac/run-test.sh s24 test-watchdog-once.js
+# Purge legacy stayturgid Tasker exports (does not uninstall Tasker):
+./mac/purge-stayturgid-from-tasker.sh p7a
 ```
 
-**ADB target:** Mac scripts source `mac/resolve-adb.sh` — `s24`/`p7a` aliases use USB serial when the phone is plugged in, else Tailscale wireless.
+Scripts use [shared/mac/resolve-adb.sh](../shared/mac/resolve-adb.sh) (USB when plugged in, else Tailscale).
 
-**Shizuku authorized apps:** The manager UI reads `/data/local/tmp/shizuku/shizuku.json`, not just `pm grant`. When switching modes, run `./mac/grant-shizuku.sh s24 autojs6` (or use `set-automation-mode.sh`, which calls it automatically) to allow AutoJs6 and deny Tasker.
+**Termux bridge:** Grant `com.termux.permission.RUN_COMMAND` to AutoJs6 (setup script). Fallback: `repair-bridge.sh` on a 2s poll.
 
-**Termux bridge:** AutoJs6 v6.4.1+ declares `com.termux.permission.RUN_COMMAND`; grant via setup script or Settings → AutoJs6 → Additional permissions. Fallback: `termux/repair-bridge.sh` (2s trigger file poll) — started automatically by `setup-autojs6.sh` over SSH. The bridge trigger is **always armed** alongside RUN_COMMAND (RUN_COMMAND can start without executing if Termux is cold).
+## Watchdog cycle
 
-**Rhino note:** AutoJs6 uses Mozilla Rhino — do not use `(?i)` inline regex flags; use `/pattern/i` instead.
-
-### On device (mode switch without Mac)
-
-In AutoJs6, run `scripts/switch-to-autojs6.js` or `scripts/switch-to-tasker.js`, then follow the toast instructions.
-
-## Mutual exclusivity guard
-
-`lib/guard.js` enforces:
-
-1. `/sdcard/stayturgid_automation_mode.txt` must contain `autojs6` (default if missing: `tasker` → script exits)
-2. Tasker + AutoInput accessibility services must **not** be enabled
-3. AutoJs6 accessibility must be enabled
-
-No cross-fallback: if mode is `tasker`, this script refuses to start even if left on disk.
-
-## Watchdog cycle (per run)
-
-Mirrors `ADB_Core_Watchdog` v3:
-
-1. Check repair loop stale (>15 min since last `[repair]` line) **before** invoke
-2. Invoke `stayturgid-repair.sh` via Termux `RUN_COMMAND` (real-time, not stale log)
-3. Parse latest `[repair] STATUS` from `/sdcard/stayturgid_watchdog.log`
-4. Notify if bridge failed, sshd down, or Tailscale down (`tun0` + ping `100.100.100.100`)
-5. If `port=CLOSED_NO_SHELL`: notify → launch Shizuku → tap **Start** (text match, coord fallback)
-6. Re-invoke repair after catastrophic UI path
-
-**Caveat:** UI repair requires an **unlocked screen** (same as AutoInput path). Screen-off skips the Shizuku tap.
+1. Stale repair loop check (>15 min)
+2. Invoke `stayturgid-repair.sh` via `RUN_COMMAND`
+3. Parse latest `[repair] STATUS` from log
+4. Notify on bridge failure, sshd down, or Tailscale down
+5. If port closed with no shell: Shizuku UI **Start** tap (unlocked screen required)
+6. Re-invoke repair after UI path
 
 ## Device profiles
 
-Auto-detected from `device.model`, overridable via `/sdcard/stayturgid_device.txt` (`p7a` or `s24`):
+`/sdcard/stayturgid_device.txt` override (`p7a` / `s24`) or auto-detect from model — see `devices/`.
 
-- `devices/p7a.js` — Pixel 7a coords + Tailscale IP
-- `devices/s24.js` — S24 coords + Samsung wireless-debug UI fallback
+## Keeping it alive
 
-## Device path (ASCII only)
+- Termux:Boot → `start-autojs6-watchdog.sh` → `boot-launcher.js`
+- `start-adb.sh` 5-min loop also nudges `boot-launcher.js` if deployed
+- Optional: AutoJs6 timed task every 20 min on `main.js`
 
-Deploy target is always **`/sdcard/Scripts/stayturgid`** — no locale-specific or non-ASCII path mirrors.
-
-## Keeping it alive (no AutoJs6 timed-task UI required)
-
-1. **`main.js`** — internal 20-minute `setInterval` + `timers.keepAlive()` when available.
-2. **`termux/boot/start-autojs6-watchdog.sh`** — on boot (mode=autojs6), launches `scripts/boot-launcher.js` after ~45s.
-3. **`termux/boot/start-adb.sh` loop** — every 5 minutes, re-invokes `boot-launcher.js` if mode=autojs6 (no-op when `main.js` already running).
-
-Optional: add AutoJs6 **Timed task** entries in the app UI as an extra backup if Doze kills the script process.
-
-Recommended AutoJs6 app settings:
-
-- Enable **stable mode** / ignore battery optimization for AutoJs6
-
-## Validation checklist
-
-After switching to AutoJs6 mode on a test device:
-
-```bash
-# Watch shared log
-adb shell tail -f /sdcard/stayturgid_watchdog.log
-# Expect: [watchdog] … (autojs6) lines every 20 min
-
-# Healthy cycle
-# [watchdog] port=open sshd=up … (autojs6)
-
-# Catastrophic test (advanced): pause Termux boot loop, inject CLOSED_NO_SHELL, run cycle manually
-# Or validate UI tap only (S24-friendly — does not break 5555):
-adb shell am start -a android.intent.action.VIEW \
-  -d "file:///sdcard/Scripts/stayturgid/scripts/test-catastrophic-once.js" \
-  -t "text/javascript" \
-  -n org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity
-# Expect: [watchdog] shizuku Start tapped (text match) … ok=true
-
-# Tailscale probe (healthy path)
-# …/scripts/test-tailscale-probe-once.js
-# Expect: tailscale-probe-test tun=true ping=true up=true
-
-# Stale loop (synthetic 20-min-old [repair] line — no 15-min wait)
-# …/scripts/test-stale-loop-once.js
-# Expect: isStaleBefore=true + "Repair loop stale" notification
-
-# Locked screen catastrophic (lock first via adb shell input keyevent 26)
-# …/scripts/test-locked-screen-catastrophic-once.js
-# Expect: shizuku Start skipped — screen off … ok=false
-
-# Tailscale down (live — use USB; Tailscale SSH may blip)
-./mac/test-tailscale-down.sh s24
-# Expect: probe up=false → watchdog tailscale tun=false → after-relaunch up=true
-```
-
-**Obtainium quieter installs:** `./obtainium/mac/enable-shizuku-installer.sh s24` (unlocked screen).
-
-## File layout
+## Layout
 
 ```
 autojs6/
-  main.js                 — entry point
-  project.json            — AutoJs6 project metadata
-  lib/
-    config.js             — paths, intervals, a11y service IDs
-    guard.js              — mutual exclusivity
-    log.js                — shared watchdog log
-    notify.js             — Android notifications
-    termux.js             — RUN_COMMAND bridge
-    shizuku.js            — catastrophic UI repair
-    tailscale.js          — tun0 + coord ping probe, relaunch
-    repair.js             — repair orchestration
-    watchdog.js           — one cycle logic
-  devices/p7a.js, s24.js
-  scripts/switch-to-*.js, test-*-once.js
-  mac/deploy.sh, set-automation-mode.sh, grant-shizuku.sh, run-test.sh, test-tailscale-down.sh
-  COMPARISON.md           — Tasker vs AutoJs6 evaluation framework
+  main.js  lib/  devices/  scripts/
+  mac/     — deploy, setup, start-watchdog, purge-stayturgid-from-tasker
 ```
 
-## See also
+## Related
 
-- `COMPARISON.md` — structured pros/cons template (fill in after live testing)
-- `../HANDOFF.md` — fleet status and roadmap
-- `../termux/stayturgid-repair.sh` — shared repair script
+- [termux/README.md](../termux/README.md)
+- [HANDOFF.md](../HANDOFF.md) — Tasker removal research

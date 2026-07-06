@@ -31,4 +31,4 @@ if [[ -n "$DEVICE_ID" ]]; then
 fi
 
 echo "Done. In AutoJs6: open project ${TARGET_BASE} → run main.js"
-echo "Set mode first: ./set-automation-mode.sh ${1} autojs6"
+echo "Then: ./set-automation-mode.sh ${1} && ./start-watchdog.sh ${1}"

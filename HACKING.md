@@ -2,7 +2,7 @@
 
 This document gets a developer from a clean Android + macOS install to a fully working development environment for stayturgid. Follow the sections in order — Android setup first, then Mac, then verification.
 
-**Modular use:** You do not need every component. Module READMEs: [docs/README.md](docs/README.md). Pick e.g. only [termux/](termux/README.md), only [ansible/](ansible/README.md), or only [obtainium/](obtainium/README.md).
+**Note (2026-07-06):** Tasker, `tasker-io`, and Tasker-based auto-update were **removed from this repo**. Historical Tasker XML notes below are archived for context only — new installs use [autojs6/](autojs6/README.md) only.
 
 ---
 
@@ -10,9 +10,9 @@ This document gets a developer from a clean Android + macOS install to a fully w
 
 | Layer | Role |
 |-------|------|
-| Android device | Runs Tasker, Shizuku, Termux — the actual system under management |
-| macOS (Mac) | Development workstation; runs ADB, uiautomator2, AI coding agent (Claude Code) |
-| Tasker | Automation runtime on the device — the core of stayturgid |
+| Android device | Runs AutoJs6, Shizuku, Termux — the managed stack |
+| macOS (Mac) | Development workstation; runs ADB, Ansible, AI coding agent |
+| AutoJs6 | Watchdog automation on the device (accessibility + Termux bridge) |
 | Shizuku (thedjchi fork) | Grants Tasker `WRITE_SECURE_SETTINGS` via Wireless Debugging (no root) |
 | Termux | Linux environment on Android — runs sshd, adb, the boot script |
 
@@ -274,7 +274,9 @@ Verify in Tasker: **Prefs → Android → Android Settings** should show `WRITE_
 
 ---
 
-### 1.6 Import the Tasker project
+### 1.6 ~~Import the Tasker project~~ (REMOVED 2026-07-06)
+
+> **Deprecated.** Tasker is no longer part of stayturgid. Install the AutoJs6 watchdog instead: [autojs6/README.md](autojs6/README.md) → `setup-autojs6.sh` / `start-watchdog.sh`. The steps below are kept only as historical reference.
 
 **Option A — from TaskerNet (easiest):**
 

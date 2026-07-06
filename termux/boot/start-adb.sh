@@ -60,9 +60,8 @@ while true; do
         fi
     fi
 
-    # AutoJs6 mode: ensure main.js is running (boot-launcher no-ops if already up).
-    if grep -q '^autojs6$' /sdcard/stayturgid_automation_mode.txt 2>/dev/null \
-        && [ -f /sdcard/Scripts/stayturgid/scripts/boot-launcher.js ]; then
+    # Ensure AutoJs6 watchdog is running (boot-launcher no-ops if main.js already up).
+    if [ -f /sdcard/Scripts/stayturgid/scripts/boot-launcher.js ]; then
         am start -a android.intent.action.VIEW \
             -d 'file:///sdcard/Scripts/stayturgid/scripts/boot-launcher.js' \
             -t 'text/javascript' \

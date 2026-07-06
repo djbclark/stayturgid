@@ -1,6 +1,5 @@
 /** Shared constants and device profile resolution. */
 
-var MODE_FILE = "/sdcard/stayturgid_automation_mode.txt";
 var DEVICE_FILE = "/sdcard/stayturgid_device.txt";
 var WATCHDOG_LOG = "/sdcard/stayturgid_watchdog.log";
 var REPAIR_SCRIPT = "/data/data/com.termux/files/home/stayturgid-repair.sh";
@@ -10,8 +9,6 @@ var INTERVAL_MS = 20 * 60 * 1000;
 var STALE_REPAIR_MS = 15 * 60 * 1000;
 var NOTIFY_CHANNEL = "stayturgid";
 
-var TASKER_A11Y = "net.dinglisch.android.taskerm/net.dinglisch.android.taskerm.MyAccessibilityService";
-var AUTOINPUT_A11Y = "com.joaomgcd.autoinput/com.joaomgcd.autoinput.service.ServiceAccessibilityV2";
 var AUTOJS6_A11Y = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher";
 
 function readOverrideDeviceId() {
@@ -40,7 +37,6 @@ function detectDeviceProfile() {
 }
 
 module.exports = {
-    MODE_FILE: MODE_FILE,
     DEVICE_FILE: DEVICE_FILE,
     WATCHDOG_LOG: WATCHDOG_LOG,
     REPAIR_SCRIPT: REPAIR_SCRIPT,
@@ -48,8 +44,6 @@ module.exports = {
     INTERVAL_MS: INTERVAL_MS,
     STALE_REPAIR_MS: STALE_REPAIR_MS,
     NOTIFY_CHANNEL: NOTIFY_CHANNEL,
-    TASKER_A11Y: TASKER_A11Y,
-    AUTOINPUT_A11Y: AUTOINPUT_A11Y,
     AUTOJS6_A11Y: AUTOJS6_A11Y,
     detectDeviceProfile: detectDeviceProfile,
 };

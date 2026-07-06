@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 # Launch stayturgid AutoJs6 watchdog (main.js) on a phone.
 # Usage: ./start-watchdog.sh <p7a|s24|serial>
-#
-# Requires: mode=autojs6, AutoJs6 accessibility enabled, Tasker watchdog profiles off.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -12,11 +10,6 @@ source "$REPO_ROOT/shared/mac/resolve-adb.sh"
 SERIAL="$(resolve_adb "${1:?usage: start-watchdog.sh <p7a|s24|serial>}")"
 MAIN="/sdcard/Scripts/stayturgid/main.js"
 PKG="org.autojs.autojs6"
-
-MODE="$(adb -s "$SERIAL" shell cat /sdcard/stayturgid_automation_mode.txt 2>/dev/null | tr -d '\r' || true)"
-if [[ "$MODE" != "autojs6" ]]; then
-  echo "WARN: automation mode is '$MODE' (expected autojs6)" >&2
-fi
 
 echo "Starting main.js on $SERIAL..."
 adb -s "$SERIAL" shell am start -a android.intent.action.VIEW \

@@ -1,12 +1,8 @@
 /**
  * stayturgid AutoJs6 watchdog — entry point.
  *
- * Mutually exclusive with Tasker+AutoInput. Set automation mode first:
- *   echo autojs6 > /sdcard/stayturgid_automation_mode.txt
- * Then disable Tasker + AutoInput accessibility and enable AutoJs6's.
- *
- * Configure AutoJs6: Settings → keep running after volume-up / stable mode;
- * optionally add a Timed task (every 20 min) + boot trigger pointing here.
+ * Enable AutoJs6 accessibility, then run this script (or use boot-launcher.js from Termux:Boot).
+ * Optional: AutoJs6 timed task every 20 min + run on boot for main.js.
  */
 "auto";
 
@@ -33,7 +29,7 @@ log.append("[watchdog] stayturgid AutoJs6 started device=" + profile.id);
 // First run (covers manual launch and boot if AutoJs6 auto-starts this project)
 watchdog.runCycle("boot", profile);
 
-// Every 20 minutes — same cadence as ADB_Interval_Check
+// Every 20 minutes
 setInterval(function () {
     try {
         guard.enforce();
