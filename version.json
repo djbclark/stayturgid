@@ -1,4 +1,4 @@
 {
-  "version": "1.5",
-  "changelog": "Screen-awake guard notification (one-tap restore of screen lock); agent-agnostic presence protocol with request-screen countdown modal + graceful stop; test suite; mirror-tolerant pkg update."
+  "version": "1.6",
+  "changelog": "Screen-lock restore options are now 1m/3m/5m/10m with the full picker behind Other\u2026; bare restore always asks instead of silently reusing the baseline."
 }

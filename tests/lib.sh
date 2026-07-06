@@ -74,11 +74,19 @@ STUB
 
     # Multiline JSON like the real termux-dialog: the consumer awk expects
     # "text": "..." on its own line (field 4 with FS='"').
+    # Answers come from DIALOG_CHOICE, or one per call from $SANDBOX/dialog_queue
+    # (first line consumed each call) when multi-dialog flows need different answers.
     cat > "$d/termux-dialog" <<'STUB'
 #!/usr/bin/env bash
 echo "termux-dialog $*" >> "$STUB_LOG"
-if [ -n "${DIALOG_CHOICE:-}" ]; then
-    printf '{\n  "code": -1,\n  "text": "%s"\n}\n' "$DIALOG_CHOICE"
+choice="${DIALOG_CHOICE:-}"
+if [ -s "$SANDBOX/dialog_queue" ]; then
+    choice="$(head -1 "$SANDBOX/dialog_queue")"
+    tail -n +2 "$SANDBOX/dialog_queue" > "$SANDBOX/dialog_queue.t" && \
+        mv "$SANDBOX/dialog_queue.t" "$SANDBOX/dialog_queue"
+fi
+if [ -n "$choice" ]; then
+    printf '{\n  "code": -1,\n  "text": "%s"\n}\n' "$choice"
 fi
 exit 0
 STUB

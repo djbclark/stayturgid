@@ -89,12 +89,13 @@ post_notification() {
             --button2-action "bash $self restore" \
             2>/dev/null
     else
+        # Notifications max out at 3 buttons; the timeout choices (1/3/5/10m
+        # + full picker) live in the restore dialog instead.
         termux-notification --id "$NID" --priority high --alert-once \
             --title "Screen is being kept awake" \
             --content "$reason — pick a lock timeout to restore. Ignore to keep it awake." \
-            --button1 "30s" --button1-action "bash $self restore 30000" \
-            --button2 "2m"  --button2-action "bash $self restore 120000" \
-            --button3 "10m" --button3-action "bash $self restore 600000" \
+            --button1 "Set lock timeout…" \
+            --button1-action "bash $self restore" \
             2>/dev/null
     fi
 }
@@ -112,25 +113,43 @@ do_check() {
     fi
 }
 
+pick_timeout_full() {   # full picker — the usual Android options
+    local out
+    out="$(termux-dialog radio -t "Restore screen lock after" \
+        -v "15 seconds,30 seconds,1 minute,2 minutes,5 minutes,10 minutes,30 minutes" 2>/dev/null)"
+    case "$out" in
+        *"15 seconds"*) echo 15000 ;;
+        *"30 seconds"*) echo 30000 ;;
+        *"1 minute"*)   echo 60000 ;;
+        *"2 minutes"*)  echo 120000 ;;
+        *"5 minutes"*)  echo 300000 ;;
+        *"10 minutes"*) echo 600000 ;;
+        *"30 minutes"*) echo 1800000 ;;
+        *) return 1 ;;
+    esac
+}
+
+pick_timeout() {        # quick options first, full picker behind Other…
+    local out
+    out="$(termux-dialog radio -t "Restore screen lock after" \
+        -v "1 minute,3 minutes,5 minutes,10 minutes,Other…" 2>/dev/null)"
+    case "$out" in
+        *"1 minute"*)   echo 60000 ;;
+        *"3 minutes"*)  echo 180000 ;;
+        *"5 minutes"*)  echo 300000 ;;
+        *"10 minutes"*) echo 600000 ;;
+        *"Other…"*)     pick_timeout_full ;;
+        *) return 1 ;;
+    esac
+}
+
 do_restore() {
-    local ms="${1:-}" out
+    local ms="${1:-}"
     if [ -z "$ms" ]; then
-        ms="$(cat "$BASELINE_FILE" 2>/dev/null)"
-    fi
-    if [ -z "$ms" ]; then
-        # The usual Android options, since the previous value is unknown.
-        out="$(termux-dialog radio -t "Restore screen lock after" \
-            -v "15 seconds,30 seconds,1 minute,2 minutes,5 minutes,10 minutes,30 minutes" 2>/dev/null)"
-        case "$out" in
-            *"15 seconds"*) ms=15000 ;;
-            *"30 seconds"*) ms=30000 ;;
-            *"1 minute"*)   ms=60000 ;;
-            *"2 minutes"*)  ms=120000 ;;
-            *"5 minutes"*)  ms=300000 ;;
-            *"10 minutes"*) ms=600000 ;;
-            *"30 minutes"*) ms=1800000 ;;
-            *) echo "restore cancelled"; exit 1 ;;
-        esac
+        if ! ms="$(pick_timeout)" || [ -z "$ms" ]; then
+            echo "restore cancelled"
+            exit 1
+        fi
     fi
 
     adb_shell settings put system screen_off_timeout "$ms" >/dev/null

@@ -266,12 +266,35 @@ run_sandboxed "$GUARD" check
 tap_is "$(stub_calls 'termux-notification ')" 0 "guard: no notification while screen is off"
 unset ADB_WAKE
 
-# no baseline known: notification offers the usual timeout options
+# no baseline known: notification offers the timeout dialog
 : > "$STUB_LOG"
 rm -f "$SANDBOX/home/.stayturgid/screen_timeout_baseline"
 run_sandboxed "$GUARD" check
-tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "--button3 10m" \
-    "guard: without baseline offers usual timeout options"
+tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "Set lock timeout" \
+    "guard: without baseline offers the timeout dialog button"
+
+# restore dialog: quick options 1m/3m/5m/10m, full picker behind Other…
+: > "$STUB_LOG"
+export DIALOG_CHOICE="3 minutes"
+run_sandboxed "$GUARD" restore
+unset DIALOG_CHOICE
+tap_like "$(cat "$STUB_LOG")" "screen_off_timeout 180000" \
+    "guard: dialog quick option 3 minutes applies 180000"
+tap_like "$(grep 'termux-dialog' "$STUB_LOG")" "1 minute,3 minutes,5 minutes,10 minutes,Other…" \
+    "guard: dialog offers 1m/3m/5m/10m + Other…"
+
+: > "$STUB_LOG"
+printf 'Other…\n30 seconds\n' > "$SANDBOX/dialog_queue"
+run_sandboxed "$GUARD" restore
+tap_like "$(cat "$STUB_LOG")" "screen_off_timeout 30000" \
+    "guard: Other… opens full picker (30 seconds => 30000)"
+
+: > "$STUB_LOG"
+export DIALOG_CHOICE=""
+run_sandboxed "$GUARD" restore
+unset DIALOG_CHOICE
+tap_is "$RC" 1 "guard: cancelled dialog changes nothing"
+tap_unlike "$(cat "$STUB_LOG")" "settings put" "guard: no settings written on cancel"
 
 # restore with explicit ms: settings restored, screen slept, baseline updated
 : > "$STUB_LOG"
