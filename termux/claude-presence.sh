@@ -26,7 +26,7 @@
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
 ACTION="$1"
 LABEL="${2:-this phone}"
-AGENT="${STAYTURGID_AGENT:-${3:-Auto}}"
+AGENT="${3:-${STAYTURGID_AGENT:-Auto}}"
 NID="stayturgid-presence"
 PAUSE_FILE="/sdcard/stayturgid_presence_paused"
 LATER_FILE="/sdcard/stayturgid_presence_check_after"
@@ -61,7 +61,8 @@ screen_interactive() {
 
 idle_foreground() {
     case "$1" in
-        ""|com.sec.android.app.launcher|com.android.systemui|com.samsung.android.app.aodservice|\
+        ""|com.sec.android.app.launcher|com.google.android.apps.nexuslauncher|\
+        com.android.launcher3|com.android.systemui|com.samsung.android.app.aodservice|\
         com.termux|com.tailscale.ipn|moe.shizuku.privileged.api|org.autojs.autojs6)
             return 0
             ;;
@@ -106,6 +107,11 @@ consent_gate() {
     choice="$(printf '%s\n' "$out" | awk -F '"' '/text/ { print $4; exit }')"
 
     case "$choice" in
+        "Continue")
+            rm -f "$LATER_FILE"
+            echo "presence gate: continue"
+            return 0
+            ;;
         "Pause")
             date +%s > "$PAUSE_FILE"
             termux-notification --id "$NID" --priority high --alert-once \
@@ -114,15 +120,13 @@ consent_gate() {
             echo "presence gate: pause"
             return 75
             ;;
-        "Check again in 10 minutes")
-            echo $(( $(date +%s) + 600 )) > "$LATER_FILE"
-            echo "presence gate: later"
-            return 75
-            ;;
         *)
-            rm -f "$LATER_FILE"
-            echo "presence gate: continue (choice=${choice:-timeout-default})"
-            return 0
+            # "Check again in 10 minutes", dialog timeout, or anything
+            # unrecognized: fail closed. The gate only shows while the phone
+            # is actively in use, so silence is not consent.
+            echo $(( $(date +%s) + 600 )) > "$LATER_FILE"
+            echo "presence gate: later (choice=${choice:-timeout})"
+            return 75
             ;;
     esac
 }

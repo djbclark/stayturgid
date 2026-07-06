@@ -101,14 +101,15 @@ def main():
     changed = False
     messages = []
 
-    if module.params["update_cache"]:
+    # update/upgrade mutate the device — skip both in check mode.
+    if module.params["update_cache"] and not module.check_mode:
         rc, out, err = _shell(module, "pkg update")
         if rc != 0:
             module.fail_json(msg="pkg update failed", rc=rc, stdout=out, stderr=err)
         if "Fetched" in out or "Get:" in out:
             changed = True
 
-    if module.params["upgrade"] and state in ("present", "latest"):
+    if module.params["upgrade"] and state in ("present", "latest") and not module.check_mode:
         rc, out, err = _shell(
             module,
             "apt-get -y $APT_OPTS full-upgrade 2>&1 || pkg upgrade -y",
@@ -144,10 +145,8 @@ def main():
         module.exit_json(changed=True, would_install=missing)
 
     if missing or need_upgrade:
-        if module.params["update_cache"]:
-            _shell(module, "pkg update")
-        if module.params["upgrade"]:
-            _shell(module, "apt-get -y $APT_OPTS full-upgrade 2>&1 || pkg upgrade -y")
+        # Cache was already refreshed above when update_cache is set — no
+        # need to re-run update/upgrade before the install.
         install_list = " ".join(names if need_upgrade else missing)
         rc, out, err = _shell(module, "pkg install -y %s" % install_list)
         if rc != 0:

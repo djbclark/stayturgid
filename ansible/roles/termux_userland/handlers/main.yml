@@ -1,0 +1,6 @@
+---
+# termux.properties changes (allow-external-apps) only take effect after a
+# settings reload or app restart.
+- name: reload termux settings
+  ansible.builtin.command: "{{ termux_prefix }}/bin/termux-reload-settings"
+  changed_when: true

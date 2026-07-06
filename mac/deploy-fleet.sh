@@ -30,7 +30,8 @@ pgrep -f 'start-adb\.sh' >/dev/null && echo "boot loop running" || echo "WARN: b
 REMOTE
 }
 
-for host in "${HOSTS[@]}"; do
+deploy_host() {
+  local host="$1"
   echo ""
   echo "========== $host =========="
   echo "--- Termux (Ansible) ---"
@@ -39,7 +40,20 @@ for host in "${HOSTS[@]}"; do
   echo "--- AutoJs6 ---"
   "$ROOT/autojs6/mac/deploy.sh" "$host"
   "$ROOT/autojs6/mac/start-watchdog.sh" "$host"
+}
+
+FAIL=0
+for host in "${HOSTS[@]}"; do
+  # One unreachable phone shouldn't skip the rest of the fleet.
+  if ! deploy_host "$host"; then
+    echo "ERROR: deploy failed for $host — continuing with remaining hosts" >&2
+    FAIL=1
+  fi
 done
 
 echo ""
+if [ "$FAIL" -ne 0 ]; then
+  echo "Fleet deploy finished WITH FAILURES. Run ./mac/fleet-health.sh to verify."
+  exit 1
+fi
 echo "Fleet deploy complete. Run ./mac/fleet-health.sh to verify."

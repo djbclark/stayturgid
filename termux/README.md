@@ -28,14 +28,13 @@ cp boot/*.sh ~/.termux/boot/
 chmod +x ~/*.sh ~/.termux/boot/*.sh
 echo 'allow-external-apps=true' >> ~/.termux/termux.properties
 
-pkg update && pkg upgrade -y
 pkg update && pkg upgrade -y && pkg install -y openssh android-tools termux-api runit
 sshd
 ```
 
 Open **Termux:Boot** once after install. `start-adb.sh` runs repair every 5 min; for watchdog notifications and Shizuku UI repair, add [AutoJs6](../autojs6/README.md).
 
-**Low-battery alarm:** `stayturgid-battery-alarm.sh` runs every 5 min from the boot loop. While discharging, fires **once per tier**: 30%, 25%, 20%, 15%, 10%, 5%, then each 1% below 5. Each tier blinks the screen a solid color (purple @30 → red @5+) with brightness pulses; from 15% also pulses the flashlight (count matches tier). During DND/silent ringer: screen blink + one quick torch only (no toast/vibrate). Resets when charging or above 30%. Requires Termux:API + color PNGs in `~/.stayturgid/battery-colors/` (deployed by Ansible).
+**Low-battery alarm:** `stayturgid-battery-alarm.sh` runs every 5 min from the boot loop. While discharging, fires **once per tier**: 30%, 25%, 20%, 15%, 10%, 5%, then each 1% below 5 (when several tiers are crossed at once — e.g. first run at low battery — only the lowest fires; higher tiers are marked done). Each tier blinks the screen a solid color (purple @30 → red @5+) with brightness pulses; from 15% also pulses the flashlight (count matches tier). During DND/silent ringer: screen blink + one quick torch only (no toast/vibrate). Resets when charging or above 30%. Requires Termux:API + color PNGs in `~/.stayturgid/battery-colors/` (deployed by Ansible).
 
 **Repo version check:** `check-repo-version.sh` runs at most once per day from the boot loop (notify only; deploy from Mac).
 

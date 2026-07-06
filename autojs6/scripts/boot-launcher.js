@@ -1,8 +1,11 @@
 /**
  * Boot helper: start main.js if not already running.
  * Invoked from Termux:Boot (start-autojs6-watchdog.sh) or AutoJs6 timed/broadcast task.
+ *
+ * No "auto" directive: this launcher doesn't need accessibility, and it runs
+ * every 5 min from the boot loop — requesting a11y here would bounce the user
+ * to Settings repeatedly whenever the service is off (main.js handles a11y).
  */
-"auto";
 
 var MAIN = "/sdcard/Scripts/stayturgid/main.js";
 

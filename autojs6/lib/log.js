@@ -55,9 +55,14 @@ function latestRepairTimestampMs() {
     var lines = content.split("\n");
     for (var i = lines.length - 1; i >= 0; i--) {
         if (lines[i].indexOf("[repair]") >= 0) {
-            var m = lines[i].match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})/);
+            // Construct from components: Date.parse of a no-offset ISO string
+            // is local-vs-UTC ambiguous across JS engine versions.
+            var m = lines[i].match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
             if (m) {
-                return Date.parse(m[1].replace(" ", "T"));
+                return new Date(
+                    Number(m[1]), Number(m[2]) - 1, Number(m[3]),
+                    Number(m[4]), Number(m[5]), Number(m[6])
+                ).getTime();
             }
         }
     }

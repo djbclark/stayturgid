@@ -30,3 +30,11 @@ resolve_adb() {
       ;;
   esac
 }
+
+# SSH alias for a device alias; empty when only reachable via raw ADB serial.
+resolve_ssh_host() {
+  case "${1:-}" in
+    p7a|s24) echo "$1" ;;
+    *) echo "" ;;
+  esac
+}

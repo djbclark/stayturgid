@@ -16,12 +16,8 @@ TARGET="$(resolve_adb "$ALIAS")"
 AUTOJS_PKG="org.autojs.autojs6"
 SHIZUKU_PERM="moe.shizuku.manager.permission.API_V23"
 SHIZUKU_JSON="/data/local/tmp/shizuku/shizuku.json"
-FLAG_ALLOW=2
 
-ssh_host=""
-case "$ALIAS" in
-  p7a|s24) ssh_host="$ALIAS" ;;
-esac
+ssh_host="$(resolve_ssh_host "$ALIAS")"
 
 sh_shell() {
   local cmd="$1"
@@ -47,7 +43,22 @@ fi
 
 sh_shell "pm grant $AUTOJS_PKG $SHIZUKU_PERM" 2>/dev/null || true
 
-CURRENT="$(sh_shell "cat $SHIZUKU_JSON" 2>/dev/null | tr -d '\r' || true)"
+# Distinguish "file missing" (fresh config OK) from "read failed" (abort):
+# patching from an empty read would rewrite shizuku.json with ONLY this app,
+# revoking every other authorized app.
+if ! sh_shell "true" >/dev/null 2>&1; then
+  echo "ERROR: no privileged shell on localhost:5555 — aborting before touching $SHIZUKU_JSON" >&2
+  exit 1
+fi
+if sh_shell "test -f $SHIZUKU_JSON" >/dev/null 2>&1; then
+  CURRENT="$(sh_shell "cat $SHIZUKU_JSON" 2>/dev/null | tr -d '\r')"
+  if [[ -z "$CURRENT" ]]; then
+    echo "ERROR: $SHIZUKU_JSON exists but read came back empty — aborting to avoid clobbering" >&2
+    exit 1
+  fi
+else
+  CURRENT=""
+fi
 TMP_JSON="$(mktemp)"
 printf '%s' "$CURRENT" > "$TMP_JSON"
 PATCH_JSON="$(python3 - "$TMP_JSON" "$AUTOJS_UID" "$AUTOJS_PKG" <<'PY'

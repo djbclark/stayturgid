@@ -34,7 +34,7 @@ if (!down.up) {
 }
 
 var relaunched = tailscale.relaunch(profile);
-sleep(2);
+sleep(2000);
 var after = waitForUp(45000);
 
 log.append("[watchdog] tailscale-down-test after-relaunch tun=" + after.tun + " ping=" + after.ping

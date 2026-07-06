@@ -1,4 +1,4 @@
 {
-  "version": "1.3",
-  "changelog": "Tiered battery alarm: 5% steps with colored screen blinks + torch; DND-quiet mode; scrub legacy automation refs."
+  "version": "1.4",
+  "changelog": "Code-review fixes: repair-bridge boot start (pgrep self-match), repair-script lock branch, battery alarm single-tier + wallpaper safety, consent gate fails closed, watchdog notification coalescing, log rotation."
 }

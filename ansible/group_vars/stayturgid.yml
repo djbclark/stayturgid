@@ -1,19 +1,4 @@
 ---
-# Shared Termux userland variables (see role defaults for overrides).
-stayturgid_termux_packages:
-  - openssh
-  - android-tools
-  - abseil-cpp
-  - libprotobuf
-  - protobuf
-  - wget
-  - git
-  - python
-  - curl
-  - termux-api
-  - runit
-
-stayturgid_boot_scripts:
-  - start-adb.sh
-  - start-repair-bridge.sh
-  - start-autojs6-watchdog.sh
+# Fleet-wide overrides go here. Package and boot-script lists live in ONE
+# place — roles/termux_userland/defaults/main.yml — do not duplicate them
+# here (group_vars silently wins over role defaults and the copies drift).

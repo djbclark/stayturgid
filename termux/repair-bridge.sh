@@ -10,6 +10,11 @@ export PATH=/data/data/com.termux/files/usr/bin:$PATH
 TRIGGER=/sdcard/stayturgid_repair_now
 REPAIR="$HOME/stayturgid-repair.sh"
 LOG="$HOME/.repair-bridge.log"
+PIDFILE="$HOME/.repair-bridge.pid"
+
+# Pidfile lets starters check liveness without pgrep -f (whose pattern would
+# match the caller's own cmdline on Linux/Termux procps).
+echo $$ > "$PIDFILE"
 
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 

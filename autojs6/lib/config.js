@@ -33,6 +33,9 @@ function detectDeviceProfile() {
     if (model.indexOf("sm-s921") >= 0 || model.indexOf("s24") >= 0) {
         return require("../devices/s24.js");
     }
+    // Unknown hardware: p7a profile is a guess (wrong tailscaleIp/coords).
+    console.warn("[stayturgid] unrecognized device model=" + model
+        + " product=" + product + " — defaulting to p7a profile");
     return require("../devices/p7a.js");
 }
 

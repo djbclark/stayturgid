@@ -6,6 +6,16 @@
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
 export HOME=/data/data/com.termux/files/home
 
-if [[ -x "$HOME/repair-bridge.sh" ]] && ! pgrep -f repair-bridge.sh >/dev/null 2>&1; then
+# Liveness via pidfile, not pgrep -f: on Termux (procps) a pgrep -f pattern
+# containing "repair-bridge.sh" matches THIS script's own cmdline, so the
+# old guard always self-matched and the bridge never started at boot.
+bridge_running() {
+    local pid
+    pid="$(cat "$HOME/.repair-bridge.pid" 2>/dev/null)" || return 1
+    [ -n "$pid" ] && [ -d "/proc/$pid" ] && \
+        grep -q "repair-bridge" "/proc/$pid/cmdline" 2>/dev/null
+}
+
+if [[ -x "$HOME/repair-bridge.sh" ]] && ! bridge_running; then
     nohup "$HOME/repair-bridge.sh" >> "$HOME/.repair-bridge.log" 2>&1 &
 fi

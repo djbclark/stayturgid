@@ -3,7 +3,8 @@
 # Usage: ./apply-updates.sh <p7a|s24|serial>
 #
 # Requires: unlocked screen, Obtainium in foreground. Confirms package-installer
-# dialogs (taps android:id/button2 = positive action on Samsung).
+# dialogs (taps android:id/button2 — observed as the positive action on Samsung
+# One UI; unverified on Pixel, where button1 may be the positive action).
 #
 # For stayturgid catalog apps blocked by Play Protect, prefer adb install with
 # verifier disabled (see HACKING.md) or enable Shizuku installer in Obtainium settings.

@@ -9,6 +9,9 @@ var tailscale = require("./tailscale.js");
  * One watchdog cycle — mirrors ADB_Core_Watchdog v3 division of labor:
  *   Termux boot loop  → shell repairs every 5 min
  *   This layer        → real-time repair invoke + catastrophic UI + notifications
+ *
+ * Notifications use stable per-condition keys: a persistent outage updates one
+ * notification instead of stacking new ones, and recovery clears it.
  */
 function runCycle(trigger, profile) {
     var tag = profile.notifyTag || "";
@@ -19,8 +22,11 @@ function runCycle(trigger, profile) {
         notify.show(
             "⚠ Repair loop stale " + tag,
             time + " — No [repair] log line in 15+ min; Termux boot loop may be dead. "
-                + "Open Termux or reboot."
+                + "Open Termux or reboot.",
+            "stale"
         );
+    } else {
+        notify.clear("stale");
     }
 
     // Real-time Termux repair via RUN_COMMAND / trigger file
@@ -36,17 +42,22 @@ function runCycle(trigger, profile) {
         notify.show(
             "⚠ Watchdog bridge failed " + tag,
             time + " — Termux RUN_COMMAND returned no fresh STATUS; check allow-external-apps "
-                + "and stayturgid-repair.sh on device."
+                + "and stayturgid-repair.sh on device.",
+            "bridge"
         );
         return;
     }
+    notify.clear("bridge");
 
     if (sshd === "down" || sshd === "FAILED") {
         notify.show(
             "⚠ SSH daemon down " + tag,
             time + " — Termux sshd not running (repair couldn't restore it). "
-                + "SSH in via ADB/Tailscale and run: sshd"
+                + "SSH in via ADB/Tailscale and run: sshd",
+            "sshd"
         );
+    } else {
+        notify.clear("sshd");
     }
 
     var ts = tailscale.check(profile);
@@ -54,16 +65,20 @@ function runCycle(trigger, profile) {
     if (!ts.up) {
         notify.show(
             "⚠ Tailscale down " + tag,
-            time + " — tun0 or ping " + tailscale.COORD_PING_HOST + " failed; relaunching Tailscale."
+            time + " — tun0 or ping " + tailscale.COORD_PING_HOST + " failed; relaunching Tailscale.",
+            "tailscale"
         );
         tailscale.relaunch(profile);
+    } else {
+        notify.clear("tailscale");
     }
 
     if (port === "CLOSED_NO_SHELL") {
         notify.show(
             "⚠ ADB 5555 down — auto-repairing " + tag,
             time + " — port 5555 unreachable + no shell. Launching Shizuku + tapping Start. "
-                + "If it persists, reboot."
+                + "If it persists, reboot.",
+            "adb5555"
         );
         repair.repairCatastrophic(profile);
         // Re-invoke repair to pick up any restored shell channel
@@ -72,6 +87,8 @@ function runCycle(trigger, profile) {
         if (after && after.port === "CLOSED_NO_SHELL") {
             log.append("[watchdog] catastrophic repair finished but port still CLOSED_NO_SHELL");
         }
+    } else {
+        notify.clear("adb5555");
     }
 }
 

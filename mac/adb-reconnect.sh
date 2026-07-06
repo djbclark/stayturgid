@@ -58,7 +58,9 @@ for DEVICE in $CANDIDATES; do
     result=$("$ADB" connect "$DEVICE" 2>&1)
     echo "$(date '+%Y-%m-%d %H:%M:%S')  [${DEVICE_SERIAL}] ${result}" >> "$LOG"
     if echo "$result" | grep -qF "connected to"; then
-        if [ "$DEVICE" != "$CACHED" ]; then
+        # Don't cache the mDNS endpoint — its port is ephemeral (changes each
+        # boot) and would poison the "last known-good" slot.
+        if [ "$DEVICE" != "$CACHED" ] && [ "$DEVICE" != "$MDNS_ADDR" ]; then
             mkdir -p "$(dirname "$DEVICE_FILE")"
             echo "$DEVICE" > "$DEVICE_FILE"
         fi
@@ -67,5 +69,8 @@ for DEVICE in $CANDIDATES; do
     fi
 done
 
-osascript -e "display notification \"Failed: ${DEVICE_SERIAL} unreachable on all addresses\" with title \"stayturgid\""
+# No notification on failure: this runs every 60s, so an away/powered-off
+# phone would spam one alert per minute. access-monitor.sh owns outage
+# alerting (debounced, one per outage).
+echo "$(date '+%Y-%m-%d %H:%M:%S')  [${DEVICE_SERIAL}] unreachable on all candidates" >> "$LOG"
 exit 1

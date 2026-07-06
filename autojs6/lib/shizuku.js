@@ -47,6 +47,13 @@ function tapStartButton(profile) {
         sleep(5000);
         return true;
     }
+    // Blind-coordinate fallback only when the manager is actually foreground —
+    // otherwise we'd tap random coordinates in whatever app is open.
+    var fg = String(currentPackage() || "");
+    if (fg !== (profile.shizukuPackage || SHIZUKU_PKG)) {
+        log.append("[watchdog] shizuku Start skipped — manager not foreground (fg=" + fg + ")");
+        return false;
+    }
     if (profile.shizukuStartCoords) {
         click(profile.shizukuStartCoords.x, profile.shizukuStartCoords.y);
         log.append("[watchdog] shizuku Start tapped (coords fallback "
@@ -72,10 +79,14 @@ function enableWirelessDebuggingUi(profile) {
         sleep(2000);
         var entry = textContains("Wireless debugging").findOne(5000)
             || textContains("Wireless Debugging").findOne(3000);
-        if (entry) {
-            entry.click();
-            sleep(1500);
+        if (!entry) {
+            // Without navigating into the wireless-debugging screen, the first
+            // Switch found would be some other Developer-options toggle.
+            log.append("[watchdog] wireless debug entry not found — skipping toggle");
+            return false;
         }
+        entry.click();
+        sleep(1500);
         var toggle = className("android.widget.Switch").findOne(3000)
             || descContains("Wireless debugging").findOne(3000);
         if (toggle && !toggle.checked()) {

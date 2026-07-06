@@ -11,8 +11,7 @@ var guard = require("./lib/guard.js");
 var watchdog = require("./lib/watchdog.js");
 var log = require("./lib/log.js");
 
-guard.enforce();
-auto.waitFor();
+guard.enforce();   // waits for accessibility itself when disabled
 
 // Keep script process alive under Doze (AutoJs6 6.6+)
 try {

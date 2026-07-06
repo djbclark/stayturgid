@@ -20,15 +20,35 @@ SDLOG=/sdcard/stayturgid_watchdog.log        # shared log (best effort; needs st
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 log() { local m="$(ts) [repair] $*"; echo "$m" >> "$LOG" 2>/dev/null; echo "$m" >> "$SDLOG" 2>/dev/null; }
 
+# Keep logs bounded: the AutoJs6 watchdog re-reads SDLOG in full each cycle.
+trim_log() {
+    local f="$1" n
+    [ -f "$f" ] || return 0
+    n=$(wc -l < "$f" 2>/dev/null) || return 0
+    if [ "${n:-0}" -gt 1000 ]; then
+        tail -n 500 "$f" > "${f}.tmp" 2>/dev/null && mv "${f}.tmp" "$f"
+    fi
+}
+
+sshd_listening() {
+    ss -tln 2>/dev/null | grep -q ':8022 ' || \
+        netstat -tln 2>/dev/null | grep -q ':8022 '
+}
+
+sshd_up() {
+    pgrep -x sshd >/dev/null 2>&1 || pgrep -f '[s]shd' >/dev/null 2>&1 || sshd_listening
+}
+
 exec 9>"$LOCKFILE"
 if ! flock -n 9; then
+    # Another invocation holds the lock. Read-only probe; STATUS here is
+    # advisory only (exit 0 regardless) — the lock holder does the real repair
+    # and reports authoritatively.
     SSHD=unknown; PORT=unknown; SHIZUKU=unknown; SH=""
     if sshd_up; then
         SSHD=up
     elif sshd_listening; then
         SSHD=up
-    else
-        SSHD=unknown
     fi
     if adb connect localhost:5555 >/dev/null 2>&1 && \
        [ "$(adb -s localhost:5555 shell id -u 2>/dev/null | tr -d '\r')" = "2000" ]; then
@@ -43,16 +63,10 @@ if ! flock -n 9; then
     exit 0
 fi
 
+trim_log "$LOG"
+trim_log "$SDLOG"
+
 rc=0
-
-sshd_listening() {
-    ss -tln 2>/dev/null | grep -q ':8022 ' || \
-        netstat -tln 2>/dev/null | grep -q ':8022 '
-}
-
-sshd_up() {
-    pgrep -x sshd >/dev/null 2>&1 || pgrep -f '[s]shd' >/dev/null 2>&1 || sshd_listening
-}
 
 # --- 1. sshd (same uid as this script; also accept :8022 listen to avoid pgrep races) ---
 if sshd_up; then

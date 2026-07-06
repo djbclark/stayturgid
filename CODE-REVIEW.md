@@ -1,5 +1,9 @@
 # Code Review — stayturgid
 
+> **Status (2026-07-06):** All findings below (H1–H2, M1–M11, L1–L13) were fixed
+> in the commit(s) following this review. Fixes are code-only; devices still
+> run the old scripts until the next `./mac/deploy-fleet.sh`.
+
 **Scope:** Full-repo review at commit `6b705d5` ("feat(termux): tiered battery alarm with color screen blinks"), 2026-07-06.
 **Method:** Every tracked shell/JS/Python/YAML/plist/JSON file read in full; docs skimmed for drift. No code changed — findings only. Smoke/unit tests reportedly pass; several findings below are in paths those tests don't exercise (boot-time process guards, lock-contention branches, DND/quiet paths, cross-device profiles).
 

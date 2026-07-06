@@ -46,11 +46,19 @@ REMOTE
   fi
 
   if serial="$(resolve_adb "$host" 2>/dev/null)"; then
+    # Tailscale ip:port serials need an explicit connect first.
+    case "$serial" in
+      *:*) adb connect "$serial" >/dev/null 2>&1 || true ;;
+    esac
     echo -n "adb: $serial "
-    if adb -s "$serial" shell 'grep autojs6 /sdcard/stayturgid_watchdog.log 2>/dev/null | tail -1' 2>/dev/null; then
-      :
+    local wd_line
+    wd_line="$(adb -s "$serial" shell 'grep autojs6 /sdcard/stayturgid_watchdog.log 2>/dev/null | tail -1' 2>/dev/null || true)"
+    if [ -n "$wd_line" ]; then
+      echo "$wd_line"
+    elif adb -s "$serial" shell true >/dev/null 2>&1; then
+      echo "(connected; no autojs6 watchdog log lines)"
     else
-      echo "(no recent watchdog log)"
+      echo "(adb not connected)"
     fi
   else
     echo "adb: unreachable (SSH-only check ran)"

@@ -15,10 +15,10 @@ json="$(curl -fsSL "$URL")" || exit 0
 remote="$(printf '%s' "$json" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
 [ -n "$remote" ] || exit 0
 
-local=""
-[ -f "$STAMP" ] && local="$(cat "$STAMP")"
+seen=""
+[ -f "$STAMP" ] && seen="$(cat "$STAMP")"
 
-if [ "$remote" = "$local" ]; then
+if [ "$remote" = "$seen" ]; then
   exit 0
 fi
 
