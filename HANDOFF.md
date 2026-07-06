@@ -29,8 +29,8 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 **Reusable procedure (also in HACKING.md):** back up `$HOME` via SSH → `adb uninstall` all shared-uid com.termux.* → `gh release download` the `+github(-|.)debug` APKs (main is per-arch `arm64-v8a`, addons universal) → **disable Play Protect verifier** (`verifier_verify_adb_installs`/`package_verifier_enable`→0, `package_verifier_user_consent`→-1; **user-approved, restore all to 1 when done**) since Play Protect gates github-debug installs with a fingerprint prompt → `adb install` each → launch Termux (bootstrap), grant storage → `pkg update && pkg upgrade -y` then `pkg install …` (always update+upgrade before install) + restore `.ssh`/`.termux/boot` + scripts → re-register Termux:Boot → add every app to Obtainium (`obtainium://add/github.com/termux/<repo>`) for auto-updates.
 
 ### New TODOs queued 2026-07-05 (do after the Termux swap + watchdog repairer)
-1. **Update/republish the TaskerNet project** — the published share still has the old Custom Setting namespace bug (fixed in repo + on both devices). Re-export current `stayturgid` and republish to TaskerNet.
-2. **Move version-detection off TaskerNet** — `stayturgid_update_check` should detect new versions from **GitHub** (raw `version.json` / releases), not TaskerNet. Remove the TaskerNet dependency entirely (was HANDOFF "Step 5").
+1. **Update/republish the TaskerNet project** — the published share still has the old Custom Setting namespace bug (fixed in repo + on both devices). Re-export current `stayturgid` and republish to TaskerNet. **Optional** — auto-update no longer depends on TaskerNet.
+2. **Move version-detection off TaskerNet** — ✅ **DONE 2026-07-05:** `version.json` at repo root; `stayturgid_Update_Check` fetches GitHub raw URL (`version_check_url` in `act6`). Bump `version.json` + `act6` on release; push to `master`. TaskerNet removed from detection path.
 3. **Smart phone-use presence/consent dialog** — ✅ S24 implemented 2026-07-05 in `termux/claude-presence.sh gate`: detects interactive screen + non-idle foreground package, shows a 30s `termux-dialog` prompt (timeout=Continue), supports Pause (`resume` clears) and Check-again-in-10-min. Deployed via Ansible; 7a can receive the same script when that track resumes.
 
 ## 🧭 Roadmap & tooling decisions (2026-07-05)
@@ -97,7 +97,7 @@ scrcpy -s RFCX219CHKA --stay-awake        # live mirror during automation
 - ✅ Published to TaskerNet: `https://taskernet.com/shares/?user=AS35m8lVOCqN0zylSnJKY8pBzCqkgDU8h624gr9CWqSAxD9myEt6n3OjyI4TtJhMtmw%2B&id=Project%3Astayturgid`
 - ✅ Auto-update download+import task XML complete — uses **AutoInput Gestures** (coordinate taps) to click through 4 import dialogs
 - ⚠️ Auto-update dialog sequence: **dialog 1 click confirmed working** (YES at 894,2058); dialogs 2–4 not yet confirmed end-to-end
-- ⚠️ `stayturgid_update_check` daily trigger profile not yet committed to repo
+- ⚠️ `stayturgid_update_check` daily trigger profile now in repo (`Daily_Update_Check` in `tasker/stayturgid.prj.xml`); re-import to 7a when convenient
 
 **2026-07-05 session — 7a reconnected and repaired via Tailscale:**
 - ✅ Reconnected via `100.65.230.108:38435` (Tailscale mDNS TLS endpoint), then reopened stable port 5555; health check green (Shizuku running, sshd up, port 5555 listening, battery 100%, 4 apps deviceidle-whitelisted)
@@ -483,26 +483,26 @@ mac/
   7. If PORT_CLOSED OR NO_SHIZUKU OR NO_SSHD → Notify (channel: `stayturgid`)
   8. End If
 
-**Not yet imported to device:**
-- `stayturgid_Update_Check` (`tasker/auto-update/stayturgid_update_check.tsk.xml`)
-  - Needs a trigger profile (recommend: Time, once daily at 10:00)
+**Not yet imported to device (7a):** re-import `tasker/stayturgid.prj.xml` via `tasker-io` to pick up `Daily_Update_Check` + GitHub version check. S24 uses AutoJs6 (Tasker profiles disabled).
 
 ---
 
 ## Auto-update mechanism
 
-`stayturgid_update_check.tsk.xml` uses a fully local XML flow — no TaskerNet servers at install time, only for version detection.
+`stayturgid_update_check.tsk.xml` uses GitHub for version detection (`version.json`) and download — no TaskerNet at runtime.
 
 ### How it works
 
-1. `act6` (JavaScript) sets local variables from `updaterData`: `%taskernet_url`, `%raw_xml_url`, `%version`, `%changelog`
-2. `act9` (JavaScript) builds the TaskerNet API URL → `%taskernet_xml`
-3. `act10` (HTTP Request) fetches TaskerNet JSON (returns project XML embedded in JSON)
-4. `act11` (Regex Match) extracts `"version": "..."` from that JSON
+1. `act6` (JavaScript) sets locals from `updaterData`: `%version_check_url`, `%raw_xml_url`, `%version`, `%changelog`
+2. `act9` sets HTTP URL → `%taskernet_xml` (legacy var name; value is `version_check_url`)
+3. `act10` (HTTP Request) fetches GitHub `version.json`
+4. `act11` (Regex Match) extracts `"version": "..."` from JSON
 5. `act13` (JavaScript) compares `%version` to `%taskernet_version`; sets `%updatestatus`
-6. If update available: sticky notification with Update / Skip buttons (callbacks with `par1=user_input`, `par2=update` or `par2=skip`)
-7. **Update path:** see current action sequence in "Current project status" above
-8. **Skip path (act31+):** cancel notification, flash "Skipped...", stop
+6. If update available: sticky notification with Update / Skip buttons
+7. **Update path:** download from GitHub + AutoInput import-dialog sequence (see coordinates below)
+8. **Skip path:** cancel notification, flash "Skipped...", stop
+
+**Release:** bump `version.json` + matching `act6` version/changelog, push `master`. No TaskerNet step.
 
 **TestUpdateTrigger** (on-device helper task): calls `stayturgid_Update_Check` with `par1=user_input, par2=update`, which bypasses the version check and forces the update download+import path. Useful for testing without bumping version.json. Do NOT delete from device until e2e is confirmed.
 
@@ -607,8 +607,8 @@ am start -n "net.dinglisch.android.taskerm/com.joaomgcd.taskerm.datashare.import
 
 1. Make changes to the project, test on device
 2. Export project from Tasker → pull to Mac: `adb pull /sdcard/Tasker/stayturgid.prj.xml ~/stayturgid/tasker/stayturgid.prj.xml`
-3. In `tasker/auto-update/stayturgid_update_check.tsk.xml` `act6`, bump `"version"` and update `"changelog"`
-4. Commit and push to GitHub master — that's the entire release; no TaskerNet action needed
+3. In `version.json` and `tasker/auto-update/stayturgid_update_check.tsk.xml` `act6`, bump `"version"` and update `"changelog"` (keep both in sync)
+4. Commit and push to GitHub master — that's the entire release; TaskerNet republish optional
 
 GitHub raw URL (already set in act6):
 ```
@@ -695,11 +695,9 @@ Create a new Tasker profile: Time → 10:00 → Every day → Task: `stayturgid_
 
 `ADB_Core_Watchdog.tsk.xml` in repo uses `stayturgid` channel. If device still has old `upmon` channel version, re-import the task or project.
 
-### Step 5 — Evaluate removing TaskerNet from version detection
+### ✅ Step 5 — GitHub-only version detection (COMPLETE 2026-07-05)
 
-Currently version detection still hits TaskerNet (fetches project JSON, regex-extracts `"version"` from the embedded XML). Two options to evaluate:
-- **Keep hybrid** (current): TaskerNet for version detection, GitHub for download. Simple, no extra files needed.
-- **GitHub-only**: Add a `version.json` file to the repo, fetch that for version detection. Removes all TaskerNet dependency. Would require a new HTTP Request action and updated parse logic in the version-check task.
+`version.json` at repo root is the canonical published version. `stayturgid_Update_Check` fetches it via `version_check_url`; TaskerNet is no longer used for detection. Optional: republish to TaskerNet for manual one-click install discovery.
 
 See **HACKING.md** for the full development environment setup (all tool versions, Obtainium sources, clean-install walkthrough).
 

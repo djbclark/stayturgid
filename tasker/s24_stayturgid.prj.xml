@@ -655,7 +655,6 @@ Only available if you select &amp;lt;b&amp;gt;Continue Task After Error&amp;lt;/
 // ★ TO RELEASE AN UPDATE: bump "version", update "changelog", push to GitHub master</label>
 			<Str sr="arg0" ve="3">var updaterData = [
   {
-    "taskernet_url": "https://taskernet.com/shares/?user=AS35m8lVOCqN0zylSnJKY8pBzCqkgDU8h624gr9CWqSAxD9myEt6n3OjyI4TtJhMtmw%2B&amp;id=Project%3Astayturgid",
     "version_check_url": "https://raw.githubusercontent.com/djbclark/stayturgid/master/version.json",
     "raw_xml_url": "https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/auto-update/stayturgid_update_check.tsk.xml",
     "version": "1.0",

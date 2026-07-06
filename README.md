@@ -8,11 +8,11 @@ Repo layout: `tasker/` (Tasker project + watchdog), `termux/` (boot + self-heal 
 
 ## TaskerNet
 
-Import the stayturgid Tasker project directly:
+Import the stayturgid Tasker project directly (optional — for manual install):
 
 **https://taskernet.com/shares/?user=AS35m8lVOCqN0zylSnJKY8pBzCqkgDU8h624gr9CWqSAxD9myEt6n3OjyI4TtJhMtMw%2B&id=Project%3Astayturgid**
 
-Or follow the manual install steps below.
+Auto-update on Tasker devices uses **GitHub** (`version.json`), not TaskerNet. See `tasker/auto-update/README.md`.
 
 ## How it works
 

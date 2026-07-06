@@ -38,7 +38,7 @@ Run each scenario on Pixel 7a and Galaxy S24 with **cold reboot + single PIN unl
 |-----------|------------------|---------|--------|
 | **Maintainability** | XML action codes, Bundle JSON | Readable JS, `require()` modules | AutoJs6 |
 | **Collaboration / AI editing** | Harder (XML discovery) | Easier (text files) | AutoJs6 |
-| **Versioning** | TaskerNet + GitHub hybrid | Git-only | AutoJs6 |
+| **Versioning** | GitHub `version.json` + raw XML | Git-only | AutoJs6 |
 | **Learning curve** | Tasker UI + plugin ecosystem | JavaScript + AutoJs6 APIs | Depends on author |
 | **Fork / maintenance risk** | Tasker stable; AutoInput maintained | AutoJs6 active fork; a11y bugs reported | Tasker (slightly) |
 | **Mutual exclusivity ergonomics** | Disable profiles + a11y | Mode file + stop script + a11y swap | Tie |

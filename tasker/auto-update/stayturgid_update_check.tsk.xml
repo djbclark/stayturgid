@@ -57,7 +57,7 @@ The size of the response in bytes&lt;/_array_net.dinglisch.android.tasker.RELEVA
 		</Action>
 		<Action sr="act11" ve="7">
 			<code>396</code>
-			<label>// Get taskernet version number</label>
+			<label>// Parse version from GitHub version.json</label>
 			<Bundle sr="arg0">
 				<Vals sr="val">
 					<net.dinglisch.android.tasker.RELEVANT_VARIABLES>&lt;StringArray sr=""&gt;&lt;_array_net.dinglisch.android.tasker.RELEVANT_VARIABLES0&gt;%mt_groups()
@@ -594,10 +594,9 @@ Only available if you select &amp;lt;b&amp;gt;Continue Task After Error&amp;lt;/
 		<Action sr="act6" ve="7">
 			<code>129</code>
 			<label>// Set the update data
-// ★ TO RELEASE AN UPDATE: bump "version", update "changelog", push to GitHub master</label>
+// ★ TO RELEASE: bump version.json + act6 "version"/"changelog", push to GitHub master</label>
 			<Str sr="arg0" ve="3">var updaterData = [
   {
-    "taskernet_url": "https://taskernet.com/shares/?user=AS35m8lVOCqN0zylSnJKY8pBzCqkgDU8h624gr9CWqSAxD9myEt6n3OjyI4TtJhMtmw%2B&amp;id=Project%3Astayturgid",
     "version_check_url": "https://raw.githubusercontent.com/djbclark/stayturgid/master/version.json",
     "raw_xml_url": "https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/auto-update/stayturgid_update_check.tsk.xml",
     "version": "1.0",
@@ -703,7 +702,7 @@ exit();</Str>
 		</Action>
 		<Action sr="act9" ve="7">
 			<code>129</code>
-			<label>// Get taskernet xml url</label>
+			<label>// Fetch GitHub version.json URL</label>
 			<Str sr="arg0" ve="3">setLocal("taskernet_xml", local("version_check_url"));
 exit();</Str>
 			<Str sr="arg1" ve="3"/>

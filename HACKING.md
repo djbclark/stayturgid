@@ -514,34 +514,30 @@ The update flow uses GitHub as the source of truth. When you push a new version 
    git add tasker/ && git commit -m "Release vX.Y"
    git push
    ```
-4. Bump `"version"` in `act6` of `tasker/auto-update/stayturgid_update_check.tsk.xml` and update `"changelog"`. Set `%raw_xml_url` to the GitHub raw URL of `stayturgid.prj.xml`:
+4. Bump `version.json` at the repo root and the matching `"version"` / `"changelog"` in `act6` of `tasker/auto-update/stayturgid_update_check.tsk.xml` (and the embedded copy in `tasker/stayturgid.prj.xml`). Set `%raw_xml_url` to the GitHub raw URL of `stayturgid.prj.xml` if you change download targets:
    ```
    https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.prj.xml
    ```
 
-#### How the auto-update works (local XML flow)
+#### How the auto-update works (GitHub-only)
 
-The update check task (`stayturgid_Update_Check`) uses a fully local flow — no TaskerNet server required at update time:
+The update check task (`stayturgid_Update_Check`) uses GitHub as the single source of truth:
 
-1. **Version check:** Fetches the raw XML from GitHub, regex-extracts `"version": "X.Y"` from `act6`'s embedded JavaScript, compares to local version.
-2. **If newer:** Shows a notification with Update / Skip buttons.
-3. **Update tapped:**
-   - HTTP Request downloads `stayturgid.prj.xml` from GitHub raw URL → saves to `Tasker/Updates/ProjectUpdate.prj.xml`
-   - Open File action on the `.prj.xml` — Android/Tasker intercepts and shows the native Import UI
-   - AutoInput clicks **IMPORT**, waits 1 second, clicks **OVERWRITE**
-   - Go Home
-   - Delete `Tasker/Updates/ProjectUpdate.prj.xml`
-4. **Skip tapped:** Dismisses notification, shows "Skipped..." flash.
+1. **Version check:** HTTP GET `version.json` from GitHub raw; regex-extract `"version"`; compare to local `act6` version.
+2. **If newer:** Notification with Update / Skip buttons.
+3. **Update tapped:** Downloads task/project XML from GitHub → import via `content://` URI + AutoInput dialog taps (see HANDOFF.md for coordinates).
+4. **Skip tapped:** Dismiss notification.
 
-> **GitHub raw URL note:** Use `raw.githubusercontent.com/...` not the normal GitHub page URL. The page URL returns HTML which Tasker cannot parse as XML.
+```bash
+curl -sS https://raw.githubusercontent.com/djbclark/stayturgid/master/version.json
+```
 
-> **Wait buffer:** The 3-second wait before AutoInput clicks "IMPORT" can be bumped to 4–5 seconds on slower devices if AutoInput times out.
+#### TaskerNet (optional — human install only)
 
-#### TaskerNet (version detection only)
+TaskerNet share remains for one-click manual install. **Auto-update does not use TaskerNet** for version detection.
 
-The version string is detected by fetching the TaskerNet API response for the project and regex-matching `"version": "..."` inside the XML that's embedded in the JSON. TaskerNet is only used to read the current published version — the actual project XML download and import use GitHub directly.
+Fetch published XML for debugging (not used by update check):
 
-Fetch current published XML (for debugging):
 ```bash
 curl "https://taskernet.com/_ah/api/datashare/v1/sharedata/AS35m8lVOCqN0zylSnJKY8pBzCqkgDU8h624gr9CWqSAxD9myEt6n3OjyI4TtJhMtmw%2B/Project%3Astayturgid?a=0&xml=true"
 ```
