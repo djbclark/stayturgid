@@ -3,6 +3,9 @@
 stayturgid_termux_packages:
   - openssh
   - android-tools
+  - abseil-cpp
+  - libprotobuf
+  - protobuf
   - wget
   - git
   - python

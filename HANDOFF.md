@@ -86,7 +86,7 @@ scrcpy -s RFCX219CHKA --stay-awake        # live mirror during automation
 - ✅ **Watchdog Tailscale probe:** `autojs6/lib/tailscale.js` — tun0 + ping `100.100.100.100`, notify + relaunch `com.tailscale.ipn` if down
 - ✅ **Test scripts:** `test-tailscale-probe-once.js`, `test-stale-loop-once.js`, `test-locked-screen-catastrophic-once.js`; Mac runner `autojs6/mac/run-test.sh`
 - ✅ **Tailscale-down live test (2026-07-05):** `autojs6/mac/test-tailscale-down.sh` — force-stop → `probe up=false` → watchdog cycle → relaunch → `up=true` (USB)
-- ✅ **Ansible Termux skeleton:** `ansible/playbooks/termux-userland.yml` + `ansible/mac/deploy-termux.sh` (S24 in inventory)
+- ✅ **Ansible Termux skeleton + S24 validation:** `ansible/playbooks/termux-userland.yml` + `ansible/mac/deploy-termux.sh` (S24 in inventory). Installed Homebrew `ansible`; final S24 run completed `changed=0`, repair check `STATUS port=open shizuku=up sshd=up shell=yes`. Fixed inventory Python path (`.../bin/python`) and package task to install only missing packages; added `abseil-cpp`/protobuf deps after Termux `adb` ABI mismatch.
 - ✅ Pushed to GitHub `master` @ `e5d89de`+ (doc alignment, repair flock, Tailscale-down live test, Ansible skeleton)
 
 ### Pixel 7a — WRAPPED UP 2026-07-05 (maintenance-only)

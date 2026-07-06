@@ -20,6 +20,12 @@ ansible-playbook ansible/playbooks/termux-userland.yml --limit s24
 ./ansible/mac/deploy-termux.sh s24
 ```
 
+Validated on S24 2026-07-05: playbook completed with `changed=0` on the final run and repair check returned:
+
+```text
+STATUS port=open shizuku=up sshd=up shell=yes
+```
+
 ## Inventory
 
 | Host | SSH | Mode | Notes |
@@ -28,6 +34,14 @@ ansible-playbook ansible/playbooks/termux-userland.yml --limit s24
 | `p7a` | *(commented — add when needed)* | `tasker` | Maintenance-only; not in default limit |
 
 To add the 7a later, uncomment/add under `stayturgid.hosts` in `inventory/hosts.yml`.
+
+Termux currently needs an explicit Python interpreter in inventory:
+
+```yaml
+ansible_python_interpreter: /data/data/com.termux/files/usr/bin/python
+```
+
+The package task installs only missing packages. This avoids triggering broad Termux upgrades from stale mirrors while still ensuring `android-tools` and its ABI-sensitive dependencies (`abseil-cpp`, `libprotobuf`, `protobuf`) are present.
 
 ## Layout
 

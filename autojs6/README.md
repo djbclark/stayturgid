@@ -163,7 +163,7 @@ autojs6/
     watchdog.js           — one cycle logic
   devices/p7a.js, s24.js
   scripts/switch-to-*.js, test-*-once.js
-  mac/deploy.sh, set-automation-mode.sh, grant-shizuku.sh, run-test.sh
+  mac/deploy.sh, set-automation-mode.sh, grant-shizuku.sh, run-test.sh, test-tailscale-down.sh
   COMPARISON.md           — Tasker vs AutoJs6 evaluation framework
 ```
 

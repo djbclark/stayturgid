@@ -2,36 +2,46 @@
 - name: Ensure Termux packages are installed
   ansible.builtin.shell: |
     export PATH="{{ termux_prefix }}/bin:$PATH"
-    pkg install -y {{ stayturgid_termux_packages | join(' ') }}
+    missing=""
+    for pkg_name in {{ stayturgid_termux_packages | join(' ') }}; do
+      if ! dpkg-query -W -f='${Status}' "$pkg_name" 2>/dev/null | grep -q "install ok installed"; then
+        missing="$missing $pkg_name"
+      fi
+    done
+    if [ -n "$missing" ]; then
+      pkg install -y $missing
+    else
+      echo "All requested packages already installed"
+    fi
   args:
     executable: /data/data/com.termux/files/usr/bin/bash
   register: pkg_install
-  changed_when: "'Nothing to do' not in pkg_install.stdout"
+  changed_when: "'All requested packages already installed' not in pkg_install.stdout"
 
 - name: Deploy home scripts
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/../../termux/{{ item }}"
-    dest: "~/{{ item }}"
+    dest: "{{ termux_home }}/{{ item }}"
     mode: "0755"
   loop: "{{ stayturgid_home_scripts }}"
 
 - name: Ensure Termux boot directory exists
   ansible.builtin.file:
-    path: ~/.termux/boot
+    path: "{{ termux_home }}/.termux/boot"
     state: directory
     mode: "0755"
 
 - name: Deploy boot scripts
   ansible.builtin.copy:
     src: "{{ playbook_dir }}/../../termux/boot/{{ item }}"
-    dest: "~/.termux/boot/{{ item }}"
+    dest: "{{ termux_home }}/.termux/boot/{{ item }}"
     mode: "0755"
   loop: "{{ stayturgid_boot_scripts }}"
 
 - name: Configure allow-external-apps for RUN_COMMAND bridge
   ansible.builtin.template:
     src: termux.properties.j2
-    dest: ~/.termux/termux.properties
+    dest: "{{ termux_home }}/.termux/termux.properties"
     mode: "0644"
 
 - name: Write automation mode file when configured
@@ -49,7 +59,7 @@
   when: stayturgid_device_id is defined and stayturgid_device_id | length > 0
 
 - name: Verify stayturgid-repair.sh runs
-  ansible.builtin.shell: ~/stayturgid-repair.sh
+  ansible.builtin.shell: "{{ termux_home }}/stayturgid-repair.sh"
   args:
     executable: /data/data/com.termux/files/usr/bin/bash
   register: repair_check
