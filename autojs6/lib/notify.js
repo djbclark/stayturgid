@@ -1,6 +1,7 @@
 var config = require("./config.js");
 
 var _channelReady = false;
+var STATE_FILE = "/sdcard/stayturgid_notify_state.json";
 
 function ensureChannel() {
     if (_channelReady) return;
@@ -29,8 +30,34 @@ function idFor(key) {
     return 5000 + (h % 100000);
 }
 
+// Repeat counts persist on /sdcard: engine restarts (the source of past
+// notification spam) must not reset them — one notification per key, ever,
+// with "(Nx)" and the most recent timestamp.
+function readCounts() {
+    try {
+        if (files.exists(STATE_FILE)) {
+            return JSON.parse(String(files.read(STATE_FILE))) || {};
+        }
+    } catch (e) { /* corrupt state — start over */ }
+    return {};
+}
+
+function writeCounts(counts) {
+    try {
+        files.write(STATE_FILE, JSON.stringify(counts));
+    } catch (e) { /* best effort */ }
+}
+
 function show(title, text, key) {
     ensureChannel();
+    key = key || String(title);
+
+    var counts = readCounts();
+    var n = (counts[key] || 0) + 1;
+    counts[key] = n;
+    writeCounts(counts);
+    if (n > 1) title = String(title) + " (" + n + "x)";
+
     var nm = context.getSystemService(context.NOTIFICATION_SERVICE);
     var builder;
     if (device.sdkInt >= 26) {
@@ -41,12 +68,18 @@ function show(title, text, key) {
     builder.setContentTitle(String(title))
         .setContentText(String(text))
         .setSmallIcon(android.R.drawable.ic_dialog_alert)
+        .setOnlyAlertOnce(false)
         .setAutoCancel(true);
-    nm.notify(idFor(key || title), builder.build());
+    nm.notify(idFor(key), builder.build());
 }
 
-/** Remove a previously shown alert (call on recovery). */
+/** Remove a previously shown alert and reset its repeat count (recovery). */
 function clear(key) {
+    var counts = readCounts();
+    if (counts[key]) {
+        delete counts[key];
+        writeCounts(counts);
+    }
     var nm = context.getSystemService(context.NOTIFICATION_SERVICE);
     nm.cancel(idFor(key));
 }

@@ -104,7 +104,33 @@ else
     SHIZUKU=unknown
 fi
 
-STATUS="STATUS port=$PORT shizuku=$SHIZUKU sshd=$SSHD shell=$([ -n "$SH" ] && echo yes || echo no)"
+# --- 4. AutoJs6 accessibility (Samsung disables it for "sleeping" apps) ---
+# APPEND-ONLY: never replace the user's enabled_accessibility_services list
+# (HACKING.md Part 5 rule). Failure here isn't remote-access-fatal: no rc=1.
+A11Y_SVC="org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
+A11Y=unknown
+if [ -n "$SH" ]; then
+    cur="$($SH "settings get secure enabled_accessibility_services" 2>/dev/null | tr -d '\r')"
+    case "$cur" in
+        *"$A11Y_SVC"*) A11Y=up ;;
+        *)
+            if [ -z "$cur" ] || [ "$cur" = "null" ]; then
+                new="$A11Y_SVC"
+            else
+                new="${cur}:${A11Y_SVC}"
+            fi
+            $SH "settings put secure enabled_accessibility_services '$new'" >/dev/null 2>&1
+            $SH "settings put secure accessibility_enabled 1" >/dev/null 2>&1
+            recheck="$($SH "settings get secure enabled_accessibility_services" 2>/dev/null | tr -d '\r')"
+            case "$recheck" in
+                *"$A11Y_SVC"*) A11Y=repaired; log "AutoJs6 accessibility was off -> re-enabled (appended)" ;;
+                *) A11Y=FAILED; log "AutoJs6 accessibility re-enable FAILED" ;;
+            esac
+            ;;
+    esac
+fi
+
+STATUS="STATUS port=$PORT shizuku=$SHIZUKU sshd=$SSHD a11y=$A11Y shell=$([ -n "$SH" ] && echo yes || echo no)"
 log "$STATUS rc=$rc"
 echo "$STATUS"
 exit $rc

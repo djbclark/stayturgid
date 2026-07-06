@@ -55,6 +55,16 @@ case "$*" in
   *"dumpsys notification"*) printf 'mInterruptionFilter=%s\n' "${ADB_INTERRUPT:-ALL}"; exit 0 ;;
   *"cmd audio get-ringer-mode"*) printf '%s\n' "${ADB_RINGER:-2}"; exit 0 ;;
   *"settings get system screen_brightness"*) printf '128\n'; exit 0 ;;
+  *"settings put secure enabled_accessibility_services"*)
+      j="$*"   # ${*##...} would apply the pattern per-arg, not to the join
+      v="${j##*enabled_accessibility_services }"
+      v="${v#\'}"; v="${v%\'}"
+      printf '%s' "$v" > "$SANDBOX/a11y_state"
+      exit 0 ;;
+  *"settings get secure enabled_accessibility_services"*)
+      if [ -f "$SANDBOX/a11y_state" ]; then cat "$SANDBOX/a11y_state"; echo
+      else printf '%s\n' "${ADB_A11Y:-org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher}"; fi
+      exit 0 ;;
   *"settings get system screen_off_timeout"*) printf '%s\n' "${ADB_TIMEOUT:-60000}"; exit 0 ;;
   *"settings get global stay_on_while_plugged_in"*) printf '%s\n' "${ADB_STAYON:-0}"; exit 0 ;;
   *"dumpsys window"*) printf 'mCurrentFocus=Window{1a2 u0 %s/.Main}\n' "${ADB_FG_PKG:-com.sec.android.app.launcher}"; exit 0 ;;
@@ -121,7 +131,7 @@ STUB
 
 reset_sandbox() {
     : > "$STUB_LOG"
-    rm -rf "${SANDBOX:?}/home" "${SANDBOX:?}/sd" "${SANDBOX:?}/sshd_started" "${SANDBOX:?}/batt.json"
+    rm -rf "${SANDBOX:?}/home" "${SANDBOX:?}/sd" "${SANDBOX:?}/sshd_started" "${SANDBOX:?}/batt.json" "${SANDBOX:?}/a11y_state"
     mkdir -p "$SANDBOX/home" "$SANDBOX/sd"
 }
 

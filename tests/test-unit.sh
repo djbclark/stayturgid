@@ -97,7 +97,23 @@ reset_sandbox
 export PGREP_RC=0
 run_sandboxed "$RSCRIPT"
 tap_is "$RC" 0 "repair: healthy => exit 0"
-tap_like "$OUT" "STATUS port=open shizuku=up sshd=up shell=yes" "repair: healthy STATUS line"
+tap_like "$OUT" "STATUS port=open shizuku=up sshd=up a11y=up shell=yes" "repair: healthy STATUS line"
+
+# a11y self-heal: service missing => APPENDED to existing list, never replaced
+reset_sandbox
+export PGREP_RC=0 ADB_A11Y="com.other.app/.TheirService"
+run_sandboxed "$RSCRIPT"
+tap_like "$OUT" "a11y=repaired" "repair: disabled accessibility => repaired"
+tap_is "$(cat "$SANDBOX/a11y_state" 2>/dev/null)" \
+    "com.other.app/.TheirService:org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher" \
+    "repair: a11y re-enable APPENDS, preserving other services (HACKING Part 5 rule)"
+reset_sandbox
+export ADB_A11Y="null"
+run_sandboxed "$RSCRIPT"
+tap_is "$(cat "$SANDBOX/a11y_state" 2>/dev/null)" \
+    "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher" \
+    "repair: empty a11y list => service alone, no stray separator"
+unset ADB_A11Y
 
 # sshd down => restarted via sshd stub
 reset_sandbox
