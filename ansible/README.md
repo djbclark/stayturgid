@@ -55,9 +55,9 @@ STATUS port=open shizuku=up sshd=up shell=yes
 | Host | SSH | Mode | Notes |
 |------|-----|------|-------|
 | `s24` | `100.123.218.30:8022` | `autojs6` | Production AutoJs6 device |
-| `p7a` | `100.65.230.108:8022` | `autojs6` | AutoJs6 production |
+| `p7a` | `100.65.230.108:8022` | `autojs6` | Production AutoJs6 device |
 
-To add the 7a later, uncomment/add under `stayturgid.hosts` in `inventory/hosts.yml`.
+Both hosts are defined in `inventory/hosts.yml`.
 
 Termux currently needs an explicit Python interpreter in inventory:
 
@@ -86,11 +86,14 @@ ansible/
 
 ## After playbook
 
-Device-specific steps still required:
+Device-specific steps still required on each host:
 
-1. `autojs6/mac/deploy.sh s24 s24` + `start-watchdog.sh s24`
-2. `autojs6/mac/grant-shizuku.sh s24 autojs6`
-3. Obtainium catalog / `enable-shizuku-installer.sh s24`
-4. Open Termux:Boot app once after fresh install
+1. `autojs6/mac/setup-autojs6.sh <host> <device-id>` — first-time AutoJs6 install, storage grant, project deploy
+2. `autojs6/mac/set-automation-mode.sh <host>` — Shizuku authorized-apps sync for AutoJs6
+3. `autojs6/mac/start-watchdog.sh <host>` — launch `main.js`
+4. Obtainium catalog / `obtainium/mac/enable-shizuku-installer.sh <host>`
+5. Open Termux:Boot app once after fresh install
+
+For routine updates after `git pull`, steps 1–3 reduce to `deploy-termux.sh` + `deploy.sh` + `start-watchdog.sh`.
 
 See [HANDOFF.md](../HANDOFF.md) for the full production checklist, or [termux/README.md](../termux/README.md) if you deploy scripts without Ansible.

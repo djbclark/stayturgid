@@ -27,5 +27,6 @@ stayturgid_home_scripts:
   - stayturgid-repair.sh
   - repair-bridge.sh
   - claude-presence.sh
+  - check-repo-version.sh
 
 stayturgid_allow_external_apps: true

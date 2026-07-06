@@ -18,7 +18,7 @@ Does **not** replace: Termux:Boot self-heal, Shizuku, Mac `adb-reconnect.sh`, Ob
 
 ## Prerequisites
 
-1. AutoJs6 (`org.autojs.autojs6`) — `setup-autojs6.sh` or Obtainium
+1. AutoJs6 (`org.autojs.autojs6`) — `setup-autojs6.sh` or Obtainium; grants storage, `RUN_COMMAND`, battery whitelist
 2. Termux with `allow-external-apps=true` and repair scripts deployed
 3. Shizuku (thedjchi fork), TCP mode
 4. AutoJs6 **accessibility service** enabled
@@ -59,7 +59,7 @@ Scripts use [shared/mac/resolve-adb.sh](../shared/mac/resolve-adb.sh) (USB when 
 ```
 autojs6/
   main.js  lib/  devices/  scripts/
-  mac/     — deploy, setup, start-watchdog, grant-shizuku
+  mac/     — deploy, setup, set-automation-mode, start-watchdog, grant-shizuku, run-test
 ```
 
 ## Related

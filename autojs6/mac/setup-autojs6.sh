@@ -91,9 +91,11 @@ cat <<EOF
 On device:
   1. Open AutoJs6 → enable Accessibility service
   2. Settings → Apps → AutoJs6 → Permissions → Additional →
-     "Run commands in Termux environment" (if shown)
-  3. ./set-automation-mode.sh $1
-  4. ./start-watchdog.sh $1   # or run main.js in AutoJs6
+     "Run commands in Termux environment" (if shown; setup grants via adb when supported)
+  3. ./set-automation-mode.sh $1   # Shizuku authorized-apps sync
+  4. ./start-watchdog.sh $1        # or run main.js in AutoJs6
+
+ADB grants applied by this script: storage (MANAGE_EXTERNAL_STORAGE), RUN_COMMAND, battery whitelist.
 
 Logs:
   adb -s $SERIAL shell tail -f /sdcard/stayturgid_watchdog.log

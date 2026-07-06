@@ -231,7 +231,7 @@ All of this is scripted from the Mac (device connected via USB or wireless ADB):
 ./autojs6/mac/start-watchdog.sh p7a
 ```
 
-On-device manual steps (once): enable the AutoJs6 accessibility service when prompted, and grant **Run commands in Termux environment** (Termux → Settings → allow-external-apps must be true — the Ansible deploy sets this).
+On-device manual steps (once): enable the AutoJs6 **accessibility service** when prompted. `setup-autojs6.sh` grants storage (`MANAGE_EXTERNAL_STORAGE`), `RUN_COMMAND`, and battery whitelist via ADB; Termux `allow-external-apps=true` is set by the Ansible deploy (or manually in `~/.termux/termux.properties`).
 
 See [autojs6/README.md](autojs6/README.md) for details.
 
@@ -422,6 +422,7 @@ GitHub `master` is the source of truth; updates are pushed to devices from the M
    ```bash
    ./ansible/mac/deploy-termux.sh          # Termux layer, all hosts
    ./autojs6/mac/deploy.sh p7a && ./autojs6/mac/deploy.sh s24
+   ./autojs6/mac/start-watchdog.sh p7a && ./autojs6/mac/start-watchdog.sh s24
    ```
 
 Devices can optionally run `termux/check-repo-version.sh` (cron or manual) to get a notification when GitHub's `version.json` is newer than the last deployed version:
@@ -463,19 +464,20 @@ Also applies to any setting that is a colon-separated list:
 adb shell settings get secure enabled_accessibility_services | tr ':' '\n'
 ```
 
-If accessibility services are accidentally wiped, restore from a known-good list recorded at session start. The Pixel 7a's known-good list (as of 2026-07-01):
+If accessibility services are accidentally wiped, restore from a known-good list recorded at session start. The Pixel 7a's known-good list (as of 2026-07-06; append AutoJs6 — never replace the whole list):
 ```
 com.samruston.buzzkill/com.samruston.buzzkill.background.accessibility.WorkaroundAccessibilityService
 net.dinglisch.android.taskerm/net.dinglisch.android.taskerm.MyAccessibilityService
 com.joaomgcd.autoinput/com.joaomgcd.autoinput.service.ServiceAccessibilityV2
 com.notch.touch/com.notch.touch.lock.tas
 com.wispr.flowapp/com.wispr.flowapp.service.FlowAccessibilityService
+org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher
 ```
 
-Restore:
+Restore (example — verify current list first; **append** new services, never replace):
 ```bash
 adb -s 35261JEHN12374 shell settings put secure enabled_accessibility_services \
-  "com.samruston.buzzkill/com.samruston.buzzkill.background.accessibility.WorkaroundAccessibilityService:net.dinglisch.android.taskerm/net.dinglisch.android.taskerm.MyAccessibilityService:com.joaomgcd.autoinput/com.joaomgcd.autoinput.service.ServiceAccessibilityV2:com.notch.touch/com.notch.touch.lock.tas:com.wispr.flowapp/com.wispr.flowapp.service.FlowAccessibilityService"
+  "com.samruston.buzzkill/com.samruston.buzzkill.background.accessibility.WorkaroundAccessibilityService:net.dinglisch.android.taskerm/net.dinglisch.android.taskerm.MyAccessibilityService:com.joaomgcd.autoinput/com.joaomgcd.autoinput.service.ServiceAccessibilityV2:com.notch.touch/com.notch.touch.lock.tas:com.wispr.flowapp/com.wispr.flowapp.service.FlowAccessibilityService:org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
 ```
 
 ### At the start of every session: snapshot device state

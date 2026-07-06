@@ -1,6 +1,6 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # Optional: notify when GitHub version.json is newer than the last seen version.
-# Deploy to ~/check-repo-version.sh; run from cron or manually after git pull on Mac.
+# Deployed to ~/check-repo-version.sh by Ansible (or copy manually from termux/).
 #
 # Updates are applied from the Mac (Ansible deploy or SSH pull); this script only notifies.
 set -euo pipefail

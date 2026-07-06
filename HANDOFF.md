@@ -21,7 +21,14 @@ On the Mac side, a launchd agent (`com.djbclark.stayturgid.adb-reconnect`) runs 
 
 ## How updates work
 
-GitHub `master` is the source of truth. To release: bump `version.json` (`version` + `changelog`), push, then from the Mac run `./ansible/mac/deploy-termux.sh` (Termux layer, all hosts) and `./autojs6/mac/deploy.sh <p7a|s24>` (watchdog). Optional on-device notifier: `termux/check-repo-version.sh` (compares GitHub `version.json` to the last-seen stamp and fires a `termux-notification`).
+GitHub `master` is the source of truth. To release:
+
+1. Bump `version.json` (`version` + `changelog`), commit, and push.
+2. `./ansible/mac/deploy-termux.sh` — Termux layer on all fleet hosts (or `--limit` one host).
+3. `./autojs6/mac/deploy.sh p7a` and `./autojs6/mac/deploy.sh s24` — watchdog scripts on device.
+4. `./autojs6/mac/start-watchdog.sh p7a` and `./autojs6/mac/start-watchdog.sh s24` — relaunch `main.js`.
+
+Optional on-device notifier: `~/check-repo-version.sh` (deployed by Ansible; compares GitHub `version.json` to last-seen stamp and fires `termux-notification`).
 
 ---
 
@@ -60,7 +67,8 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 **Both fleet phones run the AutoJs6 watchdog** (`main.js`, 20-min interval + boot relaunch), deployed via `autojs6/mac/deploy.sh` + `ansible/mac/deploy-termux.sh`.
 
 ### 🎯 Active development device: **Galaxy S24 (USB `RFCX219CHKA`)**
-The Pixel 7a is **wrapped up** for this workstream (see below). Use the S24 over **USB when plugged in**; Mac scripts (`mac/resolve-adb.sh`) auto-pick USB serial and fall back to Tailscale wireless when unplugged.
+
+Both phones run the AutoJs6 watchdog. Prefer the **S24 over USB** when plugged in for interactive work; use **7a over Tailscale** (`ssh p7a`) when the S24 is unplugged. Mac scripts use [shared/mac/resolve-adb.sh](shared/mac/resolve-adb.sh) (USB serial when present, else Tailscale wireless).
 
 ```bash
 adb -s RFCX219CHKA shell echo OK          # USB (preferred when attached)
@@ -256,7 +264,7 @@ ssh -i ~/.ssh/termux_key -p 8022 -o StrictHostKeyChecking=no -o UserKnownHostsFi
 ## Tooling rules (IMPORTANT — follow these exactly)
 
 ### Android automation tools
-**Always use uiautomator2 and Termux:API. Do NOT use Maestro mobile unless debugging a suspected uiautomator2/Termux:API bug.**
+**Always use uiautomator2 and Termux:API for device automation.** The repo no longer ships Maestro playbooks (`.maestro/` was removed). Raw ADB (`uiautomator dump`, `input tap`) is the fallback when uiautomator2 breaks.
 
 - **uiautomator2** — UI automation (find elements by text/resource-id, click, read values). Installed via pipx on Mac. Device init required on first connect after reboot.
   ```bash
@@ -289,8 +297,6 @@ ssh -i ~/.ssh/termux_key -p 8022 -o StrictHostKeyChecking=no -o UserKnownHostsFi
   adb exec-out screencap -p > /tmp/screen.png        # visual check
   ```
   Caveats: one dump per step (slow, ~2s); coordinates shift between selection modes (some apps move their top-bar buttons as selection count changes — re-dump before every tap); `input swipe` same-point with duration is the long-press idiom.
-
-- **Maestro mobile exception:** If uiautomator2 can't find an element that should be there, or a tap isn't registering, use Maestro (`~/.maestro/bin/maestro --udid 35261JEHN12374`) as a diagnostic to rule out tool bugs vs app state. Always tell the user: (1) why uiautomator2 wasn't sufficient, (2) what Maestro was used for, (3) what the result was. **Known Maestro failure mode (2026-07-05): its gRPC channel dies permanently when adbd restarts (`adb tcpip`) or the device reconnects — `StatusRuntimeException: UNAVAILABLE`, `Unable to launch app`. Fall back to raw ADB rather than restarting Maestro mid-task.**
 
 - **Keeping the device awake during automation:** `adb shell svc power stayon true` (screen stays on while powered; set `false` when done). The lock screen after adbd restart still needs a manual PIN — plan around it: do everything needing UI in one unlocked window.
 
@@ -365,7 +371,7 @@ Log: `~/Library/Logs/stayturgid-adb-reconnect.log`
 autojs6/                                — AutoJs6 watchdog (the automation stack)
   main.js                               — watchdog entry (20 min + boot)
   lib/                                  — guard, termux bridge, shizuku/tailscale, notifications
-  mac/deploy.sh, setup-autojs6.sh, start-watchdog.sh, grant-shizuku.sh, run-test.sh
+  mac/deploy.sh, setup-autojs6.sh, set-automation-mode.sh, start-watchdog.sh, grant-shizuku.sh, run-test.sh
 obtainium/                              — Obtainium import JSON for all GitHub-sideloaded APKs
   stayturgid-apps.json                  — full catalog (Termux, Shizuku, Tailscale, AutoJs6)
   mac/sync-to-device.sh                 — push + open Obtainium import on device
@@ -382,6 +388,7 @@ shared/mac/
   resolve-adb.sh                        — USB-first ADB target resolver (p7a/s24 aliases)
 mac/
   adb-reconnect.sh                      — Mac-side keepalive script (run by launchd)
+  resolve-adb.sh                        — shim → shared/mac/resolve-adb.sh
   com.djbclark.stayturgid.adb-reconnect.plist — launchd agent (runs every 60s)
 version.json                            — repo release version + changelog
 ```
@@ -390,13 +397,14 @@ version.json                            — repo release version + changelog
 
 ## Pixel 7a accessibility state — verify at session start
 
-Known-good `enabled_accessibility_services` (as of 2026-07-01):
+Known-good `enabled_accessibility_services` on 7a (as of 2026-07-06; **append only** — never replace the whole list):
 ```
 com.samruston.buzzkill/com.samruston.buzzkill.background.accessibility.WorkaroundAccessibilityService
 net.dinglisch.android.taskerm/net.dinglisch.android.taskerm.MyAccessibilityService
 com.joaomgcd.autoinput/com.joaomgcd.autoinput.service.ServiceAccessibilityV2
 com.notch.touch/com.notch.touch.lock.tas
 com.wispr.flowapp/com.wispr.flowapp.service.FlowAccessibilityService
+org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher
 ```
 
 At the start of each session, verify these are all still enabled:
@@ -426,7 +434,7 @@ See **HACKING.md** for the full development environment setup (all tool versions
 claude   # open interactive session in terminal (NOT Warp)
 ```
 
-Verify session type is Pro/Max (not API billing) with `/status`. The working directory is `~/upmon-handoff/` — this is the Maestro agent working dir, separate from the project at `~/stayturgid/`.
+Verify session type is Pro/Max (not API billing) with `/status`. The working directory is `~/upmon-handoff/` (legacy name) — separate from the project at `~/stayturgid/`.
 
 ---
 
@@ -481,7 +489,7 @@ stayturgid-ansible/   (hypothetical future layout)
 #### Custom module candidates
 
 - **`termux_api_call`** — Termux:API from SSH (`termux-notification`, `termux-dialog`, battery)
-- **`adb_command`** — Mac-side ADB with inventory-driven serial (wrap `mac/resolve-adb.sh` logic)
+- **`adb_command`** — Mac-side ADB with inventory-driven serial (wrap `shared/mac/resolve-adb.sh` logic)
 - **`uiautomator2_task`** — run one-off UI scripts from the control node
 - **`shizuku_privileged`** — wrap `autojs6/mac/grant-shizuku.sh`-style json + pm grant flows
 - **`stayturgid_repair_check`** — parse `STATUS port=…` from repair script over SSH

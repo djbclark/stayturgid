@@ -40,6 +40,6 @@ SERIAL="$(resolve_adb s24)"
 
 ## Related docs
 
-- [README.md § Mac-side keepalive](../README.md)
+- [README.md § Full stack](../README.md) — Mac keepalive in quick path step 5
 - [termux/README.md](../termux/README.md) — device-side sshd (SSH probe in access-monitor)
-- [autojs6/mac/](../autojs6/mac/) — deploy scripts that use `resolve-adb.sh`
+- [autojs6/mac/](../autojs6/mac/) — deploy scripts that use `shared/mac/resolve-adb.sh`
