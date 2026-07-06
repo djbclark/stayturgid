@@ -1,6 +1,8 @@
 # stayturgid — AutoJs6 alternative stack
 
-Parallel implementation of the **Tasker + AutoInput watchdog layer** using [AutoJs6](https://github.com/SuperMonster003/AutoJs6). Run **either** this stack **or** the Tasker stack — never both. The Termux layer (`start-adb.sh`, `stayturgid-repair.sh`) is shared and unchanged.
+Parallel **watchdog** using [AutoJs6](https://github.com/SuperMonster003/AutoJs6). Run **either** this **or** [Tasker](../tasker/README.md) on a device — not both. Depends on [termux/](../termux/README.md) for repair scripts unless you replace them.
+
+**Full project:** [../README.md](../README.md) · **Docs index:** [../docs/README.md](../docs/README.md)
 
 ## What this replaces
 

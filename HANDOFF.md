@@ -2,6 +2,8 @@
 
 > **Purpose:** This file is a prompt for an AI agent taking over development. Read it fully before doing anything else. It describes what the project does, the current state, the development environment, the tooling rules, and what's next.
 
+> **Modular docs:** Each subfolder is usable on its own. Human-readable index: [docs/README.md](docs/README.md) · [README.md](README.md)
+
 ---
 
 ## What this project does
@@ -32,6 +34,7 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 1. **Update/republish the TaskerNet project** — the published share still has the old Custom Setting namespace bug (fixed in repo + on both devices). Re-export current `stayturgid` and republish to TaskerNet. **Optional** — auto-update no longer depends on TaskerNet.
 2. **Move version-detection off TaskerNet** — ✅ **DONE 2026-07-05:** `version.json` at repo root; `stayturgid_Update_Check` fetches GitHub raw URL (`version_check_url` in `act6`). Bump `version.json` + `act6` on release; push to `master`. TaskerNet removed from detection path.
 3. **Smart phone-use presence/consent dialog** — ✅ S24 implemented 2026-07-05 in `termux/claude-presence.sh gate`: detects interactive screen + non-idle foreground package, shows a 30s `termux-dialog` prompt (timeout=Continue), supports Pause (`resume` clears) and Check-again-in-10-min. Deployed via Ansible; 7a can receive the same script when that track resumes.
+4. **LAST (research only — do not refactor yet):** Evaluate unified orchestration under Ansible; **prioritize moving Termux package management** and design generic **`obtainium_app` / `google_play_app`** modules. See **"Architecture research — unified orchestration"** at the bottom of this file. No implementation until explicitly approved.
 
 ## 🧭 Roadmap & tooling decisions (2026-07-05)
 
@@ -712,3 +715,312 @@ claude   # open interactive session in terminal (NOT Warp)
 ```
 
 Verify session type is Pro/Max (not API billing) with `/status`. The working directory is `~/upmon-handoff/` — this is the Maestro agent working dir, separate from the project at `~/stayturgid/`.
+
+---
+
+## Architecture research — unified orchestration (LAST — research only)
+
+> **Status:** Queued for independent research and architectural consideration. **Do not refactor the repo yet.** The current hybrid layout (Mac shell scripts + partial Ansible + on-device Tasker/AutoJs6 + `tasker-io` + Obtainium scripts) is working production. This section captures a proposed direction for a future consolidation decision.
+
+### Question
+
+Could the whole stayturgid system — Termux/SSH, Termux:API, ADB, uiautomator2, Shizuku, Tasker/AutoJs6 deploy, Obtainium, launchd — be refactored as **one Ansible project** (or one other sysadmin framework), with everything expressed as modules/roles/collections?
+
+### Preliminary recommendation: Ansible core + custom modules
+
+For this Android-focused, SSH-heavy, multi-tool workflow, the best **overall** shape is an **extensible Ansible orchestration layer** with custom Python modules/roles, optionally augmented by a small Python library for Android-specific glue that doesn't fit YAML well.
+
+#### Why Ansible fits stayturgid
+
+| Strength | How it maps here |
+|----------|------------------|
+| SSH-first | Termux `sshd` on :8022 over Tailscale is already the control plane; `ansible/inventory/hosts.yml` + `termux_userland` role prove the pattern |
+| Modularity | Roles/collections match the desire for "everything as a module of the system" — Termux userland, Shizuku grants, Obtainium catalog, AutoJs6 deploy, Tasker import |
+| Complex workflows | Playbooks handle sequencing (`pkg update` → upgrade → install), conditionals (USB vs Tailscale ADB), idempotency, per-host vars (`mode=tasker` vs `autojs6`), Vault for keys |
+| Git + collaboration | Plain YAML + Python `library/` modules; Galaxy/collection packaging if spun out |
+| Idempotency | Already validated on S24/p7a Termux playbook (`changed=0` on steady state) |
+
+We are **already partial Ansible** (`ansible/playbooks/termux-userland.yml`, `deploy-termux.sh`). The research question is how far to extend that boundary — not whether to start from zero.
+
+#### What would become Ansible roles/collections
+
+```
+stayturgid-ansible/   (hypothetical future layout)
+  inventory/          # p7a, s24 — SSH + optional adb_host vars
+  group_vars/           # automation_mode, tailscale_ip, usb_serial
+  roles/
+    termux_userland/    # ✅ exists today
+    termux_boot/        # boot scripts, runit sshd, wake-lock
+    shizuku/            # grant scripts, wireless-debug pairing docs-as-tasks
+    obtainium/          # catalog sync, Shizuku installer toggle
+    autojs6/            # deploy main.js, grant RUN_COMMAND, start watchdog
+    tasker/             # tasker-io import tasks, mode guard (disable profiles)
+    mac_launchd/        # adb-reconnect plists (localhost delegate_to)
+  library/              # custom modules (Python):
+    termux_api.py       # wrap termux-battery-status, termux-dialog, etc.
+    adb_shell.py        # resolve USB/Tailscale target, run adb shell
+    uiautomator2_run.py # invoke pipx u2 scripts with serial from inventory
+    shizuku_rish.py     # privileged settings when localhost:5555 up
+  playbooks/
+    site.yml            # full device bring-up
+    deploy-watchdog.yml # mode-conditional: tasker vs autojs6
+    validate.yml        # repair STATUS, tailscale probe, cold-reboot checklist
+```
+
+#### Custom module candidates
+
+- **`termux_api_call`** — Termux:API from SSH (`termux-notification`, `termux-dialog`, battery)
+- **`adb_command`** — Mac-side ADB with inventory-driven serial (wrap `mac/resolve-adb.sh` logic)
+- **`uiautomator2_task`** — run `tasker_io.py` or one-off UI scripts from control node
+- **`shizuku_privileged`** — wrap `autojs6/mac/grant-shizuku.sh`-style json + pm grant flows
+- **`stayturgid_repair_check`** — parse `STATUS port=…` from repair script over SSH
+
+Non-native tools (uiautomator2, Shizuku, Termux:API) are **not** Ansible builtins — wrap them in `library/` modules or `ansible.builtin.script` with clear contracts.
+
+#### Limitations and mitigations
+
+| Limitation | Mitigation |
+|------------|------------|
+| UI automation is Mac-side + device-screen dependent | Keep uiautomator2 in Python modules; Ansible tasks call them; document Samsung content-URI grant failure (see `tasker-io/README.md`) |
+| ADB and SSH are two channels | Inventory vars + `delegate_to: localhost` for Mac ADB tasks; playbooks order SSH-first, ADB fallback |
+| On-device watchdog must stay on-device | Ansible **deploys** Tasker/AutoJs6; does not replace 20-min runtime loops |
+| Play Protect / Obtainium / human PIN | Tag tasks `manual` or use `pause:` prompts; don't pretend full unmanned bootstrap |
+| Stale Termux mirrors / conffile prompts | Already hit on 7a — role should use `DEBIAN_FRONTEND=noninteractive` + `Dpkg::Options::=--force-confold` |
+| Scale | 2 phones — Ansible parallelism is plenty; Salt only matters at fleet scale |
+
+### What should **not** move into Ansible (likely)
+
+- **Runtime watchdog logic** — `stayturgid-repair.sh`, AutoJs6 `main.js`, Tasker `ADB_Core_Watchdog` (Ansible configures; devices heal themselves)
+- **Cold-reboot Shizuku Start tap** — accessibility-driven; stays Tasker/AutoJs6 unless replaced by a maintained UI module
+- **Mac launchd keepalive** — can be a `mac_launchd` role with `delegate_to: localhost`, but it's orthogonal to phone SSH
+- **Obtainium in-app UI** — `enable-shizuku-installer.sh` + uiautomator2; candidate for a module, not pure YAML
+
+### Strong alternatives (if Ansible boundary feels wrong)
+
+1. **Pure Python orchestrator** (Invoke/Fabric + `subprocess` + uiautomator2 + ppadb)
+   - Better for dense UI/state-machine logic (Tasker import dialog chains)
+   - Structure as packages: `stayturgid.termux`, `.adb`, `.tasker_io`, `.autojs6`
+   - Prefect/Dagster/Airflow only if dependency graphs become large (probably overkill for 2 phones)
+
+2. **SaltStack (Salt SSH)**
+   - Faster parallel execution, event-driven reactor model
+   - Higher setup cost; weaker ecosystem for "personal phone" DIY docs
+
+3. **Hybrid: Ansible + on-device AutoJs6**
+   - Ansible for deploy/config; AutoJs6 for rich UI automation (already production on S24)
+   - Matches current architecture; formalize the split in playbooks (`when: automation_mode == 'autojs6'`)
+
+4. **Tasker + Termux:Tasker only**
+   - Familiar, works on 7a, but poor fit for **cross-tool** Mac-side orchestration (ADB forward, launchd, Obtainium sync, git deploy)
+
+### Current state vs target (gap analysis)
+
+| Layer | Today | Ansible-native? |
+|-------|-------|-----------------|
+| Termux packages + scripts | ✅ `termux_userland` role | Yes |
+| Shizuku install/grant | Mac shell scripts | Partial — custom module |
+| Obtainium catalog/install | Mac shell + u2 | Partial — script module |
+| AutoJs6 deploy/start | `autojs6/mac/*.sh` | Partial — role + adb delegate |
+| Tasker import | `tasker-io/tasker_io.py` | Script/module wrapper |
+| ADB reconnect launchd | `mac/adb-reconnect.sh` + plist | localhost role |
+| Validation tests | scattered `mac/run-test.sh`, test JS | playbook `validate.yml` |
+
+**Pain points a unified layer would address:** duplicated device resolution (`resolve-adb.sh` vs inventory), no single `site.yml` bring-up, manual ordering documented only in HANDOFF, mixed idempotency story outside Ansible.
+
+**Pain points it would not fix:** Play Protect, PIN unlock, DHCP LAN IP, Samsung Shizuku/content-URI quirks, Tasker XML fragility.
+
+**Do not implement until the user explicitly approves a refactor.** Until then, continue extending the existing `ansible/` skeleton and Mac scripts as needed.
+
+---
+
+### Migration priority (when approved): move as much as possible to Ansible
+
+Recommended order — highest value / lowest risk first:
+
+| Phase | Target | Why first |
+|-------|--------|-----------|
+| **1** | **Termux packages** (`termux_pkg` module) | Already SSH-connected; 7a proved shell task is fragile (broken `curl`, stuck `dpkg`, conffile prompts) |
+| **2** | Termux files/templates (expand `termux_userland`) | ✅ mostly done — scripts, boot, `termux.properties`, mode files |
+| **3** | Mac-delegated ADB (`adb_shell`, `android_apk`) | Wrap `resolve-adb.sh`; sideload APKs without Obtainium UI |
+| **4** | Obtainium catalog + updates (`obtainium_app`) | Deep links + JSON import + optional u2/Shizuku install path |
+| **5** | Shizuku grants, AutoJs6/Tasker deploy roles | Compose existing shell scripts |
+| **6** | Play Store semi-automation (`google_play_app`) | Weakest — no silent install API; document limits clearly |
+| **7** | `tasker-io` / uiautomator2 as Ansible action plugins | UI state machines belong in Python called from tasks |
+
+**Principle:** anything reachable over **Termux SSH** moves first; anything needing **Mac ADB + screen** gets a `delegate_to: localhost` role with explicit `tags: [ui, manual]` for human-in-the-loop steps.
+
+---
+
+### Termux packages — fault-tolerant module design (`termux_pkg`)
+
+Today's `termux_userland` role uses a single `ansible.builtin.shell` block (`pkg update && pkg upgrade -y`, then install missing packages). That failed on 7a when the package DB was half-upgraded. A dedicated module (or role backed by a module) should:
+
+**Module contract (sketch):**
+
+```yaml
+- name: Ensure Termux packages
+  termux_pkg:
+    name: [openssh, android-tools, python, ...]
+    state: present          # present | latest | absent
+    update_cache: true      # pkg update
+    upgrade: auto           # never | auto | full  — auto = upgrade only if installing/upgrading
+    force_confold: true     # Dpkg::Options for openssl.cnf / sources.list
+    mirror: optional        # termux-change-repo if unset and pkg warns
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+```
+
+**Fault tolerance behaviors:**
+
+| Failure mode | Module behavior |
+|--------------|-----------------|
+| `curl` / `pkg` binary broken (ABI mismatch) | Detect via preflight `command -v curl && curl --version`; run `dpkg --configure -a` + `apt-get -y -o Dpkg::Options::=--force-confold full-upgrade` before retry |
+| Stuck `dpkg` / apt lock | Check lock file; optional `force: true` to kill stale apt (with warning) |
+| Conffile prompt blocks non-interactive run | Always pass `--force-confdef` / `--force-confold` to apt/dpkg |
+| Mirror 404 / stale index | Retry with `termux-change-repo` candidate list or fail with actionable message |
+| Partial install (package X upgraded, Y failed) | Per-package `dpkg-query` check; report `failed_packages` list; don't claim success |
+| Idempotency | `state: present` → install missing only; `state: latest` → upgrade named packages |
+
+**Prior art for Termux + Ansible:**
+
+| Source | Notes |
+|--------|-------|
+| [gounthar/termux-jenkins-automation](https://github.com/gounthar/termux-jenkins-automation) | **Best reference** — 8 roles (`termux-base`, `termux-complete-setup` with 59+ packages, `termux-boot-setup`); Jenkins blog [2025](https://www.jenkins.io/blog/2025/10/31/automating-jenkins-on-android/) |
+| [guoqiao/ansible-android-termux](https://github.com/guoqiao/ansible-android-termux) | Early SSH inventory pattern; `termux-url-opener` for Play URLs via `gplaycli` |
+| [ivansible/termux](https://galaxy.ansible.com/ui/repo/published/ivansible/termux/) | Galaxy collection `ivansible.termux` (minimal adoption) |
+| [ansible/ansible#81547](https://github.com/ansible/ansible/pull/81547) | **Open PR** (rebased Feb 2026) — teach `ansible.builtin.package` to use `apt` on Termux; would help but **doesn't solve conffile/stuck-dpkg** — still need custom logic |
+| stayturgid `termux_userland` role | Working baseline; replace shell block with module when implemented |
+
+**Implementation note:** Even if #81547 merges, stayturgid should still ship **`community.stayturgid.termux_pkg`** (or `library/termux_pkg.py`) with the recovery path above — upstream `package` won't know about Termux-specific failure modes we hit on 7a.
+
+---
+
+### Generic module: `obtainium_app` (research — not implemented)
+
+**Goal:** Idempotently ensure an app is **tracked in Obtainium** and optionally **installed/updated**, replacing ad-hoc shell + coordinate taps in `obtainium/mac/*.sh`.
+
+**Obtainium has no server-side API** — automation must use Android intents, JSON import, or UI automation. Prior art:
+
+| Mechanism | Automation level | Prior art / docs |
+|-----------|------------------|------------------|
+| `obtainium://add/<url>` deep link | Add to catalog (may still need UI confirm) | [Obtainium wiki](https://wiki.obtainium.page/sources/); stayturgid uses `obtainium://add/github.com/termux/<repo>` |
+| `obtainium://app/...` | Pre-built app config HTML/JSON links | [Issue #918](https://github.com/ImranR98/Obtainium/issues/918), [PR #2683](https://github.com/ImranR98/Obtainium/pull/2683) |
+| **Obtainium Import** JSON file | Bulk add/update configs | `obtainium/stayturgid-apps.json`; [Discussion #1739](https://github.com/ImranR98/Obtainium/discussions/1739); emulation packs ([RJNY/Obtainium-Emulation-Pack](https://github.com/RJNY/Obtainium-Emulation-Pack)) |
+| Push JSON to app data dir | Undocumented shortcut mentioned in discussions | Fragile across Obtainium versions / scoped storage |
+| Shizuku/Dhizuku/Sui installer | Silent install **after** Obtainium has APK | [Issue #1611](https://github.com/ImranR98/Obtainium/issues/1611); stayturgid `enable-shizuku-installer.sh` |
+| uiautomator2 + `adb shell input tap` | Bulk "Update all" + package installer dialogs | stayturgid `apply-updates.sh` (coordinate-based, Samsung-specific) |
+
+**Proposed module layers:**
+
+```yaml
+# Layer A — catalog only (no UI if deep link works)
+- obtainium_app:
+    url: "https://github.com/termux/termux-app"
+    state: tracked          # tracked | absent
+    method: deep_link       # deep_link | json_import
+  delegate_to: localhost
+  vars:
+    adb_serial: "{{ hostvars[inventory_hostname].adb_serial }}"
+
+# Layer B — bulk catalog from repo file
+- obtainium_app:
+    import_json: "{{ playbook_dir }}/../obtainium/stayturgid-apps.json"
+    state: tracked
+    method: json_import
+  delegate_to: localhost
+
+# Layer C — install/update (requires Shizuku + UI or privileged adb)
+- obtainium_app:
+    url: "https://github.com/SuperMonster003/AutoJs6"
+    state: latest           # tracked | installed | latest
+    install_method: shizuku  # shizuku | adb | ui_bulk
+    shizuku: true
+  delegate_to: localhost
+```
+
+**Module implementation sketch:**
+
+1. **`delegate_to: localhost`** — all Obtainium control is Mac-side ADB (or wireless ADB over Tailscale).
+2. **`check_mode`** — `adb shell pm list packages` + compare versionName; for Obtainium-tracked apps, optionally query Obtainium's on-device DB (hard — may skip and rely on JSON manifest in repo).
+3. **`deep_link`** — `adb shell am start -a android.intent.action.VIEW -d 'obtainium://add/...'`; optional u2 wait for snackbar/confirm.
+4. **`json_import`** — push JSON to `/sdcard/Download/`, u2/automation open Obtainium → Import/Export → Obtainium Import (same pattern as `tasker-io` text-button chains).
+5. **`install_method: adb`** — bypass Obtainium: `gh release download` + `adb install -r` (already used for Termux github-debug swap); module wraps Play Protect verifier disable **only** with explicit `allow_play_protect_bypass: true` + docs warning.
+6. **`install_method: shizuku`** — prerequisite task ensures Shizuku installer enabled in Obtainium settings (wrap `enable-shizuku-installer.sh`).
+
+**Idempotency honesty:** "tracked in Obtainium" is only fully idempotent if we can read Obtainium state (no stable public API). Practical approach: **declarative JSON catalog in git is source of truth**; module pushes/import-syncs when checksum differs; install/update is `changed_when: version bumped`.
+
+**Community prior art:** No published **`ansible-obtainium`** module found. Closest patterns: [Bierchermuesli/ansibel-nspanel](https://github.com/Bierchermuesli/ansibel-nspanel) (Ansible + parallel `adb install` for IoT panels); FrenchToucan/Toucans-Obtainium-Export shell script pushes JSON then **manual** import step.
+
+---
+
+### Generic module: `google_play_app` (research — not implemented)
+
+**Hard truth:** There is **no supported API to silently install Play Store apps by package name** on a consumer phone without MDM/Device Owner. AnsiblePilot's "Ansible on Android" guide refers to **backend/Play Console CI**, not on-device Play installs ([ansiblepilot.com](https://www.ansiblepilot.com/articles/ansible-on-android-backend-infrastructure-automation-complete-guide)).
+
+| Approach | Feasibility | Notes |
+|----------|-------------|-------|
+| Play Store `market://details?id=` intent | Semi-auto | Opens Play UI; user taps Install ([Stack Overflow](https://stackoverflow.com/questions/42125096/how-to-automate-installation-of-play-store-apps-by-package-name)) |
+| Desktop Play "Install" button (same Google account) | Manual | FCM pushes install to device — not scriptable from Ansible without Google account automation |
+| `gplaycli` / `google-play-scraper` on Mac | **Broken/unreliable** | Downloads APKs against ToS; guoqiao repo used it in Termux url-opener — not suitable for production |
+| MDM (Headwind, Esper, etc.) | Fleet only | Wrong shape for personal daily-driver phones (already rejected in roadmap) |
+| Aurora Store | Alternative store | Could be a separate `aurora_app` module; still UI-heavy |
+
+**Proposed limited module:**
+
+```yaml
+- google_play_app:
+    package: net.dinglisch.android.taskerm
+    state: present          # present = installed; open_store = just open Play page
+    method: check_only      # check_only | open_store | semi_auto
+  delegate_to: localhost
+```
+
+- **`check_only`** (default): `adb shell pm path {{ package }}` → ok if installed.
+- **`open_store`**: `am start -a android.intent.action.VIEW -d market://details?id=...` — tags `[manual]`.
+- **`semi_auto`**: u2 loop: open store → wait for Install button → tap (fragile, locale/OEM dependent) — **not recommended** except as escape hatch.
+
+**Recommendation:** For stayturgid, **prefer Obtainium + GitHub/F-Droid** for every app we control; reserve `google_play_app` for **presence checks only** (is Tasker installed?) and document Play-only apps as manual/Obtainium-not-available exceptions.
+
+---
+
+### Generic module: `android_apk` (lower layer, shared)
+
+Both Obtainium and direct sideload paths need this. Prior art:
+
+| Source | Notes |
+|--------|-------|
+| [shresthagrawal/AnsibleAndroidAutomationADB](https://github.com/shresthagrawal/AnsibleAndroidAutomationADB) | Custom Ansible module for ADB (2018, 31★) |
+| [rpavlik Ansible ADB connection plugin gist](https://gist.github.com/rpavlik/a0c785fbe568fd4c7fbb67893ec4507a) | Connection plugin prototype — `adb connect host:port` |
+| [Bierchermuesli/ansibel-nspanel](https://github.com/Bierchermuesli/ansibel-nspanel) | Fetch GitHub release APK + parallel `adb install -r` + `pm uninstall` debloat |
+| `community.general.android_sdk` | **Dev machine only** — SDK packages via `sdkmanager`, not on-device apps |
+
+```yaml
+- android_apk:
+    src: /tmp/termux-app.apk      # or url: https://github.com/.../releases/download/...
+    state: present
+    replace: true                 # adb install -r
+    package: com.termux           # optional verify
+  delegate_to: localhost
+```
+
+Handles: download once, `adb -s {{ serial }} install -r`, parse `Failure [INSTALL_FAILED_*]`, version compare via `dumpsys package`.
+
+---
+
+### Updated research steps (when picked up)
+
+1. **Prototype `termux_pkg`** — port 7a recovery logic; replace shell block in `termux_userland/tasks/main.yml`.
+2. Prototype `stayturgid_repair_check` (SSH → parse STATUS).
+3. Prototype `android_apk` + `adb_serial` from inventory (merge `resolve-adb.sh` logic into module util).
+4. Prototype `obtainium_app` **layer A only** — deep link + `pm list packages` check for one GitHub app.
+5. Sketch `playbooks/site.yml` composing roles; `when: automation_mode`.
+6. Write ADR with explicit non-goals (Play Store silent install, full unmanned Obtainium bulk update on Samsung without Shizuku).
+7. Decide collection name: `community.stayturgid` vs upstream contribution to `ivansible.termux`.
+
+### References (prior art bibliography)
+
+- Termux + Ansible: [termux-jenkins-automation](https://github.com/gounthar/termux-jenkins-automation), [ansible-android-termux](https://github.com/guoqiao/ansible-android-termux), [ivansible/termux](https://galaxy.ansible.com/ui/repo/published/ivansible/termux/), [ansible#81547](https://github.com/ansible/ansible/pull/81547)
+- ADB + Ansible: [AnsibleAndroidAutomationADB](https://github.com/shresthagrawal/AnsibleAndroidAutomationADB), [ADB connection plugin gist](https://gist.github.com/rpavlik/a0c785fbe568fd4c7fbb67893ec4507a), [ansibel-nspanel](https://github.com/Bierchermuesli/ansibel-nspanel)
+- Obtainium automation: [Obtainium repo](https://github.com/ImranR98/Obtainium), [wiki sources](https://wiki.obtainium.page/sources/), [deep links #918](https://github.com/ImranR98/Obtainium/issues/918), [Dhizuku install #1611](https://github.com/ImranR98/Obtainium/issues/1611), [import discussion #1739](https://github.com/ImranR98/Obtainium/discussions/1739)
+- Play Store automation limits: [Stack Overflow package install](https://stackoverflow.com/questions/42125096/how-to-automate-installation-of-play-store-apps-by-package-name), [How-To Geek Obtainium+Shizuku](https://www.howtogeek.com/this-is-how-i-keep-my-sideloaded-android-apps-updated-automatically/)
+- stayturgid today: `ansible/roles/termux_userland/`, `obtainium/mac/apply-updates.sh`, `obtainium/mac/enable-shizuku-installer.sh`, `obtainium/stayturgid-apps.json`

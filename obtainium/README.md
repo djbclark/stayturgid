@@ -1,6 +1,8 @@
-# Obtainium — GitHub APK auto-updates for stayturgid
+# Obtainium — GitHub APK tracking and updates
 
-Every app installed from **GitHub releases** (not Play Store) should be tracked in [Obtainium](https://github.com/ImranR98/Obtainium) so updates are automatic.
+JSON catalogs and Mac helpers for [Obtainium](https://github.com/ImranR98/Obtainium). **Standalone:** import a catalog on any Android device with Obtainium installed — no Tasker, Termux, or stayturgid watchdog required.
+
+**Full project:** [../README.md](../README.md) · **Docs index:** [../docs/README.md](../docs/README.md)
 
 ## Catalog files
 

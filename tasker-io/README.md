@@ -1,9 +1,8 @@
 # tasker-io — reliable Tasker import/export over ADB
 
-Importing Tasker data has been the single flakiest part of this project. This sub-folder
-is a self-contained, reusable toolkit for doing it **reliably**, intended to eventually be
-spun out as its own project. Develop/experiment here against throwaway projects — never
-against the live `stayturgid` project.
+**Standalone toolkit** for importing Tasker tasks/profiles from XML on any Android device with Tasker + ADB. Not tied to the stayturgid project — develop against throwaway projects before touching production XML.
+
+**Full project:** [../README.md](../README.md) · **Docs index:** [../docs/README.md](../docs/README.md)
 
 ## TL;DR — how to update one task reliably
 

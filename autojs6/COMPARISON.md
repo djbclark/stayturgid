@@ -1,5 +1,7 @@
 # Tasker+AutoInput vs AutoJs6 — comparison framework
 
+**Modules:** [autojs6/README.md](README.md) · [tasker/README.md](../tasker/README.md) · [docs/README.md](../docs/README.md)
+
 Fill this in after running both stacks on the **same device** (never simultaneously). The goal is an evidence-based pick for the stayturgid watchdog/UI-repair layer.
 
 ## Test matrix

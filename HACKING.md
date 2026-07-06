@@ -2,6 +2,8 @@
 
 This document gets a developer from a clean Android + macOS install to a fully working development environment for stayturgid. Follow the sections in order — Android setup first, then Mac, then verification.
 
+**Modular use:** You do not need every component. Module READMEs: [docs/README.md](docs/README.md). Pick e.g. only [termux/](termux/README.md), only [ansible/](ansible/README.md), or only [obtainium/](obtainium/README.md).
+
 ---
 
 ## What you're setting up

@@ -1,8 +1,10 @@
-# stayturgid Auto Update
+# stayturgid auto-update
 
-Automatic update notifications for the stayturgid Tasker project, based on
-[Task Auto Update](https://taskernet.com/shares/?user=AS35m8n7%2B%2FhaeKBj3hNzHKtnU27LX%2BE4bd60KiPGki8mGxMAzSIDZAELwOTVhQxZ25YrHYlft5k%3D&id=Task%3ATask+Auto+Update)
-by Joker (u/Bushido---), adapted for **GitHub-only** version detection.
+Tasker task for **GitHub-based** project update checks. Usable independently of the full stayturgid watchdog if you import only `stayturgid_update_check.tsk.xml`.
+
+**Full project:** [../../README.md](../../README.md) · **Tasker module:** [../README.md](../README.md)
+
+Based on [Task Auto Update](https://taskernet.com/shares/?user=AS35m8n7%2B%2FhaeKBj3hNzHKtnU27LX%2BE4bd60KiPGki8mGxMAzSIDZAELwOTVhQxZ25YrHYlft5k%3D&id=Task%3ATask+Auto+Update) by Joker (u/Bushido---), adapted for **GitHub-only** version detection.
 
 ## Files
 

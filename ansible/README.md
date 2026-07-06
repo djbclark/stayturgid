@@ -1,16 +1,31 @@
-# Ansible — Termux userland for stayturgid
+# Ansible — Termux userland
 
-Idempotent replay of the manual Termux deploy: packages, `~/stayturgid-repair.sh`, boot scripts, `termux.properties`, and mode/device files.
+Idempotent deploy of the **Termux layer only** over SSH: packages, scripts, boot hooks, `termux.properties`, optional mode/device files. No Tasker, AutoJs6, Obtainium, or Shizuku automation in this playbook.
 
-**Out of scope** (stay manual / device-specific): Shizuku pairing, Tasker/AutoJs6 install, Obtainium, `WRITE_SECURE_SETTINGS`, battery whitelist, SSH `authorized_keys` (manage separately).
+**Full project:** [../README.md](../README.md) · **Docs index:** [../docs/README.md](../docs/README.md)
 
-The deployed `~/claude-presence.sh` includes the S24 consent gate:
+## Standalone use
+
+You need only:
+
+- Ansible on the Mac (`brew install ansible`)
+- Termux with `sshd` on port 8022 and your SSH public key in `~/.ssh/authorized_keys`
+- Inventory host pointing at the device (copy `inventory/hosts.yml` pattern; trim to one host)
 
 ```bash
-ssh s24 '~/claude-presence.sh gate "Galaxy S24" Auto'
+# Custom host — no stayturgid fleet vars required:
+ansible-playbook ansible/playbooks/termux-userland.yml \
+  -i 'myphone ansible_host=192.168.1.50 ansible_port=8022 ansible_user=u0_aXXX' \
+  -e ansible_python_interpreter=/data/data/com.termux/files/usr/bin/python \
+  -e stayturgid_automation_mode= \
+  -e stayturgid_device_id=
 ```
 
-If the phone appears active, it prompts for Continue / Pause / Check again in 10 minutes; timeout defaults to Continue.
+Omit or empty `stayturgid_automation_mode` / `stayturgid_device_id` if you are not using AutoJs6/Tasker mode files.
+
+**Out of scope** (configure separately): Shizuku pairing, Tasker/AutoJs6, Obtainium, `WRITE_SECURE_SETTINGS`, battery whitelist, SSH key bootstrap.
+
+The deployed `~/claude-presence.sh` includes the consent `gate` action ([termux/README.md](../termux/README.md)).
 
 ## Prerequisites
 
@@ -18,7 +33,7 @@ If the phone appears active, it prompts for Continue / Pause / Check again in 10
 - SSH to Termux working (`ssh s24` or USB forward to port 8022)
 - `~/.ssh/termux_key` authorized on the device
 
-## Run (S24 only)
+## Run (fleet wrapper)
 
 ```bash
 # S24 (AutoJs6 production)
@@ -75,4 +90,4 @@ Device-specific steps still required:
 3. Obtainium catalog / `enable-shizuku-installer.sh s24`
 4. Open Termux:Boot app once after fresh install
 
-See `HANDOFF.md` for the full S24 production checklist.
+See [HANDOFF.md](../HANDOFF.md) for the full production checklist, or [termux/README.md](../termux/README.md) if you deploy scripts without Ansible.
