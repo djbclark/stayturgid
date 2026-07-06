@@ -9,6 +9,7 @@
 # For stayturgid catalog apps blocked by Play Protect, prefer adb install with
 # verifier disabled (see HACKING.md) or enable Shizuku installer in Obtainium settings.
 set -euo pipefail
+trap 'echo "interrupted" >&2; exit 130' INT TERM
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # shellcheck source=../../shared/mac/resolve-adb.sh

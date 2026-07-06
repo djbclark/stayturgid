@@ -1,0 +1,9 @@
+---
+# ansible-lint config (standard Ansible project practice).
+profile: moderate
+exclude_paths:
+  - tests/
+skip_list:
+  # Custom module without a doc fragment collection; docs live in the module.
+  - fqcn[action]          # termux_pkg is a local library module, no FQCN exists
+  - name[casing]          # handler names are lowercase by convention here

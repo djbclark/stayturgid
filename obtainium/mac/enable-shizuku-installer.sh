@@ -9,6 +9,7 @@
 #
 # Requires: unlocked screen, Shizuku running, privileged shell on localhost:5555.
 set -euo pipefail
+trap 'echo "interrupted" >&2; exit 130' INT TERM
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # shellcheck source=../../shared/mac/resolve-adb.sh

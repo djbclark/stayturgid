@@ -2,6 +2,7 @@
 # Install AutoJs6, grant Termux bridge perms, deploy project, start repair-bridge.
 # Usage: ./setup-autojs6.sh <serial|p7a|s24> [device-id]
 set -euo pipefail
+trap 'echo "interrupted" >&2; exit 130' INT TERM
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"

@@ -5,6 +5,7 @@
 # 1. Mac: force-stop Tailscale + wait for coord ping to fail
 # 2. AutoJs6: probe, run watchdog cycle (notify + relaunch path), wait for recovery
 set -euo pipefail
+trap 'echo "interrupted" >&2; exit 130' INT TERM
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # shellcheck source=../../shared/mac/resolve-adb.sh

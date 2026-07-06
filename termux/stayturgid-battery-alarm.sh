@@ -208,6 +208,10 @@ fire_tier_alert() {
     fi
 }
 
+# A kill mid-blink must not strand the screen on a solid color / max
+# brightness (both restores are no-ops when no snapshot exists).
+trap 'restore_wallpaper; restore_brightness; exit 130' INT TERM
+
 main() {
     local batt pct status quiet=0 tier lowest="" t
     local applicable=()

@@ -85,6 +85,9 @@
   changed_when: false
   failed_when: repair_check.rc != 0 and repair_check.rc != 1
 
+# The verify task is skipped in --check mode (shell tasks don't dry-run),
+# leaving stdout_lines empty — guard so check mode stays clean.
 - name: Show repair STATUS line
   ansible.builtin.debug:
     msg: "{{ repair_check.stdout_lines | last }}"
+  when: repair_check.stdout_lines is defined and repair_check.stdout_lines | length > 0

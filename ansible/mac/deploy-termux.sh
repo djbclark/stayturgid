@@ -2,6 +2,7 @@
 # Run the Termux userland Ansible playbook for one device.
 # Usage: ./deploy-termux.sh <s24|p7a|host>
 set -euo pipefail
+trap 'echo "interrupted" >&2; exit 130' INT TERM
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 HOST="${1:?usage: deploy-termux.sh <s24|p7a>}"

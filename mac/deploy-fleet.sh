@@ -8,6 +8,7 @@
 #
 # Requires: SSH to Termux, adb (USB or Tailscale), ansible-playbook.
 set -euo pipefail
+trap 'echo "interrupted" >&2; exit 130' INT TERM
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 

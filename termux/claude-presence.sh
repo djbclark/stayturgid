@@ -28,8 +28,9 @@ ACTION="$1"
 LABEL="${2:-this phone}"
 AGENT="${3:-${STAYTURGID_AGENT:-Auto}}"
 NID="stayturgid-presence"
-PAUSE_FILE="/sdcard/stayturgid_presence_paused"
-LATER_FILE="/sdcard/stayturgid_presence_check_after"
+SD="${STAYTURGID_SD:-/sdcard}"   # override in tests (no /sdcard off-device)
+PAUSE_FILE="$SD/stayturgid_presence_paused"
+LATER_FILE="$SD/stayturgid_presence_check_after"
 
 adb_shell() {
     adb connect localhost:5555 >/dev/null 2>&1 && adb -s localhost:5555 shell "$@" 2>/dev/null
