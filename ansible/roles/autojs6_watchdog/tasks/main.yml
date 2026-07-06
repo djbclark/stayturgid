@@ -1,0 +1,26 @@
+---
+# Deploys the AutoJs6 watchdog project over SSH (Termux writes /sdcard
+# directly — no Mac-side adb needed). Replaces autojs6/mac/deploy.sh +
+# start-watchdog.sh in the fleet path; those scripts remain for USB/adb-only
+# situations.
+- name: Deploy AutoJs6 project files
+  ansible.builtin.copy:
+    src: "{{ autojs6_repo_root }}/autojs6/{{ item }}"
+    dest: "{{ autojs6_target }}/"
+  loop:
+    - project.json
+    - main.js
+    - lib
+    - devices
+    - scripts
+  notify: nudge autojs6 watchdog
+
+- name: Ensure AutoJs6 watchdog is running (boot-launcher no-ops when alive)
+  ansible.builtin.shell: >
+    am start -a android.intent.action.VIEW
+    -d 'file://{{ autojs6_target }}/scripts/boot-launcher.js'
+    -t 'text/javascript'
+    -n 'org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity'
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  changed_when: false

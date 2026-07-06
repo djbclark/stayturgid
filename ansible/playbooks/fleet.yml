@@ -1,0 +1,15 @@
+---
+# Full fleet deploy: Termux userland + AutoJs6 watchdog, all over SSH.
+# Boot-loop restart happens via handler only when boot scripts change.
+#
+# Usage (from repo root, or via ./mac/deploy-fleet.sh):
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
+#     ansible/playbooks/fleet.yml [--limit s24]
+#
+# Per-host failures don't stop other hosts (Ansible default behavior).
+- name: stayturgid fleet deploy
+  hosts: stayturgid
+  gather_facts: false
+  roles:
+    - role: termux_userland
+    - role: autojs6_watchdog

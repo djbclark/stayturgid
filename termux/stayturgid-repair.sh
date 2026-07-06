@@ -18,7 +18,7 @@ LOCKFILE="${PREFIX}/tmp/stayturgid-repair.lock"
 LOG="$HOME/.stayturgid-repair.log"           # Termux-writable primary log
 SDLOG=/sdcard/stayturgid_watchdog.log        # shared log (best effort; needs storage perm)
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
-log() { local m="$(ts) [repair] $*"; echo "$m" >> "$LOG" 2>/dev/null; echo "$m" >> "$SDLOG" 2>/dev/null; }
+log() { local m; m="$(ts) [repair] $*"; echo "$m" >> "$LOG" 2>/dev/null; echo "$m" >> "$SDLOG" 2>/dev/null; }
 
 # Keep logs bounded: the AutoJs6 watchdog re-reads SDLOG in full each cycle.
 trim_log() {

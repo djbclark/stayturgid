@@ -121,12 +121,13 @@ STUB
 
 reset_sandbox() {
     : > "$STUB_LOG"
-    rm -rf "$SANDBOX/home" "$SANDBOX/sd" "$SANDBOX/sshd_started" "$SANDBOX/batt.json"
+    rm -rf "${SANDBOX:?}/home" "${SANDBOX:?}/sd" "${SANDBOX:?}/sshd_started" "${SANDBOX:?}/batt.json"
     mkdir -p "$SANDBOX/home" "$SANDBOX/sd"
 }
 
 # run_sandboxed <script> [args...]: run a repo script inside the sandbox.
-# Sets OUT (stdout), ERR (stderr), RC. Never aborts the test file.
+# Sets OUT (stdout), ERR (stderr), RC for the sourcing test file.
+# shellcheck disable=SC2034
 run_sandboxed() {
     set +e
     OUT="$(HOME="$SANDBOX/home" PREFIX="$SANDBOX/prefix" \

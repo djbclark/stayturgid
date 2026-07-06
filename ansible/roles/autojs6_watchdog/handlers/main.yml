@@ -1,0 +1,12 @@
+---
+# Note: an already-running main.js engine keeps executing the old code until
+# AutoJs6 restarts it (stale-loop detection will flag a dead one); the nudge
+# only guarantees the watchdog is running at all.
+- name: nudge autojs6 watchdog
+  ansible.builtin.shell: >
+    am start -a android.intent.action.VIEW
+    -d 'file://{{ autojs6_target }}/scripts/boot-launcher.js'
+    -t 'text/javascript'
+    -n 'org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity'
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"

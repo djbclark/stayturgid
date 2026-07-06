@@ -4,3 +4,16 @@
 - name: reload termux settings
   ansible.builtin.command: "{{ termux_prefix }}/bin/termux-reload-settings"
   changed_when: true
+
+# [.] instead of . : the pattern appears literally in this shell's own
+# cmdline, and a plain '.' regex would make pkill/pgrep self-match (kill the
+# handler itself) — same procps trap documented in CODE-REVIEW.md H2.
+- name: restart boot loop
+  ansible.builtin.shell: |
+    pkill -f '[.]termux/boot/start-adb[.]sh' 2>/dev/null || true
+    sleep 2
+    nohup "$HOME/.termux/boot/start-adb.sh" >/dev/null 2>&1 &
+    sleep 1
+    pgrep -f '[.]termux/boot/start-adb[.]sh' >/dev/null
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"

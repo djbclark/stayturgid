@@ -34,6 +34,12 @@ plan `1..N`; `# SKIP` for missing tools, `# TODO` for expected failures.
   logs are bounded (repair trims at >1000 lines to 500, Mac scripts tail -1000).
 - **Process liveness:** pidfiles, never `pgrep -f <name>` — on Termux procps
   the pattern matches the caller's own cmdline (CODE-REVIEW.md H2).
+- **Never assume the user's default shell.** macOS ships zsh; Termux users may
+  switch to fish/zsh (zsh is NOT installed on Termux by default — `pkg install
+  zsh` if genuinely needed). Every script declares bash in its shebang, and
+  remote commands go to an explicit interpreter — `ssh host 'bash -s'` with a
+  heredoc or stdin pipe — never through the login shell. `printf %q` output is
+  bash syntax: only feed it to bash.
 - **Cleanup traps:** anything that changes screen state (battery alarm)
   restores it on INT/TERM.
 - **Non-destructive by default:** device tests read; only deploy scripts write.

@@ -68,6 +68,29 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 
 **Legacy third-party automation** removed from both devices (2026-07-06). Fleet uses AutoJs6 only.
 
+### Tasker exorcism + shell conventions + Ansible-native fleet — 2026-07-06 (evening) ✅
+
+- **Legacy Tasker remnants:** live Tasker configs on BOTH phones are clean; the
+  "Watchdog bridge failed" notification was a pre-cleanup zombie (Tasker
+  re-asserts old group summaries; force-stop didn't clear it — needs a swipe).
+  s24 had 3 more zombie legacy alerts. All legacy exports archived to
+  /sdcard/Download/stayturgid-legacy-tasker-archive/ on both phones.
+  ⚠ p7a's **upmon** project still references `ADB_Core_Watchdog` (deleted task)
+  — user must edit in Tasker GUI. Device tier now probes for legacy Tasker
+  notifications/files (excludes Tasker's configs/ backup history).
+- **Shell conventions:** never assume the user's default shell (Termux has no
+  zsh by default). All remote commands now go through explicit `bash -s` stdin;
+  documented in HACKING.md + tests/README.md. shellcheck installed on the Mac;
+  whole repo is shellcheck -S warning clean (make lint).
+- **Ansible-native fleet deploy:** new `ansible/playbooks/fleet.yml` +
+  `autojs6_watchdog` role (AutoJs6 project deployed over SSH via copy — no
+  Mac-side adb needed) + `restart boot loop` handler (fires only when boot
+  scripts change; uses the `[.]` pkill self-match guard). deploy-fleet.sh is
+  now a thin wrapper (`CHECK=1` = dry run). Kept custom on purpose: termux_pkg
+  module (no community equivalent for rootless Termux apt), Shizuku/UI scripts,
+  on-device runtime scripts, TAP test harness. adb-only fallback:
+  autojs6/mac/deploy.sh + start-watchdog.sh.
+
 ### Tests + screen-awake guard + sharing protocol session — 2026-07-06 (later) ✅
 
 - **Test suite** (`tests/`, `Makefile`, `./configure`): three entry points —

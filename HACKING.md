@@ -399,6 +399,12 @@ does **not** do this, so Mac-side dry-runs pass while the on-device guard is
 broken. Use pidfiles (`~/.repair-bridge.pid` + `/proc/$pid/cmdline` check) for
 liveness, and test process guards on the device itself.
 
+**Shell convention:** never assume the user's default shell — macOS defaults
+to zsh, Termux users can switch shells, and zsh isn't installed on Termux by
+default (`pkg install zsh` if a script genuinely needs it). Declare bash in
+every shebang and run remote commands via `ssh host 'bash -s'` (heredoc or
+stdin pipe), never bare `ssh host '<commands>'` through the login shell.
+
 Cheap pre-commit gates: `bash -n` each script, `node --check autojs6/**/*.js`,
 `python3 -m py_compile ansible/library/*.py`, and
 `ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/termux-userland.yml --syntax-check`.

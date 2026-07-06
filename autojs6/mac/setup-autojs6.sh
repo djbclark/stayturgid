@@ -62,9 +62,19 @@ if [[ -n "$SSH_HOST" ]] && ssh -o BatchMode=yes -o ConnectTimeout=5 "$SSH_HOST" 
     scp -q "$ROOT/../termux/repair-bridge.sh" "$SSH_HOST:repair-bridge.sh"
   scp -q "$ROOT/../termux/boot/start-repair-bridge.sh" "$SSH_HOST:~/.termux/boot/start-repair-bridge.sh" 2>/dev/null || true
   scp -q "$ROOT/../termux/boot/start-autojs6-watchdog.sh" "$SSH_HOST:~/.termux/boot/start-autojs6-watchdog.sh" 2>/dev/null || true
-  # Liveness via pidfile — pgrep -f would match this ssh command's own
-  # cmdline on Termux and always skip the start.
-  ssh "$SSH_HOST" 'chmod +x ~/stayturgid-repair.sh ~/repair-bridge.sh ~/.termux/boot/start-repair-bridge.sh ~/.termux/boot/start-autojs6-watchdog.sh 2>/dev/null; pid=$(cat ~/.repair-bridge.pid 2>/dev/null); if [ -n "$pid" ] && [ -d "/proc/$pid" ] && grep -q repair-bridge "/proc/$pid/cmdline" 2>/dev/null; then echo "bridge already running (pid $pid)"; else nohup ~/repair-bridge.sh >> ~/.repair-bridge.log 2>&1 & echo "bridge started"; fi'
+  # Heredoc into explicit bash: keeps the pgrep-bait pattern out of any
+  # cmdline AND never relies on the device user's login shell.
+  ssh "$SSH_HOST" 'bash -s' <<'BRIDGE'
+chmod +x ~/stayturgid-repair.sh ~/repair-bridge.sh \
+    ~/.termux/boot/start-repair-bridge.sh ~/.termux/boot/start-autojs6-watchdog.sh 2>/dev/null
+pid=$(cat ~/.repair-bridge.pid 2>/dev/null)
+if [ -n "$pid" ] && [ -d "/proc/$pid" ] && grep -q repair-bridge "/proc/$pid/cmdline" 2>/dev/null; then
+    echo "bridge already running (pid $pid)"
+else
+    nohup ~/repair-bridge.sh >> ~/.repair-bridge.log 2>&1 &
+    echo "bridge started"
+fi
+BRIDGE
 else
   echo "SSH unavailable — push repair-bridge via adb to /sdcard for manual Termux deploy"
   adb -s "$SERIAL" push "$ROOT/../termux/repair-bridge.sh" /sdcard/Download/repair-bridge.sh

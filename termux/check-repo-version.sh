@@ -9,7 +9,6 @@ export PATH=/data/data/com.termux/files/usr/bin:$PATH
 
 URL="https://raw.githubusercontent.com/djbclark/stayturgid/master/version.json"
 STAMP="$HOME/.stayturgid_repo_version"
-CHANNEL="stayturgid"
 
 json="$(curl -fsSL "$URL")" || exit 0
 remote="$(printf '%s' "$json" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"

@@ -51,6 +51,7 @@
     dest: "{{ termux_home }}/.termux/boot/{{ item }}"
     mode: "0755"
   loop: "{{ stayturgid_boot_scripts }}"
+  notify: restart boot loop
 
 # lineinfile, not a template: templating would clobber unrelated user
 # properties (extra-keys etc.) in termux.properties.

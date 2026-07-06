@@ -68,7 +68,7 @@ fi
 
 # --- optional linters (run when installed, skip otherwise) ------------------
 if command -v shellcheck >/dev/null 2>&1; then
-    if shellcheck -S warning $(git ls-files '*.sh') >/dev/null 2>&1; then
+    if git ls-files -z '*.sh' | xargs -0 shellcheck -S warning >/dev/null 2>&1; then
         tap_ok "shellcheck -S warning: clean"
     else
         tap_fail "shellcheck -S warning: clean" "run: make lint"

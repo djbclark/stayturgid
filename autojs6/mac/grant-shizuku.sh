@@ -19,11 +19,13 @@ SHIZUKU_JSON="/data/local/tmp/shizuku/shizuku.json"
 
 ssh_host="$(resolve_ssh_host "$ALIAS")"
 
+# Remote command travels on stdin to an explicit bash — never the login
+# shell (Termux users may run fish/zsh, and %q quoting is bash-specific).
 sh_shell() {
   local cmd="$1"
   if [[ -n "$ssh_host" ]]; then
-    ssh -o BatchMode=yes -o ConnectTimeout=8 -o LogLevel=ERROR "$ssh_host" \
-      "adb -s localhost:5555 shell $(printf '%q' "$cmd")"
+    printf 'adb -s localhost:5555 shell %q\n' "$cmd" | \
+      ssh -o BatchMode=yes -o ConnectTimeout=8 -o LogLevel=ERROR "$ssh_host" "bash -s"
     return $?
   fi
   adb -s "$TARGET" shell "$cmd"

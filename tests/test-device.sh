@@ -47,6 +47,14 @@ else
 fi
 batt=$(termux-battery-status 2>/dev/null | grep -o '"percentage": *[0-9]*' | grep -o '[0-9]*' || true)
 [ -n "$batt" ] && echo "battery=${batt}" || echo "battery=unknown"
+# Legacy Tasker watchdog must stay dead: no active Tasker-posted stayturgid
+# notifications, and no legacy-watchdog content under /sdcard/Tasker outside
+# configs/ (Tasker's own backup history is the user's to keep; the stayturgid
+# archive lives in /sdcard/Download, outside this tree).
+tn=$(adb -s localhost:5555 shell "dumpsys notification --noredact" </dev/null 2>/dev/null \
+    | grep -cE 'pkg=net\.dinglisch\.android\.taskerm.*(Watchdog bridge|stayturgid)')
+tf=$(adb -s localhost:5555 shell "grep -rl -iE 'ADB_Core_Watchdog|ADB_Interval_Check|Watchdog bridge' /sdcard/Tasker 2>/dev/null" </dev/null 2>/dev/null | grep -cv "/configs/")
+echo "taskerlegacy=notif:${tn:-0},files:${tf:-0}"
 for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh check-repo-version.sh stayturgid-battery-alarm.sh; do
     printf 'md5 %s %s\n' "$f" "$(md5sum "$HOME/$f" 2>/dev/null | cut -d" " -f1)"
 done
@@ -78,6 +86,13 @@ REMOTE
     val="$(printf '%s\n' "$report" | sed -n 's/^battery=//p')"
     [ "$val" != "unknown" ] && [ -n "$val" ] && tap_ok "$host: termux-api battery readable (${val}%)" \
                          || tap_fail "$host: termux-api battery readable" "termux-api unavailable"
+    val="$(printf '%s\n' "$report" | sed -n 's/^taskerlegacy=//p')"
+    if [ "$val" = "notif:0,files:0" ] || [ -z "$val" ]; then
+        tap_ok "$host: no legacy Tasker stayturgid remnants"
+    else
+        tap_fail "$host: no legacy Tasker stayturgid remnants" \
+            "$val — swipe stale Tasker notifications / archive /sdcard/Tasker leftovers"
+    fi
 
     # Deployment drift: deployed scripts vs repo (informational TODO, not a failure)
     drift=""

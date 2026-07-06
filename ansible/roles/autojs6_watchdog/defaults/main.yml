@@ -1,0 +1,3 @@
+---
+autojs6_target: /sdcard/Scripts/stayturgid
+autojs6_repo_root: "{{ playbook_dir }}/../.."

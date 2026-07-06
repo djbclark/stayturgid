@@ -136,8 +136,7 @@ blink_screen_color() {
     save_brightness
     adb_shell input keyevent KEYCODE_WAKEUP 2>/dev/null || true
 
-    local i
-    for i in $(seq 1 "$count"); do
+    for _ in $(seq 1 "$count"); do
         termux-brightness 255 2>/dev/null || true
         if [ "$use_wallpaper" -eq 1 ]; then
             termux-wallpaper -f "$png" 2>/dev/null || true
@@ -165,8 +164,7 @@ pulse_torch() {
         termux-torch off 2>/dev/null || true
         return 0
     fi
-    local i
-    for i in $(seq 1 "$n"); do
+    for _ in $(seq 1 "$n"); do
         termux-torch on 2>/dev/null || true
         sleep 0.22
         termux-torch off 2>/dev/null || true
