@@ -5,8 +5,9 @@
 # Requires: mode=autojs6, AutoJs6 accessibility enabled, Tasker watchdog profiles off.
 set -euo pipefail
 
-# shellcheck source=../../mac/resolve-adb.sh
-source "$(cd "$(dirname "$0")/../.." && pwd)/mac/resolve-adb.sh"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=../../shared/mac/resolve-adb.sh
+source "$REPO_ROOT/shared/mac/resolve-adb.sh"
 
 SERIAL="$(resolve_adb "${1:?usage: start-watchdog.sh <p7a|s24|serial>}")"
 MAIN="/sdcard/Scripts/stayturgid/main.js"

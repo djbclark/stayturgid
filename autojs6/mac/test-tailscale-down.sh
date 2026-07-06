@@ -6,8 +6,9 @@
 # 2. AutoJs6: probe, run watchdog cycle (notify + relaunch path), wait for recovery
 set -euo pipefail
 
-# shellcheck source=../../mac/resolve-adb.sh
-source "$(cd "$(dirname "$0")/../.." && pwd)/mac/resolve-adb.sh"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=../../shared/mac/resolve-adb.sh
+source "$REPO_ROOT/shared/mac/resolve-adb.sh"
 
 ALIAS="${1:-s24}"
 if adb devices 2>/dev/null | grep -qF $'RFCX219CHKA\tdevice'; then

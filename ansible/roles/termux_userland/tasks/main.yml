@@ -29,7 +29,7 @@
 
 - name: Deploy home scripts
   ansible.builtin.copy:
-    src: "{{ playbook_dir }}/../../termux/{{ item }}"
+    src: "{{ stayturgid_repo_root }}/termux/{{ item }}"
     dest: "{{ termux_home }}/{{ item }}"
     mode: "0755"
   loop: "{{ stayturgid_home_scripts }}"
@@ -42,7 +42,7 @@
 
 - name: Deploy boot scripts
   ansible.builtin.copy:
-    src: "{{ playbook_dir }}/../../termux/boot/{{ item }}"
+    src: "{{ stayturgid_repo_root }}/termux/boot/{{ item }}"
     dest: "{{ termux_home }}/.termux/boot/{{ item }}"
     mode: "0755"
   loop: "{{ stayturgid_boot_scripts }}"

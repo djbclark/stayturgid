@@ -15,6 +15,7 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 | AutoJs6 | [autojs6/README.md](../autojs6/README.md) | JS watchdog instead of Tasker |
 | AutoJs6 vs Tasker | [autojs6/COMPARISON.md](../autojs6/COMPARISON.md) | Pick a stack |
 | Obtainium | [obtainium/README.md](../obtainium/README.md) | GitHub APK catalog and updates |
+| Shared helpers | [shared/README.md](../shared/README.md) | `resolve-adb`, repo-root discovery |
 
 ## Project-wide
 

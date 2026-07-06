@@ -1,0 +1,24 @@
+---
+# Example: one Termux host, no stayturgid fleet vars.
+# Copy and edit, then:
+#   ansible-playbook -i ansible/inventory/example-standalone.yml \
+#     ansible/playbooks/termux-userland.yml
+#
+all:
+  children:
+    stayturgid:
+      hosts:
+        my_phone:
+          ansible_host: 192.168.1.50        # Tailscale IP or LAN
+          ansible_port: 8022
+          ansible_user: u0_aXXX             # any user — auth is by SSH key
+          ansible_python_interpreter: /data/data/com.termux/files/usr/bin/python
+          ansible_ssh_private_key_file: "{{ lookup('env', 'HOME') }}/.ssh/termux_key"
+          # Optional — omit both for Termux-only (no mode files on /sdcard):
+          # stayturgid_device_id: myphone
+          # stayturgid_automation_mode: tasker
+      vars:
+        termux_home: /data/data/com.termux/files/home
+        termux_prefix: /data/data/com.termux/files/usr
+        # Termux-only boot (no AutoJs6 nudge):
+        # stayturgid_boot_scripts: [start-adb.sh]

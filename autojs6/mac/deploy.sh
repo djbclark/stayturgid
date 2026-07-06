@@ -8,8 +8,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 TARGET_BASE="/sdcard/Scripts/stayturgid"
 
-# shellcheck source=../../mac/resolve-adb.sh
-source "$(cd "$(dirname "$0")/../.." && pwd)/mac/resolve-adb.sh"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=../../shared/mac/resolve-adb.sh
+source "$REPO_ROOT/shared/mac/resolve-adb.sh"
 
 SERIAL="$(resolve_adb "${1:?usage: deploy.sh <serial|p7a|s24> [p7a|s24]}")"
 DEVICE_ID="${2:-}"

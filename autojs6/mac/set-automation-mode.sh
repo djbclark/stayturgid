@@ -3,8 +3,9 @@
 # Usage: ./set-automation-mode.sh <serial|p7a|s24> <tasker|autojs6>
 set -euo pipefail
 
-# shellcheck source=../../mac/resolve-adb.sh
-source "$(cd "$(dirname "$0")/../.." && pwd)/mac/resolve-adb.sh"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=../../shared/mac/resolve-adb.sh
+source "$REPO_ROOT/shared/mac/resolve-adb.sh"
 
 SERIAL="$(resolve_adb "${1:?usage: set-automation-mode.sh <serial|p7a|s24> <tasker|autojs6>}")"
 MODE="${2:?usage: set-automation-mode.sh <serial|p7a|s24> <tasker|autojs6>}"

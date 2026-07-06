@@ -9,8 +9,9 @@
 # verifier disabled (see HACKING.md) or enable Shizuku installer in Obtainium settings.
 set -euo pipefail
 
-# shellcheck source=../../mac/resolve-adb.sh
-source "$(cd "$(dirname "$0")/../.." && pwd)/mac/resolve-adb.sh"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=../../shared/mac/resolve-adb.sh
+source "$REPO_ROOT/shared/mac/resolve-adb.sh"
 
 SERIAL="$(resolve_adb "${1:?usage: apply-updates.sh <p7a|s24|serial>}")"
 OBTAINIUM_PKG="dev.imranr.obtainium"

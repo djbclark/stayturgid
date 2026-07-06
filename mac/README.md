@@ -12,7 +12,7 @@ Scripts and launchd plists for the **Mac control node**. Fully usable without Ta
 | `com.djbclark.stayturgid.adb-reconnect*.plist` | launchd: run reconnect every 60s (7a default + S24) |
 | `access-monitor.sh` | Dead-man's switch: notify after ~10 min total outage on all paths |
 | `com.djbclark.stayturgid.access-monitor.plist` | launchd: run monitor every 5 min |
-| `resolve-adb.sh` | Shared helper: USB serial when plugged in, else Tailscale wireless |
+| `resolve-adb.sh` | Shim → [shared/mac/resolve-adb.sh](../shared/mac/resolve-adb.sh) |
 
 ## Standalone use
 
@@ -30,12 +30,12 @@ launchctl load ~/Library/LaunchAgents/com.djbclark.stayturgid.adb-reconnect.plis
 
 Edit `access-monitor.sh` `DEVICES` array for your phones. Logs: `~/Library/Logs/stayturgid-adb-reconnect.log`.
 
-Other subprojects source `resolve-adb.sh` for consistent device targeting:
+Other subprojects source shared resolve-adb directly:
 
 ```bash
-source mac/resolve-adb.sh
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+source "$REPO_ROOT/shared/mac/resolve-adb.sh"
 SERIAL="$(resolve_adb s24)"
-adb -s "$SERIAL" shell getprop ro.product.model
 ```
 
 ## Related docs

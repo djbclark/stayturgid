@@ -17,6 +17,7 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 | **Tasker import tool** | `tasker-io/` | Yes — any Tasker project | [tasker-io/README.md](tasker-io/README.md) |
 | **AutoJs6 watchdog** | `autojs6/` | Yes — needs Termux repair scripts | [autojs6/README.md](autojs6/README.md) |
 | **Obtainium catalogs** | `obtainium/` | Yes — any Obtainium user | [obtainium/README.md](obtainium/README.md) |
+| **Shared Mac helpers** | `shared/` | Yes — `resolve-adb` only | [shared/README.md](shared/README.md) |
 
 **Also:** [tasker/auto-update/](tasker/auto-update/README.md) (GitHub `version.json` updates) · [autojs6/COMPARISON.md](autojs6/COMPARISON.md) (Tasker vs AutoJs6)
 
@@ -80,7 +81,7 @@ stayturgid/
   README.md              ← you are here
   docs/README.md         ← doc index
   HACKING.md  HANDOFF.md
-  termux/    ansible/    mac/
+  termux/    ansible/    mac/    shared/
   tasker/    tasker-io/  autojs6/    obtainium/
   version.json
 ```

@@ -23,6 +23,8 @@ ansible-playbook ansible/playbooks/termux-userland.yml \
 
 Omit or empty `stayturgid_automation_mode` / `stayturgid_device_id` if you are not using AutoJs6/Tasker mode files.
 
+Copy [inventory/example-standalone.yml](inventory/example-standalone.yml) as a starting point for a single phone.
+
 **Out of scope** (configure separately): Shizuku pairing, Tasker/AutoJs6, Obtainium, `WRITE_SECURE_SETTINGS`, battery whitelist, SSH key bootstrap.
 
 The deployed `~/claude-presence.sh` includes the consent `gate` action ([termux/README.md](../termux/README.md)).
@@ -72,6 +74,7 @@ ansible_python_interpreter: /data/data/com.termux/files/usr/bin/python
 ansible/
   ansible.cfg
   inventory/hosts.yml
+  inventory/example-standalone.yml
   group_vars/stayturgid.yml
   playbooks/termux-userland.yml
   roles/termux_userland/

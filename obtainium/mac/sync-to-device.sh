@@ -9,8 +9,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OBTAINIUM_PKG="dev.imranr.obtainium"
 
-# shellcheck source=../../mac/resolve-adb.sh
-source "$(cd "$(dirname "$0")/../.." && pwd)/mac/resolve-adb.sh"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=../../shared/mac/resolve-adb.sh
+source "$REPO_ROOT/shared/mac/resolve-adb.sh"
 
 SERIAL="$(resolve_adb "${1:?usage: sync-to-device.sh <p7a|s24|serial> [all|autojs6]}")"
 WHICH="${2:-all}"

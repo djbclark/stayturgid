@@ -7,8 +7,9 @@
 #   ./run-test.sh s24 test-tailscale-probe-once.js
 set -euo pipefail
 
-# shellcheck source=../../mac/resolve-adb.sh
-source "$(cd "$(dirname "$0")/../.." && pwd)/mac/resolve-adb.sh"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=../../shared/mac/resolve-adb.sh
+source "$REPO_ROOT/shared/mac/resolve-adb.sh"
 
 SERIAL="$(resolve_adb "${1:?usage: run-test.sh <p7a|s24|serial> <script.js>}")"
 SCRIPT="${2:?usage: run-test.sh <p7a|s24|serial> <script.js>}"

@@ -10,8 +10,9 @@
 # Requires: unlocked screen, Shizuku running, privileged shell on localhost:5555.
 set -euo pipefail
 
-# shellcheck source=../../mac/resolve-adb.sh
-source "$(cd "$(dirname "$0")/../.." && pwd)/mac/resolve-adb.sh"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=../../shared/mac/resolve-adb.sh
+source "$REPO_ROOT/shared/mac/resolve-adb.sh"
 
 ALIAS="${1:?usage: enable-shizuku-installer.sh <p7a|s24|serial>}"
 TARGET="$(resolve_adb "$ALIAS")"

@@ -11,8 +11,9 @@ DL_DIR="${TMPDIR:-/tmp}/stayturgid-autojs6"
 APK_NAME="autojs6-v6.7.0-arm64-v8a-62db1ff8.apk"
 AUTOJS_PKG="org.autojs.autojs6"
 
-# shellcheck source=../../mac/resolve-adb.sh
-source "$(cd "$(dirname "$0")/../.." && pwd)/mac/resolve-adb.sh"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+# shellcheck source=../../shared/mac/resolve-adb.sh
+source "$REPO_ROOT/shared/mac/resolve-adb.sh"
 
 SERIAL="$(resolve_adb "${1:?usage: setup-autojs6.sh <serial|p7a|s24> [p7a|s24]}")"
 DEVICE_ID="${2:-}"

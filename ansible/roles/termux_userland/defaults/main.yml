@@ -1,4 +1,6 @@
 ---
+stayturgid_repo_root: "{{ playbook_dir }}/../.."
+
 stayturgid_termux_packages:
   - openssh
   - android-tools
@@ -16,6 +18,10 @@ stayturgid_boot_scripts:
   - start-adb.sh
   - start-repair-bridge.sh
   - start-autojs6-watchdog.sh
+
+# Override examples (Termux-only, no AutoJs6):
+# stayturgid_boot_scripts: [start-adb.sh]
+# stayturgid_home_scripts: [stayturgid-repair.sh, claude-presence.sh]  # drop repair-bridge if unused
 
 stayturgid_home_scripts:
   - stayturgid-repair.sh
