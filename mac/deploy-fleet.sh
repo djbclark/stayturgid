@@ -4,7 +4,7 @@
 # copies, per-host failure isolation, and the boot-loop restart handler.
 #
 # Usage:
-#   ./mac/deploy-fleet.sh             # whole fleet
+#   ./mac/deploy-fleet.sh             # whole fleet (from inventory)
 #   ./mac/deploy-fleet.sh s24         # one host
 #   ./mac/deploy-fleet.sh s24 p7a     # explicit list
 #

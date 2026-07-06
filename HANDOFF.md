@@ -68,6 +68,28 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 
 **Legacy third-party automation** removed from both devices (2026-07-06). Fleet uses AutoJs6 only.
 
+### Infrastructure abstraction (taxonomy inventory) — 2026-07-06 (late) ✅
+
+- **No device names in code.** The ONLY site-specific file is
+  `ansible/inventory/hosts.yml` (hosts declare addresses/serials + membership
+  in taxonomy groups). Quirk layers live in `ansible/inventory/group_vars/`:
+  all → android_16 → vendor_{google,samsung} → oneui_7 → model_* → host —
+  Ansible group precedence IS the "increasingly specific hints" cascade
+  (same pattern as kubespray/DebOps group layering, geerlingguy first_found
+  OS files, Puppet Hiera hierarchies).
+- AutoJs6 device profiles are now DATA: `device.json.j2` rendered per host to
+  `/sdcard/stayturgid_device.json`; `devices/p7a.js`+`s24.js` deleted;
+  config.js falls back to generic defaults with a warning.
+- Mac side: `ansible/playbooks/mac.yml` renders `~/.config/stayturgid/
+  devices.conf` + launchd agents (com.stayturgid.*) from inventory; old
+  com.djbclark.* agents retired. resolve-adb/access-monitor/adb-reconnect/
+  fleet-health/tests all read the conf — zero hardcoded serials/IPs.
+- Fixed latent bug: old `ansible/group_vars/` was adjacent to neither
+  inventory nor playbooks, so it was silently never loaded; now at
+  `ansible/inventory/group_vars/`.
+- New device: add a host + group memberships to hosts.yml, run mac.yml +
+  deploy-fleet.sh. New quirk: add/extend a group_vars layer.
+
 ### Tasker exorcism + shell conventions + Ansible-native fleet — 2026-07-06 (evening) ✅
 
 - **Legacy Tasker remnants:** live Tasker configs on BOTH phones are clean; the

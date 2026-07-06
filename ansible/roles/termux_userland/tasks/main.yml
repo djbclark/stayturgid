@@ -71,13 +71,6 @@
     mode: "0644"
   when: stayturgid_automation_mode is defined and stayturgid_automation_mode | length > 0
 
-- name: Write device id override when configured
-  ansible.builtin.copy:
-    dest: /sdcard/stayturgid_device.txt
-    content: "{{ stayturgid_device_id }}\n"
-    mode: "0644"
-  when: stayturgid_device_id is defined and stayturgid_device_id | length > 0
-
 - name: Verify stayturgid-repair.sh runs
   ansible.builtin.shell: "{{ termux_home }}/stayturgid-repair.sh"
   args:

@@ -1,6 +1,13 @@
-/** Shared constants and device profile resolution. */
+/** Shared constants and device profile resolution.
+ *
+ * The device profile is DATA, not code: Ansible renders
+ * /sdcard/stayturgid_device.json from the inventory taxonomy
+ * (ansible/inventory/hosts.yml + group_vars layers). Nothing in this repo's
+ * code names a specific device; without the JSON a generic profile applies
+ * (no tap-coordinate fallback, no self-ping — degraded but functional).
+ */
 
-var DEVICE_FILE = "/sdcard/stayturgid_device.txt";
+var DEVICE_JSON = "/sdcard/stayturgid_device.json";
 var WATCHDOG_LOG = "/sdcard/stayturgid_watchdog.log";
 var REPAIR_SCRIPT = "/data/data/com.termux/files/home/stayturgid-repair.sh";
 var TERMUX_HOME = "/data/data/com.termux/files/home";
@@ -11,36 +18,45 @@ var NOTIFY_CHANNEL = "stayturgid";
 
 var AUTOJS6_A11Y = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher";
 
-function readOverrideDeviceId() {
-    if (!files.exists(DEVICE_FILE)) return null;
-    try {
-        return String(files.read(DEVICE_FILE)).trim();
-    } catch (e) {
-        return null;
-    }
-}
+var PROFILE_DEFAULTS = {
+    id: "generic",
+    label: "unknown device",
+    notifyTag: "",
+    shizukuPackage: "moe.shizuku.privileged.api",
+    shizukuActivity: "moe.shizuku.manager.MainActivity",
+    shizukuStartCoords: null,
+    tailscaleIp: null,
+    tailscalePackage: "com.tailscale.ipn",
+    tailscaleActivity: "com.tailscale.ipn.MainActivity",
+    wirelessDebugUiFallback: false,
+};
 
 function detectDeviceProfile() {
-    var override = readOverrideDeviceId();
-    if (override === "p7a") return require("../devices/p7a.js");
-    if (override === "s24") return require("../devices/s24.js");
-
-    var model = String(device.model || "").toLowerCase();
-    var product = String(device.product || "").toLowerCase();
-    if (model.indexOf("pixel") >= 0 && (model.indexOf("7a") >= 0 || product.indexOf("lynx") >= 0)) {
-        return require("../devices/p7a.js");
+    var profile = {};
+    try {
+        if (files.exists(DEVICE_JSON)) {
+            profile = JSON.parse(String(files.read(DEVICE_JSON))) || {};
+        }
+    } catch (e) {
+        console.warn("[stayturgid] unreadable " + DEVICE_JSON + ": " + e);
+        profile = {};
     }
-    if (model.indexOf("sm-s921") >= 0 || model.indexOf("s24") >= 0) {
-        return require("../devices/s24.js");
+    if (!profile.id) {
+        console.warn("[stayturgid] no device profile at " + DEVICE_JSON
+            + " — run the Ansible fleet deploy; using generic defaults");
     }
-    // Unknown hardware: p7a profile is a guess (wrong tailscaleIp/coords).
-    console.warn("[stayturgid] unrecognized device model=" + model
-        + " product=" + product + " — defaulting to p7a profile");
-    return require("../devices/p7a.js");
+    var merged = {};
+    for (var k in PROFILE_DEFAULTS) {
+        merged[k] = (profile[k] !== undefined && profile[k] !== null)
+            ? profile[k] : PROFILE_DEFAULTS[k];
+    }
+    // legacy field name kept for shizuku.js compatibility
+    merged.samsungWirelessDebugFallback = merged.wirelessDebugUiFallback;
+    return merged;
 }
 
 module.exports = {
-    DEVICE_FILE: DEVICE_FILE,
+    DEVICE_JSON: DEVICE_JSON,
     WATCHDOG_LOG: WATCHDOG_LOG,
     REPAIR_SCRIPT: REPAIR_SCRIPT,
     TERMUX_HOME: TERMUX_HOME,
@@ -48,5 +64,6 @@ module.exports = {
     STALE_REPAIR_MS: STALE_REPAIR_MS,
     NOTIFY_CHANNEL: NOTIFY_CHANNEL,
     AUTOJS6_A11Y: AUTOJS6_A11Y,
+    PROFILE_DEFAULTS: PROFILE_DEFAULTS,
     detectDeviceProfile: detectDeviceProfile,
 };

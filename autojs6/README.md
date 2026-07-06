@@ -46,7 +46,7 @@ Scripts use [shared/mac/resolve-adb.sh](../shared/mac/resolve-adb.sh) (USB when 
 
 ## Device profiles
 
-`/sdcard/stayturgid_device.txt` override (`p7a` / `s24`) or auto-detect from model — see `devices/`.
+`/sdcard/stayturgid_device.json` — rendered by Ansible from the inventory taxonomy (no device names in code); generic defaults apply without it.
 
 ## Keeping it alive
 

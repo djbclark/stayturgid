@@ -17,17 +17,18 @@ DEVICE_ID="${2:-}"
 
 echo "Deploying autojs6/ → ${SERIAL}:${TARGET_BASE}"
 
-adb -s "$SERIAL" shell "mkdir -p '${TARGET_BASE}/lib' '${TARGET_BASE}/devices' '${TARGET_BASE}/scripts'"
+adb -s "$SERIAL" shell "mkdir -p '${TARGET_BASE}/lib' '${TARGET_BASE}/scripts'"
 
 adb -s "$SERIAL" push "$ROOT/project.json" "${TARGET_BASE}/project.json"
 adb -s "$SERIAL" push "$ROOT/main.js" "${TARGET_BASE}/main.js"
 adb -s "$SERIAL" push "$ROOT/lib/." "${TARGET_BASE}/lib/"
-adb -s "$SERIAL" push "$ROOT/devices/." "${TARGET_BASE}/devices/"
 adb -s "$SERIAL" push "$ROOT/scripts/." "${TARGET_BASE}/scripts/"
 
+# The device profile (/sdcard/stayturgid_device.json) is rendered by the
+# Ansible fleet deploy from inventory taxonomy — this adb path deploys code
+# only; without the JSON the watchdog runs with generic defaults.
 if [[ -n "$DEVICE_ID" ]]; then
-  echo "$DEVICE_ID" | adb -s "$SERIAL" shell "cat > /sdcard/stayturgid_device.txt"
-  echo "Wrote device override: $DEVICE_ID"
+  echo "NOTE: device-id arg is deprecated; profile comes from Ansible inventory (ignored: $DEVICE_ID)"
 fi
 
 echo "Done. In AutoJs6: open project ${TARGET_BASE} → run main.js"

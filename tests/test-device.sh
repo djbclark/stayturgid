@@ -2,7 +2,8 @@
 # Tier (c): device tests — STRICTLY read-only / non-destructive.
 # (fleet-health.sh is the ops tool and invokes the self-heal; this does not.)
 #
-# Usage: tests/test-device.sh [--ansible-check] [host ...]   (default: s24 p7a)
+# Usage: tests/test-device.sh [--ansible-check] [host ...]
+#   (default: every device in ~/.config/stayturgid/devices.conf)
 #   --ansible-check   also run the Ansible playbook in --check --diff mode
 #                     (a dry run: reports drift, changes nothing — termux_pkg
 #                     honors check mode, verified by tests/test-unit.sh)
@@ -18,7 +19,15 @@ for a in "$@"; do
         *) HOSTS+=("$a") ;;
     esac
 done
-[ "${#HOSTS[@]}" -eq 0 ] && HOSTS=(s24 p7a)
+if [ "${#HOSTS[@]}" -eq 0 ] && [ -f "$HOME/.config/stayturgid/devices.conf" ]; then
+    while read -r a _; do
+        case "$a" in \#*|"") ;; *) HOSTS+=("$a") ;; esac
+    done < "$HOME/.config/stayturgid/devices.conf"
+fi
+if [ "${#HOSTS[@]}" -eq 0 ]; then
+    echo "no hosts: pass host args or run ansible/playbooks/mac.yml to generate devices.conf" >&2
+    exit 2
+fi
 
 for host in "${HOSTS[@]}"; do
     # One SSH round trip gathers everything (read-only probes only).
@@ -55,7 +64,7 @@ tn=$(adb -s localhost:5555 shell "dumpsys notification --noredact" </dev/null 2>
     | grep -cE 'pkg=net\.dinglisch\.android\.taskerm.*(Watchdog bridge|stayturgid)')
 tf=$(adb -s localhost:5555 shell "grep -rl -iE 'ADB_Core_Watchdog|ADB_Interval_Check|Watchdog bridge' /sdcard/Tasker 2>/dev/null" </dev/null 2>/dev/null | grep -cv "/configs/")
 echo "taskerlegacy=notif:${tn:-0},files:${tf:-0}"
-for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh check-repo-version.sh stayturgid-battery-alarm.sh; do
+for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh check-repo-version.sh stayturgid-battery-alarm.sh screen-awake-guard.sh; do
     printf 'md5 %s %s\n' "$f" "$(md5sum "$HOME/$f" 2>/dev/null | cut -d" " -f1)"
 done
 REMOTE
@@ -96,7 +105,7 @@ REMOTE
 
     # Deployment drift: deployed scripts vs repo (informational TODO, not a failure)
     drift=""
-    for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh check-repo-version.sh stayturgid-battery-alarm.sh; do
+    for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh check-repo-version.sh stayturgid-battery-alarm.sh screen-awake-guard.sh; do
         remote_md5="$(printf '%s\n' "$report" | sed -n "s/^md5 $f //p")"
         local_md5="$(md5 -q "termux/$f" 2>/dev/null || md5sum "termux/$f" | cut -d' ' -f1)"
         [ "$remote_md5" = "$local_md5" ] || drift="$drift $f"
@@ -110,7 +119,7 @@ REMOTE
     if [ "$ANSIBLE_CHECK" -eq 1 ]; then
         if command -v ansible-playbook >/dev/null 2>&1; then
             if ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
-                 ansible/playbooks/termux-userland.yml --check --diff --limit "$host" >/dev/null 2>&1; then
+                 ansible/playbooks/fleet.yml --check --diff --limit "$host" >/dev/null 2>&1; then
                 tap_ok "$host: ansible --check dry run clean"
             else
                 tap_fail "$host: ansible --check dry run clean" "re-run without >/dev/null for the diff"

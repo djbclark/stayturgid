@@ -2,7 +2,7 @@
 # Quick health check for stayturgid fleet (SSH + optional ADB).
 #
 # Usage:
-#   ./mac/fleet-health.sh           # s24 p7a
+#   ./mac/fleet-health.sh           # every device in devices.conf
 #   ./mac/fleet-health.sh s24
 set -euo pipefail
 
@@ -10,10 +10,15 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=../shared/mac/resolve-adb.sh
 source "$ROOT/shared/mac/resolve-adb.sh"
 
-if [ "$#" -eq 0 ]; then
-  HOSTS=(s24 p7a)
-else
-  HOSTS=("$@")
+HOSTS=("$@")
+if [ "${#HOSTS[@]}" -eq 0 ] && [ -f "$HOME/.config/stayturgid/devices.conf" ]; then
+  while read -r a _; do
+    case "$a" in \#*|"") ;; *) HOSTS+=("$a") ;; esac
+  done < "$HOME/.config/stayturgid/devices.conf"
+fi
+if [ "${#HOSTS[@]}" -eq 0 ]; then
+  echo "no hosts: pass host args or run ansible/playbooks/mac.yml to generate devices.conf" >&2
+  exit 2
 fi
 
 FAIL=0

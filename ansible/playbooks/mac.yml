@@ -1,0 +1,49 @@
+---
+# Mac-side setup from the same site file: renders the device conf consumed by
+# mac/ and shared/ scripts, plus launchd agents for ADB keepalive + outage
+# alerting. Run after any inventory change:
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/mac.yml
+- name: stayturgid Mac workstation
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    stayturgid_repo_root: "{{ playbook_dir }}/../.."
+    conf_dir: "{{ lookup('env', 'HOME') }}/.config/stayturgid"
+    agents_dir: "{{ lookup('env', 'HOME') }}/Library/LaunchAgents"
+  tasks:
+    - name: Ensure config + LaunchAgents directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+      loop: ["{{ conf_dir }}", "{{ agents_dir }}"]
+
+    - name: Render devices.conf from inventory (alias usb_serial tailscale_ip lan_ip)
+      ansible.builtin.template:
+        src: devices.conf.j2
+        dest: "{{ conf_dir }}/devices.conf"
+        mode: "0644"
+
+    - name: Render adb-reconnect launchd agent per device
+      ansible.builtin.template:
+        src: adb-reconnect.plist.j2
+        dest: "{{ agents_dir }}/com.stayturgid.adb-reconnect-{{ item }}.plist"
+        mode: "0644"
+      loop: "{{ groups['stayturgid'] }}"
+      register: reconnect_plists
+
+    - name: Render access-monitor launchd agent
+      ansible.builtin.template:
+        src: access-monitor.plist.j2
+        dest: "{{ agents_dir }}/com.stayturgid.access-monitor.plist"
+        mode: "0644"
+      register: monitor_plist
+
+    - name: Reload changed launchd agents
+      ansible.builtin.shell: |
+        launchctl bootout "gui/$(id -u)" "{{ item }}" 2>/dev/null || true
+        launchctl bootstrap "gui/$(id -u)" "{{ item }}"
+      loop: >-
+        {{ (reconnect_plists.results | selectattr('changed') | map(attribute='dest') | list)
+           + ([monitor_plist.dest] if monitor_plist.changed else []) }}
+      changed_when: true

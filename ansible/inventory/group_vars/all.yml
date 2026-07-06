@@ -1,0 +1,16 @@
+---
+# Generic defaults for any Android/Termux device. Overridden by increasingly
+# specific taxonomy layers (android_* < vendor_* < oneui_* < model_* < host).
+termux_home: /data/data/com.termux/files/home
+termux_prefix: /data/data/com.termux/files/usr
+
+# AutoJs6 device profile defaults (templated to /sdcard/stayturgid_device.json)
+shizuku_package: moe.shizuku.privileged.api
+shizuku_activity: moe.shizuku.manager.MainActivity
+tailscale_package: com.tailscale.ipn
+tailscale_activity: com.tailscale.ipn.MainActivity
+# Coordinates for the Shizuku "Start" tap when text search fails; models set
+# their own (resolution-dependent). Empty = text-search only.
+stayturgid_shizuku_start_coords: null
+# Whether enabling wireless debugging needs the Settings-UI toggle fallback.
+stayturgid_wireless_debug_ui_fallback: false

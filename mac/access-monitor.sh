@@ -1,27 +1,24 @@
 #!/bin/bash
 # Dead-man's switch: alerts when a device is unreachable on ALL access paths.
 #
-# Runs every 5 minutes via launchd. For each device it checks every known
-# address for (a) an ADB connection and (b) an open SSH port. Only when
-# every path fails for CONSECUTIVE_LIMIT consecutive runs does it fire a
-# macOS notification — one per outage, not one per run. Recovery resets
-# the counter and notifies once.
+# Runs every 5 minutes via launchd (installed by ansible/playbooks/mac.yml).
+# For each device it checks every known address for (a) an ADB connection and
+# (b) an open SSH port. Only when every path fails for CONSECUTIVE_LIMIT
+# consecutive runs does it fire a macOS notification — one per outage, not one
+# per run. Recovery resets the counter and notifies once.
 #
-# Device list lives in the DEVICES array below: "name|adb_addrs|ssh_addrs"
-# (comma-separated addresses; ssh check is a plain TCP probe of port 8022).
+# Device list comes from ~/.config/stayturgid/devices.conf (generated from the
+# Ansible inventory) — no device facts live in this script.
 
 ADB=/opt/homebrew/bin/adb
+CONF="${STAYTURGID_DEVICES_CONF:-$HOME/.config/stayturgid/devices.conf}"
 STATE_DIR=$HOME/.config/stayturgid/access-monitor
 LOG=$HOME/Library/Logs/stayturgid-access-monitor.log
 CONSECUTIVE_LIMIT=2   # 2 runs x 5 min = alert after ~10 min of total outage
 
-DEVICES=(
-    "S24|192.168.68.55:5555,100.123.218.30:5555|100.123.218.30"
-    "Pixel7a|192.168.68.64:5555,100.65.230.108:5555|100.65.230.108"
-)
-
 mkdir -p "$STATE_DIR"
 [ -x "$ADB" ] || exit 1
+[ -f "$CONF" ] || exit 0   # nothing to monitor until mac.yml generates the conf
 
 # Trim log
 if [ -f "$LOG" ] && [ "$(wc -l < "$LOG")" -gt 1000 ]; then
@@ -30,14 +27,16 @@ fi
 
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 
-for entry in "${DEVICES[@]}"; do
-    IFS='|' read -r NAME ADB_ADDRS SSH_ADDRS <<< "$entry"
+while read -r NAME _ TS_IP LAN_IP; do
+    case "$NAME" in \#*|"") continue ;; esac
+    ADB_ADDRS="${TS_IP}:5555"
+    [ "$LAN_IP" != "-" ] && ADB_ADDRS="${LAN_IP}:5555 ${ADB_ADDRS}"
     STATE_FILE=$STATE_DIR/$NAME
     FAILS=$(cat "$STATE_FILE" 2>/dev/null || echo 0)
     OK=""
 
     # ADB: connected already, or connectable right now?
-    for addr in ${ADB_ADDRS//,/ }; do
+    for addr in $ADB_ADDRS; do
         if "$ADB" devices 2>/dev/null | grep -qF "${addr}"$'\t'"device"; then
             OK="adb:$addr"; break
         fi
@@ -46,13 +45,9 @@ for entry in "${DEVICES[@]}"; do
         fi
     done
 
-    # SSH: TCP probe of port 8022
-    if [ -z "$OK" ]; then
-        for host in ${SSH_ADDRS//,/ }; do
-            if nc -z -G 5 "$host" 8022 2>/dev/null; then
-                OK="ssh:$host"; break
-            fi
-        done
+    # SSH: TCP probe of port 8022 on the Tailscale address
+    if [ -z "$OK" ] && nc -z -G 5 "$TS_IP" 8022 2>/dev/null; then
+        OK="ssh:$TS_IP"
     fi
 
     if [ -n "$OK" ]; then
@@ -69,4 +64,4 @@ for entry in "${DEVICES[@]}"; do
             osascript -e "display notification \"$NAME unreachable on ALL paths (ADB + SSH) for ~10 min\" with title \"stayturgid access LOST\" sound name \"Basso\"" 2>/dev/null
         fi
     fi
-done
+done < "$CONF"

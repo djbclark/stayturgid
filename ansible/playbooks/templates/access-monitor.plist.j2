@@ -3,17 +3,14 @@
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.djbclark.stayturgid.adb-reconnect-s24</string>
+    <string>com.stayturgid.access-monitor</string>
     <key>ProgramArguments</key>
     <array>
         <string>/bin/bash</string>
-        <string>/Users/djbclark/stayturgid/mac/adb-reconnect.sh</string>
-        <string>RFCX219CHKA</string>
-        <string>192.168.68.55:5555</string>
-        <string>100.123.218.30:5555</string>
+        <string>{{ stayturgid_repo_root | realpath }}/mac/access-monitor.sh</string>
     </array>
     <key>StartInterval</key>
-    <integer>60</integer>
+    <integer>300</integer>
     <key>RunAtLoad</key>
     <true/>
     <key>StandardOutPath</key>
