@@ -5,6 +5,8 @@
 #
 #   claude-presence.sh on  [label] [agent]   # torch+vibrate pulse, then ongoing notification
 #   claude-presence.sh off [label] [agent]   # torch+vibrate pulse, remove notification
+#   claude-presence.sh gate [label] [agent]   # consent gate if phone appears in use
+#   claude-presence.sh resume                 # clear a previous Pause choice
 #
 # Agent name: 3rd argument, or STAYTURGID_AGENT env var (default: Auto).
 #
@@ -26,11 +28,15 @@ ACTION="$1"
 LABEL="${2:-this phone}"
 AGENT="${STAYTURGID_AGENT:-${3:-Auto}}"
 NID="stayturgid-presence"
+PAUSE_FILE="/sdcard/stayturgid_presence_paused"
+LATER_FILE="/sdcard/stayturgid_presence_check_after"
+
+adb_shell() {
+    adb connect localhost:5555 >/dev/null 2>&1 && adb -s localhost:5555 shell "$@" 2>/dev/null
+}
 
 invert() {  # $1 = 1|0 — best-effort whole-screen inversion via the 5555 shell
-    adb connect localhost:5555 >/dev/null 2>&1 && \
-    adb -s localhost:5555 shell \
-        "settings put secure accessibility_display_inversion_enabled $1" 2>/dev/null
+    adb_shell "settings put secure accessibility_display_inversion_enabled $1"
 }
 
 pulse() {   # $1 = number of torch blinks
@@ -40,8 +46,93 @@ pulse() {   # $1 = number of torch blinks
     done
 }
 
+foreground_pkg() {
+    adb_shell dumpsys window \
+        | awk -F '[ /}]' '/mCurrentFocus/ { for (i=1; i<=NF; i++) if ($i ~ /^[a-zA-Z0-9_]+(\.[a-zA-Z0-9_]+)+$/) { print $i; exit } }'
+}
+
+screen_interactive() {
+    adb_shell dumpsys power | awk '
+        /mWakefulness=Awake/ { awake=1 }
+        /mIsInteractive: true/ { interactive=1 }
+        END { exit !(awake || interactive) }
+    '
+}
+
+idle_foreground() {
+    case "$1" in
+        ""|com.sec.android.app.launcher|com.android.systemui|com.samsung.android.app.aodservice|\
+        com.termux|com.tailscale.ipn|moe.shizuku.privileged.api|org.autojs.autojs6)
+            return 0
+            ;;
+    esac
+    return 1
+}
+
+pause_active() {
+    [ -f "$PAUSE_FILE" ]
+}
+
+later_active() {
+    [ -f "$LATER_FILE" ] || return 1
+    local now until
+    now="$(date +%s)"
+    until="$(cat "$LATER_FILE" 2>/dev/null || echo 0)"
+    [ "$until" -gt "$now" ] 2>/dev/null
+}
+
+consent_gate() {
+    if pause_active; then
+        echo "presence gate: paused (run claude-presence.sh resume to clear)"
+        return 75
+    fi
+    if later_active; then
+        echo "presence gate: check later active until $(cat "$LATER_FILE")"
+        return 75
+    fi
+
+    local pkg
+    pkg="$(foreground_pkg)"
+    if ! screen_interactive || idle_foreground "$pkg"; then
+        echo "presence gate: proceed (screen idle; foreground=${pkg:-unknown})"
+        return 0
+    fi
+
+    termux-vibrate -d 200 2>/dev/null
+    local out choice
+    out="$(timeout 30 termux-dialog radio \
+        -t "$AGENT wants to use $LABEL" \
+        -v "Continue,Pause,Check again in 10 minutes" 2>/dev/null || true)"
+    choice="$(printf '%s\n' "$out" | awk -F '"' '/text/ { print $4; exit }')"
+
+    case "$choice" in
+        "Pause")
+            date +%s > "$PAUSE_FILE"
+            termux-notification --id "$NID" --priority high --alert-once \
+                --title "$AGENT paused on $LABEL" \
+                --content "Run claude-presence.sh resume to clear." 2>/dev/null
+            echo "presence gate: pause"
+            return 75
+            ;;
+        "Check again in 10 minutes")
+            echo $(( $(date +%s) + 600 )) > "$LATER_FILE"
+            echo "presence gate: later"
+            return 75
+            ;;
+        *)
+            rm -f "$LATER_FILE"
+            echo "presence gate: continue (choice=${choice:-timeout-default})"
+            return 0
+            ;;
+    esac
+}
+
 case "$ACTION" in
+    gate)
+        consent_gate
+        ;;
     on)
+        rm -f "$LATER_FILE"
         invert 1
         termux-vibrate -d 400 2>/dev/null
         pulse 3
@@ -60,8 +151,12 @@ case "$ACTION" in
         termux-vibrate -d 250 2>/dev/null
         echo "presence OFF ($LABEL)"
         ;;
+    resume|clear-pause)
+        rm -f "$PAUSE_FILE" "$LATER_FILE"
+        echo "presence gate: pause cleared"
+        ;;
     *)
-        echo "usage: claude-presence.sh on|off [label] [agent]" >&2
+        echo "usage: claude-presence.sh on|off|gate [label] [agent] | resume" >&2
         exit 2
         ;;
 esac

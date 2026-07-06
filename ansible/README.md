@@ -4,6 +4,14 @@ Idempotent replay of the manual Termux deploy: packages, `~/stayturgid-repair.sh
 
 **Out of scope** (stay manual / device-specific): Shizuku pairing, Tasker/AutoJs6 install, Obtainium, `WRITE_SECURE_SETTINGS`, battery whitelist, SSH `authorized_keys` (manage separately).
 
+The deployed `~/claude-presence.sh` includes the S24 consent gate:
+
+```bash
+ssh s24 '~/claude-presence.sh gate "Galaxy S24" Auto'
+```
+
+If the phone appears active, it prompts for Continue / Pause / Check again in 10 minutes; timeout defaults to Continue.
+
 ## Prerequisites
 
 - Ansible 2.14+ on the Mac (`brew install ansible`)

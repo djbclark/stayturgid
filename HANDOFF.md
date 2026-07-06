@@ -31,7 +31,7 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 ### New TODOs queued 2026-07-05 (do after the Termux swap + watchdog repairer)
 1. **Update/republish the TaskerNet project** — the published share still has the old Custom Setting namespace bug (fixed in repo + on both devices). Re-export current `stayturgid` and republish to TaskerNet.
 2. **Move version-detection off TaskerNet** — `stayturgid_update_check` should detect new versions from **GitHub** (raw `version.json` / releases), not TaskerNet. Remove the TaskerNet dependency entirely (was HANDOFF "Step 5").
-3. **Smart phone-use presence/consent dialog** — before Claude uses a phone, **detect whether the user is actively using it** (screen on + recent interaction / foreground app not idle). If in use, pop a **30-second countdown dialog** (Tasker/`termux-dialog`) with **default = Continue** and three options: **(a) Let Claude use the phone (default on timeout)**, **(b) Pause — don't use this phone until Claude is explicitly told to continue on it**, **(c) Check again in 10 minutes**. This extends the current `claude-presence.sh` (which only announces) into a two-way consent gate per device. Note: needs working `termux-api` (so depends on TODO for the 7a Termux swap).
+3. **Smart phone-use presence/consent dialog** — ✅ S24 implemented 2026-07-05 in `termux/claude-presence.sh gate`: detects interactive screen + non-idle foreground package, shows a 30s `termux-dialog` prompt (timeout=Continue), supports Pause (`resume` clears) and Check-again-in-10-min. Deployed via Ansible; 7a can receive the same script when that track resumes.
 
 ## 🧭 Roadmap & tooling decisions (2026-07-05)
 
@@ -384,12 +384,14 @@ Both must be standalone — not buried in other text. If you pick up a second ph
 So it's obvious *from the phone itself* that automation is live, call the presence script at the start and end of each device session. It uses torch + vibration + an ongoing status-bar notification only — nothing on the screen surface, so it never interferes with UI dumps/taps/screenshots. (Screen flashing or color inversion WAS considered and rejected: overlays can cover tap targets and inversion corrupts screenshots.)
 
 ```bash
+ssh s24 '~/claude-presence.sh gate "Galaxy S24" Auto' # if active use is detected: 30s consent dialog (timeout=continue)
 ssh s24 '~/claude-presence.sh on  "Galaxy S24" Auto'   # ongoing "🤖 Auto is using ..." notification
 ssh s24 '~/claude-presence.sh off "Galaxy S24" Auto'   # removes notification + 2 pulses + vibrate
+ssh s24 '~/claude-presence.sh resume'                  # clear a prior Pause choice
 # same for p7a / "Pixel 7a"; agent name is 3rd arg or STAYTURGID_AGENT env (default: Auto)
 ```
 
-Script lives at `termux/claude-presence.sh` in the repo and `~/claude-presence.sh` on each device. Pair `on` with the USING announcement and `off` with FREE. If SSH is down but ADB is up, run it via `adb -s <dev> shell "run-as ... claude-presence.sh on"` or just skip to the text announcement.
+Script lives at `termux/claude-presence.sh` in the repo and `~/claude-presence.sh` on each device. Pair `on` with the USING announcement and `off` with FREE. The `gate` action checks screen/foreground state first; if the phone appears active, it shows a `termux-dialog` radio prompt with **Continue**, **Pause**, and **Check again in 10 minutes**. Timeout defaults to Continue. If SSH is down but ADB is up, run it via `adb -s <dev> shell "run-as ... claude-presence.sh on"` or just skip to the text announcement.
 
 ---
 
