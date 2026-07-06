@@ -26,7 +26,7 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 - **`com.termux.gui` has NO GitHub release** → left uninstalled (can't share-uid-align it with github com.termux). `com.termux.x11` doesn't share the uid (stays, already Obtainium). Third-party termux apps (io.github.*, com.gardockt.*, com.maazm7d.*) don't share uid — left as-is.
 - Backup of the old home: `~/stayturgid-device-backups/termux-home-7a-20260705-073847.tgz` + `7a-restore-stage/`.
 
-**Reusable procedure (also in HACKING.md):** back up `$HOME` via SSH → `adb uninstall` all shared-uid com.termux.* → `gh release download` the `+github(-|.)debug` APKs (main is per-arch `arm64-v8a`, addons universal) → **disable Play Protect verifier** (`verifier_verify_adb_installs`/`package_verifier_enable`→0, `package_verifier_user_consent`→-1; **user-approved, restore all to 1 when done**) since Play Protect gates github-debug installs with a fingerprint prompt → `adb install` each → launch Termux (bootstrap), grant storage → `pkg install` + restore `.ssh`/`.termux/boot` + scripts → re-register Termux:Boot → add every app to Obtainium (`obtainium://add/github.com/termux/<repo>`) for auto-updates.
+**Reusable procedure (also in HACKING.md):** back up `$HOME` via SSH → `adb uninstall` all shared-uid com.termux.* → `gh release download` the `+github(-|.)debug` APKs (main is per-arch `arm64-v8a`, addons universal) → **disable Play Protect verifier** (`verifier_verify_adb_installs`/`package_verifier_enable`→0, `package_verifier_user_consent`→-1; **user-approved, restore all to 1 when done**) since Play Protect gates github-debug installs with a fingerprint prompt → `adb install` each → launch Termux (bootstrap), grant storage → `pkg update && pkg upgrade -y` then `pkg install …` (always update+upgrade before install) + restore `.ssh`/`.termux/boot` + scripts → re-register Termux:Boot → add every app to Obtainium (`obtainium://add/github.com/termux/<repo>`) for auto-updates.
 
 ### New TODOs queued 2026-07-05 (do after the Termux swap + watchdog repairer)
 1. **Update/republish the TaskerNet project** — the published share still has the old Custom Setting namespace bug (fixed in repo + on both devices). Re-export current `stayturgid` and republish to TaskerNet.
@@ -86,7 +86,7 @@ scrcpy -s RFCX219CHKA --stay-awake        # live mirror during automation
 - ✅ **Watchdog Tailscale probe:** `autojs6/lib/tailscale.js` — tun0 + ping `100.100.100.100`, notify + relaunch `com.tailscale.ipn` if down
 - ✅ **Test scripts:** `test-tailscale-probe-once.js`, `test-stale-loop-once.js`, `test-locked-screen-catastrophic-once.js`; Mac runner `autojs6/mac/run-test.sh`
 - ✅ **Tailscale-down live test (2026-07-05):** `autojs6/mac/test-tailscale-down.sh` — force-stop → `probe up=false` → watchdog cycle → relaunch → `up=true` (USB)
-- ✅ **Ansible Termux skeleton + S24 validation:** `ansible/playbooks/termux-userland.yml` + `ansible/mac/deploy-termux.sh` (S24 in inventory). Installed Homebrew `ansible`; final S24 run completed `changed=0`, repair check `STATUS port=open shizuku=up sshd=up shell=yes`. Fixed inventory Python path (`.../bin/python`) and package task to install only missing packages; added `abseil-cpp`/protobuf deps after Termux `adb` ABI mismatch.
+- ✅ **Ansible Termux skeleton + S24 validation:** `ansible/playbooks/termux-userland.yml` + `ansible/mac/deploy-termux.sh` (S24 in inventory). Installed Homebrew `ansible`; final S24 run completed `changed=0`, repair check `STATUS port=open shizuku=up sshd=up shell=yes`. Fixed inventory Python path (`.../bin/python`); playbook runs `pkg update && pkg upgrade -y` up front and before any `pkg install`; installs only missing packages; added `abseil-cpp`/protobuf deps after Termux `adb` ABI mismatch.
 - ✅ Pushed to GitHub `master` @ `e5d89de`+ (doc alignment, repair flock, Tailscale-down live test, Ansible skeleton)
 
 ### Pixel 7a — WRAPPED UP 2026-07-05 (maintenance-only)
@@ -368,6 +368,21 @@ ssh -i ~/.ssh/termux_key -p 8022 -o StrictHostKeyChecking=no -o UserKnownHostsFi
 - **Keeping the device awake during automation:** `adb shell svc power stayon true` (screen stays on while powered; set `false` when done). The lock screen after adbd restart still needs a manual PIN — plan around it: do everything needing UI in one unlocked window.
 
 - **scrcpy (installed, v4.0):** live screen mirror + control from the Mac. Best tool for watching automation in real time and for manual intervention without picking up the phone; works over the same ADB connection (`scrcpy -s RFCX219CHKA`, or `scrcpy -s 100.123.218.30:5555` over Tailscale). `--stay-awake` keeps the screen on while mirroring.
+
+### Termux packages (CRITICAL)
+**At the start of any Termux setup, deploy, or maintenance session**, refresh and upgrade all installed packages:
+
+```bash
+pkg update && pkg upgrade -y
+```
+
+**Before every `pkg install`** (new package or dependency), run update+upgrade again — even if you just ran it:
+
+```bash
+pkg update && pkg upgrade -y && pkg install <packages> -y
+```
+
+The Ansible playbook (`ansible/roles/termux_userland`) follows this automatically. Manual SSH sessions and agent workflows must do the same.
 
 ### Phone announcement protocol (CRITICAL)
 **Name the specific phone(s)** you're about to use / done with — "Pixel 7a", "Galaxy S24", or both. Before any device interaction, output this as a standalone message (fill in the device):

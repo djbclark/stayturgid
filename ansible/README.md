@@ -49,7 +49,7 @@ Termux currently needs an explicit Python interpreter in inventory:
 ansible_python_interpreter: /data/data/com.termux/files/usr/bin/python
 ```
 
-The package task installs only missing packages. This avoids triggering broad Termux upgrades from stale mirrors while still ensuring `android-tools` and its ABI-sensitive dependencies (`abseil-cpp`, `libprotobuf`, `protobuf`) are present.
+**Termux package policy:** the playbook always runs `pkg update && pkg upgrade -y` first, then installs only missing packages (with another `pkg update && pkg upgrade -y` immediately before any `pkg install`). Same rule applies to manual Termux work — see `HANDOFF.md` tooling rules.
 
 ## Layout
 

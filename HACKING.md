@@ -197,11 +197,13 @@ Then tap **Start via Wireless debugging → Start**. Once it's running you shoul
 
 ### 1.4 Configure Termux
 
+**Package policy:** at the start of any Termux setup or maintenance session, refresh the package index and upgrade everything already installed. Before installing any new package, run `pkg update && pkg upgrade -y` again (even if you just ran it).
+
 Open Termux and install the required packages:
 
 ```bash
 pkg update && pkg upgrade -y
-pkg install openssh android-tools termux-api python wget curl -y
+pkg update && pkg upgrade -y && pkg install openssh android-tools termux-api python wget curl -y
 ```
 
 **Set up the SSH server and your public key:**
