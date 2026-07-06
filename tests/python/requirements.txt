@@ -1,0 +1,7 @@
+# Python test dependencies (idiomatic pytest layer for the Ansible module and
+# the Python script twins). Install into a project venv:
+#   python3 -m venv .venv-test && .venv-test/bin/pip install -r tests/python/requirements.txt
+ansible-core>=2.16
+pytest>=7
+pytest-mock>=3
+pytest-ansible>=2

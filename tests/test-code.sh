@@ -16,10 +16,11 @@ done
               || tap_fail "bash -n: all shell scripts parse" "failed:$bad"
 
 # --- python ----------------------------------------------------------------
-if python3 -m py_compile ansible/library/termux_pkg.py 2>/dev/null; then
-    tap_ok "py_compile: ansible/library/termux_pkg.py"
+PY_SRCS="$(git ls-files '*.py')"
+if echo "$PY_SRCS" | xargs python3 -m py_compile 2>/dev/null; then
+    tap_ok "py_compile: all Python sources"
 else
-    tap_fail "py_compile: ansible/library/termux_pkg.py"
+    tap_fail "py_compile: all Python sources"
 fi
 
 # --- javascript ------------------------------------------------------------
@@ -93,6 +94,19 @@ if command -v yamllint >/dev/null 2>&1; then
     fi
 else
     tap_skip "yamllint" "not installed (pipx install yamllint)"
+fi
+
+# Python test collection — catches import/syntax breakage in the pytest layer
+# even when the full run happens via `make pytest`.
+PYTEST_BIN="$([ -x .venv-test/bin/pytest ] && echo .venv-test/bin/pytest || command -v pytest || true)"
+if [ -n "$PYTEST_BIN" ]; then
+    if "$PYTEST_BIN" --collect-only -q >/dev/null 2>&1; then
+        tap_ok "pytest: tests collect cleanly"
+    else
+        tap_fail "pytest: tests collect cleanly" "run: make pytest"
+    fi
+else
+    tap_skip "pytest collect" "no pytest (run: make test-venv)"
 fi
 
 tap_done

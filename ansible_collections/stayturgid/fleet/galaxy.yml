@@ -1,0 +1,13 @@
+namespace: stayturgid
+name: fleet
+version: 1.0.0
+readme: README.md
+authors:
+  - djbclark
+description: stayturgid fleet automation (Termux/Android remote-access keepalive).
+license_expressions:
+  - MIT
+tags:
+  - android
+  - termux
+repository: https://github.com/djbclark/stayturgid

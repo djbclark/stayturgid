@@ -68,6 +68,23 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 
 **Legacy third-party automation** removed from both devices (2026-07-06). Fleet uses AutoJs6 only.
 
+### pytest + ansible-test collection migration — 2026-07-06 (late night) ✅
+
+- Idiomatic Python/Ansible test tooling per the official guide
+  (docs.ansible.com dev_guide/testing_units_modules). termux_pkg moved from
+  the loose `ansible/library/` into a real collection:
+  `ansible_collections/stayturgid/fleet/` (galaxy.yml, plugins/modules/,
+  tests/unit/plugins/modules/). Roles reference it by FQCN
+  `stayturgid.fleet.termux_pkg`; ansible.cfg sets `collections_path = ..`.
+- **`ansible-test units`** is the standard runner (5 module tests, via
+  pytest-ansible/pytest-mock) — `make ansible-test`. Plain **pytest** covers
+  the Termux Python script twins in tests/python/ (`make pytest`). Both wired
+  into `make test` + CI. `make test-venv` builds `.venv-test` (ansible-core,
+  pytest, pytest-mock, pytest-ansible).
+- The bash TAP harness still runs the module end-to-end via
+  `ansible localhost` (now FQCN + ANSIBLE_COLLECTIONS_PATH) — three layers:
+  fast shell parity, plain pytest twins, official ansible-test units.
+
 ### Infrastructure abstraction (taxonomy inventory) — 2026-07-06 (late) ✅
 
 - **No device names in code.** The ONLY site-specific file is

@@ -1,7 +1,10 @@
 # stayturgid — test/verify entry points (GNU-style).
 #   ./configure          optional: report tool availability
 #   make check           tier (a) code-only checks (syntax under local interpreters)
-#   make test            tiers (a)+(b): code checks + device-free unit tests
+#   make test            tiers (a)+(b): code checks + device-free unit tests + pytest + ansible-test
+#   make pytest          plain-pytest tests for the Termux Python script twins
+#   make ansible-test    official `ansible-test units` for the stayturgid.fleet module
+#   make test-venv       create .venv-test with ansible-core + pytest + pytest-ansible
 #   make verify          tier (c): read-only device checks over SSH
 #   make dryrun          tier (c): Ansible --check --diff dry run against the fleet
 #   make lint            shellcheck + ansible-lint + yamllint (whichever are installed)
@@ -14,9 +17,14 @@
 
 SHELL := /bin/bash
 HOSTS ?=
+VENV := .venv-test
+COLLECTION := ansible_collections/stayturgid/fleet
+# Prefer the project venv; fall back to any pytest/ansible-test on PATH.
+PYTEST := $(shell [ -x $(VENV)/bin/pytest ] && echo $(VENV)/bin/pytest || command -v pytest)
+ANSIBLE_TEST := $(shell [ -x $(VENV)/bin/ansible-test ] && echo $(abspath $(VENV))/bin/ansible-test || command -v ansible-test)
 -include .config.mk
 
-.PHONY: all check test unit verify device dryrun lint clean help
+.PHONY: all check test unit pytest ansible-test test-venv verify device dryrun lint clean help
 
 all: test
 
@@ -29,8 +37,35 @@ check:
 unit:
 	bash tests/run.sh unit
 
-test:
+test: unit-and-pytest
+
+# tier (b) shell TAP harness + Python twins (pytest) + module (ansible-test)
+.PHONY: unit-and-pytest
+unit-and-pytest:
 	bash tests/run.sh local
+	@$(MAKE) --no-print-directory pytest
+	@$(MAKE) --no-print-directory ansible-test
+
+test-venv $(VENV)/bin/pytest:
+	python3 -m venv $(VENV)
+	$(VENV)/bin/pip install -q -r tests/python/requirements.txt
+
+pytest:
+	@if [ -n "$(PYTEST)" ]; then \
+	  echo "### pytest (Termux Python script twins)"; "$(PYTEST)"; \
+	else \
+	  echo "### pytest — SKIP (run 'make test-venv' to set up .venv-test)"; \
+	fi
+
+# Official Ansible unit-test runner for the stayturgid.fleet.termux_pkg module.
+ansible-test:
+	@if [ -n "$(ANSIBLE_TEST)" ]; then \
+	  echo "### ansible-test units (stayturgid.fleet)"; \
+	  PYV=$$(python3 -c 'import sys;print(f"{sys.version_info.major}.{sys.version_info.minor}")'); \
+	  cd $(COLLECTION) && "$(ANSIBLE_TEST)" units --local --python $$PYV; \
+	else \
+	  echo "### ansible-test — SKIP (run 'make test-venv')"; \
+	fi
 
 verify device:
 	bash tests/run.sh device $(HOSTS)

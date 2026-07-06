@@ -410,8 +410,8 @@ STUB
 
     # M6 regression: --check must not run pkg update / upgrade
     : > "$MODLOG"
-    out="$(cd "$SANDBOX" && ANSIBLE_LIBRARY="$REPO/ansible/library" \
-        ansible localhost -c local --check -m termux_pkg -a "$MODARGS" 2>&1)" || true
+    out="$(cd "$SANDBOX" && ANSIBLE_COLLECTIONS_PATH="$REPO" \
+        ansible localhost -c local --check -m stayturgid.fleet.termux_pkg -a "$MODARGS" 2>&1)" || true
     tap_like "$out" "CHANGED" "termux_pkg: check mode reports would-change for missing pkg"
     tap_unlike "$(cat "$MODLOG")" "pkg update" "termux_pkg: check mode runs no pkg update (M6)"
     tap_unlike "$(cat "$MODLOG")" "full-upgrade" "termux_pkg: check mode runs no upgrade (M6)"
@@ -419,8 +419,8 @@ STUB
 
     # M6 regression: real install runs pkg update exactly once (no re-run)
     : > "$MODLOG"
-    out="$(cd "$SANDBOX" && ANSIBLE_LIBRARY="$REPO/ansible/library" \
-        ansible localhost -c local -m termux_pkg -a "$MODARGS" 2>&1)" || true
+    out="$(cd "$SANDBOX" && ANSIBLE_COLLECTIONS_PATH="$REPO" \
+        ansible localhost -c local -m stayturgid.fleet.termux_pkg -a "$MODARGS" 2>&1)" || true
     tap_like "$out" "CHANGED" "termux_pkg: install of missing pkg reports changed"
     tap_is "$(grep -c 'pkg update' "$MODLOG" | tr -d ' ')" 1 \
         "termux_pkg: pkg update runs exactly once per module run (M6)"
@@ -428,8 +428,8 @@ STUB
 
     # update/upgrade-only invocation (role task 1 shape)
     : > "$MODLOG"
-    out="$(cd "$SANDBOX" && ANSIBLE_LIBRARY="$REPO/ansible/library" \
-        ansible localhost -c local -m termux_pkg \
+    out="$(cd "$SANDBOX" && ANSIBLE_COLLECTIONS_PATH="$REPO" \
+        ansible localhost -c local -m stayturgid.fleet.termux_pkg \
         -a "{\"name\": [], \"update_cache\": true, \"upgrade\": true, \"_termux_prefix\": \"$FAKE\"}" 2>&1)" || true
     # fake `pkg update` emits "Get:" so the module correctly reports changed
     tap_like "$out" "CHANGED" "termux_pkg: bare update/upgrade run succeeds (changed: cache fetched)"
@@ -438,8 +438,8 @@ STUB
     # mirror-sync tolerance: failed pkg update warns but install still proceeds
     touch "$FAKE/fail-update"
     : > "$MODLOG"
-    out="$(cd "$SANDBOX" && ANSIBLE_LIBRARY="$REPO/ansible/library" \
-        ansible localhost -c local -m termux_pkg -a "$MODARGS" 2>&1)" || true
+    out="$(cd "$SANDBOX" && ANSIBLE_COLLECTIONS_PATH="$REPO" \
+        ansible localhost -c local -m stayturgid.fleet.termux_pkg -a "$MODARGS" 2>&1)" || true
     rm -f "$FAKE/fail-update"
     tap_like "$out" "CHANGED" "termux_pkg: install succeeds despite failed pkg update (mirror sync)"
     tap_like "$out" "cached" "termux_pkg: failed update surfaces as warning, not failure"

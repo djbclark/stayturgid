@@ -1,6 +1,6 @@
 ---
 - name: Update and upgrade all Termux packages
-  termux_pkg:
+  stayturgid.fleet.termux_pkg:
     name: []
     state: present
     update_cache: true
@@ -10,7 +10,7 @@
   register: pkg_upgrade
 
 - name: Ensure Termux packages are installed
-  termux_pkg:
+  stayturgid.fleet.termux_pkg:
     name: "{{ stayturgid_termux_packages }}"
     state: present
     update_cache: true

@@ -1,4 +1,6 @@
 __pycache__/
-*.py[cod]
-.DS_Store
 .config.mk
+.DS_Store
+.venv-test/
+*.py[cod]
+ansible_collections/stayturgid/fleet/tests/output/
