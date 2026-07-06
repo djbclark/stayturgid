@@ -44,6 +44,12 @@ fi
 # 4. Battery whitelist AutoJs6
 adb -s "$SERIAL" shell dumpsys deviceidle whitelist +"$AUTOJS_PKG" 2>/dev/null || true
 
+# 4b. Storage access — without this AutoJs6 toasts 'No "storage r/w" permission'
+# and silently refuses to run /sdcard/Scripts/stayturgid/main.js.
+adb -s "$SERIAL" shell appops set "$AUTOJS_PKG" MANAGE_EXTERNAL_STORAGE allow 2>/dev/null || true
+adb -s "$SERIAL" shell pm grant "$AUTOJS_PKG" android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
+adb -s "$SERIAL" shell pm grant "$AUTOJS_PKG" android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
+
 # 5. Deploy stayturgid repair + bridge to Termux via SSH alias when possible
 case "$1" in
   p7a) SSH_HOST=p7a ;;
