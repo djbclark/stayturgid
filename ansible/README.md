@@ -21,11 +21,11 @@ If the phone appears active, it prompts for Continue / Pause / Check again in 10
 ## Run (S24 only)
 
 ```bash
-# From repo root — uses Tailscale IP in inventory
-ansible-playbook ansible/playbooks/termux-userland.yml --limit s24
-
-# Or via wrapper (checks ssh first):
+# S24 (AutoJs6 production)
 ./ansible/mac/deploy-termux.sh s24
+
+# 7a (Tasker)
+./ansible/mac/deploy-termux.sh p7a
 ```
 
 Validated on S24 2026-07-05: playbook completed with `changed=0` on the final run and repair check returned:
@@ -39,7 +39,7 @@ STATUS port=open shizuku=up sshd=up shell=yes
 | Host | SSH | Mode | Notes |
 |------|-----|------|-------|
 | `s24` | `100.123.218.30:8022` | `autojs6` | Production AutoJs6 device |
-| `p7a` | *(commented — add when needed)* | `tasker` | Maintenance-only; not in default limit |
+| `p7a` | `100.65.230.108:8022` | `tasker` | Tasker production device |
 
 To add the 7a later, uncomment/add under `stayturgid.hosts` in `inventory/hosts.yml`.
 
