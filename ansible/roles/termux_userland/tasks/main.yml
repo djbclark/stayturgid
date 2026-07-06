@@ -60,6 +60,19 @@
   loop: "{{ stayturgid_boot_scripts }}"
   notify: restart boot loop
 
+# OpenSSH 9.8+ PerSourcePenalties blocks source IPs after unauthenticated/
+# failed connections — monitoring probes + automation bursts got the Mac
+# locked out (kex reset) on 2026-07-06. These sshds are key-only and reachable
+# solely via Tailscale/LAN, so the penalty system protects nothing here.
+# validate guards against older sshd rejecting the (then-unknown) option.
+- name: Disable sshd per-source penalties (operator lockout prevention)
+  ansible.builtin.lineinfile:
+    path: "{{ termux_prefix }}/etc/ssh/sshd_config"
+    regexp: '^#?\s*PerSourcePenalties\b'
+    line: "PerSourcePenalties no"
+    validate: "{{ termux_prefix }}/bin/sshd -t -f %s"
+  notify: restart sshd detached
+
 # lineinfile, not a template: templating would clobber unrelated user
 # properties (extra-keys etc.) in termux.properties.
 - name: Configure allow-external-apps for RUN_COMMAND bridge

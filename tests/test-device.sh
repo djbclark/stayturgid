@@ -2,20 +2,26 @@
 # Tier (c): device tests — STRICTLY read-only / non-destructive.
 # (fleet-health.sh is the ops tool and invokes the self-heal; this does not.)
 #
-# Usage: tests/test-device.sh [--ansible-check] [host ...]
+# Usage: tests/test-device.sh [--ansible-check] [--heal] [host ...]
 #   (default: every device in ~/.config/stayturgid/devices.conf)
 #   --ansible-check   also run the Ansible playbook in --check --diff mode
 #                     (a dry run: reports drift, changes nothing — termux_pkg
 #                     honors check mode, verified by tests/test-unit.sh)
+#   --heal            also invoke the on-device self-heal (stayturgid-repair.sh)
+#                     and assert its STATUS — this is the ops "fleet health"
+#                     mode (mac/fleet-health.sh delegates here)
 set -u
 cd "$(dirname "$0")/.." || exit 2
 . tests/lib.sh
+. shared/mac/resolve-adb.sh
 
 ANSIBLE_CHECK=0
+HEAL=0
 HOSTS=()
 for a in "$@"; do
     case "$a" in
         --ansible-check) ANSIBLE_CHECK=1 ;;
+        --heal) HEAL=1 ;;
         *) HOSTS+=("$a") ;;
     esac
 done
@@ -67,6 +73,9 @@ echo "taskerlegacy=notif:${tn:-0},files:${tf:-0}"
 # Determinism: mirror pinned to the CDN, not a random rotation pick
 grep -qF 'packages-cf.termux.dev' "$PREFIX/etc/apt/sources.list" 2>/dev/null \
     && echo "mirror=pinned" || echo "mirror=UNPINNED"
+# Operator-lockout prevention: sshd per-source penalties must be off
+grep -q '^PerSourcePenalties no' "$PREFIX/etc/ssh/sshd_config" 2>/dev/null \
+    && echo "penalties=off" || echo "penalties=ON"
 for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh check-repo-version.sh stayturgid-battery-alarm.sh screen-awake-guard.sh; do
     printf 'md5 %s %s\n' "$f" "$(md5sum "$HOME/$f" 2>/dev/null | cut -d" " -f1)"
 done
@@ -108,6 +117,9 @@ REMOTE
     val="$(printf '%s\n' "$report" | sed -n 's/^mirror=//p')"
     [ "$val" = "pinned" ] && tap_ok "$host: Termux mirror pinned (deterministic pkg update)" \
                          || tap_fail "$host: Termux mirror pinned" "$val — run ./mac/deploy-fleet.sh"
+    val="$(printf '%s\n' "$report" | sed -n 's/^penalties=//p')"
+    [ "$val" = "off" ] && tap_ok "$host: sshd per-source penalties disabled" \
+                       || tap_fail "$host: sshd per-source penalties disabled" "operator-lockout risk — deploy"
 
     # Deployment drift: deployed scripts vs repo (informational TODO, not a failure)
     drift=""
@@ -120,6 +132,31 @@ REMOTE
         tap_ok "$host: deployed termux scripts match repo"
     else
         tap_todo_fail "$host: deployed termux scripts match repo" "drift:$drift (run ./mac/deploy-fleet.sh)"
+    fi
+
+    # Mac->device adb path (the Mac's own remote-access route, distinct from
+    # the on-device localhost:5555 probe above)
+    serial="$(resolve_adb "$host" 2>/dev/null || echo "")"
+    case "$serial" in *:*) adb connect "$serial" >/dev/null 2>&1 || true ;; esac
+    if [ -n "$serial" ] && adb -s "$serial" shell true >/dev/null 2>&1; then
+        tap_ok "$host: Mac adb path reachable ($serial)"
+    else
+        tap_fail "$host: Mac adb path reachable" "serial=$serial"
+    fi
+
+    if [ "$HEAL" -eq 1 ]; then
+        heal_out="$(printf '%s\n' '"$HOME/stayturgid-repair.sh"' \
+            | ssh -o BatchMode=yes -o ConnectTimeout=15 -o LogLevel=ERROR \
+                "$host" 'bash -s' 2>/dev/null | tail -1)"
+        case "$heal_out" in
+            STATUS*port=open*)
+                tap_ok "$host: self-heal ran clean"
+                echo "# $host $heal_out" ;;
+            STATUS*)
+                tap_fail "$host: self-heal ran clean" "$heal_out" ;;
+            *)
+                tap_fail "$host: self-heal ran clean" "no STATUS line (${heal_out:-empty})" ;;
+        esac
     fi
 
     if [ "$ANSIBLE_CHECK" -eq 1 ]; then

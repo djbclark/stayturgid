@@ -13,3 +13,4 @@
   roles:
     - role: termux_userland
     - role: autojs6_watchdog
+    - role: obtainium_apps

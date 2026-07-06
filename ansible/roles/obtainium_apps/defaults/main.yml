@@ -1,0 +1,89 @@
+---
+# Fleet app catalog for Obtainium (terse specs; the obtainium_app module
+# expands them into Obtainium's verbose export format on-device).
+# AUTHORITATIVE list — obtainium/stayturgid-apps.json is the adb-fallback
+# rendering; a pytest sync-guard keeps the two aligned.
+stayturgid_obtainium_import_ui: false   # true = pop Obtainium import UI on change
+stayturgid_obtainium_catalog: /sdcard/Download/stayturgid-obtainium-apps.json
+
+stayturgid_obtainium_apps:
+  - id: org.autojs.autojs6
+    url: https://github.com/SuperMonster003/AutoJs6
+    name: AutoJs6
+    author: SuperMonster003
+    categories: [Automation]
+    settings:
+      apkFilterRegEx: arm64-v8a
+      about: stayturgid AutoJs6 watchdog alternative
+  - id: moe.shizuku.privileged.api
+    url: https://github.com/thedjchi/Shizuku
+    name: Shizuku (thedjchi)
+    author: thedjchi
+    categories: [stayturgid]
+    settings:
+      apkFilterRegEx: thedjchi
+      autoApkFilterByArch: false
+      about: TCP mode for wireless ADB port 5555
+  - id: com.tailscale.ipn
+    url: https://github.com/tailscale/tailscale-android
+    name: Tailscale
+    author: tailscale
+    categories: [stayturgid]
+    settings:
+      apkFilterRegEx: universal
+      autoApkFilterByArch: false
+      about: Stable Tailscale IP for ADB/SSH
+  - id: com.termux
+    url: https://github.com/termux/termux-app
+    name: Termux
+    author: termux
+    categories: [stayturgid]
+    settings:
+      apkFilterRegEx: github-debug.*arm64-v8a
+      autoApkFilterByArch: false
+      about: GitHub-debug main app (arm64)
+  - id: com.termux.api
+    url: https://github.com/termux/termux-api
+    name: Termux:API
+    author: termux
+    categories: [stayturgid]
+    settings:
+      apkFilterRegEx: github\.debug
+      autoApkFilterByArch: false
+      about: GitHub-debug addon
+  - id: com.termux.boot
+    url: https://github.com/termux/termux-boot
+    name: Termux:Boot
+    author: termux
+    categories: [stayturgid]
+    settings:
+      apkFilterRegEx: github\.debug
+      autoApkFilterByArch: false
+      about: GitHub-debug addon
+  - id: com.termux.styling
+    url: https://github.com/termux/termux-styling
+    name: Termux:Styling
+    author: termux
+    categories: [stayturgid]
+    settings:
+      apkFilterRegEx: github\.debug
+      autoApkFilterByArch: false
+      about: GitHub-debug addon
+  - id: com.termux.widget
+    url: https://github.com/termux/termux-widget
+    name: Termux:Widget
+    author: termux
+    categories: [stayturgid]
+    settings:
+      apkFilterRegEx: github\.debug
+      autoApkFilterByArch: false
+      about: GitHub-debug addon
+  - id: com.termux.window
+    url: https://github.com/termux/termux-float
+    name: Termux:Float
+    author: termux
+    categories: [stayturgid]
+    settings:
+      apkFilterRegEx: github\.debug
+      autoApkFilterByArch: false
+      about: GitHub-debug addon (window/float)

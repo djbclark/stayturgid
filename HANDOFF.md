@@ -66,6 +66,34 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 
 **Both fleet phones run the AutoJs6 watchdog** (`main.js`, 20-min interval + boot relaunch). Fleet uses AutoJs6 only; legacy third-party (Tasker) automation removed 2026-07-06.
 
+### Queued-items + sshd-lockout session — 2026-07-06 (Fable) ✅
+
+- **(a) `obtainium_app` module** — new collection module renders the Obtainium
+  import catalog on-device from terse app specs (expands to Obtainium's verbose
+  format), reports installed state, optional import-UI launch. Role
+  `obtainium_apps` (9 fleet apps) in the fleet playbook; 7 unit tests; a pytest
+  sync-guard keeps role defaults aligned with obtainium/stayturgid-apps.json
+  (the adb fallback). Deployed + idempotent.
+- **(b) fleet-health folded into the TAP tier** — `tests/test-device.sh --heal`
+  runs the on-device self-heal and asserts STATUS; added a Mac-adb-path probe.
+  `mac/fleet-health.sh` is now a thin wrapper (`run.sh device --heal`). Single
+  verification path.
+- **sshd operator-lockout FIXED + hardened** — OpenSSH 10.4 PerSourcePenalties
+  locked the Mac out (kex reset) after automation bursts. Ansible now sets
+  `PerSourcePenalties no` (validated, detached restart handler); device tier
+  asserts it. ⚠ LESSON: do NOT `pkill; sshd` via `run-as` — that starts sshd
+  with run-as's Android-only PATH, so SSH sessions lose the Termux PATH
+  (`bash: command not found`). Recovery is messy (competing boot loops, SELinux
+  hides sockets from run-as). If sshd env is poisoned: kill the bad sshd by PID
+  via run-as, then start sshd with full PATH/PREFIX/HOME/TMPDIR exported, or
+  reboot. Both phones recovered + verified this session.
+- **Samsung `am start` fix** — the autojs6_watchdog role launched the watchdog
+  via `am start` as the Termux app uid; One UI rejects that
+  (SecurityException). Now routed through the localhost:5555 privileged shell
+  (uid 2000) with PATH+TMPDIR — works on Pixel and Samsung.
+- p7a LAN IP corrected to .65 in inventory. Device tier: all green except the
+  known upmon Tasker-GUI item.
+
 ### 🚦 Handoff — start here (cold-start summary)
 
 - **Deploy the fleet:** `./mac/deploy-fleet.sh` (thin wrapper over

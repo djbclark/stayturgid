@@ -22,9 +22,15 @@
     - scripts
   notify: nudge autojs6 watchdog
 
+# Launch via the localhost:5555 privileged shell (uid 2000): Samsung One UI
+# rejects `am start` from the Termux app uid with a SecurityException
+# (com.android.shell does not belong to uid=NNNN). Same channel the repair
+# scripts use; works on both Pixel and Samsung.
 - name: Ensure AutoJs6 watchdog is running (boot-launcher no-ops when alive)
   ansible.builtin.shell: >
-    am start -a android.intent.action.VIEW
+    export PATH={{ termux_prefix }}/bin:$PATH TMPDIR={{ termux_prefix }}/tmp;
+    adb connect localhost:5555 >/dev/null 2>&1;
+    adb -s localhost:5555 shell am start -a android.intent.action.VIEW
     -d 'file://{{ autojs6_target }}/scripts/boot-launcher.js'
     -t 'text/javascript'
     -n 'org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity'

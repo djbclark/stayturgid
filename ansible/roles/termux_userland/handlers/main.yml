@@ -5,6 +5,14 @@
   ansible.builtin.command: "{{ termux_prefix }}/bin/termux-reload-settings"
   changed_when: true
 
+# Detached: an inline sshd restart would kill the very SSH session Ansible is
+# using. The delay lets the play finish and disconnect first.
+- name: restart sshd detached
+  ansible.builtin.shell: |
+    nohup bash -c 'sleep 5; pkill -x sshd; sleep 1; sshd' >/dev/null 2>&1 &
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+
 # [.] instead of . : the pattern appears literally in this shell's own
 # cmdline, and a plain '.' regex would make pkill/pgrep self-match (kill the
 # handler itself) — same procps trap documented in CODE-REVIEW.md H2.

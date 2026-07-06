@@ -1,4 +1,4 @@
 {
-  "version": "1.8",
-  "changelog": "Determinism/idempotency: pin Termux mirror to CDN (was random per-device); LC_ALL=C in parsing scripts. Test tooling: ansible-test units + pytest collection layout."
+  "version": "1.9",
+  "changelog": "obtainium_app module + role; fleet-health folded into TAP --heal tier; sshd PerSourcePenalties off (operator lockout fix); Samsung am-start via privileged shell."
 }
