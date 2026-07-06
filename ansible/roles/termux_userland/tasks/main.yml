@@ -1,31 +1,23 @@
 ---
 - name: Update and upgrade all Termux packages
-  ansible.builtin.shell: |
-    export PATH="{{ termux_prefix }}/bin:$PATH"
-    pkg update && pkg upgrade -y
-  args:
-    executable: /data/data/com.termux/files/usr/bin/bash
+  termux_pkg:
+    name: []
+    state: present
+    update_cache: true
+    upgrade: true
+    force_confold: true
+    _termux_prefix: "{{ termux_prefix }}"
   register: pkg_upgrade
-  changed_when: "'0 upgraded' not in pkg_upgrade.stdout and 'upgraded' in pkg_upgrade.stdout"
 
 - name: Ensure Termux packages are installed
-  ansible.builtin.shell: |
-    export PATH="{{ termux_prefix }}/bin:$PATH"
-    missing=""
-    for pkg_name in {{ stayturgid_termux_packages | join(' ') }}; do
-      if ! dpkg-query -W -f='${Status}' "$pkg_name" 2>/dev/null | grep -q "install ok installed"; then
-        missing="$missing $pkg_name"
-      fi
-    done
-    if [ -n "$missing" ]; then
-      pkg update && pkg upgrade -y && pkg install -y $missing
-    else
-      echo "All requested packages already installed"
-    fi
-  args:
-    executable: /data/data/com.termux/files/usr/bin/bash
+  termux_pkg:
+    name: "{{ stayturgid_termux_packages }}"
+    state: present
+    update_cache: true
+    upgrade: false
+    force_confold: true
+    _termux_prefix: "{{ termux_prefix }}"
   register: pkg_install
-  changed_when: "'All requested packages already installed' not in pkg_install.stdout"
 
 - name: Deploy home scripts
   ansible.builtin.copy:

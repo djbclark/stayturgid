@@ -73,6 +73,7 @@ ansible_python_interpreter: /data/data/com.termux/files/usr/bin/python
 ```
 ansible/
   ansible.cfg
+  library/termux_pkg.py          — fault-tolerant Termux package module
   inventory/hosts.yml
   inventory/example-standalone.yml
   group_vars/stayturgid.yml
