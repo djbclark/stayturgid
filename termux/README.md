@@ -12,7 +12,7 @@ Shell scripts that run **on the phone** inside Termux. Usable without AutoJs6 or
 | `repair-bridge.sh` | Polls `/sdcard/stayturgid_repair_now`; runs repair within ~2s (AutoJs6 fallback) |
 | `claude-presence.sh` | Agent session indicator (torch, notification, optional consent `gate`) |
 | `check-repo-version.sh` | Optional: notify when `version.json` on GitHub is newer |
-| `boot/start-adb.sh` | Termux:Boot: sshd, wake-lock, 5-min self-heal loop, battery alarm |
+| `boot/start-adb.sh` | Termux:Boot: sshd, wake-lock, 5-min self-heal loop, **repeating low-battery alarm (≤30%, not charging)** |
 | `boot/start-repair-bridge.sh` | Starts `repair-bridge.sh` at boot |
 | `boot/start-autojs6-watchdog.sh` | Launches AutoJs6 `boot-launcher.js` after boot |
 
@@ -33,6 +33,10 @@ sshd
 ```
 
 Open **Termux:Boot** once after install. `start-adb.sh` runs repair every 5 min; for watchdog notifications and Shizuku UI repair, add [AutoJs6](../autojs6/README.md).
+
+**Low-battery alarm:** every 5 min the boot loop reads `termux-battery-status`. If charge ≤30% and not charging, it posts an **ongoing max-priority notification**, a toast, and a short vibrate — and **repeats** until the device is plugged in or above the threshold. Requires Termux:API (`termux-api` package + `com.termux.api` app, same signature as Termux).
+
+**Repo version check:** `check-repo-version.sh` runs at most once per day from the boot loop (notify only; deploy from Mac).
 
 **Callers:** [AutoJs6](../autojs6/README.md) (`RUN_COMMAND`), [Ansible](../ansible/README.md) over SSH.
 

@@ -27,8 +27,9 @@ adb tcpip 5555 || true
 
 # Keep sshd alive — the AutoJs6 watchdog checks its status and notifies on failure,
 # but this loop is the self-healing mechanism (runs as Termux user, right UID).
-# Also fires a low-battery alarm via Termux:API: if the device is discharging
-# below the threshold, the whole remote-access stack dies with the battery.
+# Low-battery alarm (Termux:API): while discharging at or below BATT_THRESHOLD,
+# re-fires an ongoing max-priority notification + toast + vibrate every loop (5 min).
+# Remote access dies with the battery — this must stay loud and repeating.
 BATT_THRESHOLD=30
 BATT_ALARMED=0
 while true; do
@@ -46,17 +47,29 @@ while true; do
         pct=$(echo "$batt" | grep -o '"percentage": *[0-9]*' | grep -o '[0-9]*')
         status=$(echo "$batt" | grep -o '"status": *"[^"]*"' | cut -d'"' -f4)
         if [ -n "$pct" ] && [ "$pct" -le "$BATT_THRESHOLD" ] && [ "$status" != "CHARGING" ] && [ "$status" != "FULL" ]; then
-            if [ "$BATT_ALARMED" -eq 0 ]; then
-                termux-notification --id stayturgid-batt --priority max \
-                    --title "⚠ stayturgid: battery ${pct}% & NOT charging" \
-                    --content "Remote access dies when this device powers off. Plug in a charger." 2>/dev/null
-                termux-toast "stayturgid: battery ${pct}%, not charging — plug in!" 2>/dev/null
-                BATT_ALARMED=1
-            fi
+            # Repeat every 5 min while low — not a one-shot alert.
+            termux-notification --id stayturgid-batt --priority max --ongoing \
+                --title "⚠ stayturgid: battery ${pct}% & NOT charging" \
+                --content "Remote access dies when this device powers off. Plug in a charger." 2>/dev/null
+            termux-toast "stayturgid: battery ${pct}%, not charging — plug in!" 2>/dev/null
+            termux-vibrate -d 500 2>/dev/null || true
+            BATT_ALARMED=1
         else
-            [ "$BATT_ALARMED" -eq 1 ] && termux-notification-remove stayturgid-batt 2>/dev/null
+            if [ "$BATT_ALARMED" -eq 1 ]; then
+                termux-notification-remove stayturgid-batt 2>/dev/null
+            fi
             BATT_ALARMED=0
         fi
+    fi
+
+    # Daily GitHub version check (notify only; deploy from Mac).
+    VERSION_CHECK_STAMP="$HOME/.stayturgid_last_version_check"
+    now=$(date +%s)
+    last=0
+    [ -f "$VERSION_CHECK_STAMP" ] && last=$(cat "$VERSION_CHECK_STAMP" 2>/dev/null || echo 0)
+    if [ "$((now - last))" -ge 86400 ] && [ -x "$HOME/check-repo-version.sh" ]; then
+        "$HOME/check-repo-version.sh" >/dev/null 2>&1 || true
+        echo "$now" > "$VERSION_CHECK_STAMP"
     fi
 
     # Ensure AutoJs6 watchdog is running (boot-launcher no-ops if main.js already up).

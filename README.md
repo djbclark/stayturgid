@@ -36,6 +36,8 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 4. Obtainium catalog — [obtainium/README.md](obtainium/README.md)
 5. Mac — [mac/README.md](mac/README.md) (ADB reconnect + access monitor)
 
+**One command (both phones):** `./mac/deploy-fleet.sh` — Ansible Termux deploy, restart boot loop, AutoJs6 deploy + start watchdog.
+
 ---
 
 ## How it works

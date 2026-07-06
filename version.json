@@ -1,4 +1,4 @@
 {
-  "version": "1.1",
-  "changelog": "stayturgid 1.1: AutoJs6 watchdog on all devices. Deploy via ansible/mac/deploy-termux.sh and autojs6/mac/setup-autojs6.sh."
+  "version": "1.2",
+  "changelog": "Repeating low-battery alarm (≤30%, not charging); daily version check in boot loop; mac/deploy-fleet.sh + fleet-health.sh."
 }
