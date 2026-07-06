@@ -1,0 +1,25 @@
+name: test
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install ansible + linters
+        run: pipx install ansible-core && pipx install ansible-lint && pipx install yamllint
+      - name: configure
+        run: ./configure
+      - name: make check (tier a — syntax/lint under CI interpreters)
+        run: make check
+      - name: make test (tier b — sandboxed unit tests, no device)
+        run: make test
