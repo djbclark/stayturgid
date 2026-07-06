@@ -7,3 +7,6 @@ skip_list:
   # Custom module without a doc fragment collection; docs live in the module.
   - fqcn[action]          # termux_pkg is a local library module, no FQCN exists
   - name[casing]          # handler names are lowercase by convention here
+  # stayturgid_ is the deliberate shared prefix across roles + site file;
+  # per-role prefixes would fragment the variable vocabulary.
+  - var-naming[no-role-prefix]
