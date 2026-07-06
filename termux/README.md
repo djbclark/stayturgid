@@ -12,7 +12,8 @@ Shell scripts that run **on the phone** inside Termux. Usable without AutoJs6 or
 | `repair-bridge.sh` | Polls `/sdcard/stayturgid_repair_now`; runs repair within ~2s (AutoJs6 fallback) |
 | `claude-presence.sh` | Agent session indicator (torch, notification, optional consent `gate`) |
 | `check-repo-version.sh` | Optional: notify when `version.json` on GitHub is newer |
-| `boot/start-adb.sh` | Termux:Boot: sshd, wake-lock, 5-min self-heal loop, **repeating low-battery alarm (≤30%, not charging)** |
+| `stayturgid-battery-alarm.sh` | Tiered low-battery alerts (screen color blinks, torch, notification) |
+| `boot/start-adb.sh` | Termux:Boot: sshd, wake-lock, 5-min self-heal loop, battery tier check |
 | `boot/start-repair-bridge.sh` | Starts `repair-bridge.sh` at boot |
 | `boot/start-autojs6-watchdog.sh` | Launches AutoJs6 `boot-launcher.js` after boot |
 
@@ -34,7 +35,7 @@ sshd
 
 Open **Termux:Boot** once after install. `start-adb.sh` runs repair every 5 min; for watchdog notifications and Shizuku UI repair, add [AutoJs6](../autojs6/README.md).
 
-**Low-battery alarm:** every 5 min the boot loop reads `termux-battery-status`. If charge ≤30% and not charging, it posts an **ongoing max-priority notification**, a toast, and a short vibrate — and **repeats** until the device is plugged in or above the threshold. Requires Termux:API (`termux-api` package + `com.termux.api` app, same signature as Termux).
+**Low-battery alarm:** `stayturgid-battery-alarm.sh` runs every 5 min from the boot loop. While discharging, fires **once per tier**: 30%, 25%, 20%, 15%, 10%, 5%, then each 1% below 5. Each tier blinks the screen a solid color (purple @30 → red @5+) with brightness pulses; from 15% also pulses the flashlight (count matches tier). During DND/silent ringer: screen blink + one quick torch only (no toast/vibrate). Resets when charging or above 30%. Requires Termux:API + color PNGs in `~/.stayturgid/battery-colors/` (deployed by Ansible).
 
 **Repo version check:** `check-repo-version.sh` runs at most once per day from the boot loop (notify only; deploy from Mac).
 

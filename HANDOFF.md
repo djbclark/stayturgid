@@ -66,7 +66,7 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 
 **Both fleet phones run the AutoJs6 watchdog** (`main.js`, 20-min interval + boot relaunch), deployed via `autojs6/mac/deploy.sh` + `ansible/mac/deploy-termux.sh`.
 
-**Tasker:** stayturgid-related Tasker profiles removed from both devices (2026-07-06). Tasker/AutoInput may remain installed for unrelated projects; stayturgid no longer uses them.
+**Legacy third-party automation** removed from both devices (2026-07-06). Fleet uses AutoJs6 only.
 
 ### 🎯 Active development device: **Galaxy S24 (USB `RFCX219CHKA`)**
 
@@ -183,7 +183,7 @@ Rebooted S24 over Tailscale, one PIN unlock, measured at 159s uptime — **every
 - ✅ **mDNS TLS fallback** added to `adb-reconnect.sh` — discovers `adb-<SERIAL>-xxxx._adb-tls-connect._tcp` via `adb mdns services`; reconnects after reboot with no USB / no port 5555 (as long as this host is paired). Candidate order now: cached → USB-discovered LAN → mDNS TLS → Tailscale.
 - ✅ **7a reconnect launchd agent** updated with its real LAN + Tailscale IPs (was running arg-less/default before).
 - ✅ **Dead-man's switch**: `mac/access-monitor.sh` + `com.djbclark.stayturgid.access-monitor.plist` (every 5 min). Checks every ADB address AND an SSH port-8022 probe per device; fires a macOS notification (with sound) only after ~10 min of total outage across ALL paths, and once on recovery. Per-device consecutive-fail state in `~/.config/stayturgid/access-monitor/`. Installed + loaded; tested (both devices reachable → counters 0).
-- ✅ **Low-battery alarm** in `termux/boot/start-adb.sh` self-heal loop: `termux-battery-status` every 5 min; if ≤30% and not charging → **repeating** `termux-notification` (max priority, ongoing) + `termux-toast` + `termux-vibrate` every cycle until plugged in or above threshold; auto-cleared on recovery. Deployed to S24 + 7a (v1.2, 2026-07-06); boot loop restarted via `./mac/deploy-fleet.sh`. **Rationale: losing battery = losing contact; alarm must stay loud.**
+- ✅ **Low-battery alarm** (`termux/stayturgid-battery-alarm.sh`, called from boot loop): tier alerts at **30, 25, 20, 15, 10, 5%**, then every **1%** below 5 while discharging. Each tier: **colored screen blink** (purple×1 @30 … red×10 @5 and below), **torch** from 15% (count matches tier; DND = one quick flash). Normal hours: notification + toast + vibrate. **DND/silent:** screen (+ single torch) only. State resets on charge or above 30%.
 - ✅ **`mac/deploy-fleet.sh`** — one command: Ansible Termux + boot-loop restart + AutoJs6 deploy/start for s24/p7a. **`mac/fleet-health.sh`** — quick SSH/ADB sanity check.
 - ✅ **Daily `check-repo-version.sh`** — invoked from boot loop (max once per 24h); notifies when GitHub `version.json` moves ahead of last-seen stamp.
 - ✅ **Same stack redeployed to 7a (2026-07-05, USB):** `start-adb.sh` (wake-lock + battery alarm + AutoJs6 nudge), `stayturgid-repair.sh` (TMPDIR fix), `claude-presence.sh`; boot loop restarted.
@@ -401,11 +401,9 @@ version.json                            — repo release version + changelog
 
 ## Pixel 7a accessibility state — verify at session start
 
-Known-good `enabled_accessibility_services` on 7a (as of 2026-07-06; **append only** — never replace the whole list). Tasker/AutoInput entries reflect other installed apps, not stayturgid:
+Known-good `enabled_accessibility_services` on 7a (as of 2026-07-06; **append only** — never replace the whole list). Other entries are from apps installed on the device; stayturgid requires only AutoJs6:
 ```
 com.samruston.buzzkill/com.samruston.buzzkill.background.accessibility.WorkaroundAccessibilityService
-net.dinglisch.android.taskerm/net.dinglisch.android.taskerm.MyAccessibilityService
-com.joaomgcd.autoinput/com.joaomgcd.autoinput.service.ServiceAccessibilityV2
 com.notch.touch/com.notch.touch.lock.tas
 com.wispr.flowapp/com.wispr.flowapp.service.FlowAccessibilityService
 org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher

@@ -467,8 +467,6 @@ adb shell settings get secure enabled_accessibility_services | tr ':' '\n'
 If accessibility services are accidentally wiped, restore from a known-good list recorded at session start. The Pixel 7a's known-good list (as of 2026-07-06; append AutoJs6 — never replace the whole list):
 ```
 com.samruston.buzzkill/com.samruston.buzzkill.background.accessibility.WorkaroundAccessibilityService
-net.dinglisch.android.taskerm/net.dinglisch.android.taskerm.MyAccessibilityService
-com.joaomgcd.autoinput/com.joaomgcd.autoinput.service.ServiceAccessibilityV2
 com.notch.touch/com.notch.touch.lock.tas
 com.wispr.flowapp/com.wispr.flowapp.service.FlowAccessibilityService
 org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher
@@ -477,7 +475,7 @@ org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUshe
 Restore (example — verify current list first; **append** new services, never replace):
 ```bash
 adb -s 35261JEHN12374 shell settings put secure enabled_accessibility_services \
-  "com.samruston.buzzkill/com.samruston.buzzkill.background.accessibility.WorkaroundAccessibilityService:net.dinglisch.android.taskerm/net.dinglisch.android.taskerm.MyAccessibilityService:com.joaomgcd.autoinput/com.joaomgcd.autoinput.service.ServiceAccessibilityV2:com.notch.touch/com.notch.touch.lock.tas:com.wispr.flowapp/com.wispr.flowapp.service.FlowAccessibilityService:org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
+  "com.samruston.buzzkill/com.samruston.buzzkill.background.accessibility.WorkaroundAccessibilityService:com.notch.touch/com.notch.touch.lock.tas:com.wispr.flowapp/com.wispr.flowapp.service.FlowAccessibilityService:org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
 ```
 
 ### At the start of every session: snapshot device state

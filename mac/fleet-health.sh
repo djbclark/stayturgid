@@ -28,7 +28,7 @@ export PATH=/data/data/com.termux/files/usr/bin:$PATH
 set -e
 echo -n "sshd: "; pgrep sshd >/dev/null && echo ok || echo MISSING
 echo -n "boot loop: "; pgrep -f 'start-adb\.sh' >/dev/null && echo ok || echo MISSING
-echo -n "battery alarm in start-adb: "; grep -q 'termux-vibrate' ~/.termux/boot/start-adb.sh && echo ok || echo STALE
+echo -n "battery alarm: "; [ -x ~/stayturgid-battery-alarm.sh ] && grep -q 'tier_blinks' ~/stayturgid-battery-alarm.sh && echo ok || echo STALE
 echo -n "repair: "; ~/stayturgid-repair.sh 2>/dev/null | tail -1
 batt=$(termux-battery-status 2>/dev/null || true)
 if [ -n "$batt" ]; then

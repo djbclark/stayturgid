@@ -28,5 +28,15 @@ stayturgid_home_scripts:
   - repair-bridge.sh
   - claude-presence.sh
   - check-repo-version.sh
+  - stayturgid-battery-alarm.sh
+
+stayturgid_battery_color_assets:
+  - purple.png
+  - blue.png
+  - green.png
+  - yellow.png
+  - orange.png
+  - red.png
+  - black.png
 
 stayturgid_allow_external_apps: true

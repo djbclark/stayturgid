@@ -27,11 +27,7 @@ adb tcpip 5555 || true
 
 # Keep sshd alive — the AutoJs6 watchdog checks its status and notifies on failure,
 # but this loop is the self-healing mechanism (runs as Termux user, right UID).
-# Low-battery alarm (Termux:API): while discharging at or below BATT_THRESHOLD,
-# re-fires an ongoing max-priority notification + toast + vibrate every loop (5 min).
-# Remote access dies with the battery — this must stay loud and repeating.
-BATT_THRESHOLD=30
-BATT_ALARMED=0
+# Low-battery tiers (30/25/20/…%) handled by ~/stayturgid-battery-alarm.sh each loop.
 while true; do
     # Full Termux-side self-heal (sshd + privileged checks/repairs via
     # Shizuku's localhost:5555 shell, logged). Falls back to a bare sshd
@@ -42,24 +38,8 @@ while true; do
         pgrep sshd > /dev/null 2>&1 || sshd
     fi
 
-    batt=$(termux-battery-status 2>/dev/null)
-    if [ -n "$batt" ]; then
-        pct=$(echo "$batt" | grep -o '"percentage": *[0-9]*' | grep -o '[0-9]*')
-        status=$(echo "$batt" | grep -o '"status": *"[^"]*"' | cut -d'"' -f4)
-        if [ -n "$pct" ] && [ "$pct" -le "$BATT_THRESHOLD" ] && [ "$status" != "CHARGING" ] && [ "$status" != "FULL" ]; then
-            # Repeat every 5 min while low — not a one-shot alert.
-            termux-notification --id stayturgid-batt --priority max --ongoing \
-                --title "⚠ stayturgid: battery ${pct}% & NOT charging" \
-                --content "Remote access dies when this device powers off. Plug in a charger." 2>/dev/null
-            termux-toast "stayturgid: battery ${pct}%, not charging — plug in!" 2>/dev/null
-            termux-vibrate -d 500 2>/dev/null || true
-            BATT_ALARMED=1
-        else
-            if [ "$BATT_ALARMED" -eq 1 ]; then
-                termux-notification-remove stayturgid-batt 2>/dev/null
-            fi
-            BATT_ALARMED=0
-        fi
+    if [ -x "$HOME/stayturgid-battery-alarm.sh" ]; then
+        "$HOME/stayturgid-battery-alarm.sh" >/dev/null 2>&1 || true
     fi
 
     # Daily GitHub version check (notify only; deploy from Mac).
