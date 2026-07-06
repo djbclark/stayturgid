@@ -10,7 +10,7 @@ Shell scripts that run **on the phone** inside Termux. Usable without AutoJs6 or
 |-------|------|
 | `stayturgid-repair.sh` | Self-heal sshd, localhost:5555 ADB, Shizuku; prints `STATUS …` for callers |
 | `repair-bridge.sh` | Polls `/sdcard/stayturgid_repair_now`; runs repair within ~2s (AutoJs6 fallback) |
-| `claude-presence.sh` | Agent session indicator (torch, notification, optional consent `gate`) |
+| `agent-presence.sh` | Agent session indicator (torch, notification, optional consent `gate`) |
 | `check-repo-version.sh` | Optional: notify when `version.json` on GitHub is newer |
 | `stayturgid-battery-alarm.sh` | Tiered low-battery alerts (screen color blinks, torch, notification) |
 | `boot/start-adb.sh` | Termux:Boot: sshd, wake-lock, 5-min self-heal loop, battery tier check |
@@ -23,7 +23,7 @@ Shell scripts that run **on the phone** inside Termux. Usable without AutoJs6 or
 
 ```bash
 mkdir -p ~/.termux/boot
-cp stayturgid-repair.sh repair-bridge.sh claude-presence.sh ~/
+cp stayturgid-repair.sh repair-bridge.sh agent-presence.sh ~/
 cp boot/*.sh ~/.termux/boot/
 chmod +x ~/*.sh ~/.termux/boot/*.sh
 echo 'allow-external-apps=true' >> ~/.termux/termux.properties
@@ -42,7 +42,7 @@ Open **Termux:Boot** once after install. `start-adb.sh` runs repair every 5 min;
 
 ## Deploy with Ansible (recommended)
 
-Deploys `stayturgid-repair.sh`, `repair-bridge.sh`, `claude-presence.sh`, `check-repo-version.sh`, and boot hooks.
+Deploys `stayturgid-repair.sh`, `repair-bridge.sh`, `agent-presence.sh`, `check-repo-version.sh`, and boot hooks.
 
 ```bash
 ./ansible/mac/deploy-termux.sh s24   # or p7a

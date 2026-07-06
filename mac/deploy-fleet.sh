@@ -31,16 +31,19 @@ pgrep -f 'start-adb\.sh' >/dev/null && echo "boot loop running" || echo "WARN: b
 REMOTE
 }
 
+# Explicit || on every step: when called in an `if !` condition, set -e is
+# suspended inside the function, so unchecked failures would be swallowed.
 deploy_host() {
-  local host="$1"
+  local host="$1" rc=0
   echo ""
   echo "========== $host =========="
   echo "--- Termux (Ansible) ---"
-  "$ROOT/ansible/mac/deploy-termux.sh" "$host"
-  restart_boot_loop "$host"
+  "$ROOT/ansible/mac/deploy-termux.sh" "$host" || rc=1
+  restart_boot_loop "$host" || rc=1
   echo "--- AutoJs6 ---"
-  "$ROOT/autojs6/mac/deploy.sh" "$host"
-  "$ROOT/autojs6/mac/start-watchdog.sh" "$host"
+  "$ROOT/autojs6/mac/deploy.sh" "$host" || rc=1
+  "$ROOT/autojs6/mac/start-watchdog.sh" "$host" || rc=1
+  return "$rc"
 }
 
 FAIL=0

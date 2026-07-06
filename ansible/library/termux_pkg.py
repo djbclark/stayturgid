@@ -105,8 +105,13 @@ def main():
     if module.params["update_cache"] and not module.check_mode:
         rc, out, err = _shell(module, "pkg update")
         if rc != 0:
-            module.fail_json(msg="pkg update failed", rc=rc, stdout=out, stderr=err)
-        if "Fetched" in out or "Get:" in out:
+            # Mirror sync hiccups are routine; apt keeps the old indexes
+            # ("They have been ignored, or old ones used instead"), so warn
+            # and continue — a truly unusable cache fails at install below.
+            module.warn("pkg update failed (rc=%s, mirror sync?) — continuing "
+                        "with cached package indexes" % rc)
+            messages.append("pkg update failed; used cached indexes")
+        elif "Fetched" in out or "Get:" in out:
             changed = True
 
     if module.params["upgrade"] and state in ("present", "latest") and not module.check_mode:

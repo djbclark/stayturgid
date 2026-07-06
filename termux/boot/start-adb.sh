@@ -42,6 +42,12 @@ while true; do
         "$HOME/stayturgid-battery-alarm.sh" >/dev/null 2>&1 || true
     fi
 
+    # Screen held awake? Keep a restore-lock notification up (reappears each
+    # cycle while the state persists; dismiss+ignore = deliberate keep-awake).
+    if [ -x "$HOME/screen-awake-guard.sh" ]; then
+        "$HOME/screen-awake-guard.sh" check >/dev/null 2>&1 || true
+    fi
+
     # Daily GitHub version check (notify only; deploy from Mac).
     VERSION_CHECK_STAMP="$HOME/.stayturgid_last_version_check"
     now=$(date +%s)

@@ -55,8 +55,13 @@ case "$*" in
   *"dumpsys notification"*) printf 'mInterruptionFilter=%s\n' "${ADB_INTERRUPT:-ALL}"; exit 0 ;;
   *"cmd audio get-ringer-mode"*) printf '%s\n' "${ADB_RINGER:-2}"; exit 0 ;;
   *"settings get system screen_brightness"*) printf '128\n'; exit 0 ;;
+  *"settings get system screen_off_timeout"*) printf '%s\n' "${ADB_TIMEOUT:-60000}"; exit 0 ;;
+  *"settings get global stay_on_while_plugged_in"*) printf '%s\n' "${ADB_STAYON:-0}"; exit 0 ;;
   *"dumpsys window"*) printf 'mCurrentFocus=Window{1a2 u0 %s/.Main}\n' "${ADB_FG_PKG:-com.sec.android.app.launcher}"; exit 0 ;;
-  *"dumpsys power"*) printf 'mWakefulness=%s\n' "${ADB_WAKE:-Awake}"; exit 0 ;;
+  *"dumpsys power"*)
+      printf 'mWakefulness=%s\nmStayOn=%s\n' "${ADB_WAKE:-Awake}" "${ADB_MSTAYON:-false}"
+      [ -n "${ADB_WAKELOCK:-}" ] && printf "  SCREEN_BRIGHT_WAKE_LOCK (tag='%s' uid=10123)\n" "$ADB_WAKELOCK"
+      exit 0 ;;
 esac
 exit 0
 STUB

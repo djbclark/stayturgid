@@ -43,7 +43,7 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 **Reusable procedure (also in HACKING.md):** back up `$HOME` via SSH → `adb uninstall` all shared-uid com.termux.* → `gh release download` the `+github(-|.)debug` APKs (main is per-arch `arm64-v8a`, addons universal) → **disable Play Protect verifier** (`verifier_verify_adb_installs`/`package_verifier_enable`→0, `package_verifier_user_consent`→-1; **user-approved, restore all to 1 when done**) since Play Protect gates github-debug installs with a fingerprint prompt → `adb install` each → launch Termux (bootstrap), grant storage → `pkg update && pkg upgrade -y` then `pkg install …` (always update+upgrade before install) + restore `.ssh`/`.termux/boot` + scripts → re-register Termux:Boot → add every app to Obtainium (`obtainium://add/github.com/termux/<repo>`) for auto-updates.
 
 ### New TODOs queued 2026-07-05
-1. **Smart phone-use presence/consent dialog** — ✅ on both hosts via Ansible (`termux/claude-presence.sh gate` deployed to `~/claude-presence.sh`).
+1. **Smart phone-use presence/consent dialog** — ✅ on both hosts via Ansible (`termux/agent-presence.sh gate` deployed to `~/agent-presence.sh`).
 2. **LAST (research only — do not refactor yet):** Evaluate unified orchestration under Ansible; design generic **`obtainium_app` / `google_play_app`** modules. `termux_pkg` module already ships in `ansible/library/`. See **"Architecture research — unified orchestration"** at the bottom. No further refactor until explicitly approved.
 
 ## 🧭 Roadmap & tooling decisions (2026-07-05/06)
@@ -67,6 +67,52 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 **Both fleet phones run the AutoJs6 watchdog** (`main.js`, 20-min interval + boot relaunch), deployed via `autojs6/mac/deploy.sh` + `ansible/mac/deploy-termux.sh`.
 
 **Legacy third-party automation** removed from both devices (2026-07-06). Fleet uses AutoJs6 only.
+
+### Tests + screen-awake guard + sharing protocol session — 2026-07-06 (later) ✅
+
+- **Test suite** (`tests/`, `Makefile`, `./configure`): three entry points —
+  `make check|test|verify|dryrun|lint`, `tests/run.sh code|unit|local|device|all`
+  (TAP), and standard Ansible (`--syntax-check`, `--check --diff`, lint configs).
+  82 device-free unit tests (CODE-REVIEW regressions) + read-only device tier
+  with drift detection. See `tests/README.md` for conventions (exit codes 0/1/2/
+  75/130, log format, pidfiles-not-pgrep).
+- **Screen-awake guard PoC** (`termux/screen-awake-guard.sh`, in the 5-min boot
+  loop): while the screen is held awake (stay-on setting, app wakelock, or
+  timeout > 10 min) and lit, a notification offers one-tap restore of screen
+  lock (saved baseline, or the usual timeout options when unknown — reappears
+  each cycle if dismissed while the state persists). Restore also clears
+  stay_on/svc stayon and sleeps the screen; a foreign wakelock holder (e.g.
+  Wakey) is named instead. **7a context:** timeout was found at 30 min (likely
+  Wakey's doing); the 5-min AutoJs6 keepalive was tested and does NOT reset the
+  idle timer.
+- **Device-sharing flow** (`termux/agent-presence.sh` — renamed from
+  claude-presence.sh, which remains as a compat shim): `request-screen` pops a
+  modal 60s-countdown dialog (No = disallow, exit 75); `on` shows the running
+  notification with a **Graceful stop** button; agents poll `stop-requested`
+  (exit 0 = wrap up within ~1 min); `off` clears state and, after a stop
+  request, pops a modal "released" dialog.
+- Also: `deploy-fleet.sh` now really fails per-host (`|| rc=1` — set -e is
+  suspended inside `if !` functions); `termux_pkg` tolerates mirror-sync
+  `pkg update` failures with a warning (hit live on p7a); bridges started with
+  pidfiles on both phones; drift clean on both.
+
+### 📋 WORK ITEM for any new AI agent joining this fleet
+
+The presence/consent protocol is **shared infrastructure, agent-agnostic by
+design**: identify yourself via the 3rd argument or `STAYTURGID_AGENT` when
+calling `~/agent-presence.sh`. Required behavior for ANY agent (Claude, GPT,
+Gemini, …) before controlling a device screen:
+
+1. `agent-presence.sh request-screen "<label>" "<your-name>"` — abort on exit 75.
+2. `agent-presence.sh on "<label>" "<your-name>"` while working.
+3. Poll `agent-presence.sh stop-requested` between steps; on exit 0 you have
+   ~1 minute to wrap up.
+4. `agent-presence.sh off "<label>" "<your-name>"` when done.
+
+Do **not** fork per-agent copies of this script. If your integration needs
+something the shared script can't express, re-architect it so all agents
+coexist (keep the shim + CLI contract working), then leave a work item here
+for the other agents to add themselves to the new architecture.
 
 ### Code review + fixes session — 2026-07-06 ✅
 
@@ -358,14 +404,15 @@ Both must be standalone — not buried in other text. If you pick up a second ph
 So it's obvious *from the phone itself* that automation is live, call the presence script at the start and end of each device session. It uses torch + vibration + an ongoing status-bar notification only — nothing on the screen surface, so it never interferes with UI dumps/taps/screenshots. (Screen flashing or color inversion WAS considered and rejected: overlays can cover tap targets and inversion corrupts screenshots.)
 
 ```bash
-ssh s24 '~/claude-presence.sh gate "Galaxy S24" Auto' # if active use is detected: 30s consent dialog (timeout=continue)
-ssh s24 '~/claude-presence.sh on  "Galaxy S24" Auto'   # ongoing "🤖 Auto is using ..." notification
-ssh s24 '~/claude-presence.sh off "Galaxy S24" Auto'   # removes notification + 2 pulses + vibrate
-ssh s24 '~/claude-presence.sh resume'                  # clear a prior Pause choice
+ssh s24 '~/agent-presence.sh gate "Galaxy S24" Auto' # if active use is detected: 30s consent dialog (timeout=continue)
+ssh s24 '~/agent-presence.sh on  "Galaxy S24" Auto'   # ongoing "🤖 Auto is using ..." notification
+ssh s24 '~/agent-presence.sh off "Galaxy S24" Auto'   # removes notification + 2 pulses + vibrate
+ssh s24 '~/agent-presence.sh resume'                  # clear a prior Pause choice
 # same for p7a / "Pixel 7a"; agent name is 3rd arg or STAYTURGID_AGENT env (default: Auto)
+# Screen-control sessions: request-screen (60s countdown modal) -> on -> poll stop-requested -> off
 ```
 
-Script lives at `termux/claude-presence.sh` in the repo and `~/claude-presence.sh` on each device. Pair `on` with the USING announcement and `off` with FREE. The `gate` action checks screen/foreground state first; if the phone appears active, it shows a `termux-dialog` radio prompt with **Continue**, **Pause**, and **Check again in 10 minutes**. Timeout defaults to Continue. If SSH is down but ADB is up, run it via `adb -s <dev> shell "run-as ... claude-presence.sh on"` or just skip to the text announcement.
+Script lives at `termux/claude-presence.sh` in the repo and `~/agent-presence.sh` on each device. Pair `on` with the USING announcement and `off` with FREE. The `gate` action checks screen/foreground state first; if the phone appears active, it shows a `termux-dialog` radio prompt with **Continue**, **Pause**, and **Check again in 10 minutes**. Timeout defaults to Continue. If SSH is down but ADB is up, run it via `adb -s <dev> shell "run-as ... claude-presence.sh on"` or just skip to the text announcement.
 
 ---
 

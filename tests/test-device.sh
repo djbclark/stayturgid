@@ -47,7 +47,7 @@ else
 fi
 batt=$(termux-battery-status 2>/dev/null | grep -o '"percentage": *[0-9]*' | grep -o '[0-9]*' || true)
 [ -n "$batt" ] && echo "battery=${batt}" || echo "battery=unknown"
-for f in stayturgid-repair.sh repair-bridge.sh claude-presence.sh check-repo-version.sh stayturgid-battery-alarm.sh; do
+for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh check-repo-version.sh stayturgid-battery-alarm.sh; do
     printf 'md5 %s %s\n' "$f" "$(md5sum "$HOME/$f" 2>/dev/null | cut -d" " -f1)"
 done
 REMOTE
@@ -81,7 +81,7 @@ REMOTE
 
     # Deployment drift: deployed scripts vs repo (informational TODO, not a failure)
     drift=""
-    for f in stayturgid-repair.sh repair-bridge.sh claude-presence.sh check-repo-version.sh stayturgid-battery-alarm.sh; do
+    for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh check-repo-version.sh stayturgid-battery-alarm.sh; do
         remote_md5="$(printf '%s\n' "$report" | sed -n "s/^md5 $f //p")"
         local_md5="$(md5 -q "termux/$f" 2>/dev/null || md5sum "termux/$f" | cut -d' ' -f1)"
         [ "$remote_md5" = "$local_md5" ] || drift="$drift $f"

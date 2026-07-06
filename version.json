@@ -1,4 +1,4 @@
 {
-  "version": "1.4",
-  "changelog": "Code-review fixes: repair-bridge boot start (pgrep self-match), repair-script lock branch, battery alarm single-tier + wallpaper safety, consent gate fails closed, watchdog notification coalescing, log rotation."
+  "version": "1.5",
+  "changelog": "Screen-awake guard notification (one-tap restore of screen lock); agent-agnostic presence protocol with request-screen countdown modal + graceful stop; test suite; mirror-tolerant pkg update."
 }

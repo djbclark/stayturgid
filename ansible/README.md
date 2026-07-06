@@ -26,7 +26,7 @@ Copy [inventory/example-standalone.yml](inventory/example-standalone.yml) as a s
 
 **Out of scope** (configure separately): Shizuku pairing, AutoJs6 install, Obtainium, `WRITE_SECURE_SETTINGS`, battery whitelist, SSH key bootstrap.
 
-The deployed `~/claude-presence.sh` includes the consent `gate` action ([termux/README.md](../termux/README.md)).
+The deployed `~/agent-presence.sh` includes the consent `gate` action ([termux/README.md](../termux/README.md)).
 
 ## Prerequisites
 

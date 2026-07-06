@@ -139,7 +139,7 @@ unset PGREP_RC
 # ===========================================================================
 # claude-presence.sh gate
 # ===========================================================================
-PRES=termux/claude-presence.sh
+PRES=termux/agent-presence.sh
 
 # idle foreground (Samsung launcher) => proceed, no dialog
 reset_sandbox
@@ -194,6 +194,112 @@ unset DIALOG_CHOICE ADB_FG_PKG
 run_sandboxed "$PRES" bogus-action
 tap_is "$RC" 2 "presence: unknown action => usage exit 2"
 
+# --- screen-control sharing flow -------------------------------------------
+# request-screen: Disallow => 75; Yes or 60s timeout => 0
+reset_sandbox
+export DIALOG_CHOICE="no"
+run_sandboxed "$PRES" request-screen
+tap_is "$RC" 75 "presence: request-screen Disallow => 75"
+export DIALOG_CHOICE="yes"
+run_sandboxed "$PRES" request-screen
+tap_is "$RC" 0 "presence: request-screen Yes => proceed"
+export DIALOG_CHOICE=""
+run_sandboxed "$PRES" request-screen
+tap_is "$RC" 0 "presence: request-screen 60s timeout => proceed"
+unset DIALOG_CHOICE
+
+# on posts the running notification with a Graceful stop button
+reset_sandbox
+run_sandboxed "$PRES" on "TestPhone" "TestAgent"
+tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "Graceful stop" \
+    "presence: running notification carries Graceful stop button"
+
+# stop-requested: 1 before the button, 0 after
+run_sandboxed "$PRES" stop-requested
+tap_is "$RC" 1 "presence: no stop requested initially"
+touch "$SANDBOX/sd/stayturgid_stop_requested"
+run_sandboxed "$PRES" stop-requested
+tap_is "$RC" 0 "presence: stop-requested detects the flag"
+
+# off after a stop: clears flag, reports honored, pops the modal release dialog
+run_sandboxed "$PRES" off "TestPhone" "TestAgent"
+tap_is "$RC" 0 "presence: off exits 0 after graceful stop"
+tap_like "$OUT" "graceful stop honored" "presence: off reports the stop was honored"
+if [ ! -f "$SANDBOX/sd/stayturgid_stop_requested" ]; then
+    tap_ok "presence: off clears the stop flag"
+else
+    tap_fail "presence: off clears the stop flag"
+fi
+sleep 1   # the release dialog is backgrounded via nohup
+tap_like "$(grep 'termux-dialog' "$STUB_LOG")" "has released" \
+    "presence: off pops modal release dialog after a stop"
+
+# ===========================================================================
+# screen-awake-guard.sh
+# ===========================================================================
+GUARD=termux/screen-awake-guard.sh
+
+# normal timeout: baseline saved, notification removed, nothing posted
+reset_sandbox
+export ADB_TIMEOUT=120000
+run_sandboxed "$GUARD" check
+tap_is "$RC" 0 "guard: normal timeout => check exits 0"
+tap_is "$(cat "$SANDBOX/home/.stayturgid/screen_timeout_baseline" 2>/dev/null)" "120000" \
+    "guard: baseline timeout recorded while not forced"
+tap_is "$(stub_calls 'termux-notification ')" 0 "guard: no notification when not forced"
+tap_like "$(cat "$STUB_LOG")" "termux-notification-remove stayturgid-screenlock" \
+    "guard: stale notification removed when not forced"
+
+# forced (30-min timeout) with screen on: restore notification with baseline button
+: > "$STUB_LOG"
+export ADB_TIMEOUT=1800000
+run_sandboxed "$GUARD" check
+tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "Restore lock (2m)" \
+    "guard: forced awake posts restore notification with saved baseline"
+tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "screen timeout is 30 min" \
+    "guard: notification names the forced-awake reason"
+
+# forced but screen off: don't nag a dark panel
+: > "$STUB_LOG"
+export ADB_WAKE=Asleep
+run_sandboxed "$GUARD" check
+tap_is "$(stub_calls 'termux-notification ')" 0 "guard: no notification while screen is off"
+unset ADB_WAKE
+
+# no baseline known: notification offers the usual timeout options
+: > "$STUB_LOG"
+rm -f "$SANDBOX/home/.stayturgid/screen_timeout_baseline"
+run_sandboxed "$GUARD" check
+tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "--button3 10m" \
+    "guard: without baseline offers usual timeout options"
+
+# restore with explicit ms: settings restored, screen slept, baseline updated
+: > "$STUB_LOG"
+run_sandboxed "$GUARD" restore 60000
+tap_is "$RC" 0 "guard: restore exits 0"
+tap_like "$(cat "$STUB_LOG")" "settings put system screen_off_timeout 60000" \
+    "guard: restore sets the requested timeout"
+tap_like "$(cat "$STUB_LOG")" "settings put global stay_on_while_plugged_in 0" \
+    "guard: restore clears stay-on-while-plugged"
+tap_like "$(cat "$STUB_LOG")" "svc power stayon false" "guard: restore clears svc stayon"
+tap_like "$(cat "$STUB_LOG")" "input keyevent KEYCODE_SLEEP" \
+    "guard: restore turns the screen off as confirmation"
+tap_is "$(cat "$SANDBOX/home/.stayturgid/screen_timeout_baseline" 2>/dev/null)" "60000" \
+    "guard: restore updates the baseline"
+
+# wakelock holder (e.g. Wakey): named in notification; restore keeps screen on
+: > "$STUB_LOG"
+export ADB_WAKELOCK="wakey:wakelock" ADB_TIMEOUT=60000
+run_sandboxed "$GUARD" check
+tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "wakey:wakelock" \
+    "guard: wakelock holder named in notification"
+: > "$STUB_LOG"
+run_sandboxed "$GUARD" restore 60000
+tap_like "$OUT" "wakelock holder remains" "guard: restore reports remaining wakelock holder"
+tap_unlike "$(cat "$STUB_LOG")" "KEYCODE_SLEEP" \
+    "guard: restore doesn't force screen off while a wakelock persists"
+unset ADB_WAKELOCK ADB_TIMEOUT
+
 # ===========================================================================
 # check-repo-version.sh
 # ===========================================================================
@@ -242,7 +348,11 @@ LOG="$(dirname "$0")/../module-calls.log"
 printf '%s\n' "$2" >> "$LOG"
 case "$2" in
   *dpkg-query*)    exit 1 ;;                                  # nothing installed
-  *"pkg update"*)  echo "Get:1 https://example stable InRelease"; exit 0 ;;
+  *"pkg update"*)
+      if [ -f "$(dirname "$0")/../fail-update" ]; then
+          echo "E: Failed to fetch ... Mirror sync in progress?" >&2; exit 100
+      fi
+      echo "Get:1 https://example stable InRelease"; exit 0 ;;
   *full-upgrade*|*"pkg upgrade"*) echo "0 upgraded, 0 newly installed."; exit 0 ;;
   *"pkg install"*) echo "installed."; exit 0 ;;
 esac
@@ -278,6 +388,16 @@ STUB
     # fake `pkg update` emits "Get:" so the module correctly reports changed
     tap_like "$out" "CHANGED" "termux_pkg: bare update/upgrade run succeeds (changed: cache fetched)"
     tap_is "$(grep -c 'full-upgrade' "$MODLOG" | tr -d ' ')" 1 "termux_pkg: upgrade runs exactly once"
+
+    # mirror-sync tolerance: failed pkg update warns but install still proceeds
+    touch "$FAKE/fail-update"
+    : > "$MODLOG"
+    out="$(cd "$SANDBOX" && ANSIBLE_LIBRARY="$REPO/ansible/library" \
+        ansible localhost -c local -m termux_pkg -a "$MODARGS" 2>&1)" || true
+    rm -f "$FAKE/fail-update"
+    tap_like "$out" "CHANGED" "termux_pkg: install succeeds despite failed pkg update (mirror sync)"
+    tap_like "$out" "cached" "termux_pkg: failed update surfaces as warning, not failure"
+    tap_like "$(cat "$MODLOG")" "pkg install -y foo" "termux_pkg: install ran after tolerated update failure"
 else
     tap_skip "termux_pkg module tests" "ansible not installed"
 fi
