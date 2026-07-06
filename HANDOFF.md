@@ -43,8 +43,8 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 **Reusable procedure (also in HACKING.md):** back up `$HOME` via SSH → `adb uninstall` all shared-uid com.termux.* → `gh release download` the `+github(-|.)debug` APKs (main is per-arch `arm64-v8a`, addons universal) → **disable Play Protect verifier** (`verifier_verify_adb_installs`/`package_verifier_enable`→0, `package_verifier_user_consent`→-1; **user-approved, restore all to 1 when done**) since Play Protect gates github-debug installs with a fingerprint prompt → `adb install` each → launch Termux (bootstrap), grant storage → `pkg update && pkg upgrade -y` then `pkg install …` (always update+upgrade before install) + restore `.ssh`/`.termux/boot` + scripts → re-register Termux:Boot → add every app to Obtainium (`obtainium://add/github.com/termux/<repo>`) for auto-updates.
 
 ### New TODOs queued 2026-07-05
-1. **Smart phone-use presence/consent dialog** — ✅ S24 implemented 2026-07-05 in `termux/claude-presence.sh gate`: detects interactive screen + non-idle foreground package, shows a 30s `termux-dialog` prompt (timeout=Continue), supports Pause (`resume` clears) and Check-again-in-10-min. Deployed via Ansible; 7a can receive the same script when that track resumes.
-2. **LAST (research only — do not refactor yet):** Evaluate unified orchestration under Ansible; **prioritize moving Termux package management** and design generic **`obtainium_app` / `google_play_app`** modules. See **"Architecture research — unified orchestration"** at the bottom of this file. No implementation until explicitly approved.
+1. **Smart phone-use presence/consent dialog** — ✅ on both hosts via Ansible (`termux/claude-presence.sh gate` deployed to `~/claude-presence.sh`).
+2. **LAST (research only — do not refactor yet):** Evaluate unified orchestration under Ansible; design generic **`obtainium_app` / `google_play_app`** modules. `termux_pkg` module already ships in `ansible/library/`. See **"Architecture research — unified orchestration"** at the bottom. No further refactor until explicitly approved.
 
 ## 🧭 Roadmap & tooling decisions (2026-07-05/06)
 
@@ -65,6 +65,8 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 ## Current project status (as of 2026-07-06)
 
 **Both fleet phones run the AutoJs6 watchdog** (`main.js`, 20-min interval + boot relaunch), deployed via `autojs6/mac/deploy.sh` + `ansible/mac/deploy-termux.sh`.
+
+**Tasker:** stayturgid-related Tasker profiles removed from both devices (2026-07-06). Tasker/AutoInput may remain installed for unrelated projects; stayturgid no longer uses them.
 
 ### 🎯 Active development device: **Galaxy S24 (USB `RFCX219CHKA`)**
 
@@ -246,7 +248,7 @@ adb -s 35261JEHN12374 shell "ip addr show wlan0" | grep "inet "
 | Termux | GitHub-signed stack via Obtainium (`com.termux` + addons) |
 | Obtainium | Full stayturgid catalog; **Shizuku installer enabled** (`enable-shizuku-installer.sh`) |
 | Automation mode | `/sdcard/stayturgid_automation_mode.txt` = `autojs6` |
-| AutoJs6 watchdog | **Validated 2026-07-05** — watchdog + catastrophic + stale-loop + locked-screen + Tailscale probe |
+| AutoJs6 watchdog | **Validated 2026-07-05** — watchdog + catastrophic + stale-loop + Tailscale probe |
 
 S24 Termux SSH quick connect:
 ```bash
@@ -397,7 +399,7 @@ version.json                            — repo release version + changelog
 
 ## Pixel 7a accessibility state — verify at session start
 
-Known-good `enabled_accessibility_services` on 7a (as of 2026-07-06; **append only** — never replace the whole list):
+Known-good `enabled_accessibility_services` on 7a (as of 2026-07-06; **append only** — never replace the whole list). Tasker/AutoInput entries reflect other installed apps, not stayturgid:
 ```
 com.samruston.buzzkill/com.samruston.buzzkill.background.accessibility.WorkaroundAccessibilityService
 net.dinglisch.android.taskerm/net.dinglisch.android.taskerm.MyAccessibilityService
@@ -554,7 +556,7 @@ Recommended order — highest value / lowest risk first:
 
 | Phase | Target | Why first |
 |-------|--------|-----------|
-| **1** | **Termux packages** (`termux_pkg` module) | Already SSH-connected; 7a proved shell task is fragile (broken `curl`, stuck `dpkg`, conffile prompts) |
+| **1** | **Termux packages** (`termux_pkg` module) | ✅ Shipped in `ansible/library/termux_pkg.py`; role uses it |
 | **2** | Termux files/templates (expand `termux_userland`) | ✅ mostly done — scripts, boot, `termux.properties`, mode files |
 | **3** | Mac-delegated ADB (`adb_shell`, `android_apk`) | Wrap `resolve-adb.sh`; sideload APKs without Obtainium UI |
 | **4** | Obtainium catalog + updates (`obtainium_app`) | Deep links + JSON import + optional u2/Shizuku install path |
@@ -568,7 +570,7 @@ Recommended order — highest value / lowest risk first:
 
 ### Termux packages — fault-tolerant module design (`termux_pkg`)
 
-Today's `termux_userland` role uses a single `ansible.builtin.shell` block (`pkg update && pkg upgrade -y`, then install missing packages). That failed on 7a when the package DB was half-upgraded. A dedicated module (or role backed by a module) should:
+Today's `termux_userland` role uses the custom **`termux_pkg`** module (`ansible/library/termux_pkg.py`) for update/upgrade/install with conffile recovery — not a raw shell block.
 
 **Module contract (sketch):**
 
@@ -604,7 +606,7 @@ Today's `termux_userland` role uses a single `ansible.builtin.shell` block (`pkg
 | [guoqiao/ansible-android-termux](https://github.com/guoqiao/ansible-android-termux) | Early SSH inventory pattern; `termux-url-opener` for Play URLs via `gplaycli` |
 | [ivansible/termux](https://galaxy.ansible.com/ui/repo/published/ivansible/termux/) | Galaxy collection `ivansible.termux` (minimal adoption) |
 | [ansible/ansible#81547](https://github.com/ansible/ansible/pull/81547) | **Open PR** (rebased Feb 2026) — teach `ansible.builtin.package` to use `apt` on Termux; would help but **doesn't solve conffile/stuck-dpkg** — still need custom logic |
-| stayturgid `termux_userland` role | Working baseline; replace shell block with module when implemented |
+| stayturgid `termux_userland` role | Uses `termux_pkg` module in production |
 
 **Implementation note:** Even if #81547 merges, stayturgid should still ship **`community.stayturgid.termux_pkg`** (or `library/termux_pkg.py`) with the recovery path above — upstream `package` won't know about Termux-specific failure modes we hit on 7a.
 
@@ -724,11 +726,11 @@ Handles: download once, `adb -s {{ serial }} install -r`, parse `Failure [INSTAL
 
 ### Updated research steps (when picked up)
 
-1. **Prototype `termux_pkg`** — port 7a recovery logic; replace shell block in `termux_userland/tasks/main.yml`.
+1. ~~**Prototype `termux_pkg`**~~ — ✅ shipped (`ansible/library/termux_pkg.py`).
 2. Prototype `stayturgid_repair_check` (SSH → parse STATUS).
 3. Prototype `android_apk` + `adb_serial` from inventory (merge `resolve-adb.sh` logic into module util).
 4. Prototype `obtainium_app` **layer A only** — deep link + `pm list packages` check for one GitHub app.
-5. Sketch `playbooks/site.yml` composing roles; `when: automation_mode`.
+5. Sketch `playbooks/site.yml` composing Termux + AutoJs6 deploy roles.
 6. Write ADR with explicit non-goals (Play Store silent install, full unmanned Obtainium bulk update on Samsung without Shizuku).
 7. Decide collection name: `community.stayturgid` vs upstream contribution to `ivansible.termux`.
 
