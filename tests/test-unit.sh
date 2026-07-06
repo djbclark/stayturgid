@@ -260,91 +260,98 @@ tap_like "$(grep 'termux-dialog' "$STUB_LOG")" "has released" \
 # ===========================================================================
 # screen-awake-guard.sh
 # ===========================================================================
-GUARD=termux/screen-awake-guard.sh
+# Same suite runs against the shell implementation and its Python twin.
+guard_suite() {
+    local GUARD="$1" T="$2"
+    unset ADB_TIMEOUT ADB_WAKE DIALOG_CHOICE ADB_WAKELOCK 2>/dev/null || true
+    # normal timeout: baseline saved, notification removed, nothing posted
+    reset_sandbox
+    export ADB_TIMEOUT=120000
+    run_sandboxed "$GUARD" check
+    tap_is "$RC" 0 "guard[$T]: normal timeout => check exits 0"
+    tap_is "$(cat "$SANDBOX/home/.stayturgid/screen_timeout_baseline" 2>/dev/null)" "120000" \
+        "guard[$T]: baseline timeout recorded while not forced"
+    tap_is "$(stub_calls 'termux-notification ')" 0 "guard[$T]: no notification when not forced"
+    tap_like "$(cat "$STUB_LOG")" "termux-notification-remove stayturgid-screenlock" \
+        "guard[$T]: stale notification removed when not forced"
 
-# normal timeout: baseline saved, notification removed, nothing posted
-reset_sandbox
-export ADB_TIMEOUT=120000
-run_sandboxed "$GUARD" check
-tap_is "$RC" 0 "guard: normal timeout => check exits 0"
-tap_is "$(cat "$SANDBOX/home/.stayturgid/screen_timeout_baseline" 2>/dev/null)" "120000" \
-    "guard: baseline timeout recorded while not forced"
-tap_is "$(stub_calls 'termux-notification ')" 0 "guard: no notification when not forced"
-tap_like "$(cat "$STUB_LOG")" "termux-notification-remove stayturgid-screenlock" \
-    "guard: stale notification removed when not forced"
+    # forced (30-min timeout) with screen on: restore notification with baseline button
+    : > "$STUB_LOG"
+    export ADB_TIMEOUT=1800000
+    run_sandboxed "$GUARD" check
+    tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "Restore lock (2m)" \
+        "guard[$T]: forced awake posts restore notification with saved baseline"
+    tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "screen timeout is 30 min" \
+        "guard[$T]: notification names the forced-awake reason"
 
-# forced (30-min timeout) with screen on: restore notification with baseline button
-: > "$STUB_LOG"
-export ADB_TIMEOUT=1800000
-run_sandboxed "$GUARD" check
-tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "Restore lock (2m)" \
-    "guard: forced awake posts restore notification with saved baseline"
-tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "screen timeout is 30 min" \
-    "guard: notification names the forced-awake reason"
+    # forced but screen off: don't nag a dark panel
+    : > "$STUB_LOG"
+    export ADB_WAKE=Asleep
+    run_sandboxed "$GUARD" check
+    tap_is "$(stub_calls 'termux-notification ')" 0 "guard[$T]: no notification while screen is off"
+    unset ADB_WAKE
 
-# forced but screen off: don't nag a dark panel
-: > "$STUB_LOG"
-export ADB_WAKE=Asleep
-run_sandboxed "$GUARD" check
-tap_is "$(stub_calls 'termux-notification ')" 0 "guard: no notification while screen is off"
-unset ADB_WAKE
+    # no baseline known: notification offers the timeout dialog
+    : > "$STUB_LOG"
+    rm -f "$SANDBOX/home/.stayturgid/screen_timeout_baseline"
+    run_sandboxed "$GUARD" check
+    tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "Set lock timeout" \
+        "guard[$T]: without baseline offers the timeout dialog button"
 
-# no baseline known: notification offers the timeout dialog
-: > "$STUB_LOG"
-rm -f "$SANDBOX/home/.stayturgid/screen_timeout_baseline"
-run_sandboxed "$GUARD" check
-tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "Set lock timeout" \
-    "guard: without baseline offers the timeout dialog button"
+    # restore dialog: quick options 1m/3m/5m/10m, full picker behind Other…
+    : > "$STUB_LOG"
+    export DIALOG_CHOICE="3 minutes"
+    run_sandboxed "$GUARD" restore
+    unset DIALOG_CHOICE
+    tap_like "$(cat "$STUB_LOG")" "screen_off_timeout 180000" \
+        "guard[$T]: dialog quick option 3 minutes applies 180000"
+    tap_like "$(grep 'termux-dialog' "$STUB_LOG")" "1 minute,3 minutes,5 minutes,10 minutes,Other…" \
+        "guard[$T]: dialog offers 1m/3m/5m/10m + Other…"
 
-# restore dialog: quick options 1m/3m/5m/10m, full picker behind Other…
-: > "$STUB_LOG"
-export DIALOG_CHOICE="3 minutes"
-run_sandboxed "$GUARD" restore
-unset DIALOG_CHOICE
-tap_like "$(cat "$STUB_LOG")" "screen_off_timeout 180000" \
-    "guard: dialog quick option 3 minutes applies 180000"
-tap_like "$(grep 'termux-dialog' "$STUB_LOG")" "1 minute,3 minutes,5 minutes,10 minutes,Other…" \
-    "guard: dialog offers 1m/3m/5m/10m + Other…"
+    : > "$STUB_LOG"
+    printf 'Other…\n30 seconds\n' > "$SANDBOX/dialog_queue"
+    run_sandboxed "$GUARD" restore
+    tap_like "$(cat "$STUB_LOG")" "screen_off_timeout 30000" \
+        "guard[$T]: Other… opens full picker (30 seconds => 30000)"
 
-: > "$STUB_LOG"
-printf 'Other…\n30 seconds\n' > "$SANDBOX/dialog_queue"
-run_sandboxed "$GUARD" restore
-tap_like "$(cat "$STUB_LOG")" "screen_off_timeout 30000" \
-    "guard: Other… opens full picker (30 seconds => 30000)"
+    : > "$STUB_LOG"
+    export DIALOG_CHOICE=""
+    run_sandboxed "$GUARD" restore
+    unset DIALOG_CHOICE
+    tap_is "$RC" 1 "guard[$T]: cancelled dialog changes nothing"
+    tap_unlike "$(cat "$STUB_LOG")" "settings put" "guard[$T]: no settings written on cancel"
 
-: > "$STUB_LOG"
-export DIALOG_CHOICE=""
-run_sandboxed "$GUARD" restore
-unset DIALOG_CHOICE
-tap_is "$RC" 1 "guard: cancelled dialog changes nothing"
-tap_unlike "$(cat "$STUB_LOG")" "settings put" "guard: no settings written on cancel"
+    # restore with explicit ms: settings restored, screen slept, baseline updated
+    : > "$STUB_LOG"
+    run_sandboxed "$GUARD" restore 60000
+    tap_is "$RC" 0 "guard[$T]: restore exits 0"
+    tap_like "$(cat "$STUB_LOG")" "settings put system screen_off_timeout 60000" \
+        "guard[$T]: restore sets the requested timeout"
+    tap_like "$(cat "$STUB_LOG")" "settings put global stay_on_while_plugged_in 0" \
+        "guard[$T]: restore clears stay-on-while-plugged"
+    tap_like "$(cat "$STUB_LOG")" "svc power stayon false" "guard[$T]: restore clears svc stayon"
+    tap_like "$(cat "$STUB_LOG")" "input keyevent KEYCODE_SLEEP" \
+        "guard[$T]: restore turns the screen off as confirmation"
+    tap_is "$(cat "$SANDBOX/home/.stayturgid/screen_timeout_baseline" 2>/dev/null)" "60000" \
+        "guard[$T]: restore updates the baseline"
 
-# restore with explicit ms: settings restored, screen slept, baseline updated
-: > "$STUB_LOG"
-run_sandboxed "$GUARD" restore 60000
-tap_is "$RC" 0 "guard: restore exits 0"
-tap_like "$(cat "$STUB_LOG")" "settings put system screen_off_timeout 60000" \
-    "guard: restore sets the requested timeout"
-tap_like "$(cat "$STUB_LOG")" "settings put global stay_on_while_plugged_in 0" \
-    "guard: restore clears stay-on-while-plugged"
-tap_like "$(cat "$STUB_LOG")" "svc power stayon false" "guard: restore clears svc stayon"
-tap_like "$(cat "$STUB_LOG")" "input keyevent KEYCODE_SLEEP" \
-    "guard: restore turns the screen off as confirmation"
-tap_is "$(cat "$SANDBOX/home/.stayturgid/screen_timeout_baseline" 2>/dev/null)" "60000" \
-    "guard: restore updates the baseline"
+    # wakelock holder (e.g. Wakey): named in notification; restore keeps screen on
+    : > "$STUB_LOG"
+    export ADB_WAKELOCK="wakey:wakelock" ADB_TIMEOUT=60000
+    run_sandboxed "$GUARD" check
+    tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "wakey:wakelock" \
+        "guard[$T]: wakelock holder named in notification"
+    : > "$STUB_LOG"
+    run_sandboxed "$GUARD" restore 60000
+    tap_like "$OUT" "wakelock holder remains" "guard[$T]: restore reports remaining wakelock holder"
+    tap_unlike "$(cat "$STUB_LOG")" "KEYCODE_SLEEP" \
+        "guard[$T]: restore doesn't force screen off while a wakelock persists"
+    unset ADB_WAKELOCK ADB_TIMEOUT
+    unset ADB_TIMEOUT ADB_WAKE DIALOG_CHOICE ADB_WAKELOCK 2>/dev/null || true
+}
 
-# wakelock holder (e.g. Wakey): named in notification; restore keeps screen on
-: > "$STUB_LOG"
-export ADB_WAKELOCK="wakey:wakelock" ADB_TIMEOUT=60000
-run_sandboxed "$GUARD" check
-tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "wakey:wakelock" \
-    "guard: wakelock holder named in notification"
-: > "$STUB_LOG"
-run_sandboxed "$GUARD" restore 60000
-tap_like "$OUT" "wakelock holder remains" "guard: restore reports remaining wakelock holder"
-tap_unlike "$(cat "$STUB_LOG")" "KEYCODE_SLEEP" \
-    "guard: restore doesn't force screen off while a wakelock persists"
-unset ADB_WAKELOCK ADB_TIMEOUT
+guard_suite termux/screen-awake-guard.sh sh
+guard_suite termux/py/stayturgid_screen_awake_guard.py py
 
 # ===========================================================================
 # check-repo-version.sh

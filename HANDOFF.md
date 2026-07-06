@@ -115,9 +115,10 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
      `ADB_Core_Watchdog` task; delete/re-export `projects/upmon.prj.xml`.
      This is the ONLY failing device-tier check.
   2. Reboot validation is DONE — both phones rebooted + verified this session.
-- **In-flight migration:** bash→python twins. `stayturgid-battery-alarm.sh`
-  has a Python twin (`termux/py/`) under parity test; shell is still deployed.
-  Next twins queued: repair, screen-guard, presence.
+- **In-flight migration:** bash→python twins under parity test (shell still
+  deployed). Done: `stayturgid-battery-alarm.sh`, `screen-awake-guard.sh`
+  (both in `termux/py/`, run via `guard_suite`/`battery_suite` sh+py).
+  Next twins queued: repair, presence.
 - **Next no-help items (recommended order):** (a) obtainium_app custom module;
   (b) fold `fleet-health.sh` checks into the TAP device tier; (c) continue the
   python twins. All detailed in the session logs below.
