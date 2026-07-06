@@ -405,9 +405,28 @@ default (`pkg install zsh` if a script genuinely needs it). Declare bash in
 every shebang and run remote commands via `ssh host 'bash -s'` (heredoc or
 stdin pipe), never bare `ssh host '<commands>'` through the login shell.
 
-Cheap pre-commit gates: `bash -n` each script, `node --check autojs6/**/*.js`,
-`python3 -m py_compile ansible/library/*.py`, and
-`ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/termux-userland.yml --syntax-check`.
+### Test suite (three tiers, three idiomatic entry points)
+
+- **Tier a (code):** syntax/lint under local interpreters — `make check` /
+  `tests/run.sh code`.
+- **Tier b (unit, no device):** shell TAP harness (`tests/test-unit.sh`, runs
+  the `battery_suite` against BOTH the shell and Python twins), plain **pytest**
+  for the Python script twins (`tests/python/`), and the standard
+  **`ansible-test units`** for the `stayturgid.fleet.termux_pkg` module
+  (`ansible_collections/stayturgid/fleet/tests/unit/`). `make test` runs all
+  three.
+- **Tier c (device, read-only):** `make verify` / `tests/run.sh device`.
+
+Setup once: `make test-venv` (builds `.venv-test` with ansible-core + pytest +
+pytest-mock + pytest-ansible). CI runs `make test` on every push
+(`.github/workflows/test.yml`). `make lint` = shellcheck + ansible-lint +
+yamllint. Deploy the fleet with `./mac/deploy-fleet.sh` (Ansible;
+`CHECK=1` for a dry run).
+
+Cheap pre-commit gates (if not running the full `make test`): `bash -n` each
+script, `git ls-files '*.sh' | xargs shellcheck -S warning`,
+`node --check autojs6/**/*.js`, `python3 -m py_compile` the Python sources, and
+`ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet.yml --syntax-check`.
 
 ### Using uiautomator2 for device automation
 
