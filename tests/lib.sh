@@ -137,12 +137,16 @@ reset_sandbox() {
 
 # run_sandboxed <script> [args...]: run a repo script inside the sandbox.
 # Sets OUT (stdout), ERR (stderr), RC for the sourcing test file.
+# *.py runs under python3 — the same suite exercises shell and Python twins
+# to prove behavioral parity during language migrations.
 # shellcheck disable=SC2034
 run_sandboxed() {
+    local interp=bash
+    case "$1" in *.py) interp=python3 ;; esac
     set +e
     OUT="$(HOME="$SANDBOX/home" PREFIX="$SANDBOX/prefix" \
            TMPDIR="$SANDBOX/prefix/tmp" STAYTURGID_SD="$SANDBOX/sd" \
-           PATH="$SANDBOX/stubs:$PATH" bash "$@" 2>"$SANDBOX/err")"
+           PATH="$SANDBOX/stubs:$PATH" "$interp" "$@" 2>"$SANDBOX/err")"
     RC=$?
     ERR="$(cat "$SANDBOX/err" 2>/dev/null)"
     set -e 2>/dev/null || true

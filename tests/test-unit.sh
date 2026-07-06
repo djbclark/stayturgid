@@ -16,76 +16,83 @@ trap 'rm -rf "$SANDBOX"' EXIT
 # ===========================================================================
 # stayturgid-battery-alarm.sh
 # ===========================================================================
-BATT=termux/stayturgid-battery-alarm.sh
+# Same suite runs against the shell implementation and its Python twin —
+# parity gate for the ongoing bash->python migration (Ansible best practice:
+# Python beyond trivial wrappers). Shell stays deployed until parity soaks.
+battery_suite() {
+    local BATT="$1" T="$2"
+    # M2 regression: first run at 12% fires ONE alert (lowest tier), marks all
+    reset_sandbox
+    echo '{"percentage": 12, "status": "DISCHARGING"}' > "$SANDBOX/batt.json"
+    run_sandboxed "$BATT"
+    tap_is "$RC" 0 "battery[$T]: run at 12% exits 0"
+    tap_is "$(stub_calls 'termux-notification ')" 1 "battery[$T]: single alert at 12% (no tier cascade)"
+    tap_is "$(sort -n "$SANDBOX/home/.stayturgid_batt_alerted" | tr '\n' ' ')" "15 20 25 30 " \
+        "battery[$T]: tiers 30/25/20/15 all marked alerted"
+    tap_like "$OUT$(grep termux-toast "$STUB_LOG")" "tier 15" "battery[$T]: alert names lowest tier (15)"
 
-# M2 regression: first run at 12% fires ONE alert (lowest tier), marks all
-reset_sandbox
-echo '{"percentage": 12, "status": "DISCHARGING"}' > "$SANDBOX/batt.json"
-run_sandboxed "$BATT"
-tap_is "$RC" 0 "battery: run at 12% exits 0"
-tap_is "$(stub_calls 'termux-notification ')" 1 "battery: single alert at 12% (no tier cascade)"
-tap_is "$(sort -n "$SANDBOX/home/.stayturgid_batt_alerted" | tr '\n' ' ')" "15 20 25 30 " \
-    "battery: tiers 30/25/20/15 all marked alerted"
-tap_like "$OUT$(grep termux-toast "$STUB_LOG")" "tier 15" "battery: alert names lowest tier (15)"
+    # idempotent rerun
+    run_sandboxed "$BATT"
+    tap_is "$(stub_calls 'termux-notification ')" 1 "battery[$T]: rerun at same pct fires nothing new"
 
-# idempotent rerun
-run_sandboxed "$BATT"
-tap_is "$(stub_calls 'termux-notification ')" 1 "battery: rerun at same pct fires nothing new"
+    # drop to 9% fires exactly the next tier
+    echo '{"percentage": 9, "status": "DISCHARGING"}' > "$SANDBOX/batt.json"
+    run_sandboxed "$BATT"
+    tap_is "$(stub_calls 'termux-notification ')" 2 "battery[$T]: drop to 9% fires exactly one more alert"
 
-# drop to 9% fires exactly the next tier
-echo '{"percentage": 9, "status": "DISCHARGING"}' > "$SANDBOX/batt.json"
-run_sandboxed "$BATT"
-tap_is "$(stub_calls 'termux-notification ')" 2 "battery: drop to 9% fires exactly one more alert"
+    # M1 regression: no valid wallpaper backup => zero wallpaper writes
+    tap_is "$(stub_calls 'termux-wallpaper')" 0 "battery[$T]: wallpaper untouched without verified backup"
 
-# M1 regression: no valid wallpaper backup => zero wallpaper writes
-tap_is "$(stub_calls 'termux-wallpaper')" 0 "battery: wallpaper untouched without verified backup"
+    # charging clears state and removes the notification
+    echo '{"percentage": 50, "status": "CHARGING"}' > "$SANDBOX/batt.json"
+    run_sandboxed "$BATT"
+    if [ ! -f "$SANDBOX/home/.stayturgid_batt_alerted" ]; then
+        tap_ok "battery[$T]: charging clears alert state"
+    else
+        tap_fail "battery[$T]: charging clears alert state"
+    fi
+    tap_like "$(cat "$STUB_LOG")" "termux-notification-remove stayturgid-batt" \
+        "battery[$T]: charging removes the notification"
 
-# charging clears state and removes the notification
-echo '{"percentage": 50, "status": "CHARGING"}' > "$SANDBOX/batt.json"
-run_sandboxed "$BATT"
-if [ ! -f "$SANDBOX/home/.stayturgid_batt_alerted" ]; then
-    tap_ok "battery: charging clears alert state"
-else
-    tap_fail "battery: charging clears alert state"
-fi
-tap_like "$(cat "$STUB_LOG")" "termux-notification-remove stayturgid-batt" \
-    "battery: charging removes the notification"
+    # M3 regression: battery JSON without percentage => clean exit 0 (guard, not set -e)
+    reset_sandbox
+    echo '{"status": "DISCHARGING"}' > "$SANDBOX/batt.json"
+    run_sandboxed "$BATT"
+    tap_is "$RC" 0 "battery[$T]: malformed battery JSON exits 0 via guard"
 
-# M3 regression: battery JSON without percentage => clean exit 0 (guard, not set -e)
-reset_sandbox
-echo '{"status": "DISCHARGING"}' > "$SANDBOX/batt.json"
-run_sandboxed "$BATT"
-tap_is "$RC" 0 "battery: malformed battery JSON exits 0 via guard"
+    # valid backup => wallpaper blink used AND restored from backup afterwards
+    reset_sandbox
+    printf '\x89PNG\r\n\x1a\nfakepixels' > "$SANDBOX/wall.png"
+    export ADB_WALLPAPER_FILE="$SANDBOX/wall.png"
+    mkdir -p "$SANDBOX/home/.stayturgid/battery-colors"
+    for c in purple blue green yellow orange red black; do
+        : > "$SANDBOX/home/.stayturgid/battery-colors/$c.png"
+    done
+    echo '{"percentage": 28, "status": "DISCHARGING"}' > "$SANDBOX/batt.json"
+    run_sandboxed "$BATT"
+    unset ADB_WALLPAPER_FILE
+    if [ "$(stub_calls 'termux-wallpaper')" -gt 0 ]; then
+        tap_ok "battery[$T]: wallpaper blink runs with verified backup"
+    else
+        tap_fail "battery[$T]: wallpaper blink runs with verified backup"
+    fi
+    tap_like "$(grep termux-wallpaper "$STUB_LOG" | tail -1)" "wallpaper-backup.png" \
+        "battery[$T]: last wallpaper write restores the backup"
 
-# valid backup => wallpaper blink used AND restored from backup afterwards
-reset_sandbox
-printf '\x89PNG\r\n\x1a\nfakepixels' > "$SANDBOX/wall.png"
-export ADB_WALLPAPER_FILE="$SANDBOX/wall.png"
-mkdir -p "$SANDBOX/home/.stayturgid/battery-colors"
-for c in purple blue green yellow orange red black; do
-    : > "$SANDBOX/home/.stayturgid/battery-colors/$c.png"
-done
-echo '{"percentage": 28, "status": "DISCHARGING"}' > "$SANDBOX/batt.json"
-run_sandboxed "$BATT"
-unset ADB_WALLPAPER_FILE
-if [ "$(stub_calls 'termux-wallpaper')" -gt 0 ]; then
-    tap_ok "battery: wallpaper blink runs with verified backup"
-else
-    tap_fail "battery: wallpaper blink runs with verified backup"
-fi
-tap_like "$(grep termux-wallpaper "$STUB_LOG" | tail -1)" "wallpaper-backup.png" \
-    "battery: last wallpaper write restores the backup"
+    # quiet mode (DND): no toast/vibrate, silent notification, single torch flash
+    reset_sandbox
+    export ADB_ZEN=1
+    echo '{"percentage": 12, "status": "DISCHARGING"}' > "$SANDBOX/batt.json"
+    run_sandboxed "$BATT"
+    unset ADB_ZEN
+    tap_is "$(stub_calls 'termux-toast')" 0 "battery[$T]: DND fires no toast"
+    tap_is "$(stub_calls 'termux-vibrate')" 0 "battery[$T]: DND fires no vibrate"
+    tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "quiet hours" "battery[$T]: DND posts silent notification"
+    tap_is "$(stub_calls 'termux-torch on')" 1 "battery[$T]: DND single quick torch flash (tier<=15)"
+}
 
-# quiet mode (DND): no toast/vibrate, silent notification, single torch flash
-reset_sandbox
-export ADB_ZEN=1
-echo '{"percentage": 12, "status": "DISCHARGING"}' > "$SANDBOX/batt.json"
-run_sandboxed "$BATT"
-unset ADB_ZEN
-tap_is "$(stub_calls 'termux-toast')" 0 "battery: DND fires no toast"
-tap_is "$(stub_calls 'termux-vibrate')" 0 "battery: DND fires no vibrate"
-tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "quiet hours" "battery: DND posts silent notification"
-tap_is "$(stub_calls 'termux-torch on')" 1 "battery: DND single quick torch flash (tier<=15)"
+battery_suite termux/stayturgid-battery-alarm.sh sh
+battery_suite termux/py/stayturgid_battery_alarm.py py
 
 # ===========================================================================
 # stayturgid-repair.sh

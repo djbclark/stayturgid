@@ -90,6 +90,27 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 - New device: add a host + group memberships to hosts.yml, run mac.yml +
   deploy-fleet.sh. New quirk: add/extend a group_vars layer.
 
+### Notification self-heal + Python migration start + CI — 2026-07-06 (night) ✅
+
+- **AutoJs6-blocked spam fixed**: repair.sh re-enables accessibility itself
+  (append-only, STATUS a11y= field); guard notifies only when the auto-fix
+  fails; notify.js persists per-key repeat counts on /sdcard — one
+  notification per type, "(Nx)" on repeats. Verified a11y=repaired live on
+  both phones. CI (GitHub Actions) runs make test on every push; first-ever
+  ansible-lint/yamllint runs are clean (configs document the two skips).
+- **bash→python migration begun** (Ansible best practice: Python beyond
+  trivial wrappers; python is guaranteed on-device via stayturgid_termux_packages
+  + ansible_python_interpreter): `termux/py/stayturgid_battery_alarm.py` is a
+  behavior-identical twin; tests/test-unit.sh runs the SAME suite against both
+  (battery_suite sh|py, 106 checks green). Shell stays deployed until parity
+  soaks. **Queued rewrites** (same twin+parity pattern): stayturgid-repair.sh,
+  screen-awake-guard.sh, agent-presence.sh, check-repo-version.sh, then Mac
+  adb-reconnect/access-monitor. AutoJs6 JS is excluded (Rhino runtime).
+- **Standing practice**: when touching a device, audit its notification shade
+  (expected present, none stale). Formalizing as a device-tier expected-set
+  probe is queued. Audit at session end: both shades clean (Termux service
+  notifications only).
+
 ### Tasker exorcism + shell conventions + Ansible-native fleet — 2026-07-06 (evening) ✅
 
 - **Legacy Tasker remnants:** live Tasker configs on BOTH phones are clean; the
