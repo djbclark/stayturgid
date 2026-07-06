@@ -68,6 +68,28 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 
 **Legacy third-party automation** removed from both devices (2026-07-06). Fleet uses AutoJs6 only.
 
+### Code review + fixes session — 2026-07-06 ✅
+
+- Full-repo review at `6b705d5` → **CODE-REVIEW.md** (commit `ab1d8e1`): 2 high,
+  11 medium, 13 low findings; H1/H2/M2/M3 verified empirically (sandboxed runs
+  with stubbed `termux-*`/`adb`, read-only SSH probe of the live S24).
+- **All findings fixed** in `b4e5e6a`; `version.json` → **1.4**. Highlights:
+  repair-script helpers now defined before the flock branch (concurrent STATUS
+  was `sshd=unknown` + command-not-found); repair-bridge liveness moved to a
+  **pidfile** (`~/.repair-bridge.pid`) because `pgrep -f` self-matches on
+  Termux — the bridge never started at boot; battery alarm fires only the
+  lowest crossed tier and won't touch the wallpaper without a byte-verified
+  backup; consent gate now **fails closed** on dialog timeout and recognizes
+  Pixel launchers; watchdog notifications coalesce on stable ids and clear on
+  recovery; repair script trims its logs; `adb-reconnect` no longer notifies
+  every 60 s (access-monitor owns outage alerts); `termux_pkg` honors
+  `--check`; `allow-external-apps` deployed via lineinfile + reload handler;
+  shizuku.json patchers abort on failed reads instead of clobbering grants.
+- ⚠ **Devices still run the pre-fix scripts** — next session should run
+  `./mac/deploy-fleet.sh` and then `./mac/fleet-health.sh`. On each phone,
+  verify after deploy: `~/.repair-bridge.pid` exists and the bridge survives a
+  reboot; `battery alarm: ok` in fleet-health.
+
 ### 🎯 Active development device: **Galaxy S24 (USB `RFCX219CHKA`)**
 
 Both phones run the AutoJs6 watchdog. Prefer the **S24 over USB** when plugged in for interactive work; use **7a over Tailscale** (`ssh p7a`) when the S24 is unplugged. Mac scripts use [shared/mac/resolve-adb.sh](shared/mac/resolve-adb.sh) (USB serial when present, else Tailscale wireless).
@@ -424,6 +446,7 @@ adb shell settings get secure enabled_accessibility_services | tr ':' '\n'
 - **Taps not registering at the screen edge:** Tap slightly inward (e.g., x=1010 not x=1028) — the gesture navigation zone interferes.
 - **Reddit is blocked** in Claude Code. Use PullPush API instead: `https://api.pullpush.io/reddit/search/submission/?ids=<post_id>`
 - **Termux `pkg upgrade` on stale installs:** if `curl` fails with an OpenSSL/ngtcp2 symbol error, run `apt full-upgrade` (or `dpkg --force-confold --configure -a` after killing a stuck upgrade). Conffile prompts (`openssl.cnf`, `sources.list`) block non-interactive runs unless you use `--force-confold` or apt `Dpkg::Options::=--force-confold`.
+- **`pgrep -f` self-match (Termux vs macOS):** on Termux, `pgrep -f X` matches the calling script/ssh cmdline containing `X`; macOS pgrep doesn't. Test process guards on-device; prefer pidfiles. (CODE-REVIEW.md H2.)
 - **Device IP changes on DHCP.** The mac-side script auto-discovers via USB. Always verify with: `adb -s 35261JEHN12374 shell "ip addr show wlan0"`
 
 See **HACKING.md** for the full development environment setup (all tool versions, Obtainium sources, clean-install walkthrough).

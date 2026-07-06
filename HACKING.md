@@ -384,6 +384,25 @@ ssh -i ~/.ssh/termux_key -p 8022 localhost
 3. Check the log: `adb shell cat /sdcard/stayturgid_watchdog.log` (or the AutoJs6 console).
 4. Commit and push.
 
+### Testing shell scripts off-device (added 2026-07-06)
+
+`termux/*.sh` can be exercised on the Mac without a phone: point `HOME` at a
+scratch dir and prepend a stub `bin/` (fake `termux-*`, `adb`, `sleep`) to
+`PATH`, then assert against the call log the stubs write. The 2026-07-06 code
+review validated the battery-alarm tier logic this way.
+
+**pgrep gotcha (bit us in H2 of CODE-REVIEW.md):** on Termux (procps/Linux),
+`pgrep -f PATTERN` matches the *caller's own cmdline* — a guard like
+`pgrep -f repair-bridge.sh` inside `start-repair-bridge.sh` (or inside an ssh
+command string containing the pattern) always self-matches. macOS/BSD pgrep
+does **not** do this, so Mac-side dry-runs pass while the on-device guard is
+broken. Use pidfiles (`~/.repair-bridge.pid` + `/proc/$pid/cmdline` check) for
+liveness, and test process guards on the device itself.
+
+Cheap pre-commit gates: `bash -n` each script, `node --check autojs6/**/*.js`,
+`python3 -m py_compile ansible/library/*.py`, and
+`ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/termux-userland.yml --syntax-check`.
+
 ### Using uiautomator2 for device automation
 
 Use for: tapping buttons in app UIs, reading screen state, automating setup steps.
