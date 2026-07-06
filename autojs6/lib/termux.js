@@ -5,7 +5,6 @@ var TERMUX_PKG = "com.termux";
 var RUN_SERVICE = "com.termux.app.RunCommandService";
 var RUN_ACTION = "com.termux.RUN_COMMAND";
 var TRIGGER_FILE = "/sdcard/stayturgid_repair_now";
-var TASKER_WRAPPER = config.TERMUX_HOME + "/.termux/tasker/stayturgid-repair";
 
 /**
  * Invoke stayturgid-repair.sh in Termux.
@@ -70,22 +69,7 @@ function tryRunCommand() {
         });
         return { started: true };
     } catch (e) {
-        // Fallback path uses tasker wrapper path when direct script path blocked
-        try {
-            app.startService({
-                action: RUN_ACTION,
-                packageName: TERMUX_PKG,
-                className: RUN_SERVICE,
-                extras: {
-                    "com.termux.RUN_COMMAND_PATH": TASKER_WRAPPER,
-                    "com.termux.RUN_COMMAND_BACKGROUND": "true",
-                    "com.termux.RUN_COMMAND_WORKDIR": config.TERMUX_HOME,
-                },
-            });
-            return { started: true };
-        } catch (e2) {
-            return { started: false, error: String(e2) };
-        }
+        return { started: false, error: String(e) };
     }
 }
 

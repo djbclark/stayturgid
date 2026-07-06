@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Grant Shizuku API access to AutoJs6 (stayturgid watchdog).
 #
-# Does not revoke or configure Tasker — other apps may still use Shizuku.
+# Does not revoke anything — other apps may still use Shizuku.
 #
 # Usage: ./grant-shizuku.sh <p7a|s24|serial>
 set -euo pipefail

@@ -2,8 +2,6 @@
 
 This document gets a developer from a clean Android + macOS install to a fully working development environment for stayturgid. Follow the sections in order — Android setup first, then Mac, then verification.
 
-**Note (2026-07-06):** Tasker, `tasker-io`, and Tasker-based auto-update were **removed from this repo**. Historical Tasker XML notes below are archived for context only — new installs use [autojs6/](autojs6/README.md) only.
-
 ---
 
 ## What you're setting up
@@ -13,7 +11,7 @@ This document gets a developer from a clean Android + macOS install to a fully w
 | Android device | Runs AutoJs6, Shizuku, Termux — the managed stack |
 | macOS (Mac) | Development workstation; runs ADB, Ansible, AI coding agent |
 | AutoJs6 | Watchdog automation on the device (accessibility + Termux bridge) |
-| Shizuku (thedjchi fork) | Grants Tasker `WRITE_SECURE_SETTINGS` via Wireless Debugging (no root) |
+| Shizuku (thedjchi fork) | Shell-privileged adbd on port 5555 via Wireless Debugging (no root) |
 | Termux | Linux environment on Android — runs sshd, adb, the boot script |
 
 ---
@@ -24,13 +22,11 @@ This document gets a developer from a clean Android + macOS install to a fully w
 | App | Package | Version | Source |
 |-----|---------|---------|--------|
 | Android | — | 16 (SDK 36) | — |
-| Tasker | `net.dinglisch.android.taskerm` | 6.7.5-beta | Play Store / TaskerNet |
+| AutoJs6 | `org.autojs.autojs6` | 6.7.0 | GitHub (see below) |
 | Shizuku (thedjchi fork) | `moe.shizuku.privileged.api` | 13.6.0.r1349-thedjchi-beta | GitHub (see below) |
 | Termux | `com.termux` | 2026.06.21 | Google Play or F-Droid |
 | Termux:Boot | `com.termux.boot` | 0.8.1 | F-Droid / GitHub |
 | Termux:API (app) | `com.termux.api` | 0.53.0 | F-Droid / GitHub |
-| Termux:Tasker | `com.termux.tasker` | 0.9.0 | F-Droid / GitHub |
-| AutoInput (Tasker plugin) | `com.joaomgcd.autoinput` | 3.0.12 | Play Store (paid) |
 
 ### Termux packages (installed inside Termux via `pkg`)
 | Package | Version |
@@ -68,7 +64,7 @@ This document gets a developer from a clean Android + macOS install to a fully w
 
 ### 1.2 Install Android apps
 
-Install the following apps. Order matters — Shizuku must be installed before Tasker so Tasker can request the Shizuku permission.
+Install the following apps.
 
 #### Shizuku — thedjchi fork (CRITICAL: must be this fork)
 
@@ -109,44 +105,9 @@ https://github.com/termux/termux-api
 ```
 Or F-Droid: search "Termux:API".
 
-#### Termux:Tasker
+#### AutoJs6 (stayturgid watchdog)
 
-```
-https://github.com/termux/termux-tasker
-```
-Or F-Droid: search "Termux:Tasker".
-
-#### Tasker
-
-Play Store: search "Tasker" by joaomgcd. (Or purchase from https://tasker.joaomgcd.com — direct APK, no Play Store required.)
-
-Current version: **6.7.5-beta**. Use the beta channel for the latest features.
-
-#### AutoInput (Tasker plugin, paid)
-
-Play Store: search "AutoInput" by joaomgcd. Required for the auto-update import flow (clicks "IMPORT" / "OVERWRITE" in Tasker's import UI).
-
-Current version: **3.0.12**.
-
-##### AutoInput crash-loop on Android 16 ("AutoInput keeps stopping") — root cause + fix (2026-07-05)
-
-Confirmed from the system crash log (`dumpsys dropbox --print`), not guessed:
-```
-ForegroundServiceStartNotAllowedException: Service.startForeground() not allowed
-due to mAllowStartForeground false: com.joaomgcd.autoinput/.service.ServiceDismissKeyguard
-```
-AutoInput's **"Auto Dismiss Keyguard"** standalone feature (Standalone Features → Auto Dismiss Keyguard, was **ON**) starts `ServiceDismissKeyguard` as a foreground service on **every screen-on**. Android 12+/16 blocks a background app from starting an FGS (`mAllowStartForeground false`), so it throws and crash-loops on each screen-on — independent of any Tasker automation.
-
-**Fixes applied (Pixel 7a):**
-1. **Battery-optimization exemption** for `com.joaomgcd.autoinput`, `net.dinglisch.android.taskerm`, `com.joaomgcd.taskersettings` (`dumpsys deviceidle whitelist +<pkg>`; or Settings → App → Battery → Unrestricted). Battery-exempt apps are allowed the background FGS start, which is the root-cause fix. After this, screen-on no longer reproduced the crash.
-2. **"Accessibility In Foreground" was already ON** — this is the sanctioned Android 8+ way to keep the accessibility service alive (persistent low-priority FGS notification). It is the *better* alternative to AutoInput's **"Enable Just When Needed"** (which was OFF): for a watchdog that must invoke AutoInput on-demand at unpredictable times, keeping the service alive beats spinning it up per action (slower, and toggling the service touches `enabled_accessibility_services` — the list we must never clobber). So we deliberately kept Foreground ON and did **not** enable Just-When-Needed.
-3. **Definitive fallback if it ever recurs:** disable **Auto Dismiss Keyguard** (removes the crashing service entirely — it wasn't working on Android 16 anyway), and/or update AutoInput to the **latest beta** (Play Store → AutoInput → join beta; the dev patches `foregroundServiceType`/FGS-start changes there first). Manual step — AutoInput is a paid Play app, so beta enrollment is via the Play listing.
-
-**Watchdog design implication:** don't rely on AutoInput dismissing the keyguard from the background. When the watchdog needs UI interaction, prefer the shell path (`adb -s localhost:5555 shell input …` while 5555 is up); reserve AutoInput for the catastrophic (5555-down) case and, if needed there, wake the screen rather than trigger the crash-prone auto-dismiss.
-
-#### AutoJs6 (stayturgid watchdog alternative)
-
-JavaScript automation engine — mutually exclusive alternative to Tasker+AutoInput for the watchdog layer. See `autojs6/README.md`.
+JavaScript automation engine — runs the stayturgid watchdog (accessibility UI repair + Termux bridge). See `autojs6/README.md`.
 
 **Source:** https://github.com/SuperMonster003/AutoJs6/releases
 
@@ -260,58 +221,19 @@ If the command hangs or errors, make sure the Termux:API app is installed (secti
 
 ---
 
-### 1.5 Grant Tasker `WRITE_SECURE_SETTINGS`
+### 1.5 Install and configure the AutoJs6 watchdog
 
-Tasker needs this permission to enforce `adb_enabled` and `adb_wifi_enabled` settings. It cannot be granted from the UI — must be done via ADB from the Mac.
-
-Connect device via USB, then:
+All of this is scripted from the Mac (device connected via USB or wireless ADB):
 
 ```bash
-adb -s 35261JEHN12374 shell pm grant net.dinglisch.android.taskerm android.permission.WRITE_SECURE_SETTINGS
+./autojs6/mac/setup-autojs6.sh p7a     # install/verify AutoJs6, grant permissions, deploy project
+./autojs6/mac/set-automation-mode.sh p7a
+./autojs6/mac/start-watchdog.sh p7a
 ```
 
-Verify in Tasker: **Prefs → Android → Android Settings** should show `WRITE_SECURE_SETTINGS` as granted.
+On-device manual steps (once): enable the AutoJs6 accessibility service when prompted, and grant **Run commands in Termux environment** (Termux → Settings → allow-external-apps must be true — the Ansible deploy sets this).
 
----
-
-### 1.6 ~~Import the Tasker project~~ (REMOVED 2026-07-06)
-
-> **Deprecated.** Tasker is no longer part of stayturgid. Install the AutoJs6 watchdog instead: [autojs6/README.md](autojs6/README.md) → `setup-autojs6.sh` / `start-watchdog.sh`. The steps below are kept only as historical reference.
-
-**Option A — from TaskerNet (easiest):**
-
-Open this URL on the device (or tap from the README link):
-```
-https://taskernet.com/shares/?user=AS35m8lVOCqN0zylSnJKY8pBzCqkgDU8h624gr9CWqSAxD9myEt6n3OjyI4TtJhMtmw%2B&id=Project%3Astayturgid
-```
-Tasker will offer to import the project.
-
-**Option B — from XML file:**
-
-```bash
-adb push ~/stayturgid/tasker/stayturgid.prj.xml /sdcard/Tasker/projects/stayturgid.prj.xml
-```
-In Tasker: long-press the project tab → **Import Project** → select `stayturgid`.
-
-**After importing:**
-- Verify both profiles are active: `ADB_Boot_Restore` and `ADB_Interval_Check`
-- Tap **Run** on `ADB_Core_Watchdog` manually to confirm it executes without errors
-
----
-
-### 1.7 Import the update-check task (optional but recommended)
-
-```bash
-adb push ~/stayturgid/tasker/auto-update/stayturgid_update_check.tsk.xml /sdcard/Tasker/tasks/stayturgid_Update_Check.tsk.xml
-```
-
-In Tasker: go to the **TASKS** tab → long-press on any existing task (or blank space) → tap **Import Task** → select `stayturgid_Update_Check`.
-
-> Note: The file goes to `/sdcard/Tasker/tasks/` (not `/sdcard/Tasker/`). The Import Task picker shows this directory by default.
-
-> If reimporting after a change: same procedure — Tasker will create a new copy (doesn't auto-overwrite). If a duplicate appears with the same name, delete the old one in the TASKS list.
-
-Add a trigger profile: in the **PROFILES** tab, tap **+** → Time → 10:00 → Every day → set Entry task to `stayturgid_Update_Check`.
+See [autojs6/README.md](autojs6/README.md) for details.
 
 ---
 
@@ -366,7 +288,7 @@ d(resourceId='com.foo:id/bar').exists         # check if element exists
 d.screenshot('/tmp/screen.png')               # take screenshot
 ```
 
-> **Gotcha:** If `d(text='SomeButton').exists` returns False when the button is visible, Tasker likely has a dismissable popup (e.g., "NLI: warning: disconnected") covering the UI. Click `d(text='OK').click()` to dismiss it first.
+> **Gotcha:** If `d(text='SomeButton').exists` returns False when the button is visible, another app may have a dismissable popup covering the UI. Click `d(text='OK').click()` to dismiss it first.
 
 ### 2.3 SSH key for Termux
 
@@ -451,33 +373,20 @@ ssh -i ~/.ssh/termux_key -p 8022 localhost
 
 ## Part 4 — Development workflow
 
-### Making Tasker changes
+### Making watchdog changes
 
-1. Edit the Tasker project on the device in the Tasker UI.
-2. Export the project: **long-press project tab → Export → As File** → saves to `/sdcard/Tasker/`.
-3. Pull to Mac:
+1. Edit the JavaScript in `autojs6/` on the Mac.
+2. Deploy to the device and restart the watchdog:
    ```bash
-   adb pull /sdcard/Tasker/stayturgid.prj.xml ~/stayturgid/tasker/stayturgid.prj.xml
+   ./autojs6/mac/deploy.sh p7a
+   ./autojs6/mac/start-watchdog.sh p7a
    ```
+3. Check the log: `adb shell cat /sdcard/stayturgid_watchdog.log` (or the AutoJs6 console).
 4. Commit and push.
-
-> **XML format gotcha:** Tasker action IDs must be strictly sequential integers (`act0`, `act1`, `act2`...). Non-sequential IDs (e.g. `act3a`) are silently ignored on import. Always export from Tasker rather than editing the XML by hand unless you're careful about this.
-
-#### Reliable task import (use `tasker-io/`, not the manual reimport dance)
-
-Editing a project XML on the Mac then getting it back onto the device used to require the fragile "delete all profiles → delete all tasks → delete project shell → Import Project" UI dance (top-bar trash/export icons shift position with the selection count; context menus pop up unpredictably). **Don't do that for task updates.** Instead use the `tasker-io/` helper, which drives Tasker's `ActivityImportTaskerDataFromXml` **intent** with a DocumentsProvider content URI — a single-task **overwrite** import with only text-button dialogs:
-
-```bash
-cd tasker-io
-python3 tasker_io.py <serial> wrap-task ../tasker/stayturgid.prj.xml task21 /tmp/ADB_Core_Watchdog.tsk.xml
-python3 tasker_io.py <serial> import-task /tmp/ADB_Core_Watchdog.tsk.xml
-```
-
-The task keeps its `id`, so profile references stay wired. See `tasker-io/README.md` for the full method, prior-art notes (Taskomater tools; no clean root-free import exists), the gotcha table, and the full-project reimport fallback for structural changes.
 
 ### Using uiautomator2 for device automation
 
-Use for: tapping buttons in Tasker UI, reading screen state, automating setup steps.
+Use for: tapping buttons in app UIs, reading screen state, automating setup steps.
 
 ```python
 import sys
@@ -504,196 +413,30 @@ termux-sensor -s "Accelerometer" -n 1
 
 ### Publishing an update
 
-The update flow uses GitHub as the source of truth. When you push a new version of `stayturgid.prj.xml` to `master`, any device running `stayturgid_Update_Check` will detect it on the next daily check and offer to install it automatically via AutoInput.
+GitHub `master` is the source of truth; updates are pushed to devices from the Mac.
 
-#### Release steps
-
-1. Make changes and test them on device.
-2. Export the project from Tasker: **long-press project tab → Export → As File** → saves to `/sdcard/Tasker/`.
-3. Pull to Mac and commit:
+1. Make changes and test them on a device (`./autojs6/mac/deploy.sh`, `./ansible/mac/deploy-termux.sh`).
+2. Bump `version.json` (`version` + `changelog`) at the repo root.
+3. Commit and push.
+4. Deploy to the fleet:
    ```bash
-   adb pull /sdcard/Tasker/stayturgid.prj.xml ~/stayturgid/tasker/stayturgid.prj.xml
-   cd ~/stayturgid
-   # Bump version in auto-update task (see below), then:
-   git add tasker/ && git commit -m "Release vX.Y"
-   git push
-   ```
-4. Bump `version.json` at the repo root and the matching `"version"` / `"changelog"` in `act6` of `tasker/auto-update/stayturgid_update_check.tsk.xml` (and the embedded copy in `tasker/stayturgid.prj.xml`). Set `%raw_xml_url` to the GitHub raw URL of `stayturgid.prj.xml` if you change download targets:
-   ```
-   https://raw.githubusercontent.com/djbclark/stayturgid/master/tasker/stayturgid.prj.xml
+   ./ansible/mac/deploy-termux.sh          # Termux layer, all hosts
+   ./autojs6/mac/deploy.sh p7a && ./autojs6/mac/deploy.sh s24
    ```
 
-#### How the auto-update works (GitHub-only)
-
-The update check task (`stayturgid_Update_Check`) uses GitHub as the single source of truth:
-
-1. **Version check:** HTTP GET `version.json` from GitHub raw; regex-extract `"version"`; compare to local `act6` version.
-2. **If newer:** Notification with Update / Skip buttons.
-3. **Update tapped:** Downloads task/project XML from GitHub → import via `content://` URI + AutoInput dialog taps (see HANDOFF.md for coordinates).
-4. **Skip tapped:** Dismiss notification.
+Devices can optionally run `termux/check-repo-version.sh` (cron or manual) to get a notification when GitHub's `version.json` is newer than the last deployed version:
 
 ```bash
 curl -sS https://raw.githubusercontent.com/djbclark/stayturgid/master/version.json
 ```
 
-#### TaskerNet (optional — human install only)
-
-TaskerNet share remains for one-click manual install. **Auto-update does not use TaskerNet** for version detection.
-
-Fetch published XML for debugging (not used by update check):
-
-```bash
-curl "https://taskernet.com/_ah/api/datashare/v1/sharedata/AS35m8lVOCqN0zylSnJKY8pBzCqkgDU8h624gr9CWqSAxD9myEt6n3OjyI4TtJhMtmw%2B/Project%3Astayturgid?a=0&xml=true"
-```
-
-#### TaskerNet tag constraint (if re-publishing)
-
-Tags must exist in the TaskerNet tag database — free-text tags return HTTP 400. Use the magnifying-glass "Choose" button in Tasker's share UI. Current stayturgid tags: **Security, Shizuku, WiFi**.
-
 ---
 
-## Part 5 — Tasker XML reference (discovered 2026-06-30)
-
-These action codes and arg layouts are confirmed from live Tasker 6.7.5-beta exports on the development device. You can use them to edit `.tsk.xml` files directly on Mac without touching the Tasker UI.
-
-### Action codes
-
-| Action | Code | Notes |
-|--------|------|-------|
-| Comment | 300 | arg0=text (label only) |
-| If | 37 | Condition in `<ConditionList>` |
-| Else/If | 39 | arg0=var, arg1=value, arg2=op |
-| End If | 40 | no args |
-| Goto | 135 | — |
-| Regex Match | 396 | — |
-| Variable Set | 547 | arg0=name, arg1=value |
-| JavaScript | 129 | arg0=script |
-| Run Shell | 123 | arg0=cmd, arg1=root, arg2=timeout, arg3=output_var, arg6=1(store) |
-| HTTP Request | 339 | see below |
-| Wait | 30 | **arg0=ms, arg1=secs, arg2=mins, arg3=hours, arg4=days** |
-| Task Stop | 137 | arg0=0 |
-| Go Home | 25 | arg0=page (0=main) |
-| Delete File | 406 | arg0=path, arg1=0 |
-| AutoInput plugin | **1732635924** | see below (version-specific code for Tasker 6.7.5-beta) |
-| Show Notification | 523 | — |
-| Cancel Notification | 513 | — |
-| Cancel Notification by Tag | 779 | arg0=tag |
-| Variable Flash | 548 | arg0=text |
-| Screen On/Off | 512 | — |
-| Task | 130 | call another task |
-
-### Custom Setting action (code 235) — namespace mapping GOTCHA (discovered 2026-07-05)
-
-`arg0` selects the settings namespace from the dropdown in **alphabetical order**:
-
-| arg0 | Namespace |
-|------|-----------|
-| 0 | **Global** |
-| 1 | Secure |
-| 2 | System |
-
-Do NOT assume 0=system. The original watchdog wrote `adb_enabled`/`adb_wifi_enabled` with arg0=2 (System) — silently useless, since **both settings live in Global** (verified on S24: `settings get global adb_enabled` → 1, secure/system → null). This was why the watchdog never actually restored ADB. Writing to Global/Secure requires `pm grant net.dinglisch.android.taskerm android.permission.WRITE_SECURE_SETTINGS`.
-
-Other args: arg1=setting name, arg2=value, arg3=0.
-
-### XML comments break Tasker import (discovered 2026-07-02)
-
-Tasker's XML parser does NOT handle `<!-- ... -->` comments inside project/task XML. A file containing them imports as an **empty project** (structure created, no tasks/profiles, no error shown). Strip all comments before pushing:
-
-```bash
-python3 -c "import re,sys; p=sys.argv[1]; s=open(p).read(); open(p,'w').write(re.sub(r'<!--.*?-->','',s,flags=re.DOTALL))" file.prj.xml
-```
-
-### Import fails with "a project with that name already exists" — ghost project GOTCHA (discovered 2026-07-05)
-
-Tasker's project-tab **Delete → "Delete Contents"** does NOT fully remove the project — the project shell survives in Tasker's internal data (its tab may even disappear from the UI while tasks/profiles remain hidden under it). Any later import of a same-named project then fails; via My Files/content-URI the failure is **silent**, via long-press project tab → **Import Project** you at least get the real error message.
-
-Reliable clean reimport sequence:
-1. Delete all profiles first (long-press → select all → trash; tasks can't be deleted while profiles reference them)
-2. Delete all tasks
-3. Long-press project tab → Delete → **Keep Contents** (this removes the shell)
-4. Push the XML to `/sdcard/Tasker/projects/`
-5. Long-press any project tab → **Import Project** → pick the file (this path shows real errors, unlike the My Files → Open-with-Tasker path)
-
-Also: editing `/sdcard/Tasker/projects/*.prj.xml` directly does nothing — Tasker only reads those files during an explicit import; live data is in the app's private storage.
-
-### Wait action — CRITICAL GOTCHA
-
-The Wait action (code 30) has a counter-intuitive arg order:
-- `arg0` = **milliseconds**
-- `arg1` = **seconds**
-- `arg2` = **minutes**
-- `arg3` = **hours**
-- `arg4` = **days**
-
-A 1-second wait:
-```xml
-<Action sr="actX" ve="7">
-    <code>30</code>
-    <Int sr="arg0" val="0"/>
-    <Int sr="arg1" val="1"/>
-    <Int sr="arg2" val="0"/>
-    <Int sr="arg3" val="0"/>
-    <Int sr="arg4" val="0"/>
-</Action>
-```
-
-A 3-second wait: same but `arg1` = 3.
-
-### HTTP Request action (code 339)
-
-Key args:
-- `arg1` = method (0=GET, 1=POST, 2=HEAD, 3=PUT, 4=DELETE, 5=PATCH)
-- `arg2` = URL
-- `arg3` = headers (optional)
-- `arg4` = query params (optional)
-- `arg5` = unknown (leave empty)
-- `arg6` = unknown (leave empty)
-- **`arg7` = file/directory to save output** (set this to save the response to a file)
-- `arg8` = timeout in seconds (60 recommended)
-- `arg9–arg12` = flags (0, 0, 0, 1 — copy from existing action)
-
-Output variable `%http_file_output` always contains the full absolute path of the saved file.
-
-### AutoInput Gestures action (code 778682267) — used for import dialog clicks
-
-The auto-update task uses **AutoInput Gestures** (not AutoInput Actions/text-click) to click the import dialogs. This uses AutoInput's AccessibilityService to perform touch gestures at specific screen coordinates.
-
-**Key property:** Coordinates are stored **inline** in the `parameters` JSON field inside the Tasker Bundle. AutoInput reads them directly at runtime — no device-specific DB lookup, so fresh UUIDs work on any device.
-
-```xml
-<parameters>{"endPoint":"X,Y","initialPoint":"X,Y","duration":"100","generatedValues":{}}</parameters>
-```
-
-Setting `initialPoint == endPoint` performs a tap (zero-distance swipe).
-
-**Dialog button coordinates (Google Pixel 7a, 1080×2400, Android 16):**
-
-| Dialog | Button | Coordinates |
-|--------|--------|-------------|
-| 1 "Are you sure?" | YES | (894, 2058) |
-| 2 "Task already exists, overwrite?" | YES | (894, 1385) |
-| 3 "Import To Project" | stayturgid row | (493, 1423) |
-| 4 "Do you want to run?" | NO | (726, 1385) |
-
-See `HANDOFF.md` → "AutoInput Gestures Bundle structure" for the full XML template.
-
-**AutoInput Actions text-click (code 1732635924) — AVOID**
-
-The text-click action requires a UUID that matches a config stored in AutoInput's on-device DB. This UUID is device-specific (must be created via the AutoInput UI) and cannot be constructed from scratch. Use the Gestures action instead for new click automations.
-
-**Android 16 click mechanisms — what fails from Tasker's background process:**
-- `uiautomator dump` / `input tap` — permission denied
-- `sendevent` — SELinux blocks even with gid=1004
-- `am broadcast FIRE_SETTING` with flat extras — AutoInput ignores (needs nested Bundle)
-
----
-
-## Part 5b — Cross-device testing safety rules (discovered 2026-07-01)
+## Part 5 — Cross-device testing safety rules (discovered 2026-07-01)
 
 ### NEVER replace `enabled_accessibility_services` — always append
 
-`settings put secure enabled_accessibility_services <value>` **replaces the entire list**. Running it with just one service wipes every other accessibility service on the device (screen readers, switch access, AutoInput, Tasker, Wispr Flow, Buzzkill — all gone silently).
+`settings put secure enabled_accessibility_services <value>` **replaces the entire list**. Running it with just one service wipes every other accessibility service on the device (screen readers, switch access, automation apps, Wispr Flow, Buzzkill — all gone silently).
 
 **Protocol when you need to enable an accessibility service for testing:**
 
@@ -747,7 +490,7 @@ adb shell settings get global package_verifier_enable
 
 ---
 
-## Part 5b-s24 — Samsung Galaxy S24 specific setup (discovered 2026-07-01)
+## Part 5b — Samsung Galaxy S24 specific setup (discovered 2026-07-01)
 
 ### Shizuku: "Start via Wireless debugging" fails on Samsung
 
@@ -802,41 +545,9 @@ adb -s RFCX219CHKA shell "run-as com.termux /data/data/com.termux/files/usr/bin/
 
 **Termux:Boot script** (already includes env vars — see `termux/boot/start-adb.sh`).
 
-### Tasker import on Samsung/Android 16: `am start -d content://` fails
+### `am start -d content://` fails from shell on Samsung/Android 16
 
-On Samsung Android 16, `adb shell am start -d content://com.android.externalstorage...` to import Tasker XML files fails because UID 2000 (shell) cannot grant URI permissions for ExternalStorageProvider. The `--grant-read-uri-permission` flag doesn't help.
-
-**Workaround for PROJECT import:** works via Tasker's built-in file picker:
-```
-Long-press project tab (home icon, bottom of Tasker screen) → Import Project → select file
-```
-Project file must be in `/sdcard/Tasker/projects/` first (push via ADB, it works fine).
-
-**Workaround for TASK import:** Tasker doesn't have a built-in task file picker. Wrap the `.tsk.xml` in a proper project XML (with a `<Project>` element listing it), push as `.prj.xml` to `/sdcard/Tasker/projects/`, then import as a project:
-```python
-# Wrap task in project XML
-prj_xml = '''<?xml version="1.0" encoding="UTF-8"?>
-<TaskerData sr="" dvi="1" tv="6.7.5-beta">
-    <Project sr="proj0" ve="2">
-        <cdate>TIMESTAMP_MS</cdate>
-        <id>UUID</id>
-        <name>ImportName</name>
-        <tids>TASK_ID</tids>
-    </Project>
-    TASK_XML_HERE
-</TaskerData>'''
-```
-The task's `sr` attribute must match the ID in `<tids>`. Avoids ID collision by using a high number (999).
-
-### Tasker permissions needed on Samsung (grant via ADB)
-
-```bash
-adb shell pm grant net.dinglisch.android.taskerm android.permission.WRITE_SECURE_SETTINGS
-adb shell pm grant net.dinglisch.android.taskerm android.permission.READ_PHONE_STATE
-adb shell pm grant net.dinglisch.android.taskerm android.permission.READ_CALL_LOG
-adb shell dumpsys deviceidle whitelist +net.dinglisch.android.taskerm
-adb shell appops set net.dinglisch.android.taskerm MANAGE_EXTERNAL_STORAGE allow
-```
+On Samsung Android 16, `adb shell am start -d content://com.android.externalstorage...` fails because UID 2000 (shell) cannot grant URI permissions for ExternalStorageProvider. The `--grant-read-uri-permission` flag doesn't help — apps needing file input must use their own file pickers.
 
 ### Termux packages: must match signing source
 
@@ -844,8 +555,7 @@ When Termux main app is installed from GitHub releases (via Obtainium), all add-
 
 GitHub release pages:
 - Termux:Boot — `github.com/termux/termux-boot/releases`
-- Termux:API — `github.com/termux/termux-api/releases`  
-- Termux:Tasker — `github.com/termux/termux-tasker/releases`
+- Termux:API — `github.com/termux/termux-api/releases`
 
 If Play Protect blocks the install: `adb shell settings put global package_verifier_enable 0` before installing, re-enable after.
 
@@ -902,18 +612,19 @@ If port 5555 is not open after 60s:
 ## Repo structure
 
 ```
-tasker/
-  stayturgid.prj.xml                    — full Tasker project XML
-  ADB_Core_Watchdog.tsk.xml             — standalone task XML
-  auto-update/
-    stayturgid_update_check.tsk.xml     — update-check task (pre-configured for stayturgid)
-    Task_Auto_Update.tsk.xml            — upstream original from TaskerNet (reference)
-    README.md                           — auto-update integration docs
-termux/boot/
-  start-adb.sh                          — deploy to ~/.termux/boot/ on device
+autojs6/
+  main.js  lib/  devices/  scripts/     — AutoJs6 watchdog project
+  mac/                                  — deploy, setup, grant-shizuku, start-watchdog
+termux/
+  boot/start-adb.sh                     — deploy to ~/.termux/boot/ on device
+  stayturgid-repair.sh                  — Termux-side self-heal
+  check-repo-version.sh                 — optional update notifier
+ansible/                                — idempotent Termux userland deploy
 mac/
   adb-reconnect.sh                      — Mac keepalive script
   com.djbclark.stayturgid.adb-reconnect.plist  — launchd agent config
+obtainium/                              — APK tracking catalogs
+shared/mac/                             — resolve-adb.sh and common helpers
 HACKING.md                              — this file
 HANDOFF.md                              — AI session handoff prompt
 README.md                               — user-facing setup guide

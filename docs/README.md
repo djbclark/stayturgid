@@ -19,14 +19,13 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 |-----|----------|
 | [README.md](../README.md) | Everyone — hub + full-stack quick path |
 | [HACKING.md](../HACKING.md) | Developers — clean install, Obtainium, Termux swap |
-| [HANDOFF.md](../HANDOFF.md) | AI agents / maintainers — state, roadmap, Tasker removal |
+| [HANDOFF.md](../HANDOFF.md) | AI agents / maintainers — state, roadmap, device fleet |
 
 ## Other
 
 | Path | Notes |
 |------|--------|
 | [version.json](../version.json) | Repo release version; optional `termux/check-repo-version.sh` notifier |
-| [.maestro/playbooks/](../.maestro/playbooks/) | Legacy Maestro flows (debug only; Tasker playbooks removed) |
 
 ## Typical combinations
 

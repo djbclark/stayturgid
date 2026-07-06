@@ -2,7 +2,7 @@
 # Optional: notify when GitHub version.json is newer than the last seen version.
 # Deploy to ~/check-repo-version.sh; run from cron or manually after git pull on Mac.
 #
-# stayturgid no longer uses Tasker for auto-update — use Ansible deploy or pull termux scripts via SSH.
+# Updates are applied from the Mac (Ansible deploy or SSH pull); this script only notifies.
 set -euo pipefail
 
 export PATH=/data/data/com.termux/files/usr/bin:$PATH

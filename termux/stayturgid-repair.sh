@@ -1,12 +1,12 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # stayturgid-repair.sh — Termux-side self-heal for the remote-access stack.
-# Invoked by the Tasker watchdog (via Termux:Tasker) and by the boot self-heal
-# loop. Uses Shizuku's shell-privileged adbd on localhost:5555 for privileged
-# checks/repairs (Termux's own app uid can't see shell-owned procs or all
-# sockets, so detection goes through that shell). No AutoInput / no auth token.
+# Invoked by the AutoJs6 watchdog (RUN_COMMAND / repair-bridge) and by the boot
+# self-heal loop. Uses Shizuku's shell-privileged adbd on localhost:5555 for
+# privileged checks/repairs (Termux's own app uid can't see shell-owned procs or all
+# sockets, so detection goes through that shell). No UI automation / no auth token.
 #
 # Exit 0 = healthy after repair; 1 = a subsystem still down, needs a higher tier
-# (Tasker+AutoInput or reboot). Prints one STATUS line for the caller.
+# (AutoJs6 UI repair or reboot). Prints one STATUS line for the caller.
 
 export PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/sbin:$PATH
 export PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
@@ -80,7 +80,7 @@ if adb connect localhost:5555 >/dev/null 2>&1 && \
     $SH "setprop service.adb.tcp.port 5555" >/dev/null 2>&1   # keep 5555 sticky across adbd restarts
 else
     PORT=CLOSED_NO_SHELL; rc=1
-    log "5555 CLOSED / no privileged shell — escalate to Tasker+AutoInput or reboot"
+    log "5555 CLOSED / no privileged shell — escalate to AutoJs6 UI repair or reboot"
 fi
 
 # --- 3. shizuku (check via privileged shell; Termux uid can't see shell procs) ---

@@ -1,6 +1,5 @@
 /**
- * Test Termux repair bridge only — does NOT enforce mode guard.
- * Run from AutoJs6 while Tasker can stay active (tests bridge, not full watchdog).
+ * Test the Termux repair bridge in isolation (bridge only, not the full watchdog).
  */
 "auto";
 

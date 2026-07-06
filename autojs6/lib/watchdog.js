@@ -23,7 +23,7 @@ function runCycle(trigger, profile) {
         );
     }
 
-    // Real-time Termux repair (like Termux:Tasker act0)
+    // Real-time Termux repair via RUN_COMMAND / trigger file
     var invoke = termux.invokeRepair();
     var status = invoke.fresh ? log.latestRepairStatus() : null;
     var port = status ? status.port : "BRIDGE_FAIL";

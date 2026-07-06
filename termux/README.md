@@ -53,5 +53,5 @@ tail -f /sdcard/stayturgid_watchdog.log
 ## Related docs
 
 - [HACKING.md §1.4](../HACKING.md) — manual Termux setup
-- [HANDOFF.md](../HANDOFF.md) — repair architecture, Tasker removal notes
+- [HANDOFF.md](../HANDOFF.md) — repair architecture
 - [autojs6/README.md](../autojs6/README.md) — watchdog layer

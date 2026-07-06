@@ -1,6 +1,6 @@
 # Ansible — Termux userland
 
-Idempotent deploy of the **Termux layer only** over SSH: packages, scripts, boot hooks, `termux.properties`, optional mode/device files. No Tasker, AutoJs6, Obtainium, or Shizuku automation in this playbook.
+Idempotent deploy of the **Termux layer only** over SSH: packages, scripts, boot hooks, `termux.properties`, optional mode/device files. No AutoJs6, Obtainium, or Shizuku automation in this playbook.
 
 **Full project:** [../README.md](../README.md) · **Docs index:** [../docs/README.md](../docs/README.md)
 

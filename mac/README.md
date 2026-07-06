@@ -1,6 +1,6 @@
 # Mac-side tools — ADB keepalive and outage alerts
 
-Scripts and launchd plists for the **Mac control node**. Fully usable without Tasker, AutoJs6, or Ansible — you only need `adb` and (optionally) SSH to Termux.
+Scripts and launchd plists for the **Mac control node**. Fully usable without AutoJs6 or Ansible — you only need `adb` and (optionally) SSH to Termux.
 
 **Full project:** [../README.md](../README.md)
 

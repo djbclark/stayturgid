@@ -1,6 +1,6 @@
 ---
 # Idempotent Termux userland deploy for stayturgid.
-# Scope: scripts, boot hooks, packages — NOT Shizuku/Tasker/Obtainium/OS settings.
+# Scope: scripts, boot hooks, packages — NOT Shizuku/AutoJs6/Obtainium/OS settings.
 #
 # Usage (from repo root):
 #   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/termux-userland.yml --limit s24

@@ -32,8 +32,7 @@ function findStartButton() {
 
 /**
  * Catastrophic recovery: launch Shizuku manager and tap the wireless-debug
- * "Start" button via accessibility (replaces Tasker+AutoInput gesture).
- * Requires an unlocked screen — same caveat as the Tasker path.
+ * "Start" button via accessibility. Requires an unlocked screen.
  */
 function tapStartButton(profile) {
     if (!device.isScreenOn()) {

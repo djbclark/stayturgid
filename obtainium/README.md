@@ -1,6 +1,6 @@
 # Obtainium — GitHub APK tracking and updates
 
-JSON catalogs and Mac helpers for [Obtainium](https://github.com/ImranR98/Obtainium). **Standalone:** import a catalog on any Android device with Obtainium installed — no Tasker, Termux, or stayturgid watchdog required.
+JSON catalogs and Mac helpers for [Obtainium](https://github.com/ImranR98/Obtainium). **Standalone:** import a catalog on any Android device with Obtainium installed — no Termux or stayturgid watchdog required.
 
 **Full project:** [../README.md](../README.md) · **Docs index:** [../docs/README.md](../docs/README.md)
 
@@ -57,7 +57,6 @@ In Obtainium → Add App, paste the GitHub URL:
 | Termux | `https://github.com/termux/termux-app` |
 | Termux:API | `https://github.com/termux/termux-api` |
 | Termux:Boot | `https://github.com/termux/termux-boot` |
-| Termux:Tasker | `https://github.com/termux/termux-tasker` |
 | Termux:Styling | `https://github.com/termux/termux-styling` |
 | Termux:Widget | `https://github.com/termux/termux-widget` |
 | Termux:Float | `https://github.com/termux/termux-float` |
@@ -72,6 +71,6 @@ Clickable redirect: http://apps.obtainium.imranr.dev/redirect.html?r=obtainium:/
 
 ## Policy
 
-- **Play Store apps** (Tasker, AutoInput) — stay on Play; no Obtainium.
+- **Play Store apps** — stay on Play; no Obtainium.
 - **GitHub / sideload APKs** — always add to Obtainium before considering install done.
 - `autojs6/mac/setup-autojs6.sh` runs `sync-to-device.sh p7a autojs6` automatically after install.

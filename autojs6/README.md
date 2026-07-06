@@ -1,6 +1,6 @@
 # stayturgid — AutoJs6 watchdog
 
-JavaScript watchdog using [AutoJs6](https://github.com/SuperMonster003/AutoJs6). **Only** automation stack in this repo (Tasker removed 2026-07-06). Depends on [termux/](../termux/README.md) for repair scripts.
+JavaScript watchdog using [AutoJs6](https://github.com/SuperMonster003/AutoJs6) — the automation stack for stayturgid. Depends on [termux/](../termux/README.md) for repair scripts.
 
 **Full project:** [../README.md](../README.md) · [docs/README.md](../docs/README.md)
 
@@ -29,9 +29,6 @@ Does **not** replace: Termux:Boot self-heal, Shizuku, Mac `adb-reconnect.sh`, Ob
 ./mac/setup-autojs6.sh p7a p7a    # or s24 s24
 ./mac/set-automation-mode.sh p7a  # Shizuku grant for AutoJs6
 ./mac/start-watchdog.sh p7a
-
-# Purge legacy stayturgid Tasker exports (does not uninstall Tasker):
-./mac/purge-stayturgid-from-tasker.sh p7a
 ```
 
 Scripts use [shared/mac/resolve-adb.sh](../shared/mac/resolve-adb.sh) (USB when plugged in, else Tailscale).
@@ -62,10 +59,10 @@ Scripts use [shared/mac/resolve-adb.sh](../shared/mac/resolve-adb.sh) (USB when 
 ```
 autojs6/
   main.js  lib/  devices/  scripts/
-  mac/     — deploy, setup, start-watchdog, purge-stayturgid-from-tasker
+  mac/     — deploy, setup, start-watchdog, grant-shizuku
 ```
 
 ## Related
 
 - [termux/README.md](../termux/README.md)
-- [HANDOFF.md](../HANDOFF.md) — Tasker removal research
+- [HANDOFF.md](../HANDOFF.md) — architecture and roadmap

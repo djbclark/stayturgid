@@ -2,8 +2,6 @@
 
 Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android phones** across reboots, and makes them reachable over Tailscale via **ADB + SSH**. Each piece below is a **separate module** — use only what you need.
 
-**Watchdog (2026-07-06):** **AutoJs6 only** on both fleet phones. Tasker, AutoInput, Termux:Tasker, and `tasker-io` were removed from this repo; stayturgid no longer installs or configures them.
-
 ---
 
 ## Modules
@@ -25,7 +23,7 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 |----------|---------|
 | [docs/README.md](docs/README.md) | Documentation index |
 | [HACKING.md](HACKING.md) | Developer setup, clean install, Obtainium, Termux swap |
-| [HANDOFF.md](HANDOFF.md) | Maintainer / AI handoff — state, roadmap, Tasker removal notes |
+| [HANDOFF.md](HANDOFF.md) | Maintainer / AI handoff — state, roadmap, device fleet |
 | [version.json](version.json) | Repo release version (Ansible / manual deploy) |
 
 ---

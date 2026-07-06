@@ -1,9 +1,0 @@
-appId: com.termux.boot
----
-- launchApp:
-    appId: com.termux.boot
-    clearState: false
-- takeScreenshot: /tmp/maestro_termuxboot_1
-- waitForAnimationToEnd:
-    timeout: 3000
-- takeScreenshot: /tmp/maestro_termuxboot_2

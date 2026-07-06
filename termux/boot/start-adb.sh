@@ -25,11 +25,10 @@ sleep 30
 adb connect 127.0.0.1:5555 || true
 adb tcpip 5555 || true
 
-# Keep sshd alive — Tasker watchdog checks its status and notifies on failure,
+# Keep sshd alive — the AutoJs6 watchdog checks its status and notifies on failure,
 # but this loop is the self-healing mechanism (runs as Termux user, right UID).
-# Also fires a low-battery alarm: if the device is discharging below the
-# threshold, the whole remote-access stack dies with the battery, so warn
-# loudly and repeatedly (Tasker can't reliably read charging state; Termux:API can).
+# Also fires a low-battery alarm via Termux:API: if the device is discharging
+# below the threshold, the whole remote-access stack dies with the battery.
 BATT_THRESHOLD=30
 BATT_ALARMED=0
 while true; do
