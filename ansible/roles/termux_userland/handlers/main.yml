@@ -20,7 +20,7 @@
 # literal path. setsid (not `nohup &`) so the loop survives the SSH close.
 - name: restart boot loop
   ansible.builtin.shell: |
-    pidf="$HOME/.stayturgid-bootloop.pid"
+    pidf="$HOME/.stayturgid/run/bootloop.pid"
     old="$(cat "$pidf" 2>/dev/null || true)"
     [ -n "$old" ] && kill "$old" 2>/dev/null || true
     sleep 2

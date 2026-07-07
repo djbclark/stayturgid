@@ -170,6 +170,30 @@ appears):**
 Converting these would be churn with no fragility payoff — do it only if a
 specific script misbehaves.
 
+### Single-root file consolidation (self-healing) — 2026-07-07 ✅
+
+All stayturgid files now live under ONE root per filesystem (was scattered at
+/sdcard root, ~/ home root, ~/Library/Logs):
+  device shared  `/sdcard/stayturgid/{autojs6,state,logs,run,tmp,archive,import}`
+  Termux private `~/.stayturgid/{bin,logs,run,state,battery-colors}`
+  Mac            `~/.config/stayturgid/{devices.conf,logs,state}`
+Deployed scripts → ~/.stayturgid/bin; AutoJs6 project → /sdcard/stayturgid/
+autojs6; watchdog.log → logs/; device.json/automation_mode → state/; bridge
+trigger → run/repair_now; pidfiles → run/. **Self-healing:** every writer
+mkdir -p's (python makedirs(exist_ok), shell mkdir -p, AutoJs6
+files.ensureDir + config.ensureDirs()), so deleting the stayturgid dir just
+recreates it. Both phones migrated + all old files/junk deleted; device tier
+green on both; s24 AutoJs6 watchdog verified writing to the new log.
+- Fixes found: boot-loop restart handler pidfile path (~/.stayturgid/run/
+  bootloop.pid); boot-launcher mainAlreadyRunning() substring (new
+  stayturgid/autojs6/main.js path); obtainium_app + catalog path
+  (/sdcard/stayturgid/import) with makedirs.
+- ⚠ FOLLOW-UP: p7a's AutoJs6 accessibility didn't fully re-bind after I
+  force-stopped it during migration (dumpsys shows 1 ref, not 3), so its
+  secondary watchdog isn't writing yet. The Termux self-heal (primary) is
+  fine. Toggle AutoJs6 accessibility OFF/ON in p7a Settings to rebind, or it
+  may recover over boot-loop cycles.
+
 ### 🚦 Handoff — start here (cold-start summary)
 
 - **Deploy the fleet:** `./mac/deploy-fleet.sh` (thin wrapper over

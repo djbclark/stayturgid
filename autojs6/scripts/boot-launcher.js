@@ -13,7 +13,7 @@ function mainAlreadyRunning() {
     var engines = runtime.engines.all();
     for (var i = 0; i < engines.length; i++) {
         var src = String(engines[i].getSource() || "");
-        if (src.indexOf("stayturgid/main.js") >= 0) return true;
+        if (src.indexOf(MAIN) >= 0 || src.indexOf("stayturgid/autojs6/main.js") >= 0) return true;
     }
     return false;
 }

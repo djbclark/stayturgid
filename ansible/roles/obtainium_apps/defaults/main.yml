@@ -4,7 +4,7 @@
 # AUTHORITATIVE list — obtainium/stayturgid-apps.json is the adb-fallback
 # rendering; a pytest sync-guard keeps the two aligned.
 stayturgid_obtainium_import_ui: false   # true = pop Obtainium import UI on change
-stayturgid_obtainium_catalog: /sdcard/Download/stayturgid-obtainium-apps.json
+stayturgid_obtainium_catalog: /sdcard/stayturgid/import/stayturgid-obtainium-apps.json
 
 stayturgid_obtainium_apps:
   - id: org.autojs.autojs6

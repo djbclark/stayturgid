@@ -219,6 +219,13 @@ def main():
                 )
 
     if changed and not module.check_mode:
+        # self-heal: the stayturgid import dir may not exist (or was deleted)
+        parent = os.path.dirname(path)
+        if parent:
+            try:
+                os.makedirs(parent, exist_ok=True)
+            except OSError:
+                pass
         tmp = path + ".tmp"
         with open(tmp, "w") as f:
             json.dump(catalog, f, indent=2)
