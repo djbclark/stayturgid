@@ -26,12 +26,20 @@ DEVICES_CONF = os.environ.get(
     os.path.join(os.path.expanduser("~"), ".config", "stayturgid", "devices.conf"),
 )
 
-# Scripts whose deployed md5 is compared against the repo copy.
-TRACKED_SCRIPTS = [
-    "stayturgid-repair.sh", "repair-bridge.sh", "agent-presence.sh",
-    "claude-presence.sh", "check-repo-version.sh", "stayturgid-battery-alarm.sh",
-    "screen-awake-guard.sh",
-]
+# Deployed home scripts whose md5 is compared against the repo copy:
+# (deployed_name -> repo path). Runtime logic migrated to Python (termux/py/);
+# the remaining .sh are compat shims / the bridge.
+TRACKED_SCRIPTS = {
+    "stayturgid-repair.sh": "termux/stayturgid-repair.sh",
+    "repair-bridge.sh": "termux/repair-bridge.sh",
+    "agent-presence.sh": "termux/agent-presence.sh",
+    "claude-presence.sh": "termux/claude-presence.sh",
+    "stayturgid_check_repo_version.py": "termux/py/stayturgid_check_repo_version.py",
+    "stayturgid_screen_awake_guard.py": "termux/py/stayturgid_screen_awake_guard.py",
+    "stayturgid_agent_presence.py": "termux/py/stayturgid_agent_presence.py",
+    "stayturgid_battery_alarm.py": "termux/py/stayturgid_battery_alarm.py",
+    "stayturgid_repair.py": "termux/py/stayturgid_repair.py",
+}
 
 # Runs on the device (Termux bash — consistent there). Emits key=value lines.
 REMOTE_GATHER = r"""
@@ -68,7 +76,7 @@ grep -q '^PerSourcePenalties no' "$PREFIX/etc/ssh/sshd_config" 2>/dev/null \
     && echo "penalties=off" || echo "penalties=ON"
 adb -s localhost:5555 shell cmd appops get com.termux.api WRITE_SETTINGS </dev/null 2>/dev/null \
     | tr -d '\r' | grep -q allow && echo "writesettings=allow" || echo "writesettings=MISSING"
-for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh check-repo-version.sh stayturgid-battery-alarm.sh screen-awake-guard.sh; do
+for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh stayturgid_check_repo_version.py stayturgid_screen_awake_guard.py stayturgid_agent_presence.py stayturgid_battery_alarm.py stayturgid_repair.py; do
     printf 'md5 %s %s\n' "$f" "$(md5sum "$HOME/$f" 2>/dev/null | cut -d' ' -f1)"
 done
 """
@@ -187,8 +195,8 @@ def evaluate(host, report, repo_dir=REPO):
     # Deployment drift (informational TODO, not a failure)
     md5s = report.get("md5", {})
     drift = []
-    for name in TRACKED_SCRIPTS:
-        local = file_md5(os.path.join(repo_dir, "termux", name))
+    for name, repo_path in TRACKED_SCRIPTS.items():
+        local = file_md5(os.path.join(repo_dir, repo_path))
         if md5s.get(name) != local:
             drift.append(name)
     if not drift:
