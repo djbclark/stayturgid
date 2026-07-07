@@ -97,67 +97,74 @@ battery_suite termux/py/stayturgid_battery_alarm.py py
 # ===========================================================================
 # stayturgid-repair.sh
 # ===========================================================================
-RSCRIPT=termux/stayturgid-repair.sh
+# Same suite runs against the shell implementation and its Python twin.
+repair_suite() {
+    local RSCRIPT="$1" T="$2"
+    unset PGREP_RC FLOCK_RC ADB_A11Y ADB_SHELL_UID 2>/dev/null || true
+    # healthy path
+    reset_sandbox
+    export PGREP_RC=0
+    run_sandboxed "$RSCRIPT"
+    tap_is "$RC" 0 "repair[$T]: healthy => exit 0"
+    tap_like "$OUT" "STATUS port=open shizuku=up sshd=up a11y=up shell=yes" "repair[$T]: healthy STATUS line"
 
-# healthy path
-reset_sandbox
-export PGREP_RC=0
-run_sandboxed "$RSCRIPT"
-tap_is "$RC" 0 "repair: healthy => exit 0"
-tap_like "$OUT" "STATUS port=open shizuku=up sshd=up a11y=up shell=yes" "repair: healthy STATUS line"
+    # a11y self-heal: service missing => APPENDED to existing list, never replaced
+    reset_sandbox
+    export PGREP_RC=0 ADB_A11Y="com.other.app/.TheirService"
+    run_sandboxed "$RSCRIPT"
+    tap_like "$OUT" "a11y=repaired" "repair[$T]: disabled accessibility => repaired"
+    tap_is "$(cat "$SANDBOX/a11y_state" 2>/dev/null)" \
+        "com.other.app/.TheirService:org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher" \
+        "repair[$T]: a11y re-enable APPENDS, preserving other services (HACKING Part 5 rule)"
+    reset_sandbox
+    export ADB_A11Y="null"
+    run_sandboxed "$RSCRIPT"
+    tap_is "$(cat "$SANDBOX/a11y_state" 2>/dev/null)" \
+        "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher" \
+        "repair[$T]: empty a11y list => service alone, no stray separator"
+    unset ADB_A11Y
 
-# a11y self-heal: service missing => APPENDED to existing list, never replaced
-reset_sandbox
-export PGREP_RC=0 ADB_A11Y="com.other.app/.TheirService"
-run_sandboxed "$RSCRIPT"
-tap_like "$OUT" "a11y=repaired" "repair: disabled accessibility => repaired"
-tap_is "$(cat "$SANDBOX/a11y_state" 2>/dev/null)" \
-    "com.other.app/.TheirService:org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher" \
-    "repair: a11y re-enable APPENDS, preserving other services (HACKING Part 5 rule)"
-reset_sandbox
-export ADB_A11Y="null"
-run_sandboxed "$RSCRIPT"
-tap_is "$(cat "$SANDBOX/a11y_state" 2>/dev/null)" \
-    "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher" \
-    "repair: empty a11y list => service alone, no stray separator"
-unset ADB_A11Y
+    # sshd down => restarted via sshd stub
+    reset_sandbox
+    export PGREP_RC=1
+    run_sandboxed "$RSCRIPT"
+    tap_is "$RC" 0 "repair[$T]: sshd down => restarted, exit 0"
+    tap_like "$OUT" "sshd=restarted" "repair[$T]: STATUS reports sshd=restarted"
 
-# sshd down => restarted via sshd stub
-reset_sandbox
-export PGREP_RC=1
-run_sandboxed "$RSCRIPT"
-tap_is "$RC" 0 "repair: sshd down => restarted, exit 0"
-tap_like "$OUT" "sshd=restarted" "repair: STATUS reports sshd=restarted"
+    # 5555 dead (shell uid probe fails) => CLOSED_NO_SHELL, exit 1
+    reset_sandbox
+    export PGREP_RC=0 ADB_SHELL_UID=""
+    run_sandboxed "$RSCRIPT"
+    unset ADB_SHELL_UID
+    tap_is "$RC" 1 "repair[$T]: no privileged shell => exit 1"
+    tap_like "$OUT" "port=CLOSED_NO_SHELL" "repair[$T]: STATUS reports CLOSED_NO_SHELL"
 
-# 5555 dead (shell uid probe fails) => CLOSED_NO_SHELL, exit 1
-reset_sandbox
-export PGREP_RC=0 ADB_SHELL_UID=""
-run_sandboxed "$RSCRIPT"
-unset ADB_SHELL_UID
-tap_is "$RC" 1 "repair: no privileged shell => exit 1"
-tap_like "$OUT" "port=CLOSED_NO_SHELL" "repair: STATUS reports CLOSED_NO_SHELL"
+    # H1 regression: lock-contention branch must resolve its helpers
+    reset_sandbox
+    export PGREP_RC=0 FLOCK_RC=1
+    run_sandboxed "$RSCRIPT"
+    unset FLOCK_RC
+    tap_is "$RC" 0 "repair[$T]: duplicate invocation exits 0 (advisory)"
+    tap_like "$OUT" "sshd=up" "repair[$T]: duplicate branch reports real sshd state (H1)"
+    tap_unlike "$ERR" "command not found" "repair[$T]: duplicate branch has no unresolved functions (H1)"
 
-# H1 regression: lock-contention branch must resolve its helpers
-reset_sandbox
-export PGREP_RC=0 FLOCK_RC=1
-run_sandboxed "$RSCRIPT"
-unset FLOCK_RC
-tap_is "$RC" 0 "repair: duplicate invocation exits 0 (advisory)"
-tap_like "$OUT" "sshd=up" "repair: duplicate branch reports real sshd state (H1)"
-tap_unlike "$ERR" "command not found" "repair: duplicate branch has no unresolved functions (H1)"
+    # M8 regression: oversized log gets trimmed
+    reset_sandbox
+    export PGREP_RC=0
+    seq 1 1500 | sed 's/^/line /' > "$SANDBOX/home/.stayturgid-repair.log"
+    run_sandboxed "$RSCRIPT"
+    lines=$(wc -l < "$SANDBOX/home/.stayturgid-repair.log" | tr -d ' ')
+    if [ "$lines" -le 510 ]; then
+        tap_ok "repair[$T]: 1500-line log trimmed to <=510 ($lines)"
+    else
+        tap_fail "repair[$T]: 1500-line log trimmed to <=510" "got $lines lines"
+    fi
+    unset PGREP_RC
+    unset PGREP_RC FLOCK_RC ADB_A11Y ADB_SHELL_UID 2>/dev/null || true
+}
 
-# M8 regression: oversized log gets trimmed
-reset_sandbox
-export PGREP_RC=0
-seq 1 1500 | sed 's/^/line /' > "$SANDBOX/home/.stayturgid-repair.log"
-run_sandboxed "$RSCRIPT"
-lines=$(wc -l < "$SANDBOX/home/.stayturgid-repair.log" | tr -d ' ')
-if [ "$lines" -le 510 ]; then
-    tap_ok "repair: 1500-line log trimmed to <=510 ($lines)"
-else
-    tap_fail "repair: 1500-line log trimmed to <=510" "got $lines lines"
-fi
-unset PGREP_RC
+repair_suite termux/stayturgid-repair.sh sh
+repair_suite termux/py/stayturgid_repair.py py
 
 # ===========================================================================
 # claude-presence.sh gate
