@@ -1,0 +1,68 @@
+#!/data/data/com.termux/files/usr/bin/python
+"""check-repo-version — Python twin of ../check-repo-version.sh.
+
+Notify when GitHub's version.json is newer than the last seen version.
+Notify-only (updates are applied from the Mac). Behavioral parity with the
+shell version is enforced by tests/test-unit.sh (version_check_suite run
+against both). Shell stays deployed until parity soaks.
+"""
+import os
+import re
+import subprocess
+import sys
+
+os.environ["PATH"] = "/data/data/com.termux/files/usr/bin:" + os.environ.get("PATH", "")
+os.environ["LC_ALL"] = "C"
+
+URL = "https://raw.githubusercontent.com/djbclark/stayturgid/master/version.json"
+STAMP = os.path.join(os.environ.get("HOME", ""), ".stayturgid_repo_version")
+
+
+def _field(text, key):
+    """Match the shell's sed extraction so parity holds even on malformed JSON."""
+    m = re.search(r'"%s"\s*:\s*"([^"]*)"' % key, text)
+    return m.group(1) if m else ""
+
+
+def main():
+    try:
+        p = subprocess.run(["curl", "-fsSL", URL], capture_output=True, text=True)
+    except OSError:
+        return 0
+    if p.returncode != 0:
+        return 0  # network failure — quiet
+    body = p.stdout
+
+    remote = _field(body, "version")
+    if not remote:
+        return 0
+
+    seen = ""
+    try:
+        with open(STAMP) as f:
+            seen = f.read().strip()
+    except OSError:
+        pass
+    if remote == seen:
+        return 0
+
+    changelog = _field(body, "changelog") or "Run ansible/mac/deploy-termux.sh from your Mac"
+    try:
+        subprocess.run(
+            ["termux-notification", "--id", "stayturgid-update",
+             "--title", "stayturgid %s on GitHub" % remote,
+             "--content", changelog, "--priority", "high", "--button", "OK"],
+            capture_output=True)
+    except OSError:
+        pass
+
+    try:
+        with open(STAMP, "w") as f:
+            f.write(remote + "\n")
+    except OSError:
+        pass
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

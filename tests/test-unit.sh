@@ -370,24 +370,31 @@ guard_suite termux/py/stayturgid_screen_awake_guard.py py
 # ===========================================================================
 # check-repo-version.sh
 # ===========================================================================
-CRV=termux/check-repo-version.sh
+# Same suite runs against the shell implementation and its Python twin.
+version_check_suite() {
+    local CRV="$1" T="$2"
+    unset CURL_RC CURL_BODY 2>/dev/null || true
+    reset_sandbox
+    export CURL_BODY='{"version": "9.9", "changelog": "test build"}'
+    run_sandboxed "$CRV"
+    tap_is "$RC" 0 "version-check[$T]: new version exits 0"
+    tap_like "$(cat "$STUB_LOG")" "stayturgid 9.9 on GitHub" "version-check[$T]: notifies on new version"
+    tap_is "$(cat "$SANDBOX/home/.stayturgid_repo_version" 2>/dev/null)" "9.9" "version-check[$T]: stamp recorded"
 
-reset_sandbox
-export CURL_BODY='{"version": "9.9", "changelog": "test build"}'
-run_sandboxed "$CRV"
-tap_is "$RC" 0 "version-check: new version exits 0"
-tap_like "$(cat "$STUB_LOG")" "stayturgid 9.9 on GitHub" "version-check: notifies on new version"
-tap_is "$(cat "$SANDBOX/home/.stayturgid_repo_version" 2>/dev/null)" "9.9" "version-check: stamp recorded"
+    : > "$STUB_LOG"
+    run_sandboxed "$CRV"   # same version again
+    tap_is "$(stub_calls 'termux-notification')" 0 "version-check[$T]: no repeat notification for same version"
 
-: > "$STUB_LOG"
-run_sandboxed "$CRV"   # same version again
-tap_is "$(stub_calls 'termux-notification')" 0 "version-check: no repeat notification for same version"
+    : > "$STUB_LOG"
+    export CURL_RC=22
+    run_sandboxed "$CRV"
+    tap_is "$RC" 0 "version-check[$T]: network failure exits 0 quietly"
+    unset CURL_RC CURL_BODY
+    unset CURL_RC CURL_BODY 2>/dev/null || true
+}
 
-: > "$STUB_LOG"
-export CURL_RC=22
-run_sandboxed "$CRV"
-tap_is "$RC" 0 "version-check: network failure exits 0 quietly"
-unset CURL_RC CURL_BODY
+version_check_suite termux/check-repo-version.sh sh
+version_check_suite termux/py/stayturgid_check_repo_version.py py
 
 # ===========================================================================
 # AutoJs6 log parsing (node + files{} shim)
