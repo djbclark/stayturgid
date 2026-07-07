@@ -124,6 +124,36 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
   risk, leave as-is. Remaining device-side runtime twins: NONE — all four have Python
   twins under parity test (battery-alarm, screen-guard, repair, presence).
 
+### Python conversion status (2026-07-06, Fable) — map for the next session
+
+**DONE — Mac-side fragile parsers (converted, shell removed, pytest'd):**
+device_tier.py, access_monitor.py, adb_reconnect.py. These are where the
+macOS bash 3.2 / zsh / md5 bugs lived.
+
+**DONE — device runtime scripts (Python twin + shell, parity-tested via the
+same sandbox suite; shell still DEPLOYED until each soaks):**
+stayturgid-battery-alarm, screen-awake-guard, stayturgid-repair,
+agent-presence, check-repo-version. Each has `<name>_suite sh|py` in
+tests/test-unit.sh (167 unit checks). Live parity spot-checked on s24 for
+repair (identical STATUS) and presence (identical stop-requested/usage).
+NEXT STEP for these: after soak, switch deploy to the .py versions (update
+stayturgid_home_scripts + boot-loop invocations to python3) and retire the
+shell copies.
+
+**LEFT AS SHELL ON PURPOSE (not the bug-prone kind; convert only if a reason
+appears):**
+- Thin wrappers: mac/deploy-fleet.sh, mac/fleet-health.sh,
+  ansible/mac/deploy-termux.sh (ansible/run.sh one-liners).
+- Boot glue: termux/boot/*.sh (Termux:Boot entry points), repair-bridge.sh
+  (trivial 2s poll loop), claude-presence.sh (compat shim).
+- Sourced helpers: shared/mac/resolve-adb.sh, stayturgid-root.sh.
+- The TAP harness itself: tests/lib.sh + test-*.sh (works; big risky rewrite;
+  it's what runs the sh/py parity suites).
+- Setup-time Mac tooling: autojs6/mac/*.sh, obtainium/mac/*.sh — adb/SSH/UI
+  orchestration, some with embedded python-for-JSON. Moderate candidates
+  (grant-shizuku.sh / enable-shizuku-installer.sh do JSON patching) but
+  run rarely and haven't caused bugs.
+
 ### 🚦 Handoff — start here (cold-start summary)
 
 - **Deploy the fleet:** `./mac/deploy-fleet.sh` (thin wrapper over
