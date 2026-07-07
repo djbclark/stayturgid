@@ -55,17 +55,25 @@ Record in `RESPONSES.md`: host + done/not done.
 
 ## Priority 3 — Fleet deploy approval
 
-### 3.1 Script drift on p7a (verify TODO)
+### 3.1 p7a verify follow-up
 
-`make verify HOSTS=p7a` reported deployed Termux scripts differ from repo
-(`agent-presence.sh`, Python twins). Fix:
+Script drift is **fixed** (deploy ran 2026-07-07; `deployed termux scripts match repo` passes).
 
-1. Announce on device if someone might be using it:
-   `🚨📱🚨 USING — p7a — fleet deploy — ~5 min`
-2. Run: `./mac/deploy-fleet.sh p7a` from repo root.
-3. Re-run: `make verify HOSTS=p7a`
+Remaining verify items on p7a (agent cannot fix without device interaction):
 
-Or tell the agent it may run deploy when you're not busy (note window in
+| Check | Status | Notes |
+|-------|--------|-------|
+| AutoJs6 watchdog alive | FAIL | Stale after deploy — may need unlocked screen + a11y binding |
+| Termux mirror pinned | FAIL | Investigate mirror task / host state |
+| Boot-loop restart handler | WARN | Deploy exited 2 on handler; boot loop still running |
+
+**You do (optional):**
+
+1. Unlock p7a; confirm AutoJs6 accessibility service is bound.
+2. Re-run `./mac/deploy-fleet.sh p7a` if you want a clean handler pass, or
+   `make verify HOSTS=p7a` after a few minutes.
+
+Or tell the agent it may retry deploy when you're not busy (note window in
 `RESPONSES.md`).
 
 ### 3.2 Production deploy go/no-go

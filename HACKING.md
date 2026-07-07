@@ -671,7 +671,7 @@ Optional layer on top of Obtainium. **Not** part of `./mac/deploy-fleet.sh` — 
 ANDROID_SERIAL="$(resolve_adb s24)" fdroidcl install com.example.app
 ```
 
-**Shizuku grants** (privileged adb): `fdroid/mac/grant_neo_store_shizuku.py <host> [pkg]` — used by both fdroid and play roles.
+**Shizuku grants** (privileged adb): `stayturgid.android_common.shizuku_grant` Ansible module, or `ansible-playbook` via fdroid/play roles.
 
 **Verified E2E (2026-07-07):** `fdroidcl install com.bobek.metronome` on s24, p7a, hd8 (Fire OS via USB adb); uninstalled after verify.
 

@@ -7,6 +7,8 @@
 #     ansible/playbooks/fleet.yml [--limit s24]
 #
 # Per-host failures don't stop other hosts (Ansible default behavior).
+# fdroid_repos side project — use ./mac/deploy-fdroid.sh (not fleet.yml)
+# play_store side project — use ./mac/deploy-play.sh (not fleet.yml)
 - name: stayturgid fleet deploy
   hosts: stayturgid
   gather_facts: false
@@ -17,5 +19,3 @@
     - role: stayturgid.android_common.tailscale_vpn
     - role: stayturgid.android_common.ensure_apps
       when: stayturgid_ensure_apps | default([]) | length > 0
-    # fdroid_repos side project — use ./mac/deploy-fdroid.sh (not fleet.yml)
-    # play_store side project — use ./mac/deploy-play.sh (not fleet.yml)

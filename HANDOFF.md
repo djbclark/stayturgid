@@ -285,7 +285,7 @@ version.json                 — repo release version + changelog
 **Key files added/updated:**
 - `fdroid/README.md`, `ansible/roles/fdroid_repos/{README.md,defaults,tasks,meta}`
 - `ansible/roles/play_store/` (skeleton)
-- `fdroid/mac/grant_neo_store_shizuku.py` (now takes optional pkg arg)
+- Shizuku grant: `stayturgid.android_common.shizuku_grant` (Ansible module; legacy `grant_neo_store_shizuku.py` is a removed stub).
 - Obtainium catalog entries for Neo Store + Aurora Store
 - fleet.yml example (commented)
 - HANDOFF + main README updated
@@ -300,6 +300,6 @@ version.json                 — repo release version + changelog
 7. ~~**hd8 (Kindle) compatibility**~~ **Done** (2026-07-07) — `deploy-fdroid.sh hd8` + metronome install via USB adb.
 8. ~~**Longer term: unified app ensure**~~ **Done** (2026-07-07) — `stayturgid.android_common.ensure_apps` role; fdroidcl wrapped in `fdroid_install` / `fdroid_repos` modules.
 
-Run with announcements (`🚨📱🚨 USING — p7a ...`) and treat devices as potentially busy. This side project is ready for use in fleet runs but still experimental — keep it gated until more real-device validation.
-
-**Do not merge or run on production fleet without explicit approval.**
+Run with announcements (`🚨📱🚨 USING — p7a ...`) when someone may be on the device.
+F-Droid / Play side playbooks stay optional (`deploy-fdroid.sh`, `deploy-play.sh`).
+Operator-only steps (Play creds, deploy approval): [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md).

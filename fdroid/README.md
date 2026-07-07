@@ -7,7 +7,7 @@ This complements the Obtainium/GitHub path with first-class support for F-Droid 
 - Neo Store + Aurora Store in Obtainium catalog.
 - `stayturgid.fdroid.fdroid_repos` module (fdroidcl repo add/enable; unit-tested).
 - `stayturgid.fdroid.fdroid_repos` role (module + on-device `fdroidrepos://` push + Shizuku grant).
-- `fdroid/mac/grant_neo_store_shizuku.py` uses `PrivShell` (privileged adb).
+- `stayturgid.android_common.shizuku_grant` module (replaces legacy grant script).
 - **Not wired into fleet.yml** — side project; use `./mac/deploy-fdroid.sh [host]`.
 
 ## How to use
@@ -28,7 +28,7 @@ See role README for details.
 ## Client setup (Shizuku + background updates) — per review requirement
 - If no GUI F-Droid client: install "Neo Store" (via Obtainium catalog we added) + configure.
 - If already installed: still configure Shizuku (if not) and background auto-updates (if not).
-- Use the helper: `fdroid/mac/grant_neo_store_shizuku.py <p7a|s24|...>` (reuses shared shizuku.json patch, idempotent).
+Shizuku is granted by the `fdroid_repos` role via `stayturgid.android_common.shizuku_grant`.
 - Then in the Neo Store app (on device):
   - Settings → Installer → select Shizuku / Dhizuku / Sui.
   - Enable automatic background updates.

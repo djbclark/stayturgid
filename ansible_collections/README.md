@@ -37,6 +37,7 @@ ansible-galaxy collection install \
 3. [docs/modules/](docs/modules/) — per-module reference
 4. [examples/](../examples/) — consumer site templates (termux, fdroid, full-fleet)
 5. Per-collection `CHANGELOG.md` files
+6. [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md) — operator tasks that need a human (credentials, deploy approval)
 
 ## Layout
 

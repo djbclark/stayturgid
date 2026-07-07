@@ -45,4 +45,4 @@ modules could replace custom code.
 
 ## Deprecated
 
-- `fdroid/mac/grant_neo_store_shizuku.py` — use `stayturgid.android_common.shizuku_grant`.
+- `fdroid/mac/grant_neo_store_shizuku.py` — **removed stub**; use `stayturgid.android_common.shizuku_grant`.

@@ -1,0 +1,40 @@
+---
+name: collection-build
+'on':
+  push:
+    tags:
+      - 'stayturgid.*-*'
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install ansible
+        run: pipx install ansible-core
+      - name: Map tag to collection path
+        id: map
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          NAME="${TAG%%-*}"          # stayturgid.termux
+          NS="${NAME%%.*}"            # stayturgid
+          COL="${NAME#*.}"            # termux
+          echo "path=ansible_collections/${NS}/${COL}" >> "$GITHUB_OUTPUT"
+          echo "collection=${NS}.${COL}" >> "$GITHUB_OUTPUT"
+      - name: ansible-galaxy collection build
+        run: ansible-galaxy collection build "${{ steps.map.outputs.path }}" -o dist
+      - name: Install ansible and test venv
+        run: |
+          pipx install ansible-core
+          python3 -m venv .venv-test
+          .venv-test/bin/pip install -q -r tests/python/requirements.txt
+      - name: Run collection unit tests
+        run: make ansible-test
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "${{ steps.map.outputs.collection }}-tarball"
+          path: dist/*.tar.gz

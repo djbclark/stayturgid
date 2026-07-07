@@ -9,7 +9,9 @@
 
 - name: Detect installed F-Droid GUI clients on device
   ansible.builtin.set_fact:
-    _fdroid_gui_packages: "{{ lookup('stayturgid.android_common.android_packages', _fdroid_target_device, 'machiav3lli\\.fdroid|looker\\.droidify|org\\.fdroid\\.fdroid') }}"
+    _fdroid_gui_packages: >-
+      {{ lookup('stayturgid.android_common.android_packages', _fdroid_target_device,
+      'machiav3lli\\.fdroid|looker\\.droidify|org\\.fdroid\\.fdroid') }}
   delegate_to: localhost
 
 - name: Warn when Neo Store is missing but required

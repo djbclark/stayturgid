@@ -8,7 +8,7 @@ Ansible role + `stayturgid.fdroid.fdroid_repos` module for F-Droid repository ma
 |-------|------|--------------|
 | Control machine | `fdroidcl` | Add/enable repos; `fdroidcl install <id>` |
 | On-device | Neo Store (via Obtainium) | GUI client; repos pushed via `fdroidrepos://` intent |
-| Shizuku | `grant_neo_store_shizuku.py` | Patches `shizuku.json` via privileged shell |
+| Shizuku | `stayturgid.android_common.shizuku_grant` | Patches `shizuku.json` via privileged shell |
 
 The **module** only manages `fdroidcl` on the Mac. Neo Store install, Shizuku grant, and on-device repo import are **role** tasks.
 

@@ -2,3 +2,16 @@
 # Fleet-wide overrides go here. Package and boot-script lists live in ONE
 # place — roles/termux_userland/defaults/main.yml — do not duplicate them
 # here (group_vars silently wins over role defaults and the copies drift).
+
+# Optional unified app ensure (stayturgid.android_common.ensure_apps in fleet.yml).
+# Uncomment and edit — each entry needs id + source (play|fdroid|apk|obtainium).
+# stayturgid_ensure_apps: []
+# stayturgid_ensure_apps:
+#   - id: org.breezyweather
+#     source: fdroid
+#   - id: com.aurora.store
+#     source: play
+#   - id: moe.shizuku.privileged.api
+#     source: apk
+#     gh_repo: thedjchi/Shizuku
+#     gh_pattern: "*.apk"

@@ -26,6 +26,7 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 | [docs/README.md](docs/README.md) | Documentation index |
 | [HACKING.md](HACKING.md) | Developer setup, clean install, Obtainium, Termux swap |
 | [HANDOFF.md](HANDOFF.md) | Maintainer / AI handoff — state, roadmap, device fleet |
+| [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md) | Operator tasks (credentials, deploy approval) — human-only |
 | [version.json](version.json) | Repo release version (Ansible / manual deploy) |
 
 ---
