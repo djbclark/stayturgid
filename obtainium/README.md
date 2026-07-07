@@ -38,8 +38,8 @@ Re-importing updates existing entries; it does not remove other Obtainium apps.
 ## Apply pending updates (from Mac)
 
 ```bash
-chmod +x obtainium/mac/apply-updates.sh obtainium/mac/enable_shizuku_installer.py
-./obtainium/mac/apply-updates.sh s24   # phone unlocked
+chmod +x obtainium/mac/apply_updates.py obtainium/mac/enable_shizuku_installer.py
+./obtainium/mac/apply_updates.py s24   # phone unlocked
 ./obtainium/mac/enable_shizuku_installer.py s24   # one-time: quieter installs via Shizuku
 ```
 
