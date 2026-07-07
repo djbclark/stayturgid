@@ -14,9 +14,11 @@ Aurora Store is the on-device GUI client (Obtainium catalog). Automation downloa
 ./mac/deploy-play.sh p7a    # Shizuku grant to Aurora (once Aurora installed)
 ```
 
+**Mac firewall:** allow outbound network for `apkeep` and `python` (e.g. Lulu). APKPure may deliver `.xapk` bundles; `play_apps` extracts `base.apk` automatically.
+
 ## Download sources
 
-**apk-pure** (apkeep default): no Google login; mirror availability varies.
+**apk-pure** (apkeep default): no Google login; mirror availability varies. Use `stayturgid_play_apkeep_options: arch=arm64-v8a` for fleet devices.
 
 **google-play** (apkeep or gplaycli): requires credentials — not stored in git.
 

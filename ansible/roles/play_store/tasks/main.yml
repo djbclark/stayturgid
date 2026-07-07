@@ -16,7 +16,7 @@
         sys.path.insert(0, os.path.join(repo, "shared", "mac"))
         import stayturgid_device as dev
         print(dev.resolve_adb(sys.argv[1]))
-      - "{{ target_device | default('localhost:5555') }}"
+      - "{{ target_device | default(inventory_hostname) }}"
   delegate_to: localhost
   register: _play_adb_resolved
   changed_when: false
@@ -84,6 +84,7 @@
     device: "{{ _play_target_device }}"
     download_backend: "{{ stayturgid_play_download_backend }}"
     apkeep_source: "{{ stayturgid_play_apkeep_source }}"
+    apkeep_options: "{{ stayturgid_play_apkeep_options }}"
     spoof_play_installer: "{{ stayturgid_play_spoof_installer | bool }}"
   delegate_to: localhost
 

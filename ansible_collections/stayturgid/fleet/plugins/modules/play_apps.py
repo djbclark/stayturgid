@@ -48,6 +48,10 @@ options:
     description: C(apkeep -d) source when backend is apkeep.
     type: str
     default: apk-pure
+  apkeep_options:
+    description: C(apkeep -o) options (e.g. C(arch=arm64-v8a) for APKPure).
+    type: str
+    default: arch=arm64-v8a
   apkeep_bin:
     type: str
     default: apkeep
@@ -108,6 +112,7 @@ output:
 import glob
 import os
 import re
+import zipfile
 
 from ansible.module_utils.basic import AnsibleModule
 
@@ -173,6 +178,40 @@ def find_apk(download_dir, pkg):
     return found[0] if found else None
 
 
+def extract_xapk(xapk_path, dest_dir):
+    """APKPure often ships .xapk (zip); pull base APK for adb install."""
+    with zipfile.ZipFile(xapk_path) as zf:
+        names = [n for n in zf.namelist() if n.endswith(".apk")]
+        if not names:
+            return None
+        preferred = [n for n in names if "base" in os.path.basename(n).lower()]
+        chosen = preferred[0] if preferred else names[0]
+        out = os.path.join(dest_dir, os.path.basename(chosen))
+        with zf.open(chosen) as src, open(out, "wb") as dst:
+            dst.write(src.read())
+        return out
+
+
+def resolve_installable_apk(download_dir, pkg):
+    apk = find_apk(download_dir, pkg)
+    if apk:
+        return apk
+    xapk_patterns = [
+        os.path.join(download_dir, "%s*.xapk" % pkg),
+        os.path.join(download_dir, "**", "%s*.xapk" % pkg),
+        os.path.join(download_dir, "*.xapk"),
+        os.path.join(download_dir, "**", "*.xapk"),
+    ]
+    xapks = []
+    for pat in xapk_patterns:
+        xapks.extend(glob.glob(pat, recursive="**" in pat))
+    for xapk in sorted(set(xapks), key=os.path.getmtime, reverse=True):
+        extracted = extract_xapk(xapk, download_dir)
+        if extracted:
+            return extracted
+    return find_apk(download_dir, pkg)
+
+
 def apkeep_auth_args(module):
     args = []
     email = os.environ.get("GPLAY_EMAIL", "")
@@ -202,7 +241,11 @@ def download_apkeep(module, pkg, dest):
         module.params["apkeep_source"],
         "-r",
         "1",
-    ] + apkeep_auth_args(module) + [dest]
+    ] + apkeep_auth_args(module)
+    opts = (module.params.get("apkeep_options") or "").strip()
+    if opts:
+        cmd.extend(["-o", opts])
+    cmd.append(dest)
     return run_cmd(module, cmd)
 
 
@@ -277,7 +320,7 @@ def ensure_present(module, device, spec, outputs):
         else:
             module.fail_json(msg="unknown download_backend: %s" % backend)
 
-        apk = find_apk(dest, pkg)
+        apk = resolve_installable_apk(dest, pkg)
         if not apk:
             module.fail_json(
                 msg="no APK found for %s under %s after download" % (pkg, dest),
@@ -321,6 +364,7 @@ def main():
                 choices=["apkeep", "gplaycli", "none"],
             ),
             apkeep_source=dict(type="str", default="apk-pure"),
+            apkeep_options=dict(type="str", default="arch=arm64-v8a"),
             apkeep_bin=dict(type="str", default="apkeep"),
             apkeep_accept_tos=dict(type="bool", default=False),
             gplaycli_bin=dict(type="str", default="play/mac/gplaycli.sh"),

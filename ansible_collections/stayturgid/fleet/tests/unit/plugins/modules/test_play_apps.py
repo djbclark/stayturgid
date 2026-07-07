@@ -65,6 +65,19 @@ def test_find_apk_prefers_package_name(tmp_path):
     assert mod.find_apk(str(tmp_path), "com.foo.app") == str(target)
 
 
+def test_extract_xapk_base_apk(tmp_path):
+    import zipfile
+
+    xapk = tmp_path / "com.example.app.xapk"
+    with zipfile.ZipFile(xapk, "w") as zf:
+        zf.writestr("split_config.apk", b"split")
+        zf.writestr("base.apk", b"base-bytes")
+    out = mod.extract_xapk(str(xapk), str(tmp_path))
+    assert out.endswith("base.apk")
+    assert open(out, "rb").read() == b"base-bytes"
+    assert mod.resolve_installable_apk(str(tmp_path), "com.example.app") == out
+
+
 def test_package_installed_detects_package():
     class FakeModule:
         def run_command(self, cmd):
