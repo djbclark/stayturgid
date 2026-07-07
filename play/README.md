@@ -1,17 +1,17 @@
 # Play Store side project (Aurora + apkeep / gplaycli)
 
-Aurora Store is the on-device GUI client (Obtainium catalog). Automation downloads APKs on the Mac and installs via adb, spoofing Play as installer when requested.
+Aurora Store is the on-device GUI client. `deploy-play.sh` installs Aurora when missing, grants Shizuku, completes first-run setup, selects the Shizuku installer, and enables automatic installs. App automation downloads APKs on the Mac and installs via adb, spoofing Play as installer when requested.
 
 ## Prerequisites
 
 | Tool | Install | Role |
 |------|---------|------|
-| **Aurora Store** | Obtainium catalog on device | GUI updates; Shizuku installer |
+| **Aurora Store** | `./mac/deploy-play.sh` via `apkeep -d f-droid` when missing | GUI updates; Shizuku installer |
 | **apkeep** | `brew install apkeep` | Primary downloader (`apk-pure` or `google-play`) |
 | **gplaycli** | `brew install gplaycli` + `play/mac/gplaycli.sh` | Alternate downloader (needs `gplaycli.conf`) |
 
 ```bash
-./mac/deploy-play.sh p7a    # Shizuku grant to Aurora (once Aurora installed)
+./mac/deploy-play.sh p7a    # install/configure Aurora + grant Shizuku
 ```
 
 **Mac firewall:** allow outbound network for `apkeep` and `python` (e.g. Lulu). APKPure may deliver `.xapk` bundles; `play_apps` extracts `base.apk` automatically.

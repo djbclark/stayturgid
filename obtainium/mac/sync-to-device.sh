@@ -1,20 +1,27 @@
 #!/usr/bin/env bash
-# Push stayturgid Obtainium configs to a phone and open Obtainium import.
+# Push stayturgid Obtainium configs to a phone and import via deep link.
 # Usage:
-#   ./sync-to-device.sh <s24|p7a|hd8|serial> [all|autojs6]
+#   ./sync-to-device.sh <s24|p7a|hd8|serial> [all|autojs6] [--no-import]
 #
 # Re-importing merges/updates existing entries (does not remove other apps).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OBTAINIUM_PKG="dev.imranr.obtainium"
+IMPORT_SCRIPT="$(cd "$(dirname "$0")" && pwd)/import_catalog.py"
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # shellcheck source=../../shared/mac/resolve-adb.sh
 source "$REPO_ROOT/shared/mac/resolve-adb.sh"
 
-SERIAL="$(resolve_adb "${1:?usage: sync-to-device.sh <p7a|s24|serial> [all|autojs6]}")"
+SERIAL="$(resolve_adb "${1:?usage: sync-to-device.sh <p7a|s24|serial> [all|autojs6] [--no-import]}")"
 WHICH="${2:-all}"
+NO_IMPORT=false
+for arg in "$@"; do
+  [[ "$arg" == "--no-import" ]] && NO_IMPORT=true
+done
+[[ "${2:-}" == "--no-import" ]] && WHICH="all"
+[[ "${3:-}" == "--no-import" ]] && NO_IMPORT=true
 
 if ! adb -s "$SERIAL" shell pm path "$OBTAINIUM_PKG" 2>/dev/null | grep -q .; then
   echo "ERROR: Obtainium ($OBTAINIUM_PKG) not installed on $SERIAL" >&2
@@ -32,20 +39,15 @@ REMOTE="/sdcard/Download/$DEST"
 echo "Pushing $JSON → $SERIAL:$REMOTE"
 adb -s "$SERIAL" push "$JSON" "$REMOTE"
 
-# Open Obtainium import UI with the JSON file (user confirms import on device).
-# Fallback: Obtainium → Import/Export → Obtainium Import → pick file in Download/.
-adb -s "$SERIAL" shell am start \
-  -a android.intent.action.VIEW \
-  -d "file://${REMOTE}" \
-  -t application/json \
-  -n "${OBTAINIUM_PKG}/.MainActivity" 2>/dev/null || \
-adb -s "$SERIAL" shell am start \
-  -a android.intent.action.VIEW \
-  -d "content://com.android.externalstorage.documents/document/primary%3ADownload%2F${DEST}" \
-  -t application/json \
-  -n "${OBTAINIUM_PKG}/.MainActivity" 2>/dev/null || \
-adb -s "$SERIAL" shell monkey -p "$OBTAINIUM_PKG" -c android.intent.category.LAUNCHER 1
+if [[ "$NO_IMPORT" == true ]]; then
+  echo "Skipped import (--no-import). JSON at Download/$DEST"
+  exit 0
+fi
 
-echo ""
-echo "On device: Obtainium should open — confirm Obtainium Import for $DEST"
-echo "If import did not auto-start: Obtainium → Import/Export → Obtainium Import → Download/$DEST"
+if [[ ! -f "$IMPORT_SCRIPT" ]]; then
+  echo "WARN: $IMPORT_SCRIPT missing — JSON pushed only." >&2
+  exit 0
+fi
+
+echo "Importing catalog into Obtainium on $SERIAL..."
+python3 "$IMPORT_SCRIPT" "$SERIAL" "$WHICH"

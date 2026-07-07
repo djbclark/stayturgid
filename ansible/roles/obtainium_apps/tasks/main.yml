@@ -1,7 +1,8 @@
 ---
 # Renders the Obtainium import catalog on-device and reports missing apps as
-# warnings. Applying the catalog is a one-tap in-app import (Obtainium has no
-# CLI); set stayturgid_obtainium_import_ui=true to pop the import UI on change.
+# warnings. On Mac, obtainium/mac/sync-to-device.sh + import_catalog.py apply
+# the catalog via obtainium://apps; set stayturgid_obtainium_import_ui=true
+# to pop the legacy file VIEW intent on change.
 - name: Render Obtainium catalog from fleet app specs
   stayturgid.fleet.obtainium_app:
     apps: "{{ stayturgid_obtainium_apps }}"

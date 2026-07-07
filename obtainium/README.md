@@ -22,7 +22,7 @@ APK filters are pre-configured:
 ## Sync to a device (from Mac)
 
 ```bash
-chmod +x obtainium/mac/sync-to-device.sh
+chmod +x obtainium/mac/sync-to-device.sh obtainium/mac/import_catalog.py
 
 # After installing AutoJs6 only:
 ./obtainium/mac/sync-to-device.sh p7a autojs6
@@ -33,14 +33,15 @@ chmod +x obtainium/mac/sync-to-device.sh
 ./obtainium/mac/sync-to-device.sh hd8 all   # Kindle Fire — USB adb preferred
 ```
 
-On the phone: confirm **Obtainium Import** when prompted (or manually: Obtainium → Import/Export → Obtainium Import → `Download/stayturgid-obtainium-*.json`).
+`sync-to-device.sh` pushes the JSON to `Download/` and runs `import_catalog.py`, which opens Obtainium's `obtainium://apps/…` deep link and taps **Continue** automatically. Use `--no-import` to push only. Re-import with `--force` via `import_catalog.py` directly.
 
 Re-importing updates existing entries; it does not remove other Obtainium apps.
 
 ## Apply pending updates (from Mac)
 
 ```bash
-chmod +x obtainium/mac/apply_updates.py obtainium/mac/enable_shizuku_installer.py
+chmod +x obtainium/mac/apply_updates.py obtainium/mac/enable_shizuku_installer.py obtainium/mac/import_catalog.py
+./obtainium/mac/import_catalog.py s24 all          # import only (idempotent)
 ./obtainium/mac/apply_updates.py s24   # phone unlocked
 ./obtainium/mac/enable_shizuku_installer.py s24   # one-time: quieter installs via Shizuku
 ```

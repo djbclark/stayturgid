@@ -25,7 +25,7 @@ On the Mac, a launchd agent runs every 60 s and reconnects `adb connect <ip>:555
 
 GitHub `master` is the source of truth. To release:
 1. Bump `version.json` (`version` + `changelog`), commit, push.
-2. `./mac/deploy-fleet.sh` — full fleet via Ansible (`CHECK=1 ./mac/deploy-fleet.sh` = dry run). Idempotent (re-run = `changed=0`). Or the granular path: `./ansible/mac/deploy-termux.sh [--limit host]` then `./autojs6/mac/deploy.sh {p7a,s24}` + `./autojs6/mac/start-watchdog.sh {p7a,s24}`.
+2. `./mac/deploy-fleet.sh` — full fleet via Ansible (`CHECK=1 ./mac/deploy-fleet.sh` = dry run). Idempotent (re-run = `changed=0`). Post-Ansible, applies the Obtainium catalog via `import_catalog.py` (unlocked screen). Or the granular path: `./ansible/mac/deploy-termux.sh [--limit host]` then `./autojs6/mac/deploy.sh {p7a,s24}` + `./autojs6/mac/start-watchdog.sh {p7a,s24}`.
 
 Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `termux-notification` when GitHub `version.json` moves ahead of the last-seen stamp.
 
@@ -198,7 +198,7 @@ termux/
 ansible/                     — fleet deploy; inventory/hosts.yml + inventory/group_vars taxonomy layers
   playbooks/fleet.yml, mac.yml   roles: termux_userland, autojs6_watchdog, obtainium_apps
 ansible_collections/stayturgid/fleet/   — termux_pkg + obtainium_app modules (FQCN stayturgid.fleet.*)
-obtainium/                   — stayturgid-apps.json catalog + mac/ sync/apply/installer scripts
+obtainium/                   — stayturgid-apps.json catalog + mac/ sync/import/apply/installer scripts
 fdroid/                      — side-project docs + support for F-Droid (Neo Store) and Play (Aurora Store)
 ansible/roles/fdroid_repos/  — Ansible role + module for fdroidcl (Mac) repo management + explicit push to on-device client (bypasses chooser, preference order Neo > Droid-ify > F-Droid)
 ansible/roles/play_store/    — skeleton role for Aurora Store client setup (Shizuku grant, gplaycli notes)
@@ -256,7 +256,7 @@ version.json                 — repo release version + changelog
 |-------|-------|---------|
 | Termux packages + scripts | ✅ `termux_userland` + `termux_pkg` | Yes |
 | Shizuku install/grant | Mac shell (`stayturgid_device.py`) | Partial — custom module |
-| Obtainium catalog/install | `obtainium_app` module + Mac scripts | Partial |
+| Obtainium catalog/install | `obtainium_app` module + `import_catalog.py` / `sync-to-device.sh` | Yes (Mac deep-link import) |
 | AutoJs6 deploy/start | `autojs6_watchdog` role + `autojs6/mac/*.sh` | Partial — role + adb delegate |
 | ADB reconnect launchd | `adb-reconnect.py` + plist (mac.yml) | localhost role |
 | Validation | `device_tier.py` + TAP | playbook `validate.yml` |
@@ -289,7 +289,7 @@ version.json                 — repo release version + changelog
 3. **Enhance fdroid_repos**: full support for `stayturgid_fdroid_setups` (create/apply in role + module); support removing repos; better fingerprint handling; optional "apply to device via fdroidcl" tasks.
 4. **On-device repo management polish**: if explicit intent + NeoActivity is flaky for adding repos to GUI, explore direct methods (e.g. content provider, AutoJs6 script to accept chooser, or file import into Neo Store's DB). Make preference logic also update system preferred activities if possible (without root).
 5. **Integration & docs:** ~~uncomment in fleet.yml~~ **Done** — `ansible/playbooks/fdroid.yml` + `./mac/deploy-fdroid.sh`; `play_store.yml` + `./mac/deploy-play.sh`; fleet.yml points there. ~~Expand HACKING with fingerprints~~ **Done** (HACKING Part 6b).
-6. **Aurora/Play catalog & client**: `deploy-play.sh p7a` grants Shizuku (verified 2026-07-07). **You:** import Aurora via Obtainium on **s24** and **hd8** (catalog pushed 2026-07-07), then `./mac/deploy-play.sh <host>`; enable Shizuku installer + auto-updates in Aurora settings.
+6. ~~**Aurora/Play catalog & client**~~ **Automated** (2026-07-07): `./mac/deploy-play.sh <host>` installs Aurora via `apkeep` when missing, grants Shizuku, completes anonymous first-run setup, selects the Shizuku installer, and enables automatic installs. Verified on **s24**, **p7a**, and **hd8**.
 7. ~~**hd8 (Kindle) compatibility**~~ **Done** (2026-07-07) — `deploy-fdroid.sh hd8` + metronome install via USB adb.
 8. **Longer term**: decide if fdroidcl/gplaycli stay as external tools or get wrapped into custom collection modules (like termux_pkg/obtainium_app). Consider "unified app ensure" abstraction across Obtainium/F-Droid/Play.
 

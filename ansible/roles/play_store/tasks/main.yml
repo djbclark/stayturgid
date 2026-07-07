@@ -42,7 +42,7 @@
   ansible.builtin.debug:
     msg: >-
       Aurora Store ({{ aurora_store_package }}) not installed on {{ _play_target_device }}.
-      Run obtainium_apps / sync-to-device.sh and import the catalog before deploy-play.
+      Run ./mac/deploy-play.sh to install Aurora via apkeep before this role grants Shizuku.
   when:
     - stayturgid_ensure_aurora_store | bool
     - aurora_store_package not in aurora_pkg.stdout
@@ -51,9 +51,9 @@
   ansible.builtin.debug:
     msg: |
       Google Play is not open like F-Droid. Use Aurora Store as GUI
-      (ensured via the Obtainium catalog; run obtainium_apps first).
-      For automation, gplaycli can download APKs (needs auth setup), then
-      adb install with -i com.android.vending to spoof Play.
+      (installed by deploy-play.sh when missing).
+      For automation, apkeep/gplaycli can download APKs, then adb install
+      with -i com.android.vending to spoof Play.
       This role grants Shizuku to the Aurora Store client.
 
 - name: Grant Shizuku to Aurora Store
@@ -74,8 +74,8 @@
 - name: Note on background updates for Aurora
   ansible.builtin.debug:
     msg: |
-      After Aurora is set with Shizuku as installer, enable auto updates in its settings.
-      Install apps through it for background behavior.
+      deploy-play.sh configures Aurora's Shizuku installer and automatic
+      updates after this role grants Shizuku.
 
 - name: Ensure Play apps (apkeep/gplaycli + adb install)
   when: stayturgid_play_apps | length > 0

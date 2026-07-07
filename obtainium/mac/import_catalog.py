@@ -1,0 +1,284 @@
+#!/usr/bin/env python3
+"""Import a stayturgid Obtainium catalog without manual confirmation.
+
+Obtainium exposes bulk import via obtainium://apps/<url-encoded-json-array>.
+Opening that URI shows an in-app dialog; this script taps Continue and
+verifies the catalog apps appear in Obtainium.
+
+Usage:
+  ./import_catalog.py <p7a|s24|hd8|serial> [all|autojs6|/path/to.json]
+  ./import_catalog.py <host> all --force   # re-import even if already tracked
+
+Requires: unlocked screen, Obtainium installed.
+"""
+from __future__ import print_function
+
+import json
+import os
+import re
+import subprocess
+import sys
+import time
+import urllib.parse
+import xml.sax.saxutils as saxutils
+
+REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(REPO, "shared", "mac"))
+import stayturgid_device as dev  # noqa: E402
+
+OBTAINIUM_PKG = "dev.imranr.obtainium"
+CATALOGS = {
+    "all": os.path.join(REPO, "obtainium", "stayturgid-apps.json"),
+    "autojs6": os.path.join(REPO, "obtainium", "autojs6-only.json"),
+}
+IMPORT_DIALOG_TITLE = "Import apps"
+CONTINUE_LABEL = "Continue"
+CANARY_APPS = {
+    "all": ["AutoJs6", "Aurora Store", "Termux", "Shizuku (thedjchi)"],
+    "autojs6": ["AutoJs6"],
+}
+
+
+def load_catalog(path):
+    with open(path) as f:
+        data = json.load(f)
+    apps = data.get("apps")
+    if not apps:
+        raise ValueError("catalog has no apps: %s" % path)
+    return apps
+
+
+def build_import_uri(apps):
+    """Return obtainium://apps/<encoded-apps-array> for Obtainium's deep link."""
+    encoded = urllib.parse.quote(json.dumps(apps, separators=(",", ":")))
+    return "obtainium://apps/" + encoded
+
+
+def center_for_attr(ui_xml, attr, value):
+    value = saxutils.escape(value, {'"': "&quot;"})
+    pattern = (
+        r"<node\b(?=[^>]*\b%s=\"%s\")"
+        r"[^>]*\bbounds=\"\[(\d+),(\d+)\]\[(\d+),(\d+)\]\"" % (re.escape(attr), re.escape(value))
+    )
+    match = re.search(pattern, ui_xml or "")
+    if not match:
+        return None
+    x1, y1, x2, y2 = (int(match.group(i)) for i in range(1, 5))
+    return ((x1 + x2) // 2, (y1 + y2) // 2)
+
+
+def import_dialog_visible(ui_xml):
+    xml = ui_xml or ""
+    return IMPORT_DIALOG_TITLE in xml or CONTINUE_LABEL in xml
+
+
+def continue_button(ui_xml):
+    """Center of the import dialog Continue button, or None."""
+    return center_for_attr(ui_xml, "content-desc", CONTINUE_LABEL)
+
+
+def tracking_label(name):
+    """Obtainium list rows use the short name before any parenthetical."""
+    return name.split("(")[0].strip()
+
+
+def app_visible(ui_xml, name):
+    xml = ui_xml or ""
+    if name in xml:
+        return True
+    label = tracking_label(name)
+    return re.search(
+        r'content-desc="' + re.escape(label) + r'(?:&#10;|")',
+        xml,
+    ) is not None
+
+
+def catalog_tracked(ui_xml, app_names):
+    """True when every catalog app name appears in a uiautomator dump."""
+    return all(app_visible(ui_xml, name) for name in app_names)
+
+
+def adb_shell(serial, *args, timeout=30):
+    try:
+        return subprocess.run(
+            ["adb", "-s", serial, "shell"] + list(args),
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def dump_xml(serial, path="/sdcard/obtainium_import.xml", retries=3):
+    for attempt in range(retries):
+        adb_shell(serial, "uiautomator", "dump", path)
+        result = adb_shell(serial, "cat", path)
+        xml = result.stdout.replace("\r", "") if result else ""
+        if xml and "<hierarchy" in xml:
+            return xml
+        time.sleep(0.8 + attempt)
+    return ""
+
+
+def tap(serial, point):
+    adb_shell(serial, "input", "tap", str(point[0]), str(point[1]))
+
+
+def wake(serial):
+    adb_shell(serial, "input", "keyevent", "KEYCODE_WAKEUP")
+    time.sleep(0.5)
+
+
+def scroll_app_list(serial, height_hint=2200):
+    # Flutter list — swipe up to reveal more tracked apps.
+    mid_x = 400
+    adb_shell(serial, "input", "swipe", str(mid_x), str(int(height_hint * 0.72)),
+              str(mid_x), str(int(height_hint * 0.22)), "350")
+    time.sleep(0.6)
+
+
+def tracked_with_scroll(serial, app_names, passes=4):
+    xml = dump_xml(serial)
+    dismiss_blocking_dialogs(serial, xml)
+    xml = dump_xml(serial)
+    if catalog_tracked(xml, app_names):
+        return True
+    for _ in range(passes):
+        scroll_app_list(serial)
+        xml = dump_xml(serial)
+        dismiss_blocking_dialogs(serial, xml)
+        xml = dump_xml(serial)
+        if catalog_tracked(xml, app_names):
+            return True
+    return False
+
+
+def dismiss_snackbar(serial, ui_xml):
+    point = center_for_attr(ui_xml, "content-desc", "Dismiss")
+    if point:
+        tap(serial, point)
+        time.sleep(0.3)
+
+
+def dismiss_blocking_dialogs(serial, ui_xml):
+    """Close snackbars / error overlays that hide the app list."""
+    dismiss_snackbar(serial, ui_xml)
+    for label in ("Okay", "OK", "Ok"):
+        point = center_for_attr(ui_xml, "content-desc", label)
+        if point:
+            tap(serial, point)
+            time.sleep(0.5)
+            return True
+    return False
+
+
+def canary_names(which, catalog_path, apps):
+    if which in CANARY_APPS:
+        return CANARY_APPS[which]
+    if catalog_path == CATALOGS.get("all"):
+        return CANARY_APPS["all"]
+    if catalog_path == CATALOGS.get("autojs6"):
+        return CANARY_APPS["autojs6"]
+    return [a.get("name") or a["id"] for a in apps[:3]]
+
+
+def confirm_import(serial, timeout=12):
+    for _ in range(timeout):
+        xml = dump_xml(serial)
+        dismiss_blocking_dialogs(serial, xml)
+        if not import_dialog_visible(xml):
+            time.sleep(0.4)
+            continue
+        point = continue_button(xml)
+        if not point:
+            time.sleep(0.4)
+            continue
+        tap(serial, point)
+        time.sleep(2)
+        xml = dump_xml(serial)
+        dismiss_blocking_dialogs(serial, xml)
+        return True
+    return False
+
+
+def launch_import_uri(serial, uri):
+    # Quote for adb shell; Obtainium registers obtainium:// only (not file VIEW).
+    wake(serial)
+    adb_shell(serial, "am", "start", "-a", "android.intent.action.VIEW", "-d", uri)
+    time.sleep(2)
+
+
+def import_catalog(serial, catalog_path, which="all", force=False):
+    apps = load_catalog(catalog_path)
+    names = [a.get("name") or a["id"] for a in apps]
+    canaries = canary_names(which, catalog_path, apps)
+
+    wake(serial)
+    adb_shell(serial, "am", "start", "-n", "%s/.MainActivity" % OBTAINIUM_PKG)
+    time.sleep(2)
+    if not force and tracked_with_scroll(serial, canaries, passes=3):
+        print("Obtainium catalog already tracked on %s (%d apps)." % (serial, len(names)))
+        return True
+
+    uri = build_import_uri(apps)
+    launch_import_uri(serial, uri)
+    if not confirm_import(serial):
+        sys.stderr.write("ERROR: Obtainium import dialog not confirmed on %s\n" % serial)
+        return False
+
+    if tracked_with_scroll(serial, canaries, passes=5):
+        print("Imported %d apps into Obtainium on %s." % (len(names), serial))
+        return True
+
+    missing = [n for n in canaries if not app_visible(dump_xml(serial), n)]
+    sys.stderr.write(
+        "ERROR: import finished but catalog canaries missing in Obtainium UI: %s\n"
+        % ", ".join(missing)
+    )
+    return False
+
+
+def resolve_catalog(which):
+    if which in CATALOGS:
+        return CATALOGS[which]
+    if os.path.isfile(which):
+        return which
+    raise ValueError("unknown catalog %r (use all, autojs6, or a .json path)" % which)
+
+
+def main(argv=None):
+    argv = argv if argv is not None else sys.argv[1:]
+    if not argv:
+        sys.stderr.write(
+            "usage: import_catalog.py <p7a|s24|hd8|serial> [all|autojs6|path.json] [--force]\n"
+        )
+        return 2
+
+    serial = dev.resolve_adb(argv[0])
+    which = "all"
+    force = False
+    for arg in argv[1:]:
+        if arg == "--force":
+            force = True
+        elif not arg.startswith("-"):
+            which = arg
+
+    try:
+        catalog_path = resolve_catalog(which)
+    except ValueError as e:
+        sys.stderr.write("ERROR: %s\n" % e)
+        return 2
+
+    if not adb_shell(serial, "pm", "path", OBTAINIUM_PKG).stdout.strip():
+        sys.stderr.write("ERROR: Obtainium not installed on %s\n" % serial)
+        return 1
+
+    adb_shell(serial, "wait-for-device")
+    if not import_catalog(serial, catalog_path, which=which, force=force):
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
