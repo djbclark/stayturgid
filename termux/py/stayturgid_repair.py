@@ -1,8 +1,9 @@
 #!/data/data/com.termux/files/usr/bin/python
-"""stayturgid-repair.py — Termux-side self-heal (Python twin of ../stayturgid-repair.sh).
+"""stayturgid-repair.py — Termux-side self-heal (deployed as ~/stayturgid_repair.py,
+reached via the ~/stayturgid-repair.sh compat shim).
 
-Behavioral parity with the shell version is enforced by tests/test-unit.sh
-(repair_suite run against both). Shell stays deployed until parity soaks.
+Unit-tested via tests/test-unit.sh (repair_suite). The ~/stayturgid-repair.sh
+shim keeps AutoJs6 RUN_COMMAND / boot-loop / repair-bridge callers unchanged.
 
 Uses Shizuku's shell-privileged adbd on localhost:5555 (uid 2000) for
 privileged checks/repairs. Exit 0 = healthy after repair; 1 = a subsystem

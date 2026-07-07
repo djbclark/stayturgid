@@ -163,7 +163,7 @@ repair_suite() {
     unset PGREP_RC FLOCK_RC ADB_A11Y ADB_SHELL_UID 2>/dev/null || true
 }
 
-repair_suite termux/stayturgid-repair.sh sh
+# stayturgid-repair migrated to Python (stayturgid-repair.sh is now a compat shim).
 repair_suite termux/py/stayturgid_repair.py py
 
 # ===========================================================================
