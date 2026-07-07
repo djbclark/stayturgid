@@ -194,6 +194,23 @@ green on both; s24 AutoJs6 watchdog verified writing to the new log.
   fine. Toggle AutoJs6 accessibility OFF/ON in p7a Settings to rebind, or it
   may recover over boot-loop cycles.
 
+### AutoJs6 watchdog accessibility self-awareness fix — 2026-07-07 ✅
+
+Root-caused the "AutoJs6 accessibility won't self-heal" gap: guard.js checked
+accessibility by running `settings get secure enabled_accessibility_services`
+via AutoJs6's APP-uid shell — which can't read secure settings — so it ALWAYS
+reported "disabled" and logged `accessibility disabled — invoking repair` +
+thrashed a repair EVERY watchdog cycle, even though dumpsys showed AutoJs6
+bound the whole time. Fixed: guard now checks the authoritative, permission-
+free `auto.service` (AutoJs6's own bound service instance, non-null when
+enabled+bound), with the settings probe only as a best-effort fallback.
+Verified live: s24 watchdog now runs a full clean cycle (repair invoke,
+tailscale check/relaunch) with NO false a11y alarm; p7a false-alarm count 0.
+guard.js is AutoJs6-runtime (auto/shell globals) so it's node --check + on-
+device verified rather than unit-tested. Accessibility IS bound on both phones
+(my earlier grep -c heuristic miscounted — the bound-services list uses the
+friendly label "AutoJs6", not the class name).
+
 ### 🚦 Handoff — start here (cold-start summary)
 
 - **Deploy the fleet:** `./mac/deploy-fleet.sh` (thin wrapper over

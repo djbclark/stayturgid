@@ -3,20 +3,24 @@ var notify = require("./notify.js");
 var termux = require("./termux.js");
 var log = require("./log.js");
 
-function getEnabledAccessibilityServices() {
-    var r = shell("settings get secure enabled_accessibility_services", false);
-    if (r.code !== 0) return "";
-    return String(r.result || "").trim();
-}
-
-function a11yEnabled(serviceId) {
-    var list = getEnabledAccessibilityServices();
-    if (!list || list === "null") return false;
-    return list.indexOf(serviceId) >= 0;
-}
-
+// Authoritative, permission-free check: AutoJs6's own accessibility service
+// instance is non-null exactly when the service is enabled AND bound. The old
+// approach — `settings get secure enabled_accessibility_services` via the
+// app-uid shell — silently fails (reading secure settings needs shell/system
+// uid), so it ALWAYS reported "disabled" and thrashed a repair every cycle.
 function autoJs6AccessibilityEnabled() {
-    return a11yEnabled(config.AUTOJS6_A11Y);
+    try {
+        if (typeof auto !== "undefined" && auto.service) return true;
+    } catch (e) { /* fall through to the settings probe */ }
+    // Fallback (best effort): if a privileged read happens to work, use it.
+    try {
+        var r = shell("settings get secure enabled_accessibility_services", false);
+        if (r && r.code === 0) {
+            var list = String(r.result || "").trim();
+            return list && list !== "null" && list.indexOf(config.AUTOJS6_A11Y) >= 0;
+        }
+    } catch (e2) { /* ignore */ }
+    return false;
 }
 
 /**
@@ -64,5 +68,5 @@ function statusReport() {
 module.exports = {
     enforce: enforce,
     statusReport: statusReport,
-    getEnabledAccessibilityServices: getEnabledAccessibilityServices,
+    autoJs6AccessibilityEnabled: autoJs6AccessibilityEnabled,
 };

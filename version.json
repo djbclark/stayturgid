@@ -1,4 +1,4 @@
 {
-  "version": "2.1",
-  "changelog": "Single-root file consolidation: /sdcard/stayturgid, ~/.stayturgid, ~/.config/stayturgid with self-healing mkdir everywhere; deleted scattered/junk files."
+  "version": "2.2",
+  "changelog": "Fix AutoJs6 watchdog accessibility self-check: use auto.service (native, permission-free) instead of unreadable secure-settings probe \u2014 stops per-cycle false 'disabled' alarms + repair thrash."
 }
