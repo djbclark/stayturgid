@@ -6,8 +6,9 @@
     <string>com.stayturgid.adb-reconnect-{{ item }}</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/bin/bash</string>
-        <string>{{ stayturgid_repo_root | realpath }}/mac/adb-reconnect.sh</string>
+        <string>/usr/bin/env</string>
+        <string>python3</string>
+        <string>{{ stayturgid_repo_root | realpath }}/mac/adb_reconnect.py</string>
         <string>{{ item }}</string>
     </array>
     <key>StartInterval</key>

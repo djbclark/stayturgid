@@ -114,8 +114,14 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
   (git history keeps the shell version; no on-device parity mechanism exists
   for Mac tooling). Device-DEPLOYED runtime scripts → keep the shell twin and
   run the SAME sandbox suite against both (battery_suite/guard_suite) until
-  parity soaks. Remaining Mac-side shell worth converting: adb-reconnect.sh,
-  access-monitor.sh. Remaining runtime twins: repair, presence.
+  parity soaks.
+- **Mac-side conversion COMPLETE** (all the fragile parsers): device_tier.py
+  (13 tests), access_monitor.py (native socket probes, 5 tests),
+  adb_reconnect.py (candidate ordering / mDNS / caching, 9 tests). launchd
+  plists (mac.yml) launch python3; agents reloaded + verified live. Remaining
+  Mac shell is only thin wrappers (deploy-fleet.sh = ansible wrapper,
+  fleet-health.sh = run.sh delegate, resolve-adb.sh sourced by them) — low
+  risk, leave as-is. Remaining device-side runtime twins: repair, presence.
 
 ### 🚦 Handoff — start here (cold-start summary)
 
