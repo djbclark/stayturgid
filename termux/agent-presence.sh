@@ -7,4 +7,5 @@
 #   agent-presence.sh resume
 export HOME="${HOME:-/data/data/com.termux/files/home}"
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
+[ -f "$HOME/.stayturgid/env" ] && . "$HOME/.stayturgid/env"
 exec python3 "$HOME/.stayturgid/bin/stayturgid_agent_presence.py" "$@"

@@ -150,15 +150,22 @@ At the start of any Termux setup/maintenance, and **before every `pkg install`**
 ### Phone announcement protocol (CRITICAL)
 Before any device interaction, emit a standalone message naming the phone(s): **🚨📱🚨 USING — &lt;phone(s)&gt; 🚨📱🚨**. When done and not expecting to touch them again until the next user reply: **✅📱✅ FREE — &lt;phone(s)&gt; ✅📱✅**. Announce a second phone if picked up mid-run.
 
-### On-device presence indicator (run alongside the announcement)
-So it's obvious from the phone itself that automation is live (torch + vibration + ongoing notification only — nothing on the screen surface, so it never interferes with UI dumps/taps):
+### On-device presence indicator (screen control = inverted display)
+
+**Policy:** Mac UI automation must run inside `ScreenControlSession` (`shared/mac/screen_control.py`). The session runs `request-screen` (60s countdown), enables **accessibility display inversion** (inverted colors on the glass), starts torch + ongoing notification, and **refuses `adb input` if inversion is off**. Project scripts enforce this. Raw `adb shell input` can still bypass — don't use it for automation.
+
+**Device guard:** boot loop runs `agent-presence.sh guard` every 5 min — keeps inversion + notification alive while a lease is active; clears both when the lease expires.
+
 ```bash
-ssh s24 '~/agent-presence.sh gate "Galaxy S24" Auto'  # if active use detected: consent dialog (timeout=continue)
-ssh s24 '~/agent-presence.sh on  "Galaxy S24" Auto'   # ongoing "🤖 Auto is using ..." notification
-ssh s24 '~/agent-presence.sh off "Galaxy S24" Auto'   # remove notification + pulses
-# same for p7a / "Pixel 7a"; agent name = 3rd arg or STAYTURGID_AGENT (default Auto)
-# Screen-control sessions: request-screen (60s countdown modal) -> on -> poll stop-requested -> off
+ssh s24 '~/agent-presence.sh request-screen "Galaxy S24" Auto'
+ssh s24 '~/agent-presence.sh on  "Galaxy S24" Auto'
+ssh s24 '~/agent-presence.sh off "Galaxy S24" Auto'
+ssh s24 '~/agent-presence.sh status'
+# gate = consent when phone actively in use; stop-requested = graceful stop poll
 ```
+
+`STAYTURGID_SKIP_PRESENCE=1` for local debugging only. Ansible now grants `POST_NOTIFICATIONS` to Termux on deploy (fixes silent `termux-notification`).
+
 The protocol is **shared, agent-agnostic infrastructure** — do NOT fork per-agent copies. Any agent (Claude/GPT/Gemini) identifies via the 3rd arg / `STAYTURGID_AGENT`, aborts on `request-screen` exit 75, and on `stop-requested` exit 0 has ~1 min to wrap up. Script: `termux/claude-presence.sh` (repo) → `~/agent-presence.sh` (device); `agent-presence.sh` is the current name, `claude-presence.sh` a compat shim.
 
 ### Shell conventions

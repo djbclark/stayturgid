@@ -139,6 +139,18 @@ repair_suite() {
     tap_is "$RC" 1 "repair[$T]: no privileged shell => exit 1"
     tap_like "$OUT" "port=CLOSED_NO_SHELL" "repair[$T]: STATUS reports CLOSED_NO_SHELL"
 
+    # Fire OS / split-storage: localhost:5555 not expected — sshd-only heal, exit 0
+    reset_sandbox
+    export PGREP_RC=0 ADB_SHELL_UID=""
+    mkdir -p "$SANDBOX/sd/state"
+    printf '%s\n' '{"privilegedShellExpected":false}' > "$SANDBOX/sd/state/device.json"
+    export STAYTURGID_SD="$SANDBOX/sd"
+    run_sandboxed "$RSCRIPT"
+    unset ADB_SHELL_UID STAYTURGID_SD
+    tap_is "$RC" 0 "repair[$T]: Fire OS skip privileged shell => exit 0"
+    tap_like "$OUT" "port=skip" "repair[$T]: STATUS reports port=skip"
+    tap_unlike "$OUT" "CLOSED_NO_SHELL" "repair[$T]: Fire OS does not log CLOSED_NO_SHELL"
+
     # H1 regression: lock-contention branch must resolve its helpers
     reset_sandbox
     export PGREP_RC=0 FLOCK_RC=1

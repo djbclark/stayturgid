@@ -18,6 +18,7 @@ import time
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(REPO, "shared", "mac"))
 import stayturgid_device as dev  # noqa: E402
+import screen_control as sc  # noqa: E402
 
 OBTAINIUM_PKG = "dev.imranr.obtainium"
 BULK = (476, 2017)
@@ -55,27 +56,32 @@ def main(argv=None):
         return 2
     serial = dev.resolve_adb(argv[0])
 
-    adb_shell(serial, "am", "start", "-n", "%s/.MainActivity" % OBTAINIUM_PKG)
-    time.sleep(3)
-    adb_shell(serial, "input", "tap", str(BULK[0]), str(BULK[1]))
-    time.sleep(2)
-    adb_shell(serial, "input", "tap", str(CONTINUE[0]), str(CONTINUE[1]))
-    print("Tapped bulk update + Continue — handling installer dialogs for ~90s...")
+    try:
+        with sc.ScreenControlSession(argv[0], label=argv[0]) as session:
+            serial = session.serial
+            session.shell("am", "start", "-n", "%s/.MainActivity" % OBTAINIUM_PKG)
+            time.sleep(3)
+            session.shell("input", "tap", str(BULK[0]), str(BULK[1]))
+            time.sleep(2)
+            session.shell("input", "tap", str(CONTINUE[0]), str(CONTINUE[1]))
+            print("Tapped bulk update + Continue — handling installer dialogs for ~90s...")
 
-    for _ in range(18):
-        time.sleep(5)
-        adb_shell(serial, "uiautomator", "dump", "/sdcard/obtainium_apply.xml")
-        r = adb_shell(serial, "cat", "/sdcard/obtainium_apply.xml")
-        xml = r.stdout if r else ""
-        kind, center = installer_action(xml)
-        if kind == "installer" and center:
-            adb_shell(serial, "input", "tap", str(center[0]), str(center[1]))
-            print("  confirmed package installer (button2)")
-        elif kind == "playprotect":
-            print("  WARN: Play Protect dialog — dismiss manually or disable "
-                  "verifier (HACKING.md)")
-            adb_shell(serial, "input", "tap", str(PLAY_PROTECT_DISMISS[0]),
-                      str(PLAY_PROTECT_DISMISS[1]))
+            for _ in range(18):
+                time.sleep(5)
+                session.shell("uiautomator", "dump", "/sdcard/obtainium_apply.xml")
+                rc, xml = session.shell("cat", "/sdcard/obtainium_apply.xml")
+                kind, center = installer_action(xml)
+                if kind == "installer" and center:
+                    session.shell("input", "tap", str(center[0]), str(center[1]))
+                    print("  confirmed package installer (button2)")
+                elif kind == "playprotect":
+                    print("  WARN: Play Protect dialog — dismiss manually or disable "
+                          "verifier (HACKING.md)")
+                    session.shell("input", "tap", str(PLAY_PROTECT_DISMISS[0]),
+                                  str(PLAY_PROTECT_DISMISS[1]))
+    except sc.ScreenControlError as e:
+        sys.stderr.write("ERROR: %s\n" % e)
+        return 1
 
     print("Done. Re-check Obtainium app list for any remaining Update badges.")
     return 0

@@ -10,5 +10,6 @@
   "tailscaleIp": {{ stayturgid_tailscale_ip | to_json }},
   "tailscalePackage": {{ tailscale_package | to_json }},
   "tailscaleActivity": {{ tailscale_activity | to_json }},
-  "wirelessDebugUiFallback": {{ stayturgid_wireless_debug_ui_fallback | to_json }}
+  "wirelessDebugUiFallback": {{ stayturgid_wireless_debug_ui_fallback | to_json }},
+  "privilegedShellExpected": {{ stayturgid_privileged_shell_expected | default(true) | to_json }}
 }

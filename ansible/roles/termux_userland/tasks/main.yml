@@ -125,6 +125,25 @@
   register: overlay_grant
   changed_when: "'overlay=granted' in overlay_grant.stdout"
 
+- name: Grant POST_NOTIFICATIONS for Termux (termux-notification / agent-presence)
+  ansible.builtin.shell: |
+    export PATH={{ termux_prefix }}/bin:$PATH TMPDIR={{ termux_prefix }}/tmp
+    adb connect localhost:5555 >/dev/null 2>&1 </dev/null
+    granted=0
+    for pkg in com.termux com.termux.api; do
+      adb -s localhost:5555 shell pm list packages --user 0 "$pkg" </dev/null 2>/dev/null \
+        | grep -q "$pkg" || continue
+      if adb -s localhost:5555 shell pm grant "$pkg" android.permission.POST_NOTIFICATIONS </dev/null 2>&1 \
+        | grep -qiE 'granted|already'; then
+        granted=$((granted + 1))
+      fi
+    done
+    if [ "$granted" -gt 0 ]; then echo "notif=granted:$granted"; else echo "notif=already"; fi
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  register: notif_grant
+  changed_when: "'notif=granted' in notif_grant.stdout"
+
 - name: Ensure Termux boot directory exists
   ansible.builtin.file:
     path: "{{ termux_home }}/.termux/boot"

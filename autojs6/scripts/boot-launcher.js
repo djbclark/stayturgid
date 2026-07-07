@@ -9,16 +9,25 @@
 
 var MAIN = "/sdcard/stayturgid/autojs6/main.js";
 
-function mainAlreadyRunning() {
+function findMainEngines() {
+    var out = [];
     var engines = runtime.engines.all();
     for (var i = 0; i < engines.length; i++) {
         var src = String(engines[i].getSource() || "");
-        if (src.indexOf(MAIN) >= 0 || src.indexOf("stayturgid/autojs6/main.js") >= 0) return true;
+        if (src.indexOf(MAIN) >= 0 || src.indexOf("stayturgid/autojs6/main.js") >= 0) {
+            out.push(engines[i]);
+        }
     }
-    return false;
+    return out;
 }
 
-if (mainAlreadyRunning()) {
+var existing = findMainEngines();
+if (existing.length === 1) {
     exit();
+}
+if (existing.length > 1) {
+    for (var j = 0; j < existing.length; j++) {
+        existing[j].forceStop();
+    }
 }
 engines.execScriptFile(MAIN);

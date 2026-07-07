@@ -34,7 +34,7 @@ try {
 // Run one guarded cycle.
 function safeCycle(trigger) {
     try {
-        guard.enforce();
+        guard.enforce(profile);
         watchdog.runCycle(trigger, profile);
     } catch (e) {
         log.append("[watchdog] " + trigger + " cycle error: " + e);

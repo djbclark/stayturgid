@@ -35,9 +35,21 @@ function autoJs6AccessibilityEnabled() {
  * killing even the non-a11y work (sshd/Tailscale/repair via RUN_COMMAND). The
  * caller runs the cycle regardless; a11y-dependent steps no-op when it's off.
  */
-function enforce() {
+function enforce(profile) {
+    profile = profile || config.detectDeviceProfile();
     if (autoJs6AccessibilityEnabled()) {
         notify.clear("a11y-blocked");
+        return;
+    }
+
+    if (config.splitStorage(profile)) {
+        log.append("[watchdog] split-storage: a11y off — degraded (Mac adb repairs only)");
+        notify.show(
+            "stayturgid AutoJs6 degraded",
+            "Accessibility is off — sshd/Tailscale self-heal still runs, but on-screen "
+                + "repairs are paused. Enable the AutoJs6 accessibility service to restore.",
+            "a11y-blocked"
+        );
         return;
     }
 

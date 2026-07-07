@@ -10,6 +10,7 @@ shim keeps the documented external interface stable.
 Exit codes: 0 = proceed, 2 = usage, 75 = gate deferred/disallowed.
 """
 import datetime
+import json
 import os
 import re
 import subprocess
@@ -19,6 +20,18 @@ import time
 os.environ["PATH"] = "/data/data/com.termux/files/usr/bin:" + os.environ.get("PATH", "")
 os.environ["LC_ALL"] = "C"
 
+HOME = os.environ.get("HOME", "/data/data/com.termux/files/home")
+_ENV_FILE = os.path.join(HOME, ".stayturgid", "env")
+if os.path.isfile(_ENV_FILE):
+    try:
+        with open(_ENV_FILE) as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line.startswith("export STAYTURGID_SD="):
+                    os.environ["STAYTURGID_SD"] = _line.split("=", 1)[1].strip().strip('"')
+    except OSError:
+        pass
+
 NID = "stayturgid-presence"
 # Shared-storage root; self-healing (writers mkdir -p first).
 SD = os.environ.get("STAYTURGID_SD", "/sdcard/stayturgid")
@@ -26,6 +39,8 @@ STATE = os.path.join(SD, "state")
 PAUSE_FILE = os.path.join(STATE, "presence_paused")
 LATER_FILE = os.path.join(STATE, "presence_check_after")
 STOP_FILE = os.path.join(STATE, "stop_requested")
+LEASE_FILE = os.path.join(STATE, "screen_control_lease.json")
+LEASE_TTL_SEC = 1800
 
 IDLE_PKGS = {
     "", "com.sec.android.app.launcher", "com.google.android.apps.nexuslauncher",
@@ -52,6 +67,44 @@ def adb_shell(*cmd):
 
 def invert(state):  # state = "1" | "0"
     adb_shell("settings put secure accessibility_display_inversion_enabled %s" % state)
+    got = adb_shell("settings get secure accessibility_display_inversion_enabled").strip()
+    return got == state
+
+
+def inversion_enabled():
+    return adb_shell("settings get secure accessibility_display_inversion_enabled").strip() == "1"
+
+
+def read_lease():
+    try:
+        with open(LEASE_FILE) as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def write_lease(label, agent):
+    now = int(time.time())
+    write(LEASE_FILE, json.dumps({
+        "label": label,
+        "agent": agent,
+        "started": now,
+        "expires": now + LEASE_TTL_SEC,
+    }) + "\n")
+
+
+def lease_active():
+    lease = read_lease()
+    if not lease:
+        return False
+    try:
+        return int(lease.get("expires", 0)) > int(time.time())
+    except (TypeError, ValueError):
+        return False
+
+
+def clear_lease():
+    rm(LEASE_FILE)
 
 
 def pulse(n):
@@ -171,7 +224,9 @@ def request_screen(label, agent):
 
 def action_on(label, agent):
     rm(LATER_FILE); rm(STOP_FILE)
-    invert("1")
+    write_lease(label, agent)
+    if not invert("1"):
+        sys.stderr.write("WARN: could not confirm display inversion (localhost:5555 shell?)\n")
     run(["termux-vibrate", "-d", "400"])
     pulse(3)
     now = datetime.datetime.now().strftime("%H:%M:%S")
@@ -189,7 +244,9 @@ def action_on(label, agent):
 
 def action_off(label, agent):
     stopped = os.path.exists(STOP_FILE)
-    invert("0")
+    clear_lease()
+    if not invert("0"):
+        sys.stderr.write("WARN: could not confirm inversion off\n")
     run(["termux-notification-remove", NID])
     run(["termux-notification-remove", "claude-presence"])  # legacy id
     pulse(2)
@@ -209,6 +266,44 @@ def action_off(label, agent):
         print("presence OFF (%s) — graceful stop honored" % label)
     else:
         print("presence OFF (%s)" % label)
+    return 0
+
+
+def action_guard():
+    """Boot-loop hook: keep inversion on while lease active; expire stale sessions."""
+    if not lease_active():
+        if inversion_enabled():
+            invert("0")
+            run(["termux-notification-remove", NID])
+            run(["termux-notification-remove", "claude-presence"])
+        clear_lease()
+        return 0
+    lease = read_lease() or {}
+    if not inversion_enabled():
+        if not invert("1"):
+            sys.stderr.write("WARN: guard could not re-enable inversion\n")
+    # Refresh ongoing notification so it stays visible if channels were cleared.
+    label = lease.get("label", "this phone")
+    agent = lease.get("agent", "Auto")
+    now = datetime.datetime.now().strftime("%H:%M:%S")
+    btn = ("mkdir -p %s 2>/dev/null; touch %s; "
+           "termux-toast 'Stop requested — agent wrapping up (~1 min)'" % (STATE, STOP_FILE))
+    run(["termux-notification", "--id", NID, "--ongoing", "--alert-once",
+         "--priority", "high", "--icon", "developer_board",
+         "--title", "🤖 %s is using %s" % (agent, label),
+         "--content", "Automation in progress — guarded %s. Graceful stop gives "
+                      "the agent ~1 min to wrap up." % now,
+         "--button1", "Graceful stop", "--button1-action", btn])
+    # Extend lease while automation is still marked active.
+    write_lease(label, agent)
+    return 0
+
+
+def action_status():
+    lease = read_lease()
+    print("lease_active=%s inversion=%s" % (lease_active(), inversion_enabled()))
+    if lease:
+        print("lease=%s" % json.dumps(lease, sort_keys=True))
     return 0
 
 
@@ -233,12 +328,16 @@ def main(argv=None):
         return action_on(label, agent)
     if action == "off":
         return action_off(label, agent)
+    if action == "guard":
+        return action_guard()
+    if action == "status":
+        return action_status()
     if action in ("resume", "clear-pause"):
         rm(PAUSE_FILE); rm(LATER_FILE)
         print("presence gate: pause cleared")
         return 0
     sys.stderr.write("usage: agent-presence.sh on|off|gate|request-screen|"
-                     "stop-requested [label] [agent] | resume\n")
+                     "stop-requested|guard|status [label] [agent] | resume\n")
     return 2
 
 

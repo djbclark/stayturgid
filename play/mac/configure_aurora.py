@@ -17,6 +17,7 @@ import xml.sax.saxutils as saxutils
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(REPO, "shared", "mac"))
 import stayturgid_device as dev  # noqa: E402
+import screen_control as sc  # noqa: E402
 
 AURORA_PKG = "com.aurora.store"
 
@@ -201,16 +202,22 @@ def main(argv=None):
         sys.stderr.write("usage: configure_aurora.py <p7a|s24|hd8|serial>\n")
         return 2
 
-    serial = dev.resolve_adb(argv[0])
+    host = argv[0]
+    serial = dev.resolve_adb(host)
     subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
-    open_aurora(serial)
-    if not finish_first_run(serial):
+    try:
+        with sc.ScreenControlSession(host, label=host):
+            open_aurora(serial)
+            if not finish_first_run(serial):
+                return 1
+            if not configure_installer(serial):
+                return 1
+            if not configure_auto_updates(serial):
+                return 1
+            adb(serial, "input", "keyevent", "KEYCODE_HOME")
+    except sc.ScreenControlError as e:
+        sys.stderr.write("ERROR: %s\n" % e)
         return 1
-    if not configure_installer(serial):
-        return 1
-    if not configure_auto_updates(serial):
-        return 1
-    adb(serial, "input", "keyevent", "KEYCODE_HOME")
     return 0
 
 

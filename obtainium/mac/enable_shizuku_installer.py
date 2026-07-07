@@ -18,6 +18,7 @@ import time
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(REPO, "shared", "mac"))
 import stayturgid_device as dev  # noqa: E402
+import screen_control as sc  # noqa: E402
 
 OBTAINIUM_PKG = "dev.imranr.obtainium"
 SHIZUKU_PERM = "moe.shizuku.manager.permission.API_V23"
@@ -110,7 +111,12 @@ def main(argv=None):
     shell = dev.PrivShell(argv[0])
     if not grant_json(shell):
         return 1
-    if not toggle_installer(shell):
+    try:
+        with sc.ScreenControlSession(argv[0], label=argv[0], skip_request=True):
+            if not toggle_installer(shell):
+                return 1
+    except sc.ScreenControlError as e:
+        sys.stderr.write("ERROR: %s\n" % e)
         return 1
     print("Done. Obtainium should use Shizuku for installs (fewer dialogs).")
     return 0

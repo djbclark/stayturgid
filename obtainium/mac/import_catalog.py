@@ -25,6 +25,7 @@ import xml.sax.saxutils as saxutils
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(REPO, "shared", "mac"))
 import stayturgid_device as dev  # noqa: E402
+import screen_control as sc  # noqa: E402
 
 OBTAINIUM_PKG = "dev.imranr.obtainium"
 CATALOGS = {
@@ -121,53 +122,55 @@ def dump_xml(serial, path="/sdcard/obtainium_import.xml", retries=3):
     return ""
 
 
-def tap(serial, point):
-    adb_shell(serial, "input", "tap", str(point[0]), str(point[1]))
+def tap(serial, point, shell=None):
+    runner = shell or (lambda *args, **kw: adb_shell(serial, *args, **kw))
+    runner("input", "tap", str(point[0]), str(point[1]))
 
 
-def wake(serial):
-    adb_shell(serial, "input", "keyevent", "KEYCODE_WAKEUP")
+def wake(serial, shell=None):
+    runner = shell or (lambda *args, **kw: adb_shell(serial, *args, **kw))
+    runner("input", "keyevent", "KEYCODE_WAKEUP")
     time.sleep(0.5)
 
 
-def scroll_app_list(serial, height_hint=2200):
-    # Flutter list — swipe up to reveal more tracked apps.
+def scroll_app_list(serial, height_hint=2200, shell=None):
+    runner = shell or (lambda *args, **kw: adb_shell(serial, *args, **kw))
     mid_x = 400
-    adb_shell(serial, "input", "swipe", str(mid_x), str(int(height_hint * 0.72)),
-              str(mid_x), str(int(height_hint * 0.22)), "350")
+    runner("input", "swipe", str(mid_x), str(int(height_hint * 0.72)),
+            str(mid_x), str(int(height_hint * 0.22)), "350")
     time.sleep(0.6)
 
 
-def tracked_with_scroll(serial, app_names, passes=4):
+def tracked_with_scroll(serial, app_names, passes=4, shell=None):
     xml = dump_xml(serial)
-    dismiss_blocking_dialogs(serial, xml)
+    dismiss_blocking_dialogs(serial, xml, shell=shell)
     xml = dump_xml(serial)
     if catalog_tracked(xml, app_names):
         return True
     for _ in range(passes):
-        scroll_app_list(serial)
+        scroll_app_list(serial, shell=shell)
         xml = dump_xml(serial)
-        dismiss_blocking_dialogs(serial, xml)
+        dismiss_blocking_dialogs(serial, xml, shell=shell)
         xml = dump_xml(serial)
         if catalog_tracked(xml, app_names):
             return True
     return False
 
 
-def dismiss_snackbar(serial, ui_xml):
+def dismiss_snackbar(serial, ui_xml, shell=None):
     point = center_for_attr(ui_xml, "content-desc", "Dismiss")
     if point:
-        tap(serial, point)
+        tap(serial, point, shell=shell)
         time.sleep(0.3)
 
 
-def dismiss_blocking_dialogs(serial, ui_xml):
+def dismiss_blocking_dialogs(serial, ui_xml, shell=None):
     """Close snackbars / error overlays that hide the app list."""
-    dismiss_snackbar(serial, ui_xml)
+    dismiss_snackbar(serial, ui_xml, shell=shell)
     for label in ("Okay", "OK", "Ok"):
         point = center_for_attr(ui_xml, "content-desc", label)
         if point:
-            tap(serial, point)
+            tap(serial, point, shell=shell)
             time.sleep(0.5)
             return True
     return False
@@ -183,10 +186,10 @@ def canary_names(which, catalog_path, apps):
     return [a.get("name") or a["id"] for a in apps[:3]]
 
 
-def confirm_import(serial, timeout=12):
+def confirm_import(serial, timeout=12, shell=None):
     for _ in range(timeout):
         xml = dump_xml(serial)
-        dismiss_blocking_dialogs(serial, xml)
+        dismiss_blocking_dialogs(serial, xml, shell=shell)
         if not import_dialog_visible(xml):
             time.sleep(0.4)
             continue
@@ -194,22 +197,22 @@ def confirm_import(serial, timeout=12):
         if not point:
             time.sleep(0.4)
             continue
-        tap(serial, point)
+        tap(serial, point, shell=shell)
         time.sleep(2)
         xml = dump_xml(serial)
-        dismiss_blocking_dialogs(serial, xml)
+        dismiss_blocking_dialogs(serial, xml, shell=shell)
         return True
     return False
 
 
-def launch_import_uri(serial, uri):
-    # Quote for adb shell; Obtainium registers obtainium:// only (not file VIEW).
-    wake(serial)
-    adb_shell(serial, "am", "start", "-a", "android.intent.action.VIEW", "-d", uri)
+def launch_import_uri(serial, uri, shell=None):
+    wake(serial, shell=shell)
+    runner = shell or (lambda *args, **kw: adb_shell(serial, *args, **kw))
+    runner("am", "start", "-a", "android.intent.action.VIEW", "-d", uri)
     time.sleep(2)
 
 
-def import_catalog(serial, catalog_path, which="all", force=False):
+def import_catalog(serial, catalog_path, which="all", force=False, shell=None):
     apps = load_catalog(catalog_path)
     names = [a.get("name") or a["id"] for a in apps]
     canaries = canary_names(which, catalog_path, apps)
@@ -217,17 +220,17 @@ def import_catalog(serial, catalog_path, which="all", force=False):
     wake(serial)
     adb_shell(serial, "am", "start", "-n", "%s/.MainActivity" % OBTAINIUM_PKG)
     time.sleep(2)
-    if not force and tracked_with_scroll(serial, canaries, passes=3):
+    if not force and tracked_with_scroll(serial, canaries, passes=3, shell=shell):
         print("Obtainium catalog already tracked on %s (%d apps)." % (serial, len(names)))
         return True
 
     uri = build_import_uri(apps)
-    launch_import_uri(serial, uri)
-    if not confirm_import(serial):
+    launch_import_uri(serial, uri, shell=shell)
+    if not confirm_import(serial, shell=shell):
         sys.stderr.write("ERROR: Obtainium import dialog not confirmed on %s\n" % serial)
         return False
 
-    if tracked_with_scroll(serial, canaries, passes=5):
+    if tracked_with_scroll(serial, canaries, passes=5, shell=shell):
         print("Imported %d apps into Obtainium on %s." % (len(names), serial))
         return True
 
@@ -255,7 +258,8 @@ def main(argv=None):
         )
         return 2
 
-    serial = dev.resolve_adb(argv[0])
+    host = argv[0]
+    serial = dev.resolve_adb(host)
     which = "all"
     force = False
     for arg in argv[1:]:
@@ -275,7 +279,14 @@ def main(argv=None):
         return 1
 
     adb_shell(serial, "wait-for-device")
-    if not import_catalog(serial, catalog_path, which=which, force=force):
+    try:
+        with sc.ScreenControlSession(host, label=host) as session:
+            if not import_catalog(
+                session.serial, catalog_path, which=which, force=force, shell=session.shell
+            ):
+                return 1
+    except sc.ScreenControlError as e:
+        sys.stderr.write("ERROR: %s\n" % e)
         return 1
     return 0
 

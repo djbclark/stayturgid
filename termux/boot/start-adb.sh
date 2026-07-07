@@ -63,6 +63,11 @@ BOOTLOOP_PID_FILE="$STG/run/bootloop.pid"
         python3 "$BIN/stayturgid_screen_awake_guard.py" check >/dev/null 2>&1 || true
     fi
 
+    # Active screen-control lease: keep inversion + presence notification alive.
+    if [ -x "$BIN/stayturgid_agent_presence.py" ]; then
+        python3 "$BIN/stayturgid_agent_presence.py" guard >/dev/null 2>&1 || true
+    fi
+
     # Daily GitHub version check (notify only; deploy from Mac).
     VERSION_CHECK_STAMP="$STG/state/last_version_check"
     now=$(date +%s)
