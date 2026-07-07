@@ -1,0 +1,29 @@
+# Human responses (copy to RESPONSES.md and fill in)
+
+# Do not commit real tokens. RESPONSES.md is gitignored.
+
+## Play credentials
+# play_backend: none | apkeep | gplaycli
+# play_creds_ready: yes | no
+
+## On-device setup
+# neo_store_shizuku_installer:
+#   p7a: done | pending
+#   s24: done | pending
+#   hd8: done | pending
+# aurora_shizuku_installer:
+#   p7a: done | pending
+#   s24: done | pending
+
+## Fleet deploy
+# deploy_fleet: approved | hold | s24-only | p7a-only
+# deploy_window: "e.g. evenings OK" or empty
+
+## Galaxy
+# galaxy_published: no | yes (which collections)
+
+## F-Droid import issues
+# fdroid_repo_push_failed_on: (host + symptom, or "none")
+
+## Notes
+# (anything else for the agent)

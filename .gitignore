@@ -7,3 +7,4 @@ __pycache__/
 *.py[cod]
 ansible_collections/stayturgid/*/tests/output/
 ansible_collections/stayturgid/*/collections/
+human/RESPONSES.md

@@ -2,7 +2,7 @@
 
 > **Purpose:** This file is a prompt for an AI agent taking over development. Read it fully before doing anything else. It describes what the project does, the current state, the environment, the tooling rules, and what's next.
 >
-> **Modular docs:** each subfolder is usable on its own. Human index: [docs/README.md](docs/README.md) · [README.md](README.md). Full clean-install setup + device gotchas: [HACKING.md](HACKING.md). Git history has the detailed narrative of every change; this file is the condensed durable record.
+> **Modular docs:** each subfolder is usable on its own. Human index: [docs/README.md](docs/README.md) · [README.md](README.md). Full clean-install setup + device gotchas: [HACKING.md](HACKING.md). **Operator tasks (credentials, deploy approval):** [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md). Git history has the detailed narrative of every change; this file is the condensed durable record.
 
 ---
 
