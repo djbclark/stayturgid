@@ -1,0 +1,23 @@
+---
+# Unified app ensure specs — each entry picks a source backend.
+#
+# Supported sources (control-node unless noted):
+#   play      — stayturgid.play.play_apps (apkeep/gplaycli + adb)
+#   apk       — stayturgid.android_common.android_apk (local/url/gh)
+#   fdroid    — fdroidcl install <id> on control node
+#   obtainium — stayturgid.obtainium.obtainium_app (runs on device over SSH)
+#
+# Example:
+# stayturgid_ensure_apps:
+#   - id: com.aurora.store
+#     source: play
+#   - id: org.breezyweather
+#     source: fdroid
+#   - id: moe.shizuku.privileged.api
+#     source: apk
+#     gh_repo: thedjchi/Shizuku
+#     gh_pattern: "*.apk"
+
+stayturgid_ensure_apps: []
+stayturgid_ensure_apps_device: "{{ target_device | default(inventory_hostname) }}"
+stayturgid_repo_root: "{{ playbook_dir }}/../.."

@@ -53,9 +53,10 @@
   ansible.builtin.set_fact:
     _fdroid_handler_component: "{{ handler_result.stdout | trim }}"
 
-- name: Manage F-Droid repos in fdroidcl (control machine)
+- name: Manage F-Droid repos and setups in fdroidcl (control machine)
   stayturgid.fdroid.fdroid_repos:
     repos: "{{ stayturgid_fdroid_repos }}"
+    setups: "{{ stayturgid_fdroid_setups | default([]) }}"
     device: "{{ _fdroid_target_device }}"
     update_index: "{{ stayturgid_fdroid_update_index | default(true) }}"
   delegate_to: localhost
@@ -66,60 +67,24 @@
     var: fdroid_result
     verbosity: 1
 
-- name: Manage fdroidcl setups (optional mass-install definitions)
-  when: stayturgid_fdroid_setups is defined
-  block:
-    - name: Create or update fdroidcl setup
-      ansible.builtin.shell: |
-        set -euo pipefail
-        name="{{ item.name }}"
-        fdroidcl setup new "$name" 2>/dev/null || true
-        {% for r in item.repos | default([]) %}
-        fdroidcl setup add-repo "$name" "{{ r }}"
-        {% endfor %}
-        {% for a in item.apps | default([]) %}
-        fdroidcl setup add-app "$name" "{{ a }}"
-        {% endfor %}
-      args:
-        executable: /bin/bash
-      loop: "{{ stayturgid_fdroid_setups }}"
-      delegate_to: localhost
-      register: setup_create
-      changed_when: false
-
-    - name: Apply fdroidcl setups
-      ansible.builtin.shell: |
-        set -euo pipefail
-        fdroidcl setup apply "{{ item.name }}"
-      args:
-        executable: /bin/bash
-      loop: "{{ stayturgid_fdroid_setups }}"
-      delegate_to: localhost
-      register: setup_apply
-      changed_when: setup_apply.rc == 0
-      failed_when: setup_apply.rc != 0
-
+# Explicit component bypasses the system chooser; android_intent falls back
+# to an implicit intent when the activity name is stale (renamed upstream).
 - name: Push repos to on-device client via fdroidrepos intent
   when:
     - stayturgid_ensure_neo_store | bool
     - stayturgid_push_repos_to_device | default(true) | bool
     - fdroid_gui_pkgs.stdout | length > 0
-  ansible.builtin.shell: |
-    set -euo pipefail
-    adb connect "{{ _fdroid_target_device }}" >/dev/null 2>&1 || true
-    hostpath="{{ item.address | regex_replace('^https?://', '') | regex_replace('/$', '') }}"
-    uri="fdroidrepos://${hostpath}"
-    {% if item.fingerprint | default('') | length > 0 %}
-    fp="{{ item.fingerprint | regex_replace('[^0-9A-Fa-f]', '') | upper }}"
-    uri="${uri}?fingerprint=${fp}"
-    {% endif %}
-    adb -s "{{ _fdroid_target_device }}" shell am start \
-      -a android.intent.action.VIEW \
-      -d "$uri" \
-      -n "{{ _fdroid_handler_component }}"
-  args:
-    executable: /bin/bash
+    - item.state | default('present') == 'present'
+  stayturgid.android_common.android_intent:
+    device: "{{ _fdroid_target_device }}"
+    data: >-
+      fdroidrepos://{{ item.address | regex_replace('^https?://', '') | regex_replace('/$', '')
+      }}{% if item.fingerprint | default('') | length > 0
+      %}?fingerprint={{ item.fingerprint | regex_replace('[^0-9A-Fa-f]', '') | upper }}{% endif %}
+    component: "{{ _fdroid_handler_component }}"
   loop: "{{ stayturgid_fdroid_repos }}"
+  loop_control:
+    label: "{{ item.name }}"
   delegate_to: localhost
   changed_when: false
 

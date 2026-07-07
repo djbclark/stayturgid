@@ -1,0 +1,65 @@
+---
+# Unified app ensure — dispatches each spec to the right collection module.
+
+- name: Resolve adb target for control-node sources
+  ansible.builtin.set_fact:
+    _ensure_apps_adb: "{{ lookup('stayturgid.android_common.adb_device', stayturgid_ensure_apps_device) }}"
+
+- name: Partition ensure_apps specs by source
+  ansible.builtin.set_fact:
+    _ensure_play: "{{ stayturgid_ensure_apps | selectattr('source', 'equalto', 'play') | list }}"
+    _ensure_apk: "{{ stayturgid_ensure_apps | selectattr('source', 'equalto', 'apk') | list }}"
+    _ensure_fdroid: "{{ stayturgid_ensure_apps | selectattr('source', 'equalto', 'fdroid') | list }}"
+    _ensure_obtainium: "{{ stayturgid_ensure_apps | selectattr('source', 'equalto', 'obtainium') | list }}"
+  when: stayturgid_ensure_apps | length > 0
+
+- name: Ensure Obtainium catalog entries (on-device over SSH)
+  when: _ensure_obtainium | default([]) | length > 0
+  stayturgid.obtainium.obtainium_app:
+    apps: "{{ _ensure_obtainium }}"
+    catalog_path: "{{ stayturgid_obtainium_catalog | default(stayturgid_sd_root ~ '/import/stayturgid-obtainium-apps.json') }}"
+    import_ui: false
+
+- name: Ensure Play apps (apkeep/gplaycli + adb)
+  when: _ensure_play | default([]) | length > 0
+  stayturgid.play.play_apps:
+    apps: "{{ _ensure_play }}"
+    device: "{{ _ensure_apps_adb }}"
+    download_backend: "{{ stayturgid_play_download_backend | default('apkeep') }}"
+    apkeep_source: "{{ stayturgid_play_apkeep_source | default('apk-pure') }}"
+    repo_root: "{{ stayturgid_repo_root }}"
+  delegate_to: localhost
+
+- name: Ensure APK apps (local / url / gh release)
+  when: _ensure_apk | default([]) | length > 0
+  stayturgid.android_common.android_apk:
+    device: "{{ _ensure_apps_adb }}"
+    package: "{{ item.id }}"
+    apk_path: "{{ item.apk_path | default(omit) }}"
+    url: "{{ item.url | default(omit) }}"
+    gh_repo: "{{ item.gh_repo | default(omit) }}"
+    gh_pattern: "{{ item.gh_pattern | default(omit) }}"
+    gh_tag: "{{ item.gh_tag | default(omit) }}"
+    force: "{{ item.force | default(false) }}"
+    installer: "{{ item.installer | default(omit) }}"
+  loop: "{{ _ensure_apk | default([]) }}"
+  loop_control:
+    label: "{{ item.id }}"
+  delegate_to: localhost
+
+- name: Ensure F-Droid apps via fdroidcl
+  when: _ensure_fdroid | default([]) | length > 0
+  ansible.builtin.command:
+    argv:
+      - fdroidcl
+      - install
+      - "{{ item.id }}"
+  environment:
+    ANDROID_SERIAL: "{{ _ensure_apps_adb }}"
+  loop: "{{ _ensure_fdroid | default([]) }}"
+  loop_control:
+    label: "{{ item.id }}"
+  delegate_to: localhost
+  register: _fdroid_install
+  changed_when: "'installed' in (_fdroid_install.stdout | default('') | lower)"
+  failed_when: _fdroid_install.rc != 0

@@ -17,7 +17,7 @@ description:
   - Does not install Neo Store — use the C(obtainium_apps) role first.
 options:
   repos:
-    description: F-Droid repos to ensure present and enabled in fdroidcl.
+    description: F-Droid repos to manage in fdroidcl.
     type: list
     elements: dict
     default: []
@@ -31,6 +31,35 @@ options:
       fingerprint:
         type: str
         required: false
+      state:
+        description: C(present) adds and enables; C(absent) removes.
+        type: str
+        choices: [present, absent]
+        default: present
+  setups:
+    description:
+      - fdroidcl mass-install definitions (C(fdroidcl setup)). Each setup is
+        created/updated with its repos and apps, then applied when
+        C(apply_setups=true).
+    type: list
+    elements: dict
+    default: []
+    suboptions:
+      name:
+        type: str
+        required: true
+      repos:
+        type: list
+        elements: str
+        default: []
+      apps:
+        type: list
+        elements: str
+        default: []
+  apply_setups:
+    description: Run C(fdroidcl setup apply) for each setup.
+    type: bool
+    default: true
   device:
     description:
       - ADB target (serial, host:port, or fleet alias resolved on the control
@@ -87,6 +116,11 @@ def normalize_fingerprint(fp):
     if not fp:
         return ""
     return re.sub(r"[^0-9A-Fa-f]", "", str(fp)).upper()
+
+
+def validate_fingerprint(fp):
+    """Normalized fingerprint must be empty or 64 hex chars (SHA-256)."""
+    return fp == "" or len(fp) == 64
 
 
 def repo_key(name, address):
@@ -155,13 +189,35 @@ def ensure_repos(module, desired, current, check_mode):
     for spec in desired:
         name = spec.get("name")
         address = spec.get("address")
+        state = spec.get("state", "present")
         if not name or not address:
             module.fail_json(msg="each repo requires 'name' and 'address'")
+        if state not in ("present", "absent"):
+            module.fail_json(msg="repo %s: state must be present or absent" % name)
+        fp = normalize_fingerprint(spec.get("fingerprint"))
+        if not validate_fingerprint(fp):
+            module.fail_json(
+                msg="repo %s: fingerprint must be 64 hex chars (got %d after "
+                    "normalization)" % (name, len(fp))
+            )
         key = repo_key(name, address)
-        ensured.append({"name": key[0], "address": key[1]})
+        ensured.append({"name": key[0], "address": key[1], "state": state})
 
         present = repo_present(current, name, address)
         enabled = repo_enabled(current, name, address)
+
+        if state == "absent":
+            if not present:
+                continue
+            changed = True
+            if check_mode:
+                continue
+            rc, out = run_fdroidcl(module, ["repo", "remove", name])
+            outputs.append(out)
+            if rc != 0:
+                module.fail_json(msg="fdroidcl repo remove failed for %s" % name, rc=rc, output=out)
+            current.pop(key, None)
+            continue
 
         if check_mode:
             if not present or not enabled:
@@ -170,7 +226,6 @@ def ensure_repos(module, desired, current, check_mode):
 
         if not present:
             args = ["repo", "add", name, normalize_url(address)]
-            fp = normalize_fingerprint(spec.get("fingerprint"))
             if fp:
                 args.append(fp)
             rc, out = run_fdroidcl(module, args)
@@ -192,10 +247,49 @@ def ensure_repos(module, desired, current, check_mode):
     return changed, outputs, ensured
 
 
+def ensure_setups(module, setups, apply_setups, check_mode):
+    """Create/update fdroidcl setups and optionally apply them.
+
+    fdroidcl setups have no reliable read interface, so create/add-repo/add-app
+    run unconditionally (idempotent server-side) and only `apply` reports change.
+    """
+    outputs = []
+    changed = False
+
+    for setup in setups:
+        name = setup.get("name")
+        if not name:
+            module.fail_json(msg="each setup requires 'name'")
+        if check_mode:
+            changed = changed or bool(apply_setups)
+            continue
+
+        rc, out = run_fdroidcl(module, ["setup", "new", name])
+        outputs.append(out)  # rc!=0 = exists; both fine
+
+        for repo in setup.get("repos") or []:
+            rc, out = run_fdroidcl(module, ["setup", "add-repo", name, repo])
+            outputs.append(out)
+        for app in setup.get("apps") or []:
+            rc, out = run_fdroidcl(module, ["setup", "add-app", name, app])
+            outputs.append(out)
+
+        if apply_setups:
+            rc, out = run_fdroidcl(module, ["setup", "apply", name])
+            outputs.append(out)
+            if rc != 0:
+                module.fail_json(msg="fdroidcl setup apply failed for %s" % name, rc=rc, output=out)
+            changed = True
+
+    return changed, outputs
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
             repos=dict(type="list", elements="dict", default=[]),
+            setups=dict(type="list", elements="dict", default=[]),
+            apply_setups=dict(type="bool", default=True),
             device=dict(type="str", default="localhost:5555"),
             update_index=dict(type="bool", default=True),
         ),
@@ -203,12 +297,13 @@ def main():
     )
 
     desired = module.params["repos"]
+    setups = module.params["setups"]
     device = resolve_adb(module.params["device"], module.run_command)
     outputs = []
     changed = False
     ensured = []
 
-    if desired:
+    if desired or setups:
         rc, out = run_cmd(module, ["adb", "connect", device])
         outputs.append("adb connect %s: rc=%s" % (device, rc))
         rc, out = run_cmd(module, ["adb", "-s", device, "shell", "true"])
@@ -235,6 +330,13 @@ def main():
             outputs.append(out)
             if rc != 0:
                 module.warn("fdroidcl update failed after repo change: %s" % out)
+
+        if setups:
+            setups_changed, setup_out = ensure_setups(
+                module, setups, module.params["apply_setups"], module.check_mode
+            )
+            outputs.extend(setup_out)
+            changed = changed or setups_changed
 
     module.exit_json(
         changed=changed,

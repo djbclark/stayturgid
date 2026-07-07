@@ -29,7 +29,36 @@
       Run ./mac/deploy-play.sh to install Aurora via apkeep before this role grants Shizuku.
   when:
     - stayturgid_ensure_aurora_store | bool
+    - not (stayturgid_install_aurora_store | default(false) | bool)
     - aurora_store_package not in aurora_pkg.stdout
+
+# Optional automatic install path: apkeep downloads Aurora from f-droid,
+# android_apk installs it. deploy-play.sh remains the interactive path
+# (first-run setup + Shizuku installer selection need screen automation).
+- name: Download Aurora Store APK via apkeep (when missing)
+  when:
+    - stayturgid_install_aurora_store | default(false) | bool
+    - aurora_store_package not in aurora_pkg.stdout
+  ansible.builtin.command:
+    argv:
+      - apkeep
+      - -a
+      - "{{ aurora_store_package }}"
+      - -d
+      - f-droid
+      - /tmp
+    creates: "/tmp/{{ aurora_store_package }}.apk"
+  delegate_to: localhost
+
+- name: Install Aurora Store APK (when missing)
+  when:
+    - stayturgid_install_aurora_store | default(false) | bool
+    - aurora_store_package not in aurora_pkg.stdout
+  stayturgid.android_common.android_apk:
+    device: "{{ _play_target_device }}"
+    package: "{{ aurora_store_package }}"
+    apk_path: "/tmp/{{ aurora_store_package }}.apk"
+  delegate_to: localhost
 
 - name: Note on Play side (no direct repo like F-Droid)
   ansible.builtin.debug:
@@ -73,16 +102,10 @@
     - stayturgid_play_open_aurora | bool
     - stayturgid_play_apps | length > 0
     - aurora_store_package in aurora_pkg.stdout
-  ansible.builtin.shell: |
-    set -euo pipefail
-    adb connect "{{ _play_target_device }}" >/dev/null 2>&1 || true
-    adb -s "{{ _play_target_device }}" shell am start -a android.intent.action.VIEW \
-      -d "market://details?id={{ item.id }}" \
-      -n "{{ aurora_store_package }}/.MainActivity" 2>/dev/null || \
-    adb -s "{{ _play_target_device }}" shell am start -a android.intent.action.VIEW \
-      -d "market://details?id={{ item.id }}"
-  args:
-    executable: /bin/bash
+  stayturgid.android_common.android_intent:
+    device: "{{ _play_target_device }}"
+    data: "market://details?id={{ item.id }}"
+    component: "{{ aurora_store_package }}/.MainActivity"
   loop: "{{ stayturgid_play_apps }}"
   loop_control:
     label: "{{ item.id }}"

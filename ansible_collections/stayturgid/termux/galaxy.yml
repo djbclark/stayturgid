@@ -1,6 +1,6 @@
 namespace: stayturgid
 name: termux
-version: 1.2.0
+version: 1.3.0
 readme: README.md
 authors:
   - djbclark
@@ -12,4 +12,4 @@ tags:
   - termux
 repository: https://github.com/djbclark/stayturgid
 dependencies:
-  stayturgid.android_common: ">=1.2.0"
+  stayturgid.android_common: ">=1.3.0"

@@ -53,19 +53,13 @@
   delegate_to: localhost
   when: stayturgid_autojs6_deploy_via_adb | default(false)
 
-# Launch via the localhost:5555 privileged shell (uid 2000): Samsung One UI
-# rejects `am start` from the Termux app uid with a SecurityException
-# (com.android.shell does not belong to uid=NNNN). Same channel the repair
-# scripts use; works on both Pixel and Samsung.
 - name: Ensure AutoJs6 watchdog is running (boot-launcher no-ops when alive)
-  ansible.builtin.shell: >
-    export PATH={{ termux_prefix }}/bin:$PATH TMPDIR={{ termux_prefix }}/tmp;
-    adb connect localhost:5555 >/dev/null 2>&1;
-    adb -s localhost:5555 shell am start -a android.intent.action.VIEW
-    -d 'file://{{ autojs6_target }}/scripts/boot-launcher.js'
-    -t 'text/javascript'
-    -n 'org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity'
-  args:
-    executable: "{{ termux_prefix }}/bin/bash"
+  stayturgid.android_common.android_intent:
+    device: localhost:5555
+    connect: true
+    data: "file://{{ autojs6_target }}/scripts/boot-launcher.js"
+    mime_type: text/javascript
+    component: org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity
   changed_when: false
   failed_when: false
+  when: not (stayturgid_autojs6_deploy_via_adb | default(false))

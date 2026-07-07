@@ -1,0 +1,11 @@
+---
+# Idempotent Termux userland for a single phone.
+- name: Termux userland
+  hosts: phones
+  gather_facts: false
+  vars:
+    stayturgid_repo_root: "{{ playbook_dir }}/../.."   # stayturgid checkout (for script copy)
+    stayturgid_ssh_public_key_files:
+      - "{{ lookup('env', 'HOME') }}/.ssh/termux_key.pub"
+  roles:
+    - role: stayturgid.termux.termux_userland

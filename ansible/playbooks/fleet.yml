@@ -12,7 +12,7 @@
   gather_facts: false
   roles:
     - role: stayturgid.termux.termux_userland
-    - role: autojs6_watchdog
+    - role: stayturgid.fleet.autojs6_watchdog
     - role: stayturgid.obtainium.obtainium_apps
     - role: stayturgid.android_common.tailscale_vpn
     # fdroid_repos side project — use ./mac/deploy-fdroid.sh (not fleet.yml)

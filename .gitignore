@@ -6,3 +6,4 @@ __pycache__/
 .ansible/collections/
 *.py[cod]
 ansible_collections/stayturgid/*/tests/output/
+ansible_collections/stayturgid/*/collections/

@@ -1,3 +1,0 @@
----
-autojs6_target: "{{ stayturgid_sd_root }}/autojs6"
-autojs6_repo_root: "{{ playbook_dir }}/../.."

@@ -13,7 +13,8 @@ as a dependency of `stayturgid.termux`, `stayturgid.fdroid`, or `stayturgid.play
 | `module` | `android_appops` | Idempotent `cmd appops` + `pm grant` |
 | `module` | `android_settings` | Idempotent `settings put` (secure/global/system) |
 | `module` | `shizuku_grant` | Shizuku API + shizuku.json authorization |
-| `module` | `android_apk` | APK download/install with failure parsing |
+| `module` | `android_intent` | Structured `am start` with implicit fallback |
+| `role` | `ensure_apps` | Unified play/fdroid/apk/obtainium dispatch |
 | `role` | `tailscale_vpn` | Always-on VPN via `android_settings` |
 
 ## `devices.conf`

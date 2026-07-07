@@ -172,3 +172,40 @@ def test_fails_when_adb_unreachable(mocker):
         cmd_results=[("adb -s offline shell true", (1, "offline", ""))],
     )
     assert res["failed"] is True
+
+
+def test_validate_fingerprint():
+    assert mod.validate_fingerprint("")
+    assert mod.validate_fingerprint("A" * 64)
+    assert not mod.validate_fingerprint("ABC")
+
+
+def test_removes_repo(mocker):
+    res, cmds = run_module(
+        mocker,
+        {
+            "repos": [{
+                "name": "IzzyOnDroid",
+                "address": "https://apt.izzysoft.de/fdroid/repo",
+                "state": "absent",
+            }],
+            "device": "p7a",
+        },
+        cmd_results=[("adb -s p7a shell true", (0, "", ""))],
+    )
+    assert res["changed"] is True
+    assert any("fdroidcl repo remove IzzyOnDroid" in c for c in cmds)
+
+
+def test_setups_apply(mocker):
+    res, cmds = run_module(
+        mocker,
+        {
+            "repos": [],
+            "setups": [{"name": "base-tools", "repos": ["IzzyOnDroid"], "apps": ["org.breezyweather"]}],
+            "device": "p7a",
+        },
+        cmd_results=[("adb -s p7a shell true", (0, "", ""))],
+    )
+    assert res["changed"] is True
+    assert any("fdroidcl setup apply base-tools" in c for c in cmds)
