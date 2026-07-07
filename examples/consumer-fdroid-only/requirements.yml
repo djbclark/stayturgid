@@ -1,0 +1,8 @@
+---
+collections:
+  - name: stayturgid.obtainium
+    source: git+https://github.com/djbclark/stayturgid.git,ansible_collections/stayturgid/obtainium
+    version: stayturgid.obtainium-1.4.0
+  - name: stayturgid.fdroid
+    source: git+https://github.com/djbclark/stayturgid.git,ansible_collections/stayturgid/fdroid
+    version: stayturgid.fdroid-1.4.0

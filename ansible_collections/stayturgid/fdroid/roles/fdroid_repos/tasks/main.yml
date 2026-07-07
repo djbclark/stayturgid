@@ -8,17 +8,9 @@
     _fdroid_target_device: "{{ lookup('stayturgid.android_common.adb_device', target_device | default('localhost:5555')) }}"
 
 - name: Detect installed F-Droid GUI clients on device
-  ansible.builtin.shell: |
-    set -euo pipefail
-    adb connect "{{ _fdroid_target_device }}" >/dev/null 2>&1 || true
-    adb -s "{{ _fdroid_target_device }}" shell pm list packages --user 0 \
-      | grep -E '^(package:)?(com\.machiav3lli\.fdroid|com\.looker\.droidify|org\.fdroid\.fdroid)' \
-      || true
-  args:
-    executable: /bin/bash
+  ansible.builtin.set_fact:
+    _fdroid_gui_packages: "{{ lookup('stayturgid.android_common.android_packages', _fdroid_target_device, 'machiav3lli\\.fdroid|looker\\.droidify|org\\.fdroid\\.fdroid') }}"
   delegate_to: localhost
-  register: fdroid_gui_pkgs
-  changed_when: false
 
 - name: Warn when Neo Store is missing but required
   ansible.builtin.debug:
@@ -27,31 +19,7 @@
       Run obtainium_apps role and install from the catalog before expecting on-device repo import.
   when:
     - stayturgid_ensure_neo_store | bool
-    - neo_store_package not in fdroid_gui_pkgs.stdout
-
-- name: Determine preferred fdroidrepos handler (Neo Store > Droid-ify > F-Droid)
-  ansible.builtin.shell: |
-    set -euo pipefail
-    adb connect "{{ _fdroid_target_device }}" >/dev/null 2>&1 || true
-    for pkg in com.machiav3lli.fdroid com.looker.droidify org.fdroid.fdroid; do
-      if adb -s "{{ _fdroid_target_device }}" shell pm list packages --user 0 "$pkg" | grep -q "^package:${pkg}$"; then
-        case "$pkg" in
-          com.machiav3lli.fdroid) echo "com.machiav3lli.fdroid/.NeoActivity"; exit 0 ;;
-          com.looker.droidify) echo "com.looker.droidify/.MainActivity"; exit 0 ;;
-          org.fdroid.fdroid) echo "org.fdroid.fdroid/org.fdroid.fdroid.views.main.MainActivity"; exit 0 ;;
-        esac
-      fi
-    done
-    echo "com.machiav3lli.fdroid/.NeoActivity"
-  args:
-    executable: /bin/bash
-  delegate_to: localhost
-  register: handler_result
-  changed_when: false
-
-- name: Set preferred component fact
-  ansible.builtin.set_fact:
-    _fdroid_handler_component: "{{ handler_result.stdout | trim }}"
+    - neo_store_package not in _fdroid_gui_packages
 
 - name: Manage F-Droid repos and setups in fdroidcl (control machine)
   stayturgid.fdroid.fdroid_repos:
@@ -67,31 +35,22 @@
     var: fdroid_result
     verbosity: 1
 
-# Explicit component bypasses the system chooser; android_intent falls back
-# to an implicit intent when the activity name is stale (renamed upstream).
-- name: Push repos to on-device client via fdroidrepos intent
+- name: Push repos to on-device client (multi-component fallback + fdroidcl sync)
   when:
     - stayturgid_ensure_neo_store | bool
     - stayturgid_push_repos_to_device | default(true) | bool
-    - fdroid_gui_pkgs.stdout | length > 0
-    - item.state | default('present') == 'present'
-  stayturgid.android_common.android_intent:
+    - _fdroid_gui_packages | length > 0
+  stayturgid.fdroid.fdroid_repo_push:
     device: "{{ _fdroid_target_device }}"
-    data: >-
-      fdroidrepos://{{ item.address | regex_replace('^https?://', '') | regex_replace('/$', '')
-      }}{% if item.fingerprint | default('') | length > 0
-      %}?fingerprint={{ item.fingerprint | regex_replace('[^0-9A-Fa-f]', '') | upper }}{% endif %}
-    component: "{{ _fdroid_handler_component }}"
-  loop: "{{ stayturgid_fdroid_repos }}"
-  loop_control:
-    label: "{{ item.name }}"
+    repos: "{{ stayturgid_fdroid_repos }}"
+    sync_index: "{{ stayturgid_fdroid_sync_after_push | default(true) }}"
   delegate_to: localhost
   changed_when: false
 
 - name: Grant Shizuku to Neo Store (privileged shell)
   when:
     - stayturgid_ensure_neo_store | bool
-    - neo_store_package in fdroid_gui_pkgs.stdout
+    - neo_store_package in _fdroid_gui_packages
   stayturgid.android_common.shizuku_grant:
     device: "{{ _fdroid_target_device }}"
     package: "{{ neo_store_package }}"

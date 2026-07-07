@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Grant Shizuku to Neo Store (or Aurora Store) via the privileged adb shell.
 
+DEPRECATED — use the Ansible module instead::
+
+    ansible localhost -m stayturgid.android_common.shizuku_grant \\
+      -a "device=p7a package=com.machiav3lli.fdroid" -c local
+
+This CLI script remains for manual/ad-hoc use only. It will be removed in a
+future release.
+
 Usage: ./grant_neo_store_shizuku.py <p7a|s24|serial-or-ip:5555> [package]
-
-Reuses stayturgid_device.PrivShell + patch_shizuku_json (same path as Obtainium).
-Prints a sentinel line "RESULT: CHANGED" or "RESULT: UNCHANGED" so callers
-(the fdroid_repos role) can report idempotence accurately.
-
-After this, on device open the client settings and confirm:
-- Installer = Shizuku (or Dhizuku/Sui)
-- Enable automatic / background updates
 """
 
 import os
@@ -60,6 +60,11 @@ def main():
     if len(sys.argv) < 2:
         print(__doc__)
         return 2
+
+    sys.stderr.write(
+        "WARNING: grant_neo_store_shizuku.py is deprecated — "
+        "use stayturgid.android_common.shizuku_grant\n"
+    )
 
     alias = sys.argv[1]
     pkg = sys.argv[2] if len(sys.argv) > 2 else NEO_PKG

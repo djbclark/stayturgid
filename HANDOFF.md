@@ -293,12 +293,12 @@ version.json                 — repo release version + changelog
 **Recommended next actions (prioritized, in rough order):**
 1. ~~**Verify end-to-end on s24**~~ **Done** (2026-07-07). Optional repeat on **p7a** for parity.
 2. ~~**Flesh out play_store role**~~ **Partial** (2026-07-07) — `stayturgid.play.play_apps` module (apkeep/gplaycli + adb `-i com.android.vending`); `play/mac/gplaycli.sh` wrapper. **You:** set `GPLAY_*` env or `gplaycli.conf` for google-play downloads; apk-pure mirrors are flaky.
-3. **Enhance fdroid_repos**: full support for `stayturgid_fdroid_setups` (create/apply in role + module); support removing repos; better fingerprint handling; optional "apply to device via fdroidcl" tasks.
-4. **On-device repo management polish**: if explicit intent + NeoActivity is flaky for adding repos to GUI, explore direct methods (e.g. content provider, AutoJs6 script to accept chooser, or file import into Neo Store's DB). Make preference logic also update system preferred activities if possible (without root).
+3. ~~**Enhance fdroid_repos**~~ **Done** (2026-07-07) — setups + removal + fingerprint validation in module; `fdroid_repo_push` with multi-component intent fallback; `fdroid_install` module.
+4. ~~**On-device repo management polish**~~ **Partial** (2026-07-07) — `fdroid_repo_push` tries Neo > Droid-ify > F-Droid with explicit+implicit fallback per client. DB/content-provider import still manual if all intents fail.
 5. **Integration & docs:** ~~uncomment in fleet.yml~~ **Done** — `ansible/playbooks/fdroid.yml` + `./mac/deploy-fdroid.sh`; `play_store.yml` + `./mac/deploy-play.sh`; fleet.yml points there. ~~Expand HACKING with fingerprints~~ **Done** (HACKING Part 6b).
 6. ~~**Aurora/Play catalog & client**~~ **Automated** (2026-07-07): `./mac/deploy-play.sh <host>` installs Aurora via `apkeep` when missing, grants Shizuku, completes anonymous first-run setup, selects the Shizuku installer, and enables automatic installs. Verified on **s24**, **p7a**, and **hd8**.
 7. ~~**hd8 (Kindle) compatibility**~~ **Done** (2026-07-07) — `deploy-fdroid.sh hd8` + metronome install via USB adb.
-8. **Longer term**: decide if fdroidcl/gplaycli stay as external tools or get wrapped into custom collection modules (like termux_pkg/obtainium_app). Consider "unified app ensure" abstraction across Obtainium/F-Droid/Play.
+8. ~~**Longer term: unified app ensure**~~ **Done** (2026-07-07) — `stayturgid.android_common.ensure_apps` role; fdroidcl wrapped in `fdroid_install` / `fdroid_repos` modules.
 
 Run with announcements (`🚨📱🚨 USING — p7a ...`) and treat devices as potentially busy. This side project is ready for use in fleet runs but still experimental — keep it gated until more real-device validation.
 

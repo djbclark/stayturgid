@@ -1,26 +1,15 @@
 ---
 # play_store role
 # Ensures Aurora Store (FOSS Google Play client) with Shizuku + background updates.
-# For "managing" Play apps, use gplaycli or direct adb install of APKs (Play is not open repo like F-Droid).
-# See obtainium for ensuring Aurora via catalog (we added it).
-# fdroidcl equivalent is gplaycli (installed via pip, may need auth setup).
 
 - name: Resolve fleet alias to adb target (USB serial preferred)
   ansible.builtin.set_fact:
     _play_target_device: "{{ lookup('stayturgid.android_common.adb_device', target_device | default(inventory_hostname)) }}"
 
 - name: Detect Aurora Store on device
-  ansible.builtin.shell: |
-    set -euo pipefail
-    adb connect "{{ _play_target_device }}" >/dev/null 2>&1 || true
-    adb -s "{{ _play_target_device }}" shell pm list packages --user 0 \
-      | grep -E '^(package:)?{{ aurora_store_package | regex_escape() }}' \
-      || true
-  args:
-    executable: /bin/bash
+  ansible.builtin.set_fact:
+    _aurora_installed: "{{ aurora_store_package in lookup('stayturgid.android_common.android_packages', _play_target_device) }}"
   delegate_to: localhost
-  register: aurora_pkg
-  changed_when: false
 
 - name: Warn when Aurora Store is missing but required
   ansible.builtin.debug:
@@ -30,15 +19,12 @@
   when:
     - stayturgid_ensure_aurora_store | bool
     - not (stayturgid_install_aurora_store | default(false) | bool)
-    - aurora_store_package not in aurora_pkg.stdout
+    - not _aurora_installed
 
-# Optional automatic install path: apkeep downloads Aurora from f-droid,
-# android_apk installs it. deploy-play.sh remains the interactive path
-# (first-run setup + Shizuku installer selection need screen automation).
 - name: Download Aurora Store APK via apkeep (when missing)
   when:
     - stayturgid_install_aurora_store | default(false) | bool
-    - aurora_store_package not in aurora_pkg.stdout
+    - not _aurora_installed
   ansible.builtin.command:
     argv:
       - apkeep
@@ -53,37 +39,28 @@
 - name: Install Aurora Store APK (when missing)
   when:
     - stayturgid_install_aurora_store | default(false) | bool
-    - aurora_store_package not in aurora_pkg.stdout
+    - not _aurora_installed
   stayturgid.android_common.android_apk:
     device: "{{ _play_target_device }}"
     package: "{{ aurora_store_package }}"
     apk_path: "/tmp/{{ aurora_store_package }}.apk"
   delegate_to: localhost
 
-- name: Note on Play side (no direct repo like F-Droid)
-  ansible.builtin.debug:
-    msg: |
-      Google Play is not open like F-Droid. Use Aurora Store as GUI
-      (installed by deploy-play.sh when missing).
-      For automation, apkeep/gplaycli can download APKs, then adb install
-      with -i com.android.vending to spoof Play.
-      This role grants Shizuku to the Aurora Store client.
+- name: Refresh Aurora install fact after optional install
+  ansible.builtin.set_fact:
+    _aurora_installed: "{{ aurora_store_package in lookup('stayturgid.android_common.android_packages', _play_target_device) }}"
+  delegate_to: localhost
+  when: stayturgid_install_aurora_store | default(false) | bool
 
 - name: Grant Shizuku to Aurora Store
   when:
     - stayturgid_ensure_aurora_store | bool
-    - aurora_store_package in aurora_pkg.stdout
+    - _aurora_installed
   stayturgid.android_common.shizuku_grant:
     device: "{{ _play_target_device }}"
     package: "{{ aurora_store_package }}"
   delegate_to: localhost
   register: aurora_grant
-
-- name: Note on background updates for Aurora
-  ansible.builtin.debug:
-    msg: |
-      deploy-play.sh configures Aurora's Shizuku installer and automatic
-      updates after this role grants Shizuku.
 
 - name: Ensure Play apps (apkeep/gplaycli + adb install)
   when: stayturgid_play_apps | length > 0
@@ -101,7 +78,7 @@
   when:
     - stayturgid_play_open_aurora | bool
     - stayturgid_play_apps | length > 0
-    - aurora_store_package in aurora_pkg.stdout
+    - _aurora_installed
   stayturgid.android_common.android_intent:
     device: "{{ _play_target_device }}"
     data: "market://details?id={{ item.id }}"

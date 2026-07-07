@@ -12,6 +12,7 @@ stayturgid_fdroid_repos:
 
 stayturgid_ensure_neo_store: true
 stayturgid_push_repos_to_device: true
+stayturgid_fdroid_sync_after_push: true
 stayturgid_fdroid_update_index: true
 
 neo_store_package: com.machiav3lli.fdroid

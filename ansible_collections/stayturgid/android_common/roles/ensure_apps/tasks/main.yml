@@ -49,17 +49,11 @@
 
 - name: Ensure F-Droid apps via fdroidcl
   when: _ensure_fdroid | default([]) | length > 0
-  ansible.builtin.command:
-    argv:
-      - fdroidcl
-      - install
-      - "{{ item.id }}"
-  environment:
-    ANDROID_SERIAL: "{{ _ensure_apps_adb }}"
+  stayturgid.fdroid.fdroid_install:
+    device: "{{ _ensure_apps_adb }}"
+    package: "{{ item.id }}"
+    force: "{{ item.force | default(false) }}"
   loop: "{{ _ensure_fdroid | default([]) }}"
   loop_control:
     label: "{{ item.id }}"
   delegate_to: localhost
-  register: _fdroid_install
-  changed_when: "'installed' in (_fdroid_install.stdout | default('') | lower)"
-  failed_when: _fdroid_install.rc != 0

@@ -34,7 +34,9 @@ ansible-galaxy collection install \
 
 1. [docs/adoption.md](docs/adoption.md) — how other sites consume modules and roles
 2. [docs/std_modules_audit.md](docs/std_modules_audit.md) — what uses Ansible builtins vs custom modules
-3. [docs/modules/](docs/modules/) — per-module reference and examples
+3. [docs/modules/](docs/modules/) — per-module reference
+4. [examples/](../examples/) — consumer site templates (termux, fdroid, full-fleet)
+5. Per-collection `CHANGELOG.md` files
 
 ## Layout
 

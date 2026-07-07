@@ -1,0 +1,20 @@
+---
+# Copy to inventory/hosts.yml and edit.
+stayturgid:
+  hosts:
+    s24:
+      ansible_host: 100.123.218.30
+      ansible_port: 8022
+      ansible_user: u0_a123
+      ansible_python_interpreter: /data/data/com.termux/files/usr/bin/python
+      termux_prefix: /data/data/com.termux/files/usr
+      termux_home: /data/data/com.termux/files/home
+      stayturgid_sd_root: /sdcard/stayturgid
+      stayturgid_device_id: s24
+      device_usb_serial: R5CX12345678
+  vars:
+    stayturgid_ensure_apps: []
+    # Example:
+    # stayturgid_ensure_apps:
+    #   - id: org.breezyweather
+    #     source: fdroid

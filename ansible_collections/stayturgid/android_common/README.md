@@ -10,6 +10,8 @@ as a dependency of `stayturgid.termux`, `stayturgid.fdroid`, or `stayturgid.play
 | `module_utils` | `adb_resolve.py` | Fleet alias → ADB serial (`devices.conf`, USB-first) |
 | `module_utils` | `adb_shell.py` | adb shell helpers for appops/settings modules |
 | `lookup` | `adb_device` | Resolve `target_device` in playbooks/roles |
+| `lookup` | `android_packages` | `pm list packages` with optional regex |
+| `lookup` | `fdroid_client` | Preferred fdroidrepos activity component |
 | `module` | `android_appops` | Idempotent `cmd appops` + `pm grant` |
 | `module` | `android_settings` | Idempotent `settings put` (secure/global/system) |
 | `module` | `shizuku_grant` | Shizuku API + shizuku.json authorization |

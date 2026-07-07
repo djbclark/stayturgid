@@ -15,5 +15,7 @@
     - role: stayturgid.fleet.autojs6_watchdog
     - role: stayturgid.obtainium.obtainium_apps
     - role: stayturgid.android_common.tailscale_vpn
+    - role: stayturgid.android_common.ensure_apps
+      when: stayturgid_ensure_apps | default([]) | length > 0
     # fdroid_repos side project — use ./mac/deploy-fdroid.sh (not fleet.yml)
     # play_store side project — use ./mac/deploy-play.sh (not fleet.yml)
