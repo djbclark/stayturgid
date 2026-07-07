@@ -14,6 +14,8 @@ asking you to do something, and read `RESPONSES.md` after you fill it in.
    `RESPONSES.md.example` if missing).
 3. Tell the agent: *"Read human/RESPONSES.md"* — it continues automation.
 
+For **what to do next** (agent work menus), see [OPTIONS.md](../OPTIONS.md) at repo root.
+
 Do not put secrets in git. Use env vars, `~/.config/`, or placeholders in
 `RESPONSES.md` and paste real values only in local files the agent is told to read.
 
