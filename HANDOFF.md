@@ -149,15 +149,26 @@ appears):**
 - Sourced helpers: shared/mac/resolve-adb.sh, stayturgid-root.sh.
 - The TAP harness itself: tests/lib.sh + test-*.sh (works; big risky rewrite;
   it's what runs the sh/py parity suites).
-- Setup-time Mac tooling: **Shizuku JSON scripts DONE** — grant_shizuku.py +
-  enable_shizuku_installer.py on a shared, unit-tested shared/mac/
-  stayturgid_device.py (shizuku.json patcher + uiautomator-XML parsing +
-  device resolution; 10 tests). grant_shizuku.py live-verified on s24 (all 7
-  authorized apps preserved). Remaining shell setup tooling that's mostly
-  adb/scp/am orchestration (deploy.sh, setup-autojs6.sh, sync-to-device.sh,
-  apply-updates.sh, run-test.sh, deploy-termux.sh, start-watchdog.sh,
-  set-automation-mode.sh, test-tailscale-down.sh): low fragility, convert
-  only if a reason appears.
+- Setup-time Mac tooling with UI/JSON parsing: **ALL DONE** — grant_shizuku.py,
+  enable_shizuku_installer.py, apply_updates.py, all on the shared, unit-tested
+  shared/mac/stayturgid_device.py (shizuku.json patcher + uiautomator-XML
+  switch/button parsing + device resolution + PrivShell; 14 tests across
+  test_shizuku_device + test_apply_updates). grant_shizuku.py live-verified on
+  s24 (all 7 authorized apps preserved).
+
+**FRAGILITY BOUNDARY REACHED.** `git ls-files 'autojs6/mac/*.sh'
+'obtainium/mac/*.sh' 'ansible/mac/*.sh'` all show **0 fragile-parse lines**
+(no sed/awk/tr/grep -oE). Every remaining shell script is one of:
+- thin wrappers (deploy-fleet.sh, fleet-health.sh, deploy-termux.sh);
+- pure adb/scp/am orchestration (autojs6/mac/deploy.sh, setup-autojs6.sh,
+  start-watchdog.sh, set-automation-mode.sh, run-test.sh,
+  test-tailscale-down.sh, obtainium/mac/sync-to-device.sh);
+- Termux:Boot glue (termux/boot/*.sh, repair-bridge.sh, claude-presence shim);
+- sourced helpers (shared/mac/resolve-adb.sh, stayturgid-root.sh);
+- the TAP harness (tests/lib.sh + test-*.sh) — runs the sh/py parity suites;
+- the 5 device runtime shell scripts kept DEPLOYED during their py twins' soak.
+Converting these would be churn with no fragility payoff — do it only if a
+specific script misbehaves.
 
 ### 🚦 Handoff — start here (cold-start summary)
 
