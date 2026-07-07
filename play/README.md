@@ -53,9 +53,9 @@ Or with a local APK (no download):
 
 Install uses `adb install -r -i com.android.vending` by default (`spoof_play_installer: true`).
 
-## Open Aurora to an app page (manual fallback)
+Manual fallback (opens Aurora to each app page):
 
 ```bash
-adb -s p7a shell am start -a android.intent.action.VIEW \
-  -d 'market://details?id=com.example.app' -n com.aurora.store/.MainActivity
+./play/mac/open-play-app.sh p7a com.example.app
+# or in role: stayturgid_play_open_aurora: true
 ```

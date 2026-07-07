@@ -86,3 +86,24 @@
     apkeep_source: "{{ stayturgid_play_apkeep_source }}"
     spoof_play_installer: "{{ stayturgid_play_spoof_installer | bool }}"
   delegate_to: localhost
+
+- name: Open Aurora Store details for Play apps (manual fallback)
+  when:
+    - stayturgid_play_open_aurora | bool
+    - stayturgid_play_apps | length > 0
+    - aurora_store_package in aurora_pkg.stdout
+  ansible.builtin.shell: |
+    set -euo pipefail
+    adb connect "{{ _play_target_device }}" >/dev/null 2>&1 || true
+    adb -s "{{ _play_target_device }}" shell am start -a android.intent.action.VIEW \
+      -d "market://details?id={{ item.id }}" \
+      -n "{{ aurora_store_package }}/.MainActivity" 2>/dev/null || \
+    adb -s "{{ _play_target_device }}" shell am start -a android.intent.action.VIEW \
+      -d "market://details?id={{ item.id }}"
+  args:
+    executable: /bin/bash
+  loop: "{{ stayturgid_play_apps }}"
+  loop_control:
+    label: "{{ item.id }}"
+  delegate_to: localhost
+  changed_when: false

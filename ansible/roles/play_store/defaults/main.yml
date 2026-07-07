@@ -10,6 +10,8 @@ stayturgid_play_apps: []
 stayturgid_play_download_backend: apkeep
 stayturgid_play_apkeep_source: apk-pure
 stayturgid_play_spoof_installer: true
+# When true, open market://details in Aurora for each app (manual install fallback).
+stayturgid_play_open_aurora: false
 
 # Ensure Aurora Store (FOSS Play client) with Shizuku.
 stayturgid_ensure_aurora_store: true

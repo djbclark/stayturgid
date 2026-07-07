@@ -17,6 +17,10 @@ if ! command -v ansible-playbook >/dev/null 2>&1; then
   echo "ERROR: ansible-playbook not found (brew install ansible)" >&2
   exit 1
 fi
+if ! command -v apkeep >/dev/null 2>&1; then
+  echo "WARNING: apkeep not found (brew install apkeep) — Play app downloads will fail" >&2
+  echo "         Shizuku grant still runs; use apk_path or GPLAY_* creds for google-play." >&2
+fi
 
 LIMIT=()
 if [ "$#" -gt 0 ]; then
