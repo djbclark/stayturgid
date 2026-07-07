@@ -13,6 +13,6 @@
   hosts: stayturgid
   gather_facts: false
   roles:
-    - role: fdroid_repos
+    - role: stayturgid.fdroid.fdroid_repos
       vars:
         target_device: "{{ inventory_hostname }}"

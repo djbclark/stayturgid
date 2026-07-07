@@ -1,10 +1,34 @@
-# stayturgid.fleet
+# stayturgid.fleet (meta-collection)
 
-Ansible collection for the stayturgid fleet. Contains:
-- `termux_pkg` module (rootless Termux apt with update/upgrade recovery)
-- `fdroid_repos` module — declarative `fdroidcl` repo add/enable (control machine); on-device push via role
-- `play_apps` module — apkeep/gplaycli download + adb install (Play spoof via `-i com.android.vending`)
+**New to stayturgid Ansible modules?** Start at [../README.md](../README.md).
 
-Unit-tested via `ansible-test units` (see tests/unit/); run from this directory.
+Domain modules were split into installable collections so other sites can depend
+on only what they need:
 
-See ansible/roles/fdroid_repos and play_store for usage. Mac tools: `brew install apkeep fdroidcl`; `play/mac/gplaycli.sh` for gplaycli on Python 3.14.
+| Collection | Module | Use when |
+|------------|--------|----------|
+| [stayturgid.termux](../termux/README.md) | `termux_pkg` | Termux `pkg` over SSH |
+| [stayturgid.obtainium](../obtainium/README.md) | `obtainium_app` | Obtainium catalog JSON on device |
+| [stayturgid.fdroid](../fdroid/README.md) | `fdroid_repos` | `fdroidcl` repos on Mac |
+| [stayturgid.play](../play/README.md) | `play_apps` | apkeep/gplaycli + adb install |
+| [stayturgid.android_common](../android_common/README.md) | _(helpers)_ | ADB alias resolution |
+
+## Backward compatibility
+
+`stayturgid.fleet.termux_pkg` (and siblings) still work via `meta/runtime.yml`
+redirects. New playbooks should use the domain FQCNs above.
+
+## Unit tests
+
+Module unit tests live in each domain collection under `tests/unit/`. Run all:
+
+```bash
+make ansible-test
+```
+
+## Site playbooks
+
+Fleet-specific roles and inventory remain in the repo `ansible/` tree
+(`termux_userland`, `obtainium_apps`, `fdroid_repos`, `play_store`, etc.).
+
+See [../docs/adoption.md](../docs/adoption.md) and [../docs/std_modules_audit.md](../docs/std_modules_audit.md).

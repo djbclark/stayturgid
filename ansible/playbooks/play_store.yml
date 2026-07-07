@@ -12,6 +12,6 @@
   hosts: stayturgid
   gather_facts: false
   roles:
-    - role: play_store
+    - role: stayturgid.play.play_store
       vars:
         target_device: "{{ inventory_hostname }}"

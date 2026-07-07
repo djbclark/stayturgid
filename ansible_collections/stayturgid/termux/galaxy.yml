@@ -1,0 +1,15 @@
+namespace: stayturgid
+name: termux
+version: 1.2.0
+readme: README.md
+authors:
+  - djbclark
+description: Termux package management over SSH (pkg/apt with conffile recovery).
+license:
+  - MIT
+tags:
+  - android
+  - termux
+repository: https://github.com/djbclark/stayturgid
+dependencies:
+  stayturgid.android_common: ">=1.2.0"

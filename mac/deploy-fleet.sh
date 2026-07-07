@@ -20,6 +20,8 @@ if ! command -v ansible-playbook >/dev/null 2>&1; then
   exit 1
 fi
 
+ansible-galaxy collection install -r "$ROOT/ansible/requirements.yml" -p "$ROOT/.ansible/collections" >/dev/null
+
 LIMIT=()
 if [ "$#" -gt 0 ]; then
   LIMIT=(--limit "$(IFS=,; echo "$*")")

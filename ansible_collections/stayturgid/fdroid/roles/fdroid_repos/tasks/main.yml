@@ -1,0 +1,141 @@
+---
+# fdroid_repos role — fdroidcl repos on Mac + on-device Neo Store push.
+# Prerequisite: obtainium_apps (Neo Store in catalog, installed on device).
+# See fdroid/README.md.
+
+- name: Resolve fleet alias to adb target (USB serial preferred)
+  ansible.builtin.set_fact:
+    _fdroid_target_device: "{{ lookup('stayturgid.android_common.adb_device', target_device | default('localhost:5555')) }}"
+
+- name: Detect installed F-Droid GUI clients on device
+  ansible.builtin.shell: |
+    set -euo pipefail
+    adb connect "{{ _fdroid_target_device }}" >/dev/null 2>&1 || true
+    adb -s "{{ _fdroid_target_device }}" shell pm list packages --user 0 \
+      | grep -E '^(package:)?(com\.machiav3lli\.fdroid|com\.looker\.droidify|org\.fdroid\.fdroid)' \
+      || true
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  register: fdroid_gui_pkgs
+  changed_when: false
+
+- name: Warn when Neo Store is missing but required
+  ansible.builtin.debug:
+    msg: >-
+      Neo Store ({{ neo_store_package }}) not installed on {{ _fdroid_target_device }}.
+      Run obtainium_apps role and install from the catalog before expecting on-device repo import.
+  when:
+    - stayturgid_ensure_neo_store | bool
+    - neo_store_package not in fdroid_gui_pkgs.stdout
+
+- name: Determine preferred fdroidrepos handler (Neo Store > Droid-ify > F-Droid)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    adb connect "{{ _fdroid_target_device }}" >/dev/null 2>&1 || true
+    for pkg in com.machiav3lli.fdroid com.looker.droidify org.fdroid.fdroid; do
+      if adb -s "{{ _fdroid_target_device }}" shell pm list packages --user 0 "$pkg" | grep -q "^package:${pkg}$"; then
+        case "$pkg" in
+          com.machiav3lli.fdroid) echo "com.machiav3lli.fdroid/.NeoActivity"; exit 0 ;;
+          com.looker.droidify) echo "com.looker.droidify/.MainActivity"; exit 0 ;;
+          org.fdroid.fdroid) echo "org.fdroid.fdroid/org.fdroid.fdroid.views.main.MainActivity"; exit 0 ;;
+        esac
+      fi
+    done
+    echo "com.machiav3lli.fdroid/.NeoActivity"
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  register: handler_result
+  changed_when: false
+
+- name: Set preferred component fact
+  ansible.builtin.set_fact:
+    _fdroid_handler_component: "{{ handler_result.stdout | trim }}"
+
+- name: Manage F-Droid repos in fdroidcl (control machine)
+  stayturgid.fdroid.fdroid_repos:
+    repos: "{{ stayturgid_fdroid_repos }}"
+    device: "{{ _fdroid_target_device }}"
+    update_index: "{{ stayturgid_fdroid_update_index | default(true) }}"
+  delegate_to: localhost
+  register: fdroid_result
+
+- name: Show fdroid_repos module result
+  ansible.builtin.debug:
+    var: fdroid_result
+    verbosity: 1
+
+- name: Manage fdroidcl setups (optional mass-install definitions)
+  when: stayturgid_fdroid_setups is defined
+  block:
+    - name: Create or update fdroidcl setup
+      ansible.builtin.shell: |
+        set -euo pipefail
+        name="{{ item.name }}"
+        fdroidcl setup new "$name" 2>/dev/null || true
+        {% for r in item.repos | default([]) %}
+        fdroidcl setup add-repo "$name" "{{ r }}"
+        {% endfor %}
+        {% for a in item.apps | default([]) %}
+        fdroidcl setup add-app "$name" "{{ a }}"
+        {% endfor %}
+      args:
+        executable: /bin/bash
+      loop: "{{ stayturgid_fdroid_setups }}"
+      delegate_to: localhost
+      register: setup_create
+      changed_when: false
+
+    - name: Apply fdroidcl setups
+      ansible.builtin.shell: |
+        set -euo pipefail
+        fdroidcl setup apply "{{ item.name }}"
+      args:
+        executable: /bin/bash
+      loop: "{{ stayturgid_fdroid_setups }}"
+      delegate_to: localhost
+      register: setup_apply
+      changed_when: setup_apply.rc == 0
+      failed_when: setup_apply.rc != 0
+
+- name: Push repos to on-device client via fdroidrepos intent
+  when:
+    - stayturgid_ensure_neo_store | bool
+    - stayturgid_push_repos_to_device | default(true) | bool
+    - fdroid_gui_pkgs.stdout | length > 0
+  ansible.builtin.shell: |
+    set -euo pipefail
+    adb connect "{{ _fdroid_target_device }}" >/dev/null 2>&1 || true
+    hostpath="{{ item.address | regex_replace('^https?://', '') | regex_replace('/$', '') }}"
+    uri="fdroidrepos://${hostpath}"
+    {% if item.fingerprint | default('') | length > 0 %}
+    fp="{{ item.fingerprint | regex_replace('[^0-9A-Fa-f]', '') | upper }}"
+    uri="${uri}?fingerprint=${fp}"
+    {% endif %}
+    adb -s "{{ _fdroid_target_device }}" shell am start \
+      -a android.intent.action.VIEW \
+      -d "$uri" \
+      -n "{{ _fdroid_handler_component }}"
+  args:
+    executable: /bin/bash
+  loop: "{{ stayturgid_fdroid_repos }}"
+  delegate_to: localhost
+  changed_when: false
+
+- name: Grant Shizuku to Neo Store (privileged shell)
+  when:
+    - stayturgid_ensure_neo_store | bool
+    - neo_store_package in fdroid_gui_pkgs.stdout
+  stayturgid.android_common.shizuku_grant:
+    device: "{{ _fdroid_target_device }}"
+    package: "{{ neo_store_package }}"
+  delegate_to: localhost
+  register: neo_grant
+
+- name: Note on Neo Store background auto-updates
+  ansible.builtin.debug:
+    msg: |
+      In Neo Store settings: select Shizuku as installer and enable automatic updates.
+      The first app installed through Neo Store enables background update behavior.
+  when: stayturgid_ensure_neo_store | bool

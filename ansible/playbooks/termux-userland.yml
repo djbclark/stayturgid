@@ -10,4 +10,4 @@
   hosts: stayturgid
   gather_facts: false
   roles:
-    - role: termux_userland
+    - role: stayturgid.termux.termux_userland

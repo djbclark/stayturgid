@@ -18,7 +18,7 @@
 SHELL := /bin/bash
 HOSTS ?=
 VENV := .venv-test
-COLLECTION := ansible_collections/stayturgid/fleet
+COLLECTIONS := android_common termux obtainium fdroid play
 # Prefer the project venv; fall back to any pytest/ansible-test on PATH.
 PYTEST := $(shell [ -x $(VENV)/bin/pytest ] && echo $(VENV)/bin/pytest || command -v pytest)
 ANSIBLE_TEST := $(shell [ -x $(VENV)/bin/ansible-test ] && echo $(abspath $(VENV))/bin/ansible-test || command -v ansible-test)
@@ -57,12 +57,15 @@ pytest:
 	  echo "### pytest — SKIP (run 'make test-venv' to set up .venv-test)"; \
 	fi
 
-# Official Ansible unit-test runner for the stayturgid.fleet.termux_pkg module.
+# Official Ansible unit-test runner for stayturgid domain collections.
 ansible-test:
 	@if [ -n "$(ANSIBLE_TEST)" ]; then \
-	  echo "### ansible-test units (stayturgid.fleet)"; \
 	  PYV=$$(python3 -c 'import sys;print(f"{sys.version_info.major}.{sys.version_info.minor}")'); \
-	  cd $(COLLECTION) && "$(ANSIBLE_TEST)" units --local --python $$PYV; \
+	  for c in $(COLLECTIONS); do \
+	    echo "### ansible-test units (stayturgid.$$c)"; \
+	    cd ansible_collections/stayturgid/$$c && "$(ANSIBLE_TEST)" units --local --python $$PYV || exit $$?; \
+	    cd - >/dev/null; \
+	  done; \
 	else \
 	  echo "### ansible-test — SKIP (run 'make test-venv')"; \
 	fi
@@ -76,10 +79,12 @@ dryrun:
 	  $(if $(HOSTS),--limit "$(HOSTS)",)
 
 lint:
-	@rc=0; \
+	ANSIBLE_CONFIG=ansible/ansible.cfg ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections >/dev/null 2>&1 || true; \
+	rc=0; \
 	if command -v shellcheck >/dev/null; then shellcheck -S warning $$(git ls-files '*.sh') || rc=1; \
 	else echo "shellcheck not installed (brew install shellcheck) — skipped"; fi; \
-	if command -v ansible-lint >/dev/null; then (cd ansible && ansible-lint playbooks/ roles/) || rc=1; \
+	if command -v ansible-lint >/dev/null; then \
+	  ANSIBLE_CONFIG=ansible/ansible.cfg bash -c 'cd ansible && ansible-lint playbooks/ roles/' || rc=1; \
 	else echo "ansible-lint not installed (pipx install ansible-lint) — skipped"; fi; \
 	if command -v yamllint >/dev/null; then yamllint ansible/ .ansible-lint .yamllint || rc=1; \
 	else echo "yamllint not installed (pipx install yamllint) — skipped"; fi; \

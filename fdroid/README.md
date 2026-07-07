@@ -5,8 +5,8 @@ This complements the Obtainium/GitHub path with first-class support for F-Droid 
 ## What was added / status
 - `fdroidcl` on Mac (`brew install fdroidcl`).
 - Neo Store + Aurora Store in Obtainium catalog.
-- `stayturgid.fleet.fdroid_repos` module (fdroidcl repo add/enable; unit-tested).
-- `ansible/roles/fdroid_repos` (module + on-device `fdroidrepos://` push + Shizuku grant).
+- `stayturgid.fdroid.fdroid_repos` module (fdroidcl repo add/enable; unit-tested).
+- `stayturgid.fdroid.fdroid_repos` role (module + on-device `fdroidrepos://` push + Shizuku grant).
 - `fdroid/mac/grant_neo_store_shizuku.py` uses `PrivShell` (privileged adb).
 - **Not wired into fleet.yml** — side project; use `./mac/deploy-fdroid.sh [host]`.
 

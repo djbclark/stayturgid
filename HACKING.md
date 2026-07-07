@@ -175,14 +175,17 @@ pkg update && pkg upgrade -y && pkg install openssh android-tools termux-api pyt
 # Generate a key on the Mac first (if you don't have one):
 # ssh-keygen -t ed25519 -f ~/.ssh/termux_key
 
-# On the device, in Termux:
-mkdir -p ~/.ssh
-chmod 700 ~/.ssh
-
-# Paste your Mac's public key (~/.ssh/termux_key.pub):
-echo "YOUR_PUBLIC_KEY_HERE" >> ~/.ssh/authorized_keys
-chmod 600 ~/.ssh/authorized_keys
+# One-time bootstrap (password or physical access to Termux):
+ssh-copy-id -i ~/.ssh/termux_key.pub -p 8022 USER@DEVICE_IP
+# Or manually on device:
+# mkdir -p ~/.ssh && chmod 700 ~/.ssh
+# echo "YOUR_PUBLIC_KEY" >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys
 ```
+
+After bootstrap, `ansible/playbooks/fleet.yml` (via `./mac/deploy-fleet.sh`) keeps
+`~/.ssh/authorized_keys` in sync using `ansible.posix.authorized_key` — add more
+keys by extending `stayturgid_ssh_public_key_files` in
+`roles/termux_userland/defaults/main.yml`.
 
 **Start sshd and test it (from Mac):**
 
@@ -405,8 +408,8 @@ stdin pipe), never bare `ssh host '<commands>'` through the login shell.
 - **Tier b (unit, no device):** shell TAP harness (`tests/test-unit.sh`, runs
   the `battery_suite` against BOTH the shell and Python twins), plain **pytest**
   for the Python script twins (`tests/python/`), and the standard
-  **`ansible-test units`** for the `stayturgid.fleet.termux_pkg` module
-  (`ansible_collections/stayturgid/fleet/tests/unit/`). `make test` runs all
+  **`ansible-test units`** for domain collections (`stayturgid.termux`, `obtainium`,
+  `fdroid`, `play` under `ansible_collections/stayturgid/`). `make test` runs all
   three.
 - **Tier c (device, read-only):** `make verify` / `tests/run.sh device`.
 
@@ -655,7 +658,7 @@ Optional layer on top of Obtainium. **Not** part of `./mac/deploy-fleet.sh` — 
 | `./mac/deploy-fdroid.sh [host]` | `ansible/playbooks/fdroid.yml` | Neo Store installed (Obtainium catalog); Mac: `brew install fdroidcl` |
 | `./mac/deploy-play.sh [host]` | `ansible/playbooks/play_store.yml` | Aurora Store installed (Obtainium catalog); Mac: `brew install apkeep` |
 
-**Default repos** (`ansible/roles/fdroid_repos/defaults/main.yml`):
+**Default repos** (`ansible_collections/stayturgid/fdroid/roles/fdroid_repos/defaults/main.yml`):
 
 | Name | URL | SHA-256 fingerprint |
 |------|-----|---------------------|
@@ -672,7 +675,7 @@ ANDROID_SERIAL="$(resolve_adb s24)" fdroidcl install com.example.app
 
 **Verified E2E (2026-07-07):** `fdroidcl install com.bobek.metronome` on s24, p7a, hd8 (Fire OS via USB adb); uninstalled after verify.
 
-See [fdroid/README.md](fdroid/README.md), [ansible/roles/fdroid_repos/README.md](ansible/roles/fdroid_repos/README.md), [ansible/roles/play_store/README.md](ansible/roles/play_store/README.md).
+See [fdroid/README.md](fdroid/README.md), [ansible_collections/stayturgid/fdroid/README.md](ansible_collections/stayturgid/fdroid/README.md), [ansible_collections/stayturgid/play/README.md](ansible_collections/stayturgid/play/README.md).
 
 ---
 

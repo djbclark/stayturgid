@@ -34,7 +34,7 @@ export GPLAY_AAS_TOKEN='...'   # or GPLAY_AUTH_TOKEN for Aurora-style token
 ## Ansible
 
 ```yaml
-- stayturgid.fleet.play_apps:
+- stayturgid.play.play_apps:
     device: p7a
     apps:
       - id: com.example.app
@@ -45,7 +45,7 @@ export GPLAY_AAS_TOKEN='...'   # or GPLAY_AUTH_TOKEN for Aurora-style token
 Or with a local APK (no download):
 
 ```yaml
-- stayturgid.fleet.play_apps:
+- stayturgid.play.play_apps:
     device: p7a
     apps:
       - id: com.example.app

@@ -1,0 +1,21 @@
+---
+# Always-on VPN for Tailscale — adb settings put on the Mac (Fire-safe).
+# Prerequisite: com.tailscale.ipn installed (Obtainium catalog).
+
+- name: Resolve fleet alias to adb target (USB serial preferred)
+  ansible.builtin.set_fact:
+    _tailscale_adb_target: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+
+- name: Ensure Tailscale always-on VPN (Android secure settings)
+  when: stayturgid_always_on_vpn | bool
+  stayturgid.android_common.android_settings:
+    device: "{{ _tailscale_adb_target }}"
+    require_package: "{{ tailscale_package }}"
+    settings:
+      - namespace: secure
+        key: always_on_vpn_app
+        value: "{{ tailscale_package }}"
+      - namespace: secure
+        key: always_on_vpn_lockdown
+        value: "{{ stayturgid_always_on_vpn_lockdown | bool | ternary('1', '0') }}"
+  delegate_to: localhost

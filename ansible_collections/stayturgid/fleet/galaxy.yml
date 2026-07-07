@@ -1,13 +1,23 @@
 namespace: stayturgid
 name: fleet
-version: 1.0.0
+version: 1.3.0
 readme: README.md
 authors:
   - djbclark
-description: stayturgid fleet automation (Termux/Android remote-access keepalive).
-license_expressions:
+description: >-
+  stayturgid fleet meta-collection. Domain modules live in stayturgid.termux,
+  stayturgid.obtainium, stayturgid.fdroid, and stayturgid.play; this collection
+  provides backward-compatible FQCN redirects (stayturgid.fleet.*).
+license:
   - MIT
 tags:
   - android
   - termux
 repository: https://github.com/djbclark/stayturgid
+dependencies:
+  ansible.posix: ">=1.5.0"
+  stayturgid.android_common: ">=1.2.0"
+  stayturgid.termux: ">=1.2.0"
+  stayturgid.obtainium: ">=1.1.0"
+  stayturgid.fdroid: ">=1.1.0"
+  stayturgid.play: ">=1.1.0"

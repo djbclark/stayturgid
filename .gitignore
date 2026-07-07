@@ -3,5 +3,6 @@ __pycache__/
 .DS_Store
 .venv-test/
 .venv-gplaycli/
+.ansible/collections/
 *.py[cod]
-ansible_collections/stayturgid/fleet/tests/output/
+ansible_collections/stayturgid/*/tests/output/

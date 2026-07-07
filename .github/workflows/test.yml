@@ -17,6 +17,8 @@ jobs:
           node-version: "22"
       - name: Install ansible + linters
         run: pipx install ansible-core && pipx install ansible-lint && pipx install yamllint
+      - name: Install Ansible collections
+        run: ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections
       - name: Set up Python test venv (pytest + ansible-core)
         run: python3 -m venv .venv-test && .venv-test/bin/pip install -q -r tests/python/requirements.txt
       - name: configure

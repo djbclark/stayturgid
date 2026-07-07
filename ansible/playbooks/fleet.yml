@@ -11,9 +11,9 @@
   hosts: stayturgid
   gather_facts: false
   roles:
-    - role: termux_userland
+    - role: stayturgid.termux.termux_userland
     - role: autojs6_watchdog
-    - role: obtainium_apps
-    - role: tailscale_vpn
+    - role: stayturgid.obtainium.obtainium_apps
+    - role: stayturgid.android_common.tailscale_vpn
     # fdroid_repos side project — use ./mac/deploy-fdroid.sh (not fleet.yml)
     # play_store side project — use ./mac/deploy-play.sh (not fleet.yml)

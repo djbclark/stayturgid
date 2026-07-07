@@ -1,0 +1,90 @@
+---
+# play_store role
+# Ensures Aurora Store (FOSS Google Play client) with Shizuku + background updates.
+# For "managing" Play apps, use gplaycli or direct adb install of APKs (Play is not open repo like F-Droid).
+# See obtainium for ensuring Aurora via catalog (we added it).
+# fdroidcl equivalent is gplaycli (installed via pip, may need auth setup).
+
+- name: Resolve fleet alias to adb target (USB serial preferred)
+  ansible.builtin.set_fact:
+    _play_target_device: "{{ lookup('stayturgid.android_common.adb_device', target_device | default(inventory_hostname)) }}"
+
+- name: Detect Aurora Store on device
+  ansible.builtin.shell: |
+    set -euo pipefail
+    adb connect "{{ _play_target_device }}" >/dev/null 2>&1 || true
+    adb -s "{{ _play_target_device }}" shell pm list packages --user 0 \
+      | grep -E '^(package:)?{{ aurora_store_package | regex_escape() }}' \
+      || true
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  register: aurora_pkg
+  changed_when: false
+
+- name: Warn when Aurora Store is missing but required
+  ansible.builtin.debug:
+    msg: >-
+      Aurora Store ({{ aurora_store_package }}) not installed on {{ _play_target_device }}.
+      Run ./mac/deploy-play.sh to install Aurora via apkeep before this role grants Shizuku.
+  when:
+    - stayturgid_ensure_aurora_store | bool
+    - aurora_store_package not in aurora_pkg.stdout
+
+- name: Note on Play side (no direct repo like F-Droid)
+  ansible.builtin.debug:
+    msg: |
+      Google Play is not open like F-Droid. Use Aurora Store as GUI
+      (installed by deploy-play.sh when missing).
+      For automation, apkeep/gplaycli can download APKs, then adb install
+      with -i com.android.vending to spoof Play.
+      This role grants Shizuku to the Aurora Store client.
+
+- name: Grant Shizuku to Aurora Store
+  when:
+    - stayturgid_ensure_aurora_store | bool
+    - aurora_store_package in aurora_pkg.stdout
+  stayturgid.android_common.shizuku_grant:
+    device: "{{ _play_target_device }}"
+    package: "{{ aurora_store_package }}"
+  delegate_to: localhost
+  register: aurora_grant
+
+- name: Note on background updates for Aurora
+  ansible.builtin.debug:
+    msg: |
+      deploy-play.sh configures Aurora's Shizuku installer and automatic
+      updates after this role grants Shizuku.
+
+- name: Ensure Play apps (apkeep/gplaycli + adb install)
+  when: stayturgid_play_apps | length > 0
+  stayturgid.play.play_apps:
+    apps: "{{ stayturgid_play_apps }}"
+    device: "{{ _play_target_device }}"
+    download_backend: "{{ stayturgid_play_download_backend }}"
+    apkeep_source: "{{ stayturgid_play_apkeep_source }}"
+    apkeep_options: "{{ stayturgid_play_apkeep_options }}"
+    spoof_play_installer: "{{ stayturgid_play_spoof_installer | bool }}"
+    repo_root: "{{ stayturgid_repo_root | default(playbook_dir ~ '/../..', true) }}"
+  delegate_to: localhost
+
+- name: Open Aurora Store details for Play apps (manual fallback)
+  when:
+    - stayturgid_play_open_aurora | bool
+    - stayturgid_play_apps | length > 0
+    - aurora_store_package in aurora_pkg.stdout
+  ansible.builtin.shell: |
+    set -euo pipefail
+    adb connect "{{ _play_target_device }}" >/dev/null 2>&1 || true
+    adb -s "{{ _play_target_device }}" shell am start -a android.intent.action.VIEW \
+      -d "market://details?id={{ item.id }}" \
+      -n "{{ aurora_store_package }}/.MainActivity" 2>/dev/null || \
+    adb -s "{{ _play_target_device }}" shell am start -a android.intent.action.VIEW \
+      -d "market://details?id={{ item.id }}"
+  args:
+    executable: /bin/bash
+  loop: "{{ stayturgid_play_apps }}"
+  loop_control:
+    label: "{{ item.id }}"
+  delegate_to: localhost
+  changed_when: false

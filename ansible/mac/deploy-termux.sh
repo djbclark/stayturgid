@@ -24,6 +24,8 @@ if ! command -v ansible-playbook >/dev/null 2>&1; then
   exit 1
 fi
 
+ansible-galaxy collection install -r "$ROOT/ansible/requirements.yml" -p "$ROOT/.ansible/collections" >/dev/null
+
 cd "$ROOT"
 ANSIBLE_CONFIG="$ROOT/ansible/ansible.cfg" \
   ansible-playbook ansible/playbooks/termux-userland.yml --limit "$HOST"

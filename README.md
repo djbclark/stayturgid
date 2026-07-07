@@ -13,8 +13,8 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 | **Mac ADB keepalive** | `mac/` | Yes — launchd reconnect + outage alert | [mac/README.md](mac/README.md) |
 | **AutoJs6 watchdog** | `autojs6/` | Yes — needs Termux repair scripts | [autojs6/README.md](autojs6/README.md) |
 | **Obtainium catalogs** | `obtainium/` | Yes — any Obtainium user | [obtainium/README.md](obtainium/README.md) |
-| **F-Droid / Neo Store** (side) | `fdroid/` + `ansible/roles/fdroid_repos` | fdroidcl + Ansible for repos + Neo Store GUI setup (with Shizuku) | [fdroid/README.md](fdroid/README.md) |
-| **Play / Aurora Store** (side) | `ansible/roles/play_store` | `./mac/deploy-play.sh` — Shizuku grant for Aurora | [ansible/roles/play_store/README.md](ansible/roles/play_store/README.md) |
+| **F-Droid / Neo Store** (side) | `fdroid/` + `stayturgid.fdroid` collection | fdroidcl + Ansible for repos + Neo Store GUI setup (with Shizuku) | [fdroid/README.md](fdroid/README.md) |
+| **Play / Aurora Store** (side) | `stayturgid.play` collection | `./mac/deploy-play.sh` — Shizuku grant for Aurora | [ansible_collections/stayturgid/play/README.md](ansible_collections/stayturgid/play/README.md) |
 | **Shared Mac helpers** | `shared/` | Yes — `resolve-adb` only | [shared/README.md](shared/README.md) |
 
 ---
@@ -60,7 +60,7 @@ After each cold reboot and PIN unlock:
 ssh s24    # or: ssh p7a
 ```
 
-Requires `~/.ssh/termux_key` in Termux `authorized_keys` and Tailscale (or `adb forward tcp:8022 tcp:8022`). See [HACKING.md](HACKING.md).
+Requires `~/.ssh/termux_key` on devices (bootstrap once with `ssh-copy-id`; fleet deploy syncs via Ansible). Tailscale or `adb forward tcp:8022 tcp:8022`. See [HACKING.md](HACKING.md).
 
 ---
 

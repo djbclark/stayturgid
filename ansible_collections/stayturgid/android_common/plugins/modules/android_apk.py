@@ -1,0 +1,217 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+from __future__ import absolute_import, division, print_function
+
+__metaclass__ = type
+
+DOCUMENTATION = r"""
+---
+module: android_apk
+short_description: Install an APK on a device via adb with failure parsing
+description:
+  - Installs an APK from a local path, a URL, or a GitHub release
+    (C(gh release download)) with C(adb install -r).
+  - Parses C(INSTALL_FAILED_*) / C(Failure) output — adb can exit 0 while the
+    install actually failed.
+  - Idempotent by package presence; set C(force=true) to reinstall, or
+    C(version_name) to upgrade only when the installed version differs.
+options:
+  device:
+    description: ADB device serial or C(host:5555) target.
+    type: str
+    required: true
+  package:
+    description: Package id used for the idempotence check.
+    type: str
+    required: true
+  apk_path:
+    description: Local APK file to install.
+    type: path
+  url:
+    description: Download URL for the APK (fetched to a temp file).
+    type: str
+  gh_repo:
+    description: GitHub C(owner/repo) to download a release asset from (needs C(gh) CLI).
+    type: str
+  gh_pattern:
+    description: Asset glob for C(gh release download --pattern).
+    type: str
+  gh_tag:
+    description: Release tag (default latest).
+    type: str
+  version_name:
+    description: Expected versionName; install only when the device differs.
+    type: str
+  force:
+    description: Install even when the package is already present.
+    type: bool
+    default: false
+  installer:
+    description: Installer package to spoof (C(adb install -i), e.g. com.android.vending).
+    type: str
+  extra_args:
+    description: Extra C(adb install) arguments.
+    type: list
+    elements: str
+    default: []
+  connect:
+    description: Run C(adb connect) before other operations (for wireless targets).
+    type: bool
+    default: true
+"""
+
+EXAMPLES = r"""
+- name: Install a local APK
+  stayturgid.android_common.android_apk:
+    device: "{{ adb_target }}"
+    package: com.example.app
+    apk_path: /tmp/app.apk
+  delegate_to: localhost
+
+- name: Install latest Shizuku from a GitHub release
+  stayturgid.android_common.android_apk:
+    device: "{{ adb_target }}"
+    package: moe.shizuku.privileged.api
+    gh_repo: thedjchi/Shizuku
+    gh_pattern: "*.apk"
+  delegate_to: localhost
+"""
+
+RETURN = r"""
+changed:
+  description: True when an install ran.
+  type: bool
+reason:
+  description: Install outcome or skip reason.
+  type: str
+"""
+
+import os
+import tempfile
+
+from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.urls import fetch_url
+
+from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_shell import (
+    adb_connect,
+    adb_shell,
+    normalize_adb_output,
+    package_installed,
+)
+from ansible_collections.stayturgid.android_common.plugins.module_utils.apk_install import (
+    parse_install_result,
+)
+
+
+def installed_version(run_command, device, package):
+    rc, out, _err = adb_shell(
+        run_command, device, "dumpsys package %s | grep versionName" % package
+    )
+    if rc != 0:
+        return None
+    text = normalize_adb_output(out)
+    for line in text.splitlines():
+        line = line.strip()
+        if line.startswith("versionName="):
+            return line.split("=", 1)[1]
+    return None
+
+
+def download_url(module, url):
+    resp, info = fetch_url(module, url)
+    if info.get("status") != 200 or resp is None:
+        module.fail_json(msg="download failed (%s): %s" % (info.get("status"), url))
+    tmp = tempfile.NamedTemporaryFile("wb", dir=module.tmpdir, suffix=".apk", delete=False)
+    tmp.write(resp.read())
+    tmp.close()
+    return tmp.name
+
+
+def download_gh_release(module, repo, pattern, tag):
+    gh = module.get_bin_path("gh", required=True)
+    destdir = tempfile.mkdtemp(dir=module.tmpdir)
+    cmd = [gh, "release", "download"]
+    if tag:
+        cmd.append(tag)
+    cmd += ["--repo", repo, "--pattern", pattern or "*.apk", "--dir", destdir]
+    rc, _out, err = module.run_command(cmd)
+    if rc != 0:
+        module.fail_json(msg="gh release download failed: %s" % err.strip())
+    apks = sorted(
+        f for f in os.listdir(destdir) if f.lower().endswith(".apk")
+    )
+    if not apks:
+        module.fail_json(msg="no .apk asset matched %r in %s" % (pattern, repo))
+    return os.path.join(destdir, apks[0])
+
+
+def main():
+    module = AnsibleModule(
+        argument_spec=dict(
+            device=dict(type="str", required=True),
+            package=dict(type="str", required=True),
+            apk_path=dict(type="path"),
+            url=dict(type="str"),
+            gh_repo=dict(type="str"),
+            gh_pattern=dict(type="str"),
+            gh_tag=dict(type="str"),
+            version_name=dict(type="str"),
+            force=dict(type="bool", default=False),
+            installer=dict(type="str"),
+            extra_args=dict(type="list", elements="str", default=[]),
+            connect=dict(type="bool", default=True),
+        ),
+        required_one_of=[["apk_path", "url", "gh_repo"]],
+        mutually_exclusive=[["apk_path", "url", "gh_repo"]],
+        supports_check_mode=True,
+    )
+
+    device = module.params["device"]
+    package = module.params["package"]
+
+    if module.params["connect"] and not module.check_mode:
+        adb_connect(module.run_command, device)
+
+    present = package_installed(module.run_command, device, package)
+    if present and not module.params["force"]:
+        if module.params["version_name"]:
+            current = installed_version(module.run_command, device, package)
+            if current == module.params["version_name"]:
+                module.exit_json(changed=False, reason="version %s already installed" % current)
+        else:
+            module.exit_json(changed=False, reason="already installed")
+
+    if module.check_mode:
+        module.exit_json(changed=True, reason="would install")
+
+    if module.params["apk_path"]:
+        apk = module.params["apk_path"]
+        if not os.path.isfile(apk):
+            module.fail_json(msg="apk_path not found: %s" % apk)
+    elif module.params["url"]:
+        apk = download_url(module, module.params["url"])
+    else:
+        apk = download_gh_release(
+            module,
+            module.params["gh_repo"],
+            module.params["gh_pattern"],
+            module.params["gh_tag"],
+        )
+
+    cmd = ["adb", "-s", device, "install", "-r"]
+    if module.params["installer"]:
+        cmd += ["-i", module.params["installer"]]
+    cmd += module.params["extra_args"]
+    cmd.append(apk)
+
+    rc, out, err = module.run_command(cmd)
+    ok, reason = parse_install_result(out + "\n" + err)
+    if rc != 0 or not ok:
+        module.fail_json(msg="adb install failed: %s" % reason)
+
+    module.exit_json(changed=True, reason=reason)
+
+
+if __name__ == "__main__":
+    main()

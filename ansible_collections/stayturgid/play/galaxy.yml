@@ -1,0 +1,15 @@
+namespace: stayturgid
+name: play
+version: 1.1.0
+readme: README.md
+authors:
+  - djbclark
+description: Google Play APK download (apkeep/gplaycli) and adb install.
+license:
+  - MIT
+tags:
+  - android
+  - play
+repository: https://github.com/djbclark/stayturgid
+dependencies:
+  stayturgid.android_common: ">=1.0.0"

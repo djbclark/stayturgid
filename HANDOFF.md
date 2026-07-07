@@ -207,8 +207,8 @@ ansible/                     — fleet deploy; inventory/hosts.yml + inventory/g
 ansible_collections/stayturgid/fleet/   — termux_pkg + obtainium_app modules (FQCN stayturgid.fleet.*)
 obtainium/                   — stayturgid-apps.json catalog + mac/ sync/import/apply/installer scripts
 fdroid/                      — side-project docs + support for F-Droid (Neo Store) and Play (Aurora Store)
-ansible/roles/fdroid_repos/  — Ansible role + module for fdroidcl (Mac) repo management + explicit push to on-device client (bypasses chooser, preference order Neo > Droid-ify > F-Droid)
-ansible/roles/play_store/    — skeleton role for Aurora Store client setup (Shizuku grant, gplaycli notes)
+ansible_collections/stayturgid/fdroid/roles/fdroid_repos/  — fdroidcl repo management + on-device push
+ansible_collections/stayturgid/play/roles/play_store/        — Aurora Store Shizuku grant + play_apps
 shared/mac/                  — resolve-adb.sh, stayturgid_device.py (shizuku.json patcher + UI parsing)
 mac/                         — adb-reconnect.py, access_monitor.py (launchd via ansible mac.yml); deploy-fleet.sh, fleet-health.sh
 tests/                       — device_tier.py + python/ (pytest twins) + test-*.sh TAP harness; Makefile, configure
@@ -292,7 +292,7 @@ version.json                 — repo release version + changelog
 
 **Recommended next actions (prioritized, in rough order):**
 1. ~~**Verify end-to-end on s24**~~ **Done** (2026-07-07). Optional repeat on **p7a** for parity.
-2. ~~**Flesh out play_store role**~~ **Partial** (2026-07-07) — `stayturgid.fleet.play_apps` module (apkeep/gplaycli + adb `-i com.android.vending`); `play/mac/gplaycli.sh` wrapper. **You:** set `GPLAY_*` env or `gplaycli.conf` for google-play downloads; apk-pure mirrors are flaky.
+2. ~~**Flesh out play_store role**~~ **Partial** (2026-07-07) — `stayturgid.play.play_apps` module (apkeep/gplaycli + adb `-i com.android.vending`); `play/mac/gplaycli.sh` wrapper. **You:** set `GPLAY_*` env or `gplaycli.conf` for google-play downloads; apk-pure mirrors are flaky.
 3. **Enhance fdroid_repos**: full support for `stayturgid_fdroid_setups` (create/apply in role + module); support removing repos; better fingerprint handling; optional "apply to device via fdroidcl" tasks.
 4. **On-device repo management polish**: if explicit intent + NeoActivity is flaky for adding repos to GUI, explore direct methods (e.g. content provider, AutoJs6 script to accept chooser, or file import into Neo Store's DB). Make preference logic also update system preferred activities if possible (without root).
 5. **Integration & docs:** ~~uncomment in fleet.yml~~ **Done** — `ansible/playbooks/fdroid.yml` + `./mac/deploy-fdroid.sh`; `play_store.yml` + `./mac/deploy-play.sh`; fleet.yml points there. ~~Expand HACKING with fingerprints~~ **Done** (HACKING Part 6b).

@@ -9,7 +9,8 @@ Idempotent deploy of the **Termux layer only** over SSH: packages, scripts, boot
 You need only:
 
 - Ansible on the Mac (`brew install ansible`)
-- Termux with `sshd` on port 8022 and your SSH public key in `~/.ssh/authorized_keys`
+- `ansible-galaxy collection install -r ansible/requirements.yml` (once; deploy scripts do this)
+- Termux with `sshd` on port 8022 and your SSH public key in `~/.ssh/authorized_keys` (one-time bootstrap via `ssh-copy-id`; fleet deploy keeps keys in sync)
 - Inventory host pointing at the device (copy `inventory/hosts.yml` pattern; trim to one host)
 
 ```bash
@@ -24,15 +25,16 @@ Omit `stayturgid_device_id` if not using device override files.
 
 Copy [inventory/example-standalone.yml](inventory/example-standalone.yml) as a starting point for a single phone.
 
-**Out of scope** (configure separately): Shizuku pairing, AutoJs6 install, Obtainium, `WRITE_SECURE_SETTINGS`, battery whitelist, SSH key bootstrap.
+**Out of scope** (configure separately): Shizuku pairing, AutoJs6 install, Obtainium, `WRITE_SECURE_SETTINGS`, battery whitelist. SSH key **bootstrap** (first key before Ansible can connect) is still manual/`ssh-copy-id`; ongoing key distribution is handled by `termux_sshd` in the `termux_userland` role.
 
 The deployed `~/agent-presence.sh` includes the consent `gate` action ([termux/README.md](../termux/README.md)).
 
 ## Prerequisites
 
 - Ansible 2.14+ on the Mac (`brew install ansible`)
+- `ansible.posix` collection (`ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections`)
 - SSH to Termux working (`ssh s24` or USB forward to port 8022)
-- `~/.ssh/termux_key` authorized on the device
+- `~/.ssh/termux_key` authorized on the device (bootstrap once with `ssh-copy-id`; `termux_userland` role manages keys on every deploy)
 
 ## Run (fleet wrapper)
 
@@ -67,21 +69,28 @@ ansible_python_interpreter: /data/data/com.termux/files/usr/bin/python
 
 **Termux package policy:** the playbook always runs `pkg update && pkg upgrade -y` first, then installs only missing packages (with another `pkg update && pkg upgrade -y` immediately before any `pkg install`). Same rule applies to manual Termux work — see `HANDOFF.md` tooling rules.
 
+## Collections
+
+Reusable modules live in domain collections under `ansible_collections/stayturgid/`
+(`termux`, `obtainium`, `fdroid`, `play`, `android_common`). See
+[../ansible_collections/README.md](../ansible_collections/README.md) for install
+and adoption docs. In development, `ansible.cfg` discovers collections from
+`../ansible_collections` — no separate `ansible-galaxy install` for stayturgid
+modules beyond `ansible.posix`.
+
+Playbooks reference collection roles by FQCN (e.g. `stayturgid.termux.termux_userland`).
+
 ## Layout
 
 ```
 ansible/
   ansible.cfg
-  library/termux_pkg.py          — fault-tolerant Termux package module
+  requirements.yml               — ansible.posix
   inventory/hosts.yml
-  inventory/example-standalone.yml
-  group_vars/stayturgid.yml
   playbooks/termux-userland.yml
-  roles/termux_userland/
-    tasks/main.yml
-    defaults/main.yml
-    templates/termux.properties.j2
+  roles/autojs6_watchdog/        — fleet-only (not in collections)
   mac/deploy-termux.sh
+ansible_collections/stayturgid/  — modules + roles per domain
 ```
 
 ## After playbook
