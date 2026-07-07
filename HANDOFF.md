@@ -37,7 +37,7 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 
 **Healthy / done:**
 - **s24 + p7a fully green** — `make verify` PASS after AutoJs6 `pm clear` reset (2026-07-07); watchdog liveness fresh on both; Tasker legacy clean on p7a.
-- **Primary Termux self-heal: solid on all three** — `sshd` + boot loop + repair bridge; reachable via `ssh s24` / `ssh p7a` / `ssh hd8` (hd8 over LAN `192.168.68.69:8022` or USB forward).
+- **Primary Termux self-heal: solid on all three** — `sshd` + boot loop + repair bridge; reachable via `ssh s24` / `ssh p7a` / `ssh hd8` (all over Tailscale).
 - **Single-root file consolidation + self-healing** — every writer `mkdir -p`s its dir; deleting the stayturgid root just recreates it.
 - **AutoJs6 startup hardened** — `main.js` always establishes the 20-min interval; `guard.enforce()` degrades instead of blocking.
 - **Device-tier watchdog liveness check** — fresh `[watchdog]` line < 30 min (s24/p7a passing).
@@ -45,8 +45,8 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 
 **⚠ hd8 Fire OS caveats (expected TODOs when USB unplugged):**
 - **Split storage** — Termux under `~/.stayturgid/shared` (cannot read/write `/sdcard`); AutoJs6 under `/sdcard/stayturgid/`. Watchdog skips the Termux RUN_COMMAND bridge on split-storage devices (boot loop owns repair).
-- **No Termux→localhost:5555 loopback** — privileged repair from Termux cannot use `adb connect localhost:5555`. Mac USB/LAN adb works (`GN43T503430603PS` / `192.168.68.69:5555`).
-- **Tailscale installed (pending login)** — APK v1.98.8 sideloaded; VPN permission granted. **You:** finish Sign in on hd8, enable **Always-on VPN**, then set `ansible_host` in `hosts.yml` to the Tailscale IP and run `ansible-playbook ansible/playbooks/mac.yml` to refresh `devices.conf` / `~/.ssh/config`.
+- **No Termux→localhost:5555 loopback** — privileged repair from Termux cannot use `adb connect localhost:5555`. Mac adb works via Tailscale `100.124.55.39:5555` or USB `GN43T503430603PS`.
+- **Tailscale** — `100.124.55.39` (`ssh hd8`); enable **Always-on VPN** if not already.
 - **Battery** — keep hd8 charged when off USB.
 
 **Deploy / test:**
@@ -91,8 +91,8 @@ Deployed scripts → `~/.stayturgid/bin`; AutoJs6 project → `/sdcard/stayturgi
 |-------|-------|
 | Device / Android | Amazon Kindle Fire HD 8 (KFRASWI) / 11 (API 30) |
 | USB serial | `GN43T503430603PS` |
-| Wireless ADB | `192.168.68.69:5555` (LAN; Mac `adb connect`); Tailscale pending login (APK installed) |
-| SSH | `ssh hd8` (alias → LAN :8022, `u0_a310`, key auth); USB: `adb forward tcp:8022 tcp:8022` |
+| Wireless ADB | `100.124.55.39:5555` (Tailscale); LAN `192.168.68.69:5555` fallback |
+| SSH | `ssh hd8` (alias → Tailscale :8022, `u0_a310`, key auth); LAN: `ssh hd8-lan` |
 | Termux | GitHub-debug `com.termux` 0.118.3 + api/boot (share-uid); **must** be debug build for `run-as` recovery |
 | AutoJs6 | `org.autojs.autojs6` v6.7.0 — project at `/sdcard/stayturgid/autojs6` |
 | Shizuku | thedjchi fork v13.7.0 — TCP mode ON |
