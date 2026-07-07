@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Resolve ADB target: USB serial when plugged in, else Tailscale wireless.
-# Shared by mac/, autojs6/mac/, obtainium/mac/, and other modules.
+# Prefer stayturgid_device.resolve_adb (Python) for new code.
+# This file remains for optional bash sourcing.
 #
 # Device facts come from ~/.config/stayturgid/devices.conf, generated from the
 # Ansible inventory by ansible/playbooks/mac.yml — no device names live in

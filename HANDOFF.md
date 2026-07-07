@@ -47,7 +47,7 @@ On the Mac, a launchd agent runs every 60 s and reconnects `adb connect <ip>:555
 
 GitHub `master` is the source of truth. To release:
 1. Bump `version.json` (`version` + `changelog`), commit, push.
-2. `./mac/deploy_fleet.py` — full fleet via Ansible (`CHECK=1 ./mac/deploy_fleet.py` = dry run): Termux, AutoJs6, Obtainium, Tailscale, F-Droid/Neo Store, Play/Aurora, optional ensure_apps. Idempotent (re-run = `changed=0`). Post-Ansible: Obtainium catalog import (unlocked screen), app-stores re-run, Aurora UI setup. Or the granular path: `./ansible/mac/deploy_termux.py [--limit host]` then `./autojs6/mac/deploy.sh {s24,hd8,p7a}` + `./autojs6/mac/start-watchdog.sh`.
+2. `./mac/deploy_fleet.py` — full fleet via Ansible (`CHECK=1 ./mac/deploy_fleet.py` = dry run): Termux, AutoJs6, Obtainium, Tailscale, F-Droid/Neo Store, Play/Aurora, optional ensure_apps. Idempotent (re-run = `changed=0`). Post-Ansible: Obtainium catalog import (unlocked screen), app-stores re-run, Aurora UI setup. Or the granular path: `./ansible/mac/deploy_termux.py [--limit host]` then `./autojs6/mac/deploy.py {s24,hd8,p7a}` + `./autojs6/mac/start_watchdog.py`.
 
 Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `termux-notification` when GitHub `version.json` moves ahead of the last-seen stamp.
 
@@ -218,7 +218,7 @@ autojs6/                     — AutoJs6 watchdog (the automation stack)
   lib/                       — config, guard (auto.service a11y check), watchdog, termux bridge,
                                shizuku/tailscale, notify, log  (all mkdir -p / files.ensureDir self-heal)
   scripts/boot-launcher.js   — Termux:Boot nudge; mainAlreadyRunning() matches the full main.js path
-  mac/                       — deploy.sh, setup-autojs6.sh, start-watchdog.sh, grant-shizuku.sh, run-test.sh
+  mac/                       — deploy.py, setup_autojs6.py, start_watchdog.py, grant_shizuku.py, run_test.py
 termux/
   boot/start-adb.sh          — Termux:Boot entry: sshd + 5-min self-heal loop (pidfile) + battery alarm + AutoJs6 nudge
   py/*.py + *.sh shims       — repair, agent-presence, screen-awake-guard, battery-alarm, check-repo-version
@@ -286,7 +286,7 @@ version.json                 — repo release version + changelog
 |-------|-------|---------|
 | Termux packages + scripts | ✅ `termux_userland` + `termux_pkg` | Yes |
 | Shizuku install/grant | Mac shell (`stayturgid_device.py`) | Partial — custom module |
-| Obtainium catalog/install | `obtainium_app` module + `import_catalog.py` / `sync-to-device.sh` | Yes (Mac deep-link import) |
+| Obtainium catalog/install | `obtainium_app` module + `import_catalog.py` / `sync_to_device.py` | Yes (Mac deep-link import) |
 | AutoJs6 deploy/start | `autojs6_watchdog` role + `autojs6/mac/*.sh` | Partial — role + adb delegate |
 | ADB reconnect launchd | `adb-reconnect.py` + plist (mac.yml) | localhost role |
 | Validation | `device_tier.py` + TAP | playbook `validate.yml` |

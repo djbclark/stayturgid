@@ -24,7 +24,7 @@ Severity: **H** = broken behavior in production paths, **M** = incorrect/harmful
 Two occurrences:
 
 - `termux/boot/start-repair-bridge.sh:9` — the guard `! pgrep -f repair-bridge.sh` runs inside a process whose cmdline is `bash …/.termux/boot/start-repair-bridge.sh`. The pattern `repair-bridge.sh` is a substring of `start-repair-bridge.sh`, so pgrep always matches the boot script itself and the `nohup ~/repair-bridge.sh &` line **never executes**. The fast-repair bridge is effectively never started at boot; the `/sdcard/stayturgid_repair_now` trigger-file fallback in `autojs6/lib/termux.js` silently does nothing until someone starts the bridge by hand.
-- `autojs6/mac/setup-autojs6.sh:67` — same bug over SSH: the remote command string (`bash -c '… pgrep -f repair-bridge.sh >/dev/null || nohup ~/repair-bridge.sh …'`) itself contains the pattern, so pgrep matches the shell running the check, the `||` short-circuits, and the script prints "repair-bridge.sh started (or already running)" without starting anything.
+- `autojs6/mac/setup_autojs6.py:67` — same bug over SSH: the remote command string (`bash -c '… pgrep -f repair-bridge.sh >/dev/null || nohup ~/repair-bridge.sh …'`) itself contains the pattern, so pgrep matches the shell running the check, the `||` short-circuits, and the script prints "repair-bridge.sh started (or already running)" without starting anything.
 
 **Fix:** anchor the pattern so it can't match wrappers, e.g. `pgrep -f '[r]epair-bridge\.sh$'` won't help against the path suffix — instead match the exact invocation: `pgrep -f "bash $HOME/repair-bridge.sh"` or use a pidfile written by `repair-bridge.sh` itself. (Note `mac/deploy_fleet.py` and `mac/tests/run.sh device --heal` avoid this class of bug by using `bash -s` heredocs — the pattern isn't in any cmdline — so those checks are fine.)
 **Verified on the live S24 (read-only):** `pgrep -laf repair-bridge` run over SSH matched **its own remote shell** (`bash -c echo …; pgrep -laf repair-bridge; …`) in addition to the real bridge — confirming Termux's procps pgrep matches the caller's cmdline. The bridge *is* currently running on the S24 (pid 23005, presumably started by hand or a pre-guard deploy), but after the next reboot the boot guard will self-match and never restart it. Caution for future testing: **macOS/BSD pgrep does not exhibit this self-match** (verified locally), so Mac-side dry-runs of these guards pass while the on-device behavior fails.
@@ -102,7 +102,7 @@ Minor, same file: line 63 caches whatever address just connected — including t
 ### L6. `test-tailscale-down-once.js` sleeps 2 ms, not 2 s
 `autojs6/scripts/test-tailscale-down-once.js` — `sleep(2)` after `tailscale.relaunch()`; AutoJs6 `sleep()` takes milliseconds. Should be `sleep(2000)`.
 
-### L7. `setup-autojs6.sh` inconsistencies
+### L7. `setup_autojs6.py` inconsistencies
 - Line 64 (`scp … repair-bridge.sh`) is unindented and, unlike its siblings, has no `2>/dev/null ||` fallback — under `set -e` a failure aborts setup halfway (after the repair script but before boot hooks).
 - Line 81 recomputes `SCRIPT_DIR` already set at line 7.
 - Line 54 `case "$1"` duplicates the alias→SSH-host mapping that exists in three other scripts; a `resolve_ssh_host` next to `resolve_adb` in `shared/mac/` would remove four copies.
@@ -136,7 +136,7 @@ Ansible already attempts all hosts unless `serial` / `any_errors_fatal` is set (
 - `mac/access-monitor.sh` is a model citizen: consecutive-failure debounce, single alert per outage, recovery notification, log trimming. Several other scripts should copy it (see M9).
 - `shared/mac/resolve-adb.sh` + the compatibility shim in `mac/` is a tidy way to de-duplicate without breaking existing callers; `stayturgid-root.sh`'s marker-directory walk is robust.
 - The Ansible role is genuinely idempotent (verified repair run with `failed_when: rc not in (0,1)` is a nice touch), and `example-standalone.yml` keeps the module honest about fleet-specific assumptions.
-- Test scripts (`test-stale-loop-once.js`, `test-tailscale-down.sh`) validate real failure paths end-to-end on hardware, not mocks — rare and valuable for this kind of stack.
+- Test scripts (`test-stale-loop-once.js`, `test_tailscale_down.py`) validate real failure paths end-to-end on hardware, not mocks — rare and valuable for this kind of stack.
 
 ## Suggested priority
 

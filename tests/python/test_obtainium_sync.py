@@ -1,6 +1,6 @@
 """Sync guard: the obtainium_apps role defaults (authoritative) must stay
 aligned with obtainium/stayturgid-apps.json (the adb-fallback rendering used
-by obtainium/mac/sync-to-device.sh when SSH is unavailable)."""
+by obtainium/mac/sync_to_device.py when SSH is unavailable)."""
 import json
 import os
 

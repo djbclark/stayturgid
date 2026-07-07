@@ -35,7 +35,7 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 
 1. Shizuku (thedjchi fork) — TCP mode, wireless debugging
 2. Termux + Termux:Boot + Termux:API — [termux/README.md](termux/README.md) or `./ansible/mac/deploy_termux.py <host>`
-3. AutoJs6 watchdog — [autojs6/README.md](autojs6/README.md) (`setup-autojs6.sh`, `set-automation-mode.sh`, `start-watchdog.sh`)
+3. AutoJs6 watchdog — [autojs6/README.md](autojs6/README.md) (`setup_autojs6.py`, `set_automation_mode.py`, `start_watchdog.py`)
 4. Obtainium catalog — [obtainium/README.md](obtainium/README.md)
 5. Mac — [mac/README.md](mac/README.md) (ADB reconnect + access monitor)
 

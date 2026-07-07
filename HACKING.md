@@ -111,7 +111,7 @@ JavaScript automation engine — runs the stayturgid watchdog (accessibility UI 
 
 **Source:** https://github.com/SuperMonster003/AutoJs6/releases
 
-**Obtainium URL** (add this in Obtainium → Add App, or import `obtainium/autojs6-only.json` via `obtainium/mac/sync-to-device.sh`):
+**Obtainium URL** (add this in Obtainium → Add App, or import `obtainium/autojs6-only.json` via `obtainium/mac/sync_to_device.py`):
 ```
 https://github.com/SuperMonster003/AutoJs6
 ```
@@ -229,12 +229,12 @@ If the command hangs or errors, make sure the Termux:API app is installed (secti
 All of this is scripted from the Mac (device connected via USB or wireless ADB):
 
 ```bash
-./autojs6/mac/setup-autojs6.sh p7a     # install/verify AutoJs6, grant permissions, deploy project
-./autojs6/mac/set-automation-mode.sh p7a
-./autojs6/mac/start-watchdog.sh p7a
+./autojs6/mac/setup_autojs6.py p7a     # install/verify AutoJs6, grant permissions, deploy project
+./autojs6/mac/set_automation_mode.py p7a
+./autojs6/mac/start_watchdog.py p7a
 ```
 
-On-device manual steps (once): enable the AutoJs6 **accessibility service** when prompted. `setup-autojs6.sh` grants storage (`MANAGE_EXTERNAL_STORAGE`), `RUN_COMMAND`, and battery whitelist via ADB; Termux `allow-external-apps=true` is set by the Ansible deploy (or manually in `~/.termux/termux.properties`).
+On-device manual steps (once): enable the AutoJs6 **accessibility service** when prompted. `setup_autojs6.py` grants storage (`MANAGE_EXTERNAL_STORAGE`), `RUN_COMMAND`, and battery whitelist via ADB; Termux `allow-external-apps=true` is set by the Ansible deploy (or manually in `~/.termux/termux.properties`).
 
 See [autojs6/README.md](autojs6/README.md) for details.
 
@@ -374,8 +374,8 @@ ssh -i ~/.ssh/termux_key -p 8022 localhost
 1. Edit the JavaScript in `autojs6/` on the Mac.
 2. Deploy to the device and restart the watchdog:
    ```bash
-   ./autojs6/mac/deploy.sh p7a
-   ./autojs6/mac/start-watchdog.sh p7a
+   ./autojs6/mac/deploy.py p7a
+   ./autojs6/mac/start_watchdog.py p7a
    ```
 3. Check the log: `adb shell cat /sdcard/stayturgid/logs/watchdog.log` (or the AutoJs6 console).
 4. Commit and push.
@@ -455,14 +455,14 @@ termux-sensor -s "Accelerometer" -n 1
 
 GitHub `master` is the source of truth; updates are pushed to devices from the Mac.
 
-1. Make changes and test them on a device (`./autojs6/mac/deploy.sh`, `./ansible/mac/deploy_termux.py`).
+1. Make changes and test them on a device (`./autojs6/mac/deploy.py`, `./ansible/mac/deploy_termux.py`).
 2. Bump `version.json` (`version` + `changelog`) at the repo root.
 3. Commit and push.
 4. Deploy to the fleet:
    ```bash
    ./ansible/mac/deploy_termux.py          # Termux layer, all hosts
-   ./autojs6/mac/deploy.sh p7a && ./autojs6/mac/deploy.sh s24
-   ./autojs6/mac/start-watchdog.sh p7a && ./autojs6/mac/start-watchdog.sh s24
+   ./autojs6/mac/deploy.py p7a && ./autojs6/mac/deploy.py s24
+   ./autojs6/mac/start_watchdog.py p7a && ./autojs6/mac/start_watchdog.py s24
    ```
 
 Devices can optionally run `termux/check-repo-version.sh` (cron or manual) to get a notification when GitHub's `version.json` is newer than the last deployed version:
@@ -685,7 +685,7 @@ See [fdroid/README.md](fdroid/README.md), [ansible_collections/stayturgid/fdroid
 ```
 autojs6/
   main.js  lib/  devices/  scripts/     — AutoJs6 watchdog project
-  mac/                                  — deploy, setup, grant-shizuku, start-watchdog
+  mac/                                  — deploy.py, setup_autojs6.py, grant_shizuku.py, start_watchdog.py
 termux/
   boot/start-adb.sh                     — deploy to ~/.termux/boot/ on device
   stayturgid-repair.sh                  — Termux-side self-heal

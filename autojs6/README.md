@@ -18,7 +18,7 @@ Does **not** replace: Termux:Boot self-heal, Shizuku, Mac `adb_reconnect.py`, Ob
 
 ## Prerequisites
 
-1. AutoJs6 (`org.autojs.autojs6`) — `setup-autojs6.sh` or Obtainium; grants storage, `RUN_COMMAND`, battery whitelist
+1. AutoJs6 (`org.autojs.autojs6`) — `setup_autojs6.py` or Obtainium; grants storage, `RUN_COMMAND`, battery whitelist
 2. Termux with `allow-external-apps=true` and repair scripts deployed
 3. Shizuku (thedjchi fork), TCP mode
 4. AutoJs6 **accessibility service** enabled
@@ -26,12 +26,12 @@ Does **not** replace: Termux:Boot self-heal, Shizuku, Mac `adb_reconnect.py`, Ob
 ## Quick start (Mac)
 
 ```bash
-./mac/setup-autojs6.sh p7a p7a    # or s24 s24
-./mac/set-automation-mode.sh p7a  # Shizuku grant for AutoJs6
-./mac/start-watchdog.sh p7a
+./autojs6/mac/setup_autojs6.py s24
+./autojs6/mac/set_automation_mode.py s24
+./autojs6/mac/start_watchdog.py s24
 ```
 
-Scripts use [shared/mac/resolve-adb.sh](../shared/mac/resolve-adb.sh) (USB when plugged in, else Tailscale).
+Device resolution uses [shared/mac/stayturgid_device.py](../shared/mac/stayturgid_device.py) via [shared/mac/adb_cli.py](../shared/mac/adb_cli.py).
 
 **Termux bridge:** Grant `com.termux.permission.RUN_COMMAND` to AutoJs6 (setup script). Fallback: `repair-bridge.sh` on a 2s poll.
 
@@ -59,7 +59,7 @@ Scripts use [shared/mac/resolve-adb.sh](../shared/mac/resolve-adb.sh) (USB when 
 ```
 autojs6/
   main.js  lib/  devices/  scripts/
-  mac/     — deploy, setup, set-automation-mode, start-watchdog, grant-shizuku, run-test
+  mac/     — deploy.py, setup_autojs6.py, set_automation_mode.py, start_watchdog.py, grant_shizuku.py, run_test.py
 ```
 
 ## Related

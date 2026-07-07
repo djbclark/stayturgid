@@ -1,6 +1,6 @@
 /**
  * Tailscale-down probe + watchdog cycle + relaunch (Mac script force-stops first).
- * Pair with: autojs6/mac/test-tailscale-down.sh
+ * Pair with: autojs6/mac/test_tailscale_down.py
  */
 "auto";
 

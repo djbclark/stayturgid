@@ -97,12 +97,12 @@ ansible_collections/stayturgid/  — modules + roles per domain
 
 Device-specific steps still required on each host:
 
-1. `autojs6/mac/setup-autojs6.sh <host> <device-id>` — first-time AutoJs6 install, storage grant, project deploy
-2. `autojs6/mac/set-automation-mode.sh <host>` — Shizuku authorized-apps sync for AutoJs6
-3. `autojs6/mac/start-watchdog.sh <host>` — launch `main.js`
+1. `autojs6/mac/setup_autojs6.py <host> <device-id>` — first-time AutoJs6 install, storage grant, project deploy
+2. `autojs6/mac/set_automation_mode.py <host>` — Shizuku authorized-apps sync for AutoJs6
+3. `autojs6/mac/start_watchdog.py <host>` — launch `main.js`
 4. Obtainium catalog / `obtainium/mac/enable_shizuku_installer.py <host>`
 5. Open Termux:Boot app once after fresh install
 
-For routine updates after `git pull`, steps 1–3 reduce to `deploy_termux.py` + `deploy.sh` + `start-watchdog.sh`.
+For routine updates after `git pull`, steps 1–3 reduce to `deploy_termux.py` + `autojs6/mac/deploy.py` + `start_watchdog.py`.
 
 See [HANDOFF.md](../HANDOFF.md) for the full production checklist, or [termux/README.md](../termux/README.md) if you deploy scripts without Ansible.

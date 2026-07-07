@@ -1,7 +1,7 @@
 ---
 # Deploys the AutoJs6 watchdog project over SSH (Termux writes /sdcard
-# directly — no Mac-side adb needed). Replaces autojs6/mac/deploy.sh +
-# start-watchdog.sh in the fleet path; those scripts remain for USB/adb-only
+# directly — no Mac-side adb needed). Replaces autojs6/mac/deploy.py +
+# start_watchdog.py in the fleet path; those scripts remain for USB/adb-only
 # situations.
 # Device profile is DATA generated from the inventory taxonomy — the code
 # contains no device-specific names or coordinates.
@@ -31,7 +31,7 @@
   ansible.builtin.debug:
     msg: >-
       Skipping SSH deploy of AutoJs6 to {{ autojs6_target }} —
-      run ./autojs6/mac/deploy.sh {{ inventory_hostname }} over USB/adb.
+      run ./autojs6/mac/deploy.py {{ inventory_hostname }} over USB/adb.
   when: stayturgid_autojs6_deploy_via_adb | default(false)
 
 - name: Stage device profile for adb push (Fire OS)

@@ -9,7 +9,7 @@ JSON catalogs and Mac helpers for [Obtainium](https://github.com/ImranR98/Obtain
 | File | Contents |
 |------|----------|
 | `stayturgid-apps.json` | Full fleet catalog (Termux github-debug set, Shizuku, Tailscale, AutoJs6) |
-| `autojs6-only.json` | Just AutoJs6 — use after `setup-autojs6.sh` |
+| `autojs6-only.json` | Just AutoJs6 — use after `setup_autojs6.py` |
 
 APK filters are pre-configured:
 
@@ -22,18 +22,18 @@ APK filters are pre-configured:
 ## Sync to a device (from Mac)
 
 ```bash
-chmod +x obtainium/mac/sync-to-device.sh obtainium/mac/import_catalog.py
+chmod +x obtainium/mac/sync_to_device.py obtainium/mac/import_catalog.py
 
 # After installing AutoJs6 only:
-./obtainium/mac/sync-to-device.sh p7a autojs6
+./obtainium/mac/sync_to_device.py p7a autojs6
 
 # Full catalog (new device or audit):
-./obtainium/mac/sync-to-device.sh p7a all
-./obtainium/mac/sync-to-device.sh s24 all
-./obtainium/mac/sync-to-device.sh hd8 all   # Kindle Fire — USB adb preferred
+./obtainium/mac/sync_to_device.py p7a all
+./obtainium/mac/sync_to_device.py s24 all
+./obtainium/mac/sync_to_device.py hd8 all   # Kindle Fire — USB adb preferred
 ```
 
-`sync-to-device.sh` pushes the JSON to `Download/` and runs `import_catalog.py`, which opens Obtainium's `obtainium://apps/…` deep link and taps **Continue** automatically. Use `--no-import` to push only. Re-import with `--force` via `import_catalog.py` directly.
+`sync_to_device.py` pushes the JSON to `Download/` and runs `import_catalog.py`, which opens Obtainium's `obtainium://apps/…` deep link and taps **Continue** automatically. Use `--no-import` to push only. Re-import with `--force` via `import_catalog.py` directly.
 
 Re-importing updates existing entries; it does not remove other Obtainium apps.
 
@@ -76,4 +76,4 @@ Clickable redirect: http://apps.obtainium.imranr.dev/redirect.html?r=obtainium:/
 
 - **Play Store apps** — stay on Play; no Obtainium.
 - **GitHub / sideload APKs** — always add to Obtainium before considering install done.
-- `autojs6/mac/setup-autojs6.sh` runs `sync-to-device.sh p7a autojs6` automatically after install.
+- `autojs6/mac/setup_autojs6.py` runs `sync_to_device.py p7a autojs6` automatically after install.
