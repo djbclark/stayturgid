@@ -48,7 +48,7 @@ export TMPDIR=/data/data/com.termux/files/usr/tmp
 echo "ssh=ok"
 pgrep -x sshd >/dev/null 2>&1 && echo "sshd=ok" || echo "sshd=down"
 pgrep -f 'start-adb\.sh' >/dev/null 2>&1 && echo "bootloop=ok" || echo "bootloop=down"
-pid=$(cat ~/.repair-bridge.pid 2>/dev/null)
+pid=$(cat ~/.stayturgid/run/bridge.pid 2>/dev/null)
 if [ -n "$pid" ] && [ -d "/proc/$pid" ] && grep -q repair-bridge "/proc/$pid/cmdline" 2>/dev/null; then
     echo "bridge=ok"
 else
@@ -57,7 +57,7 @@ fi
 adb connect localhost:5555 >/dev/null 2>&1 </dev/null
 uid=$(adb -s localhost:5555 shell id -u 2>/dev/null </dev/null | tr -d "\r")
 [ "$uid" = "2000" ] && echo "shell5555=ok" || echo "shell5555=down"
-last=$(grep "\[repair\]" /sdcard/stayturgid_watchdog.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
+last=$(grep "\[repair\]" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
 if [ -n "$last" ]; then
     age=$(( $(date +%s) - $(date -d "$last" +%s 2>/dev/null || echo 0) ))
     [ "$age" -ge 0 ] && [ "$age" -lt 2700 ] && echo "repairlog=fresh" || echo "repairlog=stale"
@@ -77,7 +77,7 @@ grep -q '^PerSourcePenalties no' "$PREFIX/etc/ssh/sshd_config" 2>/dev/null \
 adb -s localhost:5555 shell cmd appops get com.termux.api WRITE_SETTINGS </dev/null 2>/dev/null \
     | tr -d '\r' | grep -q allow && echo "writesettings=allow" || echo "writesettings=MISSING"
 for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh stayturgid_check_repo_version.py stayturgid_screen_awake_guard.py stayturgid_agent_presence.py stayturgid_battery_alarm.py stayturgid_repair.py; do
-    printf 'md5 %s %s\n' "$f" "$(md5sum "$HOME/$f" 2>/dev/null | cut -d' ' -f1)"
+    printf 'md5 %s %s\n' "$f" "$(md5sum "$HOME/.stayturgid/bin/$f" 2>/dev/null | cut -d' ' -f1)"
 done
 """
 
@@ -295,7 +295,7 @@ def check_host(host, tap, heal=False, ansible_check=False):
                   "detail": "serial=%s" % serial})
 
     if heal:
-        out = ssh_gather(host, '"$HOME/stayturgid-repair.sh"\n', timeout=30)
+        out = ssh_gather(host, '"$HOME/.stayturgid/bin/stayturgid-repair.sh"\n', timeout=30)
         last = out.strip().splitlines()[-1] if out.strip() else ""
         tap.emit(parse_heal(last))
 

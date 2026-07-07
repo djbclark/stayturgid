@@ -15,10 +15,11 @@ import sys
 import time
 
 HOME = os.environ.get("HOME", "")
-STATE_FILE = os.path.join(HOME, ".stayturgid_batt_alerted")
-COLOR_DIR = os.path.join(HOME, ".stayturgid", "battery-colors")
-WALLPAPER_BACKUP = os.path.join(HOME, ".stayturgid", "wallpaper-backup.png")
-SAVED_BRIGHT_FILE = os.path.join(HOME, ".stayturgid", "batt_saved_brightness")
+STG = os.path.join(HOME, ".stayturgid")  # Termux-private root (self-healing)
+STATE_FILE = os.path.join(STG, "state", "batt_alerted")
+COLOR_DIR = os.path.join(STG, "battery-colors")
+WALLPAPER_BACKUP = os.path.join(STG, "state", "wallpaper-backup.png")
+SAVED_BRIGHT_FILE = os.path.join(STG, "state", "batt_saved_brightness")
 
 TIERS = [30, 25, 20, 15, 10, 5, 4, 3, 2, 1, 0]
 TIER_COLOR = {30: "purple", 25: "blue", 20: "green", 15: "yellow", 10: "orange"}

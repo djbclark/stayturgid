@@ -19,7 +19,7 @@ else
 fi
 
 PKG="org.autojs.autojs6"
-SCRIPT="/sdcard/Scripts/stayturgid/scripts/test-tailscale-down-once.js"
+SCRIPT="/sdcard/stayturgid/autojs6/scripts/test-tailscale-down-once.js"
 TS_PKG="com.tailscale.ipn"
 
 echo "=== Phase 1: baseline (USB $SERIAL) ==="
@@ -45,17 +45,17 @@ adb -s "$SERIAL" shell am start -a android.intent.action.VIEW \
 echo "Waiting up to 60s for recovery..."
 for _ in $(seq 1 12); do
   sleep 5
-  if adb -s "$SERIAL" shell "grep tailscale-down-test /sdcard/stayturgid_watchdog.log 2>/dev/null | tail -1" \
+  if adb -s "$SERIAL" shell "grep tailscale-down-test /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1" \
       | grep -q "after-relaunch"; then
     break
   fi
 done
 
 echo "--- tailscale-down-test log lines ---"
-adb -s "$SERIAL" shell "grep -E 'tailscale-down-test|tailscale tun=' /sdcard/stayturgid_watchdog.log 2>/dev/null | tail -10"
+adb -s "$SERIAL" shell "grep -E 'tailscale-down-test|tailscale tun=' /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -10"
 
-PROBE_DOWN="$(adb -s "$SERIAL" shell "grep 'tailscale-down-test probe' /sdcard/stayturgid_watchdog.log 2>/dev/null | tail -1" || true)"
-RECOVERED="$(adb -s "$SERIAL" shell "grep 'after-relaunch' /sdcard/stayturgid_watchdog.log 2>/dev/null | tail -1" || true)"
+PROBE_DOWN="$(adb -s "$SERIAL" shell "grep 'tailscale-down-test probe' /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1" || true)"
+RECOVERED="$(adb -s "$SERIAL" shell "grep 'after-relaunch' /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1" || true)"
 
 if echo "$PROBE_DOWN" | grep -q "up=false"; then
   echo "PASS: probe detected Tailscale down"

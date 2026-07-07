@@ -25,11 +25,10 @@ import subprocess
 import sys
 
 ADB = "/opt/homebrew/bin/adb"
-CONF = os.environ.get(
-    "STAYTURGID_DEVICES_CONF",
-    os.path.join(os.path.expanduser("~"), ".config", "stayturgid", "devices.conf"),
-)
-LOG = os.path.join(os.path.expanduser("~"), "Library", "Logs", "stayturgid-adb-reconnect.log")
+# Single Mac root: ~/.config/stayturgid/{devices.conf,logs/,state/}.
+ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")
+CONF = os.environ.get("STAYTURGID_DEVICES_CONF", os.path.join(ROOT, "devices.conf"))
+LOG = os.path.join(ROOT, "logs", "adb-reconnect.log")
 MAX_LINES = 1000
 IP_RE = re.compile(r"\d+\.\d+\.\d+\.\d+")
 IP_PORT_RE = re.compile(r"\d+\.\d+\.\d+\.\d+:\d+")
@@ -39,9 +38,17 @@ def ts():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _ensure(path):
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    except OSError:
+        pass
+    return path
+
+
 def log(serial, msg):
     try:
-        with open(LOG, "a") as f:
+        with open(_ensure(LOG), "a") as f:
             f.write("%s  [%s] %s\n" % (ts(), serial, msg))
     except OSError:
         pass
@@ -157,8 +164,7 @@ def main(argv=None):
         return 1
     serial, default_ip, tailscale_ip = resolve_target(argv)
 
-    device_file = os.path.join(os.path.expanduser("~"), ".config", "stayturgid",
-                               "device_ip_%s" % serial)
+    device_file = os.path.join(ROOT, "state", "device_ip_%s" % serial)
     trim_log()
 
     try:

@@ -71,8 +71,8 @@ def test_main_caches_successful_non_mdns(tmp_path, monkeypatch):
     conf = tmp_path / "devices.conf"
     conf.write_text("s24 RFCX 100.123 192.168.68.55\n")
     monkeypatch.setattr(ar, "CONF", str(conf))
+    monkeypatch.setattr(ar, "ROOT", str(tmp_path / ".config" / "stayturgid"))
     monkeypatch.setattr(os.path, "exists", lambda p: p == ar.ADB)
-    monkeypatch.setattr(os.path, "expanduser", lambda p: p.replace("~", str(tmp_path)))
     monkeypatch.setattr(ar, "trim_log", lambda *a, **k: None)
     monkeypatch.setattr(ar, "is_connected", lambda addr: False)
     # DHCP moved the device to a new LAN IP (differs from cached default)
@@ -84,5 +84,5 @@ def test_main_caches_successful_non_mdns(tmp_path, monkeypatch):
                         lambda a, timeout=15: type("R", (), {"stdout": "connected to 192.168.1.99:5555"})())
     rc = ar.main(["s24"])
     assert rc == 0
-    cache = os.path.join(str(tmp_path), ".config", "stayturgid", "device_ip_RFCX")
+    cache = os.path.join(str(tmp_path), ".config", "stayturgid", "state", "device_ip_RFCX")
     assert open(cache).read() == "192.168.1.99:5555", "new address cached after DHCP move"

@@ -46,7 +46,7 @@ fi
 adb -s "$SERIAL" shell dumpsys deviceidle whitelist +"$AUTOJS_PKG" 2>/dev/null || true
 
 # 4b. Storage access — without this AutoJs6 toasts 'No "storage r/w" permission'
-# and silently refuses to run /sdcard/Scripts/stayturgid/main.js.
+# and silently refuses to run /sdcard/stayturgid/autojs6/main.js.
 adb -s "$SERIAL" shell appops set "$AUTOJS_PKG" MANAGE_EXTERNAL_STORAGE allow 2>/dev/null || true
 adb -s "$SERIAL" shell pm grant "$AUTOJS_PKG" android.permission.READ_EXTERNAL_STORAGE 2>/dev/null || true
 adb -s "$SERIAL" shell pm grant "$AUTOJS_PKG" android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null || true
@@ -56,22 +56,24 @@ SSH_HOST="$(resolve_ssh_host "$1")"
 
 if [[ -n "$SSH_HOST" ]] && ssh -o BatchMode=yes -o ConnectTimeout=5 "$SSH_HOST" true 2>/dev/null; then
   echo "Deploying Termux scripts via SSH ($SSH_HOST)..."
-  scp -q "$ROOT/../termux/stayturgid-repair.sh" "$SSH_HOST:~/stayturgid-repair.sh" 2>/dev/null || \
-    scp -q "$ROOT/../termux/stayturgid-repair.sh" "$SSH_HOST:stayturgid-repair.sh"
-  scp -q "$ROOT/../termux/repair-bridge.sh" "$SSH_HOST:~/repair-bridge.sh" 2>/dev/null || \
-    scp -q "$ROOT/../termux/repair-bridge.sh" "$SSH_HOST:repair-bridge.sh"
-  scp -q "$ROOT/../termux/boot/start-repair-bridge.sh" "$SSH_HOST:~/.termux/boot/start-repair-bridge.sh" 2>/dev/null || true
-  scp -q "$ROOT/../termux/boot/start-autojs6-watchdog.sh" "$SSH_HOST:~/.termux/boot/start-autojs6-watchdog.sh" 2>/dev/null || true
+  ssh "$SSH_HOST" 'bash -s' <<'MKBIN'
+mkdir -p ~/.stayturgid/bin ~/.stayturgid/logs ~/.stayturgid/run ~/.termux/boot
+MKBIN
+  scp -q "$ROOT/../termux/stayturgid-repair.sh" "$SSH_HOST:.stayturgid/bin/stayturgid-repair.sh"
+  scp -q "$ROOT/../termux/repair-bridge.sh" "$SSH_HOST:.stayturgid/bin/repair-bridge.sh"
+  scp -q "$ROOT/../termux/py/stayturgid_repair.py" "$SSH_HOST:.stayturgid/bin/stayturgid_repair.py"
+  scp -q "$ROOT/../termux/boot/start-repair-bridge.sh" "$SSH_HOST:.termux/boot/start-repair-bridge.sh" 2>/dev/null || true
+  scp -q "$ROOT/../termux/boot/start-autojs6-watchdog.sh" "$SSH_HOST:.termux/boot/start-autojs6-watchdog.sh" 2>/dev/null || true
   # Heredoc into explicit bash: keeps the pgrep-bait pattern out of any
   # cmdline AND never relies on the device user's login shell.
   ssh "$SSH_HOST" 'bash -s' <<'BRIDGE'
-chmod +x ~/stayturgid-repair.sh ~/repair-bridge.sh \
+chmod +x ~/.stayturgid/bin/stayturgid-repair.sh ~/.stayturgid/bin/repair-bridge.sh \
     ~/.termux/boot/start-repair-bridge.sh ~/.termux/boot/start-autojs6-watchdog.sh 2>/dev/null
-pid=$(cat ~/.repair-bridge.pid 2>/dev/null)
+pid=$(cat ~/.stayturgid/run/bridge.pid 2>/dev/null)
 if [ -n "$pid" ] && [ -d "/proc/$pid" ] && grep -q repair-bridge "/proc/$pid/cmdline" 2>/dev/null; then
     echo "bridge already running (pid $pid)"
 else
-    nohup ~/repair-bridge.sh >> ~/.repair-bridge.log 2>&1 &
+    nohup ~/.stayturgid/bin/repair-bridge.sh >> ~/.stayturgid/logs/bridge.log 2>&1 &
     echo "bridge started"
 fi
 BRIDGE
@@ -84,7 +86,7 @@ fi
 "$SCRIPT_DIR/deploy.sh" "$1" "$DEVICE_ID"
 
 # 7. Mark device for AutoJs6 stack (legacy marker file; optional)
-adb -s "$SERIAL" shell "echo autojs6 > /sdcard/stayturgid_automation_mode.txt"
+adb -s "$SERIAL" shell "echo autojs6 > /sdcard/stayturgid/state/automation_mode.txt"
 
 # 8. Register AutoJs6 in Obtainium for GitHub release updates
 if [[ -x "$SCRIPT_DIR/../../obtainium/mac/sync-to-device.sh" ]]; then
@@ -106,7 +108,7 @@ On device:
 ADB grants applied by this script: storage (MANAGE_EXTERNAL_STORAGE), RUN_COMMAND, battery whitelist.
 
 Logs:
-  adb -s $SERIAL shell tail -f /sdcard/stayturgid_watchdog.log
-  ssh $SSH_HOST 'tail -f ~/.repair-bridge.log'  # if SSH worked
+  adb -s $SERIAL shell tail -f /sdcard/stayturgid/logs/watchdog.log
+  ssh $SSH_HOST 'tail -f ~/.stayturgid/logs/bridge.log'  # if SSH worked
 
 EOF

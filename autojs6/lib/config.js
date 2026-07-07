@@ -1,16 +1,26 @@
 /** Shared constants and device profile resolution.
  *
  * The device profile is DATA, not code: Ansible renders
- * /sdcard/stayturgid_device.json from the inventory taxonomy
+ * /sdcard/stayturgid/state/device.json from the inventory taxonomy
  * (ansible/inventory/hosts.yml + group_vars layers). Nothing in this repo's
  * code names a specific device; without the JSON a generic profile applies
  * (no tap-coordinate fallback, no self-ping — degraded but functional).
  */
 
-var DEVICE_JSON = "/sdcard/stayturgid_device.json";
-var WATCHDOG_LOG = "/sdcard/stayturgid_watchdog.log";
-var REPAIR_SCRIPT = "/data/data/com.termux/files/home/stayturgid-repair.sh";
+// Single stayturgid root per filesystem. SD_ROOT is created by the ensureDirs()
+// call below so a user-deleted directory self-heals before we read/write.
+var SD_ROOT = "/sdcard/stayturgid";
 var TERMUX_HOME = "/data/data/com.termux/files/home";
+var DEVICE_JSON = SD_ROOT + "/state/device.json";
+var WATCHDOG_LOG = SD_ROOT + "/logs/watchdog.log";
+var REPAIR_SCRIPT = TERMUX_HOME + "/.stayturgid/bin/stayturgid-repair.sh";
+
+/** mkdir -p the shared-storage subdirs the watchdog writes (self-healing). */
+function ensureDirs() {
+    ["state", "logs", "run", "tmp"].forEach(function (d) {
+        try { files.ensureDir(SD_ROOT + "/" + d + "/"); } catch (e) { /* best effort */ }
+    });
+}
 
 var INTERVAL_MS = 20 * 60 * 1000;
 var STALE_REPAIR_MS = 15 * 60 * 1000;
@@ -56,6 +66,7 @@ function detectDeviceProfile() {
 }
 
 module.exports = {
+    SD_ROOT: SD_ROOT,
     DEVICE_JSON: DEVICE_JSON,
     WATCHDOG_LOG: WATCHDOG_LOG,
     REPAIR_SCRIPT: REPAIR_SCRIPT,
@@ -65,5 +76,6 @@ module.exports = {
     NOTIFY_CHANNEL: NOTIFY_CHANNEL,
     AUTOJS6_A11Y: AUTOJS6_A11Y,
     PROFILE_DEFAULTS: PROFILE_DEFAULTS,
+    ensureDirs: ensureDirs,
     detectDeviceProfile: detectDeviceProfile,
 };

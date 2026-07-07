@@ -9,6 +9,13 @@ export PREFIX=/data/data/com.termux/files/usr
 export TMPDIR=/data/data/com.termux/files/usr/tmp
 export LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib
 
+# Single-root layout. BIN holds the deployed scripts; STG/SD hold private and
+# shared-storage state. mkdir -p so a user-deleted stayturgid dir self-heals.
+STG="$HOME/.stayturgid"
+BIN="$STG/bin"
+SD=/sdcard/stayturgid
+mkdir -p "$STG/logs" "$STG/run" "$STG/state" "$SD/logs" "$SD/run" "$SD/state" 2>/dev/null
+
 # Hold a wakelock so Doze can't freeze Termux (and with it sshd + the
 # self-heal loop below). Requires Termux:API app; no-op if missing.
 termux-wake-lock 2>/dev/null || true
@@ -26,7 +33,7 @@ sshd
 # The whole thing (WiFi-settle + TCP-port open + self-heal loop) runs in ONE
 # backgrounded subshell so the pidfile is written IMMEDIATELY — a redeploy's
 # restart handler verifies the pid without waiting out the 30s settle.
-BOOTLOOP_PID_FILE="$HOME/.stayturgid-bootloop.pid"
+BOOTLOOP_PID_FILE="$STG/run/bootloop.pid"
 (
     # Wait for WiFi/network to settle, then belt-and-suspenders open ADB TCP
     # (Shizuku TCP mode, the primary mechanism, usually beats this to it).
@@ -35,39 +42,40 @@ BOOTLOOP_PID_FILE="$HOME/.stayturgid-bootloop.pid"
     adb tcpip 5555 || true
 
     while true; do
+    mkdir -p "$STG/state" "$SD/run" 2>/dev/null   # self-heal each cycle
     # Full Termux-side self-heal (sshd + privileged checks/repairs via
     # Shizuku's localhost:5555 shell, logged). Falls back to a bare sshd
     # restart if the repair script isn't deployed yet.
-    if [ -x "$HOME/stayturgid-repair.sh" ]; then
-        "$HOME/stayturgid-repair.sh" >/dev/null 2>&1
+    if [ -x "$BIN/stayturgid-repair.sh" ]; then
+        "$BIN/stayturgid-repair.sh" >/dev/null 2>&1
     else
         pgrep sshd > /dev/null 2>&1 || sshd
     fi
 
-    if [ -x "$HOME/stayturgid_battery_alarm.py" ]; then
-        python3 "$HOME/stayturgid_battery_alarm.py" >/dev/null 2>&1 || true
+    if [ -x "$BIN/stayturgid_battery_alarm.py" ]; then
+        python3 "$BIN/stayturgid_battery_alarm.py" >/dev/null 2>&1 || true
     fi
 
     # Screen held awake? Keep a restore-lock notification up (reappears each
     # cycle while the state persists; dismiss+ignore = deliberate keep-awake).
-    if [ -x "$HOME/stayturgid_screen_awake_guard.py" ]; then
-        python3 "$HOME/stayturgid_screen_awake_guard.py" check >/dev/null 2>&1 || true
+    if [ -x "$BIN/stayturgid_screen_awake_guard.py" ]; then
+        python3 "$BIN/stayturgid_screen_awake_guard.py" check >/dev/null 2>&1 || true
     fi
 
     # Daily GitHub version check (notify only; deploy from Mac).
-    VERSION_CHECK_STAMP="$HOME/.stayturgid_last_version_check"
+    VERSION_CHECK_STAMP="$STG/state/last_version_check"
     now=$(date +%s)
     last=0
     [ -f "$VERSION_CHECK_STAMP" ] && last=$(cat "$VERSION_CHECK_STAMP" 2>/dev/null || echo 0)
-    if [ "$((now - last))" -ge 86400 ] && [ -x "$HOME/stayturgid_check_repo_version.py" ]; then
-        python3 "$HOME/stayturgid_check_repo_version.py" >/dev/null 2>&1 || true
+    if [ "$((now - last))" -ge 86400 ] && [ -x "$BIN/stayturgid_check_repo_version.py" ]; then
+        python3 "$BIN/stayturgid_check_repo_version.py" >/dev/null 2>&1 || true
         echo "$now" > "$VERSION_CHECK_STAMP"
     fi
 
     # Ensure AutoJs6 watchdog is running (boot-launcher no-ops if main.js already up).
-    if [ -f /sdcard/Scripts/stayturgid/scripts/boot-launcher.js ]; then
+    if [ -f "$SD/autojs6/scripts/boot-launcher.js" ]; then
         am start -a android.intent.action.VIEW \
-            -d 'file:///sdcard/Scripts/stayturgid/scripts/boot-launcher.js' \
+            -d "file://$SD/autojs6/scripts/boot-launcher.js" \
             -t 'text/javascript' \
             -n 'org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity' \
             >/dev/null 2>&1 || true

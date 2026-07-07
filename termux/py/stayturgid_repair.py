@@ -22,9 +22,24 @@ TMPDIR = os.environ.get("TMPDIR", PREFIX + "/tmp")
 os.environ["PATH"] = PREFIX + "/bin:" + PREFIX + "/sbin:" + os.environ.get("PATH", "")
 os.environ["LC_ALL"] = "C"
 
+# All stayturgid files live under one root per filesystem (self-healing: every
+# writer mkdir -p's its dir, so a user-deleted dir just gets recreated).
+STG = os.path.join(HOME, ".stayturgid")             # Termux-private root
+SD = os.environ.get("STAYTURGID_SD", "/sdcard/stayturgid")  # shared-storage root
+
+
+def ensure_parent(path):
+    """mkdir -p the parent dir so a deleted stayturgid dir self-heals."""
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    except OSError:
+        pass
+    return path
+
+
 LOCKFILE = os.path.join(TMPDIR, "stayturgid-repair.lock")
-LOG = os.path.join(HOME, ".stayturgid-repair.log")
-SDLOG = "/sdcard/stayturgid_watchdog.log"
+LOG = os.path.join(STG, "logs", "repair.log")
+SDLOG = os.path.join(SD, "logs", "watchdog.log")
 A11Y_SVC = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
 
 
@@ -36,7 +51,7 @@ def log(msg):
     line = "%s [repair] %s" % (ts(), msg)
     for path in (LOG, SDLOG):
         try:
-            with open(path, "a") as f:
+            with open(ensure_parent(path), "a") as f:
                 f.write(line + "\n")
         except OSError:
             pass

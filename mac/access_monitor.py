@@ -19,12 +19,12 @@ import subprocess
 import sys
 
 ADB = "/opt/homebrew/bin/adb"
-CONF = os.environ.get(
-    "STAYTURGID_DEVICES_CONF",
-    os.path.join(os.path.expanduser("~"), ".config", "stayturgid", "devices.conf"),
-)
-STATE_DIR = os.path.join(os.path.expanduser("~"), ".config", "stayturgid", "access-monitor")
-LOG = os.path.join(os.path.expanduser("~"), "Library", "Logs", "stayturgid-access-monitor.log")
+# Single Mac root: ~/.config/stayturgid/{devices.conf,logs/,state/}. mkdir on
+# demand so a user-deleted dir self-heals.
+ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")
+CONF = os.environ.get("STAYTURGID_DEVICES_CONF", os.path.join(ROOT, "devices.conf"))
+STATE_DIR = os.path.join(ROOT, "state", "access-monitor")
+LOG = os.path.join(ROOT, "logs", "access-monitor.log")
 CONSECUTIVE_LIMIT = 2  # 2 runs x 5 min = alert after ~10 min of total outage
 SSH_PORT = 8022
 
@@ -33,9 +33,17 @@ def ts():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
+def _ensure(path):
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    except OSError:
+        pass
+    return path
+
+
 def log(msg):
     try:
-        with open(LOG, "a") as f:
+        with open(_ensure(LOG), "a") as f:
             f.write("%s  %s\n" % (ts(), msg))
     except OSError:
         pass

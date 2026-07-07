@@ -6,7 +6,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-TARGET_BASE="/sdcard/Scripts/stayturgid"
+TARGET_BASE="/sdcard/stayturgid/autojs6"
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 # shellcheck source=../../shared/mac/resolve-adb.sh

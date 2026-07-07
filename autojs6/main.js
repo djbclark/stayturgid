@@ -11,7 +11,8 @@ var guard = require("./lib/guard.js");
 var watchdog = require("./lib/watchdog.js");
 var log = require("./lib/log.js");
 
-guard.enforce();   // waits for accessibility itself when disabled
+config.ensureDirs();   // create /sdcard/stayturgid/{state,logs,run,tmp} (self-heal)
+guard.enforce();       // waits for accessibility itself when disabled
 
 // Keep script process alive under Doze (AutoJs6 6.6+)
 try {

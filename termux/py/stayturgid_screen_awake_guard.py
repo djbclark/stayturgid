@@ -12,10 +12,11 @@ import subprocess
 import sys
 
 HOME = os.environ.get("HOME", "")
+STG = os.path.join(HOME, ".stayturgid")  # Termux-private root (self-healing)
 NID = "stayturgid-screenlock"
-BASELINE_FILE = os.path.join(HOME, ".stayturgid", "screen_timeout_baseline")
+BASELINE_FILE = os.path.join(STG, "state", "screen_timeout_baseline")
 MAX_OK_MS = 600000  # timeouts above 10 min count as "held awake"
-SELF = os.path.join(HOME, "stayturgid_screen_awake_guard.py")  # notification button target
+SELF = os.path.join(STG, "bin", "stayturgid_screen_awake_guard.py")  # notif button target
 
 
 def run(args):

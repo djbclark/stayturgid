@@ -27,7 +27,7 @@ battery_suite() {
     run_sandboxed "$BATT"
     tap_is "$RC" 0 "battery[$T]: run at 12% exits 0"
     tap_is "$(stub_calls 'termux-notification ')" 1 "battery[$T]: single alert at 12% (no tier cascade)"
-    tap_is "$(sort -n "$SANDBOX/home/.stayturgid_batt_alerted" | tr '\n' ' ')" "15 20 25 30 " \
+    tap_is "$(sort -n "$SANDBOX/home/.stayturgid/state/batt_alerted" | tr '\n' ' ')" "15 20 25 30 " \
         "battery[$T]: tiers 30/25/20/15 all marked alerted"
     tap_like "$OUT$(grep termux-toast "$STUB_LOG")" "tier 15" "battery[$T]: alert names lowest tier (15)"
 
@@ -46,7 +46,7 @@ battery_suite() {
     # charging clears state and removes the notification
     echo '{"percentage": 50, "status": "CHARGING"}' > "$SANDBOX/batt.json"
     run_sandboxed "$BATT"
-    if [ ! -f "$SANDBOX/home/.stayturgid_batt_alerted" ]; then
+    if [ ! -f "$SANDBOX/home/.stayturgid/state/batt_alerted" ]; then
         tap_ok "battery[$T]: charging clears alert state"
     else
         tap_fail "battery[$T]: charging clears alert state"
@@ -151,9 +151,10 @@ repair_suite() {
     # M8 regression: oversized log gets trimmed
     reset_sandbox
     export PGREP_RC=0
-    seq 1 1500 | sed 's/^/line /' > "$SANDBOX/home/.stayturgid-repair.log"
+    mkdir -p "$SANDBOX/home/.stayturgid/logs"
+    seq 1 1500 | sed 's/^/line /' > "$SANDBOX/home/.stayturgid/logs/repair.log"
     run_sandboxed "$RSCRIPT"
-    lines=$(wc -l < "$SANDBOX/home/.stayturgid-repair.log" | tr -d ' ')
+    lines=$(wc -l < "$SANDBOX/home/.stayturgid/logs/repair.log" | tr -d ' ')
     if [ "$lines" -le 510 ]; then
         tap_ok "repair[$T]: 1500-line log trimmed to <=510 ($lines)"
     else
@@ -197,7 +198,7 @@ presence_suite() {
     export ADB_FG_PKG=com.android.chrome DIALOG_CHOICE=""
     run_sandboxed "$PRES" gate
     tap_is "$RC" 75 "presence[$T]: dialog timeout fails closed with 75 (M4)"
-    if [ -f "$SANDBOX/sd/stayturgid_presence_check_after" ]; then
+    if [ -f "$SANDBOX/sd/state/presence_check_after" ]; then
         tap_ok "presence[$T]: timeout arms 10-minute recheck"
     else
         tap_fail "presence[$T]: timeout arms 10-minute recheck"
@@ -249,7 +250,7 @@ presence_suite() {
     # stop-requested: 1 before the button, 0 after
     run_sandboxed "$PRES" stop-requested
     tap_is "$RC" 1 "presence[$T]: no stop requested initially"
-    touch "$SANDBOX/sd/stayturgid_stop_requested"
+    mkdir -p "$SANDBOX/sd/state"; touch "$SANDBOX/sd/state/stop_requested"
     run_sandboxed "$PRES" stop-requested
     tap_is "$RC" 0 "presence[$T]: stop-requested detects the flag"
 
@@ -257,7 +258,7 @@ presence_suite() {
     run_sandboxed "$PRES" off "TestPhone" "TestAgent"
     tap_is "$RC" 0 "presence[$T]: off exits 0 after graceful stop"
     tap_like "$OUT" "graceful stop honored" "presence[$T]: off reports the stop was honored"
-    if [ ! -f "$SANDBOX/sd/stayturgid_stop_requested" ]; then
+    if [ ! -f "$SANDBOX/sd/state/stop_requested" ]; then
         tap_ok "presence[$T]: off clears the stop flag"
     else
         tap_fail "presence[$T]: off clears the stop flag"
@@ -283,7 +284,7 @@ guard_suite() {
     export ADB_TIMEOUT=120000
     run_sandboxed "$GUARD" check
     tap_is "$RC" 0 "guard[$T]: normal timeout => check exits 0"
-    tap_is "$(cat "$SANDBOX/home/.stayturgid/screen_timeout_baseline" 2>/dev/null)" "120000" \
+    tap_is "$(cat "$SANDBOX/home/.stayturgid/state/screen_timeout_baseline" 2>/dev/null)" "120000" \
         "guard[$T]: baseline timeout recorded while not forced"
     tap_is "$(stub_calls 'termux-notification ')" 0 "guard[$T]: no notification when not forced"
     tap_like "$(cat "$STUB_LOG")" "termux-notification-remove stayturgid-screenlock" \
@@ -307,7 +308,7 @@ guard_suite() {
 
     # no baseline known: notification offers the timeout dialog
     : > "$STUB_LOG"
-    rm -f "$SANDBOX/home/.stayturgid/screen_timeout_baseline"
+    rm -f "$SANDBOX/home/.stayturgid/state/screen_timeout_baseline"
     run_sandboxed "$GUARD" check
     tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "Set lock timeout" \
         "guard[$T]: without baseline offers the timeout dialog button"
@@ -346,7 +347,7 @@ guard_suite() {
     tap_like "$(cat "$STUB_LOG")" "svc power stayon false" "guard[$T]: restore clears svc stayon"
     tap_like "$(cat "$STUB_LOG")" "input keyevent KEYCODE_SLEEP" \
         "guard[$T]: restore turns the screen off as confirmation"
-    tap_is "$(cat "$SANDBOX/home/.stayturgid/screen_timeout_baseline" 2>/dev/null)" "60000" \
+    tap_is "$(cat "$SANDBOX/home/.stayturgid/state/screen_timeout_baseline" 2>/dev/null)" "60000" \
         "guard[$T]: restore updates the baseline"
 
     # wakelock holder (e.g. Wakey): named in notification; restore keeps screen on
@@ -379,7 +380,7 @@ version_check_suite() {
     run_sandboxed "$CRV"
     tap_is "$RC" 0 "version-check[$T]: new version exits 0"
     tap_like "$(cat "$STUB_LOG")" "stayturgid 9.9 on GitHub" "version-check[$T]: notifies on new version"
-    tap_is "$(cat "$SANDBOX/home/.stayturgid_repo_version" 2>/dev/null)" "9.9" "version-check[$T]: stamp recorded"
+    tap_is "$(cat "$SANDBOX/home/.stayturgid/state/repo_version" 2>/dev/null)" "9.9" "version-check[$T]: stamp recorded"
 
     : > "$STUB_LOG"
     run_sandboxed "$CRV"   # same version again

@@ -14,7 +14,17 @@ os.environ["PATH"] = "/data/data/com.termux/files/usr/bin:" + os.environ.get("PA
 os.environ["LC_ALL"] = "C"
 
 URL = "https://raw.githubusercontent.com/djbclark/stayturgid/master/version.json"
-STAMP = os.path.join(os.environ.get("HOME", ""), ".stayturgid_repo_version")
+STAMP = os.path.join(os.environ.get("HOME", ""), ".stayturgid", "state", "repo_version")
+
+
+def _write(path, text):
+    """Write, self-healing the parent dir (a user may delete ~/.stayturgid)."""
+    try:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(path, "w") as f:
+            f.write(text)
+    except OSError:
+        pass
 
 
 def _field(text, key):
@@ -55,11 +65,7 @@ def main():
     except OSError:
         pass
 
-    try:
-        with open(STAMP, "w") as f:
-            f.write(remote + "\n")
-    except OSError:
-        pass
+    _write(STAMP, remote + "\n")
     return 0
 
 

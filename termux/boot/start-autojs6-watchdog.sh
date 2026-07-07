@@ -5,7 +5,7 @@
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
 export HOME=/data/data/com.termux/files/home
 
-BOOT_SCRIPT=/sdcard/Scripts/stayturgid/scripts/boot-launcher.js
+BOOT_SCRIPT="${STAYTURGID_SD:-/sdcard/stayturgid}/autojs6/scripts/boot-launcher.js"
 AUTOJS_PKG=org.autojs.autojs6
 AUTOJS_RUN=org.autojs.autojs.external.open.RunIntentActivity
 

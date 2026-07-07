@@ -20,10 +20,12 @@ os.environ["PATH"] = "/data/data/com.termux/files/usr/bin:" + os.environ.get("PA
 os.environ["LC_ALL"] = "C"
 
 NID = "stayturgid-presence"
-SD = os.environ.get("STAYTURGID_SD", "/sdcard")
-PAUSE_FILE = os.path.join(SD, "stayturgid_presence_paused")
-LATER_FILE = os.path.join(SD, "stayturgid_presence_check_after")
-STOP_FILE = os.path.join(SD, "stayturgid_stop_requested")
+# Shared-storage root; self-healing (writers mkdir -p first).
+SD = os.environ.get("STAYTURGID_SD", "/sdcard/stayturgid")
+STATE = os.path.join(SD, "state")
+PAUSE_FILE = os.path.join(STATE, "presence_paused")
+LATER_FILE = os.path.join(STATE, "presence_check_after")
+STOP_FILE = os.path.join(STATE, "stop_requested")
 
 IDLE_PKGS = {
     "", "com.sec.android.app.launcher", "com.google.android.apps.nexuslauncher",
@@ -174,7 +176,7 @@ def action_on(label, agent):
     pulse(3)
     now = datetime.datetime.now().strftime("%H:%M:%S")
     btn = ("mkdir -p %s 2>/dev/null; touch %s; "
-           "termux-toast 'Stop requested — agent wrapping up (~1 min)'" % (SD, STOP_FILE))
+           "termux-toast 'Stop requested — agent wrapping up (~1 min)'" % (STATE, STOP_FILE))
     run(["termux-notification", "--id", NID, "--ongoing", "--alert-once",
          "--priority", "high", "--icon", "developer_board",
          "--title", "🤖 %s is using %s" % (agent, label),

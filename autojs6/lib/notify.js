@@ -1,7 +1,7 @@
 var config = require("./config.js");
 
 var _channelReady = false;
-var STATE_FILE = "/sdcard/stayturgid_notify_state.json";
+var STATE_FILE = config.SD_ROOT + "/state/notify_state.json";
 
 function ensureChannel() {
     if (_channelReady) return;
@@ -44,6 +44,7 @@ function readCounts() {
 
 function writeCounts(counts) {
     try {
+        files.ensureDir(STATE_FILE);   // self-heal if the state dir was deleted
         files.write(STATE_FILE, JSON.stringify(counts));
     } catch (e) { /* best effort */ }
 }

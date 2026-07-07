@@ -15,6 +15,7 @@ function append(line) {
     var msg = ts() + " " + line;
     console.log(msg);
     try {
+        files.ensureDir(config.WATCHDOG_LOG);   // self-heal if logs/ was deleted
         files.append(config.WATCHDOG_LOG, msg + "\n");
     } catch (e) {
         console.error("log append failed: " + e);

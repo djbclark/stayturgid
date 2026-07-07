@@ -26,31 +26,44 @@
     _termux_prefix: "{{ termux_prefix }}"
   register: pkg_install
 
-- name: Deploy home scripts
+# Single-root layout: all stayturgid files live under ~/.stayturgid (private)
+# and /sdcard/stayturgid (shared). Create the tree up front; every runtime
+# writer also mkdir -p's on demand so a user-deleted dir self-heals.
+- name: Ensure stayturgid directory tree
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ termux_home }}/.stayturgid/bin"
+    - "{{ termux_home }}/.stayturgid/logs"
+    - "{{ termux_home }}/.stayturgid/run"
+    - "{{ termux_home }}/.stayturgid/state"
+    - "{{ termux_home }}/.stayturgid/battery-colors"
+    - /sdcard/stayturgid/state
+    - /sdcard/stayturgid/logs
+    - /sdcard/stayturgid/run
+    - /sdcard/stayturgid/tmp
+
+- name: Deploy shell scripts / shims to ~/.stayturgid/bin
   ansible.builtin.copy:
     src: "{{ stayturgid_repo_root }}/termux/{{ item }}"
-    dest: "{{ termux_home }}/{{ item }}"
+    dest: "{{ termux_home }}/.stayturgid/bin/{{ item }}"
     mode: "0755"
   loop: "{{ stayturgid_home_scripts }}"
 
-- name: Deploy Python runtime scripts (migrated twins)
+- name: Deploy Python runtime scripts to ~/.stayturgid/bin
   ansible.builtin.copy:
     src: "{{ stayturgid_repo_root }}/termux/py/{{ item }}"
-    dest: "{{ termux_home }}/{{ item }}"
+    dest: "{{ termux_home }}/.stayturgid/bin/{{ item }}"
     mode: "0755"
   loop: "{{ stayturgid_py_scripts | default([]) }}"
 
-- name: Remove retired shell scripts (migrated to Python)
+- name: Remove retired scripts from the old home-root location
   ansible.builtin.file:
     path: "{{ termux_home }}/{{ item }}"
     state: absent
   loop: "{{ stayturgid_retired_scripts | default([]) }}"
-
-- name: Ensure battery color assets directory
-  ansible.builtin.file:
-    path: "{{ termux_home }}/.stayturgid/battery-colors"
-    state: directory
-    mode: "0755"
 
 - name: Deploy battery color assets
   ansible.builtin.copy:
@@ -118,13 +131,13 @@
 
 - name: Write automation mode file when configured
   ansible.builtin.copy:
-    dest: /sdcard/stayturgid_automation_mode.txt
+    dest: /sdcard/stayturgid/state/automation_mode.txt
     content: "{{ stayturgid_automation_mode }}\n"
     mode: "0644"
   when: stayturgid_automation_mode is defined and stayturgid_automation_mode | length > 0
 
-- name: Verify stayturgid-repair.sh runs
-  ansible.builtin.shell: "{{ termux_home }}/stayturgid-repair.sh"
+- name: Verify the repair script runs
+  ansible.builtin.shell: "{{ termux_home }}/.stayturgid/bin/stayturgid-repair.sh"
   args:
     executable: /data/data/com.termux/files/usr/bin/bash
   register: repair_check

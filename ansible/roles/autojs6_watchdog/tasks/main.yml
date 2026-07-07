@@ -5,10 +5,16 @@
 # situations.
 # Device profile is DATA generated from the inventory taxonomy — the code
 # contains no device-specific names or coordinates.
+- name: Ensure shared-storage state dir for the device profile
+  ansible.builtin.file:
+    path: /sdcard/stayturgid/state
+    state: directory
+    mode: "0755"
+
 - name: Render device profile from inventory layers
   ansible.builtin.template:
     src: device.json.j2
-    dest: /sdcard/stayturgid_device.json
+    dest: /sdcard/stayturgid/state/device.json
   notify: nudge autojs6 watchdog
 
 - name: Deploy AutoJs6 project files

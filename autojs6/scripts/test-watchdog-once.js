@@ -13,4 +13,4 @@ auto.waitFor();
 
 var profile = config.detectDeviceProfile();
 watchdog.runCycle("manual-test", profile);
-toast("stayturgid watchdog test cycle done — check /sdcard/stayturgid_watchdog.log");
+toast("stayturgid watchdog test cycle done — check /sdcard/stayturgid/logs/watchdog.log");

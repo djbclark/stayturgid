@@ -4,14 +4,14 @@ var log = require("./log.js");
 var TERMUX_PKG = "com.termux";
 var RUN_SERVICE = "com.termux.app.RunCommandService";
 var RUN_ACTION = "com.termux.RUN_COMMAND";
-var TRIGGER_FILE = "/sdcard/stayturgid_repair_now";
+var TRIGGER_FILE = config.SD_ROOT + "/run/repair_now";
 
 /**
  * Invoke stayturgid-repair.sh in Termux.
  *
  * Primary: RUN_COMMAND intent (needs AutoJs6 v6.4.1+ with
  * com.termux.permission.RUN_COMMAND granted + allow-external-apps=true).
- * Fallback: touch /sdcard/stayturgid_repair_now for repair-bridge.sh (2s poll).
+ * Fallback: touch <sd>/run/repair_now for repair-bridge.sh (2s poll).
  */
 function invokeRepair() {
     var beforeMs = log.latestRepairTimestampMs() || 0;
@@ -75,6 +75,7 @@ function tryRunCommand() {
 
 function tryTriggerFile() {
     try {
+        files.ensureDir(TRIGGER_FILE);   // self-heal if run/ was deleted
         files.write(TRIGGER_FILE, String(Date.now()));
     } catch (e) {
         log.append("[watchdog] trigger file write failed: " + e);

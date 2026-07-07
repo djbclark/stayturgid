@@ -9,7 +9,7 @@ source "$REPO_ROOT/shared/mac/resolve-adb.sh"
 
 SERIAL="$(resolve_adb "${1:?usage: set-automation-mode.sh <serial|p7a|s24>}")"
 
-echo "autojs6" | adb -s "$SERIAL" shell "cat > /sdcard/stayturgid_automation_mode.txt"
+echo "autojs6" | adb -s "$SERIAL" shell "cat > /sdcard/stayturgid/state/automation_mode.txt"
 echo "Wrote automation mode autojs6 on ${SERIAL}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -22,7 +22,7 @@ cat <<'EOF'
 
 Next steps on device:
   1. Enable AutoJs6 accessibility service
-  2. In AutoJs6: open /sdcard/Scripts/stayturgid → run main.js
+  2. In AutoJs6: open /sdcard/stayturgid/autojs6 → run main.js
   3. Optional: AutoJs6 timed task every 20 min + run on boot for main.js
 
 EOF

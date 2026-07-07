@@ -7,7 +7,7 @@
  * to Settings repeatedly whenever the service is off (main.js handles a11y).
  */
 
-var MAIN = "/sdcard/Scripts/stayturgid/main.js";
+var MAIN = "/sdcard/stayturgid/autojs6/main.js";
 
 function mainAlreadyRunning() {
     var engines = runtime.engines.all();
