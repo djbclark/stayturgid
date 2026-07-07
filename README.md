@@ -14,7 +14,7 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 | **AutoJs6 watchdog** | `autojs6/` | Yes — needs Termux repair scripts | [autojs6/README.md](autojs6/README.md) |
 | **Obtainium catalogs** | `obtainium/` | Yes — any Obtainium user | [obtainium/README.md](obtainium/README.md) |
 | **F-Droid / Neo Store** (side) | `fdroid/` + `ansible/roles/fdroid_repos` | fdroidcl + Ansible for repos + Neo Store GUI setup (with Shizuku) | [fdroid/README.md](fdroid/README.md) |
-| **Play / Aurora Store** (side) | `play_store/` (skeleton) | Aurora + Shizuku grant; gplaycli for downloads | (in progress) |
+| **Play / Aurora Store** (side) | `ansible/roles/play_store` | `./mac/deploy-play.sh` — Shizuku grant for Aurora | [ansible/roles/play_store/README.md](ansible/roles/play_store/README.md) |
 | **Shared Mac helpers** | `shared/` | Yes — `resolve-adb` only | [shared/README.md](shared/README.md) |
 
 ---
@@ -38,7 +38,9 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 4. Obtainium catalog — [obtainium/README.md](obtainium/README.md)
 5. Mac — [mac/README.md](mac/README.md) (ADB reconnect + access monitor)
 
-**One command (both phones):** `./mac/deploy-fleet.sh` — Ansible Termux deploy, restart boot loop, AutoJs6 deploy + start watchdog.
+**One command (fleet):** `./mac/deploy-fleet.sh` — Ansible Termux deploy, restart boot loop, AutoJs6 deploy + start watchdog.
+
+**Side projects (optional):** `./mac/deploy-fdroid.sh [host]` · `./mac/deploy-play.sh [host]`
 
 ---
 

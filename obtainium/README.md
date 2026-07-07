@@ -29,6 +29,8 @@ chmod +x obtainium/mac/sync-to-device.sh
 
 # Full catalog (new device or audit):
 ./obtainium/mac/sync-to-device.sh p7a all
+./obtainium/mac/sync-to-device.sh s24 all
+./obtainium/mac/sync-to-device.sh hd8 all   # Kindle Fire — USB adb preferred
 ```
 
 On the phone: confirm **Obtainium Import** when prompted (or manually: Obtainium → Import/Export → Obtainium Import → `Download/stayturgid-obtainium-*.json`).

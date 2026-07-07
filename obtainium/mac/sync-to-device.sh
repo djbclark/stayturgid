@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Push stayturgid Obtainium configs to a phone and open Obtainium import.
 # Usage:
-#   ./sync-to-device.sh <p7a|s24|serial> [all|autojs6]
+#   ./sync-to-device.sh <s24|p7a|hd8|serial> [all|autojs6]
 #
 # Re-importing merges/updates existing entries (does not remove other apps).
 set -euo pipefail
