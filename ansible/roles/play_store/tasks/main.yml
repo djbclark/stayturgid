@@ -25,6 +25,28 @@
   ansible.builtin.set_fact:
     _play_target_device: "{{ _play_adb_resolved.stdout | trim }}"
 
+- name: Detect Aurora Store on device
+  ansible.builtin.shell: |
+    set -euo pipefail
+    adb connect "{{ _play_target_device }}" >/dev/null 2>&1 || true
+    adb -s "{{ _play_target_device }}" shell pm list packages --user 0 \
+      | grep -E '^(package:)?{{ aurora_store_package | regex_escape() }}' \
+      || true
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  register: aurora_pkg
+  changed_when: false
+
+- name: Warn when Aurora Store is missing but required
+  ansible.builtin.debug:
+    msg: >-
+      Aurora Store ({{ aurora_store_package }}) not installed on {{ _play_target_device }}.
+      Run obtainium_apps / sync-to-device.sh and import the catalog before deploy-play.
+  when:
+    - stayturgid_ensure_aurora_store | bool
+    - aurora_store_package not in aurora_pkg.stdout
+
 - name: Note on Play side (no direct repo like F-Droid)
   ansible.builtin.debug:
     msg: |
@@ -35,7 +57,9 @@
       This role grants Shizuku to the Aurora Store client.
 
 - name: Grant Shizuku to Aurora Store
-  when: stayturgid_ensure_aurora_store | bool
+  when:
+    - stayturgid_ensure_aurora_store | bool
+    - aurora_store_package in aurora_pkg.stdout
   ansible.builtin.command:
     argv:
       - python3
@@ -45,7 +69,7 @@
   delegate_to: localhost
   register: aurora_grant
   changed_when: "'RESULT: CHANGED' in aurora_grant.stdout"
-  failed_when: false
+  failed_when: "'RESULT: FAILED' in aurora_grant.stdout or aurora_grant.rc != 0"
 
 - name: Note on background updates for Aurora
   ansible.builtin.debug:

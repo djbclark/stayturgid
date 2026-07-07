@@ -1,24 +1,20 @@
-# play_store (skeleton)
+# play_store (Aurora Store / Play side project)
 
-Ansible role skeleton for Google Play / Aurora Store support (FOSS Play client), symmetric to fdroid_repos / Neo Store.
+Ansible role for Google Play via [Aurora Store](https://gitlab.com/AuroraOSS/AuroraStore) (FOSS client), symmetric to `fdroid_repos` / Neo Store.
 
-## Status (as of handoff)
-- Aurora Store added to Obtainium catalog.
-- Basic role with target_device, grant (reuses generalized helper), and notes.
-- gplaycli installed on control (pip; has protobuf/pkg_resources compatibility issues — may need venv or fixes).
-- No full "repo" concept like F-Droid; focus on client setup + download+install with installer spoof (`-i com.android.vending`).
+## Status
+- Aurora Store in Obtainium catalog.
+- `deploy-play.sh` grants Shizuku via privileged adb (`grant_neo_store_shizuku.py`).
+- **p7a verified** (2026-07-07): idempotent Shizuku grant.
+- No open “repo” like F-Droid; automation path is gplaycli download + `adb install -i com.android.vending`.
 
-## Usage (example)
-```yaml
-- hosts: stayturgid
-  roles:
-    - play_store
-  vars:
-    target_device: p7a
+## Usage
+
+```bash
+# After Obtainium import (Aurora installed on device):
+./mac/deploy-play.sh p7a
 ```
 
-Run after obtainium_apps.
+Or `ansible/playbooks/play_store.yml`. Not part of `./mac/deploy-fleet.sh`.
 
-See HANDOFF.md ("Side project: fdroid_repos / play_store") for next actions and full context.
-
-This is experimental side work.
+See HANDOFF.md (“Side project: fdroid_repos / play_store”) for full context.

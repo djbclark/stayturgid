@@ -12,8 +12,10 @@ Scripts and launchd plists for the **Mac control node**. Fully usable without Au
 | `com.djbclark.stayturgid.adb-reconnect*.plist` | launchd: run reconnect every 60s (7a default + S24) |
 | `access-monitor.sh` | Dead-man's switch: notify after ~10 min total outage on all paths |
 | `com.djbclark.stayturgid.access-monitor.plist` | launchd: run monitor every 5 min |
-| `deploy-fleet.sh` | One-shot: Ansible Termux + restart boot loop + AutoJs6 deploy on s24/p7a |
-| `fleet-health.sh` | SSH (+ optional ADB) health check for both phones |
+| `deploy-fleet.sh` | One-shot: Ansible Termux + restart boot loop + AutoJs6 deploy (fleet) |
+| `deploy-fdroid.sh` | Side project: Neo Store repos + Shizuku (`ansible/playbooks/fdroid.yml`) |
+| `deploy-play.sh` | Side project: Aurora Store Shizuku grant (`ansible/playbooks/play_store.yml`) |
+| `fleet-health.sh` | SSH (+ optional ADB) health check for fleet hosts |
 | `resolve-adb.sh` | Shim → [shared/mac/resolve-adb.sh](../shared/mac/resolve-adb.sh) |
 
 ## Standalone use
