@@ -6,6 +6,28 @@
 
 ---
 
+## Agent conventions — device preference
+
+When testing, deploying, or verifying on **one** host and the choice does not matter,
+use this order (least disruptive / best lab device first):
+
+1. **s24** (Galaxy S24) — **preferred**
+2. **hd8** (Kindle Fire HD 8) — second choice
+3. **p7a** (Pixel 7a) — third choice (often a daily driver; avoid unless needed)
+
+Use **all** hosts when the task requires fleet-wide validation. Examples:
+
+```bash
+make verify HOSTS=s24
+./mac/deploy-fleet.sh s24
+CHECK=1 ./mac/deploy-fleet.sh s24
+```
+
+Announce before live deploy when someone may be on the device:
+`🚨📱🚨 USING — s24 — fleet deploy — ~5 min`
+
+---
+
 ## What this project does
 
 **stayturgid** keeps wireless ADB (port 5555), Shizuku, and SSH alive on **two personal, unrooted consumer phones** — a Google Pixel 7a and a Samsung Galaxy S24 (SM-S921U1), both Android 16 — across cold reboots, and makes them reliably reachable from the Mac over Tailscale via **two independent, mutually-repairing channels (ADB + SSH)**.
@@ -300,6 +322,6 @@ version.json                 — repo release version + changelog
 7. ~~**hd8 (Kindle) compatibility**~~ **Done** (2026-07-07) — `deploy-fdroid.sh hd8` + metronome install via USB adb.
 8. ~~**Longer term: unified app ensure**~~ **Done** (2026-07-07) — `stayturgid.android_common.ensure_apps` role; fdroidcl wrapped in `fdroid_install` / `fdroid_repos` modules.
 
-Run with announcements (`🚨📱🚨 USING — p7a ...`) when someone may be on the device.
+Run with announcements (`🚨📱🚨 USING — s24 ...`) when someone may be on the device.
 F-Droid / Play side playbooks stay optional (`deploy-fdroid.sh`, `deploy-play.sh`).
 Operator-only steps (Play creds, deploy approval): [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md).

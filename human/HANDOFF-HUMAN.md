@@ -55,9 +55,10 @@ Record in `RESPONSES.md`: host + done/not done.
 
 ## Priority 3 — Fleet deploy approval
 
-### 3.1 p7a verify follow-up
+### 3.1 p7a verify follow-up (historical — agents prefer s24 for new tests)
 
 Script drift is **fixed** (deploy ran 2026-07-07; `deployed termux scripts match repo` passes).
+For new single-host checks, agents should use **s24** first (see HANDOFF.md).
 
 Remaining verify items on p7a (agent cannot fix without device interaction):
 
