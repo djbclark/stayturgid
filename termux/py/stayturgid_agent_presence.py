@@ -1,10 +1,11 @@
 #!/data/data/com.termux/files/usr/bin/python
-"""agent-presence — Python twin of ../agent-presence.sh.
+"""agent-presence (Python) — deployed as ~/stayturgid_agent_presence.py,
+reached via the ~/agent-presence.sh compat shim.
 
 On-device "an agent is controlling this phone" indicator + consent gate +
 screen-control sharing flow. Behavioral parity with the shell version is
-enforced by tests/test-unit.sh (presence_suite run against both). Shell stays
-deployed until parity soaks.
+unit-tested via tests/test-unit.sh (presence_suite). The ~/agent-presence.sh
+shim keeps the documented external interface stable.
 
 Exit codes: 0 = proceed, 2 = usage, 75 = gate deferred/disallowed.
 """

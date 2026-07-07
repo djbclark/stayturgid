@@ -37,6 +37,7 @@ stayturgid_home_scripts:
 stayturgid_py_scripts:
   - stayturgid_check_repo_version.py
   - stayturgid_screen_awake_guard.py
+  - stayturgid_agent_presence.py
 
 # Deployed shell scripts to remove from devices (migrated to Python).
 stayturgid_retired_scripts:

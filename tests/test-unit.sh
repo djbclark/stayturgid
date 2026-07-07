@@ -268,7 +268,7 @@ presence_suite() {
     unset ADB_FG_PKG ADB_WAKE DIALOG_CHOICE 2>/dev/null || true
 }
 
-presence_suite termux/agent-presence.sh sh
+# agent-presence migrated to Python (agent-presence.sh is now a compat shim).
 presence_suite termux/py/stayturgid_agent_presence.py py
 
 # ===========================================================================
