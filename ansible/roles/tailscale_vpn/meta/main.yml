@@ -1,0 +1,13 @@
+---
+galaxy_info:
+  author: stayturgid
+  description: >-
+    Enable Android always-on VPN for Tailscale via adb (Mac control node).
+    Lockdown stays off by default so LAN ADB survives VPN blips.
+  license: GPL-3.0
+  min_ansible_version: "2.9"
+  platforms:
+    - name: GenericLinux
+      versions:
+        - all
+dependencies: []

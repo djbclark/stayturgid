@@ -25,6 +25,7 @@ mirror=pinned
 penalties=off
 writesettings=allow
 overlay=allow
+vpn_always_on=ok
 md5 stayturgid-repair.sh aaa
 md5 repair-bridge.sh bbb
 """
@@ -63,7 +64,7 @@ def test_evaluate_all_green(monkeypatch):
     assert k["s24: Termux mirror pinned (deterministic pkg update)"] == "ok"
     assert k["s24: sshd per-source penalties disabled"] == "ok"
     assert k["s24: Termux:API WRITE_SETTINGS granted (battery flash)"] == "ok"
-    assert k["s24: Termux overlay (SYSTEM_ALERT_WINDOW) granted"] == "ok"
+    assert k["s24: Tailscale always-on VPN enabled"] == "ok"
     assert k["s24: deployed termux scripts match repo"] == "ok"
     assert all(v != "fail" for v in k.values())
 
@@ -72,11 +73,13 @@ def test_evaluate_flags_failures():
     rep = dt.parse_report(HEALTHY.replace("penalties=off", "penalties=ON")
                           .replace("writesettings=allow", "writesettings=MISSING")
                           .replace("overlay=allow", "overlay=MISSING")
+                          .replace("vpn_always_on=ok", "vpn_always_on=MISSING")
                           .replace("mirror=pinned", "mirror=UNPINNED"))
     k = kinds(dt.evaluate("p7a", rep))
     assert k["p7a: sshd per-source penalties disabled"] == "fail"
     assert k["p7a: Termux:API WRITE_SETTINGS granted (battery flash)"] == "fail"
     assert k["p7a: Termux overlay (SYSTEM_ALERT_WINDOW) granted"] == "fail"
+    assert k["p7a: Tailscale always-on VPN enabled"] == "fail"
     assert k["p7a: Termux mirror pinned (deterministic pkg update)"] == "fail"
 
 
@@ -118,12 +121,14 @@ def test_evaluate_fire_split_storage_todos():
         HEALTHY.replace("watchdog=fresh", "watchdog=missing")
         .replace("writesettings=allow", "writesettings=MISSING")
         .replace("overlay=allow", "overlay=MISSING")
+        .replace("vpn_always_on=ok", "vpn_always_on=MISSING")
         + "localhost_shell=skip\n"
     )
     k = kinds(dt.evaluate("hd8", dt.parse_report(fire_missing)))
     assert k["hd8: AutoJs6 watchdog alive (<30 min)"] == "todo"
     assert k["hd8: Termux:API WRITE_SETTINGS granted (battery flash)"] == "todo"
     assert k["hd8: Termux overlay (SYSTEM_ALERT_WINDOW) granted"] == "todo"
+    assert k["hd8: Tailscale always-on VPN enabled"] == "todo"
 
     # When the Mac adb probe upgraded them to fresh/allow, they pass as ok.
     fire_ok = HEALTHY + "localhost_shell=skip\n"
@@ -131,6 +136,7 @@ def test_evaluate_fire_split_storage_todos():
     assert k2["hd8: AutoJs6 watchdog alive (<30 min)"] == "ok"
     assert k2["hd8: Termux:API WRITE_SETTINGS granted (battery flash)"] == "ok"
     assert k2["hd8: Termux overlay (SYSTEM_ALERT_WINDOW) granted"] == "ok"
+    assert k2["hd8: Tailscale always-on VPN enabled"] == "ok"
 
 
 def test_file_md5_matches_hashlib(tmp_path):

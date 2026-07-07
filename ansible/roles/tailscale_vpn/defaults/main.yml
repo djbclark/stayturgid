@@ -1,0 +1,2 @@
+---
+# Defaults live in ansible/inventory/group_vars/all.yml (stayturgid_always_on_vpn*).

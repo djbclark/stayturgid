@@ -14,5 +14,6 @@
     - role: termux_userland
     - role: autojs6_watchdog
     - role: obtainium_apps
+    - role: tailscale_vpn
     # fdroid_repos side project — use ./mac/deploy-fdroid.sh (not fleet.yml)
     # play_store side project — use ./mac/deploy-play.sh (not fleet.yml)

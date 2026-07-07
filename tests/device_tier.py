@@ -122,6 +122,18 @@ for pkg in com.termux com.termux.api com.termux.window; do
   esac
 done
 $_overlay_ok && echo overlay=allow || echo overlay=MISSING
+if [ "$FIRE" = 1 ]; then
+  echo "vpn_always_on=skip"
+else
+  adb connect localhost:5555 >/dev/null 2>&1 </dev/null
+  vpn_pkg=$(adb -s localhost:5555 shell settings get secure always_on_vpn_app </dev/null 2>/dev/null | tr -d '\r')
+  vpn_lock=$(adb -s localhost:5555 shell settings get secure always_on_vpn_lockdown </dev/null 2>/dev/null | tr -d '\r')
+  if [ "$vpn_pkg" = "com.tailscale.ipn" ] && [ "$vpn_lock" = "0" ]; then
+    echo "vpn_always_on=ok"
+  else
+    echo "vpn_always_on=MISSING"
+  fi
+fi
 for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh stayturgid_check_repo_version.py stayturgid_screen_awake_guard.py stayturgid_agent_presence.py stayturgid_battery_alarm.py stayturgid_repair.py; do
     printf 'md5 %s %s\n' "$f" "$(md5sum "$HOME/.stayturgid/bin/$f" 2>/dev/null | cut -d' ' -f1)"
 done
@@ -275,6 +287,16 @@ def evaluate(host, report, repo_dir=REPO):
         (ok if report.get("overlay") == "allow" else fail)(
             "%s: Termux overlay (SYSTEM_ALERT_WINDOW) granted" % host)
 
+    if report.get("localhost_shell") == "skip":
+        if report.get("vpn_always_on") == "ok":
+            ok("%s: Tailscale always-on VPN enabled" % host)
+        else:
+            todo("%s: Tailscale always-on VPN enabled" % host,
+                 "Fire OS — confirm via Mac adb when USB/Tailscale connected")
+    else:
+        (ok if report.get("vpn_always_on") == "ok" else fail)(
+            "%s: Tailscale always-on VPN enabled" % host)
+
     # Deployment drift (informational TODO, not a failure)
     md5s = report.get("md5", {})
     drift = []
@@ -372,6 +394,19 @@ def overlay_via_adb(serial):
     return True
 
 
+def vpn_always_on_via_adb(serial, pkg="com.tailscale.ipn", lockdown="0"):
+    """Mac-side always-on VPN check (Fire: Termux cannot query via loopback adb)."""
+    p = run_adb(["-s", serial, "shell",
+                 "settings get secure always_on_vpn_app </dev/null 2>/dev/null"])
+    p2 = run_adb(["-s", serial, "shell",
+                  "settings get secure always_on_vpn_lockdown </dev/null 2>/dev/null"])
+    if not p or not p2:
+        return False
+    app = p.stdout.strip().splitlines()[-1].strip()
+    lock = p2.stdout.strip().splitlines()[-1].strip()
+    return app == pkg and lock == lockdown
+
+
 def watchdog_fresh_via_adb(serial, max_age_s=1800):
     """Mac-side [watchdog] liveness (Fire OS: Termux cannot read /sdcard logs)."""
     p = run_adb(["-s", serial, "shell",
@@ -417,6 +452,8 @@ def check_host(host, tap, heal=False, ansible_check=False):
                 report["writesettings"] = "allow"
             if overlay_via_adb(serial):
                 report["overlay"] = "allow"
+            if vpn_always_on_via_adb(serial):
+                report["vpn_always_on"] = "ok"
 
     for res in evaluate(host, report):
         tap.emit(res)

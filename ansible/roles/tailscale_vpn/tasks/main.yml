@@ -1,0 +1,53 @@
+---
+# Always-on VPN for Tailscale — adb settings put on the Mac (Fire-safe).
+# Prerequisite: com.tailscale.ipn installed (Obtainium catalog).
+
+- name: Resolve fleet alias to adb target (USB serial preferred)
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        import os, sys
+        repo = os.path.abspath("{{ role_path }}/../../..")
+        sys.path.insert(0, os.path.join(repo, "shared", "mac"))
+        import stayturgid_device as dev
+        print(dev.resolve_adb(sys.argv[1]))
+      - "{{ inventory_hostname }}"
+  delegate_to: localhost
+  register: _tailscale_adb_resolved
+  changed_when: false
+
+- name: Set target device fact
+  ansible.builtin.set_fact:
+    _tailscale_adb_target: "{{ _tailscale_adb_resolved.stdout | trim }}"
+
+- name: Ensure Tailscale always-on VPN (Android secure settings)
+  when: stayturgid_always_on_vpn | bool
+  ansible.builtin.shell: |
+    set -euo pipefail
+    PKG="{{ tailscale_package }}"
+    DEV="{{ _tailscale_adb_target }}"
+    LOCK="{{ stayturgid_always_on_vpn_lockdown | bool | ternary('1', '0') }}"
+    adb connect "$DEV" >/dev/null 2>&1 || true
+    adb -s "$DEV" shell pm path "$PKG" </dev/null 2>/dev/null | grep -q . || {
+      echo "vpn=skip_no_tailscale"
+      exit 0
+    }
+    cur=$(adb -s "$DEV" shell settings get secure always_on_vpn_app </dev/null 2>/dev/null | tr -d '\r')
+    lock=$(adb -s "$DEV" shell settings get secure always_on_vpn_lockdown </dev/null 2>/dev/null | tr -d '\r')
+    changed=0
+    if [ "$cur" != "$PKG" ]; then
+      adb -s "$DEV" shell settings put secure always_on_vpn_app "$PKG" </dev/null
+      changed=1
+    fi
+    if [ "$lock" != "$LOCK" ]; then
+      adb -s "$DEV" shell settings put secure always_on_vpn_lockdown "$LOCK" </dev/null
+      changed=1
+    fi
+    if [ "$changed" -eq 1 ]; then echo "vpn=granted"; else echo "vpn=already"; fi
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  register: tailscale_vpn_grant
+  changed_when: "'vpn=granted' in tailscale_vpn_grant.stdout"

@@ -20,3 +20,6 @@ stayturgid_sd_root: /sdcard/stayturgid
 # Tailscale health checks in AutoJs6 watchdog only when ansible_host is a tailnet IP.
 stayturgid_tailscale_enabled: "{{ ansible_host is match('^100\\.') }}"
 stayturgid_tailscale_ip: "{{ ansible_host if ansible_host is match('^100\\.') else none }}"
+# Push Android always-on VPN for Tailscale on fleet deploy (lockdown off = LAN ADB safe).
+stayturgid_always_on_vpn: true
+stayturgid_always_on_vpn_lockdown: false

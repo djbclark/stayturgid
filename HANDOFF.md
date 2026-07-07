@@ -46,7 +46,7 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 **⚠ hd8 Fire OS caveats (expected TODOs when USB unplugged):**
 - **Split storage** — Termux under `~/.stayturgid/shared` (cannot read/write `/sdcard`); AutoJs6 under `/sdcard/stayturgid/`. Watchdog skips the Termux RUN_COMMAND bridge on split-storage devices (boot loop owns repair).
 - **No Termux→localhost:5555 loopback** — privileged repair from Termux cannot use `adb connect localhost:5555`. Mac adb works via Tailscale `100.124.55.39:5555` or USB `GN43T503430603PS`.
-- **Tailscale** — `100.124.55.39` (`ssh hd8`); enable **Always-on VPN** if not already.
+- **Tailscale** — `100.124.55.39` (`ssh hd8`); always-on VPN set by `tailscale_vpn` role on deploy.
 - **Battery** — keep hd8 charged when off USB.
 
 **Deploy / test:**
