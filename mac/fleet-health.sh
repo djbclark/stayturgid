@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fleet health = the TAP device tier plus the on-device self-heal.
 # Thin wrapper kept for muscle memory; the implementation lives in
-# tests/test-device.sh (single verification path).
+# tests/device_tier.py (single verification path).
 #
 # Usage:
 #   ./mac/fleet-health.sh           # every device in devices.conf

@@ -94,6 +94,29 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 - p7a LAN IP corrected to .65 in inventory. Device tier: all green except the
   known upmon Tasker-GUI item.
 
+### Device tier -> Python (kill the macOS shell fragility) — 2026-07-06 (Fable) ✅
+
+- `tests/test-device.sh` → **`tests/device_tier.py`**. Motivation: the recurring
+  bugs were all macOS-side shell fragility — bash 3.2 `$(<<heredoc)` paren
+  miscount, `md5` vs `md5sum`, zsh `${var}` colon-modifiers, `set -u`. Python
+  behaves identically on macOS + CI. The on-device gather script stays bash
+  (runs on Termux) but is now inert Python string data — no local parsing.
+- Parsing/evaluation are pure functions with **13 pytest unit tests**
+  (`tests/python/test_device_tier.py`) — the exact logic that kept breaking.
+  Hashing is hashlib. run.sh dispatches `*.py` tiers to python3;
+  mac/fleet-health.sh still delegates (`run.sh device --heal`).
+- Also fixed a real latent slowness: the Tasker-remnant grep walked all of
+  /sdcard/Tasker incl. the huge `userguide/` docs tree — hung on a
+  memory-thrashing p7a. Scoped to projects/tasks/profiles/Updates (faster +
+  no doc false-positives). Device tier green on both phones.
+- **Shell-fragility policy (this is the transition principle):** Mac-side dev/
+  ops tooling → convert to Python directly with pytest for the fragile logic
+  (git history keeps the shell version; no on-device parity mechanism exists
+  for Mac tooling). Device-DEPLOYED runtime scripts → keep the shell twin and
+  run the SAME sandbox suite against both (battery_suite/guard_suite) until
+  parity soaks. Remaining Mac-side shell worth converting: adb-reconnect.sh,
+  access-monitor.sh. Remaining runtime twins: repair, presence.
+
 ### 🚦 Handoff — start here (cold-start summary)
 
 - **Deploy the fleet:** `./mac/deploy-fleet.sh` (thin wrapper over

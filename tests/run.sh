@@ -16,7 +16,10 @@ fail=0
 
 run_part() {
     echo "### $1"
-    bash "tests/$2" "${@:3}" || fail=1
+    case "$2" in
+        *.py) python3 "tests/$2" "${@:3}" || fail=1 ;;
+        *)    bash "tests/$2" "${@:3}" || fail=1 ;;
+    esac
     echo ""
 }
 
@@ -25,10 +28,10 @@ case "$tier" in
     unit)   run_part "tier b: unit tests" test-unit.sh ;;
     local)  run_part "tier a: code checks" test-code.sh
             run_part "tier b: unit tests" test-unit.sh ;;
-    device) run_part "tier c: device (read-only)" test-device.sh "$@" ;;
+    device) run_part "tier c: device (read-only)" device_tier.py "$@" ;;
     all)    run_part "tier a: code checks" test-code.sh
             run_part "tier b: unit tests" test-unit.sh
-            run_part "tier c: device (read-only)" test-device.sh "$@" ;;
+            run_part "tier c: device (read-only)" device_tier.py "$@" ;;
     *) echo "usage: tests/run.sh [code|unit|local|device|all] [--ansible-check] [host...]" >&2; exit 2 ;;
 esac
 
