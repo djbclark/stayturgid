@@ -233,7 +233,7 @@ play/                        — Play / Aurora docs + configure_aurora.py
 ansible_collections/stayturgid/fdroid/roles/fdroid_repos/  — fdroidcl repo management + on-device push
 ansible_collections/stayturgid/play/roles/play_store/        — Aurora Store Shizuku grant + play_apps
 shared/mac/                  — resolve-adb.sh, stayturgid_device.py (shizuku.json patcher + UI parsing)
-mac/                         — adb-reconnect.py, access_monitor.py (launchd via ansible mac.yml); deploy-fleet.sh, fleet-health.sh
+mac/                         — adb-reconnect.py, access_monitor.py, deploy_fleet.py (launchd via ansible mac.yml); deploy-fleet.sh wrappers, fleet-health.sh
 tests/                       — device_tier.py + python/ (pytest twins) + test-*.sh TAP harness; Makefile, configure
 version.json                 — repo release version + changelog
 ```

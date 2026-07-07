@@ -5,7 +5,7 @@ Usage: ./play/mac/configure_aurora.py <s24|hd8|p7a|serial>
 
 Skips the intro carousel, selects Aurora's anonymous session, and configures the
 installer/update settings needed for unattended installs. Called automatically at
-the end of ./mac/deploy-fleet.sh and ./mac/deploy-play.sh.
+the end of deploy_fleet.py (--scope full or play).
 """
 import os
 import re

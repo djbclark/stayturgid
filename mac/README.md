@@ -12,9 +12,10 @@ Scripts and launchd plists for the **Mac control node**. Fully usable without Au
 | `com.djbclark.stayturgid.adb-reconnect*.plist` | launchd: run reconnect every 60s (7a default + S24) |
 | `access-monitor.sh` | Dead-man's switch: notify after ~10 min total outage on all paths |
 | `com.djbclark.stayturgid.access-monitor.plist` | launchd: run monitor every 5 min |
-| `deploy-fleet.sh` | Full fleet: Termux, AutoJs6, Obtainium, Tailscale, F-Droid, Play |
-| `deploy-fdroid.sh` | Re-run F-Droid / Neo Store roles (`fleet.yml --tags fdroid`) |
-| `deploy-play.sh` | Re-run Play / Aurora roles + UI setup (`fleet.yml --tags play`) |
+| `deploy-fleet.sh` | Full fleet (`mac/deploy_fleet.py`) |
+| `deploy_fleet.py` | Fleet orchestrator — Ansible phases, Obtainium import, Aurora UI |
+| `deploy-fdroid.sh` | F-Droid only (`deploy_fleet.py --scope fdroid`) |
+| `deploy-play.sh` | Play only (`deploy_fleet.py --scope play`) |
 | `fleet-health.sh` | SSH (+ optional ADB) health check for fleet hosts |
 | `resolve-adb.sh` | Shim → [shared/mac/resolve-adb.sh](../shared/mac/resolve-adb.sh) |
 
