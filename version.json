@@ -1,4 +1,4 @@
 {
-  "version": "2.2",
-  "changelog": "Fix AutoJs6 watchdog accessibility self-check: use auto.service (native, permission-free) instead of unreadable secure-settings probe \u2014 stops per-cycle false 'disabled' alarms + repair thrash."
+  "version": "2.3",
+  "changelog": "Harden AutoJs6 watchdog startup: wrap the whole startup path in try/catch and always establish the 20-min interval so a boot-cycle error can't kill the loop; guard.enforce() degrades (logs + proceeds) instead of auto.waitFor()-blocking when accessibility won't attach. Add device-tier watchdog-liveness check. Compact HANDOFF.md (1097->~230 lines, all durable facts kept) + freshen HACKING.md paths to the single-root layout."
 }

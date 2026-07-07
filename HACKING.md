@@ -317,16 +317,9 @@ ssh termux
 
 This runs `adb connect` every 60 seconds, handles DHCP IP changes, and sends a macOS notification on reconnect or failure.
 
-```bash
-cp ~/stayturgid/mac/com.djbclark.stayturgid.adb-reconnect.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.djbclark.stayturgid.adb-reconnect.plist
-```
+**Current (Ansible-generated):** the launchd agents (`com.stayturgid.*`) and `~/.config/stayturgid/devices.conf` are rendered from inventory by `ansible/playbooks/mac.yml` — run `ansible-playbook ansible/playbooks/mac.yml` (or the fleet deploy) rather than copying a plist by hand. The agents launch `mac/adb-reconnect.py` + `mac/access_monitor.py`. Logs + state live under the single Mac root `~/.config/stayturgid/{logs,state}/`.
 
-> Edit the plist first if you cloned the repo to a different path — `adb-reconnect.sh` path is hardcoded.
-
-Logs: `~/Library/Logs/stayturgid-adb-reconnect.log`
-
-Unload: `launchctl unload ~/Library/LaunchAgents/com.djbclark.stayturgid.adb-reconnect.plist`
+> The legacy manual path (`cp mac/com.djbclark.stayturgid.adb-reconnect.plist ~/Library/LaunchAgents/ && launchctl load …`) is superseded by mac.yml; the old `com.djbclark.*` agents were retired.
 
 ### 2.5 Install Claude Code (AI development agent)
 
@@ -381,7 +374,7 @@ ssh -i ~/.ssh/termux_key -p 8022 localhost
    ./autojs6/mac/deploy.sh p7a
    ./autojs6/mac/start-watchdog.sh p7a
    ```
-3. Check the log: `adb shell cat /sdcard/stayturgid_watchdog.log` (or the AutoJs6 console).
+3. Check the log: `adb shell cat /sdcard/stayturgid/logs/watchdog.log` (or the AutoJs6 console).
 4. Commit and push.
 
 ### Testing shell scripts off-device (added 2026-07-06)
@@ -396,8 +389,8 @@ review validated the battery-alarm tier logic this way.
 `pgrep -f repair-bridge.sh` inside `start-repair-bridge.sh` (or inside an ssh
 command string containing the pattern) always self-matches. macOS/BSD pgrep
 does **not** do this, so Mac-side dry-runs pass while the on-device guard is
-broken. Use pidfiles (`~/.repair-bridge.pid` + `/proc/$pid/cmdline` check) for
-liveness, and test process guards on the device itself.
+broken. Use pidfiles (`~/.stayturgid/run/repair-bridge.pid` + `/proc/$pid/cmdline`
+check) for liveness, and test process guards on the device itself.
 
 **Shell convention:** never assume the user's default shell — macOS defaults
 to zsh, Termux users can switch shells, and zsh isn't installed on Termux by
@@ -665,8 +658,7 @@ termux/
   check-repo-version.sh                 — optional update notifier
 ansible/                                — idempotent Termux userland deploy
 mac/
-  adb-reconnect.sh                      — Mac keepalive script
-  com.djbclark.stayturgid.adb-reconnect.plist  — launchd agent config
+  adb-reconnect.py, access_monitor.py   — Mac keepalive + dead-man's switch (launchd agents via ansible/playbooks/mac.yml)
 obtainium/                              — APK tracking catalogs
 shared/mac/                             — resolve-adb.sh and common helpers
 HACKING.md                              — this file
