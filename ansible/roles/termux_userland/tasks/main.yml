@@ -102,6 +102,29 @@
   register: writesettings_grant
   changed_when: "'ws=granted' in writesettings_grant.stdout"
 
+# termux-toast / termux-dialog (Termux:API) and Termux:Float need overlay.
+# Without this, Android shows a recurring "requires overlay permission" toast.
+- name: Grant SYSTEM_ALERT_WINDOW for Termux overlays
+  ansible.builtin.shell: |
+    export PATH={{ termux_prefix }}/bin:$PATH TMPDIR={{ termux_prefix }}/tmp
+    adb connect localhost:5555 >/dev/null 2>&1 </dev/null
+    granted=0
+    for pkg in {{ stayturgid_termux_overlay_packages | join(' ') }}; do
+      adb -s localhost:5555 shell pm list packages --user 0 "$pkg" </dev/null 2>/dev/null \
+        | grep -q "$pkg" || continue
+      cur=$(adb -s localhost:5555 shell cmd appops get "$pkg" SYSTEM_ALERT_WINDOW </dev/null 2>/dev/null | tr -d '\r')
+      case "$cur" in
+        *allow*) ;;
+        *) adb -s localhost:5555 shell cmd appops set "$pkg" SYSTEM_ALERT_WINDOW allow </dev/null >/dev/null 2>&1 \
+             && granted=$((granted + 1)) ;;
+      esac
+    done
+    if [ "$granted" -gt 0 ]; then echo "overlay=granted:$granted"; else echo "overlay=already"; fi
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  register: overlay_grant
+  changed_when: "'overlay=granted' in overlay_grant.stdout"
+
 - name: Ensure Termux boot directory exists
   ansible.builtin.file:
     path: "{{ termux_home }}/.termux/boot"

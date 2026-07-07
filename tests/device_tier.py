@@ -107,6 +107,21 @@ case "$SD" in
       | tr -d '\r' | grep -q allow && echo "writesettings=allow" || echo "writesettings=MISSING"
     ;;
 esac
+_overlay_ok=true
+for pkg in com.termux com.termux.api com.termux.window; do
+  pm list packages --user 0 "$pkg" 2>/dev/null | grep -q "$pkg" || continue
+  case "$SD" in
+    *termux/files/home*)
+      cmd appops get "$pkg" SYSTEM_ALERT_WINDOW </dev/null 2>/dev/null \
+        | tr -d '\r' | grep -q allow || _overlay_ok=false
+      ;;
+    *)
+      adb -s localhost:5555 shell cmd appops get "$pkg" SYSTEM_ALERT_WINDOW </dev/null 2>/dev/null \
+        | tr -d '\r' | grep -q allow || _overlay_ok=false
+      ;;
+  esac
+done
+$_overlay_ok && echo overlay=allow || echo overlay=MISSING
 for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh stayturgid_check_repo_version.py stayturgid_screen_awake_guard.py stayturgid_agent_presence.py stayturgid_battery_alarm.py stayturgid_repair.py; do
     printf 'md5 %s %s\n' "$f" "$(md5sum "$HOME/.stayturgid/bin/$f" 2>/dev/null | cut -d' ' -f1)"
 done
@@ -250,6 +265,16 @@ def evaluate(host, report, repo_dir=REPO):
         (ok if report.get("writesettings") == "allow" else fail)(
             "%s: Termux:API WRITE_SETTINGS granted (battery flash)" % host)
 
+    if report.get("localhost_shell") == "skip":
+        if report.get("overlay") == "allow":
+            ok("%s: Termux overlay (SYSTEM_ALERT_WINDOW) granted" % host)
+        else:
+            todo("%s: Termux overlay (SYSTEM_ALERT_WINDOW) granted" % host,
+                 "Fire OS — confirm via Mac adb when USB connected")
+    else:
+        (ok if report.get("overlay") == "allow" else fail)(
+            "%s: Termux overlay (SYSTEM_ALERT_WINDOW) granted" % host)
+
     # Deployment drift (informational TODO, not a failure)
     md5s = report.get("md5", {})
     drift = []
@@ -331,6 +356,22 @@ def writesettings_via_adb(serial):
     return bool(p and p.returncode == 0 and "allow" in p.stdout)
 
 
+OVERLAY_PACKAGES = ("com.termux", "com.termux.api", "com.termux.window")
+
+
+def overlay_via_adb(serial):
+    """Mac-side overlay check for installed Termux family apps."""
+    for pkg in OVERLAY_PACKAGES:
+        lp = run_adb(["-s", serial, "shell", "pm", "list", "packages", "--user", "0", pkg])
+        if not lp or pkg not in lp.stdout:
+            continue
+        p = run_adb(["-s", serial, "shell",
+                     "cmd appops get %s SYSTEM_ALERT_WINDOW </dev/null 2>/dev/null" % pkg])
+        if not p or "allow" not in p.stdout:
+            return False
+    return True
+
+
 def watchdog_fresh_via_adb(serial, max_age_s=1800):
     """Mac-side [watchdog] liveness (Fire OS: Termux cannot read /sdcard logs)."""
     p = run_adb(["-s", serial, "shell",
@@ -374,6 +415,8 @@ def check_host(host, tap, heal=False, ansible_check=False):
                 report["watchdog"] = "fresh"
             if writesettings_via_adb(serial):
                 report["writesettings"] = "allow"
+            if overlay_via_adb(serial):
+                report["overlay"] = "allow"
 
     for res in evaluate(host, report):
         tap.emit(res)

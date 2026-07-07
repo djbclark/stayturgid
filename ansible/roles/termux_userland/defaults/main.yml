@@ -61,3 +61,9 @@ stayturgid_allow_external_apps: true
 # deterministic + avoids the intermittent "Mirror sync in progress" failures.
 # packages-cf.termux.dev is the official Cloudflare CDN (highest default weight).
 stayturgid_termux_mirror: https://packages-cf.termux.dev/apt/termux-main
+
+# SYSTEM_ALERT_WINDOW for termux-toast/dialog and Termux:Float (com.termux.window).
+stayturgid_termux_overlay_packages:
+  - com.termux
+  - com.termux.api
+  - com.termux.window
