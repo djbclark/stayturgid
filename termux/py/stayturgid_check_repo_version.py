@@ -1,10 +1,9 @@
 #!/data/data/com.termux/files/usr/bin/python
-"""check-repo-version — Python twin of ../check-repo-version.sh.
+"""check-repo-version (Python) — deployed as ~/stayturgid_check_repo_version.py.
 
 Notify when GitHub's version.json is newer than the last seen version.
-Notify-only (updates are applied from the Mac). Behavioral parity with the
-shell version is enforced by tests/test-unit.sh (version_check_suite run
-against both). Shell stays deployed until parity soaks.
+Notify-only (updates are applied from the Mac). Migrated from the former
+check-repo-version.sh; unit-tested via tests/test-unit.sh (version_check_suite).
 """
 import os
 import re

@@ -13,15 +13,20 @@
   args:
     executable: "{{ termux_prefix }}/bin/bash"
 
-# [.] instead of . : the pattern appears literally in this shell's own
-# cmdline, and a plain '.' regex would make pkill/pgrep self-match (kill the
-# handler itself) — same procps trap documented in CODE-REVIEW.md H2.
+# Restart the Termux self-heal loop by PIDFILE, never `pkill -f start-adb.sh`:
+# Ansible runs this handler via `bash -c '<script>'`, so the script text (which
+# names the path) is in the handler's OWN cmdline — `pkill -f` matched and
+# SIGTERM'd the handler itself (rc=-15), and even the [.] regex matched the
+# literal path. setsid (not `nohup &`) so the loop survives the SSH close.
 - name: restart boot loop
   ansible.builtin.shell: |
-    pkill -f '[.]termux/boot/start-adb[.]sh' 2>/dev/null || true
+    pidf="$HOME/.stayturgid-bootloop.pid"
+    old="$(cat "$pidf" 2>/dev/null || true)"
+    [ -n "$old" ] && kill "$old" 2>/dev/null || true
     sleep 2
-    nohup "$HOME/.termux/boot/start-adb.sh" >/dev/null 2>&1 &
-    sleep 1
-    pgrep -f '[.]termux/boot/start-adb[.]sh' >/dev/null
+    setsid "$HOME/.termux/boot/start-adb.sh" >/dev/null 2>&1 < /dev/null &
+    sleep 3
+    new="$(cat "$pidf" 2>/dev/null || true)"
+    [ -n "$new" ] && [ -d "/proc/$new" ]
   args:
     executable: "{{ termux_prefix }}/bin/bash"

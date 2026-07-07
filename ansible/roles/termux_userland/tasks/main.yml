@@ -33,6 +33,19 @@
     mode: "0755"
   loop: "{{ stayturgid_home_scripts }}"
 
+- name: Deploy Python runtime scripts (migrated twins)
+  ansible.builtin.copy:
+    src: "{{ stayturgid_repo_root }}/termux/py/{{ item }}"
+    dest: "{{ termux_home }}/{{ item }}"
+    mode: "0755"
+  loop: "{{ stayturgid_py_scripts | default([]) }}"
+
+- name: Remove retired shell scripts (migrated to Python)
+  ansible.builtin.file:
+    path: "{{ termux_home }}/{{ item }}"
+    state: absent
+  loop: "{{ stayturgid_retired_scripts | default([]) }}"
+
 - name: Ensure battery color assets directory
   ansible.builtin.file:
     path: "{{ termux_home }}/.stayturgid/battery-colors"

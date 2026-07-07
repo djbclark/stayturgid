@@ -393,7 +393,7 @@ version_check_suite() {
     unset CURL_RC CURL_BODY 2>/dev/null || true
 }
 
-version_check_suite termux/check-repo-version.sh sh
+# check-repo-version migrated to Python (shell retired); py is now the deployed impl.
 version_check_suite termux/py/stayturgid_check_repo_version.py py
 
 # ===========================================================================

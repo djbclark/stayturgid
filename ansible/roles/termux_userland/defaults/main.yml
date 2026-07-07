@@ -28,9 +28,19 @@ stayturgid_home_scripts:
   - repair-bridge.sh
   - agent-presence.sh
   - claude-presence.sh   # compat shim -> agent-presence.sh
-  - check-repo-version.sh
   - stayturgid-battery-alarm.sh
   - screen-awake-guard.sh
+
+# Python runtime scripts (twins that have finished their parity soak and now
+# ship as the deployed implementation). Copied flat from termux/py/ to ~/.
+# As each shell script is retired, it moves out of stayturgid_home_scripts and
+# its .py joins this list; the old ~/<name>.sh is removed via retired below.
+stayturgid_py_scripts:
+  - stayturgid_check_repo_version.py
+
+# Deployed shell scripts to remove from devices (migrated to Python).
+stayturgid_retired_scripts:
+  - check-repo-version.sh
 
 stayturgid_battery_color_assets:
   - purple.png

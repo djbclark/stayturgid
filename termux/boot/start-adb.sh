@@ -17,18 +17,24 @@ termux-wake-lock 2>/dev/null || true
 # (or directly via the Tailscale IP on port 8022 when Tailscale is up)
 sshd
 
-# Wait for WiFi/network to settle
-sleep 30
-
-# Belt-and-suspenders: attempt to open ADB TCP port.
-# Shizuku TCP mode (the primary mechanism) usually beats this to it.
-adb connect 127.0.0.1:5555 || true
-adb tcpip 5555 || true
-
 # Keep sshd alive — the AutoJs6 watchdog checks its status and notifies on failure,
 # but this loop is the self-healing mechanism (runs as Termux user, right UID).
 # Low-battery tiers (30/25/20/…%) handled by ~/stayturgid-battery-alarm.sh each loop.
-while true; do
+# Runtime scripts are migrating shell -> Python (~/stayturgid_*.py); this loop
+# invokes whichever form is deployed.
+#
+# The whole thing (WiFi-settle + TCP-port open + self-heal loop) runs in ONE
+# backgrounded subshell so the pidfile is written IMMEDIATELY — a redeploy's
+# restart handler verifies the pid without waiting out the 30s settle.
+BOOTLOOP_PID_FILE="$HOME/.stayturgid-bootloop.pid"
+(
+    # Wait for WiFi/network to settle, then belt-and-suspenders open ADB TCP
+    # (Shizuku TCP mode, the primary mechanism, usually beats this to it).
+    sleep 30
+    adb connect 127.0.0.1:5555 || true
+    adb tcpip 5555 || true
+
+    while true; do
     # Full Termux-side self-heal (sshd + privileged checks/repairs via
     # Shizuku's localhost:5555 shell, logged). Falls back to a bare sshd
     # restart if the repair script isn't deployed yet.
@@ -53,8 +59,8 @@ while true; do
     now=$(date +%s)
     last=0
     [ -f "$VERSION_CHECK_STAMP" ] && last=$(cat "$VERSION_CHECK_STAMP" 2>/dev/null || echo 0)
-    if [ "$((now - last))" -ge 86400 ] && [ -x "$HOME/check-repo-version.sh" ]; then
-        "$HOME/check-repo-version.sh" >/dev/null 2>&1 || true
+    if [ "$((now - last))" -ge 86400 ] && [ -x "$HOME/stayturgid_check_repo_version.py" ]; then
+        python3 "$HOME/stayturgid_check_repo_version.py" >/dev/null 2>&1 || true
         echo "$now" > "$VERSION_CHECK_STAMP"
     fi
 
@@ -67,5 +73,11 @@ while true; do
             >/dev/null 2>&1 || true
     fi
 
-    sleep 300
-done &
+        sleep 300
+    done
+) &
+# Record the subshell's pid so a redeploy can restart the loop WITHOUT
+# `pkill -f start-adb.sh` — that pattern self-matches any caller whose cmdline
+# contains the path (the Ansible handler SIGTERM'd itself this way). Written
+# immediately (the 30s settle runs inside the subshell). See the handler.
+echo $! > "$BOOTLOOP_PID_FILE"
