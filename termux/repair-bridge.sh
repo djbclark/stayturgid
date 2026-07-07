@@ -7,12 +7,14 @@
 
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
 export HOME="${HOME:-/data/data/com.termux/files/home}"
+[ -f "$HOME/.stayturgid/env" ] && . "$HOME/.stayturgid/env"
 
 # Single-root layout; every dir is created on demand so a user-deleted
 # stayturgid dir self-heals rather than erroring.
 STG="$HOME/.stayturgid"
 SD="${STAYTURGID_SD:-/sdcard/stayturgid}"
 TRIGGER="$SD/run/repair_now"
+TRIGGER_SDCARD="/sdcard/stayturgid/run/repair_now"
 REPAIR="$STG/bin/stayturgid-repair.sh"
 LOG="$STG/logs/bridge.log"
 PIDFILE="$STG/run/bridge.pid"
@@ -26,8 +28,8 @@ echo $$ > "$PIDFILE"
 ts() { date '+%Y-%m-%d %H:%M:%S'; }
 
 while true; do
-    if [[ -f "$TRIGGER" ]]; then
-        rm -f "$TRIGGER"
+    if [[ -f "$TRIGGER" || -f "$TRIGGER_SDCARD" ]]; then
+        rm -f "$TRIGGER" "$TRIGGER_SDCARD"
         mkdir -p "$STG/logs" 2>/dev/null   # self-heal if the dir was deleted
         echo "$(ts) [bridge] trigger seen" >> "$LOG"
         if [[ -x "$REPAIR" ]]; then

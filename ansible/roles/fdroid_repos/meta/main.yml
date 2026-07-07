@@ -1,17 +1,15 @@
 ---
 galaxy_info:
   author: stayturgid
-  description: Manage F-Droid repositories on device via fdroidcl and ensure Neo Store client (with Shizuku + auto-updates per project rules)
+  description: >-
+    Manage F-Droid repos via fdroidcl and push them to an on-device Neo Store
+    client (Shizuku grant). Neo Store install comes from the obtainium_apps role.
   license: GPL-3.0
   min_ansible_version: "2.9"
   platforms:
     - name: GenericLinux
       versions:
         - all
-dependencies:
-  # The obtainium_apps role is the way to get Neo Store installed.
-  # In fleet runs it will be included separately; here we can soft-include or document.
-  # - role: obtainium_apps
-  #   when: stayturgid_ensure_neo_store
-  # (kept commented to avoid double-run; call order in fleet.yml controls it)
-  []
+# obtainium_apps installs Neo Store; call it before this role in the play
+# rather than as a hard dependency (avoids a double run in fleet.yml).
+dependencies: []

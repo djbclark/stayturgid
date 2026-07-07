@@ -4,7 +4,6 @@ var log = require("./log.js");
 var TERMUX_PKG = "com.termux";
 var RUN_SERVICE = "com.termux.app.RunCommandService";
 var RUN_ACTION = "com.termux.RUN_COMMAND";
-var TRIGGER_FILE = config.SD_ROOT + "/run/repair_now";
 
 /**
  * Invoke stayturgid-repair.sh in Termux.
@@ -13,7 +12,10 @@ var TRIGGER_FILE = config.SD_ROOT + "/run/repair_now";
  * com.termux.permission.RUN_COMMAND granted + allow-external-apps=true).
  * Fallback: touch <sd>/run/repair_now for repair-bridge.sh (2s poll).
  */
-function invokeRepair() {
+function invokeRepair(profile) {
+    profile = profile || config.detectDeviceProfile();
+    var paths = config.pathsFor(profile);
+    var triggerFile = paths.triggerFile;
     var beforeMs = log.latestRepairTimestampMs() || 0;
     var runCommand = tryRunCommand();
     var start = Date.now();
@@ -21,7 +23,7 @@ function invokeRepair() {
 
     // Immediate trigger only when RUN_COMMAND could not start at all.
     if (!runCommand.started) {
-        tryTriggerFile();
+        tryTriggerFile(triggerFile);
         triggerArmed = true;
     }
 
@@ -30,7 +32,7 @@ function invokeRepair() {
         sleep(500);
         // Delayed backup trigger if RUN_COMMAND started but no fresh STATUS yet.
         if (!triggerArmed && runCommand.started && (Date.now() - start) > 5000) {
-            tryTriggerFile();
+            tryTriggerFile(triggerFile);
             triggerArmed = true;
         }
         var afterMs = log.latestRepairTimestampMs();
@@ -46,7 +48,7 @@ function invokeRepair() {
     }
 
     if (!triggerArmed) {
-        tryTriggerFile();
+        tryTriggerFile(triggerFile);
     }
 
     log.append("[watchdog] termux bridge timeout method="
@@ -73,10 +75,10 @@ function tryRunCommand() {
     }
 }
 
-function tryTriggerFile() {
+function tryTriggerFile(triggerFile) {
     try {
-        files.ensureDir(TRIGGER_FILE);   // self-heal if run/ was deleted
-        files.write(TRIGGER_FILE, String(Date.now()));
+        files.ensureDir(triggerFile);   // self-heal if run/ was deleted
+        files.write(triggerFile, String(Date.now()));
     } catch (e) {
         log.append("[watchdog] trigger file write failed: " + e);
     }
@@ -90,5 +92,4 @@ function bridgeFailed(invokeResult) {
 module.exports = {
     invokeRepair: invokeRepair,
     bridgeFailed: bridgeFailed,
-    TRIGGER_FILE: TRIGGER_FILE,
 };

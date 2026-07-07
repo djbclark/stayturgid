@@ -13,7 +13,8 @@ export LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib
 # shared-storage state. mkdir -p so a user-deleted stayturgid dir self-heals.
 STG="$HOME/.stayturgid"
 BIN="$STG/bin"
-SD=/sdcard/stayturgid
+[ -f "$STG/env" ] && . "$STG/env"
+SD="${STAYTURGID_SD:-/sdcard/stayturgid}"
 mkdir -p "$STG/logs" "$STG/run" "$STG/state" "$SD/logs" "$SD/run" "$SD/state" 2>/dev/null
 
 # Hold a wakelock so Doze can't freeze Termux (and with it sshd + the

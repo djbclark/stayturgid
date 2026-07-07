@@ -4,8 +4,13 @@
 
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
 export HOME=/data/data/com.termux/files/home
+[ -f "$HOME/.stayturgid/env" ] && . "$HOME/.stayturgid/env"
 
-BOOT_SCRIPT="${STAYTURGID_SD:-/sdcard/stayturgid}/autojs6/scripts/boot-launcher.js"
+if [[ -f /sdcard/stayturgid/autojs6/scripts/boot-launcher.js ]]; then
+    BOOT_SCRIPT=/sdcard/stayturgid/autojs6/scripts/boot-launcher.js
+else
+    BOOT_SCRIPT="${STAYTURGID_SD:-/sdcard/stayturgid}/autojs6/scripts/boot-launcher.js"
+fi
 AUTOJS_PKG=org.autojs.autojs6
 AUTOJS_RUN=org.autojs.autojs.external.open.RunIntentActivity
 

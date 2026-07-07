@@ -107,6 +107,25 @@ def test_evaluate_watchdog_liveness():
         assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "fail"
 
 
+def test_evaluate_fire_split_storage_todos():
+    # Fire OS: no localhost:5555 loopback; Termux can't confirm watchdog/appops.
+    # When the Mac-side adb probe hasn't upgraded the report, both are TODO.
+    fire_missing = (
+        HEALTHY.replace("watchdog=fresh", "watchdog=missing")
+        .replace("writesettings=allow", "writesettings=MISSING")
+        + "localhost_shell=skip\n"
+    )
+    k = kinds(dt.evaluate("hd8", dt.parse_report(fire_missing)))
+    assert k["hd8: AutoJs6 watchdog alive (<30 min)"] == "todo"
+    assert k["hd8: Termux:API WRITE_SETTINGS granted (battery flash)"] == "todo"
+
+    # When the Mac adb probe upgraded them to fresh/allow, they pass as ok.
+    fire_ok = HEALTHY + "localhost_shell=skip\n"
+    k2 = kinds(dt.evaluate("hd8", dt.parse_report(fire_ok)))
+    assert k2["hd8: AutoJs6 watchdog alive (<30 min)"] == "ok"
+    assert k2["hd8: Termux:API WRITE_SETTINGS granted (battery flash)"] == "ok"
+
+
 def test_file_md5_matches_hashlib(tmp_path):
     import hashlib
     f = tmp_path / "x"

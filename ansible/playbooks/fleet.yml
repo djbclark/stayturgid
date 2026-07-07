@@ -14,12 +14,7 @@
     - role: termux_userland
     - role: autojs6_watchdog
     - role: obtainium_apps
-    # fdroid_repos side project (F-Droid / Neo Store support)
-    # - role: fdroid_repos
-    #   vars:
-    #     target_device: "{{ inventory_hostname }}"
-    #   # Defaults ensure IzzyOnDroid, Guardian etc. + Neo Store client setup with Shizuku.
-    #   # Run after obtainium_apps. fdroidcl on control.
+    # fdroid_repos side project — use ./mac/deploy-fdroid.sh (not fleet.yml)
     # play_store side project (Aurora Store for Play)
     # - role: play_store
     #   vars:

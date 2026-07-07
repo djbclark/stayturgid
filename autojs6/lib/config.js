@@ -11,14 +11,49 @@
 // call below so a user-deleted directory self-heals before we read/write.
 var SD_ROOT = "/sdcard/stayturgid";
 var TERMUX_HOME = "/data/data/com.termux/files/home";
+var ENV_FILE = TERMUX_HOME + "/.stayturgid/env";
 var DEVICE_JSON = SD_ROOT + "/state/device.json";
 var WATCHDOG_LOG = SD_ROOT + "/logs/watchdog.log";
 var REPAIR_SCRIPT = TERMUX_HOME + "/.stayturgid/bin/stayturgid-repair.sh";
 
+/** Resolve shared-storage root (Fire OS uses ~/.stayturgid/shared). */
+function resolveSdRoot() {
+    try {
+        if (files.exists(ENV_FILE)) {
+            var m = String(files.read(ENV_FILE)).match(/STAYTURGID_SD="([^"]+)"/);
+            if (m && m[1]) return m[1];
+        }
+    } catch (e) { /* best effort */ }
+    return SD_ROOT;
+}
+
+function pathsFor(profile) {
+    var termuxRoot = (profile && profile.sdRoot) ? profile.sdRoot : resolveSdRoot();
+    var root = termuxRoot;
+    // AutoJs6 cannot write Termux-private paths (Fire OS shared-storage workaround).
+    if (root.indexOf(TERMUX_HOME) === 0) {
+        root = SD_ROOT;
+    }
+    return {
+        sdRoot: root,
+        termuxSdRoot: termuxRoot,
+        deviceJson: root + "/state/device.json",
+        watchdogLog: root + "/logs/watchdog.log",
+        triggerFile: root + "/run/repair_now",
+    };
+}
+
+/** Fire OS: Termux state/logs live under private home; AutoJs6 uses /sdcard only. */
+function splitStorage(profile) {
+    var root = (profile && profile.sdRoot) ? profile.sdRoot : resolveSdRoot();
+    return root.indexOf(TERMUX_HOME) === 0;
+}
+
 /** mkdir -p the shared-storage subdirs the watchdog writes (self-healing). */
-function ensureDirs() {
+function ensureDirs(profile) {
+    var root = pathsFor(profile || {}).sdRoot;
     ["state", "logs", "run", "tmp"].forEach(function (d) {
-        try { files.ensureDir(SD_ROOT + "/" + d + "/"); } catch (e) { /* best effort */ }
+        try { files.ensureDir(root + "/" + d + "/"); } catch (e) { /* best effort */ }
     });
 }
 
@@ -36,6 +71,7 @@ var PROFILE_DEFAULTS = {
     shizukuActivity: "moe.shizuku.manager.MainActivity",
     shizukuStartCoords: null,
     tailscaleIp: null,
+    tailscaleEnabled: true,
     tailscalePackage: "com.tailscale.ipn",
     tailscaleActivity: "com.tailscale.ipn.MainActivity",
     wirelessDebugUiFallback: false,
@@ -43,26 +79,39 @@ var PROFILE_DEFAULTS = {
 
 function detectDeviceProfile() {
     var profile = {};
-    try {
-        if (files.exists(DEVICE_JSON)) {
-            profile = JSON.parse(String(files.read(DEVICE_JSON))) || {};
+    var candidates = [
+        "/sdcard/stayturgid/state/device.json",
+        DEVICE_JSON,
+        TERMUX_HOME + "/.stayturgid/shared/state/device.json",
+    ];
+    for (var i = 0; i < candidates.length; i++) {
+        try {
+            if (files.exists(candidates[i])) {
+                profile = JSON.parse(String(files.read(candidates[i]))) || {};
+                break;
+            }
+        } catch (e) {
+            console.warn("[stayturgid] unreadable " + candidates[i] + ": " + e);
         }
-    } catch (e) {
-        console.warn("[stayturgid] unreadable " + DEVICE_JSON + ": " + e);
-        profile = {};
     }
     if (!profile.id) {
-        console.warn("[stayturgid] no device profile at " + DEVICE_JSON
-            + " — run the Ansible fleet deploy; using generic defaults");
+        console.warn("[stayturgid] no device profile — run Ansible fleet deploy; using generic defaults");
     }
     var merged = {};
     for (var k in PROFILE_DEFAULTS) {
         merged[k] = (profile[k] !== undefined && profile[k] !== null)
             ? profile[k] : PROFILE_DEFAULTS[k];
     }
+    if (profile.sdRoot) {
+        merged.sdRoot = profile.sdRoot;
+    }
     // legacy field name kept for shizuku.js compatibility
     merged.samsungWirelessDebugFallback = merged.wirelessDebugUiFallback;
     return merged;
+}
+
+function sdRootFor(profile) {
+    return pathsFor(profile).sdRoot;
 }
 
 module.exports = {
@@ -78,4 +127,7 @@ module.exports = {
     PROFILE_DEFAULTS: PROFILE_DEFAULTS,
     ensureDirs: ensureDirs,
     detectDeviceProfile: detectDeviceProfile,
+    pathsFor: pathsFor,
+    resolveSdRoot: resolveSdRoot,
+    splitStorage: splitStorage,
 };

@@ -5,26 +5,47 @@
 # See obtainium for ensuring Aurora via catalog (we added it).
 # fdroidcl equivalent is gplaycli (installed via pip, may need auth setup).
 
+- name: Resolve fleet alias to adb target (USB serial preferred)
+  ansible.builtin.command:
+    argv:
+      - python3
+      - -c
+      - |
+        import os, sys
+        repo = os.path.abspath("{{ role_path }}/../../..")
+        sys.path.insert(0, os.path.join(repo, "shared", "mac"))
+        import stayturgid_device as dev
+        print(dev.resolve_adb(sys.argv[1]))
+      - "{{ target_device | default('localhost:5555') }}"
+  delegate_to: localhost
+  register: _play_adb_resolved
+  changed_when: false
+
 - name: Set target device fact
   ansible.builtin.set_fact:
-    _play_target_device: "{{ target_device | default('localhost:5555') }}"
+    _play_target_device: "{{ _play_adb_resolved.stdout | trim }}"
 
 - name: Note on Play side (no direct repo like F-Droid)
   ansible.builtin.debug:
     msg: |
-      Google Play is not open like F-Droid. Use Aurora Store as GUI (ensured via Obtainium catalog).
-      For automation, gplaycli can download APKs (requires setup), then adb install with -i com.android.vending to spoof Play.
-      Run obtainium_apps role to get Aurora Store.
-      This role ensures the client setup with Shizuku.
+      Google Play is not open like F-Droid. Use Aurora Store as GUI
+      (ensured via the Obtainium catalog; run obtainium_apps first).
+      For automation, gplaycli can download APKs (needs auth setup), then
+      adb install with -i com.android.vending to spoof Play.
+      This role grants Shizuku to the Aurora Store client.
 
 - name: Grant Shizuku to Aurora Store
-  when: stayturgid_ensure_aurora_store
+  when: stayturgid_ensure_aurora_store | bool
   ansible.builtin.command:
-    cmd: |
-      python3 "{{ (role_path ~ '/../../../fdroid/mac/grant_neo_store_shizuku.py') | realpath }}" "{{ _play_target_device }}" "{{ aurora_store_package }}" || echo "Grant completed (or device not ready)"
+    argv:
+      - python3
+      - "{{ (role_path ~ '/../../../fdroid/mac/grant_neo_store_shizuku.py') | realpath }}"
+      - "{{ _play_target_device }}"
+      - "{{ aurora_store_package }}"
   delegate_to: localhost
-  changed_when: false
-  ignore_errors: true
+  register: aurora_grant
+  changed_when: "'RESULT: CHANGED' in aurora_grant.stdout"
+  failed_when: false
 
 - name: Note on background updates for Aurora
   ansible.builtin.debug:

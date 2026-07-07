@@ -15,8 +15,10 @@ function append(line) {
     var msg = ts() + " " + line;
     console.log(msg);
     try {
-        files.ensureDir(config.WATCHDOG_LOG);   // self-heal if logs/ was deleted
-        files.append(config.WATCHDOG_LOG, msg + "\n");
+        var profile = config.detectDeviceProfile();
+        var logPath = config.pathsFor(profile).watchdogLog;
+        files.ensureDir(logPath);   // self-heal if logs/ was deleted
+        files.append(logPath, msg + "\n");
     } catch (e) {
         console.error("log append failed: " + e);
     }
@@ -24,9 +26,11 @@ function append(line) {
 }
 
 function readWatchdogLog() {
-    if (!files.exists(config.WATCHDOG_LOG)) return "";
+    var profile = config.detectDeviceProfile();
+    var logPath = config.pathsFor(profile).watchdogLog;
+    if (!files.exists(logPath)) return "";
     try {
-        return String(files.read(config.WATCHDOG_LOG));
+        return String(files.read(logPath));
     } catch (e) {
         return "";
     }

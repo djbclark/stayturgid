@@ -5,16 +5,14 @@
 # situations.
 # Device profile is DATA generated from the inventory taxonomy — the code
 # contains no device-specific names or coordinates.
-- name: Ensure shared-storage state dir for the device profile
-  ansible.builtin.file:
-    path: /sdcard/stayturgid/state
-    state: directory
-    mode: "0755"
+- name: Ensure shared-storage state dir for the device profile  # noqa: command-instead-of-shell
+  ansible.builtin.shell: mkdir -p {{ stayturgid_sd_root }}/state
+  changed_when: false
 
 - name: Render device profile from inventory layers
   ansible.builtin.template:
     src: device.json.j2
-    dest: /sdcard/stayturgid/state/device.json
+    dest: "{{ stayturgid_sd_root }}/state/device.json"
   notify: nudge autojs6 watchdog
 
 - name: Deploy AutoJs6 project files
@@ -27,6 +25,33 @@
     - lib
     - scripts
   notify: nudge autojs6 watchdog
+  when: not (stayturgid_autojs6_deploy_via_adb | default(false))
+
+- name: Note AutoJs6 deploy via Mac adb (Fire OS SSH cannot write sdcard)
+  ansible.builtin.debug:
+    msg: >-
+      Skipping SSH deploy of AutoJs6 to {{ autojs6_target }} —
+      run ./autojs6/mac/deploy.sh {{ inventory_hostname }} over USB/adb.
+  when: stayturgid_autojs6_deploy_via_adb | default(false)
+
+- name: Stage device profile for adb push (Fire OS)
+  ansible.builtin.template:
+    src: device.json.j2
+    dest: "/tmp/stayturgid-{{ inventory_hostname }}-device.json"
+  delegate_to: localhost
+  when: stayturgid_autojs6_deploy_via_adb | default(false)
+
+- name: Mirror device profile to AutoJs6-readable sdcard path (Fire OS)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    src="/tmp/stayturgid-{{ inventory_hostname }}-device.json"
+    dst="/sdcard/stayturgid/state/device.json"
+    adb -s "{{ device_usb_serial }}" shell mkdir -p /sdcard/stayturgid/state
+    adb -s "{{ device_usb_serial }}" push "$src" "$dst"
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  when: stayturgid_autojs6_deploy_via_adb | default(false)
 
 # Launch via the localhost:5555 privileged shell (uid 2000): Samsung One UI
 # rejects `am start` from the Termux app uid with a SecurityException
@@ -43,3 +68,4 @@
   args:
     executable: "{{ termux_prefix }}/bin/bash"
   changed_when: false
+  failed_when: false

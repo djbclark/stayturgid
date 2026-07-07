@@ -14,3 +14,9 @@ tailscale_activity: com.tailscale.ipn.MainActivity
 stayturgid_shizuku_start_coords: null
 # Whether enabling wireless debugging needs the Settings-UI toggle fallback.
 stayturgid_wireless_debug_ui_fallback: false
+# Shared-storage root for logs/state/autojs6. Default Android path; Fire OS
+# overrides in vendor_amazon.yml (Termux cannot write /sdcard without broken perms).
+stayturgid_sd_root: /sdcard/stayturgid
+# Tailscale health checks in AutoJs6 watchdog only when ansible_host is a tailnet IP.
+stayturgid_tailscale_enabled: "{{ ansible_host is match('^100\\.') }}"
+stayturgid_tailscale_ip: "{{ ansible_host if ansible_host is match('^100\\.') else none }}"

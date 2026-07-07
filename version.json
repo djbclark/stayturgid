@@ -1,4 +1,4 @@
 {
-  "version": "2.3",
-  "changelog": "Harden AutoJs6 watchdog startup: wrap the whole startup path in try/catch and always establish the 20-min interval so a boot-cycle error can't kill the loop; guard.enforce() degrades (logs + proceeds) instead of auto.waitFor()-blocking when accessibility won't attach. Add device-tier watchdog-liveness check. Compact HANDOFF.md (1097->~230 lines, all durable facts kept) + freshen HACKING.md paths to the single-root layout."
+  "version": "2.4",
+  "changelog": "Fleet recovery: s24/p7a AutoJs6 pm-clear reset, make verify green. Add hd8 (Kindle Fire HD 8) to inventory with Fire OS support — stayturgid_sd_root override, STAYTURGID_SD env, dual-path device-tier, adb-push AutoJs6 deploy. Termux scripts source ~/.stayturgid/env; config.js resolves sdRoot from device.json + env."
 }

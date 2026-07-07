@@ -1,0 +1,18 @@
+---
+# F-Droid / Neo Store side-project deploy (optional — not part of fleet.yml).
+#
+# Prerequisite: Neo Store installed on device (run obtainium_apps + import catalog).
+# Control machine: brew install fdroidcl
+#
+# Usage (from repo root):
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fdroid.yml
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fdroid.yml --limit s24
+#
+# Or: ./mac/deploy-fdroid.sh [host ...]
+- name: stayturgid fdroid repos (Neo Store + fdroidcl)
+  hosts: stayturgid
+  gather_facts: false
+  roles:
+    - role: fdroid_repos
+      vars:
+        target_device: "{{ inventory_hostname }}"

@@ -11,8 +11,15 @@ var guard = require("./lib/guard.js");
 var watchdog = require("./lib/watchdog.js");
 var log = require("./lib/log.js");
 
+var profile;
 try {
-    config.ensureDirs();   // create /sdcard/stayturgid/{state,logs,run,tmp} (self-heal)
+    profile = config.detectDeviceProfile();
+} catch (e) {
+    profile = {};
+}
+
+try {
+    config.ensureDirs(profile);   // create shared dirs (self-heal)
 } catch (e) { /* best effort — cycles mkdir on demand too */ }
 
 // Keep script process alive under Doze (AutoJs6 6.6+)
@@ -24,18 +31,7 @@ try {
     log.append("[watchdog] timers.keepAlive unavailable: " + e);
 }
 
-var profile;
-try {
-    profile = config.detectDeviceProfile();
-} catch (e) {
-    profile = {};
-    log.append("[watchdog] profile detect failed: " + e);
-}
-
-// Run one guarded cycle. NOTHING here may throw uncaught: an uncaught error in
-// startup used to kill main.js before the interval loop was ever set up (no
-// periodic cycles at all + an AutoJs6 error toast) — the cause of a stalled
-// watchdog. guard.enforce degrades instead of blocking; this catches the rest.
+// Run one guarded cycle.
 function safeCycle(trigger) {
     try {
         guard.enforce();

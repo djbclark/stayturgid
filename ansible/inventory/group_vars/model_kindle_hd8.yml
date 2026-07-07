@@ -1,0 +1,4 @@
+---
+# Kindle Fire HD 8 (KFRASWI / raspite), 800x1280. Shizuku Start tap when
+# text search fails — approximate wireless-debug section.
+stayturgid_shizuku_start_coords: { x: 400, y: 1100 }

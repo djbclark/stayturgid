@@ -19,6 +19,7 @@ import hashlib
 import os
 import subprocess
 import sys
+from datetime import datetime
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEVICES_CONF = os.environ.get(
@@ -45,6 +46,10 @@ TRACKED_SCRIPTS = {
 REMOTE_GATHER = r"""
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
 export TMPDIR=/data/data/com.termux/files/usr/tmp
+[ -f ~/.stayturgid/env ] && . ~/.stayturgid/env
+SD="${STAYTURGID_SD:-/sdcard/stayturgid}"
+FIRE=0
+case "$SD" in *termux/files/home*) FIRE=1; echo "localhost_shell=skip" ;; esac
 echo "ssh=ok"
 pgrep -x sshd >/dev/null 2>&1 && echo "sshd=ok" || echo "sshd=down"
 pgrep -f 'start-adb\.sh' >/dev/null 2>&1 && echo "bootloop=ok" || echo "bootloop=down"
@@ -54,10 +59,14 @@ if [ -n "$pid" ] && [ -d "/proc/$pid" ] && grep -q repair-bridge "/proc/$pid/cmd
 else
     echo "bridge=down"
 fi
-adb connect localhost:5555 >/dev/null 2>&1 </dev/null
-uid=$(adb -s localhost:5555 shell id -u 2>/dev/null </dev/null | tr -d "\r")
-[ "$uid" = "2000" ] && echo "shell5555=ok" || echo "shell5555=down"
-last=$(grep "\[repair\]" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
+if [ "$FIRE" = 1 ]; then
+    echo "shell5555=down"
+else
+    adb connect localhost:5555 >/dev/null 2>&1 </dev/null
+    uid=$(adb -s localhost:5555 shell id -u 2>/dev/null </dev/null | tr -d "\r")
+    [ "$uid" = "2000" ] && echo "shell5555=ok" || echo "shell5555=down"
+fi
+last=$(grep -h "\[repair\]" "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
 if [ -n "$last" ]; then
     age=$(( $(date +%s) - $(date -d "$last" +%s 2>/dev/null || echo 0) ))
     [ "$age" -ge 0 ] && [ "$age" -lt 2700 ] && echo "repairlog=fresh" || echo "repairlog=stale"
@@ -67,7 +76,7 @@ fi
 # AutoJs6 secondary watchdog liveness: it writes a [watchdog] line every ~20
 # min (INTERVAL_MS). A gap > ~30 min means the engine stalled (Doze, a11y
 # block, crash) — the layer we can't see from the repair log alone.
-wlast=$(grep "\[watchdog\]" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
+wlast=$(grep -h "\[watchdog\]" "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
 if [ -n "$wlast" ]; then
     wage=$(( $(date +%s) - $(date -d "$wlast" +%s 2>/dev/null || echo 0) ))
     [ "$wage" -ge 0 ] && [ "$wage" -lt 1800 ] && echo "watchdog=fresh" || echo "watchdog=stale:${wage}s"
@@ -76,16 +85,28 @@ else
 fi
 batt=$(termux-battery-status 2>/dev/null | grep -o '"percentage": *[0-9]*' | grep -o '[0-9]*' || true)
 [ -n "$batt" ] && echo "battery=${batt}" || echo "battery=unknown"
-tn=$(adb -s localhost:5555 shell "dumpsys notification --noredact" </dev/null 2>/dev/null \
-    | grep -cE 'pkg=net\.dinglisch\.android\.taskerm.*(Watchdog bridge|stayturgid)')
-tf=$(adb -s localhost:5555 shell "grep -rl -iE 'ADB_Core_Watchdog|ADB_Interval_Check|Watchdog bridge' /sdcard/Tasker/projects /sdcard/Tasker/tasks /sdcard/Tasker/profiles /sdcard/Tasker/Updates 2>/dev/null" </dev/null 2>/dev/null | grep -cv "/configs/")
-echo "taskerlegacy=notif:${tn:-0},files:${tf:-0}"
+if [ "$FIRE" = 1 ]; then
+    echo "taskerlegacy=notif:0,files:0"
+else
+    tn=$(adb -s localhost:5555 shell "dumpsys notification --noredact" </dev/null 2>/dev/null \
+        | grep -cE 'pkg=net\.dinglisch\.android\.taskerm.*(Watchdog bridge|stayturgid)')
+    tf=$(adb -s localhost:5555 shell "grep -rl -iE 'ADB_Core_Watchdog|ADB_Interval_Check|Watchdog bridge' /sdcard/Tasker/projects /sdcard/Tasker/tasks /sdcard/Tasker/profiles /sdcard/Tasker/Updates 2>/dev/null" </dev/null 2>/dev/null | grep -cv "/configs/")
+    echo "taskerlegacy=notif:${tn:-0},files:${tf:-0}"
+fi
 grep -qF 'packages-cf.termux.dev' "$PREFIX/etc/apt/sources.list" 2>/dev/null \
     && echo "mirror=pinned" || echo "mirror=UNPINNED"
 grep -q '^PerSourcePenalties no' "$PREFIX/etc/ssh/sshd_config" 2>/dev/null \
     && echo "penalties=off" || echo "penalties=ON"
-adb -s localhost:5555 shell cmd appops get com.termux.api WRITE_SETTINGS </dev/null 2>/dev/null \
-    | tr -d '\r' | grep -q allow && echo "writesettings=allow" || echo "writesettings=MISSING"
+case "$SD" in
+  *termux/files/home*)
+    cmd appops get com.termux.api WRITE_SETTINGS </dev/null 2>/dev/null \
+      | tr -d '\r' | grep -q allow && echo "writesettings=allow" || echo "writesettings=MISSING"
+    ;;
+  *)
+    adb -s localhost:5555 shell cmd appops get com.termux.api WRITE_SETTINGS </dev/null 2>/dev/null \
+      | tr -d '\r' | grep -q allow && echo "writesettings=allow" || echo "writesettings=MISSING"
+    ;;
+esac
 for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh stayturgid_check_repo_version.py stayturgid_screen_awake_guard.py stayturgid_agent_presence.py stayturgid_battery_alarm.py stayturgid_repair.py; do
     printf 'md5 %s %s\n' "$f" "$(md5sum "$HOME/.stayturgid/bin/$f" 2>/dev/null | cut -d' ' -f1)"
 done
@@ -167,10 +188,16 @@ def evaluate(host, report, repo_dir=REPO):
     simple = {
         "sshd": ("sshd running", "ok"),
         "bootloop": ("Termux boot loop running", "ok"),
-        "shell5555": ("privileged shell on localhost:5555", "ok"),
     }
     for key, (label, good) in simple.items():
         (ok if report.get(key) == good else fail)("%s: %s" % (host, label))
+
+    if report.get("localhost_shell") == "skip":
+        todo("%s: privileged shell on localhost:5555" % host,
+             "Fire OS — Mac adb only; Termux loopback unsupported")
+    else:
+        (ok if report.get("shell5555") == "ok" else fail)(
+            "%s: privileged shell on localhost:5555" % host)
 
     # bridge: TODO (not a hard fail — may lag a redeploy/reboot)
     if report.get("bridge") == "ok":
@@ -184,7 +211,13 @@ def evaluate(host, report, repo_dir=REPO):
 
     # AutoJs6 secondary watchdog liveness (writes every ~20 min).
     wd = report.get("watchdog", "")
-    if wd == "fresh":
+    if report.get("localhost_shell") == "skip":
+        if wd == "fresh":
+            ok("%s: AutoJs6 watchdog alive (<30 min)" % host)
+        else:
+            todo("%s: AutoJs6 watchdog alive (<30 min)" % host,
+                 "Fire OS — confirm via Mac adb when USB connected")
+    elif wd == "fresh":
         ok("%s: AutoJs6 watchdog alive (<30 min)" % host)
     else:
         fail("%s: AutoJs6 watchdog alive (<30 min)" % host,
@@ -207,8 +240,15 @@ def evaluate(host, report, repo_dir=REPO):
         "%s: Termux mirror pinned (deterministic pkg update)" % host)
     (ok if report.get("penalties") == "off" else fail)(
         "%s: sshd per-source penalties disabled" % host)
-    (ok if report.get("writesettings") == "allow" else fail)(
-        "%s: Termux:API WRITE_SETTINGS granted (battery flash)" % host)
+    if report.get("localhost_shell") == "skip":
+        if report.get("writesettings") == "allow":
+            ok("%s: Termux:API WRITE_SETTINGS granted (battery flash)" % host)
+        else:
+            todo("%s: Termux:API WRITE_SETTINGS granted (battery flash)" % host,
+                 "Fire OS — confirm via Mac adb when USB connected")
+    else:
+        (ok if report.get("writesettings") == "allow" else fail)(
+            "%s: Termux:API WRITE_SETTINGS granted (battery flash)" % host)
 
     # Deployment drift (informational TODO, not a failure)
     md5s = report.get("md5", {})
@@ -284,6 +324,31 @@ class Tap:
         return self.failed == 0
 
 
+def writesettings_via_adb(serial):
+    """Mac-side WRITE_SETTINGS check (Fire: Termux cannot query appops)."""
+    p = run_adb(["-s", serial, "shell",
+                 "cmd appops get com.termux.api WRITE_SETTINGS </dev/null 2>/dev/null"])
+    return bool(p and p.returncode == 0 and "allow" in p.stdout)
+
+
+def watchdog_fresh_via_adb(serial, max_age_s=1800):
+    """Mac-side [watchdog] liveness (Fire OS: Termux cannot read /sdcard logs)."""
+    p = run_adb(["-s", serial, "shell",
+                 "grep '\\[watchdog\\]' /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1"])
+    if not p or p.returncode != 0 or not p.stdout.strip():
+        return False
+    line = p.stdout.strip().splitlines()[-1]
+    parts = line.split()
+    if len(parts) < 2:
+        return False
+    try:
+        ts = datetime.strptime("%s %s" % (parts[0], parts[1]), "%Y-%m-%d %H:%M:%S")
+        age = (datetime.now() - ts).total_seconds()
+        return 0 <= age < max_age_s
+    except ValueError:
+        return False
+
+
 def check_host(host, tap, heal=False, ansible_check=False):
     report_text = ssh_gather(host, REMOTE_GATHER)
     report = parse_report(report_text)
@@ -292,10 +357,7 @@ def check_host(host, tap, heal=False, ansible_check=False):
         return
     tap.emit({"kind": "ok", "desc": "%s: SSH reachable" % host})
 
-    for res in evaluate(host, report):
-        tap.emit(res)
-
-    # Mac->device adb path (the Mac's own route, distinct from on-device 5555)
+    # Fire OS: Termux cannot read /sdcard; confirm watchdog via Mac adb when USB is up.
     row = device_row(host, DEVICES_CONF)
     serial = ""
     if row:
@@ -305,6 +367,18 @@ def check_host(host, tap, heal=False, ansible_check=False):
         serial = usb if connected else "%s:5555" % ts
         if ":" in serial:
             run_adb(["connect", serial])
+    if report.get("localhost_shell") == "skip" and serial:
+        if run_adb(["-s", serial, "shell", "true"]) and \
+                run_adb(["-s", serial, "shell", "true"]).returncode == 0:
+            if watchdog_fresh_via_adb(serial):
+                report["watchdog"] = "fresh"
+            if writesettings_via_adb(serial):
+                report["writesettings"] = "allow"
+
+    for res in evaluate(host, report):
+        tap.emit(res)
+
+    # Mac->device adb path (the Mac's own route, distinct from on-device 5555)
     if serial and run_adb(["-s", serial, "shell", "true"]) and \
             run_adb(["-s", serial, "shell", "true"]).returncode == 0:
         tap.emit({"kind": "ok", "desc": "%s: Mac adb path reachable (%s)" % (host, serial)})

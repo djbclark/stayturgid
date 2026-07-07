@@ -3,14 +3,12 @@
 This complements the Obtainium/GitHub path with first-class support for F-Droid repositories and the recommended GUI client (Neo Store).
 
 ## What was added / status
-- fdroidcl installed on Mac via `brew install fdroidcl` (v0.8.1).
-- Neo Store (`com.machiav3lli.fdroid`) entry in the Obtainium catalog.
-- New role `ansible/roles/fdroid_repos` + module `.../fdroid_repos.py` (uses fdroidcl for repo management in local fdroidcl config; device detection for Neo Store).
-- Role supports `target_device` (alias/IP/serial), defaults to ensuring IzzyOnDroid + other F-Droid repos.
-- Grant helper `fdroid/mac/grant_neo_store_shizuku.py` for Shizuku auth (reuses project shared code).
-- Per review requirement: ensures/configures Neo Store for Shizuku + background updates.
-- Tested defensively on p7a and s24 (role runs, grants, fdroidcl downloads + targeted adb installs/uninstalls of small apps from managed repos). All cleaned up with announcements.
-- fdroidcl repo management is desktop-side (for installs via fdroidcl); on-device Neo Store GUI is set up separately via grant + user/app settings for auto-updates.
+- `fdroidcl` on Mac (`brew install fdroidcl`).
+- Neo Store + Aurora Store in Obtainium catalog.
+- `stayturgid.fleet.fdroid_repos` module (fdroidcl repo add/enable; unit-tested).
+- `ansible/roles/fdroid_repos` (module + on-device `fdroidrepos://` push + Shizuku grant).
+- `fdroid/mac/grant_neo_store_shizuku.py` uses `PrivShell` (privileged adb).
+- **Not wired into fleet.yml** — side project; run role manually when needed.
 
 ## How to use
 In your fleet or a play (after obtainium_apps role):

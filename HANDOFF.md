@@ -43,11 +43,11 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 - **Device-tier watchdog liveness check** — fresh `[watchdog]` line < 30 min (s24/p7a passing).
 - **hd8 (Kindle Fire HD 8) onboarded** — GitHub-debug Termux stack, thedjchi Shizuku v13.7, AutoJs6 6.7.0, Ansible inventory + `ssh hd8` alias. Fire OS uses `~/.stayturgid/shared` for Termux state/logs (cannot write `/sdcard` from Termux); AutoJs6 project + logs stay on `/sdcard/stayturgid/` (deployed via Mac `adb push`).
 
-**⚠ hd8 Fire OS caveats (expected, device-tier TODOs not failures):**
-- **No Termux→localhost:5555 loopback** — privileged repair from Termux cannot use `adb connect localhost:5555` (devices show `offline`). Mac `adb connect <lan>:5555` works. Shizuku TCP mode enabled; port 5555 open from Mac.
-- **AutoJs6 RUN_COMMAND bridge flaky** — watchdog cycles log `BRIDGE_FAIL`; repair-bridge pidfile fallback is deployed. Watchdog liveness verified manually via `adb shell grep '[watchdog]' /sdcard/stayturgid/logs/watchdog.log`.
-- **No Tailscale yet** — hd8 uses LAN IP only (`ansible_host: 192.168.68.69`). Add Tailscale when ready.
-- **Battery low (22%)** — keep hd8 charged during setup.
+**⚠ hd8 Fire OS caveats (expected TODOs when USB unplugged):**
+- **Split storage** — Termux under `~/.stayturgid/shared` (cannot read/write `/sdcard`); AutoJs6 under `/sdcard/stayturgid/`. Watchdog skips the Termux RUN_COMMAND bridge on split-storage devices (boot loop owns repair).
+- **No Termux→localhost:5555 loopback** — privileged repair from Termux cannot use `adb connect localhost:5555`. Mac USB/LAN adb works (`GN43T503430603PS` / `192.168.68.69:5555`).
+- **Tailscale installed (pending login)** — APK v1.98.8 sideloaded; VPN permission granted. **You:** finish Sign in on hd8, enable **Always-on VPN**, then set `ansible_host` in `hosts.yml` to the Tailscale IP and run `ansible-playbook ansible/playbooks/mac.yml` to refresh `devices.conf` / `~/.ssh/config`.
+- **Battery** — keep hd8 charged when off USB.
 
 **Deploy / test:**
 - Deploy: `./mac/deploy-fleet.sh`. Verify (read-only device tier): `make verify`.
@@ -91,7 +91,7 @@ Deployed scripts → `~/.stayturgid/bin`; AutoJs6 project → `/sdcard/stayturgi
 |-------|-------|
 | Device / Android | Amazon Kindle Fire HD 8 (KFRASWI) / 11 (API 30) |
 | USB serial | `GN43T503430603PS` |
-| Wireless ADB | `192.168.68.69:5555` (LAN; Mac `adb connect`); no Tailscale yet |
+| Wireless ADB | `192.168.68.69:5555` (LAN; Mac `adb connect`); Tailscale pending login (APK installed) |
 | SSH | `ssh hd8` (alias → LAN :8022, `u0_a310`, key auth); USB: `adb forward tcp:8022 tcp:8022` |
 | Termux | GitHub-debug `com.termux` 0.118.3 + api/boot (share-uid); **must** be debug build for `run-as` recovery |
 | AutoJs6 | `org.autojs.autojs6` v6.7.0 — project at `/sdcard/stayturgid/autojs6` |
@@ -273,7 +273,7 @@ version.json                 — repo release version + changelog
 
 ### Side project: fdroid_repos / play_store (F-Droid + Play support) — next actions (as of 2026-07-07 handoff)
 
-**Status:** Functional and tested defensively on p7a/s24. `fdroidcl` (brew) + Ansible role `fdroid_repos` manages repos locally in fdroidcl and pushes to on-device Neo Store via explicit component (no chooser, preference order Neo Store > Droid-ify > F-Droid). Generalized Shizuku grant helper. Setups support started. Aurora Store + Neo Store added to Obtainium catalog. `play_store` skeleton + gplaycli installed (needs auth work). All device work used proper announcements and was cleaned up.
+**Status:** Module + role reworked and verified (2026-07-07). `make test` green (56 pytest + 20 ansible-test). **s24 E2E:** role idempotent, `fdroidcl install com.bobek.metronome` verified then uninstalled. Deploy via `./mac/deploy-fdroid.sh [host]` (dedicated playbook — intentionally omitted from `fleet.yml` so normal deploys stay fast). Neo Store must be installed via Obtainium first.
 
 **Key files added/updated:**
 - `fdroid/README.md`, `ansible/roles/fdroid_repos/{README.md,defaults,tasks,meta}`
@@ -284,11 +284,11 @@ version.json                 — repo release version + changelog
 - HANDOFF + main README updated
 
 **Recommended next actions (prioritized, in rough order):**
-1. **Verify end-to-end on devices** (when free): run `fdroid_repos` role (target_device=p7a or s24), then `fdroidcl install <small-app-from-izzy>` (e.g. a metronome or flashlight), confirm on-device in Neo Store, test Shizuku/background updates work, uninstall. Same for s24. Update role if any signature/perm issues appear.
+1. ~~**Verify end-to-end on s24**~~ **Done** (2026-07-07). Optional repeat on **p7a** for parity.
 2. **Flesh out play_store role** symmetrically: add `stayturgid_play_apps` list, tasks using gplaycli (or fallback) to download + `adb install -i com.android.vending` (spoof Play as installer), grant for Aurora, explicit handling if Aurora has add-repo intents. Fix gplaycli (protobuf/pkg_resources issues seen; try venv or older protobuf).
 3. **Enhance fdroid_repos**: full support for `stayturgid_fdroid_setups` (create/apply in role + module); support removing repos; better fingerprint handling; optional "apply to device via fdroidcl" tasks.
 4. **On-device repo management polish**: if explicit intent + NeoActivity is flaky for adding repos to GUI, explore direct methods (e.g. content provider, AutoJs6 script to accept chooser, or file import into Neo Store's DB). Make preference logic also update system preferred activities if possible (without root).
-5. **Integration & docs**: uncomment/include roles in fleet.yml (gated by var); add example "base F-Droid apps" to obtainium catalog or a setup; expand HANDOFF/ HACKING with "F-Droid side project" section + exact fingerprints; add pytest/ansible-test coverage for the new modules/roles.
+5. **Integration & docs:** ~~uncomment in fleet.yml~~ **Done** — `ansible/playbooks/fdroid.yml` + `./mac/deploy-fdroid.sh`; fleet.yml points there. Expand HACKING with fingerprints if needed.
 6. **Aurora/Play catalog & client**: ensure Aurora settings for Shizuku + auto-updates; add common Play apps to catalog if desired; research whether Aurora supports fdroid-like repo import intents for "Play repos" (probably not, but document).
 7. **hd8 (Kindle) compatibility**: test roles on hd8 once main onboarding allows (Fire OS may need sd root tweaks similar to other paths).
 8. **Longer term**: decide if fdroidcl/gplaycli stay as external tools or get wrapped into custom collection modules (like termux_pkg/obtainium_app). Consider "unified app ensure" abstraction across Obtainium/F-Droid/Play.

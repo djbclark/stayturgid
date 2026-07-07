@@ -1,11 +1,13 @@
 {
   "id": {{ stayturgid_device_id | default(inventory_hostname) | to_json }},
   "label": {{ device_label | default(inventory_hostname) | to_json }},
+  "sdRoot": {{ stayturgid_sd_root | to_json }},
   "notifyTag": {{ "(%s)" | format(device_label | default(inventory_hostname)) | to_json }},
   "shizukuPackage": {{ shizuku_package | to_json }},
   "shizukuActivity": {{ shizuku_activity | to_json }},
   "shizukuStartCoords": {{ stayturgid_shizuku_start_coords | to_json }},
-  "tailscaleIp": {{ ansible_host | to_json }},
+  "tailscaleEnabled": {{ stayturgid_tailscale_enabled | to_json }},
+  "tailscaleIp": {{ stayturgid_tailscale_ip | to_json }},
   "tailscalePackage": {{ tailscale_package | to_json }},
   "tailscaleActivity": {{ tailscale_activity | to_json }},
   "wirelessDebugUiFallback": {{ stayturgid_wireless_debug_ui_fallback | to_json }}

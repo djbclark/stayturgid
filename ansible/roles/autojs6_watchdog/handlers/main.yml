@@ -3,7 +3,7 @@
 # AutoJs6 restarts it (stale-loop detection will flag a dead one); the nudge
 # only guarantees the watchdog is running at all.
 # Via localhost:5555 (uid 2000): Samsung rejects `am start` from the Termux
-# app uid. See the matching task note.
+# app uid. Fire OS has no Termux loopback — nudge via Mac USB adb instead.
 - name: nudge autojs6 watchdog
   ansible.builtin.shell: >
     export PATH={{ termux_prefix }}/bin:$PATH TMPDIR={{ termux_prefix }}/tmp;
@@ -14,3 +14,16 @@
     -n 'org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity'
   args:
     executable: "{{ termux_prefix }}/bin/bash"
+  when: not (stayturgid_autojs6_deploy_via_adb | default(false))
+
+- name: nudge autojs6 watchdog via Mac adb (Fire OS)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    adb -s "{{ device_usb_serial }}" shell am start -a android.intent.action.VIEW \
+      -d 'file://{{ autojs6_target }}/scripts/boot-launcher.js' \
+      -t 'text/javascript' \
+      -n 'org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity'
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  when: stayturgid_autojs6_deploy_via_adb | default(false)
