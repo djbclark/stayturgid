@@ -15,9 +15,4 @@
     - role: autojs6_watchdog
     - role: obtainium_apps
     # fdroid_repos side project — use ./mac/deploy-fdroid.sh (not fleet.yml)
-    # play_store side project (Aurora Store for Play)
-    # - role: play_store
-    #   vars:
-    #     target_device: "{{ inventory_hostname }}"
-    #   # Ensures Aurora Store client with Shizuku (Aurora added to Obtainium catalog).
-    #   # gplaycli for download if set up (pip installed, may need auth).
+    # play_store side project — use ./mac/deploy-play.sh (not fleet.yml)

@@ -8,25 +8,18 @@ This complements the Obtainium/GitHub path with first-class support for F-Droid 
 - `stayturgid.fleet.fdroid_repos` module (fdroidcl repo add/enable; unit-tested).
 - `ansible/roles/fdroid_repos` (module + on-device `fdroidrepos://` push + Shizuku grant).
 - `fdroid/mac/grant_neo_store_shizuku.py` uses `PrivShell` (privileged adb).
-- **Not wired into fleet.yml** — side project; run role manually when needed.
+- **Not wired into fleet.yml** — side project; use `./mac/deploy-fdroid.sh [host]`.
 
 ## How to use
-In your fleet or a play (after obtainium_apps role):
+After `obtainium_apps` (Neo Store installed):
 
-```yaml
-- hosts: stayturgid
-  roles:
-    - fdroid_repos
-  vars:
-    target_device: p7a
-    stayturgid_fdroid_repos:
-      - name: IzzyOnDroid
-        address: https://apt.izzysoft.de/fdroid/repo
-      - name: Guardian Project
-        address: https://guardianproject.info/fdroid/repo
+```bash
+brew install fdroidcl   # control machine
+./mac/deploy-fdroid.sh p7a
+ANDROID_SERIAL=<target> fdroidcl install <appid>
 ```
 
-`fdroidcl` on control machine.
+Or run the playbook directly: `ansible/playbooks/fdroid.yml`.
 
 The role ensures repos in fdroidcl (use `fdroidcl install <id>` to push to device) and to on-device Neo Store (via explicit intent, no chooser).
 

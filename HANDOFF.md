@@ -288,8 +288,8 @@ version.json                 — repo release version + changelog
 2. **Flesh out play_store role** symmetrically: add `stayturgid_play_apps` list, tasks using gplaycli (or fallback) to download + `adb install -i com.android.vending` (spoof Play as installer), grant for Aurora, explicit handling if Aurora has add-repo intents. Fix gplaycli (protobuf/pkg_resources issues seen; try venv or older protobuf).
 3. **Enhance fdroid_repos**: full support for `stayturgid_fdroid_setups` (create/apply in role + module); support removing repos; better fingerprint handling; optional "apply to device via fdroidcl" tasks.
 4. **On-device repo management polish**: if explicit intent + NeoActivity is flaky for adding repos to GUI, explore direct methods (e.g. content provider, AutoJs6 script to accept chooser, or file import into Neo Store's DB). Make preference logic also update system preferred activities if possible (without root).
-5. **Integration & docs:** ~~uncomment in fleet.yml~~ **Done** — `ansible/playbooks/fdroid.yml` + `./mac/deploy-fdroid.sh`; fleet.yml points there. Expand HACKING with fingerprints if needed.
-6. **Aurora/Play catalog & client**: ensure Aurora settings for Shizuku + auto-updates; add common Play apps to catalog if desired; research whether Aurora supports fdroid-like repo import intents for "Play repos" (probably not, but document).
+5. **Integration & docs:** ~~uncomment in fleet.yml~~ **Done** — `ansible/playbooks/fdroid.yml` + `./mac/deploy-fdroid.sh`; `play_store.yml` + `./mac/deploy-play.sh`; fleet.yml points there. Expand HACKING with fingerprints if needed.
+6. **Aurora/Play catalog & client**: `deploy-play.sh p7a` grants Shizuku (verified 2026-07-07). **You:** enable Shizuku installer + auto-updates in Aurora on each device; import Aurora via Obtainium where missing (s24/hd8).
 7. ~~**hd8 (Kindle) compatibility**~~ **Done** (2026-07-07) — `deploy-fdroid.sh hd8` + metronome install via USB adb.
 8. **Longer term**: decide if fdroidcl/gplaycli stay as external tools or get wrapped into custom collection modules (like termux_pkg/obtainium_app). Consider "unified app ensure" abstraction across Obtainium/F-Droid/Play.
 

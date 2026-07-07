@@ -1,0 +1,17 @@
+---
+# Aurora Store / Play side-project deploy (optional — not part of fleet.yml).
+#
+# Prerequisite: Aurora Store installed on device (Obtainium catalog).
+#
+# Usage (from repo root):
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/play_store.yml
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/play_store.yml --limit p7a
+#
+# Or: ./mac/deploy-play.sh [host ...]
+- name: stayturgid play store (Aurora Store + Shizuku grant)
+  hosts: stayturgid
+  gather_facts: false
+  roles:
+    - role: play_store
+      vars:
+        target_device: "{{ inventory_hostname }}"
