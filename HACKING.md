@@ -134,8 +134,8 @@ After install: sign in, and in Tailscale settings consider enabling **VPN On-Dem
 After Shizuku is running and Obtainium is in the manager's authorized-app list:
 
 ```bash
-chmod +x obtainium/mac/enable-shizuku-installer.sh
-./obtainium/mac/enable-shizuku-installer.sh s24   # phone unlocked
+chmod +x obtainium/mac/enable_shizuku_installer.py
+./obtainium/mac/enable_shizuku_installer.py s24   # phone unlocked
 ```
 
 This grants `moe.shizuku.manager.permission.API_V23`, merges Obtainium into `/data/local/tmp/shizuku/shizuku.json`, and toggles **Use Dhizuku, Shizuku or Sui to install** in Obtainium settings (approves the Shizuku permission dialog if shown). Bulk updates: `./obtainium/mac/apply-updates.sh s24`.

@@ -91,7 +91,7 @@ Device-specific steps still required on each host:
 1. `autojs6/mac/setup-autojs6.sh <host> <device-id>` — first-time AutoJs6 install, storage grant, project deploy
 2. `autojs6/mac/set-automation-mode.sh <host>` — Shizuku authorized-apps sync for AutoJs6
 3. `autojs6/mac/start-watchdog.sh <host>` — launch `main.js`
-4. Obtainium catalog / `obtainium/mac/enable-shizuku-installer.sh <host>`
+4. Obtainium catalog / `obtainium/mac/enable_shizuku_installer.py <host>`
 5. Open Termux:Boot app once after fresh install
 
 For routine updates after `git pull`, steps 1–3 reduce to `deploy-termux.sh` + `deploy.sh` + `start-watchdog.sh`.

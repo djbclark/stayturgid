@@ -149,10 +149,15 @@ appears):**
 - Sourced helpers: shared/mac/resolve-adb.sh, stayturgid-root.sh.
 - The TAP harness itself: tests/lib.sh + test-*.sh (works; big risky rewrite;
   it's what runs the sh/py parity suites).
-- Setup-time Mac tooling: autojs6/mac/*.sh, obtainium/mac/*.sh — adb/SSH/UI
-  orchestration, some with embedded python-for-JSON. Moderate candidates
-  (grant-shizuku.sh / enable-shizuku-installer.sh do JSON patching) but
-  run rarely and haven't caused bugs.
+- Setup-time Mac tooling: **Shizuku JSON scripts DONE** — grant_shizuku.py +
+  enable_shizuku_installer.py on a shared, unit-tested shared/mac/
+  stayturgid_device.py (shizuku.json patcher + uiautomator-XML parsing +
+  device resolution; 10 tests). grant_shizuku.py live-verified on s24 (all 7
+  authorized apps preserved). Remaining shell setup tooling that's mostly
+  adb/scp/am orchestration (deploy.sh, setup-autojs6.sh, sync-to-device.sh,
+  apply-updates.sh, run-test.sh, deploy-termux.sh, start-watchdog.sh,
+  set-automation-mode.sh, test-tailscale-down.sh): low fragility, convert
+  only if a reason appears.
 
 ### 🚦 Handoff — start here (cold-start summary)
 

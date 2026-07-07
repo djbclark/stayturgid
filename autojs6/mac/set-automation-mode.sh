@@ -13,9 +13,9 @@ echo "autojs6" | adb -s "$SERIAL" shell "cat > /sdcard/stayturgid_automation_mod
 echo "Wrote automation mode autojs6 on ${SERIAL}"
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-if [[ -x "$SCRIPT_DIR/grant-shizuku.sh" ]]; then
+if [[ -x "$SCRIPT_DIR/grant_shizuku.py" ]]; then
   echo "Syncing Shizuku authorized apps for AutoJs6..."
-  "$SCRIPT_DIR/grant-shizuku.sh" "$1" || echo "WARN: Shizuku grant sync failed (is Shizuku up?)" >&2
+  "$SCRIPT_DIR/grant_shizuku.py" "$1" || echo "WARN: Shizuku grant sync failed (is Shizuku up?)" >&2
 fi
 
 cat <<'EOF'
