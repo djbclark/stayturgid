@@ -46,6 +46,25 @@
     mode: "0644"
   loop: "{{ stayturgid_battery_color_assets }}"
 
+# The battery-alarm screen flash calls termux-brightness, which needs the
+# Termux:API app to hold WRITE_SETTINGS. Termux can't grant itself a special
+# op, so this goes through the localhost:5555 privileged shell (uid 2000).
+- name: Grant Termux:API WRITE_SETTINGS (battery-alarm screen flash)
+  ansible.builtin.shell: |
+    export PATH={{ termux_prefix }}/bin:$PATH TMPDIR={{ termux_prefix }}/tmp
+    adb connect localhost:5555 >/dev/null 2>&1 </dev/null
+    cur=$(adb -s localhost:5555 shell cmd appops get com.termux.api WRITE_SETTINGS </dev/null 2>/dev/null | tr -d '\r')
+    case "$cur" in
+      *allow*) echo "ws=already" ;;
+      *) adb -s localhost:5555 shell cmd appops set com.termux.api WRITE_SETTINGS allow </dev/null >/dev/null 2>&1 \
+           && echo "ws=granted" || echo "ws=failed" ;;
+    esac
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  register: writesettings_grant
+  changed_when: "'ws=granted' in writesettings_grant.stdout"
+  failed_when: "'ws=failed' in writesettings_grant.stdout"
+
 - name: Ensure Termux boot directory exists
   ansible.builtin.file:
     path: "{{ termux_home }}/.termux/boot"

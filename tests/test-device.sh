@@ -76,6 +76,10 @@ grep -qF 'packages-cf.termux.dev' "$PREFIX/etc/apt/sources.list" 2>/dev/null \
 # Operator-lockout prevention: sshd per-source penalties must be off
 grep -q '^PerSourcePenalties no' "$PREFIX/etc/ssh/sshd_config" 2>/dev/null \
     && echo "penalties=off" || echo "penalties=ON"
+# Battery-alarm screen flash needs Termux:API WRITE_SETTINGS.
+# No `case`/`$(...)` here: bash 3.2 miscounts their parens inside this $(<<heredoc).
+adb -s localhost:5555 shell cmd appops get com.termux.api WRITE_SETTINGS </dev/null 2>/dev/null \
+    | tr -d '\r' | grep -q allow && echo "writesettings=allow" || echo "writesettings=MISSING"
 for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh check-repo-version.sh stayturgid-battery-alarm.sh screen-awake-guard.sh; do
     printf 'md5 %s %s\n' "$f" "$(md5sum "$HOME/$f" 2>/dev/null | cut -d" " -f1)"
 done
@@ -120,6 +124,9 @@ REMOTE
     val="$(printf '%s\n' "$report" | sed -n 's/^penalties=//p')"
     [ "$val" = "off" ] && tap_ok "$host: sshd per-source penalties disabled" \
                        || tap_fail "$host: sshd per-source penalties disabled" "operator-lockout risk — deploy"
+    val="$(printf '%s\n' "$report" | sed -n 's/^writesettings=//p')"
+    [ "$val" = "allow" ] && tap_ok "$host: Termux:API WRITE_SETTINGS granted (battery flash)" \
+                         || tap_fail "$host: Termux:API WRITE_SETTINGS granted" "battery-alarm flash won't work — deploy"
 
     # Deployment drift: deployed scripts vs repo (informational TODO, not a failure)
     drift=""
