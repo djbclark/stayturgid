@@ -1,0 +1,17 @@
+---
+# play_store role defaults
+# For managing Google Play apps side, using Aurora Store as GUI client (FOSS Play client).
+# Analogous to fdroid_repos / Neo Store.
+
+stayturgid_play_apps: []
+# e.g.
+# - id: com.example.app
+#   # for tracking or note
+
+# Ensure Aurora Store (FOSS Play client) with Shizuku.
+stayturgid_ensure_aurora_store: true
+
+aurora_store_package: com.aurora.store
+
+# target_device for adb and grant
+# target_device: p7a

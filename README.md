@@ -13,6 +13,8 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 | **Mac ADB keepalive** | `mac/` | Yes — launchd reconnect + outage alert | [mac/README.md](mac/README.md) |
 | **AutoJs6 watchdog** | `autojs6/` | Yes — needs Termux repair scripts | [autojs6/README.md](autojs6/README.md) |
 | **Obtainium catalogs** | `obtainium/` | Yes — any Obtainium user | [obtainium/README.md](obtainium/README.md) |
+| **F-Droid / Neo Store** (side) | `fdroid/` + `ansible/roles/fdroid_repos` | fdroidcl + Ansible for repos + Neo Store GUI setup (with Shizuku) | [fdroid/README.md](fdroid/README.md) |
+| **Play / Aurora Store** (side) | `play_store/` (skeleton) | Aurora + Shizuku grant; gplaycli for downloads | (in progress) |
 | **Shared Mac helpers** | `shared/` | Yes — `resolve-adb` only | [shared/README.md](shared/README.md) |
 
 ---

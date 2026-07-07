@@ -1,0 +1,31 @@
+---
+# fdroid_repos role defaults
+# List of F-Droid repositories to ensure are added and enabled in fdroidcl (for desktop/automation installs) and pushed to on-device client (Neo Store preferred).
+# Use with target_device: p7a or s24 etc.
+
+target_device: p7a
+
+stayturgid_fdroid_repos:
+  - name: "IzzyOnDroid"
+    address: "https://apt.izzysoft.de/fdroid/repo"
+    # fingerprint: ... (recommended for security)
+  - name: "Guardian Project"
+    address: "https://guardianproject.info/fdroid/repo"
+    # fingerprint recommended
+
+# Whether to ensure Neo Store (F-Droid GUI) with Shizuku + auto updates.
+stayturgid_ensure_neo_store: true
+
+neo_store_package: com.machiav3lli.fdroid
+
+# Additional example repos (add to list above)
+# - name: "Briar"
+#   address: "https://briarproject.org/fdroid/repo"
+
+# Setups for fdroidcl mass installs (optional advanced)
+# stayturgid_fdroid_setups:
+#   - name: "base-tools"
+#     repos: ["IzzyOnDroid"]
+#     apps:
+#       - "agrigolo.chubbyclick"
+#       - "com.simplemobiletools.flashlight"

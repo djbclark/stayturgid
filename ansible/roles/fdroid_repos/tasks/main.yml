@@ -1,0 +1,104 @@
+---
+# fdroid_repos role
+# Manages F-Droid repositories (via fdroidcl on control machine) + ensures
+# Neo Store GUI client with Shizuku + background updates (per review feedback).
+# See fdroid/README.md and role README.
+#
+# Usage example:
+#   - role: fdroid_repos
+#     vars:
+#       target_device: p7a   # or IP:5555 or serial
+#       stayturgid_fdroid_repos:
+#         - name: IzzyOnDroid
+#           address: https://apt.izzysoft.de/fdroid/repo
+
+- name: Set target device fact (default localhost:5555 for adb)
+  ansible.builtin.set_fact:
+    _fdroid_target_device: "{{ target_device | default('localhost:5555') }}"
+
+- name: Determine preferred fdroidrepos handler with order Neo Store > Droid-ify > F-Droid
+  ansible.builtin.shell: |
+    for pkg in com.machiav3lli.fdroid com.looker.droidify org.fdroid.fdroid; do
+      if adb -s "{{ _fdroid_target_device }}" shell pm list packages | grep -q $pkg; then
+        case $pkg in
+          com.machiav3lli.fdroid) echo "com.machiav3lli.fdroid/.NeoActivity"; exit 0 ;;
+          com.looker.droidify) echo "com.looker.droidify/.MainActivity"; exit 0 ;;
+          org.fdroid.fdroid) echo "org.fdroid.fdroid/org.fdroid.MainActivity"; exit 0 ;;
+        esac
+      fi
+    done
+    echo "com.machiav3lli.fdroid/.NeoActivity"  # fallback
+  delegate_to: localhost
+  register: handler_result
+  changed_when: false
+
+- name: Set preferred component fact
+  ansible.builtin.set_fact:
+    _fdroid_handler_component: "{{ handler_result.stdout | trim }}"
+
+- name: Manage F-Droid repos and Neo Store client via the custom module
+  stayturgid.fleet.fdroid_repos:
+    repos: "{{ stayturgid_fdroid_repos }}"
+    ensure_neo_store: "{{ stayturgid_ensure_neo_store }}"
+    neo_store_package: "{{ neo_store_package }}"
+    device: "{{ _fdroid_target_device }}"
+  delegate_to: localhost
+  register: fdroid_result
+
+- name: Show fdroid_repos module result
+  ansible.builtin.debug:
+    var: fdroid_result
+
+- name: Update fdroidcl index after ensuring repos
+  ansible.builtin.command:
+    cmd: fdroidcl update 2>&1 | tail -3
+  delegate_to: localhost
+  changed_when: false
+  ignore_errors: true
+
+- name: Manage fdroidcl setups (for mass install of apps from the repos) if defined
+  when: stayturgid_fdroid_setups is defined
+  block:
+    - name: Create or update setups
+      ansible.builtin.command:
+        cmd: |
+          fdroidcl setup new "{{ item.name }}" || true
+          for r in {{ item.repos | default([]) | join(' ') }}; do fdroidcl setup add-repo "{{ item.name }}" "$r" || true; done
+          for a in {{ item.apps | default([]) | join(' ') }}; do fdroidcl setup add-app "{{ item.name }}" "$a" || true; done
+      loop: "{{ stayturgid_fdroid_setups }}"
+      delegate_to: localhost
+      changed_when: false
+    - name: Apply setups (installs the apps)
+      ansible.builtin.command:
+        cmd: fdroidcl setup apply "{{ item.name }}" 2>&1 | tail -5
+      loop: "{{ stayturgid_fdroid_setups }}"
+      delegate_to: localhost
+      changed_when: false
+      ignore_errors: true
+
+- name: Add F-Droid repos to preferred handler via fdroidrepos intent (bypasses chooser, sets preference)
+  when: stayturgid_ensure_neo_store | bool and _fdroid_target_device | default('') | length > 0
+  ansible.builtin.command:
+    cmd: |
+      adb -s "{{ _fdroid_target_device }}" shell am start -a android.intent.action.VIEW -d "fdroidrepos://{{ item.address | replace('https://','') }}?fingerprint={{ item.fingerprint | default('') }}" -n "{{ _fdroid_handler_component }}" 2>&1 | cat
+  loop: "{{ stayturgid_fdroid_repos }}"
+  delegate_to: localhost
+  changed_when: false
+  ignore_errors: true
+  # Note: explicit -n component bypasses "Open with" chooser entirely and targets the preferred app directly (order: Neo > Droid-ify > F-Droid). This effectively makes it the handler without user prompt.
+
+- name: Grant Shizuku to Neo Store using dedicated helper (if Neo Store present)
+  when: stayturgid_ensure_neo_store
+  ansible.builtin.command:
+    cmd: |
+      python3 "{{ (role_path ~ '/../../../fdroid/mac/grant_neo_store_shizuku.py') | realpath }}" "{{ _fdroid_target_device }}" "{{ neo_store_package }}" || echo "Grant helper completed (or device not ready)"
+  delegate_to: localhost
+  changed_when: false
+  ignore_errors: true
+
+- name: Note on background auto-updates for Neo Store
+  ansible.builtin.debug:
+    msg: |
+      After Neo Store is installed and used to install at least one app, enable "Automatic updates" in its settings.
+      Shizuku installer should be selected for promptless installs.
+      The first update after install-through-Neo-Store enables background behavior for that app.

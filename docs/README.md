@@ -11,6 +11,7 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 | Mac tools | [mac/README.md](../mac/README.md) | ADB reconnect launchd, outage monitor |
 | AutoJs6 | [autojs6/README.md](../autojs6/README.md) | JS watchdog (only automation stack in repo) |
 | Obtainium | [obtainium/README.md](../obtainium/README.md) | GitHub APK catalog and updates |
+| F-Droid / Neo Store | [fdroid/README.md](../fdroid/README.md) | F-Droid repos + Neo Store client (Shizuku + auto-updates) | side project |
 | Shared helpers | [shared/README.md](../shared/README.md) | `resolve-adb`, repo-root discovery |
 
 ## Project-wide

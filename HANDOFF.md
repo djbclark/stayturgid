@@ -33,19 +33,21 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 
 ## 🚦 Cold-start — current state (read this first)
 
-**As of 2026-07-07.** Both phones run the AutoJs6 watchdog; fleet is AutoJs6-only (legacy Tasker removed 2026-07-06). Repo v2.2.
+**As of 2026-07-07.** Three-device fleet: **s24**, **p7a**, **hd8** (Kindle Fire HD 8 added today). AutoJs6-only stack (legacy Tasker removed 2026-07-06). Repo v2.4.
 
 **Healthy / done:**
-- **Primary Termux self-heal: solid on both** — `sshd=1 bootloop=UP bridge=UP`, reachable via `ssh s24` / `ssh p7a` over Tailscale. This is the layer that keeps the fleet reachable.
-- **Single-root file consolidation + self-healing** — every writer `mkdir -p`s its dir; deleting the stayturgid root just recreates it. Verified live on both. (See "Fleet layout" below.)
-- **AutoJs6 accessibility self-check fixed** — guard.js uses `auto.service` (native, permission-free), not the unreadable secure-settings probe; no more per-cycle false "disabled" alarms + repair thrash.
-- **AutoJs6 startup hardened** — `main.js` wraps the whole startup in try/catch and **always** establishes the 20-min interval even if the boot cycle stumbles; `guard.enforce()` **degrades** (logs + proceeds) instead of `auto.waitFor()`-blocking forever when a11y won't attach. Committed, CI PASS.
-- **Device-tier watchdog liveness check** — asserts the last `[watchdog]` log line is < 30 min old (caught a real p7a stall).
+- **s24 + p7a fully green** — `make verify` PASS after AutoJs6 `pm clear` reset (2026-07-07); watchdog liveness fresh on both; Tasker legacy clean on p7a.
+- **Primary Termux self-heal: solid on all three** — `sshd` + boot loop + repair bridge; reachable via `ssh s24` / `ssh p7a` / `ssh hd8` (hd8 over LAN `192.168.68.69:8022` or USB forward).
+- **Single-root file consolidation + self-healing** — every writer `mkdir -p`s its dir; deleting the stayturgid root just recreates it.
+- **AutoJs6 startup hardened** — `main.js` always establishes the 20-min interval; `guard.enforce()` degrades instead of blocking.
+- **Device-tier watchdog liveness check** — fresh `[watchdog]` line < 30 min (s24/p7a passing).
+- **hd8 (Kindle Fire HD 8) onboarded** — GitHub-debug Termux stack, thedjchi Shizuku v13.7, AutoJs6 6.7.0, Ansible inventory + `ssh hd8` alias. Fire OS uses `~/.stayturgid/shared` for Termux state/logs (cannot write `/sdcard` from Termux); AutoJs6 project + logs stay on `/sdcard/stayturgid/` (deployed via Mac `adb push`).
 
-**⚠ OUTSTANDING — AutoJs6 engine execution flakiness (needs a clean reset):**
-AutoJs6's *engine* is flaky on both phones after ~20+ force-stop/relaunch cycles during debugging today: `main.js` runs a cycle when launched but doesn't reliably persist to the next interval. Assessed as engine-state corruption, **not a code defect** (the hardened code is verified to run a full clean cycle). A reboot did not clear it. **Recommended fix: a clean AutoJs6 reset** — reinstall via Obtainium (matches the Obtainium-first preference) or clear AutoJs6 app data, then let Termux:Boot start it fresh; the hardened `main.js` will then run and persist, and the device-tier liveness check confirms it. Do **not** keep force-stopping/relaunching AutoJs6 — that added the churn. The primary Termux self-heal is unaffected either way.
-
-**⚠ Other manual item:** p7a's Tasker **`upmon`** project still references the deleted `ADB_Core_Watchdog` task — the only failing device-tier check; must be deleted/re-exported in the Tasker GUI (or the whole legacy project removed). Needs human hands.
+**⚠ hd8 Fire OS caveats (expected, device-tier TODOs not failures):**
+- **No Termux→localhost:5555 loopback** — privileged repair from Termux cannot use `adb connect localhost:5555` (devices show `offline`). Mac `adb connect <lan>:5555` works. Shizuku TCP mode enabled; port 5555 open from Mac.
+- **AutoJs6 RUN_COMMAND bridge flaky** — watchdog cycles log `BRIDGE_FAIL`; repair-bridge pidfile fallback is deployed. Watchdog liveness verified manually via `adb shell grep '[watchdog]' /sdcard/stayturgid/logs/watchdog.log`.
+- **No Tailscale yet** — hd8 uses LAN IP only (`ansible_host: 192.168.68.69`). Add Tailscale when ready.
+- **Battery low (22%)** — keep hd8 charged during setup.
 
 **Deploy / test:**
 - Deploy: `./mac/deploy-fleet.sh`. Verify (read-only device tier): `make verify`.
@@ -59,8 +61,8 @@ All stayturgid files live under ONE root per filesystem (was scattered at /sdcar
 
 | Filesystem | Root | Subdirs |
 |-----------|------|---------|
-| Device shared | `/sdcard/stayturgid/` | `autojs6/ state/ logs/ run/ tmp/ archive/ import/` |
-| Termux private | `~/.stayturgid/` | `bin/ logs/ run/ state/ battery-colors/` |
+| Device shared | `/sdcard/stayturgid/` (default) or `~/.stayturgid/shared` (Fire OS) | `autojs6/ state/ logs/ run/ tmp/` |
+| Termux private | `~/.stayturgid/` | `bin/ logs/ run/ state/ battery-colors/ env` |
 | Mac | `~/.config/stayturgid/` | `devices.conf logs/ state/` |
 
 Deployed scripts → `~/.stayturgid/bin`; AutoJs6 project → `/sdcard/stayturgid/autojs6`; `watchdog.log` → `logs/`; `device.json` + `automation_mode` → `state/`; repair-bridge trigger → `run/repair_now`; pidfiles (`bootloop.pid`, bridge) → `run/`. **Self-healing:** python `makedirs(exist_ok=True)`, shell `mkdir -p`, AutoJs6 `files.ensureDir` + `config.ensureDirs()`.
@@ -83,6 +85,18 @@ Deployed scripts → `~/.stayturgid/bin`; AutoJs6 project → `/sdcard/stayturgi
 | Shizuku | `moe.shizuku.privileged.api` (thedjchi fork v13.6.0.r1349-thedjchi-beta) |
 | Termux stack | GitHub-debug via Obtainium (`com.termux` 0.118.3 + api/boot/styling/widget/float) — all share-uid aligned; `termux-api` works |
 | Tailscale | always-on VPN ON (the key to reboot-proof reachability) |
+
+### Kindle Fire HD 8 (`hd8` — USB `GN43T503430603PS`)
+| Field | Value |
+|-------|-------|
+| Device / Android | Amazon Kindle Fire HD 8 (KFRASWI) / 11 (API 30) |
+| USB serial | `GN43T503430603PS` |
+| Wireless ADB | `192.168.68.69:5555` (LAN; Mac `adb connect`); no Tailscale yet |
+| SSH | `ssh hd8` (alias → LAN :8022, `u0_a310`, key auth); USB: `adb forward tcp:8022 tcp:8022` |
+| Termux | GitHub-debug `com.termux` 0.118.3 + api/boot (share-uid); **must** be debug build for `run-as` recovery |
+| AutoJs6 | `org.autojs.autojs6` v6.7.0 — project at `/sdcard/stayturgid/autojs6` |
+| Shizuku | thedjchi fork v13.7.0 — TCP mode ON |
+| Fire OS notes | Termux state/logs under `~/.stayturgid/shared` (`STAYTURGID_SD` in `~/.stayturgid/env`); no Termux localhost:5555 loopback |
 
 ### Samsung Galaxy S24 (primary dev device — USB `RFCX219CHKA`)
 | Field | Value |
@@ -185,6 +199,9 @@ ansible/                     — fleet deploy; inventory/hosts.yml + inventory/g
   playbooks/fleet.yml, mac.yml   roles: termux_userland, autojs6_watchdog, obtainium_apps
 ansible_collections/stayturgid/fleet/   — termux_pkg + obtainium_app modules (FQCN stayturgid.fleet.*)
 obtainium/                   — stayturgid-apps.json catalog + mac/ sync/apply/installer scripts
+fdroid/                      — side-project docs + support for F-Droid (Neo Store) and Play (Aurora Store)
+ansible/roles/fdroid_repos/  — Ansible role + module for fdroidcl (Mac) repo management + explicit push to on-device client (bypasses chooser, preference order Neo > Droid-ify > F-Droid)
+ansible/roles/play_store/    — skeleton role for Aurora Store client setup (Shizuku grant, gplaycli notes)
 shared/mac/                  — resolve-adb.sh, stayturgid_device.py (shizuku.json patcher + UI parsing)
 mac/                         — adb-reconnect.py, access_monitor.py (launchd via ansible mac.yml); deploy-fleet.sh, fleet-health.sh
 tests/                       — device_tier.py + python/ (pytest twins) + test-*.sh TAP harness; Makefile, configure
@@ -216,7 +233,8 @@ version.json                 — repo release version + changelog
 
 ## Changelog (condensed, reverse chronological — git history has full detail)
 
-- **2026-07-07** — Single-root file consolidation (device/Termux/Mac) with self-healing; all junk deleted, both phones migrated, tier green. AutoJs6 a11y self-check fixed (`auto.service`). `main.js`/`guard.js` hardened (startup try/catch, always-establish interval, graceful degradation). Device-tier watchdog-liveness check added. s24 `device.json` restored after a self-heal test wiped state. **Outstanding: AutoJs6 engine reset** (see cold-start section).
+- **2026-07-07** — Fleet recovery: s24/p7a AutoJs6 `pm clear` reset → `make verify` green. **hd8** (Kindle Fire HD 8) added to fleet. Fire OS support: `stayturgid_sd_root` override, `STAYTURGID_SD` env file, dual-path device-tier checks, AutoJs6 deploy via `adb push`. Ansible taxonomy: `android_11`, `vendor_amazon`, `model_kindle_hd8`.
+- **2026-07-07** — Side project: F-Droid/Neo Store + Play/Aurora support. `fdroidcl` + `gplaycli` on Mac. `ansible/roles/fdroid_repos` (module + role: repo ensure in fdroidcl, explicit `fdroidrepos://` to on-device Neo Store bypassing chooser with preference Neo>Droid-ify>F-Droid, Shizuku grant via generalized helper, setups support, client ensure). Aurora + Neo added to Obtainium catalog. `play_store` skeleton. Defensive tests on p7a/s24 (role runs, grants, installs). Docs + HANDOFF updated. (See fdroid/ and roles.)
 - **2026-07-06** — Migration to Python COMPLETE (v2.0): all 5 runtime scripts deploy as Python (repair/agent-presence keep ~/*.sh shims); Mac-side fragile parsers converted (device_tier/access_monitor/adb_reconnect + shared stayturgid_device.py) with pytest; shell fragility boundary reached. Device tier → `device_tier.py`. Taxonomy inventory (no device names in code; group_vars layers all→android_16→vendor→oneui_7→model→host; device.json rendered per host). `obtainium_app` module + `obtainium_apps` role. fleet-health folded into TAP tier (`--heal`). Idempotency/determinism pass (mirror pinned, LC_ALL=C). pytest + `ansible-test units` + `stayturgid.fleet` collection. Ansible-native `fleet.yml` + `autojs6_watchdog` role. Notification self-heal (repair re-enables a11y append-only; notify coalesces per-key). Tasker fully removed (legacy exports archived). CI (GitHub Actions `make test`) green; ansible-lint/yamllint clean. Screen-awake guard + agent-presence consent protocol. sshd PerSourcePenalties lockout fixed.
 - **2026-07-06** — Code review (CODE-REVIEW.md): 2 high / 11 med / 13 low, all fixed (repair helpers before flock branch; bridge liveness → pidfile; battery alarm byte-verified backup; consent gate fails closed; shizuku.json patchers abort on failed read).
 - **2026-07-05** — 7a Termux ecosystem moved to GitHub/Obtainium (share-uid aligned; `termux-api` works). AutoJs6 watchdog live on S24 then rolled to 7a (`main.js` + boot relaunch + Tailscale probe + catastrophic Shizuku tap). Repair channel confirmed (localhost:5555 shell uid 2000). Shizuku reboot-survival fixed on S24 (persistent pairing). Tailscale always-on VPN enabled on both (reboot-proof). SSH hardening (`ssh s24`/`p7a`, no 1Password dialog). Mac access-monitor + battery alarm + adb-reconnect (cached→USB-LAN→mDNS-TLS→Tailscale). Ansible Termux skeleton validated.
@@ -252,3 +270,29 @@ version.json                 — repo release version + changelog
 **Prior art:** [termux-jenkins-automation](https://github.com/gounthar/termux-jenkins-automation) (best Termux+Ansible reference), [ansible-android-termux](https://github.com/guoqiao/ansible-android-termux), [ivansible/termux](https://galaxy.ansible.com/ui/repo/published/ivansible/termux/), [ansible#81547](https://github.com/ansible/ansible/pull/81547) (apt-on-Termux PR — won't cover conffile/stuck-dpkg); ADB: [AnsibleAndroidAutomationADB](https://github.com/shresthagrawal/AnsibleAndroidAutomationADB), [ansibel-nspanel](https://github.com/Bierchermuesli/ansibel-nspanel); Obtainium: [wiki sources](https://wiki.obtainium.page/sources/), [Dhizuku install #1611](https://github.com/ImranR98/Obtainium/issues/1611), [import #1739](https://github.com/ImranR98/Obtainium/discussions/1739).
 
 **Next research steps (when picked up):** prototype `stayturgid_repair_check` (SSH→parse STATUS) and `android_apk`; sketch `playbooks/site.yml` composing Termux + AutoJs6 roles; write an ADR with explicit non-goals; decide collection name (`stayturgid.fleet` today vs upstream `ivansible.termux`). **Do not implement until the user explicitly approves a refactor.**
+
+### Side project: fdroid_repos / play_store (F-Droid + Play support) — next actions (as of 2026-07-07 handoff)
+
+**Status:** Functional and tested defensively on p7a/s24. `fdroidcl` (brew) + Ansible role `fdroid_repos` manages repos locally in fdroidcl and pushes to on-device Neo Store via explicit component (no chooser, preference order Neo Store > Droid-ify > F-Droid). Generalized Shizuku grant helper. Setups support started. Aurora Store + Neo Store added to Obtainium catalog. `play_store` skeleton + gplaycli installed (needs auth work). All device work used proper announcements and was cleaned up.
+
+**Key files added/updated:**
+- `fdroid/README.md`, `ansible/roles/fdroid_repos/{README.md,defaults,tasks,meta}`
+- `ansible/roles/play_store/` (skeleton)
+- `fdroid/mac/grant_neo_store_shizuku.py` (now takes optional pkg arg)
+- Obtainium catalog entries for Neo Store + Aurora Store
+- fleet.yml example (commented)
+- HANDOFF + main README updated
+
+**Recommended next actions (prioritized, in rough order):**
+1. **Verify end-to-end on devices** (when free): run `fdroid_repos` role (target_device=p7a or s24), then `fdroidcl install <small-app-from-izzy>` (e.g. a metronome or flashlight), confirm on-device in Neo Store, test Shizuku/background updates work, uninstall. Same for s24. Update role if any signature/perm issues appear.
+2. **Flesh out play_store role** symmetrically: add `stayturgid_play_apps` list, tasks using gplaycli (or fallback) to download + `adb install -i com.android.vending` (spoof Play as installer), grant for Aurora, explicit handling if Aurora has add-repo intents. Fix gplaycli (protobuf/pkg_resources issues seen; try venv or older protobuf).
+3. **Enhance fdroid_repos**: full support for `stayturgid_fdroid_setups` (create/apply in role + module); support removing repos; better fingerprint handling; optional "apply to device via fdroidcl" tasks.
+4. **On-device repo management polish**: if explicit intent + NeoActivity is flaky for adding repos to GUI, explore direct methods (e.g. content provider, AutoJs6 script to accept chooser, or file import into Neo Store's DB). Make preference logic also update system preferred activities if possible (without root).
+5. **Integration & docs**: uncomment/include roles in fleet.yml (gated by var); add example "base F-Droid apps" to obtainium catalog or a setup; expand HANDOFF/ HACKING with "F-Droid side project" section + exact fingerprints; add pytest/ansible-test coverage for the new modules/roles.
+6. **Aurora/Play catalog & client**: ensure Aurora settings for Shizuku + auto-updates; add common Play apps to catalog if desired; research whether Aurora supports fdroid-like repo import intents for "Play repos" (probably not, but document).
+7. **hd8 (Kindle) compatibility**: test roles on hd8 once main onboarding allows (Fire OS may need sd root tweaks similar to other paths).
+8. **Longer term**: decide if fdroidcl/gplaycli stay as external tools or get wrapped into custom collection modules (like termux_pkg/obtainium_app). Consider "unified app ensure" abstraction across Obtainium/F-Droid/Play.
+
+Run with announcements (`🚨📱🚨 USING — p7a ...`) and treat devices as potentially busy. This side project is ready for use in fleet runs but still experimental — keep it gated until more real-device validation.
+
+**Do not merge or run on production fleet without explicit approval.**
