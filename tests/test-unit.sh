@@ -91,7 +91,7 @@ battery_suite() {
     tap_is "$(stub_calls 'termux-torch on')" 1 "battery[$T]: DND single quick torch flash (tier<=15)"
 }
 
-battery_suite termux/stayturgid-battery-alarm.sh sh
+# stayturgid-battery-alarm migrated to Python (shell retired).
 battery_suite termux/py/stayturgid_battery_alarm.py py
 
 # ===========================================================================

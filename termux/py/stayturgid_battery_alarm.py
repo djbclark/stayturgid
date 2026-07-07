@@ -1,10 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/python
-"""Low-battery tier alerts — Python twin of ../stayturgid-battery-alarm.sh.
+"""Low-battery tier alerts (Python) — deployed as ~/stayturgid_battery_alarm.py.
 
-Behavioral parity is enforced by tests/test-unit.sh, which runs the same
-sandboxed suite against both implementations. The shell version remains the
-deployed one until parity has soaked; then this replaces it (Ansible docs and
-community practice: Python for anything beyond trivial wrappers).
+Migrated from stayturgid-battery-alarm.sh; unit-tested via tests/test-unit.sh
+(battery_suite). Called from the boot loop each ~5 min while discharging.
 
 Python is guaranteed on-device: it's in stayturgid_termux_packages and Ansible
 itself requires it (ansible_python_interpreter).

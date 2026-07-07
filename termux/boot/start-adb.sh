@@ -19,7 +19,7 @@ sshd
 
 # Keep sshd alive — the AutoJs6 watchdog checks its status and notifies on failure,
 # but this loop is the self-healing mechanism (runs as Termux user, right UID).
-# Low-battery tiers (30/25/20/…%) handled by ~/stayturgid-battery-alarm.sh each loop.
+# Low-battery tiers (30/25/20/…%) handled by ~/stayturgid_battery_alarm.py each loop.
 # Runtime scripts are migrating shell -> Python (~/stayturgid_*.py); this loop
 # invokes whichever form is deployed.
 #
@@ -44,8 +44,8 @@ BOOTLOOP_PID_FILE="$HOME/.stayturgid-bootloop.pid"
         pgrep sshd > /dev/null 2>&1 || sshd
     fi
 
-    if [ -x "$HOME/stayturgid-battery-alarm.sh" ]; then
-        "$HOME/stayturgid-battery-alarm.sh" >/dev/null 2>&1 || true
+    if [ -x "$HOME/stayturgid_battery_alarm.py" ]; then
+        python3 "$HOME/stayturgid_battery_alarm.py" >/dev/null 2>&1 || true
     fi
 
     # Screen held awake? Keep a restore-lock notification up (reappears each
