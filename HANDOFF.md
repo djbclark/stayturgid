@@ -121,7 +121,8 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
   plists (mac.yml) launch python3; agents reloaded + verified live. Remaining
   Mac shell is only thin wrappers (deploy-fleet.sh = ansible wrapper,
   fleet-health.sh = run.sh delegate, resolve-adb.sh sourced by them) — low
-  risk, leave as-is. Remaining device-side runtime twins: repair, presence.
+  risk, leave as-is. Remaining device-side runtime twins: NONE — all four have Python
+  twins under parity test (battery-alarm, screen-guard, repair, presence).
 
 ### 🚦 Handoff — start here (cold-start summary)
 
@@ -147,7 +148,7 @@ The 7a's `com.termux` was the **googleplay build** while its addons were **F-Dro
 - **In-flight migration:** bash→python twins under parity test (shell still
   deployed). Done: `stayturgid-battery-alarm.sh`, `screen-awake-guard.sh`
   (both in `termux/py/`, run via `guard_suite`/`battery_suite` sh+py).
-  Next twins queued: repair, presence.
+  All four runtime twins done (parity-tested).
 - **Next no-help items (recommended order):** (a) obtainium_app custom module;
   (b) fold `fleet-health.sh` checks into the TAP device tier; (c) continue the
   python twins. All detailed in the session logs below.

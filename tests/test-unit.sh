@@ -169,100 +169,107 @@ repair_suite termux/py/stayturgid_repair.py py
 # ===========================================================================
 # claude-presence.sh gate
 # ===========================================================================
-PRES=termux/agent-presence.sh
+# Same suite runs against the shell implementation and its Python twin.
+presence_suite() {
+    local PRES="$1" T="$2"
+    unset ADB_FG_PKG ADB_WAKE DIALOG_CHOICE 2>/dev/null || true
+    # idle foreground (Samsung launcher) => proceed, no dialog
+    reset_sandbox
+    run_sandboxed "$PRES" gate
+    tap_is "$RC" 0 "presence[$T]: idle launcher foreground => proceed"
+    tap_is "$(stub_calls 'termux-dialog')" 0 "presence[$T]: no dialog when idle"
 
-# idle foreground (Samsung launcher) => proceed, no dialog
-reset_sandbox
-run_sandboxed "$PRES" gate
-tap_is "$RC" 0 "presence: idle launcher foreground => proceed"
-tap_is "$(stub_calls 'termux-dialog')" 0 "presence: no dialog when idle"
+    # M5 regression: Pixel launcher counts as idle
+    reset_sandbox
+    export ADB_FG_PKG=com.google.android.apps.nexuslauncher
+    run_sandboxed "$PRES" gate
+    tap_is "$RC" 0 "presence[$T]: Pixel launcher foreground => proceed (M5)"
 
-# M5 regression: Pixel launcher counts as idle
-reset_sandbox
-export ADB_FG_PKG=com.google.android.apps.nexuslauncher
-run_sandboxed "$PRES" gate
-tap_is "$RC" 0 "presence: Pixel launcher foreground => proceed (M5)"
+    # screen off => proceed without dialog
+    reset_sandbox
+    export ADB_FG_PKG=com.android.chrome ADB_WAKE=Asleep
+    run_sandboxed "$PRES" gate
+    tap_is "$RC" 0 "presence[$T]: screen not interactive => proceed"
+    unset ADB_WAKE
 
-# screen off => proceed without dialog
-reset_sandbox
-export ADB_FG_PKG=com.android.chrome ADB_WAKE=Asleep
-run_sandboxed "$PRES" gate
-tap_is "$RC" 0 "presence: screen not interactive => proceed"
-unset ADB_WAKE
+    # M4 regression: active use + dialog timeout => fail closed (75 + later file)
+    reset_sandbox
+    export ADB_FG_PKG=com.android.chrome DIALOG_CHOICE=""
+    run_sandboxed "$PRES" gate
+    tap_is "$RC" 75 "presence[$T]: dialog timeout fails closed with 75 (M4)"
+    if [ -f "$SANDBOX/sd/stayturgid_presence_check_after" ]; then
+        tap_ok "presence[$T]: timeout arms 10-minute recheck"
+    else
+        tap_fail "presence[$T]: timeout arms 10-minute recheck"
+    fi
 
-# M4 regression: active use + dialog timeout => fail closed (75 + later file)
-reset_sandbox
-export ADB_FG_PKG=com.android.chrome DIALOG_CHOICE=""
-run_sandboxed "$PRES" gate
-tap_is "$RC" 75 "presence: dialog timeout fails closed with 75 (M4)"
-if [ -f "$SANDBOX/sd/stayturgid_presence_check_after" ]; then
-    tap_ok "presence: timeout arms 10-minute recheck"
-else
-    tap_fail "presence: timeout arms 10-minute recheck"
-fi
+    # explicit Continue => proceed
+    reset_sandbox
+    export DIALOG_CHOICE="Continue"
+    run_sandboxed "$PRES" gate
+    tap_is "$RC" 0 "presence[$T]: explicit Continue => proceed"
 
-# explicit Continue => proceed
-reset_sandbox
-export DIALOG_CHOICE="Continue"
-run_sandboxed "$PRES" gate
-tap_is "$RC" 0 "presence: explicit Continue => proceed"
+    # Pause => 75 now, 75 on next gate, cleared by resume
+    reset_sandbox
+    export DIALOG_CHOICE="Pause"
+    run_sandboxed "$PRES" gate
+    tap_is "$RC" 75 "presence[$T]: Pause => 75"
+    export DIALOG_CHOICE="Continue"   # must NOT be consulted while paused
+    run_sandboxed "$PRES" gate
+    tap_is "$RC" 75 "presence[$T]: paused gate stays closed without dialog"
+    run_sandboxed "$PRES" resume
+    run_sandboxed "$PRES" gate
+    tap_is "$RC" 0 "presence[$T]: resume clears pause"
+    unset DIALOG_CHOICE ADB_FG_PKG
 
-# Pause => 75 now, 75 on next gate, cleared by resume
-reset_sandbox
-export DIALOG_CHOICE="Pause"
-run_sandboxed "$PRES" gate
-tap_is "$RC" 75 "presence: Pause => 75"
-export DIALOG_CHOICE="Continue"   # must NOT be consulted while paused
-run_sandboxed "$PRES" gate
-tap_is "$RC" 75 "presence: paused gate stays closed without dialog"
-run_sandboxed "$PRES" resume
-run_sandboxed "$PRES" gate
-tap_is "$RC" 0 "presence: resume clears pause"
-unset DIALOG_CHOICE ADB_FG_PKG
+    # usage error => exit 2
+    run_sandboxed "$PRES" bogus-action
+    tap_is "$RC" 2 "presence[$T]: unknown action => usage exit 2"
 
-# usage error => exit 2
-run_sandboxed "$PRES" bogus-action
-tap_is "$RC" 2 "presence: unknown action => usage exit 2"
+    # --- screen-control sharing flow -------------------------------------------
+    # request-screen: Disallow => 75; Yes or 60s timeout => 0
+    reset_sandbox
+    export DIALOG_CHOICE="no"
+    run_sandboxed "$PRES" request-screen
+    tap_is "$RC" 75 "presence[$T]: request-screen Disallow => 75"
+    export DIALOG_CHOICE="yes"
+    run_sandboxed "$PRES" request-screen
+    tap_is "$RC" 0 "presence[$T]: request-screen Yes => proceed"
+    export DIALOG_CHOICE=""
+    run_sandboxed "$PRES" request-screen
+    tap_is "$RC" 0 "presence[$T]: request-screen 60s timeout => proceed"
+    unset DIALOG_CHOICE
 
-# --- screen-control sharing flow -------------------------------------------
-# request-screen: Disallow => 75; Yes or 60s timeout => 0
-reset_sandbox
-export DIALOG_CHOICE="no"
-run_sandboxed "$PRES" request-screen
-tap_is "$RC" 75 "presence: request-screen Disallow => 75"
-export DIALOG_CHOICE="yes"
-run_sandboxed "$PRES" request-screen
-tap_is "$RC" 0 "presence: request-screen Yes => proceed"
-export DIALOG_CHOICE=""
-run_sandboxed "$PRES" request-screen
-tap_is "$RC" 0 "presence: request-screen 60s timeout => proceed"
-unset DIALOG_CHOICE
+    # on posts the running notification with a Graceful stop button
+    reset_sandbox
+    run_sandboxed "$PRES" on "TestPhone" "TestAgent"
+    tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "Graceful stop" \
+        "presence[$T]: running notification carries Graceful stop button"
 
-# on posts the running notification with a Graceful stop button
-reset_sandbox
-run_sandboxed "$PRES" on "TestPhone" "TestAgent"
-tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "Graceful stop" \
-    "presence: running notification carries Graceful stop button"
+    # stop-requested: 1 before the button, 0 after
+    run_sandboxed "$PRES" stop-requested
+    tap_is "$RC" 1 "presence[$T]: no stop requested initially"
+    touch "$SANDBOX/sd/stayturgid_stop_requested"
+    run_sandboxed "$PRES" stop-requested
+    tap_is "$RC" 0 "presence[$T]: stop-requested detects the flag"
 
-# stop-requested: 1 before the button, 0 after
-run_sandboxed "$PRES" stop-requested
-tap_is "$RC" 1 "presence: no stop requested initially"
-touch "$SANDBOX/sd/stayturgid_stop_requested"
-run_sandboxed "$PRES" stop-requested
-tap_is "$RC" 0 "presence: stop-requested detects the flag"
+    # off after a stop: clears flag, reports honored, pops the modal release dialog
+    run_sandboxed "$PRES" off "TestPhone" "TestAgent"
+    tap_is "$RC" 0 "presence[$T]: off exits 0 after graceful stop"
+    tap_like "$OUT" "graceful stop honored" "presence[$T]: off reports the stop was honored"
+    if [ ! -f "$SANDBOX/sd/stayturgid_stop_requested" ]; then
+        tap_ok "presence[$T]: off clears the stop flag"
+    else
+        tap_fail "presence[$T]: off clears the stop flag"
+    fi
+    sleep 1   # the release dialog is backgrounded via nohup
+    tap_like "$(grep 'termux-dialog' "$STUB_LOG")" "has released" \
+        "presence[$T]: off pops modal release dialog after a stop"
+    unset ADB_FG_PKG ADB_WAKE DIALOG_CHOICE 2>/dev/null || true
+}
 
-# off after a stop: clears flag, reports honored, pops the modal release dialog
-run_sandboxed "$PRES" off "TestPhone" "TestAgent"
-tap_is "$RC" 0 "presence: off exits 0 after graceful stop"
-tap_like "$OUT" "graceful stop honored" "presence: off reports the stop was honored"
-if [ ! -f "$SANDBOX/sd/stayturgid_stop_requested" ]; then
-    tap_ok "presence: off clears the stop flag"
-else
-    tap_fail "presence: off clears the stop flag"
-fi
-sleep 1   # the release dialog is backgrounded via nohup
-tap_like "$(grep 'termux-dialog' "$STUB_LOG")" "has released" \
-    "presence: off pops modal release dialog after a stop"
+presence_suite termux/agent-presence.sh sh
+presence_suite termux/py/stayturgid_agent_presence.py py
 
 # ===========================================================================
 # screen-awake-guard.sh
