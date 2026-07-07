@@ -28,8 +28,16 @@ EXTRA=()
 [ "${CHECK:-0}" = "1" ] && EXTRA=(--check --diff)
 
 cd "$ROOT"
+rc=0
 ANSIBLE_CONFIG="$ROOT/ansible/ansible.cfg" \
-  ansible-playbook ansible/playbooks/fleet.yml ${LIMIT[@]+"${LIMIT[@]}"} ${EXTRA[@]+"${EXTRA[@]}"}
+  ansible-playbook ansible/playbooks/fleet.yml ${LIMIT[@]+"${LIMIT[@]}"} ${EXTRA[@]+"${EXTRA[@]}"} \
+  || rc=$?
 
 echo ""
-echo "Fleet deploy complete. Verify: make verify   (or ./mac/fleet-health.sh)"
+if [ "$rc" -ne 0 ]; then
+  echo "Fleet deploy finished with errors (exit $rc). Failed hosts are listed above." >&2
+else
+  echo "Fleet deploy complete."
+fi
+echo "Verify: make verify   (or ./mac/fleet-health.sh)"
+exit "$rc"

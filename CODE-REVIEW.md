@@ -59,12 +59,11 @@ Two occurrences:
 
 Also: line 29 gives `STAYTURGID_AGENT` precedence over `$3`, while the header comment (line 11) documents the reverse order.
 
-### M6. `termux_pkg` module mutates the system in `--check` mode and triple-runs `pkg update`
-`ansible_collections/stayturgid/fleet/plugins/modules/termux_pkg.py` — the module declares `supports_check_mode=True`, but `pkg update` and `apt-get full-upgrade` execute unconditionally, so `ansible-playbook --check` actually upgrades every package on the phone. Only install/remove honor check mode.
-Additionally, a normal role run executes `pkg update` up to 3× and `full-upgrade` up to 2×: task 1 (update+upgrade), task 2 (update again), and lines 147-150 repeat update/upgrade before install. Over Termux SSH each pass is slow; guard the lines 146-150 re-run (the cache was refreshed moments earlier) and wrap the update/upgrade calls with `if not module.check_mode`.
+### M6. ~~`termux_pkg` module mutates the system in `--check` mode and triple-runs `pkg update`~~ **Fixed (v2.4)**
+Module skips `pkg update` / `full-upgrade` in check mode; install no longer re-runs update before `pkg install`. Role now sets `update_cache: false` on the package-install task (upgrade task already refreshed indexes).
 
-### M7. Watchdog notifications use random IDs — unbounded pileup during outages
-`autojs6/lib/notify.js:36` — `nm.notify(randomId, …)` means every 20-min cycle of a persistent outage (Tailscale down, sshd down) posts a *new* notification that nothing ever clears. A weekend outage produces ~150 stacked alerts. Use a stable ID per alert type (e.g. hash of the title) so repeats coalesce, and cancel it on recovery.
+### M7. ~~Watchdog notifications use random IDs — unbounded pileup during outages~~ **Fixed**
+`autojs6/lib/notify.js` — stable `idFor(key)` per alert type; repeat counts persist in `notify_state.json` with `(Nx)` suffix; `clear(key)` on recovery.
 
 ### M8. Watchdog log grows without bound and is re-read in full every 500 ms
 `/sdcard/stayturgid_watchdog.log` is appended by the repair script, the boot loop, and every AutoJs6 cycle, and is never rotated (unlike the Mac logs, which are trimmed to 1000 lines). `autojs6/lib/termux.js:29-46` polls `log.latestRepairTimestampMs()` every 500 ms for up to 12 s, and each call (`autojs6/lib/log.js:52-65`) reads the entire file over FUSE and splits it. Months of operation make every watchdog cycle progressively slower and more battery-hungry. Trim the log (e.g. keep last 500 lines when >1000) in `log.append` or in the repair script, and/or read only the tail.
@@ -111,8 +110,8 @@ Minor, same file: line 63 caches whatever address just connected — including t
 ### L8. Package/boot-script lists duplicated between `group_vars` and role defaults
 `ansible/group_vars/stayturgid.yml` and `ansible/roles/termux_userland/defaults/main.yml` carry identical `stayturgid_termux_packages` / `stayturgid_boot_scripts` lists. group_vars wins, so edits to defaults silently do nothing for the fleet. Keep one (defaults), delete the other.
 
-### L9. `deploy-fleet.sh` aborts remaining hosts on first failure
-`mac/deploy-fleet.sh:33-42` — with `set -e`, an s24 failure means p7a is never attempted. For a fleet tool, catch per-host failures, continue, and exit non-zero at the end (fleet-health.sh already does exactly this).
+### L9. ~~`deploy-fleet.sh` aborts remaining hosts on first failure~~ **Clarified / improved**
+Ansible already attempts all hosts unless `serial` / `any_errors_fatal` is set (fleet.yml has neither). `deploy-fleet.sh` now captures the playbook exit code with `|| rc=$?` so a partial failure still prints the verify hint and exits non-zero without `set -e` masking the summary.
 
 ### L10. `fleet-health.sh` ADB diagnosis is misleading
 `mac/fleet-health.sh:48-54` — `resolve_adb` returns a Tailscale `ip:5555` without ensuring `adb connect` happened, so a not-currently-connected device prints "(no recent watchdog log)" when the truth is "adb not connected". Also the success branch prints the matched log line but a *missing* log line still takes the success path (grep in `adb shell` returns the shell's exit code inconsistently across devices); consider checking output non-emptiness instead.
