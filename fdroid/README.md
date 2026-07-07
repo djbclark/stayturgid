@@ -1,43 +1,43 @@
-# F-Droid / Neo Store support (fdroid_repos side project)
+# F-Droid / Neo Store support
 
-This complements the Obtainium/GitHub path with first-class support for F-Droid repositories and the recommended GUI client (Neo Store).
+Ansible role `stayturgid.fdroid.fdroid_repos` plus Mac `fdroidcl` for repo management and app installs.
 
-## What was added / status
-- `fdroidcl` on Mac (`brew install fdroidcl`).
-- Neo Store + Aurora Store in Obtainium catalog.
-- `stayturgid.fdroid.fdroid_repos` module (fdroidcl repo add/enable; unit-tested).
-- `stayturgid.fdroid.fdroid_repos` role (module + on-device `fdroidrepos://` push + Shizuku grant).
-- `stayturgid.android_common.shizuku_grant` module (replaces legacy grant script).
-- **Not wired into fleet.yml** — side project; use `./mac/deploy-fdroid.sh [host]`.
+## Fleet integration
 
-## How to use
-After `obtainium_apps` (Neo Store installed):
+F-Droid is part of the standard fleet deploy (`./mac/deploy-fleet.sh`):
+
+1. Core Ansible run (includes fdroid role — syncs repos on Mac)
+2. Obtainium catalog import (installs Neo Store on device)
+3. App-stores re-run (pushes repos to Neo Store, grants Shizuku)
+
+Re-run F-Droid only: `./mac/deploy-fdroid.sh [host]`
+
+## Prerequisites
+
+- Neo Store in Obtainium catalog (installed by fleet deploy)
+- Mac: `brew install fdroidcl`
+- Shizuku privileged shell on device
+
+## Quick start
 
 ```bash
-brew install fdroidcl   # control machine
-./mac/deploy-fdroid.sh p7a
-ANDROID_SERIAL=<target> fdroidcl install <appid>
+./mac/deploy-fleet.sh s24          # full stack (recommended)
+./mac/deploy-fdroid.sh s24         # F-Droid roles only
+ANDROID_SERIAL=s24 fdroidcl install org.breezyweather
 ```
 
-Or run the playbook directly: `ansible/playbooks/fdroid.yml`.
+## What the role does
 
-The role ensures repos in fdroidcl (use `fdroidcl install <id>` to push to device) and to on-device Neo Store (via explicit intent, no chooser).
+- Ensures repos in `fdroidcl` on the Mac (IzzyOnDroid, Guardian Project by default)
+- Pushes repos to on-device client via `fdroid_repo_push` (Neo → Droid-ify → F-Droid)
+- Grants Shizuku to Neo Store via `stayturgid.android_common.shizuku_grant`
 
-See role README for details.
+**Human step:** In Neo Store → Settings → Installer → Shizuku, enable automatic updates.
 
-## Client setup (Shizuku + background updates) — per review requirement
-- If no GUI F-Droid client: install "Neo Store" (via Obtainium catalog we added) + configure.
-- If already installed: still configure Shizuku (if not) and background auto-updates (if not).
-Shizuku is granted by the `fdroid_repos` role via `stayturgid.android_common.shizuku_grant`.
-- Then in the Neo Store app (on device):
-  - Settings → Installer → select Shizuku / Dhizuku / Sui.
-  - Enable automatic background updates.
-- After installing at least one app *through* Neo Store, it gains background update capability for those apps.
+## Key files
 
-The `fdroid_repos` Ansible role calls the grant helper automatically when `stayturgid_ensure_neo_store: true`.
+- `ansible/playbooks/fleet.yml` — includes `fdroid_repos` role
+- `ansible_collections/stayturgid/fdroid/` — collection modules + role
+- `fdroid/mac/grant_neo_store_shizuku.py` — removed stub (use `shizuku_grant` module)
 
-See the role README for details.
-
-See `HANDOFF.md` (search for "Side project: fdroid_repos") for full status, next actions, and handoff notes.
-
-This is a side project and does not affect the main device onboarding work.
+See [HANDOFF.md](../HANDOFF.md) for fleet status and [HACKING.md](../HACKING.md) Part 6b for repo fingerprints.

@@ -1,14 +1,13 @@
 ---
-# F-Droid / Neo Store side-project deploy (optional — not part of fleet.yml).
+# F-Droid / Neo Store — subset of fleet.yml (fdroid tag).
+# Prefer: ./mac/deploy-fleet.sh or ./mac/deploy-fdroid.sh
 #
-# Prerequisite: Neo Store installed on device (run obtainium_apps + import catalog).
+# Prerequisite: Neo Store installed on device (Obtainium catalog + import).
 # Control machine: brew install fdroidcl
 #
 # Usage (from repo root):
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fdroid.yml
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fdroid.yml --limit s24
-#
-# Or: ./mac/deploy-fdroid.sh [host ...]
 - name: stayturgid fdroid repos (Neo Store + fdroidcl)
   hosts: stayturgid
   gather_facts: false

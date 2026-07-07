@@ -1,63 +1,30 @@
-# Play Store side project (Aurora + apkeep / gplaycli)
+# Play Store (Aurora + apkeep / gplaycli)
 
-Aurora Store is the on-device GUI client. `deploy-play.sh` installs Aurora when missing, grants Shizuku, completes first-run setup, selects the Shizuku installer, and enables automatic installs. App automation downloads APKs on the Mac and installs via adb, spoofing Play as installer when requested.
+Aurora Store is the on-device GUI client. Fleet deploy installs Aurora when missing, grants Shizuku, completes first-run setup, selects the Shizuku installer, and enables automatic installs. App automation downloads APKs on the Mac and installs via adb, spoofing Play as installer when requested.
 
-## Prerequisites
+## Fleet integration
 
-| Tool | Install | Role |
-|------|---------|------|
-| **Aurora Store** | `./mac/deploy-play.sh` via `apkeep -d f-droid` when missing | GUI updates; Shizuku installer |
-| **apkeep** | `brew install apkeep` | Primary downloader (`apk-pure` or `google-play`) |
-| **gplaycli** | `brew install gplaycli` + `play/mac/gplaycli.sh` | Alternate downloader (needs `gplaycli.conf`) |
+Play/Aurora is part of `./mac/deploy-fleet.sh` (play role + `configure_aurora.py` after Obtainium import).
 
-```bash
-./mac/deploy-play.sh p7a    # install/configure Aurora + grant Shizuku
-```
+Re-run Play only: `./mac/deploy-play.sh [host]`
 
-**Mac firewall:** allow outbound network for `apkeep` and `python` (e.g. Lulu). APKPure may deliver `.xapk` bundles; `play_apps` extracts `base.apk` automatically.
+## Components
 
-## Download sources
-
-**apk-pure** (apkeep default): no Google login; mirror availability varies. Use `stayturgid_play_apkeep_options: arch=arm64-v8a` for fleet devices.
-
-**google-play** (apkeep or gplaycli): requires credentials — not stored in git.
+| Piece | Deploy path | Role |
+|-------|-------------|------|
+| **Aurora Store** | `stayturgid_install_aurora_store: true` in fleet group_vars | GUI updates; Shizuku installer |
+| **play_apps module** | `stayturgid_play_apps` in role vars | apkeep/gplaycli + adb install |
+| **configure_aurora.py** | end of `deploy-fleet.sh` / `deploy-play.sh` | First-run UI automation |
 
 ```bash
-# apkeep (google-play) — email + AAS token from your Play session, or:
-export GPLAY_EMAIL='you@gmail.com'
-export GPLAY_AAS_TOKEN='...'   # or GPLAY_AUTH_TOKEN for Aurora-style token
-
-# gplaycli — copy play/gplaycli.conf.example → ~/.config/gplaycli/gplaycli.conf
-# Set token=False and use a Google App Password.
+./mac/deploy-fleet.sh s24    # full stack (recommended)
+./mac/deploy-play.sh s24     # Play roles + Aurora UI setup only
 ```
 
-## Ansible
+## Play downloads
 
-```yaml
-- stayturgid.play.play_apps:
-    device: p7a
-    apps:
-      - id: com.example.app
-    download_source: apkeep
-    apkeep_source: apk-pure   # or google-play when creds are set
-```
+Set `GPLAY_*` env or `gplaycli.conf` for `google-play` source; apk-pure mirrors work without login but are flaky. See [play/README credentials section](README.md) if documented, or [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md).
 
-Or with a local APK (no download):
+## Collection
 
-```yaml
-- stayturgid.play.play_apps:
-    device: p7a
-    apps:
-      - id: com.example.app
-        apk_path: /path/to/app.apk
-    download_backend: none
-```
-
-Install uses `adb install -r -i com.android.vending` by default (`spoof_play_installer: true`).
-
-Manual fallback (opens Aurora to each app page):
-
-```bash
-./play/mac/open-play-app.sh p7a com.example.app
-# or in role: stayturgid_play_open_aurora: true
-```
+`stayturgid.play` — role `play_store`, module `play_apps`. See [ansible_collections/stayturgid/play/README.md](../ansible_collections/stayturgid/play/README.md).

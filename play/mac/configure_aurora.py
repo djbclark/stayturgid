@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Finish Aurora Store first-run setup from the Mac.
 
-Usage: ./play/mac/configure_aurora.py <p7a|s24|hd8|serial>
+Usage: ./play/mac/configure_aurora.py <s24|hd8|p7a|serial>
 
-This keeps the Play side project out of manual first-run screens by skipping
-the intro carousel, selecting Aurora's anonymous session, and configuring the
-installer/update settings needed for unattended installs.
+Skips the intro carousel, selects Aurora's anonymous session, and configures the
+installer/update settings needed for unattended installs. Called automatically at
+the end of ./mac/deploy-fleet.sh and ./mac/deploy-play.sh.
 """
 import os
 import re

@@ -1,20 +1,18 @@
-# play_store (Aurora Store / Play side project)
+# play_store (Aurora Store / Play)
 
-Ansible role for Google Play via [Aurora Store](https://gitlab.com/AuroraOSS/AuroraStore) (FOSS client), symmetric to `fdroid_repos` / Neo Store.
+Ensures Aurora Store (FOSS Google Play client) with Shizuku + optional app sideload.
 
-## Status
-- Aurora Store in Obtainium catalog and directly installed by `deploy-play.sh` when missing.
-- `deploy-play.sh` grants Shizuku via `shizuku_grant`, completes Aurora first-run setup, selects the Shizuku installer, and enables automatic installs.
-- `stayturgid.play.play_apps` module: apkeep/gplaycli download + `adb install -i com.android.vending`.
-- **p7a verified** (2026-07-07): Shizuku grant idempotent; install path tested via `apk_path`.
-- Play download needs Mac credentials — see [play/README.md](../../../play/README.md).
+## Prerequisites
 
-## Usage
+- Aurora Store in Obtainium catalog and/or `stayturgid_install_aurora_store: true`
+- Fleet deploy runs `configure_aurora.py` for first-run UI (Shizuku installer, auto-updates)
+- Mac: `apkeep` for APK downloads
+
+## Deploy
 
 ```bash
-./mac/deploy-play.sh p7a
+./mac/deploy-fleet.sh s24     # full fleet (recommended)
+./mac/deploy-play.sh s24      # play tag only
 ```
 
-Or `ansible/playbooks/play_store.yml`. Not part of `./mac/deploy-fleet.sh`.
-
-See HANDOFF.md (“Side project: fdroid_repos / play_store”) for full context.
+See [HANDOFF.md](../../../../HANDOFF.md) for fleet status and [play/README.md](../../../../play/README.md).

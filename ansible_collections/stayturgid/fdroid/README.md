@@ -1,6 +1,6 @@
 # stayturgid.fdroid
 
-F-Droid repository management via `fdroidcl` on the control node.
+F-Droid repository management via `fdroidcl` on the control node. Integrated in `ansible/playbooks/fleet.yml`.
 
 - **Module:** `stayturgid.fdroid.fdroid_repos`
 - **Role:** `stayturgid.fdroid.fdroid_repos`

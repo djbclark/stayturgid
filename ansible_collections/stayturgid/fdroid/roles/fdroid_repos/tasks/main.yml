@@ -5,7 +5,7 @@
 
 - name: Resolve fleet alias to adb target (USB serial preferred)
   ansible.builtin.set_fact:
-    _fdroid_target_device: "{{ lookup('stayturgid.android_common.adb_device', target_device | default('localhost:5555')) }}"
+    _fdroid_target_device: "{{ lookup('stayturgid.android_common.adb_device', target_device | default(inventory_hostname)) }}"
 
 - name: Detect installed F-Droid GUI clients on device
   ansible.builtin.set_fact:

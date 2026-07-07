@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Deploy F-Droid repo config (fdroidcl + Neo Store intents + Shizuku grant).
-# Side project — does not run as part of ./mac/deploy-fleet.sh.
+# Re-run F-Droid / Neo Store roles from the fleet playbook (fdroid tag).
+# Full stack: ./mac/deploy-fleet.sh (includes this after Obtainium import).
 #
 # Usage:
 #   ./mac/deploy-fdroid.sh           # whole fleet
@@ -31,7 +31,8 @@ EXTRA=()
 
 cd "$ROOT"
 ANSIBLE_CONFIG="$ROOT/ansible/ansible.cfg" \
-  ansible-playbook ansible/playbooks/fdroid.yml ${LIMIT[@]+"${LIMIT[@]}"} ${EXTRA[@]+"${EXTRA[@]}"}
+  ansible-playbook ansible/playbooks/fleet.yml --tags fdroid \
+    ${LIMIT[@]+"${LIMIT[@]}"} ${EXTRA[@]+"${EXTRA[@]}"}
 
 echo ""
 echo "Fdroid deploy complete. Install an app: ANDROID_SERIAL=<target> fdroidcl install <appid>"

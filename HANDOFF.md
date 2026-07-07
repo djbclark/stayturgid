@@ -47,7 +47,7 @@ On the Mac, a launchd agent runs every 60 s and reconnects `adb connect <ip>:555
 
 GitHub `master` is the source of truth. To release:
 1. Bump `version.json` (`version` + `changelog`), commit, push.
-2. `./mac/deploy-fleet.sh` — full fleet via Ansible (`CHECK=1 ./mac/deploy-fleet.sh` = dry run). Idempotent (re-run = `changed=0`). Post-Ansible, applies the Obtainium catalog via `import_catalog.py` (unlocked screen). Or the granular path: `./ansible/mac/deploy-termux.sh [--limit host]` then `./autojs6/mac/deploy.sh {p7a,s24}` + `./autojs6/mac/start-watchdog.sh {p7a,s24}`.
+2. `./mac/deploy-fleet.sh` — full fleet via Ansible (`CHECK=1 ./mac/deploy-fleet.sh` = dry run): Termux, AutoJs6, Obtainium, Tailscale, F-Droid/Neo Store, Play/Aurora, optional ensure_apps. Idempotent (re-run = `changed=0`). Post-Ansible: Obtainium catalog import (unlocked screen), app-stores re-run, Aurora UI setup. Or the granular path: `./ansible/mac/deploy-termux.sh [--limit host]` then `./autojs6/mac/deploy.sh {s24,hd8,p7a}` + `./autojs6/mac/start-watchdog.sh`.
 
 Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `termux-notification` when GitHub `version.json` moves ahead of the last-seen stamp.
 
@@ -228,7 +228,8 @@ ansible/                     — fleet deploy; inventory/hosts.yml + inventory/g
   playbooks/fleet.yml, mac.yml   roles: termux_userland, autojs6_watchdog, obtainium_apps
 ansible_collections/stayturgid/fleet/   — termux_pkg + obtainium_app modules (FQCN stayturgid.fleet.*)
 obtainium/                   — stayturgid-apps.json catalog + mac/ sync/import/apply/installer scripts
-fdroid/                      — side-project docs + support for F-Droid (Neo Store) and Play (Aurora Store)
+fdroid/                      — F-Droid / Neo Store docs + Mac helpers
+play/                        — Play / Aurora docs + configure_aurora.py
 ansible_collections/stayturgid/fdroid/roles/fdroid_repos/  — fdroidcl repo management + on-device push
 ansible_collections/stayturgid/play/roles/play_store/        — Aurora Store Shizuku grant + play_apps
 shared/mac/                  — resolve-adb.sh, stayturgid_device.py (shizuku.json patcher + UI parsing)
@@ -263,7 +264,7 @@ version.json                 — repo release version + changelog
 ## Changelog (condensed, reverse chronological — git history has full detail)
 
 - **2026-07-07** — Fleet recovery: s24/p7a AutoJs6 `pm clear` reset → `make verify` green. **hd8** (Kindle Fire HD 8) added to fleet. Fire OS support: `stayturgid_sd_root` override, `STAYTURGID_SD` env file, dual-path device-tier checks, AutoJs6 deploy via `adb push`. Ansible taxonomy: `android_11`, `vendor_amazon`, `model_kindle_hd8`.
-- **2026-07-07** — Side project: F-Droid/Neo Store + Play/Aurora support. `fdroidcl` + `gplaycli` on Mac. `ansible/roles/fdroid_repos` (module + role: repo ensure in fdroidcl, explicit `fdroidrepos://` to on-device Neo Store bypassing chooser with preference Neo>Droid-ify>F-Droid, Shizuku grant via generalized helper, setups support, client ensure). Aurora + Neo added to Obtainium catalog. `play_store` skeleton. Defensive tests on p7a/s24 (role runs, grants, installs). Docs + HANDOFF updated. (See fdroid/ and roles.)
+- **2026-07-07** — F-Droid/Neo Store + Play/Aurora support added (`fdroidcl` + `gplaycli` on Mac). Later integrated into `fleet.yml` (2026-07-07). Modules/roles: repo ensure in fdroidcl, `fdroidrepos://` intents, Shizuku grant, Aurora catalog + automated setup.
 - **2026-07-06** — Migration to Python COMPLETE (v2.0): all 5 runtime scripts deploy as Python (repair/agent-presence keep ~/*.sh shims); Mac-side fragile parsers converted (device_tier/access_monitor/adb_reconnect + shared stayturgid_device.py) with pytest; shell fragility boundary reached. Device tier → `device_tier.py`. Taxonomy inventory (no device names in code; group_vars layers all→android_16→vendor→oneui_7→model→host; device.json rendered per host). `obtainium_app` module + `obtainium_apps` role. fleet-health folded into TAP tier (`--heal`). Idempotency/determinism pass (mirror pinned, LC_ALL=C). pytest + `ansible-test units` + `stayturgid.fleet` collection. Ansible-native `fleet.yml` + `autojs6_watchdog` role. Notification self-heal (repair re-enables a11y append-only; notify coalesces per-key). Tasker fully removed (legacy exports archived). CI (GitHub Actions `make test`) green; ansible-lint/yamllint clean. Screen-awake guard + agent-presence consent protocol. sshd PerSourcePenalties lockout fixed.
 - **2026-07-06** — Code review (CODE-REVIEW.md): 2 high / 11 med / 13 low, all fixed (repair helpers before flock branch; bridge liveness → pidfile; battery alarm byte-verified backup; consent gate fails closed; shizuku.json patchers abort on failed read).
 - **2026-07-05** — 7a Termux ecosystem moved to GitHub/Obtainium (share-uid aligned; `termux-api` works). AutoJs6 watchdog live on S24 then rolled to 7a (`main.js` + boot relaunch + Tailscale probe + catastrophic Shizuku tap). Repair channel confirmed (localhost:5555 shell uid 2000). Shizuku reboot-survival fixed on S24 (persistent pairing). Tailscale always-on VPN enabled on both (reboot-proof). SSH hardening (`ssh s24`/`p7a`, no 1Password dialog). Mac access-monitor + battery alarm + adb-reconnect (cached→USB-LAN→mDNS-TLS→Tailscale). Ansible Termux skeleton validated.
@@ -300,28 +301,17 @@ version.json                 — repo release version + changelog
 
 **Next research steps (when picked up):** prototype `stayturgid_repair_check` (SSH→parse STATUS) and `android_apk`; sketch `playbooks/site.yml` composing Termux + AutoJs6 roles; write an ADR with explicit non-goals; decide collection name (`stayturgid.fleet` today vs upstream `ivansible.termux`). **Do not implement until the user explicitly approves a refactor.**
 
-### Side project: fdroid_repos / play_store (F-Droid + Play support) — next actions (as of 2026-07-07 handoff)
+### F-Droid + Play (integrated in fleet.yml)
 
-**Status:** Module + role reworked and verified (2026-07-07). `make test` green (56 pytest + 20 ansible-test). **E2E:** s24 + p7a + **hd8** (Fire OS) — role idempotent, `fdroidcl install com.bobek.metronome` verified then uninstalled on each. Deploy via `./mac/deploy-fdroid.sh [host]` (dedicated playbook — intentionally omitted from `fleet.yml` so normal deploys stay fast). Neo Store must be installed via Obtainium first.
+**Status (2026-07-07):** Roles `stayturgid.fdroid.fdroid_repos` and `stayturgid.play.play_store` are part of `ansible/playbooks/fleet.yml`. `./mac/deploy-fleet.sh` runs core Ansible → Obtainium import → app-stores re-run → Aurora UI automation.
 
-**Key files added/updated:**
-- `fdroid/README.md`, `ansible/roles/fdroid_repos/{README.md,defaults,tasks,meta}`
-- `ansible/roles/play_store/` (skeleton)
-- Shizuku grant: `stayturgid.android_common.shizuku_grant` (Ansible module; legacy `grant_neo_store_shizuku.py` is a removed stub).
-- Obtainium catalog entries for Neo Store + Aurora Store
-- fleet.yml example (commented)
-- HANDOFF + main README updated
+**Mac prerequisites:** `brew install fdroidcl apkeep`
 
-**Recommended next actions (prioritized, in rough order):**
-1. ~~**Verify end-to-end on s24**~~ **Done** (2026-07-07). Optional repeat on **p7a** for parity.
-2. ~~**Flesh out play_store role**~~ **Partial** (2026-07-07) — `stayturgid.play.play_apps` module (apkeep/gplaycli + adb `-i com.android.vending`); `play/mac/gplaycli.sh` wrapper. **You:** set `GPLAY_*` env or `gplaycli.conf` for google-play downloads; apk-pure mirrors are flaky.
-3. ~~**Enhance fdroid_repos**~~ **Done** (2026-07-07) — setups + removal + fingerprint validation in module; `fdroid_repo_push` with multi-component intent fallback; `fdroid_install` module.
-4. ~~**On-device repo management polish**~~ **Partial** (2026-07-07) — `fdroid_repo_push` tries Neo > Droid-ify > F-Droid with explicit+implicit fallback per client. DB/content-provider import still manual if all intents fail.
-5. **Integration & docs:** ~~uncomment in fleet.yml~~ **Done** — `ansible/playbooks/fdroid.yml` + `./mac/deploy-fdroid.sh`; `play_store.yml` + `./mac/deploy-play.sh`; fleet.yml points there. ~~Expand HACKING with fingerprints~~ **Done** (HACKING Part 6b).
-6. ~~**Aurora/Play catalog & client**~~ **Automated** (2026-07-07): `./mac/deploy-play.sh <host>` installs Aurora via `apkeep` when missing, grants Shizuku, completes anonymous first-run setup, selects the Shizuku installer, and enables automatic installs. Verified on **s24**, **p7a**, and **hd8**.
-7. ~~**hd8 (Kindle) compatibility**~~ **Done** (2026-07-07) — `deploy-fdroid.sh hd8` + metronome install via USB adb.
-8. ~~**Longer term: unified app ensure**~~ **Done** (2026-07-07) — `stayturgid.android_common.ensure_apps` role; fdroidcl wrapped in `fdroid_install` / `fdroid_repos` modules.
+**Partial re-runs:** `./mac/deploy-fdroid.sh [host]` · `./mac/deploy-play.sh [host]`
+
+**Human steps (one-time per device):** Neo Store Shizuku installer + auto-updates; Play creds for google-play downloads — see [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md).
+
+**Verified E2E:** s24 + p7a + hd8 — fdroidcl install/uninstall metronome; Aurora automated setup on all three.
 
 Run with announcements (`🚨📱🚨 USING — s24 ...`) when someone may be on the device.
-F-Droid / Play side playbooks stay optional (`deploy-fdroid.sh`, `deploy-play.sh`).
 Operator-only steps (Play creds, deploy approval): [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md).

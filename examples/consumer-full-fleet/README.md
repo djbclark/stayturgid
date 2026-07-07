@@ -1,7 +1,8 @@
 # Full stayturgid fleet consumer template
 
 Mirrors `ansible/playbooks/fleet.yml` for a site that vendors this repo (or
-installs collections from Git tags).
+installs collections from Git tags). Includes Termux, AutoJs6, Obtainium,
+Tailscale, F-Droid/Neo Store, and Play/Aurora roles.
 
 ## Quick start
 

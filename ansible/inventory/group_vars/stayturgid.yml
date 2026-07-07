@@ -3,6 +3,11 @@
 # place — roles/termux_userland/defaults/main.yml — do not duplicate them
 # here (group_vars silently wins over role defaults and the copies drift).
 
+# F-Droid / Neo Store + Play / Aurora (integrated in fleet.yml via deploy-fleet.sh).
+stayturgid_ensure_neo_store: true
+stayturgid_ensure_aurora_store: true
+stayturgid_install_aurora_store: true
+
 # Optional unified app ensure (stayturgid.android_common.ensure_apps in fleet.yml).
 # Uncomment and edit — each entry needs id + source (play|fdroid|apk|obtainium).
 # stayturgid_ensure_apps: []

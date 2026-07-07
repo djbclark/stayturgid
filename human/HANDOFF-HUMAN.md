@@ -32,22 +32,21 @@ Last updated: 2026-07-07 (after Ansible collection v1.4.0 / fleet v1.5.0)
 
 ## Priority 2 — On-device one-time setup (if not already done)
 
-### 2.1 Neo Store (F-Droid side project)
+### 2.1 Neo Store (F-Droid)
 
-After `./mac/deploy-fdroid.sh <host>`:
+After `./mac/deploy-fleet.sh <host>` (or `./mac/deploy-fdroid.sh <host>`):
 
 1. Open Neo Store → Settings → Installer → **Shizuku**.
 2. Enable **automatic / background updates**.
 
 Record in `RESPONSES.md`: host + done/not done.
 
-### 2.2 Aurora Store (Play side project)
+### 2.2 Aurora Store (Play)
 
-After `./mac/deploy-play.sh <host>` (handles most first-run via screen automation):
+After `./mac/deploy-fleet.sh <host>` (runs Aurora UI automation; or `./mac/deploy-play.sh <host>`):
 
 1. Confirm Aurora Settings → Installer = Shizuku, automatic updates on.
-2. If `stayturgid_install_aurora_store: true` was used without `deploy-play.sh`,
-   you still need the Shizuku installer selection manually.
+2. If Aurora was installed outside fleet deploy, you may still need the Shizuku installer selection manually.
 
 Record in `RESPONSES.md`: host + done/not done.
 

@@ -649,14 +649,15 @@ If port 5555 is not open after 60s:
 
 ---
 
-## Part 6b — F-Droid / Neo Store side project (2026-07-07)
+## Part 6b — F-Droid / Neo Store + Play / Aurora (fleet-integrated)
 
-Optional layer on top of Obtainium. **Not** part of `./mac/deploy-fleet.sh` — use dedicated playbooks so normal deploys stay fast.
+Part of `./mac/deploy-fleet.sh`. After the core Ansible run, Obtainium catalog import installs Neo Store and Aurora; a second `--tags app-stores` pass pushes F-Droid repos and grants Shizuku; `configure_aurora.py` finishes Aurora first-run UI.
 
-| Command | Playbook | Prerequisite |
-|---------|----------|--------------|
-| `./mac/deploy-fdroid.sh [host]` | `ansible/playbooks/fdroid.yml` | Neo Store installed (Obtainium catalog); Mac: `brew install fdroidcl` |
-| `./mac/deploy-play.sh [host]` | `ansible/playbooks/play_store.yml` | Aurora Store installed (Obtainium catalog); Mac: `brew install apkeep` |
+| Command | Scope | Mac tools |
+|---------|-------|-----------|
+| `./mac/deploy-fleet.sh [host]` | Full stack | fdroidcl, apkeep |
+| `./mac/deploy-fdroid.sh [host]` | F-Droid tag only | fdroidcl |
+| `./mac/deploy-play.sh [host]` | Play tag + Aurora UI | apkeep |
 
 **Default repos** (`ansible_collections/stayturgid/fdroid/roles/fdroid_repos/defaults/main.yml`):
 
@@ -665,7 +666,7 @@ Optional layer on top of Obtainium. **Not** part of `./mac/deploy-fleet.sh` — 
 | IzzyOnDroid | `https://apt.izzysoft.de/fdroid/repo` | `3BF0D6ABFEAE2F401707B6D966BE743BF0EEE49C2561B9BA39073711F628937A` |
 | Guardian Project | `https://guardianproject.info/fdroid/repo` | `B7C2EEFD8DAC7806AF67DFCD92EB18126BC08312A7F2D6F3862E46013C7A6135` |
 
-**Install from Mac after deploy-fdroid:**
+**Install from Mac after fleet deploy:**
 
 ```bash
 ANDROID_SERIAL="$(resolve_adb s24)" fdroidcl install com.example.app
@@ -693,9 +694,10 @@ ansible/                                — idempotent Termux userland deploy
 mac/
   adb-reconnect.py, access_monitor.py   — Mac keepalive + dead-man's switch (launchd agents via ansible/playbooks/mac.yml)
 obtainium/                              — APK tracking catalogs
-fdroid/                                 — Neo Store Shizuku grant helper; fdroid side-project docs
-ansible/playbooks/fdroid.yml            — optional F-Droid deploy (./mac/deploy-fdroid.sh)
-ansible/playbooks/play_store.yml        — optional Aurora deploy (./mac/deploy-play.sh)
+fdroid/                                 — F-Droid / Neo Store docs + legacy grant stub
+ansible/playbooks/fleet.yml             — full fleet (includes fdroid + play roles)
+ansible/playbooks/fdroid.yml            — F-Droid-only subset (deploy-fdroid.sh)
+ansible/playbooks/play_store.yml        — Play-only subset (deploy-play.sh)
 shared/mac/                             — resolve-adb.sh and common helpers
 HACKING.md                              — this file
 HANDOFF.md                              — AI session handoff prompt

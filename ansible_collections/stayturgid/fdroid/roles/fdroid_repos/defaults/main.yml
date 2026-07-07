@@ -1,5 +1,6 @@
 ---
-target_device: p7a
+# fdroid_repos role defaults — fleet sets target_device per host in fleet.yml.
+
 stayturgid_repo_root: "{{ playbook_dir }}/../.."
 
 stayturgid_fdroid_repos:

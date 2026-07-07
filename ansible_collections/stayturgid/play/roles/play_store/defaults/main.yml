@@ -18,8 +18,7 @@ stayturgid_play_open_aurora: false
 
 # Ensure Aurora Store (FOSS Play client) with Shizuku.
 stayturgid_ensure_aurora_store: true
-# Auto-install Aurora via apkeep + android_apk when missing (Shizuku installer
-# selection and first-run setup still need ./mac/deploy-play.sh).
+# Auto-install Aurora via apkeep + android_apk when missing (first-run UI setup runs in deploy-fleet.sh).
 stayturgid_install_aurora_store: false
 
 aurora_store_package: com.aurora.store

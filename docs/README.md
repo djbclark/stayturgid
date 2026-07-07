@@ -11,7 +11,8 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 | Mac tools | [mac/README.md](../mac/README.md) | ADB reconnect launchd, outage monitor |
 | AutoJs6 | [autojs6/README.md](../autojs6/README.md) | JS watchdog (only automation stack in repo) |
 | Obtainium | [obtainium/README.md](../obtainium/README.md) | GitHub APK catalog and updates |
-| F-Droid / Neo Store | [fdroid/README.md](../fdroid/README.md) | F-Droid repos + Neo Store client (Shizuku + auto-updates) | side project |
+| F-Droid / Neo Store | [fdroid/README.md](../fdroid/README.md) | F-Droid repos + Neo Store (fleet-integrated) |
+| Play / Aurora Store | [play/README.md](../play/README.md) | Aurora Store + apkeep/gplaycli (fleet-integrated) |
 | Shared helpers | [shared/README.md](../shared/README.md) | `resolve-adb`, repo-root discovery |
 
 ## Project-wide
@@ -32,5 +33,5 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 
 - **Termux only:** `termux/` + manual Shizuku
 - **Termux + Ansible:** `ansible/` + SSH keys
-- **Full stack:** `termux/` + `autojs6/` + `obtainium/` + `mac/`
+- **Full stack:** `termux/` + `autojs6/` + `obtainium/` + `fdroid/` + `play/` + `mac/` + `./mac/deploy-fleet.sh`
 - **Obtainium only:** `obtainium/` — APK updates without stayturgid watchdog
