@@ -24,11 +24,16 @@ function autoJs6AccessibilityEnabled() {
 }
 
 /**
- * Require AutoJs6 accessibility before running the watchdog.
+ * Best-effort accessibility for the watchdog — DEGRADES, never blocks.
  *
  * Self-healing: the Termux repair script re-enables the service through the
- * privileged 5555 shell (append-only). We trigger a repair and wait; the
- * (coalescing, counted) notification fires only when the fix FAILS.
+ * privileged 5555 shell (append-only). We trigger a repair and wait briefly.
+ *
+ * Critically this returns whether or not a11y comes back — it must NEVER call
+ * auto.waitFor() (which blocks forever if the service won't attach). Blocking
+ * here froze the entire watchdog on a device where auto.service stayed null,
+ * killing even the non-a11y work (sshd/Tailscale/repair via RUN_COMMAND). The
+ * caller runs the cycle regardless; a11y-dependent steps no-op when it's off.
  */
 function enforce() {
     if (autoJs6AccessibilityEnabled()) {
@@ -46,17 +51,17 @@ function enforce() {
     if (autoJs6AccessibilityEnabled()) {
         log.append("[watchdog] accessibility restored by repair");
         notify.clear("a11y-blocked");
-        auto.waitFor();   // returns immediately once the service binds
         return;
     }
 
+    // Still off — proceed with a degraded cycle rather than freezing.
+    log.append("[watchdog] accessibility still off — running degraded (no UI repair)");
     notify.show(
-        "stayturgid AutoJs6 blocked",
-        "Accessibility auto-repair failed — enable the AutoJs6 accessibility "
-            + "service by hand, then restart main.js.",
+        "stayturgid AutoJs6 degraded",
+        "Accessibility is off — sshd/Tailscale self-heal still runs, but on-screen "
+            + "repairs are paused. Enable the AutoJs6 accessibility service to restore.",
         "a11y-blocked"
     );
-    auto.waitFor();
 }
 
 function statusReport() {
