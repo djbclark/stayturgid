@@ -653,7 +653,7 @@ Optional layer on top of Obtainium. **Not** part of `./mac/deploy-fleet.sh` — 
 | Command | Playbook | Prerequisite |
 |---------|----------|--------------|
 | `./mac/deploy-fdroid.sh [host]` | `ansible/playbooks/fdroid.yml` | Neo Store installed (Obtainium catalog); Mac: `brew install fdroidcl` |
-| `./mac/deploy-play.sh [host]` | `ansible/playbooks/play_store.yml` | Aurora Store installed (Obtainium catalog) |
+| `./mac/deploy-play.sh [host]` | `ansible/playbooks/play_store.yml` | Aurora Store installed (Obtainium catalog); Mac: `brew install apkeep` |
 
 **Default repos** (`ansible/roles/fdroid_repos/defaults/main.yml`):
 

@@ -4,9 +4,10 @@ Ansible role for Google Play via [Aurora Store](https://gitlab.com/AuroraOSS/Aur
 
 ## Status
 - Aurora Store in Obtainium catalog.
-- `deploy-play.sh` grants Shizuku via privileged adb (`grant_neo_store_shizuku.py`).
-- **p7a verified** (2026-07-07): idempotent Shizuku grant.
-- No open “repo” like F-Droid; automation path is gplaycli download + `adb install -i com.android.vending`.
+- `deploy-play.sh` grants Shizuku via `grant_neo_store_shizuku.py`.
+- `stayturgid.fleet.play_apps` module: apkeep/gplaycli download + `adb install -i com.android.vending`.
+- **p7a verified** (2026-07-07): Shizuku grant idempotent; install path tested via `apk_path`.
+- Play download needs Mac credentials — see [play/README.md](../../../play/README.md).
 
 ## Usage
 

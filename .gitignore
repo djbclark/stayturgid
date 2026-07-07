@@ -2,5 +2,6 @@ __pycache__/
 .config.mk
 .DS_Store
 .venv-test/
+.venv-gplaycli/
 *.py[cod]
 ansible_collections/stayturgid/fleet/tests/output/

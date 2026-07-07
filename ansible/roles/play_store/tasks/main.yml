@@ -76,3 +76,13 @@
     msg: |
       After Aurora is set with Shizuku as installer, enable auto updates in its settings.
       Install apps through it for background behavior.
+
+- name: Ensure Play apps (apkeep/gplaycli + adb install)
+  when: stayturgid_play_apps | length > 0
+  stayturgid.fleet.play_apps:
+    apps: "{{ stayturgid_play_apps }}"
+    device: "{{ _play_target_device }}"
+    download_backend: "{{ stayturgid_play_download_backend }}"
+    apkeep_source: "{{ stayturgid_play_apkeep_source }}"
+    spoof_play_installer: "{{ stayturgid_play_spoof_installer | bool }}"
+  delegate_to: localhost

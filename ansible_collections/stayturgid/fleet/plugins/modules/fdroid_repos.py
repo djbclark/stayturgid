@@ -79,7 +79,7 @@ DEVICES_CONF = os.path.expanduser("~/.config/stayturgid/devices.conf")
 
 def device_row(alias):
     try:
-        with open(DEVICES_CONF) as f:
+        with open(DEVICES_CONF, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith("#"):

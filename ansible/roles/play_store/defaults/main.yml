@@ -4,9 +4,12 @@
 # Analogous to fdroid_repos / Neo Store.
 
 stayturgid_play_apps: []
-# e.g.
-# - id: com.example.app
-#   # for tracking or note
+# Example (requires apkeep/gplaycli creds for Play download, or apk_path):
+# - id: com.google.android.apps.authenticator2
+
+stayturgid_play_download_backend: apkeep
+stayturgid_play_apkeep_source: apk-pure
+stayturgid_play_spoof_installer: true
 
 # Ensure Aurora Store (FOSS Play client) with Shizuku.
 stayturgid_ensure_aurora_store: true
