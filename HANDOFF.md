@@ -191,10 +191,16 @@ specific script misbehaves.
      `ADB_Core_Watchdog` task; delete/re-export `projects/upmon.prj.xml`.
      This is the ONLY failing device-tier check.
   2. Reboot validation is DONE — both phones rebooted + verified this session.
-- **In-flight migration:** bash→python twins under parity test (shell still
-  deployed). Done: `stayturgid-battery-alarm.sh`, `screen-awake-guard.sh`
-  (both in `termux/py/`, run via `guard_suite`/`battery_suite` sh+py).
-  All four runtime twins done (parity-tested).
+- **Migration COMPLETE (v2.0):** all 5 runtime scripts now DEPLOY as Python.
+  check-repo-version / screen-guard / battery-alarm — boot loop calls
+  `python3 ~/stayturgid_*.py` directly (old .sh removed). agent-presence &
+  repair — `.py` + a thin `~/*.sh` compat shim (keeps external agents +
+  AutoJs6 RUN_COMMAND callers unchanged). Ansible `stayturgid_py_scripts`
+  deploys twins flat to ~/; `stayturgid_retired_scripts` removes old .sh.
+  Verified live on s24: repair via direct/bridge/RUN_COMMAND + fcntl lock
+  serialization. Fixed en route: the `restart boot loop` handler SIGTERM'd
+  itself (`pkill -f start-adb.sh` matched the handler's own cmdline) and used a
+  non-detached `nohup &` — now pidfile (`~/.stayturgid-bootloop.pid`) + setsid.
 - **Next no-help items (recommended order):** (a) obtainium_app custom module;
   (b) fold `fleet-health.sh` checks into the TAP device tier; (c) continue the
   python twins. All detailed in the session logs below.

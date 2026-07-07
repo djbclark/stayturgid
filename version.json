@@ -1,4 +1,4 @@
 {
-  "version": "1.9",
-  "changelog": "obtainium_app module + role; fleet-health folded into TAP --heal tier; sshd PerSourcePenalties off (operator lockout fix); Samsung am-start via privileged shell."
+  "version": "2.0",
+  "changelog": "Runtime scripts (repair, presence, battery-alarm, screen-guard, check-repo-version) now DEPLOY as Python; agent-presence/repair via compat shims. Boot-loop restart handler fixed (pidfile+setsid)."
 }
