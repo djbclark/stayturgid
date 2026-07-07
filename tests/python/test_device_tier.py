@@ -18,6 +18,7 @@ bootloop=ok
 bridge=ok
 shell5555=ok
 repairlog=fresh
+watchdog=fresh
 battery=88
 taskerlegacy=notif:0,files:0
 mirror=pinned
@@ -95,6 +96,15 @@ def test_evaluate_battery_unknown_fails():
     rep = dt.parse_report(HEALTHY.replace("battery=88", "battery=unknown"))
     k = kinds(dt.evaluate("p7a", rep))
     assert k["p7a: termux-api battery readable"] == "fail"
+
+
+def test_evaluate_watchdog_liveness():
+    k = kinds(dt.evaluate("s24", dt.parse_report(HEALTHY)))
+    assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "ok"
+    for bad in ("watchdog=stale:4000s", "watchdog=missing"):
+        rep = dt.parse_report(HEALTHY.replace("watchdog=fresh", bad))
+        k = kinds(dt.evaluate("s24", rep))
+        assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "fail"
 
 
 def test_file_md5_matches_hashlib(tmp_path):

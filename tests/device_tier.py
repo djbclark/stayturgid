@@ -64,6 +64,16 @@ if [ -n "$last" ]; then
 else
     echo "repairlog=missing"
 fi
+# AutoJs6 secondary watchdog liveness: it writes a [watchdog] line every ~20
+# min (INTERVAL_MS). A gap > ~30 min means the engine stalled (Doze, a11y
+# block, crash) — the layer we can't see from the repair log alone.
+wlast=$(grep "\[watchdog\]" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
+if [ -n "$wlast" ]; then
+    wage=$(( $(date +%s) - $(date -d "$wlast" +%s 2>/dev/null || echo 0) ))
+    [ "$wage" -ge 0 ] && [ "$wage" -lt 1800 ] && echo "watchdog=fresh" || echo "watchdog=stale:${wage}s"
+else
+    echo "watchdog=missing"
+fi
 batt=$(termux-battery-status 2>/dev/null | grep -o '"percentage": *[0-9]*' | grep -o '[0-9]*' || true)
 [ -n "$batt" ] && echo "battery=${batt}" || echo "battery=unknown"
 tn=$(adb -s localhost:5555 shell "dumpsys notification --noredact" </dev/null 2>/dev/null \
@@ -171,6 +181,14 @@ def evaluate(host, report, repo_dir=REPO):
 
     (ok if report.get("repairlog") == "fresh" else fail)(
         "%s: repair log fresh (<45 min)" % host)
+
+    # AutoJs6 secondary watchdog liveness (writes every ~20 min).
+    wd = report.get("watchdog", "")
+    if wd == "fresh":
+        ok("%s: AutoJs6 watchdog alive (<30 min)" % host)
+    else:
+        fail("%s: AutoJs6 watchdog alive (<30 min)" % host,
+             "%s — engine stalled? re-trigger boot-launcher / check a11y binding" % (wd or "no data"))
 
     batt = report.get("battery", "unknown")
     if batt not in ("unknown", ""):
