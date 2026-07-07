@@ -60,7 +60,7 @@ Two occurrences:
 Also: line 29 gives `STAYTURGID_AGENT` precedence over `$3`, while the header comment (line 11) documents the reverse order.
 
 ### M6. `termux_pkg` module mutates the system in `--check` mode and triple-runs `pkg update`
-`ansible/library/termux_pkg.py:104-120` — the module declares `supports_check_mode=True`, but `pkg update` (line 105) and `apt-get full-upgrade` (line 112) execute unconditionally, so `ansible-playbook --check` actually upgrades every package on the phone. Only install/remove honor check mode.
+`ansible_collections/stayturgid/fleet/plugins/modules/termux_pkg.py` — the module declares `supports_check_mode=True`, but `pkg update` and `apt-get full-upgrade` execute unconditionally, so `ansible-playbook --check` actually upgrades every package on the phone. Only install/remove honor check mode.
 Additionally, a normal role run executes `pkg update` up to 3× and `full-upgrade` up to 2×: task 1 (update+upgrade), task 2 (update again), and lines 147-150 repeat update/upgrade before install. Over Termux SSH each pass is slow; guard the lines 146-150 re-run (the cache was refreshed moments earlier) and wrap the update/upgrade calls with `if not module.check_mode`.
 
 ### M7. Watchdog notifications use random IDs — unbounded pileup during outages

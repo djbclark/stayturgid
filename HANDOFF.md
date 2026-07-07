@@ -273,7 +273,7 @@ version.json                 — repo release version + changelog
 
 ### Side project: fdroid_repos / play_store (F-Droid + Play support) — next actions (as of 2026-07-07 handoff)
 
-**Status:** Module + role reworked and verified (2026-07-07). `make test` green (56 pytest + 20 ansible-test). **s24 E2E:** role idempotent, `fdroidcl install com.bobek.metronome` verified then uninstalled. Deploy via `./mac/deploy-fdroid.sh [host]` (dedicated playbook — intentionally omitted from `fleet.yml` so normal deploys stay fast). Neo Store must be installed via Obtainium first.
+**Status:** Module + role reworked and verified (2026-07-07). `make test` green (56 pytest + 20 ansible-test). **E2E:** s24 + p7a + **hd8** (Fire OS) — role idempotent, `fdroidcl install com.bobek.metronome` verified then uninstalled on each. Deploy via `./mac/deploy-fdroid.sh [host]` (dedicated playbook — intentionally omitted from `fleet.yml` so normal deploys stay fast). Neo Store must be installed via Obtainium first.
 
 **Key files added/updated:**
 - `fdroid/README.md`, `ansible/roles/fdroid_repos/{README.md,defaults,tasks,meta}`
@@ -290,7 +290,7 @@ version.json                 — repo release version + changelog
 4. **On-device repo management polish**: if explicit intent + NeoActivity is flaky for adding repos to GUI, explore direct methods (e.g. content provider, AutoJs6 script to accept chooser, or file import into Neo Store's DB). Make preference logic also update system preferred activities if possible (without root).
 5. **Integration & docs:** ~~uncomment in fleet.yml~~ **Done** — `ansible/playbooks/fdroid.yml` + `./mac/deploy-fdroid.sh`; fleet.yml points there. Expand HACKING with fingerprints if needed.
 6. **Aurora/Play catalog & client**: ensure Aurora settings for Shizuku + auto-updates; add common Play apps to catalog if desired; research whether Aurora supports fdroid-like repo import intents for "Play repos" (probably not, but document).
-7. **hd8 (Kindle) compatibility**: test roles on hd8 once main onboarding allows (Fire OS may need sd root tweaks similar to other paths).
+7. ~~**hd8 (Kindle) compatibility**~~ **Done** (2026-07-07) — `deploy-fdroid.sh hd8` + metronome install via USB adb.
 8. **Longer term**: decide if fdroidcl/gplaycli stay as external tools or get wrapped into custom collection modules (like termux_pkg/obtainium_app). Consider "unified app ensure" abstraction across Obtainium/F-Droid/Play.
 
 Run with announcements (`🚨📱🚨 USING — p7a ...`) and treat devices as potentially busy. This side project is ready for use in fleet runs but still experimental — keep it gated until more real-device validation.
