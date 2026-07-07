@@ -50,8 +50,8 @@ BOOTLOOP_PID_FILE="$HOME/.stayturgid-bootloop.pid"
 
     # Screen held awake? Keep a restore-lock notification up (reappears each
     # cycle while the state persists; dismiss+ignore = deliberate keep-awake).
-    if [ -x "$HOME/screen-awake-guard.sh" ]; then
-        "$HOME/screen-awake-guard.sh" check >/dev/null 2>&1 || true
+    if [ -x "$HOME/stayturgid_screen_awake_guard.py" ]; then
+        python3 "$HOME/stayturgid_screen_awake_guard.py" check >/dev/null 2>&1 || true
     fi
 
     # Daily GitHub version check (notify only; deploy from Mac).

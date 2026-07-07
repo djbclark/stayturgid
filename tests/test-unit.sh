@@ -364,7 +364,7 @@ guard_suite() {
     unset ADB_TIMEOUT ADB_WAKE DIALOG_CHOICE ADB_WAKELOCK 2>/dev/null || true
 }
 
-guard_suite termux/screen-awake-guard.sh sh
+# screen-awake-guard migrated to Python (shell retired).
 guard_suite termux/py/stayturgid_screen_awake_guard.py py
 
 # ===========================================================================

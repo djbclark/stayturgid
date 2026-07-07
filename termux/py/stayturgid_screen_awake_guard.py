@@ -1,12 +1,11 @@
 #!/data/data/com.termux/files/usr/bin/python
-"""Screen-awake guard — Python twin of ../screen-awake-guard.sh.
+"""Screen-awake guard (Python) — deployed as ~/stayturgid_screen_awake_guard.py.
 
 While the screen is held awake (stay-on setting, an app wakelock like Wakey,
 or a very long screen_off_timeout), keep a notification up offering one tap to
 restore normal screen lock. Called with `check` every 5 min from the boot loop;
-`restore [ms]` applies a timeout. Behavioral parity with the shell version is
-enforced by tests/test-unit.sh (guard_suite run against both). Shell stays
-deployed until parity soaks.
+`restore [ms]` applies a timeout. Migrated from screen-awake-guard.sh;
+unit-tested via tests/test-unit.sh (guard_suite).
 """
 import os
 import subprocess
@@ -16,7 +15,7 @@ HOME = os.environ.get("HOME", "")
 NID = "stayturgid-screenlock"
 BASELINE_FILE = os.path.join(HOME, ".stayturgid", "screen_timeout_baseline")
 MAX_OK_MS = 600000  # timeouts above 10 min count as "held awake"
-SELF = os.path.join(HOME, "screen-awake-guard.sh")  # notification button target
+SELF = os.path.join(HOME, "stayturgid_screen_awake_guard.py")  # notification button target
 
 
 def run(args):
@@ -103,9 +102,9 @@ def post_notification(reason):
             "--title", "Screen is being kept awake",
             "--content", reason + " — tap to restore normal lock. Ignore to keep it awake.",
             "--button1", "Restore lock (%s)" % fmt_ms(baseline),
-            "--button1-action", "bash %s restore %s" % (SELF, baseline),
+            "--button1-action", "python3 %s restore %s" % (SELF, baseline),
             "--button2", "Other timeout…",
-            "--button2-action", "bash %s restore" % SELF,
+            "--button2-action", "python3 %s restore" % SELF,
         ])
     else:
         run([
@@ -113,7 +112,7 @@ def post_notification(reason):
             "--title", "Screen is being kept awake",
             "--content", reason + " — pick a lock timeout to restore. Ignore to keep it awake.",
             "--button1", "Set lock timeout…",
-            "--button1-action", "bash %s restore" % SELF,
+            "--button1-action", "python3 %s restore" % SELF,
         ])
 
 
@@ -197,7 +196,7 @@ def main():
     elif action == "restore":
         do_restore(sys.argv[2] if len(sys.argv) > 2 else "")
     else:
-        sys.stderr.write("usage: screen-awake-guard.py check | restore [ms]\n")
+        sys.stderr.write("usage: stayturgid_screen_awake_guard.py check | restore [ms]\n")
         sys.exit(2)
 
 
