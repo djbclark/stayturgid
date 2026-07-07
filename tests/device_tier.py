@@ -308,7 +308,7 @@ def evaluate(host, report, repo_dir=REPO):
         ok("%s: deployed termux scripts match repo" % host)
     else:
         todo("%s: deployed termux scripts match repo" % host,
-             "drift: %s (run ./mac/deploy-fleet.sh)" % " ".join(drift))
+             "drift: %s (run ./mac/deploy_fleet.py)" % " ".join(drift))
     return r
 
 

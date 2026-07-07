@@ -3,7 +3,7 @@
 # place — roles/termux_userland/defaults/main.yml — do not duplicate them
 # here (group_vars silently wins over role defaults and the copies drift).
 
-# F-Droid / Neo Store + Play / Aurora (integrated in fleet.yml via deploy-fleet.sh).
+# F-Droid / Neo Store + Play / Aurora (integrated in fleet.yml via deploy_fleet.py).
 stayturgid_ensure_neo_store: true
 stayturgid_ensure_aurora_store: true
 stayturgid_install_aurora_store: true

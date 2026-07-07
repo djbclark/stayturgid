@@ -40,10 +40,10 @@ The deployed `~/agent-presence.sh` includes the consent `gate` action ([termux/R
 
 ```bash
 # S24 (AutoJs6 production)
-./ansible/mac/deploy-termux.sh s24
+./ansible/mac/deploy_termux.py s24
 
 # 7a (AutoJs6)
-./ansible/mac/deploy-termux.sh p7a
+./ansible/mac/deploy_termux.py p7a
 ```
 
 Validated on S24 2026-07-05: playbook completed with `changed=0` on the final run and repair check returned:
@@ -89,7 +89,7 @@ ansible/
   inventory/hosts.yml
   playbooks/termux-userland.yml
   roles/autojs6_watchdog/        — fleet-only (not in collections)
-  mac/deploy-termux.sh
+  ansible/mac/deploy_termux.py
 ansible_collections/stayturgid/  — modules + roles per domain
 ```
 
@@ -103,6 +103,6 @@ Device-specific steps still required on each host:
 4. Obtainium catalog / `obtainium/mac/enable_shizuku_installer.py <host>`
 5. Open Termux:Boot app once after fresh install
 
-For routine updates after `git pull`, steps 1–3 reduce to `deploy-termux.sh` + `deploy.sh` + `start-watchdog.sh`.
+For routine updates after `git pull`, steps 1–3 reduce to `deploy_termux.py` + `deploy.sh` + `start-watchdog.sh`.
 
 See [HANDOFF.md](../HANDOFF.md) for the full production checklist, or [termux/README.md](../termux/README.md) if you deploy scripts without Ansible.

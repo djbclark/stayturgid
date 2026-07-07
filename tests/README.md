@@ -20,7 +20,7 @@ Three equivalent entry points (they call the same scripts — overlap is intenti
   privileged 5555 shell, watchdog log freshness, battery readability, and
   deployed-script drift vs the repo (drift reports as TAP `# TODO`, not
   failure). `--ansible-check` adds the Ansible dry run. It never invokes the
-  self-heal — that's `mac/fleet-health.sh` (ops, not test).
+  self-heal — that's `mac/tests/run.sh device --heal` (ops, not test).
 
 Output is TAP (Test Anything Protocol): `ok N - …` / `not ok N - …`,
 plan `1..N`; `# SKIP` for missing tools, `# TODO` for expected failures.

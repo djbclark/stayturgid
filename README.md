@@ -34,14 +34,14 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 ## Full stack (quick path)
 
 1. Shizuku (thedjchi fork) — TCP mode, wireless debugging
-2. Termux + Termux:Boot + Termux:API — [termux/README.md](termux/README.md) or `./ansible/mac/deploy-termux.sh <host>`
+2. Termux + Termux:Boot + Termux:API — [termux/README.md](termux/README.md) or `./ansible/mac/deploy_termux.py <host>`
 3. AutoJs6 watchdog — [autojs6/README.md](autojs6/README.md) (`setup-autojs6.sh`, `set-automation-mode.sh`, `start-watchdog.sh`)
 4. Obtainium catalog — [obtainium/README.md](obtainium/README.md)
 5. Mac — [mac/README.md](mac/README.md) (ADB reconnect + access monitor)
 
-**One command (fleet):** `./mac/deploy-fleet.sh` — Termux, AutoJs6, Obtainium, Tailscale, F-Droid/Neo Store, Play/Aurora, optional ensure_apps.
+**One command (fleet):** `./mac/deploy_fleet.py` — Termux, AutoJs6, Obtainium, Tailscale, F-Droid/Neo Store, Play/Aurora, optional ensure_apps.
 
-**Partial re-runs:** `./mac/deploy-fdroid.sh [host]` · `./mac/deploy-play.sh [host]`
+**Partial re-runs:** `./mac/deploy_fleet.py --scope fdroid [host]` · `./mac/deploy_fleet.py --scope play [host]`
 
 ---
 

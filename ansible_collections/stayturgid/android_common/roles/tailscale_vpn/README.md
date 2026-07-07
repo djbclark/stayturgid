@@ -10,8 +10,8 @@ Defaults (`group_vars/all.yml`):
 Included in `fleet.yml` after `obtainium_apps` (Tailscale must be installed).
 
 ```bash
-./mac/deploy-fleet.sh          # all hosts
-./mac/deploy-fleet.sh hd8      # one host
+./mac/deploy_fleet.py          # all hosts
+./mac/deploy_fleet.py hd8      # one host
 ```
 
 Does not sign in to Tailscale — only configures always-on VPN once the app is installed and logged in.

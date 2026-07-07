@@ -15,7 +15,7 @@
   ansible.builtin.debug:
     msg: >-
       Aurora Store ({{ aurora_store_package }}) not installed on {{ _play_target_device }}.
-      Run ./mac/deploy-fleet.sh (or set stayturgid_install_aurora_store: true) to install Aurora via apkeep before this role grants Shizuku.
+      Run ./mac/deploy_fleet.py (or set stayturgid_install_aurora_store: true) to install Aurora via apkeep before this role grants Shizuku.
   when:
     - stayturgid_ensure_aurora_store | bool
     - not (stayturgid_install_aurora_store | default(false) | bool)

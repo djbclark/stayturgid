@@ -4,13 +4,13 @@ Ansible role `stayturgid.fdroid.fdroid_repos` plus Mac `fdroidcl` for repo manag
 
 ## Fleet integration
 
-F-Droid is part of the standard fleet deploy (`./mac/deploy-fleet.sh`):
+F-Droid is part of the standard fleet deploy (`./mac/deploy_fleet.py`):
 
 1. Core Ansible run (includes fdroid role — syncs repos on Mac)
 2. Obtainium catalog import (installs Neo Store on device)
 3. App-stores re-run (pushes repos to Neo Store, grants Shizuku)
 
-Re-run F-Droid only: `./mac/deploy-fdroid.sh [host]`
+Re-run F-Droid only: `./mac/deploy_fleet.py --scope fdroid [host]`
 
 ## Prerequisites
 
@@ -21,8 +21,8 @@ Re-run F-Droid only: `./mac/deploy-fdroid.sh [host]`
 ## Quick start
 
 ```bash
-./mac/deploy-fleet.sh s24          # full stack (recommended)
-./mac/deploy-fdroid.sh s24         # F-Droid roles only
+./mac/deploy_fleet.py s24          # full stack (recommended)
+./mac/deploy_fleet.py --scope fdroid s24         # F-Droid roles only
 ANDROID_SERIAL=s24 fdroidcl install org.breezyweather
 ```
 

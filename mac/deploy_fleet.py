@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Fleet deploy orchestration (Ansible + Obtainium import + app-store follow-ups).
 
-Replaces the phased bash logic in deploy-fleet.sh / deploy-fdroid.sh / deploy-play.sh.
-
 Usage:
   deploy_fleet.py [host ...]              # full fleet deploy
   deploy_fleet.py --scope fdroid s24      # F-Droid roles only
@@ -206,7 +204,7 @@ def print_footer(rc: int, scope: Scope) -> None:
         )
     else:
         print("Fleet deploy complete.")
-    print("Verify: make verify   (or ./mac/fleet-health.sh)")
+    print("Verify: make verify   (or bash tests/run.sh device --heal)")
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -34,7 +34,7 @@ Last updated: 2026-07-07 (after Ansible collection v1.4.0 / fleet v1.5.0)
 
 ### 2.1 Neo Store (F-Droid)
 
-After `./mac/deploy-fleet.sh <host>` (or `./mac/deploy-fdroid.sh <host>`):
+After `./mac/deploy_fleet.py <host>` (or `./mac/deploy_fleet.py --scope fdroid <host>`):
 
 1. Open Neo Store → Settings → Installer → **Shizuku**.
 2. Enable **automatic / background updates**.
@@ -43,7 +43,7 @@ Record in `RESPONSES.md`: host + done/not done.
 
 ### 2.2 Aurora Store (Play)
 
-After `./mac/deploy-fleet.sh <host>` (runs Aurora UI automation; or `./mac/deploy-play.sh <host>`):
+After `./mac/deploy_fleet.py <host>` (runs Aurora UI automation; or `./mac/deploy_fleet.py --scope play <host>`):
 
 1. Confirm Aurora Settings → Installer = Shizuku, automatic updates on.
 2. If Aurora was installed outside fleet deploy, you may still need the Shizuku installer selection manually.
@@ -70,7 +70,7 @@ Remaining verify items on p7a (agent cannot fix without device interaction):
 **You do (optional):**
 
 1. Unlock p7a; confirm AutoJs6 accessibility service is bound.
-2. Re-run `./mac/deploy-fleet.sh p7a` if you want a clean handler pass, or
+2. Re-run `./mac/deploy_fleet.py p7a` if you want a clean handler pass, or
    `make verify HOSTS=p7a` after a few minutes.
 
 Or tell the agent it may retry deploy when you're not busy (note window in
@@ -79,7 +79,7 @@ Or tell the agent it may retry deploy when you're not busy (note window in
 ### 3.2 Production deploy go/no-go
 
 Ansible collections are tagged **v1.4.0**; fleet dry-run on **s24** passed.
-Before live `./mac/deploy-fleet.sh` on all hosts:
+Before live `./mac/deploy_fleet.py` on all hosts:
 
 - Confirm you're OK with Termux sshd restart if `termux_sshd` config changes.
 - Confirm Obtainium catalog import (unlocked screen) is acceptable post-deploy.

@@ -45,7 +45,7 @@ Open **Termux:Boot** once after install. `start-adb.sh` runs repair every 5 min;
 Deploys `stayturgid-repair.sh`, `repair-bridge.sh`, `agent-presence.sh`, `check-repo-version.sh`, and boot hooks.
 
 ```bash
-./ansible/mac/deploy-termux.sh s24   # or p7a
+./ansible/mac/deploy_termux.py s24   # or p7a
 ```
 
 ## Logs and status

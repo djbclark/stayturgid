@@ -14,7 +14,7 @@ JavaScript watchdog using [AutoJs6](https://github.com/SuperMonster003/AutoJs6) 
 | Notifications | `lib/notify.js` — channel `stayturgid` |
 | Logging | `/sdcard/stayturgid_watchdog.log` with `(autojs6)` prefix |
 
-Does **not** replace: Termux:Boot self-heal, Shizuku, Mac `adb-reconnect.sh`, Obtainium APK updates.
+Does **not** replace: Termux:Boot self-heal, Shizuku, Mac `adb_reconnect.py`, Obtainium APK updates.
 
 ## Prerequisites
 

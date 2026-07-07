@@ -1,6 +1,6 @@
 ---
 # Aurora Store / Play — subset of fleet.yml (play tag).
-# Prefer: ./mac/deploy-fleet.sh or ./mac/deploy-play.sh
+# Prefer: ./mac/deploy_fleet.py or ./mac/deploy_fleet.py --scope play
 #
 # Prerequisite: Aurora Store installed on device (Obtainium catalog + import,
 # or stayturgid_install_aurora_store: true in group_vars).

@@ -2,7 +2,7 @@
 # Full fleet deploy: Termux, AutoJs6, Obtainium, Tailscale, F-Droid, Play, optional ensure_apps.
 # Boot-loop restart happens via handler only when boot scripts change.
 #
-# Usage (from repo root, or via ./mac/deploy-fleet.sh):
+# Usage (from repo root, or via ./mac/deploy_fleet.py):
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
 #     ansible/playbooks/fleet.yml [--limit s24]
 #

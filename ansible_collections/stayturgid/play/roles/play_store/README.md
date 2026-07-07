@@ -11,8 +11,8 @@ Ensures Aurora Store (FOSS Google Play client) with Shizuku + optional app sidel
 ## Deploy
 
 ```bash
-./mac/deploy-fleet.sh s24     # full fleet (recommended)
-./mac/deploy-play.sh s24      # play tag only
+./mac/deploy_fleet.py s24     # full fleet (recommended)
+./mac/deploy_fleet.py --scope play s24      # play tag only
 ```
 
 See [HANDOFF.md](../../../../HANDOFF.md) for fleet status and [play/README.md](../../../../play/README.md).

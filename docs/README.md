@@ -33,5 +33,5 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 
 - **Termux only:** `termux/` + manual Shizuku
 - **Termux + Ansible:** `ansible/` + SSH keys
-- **Full stack:** `termux/` + `autojs6/` + `obtainium/` + `fdroid/` + `play/` + `mac/` + `./mac/deploy-fleet.sh`
+- **Full stack:** `termux/` + `autojs6/` + `obtainium/` + `fdroid/` + `play/` + `mac/` + `./mac/deploy_fleet.py`
 - **Obtainium only:** `obtainium/` — APK updates without stayturgid watchdog

@@ -4,9 +4,9 @@ Aurora Store is the on-device GUI client. Fleet deploy installs Aurora when miss
 
 ## Fleet integration
 
-Play/Aurora is part of `./mac/deploy-fleet.sh` (play role + `configure_aurora.py` after Obtainium import).
+Play/Aurora is part of `./mac/deploy_fleet.py` (play role + `configure_aurora.py` after Obtainium import).
 
-Re-run Play only: `./mac/deploy-play.sh [host]`
+Re-run Play only: `./mac/deploy_fleet.py --scope play [host]`
 
 ## Components
 
@@ -14,11 +14,11 @@ Re-run Play only: `./mac/deploy-play.sh [host]`
 |-------|-------------|------|
 | **Aurora Store** | `stayturgid_install_aurora_store: true` in fleet group_vars | GUI updates; Shizuku installer |
 | **play_apps module** | `stayturgid_play_apps` in role vars | apkeep/gplaycli + adb install |
-| **configure_aurora.py** | end of `deploy-fleet.sh` / `deploy-play.sh` | First-run UI automation |
+| **configure_aurora.py** | end of `deploy_fleet.py` / `deploy_fleet.py --scope play` | First-run UI automation |
 
 ```bash
-./mac/deploy-fleet.sh s24    # full stack (recommended)
-./mac/deploy-play.sh s24     # Play roles + Aurora UI setup only
+./mac/deploy_fleet.py s24    # full stack (recommended)
+./mac/deploy_fleet.py --scope play s24     # Play roles + Aurora UI setup only
 ```
 
 ## Play downloads

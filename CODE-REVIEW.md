@@ -2,7 +2,7 @@
 
 > **Status (2026-07-06):** All findings below (H1–H2, M1–M11, L1–L13) were fixed
 > in the commit(s) following this review. Fixes are code-only; devices still
-> run the old scripts until the next `./mac/deploy-fleet.sh`.
+> run the old scripts until the next `./mac/deploy_fleet.py`.
 
 **Scope:** Full-repo review at commit `6b705d5` ("feat(termux): tiered battery alarm with color screen blinks"), 2026-07-06.
 **Method:** Every tracked shell/JS/Python/YAML/plist/JSON file read in full; docs skimmed for drift. No code changed — findings only. Smoke/unit tests reportedly pass; several findings below are in paths those tests don't exercise (boot-time process guards, lock-contention branches, DND/quiet paths, cross-device profiles).
@@ -26,7 +26,7 @@ Two occurrences:
 - `termux/boot/start-repair-bridge.sh:9` — the guard `! pgrep -f repair-bridge.sh` runs inside a process whose cmdline is `bash …/.termux/boot/start-repair-bridge.sh`. The pattern `repair-bridge.sh` is a substring of `start-repair-bridge.sh`, so pgrep always matches the boot script itself and the `nohup ~/repair-bridge.sh &` line **never executes**. The fast-repair bridge is effectively never started at boot; the `/sdcard/stayturgid_repair_now` trigger-file fallback in `autojs6/lib/termux.js` silently does nothing until someone starts the bridge by hand.
 - `autojs6/mac/setup-autojs6.sh:67` — same bug over SSH: the remote command string (`bash -c '… pgrep -f repair-bridge.sh >/dev/null || nohup ~/repair-bridge.sh …'`) itself contains the pattern, so pgrep matches the shell running the check, the `||` short-circuits, and the script prints "repair-bridge.sh started (or already running)" without starting anything.
 
-**Fix:** anchor the pattern so it can't match wrappers, e.g. `pgrep -f '[r]epair-bridge\.sh$'` won't help against the path suffix — instead match the exact invocation: `pgrep -f "bash $HOME/repair-bridge.sh"` or use a pidfile written by `repair-bridge.sh` itself. (Note `mac/deploy-fleet.sh` and `mac/fleet-health.sh` avoid this class of bug by using `bash -s` heredocs — the pattern isn't in any cmdline — so those checks are fine.)
+**Fix:** anchor the pattern so it can't match wrappers, e.g. `pgrep -f '[r]epair-bridge\.sh$'` won't help against the path suffix — instead match the exact invocation: `pgrep -f "bash $HOME/repair-bridge.sh"` or use a pidfile written by `repair-bridge.sh` itself. (Note `mac/deploy_fleet.py` and `mac/tests/run.sh device --heal` avoid this class of bug by using `bash -s` heredocs — the pattern isn't in any cmdline — so those checks are fine.)
 **Verified on the live S24 (read-only):** `pgrep -laf repair-bridge` run over SSH matched **its own remote shell** (`bash -c echo …; pgrep -laf repair-bridge; …`) in addition to the real bridge — confirming Termux's procps pgrep matches the caller's cmdline. The bridge *is* currently running on the S24 (pid 23005, presumably started by hand or a pre-guard deploy), but after the next reboot the boot guard will self-match and never restart it. Caution for future testing: **macOS/BSD pgrep does not exhibit this self-match** (verified locally), so Mac-side dry-runs of these guards pass while the on-device behavior fails.
 
 ---
@@ -110,11 +110,11 @@ Minor, same file: line 63 caches whatever address just connected — including t
 ### L8. Package/boot-script lists duplicated between `group_vars` and role defaults
 `ansible/group_vars/stayturgid.yml` and `ansible/roles/termux_userland/defaults/main.yml` carry identical `stayturgid_termux_packages` / `stayturgid_boot_scripts` lists. group_vars wins, so edits to defaults silently do nothing for the fleet. Keep one (defaults), delete the other.
 
-### L9. ~~`deploy-fleet.sh` aborts remaining hosts on first failure~~ **Clarified / improved**
-Ansible already attempts all hosts unless `serial` / `any_errors_fatal` is set (fleet.yml has neither). `deploy-fleet.sh` now captures the playbook exit code with `|| rc=$?` so a partial failure still prints the verify hint and exits non-zero without `set -e` masking the summary.
+### L9. ~~`deploy_fleet.py` aborts remaining hosts on first failure~~ **Clarified / improved**
+Ansible already attempts all hosts unless `serial` / `any_errors_fatal` is set (fleet.yml has neither). `deploy_fleet.py` now captures the playbook exit code with `|| rc=$?` so a partial failure still prints the verify hint and exits non-zero without `set -e` masking the summary.
 
-### L10. `fleet-health.sh` ADB diagnosis is misleading
-`mac/fleet-health.sh:48-54` — `resolve_adb` returns a Tailscale `ip:5555` without ensuring `adb connect` happened, so a not-currently-connected device prints "(no recent watchdog log)" when the truth is "adb not connected". Also the success branch prints the matched log line but a *missing* log line still takes the success path (grep in `adb shell` returns the shell's exit code inconsistently across devices); consider checking output non-emptiness instead.
+### L10. `tests/run.sh device --heal` ADB diagnosis is misleading
+`mac/tests/run.sh device --heal:48-54` — `resolve_adb` returns a Tailscale `ip:5555` without ensuring `adb connect` happened, so a not-currently-connected device prints "(no recent watchdog log)" when the truth is "adb not connected". Also the success branch prints the matched log line but a *missing* log line still takes the success path (grep in `adb shell` returns the shell's exit code inconsistently across devices); consider checking output non-emptiness instead.
 
 ### L11. Duplicate-invocation repair path always exits 0
 `termux/stayturgid-repair.sh:41-43` — when the lock is held, the script reports rc=0 regardless of what the read-only probes saw (even `PORT=CLOSED_NO_SHELL`). Callers can treat a genuinely broken state as healthy if they race the boot loop. Consider exiting 1 when the probe sees `CLOSED_NO_SHELL`, or at least documenting that a `skipped-duplicate` STATUS is advisory only. (Blocked on H1 — this branch currently can't evaluate sshd at all.)

@@ -29,11 +29,9 @@ ROOT="$(stayturgid_root "$0")"
 source "$ROOT/shared/mac/resolve-adb.sh"
 ```
 
-### From `mac/adb-reconnect.sh`
+### From `mac/adb_reconnect.py`
 
-```bash
-source "$(dirname "$0")/../shared/mac/resolve-adb.sh"
-```
+Python imports `stayturgid_device.resolve_adb`. Shell scripts source:
 
 ## Dependencies
 

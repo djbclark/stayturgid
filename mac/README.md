@@ -1,6 +1,6 @@
-# Mac-side tools — ADB keepalive and outage alerts
+# Mac-side tools — ADB keepalive and fleet deploy
 
-Scripts and launchd plists for the **Mac control node**. Fully usable without AutoJs6 or Ansible — you only need `adb` and (optionally) SSH to Termux.
+Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 
 **Full project:** [../README.md](../README.md)
 
@@ -8,43 +8,41 @@ Scripts and launchd plists for the **Mac control node**. Fully usable without Au
 
 | File | Purpose |
 |------|---------|
-| `adb-reconnect.sh` | Reconnect `adb connect` when link drops; LAN → Tailscale fallback |
-| `com.djbclark.stayturgid.adb-reconnect*.plist` | launchd: run reconnect every 60s (7a default + S24) |
-| `access-monitor.sh` | Dead-man's switch: notify after ~10 min total outage on all paths |
-| `com.djbclark.stayturgid.access-monitor.plist` | launchd: run monitor every 5 min |
-| `deploy-fleet.sh` | Full fleet (`mac/deploy_fleet.py`) |
-| `deploy_fleet.py` | Fleet orchestrator — Ansible phases, Obtainium import, Aurora UI |
-| `deploy-fdroid.sh` | F-Droid only (`deploy_fleet.py --scope fdroid`) |
-| `deploy-play.sh` | Play only (`deploy_fleet.py --scope play`) |
-| `fleet-health.sh` | SSH (+ optional ADB) health check for fleet hosts |
-| `resolve-adb.sh` | Shim → [shared/mac/resolve-adb.sh](../shared/mac/resolve-adb.sh) |
+| `adb_reconnect.py` | Reconnect `adb connect` when link drops; LAN → Tailscale fallback |
+| `access_monitor.py` | Dead-man's switch: notify after ~10 min total outage on all paths |
+| `deploy_fleet.py` | Full fleet deploy — Ansible, Obtainium import, app stores, Aurora UI |
+| `shared/mac/stayturgid_device.py` | Device resolution, Shizuku JSON patch, UI XML parsing |
 
-## Standalone use
+Launchd agents are rendered by `ansible/playbooks/mac.yml` (not hand-copied plists).
+
+## Fleet deploy
 
 ```bash
-chmod +x mac/adb-reconnect.sh mac/access-monitor.sh mac/resolve-adb.sh
-
-# One-shot reconnect (edit serial/IPs in script args or plist):
-./mac/adb-reconnect.sh 35261JEHN12374 192.168.68.64:5555 100.65.230.108:5555
-./mac/adb-reconnect.sh RFCX219CHKA '' 100.123.218.30:5555
-
-# Install keepalive (edit paths if repo not in ~/stayturgid):
-cp mac/com.djbclark.stayturgid.adb-reconnect.plist ~/Library/LaunchAgents/
-launchctl load ~/Library/LaunchAgents/com.djbclark.stayturgid.adb-reconnect.plist
+./mac/deploy_fleet.py                    # whole fleet
+./mac/deploy_fleet.py s24                # one host
+CHECK=1 ./mac/deploy_fleet.py s24        # dry run
+./mac/deploy_fleet.py --scope fdroid s24 # F-Droid only
+./mac/deploy_fleet.py --scope play s24   # Play / Aurora only
 ```
 
-Edit `access-monitor.sh` `DEVICES` array for your phones. Logs: `~/Library/Logs/stayturgid-adb-reconnect.log`.
+Verify: `make verify` or `bash tests/run.sh device --heal [host]`
 
-Other subprojects source shared resolve-adb directly:
+## Standalone ADB keepalive
 
 ```bash
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-source "$REPO_ROOT/shared/mac/resolve-adb.sh"
-SERIAL="$(resolve_adb s24)"
+# One-shot reconnect (conf-driven alias):
+python3 mac/adb_reconnect.py s24
+
+# Install launchd agents from inventory:
+ansible-playbook ansible/playbooks/mac.yml
 ```
+
+Logs: `~/.config/stayturgid/logs/`. Device list: `~/.config/stayturgid/devices.conf` (from Ansible).
+
+Other subprojects resolve adb targets via [shared/mac/stayturgid_device.py](../shared/mac/stayturgid_device.py) or source [shared/mac/resolve-adb.sh](../shared/mac/resolve-adb.sh).
 
 ## Related docs
 
-- [README.md § Full stack](../README.md) — Mac keepalive in quick path step 5
-- [termux/README.md](../termux/README.md) — device-side sshd (SSH probe in access-monitor)
-- [autojs6/mac/](../autojs6/mac/) — deploy scripts that use `shared/mac/resolve-adb.sh`
+- [README.md § Full stack](../README.md)
+- [termux/README.md](../termux/README.md) — device-side sshd (SSH probe in access_monitor)
+- [autojs6/mac/](../autojs6/mac/) — AutoJs6 deploy scripts

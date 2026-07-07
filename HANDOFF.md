@@ -19,8 +19,8 @@ Use **all** hosts when the task requires fleet-wide validation. Examples:
 
 ```bash
 make verify HOSTS=s24
-./mac/deploy-fleet.sh s24
-CHECK=1 ./mac/deploy-fleet.sh s24
+./mac/deploy_fleet.py s24
+CHECK=1 ./mac/deploy_fleet.py s24
 ```
 
 Announce before live deploy when someone may be on the device:
@@ -47,7 +47,7 @@ On the Mac, a launchd agent runs every 60 s and reconnects `adb connect <ip>:555
 
 GitHub `master` is the source of truth. To release:
 1. Bump `version.json` (`version` + `changelog`), commit, push.
-2. `./mac/deploy-fleet.sh` — full fleet via Ansible (`CHECK=1 ./mac/deploy-fleet.sh` = dry run): Termux, AutoJs6, Obtainium, Tailscale, F-Droid/Neo Store, Play/Aurora, optional ensure_apps. Idempotent (re-run = `changed=0`). Post-Ansible: Obtainium catalog import (unlocked screen), app-stores re-run, Aurora UI setup. Or the granular path: `./ansible/mac/deploy-termux.sh [--limit host]` then `./autojs6/mac/deploy.sh {s24,hd8,p7a}` + `./autojs6/mac/start-watchdog.sh`.
+2. `./mac/deploy_fleet.py` — full fleet via Ansible (`CHECK=1 ./mac/deploy_fleet.py` = dry run): Termux, AutoJs6, Obtainium, Tailscale, F-Droid/Neo Store, Play/Aurora, optional ensure_apps. Idempotent (re-run = `changed=0`). Post-Ansible: Obtainium catalog import (unlocked screen), app-stores re-run, Aurora UI setup. Or the granular path: `./ansible/mac/deploy_termux.py [--limit host]` then `./autojs6/mac/deploy.sh {s24,hd8,p7a}` + `./autojs6/mac/start-watchdog.sh`.
 
 Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `termux-notification` when GitHub `version.json` moves ahead of the last-seen stamp.
 
@@ -72,7 +72,7 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 - **Battery** — keep hd8 charged when off USB.
 
 **Deploy / test:**
-- Deploy: `./mac/deploy-fleet.sh`. Verify (read-only device tier): `make verify`.
+- Deploy: `./mac/deploy_fleet.py`. Verify (read-only device tier): `make verify`.
 - Test (no device): `make test` (syntax/lint + shell TAP + pytest twins + `ansible-test units`). `make lint` = shellcheck/ansible-lint/yamllint. First run: `make test-venv`. CI runs `make test` on push.
 
 ---
@@ -233,7 +233,7 @@ play/                        — Play / Aurora docs + configure_aurora.py
 ansible_collections/stayturgid/fdroid/roles/fdroid_repos/  — fdroidcl repo management + on-device push
 ansible_collections/stayturgid/play/roles/play_store/        — Aurora Store Shizuku grant + play_apps
 shared/mac/                  — resolve-adb.sh, stayturgid_device.py (shizuku.json patcher + UI parsing)
-mac/                         — adb-reconnect.py, access_monitor.py, deploy_fleet.py (launchd via ansible mac.yml); deploy-fleet.sh wrappers, fleet-health.sh
+mac/                         — adb_reconnect.py, access_monitor.py, deploy_fleet.py (launchd via ansible mac.yml)
 tests/                       — device_tier.py + python/ (pytest twins) + test-*.sh TAP harness; Makefile, configure
 version.json                 — repo release version + changelog
 ```
@@ -303,11 +303,11 @@ version.json                 — repo release version + changelog
 
 ### F-Droid + Play (integrated in fleet.yml)
 
-**Status (2026-07-07):** Roles `stayturgid.fdroid.fdroid_repos` and `stayturgid.play.play_store` are part of `ansible/playbooks/fleet.yml`. `./mac/deploy-fleet.sh` runs core Ansible → Obtainium import → app-stores re-run → Aurora UI automation.
+**Status (2026-07-07):** Roles `stayturgid.fdroid.fdroid_repos` and `stayturgid.play.play_store` are part of `ansible/playbooks/fleet.yml`. `./mac/deploy_fleet.py` runs core Ansible → Obtainium import → app-stores re-run → Aurora UI automation.
 
 **Mac prerequisites:** `brew install fdroidcl apkeep`
 
-**Partial re-runs:** `./mac/deploy-fdroid.sh [host]` · `./mac/deploy-play.sh [host]`
+**Partial re-runs:** `./mac/deploy_fleet.py --scope fdroid [host]` · `./mac/deploy_fleet.py --scope play [host]`
 
 **Human steps (one-time per device):** Neo Store Shizuku installer + auto-updates; Play creds for google-play downloads — see [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md).
 

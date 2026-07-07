@@ -182,7 +182,7 @@ ssh-copy-id -i ~/.ssh/termux_key.pub -p 8022 USER@DEVICE_IP
 # echo "YOUR_PUBLIC_KEY" >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys
 ```
 
-After bootstrap, `ansible/playbooks/fleet.yml` (via `./mac/deploy-fleet.sh`) keeps
+After bootstrap, `ansible/playbooks/fleet.yml` (via `./mac/deploy_fleet.py`) keeps
 `~/.ssh/authorized_keys` in sync using `ansible.posix.authorized_key` — add more
 keys by extending `stayturgid_ssh_public_key_files` in
 `roles/termux_userland/defaults/main.yml`.
@@ -416,7 +416,7 @@ stdin pipe), never bare `ssh host '<commands>'` through the login shell.
 Setup once: `make test-venv` (builds `.venv-test` with ansible-core + pytest +
 pytest-mock + pytest-ansible). CI runs `make test` on every push
 (`.github/workflows/test.yml`). `make lint` = shellcheck + ansible-lint +
-yamllint. Deploy the fleet with `./mac/deploy-fleet.sh` (Ansible;
+yamllint. Deploy the fleet with `./mac/deploy_fleet.py` (Ansible;
 `CHECK=1` for a dry run).
 
 Cheap pre-commit gates (if not running the full `make test`): `bash -n` each
@@ -455,12 +455,12 @@ termux-sensor -s "Accelerometer" -n 1
 
 GitHub `master` is the source of truth; updates are pushed to devices from the Mac.
 
-1. Make changes and test them on a device (`./autojs6/mac/deploy.sh`, `./ansible/mac/deploy-termux.sh`).
+1. Make changes and test them on a device (`./autojs6/mac/deploy.sh`, `./ansible/mac/deploy_termux.py`).
 2. Bump `version.json` (`version` + `changelog`) at the repo root.
 3. Commit and push.
 4. Deploy to the fleet:
    ```bash
-   ./ansible/mac/deploy-termux.sh          # Termux layer, all hosts
+   ./ansible/mac/deploy_termux.py          # Termux layer, all hosts
    ./autojs6/mac/deploy.sh p7a && ./autojs6/mac/deploy.sh s24
    ./autojs6/mac/start-watchdog.sh p7a && ./autojs6/mac/start-watchdog.sh s24
    ```
@@ -651,13 +651,13 @@ If port 5555 is not open after 60s:
 
 ## Part 6b — F-Droid / Neo Store + Play / Aurora (fleet-integrated)
 
-Part of `./mac/deploy-fleet.sh`. After the core Ansible run, Obtainium catalog import installs Neo Store and Aurora; a second `--tags app-stores` pass pushes F-Droid repos and grants Shizuku; `configure_aurora.py` finishes Aurora first-run UI.
+Part of `./mac/deploy_fleet.py`. After the core Ansible run, Obtainium catalog import installs Neo Store and Aurora; a second `--tags app-stores` pass pushes F-Droid repos and grants Shizuku; `configure_aurora.py` finishes Aurora first-run UI.
 
 | Command | Scope | Mac tools |
 |---------|-------|-----------|
-| `./mac/deploy-fleet.sh [host]` | Full stack | fdroidcl, apkeep |
-| `./mac/deploy-fdroid.sh [host]` | F-Droid tag only | fdroidcl |
-| `./mac/deploy-play.sh [host]` | Play tag + Aurora UI | apkeep |
+| `./mac/deploy_fleet.py [host]` | Full stack | fdroidcl, apkeep |
+| `./mac/deploy_fleet.py --scope fdroid [host]` | F-Droid tag only | fdroidcl |
+| `./mac/deploy_fleet.py --scope play [host]` | Play tag + Aurora UI | apkeep |
 
 **Default repos** (`ansible_collections/stayturgid/fdroid/roles/fdroid_repos/defaults/main.yml`):
 
@@ -696,8 +696,8 @@ mac/
 obtainium/                              — APK tracking catalogs
 fdroid/                                 — F-Droid / Neo Store docs + legacy grant stub
 ansible/playbooks/fleet.yml             — full fleet (includes fdroid + play roles)
-ansible/playbooks/fdroid.yml            — F-Droid-only subset (deploy-fdroid.sh)
-ansible/playbooks/play_store.yml        — Play-only subset (deploy-play.sh)
+ansible/playbooks/fdroid.yml            — F-Droid-only subset (deploy_fleet.py --scope fdroid)
+ansible/playbooks/play_store.yml        — Play-only subset (deploy_fleet.py --scope play)
 shared/mac/                             — resolve-adb.sh and common helpers
 HACKING.md                              — this file
 HANDOFF.md                              — AI session handoff prompt

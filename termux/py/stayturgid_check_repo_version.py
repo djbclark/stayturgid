@@ -55,7 +55,7 @@ def main():
     if remote == seen:
         return 0
 
-    changelog = _field(body, "changelog") or "Run ansible/mac/deploy-termux.sh from your Mac"
+    changelog = _field(body, "changelog") or "Run ansible/mac/deploy_termux.py from your Mac"
     try:
         subprocess.run(
             ["termux-notification", "--id", "stayturgid-update",
