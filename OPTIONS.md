@@ -89,6 +89,72 @@ Tell the agent: option IDs (e.g. `do 7, 1, 2, 14, 9`) or `read human/RESPONSES.m
 
 ---
 
+## 2026-07-07 21:30 UTC-4 — After s24 deploy, mirror-pin, and Tailscale-down fixes
+
+Context since last menu: the agent-only batch from the 20:19/20:22 menus is
+complete on **s24**. `make test` is green, live `./mac/deploy_fleet.py s24`
+succeeded, `make verify HOSTS=s24` is **16/16 PASS**, and
+`./autojs6/mac/test_tailscale_down.py s24` passes after the one-shot AutoJs6
+probe was shortened and the Mac driver learned to use any online ADB endpoint.
+Termux mirror pinning is now re-applied after `pkg update` rewrites
+`sources.list`.
+
+### Needs you first (`human/HANDOFF-HUMAN.md`)
+
+| ID | Item | Why |
+|----|------|-----|
+| H1 | Play credentials (`GPLAY_*` or gplaycli) | E2E `play_store` / `ensure_apps` with `source: play` |
+| H2 | Neo/Aurora one-time Shizuku + auto-update per host | App-store roles assume on-device clients configured |
+| H3 | Fleet deploy go/no-go beyond s24 (`all`, `hd8`, `p7a`, or hold) | s24 is healthy; broader rollout still needs operator intent |
+| H4 | p7a optional cleanup window | p7a historically had mirror/a11y drift; decide whether to spend lab time there |
+| H5 | Galaxy publish token (optional) | Public Galaxy publishing; git tags already work without it |
+
+### Validation & rollout (agent-only unless screen unlock is needed)
+
+| ID | Item | Outcome |
+|----|------|---------|
+| 23 | Run `make verify HOSTS=hd8` | Confirm second device after s24 stabilization |
+| 24 | Run `make verify HOSTS=p7a` and triage remaining drift | Decide whether p7a is healthy or needs targeted cleanup |
+| 25 | `./mac/deploy_fleet.py hd8` then `make verify HOSTS=hd8` | Extend successful s24 path to tablet |
+| 26 | `./mac/deploy_fleet.py p7a` then `make verify HOSTS=p7a` | Extend only if p7a is reachable and approved |
+| 27 | `./mac/deploy_fleet.py` all hosts after H3 approval | Fleet-wide convergence pass |
+
+### Cleanup & consolidation (agent-only)
+
+| ID | Item | Outcome |
+|----|------|---------|
+| 28 | Mocked tests for `autojs6/mac/test_tailscale_down.py` endpoint resolution | Guard the LAN/Tailscale/USB fallback that fixed the live regression |
+| 29 | Add focused tests for `autojs6/lib/log.js` log-directory behavior if JS harness exists | Prevent `ensureDir(filePath)` regression |
+| 30 | Convert `gplaycli.sh` to a Python launcher | Last Mac shell outside test/on-device boundaries |
+| 31 | `stayturgid_repair_check` module (SSH -> parse STATUS) | Less fragile verify shell snippets |
+| 32 | Better Obtainium import failure reporting in `deploy_fleet.py` | Clearer mid-deploy errors |
+
+### CODE-REVIEW fixes still open
+
+| ID | Item | Notes |
+|----|------|-------|
+| 33 | **M1-M3** Battery alarm wallpaper/tier/`set -e` fixes | User-visible on daily drivers |
+| 34 | **M5** Pixel idle detection in agent-presence | p7a home screen can count as "in use" |
+| 35 | **M10** Termux properties reload after Ansible | Still worth checking even though s24 mirror-pin is fixed |
+| 36 | **L4** AutoJs6 `device=generic` when profile missing | Wrong tap coords on unknown hardware |
+
+### Release & CI
+
+| ID | Item | Outcome |
+|----|------|---------|
+| 37 | Push collection git tags + verify `collection-build` workflow | Tested consumer releases |
+| 38 | Galaxy publish all collections after **H5** | External discoverability |
+| 39 | Add CI coverage for `deploy_fleet.py` / `adb_cli` mocked flows | Orchestrator regression guard |
+
+### Suggested agent order (no human input)
+
+**23** -> **25** -> **24** (if p7a reachable) -> **28** -> **32** -> **30**
+
+Highest-leverage human unlock remains **H3**: decide whether the next live
+fleet step is `hd8`, `p7a`, or all hosts.
+
+---
+
 ## 2026-07-07 20:22 UTC-4 — After shell test hardening
 
 Context since last menu: shell unit tests added for boot/bridge scripts
