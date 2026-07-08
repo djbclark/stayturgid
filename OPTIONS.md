@@ -221,6 +221,77 @@ Highest-leverage human unlock: **H3** (hd8 USB for AutoJs6) and **H2** (Neo Stor
 
 ---
 
+## 2026-07-07 22:08 UTC-4 — After adb auto-failover + fleet status check
+
+Context since last menu: **s24** and **p7a** both **16/16 verify PASS**;
+**hd8** termux healthy over SSH but still has no reachable Mac adb path
+(wireless port 5555 closed; USB unplugged). Shared `adb_device` lookup now
+auto-selects online endpoints (USB → LAN → Tailscale, with `adb connect` and
+`ro.serialno` drift matching) — committed `e9cf428`. `stayturgid_device` and
+Ansible modules share one resolver. `make test` green.
+
+### Needs you first (`human/HANDOFF-HUMAN.md`)
+
+| ID | Item | Why |
+|----|------|-----|
+| H1 | Play credentials (`GPLAY_*` or gplaycli) | E2E `play_store` / `ensure_apps` with `source: play` |
+| H2 | Neo/Aurora one-time Shizuku + auto-update per host | Neo Store missing on p7a; Aurora UI setup flaky |
+| H3 | **hd8 USB bootstrap** + all-host deploy go/no-go | Fire OS needs one USB/adb session to open wireless path |
+| H5 | Galaxy publish token (optional) | Public Galaxy publishing |
+
+### Fleet health snapshot
+
+| Host | Verify | Notes |
+|------|--------|-------|
+| s24 | **16/16 PASS** | Lab reference; tailscale-down test passes |
+| p7a | **16/16 PASS** | Deployed + watchdog nudged |
+| hd8 | **partial** | Termux OK over SSH; Mac adb offline; Fire-OS TODOs expected |
+
+### Validation & rollout (agent-only unless noted)
+
+| ID | Status | Item |
+|----|--------|------|
+| 40 | **blocked on H3** | Plug hd8 USB → `deploy.py hd8` + finish `deploy_fleet.py hd8` |
+| 41 | **new** | Re-verify hd8 after USB bootstrap (expect wireless failover thereafter) |
+| 27 | blocked on **H3** | `./mac/deploy_fleet.py` all hosts |
+| 42 | **new** | `./autojs6/mac/test_tailscale_down.py` on p7a (second-host regression) |
+
+### Cleanup & consolidation
+
+| ID | Status | Item |
+|----|--------|------|
+| 6 | **done** | `stayturgid_device` delegates to `adb_resolve.py` (single tested resolver) |
+| 29 | open | JS tests for `log.js` ensureDir |
+| 31 | open | `stayturgid_repair_check` module (SSH → parse STATUS) |
+| 43 | **new** | Ansible unit tests for `adb_resolve` in-collection (pytest parity exists in `tests/python/`) |
+
+### CODE-REVIEW fixes still open
+
+| ID | Item |
+|----|------|
+| 33 | **M1–M3** Battery alarm wallpaper/tier/`set -e` |
+| 34 | **M5** Pixel idle detection in agent-presence |
+| 35 | **M10** Termux properties reload after Ansible |
+| 36 | **L4** AutoJs6 `device=generic` when profile missing |
+
+### Release & CI
+
+| ID | Item |
+|----|------|
+| 37 | Push collection git tags + verify `collection-build` workflow |
+| 38 | Galaxy publish (needs **H5**) |
+| 39 | CI coverage for `deploy_fleet.py` / `adb_cli` mocked flows |
+
+### Suggested agent order (no human input)
+
+**29** → **31** → **33** → **39** → **42**
+
+When hd8 USB is available: **40** → **41** first.
+
+Highest-leverage human unlock: **H3** (one hd8 USB session to bootstrap wireless adb).
+
+---
+
 ## 2026-07-07 20:22 UTC-4 — After shell test hardening
 
 Context since last menu: shell unit tests added for boot/bridge scripts
