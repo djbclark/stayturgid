@@ -7,6 +7,7 @@
 # play_creds_ready: yes | no
 
 ## On-device setup
+# autojs6_enable_failed_on: (host + symptom, or "none")
 # neo_store_shizuku_installer:
 #   p7a: done | pending
 #   s24: done | pending
@@ -14,16 +15,28 @@
 # aurora_shizuku_installer:
 #   p7a: done | pending
 #   s24: done | pending
+#   hd8: done | pending
+# aurora_background_dialog: (host + "cleared by deploy" | "still appears", or "none")
+
+## Accessibility (if you verified after restore)
+# a11y_verified:
+#   p7a: ok | issues — (which apps missing)
+#   s24: ok | issues
+#   hd8: ok | issues
 
 ## Fleet deploy
-# deploy_fleet: approved | hold | s24-only | p7a-only
+# deploy_fleet: approved | hold | s24-only | p7a-only | hd8-only
 # deploy_window: "e.g. evenings OK" or empty
+# usb_hosts_available: e.g. "hd8,s24 on USB 2026-07-08"
 
 ## Galaxy
 # galaxy_published: no | yes (which collections)
 
 ## F-Droid import issues
 # fdroid_repo_push_failed_on: (host + symptom, or "none")
+
+## Upstream / filed issues
+# autojs6_fleet_config_issue: https://github.com/SuperMonster003/AutoJs6/issues/553
 
 ## Notes
 # (anything else for the agent)

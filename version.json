@@ -1,4 +1,4 @@
 {
-  "version": "2.5",
-  "changelog": "Shell unit tests for Termux boot/bridge scripts (110 TAP). Harden start-adb pidfile/disown and resolve_adb LAN/- guards. Remove legacy bash resolve-adb/stayturgid-root; add Python CLIs. Obtainium sync-guard points at collection role path. make test fully green."
+  "version": "2.6",
+  "changelog": "AutoJs6 drawer fleet profile, a11y backup/restore (mac/a11y_services.py), PiP clearance, Aurora background pre-grant, deploy order fix. Human docs consolidated to human/HANDOFF-HUMAN.md."
 }

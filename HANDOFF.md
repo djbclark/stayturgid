@@ -55,18 +55,26 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 
 ## 🚦 Cold-start — current state (read this first)
 
-**As of 2026-07-08.** Three-device fleet: **s24**, **p7a**, **hd8**. HEAD `a495023`+.
+**As of 2026-07-08.** Three-device fleet: **s24**, **p7a**, **hd8**. HEAD `42c5859`.
 `make test` green (shell TAP + pytest + ansible-test collection units).
 
 **Fleet health:**
 
 | Host | Verify | Mac adb | Notes |
 |------|--------|---------|-------|
-| s24 | **16/16 PASS** | online (USB/LAN/Tailscale) | Lab reference; `test_tailscale_down.py` passes; `ensure_apps` fdroid (metronome) wired |
-| p7a | **16/16** (last run) | online (mDNS + Tailscale) | tailscale-down PASS; repair auto-enables `adb_wifi_enabled` when off |
-| hd8 | **16/16 PASS** (Fire OS notes) | online (USB + wireless) | USB bootstrap done; AutoJs6 deploy + verify green |
+| s24 | **16/16 PASS** | USB wireless-debug / Tailscale | Lab reference; PiP clearance + drawer defaults deployed |
+| p7a | **16/16** (last run) | mDNS + Tailscale | a11y profile restored (6 services); may need Tailscale/USB when offline |
+| hd8 | **16/16 PASS** (Fire OS) | **USB** `GN43T503430603PS` + wireless | Aurora background dialog fixed; harden before Aurora in deploy |
 
-**Recent landings (2026-07-07 → 08):**
+**Recent landings (2026-07-08):**
+- AutoJs6 fleet drawer profile (`autojs6_drawer_defaults.json`, `enable_autojs6_shizuku.py`).
+- Accessibility merge-only + `mac/a11y_services.py` backup/restore (`shared/a11y_profiles.json`).
+- PiP/overlay clearance at `ScreenControlSession` start (`shared/mac/ui_clearance.py`).
+- Fleet app harden before Aurora; Fire OS background-run dialog handling.
+- Deploy order: harden → `configure_aurora` → `enable_autojs6_shizuku`.
+- AutoJs6 upstream fleet-config request: [issue #553](https://github.com/SuperMonster003/AutoJs6/issues/553).
+
+**Recent landings (2026-07-07):**
 - Termux mirror re-pinned after `pkg update`; Fire OS localhost adb skip reports as verify note (not TODO).
 - Shared `adb_resolve` auto-failover (USB → LAN → Tailscale, `adb connect`, `ro.serialno` match); TCP probe prevents hang on dead endpoints.
 - `test_tailscale_down.py` aborts when adb rides the tunnel it kills; log.js `ensureDir` regression tests; deploy/adb mocked CI; in-collection `adb_resolve` unit tests.
@@ -208,7 +216,7 @@ Never assume the default shell — macOS is zsh, **Termux has no zsh by default*
 
 ## Accessibility state — verify at session start (APPEND ONLY)
 
-`settings put secure enabled_accessibility_services <value>` **replaces** the whole list — running it with one service silently wipes every other a11y service. Always **append**; restore the original at session end. See HACKING.md Part 5 for the safe protocol.
+`settings put secure enabled_accessibility_services <value>` **replaces** the whole list — running it with one service silently wipes every other a11y service. Fleet setup uses **merge-only** writes (`mac/a11y_services.py`, `enable_autojs6_shizuku.py` shell path). **Do not** use the AutoJs6 drawer accessibility toggle — it replaces the list. Backup/restore: `shared/a11y_profiles.json`, `python3 mac/a11y_services.py backup|restore <host>`. See HACKING.md Part 5.
 
 Pixel 7a known-good list (as of 2026-07-06; stayturgid needs only AutoJs6 — the rest are the user's other apps):
 ```

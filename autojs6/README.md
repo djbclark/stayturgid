@@ -19,7 +19,7 @@ Does **not** replace: Termux:Boot self-heal, Shizuku, Mac `adb_reconnect.py`, Ob
 1. AutoJs6 (`org.autojs.autojs6`) — `setup_autojs6.py` or Obtainium; fleet harden grants storage, `RUN_COMMAND`, notifications, battery unrestricted, unused-app off
 2. Termux repair scripts deployed (`deploy_termux.py` / fleet)
 3. Shizuku (thedjchi fork), TCP mode
-4. **AutoJs6 drawer fleet profile** — `shared/autojs6_drawer_defaults.json` applied by `enable_autojs6_shizuku.py` (UI automation; see `human/HUMAN.md` for upstream API request).
+4. **AutoJs6 drawer fleet profile** — `shared/autojs6_drawer_defaults.json` applied by `enable_autojs6_shizuku.py` (UI automation; upstream API request [AutoJs6 #553](https://github.com/SuperMonster003/AutoJs6/issues/553)).
 
 ## Shizuku API (built-in, not a separate plugin)
 
