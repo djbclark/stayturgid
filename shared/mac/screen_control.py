@@ -4,11 +4,12 @@
 All stayturgid Mac scripts that send input events (tap, swipe, keyevent) must
 run inside ScreenControlSession. The session:
 
-  1. Requests consent on-device (agent-presence request-screen).
-  2. Turns on accessibility display inversion (Mac adb — authoritative).
-  3. Starts the on-device presence indicator (torch, notification via SSH).
-  4. Refuses further input if inversion is off (fail closed).
-  5. Cleans up on exit (inversion off, presence off).
+  1. Clears PiP / floating overlays that can steal taps (dumpsys + dismiss).
+  2. Requests consent on-device (agent-presence request-screen).
+  3. Turns on accessibility display inversion (Mac adb — authoritative).
+  4. Starts the on-device presence indicator (torch, notification via SSH).
+  5. Refuses further input if inversion is off (fail closed).
+  6. Cleans up on exit (inversion off, presence off).
 
 Raw `adb shell input …` outside this wrapper can still bypass the policy;
 project scripts must not do that. Set STAYTURGID_SKIP_PRESENCE=1 only for
@@ -25,6 +26,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 if REPO not in sys.path:
     sys.path.insert(0, os.path.join(REPO, "shared", "mac"))
 import stayturgid_device as dev  # noqa: E402
+import ui_clearance as uc  # noqa: E402
 
 INPUT_PREFIXES = ("input",)
 INVERSION_KEY = "accessibility_display_inversion_enabled"
@@ -158,6 +160,9 @@ class ScreenControlSession(object):
 
         _run(["adb", "connect", self.serial], timeout=15)
         _run(["adb", "-s", self.serial, "wait-for-device"], timeout=30)
+        cleared = uc.clear_ui_obstructions(self.serial, mac_adb_shell)
+        if cleared:
+            print("Cleared UI obstructions on %s: %s" % (self.host, ", ".join(cleared)))
         self._saved_ime = get_default_ime(self.serial)
 
         if not self.skip_request:
