@@ -41,13 +41,26 @@
   delegate_to: localhost
   when: stayturgid_autojs6_deploy_via_adb | default(false)
 
+- name: Resolve fleet alias to adb target (USB serial preferred)
+  ansible.builtin.set_fact:
+    _autojs6_adb_target: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+  when: stayturgid_autojs6_deploy_via_adb | default(false)
+
 - name: Mirror device profile to AutoJs6-readable sdcard path (Fire OS)
   ansible.builtin.shell: |
     set -euo pipefail
+    target="{{ _autojs6_adb_target }}"
+    # Wireless targets need an explicit connect; USB serials are already attached.
+    case "$target" in
+      *:*) adb connect "$target" >/dev/null 2>&1 || true ;;
+    esac
     src="/tmp/stayturgid-{{ inventory_hostname }}-device.json"
     dst="/sdcard/stayturgid/state/device.json"
-    adb -s "{{ device_usb_serial }}" shell mkdir -p /sdcard/stayturgid/state
-    adb -s "{{ device_usb_serial }}" push "$src" "$dst"
+    if ! adb -s "$target" shell mkdir -p /sdcard/stayturgid/state; then
+        echo "no adb path to $target — plug in USB ({{ device_usb_serial }}) or enable wireless debugging" >&2
+        exit 1
+    fi
+    adb -s "$target" push "$src" "$dst"
   args:
     executable: /bin/bash
   delegate_to: localhost
