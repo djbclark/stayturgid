@@ -4,7 +4,7 @@
 > chat — point them to this file. After they update `RESPONSES.md`, re-read it
 > and continue.
 
-Last updated: 2026-07-07 (after Ansible collection v1.4.0 / fleet v1.5.0)
+Last updated: 2026-07-08 (after test/CI batch `2d7f142`)
 
 ---
 
@@ -54,37 +54,30 @@ Record in `RESPONSES.md`: host + done/not done.
 
 ## Priority 3 — Fleet deploy approval
 
-### 3.1 p7a verify follow-up (historical — agents prefer s24 for new tests)
+### 3.1 p7a status
 
-Script drift is **fixed** (deploy ran 2026-07-07; `deployed termux scripts match repo` passes).
-For new single-host checks, agents should use **s24** first (see HANDOFF.md).
+**Resolved (2026-07-07):** `make verify HOSTS=p7a` **16/16 PASS** after deploy +
+watchdog nudge. Agents still prefer **s24** for new live tests.
 
-Remaining verify items on p7a (agent cannot fix without device interaction):
+**Current (2026-07-08):** p7a may be **adb-offline** from the Mac when Tailscale
+is down and LAN adbd is flaky. SSH over Tailscale may still work. To restore Mac
+adb: open Tailscale on the phone or plug USB.
 
-| Check | Status | Notes |
-|-------|--------|-------|
-| AutoJs6 watchdog alive | FAIL | Stale after deploy — may need unlocked screen + a11y binding |
-| Termux mirror pinned | FAIL | Investigate mirror task / host state |
-| Boot-loop restart handler | WARN | Deploy exited 2 on handler; boot loop still running |
+### 3.2 hd8 USB bootstrap (blocks AutoJs6 deploy tail)
 
-**You do (optional):**
+Fire OS needs **one USB session** (`GN43T503430603PS`) so `./autojs6/mac/deploy.py
+hd8` can push the AutoJs6 project; thereafter wireless adb failover should work.
 
-1. Unlock p7a; confirm AutoJs6 accessibility service is bound.
-2. Re-run `./mac/deploy_fleet.py p7a` if you want a clean handler pass, or
-   `make verify HOSTS=p7a` after a few minutes.
+### 3.3 Production deploy go/no-go
 
-Or tell the agent it may retry deploy when you're not busy (note window in
-`RESPONSES.md`).
+**s24** and **p7a** converged; **hd8** termux stack healthy over SSH. Before live
+`./mac/deploy_fleet.py` on **all** hosts:
 
-### 3.2 Production deploy go/no-go
-
-Ansible collections are tagged **v1.4.0**; fleet dry-run on **s24** passed.
-Before live `./mac/deploy_fleet.py` on all hosts:
-
-- Confirm you're OK with Termux sshd restart if `termux_sshd` config changes.
+- Plug in **hd8 USB** for AutoJs6 bootstrap (see 3.2).
+- Confirm Termux sshd restart if `termux_sshd` config changes.
 - Confirm Obtainium catalog import (unlocked screen) is acceptable post-deploy.
 
-Answer in `RESPONSES.md`: `deploy_fleet: approved | hold | s24-only | p7a-only`
+Answer in `RESPONSES.md`: `deploy_fleet: approved | hold | s24-only | hd8-only`
 
 ---
 

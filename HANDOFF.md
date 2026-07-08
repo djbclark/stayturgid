@@ -2,7 +2,7 @@
 
 > **Purpose:** This file is a prompt for an AI agent taking over development. Read it fully before doing anything else. It describes what the project does, the current state, the environment, the tooling rules, and what's next.
 >
-> **Modular docs:** each subfolder is usable on its own. Human index: [docs/README.md](docs/README.md) · [README.md](README.md). Full clean-install setup + device gotchas: [HACKING.md](HACKING.md). **Operator tasks (credentials, deploy approval):** [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md). **Next-work menu:** [OPTIONS.md](OPTIONS.md) (append + push when operator asks for options). Git history has the detailed narrative of every change; this file is the condensed durable record.
+> **Modular docs:** each subfolder is usable on its own. Human index: [docs/README.md](docs/README.md) · [README.md](README.md). Full clean-install setup + device gotchas: [HACKING.md](HACKING.md). **Operator tasks (credentials, deploy approval):** [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md). **Open work menu:** [OPTIONS.md](OPTIONS.md) (single list — replace + push when items close). Git history has the detailed narrative of every change; this file is the condensed durable record.
 
 ---
 
@@ -55,25 +55,36 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 
 ## 🚦 Cold-start — current state (read this first)
 
-**As of 2026-07-07 (evening).** Three-device fleet: **s24**, **p7a**, **hd8**. AutoJs6-only stack. Repo **v2.5** — shell unit tests for boot/bridge scripts; legacy bash `resolve-adb`/`stayturgid-root` removed in favor of Python CLIs; `make test` green (110 TAP + pytest + ansible-test).
+**As of 2026-07-08.** Three-device fleet: **s24**, **p7a**, **hd8**. HEAD `2d7f142`.
+`make test` green (shell TAP + 102 pytest + ansible-test collection units).
 
-**Healthy / done:**
-- **s24 + p7a fully green** — `make verify` PASS after AutoJs6 `pm clear` reset (2026-07-07); watchdog liveness fresh on both; Tasker legacy clean on p7a.
-- **Primary Termux self-heal: solid on all three** — `sshd` + boot loop + repair bridge; reachable via `ssh s24` / `ssh p7a` / `ssh hd8` (all over Tailscale).
-- **Single-root file consolidation + self-healing** — every writer `mkdir -p`s its dir; deleting the stayturgid root just recreates it.
-- **AutoJs6 startup hardened** — `main.js` always establishes the 20-min interval; `guard.enforce()` degrades instead of blocking.
-- **Device-tier watchdog liveness check** — fresh `[watchdog]` line < 30 min (s24/p7a passing).
-- **hd8 (Kindle Fire HD 8) onboarded** — GitHub-debug Termux stack, thedjchi Shizuku v13.7, AutoJs6 6.7.0, Ansible inventory + `ssh hd8` alias. Fire OS uses `~/.stayturgid/shared` for Termux state/logs (cannot write `/sdcard` from Termux); AutoJs6 project + logs stay on `/sdcard/stayturgid/` (deployed via Mac `adb push`).
+**Fleet health:**
 
-**⚠ hd8 Fire OS caveats (expected TODOs when USB unplugged):**
-- **Split storage** — Termux under `~/.stayturgid/shared` (cannot read/write `/sdcard`); AutoJs6 under `/sdcard/stayturgid/`. Watchdog skips the Termux RUN_COMMAND bridge on split-storage devices (boot loop owns repair).
-- **No Termux→localhost:5555 loopback** — privileged repair from Termux cannot use `adb connect localhost:5555`. Mac adb works via Tailscale `100.124.55.39:5555` or USB `GN43T503430603PS`.
-- **Tailscale** — `100.124.55.39` (`ssh hd8`); always-on VPN set by `tailscale_vpn` role on deploy.
-- **Battery** — keep hd8 charged when off USB.
+| Host | Verify | Mac adb | Notes |
+|------|--------|---------|-------|
+| s24 | **16/16 PASS** | online (USB/LAN/Tailscale) | Lab reference; `./autojs6/mac/test_tailscale_down.py s24` passes |
+| p7a | **16/16** (last run) | **offline** | Tailscale `100.65.230.108` down + LAN flaky; SSH may still work over Tailscale |
+| hd8 | **16/16 PASS** (Fire OS notes) | partial | Termux OK over SSH; AutoJs6 deploy tail needs USB bootstrap (**H3**) |
+
+**Recent landings (2026-07-07 → 08):**
+- Termux mirror re-pinned after `pkg update`; Fire OS localhost adb skip reports as verify note (not TODO).
+- Shared `adb_resolve` auto-failover (USB → LAN → Tailscale, `adb connect`, `ro.serialno` match); TCP probe prevents hang on dead endpoints.
+- `test_tailscale_down.py` aborts when adb rides the tunnel it kills; log.js `ensureDir` regression tests; deploy/adb mocked CI; in-collection `adb_resolve` unit tests.
+- Battery alarm M1–M3 fixed in Python (`stayturgid_battery_alarm.py`) with `battery_suite` regression coverage.
+- `request-screen` countdown 10 s; `gplaycli.py` launcher; `deploy_fleet.py` post-step failure reporting.
+
+**Solid on all three (unchanged):** Termux self-heal (`sshd` + boot loop + repair bridge); single-root file layout with self-healing dirs; AutoJs6 hardened startup; device-tier verify via `make verify`.
+
+**⚠ hd8 Fire OS caveats:**
+- Split storage — Termux under `~/.stayturgid/shared`; AutoJs6 under `/sdcard/stayturgid/`.
+- No Termux→localhost:5555 loopback — verify item 4 is an expected informational note, not a failure.
+- Mac adb: Tailscale or USB `GN43T503430603PS`; wireless failover works after one USB bootstrap.
+
+**Next work:** [OPTIONS.md](OPTIONS.md) — open items only. Human unlocks: [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md).
 
 **Deploy / test:**
-- Deploy: `./mac/deploy_fleet.py`. Verify (read-only device tier): `make verify`.
-- Test (no device): `make test` (syntax/lint + shell TAP + pytest twins + `ansible-test units`). `make lint` = shellcheck/ansible-lint/yamllint. First run: `make test-venv`. CI runs `make test` on push.
+- Deploy: `./mac/deploy_fleet.py`. Verify: `make verify HOSTS=<host>`.
+- Test (no device): `make test`. First run: `make test-venv`. CI runs `make test` on push.
 
 ---
 
@@ -263,7 +274,8 @@ version.json                 — repo release version + changelog
 
 ## Changelog (condensed, reverse chronological — git history has full detail)
 
-- **2026-07-07** — Fleet recovery: s24/p7a AutoJs6 `pm clear` reset → `make verify` green. **hd8** (Kindle Fire HD 8) added to fleet. Fire OS support: `stayturgid_sd_root` override, `STAYTURGID_SD` env file, dual-path device-tier checks, AutoJs6 deploy via `adb push`. Ansible taxonomy: `android_11`, `vendor_amazon`, `model_kindle_hd8`.
+- **2026-07-08** — Test/CI batch: log.js ensureDir tests, deploy_fleet/adb_cli mocked flows, in-collection `adb_resolve` units, TCP-probe gate for wireless `adb connect`, tailscale-down abort guard. OPTIONS.md simplified to single open-items list. hd8 verify 16/16 with Fire OS notes; p7a adb intermittently offline.
+- **2026-07-07** — Fleet recovery: s24/p7a AutoJs6 `pm clear` reset → `make verify` green. **hd8** (Kindle Fire HD 8) added to fleet. Fire OS support: `stayturgid_sd_root` override, `STAYTURGID_SD` env file, dual-path device-tier checks, AutoJs6 deploy via `adb push`. Ansible taxonomy: `android_11`, `vendor_amazon`, `model_kindle_hd8`. adb auto-failover, mirror-pin fix, tailscale-down regression fix on s24.
 - **2026-07-07** — F-Droid/Neo Store + Play/Aurora support added (`fdroidcl` + `gplaycli` on Mac). Later integrated into `fleet.yml` (2026-07-07). Modules/roles: repo ensure in fdroidcl, `fdroidrepos://` intents, Shizuku grant, Aurora catalog + automated setup.
 - **2026-07-06** — Migration to Python COMPLETE (v2.0): all 5 runtime scripts deploy as Python (repair/agent-presence keep ~/*.sh shims); Mac-side fragile parsers converted (device_tier/access_monitor/adb_reconnect + shared stayturgid_device.py) with pytest; shell fragility boundary reached. Device tier → `device_tier.py`. Taxonomy inventory (no device names in code; group_vars layers all→android_16→vendor→oneui_7→model→host; device.json rendered per host). `obtainium_app` module + `obtainium_apps` role. fleet-health folded into TAP tier (`--heal`). Idempotency/determinism pass (mirror pinned, LC_ALL=C). pytest + `ansible-test units` + `stayturgid.fleet` collection. Ansible-native `fleet.yml` + `autojs6_watchdog` role. Notification self-heal (repair re-enables a11y append-only; notify coalesces per-key). Tasker fully removed (legacy exports archived). CI (GitHub Actions `make test`) green; ansible-lint/yamllint clean. Screen-awake guard + agent-presence consent protocol. sshd PerSourcePenalties lockout fixed.
 - **2026-07-06** — Code review (CODE-REVIEW.md): 2 high / 11 med / 13 low, all fixed (repair helpers before flock branch; bridge liveness → pidfile; battery alarm byte-verified backup; consent gate fails closed; shizuku.json patchers abort on failed read).
