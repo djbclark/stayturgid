@@ -10,8 +10,13 @@ __metaclass__ = type
 
 import os
 import re
+import socket
 
 DEFAULT_DEVICES_CONF = os.path.expanduser("~/.config/stayturgid/devices.conf")
+
+# adb connect to an unreachable host blocks for adb's own (long) timeout; probe
+# the TCP port first so a down LAN/Tailscale endpoint fails fast.
+CONNECT_PROBE_TIMEOUT = 1.5
 
 
 def devices_conf_path():
@@ -60,8 +65,26 @@ def wireless_endpoints(row):
     return endpoints
 
 
+def tcp_reachable(endpoint, timeout=CONNECT_PROBE_TIMEOUT):
+    """Fast TCP probe of host:port so adb connect never blocks on a dead endpoint."""
+    if ":" not in endpoint:
+        return False
+    host, _, port = endpoint.rpartition(":")
+    try:
+        port = int(port)
+    except ValueError:
+        return False
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
 def connect_wireless(run_command, endpoint):
     if ":" not in endpoint:
+        return False
+    if not tcp_reachable(endpoint):
         return False
     run_command(["adb", "connect", endpoint])
     return adb_online(adb_devices_output(run_command), endpoint)

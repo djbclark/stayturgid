@@ -31,6 +31,20 @@ def resolve_serial(alias: str) -> str:
     return dev.resolve_adb(alias)
 
 
+def is_tailscale_path(alias: str, serial: str) -> bool:
+    """True when the resolved adb target is the device's Tailscale ip:5555.
+
+    This test force-stops Tailscale; if adb itself rides the Tailscale tunnel
+    the transport drops mid-test (device goes offline, no log output). Require
+    a USB or LAN adb path instead.
+    """
+    row = dev.device_row(alias)
+    if not row:
+        return False
+    _usb, ts_ip, _lan = row
+    return bool(ts_ip and ts_ip != "-" and serial == "%s:5555" % ts_ip)
+
+
 def shell_line(serial: str, cmd: str) -> str:
     result = adb.adb(serial, "shell", cmd)
     return (result.stdout or "").strip()
@@ -58,6 +72,14 @@ def main(argv: list[str] | None = None) -> int:
     alias = argv[0] if argv else "s24"
     serial = resolve_serial(alias)
     rc = 0
+
+    if is_tailscale_path(alias, serial):
+        print(
+            f"ABORT: adb target {serial} rides the Tailscale tunnel this test kills.\n"
+            f"       Plug in USB or expose LAN adb (adb tcpip 5555) for {alias}, then rerun.",
+            file=sys.stderr,
+        )
+        return 2
 
     print(f"=== Phase 1: baseline (USB {serial}) ===")
     adb.adb(serial, "shell", "input keyevent KEYCODE_WAKEUP", check=False)

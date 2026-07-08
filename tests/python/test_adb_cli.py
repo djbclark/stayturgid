@@ -16,6 +16,29 @@ def test_autojs_constants():
     assert ac.AUTOJS_PROJECT_BASE.endswith("/autojs6")
 
 
+def test_adb_builds_serial_scoped_argv(monkeypatch):
+    seen = {}
+
+    def fake_run(cmd, **kwargs):
+        seen["cmd"] = cmd
+        seen["kwargs"] = kwargs
+
+    monkeypatch.setattr(ac, "run", fake_run)
+    ac.adb("192.168.68.60:5555", "shell", "true", check=False)
+    assert seen["cmd"] == ["adb", "-s", "192.168.68.60:5555", "shell", "true"]
+    assert seen["kwargs"]["check"] is False
+
+
+def test_start_autojs_file_targets_run_activity(monkeypatch):
+    seen = {}
+    monkeypatch.setattr(ac, "adb", lambda serial, *args, **kw: seen.update(serial=serial, args=args))
+    ac.start_autojs_file("s24serial", "/sdcard/stayturgid/autojs6/scripts/x.js")
+    args = seen["args"]
+    assert "am" in args and "start" in args
+    assert "file:///sdcard/stayturgid/autojs6/scripts/x.js" in args
+    assert f"{ac.AUTOJS_PKG}/{ac.AUTOJS_RUN}" in args
+
+
 def test_sync_catalog_paths_exist():
     for which, (json_path, dest_name) in sync.CATALOGS.items():
         assert json_path.is_file(), which

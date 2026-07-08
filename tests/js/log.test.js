@@ -12,11 +12,16 @@ var repo = path.resolve(__dirname, "..", "..");
 var tmp = fs.mkdtempSync(path.join(os.tmpdir(), "stlog-"));
 var mapped = function (p) { return path.join(tmp, String(p).replace(/\//g, "_")); };
 
+var ensureDirCalls = [];
 global.files = {
     exists: function (p) { return fs.existsSync(mapped(p)); },
     read:   function (p) { return fs.readFileSync(mapped(p), "utf8"); },
     append: function (p, s) { fs.appendFileSync(mapped(p), s); },
     write:  function (p, s) { fs.writeFileSync(mapped(p), s); },
+    // AutoJs6 files.ensureDir(path) expects a directory (trailing slash). The
+    // shim records the raw argument so tests can assert log.append() passes the
+    // log's *directory*, not the file path (CODE-REVIEW ensureDir regression).
+    ensureDir: function (p) { ensureDirCalls.push(String(p)); },
 };
 
 var n = 0, failed = 0;
@@ -63,6 +68,18 @@ ok(log.isRepairLoopStale() === true, "20-min-old [repair] line => stale (thresho
 files.write(config.WATCHDOG_LOG, "no repair lines here\n");
 ok(log.isRepairLoopStale() === true, "log without [repair] lines => stale");
 ok(log.latestRepairStatus() === null, "log without STATUS lines => null status");
+
+// ensureDir regression: append() must ensure the log's DIRECTORY, not the file
+// path. Passing the file path to files.ensureDir would create a directory that
+// shadows the log file (files.append then fails / self-heal never works).
+ensureDirCalls.length = 0;
+var written = log.append("[repair] STATUS port=open shizuku=up sshd=up shell=yes rc=0");
+ok(ensureDirCalls.length >= 1, "append() calls files.ensureDir before writing");
+var dirArg = ensureDirCalls[ensureDirCalls.length - 1];
+ok(/\/logs\/?$/.test(dirArg) && dirArg.indexOf("watchdog.log") < 0,
+    "append() ensures the log directory, not the log file path");
+ok(log.readWatchdogLog().indexOf(written) >= 0,
+    "append() writes the timestamped line to the watchdog log");
 
 console.log("1.." + n);
 process.exit(failed ? 1 : 0);

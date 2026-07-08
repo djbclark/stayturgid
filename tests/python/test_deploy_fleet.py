@@ -77,3 +77,71 @@ def test_deploy_import_failure_reports_stderr(monkeypatch, capsys):
     captured = capsys.readouterr()
     assert "FAIL: Obtainium import failed on s24" in captured.err
     assert "dialog not confirmed" in captured.err
+
+
+def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0, import_rc=0, aurora_rc=0):
+    monkeypatch.setattr(df, "require_ansible", lambda: None)
+    monkeypatch.setattr(df, "warn_prerequisites", lambda scope: None)
+    monkeypatch.setattr(df, "install_collections", lambda: None)
+
+    def run_playbook(*, limit, check, tags):
+        calls.append(("playbook", tags))
+        return playbook_rc
+
+    def run_import_catalog(host):
+        calls.append(("import", host))
+        return (import_rc, "obtainium import" if import_rc else "")
+
+    def run_configure_aurora(host):
+        calls.append(("aurora", host))
+        return (aurora_rc, "aurora setup" if aurora_rc else "")
+
+    monkeypatch.setattr(df, "run_playbook", run_playbook)
+    monkeypatch.setattr(df, "run_import_catalog", run_import_catalog)
+    monkeypatch.setattr(df, "run_configure_aurora", run_configure_aurora)
+
+
+def test_deploy_full_flow_order(monkeypatch):
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls)
+    rc = df.deploy(df.Scope.FULL, ["s24"], check=False)
+    assert rc == 0
+    assert calls == [
+        ("playbook", None),
+        ("import", "s24"),
+        ("playbook", "app-stores"),
+        ("aurora", "s24"),
+    ]
+
+
+def test_deploy_playbook_failure_short_circuits(monkeypatch):
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls, playbook_rc=2)
+    rc = df.deploy(df.Scope.FULL, ["s24"], check=False)
+    assert rc == 2
+    assert calls == [("playbook", None)]
+
+
+def test_deploy_check_mode_skips_post_steps(monkeypatch):
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls)
+    rc = df.deploy(df.Scope.FULL, ["s24"], check=True)
+    assert rc == 0
+    assert calls == [("playbook", None)]
+
+
+def test_deploy_import_failure_skips_app_stores(monkeypatch):
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls, import_rc=1)
+    rc = df.deploy(df.Scope.FULL, ["s24"], check=False)
+    assert rc == 1
+    assert ("playbook", "app-stores") not in calls
+
+
+def test_deploy_aurora_failure_still_reports_rc(monkeypatch, capsys):
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls, aurora_rc=1)
+    rc = df.deploy(df.Scope.FULL, ["s24"], check=False)
+    assert rc == 1
+    assert ("aurora", "s24") in calls
+    assert "Post-deploy failures" in capsys.readouterr().err

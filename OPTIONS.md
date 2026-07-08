@@ -292,6 +292,68 @@ Highest-leverage human unlock: **H3** (one hd8 USB session to bootstrap wireless
 
 ---
 
+## 2026-07-08 00:40 UTC-4 — After no-human batch 29/33/39/43 + adb-resolve hang fix
+
+Context since last menu: agent ran **29 → 33 → 39 → 43** and attempted **42**.
+`make test` fully green (102 pytest + shell TAP `RESULT: PASS` + all
+ansible-test collection units, incl. a new in-collection `module_utils` suite).
+Item **42** (p7a tailscale-down) surfaced two real bugs, both fixed:
+`resolve_adb` blocked for adb's long internal timeout when a LAN/Tailscale
+endpoint was down, and `test_tailscale_down.py` gave a confusing "no log output"
+when the resolved adb path itself rode the Tailscale tunnel it kills.
+
+### Fleet health snapshot
+
+| Host | Verify | Notes |
+|------|--------|-------|
+| s24 | **16/16 PASS** | Lab reference; tailscale-down test passes |
+| p7a | unreachable now | Tailscale `100.65.230.108` down + LAN `192.168.68.65` flaky; adb sees no p7a endpoint |
+| hd8 | **partial** | Termux OK over SSH; Fire-OS TODOs expected |
+
+### Cleanup & consolidation
+
+| ID | Status | Item |
+|----|--------|------|
+| 29 | **done** | `tests/js/log.test.js` now asserts `append()` ensures the log *directory* (not file) + writes the line |
+| 43 | **done** | In-collection `android_common/.../module_utils/test_adb_resolve.py` (10 tests) |
+| 44 | **done** | `adb_resolve` TCP-probe gate — `adb connect` no longer blocks on a dead LAN/Tailscale endpoint |
+| 45 | **done** | `test_tailscale_down.py` aborts (rc=2) with guidance when adb target is the Tailscale tunnel it kills |
+| 31 | open | `stayturgid_repair_check` module (SSH → parse STATUS) |
+
+### CODE-REVIEW fixes
+
+| ID | Status | Item |
+|----|--------|------|
+| 33 | **done (verified)** | M1–M3 already fixed in Python `stayturgid_battery_alarm.py`; regression coverage confirmed in `battery_suite` (M1 magic-byte backup, M2 lowest-tier-only, M3 `pct is None` guard, plus M4 fail-closed) |
+| 34 | open | **M5** Pixel idle detection in agent-presence |
+| 35 | open | **M10** Termux properties reload after Ansible |
+| 36 | open | **L4** AutoJs6 `device=generic` when profile missing |
+
+### Release & CI
+
+| ID | Status | Item |
+|----|--------|------|
+| 39 | **done** | `test_deploy_fleet.py` deploy-flow order/short-circuit tests + `test_adb_cli.py` argv/`start_autojs_file` coverage |
+| 37 | open | Push collection git tags + verify `collection-build` workflow |
+| 38 | open | Galaxy publish (needs **H5**) |
+
+### Validation & rollout
+
+| ID | Status | Item |
+|----|--------|------|
+| 42 | **blocked (device)** | p7a is adb-unreachable (Tailscale down, LAN flaky). Needs Tailscale recovery or a USB session; guard now fails fast instead of hanging |
+| 40/41 | blocked on **H3** | hd8 USB bootstrap |
+| 27 | blocked on **H3** | all-host deploy |
+
+### Suggested agent order (no human input)
+
+**31** → **34** → **36** → **35** → **37**
+
+Item **42** only unblocks when p7a is reachable again (USB or Tailscale recovery).
+Highest-leverage human unlock: **H3** (hd8 USB session).
+
+---
+
 ## 2026-07-07 20:22 UTC-4 — After shell test hardening
 
 Context since last menu: shell unit tests added for boot/bridge scripts

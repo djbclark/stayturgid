@@ -52,9 +52,12 @@ def test_resolve_adb_prefers_online_lan_over_offline_tailscale(tmp_path):
     assert adb_resolve.resolve_adb("s24", run, str(conf)) == "192.168.68.60:5555"
 
 
-def test_resolve_adb_connects_wireless_when_needed(tmp_path):
+def test_resolve_adb_connects_wireless_when_needed(tmp_path, monkeypatch):
     conf = tmp_path / "devices.conf"
     conf.write_text("p7a 35261JEHN12374 100.65.230.108 192.168.68.65\n")
+    # LAN down, Tailscale reachable — probe gates the (blocking) adb connect.
+    monkeypatch.setattr(adb_resolve, "tcp_reachable",
+                        lambda ep, timeout=None: ep == "100.65.230.108:5555")
     seen = []
 
     def run(cmd):
@@ -68,11 +71,26 @@ def test_resolve_adb_connects_wireless_when_needed(tmp_path):
         return 0, "", ""
 
     assert adb_resolve.resolve_adb("p7a", run, str(conf)) == "100.65.230.108:5555"
-    assert ["adb", "connect", "192.168.68.65:5555"] in seen or [
-        "adb",
-        "connect",
-        "100.65.230.108:5555",
-    ] in seen
+    assert ["adb", "connect", "100.65.230.108:5555"] in seen
+    # unreachable LAN endpoint must never reach the blocking adb connect
+    assert ["adb", "connect", "192.168.68.65:5555"] not in seen
+
+
+def test_resolve_adb_skips_connect_for_unreachable_endpoints(tmp_path, monkeypatch):
+    conf = tmp_path / "devices.conf"
+    conf.write_text("p7a 35261JEHN12374 100.65.230.108 192.168.68.65\n")
+    monkeypatch.setattr(adb_resolve, "tcp_reachable", lambda ep, timeout=None: False)
+    seen = []
+
+    def run(cmd):
+        seen.append(cmd)
+        if cmd[:2] == ["adb", "devices"]:
+            return 0, "", ""
+        return 1, "", ""
+
+    # nothing reachable -> static fallback (LAN first), and no adb connect calls
+    assert adb_resolve.resolve_adb("p7a", run, str(conf)) == "192.168.68.65:5555"
+    assert not any(c[:2] == ["adb", "connect"] for c in seen)
 
 
 def test_resolve_adb_matches_ro_serialno_when_ip_drifted(tmp_path, monkeypatch):
