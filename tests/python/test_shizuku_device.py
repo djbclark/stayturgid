@@ -85,20 +85,35 @@ def test_parse_button_center():
 def test_resolve_adb_and_ssh_host(tmp_path, monkeypatch):
     conf = tmp_path / "devices.conf"
     conf.write_text("s24 RFCX 100.123 192.168.68.55\n")
-    # not plugged in -> tailscale ip:5555
-    monkeypatch.setattr(dev, "_run", lambda a, **k: type("R", (), {"stdout": ""})())
-    assert dev.resolve_adb("s24", str(conf)) == "100.123:5555"
-    # plugged in -> usb serial
-    monkeypatch.setattr(dev, "_run",
-                        lambda a, **k: type("R", (), {"stdout": "RFCX\tdevice\n"})())
+
+    def fake_run(cmd, **kw):
+        if cmd[:2] == ["adb", "devices"]:
+            return type("R", (), {"returncode": 0, "stdout": "RFCX\tdevice\n", "stderr": ""})()
+        return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+    monkeypatch.setattr(dev, "_run", fake_run)
     assert dev.resolve_adb("s24", str(conf)) == "RFCX"
+
+    def offline(cmd, **kw):
+        if cmd[:2] == ["adb", "devices"]:
+            return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+        if cmd[:2] == ["adb", "connect"]:
+            return type("R", (), {"returncode": 0, "stdout": "failed", "stderr": ""})()
+        return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+    monkeypatch.setattr(dev, "_run", offline)
+    assert dev.resolve_adb("s24", str(conf)) == "192.168.68.55:5555"
     # unknown alias passes through; ssh host only for known devices
     assert dev.resolve_adb("raw:5555", str(conf)) == "raw:5555"
     assert dev.resolve_ssh_host("s24", str(conf)) == "s24"
     assert dev.resolve_ssh_host("raw:5555", str(conf)) == ""
 
     # ts=- must not yield "-:5555"; fall back to alias when USB absent
-    monkeypatch.setattr(dev, "_run", lambda a, **k: type("R", (), {"stdout": ""})())
+    monkeypatch.setattr(
+        dev,
+        "_run",
+        lambda a, **k: type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})(),
+    )
     conf.write_text("s24 RFCX - -\n")
     assert dev.resolve_adb("s24", str(conf)) == "s24"
     # lan fallback when tailscale missing

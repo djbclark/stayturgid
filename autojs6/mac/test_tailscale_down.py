@@ -26,33 +26,9 @@ PROBE_MARKER = "tailscale-down-test probe tun="
 RECOVERY_MARKER = "tailscale-down-test after-relaunch"
 
 
-def _adb_online(serial: str, devices: str) -> bool:
-    return f"{serial}\tdevice" in devices.replace("\r", "")
-
-
 def resolve_serial(alias: str) -> str:
     """USB when plugged in, else first online wireless endpoint for this alias."""
-    devices = adb.adb_devices()
-    row = dev.device_row(alias)
-    if row:
-        usb, ts_ip, lan = row
-        if usb != "-" and _adb_online(usb, devices):
-            return usb
-        for endpoint in (
-            f"{lan}:5555" if lan not in ("", "-") else None,
-            f"{ts_ip}:5555" if ts_ip not in ("", "-") else None,
-        ):
-            if endpoint and _adb_online(endpoint, devices):
-                return endpoint
-        if usb != "-":
-            for line in devices.splitlines():
-                if "\tdevice" not in line:
-                    continue
-                candidate = line.split()[0]
-                prop = adb.adb(candidate, "shell", "getprop", "ro.serialno", check=False)
-                if (prop.stdout or "").strip() == usb:
-                    return candidate
-    return adb.resolve_target(alias)
+    return dev.resolve_adb(alias)
 
 
 def shell_line(serial: str, cmd: str) -> str:

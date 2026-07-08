@@ -61,15 +61,45 @@ def device_row(alias, conf_path=None):
 
 
 def resolve_adb(alias, conf_path=None):
-    """USB serial when the device is plugged in, else Tailscale ip:5555.
-    Unknown aliases pass through unchanged (raw serial / host:port)."""
+    """USB when online, else first reachable wireless endpoint (LAN then Tailscale).
+
+    Unknown aliases pass through unchanged (raw serial / host:port).
+    Keep in sync with ansible_collections/.../adb_resolve.py.
+    """
     row = device_row(alias, conf_path)
     if not row:
         return alias
+
+    def run_command(cmd):
+        r = _run(cmd)
+        if r is None:
+            return 127, "", ""
+        return r.returncode, r.stdout, r.stderr or ""
+
+    # Reuse collection resolver when running from the repo checkout.
+    import importlib.util
+
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    mod_path = os.path.join(
+        root,
+        "ansible_collections",
+        "stayturgid",
+        "android_common",
+        "plugins",
+        "module_utils",
+        "adb_resolve.py",
+    )
+    if os.path.isfile(mod_path):
+        spec = importlib.util.spec_from_file_location("_adb_resolve", mod_path)
+        _ar = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(_ar)
+        return _ar.resolve_adb(alias, run_command, conf_path)
+
+    # Minimal fallback when collection path is unavailable.
     usb, ts_ip, _lan = row
     if usb != "-":
         r = _run(["adb", "devices"])
-        if r and ("%s\tdevice" % usb) in r.stdout:
+        if r and ("%s\tdevice" % usb) in (r.stdout or ""):
             return usb
     if ts_ip not in ("", "-"):
         return "%s:5555" % ts_ip

@@ -50,10 +50,6 @@
   ansible.builtin.shell: |
     set -euo pipefail
     target="{{ _autojs6_adb_target }}"
-    # Wireless targets need an explicit connect; USB serials are already attached.
-    case "$target" in
-      *:*) adb connect "$target" >/dev/null 2>&1 || true ;;
-    esac
     src="/tmp/stayturgid-{{ inventory_hostname }}-device.json"
     dst="/sdcard/stayturgid/state/device.json"
     if ! adb -s "$target" shell mkdir -p /sdcard/stayturgid/state; then

@@ -9,7 +9,9 @@ name: adb_device
 short_description: Resolve stayturgid fleet alias to ADB serial or host:port
 description:
   - Reads C(~/.config/stayturgid/devices.conf) (or C(STAYTURGID_DEVICES_CONF)).
-  - Prefers USB serial when the device is connected; otherwise Tailscale C(ip:5555).
+  - Prefers USB serial when the device is connected.
+  - Otherwise tries LAN then Tailscale C(ip:5555), running C(adb connect) when needed.
+  - Scans connected devices by C(ro.serialno) when inventory IPs drift.
   - Unknown aliases pass through unchanged (raw serial or host:port).
 options:
   _terms:
