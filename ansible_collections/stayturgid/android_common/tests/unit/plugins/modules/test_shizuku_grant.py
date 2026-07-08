@@ -28,7 +28,7 @@ def test_patch_shizuku_json_idempotent():
     assert patched.strip() == current.strip()
 
 
-def run_module(mocker, args, cmd_results=None):
+def run_module(mocker, args, cmd_results=None, expect_fail=False):
     stdin = json.dumps({"ANSIBLE_MODULE_ARGS": dict(args)})
     mocker.patch("ansible.module_utils.basic._ANSIBLE_ARGS", stdin.encode())
     mocker.patch("ansible.module_utils.basic._ANSIBLE_PROFILE", "legacy", create=True)
@@ -60,15 +60,19 @@ def run_module(mocker, args, cmd_results=None):
         captured.update(kw, failed=False)
         raise SystemExit(0)
 
+    def fake_fail(self, **kw):
+        captured.update(kw, failed=True)
+        raise SystemExit(1)
+
     mocker.patch("ansible.module_utils.basic.AnsibleModule.run_command", fake_run_command)
     mocker.patch("ansible.module_utils.basic.AnsibleModule.exit_json", fake_exit)
-    mocker.patch(
-        "ansible.module_utils.basic.AnsibleModule.fail_json",
-        lambda self, **kw: (_ for _ in ()).throw(SystemExit(1)),
-    )
+    mocker.patch("ansible.module_utils.basic.AnsibleModule.fail_json", fake_fail)
 
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as exc:
         mod.main()
+    if expect_fail:
+        assert exc.value.code == 1
+        assert captured.get("failed") is True
     return captured
 
 
@@ -83,6 +87,22 @@ def test_shizuku_grant_changes_json(mocker):
     )
     assert out["changed"] is True
     assert out["uid"] == "10002"
+
+
+def test_shizuku_grant_unreadable_json(mocker):
+    out = run_module(
+        mocker,
+        dict(
+            device="localhost:5555",
+            package="com.machiav3lli.fdroid",
+            connect=False,
+        ),
+        cmd_results=[
+            ("cat /data/local/tmp/shizuku/shizuku.json", (1, "", "read error")),
+        ],
+        expect_fail=True,
+    )
+    assert "unreadable" in out.get("msg", "")
 
 
 def test_shizuku_grant_already_granted(mocker):

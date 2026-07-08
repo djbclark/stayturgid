@@ -55,7 +55,7 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 
 ## 🚦 Cold-start — current state (read this first)
 
-**As of 2026-07-07.** Three-device fleet: **s24**, **p7a**, **hd8** (Kindle Fire HD 8 added today). AutoJs6-only stack (legacy Tasker removed 2026-07-06). Repo v2.4.
+**As of 2026-07-07 (evening).** Three-device fleet: **s24**, **p7a**, **hd8**. AutoJs6-only stack. Repo **v2.5** — shell unit tests for boot/bridge scripts; legacy bash `resolve-adb`/`stayturgid-root` removed in favor of Python CLIs; `make test` green (110 TAP + pytest + ansible-test).
 
 **Healthy / done:**
 - **s24 + p7a fully green** — `make verify` PASS after AutoJs6 `pm clear` reset (2026-07-07); watchdog liveness fresh on both; Tasker legacy clean on p7a.
@@ -133,7 +133,7 @@ Deployed scripts → `~/.stayturgid/bin`; AutoJs6 project → `/sdcard/stayturgi
 | Termux / Obtainium | GitHub-signed stack via Obtainium; Shizuku installer enabled |
 | ⚠ Power | the USB *data* cable does NOT reliably charge it — keep it on a real charger or remote access dies with the battery |
 
-Prefer the **S24 over USB** for interactive work when plugged in; use **7a over Tailscale** otherwise. Mac scripts resolve the target via [shared/mac/resolve-adb.sh](shared/mac/resolve-adb.sh) (USB serial when present, else Tailscale).
+Prefer the **S24 over USB** for interactive work when plugged in; use **7a over Tailscale** otherwise. Mac scripts resolve targets via [shared/mac/stayturgid_device.py](shared/mac/stayturgid_device.py) or `./shared/mac/resolve_adb.py` (USB serial when present, else Tailscale/LAN).
 
 ---
 
@@ -232,7 +232,7 @@ fdroid/                      — F-Droid / Neo Store docs + Mac helpers
 play/                        — Play / Aurora docs + configure_aurora.py
 ansible_collections/stayturgid/fdroid/roles/fdroid_repos/  — fdroidcl repo management + on-device push
 ansible_collections/stayturgid/play/roles/play_store/        — Aurora Store Shizuku grant + play_apps
-shared/mac/                  — resolve-adb.sh, stayturgid_device.py (shizuku.json patcher + UI parsing)
+shared/mac/                  — stayturgid_device.py, resolve_adb.py, adb_cli.py (Shizuku JSON patcher + UI parsing)
 mac/                         — adb_reconnect.py, access_monitor.py, deploy_fleet.py (launchd via ansible mac.yml)
 tests/                       — device_tier.py + python/ (pytest twins) + test-*.sh TAP harness; Makefile, configure
 version.json                 — repo release version + changelog

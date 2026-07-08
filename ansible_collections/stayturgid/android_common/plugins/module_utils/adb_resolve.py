@@ -53,4 +53,7 @@ def resolve_adb(alias, run_command=None, conf_path=None):
             return usb
     if ts_ip and ts_ip != "-":
         return "%s:5555" % ts_ip
+    lan = row[2] if len(row) > 2 else "-"
+    if lan and lan != "-":
+        return "%s:5555" % lan
     return alias

@@ -39,7 +39,7 @@ ansible-playbook ansible/playbooks/mac.yml
 
 Logs: `~/.config/stayturgid/logs/`. Device list: `~/.config/stayturgid/devices.conf` (from Ansible).
 
-Other subprojects resolve adb targets via [shared/mac/stayturgid_device.py](../shared/mac/stayturgid_device.py) or source [shared/mac/resolve-adb.sh](../shared/mac/resolve-adb.sh).
+Other subprojects resolve adb targets via [shared/mac/stayturgid_device.py](../shared/mac/stayturgid_device.py) or [shared/mac/resolve_adb.py](../shared/mac/resolve_adb.py).
 
 ## Related docs
 

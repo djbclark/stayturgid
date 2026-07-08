@@ -698,7 +698,7 @@ fdroid/                                 — F-Droid / Neo Store docs + legacy gr
 ansible/playbooks/fleet.yml             — full fleet (includes fdroid + play roles)
 ansible/playbooks/fdroid.yml            — F-Droid-only subset (deploy_fleet.py --scope fdroid)
 ansible/playbooks/play_store.yml        — Play-only subset (deploy_fleet.py --scope play)
-shared/mac/                             — resolve-adb.sh and common helpers
+shared/mac/                             — resolve_adb.py, stayturgid_device.py, adb_cli.py
 HACKING.md                              — this file
 HANDOFF.md                              — AI session handoff prompt
 README.md                               — user-facing setup guide

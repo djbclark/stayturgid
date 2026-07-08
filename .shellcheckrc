@@ -1,4 +1,3 @@
 # shellcheck config for stayturgid
-# SC1091: sourced files resolved at runtime (shared/mac/resolve-adb.sh)
 # SC2029: variables in ssh command strings expand client-side intentionally
-disable=SC1091,SC2029
+disable=SC2029

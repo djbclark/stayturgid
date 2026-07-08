@@ -1,4 +1,4 @@
 {
-  "version": "2.4",
-  "changelog": "Fleet recovery: s24/p7a AutoJs6 pm-clear reset, make verify green. Add hd8 (Kindle Fire HD 8) to inventory with Fire OS support — stayturgid_sd_root override, STAYTURGID_SD env, dual-path device-tier, adb-push AutoJs6 deploy. Termux scripts source ~/.stayturgid/env; config.js resolves sdRoot from device.json + env."
+  "version": "2.5",
+  "changelog": "Shell unit tests for Termux boot/bridge scripts (110 TAP). Harden start-adb pidfile/disown and resolve_adb LAN/- guards. Remove legacy bash resolve-adb/stayturgid-root; add Python CLIs. Obtainium sync-guard points at collection role path. make test fully green."
 }

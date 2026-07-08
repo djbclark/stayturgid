@@ -104,3 +104,46 @@ def test_resolve_adb_and_ssh_host(tmp_path, monkeypatch):
     # lan fallback when tailscale missing
     conf.write_text("p7a - - 192.168.1.9\n")
     assert dev.resolve_adb("p7a", str(conf)) == "192.168.1.9:5555"
+
+
+def test_read_shizuku_json_missing_ok():
+    shell = dev.PrivShell.__new__(dev.PrivShell)
+    shell.sh = lambda cmd: (0, "") if cmd == "true" else (1, "")
+    text, ok = shell.read_shizuku_json("/data/shizuku.json")
+    assert ok is True
+    assert text == ""
+
+
+def test_read_shizuku_json_unreadable_aborts():
+    shell = dev.PrivShell.__new__(dev.PrivShell)
+
+    def fake_sh(cmd):
+        if cmd == "true":
+            return 0, ""
+        if cmd.startswith("test -f"):
+            return 0, ""
+        if cmd.startswith("cat"):
+            return 0, ""
+        return 1, ""
+
+    shell.sh = fake_sh
+    text, ok = shell.read_shizuku_json("/data/shizuku.json")
+    assert ok is False
+    assert text == ""
+
+
+def test_read_shizuku_json_cat_failure_aborts():
+    shell = dev.PrivShell.__new__(dev.PrivShell)
+
+    def fake_sh(cmd):
+        if cmd == "true":
+            return 0, ""
+        if cmd.startswith("test -f"):
+            return 0, ""
+        if cmd.startswith("cat"):
+            return 1, ""
+        return 1, ""
+
+    shell.sh = fake_sh
+    text, ok = shell.read_shizuku_json("/data/shizuku.json")
+    assert ok is False
