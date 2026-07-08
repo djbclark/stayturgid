@@ -7,9 +7,8 @@
 > Human-only tasks: [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md). Operator
 > answers: `human/RESPONSES.md` (gitignored). Session context: [HANDOFF.md](HANDOFF.md).
 
-**Fleet snapshot (2026-07-08):** Termux-primary repair (Option B) landing in progress.
-Deploy termux + autojs6 to all hosts after merge. **p7a** PiP root cause was
-RunIntentActivity recovery — removed from 5-min loop.
+**Fleet snapshot (2026-07-08):** HEAD `2c38237`. Option B deployed **s24** + **p7a**
+(termux + autojs6). Boot loop no longer `am start`s AutoJs6 (PiP fix).
 
 **Suggested agent order:** deploy termux+autojs6 fleet-wide, then **H3** or human
 blockers below.
