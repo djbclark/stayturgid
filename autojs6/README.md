@@ -19,7 +19,7 @@ Does **not** replace: Termux:Boot self-heal, Shizuku, Mac `adb_reconnect.py`, Ob
 1. AutoJs6 (`org.autojs.autojs6`) — `setup_autojs6.py` or Obtainium; fleet harden grants storage, `RUN_COMMAND`, notifications, battery unrestricted, unused-app off
 2. Termux repair scripts deployed (`deploy_termux.py` / fleet)
 3. Shizuku (thedjchi fork), TCP mode
-4. **AutoJs6 drawer → Shizuku permission ON** — automated via `enable_autojs6_shizuku.py` during setup/deploy (requires unlocked screen).
+4. **AutoJs6 drawer → Accessibility + Shizuku ON** — automated via `enable_autojs6_shizuku.py` during setup/deploy (requires unlocked screen). Termux repair re-appends a11y if the OS disables it later.
 
 ## Shizuku API (built-in, not a separate plugin)
 

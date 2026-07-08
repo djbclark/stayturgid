@@ -28,21 +28,20 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Wrote automation mode autojs6 on {serial}")
 
     if ENABLE.is_file():
-        print("Enabling AutoJs6 Shizuku access (grant + drawer)...")
+        print("Enabling AutoJs6 (accessibility + Shizuku drawer)...")
         rc = subprocess.run([sys.executable, str(ENABLE), alias]).returncode
         if rc != 0:
-            print("WARN: enable_autojs6_shizuku failed — check screen unlock + Shizuku up", file=sys.stderr)
+            print("WARN: enable_autojs6_shizuku failed — see debug bundle in stderr", file=sys.stderr)
     elif GRANT.is_file():
         print("Syncing Shizuku authorized apps for AutoJs6...")
         rc = subprocess.run([sys.executable, str(GRANT), alias]).returncode
         if rc != 0:
             print("WARN: Shizuku grant sync failed (is Shizuku up?)", file=sys.stderr)
     print(
-        """
+        f"""
 Next steps on device:
-  1. Enable AutoJs6 accessibility service
-  2. In AutoJs6: open /sdcard/stayturgid/autojs6 → run main.js
-  3. Optional: AutoJs6 timed task every 20 min + run on boot for main.js
+  1. ./start_watchdog.py {alias}   # or run main.js in AutoJs6
+  2. Optional: AutoJs6 timed task every 20 min + run on boot for main.js
 """
     )
     return 0

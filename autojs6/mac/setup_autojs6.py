@@ -127,9 +127,8 @@ def main(argv: list[str] | None = None) -> int:
 === Setup complete ===
 
 On device:
-  1. Open AutoJs6 → enable Accessibility service
-  2. ./start_watchdog.py {alias}        # or run main.js in AutoJs6
-     (Shizuku grant + drawer already ran via enable_autojs6_shizuku.py)
+  1. ./start_watchdog.py {alias}        # or run main.js in AutoJs6
+     (accessibility + Shizuku drawer automated via enable_autojs6_shizuku.py)
 
 ADB grants: RUN_COMMAND plus fleet harden (storage, notifications, battery unrestricted).
 

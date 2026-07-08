@@ -234,7 +234,7 @@ All of this is scripted from the Mac (device connected via USB or wireless ADB):
 ./autojs6/mac/start_watchdog.py p7a
 ```
 
-On-device manual steps (once): enable the AutoJs6 **accessibility service** when prompted. `setup_autojs6.py` grants storage (`MANAGE_EXTERNAL_STORAGE`), `RUN_COMMAND`, and battery whitelist via ADB; Termux `allow-external-apps=true` is set by the Ansible deploy (or manually in `~/.termux/termux.properties`).
+On-device setup is automated: `enable_autojs6_shizuku.py` enables the accessibility service and Shizuku drawer; `setup_autojs6.py` / fleet harden grant storage, `RUN_COMMAND`, and battery settings. Termux `allow-external-apps=true` is set by the Ansible deploy (or manually in `~/.termux/termux.properties`).
 
 See [autojs6/README.md](autojs6/README.md) for details.
 

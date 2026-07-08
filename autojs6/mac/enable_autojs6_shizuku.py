@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Enable AutoJs6 Shizuku access without manual drawer toggling.
+"""Enable AutoJs6 accessibility + Shizuku drawer without manual toggling.
 
 Deterministic order:
   1. grant_shizuku.py — pm grant + shizuku.json (privileged shell, no UI)
-  2. Launch AutoJs6 + dismiss notification / Shizuku permission dialogs
-  3. Open drawer, scroll to "Shizuku access", enable switch when off
-  4. Verify drawer switch ON (optional shizuku-probe.js log when RunIntent works)
+  2. Launch AutoJs6 + dismiss notification / permission dialogs
+  3. Drawer → Accessibility service ON (UI tap, then shell append fallback)
+  4. Drawer → Shizuku access ON when off
+  5. Verify both; on failure print a debug bundle for human escalation
 
 Usage: ./enable_autojs6_shizuku.py <s24|p7a|hd8|serial>
 """
@@ -23,8 +24,10 @@ import screen_control as sc  # noqa: E402
 
 AUTOJS_PKG = "org.autojs.autojs6"
 AUTOJS_RUN = "org.autojs.autojs.external.open.RunIntentActivity"
+A11Y_SVC = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
 SHIZUKU_PERM = "moe.shizuku.manager.permission.API_V23"
-DRAWER_LABEL = "Shizuku access"
+DRAWER_A11Y = "Accessibility service"
+DRAWER_SHIZUKU = "Shizuku access"
 PROBE_REMOTE = "/sdcard/stayturgid/autojs6/scripts/shizuku-probe.js"
 WATCHDOG_LOG = "/sdcard/stayturgid/logs/watchdog.log"
 GRANT = Path(__file__).resolve().parent / "grant_shizuku.py"
@@ -36,6 +39,24 @@ PERM_DIALOG_MARKERS = (
     "access Shizuku",
     "Grant AutoJs6 access in Shizuku",
 )
+
+A11Y_DIALOG_HINTS = (
+    "accessibility",
+    "observe your actions",
+    "autojs",
+    "retrieve window content",
+    "perform gestures",
+)
+
+
+def a11y_append_value(current: str, svc: str = A11Y_SVC) -> str:
+    """Append-only enabled_accessibility_services value (never replace the list)."""
+    cur = (current or "").strip()
+    if cur in ("", "null"):
+        return svc
+    if svc in cur.split(":"):
+        return cur
+    return "%s:%s" % (cur, svc)
 
 
 def adb(serial: str, *args: str, timeout: int = 30) -> subprocess.CompletedProcess:
@@ -90,9 +111,29 @@ def pm_shizuku_granted(serial: str) -> bool:
     return "granted=true" in block
 
 
-def launch_autojs6(serial: str) -> None:
-    adb(serial, "am", "force-stop", AUTOJS_PKG)
+def a11y_services_list(serial: str) -> str:
+    result = adb(serial, "settings", "get", "secure", "enabled_accessibility_services")
+    return (result.stdout or "").strip()
+
+
+def a11y_enabled(serial: str) -> bool:
+    return A11Y_SVC in a11y_services_list(serial)
+
+
+def enable_a11y_shell_append(serial: str) -> bool:
+    if a11y_enabled(serial):
+        return True
+    new = a11y_append_value(a11y_services_list(serial))
+    adb(serial, "settings", "put", "secure", "enabled_accessibility_services", new)
+    adb(serial, "settings", "put", "secure", "accessibility_enabled", "1")
     time.sleep(1)
+    return a11y_enabled(serial)
+
+
+def launch_autojs6(serial: str, *, force_stop: bool = True) -> None:
+    if force_stop:
+        adb(serial, "am", "force-stop", AUTOJS_PKG)
+        time.sleep(1)
     adb(serial, "input", "keyevent", "KEYCODE_HOME")
     time.sleep(0.5)
     result = adb(serial, "monkey", "-p", AUTOJS_PKG, "-c", "android.intent.category.LAUNCHER", "1")
@@ -100,6 +141,29 @@ def launch_autojs6(serial: str) -> None:
         adb(serial, "am", "start", "-a", "android.intent.action.MAIN",
             "-c", "android.intent.category.LAUNCHER", "-p", AUTOJS_PKG)
     time.sleep(3)
+
+
+def foreground_package(serial: str) -> str:
+    result = adb(serial, "dumpsys", "activity", "activities")
+    for line in (result.stdout or "").splitlines():
+        if "topResumedActivity" in line and "{" in line:
+            chunk = line.split("{", 1)[-1].split("}", 1)[0]
+            parts = chunk.split()
+            for part in parts:
+                if "/" in part and "." in part:
+                    return part.split("/")[0]
+    return ""
+
+
+def return_to_autojs6(serial: str) -> None:
+    """Leave Settings/consent UIs and bring AutoJs6 main activity to foreground."""
+    for _ in range(6):
+        if foreground_package(serial) == AUTOJS_PKG:
+            return
+        adb(serial, "input", "keyevent", "KEYCODE_BACK")
+        time.sleep(0.6)
+    launch_autojs6(serial, force_stop=False)
+    dismiss_dialogs(serial)
 
 
 def open_drawer(serial: str) -> None:
@@ -122,7 +186,6 @@ def scroll_drawer_down(serial: str) -> None:
 
 
 def find_drawer_switch(serial: str, label: str) -> tuple[bool, int, int] | None:
-    """Return (checked, cx, cy) for label's switch, opening/scrolling the drawer as needed."""
     xml = dump_xml(serial)
     sw = dev.parse_switch(xml, label)
     if sw is not None:
@@ -139,24 +202,41 @@ def find_drawer_switch(serial: str, label: str) -> tuple[bool, int, int] | None:
     return None
 
 
-def enable_drawer_shizuku(serial: str) -> bool:
-    sw = find_drawer_switch(serial, DRAWER_LABEL)
-    if not sw:
-        sys.stderr.write("ERROR: Shizuku access row not found in AutoJs6 drawer\n")
-        return False
-    if sw[0]:
-        print("AutoJs6 drawer: Shizuku access already ON.")
-        return True
-    print("Tapping Shizuku access drawer switch...")
-    tap(serial, (sw[1], sw[2]))
-    time.sleep(2)
-    dismiss_dialogs(serial)
-    sw2 = find_drawer_switch(serial, DRAWER_LABEL)
-    if sw2 and sw2[0]:
-        print("AutoJs6 drawer: Shizuku access ON.")
-        return True
-    sys.stderr.write("ERROR: Shizuku access switch still OFF after tap\n")
-    return False
+def dismiss_a11y_system_dialogs(serial: str, rounds: int = 10) -> None:
+    for _ in range(rounds):
+        xml = dump_xml(serial)
+        lower = xml.lower()
+        if not any(hint in lower for hint in A11Y_DIALOG_HINTS):
+            btn = dev.parse_button_center(xml, "android:id/button1")
+            if not (btn and "allow" in lower):
+                break
+        acted = False
+        for label in ("Allow", "Turn on", "OK", "Start", "Agree"):
+            pt = dev.parse_text_center(xml, label)
+            if pt:
+                print("Tapped accessibility dialog: %s" % label)
+                tap(serial, pt)
+                time.sleep(2)
+                acted = True
+                break
+        if not acted:
+            btn = dev.parse_button_center(xml, "android:id/button1")
+            if btn:
+                print("Tapped accessibility dialog (button1).")
+                tap(serial, btn)
+                time.sleep(2)
+                acted = True
+        if not acted:
+            for name in ("AutoJs6", "Use AutoJs6", DRAWER_A11Y):
+                sw = dev.parse_switch(xml, name)
+                if sw and not sw[0]:
+                    print("Tapped accessibility switch in system UI: %s" % name)
+                    tap(serial, (sw[1], sw[2]))
+                    time.sleep(2)
+                    acted = True
+                    break
+        if not acted:
+            break
 
 
 def dismiss_dialogs(serial: str, rounds: int = 12) -> None:
@@ -200,6 +280,58 @@ def dismiss_dialogs(serial: str, rounds: int = 12) -> None:
             break
 
 
+def enable_drawer_switch(serial: str, label: str) -> bool:
+    sw = find_drawer_switch(serial, label)
+    if not sw:
+        sys.stderr.write("ERROR: %s row not found in AutoJs6 drawer\n" % label)
+        return False
+    if sw[0]:
+        print("AutoJs6 drawer: %s already ON." % label)
+        return True
+    print("Tapping %s drawer switch..." % label)
+    tap(serial, (sw[1], sw[2]))
+    time.sleep(2)
+    dismiss_dialogs(serial)
+    if label == DRAWER_A11Y:
+        dismiss_a11y_system_dialogs(serial)
+    sw2 = find_drawer_switch(serial, label)
+    if sw2 and sw2[0]:
+        print("AutoJs6 drawer: %s ON." % label)
+        return True
+    return False
+
+
+def enable_accessibility(serial: str) -> bool:
+    if a11y_enabled(serial):
+        print("AutoJs6 accessibility already enabled (settings).")
+        return True
+    if enable_drawer_switch(serial, DRAWER_A11Y):
+        dismiss_a11y_system_dialogs(serial)
+        if a11y_enabled(serial):
+            return_to_autojs6(serial)
+            return True
+    print("Accessibility drawer tap insufficient — trying shell append...")
+    if enable_a11y_shell_append(serial):
+        print("AutoJs6 accessibility enabled via settings append.")
+        return_to_autojs6(serial)
+        return True
+    sys.stderr.write("ERROR: AutoJs6 accessibility still disabled after UI + shell\n")
+    return False
+
+
+def verify_shizuku_drawer(serial: str) -> bool:
+    sw = find_drawer_switch(serial, DRAWER_SHIZUKU)
+    if not sw:
+        print("Verify: Shizuku access row not found")
+        return False
+    if not sw[0]:
+        print("Verify: Shizuku access drawer switch OFF")
+        return False
+    if not pm_shizuku_granted(serial):
+        print("WARN: drawer ON but pm grant not visible in dumpsys yet")
+    return True
+
+
 def run_shizuku_probe(serial: str) -> bool:
     adb(serial, "am", "start",
         "-a", "android.intent.action.VIEW",
@@ -214,17 +346,23 @@ def run_shizuku_probe(serial: str) -> bool:
     return "operational=true" in text.lower()
 
 
-def verify_drawer_enabled(serial: str) -> bool:
-    sw = find_drawer_switch(serial, DRAWER_LABEL)
-    if not sw:
-        print("Verify: Shizuku access row not found")
-        return False
-    if not sw[0]:
-        print("Verify: Shizuku access drawer switch OFF")
-        return False
-    if not pm_shizuku_granted(serial):
-        print("WARN: drawer ON but pm grant not visible in dumpsys yet")
-    return True
+def report_debug_state(serial: str, alias: str) -> None:
+    sys.stderr.write("\n=== AutoJs6 enable FAILED on %s — debug bundle ===\n" % alias)
+    sys.stderr.write("Host: %s  adb: %s\n" % (alias, serial))
+    sys.stderr.write("enabled_accessibility_services:\n  %s\n" % a11y_services_list(serial))
+    sys.stderr.write("accessibility_enabled: %s\n" % (
+        (adb(serial, "settings", "get", "secure", "accessibility_enabled").stdout or "").strip()
+    ))
+    sw_a = find_drawer_switch(serial, DRAWER_A11Y)
+    sw_s = find_drawer_switch(serial, DRAWER_SHIZUKU)
+    sys.stderr.write("drawer Accessibility switch: %s\n" % (sw_a,))
+    sys.stderr.write("drawer Shizuku switch: %s\n" % (sw_s,))
+    sys.stderr.write("shizuku_server: %s\n" % ("up" if shizuku_server_running(serial) else "down"))
+    sys.stderr.write("pm shizuku grant visible: %s\n" % pm_shizuku_granted(serial))
+    sys.stderr.write("foreground package: %s\n" % foreground_package(serial))
+    sys.stderr.write("Re-run: ./autojs6/mac/enable_autojs6_shizuku.py %s\n" % alias)
+    sys.stderr.write("Ensure: screen unlocked, Shizuku running, AutoJs6 installed.\n")
+    sys.stderr.write("=== end debug bundle ===\n")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -243,35 +381,40 @@ def main(argv: list[str] | None = None) -> int:
     if not shizuku_server_running(serial):
         sys.stderr.write("ERROR: shizuku_server not running — start Shizuku first\n")
         return 1
-    if not pm_shizuku_granted(serial):
-        print("WARN: pm grant not visible yet — UI flow may still grant it")
 
     try:
         with sc.ScreenControlSession(alias, label=alias):
             launch_autojs6(serial)
             dismiss_dialogs(serial)
 
-            if verify_drawer_enabled(serial):
+            if not enable_accessibility(serial):
+                report_debug_state(serial, alias)
+                return 1
+
+            return_to_autojs6(serial)
+
+            if verify_shizuku_drawer(serial) and a11y_enabled(serial):
                 run_shizuku_probe(serial)
                 adb(serial, "input", "keyevent", "KEYCODE_HOME")
-                print("Shizuku access enabled for AutoJs6 on %s." % alias)
+                print("AutoJs6 accessibility + Shizuku enabled on %s." % alias)
                 return 0
 
-            dismiss_dialogs(serial)
-            if not enable_drawer_shizuku(serial):
+            if not enable_drawer_switch(serial, DRAWER_SHIZUKU):
+                report_debug_state(serial, alias)
                 return 1
             dismiss_dialogs(serial)
 
-            if verify_drawer_enabled(serial):
+            if verify_shizuku_drawer(serial) and a11y_enabled(serial):
                 run_shizuku_probe(serial)
                 adb(serial, "input", "keyevent", "KEYCODE_HOME")
-                print("Shizuku access enabled for AutoJs6 on %s." % alias)
+                print("AutoJs6 accessibility + Shizuku enabled on %s." % alias)
                 return 0
 
-            sys.stderr.write("ERROR: Shizuku access drawer still OFF on %s\n" % alias)
+            report_debug_state(serial, alias)
             return 1
     except sc.ScreenControlError as e:
         sys.stderr.write("ERROR: %s\n" % e)
+        report_debug_state(serial, alias)
         return 1
 
 
