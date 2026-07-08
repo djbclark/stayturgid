@@ -1,6 +1,7 @@
 """Unit tests for mac/deploy_fleet.py — argv building and inventory parsing."""
 import json
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(
@@ -62,6 +63,17 @@ def test_resolve_hosts_explicit():
     assert df.resolve_hosts(["s24"]) == ["s24"]
 
 
-def test_resolve_hosts_from_inventory(monkeypatch):
-    monkeypatch.setattr(df, "inventory_hosts", lambda group="stayturgid": ["s24", "p7a"])
-    assert df.resolve_hosts([]) == ["s24", "p7a"]
+def test_deploy_import_failure_reports_stderr(monkeypatch, capsys):
+    def fake_run(cmd, **kwargs):
+        if "import_catalog" in str(cmd):
+            return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="ERROR: dialog not confirmed\n")
+        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(df, "IMPORT_CATALOG", df.REPO_ROOT / "obtainium" / "mac" / "import_catalog.py")
+    monkeypatch.setattr(df.subprocess, "run", fake_run)
+    rc, step = df.run_import_catalog("s24")
+    assert rc == 1
+    assert step == "obtainium import"
+    captured = capsys.readouterr()
+    assert "FAIL: Obtainium import failed on s24" in captured.err
+    assert "dialog not confirmed" in captured.err

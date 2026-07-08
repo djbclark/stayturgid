@@ -8,7 +8,7 @@ installer spoof (`-i com.android.vending`).
 
 ## Prerequisites
 
-- `apkeep` and/or `play/mac/gplaycli.sh` on control node
+- `apkeep` and/or `play/mac/gplaycli.py` on control node
 - Google credentials in env (`GPLAY_EMAIL`, `GPLAY_AAS_TOKEN`, …) for Play downloads
 - `adb` + optional `devices.conf`
 

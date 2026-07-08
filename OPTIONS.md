@@ -155,6 +155,72 @@ fleet step is `hd8`, `p7a`, or all hosts.
 
 ---
 
+## 2026-07-07 21:50 UTC-4 — After hd8/p7a rollout + code consolidation batch
+
+Context since last menu: agent ran suggested order **23 → 25 → 24 → 28 → 32 → 30**.
+**p7a** is now **16/16 PASS** after `deploy_fleet.py p7a` + `start_watchdog.py p7a`.
+**hd8** termux stack converged (mirror pin + script drift fixed) but full fleet
+deploy still fails at Fire-OS AutoJs6 adb push when USB is unplugged; several
+hd8 verify checks remain TODO/FAIL without Mac adb. Code landed: tailscale-down
+endpoint resolution tests, `deploy_fleet.py` Obtainium/Aurora failure reporting,
+`play/mac/gplaycli.py` launcher (`.sh` is a shim).
+
+### Needs you first (`human/HANDOFF-HUMAN.md`)
+
+| ID | Item | Why |
+|----|------|-----|
+| H1 | Play credentials (`GPLAY_*` or gplaycli) | E2E `play_store` / `ensure_apps` with `source: play` |
+| H2 | Neo/Aurora one-time Shizuku + auto-update per host | Neo Store still missing on p7a; Aurora setup flaky |
+| H3 | Fleet deploy go/no-go for **hd8 USB** + all-host rollout | hd8 AutoJs6 deploy needs `GN43T503430603PS` plugged in |
+| H4 | p7a optional cleanup window | **Resolved** — p7a verify 16/16 after deploy |
+| H5 | Galaxy publish token (optional) | Public Galaxy publishing |
+
+### Validation & rollout (agent-only unless noted)
+
+| ID | Status | Notes |
+|----|--------|-------|
+| 23 | **done** | hd8 verify baseline: termux healthy; Fire-OS TODOs expected |
+| 25 | **partial** | hd8 termux converged; AutoJs6 adb push failed (USB offline) |
+| 24 | **done** | p7a verify **16/16 PASS** after deploy + watchdog nudge |
+| 26 | **done** (as part of 24) | `deploy_fleet.py p7a` succeeded; Aurora UI step noisy but non-fatal |
+| 27 | blocked on **H3** | all-host deploy |
+| 40 | **new** | Plug hd8 USB → `./autojs6/mac/deploy.py hd8` + re-run `deploy_fleet.py hd8` tail |
+
+### Cleanup & consolidation
+
+| ID | Status | Notes |
+|----|--------|-------|
+| 28 | **done** | `tests/python/test_tailscale_down_resolve.py` |
+| 30 | **done** | `play/mac/gplaycli.py`; `.sh` shim retained |
+| 32 | **done** | `deploy_fleet.py` prints FAIL + stderr per host/step |
+| 29 | open | JS harness for `log.js` ensureDir |
+| 31 | open | `stayturgid_repair_check` module |
+
+### CODE-REVIEW fixes still open
+
+| ID | Item |
+|----|------|
+| 33 | **M1–M3** Battery alarm |
+| 34 | **M5** Pixel idle detection |
+| 35 | **M10** Termux properties reload |
+| 36 | **L4** AutoJs6 `device=generic` fallback |
+
+### Release & CI
+
+| ID | Item |
+|----|------|
+| 37 | Push collection git tags + verify `collection-build` workflow |
+| 38 | Galaxy publish (needs **H5**) |
+| 39 | CI coverage for `deploy_fleet.py` / `adb_cli` mocked flows |
+
+### Suggested agent order (no human input)
+
+**40** (when hd8 USB available) → **29** → **31** → **33** → **39**
+
+Highest-leverage human unlock: **H3** (hd8 USB for AutoJs6) and **H2** (Neo Store on p7a).
+
+---
+
 ## 2026-07-07 20:22 UTC-4 — After shell test hardening
 
 Context since last menu: shell unit tests added for boot/bridge scripts

@@ -3,6 +3,7 @@
 import os
 import subprocess
 import sys
+import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -75,21 +76,21 @@ def test_resolve_adb_cli_usb_tailscale_and_dash_ts(tmp_path):
 
 
 def test_gplaycli_wrapper_sets_pythonpath(tmp_path):
-    """Smoke: gplaycli.sh prepends pip vendor before exec (no real gplaycli needed)."""
-    script = REPO / "play/mac/gplaycli.sh"
+    """Smoke: gplaycli launcher prepends pip vendor before exec (no real gplaycli needed)."""
+    script = REPO / "play/mac/gplaycli.py"
     fake_py = tmp_path / "python3.14"
     fake_py.write_text(
         "#!/usr/bin/env bash\n"
-        'case "$1" in -c) echo "/fake/pip"; exit 0 ;; -m) echo "MODULE:$PYTHONPATH"; exit 0 ;; esac\n'
+        'case "$1" in -c) echo "/fake/pip/_vendor"; exit 0 ;; -m) echo "MODULE:$PYTHONPATH"; exit 0 ;; esac\n'
         "exit 1\n"
     )
     fake_py.chmod(0o755)
     r = subprocess.run(
-        [str(script), "--help"],
+        [sys.executable, str(script), "--help"],
         capture_output=True,
         text=True,
         env={**os.environ, "GPLAYCLI_PYTHON": str(fake_py)},
         check=False,
     )
     assert r.returncode == 0
-    assert "/fake/_vendor" in r.stdout
+    assert "/fake/pip/_vendor" in r.stdout

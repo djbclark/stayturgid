@@ -57,7 +57,7 @@ options:
     default: apkeep
   gplaycli_bin:
     type: str
-    default: play/mac/gplaycli.sh
+    default: play/mac/gplaycli.py
   gplaycli_config:
     type: str
     default: ""
@@ -340,7 +340,7 @@ def main():
             apkeep_options=dict(type="str", default="arch=arm64-v8a"),
             apkeep_bin=dict(type="str", default="apkeep"),
             apkeep_accept_tos=dict(type="bool", default=False),
-            gplaycli_bin=dict(type="str", default="play/mac/gplaycli.sh"),
+            gplaycli_bin=dict(type="str", default="play/mac/gplaycli.py"),
             gplaycli_config=dict(type="str", default=""),
             repo_root=dict(
                 type="str",

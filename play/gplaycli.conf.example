@@ -1,4 +1,4 @@
-# Copy to ~/.config/gplaycli/gplaycli.conf (or pass -c to play/mac/gplaycli.sh)
+# Copy to ~/.config/gplaycli/gplaycli.conf (or pass -c to play/mac/gplaycli.py)
 # The default token dispenser (matlink.fr) is often down — use Google credentials.
 #
 # Use a Google App Password (2FA required): https://myaccount.google.com/apppasswords

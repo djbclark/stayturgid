@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
-# gplaycli wrapper: Homebrew gplaycli on Python 3.14 breaks without setuptools
-# (pkg_resources). Use pip's vendored copy, then run as a module.
+# Back-compat shim — prefer play/mac/gplaycli.py directly.
 set -euo pipefail
-PY="${GPLAYCLI_PYTHON:-python3.14}"
-VENDOR="$(dirname "$("$PY" -c 'import pip, os; print(os.path.dirname(pip.__file__))')")/_vendor"
-export PYTHONPATH="${VENDOR}${PYTHONPATH:+:$PYTHONPATH}"
-exec "$PY" -m gplaycli.gplaycli "$@"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+exec python3 "$ROOT/play/mac/gplaycli.py" "$@"

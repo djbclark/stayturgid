@@ -138,26 +138,43 @@ def run_playbook(*, limit: list[str], check: bool, tags: str | None) -> int:
     return subprocess.run(cmd, env=repo_env(), cwd=REPO_ROOT).returncode
 
 
-def run_import_catalog(host: str) -> int:
+def run_import_catalog(host: str) -> tuple[int, str]:
     if not IMPORT_CATALOG.is_file():
-        return 0
+        return 0, ""
     print(f"\n=== Obtainium catalog import: {host} ===")
-    rc = subprocess.run([sys.executable, str(IMPORT_CATALOG), host, "all"], cwd=REPO_ROOT).returncode
-    if rc != 0:
-        print(f"WARN: Obtainium import failed on {host} (fleet deploy otherwise ok)", file=sys.stderr)
-    return rc
+    result = subprocess.run(
+        [sys.executable, str(IMPORT_CATALOG), host, "all"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if result.stdout.strip():
+        print(result.stdout.rstrip())
+    if result.returncode != 0:
+        print(f"FAIL: Obtainium import failed on {host} (exit {result.returncode})", file=sys.stderr)
+        if result.stderr.strip():
+            print(result.stderr.rstrip(), file=sys.stderr)
+        return result.returncode, "obtainium import"
+    return 0, ""
 
 
-def run_configure_aurora(host: str) -> int:
+def run_configure_aurora(host: str) -> tuple[int, str]:
     if not CONFIGURE_AURORA.is_file():
-        return 0
+        return 0, ""
     print(f"\n=== Aurora first-run setup: {host} ===")
-    rc = subprocess.run([str(CONFIGURE_AURORA), host], cwd=REPO_ROOT).returncode
-    if rc != 0:
-        print(f"Retrying Aurora configuration on {host}...")
-        time.sleep(3)
-        rc = subprocess.run([str(CONFIGURE_AURORA), host], cwd=REPO_ROOT).returncode
-    return rc
+    for attempt in (1, 2):
+        result = subprocess.run([str(CONFIGURE_AURORA), host], cwd=REPO_ROOT, capture_output=True, text=True)
+        if result.stdout.strip():
+            print(result.stdout.rstrip())
+        if result.returncode == 0:
+            return 0, ""
+        if attempt == 1:
+            print(f"Retrying Aurora configuration on {host}...")
+            time.sleep(3)
+    print(f"FAIL: Aurora setup failed on {host} (exit {result.returncode})", file=sys.stderr)
+    if result.stderr.strip():
+        print(result.stderr.rstrip(), file=sys.stderr)
+    return result.returncode or 1, "aurora setup"
 
 
 def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
@@ -171,11 +188,17 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
     if rc != 0 or check:
         return rc
 
+    failures: list[str] = []
     if scope is Scope.FULL:
         for host in targets:
-            if run_import_catalog(host) != 0:
-                rc = 1
-        if rc != 0:
+            step_rc, step = run_import_catalog(host)
+            if step_rc != 0:
+                rc = step_rc
+                failures.append(f"{host}: {step}")
+        if rc != 0 and failures:
+            print("\nPost-deploy failures:", file=sys.stderr)
+            for item in failures:
+                print(f"  - {item}", file=sys.stderr)
             return rc
 
         print("\n=== App stores (F-Droid + Play) post-import ===")
@@ -185,8 +208,14 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
 
     if scope in (Scope.FULL, Scope.PLAY):
         for host in targets:
-            if run_configure_aurora(host) != 0:
-                rc = 1
+            step_rc, step = run_configure_aurora(host)
+            if step_rc != 0:
+                rc = step_rc
+                failures.append(f"{host}: {step}")
+        if failures:
+            print("\nPost-deploy failures:", file=sys.stderr)
+            for item in failures:
+                print(f"  - {item}", file=sys.stderr)
 
     return rc
 
