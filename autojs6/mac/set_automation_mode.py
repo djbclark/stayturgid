@@ -14,6 +14,7 @@ sys.path.insert(0, str(REPO_ROOT / "shared" / "mac"))
 import adb_cli as adb  # noqa: E402
 
 GRANT = Path(__file__).resolve().parent / "grant_shizuku.py"
+ENABLE = Path(__file__).resolve().parent / "enable_autojs6_shizuku.py"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -26,7 +27,12 @@ def main(argv: list[str] | None = None) -> int:
     adb.adb(serial, "shell", "echo autojs6 > /sdcard/stayturgid/state/automation_mode.txt", check=False)
     print(f"Wrote automation mode autojs6 on {serial}")
 
-    if GRANT.is_file():
+    if ENABLE.is_file():
+        print("Enabling AutoJs6 Shizuku access (grant + drawer)...")
+        rc = subprocess.run([sys.executable, str(ENABLE), alias]).returncode
+        if rc != 0:
+            print("WARN: enable_autojs6_shizuku failed — check screen unlock + Shizuku up", file=sys.stderr)
+    elif GRANT.is_file():
         print("Syncing Shizuku authorized apps for AutoJs6...")
         rc = subprocess.run([sys.executable, str(GRANT), alias]).returncode
         if rc != 0:

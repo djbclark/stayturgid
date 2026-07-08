@@ -33,6 +33,7 @@ REQUIREMENTS = REPO_ROOT / "ansible" / "requirements.yml"
 COLLECTIONS_PATH = REPO_ROOT / ".ansible" / "collections"
 IMPORT_CATALOG = REPO_ROOT / "obtainium" / "mac" / "import_catalog.py"
 CONFIGURE_AURORA = REPO_ROOT / "play" / "mac" / "configure_aurora.py"
+ENABLE_AUTOJS6_SHIZUKU = REPO_ROOT / "autojs6" / "mac" / "enable_autojs6_shizuku.py"
 
 
 class Scope(str, Enum):
@@ -177,6 +178,30 @@ def run_configure_aurora(host: str) -> tuple[int, str]:
     return result.returncode or 1, "aurora setup"
 
 
+def run_enable_autojs6_shizuku(host: str) -> tuple[int, str]:
+    if not ENABLE_AUTOJS6_SHIZUKU.is_file():
+        return 0, ""
+    print(f"\n=== AutoJs6 Shizuku drawer: {host} ===")
+    for attempt in (1, 2):
+        result = subprocess.run(
+            [sys.executable, str(ENABLE_AUTOJS6_SHIZUKU), host],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        if result.stdout.strip():
+            print(result.stdout.rstrip())
+        if result.returncode == 0:
+            return 0, ""
+        if attempt == 1:
+            print(f"Retrying AutoJs6 Shizuku enable on {host}...")
+            time.sleep(3)
+    print(f"FAIL: AutoJs6 Shizuku enable failed on {host} (exit {result.returncode})", file=sys.stderr)
+    if result.stderr.strip():
+        print(result.stderr.rstrip(), file=sys.stderr)
+    return result.returncode or 1, "autojs6 shizuku"
+
+
 def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
     require_ansible()
     warn_prerequisites(scope)
@@ -212,10 +237,18 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
             if step_rc != 0:
                 rc = step_rc
                 failures.append(f"{host}: {step}")
-        if failures:
-            print("\nPost-deploy failures:", file=sys.stderr)
-            for item in failures:
-                print(f"  - {item}", file=sys.stderr)
+
+    if scope is Scope.FULL:
+        for host in targets:
+            step_rc, step = run_enable_autojs6_shizuku(host)
+            if step_rc != 0:
+                rc = step_rc
+                failures.append(f"{host}: {step}")
+
+    if failures:
+        print("\nPost-deploy failures:", file=sys.stderr)
+        for item in failures:
+            print(f"  - {item}", file=sys.stderr)
 
     return rc
 

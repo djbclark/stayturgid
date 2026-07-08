@@ -117,9 +117,13 @@ def main(argv: list[str] | None = None) -> int:
     adb.adb(serial, "shell", "echo autojs6 > /sdcard/stayturgid/state/automation_mode.txt", check=False)
 
     sync = REPO_ROOT / "obtainium" / "mac" / "sync_to_device.py"
+    enable = MAC_DIR / "enable_autojs6_shizuku.py"
     if sync.is_file():
         print("Registering AutoJs6 in Obtainium...")
         subprocess.run([sys.executable, str(sync), alias, "autojs6"], check=False)
+    if enable.is_file():
+        print("Enabling AutoJs6 Shizuku drawer access...")
+        subprocess.run([sys.executable, str(enable), alias], check=False)
 
     print(
         f"""
@@ -127,11 +131,8 @@ def main(argv: list[str] | None = None) -> int:
 
 On device:
   1. Open AutoJs6 → enable Accessibility service
-  2. AutoJs6 home drawer → enable Shizuku permission (required for shizuku() shell repair)
-  3. Settings → Apps → AutoJs6 → Permissions → Additional →
-     "Run commands in Termux environment" (if shown; setup grants via adb when supported)
-  4. ./set_automation_mode.py {alias}   # Shizuku authorized-apps sync
-  5. ./start_watchdog.py {alias}        # or run main.js in AutoJs6
+  2. ./start_watchdog.py {alias}        # or run main.js in AutoJs6
+     (Shizuku grant + drawer already ran via enable_autojs6_shizuku.py)
 
 ADB grants applied by this script: storage (MANAGE_EXTERNAL_STORAGE), RUN_COMMAND, battery whitelist.
 

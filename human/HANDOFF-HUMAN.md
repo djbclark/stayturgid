@@ -32,16 +32,12 @@ Last updated: 2026-07-08 (after test/CI batch `2d7f142`)
 
 ## Priority 2 — On-device one-time setup (if not already done)
 
-### 2.0 AutoJs6 Shizuku drawer (Option B — required for shell repair)
+### 2.0 AutoJs6 Shizuku access (automated)
 
-On each host with AutoJs6:
+`./autojs6/mac/enable_autojs6_shizuku.py <host>` runs during `set_automation_mode.py`
+and `setup_autojs6.py`. Requires unlocked screen + Shizuku server running.
 
-1. Open **AutoJs6** → hamburger drawer → enable **Shizuku** permission.
-2. Confirm Shizuku manager lists AutoJs6 as authorized.
-
-Record in `RESPONSES.md`: `autojs6_shizuku_drawer: s24|p7a|hd8 done`.
-
-Without this, catastrophic repair falls back to accessibility UI taps only.
+Record in `RESPONSES.md` only if it fails on a host.
 
 ### 2.1 Neo Store (F-Droid)
 

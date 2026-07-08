@@ -79,7 +79,7 @@ def test_deploy_import_failure_reports_stderr(monkeypatch, capsys):
     assert "dialog not confirmed" in captured.err
 
 
-def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0, import_rc=0, aurora_rc=0):
+def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0, import_rc=0, aurora_rc=0, shizuku_rc=0):
     monkeypatch.setattr(df, "require_ansible", lambda: None)
     monkeypatch.setattr(df, "warn_prerequisites", lambda scope: None)
     monkeypatch.setattr(df, "install_collections", lambda: None)
@@ -96,9 +96,14 @@ def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0, import_rc=0, aurora_
         calls.append(("aurora", host))
         return (aurora_rc, "aurora setup" if aurora_rc else "")
 
+    def run_enable_autojs6_shizuku(host):
+        calls.append(("shizuku", host))
+        return (shizuku_rc, "autojs6 shizuku" if shizuku_rc else "")
+
     monkeypatch.setattr(df, "run_playbook", run_playbook)
     monkeypatch.setattr(df, "run_import_catalog", run_import_catalog)
     monkeypatch.setattr(df, "run_configure_aurora", run_configure_aurora)
+    monkeypatch.setattr(df, "run_enable_autojs6_shizuku", run_enable_autojs6_shizuku)
 
 
 def test_deploy_full_flow_order(monkeypatch):
@@ -111,6 +116,7 @@ def test_deploy_full_flow_order(monkeypatch):
         ("import", "s24"),
         ("playbook", "app-stores"),
         ("aurora", "s24"),
+        ("shizuku", "s24"),
     ]
 
 

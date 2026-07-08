@@ -76,10 +76,21 @@ def test_parse_switch_absent():
     assert dev.parse_switch("label present but no switch", "label") is None
 
 
+def test_parse_text_center():
+    xml = '<node text="Allow" bounds="[100,200][300,400]" />'
+    assert dev.parse_text_center(xml, "Allow") == (200, 300)
+    assert dev.parse_text_center(xml, "Deny") is None
+
+
 def test_parse_button_center():
-    xml = '<node resource-id="android:id/button1" bounds="[100,200][300,400]" />'
-    assert dev.parse_button_center(xml, "android:id/button1") == (200, 300)
-    assert dev.parse_button_center("<node />", "android:id/button1") is None
+    xml = '<node resource-id="android:id/button1" bounds="[50,60][150,120]" />'
+    assert dev.parse_button_center(xml, "android:id/button1") == (100, 90)
+    assert dev.parse_button_center(xml, "android:id/button2") is None
+
+
+def test_parse_content_desc_center():
+    xml = '<node content-desc="Open navigation drawer" bounds="[10,20][50,80]" />'
+    assert dev.parse_content_desc_center(xml, "Open navigation drawer") == (30, 50)
 
 
 def test_resolve_adb_and_ssh_host(tmp_path, monkeypatch):
