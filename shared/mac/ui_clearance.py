@@ -15,6 +15,8 @@ import stayturgid_device as dev
 PIP_ACTIVITY_MARKERS = (
     "mIsInPictureInPictureMode=true",
     "mLastReportedPictureInPictureMode=true",
+    "mode=pinned",
+    "rootPinnedTask=Task=",
 )
 PIP_STACK_MARKERS = (
     "mWindowingMode=pinned",
@@ -23,8 +25,10 @@ PIP_STACK_MARKERS = (
 PIP_WINDOW_MARKERS = (
     "PipMenu",
     "pip_menu",
+    "pip_input_consumer",
     "PictureInPicture",
     "pip_expand",
+    "PinnedTaskController",
 )
 PIP_CLOSE_LABELS = (
     "Close",
@@ -49,11 +53,13 @@ _TASK_PKG_RE = re.compile(r"taskId=\d+:\s*([a-zA-Z0-9_.]+)/")
 _PKG_FROM_ACTIVITY_RE = re.compile(r"\b([a-zA-Z0-9_.]+)/[a-zA-Z0-9_.$]+")
 _WINDOW_PKG_RE = re.compile(r"package=([a-zA-Z0-9_.]+)")
 _FRAME_RE = re.compile(r"frame=\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
+_ROOT_PINNED_TASK_RE = re.compile(r"rootPinnedTask=Task=(\d+)")
+_PINNED_ACTIVITY_TASK_RE = re.compile(r"A=\d+:([a-zA-Z0-9_.]+)\b[^\n]*mode=pinned")
 
 
 def parse_pinned_stacks(stack_dump: str) -> list[tuple[int, str]]:
     """Return (stack_id, package) for pinned / PiP stacks."""
-    text = stack_dump or ""
+    text = (stack_dump or "").replace("\r", "")
     found: list[tuple[int, str]] = []
     for match in _ROOT_TASK_RE.finditer(text):
         stack_id = int(match.group(1))
@@ -64,6 +70,57 @@ def parse_pinned_stacks(stack_dump: str) -> list[tuple[int, str]]:
         if pkg_match:
             found.append((stack_id, pkg_match.group(1)))
     return found
+
+
+def _packages_from_pinned_activity_tasks(activity_dump: str) -> set[str]:
+    packages: set[str] = set()
+    text = (activity_dump or "").replace("\r", "")
+    for match in _PINNED_ACTIVITY_TASK_RE.finditer(text):
+        packages.add(match.group(1))
+    lines = text.splitlines()
+    for idx, line in enumerate(lines):
+        if "packageName=" not in line:
+            continue
+        nearby = "\n".join(lines[max(0, idx - 3):idx + 4])
+        if "mode=pinned" not in nearby and "mWindowingMode=pinned" not in nearby:
+            continue
+        match = re.search(r"packageName=([a-zA-Z0-9_.]+)", line)
+        if match:
+            packages.add(match.group(1))
+    return packages
+
+
+def _packages_from_pip_windows(window_dump: str) -> set[str]:
+    packages: set[str] = set()
+    text = window_dump or ""
+    if not any(marker in text for marker in PIP_WINDOW_MARKERS):
+        return packages
+    for line in text.splitlines():
+        if not any(marker in line for marker in PIP_WINDOW_MARKERS + ("mWindowingMode=pinned",)):
+            continue
+        match = re.search(r"\b([a-zA-Z0-9_.]+)/[a-zA-Z0-9_.$]+", line)
+        if match:
+            packages.add(match.group(1))
+        match = _WINDOW_PKG_RE.search(line)
+        if match:
+            packages.add(match.group(1))
+    return packages
+
+
+def pinned_stack_targets(activity_dump: str, stack_dump: str) -> list[tuple[int, str]]:
+    """Pinned stack ids to remove, with best-effort package label for logging."""
+    found = parse_pinned_stacks(stack_dump)
+    if found:
+        return found
+    text = (activity_dump or "").replace("\r", "")
+    match = _ROOT_PINNED_TASK_RE.search(text)
+    if not match:
+        return []
+    stack_id = int(match.group(1))
+    pkgs = _packages_from_pinned_activity_tasks(text)
+    if pkgs:
+        return [(stack_id, sorted(pkgs)[0])]
+    return [(stack_id, "unknown")]
 
 
 def _packages_in_pip_activity(activity_dump: str) -> set[str]:
@@ -83,16 +140,10 @@ def pip_packages(activity_dump: str, stack_dump: str, window_dump: str = "") -> 
     """Packages that appear to be in PiP or a pinned overlay."""
     packages: set[str] = set()
     packages.update(_packages_in_pip_activity(activity_dump))
+    packages.update(_packages_from_pinned_activity_tasks(activity_dump))
     for _stack_id, pkg in parse_pinned_stacks(stack_dump):
         packages.add(pkg)
-    combined = (activity_dump or "") + (window_dump or "")
-    if any(marker in combined for marker in PIP_ACTIVITY_MARKERS + PIP_STACK_MARKERS):
-        for match in _TASK_PKG_RE.finditer(stack_dump or ""):
-            packages.add(match.group(1))
-    lowered = (window_dump or "").lower()
-    if any(marker.lower() in lowered for marker in PIP_WINDOW_MARKERS):
-        for match in _WINDOW_PKG_RE.finditer(window_dump or ""):
-            packages.add(match.group(1))
+    packages.update(_packages_from_pip_windows(window_dump))
     return {p for p in packages if p and p not in PROTECTED_PACKAGES}
 
 
@@ -181,7 +232,7 @@ def clear_ui_obstructions(serial: str, shell) -> list[str]:
         ):
             break
 
-        for stack_id, pkg in parse_pinned_stacks(stack or ""):
+        for stack_id, pkg in pinned_stack_targets(activity or "", stack or ""):
             rc, _ = shell(serial, "cmd", "activity", "stack", "remove", str(stack_id))
             if rc == 0:
                 actions.append("pinned-stack-remove:%s#%s" % (pkg, stack_id))
