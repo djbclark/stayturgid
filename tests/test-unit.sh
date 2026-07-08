@@ -242,7 +242,7 @@ presence_suite() {
     tap_is "$RC" 2 "presence[$T]: unknown action => usage exit 2"
 
     # --- screen-control sharing flow -------------------------------------------
-    # request-screen: Disallow => 75; Yes or 60s timeout => 0
+    # request-screen: Disallow => 75; Yes or 10s timeout => 0
     reset_sandbox
     export DIALOG_CHOICE="no"
     run_sandboxed "$PRES" request-screen
@@ -252,7 +252,7 @@ presence_suite() {
     tap_is "$RC" 0 "presence[$T]: request-screen Yes => proceed"
     export DIALOG_CHOICE=""
     run_sandboxed "$PRES" request-screen
-    tap_is "$RC" 0 "presence[$T]: request-screen 60s timeout => proceed"
+    tap_is "$RC" 0 "presence[$T]: request-screen 10s timeout => proceed"
     unset DIALOG_CHOICE
 
     # on posts the running notification with a Graceful stop button

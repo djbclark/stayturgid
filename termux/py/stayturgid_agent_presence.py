@@ -41,6 +41,7 @@ LATER_FILE = os.path.join(STATE, "presence_check_after")
 STOP_FILE = os.path.join(STATE, "stop_requested")
 LEASE_FILE = os.path.join(STATE, "screen_control_lease.json")
 LEASE_TTL_SEC = 1800
+REQUEST_SCREEN_COUNTDOWN_SEC = 10
 
 IDLE_PKGS = {
     "", "com.sec.android.app.launcher", "com.google.android.apps.nexuslauncher",
@@ -211,14 +212,15 @@ def request_screen(label, agent):
         print("request-screen: paused (run agent-presence.sh resume to clear)")
         return 75
     run(["termux-vibrate", "-d", "300"])
-    choice = dialog_choice(["60", "termux-dialog", "confirm",
+    choice = dialog_choice([str(REQUEST_SCREEN_COUNTDOWN_SEC), "termux-dialog", "confirm",
                             "-t", "%s wants to CONTROL THE SCREEN of %s" % (agent, label),
-                            "-i", "Starting in 60 seconds. Press No to disallow, Yes to start now."])
+                            "-i", "Starting in %d seconds. Press No to disallow, Yes to start now."
+                            % REQUEST_SCREEN_COUNTDOWN_SEC])
     if choice.lower() == "no":
         print("request-screen: DISALLOWED by user")
         return 75
     rm(STOP_FILE)
-    print("request-screen: allowed (answer or 60s timeout)")
+    print("request-screen: allowed (answer or %ds timeout)" % REQUEST_SCREEN_COUNTDOWN_SEC)
     return 0
 
 

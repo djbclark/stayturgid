@@ -174,7 +174,7 @@ Before any device interaction, emit a standalone message naming the phone(s): **
 
 ### On-device presence indicator (screen control = inverted display)
 
-**Policy:** Mac UI automation must run inside `ScreenControlSession` (`shared/mac/screen_control.py`). The session runs `request-screen` (60s countdown), enables **accessibility display inversion** (inverted colors on the glass), starts torch + ongoing notification, and **refuses `adb input` if inversion is off**. Project scripts enforce this. Raw `adb shell input` can still bypass — don't use it for automation.
+**Policy:** Mac UI automation must run inside `ScreenControlSession` (`shared/mac/screen_control.py`). The session runs `request-screen` (10s countdown), enables **accessibility display inversion** (inverted colors on the glass), starts torch + ongoing notification, and **refuses `adb input` if inversion is off**. Project scripts enforce this. Raw `adb shell input` can still bypass — don't use it for automation.
 
 **Device guard:** boot loop runs `agent-presence.sh guard` every 5 min — keeps inversion + notification alive while a lease is active; clears both when the lease expires.
 
