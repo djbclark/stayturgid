@@ -4,6 +4,7 @@ __pycache__/
 .venv-test/
 .venv-gplaycli/
 .ansible/collections/
+.ansible/.lock
 *.py[cod]
 ansible_collections/stayturgid/*/tests/output/
 ansible_collections/stayturgid/*/collections/
