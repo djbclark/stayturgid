@@ -25,7 +25,7 @@ jobs:
           echo "path=ansible_collections/${NS}/${COL}" >> "$GITHUB_OUTPUT"
           echo "collection=${NS}.${COL}" >> "$GITHUB_OUTPUT"
       - name: ansible-galaxy collection build
-        run: ansible-galaxy collection build "${{ steps.map.outputs.path }}" -o dist
+        run: ansible-galaxy collection build "${{ steps.map.outputs.path }}" --output-path dist
       - name: Install ansible and test venv
         run: |
           pipx install ansible-core

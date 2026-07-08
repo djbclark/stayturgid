@@ -55,16 +55,16 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 
 ## 🚦 Cold-start — current state (read this first)
 
-**As of 2026-07-08.** Three-device fleet: **s24**, **p7a**, **hd8**. HEAD `2d7f142`.
-`make test` green (shell TAP + 102 pytest + ansible-test collection units).
+**As of 2026-07-08.** Three-device fleet: **s24**, **p7a**, **hd8**. HEAD `a495023`+.
+`make test` green (shell TAP + pytest + ansible-test collection units).
 
 **Fleet health:**
 
 | Host | Verify | Mac adb | Notes |
 |------|--------|---------|-------|
-| s24 | **16/16 PASS** | online (USB/LAN/Tailscale) | Lab reference; `./autojs6/mac/test_tailscale_down.py s24` passes |
-| p7a | **16/16** (last run) | **offline** | Tailscale `100.65.230.108` down + LAN flaky; SSH may still work over Tailscale |
-| hd8 | **16/16 PASS** (Fire OS notes) | partial | Termux OK over SSH; AutoJs6 deploy tail needs USB bootstrap (**H3**) |
+| s24 | **16/16 PASS** | online (USB/LAN/Tailscale) | Lab reference; `test_tailscale_down.py` passes; `ensure_apps` fdroid (metronome) wired |
+| p7a | **16/16** (last run) | **offline** | Tailscale down + LAN flaky; SSH timed out 2026-07-08 |
+| hd8 | **16/16 PASS** (Fire OS notes) | online (USB + wireless) | USB bootstrap done; AutoJs6 deploy + verify green |
 
 **Recent landings (2026-07-07 → 08):**
 - Termux mirror re-pinned after `pkg update`; Fire OS localhost adb skip reports as verify note (not TODO).

@@ -9,11 +9,11 @@ stayturgid_ensure_aurora_store: true
 stayturgid_install_aurora_store: true
 
 # Optional unified app ensure (stayturgid.android_common.ensure_apps in fleet.yml).
-# Uncomment and edit — each entry needs id + source (play|fdroid|apk|obtainium).
-# stayturgid_ensure_apps: []
+# F-Droid/obtainium/apk entries need no Play credentials; play source needs H1.
+stayturgid_ensure_apps:
+  - id: com.bobek.metronome
+    source: fdroid
 # stayturgid_ensure_apps:
-#   - id: org.breezyweather
-#     source: fdroid
 #   - id: com.aurora.store
 #     source: play
 #   - id: moe.shizuku.privileged.api
