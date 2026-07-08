@@ -96,3 +96,11 @@ def test_resolve_adb_and_ssh_host(tmp_path, monkeypatch):
     assert dev.resolve_adb("raw:5555", str(conf)) == "raw:5555"
     assert dev.resolve_ssh_host("s24", str(conf)) == "s24"
     assert dev.resolve_ssh_host("raw:5555", str(conf)) == ""
+
+    # ts=- must not yield "-:5555"; fall back to alias when USB absent
+    monkeypatch.setattr(dev, "_run", lambda a, **k: type("R", (), {"stdout": ""})())
+    conf.write_text("s24 RFCX - -\n")
+    assert dev.resolve_adb("s24", str(conf)) == "s24"
+    # lan fallback when tailscale missing
+    conf.write_text("p7a - - 192.168.1.9\n")
+    assert dev.resolve_adb("p7a", str(conf)) == "192.168.1.9:5555"

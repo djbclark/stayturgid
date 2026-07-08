@@ -10,13 +10,24 @@ from conftest import REPO
 
 
 def load_role_specs():
-    path = os.path.join(REPO, "ansible", "roles", "obtainium_apps", "defaults", "main.yml")
-    return yaml.safe_load(open(path))["stayturgid_obtainium_apps"]
+    path = os.path.join(
+        REPO,
+        "ansible_collections",
+        "stayturgid",
+        "obtainium",
+        "roles",
+        "obtainium_apps",
+        "defaults",
+        "main.yml",
+    )
+    with open(path) as f:
+        return yaml.safe_load(f)["stayturgid_obtainium_apps"]
 
 
 def load_fallback_apps():
     path = os.path.join(REPO, "obtainium", "stayturgid-apps.json")
-    return json.load(open(path))["apps"]
+    with open(path) as f:
+        return json.load(f)["apps"]
 
 
 def test_same_app_ids_and_urls():

@@ -5,7 +5,9 @@
 #
 # Safe alongside the 5-min boot loop — idempotent repair script.
 
-export PATH=/data/data/com.termux/files/usr/bin:$PATH
+_stg_bin=/data/data/com.termux/files/usr/bin
+[ -d "$_stg_bin" ] && PATH="$_stg_bin:$PATH"
+export PATH
 export HOME="${HOME:-/data/data/com.termux/files/home}"
 [ -f "$HOME/.stayturgid/env" ] && . "$HOME/.stayturgid/env"
 

@@ -71,7 +71,12 @@ def resolve_adb(alias, conf_path=None):
         r = _run(["adb", "devices"])
         if r and ("%s\tdevice" % usb) in r.stdout:
             return usb
-    return "%s:5555" % ts_ip
+    if ts_ip not in ("", "-"):
+        return "%s:5555" % ts_ip
+    lan = row[2] if len(row) > 2 else "-"
+    if lan not in ("", "-"):
+        return "%s:5555" % lan
+    return alias
 
 
 def resolve_ssh_host(alias, conf_path=None):

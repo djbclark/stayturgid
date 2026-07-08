@@ -2,9 +2,12 @@
 # Termux:Boot script — runs on every boot after first unlock
 # Deploy to: ~/.termux/boot/start-adb.sh on device
 
-# Ensure Termux binaries are on PATH (needed when run from runit context)
-export PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/sbin:$PATH
-export HOME=/data/data/com.termux/files/home
+# Ensure Termux binaries are on PATH (needed when run from runit context).
+for _stg_bin in /data/data/com.termux/files/usr/bin /data/data/com.termux/files/usr/sbin; do
+    [ -d "$_stg_bin" ] && PATH="$_stg_bin:$PATH"
+done
+export PATH
+export HOME="${HOME:-/data/data/com.termux/files/home}"
 export PREFIX=/data/data/com.termux/files/usr
 export TMPDIR=/data/data/com.termux/files/usr/tmp
 export LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib
@@ -72,7 +75,10 @@ BOOTLOOP_PID_FILE="$STG/run/bootloop.pid"
     VERSION_CHECK_STAMP="$STG/state/last_version_check"
     now=$(date +%s)
     last=0
-    [ -f "$VERSION_CHECK_STAMP" ] && last=$(cat "$VERSION_CHECK_STAMP" 2>/dev/null || echo 0)
+    if [ -f "$VERSION_CHECK_STAMP" ]; then
+        last="$(cat "$VERSION_CHECK_STAMP" 2>/dev/null || true)"
+    fi
+    last="${last:-0}"
     if [ "$((now - last))" -ge 86400 ] && [ -x "$BIN/stayturgid_check_repo_version.py" ]; then
         python3 "$BIN/stayturgid_check_repo_version.py" >/dev/null 2>&1 || true
         echo "$now" > "$VERSION_CHECK_STAMP"
@@ -90,8 +96,10 @@ BOOTLOOP_PID_FILE="$STG/run/bootloop.pid"
         sleep 300
     done
 ) &
+_bootloop_pid=$!
+disown "$_bootloop_pid"
 # Record the subshell's pid so a redeploy can restart the loop WITHOUT
 # `pkill -f start-adb.sh` — that pattern self-matches any caller whose cmdline
 # contains the path (the Ansible handler SIGTERM'd itself this way). Written
 # immediately (the 30s settle runs inside the subshell). See the handler.
-echo $! > "$BOOTLOOP_PID_FILE"
+echo "$_bootloop_pid" > "$BOOTLOOP_PID_FILE"

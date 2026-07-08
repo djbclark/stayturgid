@@ -30,6 +30,8 @@ tap_done()   { echo "1..$TESTS_RUN"; [ "$TESTS_FAILED" -eq 0 ]; }
 make_sandbox() {
     SANDBOX="$(mktemp -d "${TMPDIR:-/tmp}/stayturgid-test.XXXXXX")"
     export SANDBOX
+    REAL_PYTHON3="$(command -v python3)"
+    export REAL_PYTHON3
     mkdir -p "$SANDBOX/home" "$SANDBOX/sd" "$SANDBOX/prefix/tmp" "$SANDBOX/stubs"
     export STUB_LOG="$SANDBOX/calls.log"
     : > "$STUB_LOG"
@@ -118,7 +120,32 @@ STUB
     printf '#!/usr/bin/env bash\nexit "${SS_RC:-1}"\n'    > "$d/ss"
     printf '#!/usr/bin/env bash\nexit "${SS_RC:-1}"\n'    > "$d/netstat"
     printf '#!/usr/bin/env bash\nexit "${FLOCK_RC:-0}"\n' > "$d/flock"
-    printf '#!/usr/bin/env bash\nexit 0\n'                > "$d/sleep"
+    printf '#!/usr/bin/env bash\n/bin/sleep "${SANDBOX_SLEEP_SECS:-0}"\nexit 0\n' > "$d/sleep"
+    cat > "$d/am" <<'STUB'
+#!/usr/bin/env bash
+echo "am $*" >> "$STUB_LOG"
+exit 0
+STUB
+    cat > "$d/python3" <<'STUB'
+#!/usr/bin/env bash
+echo "python3 $*" >> "$STUB_LOG"
+exit 0
+STUB
+    cat > "$d/nohup" <<'STUB'
+#!/usr/bin/env bash
+echo "nohup $*" >> "$STUB_LOG"
+cmd="$1"
+case "$cmd" in
+  *.sh) bash "$cmd" & ;;
+  *) [ -n "$cmd" ] && "$cmd" & ;;
+esac
+exit 0
+STUB
+    cat > "$d/date" <<'STUB'
+#!/usr/bin/env bash
+echo "1700000000"
+exit 0
+STUB
     cat > "$d/curl" <<'STUB'
 #!/usr/bin/env bash
 echo "curl $*" >> "$STUB_LOG"
@@ -131,8 +158,69 @@ STUB
 
 reset_sandbox() {
     : > "$STUB_LOG"
-    rm -rf "${SANDBOX:?}/home" "${SANDBOX:?}/sd" "${SANDBOX:?}/sshd_started" "${SANDBOX:?}/batt.json" "${SANDBOX:?}/a11y_state"
+    rm -rf "${SANDBOX:?}/home" "${SANDBOX:?}/sd" "${SANDBOX:?}/sshd_started" \
+           "${SANDBOX:?}/batt.json" "${SANDBOX:?}/a11y_state" "${SANDBOX:?}/proc"
     mkdir -p "$SANDBOX/home" "$SANDBOX/sd"
+}
+
+# Kill a background pid recorded in the sandbox (boot loops, bridge listeners).
+kill_sandbox_pid() {
+    local pf="$1"
+    [ -f "$pf" ] || return 0
+    local pid
+    pid="$(tr -dc '0-9' < "$pf" 2>/dev/null || true)"
+    [ -n "$pid" ] && kill "$pid" 2>/dev/null || true
+    rm -f "$pf"
+}
+
+# Wait up to ~2s for a sandbox pidfile to appear (async boot/bridge starters).
+wait_sandbox_pidfile() {
+    local pf="$1" n=0
+    while [ "$n" -lt 20 ] && [ ! -f "$pf" ]; do
+        sleep 0.1
+        n=$((n + 1))
+    done
+    [ -f "$pf" ]
+}
+
+wait_stub_like() {
+    local pattern="$1" n=0
+    while [ "$n" -lt 30 ]; do
+        grep -qF -- "$pattern" "$STUB_LOG" 2>/dev/null && return 0
+        sleep 0.1
+        n=$((n + 1))
+    done
+    return 1
+}
+
+# Shared env for sandboxed script runs (env(1) avoids SC2097/2098).
+_sandbox_env() {
+    env \
+        HOME="$SANDBOX/home" \
+        PREFIX="$SANDBOX/prefix" \
+        TMPDIR="$SANDBOX/prefix/tmp" \
+        STAYTURGID_SD="$SANDBOX/sd" \
+        SANDBOX="$SANDBOX" \
+        STUB_LOG="$STUB_LOG" \
+        SANDBOX_SLEEP_SECS="${SANDBOX_SLEEP_SECS:-}" \
+        PROC_ROOT="${PROC_ROOT:-}" \
+        PATH="$SANDBOX/stubs:$PATH" \
+        "$@"
+}
+
+# Run a script that loops forever; perl alarm stops it after <seconds>.
+run_sandboxed_alarm() {
+    local secs=$1; shift
+    local interp=bash
+    case "$1" in *.py) interp="${REAL_PYTHON3:-python3}" ;; esac
+    set +e
+    _sandbox_env perl -e 'alarm shift; exec @ARGV' "$secs" "$interp" "$@" \
+        >"$SANDBOX/out" 2>/dev/null
+    RC=$?
+    OUT="$(cat "$SANDBOX/out" 2>/dev/null)"
+    ERR="$(cat "$SANDBOX/err" 2>/dev/null)"
+    set -e 2>/dev/null || true
+    return 0
 }
 
 # run_sandboxed <script> [args...]: run a repo script inside the sandbox.
@@ -142,12 +230,11 @@ reset_sandbox() {
 # shellcheck disable=SC2034
 run_sandboxed() {
     local interp=bash
-    case "$1" in *.py) interp=python3 ;; esac
+    case "$1" in *.py) interp="${REAL_PYTHON3:-python3}" ;; esac
     set +e
-    OUT="$(HOME="$SANDBOX/home" PREFIX="$SANDBOX/prefix" \
-           TMPDIR="$SANDBOX/prefix/tmp" STAYTURGID_SD="$SANDBOX/sd" \
-           PATH="$SANDBOX/stubs:$PATH" "$interp" "$@" 2>"$SANDBOX/err")"
+    _sandbox_env "$interp" "$@" >"$SANDBOX/out" 2>"$SANDBOX/err"
     RC=$?
+    OUT="$(cat "$SANDBOX/out" 2>/dev/null)"
     ERR="$(cat "$SANDBOX/err" 2>/dev/null)"
     set -e 2>/dev/null || true
     return 0

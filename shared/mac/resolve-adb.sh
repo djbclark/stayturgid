@@ -27,8 +27,12 @@ resolve_adb() {
     : "$lan"
     if [ "$usb" != "-" ] && adb devices 2>/dev/null | grep -qF "$usb"$'\t'"device"; then
       echo "$usb"
-    else
+    elif [ -n "$ts" ] && [ "$ts" != "-" ]; then
       echo "${ts}:5555"
+    elif [ -n "$lan" ] && [ "$lan" != "-" ]; then
+      echo "${lan}:5555"
+    else
+      echo "$alias"
     fi
   else
     echo "$alias"
