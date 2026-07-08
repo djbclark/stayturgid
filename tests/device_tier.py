@@ -40,6 +40,7 @@ TRACKED_SCRIPTS = {
     "stayturgid_agent_presence.py": "termux/py/stayturgid_agent_presence.py",
     "stayturgid_battery_alarm.py": "termux/py/stayturgid_battery_alarm.py",
     "stayturgid_repair.py": "termux/py/stayturgid_repair.py",
+    "stayturgid_autojs6_guard.py": "termux/py/stayturgid_autojs6_guard.py",
 }
 
 # Runs on the device (Termux bash — consistent there). Emits key=value lines.
@@ -249,9 +250,12 @@ def evaluate(host, report, repo_dir=REPO):
                  "Fire OS — confirm via Mac adb when USB connected")
     elif wd == "fresh":
         ok("%s: AutoJs6 watchdog alive (<30 min)" % host)
+    elif report.get("repairlog") == "fresh":
+        todo("%s: AutoJs6 watchdog alive (<30 min)" % host,
+             "%s — Termux repair OK; restart main.js via start_watchdog.py when convenient" % (wd or "stale"))
     else:
         fail("%s: AutoJs6 watchdog alive (<30 min)" % host,
-             "%s — engine stalled? re-trigger boot-launcher / check a11y binding" % (wd or "no data"))
+             "%s — repair also stale; fix Termux boot loop first" % (wd or "no data"))
 
     batt = report.get("battery", "unknown")
     if batt not in ("unknown", ""):

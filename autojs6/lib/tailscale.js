@@ -1,20 +1,21 @@
 var log = require("./log.js");
+var sh = require("./shizuku_shell.js");
 
 var DEFAULT_PKG = "com.tailscale.ipn";
 var DEFAULT_ACTIVITY = "com.tailscale.ipn.MainActivity";
 var COORD_PING_HOST = "100.100.100.100";
 
 function isTunUp(profile) {
-    var ip = shell("ip -4 addr show tun0 2>/dev/null", false);
+    var ip = sh.exec("ip -4 addr show tun0 2>/dev/null");
     if (ip.code === 0 && ip.result && String(ip.result).indexOf("inet ") >= 0) {
         return true;
     }
-    var proc = shell("cat /proc/net/dev", false);
+    var proc = sh.exec("cat /proc/net/dev");
     if (proc.result && String(proc.result).indexOf("tun0:") >= 0) {
         return true;
     }
     if (profile && profile.tailscaleIp) {
-        var selfPing = shell("ping -c 1 -W 2 " + profile.tailscaleIp, false);
+        var selfPing = sh.exec("ping -c 1 -W 2 " + profile.tailscaleIp);
         return selfPing.code === 0;
     }
     return false;
@@ -25,7 +26,7 @@ function isTunUp(profile) {
  */
 function check(profile) {
     var tunUp = isTunUp(profile);
-    var ping = shell("ping -c 1 -W 2 " + COORD_PING_HOST, false);
+    var ping = sh.exec("ping -c 1 -W 2 " + COORD_PING_HOST);
     var pingOk = ping.code === 0;
     return {
         up: tunUp && pingOk,
@@ -47,9 +48,9 @@ function relaunch(profile) {
         log.append("[watchdog] tailscale relaunch via " + pkg + "/" + cls);
         return true;
     } catch (e) {
-        var r = shell("am start -n " + pkg + "/" + cls, false);
+        var r = sh.exec("am start -n " + pkg + "/" + cls);
         if (r.code === 0) {
-            log.append("[watchdog] tailscale relaunch via am start");
+            log.append("[watchdog] tailscale relaunch via shizuku/am start");
             return true;
         }
         log.append("[watchdog] tailscale relaunch failed: " + e);

@@ -523,51 +523,32 @@ tap_like "$(cat "$STUB_LOG")" "termux-wake-lock" "start-adb: requests wakelock"
 # start-adb.sh: empty version stamp must not break daily check arithmetic
 reset_sandbox
 mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/home/.stayturgid/state" \
-         "$SANDBOX/sd/autojs6/scripts"
+         "$SANDBOX/sd/logs"
 : > "$SANDBOX/home/.stayturgid/state/last_version_check"
 touch "$SANDBOX/home/.stayturgid/bin/stayturgid_check_repo_version.py"
 chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_check_repo_version.py"
-touch "$SANDBOX/sd/autojs6/scripts/boot-launcher.js"
+cat > "$SANDBOX/home/.stayturgid/bin/stayturgid_autojs6_guard.py" <<'PY'
+#!/usr/bin/env python3
+import sys
+print("guard", sys.argv[1:])
+sys.exit(0)
+PY
+chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_autojs6_guard.py"
 SANDBOX_SLEEP_SECS=1 run_sandboxed "$START_ADB"
 wait_stub_like "stayturgid_check_repo_version.py" || true
-wait_stub_like "boot-launcher.js" || true
+wait_stub_like "stayturgid_autojs6_guard.py" || true
 kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bootloop.pid"
 tap_like "$(grep python3 "$STUB_LOG")" "stayturgid_check_repo_version.py" \
     "start-adb: empty version stamp treated as 0 (arithmetic safe)"
-if grep -qF "boot-launcher.js" "$STUB_LOG" 2>/dev/null; then
-    tap_ok "start-adb: boot-launcher triggers AutoJs6 when watchdog stale/missing"
+if grep -qF "stayturgid_autojs6_guard.py check" "$STUB_LOG" 2>/dev/null; then
+    tap_ok "start-adb: runs autojs6 guard without RunIntentActivity"
 else
-    tap_fail "start-adb: boot-launcher triggers AutoJs6 when watchdog stale/missing"
+    tap_fail "start-adb: runs autojs6 guard without RunIntentActivity"
 fi
-
-# Fresh watchdog log => skip am start (avoid kicking foreground apps to PiP)
-reset_sandbox
-mkdir -p "$SANDBOX/sd/autojs6/scripts" "$SANDBOX/sd/logs" "$SANDBOX/home/.stayturgid/bin"
-touch "$SANDBOX/sd/autojs6/scripts/boot-launcher.js"
-echo "$(date '+%Y-%m-%d %H:%M:%S') [watchdog] cycle start trigger=interval (autojs6)" \
-    >> "$SANDBOX/sd/logs/watchdog.log"
-SANDBOX_SLEEP_SECS=1 run_sandboxed "$START_ADB"
-kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bootloop.pid"
 if grep -qF "boot-launcher.js" "$STUB_LOG" 2>/dev/null; then
-    tap_fail "start-adb: skips AutoJs6 am start when watchdog fresh"
+    tap_fail "start-adb: does not am start boot-launcher from boot loop"
 else
-    tap_ok "start-adb: skips AutoJs6 am start when watchdog fresh"
-fi
-
-# Stale watchdog but recent nudge stamp => skip (no PiP every 5 min)
-reset_sandbox
-mkdir -p "$SANDBOX/sd/autojs6/scripts" "$SANDBOX/sd/logs" \
-         "$SANDBOX/home/.stayturgid/state" "$SANDBOX/home/.stayturgid/bin"
-touch "$SANDBOX/sd/autojs6/scripts/boot-launcher.js"
-echo "2020-01-01 00:00:00 [watchdog] cycle start trigger=interval (autojs6)" \
-    >> "$SANDBOX/sd/logs/watchdog.log"
-echo "1700000000" > "$SANDBOX/home/.stayturgid/state/last_autojs_nudge"
-SANDBOX_SLEEP_SECS=1 run_sandboxed "$START_ADB"
-kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bootloop.pid"
-if grep -qF "boot-launcher.js" "$STUB_LOG" 2>/dev/null; then
-    tap_fail "start-adb: skips AutoJs6 nudge during cooldown after stale recovery"
-else
-    tap_ok "start-adb: skips AutoJs6 nudge during cooldown after stale recovery"
+    tap_ok "start-adb: does not am start boot-launcher from boot loop"
 fi
 unset SANDBOX_SLEEP_SECS
 

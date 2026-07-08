@@ -108,10 +108,19 @@ def test_evaluate_battery_unknown_fails():
 def test_evaluate_watchdog_liveness():
     k = kinds(dt.evaluate("s24", dt.parse_report(HEALTHY)))
     assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "ok"
-    for bad in ("watchdog=stale:4000s", "watchdog=missing"):
-        rep = dt.parse_report(HEALTHY.replace("watchdog=fresh", bad))
-        k = kinds(dt.evaluate("s24", rep))
-        assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "fail"
+    rep_stale = dt.parse_report(HEALTHY.replace("watchdog=fresh", "watchdog=stale:4000s"))
+    k = kinds(dt.evaluate("s24", rep_stale))
+    assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "todo"
+    rep_both_bad = dt.parse_report(
+        HEALTHY.replace("watchdog=fresh", "watchdog=stale:4000s").replace(
+            "repairlog=fresh", "repairlog=stale"
+        )
+    )
+    k = kinds(dt.evaluate("s24", rep_both_bad))
+    assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "fail"
+    rep_missing = dt.parse_report(HEALTHY.replace("watchdog=fresh", "watchdog=missing"))
+    k = kinds(dt.evaluate("s24", rep_missing))
+    assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "fail"
 
 
 def test_evaluate_fire_split_storage_todos():

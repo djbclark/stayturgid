@@ -35,7 +35,7 @@ Announce before live deploy when someone may be on the device:
 After a reboot and PIN unlock:
 1. **Shizuku** (thedjchi fork) auto-starts via Android Wireless Debugging and uses TCP mode to call `adb tcpip 5555` — opens port 5555 without USB.
 2. **Termux:Boot** fires `~/.termux/boot/start-adb.sh` → starts `sshd`, then loops self-healing sshd every 5 min (liveness by pidfile, relaunch via `setsid`).
-3. **AutoJs6** `main.js` (20-min interval + boot via `boot-launcher.js`) → Termux `RUN_COMMAND` → `stayturgid-repair.sh`, notifications, Shizuku UI repair if needed.
+3. **AutoJs6** `main.js` (20 min when engine alive; boot once via `boot-launcher.js`) → notifications, Tailscale probe, catastrophic Shizuku repair. **Routine repair is Termux-only** (5-min loop); no `RunIntentActivity` from the boot loop.
 
 On the Mac, a launchd agent runs every 60 s and reconnects `adb connect <ip>:5555` if it drops, handling DHCP IP changes automatically.
 
@@ -231,7 +231,7 @@ autojs6/                     — AutoJs6 watchdog (the automation stack)
   scripts/boot-launcher.js   — Termux:Boot nudge; mainAlreadyRunning() matches the full main.js path
   mac/                       — deploy.py, setup_autojs6.py, start_watchdog.py, grant_shizuku.py, run_test.py
 termux/
-  boot/start-adb.sh          — Termux:Boot entry: sshd + 5-min self-heal loop (pidfile) + battery alarm + AutoJs6 nudge
+  boot/start-adb.sh          — Termux:Boot entry: sshd + 5-min self-heal loop (pidfile) + battery alarm + autojs6 guard (no am start)
   py/*.py + *.sh shims       — repair, agent-presence, screen-awake-guard, battery-alarm, check-repo-version
                                (Python is DEPLOYED; agent-presence + repair keep a thin ~/*.sh compat shim)
   repair-bridge.sh           — 2 s poll of run/repair_now (RUN_COMMAND-free trigger)

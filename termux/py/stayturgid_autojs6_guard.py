@@ -1,0 +1,138 @@
+#!/data/data/com.termux/files/usr/bin/python
+"""AutoJs6 watchdog observer — no RunIntentActivity / no foreground steal.
+
+Termux stayturgid-repair owns routine self-heal (5-min boot loop). This script
+only records when main.js has stalled while repair is healthy, and optionally
+notifies the operator (rate-limited).
+"""
+import datetime
+import os
+import subprocess
+import sys
+import time
+
+os.environ["PATH"] = "/data/data/com.termux/files/usr/bin:" + os.environ.get("PATH", "")
+HOME = os.environ.get("HOME", "/data/data/com.termux/files/home")
+_ENV_FILE = os.path.join(HOME, ".stayturgid", "env")
+if os.path.isfile(_ENV_FILE):
+    try:
+        with open(_ENV_FILE) as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line.startswith("export STAYTURGID_SD="):
+                    os.environ["STAYTURGID_SD"] = _line.split("=", 1)[1].strip().strip('"')
+    except OSError:
+        pass
+
+SD = os.environ.get("STAYTURGID_SD", "/sdcard/stayturgid")
+LOG = os.path.join(SD, "logs", "watchdog.log")
+STATE = os.path.join(HOME, ".stayturgid", "state")
+NOTIFY_STAMP = os.path.join(STATE, "last_autojs6_stale_notify")
+WATCHDOG_STALE_SEC = 45 * 60
+REPAIR_FRESH_SEC = 20 * 60
+NOTIFY_COOLDOWN_SEC = 86400
+
+
+def run(args):
+    try:
+        return subprocess.run(args, capture_output=True, text=True)
+    except OSError:
+        return None
+
+
+def parse_ts(line):
+    try:
+        return datetime.datetime.strptime(line[:19], "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        return None
+
+
+def latest_line_marker(path, marker):
+    if not os.path.isfile(path):
+        return None, None
+    last = None
+    try:
+        with open(path, encoding="utf-8") as fh:
+            for line in fh:
+                if marker in line:
+                    last = line
+    except OSError:
+        return None, None
+    if not last:
+        return None, None
+    return parse_ts(last), last
+
+
+def append_log(line):
+    os.makedirs(os.path.dirname(LOG), exist_ok=True)
+    ts = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        with open(LOG, "a", encoding="utf-8") as fh:
+            fh.write("%s %s\n" % (ts, line))
+    except OSError:
+        pass
+
+
+def maybe_notify():
+    now = int(time.time())
+    last = 0
+    if os.path.isfile(NOTIFY_STAMP):
+        try:
+            last = int(open(NOTIFY_STAMP).read().strip() or "0")
+        except (OSError, ValueError):
+            last = 0
+    if now - last < NOTIFY_COOLDOWN_SEC:
+        return
+    run([
+        "termux-notification", "--id", "stayturgid-autojs6-stale",
+        "--priority", "default", "--alert-once",
+        "--title", "stayturgid: AutoJs6 watchdog stalled",
+        "--content",
+        "Termux repair is healthy but main.js has not cycled in 45+ min. "
+        "Notifications/Shizuku UI repair may be stale — run start_watchdog.py "
+        "from Mac or reboot.",
+    ])
+    os.makedirs(STATE, exist_ok=True)
+    try:
+        with open(NOTIFY_STAMP, "w") as fh:
+            fh.write(str(now))
+    except OSError:
+        pass
+
+
+def action_check():
+    cycle_ts, _cycle = latest_line_marker(LOG, "[watchdog] cycle start")
+    repair_ts, _repair = latest_line_marker(LOG, "[repair] STATUS")
+    now = datetime.datetime.now()
+
+    if cycle_ts is None:
+        append_log("[termux] autojs6 guard: no watchdog cycle in log yet")
+        return 0
+
+    cycle_age = (now - cycle_ts).total_seconds()
+    repair_age = (now - repair_ts).total_seconds() if repair_ts else 999999
+
+    if cycle_age < WATCHDOG_STALE_SEC:
+        return 0
+
+    append_log(
+        "[termux] autojs6 guard: watchdog stale %.0fs (repair_age=%.0fs)"
+        % (cycle_age, repair_age)
+    )
+
+    if repair_ts and repair_age < REPAIR_FRESH_SEC:
+        maybe_notify()
+    return 0
+
+
+def main(argv=None):
+    argv = argv if argv is not None else sys.argv[1:]
+    action = argv[0] if argv else "check"
+    if action == "check":
+        return action_check()
+    sys.stderr.write("usage: stayturgid_autojs6_guard.py check\n")
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main())

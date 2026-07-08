@@ -1,4 +1,5 @@
 var log = require("./log.js");
+var sh = require("./shizuku_shell.js");
 
 var SHIZUKU_PKG = "moe.shizuku.privileged.api";
 
@@ -28,6 +29,32 @@ function findStartButton() {
         } catch (e) { /* try next */ }
     }
     return null;
+}
+
+function serverRunning() {
+    var r = sh.exec("pgrep -f shizuku_server");
+    return r && r.code === 0 && String(r.result || "").trim().length > 0;
+}
+
+/**
+ * Best-effort wireless-debug / adbd enable via Shizuku shell (no manager UI).
+ * Returns true when localhost:5555 answers after the attempt.
+ */
+function tryShellWirelessRepair() {
+    if (!sh.isOperational()) {
+        return false;
+    }
+    log.append("[watchdog] shizuku shell: trying wireless-debug repair");
+    sh.exec("settings put global development_settings_enabled 1");
+    sh.exec("settings put global adb_wifi_enabled 1");
+    sleep(2000);
+    sh.exec("adb connect 127.0.0.1:5555");
+    var uid = sh.exec("adb -s localhost:5555 shell id -u");
+    if (uid && uid.code === 0 && String(uid.result || "").trim() === "2000") {
+        log.append("[watchdog] shizuku shell: localhost:5555 shell uid 2000");
+        return true;
+    }
+    return false;
 }
 
 /**
@@ -80,8 +107,6 @@ function enableWirelessDebuggingUi(profile) {
         var entry = textContains("Wireless debugging").findOne(5000)
             || textContains("Wireless Debugging").findOne(3000);
         if (!entry) {
-            // Without navigating into the wireless-debugging screen, the first
-            // Switch found would be some other Developer-options toggle.
             log.append("[watchdog] wireless debug entry not found — skipping toggle");
             return false;
         }
@@ -101,7 +126,28 @@ function enableWirelessDebuggingUi(profile) {
     return false;
 }
 
+/**
+ * Catastrophic path: Shizuku shell first (no GUI), then accessibility UI tap.
+ */
+function repairCatastrophic(profile) {
+    if (serverRunning() && tryShellWirelessRepair()) {
+        return true;
+    }
+    if (tryShellWirelessRepair()) {
+        return true;
+    }
+    var ok = tapStartButton(profile);
+    if (!ok && profile.samsungWirelessDebugFallback) {
+        enableWirelessDebuggingUi(profile);
+        ok = tapStartButton(profile);
+    }
+    return ok;
+}
+
 module.exports = {
     tapStartButton: tapStartButton,
     enableWirelessDebuggingUi: enableWirelessDebuggingUi,
+    repairCatastrophic: repairCatastrophic,
+    tryShellWirelessRepair: tryShellWirelessRepair,
+    serverRunning: serverRunning,
 };

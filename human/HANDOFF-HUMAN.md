@@ -32,6 +32,17 @@ Last updated: 2026-07-08 (after test/CI batch `2d7f142`)
 
 ## Priority 2 — On-device one-time setup (if not already done)
 
+### 2.0 AutoJs6 Shizuku drawer (Option B — required for shell repair)
+
+On each host with AutoJs6:
+
+1. Open **AutoJs6** → hamburger drawer → enable **Shizuku** permission.
+2. Confirm Shizuku manager lists AutoJs6 as authorized.
+
+Record in `RESPONSES.md`: `autojs6_shizuku_drawer: s24|p7a|hd8 done`.
+
+Without this, catastrophic repair falls back to accessibility UI taps only.
+
 ### 2.1 Neo Store (F-Droid)
 
 After `./mac/deploy_fleet.py <host>` (or `./mac/deploy_fleet.py --scope fdroid <host>`):

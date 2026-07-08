@@ -127,10 +127,11 @@ def main(argv: list[str] | None = None) -> int:
 
 On device:
   1. Open AutoJs6 → enable Accessibility service
-  2. Settings → Apps → AutoJs6 → Permissions → Additional →
+  2. AutoJs6 home drawer → enable Shizuku permission (required for shizuku() shell repair)
+  3. Settings → Apps → AutoJs6 → Permissions → Additional →
      "Run commands in Termux environment" (if shown; setup grants via adb when supported)
-  3. ./set_automation_mode.py {alias}   # Shizuku authorized-apps sync
-  4. ./start_watchdog.py {alias}        # or run main.js in AutoJs6
+  4. ./set_automation_mode.py {alias}   # Shizuku authorized-apps sync
+  5. ./start_watchdog.py {alias}        # or run main.js in AutoJs6
 
 ADB grants applied by this script: storage (MANAGE_EXTERNAL_STORAGE), RUN_COMMAND, battery whitelist.
 
