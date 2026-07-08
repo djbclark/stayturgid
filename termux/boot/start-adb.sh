@@ -84,8 +84,31 @@ BOOTLOOP_PID_FILE="$STG/run/bootloop.pid"
         echo "$now" > "$VERSION_CHECK_STAMP"
     fi
 
-    # Ensure AutoJs6 watchdog is running (boot-launcher no-ops if main.js already up).
-    if [ -f "$SD/autojs6/scripts/boot-launcher.js" ]; then
+    # Nudge AutoJs6 only when the watchdog is stale — am start steals foreground
+    # (YouTube etc. drop to PiP every 5 min if we launch RunIntentActivity blindly).
+    autojs_needs_nudge() {
+        local log="$SD/logs/watchdog.log"
+        [ -f "$SD/autojs6/scripts/boot-launcher.js" ] || return 1
+        [ -f "$log" ] || return 0
+        python3 - "$log" <<'PY'
+import datetime, sys
+path = sys.argv[1]
+last = None
+with open(path, encoding="utf-8") as fh:
+    for line in fh:
+        if "[watchdog] cycle start" in line:
+            last = line
+if not last:
+    sys.exit(0)
+try:
+    t = datetime.datetime.strptime(last[:19], "%Y-%m-%d %H:%M:%S")
+    sys.exit(1 if (datetime.datetime.now() - t).total_seconds() < 25 * 60 else 0)
+except ValueError:
+    sys.exit(0)
+PY
+    }
+
+    if autojs_needs_nudge; then
         am start -a android.intent.action.VIEW \
             -d "file://$SD/autojs6/scripts/boot-launcher.js" \
             -t 'text/javascript' \
