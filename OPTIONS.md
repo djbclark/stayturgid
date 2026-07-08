@@ -2,7 +2,7 @@
 
 > **For agents:** When the operator asks for **options**, **next steps**, or a **menu**:
 > 1. Read this file (latest section is usually current).
-> 2. **Append** a new dated section with an updated menu (mark done/superseded items; don't delete history).
+> 2. **Append** a new dated section with an updated menu (mark done/superseded items; don't delete history). Use **date and time** in the heading, e.g. `## 2026-07-07 20:19 UTC-4 — …`.
 > 3. **Commit and push** to `master` in the same turn.
 >
 > Human-only tasks stay in [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md).
@@ -10,7 +10,7 @@
 
 ---
 
-## 2026-07-07 — Post shell→Python migration & fleet integration
+## 2026-07-07 20:19 UTC-4 — Post shell→Python migration & fleet integration
 
 Context: Bourne-shell Mac deploy/orchestration removed; `deploy_fleet.py` is canonical.
 F-Droid + Play integrated in `fleet.yml`. Preferred test host: **s24** → **hd8** → **p7a**.
@@ -78,7 +78,7 @@ Related quick fix: **14** (`test-tailscale-down-once.js` `sleep(2)` → `sleep(2
 
 - MDM / root / Play Protect bypass
 - Full Obtainium API (doesn't exist)
-- Large Ansible refactor without explicit operator approval (see HANDOFF research section)
+- Large Ansible refactor without explicit operator approval — see [HANDOFF.md appendix “Architecture research: unified orchestration”](HANDOFF.md#appendix--architecture-research-unified-orchestration-research-only--not-approved) (research only; hybrid Mac Python + partial Ansible is production)
 - Galaxy publish without token
 
 ### Suggested agent order (no human input)
