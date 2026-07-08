@@ -254,6 +254,11 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
 
     if scope in (Scope.FULL, Scope.PLAY):
         for host in targets:
+            step_rc, step = run_harden_fleet_apps(host)
+            if step_rc != 0:
+                rc = step_rc
+                failures.append(f"{host}: {step}")
+        for host in targets:
             step_rc, step = run_configure_aurora(host)
             if step_rc != 0:
                 rc = step_rc
@@ -262,11 +267,6 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
     if scope is Scope.FULL:
         for host in targets:
             step_rc, step = run_enable_autojs6_shizuku(host)
-            if step_rc != 0:
-                rc = step_rc
-                failures.append(f"{host}: {step}")
-        for host in targets:
-            step_rc, step = run_harden_fleet_apps(host)
             if step_rc != 0:
                 rc = step_rc
                 failures.append(f"{host}: {step}")

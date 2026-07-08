@@ -120,9 +120,9 @@ def test_deploy_full_flow_order(monkeypatch):
         ("playbook", None),
         ("import", "s24"),
         ("playbook", "app-stores"),
+        ("harden", "s24"),
         ("aurora", "s24"),
         ("shizuku", "s24"),
-        ("harden", "s24"),
     ]
 
 

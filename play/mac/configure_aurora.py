@@ -20,6 +20,16 @@ import stayturgid_device as dev  # noqa: E402
 import screen_control as sc  # noqa: E402
 
 AURORA_PKG = "com.aurora.store"
+BACKGROUND_DIALOG_MARKERS = (
+    "Let app always run in background",
+    "always run in the background",
+)
+BACKGROUND_ALLOW_LABELS = ("ALLOW", "Allow", "Always allow", "ALWAYS ALLOW")
+AURORA_BACKGROUND_APPOPS = (
+    ("RUN_IN_BACKGROUND", "allow"),
+    ("RUN_ANY_IN_BACKGROUND", "allow"),
+    ("AUTO_REVOKE_PERMISSIONS_IF_UNUSED", "ignore"),
+)
 
 
 def adb(serial, *args, timeout=30):
@@ -66,8 +76,43 @@ def open_aurora(serial):
     time.sleep(3)
 
 
+def ensure_background_unrestricted(serial):
+    """Pre-grant background run so Fire OS / Android skip the modal prompt."""
+    for op, mode in AURORA_BACKGROUND_APPOPS:
+        adb(serial, "cmd", "appops", "set", AURORA_PKG, op, mode)
+    adb(serial, "cmd", "deviceidle", "whitelist", "+%s" % AURORA_PKG)
+    adb(serial, "am", "set-standby-bucket", AURORA_PKG, "active")
+    print("Aurora Store background unrestricted via appops on %s." % serial)
+
+
+def dismiss_background_run_dialog(serial, app_hint="Aurora"):
+    """Tap ALLOW on Settings 'run in background' modal if visible."""
+    for _ in range(6):
+        xml = dump_xml(serial)
+        if not any(marker in xml for marker in BACKGROUND_DIALOG_MARKERS):
+            return False
+        if app_hint.lower() not in xml.lower():
+            return False
+        allow = dev.parse_button_center(xml, "android:id/button1")
+        if allow:
+            print("Tapped ALLOW on background-run dialog (%s)." % app_hint)
+            tap(serial, allow)
+            time.sleep(1.5)
+            return True
+        for label in BACKGROUND_ALLOW_LABELS:
+            point = dev.parse_text_center(xml, label)
+            if point:
+                print("Tapped %s on background-run dialog (%s)." % (label, app_hint))
+                tap(serial, point)
+                time.sleep(1.5)
+                return True
+    return False
+
+
 def finish_first_run(serial):
+    dismiss_background_run_dialog(serial)
     for _ in range(12):
+        dismiss_background_run_dialog(serial)
         xml = dump_xml(serial)
         if 'resource-id="com.aurora.store:id/nav_view"' in xml and 'text="Apps"' in xml:
             print("Aurora Store first-run setup already complete on %s." % serial)
@@ -207,7 +252,10 @@ def main(argv=None):
     subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
     try:
         with sc.ScreenControlSession(host, label=host):
+            ensure_background_unrestricted(serial)
+            dismiss_background_run_dialog(serial)
             open_aurora(serial)
+            dismiss_background_run_dialog(serial)
             if not finish_first_run(serial):
                 return 1
             if not configure_installer(serial):
