@@ -553,6 +553,22 @@ if grep -qF "boot-launcher.js" "$STUB_LOG" 2>/dev/null; then
 else
     tap_ok "start-adb: skips AutoJs6 am start when watchdog fresh"
 fi
+
+# Stale watchdog but recent nudge stamp => skip (no PiP every 5 min)
+reset_sandbox
+mkdir -p "$SANDBOX/sd/autojs6/scripts" "$SANDBOX/sd/logs" \
+         "$SANDBOX/home/.stayturgid/state" "$SANDBOX/home/.stayturgid/bin"
+touch "$SANDBOX/sd/autojs6/scripts/boot-launcher.js"
+echo "2020-01-01 00:00:00 [watchdog] cycle start trigger=interval (autojs6)" \
+    >> "$SANDBOX/sd/logs/watchdog.log"
+echo "1700000000" > "$SANDBOX/home/.stayturgid/state/last_autojs_nudge"
+SANDBOX_SLEEP_SECS=1 run_sandboxed "$START_ADB"
+kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bootloop.pid"
+if grep -qF "boot-launcher.js" "$STUB_LOG" 2>/dev/null; then
+    tap_fail "start-adb: skips AutoJs6 nudge during cooldown after stale recovery"
+else
+    tap_ok "start-adb: skips AutoJs6 nudge during cooldown after stale recovery"
+fi
 unset SANDBOX_SLEEP_SECS
 
 # repair-bridge.sh: trigger file => repair within one loop (~2s stubbed to instant)

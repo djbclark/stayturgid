@@ -51,7 +51,7 @@ Device resolution uses [shared/mac/stayturgid_device.py](../shared/mac/stayturgi
 ## Keeping it alive
 
 - Termux:Boot → `start-autojs6-watchdog.sh` → `boot-launcher.js`
-- `start-adb.sh` 5-min loop nudges `boot-launcher.js` only when the watchdog log is stale (>25 min); skips `am start` when healthy (avoids kicking foreground apps like YouTube into PiP)
+- `start-adb.sh` 5-min loop nudges `boot-launcher.js` only when the watchdog log is stale (>25 min), at most once per 25 min (avoids PiP spam when recovery fails); uses localhost adb shell + force-stop before launch
 - Optional: AutoJs6 timed task every 20 min on `main.js`
 
 ## Layout

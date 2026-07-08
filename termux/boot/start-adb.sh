@@ -84,9 +84,13 @@ BOOTLOOP_PID_FILE="$STG/run/bootloop.pid"
         echo "$now" > "$VERSION_CHECK_STAMP"
     fi
 
-    # Nudge AutoJs6 only when the watchdog is stale — am start steals foreground
-    # (YouTube etc. drop to PiP every 5 min if we launch RunIntentActivity blindly).
-    autojs_needs_nudge() {
+    # Nudge AutoJs6 only when the watchdog is stale — RunIntentActivity steals
+    # foreground (YouTube etc. drop to PiP). Rate-limit to once per stale window
+    # so a failed recovery does not PiP every 5 min.
+    AUTOJS_NUDGE_STAMP="$STG/state/last_autojs_nudge"
+    NUDGE_COOLDOWN_SEC=1500
+
+    autojs_watchdog_stale() {
         local log="$SD/logs/watchdog.log"
         [ -f "$SD/autojs6/scripts/boot-launcher.js" ] || return 1
         [ -f "$log" ] || return 0
@@ -102,18 +106,32 @@ if not last:
     sys.exit(0)
 try:
     t = datetime.datetime.strptime(last[:19], "%Y-%m-%d %H:%M:%S")
-    sys.exit(1 if (datetime.datetime.now() - t).total_seconds() < 25 * 60 else 0)
+    sys.exit(0 if (datetime.datetime.now() - t).total_seconds() >= 25 * 60 else 1)
 except ValueError:
     sys.exit(0)
 PY
     }
 
-    if autojs_needs_nudge; then
-        am start -a android.intent.action.VIEW \
+    autojs_nudge_cooled_down() {
+        local last_nudge now
+        [ ! -f "$AUTOJS_NUDGE_STAMP" ] && return 0
+        last_nudge="$(cat "$AUTOJS_NUDGE_STAMP" 2>/dev/null || echo 0)"
+        last_nudge="${last_nudge:-0}"
+        now=$(date +%s)
+        [ "$((now - last_nudge))" -ge "$NUDGE_COOLDOWN_SEC" ]
+    }
+
+    if autojs_watchdog_stale && autojs_nudge_cooled_down; then
+        adb connect 127.0.0.1:5555 >/dev/null 2>&1 </dev/null || true
+        adb -s localhost:5555 shell am force-stop org.autojs.autojs6 \
+            >/dev/null 2>&1 </dev/null || true
+        adb -s localhost:5555 shell am start \
+            -a android.intent.action.VIEW \
             -d "file://$SD/autojs6/scripts/boot-launcher.js" \
             -t 'text/javascript' \
             -n 'org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity' \
-            >/dev/null 2>&1 || true
+            >/dev/null 2>&1 </dev/null || true
+        date +%s > "$AUTOJS_NUDGE_STAMP"
     fi
 
         sleep 300
