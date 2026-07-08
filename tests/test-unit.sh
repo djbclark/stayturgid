@@ -108,7 +108,14 @@ repair_suite() {
     export PGREP_RC=0
     run_sandboxed "$RSCRIPT"
     tap_is "$RC" 0 "repair[$T]: healthy => exit 0"
-    tap_like "$OUT" "STATUS port=open shizuku=up sshd=up a11y=up shell=yes" "repair[$T]: healthy STATUS line"
+    tap_like "$OUT" "STATUS port=open shizuku=up sshd=up a11y=up shell=yes wifi=up" "repair[$T]: healthy STATUS line"
+
+    # wireless debugging off => re-enabled via settings put (Pixel / stock Android)
+    reset_sandbox
+    export PGREP_RC=0 ADB_WIFI=0
+    run_sandboxed "$RSCRIPT"
+    unset ADB_WIFI
+    tap_like "$OUT" "wifi=repaired" "repair[$T]: wireless debugging off => repaired"
 
     # a11y self-heal: service missing => APPENDED to existing list, never replaced
     reset_sandbox

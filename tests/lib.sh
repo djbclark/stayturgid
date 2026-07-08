@@ -69,6 +69,13 @@ case "$*" in
       exit 0 ;;
   *"settings get system screen_off_timeout"*) printf '%s\n' "${ADB_TIMEOUT:-60000}"; exit 0 ;;
   *"settings get global stay_on_while_plugged_in"*) printf '%s\n' "${ADB_STAYON:-0}"; exit 0 ;;
+  *"settings get global adb_wifi_enabled"*)
+      if [ -f "$SANDBOX/adb_wifi_state" ]; then cat "$SANDBOX/adb_wifi_state"; echo
+      else printf '%s\n' "${ADB_WIFI:-1}"; fi
+      exit 0 ;;
+  *"settings put global adb_wifi_enabled"*)
+      echo "1" > "$SANDBOX/adb_wifi_state"
+      exit 0 ;;
   *"dumpsys window"*) printf 'mCurrentFocus=Window{1a2 u0 %s/.Main}\n' "${ADB_FG_PKG:-com.sec.android.app.launcher}"; exit 0 ;;
   *"dumpsys power"*)
       printf 'mWakefulness=%s\nmStayOn=%s\n' "${ADB_WAKE:-Awake}" "${ADB_MSTAYON:-false}"
@@ -159,7 +166,7 @@ STUB
 reset_sandbox() {
     : > "$STUB_LOG"
     rm -rf "${SANDBOX:?}/home" "${SANDBOX:?}/sd" "${SANDBOX:?}/sshd_started" \
-           "${SANDBOX:?}/batt.json" "${SANDBOX:?}/a11y_state" "${SANDBOX:?}/proc"
+           "${SANDBOX:?}/batt.json" "${SANDBOX:?}/a11y_state" "${SANDBOX:?}/adb_wifi_state" "${SANDBOX:?}/proc"
     mkdir -p "$SANDBOX/home" "$SANDBOX/sd"
 }
 

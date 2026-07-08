@@ -80,7 +80,7 @@ from ansible.module_utils.basic import AnsibleModule
 
 STATUS_RE = re.compile(
     r"^STATUS port=(?P<port>\S+) shizuku=(?P<shizuku>\S+) sshd=(?P<sshd>\S+)"
-    r"(?: a11y=(?P<a11y>\S+))? shell=(?P<shell>\S+)"
+    r"(?: a11y=(?P<a11y>\S+))? shell=(?P<shell>\S+)(?: wifi=(?P<wifi>\S+))?"
 )
 
 

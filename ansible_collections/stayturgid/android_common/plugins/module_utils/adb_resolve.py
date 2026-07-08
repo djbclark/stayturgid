@@ -90,20 +90,43 @@ def connect_wireless(run_command, endpoint):
     return adb_online(adb_devices_output(run_command), endpoint)
 
 
+def adb_device_id(line):
+    """Serial from an adb devices line (handles mDNS ids with spaces)."""
+    if "\t" not in line:
+        return None
+    state = line.rsplit("\t", 1)[-1].strip()
+    if state != "device":
+        return None
+    return line.rsplit("\t", 1)[0].strip()
+
+
+def transport_rank(candidate):
+    """Lower is better: USB < mDNS wireless-debug < ip:5555 (LAN/Tailscale)."""
+    if ":" not in candidate:
+        return 0
+    if "_adb-tls-connect" in candidate:
+        return 1
+    return 2
+
+
 def match_usb_serial(run_command, usb_serial, devices):
     """Return connected adb target matching USB serial (direct or ro.serialno)."""
     if not usb_serial or usb_serial == "-":
         return None
+    matches = []
     for line in normalize_adb_output(devices).splitlines():
-        if "\tdevice" not in line:
+        candidate = adb_device_id(line)
+        if not candidate:
             continue
-        candidate = line.split()[0]
         if candidate == usb_serial:
-            return candidate
+            matches.append(candidate)
+            continue
         rc, out, _err = run_command(["adb", "-s", candidate, "shell", "getprop", "ro.serialno"])
         if rc == 0 and normalize_adb_output(out) == usb_serial:
-            return candidate
-    return None
+            matches.append(candidate)
+    if not matches:
+        return None
+    return sorted(matches, key=transport_rank)[0]
 
 
 def static_fallback(row, alias):

@@ -63,7 +63,7 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 | Host | Verify | Mac adb | Notes |
 |------|--------|---------|-------|
 | s24 | **16/16 PASS** | online (USB/LAN/Tailscale) | Lab reference; `test_tailscale_down.py` passes; `ensure_apps` fdroid (metronome) wired |
-| p7a | **16/16** (last run) | **offline** | Tailscale down + LAN flaky; SSH timed out 2026-07-08 |
+| p7a | **16/16** (last run) | online (mDNS + Tailscale) | tailscale-down PASS; repair auto-enables `adb_wifi_enabled` when off |
 | hd8 | **16/16 PASS** (Fire OS notes) | online (USB + wireless) | USB bootstrap done; AutoJs6 deploy + verify green |
 
 **Recent landings (2026-07-07 → 08):**

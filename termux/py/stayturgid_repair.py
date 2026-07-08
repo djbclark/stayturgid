@@ -146,6 +146,21 @@ def privileged_shell_expected():
     return True
 
 
+def ensure_wireless_debugging():
+    """Re-enable the Developer-options wireless-debugging toggle when shell can."""
+    wifi = sh_adb("settings get global adb_wifi_enabled")[1].strip()
+    if wifi in ("1", "true"):
+        return "up"
+    sh_adb("settings put global adb_wifi_enabled 1")
+    time.sleep(2)
+    wifi2 = sh_adb("settings get global adb_wifi_enabled")[1].strip()
+    if wifi2 in ("1", "true"):
+        log("wireless debugging was off -> re-enabled adb_wifi_enabled")
+        return "repaired"
+    log("wireless debugging re-enable FAILED (adb_wifi_enabled=%s)" % wifi2)
+    return "FAILED"
+
+
 def duplicate_branch():
     """Another invocation holds the lock: read-only advisory probe, exit 0."""
     sshd = "up" if (sshd_up() or sshd_listening()) else "unknown"
@@ -155,10 +170,11 @@ def duplicate_branch():
         port, sh = "open", True
         rc, _ = sh_adb("pgrep -f shizuku_server")
         shizuku = "up" if rc == 0 else "down"
+        wifi = "up" if sh_adb("settings get global adb_wifi_enabled")[1].strip() in ("1", "true") else "down"
     else:
-        port, sh, shizuku = "CLOSED_NO_SHELL", False, "unknown"
-    status = "STATUS port=%s shizuku=%s sshd=%s shell=%s" % (
-        port, shizuku, sshd, "yes" if sh else "no")
+        port, sh, shizuku, wifi = "CLOSED_NO_SHELL", False, "unknown", "unknown"
+    status = "STATUS port=%s shizuku=%s sshd=%s shell=%s wifi=%s" % (
+        port, shizuku, sshd, "yes" if sh else "no", wifi)
     log(status + " rc=0 (skipped-duplicate)")
     print(status)
     return 0
@@ -214,13 +230,16 @@ def main():
         port = "skip"
         shizuku = "skip"
         a11y = "skip"
+        wifi = "skip"
     elif privileged_shell():
         have_sh = True
         port = "open"
         sh_adb("setprop service.adb.tcp.port 5555")  # keep 5555 sticky
+        wifi = ensure_wireless_debugging()
     else:
         have_sh = False
         port = "CLOSED_NO_SHELL"
+        wifi = "unknown"
         rc = 1
         log("5555 CLOSED / no privileged shell — escalate to AutoJs6 UI repair or reboot")
 
@@ -249,8 +268,8 @@ def main():
                     a11y = "FAILED"
                     log("AutoJs6 accessibility re-enable FAILED")
 
-    status = "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s" % (
-        port, shizuku, sshd, a11y, "yes" if have_sh else "no")
+    status = "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s" % (
+        port, shizuku, sshd, a11y, "yes" if have_sh else "no", wifi)
     log(status + " rc=%d" % rc)
     print(status)
     return rc

@@ -1,5 +1,9 @@
 # Changelog — stayturgid.android_common
 
+## 1.4.1 (2026-07-08)
+
+- `adb_resolve`: parse mDNS wireless-debugging device ids (spaces in serial).
+
 ## 1.4.0 (2026-07-07)
 
 - Add `android_packages` and `fdroid_client` lookup plugins.

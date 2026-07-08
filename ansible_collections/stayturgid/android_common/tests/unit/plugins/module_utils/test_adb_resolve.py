@@ -64,6 +64,20 @@ def test_resolve_matches_ro_serialno_when_ip_drifts(tmp_path):
     assert ar.resolve_adb("s24", _listing("192.168.68.99:5555\tdevice"), conf) == "192.168.68.99:5555"
 
 
+def test_match_usb_serial_mdns_id_with_spaces(tmp_path):
+    conf = _conf(tmp_path, "p7a 35261JEHN12374 100.65.0.1 192.168.1.9\n")
+    listing = "adb-35261JEHN12374-JIE0Dg (2)._adb-tls-connect._tcp\tdevice\n100.65.0.1:5555\tdevice\n"
+
+    def run(cmd):
+        if cmd[:2] == ["adb", "devices"]:
+            return 0, listing, ""
+        if len(cmd) >= 5 and cmd[:2] == ["adb", "-s"] and cmd[3] == "shell":
+            return 0, "35261JEHN12374\n", ""
+        return 1, "", ""
+
+    assert ar.resolve_adb("p7a", run, conf) == "adb-35261JEHN12374-JIE0Dg (2)._adb-tls-connect._tcp"
+
+
 def test_resolve_static_fallback_without_run_command(tmp_path):
     conf = _conf(tmp_path, "p7a - 100.1.1.1 192.168.1.9\n")
     assert ar.resolve_adb("p7a", None, conf) == "192.168.1.9:5555"
