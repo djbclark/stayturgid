@@ -28,3 +28,5 @@
     - role: stayturgid.android_common.ensure_apps
       tags: [ensure_apps]
       when: stayturgid_ensure_apps | default([]) | length > 0
+    - role: stayturgid.android_common.app_privileges
+      tags: [app-privileges, app-stores]

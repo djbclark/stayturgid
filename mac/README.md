@@ -10,7 +10,7 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 |------|---------|
 | `adb_reconnect.py` | Reconnect `adb connect` when link drops; LAN → Tailscale fallback |
 | `access_monitor.py` | Dead-man's switch: notify after ~10 min total outage on all paths |
-| `deploy_fleet.py` | Full fleet deploy — Ansible, Obtainium import, app stores, Aurora UI |
+| `deploy_fleet.py` | Full fleet deploy — Ansible, Obtainium import, app stores, Aurora UI, Shizuku drawer, app privileges |
 | `shared/mac/stayturgid_device.py` | Device resolution, Shizuku JSON patch, UI XML parsing |
 
 Launchd agents are rendered by `ansible/playbooks/mac.yml` (not hand-copied plists).

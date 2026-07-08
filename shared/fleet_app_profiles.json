@@ -1,0 +1,92 @@
+[
+  {
+    "battery_unrestricted": true,
+    "disable_unused_restrictions": true,
+    "grant_all_runtime": true,
+    "package": "org.autojs.autojs6",
+    "permissions": [
+      "com.termux.permission.RUN_COMMAND",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+      "android.permission.POST_NOTIFICATIONS"
+    ],
+    "appops": [
+      {"op": "MANAGE_EXTERNAL_STORAGE", "mode": "allow"},
+      {"op": "SYSTEM_ALERT_WINDOW", "mode": "allow"}
+    ]
+  },
+  {
+    "battery_unrestricted": true,
+    "disable_unused_restrictions": true,
+    "grant_all_runtime": true,
+    "package": "moe.shizuku.privileged.api"
+  },
+  {
+    "battery_unrestricted": true,
+    "disable_unused_restrictions": true,
+    "grant_all_runtime": true,
+    "package": "com.tailscale.ipn"
+  },
+  {
+    "battery_unrestricted": true,
+    "disable_unused_restrictions": true,
+    "grant_all_runtime": true,
+    "package": "com.termux",
+    "permissions": ["android.permission.POST_NOTIFICATIONS"],
+    "appops": [{"op": "SYSTEM_ALERT_WINDOW", "mode": "allow"}]
+  },
+  {
+    "battery_unrestricted": true,
+    "disable_unused_restrictions": true,
+    "grant_all_runtime": true,
+    "package": "com.termux.api",
+    "permissions": ["android.permission.POST_NOTIFICATIONS"],
+    "appops": [
+      {"op": "WRITE_SETTINGS", "mode": "allow"},
+      {"op": "SYSTEM_ALERT_WINDOW", "mode": "allow"}
+    ]
+  },
+  {
+    "battery_unrestricted": true,
+    "disable_unused_restrictions": true,
+    "grant_all_runtime": true,
+    "package": "com.termux.boot"
+  },
+  {
+    "battery_unrestricted": true,
+    "disable_unused_restrictions": true,
+    "grant_all_runtime": true,
+    "package": "com.termux.styling"
+  },
+  {
+    "battery_unrestricted": true,
+    "disable_unused_restrictions": true,
+    "grant_all_runtime": true,
+    "package": "com.termux.widget"
+  },
+  {
+    "battery_unrestricted": true,
+    "disable_unused_restrictions": true,
+    "grant_all_runtime": true,
+    "package": "com.termux.window",
+    "appops": [{"op": "SYSTEM_ALERT_WINDOW", "mode": "allow"}]
+  },
+  {
+    "battery_unrestricted": true,
+    "disable_unused_restrictions": true,
+    "grant_all_runtime": true,
+    "package": "com.machiav3lli.fdroid"
+  },
+  {
+    "battery_unrestricted": true,
+    "disable_unused_restrictions": true,
+    "grant_all_runtime": true,
+    "package": "com.aurora.store"
+  },
+  {
+    "battery_unrestricted": true,
+    "disable_unused_restrictions": true,
+    "grant_all_runtime": true,
+    "package": "dev.imranr.obtainium"
+  }
+]

@@ -34,6 +34,7 @@ COLLECTIONS_PATH = REPO_ROOT / ".ansible" / "collections"
 IMPORT_CATALOG = REPO_ROOT / "obtainium" / "mac" / "import_catalog.py"
 CONFIGURE_AURORA = REPO_ROOT / "play" / "mac" / "configure_aurora.py"
 ENABLE_AUTOJS6_SHIZUKU = REPO_ROOT / "autojs6" / "mac" / "enable_autojs6_shizuku.py"
+HARDEN_FLEET_APPS = REPO_ROOT / "mac" / "harden_fleet_apps.py"
 
 
 class Scope(str, Enum):
@@ -202,6 +203,26 @@ def run_enable_autojs6_shizuku(host: str) -> tuple[int, str]:
     return result.returncode or 1, "autojs6 shizuku"
 
 
+def run_harden_fleet_apps(host: str) -> tuple[int, str]:
+    if not HARDEN_FLEET_APPS.is_file():
+        return 0, ""
+    print(f"\n=== Fleet app privileges: {host} ===")
+    result = subprocess.run(
+        [sys.executable, str(HARDEN_FLEET_APPS), host],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+    if result.stdout.strip():
+        print(result.stdout.rstrip())
+    if result.returncode == 0:
+        return 0, ""
+    print(f"FAIL: Fleet app hardening failed on {host} (exit {result.returncode})", file=sys.stderr)
+    if result.stderr.strip():
+        print(result.stderr.rstrip(), file=sys.stderr)
+    return result.returncode or 1, "fleet app privileges"
+
+
 def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
     require_ansible()
     warn_prerequisites(scope)
@@ -241,6 +262,11 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
     if scope is Scope.FULL:
         for host in targets:
             step_rc, step = run_enable_autojs6_shizuku(host)
+            if step_rc != 0:
+                rc = step_rc
+                failures.append(f"{host}: {step}")
+        for host in targets:
+            step_rc, step = run_harden_fleet_apps(host)
             if step_rc != 0:
                 rc = step_rc
                 failures.append(f"{host}: {step}")

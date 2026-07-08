@@ -99,14 +99,6 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print("WARN: RUN_COMMAND grant failed — use repair-bridge.sh fallback (deployed below)")
 
-    adb.adb(serial, "shell", f"dumpsys deviceidle whitelist +{AUTOJS_PKG}", check=False)
-    for perm in (
-        f"appops set {AUTOJS_PKG} MANAGE_EXTERNAL_STORAGE allow",
-        f"pm grant {AUTOJS_PKG} android.permission.READ_EXTERNAL_STORAGE",
-        f"pm grant {AUTOJS_PKG} android.permission.WRITE_EXTERNAL_STORAGE",
-    ):
-        adb.adb(serial, "shell", perm, check=False)
-
     ssh_host = deploy_termux_scripts(alias, serial)
 
     subprocess.run(
@@ -115,6 +107,11 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     adb.adb(serial, "shell", "echo autojs6 > /sdcard/stayturgid/state/automation_mode.txt", check=False)
+
+    harden = REPO_ROOT / "mac" / "harden_fleet_apps.py"
+    if harden.is_file():
+        print("Hardening fleet app permissions and battery settings...")
+        subprocess.run([sys.executable, str(harden), alias], check=False)
 
     sync = REPO_ROOT / "obtainium" / "mac" / "sync_to_device.py"
     enable = MAC_DIR / "enable_autojs6_shizuku.py"
@@ -134,7 +131,7 @@ On device:
   2. ./start_watchdog.py {alias}        # or run main.js in AutoJs6
      (Shizuku grant + drawer already ran via enable_autojs6_shizuku.py)
 
-ADB grants applied by this script: storage (MANAGE_EXTERNAL_STORAGE), RUN_COMMAND, battery whitelist.
+ADB grants: RUN_COMMAND plus fleet harden (storage, notifications, battery unrestricted).
 
 Logs:
   adb -s {serial} shell tail -f /sdcard/stayturgid/logs/watchdog.log
