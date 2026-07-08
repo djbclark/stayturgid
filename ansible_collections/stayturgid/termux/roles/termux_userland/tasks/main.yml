@@ -26,6 +26,14 @@
     _termux_prefix: "{{ termux_prefix }}"
   register: pkg_install
 
+# pkg update selects a random mirror and rewrites sources.list — re-pin after
+# every update/upgrade so verify and later pkg runs stay deterministic.
+- name: Re-pin Termux main mirror after pkg operations
+  ansible.builtin.copy:
+    dest: "{{ termux_prefix }}/etc/apt/sources.list"
+    content: "deb {{ stayturgid_termux_mirror }} stable main\n"
+    mode: "0644"
+
 - name: Detect Termux account owning termux_home
   ansible.builtin.stat:
     path: "{{ termux_home }}"

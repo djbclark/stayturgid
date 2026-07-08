@@ -17,7 +17,8 @@ function append(line) {
     try {
         var profile = config.detectDeviceProfile();
         var logPath = config.pathsFor(profile).watchdogLog;
-        files.ensureDir(logPath);   // self-heal if logs/ was deleted
+        var logDir = String(logPath).replace(/\/[^/]+$/, "");
+        files.ensureDir(logDir + "/");
         files.append(logPath, msg + "\n");
     } catch (e) {
         console.error("log append failed: " + e);

@@ -4,7 +4,7 @@
 Usage: ./test_tailscale_down.py [s24|RFCX219CHKA]
 
 1. Mac: force-stop Tailscale + wait for coord ping to fail
-2. AutoJs6: probe, run watchdog cycle (notify + relaunch path), wait for recovery
+2. AutoJs6: probe, relaunch, wait for recovery (logged to watchdog.log)
 """
 from __future__ import annotations
 
@@ -16,15 +16,42 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "shared" / "mac"))
 import adb_cli as adb  # noqa: E402
 
+import stayturgid_device as dev  # noqa: E402
+
 SCRIPT = f"{adb.AUTOJS_PROJECT_BASE}/scripts/test-tailscale-down-once.js"
+WATCHDOG_LOG = "/sdcard/stayturgid/logs/watchdog.log"
 TS_PKG = "com.tailscale.ipn"
-USB_S24 = "RFCX219CHKA"
+PROBE_START = "tailscale-down-test probe start"
+PROBE_MARKER = "tailscale-down-test probe tun="
+RECOVERY_MARKER = "tailscale-down-test after-relaunch"
+
+
+def _adb_online(serial: str, devices: str) -> bool:
+    return f"{serial}\tdevice" in devices.replace("\r", "")
 
 
 def resolve_serial(alias: str) -> str:
+    """USB when plugged in, else first online wireless endpoint for this alias."""
     devices = adb.adb_devices()
-    if f"{USB_S24}\tdevice" in devices.replace("\r", ""):
-        return USB_S24
+    row = dev.device_row(alias)
+    if row:
+        usb, ts_ip, lan = row
+        if usb != "-" and _adb_online(usb, devices):
+            return usb
+        for endpoint in (
+            f"{lan}:5555" if lan not in ("", "-") else None,
+            f"{ts_ip}:5555" if ts_ip not in ("", "-") else None,
+        ):
+            if endpoint and _adb_online(endpoint, devices):
+                return endpoint
+        if usb != "-":
+            for line in devices.splitlines():
+                if "\tdevice" not in line:
+                    continue
+                candidate = line.split()[0]
+                prop = adb.adb(candidate, "shell", "getprop", "ro.serialno", check=False)
+                if (prop.stdout or "").strip() == usb:
+                    return candidate
     return adb.resolve_target(alias)
 
 
@@ -33,10 +60,28 @@ def shell_line(serial: str, cmd: str) -> str:
     return (result.stdout or "").strip()
 
 
+def log_tail(serial: str, pattern: str) -> str:
+    return shell_line(
+        serial,
+        f"grep -F '{pattern}' {WATCHDOG_LOG} 2>/dev/null | tail -1",
+    )
+
+
+def wait_for_log(serial: str, pattern: str, timeout_s: int) -> str:
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        line = log_tail(serial, pattern)
+        if line:
+            return line
+        time.sleep(2)
+    return ""
+
+
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     alias = argv[0] if argv else "s24"
     serial = resolve_serial(alias)
+    rc = 0
 
     print(f"=== Phase 1: baseline (USB {serial}) ===")
     adb.adb(serial, "shell", "input keyevent KEYCODE_WAKEUP", check=False)
@@ -44,50 +89,51 @@ def main(argv: list[str] | None = None) -> int:
 
     print("=== Phase 2: force-stop Tailscale + wait for tunnel blip ===")
     adb.adb(serial, "shell", f"am force-stop {TS_PKG}", check=False)
+    blip_s = 0
     for i in range(1, 16):
         time.sleep(1)
         ping = adb.adb(serial, "shell", "ping -c1 -W2 100.100.100.100", check=False)
         if ping.returncode != 0:
+            blip_s = i
             print(f"coord ping failed after {i}s")
             break
+    if not blip_s:
+        print("WARN: coord ping never failed — Tailscale may already be recovering", file=sys.stderr)
 
-    print("=== Phase 3: AutoJs6 probe + watchdog + relaunch ===")
+    print("=== Phase 3: AutoJs6 probe + relaunch ===")
     adb.start_autojs_file(serial, SCRIPT)
 
-    print("Waiting up to 60s for recovery...")
-    for _ in range(12):
-        time.sleep(5)
-        line = shell_line(
-            serial,
-            "grep tailscale-down-test /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1",
-        )
-        if "after-relaunch" in line:
-            break
+    print("Waiting up to 30s for AutoJs6 probe start...")
+    probe_start = wait_for_log(serial, PROBE_START, 30)
+    if not probe_start:
+        print("FAIL: AutoJs6 test script produced no log output", file=sys.stderr)
+        print("--- recent watchdog log ---")
+        print(shell_line(serial, f"tail -15 {WATCHDOG_LOG} 2>/dev/null"))
+        return 1
+
+    print("Waiting up to 90s for Tailscale recovery log line...")
+    recovered = wait_for_log(serial, RECOVERY_MARKER, 90)
 
     print("--- tailscale-down-test log lines ---")
     print(
         shell_line(
             serial,
-            "grep -E 'tailscale-down-test|tailscale tun=' /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -10",
+            f"grep -E 'tailscale-down-test|tailscale tun=' {WATCHDOG_LOG} 2>/dev/null | tail -10",
         )
     )
-    probe_down = shell_line(
-        serial,
-        "grep 'tailscale-down-test probe' /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1",
-    )
-    recovered = shell_line(
-        serial,
-        "grep 'after-relaunch' /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1",
-    )
 
+    probe_down = log_tail(serial, PROBE_MARKER)
     if "up=false" in probe_down:
         print("PASS: probe detected Tailscale down")
+    elif probe_down:
+        print(f"NOTE: probe saw Tailscale up={probe_down.split('up=')[-1] if 'up=' in probe_down else '?'} (VPN may have restarted before probe)")
     else:
-        print(f"WARN: probe did not report up=false — {probe_down}", file=sys.stderr)
+        print(f"WARN: no probe tun line — {probe_down}", file=sys.stderr)
+        rc = 1
 
-    if "after-relaunch" in recovered and "up=true" in recovered:
+    if recovered and "up=true" in recovered:
         print("PASS: Tailscale recovered after relaunch")
-        return 0
+        return 0 if rc == 0 else 1
 
     print(f"FAIL: recovery not confirmed — {recovered}", file=sys.stderr)
     return 1
