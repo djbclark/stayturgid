@@ -52,6 +52,59 @@ LOCKFILE = os.path.join(TMPDIR, "stayturgid-repair.lock")
 LOG = os.path.join(STG, "logs", "repair.log")
 SDLOG = os.path.join(SD, "logs", "watchdog.log")
 A11Y_SVC = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
+A11Y_BACKUP = os.path.join(SD, "state", "a11y_services_backup.txt")
+
+
+def _parse_a11y_list(raw):
+    text = (raw or "").strip()
+    if text in ("", "null"):
+        return []
+    out, seen = [], set()
+    for part in text.split(":"):
+        svc = part.strip()
+        if svc and svc not in seen:
+            seen.add(svc)
+            out.append(svc)
+    return out
+
+
+def _merge_a11y_list(current, add):
+    merged = _parse_a11y_list(current)
+    seen = set(merged)
+    for svc in add:
+        if svc and svc not in seen:
+            seen.add(svc)
+            merged.append(svc)
+    return ":".join(merged)
+
+
+def _a11y_lost(before, after):
+    return [s for s in _parse_a11y_list(before) if s not in set(_parse_a11y_list(after))]
+
+
+def _backup_a11y_list(value):
+    ensure_parent(A11Y_BACKUP)
+    try:
+        with open(A11Y_BACKUP, "w") as f:
+            f.write((value or "").strip() + "\n")
+    except OSError:
+        pass
+
+
+def _read_a11y_backup():
+    try:
+        with open(A11Y_BACKUP) as f:
+            return f.read().strip()
+    except OSError:
+        return ""
+
+
+def _repair_a11y_shrink(before, after):
+    lost = _a11y_lost(before, after)
+    if not lost:
+        return ""
+    backup = _read_a11y_backup()
+    return _merge_a11y_list(_merge_a11y_list(before, _parse_a11y_list(backup)), [A11Y_SVC])
 
 
 def ts():
@@ -249,21 +302,31 @@ def main():
     elif expect_shell:
         shizuku = "unknown"
 
-    # --- 4. AutoJs6 accessibility (Samsung disables it) — APPEND-ONLY ---
+    # --- 4. AutoJs6 accessibility (Samsung disables it) — merge, never replace ---
     if expect_shell:
         a11y = "unknown"
         if have_sh:
-            cur = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
-            if A11Y_SVC in cur:
+            before = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
+            _backup_a11y_list(before)
+            if A11Y_SVC in before:
                 a11y = "up"
             else:
-                new = A11Y_SVC if cur in ("", "null") else "%s:%s" % (cur, A11Y_SVC)
+                new = _merge_a11y_list(before, [A11Y_SVC])
                 sh_adb("settings put secure enabled_accessibility_services '%s'" % new)
                 sh_adb("settings put secure accessibility_enabled 1")
                 recheck = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
+                repaired = _repair_a11y_shrink(before, recheck)
+                if repaired:
+                    sh_adb("settings put secure enabled_accessibility_services '%s'" % repaired)
+                    sh_adb("settings put secure accessibility_enabled 1")
+                    recheck = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
                 if A11Y_SVC in recheck:
                     a11y = "repaired"
-                    log("AutoJs6 accessibility was off -> re-enabled (appended)")
+                    lost = _a11y_lost(before, recheck)
+                    if lost:
+                        log("AutoJs6 a11y re-enabled but still missing: %s" % ",".join(lost))
+                    else:
+                        log("AutoJs6 accessibility was off -> re-enabled (merged)")
                 else:
                     a11y = "FAILED"
                     log("AutoJs6 accessibility re-enable FAILED")

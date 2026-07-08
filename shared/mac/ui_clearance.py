@@ -246,10 +246,18 @@ def clear_ui_obstructions(serial: str, shell) -> list[str]:
         if _try_ui_close_pip(serial, shell):
             actions.append("ui-tap-pip-close")
 
-        for pkg in sorted(pip_packages(activity or "", stack or "", window or "")):
-            rc, _ = shell(serial, "am", "kill", pkg)
-            if rc == 0:
-                actions.append("am-kill:%s" % pkg)
+        # Do not am-kill foreground apps — pinned stack remove is sufficient on
+        # Samsung YouTube PiP and avoids side effects on media apps.
+        still_pip = pip_obstruction_detected(
+            activity or "", stack or "", window or "", screen_size=screen_size
+        )
+        if still_pip:
+            for pkg in sorted(_packages_from_pinned_activity_tasks(activity or "")):
+                if pkg in PROTECTED_PACKAGES:
+                    continue
+                rc, _ = shell(serial, "am", "kill", pkg)
+                if rc == 0:
+                    actions.append("am-kill-pip:%s" % pkg)
 
         time.sleep(0.5)
 

@@ -9,3 +9,4 @@ __pycache__/
 ansible_collections/stayturgid/*/tests/output/
 ansible_collections/stayturgid/*/collections/
 human/RESPONSES.md
+shared/a11y_backups/*.txt

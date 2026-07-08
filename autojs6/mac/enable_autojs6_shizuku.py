@@ -19,13 +19,15 @@ import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO_ROOT / "shared"))
 sys.path.insert(0, str(REPO_ROOT / "shared" / "mac"))
+import a11y_services as a11y  # noqa: E402
 import stayturgid_device as dev  # noqa: E402
 import screen_control as sc  # noqa: E402
 
 AUTOJS_PKG = "org.autojs.autojs6"
 AUTOJS_RUN = "org.autojs.autojs.external.open.RunIntentActivity"
-A11Y_SVC = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
+A11Y_SVC = a11y.AUTOJS6_A11Y
 SHIZUKU_PERM = "moe.shizuku.manager.permission.API_V23"
 DRAWER_A11Y = "Accessibility service"
 DRAWER_SHIZUKU = "Shizuku access"
@@ -54,12 +56,22 @@ A11Y_DIALOG_HINTS = (
 
 def a11y_append_value(current: str, svc: str = A11Y_SVC) -> str:
     """Append-only enabled_accessibility_services value (never replace the list)."""
-    cur = (current or "").strip()
-    if cur in ("", "null"):
-        return svc
-    if svc in cur.split(":"):
-        return cur
-    return "%s:%s" % (cur, svc)
+    return a11y.append_service(current, svc)
+
+
+def backup_a11y_services(serial: str, alias: str) -> str:
+    live = a11y_services_list(serial)
+    a11y.write_backup_file(a11y.backup_file_for(alias), live)
+    tmp = REPO_ROOT / "shared" / "a11y_backups" / ".push_%s.tmp" % alias
+    a11y.write_backup_file(tmp, live)
+    adb(serial, "mkdir", "-p", "/sdcard/stayturgid/state")
+    subprocess.run(
+        ["adb", "-s", serial, "push", str(tmp), "/sdcard/stayturgid/%s" % a11y.DEVICE_BACKUP_REL],
+        capture_output=True,
+        check=False,
+    )
+    tmp.unlink(missing_ok=True)
+    return live
 
 
 def adb(serial: str, *args: str, timeout: int = 30) -> subprocess.CompletedProcess:
@@ -123,14 +135,25 @@ def a11y_enabled(serial: str) -> bool:
     return A11Y_SVC in a11y_services_list(serial)
 
 
-def enable_a11y_shell_append(serial: str) -> bool:
-    if a11y_enabled(serial):
-        return True
-    new = a11y_append_value(a11y_services_list(serial))
-    adb(serial, "settings", "put", "secure", "enabled_accessibility_services", new)
+def put_a11y_services(serial: str, value: str) -> None:
+    adb(serial, "settings", "put", "secure", "enabled_accessibility_services", value)
     adb(serial, "settings", "put", "secure", "accessibility_enabled", "1")
+
+
+def enable_a11y_shell_append(serial: str, alias: str) -> bool:
+    before = a11y_services_list(serial)
+    if A11Y_SVC in before:
+        return True
+    target = a11y.desired_services(alias, before, ensure_autojs6=True)
+    put_a11y_services(serial, target)
     time.sleep(1)
-    return a11y_enabled(serial)
+    after = a11y_services_list(serial)
+    repair = a11y.repair_after_shrink(before, after, alias)
+    if repair and repair != after:
+        put_a11y_services(serial, repair)
+        time.sleep(1)
+        after = a11y_services_list(serial)
+    return A11Y_SVC in after
 
 
 def launch_autojs6(serial: str, *, force_stop: bool = True) -> None:
@@ -392,21 +415,23 @@ def drawer_switch_states(serial: str) -> dict[str, str]:
     return states
 
 
-def enable_accessibility(serial: str) -> bool:
+def enable_accessibility(serial: str, alias: str) -> bool:
+    before = backup_a11y_services(serial, alias)
     if a11y_enabled(serial):
         print("AutoJs6 accessibility already enabled (settings).")
         return True
-    if enable_drawer_switch(serial, DRAWER_A11Y):
-        dismiss_a11y_system_dialogs(serial)
-        if a11y_enabled(serial):
-            return_to_autojs6(serial)
-            return True
-    print("Accessibility drawer tap insufficient — trying shell append...")
-    if enable_a11y_shell_append(serial):
-        print("AutoJs6 accessibility enabled via settings append.")
+    # Shell merge only — AutoJs6 drawer toggle REPLACES the entire a11y list.
+    if enable_a11y_shell_append(serial, alias):
+        print("AutoJs6 accessibility enabled via settings merge (append-safe).")
         return_to_autojs6(serial)
         return True
-    sys.stderr.write("ERROR: AutoJs6 accessibility still disabled after UI + shell\n")
+    lost = a11y.services_lost(before, a11y_services_list(serial))
+    if lost:
+        sys.stderr.write(
+            "ERROR: accessibility list shrank (%s) — run ./mac/a11y_services.py restore %s\n"
+            % (", ".join(lost), alias)
+        )
+    sys.stderr.write("ERROR: AutoJs6 accessibility still disabled after settings merge\n")
     return False
 
 
@@ -477,7 +502,7 @@ def main(argv: list[str] | None = None) -> int:
             launch_autojs6(serial)
             dismiss_dialogs(serial)
 
-            if not enable_accessibility(serial):
+            if not enable_accessibility(serial, alias):
                 report_debug_state(serial, alias)
                 return 1
 

@@ -504,6 +504,16 @@ Also applies to any setting that is a colon-separated list:
 adb shell settings get secure enabled_accessibility_services | tr ':' '\n'
 ```
 
+**Fleet backup/restore (preferred):** `shared/a11y_profiles.json` holds per-device known-good lists; `shared/a11y_backups/<alias>.txt` stores live snapshots. Mac CLI:
+
+```bash
+./mac/a11y_services.py backup p7a    # snapshot live list → repo + /sdcard/stayturgid/state/
+./mac/a11y_services.py restore p7a   # merge profile + backup + AutoJs6 (never wipe others)
+./mac/a11y_services.py show p7a
+```
+
+**AutoJs6 drawer accessibility toggle replaces the entire list** — fleet setup uses settings merge only (`enable_autojs6_shizuku.py`), not the drawer switch.
+
 If accessibility services are accidentally wiped, restore from a known-good list recorded at session start. The Pixel 7a's known-good list (as of 2026-07-06; append AutoJs6 — never replace the whole list):
 ```
 com.samruston.buzzkill/com.samruston.buzzkill.background.accessibility.WorkaroundAccessibilityService
