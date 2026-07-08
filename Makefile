@@ -84,7 +84,7 @@ lint:
 	if command -v shellcheck >/dev/null; then shellcheck -S warning $$(git ls-files '*.sh') || rc=1; \
 	else echo "shellcheck not installed (brew install shellcheck) — skipped"; fi; \
 	if command -v ansible-lint >/dev/null; then \
-	  ANSIBLE_CONFIG=ansible/ansible.cfg bash -c 'cd ansible && ansible-lint playbooks/ roles/' || rc=1; \
+	  ANSIBLE_CONFIG=ansible/ansible.cfg bash -c 'cd ansible && ansible-lint playbooks/ ../ansible_collections/stayturgid/' || rc=1; \
 	else echo "ansible-lint not installed (pipx install ansible-lint) — skipped"; fi; \
 	if command -v yamllint >/dev/null; then yamllint ansible/ .ansible-lint .yamllint || rc=1; \
 	else echo "yamllint not installed (pipx install yamllint) — skipped"; fi; \

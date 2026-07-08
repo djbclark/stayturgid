@@ -78,7 +78,9 @@ else
     tap_skip "shellcheck" "not installed (brew install shellcheck)"
 fi
 if command -v ansible-lint >/dev/null 2>&1; then
-    if (cd ansible && ansible-lint -q playbooks/ roles/ >/dev/null 2>&1); then
+    if ANSIBLE_CONFIG=ansible/ansible.cfg bash -c \
+       'cd ansible && ansible-lint -q playbooks/ ../ansible_collections/stayturgid/' \
+       >/dev/null 2>&1; then
         tap_ok "ansible-lint: clean"
     else
         tap_fail "ansible-lint: clean" "run: make lint"

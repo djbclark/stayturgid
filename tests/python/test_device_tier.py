@@ -120,6 +120,13 @@ def test_evaluate_watchdog_liveness():
     assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "fail"
     rep_missing = dt.parse_report(HEALTHY.replace("watchdog=fresh", "watchdog=missing"))
     k = kinds(dt.evaluate("s24", rep_missing))
+    assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "todo"
+    rep_missing_stale_repair = dt.parse_report(
+        HEALTHY.replace("watchdog=fresh", "watchdog=missing").replace(
+            "repairlog=fresh", "repairlog=stale"
+        )
+    )
+    k = kinds(dt.evaluate("s24", rep_missing_stale_repair))
     assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "fail"
 
 
