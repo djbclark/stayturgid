@@ -15,9 +15,9 @@ def test_append_preserves_existing():
 
 
 def test_services_lost_detects_shrink():
-    before = "a:b:c"
-    after = "c"
-    assert a11y.services_lost(before, after) == ["a", "b"]
+    before = "com.a/.A:com.b/.B:com.c/.C"
+    after = "com.c/.C"
+    assert a11y.services_lost(before, after) == ["com.a/.A", "com.b/.B"]
 
 
 def test_desired_services_merges_profile():

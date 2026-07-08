@@ -1,6 +1,7 @@
 """Unit tests for shared/mac/ui_clearance.py."""
 import os
 import sys
+from pathlib import Path
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
@@ -55,6 +56,16 @@ def test_pip_packages_excludes_protected():
     assert "com.google.android.youtube" in pkgs
     assert "org.lichess.mobileV2" not in pkgs
     assert "org.autojs.autojs6" not in pkgs
+    assert "keyb" not in pkgs
+
+
+def test_parse_services_skips_null_tokens():
+    import sys
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "shared"))
+    import a11y_services as a11y
+    assert a11y.parse_services("null:org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher") == [
+        "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
+    ]
 
 
 def test_pip_obstruction_negative():

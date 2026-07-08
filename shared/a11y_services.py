@@ -33,7 +33,9 @@ def parse_services(raw: str | None) -> list[str]:
     out: list[str] = []
     for part in text.split(":"):
         svc = part.strip()
-        if not svc or svc in seen:
+        if not svc or svc in seen or svc == "null":
+            continue
+        if "/" not in svc or "." not in svc.split("/", 1)[0]:
             continue
         seen.add(svc)
         out.append(svc)

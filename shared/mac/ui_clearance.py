@@ -50,7 +50,9 @@ PROTECTED_PACKAGES = frozenset({
 
 _ROOT_TASK_RE = re.compile(r"RootTask id=(\d+)\b", re.IGNORECASE)
 _TASK_PKG_RE = re.compile(r"taskId=\d+:\s*([a-zA-Z0-9_.]+)/")
-_PKG_FROM_ACTIVITY_RE = re.compile(r"\b([a-zA-Z0-9_.]+)/[a-zA-Z0-9_.$]+")
+_PKG_FROM_ACTIVITY_RE = re.compile(
+    r"\b([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)/[a-zA-Z0-9_.$]+"
+)
 _WINDOW_PKG_RE = re.compile(r"package=([a-zA-Z0-9_.]+)")
 _FRAME_RE = re.compile(r"frame=\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 _ROOT_PINNED_TASK_RE = re.compile(r"rootPinnedTask=Task=(\d+)")
@@ -98,7 +100,10 @@ def _packages_from_pip_windows(window_dump: str) -> set[str]:
     for line in text.splitlines():
         if not any(marker in line for marker in PIP_WINDOW_MARKERS + ("mWindowingMode=pinned",)):
             continue
-        match = re.search(r"\b([a-zA-Z0-9_.]+)/[a-zA-Z0-9_.$]+", line)
+        match = re.search(
+            r"\b([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)/[a-zA-Z0-9_.$]+",
+            line,
+        )
         if match:
             packages.add(match.group(1))
         match = _WINDOW_PKG_RE.search(line)
@@ -246,13 +251,15 @@ def clear_ui_obstructions(serial: str, shell) -> list[str]:
         if _try_ui_close_pip(serial, shell):
             actions.append("ui-tap-pip-close")
 
-        # Do not am-kill foreground apps — pinned stack remove is sufficient on
-        # Samsung YouTube PiP and avoids side effects on media apps.
+        time.sleep(0.35)
+        rc_a2, activity2 = shell(serial, "dumpsys", "activity", "activities")
+        rc_s2, stack2 = shell(serial, "cmd", "activity", "stack", "list")
+        rc_w2, window2 = shell(serial, "dumpsys", "window", "windows")
         still_pip = pip_obstruction_detected(
-            activity or "", stack or "", window or "", screen_size=screen_size
+            activity2 or "", stack2 or "", window2 or "", screen_size=screen_size
         )
         if still_pip:
-            for pkg in sorted(_packages_from_pinned_activity_tasks(activity or "")):
+            for pkg in sorted(_packages_from_pinned_activity_tasks(activity2 or "")):
                 if pkg in PROTECTED_PACKAGES:
                     continue
                 rc, _ = shell(serial, "am", "kill", pkg)
