@@ -86,3 +86,33 @@ Related quick fix: **14** (`test-tailscale-down-once.js` `sleep(2)` → `sleep(2
 **7** → **1–2** → **14** → **3** → **9** → **5–6**
 
 Tell the agent: option IDs (e.g. `do 7, 1, 2, 14, 9`) or `read human/RESPONSES.md` for H-items.
+
+---
+
+## 2026-07-07 20:22 UTC-4 — After shell test hardening
+
+Context since last menu: shell unit tests added for boot/bridge scripts
+(110 TAP tests + `tests/python/test_shell_libs.py`); quoting/pidfile fixes in
+`start-adb.sh`, `repair-bridge.sh`, starters; `resolve_adb` no longer emits
+`-:5555` when a device row has no Tailscale IP (bash + Python, tested);
+obtainium sync-guard test repointed at the collection role path.
+**`make test` fully green** (TAP + pytest + ansible-test). Decision recorded:
+keep the TAP sandbox harness; no Bats/shunit2 migration unless shell coverage
+grows again.
+
+Menu changes vs 2026-07-07 20:19 (IDs unchanged, H-items unchanged):
+
+| ID | Status update |
+|----|---------------|
+| 5 | Easier now — legacy bash libs (`resolve-adb.sh`, `stayturgid-root.sh`) have pytest coverage proving Python parity, so removal is low-risk |
+| 22 | Partially seeded — shell-lib pytest exists; `deploy_fleet.py`/`adb_cli` mocked tests still open |
+| All others | Unchanged; see 20:19 menu above |
+
+### Suggested agent order (no human input)
+
+**7** (docs/version refresh — stale after today's churn) → **14** (one-line JS
+sleep fix) → **1–2** (live s24 deploy + verify; needs device reachable) →
+**3** → **9** (M11 Shizuku JSON clobber) → **5–6** (remove legacy bash libs,
+dedup resolve_adb).
+
+Highest-leverage human unlock remains **H3** (fleet deploy go/no-go).
