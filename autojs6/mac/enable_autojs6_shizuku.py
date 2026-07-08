@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
-"""Enable AutoJs6 accessibility + Shizuku drawer without manual toggling.
+"""Enable AutoJs6 fleet drawer defaults without manual toggling.
 
 Deterministic order:
   1. grant_shizuku.py — pm grant + shizuku.json (privileged shell, no UI)
   2. Launch AutoJs6 + dismiss notification / permission dialogs
-  3. Drawer → Accessibility service ON (UI tap, then shell append fallback)
-  4. Drawer → Shizuku access ON when off
-  5. Verify both; on failure print a debug bundle for human escalation
+  3. Accessibility ON (drawer + shell append fallback)
+  4. Fleet drawer profile from shared/autojs6_drawer_defaults.json (UI)
+  5. Shizuku access ON + verify; debug bundle on failure
 
 Usage: ./enable_autojs6_shizuku.py <s24|p7a|hd8|serial>
 """
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import time
@@ -31,7 +32,9 @@ DRAWER_SHIZUKU = "Shizuku access"
 PROBE_REMOTE = "/sdcard/stayturgid/autojs6/scripts/shizuku-probe.js"
 WATCHDOG_LOG = "/sdcard/stayturgid/logs/watchdog.log"
 GRANT = Path(__file__).resolve().parent / "grant_shizuku.py"
+DRAWER_DEFAULTS = REPO_ROOT / "shared" / "autojs6_drawer_defaults.json"
 DRAWER_SCROLL_ROUNDS = 8
+CRITICAL_DRAWER_ON = frozenset({"Foreground service"})
 
 PERM_DIALOG_MARKERS = (
     "Allow org.autojs.autojs6 to access Shizuku",
@@ -185,20 +188,35 @@ def scroll_drawer_down(serial: str) -> None:
     adb(serial, "input", "swipe", str(x), str(int(h * 0.75)), str(x), str(int(h * 0.25)), "400")
 
 
-def find_drawer_switch(serial: str, label: str) -> tuple[bool, int, int] | None:
-    xml = dump_xml(serial)
-    sw = dev.parse_switch(xml, label)
-    if sw is not None:
-        return sw
-    open_drawer(serial)
-    for attempt in range(DRAWER_SCROLL_ROUNDS):
+def scroll_drawer_up(serial: str) -> None:
+    w, h = screen_size(serial)
+    x = w // 3
+    adb(serial, "input", "swipe", str(x), str(int(h * 0.25)), str(x), str(int(h * 0.75)), "400")
+
+
+def scroll_drawer_to_top(serial: str) -> None:
+    for _ in range(5):
+        scroll_drawer_up(serial)
+        time.sleep(0.3)
+
+
+def find_drawer_switch(
+    serial: str, label: str, *, reset: bool = True,
+) -> tuple[bool, int, int] | None:
+    if reset:
+        return_to_autojs6(serial)
+        open_drawer(serial)
+        for _ in range(4):
+            scroll_drawer_up(serial)
+            time.sleep(0.4)
+    for attempt in range(DRAWER_SCROLL_ROUNDS + 4):
         xml = dump_xml(serial)
         sw = dev.parse_switch(xml, label)
         if sw is not None:
             return sw
-        if attempt < DRAWER_SCROLL_ROUNDS - 1:
+        if attempt < DRAWER_SCROLL_ROUNDS + 3:
             scroll_drawer_down(serial)
-            time.sleep(0.8)
+            time.sleep(0.5)
     return None
 
 
@@ -281,24 +299,97 @@ def dismiss_dialogs(serial: str, rounds: int = 12) -> None:
 
 
 def enable_drawer_switch(serial: str, label: str) -> bool:
-    sw = find_drawer_switch(serial, label)
-    if not sw:
+    result = ensure_drawer_switch(serial, label, True)
+    if result == "missing":
         sys.stderr.write("ERROR: %s row not found in AutoJs6 drawer\n" % label)
-        return False
-    if sw[0]:
-        print("AutoJs6 drawer: %s already ON." % label)
-        return True
-    print("Tapping %s drawer switch..." % label)
+    return result == "ok"
+
+
+def ensure_drawer_switch(serial: str, label: str, want_on: bool) -> str:
+    """Set drawer switch to want_on. Returns ok | missing | failed."""
+    sw = find_drawer_switch(serial, label)
+    if sw is None:
+        return "missing"
+    if sw[0] == want_on:
+        state = "ON" if want_on else "OFF"
+        print("AutoJs6 drawer: %s already %s." % (label, state))
+        return "ok"
+    print("Setting drawer %s -> %s..." % (label, "ON" if want_on else "OFF"))
     tap(serial, (sw[1], sw[2]))
     time.sleep(2)
     dismiss_dialogs(serial)
     if label == DRAWER_A11Y:
         dismiss_a11y_system_dialogs(serial)
+    return_to_autojs6(serial)
     sw2 = find_drawer_switch(serial, label)
-    if sw2 and sw2[0]:
-        print("AutoJs6 drawer: %s ON." % label)
-        return True
-    return False
+    if sw2 and sw2[0] == want_on:
+        return "ok"
+    return "failed"
+
+
+def load_drawer_defaults() -> dict:
+    if not DRAWER_DEFAULTS.is_file():
+        return {"on": [], "off": [], "skip_labels": []}
+    return json.loads(DRAWER_DEFAULTS.read_text())
+
+
+def apply_drawer_defaults(serial: str) -> list[str]:
+    """Apply shared/autojs6_drawer_defaults.json via drawer UI. Returns failure labels."""
+    data = load_drawer_defaults()
+    skip = set(data.get("skip_labels") or []) | {DRAWER_A11Y, DRAWER_SHIZUKU}
+    failures: list[str] = []
+    return_to_autojs6(serial)
+    open_drawer(serial)
+    scroll_drawer_to_top(serial)
+    items: list[tuple[str, bool]] = []
+    # ON before OFF — Foreground service lives near top of drawer.
+    for label in data.get("on") or []:
+        if label not in skip:
+            items.append((label, True))
+    for label in data.get("off") or []:
+        if label not in skip:
+            items.append((label, False))
+    for label, want_on in items:
+        scroll_drawer_to_top(serial)
+        sw = find_drawer_switch(serial, label, reset=False)
+        if sw is None:
+            if label in CRITICAL_DRAWER_ON:
+                failures.append("%s (missing)" % label)
+            else:
+                print("WARN: drawer row not found (skipped): %s" % label)
+            continue
+        if sw[0] == want_on:
+            state = "ON" if want_on else "OFF"
+            print("AutoJs6 drawer: %s already %s." % (label, state))
+            continue
+        print("Setting drawer %s -> %s..." % (label, "ON" if want_on else "OFF"))
+        tap(serial, (sw[1], sw[2]))
+        time.sleep(2)
+        dismiss_dialogs(serial)
+        return_to_autojs6(serial)
+        open_drawer(serial)
+        scroll_drawer_to_top(serial)
+        sw2 = find_drawer_switch(serial, label, reset=False)
+        if not sw2 or sw2[0] != want_on:
+            failures.append("%s (want %s)" % (label, "ON" if want_on else "OFF"))
+    return failures
+
+
+def drawer_switch_states(serial: str) -> dict[str, str]:
+    states: dict[str, str] = {}
+    data = load_drawer_defaults()
+    labels = set(data.get("on") or []) | set(data.get("off") or [])
+    labels.update((DRAWER_A11Y, DRAWER_SHIZUKU))
+    return_to_autojs6(serial)
+    open_drawer(serial)
+    scroll_drawer_to_top(serial)
+    for label in sorted(labels):
+        sw = find_drawer_switch(serial, label, reset=False)
+        if sw is None:
+            states[label] = "missing"
+        else:
+            states[label] = "ON" if sw[0] else "OFF"
+    return states
 
 
 def enable_accessibility(serial: str) -> bool:
@@ -353,13 +444,12 @@ def report_debug_state(serial: str, alias: str) -> None:
     sys.stderr.write("accessibility_enabled: %s\n" % (
         (adb(serial, "settings", "get", "secure", "accessibility_enabled").stdout or "").strip()
     ))
-    sw_a = find_drawer_switch(serial, DRAWER_A11Y)
-    sw_s = find_drawer_switch(serial, DRAWER_SHIZUKU)
-    sys.stderr.write("drawer Accessibility switch: %s\n" % (sw_a,))
-    sys.stderr.write("drawer Shizuku switch: %s\n" % (sw_s,))
     sys.stderr.write("shizuku_server: %s\n" % ("up" if shizuku_server_running(serial) else "down"))
     sys.stderr.write("pm shizuku grant visible: %s\n" % pm_shizuku_granted(serial))
     sys.stderr.write("foreground package: %s\n" % foreground_package(serial))
+    for label, state in drawer_switch_states(serial).items():
+        sys.stderr.write("drawer %s: %s\n" % (label, state))
+    sys.stderr.write("drawer defaults file: %s\n" % DRAWER_DEFAULTS)
     sys.stderr.write("Re-run: ./autojs6/mac/enable_autojs6_shizuku.py %s\n" % alias)
     sys.stderr.write("Ensure: screen unlocked, Shizuku running, AutoJs6 installed.\n")
     sys.stderr.write("=== end debug bundle ===\n")
@@ -393,10 +483,20 @@ def main(argv: list[str] | None = None) -> int:
 
             return_to_autojs6(serial)
 
+            drawer_failures = apply_drawer_defaults(serial)
+            critical = [f for f in drawer_failures
+                        if any(c in f for c in CRITICAL_DRAWER_ON)]
+            if critical:
+                sys.stderr.write("ERROR: critical drawer settings failed: %s\n" % ", ".join(critical))
+                report_debug_state(serial, alias)
+                return 1
+            if drawer_failures:
+                print("WARN: non-critical drawer settings: %s" % ", ".join(drawer_failures))
+
             if verify_shizuku_drawer(serial) and a11y_enabled(serial):
                 run_shizuku_probe(serial)
                 adb(serial, "input", "keyevent", "KEYCODE_HOME")
-                print("AutoJs6 accessibility + Shizuku enabled on %s." % alias)
+                print("AutoJs6 fleet drawer + Shizuku enabled on %s." % alias)
                 return 0
 
             if not enable_drawer_switch(serial, DRAWER_SHIZUKU):
@@ -407,7 +507,7 @@ def main(argv: list[str] | None = None) -> int:
             if verify_shizuku_drawer(serial) and a11y_enabled(serial):
                 run_shizuku_probe(serial)
                 adb(serial, "input", "keyevent", "KEYCODE_HOME")
-                print("AutoJs6 accessibility + Shizuku enabled on %s." % alias)
+                print("AutoJs6 fleet drawer + Shizuku enabled on %s." % alias)
                 return 0
 
             report_debug_state(serial, alias)

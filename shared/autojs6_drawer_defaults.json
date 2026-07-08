@@ -1,0 +1,29 @@
+{
+  "on": [
+    "Accessibility service",
+    "Foreground service",
+    "Shizuku access",
+    "Post notifications",
+    "All files access",
+    "Ignore battery optimizations",
+    "Display over other apps"
+  ],
+  "off": [
+    "Floating button",
+    "Pointer location",
+    "Client mode",
+    "Server mode",
+    "Keep screen on when in foreground"
+  ],
+  "skip_labels": [
+    "Notification access",
+    "Usage stats access",
+    "Write system settings",
+    "Write security settings",
+    "Project media access",
+    "Settings",
+    "Plugins",
+    "Restart",
+    "Exit"
+  ]
+}
