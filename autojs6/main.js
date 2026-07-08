@@ -22,6 +22,10 @@ try {
     config.ensureDirs(profile);   // create shared dirs (self-heal)
 } catch (e) { /* best effort — cycles mkdir on demand too */ }
 
+if (profile.usingGenericDefaults) {
+    log.append("[watchdog] WARNING: device.json missing — device=generic; run Ansible fleet deploy for tap coords");
+}
+
 // Keep script process alive under Doze (AutoJs6 6.6+)
 try {
     if (typeof timers !== "undefined" && timers.keepAlive) {

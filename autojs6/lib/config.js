@@ -79,6 +79,7 @@ var PROFILE_DEFAULTS = {
 
 function detectDeviceProfile() {
     var profile = {};
+    var profileSource = "";
     var candidates = [
         "/sdcard/stayturgid/state/device.json",
         DEVICE_JSON,
@@ -88,14 +89,12 @@ function detectDeviceProfile() {
         try {
             if (files.exists(candidates[i])) {
                 profile = JSON.parse(String(files.read(candidates[i]))) || {};
+                profileSource = candidates[i];
                 break;
             }
         } catch (e) {
             console.warn("[stayturgid] unreadable " + candidates[i] + ": " + e);
         }
-    }
-    if (!profile.id) {
-        console.warn("[stayturgid] no device profile — run Ansible fleet deploy; using generic defaults");
     }
     var merged = {};
     for (var k in PROFILE_DEFAULTS) {
@@ -104,6 +103,10 @@ function detectDeviceProfile() {
     }
     if (profile.sdRoot) {
         merged.sdRoot = profile.sdRoot;
+    }
+    merged.usingGenericDefaults = !profileSource || !profile.id;
+    if (merged.usingGenericDefaults) {
+        console.warn("[stayturgid] device.json missing or incomplete — run Ansible fleet deploy; device=generic (no tap coords)");
     }
     // legacy field name kept for shizuku.js compatibility
     merged.samsungWirelessDebugFallback = merged.wirelessDebugUiFallback;

@@ -1,5 +1,9 @@
 # Changelog — stayturgid.termux
 
+## 1.5.0 (2026-07-08)
+
+- `stayturgid_repair_check` module — run repair script and parse STATUS line.
+
 ## 1.4.0 (2026-07-07)
 
 - `termux_sshd` module; role uses it for keys + PerSourcePenalties.

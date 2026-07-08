@@ -176,16 +176,12 @@
   when: stayturgid_automation_mode is defined and stayturgid_automation_mode | length > 0
 
 - name: Verify the repair script runs
-  ansible.builtin.shell: "{{ termux_home }}/.stayturgid/bin/stayturgid-repair.sh"
-  args:
-    executable: /data/data/com.termux/files/usr/bin/bash
+  stayturgid.termux.stayturgid_repair_check:
+    repair_script: "{{ termux_home }}/.stayturgid/bin/stayturgid-repair.sh"
+    termux_prefix: "{{ termux_prefix }}"
   register: repair_check
-  changed_when: false
-  failed_when: repair_check.rc != 0 and repair_check.rc != 1
 
-# The verify task is skipped in --check mode (shell tasks don't dry-run),
-# leaving stdout_lines empty — guard so check mode stays clean.
 - name: Show repair STATUS line
   ansible.builtin.debug:
-    msg: "{{ repair_check.stdout_lines | last }}"
-  when: repair_check.stdout_lines is defined and repair_check.stdout_lines | length > 0
+    msg: "{{ repair_check.status_line }}"
+  when: repair_check.status_line is defined and repair_check.status_line | length > 0

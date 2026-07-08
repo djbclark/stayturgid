@@ -7,14 +7,11 @@
 > Human-only tasks: [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md). Operator
 > answers: `human/RESPONSES.md` (gitignored). Session context: [HANDOFF.md](HANDOFF.md).
 
-**Fleet snapshot (2026-07-08):** `make test` green at `2d7f142`. **s24** 16/16
-verify + tailscale-down test pass. **hd8** termux OK over SSH; Mac adb needs
-USB bootstrap for AutoJs6 deploy tail. **p7a** was 16/16 after deploy; currently
-adb-unreachable (Tailscale down, LAN flaky).
+**Fleet snapshot (2026-07-08):** `make test` green. **s24** 16/16 verify + tailscale-down
+test pass. **hd8** 16/16 verify after USB bootstrap; wireless adb on Tailscale/LAN.
+**p7a** adb-unreachable (Tailscale down, LAN flaky).
 
-**Suggested agent order (no human input):** **31** → **34** → **36** → **35** → **37**
-
-When hd8 USB is available: **40** → **41** first. Item **42** when p7a adb returns.
+**Suggested agent order:** **42** when p7a adb returns. Human: **H3** for full fleet deploy.
 
 ---
 
@@ -27,16 +24,13 @@ When hd8 USB is available: **40** → **41** first. Item **42** when p7a adb ret
 | 15 | agent | Wire `stayturgid_ensure_apps` in group_vars with a real app list; prove on s24 | H1 for Play-sourced apps |
 | 18 | agent | Neo Store repo DB import path if `fdroid_repo_push` intents fail | logcat / device observation |
 | 27 | agent | `./mac/deploy_fleet.py` all hosts | **H3** |
-| 31 | agent | `stayturgid_repair_check` Ansible module (SSH → parse watchdog STATUS) | — |
-| 34 | agent | **M5** Pixel idle detection — add Nexus launcher to agent-presence allowlist | — |
-| 35 | agent | **M10** Termux `termux.properties` — `lineinfile` + `termux-reload-settings` handler | — |
-| 36 | agent | **L4** AutoJs6 — warn when `device=generic` (missing `device.json`) | — |
-| 37 | agent | Push collection git tags + verify `collection-build` GitHub workflow | — |
 | 38 | agent | Galaxy publish all collections | **H5** |
-| 40 | agent | hd8 USB → `./autojs6/mac/deploy.py hd8` + finish `deploy_fleet.py hd8` tail | **H3** (USB) |
-| 41 | agent | `make verify HOSTS=hd8` after USB bootstrap (expect wireless failover) | **40** |
 | 42 | agent | `./autojs6/mac/test_tailscale_down.py p7a` (second-host regression) | p7a adb reachable (USB or Tailscale) |
 
 **Non-goals:** MDM / root / Play Protect bypass; full Obtainium API; large Ansible
 refactor without operator approval ([HANDOFF.md appendix](HANDOFF.md#appendix--architecture-research-unified-orchestration-research-only--not-approved));
 Galaxy publish without token.
+
+**Closed this session (2026-07-08):** 31 `stayturgid_repair_check` module; 34 M5 Nexus
+launcher (already in agent-presence); 35 M10 termux.properties lineinfile (already in
+role); 36 L4 generic-profile warning; 37 termux 1.5.0 tag; 40–41 hd8 deploy+verify.
