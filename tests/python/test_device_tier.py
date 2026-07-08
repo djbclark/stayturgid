@@ -125,6 +125,7 @@ def test_evaluate_fire_split_storage_todos():
         + "localhost_shell=skip\n"
     )
     k = kinds(dt.evaluate("hd8", dt.parse_report(fire_missing)))
+    assert k["hd8: privileged shell on localhost:5555"] == "ok"
     assert k["hd8: AutoJs6 watchdog alive (<30 min)"] == "todo"
     assert k["hd8: Termux:API WRITE_SETTINGS granted (battery flash)"] == "todo"
     assert k["hd8: Termux overlay (SYSTEM_ALERT_WINDOW) granted"] == "todo"

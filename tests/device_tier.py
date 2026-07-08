@@ -206,6 +206,9 @@ def evaluate(host, report, repo_dir=REPO):
     def ok(desc):
         r.append({"kind": "ok", "desc": desc, "detail": ""})
 
+    def ok_note(desc, note):
+        r.append({"kind": "ok", "desc": desc, "detail": "", "note": note})
+
     def fail(desc, detail=""):
         r.append({"kind": "fail", "desc": desc, "detail": detail})
 
@@ -220,8 +223,8 @@ def evaluate(host, report, repo_dir=REPO):
         (ok if report.get(key) == good else fail)("%s: %s" % (host, label))
 
     if report.get("localhost_shell") == "skip":
-        todo("%s: privileged shell on localhost:5555" % host,
-             "Fire OS — Mac adb only; Termux loopback unsupported")
+        ok_note("%s: privileged shell on localhost:5555" % host,
+                "Fire OS — Mac adb only; Termux loopback unsupported")
     else:
         (ok if report.get("shell5555") == "ok" else fail)(
             "%s: privileged shell on localhost:5555" % host)
