@@ -59,21 +59,29 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 
 ## 🚦 Cold-start — current state (read this first)
 
-**As of 2026-07-08.** Three-device fleet: **s24**, **p7a**, **hd8**. HEAD `42c5859`.
-`make test` green (shell TAP + pytest + ansible-test collection units).
+**As of 2026-07-09.** Three-device fleet: **s24**, **p7a**, **hd8**.
+On-device post-UI (Obtainium / Aurora / AutoJs6) runs on s24/p7a via Termux
+`localhost:5555`; hd8 stays Mac USB. See [OPTIONS.md](OPTIONS.md).
 
 **Fleet health:**
 
 | Host | Verify | Mac adb | Notes |
 |------|--------|---------|-------|
-| s24 | **16/16 PASS** | USB wireless-debug / Tailscale | Lab reference; PiP clearance + drawer defaults deployed |
-| p7a | **16/16** (last run) | mDNS + Tailscale | a11y profile restored (6 services); may need Tailscale/USB when offline |
-| hd8 | **16/16 PASS** (Fire OS) | **USB** `GN43T503430603PS` + wireless | Aurora background dialog fixed; harden before Aurora in deploy |
+| s24 | **16/16 PASS** (post deploy soak) | USB / LAN / Tailscale | Lab reference; drawer item **46** still open |
+| p7a | **16/16** (last run) | mDNS + Tailscale | may need Tailscale/USB when offline |
+| hd8 | **16/16 PASS** (Fire OS) | **USB** + wireless | No Termux→5555; Mac USB post-UI |
+
+**Recent landings (2026-07-09):**
+- On-device deterministic GUI: `termux/py/stayturgid_{import_catalog,configure_aurora,enable_autojs6,screen_control,shell,grant_shizuku}.py` + `~/.stayturgid/lib/` (`ui_parse`, `ui_clearance`, `a11y_services`).
+- Mac post-UI wrappers SSH-invoke on s24/p7a; hd8 USB fallback. Aurora/AutoJs6 taps gated through `session.shell`.
+- `screen_control` presence path `~/.stayturgid/bin/agent-presence.sh`; request-screen fails closed on missing script.
+- Portfolio 2 `site.yml` + thin `deploy_fleet.py`; ADR 001.
+- shell-gpt / local LLM research: [docs/research/on-device-llm.md](docs/research/on-device-llm.md) (OPTIONS track **E**).
 
 **Recent landings (2026-07-08):**
 - AutoJs6 fleet drawer profile (`autojs6_drawer_defaults.json`, `enable_autojs6_shizuku.py`).
 - Accessibility merge-only + `mac/a11y_services.py` backup/restore (`shared/a11y_profiles.json`).
-- PiP/overlay clearance at `ScreenControlSession` start (`shared/mac/ui_clearance.py`).
+- PiP/overlay clearance at `ScreenControlSession` start (`shared/ui_clearance.py`).
 - Fleet app harden before Aurora; Fire OS background-run dialog handling.
 - Deploy order: harden → `configure_aurora` → `enable_autojs6_shizuku`.
 - AutoJs6 upstream fleet-config request: [issue #553](https://github.com/SuperMonster003/AutoJs6/issues/553).
@@ -89,7 +97,7 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 
 **⚠ hd8 Fire OS caveats:**
 - Split storage — Termux under `~/.stayturgid/shared`; AutoJs6 under `/sdcard/stayturgid/`.
-- No Termux→localhost:5555 loopback — verify item 4 is an expected informational note, not a failure.
+- No Termux→localhost:5555 loopback — verify item 4 is an expected informational note, not a failure. Post-UI stays on Mac USB.
 - Mac adb: Tailscale or USB `GN43T503430603PS`; wireless failover works after one USB bootstrap.
 
 **Next work:** [OPTIONS.md](OPTIONS.md) — open items only. Human unlocks: [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md).
@@ -202,16 +210,16 @@ Before any device interaction, emit a standalone message naming the phone(s): **
 **Device guard:** boot loop runs `agent-presence.sh guard` every 5 min — keeps inversion + notification alive while a lease is active; clears both when the lease expires.
 
 ```bash
-ssh s24 '~/agent-presence.sh request-screen "Galaxy S24" Auto'
-ssh s24 '~/agent-presence.sh on  "Galaxy S24" Auto'
-ssh s24 '~/agent-presence.sh off "Galaxy S24" Auto'
-ssh s24 '~/agent-presence.sh status'
+ssh s24 '~/.stayturgid/bin/agent-presence.sh request-screen "Galaxy S24" Auto'
+ssh s24 '~/.stayturgid/bin/agent-presence.sh on  "Galaxy S24" Auto'
+ssh s24 '~/.stayturgid/bin/agent-presence.sh off "Galaxy S24" Auto'
+ssh s24 '~/.stayturgid/bin/agent-presence.sh status'
 # gate = consent when phone actively in use; stop-requested = graceful stop poll
 ```
 
 `STAYTURGID_SKIP_PRESENCE=1` for local debugging only. Ansible now grants `POST_NOTIFICATIONS` to Termux on deploy (fixes silent `termux-notification`).
 
-The protocol is **shared, agent-agnostic infrastructure** — do NOT fork per-agent copies. Any agent (Claude/GPT/Gemini) identifies via the 3rd arg / `STAYTURGID_AGENT`, aborts on `request-screen` exit 75, and on `stop-requested` exit 0 has ~1 min to wrap up. Script: `termux/claude-presence.sh` (repo) → `~/agent-presence.sh` (device); `agent-presence.sh` is the current name, `claude-presence.sh` a compat shim.
+The protocol is **shared, agent-agnostic infrastructure** — do NOT fork per-agent copies. Any agent (Claude/GPT/Gemini) identifies via the 3rd arg / `STAYTURGID_AGENT`, aborts on `request-screen` exit 75, and on `stop-requested` exit 0 has ~1 min to wrap up. Script: `termux/claude-presence.sh` (repo) → `~/.stayturgid/bin/agent-presence.sh` (device); `claude-presence.sh` is a compat shim in the same bin dir. On-device post-UI uses `stayturgid_screen_control.py` (local presence, no Mac SSH).
 
 ### Shell conventions
 Never assume the default shell — macOS is zsh, **Termux has no zsh by default**. Declare bash in every shebang; run remote commands via `ssh host 'bash -s'` (stdin), never bare through the login shell. The Bash tool here runs zsh: brace `${var}` before `:`; quote whole remote command strings. `set -e` deliberately NOT used in boot/loop/runtime scripts (a boot loop must survive individual command failures).
@@ -309,10 +317,11 @@ next investments:
 
 | Track | Summary | Best when… |
 |-------|---------|------------|
-| **A — Operational** | Deploy, verify, human unblockers (H1–H3, item 27) | Fleet drift or untested landings need a live soak |
+| **A — Operational** | Deploy, verify, human unblockers (H1–H3, item 46) | Fleet drift or untested landings need a live soak |
 | **B — Ansible-native** | `site.yml` composition, more modules/roles, thin `deploy_fleet.py` | You want one idempotent graph, Galaxy-ready collections, less orchestration scatter |
 | **C — Hybrid polish** | Keep `deploy_fleet.py` orchestrator; dedupe scripts, fix ordering, incremental modules only | Lowest risk; Ansible grows only where pain is acute |
 | **D — Python orchestrator** | Replace Ansible boundary with Fabric/Invoke + shared `adb_cli` / `screen_control` | UI-heavy flows dominate and YAML becomes friction |
+| **E — On-device LLM** | shell-gpt escalation after deterministic heal; see [docs/research/on-device-llm.md](docs/research/on-device-llm.md) | Rare adaptive repair; never hot-path |
 
 **No track fixes:** Play Protect, PIN unlock, DHCP LAN IP, Samsung Shizuku/content-URI
 quirks. **MDM and root remain rejected** (daily-driver phones; locked S24 bootloader).

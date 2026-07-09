@@ -9,10 +9,11 @@ Shell scripts that run **on the phone** inside Termux. Usable without AutoJs6 or
 | Piece | Role |
 |-------|------|
 | `stayturgid-repair.sh` | Self-heal sshd, localhost:5555 ADB, Shizuku; prints `STATUS …` for callers |
-| `repair-bridge.sh` | Polls `/sdcard/stayturgid_repair_now`; runs repair within ~2s (AutoJs6 fallback) |
+| `repair-bridge.sh` | Polls `/sdcard/stayturgid/run/repair_now`; runs repair within ~2s (AutoJs6 fallback) |
 | `agent-presence.sh` | Agent session indicator (torch, notification, optional consent `gate`) |
-| `check-repo-version.sh` | Optional: notify when `version.json` on GitHub is newer |
-| `stayturgid-battery-alarm.sh` | Tiered low-battery alerts (screen color blinks, torch, notification) |
+| `stayturgid_import_catalog.py` etc. | On-device post-UI (Obtainium / Aurora / AutoJs6) via `localhost:5555` |
+| `stayturgid_screen_control.py` | On-device consent + inversion gate (same policy as Mac `ScreenControlSession`) |
+| `check-repo-version` / battery / screen-awake | Python under `~/.stayturgid/bin/` (see `py/`) |
 | `boot/start-adb.sh` | Termux:Boot: sshd, wake-lock, 5-min self-heal loop, battery tier check |
 | `boot/start-repair-bridge.sh` | Starts `repair-bridge.sh` at boot |
 | `boot/start-autojs6-watchdog.sh` | Launches AutoJs6 `boot-launcher.js` after boot |
@@ -51,13 +52,14 @@ Deploys `stayturgid-repair.sh`, `repair-bridge.sh`, `agent-presence.sh`, `check-
 ## Logs and status
 
 ```bash
-~/stayturgid-repair.sh
-tail -f ~/.stayturgid-repair.log
-tail -f /sdcard/stayturgid_watchdog.log
+~/.stayturgid/bin/stayturgid-repair.sh
+tail -f ~/.stayturgid/logs/repair.log
+tail -f /sdcard/stayturgid/logs/watchdog.log
 ```
 
 ## Related docs
 
 - [HACKING.md §1.4](../HACKING.md) — manual Termux setup
 - [HANDOFF.md](../HANDOFF.md) — repair architecture
+- [docs/research/on-device-llm.md](../docs/research/on-device-llm.md) — optional shell-gpt escalation (not hot-path)
 - [autojs6/README.md](../autojs6/README.md) — watchdog layer

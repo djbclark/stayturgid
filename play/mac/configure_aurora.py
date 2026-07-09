@@ -18,6 +18,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, os.path.join(REPO, "shared", "mac"))
 import stayturgid_device as dev  # noqa: E402
 import screen_control as sc  # noqa: E402
+import post_ui_remote as remote  # noqa: E402
 
 AURORA_PKG = "com.aurora.store"
 BACKGROUND_DIALOG_MARKERS = (
@@ -31,8 +32,17 @@ AURORA_BACKGROUND_APPOPS = (
     ("AUTO_REVOKE_PERMISSIONS_IF_UNUSED", "ignore"),
 )
 
+# Bound inside ScreenControlSession so input is inversion-gated.
+_SHELL = None
+
 
 def adb(serial, *args, timeout=30):
+    if _SHELL is not None:
+        rc, out = _SHELL(*args, timeout=timeout)
+        class _R(object):
+            returncode = rc
+            stdout = out
+        return _R()
     return subprocess.run(
         ["adb", "-s", serial, "shell"] + list(args),
         capture_output=True,
@@ -242,16 +252,21 @@ def configure_auto_updates(serial):
 
 
 def main(argv=None):
+    global _SHELL
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
         sys.stderr.write("usage: configure_aurora.py <p7a|s24|hd8|serial>\n")
         return 2
 
     host = argv[0]
+    if remote.host_uses_on_device_ui(host):
+        return remote.ssh_run_on_device(host, "stayturgid_configure_aurora.py", [])
+
     serial = dev.resolve_adb(host)
     subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
     try:
-        with sc.ScreenControlSession(host, label=host):
+        with sc.ScreenControlSession(host, label=host) as session:
+            _SHELL = session.shell
             ensure_background_unrestricted(serial)
             dismiss_background_run_dialog(serial)
             open_aurora(serial)
@@ -266,6 +281,8 @@ def main(argv=None):
     except sc.ScreenControlError as e:
         sys.stderr.write("ERROR: %s\n" % e)
         return 1
+    finally:
+        _SHELL = None
     return 0
 
 

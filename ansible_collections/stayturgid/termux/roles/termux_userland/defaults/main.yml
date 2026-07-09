@@ -40,6 +40,32 @@ stayturgid_py_scripts:
   - stayturgid_battery_alarm.py
   - stayturgid_repair.py
   - stayturgid_autojs6_guard.py
+  - stayturgid_shell.py
+  - stayturgid_screen_control.py
+  - stayturgid_grant_shizuku.py
+  - stayturgid_import_catalog.py
+  - stayturgid_configure_aurora.py
+  - stayturgid_enable_autojs6.py
+
+# Shared libs copied to ~/.stayturgid/lib/ (imported by on-device UI scripts).
+stayturgid_lib_files:
+  - src: shared/ui_parse.py
+    dest: ui_parse.py
+  - src: shared/ui_clearance.py
+    dest: ui_clearance.py
+  - src: shared/a11y_services.py
+    dest: a11y_services.py
+
+# Data files for on-device post-UI automation.
+stayturgid_ui_data_files:
+  - src: obtainium/stayturgid-apps.json
+    dest: catalog/stayturgid-apps.json
+  - src: obtainium/autojs6-only.json
+    dest: catalog/autojs6-only.json
+  - src: shared/autojs6_drawer_defaults.json
+    dest: autojs6_drawer_defaults.json
+  - src: shared/a11y_profiles.json
+    dest: a11y_profiles.json
 
 # Deployed shell scripts to remove from devices (migrated to Python).
 stayturgid_retired_scripts:

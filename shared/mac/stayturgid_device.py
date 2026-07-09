@@ -11,6 +11,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 
 DEVICES_CONF = os.environ.get(
     "STAYTURGID_DEVICES_CONF",
@@ -114,78 +115,16 @@ def resolve_ssh_host(alias, conf_path=None):
     return alias if device_row(alias, conf_path) else ""
 
 
-def parse_switch(xml, label):
-    """From a uiautomator XML dump, find the Switch adjacent to <label> and
-    return (checked_bool, cx, cy) center, or None. Replaces the fragile
-    `tr '>' '\n' | grep -A1 | sed` pipeline."""
-    if label not in (xml or ""):
-        return None
-    # nodes after the label text, up to the first Switch
-    idx = xml.index(label)
-    tail = xml[idx:]
-    m = re.search(
-        r'android\.widget\.Switch[^>]*?checked="(true|false)"[^>]*?'
-        r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"', tail)
-    if not m:
-        # attribute order varies; try bounds-before-checked
-        m = re.search(
-            r'android\.widget\.Switch[^>]*?bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"'
-            r'[^>]*?checked="(true|false)"', tail)
-        if not m:
-            return None
-        x1, y1, x2, y2, checked = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5)
-    else:
-        checked, x1, y1, x2, y2 = m.group(1), m.group(2), m.group(3), m.group(4), m.group(5)
-    cx = (int(x1) + int(x2)) // 2
-    cy = (int(y1) + int(y2)) // 2
-    return (checked == "true", cx, cy)
-
-
-def parse_button_center(xml, resource_id):
-    """Center (cx, cy) of the node with the given resource-id, or None."""
-    m = re.search(
-        re.escape(resource_id) + r'"[^>]*?bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',
-        xml or "")
-    if not m:
-        return None
-    x1, y1, x2, y2 = (int(m.group(i)) for i in range(1, 5))
-    return ((x1 + x2) // 2, (y1 + y2) // 2)
-
-
-def parse_text_center(xml, text):
-    """Center of a node whose text= attribute equals text (exact match)."""
-    if not xml or not text:
-        return None
-    esc = re.escape(text)
-    m = re.search(
-        r'text="' + esc + r'"[^>]*?bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',
-        xml)
-    if not m:
-        m = re.search(
-            r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"[^>]*?text="' + esc + r'"',
-            xml)
-    if not m:
-        return None
-    x1, y1, x2, y2 = (int(m.group(i)) for i in range(1, 5))
-    return ((x1 + x2) // 2, (y1 + y2) // 2)
-
-
-def parse_content_desc_center(xml, desc):
-    """Center of a node whose content-desc equals desc (exact match)."""
-    if not xml or not desc:
-        return None
-    esc = re.escape(desc)
-    m = re.search(
-        r'content-desc="' + esc + r'"[^>]*?bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"',
-        xml)
-    if not m:
-        m = re.search(
-            r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"[^>]*?content-desc="' + esc + r'"',
-            xml)
-    if not m:
-        return None
-    x1, y1, x2, y2 = (int(m.group(i)) for i in range(1, 5))
-    return ((x1 + x2) // 2, (y1 + y2) // 2)
+# Pure XML parsers live in shared/ui_parse.py (Mac + Termux).
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO not in sys.path:
+    sys.path.insert(0, _REPO)
+from ui_parse import (  # noqa: E402
+    parse_button_center,
+    parse_content_desc_center,
+    parse_switch,
+    parse_text_center,
+)
 
 
 # --------------------------------------------------------------------------

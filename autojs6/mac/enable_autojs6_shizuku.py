@@ -24,6 +24,7 @@ sys.path.insert(0, str(REPO_ROOT / "shared" / "mac"))
 import a11y_services as a11y  # noqa: E402
 import stayturgid_device as dev  # noqa: E402
 import screen_control as sc  # noqa: E402
+import post_ui_remote as remote  # noqa: E402
 
 AUTOJS_PKG = "org.autojs.autojs6"
 AUTOJS_RUN = "org.autojs.autojs.external.open.RunIntentActivity"
@@ -37,6 +38,9 @@ GRANT = Path(__file__).resolve().parent / "grant_shizuku.py"
 DRAWER_DEFAULTS = REPO_ROOT / "shared" / "autojs6_drawer_defaults.json"
 DRAWER_SCROLL_ROUNDS = 8
 CRITICAL_DRAWER_ON = frozenset({"Foreground service"})
+
+# Bound inside ScreenControlSession so input is inversion-gated.
+_SHELL = None
 
 PERM_DIALOG_MARKERS = (
     "Allow org.autojs.autojs6 to access Shizuku",
@@ -75,6 +79,14 @@ def backup_a11y_services(serial: str, alias: str) -> str:
 
 
 def adb(serial: str, *args: str, timeout: int = 30) -> subprocess.CompletedProcess:
+    if _SHELL is not None:
+        rc, out = _SHELL(*args, timeout=timeout)
+
+        class _R:
+            returncode = rc
+            stdout = out
+
+        return _R()  # type: ignore[return-value]
     return subprocess.run(
         ["adb", "-s", serial, "shell"] + list(args),
         capture_output=True,
@@ -481,12 +493,16 @@ def report_debug_state(serial: str, alias: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
+    global _SHELL
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
         sys.stderr.write("usage: enable_autojs6_shizuku.py <s24|p7a|hd8|serial>\n")
         return 2
 
     alias = argv[0]
+    if remote.host_uses_on_device_ui(alias):
+        return remote.ssh_run_on_device(alias, "stayturgid_enable_autojs6.py", [alias])
+
     serial = dev.resolve_adb(alias)
     subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
 
@@ -498,7 +514,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        with sc.ScreenControlSession(alias, label=alias):
+        with sc.ScreenControlSession(alias, label=alias) as session:
+            _SHELL = session.shell
             launch_autojs6(serial)
             dismiss_dialogs(serial)
 
@@ -541,6 +558,8 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write("ERROR: %s\n" % e)
         report_debug_state(serial, alias)
         return 1
+    finally:
+        _SHELL = None
 
 
 if __name__ == "__main__":

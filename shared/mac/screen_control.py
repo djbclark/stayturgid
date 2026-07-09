@@ -185,7 +185,8 @@ class ScreenControlSession(object):
             rc, out = ssh_presence(self.host, "request-screen", self.label, self.agent)
             if rc == 75:
                 raise ScreenControlError("screen control denied on %s" % self.host)
-            if rc not in (0, 127):
+            # rc 127 = presence script missing — fail closed (do not skip consent).
+            if rc != 0:
                 raise ScreenControlError(
                     "request-screen failed on %s (rc=%s): %s" % (self.host, rc, out.strip())
                 )

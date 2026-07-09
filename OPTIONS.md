@@ -8,12 +8,13 @@
 > answers: `human/RESPONSES.md` (gitignored). Session context: [HANDOFF.md](HANDOFF.md).
 > Strategic directions: [HANDOFF.md appendix](HANDOFF.md#appendix--strategic-directions-equal-weight).
 > Ansible boundary: [docs/adr/001-ansible-boundary.md](docs/adr/001-ansible-boundary.md).
+> On-device LLM research: [docs/research/on-device-llm.md](docs/research/on-device-llm.md).
 
-**Fleet snapshot (2026-07-09):** HEAD `598a4dd` — s24 `site.yml` soak done;
-`make verify HOSTS=s24` **16/16 PASS**; `validate.yml` green. Post-UI Obtainium +
-Aurora OK; `enable_autojs6_shizuku.py` drawer step still fails (a11y+Shizuku up).
+**Fleet snapshot (2026-07-09):** On-device post-UI + screen-control ported (s24/p7a
+via SSH → Termux `localhost:5555`; hd8 stays Mac USB). Item **46** drawer verify
+still open. See track **E** whenever options are requested.
 
-**Suggested agent order:** **46** AutoJs6 drawer on s24 → human **H3** fleet expand → **H1** → **15b**.
+**Suggested agent order:** deploy Termux UI libs to s24 → **46** drawer → human **H3** → **H1** → **15b**. Consider **54** only after deterministic heal is solid.
 
 ---
 
@@ -24,6 +25,7 @@ Aurora OK; `enable_autojs6_shizuku.py` drawer step still fails (a11y+Shizuku up)
 | **A — Operational** | Live deploy, human unblockers | H1–H3, 15b, 46 |
 | **B — Ansible-native** | *(Portfolio 2 core shipped — 48–52 closed)* | — |
 | **D — Reliability** | Symptom-driven | 43–45 |
+| **E — On-device LLM (future)** | shell-gpt escalation; not hot-path | 54 |
 
 ---
 
@@ -37,7 +39,7 @@ Aurora OK; `enable_autojs6_shizuku.py` drawer step still fails (a11y+Shizuku up)
 | H5 | human | Galaxy publish API token (optional) | — |
 | 15b | agent | Add `source: play` entries to `stayturgid_ensure_apps` after H1 | **H1** |
 | 38 | agent | Galaxy publish all collections | **H5** |
-| 46 | agent | Fix `enable_autojs6_shizuku.py` drawer verify on s24 (Shizuku drawer toggle) | unlocked screen |
+| 46 | agent | Fix AutoJs6 drawer verify on s24 (on-device `stayturgid_enable_autojs6.py`) | unlocked screen |
 
 ---
 
@@ -51,7 +53,21 @@ Aurora OK; `enable_autojs6_shizuku.py` drawer step still fails (a11y+Shizuku up)
 
 ---
 
-**Non-goals:** MDM / root / Play Protect bypass; full Obtainium API; Tasker rebuild; AutoJs6 debug APK (#553).
+### Track E — On-device LLM (future; always consider when asked for options)
 
-**Closed (2026-07-09):** **27** s24 live deploy + verify (`598a4dd` screen_control + device_tier fixes).
-Portfolio 2 — **48–52**, **53**; `termux_ssh_bootstrap`. **Closed (2026-07-08):** drawer, a11y, PiP, Aurora order, #553.
+| ID | Who | Item | Blocker |
+|----|-----|------|---------|
+| 54 | agent | Spike shell-gpt escalation after deterministic repair fails (allowlisted cmds; consent for `input`) | research note |
+
+**Research verdict** ([docs/research/on-device-llm.md](docs/research/on-device-llm.md)):
+
+- **shell-gpt** on Termux is the right experiment; **aider-chat** is a poor fit (install pain + wrong job).
+- **Local 1.5B–3B** models on s24/p7a are smart enough as a *bounded advisor*, **not** to own self-heal or GUI.
+- **Never** put LLM in the 5-min repair hot path; AutoJs6 catastrophic path stays mandatory when 5555 is dead.
+- Prefer cloud API for quality escalation; local Ollama only for offline/privacy spikes.
+
+---
+
+**Non-goals:** MDM / root / Play Protect bypass; full Obtainium API; Tasker rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal; always-on Ollama in Termux:Boot.
+
+**Closed (2026-07-09):** **55** on-device deterministic GUI/self-heal (Termux post-UI + `ScreenControlSession` + PiP clearance; Mac wrappers SSH-invoke; hd8 USB fallback). **27** s24 live deploy. Portfolio 2 — **48–52**, **53**. **Closed (2026-07-08):** drawer profile, a11y, PiP, Aurora order, #553.

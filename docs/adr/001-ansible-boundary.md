@@ -28,14 +28,16 @@ Target split: **~80% Ansible / ~20% scripts + on-device logic**.
 |---------|-----|
 | `stayturgid-repair` loop, boot loop, repair bridge | Must run when SSH/adb is down |
 | AutoJs6 `main.js` watchdog | Runtime interval + notifications |
-| Obtainium / Aurora / AutoJs6 drawer UI | `ScreenControlSession` + uiautomator; no stable API |
+| Obtainium / Aurora / AutoJs6 drawer UI | On-device Python (`stayturgid_*`) via Termux `localhost:5555`; Mac wrappers SSH-invoke (hd8 = Mac USB) |
 | Catastrophic Shizuku accessibility tap | Only recovery when shell is gone |
 | Play silent install | No consumer API without MDM |
 | PIN unlock, Play Protect, DHCP LAN | Environmental |
+| Optional LLM escalation (shell-gpt) | Future — [docs/research/on-device-llm.md](../research/on-device-llm.md); never hot-path |
 
 Post-UI scripts (`import_catalog.py`, `configure_aurora.py`,
 `enable_autojs6_shizuku.py`) are **invoked from** `post-ui.yml` as
-`ansible.builtin.command` — orchestration is Ansible; implementation stays Python.
+`ansible.builtin.command` — orchestration is Ansible; execution is on-device
+(s24/p7a) or Mac USB (hd8).
 
 ## Consequences
 

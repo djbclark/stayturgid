@@ -12,9 +12,22 @@ AUTOJS6_A11Y = (
     "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
 )
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-PROFILES_PATH = REPO_ROOT / "shared" / "a11y_profiles.json"
-BACKUPS_DIR = REPO_ROOT / "shared" / "a11y_backups"
+_HERE = Path(__file__).resolve()
+# Repo: shared/a11y_services.py → parents[1] = repo root.
+# On-device: ~/.stayturgid/lib/a11y_services.py → parents[1] = ~/.stayturgid.
+_ROOT = _HERE.parents[1]
+_ON_DEVICE_PROFILES = Path.home() / ".stayturgid" / "a11y_profiles.json"
+_LIB_SIBLING_PROFILES = _ROOT / "a11y_profiles.json"
+_REPO_PROFILES = _ROOT / "shared" / "a11y_profiles.json"
+if _ON_DEVICE_PROFILES.is_file():
+    PROFILES_PATH = _ON_DEVICE_PROFILES
+elif _LIB_SIBLING_PROFILES.is_file():
+    PROFILES_PATH = _LIB_SIBLING_PROFILES
+else:
+    PROFILES_PATH = _REPO_PROFILES
+BACKUPS_DIR = _ROOT / "shared" / "a11y_backups"
+if not BACKUPS_DIR.is_dir():
+    BACKUPS_DIR = _ROOT / "a11y_backups"
 DEVICE_BACKUP_REL = "state/a11y_services_backup.txt"
 
 

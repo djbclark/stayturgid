@@ -1,15 +1,9 @@
 #!/usr/bin/env python3
-"""Import a stayturgid Obtainium catalog without manual confirmation.
-
-Obtainium exposes bulk import via obtainium://apps/<url-encoded-json-array>.
-Opening that URI shows an in-app dialog; this script taps Continue and
-verifies the catalog apps appear in Obtainium.
+"""Import Obtainium catalog — on-device via SSH when possible; Mac USB for hd8.
 
 Usage:
   ./import_catalog.py <p7a|s24|hd8|serial> [all|autojs6|/path/to.json]
-  ./import_catalog.py <host> all --force   # re-import even if already tracked
-
-Requires: unlocked screen, Obtainium installed.
+  ./import_catalog.py <host> all --force
 """
 from __future__ import print_function
 
@@ -26,6 +20,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, os.path.join(REPO, "shared", "mac"))
 import stayturgid_device as dev  # noqa: E402
 import screen_control as sc  # noqa: E402
+import post_ui_remote as remote  # noqa: E402
 
 OBTAINIUM_PKG = "dev.imranr.obtainium"
 CATALOGS = {
@@ -50,7 +45,6 @@ def load_catalog(path):
 
 
 def build_import_uri(apps):
-    """Return obtainium://apps/<encoded-apps-array> for Obtainium's deep link."""
     encoded = urllib.parse.quote(json.dumps(apps, separators=(",", ":")))
     return "obtainium://apps/" + encoded
 
@@ -74,12 +68,10 @@ def import_dialog_visible(ui_xml):
 
 
 def continue_button(ui_xml):
-    """Center of the import dialog Continue button, or None."""
     return center_for_attr(ui_xml, "content-desc", CONTINUE_LABEL)
 
 
 def tracking_label(name):
-    """Obtainium list rows use the short name before any parenthetical."""
     return name.split("(")[0].strip()
 
 
@@ -95,7 +87,6 @@ def app_visible(ui_xml, name):
 
 
 def catalog_tracked(ui_xml, app_names):
-    """True when every catalog app name appears in a uiautomator dump."""
     return all(app_visible(ui_xml, name) for name in app_names)
 
 
@@ -165,7 +156,6 @@ def dismiss_snackbar(serial, ui_xml, shell=None):
 
 
 def dismiss_blocking_dialogs(serial, ui_xml, shell=None):
-    """Close snackbars / error overlays that hide the app list."""
     dismiss_snackbar(serial, ui_xml, shell=shell)
     for label in ("Okay", "OK", "Ok"):
         point = center_for_attr(ui_xml, "content-desc", label)
@@ -217,8 +207,9 @@ def import_catalog(serial, catalog_path, which="all", force=False, shell=None):
     names = [a.get("name") or a["id"] for a in apps]
     canaries = canary_names(which, catalog_path, apps)
 
-    wake(serial)
-    adb_shell(serial, "am", "start", "-n", "%s/.MainActivity" % OBTAINIUM_PKG)
+    wake(serial, shell=shell)
+    runner = shell or (lambda *args, **kw: adb_shell(serial, *args, **kw))
+    runner("am", "start", "-n", "%s/.MainActivity" % OBTAINIUM_PKG)
     time.sleep(2)
     if not force and tracked_with_scroll(serial, canaries, passes=3, shell=shell):
         print("Obtainium catalog already tracked on %s (%d apps)." % (serial, len(names)))
@@ -250,31 +241,16 @@ def resolve_catalog(which):
     raise ValueError("unknown catalog %r (use all, autojs6, or a .json path)" % which)
 
 
-def main(argv=None):
-    argv = argv if argv is not None else sys.argv[1:]
-    if not argv:
-        sys.stderr.write(
-            "usage: import_catalog.py <p7a|s24|hd8|serial> [all|autojs6|path.json] [--force]\n"
-        )
-        return 2
-
-    host = argv[0]
+def main_mac_usb(host, which, force):
     serial = dev.resolve_adb(host)
-    which = "all"
-    force = False
-    for arg in argv[1:]:
-        if arg == "--force":
-            force = True
-        elif not arg.startswith("-"):
-            which = arg
-
     try:
         catalog_path = resolve_catalog(which)
     except ValueError as e:
         sys.stderr.write("ERROR: %s\n" % e)
         return 2
 
-    if not adb_shell(serial, "pm", "path", OBTAINIUM_PKG).stdout.strip():
+    result = adb_shell(serial, "pm", "path", OBTAINIUM_PKG)
+    if not result or not (result.stdout or "").strip():
         sys.stderr.write("ERROR: Obtainium not installed on %s\n" % serial)
         return 1
 
@@ -289,6 +265,32 @@ def main(argv=None):
         sys.stderr.write("ERROR: %s\n" % e)
         return 1
     return 0
+
+
+def main(argv=None):
+    argv = argv if argv is not None else sys.argv[1:]
+    if not argv:
+        sys.stderr.write(
+            "usage: import_catalog.py <p7a|s24|hd8|serial> [all|autojs6|path.json] [--force]\n"
+        )
+        return 2
+
+    host = argv[0]
+    which = "all"
+    force = False
+    for arg in argv[1:]:
+        if arg == "--force":
+            force = True
+        elif not arg.startswith("-"):
+            which = arg
+
+    if remote.host_uses_on_device_ui(host):
+        args = [which]
+        if force:
+            args.append("--force")
+        return remote.ssh_run_on_device(host, "stayturgid_import_catalog.py", args)
+
+    return main_mac_usb(host, which, force)
 
 
 if __name__ == "__main__":

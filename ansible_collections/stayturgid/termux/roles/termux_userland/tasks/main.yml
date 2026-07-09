@@ -118,6 +118,32 @@
     mode: "0755"
   loop: "{{ stayturgid_py_scripts | default([]) }}"
 
+- name: Ensure on-device lib directory exists
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.stayturgid/lib"
+    state: directory
+    mode: "0755"
+
+- name: Ensure on-device catalog directory exists
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.stayturgid/catalog"
+    state: directory
+    mode: "0755"
+
+- name: Deploy shared libs to ~/.stayturgid/lib
+  ansible.builtin.copy:
+    src: "{{ stayturgid_repo_root }}/{{ item.src }}"
+    dest: "{{ termux_home }}/.stayturgid/lib/{{ item.dest }}"
+    mode: "0644"
+  loop: "{{ stayturgid_lib_files | default([]) }}"
+
+- name: Deploy on-device UI data files
+  ansible.builtin.copy:
+    src: "{{ stayturgid_repo_root }}/{{ item.src }}"
+    dest: "{{ termux_home }}/.stayturgid/{{ item.dest }}"
+    mode: "0644"
+  loop: "{{ stayturgid_ui_data_files | default([]) }}"
+
 - name: Remove retired scripts from the old home-root location
   ansible.builtin.file:
     path: "{{ termux_home }}/{{ item }}"
