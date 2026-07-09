@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 """Mac → Termux SSH invoke for on-device post-UI scripts.
 
-s24/p7a: run ~/.stayturgid/bin/<script>.py over SSH (localhost:5555 on device).
-hd8 / no privileged shell: caller keeps Mac USB ScreenControlSession path.
+s24/p7a: prefer SSH → ~/.stayturgid/bin/<script>.py (Termux localhost:5555).
+On SSH failure (connect error or non-zero), fall back to the caller's Mac adb
+path (USB or wireless via resolve_adb).
+
+hd8 / raw serial / no privileged shell: Mac adb only — Fire OS has no
+Termux→localhost:5555 loopback, so SSH-invoking on-device UI cannot work.
 """
 from __future__ import annotations
 
 import os
 import subprocess
 import sys
+from typing import Callable
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if REPO not in sys.path:
@@ -18,12 +23,13 @@ import stayturgid_device as dev  # noqa: E402
 SSH_OPTS = list(dev.SSH_OPTS)
 ON_DEVICE_BIN = "~/.stayturgid/bin"
 
+# Fire OS aliases: no Termux privileged localhost:5555 — never SSH-invoke UI.
+MAC_ADB_ONLY_ALIASES = frozenset({"hd8"})
+
 
 def host_uses_on_device_ui(alias: str) -> bool:
     """True when Termux localhost:5555 is the expected privileged channel."""
-    # Fire OS / hd8: inventory marks privilegedShellExpected false via device.json
-    # on device; Mac-side we treat known Fire alias as USB-only.
-    if alias in ("hd8",):
+    if alias in MAC_ADB_ONLY_ALIASES:
         return False
     row = dev.device_row(alias)
     if not row:
@@ -52,6 +58,29 @@ def ssh_run_on_device(alias: str, script_name: str, args: list[str] | None = Non
         cwd=REPO,
     )
     return r.returncode
+
+
+def run_with_mac_fallback(
+    alias: str,
+    script_name: str,
+    args: list[str] | None,
+    mac_fn: Callable[[], int],
+) -> int:
+    """Prefer on-device SSH when expected; on any failure, run mac_fn (Mac adb).
+
+    hd8 / raw serial skip SSH and call mac_fn immediately.
+    """
+    if not host_uses_on_device_ui(alias):
+        return mac_fn()
+
+    rc = ssh_run_on_device(alias, script_name, args)
+    if rc == 0:
+        return 0
+
+    sys.stderr.write(
+        "WARN: on-device UI via SSH failed (rc=%s) — falling back to Mac adb\n" % rc
+    )
+    return mac_fn()
 
 
 def _shell_quote(text: str) -> str:

@@ -10,9 +10,9 @@
 > Ansible boundary: [docs/adr/001-ansible-boundary.md](docs/adr/001-ansible-boundary.md).
 > On-device LLM research: [docs/research/on-device-llm.md](docs/research/on-device-llm.md).
 
-**Fleet snapshot (2026-07-09):** On-device post-UI + screen-control on s24/p7a;
-item **46** AutoJs6 drawer verify **PASS** on s24 (`shizuku operational=true`).
-See track **E** whenever options are requested.
+**Fleet snapshot (2026-07-09):** Post-UI SSH-first on s24/p7a with Mac adb
+fallback; hd8 Mac adb only (no Fire OS Termux→5555). Item **46** drawer
+**PASS** on s24. See track **E** whenever options are requested.
 
 **Suggested agent order:** human **H3** fleet expand → **H1** → **15b**. Consider **54** only as a future spike.
 
@@ -22,7 +22,7 @@ See track **E** whenever options are requested.
 
 | Track | Focus | Open IDs |
 |-------|-------|----------|
-| **A — Operational** | Live deploy, human unblockers | H1–H3, 15b, 46 |
+| **A — Operational** | Live deploy, human unblockers | H1–H3, 15b |
 | **B — Ansible-native** | *(Portfolio 2 core shipped — 48–52 closed)* | — |
 | **D — Reliability** | Symptom-driven | 43–45 |
 | **E — On-device LLM (future)** | shell-gpt escalation; not hot-path | 54 |
@@ -39,7 +39,6 @@ See track **E** whenever options are requested.
 | H5 | human | Galaxy publish API token (optional) | — |
 | 15b | agent | Add `source: play` entries to `stayturgid_ensure_apps` after H1 | **H1** |
 | 38 | agent | Galaxy publish all collections | **H5** |
-| 46 | agent | Fix AutoJs6 drawer verify on s24 (on-device `stayturgid_enable_autojs6.py`) | unlocked screen |
 
 ---
 
@@ -70,4 +69,4 @@ See track **E** whenever options are requested.
 
 **Non-goals:** MDM / root / Play Protect bypass; full Obtainium API; Tasker rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal; always-on Ollama in Termux:Boot.
 
-**Closed (2026-07-09):** **55** on-device deterministic GUI/self-heal (Termux post-UI + `ScreenControlSession` + PiP clearance; Mac wrappers SSH-invoke; hd8 USB fallback). **27** s24 live deploy. Portfolio 2 — **48–52**, **53**. **Closed (2026-07-08):** drawer profile, a11y, PiP, Aurora order, #553.
+**Closed (2026-07-09):** **56** post-UI Mac adb fallback when SSH-invoke fails (s24/p7a); hd8 Mac-only. **46** AutoJs6 drawer verify on s24. **55** on-device post-UI. **27** s24 live deploy. Portfolio 2 — **48–52**, **53**. **Closed (2026-07-08):** drawer profile, a11y, PiP, Aurora order, #553.

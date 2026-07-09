@@ -28,7 +28,7 @@ Target split: **~80% Ansible / ~20% scripts + on-device logic**.
 |---------|-----|
 | `stayturgid-repair` loop, boot loop, repair bridge | Must run when SSH/adb is down |
 | AutoJs6 `main.js` watchdog | Runtime interval + notifications |
-| Obtainium / Aurora / AutoJs6 drawer UI | On-device Python (`stayturgid_*`) via Termux `localhost:5555`; Mac wrappers SSH-invoke (hd8 = Mac USB) |
+| Obtainium / Aurora / AutoJs6 drawer UI | On-device Python (`stayturgid_*`) via Termux `localhost:5555`; Mac wrappers SSH-invoke with Mac adb fallback (hd8 = Mac adb only — no Fire OS loopback) |
 | Catastrophic Shizuku accessibility tap | Only recovery when shell is gone |
 | Play silent install | No consumer API without MDM |
 | PIN unlock, Play Protect, DHCP LAN | Environmental |
@@ -36,8 +36,9 @@ Target split: **~80% Ansible / ~20% scripts + on-device logic**.
 
 Post-UI scripts (`import_catalog.py`, `configure_aurora.py`,
 `enable_autojs6_shizuku.py`) are **invoked from** `post-ui.yml` as
-`ansible.builtin.command` — orchestration is Ansible; execution is on-device
-(s24/p7a) or Mac USB (hd8).
+`ansible.builtin.command` — orchestration is Ansible; execution prefers
+on-device SSH (s24/p7a) and falls back to Mac adb (USB or wireless). hd8 is
+Mac adb only because Fire OS has no Termux→`localhost:5555` privileged shell.
 
 ## Consequences
 

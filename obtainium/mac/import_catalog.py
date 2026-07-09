@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Import Obtainium catalog — on-device via SSH when possible; Mac USB for hd8.
+"""Import Obtainium catalog — SSH on-device UI with Mac adb fallback.
+
+s24/p7a: prefer SSH → stayturgid_import_catalog.py; on failure use Mac adb.
+hd8 / raw serial: Mac adb only (Fire OS has no Termux localhost:5555).
 
 Usage:
   ./import_catalog.py <p7a|s24|hd8|serial> [all|autojs6|/path/to.json]
@@ -241,7 +244,8 @@ def resolve_catalog(which):
     raise ValueError("unknown catalog %r (use all, autojs6, or a .json path)" % which)
 
 
-def main_mac_usb(host, which, force):
+def main_mac_adb(host, which, force):
+    """Mac-side ScreenControlSession via resolve_adb (USB or wireless)."""
     serial = dev.resolve_adb(host)
     try:
         catalog_path = resolve_catalog(which)
@@ -267,6 +271,10 @@ def main_mac_usb(host, which, force):
     return 0
 
 
+# Back-compat alias for callers/tests that still name the Mac path "usb".
+main_mac_usb = main_mac_adb
+
+
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
@@ -284,13 +292,15 @@ def main(argv=None):
         elif not arg.startswith("-"):
             which = arg
 
-    if remote.host_uses_on_device_ui(host):
-        args = [which]
-        if force:
-            args.append("--force")
-        return remote.ssh_run_on_device(host, "stayturgid_import_catalog.py", args)
-
-    return main_mac_usb(host, which, force)
+    args = [which]
+    if force:
+        args.append("--force")
+    return remote.run_with_mac_fallback(
+        host,
+        "stayturgid_import_catalog.py",
+        args,
+        lambda: main_mac_adb(host, which, force),
+    )
 
 
 if __name__ == "__main__":

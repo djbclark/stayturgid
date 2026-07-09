@@ -513,17 +513,9 @@ def report_debug_state(serial: str, alias: str) -> None:
     sys.stderr.write("=== end debug bundle ===\n")
 
 
-def main(argv: list[str] | None = None) -> int:
+def main_mac_adb(alias: str) -> int:
+    """Mac-side ScreenControlSession via resolve_adb (USB or wireless)."""
     global _SHELL
-    argv = argv if argv is not None else sys.argv[1:]
-    if not argv:
-        sys.stderr.write("usage: enable_autojs6_shizuku.py <s24|p7a|hd8|serial>\n")
-        return 2
-
-    alias = argv[0]
-    if remote.host_uses_on_device_ui(alias):
-        return remote.ssh_run_on_device(alias, "stayturgid_enable_autojs6.py", [alias])
-
     serial = dev.resolve_adb(alias)
     subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
 
@@ -581,6 +573,21 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     finally:
         _SHELL = None
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = argv if argv is not None else sys.argv[1:]
+    if not argv:
+        sys.stderr.write("usage: enable_autojs6_shizuku.py <s24|p7a|hd8|serial>\n")
+        return 2
+
+    alias = argv[0]
+    return remote.run_with_mac_fallback(
+        alias,
+        "stayturgid_enable_autojs6.py",
+        [alias],
+        lambda: main_mac_adb(alias),
+    )
 
 
 if __name__ == "__main__":

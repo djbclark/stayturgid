@@ -251,17 +251,9 @@ def configure_auto_updates(serial):
     return True
 
 
-def main(argv=None):
+def main_mac_adb(host):
+    """Mac-side ScreenControlSession via resolve_adb (USB or wireless)."""
     global _SHELL
-    argv = argv if argv is not None else sys.argv[1:]
-    if not argv:
-        sys.stderr.write("usage: configure_aurora.py <p7a|s24|hd8|serial>\n")
-        return 2
-
-    host = argv[0]
-    if remote.host_uses_on_device_ui(host):
-        return remote.ssh_run_on_device(host, "stayturgid_configure_aurora.py", [])
-
     serial = dev.resolve_adb(host)
     subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
     try:
@@ -284,6 +276,21 @@ def main(argv=None):
     finally:
         _SHELL = None
     return 0
+
+
+def main(argv=None):
+    argv = argv if argv is not None else sys.argv[1:]
+    if not argv:
+        sys.stderr.write("usage: configure_aurora.py <p7a|s24|hd8|serial>\n")
+        return 2
+
+    host = argv[0]
+    return remote.run_with_mac_fallback(
+        host,
+        "stayturgid_configure_aurora.py",
+        [],
+        lambda: main_mac_adb(host),
+    )
 
 
 if __name__ == "__main__":

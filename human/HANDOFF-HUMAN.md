@@ -15,7 +15,7 @@ Last updated: **2026-07-09** (on-device post-UI + screen-control port)
 
 | Area | Status |
 |------|--------|
-| On-device Obtainium / Aurora / AutoJs6 UI | Termux scripts via `localhost:5555`; Mac wrappers SSH-invoke |
+| On-device Obtainium / Aurora / AutoJs6 UI | Termux scripts via `localhost:5555`; Mac wrappers SSH-first with Mac adb fallback (hd8 Mac-only) |
 | Screen-control gate | Aurora/AutoJs6/Obtainium installer taps use `session.shell` |
 | shell-gpt / local LLM | Documented as OPTIONS track **E** — not implemented |
 
