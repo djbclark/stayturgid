@@ -125,6 +125,8 @@
 - name: Install fleet SSH public keys from control node (ansible.posix.authorized_key)
   ansible.posix.authorized_key:
     user: "{{ _termux_ssh_account.stdout }}"
+    path: "{{ termux_home }}/.ssh/authorized_keys"
+    manage_dir: false
     key: "{{ lookup('file', item) }}"
     state: present
     exclusive: false
@@ -136,6 +138,8 @@
 - name: Install fleet device SSH public keys (mesh authorized_keys)
   ansible.posix.authorized_key:
     user: "{{ _termux_ssh_account.stdout }}"
+    path: "{{ termux_home }}/.ssh/authorized_keys"
+    manage_dir: false
     key: "{{ hostvars[item].stayturgid_device_ssh_pubkey }}"
     state: present
     exclusive: false

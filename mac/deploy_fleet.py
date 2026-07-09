@@ -82,6 +82,7 @@ def build_playbook_argv(
     limit: list[str],
     check: bool,
     tags: str | None,
+    skip_tags: str | None = None,
 ) -> list[str]:
     cmd = ["ansible-playbook", str(SITE_PLAYBOOK)]
     if limit:
@@ -90,6 +91,8 @@ def build_playbook_argv(
         cmd.extend(["--check", "--diff"])
     if tags:
         cmd.extend(["--tags", tags])
+    if skip_tags:
+        cmd.extend(["--skip-tags", skip_tags])
     return cmd
 
 
@@ -157,8 +160,8 @@ def warn_prerequisites(scope: Scope) -> None:
         )
 
 
-def run_playbook(*, limit: list[str], check: bool, tags: str | None) -> int:
-    cmd = build_playbook_argv(limit=limit, check=check, tags=tags)
+def run_playbook(*, limit: list[str], check: bool, tags: str | None, skip_tags: str | None = None) -> int:
+    cmd = build_playbook_argv(limit=limit, check=check, tags=tags, skip_tags=skip_tags)
     return subprocess.run(cmd, env=repo_env(), cwd=REPO_ROOT).returncode
 
 
@@ -168,11 +171,21 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
     install_collections()
 
     targets = resolve_hosts(hosts)
+    skip_bootstrap = None
     if not check:
-        rc = ensure_ssh_bootstrap(targets)
-        if rc != 0:
-            return rc
-    return run_playbook(limit=targets, check=check, tags=scope.ansible_tags)
+        need = hosts_without_ssh(targets)
+        if need:
+            rc = ensure_ssh_bootstrap(need)
+            if rc != 0:
+                return rc
+        else:
+            skip_bootstrap = "bootstrap"
+    return run_playbook(
+        limit=targets,
+        check=check,
+        tags=scope.ansible_tags,
+        skip_tags=skip_bootstrap,
+    )
 
 
 def print_footer(rc: int, scope: Scope) -> None:

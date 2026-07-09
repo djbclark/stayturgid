@@ -62,7 +62,7 @@ def a11y_append_value(current: str, svc: str = A11Y_SVC) -> str:
 def backup_a11y_services(serial: str, alias: str) -> str:
     live = a11y_services_list(serial)
     a11y.write_backup_file(a11y.backup_file_for(alias), live)
-    tmp = REPO_ROOT / "shared" / "a11y_backups" / ".push_%s.tmp" % alias
+    tmp = REPO_ROOT / "shared" / "a11y_backups" / (".push_%s.tmp" % alias)
     a11y.write_backup_file(tmp, live)
     adb(serial, "mkdir", "-p", "/sdcard/stayturgid/state")
     subprocess.run(

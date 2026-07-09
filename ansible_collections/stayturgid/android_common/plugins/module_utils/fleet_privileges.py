@@ -4,7 +4,10 @@ from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
 
-import adb_shell
+try:
+    from ansible_collections.stayturgid.android_common.plugins.module_utils import adb_shell
+except ImportError:
+    import adb_shell  # noqa: F401 — Mac CLI adds module_utils to sys.path
 
 BATTERY_APPOPS = ("RUN_ANY_IN_BACKGROUND", "RUN_IN_BACKGROUND")
 UNUSED_APPOPS = (("AUTO_REVOKE_PERMISSIONS_IF_UNUSED", "ignore"),)

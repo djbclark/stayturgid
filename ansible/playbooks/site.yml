@@ -15,6 +15,7 @@
 # this playbook when not in check mode.
 - name: Import bootstrap play
   import_playbook: bootstrap.yml
+  tags: [bootstrap]
 
 - name: Import fleet deploy play
   import_playbook: fleet.yml
