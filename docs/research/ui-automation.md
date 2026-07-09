@@ -82,10 +82,13 @@ Live numbers: [handsets-vs-u2-bench.md](handsets-vs-u2-bench.md).
 3. Mac scripts Handsets-primary: `enable_autojs6_shizuku.py`,
    `configure_aurora.py`, `import_catalog.py`, `enable_shizuku_installer.py`.
 4. Termux twins stay on raw dump (no on-device Handsets wiring).
+   Analysis of doing Handsets *from* Termux:
+   [handsets-under-termux.md](handsets-under-termux.md) — daemon + wire
+   work on-device; host `hs` / PyPI package do not. Spike = thin wire client.
 5. Do not run u2 + Handsets concurrently; invoke `~/.handsets/hs`.
 
 ### Non-goals
 
 - Replacing AutoJs6 accessibility watchdog (different problem: no-shell recovery).
 - Relying on keep-awake apps (Mac `svc power stayon` during sessions).
-- Porting Handsets into Termux on-device post-UI (Mac-only daemon + forward).
+- Shipping Android builds of the host `hs` CLI (wait for upstream or use wire client).
