@@ -61,5 +61,5 @@ tail -f /sdcard/stayturgid/logs/watchdog.log
 
 - [HACKING.md §1.4](../HACKING.md) — manual Termux setup
 - [HANDOFF.md](../HANDOFF.md) — repair architecture
-- [docs/research/on-device-llm.md](../docs/research/on-device-llm.md) — optional shell-gpt escalation (not hot-path)
+- [docs/incubator/on-device-llm.md](../docs/incubator/on-device-llm.md) — optional shell-gpt escalation (not hot-path)
 - [autojs6/README.md](../autojs6/README.md) — watchdog layer

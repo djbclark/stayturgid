@@ -80,7 +80,8 @@ See [OPTIONS.md](OPTIONS.md).
 - Post-UI routing: `post_ui_remote.run_with_mac_fallback` — SSH-first on s24/p7a, Mac adb on failure; hd8 Mac-only.
 - On-device deterministic GUI: `termux/py/stayturgid_{import_catalog,configure_aurora,enable_autojs6,screen_control,shell,grant_shizuku}.py` + `~/.stayturgid/lib/`.
 - Portfolio 2 `site.yml` + thin `deploy_fleet.py`; ADR 001.
-- shell-gpt / local LLM research: [docs/research/on-device-llm.md](docs/research/on-device-llm.md) (OPTIONS track **E**).
+- shell-gpt / local LLM (incubator): [docs/incubator/on-device-llm.md](docs/incubator/on-device-llm.md) (OPTIONS **54** only if asked).
+- Parked side projects: [docs/incubator/](docs/incubator/) — Inferno/Styx **do not implement**.
 
 **Recent landings (2026-07-08):**
 - AutoJs6 fleet drawer profile (`autojs6_drawer_defaults.json`, `enable_autojs6_shizuku.py`).
@@ -335,13 +336,16 @@ next investments:
 | **B — Ansible-native** | `site.yml` composition, more modules/roles, thin `deploy_fleet.py` | You want one idempotent graph, Galaxy-ready collections, less orchestration scatter |
 | **C — Hybrid polish** | Keep `deploy_fleet.py` orchestrator; dedupe scripts, fix ordering, incremental modules only | Lowest risk; Ansible grows only where pain is acute |
 | **D — Python orchestrator** | Replace Ansible boundary with Fabric/Invoke + shared `adb_cli` / `screen_control` | UI-heavy flows dominate and YAML becomes friction |
-| **E — On-device LLM** | shell-gpt escalation after deterministic heal; see [docs/research/on-device-llm.md](docs/research/on-device-llm.md) | Rare adaptive repair; never hot-path |
-| **F — Inferno/Styx (parked)** | Hosted Inferno + synthetic `/ctl` via Shizuku/`rish`; see [docs/research/inferno-termux-fleet.md](docs/research/inferno-termux-fleet.md) | Side-project namespace UX only — not fleet production |
+| **E — On-device LLM** | shell-gpt escalation after deterministic heal; see [docs/incubator/on-device-llm.md](docs/incubator/on-device-llm.md) | Rare adaptive repair; never hot-path |
+
+**Parked (not equal-weight):** Inferno/Styx and similar experiments live under
+[docs/incubator/](docs/incubator/) — agents must not work on them unless the
+operator unparks a named project.
 
 **No track fixes:** Play Protect, PIN unlock, DHCP LAN IP, Samsung Shizuku/content-URI
 quirks. **MDM and root remain rejected** (daily-driver phones; locked S24 bootloader).
 **Inferno always-on / replacing AutoJs6 or SSH** is rejected for battery and
-catastrophic-heal reasons (research note).
+catastrophic-heal reasons ([incubator analysis](docs/incubator/inferno-styx/analysis.md)).
 
 ### Track B — Ansible-native (detailed)
 

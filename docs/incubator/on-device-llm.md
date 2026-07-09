@@ -1,7 +1,10 @@
 # On-device LLM for stayturgid (shell-gpt / local models)
 
-**Status:** Research note (2026-07-09) — future option, not implemented.  
-**Audience:** Agents reading [OPTIONS.md](../../OPTIONS.md) track **E**.
+**Status:** Incubator note (2026-07-09) — optional future spike; not implemented.  
+**Location:** `docs/incubator/` (speculative). Production-adjacent UI/ADB notes
+stay in `docs/research/`.  
+**Audience:** [OPTIONS.md](../../OPTIONS.md) item **54** / track **E** when
+deliberately picked — not default agent work.
 
 ## Recommendation
 

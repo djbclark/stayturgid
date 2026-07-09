@@ -22,16 +22,36 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 | [README.md](../README.md) | Everyone — hub + full-stack quick path |
 | [HACKING.md](../HACKING.md) | Developers — clean install, Obtainium, Termux swap |
 | [HANDOFF.md](../HANDOFF.md) | AI agents / maintainers — state, roadmap, device fleet |
-| [OPTIONS.md](../OPTIONS.md) | Open work menu (includes track E — on-device LLM) |
-| [research/on-device-llm.md](research/on-device-llm.md) | shell-gpt / local model usefulness for repair escalation |
-| [research/inferno-termux-fleet.md](research/inferno-termux-fleet.md) | Inferno/Styx side project — parked; not production |
+| [OPTIONS.md](../OPTIONS.md) | Open work menu |
 | [adr/001-ansible-boundary.md](adr/001-ansible-boundary.md) | Ansible vs on-device script boundary |
+
+## `docs/research/` — production-adjacent (agents should read)
+
+Findings that inform **shipping** fleet behavior (Handsets, Fire OS, UI drivers).
+
+| Doc | Topic |
+|-----|-------|
+| [research/ui-automation.md](research/ui-automation.md) | Handsets vs u2; Mac/Termux driver status |
+| [research/handsets-under-termux.md](research/handsets-under-termux.md) | Termux wire client + peer bootstrap |
+| [research/handsets-vs-u2-bench.md](research/handsets-vs-u2-bench.md) | Bench numbers |
+| [research/fire-os-local-adb.md](research/fire-os-local-adb.md) | Fire HD loopback ADB limits |
+
+## `docs/incubator/` — parked side projects (do not implement)
+
+Speculative / alternate architectures. Index:
+[incubator/README.md](incubator/README.md).
+
+| Path | Status |
+|------|--------|
+| [incubator/inferno-styx/](incubator/inferno-styx/) | Parked — Inferno/Styx fleet control |
+| [incubator/on-device-llm.md](incubator/on-device-llm.md) | Optional spike (OPTIONS **54** only if asked) |
 
 ## Other
 
 | Path | Notes |
 |------|--------|
 | [version.json](../version.json) | Repo release version; optional `termux/check-repo-version.sh` notifier |
+| [examples/](../examples/) | Consumer Ansible playbooks (shipping patterns) |
 
 ## Typical combinations
 

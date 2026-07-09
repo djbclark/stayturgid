@@ -9,22 +9,22 @@
 > answers: `human/RESPONSES.md` (gitignored). Session context: [HANDOFF.md](HANDOFF.md).
 > Strategic directions: [HANDOFF.md appendix](HANDOFF.md#appendix--strategic-directions-equal-weight).
 > Ansible boundary: [docs/adr/001-ansible-boundary.md](docs/adr/001-ansible-boundary.md).
-> On-device LLM research: [docs/research/on-device-llm.md](docs/research/on-device-llm.md).
-> Inferno/Styx side project (parked): [docs/research/inferno-termux-fleet.md](docs/research/inferno-termux-fleet.md).
+> Parked side projects: [docs/incubator/](docs/incubator/) — **do not implement**
+> unless the operator unparks a named project (Inferno, etc.).
 
 **Fleet snapshot (2026-07-09):** Post-UI SSH-first on s24/p7a with Mac adb
 fallback; hd8 Handsets via **peer bootstrap** (s24/p7a ADB) or Mac.
 Play **H1** + **15b** done — `source: play` ensure_apps canary (metronome)
 on s24 only. Item **46** drawer **PASS** on **s24 + hd8 + p7a**. **57**
-Handsets + Fire peer path shipped. Operator **H2** eyeball (Neo Store /
-Aurora) remains.
+Handsets + Fire peer path + Aurora/Obtainium Termux twins shipped. Operator
+**H2** eyeball (Neo Store / Aurora) remains.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
-**Suggested agent order:** human **H2** confirm (Neo Store / Aurora).
-Consider **54** only as a deliberate future spike.
+**Suggested agent order:** human **H2** confirm (Neo Store / Aurora). Do not
+touch incubator (Inferno) or start **54** unless asked.
 
 ---
 
@@ -35,7 +35,9 @@ Consider **54** only as a deliberate future spike.
 | **A — Operational** | Live deploy, human unblockers | H2, H5, 38 | Medium–High (live phones / publish) |
 | **B — Ansible-native** | *(Portfolio 2 core shipped — 48–52 closed)* | — | — |
 | **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
-| **E — On-device LLM** | shell-gpt escalation; not hot-path | 54 | Medium (new attack surface if mis-scoped) |
+| **E — On-device LLM** | shell-gpt escalation; incubator note | 54 | Medium (mis-scope risk) |
+
+Parked (not a track): Inferno/Styx → [docs/incubator/inferno-styx/](docs/incubator/inferno-styx/).
 
 ---
 
@@ -99,15 +101,15 @@ recovery plan (USB adb / reboot).
 
 ---
 
-### Track E — On-device LLM (future; always surface when asked for options)
+### Track E — On-device LLM (future; only if deliberately picked)
 
 #### 54 — shell-gpt escalation spike (agent) · Risk: **Medium**
 
 Spike only: after deterministic `stayturgid-repair` fails, optionally ask
 shell-gpt for allowlisted shell advice. Consent still required for any `input`.
 **Not** in the 5-min repair hot path; AutoJs6 catastrophic path stays mandatory
-when 5555 is dead. Research:
-[docs/research/on-device-llm.md](docs/research/on-device-llm.md).
+when 5555 is dead. Note (incubator):
+[docs/incubator/on-device-llm.md](docs/incubator/on-device-llm.md).
 
 - Prefer **shell-gpt**; skip **aider-chat** (wrong job + aarch64 pain).
 - Local 1.5B–3B = bounded advisor only; cloud API for quality escalation.
@@ -116,13 +118,14 @@ when 5555 is dead. Research:
 
 ---
 
-**Non-goals:** MDM / root / Play Protect bypass; full Obtainium API; Tasker
-rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal; always-on Ollama
-in Termux:Boot; always-on Inferno/`emu` in Termux:Boot (see
-[inferno-termux-fleet.md](docs/research/inferno-termux-fleet.md)).
+**Non-goals / do-not-touch:** MDM / root / Play Protect bypass; full Obtainium
+API; Tasker rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal;
+always-on Ollama in Termux:Boot; **any Inferno/`emu`/Styx work** (parked under
+[docs/incubator/inferno-styx/](docs/incubator/inferno-styx/)).
 
 **Closed (2026-07-09):** **15b** `source: play` ensure_apps (metronome on s24;
 split APK `install-multiple`; `deploy_fleet` loads `play.env`). **H1** Play AAS.
 **56** post-UI Mac adb fallback. **46** AutoJs6 drawer. **55** on-device post-UI.
-**27** s24 live deploy. Portfolio 2 — **48–52**, **53**.
+**27** s24 live deploy. Portfolio 2 — **48–52**, **53**. Handsets Termux twins
+(Aurora + Obtainium catalog).
 **Closed (2026-07-08):** drawer profile, a11y, PiP, Aurora order, #553.

@@ -1,12 +1,10 @@
 # Inferno in Termux — side project (parked)
 
-**Status:** Side project / research only (2026-07-09). **Not** on the stayturgid
-hot path. Do not start Phase 0–7 in fleet deploy without an explicit operator
-ask.  
-**Source plan:** operator upload `Inferno_Termux_Fleet_Plan.md` (archived ideas
-below).  
-**Audience:** Agents reading [OPTIONS.md](../../OPTIONS.md) or considering
-distributed control redesigns.
+**Status:** **Parked — do not work on.** (2026-07-09)  
+**Location:** `docs/incubator/inferno-styx/` (not `docs/research/`).  
+**Source plan:** [`plan-original.md`](plan-original.md).  
+**Audience:** Humans browsing incubator ideas only. Agents must not start
+Phase 0–7 or wire Inferno into deploy unless the operator explicitly unparks.
 
 ## One-line verdict
 
@@ -147,5 +145,6 @@ Termux → Shizuku/rish → Inferno emu
          └── styxlisten → peers mount /n/<device>/…
 ```
 
-Treat that document as inspiration for the sandbox above, not as a stayturgid
-roadmap.
+Treat [`plan-original.md`](plan-original.md) as inspiration for a future
+sandbox only — not a stayturgid roadmap. **Do not execute Phase 0–7.**
+
