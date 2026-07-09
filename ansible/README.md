@@ -98,6 +98,9 @@ ansible/
   ansible.cfg
   requirements.yml               — ansible.posix
   inventory/hosts.yml
+  playbooks/site.yml             — full fleet (bootstrap → fleet → post-ui → validate)
+  playbooks/fleet.yml
+  playbooks/bootstrap.yml
   playbooks/termux-userland.yml
   roles/autojs6_watchdog/        — fleet-only (not in collections)
   ansible/mac/deploy_termux.py
