@@ -135,7 +135,7 @@ else
     echo "vpn_always_on=MISSING"
   fi
 fi
-for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh stayturgid_check_repo_version.py stayturgid_screen_awake_guard.py stayturgid_agent_presence.py stayturgid_battery_alarm.py stayturgid_repair.py; do
+for f in stayturgid-repair.sh repair-bridge.sh agent-presence.sh claude-presence.sh stayturgid_check_repo_version.py stayturgid_screen_awake_guard.py stayturgid_agent_presence.py stayturgid_battery_alarm.py stayturgid_repair.py stayturgid_autojs6_guard.py; do
     printf 'md5 %s %s\n' "$f" "$(md5sum "$HOME/.stayturgid/bin/$f" 2>/dev/null | cut -d' ' -f1)"
 done
 """

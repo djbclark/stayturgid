@@ -31,6 +31,9 @@ import ui_clearance as uc  # noqa: E402
 INPUT_PREFIXES = ("input",)
 INVERSION_KEY = "accessibility_display_inversion_enabled"
 ADB_KEYBOARD = "com.github.uiautomator/.AdbKeyboard"
+# Fleet layout deploys presence scripts under ~/.stayturgid/bin/ (not ~/).
+PRESENCE_SCRIPT = "~/.stayturgid/bin/agent-presence.sh"
+PRESENCE_SCRIPT_LEGACY = "~/agent-presence.sh"
 
 
 class ScreenControlError(RuntimeError):
@@ -113,9 +116,22 @@ def ssh_presence(host, action, label, agent):
     host = dev.resolve_ssh_host(host) or host
     if not host:
         return 127, ""
-    script = "~/agent-presence.sh %s %s %s" % (action, _shell_quote(label), _shell_quote(agent))
+    # Prefer single-root deploy path; fall back to legacy ~/ shim if present.
+    remote = (
+        "if [ -x %s ]; then P=%s; elif [ -x %s ]; then P=%s; else exit 127; fi; "
+        '"$P" %s %s %s'
+        % (
+            PRESENCE_SCRIPT,
+            PRESENCE_SCRIPT,
+            PRESENCE_SCRIPT_LEGACY,
+            PRESENCE_SCRIPT_LEGACY,
+            action,
+            _shell_quote(label),
+            _shell_quote(agent),
+        )
+    )
     r = _run(
-        ["ssh"] + dev.SSH_OPTS + [host, script],
+        ["ssh"] + dev.SSH_OPTS + [host, remote],
         timeout=90 if action == "request-screen" else 30,
     )
     if r is None:
