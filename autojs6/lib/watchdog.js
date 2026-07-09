@@ -4,29 +4,32 @@ var notify = require("./notify.js");
 var termux = require("./termux.js");
 var repair = require("./repair.js");
 var tailscale = require("./tailscale.js");
+var comonitor = require("./comonitor.js");
 
 /**
- * One watchdog cycle — Termux-primary architecture:
- *   Termux boot loop  → routine repair every 5 min (authoritative)
- *   This layer        → notifications, Tailscale probe, catastrophic Shizuku
- *                       repair when port 5555 is down; defers routine repair
- *                       invoke unless the boot loop itself is stale.
+ * One watchdog cycle — Termux-primary + AutoJs6 co-monitor redundancy:
+ *   Termux boot loop  → routine repair every 5 min (authoritative when healthy)
+ *   This layer        → notifications, Tailscale, catastrophic Shizuku repair;
+ *                       when Termux is stale/hung/skipped (Fire), comonitor.js
+ *                       re-probes the same STATUS surface via shizuku().
  */
 function runCycle(trigger, profile) {
     var tag = profile.notifyTag || "";
     var split = config.splitStorage(profile);
     var time = log.append("[watchdog] cycle start trigger=" + trigger + " (autojs6)");
+    var termuxStale = log.isRepairLoopStale();
 
     if (split) {
         notify.clear("stale");
         notify.clear("bridge");
-        log.append("[watchdog] split-storage: boot loop owns repair; skipping Termux bridge (autojs6)");
+        log.append("[watchdog] split-storage: Termux bridge skipped — co-monitor via Shizuku");
+        comonitor.run(profile, { force: true, reason: "split-storage" });
     } else {
-        if (log.isRepairLoopStale()) {
+        if (termuxStale) {
             notify.show(
                 "⚠ Repair loop stale " + tag,
                 time + " — No [repair] log line in 15+ min; Termux boot loop may be dead. "
-                    + "Open Termux or reboot.",
+                    + "AutoJs6 co-monitor will probe via Shizuku.",
                 "stale"
             );
         } else {
@@ -49,11 +52,12 @@ function runCycle(trigger, profile) {
             var after = log.latestRepairStatus();
             if (after && after.port === "CLOSED_NO_SHELL") {
                 log.append("[watchdog] catastrophic repair finished but port still CLOSED_NO_SHELL");
+                comonitor.run(profile, { force: true, reason: "closed-no-shell" });
             }
         } else {
             notify.clear("adb5555");
 
-            if (log.isRepairLoopStale()) {
+            if (termuxStale) {
                 var invoke = termux.invokeRepair(profile);
                 status = invoke.fresh ? log.latestRepairStatus() : status;
                 port = status ? status.port : "BRIDGE_FAIL";
@@ -64,12 +68,19 @@ function runCycle(trigger, profile) {
                 if (!invoke.ok || port === "BRIDGE_FAIL" || termux.bridgeFailed(invoke)) {
                     notify.show(
                         "⚠ Watchdog bridge failed " + tag,
-                        time + " — Termux RUN_COMMAND returned no fresh STATUS; check "
-                            + "allow-external-apps and stayturgid-repair.sh on device.",
+                        time + " — Termux RUN_COMMAND returned no fresh STATUS; "
+                            + "co-monitor taking over via Shizuku.",
                         "bridge"
                     );
+                    comonitor.run(profile, { force: true, reason: "bridge-fail" });
                 } else {
                     notify.clear("bridge");
+                    // Bridge revived Termux — still run co-monitor once if STATUS
+                    // still looks unhealthy.
+                    if (sshd === "down" || sshd === "FAILED"
+                            || (status && status.shizuku === "down")) {
+                        comonitor.run(profile, { force: true, reason: "post-bridge-unhealthy" });
+                    }
                 }
             } else {
                 notify.clear("bridge");
@@ -83,6 +94,10 @@ function runCycle(trigger, profile) {
                         + "SSH in via ADB/Tailscale and run: sshd",
                     "sshd"
                 );
+                if (!termuxStale) {
+                    // Fresh STATUS says sshd down — co-monitor can still try restart.
+                    comonitor.run(profile, { force: true, reason: "sshd-down" });
+                }
             } else {
                 notify.clear("sshd");
             }

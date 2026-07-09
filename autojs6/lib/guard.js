@@ -43,7 +43,17 @@ function enforce(profile) {
     }
 
     if (config.splitStorage(profile)) {
-        log.append("[watchdog] split-storage: a11y off — degraded (Mac adb repairs only)");
+        log.append("[watchdog] split-storage: a11y off — co-monitor will try Shizuku merge");
+        try {
+            var comonitor = require("./comonitor.js");
+            comonitor.run(profile, { force: true, reason: "a11y-off-split" });
+        } catch (e) {
+            log.append("[watchdog] comonitor a11y attempt failed: " + e);
+        }
+        if (autoJs6AccessibilityEnabled()) {
+            notify.clear("a11y-blocked");
+            return;
+        }
         notify.show(
             "stayturgid AutoJs6 degraded",
             "Accessibility is off — sshd/Tailscale self-heal still runs, but on-screen "

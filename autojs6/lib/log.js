@@ -38,9 +38,26 @@ function readWatchdogLog() {
 }
 
 function parseStatusLine(line) {
-    var m = String(line).match(/port=(\S+)\s+shizuku=(\S+)\s+sshd=(\S+)/);
+    var s = String(line);
+    var m = s.match(/port=(\S+)\s+shizuku=(\S+)\s+sshd=(\S+)/);
     if (!m) return null;
-    return { port: m[1], shizuku: m[2], sshd: m[3] };
+    var out = { port: m[1], shizuku: m[2], sshd: m[3] };
+    var a11y = s.match(/\ba11y=(\S+)/);
+    var shell = s.match(/\bshell=(\S+)/);
+    var wifi = s.match(/\bwifi=(\S+)/);
+    if (a11y) out.a11y = a11y[1];
+    if (shell) out.shell = shell[1];
+    if (wifi) out.wifi = wifi[1];
+    return out;
+}
+
+function _lineTimestampMs(line) {
+    var m = String(line).match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+    if (!m) return null;
+    return new Date(
+        Number(m[1]), Number(m[2]) - 1, Number(m[3]),
+        Number(m[4]), Number(m[5]), Number(m[6])
+    ).getTime();
 }
 
 function latestRepairStatus() {
@@ -48,7 +65,10 @@ function latestRepairStatus() {
     if (!content) return null;
     var lines = content.split("\n");
     for (var i = lines.length - 1; i >= 0; i--) {
-        if (lines[i].indexOf("[repair] STATUS") >= 0) {
+        // Prefer Termux [repair] STATUS; fall back to AutoJs6 [comonitor] STATUS
+        // so Fire / hung-Termux still has a parseable health line.
+        if (lines[i].indexOf("[repair] STATUS") >= 0
+                || lines[i].indexOf("[comonitor] STATUS") >= 0) {
             return parseStatusLine(lines[i]);
         }
     }
@@ -60,16 +80,11 @@ function latestRepairTimestampMs() {
     if (!content) return null;
     var lines = content.split("\n");
     for (var i = lines.length - 1; i >= 0; i--) {
+        // Termux [repair] is authoritative freshness; [comonitor] does not
+        // count as "Termux alive" (would hide a dead boot loop).
         if (lines[i].indexOf("[repair]") >= 0) {
-            // Construct from components: Date.parse of a no-offset ISO string
-            // is local-vs-UTC ambiguous across JS engine versions.
-            var m = lines[i].match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
-            if (m) {
-                return new Date(
-                    Number(m[1]), Number(m[2]) - 1, Number(m[3]),
-                    Number(m[4]), Number(m[5]), Number(m[6])
-                ).getTime();
-            }
+            var ts = _lineTimestampMs(lines[i]);
+            if (ts !== null) return ts;
         }
     }
     return null;

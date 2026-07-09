@@ -1,6 +1,9 @@
 # stayturgid AutoJs6 watchdog
 
-Secondary layer: notifications, Tailscale probe, catastrophic Shizuku repair.
+Secondary layer: notifications, Tailscale probe, catastrophic Shizuku repair,
+and a **JS co-monitor** that re-probes the same health surface as Termux repair
+when the boot loop is stale, hung, or skipped (Fire OS).
+
 **Routine repair is Termux-primary** (`stayturgid-repair` every 5 min) — AutoJs6
 defers `RUN_COMMAND` invoke unless the repair log is stale.
 
@@ -11,8 +14,22 @@ defers `RUN_COMMAND` invoke unless the repair log is stale.
 | 20 min + boot | `main.js` cycle when engine alive |
 | On catastrophic | Shizuku `shizuku()` shell repair, then a11y Shizuku Start tap |
 | Real-time repair | Only when Termux boot loop stale (>15 min) |
+| Co-monitor | `lib/comonitor.js` — sshd / shizuku / a11y / shell5555 / wifi via `shizuku()` when Termux is stale or Fire split-storage |
 
 Does **not** replace: Termux:Boot self-heal, Shizuku, Mac `adb_reconnect.py`, Obtainium APK updates.
+
+## Co-monitor (redundancy)
+
+When Termux cannot heal itself (hung `termux-battery-status`, Fire
+`NO_LOCAL_ADB`, dead boot loop), AutoJs6 still has Shizuku API shell. Each
+cycle:
+
+1. If Termux `[repair]` is fresh → defer (Termux owns the surface)
+2. If Fire split-storage **or** Termux stale/bridge-fail → `comonitor.run()`
+3. Co-monitor writes `[comonitor] STATUS port=… shizuku=… sshd=… a11y=…` to
+   `/sdcard/stayturgid/logs/watchdog.log`
+4. Termux repair dual-writes its STATUS to the same `/sdcard` path so AutoJs6
+   can see freshness on Fire
 
 ## Prerequisites
 
@@ -38,8 +55,9 @@ Grant `com.termux.permission.RUN_COMMAND` to AutoJs6 (setup script). Fallback: `
 
 1. If repair log fresh → skip routine `invokeRepair` (Termux boot loop owns it)
 2. If `CLOSED_NO_SHELL` → `shizuku()` shell attempt, then Shizuku UI tap
-3. Tailscale tun0 + coord ping; relaunch on failure
-4. Notifications (stable IDs, coalesced)
+3. If Termux stale / Fire split-storage / bridge fail → `comonitor.run()` (sshd, a11y, shizuku, shell)
+4. Tailscale tun0 + coord ping; relaunch on failure
+5. Notifications (stable IDs, coalesced)
 
 ## Boot / start paths
 

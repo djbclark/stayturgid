@@ -44,7 +44,13 @@ var s = log.parseStatusLine(
     "2026-07-06 01:02:03 [repair] STATUS port=open shizuku=up sshd=restarted shell=yes rc=0");
 ok(s !== null && s.port === "open" && s.shizuku === "up" && s.sshd === "restarted",
     "parseStatusLine extracts port/shizuku/sshd");
+ok(s.shell === "yes", "parseStatusLine extracts shell when present");
 ok(log.parseStatusLine("garbage line") === null, "parseStatusLine rejects non-STATUS lines");
+
+var full = log.parseStatusLine(
+    "2026-07-09 19:00:00 [comonitor] STATUS port=skip shizuku=up sshd=up a11y=repaired shell=no wifi=skip");
+ok(full !== null && full.a11y === "repaired" && full.wifi === "skip",
+    "parseStatusLine extracts a11y/wifi from comonitor STATUS");
 
 // latestRepairStatus picks the most recent STATUS
 var now = new Date();

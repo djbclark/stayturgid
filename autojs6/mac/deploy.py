@@ -47,14 +47,16 @@ def deploy_project(alias: str, device_id: str = "") -> int:
         serial,
         "shell",
         f"test -f '{TARGET_BASE}/lib/shizuku_shell.js' "
+        f"&& test -f '{TARGET_BASE}/lib/comonitor.js' "
         f"&& test -f '{TARGET_BASE}/scripts/shizuku-probe.js' "
         f"&& test ! -d '{TARGET_BASE}/lib/lib'",
         check=False,
     )
     if check.returncode != 0:
         sys.stderr.write(
-            "ERROR: deploy incomplete — missing lib/shizuku_shell.js or "
-            "scripts/shizuku-probe.js (or nested lib/lib) on device\n"
+            "ERROR: deploy incomplete — missing lib/shizuku_shell.js, "
+            "lib/comonitor.js, or scripts/shizuku-probe.js (or nested lib/lib) "
+            "on device\n"
         )
         return 1
 

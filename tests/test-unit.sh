@@ -428,8 +428,15 @@ if command -v node >/dev/null 2>&1; then
         tap_fail "autojs6 log.js: node unit tests pass"
     fi
     printf '%s\n' "$jsout" | sed 's/^/#   /'
+    if jsout="$(node tests/js/comonitor.test.js 2>&1)"; then
+        tap_ok "autojs6 comonitor.js: node unit tests pass"
+    else
+        tap_fail "autojs6 comonitor.js: node unit tests pass"
+    fi
+    printf '%s\n' "$jsout" | sed 's/^/#   /'
 else
     tap_skip "autojs6 log.js unit tests" "node not installed"
+    tap_skip "autojs6 comonitor.js unit tests" "node not installed"
 fi
 
 # ===========================================================================

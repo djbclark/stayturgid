@@ -51,6 +51,10 @@ def ensure_parent(path):
 LOCKFILE = os.path.join(TMPDIR, "stayturgid-repair.lock")
 LOG = os.path.join(STG, "logs", "repair.log")
 SDLOG = os.path.join(SD, "logs", "watchdog.log")
+# AutoJs6 always reads /sdcard/stayturgid/logs (cannot write Termux-private
+# paths on Fire). Dual-write STATUS there so the JS co-monitor can see Termux
+# freshness even when STAYTURGID_SD is ~/.stayturgid/shared.
+SDCARD_WATCHDOG_LOG = "/sdcard/stayturgid/logs/watchdog.log"
 A11Y_SVC = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
 A11Y_BACKUP = os.path.join(SD, "state", "a11y_services_backup.txt")
 
@@ -113,7 +117,10 @@ def ts():
 
 def log(msg):
     line = "%s [repair] %s" % (ts(), msg)
-    for path in (LOG, SDLOG):
+    paths = [LOG, SDLOG]
+    if os.path.normpath(SDLOG) != os.path.normpath(SDCARD_WATCHDOG_LOG):
+        paths.append(SDCARD_WATCHDOG_LOG)
+    for path in paths:
         try:
             with open(ensure_parent(path), "a") as f:
                 f.write(line + "\n")
@@ -259,6 +266,8 @@ def main():
 
     trim_log(LOG)
     trim_log(SDLOG)
+    if os.path.normpath(SDLOG) != os.path.normpath(SDCARD_WATCHDOG_LOG):
+        trim_log(SDCARD_WATCHDOG_LOG)
     rc = 0
 
     # --- 1. sshd ---
