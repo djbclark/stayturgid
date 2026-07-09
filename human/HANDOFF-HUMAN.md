@@ -7,9 +7,17 @@
 > **Index:** [human/README.md](README.md) · Agent context: [HANDOFF.md](../HANDOFF.md)
 > · Open work: [OPTIONS.md](../OPTIONS.md)
 
-Last updated: **2026-07-08** (HEAD `42c5859`)
+Last updated: **2026-07-09** (on-device post-UI + screen-control port)
 
 ---
+
+## Session notes (2026-07-09) — agent completed
+
+| Area | Status |
+|------|--------|
+| On-device Obtainium / Aurora / AutoJs6 UI | Termux scripts via `localhost:5555`; Mac wrappers SSH-invoke |
+| Screen-control gate | Aurora/AutoJs6/Obtainium installer taps use `session.shell` |
+| shell-gpt / local LLM | Documented as OPTIONS track **E** — not implemented |
 
 ## Session notes (2026-07-08) — agent completed
 
@@ -21,7 +29,7 @@ These do **not** need operator action unless noted.
 | AutoJs6 upstream API request | [AutoJs6 #553](https://github.com/SuperMonster003/AutoJs6/issues/553) |
 | PiP / overlay clearance | `ScreenControlSession` clears YouTube PiP via `stack remove` (Samsung verified) |
 | Accessibility list wipe fix | Drawer a11y toggle **removed**; merge-only via `mac/a11y_services.py` |
-| p7a a11y restore | Profile merge restored Buzzkill + Notch + existing apps (6 services) |
+| p7a a11y restore | Profile merge restored Buzzkill / Notch / existing apps (6 services) |
 | Aurora background dialog (hd8) | `harden_fleet_apps` now runs **before** `configure_aurora`; appops pre-granted |
 | Fleet deploy order | harden → Aurora UI → AutoJs6 enable (full scope) |
 

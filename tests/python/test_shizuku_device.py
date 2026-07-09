@@ -76,6 +76,23 @@ def test_parse_switch_absent():
     assert dev.parse_switch("label present but no switch", "label") is None
 
 
+def test_parse_switch_same_node_text():
+    """Label on the Switch node itself (text after bounds/checked)."""
+    xml = (
+        '<node class="android.widget.Switch" checked="true" '
+        'bounds="[1,2][3,4]" text="Shizuku access" />'
+    )
+    assert dev.parse_switch(xml, "Shizuku access") == (True, 2, 3)
+
+
+def test_parse_switch_same_node_content_desc():
+    xml = (
+        '<node bounds="[10,20][30,40]" checked="false" '
+        'class="android.widget.Switch" content-desc="Foreground service" />'
+    )
+    assert dev.parse_switch(xml, "Foreground service") == (False, 20, 30)
+
+
 def test_parse_text_center():
     xml = '<node text="Allow" bounds="[100,200][300,400]" />'
     assert dev.parse_text_center(xml, "Allow") == (200, 300)

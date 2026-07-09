@@ -35,3 +35,20 @@ def test_restore_default_ime_from_adb_keyboard(monkeypatch):
                         lambda _s, ime: calls.append(ime) or True)
     assert sc.restore_default_ime("serial", "com.amazon.redstone/.FireKeyboardService")
     assert calls == ["com.amazon.redstone/.FireKeyboardService"]
+
+
+def test_session_fails_closed_when_presence_on_missing(monkeypatch):
+    """rc 127 from agent-presence on must abort (not warn-and-continue)."""
+    session = sc.ScreenControlSession("s24", skip_request=True)
+    session._skip = False
+    monkeypatch.setattr(sc, "_run", lambda *a, **k: type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})())
+    monkeypatch.setattr(sc, "mac_adb_shell", lambda *a, **k: (0, "0\n"))
+    monkeypatch.setattr(sc.uc, "clear_ui_obstructions", lambda *a, **k: [])
+    monkeypatch.setattr(sc, "get_default_ime", lambda _s: "com.example/.Ime")
+    monkeypatch.setattr(sc, "set_inversion", lambda _s, en: True)
+    monkeypatch.setattr(sc, "ssh_presence", lambda *a, **k: (127, "missing"))
+    try:
+        session.__enter__()
+        assert False, "expected ScreenControlError"
+    except sc.ScreenControlError as e:
+        assert "agent-presence on failed" in str(e)

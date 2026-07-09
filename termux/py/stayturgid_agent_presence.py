@@ -208,6 +208,12 @@ def consent_gate(label, agent):
 
 
 def request_screen(label, agent):
+    """Countdown consent for screen control.
+
+    Deliberately different from consent_gate: timeout proceeds (silence during
+    the countdown = allow). Press No to disallow (75). gate() fails closed on
+    timeout because it only appears when the phone is actively in use.
+    """
     if pause_active():
         print("request-screen: paused (run agent-presence.sh resume to clear)")
         return 75

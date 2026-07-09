@@ -11,8 +11,9 @@
 > On-device LLM research: [docs/research/on-device-llm.md](docs/research/on-device-llm.md).
 
 **Fleet snapshot (2026-07-09):** On-device post-UI + screen-control ported (s24/p7a
-via SSH → Termux `localhost:5555`; hd8 stays Mac USB). Item **46** drawer verify
-still open. See track **E** whenever options are requested.
+via SSH → Termux `localhost:5555`; hd8 stays Mac USB). Code-review follow-ups
+(H1/H2/parse_switch/docs) landed. Item **46** drawer verify still needs unlocked
+screen. See track **E** whenever options are requested.
 
 **Suggested agent order:** deploy Termux UI libs to s24 → **46** drawer → human **H3** → **H1** → **15b**. Consider **54** only after deterministic heal is solid.
 

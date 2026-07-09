@@ -48,29 +48,33 @@ def grant_json(shell):
     return True
 
 
-def dump_ui(shell, path):
-    shell.sh("uiautomator dump %s" % path)
-    return shell.sh("cat %s" % path)[1]
+def dump_ui(priv, path):
+    priv.sh("uiautomator dump %s" % path)
+    return priv.sh("cat %s" % path)[1]
 
 
-def toggle_installer(shell):
+def toggle_installer(priv, session):
+    """UI taps go through session.shell (inversion-gated); dumps via PrivShell."""
+    def run(*args):
+        return session.shell(*args)
+
     print("Opening Obtainium settings to enable Shizuku installer...")
-    shell.sh("input keyevent KEYCODE_WAKEUP")
+    run("input", "keyevent", "KEYCODE_WAKEUP")
     time.sleep(1)
-    shell.sh("am start -n %s/.MainActivity" % OBTAINIUM_PKG)
+    run("am", "start", "-n", "%s/.MainActivity" % OBTAINIUM_PKG)
     time.sleep(2)
-    shell.sh("input tap 945 2196")  # settings gear
+    run("input", "tap", "945", "2196")  # settings gear
     time.sleep(2)
     for _ in range(6):  # scroll to top
-        shell.sh("input swipe 540 400 540 1600 350")
+        run("input", "swipe", "540", "400", "540", "1600", "350")
         time.sleep(0.4)
 
     xml = ""
     for _ in range(12):
-        xml = dump_ui(shell, "/sdcard/obtainium_shizuku.xml")
+        xml = dump_ui(priv, "/sdcard/obtainium_shizuku.xml")
         if SWITCH_LABEL in xml:
             break
-        shell.sh("input swipe 540 1600 540 400 350")
+        run("input", "swipe", "540", "1600", "540", "400", "350")
         time.sleep(0.6)
     else:
         sys.stderr.write("WARN: Shizuku installer row not found — scroll manually.\n")
@@ -80,26 +84,26 @@ def toggle_installer(shell):
     if sw and sw[0]:
         print("Shizuku installer already enabled in Obtainium UI.")
     elif sw:
-        shell.sh("input tap %d %d" % (sw[1], sw[2]))
+        run("input", "tap", str(sw[1]), str(sw[2]))
         time.sleep(2)
         print("Tapped Shizuku installer switch.")
     else:
-        shell.sh("input tap 959 1266")  # fallback coords
+        run("input", "tap", "959", "1266")  # fallback coords
         time.sleep(2)
         print("Tapped Shizuku installer switch (fallback coords).")
 
     # Shizuku may prompt "Allow Obtainium to access Shizuku?" — approve if shown.
-    perm_xml = dump_ui(shell, "/sdcard/obtainium_shizuku_perm.xml")
+    perm_xml = dump_ui(priv, "/sdcard/obtainium_shizuku_perm.xml")
     if PERM_PROMPT in perm_xml:
         btn = dev.parse_button_center(perm_xml, "android:id/button1")
         if btn:
-            shell.sh("input tap %d %d" % btn)
+            run("input", "tap", str(btn[0]), str(btn[1]))
         else:
-            shell.sh("input tap 540 1284")
+            run("input", "tap", "540", "1284")
         time.sleep(1)
         print("Approved Shizuku permission dialog for Obtainium.")
 
-    shell.sh("input keyevent KEYCODE_HOME")
+    run("input", "keyevent", "KEYCODE_HOME")
     return True
 
 
@@ -108,12 +112,12 @@ def main(argv=None):
     if not argv:
         sys.stderr.write("usage: enable_shizuku_installer.py <p7a|s24|serial>\n")
         return 2
-    shell = dev.PrivShell(argv[0])
-    if not grant_json(shell):
+    priv = dev.PrivShell(argv[0])
+    if not grant_json(priv):
         return 1
     try:
-        with sc.ScreenControlSession(argv[0], label=argv[0], skip_request=True):
-            if not toggle_installer(shell):
+        with sc.ScreenControlSession(argv[0], label=argv[0], skip_request=True) as session:
+            if not toggle_installer(priv, session):
                 return 1
     except sc.ScreenControlError as e:
         sys.stderr.write("ERROR: %s\n" % e)

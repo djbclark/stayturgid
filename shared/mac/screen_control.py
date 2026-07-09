@@ -197,9 +197,12 @@ class ScreenControlSession(object):
             )
 
         rc, out = ssh_presence(self.host, "on", self.label, self.agent)
-        if rc not in (0, 127):
-            sys.stderr.write(
-                "WARN: agent-presence on failed on %s (rc=%s): %s\n"
+        # Presence missing (127) or other failure: fail closed — do not leave
+        # inversion on without torch/notification/lease.
+        if rc != 0:
+            set_inversion(self.serial, False)
+            raise ScreenControlError(
+                "agent-presence on failed on %s (rc=%s): %s"
                 % (self.host, rc, out.strip())
             )
 

@@ -160,8 +160,9 @@ class ScreenControlSession(object):
 
         rc, out = local_presence("on", self.label, self.agent)
         if rc != 0:
-            sys.stderr.write(
-                "WARN: agent-presence on failed (rc=%s): %s\n" % (rc, out.strip())
+            set_inversion(None, False)
+            raise ScreenControlError(
+                "agent-presence on failed (rc=%s): %s" % (rc, out.strip())
             )
 
         self.active = True

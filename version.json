@@ -1,4 +1,4 @@
 {
-  "version": "2.6",
-  "changelog": "AutoJs6 drawer fleet profile, a11y backup/restore (mac/a11y_services.py), PiP clearance, Aurora background pre-grant, deploy order fix. Human docs consolidated to human/HANDOFF-HUMAN.md."
+  "version": "2.7",
+  "changelog": "On-device post-UI (Termux localhost:5555) for s24/p7a; Mac SSH wrappers + hd8 USB fallback; screen-control fail-closed; shell-gpt research track E; parse_switch same-node labels."
 }
