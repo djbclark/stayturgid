@@ -65,12 +65,12 @@ that version; only after H5 and a deliberate version bump review.
 
 #### 57 — Handsets UI driver · **DONE** (2026-07-09)
 
-`shared/mac/ui_driver.py` is the **primary Mac** UI path for AutoJs6, Aurora,
-Obtainium import, and Obtainium Shizuku installer. Bench vs u2/raw:
-[docs/research/handsets-vs-u2-bench.md](docs/research/handsets-vs-u2-bench.md)
-(Handsets 17–42× faster hierarchy; Fire Settings 5/5 vs raw 0/5). Raw dump
-fallback + Termux on-device dump unchanged. Ports: s24 9009 / hd8 9008 /
-p7a 9010. Never concurrent with uiautomator2.
+Mac: `shared/mac/ui_driver.py` primary for AutoJs6 / Aurora / Obtainium.
+Termux: `stayturgid_handsets.py` wire client — s24 bench ~12× vs dump;
+`stayturgid_enable_autojs6.py` switched (probe OK). Bench:
+[handsets-vs-u2-bench.md](docs/research/handsets-vs-u2-bench.md),
+[handsets-under-termux.md](docs/research/handsets-under-termux.md).
+Ports Mac 9008–9010 / Termux 9012. hd8 Mac-only. Never with uiautomator2.
 
 ---
 

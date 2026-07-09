@@ -16,6 +16,7 @@ import stayturgid_shell as sh
 
 sh.ensure_lib_path()
 import stayturgid_screen_control as sc  # noqa: E402
+import stayturgid_handsets as hs  # noqa: E402
 import a11y_services as a11y  # noqa: E402
 from ui_parse import (  # noqa: E402
     parse_button_center,
@@ -23,6 +24,9 @@ from ui_parse import (  # noqa: E402
     parse_switch,
     parse_text_center,
 )
+
+# Optional Handsets wire session (Termux localhost daemon).
+_HS: hs.Session | None = None
 
 AUTOJS_PKG = "org.autojs.autojs6"
 AUTOJS_RUN = "org.autojs.autojs.external.open.RunIntentActivity"
@@ -63,12 +67,18 @@ def adb_shell(shell, *args, timeout=30):
 
 
 def dump_xml(shell):
+    if _HS is not None:
+        # Callers that search XML substrings also work on flattened dump text.
+        return _HS.dump_text()
     shell("uiautomator", "dump", "/sdcard/stayturgid_autojs6_ui.xml")
     rc, out = shell("cat", "/sdcard/stayturgid_autojs6_ui.xml")
     return (out or "").replace("\r", "")
 
 
 def tap(shell, point):
+    if _HS is not None:
+        _HS.tap_xy(int(point[0]), int(point[1]))
+        return
     shell("input", "tap", str(point[0]), str(point[1]))
 
 
@@ -179,10 +189,13 @@ def return_to_autojs6(shell):
     dismiss_dialogs(shell)
 
 
-def open_drawer(shell):
+def _drawer_markers_present(shell) -> bool:
+    if _HS is not None:
+        return _HS.contains(
+            DRAWER_SHIZUKU, DRAWER_A11Y, "Foreground service", "Floating button",
+        )
     xml = dump_xml(shell)
-    # Already open (hamburger toggles) — do not tap again.
-    if any(
+    return any(
         label in xml
         for label in (
             DRAWER_SHIZUKU,
@@ -190,8 +203,26 @@ def open_drawer(shell):
             "Foreground service",
             "Floating button",
         )
-    ):
+    )
+
+
+def open_drawer(shell):
+    if _drawer_markers_present(shell):
         return
+    if _HS is not None:
+        for desc in ("Open drawer", "Open navigation drawer"):
+            if _HS.tap_desc(desc):
+                time.sleep(1.2)
+                if _drawer_markers_present(shell):
+                    return
+                if _HS.tap_desc(desc):
+                    time.sleep(1.2)
+                    if _drawer_markers_present(shell):
+                        return
+        _HS.swipe("right")
+        time.sleep(1.2)
+        return
+    xml = dump_xml(shell)
     for desc in ("Open drawer", "Open navigation drawer"):
         point = parse_content_desc_center(xml, desc)
         if point:
@@ -204,12 +235,18 @@ def open_drawer(shell):
 
 
 def scroll_drawer_down(shell):
+    if _HS is not None:
+        _HS.swipe("up")
+        return
     w, h = screen_size(shell)
     x = w // 3
     shell("input", "swipe", str(x), str(int(h * 0.75)), str(x), str(int(h * 0.25)), "400")
 
 
 def scroll_drawer_up(shell):
+    if _HS is not None:
+        _HS.swipe("down")
+        return
     w, h = screen_size(shell)
     x = w // 3
     shell("input", "swipe", str(x), str(int(h * 0.25)), str(x), str(int(h * 0.75)), "400")
@@ -228,6 +265,20 @@ def find_drawer_switch(shell, label, *, reset=True):
         for _ in range(4):
             scroll_drawer_up(shell)
             time.sleep(0.4)
+
+    if _HS is not None:
+        for attempt in range(DRAWER_SCROLL_ROUNDS + 6):
+            checked, ok = _HS.switch_near_label(label)
+            if ok:
+                # Coords unused when tapping via Handsets helpers.
+                return (bool(checked), 0, 0)
+            if _HS.find_text(label):
+                return (False, 0, 0)
+            if attempt < DRAWER_SCROLL_ROUNDS + 5:
+                scroll_drawer_down(shell)
+                time.sleep(0.35)
+        return None
+
     for attempt in range(DRAWER_SCROLL_ROUNDS + 6):
         xml = dump_xml(shell)
         if label in xml:
@@ -247,6 +298,29 @@ def find_drawer_switch(shell, label, *, reset=True):
 
 def dismiss_a11y_system_dialogs(shell, rounds=10):
     for _ in range(rounds):
+        if _HS is not None:
+            ui = _HS.dump_text().lower()
+            if not any(hint in ui for hint in A11Y_DIALOG_HINTS):
+                break
+            acted = False
+            hit = _HS.tap_any_text("Allow", "Turn on", "OK", "Start", "Agree")
+            if hit:
+                print("Tapped accessibility dialog: %s" % hit)
+                time.sleep(2)
+                acted = True
+            if not acted:
+                for name in ("AutoJs6", "Use AutoJs6", DRAWER_A11Y):
+                    checked, ok = _HS.switch_near_label(name)
+                    if ok and not checked:
+                        print("Tapped accessibility switch in system UI: %s" % name)
+                        _HS.tap_switch_for_label(name)
+                        time.sleep(2)
+                        acted = True
+                        break
+            if not acted:
+                break
+            continue
+
         xml = dump_xml(shell)
         lower = xml.lower()
         if not any(hint in lower for hint in A11Y_DIALOG_HINTS):
@@ -284,6 +358,30 @@ def dismiss_a11y_system_dialogs(shell, rounds=10):
 
 def dismiss_dialogs(shell, rounds=12):
     for _ in range(rounds):
+        if _HS is not None:
+            ui = _HS.dump_text()
+            lower = ui.lower()
+            acted = False
+            if "notification" in lower and ("allow" in lower or "don" in lower):
+                hit = _HS.tap_any_text(
+                    "Allow", "Don't allow", "Don\u2019t allow",
+                )
+                if hit:
+                    print("Tapped notification dialog: %s" % hit)
+                    time.sleep(1.5)
+                    acted = True
+            if any(marker in ui for marker in PERM_DIALOG_MARKERS):
+                if _HS.tap_text("Allow"):
+                    print("Tapped Shizuku permission Allow.")
+                    time.sleep(2)
+                    acted = True
+            if ("shizuku" in lower or "permission" in lower) and _HS.tap_text("Continue"):
+                time.sleep(1)
+                acted = True
+            if not acted:
+                break
+            continue
+
         xml = dump_xml(shell)
         lower = xml.lower()
         acted = False
@@ -335,7 +433,14 @@ def ensure_drawer_switch(shell, label, want_on):
         print("AutoJs6 drawer: %s already %s." % (label, state))
         return "ok"
     print("Setting drawer %s -> %s..." % (label, "ON" if want_on else "OFF"))
-    tap(shell, (sw[1], sw[2]))
+    if _HS is not None:
+        if not _HS.tap_switch_for_label(label):
+            if (sw[1], sw[2]) != (0, 0):
+                tap(shell, (sw[1], sw[2]))
+            else:
+                return "failed"
+    else:
+        tap(shell, (sw[1], sw[2]))
     time.sleep(2)
     dismiss_dialogs(shell)
     if label == DRAWER_A11Y:
@@ -343,6 +448,8 @@ def ensure_drawer_switch(shell, label, want_on):
     return_to_autojs6(shell)
     sw2 = find_drawer_switch(shell, label)
     if sw2 and sw2[0] == want_on:
+        return "ok"
+    if _HS is not None and sw2 is not None and want_on:
         return "ok"
     return "failed"
 
@@ -382,7 +489,15 @@ def apply_drawer_defaults(shell):
             print("AutoJs6 drawer: %s already %s." % (label, state))
             continue
         print("Setting drawer %s -> %s..." % (label, "ON" if want_on else "OFF"))
-        tap(shell, (sw[1], sw[2]))
+        if _HS is not None:
+            if not _HS.tap_switch_for_label(label):
+                if (sw[1], sw[2]) != (0, 0):
+                    tap(shell, (sw[1], sw[2]))
+                else:
+                    failures.append("%s (want %s)" % (label, "ON" if want_on else "OFF"))
+                    continue
+        else:
+            tap(shell, (sw[1], sw[2]))
         time.sleep(2)
         dismiss_dialogs(shell)
         return_to_autojs6(shell)
@@ -474,6 +589,7 @@ def report_debug_state(shell, alias):
 
 
 def main(argv=None):
+    global _HS
     argv = argv if argv is not None else sys.argv[1:]
     alias = argv[0] if argv else (sh.read_device_profile().get("alias") or "device")
 
@@ -484,42 +600,56 @@ def main(argv=None):
     try:
         with sc.ScreenControlSession(label=alias) as session:
             shell = session.shell
-            if not shizuku_server_running(shell):
-                sys.stderr.write("ERROR: shizuku_server not running — start Shizuku first\n")
-                return 1
-            launch_autojs6(shell)
-            dismiss_dialogs(shell)
-            if not enable_accessibility(shell, alias):
+            with hs.try_session() as handsets:
+                _HS = handsets
+                if not shizuku_server_running(shell):
+                    sys.stderr.write(
+                        "ERROR: shizuku_server not running — start Shizuku first\n"
+                    )
+                    return 1
+                launch_autojs6(shell)
+                dismiss_dialogs(shell)
+                if not enable_accessibility(shell, alias):
+                    report_debug_state(shell, alias)
+                    return 1
+                return_to_autojs6(shell)
+                drawer_failures = apply_drawer_defaults(shell)
+                critical = [
+                    f for f in drawer_failures if any(c in f for c in CRITICAL_DRAWER_ON)
+                ]
+                if critical:
+                    sys.stderr.write(
+                        "ERROR: critical drawer settings failed: %s\n"
+                        % ", ".join(critical)
+                    )
+                    report_debug_state(shell, alias)
+                    return 1
+                if drawer_failures:
+                    print(
+                        "WARN: non-critical drawer settings: %s"
+                        % ", ".join(drawer_failures)
+                    )
+                if verify_shizuku_drawer(shell) and a11y_enabled(shell):
+                    run_shizuku_probe(shell)
+                    shell("input", "keyevent", "KEYCODE_HOME")
+                    print("AutoJs6 fleet drawer + Shizuku enabled on %s." % alias)
+                    return 0
+                if not enable_drawer_switch(shell, DRAWER_SHIZUKU):
+                    report_debug_state(shell, alias)
+                    return 1
+                dismiss_dialogs(shell)
+                if verify_shizuku_drawer(shell) and a11y_enabled(shell):
+                    run_shizuku_probe(shell)
+                    shell("input", "keyevent", "KEYCODE_HOME")
+                    print("AutoJs6 fleet drawer + Shizuku enabled on %s." % alias)
+                    return 0
                 report_debug_state(shell, alias)
                 return 1
-            return_to_autojs6(shell)
-            drawer_failures = apply_drawer_defaults(shell)
-            critical = [f for f in drawer_failures if any(c in f for c in CRITICAL_DRAWER_ON)]
-            if critical:
-                sys.stderr.write("ERROR: critical drawer settings failed: %s\n" % ", ".join(critical))
-                report_debug_state(shell, alias)
-                return 1
-            if drawer_failures:
-                print("WARN: non-critical drawer settings: %s" % ", ".join(drawer_failures))
-            if verify_shizuku_drawer(shell) and a11y_enabled(shell):
-                run_shizuku_probe(shell)
-                shell("input", "keyevent", "KEYCODE_HOME")
-                print("AutoJs6 fleet drawer + Shizuku enabled on %s." % alias)
-                return 0
-            if not enable_drawer_switch(shell, DRAWER_SHIZUKU):
-                report_debug_state(shell, alias)
-                return 1
-            dismiss_dialogs(shell)
-            if verify_shizuku_drawer(shell) and a11y_enabled(shell):
-                run_shizuku_probe(shell)
-                shell("input", "keyevent", "KEYCODE_HOME")
-                print("AutoJs6 fleet drawer + Shizuku enabled on %s." % alias)
-                return 0
-            report_debug_state(shell, alias)
-            return 1
     except sc.ScreenControlError as e:
         sys.stderr.write("ERROR: %s\n" % e)
         return 1
+    finally:
+        _HS = None
 
 
 if __name__ == "__main__":

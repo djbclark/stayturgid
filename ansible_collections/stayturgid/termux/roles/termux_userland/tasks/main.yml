@@ -140,6 +140,16 @@
     mode: "0644"
   loop: "{{ stayturgid_lib_files | default([]) }}"
 
+- name: Deploy Handsets hs.jar for on-device wire client
+  ansible.builtin.copy:
+    src: "{{ stayturgid_handsets_jar_src }}"
+    dest: "{{ termux_home }}/.stayturgid/lib/hs.jar"
+    mode: "0644"
+  when:
+    - stayturgid_handsets_jar_src is defined
+    - stayturgid_handsets_jar_src | length > 0
+    - stayturgid_handsets_jar_src is exists
+
 - name: Deploy on-device UI data files
   ansible.builtin.copy:
     src: "{{ stayturgid_repo_root }}/{{ item.src }}"

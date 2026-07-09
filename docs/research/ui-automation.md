@@ -81,11 +81,12 @@ Live numbers: [handsets-vs-u2-bench.md](handsets-vs-u2-bench.md).
 2. Ports: s24 **9009**, hd8 **9008**, p7a **9010**.
 3. Mac scripts Handsets-primary: `enable_autojs6_shizuku.py`,
    `configure_aurora.py`, `import_catalog.py`, `enable_shizuku_installer.py`.
-4. Termux twins stay on raw dump (no on-device Handsets wiring).
-   Analysis of doing Handsets *from* Termux:
-   [handsets-under-termux.md](handsets-under-termux.md) — daemon + wire
-   work on-device; host `hs` / PyPI package do not. Spike = thin wire client.
-5. Do not run u2 + Handsets concurrently; invoke `~/.handsets/hs`.
+4. Termux Handsets wire client **shipped** (`stayturgid_handsets.py`):
+   s24 bench ~12× vs dump; `stayturgid_enable_autojs6.py` switched.
+   Details: [handsets-under-termux.md](handsets-under-termux.md).
+   Aurora/Obtainium Termux twins still dump until next pass. hd8 = Mac only.
+5. Do not run u2 + Handsets concurrently; invoke `~/.handsets/hs` (Mac)
+   or the Termux wire client (no host binary).
 
 ### Non-goals
 

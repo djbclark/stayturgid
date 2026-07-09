@@ -83,25 +83,24 @@ Route all post-UI through Mac `ui_driver.py` even when SSH is up.
 **Cons:** Breaks “phone self-heal without Mac” story; contradicts SSH-first ADR for s24/p7a.  
 **Risk:** Product/ops — usually wrong for this fleet.
 
-## Recommendation
+## Recommendation — **DONE** (2026-07-09)
 
-| Priority | Choice |
-|----------|--------|
-| **Now** | Keep **C** — Mac Handsets primary; Termux raw dump |
-| **If on-device speed matters** | Spike **A** on s24 only: wire client + `dump_active` vs `uiautomator dump` in `stayturgid_enable_autojs6.py` |
-| **Skip** | B until upstream ships Android `hs`; D unless Mac is always present |
+Spike **A** shipped and switched on:
+
+| Item | Status |
+|------|--------|
+| `termux/py/stayturgid_handsets.py` | Wire client + Session |
+| Ansible deploy `hs.jar` → `~/.stayturgid/lib/hs.jar` | `termux_userland` |
+| Bench s24 (n=8) | `dump_active` p50 **243 ms** vs raw dump p50 **2979 ms** (~**12×**) |
+| `stayturgid_enable_autojs6.py` | Handsets-primary; probe `operational=true` |
+| Disable | `STAYTURGID_HANDSETS=0` or `STAYTURGID_NO_LOCAL_ADB=1` (hd8) |
+
+**Still dump-only (follow-up):** `stayturgid_configure_aurora.py`,
+`stayturgid_import_catalog.py` — same pattern when next touched.
 
 **Do not** treat PyPI `handsets` as an on-device solution — it is a host CLI wrapper.
 
 **hd8:** remains Mac Handsets only (Fire has no Termux privileged loopback).
-
-## Suggested spike (if operator asks to proceed)
-
-1. Deploy `hs.jar` via `termux_userland` to `/data/local/tmp/hs.jar`.
-2. Add `termux/py/stayturgid_handsets.py` — start/stop + `call(verb)`.
-3. Bench on s24: `dump_active` vs `uiautomator dump` (n=10) inside Termux.
-4. If ≥5× faster and stable with AutoJs6 a11y ON, wrap find/tap for one twin (`stayturgid_enable_autojs6.py`) behind a feature flag.
-5. Leave hd8 on Mac path.
 
 ## Non-goals
 

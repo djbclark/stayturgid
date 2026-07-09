@@ -46,6 +46,7 @@ stayturgid_py_scripts:
   - stayturgid_import_catalog.py
   - stayturgid_configure_aurora.py
   - stayturgid_enable_autojs6.py
+  - stayturgid_handsets.py
 
 # Shared libs copied to ~/.stayturgid/lib/ (imported by on-device UI scripts).
 stayturgid_lib_files:
@@ -55,6 +56,10 @@ stayturgid_lib_files:
     dest: ui_clearance.py
   - src: shared/a11y_services.py
     dest: a11y_services.py
+
+# Handsets daemon jar (Mac ~/.handsets/hs.jar → on-device lib; shell loads via
+# adb push to /data/local/tmp). Skip when missing on the control node.
+stayturgid_handsets_jar_src: "{{ lookup('env', 'HOME') }}/.handsets/hs.jar"
 
 # Data files for on-device post-UI automation.
 stayturgid_ui_data_files:
