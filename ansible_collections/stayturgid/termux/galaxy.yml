@@ -1,6 +1,6 @@
 namespace: stayturgid
 name: termux
-version: 1.5.0
+version: 1.6.0
 readme: README.md
 authors:
   - djbclark
@@ -12,4 +12,5 @@ tags:
   - termux
 repository: https://github.com/djbclark/stayturgid
 dependencies:
+  ansible.posix: ">=1.5.0"
   stayturgid.android_common: ">=1.3.0"

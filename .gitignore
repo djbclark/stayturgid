@@ -10,3 +10,10 @@ ansible_collections/stayturgid/*/tests/output/
 ansible_collections/stayturgid/*/collections/
 human/RESPONSES.md
 shared/a11y_backups/*.txt
+# SSH keys — live on the control node / devices only, never in git
+*.pem
+id_*
+termux_key
+termux_key.pub
+authorized_keys
+known_hosts

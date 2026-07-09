@@ -183,9 +183,19 @@ ssh-copy-id -i ~/.ssh/termux_key.pub -p 8022 USER@DEVICE_IP
 ```
 
 After bootstrap, `ansible/playbooks/fleet.yml` (via `./mac/deploy_fleet.py`) keeps
-`~/.ssh/authorized_keys` in sync using `ansible.posix.authorized_key` — add more
-keys by extending `stayturgid_ssh_public_key_files` in
-`roles/termux_userland/defaults/main.yml`.
+fleet SSH keys in sync:
+
+- **Public keys:** every `*.pub` under `stayturgid_ssh_keys_dir` (default
+  `~/.ssh` on the Mac) is installed on every device via
+  `ansible.posix.authorized_key`.
+- **Private keys:** matching `id_*` (without `.pub`) and `termux_key` are copied
+  to each device's `~/.ssh/` so devices can SSH to each other. Keys are never
+  committed to git.
+- **Mac client:** `ansible/playbooks/mac.yml` renders `~/.ssh/config.d/stayturgid`
+  with every identity file listed for every fleet host.
+
+Override discovery with `stayturgid_ssh_public_key_files` or
+`stayturgid_ssh_keys_dir` in inventory `group_vars`.
 
 **Start sshd and test it (from Mac):**
 

@@ -62,7 +62,7 @@ After each cold reboot and PIN unlock:
 ssh s24    # or: ssh p7a
 ```
 
-Requires `~/.ssh/termux_key` on devices (bootstrap once with `ssh-copy-id`; fleet deploy syncs via Ansible). Tailscale or `adb forward tcp:8022 tcp:8022`. See [HACKING.md](HACKING.md).
+Requires SSH keys on the Mac control node (`~/.ssh/*.pub` auto-synced to every device; bootstrap once with `ssh-copy-id`). Tailscale or `adb forward tcp:8022 tcp:8022`. See [HACKING.md](HACKING.md).
 
 ---
 

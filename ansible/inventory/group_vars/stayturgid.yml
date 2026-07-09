@@ -2,6 +2,9 @@
 # Fleet-wide overrides go here. Package and boot-script lists live in ONE
 # place — roles/termux_userland/defaults/main.yml — do not duplicate them
 # here (group_vars silently wins over role defaults and the copies drift).
+#
+# Fleet SSH keyring (control-node ~/.ssh by default). Keys are never in git.
+# stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
 
 # F-Droid / Neo Store + Play / Aurora (integrated in fleet.yml via deploy_fleet.py).
 stayturgid_ensure_neo_store: true

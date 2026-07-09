@@ -58,12 +58,14 @@ stayturgid_battery_color_assets:
 
 stayturgid_allow_external_apps: true
 
-# Operator SSH public keys — managed idempotently via ansible.posix.authorized_key.
-# Bootstrap still needs one key present (ssh-copy-id) before the first playbook run.
-stayturgid_ssh_public_key_files:
-  - "{{ lookup('env', 'HOME') }}/.ssh/termux_key.pub"
-# Set true to remove keys not listed above (strict fleet control).
-stayturgid_ssh_authorized_exclusive: false
+# Fleet SSH keyring on the Ansible control node (never commit keys to git).
+# By default every *.pub under this directory is installed on every device via
+# ansible.posix.authorized_key; matching private keys (id_* without .pub,
+# termux_key) are copied to each device's ~/.ssh/ for device-to-device SSH.
+stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
+# Non-empty list overrides auto-discovery (paths on the control node).
+stayturgid_ssh_public_key_files: []
+stayturgid_ssh_distribute_private_keys: true
 
 # Pin a single reliable mirror instead of Termux's random per-run rotation:
 # deterministic + avoids the intermittent "Mirror sync in progress" failures.

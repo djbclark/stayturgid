@@ -5,7 +5,8 @@
   gather_facts: false
   vars:
     stayturgid_repo_root: "{{ playbook_dir }}/../.."   # stayturgid checkout (for script copy)
-    stayturgid_ssh_public_key_files:
-      - "{{ lookup('env', 'HOME') }}/.ssh/termux_key.pub"
+    # Auto-discover all ~/.ssh/*.pub; override with an explicit list if needed:
+    # stayturgid_ssh_public_key_files:
+    #   - "{{ lookup('env', 'HOME') }}/.ssh/termux_key.pub"
   roles:
     - role: stayturgid.termux.termux_userland

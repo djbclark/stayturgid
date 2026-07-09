@@ -25,7 +25,7 @@ Omit `stayturgid_device_id` if not using device override files.
 
 Copy [inventory/example-standalone.yml](inventory/example-standalone.yml) as a starting point for a single phone.
 
-**Out of scope** (configure separately): Shizuku pairing, AutoJs6 install, Obtainium bootstrap, `WRITE_SECURE_SETTINGS`. Fleet app permissions, battery-unrestricted, and unused-app restrictions are automated via `android_common.app_privileges` / `./mac/harden_fleet_apps.py`. SSH key **bootstrap** (first key before Ansible can connect) is still manual/`ssh-copy-id`; ongoing key distribution is handled by `termux_sshd` in the `termux_userland` role.
+**Out of scope** (configure separately): Shizuku pairing, AutoJs6 install, Obtainium bootstrap, `WRITE_SECURE_SETTINGS`. Fleet app permissions, battery-unrestricted, and unused-app restrictions are automated via `android_common.app_privileges` / `./mac/harden_fleet_apps.py`. SSH key **bootstrap** (first key before Ansible can connect) is still manual/`ssh-copy-id`; ongoing key distribution uses `ansible.posix.authorized_key` plus private-key sync in the `termux_userland` role (`mac.yml` renders Mac `~/.ssh/config.d/stayturgid`). Keys live on the control node only — never in git.
 
 The deployed `~/agent-presence.sh` includes the consent `gate` action ([termux/README.md](../termux/README.md)).
 

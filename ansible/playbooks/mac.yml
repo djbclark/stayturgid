@@ -11,6 +11,9 @@
     stayturgid_repo_root: "{{ playbook_dir }}/../.."
     conf_dir: "{{ lookup('env', 'HOME') }}/.config/stayturgid"
     agents_dir: "{{ lookup('env', 'HOME') }}/Library/LaunchAgents"
+    stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
+    ssh_config_dir: "{{ lookup('env', 'HOME') }}/.ssh"
+    ssh_config_fragment: "{{ lookup('env', 'HOME') }}/.ssh/config.d/stayturgid"
   tasks:
     - name: Ensure config + LaunchAgents directories
       ansible.builtin.file:
@@ -23,6 +26,40 @@
         src: devices.conf.j2
         dest: "{{ conf_dir }}/devices.conf"
         mode: "0644"
+
+    - name: Resolve Mac SSH identity files from control-node keyring
+      ansible.builtin.set_fact:
+        stayturgid_ssh_identity_files: >-
+          {{
+            (
+              query('fileglob', stayturgid_ssh_keys_dir ~ '/id_*')
+              | reject('search', '\\.pub$')
+              | list
+              + query('fileglob', stayturgid_ssh_keys_dir ~ '/termux_key')
+              | list
+            ) | unique | sort
+          }}
+
+    - name: Ensure ssh config.d directory exists
+      ansible.builtin.file:
+        path: "{{ ssh_config_dir }}/config.d"
+        state: directory
+        mode: "0700"
+
+    - name: Render fleet SSH config fragment (all identities, all hosts)
+      ansible.builtin.template:
+        src: ssh_config_stayturgid.j2
+        dest: "{{ ssh_config_fragment }}"
+        mode: "0600"
+
+    - name: Ensure main ssh config includes stayturgid fragment
+      ansible.builtin.lineinfile:
+        path: "{{ ssh_config_dir }}/config"
+        create: true
+        mode: "0600"
+        line: "Include ~/.ssh/config.d/stayturgid"
+        insertbefore: BOF
+        regexp: '^Include ~/.ssh/config\.d/stayturgid\s*$'
 
     - name: Render adb-reconnect launchd agent per device
       ansible.builtin.template:

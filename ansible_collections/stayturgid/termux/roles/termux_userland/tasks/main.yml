@@ -39,20 +39,8 @@
     path: "{{ termux_home }}"
   register: _termux_home_stat
 
-- name: Load operator SSH public keys from control node
-  ansible.builtin.set_fact:
-    _termux_ssh_pubkey_lines: "{{ _termux_ssh_pubkey_lines | default([]) + [lookup('file', item)] }}"
-  loop: "{{ stayturgid_ssh_public_key_files }}"
-  when: stayturgid_ssh_public_key_files | length > 0
-
-- name: Manage Termux sshd keys and lockout-prevention config
-  stayturgid.termux.termux_sshd:
-    keys: "{{ _termux_ssh_pubkey_lines | default([]) }}"
-    exclusive: "{{ stayturgid_ssh_authorized_exclusive }}"
-    authorized_keys_path: "{{ termux_home }}/.ssh/authorized_keys"
-    config:
-      PerSourcePenalties: "no"
-    termux_prefix: "{{ termux_prefix }}"
+- name: Configure fleet SSH keys and sshd
+  ansible.builtin.include_tasks: ssh_keys.yml
   when: _termux_home_stat.stat.exists
 
 # Single-root layout: all stayturgid files live under ~/.stayturgid (private)

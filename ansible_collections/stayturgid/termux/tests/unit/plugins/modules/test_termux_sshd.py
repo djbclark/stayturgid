@@ -11,24 +11,6 @@ sys.path.insert(0, os.path.join(ROOT, "plugins", "modules"))
 import termux_sshd as mod  # noqa: E402
 
 
-def test_merge_keys_exclusive():
-    merged = mod.merge_keys(
-        ["ssh-ed25519 AAAA old@host"],
-        ["ssh-ed25519 BBBB new@host"],
-        exclusive=True,
-    )
-    assert merged == ["ssh-ed25519 BBBB new@host"]
-
-
-def test_merge_keys_additive():
-    merged = mod.merge_keys(
-        ["ssh-ed25519 AAAA old@host"],
-        ["ssh-ed25519 BBBB new@host"],
-        exclusive=False,
-    )
-    assert len(merged) == 2
-
-
 def test_apply_config_replaces_existing():
     text = "Port 8022\n#PerSourcePenalties yes\n"
     out = mod.apply_config(text, {"PerSourcePenalties": "no"})
@@ -37,7 +19,6 @@ def test_apply_config_replaces_existing():
 
 
 def run_module(mocker, args, tmp_path, monkeypatch):
-    monkeypatch.setenv("HOME", str(tmp_path))
     prefix = tmp_path / "termux"
     (prefix / "bin").mkdir(parents=True)
     (prefix / "etc" / "ssh").mkdir(parents=True)
@@ -76,11 +57,6 @@ def run_module(mocker, args, tmp_path, monkeypatch):
         lambda self, **kw: (_ for _ in ()).throw(SystemExit(1)),
     )
 
-    mocker.patch(
-        "ansible.module_utils.basic.AnsibleModule.fail_json",
-        lambda self, **kw: (_ for _ in ()).throw(SystemExit(1)),
-    )
-
     with pytest.raises(SystemExit):
         mod.main()
     return captured
@@ -90,7 +66,6 @@ def test_termux_sshd_updates_config(mocker, tmp_path, monkeypatch):
     out = run_module(
         mocker,
         dict(
-            keys=[],
             config={"PerSourcePenalties": "no"},
             restart_on_change=False,
         ),

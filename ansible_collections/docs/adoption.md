@@ -97,4 +97,7 @@ This repo currently installs from Git paths; Galaxy publication is optional foll
 ## Bootstrap vs ongoing key management
 
 1. **First SSH access:** `ssh-copy-id` once (or manual `authorized_keys` entry).
-2. **Ongoing:** `stayturgid.termux.termux_sshd` in `termux_userland` keeps keys in sync.
+2. **Ongoing:** `ansible.posix.authorized_key` in `termux_userland` installs every
+   `*.pub` from `stayturgid_ssh_keys_dir` (default `~/.ssh` on the control node);
+   matching private keys are copied to each device. `termux_sshd` applies
+   `PerSourcePenalties no` and detached sshd restart. Keys are never in git.

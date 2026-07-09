@@ -7,7 +7,8 @@ modules could replace custom code.
 
 | Task | Module / lookup | Role |
 |------|---------------|------|
-| SSH keys + sshd config | `stayturgid.termux.termux_sshd` | `termux_userland` |
+| SSH public keys | `ansible.posix.authorized_key` | `termux_userland` |
+| sshd config + restart | `stayturgid.termux.termux_sshd` | `termux_userland` |
 | Package mirror / scripts | `ansible.builtin.copy` | `termux_userland`, `autojs6_watchdog` |
 | Termux packages | `stayturgid.termux.termux_pkg` | `termux_userland` |
 | ADB alias resolve | `stayturgid.android_common.adb_device` | fdroid, play, tailscale |
