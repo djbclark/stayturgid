@@ -132,7 +132,14 @@ def ssh_presence(host, action, label, agent):
     )
     # request-screen uses termux-dialog; on Fire OS that can hang past the
     # on-device timeout — keep Mac SSH timeout tight and report distinctly.
-    limit = 25 if action == "request-screen" else 30
+    # on/off: Fire torch/notification used to blow 30s; presence.py now skips
+    # torch when STAYTURGID_NO_LOCAL_ADB=1, but keep a little headroom.
+    if action == "request-screen":
+        limit = 25
+    elif action in ("on", "off"):
+        limit = 45
+    else:
+        limit = 30
     try:
         r = subprocess.run(
             ["ssh"] + dev.SSH_OPTS + [host, remote],

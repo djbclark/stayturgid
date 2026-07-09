@@ -16,8 +16,9 @@ fallback; hd8 Mac adb only. Play **H1** + **15b** done — `source: play`
 ensure_apps canary (metronome) on s24 only. Item **46** drawer **PASS** on
 s24 + hd8 (probe `operational=true`); **p7a** AutoJs6 drawer paused
 (`human/CHECKPOINT-p7a-autojs6.md`). **57** Handsets UI driver piloted on
-s24 (`enable_autojs6_shizuku` + probe `operational=true`). H3 partial —
-finish p7a when free, then **H2** eyeball.
+**s24 + hd8** (probe `operational=true`); Fire presence skips torch so
+`agent-presence on` stays under Mac SSH budget. H3 partial — finish p7a
+when free, then **H2** eyeball.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
@@ -69,9 +70,10 @@ that version; only after H5 and a deliberate version bump review.
 #### 57 — Handsets UI driver · **DONE** (2026-07-09)
 
 `shared/mac/ui_driver.py` + `enable_autojs6_shizuku.py` Handsets path.
-s24 pilot: drawer + Shizuku ON, probe `operational=true`. Switch rows use
-`hs ui` table parse (label→switch ~327px; `near(...,200)` too tight). Ports:
-s24 9009 / hd8 9008 / p7a 9010. Do not run alongside uiautomator2.
+Pilots: **s24 + hd8** drawer + Shizuku ON, probe `operational=true`. Switch
+rows use `hs ui` table parse (`near(...,200)` too tight). Fire presence
+skips torch when `STAYTURGID_NO_LOCAL_ADB=1`. Ports: s24 9009 / hd8 9008 /
+p7a 9010. Do not run alongside uiautomator2.
 
 ---
 
