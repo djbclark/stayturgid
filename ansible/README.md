@@ -10,7 +10,7 @@ You need only:
 
 - Ansible on the Mac (`brew install ansible`)
 - `ansible-galaxy collection install -r ansible/requirements.yml` (once; deploy scripts do this)
-- Termux with `sshd` on port 8022 and your SSH public key in `~/.ssh/authorized_keys` (one-time bootstrap via `ssh-copy-id`; fleet deploy keeps keys in sync)
+- Termux with `sshd` on port 8022 and your SSH public key in `~/.ssh/authorized_keys` (bootstrap via `./mac/bootstrap_ssh.py` or auto from `deploy_termux.py`; fleet deploy keeps keys in sync)
 - Inventory host pointing at the device (copy `inventory/hosts.yml` pattern; trim to one host)
 
 ```bash
@@ -25,7 +25,7 @@ Omit `stayturgid_device_id` if not using device override files.
 
 Copy [inventory/example-standalone.yml](inventory/example-standalone.yml) as a starting point for a single phone.
 
-**Out of scope** (configure separately): Shizuku pairing, AutoJs6 install, Obtainium bootstrap, `WRITE_SECURE_SETTINGS`. Fleet app permissions, battery-unrestricted, and unused-app restrictions are automated via `android_common.app_privileges` / `./mac/harden_fleet_apps.py`. SSH key **bootstrap** (first key before Ansible can connect) is still manual/`ssh-copy-id`; ongoing key distribution uses `ansible.posix.authorized_key` plus private-key sync in the `termux_userland` role (`mac.yml` renders Mac `~/.ssh/config.d/stayturgid`). Keys live on the control node only — never in git.
+**Out of scope** (configure separately): Shizuku pairing, AutoJs6 install, Obtainium bootstrap, `WRITE_SECURE_SETTINGS`. Fleet app permissions, battery-unrestricted, and unused-app restrictions are automated via `android_common.app_privileges` / `./mac/harden_fleet_apps.py`. SSH **bootstrap** before the first Ansible connection: `./mac/bootstrap_ssh.py` (adb + `run-as com.termux` on debuggable Termux); ongoing key distribution uses `ansible.posix.authorized_key` plus private-key sync in the `termux_userland` role (`mac.yml` renders Mac `~/.ssh/config.d/stayturgid`). Keys live on the control node only — never in git.
 
 The deployed `~/agent-presence.sh` includes the consent `gate` action ([termux/README.md](../termux/README.md)).
 

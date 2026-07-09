@@ -19,6 +19,10 @@ REQUIREMENTS = REPO_ROOT / "ansible" / "requirements.yml"
 COLLECTIONS_PATH = REPO_ROOT / ".ansible" / "collections"
 SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "LogLevel=ERROR"]
 
+sys.path.insert(0, str(REPO_ROOT / "shared" / "mac"))
+import adb_cli as ac  # noqa: E402
+import termux_ssh_bootstrap as boot  # noqa: E402
+
 
 def ssh_target(host: str) -> str:
     return host
@@ -45,8 +49,23 @@ def main(argv: list[str] | None = None) -> int:
     target = ssh_target(args.host)
     print(f"Checking SSH to {target}...")
     if not verify_ssh(target):
-        print(f"ERROR: cannot SSH to {target} — fix keys/Tailscale first", file=sys.stderr)
-        return 1
+        print(f"SSH to {target} failed — attempting adb bootstrap...")
+        try:
+            boot.bootstrap_alias(
+                args.host,
+                ac.resolve_target,
+                verify_alias=ac.resolve_ssh(args.host) or args.host,
+            )
+        except (RuntimeError, ValueError) as exc:
+            print(f"ERROR: bootstrap failed: {exc}", file=sys.stderr)
+            return 1
+        if not verify_ssh(target):
+            print(
+                f"ERROR: cannot SSH to {target} after bootstrap — "
+                "check Tailscale or use: ssh -p 8022 localhost (with adb forward)",
+                file=sys.stderr,
+            )
+            return 1
 
     subprocess.run(
         [

@@ -175,15 +175,21 @@ pkg update && pkg upgrade -y && pkg install openssh android-tools termux-api pyt
 # Generate a key on the Mac first (if you don't have one):
 # ssh-keygen -t ed25519 -f ~/.ssh/termux_key
 
-# One-time bootstrap (password or physical access to Termux):
-ssh-copy-id -i ~/.ssh/termux_key.pub -p 8022 USER@DEVICE_IP
+# One-time bootstrap (when Ansible cannot SSH yet):
+./mac/bootstrap_ssh.py s24
+# Or: adb push + run-as com.termux (automated by bootstrap_ssh.py on debug Termux)
+# Manual fallback:
+# ssh-copy-id -i ~/.ssh/termux_key.pub -p 8022 USER@DEVICE_IP
 # Or manually on device:
 # mkdir -p ~/.ssh && chmod 700 ~/.ssh
 # echo "YOUR_PUBLIC_KEY" >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys
 ```
 
 After bootstrap, `ansible/playbooks/fleet.yml` (via `./mac/deploy_fleet.py`) keeps
-fleet SSH keys in sync:
+fleet SSH keys in sync. **`./mac/bootstrap_ssh.py`** (also auto-run from
+`ansible/mac/deploy_termux.py` when SSH fails) installs control-node `*.pub`
+keys via adb + `run-as com.termux`, starts `sshd`, and verifies over USB
+forward (`adb forward tcp:8022 tcp:8022`).
 
 - **Public keys:** every `*.pub` under `stayturgid_ssh_keys_dir` (default
   `~/.ssh` on the Mac) is installed on every device via
