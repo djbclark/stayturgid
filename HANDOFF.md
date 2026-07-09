@@ -80,6 +80,7 @@ See [OPTIONS.md](OPTIONS.md).
 - Post-UI routing: `post_ui_remote.run_with_mac_fallback` — SSH-first on s24/p7a, Mac adb on failure; hd8 Mac-only.
 - On-device deterministic GUI: `termux/py/stayturgid_{import_catalog,configure_aurora,enable_autojs6,screen_control,shell,grant_shizuku}.py` + `~/.stayturgid/lib/`.
 - Portfolio 2 `site.yml` + thin `deploy_fleet.py`; ADR 001.
+- Mac soft health: `access_monitor` + `shared/mac/fleet_health.py` log watchdog/repair/a11y every 5 min when reachable (`~/.config/stayturgid/logs/access-monitor.log`); notify after debounce.
 - shell-gpt / local LLM (incubator): [docs/incubator/on-device-llm.md](docs/incubator/on-device-llm.md) (OPTIONS **54** only if asked).
 - Parked side projects: [docs/incubator/](docs/incubator/) — Inferno/Styx **do not implement**.
 

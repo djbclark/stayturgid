@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Dead-man's switch: alert when a device is unreachable on ALL access paths.
+"""Dead-man's switch + light fleet health scrape when a device is reachable.
 
 Runs every 5 minutes via launchd (installed by ansible/playbooks/mac.yml).
 For each device it checks every known address for (a) an ADB connection and
@@ -7,8 +7,11 @@ For each device it checks every known address for (a) an ADB connection and
 consecutive runs does it fire a macOS notification — one per outage, not one
 per run. Recovery resets the counter and notifies once.
 
-Python replacement for access-monitor.sh: native socket probes (no `nc`
-portability quirks), deterministic parsing, identical on macOS and Linux.
+When a path is up, also scrapes Termux watchdog/repair/a11y signals (read-only)
+via shared/mac/fleet_health.py and appends to access-monitor.log. Soft
+degradations (stale AutoJs6, a11y missing, ssh echo fail) notify after the
+same consecutive debounce — so Mac sees problems without a human report.
+
 Device list comes from ~/.config/stayturgid/devices.conf (generated from the
 Ansible inventory) — no device facts live here.
 """
@@ -18,15 +21,24 @@ import socket
 import subprocess
 import sys
 
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+_SHARED_MAC = os.path.join(_REPO, "shared", "mac")
+if _SHARED_MAC not in sys.path:
+    sys.path.insert(0, _SHARED_MAC)
+import fleet_health as fh  # noqa: E402
+
 ADB = "/opt/homebrew/bin/adb"
 # Single Mac root: ~/.config/stayturgid/{devices.conf,logs/,state/}. mkdir on
 # demand so a user-deleted dir self-heals.
 ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")
 CONF = os.environ.get("STAYTURGID_DEVICES_CONF", os.path.join(ROOT, "devices.conf"))
 STATE_DIR = os.path.join(ROOT, "state", "access-monitor")
+HEALTH_STATE_DIR = os.path.join(ROOT, "state", "fleet-health")
 LOG = os.path.join(ROOT, "logs", "access-monitor.log")
 CONSECUTIVE_LIMIT = 2  # 2 runs x 5 min = alert after ~10 min of total outage
 SSH_PORT = 8022
+# Set STAYTURGID_SKIP_HEALTH=1 to disable soft probes (reachability only).
+SKIP_HEALTH = os.environ.get("STAYTURGID_SKIP_HEALTH") == "1"
 
 
 def ts():
@@ -131,6 +143,38 @@ def write_state(state_file, n):
         pass
 
 
+def check_health(name, ok_path):
+    """Log soft health; notify once after CONSECUTIVE_LIMIT bad scrapes."""
+    if SKIP_HEALTH:
+        return
+    state_file = os.path.join(HEALTH_STATE_DIR, name)
+    try:
+        report = fh.probe_via_path(ok_path, name)
+        issues = fh.evaluate_health(report)
+        summary = fh.summarize(report, issues)
+        log("%s health via %s: %s" % (name, ok_path, summary))
+    except Exception as e:  # noqa: BLE001 — never break reachability monitor
+        log("%s health probe error: %s" % (name, e))
+        return
+
+    fails = read_state(state_file)
+    if not issues:
+        if fails >= CONSECUTIVE_LIMIT:
+            log("%s health RECOVERED" % name)
+            notify("stayturgid health", "%s soft checks OK again" % name)
+        write_state(state_file, 0)
+        return
+
+    fails += 1
+    write_state(state_file, fails)
+    if fails == CONSECUTIVE_LIMIT:
+        notify(
+            "stayturgid health",
+            "%s: %s" % (name, ",".join(issues)),
+            sound="Basso",
+        )
+
+
 def check_device(name, ts_ip, lan_ip):
     addrs = []
     if lan_ip != "-":
@@ -149,6 +193,7 @@ def check_device(name, ts_ip, lan_ip):
             log("%s RECOVERED via %s" % (name, ok))
             notify("stayturgid access", "%s reachable again (%s)" % (name, ok))
         write_state(state_file, 0)
+        check_health(name, ok)
     else:
         fails += 1
         write_state(state_file, fails)
@@ -165,6 +210,7 @@ def main():
     if not os.path.exists(CONF):
         return 0  # nothing to monitor until mac.yml generates the conf
     os.makedirs(STATE_DIR, exist_ok=True)
+    os.makedirs(HEALTH_STATE_DIR, exist_ok=True)
     trim_log()
     for name, ts_ip, lan_ip in read_devices(CONF):
         check_device(name, ts_ip, lan_ip)

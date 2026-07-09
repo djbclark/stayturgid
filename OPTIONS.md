@@ -83,6 +83,11 @@ Ports Mac 9008–9010 / Termux 9012 (hd8 peer port 9008). Never with uiautomator
 
 ### Track D — Reliability (do not start without a symptom)
 
+Mac **soft health** (2026-07-09): `access_monitor` + `fleet_health` log
+watchdog/repair/a11y/sshd-echo every 5 min when reachable
+(`~/.config/stayturgid/logs/access-monitor.log`). Use that trail before
+picking 43–45.
+
 #### 43 — AutoJs6 WorkManager (agent) · Risk: **Latent / Low until upstream**
 
 Adopt WorkManager-based scheduling when AutoJs6 upstream ships it. Idle until
@@ -90,14 +95,14 @@ upstream; implementing early would fight the current watchdog model.
 
 #### 44 — Tasker kicker on p7a (agent) · Risk: **Latent / Medium** · Trigger: soak stalls
 
-Only if p7a soak shows AutoJs6/watchdog stalls. Reintroduces a Tasker nudge
-path we otherwise removed — keep narrow and host-scoped.
+Only if Mac health / soak shows AutoJs6/watchdog stalls. Reintroduces a Tasker
+nudge path we otherwise removed — keep narrow and host-scoped.
 
 #### 45 — Termux `sshd -D` if freeze returns (agent) · Risk: **Latent / Medium** · Trigger: sshd freeze
 
-If sshd freezes again under OpenSSH/Termux, try foreground `-D` / supervision
-tweaks. Wrong change can lock out SSH; only with a reproduced freeze and a
-recovery plan (USB adb / reboot).
+If sshd freezes again (TCP up but `ssh_echo` fails in health log), try
+foreground `-D` / supervision. Wrong change can lock out SSH; only with a
+reproduced freeze and USB adb recovery.
 
 ---
 
