@@ -98,7 +98,12 @@ files.write(config.WATCHDOG_LOG,
     stamp(new Date()) + " [repair] STATUS port=open shizuku=up sshd=up a11y=up shell=yes wifi=up rc=0\n");
 ok(log.isRepairLoopStale() === false, "fresh repair for defer test");
 ok(comonitor.run(profile, { force: false }) === null,
-    "comonitor defers when Termux repair is fresh");
+    "comonitor defers when Termux repair is fresh and force=false");
+
+// Periodic path (force=true) always runs — fleet parity
+var periodic = comonitor.run(profile, { force: true, reason: "periodic" });
+ok(periodic !== null && periodic.port === "open",
+    "comonitor force=true runs even when Termux repair is fresh");
 
 // log.js accepts [comonitor] STATUS
 files.write(config.WATCHDOG_LOG,

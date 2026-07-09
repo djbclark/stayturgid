@@ -10,7 +10,7 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 |------|---------|
 | `adb_reconnect.py` | Reconnect `adb connect` when link drops; LAN → Tailscale fallback |
 | `access_monitor.py` | Dead-man's switch: notify after ~10 min total outage on all paths |
-| `fleet_health_monitor.py` | Soft health scrape (watchdog/a11y/sshd/bootloop) → `fleet-health.log` |
+| `fleet_health_monitor.py` | Soft health scrape (watchdog/a11y/sshd/bootloop) → `fleet-health.log`; restarts stale AutoJs6 `main.js` |
 | `fire_help_monitor.py` | Mac→Fire help when Shizuku/Handsets down → `fire-help.log` |
 | `fire_peer_help.py` | Peer ADB helper (Handsets/Shizuku) for Fire; SSH ForceCommand entry |
 | `check_fleet_health.py` | **Session triage** — agents run at start; exit 1 ⇒ tell operator |

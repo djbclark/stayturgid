@@ -19,11 +19,10 @@
 
 **Fleet snapshot (2026-07-09):** Post-UI SSH-first on s24/p7a with Mac adb
 fallback; hd8 Handsets via **peer bootstrap** (s24/p7a ADB) or Mac
-(F1–F5: keepalive, Mac peer, launchd `fire-help`, ForceCommand peerhelp).
-Play **H1** + **15b** done — `source: play` ensure_apps canary (metronome)
-on s24 only. Item **46** drawer **PASS** on **s24 + hd8 + p7a**. **57**
-Handsets + Fire peer path + Aurora/Obtainium Termux twins shipped. Operator
-**H2** eyeball (Neo Store / Aurora) remains.
+(F1–F5). AutoJs6 **co-monitor** runs on **all** hosts each cycle; Mac
+fleet-health restarts stale `main.js`. Play **H1** + **15b** done.
+Item **46** drawer **PASS** on **s24 + hd8 + p7a**. **57** Handsets + Fire
+peer path shipped. Operator **H2** eyeball (Neo Store / Aurora) remains.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
@@ -94,8 +93,10 @@ Ports Mac 9008–9010 / Termux 9012 (hd8 peer port 9008). Never with uiautomator
 Mac **soft health** (2026-07-09): dedicated launchd
 `com.stayturgid.fleet-health` → `mac/fleet_health_monitor.py` logs
 watchdog/repair/a11y/sshd/bootloop/shell5555 every 5 min when reachable
-(`~/.config/stayturgid/logs/fleet-health.log`). Reachability stays in
-`access-monitor`. Use the health trail before picking 43–45.
+(`~/.config/stayturgid/logs/fleet-health.log`). On persistent
+`watchdog_stale`/`watchdog_missing`, restarts AutoJs6 `main.js` (rate-limited).
+Reachability stays in `access-monitor`. Use the health trail before picking
+43–45.
 
 #### 43 — AutoJs6 WorkManager (agent) · Risk: **Latent / Low until upstream**
 

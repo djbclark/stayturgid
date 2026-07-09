@@ -64,15 +64,19 @@ function latestRepairStatus() {
     var content = readWatchdogLog();
     if (!content) return null;
     var lines = content.split("\n");
+    var comonitorFallback = null;
     for (var i = lines.length - 1; i >= 0; i--) {
-        // Prefer Termux [repair] STATUS; fall back to AutoJs6 [comonitor] STATUS
-        // so Fire / hung-Termux still has a parseable health line.
-        if (lines[i].indexOf("[repair] STATUS") >= 0
-                || lines[i].indexOf("[comonitor] STATUS") >= 0) {
+        // Prefer Termux [repair] STATUS for bridge decisions. A bad
+        // [comonitor] STATUS must not trigger CLOSED_NO_SHELL UI repair.
+        if (lines[i].indexOf("[repair] STATUS") >= 0) {
             return parseStatusLine(lines[i]);
         }
+        if (comonitorFallback === null
+                && lines[i].indexOf("[comonitor] STATUS") >= 0) {
+            comonitorFallback = parseStatusLine(lines[i]);
+        }
     }
-    return null;
+    return comonitorFallback;
 }
 
 function latestRepairTimestampMs() {

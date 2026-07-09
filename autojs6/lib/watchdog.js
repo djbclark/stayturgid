@@ -10,20 +10,21 @@ var comonitor = require("./comonitor.js");
  * One watchdog cycle — Termux-primary + AutoJs6 co-monitor redundancy:
  *   Termux boot loop  → routine repair every 5 min (authoritative when healthy)
  *   This layer        → notifications, Tailscale, catastrophic Shizuku repair;
- *                       when Termux is stale/hung/skipped (Fire), comonitor.js
- *                       re-probes the same STATUS surface via shizuku().
+ *                       comonitor.js always re-probes the same STATUS surface
+ *                       via shizuku() on every host (parity across the fleet).
  */
 function runCycle(trigger, profile) {
     var tag = profile.notifyTag || "";
     var split = config.splitStorage(profile);
     var time = log.append("[watchdog] cycle start trigger=" + trigger + " (autojs6)");
     var termuxStale = log.isRepairLoopStale();
+    var comonitorReason = "periodic";
 
     if (split) {
         notify.clear("stale");
         notify.clear("bridge");
         log.append("[watchdog] split-storage: Termux bridge skipped — co-monitor via Shizuku");
-        comonitor.run(profile, { force: true, reason: "split-storage" });
+        comonitorReason = "split-storage";
     } else {
         if (termuxStale) {
             notify.show(
@@ -32,6 +33,7 @@ function runCycle(trigger, profile) {
                     + "AutoJs6 co-monitor will probe via Shizuku.",
                 "stale"
             );
+            comonitorReason = "termux-stale";
         } else {
             notify.clear("stale");
         }
@@ -52,7 +54,7 @@ function runCycle(trigger, profile) {
             var after = log.latestRepairStatus();
             if (after && after.port === "CLOSED_NO_SHELL") {
                 log.append("[watchdog] catastrophic repair finished but port still CLOSED_NO_SHELL");
-                comonitor.run(profile, { force: true, reason: "closed-no-shell" });
+                comonitorReason = "closed-no-shell";
             }
         } else {
             notify.clear("adb5555");
@@ -72,19 +74,17 @@ function runCycle(trigger, profile) {
                             + "co-monitor taking over via Shizuku.",
                         "bridge"
                     );
-                    comonitor.run(profile, { force: true, reason: "bridge-fail" });
+                    comonitorReason = "bridge-fail";
                 } else {
                     notify.clear("bridge");
-                    // Bridge revived Termux — still run co-monitor once if STATUS
-                    // still looks unhealthy.
                     if (sshd === "down" || sshd === "FAILED"
                             || (status && status.shizuku === "down")) {
-                        comonitor.run(profile, { force: true, reason: "post-bridge-unhealthy" });
+                        comonitorReason = "post-bridge-unhealthy";
                     }
                 }
             } else {
                 notify.clear("bridge");
-                log.append("[watchdog] termux repair fresh — deferring invoke (autojs6)");
+                log.append("[watchdog] termux repair fresh — co-monitor still verifies (autojs6)");
             }
 
             if (sshd === "down" || sshd === "FAILED") {
@@ -94,15 +94,15 @@ function runCycle(trigger, profile) {
                         + "SSH in via ADB/Tailscale and run: sshd",
                     "sshd"
                 );
-                if (!termuxStale) {
-                    // Fresh STATUS says sshd down — co-monitor can still try restart.
-                    comonitor.run(profile, { force: true, reason: "sshd-down" });
-                }
+                comonitorReason = "sshd-down";
             } else {
                 notify.clear("sshd");
             }
         }
     }
+
+    // Fleet parity: every host runs the same Shizuku co-monitor each cycle.
+    comonitor.run(profile, { force: true, reason: comonitorReason });
 
     var ts;
     if (profile.tailscaleEnabled === false) {

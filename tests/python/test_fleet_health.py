@@ -90,7 +90,9 @@ def test_summarize_includes_issues():
 
 def test_monitor_notifies_after_debounce(tmp_path, monkeypatch):
     monkeypatch.setattr(fhm, "STATE_DIR", str(tmp_path))
+    monkeypatch.setattr(fhm, "HEAL_STATE_DIR", str(tmp_path / "heal"))
     monkeypatch.setattr(fhm, "SKIP_HEALTH", False)
+    monkeypatch.setattr(fhm, "SKIP_WATCHDOG_HEAL", True)  # isolate notify test
     monkeypatch.setattr(
         fhm.fh,
         "probe_device",
@@ -119,6 +121,60 @@ def test_monitor_notifies_after_debounce(tmp_path, monkeypatch):
     assert any("watchdog_stale" in m for m in logs)
     fhm.check_device("s24", "100.1", "192.1")
     assert len(notifs) == 1 and "watchdog_stale" in notifs[0][1]
+
+
+def test_monitor_heals_stale_watchdog(tmp_path, monkeypatch):
+    monkeypatch.setattr(fhm, "STATE_DIR", str(tmp_path))
+    monkeypatch.setattr(fhm, "HEAL_STATE_DIR", str(tmp_path / "heal"))
+    monkeypatch.setattr(fhm, "SKIP_HEALTH", False)
+    monkeypatch.setattr(fhm, "SKIP_WATCHDOG_HEAL", False)
+    monkeypatch.setattr(fhm, "WATCHDOG_HEAL_AFTER", 2)
+    monkeypatch.setattr(
+        fhm.fh,
+        "probe_device",
+        lambda name, ts, lan: (
+            "adb:1.1.1.1:5555",
+            {
+                "ssh_echo": "ok",
+                "sshd": "ok",
+                "bootloop": "ok",
+                "shell5555": "ok",
+                "watchdog_age": "99999",
+                "repair_age": "10",
+                "a11y": "ok",
+                "autojs6_a11y": "ok",
+                "port": "open",
+                "shizuku": "up",
+            },
+        ),
+    )
+    calls = []
+
+    def fake_run(args, **kw):
+        calls.append(args)
+        class R:
+            returncode = 0
+            stdout = "Starting main.js\n"
+            stderr = ""
+        return R()
+
+    monkeypatch.setattr(fhm.subprocess, "run", fake_run)
+    monkeypatch.setattr(fhm, "notify", lambda *a, **k: None)
+    monkeypatch.setattr(fhm, "log", lambda m: None)
+    # Ensure script path exists check passes
+    script = tmp_path / "start_watchdog.py"
+    script.write_text("#!/usr/bin/env python3\n")
+    monkeypatch.setattr(fhm, "REPO", str(tmp_path))
+    # maybe_heal looks for autojs6/mac/start_watchdog.py under REPO
+    (tmp_path / "autojs6" / "mac").mkdir(parents=True)
+    (tmp_path / "autojs6" / "mac" / "start_watchdog.py").write_text("x")
+
+    fhm.check_device("s24", "100.1", "192.1")
+    assert calls == []  # first fail — below threshold
+    fhm.check_device("s24", "100.1", "192.1")
+    assert len(calls) == 1
+    assert "start_watchdog.py" in calls[0][1]
+    assert calls[0][2] == "s24"
 
 
 def test_monitor_skips_unreachable(tmp_path, monkeypatch):

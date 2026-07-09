@@ -73,12 +73,26 @@ function probeShizuku() {
     return r.code === 0 ? "up" : "down";
 }
 
-function probeShell5555(split) {
+function probeShell5555(split, termuxStatus) {
     if (split) return { port: "skip", shell: "no" };
-    sh("adb connect 127.0.0.1:5555 >/dev/null 2>&1 || true");
-    var r = sh("adb -s 127.0.0.1:5555 shell id -u 2>/dev/null");
-    var uid = (r.result || "").split("\n")[0].trim();
-    if (uid === "2000") return { port: "open", shell: "yes" };
+    // Prefer fresh Termux STATUS — AutoJs6 shizuku() often lacks a working
+    // `adb` binary/PATH, so a live adb probe false-fires CLOSED_NO_SHELL.
+    if (termuxStatus && termuxStatus.port) {
+        var p = termuxStatus.port;
+        if (p === "open") return { port: "open", shell: "yes" };
+        if (p === "skip") return { port: "skip", shell: "no" };
+        if (p === "CLOSED_NO_SHELL") return { port: "CLOSED_NO_SHELL", shell: "no" };
+    }
+    // Live listen check (no adb client required).
+    var nc = sh(
+        "toybox nc -z 127.0.0.1 5555 >/dev/null 2>&1 || "
+            + "nc -z 127.0.0.1 5555 >/dev/null 2>&1"
+    );
+    if (nc.code === 0) return { port: "open", shell: "yes" };
+    // Shizuku API up ⇒ privileged shell available even if adbd TCP is odd.
+    if (shizukuShell.isOperational()) {
+        return { port: "open", shell: "yes" };
+    }
     return { port: "CLOSED_NO_SHELL", shell: "no" };
 }
 
@@ -132,8 +146,10 @@ function run(profile, opts) {
     var split = config.splitStorage(profile);
     var reason = opts.reason || (split ? "split-storage" : "termux-stale");
 
-    if (!opts.force && !split && !log.isRepairLoopStale()) {
-        return null; // Termux owns the surface
+    if (!opts.force && !log.isRepairLoopStale() && !config.splitStorage(profile)) {
+        // Callers normally pass force=true (periodic fleet parity). Keep the
+        // defer path for unit tests / ad-hoc imports.
+        return null;
     }
 
     log.append("[comonitor] start reason=" + reason
@@ -147,12 +163,20 @@ function run(profile, opts) {
     }
 
     var shizuku = probeShizuku();
-    var shellProbe = probeShell5555(split);
+    var termuxStatus = null;
+    try {
+        if (!log.isRepairLoopStale()) {
+            termuxStatus = log.latestRepairStatus();
+        }
+    } catch (e) { /* best effort */ }
+    var shellProbe = probeShell5555(split, termuxStatus);
     var wifi = probeWifi(split);
     var a11y = probeAndRepairA11y(split);
 
     // Catastrophic: no shell on stock Android, or Shizuku dead on any host.
-    if (!split && shellProbe.port === "CLOSED_NO_SHELL") {
+    // Only escalate CLOSED_NO_SHELL when Termux is also stale/unknown — avoid
+    // fighting a healthy Termux repair with UI taps every 20 min.
+    if (!split && shellProbe.port === "CLOSED_NO_SHELL" && log.isRepairLoopStale()) {
         log.append("[comonitor] CLOSED_NO_SHELL — catastrophic repair");
         notify.show(
             "⚠ ADB 5555 down — co-monitor repairing",
@@ -164,7 +188,7 @@ function run(profile, opts) {
         } catch (e) {
             log.append("[comonitor] catastrophic error: " + e);
         }
-        shellProbe = probeShell5555(false);
+        shellProbe = probeShell5555(false, null);
         shizuku = probeShizuku();
     } else if (shizuku === "down") {
         log.append("[comonitor] shizuku_server down — catastrophic Start path");

@@ -52,7 +52,7 @@ var full = log.parseStatusLine(
 ok(full !== null && full.a11y === "repaired" && full.wifi === "skip",
     "parseStatusLine extracts a11y/wifi from comonitor STATUS");
 
-// latestRepairStatus picks the most recent STATUS
+// latestRepairStatus picks the most recent [repair] STATUS
 var now = new Date();
 var old = new Date(Date.now() - 20 * 60 * 1000);
 files.write(config.WATCHDOG_LOG,
@@ -60,6 +60,14 @@ files.write(config.WATCHDOG_LOG,
     + stamp(now) + " [repair] STATUS port=open shizuku=up sshd=up shell=yes rc=0\n");
 var latest = log.latestRepairStatus();
 ok(latest !== null && latest.port === "open", "latestRepairStatus returns most recent STATUS");
+
+// Prefer [repair] over newer [comonitor]
+files.write(config.WATCHDOG_LOG,
+    stamp(now) + " [repair] STATUS port=open shizuku=up sshd=up a11y=up shell=yes wifi=up rc=0\n"
+    + stamp(now) + " [comonitor] STATUS port=CLOSED_NO_SHELL shizuku=up sshd=up a11y=up shell=no wifi=up\n");
+var prefer = log.latestRepairStatus();
+ok(prefer !== null && prefer.port === "open",
+    "latestRepairStatus prefers [repair] over newer [comonitor]");
 
 // L12 regression: local-time parse, no UTC skew
 var ts = log.latestRepairTimestampMs();

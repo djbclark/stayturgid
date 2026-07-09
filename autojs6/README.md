@@ -2,7 +2,7 @@
 
 Secondary layer: notifications, Tailscale probe, catastrophic Shizuku repair,
 and a **JS co-monitor** that re-probes the same health surface as Termux repair
-when the boot loop is stale, hung, or skipped (Fire OS).
+on **every host every cycle** (fleet parity — not Fire-only).
 
 **Routine repair is Termux-primary** (`stayturgid-repair` every 5 min) — AutoJs6
 defers `RUN_COMMAND` invoke unless the repair log is stale.
@@ -14,22 +14,25 @@ defers `RUN_COMMAND` invoke unless the repair log is stale.
 | 20 min + boot | `main.js` cycle when engine alive |
 | On catastrophic | Shizuku `shizuku()` shell repair, then a11y Shizuku Start tap |
 | Real-time repair | Only when Termux boot loop stale (>15 min) |
-| Co-monitor | `lib/comonitor.js` — sshd / shizuku / a11y / shell5555 / wifi via `shizuku()` when Termux is stale or Fire split-storage |
+| Co-monitor | `lib/comonitor.js` — sshd / shizuku / a11y / shell5555 / wifi via `shizuku()` **every cycle on all hosts** |
 
 Does **not** replace: Termux:Boot self-heal, Shizuku, Mac `adb_reconnect.py`, Obtainium APK updates.
 
 ## Co-monitor (redundancy)
 
-When Termux cannot heal itself (hung `termux-battery-status`, Fire
-`NO_LOCAL_ADB`, dead boot loop), AutoJs6 still has Shizuku API shell. Each
-cycle:
+AutoJs6 has Shizuku API shell even when Termux hangs (battery API, Fire
+`NO_LOCAL_ADB`, dead boot loop). Each cycle on **s24 / p7a / hd8**:
 
-1. If Termux `[repair]` is fresh → defer (Termux owns the surface)
-2. If Fire split-storage **or** Termux stale/bridge-fail → `comonitor.run()`
+1. Termux `[repair]` fresh → still run co-monitor (verify, don't skip)
+2. Fire split-storage / Termux stale / bridge-fail → same co-monitor path
 3. Co-monitor writes `[comonitor] STATUS port=… shizuku=… sshd=… a11y=…` to
    `/sdcard/stayturgid/logs/watchdog.log`
 4. Termux repair dual-writes its STATUS to the same `/sdcard` path so AutoJs6
    can see freshness on Fire
+
+Mac soft-health (`fleet_health_monitor.py`) restarts `main.js` if
+`watchdog_stale`/`watchdog_missing` persists (~10 min), so a dead AutoJs6
+engine self-heals without a manual `start_watchdog.py`.
 
 ## Prerequisites
 
@@ -53,9 +56,9 @@ Grant `com.termux.permission.RUN_COMMAND` to AutoJs6 (setup script). Fallback: `
 
 ## Cycle behavior
 
-1. If repair log fresh → skip routine `invokeRepair` (Termux boot loop owns it)
+1. If repair log fresh → skip routine `invokeRepair` (Termux boot loop owns it); **still** run co-monitor
 2. If `CLOSED_NO_SHELL` → `shizuku()` shell attempt, then Shizuku UI tap
-3. If Termux stale / Fire split-storage / bridge fail → `comonitor.run()` (sshd, a11y, shizuku, shell)
+3. Always → `comonitor.run()` (sshd, a11y, shizuku, shell) on every host
 4. Tailscale tun0 + coord ping; relaunch on failure
 5. Notifications (stable IDs, coalesced)
 
