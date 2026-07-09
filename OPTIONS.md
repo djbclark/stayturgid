@@ -9,10 +9,11 @@
 > Strategic directions: [HANDOFF.md appendix](HANDOFF.md#appendix--strategic-directions-equal-weight).
 > Ansible boundary: [docs/adr/001-ansible-boundary.md](docs/adr/001-ansible-boundary.md).
 
-**Fleet snapshot (2026-07-09):** HEAD Portfolio 2 landed — `site.yml`, `post-ui.yml`,
-`validate.yml`, thin `deploy_fleet.py`, ADR 001.
+**Fleet snapshot (2026-07-09):** HEAD `598a4dd` — s24 `site.yml` soak done;
+`make verify HOSTS=s24` **16/16 PASS**; `validate.yml` green. Post-UI Obtainium +
+Aurora OK; `enable_autojs6_shizuku.py` drawer step still fails (a11y+Shizuku up).
 
-**Suggested agent order:** human **H3** → **27** live deploy s24 then fleet → **H1** → **15b**.
+**Suggested agent order:** **46** AutoJs6 drawer on s24 → human **H3** fleet expand → **H1** → **15b**.
 
 ---
 
@@ -20,7 +21,7 @@
 
 | Track | Focus | Open IDs |
 |-------|-------|----------|
-| **A — Operational** | Live deploy, human unblockers | H1–H3, 27, 15b, 46 |
+| **A — Operational** | Live deploy, human unblockers | H1–H3, 15b, 46 |
 | **B — Ansible-native** | *(Portfolio 2 core shipped — 48–52 closed)* | — |
 | **D — Reliability** | Symptom-driven | 43–45 |
 
@@ -35,9 +36,8 @@
 | H3 | human | Fleet deploy go/no-go — `./mac/deploy_fleet.py` (unlock screens) | — |
 | H5 | human | Galaxy publish API token (optional) | — |
 | 15b | agent | Add `source: play` entries to `stayturgid_ensure_apps` after H1 | **H1** |
-| 27 | agent | Live `./mac/deploy_fleet.py` — s24 first, then full fleet | **H3** |
 | 38 | agent | Galaxy publish all collections | **H5** |
-| 46 | agent | E2E AutoJs6 foreground service on s24 | optional |
+| 46 | agent | Fix `enable_autojs6_shizuku.py` drawer verify on s24 (Shizuku drawer toggle) | unlocked screen |
 
 ---
 
@@ -53,5 +53,5 @@
 
 **Non-goals:** MDM / root / Play Protect bypass; full Obtainium API; Tasker rebuild; AutoJs6 debug APK (#553).
 
-**Closed (2026-07-09):** Portfolio 2 — **48–52**, **53** (`adoption.md`); `site.yml` graph;
-`termux_ssh_bootstrap`. **Closed (2026-07-08):** drawer, a11y, PiP, Aurora order, #553.
+**Closed (2026-07-09):** **27** s24 live deploy + verify (`598a4dd` screen_control + device_tier fixes).
+Portfolio 2 — **48–52**, **53**; `termux_ssh_bootstrap`. **Closed (2026-07-08):** drawer, a11y, PiP, Aurora order, #553.
