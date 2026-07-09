@@ -16,7 +16,7 @@ fallback; hd8 Mac adb only. Play **H1** + **15b** done — `source: play`
 ensure_apps canary (metronome) on s24 only. Item **46** drawer **PASS** on
 s24 + hd8 (probe `operational=true`); **p7a** AutoJs6 drawer paused
 (`human/CHECKPOINT-p7a-autojs6.md`). H3 partial — finish p7a when free, then
-**H2** eyeball.
+**H2** eyeball. UI automation research → prefer **Handsets** (**57**).
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
@@ -31,7 +31,7 @@ Consider **54** only as a deliberate future spike.
 
 | Track | Focus | Open IDs | Typical risk |
 |-------|-------|----------|--------------|
-| **A — Operational** | Live deploy, human unblockers | H2–H3, H5, 38 | Medium–High (live phones / publish) |
+| **A — Operational** | Live deploy, human unblockers | H2–H3, H5, 38, 57 | Medium–High (live phones / publish) |
 | **B — Ansible-native** | *(Portfolio 2 core shipped — 48–52 closed)* | — | — |
 | **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; not hot-path | 54 | Medium (new attack surface if mis-scoped) |
@@ -64,6 +64,15 @@ fleet does not depend on it day-to-day. Unlocks agent item **38**.
 
 Publish `stayturgid.*` collections to Ansible Galaxy. Public/irreversible for
 that version; only after H5 and a deliberate version bump review.
+
+#### 57 — Handsets UI driver (agent) · Risk: **Medium**
+
+Replace fragile `uiautomator dump`+coord taps with Handsets (warm daemon,
+text/CSS selectors) behind `shared/mac/ui_driver.py`, raw dump as fallback.
+Research + live bench on s24/hd8:
+[docs/research/ui-automation.md](docs/research/ui-automation.md). Pilot
+`enable_autojs6_shizuku.py` first; multi-device needs per-host ports (not stock
+`hs use` with `ip:5555`). Do not run alongside uiautomator2 (UiAutomation lock).
 
 ---
 
