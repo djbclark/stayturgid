@@ -7,7 +7,8 @@ modules could replace custom code.
 
 | Task | Module / lookup | Role |
 |------|---------------|------|
-| SSH public keys | `ansible.posix.authorized_key` | `termux_userland` |
+| SSH public keys (steady state) | `ansible.posix.authorized_key` | `termux_userland` |
+| SSH bootstrap (pre-SSH, adb) | `stayturgid.termux.termux_ssh_bootstrap` | `bootstrap.yml` play |
 | sshd config + restart | `stayturgid.termux.termux_sshd` | `termux_userland` |
 | Package mirror / scripts | `ansible.builtin.copy` | `termux_userland`, `autojs6_watchdog` |
 | Termux packages | `stayturgid.termux.termux_pkg` | `termux_userland` |
@@ -27,6 +28,7 @@ modules could replace custom code.
 | `android_appops` / `android_settings` | adb grants/settings |
 | `shizuku_grant` | shizuku.json patch |
 | `android_apk` / `android_intent` | adb install / intents |
+| `termux_ssh_bootstrap` | Pre-SSH adb + `run-as` key install (no SSH yet) |
 
 ## Shell tasks — remaining
 

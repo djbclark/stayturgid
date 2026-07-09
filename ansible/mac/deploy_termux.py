@@ -25,7 +25,7 @@ import termux_ssh_bootstrap as boot  # noqa: E402
 
 
 def ssh_target(host: str) -> str:
-    return host
+    return ac.resolve_ssh(host) or host
 
 
 def verify_ssh(target: str) -> bool:
@@ -34,7 +34,7 @@ def verify_ssh(target: str) -> bool:
         capture_output=True,
         text=True,
     )
-    return result.returncode == 0
+    return result.returncode == 0 and "termux_ssh_ok" in (result.stdout or "")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -49,16 +49,11 @@ def main(argv: list[str] | None = None) -> int:
     target = ssh_target(args.host)
     print(f"Checking SSH to {target}...")
     if not verify_ssh(target):
-        print(f"SSH to {target} failed — attempting adb bootstrap...")
-        try:
-            boot.bootstrap_alias(
-                args.host,
-                ac.resolve_target,
-                verify_alias=ac.resolve_ssh(args.host) or args.host,
-            )
-        except (RuntimeError, ValueError) as exc:
-            print(f"ERROR: bootstrap failed: {exc}", file=sys.stderr)
-            return 1
+        print(f"SSH to {target} failed — running ansible/playbooks/bootstrap.yml...")
+        rc = boot.run_bootstrap_playbook(REPO_ROOT, [args.host])
+        if rc != 0:
+            print(f"ERROR: bootstrap playbook failed (exit {rc})", file=sys.stderr)
+            return rc
         if not verify_ssh(target):
             print(
                 f"ERROR: cannot SSH to {target} after bootstrap — "

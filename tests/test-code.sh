@@ -57,12 +57,14 @@ fi
 
 # --- ansible ---------------------------------------------------------------
 if command -v ansible-playbook >/dev/null 2>&1; then
-    if ANSIBLE_CONFIG=ansible/ansible.cfg \
-       ansible-playbook ansible/playbooks/termux-userland.yml --syntax-check >/dev/null 2>&1; then
-        tap_ok "ansible-playbook --syntax-check: termux-userland.yml"
-    else
-        tap_fail "ansible-playbook --syntax-check: termux-userland.yml"
-    fi
+    for pb in ansible/playbooks/termux-userland.yml ansible/playbooks/bootstrap.yml; do
+        if ANSIBLE_CONFIG=ansible/ansible.cfg \
+           ansible-playbook "$pb" --syntax-check >/dev/null 2>&1; then
+            tap_ok "ansible-playbook --syntax-check: $(basename "$pb")"
+        else
+            tap_fail "ansible-playbook --syntax-check: $(basename "$pb")"
+        fi
+    done
 else
     tap_skip "ansible-playbook --syntax-check" "ansible not installed"
 fi

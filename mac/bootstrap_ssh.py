@@ -12,6 +12,7 @@ Usage:
   ./mac/bootstrap_ssh.py s24
   ./mac/bootstrap_ssh.py --keys-dir ~/.ssh s24 p7a
   ./mac/bootstrap_ssh.py --pubkey ~/.ssh/termux_key.pub hd8
+  ./mac/bootstrap_ssh.py --ansible s24 p7a   # inventory hosts via bootstrap.yml
 """
 from __future__ import annotations
 
@@ -56,10 +57,30 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Skip SSH verify via inventory alias (still verifies USB forward unless --no-forward)",
     )
+    parser.add_argument(
+        "--ansible",
+        action="store_true",
+        help="Use ansible/playbooks/bootstrap.yml (inventory host names only)",
+    )
     args = parser.parse_args(argv)
 
     pubkey_paths = args.pubkeys if args.pubkeys else None
     failed = 0
+
+    if args.ansible:
+        print("=== SSH bootstrap (ansible): %s ===" % ", ".join(args.hosts))
+        rc = boot.run_bootstrap_playbook(REPO_ROOT, list(args.hosts))
+        if rc != 0:
+            return rc
+        for host in args.hosts:
+            alias = ac.resolve_ssh(host) or host
+            if args.no_tailscale_verify or boot.verify_ssh_alias(alias):
+                print("OK: %s — SSH bootstrapped (run deploy_fleet.py for full mesh sync)" % host)
+            else:
+                print("FAIL: %s — bootstrap playbook ran but SSH to %s failed" % (host, alias), file=sys.stderr)
+                failed += 1
+        return 1 if failed else 0
+
     for host in args.hosts:
         print("=== SSH bootstrap: %s ===" % host)
         try:

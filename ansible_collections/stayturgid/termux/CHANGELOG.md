@@ -1,5 +1,14 @@
 # Changelog — stayturgid.termux
 
+## 1.8.0 (2026-07-09)
+
+- `termux_ssh_bootstrap` module and `termux_run_as` module_utils — pre-SSH
+  bootstrap over adb (`authorized_keys`, optional `openssh` + `sshd`).
+- `ansible/playbooks/bootstrap.yml` play; auto-invoked from `deploy_fleet.py`
+  and `ansible/mac/deploy_termux.py` when SSH preflight fails.
+- `shared/mac/termux_ssh_bootstrap.py` refactored to thin CLI wrapper over
+  collection helpers (direct adb path + `run_bootstrap_playbook()`).
+
 ## 1.7.0 (2026-07-09)
 
 - Fleet SSH mesh: per-device `id_ed25519_fleet` identity; every fleet member's

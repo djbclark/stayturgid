@@ -2,9 +2,11 @@
 
 Termux package management over SSH.
 
-- **Module:** `stayturgid.termux.termux_pkg`
+- **Modules:** `stayturgid.termux.termux_pkg`, `termux_sshd`, `termux_ssh_bootstrap`
 - **Role:** `stayturgid.termux.termux_userland` (in this collection)
-- **Docs:** [docs/modules/termux_pkg.md](../../docs/modules/termux_pkg.md)
+- **Docs:** [docs/modules/termux_pkg.md](../../docs/modules/termux_pkg.md),
+  [termux_ssh_bootstrap.md](../../docs/modules/termux_ssh_bootstrap.md)
 
-Install with `stayturgid.android_common` (for `android_appops` permission grants)
-and `ansible.posix` (for `authorized_key` in `termux_userland`).
+Install with `stayturgid.android_common` (for `android_appops` permission grants,
+`adb_device` lookup for bootstrap) and `ansible.posix` (for `authorized_key` in
+`termux_userland`).

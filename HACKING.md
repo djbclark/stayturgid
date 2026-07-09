@@ -187,9 +187,10 @@ pkg update && pkg upgrade -y && pkg install openssh android-tools termux-api pyt
 
 After bootstrap, `ansible/playbooks/fleet.yml` (via `./mac/deploy_fleet.py`) keeps
 fleet SSH keys in sync. **`./mac/bootstrap_ssh.py`** (also auto-run from
-`ansible/mac/deploy_termux.py` when SSH fails) installs control-node `*.pub`
-keys via adb + `run-as com.termux`, starts `sshd`, and verifies over USB
-forward (`adb forward tcp:8022 tcp:8022`).
+`ansible/mac/deploy_termux.py` and `deploy_fleet.py` via `bootstrap.yml` when SSH
+fails) installs control-node `*.pub` keys via adb + `run-as com.termux`, starts
+`sshd`, and verifies over USB forward (`adb forward tcp:8022 tcp:8022`) or
+Tailscale SSH alias.
 
 - **Public keys:** every `*.pub` under `stayturgid_ssh_keys_dir` (default
   `~/.ssh` on the Mac) is installed on every device via

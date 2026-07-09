@@ -36,6 +36,10 @@ CONFIGURE_AURORA = REPO_ROOT / "play" / "mac" / "configure_aurora.py"
 ENABLE_AUTOJS6_SHIZUKU = REPO_ROOT / "autojs6" / "mac" / "enable_autojs6_shizuku.py"
 HARDEN_FLEET_APPS = REPO_ROOT / "mac" / "harden_fleet_apps.py"
 
+sys.path.insert(0, str(REPO_ROOT / "shared" / "mac"))
+import adb_cli as ac  # noqa: E402
+import termux_ssh_bootstrap as boot  # noqa: E402
+
 
 class Scope(str, Enum):
     FULL = "full"
@@ -101,6 +105,33 @@ def require_ansible() -> None:
     if not shutil.which("ansible-playbook"):
         print("ERROR: ansible-playbook not found (brew install ansible)", file=sys.stderr)
         sys.exit(1)
+
+
+def ssh_target(host: str) -> str:
+    return ac.resolve_ssh(host) or host
+
+
+def hosts_without_ssh(hosts: list[str]) -> list[str]:
+    return [h for h in hosts if not ac.ssh_ok(ssh_target(h))]
+
+
+def ensure_ssh_bootstrap(hosts: list[str]) -> int:
+    """Run bootstrap.yml for inventory hosts that do not answer SSH yet."""
+    need = hosts_without_ssh(hosts)
+    if not need:
+        return 0
+    print(f"SSH preflight failed for {', '.join(need)} — running bootstrap playbook...")
+    rc = boot.run_bootstrap_playbook(REPO_ROOT, need)
+    if rc != 0:
+        return rc
+    still = hosts_without_ssh(need)
+    if still:
+        print(
+            f"ERROR: SSH still unavailable after bootstrap: {', '.join(still)}",
+            file=sys.stderr,
+        )
+        return 1
+    return 0
 
 
 def install_collections() -> None:
@@ -229,6 +260,10 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
     install_collections()
 
     targets = resolve_hosts(hosts)
+    if not check:
+        rc = ensure_ssh_bootstrap(targets)
+        if rc != 0:
+            return rc
     rc = run_playbook(limit=targets, check=check, tags=scope.ansible_tags)
 
     if rc != 0 or check:

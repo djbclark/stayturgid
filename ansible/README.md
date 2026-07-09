@@ -10,7 +10,7 @@ You need only:
 
 - Ansible on the Mac (`brew install ansible`)
 - `ansible-galaxy collection install -r ansible/requirements.yml` (once; deploy scripts do this)
-- Termux with `sshd` on port 8022 and your SSH public key in `~/.ssh/authorized_keys` (bootstrap via `./mac/bootstrap_ssh.py` or auto from `deploy_termux.py`; fleet deploy keeps keys in sync)
+- Termux with `sshd` on port 8022 and your SSH public key in `~/.ssh/authorized_keys` (bootstrap via `./mac/bootstrap_ssh.py`, `ansible/playbooks/bootstrap.yml`, or auto from `deploy_termux.py` / `deploy_fleet.py`; fleet deploy keeps keys in sync)
 - Inventory host pointing at the device (copy `inventory/hosts.yml` pattern; trim to one host)
 
 ```bash

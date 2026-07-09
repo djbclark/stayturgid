@@ -11,7 +11,7 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 | `adb_reconnect.py` | Reconnect `adb connect` when link drops; LAN → Tailscale fallback |
 | `access_monitor.py` | Dead-man's switch: notify after ~10 min total outage on all paths |
 | `deploy_fleet.py` | Full fleet deploy — Ansible, Obtainium import, app stores, **harden apps**, Aurora UI, AutoJs6 drawer, Shizuku |
-| `bootstrap_ssh.py` | First-time Termux SSH: adb + `run-as com.termux` → `authorized_keys` + `sshd` (replaces `ssh-copy-id`) |
+| `bootstrap_ssh.py` | First-time Termux SSH: adb + `run-as com.termux` or `--ansible` → `bootstrap.yml` |
 | `a11y_services.py` | Backup/restore `enabled_accessibility_services` per host (`shared/a11y_profiles.json`) |
 | `harden_fleet_apps.py` | Battery-unrestricted + permissions for fleet packages |
 | `shared/mac/stayturgid_device.py` | Device resolution, Shizuku JSON patch, UI XML parsing |
