@@ -2,3 +2,4 @@
 # Pixel 7a (lynx), 1080x2400. Tap target for Shizuku "Start" when
 # accessibility text search fails (wireless-debug section, default font/DPI).
 stayturgid_shizuku_start_coords: { x: 227, y: 1992 }
+stayturgid_handsets_port: 9010

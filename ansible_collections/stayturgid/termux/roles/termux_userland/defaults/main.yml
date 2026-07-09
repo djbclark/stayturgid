@@ -47,6 +47,9 @@ stayturgid_py_scripts:
   - stayturgid_configure_aurora.py
   - stayturgid_enable_autojs6.py
   - stayturgid_handsets.py
+  - stayturgid_rish.py
+  - stayturgid_peer_help.py
+  - stayturgid_peer_bootstrap.py
 
 # Shared libs copied to ~/.stayturgid/lib/ (imported by on-device UI scripts).
 stayturgid_lib_files:
@@ -60,6 +63,16 @@ stayturgid_lib_files:
 # Handsets daemon jar (Mac ~/.handsets/hs.jar → on-device lib; shell loads via
 # adb push to /data/local/tmp). Skip when missing on the control node.
 stayturgid_handsets_jar_src: "{{ lookup('env', 'HOME') }}/.handsets/hs.jar"
+# Default Handsets wire port for this host (peers.json + Fire peer bootstrap).
+stayturgid_handsets_port: 9012
+
+# Install Shizuku rish into Termux on every deploy (default).
+stayturgid_install_rish: true
+
+# Shared fleet ADB key (control node). One "Always allow" on a target covers
+# every helper that receives this keypair.
+stayturgid_fleet_adbkey_src: "{{ lookup('env', 'HOME') }}/.config/stayturgid/adbkey"
+stayturgid_deploy_fleet_adbkey: true
 
 # Data files for on-device post-UI automation.
 stayturgid_ui_data_files:

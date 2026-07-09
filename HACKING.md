@@ -281,7 +281,29 @@ as `~/.handsets/hs` (PATH `hs` may be a herdr alias — do not overwrite).
 
 Ports: s24 **9009**, hd8 **9008**, p7a **9010**. Do **not** run alongside
 uiautomator2. Research + bench: `docs/research/ui-automation.md`,
-`docs/research/handsets-vs-u2-bench.md`.
+`docs/research/handsets-vs-u2-bench.md`,
+`docs/research/handsets-under-termux.md`.
+
+**Fire OS (hd8):** Termux cannot `adb connect localhost:5555`. On-device
+Handsets starts via **peer bootstrap** — hd8 SSHs to s24/p7a, which run
+`stayturgid_peer_help.py` over ADB. See
+`docs/research/fire-os-local-adb.md`.
+
+**Shared fleet ADB key** (one Allow covers every phone helper):
+
+```bash
+mkdir -p ~/.config/stayturgid
+adb keygen ~/.config/stayturgid/adbkey   # once on the Mac; never commit
+```
+
+Ansible deploys that keypair to each device as `~/.stayturgid/adbkey-fleet`
+(does **not** overwrite `~/.android/adbkey`, which stays device-native for
+localhost:5555). First helper connect to a Fire still needs one
+**Always allow** tap on the target.
+
+**rish** installs by default into `~/.stayturgid/bin/rish` (from the Shizuku
+APK). Useful on stock Android; on Fire the Termux↔Shizuku binder often times
+out — peer ADB is the Handsets starter there.
 
 ### 2.3 Install uiautomator2 (optional Mac debug)
 

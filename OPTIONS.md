@@ -12,11 +12,11 @@
 > On-device LLM research: [docs/research/on-device-llm.md](docs/research/on-device-llm.md).
 
 **Fleet snapshot (2026-07-09):** Post-UI SSH-first on s24/p7a with Mac adb
-fallback; hd8 Mac adb only. Play **H1** + **15b** done — `source: play`
-ensure_apps canary (metronome) on s24 only. Item **46** drawer **PASS** on
-**s24 + hd8 + p7a** (probe `operational=true`). **57** Handsets UI driver
-piloted on all three hosts. H3 fleet expand largely landed — operator
-**H2** eyeball (Neo Store / Aurora) remains.
+fallback; hd8 Handsets via **peer bootstrap** (s24/p7a ADB) or Mac.
+Play **H1** + **15b** done — `source: play` ensure_apps canary (metronome)
+on s24 only. Item **46** drawer **PASS** on **s24 + hd8 + p7a**. **57**
+Handsets + Fire peer path shipped. Operator **H2** eyeball (Neo Store /
+Aurora) remains.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
@@ -67,10 +67,13 @@ that version; only after H5 and a deliberate version bump review.
 
 Mac: `shared/mac/ui_driver.py` primary for AutoJs6 / Aurora / Obtainium.
 Termux: `stayturgid_handsets.py` wire client — s24 bench ~12× vs dump;
-`stayturgid_enable_autojs6.py` switched (probe OK). Bench:
+`stayturgid_enable_autojs6.py` switched (probe OK). Fire OS: peer bootstrap
+(`stayturgid_peer_bootstrap` → `stayturgid_peer_help` + shared
+`adbkey-fleet`); rish installed by default. Bench/research:
 [handsets-vs-u2-bench.md](docs/research/handsets-vs-u2-bench.md),
-[handsets-under-termux.md](docs/research/handsets-under-termux.md).
-Ports Mac 9008–9010 / Termux 9012. hd8 Mac-only. Never with uiautomator2.
+[handsets-under-termux.md](docs/research/handsets-under-termux.md),
+[fire-os-local-adb.md](docs/research/fire-os-local-adb.md).
+Ports Mac 9008–9010 / Termux 9012 (hd8 peer port 9008). Never with uiautomator2.
 
 ---
 

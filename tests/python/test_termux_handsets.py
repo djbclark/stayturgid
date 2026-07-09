@@ -31,4 +31,6 @@ def test_enabled_respects_env(monkeypatch):
     assert th.enabled() is False
     monkeypatch.setenv("STAYTURGID_HANDSETS", "1")
     monkeypatch.setenv("STAYTURGID_NO_LOCAL_ADB", "1")
+    monkeypatch.setenv("STAYTURGID_PEER_BOOTSTRAP", "0")
+    monkeypatch.setattr(th.sh, "privileged_shell_expected", lambda: False)
     assert th.enabled() is False

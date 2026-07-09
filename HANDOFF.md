@@ -153,7 +153,7 @@ Deployed scripts → `~/.stayturgid/bin`; AutoJs6 project → `/sdcard/stayturgi
 | Termux | GitHub-debug `com.termux` 0.118.3 + api/boot (share-uid); **must** be debug build for `run-as` recovery |
 | AutoJs6 | `org.autojs.autojs6` v6.7.0 — project at `/sdcard/stayturgid/autojs6` |
 | Shizuku | thedjchi fork v13.7.0 — TCP mode ON |
-| Fire OS notes | Termux state/logs under `~/.stayturgid/shared` (`STAYTURGID_SD` in `~/.stayturgid/env`); no Termux localhost:5555 loopback |
+| Fire OS notes | Termux state/logs under `~/.stayturgid/shared` (`STAYTURGID_SD` in `~/.stayturgid/env`); no Termux localhost:5555 — Handsets via peer bootstrap (`stayturgid_peer_bootstrap`) or Mac |
 
 ### Samsung Galaxy S24 (primary dev device — USB `RFCX219CHKA`)
 | Field | Value |

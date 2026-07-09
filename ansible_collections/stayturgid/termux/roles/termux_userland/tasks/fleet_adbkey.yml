@@ -1,0 +1,50 @@
+---
+# Shared fleet ADB identity (~/.android/adbkey) so one "Always allow" on a
+# target covers every Termux helper. Keys live on the control node under
+# ~/.config/stayturgid/ (never in git). Generate once:
+#   mkdir -p ~/.config/stayturgid && adb keygen ~/.config/stayturgid/adbkey
+- name: Check for shared fleet ADB key on control node
+  ansible.builtin.stat:
+    path: "{{ stayturgid_fleet_adbkey_src }}"
+  delegate_to: localhost
+  become: false
+  run_once: true
+  register: _fleet_adbkey_stat
+
+- name: Warn when fleet ADB key is missing
+  ansible.builtin.debug:
+    msg: >-
+      No {{ stayturgid_fleet_adbkey_src }} — peer ADB help will use each
+      device's own adbkey (one Allow per helper). Generate with:
+      adb keygen {{ stayturgid_fleet_adbkey_src }}
+  when: not (_fleet_adbkey_stat.stat.exists | default(false))
+  run_once: true
+
+- name: Ensure stayturgid home for fleet ADB key
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.stayturgid"
+    state: directory
+    mode: "0755"
+  when:
+    - _termux_home_stat.stat.exists
+    - _fleet_adbkey_stat.stat.exists | default(false)
+
+# Keep ~/.android/adbkey as the device-native identity for localhost:5555.
+# Peer help uses this separate key via ADB_VENDOR_KEYS (see stayturgid_peer_help).
+- name: Deploy shared fleet ADB private key (peer-help only)
+  ansible.builtin.copy:
+    src: "{{ stayturgid_fleet_adbkey_src }}"
+    dest: "{{ termux_home }}/.stayturgid/adbkey-fleet"
+    mode: "0600"
+  when:
+    - _termux_home_stat.stat.exists
+    - _fleet_adbkey_stat.stat.exists | default(false)
+
+- name: Deploy shared fleet ADB public key
+  ansible.builtin.copy:
+    src: "{{ stayturgid_fleet_adbkey_src }}.pub"
+    dest: "{{ termux_home }}/.stayturgid/adbkey-fleet.pub"
+    mode: "0644"
+  when:
+    - _termux_home_stat.stat.exists
+    - _fleet_adbkey_stat.stat.exists | default(false)

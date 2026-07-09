@@ -37,8 +37,10 @@ Target split: **~80% Ansible / ~20% scripts + on-device logic**.
 Post-UI scripts (`import_catalog.py`, `configure_aurora.py`,
 `enable_autojs6_shizuku.py`) are **invoked from** `post-ui.yml` as
 `ansible.builtin.command` — orchestration is Ansible; execution prefers
-on-device SSH (s24/p7a) and falls back to Mac adb (USB or wireless). hd8 is
-Mac adb only because Fire OS has no Termux→`localhost:5555` privileged shell.
+on-device SSH (s24/p7a) and falls back to Mac adb (USB or wireless). hd8 has
+no Termux→`localhost:5555` privileged shell (Fire OS); Handsets starts via
+**peer bootstrap** (SSH to s24/p7a → remote `adb shell app_process`) or Mac
+`ui_driver.py` when the Mac is present.
 
 ## Consequences
 

@@ -4,12 +4,17 @@
 Starts ``hs.jar`` via ``adb -s localhost:5555`` (shell UID) and speaks the
 length-prefixed binary protocol. No host ``hs`` binary required.
 
+On Fire OS (``STAYTURGID_NO_LOCAL_ADB=1``), local adb is blocked — ``start()``
+asks a fleet peer via ``stayturgid_peer_bootstrap`` to run the same
+``app_process`` line, then talks wire on loopback.
+
 Env:
   STAYTURGID_HANDSETS=0     disable (callers fall back to uiautomator dump)
-  STAYTURGID_HANDSETS_PORT  daemon port (default 9012)
+  STAYTURGID_HANDSETS_PORT  daemon port (default 9012; Fire peers file often 9008)
   STAYTURGID_HS_JAR         path to hs.jar (default /data/local/tmp/hs.jar)
+  STAYTURGID_PEER_BOOTSTRAP=0  disable peer start on no-local-adb hosts
 
-See docs/research/handsets-under-termux.md.
+See docs/research/handsets-under-termux.md and fire-os-local-adb.md.
 """
 from __future__ import annotations
 
@@ -29,16 +34,31 @@ REMOTE_JAR = os.environ.get("STAYTURGID_HS_JAR", "/data/local/tmp/hs.jar")
 # Prefer deployed copy under ~/.stayturgid/lib when present.
 _STG_JAR = os.path.join(sh.STG, "lib", "hs.jar")
 NICE = "hsd%d" % DEFAULT_PORT
+_PEERS_PATH = os.path.join(sh.STG, "peers")
 
 
 class HandsetsError(RuntimeError):
     pass
 
 
+def _no_local_adb() -> bool:
+    if os.environ.get("STAYTURGID_NO_LOCAL_ADB") == "1":
+        return True
+    return not sh.privileged_shell_expected()
+
+
+def _peer_bootstrap_enabled() -> bool:
+    return (
+        _no_local_adb()
+        and os.environ.get("STAYTURGID_PEER_BOOTSTRAP", "1") != "0"
+        and os.path.isfile(_PEERS_PATH)
+    )
+
+
 def enabled() -> bool:
     if os.environ.get("STAYTURGID_HANDSETS", "1") == "0":
         return False
-    if os.environ.get("STAYTURGID_NO_LOCAL_ADB") == "1":
+    if _no_local_adb() and not _peer_bootstrap_enabled():
         return False
     return True
 
@@ -51,7 +71,11 @@ def jar_path() -> str | None:
 
 
 def available() -> bool:
-    return enabled() and jar_path() is not None
+    if not enabled():
+        return False
+    if _peer_bootstrap_enabled():
+        return True
+    return jar_path() is not None
 
 
 def _adb(*args: str, timeout: float = 30) -> subprocess.CompletedProcess:
@@ -138,7 +162,43 @@ def ping(port: int = DEFAULT_PORT) -> bool:
         return False
 
 
-def start(port: int = DEFAULT_PORT) -> None:
+def _default_port() -> int:
+    if os.environ.get("STAYTURGID_HANDSETS_PORT"):
+        return int(os.environ["STAYTURGID_HANDSETS_PORT"])
+    if _peer_bootstrap_enabled():
+        try:
+            with open(_PEERS_PATH) as f:
+                cfg = json.load(f)
+            if cfg.get("handsets_port"):
+                return int(cfg["handsets_port"])
+        except (OSError, ValueError, TypeError):
+            pass
+        return 9008
+    return DEFAULT_PORT
+
+
+def _start_via_peer(port: int) -> None:
+    try:
+        import stayturgid_peer_bootstrap as peer
+    except ImportError as e:
+        raise HandsetsError("peer bootstrap module missing: %s" % e) from e
+    ok, detail = peer.bootstrap_handsets(port=port)
+    if not ok:
+        raise HandsetsError("peer Handsets start failed: %s" % detail)
+    if not ping(port):
+        raise HandsetsError(
+            "peer reported OK but wire ping failed on :%d (%s)" % (port, detail)
+        )
+
+
+def start(port: int | None = None) -> None:
+    if port is None:
+        port = _default_port()
+    if ping(port):
+        return
+    if _peer_bootstrap_enabled():
+        _start_via_peer(port)
+        return
     jar = _ensure_jar_on_device()
     _adb(
         "pkill -f '%s' 2>/dev/null; pkill -f 'dev.handsets.daemon.Main --port=%d' 2>/dev/null; true"
@@ -164,7 +224,13 @@ def start(port: int = DEFAULT_PORT) -> None:
     )
 
 
-def stop(port: int = DEFAULT_PORT) -> None:
+def stop(port: int | None = None) -> None:
+    if port is None:
+        port = _default_port()
+    if _peer_bootstrap_enabled():
+        # Daemon was started by a peer; we cannot pkill via local adb.
+        # Best-effort: ignore (next start is idempotent via ping).
+        return
     nice = "hsd%d" % port
     _adb(
         "pkill -f '%s' 2>/dev/null; pkill -f 'dev.handsets.daemon.Main --port=%d' 2>/dev/null; true"
@@ -177,7 +243,7 @@ class Session:
     """Context manager: daemon up for the duration of on-device UI work."""
 
     def __init__(self, port: int | None = None):
-        self.port = port if port is not None else DEFAULT_PORT
+        self.port = port if port is not None else _default_port()
         self.active = False
 
     def __enter__(self) -> "Session":
@@ -185,7 +251,10 @@ class Session:
             raise HandsetsError("Handsets unavailable on this host")
         start(self.port)
         self.active = True
-        print("UI driver: Handsets wire on port %d (Termux)" % self.port)
+        how = "peer" if _peer_bootstrap_enabled() else "local-adb"
+        print(
+            "UI driver: Handsets wire on port %d (Termux/%s)" % (self.port, how)
+        )
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -393,14 +462,17 @@ def main(argv=None) -> int:
         if not available():
             print("unavailable")
             return 1
-        start()
-        ok = ping()
-        stop()
+        port = _default_port()
+        start(port)
+        ok = ping(port)
+        if not _peer_bootstrap_enabled():
+            stop(port)
         print("pong" if ok else "fail")
         return 0 if ok else 1
     if cmd == "start":
-        start()
-        print("started port=%d" % DEFAULT_PORT)
+        port = _default_port()
+        start(port)
+        print("started port=%d" % port)
         return 0
     if cmd == "stop":
         stop()

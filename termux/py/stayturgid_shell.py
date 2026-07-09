@@ -25,17 +25,25 @@ def _ensure_env():
     os.environ.setdefault("HOME", HOME)
     env_path = os.path.join(STG, "env")
     if os.path.isfile(env_path):
-        # Lightweight: only STAYTURGID_SD is required for profile paths.
         try:
             with open(env_path) as f:
                 for line in f:
                     line = line.strip()
-                    if line.startswith("export STAYTURGID_SD="):
-                        val = line.split("=", 1)[1].strip().strip('"').strip("'")
-                        if val:
-                            os.environ["STAYTURGID_SD"] = val
-                            global SD
-                            SD = val
+                    if not line.startswith("export "):
+                        continue
+                    body = line[len("export ") :]
+                    if "=" not in body:
+                        continue
+                    key, val = body.split("=", 1)
+                    val = val.strip().strip('"').strip("'")
+                    if key == "STAYTURGID_SD" and val:
+                        os.environ["STAYTURGID_SD"] = val
+                        global SD
+                        SD = val
+                    elif key == "STAYTURGID_NO_LOCAL_ADB" and val:
+                        os.environ["STAYTURGID_NO_LOCAL_ADB"] = val
+                    elif key == "STAYTURGID_HANDSETS_PORT" and val:
+                        os.environ.setdefault("STAYTURGID_HANDSETS_PORT", val)
         except OSError:
             pass
 

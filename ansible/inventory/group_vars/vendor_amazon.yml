@@ -5,9 +5,12 @@
 # Fire OS blocks Termux from /sdcard even with MANAGE_EXTERNAL_STORAGE — keep
 # shared state under the private home tree instead.
 stayturgid_sd_root: "{{ termux_home }}/.stayturgid/shared"
-# No Termux→localhost:5555 loopback — Mac USB/wireless adb is authoritative.
+# No Termux→localhost:5555 loopback — Mac USB/wireless adb is authoritative
+# for privileged shell; Handsets uses peer bootstrap (see peers.json).
 stayturgid_privileged_shell_expected: false
 stayturgid_no_local_adb: true
+# Match Mac ui_driver.py DEFAULT_PORTS["hd8"].
+stayturgid_handsets_port: 9008
 # AutoJs6 still reads scripts from /sdcard (deployed via adb push from Mac).
 autojs6_target: /sdcard/stayturgid/autojs6
 stayturgid_autojs6_deploy_via_adb: true

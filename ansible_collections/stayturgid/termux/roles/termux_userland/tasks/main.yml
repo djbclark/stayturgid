@@ -106,6 +106,20 @@
       {% if stayturgid_no_local_adb | default(false) | bool -%}
       export STAYTURGID_NO_LOCAL_ADB=1
       {% endif %}
+      export STAYTURGID_HANDSETS_PORT="{{ stayturgid_handsets_port | default(9012) }}"
+
+- name: Render fleet peers list for peer Handsets/Shizuku bootstrap
+  ansible.builtin.template:
+    src: peers.json.j2
+    dest: "{{ termux_home }}/.stayturgid/peers"
+    mode: "0644"
+  when: _termux_home_stat.stat.exists
+
+- name: Deploy shared fleet ADB key
+  ansible.builtin.include_tasks: fleet_adbkey.yml
+  when:
+    - stayturgid_deploy_fleet_adbkey | default(true) | bool
+    - _termux_home_stat.stat.exists
 
 - name: Deploy shell scripts / shims to ~/.stayturgid/bin
   ansible.builtin.copy:
@@ -148,7 +162,11 @@
   when:
     - stayturgid_handsets_jar_src is defined
     - stayturgid_handsets_jar_src | length > 0
-    - stayturgid_handsets_jar_src is exists
+    - (query('fileglob', stayturgid_handsets_jar_src) | length) > 0
+
+- name: Install rish into Termux
+  ansible.builtin.include_tasks: rish.yml
+  when: stayturgid_install_rish | default(true) | bool
 
 - name: Deploy on-device UI data files
   ansible.builtin.copy:

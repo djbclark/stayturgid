@@ -100,7 +100,12 @@ Spike **A** shipped and switched on:
 
 **Do not** treat PyPI `handsets` as an on-device solution — it is a host CLI wrapper.
 
-**hd8:** remains Mac Handsets only (Fire has no Termux privileged loopback).
+**hd8:** Handsets via **peer bootstrap** (SSH → s24/p7a → adb `app_process`) when
+`STAYTURGID_NO_LOCAL_ADB=1`. See [`fire-os-local-adb.md`](fire-os-local-adb.md).
+Disable with `STAYTURGID_PEER_BOOTSTRAP=0`.
+
+**rish:** installed by default (`stayturgid_rish.py` / Ansible) to `~/.stayturgid/bin/rish`.
+On Fire, Termux↔Shizuku binder often times out — peer ADB is the Handsets starter.
 
 ## Non-goals
 

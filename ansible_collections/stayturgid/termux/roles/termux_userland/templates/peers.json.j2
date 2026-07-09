@@ -1,0 +1,28 @@
+{# Fleet peer list for Handsets/Shizuku bootstrap (Fire OS asks helpers). #}
+{
+  "self": {
+    "name": {{ inventory_hostname | to_json }},
+    "tailscale": {{ ansible_host | to_json }},
+    "lan": {{ (device_lan_ip | default('')) | to_json }},
+    "usb_serial": {{ (device_usb_serial | default('')) | to_json }}
+  },
+  "handsets_port": {{ stayturgid_handsets_port | default(9008) | int }},
+  "ssh_port": {{ ansible_port | default(8022) | int }},
+  "peers": [
+{% set peers = [] %}
+{% for h in groups[stayturgid_ssh_mesh_group | default('stayturgid')] %}
+{%   if h != inventory_hostname %}
+{%     set _ = peers.append(h) %}
+{%   endif %}
+{% endfor %}
+{% for h in peers %}
+    {
+      "name": {{ h | to_json }},
+      "tailscale": {{ hostvars[h].ansible_host | to_json }},
+      "lan": {{ (hostvars[h].device_lan_ip | default('')) | to_json }},
+      "can_help": {{ (not (hostvars[h].stayturgid_no_local_adb | default(false) | bool)) | to_json }}
+    }{% if not loop.last %},{% endif %}
+
+{% endfor %}
+  ]
+}
