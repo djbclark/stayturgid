@@ -46,12 +46,52 @@ def _parse_switch_in_tail(tail):
     return None
 
 
+def _label_center_y(xml, label):
+    """Vertical center of a text= or content-desc= node equal to label, or None."""
+    esc = re.escape(label)
+    for attr in ("text", "content-desc"):
+        m = re.search(
+            r'%s="%s"[^>]*bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"' % (attr, esc),
+            xml,
+        )
+        if not m:
+            m = re.search(
+                r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"[^>]*%s="%s"' % (attr, esc),
+                xml,
+            )
+        if m:
+            return (int(m.group(2)) + int(m.group(4))) // 2
+    return None
+
+
+def _nearest_switch_by_y(xml, label_y, max_dy=120):
+    """Switch whose vertical center is closest to label_y (AutoJs6 drawer)."""
+    best = None
+    for m in re.finditer(r"<node\b[^>]*>", xml or ""):
+        node = m.group(0)
+        if "android.widget.Switch" not in node:
+            continue
+        parsed = _parse_switch_attrs(node)
+        if parsed is None:
+            continue
+        _checked, _cx, cy = parsed
+        dy = abs(cy - label_y)
+        if dy > max_dy:
+            continue
+        if best is None or dy < best[0]:
+            best = (dy, parsed)
+    return best[1] if best else None
+
+
 def parse_switch(xml, label):
     """From a uiautomator XML dump, find the Switch for <label>.
 
-    Prefers a Switch node that itself carries text= or content-desc= equal to
-    the label; otherwise uses the first Switch after the label string (adjacent
-    TextView + Switch layout).
+    Order:
+      1. Switch node that itself has text=/content-desc= equal to label
+      2. Switch whose Y center is nearest the label TextView (AutoJs6 drawer
+         dumps Switch *before* the label text — string-order search fails)
+      3. First Switch after the label string (legacy Obtainium-style layout)
+      4. Last Switch before the label string within a short window
     """
     if label not in (xml or ""):
         return None
@@ -65,8 +105,25 @@ def parse_switch(xml, label):
             parsed = _parse_switch_attrs(m.group(0))
             if parsed is not None:
                 return parsed
+
+    label_y = _label_center_y(xml, label)
+    if label_y is not None:
+        near = _nearest_switch_by_y(xml, label_y)
+        if near is not None:
+            return near
+
     idx = xml.index(label)
-    return _parse_switch_in_tail(xml[idx:])
+    after = _parse_switch_in_tail(xml[idx:])
+    if after is not None:
+        return after
+    # Switch often precedes the label in the dump (end-aligned row).
+    head = xml[max(0, idx - 1200) : idx]
+    last = None
+    for m in re.finditer(r"<node\b(?=[^>]*\bclass=\"android\.widget\.Switch\")[^>]*>", head):
+        parsed = _parse_switch_attrs(m.group(0))
+        if parsed is not None:
+            last = parsed
+    return last
 
 
 def _switch_from_match(m, bounds_first=False):

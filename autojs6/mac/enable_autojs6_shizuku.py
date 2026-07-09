@@ -206,6 +206,17 @@ def return_to_autojs6(serial: str) -> None:
 
 def open_drawer(serial: str) -> None:
     xml = dump_xml(serial)
+    # Already open (hamburger toggles) — do not tap again.
+    if any(
+        label in xml
+        for label in (
+            DRAWER_SHIZUKU,
+            DRAWER_A11Y,
+            "Foreground service",
+            "Floating button",
+        )
+    ):
+        return
     for desc in ("Open drawer", "Open navigation drawer"):
         point = dev.parse_content_desc_center(xml, desc)
         if point:
@@ -244,14 +255,20 @@ def find_drawer_switch(
         for _ in range(4):
             scroll_drawer_up(serial)
             time.sleep(0.4)
-    for attempt in range(DRAWER_SCROLL_ROUNDS + 4):
+    for attempt in range(DRAWER_SCROLL_ROUNDS + 6):
         xml = dump_xml(serial)
-        sw = dev.parse_switch(xml, label)
-        if sw is not None:
-            return sw
-        if attempt < DRAWER_SCROLL_ROUNDS + 3:
+        if label in xml:
+            sw = dev.parse_switch(xml, label)
+            if sw is not None:
+                return sw
+            time.sleep(0.4)
+            xml = dump_xml(serial)
+            sw = dev.parse_switch(xml, label)
+            if sw is not None:
+                return sw
+        if attempt < DRAWER_SCROLL_ROUNDS + 5:
             scroll_drawer_down(serial)
-            time.sleep(0.5)
+            time.sleep(0.55)
     return None
 
 
@@ -448,7 +465,10 @@ def enable_accessibility(serial: str, alias: str) -> bool:
 
 
 def verify_shizuku_drawer(serial: str) -> bool:
-    sw = find_drawer_switch(serial, DRAWER_SHIZUKU)
+    """Confirm Shizuku access is ON (same find path as enable_drawer_switch)."""
+    # reset=True: return to AutoJs6, open drawer, scroll from top — required
+    # because open_drawer while already open can toggle the drawer closed.
+    sw = find_drawer_switch(serial, DRAWER_SHIZUKU, reset=True)
     if not sw:
         print("Verify: Shizuku access row not found")
         return False
@@ -457,6 +477,7 @@ def verify_shizuku_drawer(serial: str) -> bool:
         return False
     if not pm_shizuku_granted(serial):
         print("WARN: drawer ON but pm grant not visible in dumpsys yet")
+    print("Verify: Shizuku access drawer switch ON")
     return True
 
 

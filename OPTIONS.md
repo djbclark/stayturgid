@@ -10,12 +10,11 @@
 > Ansible boundary: [docs/adr/001-ansible-boundary.md](docs/adr/001-ansible-boundary.md).
 > On-device LLM research: [docs/research/on-device-llm.md](docs/research/on-device-llm.md).
 
-**Fleet snapshot (2026-07-09):** On-device post-UI + screen-control ported (s24/p7a
-via SSH → Termux `localhost:5555`; hd8 stays Mac USB). Code-review follow-ups
-(H1/H2/parse_switch/docs) landed. Item **46** drawer verify still needs unlocked
-screen. See track **E** whenever options are requested.
+**Fleet snapshot (2026-07-09):** On-device post-UI + screen-control on s24/p7a;
+item **46** AutoJs6 drawer verify **PASS** on s24 (`shizuku operational=true`).
+See track **E** whenever options are requested.
 
-**Suggested agent order:** deploy Termux UI libs to s24 → **46** drawer → human **H3** → **H1** → **15b**. Consider **54** only after deterministic heal is solid.
+**Suggested agent order:** human **H3** fleet expand → **H1** → **15b**. Consider **54** only as a future spike.
 
 ---
 

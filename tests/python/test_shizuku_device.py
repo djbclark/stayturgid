@@ -93,6 +93,16 @@ def test_parse_switch_same_node_content_desc():
     assert dev.parse_switch(xml, "Foreground service") == (False, 20, 30)
 
 
+def test_parse_switch_before_label_by_y():
+    """AutoJs6 drawer: Switch node precedes label text; match by Y center."""
+    xml = (
+        '<node class="android.widget.Switch" checked="true" '
+        'bounds="[608,1010][730,1081]" />'
+        '<node text="Shizuku access" bounds="[113,1020][571,1071]" />'
+    )
+    assert dev.parse_switch(xml, "Shizuku access") == (True, 669, 1045)
+
+
 def test_parse_text_center():
     xml = '<node text="Allow" bounds="[100,200][300,400]" />'
     assert dev.parse_text_center(xml, "Allow") == (200, 300)

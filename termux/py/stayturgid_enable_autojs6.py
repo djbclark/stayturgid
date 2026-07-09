@@ -54,11 +54,8 @@ A11Y_DIALOG_HINTS = (
     "perform gestures",
 )
 
-# Override a11y paths for on-device
-a11y.PROFILES_PATH = os.path.join(sh.STG, "a11y_profiles.json")
-if not os.path.isfile(a11y.PROFILES_PATH):
-    _repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    a11y.PROFILES_PATH = os.path.join(_repo, "shared", "a11y_profiles.json")
+# a11y_services.PROFILES_PATH already resolves ~/.stayturgid/a11y_profiles.json
+# when deployed on-device — do not overwrite with a str (breaks Path.is_file).
 
 
 def adb_shell(shell, *args, timeout=30):
@@ -184,6 +181,17 @@ def return_to_autojs6(shell):
 
 def open_drawer(shell):
     xml = dump_xml(shell)
+    # Already open (hamburger toggles) — do not tap again.
+    if any(
+        label in xml
+        for label in (
+            DRAWER_SHIZUKU,
+            DRAWER_A11Y,
+            "Foreground service",
+            "Floating button",
+        )
+    ):
+        return
     for desc in ("Open drawer", "Open navigation drawer"):
         point = parse_content_desc_center(xml, desc)
         if point:
@@ -220,14 +228,20 @@ def find_drawer_switch(shell, label, *, reset=True):
         for _ in range(4):
             scroll_drawer_up(shell)
             time.sleep(0.4)
-    for attempt in range(DRAWER_SCROLL_ROUNDS + 4):
+    for attempt in range(DRAWER_SCROLL_ROUNDS + 6):
         xml = dump_xml(shell)
-        sw = parse_switch(xml, label)
-        if sw is not None:
-            return sw
-        if attempt < DRAWER_SCROLL_ROUNDS + 3:
+        if label in xml:
+            sw = parse_switch(xml, label)
+            if sw is not None:
+                return sw
+            time.sleep(0.4)
+            xml = dump_xml(shell)
+            sw = parse_switch(xml, label)
+            if sw is not None:
+                return sw
+        if attempt < DRAWER_SCROLL_ROUNDS + 5:
             scroll_drawer_down(shell)
-            time.sleep(0.5)
+            time.sleep(0.55)
     return None
 
 
@@ -416,7 +430,10 @@ def enable_accessibility(shell, alias):
 
 
 def verify_shizuku_drawer(shell):
-    sw = find_drawer_switch(shell, DRAWER_SHIZUKU)
+    """Confirm Shizuku access is ON (same find path as enable_drawer_switch)."""
+    # reset=True: return to AutoJs6, open drawer, scroll from top — required
+    # because open_drawer while already open can toggle the drawer closed.
+    sw = find_drawer_switch(shell, DRAWER_SHIZUKU, reset=True)
     if not sw:
         print("Verify: Shizuku access row not found")
         return False
@@ -425,6 +442,7 @@ def verify_shizuku_drawer(shell):
         return False
     if not pm_shizuku_granted(shell):
         print("WARN: drawer ON but pm grant not visible in dumpsys yet")
+    print("Verify: Shizuku access drawer switch ON")
     return True
 
 
