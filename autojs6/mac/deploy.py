@@ -25,19 +25,38 @@ def deploy_project(alias: str, device_id: str = "") -> int:
         print(f"NOTE: device-id arg is deprecated; profile comes from Ansible inventory (ignored: {device_id})")
 
     print(f"Deploying autojs6/ → {serial}:{TARGET_BASE}")
+    # Wipe remote lib/scripts before push. Do NOT mkdir first — `adb push
+    # local/. into an empty dest/` nests as lib/lib on some adb versions.
+    # Pushing the directory itself after rm creates a clean tree.
     adb.adb(
         serial,
         "shell",
-        f"mkdir -p '{TARGET_BASE}/lib' '{TARGET_BASE}/scripts'",
-        check=False,
+        f"rm -rf '{TARGET_BASE}/lib' '{TARGET_BASE}/scripts'",
+        check=True,
     )
     for local, remote in (
         (AUTOJS_SRC / "project.json", f"{TARGET_BASE}/project.json"),
         (AUTOJS_SRC / "main.js", f"{TARGET_BASE}/main.js"),
     ):
         adb.adb(serial, "push", str(local), remote, check=True)
-    adb.adb(serial, "push", str(AUTOJS_SRC / "lib" / "."), f"{TARGET_BASE}/lib/", check=True)
-    adb.adb(serial, "push", str(AUTOJS_SRC / "scripts" / "."), f"{TARGET_BASE}/scripts/", check=True)
+    adb.adb(serial, "push", str(AUTOJS_SRC / "lib"), f"{TARGET_BASE}/lib", check=True)
+    adb.adb(serial, "push", str(AUTOJS_SRC / "scripts"), f"{TARGET_BASE}/scripts", check=True)
+
+    # Fail closed if a required module did not land (catches nested/stale pushes).
+    check = adb.adb(
+        serial,
+        "shell",
+        f"test -f '{TARGET_BASE}/lib/shizuku_shell.js' "
+        f"&& test -f '{TARGET_BASE}/scripts/shizuku-probe.js' "
+        f"&& test ! -d '{TARGET_BASE}/lib/lib'",
+        check=False,
+    )
+    if check.returncode != 0:
+        sys.stderr.write(
+            "ERROR: deploy incomplete — missing lib/shizuku_shell.js or "
+            "scripts/shizuku-probe.js (or nested lib/lib) on device\n"
+        )
+        return 1
 
     print(f"Done. In AutoJs6: open project {TARGET_BASE} → run main.js")
     print(f"Then: ./set_automation_mode.py {alias} && ./start_watchdog.py {alias}")

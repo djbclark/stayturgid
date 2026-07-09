@@ -52,3 +52,16 @@ def test_session_fails_closed_when_presence_on_missing(monkeypatch):
         assert False, "expected ScreenControlError"
     except sc.ScreenControlError as e:
         assert "agent-presence on failed" in str(e)
+
+
+def test_ssh_presence_timeout_returns_124(monkeypatch):
+    import subprocess
+
+    def boom(*_a, **_k):
+        raise subprocess.TimeoutExpired(cmd="ssh", timeout=25)
+
+    monkeypatch.setattr(sc.dev, "resolve_ssh_host", lambda h: "hd8")
+    monkeypatch.setattr(sc.subprocess, "run", boom)
+    rc, out = sc.ssh_presence("hd8", "request-screen", "hd8", "Auto")
+    assert rc == 124
+    assert "timed out" in out

@@ -137,18 +137,27 @@ def _run(args, **kw):
         return None
 
 
+# Fire OS / aliases without Termux→localhost:5555 — Mac adb is authoritative.
+MAC_ADB_PRIV_ALIASES = frozenset({"hd8"})
+
+
 class PrivShell:
-    """Run privileged commands on the device's localhost:5555 shell, via SSH
-    (bash -s stdin, shell-agnostic) when the alias is SSH-addressable, else
-    directly through the Mac's adb to the resolved target."""
+    """Run privileged shell commands on a device.
+
+    Prefer Termux SSH → ``adb -s localhost:5555`` when that channel works
+    (s24/p7a). Fire OS (hd8) and raw serials use Mac ``adb -s <target>`` —
+    there is no Termux loopback on those hosts.
+    """
 
     def __init__(self, alias, conf_path=None):
         self.alias = alias
         self.target = resolve_adb(alias, conf_path)
-        self.ssh_host = resolve_ssh_host(alias, conf_path)
+        self.ssh_host = None
+        if alias not in MAC_ADB_PRIV_ALIASES:
+            self.ssh_host = resolve_ssh_host(alias, conf_path)
 
     def sh(self, cmd, timeout=30):
-        """adb -s localhost:5555 shell <cmd>. Returns (rc, stdout)."""
+        """Privileged ``adb shell <cmd>``. Returns (rc, stdout)."""
         if self.ssh_host:
             import shlex
             remote = "adb -s localhost:5555 shell %s\n" % shlex.quote(cmd)

@@ -29,6 +29,10 @@ if os.path.isfile(_ENV_FILE):
                 _line = _line.strip()
                 if _line.startswith("export STAYTURGID_SD="):
                     os.environ["STAYTURGID_SD"] = _line.split("=", 1)[1].strip().strip('"')
+                elif _line.startswith("export STAYTURGID_NO_LOCAL_ADB="):
+                    os.environ["STAYTURGID_NO_LOCAL_ADB"] = (
+                        _line.split("=", 1)[1].strip().strip('"')
+                    )
     except OSError:
         pass
 
@@ -52,17 +56,23 @@ IDLE_PKGS = {
 PKG_RE = re.compile(r"^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)+$")
 
 
-def run(args):
+def run(args, timeout=15):
     try:
-        return subprocess.run(args, capture_output=True, text=True)
+        return subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        return None
     except OSError:
         return None
 
 
 def adb_shell(*cmd):
-    if run(["adb", "connect", "localhost:5555"]) is None:
+    """Privileged shell via Termux localhost:5555. No-op on Fire (no loopback)."""
+    # Fire OS / hosts without Termux→5555: skip rather than hang on connect.
+    if os.environ.get("STAYTURGID_NO_LOCAL_ADB") == "1":
         return ""
-    r = run(["adb", "-s", "localhost:5555", "shell"] + list(cmd))
+    if run(["adb", "connect", "localhost:5555"], timeout=5) is None:
+        return ""
+    r = run(["adb", "-s", "localhost:5555", "shell"] + list(cmd), timeout=15)
     return (r.stdout if r else "").replace("\r", "")
 
 
@@ -110,8 +120,10 @@ def clear_lease():
 
 def pulse(n):
     for _ in range(n):
-        run(["termux-torch", "on"]); time.sleep(0.25)
-        run(["termux-torch", "off"]); time.sleep(0.20)
+        run(["termux-torch", "on"], timeout=3)
+        time.sleep(0.25)
+        run(["termux-torch", "off"], timeout=3)
+        time.sleep(0.20)
 
 
 def foreground_pkg():

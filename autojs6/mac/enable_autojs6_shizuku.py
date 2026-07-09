@@ -526,8 +526,13 @@ def main_mac_adb(alias: str) -> int:
         sys.stderr.write("ERROR: shizuku_server not running — start Shizuku first\n")
         return 1
 
+    # Fire OS: termux-dialog often hangs, so skip request-screen countdown;
+    # still run presence on + inversion via ScreenControlSession.
+    skip_request = alias in getattr(dev, "MAC_ADB_PRIV_ALIASES", frozenset({"hd8"}))
     try:
-        with sc.ScreenControlSession(alias, label=alias) as session:
+        with sc.ScreenControlSession(
+            alias, label=alias, skip_request=skip_request,
+        ) as session:
             _SHELL = session.shell
             launch_autojs6(serial)
             dismiss_dialogs(serial)

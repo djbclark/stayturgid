@@ -13,8 +13,10 @@
 
 **Fleet snapshot (2026-07-09):** Post-UI SSH-first on s24/p7a with Mac adb
 fallback; hd8 Mac adb only. Play **H1** + **15b** done — `source: play`
-ensure_apps canary (metronome) installed on s24 via google-play splits.
-Item **46** drawer **PASS** on s24.
+ensure_apps canary (metronome) on s24 only. Item **46** drawer **PASS** on
+s24 + hd8 (probe `operational=true`); **p7a** AutoJs6 drawer paused
+(`human/CHECKPOINT-p7a-autojs6.md`). H3 partial — finish p7a when free, then
+**H2** eyeball.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast

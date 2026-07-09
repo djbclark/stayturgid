@@ -115,7 +115,7 @@ def restore_default_ime(serial, saved_ime):
 def ssh_presence(host, action, label, agent):
     host = dev.resolve_ssh_host(host) or host
     if not host:
-        return 127, ""
+        return 127, "no ssh host"
     # Prefer single-root deploy path; fall back to legacy ~/ shim if present.
     remote = (
         "if [ -x %s ]; then P=%s; elif [ -x %s ]; then P=%s; else exit 127; fi; "
@@ -130,12 +130,20 @@ def ssh_presence(host, action, label, agent):
             _shell_quote(agent),
         )
     )
-    r = _run(
-        ["ssh"] + dev.SSH_OPTS + [host, remote],
-        timeout=90 if action == "request-screen" else 30,
-    )
-    if r is None:
-        return 127, ""
+    # request-screen uses termux-dialog; on Fire OS that can hang past the
+    # on-device timeout — keep Mac SSH timeout tight and report distinctly.
+    limit = 25 if action == "request-screen" else 30
+    try:
+        r = subprocess.run(
+            ["ssh"] + dev.SSH_OPTS + [host, remote],
+            capture_output=True,
+            text=True,
+            timeout=limit,
+        )
+    except subprocess.TimeoutExpired:
+        return 124, "ssh presence timed out after %ss (action=%s)" % (limit, action)
+    except OSError as e:
+        return 127, str(e)
     return r.returncode, (r.stdout or "") + (r.stderr or "")
 
 
