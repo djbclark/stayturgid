@@ -1,0 +1,31 @@
+---
+# Full stayturgid site deploy — bootstrap, fleet state, post-UI, validate.
+#
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml
+#   ansible-playbook ansible/playbooks/site.yml --limit s24
+#   CHECK=1 ansible-playbook ansible/playbooks/site.yml --check --diff
+#
+# Partial scopes (same as ./mac/deploy_fleet.py --scope):
+#   --tags fdroid          F-Droid roles only
+#   --tags play,post-ui    Play + Aurora UI
+#   --tags app-stores      F-Droid + Play roles
+#   --tags validate        repair + SSH smoke only
+#
+# SSH preflight (adb bootstrap when SSH is down) runs from deploy_fleet.py before
+# this playbook when not in check mode.
+- name: Import bootstrap play
+  import_playbook: bootstrap.yml
+
+- name: Import fleet deploy play
+  import_playbook: fleet.yml
+
+- name: Import post-UI automation play
+  import_playbook: post-ui.yml
+
+# Re-run app-store roles after Obtainium catalog import (full deploy only).
+- name: Import fleet app-stores pass (post-Obtainium)
+  import_playbook: fleet.yml
+  tags: [post-ui-app-stores, full]
+
+- name: Import validate play
+  import_playbook: validate.yml

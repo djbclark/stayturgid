@@ -57,7 +57,7 @@ fi
 
 # --- ansible ---------------------------------------------------------------
 if command -v ansible-playbook >/dev/null 2>&1; then
-    for pb in ansible/playbooks/termux-userland.yml ansible/playbooks/bootstrap.yml; do
+    for pb in ansible/playbooks/site.yml ansible/playbooks/termux-userland.yml ansible/playbooks/bootstrap.yml; do
         if ANSIBLE_CONFIG=ansible/ansible.cfg \
            ansible-playbook "$pb" --syntax-check >/dev/null 2>&1; then
             tap_ok "ansible-playbook --syntax-check: $(basename "$pb")"

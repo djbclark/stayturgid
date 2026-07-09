@@ -36,7 +36,18 @@ The deployed `~/agent-presence.sh` includes the consent `gate` action ([termux/R
 - SSH to Termux working (`ssh s24` or USB forward to port 8022)
 - `~/.ssh/termux_key` authorized on the device (bootstrap once with `ssh-copy-id`; `termux_userland` role manages keys on every deploy)
 
-## Run (fleet wrapper)
+## Full fleet deploy
+
+```bash
+./mac/deploy_fleet.py s24              # ansible/playbooks/site.yml
+CHECK=1 ./mac/deploy_fleet.py s24      # dry run
+ansible-playbook ansible/playbooks/site.yml --limit s24   # direct
+```
+
+`site.yml` chains: `bootstrap.yml` → `fleet.yml` → `post-ui.yml` → app-stores
+re-pass → `validate.yml`. See [docs/adr/001-ansible-boundary.md](../docs/adr/001-ansible-boundary.md).
+
+## Run (Termux only)
 
 ```bash
 # S24 (AutoJs6 production)

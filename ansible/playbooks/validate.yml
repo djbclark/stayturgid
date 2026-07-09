@@ -1,0 +1,29 @@
+---
+# Post-deploy validation over SSH (complements make verify / device_tier TAP).
+- name: stayturgid fleet validate
+  hosts: stayturgid
+  gather_facts: false
+  tags: [validate]
+  tasks:
+    - name: Run stayturgid-repair and parse STATUS
+      stayturgid.termux.stayturgid_repair_check:
+        repair_script: "{{ termux_home }}/.stayturgid/bin/stayturgid-repair.sh"
+        termux_prefix: "{{ termux_prefix }}"
+        fail_on_unhealthy: false
+      register: _repair
+
+    - name: Assert repair layer healthy
+      ansible.builtin.assert:
+        that:
+          - _repair.healthy | default(false)
+        fail_msg: >-
+          Repair unhealthy on {{ inventory_hostname }}:
+          {{ _repair.status_line | default('no STATUS') }}
+        quiet: true
+      when: not ansible_check_mode
+
+    - name: SSH echo probe
+      ansible.builtin.command:
+        argv: [echo, termux_ssh_ok]
+      changed_when: false
+      when: not ansible_check_mode

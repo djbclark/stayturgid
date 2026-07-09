@@ -1,7 +1,6 @@
-"""Unit tests for mac/deploy_fleet.py — argv building and inventory parsing."""
+"""Unit tests for mac/deploy_fleet.py — site.yml argv building and deploy wrapper."""
 import json
 import os
-import subprocess
 import sys
 
 sys.path.insert(0, os.path.join(
@@ -24,7 +23,7 @@ def test_build_playbook_argv_full():
     cmd = df.build_playbook_argv(limit=["s24", "hd8"], check=False, tags=None)
     assert cmd == [
         "ansible-playbook",
-        str(df.FLEET_PLAYBOOK),
+        str(df.SITE_PLAYBOOK),
         "--limit",
         "s24,hd8",
     ]
@@ -34,7 +33,7 @@ def test_build_playbook_argv_check_and_tags():
     cmd = df.build_playbook_argv(limit=["s24"], check=True, tags="app-stores")
     assert cmd == [
         "ansible-playbook",
-        str(df.FLEET_PLAYBOOK),
+        str(df.SITE_PLAYBOOK),
         "--limit",
         "s24",
         "--check",
@@ -55,7 +54,7 @@ def test_check_mode_env(monkeypatch):
 def test_scope_ansible_tags():
     assert df.Scope.FULL.ansible_tags is None
     assert df.Scope.FDROID.ansible_tags == "fdroid"
-    assert df.Scope.PLAY.ansible_tags == "play"
+    assert df.Scope.PLAY.ansible_tags == "play,post-ui"
     assert df.Scope.APP_STORES.ansible_tags == "app-stores"
 
 
@@ -63,97 +62,56 @@ def test_resolve_hosts_explicit():
     assert df.resolve_hosts(["s24"]) == ["s24"]
 
 
-def test_deploy_import_failure_reports_stderr(monkeypatch, capsys):
-    def fake_run(cmd, **kwargs):
-        if "import_catalog" in str(cmd):
-            return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="ERROR: dialog not confirmed\n")
-        return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
-
-    monkeypatch.setattr(df, "IMPORT_CATALOG", df.REPO_ROOT / "obtainium" / "mac" / "import_catalog.py")
-    monkeypatch.setattr(df.subprocess, "run", fake_run)
-    rc, step = df.run_import_catalog("s24")
-    assert rc == 1
-    assert step == "obtainium import"
-    captured = capsys.readouterr()
-    assert "FAIL: Obtainium import failed on s24" in captured.err
-    assert "dialog not confirmed" in captured.err
-
-
-def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0, import_rc=0, aurora_rc=0, shizuku_rc=0, harden_rc=0):
+def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0, bootstrap_rc=0):
     monkeypatch.setattr(df, "require_ansible", lambda: None)
     monkeypatch.setattr(df, "warn_prerequisites", lambda scope: None)
     monkeypatch.setattr(df, "install_collections", lambda: None)
 
+    def ensure_ssh_bootstrap(hosts):
+        calls.append(("bootstrap", list(hosts)))
+        return bootstrap_rc
+
     def run_playbook(*, limit, check, tags):
-        calls.append(("playbook", tags))
+        calls.append(("playbook", tags, check))
         return playbook_rc
 
-    def run_import_catalog(host):
-        calls.append(("import", host))
-        return (import_rc, "obtainium import" if import_rc else "")
-
-    def run_configure_aurora(host):
-        calls.append(("aurora", host))
-        return (aurora_rc, "aurora setup" if aurora_rc else "")
-
-    def run_enable_autojs6_shizuku(host):
-        calls.append(("shizuku", host))
-        return (shizuku_rc, "autojs6 shizuku" if shizuku_rc else "")
-
-    def run_harden_fleet_apps(host):
-        calls.append(("harden", host))
-        return (harden_rc, "fleet app privileges" if harden_rc else "")
-
+    monkeypatch.setattr(df, "ensure_ssh_bootstrap", ensure_ssh_bootstrap)
     monkeypatch.setattr(df, "run_playbook", run_playbook)
-    monkeypatch.setattr(df, "run_import_catalog", run_import_catalog)
-    monkeypatch.setattr(df, "run_configure_aurora", run_configure_aurora)
-    monkeypatch.setattr(df, "run_enable_autojs6_shizuku", run_enable_autojs6_shizuku)
-    monkeypatch.setattr(df, "run_harden_fleet_apps", run_harden_fleet_apps)
 
 
-def test_deploy_full_flow_order(monkeypatch):
+def test_deploy_runs_site_playbook(monkeypatch):
     calls = []
     _stub_deploy_deps(monkeypatch, calls)
     rc = df.deploy(df.Scope.FULL, ["s24"], check=False)
     assert rc == 0
     assert calls == [
-        ("playbook", None),
-        ("import", "s24"),
-        ("playbook", "app-stores"),
-        ("harden", "s24"),
-        ("aurora", "s24"),
-        ("shizuku", "s24"),
+        ("bootstrap", ["s24"]),
+        ("playbook", None, False),
     ]
 
 
-def test_deploy_playbook_failure_short_circuits(monkeypatch):
+def test_deploy_playbook_failure(monkeypatch):
     calls = []
     _stub_deploy_deps(monkeypatch, calls, playbook_rc=2)
     rc = df.deploy(df.Scope.FULL, ["s24"], check=False)
     assert rc == 2
-    assert calls == [("playbook", None)]
+    assert calls == [
+        ("bootstrap", ["s24"]),
+        ("playbook", None, False),
+    ]
 
 
-def test_deploy_check_mode_skips_post_steps(monkeypatch):
+def test_deploy_check_skips_bootstrap(monkeypatch):
     calls = []
     _stub_deploy_deps(monkeypatch, calls)
-    rc = df.deploy(df.Scope.FULL, ["s24"], check=True)
+    rc = df.deploy(df.Scope.FDROID, ["s24"], check=True)
     assert rc == 0
-    assert calls == [("playbook", None)]
+    assert calls == [("playbook", "fdroid", True)]
 
 
-def test_deploy_import_failure_skips_app_stores(monkeypatch):
+def test_deploy_bootstrap_failure_short_circuits(monkeypatch):
     calls = []
-    _stub_deploy_deps(monkeypatch, calls, import_rc=1)
+    _stub_deploy_deps(monkeypatch, calls, bootstrap_rc=1)
     rc = df.deploy(df.Scope.FULL, ["s24"], check=False)
     assert rc == 1
-    assert ("playbook", "app-stores") not in calls
-
-
-def test_deploy_aurora_failure_still_reports_rc(monkeypatch, capsys):
-    calls = []
-    _stub_deploy_deps(monkeypatch, calls, aurora_rc=1)
-    rc = df.deploy(df.Scope.FULL, ["s24"], check=False)
-    assert rc == 1
-    assert ("aurora", "s24") in calls
-    assert "Post-deploy failures" in capsys.readouterr().err
+    assert calls == [("bootstrap", ["s24"])]

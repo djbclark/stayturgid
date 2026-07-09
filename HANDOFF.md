@@ -47,7 +47,11 @@ On the Mac, a launchd agent runs every 60 s and reconnects `adb connect <ip>:555
 
 GitHub `master` is the source of truth. To release:
 1. Bump `version.json` (`version` + `changelog`), commit, push.
-2. `./mac/deploy_fleet.py` — full fleet via Ansible (`CHECK=1 ./mac/deploy_fleet.py` = dry run): Termux, AutoJs6, Obtainium, Tailscale, F-Droid/Neo Store, Play/Aurora, optional ensure_apps. Idempotent (re-run = `changed=0`). Post-Ansible: Obtainium catalog import (unlocked screen), app-stores re-run, Aurora UI setup. Or the granular path: `./ansible/mac/deploy_termux.py [--limit host]` then `./autojs6/mac/deploy.py {s24,hd8,p7a}` + `./autojs6/mac/start_watchdog.py`.
+2. `./mac/deploy_fleet.py` — full fleet via `ansible/playbooks/site.yml`
+   (`CHECK=1 ./mac/deploy_fleet.py` = dry run): bootstrap, Termux, AutoJs6,
+   Obtainium, Tailscale, F-Droid/Neo Store, Play/Aurora, app privileges,
+   post-UI automation, validate. Idempotent (re-run = `changed=0`). Or the
+   granular path: `./ansible/mac/deploy_termux.py` then `./autojs6/mac/deploy.py`.
 
 Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `termux-notification` when GitHub `version.json` moves ahead of the last-seen stamp.
 
@@ -330,7 +334,7 @@ first-run, AutoJs6 drawer — not fake “modules” for UI taps.
 | Pre-SSH bootstrap | ✅ `termux_ssh_bootstrap` + `bootstrap.yml` | Yes |
 | Termux packages + scripts | ✅ `termux_userland` + `termux_pkg` | Yes |
 | SSH mesh (steady state) | ✅ `authorized_key` + `known_hosts` in role | Yes |
-| App privileges | `app_privileges` role + `harden_fleet_apps.py` post-step | Yes — dedupe |
+| App privileges | ✅ `app_privileges` role in `fleet.yml` (before post-UI Aurora) | Yes |
 | Shizuku install/grant | `shizuku_grant` module + Mac helpers | Mostly yes |
 | Obtainium catalog | `obtainium_app` render + `import_catalog.py` UI | Split (render yes, import script) |
 | AutoJs6 deploy | `autojs6_watchdog` role + `autojs6/mac/*.py` | Partial |
@@ -352,13 +356,13 @@ first-run, AutoJs6 drawer — not fake “modules” for UI taps.
 [ivansible/termux](https://galaxy.ansible.com/ui/repo/published/ivansible/termux/),
 [AnsibleAndroidAutomationADB](https://github.com/shresthagrawal/AnsibleAndroidAutomationADB).
 
-**Concrete Ansible track steps:** compose `site.yml` (bootstrap → fleet → post-ui →
-validate); remove duplicate `harden_fleet_apps` post-step; wire `validate.yml`;
-optional `stayturgid.validate` collection; Galaxy publish when H5 creds exist.
+**Concrete Ansible track steps:** ✅ `site.yml` shipped; `deploy_fleet.py` thin wrapper;
+`validate.yml` + ADR 001. Optional: Galaxy publish when H5 creds exist.
 
 ### F-Droid + Play (integrated in fleet.yml)
 
-**Status (2026-07-07):** Roles `stayturgid.fdroid.fdroid_repos` and `stayturgid.play.play_store` are part of `ansible/playbooks/fleet.yml`. `./mac/deploy_fleet.py` runs core Ansible → Obtainium import → app-stores re-run → Aurora UI automation.
+**Status (2026-07-09):** Integrated in `fleet.yml` / `site.yml`. `./mac/deploy_fleet.py`
+runs `ansible-playbooks/site.yml` (post-UI scripts orchestrated in `post-ui.yml`).
 
 **Mac prerequisites:** `brew install fdroidcl apkeep`
 

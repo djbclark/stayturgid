@@ -2,11 +2,11 @@
 # Full fleet deploy: Termux, AutoJs6, Obtainium, Tailscale, F-Droid, Play, optional ensure_apps.
 # Boot-loop restart happens via handler only when boot scripts change.
 #
-# Usage (from repo root, or via ./mac/deploy_fleet.py):
+# Usage (from repo root, or via ./mac/deploy_fleet.py / site.yml):
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
 #     ansible/playbooks/fleet.yml [--limit s24]
 #
-# Tags: app-stores (fdroid + play), fdroid, play, ensure_apps — for partial re-runs.
+# Tags: app-stores (fdroid + play), fdroid, play, app-privileges, ensure_apps
 #
 # Per-host failures don't stop other hosts (Ansible default behavior).
 - name: stayturgid fleet deploy
@@ -25,8 +25,10 @@
       tags: [app-stores, play]
       vars:
         target_device: "{{ inventory_hostname }}"
+    - role: stayturgid.android_common.app_privileges
+      tags: [app-privileges, app-stores, play, full]
+      vars:
+        target_device: "{{ inventory_hostname }}"
     - role: stayturgid.android_common.ensure_apps
       tags: [ensure_apps]
       when: stayturgid_ensure_apps | default([]) | length > 0
-    - role: stayturgid.android_common.app_privileges
-      tags: [app-privileges, app-stores]
