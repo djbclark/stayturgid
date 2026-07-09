@@ -292,34 +292,69 @@ version.json                 — repo release version + changelog
 
 ---
 
-## Appendix — Architecture research: unified orchestration (RESEARCH ONLY — not approved)
+## Appendix — Strategic directions (equal weight)
 
-> **Do not refactor yet.** The current hybrid (Mac shell + partial Ansible + on-device AutoJs6 + Obtainium scripts) is working production. This captures a proposed future consolidation for a later decision.
+> **For agents:** Ansible consolidation is a **first-class option**, not a
+> deferred research item. Compare it alongside operational work, reliability
+> hardening, and staying on the current hybrid. Pick based on operator priority
+> and fleet risk — see [OPTIONS.md](OPTIONS.md) for the open menu.
 
-**Question:** could the whole system (Termux/SSH, Termux:API, ADB, uiautomator2, Shizuku, AutoJs6 deploy, Obtainium, launchd) become **one Ansible project** with everything as modules/roles/collections?
+The current hybrid (Mac Python + partial Ansible + on-device AutoJs6 +
+Obtainium UI scripts) is **working production**. Three directions are all valid
+next investments:
 
-**Preliminary recommendation:** extensible **Ansible core + custom Python modules**, augmented by a small Python library for Android glue that doesn't fit YAML. Rationale: SSH-first control plane already exists; roles/collections match "everything as a module"; idempotency already validated (`changed=0`). We are already partial-Ansible — the question is how far to extend, not whether to start.
+| Track | Summary | Best when… |
+|-------|---------|------------|
+| **A — Operational** | Deploy, verify, human unblockers (H1–H3, item 27) | Fleet drift or untested landings need a live soak |
+| **B — Ansible-native** | `site.yml` composition, more modules/roles, thin `deploy_fleet.py` | You want one idempotent graph, Galaxy-ready collections, less orchestration scatter |
+| **C — Hybrid polish** | Keep `deploy_fleet.py` orchestrator; dedupe scripts, fix ordering, incremental modules only | Lowest risk; Ansible grows only where pain is acute |
+| **D — Python orchestrator** | Replace Ansible boundary with Fabric/Invoke + shared `adb_cli` / `screen_control` | UI-heavy flows dominate and YAML becomes friction |
+
+**No track fixes:** Play Protect, PIN unlock, DHCP LAN IP, Samsung Shizuku/content-URI
+quirks. **MDM and root remain rejected** (daily-driver phones; locked S24 bootloader).
+
+### Track B — Ansible-native (detailed)
+
+**Question:** how much of Termux/SSH, ADB, Shizuku grants, app stores, Obtainium
+catalog render, Mac launchd, and post-deploy validation can become **one Ansible
+project** (modules + roles + composed playbooks)?
+
+**Target shape (~80/20):** declarative Ansible for fleet state; screen-control
+Python scripts invoked from tagged playbook steps for Obtainium import, Aurora
+first-run, AutoJs6 drawer — not fake “modules” for UI taps.
 
 **Gap analysis (today → Ansible-native):**
 
-| Layer | Today | Native? |
-|-------|-------|---------|
+| Layer | Today | Ansible-native? |
+|-------|-------|-----------------|
+| Pre-SSH bootstrap | ✅ `termux_ssh_bootstrap` + `bootstrap.yml` | Yes |
 | Termux packages + scripts | ✅ `termux_userland` + `termux_pkg` | Yes |
-| Shizuku install/grant | Mac shell (`stayturgid_device.py`) | Partial — custom module |
-| Obtainium catalog/install | `obtainium_app` module + `import_catalog.py` / `sync_to_device.py` | Yes (Mac deep-link import) |
-| AutoJs6 deploy/start | `autojs6_watchdog` role + `autojs6/mac/*.sh` | Partial — role + adb delegate |
-| ADB reconnect launchd | `adb-reconnect.py` + plist (mac.yml) | localhost role |
-| Validation | `device_tier.py` + TAP | playbook `validate.yml` |
+| SSH mesh (steady state) | ✅ `authorized_key` + `known_hosts` in role | Yes |
+| App privileges | `app_privileges` role + `harden_fleet_apps.py` post-step | Yes — dedupe |
+| Shizuku install/grant | `shizuku_grant` module + Mac helpers | Mostly yes |
+| Obtainium catalog | `obtainium_app` render + `import_catalog.py` UI | Split (render yes, import script) |
+| AutoJs6 deploy | `autojs6_watchdog` role + `autojs6/mac/*.py` | Partial |
+| Post-deploy UI | `configure_aurora.py`, `enable_autojs6_shizuku.py` | Tagged `script:` steps |
+| ADB reconnect launchd | `adb_reconnect.py` + `mac.yml` | localhost role |
+| Validation | `device_tier.py` + TAP + `stayturgid_repair_check` | `validate.yml` playbook |
 
-**Should NOT move into Ansible:** runtime watchdog logic (`stayturgid-repair`, AutoJs6 `main.js` — Ansible configures, devices self-heal); the accessibility catastrophic Shizuku tap; Obtainium in-app UI flows. **Alternatives if the Ansible boundary feels wrong:** pure-Python orchestrator (Invoke/Fabric + uiautomator2 + ppadb) for dense UI state machines; SaltStack (higher setup cost, weak DIY-phone ecosystem).
+**Should NOT move into Ansible:** runtime watchdog (`stayturgid-repair`, AutoJs6
+`main.js`); catastrophic accessibility Shizuku tap; Obtainium in-app state API
+(nonexistent); Play silent install without MDM.
 
-**Custom-module candidates + fault-tolerance notes:** `termux_pkg` (✅ shipped — conffile recovery via `--force-confold`, `dpkg --configure -a` on ABI break, per-package `dpkg-query` verify, mirror retry); `obtainium_app` (✅ shipped — deep-link / JSON-import; "tracked" is only fully idempotent against the git JSON catalog since Obtainium has no public state API; install needs Shizuku or privileged adb); `android_apk` (`gh release download` + `adb install -r`, parse `INSTALL_FAILED_*`); `google_play_app` (**no supported silent-install API on consumer phones without MDM** — reserve for presence checks / `market://` open only; prefer Obtainium/GitHub for everything we control).
+**Shipped modules (fault-tolerance):** `termux_pkg`, `termux_ssh_bootstrap`,
+`termux_sshd`, `stayturgid_repair_check`, `obtainium_app`, `android_apk`,
+`android_app_privileges`, fdroid/play/android_common adb modules — see
+[std_modules_audit.md](ansible_collections/docs/std_modules_audit.md).
 
-**Non-goals a unified layer would NOT fix:** Play Protect, PIN unlock, DHCP LAN IP, Samsung Shizuku/content-URI quirks. **MDM and root were both rejected** (MDM assumes Device-Owner provisioning — wrong for daily-drivers; S24 US model has a locked bootloader → asymmetric fleet, and rooting the 7a risks Play Integrity).
+**Prior art:** [termux-jenkins-automation](https://github.com/gounthar/termux-jenkins-automation),
+[ansible-android-termux](https://github.com/guoqiao/ansible-android-termux),
+[ivansible/termux](https://galaxy.ansible.com/ui/repo/published/ivansible/termux/),
+[AnsibleAndroidAutomationADB](https://github.com/shresthagrawal/AnsibleAndroidAutomationADB).
 
-**Prior art:** [termux-jenkins-automation](https://github.com/gounthar/termux-jenkins-automation) (best Termux+Ansible reference), [ansible-android-termux](https://github.com/guoqiao/ansible-android-termux), [ivansible/termux](https://galaxy.ansible.com/ui/repo/published/ivansible/termux/), [ansible#81547](https://github.com/ansible/ansible/pull/81547) (apt-on-Termux PR — won't cover conffile/stuck-dpkg); ADB: [AnsibleAndroidAutomationADB](https://github.com/shresthagrawal/AnsibleAndroidAutomationADB), [ansibel-nspanel](https://github.com/Bierchermuesli/ansibel-nspanel); Obtainium: [wiki sources](https://wiki.obtainium.page/sources/), [Dhizuku install #1611](https://github.com/ImranR98/Obtainium/issues/1611), [import #1739](https://github.com/ImranR98/Obtainium/discussions/1739).
-
-**Next research steps (when picked up):** prototype `stayturgid_repair_check` (SSH→parse STATUS) and `android_apk`; sketch `playbooks/site.yml` composing Termux + AutoJs6 roles; write an ADR with explicit non-goals; decide collection name (`stayturgid.fleet` today vs upstream `ivansible.termux`). **Do not implement until the user explicitly approves a refactor.**
+**Concrete Ansible track steps:** compose `site.yml` (bootstrap → fleet → post-ui →
+validate); remove duplicate `harden_fleet_apps` post-step; wire `validate.yml`;
+optional `stayturgid.validate` collection; Galaxy publish when H5 creds exist.
 
 ### F-Droid + Play (integrated in fleet.yml)
 
