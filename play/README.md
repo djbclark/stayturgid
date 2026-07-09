@@ -23,7 +23,22 @@ Re-run Play only: `./mac/deploy_fleet.py --scope play [host]`
 
 ## Play downloads
 
-Set `GPLAY_*` env or `gplaycli.conf` for `google-play` source; apk-pure mirrors work without login but are flaky. See [play/README credentials section](README.md) if documented, or [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md).
+Set `GPLAY_*` env or `gplaycli.conf` for `google-play` source; apk-pure mirrors work without login but are flaky.
+
+**Recommended (apkeep AAS):** run the Mac helper — it opens Google EmbeddedSetup,
+waits for the `oauth_token` cookie after you click **I agree** (the page spinner
+never finishes; that is normal), then exchanges it for a long-lived AAS token:
+
+```bash
+~/.venv-stayturgid-play/bin/python play/mac/obtain_play_aas.py -e you@gmail.com --smoke-test
+# first time: python3 -m venv ~/.venv-stayturgid-play && ~/.venv-stayturgid-play/bin/pip install browser-cookie3
+source ~/.config/stayturgid/play.env
+```
+
+**Alternate (gplaycli):** App Password in `~/.config/gplaycli/gplaycli.conf` —
+often gets `BadAuthentication` from Google now; prefer apkeep.
+
+See [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md) §1.1.
 
 ## Collection
 

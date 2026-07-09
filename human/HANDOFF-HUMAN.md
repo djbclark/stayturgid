@@ -53,11 +53,14 @@ python3 mac/a11y_services.py restore p7a
 **You do:**
 
 1. Choose one path:
-   - **apkeep:** export `GPLAY_EMAIL` and `GPLAY_AAS_TOKEN` (or `GPLAY_AUTH_TOKEN`)
-     in your shell profile or `~/.config/stayturgid/play.env` (not in git).
+   - **apkeep (recommended):** run
+     `~/.venv-stayturgid-play/bin/python play/mac/obtain_play_aas.py -e you@gmail.com`
+     (first time: `python3 -m venv ~/.venv-stayturgid-play && ~/.venv-stayturgid-play/bin/pip install browser-cookie3`).
+     Click **I agree** on EmbeddedSetup; ignore the forever spinner. Helper writes
+     `~/.config/stayturgid/play.env`. Then `source ~/.config/stayturgid/play.env`.
    - **gplaycli:** copy `play/gplaycli.conf.example` →
-     `~/.config/gplaycli/gplaycli.conf` and set an app password / token per
-     [play/README.md](../play/README.md).
+     `~/.config/gplaycli/gplaycli.conf` and set an app password — often
+     `BadAuthentication` now; prefer apkeep.
 2. In `RESPONSES.md`, note which path you chose and that creds are in place
    (do not paste tokens).
 
