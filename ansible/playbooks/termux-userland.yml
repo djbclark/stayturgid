@@ -11,3 +11,7 @@
   gather_facts: false
   roles:
     - role: stayturgid.termux.termux_userland
+
+# F5: helpers get ForceCommand keys after Fire published peerhelp pubs.
+- name: Import peer-help ForceCommand install
+  import_playbook: peerhelp-force.yml

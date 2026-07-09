@@ -2,8 +2,8 @@
 """Ask a fleet peer to start Handsets on this device (Fire OS / no local ADB).
 
 Reads ``~/.stayturgid/peers`` (Ansible-rendered). For each peer: TCP probe
-sshd, SSH invoke ``stayturgid_peer_help.py handsets-start``, then local wire
-``ping`` to the Handsets daemon.
+sshd, SSH invoke ``stayturgid_peer_help.py`` (phones) or ``fire_peer_help.py``
+(Mac), then local wire ``ping`` to the Handsets daemon.
 
 Usage:
   stayturgid_peer_bootstrap.py              # start Handsets via first peer
@@ -30,7 +30,9 @@ HOME = os.environ.get("HOME", "/data/data/com.termux/files/home")
 STG = os.path.join(HOME, ".stayturgid")
 PEERS_PATH = os.path.join(STG, "peers")
 FLEET_KEY = os.path.join(HOME, ".ssh", "id_ed25519_fleet")
-SSH_PORT = 8022
+PEERHELP_KEY = os.path.join(HOME, ".ssh", "id_ed25519_peerhelp")
+DEFAULT_SSH_PORT = 8022
+DEFAULT_SSH_USER = "djbclark"
 
 
 def enabled() -> bool:
@@ -82,21 +84,59 @@ def _wire_ping(port: int, timeout: float = 3.0) -> bool:
             pass
 
 
+def _identity_for_peer(peer: dict[str, Any]) -> str:
+    """Prefer restricted peerhelp key when present; else fleet mesh key."""
+    if os.path.isfile(PEERHELP_KEY):
+        return PEERHELP_KEY
+    return FLEET_KEY
+
+
+def _remote_help_cmd(
+    peer: dict[str, Any],
+    *,
+    verb: str,
+    target: str,
+    port: int,
+    identity: str,
+) -> str:
+    """Build SSH remote string for peer help.
+
+    ForceCommand keys (``id_ed25519_peerhelp``) only accept
+    ``verb --target … --port …`` as ``SSH_ORIGINAL_COMMAND``.
+    Legacy fleet keys need a full remote command line.
+    """
+    use_force = os.path.basename(identity) == "id_ed25519_peerhelp"
+    if use_force:
+        return "%s --target %s --port %d" % (verb, target, port)
+    kind = peer.get("kind") or "termux"
+    if kind == "mac":
+        help_cmd = (peer.get("help_cmd") or "").strip() or (
+            "python3 $HOME/stayturgid/mac/fire_peer_help.py"
+        )
+        return "%s %s --target %s --port %d" % (help_cmd, verb, target, port)
+    return (
+        "export PATH=$PREFIX/bin:$PATH; "
+        "python3 $HOME/.stayturgid/bin/stayturgid_peer_help.py %s "
+        "--target %s --port %d"
+        % (verb, target, port)
+    )
+
+
 def _ssh_help(
     peer_host: str,
     *,
     verb: str,
     target: str,
     port: int,
-    identity: str = FLEET_KEY,
-    user: str = "djbclark",
+    peer: dict[str, Any] | None = None,
     timeout: float = 45,
 ) -> subprocess.CompletedProcess:
-    remote = (
-        "export PATH=$PREFIX/bin:$PATH; "
-        "python3 $HOME/.stayturgid/bin/stayturgid_peer_help.py %s "
-        "--target %s --port %d"
-        % (verb, target, port)
+    peer = peer or {}
+    ssh_port = int(peer.get("ssh_port") or DEFAULT_SSH_PORT)
+    user = peer.get("ssh_user") or DEFAULT_SSH_USER
+    identity = _identity_for_peer(peer)
+    remote = _remote_help_cmd(
+        peer, verb=verb, target=target, port=port, identity=identity
     )
     return subprocess.run(
         [
@@ -106,9 +146,9 @@ def _ssh_help(
             "-o",
             "ConnectTimeout=5",
             "-o",
-            "StrictHostKeyChecking=yes",
+            "StrictHostKeyChecking=accept-new",
             "-p",
-            str(SSH_PORT),
+            str(ssh_port),
             "-i",
             identity,
             "%s@%s" % (user, peer_host),
@@ -141,6 +181,10 @@ def self_adb_targets(cfg: dict[str, Any]) -> list[str]:
     return out
 
 
+def _peer_ssh_port(peer: dict[str, Any]) -> int:
+    return int(peer.get("ssh_port") or DEFAULT_SSH_PORT)
+
+
 def bootstrap_handsets(
     *,
     port: int | None = None,
@@ -160,8 +204,8 @@ def bootstrap_handsets(
     )
     if _wire_ping(port):
         return True, "already up port=%d" % port
-    if not os.path.isfile(FLEET_KEY):
-        return False, "missing fleet SSH key %s" % FLEET_KEY
+    if not os.path.isfile(FLEET_KEY) and not os.path.isfile(PEERHELP_KEY):
+        return False, "missing fleet/peerhelp SSH key"
     targets = self_adb_targets(cfg)
     if not targets:
         return False, "self has no lan/tailscale in peers file"
@@ -170,8 +214,9 @@ def bootstrap_handsets(
         if peer.get("can_help") is False:
             continue
         name = peer.get("name") or "?"
+        ssh_port = _peer_ssh_port(peer)
         for ssh_host in peer_endpoints(peer):
-            if not _tcp_open(ssh_host, SSH_PORT, timeout=2.0):
+            if not _tcp_open(ssh_host, ssh_port, timeout=2.0):
                 errors.append("%s(%s): sshd closed" % (name, ssh_host))
                 continue
             for adb_target in targets:
@@ -180,6 +225,7 @@ def bootstrap_handsets(
                     verb="handsets-start",
                     target=adb_target,
                     port=port,
+                    peer=peer,
                 )
                 detail = ((r.stdout or "") + (r.stderr or "")).strip()
                 if r.returncode == 0 and _wire_ping(port):
@@ -188,7 +234,6 @@ def bootstrap_handsets(
                     "%s→%s rc=%s %s"
                     % (name, adb_target, r.returncode, detail[:200])
                 )
-                # unauthorized: try next self address / peer
     return False, "; ".join(errors[:6]) or "no peers reachable"
 
 
@@ -199,19 +244,24 @@ def bootstrap_shizuku(peers_path: str = PEERS_PATH) -> tuple[bool, str]:
     targets = self_adb_targets(cfg)
     if not targets:
         return False, "no self addresses"
+    if not os.path.isfile(FLEET_KEY) and not os.path.isfile(PEERHELP_KEY):
+        return False, "missing SSH key"
+    port = int(cfg.get("handsets_port") or 9008)
     for peer in cfg.get("peers") or []:
         if peer.get("can_help") is False:
             continue
         name = peer.get("name") or "?"
+        ssh_port = _peer_ssh_port(peer)
         for ssh_host in peer_endpoints(peer):
-            if not _tcp_open(ssh_host, SSH_PORT, timeout=2.0):
+            if not _tcp_open(ssh_host, ssh_port, timeout=2.0):
                 continue
             for adb_target in targets:
                 r = _ssh_help(
                     ssh_host,
                     verb="shizuku-start",
                     target=adb_target,
-                    port=int(cfg.get("handsets_port") or 9008),
+                    port=port,
+                    peer=peer,
                 )
                 if r.returncode == 0:
                     return True, "via %s: %s" % (

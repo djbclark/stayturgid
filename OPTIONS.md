@@ -18,7 +18,8 @@
 > unless the operator unparks a named project (Inferno, etc.).
 
 **Fleet snapshot (2026-07-09):** Post-UI SSH-first on s24/p7a with Mac adb
-fallback; hd8 Handsets via **peer bootstrap** (s24/p7a ADB) or Mac.
+fallback; hd8 Handsets via **peer bootstrap** (s24/p7a ADB) or Mac
+(F1–F5: keepalive, Mac peer, launchd `fire-help`, ForceCommand peerhelp).
 Play **H1** + **15b** done — `source: play` ensure_apps canary (metronome)
 on s24 only. Item **46** drawer **PASS** on **s24 + hd8 + p7a**. **57**
 Handsets + Fire peer path + Aurora/Obtainium Termux twins shipped. Operator
@@ -77,8 +78,10 @@ Mac: `shared/mac/ui_driver.py` primary for AutoJs6 / Aurora / Obtainium.
 Termux: `stayturgid_handsets.py` wire client — s24 bench ~12× vs dump;
 `enable_autojs6` / `configure_aurora` / `import_catalog` Handsets-primary
 (probe OK on s24). Fire OS: peer bootstrap
-(`stayturgid_peer_bootstrap` → `stayturgid_peer_help` + shared
-`adbkey-fleet`); rish installed by default. Bench/research:
+(`stayturgid_peer_bootstrap` → `stayturgid_peer_help` / Mac
+`fire_peer_help` + shared `adbkey-fleet`); boot keepalive + Mac
+`com.stayturgid.fire-help`; ForceCommand `id_ed25519_peerhelp`. rish
+installed by default. Bench/research:
 [handsets-vs-u2-bench.md](docs/research/handsets-vs-u2-bench.md),
 [handsets-under-termux.md](docs/research/handsets-under-termux.md),
 [fire-os-local-adb.md](docs/research/fire-os-local-adb.md).

@@ -121,7 +121,7 @@ Each helper has its own `~/.android/adbkey` today (Mac / s24 / p7a / hd8 all dif
 |----------|------|
 | **A. Accept each peer once** (“Always allow”) | 2–3 taps per new helper; survives reboot |
 | **B. Shared fleet `adbkey`** on all Termux helpers | One Allow covers every phone; Ansible deploys identical keypair |
-| **C. Mac-only helper** | Already trusted; needs Mac reachable + sshd accepting device keys (today Mac rejects hd8 pubkey) |
+| **C. Mac-only helper** | Already trusted; device→Mac SSH via peerhelp ForceCommand + launchd `fire-help` |
 
 Recommend **B** for phones + keep Mac as fallback when present.
 
@@ -135,7 +135,10 @@ command="/data/data/com.termux/files/home/.stayturgid/bin/stayturgid-peer-help",
 
 Put that on **helpers** (s24/p7a), not on hd8. hd8’s dedicated `id_ed25519_peerhelp` can only invoke the helper script. Script accepts a small verb set (`handsets-start`, `shizuku-start`, `ping`) and target identity from env/argv — never a free shell.
 
-In this fully-trusted lab, full mesh SSH is already deployed and acceptable; ForceCommand is defense-in-depth if keys ever leak. Not required for correctness.
+In this fully-trusted lab, full mesh SSH is already deployed and acceptable;
+ForceCommand is defense-in-depth. **Shipped:** Fire hosts generate
+`id_ed25519_peerhelp`; helpers get `command=…/stayturgid-peer-help-force.sh`;
+Mac gets `command=…/fire_peer_help.py`.
 
 #### Discovery list (hd8 asks who can help)
 
@@ -165,9 +168,9 @@ Does not need shell UID. Already the Termux fallback when Handsets is disabled.
 | Shizuku/`rish` to start Handsets from Termux | **No** on Fire (binder timeout); **rish still installed by default** for stock Android |
 | **Peer ADB bootstrap via SSH mesh** | **Shipped** — `stayturgid_peer_bootstrap` + `stayturgid_peer_help` |
 | Shared fleet `adbkey-fleet` + one Allow | **Shipped** — `~/.stayturgid/adbkey-fleet` (does **not** overwrite `~/.android/adbkey`) |
-| SSH `command=` restricted helper key | **Optional** hardening (not shipped) |
+| SSH `command=` restricted helper key | **Shipped** — Fire `id_ed25519_peerhelp` → helpers/Mac ForceCommand |
 | Hybrid wire client after peer start | **Yes** — `stayturgid_handsets.py` uses peer start when `NO_LOCAL_ADB` |
-| Mac Handsets when Mac present | **Yes** — keep as primary when available |
+| Mac Handsets when Mac present | **Yes** — Mac last in `peers` + launchd `fire-help` |
 
 ### Shipped pieces (2026-07-09)
 
@@ -175,20 +178,17 @@ Does not need shell UID. Already the Termux fallback when Handsets is disabled.
 |-------|------|
 | rish install (default deploy) | `termux/py/stayturgid_rish.py` → `~/.stayturgid/bin/rish` |
 | Shared fleet ADB key | Mac `~/.config/stayturgid/adbkey` → device `~/.stayturgid/adbkey-fleet` |
-| Helper | `stayturgid_peer_help.py` (`ADB_VENDOR_KEYS=…/adbkey-fleet`) |
-| Asker | `stayturgid_peer_bootstrap.py` + `~/.stayturgid/peers` |
+| Helper (phones) | `stayturgid_peer_help.py` (`ADB_VENDOR_KEYS=…/adbkey-fleet`) |
+| Helper (Mac) | `mac/fire_peer_help.py` |
+| Asker | `stayturgid_peer_bootstrap.py` + `~/.stayturgid/peers` (phones + Mac) |
+| Keepalive (F1/F2) | `stayturgid_peer_keepalive.py` from boot loop when `NO_LOCAL_ADB` |
+| Mac launchd (F4) | `com.stayturgid.fire-help` → `mac/fire_help_monitor.py` |
+| ForceCommand (F5) | `stayturgid-peer-help-force.sh` on helpers; Mac `authorized_keys` → `fire_peer_help.py` |
 | Handsets integration | `stayturgid_handsets.start()` peer path when `STAYTURGID_NO_LOCAL_ADB=1` |
 
-**Live E2E:** hd8 cold start → SSH s24 → `handsets-start` on `192.168.1.157:5555` → wire `pong`. Same fleet key works from p7a without a second Allow.
+**Live E2E:** hd8 cold start → SSH s24 → `handsets-start` on `192.168.1.157:5555` → wire `pong`. Same fleet key works from p7a without a second Allow. Mac is last peer; launchd also helps if peers miss.
 
-**One-time ops:** on each Fire (or new target), accept **Always allow** once when a helper first connects with `adbkey-fleet`.
-
-### Implementation sketch (not shipped)
-
-| Piece | Where |
-|-------|-------|
-| SSH `command=` restricted helper key | Optional hardening on helpers |
-| Mac as last peer (device→Mac SSH) | Needs Mac sshd + fleet pubkey |
+**One-time ops:** on each Fire (or new target), accept **Always allow** once when a helper first connects with `adbkey-fleet`. Mac **Remote Login** must be on for device→Mac SSH.
 
 ## Related
 

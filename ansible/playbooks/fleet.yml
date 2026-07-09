@@ -32,3 +32,8 @@
     - role: stayturgid.android_common.ensure_apps
       tags: [ensure_apps]
       when: stayturgid_ensure_apps | default([]) | length > 0
+
+# F5: helpers get ForceCommand keys after Fire published peerhelp pubs.
+- name: Import peer-help ForceCommand install
+  import_playbook: peerhelp-force.yml
+  tags: [always]

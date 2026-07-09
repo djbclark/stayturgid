@@ -50,6 +50,12 @@ stayturgid_py_scripts:
   - stayturgid_rish.py
   - stayturgid_peer_help.py
   - stayturgid_peer_bootstrap.py
+  - stayturgid_peer_keepalive.py
+
+# Restricted SSH ForceCommand wrapper (helpers only; see ssh_keys.yml F5).
+stayturgid_peer_help_force_script: stayturgid-peer-help-force.sh
+stayturgid_ssh_peerhelp_identity_key: id_ed25519_peerhelp
+stayturgid_ssh_peerhelp_force_command: true
 
 # Shared libs copied to ~/.stayturgid/lib/ (imported by on-device UI scripts).
 stayturgid_lib_files:

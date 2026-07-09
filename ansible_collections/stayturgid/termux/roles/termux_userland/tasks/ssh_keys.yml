@@ -180,3 +180,42 @@
       PerSourcePenalties: "no"
     termux_prefix: "{{ termux_prefix }}"
   when: _termux_home_stat.stat.exists
+
+# --- F5: generate peer-help identity on Fire (install on helpers is a later play) ---
+- name: Generate peer-help SSH identity on Fire / no-local-adb hosts
+  ansible.builtin.command:
+    cmd: >-
+      {{ termux_prefix }}/bin/ssh-keygen -t ed25519
+      -f {{ termux_home }}/.ssh/{{ stayturgid_ssh_peerhelp_identity_key }}
+      -N '' -C {{ inventory_hostname }}-peerhelp
+    creates: "{{ termux_home }}/.ssh/{{ stayturgid_ssh_peerhelp_identity_key }}"
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ssh_peerhelp_force_command | default(true) | bool
+    - stayturgid_no_local_adb | default(false) | bool
+
+- name: Ensure peer-help private key permissions
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.ssh/{{ stayturgid_ssh_peerhelp_identity_key }}"
+    mode: "0600"
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ssh_peerhelp_force_command | default(true) | bool
+    - stayturgid_no_local_adb | default(false) | bool
+
+- name: Slurp peer-help public key from Fire hosts
+  ansible.builtin.slurp:
+    src: "{{ termux_home }}/.ssh/{{ stayturgid_ssh_peerhelp_identity_key }}.pub"
+  register: _stayturgid_peerhelp_pubkey_slurp
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ssh_peerhelp_force_command | default(true) | bool
+    - stayturgid_no_local_adb | default(false) | bool
+
+- name: Publish peer-help pubkey fact
+  ansible.builtin.set_fact:
+    stayturgid_peerhelp_ssh_pubkey: "{{ _stayturgid_peerhelp_pubkey_slurp.content | b64decode | trim }}"
+  when:
+    - _stayturgid_peerhelp_pubkey_slurp is defined
+    - not (_stayturgid_peerhelp_pubkey_slurp.skipped | default(false))
+    - _stayturgid_peerhelp_pubkey_slurp.content is defined

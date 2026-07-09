@@ -90,6 +90,14 @@ BOOTLOOP_PID_FILE="$STG/run/bootloop.pid"
         python3 "$BIN/stayturgid_autojs6_guard.py" check >/dev/null 2>&1 || true
     fi
 
+    # Fire OS: no Termux→localhost:5555 — ask fleet peers (or Mac) to start
+    # Shizuku + Handsets (rate-limited inside the script).
+    if [ "${STAYTURGID_NO_LOCAL_ADB:-0}" = "1" ] \
+        && [ "${STAYTURGID_PEER_BOOTSTRAP:-1}" != "0" ] \
+        && [ -x "$BIN/stayturgid_peer_keepalive.py" ]; then
+        python3 "$BIN/stayturgid_peer_keepalive.py" >/dev/null 2>&1 || true
+    fi
+
         sleep 300
     done
 ) &

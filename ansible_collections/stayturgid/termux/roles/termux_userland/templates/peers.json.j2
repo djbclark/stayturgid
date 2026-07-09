@@ -9,18 +9,46 @@
   "handsets_port": {{ stayturgid_handsets_port | default(9008) | int }},
   "ssh_port": {{ ansible_port | default(8022) | int }},
   "peers": [
-{% set peers = [] %}
+{% set ns = namespace(entries=[]) %}
 {% for h in groups[stayturgid_ssh_mesh_group | default('stayturgid')] %}
 {%   if h != inventory_hostname %}
-{%     set _ = peers.append(h) %}
+{%     set _ = ns.entries.append({
+        'name': h,
+        'kind': 'termux',
+        'tailscale': hostvars[h].ansible_host,
+        'lan': hostvars[h].device_lan_ip | default(''),
+        'can_help': not (hostvars[h].stayturgid_no_local_adb | default(false) | bool),
+        'ssh_user': 'djbclark',
+        'ssh_port': (hostvars[h].ansible_port | default(8022)) | int,
+        'help_cmd': '',
+        'force_command': true
+      }) %}
 {%   endif %}
 {% endfor %}
-{% for h in peers %}
+{% if stayturgid_mac_peer is defined and stayturgid_mac_peer %}
+{%   set _ = ns.entries.append({
+      'name': 'mac',
+      'kind': 'mac',
+      'tailscale': stayturgid_mac_peer.tailscale,
+      'lan': stayturgid_mac_peer.lan | default(''),
+      'can_help': true,
+      'ssh_user': stayturgid_mac_peer.user | default('djbclark'),
+      'ssh_port': (stayturgid_mac_peer.port | default(22)) | int,
+      'help_cmd': stayturgid_mac_peer.help_cmd | default(''),
+      'force_command': true
+    }) %}
+{% endif %}
+{% for e in ns.entries %}
     {
-      "name": {{ h | to_json }},
-      "tailscale": {{ hostvars[h].ansible_host | to_json }},
-      "lan": {{ (hostvars[h].device_lan_ip | default('')) | to_json }},
-      "can_help": {{ (not (hostvars[h].stayturgid_no_local_adb | default(false) | bool)) | to_json }}
+      "name": {{ e.name | to_json }},
+      "kind": {{ e.kind | to_json }},
+      "tailscale": {{ e.tailscale | to_json }},
+      "lan": {{ e.lan | to_json }},
+      "can_help": {{ e.can_help | to_json }},
+      "ssh_user": {{ e.ssh_user | to_json }},
+      "ssh_port": {{ e.ssh_port | int }},
+      "force_command": {{ e.force_command | to_json }}{% if e.help_cmd | default('') %},
+      "help_cmd": {{ e.help_cmd | to_json }}{% endif %}
     }{% if not loop.last %},{% endif %}
 
 {% endfor %}

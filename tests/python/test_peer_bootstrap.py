@@ -47,6 +47,7 @@ def test_bootstrap_skips_can_help_false(monkeypatch, tmp_path):
     path = tmp_path / "peers"
     path.write_text(json.dumps(peers))
     monkeypatch.setattr(pb, "FLEET_KEY", str(tmp_path / "key"))
+    monkeypatch.setattr(pb, "PEERHELP_KEY", str(tmp_path / "missing-peerhelp"))
     (tmp_path / "key").write_text("x")
     monkeypatch.setattr(pb, "_wire_ping", lambda port: False)
     monkeypatch.setattr(pb, "_tcp_open", lambda *a, **k: True)
@@ -62,6 +63,53 @@ def test_bootstrap_skips_can_help_false(monkeypatch, tmp_path):
     assert ok is False
     assert called == []
     assert "no peers" in detail or detail == "no peers reachable"
+
+
+def test_peer_ssh_port_mac():
+    assert pb._peer_ssh_port({"ssh_port": 22, "kind": "mac"}) == 22
+    assert pb._peer_ssh_port({}) == 8022
+
+
+def test_identity_prefers_peerhelp(tmp_path, monkeypatch):
+    ph = tmp_path / "id_ed25519_peerhelp"
+    ph.write_text("x")
+    monkeypatch.setattr(pb, "PEERHELP_KEY", str(ph))
+    monkeypatch.setattr(pb, "FLEET_KEY", str(tmp_path / "fleet"))
+    assert pb._identity_for_peer({"kind": "termux"}) == str(ph)
+
+
+def test_remote_help_cmd_force_vs_fleet(tmp_path, monkeypatch):
+    ph = str(tmp_path / "id_ed25519_peerhelp")
+    fleet = str(tmp_path / "id_ed25519_fleet")
+    short = pb._remote_help_cmd(
+        {"kind": "termux"},
+        verb="handsets-start",
+        target="1.2.3.4:5555",
+        port=9008,
+        identity=ph,
+    )
+    assert short == "handsets-start --target 1.2.3.4:5555 --port 9008"
+    mac = pb._remote_help_cmd(
+        {
+            "kind": "mac",
+            "help_cmd": "python3 /Users/x/stayturgid/mac/fire_peer_help.py",
+        },
+        verb="shizuku-start",
+        target="1.2.3.4:5555",
+        port=9008,
+        identity=fleet,
+    )
+    assert mac.startswith("python3 /Users/x/stayturgid/mac/fire_peer_help.py")
+    assert "shizuku-start" in mac
+    termux = pb._remote_help_cmd(
+        {"kind": "termux"},
+        verb="ping",
+        target="1.2.3.4:5555",
+        port=9008,
+        identity=fleet,
+    )
+    assert "stayturgid_peer_help.py" in termux
+    assert termux.startswith("export PATH=")
 
 
 def test_handsets_enabled_with_peer_on_fire(monkeypatch, tmp_path):
