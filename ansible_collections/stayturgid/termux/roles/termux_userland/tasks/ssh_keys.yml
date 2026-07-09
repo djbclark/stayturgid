@@ -143,7 +143,6 @@
   when:
     - _termux_home_stat.stat.exists
     - stayturgid_ssh_mesh_device_identity | bool
-    - item != inventory_hostname
     - hostvars[item].stayturgid_device_ssh_pubkey is defined
     - hostvars[item].stayturgid_device_ssh_pubkey | length > 0
 

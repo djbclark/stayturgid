@@ -68,7 +68,8 @@ stayturgid_ssh_public_key_files: []
 stayturgid_ssh_distribute_private_keys: true
 
 # Fleet SSH mesh: per-device ed25519 identity + full known_hosts across the
-# stayturgid inventory group (authorized_key + known_hosts via ansible.posix).
+# stayturgid inventory group (authorized_key via ansible.posix; known_hosts
+# via ansible.builtin — there is no ansible.posix.known_hosts module).
 stayturgid_ssh_mesh_group: stayturgid
 stayturgid_ssh_mesh_device_identity: true
 stayturgid_ssh_device_identity_key: id_ed25519_fleet

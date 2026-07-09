@@ -7,8 +7,7 @@
 {%       if alias is defined and alias | string | trim | length > 0 %}
 {%         set _ = entries.append({
               'name': '[' ~ alias ~ ']:' ~ (hostvars[peer].ansible_port | default(8022) | string),
-              'key': '[' ~ alias ~ ']:' ~ (hostvars[peer].ansible_port | default(8022) | string)
-                     ~ ' ' ~ (hostvars[peer].stayturgid_sshd_host_pubkey | trim)
+              'key': hostvars[peer].stayturgid_sshd_host_pubkey | trim
             }) %}
 {%       endif %}
 {%     endfor %}
