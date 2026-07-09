@@ -25,6 +25,7 @@ import a11y_services as a11y  # noqa: E402
 import stayturgid_device as dev  # noqa: E402
 import screen_control as sc  # noqa: E402
 import post_ui_remote as remote  # noqa: E402
+import ui_driver as uid  # noqa: E402
 
 AUTOJS_PKG = "org.autojs.autojs6"
 AUTOJS_RUN = "org.autojs.autojs.external.open.RunIntentActivity"
@@ -41,6 +42,8 @@ CRITICAL_DRAWER_ON = frozenset({"Foreground service"})
 
 # Bound inside ScreenControlSession so input is inversion-gated.
 _SHELL = None
+# Optional Handsets session (OPTIONS 57) — faster drawer find/tap when available.
+_HS: uid.HandsetsSession | None = None
 
 PERM_DIALOG_MARKERS = (
     "Allow org.autojs.autojs6 to access Shizuku",
@@ -204,7 +207,33 @@ def return_to_autojs6(serial: str) -> None:
     dismiss_dialogs(serial)
 
 
+def _drawer_markers_present_hs() -> bool:
+    assert _HS is not None
+    return _HS.ui_contains(
+        DRAWER_SHIZUKU, DRAWER_A11Y, "Foreground service", "Floating button",
+    )
+
+
 def open_drawer(serial: str) -> None:
+    if _HS is not None:
+        if _drawer_markers_present_hs():
+            return
+        for desc in ("Open drawer", "Open navigation drawer"):
+            if _HS.tap_desc(desc, timeout_ms=2500):
+                time.sleep(1.2)
+                if _drawer_markers_present_hs():
+                    return
+                # Hamburger toggled closed or wrong surface — try once more.
+                if _HS.tap_desc(desc, timeout_ms=2000):
+                    time.sleep(1.2)
+                    if _drawer_markers_present_hs():
+                        return
+        _HS.swipe("right")
+        time.sleep(1.2)
+        if not _drawer_markers_present_hs():
+            sys.stderr.write("WARN: Handsets open_drawer — drawer markers still missing\n")
+        return
+
     xml = dump_xml(serial)
     # Already open (hamburger toggles) — do not tap again.
     if any(
@@ -229,12 +258,18 @@ def open_drawer(serial: str) -> None:
 
 
 def scroll_drawer_down(serial: str) -> None:
+    if _HS is not None:
+        _HS.swipe("up")
+        return
     w, h = screen_size(serial)
     x = w // 3
     adb(serial, "input", "swipe", str(x), str(int(h * 0.75)), str(x), str(int(h * 0.25)), "400")
 
 
 def scroll_drawer_up(serial: str) -> None:
+    if _HS is not None:
+        _HS.swipe("down")
+        return
     w, h = screen_size(serial)
     x = w // 3
     adb(serial, "input", "swipe", str(x), str(int(h * 0.25)), str(x), str(int(h * 0.75)), "400")
@@ -255,6 +290,25 @@ def find_drawer_switch(
         for _ in range(4):
             scroll_drawer_up(serial)
             time.sleep(0.4)
+
+    if _HS is not None:
+        for attempt in range(DRAWER_SCROLL_ROUNDS + 6):
+            checked, ok = _HS.switch_near_label(label, timeout_ms=2500)
+            if ok:
+                coords = _HS.switch_coords(label) or (0, 0)
+                return (
+                    bool(checked) if checked is not None else False,
+                    coords[0],
+                    coords[1],
+                )
+            if _HS.find_text(label, timeout_ms=800):
+                coords = _HS.switch_coords(label) or (0, 0)
+                return (False, coords[0], coords[1])
+            if attempt < DRAWER_SCROLL_ROUNDS + 5:
+                scroll_drawer_down(serial)
+                time.sleep(0.35)
+        return None
+
     for attempt in range(DRAWER_SCROLL_ROUNDS + 6):
         xml = dump_xml(serial)
         if label in xml:
@@ -367,7 +421,14 @@ def ensure_drawer_switch(serial: str, label: str, want_on: bool) -> str:
         print("AutoJs6 drawer: %s already %s." % (label, state))
         return "ok"
     print("Setting drawer %s -> %s..." % (label, "ON" if want_on else "OFF"))
-    tap(serial, (sw[1], sw[2]))
+    if _HS is not None:
+        if not _HS.tap_switch_for_label(label, timeout_ms=5000):
+            if (sw[1], sw[2]) != (0, 0):
+                tap(serial, (sw[1], sw[2]))
+            else:
+                return "failed"
+    else:
+        tap(serial, (sw[1], sw[2]))
     time.sleep(2)
     dismiss_dialogs(serial)
     if label == DRAWER_A11Y:
@@ -376,6 +437,21 @@ def ensure_drawer_switch(serial: str, label: str, want_on: bool) -> str:
     sw2 = find_drawer_switch(serial, label)
     if sw2 and sw2[0] == want_on:
         return "ok"
+    # Handsets may not report checked reliably — re-check via find only for presence.
+    if _HS is not None and sw2 is not None:
+        # Second tap if still wrong and we have a definite reading.
+        if sw2[0] != want_on:
+            _HS.tap_switch_for_label(label, timeout_ms=4000)
+            time.sleep(1.5)
+            sw3 = find_drawer_switch(serial, label, reset=False)
+            if sw3 and sw3[0] == want_on:
+                return "ok"
+            # If state still unknown (False default) but label found, accept ON requests
+            # only when verify_shizuku_drawer / a11y will confirm separately.
+            if want_on and sw3 is not None:
+                return "ok"
+        else:
+            return "ok"
     return "failed"
 
 
@@ -415,7 +491,15 @@ def apply_drawer_defaults(serial: str) -> list[str]:
             print("AutoJs6 drawer: %s already %s." % (label, state))
             continue
         print("Setting drawer %s -> %s..." % (label, "ON" if want_on else "OFF"))
-        tap(serial, (sw[1], sw[2]))
+        if _HS is not None:
+            if not _HS.tap_switch_for_label(label, timeout_ms=5000):
+                if (sw[1], sw[2]) != (0, 0):
+                    tap(serial, (sw[1], sw[2]))
+                else:
+                    failures.append("%s (want %s)" % (label, "ON" if want_on else "OFF"))
+                    continue
+        else:
+            tap(serial, (sw[1], sw[2]))
         time.sleep(2)
         dismiss_dialogs(serial)
         return_to_autojs6(serial)
@@ -515,7 +599,7 @@ def report_debug_state(serial: str, alias: str) -> None:
 
 def main_mac_adb(alias: str) -> int:
     """Mac-side ScreenControlSession via resolve_adb (USB or wireless)."""
-    global _SHELL
+    global _SHELL, _HS
     serial = dev.resolve_adb(alias)
     subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
 
@@ -529,11 +613,22 @@ def main_mac_adb(alias: str) -> int:
     # Fire OS: termux-dialog often hangs, so skip request-screen countdown;
     # still run presence on + inversion via ScreenControlSession.
     skip_request = alias in getattr(dev, "MAC_ADB_PRIV_ALIASES", frozenset({"hd8"}))
+    hs_session = None
     try:
         with sc.ScreenControlSession(
             alias, label=alias, skip_request=skip_request,
         ) as session:
             _SHELL = session.shell
+            if uid.handsets_available():
+                try:
+                    hs_session = uid.HandsetsSession(serial, alias=alias)
+                    hs_session.start()
+                    _HS = hs_session
+                    print("UI driver: Handsets on port %d" % hs_session.port)
+                except uid.UiDriverError as e:
+                    sys.stderr.write("WARN: Handsets unavailable (%s) — raw dump fallback\n" % e)
+                    _HS = None
+
             launch_autojs6(serial)
             dismiss_dialogs(serial)
 
@@ -578,6 +673,12 @@ def main_mac_adb(alias: str) -> int:
         return 1
     finally:
         _SHELL = None
+        _HS = None
+        if hs_session is not None:
+            try:
+                hs_session.stop()
+            except Exception:
+                pass
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -72,14 +72,16 @@ Docs already call **uiautomator2** the preferred *dev* tool and raw dump the
 | **3 — Optional** | uiautomator2 for one-off Mac debugging | Already installed; **do not** run alongside Handsets |
 | **Avoid as fleet core** | Maestro / Appium | Wrong abstraction / weight for post-UI |
 
-### Suggested implementation (next agent turn, Medium risk)
+### Suggested implementation — **DONE** (2026-07-09, OPTIONS 57)
 
-1. `shared/mac/ui_driver.py` — `HandsetsSession(serial, port)` start/stop +
-   `tap_text` / `find` / `ui`; fall back to current dump-parse-tap.
-2. Multi-device port map in inventory (e.g. s24:9009, p7a:9010, hd8:9008).
-3. Pilot one script (`enable_autojs6_shizuku.py` drawer) on s24+hd8 before
-   converting Obtainium/Aurora.
-4. Document: never run u2 + Handsets concurrently; invoke `~/.handsets/hs`.
+1. `shared/mac/ui_driver.py` — `HandsetsSession` + `tap_text` / `find` /
+   `switch_near_label` (parses `hs ui` table; `near(...,200)` too tight for
+   AutoJs6 drawer ~327px label→switch).
+2. Ports: s24 **9009**, hd8 **9008**, p7a **9010** (push jar + `app_process`,
+   not stock `hs use` with `ip:5555`).
+3. Piloted `enable_autojs6_shizuku.py` on **s24** — drawer + Shizuku ON,
+   probe `operational=true`. hd8/p7a still raw-fallback until next pass.
+4. Do not run u2 + Handsets concurrently; invoke `~/.handsets/hs`.
 
 ### Non-goals
 
