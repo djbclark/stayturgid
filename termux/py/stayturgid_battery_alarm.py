@@ -16,23 +16,43 @@ import time
 
 HOME = os.environ.get("HOME", "")
 STG = os.path.join(HOME, ".stayturgid")  # Termux-private root (self-healing)
+_ENV_FILE = os.path.join(STG, "env")
+if os.path.isfile(_ENV_FILE):
+    try:
+        with open(_ENV_FILE) as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line.startswith("export STAYTURGID_NO_LOCAL_ADB="):
+                    os.environ.setdefault(
+                        "STAYTURGID_NO_LOCAL_ADB",
+                        _line.split("=", 1)[1].strip().strip('"'),
+                    )
+    except OSError:
+        pass
+
 STATE_FILE = os.path.join(STG, "state", "batt_alerted")
 COLOR_DIR = os.path.join(STG, "battery-colors")
 WALLPAPER_BACKUP = os.path.join(STG, "state", "wallpaper-backup.png")
 SAVED_BRIGHT_FILE = os.path.join(STG, "state", "batt_saved_brightness")
+# Fire OS: termux-battery-status / localhost adb can hang forever.
+CMD_TIMEOUT_SEC = 8
 
 TIERS = [30, 25, 20, 15, 10, 5, 4, 3, 2, 1, 0]
 TIER_COLOR = {30: "purple", 25: "blue", 20: "green", 15: "yellow", 10: "orange"}
 TIER_BLINKS = {30: 1, 25: 2, 20: 3, 15: 4, 10: 5}
 
 
+def _no_local_adb() -> bool:
+    return os.environ.get("STAYTURGID_NO_LOCAL_ADB") == "1"
+
+
 def run(args, **kw):
     """Best-effort external command (stub-interceptable via PATH)."""
-    opts = {"capture_output": True, "text": True}
+    opts = {"capture_output": True, "text": True, "timeout": CMD_TIMEOUT_SEC}
     opts.update(kw)
     try:
         return subprocess.run(args, **opts)
-    except OSError:
+    except (OSError, subprocess.TimeoutExpired):
         return None
 
 
@@ -42,7 +62,9 @@ def out_of(args):
 
 
 def adb_shell(*cmd):
-    r = run(["adb", "connect", "localhost:5555"])
+    if _no_local_adb():
+        return ""
+    r = run(["adb", "connect", "localhost:5555"], timeout=5)
     if not r or r.returncode != 0:
         return ""
     return out_of(["adb", "-s", "localhost:5555", "shell"] + list(cmd))
@@ -106,8 +128,10 @@ def wallpaper_backup_valid():
 def backup_wallpaper_once():
     if os.path.exists(WALLPAPER_BACKUP):
         return
+    if _no_local_adb():
+        return
     os.makedirs(os.path.dirname(WALLPAPER_BACKUP), exist_ok=True)
-    r = run(["adb", "connect", "localhost:5555"])
+    r = run(["adb", "connect", "localhost:5555"], timeout=5)
     if r and r.returncode == 0:
         # exec-out keeps the image byte-exact
         rr = run(["adb", "-s", "localhost:5555", "exec-out",
@@ -214,7 +238,8 @@ def main():
     signal.signal(signal.SIGINT, on_signal)
     signal.signal(signal.SIGTERM, on_signal)
 
-    raw = out_of(["termux-battery-status"])
+    # Prefer short timeout; on Fire, termux-battery-status has been observed to hang.
+    raw = out_of(["timeout", str(CMD_TIMEOUT_SEC), "termux-battery-status"])
     if not raw:
         return 0
     try:

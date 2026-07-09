@@ -13,6 +13,7 @@ import datetime
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -46,6 +47,8 @@ STOP_FILE = os.path.join(STATE, "stop_requested")
 LEASE_FILE = os.path.join(STATE, "screen_control_lease.json")
 LEASE_TTL_SEC = 1800
 REQUEST_SCREEN_COUNTDOWN_SEC = 10
+# Fire: termux-notification* often hangs past soft timeouts and orphans children.
+FIRE_NOTIFY_TIMEOUT_SEC = 3
 
 IDLE_PKGS = {
     "", "com.sec.android.app.launcher", "com.google.android.apps.nexuslauncher",
@@ -56,13 +59,34 @@ IDLE_PKGS = {
 PKG_RE = re.compile(r"^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)+$")
 
 
+def _no_local_adb():
+    return os.environ.get("STAYTURGID_NO_LOCAL_ADB") == "1"
+
+
 def run(args, timeout=15):
+    """Run a command; on timeout kill the whole process group (Termux API shims)."""
     try:
-        return subprocess.run(args, capture_output=True, text=True, timeout=timeout)
-    except subprocess.TimeoutExpired:
+        return subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            start_new_session=True,
+        )
+    except subprocess.TimeoutExpired as e:
+        pid = getattr(e, "pid", None)
+        if pid:
+            try:
+                os.killpg(pid, signal.SIGKILL)
+            except (OSError, ProcessLookupError):
+                pass
         return None
     except OSError:
         return None
+
+
+def _notify_timeout():
+    return FIRE_NOTIFY_TIMEOUT_SEC if _no_local_adb() else 15
 
 
 def adb_shell(*cmd):
@@ -116,10 +140,6 @@ def lease_active():
 
 def clear_lease():
     rm(LEASE_FILE)
-
-
-def _no_local_adb():
-    return os.environ.get("STAYTURGID_NO_LOCAL_ADB") == "1"
 
 
 def pulse(n):
@@ -260,7 +280,7 @@ def _notify_presence(title, content, button1=None, button1_action=None):
     if button1 and button1_action:
         args.extend(["--button1", button1, "--button1-action", button1_action])
     # Fire: notification API can stall; don't block Mac SSH past ~5s.
-    run(args, timeout=5 if _no_local_adb() else 15)
+    run(args, timeout=_notify_timeout())
 
 
 def action_on(label, agent):
@@ -289,8 +309,8 @@ def action_off(label, agent):
     clear_lease()
     if not invert("0"):
         sys.stderr.write("WARN: could not confirm inversion off\n")
-    run(["termux-notification-remove", NID], timeout=5 if _no_local_adb() else 15)
-    run(["termux-notification-remove", "claude-presence"], timeout=5 if _no_local_adb() else 15)  # legacy id
+    run(["termux-notification-remove", NID], timeout=_notify_timeout())
+    run(["termux-notification-remove", "claude-presence"], timeout=_notify_timeout())  # legacy id
     pulse(2)
     run(["termux-vibrate", "-d", "250"], timeout=3)
     rm(STOP_FILE)
@@ -303,7 +323,8 @@ def action_off(label, agent):
                  "-t", "%s has released %s" % (agent, label),
                  "-i", "Screen control ended after your stop request. "
                        "The phone is all yours."],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                start_new_session=True)
         except OSError:
             pass
         print("presence OFF (%s) — graceful stop honored" % label)

@@ -13,21 +13,54 @@ import sys
 
 HOME = os.environ.get("HOME", "")
 STG = os.path.join(HOME, ".stayturgid")  # Termux-private root (self-healing)
+_ENV_FILE = os.path.join(STG, "env")
+if os.path.isfile(_ENV_FILE):
+    try:
+        with open(_ENV_FILE) as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line.startswith("export STAYTURGID_NO_LOCAL_ADB="):
+                    os.environ.setdefault(
+                        "STAYTURGID_NO_LOCAL_ADB",
+                        _line.split("=", 1)[1].strip().strip('"'),
+                    )
+    except OSError:
+        pass
+
 NID = "stayturgid-screenlock"
 BASELINE_FILE = os.path.join(STG, "state", "screen_timeout_baseline")
 MAX_OK_MS = 600000  # timeouts above 10 min count as "held awake"
 SELF = os.path.join(STG, "bin", "stayturgid_screen_awake_guard.py")  # notif button target
+CMD_TIMEOUT_SEC = 8
 
 
-def run(args):
+def _no_local_adb() -> bool:
+    return os.environ.get("STAYTURGID_NO_LOCAL_ADB") == "1"
+
+
+def run(args, timeout=CMD_TIMEOUT_SEC):
     try:
-        return subprocess.run(args, capture_output=True, text=True)
+        return subprocess.run(
+            args, capture_output=True, text=True, timeout=timeout, start_new_session=True
+        )
+    except subprocess.TimeoutExpired as e:
+        pid = getattr(e, "pid", None)
+        if pid:
+            try:
+                import signal as _sig
+                os.killpg(pid, _sig.SIGKILL)
+            except (OSError, ProcessLookupError):
+                pass
+        return None
     except OSError:
         return None
 
 
 def adb_shell(*cmd):
-    r = run(["adb", "connect", "localhost:5555"])
+    # Fire OS: Termux cannot reach localhost:5555 — skip rather than hang.
+    if _no_local_adb():
+        return ""
+    r = run(["adb", "connect", "localhost:5555"], timeout=5)
     if not r or r.returncode != 0:
         return ""
     r = run(["adb", "-s", "localhost:5555", "shell"] + list(cmd))
@@ -118,6 +151,9 @@ def post_notification(reason):
 
 
 def do_check():
+    if _no_local_adb():
+        # Cannot read stay-on / wakelock via loopback adb on Fire.
+        return
     reason = forced_awake_reason()
     if reason is not None:
         if screen_interactive():
