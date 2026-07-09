@@ -149,24 +149,45 @@ def find_apk(download_dir, pkg):
     return found[0] if found else None
 
 
+def find_split_apks(download_dir, pkg):
+    """Return ordered APK paths for a split set (base first), or [].
+
+    apkeep -o split_apk=true writes under download_dir/<pkg>/*.apk.
+    """
+    split_dir = os.path.join(download_dir, pkg)
+    if not os.path.isdir(split_dir):
+        return []
+    apks = sorted(
+        glob.glob(os.path.join(split_dir, "*.apk")),
+        key=lambda p: (0 if os.path.basename(p) == "%s.apk" % pkg else 1, p),
+    )
+    return apks if len(apks) >= 2 else []
+
+
 def extract_xapk(xapk_path, dest_dir):
-    """APKPure often ships .xapk (zip); pull base APK for adb install."""
+    """APKPure often ships .xapk (zip); extract all APKs for install-multiple."""
     with zipfile.ZipFile(xapk_path) as zf:
         names = [n for n in zf.namelist() if n.endswith(".apk")]
         if not names:
-            return None
-        preferred = [n for n in names if "base" in os.path.basename(n).lower()]
-        chosen = preferred[0] if preferred else names[0]
-        out = os.path.join(dest_dir, os.path.basename(chosen))
-        with zf.open(chosen) as src, open(out, "wb") as dst:
-            dst.write(src.read())
-        return out
+            return []
+        out_paths = []
+        for name in names:
+            out = os.path.join(dest_dir, os.path.basename(name))
+            with zf.open(name) as src, open(out, "wb") as dst:
+                dst.write(src.read())
+            out_paths.append(out)
+        # Prefer base first when multiple
+        out_paths.sort(
+            key=lambda p: (0 if "base" in os.path.basename(p).lower() else 1, p)
+        )
+        return out_paths
 
 
-def resolve_installable_apk(download_dir, pkg):
-    apk = find_apk(download_dir, pkg)
-    if apk:
-        return apk
+def resolve_installable_apks(download_dir, pkg):
+    """Return a list of APK paths (length 1 = single, >1 = splits)."""
+    splits = find_split_apks(download_dir, pkg)
+    if splits:
+        return splits
     xapk_patterns = [
         os.path.join(download_dir, "%s*.xapk" % pkg),
         os.path.join(download_dir, "**", "%s*.xapk" % pkg),
@@ -178,9 +199,18 @@ def resolve_installable_apk(download_dir, pkg):
         xapks.extend(glob.glob(pat, recursive="**" in pat))
     for xapk in sorted(set(xapks), key=os.path.getmtime, reverse=True):
         extracted = extract_xapk(xapk, download_dir)
-        if extracted:
+        if len(extracted) >= 2:
             return extracted
-    return find_apk(download_dir, pkg)
+        if len(extracted) == 1:
+            return extracted
+    apk = find_apk(download_dir, pkg)
+    return [apk] if apk else []
+
+
+def resolve_installable_apk(download_dir, pkg):
+    """Back-compat: first installable APK path, or None."""
+    apks = resolve_installable_apks(download_dir, pkg)
+    return apks[0] if apks else None
 
 
 def apkeep_auth_args(module):
@@ -234,12 +264,25 @@ def download_gplaycli(module, pkg, dest):
     return run_cmd(module, cmd)
 
 
-def install_apk(module, device, apk, spoof, installer):
-    cmd = ["adb", "-s", device, "install", "-r"]
-    if spoof:
-        cmd.extend(["-i", installer])
-    cmd.append(apk)
+def install_apks(module, device, apks, spoof, installer):
+    """Install one APK or a split set via adb install / install-multiple."""
+    if not apks:
+        return 1, "no APKs to install"
+    if len(apks) == 1:
+        cmd = ["adb", "-s", device, "install", "-r"]
+        if spoof:
+            cmd.extend(["-i", installer])
+        cmd.append(apks[0])
+    else:
+        cmd = ["adb", "-s", device, "install-multiple", "-r"]
+        if spoof:
+            cmd.extend(["-i", installer])
+        cmd.extend(apks)
     return run_cmd(module, cmd)
+
+
+def install_apk(module, device, apk, spoof, installer):
+    return install_apks(module, device, [apk], spoof, installer)
 
 
 def uninstall_pkg(module, device, pkg):
@@ -254,11 +297,12 @@ def ensure_present(module, device, spec, outputs):
     if module.check_mode:
         return True
 
-    apk = spec.get("apk_path")
-    if apk:
-        apk = os.path.expanduser(apk)
-        if not os.path.isfile(apk):
-            module.fail_json(msg="apk_path not found for %s: %s" % (pkg, apk))
+    apk_path = spec.get("apk_path")
+    if apk_path:
+        apk_path = os.path.expanduser(apk_path)
+        if not os.path.isfile(apk_path):
+            module.fail_json(msg="apk_path not found for %s: %s" % (pkg, apk_path))
+        apks = [apk_path]
     else:
         backend = module.params["download_backend"]
         dest = os.path.expanduser(module.params["download_dir"])
@@ -293,17 +337,17 @@ def ensure_present(module, device, spec, outputs):
         else:
             module.fail_json(msg="unknown download_backend: %s" % backend)
 
-        apk = resolve_installable_apk(dest, pkg)
-        if not apk:
+        apks = resolve_installable_apks(dest, pkg)
+        if not apks:
             module.fail_json(
                 msg="no APK found for %s under %s after download" % (pkg, dest),
                 output=outputs,
             )
 
-    rc, out = install_apk(
+    rc, out = install_apks(
         module,
         device,
-        apk,
+        apks,
         module.params["spoof_play_installer"],
         module.params["installer_package"],
     )

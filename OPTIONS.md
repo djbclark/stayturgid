@@ -12,15 +12,16 @@
 > On-device LLM research: [docs/research/on-device-llm.md](docs/research/on-device-llm.md).
 
 **Fleet snapshot (2026-07-09):** Post-UI SSH-first on s24/p7a with Mac adb
-fallback; hd8 Mac adb only. Play **H1 ready** via apkeep AAS
-(`~/.config/stayturgid/play.env`). Item **46** drawer **PASS** on s24.
+fallback; hd8 Mac adb only. Play **H1** + **15b** done — `source: play`
+ensure_apps canary (metronome) installed on s24 via google-play splits.
+Item **46** drawer **PASS** on s24.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
-**Suggested agent order:** **15b** (`source: play` ensure_apps) → human **H3**
-fleet expand. Consider **54** only as a deliberate future spike.
+**Suggested agent order:** human **H3** fleet expand → **H2** confirm.
+Consider **54** only as a deliberate future spike.
 
 ---
 
@@ -28,7 +29,7 @@ fleet expand. Consider **54** only as a deliberate future spike.
 
 | Track | Focus | Open IDs | Typical risk |
 |-------|-------|----------|--------------|
-| **A — Operational** | Live deploy, human unblockers | H2–H3, H5, 15b, 38 | Medium–High (live phones / publish) |
+| **A — Operational** | Live deploy, human unblockers | H2–H3, H5, 38 | Medium–High (live phones / publish) |
 | **B — Ansible-native** | *(Portfolio 2 core shipped — 48–52 closed)* | — | — |
 | **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; not hot-path | 54 | Medium (new attack surface if mis-scoped) |
@@ -56,12 +57,6 @@ operational impact of the open human items.
 
 Ansible Galaxy token for publishing collections. Optional prestige/distribution;
 fleet does not depend on it day-to-day. Unlocks agent item **38**.
-
-#### 15b — `source: play` in `stayturgid_ensure_apps` (agent) · Risk: **Medium** · Unblocked (H1 done)
-
-Play AAS creds are in `~/.config/stayturgid/play.env`. Wire real `source: play`
-entries and run a bounded E2E install/uninstall on one host (prefer s24). Keep
-scope to a canary app first. Source `play.env` before Ansible/play downloads.
 
 #### 38 — Galaxy publish all collections (agent) · Risk: **High** · Blocker: **H5**
 
@@ -111,8 +106,8 @@ when 5555 is dead. Research:
 rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal; always-on Ollama
 in Termux:Boot.
 
-**Closed (2026-07-09):** **H1** Play AAS via `play/mac/obtain_play_aas.py`
-(smoke: metronome APK). **56** post-UI Mac adb fallback. **46** AutoJs6 drawer
-verify on s24. **55** on-device post-UI. **27** s24 live deploy. Portfolio 2 —
-**48–52**, **53**. **Closed (2026-07-08):** drawer profile, a11y, PiP, Aurora
-order, #553.
+**Closed (2026-07-09):** **15b** `source: play` ensure_apps (metronome on s24;
+split APK `install-multiple`; `deploy_fleet` loads `play.env`). **H1** Play AAS.
+**56** post-UI Mac adb fallback. **46** AutoJs6 drawer. **55** on-device post-UI.
+**27** s24 live deploy. Portfolio 2 — **48–52**, **53**.
+**Closed (2026-07-08):** drawer profile, a11y, PiP, Aurora order, #553.

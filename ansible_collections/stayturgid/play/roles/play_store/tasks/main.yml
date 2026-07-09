@@ -70,6 +70,7 @@
     download_backend: "{{ stayturgid_play_download_backend }}"
     apkeep_source: "{{ stayturgid_play_apkeep_source }}"
     apkeep_options: "{{ stayturgid_play_apkeep_options }}"
+    apkeep_accept_tos: "{{ stayturgid_play_apkeep_accept_tos | default(false) | bool }}"
     spoof_play_installer: "{{ stayturgid_play_spoof_installer | bool }}"
     repo_root: "{{ stayturgid_repo_root | default(playbook_dir ~ '/../..', true) }}"
   delegate_to: localhost

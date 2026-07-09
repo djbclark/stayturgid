@@ -60,24 +60,25 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 ## 🚦 Cold-start — current state (read this first)
 
 **As of 2026-07-09.** Three-device fleet: **s24**, **p7a**, **hd8**.
-On-device post-UI (Obtainium / Aurora / AutoJs6) prefers SSH on s24/p7a via
-Termux `localhost:5555`, with automatic Mac adb fallback (USB or wireless) if
-SSH-invoke fails. hd8 is Mac adb only (no Fire OS Termux→5555 loopback). See
-[OPTIONS.md](OPTIONS.md).
+On-device post-UI prefers SSH on s24/p7a via Termux `localhost:5555`, with
+automatic Mac adb fallback if SSH-invoke fails. hd8 is Mac adb only.
+Play downloads: apkeep AAS in `~/.config/stayturgid/play.env`; fleet
+`stayturgid_ensure_apps` canary uses `source: play` (google-play + splits).
+See [OPTIONS.md](OPTIONS.md).
 
 **Fleet health:**
 
 | Host | Verify | Mac adb | Notes |
 |------|--------|---------|-------|
-| s24 | **16/16 PASS** (post deploy soak) | USB / LAN / Tailscale | Lab reference; drawer item **46** closed |
+| s24 | **16/16 PASS** (post deploy soak) | USB / LAN / Tailscale | Lab reference; drawer **46** closed; Play canary installed |
 | p7a | **16/16** (last run) | mDNS + Tailscale | may need Tailscale/USB when offline |
 | hd8 | **16/16 PASS** (Fire OS) | **USB** + wireless | No Termux→5555; Mac adb post-UI |
 
 **Recent landings (2026-07-09):**
+- **15b:** `source: play` ensure_apps + `play_apps` split `install-multiple`; `deploy_fleet` auto-loads `play.env`.
+- **H1:** `play/mac/obtain_play_aas.py` (EmbeddedSetup cookie → AAS).
 - Post-UI routing: `post_ui_remote.run_with_mac_fallback` — SSH-first on s24/p7a, Mac adb on failure; hd8 Mac-only.
-- On-device deterministic GUI: `termux/py/stayturgid_{import_catalog,configure_aurora,enable_autojs6,screen_control,shell,grant_shizuku}.py` + `~/.stayturgid/lib/` (`ui_parse`, `ui_clearance`, `a11y_services`).
-- Mac post-UI wrappers SSH-invoke on s24/p7a with Mac adb fallback. Aurora/AutoJs6 taps gated through `session.shell`.
-- `screen_control` presence path `~/.stayturgid/bin/agent-presence.sh`; request-screen fails closed on missing script.
+- On-device deterministic GUI: `termux/py/stayturgid_{import_catalog,configure_aurora,enable_autojs6,screen_control,shell,grant_shizuku}.py` + `~/.stayturgid/lib/`.
 - Portfolio 2 `site.yml` + thin `deploy_fleet.py`; ADR 001.
 - shell-gpt / local LLM research: [docs/research/on-device-llm.md](docs/research/on-device-llm.md) (OPTIONS track **E**).
 

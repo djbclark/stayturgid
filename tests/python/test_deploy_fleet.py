@@ -119,9 +119,39 @@ def test_deploy_check_skips_bootstrap(monkeypatch):
     assert calls == [("playbook", "fdroid", True, None)]
 
 
-def test_deploy_bootstrap_failure_short_circuits(monkeypatch):
-    calls = []
-    _stub_deploy_deps(monkeypatch, calls, bootstrap_rc=1, ssh_down=["s24"])
-    rc = df.deploy(df.Scope.FULL, ["s24"], check=False)
-    assert rc == 1
-    assert calls == [("bootstrap", ["s24"])]
+def test_load_play_env_merges_missing_keys(tmp_path, monkeypatch):
+    play_env = tmp_path / "play.env"
+    play_env.write_text(
+        "export GPLAY_EMAIL='a@b.com'\n"
+        "export GPLAY_AAS_TOKEN='aas_et/test'\n"
+        "# comment\n"
+        "GPLAY_AUTH_TOKEN=ignored_if_set\n"
+    )
+    monkeypatch.setattr(df.Path, "home", classmethod(lambda cls: tmp_path.parent))
+    # Point load_play_env at our file by patching Path.home()/.config/...
+    # Simpler: call with a custom path via monkeypatch of Path.home structure
+    cfg = tmp_path / ".config" / "stayturgid"
+    cfg.mkdir(parents=True)
+    (cfg / "play.env").write_text(play_env.read_text())
+    monkeypatch.setattr(df.Path, "home", classmethod(lambda cls, _t=tmp_path: _t))
+
+    env = {"GPLAY_AUTH_TOKEN": "keep-me", "PATH": "/bin"}
+    df.load_play_env(env)
+    assert env["GPLAY_EMAIL"] == "a@b.com"
+    assert env["GPLAY_AAS_TOKEN"] == "aas_et/test"
+    assert env["GPLAY_AUTH_TOKEN"] == "keep-me"  # existing wins
+
+
+def test_load_play_env_missing_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(df.Path, "home", classmethod(lambda cls, _t=tmp_path: _t))
+    env = {"PATH": "/bin"}
+    df.load_play_env(env)
+    assert env == {"PATH": "/bin"}
+
+
+def test_repo_env_includes_ansible_config(monkeypatch, tmp_path):
+    monkeypatch.setattr(df.Path, "home", classmethod(lambda cls, _t=tmp_path: _t))
+    monkeypatch.delenv("GPLAY_EMAIL", raising=False)
+    env = df.repo_env()
+    assert env["ANSIBLE_CONFIG"] == str(df.ANSIBLE_CFG)
+

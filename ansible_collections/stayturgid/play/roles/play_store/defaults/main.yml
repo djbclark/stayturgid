@@ -10,8 +10,11 @@ stayturgid_play_apps: []
 # - id: com.google.android.apps.authenticator2
 
 stayturgid_play_download_backend: apkeep
+# Prefer google-play when GPLAY_AAS_TOKEN is set (see play/mac/obtain_play_aas.py).
+# apk-pure remains usable without credentials but is flaky.
 stayturgid_play_apkeep_source: apk-pure
 stayturgid_play_apkeep_options: arch=arm64-v8a
+stayturgid_play_apkeep_accept_tos: false
 stayturgid_play_spoof_installer: true
 # When true, open market://details in Aurora for each app (manual install fallback).
 stayturgid_play_open_aurora: false

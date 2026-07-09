@@ -47,9 +47,34 @@ class Scope(str, Enum):
         return self.value
 
 
+def load_play_env(env: dict[str, str]) -> None:
+    """Merge ~/.config/stayturgid/play.env into env (GPLAY_* for google-play)."""
+    path = Path.home() / ".config" / "stayturgid" / "play.env"
+    if not path.is_file():
+        return
+    try:
+        text = path.read_text()
+    except OSError:
+        return
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export ") :]
+        if "=" not in line:
+            continue
+        key, _, val = line.partition("=")
+        key = key.strip()
+        val = val.strip().strip("'").strip('"')
+        if key and key not in env:
+            env[key] = val
+
+
 def repo_env() -> dict[str, str]:
     env = os.environ.copy()
     env["ANSIBLE_CONFIG"] = str(ANSIBLE_CFG)
+    load_play_env(env)
     return env
 
 
@@ -156,6 +181,13 @@ def warn_prerequisites(scope: Scope) -> None:
     if needs_apkeep and not shutil.which("apkeep"):
         print(
             "WARNING: apkeep not found (brew install apkeep) — Aurora auto-install will fail",
+            file=sys.stderr,
+        )
+    env = repo_env()
+    if needs_apkeep and not (env.get("GPLAY_AAS_TOKEN") or env.get("GPLAY_AUTH_TOKEN")):
+        print(
+            "WARNING: no GPLAY_AAS_TOKEN — google-play ensure_apps will fail "
+            "(run play/mac/obtain_play_aas.py → ~/.config/stayturgid/play.env)",
             file=sys.stderr,
         )
 

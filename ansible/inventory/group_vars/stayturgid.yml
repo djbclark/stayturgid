@@ -12,13 +12,16 @@ stayturgid_ensure_aurora_store: true
 stayturgid_install_aurora_store: true
 
 # Optional unified app ensure (stayturgid.android_common.ensure_apps in fleet.yml).
-# F-Droid/obtainium/apk entries need no Play credentials; play source needs H1.
+# play source needs GPLAY_* from ~/.config/stayturgid/play.env (deploy_fleet loads it).
+# Canary: metronome via real Google Play (apkeep) — not apk-pure.
+stayturgid_play_download_backend: apkeep
+stayturgid_play_apkeep_source: google-play
+# split_apk=true so Play delivers base+config splits (install-multiple).
+stayturgid_play_apkeep_options: split_apk=true
+stayturgid_play_apkeep_accept_tos: true
 stayturgid_ensure_apps:
   - id: com.bobek.metronome
-    source: fdroid
-# stayturgid_ensure_apps:
-#   - id: com.aurora.store
-#     source: play
+    source: play
 #   - id: moe.shizuku.privileged.api
 #     source: apk
 #     gh_repo: thedjchi/Shizuku

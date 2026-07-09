@@ -35,7 +35,7 @@ def run_module(mocker, args, cmd_results=None, check=False):
             return (0, "connected", "")
         if "apkeep" in joined:
             return (0, "downloaded", "")
-        if "install -r" in joined:
+        if "install -r" in joined or "install-multiple" in joined:
             return (0, "Success", "")
         if "uninstall" in joined:
             return (0, "Success", "")
@@ -73,9 +73,23 @@ def test_extract_xapk_base_apk(tmp_path):
         zf.writestr("split_config.apk", b"split")
         zf.writestr("base.apk", b"base-bytes")
     out = mod.extract_xapk(str(xapk), str(tmp_path))
-    assert out.endswith("base.apk")
-    assert open(out, "rb").read() == b"base-bytes"
-    assert mod.resolve_installable_apk(str(tmp_path), "com.example.app") == out
+    assert isinstance(out, list)
+    assert out[0].endswith("base.apk")
+    assert open(out[0], "rb").read() == b"base-bytes"
+    assert mod.resolve_installable_apk(str(tmp_path), "com.example.app") == out[0]
+
+
+def test_find_split_apks_orders_base_first(tmp_path):
+    pkg = "com.bobek.metronome"
+    d = tmp_path / pkg
+    d.mkdir()
+    (d / ("%s.config.en.apk" % pkg)).write_bytes(b"en")
+    (d / ("%s.apk" % pkg)).write_bytes(b"base")
+    (d / ("%s.config.arm64_v8a.apk" % pkg)).write_bytes(b"abi")
+    splits = mod.find_split_apks(str(tmp_path), pkg)
+    assert len(splits) == 3
+    assert splits[0].endswith("%s.apk" % pkg)
+    assert mod.resolve_installable_apks(str(tmp_path), pkg) == splits
 
 
 def test_package_installed_detects_package():

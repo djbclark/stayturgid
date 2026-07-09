@@ -27,6 +27,9 @@
     device: "{{ _ensure_apps_adb }}"
     download_backend: "{{ stayturgid_play_download_backend | default('apkeep') }}"
     apkeep_source: "{{ stayturgid_play_apkeep_source | default('apk-pure') }}"
+    apkeep_options: "{{ stayturgid_play_apkeep_options | default('') }}"
+    apkeep_accept_tos: "{{ stayturgid_play_apkeep_accept_tos | default(false) }}"
+    spoof_play_installer: "{{ stayturgid_play_spoof_installer | default(true) }}"
     repo_root: "{{ stayturgid_repo_root }}"
   delegate_to: localhost
 
