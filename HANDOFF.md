@@ -336,9 +336,12 @@ next investments:
 | **C — Hybrid polish** | Keep `deploy_fleet.py` orchestrator; dedupe scripts, fix ordering, incremental modules only | Lowest risk; Ansible grows only where pain is acute |
 | **D — Python orchestrator** | Replace Ansible boundary with Fabric/Invoke + shared `adb_cli` / `screen_control` | UI-heavy flows dominate and YAML becomes friction |
 | **E — On-device LLM** | shell-gpt escalation after deterministic heal; see [docs/research/on-device-llm.md](docs/research/on-device-llm.md) | Rare adaptive repair; never hot-path |
+| **F — Inferno/Styx (parked)** | Hosted Inferno + synthetic `/ctl` via Shizuku/`rish`; see [docs/research/inferno-termux-fleet.md](docs/research/inferno-termux-fleet.md) | Side-project namespace UX only — not fleet production |
 
 **No track fixes:** Play Protect, PIN unlock, DHCP LAN IP, Samsung Shizuku/content-URI
 quirks. **MDM and root remain rejected** (daily-driver phones; locked S24 bootloader).
+**Inferno always-on / replacing AutoJs6 or SSH** is rejected for battery and
+catastrophic-heal reasons (research note).
 
 ### Track B — Ansible-native (detailed)
 

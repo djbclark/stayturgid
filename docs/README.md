@@ -24,6 +24,7 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 | [HANDOFF.md](../HANDOFF.md) | AI agents / maintainers — state, roadmap, device fleet |
 | [OPTIONS.md](../OPTIONS.md) | Open work menu (includes track E — on-device LLM) |
 | [research/on-device-llm.md](research/on-device-llm.md) | shell-gpt / local model usefulness for repair escalation |
+| [research/inferno-termux-fleet.md](research/inferno-termux-fleet.md) | Inferno/Styx side project — parked; not production |
 | [adr/001-ansible-boundary.md](adr/001-ansible-boundary.md) | Ansible vs on-device script boundary |
 
 ## Other

@@ -10,6 +10,7 @@
 > Strategic directions: [HANDOFF.md appendix](HANDOFF.md#appendix--strategic-directions-equal-weight).
 > Ansible boundary: [docs/adr/001-ansible-boundary.md](docs/adr/001-ansible-boundary.md).
 > On-device LLM research: [docs/research/on-device-llm.md](docs/research/on-device-llm.md).
+> Inferno/Styx side project (parked): [docs/research/inferno-termux-fleet.md](docs/research/inferno-termux-fleet.md).
 
 **Fleet snapshot (2026-07-09):** Post-UI SSH-first on s24/p7a with Mac adb
 fallback; hd8 Handsets via **peer bootstrap** (s24/p7a ADB) or Mac.
@@ -117,7 +118,8 @@ when 5555 is dead. Research:
 
 **Non-goals:** MDM / root / Play Protect bypass; full Obtainium API; Tasker
 rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal; always-on Ollama
-in Termux:Boot.
+in Termux:Boot; always-on Inferno/`emu` in Termux:Boot (see
+[inferno-termux-fleet.md](docs/research/inferno-termux-fleet.md)).
 
 **Closed (2026-07-09):** **15b** `source: play` ensure_apps (metronome on s24;
 split APK `install-multiple`; `deploy_fleet` loads `play.env`). **H1** Play AAS.
