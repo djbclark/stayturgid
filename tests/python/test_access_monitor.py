@@ -25,8 +25,6 @@ def test_state_roundtrip(tmp_path):
 
 def test_recovery_notifies_once_and_resets(tmp_path, monkeypatch):
     monkeypatch.setattr(am, "STATE_DIR", str(tmp_path))
-    monkeypatch.setattr(am, "HEALTH_STATE_DIR", str(tmp_path / "health"))
-    monkeypatch.setattr(am, "SKIP_HEALTH", True)
     monkeypatch.setattr(am, "adb_reachable", lambda addrs: "adb:100.1:5555")
     logs, notifs = [], []
     monkeypatch.setattr(am, "log", lambda m: logs.append(m))
@@ -41,8 +39,6 @@ def test_recovery_notifies_once_and_resets(tmp_path, monkeypatch):
 
 def test_outage_alerts_only_at_limit(tmp_path, monkeypatch):
     monkeypatch.setattr(am, "STATE_DIR", str(tmp_path))
-    monkeypatch.setattr(am, "HEALTH_STATE_DIR", str(tmp_path / "health"))
-    monkeypatch.setattr(am, "SKIP_HEALTH", True)
     monkeypatch.setattr(am, "adb_reachable", lambda addrs: None)
     monkeypatch.setattr(am, "tcp_open", lambda h, p, timeout=5: False)
     notifs = []
@@ -60,8 +56,6 @@ def test_outage_alerts_only_at_limit(tmp_path, monkeypatch):
 
 def test_ssh_fallback_when_adb_down(tmp_path, monkeypatch):
     monkeypatch.setattr(am, "STATE_DIR", str(tmp_path))
-    monkeypatch.setattr(am, "HEALTH_STATE_DIR", str(tmp_path / "health"))
-    monkeypatch.setattr(am, "SKIP_HEALTH", True)
     monkeypatch.setattr(am, "adb_reachable", lambda addrs: None)
     seen = {}
     monkeypatch.setattr(am, "tcp_open", lambda h, p, timeout=5: seen.setdefault("hp", (h, p)) or True)
@@ -70,33 +64,3 @@ def test_ssh_fallback_when_adb_down(tmp_path, monkeypatch):
     am.check_device("s24", "100.1", "192.1")
     assert seen["hp"] == ("100.1", am.SSH_PORT)  # probes the Tailscale ip:8022
     assert am.read_state(os.path.join(str(tmp_path), "s24")) == 0
-
-
-def test_health_notifies_after_debounce(tmp_path, monkeypatch):
-    monkeypatch.setattr(am, "STATE_DIR", str(tmp_path))
-    health_dir = tmp_path / "health"
-    health_dir.mkdir()
-    monkeypatch.setattr(am, "HEALTH_STATE_DIR", str(health_dir))
-    monkeypatch.setattr(am, "SKIP_HEALTH", False)
-    monkeypatch.setattr(am, "adb_reachable", lambda addrs: "adb:100.1:5555")
-    monkeypatch.setattr(
-        am.fh,
-        "probe_via_path",
-        lambda path, name: {
-            "ssh_echo": "ok",
-            "sshd": "ok",
-            "watchdog_age": "99999",
-            "repair_age": "10",
-            "a11y": "ok",
-            "autojs6_a11y": "ok",
-        },
-    )
-    notifs, logs = [], []
-    monkeypatch.setattr(am, "notify", lambda *a, **k: notifs.append(a))
-    monkeypatch.setattr(am, "log", lambda m: logs.append(m))
-
-    am.check_device("s24", "100.1", "192.1")
-    assert not notifs
-    assert any("watchdog_stale" in m for m in logs)
-    am.check_device("s24", "100.1", "192.1")
-    assert len(notifs) == 1 and "watchdog_stale" in notifs[0][1]

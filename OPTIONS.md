@@ -83,10 +83,11 @@ Ports Mac 9008–9010 / Termux 9012 (hd8 peer port 9008). Never with uiautomator
 
 ### Track D — Reliability (do not start without a symptom)
 
-Mac **soft health** (2026-07-09): `access_monitor` + `fleet_health` log
-watchdog/repair/a11y/sshd-echo every 5 min when reachable
-(`~/.config/stayturgid/logs/access-monitor.log`). Use that trail before
-picking 43–45.
+Mac **soft health** (2026-07-09): dedicated launchd
+`com.stayturgid.fleet-health` → `mac/fleet_health_monitor.py` logs
+watchdog/repair/a11y/sshd/bootloop/shell5555 every 5 min when reachable
+(`~/.config/stayturgid/logs/fleet-health.log`). Reachability stays in
+`access-monitor`. Use the health trail before picking 43–45.
 
 #### 43 — AutoJs6 WorkManager (agent) · Risk: **Latent / Low until upstream**
 

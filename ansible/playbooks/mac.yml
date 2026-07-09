@@ -95,11 +95,19 @@
         mode: "0644"
       register: monitor_plist
 
+    - name: Render fleet-health launchd agent
+      ansible.builtin.template:
+        src: fleet-health.plist.j2
+        dest: "{{ agents_dir }}/com.stayturgid.fleet-health.plist"
+        mode: "0644"
+      register: health_plist
+
     - name: Reload changed launchd agents
       ansible.builtin.shell: |
         launchctl bootout "gui/$(id -u)" "{{ item }}" 2>/dev/null || true
         launchctl bootstrap "gui/$(id -u)" "{{ item }}"
       loop: >-
         {{ (reconnect_plists.results | selectattr('changed') | map(attribute='dest') | list)
-           + ([monitor_plist.dest] if monitor_plist.changed else []) }}
+           + ([monitor_plist.dest] if monitor_plist.changed else [])
+           + ([health_plist.dest] if health_plist.changed else []) }}
       changed_when: true

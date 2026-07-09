@@ -9,12 +9,14 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 | File | Purpose |
 |------|---------|
 | `adb_reconnect.py` | Reconnect `adb connect` when link drops; LAN → Tailscale fallback |
-| `access_monitor.py` | Dead-man's switch (~10 min total outage) + soft health scrape (watchdog/a11y/sshd) into the same log |
+| `access_monitor.py` | Dead-man's switch: notify after ~10 min total outage on all paths |
+| `fleet_health_monitor.py` | Soft health scrape (watchdog/a11y/sshd/bootloop) → `fleet-health.log` |
 | `deploy_fleet.py` | Full fleet deploy via `ansible/playbooks/site.yml` (bootstrap → fleet → post-UI → validate) |
 | `bootstrap_ssh.py` | First-time Termux SSH: adb + `run-as com.termux` or `--ansible` → `bootstrap.yml` |
 | `a11y_services.py` | Backup/restore `enabled_accessibility_services` per host (`shared/a11y_profiles.json`) |
 | `harden_fleet_apps.py` | Ad-hoc battery/permissions hardening (fleet deploy uses `app_privileges` role) |
 | `shared/mac/stayturgid_device.py` | Device resolution, Shizuku JSON patch, UI XML parsing |
+| `shared/mac/fleet_health.py` | Read-only health probes used by `fleet_health_monitor.py` |
 
 Launchd agents are rendered by `ansible/playbooks/mac.yml` (not hand-copied plists).
 
@@ -43,11 +45,18 @@ ansible-playbook ansible/playbooks/mac.yml
 
 Logs: `~/.config/stayturgid/logs/`. Device list: `~/.config/stayturgid/devices.conf` (from Ansible).
 
-**Soft health (every 5 min when reachable):** `access_monitor.py` scrapes Termux
-watchdog/repair ages, last STATUS `a11y=`, and AutoJs6 in the a11y list
-(`shared/mac/fleet_health.py`). Always appends `… health via …:` lines to
-`access-monitor.log`; macOS notify after ~10 min of the same soft failure
-(debounce). Disable with `STAYTURGID_SKIP_HEALTH=1`. Does not mutate devices.
+**Launchd agents** (`ansible-playbook ansible/playbooks/mac.yml`):
+
+| Agent | Interval | Log |
+|-------|----------|-----|
+| `com.stayturgid.adb-reconnect-<host>` | 60 s | `adb-reconnect.log` |
+| `com.stayturgid.access-monitor` | 300 s | `access-monitor.log` (reachability) |
+| `com.stayturgid.fleet-health` | 300 s | `fleet-health.log` (soft health) |
+
+**Soft health** (`fleet_health_monitor.py`): when reachable, scrapes watchdog/repair
+ages, STATUS `port`/`shizuku`/`a11y`, AutoJs6 + profile a11y drift, boot loop,
+`localhost:5555` shell. Always logs; macOS notify after ~10 min debounce.
+Disable with `STAYTURGID_SKIP_HEALTH=1`. Does not mutate devices.
 
 Other subprojects resolve adb targets via [shared/mac/stayturgid_device.py](../shared/mac/stayturgid_device.py) or [shared/mac/resolve_adb.py](../shared/mac/resolve_adb.py).
 
