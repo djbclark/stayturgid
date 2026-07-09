@@ -21,7 +21,7 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 |-----|----------|
 | [README.md](../README.md) | Everyone — hub + full-stack quick path |
 | [HACKING.md](../HACKING.md) | Developers — clean install, Obtainium, Termux swap |
-| [HANDOFF.md](../HANDOFF.md) | AI agents / maintainers — state, roadmap, device fleet |
+| [HANDOFF.md](../HANDOFF.md) | AI agents / maintainers — **session start:** `python3 mac/check_fleet_health.py` |
 | [OPTIONS.md](../OPTIONS.md) | Open work menu |
 | [adr/001-ansible-boundary.md](adr/001-ansible-boundary.md) | Ansible vs on-device script boundary |
 

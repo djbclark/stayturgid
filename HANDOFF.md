@@ -28,6 +28,46 @@ Announce before live deploy when someone may be on the device:
 
 ---
 
+## Mac fleet health — **mandatory for agents**
+
+Launchd scrapes soft health every 5 minutes. **You will not be told by a human**
+when AutoJs6 stalls or a11y drifts — the Mac log is the signal.
+
+### Session start (do this)
+
+```bash
+python3 mac/check_fleet_health.py
+```
+
+| Exit | Meaning | Your job |
+|------|---------|----------|
+| **0** | Clean | Continue; no need to mention unless asked |
+| **1** | Soft problems | **Tell the operator in your first reply** (host + `issues=…`). Do not wait for “options” |
+| **2** | Log missing / no scrapes | Tell operator launchd may be down; offer `ansible-playbook ansible/playbooks/mac.yml` |
+
+Also skim when the operator asks about fleet status, soak, OPTIONS **43–45**, or
+“is anything wrong?”
+
+### Where to look
+
+| Path | What |
+|------|------|
+| `~/.config/stayturgid/logs/fleet-health.log` | Soft health (watchdog, repair, a11y, sshd, bootloop, shell5555) |
+| `~/.config/stayturgid/logs/access-monitor.log` | Total outage (ADB+SSH all dead) |
+| `~/.config/stayturgid/state/fleet-health/<host>` | Consecutive soft-fail count (≥2 ≈ notified) |
+
+Agents: `com.stayturgid.fleet-health`, `com.stayturgid.access-monitor` (via
+`ansible/playbooks/mac.yml`). Disable soft probes: `STAYTURGID_SKIP_HEALTH=1`.
+
+### How to talk about problems
+
+- Lead with the triage output (hosts + issue tags).
+- Prefer fixing AutoJs6 / a11y / Termux repair **before** OPTIONS **43–45**.
+- Do not treat `watchdog_stale` with fresh `repair_age` as “phone dead” — it
+  means the AutoJs6 layer is quiet while Termux heal still runs.
+
+---
+
 ## What this project does
 
 **stayturgid** keeps wireless ADB (port 5555), Shizuku, and SSH alive on **two personal, unrooted consumer phones** — a Google Pixel 7a and a Samsung Galaxy S24 (SM-S921U1), both Android 16 — across cold reboots, and makes them reliably reachable from the Mac over Tailscale via **two independent, mutually-repairing channels (ADB + SSH)**.

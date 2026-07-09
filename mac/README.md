@@ -11,6 +11,7 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 | `adb_reconnect.py` | Reconnect `adb connect` when link drops; LAN → Tailscale fallback |
 | `access_monitor.py` | Dead-man's switch: notify after ~10 min total outage on all paths |
 | `fleet_health_monitor.py` | Soft health scrape (watchdog/a11y/sshd/bootloop) → `fleet-health.log` |
+| `check_fleet_health.py` | **Session triage** — agents run at start; exit 1 ⇒ tell operator |
 | `deploy_fleet.py` | Full fleet deploy via `ansible/playbooks/site.yml` (bootstrap → fleet → post-UI → validate) |
 | `bootstrap_ssh.py` | First-time Termux SSH: adb + `run-as com.termux` or `--ansible` → `bootstrap.yml` |
 | `a11y_services.py` | Backup/restore `enabled_accessibility_services` per host (`shared/a11y_profiles.json`) |
@@ -57,6 +58,9 @@ Logs: `~/.config/stayturgid/logs/`. Device list: `~/.config/stayturgid/devices.c
 ages, STATUS `port`/`shizuku`/`a11y`, AutoJs6 + profile a11y drift, boot loop,
 `localhost:5555` shell. Always logs; macOS notify after ~10 min debounce.
 Disable with `STAYTURGID_SKIP_HEALTH=1`. Does not mutate devices.
+
+**Agents — session start:** `python3 mac/check_fleet_health.py` — if exit ≠ 0,
+surface host/`issues=` to the operator immediately (see HANDOFF § Mac fleet health).
 
 Other subprojects resolve adb targets via [shared/mac/stayturgid_device.py](../shared/mac/stayturgid_device.py) or [shared/mac/resolve_adb.py](../shared/mac/resolve_adb.py).
 

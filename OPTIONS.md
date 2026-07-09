@@ -5,6 +5,11 @@
 > then **replace** this list (drop completed items; keep IDs stable). **Commit and
 > push** in the same turn.
 >
+> **Fleet health (mandatory):** at session start run
+> `python3 mac/check_fleet_health.py`. If exit ≠ 0, **tell the operator** the
+> host/`issues=` tags in your first reply — do not wait to be asked. Details:
+> [HANDOFF.md § Mac fleet health](HANDOFF.md#mac-fleet-health--mandatory-for-agents).
+>
 > Human-only tasks: [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md). Operator
 > answers: `human/RESPONSES.md` (gitignored). Session context: [HANDOFF.md](HANDOFF.md).
 > Strategic directions: [HANDOFF.md appendix](HANDOFF.md#appendix--strategic-directions-equal-weight).
