@@ -67,6 +67,13 @@ stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
 stayturgid_ssh_public_key_files: []
 stayturgid_ssh_distribute_private_keys: true
 
+# Fleet SSH mesh: per-device ed25519 identity + full known_hosts across the
+# stayturgid inventory group (authorized_key + known_hosts via ansible.posix).
+stayturgid_ssh_mesh_group: stayturgid
+stayturgid_ssh_mesh_device_identity: true
+stayturgid_ssh_device_identity_key: id_ed25519_fleet
+stayturgid_ssh_mesh_known_hosts: true
+
 # Pin a single reliable mirror instead of Termux's random per-run rotation:
 # deterministic + avoids the intermittent "Mirror sync in progress" failures.
 # packages-cf.termux.dev is the official Cloudflare CDN (highest default weight).

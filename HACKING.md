@@ -188,14 +188,19 @@ fleet SSH keys in sync:
 - **Public keys:** every `*.pub` under `stayturgid_ssh_keys_dir` (default
   `~/.ssh` on the Mac) is installed on every device via
   `ansible.posix.authorized_key`.
+- **Device mesh:** each device gets a per-host `id_ed25519_fleet` keypair; every
+  fleet member's pubkey is installed on every other device via
+  `ansible.posix.authorized_key`. Every device also gets every peer's sshd host
+  key in `~/.ssh/known_hosts` via `ansible.builtin.known_hosts` (aliases:
+  inventory name, Tailscale IP, LAN IP).
 - **Private keys:** matching `id_*` (without `.pub`) and `termux_key` are copied
-  to each device's `~/.ssh/` so devices can SSH to each other. Keys are never
-  committed to git.
+  from the Mac to each device's `~/.ssh/`. Keys are never committed to git.
 - **Mac client:** `ansible/playbooks/mac.yml` renders `~/.ssh/config.d/stayturgid`
-  with every identity file listed for every fleet host.
+  and trusts each fleet host's sshd key in `~/.ssh/known_hosts`.
 
 Override discovery with `stayturgid_ssh_public_key_files` or
-`stayturgid_ssh_keys_dir` in inventory `group_vars`.
+`stayturgid_ssh_keys_dir` in inventory `group_vars`. Disable mesh pieces with
+`stayturgid_ssh_mesh_device_identity` / `stayturgid_ssh_mesh_known_hosts`.
 
 **Start sshd and test it (from Mac):**
 

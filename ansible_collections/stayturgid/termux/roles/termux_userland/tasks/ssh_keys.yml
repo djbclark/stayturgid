@@ -1,6 +1,7 @@
 ---
 # Fleet SSH mesh: public keys via ansible.posix.authorized_key, private keys
-# copied from the control-node keyring (never stored in git).
+# copied from the control-node keyring (never stored in git). Per-device fleet
+# identities and ansible.builtin.known_hosts complete the device-to-device mesh.
 - name: Resolve fleet SSH public key paths
   ansible.builtin.set_fact:
     _stayturgid_ssh_public_key_paths: >-
@@ -44,7 +45,84 @@
     mode: "0700"
   when: _termux_home_stat.stat.exists
 
-- name: Install fleet SSH public keys (ansible.posix.authorized_key)
+- name: Ensure sshd host keys exist
+  ansible.builtin.command:
+    cmd: "{{ termux_prefix }}/bin/ssh-keygen -A"
+  environment:
+    PREFIX: "{{ termux_prefix }}"
+  changed_when: false
+  when: _termux_home_stat.stat.exists
+
+- name: Generate per-device fleet SSH identity (ed25519)
+  ansible.builtin.command:
+    cmd: >-
+      {{ termux_prefix }}/bin/ssh-keygen -t ed25519
+      -f {{ termux_home }}/.ssh/{{ stayturgid_ssh_device_identity_key }}
+      -N '' -C {{ inventory_hostname }}-fleet
+    creates: "{{ termux_home }}/.ssh/{{ stayturgid_ssh_device_identity_key }}"
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ssh_mesh_device_identity | bool
+
+- name: Ensure fleet identity private key permissions
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.ssh/{{ stayturgid_ssh_device_identity_key }}"
+    mode: "0600"
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ssh_mesh_device_identity | bool
+
+- name: Slurp per-device fleet SSH public key
+  ansible.builtin.slurp:
+    src: "{{ termux_home }}/.ssh/{{ stayturgid_ssh_device_identity_key }}.pub"
+  register: _stayturgid_device_pubkey_slurp
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ssh_mesh_device_identity | bool
+
+- name: Slurp sshd host public key
+  ansible.builtin.slurp:
+    src: "{{ termux_prefix }}/etc/ssh/ssh_host_ed25519_key.pub"
+  register: _stayturgid_sshd_host_pubkey_slurp
+  when: _termux_home_stat.stat.exists
+
+- name: Publish fleet SSH facts for mesh (hostvars)
+  ansible.builtin.set_fact:
+    stayturgid_device_ssh_pubkey: "{{ _stayturgid_device_pubkey_slurp.content | b64decode | trim }}"
+    stayturgid_sshd_host_pubkey: "{{ _stayturgid_sshd_host_pubkey_slurp.content | b64decode | trim }}"
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ssh_mesh_device_identity | bool
+    - not (_stayturgid_device_pubkey_slurp.skipped | default(false))
+    - not (_stayturgid_sshd_host_pubkey_slurp.skipped | default(false))
+
+- name: Publish sshd host pubkey when fleet device identity is disabled
+  ansible.builtin.set_fact:
+    stayturgid_sshd_host_pubkey: "{{ _stayturgid_sshd_host_pubkey_slurp.content | b64decode | trim }}"
+  when:
+    - _termux_home_stat.stat.exists
+    - not (stayturgid_ssh_mesh_device_identity | bool)
+    - not (_stayturgid_sshd_host_pubkey_slurp.skipped | default(false))
+
+- name: Build known_hosts aliases for this device
+  ansible.builtin.set_fact:
+    stayturgid_ssh_known_host_aliases: >-
+      {{
+        [inventory_hostname, ansible_host]
+        + ([device_lan_ip] if device_lan_ip is defined and device_lan_ip | length > 0 else [])
+        | unique
+        | list
+      }}
+  when: _termux_home_stat.stat.exists
+
+- name: Build SSH known_hosts mesh entries for this device
+  ansible.builtin.set_fact:
+    _stayturgid_known_hosts_mesh_entries: "{{ lookup('template', 'known_hosts_mesh.j2') | from_json }}"
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ssh_mesh_known_hosts | bool
+
+- name: Install fleet SSH public keys from control node (ansible.posix.authorized_key)
   ansible.posix.authorized_key:
     user: "{{ _termux_ssh_account.stdout }}"
     key: "{{ lookup('file', item) }}"
@@ -54,6 +132,20 @@
   when:
     - _termux_home_stat.stat.exists
     - _stayturgid_ssh_public_key_paths | length > 0
+
+- name: Install fleet device SSH public keys (mesh authorized_keys)
+  ansible.posix.authorized_key:
+    user: "{{ _termux_ssh_account.stdout }}"
+    key: "{{ hostvars[item].stayturgid_device_ssh_pubkey }}"
+    state: present
+    exclusive: false
+  loop: "{{ groups[stayturgid_ssh_mesh_group] }}"
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ssh_mesh_device_identity | bool
+    - item != inventory_hostname
+    - hostvars[item].stayturgid_device_ssh_pubkey is defined
+    - hostvars[item].stayturgid_device_ssh_pubkey | length > 0
 
 - name: Install fleet SSH private keys on device
   ansible.builtin.copy:
@@ -66,6 +158,18 @@
     - _termux_home_stat.stat.exists
     - stayturgid_ssh_distribute_private_keys | bool
     - (_stayturgid_ssh_private_key_paths | default([]) | length) > 0
+
+- name: Install fleet SSH known_hosts mesh entries
+  ansible.builtin.known_hosts:
+    path: "{{ termux_home }}/.ssh/known_hosts"
+    name: "{{ item.name }}"
+    key: "{{ item.key }}"
+    state: present
+  loop: "{{ _stayturgid_known_hosts_mesh_entries | default([]) }}"
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ssh_mesh_known_hosts | bool
+    - (_stayturgid_known_hosts_mesh_entries | default([]) | length) > 0
 
 - name: Apply Termux sshd lockout-prevention config and detached restart
   stayturgid.termux.termux_sshd:

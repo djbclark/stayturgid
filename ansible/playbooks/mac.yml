@@ -61,6 +61,25 @@
         insertbefore: BOF
         regexp: '^Include ~/.ssh/config\.d/stayturgid\s*$'
 
+    - name: Scan fleet SSH host keys from Mac
+      ansible.builtin.command:
+        cmd: >-
+          ssh-keyscan -p {{ hostvars[item].ansible_port | default(8022) }}
+          -t ed25519 {{ hostvars[item].ansible_host }}
+      loop: "{{ groups['stayturgid'] }}"
+      register: _fleet_host_keyscan
+      changed_when: false
+      failed_when: false
+
+    - name: Trust fleet SSH host keys on Mac (ansible.builtin.known_hosts)
+      ansible.builtin.known_hosts:
+        path: "{{ ssh_config_dir }}/known_hosts"
+        name: "[{{ hostvars[item.item].ansible_host }}]:{{ hostvars[item.item].ansible_port | default(8022) }}"
+        key: "{{ item.stdout | trim }}"
+        state: present
+      loop: "{{ _fleet_host_keyscan.results }}"
+      when: item.stdout | trim | length > 0
+
     - name: Render adb-reconnect launchd agent per device
       ansible.builtin.template:
         src: adb-reconnect.plist.j2
