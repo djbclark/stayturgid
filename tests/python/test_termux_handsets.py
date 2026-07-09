@@ -26,6 +26,39 @@ def test_center_bounds():
     assert th.Session._center({}) is None
 
 
+def test_center_for_rid(monkeypatch):
+    class Fake(th.Session):
+        def __init__(self):
+            pass
+
+        def _walk_nodes(self, data=None):
+            return [
+                {"rid": "android:id/button1", "bounds": [10, 20, 30, 40], "text": "ALLOW"}
+            ]
+
+    s = Fake()
+    assert s.center_for("resource-id", "android:id/button1") == (20, 30)
+    assert s.center_for("text", "ALLOW") == (20, 30)
+
+
+def test_dump_text_includes_rid(monkeypatch):
+    class Fake(th.Session):
+        def __init__(self):
+            pass
+
+        def dump(self):
+            return {
+                "root": {
+                    "rid": "com.aurora.store:id/nav_host_fragment",
+                    "text": "Apps",
+                    "children": [],
+                }
+            }
+
+    assert "nav_host_fragment" in Fake().dump_text()
+    assert "Apps" in Fake().dump_text()
+
+
 def test_enabled_respects_env(monkeypatch):
     monkeypatch.setenv("STAYTURGID_HANDSETS", "0")
     assert th.enabled() is False

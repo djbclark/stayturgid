@@ -67,7 +67,8 @@ that version; only after H5 and a deliberate version bump review.
 
 Mac: `shared/mac/ui_driver.py` primary for AutoJs6 / Aurora / Obtainium.
 Termux: `stayturgid_handsets.py` wire client — s24 bench ~12× vs dump;
-`stayturgid_enable_autojs6.py` switched (probe OK). Fire OS: peer bootstrap
+`enable_autojs6` / `configure_aurora` / `import_catalog` Handsets-primary
+(probe OK on s24). Fire OS: peer bootstrap
 (`stayturgid_peer_bootstrap` → `stayturgid_peer_help` + shared
 `adbkey-fleet`); rish installed by default. Bench/research:
 [handsets-vs-u2-bench.md](docs/research/handsets-vs-u2-bench.md),

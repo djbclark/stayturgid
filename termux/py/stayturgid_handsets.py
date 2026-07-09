@@ -271,16 +271,26 @@ class Session:
 
     def dump(self) -> dict[str, Any]:
         raw = self.call("dump_active", timeout=10)
-        return json.loads(raw.decode("utf-8"))
+        if not raw or not raw.strip():
+            # Occasional empty frame after app switch — one retry.
+            time.sleep(0.3)
+            raw = self.call("dump_active", timeout=10)
+        text = raw.decode("utf-8", errors="replace").strip()
+        if not text:
+            raise HandsetsError("dump_active returned empty")
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError as e:
+            raise HandsetsError("dump_active not JSON: %s" % e) from e
 
     def dump_text(self) -> str:
-        """Flatten dump to a searchable string (labels + descs)."""
+        """Flatten dump to a searchable string (labels, descs, resource-ids)."""
         parts: list[str] = []
 
         def walk(n: Any) -> None:
             if not isinstance(n, dict):
                 return
-            for key in ("text", "desc"):
+            for key in ("text", "desc", "rid"):
                 val = n.get(key)
                 if val:
                     parts.append(str(val))
@@ -333,6 +343,31 @@ class Session:
                 return n
         return None
 
+    def find_rid_node(self, rid: str, data: dict | None = None) -> dict | None:
+        for n in self._walk_nodes(data):
+            if n.get("rid") == rid:
+                return n
+        return None
+
+    def find_desc_node(self, desc: str, data: dict | None = None) -> dict | None:
+        for n in self._walk_nodes(data):
+            if n.get("desc") == desc or desc in str(n.get("desc") or ""):
+                return n
+        return None
+
+    def center_for(self, attr: str, value: str) -> tuple[int, int] | None:
+        """Locate a node by text / content-desc / resource-id and return center."""
+        node = None
+        if attr in ("text",):
+            node = self.find_text_node(value)
+        elif attr in ("content-desc", "desc"):
+            node = self.find_desc_node(value)
+        elif attr in ("resource-id", "rid"):
+            node = self.find_rid_node(value)
+        else:
+            return None
+        return self._center(node) if node else None
+
     def find_text(self, text: str) -> bool:
         return self.find_text_node(text) is not None
 
@@ -350,13 +385,24 @@ class Session:
         return True
 
     def tap_desc(self, desc: str) -> bool:
-        for n in self._walk_nodes():
-            if n.get("desc") == desc or desc in str(n.get("desc") or ""):
-                pt = self._center(n)
-                if pt:
-                    self.tap_xy(*pt)
-                    return True
-        return False
+        node = self.find_desc_node(desc)
+        if not node:
+            return False
+        pt = self._center(node)
+        if not pt:
+            return False
+        self.tap_xy(*pt)
+        return True
+
+    def tap_rid(self, rid: str) -> bool:
+        node = self.find_rid_node(rid)
+        if not node:
+            return False
+        pt = self._center(node)
+        if not pt:
+            return False
+        self.tap_xy(*pt)
+        return True
 
     def tap_any_text(self, *labels: str) -> str | None:
         data = self.dump()

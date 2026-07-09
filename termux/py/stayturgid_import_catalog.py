@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""On-device Obtainium catalog import (Termux → localhost:5555).
+"""On-device Obtainium catalog import (Termux → Handsets / dump fallback).
 
 Usage (on device): stayturgid_import_catalog.py [all|autojs6|/path.json] [--force]
 Mac wrapper: obtainium/mac/import_catalog.py <host> …
@@ -18,7 +18,10 @@ import stayturgid_shell as sh
 
 sh.ensure_lib_path()
 import stayturgid_screen_control as sc  # noqa: E402
+import stayturgid_handsets as hs  # noqa: E402
 from ui_parse import parse_content_desc_center  # noqa: E402
+
+_HS: hs.Session | None = None
 
 OBTAINIUM_PKG = "dev.imranr.obtainium"
 CATALOG_DIR = os.path.join(sh.STG, "catalog")
@@ -57,6 +60,8 @@ def build_import_uri(apps):
 
 
 def center_for_attr(ui_xml, attr, value):
+    if _HS is not None:
+        return _HS.center_for(attr, value)
     value = saxutils.escape(value, {'"': "&quot;"})
     pattern = (
         r"<node\b(?=[^>]*\b%s=\"%s\")"
@@ -75,6 +80,10 @@ def import_dialog_visible(ui_xml):
 
 
 def continue_button(ui_xml):
+    if _HS is not None:
+        return _HS.center_for("content-desc", CONTINUE_LABEL) or _HS.center_for(
+            "text", CONTINUE_LABEL
+        )
     return center_for_attr(ui_xml, "content-desc", CONTINUE_LABEL)
 
 
@@ -87,6 +96,8 @@ def app_visible(ui_xml, name):
     if name in xml:
         return True
     label = tracking_label(name)
+    if label in xml:
+        return True
     return re.search(
         r'content-desc="' + re.escape(label) + r'(?:&#10;|")',
         xml,
@@ -98,6 +109,8 @@ def catalog_tracked(ui_xml, app_names):
 
 
 def dump_xml(shell, path="/sdcard/obtainium_import.xml", retries=3):
+    if _HS is not None:
+        return _HS.dump_text()
     for attempt in range(retries):
         shell("uiautomator", "dump", path)
         rc, out = shell("cat", path)
@@ -109,15 +122,23 @@ def dump_xml(shell, path="/sdcard/obtainium_import.xml", retries=3):
 
 
 def tap(shell, point):
+    if _HS is not None:
+        _HS.tap_xy(int(point[0]), int(point[1]))
+        return
     shell("input", "tap", str(point[0]), str(point[1]))
 
 
 def wake(shell):
+    # Prefer shell keyevent — Handsets may not expose WAKEUP as a wire key.
     shell("input", "keyevent", "KEYCODE_WAKEUP")
     time.sleep(0.5)
 
 
 def scroll_app_list(shell, height_hint=2200):
+    if _HS is not None:
+        _HS.swipe("up")
+        time.sleep(0.6)
+        return
     mid_x = 400
     shell(
         "input",
@@ -132,6 +153,10 @@ def scroll_app_list(shell, height_hint=2200):
 
 
 def dismiss_snackbar(shell, ui_xml):
+    if _HS is not None:
+        if _HS.tap_desc("Dismiss"):
+            time.sleep(0.3)
+        return
     point = center_for_attr(ui_xml, "content-desc", "Dismiss")
     if point:
         tap(shell, point)
@@ -140,6 +165,12 @@ def dismiss_snackbar(shell, ui_xml):
 
 def dismiss_blocking_dialogs(shell, ui_xml):
     dismiss_snackbar(shell, ui_xml)
+    if _HS is not None:
+        hit = _HS.tap_any_text("Okay", "OK", "Ok")
+        if hit:
+            time.sleep(0.5)
+            return True
+        return False
     for label in ("Okay", "OK", "Ok"):
         point = center_for_attr(ui_xml, "content-desc", label)
         if point:
@@ -234,6 +265,7 @@ def import_catalog(shell, catalog_path, which="all", force=False):
 
 
 def main(argv=None):
+    global _HS
     argv = argv if argv is not None else sys.argv[1:]
     which = "all"
     force = False
@@ -256,11 +288,17 @@ def main(argv=None):
 
     try:
         with sc.ScreenControlSession() as session:
-            if not import_catalog(session.shell, catalog_path, which=which, force=force):
-                return 1
+            with hs.try_session() as handsets:
+                _HS = handsets
+                if not import_catalog(
+                    session.shell, catalog_path, which=which, force=force
+                ):
+                    return 1
     except sc.ScreenControlError as e:
         sys.stderr.write("ERROR: %s\n" % e)
         return 1
+    finally:
+        _HS = None
     return 0
 
 

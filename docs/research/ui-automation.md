@@ -82,9 +82,10 @@ Live numbers: [handsets-vs-u2-bench.md](handsets-vs-u2-bench.md).
 3. Mac scripts Handsets-primary: `enable_autojs6_shizuku.py`,
    `configure_aurora.py`, `import_catalog.py`, `enable_shizuku_installer.py`.
 4. Termux Handsets wire client **shipped** (`stayturgid_handsets.py`):
-   s24 bench ~12× vs dump; `stayturgid_enable_autojs6.py` switched.
-   Details: [handsets-under-termux.md](handsets-under-termux.md).
-   Aurora/Obtainium Termux twins still dump until next pass. hd8 = Mac only.
+   s24 bench ~12× vs dump; AutoJs6 / Aurora / Obtainium Termux twins
+   Handsets-primary (`try_session` + dump fallback). Details:
+   [handsets-under-termux.md](handsets-under-termux.md). hd8 Handsets via
+   peer bootstrap (or Mac adb).
 5. Do not run u2 + Handsets concurrently; invoke `~/.handsets/hs` (Mac)
    or the Termux wire client (no host binary).
 
