@@ -14,17 +14,15 @@
 **Fleet snapshot (2026-07-09):** Post-UI SSH-first on s24/p7a with Mac adb
 fallback; hd8 Mac adb only. Play **H1** + **15b** done — `source: play`
 ensure_apps canary (metronome) on s24 only. Item **46** drawer **PASS** on
-s24 + hd8 (probe `operational=true`); **p7a** AutoJs6 drawer paused
-(`human/CHECKPOINT-p7a-autojs6.md`). **57** Handsets UI driver piloted on
-**s24 + hd8** (probe `operational=true`); Fire presence skips torch so
-`agent-presence on` stays under Mac SSH budget. H3 partial — finish p7a
-when free, then **H2** eyeball.
+**s24 + hd8 + p7a** (probe `operational=true`). **57** Handsets UI driver
+piloted on all three hosts. H3 fleet expand largely landed — operator
+**H2** eyeball (Neo Store / Aurora) remains.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
-**Suggested agent order:** human **H3** fleet expand → **H2** confirm.
+**Suggested agent order:** human **H2** confirm (Neo Store / Aurora).
 Consider **54** only as a deliberate future spike.
 
 ---
@@ -33,7 +31,7 @@ Consider **54** only as a deliberate future spike.
 
 | Track | Focus | Open IDs | Typical risk |
 |-------|-------|----------|--------------|
-| **A — Operational** | Live deploy, human unblockers | H2–H3, H5, 38 | Medium–High (live phones / publish) |
+| **A — Operational** | Live deploy, human unblockers | H2, H5, 38 | Medium–High (live phones / publish) |
 | **B — Ansible-native** | *(Portfolio 2 core shipped — 48–52 closed)* | — | — |
 | **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; not hot-path | 54 | Medium (new attack surface if mis-scoped) |
@@ -49,13 +47,11 @@ updates; Aurora installer = Shizuku + auto-updates; no stuck Fire OS background
 dialog on hd8. Mostly already automated; this is operator eyeball confirmation.
 Does not change code.
 
-#### H3 — Fleet deploy go/no-go (human) · Risk: **Medium–High**
+#### H3 — Fleet deploy go/no-go · **DONE** (2026-07-09, partial→complete)
 
-Approve expanding `./mac/deploy_fleet.py` beyond the lab soak (s24 already
-green). Needs unlocked screens for consent/presence during post-UI. Can touch
-all three hosts (packages, privileges, Aurora/AutoJs6 UI). Write
-`deploy_fleet: approved | hold | s24-only | …` in `RESPONSES.md`. Highest
-operational impact of the open human items.
+Operator approved expand; s24/hd8 green earlier; **p7a** AutoJs6 drawer
+finished 2026-07-09 (Handsets port 9010, probe `operational=true`). Checkpoint
+`human/CHECKPOINT-p7a-autojs6.md` closed.
 
 #### H5 — Galaxy publish API token (human, optional) · Risk: **Medium**
 
@@ -70,10 +66,10 @@ that version; only after H5 and a deliberate version bump review.
 #### 57 — Handsets UI driver · **DONE** (2026-07-09)
 
 `shared/mac/ui_driver.py` + `enable_autojs6_shizuku.py` Handsets path.
-Pilots: **s24 + hd8** drawer + Shizuku ON, probe `operational=true`. Switch
-rows use `hs ui` table parse (`near(...,200)` too tight). Fire presence
-skips torch when `STAYTURGID_NO_LOCAL_ADB=1`. Ports: s24 9009 / hd8 9008 /
-p7a 9010. Do not run alongside uiautomator2.
+Pilots: **s24 + hd8 + p7a** drawer + Shizuku ON, probe `operational=true`.
+Switch rows use `hs ui` table parse (`near(...,200)` too tight). Fire
+presence skips torch when `STAYTURGID_NO_LOCAL_ADB=1`. Ports: s24 9009 /
+hd8 9008 / p7a 9010. Do not run alongside uiautomator2.
 
 ---
 

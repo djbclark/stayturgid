@@ -79,8 +79,8 @@ Docs already call **uiautomator2** the preferred *dev* tool and raw dump the
    AutoJs6 drawer ~327px label→switch).
 2. Ports: s24 **9009**, hd8 **9008**, p7a **9010** (push jar + `app_process`,
    not stock `hs use` with `ip:5555`).
-3. Piloted `enable_autojs6_shizuku.py` on **s24 + hd8** — drawer + Shizuku
-   ON, probe `operational=true`. p7a paused (checkpoint).
+3. Piloted `enable_autojs6_shizuku.py` on **s24 + hd8 + p7a** — drawer +
+   Shizuku ON, probe `operational=true`.
 4. Do not run u2 + Handsets concurrently; invoke `~/.handsets/hs`.
 
 ### Non-goals
