@@ -24,6 +24,10 @@ sys.path.insert(0, os.path.join(REPO, "shared", "mac"))
 import stayturgid_device as dev  # noqa: E402
 import screen_control as sc  # noqa: E402
 import post_ui_remote as remote  # noqa: E402
+import ui_driver as uid  # noqa: E402
+
+# Optional Handsets session for Mac path (set in main_mac_adb).
+_HS = None
 
 OBTAINIUM_PKG = "dev.imranr.obtainium"
 CATALOGS = {
@@ -83,6 +87,8 @@ def app_visible(ui_xml, name):
     if name in xml:
         return True
     label = tracking_label(name)
+    if label and label in xml:
+        return True
     return re.search(
         r'content-desc="' + re.escape(label) + r'(?:&#10;|")',
         xml,
@@ -91,6 +97,12 @@ def app_visible(ui_xml, name):
 
 def catalog_tracked(ui_xml, app_names):
     return all(app_visible(ui_xml, name) for name in app_names)
+
+
+def _screen_text(serial):
+    if _HS is not None:
+        return _HS.ui()
+    return dump_xml(serial)
 
 
 def adb_shell(serial, *args, timeout=30):
@@ -128,6 +140,10 @@ def wake(serial, shell=None):
 
 
 def scroll_app_list(serial, height_hint=2200, shell=None):
+    if _HS is not None:
+        _HS.swipe("up")
+        time.sleep(0.6)
+        return
     runner = shell or (lambda *args, **kw: adb_shell(serial, *args, **kw))
     mid_x = 400
     runner("input", "swipe", str(mid_x), str(int(height_hint * 0.72)),
@@ -136,22 +152,26 @@ def scroll_app_list(serial, height_hint=2200, shell=None):
 
 
 def tracked_with_scroll(serial, app_names, passes=4, shell=None):
-    xml = dump_xml(serial)
+    xml = _screen_text(serial)
     dismiss_blocking_dialogs(serial, xml, shell=shell)
-    xml = dump_xml(serial)
+    xml = _screen_text(serial)
     if catalog_tracked(xml, app_names):
         return True
     for _ in range(passes):
         scroll_app_list(serial, shell=shell)
-        xml = dump_xml(serial)
+        xml = _screen_text(serial)
         dismiss_blocking_dialogs(serial, xml, shell=shell)
-        xml = dump_xml(serial)
+        xml = _screen_text(serial)
         if catalog_tracked(xml, app_names):
             return True
     return False
 
 
 def dismiss_snackbar(serial, ui_xml, shell=None):
+    if _HS is not None:
+        if _HS.tap_desc("Dismiss", timeout_ms=800):
+            time.sleep(0.3)
+        return
     point = center_for_attr(ui_xml, "content-desc", "Dismiss")
     if point:
         tap(serial, point, shell=shell)
@@ -160,6 +180,15 @@ def dismiss_snackbar(serial, ui_xml, shell=None):
 
 def dismiss_blocking_dialogs(serial, ui_xml, shell=None):
     dismiss_snackbar(serial, ui_xml, shell=shell)
+    if _HS is not None:
+        hit = _HS.tap_any_text("Okay", "OK", "Ok", timeout_ms=800)
+        if hit:
+            time.sleep(0.5)
+            return True
+        if _HS.tap_desc("Okay", timeout_ms=600) or _HS.tap_desc("OK", timeout_ms=600):
+            time.sleep(0.5)
+            return True
+        return False
     for label in ("Okay", "OK", "Ok"):
         point = center_for_attr(ui_xml, "content-desc", label)
         if point:
@@ -181,9 +210,19 @@ def canary_names(which, catalog_path, apps):
 
 def confirm_import(serial, timeout=12, shell=None):
     for _ in range(timeout):
-        xml = dump_xml(serial)
+        xml = _screen_text(serial)
         dismiss_blocking_dialogs(serial, xml, shell=shell)
         if not import_dialog_visible(xml):
+            time.sleep(0.4)
+            continue
+        if _HS is not None:
+            if _HS.tap_desc("Continue", timeout_ms=2000) or _HS.tap_text(
+                "Continue", timeout_ms=2000
+            ):
+                time.sleep(2)
+                xml = _screen_text(serial)
+                dismiss_blocking_dialogs(serial, xml, shell=shell)
+                return True
             time.sleep(0.4)
             continue
         point = continue_button(xml)
@@ -192,7 +231,7 @@ def confirm_import(serial, timeout=12, shell=None):
             continue
         tap(serial, point, shell=shell)
         time.sleep(2)
-        xml = dump_xml(serial)
+        xml = _screen_text(serial)
         dismiss_blocking_dialogs(serial, xml, shell=shell)
         return True
     return False
@@ -228,7 +267,7 @@ def import_catalog(serial, catalog_path, which="all", force=False, shell=None):
         print("Imported %d apps into Obtainium on %s." % (len(names), serial))
         return True
 
-    missing = [n for n in canaries if not app_visible(dump_xml(serial), n)]
+    missing = [n for n in canaries if not app_visible(_screen_text(serial), n)]
     sys.stderr.write(
         "ERROR: import finished but catalog canaries missing in Obtainium UI: %s\n"
         % ", ".join(missing)
@@ -246,6 +285,7 @@ def resolve_catalog(which):
 
 def main_mac_adb(host, which, force):
     """Mac-side ScreenControlSession via resolve_adb (USB or wireless)."""
+    global _HS
     serial = dev.resolve_adb(host)
     try:
         catalog_path = resolve_catalog(which)
@@ -261,13 +301,17 @@ def main_mac_adb(host, which, force):
     adb_shell(serial, "wait-for-device")
     try:
         with sc.ScreenControlSession(host, label=host) as session:
-            if not import_catalog(
-                session.serial, catalog_path, which=which, force=force, shell=session.shell
-            ):
-                return 1
+            with uid.try_handsets(serial, host) as hs:
+                _HS = hs
+                if not import_catalog(
+                    session.serial, catalog_path, which=which, force=force, shell=session.shell
+                ):
+                    return 1
     except sc.ScreenControlError as e:
         sys.stderr.write("ERROR: %s\n" % e)
         return 1
+    finally:
+        _HS = None
     return 0
 
 

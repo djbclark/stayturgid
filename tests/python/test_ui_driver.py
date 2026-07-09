@@ -82,3 +82,9 @@ def test_parse_switch_missing_label():
     session = ud.HandsetsSession("SERIAL", alias="s24", port=9009)
     session.active = True
     assert session._parse_switch_from_ui("No such row", _SAMPLE_DRAWER_UI) is None
+
+
+def test_try_handsets_yields_none_when_missing(monkeypatch):
+    monkeypatch.setattr(ud, "handsets_available", lambda: False)
+    with ud.try_handsets("SERIAL", "s24") as hs:
+        assert hs is None

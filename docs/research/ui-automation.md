@@ -67,23 +67,25 @@ Docs already call **uiautomator2** the preferred *dev* tool and raw dump the
 
 | Priority | Choice | Why |
 |----------|--------|-----|
-| **1 — Adopt** | **Handsets** behind a thin Mac helper | 20–30× faster hierarchy than raw dump; selectors kill most hardcoded coords; coexists with AutoJs6 a11y; CLI fits agent loops |
-| **2 — Keep** | Raw dump+tap | Fallback when daemon down; no UiAutomation lock; already wired to presence/inversion |
-| **3 — Optional** | uiautomator2 for one-off Mac debugging | Already installed; **do not** run alongside Handsets |
+| **1 — Primary (Mac)** | **Handsets** via `shared/mac/ui_driver.py` | 17–42× faster hierarchy than raw; ~4× vs u2; works with AutoJs6 a11y; Fire Settings reliable |
+| **2 — Fallback** | Raw dump+tap | When Handsets missing; Termux on-device scripts; no UiAutomation lock |
+| **3 — Optional debug** | uiautomator2 | One-off Mac debugging only; **never** alongside Handsets |
 | **Avoid as fleet core** | Maestro / Appium | Wrong abstraction / weight for post-UI |
 
-### Suggested implementation — **DONE** (2026-07-09, OPTIONS 57)
+Live numbers: [handsets-vs-u2-bench.md](handsets-vs-u2-bench.md).
 
-1. `shared/mac/ui_driver.py` — `HandsetsSession` + `tap_text` / `find` /
-   `switch_near_label` (parses `hs ui` table; `near(...,200)` too tight for
-   AutoJs6 drawer ~327px label→switch).
-2. Ports: s24 **9009**, hd8 **9008**, p7a **9010** (push jar + `app_process`,
-   not stock `hs use` with `ip:5555`).
-3. Piloted `enable_autojs6_shizuku.py` on **s24 + hd8 + p7a** — drawer +
-   Shizuku ON, probe `operational=true`.
-4. Do not run u2 + Handsets concurrently; invoke `~/.handsets/hs`.
+### Implementation — **DONE** (2026-07-09)
+
+1. `shared/mac/ui_driver.py` — `HandsetsSession`, `try_handsets()`, switch
+   table parse, `tap_id` / `tap_any_text` / `wait_text`.
+2. Ports: s24 **9009**, hd8 **9008**, p7a **9010**.
+3. Mac scripts Handsets-primary: `enable_autojs6_shizuku.py`,
+   `configure_aurora.py`, `import_catalog.py`, `enable_shizuku_installer.py`.
+4. Termux twins stay on raw dump (no on-device Handsets wiring).
+5. Do not run u2 + Handsets concurrently; invoke `~/.handsets/hs`.
 
 ### Non-goals
 
 - Replacing AutoJs6 accessibility watchdog (different problem: no-shell recovery).
 - Relying on keep-awake apps (Mac `svc power stayon` during sessions).
+- Porting Handsets into Termux on-device post-UI (Mac-only daemon + forward).

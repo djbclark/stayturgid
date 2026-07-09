@@ -15,8 +15,10 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import sys
 import time
-from typing import Callable
+from contextlib import contextmanager
+from typing import Callable, Iterator
 
 # AutoJs6 drawer: label TextView ~x=342, Switch ~x=669 → ~327px; 200 is too tight.
 _SWITCH_NEAR_PX = 400
@@ -191,6 +193,19 @@ class HandsetsSession:
                 return True
         return False
 
+    def tap_id(self, resource_id: str, *, timeout_ms: int = 5000) -> bool:
+        """Tap by resource-id (full or short name after ``/``)."""
+        short = resource_id.rsplit("/", 1)[-1]
+        for sel in (
+            "#%s" % short,
+            '*[id="%s"]' % resource_id,
+            '*[resource-id="%s"]' % resource_id,
+        ):
+            r = self.hs("tap", sel, "--timeout", str(timeout_ms))
+            if r.returncode == 0:
+                return True
+        return False
+
     def find_text(self, text: str, *, timeout_ms: int = 3000) -> bool:
         r = self.hs(
             "find",
@@ -202,6 +217,21 @@ class HandsetsSession:
             return True
         r = self.hs("find", '*:has-text("%s")' % text, "--timeout", str(timeout_ms))
         return r.returncode == 0
+
+    def wait_text(self, text: str, *, timeout_ms: int = 10000) -> bool:
+        deadline = time.time() + timeout_ms / 1000.0
+        while time.time() < deadline:
+            if self.find_text(text, timeout_ms=800):
+                return True
+            time.sleep(0.25)
+        return False
+
+    def tap_any_text(self, *labels: str, timeout_ms: int = 3000) -> str | None:
+        """Tap the first matching label; return which label, or None."""
+        for label in labels:
+            if self.tap_text(label, timeout_ms=timeout_ms):
+                return label
+        return None
 
     def ui(self) -> str:
         r = self.hs("ui", timeout=30)
@@ -320,3 +350,24 @@ def with_handsets(
         return 2
     with HandsetsSession(serial, alias=alias) as session:
         return body(session)
+
+
+@contextmanager
+def try_handsets(serial: str, alias: str) -> Iterator["HandsetsSession | None"]:
+    """Yield an active HandsetsSession, or None if unavailable (raw-dump fallback)."""
+    if not handsets_available():
+        yield None
+        return
+    session = HandsetsSession(serial, alias=alias)
+    try:
+        session.start()
+        print("UI driver: Handsets on port %d" % session.port)
+        yield session
+    except UiDriverError as e:
+        sys.stderr.write("WARN: Handsets unavailable (%s) — raw dump fallback\n" % e)
+        yield None
+    finally:
+        try:
+            session.stop()
+        except Exception:
+            pass

@@ -19,6 +19,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, os.path.join(REPO, "shared", "mac"))
 import stayturgid_device as dev  # noqa: E402
 import screen_control as sc  # noqa: E402
+import ui_driver as uid  # noqa: E402
 
 OBTAINIUM_PKG = "dev.imranr.obtainium"
 SHIZUKU_PERM = "moe.shizuku.manager.permission.API_V23"
@@ -53,7 +54,7 @@ def dump_ui(priv, path):
     return priv.sh("cat %s" % path)[1]
 
 
-def toggle_installer(priv, session):
+def toggle_installer(priv, session, hs=None):
     """UI taps go through session.shell (inversion-gated); dumps via PrivShell."""
     def run(*args):
         return session.shell(*args)
@@ -63,6 +64,42 @@ def toggle_installer(priv, session):
     time.sleep(1)
     run("am", "start", "-n", "%s/.MainActivity" % OBTAINIUM_PKG)
     time.sleep(2)
+
+    if hs is not None:
+        if not (
+            hs.tap_desc("Settings", timeout_ms=2500)
+            or hs.tap_text("Settings", timeout_ms=2000)
+        ):
+            # Gear often has no text — fall back to known coords then Handsets scroll.
+            run("input", "tap", "945", "2196")
+        time.sleep(2)
+        for _ in range(4):
+            hs.swipe("down")
+            time.sleep(0.3)
+        found = False
+        for _ in range(12):
+            if hs.find_text(SWITCH_LABEL, timeout_ms=1200):
+                found = True
+                break
+            hs.swipe("up")
+            time.sleep(0.45)
+        if not found:
+            sys.stderr.write("WARN: Shizuku installer row not found — scroll manually.\n")
+            return False
+        checked, ok = hs.switch_near_label(SWITCH_LABEL, timeout_ms=3000)
+        if ok and checked:
+            print("Shizuku installer already enabled in Obtainium UI.")
+        else:
+            hs.tap_switch_for_label(SWITCH_LABEL, timeout_ms=4000)
+            time.sleep(2)
+            print("Tapped Shizuku installer switch.")
+        if PERM_PROMPT in hs.ui() or hs.find_text(PERM_PROMPT, timeout_ms=1500):
+            if hs.tap_text("Allow", timeout_ms=2000):
+                time.sleep(1)
+                print("Approved Shizuku permission dialog for Obtainium.")
+        run("input", "keyevent", "KEYCODE_HOME")
+        return True
+
     run("input", "tap", "945", "2196")  # settings gear
     time.sleep(2)
     for _ in range(6):  # scroll to top
@@ -112,13 +149,16 @@ def main(argv=None):
     if not argv:
         sys.stderr.write("usage: enable_shizuku_installer.py <p7a|s24|serial>\n")
         return 2
-    priv = dev.PrivShell(argv[0])
+    host = argv[0]
+    priv = dev.PrivShell(host)
     if not grant_json(priv):
         return 1
+    serial = dev.resolve_adb(host)
     try:
-        with sc.ScreenControlSession(argv[0], label=argv[0], skip_request=True) as session:
-            if not toggle_installer(priv, session):
-                return 1
+        with sc.ScreenControlSession(host, label=host, skip_request=True) as session:
+            with uid.try_handsets(serial, host) as hs:
+                if not toggle_installer(priv, session, hs=hs):
+                    return 1
     except sc.ScreenControlError as e:
         sys.stderr.write("ERROR: %s\n" % e)
         return 1

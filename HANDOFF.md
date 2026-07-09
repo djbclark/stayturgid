@@ -199,7 +199,17 @@ After reboot + one PIN unlock, zero further intervention: Tailscale always-on tu
 ## Tooling rules (follow exactly)
 
 ### Android automation tools
-Use **uiautomator2 + Termux:API**; raw ADB (`uiautomator dump` → parse bounds → `input tap`) is the reliable fallback when higher-level tools break (one dump per step, ~2 s; re-dump before each tap — some apps move top-bar buttons as selection state changes; `input swipe X Y X Y 1000` = long-press). `scrcpy -s <target> --stay-awake` for live mirror. Keep awake during automation: `adb shell svc power stayon true` (set `false` when done). uiautomator2 in Python needs the pipx venv on `sys.path` (`/Users/djbclark/.local/pipx/venvs/uiautomator2/lib/python3.14/site-packages`); `uiautomator2 init` pushes u2.jar after a reboot.
+Use **Handsets** (`~/.handsets/hs` via `shared/mac/ui_driver.py`) as the
+**primary Mac** UI driver for post-UI scripts. Raw ADB (`uiautomator dump` →
+parse bounds → `input tap`) is the fallback when Handsets is down and the
+only path for **Termux on-device** scripts. **uiautomator2** is optional Mac
+debug only — never run it alongside Handsets (exclusive UiAutomation slot).
+Bench: [docs/research/handsets-vs-u2-bench.md](docs/research/handsets-vs-u2-bench.md).
+`scrcpy -s <target> --stay-awake` for live mirror. Keep awake during
+automation: `adb shell svc power stayon true` (set `false` when done).
+uiautomator2 in Python needs the pipx venv on `sys.path`
+(`/Users/djbclark/.local/pipx/venvs/uiautomator2/lib/python3.14/site-packages`);
+`uiautomator2 init` pushes u2.jar after a reboot.
 
 ### Termux packages (CRITICAL)
 At the start of any Termux setup/maintenance, and **before every `pkg install`**: `pkg update && pkg upgrade -y`. The Ansible `termux_userland` role + `termux_pkg` module do this automatically (mirror pinned to `packages-cf.termux.dev` for determinism). Prefer **Obtainium/GitHub over BOTH Play Store and F-Droid**; shared-uid Termux addons must all match signature.

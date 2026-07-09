@@ -65,11 +65,12 @@ that version; only after H5 and a deliberate version bump review.
 
 #### 57 — Handsets UI driver · **DONE** (2026-07-09)
 
-`shared/mac/ui_driver.py` + `enable_autojs6_shizuku.py` Handsets path.
-Pilots: **s24 + hd8 + p7a** drawer + Shizuku ON, probe `operational=true`.
-Switch rows use `hs ui` table parse (`near(...,200)` too tight). Fire
-presence skips torch when `STAYTURGID_NO_LOCAL_ADB=1`. Ports: s24 9009 /
-hd8 9008 / p7a 9010. Do not run alongside uiautomator2.
+`shared/mac/ui_driver.py` is the **primary Mac** UI path for AutoJs6, Aurora,
+Obtainium import, and Obtainium Shizuku installer. Bench vs u2/raw:
+[docs/research/handsets-vs-u2-bench.md](docs/research/handsets-vs-u2-bench.md)
+(Handsets 17–42× faster hierarchy; Fire Settings 5/5 vs raw 0/5). Raw dump
+fallback + Termux on-device dump unchanged. Ports: s24 9009 / hd8 9008 /
+p7a 9010. Never concurrent with uiautomator2.
 
 ---
 

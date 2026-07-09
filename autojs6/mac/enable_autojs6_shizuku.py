@@ -328,6 +328,30 @@ def find_drawer_switch(
 
 def dismiss_a11y_system_dialogs(serial: str, rounds: int = 10) -> None:
     for _ in range(rounds):
+        if _HS is not None:
+            ui = _HS.ui().lower()
+            if not any(hint in ui for hint in A11Y_DIALOG_HINTS):
+                break
+            acted = False
+            for label in ("Allow", "Turn on", "OK", "Start", "Agree"):
+                if _HS.tap_text(label, timeout_ms=1500):
+                    print("Tapped accessibility dialog: %s" % label)
+                    time.sleep(2)
+                    acted = True
+                    break
+            if not acted:
+                for name in ("AutoJs6", "Use AutoJs6", DRAWER_A11Y):
+                    checked, ok = _HS.switch_near_label(name, timeout_ms=1500)
+                    if ok and not checked:
+                        print("Tapped accessibility switch in system UI: %s" % name)
+                        _HS.tap_switch_for_label(name, timeout_ms=2000)
+                        time.sleep(2)
+                        acted = True
+                        break
+            if not acted:
+                break
+            continue
+
         xml = dump_xml(serial)
         lower = xml.lower()
         if not any(hint in lower for hint in A11Y_DIALOG_HINTS):
@@ -365,6 +389,32 @@ def dismiss_a11y_system_dialogs(serial: str, rounds: int = 10) -> None:
 
 def dismiss_dialogs(serial: str, rounds: int = 12) -> None:
     for _ in range(rounds):
+        if _HS is not None:
+            ui = _HS.ui()
+            lower = ui.lower()
+            acted = False
+            if "notification" in lower and ("allow" in lower or "don" in lower):
+                hit = _HS.tap_any_text(
+                    "Allow", "Don't allow", "Don\u2019t allow", timeout_ms=1500,
+                )
+                if hit:
+                    print("Tapped notification dialog: %s" % hit)
+                    time.sleep(1.5)
+                    acted = True
+            if any(marker in ui for marker in PERM_DIALOG_MARKERS):
+                if _HS.tap_text("Allow", timeout_ms=2000):
+                    print("Tapped Shizuku permission Allow.")
+                    time.sleep(2)
+                    acted = True
+            if ("shizuku" in lower or "permission" in lower) and _HS.tap_text(
+                "Continue", timeout_ms=1500,
+            ):
+                time.sleep(1)
+                acted = True
+            if not acted:
+                break
+            continue
+
         xml = dump_xml(serial)
         lower = xml.lower()
         acted = False
@@ -613,60 +663,53 @@ def main_mac_adb(alias: str) -> int:
     # Fire OS: termux-dialog often hangs, so skip request-screen countdown;
     # still run presence on + inversion via ScreenControlSession.
     skip_request = alias in getattr(dev, "MAC_ADB_PRIV_ALIASES", frozenset({"hd8"}))
-    hs_session = None
     try:
         with sc.ScreenControlSession(
             alias, label=alias, skip_request=skip_request,
         ) as session:
             _SHELL = session.shell
-            if uid.handsets_available():
-                try:
-                    hs_session = uid.HandsetsSession(serial, alias=alias)
-                    hs_session.start()
-                    _HS = hs_session
-                    print("UI driver: Handsets on port %d" % hs_session.port)
-                except uid.UiDriverError as e:
-                    sys.stderr.write("WARN: Handsets unavailable (%s) — raw dump fallback\n" % e)
-                    _HS = None
+            with uid.try_handsets(serial, alias) as hs:
+                _HS = hs
+                launch_autojs6(serial)
+                dismiss_dialogs(serial)
 
-            launch_autojs6(serial)
-            dismiss_dialogs(serial)
+                if not enable_accessibility(serial, alias):
+                    report_debug_state(serial, alias)
+                    return 1
 
-            if not enable_accessibility(serial, alias):
+                return_to_autojs6(serial)
+
+                drawer_failures = apply_drawer_defaults(serial)
+                critical = [f for f in drawer_failures
+                            if any(c in f for c in CRITICAL_DRAWER_ON)]
+                if critical:
+                    sys.stderr.write(
+                        "ERROR: critical drawer settings failed: %s\n" % ", ".join(critical)
+                    )
+                    report_debug_state(serial, alias)
+                    return 1
+                if drawer_failures:
+                    print("WARN: non-critical drawer settings: %s" % ", ".join(drawer_failures))
+
+                if verify_shizuku_drawer(serial) and a11y_enabled(serial):
+                    run_shizuku_probe(serial)
+                    adb(serial, "input", "keyevent", "KEYCODE_HOME")
+                    print("AutoJs6 fleet drawer + Shizuku enabled on %s." % alias)
+                    return 0
+
+                if not enable_drawer_switch(serial, DRAWER_SHIZUKU):
+                    report_debug_state(serial, alias)
+                    return 1
+                dismiss_dialogs(serial)
+
+                if verify_shizuku_drawer(serial) and a11y_enabled(serial):
+                    run_shizuku_probe(serial)
+                    adb(serial, "input", "keyevent", "KEYCODE_HOME")
+                    print("AutoJs6 fleet drawer + Shizuku enabled on %s." % alias)
+                    return 0
+
                 report_debug_state(serial, alias)
                 return 1
-
-            return_to_autojs6(serial)
-
-            drawer_failures = apply_drawer_defaults(serial)
-            critical = [f for f in drawer_failures
-                        if any(c in f for c in CRITICAL_DRAWER_ON)]
-            if critical:
-                sys.stderr.write("ERROR: critical drawer settings failed: %s\n" % ", ".join(critical))
-                report_debug_state(serial, alias)
-                return 1
-            if drawer_failures:
-                print("WARN: non-critical drawer settings: %s" % ", ".join(drawer_failures))
-
-            if verify_shizuku_drawer(serial) and a11y_enabled(serial):
-                run_shizuku_probe(serial)
-                adb(serial, "input", "keyevent", "KEYCODE_HOME")
-                print("AutoJs6 fleet drawer + Shizuku enabled on %s." % alias)
-                return 0
-
-            if not enable_drawer_switch(serial, DRAWER_SHIZUKU):
-                report_debug_state(serial, alias)
-                return 1
-            dismiss_dialogs(serial)
-
-            if verify_shizuku_drawer(serial) and a11y_enabled(serial):
-                run_shizuku_probe(serial)
-                adb(serial, "input", "keyevent", "KEYCODE_HOME")
-                print("AutoJs6 fleet drawer + Shizuku enabled on %s." % alias)
-                return 0
-
-            report_debug_state(serial, alias)
-            return 1
     except sc.ScreenControlError as e:
         sys.stderr.write("ERROR: %s\n" % e)
         report_debug_state(serial, alias)
@@ -674,11 +717,6 @@ def main_mac_adb(alias: str) -> int:
     finally:
         _SHELL = None
         _HS = None
-        if hs_session is not None:
-            try:
-                hs_session.stop()
-            except Exception:
-                pass
 
 
 def main(argv: list[str] | None = None) -> int:

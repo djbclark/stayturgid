@@ -46,7 +46,8 @@ This document gets a developer from a clean Android + macOS install to a fully w
 | ADB (platform-tools) | 1.0.41 / 37.0.0-14910828 | `brew install android-platform-tools` |
 | Python | 3.14.6 | `brew install python` |
 | pipx | 1.15.0 | `brew install pipx` |
-| uiautomator2 (Python) | 3.7.0 | `pipx install uiautomator2` |
+| Handsets (`~/.handsets/hs`) | 0.1.x | Mac primary UI driver — see `shared/mac/ui_driver.py` |
+| uiautomator2 (Python) | 3.7.0 | Optional Mac debug only (`pipx install uiautomator2`) |
 | Claude Code (AI agent) | current | `npm install -g @anthropic-ai/claude-code` |
 | git | current | `brew install git` |
 
@@ -272,9 +273,20 @@ brew install android-platform-tools python pipx git
 pipx ensurepath
 ```
 
-### 2.2 Install uiautomator2
+### 2.2 Install Handsets (primary Mac UI driver)
 
-uiautomator2 is the primary Android UI automation tool used for development (finding elements, clicking, reading screen state).
+Fleet Mac post-UI uses Handsets via `shared/mac/ui_driver.py` (not stock
+`hs use` with `ip:5555`). Install into `~/.handsets/{hs,hs.jar}` and invoke
+as `~/.handsets/hs` (PATH `hs` may be a herdr alias — do not overwrite).
+
+Ports: s24 **9009**, hd8 **9008**, p7a **9010**. Do **not** run alongside
+uiautomator2. Research + bench: `docs/research/ui-automation.md`,
+`docs/research/handsets-vs-u2-bench.md`.
+
+### 2.3 Install uiautomator2 (optional Mac debug)
+
+uiautomator2 is optional for one-off Mac debugging. Prefer Handsets for fleet
+scripts. Never run u2 while a Handsets daemon holds UiAutomation.
 
 ```bash
 pipx install uiautomator2
@@ -315,7 +327,7 @@ d.screenshot('/tmp/screen.png')               # take screenshot
 
 > **Gotcha:** If `d(text='SomeButton').exists` returns False when the button is visible, another app may have a dismissable popup covering the UI. Click `d(text='OK').click()` to dismiss it first.
 
-### 2.3 SSH key for Termux
+### 2.4 SSH key for Termux
 
 ```bash
 ssh-keygen -t ed25519 -f ~/.ssh/termux_key
@@ -338,7 +350,7 @@ adb -s 35261JEHN12374 forward tcp:8022 tcp:8022
 ssh termux
 ```
 
-### 2.4 Install the Mac-side launchd keepalive
+### 2.5 Install the Mac-side launchd keepalive
 
 This runs `adb connect` every 60 seconds, handles DHCP IP changes, and sends a macOS notification on reconnect or failure.
 
@@ -346,7 +358,7 @@ This runs `adb connect` every 60 seconds, handles DHCP IP changes, and sends a m
 
 > The legacy manual path (`cp mac/com.djbclark.stayturgid.adb-reconnect.plist ~/Library/LaunchAgents/ && launchctl load …`) is superseded by mac.yml; the old `com.djbclark.*` agents were retired.
 
-### 2.5 Install Claude Code (AI development agent)
+### 2.6 Install Claude Code (AI development agent)
 
 ```bash
 npm install -g @anthropic-ai/claude-code

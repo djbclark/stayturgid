@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.join(REPO, "shared", "mac"))
 import stayturgid_device as dev  # noqa: E402
 import screen_control as sc  # noqa: E402
 import post_ui_remote as remote  # noqa: E402
+import ui_driver as uid  # noqa: E402
 
 AURORA_PKG = "com.aurora.store"
 BACKGROUND_DIALOG_MARKERS = (
@@ -34,6 +35,8 @@ AURORA_BACKGROUND_APPOPS = (
 
 # Bound inside ScreenControlSession so input is inversion-gated.
 _SHELL = None
+# Optional Handsets session — primary Mac UI path; raw dump fallback.
+_HS = None
 
 
 def adb(serial, *args, timeout=30):
@@ -95,22 +98,35 @@ def ensure_background_unrestricted(serial):
     print("Aurora Store background unrestricted via appops on %s." % serial)
 
 
+def _ui_text(serial):
+    if _HS is not None:
+        return _HS.ui()
+    return dump_xml(serial)
+
+
 def dismiss_background_run_dialog(serial, app_hint="Aurora"):
     """Tap ALLOW on Settings 'run in background' modal if visible."""
     for _ in range(6):
-        xml = dump_xml(serial)
-        if not any(marker in xml for marker in BACKGROUND_DIALOG_MARKERS):
+        ui = _ui_text(serial)
+        if not any(marker in ui for marker in BACKGROUND_DIALOG_MARKERS):
             return False
-        if app_hint.lower() not in xml.lower():
+        if app_hint.lower() not in ui.lower():
             return False
-        allow = dev.parse_button_center(xml, "android:id/button1")
+        if _HS is not None:
+            hit = _HS.tap_any_text(*BACKGROUND_ALLOW_LABELS, timeout_ms=2000)
+            if hit:
+                print("Tapped %s on background-run dialog (%s)." % (hit, app_hint))
+                time.sleep(1.5)
+                return True
+            return False
+        allow = dev.parse_button_center(ui, "android:id/button1")
         if allow:
             print("Tapped ALLOW on background-run dialog (%s)." % app_hint)
             tap(serial, allow)
             time.sleep(1.5)
             return True
         for label in BACKGROUND_ALLOW_LABELS:
-            point = dev.parse_text_center(xml, label)
+            point = dev.parse_text_center(ui, label)
             if point:
                 print("Tapped %s on background-run dialog (%s)." % (label, app_hint))
                 tap(serial, point)
@@ -119,16 +135,46 @@ def dismiss_background_run_dialog(serial, app_hint="Aurora"):
     return False
 
 
+def _aurora_home(ui: str) -> bool:
+    return ("nav_view" in ui and "Apps" in ui) or (
+        "Apps" in ui and "Library" in ui and "Skip" not in ui and "btn_anonymous" not in ui
+    )
+
+
 def finish_first_run(serial):
     dismiss_background_run_dialog(serial)
     for _ in range(12):
         dismiss_background_run_dialog(serial)
-        xml = dump_xml(serial)
-        if 'resource-id="com.aurora.store:id/nav_view"' in xml and 'text="Apps"' in xml:
+        ui = _ui_text(serial)
+        if _aurora_home(ui):
             print("Aurora Store first-run setup already complete on %s." % serial)
             return True
-        if "anonymous@gmail.com" in xml and "Manage your account" in xml:
-            cancel = center_for_attr(xml, "content-desc", "Cancel")
+
+        if _HS is not None:
+            if "anonymous@gmail.com" in ui and "Manage your account" in ui:
+                if not _HS.tap_desc("Cancel", timeout_ms=1500):
+                    adb(serial, "input", "keyevent", "KEYCODE_BACK")
+                time.sleep(2)
+                continue
+            if "Allow Aurora Store to access Shizuku" in ui and _HS.tap_text(
+                "Allow", timeout_ms=2000
+            ):
+                time.sleep(2)
+                continue
+            if _HS.tap_id("com.aurora.store:id/btn_anonymous", timeout_ms=2000):
+                print("Tapped Aurora Anonymous on %s." % serial)
+                time.sleep(5)
+                continue
+            hit = _HS.tap_any_text("Skip", "OK", "Continue", timeout_ms=1500)
+            if hit:
+                print("Tapped Aurora %s on %s." % (hit, serial))
+                time.sleep(2)
+                continue
+            sys.stderr.write("ERROR: Aurora setup screen not recognized on %s\n" % serial)
+            return False
+
+        if "anonymous@gmail.com" in ui and "Manage your account" in ui:
+            cancel = center_for_attr(ui, "content-desc", "Cancel")
             if cancel:
                 tap(serial, cancel)
             else:
@@ -136,13 +182,13 @@ def finish_first_run(serial):
             time.sleep(2)
             continue
 
-        allow = dev.parse_button_center(xml, "android:id/button1")
-        if "Allow Aurora Store to access Shizuku" in xml and allow:
+        allow = dev.parse_button_center(ui, "android:id/button1")
+        if "Allow Aurora Store to access Shizuku" in ui and allow:
             tap(serial, allow)
             time.sleep(2)
             continue
 
-        anonymous = center_for_attr(xml, "resource-id", "com.aurora.store:id/btn_anonymous")
+        anonymous = center_for_attr(ui, "resource-id", "com.aurora.store:id/btn_anonymous")
         if anonymous:
             print("Tapped Aurora Anonymous on %s." % serial)
             tap(serial, anonymous)
@@ -150,7 +196,7 @@ def finish_first_run(serial):
             continue
 
         for label in ("Skip", "OK", "Continue"):
-            point = center_for_attr(xml, "text", label)
+            point = center_for_attr(ui, "text", label)
             if point:
                 print("Tapped Aurora %s on %s." % (label, serial))
                 tap(serial, point)
@@ -165,6 +211,10 @@ def finish_first_run(serial):
 
 
 def wait_for_text(serial, text, timeout=10):
+    if _HS is not None:
+        if _HS.wait_text(text, timeout_ms=int(timeout * 1000)):
+            return _HS.ui()
+        return _HS.ui()
     deadline = time.time() + timeout
     while time.time() < deadline:
         ui_xml = dump_xml(serial)
@@ -175,6 +225,15 @@ def wait_for_text(serial, text, timeout=10):
 
 
 def tap_text(serial, text, timeout=10):
+    if _HS is not None:
+        if not _HS.wait_text(text, timeout_ms=int(timeout * 1000)):
+            sys.stderr.write("ERROR: could not find Aurora text %r on %s\n" % (text, serial))
+            return False
+        if not _HS.tap_text(text, timeout_ms=4000):
+            sys.stderr.write("ERROR: could not tap Aurora text %r on %s\n" % (text, serial))
+            return False
+        time.sleep(2)
+        return True
     ui_xml = wait_for_text(serial, text, timeout)
     point = center_for_attr(ui_xml, "text", text)
     if not point:
@@ -186,6 +245,19 @@ def tap_text(serial, text, timeout=10):
 
 
 def open_settings(serial):
+    if _HS is not None:
+        ui = _HS.ui()
+        if "aurora.store" not in ui.lower() and "Apps" not in ui:
+            open_aurora(serial)
+        if not (
+            _HS.tap_id("com.aurora.store:id/menu_more", timeout_ms=2500)
+            or _HS.tap_desc("More", timeout_ms=2000)
+        ):
+            sys.stderr.write("ERROR: could not find Aurora More button on %s\n" % serial)
+            return False
+        time.sleep(2)
+        return tap_text(serial, "Settings")
+
     ui_xml = dump_xml(serial)
     if 'package="com.aurora.store"' not in ui_xml:
         open_aurora(serial)
@@ -202,10 +274,14 @@ def open_settings(serial):
 
 
 def approve_shizuku_dialog(serial):
-    ui_xml = dump_xml(serial)
-    if "Allow Aurora Store to access Shizuku" not in ui_xml:
+    ui = _ui_text(serial)
+    if "Allow Aurora Store to access Shizuku" not in ui:
         return
-    allow = dev.parse_button_center(ui_xml, "android:id/button1")
+    if _HS is not None:
+        _HS.tap_text("Allow", timeout_ms=2000)
+        time.sleep(2)
+        return
+    allow = dev.parse_button_center(ui, "android:id/button1")
     if allow:
         tap(serial, allow)
         time.sleep(2)
@@ -221,8 +297,17 @@ def configure_installer(serial):
     if not tap_text(serial, "Shizuku installer"):
         return False
     approve_shizuku_dialog(serial)
-    ui_xml = dump_xml(serial)
-    if "Shizuku installer" not in ui_xml or 'checked="true"' not in ui_xml:
+    ui = _ui_text(serial)
+    if _HS is not None:
+        checked, ok = _HS.switch_near_label("Shizuku installer", timeout_ms=3000)
+        if not (ok and checked) and "Shizuku installer" not in ui:
+            sys.stderr.write("ERROR: Aurora Shizuku installer was not selected on %s\n" % serial)
+            return False
+        # Accept if label present after tap (some builds omit Switch checked in ui table).
+        if "Shizuku installer" not in ui:
+            sys.stderr.write("ERROR: Aurora Shizuku installer was not selected on %s\n" % serial)
+            return False
+    elif "Shizuku installer" not in ui or 'checked="true"' not in ui:
         sys.stderr.write("ERROR: Aurora Shizuku installer was not selected on %s\n" % serial)
         return False
     print("Aurora Store installer set to Shizuku on %s." % serial)
@@ -232,8 +317,8 @@ def configure_installer(serial):
 def configure_auto_updates(serial):
     # Return to the Settings category list from Installation method.
     for _ in range(3):
-        ui_xml = dump_xml(serial)
-        if 'text="Settings"' in ui_xml and 'text="Updates"' in ui_xml:
+        ui = _ui_text(serial)
+        if "Settings" in ui and "Updates" in ui:
             break
         adb(serial, "input", "keyevent", "KEYCODE_BACK")
         time.sleep(1)
@@ -253,28 +338,31 @@ def configure_auto_updates(serial):
 
 def main_mac_adb(host):
     """Mac-side ScreenControlSession via resolve_adb (USB or wireless)."""
-    global _SHELL
+    global _SHELL, _HS
     serial = dev.resolve_adb(host)
     subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
     try:
         with sc.ScreenControlSession(host, label=host) as session:
             _SHELL = session.shell
-            ensure_background_unrestricted(serial)
-            dismiss_background_run_dialog(serial)
-            open_aurora(serial)
-            dismiss_background_run_dialog(serial)
-            if not finish_first_run(serial):
-                return 1
-            if not configure_installer(serial):
-                return 1
-            if not configure_auto_updates(serial):
-                return 1
-            adb(serial, "input", "keyevent", "KEYCODE_HOME")
+            with uid.try_handsets(serial, host) as hs:
+                _HS = hs
+                ensure_background_unrestricted(serial)
+                dismiss_background_run_dialog(serial)
+                open_aurora(serial)
+                dismiss_background_run_dialog(serial)
+                if not finish_first_run(serial):
+                    return 1
+                if not configure_installer(serial):
+                    return 1
+                if not configure_auto_updates(serial):
+                    return 1
+                adb(serial, "input", "keyevent", "KEYCODE_HOME")
     except sc.ScreenControlError as e:
         sys.stderr.write("ERROR: %s\n" % e)
         return 1
     finally:
         _SHELL = None
+        _HS = None
     return 0
 
 
