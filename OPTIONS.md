@@ -10,6 +10,11 @@
 > host/`issues=` tags in your first reply — do not wait to be asked. Details:
 > [HANDOFF.md § Mac fleet health](HANDOFF.md#mac-fleet-health--mandatory-for-agents).
 >
+> **Health fix → self-heal (mandatory):** when you clear a health issue, also
+> update Termux / AutoJs6 co-monitor / Mac launchd so that failure mode
+> recovers without a manual one-shot next time. Rule:
+> `.cursor/rules/fleet-health-self-heal.mdc`.
+>
 > Human-only tasks: [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md). Operator
 > answers: `human/RESPONSES.md` (gitignored). Session context: [HANDOFF.md](HANDOFF.md).
 > Strategic directions: [HANDOFF.md appendix](HANDOFF.md#appendix--strategic-directions-equal-weight).

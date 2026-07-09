@@ -64,6 +64,8 @@ Disable with `STAYTURGID_SKIP_HEALTH=1`. Does not mutate devices.
 
 **Agents — session start:** `python3 mac/check_fleet_health.py` — if exit ≠ 0,
 surface host/`issues=` to the operator immediately (see HANDOFF § Mac fleet health).
+Any health fix must also update self-heal (Termux / AutoJs6 co-monitor / this
+monitor’s `maybe_heal_watchdog`) — see `.cursor/rules/fleet-health-self-heal.mdc`.
 
 Other subprojects resolve adb targets via [shared/mac/stayturgid_device.py](../shared/mac/stayturgid_device.py) or [shared/mac/resolve_adb.py](../shared/mac/resolve_adb.py).
 

@@ -89,8 +89,7 @@ def maybe_notify():
         "--title", "stayturgid: AutoJs6 watchdog stalled",
         "--content",
         "Termux repair is healthy but main.js has not cycled in 45+ min. "
-        "Notifications/Shizuku UI repair may be stale — run start_watchdog.py "
-        "from Mac or reboot.",
+        "Mac fleet-health should restart main.js; if this persists, reboot.",
     ])
     os.makedirs(STATE, exist_ok=True)
     try:

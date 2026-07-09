@@ -67,6 +67,15 @@ Agents: `com.stayturgid.fleet-health`, `com.stayturgid.access-monitor` (via
 - Do not treat `watchdog_stale` with fresh `repair_age` as “phone dead” — it
   means the AutoJs6 layer is quiet while Termux heal still runs.
 
+### Health fix → self-heal (mandatory)
+
+**Every** fleet-health fix must also update self-healing code so the same
+failure recovers without a manual one-shot next time. Session-only heals
+(`start_watchdog.py`, kill hung PIDs, one-off a11y enable) are incomplete
+until encoded in Termux boot loop, AutoJs6 co-monitor/watchdog, and/or Mac
+launchd (`fleet_health_monitor` / `fire-help`). See Cursor rule
+`.cursor/rules/fleet-health-self-heal.mdc`.
+
 ---
 
 ## What this project does
