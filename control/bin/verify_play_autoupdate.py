@@ -70,19 +70,27 @@ def main(argv: list[str] | None = None) -> int:
 
     prev = os.environ.get("STAYTURGID_VLM")
     os.environ.setdefault("STAYTURGID_VLM", "1")
-    gate = vlm.VlmGate(autostart=False)
+    # allow_server_only so cloud keys work even when local UI-TARS is off
+    gate = vlm.VlmGate(autostart=True, allow_server_only=True)
     if prev is None:
         os.environ.pop("STAYTURGID_VLM", None)
-    elif prev is not None:
+    else:
         os.environ["STAYTURGID_VLM"] = prev
 
+    if not gate.usable:
+        print("VLM skipped (no local server and no cloud keys) — capture ok")
+        return 0
+
     ok, detail = gate.verify(shot, "play_autoupdate_dont")
-    print(json.dumps(detail, indent=2))
+    print(json.dumps(detail, indent=2, default=str)[:2000])
     if detail.get("skipped"):
         print("VLM skipped (%s) — navigation/capture ok" % detail.get("reason"))
         return 0
     if ok:
-        print("PASS: Don't auto-update apps (VLM)")
+        print(
+            "PASS: Don't auto-update apps (VLM backend=%s)"
+            % detail.get("backend", "?")
+        )
         return 0
     print("FAIL: Play auto-update not confirmed off", file=sys.stderr)
     return 1 if vlm.vlm_strict() else 0

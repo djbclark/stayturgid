@@ -61,7 +61,7 @@ def check_stack(serial: str) -> tuple[bool, dict]:
 
 
 def check_crash_dialog(serial: str, gate: vlm.VlmGate) -> tuple[bool, dict]:
-    if not gate.ready:
+    if not gate.usable:
         return True, {"skipped": True, "reason": "vlm_unavailable"}
     with tempfile.TemporaryDirectory() as td:
         shot = Path(td) / "foreground.png"
@@ -70,7 +70,7 @@ def check_crash_dialog(serial: str, gate: vlm.VlmGate) -> tuple[bool, dict]:
 
 
 def check_autoupdate(host: str, serial: str, gate: vlm.VlmGate) -> tuple[bool, dict]:
-    if not gate.ready:
+    if not gate.usable:
         return True, {"skipped": True, "reason": "vlm_unavailable"}
     day = datetime.now().strftime("%Y-%m-%d")
     shot = ART / day / host / "play-autoupdate.png"
@@ -113,13 +113,19 @@ def main(argv: list[str] | None = None) -> int:
         ))
 
     gate = vlm.VlmGate(autostart=True, allow_server_only=True)
-    if gate.ready:
+    if gate.usable:
         crash_ok, crash_detail = check_crash_dialog(serial, gate)
         report["checks"]["no_crash_dialog"] = crash_detail
         if crash_detail.get("skipped"):
             print("SKIP crash dialog VLM (%s)" % crash_detail.get("reason"))
         elif crash_ok:
-            print("OK no GSF/GMS crash dialog (VLM %.1fs)" % crash_detail.get("elapsed_s", 0))
+            print(
+                "OK no GSF/GMS crash dialog (VLM %s %.1fs)"
+                % (
+                    crash_detail.get("backend", "?"),
+                    crash_detail.get("elapsed_s", 0),
+                )
+            )
         else:
             failures.append("gms_crash_dialog")
             print("FAIL crash dialog visible (VLM)")
@@ -129,13 +135,19 @@ def main(argv: list[str] | None = None) -> int:
         if auto_detail.get("skipped"):
             print("SKIP play autoupdate VLM (%s)" % auto_detail.get("reason"))
         elif auto_ok:
-            print("OK Play Store Don't auto-update (VLM %.1fs)" % auto_detail.get("elapsed_s", 0))
+            print(
+                "OK Play Store Don't auto-update (VLM %s %.1fs)"
+                % (
+                    auto_detail.get("backend", "?"),
+                    auto_detail.get("elapsed_s", 0),
+                )
+            )
         else:
             failures.append("play_autoupdate_on")
             print("FAIL Play auto-update not off (VLM)")
     else:
         report["checks"]["vlm"] = {"skipped": True, "reason": "server_unavailable"}
-        print("SKIP VLM gates — start: make vlm-server")
+        print("SKIP VLM gates — start: make vlm-server (or configure cloud keys)")
         if not vlm.vlm_strict():
             print("  (stack-only pass; enable VLM for full close-out)")
 
@@ -145,7 +157,9 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report, indent=2))
 
     if failures:
-        return 1 if vlm.vlm_strict() or gate.ready else (1 if "stack_drift" in failures else 0)
+        return 1 if vlm.vlm_strict() or gate.usable else (
+            1 if "stack_drift" in failures else 0
+        )
     return 0
 
 

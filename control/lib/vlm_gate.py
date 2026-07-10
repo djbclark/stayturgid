@@ -330,6 +330,11 @@ class VlmGate:
             elif server_healthy():
                 self.ready = True
 
+    @property
+    def usable(self) -> bool:
+        """True when local server and/or cloud backends can run a verify()."""
+        return bool(self.ready or self.cloud_ready)
+
     def verify(
         self,
         image_path: Path,
