@@ -128,7 +128,14 @@ def main():
     script = module.params["repair_script"] or os.path.join(
         home, ".stayturgid", "bin", "stayturgid_repair.py"
     )
+    # Prefer python3 for .py repair scripts (OPTIONS 62 dropped the bash shim).
+    # Fall back to bash for legacy shell repair entrypoints.
+    python3 = os.path.join(prefix, "bin", "python3")
     bash = os.path.join(prefix, "bin", "bash")
+    if script.endswith(".py") and os.path.isfile(python3):
+        runner = [python3, script]
+    else:
+        runner = [bash, script]
 
     if module.check_mode:
         module.exit_json(
@@ -142,7 +149,7 @@ def main():
     if not os.path.isfile(script):
         module.fail_json(msg="repair script not found: %s" % script)
 
-    rc, stdout, stderr = module.run_command([bash, script])
+    rc, stdout, stderr = module.run_command(runner)
     status_line = find_status_line(stdout)
     parsed = parse_status_line(status_line) if status_line else None
     healthy = is_healthy(parsed)
