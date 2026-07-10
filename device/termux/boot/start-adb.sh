@@ -63,7 +63,8 @@ BOOTLOOP_PID_FILE="$STG/run/bootloop.pid"
     # start restores normal operation.  Cost is ~4 s (force-stop + restart
     # + one battery-status probe); skipped when API is already responsive.
     if command -v termux-battery-status >/dev/null 2>&1; then
-        if ! termux-battery-status >/dev/null 2>&1; then
+        # Wrap in timeout — Termux:API can hang on some Android versions.
+        if ! timeout 8 termux-battery-status >/dev/null 2>&1; then
             adb -s localhost:5555 shell am force-stop com.termux.api 2>/dev/null || true
             sleep 2
             termux-api-start >/dev/null 2>&1 || true

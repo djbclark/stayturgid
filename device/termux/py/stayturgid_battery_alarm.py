@@ -7,6 +7,7 @@ Migrated from stayturgid-battery-alarm.sh; unit-tested via tests/test-unit.sh
 Python is guaranteed on-device: it's in stayturgid_termux_packages and Ansible
 itself requires it (ansible_python_interpreter).
 """
+import datetime
 import json
 import os
 import signal
@@ -42,12 +43,24 @@ STATE_FILE = os.path.join(STG, "state", "batt_alerted")
 COLOR_DIR = os.path.join(STG, "battery-colors")
 WALLPAPER_BACKUP = os.path.join(STG, "state", "wallpaper-backup.png")
 SAVED_BRIGHT_FILE = os.path.join(STG, "state", "batt_saved_brightness")
+BATT_LOG = os.path.join(STG, "logs", "battery.log")
 # Fire OS: termux-battery-status / localhost adb can hang forever.
 CMD_TIMEOUT_SEC = 8
 
 TIERS = [30, 25, 20, 15, 10, 5, 4, 3, 2, 1, 0]
 TIER_COLOR = {30: "purple", 25: "blue", 20: "green", 15: "yellow", 10: "orange"}
 TIER_BLINKS = {30: 1, 25: 2, 20: 3, 15: 4, 10: 5}
+
+
+def _log(msg):
+    """Write a timestamped entry to the battery log (self-healing dir)."""
+    try:
+        os.makedirs(os.path.dirname(BATT_LOG) or ".", exist_ok=True)
+        line = "%s [batt] %s" % (datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), msg)
+        with open(BATT_LOG, "a") as f:
+            f.write(line + "\n")
+    except OSError:
+        pass
 
 
 def _no_local_adb() -> bool:
@@ -272,16 +285,21 @@ def main():
     # Prefer short timeout; on Fire, termux-battery-status has been observed to hang.
     raw = out_of(["timeout", str(CMD_TIMEOUT_SEC), "termux-battery-status"])
     if not raw:
+        _log("termux-battery-status returned empty (timeout/failure) — skipping cycle")
         return 0
     try:
         batt = json.loads(raw)
     except ValueError:
-        batt = {}
+        _log("termux-battery-status returned invalid JSON: %s..." % raw[:80])
+        return 0
     pct = batt.get("percentage")
     status = batt.get("status", "")
     if pct is None:
+        _log("no 'percentage' in battery JSON — skipping")
         return 0
     pct = int(pct)
+
+    _log("pct=%s%% status=%s plugged=%s" % (pct, status, batt.get("plugged", "?")))
 
     if status in ("CHARGING", "FULL") or pct > 30:
         clear_alert_state()
@@ -295,9 +313,12 @@ def main():
     lowest = applicable[-1]
 
     if str(lowest) not in alerted_tiers():
+        _log("FIRING tier=%d (pct=%d, quiet=%s)" % (lowest, pct, quiet))
         fire_tier_alert(lowest, pct, quiet)
         for t in applicable:
             mark_alerted(t)
+    else:
+        _log("tier=%d already alerted (pct=%d)" % (lowest, pct))
     return 0
 
 
