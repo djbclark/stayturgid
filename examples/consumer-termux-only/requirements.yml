@@ -4,4 +4,4 @@
 collections:
   - name: stayturgid.termux
     source: git+https://github.com/djbclark/stayturgid.git,ansible_collections/stayturgid/termux
-    version: stayturgid.termux-1.4.0
+    version: stayturgid.termux-1.8.0

@@ -23,29 +23,19 @@
     - not (stayturgid_install_aurora_store | default(false) | bool)
     - not _aurora_installed
 
-- name: Download Aurora Store APK via apkeep (when missing)
+- name: Install Aurora Store via apkeep f-droid (when missing)
   when:
     - stayturgid_install_aurora_store | default(false) | bool
     - not _aurora_installed
-  ansible.builtin.command:
-    argv:
-      - apkeep
-      - -a
-      - "{{ aurora_store_package }}"
-      - -d
-      - f-droid
-      - /tmp
-    creates: "/tmp/{{ aurora_store_package }}.apk"
-  delegate_to: localhost
-
-- name: Install Aurora Store APK (when missing)
-  when:
-    - stayturgid_install_aurora_store | default(false) | bool
-    - not _aurora_installed
-  stayturgid.android_common.android_apk:
+  stayturgid.play.play_apps:
     device: "{{ _play_target_device }}"
-    package: "{{ aurora_store_package }}"
-    apk_path: "/tmp/{{ aurora_store_package }}.apk"
+    apps:
+      - id: "{{ aurora_store_package }}"
+    download_backend: apkeep
+    apkeep_source: f-droid
+    apkeep_options: ""
+    spoof_play_installer: false
+    download_dir: /tmp
   delegate_to: localhost
 
 - name: Refresh Aurora install fact after optional install

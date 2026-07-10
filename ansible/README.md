@@ -44,8 +44,9 @@ CHECK=1 ./mac/deploy_fleet.py s24      # dry run
 ansible-playbook ansible/playbooks/site.yml --limit s24   # direct
 ```
 
-`site.yml` chains: `bootstrap.yml` → `fleet.yml` → `post-ui.yml` → app-stores
-re-pass → `validate.yml`. See [docs/adr/001-ansible-boundary.md](../docs/adr/001-ansible-boundary.md).
+`site.yml` chains: `preflight.yml` → `bootstrap.yml` (tagged, skipped by
+`deploy_fleet.py`) → `fleet.yml` → `post-ui.yml` → app-stores re-pass →
+`validate.yml`. See [docs/adr/001-ansible-boundary.md](../docs/adr/001-ansible-boundary.md).
 
 ## Run (Termux only)
 
@@ -96,27 +97,36 @@ Playbooks reference collection roles by FQCN (e.g. `stayturgid.termux.termux_use
 ```
 ansible/
   ansible.cfg
-  requirements.yml               — ansible.posix
+  requirements.yml               — ansible.posix + stayturgid.* (via deploy install)
   inventory/hosts.yml
-  playbooks/site.yml             — full fleet (bootstrap → fleet → post-ui → validate)
+  playbooks/site.yml             — preflight → bootstrap → fleet → post-ui → validate
+  playbooks/preflight.yml        — SSH probe + conditional adb bootstrap
   playbooks/fleet.yml
   playbooks/bootstrap.yml
+  playbooks/post-ui.yml
+  playbooks/validate.yml
   playbooks/termux-userland.yml
-  roles/autojs6_watchdog/        — fleet-only (not in collections)
   ansible/mac/deploy_termux.py
-ansible_collections/stayturgid/  — modules + roles per domain
+ansible_collections/stayturgid/  — modules + roles (incl. fleet.autojs6_watchdog, post_ui, validate)
 ```
 
-## After playbook
+## After playbook (first-time / edge cases)
 
-Device-specific steps still required on each host:
+Full `site.yml` deploy covers Termux, AutoJs6 project, Obtainium catalog render,
+post-UI import (`post_ui` / `android_ui`), app privileges, and validate smoke.
 
-1. `autojs6/mac/setup_autojs6.py <host> <device-id>` — first-time AutoJs6 install, storage grant, project deploy
-2. `autojs6/mac/set_automation_mode.py <host>` — Shizuku grant + AutoJs6 drawer (`enable_autojs6_shizuku.py`)
-3. `autojs6/mac/start_watchdog.py <host>` — launch `main.js`
-4. Obtainium catalog / `obtainium/mac/enable_shizuku_installer.py <host>`
-5. Open Termux:Boot app once after fresh install
+**First-time on a blank phone** may still need:
 
-For routine updates after `git pull`, steps 1–3 reduce to `deploy_termux.py` + `autojs6/mac/deploy.py` + `start_watchdog.py`.
+1. Termux + Obtainium + AutoJs6 APKs (Obtainium catalog or `setup_autojs6.py`)
+2. Shizuku pairing (see HACKING.md)
+3. Open Termux:Boot once after fresh install
+4. Fire HD (`hd8`): USB/wireless adb for `autojs6_project_deploy` when not on USB
 
-See [HANDOFF.md](../HANDOFF.md) for the full production checklist, or [termux/README.md](../termux/README.md) if you deploy scripts without Ansible.
+**Routine updates** after `git pull`:
+
+```bash
+./mac/deploy_fleet.py          # or ansible-playbook ansible/playbooks/site.yml
+make verify                    # deep TAP (optional)
+```
+
+Manual recovery scripts remain under `autojs6/mac/` and `mac/bootstrap_ssh.py`.

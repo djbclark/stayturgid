@@ -39,7 +39,7 @@ modules could replace custom code.
 |------|------|--------|
 | Fire OS `mkdir` / adb push | `autojs6_watchdog` | `autojs6_project_deploy` module |
 | Termux `/sdcard` mkdir | `termux_userland` | Keep — Fire symlink quirks |
-| Repair verify shell | `termux_userland` | Keep — reads device script output |
+| Repair verify | `stayturgid.termux.stayturgid_repair_check` | `termux_userland`, `validate` |
 | Boot loop handler | `termux_userland` | Keep — PIDFILE semantics |
 
 ## Distribution

@@ -12,7 +12,7 @@ you need — each domain is a separate collection on the `stayturgid` namespace.
 | **stayturgid.obtainium** | Obtainium catalogs | `obtainium_app` | `obtainium_apps` |
 | **stayturgid.fdroid** | F-Droid / Neo Store | `fdroid_repos` | `fdroid_repos` |
 | **stayturgid.play** | Play APK sideload | `play_apps` | `play_store` |
-| **stayturgid.fleet** | Meta / redirects | _(redirects to above)_ | fleet playbooks |
+| **stayturgid.fleet** | Meta / fleet roles | _(redirects to above)_ | `post_ui`, `validate`, `autojs6_watchdog` |
 
 ## Quick install
 
@@ -49,9 +49,9 @@ ansible_collections/stayturgid/
   obtainium/                ← obtainium_app + obtainium_apps role
   fdroid/                   ← fdroid_repos module + role
   play/                     ← play_apps + play_store role
-  fleet/                    ← meta-collection + runtime redirects
-ansible/                    ← site inventory, playbooks, fleet-only roles (autojs6_watchdog)
+  fleet/                    ← meta-collection + post_ui, validate, autojs6_watchdog roles
+ansible/                    ← site inventory + composed playbooks (site.yml, preflight, …)
 ```
 
-Fleet-specific roles (`autojs6_watchdog`) stay in `ansible/roles/` because they
-encode this project's inventory and device taxonomy.
+Fleet-specific roles (`autojs6_watchdog`, `post_ui`, `validate`) live in
+`stayturgid.fleet` and reference inventory taxonomy via `device.json.j2`.

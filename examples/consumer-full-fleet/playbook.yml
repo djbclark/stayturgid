@@ -1,22 +1,7 @@
 ---
-- name: stayturgid fleet
-  hosts: stayturgid
-  gather_facts: false
-  vars:
-    stayturgid_repo_root: "{{ playbook_dir }}/../.."
-    stayturgid_ensure_neo_store: true
-    stayturgid_ensure_aurora_store: true
-    stayturgid_install_aurora_store: true
-  roles:
-    - role: stayturgid.termux.termux_userland
-    - role: stayturgid.fleet.autojs6_watchdog
-    - role: stayturgid.obtainium.obtainium_apps
-    - role: stayturgid.android_common.tailscale_vpn
-    - role: stayturgid.fdroid.fdroid_repos
-      vars:
-        target_device: "{{ inventory_hostname }}"
-    - role: stayturgid.play.play_store
-      vars:
-        target_device: "{{ inventory_hostname }}"
-    - role: stayturgid.android_common.ensure_apps
-      when: stayturgid_ensure_apps | default([]) | length > 0
+# Consumer entry — delegates to the canonical stayturgid site playbook.
+# Requires a full repo checkout (scripts, autojs6/, termux/ live under stayturgid_repo_root).
+#
+#   export ANSIBLE_CONFIG=ansible.cfg
+#   ansible-playbook playbook.yml [--limit s24]
+- import_playbook: "{{ stayturgid_repo_root | default(playbook_dir ~ '/../..') }}/ansible/playbooks/site.yml"

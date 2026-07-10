@@ -78,12 +78,14 @@ Companion roles ship in each collection:
 | `stayturgid.play.play_store` | Aurora Shizuku grant + `play_apps` |
 | `stayturgid.android_common.tailscale_vpn` | Always-on VPN secure settings |
 | `stayturgid.fleet.post_ui` | Post-deploy UI tasks (`android_ui` module) |
+| `stayturgid.fleet.validate` | Post-deploy repair/a11y smoke (`validate.yml`) |
 
 ## Obtainium (on-device over SSH)
 
 `stayturgid.obtainium.obtainium_app` renders JSON on the device via Termux SSH.
-Applying the catalog in Obtainium still requires Mac-side `obtainium://` deep link
-(`obtainium/mac/import_catalog.py` in this repo) — Obtainium has no stable CLI.
+Catalog **import** in Obtainium runs via `stayturgid.fleet.post_ui` /
+`android_ui` task `import_obtainium_catalog` (screen control). Legacy Mac-only
+path: `obtainium/mac/import_catalog.py`.
 
 ## Backward-compatible FQCNs
 
@@ -107,3 +109,6 @@ This repo currently installs from Git paths; Galaxy publication is optional foll
    `PerSourcePenalties no` and detached sshd restart. Keys are never in git.
 
 Full deploy entry point: `ansible/playbooks/site.yml` (or `./mac/deploy_fleet.py`).
+
+See also: [playbooks/preflight.md](playbooks/preflight.md),
+[roles/validate.md](roles/validate.md).

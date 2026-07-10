@@ -32,6 +32,9 @@ make ansible-test
 ## Site playbooks
 
 Fleet-specific roles and inventory remain in the repo `ansible/` tree
-(`termux_userland`, `obtainium_apps`, `fdroid_repos`, `play_store`, etc.).
+(`termux_userland` via collection, `obtainium_apps`, `fdroid_repos`, `play_store`,
+`post_ui`, `validate`, `autojs6_watchdog`).
 
-See [../docs/adoption.md](../docs/adoption.md) and [../docs/std_modules_audit.md](../docs/std_modules_audit.md).
+See [../docs/adoption.md](../docs/adoption.md), [../docs/roles/validate.md](../docs/roles/validate.md),
+[../docs/playbooks/preflight.md](../docs/playbooks/preflight.md), and
+[../docs/std_modules_audit.md](../docs/std_modules_audit.md).

@@ -43,11 +43,12 @@ starts via **peer bootstrap** (SSH to s24/p7a → remote `adb shell app_process`
 
 ## Consequences
 
-- `deploy_fleet.py` is a thin wrapper: SSH preflight + `ansible-playbook site.yml`.
+- `deploy_fleet.py` is a thin wrapper: collection install + `ansible-playbook site.yml`
+  (SSH preflight is in `preflight.yml`).
 - `harden_fleet_apps.py` is redundant with `app_privileges` role; CLI kept for ad-hoc use only.
 - New fleet features: default to module/role first; script only when UI or runtime requires it.
-- UI automation: see [002-ansible-ui-tasks.md](002-ansible-ui-tasks.md) (proposed) — named UI tasks, not per-tap modules.
-- `make verify` / `device_tier.py` remain the deep TAP harness; `validate.yml` is the Ansible smoke path.
+- UI automation: see [002-ansible-ui-tasks.md](002-ansible-ui-tasks.md) — named UI tasks, not per-tap modules.
+- `make verify` / `device_tier.py` remain the deep TAP harness; `stayturgid.fleet.validate` is the Ansible smoke path.
 
 ## Non-goals
 

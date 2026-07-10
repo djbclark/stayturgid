@@ -12,4 +12,4 @@ Deploys Obtainium catalog + fdroidcl repos + on-device repo push for one phone.
 Requires Neo Store in the Obtainium catalog (`stayturgid.obtainium.obtainium_app`)
 before `fdroid_repos` can push repos to the device.
 
-Pin collections with tags: `version: stayturgid.fdroid-1.4.0`
+Pin collections with tags: see `requirements.yml` (`stayturgid.fdroid-1.4.1`).
