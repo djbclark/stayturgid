@@ -12,7 +12,7 @@ Two observed causes on hd8 (2026-07-09):
    crashing on `CHANGE_DEVICE_IDLE_TEMP_WHITELIST`.
 2. **Wrong GSF build (10.x) + Aurora Store open** — `com.google.process.gapps`
    Application Error while Aurora settings triggers `BadAuthentication` in GMS.
-   Fleet has Aurora **parked**; avoid opening it on hd8.
+   Fleet has Aurora **parked** and **uninstalled from hd8**; avoid on other hosts too.
 
 Logcat (GMS 26.x case):
 
@@ -60,7 +60,7 @@ Mac launchd (`fleet_health_monitor.py`) rate-limits the same repair when hd8 GMS
 | Action | Why |
 |--------|-----|
 | Don't auto-update in Play Store | Stops GMS/Play self-updating past Fire-compatible builds |
-| Avoid Aurora Store on hd8 | Parked from fleet; opening it triggers GMS auth failures on Fire |
+| Avoid Aurora Store on hd8 | Parked from fleet; triggers GMS auth failures on Fire — **uninstalled from hd8** |
 | Re-run `fix_hd8_google_stack.py` after manual Play use | Play may still push GMS in background until auto-update is off |
 | Avoid Fire OS OTA without checking | Amazon OTAs can break sideloaded Play; may need re-pin |
 
