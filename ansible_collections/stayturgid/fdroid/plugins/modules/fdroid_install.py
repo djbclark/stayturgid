@@ -36,20 +36,12 @@ EXAMPLES = r"""
 
 from ansible.module_utils.basic import AnsibleModule
 
-from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_packages import (
-    package_installed_on_device,
-)
 from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_resolve import (
     resolve_adb,
 )
-
-
-def _fdroidcl_env(device):
-    import os
-    env = os.environ.copy()
-    env["ANDROID_SERIAL"] = device
-    env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
-    return env
+from ansible_collections.stayturgid.fdroid.plugins.module_utils.fdroidcl_install import (
+    install_fdroid_app,
+)
 
 
 def main():
@@ -65,24 +57,22 @@ def main():
     device = resolve_adb(module.params["device"], module.run_command)
     package = module.params["package"]
 
-    if not module.params["force"] and package_installed_on_device(
-        module.run_command, device, package
-    ):
-        module.exit_json(changed=False, reason="already installed")
+    try:
+        changed, detail = install_fdroid_app(
+            module.run_command,
+            device,
+            package,
+            force=module.params["force"],
+            check_mode=module.check_mode,
+        )
+    except RuntimeError as exc:
+        module.fail_json(msg=str(exc))
 
-    if module.check_mode:
-        module.exit_json(changed=True, reason="would install")
-
-    env = _fdroidcl_env(device)
-    rc, out, err = module.run_command(
-        ["fdroidcl", "install", package],
-        environ_update=env,
-    )
-    combined = ((out or "") + "\n" + (err or "")).strip()
-    if rc != 0:
-        module.fail_json(msg="fdroidcl install %s failed: %s" % (package, combined))
-
-    module.exit_json(changed=True, output=combined)
+    if changed:
+        if detail == "would install":
+            module.exit_json(changed=True, reason=detail)
+        module.exit_json(changed=True, output=detail)
+    module.exit_json(changed=False, reason=detail)
 
 
 if __name__ == "__main__":

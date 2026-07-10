@@ -18,6 +18,10 @@ stayturgid_fdroid_update_index: true
 
 neo_store_package: com.machiav3lli.fdroid
 
+stayturgid_fdroid_apps: []
+# Example (requires fdroidcl repos synced on control node):
+# - id: org.breezyweather
+
 # Optional fdroidcl mass-install definitions:
 # stayturgid_fdroid_setups:
 #   - name: base-tools

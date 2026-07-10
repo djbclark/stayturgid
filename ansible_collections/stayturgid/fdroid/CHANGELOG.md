@@ -1,5 +1,11 @@
 # Changelog — stayturgid.fdroid
 
+## 1.4.2 (2026-07-09)
+
+- Add `fdroid_apps` module and `stayturgid_fdroid_apps` role var (symmetric to
+  `stayturgid_play_apps` / `play_apps`).
+- Extract shared `fdroidcl_install` module_utils for `fdroid_install` + `fdroid_apps`.
+
 ## 1.4.1 (2026-07-08)
 
 - `fdroid_repos` role: fix `android_packages` lookup folded to empty by YAML `>-`.

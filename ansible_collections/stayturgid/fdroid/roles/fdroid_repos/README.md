@@ -7,6 +7,7 @@ Ansible role + `stayturgid.fdroid.fdroid_repos` module for F-Droid repository ma
 | Layer | Tool | What it does |
 |-------|------|--------------|
 | Control machine | `fdroidcl` | Add/enable repos; `fdroidcl install <id>` |
+| App ensure | `stayturgid.fdroid.fdroid_apps` | `stayturgid_fdroid_apps` list → fdroidcl install |
 | On-device | Neo Store (via Obtainium) | GUI client; repos pushed via `fdroidrepos://` intent |
 | Shizuku | `stayturgid.android_common.shizuku_grant` | Patches `shizuku.json` via privileged shell |
 
@@ -31,7 +32,16 @@ The **module** only manages `fdroidcl` on the Mac. Neo Store install, Shizuku gr
 
 Default repos: IzzyOnDroid + Guardian Project (with fingerprints).
 
-After the role: `fdroidcl install <appid>` from the Mac, or install through Neo Store on device.
+Set `stayturgid_fdroid_apps` to install apps from the control node (symmetric to
+`stayturgid_play_apps`):
+
+```yaml
+stayturgid_fdroid_apps:
+  - id: org.breezyweather
+```
+
+After the role: install through Neo Store on device, or rely on `fdroid_apps` /
+`fdroidcl install <appid>` from the Mac.
 
 ## Client setup (manual on device)
 

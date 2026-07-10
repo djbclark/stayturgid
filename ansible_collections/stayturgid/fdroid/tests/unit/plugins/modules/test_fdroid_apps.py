@@ -1,4 +1,4 @@
-"""Unit tests for fdroid_install module."""
+"""Unit tests for fdroid_apps module."""
 import json
 import os
 import sys
@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.join(ROOT, "plugins", "module_utils"))
 sys.path.insert(0, REPO_ROOT)
 sys.path.insert(0, os.path.join(ROOT, "plugins", "module_utils"))
 
-import fdroid_install as mod  # noqa: E402
+import fdroid_apps as mod  # noqa: E402
 
 
 def run_module(mocker, args, cmd_results=None):
@@ -49,20 +49,28 @@ def run_module(mocker, args, cmd_results=None):
     return captured
 
 
-def test_fdroid_install_installs(mocker):
+def test_fdroid_apps_installs(mocker):
     out = run_module(
         mocker,
-        dict(device="p7a", package="org.breezyweather"),
+        dict(
+            device="p7a",
+            apps=[dict(id="org.breezyweather")],
+        ),
     )
     assert out["changed"] is True
+    assert out["installed"] == ["org.breezyweather"]
 
 
-def test_fdroid_install_skips_present(mocker):
+def test_fdroid_apps_skips_present(mocker):
     out = run_module(
         mocker,
-        dict(device="p7a", package="org.breezyweather"),
+        dict(
+            device="p7a",
+            apps=[dict(id="org.breezyweather")],
+        ),
         cmd_results=[
             ("pm list packages", (0, "package:org.breezyweather\n", "")),
         ],
     )
     assert out["changed"] is False
+    assert out["skipped"] == ["org.breezyweather"]

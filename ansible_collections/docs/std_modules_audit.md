@@ -23,7 +23,7 @@ modules could replace custom code.
 |--------|------------|
 | `termux_pkg` | Termux pkg/apt, not system apt |
 | `obtainium_app` | No Obtainium API |
-| `fdroid_repos` / `fdroid_install` / `fdroid_repo_push` | fdroidcl wrapper |
+| `fdroid_repos` / `fdroid_install` / `fdroid_apps` / `fdroid_repo_push` | fdroidcl wrapper |
 | `play_apps` | apkeep/gplaycli + adb install |
 | `android_appops` / `android_settings` | adb grants/settings |
 | `android_a11y_services` | merge-only a11y list backup/restore |

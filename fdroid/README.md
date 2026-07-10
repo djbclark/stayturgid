@@ -35,11 +35,20 @@ make deploy SCOPE=fdroid HOSTS=s24 # F-Droid roles only
 ANDROID_SERIAL=s24 fdroidcl install org.breezyweather
 ```
 
+## Components
+
+| Piece | Deploy path | Role |
+|-------|-------------|------|
+| **Neo Store** | Obtainium catalog | GUI client; Shizuku installer |
+| **fdroid_apps module** | `stayturgid_fdroid_apps` in role vars | fdroidcl install |
+| **fdroid_repos module** | `stayturgid_fdroid_repos` in role vars | Repo sync on Mac + on-device push |
+
 ## What the role does
 
 - Ensures repos in `fdroidcl` on the Mac (IzzyOnDroid, Guardian Project by default)
 - Pushes repos to on-device client via `fdroid_repo_push` (Neo → Droid-ify → F-Droid)
 - Grants Shizuku to Neo Store via `stayturgid.android_common.shizuku_grant`
+- Installs apps listed in `stayturgid_fdroid_apps` via `fdroid_apps` (fdroidcl)
 
 **Human step:** In Neo Store → Settings → Installer → Shizuku, enable automatic updates.
 

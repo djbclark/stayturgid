@@ -68,3 +68,10 @@
       In Neo Store settings: select Shizuku as installer and enable automatic updates.
       The first app installed through Neo Store enables background update behavior.
   when: stayturgid_ensure_neo_store | bool
+
+- name: Ensure F-Droid apps (fdroidcl install)
+  when: stayturgid_fdroid_apps | length > 0
+  stayturgid.fdroid.fdroid_apps:
+    apps: "{{ stayturgid_fdroid_apps }}"
+    device: "{{ _fdroid_target_device }}"
+  delegate_to: localhost
