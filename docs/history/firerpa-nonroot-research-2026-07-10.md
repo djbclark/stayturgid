@@ -93,3 +93,35 @@ The integration idea is NOT a mistake, but the scope should be narrower:
 
 **Alternative to evaluate:** scrcpy v4.0 (MITM-free, no root needed)
 for remote desktop only, without FIRERPA's full stack.
+
+---
+
+## Bonus Finding: p7a Notification Permission Bug
+
+**Problem:** On p7a (Android 16 / SDK 36), `pm grant com.termux.api
+android.permission.POST_NOTIFICATIONS` returns exit 0 but does NOT
+actually grant the permission if the app has never been launched
+(stopped state). User had to manually open Termux:API and respond to
+the system permission toast.
+
+**Root cause:** Android 13+ requires the permission controller to
+initialize before `pm grant` takes effect for POST_NOTIFICATIONS. If
+the app is in stopped state (never launched since install or last
+force-stop), the grant is a no-op.
+
+**Impact:** `stayturgid_battery_alarm.py` fires `termux-notification`
+which silently fails without POST_NOTIFICATIONS — the30% alert never
+appears.
+
+**Fix needed:** In `android_app_privileges` role, force-start apps
+before granting POST_NOTIFICATIONS:
+```
+adb shell monkey -p <package> -c android.intent.category.LAUNCHER 1
+sleep 2
+pm grant <package> android.permission.POST_NOTIFICATIONS
+```
+
+**Secondary issue:** `dumpsys package` shows TWO permission entries
+per app (user 0 + Island/Private Space). The `parse_ungranted_runtime`
+function may see the non-user-0 entry's `granted=false` and report
+false negatives.
