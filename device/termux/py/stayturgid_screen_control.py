@@ -27,6 +27,9 @@ ADB_KEYBOARD = "com.github.uiautomator/.AdbKeyboard"
 PRESENCE_PY = os.path.join(sh.STG, "bin", "stayturgid_agent_presence.py")
 PRESENCE_SH = os.path.join(sh.STG, "bin", "stayturgid_agent_presence.py")
 HOLD_KEEPALIVE_SEC = 45
+# Match control/lib/screen_control.py — natural portrait for UI automation.
+PORTRAIT_USER_ROTATION = 0
+_ROTATION_KEYS = ("accelerometer_rotation", "user_rotation")
 
 _FOCUS_COMPONENT_RE = re.compile(
     r"(?:mCurrentFocus|mFocusedApp|mResumedActivity|topResumedActivity)"
@@ -68,6 +71,70 @@ def set_inversion(_serial, enabled):
     state = "1" if enabled else "0"
     rc, _ = sh.shell("settings", "put", "secure", INVERSION_KEY, state)
     return rc == 0 and inversion_enabled() == enabled
+
+
+def _get_system_setting(key):
+    rc, out = sh.shell("settings", "get", "system", key)
+    if rc != 0:
+        return None
+    val = out.strip()
+    if not val or val == "null":
+        return None
+    return val
+
+
+def read_rotation_settings(_serial=None):
+    return {k: _get_system_setting(k) for k in _ROTATION_KEYS}
+
+
+def apply_portrait_lock(_serial=None):
+    """Disable auto-rotate and pin natural portrait (user_rotation=0)."""
+    ok = True
+    for key, val in (
+        ("accelerometer_rotation", "0"),
+        ("user_rotation", str(PORTRAIT_USER_ROTATION)),
+    ):
+        rc, _ = sh.shell("settings", "put", "system", key, val)
+        ok = ok and rc == 0
+    for args in (
+        ("cmd", "window", "set-user-rotation", "lock", str(PORTRAIT_USER_ROTATION)),
+        ("wm", "set-user-rotation", "lock", str(PORTRAIT_USER_ROTATION)),
+        ("wm", "user-rotation", "lock", str(PORTRAIT_USER_ROTATION)),
+    ):
+        rc, _ = sh.shell(*args)
+        if rc == 0:
+            break
+    return ok
+
+
+def lock_portrait_orientation(_serial=None):
+    saved = read_rotation_settings()
+    if not apply_portrait_lock():
+        sys.stderr.write("WARN: failed to lock portrait orientation\n")
+    return saved
+
+
+def restore_rotation_settings(_serial, saved):
+    if not saved:
+        return True
+    ok = True
+    for args in (
+        ("cmd", "window", "set-user-rotation", "free"),
+        ("wm", "set-user-rotation", "free"),
+        ("wm", "user-rotation", "free"),
+    ):
+        rc, _ = sh.shell(*args)
+        if rc == 0:
+            break
+    for key in _ROTATION_KEYS:
+        val = saved.get(key)
+        if val is None:
+            continue
+        rc, _ = sh.shell("settings", "put", "system", key, val)
+        ok = ok and rc == 0
+    if not ok:
+        sys.stderr.write("WARN: failed to restore rotation settings\n")
+    return ok
 
 
 def get_default_ime(_serial=None):
@@ -202,6 +269,7 @@ class ScreenControlSession(object):
         self._skip = os.environ.get("STAYTURGID_SKIP_PRESENCE") == "1"
         self._saved_ime = None
         self._saved_component = None
+        self._saved_rotation = None
         self._stop_keepalive = threading.Event()
         self._keepalive_thread = None
 
@@ -215,6 +283,7 @@ class ScreenControlSession(object):
                         sys.stderr.write(
                             "WARN: re-enabled display inversion (hold keepalive)\n"
                         )
+                apply_portrait_lock()
                 if not self._skip:
                     local_presence("guard", self.label, self.agent)
             except Exception as e:  # noqa: BLE001
@@ -249,6 +318,7 @@ class ScreenControlSession(object):
             )
 
         self._saved_component = get_foreground_component()
+        self._saved_rotation = lock_portrait_orientation()
         cleared = uc.clear_ui_obstructions(self.serial, sh.shell_fn)
         if cleared:
             print("Cleared UI obstructions: %s" % ", ".join(cleared))
@@ -310,6 +380,7 @@ class ScreenControlSession(object):
             sys.stderr.write("WARN: failed to disable display inversion\n")
         if not restore_default_ime(None, self._saved_ime):
             sys.stderr.write("WARN: failed to restore keyboard IME\n")
+        restore_rotation_settings(None, self._saved_rotation)
         self.active = False
         return False
 

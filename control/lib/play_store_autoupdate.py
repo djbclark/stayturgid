@@ -46,6 +46,14 @@ def _open_account_menu(hs: HandsetsSession) -> bool:
 
 def open_autoupdate_screen(hs: HandsetsSession, serial: str) -> bool:
     """Open Play Store → account → Settings → Network → Auto-update apps."""
+    # No ScreenControlSession here (inversion breaks Play drawer); still pin
+    # portrait so Fire/phone coords match Handsets assumptions.
+    try:
+        import screen_control as sc  # noqa: WPS433 — optional fleet dep
+
+        sc.apply_portrait_lock(serial)
+    except Exception:  # noqa: BLE001
+        pass
     launch_play_store(serial)
     time.sleep(1.5)
     for _ in range(2):

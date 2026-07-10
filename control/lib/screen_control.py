@@ -5,13 +5,14 @@ All stayturgid Mac scripts that send input events (tap, swipe, keyevent) must
 run inside ScreenControlSession. The session:
 
   1. Clears PiP / floating overlays that can steal taps (dumpsys + dismiss).
-  2. Requests consent on-device (agent-presence request-screen).
-  3. Turns on accessibility display inversion (Mac adb — authoritative).
-  4. Starts the on-device presence indicator (torch, notification via SSH).
-  5. Refuses further input if inversion is off (fail closed).
-  6. On exit (batch endpoint): best-effort restore of the foreground
+  2. Locks natural **portrait** (auto-rotate off; restores prefs on exit).
+  3. Requests consent on-device (agent-presence request-screen).
+  4. Turns on accessibility display inversion (Mac adb — authoritative).
+  5. Starts the on-device presence indicator (torch, notification via SSH).
+  6. Refuses further input if inversion is off (fail closed).
+  7. On exit (batch endpoint): best-effort restore of the foreground
      activity that was showing when the session started, then inversion
-     off + presence off.
+     off + presence off + rotation prefs restored.
 
 Raw `adb shell input …` outside this wrapper can still bypass the policy;
 project scripts must not do that.
@@ -49,6 +50,9 @@ PRESENCE_SCRIPT_LEGACY = "~/.stayturgid/bin/agent-presence.sh"
 # Re-assert inversion + extend presence lease during long held batches
 # (gaps between dependent UI steps where we are not tapping).
 HOLD_KEEPALIVE_SEC = 45
+# Portrait lock while the session holds the glass (user_rotation degrees).
+PORTRAIT_USER_ROTATION = 0
+_ROTATION_KEYS = ("accelerometer_rotation", "user_rotation")
 
 
 # pkg/activity from dumpsys window / activity lines.
@@ -114,6 +118,87 @@ def set_inversion(serial, enabled):
         serial, "settings", "put", "secure", INVERSION_KEY, state
     )
     return rc == 0 and inversion_enabled(serial) == enabled
+
+
+def _get_system_setting(serial, key):
+    rc, out = mac_adb_shell(serial, "settings", "get", "system", key)
+    if rc != 0:
+        return None
+    val = out.strip()
+    if not val or val == "null":
+        return None
+    return val
+
+
+def read_rotation_settings(serial):
+    """Current system rotation prefs (accelerometer_rotation, user_rotation)."""
+    return {k: _get_system_setting(serial, k) for k in _ROTATION_KEYS}
+
+
+def apply_portrait_lock(serial):
+    """Disable auto-rotate and pin natural portrait (user_rotation=0).
+
+    Uses system settings plus best-effort ``cmd window set-user-rotation`` /
+    ``wm set-user-rotation`` so OEM UIs that ignore settings still settle.
+    """
+    ok = True
+    for key, val in (
+        ("accelerometer_rotation", "0"),
+        ("user_rotation", str(PORTRAIT_USER_ROTATION)),
+    ):
+        rc, _out = mac_adb_shell(
+            serial, "settings", "put", "system", key, val, timeout=10
+        )
+        ok = ok and rc == 0
+    # Android 11+ window window (ignore failures on older builds).
+    for args in (
+        ("cmd", "window", "set-user-rotation", "lock", str(PORTRAIT_USER_ROTATION)),
+        ("wm", "set-user-rotation", "lock", str(PORTRAIT_USER_ROTATION)),
+        ("wm", "user-rotation", "lock", str(PORTRAIT_USER_ROTATION)),
+    ):
+        rc, _out = mac_adb_shell(serial, *args, timeout=10)
+        if rc == 0:
+            break
+    return ok
+
+
+def lock_portrait_orientation(serial):
+    """Save rotation prefs, then lock portrait for the session."""
+    saved = read_rotation_settings(serial)
+    if not apply_portrait_lock(serial):
+        sys.stderr.write(
+            "WARN: failed to lock portrait orientation on %s\n" % serial
+        )
+    return saved
+
+
+def restore_rotation_settings(serial, saved):
+    """Restore rotation prefs captured at session start."""
+    if not saved:
+        return True
+    ok = True
+    # Free any window-manager lock before restoring settings values.
+    for args in (
+        ("cmd", "window", "set-user-rotation", "free"),
+        ("wm", "set-user-rotation", "free"),
+        ("wm", "user-rotation", "free"),
+    ):
+        rc, _out = mac_adb_shell(serial, *args, timeout=10)
+        if rc == 0:
+            break
+    for key in _ROTATION_KEYS:
+        val = saved.get(key)
+        if val is None:
+            continue
+        rc, _out = mac_adb_shell(
+            serial, "settings", "put", "system", key, val, timeout=10
+        )
+        ok = ok and rc == 0
+    if not ok:
+        sys.stderr.write(
+            "WARN: failed to restore rotation settings on %s\n" % serial
+        )
+    return ok
 
 
 def get_default_ime(serial):
@@ -295,6 +380,7 @@ class ScreenControlSession(object):
         self._skip = os.environ.get("STAYTURGID_SKIP_PRESENCE") == "1"
         self._saved_ime = None
         self._saved_component = None
+        self._saved_rotation = None
         self._stop_keepalive = threading.Event()
         self._keepalive_thread = None
         self._lease_session_id = None
@@ -370,6 +456,7 @@ class ScreenControlSession(object):
                     ssh_presence(self.host, "guard", self.label, self.agent)
                 if self._lease_acquired:
                     dsl.heartbeat(self.host, session_id=self._lease_session_id)
+                apply_portrait_lock(self.serial)
             except Exception as e:  # noqa: BLE001
                 sys.stderr.write(
                     "WARN: screen-control keepalive on %s: %s\n" % (self.host, e)
@@ -406,6 +493,7 @@ class ScreenControlSession(object):
         _run(["adb", "-s", self.serial, "wait-for-device"], timeout=30)
         # Capture before clearance/consent so we restore what the human saw.
         self._saved_component = get_foreground_component(self.serial)
+        self._saved_rotation = lock_portrait_orientation(self.serial)
         cleared = uc.clear_ui_obstructions(self.serial, mac_adb_shell)
         if cleared:
             print("Cleared UI obstructions on %s: %s" % (self.host, ", ".join(cleared)))
@@ -488,6 +576,7 @@ class ScreenControlSession(object):
             sys.stderr.write(
                 "WARN: failed to restore keyboard IME on %s\n" % self.serial
             )
+        restore_rotation_settings(self.serial, self._saved_rotation)
         self._release_cross_project_lease()
         self.active = False
         return False

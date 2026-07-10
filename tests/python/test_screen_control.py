@@ -66,6 +66,8 @@ def test_skip_presence_still_enables_inversion(monkeypatch, tmp_path):
     monkeypatch.setattr(sc.ScreenControlSession, "_stop_keepalive_thread", lambda self: None)
     monkeypatch.setattr(sc.dev, "device_row", lambda *a, **k: None)
     monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-s24")
+    monkeypatch.setattr(sc, "lock_portrait_orientation", lambda _s: {})
+    monkeypatch.setattr(sc, "restore_rotation_settings", lambda *a, **k: True)
     session.__enter__()
     assert session.active is True
     assert ("inv", True) in calls
@@ -146,6 +148,8 @@ def test_session_restores_prior_screen_on_exit(monkeypatch):
     )
     monkeypatch.setattr(sc, "set_inversion", lambda _s, en: True)
     monkeypatch.setattr(sc, "restore_default_ime", lambda *a, **k: True)
+    monkeypatch.setattr(sc, "lock_portrait_orientation", lambda _s: {"user_rotation": "1"})
+    monkeypatch.setattr(sc, "restore_rotation_settings", lambda *a, **k: True)
     monkeypatch.setattr(
         sc,
         "restore_foreground",
@@ -218,3 +222,93 @@ def test_ssh_presence_timeout_returns_124(monkeypatch):
     rc, out = sc.ssh_presence("hd8", "request-screen", "hd8", "Auto")
     assert rc == 124
     assert "timed out" in out
+
+
+def test_apply_portrait_lock_sets_system_settings(monkeypatch):
+    calls = []
+
+    def fake_shell(serial, *args, **kw):
+        calls.append((serial, args))
+        return 0, ""
+
+    monkeypatch.setattr(sc, "mac_adb_shell", fake_shell)
+    assert sc.apply_portrait_lock("serial-1") is True
+    assert (
+        "serial-1",
+        ("settings", "put", "system", "accelerometer_rotation", "0"),
+    ) in calls
+    assert (
+        "serial-1",
+        ("settings", "put", "system", "user_rotation", "0"),
+    ) in calls
+    # Best-effort window-manager lock (first successful variant is enough).
+    assert any(
+        c[0] == "serial-1" and c[1][:2] in (("cmd", "window"), ("wm", "set-user-rotation"), ("wm", "user-rotation"))
+        for c in calls
+    )
+
+
+def test_restore_rotation_settings_restores_saved(monkeypatch):
+    calls = []
+
+    def fake_shell(serial, *args, **kw):
+        calls.append((serial, args))
+        return 0, ""
+
+    monkeypatch.setattr(sc, "mac_adb_shell", fake_shell)
+    saved = {"accelerometer_rotation": "1", "user_rotation": "3"}
+    assert sc.restore_rotation_settings("serial-1", saved) is True
+    assert (
+        "serial-1",
+        ("settings", "put", "system", "accelerometer_rotation", "1"),
+    ) in calls
+    assert (
+        "serial-1",
+        ("settings", "put", "system", "user_rotation", "3"),
+    ) in calls
+    assert any(c[1][:1] == ("cmd",) or c[1][:1] == ("wm",) for c in calls)
+
+
+def test_session_locks_portrait_on_enter_and_restores_on_exit(monkeypatch, tmp_path):
+    monkeypatch.setenv("DEVICE_SCREEN_CONTROL_DIR", str(tmp_path / "dsc"))
+    monkeypatch.setenv("DEVICE_SCREEN_CONTROL_PROJECT", "stayturgid")
+    rotation_calls = []
+    # resolve_adb is called in __init__ — mock first.
+    monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-s24")
+    monkeypatch.setattr(sc.dev, "device_row", lambda *a, **k: None)
+    session = sc.ScreenControlSession("s24", skip_request=True)
+    session._skip = True
+    monkeypatch.setattr(
+        sc,
+        "_run",
+        lambda *a, **k: type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})(),
+    )
+    monkeypatch.setattr(sc.uc, "clear_ui_obstructions", lambda *a, **k: [])
+    monkeypatch.setattr(sc, "get_default_ime", lambda _s: "com.example/.Ime")
+    monkeypatch.setattr(sc, "get_foreground_component", lambda _s: None)
+    monkeypatch.setattr(sc, "set_inversion", lambda _s, en: True)
+    monkeypatch.setattr(
+        sc,
+        "lock_portrait_orientation",
+        lambda s: rotation_calls.append(("lock", s))
+        or {"accelerometer_rotation": "1", "user_rotation": "2"},
+    )
+    monkeypatch.setattr(
+        sc,
+        "restore_rotation_settings",
+        lambda s, saved: rotation_calls.append(("restore", s, saved)) or True,
+    )
+    monkeypatch.setattr(sc.ScreenControlSession, "_start_keepalive", lambda self: None)
+    monkeypatch.setattr(sc.ScreenControlSession, "_stop_keepalive_thread", lambda self: None)
+    session.__enter__()
+    assert session.serial == "serial-s24"
+    assert session._saved_rotation == {"accelerometer_rotation": "1", "user_rotation": "2"}
+    assert ("lock", "serial-s24") in rotation_calls
+    monkeypatch.setattr(sc, "restore_default_ime", lambda *a, **k: True)
+    monkeypatch.setattr(sc, "restore_foreground", lambda *a, **k: True)
+    session.__exit__(None, None, None)
+    assert (
+        "restore",
+        "serial-s24",
+        {"accelerometer_rotation": "1", "user_rotation": "2"},
+    ) in rotation_calls
