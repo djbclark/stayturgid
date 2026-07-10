@@ -1,9 +1,9 @@
 ---
-# UI-TARS VLM sidecar: llama.cpp, model weights, launchd agent, health ensure.
+# UI-TARS VLM sidecar: llama.cpp, model weights, launchd plist install.
+# Health/start ensure runs in mac-agents-ensure.yml (every deploy).
 #   ansible-playbook ansible/playbooks/mac-vlm.yml -e stayturgid_vlm_enabled=true
 #   --tags vlm-models    brew + ~6GB download only
-#   --tags vlm-service   install launchd (models must exist; needs stayturgid_vlm_enabled)
-#   --tags vlm-ensure    start/restart when plist exists (runs on every mac-site deploy)
+#   --tags vlm-service   install launchd plist (models must exist; needs stayturgid_vlm_enabled)
 - name: stayturgid Mac UI-TARS VLM install
   hosts: localhost
   connection: local
@@ -120,63 +120,9 @@
       register: _ui_tars_plist
       tags: [vlm, vlm-service]
 
-    - name: Load and start UI-TARS launchd agent
-      community.general.launchd:
-        name: "{{ ui_tars_service_label }}"
-        state: "{{ 'reloaded' if _ui_tars_plist.changed else 'started' }}"
-        enabled: true
+    - name: Record UI-TARS launchd label for reload on ensure pass
+      ansible.builtin.set_fact:
+        _mac_launchd_reload_labels: >-
+          {{ (_mac_launchd_reload_labels | default([]))
+             + ([ui_tars_service_label] if _ui_tars_plist.changed else []) }}
       tags: [vlm, vlm-service]
-
-    - name: Wait for UI-TARS /health after install
-      ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ ui_tars_port }}/health"
-        status_code: 200
-      register: _ui_tars_health_install
-      until: _ui_tars_health_install.status == 200
-      retries: 240
-      delay: 1
-      tags: [vlm, vlm-service]
-
-- name: stayturgid Mac UI-TARS VLM ensure
-  hosts: localhost
-  connection: local
-  gather_facts: true
-  vars_files:
-    - vars/mac.yml
-  tags: [mac, vlm-ensure, always]
-  tasks:
-    - name: Skip VLM ensure on non-macOS
-      ansible.builtin.meta: end_host
-      when: ansible_facts['os_family'] != 'Darwin'
-
-    - name: Stat UI-TARS launchd plist
-      ansible.builtin.stat:
-        path: "{{ ui_tars_service_plist }}"
-      register: _ui_tars_plist_stat
-
-    - name: Skip VLM ensure when service not installed
-      ansible.builtin.meta: end_host
-      when: not _ui_tars_plist_stat.stat.exists
-
-    - name: Probe UI-TARS /health
-      ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ ui_tars_port }}/health"
-        status_code: 200
-      register: _ui_tars_health_probe
-      failed_when: false
-
-    - name: Start or restart UI-TARS launchd agent when unhealthy
-      community.general.launchd:
-        name: "{{ ui_tars_service_label }}"
-        state: restarted
-        enabled: true
-      when: _ui_tars_health_probe.status is not defined or _ui_tars_health_probe.status != 200
-
-    - name: Wait for UI-TARS /health
-      ansible.builtin.uri:
-        url: "http://127.0.0.1:{{ ui_tars_port }}/health"
-        status_code: 200
-      register: _ui_tars_health_ensure
-      until: _ui_tars_health_ensure.status == 200
-      retries: 120
-      delay: 2

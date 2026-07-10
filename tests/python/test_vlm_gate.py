@@ -112,7 +112,7 @@ def test_ensure_server_kickstarts_launchd(monkeypatch, tmp_path):
     monkeypatch.setattr(vlm.subprocess, "run", fake_run)
     assert vlm.ensure_server(start=True) is True
     assert calls[0][0] == "ansible-playbook"
-    assert "vlm-ensure" in calls[0]
+    assert "agents-ensure" in calls[0]
 
 
 def test_verify_strict_unavailable(monkeypatch, tmp_path):

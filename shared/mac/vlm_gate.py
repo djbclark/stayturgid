@@ -118,15 +118,6 @@ def server_healthy() -> bool:
         return False
 
 
-def _kickstart_launchd() -> None:
-    domain = "gui/%d" % os.getuid()
-    subprocess.run(
-        ["launchctl", "kickstart", "-k", "%s/%s" % (domain, LAUNCHAGENT_LABEL)],
-        check=False,
-        timeout=30,
-    )
-
-
 def _ansible_mac_vlm(*, tags: str, install: bool = False) -> None:
     env = os.environ.copy()
     env["ANSIBLE_CONFIG"] = str(ANSIBLE_CFG)
@@ -154,7 +145,7 @@ def ensure_server(start: bool = True) -> bool:
         return False
     if os.uname().sysname == "Darwin":
         if LAUNCHAGENT_PLIST.is_file():
-            _ansible_mac_vlm(tags="vlm-ensure")
+            _ansible_mac_vlm(tags="agents-ensure")
         else:
             _ansible_mac_vlm(tags="vlm-service", install=True)
     elif SERVER_SH.is_file():

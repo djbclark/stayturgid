@@ -50,10 +50,11 @@ ansible-playbook ansible/playbooks/mac-site.yml --tags mac
 | Tag | What |
 |-----|------|
 | `prereqs` | Homebrew bootstrap (curl install.sh if needed), formulae (adb, python, pipx, git, ansible, scrcpy), pipx uiautomator2, galaxy collections |
-| `agents` | `devices.conf`, SSH fragment, `com.stayturgid.*` launchd (`community.general.launchd`) |
+| `agents` | `devices.conf`, SSH fragment, `com.stayturgid.*` launchd plists |
+| `agents-ensure` | Load/heal all control-node launchd jobs (`community.general.launchd` + HTTP probes) |
 | `vlm-models` | `llama.cpp` + UI-TARS weights (~6 GB); needs `-e stayturgid_vlm_enabled=true` |
-| `vlm-service` | `homebrew.mxcl.ui-tars` launchd install; needs models + `stayturgid_vlm_enabled=true` |
-| `vlm-ensure` | Probe `/health`; `launchd` restart when down (runs on every deploy if plist exists) |
+| `vlm-service` | `homebrew.mxcl.ui-tars` plist install; needs models + `stayturgid_vlm_enabled=true` |
+| `vlm-ensure` | Alias for `agents-ensure` (UI-TARS `/health` heal included) |
 
 `site.yml` imports `mac-site.yml` at the end. `deploy_fleet.py` re-runs it on partial
 (`--limit`) deploys because Ansible skips localhost when a device limit is set.
@@ -128,7 +129,8 @@ ansible/
   playbooks/mac-site.yml         — Mac localhost: prereqs + agents + optional VLM
   playbooks/mac-prereqs.yml      — Homebrew + galaxy collections
   playbooks/mac.yml              — devices.conf + com.stayturgid.* launchd
-  playbooks/mac-vlm.yml          — UI-TARS (optional)
+  playbooks/mac-vlm.yml          — UI-TARS install (optional)
+  playbooks/mac-agents-ensure.yml — launchd load/heal every deploy
   playbooks/preflight.yml        — SSH probe + conditional adb bootstrap
   playbooks/fleet.yml
   playbooks/bootstrap.yml

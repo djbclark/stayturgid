@@ -1,0 +1,78 @@
+---
+# Ensure Mac control-node launchd agents are loaded and healthy.
+# Runs on every mac-site deploy (tag agents-ensure / always).
+#   ansible-playbook ansible/playbooks/mac-agents-ensure.yml
+- name: stayturgid Mac launchd ensure
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files:
+    - vars/mac.yml
+  tags: [mac, agents-ensure, vlm-ensure, always]
+  tasks:
+    - name: Skip launchd ensure on non-macOS
+      ansible.builtin.meta: end_host
+      when: ansible_facts['os_family'] != 'Darwin'
+
+    - name: Initialize launchd ensure service list
+      ansible.builtin.set_fact:
+        _mac_launchd_ensure_services: []
+
+    - name: Add core stayturgid launchd agents to ensure list
+      ansible.builtin.set_fact:
+        _mac_launchd_ensure_services: "{{ _mac_launchd_ensure_services + [item] }}"
+      loop:
+        - name: com.stayturgid.access-monitor
+          plist: "{{ agents_dir }}/com.stayturgid.access-monitor.plist"
+        - name: com.stayturgid.fleet-health
+          plist: "{{ agents_dir }}/com.stayturgid.fleet-health.plist"
+        - name: com.stayturgid.fire-help
+          plist: "{{ agents_dir }}/com.stayturgid.fire-help.plist"
+
+    - name: Add per-device adb-reconnect launchd agents to ensure list
+      ansible.builtin.set_fact:
+        _mac_launchd_ensure_services: >-
+          {{
+            _mac_launchd_ensure_services
+            + [{
+                'name': 'com.stayturgid.adb-reconnect-' ~ item,
+                'plist': agents_dir ~ '/com.stayturgid.adb-reconnect-' ~ item ~ '.plist'
+              }]
+          }}
+      loop: "{{ groups['stayturgid'] }}"
+
+    - name: Add gui-audit launchd agent when enabled
+      ansible.builtin.set_fact:
+        _mac_launchd_ensure_services: >-
+          {{
+            _mac_launchd_ensure_services
+            + [{
+                'name': 'com.stayturgid.gui-audit',
+                'plist': agents_dir ~ '/com.stayturgid.gui-audit.plist'
+              }]
+          }}
+      when: stayturgid_gui_audit_enabled | bool
+
+    - name: Stat UI-TARS launchd plist
+      ansible.builtin.stat:
+        path: "{{ ui_tars_service_plist }}"
+      register: _ui_tars_plist_stat
+
+    - name: Add UI-TARS keepalive launchd agent when installed
+      ansible.builtin.set_fact:
+        _mac_launchd_ensure_services: >-
+          {{
+            _mac_launchd_ensure_services
+            + [{
+                'name': ui_tars_service_label,
+                'plist': ui_tars_service_plist,
+                'health_url': 'http://127.0.0.1:' ~ (ui_tars_port | string) ~ '/health'
+              }]
+          }}
+      when: _ui_tars_plist_stat.stat.exists
+
+    - name: Ensure Mac launchd agents are loaded and healthy
+      ansible.builtin.include_tasks: tasks/mac_launchd_ensure.yml
+      vars:
+        mac_launchd_ensure_services: "{{ _mac_launchd_ensure_services }}"
+        mac_launchd_reload_labels: "{{ _mac_launchd_reload_labels | default([]) }}"
