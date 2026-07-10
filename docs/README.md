@@ -61,6 +61,8 @@ Speculative / alternate architectures. Index:
 |------|--------|
 | [version.json](../version.json) | Repo release version; optional on-device version notifier |
 | [examples/](../examples/) | Consumer Ansible playbooks (shipping patterns) |
+| [history/code-and-docs-review-2026-07-10.md](history/code-and-docs-review-2026-07-10.md) | Full code + docs review (2026-07-10); see also [history/code-review.md](history/code-review.md) |
+| [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md) | Operator tasks (credentials, deploy approval) — human-only |
 
 ## Typical combinations
 
