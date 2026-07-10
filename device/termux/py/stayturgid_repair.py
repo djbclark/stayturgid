@@ -214,10 +214,27 @@ def privileged_shell_expected():
 
 
 def ensure_wireless_debugging():
-    """Re-enable the Developer-options wireless-debugging toggle when shell can."""
-    wifi = sh_adb("settings get global adb_wifi_enabled")[1].strip()
+    """Proactively enable the Developer-options wireless-debugging toggle.
+
+    Called on every boot cycle *before* the privileged-shell probe so that
+    a disabled toggle is caught and repaired even when 5555 was temporarily
+    down.  Returns one of: 'up', 'repaired', 'FAILED', 'NO_SHELL'.
+    """
+    # Try the settings check; if ADB is unreachable, attempt reconnect first.
+    _rc, raw = sh_adb("settings get global adb_wifi_enabled")
+    wifi = raw.strip()
+    if wifi in ("null", ""):
+        # ADB likely disconnected — reconnect and retry.
+        run(["adb", "connect", "localhost:5555"])
+        time.sleep(1)
+        _rc, raw = sh_adb("settings get global adb_wifi_enabled")
+        wifi = raw.strip()
     if wifi in ("1", "true"):
         return "up"
+    if wifi in ("null", ""):
+        log("wireless debugging: cannot reach shell (adb_wifi_enabled=%s)" % wifi)
+        return "NO_SHELL"
+    # Toggle is off — try to enable via settings put.
     sh_adb("settings put global adb_wifi_enabled 1")
     time.sleep(2)
     wifi2 = sh_adb("settings get global adb_wifi_enabled")[1].strip()
@@ -379,6 +396,14 @@ def main():
 
     # --- 2. privileged shell via Shizuku's adbd on localhost:5555 ---
     expect_shell = privileged_shell_expected()
+    # Proactively enable wireless debugging *before* the privileged-shell
+    # probe so a disabled toggle is caught and repaired even when 5555 was
+    # temporarily down.  On Fire OS this will return NO_SHELL (Mac must
+    # re-enable), but on Samsung/Pixel it self-heals immediately.
+    if expect_shell:
+        wifi = ensure_wireless_debugging()
+    else:
+        wifi = "skip"
     if not expect_shell:
         have_sh = False
         port = "skip"
@@ -389,7 +414,7 @@ def main():
         have_sh = True
         port = "open"
         sh_adb("setprop service.adb.tcp.port 5555")  # keep 5555 sticky
-        wifi = ensure_wireless_debugging()
+        # wifi already set by proactive ensure_wireless_debugging() above
     else:
         have_sh = False
         port = "CLOSED_NO_SHELL"
