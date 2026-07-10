@@ -8,6 +8,7 @@ try:
     from ansible_collections.stayturgid.android_common.plugins.module_utils import adb_shell
 except ImportError:
     import adb_shell  # noqa: F401 — Mac CLI adds module_utils to sys.path
+import time
 
 BATTERY_APPOPS = ("RUN_ANY_IN_BACKGROUND", "RUN_IN_BACKGROUND")
 UNUSED_APPOPS = (("AUTO_REVOKE_PERMISSIONS_IF_UNUSED", "ignore"),)
@@ -30,6 +31,12 @@ def ensure_appop(run_command, device, package, op, mode, check_mode=False):
 def ensure_permission(run_command, device, package, permission, check_mode=False):
     if check_mode:
         return True, "would_grant"
+    # Android 13+ (SDK 33+): POST_NOTIFICATIONS silently fails when the
+    # target app is in stopped state (never launched since install or last
+    # force-stop).  Force-start it so the permission controller initializes.
+    if permission == "android.permission.POST_NOTIFICATIONS":
+        adb_shell.monkey_launch(run_command, device, package)
+        time.sleep(2)
     changed, status = adb_shell.pm_grant(run_command, device, package, permission)
     return changed, status
 

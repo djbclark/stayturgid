@@ -32,6 +32,22 @@ def package_installed(run_command, device, package):
     return needle in normalize_adb_output(out)
 
 
+def monkey_launch(run_command, device, package):
+    """Force-start an app via monkey so its permission controller initializes.
+
+    Android 13+ (SDK 33+) requires the permission controller to have run
+    at least once before ``pm grant`` takes effect for POST_NOTIFICATIONS.
+    Without this, ``pm grant`` returns 0 (success) but the permission
+    stays ``granted=false`` in dumpsys.  Calling monkey with the LAUNCHER
+    category is the lightest way to un-stop the package.
+    """
+    return adb_shell(
+        run_command,
+        device,
+        "monkey -p %s -c android.intent.category.LAUNCHER 1 2>/dev/null" % package,
+    )
+
+
 def pm_grant(run_command, device, package, permission):
     rc, out, err = adb_shell(
         run_command,
@@ -108,11 +124,7 @@ def standby_bucket_get(run_command, device, package):
 
 
 def standby_bucket_set(run_command, device, package, bucket):
-    return adb_shell(
-        run_command,
-        device,
-        "am set-standby-bucket %s %s" % (package, bucket),
-    )
+    return adb_shell(run_command, device, "am set-standby-bucket %s %s" % (package, bucket))
 
 
 def dumpsys_package(run_command, device, package):
@@ -120,14 +132,26 @@ def dumpsys_package(run_command, device, package):
 
 
 def parse_ungranted_runtime_permissions(dumpsys_output):
-    """Return permission names still granted=false in dumpsys package output."""
-    import re
+    """Return permission names still granted=false in dumpsys package output.
 
+    Android ``dumpsys package`` may contain permission entries for multiple
+    users (user 0 + work profiles).  We only care about user 0 (the first
+    section) since that is where fleet apps run.  Sections are separated by
+    lines containing only ``--``.
+    """
+    import re
     text = normalize_adb_output(dumpsys_output)
     perms = []
     current = None
+    in_user0 = True  # first section is user 0
     for line in text.splitlines():
         stripped = line.strip()
+        # Section separator between user profiles
+        if stripped == "--":
+            in_user0 = False
+            continue
+        if not in_user0:
+            continue
         name = re.match(r"^((?:android|com)\.[\w.]+):$", stripped)
         if name:
             current = name.group(1)
