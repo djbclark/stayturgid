@@ -106,6 +106,35 @@ def issues_from_rest(rest: str) -> list[str]:
     return [x for x in raw.split(",") if x]
 
 
+def host_from_access_line(line: str) -> str | None:
+    m = re.match(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+(\S+)\s+", line.strip())
+    return m.group(2) if m else None
+
+
+def partition_access_hits(
+    hits: list[str], recovered_hosts: set[str]
+) -> tuple[list[str], list[str]]:
+    """Split access LOST lines: active (still alarming) vs historical (host ok now)."""
+    active: list[str] = []
+    historical: list[str] = []
+    for line in hits:
+        host = host_from_access_line(line)
+        if host and host in recovered_hosts:
+            historical.append(line)
+        else:
+            active.append(line)
+    return active, historical
+
+
+def ok_host_names(ok_hosts: list[str]) -> set[str]:
+    names: set[str] = set()
+    for line in ok_hosts:
+        name = (line.split() or [""])[0]
+        if name:
+            names.add(name)
+    return names
+
+
 def recent_access_lost(hours: float) -> list[str]:
     if not ACCESS_LOG.is_file():
         return []
@@ -184,20 +213,30 @@ def main(argv: list[str] | None = None) -> int:
             ok_hosts.append("%s (ok, last=%.0fm)" % (host, age_min))
 
     access_hits = recent_access_lost(args.hours)
+    recovered = ok_host_names(ok_hosts)
+    active_access, historical_access = partition_access_hits(access_hits, recovered)
 
-    if not problems and not access_hits:
+    if not problems and not active_access:
         if not args.quiet_ok:
             print("fleet-health: OK — %s" % (", ".join(ok_hosts) or "no hosts"))
             print("log: %s" % LOG)
+            if historical_access:
+                print("note: resolved access-monitor events (not counted):")
+                for h in historical_access:
+                    print("  • %s" % h)
         return 0
 
     print("=== fleet-health PROBLEMS (tell the operator) ===")
     print("log: %s" % LOG)
     for p in problems:
         print("  • %s" % p)
-    if access_hits:
+    if active_access:
         print("recent access-monitor LOST/unreachable@2:")
-        for h in access_hits:
+        for h in active_access:
+            print("  • %s" % h)
+    if historical_access:
+        print("resolved access-monitor (host ok now — not counted):")
+        for h in historical_access:
             print("  • %s" % h)
     if ok_hosts:
         print("ok: %s" % ", ".join(ok_hosts))

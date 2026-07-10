@@ -55,6 +55,52 @@ def test_main_reports_problems(tmp_path, monkeypatch, capsys):
     assert "watchdog_stale" in out
 
 
+def test_main_ok_with_stale_access_lost(tmp_path, monkeypatch, capsys):
+    """Recovered host: old access LOST must not fail triage or make health."""
+    log = tmp_path / "logs" / "fleet-health.log"
+    access = tmp_path / "logs" / "access-monitor.log"
+    log.parent.mkdir(parents=True)
+    now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log.write_text("%s  s24 via adb:1.2.3.4:5555: sshd=ok issues=none\n" % now)
+    access.write_text(
+        "2026-07-09 08:42:17  s24 unreachable on all paths (consecutive: 2)\n"
+    )
+    state = tmp_path / "state" / "fleet-health"
+    state.mkdir(parents=True)
+    (state / "s24").write_text("0")
+    monkeypatch.setattr(cfh, "LOG", log)
+    monkeypatch.setattr(cfh, "STATE_DIR", state)
+    monkeypatch.setattr(cfh, "ACCESS_LOG", access)
+    rc = cfh.main(["--hours", "24"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "OK" in out
+    assert "resolved access-monitor" in out
+
+
+def test_main_fails_access_lost_when_host_not_ok(tmp_path, monkeypatch, capsys):
+    log = tmp_path / "logs" / "fleet-health.log"
+    access = tmp_path / "logs" / "access-monitor.log"
+    log.parent.mkdir(parents=True)
+    now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log.write_text("%s  p7a via adb:1.2.3.4:5555: sshd=ok issues=none\n" % now)
+    access.write_text(
+        "%s  s24 unreachable on all paths (consecutive: 2)\n"
+        % dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    )
+    state = tmp_path / "state" / "fleet-health"
+    state.mkdir(parents=True)
+    (state / "p7a").write_text("0")
+    monkeypatch.setattr(cfh, "LOG", log)
+    monkeypatch.setattr(cfh, "STATE_DIR", state)
+    monkeypatch.setattr(cfh, "ACCESS_LOG", access)
+    rc = cfh.main(["--hours", "24"])
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "PROBLEMS" in out
+    assert "s24 unreachable" in out
+
+
 def test_main_ok(tmp_path, monkeypatch, capsys):
     log = tmp_path / "logs" / "fleet-health.log"
     log.parent.mkdir(parents=True)
