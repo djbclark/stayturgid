@@ -93,6 +93,30 @@ the plist exists, `--tags vlm-service` when installing). Every `make deploy` run
 | `STAYTURGID_VLM_PORT` | `8081` | Port |
 | `STAYTURGID_VLM_TIMEOUT` | `900` | Inference timeout |
 | `STAYTURGID_VLM_MAX_WIDTH` | `720` | Downscale width |
+| `STAYTURGID_VLM_CLOUD` | `auto` | Cloud backend: `auto` / `gemini` / `claude` / `both` / `off` |
+| `STAYTURGID_VLM_CLOUD_ESCALATE` | `1` | Escalate to cloud when local fails / low conf / down |
+| `STAYTURGID_GEMINI_MODEL` | `gemini-3.1-flash-lite` | Gemini model id |
+| `STAYTURGID_CLAUDE_MODEL` | `claude-sonnet-5` | Claude model id |
+
+### Cloud API keys (operator-local, never git)
+
+```text
+~/.config/stayturgid/gemini.env       # GEMINI_API_KEY=...
+~/.config/stayturgid/anthropic.env    # ANTHROPIC_API_KEY=...
+```
+
+`chmod 600` both files. Loaded by `control/lib/vlm_cloud.py` (env vars win if already set).
+
+Smoke test:
+
+```bash
+python3 control/bin/vlm_check.py --cloud-only
+python3 control/bin/vlm_check.py              # local + cloud
+```
+
+**Policy:** local UI-TARS first (private/free); cloud Gemini then Claude only on
+unavailable / unparseable / low confidence / failed local gate. Not used on the
+5-minute fleet-health hot path.
 
 ---
 
@@ -102,9 +126,10 @@ the plist exists, `--tags vlm-service` when installing). Every `make deploy` run
 |------|------|
 | `ansible/playbooks/control_node/vlm.yml` | Ansible: brew, models, launchd |
 | `control/vlm/ui-tars/` | server run scripts, status/stop helpers |
-| `control/lib/vlm_gate.py` | `VlmGate`, `ensure_server()` |
+| `control/lib/vlm_gate.py` | `VlmGate`, `ensure_server()`, cloud escalate |
+| `control/lib/vlm_cloud.py` | Gemini + Claude backends + key loading |
 | `control/lib/vlm_helpers.py` | `verify_shot` helpers |
-| `control/bin/vlm_check.py` | smoke test |
+| `control/bin/vlm_check.py` | local + cloud smoke test |
 
 Checks: `play_autoupdate_dont`, `aurora_autoupdate_dont`, `no_gms_crash_dialog`,
 `play_protect_clear`, `neo_shizuku_installer`, `aurora_shizuku_installer` — see

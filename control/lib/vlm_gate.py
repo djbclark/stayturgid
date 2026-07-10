@@ -24,6 +24,11 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+try:
+    import vlm_cloud as cloud  # type: ignore
+except ImportError:  # pragma: no cover
+    cloud = None  # type: ignore
+
 REPO = Path(__file__).resolve().parents[2]
 UI_TARS_DIR = REPO / "control" / "vlm" / "ui-tars"
 SERVER_SH = UI_TARS_DIR / "ui_tars_server.sh"
@@ -257,14 +262,73 @@ def adb_screencap(serial: str, dest: Path) -> Path:
     return dest
 
 
+def _score_check(
+    check: str,
+    parsed: dict[str, Any] | None,
+    *,
+    min_confidence: float,
+) -> tuple[bool, dict[str, Any]]:
+    """Apply check-specific ok rules. Returns (ok, detail_fields)."""
+    detail: dict[str, Any] = {}
+    if not parsed:
+        return False, {"reason": "unparseable_response"}
+    ok = bool(parsed.get("ok"))
+    try:
+        conf = float(parsed.get("confidence", 0.8 if ok else 0.2))
+    except (TypeError, ValueError):
+        conf = 0.8 if ok else 0.2
+    detail["confidence"] = conf
+    if check == "play_autoupdate_dont" and ok:
+        setting = str(parsed.get("setting", "unknown")).lower()
+        ok = setting in ("dont_auto_update", "don't_auto_update", "dont")
+        detail["setting"] = setting
+    if check == "no_gms_crash_dialog":
+        ok = bool(parsed.get("ok")) and not bool(parsed.get("crash_visible", False))
+    if check == "play_protect_clear":
+        ok = bool(parsed.get("ok")) and not bool(parsed.get("play_protect_visible", False))
+    if ok and conf < min_confidence:
+        ok = False
+        detail["reason"] = "low_confidence"
+    detail["ok"] = ok
+    return ok, detail
+
+
+def _should_escalate_cloud(
+    local_ready: bool,
+    local_detail: dict[str, Any] | None,
+    *,
+    min_confidence: float,
+) -> bool:
+    if cloud is None or not cloud.cloud_enabled() or not cloud.escalate_enabled():
+        return False
+    if not local_ready:
+        return True
+    if not local_detail:
+        return True
+    if local_detail.get("skipped"):
+        return True
+    if not local_detail.get("ok"):
+        return True
+    conf = float(local_detail.get("confidence") or 0)
+    if conf < min_confidence:
+        return True
+    return False
+
+
 class VlmGate:
-    """Vision verification gate using local UI-TARS."""
+    """Vision verification gate: local UI-TARS + optional cloud escalate."""
 
     def __init__(self, *, autostart: bool = True, allow_server_only: bool = False) -> None:
+        # Cloud keys make the gate usable even when local UI-TARS is off/down.
+        self.cloud_ready = bool(cloud is not None and cloud.cloud_enabled())
         self.ready = False
-        if not vlm_enabled() and not (allow_server_only and server_healthy()):
-            return
-        self.ready = ensure_server(start=autostart)
+        # Match historical local enablement: explicit STAYTURGID_VLM, or
+        # allow_server_only when the server is already up (or we may start it).
+        if vlm_enabled() or allow_server_only:
+            if vlm_enabled() or server_healthy() or autostart:
+                self.ready = ensure_server(start=autostart)
+            elif server_healthy():
+                self.ready = True
 
     def verify(
         self,
@@ -274,44 +338,100 @@ class VlmGate:
         min_confidence: float = 0.55,
         custom_prompt: str | None = None,
     ) -> tuple[bool, dict[str, Any]]:
-        if not self.ready:
-            skipped: dict[str, Any] = {"skipped": True, "reason": "vlm_unavailable"}
-            if vlm_strict() and vlm_enabled():
-                skipped["ok"] = False
-                return False, skipped
-            return True, skipped
         prompt = custom_prompt or CHECK_PROMPTS.get(check)
         if not prompt:
             return True, {"skipped": True, "reason": "unknown_check"}
-        t0 = time.time()
-        raw, parsed = ask_image(image_path, prompt)
-        elapsed = time.time() - t0
-        detail: dict[str, Any] = {
-            "check": check,
-            "raw": raw,
-            "parsed": parsed,
-            "elapsed_s": round(elapsed, 1),
-        }
-        if not parsed:
-            detail["ok"] = False
-            detail["reason"] = "unparseable_response"
-            return False, detail
-        ok = bool(parsed.get("ok"))
-        conf = float(parsed.get("confidence", 0.8 if ok else 0.2))
-        detail["confidence"] = conf
-        if check == "play_autoupdate_dont" and ok:
-            setting = str(parsed.get("setting", "unknown")).lower()
-            ok = setting in ("dont_auto_update", "don't_auto_update", "dont")
-            detail["setting"] = setting
-        if check == "no_gms_crash_dialog":
-            ok = bool(parsed.get("ok")) and not bool(parsed.get("crash_visible", False))
-        if check == "play_protect_clear":
-            ok = bool(parsed.get("ok")) and not bool(parsed.get("play_protect_visible", False))
-        if ok and conf < min_confidence:
-            ok = False
-            detail["reason"] = "low_confidence"
-        detail["ok"] = ok
-        return ok, detail
+
+        local_detail: dict[str, Any] | None = None
+        local_ok = False
+
+        if self.ready:
+            t0 = time.time()
+            try:
+                raw, parsed = ask_image(image_path, prompt)
+                local_ok, scored = _score_check(
+                    check, parsed, min_confidence=min_confidence
+                )
+                local_detail = {
+                    "check": check,
+                    "backend": "local-ui-tars",
+                    "raw": raw,
+                    "parsed": parsed,
+                    "elapsed_s": round(time.time() - t0, 1),
+                    **scored,
+                }
+            except (OSError, TimeoutError, urllib.error.URLError, json.JSONDecodeError) as e:
+                local_detail = {
+                    "check": check,
+                    "backend": "local-ui-tars",
+                    "ok": False,
+                    "reason": "local_error",
+                    "error": str(e)[:200],
+                    "elapsed_s": round(time.time() - t0, 1),
+                }
+                local_ok = False
+
+            if local_ok and not _should_escalate_cloud(
+                True, local_detail, min_confidence=min_confidence
+            ):
+                return True, local_detail or {"ok": True, "backend": "local-ui-tars"}
+
+        # Local unavailable / failed / low confidence → cloud (if configured).
+        if _should_escalate_cloud(
+            self.ready, local_detail, min_confidence=min_confidence
+        ) or (not self.ready and self.cloud_ready):
+            t1 = time.time()
+            try:
+                raw, parsed, backend = cloud.ask_cloud(
+                    image_path,
+                    prompt,
+                    prepare=prepare_image,
+                    timeout=min(DEFAULT_TIMEOUT, 120),
+                )
+                ok, scored = _score_check(
+                    check, parsed, min_confidence=min_confidence
+                )
+                detail: dict[str, Any] = {
+                    "check": check,
+                    "backend": "cloud-%s" % (backend or "unknown"),
+                    "raw": raw,
+                    "parsed": parsed,
+                    "elapsed_s": round(time.time() - t1, 1),
+                    "escalated_from": (local_detail or {}).get("backend"),
+                    "local": local_detail,
+                    **scored,
+                }
+                # If local had a pass and cloud disagrees without parse, keep local.
+                if not ok and local_ok and local_detail:
+                    local_detail = dict(local_detail)
+                    local_detail["cloud_attempt"] = detail
+                    return True, local_detail
+                return ok, detail
+            except Exception as e:  # noqa: BLE001
+                if local_detail is not None:
+                    local_detail = dict(local_detail)
+                    local_detail["cloud_error"] = str(e)[:200]
+                    if local_ok:
+                        return True, local_detail
+                    return False, local_detail
+                skipped: dict[str, Any] = {
+                    "skipped": True,
+                    "reason": "cloud_error",
+                    "error": str(e)[:200],
+                    "ok": False,
+                }
+                if vlm_strict() and (vlm_enabled() or self.cloud_ready):
+                    return False, skipped
+                return True, skipped
+
+        if local_detail is not None:
+            return local_ok, local_detail
+
+        skipped = {"skipped": True, "reason": "vlm_unavailable"}
+        if vlm_strict() and (vlm_enabled() or self.cloud_ready):
+            skipped["ok"] = False
+            return False, skipped
+        return True, skipped
 
     def require(self, image_path: Path, check: str, label: str = "") -> bool:
         ok, detail = self.verify(image_path, check)
@@ -320,8 +440,13 @@ class VlmGate:
             note = detail.get("parsed", {}) or {}
             notes = note.get("notes", detail.get("reason", ""))
             print(
-                "VLM BLOCK %s: %s (%.1fs)"
-                % (tag, notes, detail.get("elapsed_s", 0)),
+                "VLM BLOCK %s [%s]: %s (%.1fs)"
+                % (
+                    tag,
+                    detail.get("backend", "?"),
+                    notes,
+                    detail.get("elapsed_s", 0),
+                ),
                 flush=True,
             )
         return ok

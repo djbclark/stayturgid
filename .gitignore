@@ -34,3 +34,13 @@ termux_key
 termux_key.pub
 authorized_keys
 known_hosts
+
+# API keys / secrets (live under ~/.config/stayturgid/ — never commit)
+*.env
+!*.env.example
+**/gemini.env
+**/anthropic.env
+**/vlm-cloud.env
+**/play.env
+secrets/
+.secrets/

@@ -8,15 +8,27 @@ import vlm_gate as vlm
 
 
 def vlm_usable() -> bool:
-    """True when vision gates are enabled and llama-server responds."""
-    return vlm.vlm_enabled() and vlm.server_healthy()
+    """True when local UI-TARS and/or cloud VLM backends are available."""
+    try:
+        import vlm_cloud as cloud
+    except ImportError:
+        cloud = None  # type: ignore
+    local = vlm.vlm_enabled() and vlm.server_healthy()
+    remote = bool(cloud and cloud.cloud_enabled())
+    return local or remote
 
 
 def auto_verify_enabled() -> bool:
-    """Run VLM gates when server is up even if STAYTURGID_VLM is unset."""
-    if vlm.vlm_enabled():
-        return vlm.server_healthy()
-    return vlm.server_healthy()
+    """Run VLM gates when local server is up and/or cloud keys are configured."""
+    try:
+        import vlm_cloud as cloud
+    except ImportError:
+        cloud = None  # type: ignore
+    if vlm.server_healthy():
+        return True
+    if cloud and cloud.cloud_enabled():
+        return True
+    return False
 
 
 def verify_shot(shot: Path, check: str) -> tuple[bool, dict[str, Any]]:
