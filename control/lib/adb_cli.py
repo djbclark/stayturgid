@@ -63,32 +63,29 @@ def package_installed(serial: str, package: str) -> bool:
     return result.returncode == 0 and "package:" in (result.stdout or "")
 
 
-def start_autojs_file(serial: str, remote_path: str) -> None:
+def start_autojs_file(serial: str, remote_path: str, *, force_stop: bool = False) -> None:
     """Start an AutoJs6 script via RunIntentActivity only (never termux-open).
 
     Bare ``file://`` VIEW without the AutoJs6 component can surface Termux's
     "Save file in ~/downloads/" dialog (seen on Fire when heal used the wrong
-    open path). Explicit ``-n`` + ``--user 0`` keeps the intent on AutoJs6.
+    open path).  Explicit ``-n`` + ``--user 0`` keeps the intent on AutoJs6.
+
+    ``force_stop=True`` adds ``-S`` (force-stop before start) — needed on
+    Fire OS where AutoJs6 can get stuck and ``am start`` delivers the intent
+    to the zombie without running the script.
     """
     # Prefer content URI under external storage when path is under /sdcard.
     data = f"file://{remote_path}"
-    adb(
-        serial,
-        "shell",
-        "am",
-        "start",
-        "--user",
-        "0",
-        "-a",
-        "android.intent.action.VIEW",
-        "-d",
-        data,
-        "-t",
-        "application/x-javascript",
-        "-n",
-        f"{AUTOJS_PKG}/{AUTOJS_RUN}",
-        check=False,
-    )
+    cmd = ["shell", "am", "start", "--user", "0"]
+    if force_stop:
+        cmd.append("-S")
+    cmd.extend([
+        "-a", "android.intent.action.VIEW",
+        "-d", data,
+        "-t", "application/x-javascript",
+        "-n", f"{AUTOJS_PKG}/{AUTOJS_RUN}",
+    ])
+    adb(serial, *cmd, check=False)
 
 
 def ssh_ok(host: str, *, timeout: int = 5) -> bool:

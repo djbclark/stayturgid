@@ -22,8 +22,12 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write("usage: start_watchdog.py <p7a|s24|hd8|serial> [adb_serial]\n")
         return 2
     serial = argv[1] if len(argv) > 1 else adb.resolve_target(argv[0])
-    print(f"Starting main.js on {serial}...")
-    adb.start_autojs_file(serial, MAIN)
+    # Fire OS (hd8) can leave AutoJs6 stuck — am start delivers intent to the
+    # zombie instance without actually running the script.  -S force-stops first
+    # so the RunIntentActivity starts clean.  Harmless on phone OS too.
+    is_fire = "hd8" in (argv[0] if argv else "") or "fire" in serial.lower()
+    print(f"Starting main.js on {serial}{'  (force-stop first)' if is_fire else ''}...")
+    adb.start_autojs_file(serial, MAIN, force_stop=is_fire)
     time.sleep(3)
     tail = adb.adb(
         serial,
