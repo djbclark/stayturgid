@@ -53,6 +53,7 @@ Speculative / alternate architectures. Index:
 |------|--------|
 | [incubator/inferno-styx/](incubator/inferno-styx/) | Parked — Inferno/Styx fleet control |
 | [incubator/on-device-llm.md](incubator/on-device-llm.md) | Optional spike (OPTIONS **54** only if asked) |
+| [incubator/tablet-control-phone.md](incubator/tablet-control-phone.md) | Parked proposal — hd8→s24 Termux:X11 + scrcpy at tablet native res |
 
 ## Other
 

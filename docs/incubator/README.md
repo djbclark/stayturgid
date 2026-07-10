@@ -38,10 +38,15 @@ Each project gets a **subdirectory** (or a single note if tiny) with:
 docs/incubator/
   README.md                 ← this file
   on-device-llm.md          ← track E research (parked spike; OPTIONS may still list 54)
+  tablet-control-phone.md   ← hd8→s24 Termux:X11 + scrcpy native-res proposal (parked)
   inferno-styx/
     analysis.md             ← integration + battery verdict
     plan-original.md        ← full Inferno Termux fleet plan (do not execute)
 ```
+
+| Note | Status |
+|------|--------|
+| [tablet-control-phone.md](tablet-control-phone.md) | **Parked proposal** — control s24 from hd8 at tablet native res (Termux:X11 + scrcpy) |
 
 ## Candidates to add later (empty until real notes exist)
 
