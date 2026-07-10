@@ -1,9 +1,10 @@
 ---
-# UI-TARS VLM sidecar: llama.cpp, model weights, launchd agent.
+# UI-TARS VLM sidecar: llama.cpp, model weights, launchd agent, health ensure.
 #   ansible-playbook ansible/playbooks/mac-vlm.yml -e stayturgid_vlm_enabled=true
-#   --tags vlm-models   # brew + ~6GB download only
-#   --tags vlm-service  # launchd agent (models must exist)
-- name: stayturgid Mac UI-TARS VLM
+#   --tags vlm-models    brew + ~6GB download only
+#   --tags vlm-service   install launchd (models must exist; needs stayturgid_vlm_enabled)
+#   --tags vlm-ensure    start/restart when plist exists (runs on every mac-site deploy)
+- name: stayturgid Mac UI-TARS VLM install
   hosts: localhost
   connection: local
   gather_facts: true
@@ -11,11 +12,11 @@
     - vars/mac.yml
   tags: [mac, vlm]
   tasks:
-    - name: Skip VLM setup on non-macOS
+    - name: Skip VLM install on non-macOS
       ansible.builtin.meta: end_host
       when: ansible_facts['os_family'] != 'Darwin'
 
-    - name: Skip VLM tasks when disabled
+    - name: Skip VLM install when disabled
       ansible.builtin.meta: end_host
       when: not (stayturgid_vlm_enabled | bool)
 
@@ -58,7 +59,7 @@
         mode: "0755"
       tags: [vlm, vlm-service]
 
-    - name: Assert UI-TARS model weights exist before service install
+    - name: Stat UI-TARS model weights before service install
       ansible.builtin.stat:
         path: "{{ ui_tars_model_dir }}/{{ item }}"
       loop: "{{ ui_tars_models }}"
@@ -89,35 +90,23 @@
       failed_when: false
       tags: [vlm, vlm-service]
 
-    - name: Stop manual UI-TARS server if pid file exists
-      ansible.builtin.shell: |
-        set -euo pipefail
-        pid_file="{{ ui_tars_pid_file }}"
-        if [[ -f "$pid_file" ]]; then
-          pid="$(cat "$pid_file" 2>/dev/null || true)"
-          if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
-            kill "$pid" 2>/dev/null || true
-            sleep 2
-          fi
-          rm -f "$pid_file"
-        fi
-      args:
-        executable: /bin/bash
-      changed_when: false
+    - name: Remove manual UI-TARS server pid file when present
+      ansible.builtin.file:
+        path: "{{ ui_tars_pid_file }}"
+        state: absent
+      tags: [vlm, vlm-service]
+
+    - name: Unload legacy UI-TARS LaunchAgent
+      community.general.launchd:
+        name: "{{ ui_tars_legacy_service_label }}"
+        state: unloaded
+      failed_when: false
       tags: [vlm, vlm-service]
 
     - name: Remove legacy UI-TARS LaunchAgent plist
       ansible.builtin.file:
         path: "{{ ui_tars_legacy_service_plist }}"
         state: absent
-      register: _legacy_plist_removed
-      tags: [vlm, vlm-service]
-
-    - name: Boot out legacy UI-TARS LaunchAgent
-      ansible.builtin.shell: |
-        launchctl bootout "gui/$(id -u)" "{{ ui_tars_legacy_service_plist }}" 2>/dev/null || true
-      when: _legacy_plist_removed.changed
-      changed_when: true
       tags: [vlm, vlm-service]
 
     - name: Render UI-TARS launchd agent
@@ -131,33 +120,63 @@
       register: _ui_tars_plist
       tags: [vlm, vlm-service]
 
-    - name: Reload UI-TARS launchd agent
-      ansible.builtin.shell: |
-        launchctl bootout "gui/$(id -u)" "{{ ui_tars_service_plist }}" 2>/dev/null || true
-        launchctl bootstrap "gui/$(id -u)" "{{ ui_tars_service_plist }}"
-        launchctl kickstart -k "gui/$(id -u)/{{ ui_tars_service_label }}" 2>/dev/null || true
-      when: _ui_tars_plist.changed
-      changed_when: true
+    - name: Load and start UI-TARS launchd agent
+      community.general.launchd:
+        name: "{{ ui_tars_service_label }}"
+        state: "{{ 'reloaded' if _ui_tars_plist.changed else 'started' }}"
+        enabled: true
       tags: [vlm, vlm-service]
 
-    - name: Bootstrap UI-TARS launchd agent when plist unchanged but not loaded
-      ansible.builtin.shell: |
-        launchctl bootstrap "gui/$(id -u)" "{{ ui_tars_service_plist }}"
-        launchctl kickstart -k "gui/$(id -u)/{{ ui_tars_service_label }}" 2>/dev/null || true
-      when:
-        - not _ui_tars_plist.changed
-        - ui_tars_service_plist is file
-      register: _ui_tars_bootstrap
-      failed_when: false
-      changed_when: _ui_tars_bootstrap.rc == 0
+    - name: Wait for UI-TARS /health after install
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ ui_tars_port }}/health"
+        status_code: 200
+      register: _ui_tars_health_install
+      until: _ui_tars_health_install.status == 200
+      retries: 240
+      delay: 1
       tags: [vlm, vlm-service]
+
+- name: stayturgid Mac UI-TARS VLM ensure
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files:
+    - vars/mac.yml
+  tags: [mac, vlm-ensure, always]
+  tasks:
+    - name: Skip VLM ensure on non-macOS
+      ansible.builtin.meta: end_host
+      when: ansible_facts['os_family'] != 'Darwin'
+
+    - name: Stat UI-TARS launchd plist
+      ansible.builtin.stat:
+        path: "{{ ui_tars_service_plist }}"
+      register: _ui_tars_plist_stat
+
+    - name: Skip VLM ensure when service not installed
+      ansible.builtin.meta: end_host
+      when: not _ui_tars_plist_stat.stat.exists
+
+    - name: Probe UI-TARS /health
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ ui_tars_port }}/health"
+        status_code: 200
+      register: _ui_tars_health_probe
+      failed_when: false
+
+    - name: Start or restart UI-TARS launchd agent when unhealthy
+      community.general.launchd:
+        name: "{{ ui_tars_service_label }}"
+        state: restarted
+        enabled: true
+      when: _ui_tars_health_probe.status is not defined or _ui_tars_health_probe.status != 200
 
     - name: Wait for UI-TARS /health
       ansible.builtin.uri:
         url: "http://127.0.0.1:{{ ui_tars_port }}/health"
         status_code: 200
-      register: _ui_tars_health
-      until: _ui_tars_health.status == 200
-      retries: 240
-      delay: 1
-      tags: [vlm, vlm-service]
+      register: _ui_tars_health_ensure
+      until: _ui_tars_health_ensure.status == 200
+      retries: 120
+      delay: 2

@@ -5,7 +5,8 @@
 #   --tags prereqs          Homebrew + Galaxy collections only
 #   --tags agents           devices.conf + com.stayturgid.* launchd
 #   --tags vlm-models       UI-TARS weights (~6 GB)
-#   --tags vlm-service      UI-TARS launchd (requires models)
+#   --tags vlm-service      install launchd (models must exist; needs stayturgid_vlm_enabled)
+#   --tags vlm-ensure       probe /health; restart launchd when down (every mac-site deploy)
 #   -e stayturgid_vlm_enabled=true   required for any vlm-* tag tasks
 #
 # Imported at the end of site.yml; deploy_fleet.py also runs this on --limit deploys.

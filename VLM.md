@@ -63,9 +63,9 @@ make vlm-smoke          # stop/start QA (launchd required)
 make vlm-server         # manual background (no launchd)
 ```
 
-`shared/mac/vlm_gate.ensure_server()` runs Ansible (`mac-site.yml --tags vlm-service`) when
-the launchd plist is missing, kickstarts `homebrew.mxcl.ui-tars` when it exists, and waits
-for `/health`.
+`shared/mac/vlm_gate.ensure_server()` runs Ansible (`mac-site.yml --tags vlm-ensure` when
+the plist exists, `--tags vlm-service` when installing), then waits for `/health`.
+Every `make deploy` also runs `vlm-ensure` when the UI-TARS agent is installed.
 
 ---
 

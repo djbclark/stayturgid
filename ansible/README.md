@@ -49,16 +49,16 @@ ansible-playbook ansible/playbooks/mac-site.yml --tags mac
 
 | Tag | What |
 |-----|------|
-| `prereqs` | Homebrew: adb, python, pipx, git, ansible (+ fdroidcl/apkeep when app stores on) |
-| `agents` | `devices.conf`, SSH fragment, `com.stayturgid.*` launchd |
+| `prereqs` | Homebrew bootstrap (curl install.sh if needed), formulae (adb, python, pipx, git, ansible, scrcpy), pipx uiautomator2, galaxy collections |
+| `agents` | `devices.conf`, SSH fragment, `com.stayturgid.*` launchd (`community.general.launchd`) |
 | `vlm-models` | `llama.cpp` + UI-TARS weights (~6 GB); needs `-e stayturgid_vlm_enabled=true` |
-| `vlm-service` | `homebrew.mxcl.ui-tars` launchd; needs models + `stayturgid_vlm_enabled=true` |
+| `vlm-service` | `homebrew.mxcl.ui-tars` launchd install; needs models + `stayturgid_vlm_enabled=true` |
+| `vlm-ensure` | Probe `/health`; `launchd` restart when down (runs on every deploy if plist exists) |
 
 `site.yml` imports `mac-site.yml` at the end. `deploy_fleet.py` re-runs it on partial
 (`--limit`) deploys because Ansible skips localhost when a device limit is set.
 
-Manual / personal tools (not in Ansible): Handsets, `termux_key` / `adbkey` generation,
-`play.env`, Claude Code, scrcpy, uiautomator2.
+Still manual: Handsets, `termux_key` / `adbkey` generation, `play.env`, Claude Code, Node.
 
 ## Full fleet deploy
 

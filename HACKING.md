@@ -268,23 +268,21 @@ See [autojs6/README.md](autojs6/README.md) for details.
 
 ### 2.1 Install Homebrew and core tools
 
-Install Homebrew once (not managed by stayturgid Ansible):
+Homebrew itself and project formulae are installed by Ansible (`mac-prereqs.yml`) on
+`make deploy-mac` or `make deploy`:
 
 ```bash
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-```
-
-Project Mac prerequisites (adb, Python, pipx, git, Ansible) are installed idempotently
-by Ansible (`community.general.homebrew`) when you run fleet deploy or:
-
-```bash
-make deploy-mac          # or: ansible-playbook ansible/playbooks/mac-site.yml --tags prereqs
+make deploy-mac          # Homebrew bootstrap (if missing) + adb, python, pipx, git, ansible, scrcpy
 pipx ensurepath          # once, if pipx was just installed
 ```
 
-Personal tools (Handsets, uiautomator2, Claude Code, scrcpy) stay manual — see below.
-When app stores are re-enabled (`stayturgid_app_stores_enabled: true`), `make deploy-mac`
-also installs `fdroidcl` and `apkeep`.
+The playbook runs the standard Homebrew install script when `brew` is not on PATH, then
+uses `community.general.homebrew` for formulae. When app stores are re-enabled
+(`stayturgid_app_stores_enabled: true`), `fdroidcl` and `apkeep` are included too.
+`uiautomator2` is installed via `community.general.pipx`.
+
+Still manual: Handsets, SSH key generation (`termux_key`, `adbkey`), `play.env`,
+Claude Code, Node.
 
 ### 2.2 Install Handsets (primary Mac UI driver)
 
@@ -322,6 +320,8 @@ out — peer ADB is the Handsets starter there.
 
 uiautomator2 is optional for one-off Mac debugging. Prefer Handsets for fleet
 scripts. Never run u2 while a Handsets daemon holds UiAutomation.
+
+Installed by Ansible (`community.general.pipx`) on `make deploy-mac`. Manual:
 
 ```bash
 pipx install uiautomator2

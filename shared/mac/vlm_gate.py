@@ -127,18 +127,19 @@ def _kickstart_launchd() -> None:
     )
 
 
-def _ansible_mac_vlm_service() -> None:
+def _ansible_mac_vlm(*, tags: str, install: bool = False) -> None:
     env = os.environ.copy()
     env["ANSIBLE_CONFIG"] = str(ANSIBLE_CFG)
+    cmd = [
+        "ansible-playbook",
+        str(MAC_SITE_PLAYBOOK),
+        "--tags",
+        tags,
+    ]
+    if install:
+        cmd.extend(["-e", "stayturgid_vlm_enabled=true"])
     subprocess.run(
-        [
-            "ansible-playbook",
-            str(MAC_SITE_PLAYBOOK),
-            "--tags",
-            "vlm-service",
-            "-e",
-            "stayturgid_vlm_enabled=true",
-        ],
+        cmd,
         check=False,
         timeout=600,
         cwd=str(REPO),
@@ -152,10 +153,10 @@ def ensure_server(start: bool = True) -> bool:
     if not start:
         return False
     if os.uname().sysname == "Darwin":
-        if not LAUNCHAGENT_PLIST.is_file():
-            _ansible_mac_vlm_service()
+        if LAUNCHAGENT_PLIST.is_file():
+            _ansible_mac_vlm(tags="vlm-ensure")
         else:
-            _kickstart_launchd()
+            _ansible_mac_vlm(tags="vlm-service", install=True)
     elif SERVER_SH.is_file():
         # Non-macOS: no launchd — manual background server only.
         subprocess.run(["bash", str(SERVER_SH)], check=False, timeout=200)

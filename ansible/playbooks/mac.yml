@@ -126,11 +126,12 @@
       when: not (stayturgid_gui_audit_enabled | bool)
       register: gui_audit_removed
 
-    - name: Boot out gui-audit launchd agent when parked
-      ansible.builtin.shell: |
-        launchctl bootout "gui/$(id -u)" "{{ agents_dir }}/com.stayturgid.gui-audit.plist" 2>/dev/null || true
+    - name: Unload gui-audit launchd agent when parked
+      community.general.launchd:
+        name: com.stayturgid.gui-audit
+        state: unloaded
       when: gui_audit_removed.changed
-      changed_when: true
+      failed_when: false
 
     - name: Fetch peer-help pubkeys from Fire hosts (for Mac ForceCommand)
       ansible.builtin.command:
@@ -159,14 +160,34 @@
         - (item.stdout | trim | length) > 0
         - not (item.failed | default(false))
 
-    - name: Reload changed launchd agents
-      ansible.builtin.shell: |
-        launchctl bootout "gui/$(id -u)" "{{ item }}" 2>/dev/null || true
-        launchctl bootstrap "gui/$(id -u)" "{{ item }}"
-      loop: >-
-        {{ (reconnect_plists.results | selectattr('changed') | map(attribute='dest') | list)
-           + ([monitor_plist.dest] if monitor_plist.changed else [])
-           + ([health_plist.dest] if health_plist.changed else [])
-           + ([fire_help_plist.dest] if fire_help_plist.changed else [])
-           + ([gui_audit_plist.dest] if (gui_audit_plist is defined and gui_audit_plist.changed) else []) }}
-      changed_when: true
+    - name: Ensure stayturgid adb-reconnect launchd agents are running
+      community.general.launchd:
+        name: "com.stayturgid.adb-reconnect-{{ item.item }}"
+        state: "{{ 'reloaded' if item.changed else 'started' }}"
+        enabled: true
+      loop: "{{ reconnect_plists.results }}"
+
+    - name: Ensure stayturgid access-monitor launchd agent is running
+      community.general.launchd:
+        name: com.stayturgid.access-monitor
+        state: "{{ 'reloaded' if monitor_plist.changed else 'started' }}"
+        enabled: true
+
+    - name: Ensure stayturgid fleet-health launchd agent is running
+      community.general.launchd:
+        name: com.stayturgid.fleet-health
+        state: "{{ 'reloaded' if health_plist.changed else 'started' }}"
+        enabled: true
+
+    - name: Ensure stayturgid fire-help launchd agent is running
+      community.general.launchd:
+        name: com.stayturgid.fire-help
+        state: "{{ 'reloaded' if fire_help_plist.changed else 'started' }}"
+        enabled: true
+
+    - name: Ensure stayturgid gui-audit launchd agent is running
+      community.general.launchd:
+        name: com.stayturgid.gui-audit
+        state: "{{ 'reloaded' if gui_audit_plist.changed else 'started' }}"
+        enabled: true
+      when: stayturgid_gui_audit_enabled | bool

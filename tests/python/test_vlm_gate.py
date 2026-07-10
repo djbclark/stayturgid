@@ -102,15 +102,17 @@ def test_ensure_server_kickstarts_launchd(monkeypatch, tmp_path):
     calls = []
 
     def fake_run(cmd, **kw):
-        calls.append(cmd)
+        calls.append(list(cmd))
         return subprocess.CompletedProcess(cmd, 0, "", "")
 
     monkeypatch.setattr(vlm, "LAUNCHAGENT_PLIST", plist)
+    monkeypatch.setattr(vlm, "MAC_SITE_PLAYBOOK", tmp_path / "mac-site.yml")
     monkeypatch.setattr(vlm.os, "uname", lambda: type("U", (), {"sysname": "Darwin"})())
     monkeypatch.setattr(vlm, "server_healthy", lambda: len(calls) > 0)
     monkeypatch.setattr(vlm.subprocess, "run", fake_run)
     assert vlm.ensure_server(start=True) is True
-    assert calls[0][:3] == ["launchctl", "kickstart", "-k"]
+    assert calls[0][0] == "ansible-playbook"
+    assert "vlm-ensure" in calls[0]
 
 
 def test_verify_strict_unavailable(monkeypatch, tmp_path):
