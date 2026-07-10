@@ -2,6 +2,8 @@
 import os
 import sys
 
+import pytest
+
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
     "control", "lib"))
@@ -37,9 +39,11 @@ def test_restore_default_ime_from_adb_keyboard(monkeypatch):
     assert calls == ["com.amazon.redstone/.FireKeyboardService"]
 
 
-def test_skip_presence_still_enables_inversion(monkeypatch):
+def test_skip_presence_still_enables_inversion(monkeypatch, tmp_path):
     """SKIP_PRESENCE skips consent/torch but must still invert + gate input."""
     calls = []
+    monkeypatch.setenv("DEVICE_SCREEN_CONTROL_DIR", str(tmp_path / "dsc"))
+    monkeypatch.setenv("DEVICE_SCREEN_CONTROL_PROJECT", "stayturgid")
     session = sc.ScreenControlSession("s24", skip_request=True)
     session._skip = True
     monkeypatch.setattr(
@@ -60,6 +64,8 @@ def test_skip_presence_still_enables_inversion(monkeypatch):
     )
     monkeypatch.setattr(sc.ScreenControlSession, "_start_keepalive", lambda self: None)
     monkeypatch.setattr(sc.ScreenControlSession, "_stop_keepalive_thread", lambda self: None)
+    monkeypatch.setattr(sc.dev, "device_row", lambda *a, **k: None)
+    monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-s24")
     session.__enter__()
     assert session.active is True
     assert ("inv", True) in calls
@@ -69,6 +75,20 @@ def test_skip_presence_still_enables_inversion(monkeypatch):
     session.__exit__(None, None, None)
     assert ("inv", False) in calls
     assert session.active is False
+
+
+def test_foreign_lease_blocks_session(monkeypatch, tmp_path):
+    monkeypatch.setenv("DEVICE_SCREEN_CONTROL_DIR", str(tmp_path / "dsc"))
+    monkeypatch.setenv("DEVICE_SCREEN_CONTROL_PROJECT", "other-project")
+    monkeypatch.setenv("DEVICE_SCREEN_CONTROL_WAIT_SEC", "0")
+    sc.dsl.acquire("p7a", purpose="foreign", agent="them")
+    monkeypatch.setenv("DEVICE_SCREEN_CONTROL_PROJECT", "stayturgid")
+    session = sc.ScreenControlSession("p7a")
+    monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-p7a")
+    monkeypatch.setattr(sc.dev, "device_row", lambda *a, **k: None)
+    with pytest.raises(sc.ScreenControlError) as ei:
+        session.__enter__()
+    assert "blocked" in str(ei.value).lower() or "held" in str(ei.value).lower()
 
 
 def test_parse_foreground_component():

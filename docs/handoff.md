@@ -41,6 +41,7 @@ when AutoJs6 stalls or a11y drifts — the Mac log is the signal.
 
 ```bash
 make health
+python3 control/bin/screen_lease.py status   # cross-project glass holds (esp. p7a)
 ```
 
 | Exit | Meaning | Your job |

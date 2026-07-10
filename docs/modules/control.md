@@ -23,6 +23,9 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 | `harden_fleet_apps.py` | Ad-hoc battery/permissions hardening (fleet deploy uses `app_privileges` role) |
 | `control/lib/stayturgid_device.py` | Device resolution, Shizuku JSON patch, UI XML parsing |
 | `control/lib/fleet_health.py` | Read-only health probes used by `fleet_health_monitor.py` |
+| `control/lib/device_screen_lease.py` | Cross-project screen-control lease (DSCL v1) |
+| `control/bin/screen_lease.py` | CLI: status/check/acquire/release screen leases |
+| Screen-control lease | [docs/modules/screen-control-lease.md](screen-control-lease.md) — interop with other Mac projects |
 
 Launchd agents and `devices.conf` are rendered by `ansible/playbooks/control_node/site.yml`
 (`make deploy-mac` or automatically at end of `make deploy`).

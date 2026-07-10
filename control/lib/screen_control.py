@@ -35,6 +35,7 @@ import time
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if REPO not in sys.path:
     sys.path.insert(0, os.path.join(REPO, "control", "lib"))
+import device_screen_lease as dsl  # noqa: E402
 import stayturgid_device as dev  # noqa: E402
 import ui_clearance as uc  # noqa: E402
 
@@ -296,6 +297,61 @@ class ScreenControlSession(object):
         self._saved_component = None
         self._stop_keepalive = threading.Event()
         self._keepalive_thread = None
+        self._lease_session_id = None
+        self._lease_acquired = False
+        self.purpose = os.environ.get("STAYTURGID_SCREEN_PURPOSE", "ui-automation")
+
+    def _device_ids_for_lease(self):
+        ids = [self.host, self.serial]
+        try:
+            row = dev.device_row(self.host)
+            if row:
+                usb, ts_ip, lan = row
+                if usb and usb != "-":
+                    ids.append(usb)
+                if ts_ip and ts_ip != "-":
+                    ids.append("%s:5555" % ts_ip)
+                if lan and lan != "-":
+                    ids.append("%s:5555" % lan)
+        except Exception:  # noqa: BLE001
+            pass
+        return ids
+
+    def _acquire_cross_project_lease(self):
+        """Mac-side DSCL lease so other projects see we hold the glass."""
+        try:
+            lease = dsl.acquire(
+                self.host,
+                device_ids=self._device_ids_for_lease(),
+                purpose=self.purpose,
+                agent=self.agent,
+                project=dsl.project_id(),
+            )
+            self._lease_session_id = lease.get("holder", {}).get("session_id")
+            self._lease_acquired = True
+            print(
+                "screen-lease acquired %s (%s)"
+                % (self.host, dsl.format_holder(lease))
+            )
+        except dsl.LeaseConflict as e:
+            raise ScreenControlError(
+                "screen control blocked on %s — %s. "
+                "Wait for the other project to FREE the device, or set "
+                "DEVICE_SCREEN_CONTROL_FORCE=1 / STAYTURGID_SCREEN_LEASE_FORCE=1 "
+                "only if you intentionally steal the glass."
+                % (self.host, e)
+            ) from e
+
+    def _release_cross_project_lease(self):
+        if not self._lease_acquired:
+            return
+        try:
+            dsl.release(self.host, session_id=self._lease_session_id)
+        except Exception as e:  # noqa: BLE001
+            sys.stderr.write(
+                "WARN: screen-lease release on %s: %s\n" % (self.host, e)
+            )
+        self._lease_acquired = False
 
     def _keepalive_loop(self):
         """Keep inversion on + presence lease fresh across idle gaps in a batch."""
@@ -312,6 +368,8 @@ class ScreenControlSession(object):
                 if not self._skip:
                     # Extend lease without torch/dialog (quiet if already quiet).
                     ssh_presence(self.host, "guard", self.label, self.agent)
+                if self._lease_acquired:
+                    dsl.heartbeat(self.host, session_id=self._lease_session_id)
             except Exception as e:  # noqa: BLE001
                 sys.stderr.write(
                     "WARN: screen-control keepalive on %s: %s\n" % (self.host, e)
@@ -335,6 +393,15 @@ class ScreenControlSession(object):
             t.join(timeout=2.0)
 
     def __enter__(self):
+        # Cross-project lease first — fail before consent/inversion if busy.
+        self._acquire_cross_project_lease()
+        try:
+            return self._enter_session()
+        except Exception:
+            self._release_cross_project_lease()
+            raise
+
+    def _enter_session(self):
         _run(["adb", "connect", self.serial], timeout=15)
         _run(["adb", "-s", self.serial, "wait-for-device"], timeout=30)
         # Capture before clearance/consent so we restore what the human saw.
@@ -421,6 +488,7 @@ class ScreenControlSession(object):
             sys.stderr.write(
                 "WARN: failed to restore keyboard IME on %s\n" % self.serial
             )
+        self._release_cross_project_lease()
         self.active = False
         return False
 

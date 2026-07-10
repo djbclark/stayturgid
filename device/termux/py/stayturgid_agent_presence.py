@@ -133,12 +133,35 @@ def read_lease():
 
 
 def write_lease(label, agent):
+    """Write on-device lease mirror (DSCL v1 + legacy fields).
+
+    Mac-side interop uses ~/.local/state/device-screen-control/leases/ — this
+    file is the on-phone signal (inversion guard + status).
+    """
     now = int(time.time())
+    project = (
+        os.environ.get("DEVICE_SCREEN_CONTROL_PROJECT")
+        or os.environ.get("STAYTURGID_SCREEN_PROJECT")
+        or "stayturgid"
+    )
     write(LEASE_FILE, json.dumps({
+        "schema": "device-screen-control-lease/v1",
         "label": label,
         "agent": agent,
+        "project": project,
+        "holder": {
+            "project": project,
+            "agent": agent,
+        },
         "started": now,
         "expires": now + LEASE_TTL_SEC,
+        "started_at": datetime.datetime.utcfromtimestamp(now).strftime(
+            "%Y-%m-%dT%H:%M:%SZ"
+        ),
+        "expires_at": datetime.datetime.utcfromtimestamp(
+            now + LEASE_TTL_SEC
+        ).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "ttl_sec": LEASE_TTL_SEC,
     }) + "\n")
 
 

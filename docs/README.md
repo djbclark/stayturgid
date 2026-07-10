@@ -14,6 +14,7 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 | F-Droid / Neo Store | [docs/modules/fdroid.md](modules/fdroid.md) | F-Droid repos + Neo Store (**parked** by default) |
 | Play / Aurora Store | [docs/modules/play.md](modules/play.md) | Aurora + apkeep/gplaycli (**parked** by default) |
 | Shared libraries | [control/lib/README.md](../control/lib/README.md) | `resolve-adb`, repo-root discovery, UI parse |
+| Screen-control lease | [docs/modules/screen-control-lease.md](modules/screen-control-lease.md) | Cross-project glass lock (DSCL v1; interop prompt) |
 
 ## Project-wide
 
