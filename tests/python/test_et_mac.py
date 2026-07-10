@@ -71,6 +71,21 @@ def test_render_device_ssh_config_includes_identity_and_ips():
     assert "IdentitiesOnly yes" in cfg
     assert "Host mac-lan" in cfg
     assert "192.168.1.1" in cfg
+    assert "StrictHostKeyChecking accept-new" in cfg
+
+
+def test_ssh_host_key_pin_env(monkeypatch):
+    monkeypatch.setenv("STAYTURGID_SSH_STRICT_HOST_KEY", "yes")
+    monkeypatch.setenv("STAYTURGID_SSH_KNOWN_HOSTS", "/tmp/kh")
+    assert em.ssh_strict_host_key() == "yes"
+    opts = em.ssh_host_key_cli_opts()
+    assert "StrictHostKeyChecking=yes" in opts
+    assert "UserKnownHostsFile=/tmp/kh" in opts
+    cfg = em.render_device_ssh_config(
+        user="u", tailscale_ip="100.0.0.1", lan_ip="", aliases=["mac"]
+    )
+    assert "StrictHostKeyChecking yes" in cfg
+    assert "UserKnownHostsFile /tmp/kh" in cfg
 
 
 def test_apply_authorized_keys_file(tmp_path, monkeypatch):

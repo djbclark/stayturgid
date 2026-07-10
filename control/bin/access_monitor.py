@@ -89,6 +89,14 @@ def notify(title, message, sound=None):
 def read_devices(conf_path):
     """Yield (name, tailscale_ip, lan_ip) from devices.conf."""
     try:
+        from stayturgid_device import iter_monitor_hosts
+    except Exception:  # noqa: BLE001
+        iter_monitor_hosts = None
+    if iter_monitor_hosts is not None:
+        yield from iter_monitor_hosts(conf_path)
+        return
+    # Minimal fallback if lib import fails under launchd.
+    try:
         with open(conf_path) as f:
             for line in f:
                 line = line.strip()

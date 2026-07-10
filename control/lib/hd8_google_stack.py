@@ -121,20 +121,40 @@ def needs_play_downgrade(play_version_code: int | None) -> bool:
 
 
 def _ensure_fire_tools_zip(zip_path: Path) -> None:
+    """Download Fire-Tools.zip once; flock + unique temp avoid concurrent races (L4)."""
+    import fcntl
+    import os
+    import uuid
+
     zip_path.parent.mkdir(parents=True, exist_ok=True)
     if zip_path.is_file() and zip_path.stat().st_size > 1_000_000:
         return
-    tmp = zip_path.with_suffix(".part")
+    lock_path = zip_path.with_suffix(".lock")
+    lock_fd = open(lock_path, "a+", encoding="utf-8")
     try:
-        subprocess.run(
-            ["curl", "-fsSL", "-o", str(tmp), FIRE_TOOLS_ZIP_URL],
-            check=True,
-            timeout=300,
+        fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
+        # Re-check under lock — another process may have finished the download.
+        if zip_path.is_file() and zip_path.stat().st_size > 1_000_000:
+            return
+        tmp = zip_path.with_name(
+            "%s.%s.part" % (zip_path.name, uuid.uuid4().hex[:10])
         )
-        tmp.replace(zip_path)
+        try:
+            subprocess.run(
+                ["curl", "-fsSL", "-o", str(tmp), FIRE_TOOLS_ZIP_URL],
+                check=True,
+                timeout=300,
+            )
+            os.replace(tmp, zip_path)
+        finally:
+            if tmp.is_file():
+                tmp.unlink(missing_ok=True)
     finally:
-        if tmp.is_file():
-            tmp.unlink(missing_ok=True)
+        try:
+            fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            pass
+        lock_fd.close()
 
 
 def _extract_apkm_splits(apkm_zip: Path, dest: Path) -> list[Path]:

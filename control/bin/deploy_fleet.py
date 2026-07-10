@@ -5,9 +5,9 @@ Canonical entry (from repo root)::
 
   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml
 
-This wrapper adds collection install and re-runs control_node/site.yml on partial (--limit)
-deploys (Ansible skips localhost when a device limit is set). SSH preflight is in
-site.yml preflight.yml.
+This wrapper installs collections and **always** re-runs control_node/site.yml after
+the fleet site playbook. Ansible ``--limit`` is device hosts only, so localhost
+(control node) would otherwise be skipped — Mac agents/launchd must still refresh.
 
 Usage:
   deploy_fleet.py [host ...]              # full site deploy
@@ -200,8 +200,9 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
         tags=scope.ansible_tags,
         skip_tags=skip_bootstrap,
     )
-    # site.yml imports control_node/site.yml on full deploy; --limit skips localhost plays.
-    mac_rc = deploy_mac(check=check) if hosts else 0
+    # Always refresh Mac control node: deploy_fleet always passes a device --limit,
+    # so site.yml's control_node import never selects localhost (review L8).
+    mac_rc = deploy_mac(check=check)
     return rc if rc != 0 else mac_rc
 
 

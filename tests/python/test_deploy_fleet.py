@@ -116,6 +116,17 @@ def test_deploy_skips_bootstrap_tag(monkeypatch):
     ]
 
 
+def test_deploy_always_runs_mac_even_without_host_limit(monkeypatch):
+    """Full-fleet path uses device --limit; Mac must still refresh (L8)."""
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls)
+    monkeypatch.setattr(df, "resolve_hosts", lambda hosts: ["s24", "p7a", "hd8"])
+    rc = df.deploy(df.Scope.FULL, [], check=False)
+    assert rc == 0
+    assert ("playbook", "mac", False, None) in calls
+    assert calls[-1] == ("playbook", "mac", False, None)
+
+
 def test_deploy_check_does_not_skip_bootstrap_tag(monkeypatch):
     calls = []
     _stub_deploy_deps(monkeypatch, calls)

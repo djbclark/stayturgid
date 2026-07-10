@@ -54,6 +54,13 @@ def log(msg: str) -> None:
 def read_devices():
     if not CONF.is_file():
         return
+    try:
+        from stayturgid_device import iter_monitor_hosts
+
+        yield from iter_monitor_hosts(str(CONF))
+        return
+    except Exception:  # noqa: BLE001
+        pass
     for line in CONF.read_text().splitlines():
         line = line.strip()
         if not line or line.startswith("#"):

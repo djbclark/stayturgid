@@ -72,8 +72,12 @@ def parse_uid(pm_output):
     return m.group(1) if m else None
 
 
-def device_row(alias, conf_path=None):
-    """alias -> (usb_serial, tailscale_ip, lan_ip) from devices.conf, or None."""
+def iter_devices_conf(conf_path=None):
+    """Yield ``(name, usb_serial, tailscale_ip, lan_ip)`` for each devices.conf row.
+
+    Line format: ``name usb_serial tailscale_ip [lan_ip]``. Missing lan → ``"-"``.
+    Single source of truth for launchd monitors and resolve helpers (review L9).
+    """
     conf_path = conf_path or DEVICES_CONF
     try:
         with open(conf_path) as f:
@@ -82,10 +86,28 @@ def device_row(alias, conf_path=None):
                 if not line or line.startswith("#"):
                     continue
                 parts = line.split()
-                if parts and parts[0] == alias:
-                    return tuple((parts[1:] + ["-", "-", "-"])[:3])
+                if len(parts) < 3:
+                    continue
+                name = parts[0]
+                usb, ts_ip = parts[1], parts[2]
+                lan = parts[3] if len(parts) > 3 else "-"
+                yield name, usb, ts_ip, lan
     except OSError:
-        pass
+        return
+
+
+def iter_monitor_hosts(conf_path=None):
+    """Yield ``(name, tailscale_ip, lan_ip)`` — monitors that ignore USB serial."""
+    for name, _usb, ts_ip, lan in iter_devices_conf(conf_path):
+        yield name, ts_ip, lan
+
+
+def device_row(alias, conf_path=None):
+    """alias -> (usb_serial, tailscale_ip, lan_ip) from devices.conf, or None."""
+    conf_path = conf_path or DEVICES_CONF
+    for name, usb, ts_ip, lan in iter_devices_conf(conf_path):
+        if name == alias:
+            return (usb, ts_ip, lan)
     return None
 
 

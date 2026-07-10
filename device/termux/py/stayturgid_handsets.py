@@ -13,6 +13,7 @@ Env:
   STAYTURGID_HANDSETS_PORT  daemon port (default 9012; Fire peers file often 9008)
   STAYTURGID_HS_JAR         path to hs.jar (default /data/local/tmp/hs.jar)
   STAYTURGID_PEER_BOOTSTRAP=0  disable peer start on no-local-adb hosts
+  STAYTURGID_HANDSETS_KEEP=1   Session exit never stops daemon (operator soak)
 
 See docs/research/handsets-under-termux.md and fire-os-local-adb.md.
 """
@@ -24,6 +25,7 @@ import socket
 import struct
 import subprocess
 import sys
+import threading
 import time
 from typing import Any
 
@@ -35,6 +37,9 @@ REMOTE_JAR = os.environ.get("STAYTURGID_HS_JAR", "/data/local/tmp/hs.jar")
 _STG_JAR = os.path.join(sh.STG, "lib", "hs.jar")
 NICE = "hsd%d" % DEFAULT_PORT
 _PEERS_PATH = os.path.join(sh.STG, "peers")
+# Nested Session() refcounts so inner exit does not kill daemon for outer (L5).
+_session_refs: dict[int, int] = {}
+_session_lock = threading.Lock()
 
 
 class HandsetsError(RuntimeError):
@@ -240,16 +245,27 @@ def stop(port: int | None = None) -> None:
 
 
 class Session:
-    """Context manager: daemon up for the duration of on-device UI work."""
+    """Context manager: daemon up for the duration of on-device UI work.
+
+    Nested sessions on the same port share one daemon via a process-local
+    refcount. Only the last exit calls ``stop()`` (unless
+    ``STAYTURGID_HANDSETS_KEEP=1``).
+    """
 
     def __init__(self, port: int | None = None):
         self.port = port if port is not None else _default_port()
         self.active = False
+        self._ref_held = False
 
     def __enter__(self) -> "Session":
         if not available():
             raise HandsetsError("Handsets unavailable on this host")
-        start(self.port)
+        with _session_lock:
+            n = _session_refs.get(self.port, 0)
+            if n == 0:
+                start(self.port)
+            _session_refs[self.port] = n + 1
+            self._ref_held = True
         self.active = True
         how = "peer" if _peer_bootstrap_enabled() else "local-adb"
         print(
@@ -259,10 +275,22 @@ class Session:
 
     def __exit__(self, exc_type, exc, tb) -> None:
         self.active = False
+        if not self._ref_held:
+            return None
+        self._ref_held = False
         try:
-            stop(self.port)
+            with _session_lock:
+                n = _session_refs.get(self.port, 1) - 1
+                if n <= 0:
+                    _session_refs.pop(self.port, None)
+                    keep = os.environ.get("STAYTURGID_HANDSETS_KEEP", "").strip().lower()
+                    if keep not in ("1", "true", "yes", "on"):
+                        stop(self.port)
+                else:
+                    _session_refs[self.port] = n
         except Exception:
             pass
+        return None
 
     def call(self, cmd: str, timeout: float = 8.0) -> bytes:
         if not self.active:

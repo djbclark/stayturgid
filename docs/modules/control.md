@@ -14,17 +14,24 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 | `fire_help_monitor.py` | Mac→Fire help when Shizuku/Handsets down → `fire-help.log` |
 | `fire_peer_help.py` | Peer ADB helper (Handsets/Shizuku) for Fire; SSH ForceCommand entry |
 | `check_fleet_health.py` | **Session triage** — agents run at start; exit 1 ⇒ tell operator |
+| `check_et_mac.py` / `ensure_et_mac.py` | Phone→Mac ET authorized_keys + health/probe |
 | `gui_audit.py` | Neo/Aurora GUI audit — **parked**; manual only (`docs/modules/fdroid.md`, `docs/modules/play.md`) |
 | `verify_play_autoupdate.py` | Play Store auto-update VLM gate (optional; see [docs/vlm.md](../vlm.md)) |
+| `verify_hd8_google.py` / `fix_hd8_google_stack.py` | Fire HD Play/GMS stack verify + optional reinstall |
 | `vlm_check.py` | Local UI-TARS client smoke test (`make vlm-check`) |
-| `deploy_fleet.py` | Full fleet deploy via `site.yml` (preflight → fleet → post-ui → validate) |
+| `vlm_upstream_check.py` | Weekly RQS VLM.md best-practice sync check |
+| `deploy_fleet.py` | Full fleet deploy via `site.yml` + **always** re-runs `control_node` (device `--limit` skips localhost) |
+| `deploy_termux.py` | Termux-only deploy wrapper |
 | `bootstrap_ssh.py` | First-time Termux SSH: adb + `run-as com.termux` or `--ansible` → `bootstrap.yml` |
 | `a11y_services.py` | Backup/restore `enabled_accessibility_services` per host (`control/lib/a11y_profiles.json`) |
 | `harden_fleet_apps.py` | Ad-hoc battery/permissions hardening (fleet deploy uses `app_privileges` role) |
-| `control/lib/stayturgid_device.py` | Device resolution, Shizuku JSON patch, UI XML parsing |
+| `termux_pkg_nightly.py` | Nightly `pkg update/upgrade` orchestrator (launchd) |
+| `h2_confirm_ui.py` | One-off UI confirm helpers |
+| `screen_lease.py` | CLI: status/check/acquire/release screen leases (DSCL v1) |
+| `control/lib/stayturgid_device.py` | Device resolution, `devices.conf` parse, Shizuku JSON, UI XML |
 | `control/lib/fleet_health.py` | Read-only health probes used by `fleet_health_monitor.py` |
 | `control/lib/device_screen_lease.py` | Cross-project screen-control lease (DSCL v1) |
-| `control/bin/screen_lease.py` | CLI: status/check/acquire/release screen leases |
+| `control/lib/et_mac.py` / `vlm_gate.py` / `vlm_cloud.py` | ET Mac helpers; local + cloud VLM gates |
 | Screen-control lease | [docs/modules/screen-control-lease.md](screen-control-lease.md) — interop with other Mac projects |
 
 Launchd agents and `devices.conf` are rendered by `ansible/playbooks/control_node/site.yml`
@@ -140,6 +147,11 @@ ssh -o BatchMode=yes mac true
 (`id_ed25519_fleet`). Passphrase-protected `id_ed25519` breaks BatchMode/et.
 Do **not** use `et --macserver` on Apple Silicon Homebrew (wrong
 `/usr/local/bin/etterminal` path); Mac `~/.zshenv` Homebrew PATH is enough.
+
+**Host keys (default Tailscale-friendly):** fleet SSH uses
+`StrictHostKeyChecking=accept-new`. To pin known hosts:
+`STAYTURGID_SSH_STRICT_HOST_KEY=yes` and
+`STAYTURGID_SSH_KNOWN_HOSTS=~/.ssh/known_hosts_stayturgid` (see `control/lib/et_mac.py`).
 
 **Agents — session start:** `make health` — if exit ≠ 0,
 surface host/`issues=` to the operator immediately (see HANDOFF § Mac fleet health).

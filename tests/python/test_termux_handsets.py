@@ -67,3 +67,40 @@ def test_enabled_respects_env(monkeypatch):
     monkeypatch.setenv("STAYTURGID_PEER_BOOTSTRAP", "0")
     monkeypatch.setattr(th.sh, "privileged_shell_expected", lambda: False)
     assert th.enabled() is False
+
+
+def test_session_refcount_defers_stop(monkeypatch):
+    """Nested Session: only last exit stops the daemon (L5)."""
+    th._session_refs.clear()
+    starts = []
+    stops = []
+    monkeypatch.setattr(th, "available", lambda: True)
+    monkeypatch.setattr(th, "start", lambda port: starts.append(port))
+    monkeypatch.setattr(th, "stop", lambda port: stops.append(port))
+    monkeypatch.setattr(th, "_peer_bootstrap_enabled", lambda: False)
+    monkeypatch.delenv("STAYTURGID_HANDSETS_KEEP", raising=False)
+
+    outer = th.Session(port=9012)
+    outer.__enter__()
+    assert starts == [9012]
+    inner = th.Session(port=9012)
+    inner.__enter__()
+    assert starts == [9012]  # no second start
+    inner.__exit__(None, None, None)
+    assert stops == []  # outer still holds ref
+    outer.__exit__(None, None, None)
+    assert stops == [9012]
+
+
+def test_session_keep_env_skips_stop(monkeypatch):
+    th._session_refs.clear()
+    stops = []
+    monkeypatch.setattr(th, "available", lambda: True)
+    monkeypatch.setattr(th, "start", lambda port: None)
+    monkeypatch.setattr(th, "stop", lambda port: stops.append(port))
+    monkeypatch.setattr(th, "_peer_bootstrap_enabled", lambda: False)
+    monkeypatch.setenv("STAYTURGID_HANDSETS_KEEP", "1")
+    s = th.Session(port=9013)
+    s.__enter__()
+    s.__exit__(None, None, None)
+    assert stops == []

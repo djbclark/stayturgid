@@ -10,13 +10,24 @@ Scripts that run **on the phone** inside Termux. Usable without AutoJs6 or Ansib
 |-------|------|
 | `stayturgid_repair.py` | Self-heal sshd, localhost:5555 ADB, Shizuku, phone→Mac ET SSH config; prints `STATUS …` for callers |
 | `repair-bridge.sh` | Polls `/sdcard/stayturgid/run/repair_now`; runs repair within ~2s (AutoJs6 fallback) |
-| `stayturgid_agent_presence.py` | Agent session indicator (torch, notification, optional consent `gate`) |
+| `stayturgid_agent_presence.py` | Torch/notification + `request-screen` / `gate` / `on`/`off` |
 | `stayturgid_import_catalog.py` etc. | On-device post-UI (Obtainium / Aurora / AutoJs6) via `localhost:5555` |
 | `stayturgid_screen_control.py` | On-device consent + inversion gate (same policy as Mac `ScreenControlSession`) |
 | `check-repo-version` / battery / screen-awake | Python under `~/.stayturgid/bin/` (see `py/`) |
 | `boot/start-adb.sh` | Termux:Boot: sshd, wake-lock, 5-min self-heal loop, battery tier check |
 | `boot/start-repair-bridge.sh` | Starts `repair-bridge.sh` at boot |
 | `boot/start-autojs6-watchdog.sh` | Launches AutoJs6 `boot-launcher.js` after boot |
+
+### Presence / consent fail modes (caller choice)
+
+| Action | Timeout / missing script | Intended policy |
+|--------|--------------------------|-----------------|
+| `request-screen` | Some Mac callers treat timeout as fail-**open** (proceed with care) | Soft ask before long batches; not a hard safety gate |
+| `gate` / consent dialog | Fail-**closed** (exit 75) | Human denial or timeout → **do not** take glass |
+| `on` / presence missing (rc 127) | Fail-**closed** | Never leave inversion on without presence |
+
+Agents: prefer fail-closed for any path that enables inversion or `adb input`.
+Document which path you use if you wrap presence yourself.
 
 All deployable tools land under **`~/.stayturgid/bin/`** (not `~/`).
 

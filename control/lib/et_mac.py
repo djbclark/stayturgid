@@ -75,6 +75,38 @@ def default_devices_conf() -> Path:
     )
 
 
+def ssh_strict_host_key() -> str:
+    """StrictHostKeyChecking mode for fleet SSH/ET (default accept-new on Tailscale).
+
+    Set ``STAYTURGID_SSH_STRICT_HOST_KEY=yes`` (or ``ask``) and optionally
+    ``STAYTURGID_SSH_KNOWN_HOSTS=/path/to/known_hosts`` to pin keys (review L6).
+    """
+    raw = (
+        os.environ.get("STAYTURGID_SSH_STRICT_HOST_KEY")
+        or os.environ.get("STAYTURGID_SSH_STRICTHOSTKEYCHECKING")
+        or "accept-new"
+    ).strip()
+    return raw or "accept-new"
+
+
+def ssh_host_key_cli_opts() -> list[str]:
+    """``-o`` options for subprocess ssh regarding host keys."""
+    opts = [f"StrictHostKeyChecking={ssh_strict_host_key()}"]
+    known = os.environ.get("STAYTURGID_SSH_KNOWN_HOSTS", "").strip()
+    if known:
+        opts.append(f"UserKnownHostsFile={known}")
+    return opts
+
+
+def ssh_host_key_config_lines(indent: str = "    ") -> list[str]:
+    """Lines for an OpenSSH config Host block."""
+    lines = [f"{indent}StrictHostKeyChecking {ssh_strict_host_key()}"]
+    known = os.environ.get("STAYTURGID_SSH_KNOWN_HOSTS", "").strip()
+    if known:
+        lines.append(f"{indent}UserKnownHostsFile {known}")
+    return lines
+
+
 # --- control facts -----------------------------------------------------------
 
 
@@ -196,12 +228,16 @@ def collect_fleet_pubkey(host: str, *, timeout: int = 12) -> tuple[bool, str]:
         "BatchMode=yes",
         "-o",
         f"ConnectTimeout={min(timeout, 15)}",
-        "-o",
-        "StrictHostKeyChecking=accept-new",
-        host,
-        f"cat ~/.ssh/{FLEET_IDENTITY}.pub 2>/dev/null || "
-        f"cat /data/data/com.termux/files/home/.ssh/{FLEET_IDENTITY}.pub",
     ]
+    for opt in ssh_host_key_cli_opts():
+        cmd.extend(["-o", opt])
+    cmd.extend(
+        [
+            host,
+            f"cat ~/.ssh/{FLEET_IDENTITY}.pub 2>/dev/null || "
+            f"cat /data/data/com.termux/files/home/.ssh/{FLEET_IDENTITY}.pub",
+        ]
+    )
     try:
         proc = subprocess.run(
             cmd,
@@ -225,6 +261,12 @@ def collect_fleet_pubkey(host: str, *, timeout: int = 12) -> tuple[bool, str]:
 
 def hosts_from_devices_conf(path: Path | None = None) -> list[str]:
     conf = path or default_devices_conf()
+    try:
+        from stayturgid_device import iter_devices_conf
+
+        return [name for name, *_ in iter_devices_conf(str(conf))]
+    except Exception:  # noqa: BLE001
+        pass
     hosts: list[str] = []
     try:
         text = conf.read_text(encoding="utf-8")
@@ -290,6 +332,7 @@ def render_device_ssh_config(
         host_tokens.append(lan_ip)
 
     hosts_line = " ".join(host_tokens)
+    hk = ssh_host_key_config_lines()
     lines = [
         f"Host {hosts_line}",
         f"    HostName {tailscale_ip}",
@@ -297,7 +340,7 @@ def render_device_ssh_config(
         f"    IdentityFile ~/.ssh/{identity}",
         "    IdentitiesOnly yes",
         "    PreferredAuthentications publickey",
-        "    StrictHostKeyChecking accept-new",
+        *hk,
     ]
     if lan_ip and lan_ip != tailscale_ip:
         lines += [
@@ -308,7 +351,7 @@ def render_device_ssh_config(
             f"    IdentityFile ~/.ssh/{identity}",
             "    IdentitiesOnly yes",
             "    PreferredAuthentications publickey",
-            "    StrictHostKeyChecking accept-new",
+            *hk,
         ]
     return "\n".join(lines)
 
@@ -379,9 +422,9 @@ def probe_control_ssh(
         "IdentitiesOnly=yes",
         "-o",
         "PreferredAuthentications=publickey",
-        "-o",
-        "StrictHostKeyChecking=accept-new",
     ]
+    for opt in ssh_host_key_cli_opts():
+        cmd.extend(["-o", opt])
     ident = identity or facts.get("identity") or FLEET_IDENTITY
     # only force -i when path exists (device) or absolute
     id_path = Path(os.path.expanduser(f"~/.ssh/{ident}"))

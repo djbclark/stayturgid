@@ -85,6 +85,13 @@ def adb(args, timeout=15):
 
 
 def device_row(alias, conf_path):
+    """alias -> (usb, ts_ip, lan) via shared stayturgid_device parser."""
+    try:
+        from stayturgid_device import device_row as _device_row
+
+        return _device_row(alias, conf_path)
+    except Exception:  # noqa: BLE001
+        pass
     try:
         with open(conf_path) as f:
             for line in f:

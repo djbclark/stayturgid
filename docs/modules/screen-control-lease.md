@@ -229,6 +229,16 @@ both write the same directory and refuse foreign active leases.
 - [control/lib/screen_control.py](../../control/lib/screen_control.py) — session wrapper  
 - Handoff phone protocol: USING / FREE announcements
 
+## Consent / presence vs lease (related)
+
+Mac `ScreenControlSession` order: **DSCL lease → consent/request-screen → inversion → presence on**.
+
+- **Lease** is multi-project arbitration (this document).
+- **`request-screen`** may fail-open on timeout depending on caller (soft UX).
+- **`gate` / consent** and **presence on** are fail-closed — see [termux.md](termux.md).
+
+Do not treat a free lease as “consent granted.”
+
 ## Portrait lock (related)
 
 While a screen-control session is held, stayturgid also applies a **natural-portrait**

@@ -137,19 +137,32 @@ def wake(shell):
     time.sleep(0.5)
 
 
-def scroll_app_list(shell, height_hint=2200):
+def screen_size(shell, default=(1080, 2200)):
+    """Return (width, height) from ``wm size``; fall back to *default*."""
+    rc, out = shell("wm", "size")
+    if rc == 0 and out:
+        # Prefer "Override size" / Physical size: WxH
+        for line in (out or "").replace("\r", "").splitlines():
+            m = re.search(r"(\d+)\s*x\s*(\d+)", line, re.I)
+            if m:
+                return int(m.group(1)), int(m.group(2))
+    return default
+
+
+def scroll_app_list(shell, height_hint=None):
     if _HS is not None:
         _HS.swipe("up")
         time.sleep(0.6)
         return
-    mid_x = 400
+    w, h = screen_size(shell) if height_hint is None else (1080, int(height_hint))
+    mid_x = max(1, w // 2)
     shell(
         "input",
         "swipe",
         str(mid_x),
-        str(int(height_hint * 0.72)),
+        str(int(h * 0.72)),
         str(mid_x),
-        str(int(height_hint * 0.22)),
+        str(int(h * 0.22)),
         "350",
     )
     time.sleep(0.6)
@@ -254,12 +267,22 @@ def tracked_with_scroll(shell, app_names, passes=4):
         if found.issuperset(app_names):
             return True
     for _ in range(passes):
-        # scroll up
+        # scroll up (ratio-based when Handsets unavailable — review L1)
         if _HS is not None:
             _HS.swipe("down")
             time.sleep(0.6)
         else:
-            shell("input", "swipe", "400", "500", "400", "1600", "350")
+            w, h = screen_size(shell)
+            mid_x = max(1, w // 2)
+            shell(
+                "input",
+                "swipe",
+                str(mid_x),
+                str(int(h * 0.22)),
+                str(mid_x),
+                str(int(h * 0.72)),
+                "350",
+            )
             time.sleep(0.6)
         xml = dump_xml(shell)
         dismiss_blocking_dialogs(shell, xml)
