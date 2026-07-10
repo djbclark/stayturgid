@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.stayturgid.vlm-upstream-check</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>python3</string>
+        <string>{{ stayturgid_repo_root | realpath }}/control/bin/vlm_upstream_check.py</string>
+        <string>--notify</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>{{ stayturgid_repo_root | realpath }}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>{{ stayturgid_homebrew_prefix }}/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>{{ lookup('env', 'HOME') }}</string>
+    </dict>
+    <!-- Weekly Sunday 09:20 local — low urgency; notify only on change -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Weekday</key>
+        <integer>{{ stayturgid_vlm_upstream_check_weekday | int }}</integer>
+        <key>Hour</key>
+        <integer>{{ stayturgid_vlm_upstream_check_hour | int }}</integer>
+        <key>Minute</key>
+        <integer>{{ stayturgid_vlm_upstream_check_minute | int }}</integer>
+    </dict>
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>{{ conf_dir }}/logs/vlm-upstream-check.launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ conf_dir }}/logs/vlm-upstream-check.launchd.err.log</string>
+</dict>
+</plist>

@@ -12,6 +12,7 @@
         + _adb_launchd_agents
         + _gui_launchd_agents
         + _termux_pkg_nightly_agents
+        + _vlm_upstream_check_agents
         + _ui_tars_launchd_agents
       }}
   vars:
@@ -28,6 +29,13 @@
           'name': 'com.stayturgid.termux-pkg-nightly',
           'plist': agents_dir ~ '/com.stayturgid.termux-pkg-nightly.plist'
         }] if (stayturgid_termux_pkg_nightly_enabled | default(true) | bool) else []
+      }}
+    _vlm_upstream_check_agents: >-
+      {{
+        [{
+          'name': 'com.stayturgid.vlm-upstream-check',
+          'plist': agents_dir ~ '/com.stayturgid.vlm-upstream-check.plist'
+        }] if (stayturgid_vlm_upstream_check_enabled | default(true) | bool) else []
       }}
     _adb_launchd_agents: >-
       {{

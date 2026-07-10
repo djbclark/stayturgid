@@ -11,6 +11,13 @@ stayturgid_termux_pkg_nightly_enabled: true
 stayturgid_termux_pkg_nightly_hour: 4
 stayturgid_termux_pkg_nightly_minute: 15
 
+# Weekly check of sibling-project VLM best practices (RevengeQuickSwitcher/VLM.md).
+# Weekday: 0=Sun … 6=Sat (launchd).
+stayturgid_vlm_upstream_check_enabled: true
+stayturgid_vlm_upstream_check_weekday: 0
+stayturgid_vlm_upstream_check_hour: 9
+stayturgid_vlm_upstream_check_minute: 20
+
 conf_dir: "{{ lookup('env', 'HOME') }}/.config/stayturgid"
 agents_dir: "{{ lookup('env', 'HOME') }}/Library/LaunchAgents"
 stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"

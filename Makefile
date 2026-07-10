@@ -27,7 +27,7 @@ VLM_ANSIBLE := ansible-playbook $(MAC_SITE) -e stayturgid_vlm_enabled=true
 .PHONY: help all configure check unit test unit-and-pytest pytest ansible-test test-venv \
         lint clean verify verify-heal device dryrun dryrun-termux \
         health fix-hd8-google deploy deploy-check collections bootstrap-ssh deploy-termux deploy-mac syntax \
-        termux-pkg-upgrade \
+        termux-pkg-upgrade vlm-upstream-check \
         vlm-install vlm-server vlm-check vlm-stop vlm-service-install vlm-service-status \
         vlm-service-stop vlm-service-restart vlm-smoke verify-play-autoupdate verify-hd8-google
 
@@ -81,6 +81,7 @@ help:
 	@echo "  make vlm-server                   Manual foreground start (no launchd)"
 	@echo "  make vlm-service-stop             launchctl bootout + stop manual"
 	@echo "  make vlm-service-restart          kickstart launchd agent"
+	@echo "  make vlm-upstream-check           Diff RevengeQuickSwitcher/VLM.md best practices"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make deploy HOSTS=s24"
@@ -144,6 +145,11 @@ vlm-smoke:
 	bash control/vlm/ui-tars/vlm_smoke.sh
 
 vlm-stop: vlm-service-stop
+
+# Sibling-project VLM best practices (~/src/RevengeQuickSwitcher/VLM.md).
+# Weekly launchd: com.stayturgid.vlm-upstream-check (make deploy-mac).
+vlm-upstream-check:
+	python3 control/bin/vlm_upstream_check.py --notify
 
 collections:
 	ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections

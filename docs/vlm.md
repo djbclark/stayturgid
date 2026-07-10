@@ -120,6 +120,108 @@ unavailable / unparseable / low confidence / failed local gate. Not used on the
 
 ---
 
+## Best practices (Android screenshot gates)
+
+Ported from sibling project principles (`~/src/RevengeQuickSwitcher/VLM.md`) and
+adapted for stayturgid fleet QA.
+
+### Design principle
+
+Use VLM for **high-stakes verification**, not every navigation step. Handsets +
+a11y / hierarchy remain primary; VLM is the safety net for brittle OEM chrome.
+
+### Capture timing
+
+- Wait for UI to **settle** after taps (**0.8–1.5 s** minimum; longer after
+  animations / OEM transitions).
+- Capture **after** animations, not mid-transition.
+- For “before type / before install confirm” gates, screenshot **immediately
+  before** the input event, not after.
+
+### Image quality
+
+- PNG from `adb exec-out screencap -p` (lossless).
+- **Downscale** to ~720px width (`STAYTURGID_VLM_MAX_WIDTH`) unless debugging.
+- Prefer full-screen context over aggressive crops (settings headers, dialogs).
+
+### Prompt design
+
+- Require **JSON only**: `ok`, `confidence`, `notes` (plus check-specific fields).
+- Name **allowed** and **forbidden** UI strings explicitly.
+- Keep prompts **single-purpose** (one screenshot, one question).
+- Local OpenAI-compatible path: `temperature: 0.1`, modest `max_tokens`.
+- Cloud Claude: do **not** send `temperature` on current Sonnet IDs (API rejects it).
+- Cloud Gemini “thinking” models may need higher `maxOutputTokens` (default 1024).
+
+### Local-first cloud retry
+
+When cloud is enabled (`STAYTURGID_VLM_CLOUD=auto` + keys present):
+
+1. Run **local** UI-TARS first.
+2. On failure / low confidence / local down → **Gemini**, then **Claude**.
+3. If both fail, treat it as **device/UI state**, not only model error — clear
+   overlays, unlock screen, dismiss system dialogs before spending more cloud.
+
+### Model IDs (July 2026)
+
+| Role | Default | Notes |
+|------|---------|-------|
+| Gemini primary | `gemini-3.1-flash-lite` | Known-good on current keys |
+| Gemini alias | `gemini-flash-latest` | Tracks current Flash; may use thinking tokens |
+| Claude escalate | `claude-sonnet-5` | Second opinion / dense UI |
+| Claude cheap (optional) | `claude-haiku-4-5-20251001` | Set `STAYTURGID_CLAUDE_MODEL` |
+
+Pinned old IDs (`gemini-2.0-flash`, `claude-3-5-haiku-*`, etc.) often **404**.
+Override via env when upstream docs recommend a newer stable id.
+
+### Timing budget
+
+| Phase | Cap |
+|-------|-----|
+| UI settle / Handsets | seconds |
+| Local VLM gate | `STAYTURGID_VLM_TIMEOUT` (default 900s) |
+| Cloud VLM gate | ~90–120s HTTP |
+
+### Cross-project glass
+
+Before UI work on a shared phone (especially **p7a**):
+
+```bash
+python3 control/bin/screen_lease.py status
+python3 control/bin/screen_lease.py check p7a
+```
+
+See [docs/modules/screen-control-lease.md](modules/screen-control-lease.md).
+
+---
+
+## Upstream best-practice sync (RevengeQuickSwitcher)
+
+stayturgid periodically reviews sibling-project VLM notes for reusable practices
+(not Discord-specific harness details):
+
+```text
+~/src/RevengeQuickSwitcher/VLM.md
+```
+
+```bash
+make vlm-upstream-check          # now
+python3 control/bin/vlm_upstream_check.py --notify
+```
+
+| Piece | Role |
+|-------|------|
+| `control/bin/vlm_upstream_check.py` | Hash/diff upstream; write report |
+| State | `~/.config/stayturgid/state/vlm-upstream/` |
+| Log | `~/.config/stayturgid/logs/vlm-upstream-check.log` |
+| Launchd | `com.stayturgid.vlm-upstream-check` (weekly Sun 09:20 local) |
+
+On change: report lists new model ids + watched sections; macOS notification when
+run with `--notify` (launchd default). Agents should open the report and port
+relevant defaults/docs — do not blindly copy QSS Discord checks.
+
+---
+
 ## Repo files
 
 | Path | Role |

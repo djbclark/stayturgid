@@ -30,9 +30,16 @@ ANTHROPIC_ENV = CONFIG_DIR / "anthropic.env"
 COMBINED_ENV = CONFIG_DIR / "vlm-cloud.env"
 
 # Working defaults as of 2026-07 (probed against live keys).
+# Prefer a known-good Flash Lite over -latest when the alias burns tokens on
+# "thinking" and returns empty parts under low maxOutputTokens. Override with
+# STAYTURGID_GEMINI_MODEL=gemini-flash-latest if desired (see RQS VLM.md).
 DEFAULT_GEMINI_MODEL = "gemini-3.1-flash-lite"
+# Escalation / second opinion — full Sonnet with vision (no temperature param).
 DEFAULT_CLAUDE_MODEL = "claude-sonnet-5"
+# Cheaper Claude option documented for bulk gates (set STAYTURGID_CLAUDE_MODEL).
+DEFAULT_CLAUDE_CHEAP_MODEL = "claude-haiku-4-5-20251001"
 DEFAULT_TIMEOUT = 90
+DEFAULT_GEMINI_MAX_OUTPUT_TOKENS = 1024
 
 
 def _load_env_file(path: Path) -> None:
@@ -182,7 +189,14 @@ def ask_gemini(
         ],
         "generationConfig": {
             "temperature": 0.1,
-            "maxOutputTokens": 512,
+            # Thinking models (e.g. gemini-3.5-flash via -latest) spend tokens on
+            # internal thoughts; keep headroom so JSON answers still appear.
+            "maxOutputTokens": int(
+                os.environ.get(
+                    "STAYTURGID_GEMINI_MAX_OUTPUT_TOKENS",
+                    str(DEFAULT_GEMINI_MAX_OUTPUT_TOKENS),
+                )
+            ),
         },
     }
     req = urllib.request.Request(
@@ -195,8 +209,17 @@ def ask_gemini(
         payload = json.loads(resp.read().decode("utf-8"))
     raw = ""
     try:
-        parts = payload["candidates"][0]["content"]["parts"]
-        raw = "".join(str(p.get("text") or "") for p in parts)
+        parts = payload["candidates"][0]["content"].get("parts") or []
+        # Skip thought-only parts if present; keep text parts.
+        texts = []
+        for p in parts:
+            if not isinstance(p, dict):
+                continue
+            if p.get("thought"):
+                continue
+            if p.get("text"):
+                texts.append(str(p["text"]))
+        raw = "".join(texts)
     except (KeyError, IndexError, TypeError):
         raw = json.dumps(payload)
     return raw, _parse_json_blob(raw)

@@ -143,6 +143,28 @@
   when: termux_pkg_nightly_removed.changed
   failed_when: false
 
+- name: Render weekly VLM upstream best-practice check launchd agent
+  ansible.builtin.template:
+    src: vlm-upstream-check.plist.j2
+    dest: "{{ agents_dir }}/com.stayturgid.vlm-upstream-check.plist"
+    mode: "0644"
+  when: stayturgid_vlm_upstream_check_enabled | bool
+  register: vlm_upstream_check_plist
+
+- name: Remove VLM upstream check launchd agent when disabled
+  ansible.builtin.file:
+    path: "{{ agents_dir }}/com.stayturgid.vlm-upstream-check.plist"
+    state: absent
+  when: not (stayturgid_vlm_upstream_check_enabled | bool)
+  register: vlm_upstream_check_removed
+
+- name: Unload VLM upstream check launchd agent when disabled
+  community.general.launchd:
+    name: com.stayturgid.vlm-upstream-check
+    state: unloaded
+  when: vlm_upstream_check_removed.changed
+  failed_when: false
+
 - name: Fetch peer-help pubkeys from Fire hosts (for Mac ForceCommand)
   ansible.builtin.command:
     cmd: >-
@@ -191,4 +213,7 @@
         + (['com.stayturgid.termux-pkg-nightly']
            if (termux_pkg_nightly_plist is defined
                and termux_pkg_nightly_plist.changed) else [])
+        + (['com.stayturgid.vlm-upstream-check']
+           if (vlm_upstream_check_plist is defined
+               and vlm_upstream_check_plist.changed) else [])
       }}
