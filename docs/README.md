@@ -8,7 +8,7 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 |--------|--------|-------------------|
 | Termux runtime | [docs/modules/termux.md](modules/termux.md) | Boot self-heal, repair script, presence indicator |
 | Ansible | [ansible/README.md](../ansible/README.md) | Idempotent Termux deploy over SSH |
-| Control node | [docs/modules/control.md](modules/control.md) | ADB reconnect launchd, outage monitor, deploy |
+| Control node | [docs/modules/control.md](modules/control.md) | ADB reconnect, fleet health, **Hermes gateway**, **phone→Mac ET** (`et_mac`), deploy |
 | AutoJs6 | [docs/modules/autojs6.md](modules/autojs6.md) | JS watchdog (only automation stack in repo) |
 | Obtainium | [docs/modules/obtainium.md](modules/obtainium.md) | GitHub APK catalog and updates |
 | F-Droid / Neo Store | [docs/modules/fdroid.md](modules/fdroid.md) | F-Droid repos + Neo Store (**parked** by default) |
@@ -43,6 +43,8 @@ Findings that inform **shipping** fleet behavior (Handsets, Fire OS, UI drivers)
 | [research/handsets-under-termux.md](research/handsets-under-termux.md) | Termux wire client + peer bootstrap |
 | [research/handsets-vs-u2-bench.md](research/handsets-vs-u2-bench.md) | Bench numbers |
 | [research/fire-os-local-adb.md](research/fire-os-local-adb.md) | Fire HD loopback ADB limits |
+| [research/fire-os-google-play.md](research/fire-os-google-play.md) | Fire HD Google Play / GMS stack |
+| [research/mac-android-ui-automation.md](research/mac-android-ui-automation.md) | Mac→Android UI playbook |
 
 ## `docs/incubator/` — parked side projects (do not implement)
 

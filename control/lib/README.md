@@ -37,3 +37,25 @@ ANDROID_SERIAL="$(./control/lib/resolve_adb.py s24)" fdroidcl install com.exampl
 ## Dependencies
 
 - **stayturgid_device.py / adb_cli.py / resolve_adb.py** — `adb` on PATH; optional SSH config for fleet aliases; `~/.config/stayturgid/devices.conf` from Ansible `control_node` role.
+
+## Additional libraries (index)
+
+| Module | Role |
+|--------|------|
+| `et_mac.py` | Phone→Mac Eternal Terminal authorized_keys / soft checks |
+| `ssh_marked_block.py` | Marked blocks in authorized_keys / ssh config |
+| `screen_control.py` | Mac ScreenControlSession (inversion, presence, portrait lock) |
+| `device_screen_lease.py` | Cross-project glass lease (DSCL v1) |
+| `fleet_health.py` | Soft-health scrape + issue tags for monitors |
+| `vlm_gate.py` / `vlm_cloud.py` / `vlm_helpers.py` | Local UI-TARS + cloud VLM escalate |
+| `ui_driver.py` / `ui_clearance.py` / `ui_parse.py` | UI automation helpers |
+| `hd8_google_stack.py` | Fire HD8 Play/GMS stack helpers |
+| `post_ui_remote.py` | Post-deploy UI remote steps |
+| `a11y_services.py` | Accessibility service merge/profiles |
+| `termux_api.py` / `termux_ssh_bootstrap.py` | Termux API + SSH bootstrap |
+| `play_store_autoupdate.py` | Play auto-update checks |
+| `stayturgid_root.py` | Repo-root discovery |
+| `*.json` profiles | a11y / fleet app / AutoJs6 drawer defaults |
+
+See [docs/modules/control.md](../../docs/modules/control.md), [docs/vlm.md](../../docs/vlm.md), and [docs/modules/screen-control-lease.md](../../docs/modules/screen-control-lease.md).
+

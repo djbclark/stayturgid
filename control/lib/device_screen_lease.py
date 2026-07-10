@@ -15,14 +15,16 @@ interop prompt for other projects.
 """
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import socket
 import time
 import uuid
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 SCHEMA = "device-screen-control-lease/v1"
 DEFAULT_TTL_SEC = 1800
@@ -149,6 +151,24 @@ def _write_json_atomic(path: Path, data: dict[str, Any]) -> None:
         f.flush()
         os.fsync(f.fileno())
     os.replace(tmp, path)
+
+
+@contextmanager
+def _lease_lock() -> Iterator[None]:
+    """Exclusive lock around lease check+write (cross-process TOCTOU guard)."""
+    root = lease_root()
+    root.mkdir(parents=True, exist_ok=True)
+    lock_path = root / ".acquire.lock"
+    fd = open(lock_path, "a+", encoding="utf-8")
+    try:
+        fcntl.flock(fd.fileno(), fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            fcntl.flock(fd.fileno(), fcntl.LOCK_UN)
+        except OSError:
+            pass
+        fd.close()
 
 
 def is_active(lease: dict[str, Any] | None, *, now: float | None = None) -> bool:
@@ -315,45 +335,44 @@ def acquire(
     deadline = _now() + wait
     keys = [device] + list(device_ids or [])
     sid = session_id or str(uuid.uuid4())
+    proj = project or project_id()
 
     while True:
-        existing = find_active_lease(*keys)
-        if existing is None:
-            break
-        if ours(existing, session_id=None) and (
-            holder_session(existing) == sid
-            or existing.get("holder", {}).get("pid") == os.getpid()
-            or holder_project(existing) == (project or project_id())
-        ):
-            # Renew / take over own project lease.
-            break
-        if force:
-            break
-        remaining = deadline - _now()
-        if remaining <= 0:
-            raise LeaseConflict(
-                "device %s held by another controller: %s"
-                % (device, format_holder(existing)),
-                lease=existing,
-            )
+        with _lease_lock():
+            existing = find_active_lease(*keys)
+            can_write = existing is None
+            if not can_write and ours(existing, session_id=None) and (
+                holder_session(existing) == sid
+                or existing.get("holder", {}).get("pid") == os.getpid()
+            ):
+                can_write = True
+            if not can_write and force:
+                can_write = True
+            if can_write:
+                lease = build_lease(
+                    device,
+                    device_ids=device_ids,
+                    project=proj,
+                    agent=agent,
+                    purpose=purpose,
+                    session_id=sid,
+                    ttl_sec=ttl_sec,
+                )
+                primary = lease_path(device)
+                _write_json_atomic(primary, lease)
+                for alt in device_ids or []:
+                    if device_key(alt) != device_key(device):
+                        _write_json_atomic(lease_path(alt), lease)
+                return lease
+            remaining = deadline - _now()
+            if remaining <= 0:
+                raise LeaseConflict(
+                    "device %s held by another controller: %s"
+                    % (device, format_holder(existing)),
+                    lease=existing,
+                )
+        # Sleep outside the lock so other waiters / holders can progress.
         time.sleep(min(2.0, remaining))
-
-    lease = build_lease(
-        device,
-        device_ids=device_ids,
-        project=project,
-        agent=agent,
-        purpose=purpose,
-        session_id=sid,
-        ttl_sec=ttl_sec,
-    )
-    # Primary file under requested key; also write under alias keys for lookup.
-    primary = lease_path(device)
-    _write_json_atomic(primary, lease)
-    for alt in device_ids or []:
-        if device_key(alt) != device_key(device):
-            _write_json_atomic(lease_path(alt), lease)
-    return lease
 
 
 def heartbeat(

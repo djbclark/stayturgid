@@ -2,7 +2,7 @@
 
 > **Purpose:** This file is a prompt for an AI agent taking over development. Read it fully before doing anything else. It describes what the project does, the current state, the environment, the tooling rules, and what's next.
 >
-> **Modular docs:** each subfolder is usable on its own. Human index: [docs/README.md](docs/README.md) · [README.md](../README.md). Full clean-install setup + device gotchas: [docs/hacking.md](hacking.md). **Operator tasks (credentials, deploy approval):** [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md). **Open work menu:** [docs/options.md](options.md) (single list — replace + push when items close). **Layout reference:** [docs/architecture.md](architecture.md). Git history has the detailed narrative of every change; this file is the condensed durable record.
+> **Modular docs:** each subfolder is usable on its own. Human index: [docs/README.md](README.md) · [README.md](../README.md). Full clean-install setup + device gotchas: [docs/hacking.md](hacking.md). **Operator tasks (credentials, deploy approval):** [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md). **Open work menu:** [docs/options.md](options.md) (single list — replace + push when items close). **Layout reference:** [docs/architecture.md](architecture.md). Git history has the detailed narrative of every change; this file is the condensed durable record.
 >
 > **Agent rules (always read on handoff):** [`.cursor/rules/`](../.cursor/rules/) — project policy Cursor/agents load as `alwaysApply` rules. See [§ Cursor agent rules](#cursor-agent-rules--read-on-every-handoff) below.
 >
@@ -90,7 +90,7 @@ Agents: `com.stayturgid.fleet-health`, `com.stayturgid.access-monitor` (via
 `ansible/playbooks/control_node/agents.yml`). Neo/Aurora gui-audit is **parked** (`control/bin/gui_audit.py`
 remains for manual use). Disable soft probes: `STAYTURGID_SKIP_HEALTH=1`.
 
-Mac→Android UI playbook: [docs/research/mac-android-ui-automation.md](docs/research/mac-android-ui-automation.md).
+Mac→Android UI playbook: [docs/research/mac-android-ui-automation.md](research/mac-android-ui-automation.md).
 
 ### How to talk about problems
 
@@ -135,8 +135,8 @@ GitHub `master` is the source of truth. To release:
 2. `make deploy` (or `./control/bin/deploy_fleet.py`) — full fleet via `ansible/playbooks/site.yml`
    (`make deploy-check` / `CHECK=1 make deploy` = dry run): preflight, Termux,
    AutoJs6, Obtainium, Tailscale, app privileges, post-UI automation, validate.
-   Neo Store / Aurora are **parked** — see [docs/modules/fdroid.md](docs/modules/fdroid.md),
-   [docs/modules/play.md](docs/modules/play.md). Idempotent (re-run = `changed=0`). Granular:
+   Neo Store / Aurora are **parked** — see [docs/modules/fdroid.md](modules/fdroid.md),
+   [docs/modules/play.md](modules/play.md). Idempotent (re-run = `changed=0`). Granular:
    `make deploy-termux` or `control/tools/autojs6/deploy.py` for single layers.
 
 Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `termux-notification` when GitHub `version.json` moves ahead of the last-seen stamp.
@@ -221,7 +221,7 @@ See [docs/options.md](options.md).
   `control/lib` imports (drop `shared/`); `vlm_gate` → `playbooks/control_node/site.yml`;
   `termux_ssh_bootstrap` → `playbooks/fleet/bootstrap.yml`.
 - Ansible: `control_node` role extracted; canonical playbooks under `playbooks/fleet/` +
-  `playbooks/control_node/`; flat playbooks remain forward shims.
+  `playbooks/control_node/`; flat playbook shims removed (OPTIONS 62 closed) — entry is `site.yml` only.
 - `launchd_ensure` idempotency (probe `launchctl` before reload).
 - OPTIONS **62** expanded: shim inventory + post-shim directory cleanup.
 - Pushed to GitHub; remote verified clean of legacy root dirs.
@@ -243,8 +243,8 @@ See [docs/options.md](options.md).
 - On-device deterministic GUI: `device/termux/py/stayturgid_{import_catalog,enable_autojs6,screen_control,shell,grant_shizuku}.py` + `~/.stayturgid/lib/`.
 - Portfolio 2 `site.yml` + thin `deploy_fleet.py`; ADR 001–002; `android_ui` + `post_ui` + `android_a11y_services`.
 - Mac soft health: launchd `com.stayturgid.fleet-health` → `control/bin/fleet_health_monitor.py` + `control/lib/fleet_health.py` (watchdog/repair/a11y/sshd/bootloop); log `~/.config/stayturgid/logs/fleet-health.log`; notify after debounce.
-- shell-gpt / local LLM (incubator): [docs/incubator/on-device-llm.md](docs/incubator/on-device-llm.md) (OPTIONS **54** only if asked).
-- Parked side projects: [docs/incubator/](docs/incubator/) — Inferno/Styx **do not implement**.
+- shell-gpt / local LLM (incubator): [docs/incubator/on-device-llm.md](incubator/on-device-llm.md) (OPTIONS **54** only if asked).
+- Parked side projects: [docs/incubator/](incubator) — Inferno/Styx **do not implement**.
 
 **Recent landings (2026-07-08):**
 - AutoJs6 fleet drawer profile (`autojs6_drawer_defaults.json`, `enable_autojs6_shizuku.py`).
@@ -266,11 +266,11 @@ See [docs/options.md](options.md).
 - Split storage — Termux under `~/.stayturgid/shared`; AutoJs6 under `/sdcard/stayturgid/`.
 - No Termux→localhost:5555 loopback — verify item 4 is an expected informational note, not a failure. Post-UI stays on Mac adb (USB or wireless).
 - Mac adb: Tailscale or USB `GN43T503430603PS`; wireless failover works after one USB bootstrap.
-- **Sideloaded Google Play:** Play Store can auto-update GMS past Fire-compatible builds → GSF/GMS crash loop. Pin via `make fix-hd8-google`; disable Play Store auto-updates. **VLM close-out** (when `make vlm-server` running): `make verify-hd8-google` or auto after `fix-hd8-google`. See [docs/research/fire-os-google-play.md](docs/research/fire-os-google-play.md) and [docs/vlm.md](docs/vlm.md).
+- **Sideloaded Google Play:** Play Store can auto-update GMS past Fire-compatible builds → GSF/GMS crash loop. Pin via `make fix-hd8-google`; disable Play Store auto-updates. **VLM close-out** (when `make vlm-server` running): `make verify-hd8-google` or auto after `fix-hd8-google`. See [docs/research/fire-os-google-play.md](research/fire-os-google-play.md) and [docs/vlm.md](vlm.md).
 
-**Next work:** [docs/options.md](options.md) — open items only; **start with OPTIONS 62**
+**Next work:** [options.md](options.md) — open items only (OPTIONS **62** closed 2026-07-10).
 if doing cleanup, or **reorg soak** (`make deploy-check` → `make deploy HOSTS=s24` →
-`make verify`) if validating the layout move. Human unlocks: [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md).
+`make verify`) if validating the layout move. Human unlocks: [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md).
 
 **Deploy / test:**
 - Deploy: `make deploy [HOSTS=<host>]`. Verify: `make verify HOSTS=<host>`.
@@ -335,7 +335,7 @@ Deployed scripts → `~/.stayturgid/bin`; AutoJs6 project → `/sdcard/stayturgi
 | Termux / Obtainium | GitHub-signed stack via Obtainium; Shizuku installer enabled |
 | ⚠ Power | the USB *data* cable does NOT reliably charge it — keep it on a real charger or remote access dies with the battery |
 
-Prefer the **S24 over USB** for interactive work when plugged in; use **7a over Tailscale** otherwise. Mac scripts resolve targets via [control/lib/stayturgid_device.py](control/lib/stayturgid_device.py) or `./control/lib/resolve_adb.py` (USB serial when present, else Tailscale/LAN).
+Prefer the **S24 over USB** for interactive work when plugged in; use **7a over Tailscale** otherwise. Mac scripts resolve targets via [control/lib/stayturgid_device.py](../control/lib/stayturgid_device.py) or `./control/lib/resolve_adb.py` (USB serial when present, else Tailscale/LAN).
 
 ---
 
@@ -371,7 +371,7 @@ Use **Handsets** (`~/.handsets/hs` via `control/lib/ui_driver.py`) as the
 parse bounds → `input tap`) is the fallback when Handsets is down and the
 only path for **Termux on-device** scripts. **uiautomator2** is optional Mac
 debug only — never run it alongside Handsets (exclusive UiAutomation slot).
-Bench: [docs/research/handsets-vs-u2-bench.md](docs/research/handsets-vs-u2-bench.md).
+Bench: [docs/research/handsets-vs-u2-bench.md](research/handsets-vs-u2-bench.md).
 `scrcpy -s <target> --stay-awake` for live mirror. Keep awake during
 automation: `adb shell svc power stayon true` (set `false` when done).
 uiautomator2 in Python needs the pipx venv on `sys.path`
@@ -514,7 +514,7 @@ version.json                 — repo release version + changelog
 > **For agents:** Ansible consolidation **shipped** for the 80/20 fleet path
 > (`site.yml`, validate, preflight, post-UI modules). Remaining open work is
 > operational (H5/38 Galaxy), latent reliability (43–45), or optional LLM spike
-> (54) — see [docs/options.md](docs/options.md).
+> (54) — see [docs/options.md](options.md).
 
 The fleet runs on **Ansible-first deploy** (`make deploy` → `site.yml`) with thin
 Mac wrappers for health, ADB reconnect, and screen-control UI. Directions still
@@ -526,16 +526,16 @@ valid for future investment:
 | **B — Ansible-native** | ✅ Shipped — optional Galaxy publish (38) only | — |
 | **C — Hybrid polish** | Incremental module/role fixes without re-architecting | Lowest risk tweaks to existing graph |
 | **D — Python orchestrator** | Replace Ansible boundary with Fabric/Invoke | Unlikely — YAML graph is working |
-| **E — On-device LLM** | shell-gpt escalation after deterministic heal; see [docs/incubator/on-device-llm.md](docs/incubator/on-device-llm.md) | Rare adaptive repair; never hot-path |
+| **E — On-device LLM** | shell-gpt escalation after deterministic heal; see [docs/incubator/on-device-llm.md](incubator/on-device-llm.md) | Rare adaptive repair; never hot-path |
 
 **Parked (not equal-weight):** Inferno/Styx and similar experiments live under
-[docs/incubator/](docs/incubator/) — agents must not work on them unless the
+[docs/incubator/](incubator) — agents must not work on them unless the
 operator unparks a named project.
 
 **No track fixes:** Play Protect, PIN unlock, DHCP LAN IP, Samsung Shizuku/content-URI
 quirks. **MDM and root remain rejected** (daily-driver phones; locked S24 bootloader).
 **Inferno always-on / replacing AutoJs6 or SSH** is rejected for battery and
-catastrophic-heal reasons ([incubator analysis](docs/incubator/inferno-styx/analysis.md)).
+catastrophic-heal reasons ([incubator analysis](incubator/inferno-styx/analysis.md)).
 
 ### Track B — Ansible-native (detailed)
 
@@ -569,7 +569,7 @@ first-run, AutoJs6 drawer — not fake “modules” for UI taps.
 **Shipped modules (fault-tolerance):** `termux_pkg`, `termux_ssh_bootstrap`,
 `termux_sshd`, `stayturgid_repair_check`, `obtainium_app`, `android_apk`,
 `android_app_privileges`, fdroid/play/android_common adb modules — see
-[std_modules_audit.md](ansible_collections/docs/std_modules_audit.md).
+[std_modules_audit.md](../ansible_collections/docs/std_modules_audit.md).
 
 **Prior art:** [termux-jenkins-automation](https://github.com/gounthar/termux-jenkins-automation),
 [ansible-android-termux](https://github.com/guoqiao/ansible-android-termux),
@@ -592,8 +592,8 @@ run `ansible/playbooks/site.yml` (post-UI via `fleet/post-ui.yml`).
 **Partial re-runs:** `./control/bin/deploy_fleet.py --scope fdroid [host]` · `./control/bin/deploy_fleet.py --scope play [host]` (parked until `stayturgid_app_stores_enabled: true`)
 
 **App stores (parked):** Neo/Aurora may remain on devices; fleet no longer installs,
-configures, or health-checks them. Re-enable: [docs/modules/fdroid.md](docs/modules/fdroid.md),
-[docs/modules/play.md](docs/modules/play.md).
+configures, or health-checks them. Re-enable: [docs/modules/fdroid.md](modules/fdroid.md),
+[docs/modules/play.md](modules/play.md).
 
 Run with announcements (`🚨📱🚨 USING — s24 ...`) when someone may be on the device.
-Operator-only steps (Play creds, deploy approval): [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md).
+Operator-only steps (Play creds, deploy approval): [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md).

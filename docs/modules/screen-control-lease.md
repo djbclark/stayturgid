@@ -220,4 +220,13 @@ both write the same directory and refuse foreign active leases.
 
 - [docs/modules/control.md](control.md) — Mac tools  
 - [control/lib/screen_control.py](../../control/lib/screen_control.py) — session wrapper  
-- Handoff phone protocol: USING / FREE announcements  
+- Handoff phone protocol: USING / FREE announcements
+
+## Portrait lock (related)
+
+While a screen-control session is held, stayturgid also applies a **natural-portrait**
+rotation preference (`user_rotation=0`, accelerometer rotation off) so multi-step UI
+automation does not flip landscape mid-batch. Restored when the session ends. See
+`control/lib/screen_control.py` (`apply_portrait_lock`) and the on-device twin in
+`device/termux/py/stayturgid_screen_control.py`.
+

@@ -108,7 +108,7 @@ Or F-Droid: search "Termux:API".
 
 #### AutoJs6 (stayturgid watchdog)
 
-JavaScript automation engine — runs the stayturgid watchdog (accessibility UI repair + Termux bridge). See [docs/modules/autojs6.md](docs/modules/autojs6.md).
+JavaScript automation engine — runs the stayturgid watchdog (accessibility UI repair + Termux bridge). See [docs/modules/autojs6.md](modules/autojs6.md).
 
 **Source:** https://github.com/SuperMonster003/AutoJs6/releases
 
@@ -260,7 +260,7 @@ All of this is scripted from the Mac (device connected via USB or wireless ADB):
 
 On-device setup is automated: `enable_autojs6_shizuku.py` enables the accessibility service and Shizuku drawer; `setup_autojs6.py` / fleet harden grant storage, `RUN_COMMAND`, and battery settings. Termux `allow-external-apps=true` is set by the Ansible deploy (or manually in `~/.termux/termux.properties`).
 
-See [docs/modules/autojs6.md](docs/modules/autojs6.md) for details.
+See [docs/modules/autojs6.md](modules/autojs6.md) for details.
 
 ---
 
@@ -457,7 +457,7 @@ launchctl kickstart -k "gui/$(id -u)/homebrew.mxcl.ui-tars"
 make vlm-service-stop
 ```
 
-Full reference: [docs/vlm.md](docs/vlm.md). Example gate: `make verify-hd8-google HOSTS=hd8`.
+Full reference: [docs/vlm.md](vlm.md). Example gate: `make verify-hd8-google HOSTS=hd8`.
 
 ---
 
@@ -811,7 +811,7 @@ ANDROID_SERIAL="$(resolve_adb s24)" fdroidcl install com.example.app
 
 **Historical E2E (2026-07-07, pre-park):** fdroidcl install smoke test on s24/p7a/hd8; uninstalled after verify.
 
-See [docs/modules/fdroid.md](docs/modules/fdroid.md), [ansible_collections/stayturgid/docs/modules/fdroid.md](ansible_collections/stayturgid/docs/modules/fdroid.md), [ansible_collections/stayturgid/docs/modules/play.md](ansible_collections/stayturgid/docs/modules/play.md).
+See [docs/modules/fdroid.md](modules/fdroid.md), [modules/fdroid.md](modules/fdroid.md), [modules/play.md](modules/play.md).
 
 ---
 

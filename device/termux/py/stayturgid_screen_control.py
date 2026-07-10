@@ -25,7 +25,7 @@ except ImportError:
 INVERSION_KEY = "accessibility_display_inversion_enabled"
 ADB_KEYBOARD = "com.github.uiautomator/.AdbKeyboard"
 PRESENCE_PY = os.path.join(sh.STG, "bin", "stayturgid_agent_presence.py")
-PRESENCE_SH = os.path.join(sh.STG, "bin", "stayturgid_agent_presence.py")
+PRESENCE_SH = os.path.join(sh.STG, "bin", "agent-presence.sh")
 HOLD_KEEPALIVE_SEC = 45
 # Match control/lib/screen_control.py — natural portrait for UI automation.
 PORTRAIT_USER_ROTATION = 0

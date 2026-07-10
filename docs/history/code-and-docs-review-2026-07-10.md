@@ -354,9 +354,32 @@ Production layout reminder (for multi-agent coordination):
 
 ---
 
+
+
+## Implementation status (2026-07-10 follow-up)
+
+Landed on `master` in the same workstream as this review's nuance pass:
+
+| ID | Status |
+|----|--------|
+| Code H1 | **Fixed** — `wifi`/`a11y`/`et_cfg` on `duplicate_branch`; full STATUS schema |
+| Code M1 | **Fixed** — portable `python3` age parse in `fleet_health` gather scripts |
+| Code M2 | **Fixed** — flock around acquire; same-project peers no longer silent-takeover |
+| Code M3 | **Fixed** — Gemini `x-goog-api-key` header (no query key) |
+| Code M4 | **Fixed** — `adb_bin()` in `adb_reconnect` / `access_monitor` |
+| Code M5 | **Fixed** — drawer verify requires switch state match |
+| Code M6 | **Fixed** — on-device `PRESENCE_SH` → `agent-presence.sh` |
+| Code L2 | **Fixed** — AppleScript escape on notify paths |
+| Code L3 | **Fixed** — single `ss` invoke in `sshd_listening` |
+| Docs H1 | **Fixed** — relative links under `docs/` (0 broken at re-check) |
+| Docs H2 | **Fixed** — OPTIONS 62 closed consistently (handoff + human) |
+| Docs M2/M5/M6 | **Partial** — lib README expanded; docs index + portrait note |
+| Remaining L/M | Opportunistic (coords, handsets daemon, Fire-Tools race, collection stubs) |
+
 ## Changelog of this document
 
 | Date | Note |
 |------|------|
 | 2026-07-10 | Initial combined code + docs review against tree tip `1d2df1a`; file first published on `bccc3b3` |
+| 2026-07-10 | Implemented Code H1/M1–M6 + L2/L3, Docs H1/H2, partial docs M; see Implementation status |
 | 2026-07-10 | Operator nuance pass: tip vs doc tip note; M1 “stale looks clean” (not age=0) + portability; H1 STATUS omits `a11y=`/schema drift; pytest venv environment-specific; planning order Code H1 → Docs H2 → links → M1/M5/M2–M4 |

@@ -10,7 +10,7 @@ and server logs live outside `~/.config/stayturgid/`. stayturgid fleet config an
 
 Mac install is **Ansible-managed** (`ansible/playbooks/control_node/vlm.yml` via `make vlm-*`).
 
-See [docs/hacking.md § 2.7](docs/hacking.md#27-ui-tars-vision-gates-optional) for dev setup.
+See [docs/hacking.md § 2.7](hacking.md#27-ui-tars-vision-gates-optional) for dev setup.
 
 ---
 

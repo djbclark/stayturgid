@@ -10,9 +10,9 @@ The **upstream repo should not embed that production fleet** — see §4 for mov
 real hostnames, IPs, and operator paths into a separate GitHub project, and for
 platform-describing example hostnames in the main tree.
 
-**Related docs:** [ansible_collections/docs/adoption.md](ansible_collections/docs/adoption.md),
-[examples/consumer-termux-only/](examples/consumer-termux-only/),
-[examples/consumer-full-fleet/](examples/consumer-full-fleet/).
+**Related docs:** [ansible_collections/docs/adoption.md](../ansible_collections/docs/adoption.md),
+[examples/consumer-termux-only/](../examples/consumer-termux-only),
+[examples/consumer-full-fleet/](../examples/consumer-full-fleet).
 
 ---
 
@@ -60,7 +60,7 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 ### 2.2 Each new Android device
 
 1. **Hardware / OS prep** — Termux debug build, Termux:Boot, Shizuku (thedjchi fork),
-   AutoJs6, Tailscale (recommended), wireless debugging — [docs/hacking.md](docs/hacking.md) Part 1.
+   AutoJs6, Tailscale (recommended), wireless debugging — [docs/hacking.md](hacking.md) Part 1.
 2. **Add host** to your site repo’s `inventory/hosts.yml` + taxonomy groups.
 3. **First SSH** (USB or wireless adb required once):
    ```bash
@@ -79,7 +79,7 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 | Item | When needed |
 |------|-------------|
 | Handsets `~/.handsets/{hs,hs.jar}` | Mac Handsets post-UI, Fire peer bootstrap |
-| `make vlm-install` + `vlm-service-install` | Screenshot verification gates ([docs/vlm.md](docs/vlm.md)) |
+| `make vlm-install` + `vlm-service-install` | Screenshot verification gates ([docs/vlm.md](vlm.md)) |
 | `play.env` + `obtain_play_aas.py` | Google Play / Aurora downloads |
 | `pipx install uiautomator2` | Mac debug (Ansible installs on `deploy-mac`) |
 
@@ -403,7 +403,7 @@ flowchart TB
 
 1. **Operator → device:** Every `*.pub` under `stayturgid_ssh_keys_dir` (default
    `~/.ssh`) installed on every device
-   ([ssh_keys.yml](ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ssh_keys.yml)).
+   ([ssh_keys.yml](../ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ssh_keys.yml)).
 2. **Device → device:** Per-host `id_ed25519_fleet` pubkey installed on all peers in
    `groups[stayturgid_ssh_mesh_group]` (default `stayturgid`).
 3. **Private keys on devices:** All control-node private keys (`id_*`, `termux_key`)

@@ -15,7 +15,7 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 | `fire_peer_help.py` | Peer ADB helper (Handsets/Shizuku) for Fire; SSH ForceCommand entry |
 | `check_fleet_health.py` | **Session triage** — agents run at start; exit 1 ⇒ tell operator |
 | `gui_audit.py` | Neo/Aurora GUI audit — **parked**; manual only (`docs/modules/fdroid.md`, `docs/modules/play.md`) |
-| `verify_play_autoupdate.py` | Play Store auto-update VLM gate (optional; see [docs/vlm.md](../docs/vlm.md)) |
+| `verify_play_autoupdate.py` | Play Store auto-update VLM gate (optional; see [docs/vlm.md](../vlm.md)) |
 | `vlm_check.py` | Local UI-TARS client smoke test (`make vlm-check`) |
 | `deploy_fleet.py` | Full fleet deploy via `site.yml` (preflight → fleet → post-ui → validate) |
 | `bootstrap_ssh.py` | First-time Termux SSH: adb + `run-as com.termux` or `--ansible` → `bootstrap.yml` |
@@ -147,12 +147,12 @@ Any health fix must also update self-heal (Termux / AutoJs6 co-monitor / this
 monitor’s `maybe_heal_watchdog`) — see `.cursor/rules/fleet-health-self-heal.mdc`.
 
 UI automation playbook for other agents:
-[docs/research/mac-android-ui-automation.md](../docs/research/mac-android-ui-automation.md).
+[docs/research/mac-android-ui-automation.md](../research/mac-android-ui-automation.md).
 
-Other subprojects resolve adb targets via [control/lib/stayturgid_device.py](../control/lib/stayturgid_device.py) or [control/lib/resolve_adb.py](../control/lib/resolve_adb.py).
+Other subprojects resolve adb targets via [control/lib/stayturgid_device.py](../../control/lib/stayturgid_device.py) or [control/lib/resolve_adb.py](../../control/lib/resolve_adb.py).
 
 ## Related docs
 
 - [README.md § Full stack](../README.md)
-- [docs/modules/termux.md](../docs/modules/termux.md) — device-side sshd (SSH probe in access_monitor)
-- [control/tools/autojs6/](../control/tools/autojs6/) — AutoJs6 deploy scripts
+- [docs/modules/termux.md](termux.md) — device-side sshd (SSH probe in access_monitor)
+- [control/tools/autojs6/](../../control/tools/autojs6) — AutoJs6 deploy scripts

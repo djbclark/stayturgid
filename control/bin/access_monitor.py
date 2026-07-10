@@ -19,7 +19,15 @@ import socket
 import subprocess
 import sys
 
-ADB = "/opt/homebrew/bin/adb"
+_LIB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib")
+if _LIB not in sys.path:
+    sys.path.insert(0, _LIB)
+try:
+    from stayturgid_device import adb_bin as _adb_bin
+
+    ADB = _adb_bin()
+except Exception:  # noqa: BLE001
+    ADB = os.environ.get("STAYTURGID_ADB", "/opt/homebrew/bin/adb")
 # Single Mac root: ~/.config/stayturgid/{devices.conf,logs/,state/}. mkdir on
 # demand so a user-deleted dir self-heals.
 ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")
@@ -32,6 +40,10 @@ SSH_PORT = 8022
 
 def ts():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+def _applescript_escape(s):
+    return str(s).replace("\\", "\\\\").replace('"', '\\"')
+
 
 
 def _ensure(path):
@@ -62,7 +74,7 @@ def trim_log(max_lines=1000):
 
 
 def notify(title, message, sound=None):
-    script = 'display notification "%s" with title "%s"' % (message, title)
+    script = 'display notification "%s" with title "%s"' % (_applescript_escape(message), _applescript_escape(title))
     if sound:
         script += ' sound name "%s"' % sound
     try:

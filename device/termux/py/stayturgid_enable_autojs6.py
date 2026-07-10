@@ -454,8 +454,6 @@ def ensure_drawer_switch(shell, label, want_on):
     sw2 = find_drawer_switch(shell, label)
     if sw2 and sw2[0] == want_on:
         return "ok"
-    if _HS is not None and sw2 is not None and want_on:
-        return "ok"
     return "failed"
 
 

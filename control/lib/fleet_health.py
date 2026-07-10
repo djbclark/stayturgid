@@ -57,9 +57,22 @@ _age() {
   marker="$1"
   last=$(grep -h "$marker" "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
   if [ -z "$last" ]; then echo missing; return; fi
-  ts=$(date -d "$last" +%s 2>/dev/null || echo 0)
-  if [ "$ts" = 0 ]; then echo unknown; return; fi
-  echo $((now - ts))
+  # Portable parse — GNU date -d fails on many Android toybox builds (stale looked clean).
+  age=$(python3 -c '
+import sys, time
+from datetime import datetime
+s = sys.argv[1].strip()
+for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+    try:
+        ts = datetime.strptime(s, fmt).timestamp()
+        print(int(time.time() - ts))
+        raise SystemExit(0)
+    except ValueError:
+        pass
+print("unknown")
+' "$last" 2>/dev/null) || age=unknown
+  if [ -z "$age" ]; then age=unknown; fi
+  echo "$age"
 }
 echo "repair_age=$(_age '\[repair\]')"
 echo "watchdog_age=$(_age '\[watchdog\]')"
@@ -253,9 +266,21 @@ age_of() {
   m="$1"
   last=$(grep -hF "$m" $LOGS 2>/dev/null | tail -1 | cut -d" " -f1,2)
   if [ -z "$last" ]; then echo missing; return; fi
-  ts=$(date -d "$last" +%s 2>/dev/null || echo 0)
-  if [ "$ts" = 0 ]; then echo unknown; return; fi
-  echo $((now - ts))
+  age=$(python3 -c '
+import sys, time
+from datetime import datetime
+s = sys.argv[1].strip()
+for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+    try:
+        ts = datetime.strptime(s, fmt).timestamp()
+        print(int(time.time() - ts))
+        raise SystemExit(0)
+    except ValueError:
+        pass
+print("unknown")
+' "$last" 2>/dev/null) || age=unknown
+  if [ -z "$age" ]; then age=unknown; fi
+  echo "$age"
 }
 echo "repair_age=$(age_of '[repair]')"
 echo "watchdog_age=$(age_of '[watchdog]')"

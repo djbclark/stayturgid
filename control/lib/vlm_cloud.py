@@ -176,7 +176,7 @@ def ask_gemini(
     model = gemini_model()
     url = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{model}:generateContent?key={key}"
+        f"{model}:generateContent"
     )
     body = {
         "contents": [
@@ -202,7 +202,10 @@ def ask_gemini(
     req = urllib.request.Request(
         url,
         data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            "x-goog-api-key": key,
+        },
         method="POST",
     )
     with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -342,7 +345,7 @@ def ping_backends() -> dict[str, Any]:
     if gemini_key():
         url = (
             "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{gemini_model()}:generateContent?key={gemini_key()}"
+            f"{gemini_model()}:generateContent"
         )
         body = {
             "contents": [{"parts": [{"text": 'Reply exactly: {"ok":true,"ping":"gemini"}'}]}],
@@ -352,7 +355,10 @@ def ping_backends() -> dict[str, Any]:
             req = urllib.request.Request(
                 url,
                 data=json.dumps(body).encode(),
-                headers={"Content-Type": "application/json"},
+                headers={
+                    "Content-Type": "application/json",
+                    "x-goog-api-key": gemini_key(),
+                },
                 method="POST",
             )
             with urllib.request.urlopen(req, timeout=45) as resp:

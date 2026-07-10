@@ -27,7 +27,7 @@ Last updated: **2026-07-10 morning** (repo restructure `d950c53` + handoff pass)
 |------|--------|
 | Repo restructure | `control/`, `device/`, `catalogs/`, `docs/` on `master`; pushed to GitHub |
 | Path consistency | On-device `/sdcard/stayturgid/autojs6/`; `control/lib` imports; canonical Ansible playbooks |
-| OPTIONS 62 | Shim inventory + post-shim cleanup checklist (not executed yet) |
+| OPTIONS 62 | **Closed 2026-07-10** — flat playbook shims removed; keep `site.yml` + `fleet/` + `control_node/` |
 | Fleet soak post-reorg | **Not run** — see below |
 
 **Operator check (recommended before relying on fleet):**

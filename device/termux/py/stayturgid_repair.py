@@ -159,7 +159,8 @@ def sh_adb(cmd):
 
 
 def sshd_listening():
-    if run(["ss", "-tln"])[0] == 0 and ":8022 " in run(["ss", "-tln"])[1]:
+    rc, out = run(["ss", "-tln"])
+    if rc == 0 and ":8022 " in out:
         return True
     rc, out = run(["netstat", "-tln"])
     return rc == 0 and ":8022 " in out
@@ -224,17 +225,48 @@ def ensure_wireless_debugging():
 def duplicate_branch():
     """Another invocation holds the lock: read-only advisory probe, exit 0."""
     sshd = "up" if (sshd_up() or sshd_listening()) else "unknown"
+    # Match main() STATUS schema (a11y=, et_cfg=) so parsers stay consistent.
     if not privileged_shell_expected():
-        port, sh, shizuku = "skip", False, "skip"
+        port, sh, shizuku, a11y, wifi = "skip", False, "skip", "skip", "skip"
     elif privileged_shell():
         port, sh = "open", True
         rc, _ = sh_adb("pgrep -f shizuku_server")
         shizuku = "up" if rc == 0 else "down"
-        wifi = "up" if sh_adb("settings get global adb_wifi_enabled")[1].strip() in ("1", "true") else "down"
+        wifi = (
+            "up"
+            if sh_adb("settings get global adb_wifi_enabled")[1].strip()
+            in ("1", "true")
+            else "down"
+        )
+        before = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
+        a11y = "up" if A11Y_SVC in before else "down"
     else:
-        port, sh, shizuku, wifi = "CLOSED_NO_SHELL", False, "unknown", "unknown"
-    status = "STATUS port=%s shizuku=%s sshd=%s shell=%s wifi=%s" % (
-        port, shizuku, sshd, "yes" if sh else "no", wifi)
+        port, sh, shizuku, a11y, wifi = (
+            "CLOSED_NO_SHELL",
+            False,
+            "unknown",
+            "unknown",
+            "unknown",
+        )
+    # Contention path never mutates SSH config; report presence only.
+    share = os.path.join(STG, "share", "ssh-config-control-et")
+    if not os.path.isfile(share):
+        et_cfg = "skip"
+    else:
+        conf = os.path.join(HOME, ".ssh", "config")
+        try:
+            existing = open(conf).read() if os.path.isfile(conf) else ""
+        except OSError:
+            existing = ""
+        et_cfg = (
+            "up"
+            if "STAYTURGID-CONTROL-ET" in existing and "IdentityFile" in existing
+            else "down"
+        )
+    status = (
+        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s"
+        % (port, shizuku, sshd, a11y, "yes" if sh else "no", wifi, et_cfg)
+    )
     log(status + " rc=0 (skipped-duplicate)")
     print(status)
     return 0

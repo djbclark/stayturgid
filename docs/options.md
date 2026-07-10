@@ -8,19 +8,19 @@
 > **Fleet health (mandatory):** at session start run
 > `make health` (or `python3 control/bin/check_fleet_health.py`). If exit ≠ 0, **tell the operator** the
 > host/`issues=` tags in your first reply — do not wait to be asked. Details:
-> [docs/handoff.md § Mac fleet health](docs/handoff.md#mac-fleet-health--mandatory-for-agents).
+> [docs/handoff.md § Mac fleet health](handoff.md#mac-fleet-health--mandatory-for-agents).
 >
 > **Health fix → self-heal (mandatory):** when you clear a health issue, also
 > update Termux / AutoJs6 co-monitor / Mac launchd so that failure mode
 > recovers without a manual one-shot next time. Rule:
 > `.cursor/rules/fleet-health-self-heal.mdc`.
 >
-> Human-only tasks: [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md). Operator
-> answers: `human/RESPONSES.md` (gitignored). Session context: [docs/handoff.md](docs/handoff.md).
-> Strategic directions: [docs/handoff.md appendix](docs/handoff.md#appendix--strategic-directions-equal-weight).
-> Ansible boundary: [docs/adr/001-ansible-boundary.md](docs/adr/001-ansible-boundary.md),
-> [docs/adr/002-ansible-ui-tasks.md](docs/adr/002-ansible-ui-tasks.md).
-> Parked side projects: [docs/incubator/](docs/incubator/) — **do not implement**
+> Human-only tasks: [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md). Operator
+> answers: `human/RESPONSES.md` (gitignored). Session context: [docs/handoff.md](handoff.md).
+> Strategic directions: [docs/handoff.md appendix](handoff.md#appendix--strategic-directions-equal-weight).
+> Ansible boundary: [docs/adr/001-ansible-boundary.md](adr/001-ansible-boundary.md),
+> [docs/adr/002-ansible-ui-tasks.md](adr/002-ansible-ui-tasks.md).
+> Parked side projects: [docs/incubator/](incubator) — **do not implement**
 > unless the operator unparks a named project (Inferno, etc.).
 
 **Fleet snapshot (2026-07-10 afternoon):** Senior review fixes landed (adb launchd PATH,
@@ -46,7 +46,7 @@ HOSTS=s24` then announced soak. H5/38 only if Galaxy publish wanted.
 | **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; incubator note | 54 | Medium (mis-scope risk) |
 
-Parked (not a track): Inferno/Styx → [docs/incubator/inferno-styx/](docs/incubator/inferno-styx/).
+Parked (not a track): Inferno/Styx → [docs/incubator/inferno-styx/](incubator/inferno-styx).
 
 ---
 
@@ -123,7 +123,7 @@ Spike only: after deterministic `stayturgid-repair` fails, optionally ask
 shell-gpt for allowlisted shell advice. Consent still required for any `input`.
 **Not** in the 5-min repair hot path; AutoJs6 catastrophic path stays mandatory
 when 5555 is dead. Note (incubator):
-[docs/incubator/on-device-llm.md](docs/incubator/on-device-llm.md).
+[docs/incubator/on-device-llm.md](incubator/on-device-llm.md).
 
 - Prefer **shell-gpt**; skip **aider-chat** (wrong job + aarch64 pain).
 - Local 1.5B–3B = bounded advisor only; cloud API for quality escalation.
@@ -135,7 +135,7 @@ when 5555 is dead. Note (incubator):
 **Non-goals / do-not-touch:** MDM / root / Play Protect bypass; full Obtainium
 API; Tasker rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal;
 always-on Ollama in Termux:Boot; **any Inferno/`emu`/Styx work** (parked under
-[docs/incubator/inferno-styx/](docs/incubator/inferno-styx/)).
+[docs/incubator/inferno-styx/](incubator/inferno-styx)).
 
 **Closed (2026-07-09 night):** **60–61** validate role + preflight + `autojs6_project_deploy`;
 `make help`/Makefile ops; `make health` stale LOST fix; docs sweep. **58–59** ADR 002 +
