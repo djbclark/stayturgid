@@ -151,7 +151,9 @@ def _touch_heal(name: str) -> None:
     _touch_heal_dir(name, HEAL_STATE_DIR)
 
 
-def maybe_heal_watchdog(name: str, issues: list[str], fails: int) -> None:
+def maybe_heal_watchdog(
+    name: str, issues: list[str], fails: int, adb_serial: str | None = None
+) -> None:
     """Restart AutoJs6 main.js when soft health shows a dead watchdog.
 
     Manual start_watchdog.py was required previously — that is not self-heal.
@@ -172,9 +174,12 @@ def maybe_heal_watchdog(name: str, issues: list[str], fails: int) -> None:
         log("%s watchdog heal skipped (missing %s)" % (name, script))
         return
     log("%s watchdog heal: starting main.js via start_watchdog.py" % name)
+    cmd = [sys.executable, script, name]
+    if adb_serial:
+        cmd.append(adb_serial)
     try:
         r = subprocess.run(
-            [sys.executable, script, name],
+            cmd,
             capture_output=True,
             text=True,
             timeout=60,
@@ -184,8 +189,8 @@ def maybe_heal_watchdog(name: str, issues: list[str], fails: int) -> None:
             "%s watchdog heal rc=%s %s"
             % (name, r.returncode, detail[:300])
         )
-        _touch_heal(name)
         if r.returncode == 0:
+            _touch_heal(name)
             notify(
                 "stayturgid heal",
                 "%s AutoJs6 watchdog restarted" % name,
@@ -302,7 +307,8 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
 
     fails += 1
     write_state(state_file, fails)
-    maybe_heal_watchdog(name, issues, fails)
+    adb_serial = path.split(":", 1)[1] if path and path.startswith("adb:") else None
+    maybe_heal_watchdog(name, issues, fails, adb_serial=adb_serial)
     if fails == CONSECUTIVE_LIMIT:
         detail = ",".join(issues)
         if len(detail) > 180:

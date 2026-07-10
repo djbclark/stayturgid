@@ -19,9 +19,9 @@ MAIN = f"{adb.AUTOJS_PROJECT_BASE}/main.js"
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
-        sys.stderr.write("usage: start_watchdog.py <p7a|s24|hd8|serial>\n")
+        sys.stderr.write("usage: start_watchdog.py <p7a|s24|hd8|serial> [adb_serial]\n")
         return 2
-    serial = adb.resolve_target(argv[0])
+    serial = argv[1] if len(argv) > 1 else adb.resolve_target(argv[0])
     print(f"Starting main.js on {serial}...")
     adb.start_autojs_file(serial, MAIN)
     time.sleep(3)

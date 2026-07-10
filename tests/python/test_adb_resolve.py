@@ -88,8 +88,8 @@ def test_resolve_adb_skips_connect_for_unreachable_endpoints(tmp_path, monkeypat
             return 0, "", ""
         return 1, "", ""
 
-    # nothing reachable -> static fallback (LAN first), and no adb connect calls
-    assert adb_resolve.resolve_adb("p7a", run, str(conf)) == "192.168.68.65:5555"
+    # nothing reachable -> Tailscale fallback (LAN dead), no adb connect calls
+    assert adb_resolve.resolve_adb("p7a", run, str(conf)) == "100.65.230.108:5555"
     assert not any(c[:2] == ["adb", "connect"] for c in seen)
 
 

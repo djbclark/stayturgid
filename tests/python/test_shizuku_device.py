@@ -9,6 +9,16 @@ sys.path.insert(0, os.path.join(
     "shared", "mac"))
 import stayturgid_device as dev  # noqa: E402
 
+import importlib.util
+from pathlib import Path
+
+_REPO = Path(__file__).resolve().parents[2]
+_MOD = _REPO / "ansible_collections/stayturgid/android_common/plugins/module_utils/adb_resolve.py"
+_spec = importlib.util.spec_from_file_location("adb_resolve", _MOD)
+adb_resolve = importlib.util.module_from_spec(_spec)
+assert _spec.loader is not None
+_spec.loader.exec_module(adb_resolve)
+
 
 def test_patch_preserves_other_apps():
     current = json.dumps({"version": 2, "packages": [
@@ -140,7 +150,12 @@ def test_resolve_adb_and_ssh_host(tmp_path, monkeypatch):
         return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
 
     monkeypatch.setattr(dev, "_run", offline)
-    assert dev.resolve_adb("s24", str(conf)) == "192.168.68.55:5555"
+    monkeypatch.setattr(
+        adb_resolve,
+        "tcp_reachable",
+        lambda ep, timeout=None: False,
+    )
+    assert dev.resolve_adb("s24", str(conf)) == "100.123:5555"
     # unknown alias passes through; ssh host only for known devices
     assert dev.resolve_adb("raw:5555", str(conf)) == "raw:5555"
     assert dev.resolve_ssh_host("s24", str(conf)) == "s24"

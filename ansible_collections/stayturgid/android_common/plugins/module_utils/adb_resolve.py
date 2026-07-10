@@ -130,8 +130,17 @@ def match_usb_serial(run_command, usb_serial, devices):
 
 
 def static_fallback(row, alias):
-    """Best-guess target when nothing is reachable (LAN before Tailscale)."""
+    """Best-guess target when nothing is in adb devices yet.
+
+    Prefer the first TCP-open wireless endpoint; if none respond, return
+    Tailscale over LAN (LAN IPs drift when the phone changes Wi-Fi).
+    """
     endpoints = wireless_endpoints(row)
+    for ep in endpoints:
+        if tcp_reachable(ep):
+            return ep
+    if len(endpoints) > 1:
+        return endpoints[-1]
     if endpoints:
         return endpoints[0]
     return alias
