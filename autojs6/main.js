@@ -10,6 +10,7 @@ var config = require("./lib/config.js");
 var guard = require("./lib/guard.js");
 var watchdog = require("./lib/watchdog.js");
 var log = require("./lib/log.js");
+var engineGuard = require("./lib/engine_guard.js");
 
 var profile;
 try {
@@ -46,6 +47,10 @@ function safeCycle(trigger) {
 }
 
 log.append("[watchdog] stayturgid AutoJs6 started device=" + (profile.id || "?"));
+var stopped = engineGuard.dedupeMainEngines();
+if (stopped > 0) {
+    log.append("[watchdog] stopped " + stopped + " duplicate main.js engine(s)");
+}
 safeCycle("boot");   // covers manual launch + boot auto-start
 
 // Every 20 minutes — the loop is ALWAYS established, even if the boot cycle

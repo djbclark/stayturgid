@@ -17,6 +17,7 @@ stayturgid_termux_packages:
 stayturgid_boot_scripts:
   - start-adb.sh
   - start-repair-bridge.sh
+  - start-autojs6-bridge.sh
   - start-autojs6-watchdog.sh
 
 # Override examples (Termux-only, no AutoJs6):
@@ -26,6 +27,7 @@ stayturgid_boot_scripts:
 stayturgid_home_scripts:
   - stayturgid-repair.sh
   - repair-bridge.sh
+  - autojs6-bridge.sh
   - agent-presence.sh
   - claude-presence.sh   # compat shim -> agent-presence.sh
 

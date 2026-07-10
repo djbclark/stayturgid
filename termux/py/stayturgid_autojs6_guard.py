@@ -1,9 +1,9 @@
 #!/data/data/com.termux/files/usr/bin/python
-"""AutoJs6 watchdog observer — no RunIntentActivity / no foreground steal.
+"""AutoJs6 watchdog observer — no RunIntentActivity from the 5-min boot loop.
 
-Termux stayturgid-repair owns routine self-heal (5-min boot loop). This script
-only records when main.js has stalled while repair is healthy, and optionally
-notifies the operator (rate-limited).
+Termux stayturgid-repair owns routine self-heal. When main.js stalls while
+repair is healthy, this script logs, arms autojs6-bridge (trigger file), and
+optionally notifies the operator (rate-limited).
 """
 import datetime
 import os
@@ -42,6 +42,10 @@ NOTIFY_STAMP = os.path.join(STATE, "last_autojs6_stale_notify")
 WATCHDOG_STALE_SEC = 45 * 60
 REPAIR_FRESH_SEC = 20 * 60
 NOTIFY_COOLDOWN_SEC = 86400
+RESTART_COOLDOWN_SEC = 30 * 60
+RESTART_STAMP = os.path.join(STATE, "last_autojs6_restart_trigger")
+TRIGGER = os.path.join(SD, "run", "start_autojs6_now")
+TRIGGER_SDCARD = "/sdcard/stayturgid/run/start_autojs6_now"
 
 
 def run(args):
@@ -114,6 +118,35 @@ def maybe_notify():
         pass
 
 
+def maybe_restart_trigger():
+    """Arm autojs6-bridge (trigger file) — not RunIntentActivity from boot loop."""
+    now = int(time.time())
+    last = 0
+    if os.path.isfile(RESTART_STAMP):
+        try:
+            last = int(open(RESTART_STAMP).read().strip() or "0")
+        except (OSError, ValueError):
+            last = 0
+    if now - last < RESTART_COOLDOWN_SEC:
+        return
+    os.makedirs(os.path.dirname(TRIGGER), exist_ok=True)
+    os.makedirs(os.path.dirname(TRIGGER_SDCARD), exist_ok=True)
+    try:
+        with open(TRIGGER, "w", encoding="utf-8") as fh:
+            fh.write(str(now))
+        with open(TRIGGER_SDCARD, "w", encoding="utf-8") as fh:
+            fh.write(str(now))
+    except OSError:
+        return
+    os.makedirs(STATE, exist_ok=True)
+    try:
+        with open(RESTART_STAMP, "w") as fh:
+            fh.write(str(now))
+    except OSError:
+        pass
+    append_log("[termux] autojs6 guard: armed start_autojs6_now for bridge")
+
+
 def action_check():
     cycle_ts, _cycle = latest_line_marker(LOG, "[watchdog] cycle start")
     repair_ts, _repair = latest_line_marker(LOG, "[repair] STATUS")
@@ -135,6 +168,7 @@ def action_check():
     )
 
     if repair_ts and repair_age < REPAIR_FRESH_SEC:
+        maybe_restart_trigger()
         maybe_notify()
     return 0
 

@@ -643,4 +643,34 @@ run_sandboxed "$START_AUTOJS6"
 tap_is "$RC" 0 "start-autojs6: exits 0 when boot script present"
 tap_like "$(cat "$STUB_LOG")" "boot-launcher.js" "start-autojs6: am start targets boot-launcher.js"
 
+# autojs6-bridge.sh: trigger file => am start within one loop
+AUTOJS6_BRIDGE="$REPO/termux/autojs6-bridge.sh"
+START_AUTOJS6_BRIDGE="$REPO/termux/boot/start-autojs6-bridge.sh"
+reset_sandbox
+mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/sd/run" "$SANDBOX/sd/autojs6/scripts"
+: > "$SANDBOX/sd/autojs6/scripts/boot-launcher.js"
+touch "$SANDBOX/sd/run/start_autojs6_now"
+cp "$AUTOJS6_BRIDGE" "$SANDBOX/home/.stayturgid/bin/autojs6-bridge.sh"
+chmod +x "$SANDBOX/home/.stayturgid/bin/autojs6-bridge.sh"
+run_sandboxed_alarm 2 "$SANDBOX/home/.stayturgid/bin/autojs6-bridge.sh"
+AJ6_LOG="$SANDBOX/home/.stayturgid/logs/autojs6-bridge.log"
+if [ ! -f "$SANDBOX/sd/run/start_autojs6_now" ]; then
+    tap_ok "autojs6-bridge: trigger file removed after handling"
+else
+    tap_fail "autojs6-bridge: trigger file removed after handling"
+fi
+tap_like "$(cat "$AJ6_LOG" 2>/dev/null)" "boot-launcher" "autojs6-bridge: am start boot-launcher"
+
+reset_sandbox
+mkdir -p "$SANDBOX/home/.stayturgid/bin"
+cp "$AUTOJS6_BRIDGE" "$SANDBOX/home/.stayturgid/bin/autojs6-bridge.sh"
+chmod +x "$SANDBOX/home/.stayturgid/bin/autojs6-bridge.sh"
+run_sandboxed "$START_AUTOJS6_BRIDGE"
+if wait_sandbox_pidfile "$SANDBOX/home/.stayturgid/run/autojs6-bridge.pid"; then
+    tap_ok "start-autojs6-bridge: launches bridge when idle"
+else
+    tap_fail "start-autojs6-bridge: launches bridge when idle"
+fi
+kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/autojs6-bridge.pid"
+
 tap_done

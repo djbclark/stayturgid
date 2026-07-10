@@ -173,6 +173,15 @@ function run(profile, opts) {
     var wifi = probeWifi(split);
     var a11y = probeAndRepairA11y(split);
 
+    // Trust fresh Termux [repair] port=open over a flaky nc/adb probe.
+    if (!split && shellProbe.port === "CLOSED_NO_SHELL" && !log.isRepairLoopStale()) {
+        var trust = log.latestRepairStatus();
+        if (trust && trust.port === "open") {
+            shellProbe = { port: "open", shell: trust.shell || "yes" };
+            log.append("[comonitor] trusting fresh [repair] port=open over shell probe");
+        }
+    }
+
     // Catastrophic: no shell on stock Android, or Shizuku dead on any host.
     // Only escalate CLOSED_NO_SHELL when Termux is also stale/unknown — avoid
     // fighting a healthy Termux repair with UI taps every 20 min.

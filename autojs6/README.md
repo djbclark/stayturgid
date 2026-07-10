@@ -65,8 +65,9 @@ Grant `com.termux.permission.RUN_COMMAND` to AutoJs6 (setup script). Fallback: `
 ## Boot / start paths
 
 - **Boot (once):** Termux:Boot → `start-autojs6-watchdog.sh` → `boot-launcher.js` (may use `RunIntentActivity` — acceptable right after unlock)
-- **5-min loop:** `stayturgid_autojs6_guard.py` only — logs/notify if main.js stalled; **no** `am start`
-- **Mac deploy:** `./start_watchdog.py <host>` or Ansible `autojs6_watchdog` handler
+- **5-min loop:** `stayturgid_autojs6_guard.py` — logs stale watchdog; arms `run/start_autojs6_now` for **autojs6-bridge** (rate-limited); **no** `am start` from the repair loop
+- **autojs6-bridge.sh:** 2s poll of `start_autojs6_now` → `boot-launcher.js` via `am start` (30 min cooldown)
+- **Mac deploy / heal:** `./start_watchdog.py <host>` or `fleet_health_monitor` when `watchdog_stale`
 
 ## Layout
 

@@ -21,13 +21,22 @@ AUTOJS_PKG = adb.AUTOJS_PKG
 MKBIN = "mkdir -p ~/.stayturgid/bin ~/.stayturgid/logs ~/.stayturgid/run ~/.termux/boot\n"
 BRIDGE_START = """
 chmod +x ~/.stayturgid/bin/stayturgid-repair.sh ~/.stayturgid/bin/repair-bridge.sh \
-    ~/.termux/boot/start-repair-bridge.sh ~/.termux/boot/start-autojs6-watchdog.sh 2>/dev/null
+    ~/.stayturgid/bin/autojs6-bridge.sh \
+    ~/.termux/boot/start-repair-bridge.sh ~/.termux/boot/start-autojs6-bridge.sh \
+    ~/.termux/boot/start-autojs6-watchdog.sh 2>/dev/null
 pid=$(cat ~/.stayturgid/run/bridge.pid 2>/dev/null)
 if [ -n "$pid" ] && [ -d "/proc/$pid" ] && grep -q repair-bridge "/proc/$pid/cmdline" 2>/dev/null; then
-    echo "bridge already running (pid $pid)"
+    echo "repair-bridge already running (pid $pid)"
 else
     nohup ~/.stayturgid/bin/repair-bridge.sh >> ~/.stayturgid/logs/bridge.log 2>&1 &
-    echo "bridge started"
+    echo "repair-bridge started"
+fi
+pid=$(cat ~/.stayturgid/run/autojs6-bridge.pid 2>/dev/null)
+if [ -n "$pid" ] && [ -d "/proc/$pid" ] && grep -q autojs6-bridge "/proc/$pid/cmdline" 2>/dev/null; then
+    echo "autojs6-bridge already running (pid $pid)"
+else
+    nohup ~/.stayturgid/bin/autojs6-bridge.sh >> ~/.stayturgid/logs/autojs6-bridge.log 2>&1 &
+    echo "autojs6-bridge started"
 fi
 """
 
@@ -41,8 +50,9 @@ def deploy_termux_scripts(alias: str, serial: str) -> str:
         adb.ssh_run(ssh_host, MKBIN)
         adb.scp(termux / "stayturgid-repair.sh", ssh_host, ".stayturgid/bin/stayturgid-repair.sh")
         adb.scp(termux / "repair-bridge.sh", ssh_host, ".stayturgid/bin/repair-bridge.sh")
+        adb.scp(termux / "autojs6-bridge.sh", ssh_host, ".stayturgid/bin/autojs6-bridge.sh")
         adb.scp(termux / "py" / "stayturgid_repair.py", ssh_host, ".stayturgid/bin/stayturgid_repair.py")
-        for boot in ("start-repair-bridge.sh", "start-autojs6-watchdog.sh"):
+        for boot in ("start-repair-bridge.sh", "start-autojs6-bridge.sh", "start-autojs6-watchdog.sh"):
             src = termux / "boot" / boot
             if src.is_file():
                 adb.scp(src, ssh_host, f".termux/boot/{boot}")

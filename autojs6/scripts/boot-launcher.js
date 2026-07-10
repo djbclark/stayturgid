@@ -1,13 +1,13 @@
 /**
  * Boot helper: start main.js if not already running.
- * Invoked from Termux:Boot (start-autojs6-watchdog.sh) or AutoJs6 timed/broadcast task.
+ * Invoked from Termux:Boot (start-autojs6-watchdog.sh), autojs6-bridge.sh
+ * (trigger file), or AutoJs6 timed/broadcast task.
  *
- * No "auto" directive: this launcher doesn't need accessibility, and it runs
- * every 5 min from the boot loop — requesting a11y here would bounce the user
- * to Settings repeatedly whenever the service is off (main.js handles a11y).
+ * No "auto" directive: this launcher doesn't need accessibility.
  */
 
-var MAIN = "/sdcard/stayturgid/autojs6/main.js";
+var engineGuard = require("../lib/engine_guard.js");
+var MAIN = engineGuard.MAIN;
 var STALE_WATCHDOG_MS = 25 * 60 * 1000;
 
 function latestWatchdogCycleMs() {
@@ -36,28 +36,13 @@ function watchdogStale() {
     return (Date.now() - last) > STALE_WATCHDOG_MS;
 }
 
-function findMainEngines() {
-    var out = [];
-    var engines = runtime.engines.all();
-    for (var i = 0; i < engines.length; i++) {
-        var src = String(engines[i].getSource() || "");
-        if (src.indexOf(MAIN) >= 0 || src.indexOf("stayturgid/autojs6/main.js") >= 0) {
-            out.push(engines[i]);
-        }
-    }
-    return out;
-}
-
-var existing = findMainEngines();
+var existing = engineGuard.findMainEngines();
 if (existing.length === 1 && !watchdogStale()) {
     exit();
 }
 if (existing.length === 1 && watchdogStale()) {
     existing[0].forceStop();
-}
-if (existing.length > 1) {
-    for (var j = 0; j < existing.length; j++) {
-        existing[j].forceStop();
-    }
+} else if (existing.length > 1) {
+    engineGuard.dedupeMainEngines();
 }
 engines.execScriptFile(MAIN);
