@@ -4,7 +4,29 @@
 >
 > **Modular docs:** each subfolder is usable on its own. Human index: [docs/README.md](docs/README.md) · [README.md](../README.md). Full clean-install setup + device gotchas: [docs/hacking.md](hacking.md). **Operator tasks (credentials, deploy approval):** [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md). **Open work menu:** [docs/options.md](options.md) (single list — replace + push when items close). **Layout reference:** [docs/architecture.md](architecture.md). Git history has the detailed narrative of every change; this file is the condensed durable record.
 >
+> **Agent rules (always read on handoff):** [`.cursor/rules/`](../.cursor/rules/) — project policy Cursor/agents load as `alwaysApply` rules. See [§ Cursor agent rules](#cursor-agent-rules--read-on-every-handoff) below.
+>
 > **2026-07-10:** Massive repo restructure on `master` (`d950c53`) — read [§ Cold-start](#-cold-start--current-state-read-this-first) before assuming any path.
+
+---
+
+## Cursor agent rules — read on every handoff
+
+**Location:** [`.cursor/rules/`](../.cursor/rules/) (repo root; not under `docs/`).
+
+These are **durable project policies** for AI agents (Cursor and handoff successors). They are short Markdown (`.mdc`) files with frontmatter `alwaysApply: true`. **Open the directory and read every rule** at session start / handoff — do not rely only on this handoff body; rules may be added or tightened without rewriting this whole document.
+
+| File | Topic |
+|------|--------|
+| [`.cursor/rules/fleet-health-self-heal.mdc`](../.cursor/rules/fleet-health-self-heal.mdc) | Health fixes must also update self-heal paths (Termux / AutoJs6 / Mac monitors) — session-only heals are incomplete |
+| [`.cursor/rules/screen-control-hold.mdc`](../.cursor/rules/screen-control-hold.mdc) | Keep `ScreenControlSession` held across multi-step UI work; do not open/close per tap |
+
+```bash
+ls .cursor/rules/          # inventory of agent rules
+# then read each *.mdc — especially before fleet health or on-glass UI work
+```
+
+If you add a new always-on agent policy, put it in `.cursor/rules/` and mention it here (and in the root [README](../README.md) docs table if it is handoff-critical).
 
 ---
 

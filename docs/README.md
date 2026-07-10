@@ -22,7 +22,8 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 |-----|----------|
 | [README.md](../README.md) | Everyone — hub + full-stack quick path |
 | [docs/hacking.md](hacking.md) | Developers — clean install, Obtainium, Termux swap |
-| [docs/handoff.md](handoff.md) | AI agents / maintainers — **session start:** `make health`; **2026-07-10 reorg:** read Cold-start first |
+| [docs/handoff.md](handoff.md) | AI agents / maintainers — **session start:** `make health`; **2026-07-10 reorg:** read Cold-start first; **[`.cursor/rules/`](../.cursor/rules/)** |
+| [`.cursor/rules/`](../.cursor/rules/) | Always-on AI agent rules (self-heal, screen-control hold, …) — **read on handoff** |
 | [docs/architecture.md](architecture.md) | Repo layout (`control/`, `device/`, `catalogs/`, `docs/`) |
 | [docs/options.md](options.md) | Open work menu |
 | [docs/other-sites.md](other-sites.md) | Multi-site adoption, control-node OS matrix |
