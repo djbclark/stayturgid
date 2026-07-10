@@ -112,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
             stack_detail.get("gsf_version"),
         ))
 
-    gate = vlm.VlmGate(autostart=False, allow_server_only=True)
+    gate = vlm.VlmGate(autostart=True, allow_server_only=True)
     if gate.ready:
         crash_ok, crash_detail = check_crash_dialog(serial, gate)
         report["checks"]["no_crash_dialog"] = crash_detail

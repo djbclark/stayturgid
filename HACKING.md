@@ -396,6 +396,48 @@ claude
 
 Verify it's using Pro/Max plan (not API billing): run `/status` inside Claude Code.
 
+### 2.7 UI-TARS vision gates (optional)
+
+UI-TARS is a **vendor-neutral Mac sidecar** (`llama-server` on `127.0.0.1:8081`). It is
+not stored under `~/.config/stayturgid/` — only fleet config (`devices.conf`, logs,
+artifacts) lives there. stayturgid scripts auto-start the server when needed if the
+launchd agent is installed.
+
+**One-time setup** (Apple Silicon Mac, ~6 GB disk, 16 GB RAM recommended):
+
+```bash
+make configure          # reports llama-server + launchd status
+make vlm-install        # brew install llama.cpp + download GGUF weights
+make vlm-service-install   # launchd agent homebrew.mxcl.ui-tars
+make vlm-check
+```
+
+| Scope | Path |
+|-------|------|
+| UI-TARS home | `~/.local/share/ui-tars/` |
+| Models | `~/.local/share/ui-tars/models/1.5-7b/` |
+| Server log | `~/Library/Logs/ui-tars/server.log` |
+| LaunchAgent | `homebrew.mxcl.ui-tars` |
+| stayturgid VLM artifacts | `~/.config/stayturgid/artifacts/vlm-verify/` |
+
+**Upgrading from old `~/.config/stayturgid/models/ui-tars-*` layout:**
+
+```bash
+bash mac/ui-tars/vlm_migrate_paths.sh
+make vlm-service-install
+```
+
+**Day-to-day ops** (launchctl, not a dedicated terminal):
+
+```bash
+curl -sf http://127.0.0.1:8081/health
+make vlm-service-status
+launchctl kickstart -k "gui/$(id -u)/homebrew.mxcl.ui-tars"
+make vlm-service-stop
+```
+
+Full reference: [VLM.md](VLM.md). Example gate: `make verify-hd8-google HOSTS=hd8`.
+
 ---
 
 ## Part 3 — Connecting to the device

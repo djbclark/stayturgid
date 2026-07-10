@@ -26,7 +26,8 @@ DEPLOY_SCOPE_ARG := $(if $(filter-out full,$(SCOPE)),--scope $(SCOPE),)
 .PHONY: help all configure check unit test unit-and-pytest pytest ansible-test test-venv \
         lint clean verify verify-heal device dryrun dryrun-termux \
         health fix-hd8-google deploy deploy-check collections bootstrap-ssh deploy-termux syntax \
-        vlm-install vlm-server vlm-check vlm-stop verify-play-autoupdate verify-hd8-google
+        vlm-install vlm-server vlm-check vlm-stop vlm-service-install vlm-service-status \
+        vlm-service-stop vlm-service-restart vlm-smoke verify-play-autoupdate verify-hd8-google
 
 # ------------------------------------------------------------------------------
 # Help
@@ -67,11 +68,15 @@ help:
 	@echo "  make lint                         shellcheck + ansible-lint + yamllint"
 	@echo "  make configure                    Report tool availability → .config.mk"
 	@echo ""
-	@echo "VLM (optional Mac UI-TARS gates — see VLM.md):"
-	@echo "  make vlm-install                  Download UI-TARS-1.5-7B GGUF (~6GB)"
-	@echo "  make vlm-server                   Start llama-server (dedicated terminal)"
-	@echo "  make vlm-check                    Smoke-test VLM server"
-	@echo "  make vlm-stop                     Stop background UI-TARS server"
+	@echo "VLM (optional Mac UI-TARS gates — vendor-neutral; see VLM.md):"
+	@echo "  make vlm-install                  brew llama.cpp + download weights (~6GB)"
+	@echo "  make vlm-service-install          launchd agent (persists across login)"
+	@echo "  make vlm-service-status           health + launchctl summary"
+	@echo "  make vlm-check                    Smoke-test server + client"
+	@echo "  make vlm-smoke                    Stop/start launchd QA cycle"
+	@echo "  make vlm-server                   Manual foreground start (no launchd)"
+	@echo "  make vlm-service-stop             launchctl bootout + stop manual"
+	@echo "  make vlm-service-restart          kickstart launchd agent"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make deploy HOSTS=s24"
@@ -108,20 +113,30 @@ verify-hd8-google:
 	STAYTURGID_VLM=1 python3 mac/verify_hd8_google.py $(or $(HOSTS),hd8)
 
 vlm-install:
-	bash mac/vlm_install.sh
+	bash mac/ui-tars/vlm_install.sh
 
 vlm-server:
-	bash mac/ui_tars_server.sh
+	bash mac/ui-tars/ui_tars_server.sh
 
 vlm-check:
 	python3 mac/vlm_check.py
 
-vlm-stop:
-	@if [ -f "$${HOME}/.config/stayturgid/ui-tars-server.pid" ]; then \
-	  kill "$$(cat "$${HOME}/.config/stayturgid/ui-tars-server.pid")" 2>/dev/null || true; \
-	  rm -f "$${HOME}/.config/stayturgid/ui-tars-server.pid"; \
-	  echo "stopped"; \
-	else echo "no pid file"; fi
+vlm-service-install:
+	bash mac/ui-tars/vlm_service.sh install
+
+vlm-service-status:
+	bash mac/ui-tars/vlm_service.sh status
+
+vlm-service-stop:
+	bash mac/ui-tars/vlm_service.sh stop
+
+vlm-service-restart:
+	bash mac/ui-tars/vlm_service.sh restart
+
+vlm-smoke:
+	bash mac/ui-tars/vlm_smoke.sh
+
+vlm-stop: vlm-service-stop
 
 collections:
 	ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections

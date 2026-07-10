@@ -25,7 +25,10 @@ from pathlib import Path
 from typing import Any
 
 REPO = Path(__file__).resolve().parents[2]
-SERVER_SH = REPO / "mac" / "ui_tars_server.sh"
+UI_TARS_DIR = REPO / "mac" / "ui-tars"
+SERVER_SH = UI_TARS_DIR / "ui_tars_server.sh"
+LAUNCHAGENT_PLIST = Path.home() / "Library/LaunchAgents/homebrew.mxcl.ui-tars.plist"
+LAUNCHAGENT_LABEL = "homebrew.mxcl.ui-tars"
 
 
 def _env(name: str, default: str) -> str:
@@ -35,6 +38,10 @@ def _env(name: str, default: str) -> str:
     qss = os.environ.get("QSS_" + name)
     if qss is not None and str(qss).strip() != "":
         return str(qss).strip()
+    if name == "VLM_PORT":
+        ui = os.environ.get("UI_TARS_PORT")
+        if ui is not None and str(ui).strip() != "":
+            return str(ui).strip()
     return default
 
 
@@ -112,10 +119,18 @@ def server_healthy() -> bool:
 def ensure_server(start: bool = True) -> bool:
     if server_healthy():
         return True
-    if not start or not SERVER_SH.is_file():
+    if not start:
         return False
-    subprocess.run(["bash", str(SERVER_SH)], check=False, timeout=200)
-    deadline = time.time() + 200
+    if LAUNCHAGENT_PLIST.is_file():
+        domain = "gui/%d" % os.getuid()
+        subprocess.run(
+            ["launchctl", "kickstart", "-k", "%s/%s" % (domain, LAUNCHAGENT_LABEL)],
+            check=False,
+            timeout=30,
+        )
+    elif SERVER_SH.is_file():
+        subprocess.run(["bash", str(SERVER_SH)], check=False, timeout=200)
+    deadline = time.time() + 240
     while time.time() < deadline:
         if server_healthy():
             return True

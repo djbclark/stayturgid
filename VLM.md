@@ -1,211 +1,100 @@
 # UI-TARS-1.5-7B — local vision gates for Android screenshots
 
-stayturgid uses **UI-TARS-1.5-7B** (ByteDance’s GUI-focused vision-language model) as an
-**optional Mac-side screenshot verifier** during device QA. It does not drive phones
-autonomously. It answers yes/no questions about PNGs from `adb exec-out screencap`
-*before* or *after* high-stakes steps — for example: “Is Play Store set to **Don’t
-auto-update apps**?” or “Is Aurora on do-not-auto-update?”
+stayturgid uses **UI-TARS-1.5-7B** as an optional Mac-side screenshot verifier during
+device QA. Handsets + hierarchy selectors remain primary; VLM is the safety net for
+brittle OEM screens.
 
-**Design principle:** Handsets + hierarchy selectors remain primary; VLM is the
-**safety net** for brittle OEM screens (Fire Play Store account drawer, Aurora update
-dialogs). Not used on Termux/AutoJs6 self-heal hot paths.
+UI-TARS is a **vendor-neutral Mac sidecar** (Homebrew `llama.cpp` + launchd). Weights
+and server logs live outside `~/.config/stayturgid/`. stayturgid fleet config and
+`vlm-verify` artifacts stay under `~/.config/stayturgid/`.
 
-Related: [docs/research/mac-android-ui-automation.md](docs/research/mac-android-ui-automation.md) ·
-[docs/research/fire-os-google-play.md](docs/research/fire-os-google-play.md) ·
-`shared/mac/vlm_gate.py` · `mac/verify_play_autoupdate.py`
+See [HACKING.md § 2.7](HACKING.md#27-ui-tars-vision-gates-optional) for dev setup.
 
 ---
 
-## When to use it
+## Path layout
 
-| Good fit | Poor fit |
-|----------|----------|
-| Confirm Play Store auto-update is off (hd8) | Every navigation tap in deploy |
-| Disambiguate Aurora auto-update screenshot | Sub-second real-time control loops |
-| Gate before typing in a filter/composer (future) | Termux repair / fleet_health_monitor |
-| One screenshot → one JSON verdict (~10–20s Metal) | Unattended multi-step “agent” |
+| Scope | Location |
+|-------|----------|
+| UI-TARS models | `~/.local/share/ui-tars/models/1.5-7b/` |
+| Server log | `~/Library/Logs/ui-tars/server.log` |
+| LaunchAgent | `homebrew.mxcl.ui-tars` |
+| stayturgid artifacts | `~/.config/stayturgid/artifacts/vlm-verify/` |
 
----
-
-## Requirements
-
-| Resource | Notes |
-|----------|-------|
-| **macOS** (recommended) | Apple Silicon uses Metal via `llama-server -ngl 99` |
-| **RAM** | ~6 GB for Q4_K_M + mmproj; **16 GB** minimum; close heavy apps |
-| **Disk** | ~6 GB under `~/.config/stayturgid/models/ui-tars-1.5-7b/` |
-| **Homebrew** | `llama.cpp` (required), `ollama` (optional convenience) |
-| **ADB + Handsets** | Play Store navigation uses `~/.handsets/hs` |
-
-Pure CPU (`STAYTURGID_VLM_NGL=0`) works but is **very slow** (minutes per image).
+Env: `UI_TARS_*` (server), `STAYTURGID_VLM_*` (harness), `QSS_VLM_*` (legacy aliases).
 
 ---
 
-## Quick start
-
-### 1. One-time install
+## Initial setup
 
 ```bash
+make configure
 make vlm-install
-```
-
-Downloads GGUF + mmproj from [adriabama06/UI-TARS-1.5-7B-GGUF](https://huggingface.co/adriabama06/UI-TARS-1.5-7B-GGUF) (~5.9 GB).
-
-### 2. Start the server (dedicated terminal)
-
-```bash
-make vlm-server
-```
-
-Wait for `UI-TARS server ready.` (20–60 s first load).
-
-```bash
+make vlm-service-install
 make vlm-check
-curl -sf http://127.0.0.1:8081/health
 ```
 
-Stop: `make vlm-stop`
-
-### 3. Verify hd8 Google stack (full close-out)
+Migrate old `~/.config/stayturgid/models/ui-tars-*`:
 
 ```bash
-make vlm-server    # terminal 1
-make verify-hd8-google HOSTS=hd8
+bash mac/ui-tars/vlm_migrate_paths.sh
+make vlm-service-install
 ```
-
-Or repair + auto close-out when server is already running:
-
-```bash
-make fix-hd8-google   # runs verify_hd8_google when llama-server healthy
-```
-
-Artifacts: `~/.config/stayturgid/artifacts/vlm-verify/<YYYY-MM-DD>/<host>/`
 
 ---
 
-## How screenshots reach the model
+## Operations
 
-```
-device                         Mac
-──────                         ───
-adb exec-out screencap -p  →  PNG on disk
-Handsets (parallel)        →  navigation only
-                              │
-                              ▼
-                         sips -Z 720  (downscale)
-                              │
-                              ▼
-                    POST /v1/chat/completions
-                    (OpenAI-compatible llama-server :8081)
-                              │
-                              ▼
-                         JSON { ok, confidence, notes }
+```bash
+make vlm-service-status
+curl -sf http://127.0.0.1:8081/health && echo OK
+make vlm-service-restart
+make vlm-service-stop
+make vlm-smoke          # stop/start QA (launchd required)
+make vlm-server         # manual background (no launchd)
 ```
 
-Play Store navigation intentionally **does not** use `ScreenControlSession` — the
-account drawer Settings row is unreliable under display inversion. Aurora checks in
-`gui_audit.py` capture inside quiet screen-control sessions; VLM reads the PNG only.
+`shared/mac/vlm_gate.ensure_server()` kickstarts launchd when the plist exists, else runs
+`mac/ui-tars/ui_tars_server.sh`.
 
 ---
 
-## Environment variables
+## Make targets
+
+| Target | Purpose |
+|--------|---------|
+| `vlm-install` | `brew install llama.cpp` + download GGUF |
+| `vlm-service-install` | launchd agent (persists at login) |
+| `vlm-service-status` | health + launchctl summary |
+| `vlm-check` | client smoke test |
+| `vlm-smoke` | bootout/bootstrap QA cycle |
+| `vlm-server` | manual start |
+| `vlm-service-stop` / `vlm-service-restart` | launchctl wrappers |
+| `verify-hd8-google` | Example fleet gate |
+
+---
+
+## Harness env
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `STAYTURGID_VLM` | `0` | Enable vision gates (`1` or server-only auto when server up) |
-| `STAYTURGID_VLM_STRICT` | `0` | Exit non-zero when server down or check fails |
-| `STAYTURGID_VLM_PORT` | `8081` | `llama-server` port (`QSS_VLM_PORT` alias) |
-| `STAYTURGID_VLM_TIMEOUT` | `900` | Seconds per inference |
-| `STAYTURGID_VLM_MAX_WIDTH` | `720` | Downscale before encode |
-| `STAYTURGID_VLM_NGL` | `99` on Darwin | Metal GPU layers |
-| `STAYTURGID_VLM_MODEL_DIR` | `~/.config/stayturgid/models/ui-tars-1.5-7b` | Weights |
-
-Logs: `~/.config/stayturgid/logs/ui-tars-server.log`
+| `STAYTURGID_VLM` | `0` | Enable gates |
+| `STAYTURGID_VLM_STRICT` | `0` | Fail when server down |
+| `STAYTURGID_VLM_PORT` | `8081` | Port |
+| `STAYTURGID_VLM_TIMEOUT` | `900` | Inference timeout |
+| `STAYTURGID_VLM_MAX_WIDTH` | `720` | Downscale width |
 
 ---
 
-## Built-in check types
-
-Defined in `shared/mac/vlm_gate.py` → `CHECK_PROMPTS`:
-
-| Check | Use |
-|-------|-----|
-| `play_autoupdate_dont` | Play Store → Auto-update apps → Don’t auto-update selected |
-| `aurora_autoupdate_dont` | Aurora Settings → Automatic updates → off |
-| `no_gms_crash_dialog` | No GSF/GMS/Play “has stopped” dialog visible |
-| `play_protect_clear` | Play Protect not blocking an install flow |
-| `neo_shizuku_installer` | Neo Store → Shizuku selected as installer |
-| `aurora_shizuku_installer` | Aurora Store → Shizuku installation method |
-
-### Call sites
-
-| Script | When |
-|--------|------|
-| `mac/verify_hd8_google.py` | Full hd8 close-out (`make verify-hd8-google`) |
-| `mac/verify_play_autoupdate.py` | Manual / `make verify-play-autoupdate` |
-| `mac/fix_hd8_google_stack.py` | Auto-runs verify when llama-server healthy |
-| `mac/fleet_health_monitor.py` | Rate-limited verify after GMS pin heal (6h) |
-| `mac/gui_audit.py` | Neo/Aurora Shizuku + Aurora auto-update screenshots |
-| `mac/h2_confirm_ui.py` | Optional VLM report on Neo/Aurora installer shots |
-| `obtainium/mac/apply_updates.py` | Before/after Play Protect dismiss |
-
----
-
-## Programmatic usage
-
-```python
-from pathlib import Path
-import sys
-sys.path.insert(0, "shared/mac")
-import vlm_gate as vlm
-
-gate = vlm.VlmGate(autostart=False)
-ok, detail = gate.verify(Path("/tmp/shot.png"), "play_autoupdate_dont")
-```
-
-Smoke test: `make vlm-check`
-
----
-
-## Troubleshooting
-
-| Symptom | Fix |
-|---------|-----|
-| `vlm_unavailable` | `make vlm-server` in dedicated terminal |
-| Navigation fails | Handsets up; scroll account drawer before Settings (see `play_store_autoupdate.py`) |
-| Inference timeout | Metal on Mac; lower `STAYTURGID_VLM_MAX_WIDTH`; raise timeout |
-| False negative | Read `notes` in JSON; retake after UI settle |
-
----
-
-## Files
+## Repo files
 
 | Path | Role |
 |------|------|
-| `shared/mac/vlm_gate.py` | `VlmGate`, prompts, HTTP client |
-| `shared/mac/vlm_helpers.py` | `verify_shot`, `issue_tags_from_verify`, `auto_verify_enabled` |
-| `shared/mac/play_store_autoupdate.py` | Play Store nav to auto-update screen |
-| `mac/ui_tars_server.sh` | Start `llama-server` |
-| `mac/vlm_install.sh` | Brew + model download |
-| `mac/vlm_check.py` | Health smoke test |
-| `mac/verify_play_autoupdate.py` | Play auto-update only |
-| `mac/verify_hd8_google.py` | Full hd8 Google stack close-out |
+| `mac/ui-tars/` | install, launchd service, server scripts |
+| `shared/mac/vlm_gate.py` | `VlmGate`, `ensure_server()` |
+| `shared/mac/vlm_helpers.py` | `verify_shot` helpers |
+| `mac/vlm_check.py` | smoke test |
 
-Model weights (not in git):
-
-```
-~/.config/stayturgid/models/ui-tars-1.5-7b/
-  ByteDance-Seed_UI-TARS-1.5-7B-Q4_K_M.gguf
-  mmproj-ByteDance-Seed_UI-TARS-1.5-7B.gguf
-```
-
----
-
-## Adding a new check
-
-1. Add a prompt to `CHECK_PROMPTS` in `shared/mac/vlm_gate.py` (JSON-only reply).
-2. Add validation in `VlmGate.verify()` if needed.
-3. Capture a PNG from a known-good device state; test with `ask_image()` before live QA.
-4. Document the check in this file.
-
-Keep checks **narrow** — one screenshot, one question.
+Checks: `play_autoupdate_dont`, `aurora_autoupdate_dont`, `no_gms_crash_dialog`,
+`play_protect_clear`, `neo_shizuku_installer`, `aurora_shizuku_installer` — see
+`CHECK_PROMPTS` in `vlm_gate.py`.

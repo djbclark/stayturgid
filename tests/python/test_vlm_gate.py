@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -74,6 +75,21 @@ def test_verify_play_autoupdate_ok(monkeypatch, tmp_path):
                 ok, detail = gate.verify(shot, "play_autoupdate_dont")
     assert ok is True
     assert detail["confidence"] == 0.99
+
+def test_ensure_server_kickstarts_launchd(monkeypatch, tmp_path):
+    plist = tmp_path / "homebrew.mxcl.ui-tars.plist"
+    plist.write_text("plist")
+    calls = []
+
+    def fake_run(cmd, **kw):
+        calls.append(cmd)
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(vlm, "LAUNCHAGENT_PLIST", plist)
+    monkeypatch.setattr(vlm, "server_healthy", lambda: len(calls) > 0)
+    monkeypatch.setattr(vlm.subprocess, "run", fake_run)
+    assert vlm.ensure_server(start=True) is True
+    assert calls[0][:3] == ["launchctl", "kickstart", "-k"]
 
 
 def test_verify_strict_unavailable(monkeypatch, tmp_path):

@@ -14,8 +14,11 @@ import vlm_gate as vlm  # noqa: E402
 def main() -> int:
     if not vlm.ensure_server(start=True):
         print(
-            "UI-TARS server not healthy — run in a dedicated terminal:\n"
-            "  make vlm-install && make vlm-server",
+            "UI-TARS server not healthy — see VLM.md\n"
+            "  curl -sf http://127.0.0.1:8081/health\n"
+            "  make vlm-service-status\n"
+            "  make vlm-service-install   # first-time launchd setup\n"
+            "  launchctl kickstart -k gui/$(id -u)/homebrew.mxcl.ui-tars",
             file=sys.stderr,
         )
         return 1

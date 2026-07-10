@@ -21,7 +21,7 @@ def auto_verify_enabled() -> bool:
 
 def verify_shot(shot: Path, check: str) -> tuple[bool, dict[str, Any]]:
     """One gate; skipped when server down unless strict."""
-    gate = vlm.VlmGate(autostart=False, allow_server_only=True)
+    gate = vlm.VlmGate(autostart=True, allow_server_only=True)
     return gate.verify(shot, check)
 
 

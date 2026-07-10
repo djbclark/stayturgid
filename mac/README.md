@@ -16,7 +16,7 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 | `check_fleet_health.py` | **Session triage** — agents run at start; exit 1 ⇒ tell operator |
 | `gui_audit.py` | Neo/Aurora GUI audit — **parked**; manual only (`fdroid/README.md`, `play/README.md`) |
 | `verify_play_autoupdate.py` | Play Store auto-update VLM gate (optional; see [VLM.md](../VLM.md)) |
-| `vlm_check.py` / `ui_tars_server.sh` | Local UI-TARS-1.5-7B llama-server for screenshot gates |
+| `vlm_check.py` | Local UI-TARS client smoke test (`make vlm-check`) |
 | `deploy_fleet.py` | Full fleet deploy via `site.yml` (preflight → fleet → post-ui → validate) |
 | `bootstrap_ssh.py` | First-time Termux SSH: adb + `run-as com.termux` or `--ansible` → `bootstrap.yml` |
 | `a11y_services.py` | Backup/restore `enabled_accessibility_services` per host (`shared/a11y_profiles.json`) |
