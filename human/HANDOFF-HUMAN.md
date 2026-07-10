@@ -89,15 +89,17 @@ After `./mac/deploy_fleet.py <host>` (or `--scope fdroid`):
 
 Fleet harden keeps Aurora **battery-optimized** (not unrestricted). 
 `configure_aurora.py` dismisses any Fire OS **“Let app always run in background?”**
-prompt with **DENY**/Back, enables Shizuku installer + auto-updates, and turns on
+prompt with **DENY**/Back, selects Shizuku installer, sets **Do not auto-update**
+(compatible with battery optimization), and turns on
 **Filter apps from other sources** (and Filter F-Droid apps).
 
 **You confirm** (once per host if unsure):
 
-1. Aurora Settings → Installer = **Shizuku**, automatic updates on.
+1. Aurora Settings → Installer = **Shizuku**, Automatic updates = **Do not auto-update**.
 2. Updates → **Filter apps from other sources** on (only apps Aurora installed).
-3. App info → Battery = Optimized (not Unrestricted).
-4. No stuck Settings modal on hd8.
+3. Updates → **Filter F-Droid apps** on.
+4. App info → Battery = Optimized (not Unrestricted).
+5. No stuck Settings modal on hd8.
 
 ### 2.3 Accessibility services (if wiped again)
 

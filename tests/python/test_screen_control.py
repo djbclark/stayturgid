@@ -58,6 +58,8 @@ def test_skip_presence_still_enables_inversion(monkeypatch):
         "ssh_presence",
         lambda *a, **k: (_ for _ in ()).throw(AssertionError("presence must not run")),
     )
+    monkeypatch.setattr(sc.ScreenControlSession, "_start_keepalive", lambda self: None)
+    monkeypatch.setattr(sc.ScreenControlSession, "_stop_keepalive_thread", lambda self: None)
     session.__enter__()
     assert session.active is True
     assert ("inv", True) in calls
@@ -129,6 +131,8 @@ def test_session_restores_prior_screen_on_exit(monkeypatch):
         "restore_foreground",
         lambda serial, comp, shell_fn=None: restored.append(comp) or True,
     )
+    monkeypatch.setattr(sc.ScreenControlSession, "_start_keepalive", lambda self: None)
+    monkeypatch.setattr(sc.ScreenControlSession, "_stop_keepalive_thread", lambda self: None)
     session.__enter__()
     assert session._saved_component == "com.discord/.MainActivity"
     session.__exit__(None, None, None)

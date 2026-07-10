@@ -22,18 +22,17 @@
 > Parked side projects: [docs/incubator/](docs/incubator/) — **do not implement**
 > unless the operator unparks a named project (Inferno, etc.).
 
-**Fleet snapshot (2026-07-09 night):** Soft health + **gui-audit** (03:14 quiet
-Neo/Aurora screenshots) report H2-style gaps via `check_fleet_health.py`.
-Aurora thrash mitigation shipped earlier. Operator **H2** eyeball still useful
-for one-time confirm; nightly job + triage cover recurrence.
+**Fleet snapshot (2026-07-09 night):** Aurora policy = **Do not auto-update** +
+battery-optimized + filters ON. Soft health: p7a `watchdog_stale` (repair fresh).
+gui-audit: s24/p7a clean; hd8 Neo Shizuku nav still open. Screen-control holds
+inversion with keepalive across dependent UI steps.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
-**Suggested agent order:** skim `check_fleet_health.py` (includes gui-audit);
-human **H2** only if gaps remain. Do not touch incubator (Inferno) or start
-**54** unless asked.
+**Suggested agent order:** close **H2** hd8 Neo Shizuku if easy; otherwise
+human confirm. Soft-heal p7a AutoJs6 if soak continues. Do not touch incubator.
 
 ---
 
@@ -54,14 +53,18 @@ Parked (not a track): Inferno/Styx → [docs/incubator/inferno-styx/](docs/incub
 
 #### H2 — Neo Store + Aurora one-time confirm (human) · Risk: **Low**
 
-Nightly `mac/gui_audit.py` (launchd 03:14, quiet presence) + session triage now
-detect/report the same gaps (`aurora_autoupdate_disabled`,
-`aurora_filter_fdroid_off`, etc.). Agent Handsets pass (2026-07-09): Neo
-Shizuku+auto OK on s24/p7a; Aurora Shizuku + **Filter apps from other sources**
-+ battery Optimized on all three. **Still open for human/agent retry:** Aurora
-**auto-update** often stuck on “Do not auto-update” (check&install prompts
-battery unrestrict — Deny); **Filter F-Droid apps** visually OFF on some shots.
-Close H2 when gui-audit shows `issues=none` on all hosts (or operator signs off).
+**Policy (2026-07-09 night):** Aurora **Do not auto-update** is the desired
+default (avoids check&install → battery-unrestrict conflict). Filters ON;
+battery Optimized. Screen-control holds inversion + lease keepalive across
+dependent UI steps; restores prior foreground at batch end.
+
+**gui-audit (2026-07-09 21:04):** `s24`/`p7a` **issues=none**. **hd8** still
+`neo_shizuku_missing` (Fire landscape settings nav flaky — Service/Other
+sidebar; Installer not found in automation). Aurora on all three: auto-update
+off, other-sources filter on, F-Droid filter on, battery optimized.
+
+**Still open:** human/agent confirm Neo Installer=Shizuku on **hd8** only.
+Close H2 when hd8 gui-audit is `issues=none` (or operator signs off).
 
 #### H5 — Galaxy publish API token (human, optional) · Risk: **Medium**
 

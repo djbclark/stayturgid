@@ -31,6 +31,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -45,6 +46,10 @@ ADB_KEYBOARD = "com.github.uiautomator/.AdbKeyboard"
 # Fleet layout deploys presence scripts under ~/.stayturgid/bin/ (not ~/).
 PRESENCE_SCRIPT = "~/.stayturgid/bin/agent-presence.sh"
 PRESENCE_SCRIPT_LEGACY = "~/agent-presence.sh"
+# Re-assert inversion + extend presence lease during long held batches
+# (gaps between dependent UI steps where we are not tapping).
+HOLD_KEEPALIVE_SEC = 45
+
 
 # pkg/activity from dumpsys window / activity lines.
 _FOCUS_COMPONENT_RE = re.compile(
@@ -290,6 +295,45 @@ class ScreenControlSession(object):
         self._skip = os.environ.get("STAYTURGID_SKIP_PRESENCE") == "1"
         self._saved_ime = None
         self._saved_component = None
+        self._stop_keepalive = threading.Event()
+        self._keepalive_thread = None
+
+    def _keepalive_loop(self):
+        """Keep inversion on + presence lease fresh across idle gaps in a batch."""
+        while not self._stop_keepalive.wait(HOLD_KEEPALIVE_SEC):
+            if not self.active:
+                return
+            try:
+                if not inversion_enabled(self.serial):
+                    if set_inversion(self.serial, True):
+                        sys.stderr.write(
+                            "WARN: re-enabled display inversion on %s (hold keepalive)\n"
+                            % self.host
+                        )
+                if not self._skip:
+                    # Extend lease without torch/dialog (quiet if already quiet).
+                    ssh_presence(self.host, "guard", self.label, self.agent)
+            except Exception as e:  # noqa: BLE001
+                sys.stderr.write(
+                    "WARN: screen-control keepalive on %s: %s\n" % (self.host, e)
+                )
+
+    def _start_keepalive(self):
+        self._stop_keepalive.clear()
+        t = threading.Thread(
+            target=self._keepalive_loop,
+            name="screen-control-keepalive-%s" % self.host,
+            daemon=True,
+        )
+        self._keepalive_thread = t
+        t.start()
+
+    def _stop_keepalive_thread(self):
+        self._stop_keepalive.set()
+        t = self._keepalive_thread
+        self._keepalive_thread = None
+        if t is not None and t.is_alive():
+            t.join(timeout=2.0)
 
     def __enter__(self):
         _run(["adb", "connect", self.serial], timeout=15)
@@ -336,11 +380,14 @@ class ScreenControlSession(object):
                 )
 
         self.active = True
+        self._start_keepalive()
         return self
 
     def __exit__(self, exc_type, exc, tb):
         if not self.active:
             return False
+
+        self._stop_keepalive_thread()
 
         # Restore prior screen while inversion is still on (input still gated).
         if self.restore_screen:

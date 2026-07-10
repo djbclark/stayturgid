@@ -1,6 +1,6 @@
 # Play Store (Aurora + apkeep / gplaycli)
 
-Aurora Store is the on-device GUI client. Fleet deploy installs Aurora when missing, grants Shizuku, completes first-run setup, selects the Shizuku installer, enables automatic updates, and turns on **Filter apps from other sources** (+ F-Droid filter) so Aurora only checks/updates apps it installed. Aurora stays under OS battery optimization (not Doze-whitelisted) to avoid background CPU thrash. App automation downloads APKs on the Mac and installs via adb, spoofing Play as installer when requested.
+Aurora Store is the on-device GUI client. Fleet deploy installs Aurora when missing, grants Shizuku, completes first-run setup, selects the Shizuku installer, sets **Do not auto-update** (so Aurora stays battery-optimized without fighting a check&install → unrestrict prompt), and turns on **Filter apps from other sources** (+ F-Droid filter) so Aurora only checks/updates apps it installed. Aurora stays under OS battery optimization (not Doze-whitelisted) to avoid background CPU thrash. App automation downloads APKs on the Mac and installs via adb, spoofing Play as installer when requested.
 
 ## Fleet integration
 

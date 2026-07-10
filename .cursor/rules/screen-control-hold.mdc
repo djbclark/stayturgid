@@ -14,14 +14,14 @@ Exiting the session clears inversion and presence. Re-entering re-runs consent, 
 ## Do
 
 - One `with ScreenControlSession(...):` (or on-device equivalent) spanning open → navigate → tap → verify → next taps.
-- Keep inversion on during brief gaps (seconds to a few minutes) between related UI actions on the same host.
+- Keep inversion on during brief gaps (seconds to a few minutes) between related UI actions on the same host. The session keepalive re-asserts inversion and extends the presence lease every ~45s while held.
 - Emit **USING** once when you first take the screen; **FREE** only when done with that phone until the next user reply (see HANDOFF).
 - At a **batch endpoint** (session `__exit__`), let the session restore the foreground activity that was showing when you started. Do not force `KEYCODE_HOME` at the end of a multi-step script unless you intentionally want the launcher.
 
 ## Don't
 
 - Open/close a new session per tap or per probe in the same flow.
-- End the session between dependent steps (e.g. “open Settings”, then a new session for “toggle filter”).
+- End the session between dependent steps (e.g. “open Settings”, then a new session for “toggle filter”) — that is how Discord (or whatever was foreground) reappears mid-batch.
 - Use `STAYTURGID_SKIP_PRESENCE=1` to avoid holding a real session (debug only).
 - Leave the user on Aurora/Neo/Settings after a batch finishes when they had Discord (or anything else) open — restore is the default.
 

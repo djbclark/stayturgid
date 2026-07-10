@@ -55,13 +55,14 @@ FILTER_FDROID = (
     "Don't check updates for apps installed from F-Droid",
 )
 AUTO_UPDATE_OK = (
-    "Check & install available updates automatically",
-    "Check and install available updates automatically",
-)
-AUTO_UPDATE_BAD = (
+    "Do not auto-update apps",
     "Do not auto-update",
     "Don't auto-update",
     "Never",
+)
+AUTO_UPDATE_BAD = (
+    "Check & install available updates automatically",
+    "Check and install available updates automatically",
 )
 
 
@@ -149,23 +150,27 @@ def adb_shell(serial: str, *args: str, timeout: int = 30) -> str:
 
 
 def aurora_battery_unrestricted(serial: str) -> bool | None:
-    """True if Aurora is Doze-whitelisted (bad for our policy)."""
-    out = adb_shell(serial, "dumpsys", "deviceidle")
-    if not out.strip():
-        return None
-    # whitelist entries look like: com.aurora.store
-    for line in out.splitlines():
-        if AURORA in line and "whitelist" in line.lower():
-            return True
-        if line.strip() == AURORA or line.strip().endswith("," + AURORA):
-            return True
-    # Also check appops RUN_ANY_IN_BACKGROUND
+    """True if Aurora is currently Doze-whitelisted or background-unrestricted."""
+    # Prefer appops — dumpsys deviceidle history lines look like whitelist hits.
     ops = adb_shell(serial, "appops", "get", AURORA, "RUN_ANY_IN_BACKGROUND")
     if "allow" in ops.lower():
         return True
+    # Current user whitelist (not the add/remove history log).
+    out = adb_shell(serial, "dumpsys", "deviceidle", "whitelist")
+    if out.strip():
+        for line in out.splitlines():
+            line = line.strip()
+            if not line or line.startswith("["):
+                continue
+            if line == AURORA or line.endswith("," + AURORA) or line.startswith(AURORA + ","):
+                return True
+            if re.search(r"\b%s\b" % re.escape(AURORA), line) and "remove" not in line.lower():
+                # e.g. "com.aurora.store" alone in whitelist dump
+                if AURORA in line.split():
+                    return True
     if "ignore" in ops.lower() or "deny" in ops.lower():
         return False
-    return False if AURORA not in out else None
+    return None
 
 
 def _switch_on(hs, labels: tuple[str, ...]) -> bool | None:
@@ -185,6 +190,38 @@ def _ui_has(hs, *needles: str) -> bool:
     return any(n in ui for n in needles)
 
 
+def _open_aurora_settings(hs, session) -> bool:
+    """Open Aurora Settings root (Installation / Updates categories), not Updates tab."""
+    if hs is None:
+        return False
+    hs.tap_id("%s:id/menu_more" % AURORA, timeout_ms=2500) or hs.tap_desc(
+        "More", timeout_ms=1500
+    ) or hs.tap_desc("Settings", timeout_ms=1500)
+    time.sleep(0.8)
+    if not hs.tap_text("Settings", timeout_ms=2500):
+        # Gear on Updates tab / home — content-desc often "Settings"
+        if not (hs.tap_desc("Settings", timeout_ms=1500) or hs.tap_id(
+            "%s:id/action_settings" % AURORA, timeout_ms=1500
+        )):
+            return False
+    time.sleep(1.2)
+    ui = hs.ui()
+    # Must see settings categories, not the Updates *tab* list.
+    if "Installation" in ui or "Updates" in ui and "Update all" not in ui:
+        return True
+    # Wrong screen (Updates tab): back and try overflow again.
+    if "Update all" in ui or "updates available" in ui.lower():
+        session.shell("input", "keyevent", "KEYCODE_BACK")
+        time.sleep(0.6)
+        hs.tap_id("%s:id/menu_more" % AURORA, timeout_ms=2000)
+        time.sleep(0.6)
+        hs.tap_text("Settings", timeout_ms=2000)
+        time.sleep(1.0)
+        ui = hs.ui()
+        return "Installation" in ui or ("Updates" in ui and "Update all" not in ui)
+    return "Installation" in ui
+
+
 def audit_neo(host: str, session, hs, out: Path) -> list[str]:
     issues: list[str] = []
     serial = session.serial
@@ -196,12 +233,13 @@ def audit_neo(host: str, session, hs, out: Path) -> list[str]:
 
     if hs is not None:
         opened = False
+        # Neo: gear / overflow → Settings (avoid bottom-nav "Service" lookalikes).
         for lab in ("Settings", "Preferencias", "Einstellungen"):
             if hs.tap_desc(lab, timeout_ms=1200) or hs.tap_text(lab, timeout_ms=1200):
                 opened = True
                 break
         if not opened:
-            for lab in ("More options", "More"):
+            for lab in ("More options", "More", "Overflow"):
                 if hs.tap_desc(lab, timeout_ms=1000):
                     time.sleep(0.8)
                     if hs.tap_text("Settings", timeout_ms=1500):
@@ -209,21 +247,47 @@ def audit_neo(host: str, session, hs, out: Path) -> list[str]:
                         break
         time.sleep(1.0)
         shot(serial, out / "02_neo_settings.png")
-        hs.tap_text("Installer", timeout_ms=2000) or hs.tap_text(
-            "Installation", timeout_ms=1500
-        )
-        time.sleep(1.0)
+        # Neo settings: phone uses bottom tabs; Fire tablet uses left sidebar.
+        # Installer / Shizuku live under Service — not Other/Personalization.
+        ui = hs.ui()
+        if "Personalization" in ui or "Other" in ui or "Repositories" in ui:
+            tapped = False
+            for line in ui.splitlines():
+                if '"Service"' in line and "TextView" in line:
+                    m = re.search(r"(\d+)\s*,\s*(\d+)", line)
+                    if m and int(m.group(1)) < 250:
+                        session.shell("input", "tap", m.group(1), m.group(2))
+                        tapped = True
+                        break
+            if not tapped:
+                hs.tap_text("Service", timeout_ms=2500) or hs.tap_desc(
+                    "Service", timeout_ms=1500
+                )
+            time.sleep(1.0)
+            ui = hs.ui()
+        for lab in ("Installer", "Installation", "Privileges", "Source"):
+            if hs.tap_text(lab, timeout_ms=1800):
+                time.sleep(1.0)
+                break
         shot(serial, out / "03_neo_installer.png")
         ui = hs.ui()
         if "Shizuku" not in ui and "shizuku" not in ui.lower():
-            issues.append("neo_shizuku_missing")
-        # Auto-update: look for common Neo labels
-        session.shell("input", "swipe", "540", "1600", "540", "800")
-        time.sleep(0.8)
+            for _ in range(5):
+                session.shell("input", "swipe", "700", "1200", "700", "400")
+                time.sleep(0.6)
+                ui = hs.ui()
+                if "Shizuku" in ui or "shizuku" in ui.lower():
+                    break
+                if hs.tap_text("Installer", timeout_ms=1200):
+                    time.sleep(0.8)
+                    ui = hs.ui()
+                    if "Shizuku" in ui:
+                        break
+            else:
+                issues.append("neo_shizuku_missing")
         shot(serial, out / "04_neo_scrolled.png")
         ui2 = hs.ui()
         if "Auto" in ui2 or "auto" in ui2.lower():
-            # Soft: if we see an Off/disabled near auto-update, flag it
             if re.search(r"auto.?update.*\b(off|disabled|never)\b", ui2, re.I):
                 issues.append("neo_autoupdate_off")
         if not opened:
@@ -246,12 +310,8 @@ def audit_aurora(host: str, session, hs, out: Path) -> list[str]:
     shot(serial, out / "10_aurora_home.png")
 
     if hs is not None:
-        hs.tap_id("%s:id/menu_more" % AURORA, timeout_ms=2000) or hs.tap_desc(
-            "More", timeout_ms=1500
-        )
-        time.sleep(0.8)
-        hs.tap_text("Settings", timeout_ms=2000)
-        time.sleep(1.2)
+        if not _open_aurora_settings(hs, session):
+            issues.append("aurora_settings_nav_failed")
         shot(serial, out / "11_aurora_settings.png")
 
         hs.tap_text("Installation", timeout_ms=2000)
@@ -265,18 +325,26 @@ def audit_aurora(host: str, session, hs, out: Path) -> list[str]:
         elif ok and checked is False:
             issues.append("aurora_shizuku_off")
 
-        for _ in range(3):
+        # Back to Settings root (Installation / Updates categories).
+        for _ in range(4):
+            ui = hs.ui()
+            if "Installation" in ui and "Updates" in ui and "Update all" not in ui:
+                break
             session.shell("input", "keyevent", "KEYCODE_BACK")
             time.sleep(0.5)
-        ui = hs.ui()
-        if "Updates" not in ui and "Installation" not in ui:
-            hs.tap_id("%s:id/menu_more" % AURORA, timeout_ms=1500)
-            time.sleep(0.6)
-            hs.tap_text("Settings", timeout_ms=1500)
-            time.sleep(0.8)
+        else:
+            _open_aurora_settings(hs, session)
+
         hs.tap_text("Updates", timeout_ms=2000)
         time.sleep(1.0)
         shot(serial, out / "13_aurora_updates.png")
+        # Guard: if we landed on Updates *tab*, reopen settings.
+        if "Update all" in hs.ui():
+            issues.append("aurora_updates_tab_not_settings")
+            _open_aurora_settings(hs, session)
+            hs.tap_text("Updates", timeout_ms=2000)
+            time.sleep(1.0)
+            shot(serial, out / "13_aurora_updates.png")
 
         filt = _switch_on(hs, FILTER_AURORA_ONLY)
         if filt is False:
@@ -294,26 +362,24 @@ def audit_aurora(host: str, session, hs, out: Path) -> list[str]:
         time.sleep(1.0)
         shot(serial, out / "14_aurora_auto_updates.png")
         ui = hs.ui()
-        if any(b in ui for b in AUTO_UPDATE_BAD) and not any(
-            g in ui for g in AUTO_UPDATE_OK
-        ):
-            # Selected radio often shows as checked near the bad label
-            bad_on = False
+        # Desired: Do not auto-update (battery-optimized policy).
+        off_ok = any(b in ui for b in AUTO_UPDATE_OK)
+        on_bad = any(g in ui for g in AUTO_UPDATE_BAD)
+        if on_bad and not off_ok:
+            on_selected = False
             for lab in AUTO_UPDATE_BAD:
                 c, ok = hs.switch_near_label(lab, timeout_ms=1200)
                 if ok and c:
-                    bad_on = True
+                    on_selected = True
                     break
-            if bad_on or "Do not auto-update" in ui:
-                # Heuristic: if the screen title is Automatic updates and the
-                # primary selected option text is the deny option.
-                issues.append("aurora_autoupdate_disabled")
-        elif not any(g in ui for g in AUTO_UPDATE_OK) and "Automatic" in ui:
+            if on_selected or "Check & install" in ui:
+                issues.append("aurora_autoupdate_on")
+        elif not off_ok and "Automatic" in ui:
             issues.append("aurora_autoupdate_unclear")
     else:
         issues.append("handsets_unavailable")
 
-    # Battery policy — dumpsys preferred (no extra UI noise).
+    # Battery policy — appops + whitelist (not UI text alone).
     batt = aurora_battery_unrestricted(serial)
     if batt is True:
         issues.append("aurora_battery_unrestricted")
@@ -335,7 +401,11 @@ def audit_aurora(host: str, session, hs, out: Path) -> list[str]:
                 break
         shot(serial, out / "21_aurora_battery.png")
         ui = hs.ui()
-        if re.search(r"Unrestricted|Not optimized|No restrictions", ui, re.I):
+        # Only flag Unrestricted when that radio is clearly selected.
+        if re.search(r"Unrestricted.*\b(selected|checked)\b", ui, re.I):
+            if "aurora_battery_unrestricted" not in issues:
+                issues.append("aurora_battery_unrestricted")
+        elif re.search(r"\bUnrestricted\b", ui) and "Optimized" not in ui:
             if "aurora_battery_unrestricted" not in issues:
                 issues.append("aurora_battery_unrestricted")
 

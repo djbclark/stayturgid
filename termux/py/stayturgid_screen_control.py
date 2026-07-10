@@ -11,6 +11,7 @@ import os
 import re
 import subprocess
 import sys
+import threading
 import time
 
 import stayturgid_shell as sh
@@ -25,6 +26,7 @@ INVERSION_KEY = "accessibility_display_inversion_enabled"
 ADB_KEYBOARD = "com.github.uiautomator/.AdbKeyboard"
 PRESENCE_PY = os.path.join(sh.STG, "bin", "stayturgid_agent_presence.py")
 PRESENCE_SH = os.path.join(sh.STG, "bin", "agent-presence.sh")
+HOLD_KEEPALIVE_SEC = 45
 
 _FOCUS_COMPONENT_RE = re.compile(
     r"(?:mCurrentFocus|mFocusedApp|mResumedActivity|topResumedActivity)"
@@ -200,6 +202,40 @@ class ScreenControlSession(object):
         self._skip = os.environ.get("STAYTURGID_SKIP_PRESENCE") == "1"
         self._saved_ime = None
         self._saved_component = None
+        self._stop_keepalive = threading.Event()
+        self._keepalive_thread = None
+
+    def _keepalive_loop(self):
+        while not self._stop_keepalive.wait(HOLD_KEEPALIVE_SEC):
+            if not self.active:
+                return
+            try:
+                if not inversion_enabled():
+                    if set_inversion(None, True):
+                        sys.stderr.write(
+                            "WARN: re-enabled display inversion (hold keepalive)\n"
+                        )
+                if not self._skip:
+                    local_presence("guard", self.label, self.agent)
+            except Exception as e:  # noqa: BLE001
+                sys.stderr.write("WARN: screen-control keepalive: %s\n" % e)
+
+    def _start_keepalive(self):
+        self._stop_keepalive.clear()
+        t = threading.Thread(
+            target=self._keepalive_loop,
+            name="screen-control-keepalive",
+            daemon=True,
+        )
+        self._keepalive_thread = t
+        t.start()
+
+    def _stop_keepalive_thread(self):
+        self._stop_keepalive.set()
+        t = self._keepalive_thread
+        self._keepalive_thread = None
+        if t is not None and t.is_alive():
+            t.join(timeout=2.0)
 
     def __enter__(self):
         if not sh.privileged_shell_expected():
@@ -245,11 +281,13 @@ class ScreenControlSession(object):
                 )
 
         self.active = True
+        self._start_keepalive()
         return self
 
     def __exit__(self, exc_type, exc, tb):
         if not self.active:
             return False
+        self._stop_keepalive_thread()
         if self.restore_screen:
             try:
                 ok = restore_foreground(

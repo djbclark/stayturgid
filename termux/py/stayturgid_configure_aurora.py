@@ -51,6 +51,18 @@ AUTO_UPDATE_RESTRICTION_LABELS = (
     "When device is idle",
     "When battery is not low",
 )
+# Prefer OFF — Check & install fights battery-optimized Aurora.
+AUTO_UPDATE_OFF_LABELS = (
+    "Do not auto-update apps",
+    "Do not auto-update",
+    "Don't auto-update",
+    "Never",
+    "Disable",
+)
+AUTO_UPDATE_ON_LABELS = (
+    "Check & install available updates automatically",
+    "Check and install available updates automatically",
+)
 
 
 def dump_xml(shell):
@@ -358,6 +370,7 @@ def configure_installer(shell):
 
 
 def configure_auto_updates(shell):
+    """Select Do not auto-update (compatible with battery-optimized Aurora)."""
     for _ in range(3):
         ui_xml = dump_xml(shell)
         if "Settings" in ui_xml and "Updates" in ui_xml:
@@ -375,10 +388,29 @@ def configure_auto_updates(shell):
         return False
     if not tap_text(shell, "Automatic updates"):
         return False
-    if not tap_text(shell, "Check & install available updates automatically"):
-        return False
-    print("Aurora Store automatic updates enabled.")
-    return True
+    ui = dump_xml(shell)
+    for lab in AUTO_UPDATE_OFF_LABELS:
+        if lab in ui:
+            if _HS is not None:
+                try:
+                    checked, ok = _HS.switch_near_label(lab, timeout_ms=2000)
+                except TypeError:
+                    checked, ok = _HS.switch_near_label(lab)
+                if ok and checked:
+                    print("Aurora Store automatic updates already off (%s)." % lab)
+                    return True
+            if tap_text(shell, lab, timeout=6):
+                print("Aurora Store automatic updates set to off (%s)." % lab)
+                return True
+    for lab in AUTO_UPDATE_OFF_LABELS:
+        if tap_text(shell, lab, timeout=4):
+            print("Aurora Store automatic updates set to off (%s)." % lab)
+            return True
+    sys.stderr.write(
+        "ERROR: could not select Do not auto-update (on_labels_present=%s)\n"
+        % any(l in ui for l in AUTO_UPDATE_ON_LABELS)
+    )
+    return False
 
 
 def configure_update_filters(shell):

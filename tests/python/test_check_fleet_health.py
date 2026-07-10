@@ -98,7 +98,7 @@ def test_main_reports_gui_audit_gaps(tmp_path, monkeypatch, capsys):
     (state / "s24").write_text("0")
     gui = tmp_path / "logs" / "gui-audit.log"
     gui.write_text(
-        "%s  s24 done issues=aurora_autoupdate_disabled,aurora_filter_fdroid_off shots=/x\n"
+        "%s  s24 done issues=aurora_autoupdate_on,aurora_filter_fdroid_off shots=/x\n"
         % now
     )
     monkeypatch.setattr(cfh, "LOG", log)
@@ -109,4 +109,4 @@ def test_main_reports_gui_audit_gaps(tmp_path, monkeypatch, capsys):
     assert rc == 1
     out = capsys.readouterr().out
     assert "gui-audit" in out
-    assert "aurora_autoupdate_disabled" in out
+    assert "aurora_autoupdate_on" in out

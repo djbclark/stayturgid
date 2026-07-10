@@ -54,6 +54,19 @@ AUTO_UPDATE_RESTRICTION_LABELS = (
     "When device is idle",
     "When battery is not low",
 )
+# Prefer OFF — "Check & install…" prompts battery-unrestrict and fights
+# Aurora's battery-optimized policy. Manual / Obtainium / Neo cover updates.
+AUTO_UPDATE_OFF_LABELS = (
+    "Do not auto-update apps",
+    "Do not auto-update",
+    "Don't auto-update",
+    "Never",
+    "Disable",
+)
+AUTO_UPDATE_ON_LABELS = (
+    "Check & install available updates automatically",
+    "Check and install available updates automatically",
+)
 
 # Bound inside ScreenControlSession so input is inversion-gated.
 _SHELL = None
@@ -435,6 +448,7 @@ def configure_installer(serial):
 
 
 def configure_auto_updates(serial):
+    """Select Do not auto-update (compatible with battery-optimized Aurora)."""
     # Return to the Settings category list from Installation method.
     for _ in range(3):
         ui = _ui_text(serial)
@@ -450,10 +464,36 @@ def configure_auto_updates(serial):
         return False
     if not tap_text(serial, "Automatic updates"):
         return False
-    if not tap_text(serial, "Check & install available updates automatically"):
-        return False
-    print("Aurora Store automatic updates enabled on %s." % serial)
-    return True
+    ui = _ui_text(serial)
+    # Already on the deny option?
+    for lab in AUTO_UPDATE_OFF_LABELS:
+        if lab in ui:
+            if _HS is not None:
+                checked, ok = _HS.switch_near_label(lab, timeout_ms=2000)
+                if ok and checked:
+                    print(
+                        "Aurora Store automatic updates already off on %s (%s)."
+                        % (serial, lab)
+                    )
+                    return True
+            if tap_text(serial, lab, timeout=6):
+                print(
+                    "Aurora Store automatic updates set to off on %s (%s)."
+                    % (serial, lab)
+                )
+                return True
+    for lab in AUTO_UPDATE_OFF_LABELS:
+        if tap_text(serial, lab, timeout=4):
+            print(
+                "Aurora Store automatic updates set to off on %s (%s)."
+                % (serial, lab)
+            )
+            return True
+    sys.stderr.write(
+        "ERROR: could not select Do not auto-update on %s (ui had on=%s)\n"
+        % (serial, any(l in ui for l in AUTO_UPDATE_ON_LABELS))
+    )
+    return False
 
 
 def configure_update_filters(serial):

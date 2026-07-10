@@ -38,3 +38,22 @@ def test_dismiss_background_run_dialog_denies_aurora(monkeypatch):
 def test_filter_label_constants():
     assert "Filter apps from other sources" in mod.FILTER_AURORA_ONLY_LABELS
     assert "Filter F-Droid apps" in mod.FILTER_FDROID_LABELS
+    assert "Do not auto-update" in mod.AUTO_UPDATE_OFF_LABELS
+    assert "Check & install available updates automatically" in mod.AUTO_UPDATE_ON_LABELS
+
+
+def test_configure_auto_updates_selects_off(monkeypatch):
+    taps = []
+
+    def fake_tap(serial, text, timeout=10):
+        taps.append(text)
+        return True
+
+    monkeypatch.setattr(mod, "_ui_text", lambda _s: "Settings\nUpdates\nDo not auto-update")
+    monkeypatch.setattr(mod, "tap_text", fake_tap)
+    monkeypatch.setattr(mod, "adb", lambda *a, **k: None)
+    monkeypatch.setattr(mod, "_HS", None)
+    assert mod.configure_auto_updates("serial") is True
+    assert "Automatic updates" in taps
+    assert "Do not auto-update" in taps
+    assert "Check & install available updates automatically" not in taps
