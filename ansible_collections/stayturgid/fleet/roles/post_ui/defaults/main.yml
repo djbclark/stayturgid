@@ -1,0 +1,5 @@
+---
+stayturgid_repo_root: "{{ playbook_dir }}/../.."
+stayturgid_obtainium_catalog_import: all
+stayturgid_post_ui_retries: 2
+stayturgid_post_ui_retry_delay: 3

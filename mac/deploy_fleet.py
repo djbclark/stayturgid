@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Fleet deploy orchestration via ansible/playbooks/site.yml.
 
+Canonical entry (from repo root)::
+
+  ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml
+
+This wrapper adds SSH preflight and collection install only.
+
 Usage:
   deploy_fleet.py [host ...]              # full site deploy
   deploy_fleet.py --scope fdroid s24      # F-Droid roles only

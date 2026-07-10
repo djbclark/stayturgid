@@ -26,6 +26,8 @@ modules could replace custom code.
 | `fdroid_repos` / `fdroid_install` / `fdroid_repo_push` | fdroidcl wrapper |
 | `play_apps` | apkeep/gplaycli + adb install |
 | `android_appops` / `android_settings` | adb grants/settings |
+| `android_a11y_services` | merge-only a11y list backup/restore |
+| `android_ui` | named screen-control tasks (ADR 002) |
 | `shizuku_grant` | shizuku.json patch |
 | `android_apk` / `android_intent` | adb install / intents |
 | `termux_ssh_bootstrap` | Pre-SSH adb + `run-as` key install (no SSH yet) |

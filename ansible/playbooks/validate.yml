@@ -22,6 +22,18 @@
         quiet: true
       when: not ansible_check_mode
 
+    - name: Assert Shizuku not FAILED when repair layer is up
+      ansible.builtin.assert:
+        that:
+          - _repair.shizuku | default('') != 'FAILED'
+        fail_msg: >-
+          Shizuku FAILED on {{ inventory_hostname }}:
+          {{ _repair.status_line | default('no STATUS') }}
+        quiet: true
+      when:
+        - not ansible_check_mode
+        - _repair.healthy | default(false)
+
     - name: SSH echo probe
       ansible.builtin.command:
         argv: [echo, termux_ssh_ok]

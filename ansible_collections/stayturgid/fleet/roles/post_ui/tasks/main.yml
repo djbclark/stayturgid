@@ -1,0 +1,38 @@
+---
+# Post-deploy screen-control UI tasks (ADR 002). Scripts stay Python; Ansible orchestrates.
+
+- name: Import Obtainium catalog
+  stayturgid.android_common.android_ui:
+    host: "{{ inventory_hostname }}"
+    task: import_obtainium_catalog
+    repo_root: "{{ stayturgid_repo_root }}"
+    catalog: "{{ stayturgid_obtainium_catalog_import }}"
+    retries: "{{ stayturgid_post_ui_retries }}"
+    retry_delay: "{{ stayturgid_post_ui_retry_delay }}"
+  delegate_to: localhost
+  when: not ansible_check_mode
+  tags: [post-ui, obtainium-import, full]
+
+- name: Aurora first-run setup
+  stayturgid.android_common.android_ui:
+    host: "{{ inventory_hostname }}"
+    task: configure_aurora
+    repo_root: "{{ stayturgid_repo_root }}"
+    retries: "{{ stayturgid_post_ui_retries }}"
+    retry_delay: "{{ stayturgid_post_ui_retry_delay }}"
+  delegate_to: localhost
+  when:
+    - not ansible_check_mode
+    - stayturgid_app_stores_enabled | default(false) | bool
+  tags: [post-ui, aurora, play, full]
+
+- name: AutoJs6 Shizuku drawer enable
+  stayturgid.android_common.android_ui:
+    host: "{{ inventory_hostname }}"
+    task: enable_autojs6_drawer
+    repo_root: "{{ stayturgid_repo_root }}"
+    retries: "{{ stayturgid_post_ui_retries }}"
+    retry_delay: "{{ stayturgid_post_ui_retry_delay }}"
+  delegate_to: localhost
+  when: not ansible_check_mode
+  tags: [post-ui, autojs6, full]

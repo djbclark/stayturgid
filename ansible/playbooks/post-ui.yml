@@ -1,53 +1,9 @@
 ---
-# Post-deploy UI automation (screen control). Not idempotent in --check mode.
-#
-# Invoked from site.yml after fleet.yml. Scripts stay Python — Ansible orchestrates only.
+# Post-deploy UI automation (screen control). See ADR 002.
 - name: stayturgid post-deploy UI (control node)
   hosts: stayturgid
   gather_facts: false
   vars:
     stayturgid_repo_root: "{{ playbook_dir }}/../.."
-  tasks:
-    - name: Import Obtainium catalog
-      ansible.builtin.command:
-        argv:
-          - "{{ ansible_playbook_python }}"
-          - "{{ stayturgid_repo_root }}/obtainium/mac/import_catalog.py"
-          - "{{ inventory_hostname }}"
-          - all
-      delegate_to: localhost
-      changed_when: false
-      when: not ansible_check_mode
-      tags: [post-ui, obtainium-import, full]
-
-    - name: Aurora first-run setup
-      ansible.builtin.command:
-        argv:
-          - "{{ ansible_playbook_python }}"
-          - "{{ stayturgid_repo_root }}/play/mac/configure_aurora.py"
-          - "{{ inventory_hostname }}"
-      delegate_to: localhost
-      register: _aurora_setup
-      until: _aurora_setup.rc == 0
-      retries: 2
-      delay: 3
-      changed_when: false
-      when:
-        - not ansible_check_mode
-        - stayturgid_app_stores_enabled | default(false) | bool
-      tags: [post-ui, aurora, play, full]
-
-    - name: AutoJs6 Shizuku drawer enable
-      ansible.builtin.command:
-        argv:
-          - "{{ ansible_playbook_python }}"
-          - "{{ stayturgid_repo_root }}/autojs6/mac/enable_autojs6_shizuku.py"
-          - "{{ inventory_hostname }}"
-      delegate_to: localhost
-      register: _autojs6_enable
-      until: _autojs6_enable.rc == 0
-      retries: 2
-      delay: 3
-      changed_when: false
-      when: not ansible_check_mode
-      tags: [post-ui, autojs6, full]
+  roles:
+    - role: stayturgid.fleet.post_ui

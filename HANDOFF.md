@@ -444,8 +444,8 @@ first-run, AutoJs6 drawer — not fake “modules” for UI taps.
 [AnsibleAndroidAutomationADB](https://github.com/shresthagrawal/AnsibleAndroidAutomationADB).
 
 **Concrete Ansible track steps:** ✅ `site.yml` shipped; `deploy_fleet.py` thin wrapper;
-`validate.yml` + ADR 001. **Proposed:** ADR 002 (UI tasks) + OPTIONS **58–59**.
-Optional: Galaxy publish when H5 creds exist.
+`validate.yml` + ADR 001–002; `android_ui` + `post_ui` + `android_a11y_services`.
+Optional: **60**, Galaxy publish when H5 creds exist.
 
 ### F-Droid + Play (integrated in fleet.yml)
 

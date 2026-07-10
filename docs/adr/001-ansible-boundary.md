@@ -34,12 +34,11 @@ Target split: **~80% Ansible / ~20% scripts + on-device logic**.
 | PIN unlock, Play Protect, DHCP LAN | Environmental |
 | Optional LLM escalation (shell-gpt) | Future — [docs/incubator/on-device-llm.md](../incubator/on-device-llm.md); never hot-path |
 
-Post-UI scripts (`import_catalog.py`, `configure_aurora.py`,
-`enable_autojs6_shizuku.py`) are **invoked from** `post-ui.yml` as
-`ansible.builtin.command` — orchestration is Ansible; execution prefers
-on-device SSH (s24/p7a) and falls back to Mac adb (USB or wireless). hd8 has
-no Termux→`localhost:5555` privileged shell (Fire OS); Handsets starts via
-**peer bootstrap** (SSH to s24/p7a → remote `adb shell app_process`) or Mac
+Post-UI scripts are invoked via `stayturgid.android_common.android_ui` and the
+`stayturgid.fleet.post_ui` role (`post-ui.yml`) — orchestration is Ansible;
+execution prefers on-device SSH (s24/p7a) and falls back to Mac adb (USB or
+wireless). hd8 has no Termux→`localhost:5555` privileged shell (Fire OS); Handsets
+starts via **peer bootstrap** (SSH to s24/p7a → remote `adb shell app_process`) or Mac
 `ui_driver.py` when the Mac is present.
 
 ## Consequences

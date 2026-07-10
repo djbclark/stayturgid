@@ -1,6 +1,6 @@
 # ADR 002: Ansible UI tasks vs declarative modules
 
-**Status:** Proposed (2026-07-09)  
+**Status:** Accepted (2026-07-09)  
 **Supersedes:** nothing (extends [001-ansible-boundary.md](001-ansible-boundary.md))  
 **Context:** Operator review — push Ansible integration further without pretending
 UI automation is idempotent configuration.
@@ -70,7 +70,8 @@ for SSH preflight and collection install only.
 - `--check` on site.yml stays honest: UI tasks skipped or no-op with warning.
 - Galaxy consumers get clearer split: modules for adb state, documented UI tasks
   for one-time / rare screen work.
-- OPTIONS **58** (accept this ADR) unblocks **59** (implement role + extractions).
+- OPTIONS **58–59** shipped (`android_ui`, `post_ui`, `android_a11y_services`).
+  Optional follow-up: **60** (more validate/a11y in deploy).
 
 ## Non-goals
 

@@ -11,7 +11,9 @@ on only what they need:
 | [stayturgid.obtainium](../obtainium/README.md) | `obtainium_app` | Obtainium catalog JSON on device |
 | [stayturgid.fdroid](../fdroid/README.md) | `fdroid_repos` | `fdroidcl` repos on Mac |
 | [stayturgid.play](../play/README.md) | `play_apps` | apkeep/gplaycli + adb install |
-| [stayturgid.android_common](../android_common/README.md) | _(helpers)_ | ADB alias resolution |
+| [stayturgid.android_common](../android_common/README.md) | `android_ui`, `android_a11y_services`, … | ADB + UI tasks (ADR 002) |
+
+**Fleet role:** `stayturgid.fleet.post_ui` — post-deploy screen-control (`post-ui.yml`).
 
 ## Backward compatibility
 

@@ -18,7 +18,8 @@
 > Human-only tasks: [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md). Operator
 > answers: `human/RESPONSES.md` (gitignored). Session context: [HANDOFF.md](HANDOFF.md).
 > Strategic directions: [HANDOFF.md appendix](HANDOFF.md#appendix--strategic-directions-equal-weight).
-> Ansible boundary: [docs/adr/001-ansible-boundary.md](docs/adr/001-ansible-boundary.md).
+> Ansible boundary: [docs/adr/001-ansible-boundary.md](docs/adr/001-ansible-boundary.md),
+> [docs/adr/002-ansible-ui-tasks.md](docs/adr/002-ansible-ui-tasks.md).
 > Parked side projects: [docs/incubator/](docs/incubator/) — **do not implement**
 > unless the operator unparks a named project (Inferno, etc.).
 
@@ -31,8 +32,8 @@ across dependent UI steps.
 config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
-**Suggested agent order:** **58** (accept ADR 002) then **59** if pursuing deeper
-Ansible; else soft-heal p7a AutoJs6 if soak continues. Do not touch incubator.
+**Suggested agent order:** H5/38 only if Galaxy publish wanted; **60** if more
+validate/a11y in Ansible; soft-heal p7a if soak stalls. Do not touch incubator.
 
 ---
 
@@ -41,11 +42,24 @@ Ansible; else soft-heal p7a AutoJs6 if soak continues. Do not touch incubator.
 | Track | Focus | Open IDs | Typical risk |
 |-------|-------|----------|--------------|
 | **A — Operational** | Live deploy, human unblockers | H5, 38 | Medium–High (live phones / publish) |
-| **B — Ansible-native** | *(Portfolio 2 core shipped — 48–52 closed)* | — | — |
+| **B — Ansible-native** | ADR 002 follow-ups (optional) | 60 | Low |
 | **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; incubator note | 54 | Medium (mis-scope risk) |
 
 Parked (not a track): Inferno/Styx → [docs/incubator/inferno-styx/](docs/incubator/inferno-styx/).
+
+---
+
+### Track B — Ansible-native (optional follow-ups)
+
+**Shipped (2026-07-09):** ADR 002 accepted; `android_ui` + `android_a11y_services`
+modules; `stayturgid.fleet.post_ui` role; `validate.yml` Shizuku assert.
+
+#### 60 — Expand Ansible validate + a11y in deploy (agent) · Risk: **Low**
+
+Optional: wire `android_a11y_services` into `validate.yml` or post-deploy when
+`a11y_profile_drift` is detected; mirror more `device_tier.py` probes in Ansible.
+Defer `autojs6_project_deploy` module until AutoJs6 push logic is next touched.
 
 ---
 
@@ -110,8 +124,8 @@ API; Tasker rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal;
 always-on Ollama in Termux:Boot; **any Inferno/`emu`/Styx work** (parked under
 [docs/incubator/inferno-styx/](docs/incubator/inferno-styx/)).
 
-**Closed (2026-07-09 night):** Neo/Aurora parked from active fleet (apps may
-remain on devices). **Closed (2026-07-09 evening):** Aurora CPU thrash policy
+**Closed (2026-07-09 night):** **58–59** ADR 002 + `android_ui` / `post_ui` /
+`android_a11y_services`. Neo/Aurora parked. **Closed (2026-07-09 evening):** Aurora CPU thrash policy
 documented; screen-control hold rule.
 **Closed (2026-07-09):** **15b**, **H1**, **H3**, **56**, **46**, **55**, **27**,
 **57**, Portfolio 2 **48–52**/53, co-monitor + Mac AutoJs6 heal, Fire F1–F5,

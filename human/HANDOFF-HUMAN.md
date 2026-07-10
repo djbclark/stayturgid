@@ -15,8 +15,8 @@ Last updated: **2026-07-09** (on-device post-UI + screen-control port)
 
 | Area | Status |
 |------|--------|
-| On-device Obtainium / Aurora / AutoJs6 UI | Termux scripts via `localhost:5555`; Mac wrappers SSH-first with Mac adb fallback (hd8 Mac-only) |
-| Screen-control gate | Aurora/AutoJs6/Obtainium installer taps use `session.shell` |
+| On-device Obtainium / AutoJs6 UI | Termux scripts via `localhost:5555`; Mac wrappers SSH-first with Mac adb fallback (hd8 Mac-only) |
+| Screen-control gate | Obtainium / AutoJs6 installer taps use `session.shell` |
 | shell-gpt / local LLM | Documented as OPTIONS track **E** — not implemented |
 
 ## Session notes (2026-07-08) — agent completed
@@ -30,8 +30,8 @@ These do **not** need operator action unless noted.
 | PiP / overlay clearance | `ScreenControlSession` clears YouTube PiP via `stack remove` (Samsung verified) |
 | Accessibility list wipe fix | Drawer a11y toggle **removed**; merge-only via `mac/a11y_services.py` |
 | p7a a11y restore | Profile merge restored Buzzkill / Notch / existing apps (6 services) |
-| Aurora background dialog (hd8) | `harden_fleet_apps` now runs **before** `configure_aurora`; appops pre-granted |
-| Fleet deploy order | harden → Aurora UI → AutoJs6 enable (full scope) |
+| Aurora background dialog (hd8) | Historical — Aurora parked from fleet 2026-07-09 |
+| Fleet deploy order | harden (core apps) → AutoJs6 enable (Aurora configure parked) |
 
 **Operator check (optional):** On p7a, confirm Buzzkill / Notch / Wispr / Tasker / AutoInput
 still work in Settings → Accessibility. If anything missing:
