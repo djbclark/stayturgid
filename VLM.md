@@ -54,8 +54,9 @@ make vlm-smoke          # stop/start QA (launchd required)
 make vlm-server         # manual background (no launchd)
 ```
 
-`shared/mac/vlm_gate.ensure_server()` kickstarts launchd when the plist exists, else runs
-`mac/ui-tars/ui_tars_server.sh`.
+`shared/mac/vlm_gate.ensure_server()` installs the launchd agent when missing (`make
+vlm-service-install`), kickstarts `homebrew.mxcl.ui-tars` when the plist exists, and
+waits for `/health`.
 
 ---
 

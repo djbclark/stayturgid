@@ -76,6 +76,28 @@ def test_verify_play_autoupdate_ok(monkeypatch, tmp_path):
     assert ok is True
     assert detail["confidence"] == 0.99
 
+def test_ensure_server_installs_launchd_when_missing(monkeypatch, tmp_path):
+    plist = tmp_path / "homebrew.mxcl.ui-tars.plist"
+    service = tmp_path / "vlm_service.sh"
+    service.write_text("#!/usr/bin/env bash\nexit 0\n")
+    service.chmod(0o755)
+    calls = []
+
+    def fake_run(cmd, **kw):
+        calls.append(list(cmd))
+        if "install" in cmd:
+            plist.write_text("plist")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    monkeypatch.setattr(vlm, "LAUNCHAGENT_PLIST", plist)
+    monkeypatch.setattr(vlm, "SERVICE_SH", service)
+    monkeypatch.setattr(vlm.os, "uname", lambda: type("U", (), {"sysname": "Darwin"})())
+    monkeypatch.setattr(vlm, "server_healthy", lambda: plist.is_file())
+    monkeypatch.setattr(vlm.subprocess, "run", fake_run)
+    assert vlm.ensure_server(start=True) is True
+    assert calls[0][:3] == ["bash", str(service), "install"]
+
+
 def test_ensure_server_kickstarts_launchd(monkeypatch, tmp_path):
     plist = tmp_path / "homebrew.mxcl.ui-tars.plist"
     plist.write_text("plist")
@@ -86,6 +108,7 @@ def test_ensure_server_kickstarts_launchd(monkeypatch, tmp_path):
         return subprocess.CompletedProcess(cmd, 0, "", "")
 
     monkeypatch.setattr(vlm, "LAUNCHAGENT_PLIST", plist)
+    monkeypatch.setattr(vlm.os, "uname", lambda: type("U", (), {"sysname": "Darwin"})())
     monkeypatch.setattr(vlm, "server_healthy", lambda: len(calls) > 0)
     monkeypatch.setattr(vlm.subprocess, "run", fake_run)
     assert vlm.ensure_server(start=True) is True

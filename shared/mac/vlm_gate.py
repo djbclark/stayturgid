@@ -26,6 +26,7 @@ from typing import Any
 
 REPO = Path(__file__).resolve().parents[2]
 UI_TARS_DIR = REPO / "mac" / "ui-tars"
+SERVICE_SH = UI_TARS_DIR / "vlm_service.sh"
 SERVER_SH = UI_TARS_DIR / "ui_tars_server.sh"
 LAUNCHAGENT_PLIST = Path.home() / "Library/LaunchAgents/homebrew.mxcl.ui-tars.plist"
 LAUNCHAGENT_LABEL = "homebrew.mxcl.ui-tars"
@@ -116,21 +117,33 @@ def server_healthy() -> bool:
         return False
 
 
+def _kickstart_launchd() -> None:
+    domain = "gui/%d" % os.getuid()
+    subprocess.run(
+        ["launchctl", "kickstart", "-k", "%s/%s" % (domain, LAUNCHAGENT_LABEL)],
+        check=False,
+        timeout=30,
+    )
+
+
 def ensure_server(start: bool = True) -> bool:
     if server_healthy():
         return True
     if not start:
         return False
-    if LAUNCHAGENT_PLIST.is_file():
-        domain = "gui/%d" % os.getuid()
-        subprocess.run(
-            ["launchctl", "kickstart", "-k", "%s/%s" % (domain, LAUNCHAGENT_LABEL)],
-            check=False,
-            timeout=30,
-        )
+    if os.uname().sysname == "Darwin":
+        if not LAUNCHAGENT_PLIST.is_file() and SERVICE_SH.is_file():
+            subprocess.run(
+                ["bash", str(SERVICE_SH), "install"],
+                check=False,
+                timeout=300,
+            )
+        elif LAUNCHAGENT_PLIST.is_file():
+            _kickstart_launchd()
     elif SERVER_SH.is_file():
+        # Non-macOS: no launchd — manual background server only.
         subprocess.run(["bash", str(SERVER_SH)], check=False, timeout=200)
-    deadline = time.time() + 240
+    deadline = time.time() + 300
     while time.time() < deadline:
         if server_healthy():
             return True

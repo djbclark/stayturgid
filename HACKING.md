@@ -400,8 +400,9 @@ Verify it's using Pro/Max plan (not API billing): run `/status` inside Claude Co
 
 UI-TARS is a **vendor-neutral Mac sidecar** (`llama-server` on `127.0.0.1:8081`). It is
 not stored under `~/.config/stayturgid/` — only fleet config (`devices.conf`, logs,
-artifacts) lives there. stayturgid scripts auto-start the server when needed if the
-launchd agent is installed.
+artifacts) lives there. stayturgid scripts auto-start the server when needed: if launchd is not installed they
+run `make vlm-service-install` (via `vlm_gate.ensure_server()`), otherwise kickstart
+the existing agent.
 
 **One-time setup** (Apple Silicon Mac, ~6 GB disk, 16 GB RAM recommended):
 
