@@ -7,9 +7,29 @@
 > **Index:** [human/README.md](README.md) · Agent context: [docs/handoff.md](../docs/handoff.md)
 > · Open work: [docs/options.md](../docs/options.md)
 
-Last updated: **2026-07-09 night** (Ansible Track B + Makefile ops)
+Last updated: **2026-07-10 morning** (repo restructure `d950c53` + handoff pass)
 
 ---
+
+## Session notes (2026-07-10) — agent completed
+
+| Area | Status |
+|------|--------|
+| Repo restructure | `control/`, `device/`, `catalogs/`, `docs/` on `master`; pushed to GitHub |
+| Path consistency | On-device `/sdcard/stayturgid/autojs6/`; `control/lib` imports; canonical Ansible playbooks |
+| OPTIONS 62 | Shim inventory + post-shim cleanup checklist (not executed yet) |
+| Fleet soak post-reorg | **Not run** — see below |
+
+**Operator check (recommended before relying on fleet):**
+
+```bash
+make health                    # expect hd8 SCRAPE_STALE possible; p7a/s24 should be OK
+make deploy-check HOSTS=s24    # dry-run after reorg
+# optional live soak (announce first):
+# make deploy HOSTS=s24 && make verify HOSTS=s24
+```
+
+Confirm Mac LaunchAgents still point at `control/bin/` (should already — reorg kept paths).
 
 ## Session notes (2026-07-09 night) — agent completed
 

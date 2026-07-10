@@ -23,18 +23,20 @@
 > Parked side projects: [docs/incubator/](docs/incubator/) — **do not implement**
 > unless the operator unparks a named project (Inferno, etc.).
 
-**Fleet snapshot (2026-07-09 night, post Ansible batch):** `make health` → exit 0
-(all hosts OK). Neo Store + Aurora **parked** — not in Obtainium catalog, deploy,
-gui-audit, or fleet-health. Core stack = Termux + AutoJs6 + Obtainium + Tailscale.
-Deploy = `make deploy` → `site.yml` (preflight → fleet → post-ui → validate).
-Track B Ansible-native items **closed** (58–61); open menu = H5/38, 43–45, 54.
+**Fleet snapshot (2026-07-10 morning, post reorg `d950c53`):** `make health` → **exit 1**
+(`hd8` `SCRAPE_STALE` — stale Mac scrape, probes OK; p7a/s24 OK). **Massive repo
+restructure landed** — see [docs/handoff.md § Cold-start](docs/handoff.md#-cold-start--current-state-read-this-first).
+Assume path drift until grep-clean + `make deploy-check` / verify soak. Neo Store +
+Aurora **parked**. Core stack = Termux + AutoJs6 + Obtainium + Tailscale. Deploy =
+`make deploy` → `site.yml`. Track B items 58–61 **closed**; open menu = **62**, H5/38, 43–45, 54.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
-**Suggested agent order:** H5/38 only if Galaxy publish wanted; soft-heal p7a if
-soak stalls. Do not touch incubator.
+**Suggested agent order:** Reorg validation (`make deploy-check HOSTS=s24`, grep stale
+paths per handoff) before new features. Then OPTIONS **62** if cleaning shims; H5/38
+only if Galaxy publish wanted; soft-heal p7a if soak stalls. Do not touch incubator.
 
 ---
 
@@ -43,7 +45,7 @@ soak stalls. Do not touch incubator.
 | Track | Focus | Open IDs | Typical risk |
 |-------|-------|----------|--------------|
 | **A — Operational** | Live deploy, human unblockers | H5, 38 | Medium–High (live phones / publish) |
-| **B — Ansible-native** | ADR 002 follow-ups (optional) | 62 | Low |
+| **B — Ansible-native** | ADR 002 follow-ups (optional) | **62** (shim cleanup post-reorg) | Low |
 | **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; incubator note | 54 | Medium (mis-scope risk) |
 

@@ -2,7 +2,9 @@
 
 > **Purpose:** This file is a prompt for an AI agent taking over development. Read it fully before doing anything else. It describes what the project does, the current state, the environment, the tooling rules, and what's next.
 >
-> **Modular docs:** each subfolder is usable on its own. Human index: [docs/README.md](docs/README.md) · [README.md](README.md). Full clean-install setup + device gotchas: [docs/hacking.md](docs/hacking.md). **Operator tasks (credentials, deploy approval):** [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md). **Open work menu:** [docs/options.md](docs/options.md) (single list — replace + push when items close). Git history has the detailed narrative of every change; this file is the condensed durable record.
+> **Modular docs:** each subfolder is usable on its own. Human index: [docs/README.md](docs/README.md) · [README.md](../README.md). Full clean-install setup + device gotchas: [docs/hacking.md](hacking.md). **Operator tasks (credentials, deploy approval):** [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md). **Open work menu:** [docs/options.md](options.md) (single list — replace + push when items close). **Layout reference:** [docs/architecture.md](architecture.md). Git history has the detailed narrative of every change; this file is the condensed durable record.
+>
+> **2026-07-10:** Massive repo restructure on `master` (`d950c53`) — read [§ Cold-start](#-cold-start--current-state-read-this-first) before assuming any path.
 
 ---
 
@@ -118,17 +120,88 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 
 ## 🚦 Cold-start — current state (read this first)
 
-**As of 2026-07-09 night.** Three-device fleet: **s24**, **p7a**, **hd8**.
+**As of 2026-07-10 morning.** Three-device fleet: **s24**, **p7a**, **hd8**.
+
+### ⚠️ Massive repo restructure landed (`d950c53` on `master`)
+
+**Read this before touching paths.** The tree was reorganized around *where code
+runs* (not Ansible alone). GitHub `master` no longer has root `mac/`, `shared/`,
+`termux/`, `autojs6/`, or `obtainium/` — but **docs, external consumers, muscle
+memory, and grep hits may still reference them.**
+
+| Old path | New canonical path |
+|----------|-------------------|
+| `mac/*.py` | `control/bin/*.py` |
+| `shared/*`, `shared/mac/*` | `control/lib/*` |
+| `termux/` | `device/termux/` |
+| `autojs6/` (repo) | `device/autojs6/` |
+| `obtainium/*.json` | `catalogs/obtainium/*.json` |
+| `*/mac/*` deploy tools | `control/tools/<domain>/` |
+| Root `HACKING.md`, `HANDOFF.md`, `OPTIONS.md`, … | `docs/*.md` |
+| `ansible/playbooks/mac*.yml` (logic) | `ansible/playbooks/control_node/` + `ansible/roles/control_node/` |
+| `ansible/playbooks/{fleet,bootstrap,…}.yml` (logic) | `ansible/playbooks/fleet/` |
+
+**On-device AutoJs6** (not the repo path): `/sdcard/stayturgid/autojs6/` everywhere
+(boot scripts, deploy util, `adb_cli.AUTOJS_PROJECT_BASE`). Repo source:
+`device/autojs6/` via `autojs6_deploy_util.project_src_dir`.
+
+**Repo root discovery:** `control/lib/stayturgid_root.py` (markers `device/termux/` +
+`control/lib/`; legacy `termux/`+`shared/` fallback still present — remove in OPTIONS **62**).
+
+**Shims intentionally retained** (forward imports / thin wrappers — see OPTIONS **62**):
+flat `ansible/playbooks/*.yml` except `site.yml`; Termux `stayturgid-repair.sh`,
+`agent-presence.sh`, `claude-presence.sh`; `control/tools/play/gplaycli.sh`.
+
+**Verified after reorg (2026-07-10):** `make check` tier-a (py_compile, node --check,
+ansible syntax, pytest collection); focused pytest; `tests/test-unit.sh` (124 TAP);
+`git push` to `origin/master`; remote has **no** stale root trees. **Not re-run:**
+full `make deploy` soak, idempotent double `make deploy-mac`, live fleet verify on
+all hosts after reorg.
+
+**Assume lingering breakage until proven.** Next agent should grep for stale paths
+before any deploy:
+
+```bash
+# Stale repo paths (should return nothing material outside docs/history + OPTIONS 62)
+rg -n '\b(mac/|shared/|termux/|autojs6/|obtainium/)' --glob '!docs/history/**' --glob '!docs/options.md'
+
+# Wrong on-device AutoJs6 path
+rg -n 'stayturgid/device/autojs6'
+
+# Wrong shared import
+rg -n 'shared/mac|join.*shared'
+```
+
+If anything looks wrong: fix paths, run `make check` + `make test`, then
+`make deploy-check HOSTS=s24` before live deploy. Architecture reference:
+[docs/architecture.md](architecture.md).
+
+---
+
+**Fleet health (run first):** `make health` — as of handoff write, **exit 1**:
+`hd8` `SCRAPE_STALE` (last scrape ~157m; probes otherwise OK). **p7a/s24 OK.**
+Resolved morning s24 access-monitor LOST (informational). Tell operator if exit ≠ 0.
+
 On-device post-UI prefers SSH on s24/p7a via Termux `localhost:5555`, with
 automatic Mac adb fallback if SSH-invoke fails. hd8 is Mac adb only.
-See [docs/options.md](docs/options.md). **Fleet health:** `make health` → exit 0 (all
-hosts OK; s24 had a resolved morning access-monitor LOST — informational only).
+See [docs/options.md](options.md).
 
 | Host | Verify | Mac adb | Notes |
 |------|--------|---------|-------|
-| s24 | **16/16 PASS** (post deploy soak) | USB / LAN / Tailscale | Lab reference; drawer **46** closed |
+| s24 | **16/16 PASS** (last pre-reorg soak) | USB / LAN / Tailscale | Lab reference; **re-verify after reorg** |
 | p7a | **16/16** (last run) | mDNS + Tailscale | may need Tailscale/USB when offline |
-| hd8 | **16/16 PASS** (Fire OS) | **USB** + wireless | No Termux→5555; Mac adb post-UI; `autojs6_project_deploy` |
+| hd8 | **16/16 PASS** (Fire OS, pre-reorg) | **USB** + wireless | `SCRAPE_STALE` on Mac health log — not necessarily device-down |
+
+**Recent landings (2026-07-10 — layout + path consistency, commit `d950c53`):**
+- Full tree move: `control/`, `device/`, `catalogs/`, `docs/`; flatten `control/tools/*`.
+- Path alignment: on-device `/sdcard/stayturgid/autojs6/`; `project_src_dir` → `device/autojs6`;
+  `control/lib` imports (drop `shared/`); `vlm_gate` → `playbooks/control_node/site.yml`;
+  `termux_ssh_bootstrap` → `playbooks/fleet/bootstrap.yml`.
+- Ansible: `control_node` role extracted; canonical playbooks under `playbooks/fleet/` +
+  `playbooks/control_node/`; flat playbooks remain forward shims.
+- `launchd_ensure` idempotency (probe `launchctl` before reload).
+- OPTIONS **62** expanded: shim inventory + post-shim directory cleanup.
+- Pushed to GitHub; remote verified clean of legacy root dirs.
 
 **Recent landings (2026-07-09 night — Ansible batch):**
 - **Track B closed:** `stayturgid.fleet.validate` role (repair/sshd/a11y + optional a11y drift);
@@ -172,7 +245,9 @@ hosts OK; s24 had a resolved morning access-monitor LOST — informational only)
 - Mac adb: Tailscale or USB `GN43T503430603PS`; wireless failover works after one USB bootstrap.
 - **Sideloaded Google Play:** Play Store can auto-update GMS past Fire-compatible builds → GSF/GMS crash loop. Pin via `make fix-hd8-google`; disable Play Store auto-updates. **VLM close-out** (when `make vlm-server` running): `make verify-hd8-google` or auto after `fix-hd8-google`. See [docs/research/fire-os-google-play.md](docs/research/fire-os-google-play.md) and [docs/vlm.md](docs/vlm.md).
 
-**Next work:** [docs/options.md](docs/options.md) — open items only. Human unlocks: [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md).
+**Next work:** [docs/options.md](options.md) — open items only; **start with OPTIONS 62**
+if doing cleanup, or **reorg soak** (`make deploy-check` → `make deploy HOSTS=s24` →
+`make verify`) if validating the layout move. Human unlocks: [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md).
 
 **Deploy / test:**
 - Deploy: `make deploy [HOSTS=<host>]`. Verify: `make verify HOSTS=<host>`.
@@ -331,38 +406,47 @@ Verify: `adb shell settings get secure enabled_accessibility_services | tr ':' '
 ## Key files
 
 ```
-device/autojs6/              — AutoJs6 watchdog (the automation stack)
-  main.js                    — entry: hardened startup + always-on 20-min interval + boot
-  lib/                       — config, guard (auto.service a11y check), watchdog, termux bridge,
-                               shizuku/tailscale, notify, log  (all mkdir -p / files.ensureDir self-heal)
-  scripts/boot-launcher.js   — Termux:Boot nudge; mainAlreadyRunning() matches the full main.js path
-control/tools/autojs6/       — deploy.py, setup_autojs6.py, start_watchdog.py, grant_shizuku.py, run_test.py
-device/termux/
-  boot/start-adb.sh          — Termux:Boot entry: sshd + 5-min self-heal loop (pidfile) + battery alarm + autojs6 guard (no am start)
-  py/*.py                    — repair, agent-presence, screen-awake-guard, battery-alarm, check-repo-version
-                               (deployed to ~/.stayturgid/bin/; thin ~/ shell entrypoints for callers)
-  repair-bridge.sh           — 2 s poll of run/repair_now (RUN_COMMAND-free trigger)
-ansible/                     — playbooks + inventory (hosts.yml, group_vars taxonomy)
-  playbooks/site.yml, fleet/fleet.yml, fleet/preflight.yml, fleet/post-ui.yml, fleet/validate.yml, control_node/agents.yml
+control/                     — Mac control node (see docs/architecture.md)
+  bin/                       — deploy_fleet.py, check_fleet_health.py, monitors, a11y_services.py
+  lib/                       — stayturgid_device.py, adb_cli.py, screen_control.py, fleet_health.py
+  tools/{autojs6,obtainium,play,fdroid}/  — Mac deploy helpers (Ansible + operator)
+  vlm/ui-tars/               — optional UI-TARS sidecar
+device/
+  autojs6/                   — watchdog JS (deployed to /sdcard/stayturgid/autojs6/)
+  termux/                    — boot/*.sh, repair-bridge, py/*.py → ~/.stayturgid/bin/
+catalogs/obtainium/          — JSON catalogs
+docs/                        — handoff.md, hacking.md, options.md, modules/, adr/
+ansible/
+  playbooks/site.yml         — canonical fleet entry (imports fleet/* + control_node/*)
+  playbooks/fleet/           — bootstrap, fleet.yml, post-ui, validate, preflight, …
+  playbooks/control_node/    — Mac prereqs, agents, vlm
+  roles/control_node/        — launchd plists, devices.conf templates
 ansible_collections/stayturgid/
   termux/roles/termux_userland
-  fleet/roles/autojs6_watchdog, post_ui, validate
-  obtainium/roles/obtainium_apps
-  fdroid/roles/fdroid_repos, play/roles/play_apps
-  android_common/roles/app_privileges, tailscale_vpn
-  android_common/plugins/modules/autojs6_project_deploy.py, android_ui, android_a11y_services
-catalogs/obtainium/          — stayturgid-apps.json catalog + control/tools/obtainium/ import helpers
-control/bin/                 — adb_reconnect.py, access_monitor.py, deploy_fleet.py, check_fleet_health.py
-control/lib/                 — stayturgid_device.py, resolve_adb.py, adb_cli.py, screen_control.py
-Makefile                     — make help (default), deploy, health, verify, collections, syntax
-tests/                       — device_tier.py + python/ (pytest twins) + test-*.sh TAP harness; Makefile, configure
+  fleet/roles/{autojs6_watchdog,post_ui,validate}
+  obtainium/, fdroid/, play/, android_common/
+tests/                       — device_tier.py, python/, test-*.sh TAP harness
+Makefile                     — make help, deploy, health, verify, check, test
 version.json                 — repo release version + changelog
 ```
+
+**Deleted from repo root (do not recreate):** `mac/`, `shared/`, `termux/`, `autojs6/`,
+`obtainium/`, root `*.md` operator docs (now under `docs/`).
 
 ---
 
 ## Known issues / gotchas
 
+- **Post-reorg path drift (2026-07-10):** treat any `mac/`, `shared/`, root `termux/`,
+  `autojs6/`, `obtainium/` reference as a bug unless it is historical (`docs/history/`),
+  OPTIONS **62**, or an on-device path (`/sdcard/stayturgid/autojs6`). External
+  consumers (LaunchAgents, RevengeQuickSwitcher, operator scripts outside repo) may
+  still point at old paths — grep before deploy.
+- **Reorg not fleet-soaked:** `make deploy` / `make verify` on s24 not run after
+  `d950c53`. Run `make deploy-check` then live deploy before assuming phones match
+  the new layout on disk.
+- **make check lint tier:** `shellcheck` / `ansible-lint` / `yamllint` may still fail
+  (pre-existing); tier-a syntax/pytest collection passed post-reorg.
 - **uiautomator2 `exists()` False:** usually a dismissable popup from another app blocking the UI — `d(text='OK').click()` first.
 - **Taps at the screen edge:** tap slightly inward (gesture-nav zone interferes).
 - **`pgrep -f` self-match on Termux** (not macOS): matches the caller's own cmdline → process guards must use **pidfiles** (`/proc/$pid/cmdline` check), and boot-loop restart must never `pkill -f start-adb.sh` (SIGTERMs itself). Test guards on-device. (CODE-REVIEW.md H2.)
@@ -384,6 +468,10 @@ version.json                 — repo release version + changelog
 
 ## Changelog (condensed, reverse chronological — git history has full detail)
 
+- **2026-07-10** — **Repo restructure + path consistency** (`d950c53`): `control/`,
+  `device/`, `catalogs/`, `docs/` layout; Ansible `control_node` role; canonical
+  playbooks under `fleet/` + `control_node/`; on-device AutoJs6 path unified;
+  OPTIONS **62** shim cleanup menu; pushed to GitHub. **Not fleet-soaked post-reorg.**
 - **2026-07-09 night** — Ansible Track B closed: `stayturgid.fleet.validate`, `preflight.yml`, `autojs6_project_deploy`; `make help` + fleet Makefile targets; `make health` stale LOST fix; docs sweep (ADR 002, consumers, parked stores). Commits `5e2b05c`…`4aab300` on `master`.
 - **2026-07-09** — Fire OS peer fallbacks F1–F5: boot keepalive (Shizuku+Handsets), Mac as last peer, launchd `com.stayturgid.fire-help`, ForceCommand `id_ed25519_peerhelp` on helpers/Mac. See `docs/research/fire-os-local-adb.md`. Neo/Aurora parked; ADR 002 + `android_ui`/`post_ui`/`android_a11y_services`; on-device post-UI + screen-control port.
 - **2026-07-08** — Test/CI batch: log.js ensureDir tests, deploy_fleet/adb_cli mocked flows, in-collection `adb_resolve` units, TCP-probe gate for wireless `adb connect`, tailscale-down abort guard. docs/options.md simplified to single open-items list. hd8 verify 16/16 with Fire OS notes; p7a adb intermittently offline.
