@@ -129,22 +129,12 @@ stop_manual_server() {
 cmd_install() {
   need_macos
   need_brew
-  bash "${SCRIPT_DIR}/vlm_migrate_paths.sh"
-  local model
-  model="$(ui_tars_model_dir)/ByteDance-Seed_UI-TARS-1.5-7B-Q4_K_M.gguf"
-  if [[ ! -f "$model" ]]; then
-    die "model not installed — run: make vlm-install"
-  fi
-  stop_manual_server
-  write_plist
-  service_bootstrap
-  service_kickstart
-  echo "Registered launchd agent $(ui_tars_service_label). Waiting for health on port ${PORT}…"
-  wait_healthy 240 || {
-    echo "Service started but health check failed — see ${LOG_FILE}" >&2
-    exit 1
-  }
-  echo "UI-TARS service ready (launchd / Login Items)."
+  local repo_root
+  repo_root="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+  export ANSIBLE_CONFIG="${repo_root}/ansible/ansible.cfg"
+  exec ansible-playbook "${repo_root}/ansible/playbooks/mac-site.yml" \
+    --tags vlm-service \
+    -e stayturgid_vlm_enabled=true
 }
 
 cmd_uninstall() {

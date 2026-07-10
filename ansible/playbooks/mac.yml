@@ -1,26 +1,27 @@
 ---
 # Mac-side setup from the same site file: renders the device conf consumed by
 # mac/ and shared/ scripts, plus launchd agents for ADB keepalive + outage
-# alerting. Run after any inventory change:
-#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/mac.yml
+# alerting. Prefer mac-site.yml (also run at end of site.yml / deploy_fleet.py):
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/mac-site.yml
 - name: stayturgid Mac workstation
   hosts: localhost
   connection: local
   gather_facts: false
-  vars:
-    stayturgid_repo_root: "{{ playbook_dir }}/../.."
-    stayturgid_gui_audit_enabled: false
-    conf_dir: "{{ lookup('env', 'HOME') }}/.config/stayturgid"
-    agents_dir: "{{ lookup('env', 'HOME') }}/Library/LaunchAgents"
-    stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
-    ssh_config_dir: "{{ lookup('env', 'HOME') }}/.ssh"
-    ssh_config_fragment: "{{ lookup('env', 'HOME') }}/.ssh/config.d/stayturgid"
+  vars_files:
+    - vars/mac.yml
+  tags: [mac, agents, always]
   tasks:
     - name: Ensure config + LaunchAgents directories
       ansible.builtin.file:
         path: "{{ item }}"
         state: directory
-      loop: ["{{ conf_dir }}", "{{ agents_dir }}"]
+        mode: "0755"
+      loop:
+        - "{{ conf_dir }}"
+        - "{{ conf_dir }}/logs"
+        - "{{ conf_dir }}/state"
+        - "{{ conf_dir }}/artifacts"
+        - "{{ agents_dir }}"
 
     - name: Render devices.conf from inventory (alias usb_serial tailscale_ip lan_ip)
       ansible.builtin.template:

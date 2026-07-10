@@ -1,0 +1,16 @@
+---
+# Mac workstation setup: prerequisites, fleet agents, optional VLM.
+#
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/mac-site.yml
+#   --tags prereqs          Homebrew + Galaxy collections only
+#   --tags agents           devices.conf + com.stayturgid.* launchd
+#   --tags vlm-models       UI-TARS weights (~6 GB)
+#   --tags vlm-service      UI-TARS launchd (requires models)
+#   -e stayturgid_vlm_enabled=true   required for any vlm-* tag tasks
+#
+# Imported at the end of site.yml; deploy_fleet.py also runs this on --limit deploys.
+- import_playbook: mac-prereqs.yml
+
+- import_playbook: mac.yml
+
+- import_playbook: mac-vlm.yml

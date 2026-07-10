@@ -5,7 +5,9 @@ Canonical entry (from repo root)::
 
   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml
 
-This wrapper adds collection install only (SSH preflight is in site.yml preflight.yml).
+This wrapper adds collection install and re-runs mac-site.yml on partial (--limit)
+deploys (Ansible skips localhost when a device limit is set). SSH preflight is in
+site.yml preflight.yml.
 
 Usage:
   deploy_fleet.py [host ...]              # full site deploy
@@ -30,6 +32,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 ANSIBLE_CFG = REPO_ROOT / "ansible" / "ansible.cfg"
 INVENTORY = REPO_ROOT / "ansible" / "inventory" / "hosts.yml"
 SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "site.yml"
+MAC_SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "mac-site.yml"
 REQUIREMENTS = REPO_ROOT / "ansible" / "requirements.yml"
 COLLECTIONS_PATH = REPO_ROOT / ".ansible" / "collections"
 
@@ -105,25 +108,6 @@ def resolve_hosts(hosts: list[str]) -> list[str]:
     return hosts if hosts else inventory_hosts()
 
 
-def build_playbook_argv(
-    *,
-    limit: list[str],
-    check: bool,
-    tags: str | None,
-    skip_tags: str | None = None,
-) -> list[str]:
-    cmd = ["ansible-playbook", str(SITE_PLAYBOOK)]
-    if limit:
-        cmd.extend(["--limit", ",".join(limit)])
-    if check:
-        cmd.extend(["--check", "--diff"])
-    if tags:
-        cmd.extend(["--tags", tags])
-    if skip_tags:
-        cmd.extend(["--skip-tags", skip_tags])
-    return cmd
-
-
 def require_ansible() -> None:
     if not shutil.which("ansible-playbook"):
         print("ERROR: ansible-playbook not found (brew install ansible)", file=sys.stderr)
@@ -169,9 +153,36 @@ def warn_prerequisites(scope: Scope) -> None:
         )
 
 
-def run_playbook(*, limit: list[str], check: bool, tags: str | None, skip_tags: str | None = None) -> int:
-    cmd = build_playbook_argv(limit=limit, check=check, tags=tags, skip_tags=skip_tags)
+def run_playbook(
+    playbook: Path,
+    *,
+    limit: list[str] | None = None,
+    check: bool,
+    tags: str | None,
+    skip_tags: str | None = None,
+    extra_vars: list[str] | None = None,
+) -> int:
+    cmd = ["ansible-playbook", str(playbook)]
+    if limit:
+        cmd.extend(["--limit", ",".join(limit)])
+    if check:
+        cmd.extend(["--check", "--diff"])
+    if tags:
+        cmd.extend(["--tags", tags])
+    if skip_tags:
+        cmd.extend(["--skip-tags", skip_tags])
+    if extra_vars:
+        cmd.extend(extra_vars)
     return subprocess.run(cmd, env=repo_env(), cwd=REPO_ROOT).returncode
+
+
+def deploy_mac(*, check: bool, tags: str = "mac") -> int:
+    """Mac localhost playbooks are not affected by device --limit."""
+    return run_playbook(
+        MAC_SITE_PLAYBOOK,
+        check=check,
+        tags=tags,
+    )
 
 
 def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
@@ -182,12 +193,16 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
     targets = resolve_hosts(hosts)
     # preflight.yml bootstraps SSH when needed; skip redundant full bootstrap pass.
     skip_bootstrap = None if check else "bootstrap"
-    return run_playbook(
+    rc = run_playbook(
+        SITE_PLAYBOOK,
         limit=targets,
         check=check,
         tags=scope.ansible_tags,
         skip_tags=skip_bootstrap,
     )
+    # site.yml imports mac-site.yml on full deploy; --limit skips localhost plays.
+    mac_rc = deploy_mac(check=check) if hosts else 0
+    return rc if rc != 0 else mac_rc
 
 
 def print_footer(rc: int, scope: Scope) -> None:

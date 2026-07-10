@@ -268,11 +268,23 @@ See [autojs6/README.md](autojs6/README.md) for details.
 
 ### 2.1 Install Homebrew and core tools
 
+Install Homebrew once (not managed by stayturgid Ansible):
+
 ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install android-platform-tools python pipx git
-pipx ensurepath
 ```
+
+Project Mac prerequisites (adb, Python, pipx, git, Ansible) are installed idempotently
+by Ansible (`community.general.homebrew`) when you run fleet deploy or:
+
+```bash
+make deploy-mac          # or: ansible-playbook ansible/playbooks/mac-site.yml --tags prereqs
+pipx ensurepath          # once, if pipx was just installed
+```
+
+Personal tools (Handsets, uiautomator2, Claude Code, scrcpy) stay manual — see below.
+When app stores are re-enabled (`stayturgid_app_stores_enabled: true`), `make deploy-mac`
+also installs `fdroidcl` and `apkeep`.
 
 ### 2.2 Install Handsets (primary Mac UI driver)
 
@@ -377,9 +389,14 @@ ssh termux
 
 This runs `adb connect` every 60 seconds, handles DHCP IP changes, and sends a macOS notification on reconnect or failure.
 
-**Current (Ansible-generated):** the launchd agents (`com.stayturgid.*`) and `~/.config/stayturgid/devices.conf` are rendered from inventory by `ansible/playbooks/mac.yml` — run `ansible-playbook ansible/playbooks/mac.yml` (or the fleet deploy) rather than copying a plist by hand. The agents launch `mac/adb_reconnect.py` + `mac/access_monitor.py`. Logs + state live under the single Mac root `~/.config/stayturgid/{logs,state}/`.
+**Current (Ansible-generated):** `make deploy` / `site.yml` ends with `mac-site.yml`
+(Homebrew prereqs, `devices.conf`, `com.stayturgid.*` launchd agents). Partial deploys
+(`make deploy HOSTS=s24`) also refresh Mac config via `deploy_fleet.py`. Agents launch
+`mac/adb_reconnect.py` + `mac/access_monitor.py`. Logs + state live under
+`~/.config/stayturgid/{logs,state}/`.
 
-> The legacy manual path (`cp mac/com.djbclark.stayturgid.adb-reconnect.plist ~/Library/LaunchAgents/ && launchctl load …`) is superseded by mac.yml; the old `com.djbclark.*` agents were retired.
+> The legacy manual path (`cp mac/com.djbclark.stayturgid.adb-reconnect.plist …`) is
+> superseded by `ansible/playbooks/mac.yml`; the old `com.djbclark.*` agents were retired.
 
 ### 2.6 Install Claude Code (AI development agent)
 
@@ -401,17 +418,20 @@ Verify it's using Pro/Max plan (not API billing): run `/status` inside Claude Co
 UI-TARS is a **vendor-neutral Mac sidecar** (`llama-server` on `127.0.0.1:8081`). It is
 not stored under `~/.config/stayturgid/` — only fleet config (`devices.conf`, logs,
 artifacts) lives there. stayturgid scripts auto-start the server when needed: if launchd is not installed they
-run `make vlm-service-install` (via `vlm_gate.ensure_server()`), otherwise kickstart
+run `make vlm-service-install` via Ansible (through `vlm_gate.ensure_server()`), otherwise kickstart
 the existing agent.
 
 **One-time setup** (Apple Silicon Mac, ~6 GB disk, 16 GB RAM recommended):
 
 ```bash
 make configure          # reports llama-server + launchd status
-make vlm-install        # brew install llama.cpp + download GGUF weights
-make vlm-service-install   # launchd agent homebrew.mxcl.ui-tars
+make vlm-install        # Ansible: brew llama.cpp + download GGUF weights
+make vlm-service-install   # Ansible: launchd agent homebrew.mxcl.ui-tars
 make vlm-check
 ```
+
+Ansible playbooks: `ansible/playbooks/mac-vlm.yml` (tags `vlm-models`, `vlm-service`).
+Requires `-e stayturgid_vlm_enabled=true` (set automatically by the make targets).
 
 | Scope | Path |
 |-------|------|

@@ -26,8 +26,9 @@ from typing import Any
 
 REPO = Path(__file__).resolve().parents[2]
 UI_TARS_DIR = REPO / "mac" / "ui-tars"
-SERVICE_SH = UI_TARS_DIR / "vlm_service.sh"
 SERVER_SH = UI_TARS_DIR / "ui_tars_server.sh"
+MAC_SITE_PLAYBOOK = REPO / "ansible" / "playbooks" / "mac-site.yml"
+ANSIBLE_CFG = REPO / "ansible" / "ansible.cfg"
 LAUNCHAGENT_PLIST = Path.home() / "Library/LaunchAgents/homebrew.mxcl.ui-tars.plist"
 LAUNCHAGENT_LABEL = "homebrew.mxcl.ui-tars"
 
@@ -126,19 +127,34 @@ def _kickstart_launchd() -> None:
     )
 
 
+def _ansible_mac_vlm_service() -> None:
+    env = os.environ.copy()
+    env["ANSIBLE_CONFIG"] = str(ANSIBLE_CFG)
+    subprocess.run(
+        [
+            "ansible-playbook",
+            str(MAC_SITE_PLAYBOOK),
+            "--tags",
+            "vlm-service",
+            "-e",
+            "stayturgid_vlm_enabled=true",
+        ],
+        check=False,
+        timeout=600,
+        cwd=str(REPO),
+        env=env,
+    )
+
+
 def ensure_server(start: bool = True) -> bool:
     if server_healthy():
         return True
     if not start:
         return False
     if os.uname().sysname == "Darwin":
-        if not LAUNCHAGENT_PLIST.is_file() and SERVICE_SH.is_file():
-            subprocess.run(
-                ["bash", str(SERVICE_SH), "install"],
-                check=False,
-                timeout=300,
-            )
-        elif LAUNCHAGENT_PLIST.is_file():
+        if not LAUNCHAGENT_PLIST.is_file():
+            _ansible_mac_vlm_service()
+        else:
             _kickstart_launchd()
     elif SERVER_SH.is_file():
         # Non-macOS: no launchd — manual background server only.

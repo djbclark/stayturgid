@@ -24,7 +24,8 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 | `shared/mac/stayturgid_device.py` | Device resolution, Shizuku JSON patch, UI XML parsing |
 | `shared/mac/fleet_health.py` | Read-only health probes used by `fleet_health_monitor.py` |
 
-Launchd agents are rendered by `ansible/playbooks/mac.yml` (not hand-copied plists).
+Launchd agents and `devices.conf` are rendered by `ansible/playbooks/mac-site.yml`
+(`make deploy-mac` or automatically at end of `make deploy`).
 
 ## Fleet deploy
 

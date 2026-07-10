@@ -21,11 +21,12 @@ SCOPE ?= full
 DEPLOY_ARGS := $(if $(HOSTS),$(HOSTS),)
 DEPLOY_SCOPE_ARG := $(if $(filter-out full,$(SCOPE)),--scope $(SCOPE),)
 
--include .config.mk
+MAC_SITE := ansible/playbooks/mac-site.yml
+VLM_ANSIBLE := ansible-playbook $(MAC_SITE) -e stayturgid_vlm_enabled=true
 
 .PHONY: help all configure check unit test unit-and-pytest pytest ansible-test test-venv \
         lint clean verify verify-heal device dryrun dryrun-termux \
-        health fix-hd8-google deploy deploy-check collections bootstrap-ssh deploy-termux syntax \
+        health fix-hd8-google deploy deploy-check collections bootstrap-ssh deploy-termux deploy-mac syntax \
         vlm-install vlm-server vlm-check vlm-stop vlm-service-install vlm-service-status \
         vlm-service-stop vlm-service-restart vlm-smoke verify-play-autoupdate verify-hd8-google
 
@@ -43,6 +44,7 @@ help:
 	@echo "Fleet (live phones):"
 	@echo "  make deploy [HOSTS=s24]           Full fleet deploy (ansible/playbooks/site.yml)"
 	@echo "  make deploy-check [HOSTS=s24]     Ansible dry run (--check --diff)"
+	@echo "  make deploy-mac                   Mac workstation only (brew, launchd, conf)"
 	@echo "  make deploy-termux [HOSTS=s24]    Termux layer only (termux_userland role)"
 	@echo "  make bootstrap-ssh [HOSTS=s24]    ADB bootstrap Termux SSH keys + sshd"
 	@echo "  make health                     Mac fleet-health summary (exit 1 = tell operator)"
@@ -50,7 +52,7 @@ help:
 	@echo "  make verify-play-autoupdate     Play Store auto-update VLM check (STAYTURGID_VLM=1)"
 	@echo "  make verify-hd8-google          Stack + crash + auto-update close-out (hd8)"
 	@echo "  make collections                Install ansible-galaxy collections"
-	@echo "  make syntax                     Syntax-check site.yml"
+	@echo "  make syntax                     Syntax-check site.yml + mac-site.yml"
 	@echo ""
 	@echo "Verify (SSH to devices):"
 	@echo "  make verify [HOSTS=s24]           Read-only device tier (TAP)"
@@ -69,8 +71,8 @@ help:
 	@echo "  make configure                    Report tool availability → .config.mk"
 	@echo ""
 	@echo "VLM (optional Mac UI-TARS gates — vendor-neutral; see VLM.md):"
-	@echo "  make vlm-install                  brew llama.cpp + download weights (~6GB)"
-	@echo "  make vlm-service-install          launchd agent (persists across login)"
+	@echo "  make vlm-install                  Ansible: brew llama.cpp + download weights (~6GB)"
+	@echo "  make vlm-service-install          Ansible: launchd agent (persists across login)"
 	@echo "  make vlm-service-status           health + launchctl summary"
 	@echo "  make vlm-check                    Smoke-test server + client"
 	@echo "  make vlm-smoke                    Stop/start launchd QA cycle"
@@ -94,6 +96,9 @@ deploy:
 deploy-check:
 	CHECK=1 python3 mac/deploy_fleet.py $(DEPLOY_ARGS) $(DEPLOY_SCOPE_ARG)
 
+deploy-mac:
+	ansible-playbook $(MAC_SITE) --tags mac
+
 deploy-termux:
 	python3 ansible/mac/deploy_termux.py $(DEPLOY_ARGS)
 
@@ -113,7 +118,7 @@ verify-hd8-google:
 	STAYTURGID_VLM=1 python3 mac/verify_hd8_google.py $(or $(HOSTS),hd8)
 
 vlm-install:
-	bash mac/ui-tars/vlm_install.sh
+	$(VLM_ANSIBLE) --tags vlm-models
 
 vlm-server:
 	bash mac/ui-tars/ui_tars_server.sh
@@ -122,7 +127,7 @@ vlm-check:
 	python3 mac/vlm_check.py
 
 vlm-service-install:
-	bash mac/ui-tars/vlm_service.sh install
+	$(VLM_ANSIBLE) --tags vlm-service
 
 vlm-service-status:
 	bash mac/ui-tars/vlm_service.sh status
@@ -143,6 +148,7 @@ collections:
 
 syntax:
 	ansible-playbook ansible/playbooks/site.yml --syntax-check
+	ansible-playbook $(MAC_SITE) --syntax-check
 
 # ------------------------------------------------------------------------------
 # Device verification

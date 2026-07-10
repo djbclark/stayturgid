@@ -8,6 +8,8 @@ UI-TARS is a **vendor-neutral Mac sidecar** (Homebrew `llama.cpp` + launchd). We
 and server logs live outside `~/.config/stayturgid/`. stayturgid fleet config and
 `vlm-verify` artifacts stay under `~/.config/stayturgid/`.
 
+Mac install is **Ansible-managed** (`ansible/playbooks/mac-vlm.yml` via `make vlm-*`).
+
 See [HACKING.md § 2.7](HACKING.md#27-ui-tars-vision-gates-optional) for dev setup.
 
 ---
@@ -34,7 +36,14 @@ make vlm-service-install
 make vlm-check
 ```
 
-Migrate old `~/.config/stayturgid/models/ui-tars-*`:
+Equivalent Ansible (from repo root):
+
+```bash
+ansible-playbook ansible/playbooks/mac-site.yml --tags vlm-models -e stayturgid_vlm_enabled=true
+ansible-playbook ansible/playbooks/mac-site.yml --tags vlm-service -e stayturgid_vlm_enabled=true
+```
+
+Migrate old `~/.config/stayturgid/models/ui-tars-*` (also run automatically on service install):
 
 ```bash
 bash mac/ui-tars/vlm_migrate_paths.sh
@@ -54,9 +63,9 @@ make vlm-smoke          # stop/start QA (launchd required)
 make vlm-server         # manual background (no launchd)
 ```
 
-`shared/mac/vlm_gate.ensure_server()` installs the launchd agent when missing (`make
-vlm-service-install`), kickstarts `homebrew.mxcl.ui-tars` when the plist exists, and
-waits for `/health`.
+`shared/mac/vlm_gate.ensure_server()` runs Ansible (`mac-site.yml --tags vlm-service`) when
+the launchd plist is missing, kickstarts `homebrew.mxcl.ui-tars` when it exists, and waits
+for `/health`.
 
 ---
 
@@ -64,8 +73,8 @@ waits for `/health`.
 
 | Target | Purpose |
 |--------|---------|
-| `vlm-install` | `brew install llama.cpp` + download GGUF |
-| `vlm-service-install` | launchd agent (persists at login) |
+| `vlm-install` | Ansible: `llama.cpp` + download GGUF (~6 GB) |
+| `vlm-service-install` | Ansible: launchd agent (persists at login) |
 | `vlm-service-status` | health + launchctl summary |
 | `vlm-check` | client smoke test |
 | `vlm-smoke` | bootout/bootstrap QA cycle |
@@ -91,7 +100,8 @@ waits for `/health`.
 
 | Path | Role |
 |------|------|
-| `mac/ui-tars/` | install, launchd service, server scripts |
+| `ansible/playbooks/mac-vlm.yml` | Ansible: brew, models, launchd |
+| `mac/ui-tars/` | server run scripts, status/stop helpers |
 | `shared/mac/vlm_gate.py` | `VlmGate`, `ensure_server()` |
 | `shared/mac/vlm_helpers.py` | `verify_shot` helpers |
 | `mac/vlm_check.py` | smoke test |

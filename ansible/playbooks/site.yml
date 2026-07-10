@@ -13,6 +13,8 @@
 #
 # SSH preflight (probe + conditional adb bootstrap) is in preflight.yml — runs
 # at the start of every site.yml invocation (including bare ansible-playbook).
+# Mac workstation setup (brew prereqs, devices.conf, launchd) is mac-site.yml
+# at the end.
 - name: Import SSH preflight play
   import_playbook: preflight.yml
 
@@ -33,3 +35,9 @@
 
 - name: Import validate play
   import_playbook: validate.yml
+
+# Mac control-node: Homebrew prereqs, devices.conf, launchd agents (localhost).
+# VLM tasks are gated by stayturgid_vlm_enabled (default false).
+- name: Import Mac workstation setup
+  import_playbook: mac-site.yml
+  tags: [mac, always]

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>{{ ui_tars_service_label }}</string>
+  <key>Comment</key>
+  <string>UI-TARS-1.5-7B llama-server (local vision model sidecar)</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>{{ ui_tars_run_script }}</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>{{ ui_tars_working_dir }}</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key>
+    <string>{{ brew_prefix }}/bin:{{ llama_prefix }}/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>HOME</key>
+    <string>{{ lookup('env', 'HOME') }}</string>
+  </dict>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>StandardOutPath</key>
+  <string>{{ ui_tars_log_file }}</string>
+  <key>StandardErrorPath</key>
+  <string>{{ ui_tars_log_file }}</string>
+  <key>ThrottleInterval</key>
+  <integer>30</integer>
+</dict>
+</plist>

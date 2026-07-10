@@ -1,0 +1,163 @@
+---
+# UI-TARS VLM sidecar: llama.cpp, model weights, launchd agent.
+#   ansible-playbook ansible/playbooks/mac-vlm.yml -e stayturgid_vlm_enabled=true
+#   --tags vlm-models   # brew + ~6GB download only
+#   --tags vlm-service  # launchd agent (models must exist)
+- name: stayturgid Mac UI-TARS VLM
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files:
+    - vars/mac.yml
+  tags: [mac, vlm]
+  tasks:
+    - name: Skip VLM setup on non-macOS
+      ansible.builtin.meta: end_host
+      when: ansible_facts['os_family'] != 'Darwin'
+
+    - name: Skip VLM tasks when disabled
+      ansible.builtin.meta: end_host
+      when: not (stayturgid_vlm_enabled | bool)
+
+    - name: Install llama.cpp via Homebrew
+      community.general.homebrew:
+        name: "{{ stayturgid_mac_brew_packages_vlm }}"
+        state: present
+      tags: [vlm, vlm-models]
+
+    - name: Ensure UI-TARS model and server directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ ui_tars_model_dir }}"
+        - "{{ ui_tars_working_dir }}"
+        - "{{ ui_tars_log_file | dirname }}"
+      tags: [vlm, vlm-models]
+
+    - name: Download UI-TARS model weights (~5.9 GB total)
+      ansible.builtin.get_url:
+        url: "{{ ui_tars_hf_base }}/{{ item }}"
+        dest: "{{ ui_tars_model_dir }}/{{ item }}"
+        mode: "0644"
+        force: false
+      loop: "{{ ui_tars_models }}"
+      tags: [vlm, vlm-models]
+
+    - name: Migrate legacy UI-TARS paths under ~/.config/stayturgid
+      ansible.builtin.command:
+        cmd: bash "{{ stayturgid_repo_root | realpath }}/mac/ui-tars/vlm_migrate_paths.sh"
+      register: _vlm_migrate
+      changed_when: "'moved' in (_vlm_migrate.stdout | default(''))"
+      tags: [vlm, vlm-service]
+
+    - name: Ensure UI-TARS server run script is executable
+      ansible.builtin.file:
+        path: "{{ ui_tars_run_script }}"
+        mode: "0755"
+      tags: [vlm, vlm-service]
+
+    - name: Assert UI-TARS model weights exist before service install
+      ansible.builtin.stat:
+        path: "{{ ui_tars_model_dir }}/{{ item }}"
+      loop: "{{ ui_tars_models }}"
+      register: _ui_tars_model_stats
+      tags: [vlm, vlm-service]
+
+    - name: Require UI-TARS model weights before service install
+      ansible.builtin.assert:
+        that: item.stat.exists
+        fail_msg: >-
+          UI-TARS models missing in {{ ui_tars_model_dir }} —
+          run: make vlm-install (ansible --tags vlm-models)
+      loop: "{{ _ui_tars_model_stats.results }}"
+      loop_control:
+        label: "{{ item.stat.path | default('model') }}"
+      tags: [vlm, vlm-service]
+
+    - name: Resolve Homebrew prefix for launchd PATH
+      ansible.builtin.command: brew --prefix
+      register: _brew_prefix
+      changed_when: false
+      tags: [vlm, vlm-service]
+
+    - name: Resolve llama.cpp Homebrew prefix
+      ansible.builtin.command: brew --prefix llama.cpp
+      register: _llama_prefix
+      changed_when: false
+      failed_when: false
+      tags: [vlm, vlm-service]
+
+    - name: Stop manual UI-TARS server if pid file exists
+      ansible.builtin.shell: |
+        set -euo pipefail
+        pid_file="{{ ui_tars_pid_file }}"
+        if [[ -f "$pid_file" ]]; then
+          pid="$(cat "$pid_file" 2>/dev/null || true)"
+          if [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null; then
+            kill "$pid" 2>/dev/null || true
+            sleep 2
+          fi
+          rm -f "$pid_file"
+        fi
+      args:
+        executable: /bin/bash
+      changed_when: false
+      tags: [vlm, vlm-service]
+
+    - name: Remove legacy UI-TARS LaunchAgent plist
+      ansible.builtin.file:
+        path: "{{ ui_tars_legacy_service_plist }}"
+        state: absent
+      register: _legacy_plist_removed
+      tags: [vlm, vlm-service]
+
+    - name: Boot out legacy UI-TARS LaunchAgent
+      ansible.builtin.shell: |
+        launchctl bootout "gui/$(id -u)" "{{ ui_tars_legacy_service_plist }}" 2>/dev/null || true
+      when: _legacy_plist_removed.changed
+      changed_when: true
+      tags: [vlm, vlm-service]
+
+    - name: Render UI-TARS launchd agent
+      ansible.builtin.template:
+        src: ui-tars.plist.j2
+        dest: "{{ ui_tars_service_plist }}"
+        mode: "0644"
+      vars:
+        brew_prefix: "{{ _brew_prefix.stdout | trim }}"
+        llama_prefix: "{{ (_llama_prefix.stdout | default(_brew_prefix.stdout)) | trim }}"
+      register: _ui_tars_plist
+      tags: [vlm, vlm-service]
+
+    - name: Reload UI-TARS launchd agent
+      ansible.builtin.shell: |
+        launchctl bootout "gui/$(id -u)" "{{ ui_tars_service_plist }}" 2>/dev/null || true
+        launchctl bootstrap "gui/$(id -u)" "{{ ui_tars_service_plist }}"
+        launchctl kickstart -k "gui/$(id -u)/{{ ui_tars_service_label }}" 2>/dev/null || true
+      when: _ui_tars_plist.changed
+      changed_when: true
+      tags: [vlm, vlm-service]
+
+    - name: Bootstrap UI-TARS launchd agent when plist unchanged but not loaded
+      ansible.builtin.shell: |
+        launchctl bootstrap "gui/$(id -u)" "{{ ui_tars_service_plist }}"
+        launchctl kickstart -k "gui/$(id -u)/{{ ui_tars_service_label }}" 2>/dev/null || true
+      when:
+        - not _ui_tars_plist.changed
+        - ui_tars_service_plist is file
+      register: _ui_tars_bootstrap
+      failed_when: false
+      changed_when: _ui_tars_bootstrap.rc == 0
+      tags: [vlm, vlm-service]
+
+    - name: Wait for UI-TARS /health
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ ui_tars_port }}/health"
+        status_code: 200
+      register: _ui_tars_health
+      until: _ui_tars_health.status == 200
+      retries: 240
+      delay: 1
+      tags: [vlm, vlm-service]

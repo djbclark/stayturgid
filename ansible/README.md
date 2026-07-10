@@ -31,10 +31,34 @@ The deployed `~/.stayturgid/bin/agent-presence.sh` includes the consent `gate` a
 
 ## Prerequisites
 
-- Ansible 2.14+ on the Mac (`brew install ansible`)
-- `ansible.posix` collection (`ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections`)
+- Ansible 2.14+ on the Mac (`brew install ansible` or `make deploy-mac --tags prereqs`)
+- `ansible.posix` + `community.general` collections (`ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections`; `make collections` or `make deploy-mac`)
 - SSH to Termux working (`ssh s24` or USB forward to port 8022)
 - `~/.ssh/termux_key` authorized on the device (bootstrap once with `ssh-copy-id`; `termux_userland` role manages keys on every deploy)
+
+## Mac workstation (`mac-site.yml`)
+
+Project Mac configuration is Ansible-managed on `localhost` (not your whole Mac — only
+stayturgid prerequisites and agents):
+
+```bash
+make deploy-mac
+# or:
+ansible-playbook ansible/playbooks/mac-site.yml --tags mac
+```
+
+| Tag | What |
+|-----|------|
+| `prereqs` | Homebrew: adb, python, pipx, git, ansible (+ fdroidcl/apkeep when app stores on) |
+| `agents` | `devices.conf`, SSH fragment, `com.stayturgid.*` launchd |
+| `vlm-models` | `llama.cpp` + UI-TARS weights (~6 GB); needs `-e stayturgid_vlm_enabled=true` |
+| `vlm-service` | `homebrew.mxcl.ui-tars` launchd; needs models + `stayturgid_vlm_enabled=true` |
+
+`site.yml` imports `mac-site.yml` at the end. `deploy_fleet.py` re-runs it on partial
+(`--limit`) deploys because Ansible skips localhost when a device limit is set.
+
+Manual / personal tools (not in Ansible): Handsets, `termux_key` / `adbkey` generation,
+`play.env`, Claude Code, scrcpy, uiautomator2.
 
 ## Full fleet deploy
 
@@ -98,9 +122,13 @@ Playbooks reference collection roles by FQCN (e.g. `stayturgid.termux.termux_use
 ```
 ansible/
   ansible.cfg
-  requirements.yml               — ansible.posix + stayturgid.* (via deploy install)
+  requirements.yml               — ansible.posix + community.general
   inventory/hosts.yml
-  playbooks/site.yml             — preflight → bootstrap → fleet → post-ui → re-pass → validate
+  playbooks/site.yml             — preflight → … → validate → mac-site
+  playbooks/mac-site.yml         — Mac localhost: prereqs + agents + optional VLM
+  playbooks/mac-prereqs.yml      — Homebrew + galaxy collections
+  playbooks/mac.yml              — devices.conf + com.stayturgid.* launchd
+  playbooks/mac-vlm.yml          — UI-TARS (optional)
   playbooks/preflight.yml        — SSH probe + conditional adb bootstrap
   playbooks/fleet.yml
   playbooks/bootstrap.yml

@@ -1,0 +1,36 @@
+---
+# Mac control-node prerequisites: Homebrew formulae + Galaxy collections.
+#   ansible-playbook ansible/playbooks/mac-prereqs.yml
+- name: stayturgid Mac prerequisites
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars_files:
+    - vars/mac.yml
+  tags: [mac, prereqs, always]
+  tasks:
+    - name: Skip Mac prerequisites on non-macOS
+      ansible.builtin.meta: end_host
+      when: ansible_facts['os_family'] != 'Darwin'
+
+    - name: Install base Homebrew formulae for stayturgid
+      community.general.homebrew:
+        name: "{{ stayturgid_mac_brew_packages_base }}"
+        state: present
+
+    - name: Install app-store Homebrew formulae when enabled
+      community.general.homebrew:
+        name: "{{ stayturgid_mac_brew_packages_app_stores }}"
+        state: present
+      when: stayturgid_app_stores_enabled | default(false) | bool
+
+    - name: Install Galaxy collections into repo .ansible/collections
+      ansible.builtin.command:
+        cmd: >-
+          ansible-galaxy collection install
+          -r {{ stayturgid_repo_root | realpath }}/ansible/requirements.yml
+          -p {{ stayturgid_repo_root | realpath }}/.ansible/collections
+      register: _galaxy_install
+      changed_when: >-
+        'Installing' in (_galaxy_install.stdout | default(''))
+        or 'upgrade' in (_galaxy_install.stdout | default(''))
