@@ -31,8 +31,8 @@ across dependent UI steps.
 config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
-**Suggested agent order:** soft-heal p7a AutoJs6 if soak continues. Do not touch
-incubator.
+**Suggested agent order:** **58** (accept ADR 002) then **59** if pursuing deeper
+Ansible; else soft-heal p7a AutoJs6 if soak continues. Do not touch incubator.
 
 ---
 

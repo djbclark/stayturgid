@@ -47,6 +47,7 @@ no Termux→`localhost:5555` privileged shell (Fire OS); Handsets starts via
 - `deploy_fleet.py` is a thin wrapper: SSH preflight + `ansible-playbook site.yml`.
 - `harden_fleet_apps.py` is redundant with `app_privileges` role; CLI kept for ad-hoc use only.
 - New fleet features: default to module/role first; script only when UI or runtime requires it.
+- UI automation: see [002-ansible-ui-tasks.md](002-ansible-ui-tasks.md) (proposed) — named UI tasks, not per-tap modules.
 - `make verify` / `device_tier.py` remain the deep TAP harness; `validate.yml` is the Ansible smoke path.
 
 ## Non-goals
