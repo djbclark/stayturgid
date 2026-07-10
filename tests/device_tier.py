@@ -31,16 +31,13 @@ DEVICES_CONF = os.environ.get(
 # (deployed_name -> repo path). Runtime logic migrated to Python (device/termux/py/);
 # the remaining .sh are compat shims / the bridge.
 TRACKED_SCRIPTS = {
-    "stayturgid-repair.sh": "device/termux/stayturgid-repair.sh",
+    "stayturgid_repair.py": "device/termux/py/stayturgid_repair.py",
     "repair-bridge.sh": "device/termux/repair-bridge.sh",
     "autojs6-bridge.sh": "device/termux/autojs6-bridge.sh",
-    "agent-presence.sh": "device/termux/agent-presence.sh",
-    "claude-presence.sh": "device/termux/claude-presence.sh",
+    "stayturgid_agent_presence.py": "device/termux/py/stayturgid_agent_presence.py",
     "stayturgid_check_repo_version.py": "device/termux/py/stayturgid_check_repo_version.py",
     "stayturgid_screen_awake_guard.py": "device/termux/py/stayturgid_screen_awake_guard.py",
-    "stayturgid_agent_presence.py": "device/termux/py/stayturgid_agent_presence.py",
     "stayturgid_battery_alarm.py": "device/termux/py/stayturgid_battery_alarm.py",
-    "stayturgid_repair.py": "device/termux/py/stayturgid_repair.py",
     "stayturgid_autojs6_guard.py": "device/termux/py/stayturgid_autojs6_guard.py",
 }
 
@@ -136,7 +133,7 @@ else
     echo "vpn_always_on=MISSING"
   fi
 fi
-for f in stayturgid-repair.sh repair-bridge.sh autojs6-bridge.sh agent-presence.sh claude-presence.sh stayturgid_check_repo_version.py stayturgid_screen_awake_guard.py stayturgid_agent_presence.py stayturgid_battery_alarm.py stayturgid_repair.py stayturgid_autojs6_guard.py; do
+for f in stayturgid_repair.py repair-bridge.sh autojs6-bridge.sh stayturgid_agent_presence.py stayturgid_check_repo_version.py stayturgid_screen_awake_guard.py stayturgid_battery_alarm.py stayturgid_autojs6_guard.py; do
     printf 'md5 %s %s\n' "$f" "$(md5sum "$HOME/.stayturgid/bin/$f" 2>/dev/null | cut -d' ' -f1)"
 done
 """
@@ -475,7 +472,7 @@ def check_host(host, tap, heal=False, ansible_check=False):
                   "detail": "serial=%s" % serial})
 
     if heal:
-        out = ssh_gather(host, '"$HOME/.stayturgid/bin/stayturgid-repair.sh"\n', timeout=30)
+        out = ssh_gather(host, '"$HOME/.stayturgid/bin/stayturgid_repair.py"\n', timeout=30)
         last = out.strip().splitlines()[-1] if out.strip() else ""
         tap.emit(parse_heal(last))
 

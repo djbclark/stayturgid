@@ -11,6 +11,16 @@ Last updated: **2026-07-10 morning** (repo restructure `d950c53` + handoff pass)
 
 ---
 
+
+## Session notes (2026-07-10 afternoon) — agent completed
+
+| Area | Status |
+|------|--------|
+| Senior review fixes | H1–H3, OPTIONS 62, module docs, lint green |
+| Mac fleet-health adb PATH | Launchd plists patched + reloaded; `make health` OK for s24/p7a/hd8 |
+| `make deploy-check HOSTS=s24` | Pass (`failed=0`) after `stayturgid_repo_root` fix |
+| Live soak | **Still needed** — announced `make deploy` + `make verify` |
+
 ## Session notes (2026-07-10) — agent completed
 
 | Area | Status |

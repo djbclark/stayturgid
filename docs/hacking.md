@@ -823,7 +823,7 @@ device/autojs6/
 control/tools/autojs6/                    — deploy.py, setup_autojs6.py, grant_shizuku.py, start_watchdog.py
 device/termux/
   boot/start-adb.sh                     — deploy to ~/.termux/boot/ on device
-  stayturgid-repair.sh                  — Termux-side self-heal
+  stayturgid_repair.py                  — Termux-side self-heal
   stayturgid_check_repo_version.py      — optional update notifier (Python)
 ansible/                                — idempotent Termux userland deploy
 control/bin/                            — adb_reconnect.py, access_monitor.py (launchd via control_node/agents)

@@ -14,12 +14,10 @@ def stayturgid_root(script: str | Path) -> Path:
     while path != path.parent:
         if (path / "device" / "termux").is_dir() and (path / "control" / "lib").is_dir():
             return path
-        # Legacy layout (pre-restructure)
-        if (path / "termux").is_dir() and (path / "shared").is_dir():
-            return path
         path = path.parent
     raise SystemExit(
-        "ERROR: stayturgid repo root not found (walked up from %s)" % script
+        "ERROR: stayturgid repo root not found (walked up from %s); "
+        "expected device/termux/ + control/lib/ markers" % script
     )
 
 

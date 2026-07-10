@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """Shared Mac-side device helpers (Python).
 
 Pure, unit-tested logic (JSON patching, uid/UI-XML parsing, device resolution)
@@ -10,6 +11,7 @@ easy to get wrong under macOS bash/zsh.
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -18,6 +20,32 @@ DEVICES_CONF = os.environ.get(
     os.path.join(os.path.expanduser("~"), ".config", "stayturgid", "devices.conf"),
 )
 SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "LogLevel=ERROR"]
+
+# Cached absolute adb path — launchd agents often have no Homebrew on PATH.
+_ADB_BIN: str | None = None
+
+
+def adb_bin() -> str:
+    """Return an absolute path to adb when possible (launchd-safe).
+
+    Order: STAYTURGID_ADB env, Homebrew paths, PATH lookup, bare ``adb``.
+    """
+    global _ADB_BIN
+    if _ADB_BIN is not None:
+        return _ADB_BIN
+    env = os.environ.get("STAYTURGID_ADB", "").strip()
+    candidates = [
+        env,
+        "/opt/homebrew/bin/adb",
+        "/usr/local/bin/adb",
+        shutil.which("adb") or "",
+    ]
+    for c in candidates:
+        if c and os.path.isfile(c) and os.access(c, os.X_OK):
+            _ADB_BIN = c
+            return _ADB_BIN
+    _ADB_BIN = env or "adb"
+    return _ADB_BIN
 
 
 # --------------------------------------------------------------------------
@@ -99,7 +127,7 @@ def resolve_adb(alias, conf_path=None):
     # Minimal fallback when collection path is unavailable.
     usb, ts_ip, _lan = row
     if usb != "-":
-        r = _run(["adb", "devices"])
+        r = _run([adb_bin(), "devices"])
         if r and ("%s\tdevice" % usb) in (r.stdout or ""):
             return usb
     if ts_ip not in ("", "-"):
@@ -164,13 +192,13 @@ class PrivShell:
             r = _run(["ssh"] + SSH_OPTS + [self.ssh_host, "bash", "-s"],
                      input=remote, timeout=timeout)
         else:
-            r = _run(["adb", "-s", self.target, "shell", cmd], timeout=timeout)
+            r = _run([adb_bin(), "-s", self.target, "shell", cmd], timeout=timeout)
         if r is None:
             return 127, ""
         return r.returncode, r.stdout.replace("\r", "")
 
     def push(self, local_path, remote_path):
-        r = _run(["adb", "-s", self.target, "push", local_path, remote_path])
+        r = _run([adb_bin(), "-s", self.target, "push", local_path, remote_path])
         return r is not None and r.returncode == 0
 
     def app_uid(self, pkg):

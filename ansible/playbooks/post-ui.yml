@@ -1,3 +1,0 @@
----
-# Compatibility shim — use ansible/playbooks/fleet/post-ui.yml
-- import_playbook: fleet/post-ui.yml

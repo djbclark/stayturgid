@@ -85,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
         cwd=REPO_ROOT,
     ).returncode
     if rc == 0:
-        print(f"Done. Verify: ssh {target} '~/.stayturgid/bin/stayturgid-repair.sh'")
+        print(f"Done. Verify: ssh {target} '~/.stayturgid/bin/stayturgid_repair.py'")
     return rc
 
 

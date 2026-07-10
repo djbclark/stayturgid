@@ -8,7 +8,6 @@ Usage:
   ./import_catalog.py <p7a|s24|hd8|serial> [all|autojs6|/path/to.json]
   ./import_catalog.py <host> all --force
 """
-from __future__ import print_function
 
 import json
 import os

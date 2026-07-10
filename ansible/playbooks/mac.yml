@@ -1,3 +1,0 @@
----
-# Compatibility shim — use ansible/playbooks/control_node/agents.yml
-- import_playbook: control_node/agents.yml

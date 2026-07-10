@@ -2,6 +2,6 @@
 # Fleet app privilege profiles — authoritative JSON at control/lib/fleet_app_profiles.json
 # (pytest sync-guard keeps YAML mirror aligned for human editing).
 
-stayturgid_repo_root: "{{ playbook_dir }}/../.."
+stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"
 stayturgid_fleet_app_profiles: >-
   {{ lookup('file', stayturgid_repo_root + '/control/lib/fleet_app_profiles.json') | from_json }}

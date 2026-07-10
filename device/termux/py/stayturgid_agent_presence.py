@@ -1,10 +1,10 @@
 #!/data/data/com.termux/files/usr/bin/python
 """agent-presence (Python) — deployed as ~/stayturgid_agent_presence.py,
-reached via the ~/agent-presence.sh compat shim.
+reached via the ~/stayturgid_agent_presence.py compat shim.
 
 On-device "an agent is controlling this phone" indicator + consent gate +
 screen-control sharing flow. Behavioral parity with the shell version is
-unit-tested via tests/test-unit.sh (presence_suite). The ~/agent-presence.sh
+unit-tested via tests/test-unit.sh (presence_suite). The ~/stayturgid_agent_presence.py
 shim keeps the documented external interface stable.
 
 Exit codes: 0 = proceed, 2 = usage, 75 = gate deferred/disallowed.
@@ -258,7 +258,7 @@ def write(path, text):
 
 def consent_gate(label, agent):
     if pause_active():
-        print("presence gate: paused (run agent-presence.sh resume to clear)")
+        print("presence gate: paused (run stayturgid_agent_presence.py resume to clear)")
         return 75
     if later_active():
         with open(LATER_FILE) as f:
@@ -282,7 +282,7 @@ def consent_gate(label, agent):
         write(PAUSE_FILE, str(int(time.time())))
         run(["termux-notification", "--id", NID, "--priority", "high", "--alert-once",
              "--title", "%s paused on %s" % (agent, label),
-             "--content", "Run agent-presence.sh resume to clear."])
+             "--content", "Run stayturgid_agent_presence.py resume to clear."])
         print("presence gate: pause")
         return 75
     # "Check again in 10 minutes", timeout, or unrecognized: fail closed.
@@ -299,7 +299,7 @@ def request_screen(label, agent):
     timeout because it only appears when the phone is actively in use.
     """
     if pause_active():
-        print("request-screen: paused (run agent-presence.sh resume to clear)")
+        print("request-screen: paused (run stayturgid_agent_presence.py resume to clear)")
         return 75
     # Quiet / overnight audits: no vibrate, no dialog — proceed (inversion still on).
     if _quiet_presence():
@@ -438,7 +438,7 @@ def main(argv=None):
     if action == "stop-requested":
         if os.path.exists(STOP_FILE):
             print("graceful stop requested — wrap up within ~1 minute, then run: "
-                  "agent-presence.sh off")
+                  "stayturgid_agent_presence.py off")
             return 0
         print("no stop requested")
         return 1
@@ -454,7 +454,7 @@ def main(argv=None):
         rm(PAUSE_FILE); rm(LATER_FILE)
         print("presence gate: pause cleared")
         return 0
-    sys.stderr.write("usage: agent-presence.sh on|off|gate|request-screen|"
+    sys.stderr.write("usage: stayturgid_agent_presence.py on|off|gate|request-screen|"
                      "stop-requested|guard|status [label] [agent] | resume\n")
     return 2
 

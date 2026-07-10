@@ -1,3 +1,0 @@
----
-# Compatibility shim — use ansible/playbooks/fleet/fleet.yml
-- import_playbook: fleet/fleet.yml

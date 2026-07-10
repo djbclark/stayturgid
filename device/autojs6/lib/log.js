@@ -11,6 +11,24 @@ function ts() {
         + pad(d.getSeconds());
 }
 
+var LOG_KEEP_LINES = 500;
+var LOG_TRIM_OVER = 1000;
+
+function trimLogIfNeeded(logPath) {
+    try {
+        if (!files.exists(logPath)) return;
+        var content = String(files.read(logPath));
+        var lines = content.split("\n");
+        // Drop trailing empty from final newline
+        if (lines.length && lines[lines.length - 1] === "") lines.pop();
+        if (lines.length <= LOG_TRIM_OVER) return;
+        var kept = lines.slice(-LOG_KEEP_LINES);
+        files.write(logPath, kept.join("\n") + "\n");
+    } catch (e) {
+        /* best effort */
+    }
+}
+
 function append(line) {
     var msg = ts() + " " + line;
     console.log(msg);
@@ -20,18 +38,25 @@ function append(line) {
         var logDir = String(logPath).replace(/\/[^/]+$/, "");
         files.ensureDir(logDir + "/");
         files.append(logPath, msg + "\n");
+        trimLogIfNeeded(logPath);
     } catch (e) {
         console.error("log append failed: " + e);
     }
     return msg;
 }
 
+/** Read watchdog log; prefer a tail when the file is large (FUSE / battery). */
 function readWatchdogLog() {
     var profile = config.detectDeviceProfile();
     var logPath = config.pathsFor(profile).watchdogLog;
     if (!files.exists(logPath)) return "";
     try {
-        return String(files.read(logPath));
+        var content = String(files.read(logPath));
+        var lines = content.split("\n");
+        if (lines.length > LOG_TRIM_OVER) {
+            return lines.slice(-LOG_KEEP_LINES).join("\n");
+        }
+        return content;
     } catch (e) {
         return "";
     }

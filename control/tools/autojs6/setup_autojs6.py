@@ -20,7 +20,7 @@ AUTOJS_PKG = adb.AUTOJS_PKG
 
 MKBIN = "mkdir -p ~/.stayturgid/bin ~/.stayturgid/logs ~/.stayturgid/run ~/.termux/boot\n"
 BRIDGE_START = """
-chmod +x ~/.stayturgid/bin/stayturgid-repair.sh ~/.stayturgid/bin/repair-bridge.sh \
+chmod +x ~/.stayturgid/bin/stayturgid_repair.py ~/.stayturgid/bin/repair-bridge.sh \
     ~/.stayturgid/bin/autojs6-bridge.sh \
     ~/.termux/boot/start-repair-bridge.sh ~/.termux/boot/start-autojs6-bridge.sh \
     ~/.termux/boot/start-autojs6-watchdog.sh 2>/dev/null
@@ -48,10 +48,9 @@ def deploy_termux_scripts(alias: str, serial: str) -> str:
     if adb.ssh_ok(ssh_host, timeout=5):
         print(f"Deploying Termux scripts via SSH ({ssh_host})...")
         adb.ssh_run(ssh_host, MKBIN)
-        adb.scp(termux / "stayturgid-repair.sh", ssh_host, ".stayturgid/bin/stayturgid-repair.sh")
+        adb.scp(termux / "py" / "stayturgid_repair.py", ssh_host, ".stayturgid/bin/stayturgid_repair.py")
         adb.scp(termux / "repair-bridge.sh", ssh_host, ".stayturgid/bin/repair-bridge.sh")
         adb.scp(termux / "autojs6-bridge.sh", ssh_host, ".stayturgid/bin/autojs6-bridge.sh")
-        adb.scp(termux / "py" / "stayturgid_repair.py", ssh_host, ".stayturgid/bin/stayturgid_repair.py")
         for boot in ("start-repair-bridge.sh", "start-autojs6-bridge.sh", "start-autojs6-watchdog.sh"):
             src = termux / "boot" / boot
             if src.is_file():

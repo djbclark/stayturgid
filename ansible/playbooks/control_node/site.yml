@@ -8,10 +8,14 @@
 #   --tags vlm-models       UI-TARS weights (~6 GB)
 #   --tags vlm-service      install launchd plist (models must exist; needs stayturgid_vlm_enabled)
 #   -e stayturgid_vlm_enabled=true   required for any vlm-* tag tasks
-- import_playbook: prereqs.yml
+- name: Import control-node prereqs play
+  import_playbook: prereqs.yml
 
-- import_playbook: agents.yml
+- name: Import control-node agents play
+  import_playbook: agents.yml
 
-- import_playbook: vlm.yml
+- name: Import control-node VLM play
+  import_playbook: vlm.yml
 
-- import_playbook: agents-ensure.yml
+- name: Import control-node agents-ensure play
+  import_playbook: agents-ensure.yml

@@ -3,7 +3,7 @@
 
 - name: Run stayturgid-repair and parse STATUS
   stayturgid.termux.stayturgid_repair_check:
-    repair_script: "{{ termux_home }}/.stayturgid/bin/stayturgid-repair.sh"
+    repair_script: "{{ termux_home }}/.stayturgid/bin/stayturgid_repair.py"
     termux_prefix: "{{ termux_prefix }}"
     fail_on_unhealthy: false
   register: _repair

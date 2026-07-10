@@ -1,3 +1,0 @@
----
-# Compatibility shim — use ansible/playbooks/fleet/preflight.yml
-- import_playbook: fleet/preflight.yml

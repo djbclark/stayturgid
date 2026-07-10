@@ -6,7 +6,7 @@ var RUN_SERVICE = "com.termux.app.RunCommandService";
 var RUN_ACTION = "com.termux.RUN_COMMAND";
 
 /**
- * Invoke stayturgid-repair.sh in Termux.
+ * Invoke stayturgid_repair.py in Termux.
  *
  * Primary: RUN_COMMAND intent (needs AutoJs6 v6.4.1+ with
  * com.termux.permission.RUN_COMMAND granted + allow-external-apps=true).

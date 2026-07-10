@@ -48,8 +48,17 @@ def parse_version_code(dumpsys_package: str) -> int | None:
     return None
 
 
+def _adb() -> str:
+    try:
+        from stayturgid_device import adb_bin  # type: ignore
+
+        return adb_bin()
+    except Exception:  # noqa: BLE001
+        return os.environ.get("STAYTURGID_ADB", "adb")
+
+
 def adb_shell(run_command, device: str, *args: str) -> tuple[int, str, str]:
-    cmd = ["adb", "-s", device, "shell", *args]
+    cmd = [_adb(), "-s", device, "shell", *args]
     rc, out, err = run_command(cmd)
     return rc, out, err
 
@@ -150,7 +159,7 @@ def needs_gsf_reinstall(gsf_version_name: str | None) -> bool:
 
 
 def _install_apk(run_command, device: str, apk: Path) -> tuple[int, str]:
-    cmd = ["adb", "-s", device, "install", "-r", "-g", str(apk)]
+    cmd = [_adb(), "-s", device, "install", "-r", "-g", str(apk)]
     rc, out, err = run_command(cmd)
     return rc, (out + err).strip()
 
@@ -174,7 +183,7 @@ def stop_aurora_churn(run_command, device: str) -> None:
 def _install_splits(run_command, device: str, apks: list[Path]) -> tuple[int, str]:
     if not apks:
         return 1, "no APK splits"
-    cmd = ["adb", "-s", device, "install-multiple", "-r", "-g", *[str(p) for p in apks]]
+    cmd = [_adb(), "-s", device, "install-multiple", "-r", "-g", *[str(p) for p in apks]]
     rc, out, err = run_command(cmd)
     return rc, (out + err).strip()
 

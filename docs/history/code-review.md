@@ -1,5 +1,9 @@
 # Code Review — stayturgid
 
+> **Historical document.** Paths below use the **pre-reorg** layout (`termux/`,
+> `mac/`, root scripts). Canonical layout since `d950c53` is `device/termux/`,
+> `control/bin/`, `control/lib/` — see [docs/architecture.md](../architecture.md).
+>
 > **Status (2026-07-06):** All findings below (H1–H2, M1–M11, L1–L13) were fixed
 > in the commit(s) following this review. Fixes are code-only; devices still
 > run the old scripts until the next `./control/bin/deploy_fleet.py`.

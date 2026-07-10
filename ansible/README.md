@@ -27,7 +27,7 @@ Copy [inventory/example-standalone.yml](inventory/example-standalone.yml) as a s
 
 **Out of scope** (configure separately): Shizuku pairing, AutoJs6 install, Obtainium bootstrap, `WRITE_SECURE_SETTINGS`. Fleet app permissions, battery-unrestricted, and unused-app restrictions are automated via `stayturgid.android_common.app_privileges` (or ad-hoc `./control/bin/harden_fleet_apps.py`). SSH **bootstrap** before the first Ansible connection: `./control/bin/bootstrap_ssh.py` (adb + `run-as com.termux` on debuggable Termux); ongoing key distribution uses `ansible.posix.authorized_key` plus private-key sync in the `termux_userland` role (`control_node` role renders Mac `~/.ssh/config.d/stayturgid`). Keys live on the control node only — never in git.
 
-The deployed `~/.stayturgid/bin/agent-presence.sh` includes the consent `gate` action ([docs/modules/termux.md](../docs/modules/termux.md)).
+The deployed `~/.stayturgid/bin/stayturgid_agent_presence.py` includes the consent `gate` action ([docs/modules/termux.md](../docs/modules/termux.md)).
 
 ## Prerequisites
 

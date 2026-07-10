@@ -1,7 +1,7 @@
 ---
 # fdroid_repos role defaults — fleet sets target_device per host in fleet.yml.
 
-stayturgid_repo_root: "{{ playbook_dir }}/../.."
+stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"
 
 stayturgid_fdroid_repos:
   - name: "IzzyOnDroid"

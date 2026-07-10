@@ -1,3 +1,0 @@
----
-# Compatibility shim — use ansible/playbooks/fleet/play_store.yml
-- import_playbook: fleet/play_store.yml

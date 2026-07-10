@@ -23,20 +23,17 @@
 > Parked side projects: [docs/incubator/](docs/incubator/) — **do not implement**
 > unless the operator unparks a named project (Inferno, etc.).
 
-**Fleet snapshot (2026-07-10 morning, post reorg `d950c53`):** `make health` → **exit 1**
-(`hd8` `SCRAPE_STALE` — stale Mac scrape, probes OK; p7a/s24 OK). **Massive repo
-restructure landed** — see [docs/handoff.md § Cold-start](docs/handoff.md#-cold-start--current-state-read-this-first).
-Assume path drift until grep-clean + `make deploy-check` / verify soak. Neo Store +
-Aurora **parked**. Core stack = Termux + AutoJs6 + Obtainium + Tailscale. Deploy =
-`make deploy` → `site.yml`. Track B items 58–61 **closed**; open menu = **62**, H5/38, 43–45, 54.
+**Fleet snapshot (2026-07-10 afternoon):** Senior review fixes landed (adb launchd PATH,
+module docs, OPTIONS **62** shim removal, lint). Re-run `make health` after
+`make deploy-mac`. Still need live soak: `make deploy-check` → deploy → verify on s24.
+Neo Store + Aurora **parked**. Open menu = H5/38, 43–45, 54.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
-**Suggested agent order:** Reorg validation (`make deploy-check HOSTS=s24`, grep stale
-paths per handoff) before new features. Then OPTIONS **62** if cleaning shims; H5/38
-only if Galaxy publish wanted; soft-heal p7a if soak stalls. Do not touch incubator.
+**Suggested agent order:** `make deploy-mac` (launchd PATH) + `make deploy-check
+HOSTS=s24` then announced soak. H5/38 only if Galaxy publish wanted.
 
 ---
 
@@ -45,7 +42,7 @@ only if Galaxy publish wanted; soft-heal p7a if soak stalls. Do not touch incuba
 | Track | Focus | Open IDs | Typical risk |
 |-------|-------|----------|--------------|
 | **A — Operational** | Live deploy, human unblockers | H5, 38 | Medium–High (live phones / publish) |
-| **B — Ansible-native** | ADR 002 follow-ups (optional) | **62** (shim cleanup post-reorg) | Low |
+| **B — Ansible-native** | ADR 002 follow-ups (optional) | *(none open — 62 closed)* | Low |
 | **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; incubator note | 54 | Medium (mis-scope risk) |
 
@@ -70,53 +67,12 @@ modules; `stayturgid.fleet.post_ui` role; `stayturgid.fleet.validate` role;
 `stayturgid.android_common.autojs6_project_deploy` + shared util; wired in
 `autojs6_watchdog` for Fire adb path; `control/tools/autojs6/deploy.py` thin wrapper retained.
 
-#### 62 — Remove legacy path aliases and shim-only layout (agent) · Risk: **Low**
+#### ~~62 — Remove legacy path aliases and shim-only layout (agent)~~ · **Closed 2026-07-10**
 
-Delete forward-only aliases left from the project layout restructure once callers
-use canonical paths only:
-
-**Ansible playbooks (files, not dirs)** — delete flat shims under
-`ansible/playbooks/`; keep `site.yml` (canonical entry), `playbooks/fleet/`, and
-`playbooks/control_node/`:
-
-- `mac-site.yml`, `mac.yml`, `mac-prereqs.yml`, `mac-agents-ensure.yml`, `mac-vlm.yml`
-- `fleet.yml`, `bootstrap.yml`, `preflight.yml`, `post-ui.yml`, `validate.yml`
-- `termux-userland.yml`, `fdroid.yml`, `play_store.yml`, `peerhelp-force.yml`
-
-Update callers first (e.g. `control/lib/termux_ssh_bootstrap.py` →
-`ansible/playbooks/fleet/bootstrap.yml`).
-
-**Termux on-device shims** (`device/termux/*.sh` that only `exec python3 …`):
-
-- `stayturgid-repair.sh` → callers use `stayturgid_repair.py` (AutoJs6 RUN_COMMAND,
-  boot loop, repair-bridge must be repointed)
-- `agent-presence.sh`, `claude-presence.sh` → `stayturgid_agent_presence.py`
-
-Keep real shell: `repair-bridge.sh`, `autojs6-bridge.sh`, `boot/*.sh`.
-
-After shim removal, drop duplicate entries from
-`termux_userland/defaults/main.yml` (`stayturgid_home_scripts` vs
-`stayturgid_py_scripts` for the same tool).
-
-**Mac tools:** `control/tools/play/gplaycli.sh` (callers → `gplaycli.py`).
-
-**Code fallbacks to delete with shims:**
-
-- `control/lib/stayturgid_root.py` — legacy repo markers (`termux/` + `shared/`)
-- `.gitignore` — `shared/a11y_backups/*.txt` (tree gone; `control/lib/a11y_backups/` is canonical)
-
-**Local/generated dirs (never commit; already in `.gitignore`):**
-
-- `ansible_collections/stayturgid/*/tests/output/` — ansible-test artifacts
-- `ansible_collections/stayturgid/*/collections/` — galaxy symlink trees from `ansible-galaxy collection install`
-- `.ansible/roles/`, `.ansible/modules/` — local ansible cache
-
-Do **not** add placeholder dirs to git. `ansible/inventory/host_vars/` is
-created only when a host-specific vars file is needed. `control/lib/a11y_backups/`
-keeps `.gitkeep` so runtime backup targets exist on clone.
-
-Grep repo + external consumers (Makefile, `deploy_fleet.py`, tests, RevengeQuickSwitcher)
-before deleting. Update `make syntax` / `tests/test-code.sh` playbook lists if needed.
+Removed flat `ansible/playbooks/*.yml` shims (keep `site.yml` + `fleet/` +
+`control_node/`). Termux callers use `stayturgid_repair.py` /
+`stayturgid_agent_presence.py` (shell shims deleted; retired list cleans devices).
+`gplaycli.sh` removed; `stayturgid_root.py` legacy markers dropped.
 
 ---
 

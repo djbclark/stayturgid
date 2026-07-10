@@ -1,3 +1,0 @@
----
-# Compatibility shim — use ansible/playbooks/control_node/prereqs.yml
-- import_playbook: control_node/prereqs.yml

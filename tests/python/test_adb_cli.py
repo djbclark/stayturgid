@@ -24,6 +24,7 @@ def test_adb_builds_serial_scoped_argv(monkeypatch):
         seen["kwargs"] = kwargs
 
     monkeypatch.setattr(ac, "run", fake_run)
+    monkeypatch.setattr(ac, "adb_bin", lambda: "adb")
     ac.adb("192.168.68.60:5555", "shell", "true", check=False)
     assert seen["cmd"] == ["adb", "-s", "192.168.68.60:5555", "shell", "true"]
     assert seen["kwargs"]["check"] is False

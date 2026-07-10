@@ -1,5 +1,5 @@
 ---
-stayturgid_repo_root: "{{ playbook_dir }}/../.."
+stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"
 
 stayturgid_termux_packages:
   - openssh
@@ -22,14 +22,12 @@ stayturgid_boot_scripts:
 
 # Override examples (Termux-only, no AutoJs6):
 # stayturgid_boot_scripts: [start-adb.sh]
-# stayturgid_home_scripts: [stayturgid-repair.sh, claude-presence.sh]  # drop repair-bridge if unused
+# stayturgid_home_scripts: [repair-bridge.sh]  # drop autojs6-bridge if unused
 
+# Real shell only (bridges). Logic entrypoints are stayturgid_py_scripts.
 stayturgid_home_scripts:
-  - stayturgid-repair.sh
   - repair-bridge.sh
   - autojs6-bridge.sh
-  - agent-presence.sh
-  - claude-presence.sh   # compat shim -> agent-presence.sh
 
 # Python runtime scripts (twins that have finished their parity soak and now
 # ship as the deployed implementation). Copied flat from device/termux/py/ to ~/.
@@ -95,10 +93,17 @@ stayturgid_ui_data_files:
     dest: a11y_profiles.json
 
 # Deployed shell scripts to remove from devices (migrated to Python).
+# Paths relative to termux_home (see termux_userland tasks).
 stayturgid_retired_scripts:
   - check-repo-version.sh
   - screen-awake-guard.sh
   - stayturgid-battery-alarm.sh
+  - stayturgid-repair.sh
+  - agent-presence.sh
+  - claude-presence.sh
+  - .stayturgid/bin/stayturgid-repair.sh
+  - .stayturgid/bin/agent-presence.sh
+  - .stayturgid/bin/claude-presence.sh
 
 stayturgid_battery_color_assets:
   - purple.png

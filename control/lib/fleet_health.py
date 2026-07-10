@@ -23,7 +23,17 @@ if str(_SHARED) not in sys.path:
 WATCHDOG_FRESH_SEC = 1800  # 30 min
 REPAIR_FRESH_SEC = 2700  # 45 min
 SSH_PORT = 8022
-ADB = os.environ.get("STAYTURGID_ADB", "/opt/homebrew/bin/adb")
+# Resolved at import via stayturgid_device when available; absolute path for launchd.
+def _adb_bin() -> str:
+    try:
+        from stayturgid_device import adb_bin  # type: ignore
+
+        return adb_bin()
+    except Exception:  # noqa: BLE001
+        return os.environ.get("STAYTURGID_ADB", "/opt/homebrew/bin/adb")
+
+
+ADB = _adb_bin()
 
 HEALTH_GATHER = r"""
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
@@ -130,6 +140,11 @@ def a11y_profile_missing(alias: str, a11y_list: str | None) -> list[str]:
 def evaluate_health(report: dict[str, str], *, alias: str | None = None) -> list[str]:
     """Return sorted issue tags (empty = healthy / inconclusive-ok)."""
     issues: list[str] = []
+    # Structured probe failures (Mac adb missing/timeout) — not device soft state.
+    if report.get("probe") in ("adb_missing", "adb_timeout") or report.get(
+        "issues"
+    ) == "probe_error":
+        issues.append("probe_error")
     if report.get("ssh_echo") == "fail":
         issues.append("ssh_echo")
     if report.get("sshd") == "down":
@@ -261,15 +276,19 @@ echo "bootloop=unknown"
 """
     try:
         r = subprocess.run(
-            ["adb", "-s", serial, "shell", "sh", "-c", script],
+            [ADB, "-s", serial, "shell", "sh", "-c", script],
             capture_output=True,
             text=True,
             timeout=timeout,
         )
         report.update(parse_kv(r.stdout or ""))
         _normalize_status_fields(report)
+    except FileNotFoundError:
+        report["probe"] = "adb_missing"
+        report["issues"] = "probe_error"
     except (OSError, subprocess.TimeoutExpired):
         report["probe"] = "adb_timeout"
+        report["issues"] = "probe_error"
     return report
 
 

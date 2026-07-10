@@ -1,3 +1,0 @@
----
-# Compatibility shim — use ansible/playbooks/fleet/termux-userland.yml
-- import_playbook: fleet/termux-userland.yml

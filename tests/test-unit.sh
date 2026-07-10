@@ -97,7 +97,7 @@ battery_suite() {
 battery_suite device/termux/py/stayturgid_battery_alarm.py py
 
 # ===========================================================================
-# stayturgid-repair.sh
+# stayturgid_repair.py
 # ===========================================================================
 # Same suite runs against the shell implementation and its Python twin.
 repair_suite() {
@@ -185,11 +185,11 @@ repair_suite() {
     unset PGREP_RC FLOCK_RC ADB_A11Y ADB_SHELL_UID 2>/dev/null || true
 }
 
-# stayturgid-repair migrated to Python (stayturgid-repair.sh is now a compat shim).
+# stayturgid-repair migrated to Python (stayturgid_repair.py is now a compat shim).
 repair_suite device/termux/py/stayturgid_repair.py py
 
 # ===========================================================================
-# claude-presence.sh gate
+# stayturgid_agent_presence.py gate
 # ===========================================================================
 # Same suite runs against the shell implementation and its Python twin.
 presence_suite() {
@@ -310,7 +310,7 @@ presence_suite() {
     unset ADB_FG_PKG ADB_WAKE DIALOG_CHOICE 2>/dev/null || true
 }
 
-# agent-presence migrated to Python (agent-presence.sh is now a compat shim).
+# agent-presence migrated to Python (stayturgid_agent_presence.py is now a compat shim).
 presence_suite device/termux/py/stayturgid_agent_presence.py py
 
 # ===========================================================================
@@ -582,12 +582,12 @@ unset SANDBOX_SLEEP_SECS
 # repair-bridge.sh: trigger file => repair within one loop (~2s stubbed to instant)
 reset_sandbox
 mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/sd/run"
-cat > "$SANDBOX/home/.stayturgid/bin/stayturgid-repair.sh" <<'EOF'
+cat > "$SANDBOX/home/.stayturgid/bin/stayturgid_repair.py" <<'EOF'
 #!/usr/bin/env bash
 echo "REPAIR_OK"
 exit 0
 EOF
-chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid-repair.sh"
+chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_repair.py"
 touch "$SANDBOX/sd/run/repair_now"
 run_sandboxed_alarm 2 "$REPAIR_BRIDGE"
 BRIDGE_LOG="$SANDBOX/home/.stayturgid/logs/bridge.log"

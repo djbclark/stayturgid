@@ -133,13 +133,17 @@
   when: hostvars[item].stayturgid_no_local_adb | default(false) | bool
 
 - name: Install Fire peer-help keys on Mac with ForceCommand
+  vars:
+    _fire_peer_help: >-
+      /usr/bin/env python3 {{ stayturgid_repo_root | realpath
+      }}/control/bin/fire_peer_help.py
   ansible.posix.authorized_key:
     user: "{{ lookup('env', 'USER') }}"
     path: "{{ lookup('env', 'HOME') }}/.ssh/authorized_keys"
     manage_dir: false
     key: "{{ item.stdout | trim }}"
     key_options: >-
-      command="/usr/bin/env python3 {{ stayturgid_repo_root | realpath }}/control/bin/fire_peer_help.py",no-port-forwarding,no-X11-forwarding,no-agent-forwarding
+      command="{{ _fire_peer_help }}",no-port-forwarding,no-X11-forwarding,no-agent-forwarding
     state: present
     exclusive: false
   loop: "{{ _mac_peerhelp_pubs.results | default([]) }}"

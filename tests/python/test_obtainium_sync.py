@@ -25,7 +25,7 @@ def load_role_specs():
 
 
 def load_fallback_apps():
-    path = os.path.join(REPO, "obtainium", "stayturgid-apps.json")
+    path = os.path.join(REPO, "catalogs", "obtainium", "stayturgid-apps.json")
     with open(path) as f:
         return json.load(f)["apps"]
 

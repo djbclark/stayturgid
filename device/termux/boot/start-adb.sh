@@ -50,8 +50,8 @@ BOOTLOOP_PID_FILE="$STG/run/bootloop.pid"
     # Full Termux-side self-heal (sshd + privileged checks/repairs via
     # Shizuku's localhost:5555 shell, logged). Falls back to a bare sshd
     # restart if the repair script isn't deployed yet.
-    if [ -x "$BIN/stayturgid-repair.sh" ]; then
-        "$BIN/stayturgid-repair.sh" >/dev/null 2>&1
+    if [ -x "$BIN/stayturgid_repair.py" ]; then
+        "$BIN/stayturgid_repair.py" >/dev/null 2>&1
     else
         pgrep sshd > /dev/null 2>&1 || sshd
     fi

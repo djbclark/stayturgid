@@ -10,15 +10,17 @@ DOCUMENTATION = r"""
 module: stayturgid_repair_check
 short_description: Run stayturgid-repair and parse the STATUS line
 description:
-  - Executes the on-device repair script over the Termux SSH connection and
-    parses its C(STATUS …) output into structured fields.
-  - Mirrors the device-tier C(parse_heal) rule: C(healthy=true) when
+  - >-
+    Executes the on-device repair script over the Termux SSH connection and
+    parses its C(STATUS) output into structured fields.
+  - >-
+    Mirrors the device-tier C(parse_heal) rule. C(healthy=true) when
     C(port=open) or C(port=skip) (Fire OS without localhost loopback).
 options:
   repair_script:
     description: Path to stayturgid-repair on the device.
     type: path
-    default: ~/.stayturgid/bin/stayturgid-repair.sh
+    default: ~/.stayturgid/bin/stayturgid_repair.py
   termux_prefix:
     description: Termux prefix (bash executable lives here).
     type: str
@@ -27,8 +29,8 @@ options:
     description: >-
       When true, fail the task if the script reports an unhealthy STATUS
       (C(rc=1), e.g. C(port=CLOSED_NO_SHELL)). When false, return
-      C(healthy=false) but exit successfully — matches the previous shell
-      task's C(failed_when) behaviour.
+      C(healthy=false) but exit successfully. Matches the previous shell
+      task C(failed_when) behaviour.
     type: bool
     default: false
 """
@@ -36,7 +38,7 @@ options:
 EXAMPLES = r"""
 - name: Verify repair layer after deploy
   stayturgid.termux.stayturgid_repair_check:
-    repair_script: "{{ termux_home }}/.stayturgid/bin/stayturgid-repair.sh"
+    repair_script: "{{ termux_home }}/.stayturgid/bin/stayturgid_repair.py"
     termux_prefix: "{{ termux_prefix }}"
   register: repair
 
@@ -124,7 +126,7 @@ def main():
     prefix = module.params["termux_prefix"]
     home = os.path.expanduser("~")
     script = module.params["repair_script"] or os.path.join(
-        home, ".stayturgid", "bin", "stayturgid-repair.sh"
+        home, ".stayturgid", "bin", "stayturgid_repair.py"
     )
     bash = os.path.join(prefix, "bin", "bash")
 

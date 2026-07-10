@@ -10,15 +10,18 @@ DOCUMENTATION = r"""
 module: termux_sshd
 short_description: Manage Termux sshd_config and detached restart
 description:
-  - Ensures sshd_config options and a detached sshd restart on the Termux
+  - >-
+    Ensures sshd_config options and a detached sshd restart on the Termux
     prefix. SSH public keys are managed separately with
     C(ansible.posix.authorized_key) in the termux_userland role.
   - Config changes are validated with C(sshd -t) before being written.
-  - The restart is detached (delayed C(pkill) + relaunch) so it does not kill
+  - >-
+    The restart is detached (delayed C(pkill) + relaunch) so it does not kill
     the SSH session Ansible is using.
 options:
   config:
-    description: sshd_config options to ensure, e.g. C({PerSourcePenalties: "no"}).
+    description: >-
+      sshd_config options to ensure, e.g. C({PerSourcePenalties: "no"}).
     type: dict
     default: {}
   restart_on_change:

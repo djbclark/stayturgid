@@ -1,5 +1,5 @@
 ---
-stayturgid_repo_root: "{{ playbook_dir }}/../.."
+stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"
 # Assert merge target matches live a11y list (check_mode probe via android_a11y_services).
 stayturgid_validate_a11y_profile: true
 # When true, merge-restore on drift instead of failing validate.

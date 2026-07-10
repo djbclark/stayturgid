@@ -63,9 +63,10 @@ write_plist() {
   chmod +x "$RUN_SCRIPT"
   mkdir -p "$(dirname "$PLIST")" "$(dirname "$LOG_FILE")" "$(ui_tars_working_dir)"
 
-  local llama_bin model_dir work_dir
+  local llama_bin work_dir
   llama_bin="$(ui_tars_llama_server_bin)" || die "llama-server missing — brew install llama.cpp"
-  model_dir="$(ui_tars_model_dir)"
+  # model dir validated by run script; ensure parent tree exists
+  mkdir -p "$(ui_tars_model_dir)"
   work_dir="$(ui_tars_working_dir)"
 
   cat >"$PLIST" <<EOF

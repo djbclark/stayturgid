@@ -55,7 +55,9 @@ def test_resolve_adb_cli_usb_tailscale_and_dash_ts(tmp_path):
     adb.write_text("#!/usr/bin/env bash\nexit 0\n")
     adb.chmod(0o755)
     r = subprocess.run([str(cli), "s24"], capture_output=True, text=True, env=env, check=False)
-    assert r.stdout.strip() == "192.168.68.55:5555"
+    # When neither LAN nor Tailscale is TCP-open, static_fallback prefers Tailscale
+    # (stable) over DHCP LAN — see adb_resolve.static_fallback.
+    assert r.stdout.strip() == "100.123:5555"
 
     conf.write_text("s24 RFCX - -\n")
     r = subprocess.run([str(cli), "s24"], capture_output=True, text=True, env=env, check=False)

@@ -46,7 +46,7 @@ make health
 | Exit | Meaning | Your job |
 |------|---------|----------|
 | **0** | Clean | Continue; no need to mention unless asked |
-| **1** | Soft problems | **Tell the operator in your first reply** (host + `issues=…`). Do not wait for “options” |
+| **1** | Soft problems | **Tell the operator in your first reply** (host + `issues=…`). Do not wait for “options”. **`SCRAPE_STALE` may mean Mac probe failure** (e.g. adb PATH), not a dead phone — read the log line |
 | **2** | Log missing / no scrapes | Tell operator launchd may be down; offer `ansible-playbook ansible/playbooks/control_node/agents.yml` |
 
 Also skim when the operator asks about fleet status, soak, OPTIONS **43–45**, or
@@ -146,17 +146,15 @@ memory, and grep hits may still reference them.**
 `device/autojs6/` via `autojs6_deploy_util.project_src_dir`.
 
 **Repo root discovery:** `control/lib/stayturgid_root.py` (markers `device/termux/` +
-`control/lib/`; legacy `termux/`+`shared/` fallback still present — remove in OPTIONS **62**).
+`control/lib/` only; legacy fallbacks removed with OPTIONS **62**).
 
-**Shims intentionally retained** (forward imports / thin wrappers — see OPTIONS **62**):
-flat `ansible/playbooks/*.yml` except `site.yml`; Termux `stayturgid-repair.sh`,
-`agent-presence.sh`, `claude-presence.sh`; `control/tools/play/gplaycli.sh`.
+**OPTIONS 62 closed (2026-07-10):** flat playbook shims removed; Termux callers use
+`stayturgid_repair.py` / `stayturgid_agent_presence.py`; `gplaycli.sh` removed.
+Keep real shell bridges (`repair-bridge.sh`, `autojs6-bridge.sh`) and boot scripts.
 
-**Verified after reorg (2026-07-10):** `make check` tier-a (py_compile, node --check,
-ansible syntax, pytest collection); focused pytest; `tests/test-unit.sh` (124 TAP);
-`git push` to `origin/master`; remote has **no** stale root trees. **Not re-run:**
-full `make deploy` soak, idempotent double `make deploy-mac`, live fleet verify on
-all hosts after reorg.
+**Verified after reorg + review fixes (2026-07-10):** unit TAP; module docs restored;
+launchd templates include Homebrew `PATH` + `STAYTURGID_ADB`. **Still required:**
+`make deploy-mac` (reload agents), live `make deploy` / `make verify` soak on s24.
 
 **Assume lingering breakage until proven.** Next agent should grep for stale paths
 before any deploy:
@@ -322,7 +320,7 @@ Prefer the **S24 over USB** for interactive work when plugged in; use **7a over 
 |---|--------|------|-----------|------------|
 | 1 | ADB over WiFi/Tailscale | `adb connect <ip>:5555` | port 5555 open (Shizuku TCP) | restart sshd, redeploy scripts, reinstall apps |
 | 2 | SSH to Termux | `ssh p7a` / `ssh s24` (Tailscale) | sshd + Termux alive | re-open 5555 (`adb tcpip` via Termux android-tools) |
-| 3 | On-device auto-repair | AutoJs6 watchdog (20 min + boot) | AutoJs6 a11y + Termux bridge | invokes `stayturgid-repair.sh`, Shizuku Start tap, notifies |
+| 3 | On-device auto-repair | AutoJs6 watchdog (20 min + boot) | AutoJs6 a11y + Termux bridge | invokes `stayturgid_repair.py`, Shizuku Start tap, notifies |
 
 ### Repair channel — confirmed primitives (tested live 2026-07-05)
 - **`adb -s localhost:5555 shell` from Termux = full shell uid 2000** (groups incl. `input`, `adb`, `log`). While 5555 is open, the repair layer runs `input tap` / `settings put` / `setprop` / `am` / `svc` with shell privileges — **no accessibility and no Shizuku token needed.** This is the primary repair channel. (Needs `TMPDIR=$PREFIX/tmp` or localhost:5555 checks falsely report `CLOSED_NO_SHELL`.)
@@ -369,19 +367,19 @@ Before any device interaction, emit a standalone message naming the phone(s): **
 
 **Inversion always on during live UI:** `STAYTURGID_SKIP_PRESENCE=1` may skip consent/torch for local debugging, but still enables display inversion and still refuses `adb input` when inversion is off. Never use skip to hide active on-glass work.
 
-**Device guard:** boot loop runs `agent-presence.sh guard` every 5 min — keeps inversion + notification alive while a lease is active; clears both when the lease expires.
+**Device guard:** boot loop runs `stayturgid_agent_presence.py guard` every 5 min — keeps inversion + notification alive while a lease is active; clears both when the lease expires.
 
 ```bash
-ssh s24 '~/.stayturgid/bin/agent-presence.sh request-screen "Galaxy S24" Auto'
-ssh s24 '~/.stayturgid/bin/agent-presence.sh on  "Galaxy S24" Auto'
-ssh s24 '~/.stayturgid/bin/agent-presence.sh off "Galaxy S24" Auto'
-ssh s24 '~/.stayturgid/bin/agent-presence.sh status'
+ssh s24 '~/.stayturgid/bin/stayturgid_agent_presence.py request-screen "Galaxy S24" Auto'
+ssh s24 '~/.stayturgid/bin/stayturgid_agent_presence.py on  "Galaxy S24" Auto'
+ssh s24 '~/.stayturgid/bin/stayturgid_agent_presence.py off "Galaxy S24" Auto'
+ssh s24 '~/.stayturgid/bin/stayturgid_agent_presence.py status'
 # gate = consent when phone actively in use; stop-requested = graceful stop poll
 ```
 
 `STAYTURGID_SKIP_PRESENCE=1` for local debugging only. Ansible now grants `POST_NOTIFICATIONS` to Termux on deploy (fixes silent `termux-notification`).
 
-The protocol is **shared, agent-agnostic infrastructure** — do NOT fork per-agent copies. Any agent (Claude/GPT/Gemini) identifies via the 3rd arg / `STAYTURGID_AGENT`, aborts on `request-screen` exit 75, and on `stop-requested` exit 0 has ~1 min to wrap up. On device: `~/.stayturgid/bin/agent-presence.sh` (from `device/termux/py/stayturgid_agent_presence.py`). On-device post-UI uses `stayturgid_screen_control.py` (local presence, no Mac SSH).
+The protocol is **shared, agent-agnostic infrastructure** — do NOT fork per-agent copies. Any agent (Claude/GPT/Gemini) identifies via the 3rd arg / `STAYTURGID_AGENT`, aborts on `request-screen` exit 75, and on `stop-requested` exit 0 has ~1 min to wrap up. On device: `~/.stayturgid/bin/stayturgid_agent_presence.py` (from `device/termux/py/stayturgid_agent_presence.py`). On-device post-UI uses `stayturgid_screen_control.py` (local presence, no Mac SSH).
 
 ### Shell conventions
 Never assume the default shell — macOS is zsh, **Termux has no zsh by default**. Declare bash in every shebang; run remote commands via `ssh host 'bash -s'` (stdin), never bare through the login shell. The Bash tool here runs zsh: brace `${var}` before `:`; quote whole remote command strings. `set -e` deliberately NOT used in boot/loop/runtime scripts (a boot loop must survive individual command failures).

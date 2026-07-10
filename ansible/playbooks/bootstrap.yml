@@ -1,3 +1,0 @@
----
-# Compatibility shim — use ansible/playbooks/fleet/bootstrap.yml
-- import_playbook: fleet/bootstrap.yml

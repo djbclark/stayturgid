@@ -1,8 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/python
 """stayturgid-repair.py — Termux-side self-heal (deployed as ~/stayturgid_repair.py,
-reached via the ~/stayturgid-repair.sh compat shim).
+reached via the ~/stayturgid_repair.py compat shim).
 
-Unit-tested via tests/test-unit.sh (repair_suite). The ~/stayturgid-repair.sh
+Unit-tested via tests/test-unit.sh (repair_suite). The ~/stayturgid_repair.py
 shim keeps AutoJs6 RUN_COMMAND / boot-loop / repair-bridge callers unchanged.
 
 Uses Shizuku's shell-privileged adbd on localhost:5555 (uid 2000) for

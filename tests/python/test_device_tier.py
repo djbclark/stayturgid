@@ -26,7 +26,7 @@ penalties=off
 writesettings=allow
 overlay=allow
 vpn_always_on=ok
-md5 stayturgid-repair.sh aaa
+md5 stayturgid_repair.py aaa
 md5 repair-bridge.sh bbb
 """
 
@@ -40,7 +40,7 @@ def test_parse_report_kv_and_md5():
     assert rep["ssh"] == "ok"
     assert rep["battery"] == "88"
     assert rep["taskerlegacy"] == "notif:0,files:0"
-    assert rep["md5"] == {"stayturgid-repair.sh": "aaa", "repair-bridge.sh": "bbb"}
+    assert rep["md5"] == {"stayturgid_repair.py": "aaa", "repair-bridge.sh": "bbb"}
 
 
 def test_parse_report_ignores_malformed_md5_lines():
@@ -56,7 +56,10 @@ def test_parse_report_value_with_equals():
 
 def test_evaluate_all_green(monkeypatch):
     # pretend deployed md5s match the repo
-    monkeypatch.setattr(dt, "TRACKED_SCRIPTS", {"stayturgid-repair.sh": "device/termux/stayturgid-repair.sh"})
+    monkeypatch.setattr(
+        dt, "TRACKED_SCRIPTS",
+        {"stayturgid_repair.py": "device/termux/py/stayturgid_repair.py"},
+    )
     monkeypatch.setattr(dt, "file_md5", lambda p: "aaa")
     res = evaluate = dt.evaluate("s24", dt.parse_report(HEALTHY))
     k = kinds(res)
@@ -91,7 +94,10 @@ def test_evaluate_tasker_remnant_fails():
 
 
 def test_evaluate_bridge_and_drift_are_todo_not_fail(monkeypatch):
-    monkeypatch.setattr(dt, "TRACKED_SCRIPTS", {"stayturgid-repair.sh": "device/termux/stayturgid-repair.sh"})
+    monkeypatch.setattr(
+        dt, "TRACKED_SCRIPTS",
+        {"stayturgid_repair.py": "device/termux/py/stayturgid_repair.py"},
+    )
     monkeypatch.setattr(dt, "file_md5", lambda p: "DIFFERENT")
     rep = dt.parse_report(HEALTHY.replace("bridge=ok", "bridge=down"))
     k = kinds(dt.evaluate("p7a", rep))

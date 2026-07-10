@@ -212,24 +212,24 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
         r = subprocess.run(cmd, capture_output=True, text=True)
         return r.returncode, r.stdout or "", r.stderr or ""
 
+    # Entire heal path must never abort soft-health scrape (adb/PATH issues).
     try:
         serial = dev.resolve_adb(name)
-    except Exception as e:  # noqa: BLE001
-        log("%s google-stack heal skipped (adb): %s" % (name, e))
-        return
-    gms_ver = hgs.package_version_code(_run, serial, hgs.GMS_PKG)
-    gsf_ver = hgs.package_version_name(_run, serial, hgs.GSF_PKG)
-    if not hgs.needs_gms_downgrade(gms_ver) and not hgs.needs_gsf_reinstall(gsf_ver):
-        hgs.ensure_doze_whitelist(_run, serial)
-        return
-    if hgs.needs_gsf_reinstall(gsf_ver) and not hgs.needs_gms_downgrade(gms_ver):
-        log("%s google-stack heal: GSF %s — reinstalling pinned 10-6494331" % (name, gsf_ver))
-    else:
-        log(
-            "%s google-stack heal: GMS versionCode=%s > %s — pinning Fire-Tools stack"
-            % (name, gms_ver, hgs.MAX_GMS_VERSION_CODE)
-        )
-    try:
+        gms_ver = hgs.package_version_code(_run, serial, hgs.GMS_PKG)
+        gsf_ver = hgs.package_version_name(_run, serial, hgs.GSF_PKG)
+        if not hgs.needs_gms_downgrade(gms_ver) and not hgs.needs_gsf_reinstall(gsf_ver):
+            hgs.ensure_doze_whitelist(_run, serial)
+            return
+        if hgs.needs_gsf_reinstall(gsf_ver) and not hgs.needs_gms_downgrade(gms_ver):
+            log(
+                "%s google-stack heal: GSF %s — reinstalling pinned 10-6494331"
+                % (name, gsf_ver)
+            )
+        else:
+            log(
+                "%s google-stack heal: GMS versionCode=%s > %s — pinning Fire-Tools stack"
+                % (name, gms_ver, hgs.MAX_GMS_VERSION_CODE)
+            )
         result = hgs.repair_if_needed(_run, serial)
         _touch_heal_dir(name, GOOGLE_HEAL_STATE_DIR)
         new_ver = result.get("gms_version")
@@ -248,7 +248,7 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
             )
             maybe_verify_hd8_google_closeout(name)
     except Exception as e:  # noqa: BLE001
-        log("%s google-stack heal error: %s" % (name, e))
+        log("%s google-stack heal skipped: %s" % (name, e))
 
 
 def maybe_verify_hd8_google_closeout(name: str) -> None:
@@ -327,7 +327,11 @@ def main() -> int:
         try:
             check_device(name, ts_ip, lan_ip)
         except Exception as e:  # noqa: BLE001
-            log("%s probe error: %s" % (name, e))
+            # Structured line so check_fleet_health can triage (not only SCRAPE_STALE).
+            log(
+                "%s via none: sshd=unknown issues=probe_error probe_error=%s"
+                % (name, str(e).replace(" ", "_")[:120])
+            )
     return 0
 
 

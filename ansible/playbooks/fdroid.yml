@@ -1,3 +1,0 @@
----
-# Compatibility shim — use ansible/playbooks/fleet/fdroid.yml
-- import_playbook: fleet/fdroid.yml

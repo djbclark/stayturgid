@@ -20,4 +20,4 @@
 
 stayturgid_ensure_apps: []
 stayturgid_ensure_apps_device: "{{ target_device | default(inventory_hostname) }}"
-stayturgid_repo_root: "{{ playbook_dir }}/../.."
+stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"

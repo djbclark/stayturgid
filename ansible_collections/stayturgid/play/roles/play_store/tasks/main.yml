@@ -64,7 +64,7 @@
     apkeep_options: "{{ stayturgid_play_apkeep_options }}"
     apkeep_accept_tos: "{{ stayturgid_play_apkeep_accept_tos | default(false) | bool }}"
     spoof_play_installer: "{{ stayturgid_play_spoof_installer | bool }}"
-    repo_root: "{{ stayturgid_repo_root | default(playbook_dir ~ '/../..', true) }}"
+    repo_root: "{{ stayturgid_repo_root | default(ansible_config_file | dirname | dirname, true) }}"
   delegate_to: localhost
 
 - name: Open Aurora Store details for Play apps (manual fallback)

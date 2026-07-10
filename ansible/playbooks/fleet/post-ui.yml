@@ -4,6 +4,6 @@
   hosts: stayturgid
   gather_facts: false
   vars:
-    stayturgid_repo_root: "{{ playbook_dir }}/../.."
+    stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"
   roles:
     - role: stayturgid.fleet.post_ui

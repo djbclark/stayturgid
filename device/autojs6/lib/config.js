@@ -14,7 +14,7 @@ var TERMUX_HOME = "/data/data/com.termux/files/home";
 var ENV_FILE = TERMUX_HOME + "/.stayturgid/env";
 var DEVICE_JSON = SD_ROOT + "/state/device.json";
 var WATCHDOG_LOG = SD_ROOT + "/logs/watchdog.log";
-var REPAIR_SCRIPT = TERMUX_HOME + "/.stayturgid/bin/stayturgid-repair.sh";
+var REPAIR_SCRIPT = TERMUX_HOME + "/.stayturgid/bin/stayturgid_repair.py";
 
 /** Resolve shared-storage root (Fire OS uses ~/.stayturgid/shared). */
 function resolveSdRoot() {

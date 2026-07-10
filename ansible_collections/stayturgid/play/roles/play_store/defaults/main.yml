@@ -3,7 +3,7 @@
 # For managing Google Play apps side, using Aurora Store as GUI client (FOSS Play client).
 # Analogous to fdroid_repos / Neo Store.
 
-stayturgid_repo_root: "{{ playbook_dir }}/../.."
+stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"
 
 stayturgid_play_apps: []
 # Example (requires apkeep/gplaycli creds for Play download, or apk_path):

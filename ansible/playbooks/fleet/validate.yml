@@ -5,6 +5,6 @@
   gather_facts: false
   tags: [validate]
   vars:
-    stayturgid_repo_root: "{{ playbook_dir }}/../.."
+    stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"
   roles:
     - role: stayturgid.fleet.validate

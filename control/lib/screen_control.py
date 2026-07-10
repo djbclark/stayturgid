@@ -25,8 +25,6 @@ STAYTURGID_PRESENCE_QUIET=1 (scheduled audits): keeps inversion + lease, but
 skips torch, vibrate, consent dialog, and presence notifications. Prefer this
 over SKIP_PRESENCE for overnight GUI jobs.
 """
-from __future__ import print_function
-
 import os
 import re
 import subprocess
@@ -44,8 +42,9 @@ INPUT_PREFIXES = ("input",)
 INVERSION_KEY = "accessibility_display_inversion_enabled"
 ADB_KEYBOARD = "com.github.uiautomator/.AdbKeyboard"
 # Fleet layout deploys presence scripts under ~/.stayturgid/bin/ (not ~/).
-PRESENCE_SCRIPT = "~/.stayturgid/bin/agent-presence.sh"
-PRESENCE_SCRIPT_LEGACY = "~/agent-presence.sh"
+PRESENCE_SCRIPT = "~/.stayturgid/bin/stayturgid_agent_presence.py"
+# Pre-OPTIONS-62 deploy path (removed from deploy list; still tried as fallback).
+PRESENCE_SCRIPT_LEGACY = "~/.stayturgid/bin/agent-presence.sh"
 # Re-assert inversion + extend presence lease during long held batches
 # (gaps between dependent UI steps where we are not tapping).
 HOLD_KEEPALIVE_SEC = 45

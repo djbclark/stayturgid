@@ -1,3 +1,0 @@
----
-# Compatibility shim — use ansible/playbooks/fleet/validate.yml
-- import_playbook: fleet/validate.yml

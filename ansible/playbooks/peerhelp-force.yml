@@ -1,3 +1,0 @@
----
-# Compatibility shim — use ansible/playbooks/fleet/peerhelp-force.yml
-- import_playbook: fleet/peerhelp-force.yml

@@ -17,7 +17,7 @@ STG="$HOME/.stayturgid"
 SD="${STAYTURGID_SD:-/sdcard/stayturgid}"
 TRIGGER="$SD/run/repair_now"
 TRIGGER_SDCARD="/sdcard/stayturgid/run/repair_now"
-REPAIR="$STG/bin/stayturgid-repair.sh"
+REPAIR="$STG/bin/stayturgid_repair.py"
 LOG="$STG/logs/bridge.log"
 PIDFILE="$STG/run/bridge.pid"
 

@@ -45,13 +45,17 @@ def run(
     )
 
 
+def adb_bin() -> str:
+    return dev.adb_bin()
+
+
 def adb_devices() -> str:
-    result = run(["adb", "devices"])
+    result = run([adb_bin(), "devices"])
     return result.stdout or ""
 
 
 def adb(serial: str, *args: str, **kwargs) -> subprocess.CompletedProcess:
-    return run(["adb", "-s", serial, *args], **kwargs)
+    return run([adb_bin(), "-s", serial, *args], **kwargs)
 
 
 def package_installed(serial: str, package: str) -> bool:

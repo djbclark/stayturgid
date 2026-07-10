@@ -57,7 +57,7 @@ After each cold reboot and PIN unlock:
 
 1. **Shizuku** auto-starts via Wireless Debugging (TCP mode → port 5555).
 2. **Termux:Boot** runs `~/.termux/boot/start-adb.sh` → `sshd` + 5-min self-heal + repair loop.
-3. **AutoJs6** `main.js` (20 min + boot via `boot-launcher.js`) → `stayturgid-repair.sh`, notifications, Shizuku UI repair if needed.
+3. **AutoJs6** `main.js` (20 min + boot via `boot-launcher.js`) → `stayturgid_repair.py`, notifications, Shizuku UI repair if needed.
 
 ---
 
