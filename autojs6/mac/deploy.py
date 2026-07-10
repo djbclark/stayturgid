@@ -13,10 +13,20 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "shared" / "mac"))
-import adb_cli as adb  # noqa: E402
+_COLLECTION_UTILS = (
+    REPO_ROOT / "ansible_collections" / "stayturgid" / "android_common" / "plugins" / "module_utils"
+)
+if str(_COLLECTION_UTILS) not in sys.path:
+    sys.path.insert(0, str(_COLLECTION_UTILS))
 
-AUTOJS_SRC = REPO_ROOT / "autojs6"
-TARGET_BASE = adb.AUTOJS_PROJECT_BASE
+import adb_cli as adb  # noqa: E402
+import adb_shell  # noqa: E402
+import autojs6_deploy_util as deploy_util  # noqa: E402
+
+
+def _run_command(cmd):
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    return result.returncode, result.stdout or "", result.stderr or ""
 
 
 def deploy_project(alias: str, device_id: str = "") -> int:
@@ -24,43 +34,20 @@ def deploy_project(alias: str, device_id: str = "") -> int:
     if device_id:
         print(f"NOTE: device-id arg is deprecated; profile comes from Ansible inventory (ignored: {device_id})")
 
-    print(f"Deploying autojs6/ → {serial}:{TARGET_BASE}")
-    # Wipe remote lib/scripts before push. Do NOT mkdir first — `adb push
-    # local/. into an empty dest/` nests as lib/lib on some adb versions.
-    # Pushing the directory itself after rm creates a clean tree.
-    adb.adb(
-        serial,
-        "shell",
-        f"rm -rf '{TARGET_BASE}/lib' '{TARGET_BASE}/scripts'",
-        check=True,
-    )
-    for local, remote in (
-        (AUTOJS_SRC / "project.json", f"{TARGET_BASE}/project.json"),
-        (AUTOJS_SRC / "main.js", f"{TARGET_BASE}/main.js"),
-    ):
-        adb.adb(serial, "push", str(local), remote, check=True)
-    adb.adb(serial, "push", str(AUTOJS_SRC / "lib"), f"{TARGET_BASE}/lib", check=True)
-    adb.adb(serial, "push", str(AUTOJS_SRC / "scripts"), f"{TARGET_BASE}/scripts", check=True)
+    print(f"Deploying autojs6/ → {serial}:{deploy_util.DEFAULT_TARGET}")
+    adb_shell.adb_connect(_run_command, serial)
 
-    # Fail closed if a required module did not land (catches nested/stale pushes).
-    check = adb.adb(
+    ok, msg, _changed = deploy_util.deploy_project(
+        _run_command,
         serial,
-        "shell",
-        f"test -f '{TARGET_BASE}/lib/shizuku_shell.js' "
-        f"&& test -f '{TARGET_BASE}/lib/comonitor.js' "
-        f"&& test -f '{TARGET_BASE}/scripts/shizuku-probe.js' "
-        f"&& test ! -d '{TARGET_BASE}/lib/lib'",
-        check=False,
+        str(REPO_ROOT),
+        target=deploy_util.DEFAULT_TARGET,
     )
-    if check.returncode != 0:
-        sys.stderr.write(
-            "ERROR: deploy incomplete — missing lib/shizuku_shell.js, "
-            "lib/comonitor.js, or scripts/shizuku-probe.js (or nested lib/lib) "
-            "on device\n"
-        )
+    if not ok:
+        sys.stderr.write("ERROR: %s\n" % msg)
         return 1
 
-    print(f"Done. In AutoJs6: open project {TARGET_BASE} → run main.js")
+    print(f"Done. In AutoJs6: open project {deploy_util.DEFAULT_TARGET} → run main.js")
     print(f"Then: ./set_automation_mode.py {alias} && ./start_watchdog.py {alias}")
     return 0
 

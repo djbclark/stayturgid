@@ -27,6 +27,7 @@ modules could replace custom code.
 | `play_apps` | apkeep/gplaycli + adb install |
 | `android_appops` / `android_settings` | adb grants/settings |
 | `android_a11y_services` | merge-only a11y list backup/restore |
+| `autojs6_project_deploy` | AutoJs6 project adb push (Fire OS / Mac recovery) |
 | `android_ui` | named screen-control tasks (ADR 002) |
 | `shizuku_grant` | shizuku.json patch |
 | `android_apk` / `android_intent` | adb install / intents |
@@ -36,7 +37,7 @@ modules could replace custom code.
 
 | Task | Role | Status |
 |------|------|--------|
-| Fire OS `mkdir` / adb push | `autojs6_watchdog` | Keep — platform-specific |
+| Fire OS `mkdir` / adb push | `autojs6_watchdog` | `autojs6_project_deploy` module |
 | Termux `/sdcard` mkdir | `termux_userland` | Keep — Fire symlink quirks |
 | Repair verify shell | `termux_userland` | Keep — reads device script output |
 | Boot loop handler | `termux_userland` | Keep — PIDFILE semantics |

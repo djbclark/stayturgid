@@ -11,7 +11,7 @@ on only what they need:
 | [stayturgid.obtainium](../obtainium/README.md) | `obtainium_app` | Obtainium catalog JSON on device |
 | [stayturgid.fdroid](../fdroid/README.md) | `fdroid_repos` | `fdroidcl` repos on Mac |
 | [stayturgid.play](../play/README.md) | `play_apps` | apkeep/gplaycli + adb install |
-| [stayturgid.android_common](../android_common/README.md) | `android_ui`, `android_a11y_services`, … | ADB + UI tasks (ADR 002) |
+| [stayturgid.android_common](../android_common/README.md) | `android_ui`, `android_a11y_services`, `autojs6_project_deploy`, … | ADB + UI tasks (ADR 002) |
 
 **Fleet roles:** `stayturgid.fleet.post_ui` (post-deploy screen-control);
 `stayturgid.fleet.validate` (repair/sshd/a11y smoke + optional a11y drift merge).

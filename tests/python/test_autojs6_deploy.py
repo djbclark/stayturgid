@@ -4,51 +4,83 @@ from __future__ import annotations
 import os
 import sys
 from pathlib import Path
-from types import SimpleNamespace
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "autojs6" / "mac"))
 sys.path.insert(0, str(REPO / "shared" / "mac"))
+sys.path.insert(
+    0,
+    str(REPO / "ansible_collections" / "stayturgid" / "android_common" / "plugins" / "module_utils"),
+)
 
+import autojs6_deploy_util as deploy_util  # noqa: E402
 import deploy as deploy_mod  # noqa: E402
 
 
-def test_deploy_wipes_lib_scripts_before_push(monkeypatch):
-    calls: list[tuple] = []
+def test_deploy_wipes_lib_scripts_before_push(monkeypatch, tmp_path):
+    root = tmp_path / "repo"
+    proj = root / "autojs6"
+    (proj / "lib").mkdir(parents=True)
+    (proj / "scripts").mkdir(parents=True)
+    (proj / "project.json").write_text("{}")
+    (proj / "main.js").write_text("//")
+    (proj / "lib" / "shizuku_shell.js").write_text("//")
+    (proj / "lib" / "comonitor.js").write_text("//")
+    (proj / "scripts" / "shizuku-probe.js").write_text("//")
+
+    calls: list[str] = []
 
     def fake_resolve(alias):
         return "SERIAL"
 
-    def fake_adb(serial, *args, check=True):
-        calls.append((serial, args, check))
-        return SimpleNamespace(returncode=0, stdout="", stderr="")
+    def fake_run_command(cmd):
+        joined = " ".join(cmd)
+        calls.append(joined)
+        if "shizuku_shell.js" in joined and "test -f" in joined:
+            return 0, "", ""
+        return 0, "", ""
 
+    monkeypatch.setattr(deploy_mod, "REPO_ROOT", root)
     monkeypatch.setattr(deploy_mod.adb, "resolve_target", fake_resolve)
-    monkeypatch.setattr(deploy_mod.adb, "adb", fake_adb)
+    monkeypatch.setattr(deploy_mod, "_run_command", fake_run_command)
+    monkeypatch.setattr(deploy_mod.adb_shell, "adb_connect", lambda *a, **k: None)
 
     assert deploy_mod.deploy_project("hd8") == 0
 
-    shell_cmds = [c[1] for c in calls if c[1] and c[1][0] == "shell"]
-    assert shell_cmds, "expected shell wipe"
-    wipe = shell_cmds[0][1]
-    assert "rm -rf" in wipe and "/lib" in wipe and "/scripts" in wipe
-    assert "mkdir" not in wipe
-
-    pushes = [c[1] for c in calls if c[1] and c[1][0] == "push"]
-    assert any(str(p[1]).endswith("/lib") and str(p[2]).endswith("/lib") for p in pushes)
-    assert any(str(p[1]).endswith("/scripts") and str(p[2]).endswith("/scripts") for p in pushes)
-
-    verify = [c for c in calls if c[1] and c[1][0] == "shell" and "shizuku_shell.js" in c[1][1]]
+    wipe = [c for c in calls if "rm -rf" in c]
+    assert wipe, "expected shell wipe"
+    assert "/lib" in wipe[0] and "/scripts" in wipe[0]
+    assert "mkdir" not in " ".join(calls)
+    pushes = [c for c in calls if " push " in c]
+    assert any("/lib" in c for c in pushes)
+    assert any("/scripts" in c for c in pushes)
+    verify = [c for c in calls if "shizuku_shell.js" in c and "test -f" in c]
     assert verify, "expected post-push file check"
 
 
-def test_deploy_fails_when_verify_missing(monkeypatch):
-    def fake_adb(serial, *args, check=True):
-        joined = " ".join(str(a) for a in args)
-        if "shizuku_shell.js" in joined:
-            return SimpleNamespace(returncode=1, stdout="", stderr="")
-        return SimpleNamespace(returncode=0, stdout="", stderr="")
+def test_deploy_fails_when_verify_missing(monkeypatch, tmp_path):
+    root = tmp_path / "repo"
+    proj = root / "autojs6"
+    (proj / "lib").mkdir(parents=True)
+    (proj / "scripts").mkdir(parents=True)
+    (proj / "project.json").write_text("{}")
+    (proj / "main.js").write_text("//")
+    (proj / "lib" / "shizuku_shell.js").write_text("//")
+    (proj / "lib" / "comonitor.js").write_text("//")
+    (proj / "scripts" / "shizuku-probe.js").write_text("//")
 
+    def fake_run_command(cmd):
+        joined = " ".join(cmd)
+        if "shizuku_shell.js" in joined and "test -f" in joined:
+            return 1, "", ""
+        return 0, "", ""
+
+    monkeypatch.setattr(deploy_mod, "REPO_ROOT", root)
     monkeypatch.setattr(deploy_mod.adb, "resolve_target", lambda a: "SERIAL")
-    monkeypatch.setattr(deploy_mod.adb, "adb", fake_adb)
+    monkeypatch.setattr(deploy_mod, "_run_command", fake_run_command)
+    monkeypatch.setattr(deploy_mod.adb_shell, "adb_connect", lambda *a, **k: None)
     assert deploy_mod.deploy_project("s24") == 1
+
+
+def test_deploy_util_matches_default_target():
+    assert deploy_util.DEFAULT_TARGET == "/sdcard/stayturgid/autojs6"

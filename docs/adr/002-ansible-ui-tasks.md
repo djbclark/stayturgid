@@ -41,7 +41,7 @@ Move remaining shell-idempotent Mac logic into collections when touched:
 | Candidate | Replaces / complements |
 |-----------|-------------------------|
 | `android_a11y_services` | `mac/a11y_services.py` merge-only backup/restore |
-| `autojs6_project_deploy` | adb push portions of `autojs6_watchdog` / setup scripts |
+| `autojs6_project_deploy` | ✅ `autojs6_watchdog` adb path + `deploy.py` |
 | Expanded `validate.yml` | Subset of `device_tier.py` / fleet-health probes |
 
 Retire redundant CLIs when module parity exists (`harden_fleet_apps.py` already

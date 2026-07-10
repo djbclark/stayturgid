@@ -1,5 +1,10 @@
 # Changelog — stayturgid.android_common
 
+## 1.5.0 (2026-07-09)
+
+- Add `autojs6_project_deploy` module + `autojs6_deploy_util` (Fire OS adb path;
+  shared with `autojs6/mac/deploy.py`).
+
 ## 1.4.1 (2026-07-08)
 
 - `adb_resolve`: parse mDNS wireless-debugging device ids (spaces in serial).

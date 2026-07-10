@@ -424,7 +424,7 @@ first-run, AutoJs6 drawer — not fake “modules” for UI taps.
 | App privileges | ✅ `app_privileges` role in `fleet.yml` (before post-UI Aurora) | Yes |
 | Shizuku install/grant | `shizuku_grant` module + Mac helpers | Mostly yes |
 | Obtainium catalog | `obtainium_app` render + `import_catalog.py` UI | Split (render yes, import script) |
-| AutoJs6 deploy | `autojs6_watchdog` role + `autojs6/mac/*.py` | Partial |
+| AutoJs6 deploy | `autojs6_watchdog` role + `autojs6_project_deploy` (Fire adb) | Mostly yes |
 | Post-deploy UI | `enable_autojs6_shizuku.py` (Aurora configure parked) | Tagged `script:` steps |
 | ADB reconnect launchd | `adb_reconnect.py` + `mac.yml` | localhost role |
 | Validation | `device_tier.py` + TAP + `stayturgid_repair_check` | `stayturgid.fleet.validate` role |

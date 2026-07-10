@@ -54,13 +54,18 @@ Parked (not a track): Inferno/Styx → [docs/incubator/inferno-styx/](docs/incub
 
 **Shipped (2026-07-09):** ADR 002 accepted; `android_ui` + `android_a11y_services`
 modules; `stayturgid.fleet.post_ui` role; `stayturgid.fleet.validate` role;
-`preflight.yml` SSH probe + conditional adb bootstrap in `site.yml`.
+`preflight.yml` SSH probe + conditional adb bootstrap in `site.yml`;
+`autojs6_project_deploy` module (hd8 full fleet deploy path).
 
 #### ~~60 — Expand Ansible validate + a11y in deploy (agent)~~ · **Closed 2026-07-09**
 
 `stayturgid.fleet.validate` (repair/sshd/a11y asserts + optional a11y drift merge);
-`preflight.yml` replaces `deploy_fleet.py` SSH preflight. `autojs6_project_deploy`
-module still deferred until AutoJs6 push logic is next touched.
+`preflight.yml` replaces `deploy_fleet.py` SSH preflight.
+
+#### ~~61 — autojs6_project_deploy module (agent)~~ · **Closed 2026-07-09**
+
+`stayturgid.android_common.autojs6_project_deploy` + shared util; wired in
+`autojs6_watchdog` for Fire adb path; `autojs6/mac/deploy.py` thin wrapper retained.
 
 ---
 
