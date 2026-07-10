@@ -78,7 +78,7 @@ Companion roles ship in each collection:
 | `stayturgid.play.play_store` | Aurora Shizuku grant + `play_apps` |
 | `stayturgid.android_common.tailscale_vpn` | Always-on VPN secure settings |
 | `stayturgid.fleet.post_ui` | Post-deploy UI tasks (`android_ui` module) |
-| `stayturgid.fleet.validate` | Post-deploy repair/a11y smoke (`validate.yml`) |
+| `stayturgid.fleet.validate` | Post-deploy repair/a11y smoke (role; wired by `validate.yml`) |
 
 ## Obtainium (on-device over SSH)
 
@@ -101,8 +101,9 @@ This repo currently installs from Git paths; Galaxy publication is optional foll
 
 1. **First SSH access (pre-Ansible):** `stayturgid.termux.termux_ssh_bootstrap` via
    `ansible/playbooks/bootstrap.yml`, `ansible/playbooks/preflight.yml` (auto at
-   start of `site.yml`), `./mac/bootstrap_ssh.py`, or legacy `deploy_fleet.py`.
-   Requires debuggable Termux with `run-as com.termux`.
+   start of `site.yml`), `./mac/bootstrap_ssh.py`, or `./mac/deploy_fleet.py`
+   (runs `site.yml`, which starts with `preflight.yml`). Requires debuggable
+   Termux with `run-as com.termux`.
 2. **Ongoing:** `ansible.posix.authorized_key` in `termux_userland` installs every
    `*.pub` from `stayturgid_ssh_keys_dir` (default `~/.ssh` on the control node);
    matching private keys are copied to each device. `termux_sshd` applies

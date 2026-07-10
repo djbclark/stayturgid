@@ -29,8 +29,9 @@ Re-run F-Droid only: `./mac/deploy_fleet.py --scope fdroid [host]`
 ## Quick start
 
 ```bash
-./mac/deploy_fleet.py s24          # full stack (recommended)
-./mac/deploy_fleet.py --scope fdroid s24         # F-Droid roles only
+# When stayturgid_app_stores_enabled: true:
+make deploy HOSTS=s24              # full stack (recommended)
+make deploy SCOPE=fdroid HOSTS=s24 # F-Droid roles only
 ANDROID_SERIAL=s24 fdroidcl install org.breezyweather
 ```
 

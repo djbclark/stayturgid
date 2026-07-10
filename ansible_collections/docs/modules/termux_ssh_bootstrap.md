@@ -38,4 +38,5 @@ Requires a **debuggable** Termux build where `run-as com.termux` succeeds.
 ## CLI wrappers
 
 - `./mac/bootstrap_ssh.py` — direct adb path (default) or `--ansible` for the playbook
-- `./ansible/mac/deploy_termux.py` / `./mac/deploy_fleet.py` — auto-run bootstrap when SSH preflight fails
+- `./ansible/mac/deploy_termux.py` — auto-run `bootstrap.yml` when SSH preflight fails
+- `./mac/deploy_fleet.py` / `ansible-playbook site.yml` — conditional bootstrap via `preflight.yml`

@@ -43,7 +43,7 @@ help:
 	@echo "  make deploy-check [HOSTS=s24]     Ansible dry run (--check --diff)"
 	@echo "  make deploy-termux [HOSTS=s24]    Termux layer only (termux_userland role)"
 	@echo "  make bootstrap-ssh [HOSTS=s24]    ADB bootstrap Termux SSH keys + sshd"
-	@echo "  make health                     Mac fleet-health log summary (session start)"
+	@echo "  make health                     Mac fleet-health summary (exit 1 = tell operator)"
 	@echo "  make collections                Install ansible-galaxy collections"
 	@echo "  make syntax                     Syntax-check site.yml"
 	@echo ""

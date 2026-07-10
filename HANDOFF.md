@@ -38,7 +38,7 @@ when AutoJs6 stalls or a11y drifts — the Mac log is the signal.
 ### Session start (do this)
 
 ```bash
-python3 mac/check_fleet_health.py
+make health
 ```
 
 | Exit | Meaning | Your job |
@@ -85,7 +85,10 @@ launchd (`fleet_health_monitor` / `fire-help`). See Cursor rule
 
 ## What this project does
 
-**stayturgid** keeps wireless ADB (port 5555), Shizuku, and SSH alive on **two personal, unrooted consumer phones** — a Google Pixel 7a and a Samsung Galaxy S24 (SM-S921U1), both Android 16 — across cold reboots, and makes them reliably reachable from the Mac over Tailscale via **two independent, mutually-repairing channels (ADB + SSH)**.
+**stayturgid** keeps wireless ADB (port 5555), Shizuku, and SSH alive on a
+**three-device fleet** — Galaxy S24 and Pixel 7a (Android 16) plus Kindle Fire HD 8
+(Fire OS) — across cold reboots, and makes them reachable from the Mac over
+Tailscale via **two independent, mutually-repairing channels (ADB + SSH)**.
 
 After a reboot and PIN unlock:
 1. **Shizuku** (thedjchi fork) auto-starts via Android Wireless Debugging and uses TCP mode to call `adb tcpip 5555` — opens port 5555 without USB.
@@ -102,13 +105,12 @@ On the Mac, a launchd agent runs every 60 s and reconnects `adb connect <ip>:555
 
 GitHub `master` is the source of truth. To release:
 1. Bump `version.json` (`version` + `changelog`), commit, push.
-2. `./mac/deploy_fleet.py` — full fleet via `ansible/playbooks/site.yml`
-   (`CHECK=1 ./mac/deploy_fleet.py` = dry run): bootstrap, Termux, AutoJs6,
-   Obtainium, Tailscale, app privileges (core fleet apps only), post-UI
-   automation, validate. Neo Store / Aurora are **parked** — see
-   [fdroid/README.md](fdroid/README.md), [play/README.md](play/README.md).
-   Idempotent (re-run = `changed=0`). Or the
-   granular path: `./ansible/mac/deploy_termux.py` then `./autojs6/mac/deploy.py`.
+2. `make deploy` (or `./mac/deploy_fleet.py`) — full fleet via `ansible/playbooks/site.yml`
+   (`make deploy-check` / `CHECK=1 make deploy` = dry run): preflight, Termux,
+   AutoJs6, Obtainium, Tailscale, app privileges, post-UI automation, validate.
+   Neo Store / Aurora are **parked** — see [fdroid/README.md](fdroid/README.md),
+   [play/README.md](play/README.md). Idempotent (re-run = `changed=0`). Granular:
+   `make deploy-termux` or `autojs6/mac/deploy.py` for single layers.
 
 Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `termux-notification` when GitHub `version.json` moves ahead of the last-seen stamp.
 
@@ -329,15 +331,16 @@ termux/
   py/*.py + *.sh shims       — repair, agent-presence, screen-awake-guard, battery-alarm, check-repo-version
                                (Python is DEPLOYED; agent-presence + repair keep a thin ~/*.sh compat shim)
   repair-bridge.sh           — 2 s poll of run/repair_now (RUN_COMMAND-free trigger)
-ansible/                     — fleet deploy; inventory/hosts.yml + inventory/group_vars taxonomy layers
-  playbooks/fleet.yml, mac.yml   roles: termux_userland, autojs6_watchdog, obtainium_apps
-ansible_collections/stayturgid/fleet/   — termux_pkg + obtainium_app modules (FQCN stayturgid.fleet.*)
-obtainium/                   — stayturgid-apps.json catalog + mac/ sync/import/apply/installer scripts
-fdroid/                      — F-Droid / Neo Store docs + Mac helpers
-play/                        — Play / Aurora docs + configure_aurora.py
-ansible_collections/stayturgid/fdroid/roles/fdroid_repos/  — fdroidcl repo management + on-device push
-ansible_collections/stayturgid/play/roles/play_store/        — Aurora Store Shizuku grant + play_apps
-shared/mac/                  — stayturgid_device.py, resolve_adb.py, adb_cli.py (Shizuku JSON patcher + UI parsing)
+ansible/                     — playbooks + inventory (hosts.yml, group_vars taxonomy)
+  playbooks/site.yml, fleet.yml, preflight.yml, post-ui.yml, validate.yml, mac.yml
+ansible_collections/stayturgid/
+  termux/roles/termux_userland
+  fleet/roles/autojs6_watchdog, post_ui, validate
+  obtainium/roles/obtainium_apps
+  fdroid/roles/fdroid_repos, play/roles/play_store
+  android_common/roles/app_privileges, tailscale_vpn
+obtainium/                   — stayturgid-apps.json catalog + mac/ import helpers
+fdroid/, play/               — parked app-store docs                  — stayturgid_device.py, resolve_adb.py, adb_cli.py (Shizuku JSON patcher + UI parsing)
 mac/                         — adb_reconnect.py, access_monitor.py, deploy_fleet.py (launchd via ansible mac.yml)
 tests/                       — device_tier.py + python/ (pytest twins) + test-*.sh TAP harness; Makefile, configure
 version.json                 — repo release version + changelog
@@ -424,7 +427,7 @@ first-run, AutoJs6 drawer — not fake “modules” for UI taps.
 | Pre-SSH bootstrap | ✅ `termux_ssh_bootstrap` + `bootstrap.yml` | Yes |
 | Termux packages + scripts | ✅ `termux_userland` + `termux_pkg` | Yes |
 | SSH mesh (steady state) | ✅ `authorized_key` + `known_hosts` in role | Yes |
-| App privileges | ✅ `app_privileges` role in `fleet.yml` (before post-UI Aurora) | Yes |
+| App privileges | ✅ `stayturgid.android_common.app_privileges` in `fleet.yml` | Yes |
 | Shizuku install/grant | `shizuku_grant` module + Mac helpers | Mostly yes |
 | Obtainium catalog | `obtainium_app` render + `import_catalog.py` UI | Split (render yes, import script) |
 | AutoJs6 deploy | `autojs6_watchdog` role + `autojs6_project_deploy` (Fire adb) | Mostly yes |
@@ -446,15 +449,16 @@ first-run, AutoJs6 drawer — not fake “modules” for UI taps.
 [ivansible/termux](https://galaxy.ansible.com/ui/repo/published/ivansible/termux/),
 [AnsibleAndroidAutomationADB](https://github.com/shresthagrawal/AnsibleAndroidAutomationADB).
 
-**Concrete Ansible track steps:** ✅ `site.yml` shipped (`preflight` → bootstrap → fleet → post-ui → validate);
+**Concrete Ansible track steps:** ✅ `site.yml` shipped (`preflight` → bootstrap → fleet → post-ui → app-stores re-pass → validate);
 `deploy_fleet.py` thin wrapper (collection install); ADR 001–002;
 `android_ui` + `post_ui` + `android_a11y_services` + `stayturgid.fleet.validate`.
 Optional: Galaxy publish when H5 creds exist.
 
-### F-Droid + Play (integrated in fleet.yml)
+### F-Droid + Play (wired in fleet.yml, parked by default)
 
-**Status (2026-07-09):** Integrated in `fleet.yml` / `site.yml`. `./mac/deploy_fleet.py`
-runs `ansible-playbooks/site.yml` (post-UI scripts orchestrated in `post-ui.yml`).
+**Status (2026-07-09):** Roles exist in `fleet.yml` / `site.yml` but are gated off
+(`stayturgid_app_stores_enabled: false`). `./mac/deploy_fleet.py` / `make deploy`
+run `ansible/playbooks/site.yml` (post-UI via `post-ui.yml`).
 
 **Mac prerequisites:** `brew install fdroidcl apkeep`
 

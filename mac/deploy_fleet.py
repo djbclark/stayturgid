@@ -206,7 +206,7 @@ def print_footer(rc: int, scope: Scope) -> None:
         )
     else:
         print("Fleet deploy complete.")
-    print("Verify: make verify   (or bash tests/run.sh device --heal)")
+    print("Verify: make verify   (or make verify-heal / bash tests/run.sh device --heal)")
 
 
 def main(argv: list[str] | None = None) -> int:

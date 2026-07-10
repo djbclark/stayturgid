@@ -5,14 +5,15 @@ Ensures Aurora Store (FOSS Google Play client) with Shizuku + optional app sidel
 ## Prerequisites
 
 - Aurora Store in Obtainium catalog and/or `stayturgid_install_aurora_store: true`
-- Fleet deploy runs `configure_aurora.py` for first-run UI (Shizuku installer, auto-updates)
+- Fleet deploy runs `stayturgid.fleet.post_ui` / `android_ui` task `configure_aurora`
+  for first-run UI when `stayturgid_app_stores_enabled: true`
 - Mac: `apkeep` for APK downloads
 
 ## Deploy
 
 ```bash
-./mac/deploy_fleet.py s24     # full fleet (recommended)
-./mac/deploy_fleet.py --scope play s24      # play tag only
+make deploy HOSTS=s24     # full fleet (when app stores enabled)
+make deploy SCOPE=play HOSTS=s24
 ```
 
 See [HANDOFF.md](../../../../HANDOFF.md) for fleet status and [play/README.md](../../../../play/README.md).

@@ -11,8 +11,8 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 | Mac tools | [mac/README.md](../mac/README.md) | ADB reconnect launchd, outage monitor |
 | AutoJs6 | [autojs6/README.md](../autojs6/README.md) | JS watchdog (only automation stack in repo) |
 | Obtainium | [obtainium/README.md](../obtainium/README.md) | GitHub APK catalog and updates |
-| F-Droid / Neo Store | [fdroid/README.md](../fdroid/README.md) | F-Droid repos + Neo Store (fleet-integrated) |
-| Play / Aurora Store | [play/README.md](../play/README.md) | Aurora Store + apkeep/gplaycli (fleet-integrated) |
+| F-Droid / Neo Store | [fdroid/README.md](../fdroid/README.md) | F-Droid repos + Neo Store (**parked** by default) |
+| Play / Aurora Store | [play/README.md](../play/README.md) | Aurora + apkeep/gplaycli (**parked** by default) |
 | Shared helpers | [shared/README.md](../shared/README.md) | `resolve-adb`, repo-root discovery |
 
 ## Project-wide
@@ -21,9 +21,12 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 |-----|----------|
 | [README.md](../README.md) | Everyone — hub + full-stack quick path |
 | [HACKING.md](../HACKING.md) | Developers — clean install, Obtainium, Termux swap |
-| [HANDOFF.md](../HANDOFF.md) | AI agents / maintainers — **session start:** `python3 mac/check_fleet_health.py` |
+| [HANDOFF.md](../HANDOFF.md) | AI agents / maintainers — **session start:** `make health` |
 | [OPTIONS.md](../OPTIONS.md) | Open work menu |
-| ADR / architecture | [adr/001-ansible-boundary.md](adr/001-ansible-boundary.md), [adr/002-ansible-ui-tasks.md](adr/002-ansible-ui-tasks.md) |
+| [adr/001-ansible-boundary.md](adr/001-ansible-boundary.md) | Ansible 80/20 boundary (ADR 001) |
+| [adr/002-ansible-ui-tasks.md](adr/002-ansible-ui-tasks.md) | UI tasks vs modules (ADR 002) |
+| [../ansible_collections/docs/roles/validate.md](../ansible_collections/docs/roles/validate.md) | Post-deploy validate role |
+| [../ansible_collections/docs/playbooks/preflight.md](../ansible_collections/docs/playbooks/preflight.md) | SSH preflight playbook |
 
 ## `docs/research/` — production-adjacent (agents should read)
 
@@ -57,5 +60,6 @@ Speculative / alternate architectures. Index:
 
 - **Termux only:** `termux/` + manual Shizuku
 - **Termux + Ansible:** `ansible/` + SSH keys
-- **Full stack:** `termux/` + `autojs6/` + `obtainium/` + `fdroid/` + `play/` + `mac/` + `./mac/deploy_fleet.py`
+- **Full stack:** `termux/` + `autojs6/` + `obtainium/` + `mac/` + `make deploy`
+  (Neo/Aurora app stores **parked** unless `stayturgid_app_stores_enabled: true`)
 - **Obtainium only:** `obtainium/` — APK updates without stayturgid watchdog

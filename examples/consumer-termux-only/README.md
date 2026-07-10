@@ -11,7 +11,8 @@ Copy this directory to bootstrap a single-phone Termux deployment using only
 ansible-galaxy collection install -r requirements.yml -p collections
 ```
 
-2. Bootstrap SSH (once):
+2. Bootstrap SSH (once) — requires working SSH, or cold start via
+   `./mac/bootstrap_ssh.py` / `preflight.yml` from a full stayturgid checkout:
 
 ```bash
 ssh-copy-id -p 8022 -i ~/.ssh/termux_key user@YOUR_PHONE_IP
@@ -35,12 +36,13 @@ Obtainium / AutoJs6 / F-Droid are out of scope; add collections from
 
 ## Pinning a release
 
-Tags like `stayturgid.termux-1.3.0` point at tested collection versions:
+Tags like `stayturgid.termux-1.8.0` point at tested collection versions (see
+`ansible_collections/stayturgid/termux/galaxy.yml`):
 
 ```yaml
 # requirements.yml
 collections:
   - name: stayturgid.termux
     source: git+https://github.com/djbclark/stayturgid.git,ansible_collections/stayturgid/termux
-    version: stayturgid.termux-1.3.0
+    version: stayturgid.termux-1.8.0
 ```

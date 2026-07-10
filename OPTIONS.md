@@ -6,7 +6,7 @@
 > push** in the same turn.
 >
 > **Fleet health (mandatory):** at session start run
-> `python3 mac/check_fleet_health.py`. If exit ≠ 0, **tell the operator** the
+> `make health` (or `python3 mac/check_fleet_health.py`). If exit ≠ 0, **tell the operator** the
 > host/`issues=` tags in your first reply — do not wait to be asked. Details:
 > [HANDOFF.md § Mac fleet health](HANDOFF.md#mac-fleet-health--mandatory-for-agents).
 >

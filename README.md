@@ -85,4 +85,5 @@ stayturgid/
 ## Tested on
 
 - Google Pixel 7a, Samsung Galaxy S24 (SM-S921U1), Android 16
+- Amazon Kindle Fire HD 8 (Fire OS 11) — see [HANDOFF.md](HANDOFF.md) for hd8 quirks
 - Shizuku thedjchi fork · AutoJs6 6.7.0 · Termux GitHub-debug stack

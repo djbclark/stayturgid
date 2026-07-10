@@ -11,9 +11,10 @@ Aurora Store is the on-device GUI client. When re-enabled, fleet deploy installs
 
 ## Fleet integration (when re-enabled)
 
-Play/Aurora is part of `./mac/deploy_fleet.py` (play role + `configure_aurora.py` after Obtainium import) **only when** `stayturgid_app_stores_enabled: true`.
+Play/Aurora is part of `site.yml` (`post-ui.yml` → `stayturgid.fleet.post_ui` →
+`android_ui` task `configure_aurora`) **only when** `stayturgid_app_stores_enabled: true`.
 
-Re-run Play only: `./mac/deploy_fleet.py --scope play [host]`
+Re-run Play only: `make deploy SCOPE=play HOSTS=s24` (or `./mac/deploy_fleet.py --scope play`)
 
 ## Components
 
@@ -21,11 +22,11 @@ Re-run Play only: `./mac/deploy_fleet.py --scope play [host]`
 |-------|-------------|------|
 | **Aurora Store** | `stayturgid_install_aurora_store: true` in fleet group_vars | GUI updates; Shizuku installer |
 | **play_apps module** | `stayturgid_play_apps` in role vars | apkeep/gplaycli + adb install |
-| **configure_aurora.py** | end of `deploy_fleet.py` / `deploy_fleet.py --scope play` | First-run UI automation |
+| **configure_aurora** | `post-ui.yml` / `stayturgid.fleet.post_ui` (`android_ui` task) | First-run UI when stores enabled |
 
 ```bash
-./mac/deploy_fleet.py s24    # full stack (recommended)
-./mac/deploy_fleet.py --scope play s24     # Play roles + Aurora UI setup only
+make deploy HOSTS=s24    # when app stores enabled
+make deploy SCOPE=play HOSTS=s24
 ```
 
 ## Play downloads

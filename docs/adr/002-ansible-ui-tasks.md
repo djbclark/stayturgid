@@ -42,7 +42,7 @@ Move remaining shell-idempotent Mac logic into collections when touched:
 |-----------|-------------------------|
 | `android_a11y_services` | `mac/a11y_services.py` merge-only backup/restore |
 | `autojs6_project_deploy` | ✅ `autojs6_watchdog` adb path + `deploy.py` |
-| Expanded `validate.yml` | Subset of `device_tier.py` / fleet-health probes |
+| Expanded validate | ✅ `stayturgid.fleet.validate` role + thin `validate.yml` playbook |
 
 Retire redundant CLIs when module parity exists (`harden_fleet_apps.py` already
 superseded by `android_app_privileges`).
@@ -60,8 +60,9 @@ No Obtainium state API — import remains a UI task until upstream provides one.
 ## Operator entrypoint
 
 Canonical deploy: `ansible-playbook ansible/playbooks/site.yml` (with
-`ANSIBLE_CONFIG=ansible/ansible.cfg`). `deploy_fleet.py` remains a thin wrapper
-for SSH preflight and collection install only.
+`ANSIBLE_CONFIG=ansible/ansible.cfg`). `deploy_fleet.py` is a thin wrapper for
+collection install + `ansible-playbook site.yml`. SSH preflight runs inside
+`site.yml` via `preflight.yml` (not in the Python wrapper).
 
 ## Consequences
 

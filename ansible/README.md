@@ -25,7 +25,7 @@ Omit `stayturgid_device_id` if not using device override files.
 
 Copy [inventory/example-standalone.yml](inventory/example-standalone.yml) as a starting point for a single phone.
 
-**Out of scope** (configure separately): Shizuku pairing, AutoJs6 install, Obtainium bootstrap, `WRITE_SECURE_SETTINGS`. Fleet app permissions, battery-unrestricted, and unused-app restrictions are automated via `android_common.app_privileges` / `./mac/harden_fleet_apps.py`. SSH **bootstrap** before the first Ansible connection: `./mac/bootstrap_ssh.py` (adb + `run-as com.termux` on debuggable Termux); ongoing key distribution uses `ansible.posix.authorized_key` plus private-key sync in the `termux_userland` role (`mac.yml` renders Mac `~/.ssh/config.d/stayturgid`). Keys live on the control node only — never in git.
+**Out of scope** (configure separately): Shizuku pairing, AutoJs6 install, Obtainium bootstrap, `WRITE_SECURE_SETTINGS`. Fleet app permissions, battery-unrestricted, and unused-app restrictions are automated via `stayturgid.android_common.app_privileges` (or ad-hoc `./mac/harden_fleet_apps.py`). SSH **bootstrap** before the first Ansible connection: `./mac/bootstrap_ssh.py` (adb + `run-as com.termux` on debuggable Termux); ongoing key distribution uses `ansible.posix.authorized_key` plus private-key sync in the `termux_userland` role (`mac.yml` renders Mac `~/.ssh/config.d/stayturgid`). Keys live on the control node only — never in git.
 
 The deployed `~/.stayturgid/bin/agent-presence.sh` includes the consent `gate` action ([termux/README.md](../termux/README.md)).
 
@@ -44,9 +44,9 @@ CHECK=1 ./mac/deploy_fleet.py s24      # dry run
 ansible-playbook ansible/playbooks/site.yml --limit s24   # direct
 ```
 
-`site.yml` chains: `preflight.yml` → `bootstrap.yml` (tagged, skipped by
-`deploy_fleet.py`) → `fleet.yml` → `post-ui.yml` → app-stores re-pass →
-`validate.yml`. See [docs/adr/001-ansible-boundary.md](../docs/adr/001-ansible-boundary.md).
+`site.yml` chains: `preflight.yml` → `bootstrap.yml` (tagged; skipped by
+`deploy_fleet.py` on live deploy) → `fleet.yml` → `post-ui.yml` → app-stores
+re-pass → `validate.yml`. See [docs/adr/001-ansible-boundary.md](../docs/adr/001-ansible-boundary.md).
 
 ## Run (Termux only)
 
@@ -68,8 +68,9 @@ STATUS port=open shizuku=up sshd=up shell=yes
 
 | Host | SSH | Mode | Notes |
 |------|-----|------|-------|
-| `s24` | `100.123.218.30:8022` | `autojs6` | Production AutoJs6 device |
-| `p7a` | `100.65.230.108:8022` | `autojs6` | Production AutoJs6 device |
+| `s24` | `100.123.218.30:8022` | `autojs6` | Galaxy S24 |
+| `p7a` | `100.65.230.108:8022` | `autojs6` | Pixel 7a |
+| `hd8` | `100.124.55.39:8022` | `autojs6` | Kindle Fire HD 8 (Mac adb for AutoJs6 deploy) |
 
 Both hosts are defined in `inventory/hosts.yml`.
 
@@ -99,7 +100,7 @@ ansible/
   ansible.cfg
   requirements.yml               — ansible.posix + stayturgid.* (via deploy install)
   inventory/hosts.yml
-  playbooks/site.yml             — preflight → bootstrap → fleet → post-ui → validate
+  playbooks/site.yml             — preflight → bootstrap → fleet → post-ui → re-pass → validate
   playbooks/preflight.yml        — SSH probe + conditional adb bootstrap
   playbooks/fleet.yml
   playbooks/bootstrap.yml

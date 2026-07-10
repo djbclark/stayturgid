@@ -534,8 +534,8 @@ def main(argv: list[str] | None = None) -> int:
             any_assert_fail = True
 
     log("health finish assert_fail=%s" % int(any_assert_fail))
-    # Exit 0 always for launchd — unreachable is expected; assertion gaps are
-    # surfaced via gui-audit.log → check_fleet_health.py.
+    # Exit 0 always for launchd — unreachable is expected; assertion gaps go to
+    # gui-audit.log (not merged into check_fleet_health.py while gui-audit parked).
     return 0
 
 

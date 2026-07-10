@@ -4,8 +4,9 @@
 
 - `termux_ssh_bootstrap` module and `termux_run_as` module_utils — pre-SSH
   bootstrap over adb (`authorized_keys`, optional `openssh` + `sshd`).
-- `ansible/playbooks/bootstrap.yml` play; auto-invoked from `deploy_fleet.py`
-  and `ansible/mac/deploy_termux.py` when SSH preflight fails.
+- `ansible/playbooks/bootstrap.yml` play; conditional bootstrap via `preflight.yml`
+  at the start of `site.yml` (including when launched via `deploy_fleet.py`).
+  `ansible/mac/deploy_termux.py` still runs `bootstrap.yml` when SSH preflight fails.
 - `shared/mac/termux_ssh_bootstrap.py` refactored to thin CLI wrapper over
   collection helpers (direct adb path + `run_bootstrap_playbook()`).
 

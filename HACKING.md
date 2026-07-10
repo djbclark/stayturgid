@@ -186,12 +186,13 @@ pkg update && pkg upgrade -y && pkg install openssh android-tools termux-api pyt
 # echo "YOUR_PUBLIC_KEY" >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys
 ```
 
-After bootstrap, `ansible/playbooks/fleet.yml` (via `./mac/deploy_fleet.py`) keeps
-fleet SSH keys in sync. **`./mac/bootstrap_ssh.py`** (also auto-run from
-`ansible/mac/deploy_termux.py` and `deploy_fleet.py` via `bootstrap.yml` when SSH
-fails) installs control-node `*.pub` keys via adb + `run-as com.termux`, starts
-`sshd`, and verifies over USB forward (`adb forward tcp:8022 tcp:8022`) or
-Tailscale SSH alias.
+After bootstrap, `ansible/playbooks/site.yml` (via `make deploy` / `deploy_fleet.py`)
+keeps fleet SSH keys in sync. **`./mac/bootstrap_ssh.py`** (also auto-run from
+`ansible/mac/deploy_termux.py` via `bootstrap.yml` when SSH fails) installs
+control-node `*.pub` keys via adb + `run-as com.termux`, starts `sshd`, and
+verifies over USB forward (`adb forward tcp:8022 tcp:8022`) or Tailscale SSH
+alias. Live fleet deploy uses **`preflight.yml`** (start of `site.yml`) for
+conditional bootstrap instead of the full `bootstrap` tag.
 
 - **Public keys:** every `*.pub` under `stayturgid_ssh_keys_dir` (default
   `~/.ssh` on the Mac) is installed on every device via
@@ -376,7 +377,7 @@ ssh termux
 
 This runs `adb connect` every 60 seconds, handles DHCP IP changes, and sends a macOS notification on reconnect or failure.
 
-**Current (Ansible-generated):** the launchd agents (`com.stayturgid.*`) and `~/.config/stayturgid/devices.conf` are rendered from inventory by `ansible/playbooks/mac.yml` — run `ansible-playbook ansible/playbooks/mac.yml` (or the fleet deploy) rather than copying a plist by hand. The agents launch `mac/adb-reconnect.py` + `mac/access_monitor.py`. Logs + state live under the single Mac root `~/.config/stayturgid/{logs,state}/`.
+**Current (Ansible-generated):** the launchd agents (`com.stayturgid.*`) and `~/.config/stayturgid/devices.conf` are rendered from inventory by `ansible/playbooks/mac.yml` — run `ansible-playbook ansible/playbooks/mac.yml` (or the fleet deploy) rather than copying a plist by hand. The agents launch `mac/adb_reconnect.py` + `mac/access_monitor.py`. Logs + state live under the single Mac root `~/.config/stayturgid/{logs,state}/`.
 
 > The legacy manual path (`cp mac/com.djbclark.stayturgid.adb-reconnect.plist ~/Library/LaunchAgents/ && launchctl load …`) is superseded by mac.yml; the old `com.djbclark.*` agents were retired.
 
@@ -516,10 +517,10 @@ GitHub `master` is the source of truth; updates are pushed to devices from the M
 3. Commit and push.
 4. Deploy to the fleet:
    ```bash
-   ./ansible/mac/deploy_termux.py          # Termux layer, all hosts
-   ./autojs6/mac/deploy.py p7a && ./autojs6/mac/deploy.py s24
-   ./autojs6/mac/start_watchdog.py p7a && ./autojs6/mac/start_watchdog.py s24
+   make deploy                    # full site.yml (recommended)
+   make verify HOSTS=s24          # optional TAP after deploy
    ```
+   Granular: `make deploy-termux`, `autojs6/mac/deploy.py <host>` (USB recovery on Fire).
 
 Devices can optionally run `termux/check-repo-version.sh` (cron or manual) to get a notification when GitHub's `version.json` is newer than the last deployed version:
 
@@ -721,13 +722,14 @@ If port 5555 is not open after 60s:
 `stayturgid_app_stores_enabled: true` to re-enable. Apps may remain on devices;
 optional Obtainium catalog: `obtainium/app-stores-optional.json`.
 
-When re-enabled: second `--tags app-stores` pass pushes F-Droid repos; `configure_aurora.py` finishes Aurora first-run UI.
+When re-enabled: second `fleet.yml` pass (`post-ui-app-stores` tag) pushes F-Droid
+repos; `post-ui.yml` / `android_ui` task `configure_aurora` finishes Aurora first-run UI.
 
 | Command | Scope | Mac tools |
 |---------|-------|-----------|
-| `./mac/deploy_fleet.py [host]` | Full stack | fdroidcl, apkeep |
-| `./mac/deploy_fleet.py --scope fdroid [host]` | F-Droid tag only | fdroidcl |
-| `./mac/deploy_fleet.py --scope play [host]` | Play tag + Aurora UI | apkeep |
+| `make deploy [HOSTS=…]` | Full `site.yml` (includes preflight) | fdroidcl, apkeep when stores on |
+| `make deploy SCOPE=fdroid HOSTS=…` | F-Droid tags only | fdroidcl |
+| `make deploy SCOPE=play HOSTS=…` | Play + post-ui Aurora | apkeep |
 
 **Default repos** (`ansible_collections/stayturgid/fdroid/roles/fdroid_repos/defaults/main.yml`):
 
@@ -762,12 +764,13 @@ termux/
   check-repo-version.sh                 — optional update notifier
 ansible/                                — idempotent Termux userland deploy
 mac/
-  adb-reconnect.py, access_monitor.py   — Mac keepalive + dead-man's switch (launchd agents via ansible/playbooks/mac.yml)
+  adb_reconnect.py, access_monitor.py   — Mac keepalive + dead-man's switch (launchd via mac.yml)
 obtainium/                              — APK tracking catalogs
 fdroid/                                 — F-Droid / Neo Store docs + legacy grant stub
 ansible/playbooks/fleet.yml             — full fleet (includes fdroid + play roles)
-ansible/playbooks/fdroid.yml            — F-Droid-only subset (deploy_fleet.py --scope fdroid)
-ansible/playbooks/play_store.yml        — Play-only subset (deploy_fleet.py --scope play)
+ansible/playbooks/site.yml              — full fleet (preflight → … → validate)
+ansible/playbooks/fdroid.yml            — F-Droid-only shortcut (no preflight)
+ansible/playbooks/play_store.yml        — Play-only shortcut (no preflight)
 shared/mac/                             — resolve_adb.py, stayturgid_device.py, adb_cli.py
 HACKING.md                              — this file
 HANDOFF.md                              — AI session handoff prompt

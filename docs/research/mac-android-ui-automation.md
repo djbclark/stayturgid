@@ -252,9 +252,9 @@ adb shell settings get secure enabled_accessibility_services
 |-------|------|
 | `shared/mac/screen_control.py` | Consent + inversion + gated `input` |
 | `shared/mac/ui_driver.py` | Handsets primary |
-| `mac/gui_audit.py` | Quiet Neo/Aurora H2-style GUI verify + screenshots |
-| `mac/check_fleet_health.py` | Session triage — includes recent `gui-audit` issues |
-| `com.stayturgid.gui-audit` | launchd **03:14** local time |
+| `mac/gui_audit.py` | Neo/Aurora GUI audit — **parked**; manual only |
+| `mac/check_fleet_health.py` | Session triage (`make health`); fleet-health + access-monitor only |
+| `com.stayturgid.gui-audit` | launchd **parked** (not installed while app stores disabled) |
 
 Logs: `~/.config/stayturgid/logs/gui-audit.log`.
 Screenshots: `~/.config/stayturgid/artifacts/gui-audit/<date>/<host>/`.

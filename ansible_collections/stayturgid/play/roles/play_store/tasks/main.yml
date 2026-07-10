@@ -1,8 +1,8 @@
 ---
 # play_store role
 # Ensures Aurora Store (FOSS Google Play client) with Shizuku.
-# Battery optimization + update filters are applied by harden_fleet_apps /
-# configure_aurora (not unrestricted background).
+# Battery optimization + update filters are applied by stayturgid.android_common.app_privileges
+# (or ad-hoc harden_fleet_apps.py) and configure_aurora when stores are enabled.
 
 - name: Resolve fleet alias to adb target (USB serial preferred)
   ansible.builtin.set_fact:
