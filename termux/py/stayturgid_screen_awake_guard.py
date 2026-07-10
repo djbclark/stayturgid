@@ -27,6 +27,17 @@ if os.path.isfile(_ENV_FILE):
     except OSError:
         pass
 
+for _p in (
+    os.path.join(HOME, ".stayturgid", "lib"),
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "shared"),
+):
+    if _p and _p not in sys.path and os.path.isdir(_p):
+        sys.path.insert(0, _p)
+try:
+    import termux_api as tapi  # noqa: E402
+except ImportError:
+    tapi = None  # type: ignore
+
 NID = "stayturgid-screenlock"
 BASELINE_FILE = os.path.join(STG, "state", "screen_timeout_baseline")
 MAX_OK_MS = 600000  # timeouts above 10 min count as "held awake"
@@ -39,18 +50,16 @@ def _no_local_adb() -> bool:
 
 
 def run(args, timeout=CMD_TIMEOUT_SEC):
+    """Never SIGKILL Termux:API clients (avoids ResultReturner toasts)."""
+    if tapi is not None and tapi.is_termux_api(args):
+        if tapi.is_fire_and_forget(args):
+            return tapi.run_ff(args, timeout=min(float(timeout), 4.0))
+        return tapi.run(args, timeout=timeout)
     try:
         return subprocess.run(
             args, capture_output=True, text=True, timeout=timeout, start_new_session=True
         )
-    except subprocess.TimeoutExpired as e:
-        pid = getattr(e, "pid", None)
-        if pid:
-            try:
-                import signal as _sig
-                os.killpg(pid, _sig.SIGKILL)
-            except (OSError, ProcessLookupError):
-                pass
+    except subprocess.TimeoutExpired:
         return None
     except OSError:
         return None

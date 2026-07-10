@@ -65,6 +65,8 @@ stayturgid_lib_files:
     dest: ui_clearance.py
   - src: shared/a11y_services.py
     dest: a11y_services.py
+  - src: shared/termux_api.py
+    dest: termux_api.py
 
 # Handsets daemon jar (Mac ~/.handsets/hs.jar → on-device lib; shell loads via
 # adb push to /data/local/tmp). Skip when missing on the control node.

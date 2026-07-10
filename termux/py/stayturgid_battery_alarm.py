@@ -30,6 +30,17 @@ if os.path.isfile(_ENV_FILE):
     except OSError:
         pass
 
+for _p in (
+    os.path.join(HOME, ".stayturgid", "lib"),
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "shared"),
+):
+    if _p and _p not in sys.path and os.path.isdir(_p):
+        sys.path.insert(0, _p)
+try:
+    import termux_api as tapi  # noqa: E402
+except ImportError:
+    tapi = None  # type: ignore
+
 STATE_FILE = os.path.join(STG, "state", "batt_alerted")
 COLOR_DIR = os.path.join(STG, "battery-colors")
 WALLPAPER_BACKUP = os.path.join(STG, "state", "wallpaper-backup.png")
@@ -47,11 +58,28 @@ def _no_local_adb() -> bool:
 
 
 def run(args, **kw):
-    """Best-effort external command (stub-interceptable via PATH)."""
-    opts = {"capture_output": True, "text": True, "timeout": CMD_TIMEOUT_SEC}
-    opts.update(kw)
+    """Best-effort external command; never SIGKILL Termux:API clients."""
+    timeout = kw.pop("timeout", CMD_TIMEOUT_SEC)
+    if kw:
+        # Rare callers pass extra subprocess kwargs — fall through carefully.
+        opts = {"capture_output": True, "text": True, "timeout": timeout, "start_new_session": True}
+        opts.update(kw)
+        try:
+            return subprocess.run(args, **opts)
+        except (OSError, subprocess.TimeoutExpired):
+            return None
+    if tapi is not None and tapi.is_termux_api(args):
+        if tapi.is_fire_and_forget(args):
+            return tapi.run_ff(args, timeout=min(float(timeout), 4.0))
+        return tapi.run(args, timeout=timeout)
     try:
-        return subprocess.run(args, **opts)
+        return subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            start_new_session=True,
+        )
     except (OSError, subprocess.TimeoutExpired):
         return None
 
@@ -193,6 +221,12 @@ def blink_screen_color(color, count, quiet):
 
 
 def pulse_torch(n, quiet):
+    if tapi is not None:
+        if quiet:
+            tapi.pulse_torch(1, on_s=0.06, off_s=0.0, torch_timeout=2.0)
+            return
+        tapi.pulse_torch(n, on_s=0.22, off_s=0.18, torch_timeout=2.0)
+        return
     if quiet:
         run(["termux-torch", "on"])
         time.sleep(0.06)

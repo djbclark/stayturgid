@@ -24,6 +24,17 @@ if os.path.isfile(_ENV_FILE):
     except OSError:
         pass
 
+for _p in (
+    os.path.join(HOME, ".stayturgid", "lib"),
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "shared"),
+):
+    if _p and _p not in sys.path and os.path.isdir(_p):
+        sys.path.insert(0, _p)
+try:
+    import termux_api as tapi  # noqa: E402
+except ImportError:
+    tapi = None  # type: ignore
+
 SD = os.environ.get("STAYTURGID_SD", "/sdcard/stayturgid")
 LOG = os.path.join(SD, "logs", "watchdog.log")
 STATE = os.path.join(HOME, ".stayturgid", "state")
@@ -34,9 +45,13 @@ NOTIFY_COOLDOWN_SEC = 86400
 
 
 def run(args):
+    if tapi is not None and tapi.is_termux_api(args):
+        return tapi.run_ff(args, timeout=4.0) if tapi.is_fire_and_forget(args) else tapi.run(args)
     try:
-        return subprocess.run(args, capture_output=True, text=True)
-    except OSError:
+        return subprocess.run(
+            args, capture_output=True, text=True, start_new_session=True, timeout=15
+        )
+    except (OSError, subprocess.TimeoutExpired):
         return None
 
 

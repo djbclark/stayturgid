@@ -37,6 +37,18 @@ if os.path.isfile(_ENV_FILE):
     except OSError:
         pass
 
+# Prefer ~/.stayturgid/lib (deployed) then repo shared/ (dev / unit tests).
+for _p in (
+    os.path.join(HOME, ".stayturgid", "lib"),
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "shared"),
+):
+    if _p and _p not in sys.path and os.path.isdir(_p):
+        sys.path.insert(0, _p)
+try:
+    import termux_api as tapi  # noqa: E402
+except ImportError:
+    tapi = None  # type: ignore
+
 NID = "stayturgid-presence"
 # Shared-storage root; self-healing (writers mkdir -p first).
 SD = os.environ.get("STAYTURGID_SD", "/sdcard/stayturgid")
@@ -64,7 +76,12 @@ def _no_local_adb():
 
 
 def run(args, timeout=15):
-    """Run a command; on timeout kill the whole process group (Termux API shims)."""
+    """Run a command. Termux:API clients are never SIGKILL'd (ResultReturner)."""
+    if tapi is not None and tapi.is_termux_api(args):
+        if tapi.is_fire_and_forget(args):
+            return tapi.run_ff(args, timeout=min(float(timeout), 4.0))
+        return tapi.run(args, timeout=timeout)
+    # Non-API (adb, timeout+dialog): may still killpg — those are not ResultReturner.
     try:
         return subprocess.run(
             args,
@@ -75,7 +92,7 @@ def run(args, timeout=15):
         )
     except subprocess.TimeoutExpired as e:
         pid = getattr(e, "pid", None)
-        if pid:
+        if pid and not str(args[0]).startswith("termux-"):
             try:
                 os.killpg(pid, signal.SIGKILL)
             except (OSError, ProcessLookupError):
@@ -86,7 +103,7 @@ def run(args, timeout=15):
 
 
 def _notify_timeout():
-    return FIRE_NOTIFY_TIMEOUT_SEC if _no_local_adb() else 15
+    return FIRE_NOTIFY_TIMEOUT_SEC if _no_local_adb() else 4
 
 
 def adb_shell(*cmd):
@@ -152,6 +169,9 @@ def pulse(n):
     # Mac SSH presence budget (~30s). Skip torch; Mac already sets inversion.
     if _no_local_adb() or _quiet_presence():
         return
+    if tapi is not None:
+        tapi.pulse_torch(n, on_s=0.25, off_s=0.20, torch_timeout=2.0)
+        return
     for _ in range(n):
         run(["termux-torch", "on"], timeout=3)
         time.sleep(0.25)
@@ -161,6 +181,9 @@ def pulse(n):
 
 def _vibrate(ms: int) -> None:
     if _quiet_presence():
+        return
+    if tapi is not None:
+        tapi.vibrate(ms)
         return
     run(["termux-vibrate", "-d", str(ms)], timeout=3)
 
@@ -197,10 +220,23 @@ def later_active():
 
 
 def dialog_choice(args):
-    """Run termux-dialog (via `timeout`, matching the shell) and extract the
-    chosen text — the 4th field when the JSON line is split on double-quotes,
-    faithfully mirroring `awk -F '"' '/text/ {print $4}'`."""
-    r = run(["timeout", str(args[0])] + args[1:])
+    """Run termux-dialog and extract chosen text (4th "…" field).
+
+    Never SIGKILL the dialog client — that triggers ResultReturner toasts.
+    Soft-timeout orphans the process; treat as empty choice (caller decides).
+    """
+    # args[0] is countdown seconds when using the legacy [sec, termux-dialog, …]
+    # form; otherwise the whole list is the dialog argv.
+    if args and str(args[0]).isdigit() and len(args) > 1 and "termux-dialog" in str(args[1]):
+        limit = int(args[0]) + 2
+        cmd = list(args[1:])
+    else:
+        limit = 35
+        cmd = list(args)
+    if tapi is not None:
+        r = tapi.run(cmd, timeout=limit)
+    else:
+        r = run(cmd, timeout=limit)
     out = r.stdout if r else ""
     for line in out.splitlines():
         if "text" in line:
@@ -287,7 +323,7 @@ def request_screen(label, agent):
 
 
 def _notify_presence(title, content, button1=None, button1_action=None):
-    """Post ongoing presence notification; short timeout on Fire."""
+    """Post ongoing presence notification; short wait, never SIGKILL."""
     args = [
         "termux-notification", "--id", NID, "--ongoing", "--alert-once",
         "--priority", "high", "--icon", "developer_board",
@@ -295,7 +331,6 @@ def _notify_presence(title, content, button1=None, button1_action=None):
     ]
     if button1 and button1_action:
         args.extend(["--button1", button1, "--button1-action", button1_action])
-    # Fire: notification API can stall; don't block Mac SSH past ~5s.
     run(args, timeout=_notify_timeout())
 
 

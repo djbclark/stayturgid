@@ -56,14 +56,55 @@ def main():
         return 0
 
     changelog = _field(body, "changelog") or "Run ansible/mac/deploy_termux.py from your Mac"
+    # Never SIGKILL termux-notification — orphan on hang (ResultReturner).
     try:
-        subprocess.run(
-            ["termux-notification", "--id", "stayturgid-update",
-             "--title", "stayturgid %s on GitHub" % remote,
-             "--content", changelog, "--priority", "high", "--button", "OK"],
-            capture_output=True)
-    except OSError:
-        pass
+        lib = os.path.join(os.environ.get("HOME", ""), ".stayturgid", "lib")
+        shared = os.path.join(
+            os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+            "shared",
+        )
+        for p in (lib, shared):
+            if p and p not in sys.path and os.path.isdir(p):
+                sys.path.insert(0, p)
+        import termux_api as tapi  # noqa: WPS433
+
+        tapi.notify(
+            [
+                "termux-notification",
+                "--id",
+                "stayturgid-update",
+                "--title",
+                "stayturgid %s on GitHub" % remote,
+                "--content",
+                changelog,
+                "--priority",
+                "high",
+                "--button",
+                "OK",
+            ]
+        )
+    except Exception:
+        try:
+            subprocess.Popen(
+                [
+                    "termux-notification",
+                    "--id",
+                    "stayturgid-update",
+                    "--title",
+                    "stayturgid %s on GitHub" % remote,
+                    "--content",
+                    changelog,
+                    "--priority",
+                    "high",
+                    "--button",
+                    "OK",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+        except OSError:
+            pass
 
     _write(STAMP, remote + "\n")
     return 0
