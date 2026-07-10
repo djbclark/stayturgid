@@ -7,9 +7,23 @@
 > **Index:** [human/README.md](README.md) · Agent context: [HANDOFF.md](../HANDOFF.md)
 > · Open work: [OPTIONS.md](../OPTIONS.md)
 
-Last updated: **2026-07-09** (on-device post-UI + screen-control port)
+Last updated: **2026-07-09 night** (Ansible Track B + Makefile ops)
 
 ---
+
+## Session notes (2026-07-09 night) — agent completed
+
+These do **not** need operator action unless noted.
+
+| Area | Status |
+|------|--------|
+| Ansible validate + preflight | `stayturgid.fleet.validate`, `preflight.yml` in `site.yml`; SSH preflight out of `deploy_fleet.py` |
+| hd8 AutoJs6 deploy | `autojs6_project_deploy` module — full fleet path on Fire OS |
+| Makefile ops | `make help` (default), `make deploy`, `make health`, etc. |
+| Fleet health triage | Stale morning s24 LOST no longer fails `make health` when host is OK now |
+| Neo/Aurora | Still **parked** — no operator action to unpark |
+
+**Operator check (optional):** `make health` at session start; `make deploy HOSTS=s24` only when you want a live soak (announce first).
 
 ## Session notes (2026-07-09) — agent completed
 

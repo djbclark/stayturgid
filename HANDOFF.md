@@ -118,24 +118,34 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 
 ## 🚦 Cold-start — current state (read this first)
 
-**As of 2026-07-09.** Three-device fleet: **s24**, **p7a**, **hd8**.
+**As of 2026-07-09 night.** Three-device fleet: **s24**, **p7a**, **hd8**.
 On-device post-UI prefers SSH on s24/p7a via Termux `localhost:5555`, with
 automatic Mac adb fallback if SSH-invoke fails. hd8 is Mac adb only.
-See [OPTIONS.md](OPTIONS.md).
-
-**Fleet health:**
+See [OPTIONS.md](OPTIONS.md). **Fleet health:** `make health` → exit 0 (all
+hosts OK; s24 had a resolved morning access-monitor LOST — informational only).
 
 | Host | Verify | Mac adb | Notes |
 |------|--------|---------|-------|
 | s24 | **16/16 PASS** (post deploy soak) | USB / LAN / Tailscale | Lab reference; drawer **46** closed |
 | p7a | **16/16** (last run) | mDNS + Tailscale | may need Tailscale/USB when offline |
-| hd8 | **16/16 PASS** (Fire OS) | **USB** + wireless | No Termux→5555; Mac adb post-UI |
+| hd8 | **16/16 PASS** (Fire OS) | **USB** + wireless | No Termux→5555; Mac adb post-UI; `autojs6_project_deploy` |
+
+**Recent landings (2026-07-09 night — Ansible batch):**
+- **Track B closed:** `stayturgid.fleet.validate` role (repair/sshd/a11y + optional a11y drift);
+  `preflight.yml` (SSH probe + conditional adb bootstrap) in `site.yml`; SSH preflight removed
+  from `deploy_fleet.py`.
+- **`autojs6_project_deploy`** module + shared util — hd8 full fleet deploy path; `autojs6/mac/deploy.py`
+  thin wrapper retained.
+- **`make help`** + operational targets (`deploy`, `deploy-check`, `health`, `collections`, `syntax`, etc.).
+- **`make health` fix:** stale access-monitor LOST for hosts currently OK no longer fails exit 1
+  (`mac/check_fleet_health.py` + tests).
+- Docs sweep: ADR 002, adoption notes, consumer template, `play_store` → `play_apps` in examples.
 
 **Recent landings (2026-07-09):**
 - Neo/Aurora **parked** from active fleet deploy, Obtainium catalog, gui-audit, and fleet-health.
 - Post-UI routing: `post_ui_remote.run_with_mac_fallback` — SSH-first on s24/p7a, Mac adb on failure; hd8 Mac-only.
 - On-device deterministic GUI: `termux/py/stayturgid_{import_catalog,enable_autojs6,screen_control,shell,grant_shizuku}.py` + `~/.stayturgid/lib/`.
-- Portfolio 2 `site.yml` + thin `deploy_fleet.py`; ADR 001.
+- Portfolio 2 `site.yml` + thin `deploy_fleet.py`; ADR 001–002; `android_ui` + `post_ui` + `android_a11y_services`.
 - Mac soft health: launchd `com.stayturgid.fleet-health` → `mac/fleet_health_monitor.py` + `shared/mac/fleet_health.py` (watchdog/repair/a11y/sshd/bootloop); log `~/.config/stayturgid/logs/fleet-health.log`; notify after debounce.
 - shell-gpt / local LLM (incubator): [docs/incubator/on-device-llm.md](docs/incubator/on-device-llm.md) (OPTIONS **54** only if asked).
 - Parked side projects: [docs/incubator/](docs/incubator/) — Inferno/Styx **do not implement**.
@@ -337,11 +347,14 @@ ansible_collections/stayturgid/
   termux/roles/termux_userland
   fleet/roles/autojs6_watchdog, post_ui, validate
   obtainium/roles/obtainium_apps
-  fdroid/roles/fdroid_repos, play/roles/play_store
+  fdroid/roles/fdroid_repos, play/roles/play_apps
   android_common/roles/app_privileges, tailscale_vpn
+  android_common/plugins/modules/autojs6_project_deploy.py, android_ui, android_a11y_services
 obtainium/                   — stayturgid-apps.json catalog + mac/ import helpers
-fdroid/, play/               — parked app-store docs                  — stayturgid_device.py, resolve_adb.py, adb_cli.py (Shizuku JSON patcher + UI parsing)
-mac/                         — adb_reconnect.py, access_monitor.py, deploy_fleet.py (launchd via ansible mac.yml)
+fdroid/, play/               — parked app-store docs (roles gated off in fleet.yml)
+shared/mac/                  — stayturgid_device.py, resolve_adb.py, adb_cli.py, screen_control.py
+mac/                         — adb_reconnect.py, access_monitor.py, deploy_fleet.py, check_fleet_health.py
+Makefile                     — make help (default), deploy, health, verify, collections, syntax
 tests/                       — device_tier.py + python/ (pytest twins) + test-*.sh TAP harness; Makefile, configure
 version.json                 — repo release version + changelog
 ```
@@ -371,7 +384,8 @@ version.json                 — repo release version + changelog
 
 ## Changelog (condensed, reverse chronological — git history has full detail)
 
-- **2026-07-09** — Fire OS peer fallbacks F1–F5: boot keepalive (Shizuku+Handsets), Mac as last peer, launchd `com.stayturgid.fire-help`, ForceCommand `id_ed25519_peerhelp` on helpers/Mac. See `docs/research/fire-os-local-adb.md`.
+- **2026-07-09 night** — Ansible Track B closed: `stayturgid.fleet.validate`, `preflight.yml`, `autojs6_project_deploy`; `make help` + fleet Makefile targets; `make health` stale LOST fix; docs sweep (ADR 002, consumers, parked stores). Commits `5e2b05c`…`4aab300` on `master`.
+- **2026-07-09** — Fire OS peer fallbacks F1–F5: boot keepalive (Shizuku+Handsets), Mac as last peer, launchd `com.stayturgid.fire-help`, ForceCommand `id_ed25519_peerhelp` on helpers/Mac. See `docs/research/fire-os-local-adb.md`. Neo/Aurora parked; ADR 002 + `android_ui`/`post_ui`/`android_a11y_services`; on-device post-UI + screen-control port.
 - **2026-07-08** — Test/CI batch: log.js ensureDir tests, deploy_fleet/adb_cli mocked flows, in-collection `adb_resolve` units, TCP-probe gate for wireless `adb connect`, tailscale-down abort guard. OPTIONS.md simplified to single open-items list. hd8 verify 16/16 with Fire OS notes; p7a adb intermittently offline.
 - **2026-07-07** — Fleet recovery: s24/p7a AutoJs6 `pm clear` reset → `make verify` green. **hd8** (Kindle Fire HD 8) added to fleet. Fire OS support: `stayturgid_sd_root` override, `STAYTURGID_SD` env file, dual-path device-tier checks, AutoJs6 deploy via `adb push`. Ansible taxonomy: `android_11`, `vendor_amazon`, `model_kindle_hd8`. adb auto-failover, mirror-pin fix, tailscale-down regression fix on s24.
 - **2026-07-07** — F-Droid/Neo Store + Play/Aurora support added (`fdroidcl` + `gplaycli` on Mac). Later integrated into `fleet.yml` (2026-07-07). Modules/roles: repo ensure in fdroidcl, `fdroidrepos://` intents, Shizuku grant, Aurora catalog + automated setup.
@@ -384,21 +398,21 @@ version.json                 — repo release version + changelog
 
 ## Appendix — Strategic directions (equal weight)
 
-> **For agents:** Ansible consolidation is a **first-class option**, not a
-> deferred research item. Compare it alongside operational work, reliability
-> hardening, and staying on the current hybrid. Pick based on operator priority
-> and fleet risk — see [OPTIONS.md](OPTIONS.md) for the open menu.
+> **For agents:** Ansible consolidation **shipped** for the 80/20 fleet path
+> (`site.yml`, validate, preflight, post-UI modules). Remaining open work is
+> operational (H5/38 Galaxy), latent reliability (43–45), or optional LLM spike
+> (54) — see [OPTIONS.md](OPTIONS.md).
 
-The current hybrid (Mac Python + partial Ansible + on-device AutoJs6 +
-Obtainium UI scripts) is **working production**. Three directions are all valid
-next investments:
+The fleet runs on **Ansible-first deploy** (`make deploy` → `site.yml`) with thin
+Mac wrappers for health, ADB reconnect, and screen-control UI. Directions still
+valid for future investment:
 
 | Track | Summary | Best when… |
 |-------|---------|------------|
-| **A — Operational** | Deploy, verify, human unblockers (H1–H3, item 46) | Fleet drift or untested landings need a live soak |
-| **B — Ansible-native** | `site.yml` composition, more modules/roles, thin `deploy_fleet.py` | You want one idempotent graph, Galaxy-ready collections, less orchestration scatter |
-| **C — Hybrid polish** | Keep `deploy_fleet.py` orchestrator; dedupe scripts, fix ordering, incremental modules only | Lowest risk; Ansible grows only where pain is acute |
-| **D — Python orchestrator** | Replace Ansible boundary with Fabric/Invoke + shared `adb_cli` / `screen_control` | UI-heavy flows dominate and YAML becomes friction |
+| **A — Operational** | Deploy soak, human unblockers (H5, 38) | Fleet drift or Galaxy publish wanted |
+| **B — Ansible-native** | ✅ Shipped — optional Galaxy publish (38) only | — |
+| **C — Hybrid polish** | Incremental module/role fixes without re-architecting | Lowest risk tweaks to existing graph |
+| **D — Python orchestrator** | Replace Ansible boundary with Fabric/Invoke | Unlikely — YAML graph is working |
 | **E — On-device LLM** | shell-gpt escalation after deterministic heal; see [docs/incubator/on-device-llm.md](docs/incubator/on-device-llm.md) | Rare adaptive repair; never hot-path |
 
 **Parked (not equal-weight):** Inferno/Styx and similar experiments live under
@@ -429,9 +443,9 @@ first-run, AutoJs6 drawer — not fake “modules” for UI taps.
 | SSH mesh (steady state) | ✅ `authorized_key` + `known_hosts` in role | Yes |
 | App privileges | ✅ `stayturgid.android_common.app_privileges` in `fleet.yml` | Yes |
 | Shizuku install/grant | `shizuku_grant` module + Mac helpers | Mostly yes |
-| Obtainium catalog | `obtainium_app` render + `import_catalog.py` UI | Split (render yes, import script) |
-| AutoJs6 deploy | `autojs6_watchdog` role + `autojs6_project_deploy` (Fire adb) | Mostly yes |
-| Post-deploy UI | `enable_autojs6_shizuku.py` (Aurora configure parked) | Tagged `script:` steps |
+| Obtainium catalog | `obtainium_app` render + `android_ui` / `post_ui` role | Yes (render + tagged UI steps) |
+| AutoJs6 deploy | `autojs6_watchdog` + `autojs6_project_deploy` (all hosts) | Yes |
+| Post-deploy UI | `stayturgid.fleet.post_ui` + `android_ui` module | Yes (Aurora configure parked) |
 | ADB reconnect launchd | `adb_reconnect.py` + `mac.yml` | localhost role |
 | Validation | `device_tier.py` + TAP + `stayturgid_repair_check` | `stayturgid.fleet.validate` role |
 

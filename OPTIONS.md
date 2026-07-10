@@ -23,10 +23,11 @@
 > Parked side projects: [docs/incubator/](docs/incubator/) — **do not implement**
 > unless the operator unparks a named project (Inferno, etc.).
 
-**Fleet snapshot (2026-07-09 night):** Neo Store + Aurora **parked** — not in
-Obtainium catalog, deploy, gui-audit, or fleet-health. Core stack = Termux +
-AutoJs6 + Obtainium + Tailscale. Screen-control holds inversion with keepalive
-across dependent UI steps.
+**Fleet snapshot (2026-07-09 night, post Ansible batch):** `make health` → exit 0
+(all hosts OK). Neo Store + Aurora **parked** — not in Obtainium catalog, deploy,
+gui-audit, or fleet-health. Core stack = Termux + AutoJs6 + Obtainium + Tailscale.
+Deploy = `make deploy` → `site.yml` (preflight → fleet → post-ui → validate).
+Track B Ansible-native items **closed** (58–61); open menu = H5/38, 43–45, 54.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
@@ -130,9 +131,10 @@ API; Tasker rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal;
 always-on Ollama in Termux:Boot; **any Inferno/`emu`/Styx work** (parked under
 [docs/incubator/inferno-styx/](docs/incubator/inferno-styx/)).
 
-**Closed (2026-07-09 night):** **58–59** ADR 002 + `android_ui` / `post_ui` /
-`android_a11y_services`. Neo/Aurora parked. **Closed (2026-07-09 evening):** Aurora CPU thrash policy
-documented; screen-control hold rule.
+**Closed (2026-07-09 night):** **60–61** validate role + preflight + `autojs6_project_deploy`;
+`make help`/Makefile ops; `make health` stale LOST fix; docs sweep. **58–59** ADR 002 +
+`android_ui` / `post_ui` / `android_a11y_services`. Neo/Aurora parked.
+**Closed (2026-07-09 evening):** Aurora CPU thrash policy documented; screen-control hold rule.
 **Closed (2026-07-09):** **15b**, **H1**, **H3**, **56**, **46**, **55**, **27**,
 **57**, Portfolio 2 **48–52**/53, co-monitor + Mac AutoJs6 heal, Fire F1–F5,
 self-heal agent rule.
