@@ -34,7 +34,7 @@ def _fake_run(cmd_results=None):
 
 def _seed_project(tmp_path):
     root = tmp_path / "repo"
-    proj = root / "autojs6"
+    proj = root / "device" / "autojs6"
     (proj / "lib").mkdir(parents=True)
     (proj / "scripts").mkdir(parents=True)
     (proj / "project.json").write_text("{}")

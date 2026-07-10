@@ -1,9 +1,9 @@
-"""Unit tests for mac/deploy_fleet.py — site.yml argv building and deploy wrapper."""
+"""Unit tests for control/bin/deploy_fleet.py — site.yml argv building and deploy wrapper."""
 import os
 import sys
 
 sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "mac"))
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "bin"))
 import deploy_fleet as df  # noqa: E402
 
 
@@ -18,9 +18,18 @@ def test_parse_inventory_hosts():
     assert df.parse_inventory_hosts(INVENTORY_JSON) == ["s24", "hd8", "p7a"]
 
 
-def test_build_playbook_argv_full():
-    cmd = df.build_playbook_argv(limit=["s24", "hd8"], check=False, tags=None)
-    assert cmd == [
+def test_run_playbook_argv_full(monkeypatch):
+    seen = []
+
+    def fake_run(cmd, **kwargs):
+        seen.append(cmd)
+        class R:
+            returncode = 0
+        return R()
+
+    monkeypatch.setattr(df.subprocess, "run", fake_run)
+    df.run_playbook(df.SITE_PLAYBOOK, limit=["s24", "hd8"], check=False, tags=None)
+    assert seen[0] == [
         "ansible-playbook",
         str(df.SITE_PLAYBOOK),
         "--limit",
@@ -28,14 +37,32 @@ def test_build_playbook_argv_full():
     ]
 
 
-def test_build_playbook_argv_skip_tags():
-    cmd = df.build_playbook_argv(limit=["s24"], check=False, tags=None, skip_tags="bootstrap")
-    assert cmd[-2:] == ["--skip-tags", "bootstrap"]
+def test_run_playbook_argv_skip_tags(monkeypatch):
+    seen = []
+
+    def fake_run(cmd, **kwargs):
+        seen.append(cmd)
+        class R:
+            returncode = 0
+        return R()
+
+    monkeypatch.setattr(df.subprocess, "run", fake_run)
+    df.run_playbook(df.SITE_PLAYBOOK, limit=["s24"], check=False, tags=None, skip_tags="bootstrap")
+    assert seen[0][-2:] == ["--skip-tags", "bootstrap"]
 
 
-def test_build_playbook_argv_check_and_tags():
-    cmd = df.build_playbook_argv(limit=["s24"], check=True, tags="app-stores")
-    assert cmd == [
+def test_run_playbook_argv_check_and_tags(monkeypatch):
+    seen = []
+
+    def fake_run(cmd, **kwargs):
+        seen.append(cmd)
+        class R:
+            returncode = 0
+        return R()
+
+    monkeypatch.setattr(df.subprocess, "run", fake_run)
+    df.run_playbook(df.SITE_PLAYBOOK, limit=["s24"], check=True, tags="app-stores")
+    assert seen[0] == [
         "ansible-playbook",
         str(df.SITE_PLAYBOOK),
         "--limit",
@@ -71,7 +98,7 @@ def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0):
     monkeypatch.setattr(df, "warn_prerequisites", lambda scope: None)
     monkeypatch.setattr(df, "install_collections", lambda: None)
 
-    def run_playbook(*, limit, check, tags, skip_tags=None):
+    def run_playbook(playbook, *, limit=None, check, tags, skip_tags=None, extra_vars=None):
         calls.append(("playbook", tags, check, skip_tags))
         return playbook_rc
 
@@ -83,7 +110,10 @@ def test_deploy_skips_bootstrap_tag(monkeypatch):
     _stub_deploy_deps(monkeypatch, calls)
     rc = df.deploy(df.Scope.FULL, ["s24"], check=False)
     assert rc == 0
-    assert calls == [("playbook", None, False, "bootstrap")]
+    assert calls == [
+        ("playbook", None, False, "bootstrap"),
+        ("playbook", "mac", False, None),
+    ]
 
 
 def test_deploy_check_does_not_skip_bootstrap_tag(monkeypatch):
@@ -91,7 +121,10 @@ def test_deploy_check_does_not_skip_bootstrap_tag(monkeypatch):
     _stub_deploy_deps(monkeypatch, calls)
     rc = df.deploy(df.Scope.FULL, ["s24"], check=True)
     assert rc == 0
-    assert calls == [("playbook", None, True, None)]
+    assert calls == [
+        ("playbook", None, True, None),
+        ("playbook", "mac", True, None),
+    ]
 
 
 def test_deploy_playbook_failure(monkeypatch):
@@ -99,7 +132,10 @@ def test_deploy_playbook_failure(monkeypatch):
     _stub_deploy_deps(monkeypatch, calls, playbook_rc=2)
     rc = df.deploy(df.Scope.FULL, ["s24"], check=False)
     assert rc == 2
-    assert calls == [("playbook", None, False, "bootstrap")]
+    assert calls == [
+        ("playbook", None, False, "bootstrap"),
+        ("playbook", "mac", False, None),
+    ]
 
 
 def test_deploy_check_skips_bootstrap(monkeypatch):
@@ -107,7 +143,10 @@ def test_deploy_check_skips_bootstrap(monkeypatch):
     _stub_deploy_deps(monkeypatch, calls)
     rc = df.deploy(df.Scope.FDROID, ["s24"], check=True)
     assert rc == 0
-    assert calls == [("playbook", "fdroid", True, None)]
+    assert calls == [
+        ("playbook", "fdroid", True, None),
+        ("playbook", "mac", True, None),
+    ]
 
 
 def test_load_play_env_merges_missing_keys(tmp_path, monkeypatch):

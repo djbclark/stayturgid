@@ -1,9 +1,9 @@
-"""Keep shared/fleet_app_profiles.json aligned with role defaults mirror."""
+"""Keep control/lib/fleet_app_profiles.json aligned with role defaults mirror."""
 import json
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-JSON_PATH = REPO / "shared" / "fleet_app_profiles.json"
+JSON_PATH = REPO / "control" / "lib" / "fleet_app_profiles.json"
 
 
 def test_fleet_app_profiles_json_is_valid():

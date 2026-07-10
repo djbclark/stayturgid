@@ -176,13 +176,13 @@ Does not need shell UID. Already the Termux fallback when Handsets is disabled.
 
 | Piece | Path |
 |-------|------|
-| rish install (default deploy) | `termux/py/stayturgid_rish.py` → `~/.stayturgid/bin/rish` |
+| rish install (default deploy) | `device/termux/py/stayturgid_rish.py` → `~/.stayturgid/bin/rish` |
 | Shared fleet ADB key | Mac `~/.config/stayturgid/adbkey` → device `~/.stayturgid/adbkey-fleet` |
 | Helper (phones) | `stayturgid_peer_help.py` (`ADB_VENDOR_KEYS=…/adbkey-fleet`) |
-| Helper (Mac) | `mac/fire_peer_help.py` |
+| Helper (Mac) | `control/bin/fire_peer_help.py` |
 | Asker | `stayturgid_peer_bootstrap.py` + `~/.stayturgid/peers` (phones + Mac) |
 | Keepalive (F1/F2) | `stayturgid_peer_keepalive.py` from boot loop when `NO_LOCAL_ADB` |
-| Mac launchd (F4) | `com.stayturgid.fire-help` → `mac/fire_help_monitor.py` |
+| Mac launchd (F4) | `com.stayturgid.fire-help` → `control/bin/fire_help_monitor.py` |
 | ForceCommand (F5) | `stayturgid-peer-help-force.sh` on helpers; Mac `authorized_keys` → `fire_peer_help.py` |
 | Handsets integration | `stayturgid_handsets.start()` peer path when `STAYTURGID_NO_LOCAL_ADB=1` |
 

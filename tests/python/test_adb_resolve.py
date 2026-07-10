@@ -1,4 +1,4 @@
-"""Parity tests for Ansible adb_resolve vs shared/mac/stayturgid_device."""
+"""Parity tests for Ansible adb_resolve vs control/lib/stayturgid_device."""
 import importlib.util
 import os
 import sys
@@ -13,7 +13,7 @@ adb_resolve = importlib.util.module_from_spec(_spec)
 assert _spec.loader is not None
 _spec.loader.exec_module(adb_resolve)
 
-sys.path.insert(0, str(Path(REPO) / "shared" / "mac"))
+sys.path.insert(0, str(Path(REPO) / "control" / "lib"))
 import stayturgid_device as dev  # noqa: E402
 
 

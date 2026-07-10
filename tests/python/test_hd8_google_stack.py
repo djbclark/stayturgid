@@ -4,7 +4,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "shared" / "mac"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "control" / "lib"))
 import hd8_google_stack as hgs  # noqa: E402
 
 

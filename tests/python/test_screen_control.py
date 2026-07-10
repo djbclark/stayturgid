@@ -1,10 +1,10 @@
-"""Unit tests for shared/mac/screen_control.py input gating."""
+"""Unit tests for control/lib/screen_control.py input gating."""
 import os
 import sys
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "shared", "mac"))
+    "control", "lib"))
 import screen_control as sc  # noqa: E402
 
 

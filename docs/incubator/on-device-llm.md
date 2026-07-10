@@ -3,7 +3,7 @@
 **Status:** Incubator note (2026-07-09) — optional future spike; not implemented.  
 **Location:** `docs/incubator/` (speculative). Production-adjacent UI/ADB notes
 stay in `docs/research/`.  
-**Audience:** [OPTIONS.md](../../OPTIONS.md) item **54** / track **E** when
+**Audience:** [docs/options.md](../../docs/options.md) item **54** / track **E** when
 deliberately picked — not default agent work.
 
 ## Recommendation
@@ -58,5 +58,5 @@ Reported mobile speeds (order of magnitude, CPU/Adreno): **1–1.5B ~30+ tok/s**
 - Always-on Ollama in Termux:Boot (battery + RAM)
 - LLM-driven Obtainium/Aurora/AutoJs6 drawer flows (deterministic on-device scripts own those)
 
-**Mac vision gates (UI-TARS)** are separate from on-device LLM: see [VLM.md](../../VLM.md).
+**Mac vision gates (UI-TARS)** are separate from on-device LLM: see [docs/vlm.md](../../docs/vlm.md).
 Screenshot verification on the Mac; not a replacement for Handsets navigation.

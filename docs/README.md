@@ -6,23 +6,25 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 
 | Module | README | Use when you want… |
 |--------|--------|-------------------|
-| Termux scripts | [termux/README.md](../termux/README.md) | Boot self-heal, repair script, presence indicator |
+| Termux runtime | [docs/modules/termux.md](modules/termux.md) | Boot self-heal, repair script, presence indicator |
 | Ansible | [ansible/README.md](../ansible/README.md) | Idempotent Termux deploy over SSH |
-| Mac tools | [mac/README.md](../mac/README.md) | ADB reconnect launchd, outage monitor |
-| AutoJs6 | [autojs6/README.md](../autojs6/README.md) | JS watchdog (only automation stack in repo) |
-| Obtainium | [obtainium/README.md](../obtainium/README.md) | GitHub APK catalog and updates |
-| F-Droid / Neo Store | [fdroid/README.md](../fdroid/README.md) | F-Droid repos + Neo Store (**parked** by default) |
-| Play / Aurora Store | [play/README.md](../play/README.md) | Aurora + apkeep/gplaycli (**parked** by default) |
-| Shared helpers | [shared/README.md](../shared/README.md) | `resolve-adb`, repo-root discovery |
+| Control node | [docs/modules/control.md](modules/control.md) | ADB reconnect launchd, outage monitor, deploy |
+| AutoJs6 | [docs/modules/autojs6.md](modules/autojs6.md) | JS watchdog (only automation stack in repo) |
+| Obtainium | [docs/modules/obtainium.md](modules/obtainium.md) | GitHub APK catalog and updates |
+| F-Droid / Neo Store | [docs/modules/fdroid.md](modules/fdroid.md) | F-Droid repos + Neo Store (**parked** by default) |
+| Play / Aurora Store | [docs/modules/play.md](modules/play.md) | Aurora + apkeep/gplaycli (**parked** by default) |
+| Shared libraries | [control/lib/README.md](../control/lib/README.md) | `resolve-adb`, repo-root discovery, UI parse |
 
 ## Project-wide
 
 | Doc | Audience |
 |-----|----------|
 | [README.md](../README.md) | Everyone — hub + full-stack quick path |
-| [HACKING.md](../HACKING.md) | Developers — clean install, Obtainium, Termux swap |
-| [HANDOFF.md](../HANDOFF.md) | AI agents / maintainers — **session start:** `make health` |
-| [OPTIONS.md](../OPTIONS.md) | Open work menu |
+| [docs/hacking.md](hacking.md) | Developers — clean install, Obtainium, Termux swap |
+| [docs/handoff.md](handoff.md) | AI agents / maintainers — **session start:** `make health` |
+| [docs/options.md](options.md) | Open work menu |
+| [docs/other-sites.md](other-sites.md) | Multi-site adoption, control-node OS matrix |
+| [docs/vlm.md](vlm.md) | UI-TARS vision gates |
 | [adr/001-ansible-boundary.md](adr/001-ansible-boundary.md) | Ansible 80/20 boundary (ADR 001) |
 | [adr/002-ansible-ui-tasks.md](adr/002-ansible-ui-tasks.md) | UI tasks vs modules (ADR 002) |
 | [../ansible_collections/docs/roles/validate.md](../ansible_collections/docs/roles/validate.md) | Post-deploy validate role |
@@ -53,13 +55,13 @@ Speculative / alternate architectures. Index:
 
 | Path | Notes |
 |------|--------|
-| [version.json](../version.json) | Repo release version; optional `termux/check-repo-version.sh` notifier |
+| [version.json](../version.json) | Repo release version; optional on-device version notifier |
 | [examples/](../examples/) | Consumer Ansible playbooks (shipping patterns) |
 
 ## Typical combinations
 
-- **Termux only:** `termux/` + manual Shizuku
+- **Termux only:** `device/termux/` + manual Shizuku
 - **Termux + Ansible:** `ansible/` + SSH keys
-- **Full stack:** `termux/` + `autojs6/` + `obtainium/` + `mac/` + `make deploy`
+- **Full stack:** `device/termux/` + `device/autojs6/` + `catalogs/obtainium/` + `control/bin/` + `make deploy`
   (Neo/Aurora app stores **parked** unless `stayturgid_app_stores_enabled: true`)
-- **Obtainium only:** `obtainium/` — APK updates without stayturgid watchdog
+- **Obtainium only:** `catalogs/obtainium/` — APK updates without stayturgid watchdog

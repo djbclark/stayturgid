@@ -8,14 +8,14 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 
 | Module | Path | Standalone? | README |
 |--------|------|-------------|--------|
-| **Termux scripts** | `termux/` | Yes — repair, boot loop, presence | [termux/README.md](termux/README.md) |
+| **Termux runtime** | `device/termux/` | Yes — repair, boot loop, presence | [docs/modules/termux.md](docs/modules/termux.md) |
 | **Ansible deploy** | `ansible/` | Yes — Termux over SSH only | [ansible/README.md](ansible/README.md) |
-| **Mac ADB keepalive** | `mac/` | Yes — launchd reconnect + outage alert | [mac/README.md](mac/README.md) |
-| **AutoJs6 watchdog** | `autojs6/` | Yes — needs Termux repair scripts | [autojs6/README.md](autojs6/README.md) |
-| **Obtainium catalogs** | `obtainium/` | Yes — any Obtainium user | [obtainium/README.md](obtainium/README.md) |
-| **F-Droid / Neo Store** | `fdroid/` + `stayturgid.fdroid` collection | Parked — manual / `--scope fdroid` when re-enabled | [fdroid/README.md](fdroid/README.md) |
-| **Play / Aurora Store** | `stayturgid.play` collection | Parked — manual / `--scope play` when re-enabled | [ansible_collections/stayturgid/play/README.md](ansible_collections/stayturgid/play/README.md) |
-| **Shared Mac helpers** | `shared/` | Yes — `resolve-adb` only | [shared/README.md](shared/README.md) |
+| **Control node** | `control/bin/` | Yes — launchd reconnect + outage alert | [docs/modules/control.md](docs/modules/control.md) |
+| **AutoJs6 watchdog** | `device/autojs6/` | Yes — needs Termux repair scripts | [docs/modules/autojs6.md](docs/modules/autojs6.md) |
+| **Obtainium catalogs** | `catalogs/obtainium/` | Yes — any Obtainium user | [docs/modules/obtainium.md](docs/modules/obtainium.md) |
+| **F-Droid / Neo Store** | `stayturgid.fdroid` collection | Parked — manual / `--scope fdroid` when re-enabled | [docs/modules/fdroid.md](docs/modules/fdroid.md) |
+| **Play / Aurora Store** | `stayturgid.play` collection | Parked — manual / `--scope play` when re-enabled | [docs/modules/play.md](docs/modules/play.md) |
+| **Shared libraries** | `control/lib/` | Yes — `resolve-adb`, UI parse, fleet health | [control/lib/README.md](control/lib/README.md) |
 
 ---
 
@@ -25,10 +25,10 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 |----------|---------|
 | [docs/README.md](docs/README.md) | Documentation index |
 | [docs/incubator/](docs/incubator/) | Parked side projects (Inferno, etc.) — do not implement |
-| [HACKING.md](HACKING.md) | Developer setup, clean install, Obtainium, Termux swap |
-| [HANDOFF.md](HANDOFF.md) | Maintainer / AI handoff — includes mandatory Mac fleet-health triage |
+| [docs/hacking.md](docs/hacking.md) | Developer setup, clean install, Obtainium, Termux swap |
+| [docs/handoff.md](docs/handoff.md) | Maintainer / AI handoff — includes mandatory Mac fleet-health triage |
 | [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md) | Operator tasks (credentials, deploy approval) — human-only |
-| [OPTIONS.md](OPTIONS.md) | Next-work menu — agents append + push when operator asks for options |
+| [docs/options.md](docs/options.md) | Next-work menu — agents append + push when operator asks for options |
 | [version.json](version.json) | Repo release version (Ansible / manual deploy) |
 
 ---
@@ -36,18 +36,18 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 ## Full stack (quick path)
 
 1. Shizuku (thedjchi fork) — TCP mode, wireless debugging
-2. Termux + Termux:Boot + Termux:API — [termux/README.md](termux/README.md) or `./ansible/mac/deploy_termux.py <host>`
-3. AutoJs6 watchdog — [autojs6/README.md](autojs6/README.md) (`setup_autojs6.py`, `set_automation_mode.py`, `start_watchdog.py`)
-4. Obtainium catalog — [obtainium/README.md](obtainium/README.md)
-5. Mac — [mac/README.md](mac/README.md) (ADB reconnect + access monitor)
+2. Termux + Termux:Boot + Termux:API — [docs/modules/termux.md](docs/modules/termux.md) or `./control/bin/deploy_termux.py <host>`
+3. AutoJs6 watchdog — [docs/modules/autojs6.md](docs/modules/autojs6.md) (`control/tools/autojs6/setup_autojs6.py`, etc.)
+4. Obtainium catalog — [docs/modules/obtainium.md](docs/modules/obtainium.md)
+5. Control node — [docs/modules/control.md](docs/modules/control.md) (ADB reconnect + access monitor)
 
 **One command (fleet):** `make deploy` — Termux, AutoJs6, Obtainium, Tailscale, optional ensure_apps.
 
-(`./mac/deploy_fleet.py` is the same; `make help` lists all targets.)
+(`./control/bin/deploy_fleet.py` is the same; `make help` lists all targets.)
 
-Neo Store / Aurora Store are **parked** (not in active deploy); see [fdroid/README.md](fdroid/README.md) and [play/README.md](play/README.md) to re-enable.
+Neo Store / Aurora Store are **parked** (not in active deploy); see [docs/modules/fdroid.md](docs/modules/fdroid.md) and [docs/modules/play.md](docs/modules/play.md) to re-enable.
 
-**Partial re-runs:** `./mac/deploy_fleet.py --scope fdroid [host]` · `./mac/deploy_fleet.py --scope play [host]` (no-op while app stores are parked)
+**Partial re-runs:** `./control/bin/deploy_fleet.py --scope fdroid [host]` · `./control/bin/deploy_fleet.py --scope play [host]` (no-op while app stores are parked)
 
 ---
 
@@ -67,7 +67,7 @@ After each cold reboot and PIN unlock:
 ssh s24    # or: ssh p7a
 ```
 
-Requires SSH keys on the Mac control node (`~/.ssh/*.pub` auto-synced to every device; bootstrap with `./mac/bootstrap_ssh.py` when SSH is not up yet). Tailscale or `adb forward tcp:8022 tcp:8022`. See [HACKING.md](HACKING.md).
+Requires SSH keys on the Mac control node (`~/.ssh/*.pub` auto-synced to every device; bootstrap with `./control/bin/bootstrap_ssh.py` when SSH is not up yet). Tailscale or `adb forward tcp:8022 tcp:8022`. See [docs/hacking.md](docs/hacking.md).
 
 ---
 
@@ -75,8 +75,20 @@ Requires SSH keys on the Mac control node (`~/.ssh/*.pub` auto-synced to every d
 
 ```
 stayturgid/
-  README.md  docs/README.md  HACKING.md  HANDOFF.md
-  termux/  ansible/  mac/  shared/  autojs6/  obtainium/
+  README.md
+  docs/                     — narrative docs + ADRs + module READMEs (+ architecture.md)
+  control/
+    bin/                    — operator scripts (deploy, monitors, verify)
+    lib/                    — shared Python + fleet JSON profiles
+    vlm/                    — UI-TARS sidecar
+    tools/                  — per-domain Mac helpers (autojs6, obtainium, …)
+  device/
+    termux/                 — on-device Termux runtime (boot, py, bin)
+    autojs6/                — AutoJs6 project (main.js, lib, scripts)
+  catalogs/obtainium/       — Obtainium JSON catalogs
+  ansible/                  — site playbooks, inventory, control_node role
+  ansible_collections/      — stayturgid.* Galaxy collections
+  examples/  tests/  human/
   version.json
 ```
 
@@ -85,5 +97,5 @@ stayturgid/
 ## Tested on
 
 - Google Pixel 7a, Samsung Galaxy S24 (SM-S921U1), Android 16
-- Amazon Kindle Fire HD 8 (Fire OS 11) — see [HANDOFF.md](HANDOFF.md) for hd8 quirks
+- Amazon Kindle Fire HD 8 (Fire OS 11) — see [docs/handoff.md](docs/handoff.md) for hd8 quirks
 - Shizuku thedjchi fork · AutoJs6 6.7.0 · Termux GitHub-debug stack

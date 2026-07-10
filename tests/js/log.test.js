@@ -1,5 +1,5 @@
 /**
- * Unit tests for autojs6/lib/log.js under node, with a files{} shim standing
+ * Unit tests for device/autojs6/lib/log.js under node, with a files{} shim standing
  * in for the AutoJs6 global. Emits TAP. Exit 0 = pass.
  *
  * Covers CODE-REVIEW.md L12: timestamps must parse as local time via
@@ -36,8 +36,8 @@ function stamp(d) {
         + " " + p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
 }
 
-var config = require(path.join(repo, "autojs6", "lib", "config.js"));
-var log = require(path.join(repo, "autojs6", "lib", "log.js"));
+var config = require(path.join(repo, "device", "autojs6", "lib", "config.js"));
+var log = require(path.join(repo, "device", "autojs6", "lib", "log.js"));
 
 // parseStatusLine
 var s = log.parseStatusLine(

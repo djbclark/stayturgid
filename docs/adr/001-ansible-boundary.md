@@ -18,11 +18,11 @@ Target split: **~80% Ansible / ~20% scripts + on-device logic**.
 | Pre-SSH bootstrap | `termux_ssh_bootstrap` + `preflight.yml` / `bootstrap.yml` |
 | Termux packages, files, sshd, SSH mesh | `termux_userland` role |
 | VPN, app stores, privileges | domain roles + adb modules |
-| Deploy orchestration | `site.yml` (preflight → bootstrap → fleet → post-ui → app-stores re-pass → validate → mac-site) |
+| Deploy orchestration | `site.yml` (preflight → bootstrap → fleet → post-ui → app-stores re-pass → validate → control_node/site) |
 | Post-deploy checks | `stayturgid.fleet.validate` + `stayturgid_repair_check` |
-| Mac Homebrew prereqs | `mac-prereqs.yml` (`community.general.homebrew`) |
-| Mac launchd + conf | `mac.yml` + `mac-site.yml` (localhost) |
-| Mac VLM sidecar (optional) | `mac-vlm.yml` (brew `llama.cpp`, models, launchd install + `vlm-ensure` health) |
+| Mac Homebrew prereqs | `control_node/prereqs.yml` (`community.general.homebrew`) |
+| Mac launchd + conf | `control_node/agents.yml` + `control_node/site.yml` (localhost) |
+| Mac VLM sidecar (optional) | `control_node/vlm.yml` (brew `llama.cpp`, models, launchd install + `vlm-ensure` health) |
 
 ## Out of Ansible (by design)
 

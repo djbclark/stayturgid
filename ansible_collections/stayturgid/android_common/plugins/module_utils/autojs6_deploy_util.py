@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""AutoJs6 project deploy over adb (shared by module + mac/deploy.py)."""
+"""AutoJs6 project deploy over adb (shared by module + control/bin/deploy.py)."""
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
@@ -20,7 +20,7 @@ VERIFY_SHELL = (
 
 
 def project_src_dir(repo_root):
-    return os.path.join(os.path.expanduser(repo_root), "autojs6")
+    return os.path.join(os.path.expanduser(repo_root), "device", "autojs6")
 
 
 def verify_shell_cmd(target):

@@ -5,7 +5,7 @@ Post-deploy smoke checks over Termux SSH. Complements `make verify` /
 
 ## Playbook wiring
 
-`ansible/playbooks/validate.yml` imports this role with tag `validate`. Full
+`ansible/playbooks/fleet/validate.yml` imports this role with tag `validate`. Full
 `site.yml` runs validate after fleet + post-ui.
 
 ```bash

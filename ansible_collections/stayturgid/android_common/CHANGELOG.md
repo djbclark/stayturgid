@@ -3,7 +3,7 @@
 ## 1.5.0 (2026-07-09)
 
 - Add `autojs6_project_deploy` module + `autojs6_deploy_util` (Fire OS adb path;
-  shared with `autojs6/mac/deploy.py`).
+  shared with `control/tools/autojs6/deploy.py`).
 
 ## 1.4.1 (2026-07-08)
 

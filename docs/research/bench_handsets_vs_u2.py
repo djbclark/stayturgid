@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path[:0] = [str(REPO / "shared" / "mac")]
+sys.path[:0] = [str(REPO / "control" / "lib")]
 import stayturgid_device as dev  # noqa: E402
 import ui_driver as uid  # noqa: E402
 

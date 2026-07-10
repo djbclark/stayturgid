@@ -1,4 +1,4 @@
-"""Unit tests for mac/check_fleet_health.py (no device required)."""
+"""Unit tests for control/bin/check_fleet_health.py (no device required)."""
 from __future__ import annotations
 
 import datetime as dt
@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "mac"))
+sys.path.insert(0, str(REPO / "control" / "bin"))
 
 import check_fleet_health as cfh  # noqa: E402
 

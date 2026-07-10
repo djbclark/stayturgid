@@ -1,9 +1,9 @@
-"""Validate shared/autojs6_drawer_defaults.json."""
+"""Validate control/lib/autojs6_drawer_defaults.json."""
 import json
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-PATH = REPO / "shared" / "autojs6_drawer_defaults.json"
+PATH = REPO / "control" / "lib" / "autojs6_drawer_defaults.json"
 
 
 def test_drawer_defaults_structure():

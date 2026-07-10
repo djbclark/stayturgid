@@ -4,10 +4,10 @@
 
 - `termux_ssh_bootstrap` module and `termux_run_as` module_utils — pre-SSH
   bootstrap over adb (`authorized_keys`, optional `openssh` + `sshd`).
-- `ansible/playbooks/bootstrap.yml` play; conditional bootstrap via `preflight.yml`
+- `ansible/playbooks/fleet/bootstrap.yml` play; conditional bootstrap via `fleet/preflight.yml`
   at the start of `site.yml` (including when launched via `deploy_fleet.py`).
-  `ansible/mac/deploy_termux.py` still runs `bootstrap.yml` when SSH preflight fails.
-- `shared/mac/termux_ssh_bootstrap.py` refactored to thin CLI wrapper over
+  `control/bin/deploy_termux.py` still runs `fleet/bootstrap.yml` when SSH preflight fails.
+- `control/lib/termux_ssh_bootstrap.py` refactored to thin CLI wrapper over
   collection helpers (direct adb path + `run_bootstrap_playbook()`).
 
 ## 1.7.0 (2026-07-09)
@@ -15,7 +15,7 @@
 - Fleet SSH mesh: per-device `id_ed25519_fleet` identity; every fleet member's
   device pubkey in every `authorized_keys` via `ansible.posix.authorized_key`;
   full peer `known_hosts` mesh via `ansible.builtin.known_hosts` (inventory name,
-  Tailscale IP, LAN IP aliases). `mac.yml` trusts fleet sshd host keys on the
+  Tailscale IP, LAN IP aliases). `control_node/agents` trusts fleet sshd host keys on the
   control node.
 
 ## 1.6.0 (2026-07-09)

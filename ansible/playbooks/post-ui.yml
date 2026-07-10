@@ -1,9 +1,3 @@
 ---
-# Post-deploy UI automation (screen control). See ADR 002.
-- name: stayturgid post-deploy UI (control node)
-  hosts: stayturgid
-  gather_facts: false
-  vars:
-    stayturgid_repo_root: "{{ playbook_dir }}/../.."
-  roles:
-    - role: stayturgid.fleet.post_ui
+# Compatibility shim — use ansible/playbooks/fleet/post-ui.yml
+- import_playbook: fleet/post-ui.yml

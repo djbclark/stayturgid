@@ -14,7 +14,7 @@ Companion research: [ui-automation.md](ui-automation.md) (tool bake-off),
 1. Drive the app UI from the Mac (tap, swipe, type, assert).
 2. Leave a clear visual signal that an agent owns the glass (display inversion).
 3. Prefer hierarchy selectors over hardcoded coordinates.
-4. Optional **UI-TARS vision gates** on high-stakes screenshots (`STAYTURGID_VLM=1`, see [VLM.md](../../VLM.md)).
+4. Optional **UI-TARS vision gates** on high-stakes screenshots (`STAYTURGID_VLM=1`, see [docs/vlm.md](../../docs/vlm.md)).
 5. Survive flaky wireless ADB, dialogs, and multi-device `adb devices` lists.
 6. Fail closed on input when the session is not properly armed.
 
@@ -32,7 +32,7 @@ Companion research: [ui-automation.md](ui-automation.md) (tool bake-off),
 Multi-device sharp edge: stock `hs use SERIAL` often rejects `ip:5555`. Push
 `hs.jar`, start `app_process … Main --port=N`, `adb forward`, then
 `hs --host 127.0.0.1 --port N …`. Stayturgid wraps this in
-`shared/mac/ui_driver.py` (`HandsetsSession` / `try_handsets`).
+`control/lib/ui_driver.py` (`HandsetsSession` / `try_handsets`).
 
 ---
 
@@ -189,7 +189,7 @@ def audit(host: str, out: Path) -> list[str]:
     return issues
 ```
 
-Stayturgid’s fleet job: `mac/gui_audit.py` (3:14am launchd, quiet presence).
+Stayturgid’s fleet job: `control/bin/gui_audit.py` (3:14am launchd, quiet presence).
 
 ---
 
@@ -251,10 +251,10 @@ adb shell settings get secure enabled_accessibility_services
 
 | Piece | Role |
 |-------|------|
-| `shared/mac/screen_control.py` | Consent + inversion + gated `input` |
-| `shared/mac/ui_driver.py` | Handsets primary |
-| `mac/gui_audit.py` | Neo/Aurora GUI audit — **parked**; manual only |
-| `mac/check_fleet_health.py` | Session triage (`make health`); fleet-health + access-monitor only |
+| `control/lib/screen_control.py` | Consent + inversion + gated `input` |
+| `control/lib/ui_driver.py` | Handsets primary |
+| `control/bin/gui_audit.py` | Neo/Aurora GUI audit — **parked**; manual only |
+| `control/bin/check_fleet_health.py` | Session triage (`make health`); fleet-health + access-monitor only |
 | `com.stayturgid.gui-audit` | launchd **parked** (not installed while app stores disabled) |
 
 Logs: `~/.config/stayturgid/logs/gui-audit.log`.

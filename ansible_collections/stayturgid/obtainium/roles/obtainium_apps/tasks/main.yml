@@ -1,6 +1,6 @@
 ---
 # Renders the Obtainium import catalog on-device and reports missing apps as
-# warnings. On Mac, obtainium/mac/sync_to_device.py + import_catalog.py apply
+# warnings. On Mac, control/tools/obtainium/sync_to_device.py + import_catalog.py apply
 # the catalog via obtainium://apps; set stayturgid_obtainium_import_ui=true
 # to pop the legacy file VIEW intent on change.
 - name: Render Obtainium catalog from fleet app specs

@@ -1,4 +1,4 @@
-"""Unit tests for shared/mac/vlm_gate.py (no llama-server required)."""
+"""Unit tests for control/lib/vlm_gate.py (no llama-server required)."""
 from __future__ import annotations
 
 import json
@@ -10,7 +10,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "shared" / "mac"))
+sys.path.insert(0, str(REPO / "control" / "lib"))
 
 import vlm_gate as vlm  # noqa: E402
 

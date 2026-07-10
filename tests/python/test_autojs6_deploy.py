@@ -1,4 +1,4 @@
-"""Unit tests for autojs6/mac/deploy.py clean push + verify."""
+"""Unit tests for control/tools/autojs6/deploy.py clean push + verify."""
 from __future__ import annotations
 
 import os
@@ -6,8 +6,9 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "autojs6" / "mac"))
-sys.path.insert(0, str(REPO / "shared" / "mac"))
+sys.path.insert(0, str(REPO))
+sys.path.insert(0, str(REPO / "control" / "tools" / "autojs6"))
+sys.path.insert(0, str(REPO / "control" / "lib"))
 sys.path.insert(
     0,
     str(REPO / "ansible_collections" / "stayturgid" / "android_common" / "plugins" / "module_utils"),
@@ -19,7 +20,7 @@ import deploy as deploy_mod  # noqa: E402
 
 def test_deploy_wipes_lib_scripts_before_push(monkeypatch, tmp_path):
     root = tmp_path / "repo"
-    proj = root / "autojs6"
+    proj = root / "device" / "autojs6"
     (proj / "lib").mkdir(parents=True)
     (proj / "scripts").mkdir(parents=True)
     (proj / "project.json").write_text("{}")
@@ -60,7 +61,7 @@ def test_deploy_wipes_lib_scripts_before_push(monkeypatch, tmp_path):
 
 def test_deploy_fails_when_verify_missing(monkeypatch, tmp_path):
     root = tmp_path / "repo"
-    proj = root / "autojs6"
+    proj = root / "device" / "autojs6"
     (proj / "lib").mkdir(parents=True)
     (proj / "scripts").mkdir(parents=True)
     (proj / "project.json").write_text("{}")
@@ -84,3 +85,10 @@ def test_deploy_fails_when_verify_missing(monkeypatch, tmp_path):
 
 def test_deploy_util_matches_default_target():
     assert deploy_util.DEFAULT_TARGET == "/sdcard/stayturgid/autojs6"
+
+
+def test_project_src_dir_under_device_tree():
+    root = "/path/to/stayturgid"
+    assert deploy_util.project_src_dir(root).endswith(
+        os.path.join("device", "autojs6")
+    )

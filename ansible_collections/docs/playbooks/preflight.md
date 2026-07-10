@@ -1,4 +1,4 @@
-# SSH preflight (`ansible/playbooks/preflight.yml`)
+# SSH preflight (`ansible/playbooks/fleet/preflight.yml`)
 
 Runs at the **start of every** `site.yml` invocation (tag `always`). Probes
 Termux SSH per host; when down, runs `stayturgid.termux.termux_ssh_bootstrap`
@@ -6,7 +6,7 @@ over adb (no Ansible SSH required).
 
 ## When it runs
 
-- Full deploy: `./mac/deploy_fleet.py` → `site.yml` → preflight first
+- Full deploy: `./control/bin/deploy_fleet.py` → `site.yml` → preflight first
 - Direct: `ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml`
 - Partial tags: preflight still runs (`always` tag) unless you `--skip-tags preflight`
 
@@ -25,9 +25,9 @@ preflight covers the common cold-start case.
 ## Manual recovery
 
 ```bash
-./mac/bootstrap_ssh.py hd8
+./control/bin/bootstrap_ssh.py hd8
 # or
-ansible-playbook ansible/playbooks/bootstrap.yml --limit hd8
+ansible-playbook ansible/playbooks/fleet/bootstrap.yml --limit hd8
 ```
 
 ## Requirements

@@ -1,5 +1,5 @@
 ---
 autojs6_target: "{{ stayturgid_sd_root }}/autojs6"
-# Repo checkout containing autojs6/ project files (collection roles cannot
+# Repo checkout containing device/autojs6/ project files (collection roles cannot
 # bundle them — they are runtime payload, not Ansible content).
 autojs6_repo_root: "{{ stayturgid_repo_root | default(playbook_dir ~ '/../..') }}"

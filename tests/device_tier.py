@@ -28,20 +28,20 @@ DEVICES_CONF = os.environ.get(
 )
 
 # Deployed home scripts whose md5 is compared against the repo copy:
-# (deployed_name -> repo path). Runtime logic migrated to Python (termux/py/);
+# (deployed_name -> repo path). Runtime logic migrated to Python (device/termux/py/);
 # the remaining .sh are compat shims / the bridge.
 TRACKED_SCRIPTS = {
-    "stayturgid-repair.sh": "termux/stayturgid-repair.sh",
-    "repair-bridge.sh": "termux/repair-bridge.sh",
-    "autojs6-bridge.sh": "termux/autojs6-bridge.sh",
-    "agent-presence.sh": "termux/agent-presence.sh",
-    "claude-presence.sh": "termux/claude-presence.sh",
-    "stayturgid_check_repo_version.py": "termux/py/stayturgid_check_repo_version.py",
-    "stayturgid_screen_awake_guard.py": "termux/py/stayturgid_screen_awake_guard.py",
-    "stayturgid_agent_presence.py": "termux/py/stayturgid_agent_presence.py",
-    "stayturgid_battery_alarm.py": "termux/py/stayturgid_battery_alarm.py",
-    "stayturgid_repair.py": "termux/py/stayturgid_repair.py",
-    "stayturgid_autojs6_guard.py": "termux/py/stayturgid_autojs6_guard.py",
+    "stayturgid-repair.sh": "device/termux/stayturgid-repair.sh",
+    "repair-bridge.sh": "device/termux/repair-bridge.sh",
+    "autojs6-bridge.sh": "device/termux/autojs6-bridge.sh",
+    "agent-presence.sh": "device/termux/agent-presence.sh",
+    "claude-presence.sh": "device/termux/claude-presence.sh",
+    "stayturgid_check_repo_version.py": "device/termux/py/stayturgid_check_repo_version.py",
+    "stayturgid_screen_awake_guard.py": "device/termux/py/stayturgid_screen_awake_guard.py",
+    "stayturgid_agent_presence.py": "device/termux/py/stayturgid_agent_presence.py",
+    "stayturgid_battery_alarm.py": "device/termux/py/stayturgid_battery_alarm.py",
+    "stayturgid_repair.py": "device/termux/py/stayturgid_repair.py",
+    "stayturgid_autojs6_guard.py": "device/termux/py/stayturgid_autojs6_guard.py",
 }
 
 # Runs on the device (Termux bash — consistent there). Emits key=value lines.
@@ -316,7 +316,7 @@ def evaluate(host, report, repo_dir=REPO):
         ok("%s: deployed termux scripts match repo" % host)
     else:
         todo("%s: deployed termux scripts match repo" % host,
-             "drift: %s (run ./mac/deploy_fleet.py)" % " ".join(drift))
+             "drift: %s (run ./control/bin/deploy_fleet.py)" % " ".join(drift))
     return r
 
 
@@ -483,7 +483,7 @@ def check_host(host, tap, heal=False, ansible_check=False):
         env = dict(os.environ, ANSIBLE_CONFIG="ansible/ansible.cfg")
         try:
             rc = subprocess.run(
-                ["ansible-playbook", "ansible/playbooks/fleet.yml",
+                ["ansible-playbook", "ansible/playbooks/fleet/fleet.yml",
                  "--check", "--diff", "--limit", host],
                 cwd=REPO, env=env, capture_output=True, text=True, timeout=600,
             ).returncode
@@ -505,7 +505,7 @@ def main(argv=None):
     hosts = args.hosts or load_hosts(DEVICES_CONF)
     if not hosts:
         sys.stderr.write(
-            "no hosts: pass host args or run ansible/playbooks/mac.yml "
+            "no hosts: pass host args or run ansible/playbooks/control_node/agents.yml "
             "to generate devices.conf\n")
         return 2
 

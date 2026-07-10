@@ -51,7 +51,7 @@ def test_android_ui_skips_check_mode(mocker, tmp_path):
 
 
 def test_android_ui_runs_script(mocker, tmp_path):
-    script = tmp_path / "autojs6" / "mac"
+    script = tmp_path / "control" / "tools" / "autojs6"
     script.mkdir(parents=True)
     (script / "enable_autojs6_shizuku.py").write_text("# stub\n")
     mocker.patch.object(mod.subprocess, "run", return_value=mocker.Mock(returncode=0))

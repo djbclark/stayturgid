@@ -1,9 +1,9 @@
-"""Unit tests for shared/a11y_services.py."""
+"""Unit tests for control/lib/a11y_services.py."""
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "shared"))
+sys.path.insert(0, str(REPO / "control" / "lib"))
 import a11y_services as a11y  # noqa: E402
 
 

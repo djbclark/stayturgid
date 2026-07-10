@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-ENABLE = REPO / "autojs6" / "mac" / "enable_autojs6_shizuku.py"
+ENABLE = REPO / "control" / "tools" / "autojs6" / "enable_autojs6_shizuku.py"
 
 spec = importlib.util.spec_from_file_location("enable_autojs6_shizuku", ENABLE)
 mod = importlib.util.module_from_spec(spec)

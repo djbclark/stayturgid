@@ -94,7 +94,7 @@ battery_suite() {
 }
 
 # stayturgid-battery-alarm migrated to Python (shell retired).
-battery_suite termux/py/stayturgid_battery_alarm.py py
+battery_suite device/termux/py/stayturgid_battery_alarm.py py
 
 # ===========================================================================
 # stayturgid-repair.sh
@@ -186,7 +186,7 @@ repair_suite() {
 }
 
 # stayturgid-repair migrated to Python (stayturgid-repair.sh is now a compat shim).
-repair_suite termux/py/stayturgid_repair.py py
+repair_suite device/termux/py/stayturgid_repair.py py
 
 # ===========================================================================
 # claude-presence.sh gate
@@ -311,7 +311,7 @@ presence_suite() {
 }
 
 # agent-presence migrated to Python (agent-presence.sh is now a compat shim).
-presence_suite termux/py/stayturgid_agent_presence.py py
+presence_suite device/termux/py/stayturgid_agent_presence.py py
 
 # ===========================================================================
 # screen-awake-guard.sh
@@ -407,7 +407,7 @@ guard_suite() {
 }
 
 # screen-awake-guard migrated to Python (shell retired).
-guard_suite termux/py/stayturgid_screen_awake_guard.py py
+guard_suite device/termux/py/stayturgid_screen_awake_guard.py py
 
 # ===========================================================================
 # check-repo-version.sh
@@ -436,7 +436,7 @@ version_check_suite() {
 }
 
 # check-repo-version migrated to Python (shell retired); py is now the deployed impl.
-version_check_suite termux/py/stayturgid_check_repo_version.py py
+version_check_suite device/termux/py/stayturgid_check_repo_version.py py
 
 # ===========================================================================
 # AutoJs6 log parsing (node + files{} shim)
@@ -528,10 +528,10 @@ fi
 # ===========================================================================
 # Termux boot / bridge shell scripts (device-free sandbox)
 # ===========================================================================
-START_ADB="$REPO/termux/boot/start-adb.sh"
-REPAIR_BRIDGE="$REPO/termux/repair-bridge.sh"
-START_BRIDGE="$REPO/termux/boot/start-repair-bridge.sh"
-START_AUTOJS6="$REPO/termux/boot/start-autojs6-watchdog.sh"
+START_ADB="$REPO/device/termux/boot/start-adb.sh"
+REPAIR_BRIDGE="$REPO/device/termux/repair-bridge.sh"
+START_BRIDGE="$REPO/device/termux/boot/start-repair-bridge.sh"
+START_AUTOJS6="$REPO/device/termux/boot/start-autojs6-watchdog.sh"
 
 # start-adb.sh: sshd, wakelock, immediate bootloop pidfile
 reset_sandbox
@@ -644,8 +644,8 @@ tap_is "$RC" 0 "start-autojs6: exits 0 when boot script present"
 tap_like "$(cat "$STUB_LOG")" "boot-launcher.js" "start-autojs6: am start targets boot-launcher.js"
 
 # autojs6-bridge.sh: trigger file => am start within one loop
-AUTOJS6_BRIDGE="$REPO/termux/autojs6-bridge.sh"
-START_AUTOJS6_BRIDGE="$REPO/termux/boot/start-autojs6-bridge.sh"
+AUTOJS6_BRIDGE="$REPO/device/termux/autojs6-bridge.sh"
+START_AUTOJS6_BRIDGE="$REPO/device/termux/boot/start-autojs6-bridge.sh"
 reset_sandbox
 mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/sd/run" "$SANDBOX/sd/autojs6/scripts"
 : > "$SANDBOX/sd/autojs6/scripts/boot-launcher.js"

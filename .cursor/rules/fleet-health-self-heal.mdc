@@ -6,7 +6,7 @@ alwaysApply: true
 # Fleet health → self-heal (mandatory)
 
 When you fix a **fleet-health** problem (or any live device failure that
-`mac/check_fleet_health.py` / `fleet-health.log` would surface), you **must**
+`control/bin/check_fleet_health.py` / `fleet-health.log` would surface), you **must**
 also make that failure mode recoverable by existing self-heal paths — not only
 by a one-shot manual action in the current session.
 
@@ -14,13 +14,13 @@ by a one-shot manual action in the current session.
 
 A health fix is incomplete until **all** of the following are true:
 
-1. **Symptom cleared** — `python3 mac/check_fleet_health.py` is clean (or the
+1. **Symptom cleared** — `python3 control/bin/check_fleet_health.py` is clean (or the
    specific host/`issues=` tag is gone) after the fix.
 2. **Self-heal updated** — the same class of failure would be repaired without
    an agent re-running the manual steps, via one or more of:
-   - Termux boot loop (`termux/boot/start-adb.sh` + `stayturgid_*.py`)
-   - AutoJs6 cycle (`autojs6/lib/watchdog.js`, `comonitor.js`, `guard.js`)
-   - Mac launchd (`mac/fleet_health_monitor.py`, `fire_help_monitor.py`,
+   - Termux boot loop (`device/termux/boot/start-adb.sh` + `stayturgid_*.py`)
+   - AutoJs6 cycle (`device/autojs6/lib/watchdog.js`, `comonitor.js`, `guard.js`)
+   - Mac launchd (`control/bin/fleet_health_monitor.py`, `fire_help_monitor.py`,
      `access_monitor.py`, `adb_reconnect.py`)
    - Peer/Fire paths (`stayturgid_peer_keepalive.py`, peer bootstrap)
 3. **Documented briefly** — note in the commit message (and HANDOFF/OPTIONS if

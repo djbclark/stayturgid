@@ -1,4 +1,4 @@
-"""Unit tests for mac/adb_reconnect.py — candidate ordering, parsing, caching."""
+"""Unit tests for control/bin/adb_reconnect.py — candidate ordering, parsing, caching."""
 import os
 import sys
 

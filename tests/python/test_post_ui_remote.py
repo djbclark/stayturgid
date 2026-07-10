@@ -1,4 +1,4 @@
-"""Unit tests for shared/mac/post_ui_remote.py routing."""
+"""Unit tests for control/lib/post_ui_remote.py routing."""
 import os
 import sys
 
@@ -6,8 +6,8 @@ sys.path.insert(
     0,
     os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        "shared",
-        "mac",
+        "control",
+        "lib",
     ),
 )
 import post_ui_remote as remote  # noqa: E402

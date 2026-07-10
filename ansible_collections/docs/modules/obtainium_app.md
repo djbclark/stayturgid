@@ -4,7 +4,7 @@
 **Runs on:** device (Termux over SSH)
 
 Renders Obtainium bulk-import JSON from terse app specs. Does **not** apply the
-catalog — use Mac `obtainium/mac/import_catalog.py` (`obtainium://apps/` deep link).
+catalog — use Mac `control/tools/obtainium/import_catalog.py` (`obtainium://apps/` deep link).
 
 ## Example
 

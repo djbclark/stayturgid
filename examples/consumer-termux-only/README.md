@@ -12,7 +12,7 @@ ansible-galaxy collection install -r requirements.yml -p collections
 ```
 
 2. Bootstrap SSH (once) — requires working SSH, or cold start via
-   `./mac/bootstrap_ssh.py` / `preflight.yml` from a full stayturgid checkout:
+   `./control/bin/bootstrap_ssh.py` / `preflight.yml` from a full stayturgid checkout:
 
 ```bash
 ssh-copy-id -p 8022 -i ~/.ssh/termux_key user@YOUR_PHONE_IP

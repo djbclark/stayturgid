@@ -46,8 +46,8 @@ def run_module(mocker, args, cmd_results=None):
 
 
 def test_a11y_backup_writes_file(mocker, tmp_path):
-    profiles = tmp_path / "shared"
-    profiles.mkdir()
+    profiles = tmp_path / "control" / "lib"
+    profiles.mkdir(parents=True)
     (profiles / "a11y_profiles.json").write_text('{"devices": {"s24": {"services": []}}}')
     out = run_module(
         mocker,
@@ -69,8 +69,8 @@ def test_a11y_backup_writes_file(mocker, tmp_path):
 
 
 def test_a11y_present_no_change_when_match(mocker, tmp_path):
-    profiles = tmp_path / "shared"
-    profiles.mkdir()
+    profiles = tmp_path / "control" / "lib"
+    profiles.mkdir(parents=True)
     (profiles / "a11y_profiles.json").write_text('{"devices": {"s24": {"services": []}}}')
     autojs = mod.a11y.AUTOJS6_A11Y
     out = run_module(

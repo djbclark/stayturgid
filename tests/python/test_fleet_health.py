@@ -1,4 +1,4 @@
-"""Unit tests for shared/mac/fleet_health.py and mac/fleet_health_monitor.py."""
+"""Unit tests for control/lib/fleet_health.py and control/bin/fleet_health_monitor.py."""
 from __future__ import annotations
 
 import os
@@ -6,8 +6,8 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "shared" / "mac"))
-sys.path.insert(0, str(REPO / "mac"))
+sys.path.insert(0, str(REPO / "control" / "lib"))
+sys.path.insert(0, str(REPO / "control" / "bin"))
 
 import fleet_health as fh  # noqa: E402
 import fleet_health_monitor as fhm  # noqa: E402
@@ -165,9 +165,9 @@ def test_monitor_heals_stale_watchdog(tmp_path, monkeypatch):
     script = tmp_path / "start_watchdog.py"
     script.write_text("#!/usr/bin/env python3\n")
     monkeypatch.setattr(fhm, "REPO", str(tmp_path))
-    # maybe_heal looks for autojs6/mac/start_watchdog.py under REPO
-    (tmp_path / "autojs6" / "mac").mkdir(parents=True)
-    (tmp_path / "autojs6" / "mac" / "start_watchdog.py").write_text("x")
+    # maybe_heal looks for control/tools/autojs6/start_watchdog.py under REPO
+    (tmp_path / "control" / "tools" / "autojs6").mkdir(parents=True)
+    (tmp_path / "control" / "tools" / "autojs6" / "start_watchdog.py").write_text("x")
 
     fhm.check_device("s24", "100.1", "192.1")
     assert calls == []  # first fail — below threshold
@@ -215,8 +215,8 @@ def test_monitor_heal_failure_skips_cooldown(tmp_path, monkeypatch):
     monkeypatch.setattr(fhm, "notify", lambda *a, **k: None)
     monkeypatch.setattr(fhm, "log", lambda m: None)
     monkeypatch.setattr(fhm, "REPO", str(tmp_path))
-    (tmp_path / "autojs6" / "mac").mkdir(parents=True)
-    (tmp_path / "autojs6" / "mac" / "start_watchdog.py").write_text("x")
+    (tmp_path / "control" / "tools" / "autojs6").mkdir(parents=True)
+    (tmp_path / "control" / "tools" / "autojs6" / "start_watchdog.py").write_text("x")
 
     fhm.check_device("s24", "100.1", "192.1")
     assert not (heal_dir / "s24").exists()

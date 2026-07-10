@@ -26,7 +26,7 @@ fi
 # --- javascript ------------------------------------------------------------
 if command -v node >/dev/null 2>&1; then
     bad=""
-    for f in $(git ls-files 'autojs6/*.js' 'autojs6/**/*.js'); do
+    for f in $(git ls-files 'device/autojs6/*.js' 'device/autojs6/**/*.js'); do
         node --check "$f" 2>/dev/null || bad="$bad $f"
     done
     [ -z "$bad" ] && tap_ok "node --check: all AutoJs6 sources parse" \
@@ -57,7 +57,7 @@ fi
 
 # --- ansible ---------------------------------------------------------------
 if command -v ansible-playbook >/dev/null 2>&1; then
-    for pb in ansible/playbooks/site.yml ansible/playbooks/termux-userland.yml ansible/playbooks/bootstrap.yml; do
+    for pb in ansible/playbooks/site.yml ansible/playbooks/control_node/site.yml ansible/playbooks/fleet/termux-userland.yml ansible/playbooks/fleet/bootstrap.yml; do
         if ANSIBLE_CONFIG=ansible/ansible.cfg \
            ansible-playbook "$pb" --syntax-check >/dev/null 2>&1; then
             tap_ok "ansible-playbook --syntax-check: $(basename "$pb")"

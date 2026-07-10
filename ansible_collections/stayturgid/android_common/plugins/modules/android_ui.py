@@ -92,9 +92,9 @@ import time
 from ansible.module_utils.basic import AnsibleModule
 
 TASK_SCRIPTS = {
-    "import_obtainium_catalog": ("obtainium/mac/import_catalog.py", True),
-    "configure_aurora": ("play/mac/configure_aurora.py", False),
-    "enable_autojs6_drawer": ("autojs6/mac/enable_autojs6_shizuku.py", False),
+    "import_obtainium_catalog": ("control/tools/obtainium/import_catalog.py", True),
+    "configure_aurora": ("control/tools/play/configure_aurora.py", False),
+    "enable_autojs6_drawer": ("control/tools/autojs6/enable_autojs6_shizuku.py", False),
 }
 
 

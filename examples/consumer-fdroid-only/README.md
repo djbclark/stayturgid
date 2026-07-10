@@ -8,7 +8,7 @@ Deploys Obtainium catalog + fdroidcl repos + on-device repo push for one phone.
 1. `ansible-galaxy collection install -r requirements.yml -p collections`
 2. Edit `inventory/hosts.yml` (Termux SSH + adb alias).
 3. Set `stayturgid_ensure_neo_store: true` and add Neo Store to
-   `stayturgid_obtainium_apps` (copy from `obtainium/app-stores-optional.json`
+   `stayturgid_obtainium_apps` (copy from `catalogs/obtainium/app-stores-optional.json`
    in the stayturgid repo).
 4. Install `fdroidcl` on the Mac: `brew install fdroidcl`
 5. `export ANSIBLE_CONFIG=ansible.cfg && ansible-playbook playbook.yml`

@@ -1,4 +1,4 @@
-"""Unit tests for shared/mac/ui_driver.py (Handsets helper)."""
+"""Unit tests for control/lib/ui_driver.py (Handsets helper)."""
 from __future__ import annotations
 
 import os
@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "shared" / "mac"))
+sys.path.insert(0, str(REPO / "control" / "lib"))
 
 import ui_driver as ud  # noqa: E402
 

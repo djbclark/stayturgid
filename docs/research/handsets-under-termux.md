@@ -15,7 +15,7 @@ Mac hs (Mach-O / Linux host binary)
 
 - Daemon: `hs.jar` via `app_process` as **shell UID** — binds **`127.0.0.1:N` only**.
 - Client: host `hs` CLI (or PyPI `handsets`, which **subprocess-wraps `hs`**).
-- Fleet: `shared/mac/ui_driver.py` — ports s24 9009 / hd8 9008 / p7a 9010.
+- Fleet: `control/lib/ui_driver.py` — ports s24 9009 / hd8 9008 / p7a 9010.
 
 ## What Termux can do (proven)
 
@@ -50,7 +50,7 @@ Wire framing (from upstream README + MITM of Mac `hs`):
 
 ### A — Thin Termux wire client (recommended if we want on-device Handsets)
 
-~50–150 LOC Python in `termux/py/`:
+~50–150 LOC Python in `device/termux/py/`:
 
 1. Ensure `/data/local/tmp/hs.jar` (Ansible deploy from Mac jar).
 2. Start/stop daemon via `adb -s localhost:5555 shell`.
@@ -89,7 +89,7 @@ Spike **A** shipped and switched on:
 
 | Item | Status |
 |------|--------|
-| `termux/py/stayturgid_handsets.py` | Wire client + Session |
+| `device/termux/py/stayturgid_handsets.py` | Wire client + Session |
 | Ansible deploy `hs.jar` → `~/.stayturgid/lib/hs.jar` | `termux_userland` |
 | Bench s24 (n=8) | `dump_active` p50 **243 ms** vs raw dump p50 **2979 ms** (~**12×**) |
 | `stayturgid_enable_autojs6.py` | Handsets-primary; probe `operational=true` |

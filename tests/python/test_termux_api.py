@@ -1,4 +1,4 @@
-"""Unit tests for shared/termux_api.py (no device)."""
+"""Unit tests for control/lib/termux_api.py (no device)."""
 from __future__ import annotations
 
 import subprocess
@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "shared"))
+sys.path.insert(0, str(REPO / "control" / "lib"))
 
 import termux_api as tapi  # noqa: E402
 

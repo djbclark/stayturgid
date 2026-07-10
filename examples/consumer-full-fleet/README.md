@@ -29,7 +29,7 @@ stayturgid_ensure_neo_store: true
 stayturgid_ensure_aurora_store: true
 ```
 
-See [fdroid/README.md](../../fdroid/README.md) and [play/README.md](../../play/README.md).
+See [docs/modules/fdroid.md](../../docs/modules/fdroid.md) and [docs/modules/play.md](../../docs/modules/play.md).
 
 ## Optional unified app ensure
 

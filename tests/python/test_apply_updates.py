@@ -1,10 +1,10 @@
-"""Unit tests for obtainium/mac/apply_updates.py installer-dialog decision logic."""
+"""Unit tests for control/tools/obtainium/apply_updates.py installer-dialog decision logic."""
 import os
 import sys
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "obtainium", "mac"))
+    "control", "tools", "obtainium"))
 import apply_updates as au  # noqa: E402
 
 

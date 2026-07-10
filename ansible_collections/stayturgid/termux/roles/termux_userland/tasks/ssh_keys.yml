@@ -29,7 +29,7 @@
   ansible.builtin.debug:
     msg: >-
       No public keys in {{ stayturgid_ssh_keys_dir }} (*.pub).
-      Bootstrap still needs ./mac/bootstrap_ssh.py or ssh-copy-id once; add keys on the Mac and re-run deploy.
+      Bootstrap still needs ./control/bin/bootstrap_ssh.py or ssh-copy-id once; add keys on the Mac and re-run deploy.
   when: _stayturgid_ssh_public_key_paths | length == 0
 
 - name: Resolve Termux account for authorized_keys

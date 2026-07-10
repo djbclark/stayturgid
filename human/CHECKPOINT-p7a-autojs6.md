@@ -5,7 +5,7 @@
 
 ## Result
 
-- `./autojs6/mac/enable_autojs6_shizuku.py p7a` — **PASS**
+- `./control/tools/autojs6/enable_autojs6_shizuku.py p7a` — **PASS**
 - UI driver: Handsets port **9010**
 - Probe: `shizuku operational=true hasPermission=true isRunning=true`
 - Presence/inversion cleared after run; stay-awake held by agent until wrap-up.

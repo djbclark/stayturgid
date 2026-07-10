@@ -4,7 +4,7 @@ import os
 import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-sys.path.insert(0, os.path.join(REPO, "termux", "py"))
+sys.path.insert(0, os.path.join(REPO, "device", "termux", "py"))
 import stayturgid_shell as sh  # noqa: E402
 
 
@@ -28,7 +28,7 @@ def test_privileged_shell_expected_true_from_profile(tmp_path, monkeypatch):
 
 
 def test_is_input_command():
-    sys.path.insert(0, os.path.join(REPO, "termux", "py"))
+    sys.path.insert(0, os.path.join(REPO, "device", "termux", "py"))
     import stayturgid_screen_control as sc
 
     assert sc.is_input_command(["input", "tap", "1", "2"])

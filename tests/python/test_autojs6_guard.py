@@ -1,4 +1,4 @@
-"""Unit tests for termux/py/stayturgid_autojs6_guard.py."""
+"""Unit tests for device/termux/py/stayturgid_autojs6_guard.py."""
 from __future__ import annotations
 
 import sys
@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "termux" / "py"))
+sys.path.insert(0, str(REPO / "device" / "termux" / "py"))
 
 import stayturgid_autojs6_guard as guard  # noqa: E402
 

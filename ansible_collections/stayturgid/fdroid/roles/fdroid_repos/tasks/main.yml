@@ -1,7 +1,7 @@
 ---
 # fdroid_repos role — fdroidcl repos on Mac + on-device Neo Store push.
 # Prerequisite: obtainium_apps (Neo Store in catalog, installed on device).
-# See fdroid/README.md.
+# See docs/modules/fdroid.md.
 
 - name: Resolve fleet alias to adb target (USB serial preferred)
   ansible.builtin.set_fact:

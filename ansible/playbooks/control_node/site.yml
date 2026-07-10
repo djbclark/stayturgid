@@ -1,0 +1,17 @@
+---
+# Control-node workstation setup: prerequisites, fleet agents, optional VLM.
+#
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/control_node/site.yml
+#   --tags prereqs          Homebrew + Galaxy collections only
+#   --tags agents           devices.conf + com.stayturgid.* launchd plists
+#   --tags agents-ensure    load/heal all control-node launchd (every deploy)
+#   --tags vlm-models       UI-TARS weights (~6 GB)
+#   --tags vlm-service      install launchd plist (models must exist; needs stayturgid_vlm_enabled)
+#   -e stayturgid_vlm_enabled=true   required for any vlm-* tag tasks
+- import_playbook: prereqs.yml
+
+- import_playbook: agents.yml
+
+- import_playbook: vlm.yml
+
+- import_playbook: agents-ensure.yml

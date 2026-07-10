@@ -1,0 +1,17 @@
+---
+# Ensure control-node launchd agents are loaded and healthy.
+#   ansible-playbook ansible/playbooks/control_node/agents-ensure.yml
+- name: stayturgid control-node launchd ensure
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [mac, agents-ensure, vlm-ensure, always]
+  tasks:
+    - name: Skip launchd ensure on non-macOS
+      ansible.builtin.meta: end_host
+      when: ansible_facts['os_family'] != 'Darwin'
+
+    - name: Ensure control-node launchd agents
+      ansible.builtin.import_role:
+        name: control_node
+        tasks_from: agents_ensure

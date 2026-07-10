@@ -18,7 +18,7 @@
 
 - name: Deploy AutoJs6 project files
   ansible.builtin.copy:
-    src: "{{ autojs6_repo_root }}/autojs6/{{ item }}"
+    src: "{{ autojs6_repo_root }}/device/autojs6/{{ item }}"
     dest: "{{ autojs6_target }}/"
   loop:
     - project.json

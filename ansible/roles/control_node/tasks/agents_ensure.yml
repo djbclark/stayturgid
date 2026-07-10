@@ -1,0 +1,45 @@
+---
+- name: Stat UI-TARS launchd plist
+  ansible.builtin.stat:
+    path: "{{ ui_tars_service_plist }}"
+  register: _ui_tars_plist_stat
+
+- name: Build launchd ensure service list
+  ansible.builtin.set_fact:
+    _mac_launchd_ensure_services: "{{ _core_launchd_agents + _adb_launchd_agents + _gui_launchd_agents + _ui_tars_launchd_agents }}"
+  vars:
+    _core_launchd_agents:
+      - name: com.stayturgid.access-monitor
+        plist: "{{ agents_dir }}/com.stayturgid.access-monitor.plist"
+      - name: com.stayturgid.fleet-health
+        plist: "{{ agents_dir }}/com.stayturgid.fleet-health.plist"
+      - name: com.stayturgid.fire-help
+        plist: "{{ agents_dir }}/com.stayturgid.fire-help.plist"
+    _adb_launchd_agents: >-
+      {{
+        groups['stayturgid']
+        | map('regex_replace', '^(.*)$', '{"name": "com.stayturgid.adb-reconnect-\1", "plist": "' ~ agents_dir ~ '/com.stayturgid.adb-reconnect-\1.plist"}')
+        | map('from_json')
+        | list
+      }}
+    _gui_launchd_agents: >-
+      {{
+        [{
+          'name': 'com.stayturgid.gui-audit',
+          'plist': agents_dir ~ '/com.stayturgid.gui-audit.plist'
+        }] if (stayturgid_gui_audit_enabled | bool) else []
+      }}
+    _ui_tars_launchd_agents: >-
+      {{
+        [{
+          'name': ui_tars_service_label,
+          'plist': ui_tars_service_plist,
+          'health_url': 'http://127.0.0.1:' ~ (ui_tars_port | string) ~ '/health'
+        }] if _ui_tars_plist_stat.stat.exists else []
+      }}
+
+- name: Ensure Mac launchd agents are loaded and healthy
+  ansible.builtin.include_tasks: launchd_ensure.yml
+  vars:
+    mac_launchd_ensure_services: "{{ _mac_launchd_ensure_services }}"
+    mac_launchd_reload_labels: "{{ _mac_launchd_reload_labels | default([]) }}"

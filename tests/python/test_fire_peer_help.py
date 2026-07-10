@@ -1,11 +1,11 @@
-"""Unit tests for mac/fire_peer_help.py ForceCommand parsing."""
+"""Unit tests for control/bin/fire_peer_help.py ForceCommand parsing."""
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "mac"))
+sys.path.insert(0, str(REPO / "control" / "bin"))
 
 import fire_peer_help as fph  # noqa: E402
 

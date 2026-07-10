@@ -1,4 +1,4 @@
-"""Unit tests for shared/mac CLI helpers (resolve_adb, stayturgid_root)."""
+"""Unit tests for control/lib CLI helpers (resolve_adb, stayturgid_root)."""
 
 import os
 import subprocess
@@ -10,14 +10,14 @@ REPO = Path(__file__).resolve().parents[2]
 
 
 def test_stayturgid_root_finds_repo():
-    sys.path.insert(0, str(REPO / "shared" / "mac"))
+    sys.path.insert(0, str(REPO / "control" / "lib"))
     import stayturgid_root as root_mod  # noqa: E402
 
-    assert root_mod.stayturgid_root(REPO / "mac/deploy_fleet.py") == REPO
+    assert root_mod.stayturgid_root(REPO / "control/bin/deploy_fleet.py") == REPO
 
 
 def test_stayturgid_root_cli(tmp_path):
-    script = REPO / "shared/mac/stayturgid_root.py"
+    script = REPO / "control/lib/stayturgid_root.py"
     orphan = tmp_path / "nowhere/caller.py"
     orphan.parent.mkdir(parents=True)
     orphan.touch()
@@ -47,7 +47,7 @@ def test_resolve_adb_cli_usb_tailscale_and_dash_ts(tmp_path):
         "PATH": f"{stubs}:{os.environ.get('PATH', '')}",
         "STAYTURGID_DEVICES_CONF": str(conf),
     }
-    cli = REPO / "shared/mac/resolve_adb.py"
+    cli = REPO / "control/lib/resolve_adb.py"
 
     r = subprocess.run([str(cli), "s24"], capture_output=True, text=True, env=env, check=False)
     assert r.stdout.strip() == "RFCX"
@@ -77,7 +77,7 @@ def test_resolve_adb_cli_usb_tailscale_and_dash_ts(tmp_path):
 
 def test_gplaycli_wrapper_sets_pythonpath(tmp_path):
     """Smoke: gplaycli launcher prepends pip vendor before exec (no real gplaycli needed)."""
-    script = REPO / "play/mac/gplaycli.py"
+    script = REPO / "control/tools/play/gplaycli.py"
     fake_py = tmp_path / "python3.14"
     fake_py.write_text(
         "#!/usr/bin/env bash\n"

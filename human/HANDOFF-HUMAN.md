@@ -4,8 +4,8 @@
 > here — link to this file. After they update `RESPONSES.md`, re-read it and
 > continue.
 >
-> **Index:** [human/README.md](README.md) · Agent context: [HANDOFF.md](../HANDOFF.md)
-> · Open work: [OPTIONS.md](../OPTIONS.md)
+> **Index:** [human/README.md](README.md) · Agent context: [docs/handoff.md](../docs/handoff.md)
+> · Open work: [docs/options.md](../docs/options.md)
 
 Last updated: **2026-07-09 night** (Ansible Track B + Makefile ops)
 
@@ -39,10 +39,10 @@ These do **not** need operator action unless noted.
 
 | Area | Status |
 |------|--------|
-| AutoJs6 drawer fleet profile | `shared/autojs6_drawer_defaults.json` + `enable_autojs6_shizuku.py` |
+| AutoJs6 drawer fleet profile | `control/lib/autojs6_drawer_defaults.json` + `enable_autojs6_shizuku.py` |
 | AutoJs6 upstream API request | [AutoJs6 #553](https://github.com/SuperMonster003/AutoJs6/issues/553) |
 | PiP / overlay clearance | `ScreenControlSession` clears YouTube PiP via `stack remove` (Samsung verified) |
-| Accessibility list wipe fix | Drawer a11y toggle **removed**; merge-only via `mac/a11y_services.py` |
+| Accessibility list wipe fix | Drawer a11y toggle **removed**; merge-only via `control/bin/a11y_services.py` |
 | p7a a11y restore | Profile merge restored Buzzkill / Notch / existing apps (6 services) |
 | Aurora background dialog (hd8) | Historical — Aurora parked from fleet 2026-07-09 |
 | Fleet deploy order | harden (core apps) → AutoJs6 enable (Aurora configure parked) |
@@ -51,8 +51,8 @@ These do **not** need operator action unless noted.
 still work in Settings → Accessibility. If anything missing:
 
 ```bash
-python3 mac/a11y_services.py show p7a
-python3 mac/a11y_services.py restore p7a
+python3 control/bin/a11y_services.py show p7a
+python3 control/bin/a11y_services.py restore p7a
 ```
 
 ---
@@ -68,7 +68,7 @@ python3 mac/a11y_services.py restore p7a
 
 1. Choose one path:
    - **apkeep (recommended):** run
-     `~/.venv-stayturgid-play/bin/python play/mac/obtain_play_aas.py -e you@gmail.com`
+     `~/.venv-stayturgid-play/bin/python control/tools/play/obtain_play_aas.py -e you@gmail.com`
      (first time: `python3 -m venv ~/.venv-stayturgid-play && ~/.venv-stayturgid-play/bin/pip install browser-cookie3`).
      Click **I agree** on EmbeddedSetup; ignore the forever spinner. Helper writes
      `~/.config/stayturgid/play.env`. Then `source ~/.config/stayturgid/play.env`.
@@ -86,7 +86,7 @@ python3 mac/a11y_services.py restore p7a
 
 ### 2.0 AutoJs6 fleet drawer + Shizuku (mostly automated)
 
-`./autojs6/mac/enable_autojs6_shizuku.py <host>` runs during fleet deploy and
+`./control/tools/autojs6/enable_autojs6_shizuku.py <host>` runs during fleet deploy and
 `setup_autojs6.py`. Requires **unlocked screen** + Shizuku server for
 `ScreenControlSession` consent (~10 s).
 
@@ -98,11 +98,11 @@ Record in `RESPONSES.md` only if it fails on a host.
 entire system list. Fleet tooling uses merge-only writes.
 
 ```bash
-python3 mac/a11y_services.py backup <host>   # snapshot live list
-python3 mac/a11y_services.py restore <host>    # merge profile + backup + AutoJs6
+python3 control/bin/a11y_services.py backup <host>   # snapshot live list
+python3 control/bin/a11y_services.py restore <host>    # merge profile + backup + AutoJs6
 ```
 
-Profiles: `shared/a11y_profiles.json`. See [HACKING.md](../HACKING.md) Part 5.
+Profiles: `control/lib/a11y_profiles.json`. See [docs/hacking.md](../docs/hacking.md) Part 5.
 
 ---
 
@@ -126,7 +126,7 @@ AutoJs6 project push uses adb; Termux deploy uses SSH.
 
 ### 3.3 Production deploy go/no-go
 
-Before live `./mac/deploy_fleet.py` on **all** hosts:
+Before live `./control/bin/deploy_fleet.py` on **all** hosts:
 
 - **Unlock screen** on each host during post-Ansible steps (Obtainium import,
   AutoJs6 drawer automation).
@@ -147,8 +147,8 @@ Fleet no longer installs, configures, or health-checks Neo Store or Aurora.
 Apps may remain on devices from earlier deploys. To use again:
 
 - Set `stayturgid_app_stores_enabled: true` in `ansible/inventory/group_vars/stayturgid.yml`
-- Optional Obtainium import: `obtainium/app-stores-optional.json`
-- See [fdroid/README.md](../fdroid/README.md) and [play/README.md](../play/README.md)
+- Optional Obtainium import: `catalogs/obtainium/app-stores-optional.json`
+- See [docs/modules/fdroid.md](../docs/modules/fdroid.md) and [docs/modules/play.md](../docs/modules/play.md)
 
 ### 4.1 Ansible Galaxy publish
 
@@ -157,7 +157,7 @@ for Git-tag installs. Note in `RESPONSES.md` if published.
 
 ### 4.2 Obtainium in-app confirm
 
-Catalog apply uses `obtainium/mac/import_catalog.py` (screen control). Unlock
+Catalog apply uses `control/tools/obtainium/import_catalog.py` (screen control). Unlock
 phone when deploy runs import.
 
 ### 4.3 Upstream tracking
@@ -174,7 +174,7 @@ phone when deploy runs import.
 | Play apkeep | `~/.config/stayturgid/play.env` |
 | gplaycli | `~/.config/gplaycli/gplaycli.conf` |
 | ADB aliases | `~/.config/stayturgid/devices.conf` |
-| A11y live backup | `shared/a11y_backups/<host>.txt` (gitignored) + `/sdcard/stayturgid/state/a11y_services_backup.txt` |
+| A11y live backup | `control/lib/a11y_backups/<host>.txt` (gitignored) + `/sdcard/stayturgid/state/a11y_services_backup.txt` |
 
 ---
 

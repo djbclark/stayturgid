@@ -6,7 +6,7 @@ Deploy the stayturgid AutoJs6 project tree (`project.json`, `main.js`, `lib/`,
 `/sdcard` reliably.
 
 Shared implementation: `plugins/module_utils/autojs6_deploy_util.py` (also
-used by `autojs6/mac/deploy.py` for USB recovery).
+used by `control/tools/autojs6/deploy.py` for USB recovery).
 
 Does **not** install the AutoJs6 APK or start `main.js` — Obtainium + role
 handlers own that.

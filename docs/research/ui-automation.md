@@ -5,7 +5,7 @@ p7a not touched. Stay-awake held during tests.
 
 ## Current fleet path (baseline)
 
-Mac/on-device scripts: `uiautomator dump` → regex parse (`shared/ui_parse.py`) →
+Mac/on-device scripts: `uiautomator dump` → regex parse (`control/lib/ui_parse.py`) →
 `adb shell input tap`. Wrapped in `ScreenControlSession` (consent + inversion).
 
 | Metric | s24 | hd8 |
@@ -15,7 +15,7 @@ Mac/on-device scripts: `uiautomator dump` → regex parse (`shared/ui_parse.py`)
 | Fragility | empty dumps, drawer toggle, dialogs, Fire `termux-dialog` | same + no Termux 5555 |
 
 Docs already call **uiautomator2** the preferred *dev* tool and raw dump the
-*fallback* (`HANDOFF.md`, `HACKING.md`) — but **fleet Python never imports u2**.
+*fallback* (`docs/handoff.md`, `docs/hacking.md`) — but **fleet Python never imports u2**.
 
 ## Tools tested
 
@@ -67,7 +67,7 @@ Docs already call **uiautomator2** the preferred *dev* tool and raw dump the
 
 | Priority | Choice | Why |
 |----------|--------|-----|
-| **1 — Primary (Mac)** | **Handsets** via `shared/mac/ui_driver.py` | 17–42× faster hierarchy than raw; ~4× vs u2; works with AutoJs6 a11y; Fire Settings reliable |
+| **1 — Primary (Mac)** | **Handsets** via `control/lib/ui_driver.py` | 17–42× faster hierarchy than raw; ~4× vs u2; works with AutoJs6 a11y; Fire Settings reliable |
 | **2 — Fallback** | Raw dump+tap | When Handsets missing; Termux on-device scripts; no UiAutomation lock |
 | **3 — Optional debug** | uiautomator2 | One-off Mac debugging only; **never** alongside Handsets |
 | **Avoid as fleet core** | Maestro / Appium | Wrong abstraction / weight for post-UI |
@@ -79,7 +79,7 @@ Live numbers: [handsets-vs-u2-bench.md](handsets-vs-u2-bench.md).
 
 ### Implementation — **DONE** (2026-07-09)
 
-1. `shared/mac/ui_driver.py` — `HandsetsSession`, `try_handsets()`, switch
+1. `control/lib/ui_driver.py` — `HandsetsSession`, `try_handsets()`, switch
    table parse, `tap_id` / `tap_any_text` / `wait_text`.
 2. Ports: s24 **9009**, hd8 **9008**, p7a **9010**.
 3. Mac scripts Handsets-primary: `enable_autojs6_shizuku.py`,

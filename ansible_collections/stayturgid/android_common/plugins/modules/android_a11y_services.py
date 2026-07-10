@@ -11,8 +11,8 @@ module: android_a11y_services
 short_description: Backup or merge-restore enabled_accessibility_services via adb
 description:
   - Merge-only writes for C(settings put secure enabled_accessibility_services).
-  - Uses fleet profiles under C(repo_root)/shared/a11y_profiles.json and backups
-    in C(repo_root)/shared/a11y_backups/.
+  - Uses fleet profiles under C(repo_root)/control/lib/a11y_profiles.json and backups
+    in C(repo_root)/control/lib/a11y_backups/.
 options:
   device:
     description: ADB serial or C(host:5555).
@@ -120,7 +120,7 @@ def settings_put(run_command, device, value, check_mode=False):
 def push_device_backup(run_command, device, repo_root, alias, value, check_mode=False):
     if check_mode:
         return
-    backups_dir = os.path.join(repo_root, "shared", "a11y_backups")
+    backups_dir = os.path.join(repo_root, "control", "lib", "a11y_backups")
     tmp = a11y.backup_file_for(".device_push_%s" % alias, backups_dir)
     a11y.write_backup_file(tmp, value)
     adb_shell.adb_shell(run_command, device, "mkdir -p %s/state" % SD_ROOT)
@@ -135,8 +135,8 @@ def push_device_backup(run_command, device, repo_root, alias, value, check_mode=
 
 
 def resolve_target(alias, repo_root, live, backup, mode, ensure_autojs6):
-    profiles_path = os.path.join(repo_root, "shared", "a11y_profiles.json")
-    backups_dir = os.path.join(repo_root, "shared", "a11y_backups")
+    profiles_path = os.path.join(repo_root, "control", "lib", "a11y_profiles.json")
+    backups_dir = os.path.join(repo_root, "control", "lib", "a11y_backups")
     if mode == "profile":
         return a11y.join_services(a11y.profile_services(alias, profiles_path))
     if mode == "backup":
@@ -170,7 +170,7 @@ def main():
     device = module.params["device"]
     alias = module.params["alias"]
     repo_root = os.path.expanduser(module.params["repo_root"])
-    backups_dir = os.path.join(repo_root, "shared", "a11y_backups")
+    backups_dir = os.path.join(repo_root, "control", "lib", "a11y_backups")
     backup_path = a11y.backup_file_for(alias, backups_dir)
 
     if module.params["connect"]:

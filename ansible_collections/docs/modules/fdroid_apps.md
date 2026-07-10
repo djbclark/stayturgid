@@ -24,4 +24,4 @@ target. Idempotent when packages are already on the device.
 ## Role
 
 `stayturgid.fdroid.fdroid_repos` role — set `stayturgid_fdroid_apps` in role vars
-(playbook `ansible/playbooks/fleet.yml` when `stayturgid_app_stores_enabled: true`).
+(playbook `ansible/playbooks/fleet/fleet.yml` when `stayturgid_app_stores_enabled: true`).

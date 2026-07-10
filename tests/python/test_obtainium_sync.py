@@ -1,6 +1,6 @@
 """Sync guard: the obtainium_apps role defaults (authoritative) must stay
-aligned with obtainium/stayturgid-apps.json (the adb-fallback rendering used
-by obtainium/mac/sync_to_device.py when SSH is unavailable)."""
+aligned with catalogs/obtainium/stayturgid-apps.json (the adb-fallback rendering used
+by control/tools/obtainium/sync_to_device.py when SSH is unavailable)."""
 import json
 import os
 
@@ -34,7 +34,7 @@ def test_same_app_ids_and_urls():
     role = {(a["id"], a["url"]) for a in load_role_specs()}
     fallback = {(a["id"], a["url"]) for a in load_fallback_apps()}
     assert role == fallback, (
-        "role defaults and obtainium/stayturgid-apps.json diverged — "
+        "role defaults and catalogs/obtainium/stayturgid-apps.json diverged — "
         "update both (role defaults are authoritative)"
     )
 

@@ -32,7 +32,7 @@ stayturgid_home_scripts:
   - claude-presence.sh   # compat shim -> agent-presence.sh
 
 # Python runtime scripts (twins that have finished their parity soak and now
-# ship as the deployed implementation). Copied flat from termux/py/ to ~/.
+# ship as the deployed implementation). Copied flat from device/termux/py/ to ~/.
 # As each shell script is retired, it moves out of stayturgid_home_scripts and
 # its .py joins this list; the old ~/<name>.sh is removed via retired below.
 stayturgid_py_scripts:
@@ -60,13 +60,13 @@ stayturgid_ssh_peerhelp_force_command: true
 
 # Shared libs copied to ~/.stayturgid/lib/ (imported by on-device UI scripts).
 stayturgid_lib_files:
-  - src: shared/ui_parse.py
+  - src: control/lib/ui_parse.py
     dest: ui_parse.py
-  - src: shared/ui_clearance.py
+  - src: control/lib/ui_clearance.py
     dest: ui_clearance.py
-  - src: shared/a11y_services.py
+  - src: control/lib/a11y_services.py
     dest: a11y_services.py
-  - src: shared/termux_api.py
+  - src: control/lib/termux_api.py
     dest: termux_api.py
 
 # Handsets daemon jar (Mac ~/.handsets/hs.jar → on-device lib; shell loads via
@@ -85,13 +85,13 @@ stayturgid_deploy_fleet_adbkey: true
 
 # Data files for on-device post-UI automation.
 stayturgid_ui_data_files:
-  - src: obtainium/stayturgid-apps.json
+  - src: catalogs/obtainium/stayturgid-apps.json
     dest: catalog/stayturgid-apps.json
-  - src: obtainium/autojs6-only.json
+  - src: catalogs/obtainium/autojs6-only.json
     dest: catalog/autojs6-only.json
-  - src: shared/autojs6_drawer_defaults.json
+  - src: control/lib/autojs6_drawer_defaults.json
     dest: autojs6_drawer_defaults.json
-  - src: shared/a11y_profiles.json
+  - src: control/lib/a11y_profiles.json
     dest: a11y_profiles.json
 
 # Deployed shell scripts to remove from devices (migrated to Python).

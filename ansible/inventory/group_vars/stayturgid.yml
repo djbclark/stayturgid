@@ -12,12 +12,12 @@ stayturgid_mac_peer:
   lan: "192.168.68.69"
   user: "djbclark"
   port: 22
-  help_cmd: "python3 /Users/djbclark/stayturgid/mac/fire_peer_help.py"
+  help_cmd: "python3 /Users/djbclark/stayturgid/control/bin/fire_peer_help.py"
 
 # Neo Store + Aurora Store are PARKED (2026-07-09): not installed, configured, or
 # health-checked by fleet deploy. Apps may remain on devices from earlier deploys.
-# Re-enable: set stayturgid_app_stores_enabled: true and see fdroid/README.md +
-# play/README.md. Optional Obtainium entries: obtainium/app-stores-optional.json
+# Re-enable: set stayturgid_app_stores_enabled: true and see docs/modules/fdroid.md +
+# docs/modules/play.md. Optional Obtainium entries: catalogs/obtainium/app-stores-optional.json
 stayturgid_app_stores_enabled: false
 stayturgid_ensure_neo_store: false
 stayturgid_ensure_aurora_store: false
@@ -26,6 +26,6 @@ stayturgid_gui_audit_enabled: false
 
 # Optional unified app ensure (stayturgid.android_common.ensure_apps in fleet.yml).
 stayturgid_ensure_apps: []
-# When app stores are re-enabled, Play downloads need GPLAY_* in play.env — see play/README.md.
+# When app stores are re-enabled, Play downloads need GPLAY_* in play.env — see docs/modules/play.md.
 # stayturgid_play_download_backend: apkeep
 # stayturgid_play_apkeep_source: google-play

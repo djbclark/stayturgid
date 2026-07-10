@@ -13,7 +13,7 @@ description:
   - Pushes C(project.json), C(main.js), C(lib/), and C(scripts/) from the repo
     checkout to the device AutoJs6 project path (default C(/sdcard/stayturgid/autojs6)).
   - Wipes remote C(lib/) and C(scripts/) before push to avoid nested C(lib/lib) on
-    some adb versions — same behavior as C(autojs6/mac/deploy.py).
+    some adb versions — same behavior as C(control/tools/autojs6/deploy.py).
   - Optionally pushes a rendered C(device.json) to C(/sdcard/stayturgid/state/).
   - Does not install the AutoJs6 APK or nudge the watchdog; use Obtainium and the
     C(autojs6_watchdog) role handlers for that.

@@ -1,5 +1,5 @@
 /**
- * Unit tests for autojs6/lib/comonitor.js under node (files{} + shizuku shims).
+ * Unit tests for device/autojs6/lib/comonitor.js under node (files{} + shizuku shims).
  * Emits TAP. Exit 0 = pass.
  */
 "use strict";
@@ -67,8 +67,8 @@ Module._load = function (request, parent) {
     return origLoad.apply(this, arguments);
 };
 
-var comonitor = require(path.join(repo, "autojs6", "lib", "comonitor.js"));
-var log = require(path.join(repo, "autojs6", "lib", "log.js"));
+var comonitor = require(path.join(repo, "device", "autojs6", "lib", "comonitor.js"));
+var log = require(path.join(repo, "device", "autojs6", "lib", "log.js"));
 
 ok(comonitor.parseA11yList("a:b:a").join(",") === "a,b", "parseA11yList dedupes");
 ok(comonitor.mergeA11y("a:b", ["c", "a"]) === "a:b:c", "mergeA11y appends missing");
@@ -88,7 +88,7 @@ ok(fireResult.port === "skip", "split-storage skips localhost:5555");
 ok(fireResult.wifi === "skip", "split-storage skips wifi flag");
 
 // Without force and with fresh Termux repair, defer
-var config = require(path.join(repo, "autojs6", "lib", "config.js"));
+var config = require(path.join(repo, "device", "autojs6", "lib", "config.js"));
 function stamp(d) {
     function p(x) { return (x < 10 ? "0" : "") + x; }
     return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate())

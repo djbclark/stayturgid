@@ -1,4 +1,4 @@
-"""Unit tests for mac/verify_hd8_google.py (no device)."""
+"""Unit tests for control/bin/verify_hd8_google.py (no device)."""
 from __future__ import annotations
 
 import sys
@@ -6,8 +6,8 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "shared" / "mac"))
-sys.path.insert(0, str(REPO / "mac"))
+sys.path.insert(0, str(REPO / "control" / "lib"))
+sys.path.insert(0, str(REPO / "control" / "bin"))
 
 import verify_hd8_google as vhg  # noqa: E402
 import hd8_google_stack as hgs  # noqa: E402

@@ -1,4 +1,4 @@
-"""Unit tests for obtainium/mac/import_catalog.py deep-link import helpers."""
+"""Unit tests for control/tools/obtainium/import_catalog.py deep-link import helpers."""
 import json
 import os
 import sys
@@ -6,7 +6,7 @@ import urllib.parse
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "obtainium", "mac"))
+    "control", "tools", "obtainium"))
 import import_catalog as ic  # noqa: E402
 
 

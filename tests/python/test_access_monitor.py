@@ -1,4 +1,4 @@
-"""Unit tests for mac/access_monitor.py — the debounce/parse logic."""
+"""Unit tests for control/bin/access_monitor.py — the debounce/parse logic."""
 import os
 import sys
 

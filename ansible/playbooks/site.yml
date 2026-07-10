@@ -4,40 +4,26 @@
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml
 #   ansible-playbook ansible/playbooks/site.yml --limit s24
 #   CHECK=1 ansible-playbook ansible/playbooks/site.yml --check --diff
-#
-# Partial scopes (same as ./mac/deploy_fleet.py --scope):
-#   --tags fdroid          F-Droid roles only
-#   --tags play,post-ui    Play + Aurora UI
-#   --tags app-stores      F-Droid + Play roles
-#   --tags validate        repair + SSH smoke only (preflight always runs first)
-#
-# SSH preflight (probe + conditional adb bootstrap) is in preflight.yml — runs
-# at the start of every site.yml invocation (including bare ansible-playbook).
-# Mac workstation setup (brew prereqs, devices.conf, launchd) is mac-site.yml
-# at the end.
 - name: Import SSH preflight play
-  import_playbook: preflight.yml
+  import_playbook: fleet/preflight.yml
 
 - name: Import bootstrap play
-  import_playbook: bootstrap.yml
+  import_playbook: fleet/bootstrap.yml
   tags: [bootstrap]
 
 - name: Import fleet deploy play
-  import_playbook: fleet.yml
+  import_playbook: fleet/fleet.yml
 
 - name: Import post-UI automation play
-  import_playbook: post-ui.yml
+  import_playbook: fleet/post-ui.yml
 
-# Re-run app-store roles after Obtainium catalog import (full deploy only).
 - name: Import fleet app-stores pass (post-Obtainium)
-  import_playbook: fleet.yml
+  import_playbook: fleet/fleet.yml
   tags: [post-ui-app-stores, full]
 
 - name: Import validate play
-  import_playbook: validate.yml
+  import_playbook: fleet/validate.yml
 
-# Mac control-node: Homebrew prereqs, devices.conf, launchd agents (localhost).
-# VLM tasks are gated by stayturgid_vlm_enabled (default false).
-- name: Import Mac workstation setup
-  import_playbook: mac-site.yml
+- name: Import control-node workstation setup
+  import_playbook: control_node/site.yml
   tags: [mac, always]

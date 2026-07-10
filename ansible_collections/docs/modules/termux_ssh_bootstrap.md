@@ -28,7 +28,7 @@ Requires a **debuggable** Termux build where `run-as com.termux` succeeds.
 ## Playbook
 
 ```yaml
-# ansible/playbooks/bootstrap.yml
+# ansible/playbooks/fleet/bootstrap.yml
 - stayturgid.termux.termux_ssh_bootstrap:
     device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
     keys_dir: "{{ stayturgid_ssh_keys_dir }}"
@@ -37,6 +37,6 @@ Requires a **debuggable** Termux build where `run-as com.termux` succeeds.
 
 ## CLI wrappers
 
-- `./mac/bootstrap_ssh.py` — direct adb path (default) or `--ansible` for the playbook
-- `./ansible/mac/deploy_termux.py` — auto-run `bootstrap.yml` when SSH preflight fails
-- `./mac/deploy_fleet.py` / `ansible-playbook site.yml` — conditional bootstrap via `preflight.yml`
+- `./control/bin/bootstrap_ssh.py` — direct adb path (default) or `--ansible` for the playbook
+- `./control/bin/deploy_termux.py` — auto-run `fleet/bootstrap.yml` when SSH preflight fails
+- `./control/bin/deploy_fleet.py` / `ansible-playbook site.yml` — conditional bootstrap via `preflight.yml`

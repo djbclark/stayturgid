@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-CFG = REPO / "play" / "mac" / "configure_aurora.py"
+CFG = REPO / "control" / "tools" / "play" / "configure_aurora.py"
 
 spec = importlib.util.spec_from_file_location("configure_aurora", CFG)
 mod = importlib.util.module_from_spec(spec)

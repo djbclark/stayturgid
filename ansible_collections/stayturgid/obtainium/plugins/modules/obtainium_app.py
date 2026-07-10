@@ -14,7 +14,7 @@ description:
     terse app specifications, expanding each into Obtainium's verbose
     C(additionalSettings) format with sane GitHub-source defaults.
   - Runs on-device (Termux over SSH), so no Mac-side adb is needed.
-  - Obtainium has no CLI; on Mac use C(obtainium/mac/import_catalog.py) (or
+  - Obtainium has no CLI; on Mac use C(control/tools/obtainium/import_catalog.py) (or
     C(sync_to_device.py)) to apply the catalog via obtainium://apps deep link.
     With C(import_ui=true) the module only launches the legacy file VIEW intent
     when the catalog changed.

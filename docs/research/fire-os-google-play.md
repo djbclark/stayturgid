@@ -50,7 +50,7 @@ Doze whitelist alone does **not** fix the broadcast permission crash.
 Fleet automation:
 
 ```bash
-./mac/fix_hd8_google_stack.py hd8
+./control/bin/fix_hd8_google_stack.py hd8
 # or: make fix-hd8-google
 ```
 
@@ -59,7 +59,7 @@ Downloads [Fire-Tools](https://github.com/mrhaydendp/Fire-Tools) GApps once to
 
 Mac launchd (`fleet_health_monitor.py`) rate-limits the same repair when hd8 GMS
 `versionCode` exceeds **250000000** (26.x line), then runs VLM close-out when
-`llama-server` is healthy (6h cooldown). See [VLM.md](../../VLM.md).
+`llama-server` is healthy (6h cooldown). See [docs/vlm.md](../../docs/vlm.md).
 
 ## Prevention
 

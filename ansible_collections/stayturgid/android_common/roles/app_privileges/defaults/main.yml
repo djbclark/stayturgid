@@ -1,7 +1,7 @@
 ---
-# Fleet app privilege profiles — authoritative JSON at shared/fleet_app_profiles.json
+# Fleet app privilege profiles — authoritative JSON at control/lib/fleet_app_profiles.json
 # (pytest sync-guard keeps YAML mirror aligned for human editing).
 
 stayturgid_repo_root: "{{ playbook_dir }}/../.."
 stayturgid_fleet_app_profiles: >-
-  {{ lookup('file', stayturgid_repo_root + '/shared/fleet_app_profiles.json') | from_json }}
+  {{ lookup('file', stayturgid_repo_root + '/control/lib/fleet_app_profiles.json') | from_json }}

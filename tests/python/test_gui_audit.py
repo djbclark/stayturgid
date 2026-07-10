@@ -1,4 +1,4 @@
-"""Unit tests for mac/gui_audit.py helpers (no device required)."""
+"""Unit tests for control/bin/gui_audit.py helpers (no device required)."""
 from __future__ import annotations
 
 import os
@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "mac"))
+sys.path.insert(0, str(REPO / "control" / "bin"))
 
 import gui_audit as ga  # noqa: E402
 

@@ -2,7 +2,7 @@
 """Fleet ADB target resolution (control node).
 
 Pure helpers shared by stayturgid.fdroid, stayturgid.play, and the adb_device
-lookup plugin. Mirrors shared/mac/stayturgid_device.py resolve_adb().
+lookup plugin. Mirrors control/lib/stayturgid_device.py resolve_adb().
 """
 from __future__ import absolute_import, division, print_function
 

@@ -2,7 +2,7 @@
 # Example: one Termux host, no stayturgid fleet vars.
 # Copy and edit, then:
 #   ansible-playbook -i ansible/inventory/example-standalone.yml \
-#     ansible/playbooks/termux-userland.yml
+#     ansible/playbooks/fleet/termux-userland.yml
 #
 all:
   children:

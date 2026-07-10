@@ -25,4 +25,4 @@ on-device `fdroidrepos://` intent push and Shizuku grant.
 
 ## Role
 
-`stayturgid.fdroid.fdroid_repos` role — playbook `ansible/playbooks/fdroid.yml`
+`stayturgid.fdroid.fdroid_repos` role — playbook `ansible/playbooks/fleet/fdroid.yml`

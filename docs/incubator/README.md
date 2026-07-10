@@ -28,7 +28,7 @@ Each project gets a **subdirectory** (or a single note if tiny) with:
 |----------|---------|
 | `docs/research/` | Production-adjacent findings that agents **should** read (Handsets, Fire OS ADB, UI driver benches) |
 | `docs/adr/` | Accepted architectural decisions |
-| `OPTIONS.md` / `HANDOFF.md` | Active or latent fleet work |
+| `docs/options.md` / `docs/handoff.md` | Active or latent fleet work |
 | `examples/` | Consumer Ansible playbooks (shipping patterns, not speculation) |
 | `human/` | Operator checklists and credentials notes |
 

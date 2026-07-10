@@ -8,7 +8,7 @@ installer spoof (`-i com.android.vending`).
 
 ## Prerequisites
 
-- `apkeep` and/or `play/mac/gplaycli.py` on control node
+- `apkeep` and/or `control/tools/play/gplaycli.py` on control node
 - Google credentials in env (`GPLAY_EMAIL`, `GPLAY_AAS_TOKEN`, …) for Play downloads
 - `adb` + optional `devices.conf`
 
@@ -26,4 +26,4 @@ installer spoof (`-i com.android.vending`).
 
 ## Role
 
-`stayturgid.play.play_store` role — playbook `ansible/playbooks/play_store.yml`
+`stayturgid.play.play_store` role — playbook `ansible/playbooks/fleet/play_store.yml`

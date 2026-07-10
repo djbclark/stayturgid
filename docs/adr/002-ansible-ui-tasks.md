@@ -40,7 +40,7 @@ Move remaining shell-idempotent Mac logic into collections when touched:
 
 | Candidate | Replaces / complements |
 |-----------|-------------------------|
-| `android_a11y_services` | `mac/a11y_services.py` merge-only backup/restore |
+| `android_a11y_services` | `control/bin/a11y_services.py` merge-only backup/restore |
 | `autojs6_project_deploy` | ✅ `autojs6_watchdog` adb path + `deploy.py` |
 | Expanded validate | ✅ `stayturgid.fleet.validate` role + thin `validate.yml` playbook |
 

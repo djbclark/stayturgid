@@ -3,7 +3,7 @@
 ## 1.6.0 (2026-07-07)
 
 - F-Droid (`fdroid_repos`) and Play (`play_store`) roles integrated into fleet playbook.
-- `./mac/deploy_fleet.py` runs phased deploy: core → Obtainium import → app-stores → Aurora UI.
+- `./control/bin/deploy_fleet.py` runs phased deploy: core → Obtainium import → app-stores → Aurora UI.
 
 ## 1.5.0 (2026-07-07)
 

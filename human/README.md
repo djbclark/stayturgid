@@ -5,7 +5,7 @@ approval. Agents read **`HANDOFF-HUMAN.md`** before asking you to act; you recor
 outcomes in **`RESPONSES.md`**.
 
 **Device preference for agents:** **s24** → **hd8** → **p7a** when one host suffices
-([HANDOFF.md](../HANDOFF.md) § Agent conventions).
+([docs/handoff.md](../docs/handoff.md) § Agent conventions).
 
 ## Workflow
 
@@ -13,7 +13,7 @@ outcomes in **`RESPONSES.md`**.
 2. Complete items; record in **`RESPONSES.md`** (from `RESPONSES.md.example`).
 3. Tell the agent: *"Read human/RESPONSES.md"* — it continues automation.
 
-Agent work menu: [OPTIONS.md](../OPTIONS.md). Do not put secrets in git.
+Agent work menu: [docs/options.md](../docs/options.md). Do not put secrets in git.
 
 ## Files
 

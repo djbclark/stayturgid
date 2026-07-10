@@ -6,7 +6,7 @@ import zipfile
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "termux" / "py"))
+sys.path.insert(0, str(REPO / "device" / "termux" / "py"))
 
 import stayturgid_rish as rish  # noqa: E402
 

@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO / "termux" / "py"))
+sys.path.insert(0, str(REPO / "device" / "termux" / "py"))
 
 import stayturgid_peer_bootstrap as pb  # noqa: E402
 import stayturgid_handsets as th  # noqa: E402
@@ -92,14 +92,14 @@ def test_remote_help_cmd_force_vs_fleet(tmp_path, monkeypatch):
     mac = pb._remote_help_cmd(
         {
             "kind": "mac",
-            "help_cmd": "python3 /Users/x/stayturgid/mac/fire_peer_help.py",
+            "help_cmd": "python3 /Users/x/stayturgid/control/bin/fire_peer_help.py",
         },
         verb="shizuku-start",
         target="1.2.3.4:5555",
         port=9008,
         identity=fleet,
     )
-    assert mac.startswith("python3 /Users/x/stayturgid/mac/fire_peer_help.py")
+    assert mac.startswith("python3 /Users/x/stayturgid/control/bin/fire_peer_help.py")
     assert "shizuku-start" in mac
     termux = pb._remote_help_cmd(
         {"kind": "termux"},

@@ -1,4 +1,4 @@
-"""Unit tests for shared/mac/stayturgid_device.py — the shizuku.json patcher
+"""Unit tests for control/lib/stayturgid_device.py — the shizuku.json patcher
 and UI-XML parsing that were fragile python-in-bash / sed pipelines."""
 import json
 import os
@@ -6,7 +6,7 @@ import sys
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "shared", "mac"))
+    "control", "lib"))
 import stayturgid_device as dev  # noqa: E402
 
 import importlib.util

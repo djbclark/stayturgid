@@ -1,0 +1,167 @@
+---
+# Ensure launchd jobs in mac_launchd_ensure_services are loaded; heal unknown state
+# and optional HTTP health_url failures (keepalive long-runners like UI-TARS).
+#
+# Interval agents (StartInterval) are often "stopped" between runs — that is normal.
+# We only load when unloaded, reload when plist templates changed this run, and
+# restart on abnormal exit or failed HTTP health (keepalive services).
+#
+# Vars:
+#   mac_launchd_ensure_services — list of {name, plist, health_url?}
+#   mac_launchd_reload_labels   — labels needing reloaded after plist template change
+- name: Stat launchd plist for {{ item.name }}
+  ansible.builtin.stat:
+    path: "{{ item.plist }}"
+  loop: "{{ mac_launchd_ensure_services }}"
+  register: _mac_launchd_plist_stats
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Build installed launchd ensure targets
+  ansible.builtin.set_fact:
+    _mac_launchd_installed: >-
+      {{
+        _mac_launchd_plist_stats.results
+        | selectattr('stat.exists')
+        | map(attribute='item')
+        | list
+      }}
+
+- name: Probe launchd job state for {{ item.name }}
+  ansible.builtin.shell: |
+    set -eu
+    label="{{ item.name }}"
+    line="$(launchctl list 2>/dev/null | awk -v l="$label" '$3 == l {print; exit}')"
+    if [ -z "$line" ]; then
+      echo unloaded
+      exit 0
+    fi
+    pid="$(echo "$line" | awk '{print $1}')"
+    code="$(echo "$line" | awk '{print $2}')"
+    if [ "$pid" != "-" ]; then
+      echo started
+    elif [ "$code" = "0" ] || [ "$code" = "-2" ] || [ "$code" = "-3" ] || [ "$code" = "-9" ] || [ "$code" = "-15" ]; then
+      echo stopped
+    else
+      echo unknown
+    fi
+  args:
+    executable: /bin/bash
+  loop: "{{ _mac_launchd_installed }}"
+  register: _mac_launchd_state_probes
+  changed_when: false
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Reload launchd agent {{ item.item.name }} after plist template change
+  community.general.launchd:
+    name: "{{ item.item.name }}"
+    state: reloaded
+    enabled: true
+  loop: "{{ _mac_launchd_state_probes.results }}"
+  when: item.item.name in (mac_launchd_reload_labels | default([]))
+  register: _mac_launchd_reload_results
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Load launchd agent {{ item.item.name }} when unloaded
+  community.general.launchd:
+    name: "{{ item.item.name }}"
+    state: started
+    enabled: true
+  loop: "{{ _mac_launchd_state_probes.results }}"
+  when:
+    - item.stdout | trim == 'unloaded'
+    - item.item.name not in (mac_launchd_reload_labels | default([]))
+  register: _mac_launchd_load_results
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Restart launchd agent {{ item.item.name }} after abnormal exit
+  community.general.launchd:
+    name: "{{ item.item.name }}"
+    state: restarted
+    enabled: true
+  loop: "{{ _mac_launchd_state_probes.results }}"
+  when:
+    - item.stdout | trim == 'unknown'
+    - item.item.name not in (mac_launchd_reload_labels | default([]))
+    - item.item.health_url is not defined
+  register: _mac_launchd_unknown_restart_results
+  loop_control:
+    label: "{{ item.item.name }}"
+
+- name: Probe HTTP health for {{ item.name }}
+  ansible.builtin.uri:
+    url: "{{ item.health_url }}"
+    status_code: 200
+  loop: "{{ _mac_launchd_installed | selectattr('health_url', 'defined') | list }}"
+  register: _mac_launchd_health_probes
+  failed_when: false
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Restart keepalive launchd agent when not running or HTTP health fails
+  community.general.launchd:
+    name: "{{ item.name }}"
+    state: restarted
+    enabled: true
+  loop: "{{ _mac_launchd_installed | selectattr('health_url', 'defined') | list }}"
+  vars:
+    _state_probe: >-
+      {{
+        (_mac_launchd_state_probes.results
+         | selectattr('item.name', 'equalto', item.name)
+         | map(attribute='stdout')
+         | map('trim')
+         | first)
+        | default('unloaded')
+      }}
+    _health_probe: >-
+      {{
+        (_mac_launchd_health_probes.results
+         | selectattr('item.name', 'equalto', item.name)
+         | first)
+        | default({})
+      }}
+  when:
+    - item.name not in (mac_launchd_reload_labels | default([]))
+    - _state_probe in ['stopped', 'unknown', 'unloaded']
+      or (_health_probe.status | default(0)) != 200
+  register: _mac_launchd_health_restart_results
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Wait for HTTP health on keepalive launchd agents
+  ansible.builtin.uri:
+    url: "{{ item.health_url }}"
+    status_code: 200
+  loop: "{{ _mac_launchd_installed | selectattr('health_url', 'defined') | list }}"
+  vars:
+    _health_probe: >-
+      {{
+        (_mac_launchd_health_probes.results
+         | selectattr('item.name', 'equalto', item.name)
+         | first)
+        | default({})
+      }}
+    _health_restarted: >-
+      {{
+        (_mac_launchd_health_restart_results.results
+         | default([])
+         | selectattr('item.name', 'equalto', item.name)
+         | selectattr('changed')
+         | list
+         | length) > 0
+      }}
+    _was_reloaded: "{{ item.name in (mac_launchd_reload_labels | default([])) }}"
+  when:
+    - _health_restarted
+      or (_health_probe.status | default(0)) != 200
+      or _was_reloaded
+  register: _mac_launchd_health_wait
+  until: _mac_launchd_health_wait.status == 200
+  retries: 120
+  delay: 2
+  loop_control:
+    label: "{{ item.name }}"

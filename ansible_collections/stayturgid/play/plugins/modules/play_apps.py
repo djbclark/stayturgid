@@ -14,7 +14,7 @@ description:
     on a device with C(adb). Optionally spoofs C(com.android.vending) as installer.
   - Does not install Aurora Store — use the C(play_store) role / Obtainium first.
   - Google Play downloads require credentials on the control node (env vars or
-    gplaycli.conf); see C(play/README.md).
+    gplaycli.conf); see C(docs/modules/play.md).
 options:
   apps:
     description: Apps to ensure.
@@ -57,7 +57,7 @@ options:
     default: apkeep
   gplaycli_bin:
     type: str
-    default: play/mac/gplaycli.py
+    default: control/tools/play/gplaycli.py
   gplaycli_config:
     type: str
     default: ""
@@ -318,7 +318,7 @@ def ensure_present(module, device, spec, outputs):
             ):
                 module.fail_json(
                     msg="google-play download needs GPLAY_AAS_TOKEN or GPLAY_AUTH_TOKEN "
-                    "(and usually GPLAY_EMAIL) — see play/README.md",
+                    "(and usually GPLAY_EMAIL) — see docs/modules/play.md",
                 )
             rc, out = download_apkeep(module, pkg, dest)
             outputs.append(out)
@@ -384,7 +384,7 @@ def main():
             apkeep_options=dict(type="str", default="arch=arm64-v8a"),
             apkeep_bin=dict(type="str", default="apkeep"),
             apkeep_accept_tos=dict(type="bool", default=False),
-            gplaycli_bin=dict(type="str", default="play/mac/gplaycli.py"),
+            gplaycli_bin=dict(type="str", default="control/tools/play/gplaycli.py"),
             gplaycli_config=dict(type="str", default=""),
             repo_root=dict(
                 type="str",

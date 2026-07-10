@@ -21,7 +21,7 @@ SCOPE ?= full
 DEPLOY_ARGS := $(if $(HOSTS),$(HOSTS),)
 DEPLOY_SCOPE_ARG := $(if $(filter-out full,$(SCOPE)),--scope $(SCOPE),)
 
-MAC_SITE := ansible/playbooks/mac-site.yml
+MAC_SITE := ansible/playbooks/control_node/site.yml
 VLM_ANSIBLE := ansible-playbook $(MAC_SITE) -e stayturgid_vlm_enabled=true
 
 .PHONY: help all configure check unit test unit-and-pytest pytest ansible-test test-venv \
@@ -52,7 +52,7 @@ help:
 	@echo "  make verify-play-autoupdate     Play Store auto-update VLM check (STAYTURGID_VLM=1)"
 	@echo "  make verify-hd8-google          Stack + crash + auto-update close-out (hd8)"
 	@echo "  make collections                Install ansible-galaxy collections"
-	@echo "  make syntax                     Syntax-check site.yml + mac-site.yml"
+	@echo "  make syntax                     Syntax-check site.yml + control_node/site.yml"
 	@echo ""
 	@echo "Verify (SSH to devices):"
 	@echo "  make verify [HOSTS=s24]           Read-only device tier (TAP)"
@@ -70,7 +70,7 @@ help:
 	@echo "  make lint                         shellcheck + ansible-lint + yamllint"
 	@echo "  make configure                    Report tool availability → .config.mk"
 	@echo ""
-	@echo "VLM (optional Mac UI-TARS gates — vendor-neutral; see VLM.md):"
+	@echo "VLM (optional Mac UI-TARS gates — vendor-neutral; see docs/vlm.md):"
 	@echo "  make vlm-install                  Ansible: brew llama.cpp + download weights (~6GB)"
 	@echo "  make vlm-service-install          Ansible: launchd agent (persists across login)"
 	@echo "  make vlm-service-status           health + launchctl summary"
@@ -91,55 +91,55 @@ help:
 # ------------------------------------------------------------------------------
 
 deploy:
-	python3 mac/deploy_fleet.py $(DEPLOY_ARGS) $(DEPLOY_SCOPE_ARG)
+	python3 control/bin/deploy_fleet.py $(DEPLOY_ARGS) $(DEPLOY_SCOPE_ARG)
 
 deploy-check:
-	CHECK=1 python3 mac/deploy_fleet.py $(DEPLOY_ARGS) $(DEPLOY_SCOPE_ARG)
+	CHECK=1 python3 control/bin/deploy_fleet.py $(DEPLOY_ARGS) $(DEPLOY_SCOPE_ARG)
 
 deploy-mac:
 	ansible-playbook $(MAC_SITE) --tags mac
 
 deploy-termux:
-	python3 ansible/mac/deploy_termux.py $(DEPLOY_ARGS)
+	python3 control/bin/deploy_termux.py $(DEPLOY_ARGS)
 
 bootstrap-ssh:
-	python3 mac/bootstrap_ssh.py $(DEPLOY_ARGS)
+	python3 control/bin/bootstrap_ssh.py $(DEPLOY_ARGS)
 
 health:
-	python3 mac/check_fleet_health.py
+	python3 control/bin/check_fleet_health.py
 
 fix-hd8-google:
-	python3 mac/fix_hd8_google_stack.py hd8
+	python3 control/bin/fix_hd8_google_stack.py hd8
 
 verify-play-autoupdate:
-	STAYTURGID_VLM=1 python3 mac/verify_play_autoupdate.py $(or $(HOSTS),hd8)
+	STAYTURGID_VLM=1 python3 control/bin/verify_play_autoupdate.py $(or $(HOSTS),hd8)
 
 verify-hd8-google:
-	STAYTURGID_VLM=1 python3 mac/verify_hd8_google.py $(or $(HOSTS),hd8)
+	STAYTURGID_VLM=1 python3 control/bin/verify_hd8_google.py $(or $(HOSTS),hd8)
 
 vlm-install:
 	$(VLM_ANSIBLE) --tags vlm-models
 
 vlm-server:
-	bash mac/ui-tars/ui_tars_server.sh
+	bash control/vlm/ui-tars/ui_tars_server.sh
 
 vlm-check:
-	python3 mac/vlm_check.py
+	python3 control/bin/vlm_check.py
 
 vlm-service-install:
 	$(VLM_ANSIBLE) --tags vlm-service
 
 vlm-service-status:
-	bash mac/ui-tars/vlm_service.sh status
+	bash control/vlm/ui-tars/vlm_service.sh status
 
 vlm-service-stop:
-	bash mac/ui-tars/vlm_service.sh stop
+	bash control/vlm/ui-tars/vlm_service.sh stop
 
 vlm-service-restart:
-	bash mac/ui-tars/vlm_service.sh restart
+	bash control/vlm/ui-tars/vlm_service.sh restart
 
 vlm-smoke:
-	bash mac/ui-tars/vlm_smoke.sh
+	bash control/vlm/ui-tars/vlm_smoke.sh
 
 vlm-stop: vlm-service-stop
 
@@ -163,7 +163,7 @@ verify-heal:
 dryrun: deploy-check
 
 dryrun-termux:
-	ansible-playbook ansible/playbooks/termux-userland.yml --check --diff \
+	ansible-playbook ansible/playbooks/fleet/termux-userland.yml --check --diff \
 	  $(if $(HOSTS),--limit "$(HOSTS)",)
 
 # ------------------------------------------------------------------------------

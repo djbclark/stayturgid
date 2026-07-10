@@ -13,7 +13,7 @@ stayturgid:
       stayturgid_device_id: s24
       device_usb_serial: R5CX12345678
   vars:
-    # Neo / Aurora parked by default — match production fleet (see fdroid/README.md).
+    # Neo / Aurora parked by default — match production fleet (see docs/modules/fdroid.md).
     stayturgid_app_stores_enabled: false
     stayturgid_ensure_neo_store: false
     stayturgid_ensure_aurora_store: false
