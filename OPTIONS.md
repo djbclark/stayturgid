@@ -23,16 +23,16 @@
 > unless the operator unparks a named project (Inferno, etc.).
 
 **Fleet snapshot (2026-07-09 night):** Aurora policy = **Do not auto-update** +
-battery-optimized + filters ON. Soft health: p7a `watchdog_stale` (repair fresh).
-gui-audit: s24/p7a clean; hd8 Neo Shizuku nav still open. Screen-control holds
+battery-optimized + filters ON. **H2 closed** — s24/p7a/hd8 Aurora + Neo Shizuku
+(hd8 Neo operator-confirmed; Fire gui-audit nav flaky). Screen-control holds
 inversion with keepalive across dependent UI steps.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
-**Suggested agent order:** close **H2** hd8 Neo Shizuku if easy; otherwise
-human confirm. Soft-heal p7a AutoJs6 if soak continues. Do not touch incubator.
+**Suggested agent order:** soft-heal p7a AutoJs6 if soak continues. Do not touch
+incubator.
 
 ---
 
@@ -40,7 +40,7 @@ human confirm. Soft-heal p7a AutoJs6 if soak continues. Do not touch incubator.
 
 | Track | Focus | Open IDs | Typical risk |
 |-------|-------|----------|--------------|
-| **A — Operational** | Live deploy, human unblockers | H2, H5, 38 | Medium–High (live phones / publish) |
+| **A — Operational** | Live deploy, human unblockers | H5, 38 | Medium–High (live phones / publish) |
 | **B — Ansible-native** | *(Portfolio 2 core shipped — 48–52 closed)* | — | — |
 | **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; incubator note | 54 | Medium (mis-scope risk) |
@@ -50,21 +50,6 @@ Parked (not a track): Inferno/Styx → [docs/incubator/inferno-styx/](docs/incub
 ---
 
 ### Track A — Operational
-
-#### H2 — Neo Store + Aurora one-time confirm (human) · Risk: **Low**
-
-**Policy (2026-07-09 night):** Aurora **Do not auto-update** is the desired
-default (avoids check&install → battery-unrestrict conflict). Filters ON;
-battery Optimized. Screen-control holds inversion + lease keepalive across
-dependent UI steps; restores prior foreground at batch end.
-
-**gui-audit (2026-07-09 21:04):** `s24`/`p7a` **issues=none**. **hd8** still
-`neo_shizuku_missing` (Fire landscape settings nav flaky — Service/Other
-sidebar; Installer not found in automation). Aurora on all three: auto-update
-off, other-sources filter on, F-Droid filter on, battery optimized.
-
-**Still open:** human/agent confirm Neo Installer=Shizuku on **hd8** only.
-Close H2 when hd8 gui-audit is `issues=none` (or operator signs off).
 
 #### H5 — Galaxy publish API token (human, optional) · Risk: **Medium**
 
@@ -85,6 +70,8 @@ Mac **soft health**: launchd `com.stayturgid.fleet-health` →
 Restarts stale AutoJs6 `main.js` when `watchdog_stale`/`watchdog_missing`.
 **GUI audit**: `com.stayturgid.gui-audit` @ 03:14 → `mac/gui_audit.py` (quiet;
 no torch/sound); gaps in `gui-audit.log` surface in `check_fleet_health.py`.
+Operator-confirmed gaps on flaky hosts (e.g. hd8 Fire Neo nav): add
+`~/.config/stayturgid/gui-audit-overrides.conf` (`host issue # comment`).
 Reachability in `access-monitor`. Prefer health trail before 43–45.
 
 #### 43 — AutoJs6 WorkManager (agent) · Risk: **Latent / Low until upstream**

@@ -48,3 +48,21 @@ def test_quiet_env_set(monkeypatch, tmp_path):
     assert "STAYTURGID_SKIP_PRESENCE" not in os.environ
     log = (tmp_path / "gui-audit.log").read_text()
     assert "unreachable" in log
+
+
+def test_gui_audit_overrides(tmp_path):
+    conf = tmp_path / "overrides.conf"
+    conf.write_text(
+        "# comment\n"
+        "hd8 neo_shizuku_missing  # operator\n"
+        "s24 neo_shizuku_missing\n"
+    )
+    loaded = ga.load_gui_audit_overrides(conf)
+    assert loaded["hd8"] == {"neo_shizuku_missing"}
+    kept, suppressed = ga.apply_gui_audit_overrides(
+        "hd8",
+        ["neo_shizuku_missing", "aurora_shizuku_off"],
+        loaded,
+    )
+    assert suppressed == ["neo_shizuku_missing"]
+    assert kept == ["aurora_shizuku_off"]

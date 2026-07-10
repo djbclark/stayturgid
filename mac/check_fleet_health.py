@@ -19,6 +19,11 @@ import re
 import sys
 from pathlib import Path
 
+_MAC = Path(__file__).resolve().parent
+if str(_MAC) not in sys.path:
+    sys.path.insert(0, str(_MAC))
+from gui_audit import apply_gui_audit_overrides, load_gui_audit_overrides  # noqa: E402
+
 ROOT = Path(os.path.expanduser("~")) / ".config" / "stayturgid"
 LOG = ROOT / "logs" / "fleet-health.log"
 ACCESS_LOG = ROOT / "logs" / "access-monitor.log"
@@ -221,9 +226,11 @@ def main(argv: list[str] | None = None) -> int:
 
     gui_since = dt.datetime.now() - dt.timedelta(hours=GUI_AUDIT_FRESH_HOURS)
     gui_latest = latest_gui_audit(GUI_AUDIT_LOG, gui_since)
+    gui_overrides = load_gui_audit_overrides()
     gui_problems: list[str] = []
     for host in sorted(gui_latest):
         gts, gissues = gui_latest[host]
+        gissues, _ = apply_gui_audit_overrides(host, gissues, gui_overrides)
         if not gissues:
             continue
         age_h = (dt.datetime.now() - gts).total_seconds() / 3600.0

@@ -85,6 +85,11 @@ After `./mac/deploy_fleet.py <host>` (or `--scope fdroid`):
 1. Open Neo Store → Settings → Installer → **Shizuku**.
 2. Enable **automatic / background updates**.
 
+**hd8 (2026-07-09):** operator set Installer = **Shizuku** manually (Fire
+landscape settings nav is flaky for agents). Shizuku grant for Neo is in
+`shizuku.json`; gui-audit may still miss the Installer row — override in
+`~/.config/stayturgid/gui-audit-overrides.conf` if needed.
+
 ### 2.2 Aurora Store (Play)
 
 Fleet harden keeps Aurora **battery-optimized** (not unrestricted). 

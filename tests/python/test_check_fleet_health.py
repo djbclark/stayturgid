@@ -110,3 +110,32 @@ def test_main_reports_gui_audit_gaps(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "gui-audit" in out
     assert "aurora_autoupdate_on" in out
+
+
+def test_main_gui_audit_override_suppresses(tmp_path, monkeypatch, capsys):
+    log = tmp_path / "logs" / "fleet-health.log"
+    log.parent.mkdir(parents=True)
+    now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log.write_text("%s  hd8 via adb:1.2.3.4:5555: sshd=ok issues=none\n" % now)
+    state = tmp_path / "state" / "fleet-health"
+    state.mkdir(parents=True)
+    (state / "hd8").write_text("0")
+    gui = tmp_path / "logs" / "gui-audit.log"
+    gui.write_text("%s  hd8 done issues=neo_shizuku_missing shots=/x\n" % now)
+    overrides = tmp_path / "gui-audit-overrides.conf"
+    overrides.write_text("hd8 neo_shizuku_missing\n")
+    monkeypatch.setattr(cfh, "LOG", log)
+    monkeypatch.setattr(cfh, "STATE_DIR", state)
+    monkeypatch.setattr(cfh, "ACCESS_LOG", tmp_path / "missing-access.log")
+    monkeypatch.setattr(cfh, "GUI_AUDIT_LOG", gui)
+    import gui_audit as ga_mod  # noqa: E402
+
+    monkeypatch.setattr(
+        ga_mod,
+        "load_gui_audit_overrides",
+        lambda path=None: ga_mod.load_gui_audit_overrides(overrides),
+    )
+    rc = cfh.main(["--hours", "24"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "neo_shizuku_missing" not in out

@@ -36,6 +36,7 @@ import ui_driver as uid  # noqa: E402
 ROOT = Path(os.path.expanduser("~")) / ".config" / "stayturgid"
 LOG = ROOT / "logs" / "gui-audit.log"
 ART = ROOT / "artifacts" / "gui-audit"
+OVERRIDES = ROOT / "gui-audit-overrides.conf"
 CONF = Path(
     os.environ.get(
         "STAYTURGID_DEVICES_CONF",
@@ -64,6 +65,43 @@ AUTO_UPDATE_BAD = (
     "Check & install available updates automatically",
     "Check and install available updates automatically",
 )
+
+
+def load_gui_audit_overrides(path: Path | None = None) -> dict[str, set[str]]:
+    """host -> issue tags suppressed (operator-confirmed on device)."""
+    p = path or OVERRIDES
+    out: dict[str, set[str]] = {}
+    if not p.is_file():
+        return out
+    try:
+        text = p.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return out
+    for raw in text.splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line:
+            continue
+        parts = line.split()
+        if len(parts) >= 2:
+            out.setdefault(parts[0], set()).add(parts[1])
+    return out
+
+
+def apply_gui_audit_overrides(
+    host: str, issues: list[str], overrides: dict[str, set[str]] | None = None
+) -> tuple[list[str], list[str]]:
+    """Return (filtered issues, suppressed tags)."""
+    skip = (overrides or load_gui_audit_overrides()).get(host, set())
+    if not skip:
+        return issues, []
+    kept: list[str] = []
+    suppressed: list[str] = []
+    for i in issues:
+        if i in skip:
+            suppressed.append(i)
+        else:
+            kept.append(i)
+    return kept, suppressed
 
 
 def ts() -> str:
@@ -443,6 +481,12 @@ def audit_host(host: str, day_dir: Path) -> list[str]:
         if i not in seen:
             seen.add(i)
             uniq.append(i)
+    uniq, suppressed = apply_gui_audit_overrides(host, uniq)
+    if suppressed:
+        log(
+            "%s override suppressed=%s (%s)"
+            % (host, ",".join(suppressed), OVERRIDES)
+        )
     tag = ",".join(uniq) if uniq else "none"
     log("%s done issues=%s shots=%s" % (host, tag, out))
     return uniq
