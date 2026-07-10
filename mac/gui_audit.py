@@ -37,6 +37,7 @@ sys.path.insert(0, str(REPO / "shared" / "mac"))
 import stayturgid_device as dev  # noqa: E402
 import screen_control as sc  # noqa: E402
 import ui_driver as uid  # noqa: E402
+import vlm_gate as vlm  # noqa: E402
 
 ROOT = Path(os.path.expanduser("~")) / ".config" / "stayturgid"
 LOG = ROOT / "logs" / "gui-audit.log"
@@ -70,6 +71,19 @@ AUTO_UPDATE_BAD = (
     "Check & install available updates automatically",
     "Check and install available updates automatically",
 )
+
+
+def vlm_aurora_autoupdate_issues(shot: Path) -> list[str]:
+    """Optional UI-TARS gate on Aurora auto-update screenshot (STAYTURGID_VLM=1)."""
+    if not vlm.vlm_enabled():
+        return []
+    gate = vlm.VlmGate(autostart=False)
+    ok, detail = gate.verify(shot, "aurora_autoupdate_dont")
+    if detail.get("skipped"):
+        return []
+    if not ok:
+        return ["aurora_autoupdate_on_vlm"]
+    return []
 
 
 def load_gui_audit_overrides(path: Path | None = None) -> dict[str, set[str]]:
@@ -419,6 +433,11 @@ def audit_aurora(host: str, session, hs, out: Path) -> list[str]:
                 issues.append("aurora_autoupdate_on")
         elif not off_ok and "Automatic" in ui:
             issues.append("aurora_autoupdate_unclear")
+        auto_shot = out / "14_aurora_auto_updates.png"
+        if auto_shot.is_file():
+            for tag in vlm_aurora_autoupdate_issues(auto_shot):
+                if tag not in issues:
+                    issues.append(tag)
     else:
         issues.append("handsets_unavailable")
 

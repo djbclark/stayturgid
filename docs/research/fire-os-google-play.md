@@ -43,6 +43,8 @@ Doze whitelist alone does **not** fix the broadcast permission crash.
 3. **Disable Play Store auto-updates** (UI): Play Store → Settings → Network
    preferences → Auto-update apps → **Don't auto-update apps**
 
+   Verify (optional, Mac UI-TARS): `STAYTURGID_VLM=1 make verify-play-autoupdate HOSTS=hd8`
+
 Fleet automation:
 
 ```bash

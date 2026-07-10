@@ -14,8 +14,9 @@ Companion research: [ui-automation.md](ui-automation.md) (tool bake-off),
 1. Drive the app UI from the Mac (tap, swipe, type, assert).
 2. Leave a clear visual signal that an agent owns the glass (display inversion).
 3. Prefer hierarchy selectors over hardcoded coordinates.
-4. Survive flaky wireless ADB, dialogs, and multi-device `adb devices` lists.
-5. Fail closed on input when the session is not properly armed.
+4. Optional **UI-TARS vision gates** on high-stakes screenshots (`STAYTURGID_VLM=1`, see [VLM.md](../../VLM.md)).
+5. Survive flaky wireless ADB, dialogs, and multi-device `adb devices` lists.
+6. Fail closed on input when the session is not properly armed.
 
 ---
 

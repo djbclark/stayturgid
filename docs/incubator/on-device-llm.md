@@ -57,3 +57,6 @@ Reported mobile speeds (order of magnitude, CPU/Adreno): **1–1.5B ~30+ tok/s**
 - aider-chat as fleet heal
 - Always-on Ollama in Termux:Boot (battery + RAM)
 - LLM-driven Obtainium/Aurora/AutoJs6 drawer flows (deterministic on-device scripts own those)
+
+**Mac vision gates (UI-TARS)** are separate from on-device LLM: see [VLM.md](../../VLM.md).
+Screenshot verification on the Mac; not a replacement for Handsets navigation.

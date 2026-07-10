@@ -9,13 +9,16 @@ whitelists GMS/GSF on Doze.
 Usage:
   ./mac/fix_hd8_google_stack.py [hd8]
   ./mac/fix_hd8_google_stack.py hd8 --force
+  ./mac/fix_hd8_google_stack.py hd8 --verify-autoupdate
 
 After repair: open Play Store → Settings → Network preferences →
 Auto-update apps → **Don't auto-update apps** (prevents re-break).
+Or: STAYTURGID_VLM=1 make verify-play-autoupdate HOSTS=hd8
 """
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -40,6 +43,11 @@ def main(argv: list[str] | None = None) -> int:
         "--force",
         action="store_true",
         help="Reinstall pinned APKs even when version looks OK",
+    )
+    parser.add_argument(
+        "--verify-autoupdate",
+        action="store_true",
+        help="After stack check, VLM-verify Play Store auto-update is off (needs vlm-server)",
     )
     args = parser.parse_args(argv)
 
@@ -79,6 +87,15 @@ def main(argv: list[str] | None = None) -> int:
         "\nOperator: Play Store → Settings → Network preferences → "
         "Auto-update apps → Don't auto-update apps"
     )
+    if args.verify_autoupdate:
+        verify = REPO / "mac" / "verify_play_autoupdate.py"
+        env = os.environ.copy()
+        env.setdefault("STAYTURGID_VLM", "1")
+        r = subprocess.run(
+            [sys.executable, str(verify), args.host],
+            env=env,
+        )
+        return r.returncode
     return 0
 
 

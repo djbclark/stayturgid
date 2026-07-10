@@ -25,7 +25,8 @@ DEPLOY_SCOPE_ARG := $(if $(filter-out full,$(SCOPE)),--scope $(SCOPE),)
 
 .PHONY: help all configure check unit test unit-and-pytest pytest ansible-test test-venv \
         lint clean verify verify-heal device dryrun dryrun-termux \
-        health fix-hd8-google deploy deploy-check collections bootstrap-ssh deploy-termux syntax
+        health fix-hd8-google deploy deploy-check collections bootstrap-ssh deploy-termux syntax \
+        vlm-install vlm-server vlm-check vlm-stop verify-play-autoupdate
 
 # ------------------------------------------------------------------------------
 # Help
@@ -45,6 +46,7 @@ help:
 	@echo "  make bootstrap-ssh [HOSTS=s24]    ADB bootstrap Termux SSH keys + sshd"
 	@echo "  make health                     Mac fleet-health summary (exit 1 = tell operator)"
 	@echo "  make fix-hd8-google             Pin sideloaded GMS/Play on Fire hd8 (see docs)"
+	@echo "  make verify-play-autoupdate     Play Store auto-update VLM check (STAYTURGID_VLM=1)"
 	@echo "  make collections                Install ansible-galaxy collections"
 	@echo "  make syntax                     Syntax-check site.yml"
 	@echo ""
@@ -63,6 +65,12 @@ help:
 	@echo "  make test-venv                    Create .venv-test (once)"
 	@echo "  make lint                         shellcheck + ansible-lint + yamllint"
 	@echo "  make configure                    Report tool availability → .config.mk"
+	@echo ""
+	@echo "VLM (optional Mac UI-TARS gates — see VLM.md):"
+	@echo "  make vlm-install                  Download UI-TARS-1.5-7B GGUF (~6GB)"
+	@echo "  make vlm-server                   Start llama-server (dedicated terminal)"
+	@echo "  make vlm-check                    Smoke-test VLM server"
+	@echo "  make vlm-stop                     Stop background UI-TARS server"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make deploy HOSTS=s24"
@@ -91,6 +99,25 @@ health:
 
 fix-hd8-google:
 	python3 mac/fix_hd8_google_stack.py hd8
+
+verify-play-autoupdate:
+	STAYTURGID_VLM=1 python3 mac/verify_play_autoupdate.py $(or $(HOSTS),hd8)
+
+vlm-install:
+	bash mac/vlm_install.sh
+
+vlm-server:
+	bash mac/ui_tars_server.sh
+
+vlm-check:
+	python3 mac/vlm_check.py
+
+vlm-stop:
+	@if [ -f "$${HOME}/.config/stayturgid/ui-tars-server.pid" ]; then \
+	  kill "$$(cat "$${HOME}/.config/stayturgid/ui-tars-server.pid")" 2>/dev/null || true; \
+	  rm -f "$${HOME}/.config/stayturgid/ui-tars-server.pid"; \
+	  echo "stopped"; \
+	else echo "no pid file"; fi
 
 collections:
 	ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections

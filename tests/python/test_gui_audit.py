@@ -66,3 +66,24 @@ def test_gui_audit_overrides(tmp_path):
     )
     assert suppressed == ["neo_shizuku_missing"]
     assert kept == ["aurora_shizuku_off"]
+
+
+def test_vlm_aurora_autoupdate_issues_skipped(monkeypatch, tmp_path):
+    monkeypatch.setattr(ga.vlm, "vlm_enabled", lambda: False)
+    assert ga.vlm_aurora_autoupdate_issues(tmp_path / "x.png") == []
+
+
+def test_vlm_aurora_autoupdate_issues_fail(monkeypatch, tmp_path):
+    monkeypatch.setattr(ga.vlm, "vlm_enabled", lambda: True)
+
+    class FakeGate:
+        def __init__(self, **kw):
+            pass
+
+        def verify(self, path, check):
+            return False, {"ok": False, "parsed": {"notes": "auto on"}}
+
+    monkeypatch.setattr(ga.vlm, "VlmGate", FakeGate)
+    shot = tmp_path / "14.png"
+    shot.write_bytes(b"x")
+    assert ga.vlm_aurora_autoupdate_issues(shot) == ["aurora_autoupdate_on_vlm"]
