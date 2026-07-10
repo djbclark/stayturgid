@@ -23,8 +23,8 @@ FIRE_TOOLS_ZIP_URL = (
 FIRE_TOOLS_CACHE = Path.home() / ".cache" / "stayturgid" / "fire-tools"
 GMS_APKM = "Fire-Tools/Gapps/Google Play Services 24.35.30.apkm"
 PLAY_APKM = "Fire-Tools/Gapps/Google Play Store 42.6.23-23.apkm"
-GSF_APK = "Fire-Tools/Gapps/Google Services Framework 9-6957767.apk"
-PINNED_GSF_VERSION_PREFIX = "9-"
+GSF_APK = "Fire-Tools/Gapps/Google Services Framework 10-6494331.apk"
+PINNED_GSF_VERSION_PREFIX = "10-"
 # Reject 26.x auto-updates (262434022 observed crashing on hd8 2026-07-09).
 MAX_GMS_VERSION_CODE = 250_000_000
 PINNED_GMS_VERSION_CODE = 243_530_013

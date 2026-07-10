@@ -10,9 +10,10 @@ Two observed causes on hd8 (2026-07-09):
 
 1. **GMS auto-updated to 26.x** — logcat shows `com.google.android.gms.persistent`
    crashing on `CHANGE_DEVICE_IDLE_TEMP_WHITELIST`.
-2. **Wrong GSF build (10.x) + Aurora Store open** — `com.google.process.gapps`
-   Application Error while Aurora settings triggers `BadAuthentication` in GMS.
-   Fleet has Aurora **parked** and **uninstalled from hd8**; avoid on other hosts too.
+2. **Wrong GSF build (9.x) + Aurora Store open** — `com.google.process.gapps`
+   Application Error while Aurora triggers `BadAuthentication` in GMS.
+   **GSF 9.x also breaks Play Store** (`READ_GSERVICES` not granted after reinstall).
+   Use **GSF 10-6494331** with GMS 24.35.30. Aurora **uninstalled from fleet**.
 
 Logcat (GMS 26.x case):
 
@@ -37,7 +38,7 @@ Doze whitelist alone does **not** fix the broadcast permission crash.
    Fire OS 8:
    - Google Play Services **24.35.30** (040400 arm64)
    - Google Play Store **42.6.23**
-   - Google Services Framework **9-6957767** (not 10-6494331 on Fire OS 8)
+   - Google Services Framework **10-6494331** (9-x breaks Play Store READ_GSERVICES on hd8)
 2. **Doze whitelist** GMS + GSF: `cmd deviceidle whitelist +com.google.android.gms`
 3. **Disable Play Store auto-updates** (UI): Play Store → Settings → Network
    preferences → Auto-update apps → **Don't auto-update apps**
