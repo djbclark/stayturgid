@@ -8,7 +8,8 @@ JSON catalogs and Mac helpers for [Obtainium](https://github.com/ImranR98/Obtain
 
 | File | Contents |
 |------|----------|
-| `stayturgid-apps.json` | Full fleet catalog (Termux github-debug set, Shizuku, Tailscale, AutoJs6) |
+| `stayturgid-apps.json` | Active fleet catalog (Termux github-debug set, Shizuku, Tailscale, AutoJs6) |
+| `app-stores-optional.json` | Neo Store + Aurora — **not** in active fleet; import manually when needed |
 | `autojs6-only.json` | Just AutoJs6 — use after `setup_autojs6.py` |
 
 APK filters are pre-configured:

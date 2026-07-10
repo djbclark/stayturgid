@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
-"""Quiet GUI audit: Neo Store + Aurora settings screenshots + H2 assertions.
+"""Quiet GUI audit: Neo Store + Aurora settings screenshots + assertions.
 
-Intended for launchd at 03:14 local time. Tolerates offline Mac wake misses
+PARKED (2026-07-09): not scheduled by fleet launchd and not triaged by
+check_fleet_health.py. Scripts remain for manual use if app stores are
+re-enabled (see fdroid/README.md, play/README.md).
+
+Intended for launchd at 03:14 local time when enabled. Tolerates offline Mac wake misses
 and unreachable devices (per-host skip, exit 0 unless a reachable host fails
 assertions).
 
@@ -10,6 +14,7 @@ assertions).
 
 Logs:  ~/.config/stayturgid/logs/gui-audit.log
 Shots: ~/.config/stayturgid/artifacts/gui-audit/<YYYY-MM-DD>/<host>/
+Overrides: ~/.config/stayturgid/gui-audit-overrides.conf (host issue per line)
 
 Usage:
   python3 mac/gui_audit.py              # all devices.conf hosts

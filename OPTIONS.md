@@ -22,10 +22,10 @@
 > Parked side projects: [docs/incubator/](docs/incubator/) — **do not implement**
 > unless the operator unparks a named project (Inferno, etc.).
 
-**Fleet snapshot (2026-07-09 night):** Aurora policy = **Do not auto-update** +
-battery-optimized + filters ON. **H2 closed** — s24/p7a/hd8 Aurora + Neo Shizuku
-(hd8 Neo operator-confirmed; Fire gui-audit nav flaky). Screen-control holds
-inversion with keepalive across dependent UI steps.
+**Fleet snapshot (2026-07-09 night):** Neo Store + Aurora **parked** — not in
+Obtainium catalog, deploy, gui-audit, or fleet-health. Core stack = Termux +
+AutoJs6 + Obtainium + Tailscale. Screen-control holds inversion with keepalive
+across dependent UI steps.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
@@ -68,10 +68,6 @@ that version; only after H5 and a deliberate version bump review.
 Mac **soft health**: launchd `com.stayturgid.fleet-health` →
 `mac/fleet_health_monitor.py` every 5 min (`~/.config/stayturgid/logs/fleet-health.log`).
 Restarts stale AutoJs6 `main.js` when `watchdog_stale`/`watchdog_missing`.
-**GUI audit**: `com.stayturgid.gui-audit` @ 03:14 → `mac/gui_audit.py` (quiet;
-no torch/sound); gaps in `gui-audit.log` surface in `check_fleet_health.py`.
-Operator-confirmed gaps on flaky hosts (e.g. hd8 Fire Neo nav): add
-`~/.config/stayturgid/gui-audit-overrides.conf` (`host issue # comment`).
 Reachability in `access-monitor`. Prefer health trail before 43–45.
 
 #### 43 — AutoJs6 WorkManager (agent) · Risk: **Latent / Low until upstream**
@@ -114,9 +110,9 @@ API; Tasker rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal;
 always-on Ollama in Termux:Boot; **any Inferno/`emu`/Styx work** (parked under
 [docs/incubator/inferno-styx/](docs/incubator/inferno-styx/)).
 
-**Closed (2026-07-09 evening):** Aurora CPU thrash → battery-optimized +
-aurora-only/F-Droid update filters (harden + configure); screen-control hold
-rule + `SKIP_PRESENCE` still inverts. Soft health ok s24/p7a/hd8.
+**Closed (2026-07-09 night):** Neo/Aurora parked from active fleet (apps may
+remain on devices). **Closed (2026-07-09 evening):** Aurora CPU thrash policy
+documented; screen-control hold rule.
 **Closed (2026-07-09):** **15b**, **H1**, **H3**, **56**, **46**, **55**, **27**,
 **57**, Portfolio 2 **48–52**/53, co-monitor + Mac AutoJs6 heal, Fire F1–F5,
 self-heal agent rule.

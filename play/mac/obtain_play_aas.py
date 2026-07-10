@@ -213,7 +213,7 @@ def main(argv: list[str] | None = None) -> int:
             [
                 "apkeep",
                 "-a",
-                "com.bobek.metronome",
+                "com.google.android.youtube",
                 "-d",
                 "google-play",
                 "-e",

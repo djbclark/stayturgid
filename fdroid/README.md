@@ -1,10 +1,18 @@
 # F-Droid / Neo Store support
 
+> **Parked (2026-07-09):** Neo Store is **not** installed, configured, repo-synced,
+> or health-checked by active fleet deploy. Apps may remain on devices from earlier
+> runs. To re-enable: set `stayturgid_app_stores_enabled: true` in
+> `ansible/inventory/group_vars/stayturgid.yml` and run
+> `./mac/deploy_fleet.py --scope fdroid [host]`. Optional Obtainium entries:
+> `obtainium/app-stores-optional.json`.
+
 Ansible role `stayturgid.fdroid.fdroid_repos` plus Mac `fdroidcl` for repo management and app installs.
 
-## Fleet integration
+## Fleet integration (when re-enabled)
 
-F-Droid is part of the standard fleet deploy (`./mac/deploy_fleet.py`):
+F-Droid is part of the standard fleet deploy (`./mac/deploy_fleet.py`) **only when**
+`stayturgid_app_stores_enabled: true`:
 
 1. Core Ansible run (includes fdroid role — syncs repos on Mac)
 2. Obtainium catalog import (installs Neo Store on device)

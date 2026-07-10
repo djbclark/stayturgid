@@ -1,10 +1,17 @@
 # Play Store (Aurora + apkeep / gplaycli)
 
-Aurora Store is the on-device GUI client. Fleet deploy installs Aurora when missing, grants Shizuku, completes first-run setup, selects the Shizuku installer, sets **Do not auto-update** (so Aurora stays battery-optimized without fighting a check&install → unrestrict prompt), and turns on **Filter apps from other sources** (+ F-Droid filter) so Aurora only checks/updates apps it installed. Aurora stays under OS battery optimization (not Doze-whitelisted) to avoid background CPU thrash. App automation downloads APKs on the Mac and installs via adb, spoofing Play as installer when requested.
+> **Parked (2026-07-09):** Aurora Store is **not** installed, configured, or
+> health-checked by active fleet deploy. Apps may remain on devices from earlier
+> runs. To re-enable: set `stayturgid_app_stores_enabled: true` in
+> `ansible/inventory/group_vars/stayturgid.yml`, set `stayturgid_gui_audit_enabled:
+> true` if you want nightly GUI checks, and run `./mac/deploy_fleet.py --scope play
+> [host]`. Optional Obtainium entries: `obtainium/app-stores-optional.json`.
 
-## Fleet integration
+Aurora Store is the on-device GUI client. When re-enabled, fleet deploy installs Aurora when missing, grants Shizuku, completes first-run setup, selects the Shizuku installer, sets **Do not auto-update** (so Aurora stays battery-optimized without fighting a check&install → unrestrict prompt), and turns on **Filter apps from other sources** (+ F-Droid filter) so Aurora only checks/updates apps it installed. Aurora stays under OS battery optimization (not Doze-whitelisted) to avoid background CPU thrash. App automation downloads APKs on the Mac and installs via adb, spoofing Play as installer when requested.
 
-Play/Aurora is part of `./mac/deploy_fleet.py` (play role + `configure_aurora.py` after Obtainium import).
+## Fleet integration (when re-enabled)
+
+Play/Aurora is part of `./mac/deploy_fleet.py` (play role + `configure_aurora.py` after Obtainium import) **only when** `stayturgid_app_stores_enabled: true`.
 
 Re-run Play only: `./mac/deploy_fleet.py --scope play [host]`
 

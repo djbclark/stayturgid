@@ -225,11 +225,14 @@ def print_footer(rc: int, scope: Scope) -> None:
     if rc != 0:
         print(f"Fleet deploy finished with errors (exit {rc}). Failed hosts are listed above.", file=sys.stderr)
     elif scope is Scope.FDROID:
-        print("Fdroid deploy complete. Install an app: ANDROID_SERIAL=<target> fdroidcl install <appid>")
+        print(
+            "Fdroid scope finished (app stores parked — set "
+            "stayturgid_app_stores_enabled: true to activate)."
+        )
     elif scope is Scope.PLAY:
         print(
-            "Play deploy complete. Aurora Store is installed, granted Shizuku, "
-            "using Shizuku installer, and set for automatic installs."
+            "Play scope finished (app stores parked — set "
+            "stayturgid_app_stores_enabled: true to activate)."
         )
     else:
         print("Fleet deploy complete.")

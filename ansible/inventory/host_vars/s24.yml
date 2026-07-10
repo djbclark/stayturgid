@@ -1,6 +1,0 @@
----
-# s24 lab canary: real Google Play download via apkeep (OPTIONS 15b).
-# Not fleet-wide — p7a may already have F-Droid-signed metronome; hd8 is API 30.
-stayturgid_ensure_apps:
-  - id: com.bobek.metronome
-    source: play

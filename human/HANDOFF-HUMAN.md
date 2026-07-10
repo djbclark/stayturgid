@@ -78,35 +78,7 @@ python3 mac/a11y_services.py restore p7a
 
 Record in `RESPONSES.md` only if it fails on a host.
 
-### 2.1 Neo Store (F-Droid)
-
-After `./mac/deploy_fleet.py <host>` (or `--scope fdroid`):
-
-1. Open Neo Store → Settings → Installer → **Shizuku**.
-2. Enable **automatic / background updates**.
-
-**hd8 (2026-07-09):** operator set Installer = **Shizuku** manually (Fire
-landscape settings nav is flaky for agents). Shizuku grant for Neo is in
-`shizuku.json`; gui-audit may still miss the Installer row — override in
-`~/.config/stayturgid/gui-audit-overrides.conf` if needed.
-
-### 2.2 Aurora Store (Play)
-
-Fleet harden keeps Aurora **battery-optimized** (not unrestricted). 
-`configure_aurora.py` dismisses any Fire OS **“Let app always run in background?”**
-prompt with **DENY**/Back, selects Shizuku installer, sets **Do not auto-update**
-(compatible with battery optimization), and turns on
-**Filter apps from other sources** (and Filter F-Droid apps).
-
-**You confirm** (once per host if unsure):
-
-1. Aurora Settings → Installer = **Shizuku**, Automatic updates = **Do not auto-update**.
-2. Updates → **Filter apps from other sources** on (only apps Aurora installed).
-3. Updates → **Filter F-Droid apps** on.
-4. App info → Battery = Optimized (not Unrestricted).
-5. No stuck Settings modal on hd8.
-
-### 2.3 Accessibility services (if wiped again)
+### 2.1 Accessibility services (if wiped again)
 
 **Never** use the AutoJs6 drawer accessibility toggle alone — it replaces the
 entire system list. Fleet tooling uses merge-only writes.
@@ -143,7 +115,7 @@ AutoJs6 project push uses adb; Termux deploy uses SSH.
 Before live `./mac/deploy_fleet.py` on **all** hosts:
 
 - **Unlock screen** on each host during post-Ansible steps (Obtainium import,
-  Aurora UI, AutoJs6 drawer automation).
+  AutoJs6 drawer automation).
 - hd8/s24 on USB if wireless adb is down.
 - Obtainium catalog import is interactive (screen control).
 
@@ -155,22 +127,26 @@ Answer in `RESPONSES.md`:
 
 ## Priority 4 — Optional / later
 
+### 4.0 Neo Store + Aurora (parked)
+
+Fleet no longer installs, configures, or health-checks Neo Store or Aurora.
+Apps may remain on devices from earlier deploys. To use again:
+
+- Set `stayturgid_app_stores_enabled: true` in `ansible/inventory/group_vars/stayturgid.yml`
+- Optional Obtainium import: `obtainium/app-stores-optional.json`
+- See [fdroid/README.md](../fdroid/README.md) and [play/README.md](../play/README.md)
+
 ### 4.1 Ansible Galaxy publish
 
 Requires [galaxy.ansible.com](https://galaxy.ansible.com) API token. Not needed
 for Git-tag installs. Note in `RESPONSES.md` if published.
 
-### 4.2 Neo Store repo import still failing
-
-If `fdroid_repo_push` intents fail: capture `adb logcat` snippet in
-`RESPONSES.md` (see §4.2 in prior notes).
-
-### 4.3 Obtainium in-app confirm
+### 4.2 Obtainium in-app confirm
 
 Catalog apply uses `obtainium/mac/import_catalog.py` (screen control). Unlock
 phone when deploy runs import.
 
-### 4.4 Upstream tracking
+### 4.3 Upstream tracking
 
 - **AutoJs6 fleet config API:** [issue #553](https://github.com/SuperMonster003/AutoJs6/issues/553)
   — no non-UI drawer prefs on release builds today.

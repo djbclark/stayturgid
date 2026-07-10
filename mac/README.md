@@ -14,7 +14,7 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 | `fire_help_monitor.py` | Mac→Fire help when Shizuku/Handsets down → `fire-help.log` |
 | `fire_peer_help.py` | Peer ADB helper (Handsets/Shizuku) for Fire; SSH ForceCommand entry |
 | `check_fleet_health.py` | **Session triage** — agents run at start; exit 1 ⇒ tell operator |
-| `gui_audit.py` | Quiet Neo/Aurora GUI screenshots + H2 assertions (03:14 launchd) |
+| `gui_audit.py` | Neo/Aurora GUI audit — **parked**; manual only (`fdroid/README.md`, `play/README.md`) |
 | `deploy_fleet.py` | Full fleet deploy via `ansible/playbooks/site.yml` (bootstrap → fleet → post-UI → validate) |
 | `bootstrap_ssh.py` | First-time Termux SSH: adb + `run-as com.termux` or `--ansible` → `bootstrap.yml` |
 | `a11y_services.py` | Backup/restore `enabled_accessibility_services` per host (`shared/a11y_profiles.json`) |
@@ -31,8 +31,8 @@ Launchd agents are rendered by `ansible/playbooks/mac.yml` (not hand-copied plis
 ./mac/deploy_fleet.py                    # whole fleet
 ./mac/deploy_fleet.py s24                # one host
 CHECK=1 ./mac/deploy_fleet.py s24        # dry run
-./mac/deploy_fleet.py --scope fdroid s24 # F-Droid only
-./mac/deploy_fleet.py --scope play s24   # Play / Aurora only
+./mac/deploy_fleet.py --scope fdroid s24 # F-Droid (parked until app stores re-enabled)
+./mac/deploy_fleet.py --scope play s24   # Play / Aurora (parked)
 ```
 
 Verify: `make verify` or `bash tests/run.sh device --heal [host]`
@@ -57,17 +57,13 @@ Logs: `~/.config/stayturgid/logs/`. Device list: `~/.config/stayturgid/devices.c
 | `com.stayturgid.access-monitor` | 300 s | `access-monitor.log` (reachability) |
 | `com.stayturgid.fleet-health` | 300 s | `fleet-health.log` (soft health) |
 | `com.stayturgid.fire-help` | 300 s | `fire-help.log` (Fire Shizuku/Handsets) |
-| `com.stayturgid.gui-audit` | **03:14** daily | `gui-audit.log` + screenshots (quiet; no torch/sound) |
+
+`com.stayturgid.gui-audit` is **not** installed while app stores are parked.
 
 **Soft health** (`fleet_health_monitor.py`): when reachable, scrapes watchdog/repair
 ages, STATUS `port`/`shizuku`/`a11y`, AutoJs6 + profile a11y drift, boot loop,
 `localhost:5555` shell. Always logs; macOS notify after ~10 min debounce.
 Disable with `STAYTURGID_SKIP_HEALTH=1`. Does not mutate devices.
-
-**GUI audit** (`gui_audit.py`): nightly quiet ScreenControlSession (no flashlight,
-vibrate, or presence dialogs). Skips unreachable hosts. Assertion tags land in
-`gui-audit.log` and are surfaced by `check_fleet_health.py`. Screenshots under
-`~/.config/stayturgid/artifacts/gui-audit/`.
 
 **Agents — session start:** `python3 mac/check_fleet_health.py` — if exit ≠ 0,
 surface host/`issues=` to the operator immediately (see HANDOFF § Mac fleet health).

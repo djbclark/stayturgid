@@ -32,7 +32,9 @@
       retries: 2
       delay: 3
       changed_when: false
-      when: not ansible_check_mode
+      when:
+        - not ansible_check_mode
+        - stayturgid_app_stores_enabled | default(false) | bool
       tags: [post-ui, aurora, play, full]
 
     - name: AutoJs6 Shizuku drawer enable

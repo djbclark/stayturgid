@@ -13,8 +13,8 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 | **Mac ADB keepalive** | `mac/` | Yes — launchd reconnect + outage alert | [mac/README.md](mac/README.md) |
 | **AutoJs6 watchdog** | `autojs6/` | Yes — needs Termux repair scripts | [autojs6/README.md](autojs6/README.md) |
 | **Obtainium catalogs** | `obtainium/` | Yes — any Obtainium user | [obtainium/README.md](obtainium/README.md) |
-| **F-Droid / Neo Store** | `fdroid/` + `stayturgid.fdroid` collection | fdroidcl + Ansible repos + Neo Store (Shizuku) | [fdroid/README.md](fdroid/README.md) |
-| **Play / Aurora Store** | `stayturgid.play` collection | Aurora + apkeep/gplaycli via fleet deploy | [ansible_collections/stayturgid/play/README.md](ansible_collections/stayturgid/play/README.md) |
+| **F-Droid / Neo Store** | `fdroid/` + `stayturgid.fdroid` collection | Parked — manual / `--scope fdroid` when re-enabled | [fdroid/README.md](fdroid/README.md) |
+| **Play / Aurora Store** | `stayturgid.play` collection | Parked — manual / `--scope play` when re-enabled | [ansible_collections/stayturgid/play/README.md](ansible_collections/stayturgid/play/README.md) |
 | **Shared Mac helpers** | `shared/` | Yes — `resolve-adb` only | [shared/README.md](shared/README.md) |
 
 ---
@@ -41,9 +41,11 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 4. Obtainium catalog — [obtainium/README.md](obtainium/README.md)
 5. Mac — [mac/README.md](mac/README.md) (ADB reconnect + access monitor)
 
-**One command (fleet):** `./mac/deploy_fleet.py` — Termux, AutoJs6, Obtainium, Tailscale, F-Droid/Neo Store, Play/Aurora, optional ensure_apps.
+**One command (fleet):** `./mac/deploy_fleet.py` — Termux, AutoJs6, Obtainium, Tailscale, optional ensure_apps.
 
-**Partial re-runs:** `./mac/deploy_fleet.py --scope fdroid [host]` · `./mac/deploy_fleet.py --scope play [host]`
+Neo Store / Aurora Store are **parked** (not in active deploy); see [fdroid/README.md](fdroid/README.md) and [play/README.md](play/README.md) to re-enable.
+
+**Partial re-runs:** `./mac/deploy_fleet.py --scope fdroid [host]` · `./mac/deploy_fleet.py --scope play [host]` (no-op while app stores are parked)
 
 ---
 

@@ -715,9 +715,13 @@ If port 5555 is not open after 60s:
 
 ---
 
-## Part 6b — F-Droid / Neo Store + Play / Aurora (fleet-integrated)
+## Part 6b — F-Droid / Neo Store + Play / Aurora (parked)
 
-Part of `./mac/deploy_fleet.py`. After the core Ansible run, Obtainium catalog import installs Neo Store and Aurora; a second `--tags app-stores` pass pushes F-Droid repos and grants Shizuku; `configure_aurora.py` finishes Aurora first-run UI.
+**Not** part of active `./mac/deploy_fleet.py` (2026-07-09). Set
+`stayturgid_app_stores_enabled: true` to re-enable. Apps may remain on devices;
+optional Obtainium catalog: `obtainium/app-stores-optional.json`.
+
+When re-enabled: second `--tags app-stores` pass pushes F-Droid repos; `configure_aurora.py` finishes Aurora first-run UI.
 
 | Command | Scope | Mac tools |
 |---------|-------|-----------|
@@ -740,7 +744,7 @@ ANDROID_SERIAL="$(resolve_adb s24)" fdroidcl install com.example.app
 
 **Shizuku grants** (privileged adb): `stayturgid.android_common.shizuku_grant` Ansible module, or `ansible-playbook` via fdroid/play roles.
 
-**Verified E2E (2026-07-07):** `fdroidcl install com.bobek.metronome` on s24, p7a, hd8 (Fire OS via USB adb); uninstalled after verify.
+**Historical E2E (2026-07-07, pre-park):** fdroidcl install smoke test on s24/p7a/hd8; uninstalled after verify.
 
 See [fdroid/README.md](fdroid/README.md), [ansible_collections/stayturgid/fdroid/README.md](ansible_collections/stayturgid/fdroid/README.md), [ansible_collections/stayturgid/play/README.md](ansible_collections/stayturgid/play/README.md).
 

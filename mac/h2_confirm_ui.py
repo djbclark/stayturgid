@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """H2 eyeball helper: capture Neo Store + Aurora settings screenshots.
 
+PARKED — not run by fleet. Manual use only when re-enabling app stores.
+
 Usage: ./mac/h2_confirm_ui.py [s24|p7a|hd8 ...]
 
 Holds one ScreenControlSession per host (inversion on). Navigates settings

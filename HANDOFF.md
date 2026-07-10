@@ -53,16 +53,13 @@ Also skim when the operator asks about fleet status, soak, OPTIONS **43–45**, 
 | Path | What |
 |------|------|
 | `~/.config/stayturgid/logs/fleet-health.log` | Soft health (watchdog, repair, a11y, sshd, bootloop, shell5555) |
-| `~/.config/stayturgid/logs/gui-audit.log` | Nightly quiet Neo/Aurora GUI assertions (`com.stayturgid.gui-audit` @ 03:14) |
 | `~/.config/stayturgid/logs/fire-help.log` | Mac→Fire Shizuku/Handsets help (`com.stayturgid.fire-help`) |
 | `~/.config/stayturgid/logs/access-monitor.log` | Total outage (ADB+SSH all dead) |
 | `~/.config/stayturgid/state/fleet-health/<host>` | Consecutive soft-fail count (≥2 ≈ notified) |
-| `~/.config/stayturgid/artifacts/gui-audit/` | Dated screenshots from GUI audit |
 
-Agents: `com.stayturgid.fleet-health`, `com.stayturgid.gui-audit`,
-`com.stayturgid.access-monitor` (via `ansible/playbooks/mac.yml`). Disable soft
-probes: `STAYTURGID_SKIP_HEALTH=1`. GUI audit uses `STAYTURGID_PRESENCE_QUIET=1`
-(no torch/sound). Unreachable hosts are skipped, not fatal.
+Agents: `com.stayturgid.fleet-health`, `com.stayturgid.access-monitor` (via
+`ansible/playbooks/mac.yml`). Neo/Aurora gui-audit is **parked** (`mac/gui_audit.py`
+remains for manual use). Disable soft probes: `STAYTURGID_SKIP_HEALTH=1`.
 
 Mac→Android UI playbook: [docs/research/mac-android-ui-automation.md](docs/research/mac-android-ui-automation.md).
 
@@ -105,8 +102,10 @@ GitHub `master` is the source of truth. To release:
 1. Bump `version.json` (`version` + `changelog`), commit, push.
 2. `./mac/deploy_fleet.py` — full fleet via `ansible/playbooks/site.yml`
    (`CHECK=1 ./mac/deploy_fleet.py` = dry run): bootstrap, Termux, AutoJs6,
-   Obtainium, Tailscale, F-Droid/Neo Store, Play/Aurora, app privileges,
-   post-UI automation, validate. Idempotent (re-run = `changed=0`). Or the
+   Obtainium, Tailscale, app privileges (core fleet apps only), post-UI
+   automation, validate. Neo Store / Aurora are **parked** — see
+   [fdroid/README.md](fdroid/README.md), [play/README.md](play/README.md).
+   Idempotent (re-run = `changed=0`). Or the
    granular path: `./ansible/mac/deploy_termux.py` then `./autojs6/mac/deploy.py`.
 
 Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `termux-notification` when GitHub `version.json` moves ahead of the last-seen stamp.
@@ -118,23 +117,20 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 **As of 2026-07-09.** Three-device fleet: **s24**, **p7a**, **hd8**.
 On-device post-UI prefers SSH on s24/p7a via Termux `localhost:5555`, with
 automatic Mac adb fallback if SSH-invoke fails. hd8 is Mac adb only.
-Play downloads: apkeep AAS in `~/.config/stayturgid/play.env`; fleet
-`stayturgid_ensure_apps` canary uses `source: play` (google-play + splits).
 See [OPTIONS.md](OPTIONS.md).
 
 **Fleet health:**
 
 | Host | Verify | Mac adb | Notes |
 |------|--------|---------|-------|
-| s24 | **16/16 PASS** (post deploy soak) | USB / LAN / Tailscale | Lab reference; drawer **46** closed; Play canary installed |
+| s24 | **16/16 PASS** (post deploy soak) | USB / LAN / Tailscale | Lab reference; drawer **46** closed |
 | p7a | **16/16** (last run) | mDNS + Tailscale | may need Tailscale/USB when offline |
 | hd8 | **16/16 PASS** (Fire OS) | **USB** + wireless | No Termux→5555; Mac adb post-UI |
 
 **Recent landings (2026-07-09):**
-- **15b:** `source: play` ensure_apps + `play_apps` split `install-multiple`; `deploy_fleet` auto-loads `play.env`.
-- **H1:** `play/mac/obtain_play_aas.py` (EmbeddedSetup cookie → AAS).
+- Neo/Aurora **parked** from active fleet deploy, Obtainium catalog, gui-audit, and fleet-health.
 - Post-UI routing: `post_ui_remote.run_with_mac_fallback` — SSH-first on s24/p7a, Mac adb on failure; hd8 Mac-only.
-- On-device deterministic GUI: `termux/py/stayturgid_{import_catalog,configure_aurora,enable_autojs6,screen_control,shell,grant_shizuku}.py` + `~/.stayturgid/lib/`.
+- On-device deterministic GUI: `termux/py/stayturgid_{import_catalog,enable_autojs6,screen_control,shell,grant_shizuku}.py` + `~/.stayturgid/lib/`.
 - Portfolio 2 `site.yml` + thin `deploy_fleet.py`; ADR 001.
 - Mac soft health: launchd `com.stayturgid.fleet-health` → `mac/fleet_health_monitor.py` + `shared/mac/fleet_health.py` (watchdog/repair/a11y/sshd/bootloop); log `~/.config/stayturgid/logs/fleet-health.log`; notify after debounce.
 - shell-gpt / local LLM (incubator): [docs/incubator/on-device-llm.md](docs/incubator/on-device-llm.md) (OPTIONS **54** only if asked).
@@ -144,8 +140,7 @@ See [OPTIONS.md](OPTIONS.md).
 - AutoJs6 fleet drawer profile (`autojs6_drawer_defaults.json`, `enable_autojs6_shizuku.py`).
 - Accessibility merge-only + `mac/a11y_services.py` backup/restore (`shared/a11y_profiles.json`).
 - PiP/overlay clearance at `ScreenControlSession` start (`shared/ui_clearance.py`).
-- Fleet app harden before Aurora; Fire OS background-run dialog handling.
-- Deploy order: harden → `configure_aurora` → `enable_autojs6_shizuku`.
+- Deploy order: harden (core apps) → `enable_autojs6_shizuku` (Aurora configure parked).
 - AutoJs6 upstream fleet-config request: [issue #553](https://github.com/SuperMonster003/AutoJs6/issues/553).
 
 **Recent landings (2026-07-07):**
@@ -430,7 +425,7 @@ first-run, AutoJs6 drawer — not fake “modules” for UI taps.
 | Shizuku install/grant | `shizuku_grant` module + Mac helpers | Mostly yes |
 | Obtainium catalog | `obtainium_app` render + `import_catalog.py` UI | Split (render yes, import script) |
 | AutoJs6 deploy | `autojs6_watchdog` role + `autojs6/mac/*.py` | Partial |
-| Post-deploy UI | `configure_aurora.py`, `enable_autojs6_shizuku.py` | Tagged `script:` steps |
+| Post-deploy UI | `enable_autojs6_shizuku.py` (Aurora configure parked) | Tagged `script:` steps |
 | ADB reconnect launchd | `adb_reconnect.py` + `mac.yml` | localhost role |
 | Validation | `device_tier.py` + TAP + `stayturgid_repair_check` | `validate.yml` playbook |
 
@@ -458,11 +453,11 @@ runs `ansible-playbooks/site.yml` (post-UI scripts orchestrated in `post-ui.yml`
 
 **Mac prerequisites:** `brew install fdroidcl apkeep`
 
-**Partial re-runs:** `./mac/deploy_fleet.py --scope fdroid [host]` · `./mac/deploy_fleet.py --scope play [host]`
+**Partial re-runs:** `./mac/deploy_fleet.py --scope fdroid [host]` · `./mac/deploy_fleet.py --scope play [host]` (parked until `stayturgid_app_stores_enabled: true`)
 
-**Human steps (one-time per device):** Neo Store Shizuku installer + auto-updates; Play creds for google-play downloads — see [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md).
-
-**Verified E2E:** s24 + p7a + hd8 — fdroidcl install/uninstall metronome; Aurora automated setup on all three.
+**App stores (parked):** Neo/Aurora may remain on devices; fleet no longer installs,
+configures, or health-checks them. Re-enable: [fdroid/README.md](fdroid/README.md),
+[play/README.md](play/README.md).
 
 Run with announcements (`🚨📱🚨 USING — s24 ...`) when someone may be on the device.
 Operator-only steps (Play creds, deploy approval): [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md).
