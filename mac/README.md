@@ -47,13 +47,14 @@ Verify: `make verify` or `make verify-heal` or `bash tests/run.sh device --heal 
 # One-shot reconnect (conf-driven alias):
 python3 mac/adb_reconnect.py s24
 
-# Install launchd agents from inventory:
-ansible-playbook ansible/playbooks/mac.yml
+# Install launchd agents + Homebrew prereqs from inventory:
+make deploy-mac
+# or: ansible-playbook ansible/playbooks/mac-site.yml --tags agents
 ```
 
 Logs: `~/.config/stayturgid/logs/`. Device list: `~/.config/stayturgid/devices.conf` (from Ansible).
 
-**Launchd agents** (`ansible-playbook ansible/playbooks/mac.yml`):
+**Launchd agents** (`make deploy-mac` / `ansible/playbooks/mac-site.yml`):
 
 | Agent | Interval | Log |
 |-------|----------|-----|
