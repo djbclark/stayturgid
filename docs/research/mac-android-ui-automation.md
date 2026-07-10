@@ -231,7 +231,9 @@ tuples of synonyms and try in order.
 4. Script navigation with waits; screenshot each step.
 5. Assert durable state (Switch checked, selected radio, permission granted via
    `dumpsys` / `appops` when possible — UI only when settings live only in UI).
-6. Tear down: HOME, inversion off, IME restored, stay-on false.
+6. Tear down: session exit restores the prior foreground activity (or HOME
+   if it was the launcher), then inversion off, IME restored, stay-on false.
+   Do not force `KEYCODE_HOME` at the batch endpoint unless you want launcher.
 7. Re-run after reboot once — cold-start is where most automation lies.
 
 Non-UI checks when available (faster, schedule-friendly):

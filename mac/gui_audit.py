@@ -232,8 +232,7 @@ def audit_neo(host: str, session, hs, out: Path) -> list[str]:
         issues.append("handsets_unavailable")
         shot(serial, out / "02_neo_settings.png")
 
-    session.shell("input", "keyevent", "KEYCODE_HOME")
-    time.sleep(0.4)
+    # Leave Neo; next step force-stops Aurora. Session exit restores prior screen.
     return issues
 
 
@@ -340,8 +339,7 @@ def audit_aurora(host: str, session, hs, out: Path) -> list[str]:
             if "aurora_battery_unrestricted" not in issues:
                 issues.append("aurora_battery_unrestricted")
 
-    session.shell("input", "keyevent", "KEYCODE_HOME")
-    time.sleep(0.4)
+    # Prior screen restored by ScreenControlSession.__exit__.
     return issues
 
 

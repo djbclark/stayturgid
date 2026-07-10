@@ -9,7 +9,9 @@ run inside ScreenControlSession. The session:
   3. Turns on accessibility display inversion (Mac adb — authoritative).
   4. Starts the on-device presence indicator (torch, notification via SSH).
   5. Refuses further input if inversion is off (fail closed).
-  6. Cleans up on exit (inversion off, presence off).
+  6. On exit (batch endpoint): best-effort restore of the foreground
+     activity that was showing when the session started, then inversion
+     off + presence off.
 
 Raw `adb shell input …` outside this wrapper can still bypass the policy;
 project scripts must not do that.
@@ -26,6 +28,7 @@ over SKIP_PRESENCE for overnight GUI jobs.
 from __future__ import print_function
 
 import os
+import re
 import subprocess
 import sys
 import time
@@ -42,6 +45,24 @@ ADB_KEYBOARD = "com.github.uiautomator/.AdbKeyboard"
 # Fleet layout deploys presence scripts under ~/.stayturgid/bin/ (not ~/).
 PRESENCE_SCRIPT = "~/.stayturgid/bin/agent-presence.sh"
 PRESENCE_SCRIPT_LEGACY = "~/agent-presence.sh"
+
+# pkg/activity from dumpsys window / activity lines.
+_FOCUS_COMPONENT_RE = re.compile(
+    r"(?:mCurrentFocus|mFocusedApp|mResumedActivity|topResumedActivity)"
+    r".*?\b([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+)/([A-Za-z0-9_$.]+)"
+)
+# Packages where HOME is a better restore than restarting the activity.
+_LAUNCHER_OR_IDLE_PKGS = frozenset(
+    {
+        "com.sec.android.app.launcher",
+        "com.google.android.apps.nexuslauncher",
+        "com.android.launcher3",
+        "com.android.systemui",
+        "com.samsung.android.app.aodservice",
+        "com.amazon.firelauncher",
+        "com.amazon.alerter",
+    }
+)
 
 
 class ScreenControlError(RuntimeError):
@@ -120,6 +141,73 @@ def restore_default_ime(serial, saved_ime):
     return set_default_ime(serial, saved_ime)
 
 
+def parse_foreground_component(dumpsys_text):
+    """Return 'pkg/activity' from dumpsys window/activity text, or None."""
+    if not dumpsys_text:
+        return None
+    for line in dumpsys_text.splitlines():
+        if not any(
+            k in line
+            for k in (
+                "mCurrentFocus",
+                "mFocusedApp",
+                "mResumedActivity",
+                "topResumedActivity",
+            )
+        ):
+            continue
+        m = _FOCUS_COMPONENT_RE.search(line)
+        if m:
+            return "%s/%s" % (m.group(1), m.group(2))
+    return None
+
+
+def get_foreground_component(serial):
+    """Best-effort focused activity (pkg/cls) before we steal the glass."""
+    for args in (
+        ("dumpsys", "window", "windows"),
+        ("dumpsys", "window"),
+        ("dumpsys", "activity", "activities"),
+    ):
+        rc, out = mac_adb_shell(serial, *args, timeout=20)
+        if rc != 0 or not out:
+            continue
+        comp = parse_foreground_component(out)
+        if comp:
+            return comp
+    return None
+
+
+def restore_foreground(serial, component, shell_fn=None):
+    """Return to the pre-session screen at a batch endpoint.
+
+    Launchers → HOME. Real activities → ``am start`` that component.
+    Soft-fails (returns False) rather than raising — cleanup must continue.
+    """
+    run = shell_fn or (lambda *a, **k: mac_adb_shell(serial, *a, **k))
+    if not component or "/" not in component:
+        rc, _ = run("input", "keyevent", "KEYCODE_HOME", timeout=10)
+        return rc == 0
+    pkg = component.split("/", 1)[0]
+    if pkg in _LAUNCHER_OR_IDLE_PKGS or pkg.endswith(".launcher"):
+        rc, _ = run("input", "keyevent", "KEYCODE_HOME", timeout=10)
+        return rc == 0
+    # Prefer bringing the existing task forward over a cold launch.
+    rc, _ = run(
+        "am",
+        "start",
+        "--activity-single-top",
+        "--activity-brought-to-front",
+        "-n",
+        component,
+        timeout=15,
+    )
+    if rc == 0:
+        return True
+    rc, _ = run("am", "start", "-n", component, timeout=15)
+    return rc == 0
+
+
 def ssh_presence(host, action, label, agent):
     host = dev.resolve_ssh_host(host) or host
     if not host:
@@ -183,19 +271,31 @@ def guarded_adb_shell(serial, active, *args, timeout=30):
 class ScreenControlSession(object):
     """Context manager: consent + inverted screen for UI automation."""
 
-    def __init__(self, host, label=None, agent=None, skip_request=False):
+    def __init__(
+        self,
+        host,
+        label=None,
+        agent=None,
+        skip_request=False,
+        restore_screen=True,
+    ):
         self.host = host
         self.serial = dev.resolve_adb(host)
         self.label = label or host
         self.agent = agent or os.environ.get("STAYTURGID_AGENT", "Auto")
         self.skip_request = skip_request
+        # At batch endpoint (__exit__), try to put the prior app back on screen.
+        self.restore_screen = bool(restore_screen)
         self.active = False
         self._skip = os.environ.get("STAYTURGID_SKIP_PRESENCE") == "1"
         self._saved_ime = None
+        self._saved_component = None
 
     def __enter__(self):
         _run(["adb", "connect", self.serial], timeout=15)
         _run(["adb", "-s", self.serial, "wait-for-device"], timeout=30)
+        # Capture before clearance/consent so we restore what the human saw.
+        self._saved_component = get_foreground_component(self.serial)
         cleared = uc.clear_ui_obstructions(self.serial, mac_adb_shell)
         if cleared:
             print("Cleared UI obstructions on %s: %s" % (self.host, ", ".join(cleared)))
@@ -241,6 +341,29 @@ class ScreenControlSession(object):
     def __exit__(self, exc_type, exc, tb):
         if not self.active:
             return False
+
+        # Restore prior screen while inversion is still on (input still gated).
+        if self.restore_screen:
+            try:
+                ok = restore_foreground(
+                    self.serial,
+                    self._saved_component,
+                    shell_fn=self.shell,
+                )
+                if ok and self._saved_component:
+                    print(
+                        "Restored prior screen on %s: %s"
+                        % (self.host, self._saved_component)
+                    )
+                elif not ok:
+                    sys.stderr.write(
+                        "WARN: failed to restore prior screen on %s (%s)\n"
+                        % (self.host, self._saved_component or "HOME")
+                    )
+            except Exception as e:  # noqa: BLE001 — never block cleanup
+                sys.stderr.write(
+                    "WARN: restore prior screen on %s: %s\n" % (self.host, e)
+                )
 
         if not self._skip:
             ssh_presence(self.host, "off", self.label, self.agent)

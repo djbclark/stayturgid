@@ -8,6 +8,7 @@ script is missing (rc 127).
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import sys
 import time
@@ -24,6 +25,22 @@ INVERSION_KEY = "accessibility_display_inversion_enabled"
 ADB_KEYBOARD = "com.github.uiautomator/.AdbKeyboard"
 PRESENCE_PY = os.path.join(sh.STG, "bin", "stayturgid_agent_presence.py")
 PRESENCE_SH = os.path.join(sh.STG, "bin", "agent-presence.sh")
+
+_FOCUS_COMPONENT_RE = re.compile(
+    r"(?:mCurrentFocus|mFocusedApp|mResumedActivity|topResumedActivity)"
+    r".*?\b([A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+)/([A-Za-z0-9_$.]+)"
+)
+_LAUNCHER_OR_IDLE_PKGS = frozenset(
+    {
+        "com.sec.android.app.launcher",
+        "com.google.android.apps.nexuslauncher",
+        "com.android.launcher3",
+        "com.android.systemui",
+        "com.samsung.android.app.aodservice",
+        "com.amazon.firelauncher",
+        "com.amazon.alerter",
+    }
+)
 
 
 class ScreenControlError(RuntimeError):
@@ -78,6 +95,65 @@ def restore_default_ime(_serial, saved_ime):
     return set_default_ime(None, saved_ime)
 
 
+def parse_foreground_component(dumpsys_text):
+    if not dumpsys_text:
+        return None
+    for line in dumpsys_text.splitlines():
+        if not any(
+            k in line
+            for k in (
+                "mCurrentFocus",
+                "mFocusedApp",
+                "mResumedActivity",
+                "topResumedActivity",
+            )
+        ):
+            continue
+        m = _FOCUS_COMPONENT_RE.search(line)
+        if m:
+            return "%s/%s" % (m.group(1), m.group(2))
+    return None
+
+
+def get_foreground_component(_serial=None):
+    for args in (
+        ("dumpsys", "window", "windows"),
+        ("dumpsys", "window"),
+        ("dumpsys", "activity", "activities"),
+    ):
+        rc, out = sh.shell(*args, timeout=20)
+        if rc != 0 or not out:
+            continue
+        comp = parse_foreground_component(out)
+        if comp:
+            return comp
+    return None
+
+
+def restore_foreground(_serial, component, shell_fn=None):
+    run = shell_fn or (lambda *a, **k: sh.shell(*a, **k))
+    if not component or "/" not in component:
+        rc, _ = run("input", "keyevent", "KEYCODE_HOME", timeout=10)
+        return rc == 0
+    pkg = component.split("/", 1)[0]
+    if pkg in _LAUNCHER_OR_IDLE_PKGS or pkg.endswith(".launcher"):
+        rc, _ = run("input", "keyevent", "KEYCODE_HOME", timeout=10)
+        return rc == 0
+    rc, _ = run(
+        "am",
+        "start",
+        "--activity-single-top",
+        "--activity-brought-to-front",
+        "-n",
+        component,
+        timeout=15,
+    )
+    if rc == 0:
+        return True
+    rc, _ = run("am", "start", "-n", component, timeout=15)
+    return rc == 0
+
+
 def _presence_cmd():
     if os.path.isfile(PRESENCE_PY):
         return ["python3", PRESENCE_PY]
@@ -114,14 +190,16 @@ def guarded_shell(active, *args, timeout=30):
 class ScreenControlSession(object):
     """Consent + inverted screen for on-device UI automation."""
 
-    def __init__(self, label=None, agent=None, skip_request=False):
+    def __init__(self, label=None, agent=None, skip_request=False, restore_screen=True):
         self.serial = sh.SERIAL
         self.label = label or sh.device_label()
         self.agent = agent or os.environ.get("STAYTURGID_AGENT", "Auto")
         self.skip_request = skip_request
+        self.restore_screen = bool(restore_screen)
         self.active = False
         self._skip = os.environ.get("STAYTURGID_SKIP_PRESENCE") == "1"
         self._saved_ime = None
+        self._saved_component = None
 
     def __enter__(self):
         if not sh.privileged_shell_expected():
@@ -134,6 +212,7 @@ class ScreenControlSession(object):
                 "localhost:5555 shell unavailable — run stayturgid-repair first"
             )
 
+        self._saved_component = get_foreground_component()
         cleared = uc.clear_ui_obstructions(self.serial, sh.shell_fn)
         if cleared:
             print("Cleared UI obstructions: %s" % ", ".join(cleared))
@@ -171,6 +250,22 @@ class ScreenControlSession(object):
     def __exit__(self, exc_type, exc, tb):
         if not self.active:
             return False
+        if self.restore_screen:
+            try:
+                ok = restore_foreground(
+                    self.serial,
+                    self._saved_component,
+                    shell_fn=self.shell,
+                )
+                if ok and self._saved_component:
+                    print("Restored prior screen: %s" % self._saved_component)
+                elif not ok:
+                    sys.stderr.write(
+                        "WARN: failed to restore prior screen (%s)\n"
+                        % (self._saved_component or "HOME")
+                    )
+            except Exception as e:  # noqa: BLE001
+                sys.stderr.write("WARN: restore prior screen: %s\n" % e)
         if not self._skip:
             local_presence("off", self.label, self.agent)
         if not set_inversion(None, False):

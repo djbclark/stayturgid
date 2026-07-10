@@ -441,10 +441,7 @@ def main(argv=None):
                     return 1
                 if not configure_update_filters(shell):
                     return 1
-                if _HS is not None:
-                    _HS.key("HOME")
-                else:
-                    shell("input", "keyevent", "KEYCODE_HOME")
+                # Prior screen restored by ScreenControlSession.__exit__.
     except sc.ScreenControlError as e:
         sys.stderr.write("ERROR: %s\n" % e)
         return 1

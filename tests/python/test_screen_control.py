@@ -37,23 +37,6 @@ def test_restore_default_ime_from_adb_keyboard(monkeypatch):
     assert calls == ["com.amazon.redstone/.FireKeyboardService"]
 
 
-def test_session_fails_closed_when_presence_on_missing(monkeypatch):
-    """rc 127 from agent-presence on must abort (not warn-and-continue)."""
-    session = sc.ScreenControlSession("s24", skip_request=True)
-    session._skip = False
-    monkeypatch.setattr(sc, "_run", lambda *a, **k: type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})())
-    monkeypatch.setattr(sc, "mac_adb_shell", lambda *a, **k: (0, "0\n"))
-    monkeypatch.setattr(sc.uc, "clear_ui_obstructions", lambda *a, **k: [])
-    monkeypatch.setattr(sc, "get_default_ime", lambda _s: "com.example/.Ime")
-    monkeypatch.setattr(sc, "set_inversion", lambda _s, en: True)
-    monkeypatch.setattr(sc, "ssh_presence", lambda *a, **k: (127, "missing"))
-    try:
-        session.__enter__()
-        assert False, "expected ScreenControlError"
-    except sc.ScreenControlError as e:
-        assert "agent-presence on failed" in str(e)
-
-
 def test_skip_presence_still_enables_inversion(monkeypatch):
     """SKIP_PRESENCE skips consent/torch but must still invert + gate input."""
     calls = []
@@ -66,6 +49,7 @@ def test_skip_presence_still_enables_inversion(monkeypatch):
     )
     monkeypatch.setattr(sc.uc, "clear_ui_obstructions", lambda *a, **k: [])
     monkeypatch.setattr(sc, "get_default_ime", lambda _s: "com.example/.Ime")
+    monkeypatch.setattr(sc, "get_foreground_component", lambda _s: None)
     monkeypatch.setattr(
         sc, "set_inversion", lambda _s, en: calls.append(("inv", en)) or True
     )
@@ -79,9 +63,94 @@ def test_skip_presence_still_enables_inversion(monkeypatch):
     assert ("inv", True) in calls
     # Exit must clear inversion even when presence was skipped.
     monkeypatch.setattr(sc, "restore_default_ime", lambda *a, **k: True)
+    monkeypatch.setattr(sc, "restore_foreground", lambda *a, **k: True)
     session.__exit__(None, None, None)
     assert ("inv", False) in calls
     assert session.active is False
+
+
+def test_parse_foreground_component():
+    sample = (
+        "  mCurrentFocus=Window{abc u0 com.discord/.MainActivity}\n"
+        "  mFocusedApp=ActivityRecord{… com.discord/.MainActivity}\n"
+    )
+    assert sc.parse_foreground_component(sample) == "com.discord/.MainActivity"
+    assert sc.parse_foreground_component("") is None
+
+
+def test_restore_foreground_launcher_goes_home(monkeypatch):
+    calls = []
+
+    def fake_shell(*args, **_k):
+        calls.append(args)
+        return 0, ""
+
+    assert sc.restore_foreground(
+        "serial",
+        "com.google.android.apps.nexuslauncher/.NexusLauncherActivity",
+        shell_fn=fake_shell,
+    )
+    assert calls[0][:2] == ("input", "keyevent")
+    assert "KEYCODE_HOME" in calls[0]
+
+
+def test_restore_foreground_app_am_start(monkeypatch):
+    calls = []
+
+    def fake_shell(*args, **_k):
+        calls.append(args)
+        return 0, ""
+
+    assert sc.restore_foreground(
+        "serial", "com.discord/.MainActivity", shell_fn=fake_shell
+    )
+    assert calls[0][0] == "am"
+    assert "com.discord/.MainActivity" in calls[0]
+
+
+def test_session_restores_prior_screen_on_exit(monkeypatch):
+    restored = []
+    session = sc.ScreenControlSession("s24", skip_request=True)
+    session._skip = True
+    monkeypatch.setattr(
+        sc,
+        "_run",
+        lambda *a, **k: type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})(),
+    )
+    monkeypatch.setattr(sc.uc, "clear_ui_obstructions", lambda *a, **k: [])
+    monkeypatch.setattr(sc, "get_default_ime", lambda _s: "com.example/.Ime")
+    monkeypatch.setattr(
+        sc, "get_foreground_component", lambda _s: "com.discord/.MainActivity"
+    )
+    monkeypatch.setattr(sc, "set_inversion", lambda _s, en: True)
+    monkeypatch.setattr(sc, "restore_default_ime", lambda *a, **k: True)
+    monkeypatch.setattr(
+        sc,
+        "restore_foreground",
+        lambda serial, comp, shell_fn=None: restored.append(comp) or True,
+    )
+    session.__enter__()
+    assert session._saved_component == "com.discord/.MainActivity"
+    session.__exit__(None, None, None)
+    assert restored == ["com.discord/.MainActivity"]
+
+
+def test_session_fails_closed_when_presence_on_missing(monkeypatch):
+    """rc 127 from agent-presence on must abort (not warn-and-continue)."""
+    session = sc.ScreenControlSession("s24", skip_request=True)
+    session._skip = False
+    monkeypatch.setattr(sc, "_run", lambda *a, **k: type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})())
+    monkeypatch.setattr(sc, "mac_adb_shell", lambda *a, **k: (0, "0\n"))
+    monkeypatch.setattr(sc.uc, "clear_ui_obstructions", lambda *a, **k: [])
+    monkeypatch.setattr(sc, "get_default_ime", lambda _s: "com.example/.Ime")
+    monkeypatch.setattr(sc, "get_foreground_component", lambda _s: None)
+    monkeypatch.setattr(sc, "set_inversion", lambda _s, en: True)
+    monkeypatch.setattr(sc, "ssh_presence", lambda *a, **k: (127, "missing"))
+    try:
+        session.__enter__()
+        assert False, "expected ScreenControlError"
+    except sc.ScreenControlError as e:
+        assert "agent-presence on failed" in str(e)
 
 
 def test_guarded_shell_blocks_input_when_inversion_off(monkeypatch):

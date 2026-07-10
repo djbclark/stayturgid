@@ -97,7 +97,7 @@ def toggle_installer(priv, session, hs=None):
             if hs.tap_text("Allow", timeout_ms=2000):
                 time.sleep(1)
                 print("Approved Shizuku permission dialog for Obtainium.")
-        run("input", "keyevent", "KEYCODE_HOME")
+        # Prior screen restored by ScreenControlSession.__exit__.
         return True
 
     run("input", "tap", "945", "2196")  # settings gear
@@ -140,7 +140,7 @@ def toggle_installer(priv, session, hs=None):
         time.sleep(1)
         print("Approved Shizuku permission dialog for Obtainium.")
 
-    run("input", "keyevent", "KEYCODE_HOME")
+    # Prior screen restored by ScreenControlSession.__exit__.
     return True
 
 

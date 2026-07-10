@@ -518,7 +518,7 @@ def main_mac_adb(host):
                     return 1
                 if not configure_update_filters(serial):
                     return 1
-                adb(serial, "input", "keyevent", "KEYCODE_HOME")
+                # Prior screen restored by ScreenControlSession.__exit__.
     except sc.ScreenControlError as e:
         sys.stderr.write("ERROR: %s\n" % e)
         return 1

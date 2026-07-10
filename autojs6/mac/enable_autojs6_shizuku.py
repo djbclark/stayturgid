@@ -693,7 +693,7 @@ def main_mac_adb(alias: str) -> int:
 
                 if verify_shizuku_drawer(serial) and a11y_enabled(serial):
                     run_shizuku_probe(serial)
-                    adb(serial, "input", "keyevent", "KEYCODE_HOME")
+                    # Prior screen restored by ScreenControlSession.__exit__.
                     print("AutoJs6 fleet drawer + Shizuku enabled on %s." % alias)
                     return 0
 
@@ -704,7 +704,7 @@ def main_mac_adb(alias: str) -> int:
 
                 if verify_shizuku_drawer(serial) and a11y_enabled(serial):
                     run_shizuku_probe(serial)
-                    adb(serial, "input", "keyevent", "KEYCODE_HOME")
+                    # Prior screen restored by ScreenControlSession.__exit__.
                     print("AutoJs6 fleet drawer + Shizuku enabled on %s." % alias)
                     return 0
 

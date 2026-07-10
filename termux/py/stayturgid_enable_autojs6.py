@@ -631,7 +631,7 @@ def main(argv=None):
                     )
                 if verify_shizuku_drawer(shell) and a11y_enabled(shell):
                     run_shizuku_probe(shell)
-                    shell("input", "keyevent", "KEYCODE_HOME")
+                    # Prior screen restored by ScreenControlSession.__exit__.
                     print("AutoJs6 fleet drawer + Shizuku enabled on %s." % alias)
                     return 0
                 if not enable_drawer_switch(shell, DRAWER_SHIZUKU):
@@ -640,7 +640,7 @@ def main(argv=None):
                 dismiss_dialogs(shell)
                 if verify_shizuku_drawer(shell) and a11y_enabled(shell):
                     run_shizuku_probe(shell)
-                    shell("input", "keyevent", "KEYCODE_HOME")
+                    # Prior screen restored by ScreenControlSession.__exit__.
                     print("AutoJs6 fleet drawer + Shizuku enabled on %s." % alias)
                     return 0
                 report_debug_state(shell, alias)

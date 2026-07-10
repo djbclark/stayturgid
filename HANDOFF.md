@@ -277,7 +277,7 @@ Before any device interaction, emit a standalone message naming the phone(s): **
 
 ### On-device presence indicator (screen control = inverted display)
 
-**Policy:** Mac UI automation must run inside `ScreenControlSession` (`shared/mac/screen_control.py`). The session runs `request-screen` (10s countdown — **timeout proceeds**; press No to deny), enables **accessibility display inversion** (inverted colors on the glass), starts torch + ongoing notification, and **refuses `adb input` if inversion is off**. Project scripts must route taps through `session.shell` / `session.tap`. Raw `adb shell input` can still bypass — don't use it for automation. Missing presence script (rc 127) fails closed.
+**Policy:** Mac UI automation must run inside `ScreenControlSession` (`shared/mac/screen_control.py`). The session runs `request-screen` (10s countdown — **timeout proceeds**; press No to deny), enables **accessibility display inversion** (inverted colors on the glass), starts torch + ongoing notification, and **refuses `adb input` if inversion is off**. On exit it **best-effort restores the foreground activity** that was showing when the session started (launchers → HOME). Project scripts must route taps through `session.shell` / `session.tap`. Raw `adb shell input` can still bypass — don't use it for automation. Missing presence script (rc 127) fails closed.
 
 **Hold across short gaps:** If you will tap the same phone several times in quick succession (or a later step depends on the prior UI state), keep one session open for the whole sequence — leave inversion on during brief idle between taps. Do not open/close per step. See `.cursor/rules/screen-control-hold.mdc`.
 

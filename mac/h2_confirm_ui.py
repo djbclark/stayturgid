@@ -82,7 +82,7 @@ def confirm_neo(host: str, session, hs, out: Path) -> None:
     session.shell("input", "swipe", "540", "1600", "540", "800")
     time.sleep(1)
     shot(serial, out / "04_neo_settings_scrolled.png")
-    session.shell("input", "keyevent", "KEYCODE_HOME")
+    # Next step launches Aurora; session exit restores prior screen.
 
 
 def confirm_aurora(host: str, session, hs, out: Path) -> None:
@@ -153,9 +153,7 @@ def confirm_aurora(host: str, session, hs, out: Path) -> None:
                     time.sleep(1.2)
                     break
     shot(serial, out / "21_aurora_battery.png")
-    # background dialog check — just leave home; Fire may show on launch
-    session.shell("input", "keyevent", "KEYCODE_HOME")
-    time.sleep(0.5)
+    # Prior screen restored by ScreenControlSession.__exit__.
 
 
 def confirm_host(host: str) -> Path:
