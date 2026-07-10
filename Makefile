@@ -30,7 +30,9 @@ VLM_ANSIBLE := ansible-playbook $(MAC_SITE) -e stayturgid_vlm_enabled=true
         termux-pkg-upgrade vlm-upstream-check \
         vlm-install vlm-server vlm-check vlm-stop vlm-service-install vlm-service-status \
         vlm-service-stop vlm-service-restart vlm-smoke verify-play-autoupdate verify-hd8-google \
-        ensure-et-mac check-et-mac
+        ensure-et-mac check-et-mac \
+        hermes-start hermes-stop hermes-restart hermes-status hermes-status-full \
+        hermes-logs hermes-logs-follow hermes-doctor hermes-deploy hermes-disable hermes-update
 
 # ------------------------------------------------------------------------------
 # Help
@@ -85,6 +87,19 @@ help:
 	@echo "  make vlm-service-stop             launchctl bootout + stop manual"
 	@echo "  make vlm-service-restart          kickstart launchd agent"
 	@echo "  make vlm-upstream-check           Diff RevengeQuickSwitcher/VLM.md best practices"
+	@echo ""
+	@echo "Hermes (Telegram gateway + OpenCode agent):"
+	@echo "  make hermes-start                 Start the launchd gateway service"
+	@echo "  make hermes-stop                  Stop the gateway service"
+	@echo "  make hermes-restart               Restart the gateway service"
+	@echo "  make hermes-status                Quick gateway status (PID, platform state)"
+	@echo "  make hermes-status-full           Full status (model, auth, providers, sessions)"
+	@echo "  make hermes-logs                  View recent gateway log (HERMES_LINES=N)"
+	@echo "  make hermes-logs-follow           Follow gateway log in real time"
+	@echo "  make hermes-doctor                Diagnose config + dependencies"
+	@echo "  make hermes-deploy                Ansible: install, configure, launchd plist"
+	@echo "  make hermes-disable               Ansible: remove plist + unload launchd"
+	@echo "  make hermes-update                Update hermes-agent package"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make deploy HOSTS=s24"
@@ -160,6 +175,47 @@ vlm-stop: vlm-service-stop
 # Weekly launchd: com.stayturgid.vlm-upstream-check (make deploy-mac).
 vlm-upstream-check:
 	python3 control/bin/vlm_upstream_check.py --notify
+
+# ------------------------------------------------------------------------------
+# Hermes Agent (Telegram gateway + OpenCode API)
+# ------------------------------------------------------------------------------
+
+HERMES_LINES ?= 100
+
+hermes-start:
+	hermes gateway start
+
+hermes-stop:
+	hermes gateway stop
+
+hermes-restart:
+	hermes gateway restart
+
+hermes-status:
+	@hermes gateway status
+	@echo ""
+	@python3 -c "import json,sys; s=json.load(open('$(HOME)/.hermes/gateway_state.json')); tg=s.get('platforms',{}).get('telegram',{}); print(f'Telegram: {tg.get(\"state\",\"unknown\")}')"
+
+hermes-status-full:
+	hermes status
+
+hermes-logs:
+	hermes logs gateway -n $(HERMES_LINES)
+
+hermes-logs-follow:
+	hermes logs gateway -f
+
+hermes-doctor:
+	hermes doctor
+
+hermes-deploy:
+	ansible-playbook $(MAC_SITE) --tags hermes
+
+hermes-disable:
+	ansible-playbook $(MAC_SITE) --tags agents -e stayturgid_hermes_enabled=false
+
+hermes-update:
+	hermes update
 
 collections:
 	ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections

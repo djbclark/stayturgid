@@ -78,13 +78,13 @@ ui_tars_models:
   - mmproj-ByteDance-Seed_UI-TARS-1.5-7B.gguf
 
 # ── Hermes Agent (control-node messaging gateway) ─────────────────────────
-# Desktop/CLI agent with SuperGrok OAuth + optional Telegram remote.
-# Secrets never in git: TELEGRAM_BOT_TOKEN and xAI OAuth live under ~/.hermes/.
+# Desktop/CLI agent with OpenCode Zen API + optional Telegram remote.
+# Secrets never in git: TELEGRAM_BOT_TOKEN and API keys live under ~/.hermes/.
 stayturgid_hermes_enabled: true
 stayturgid_hermes_gateway_enabled: true
 stayturgid_hermes_home: "{{ lookup('env', 'HOME') }}/.hermes"
-stayturgid_hermes_model: grok-4.5
-# Provider is selected via `hermes auth add xai-oauth` (active_provider in auth.json).
+stayturgid_hermes_model: big-pickle
+stayturgid_hermes_provider: opencode-zen
 stayturgid_hermes_gateway_label: com.stayturgid.hermes-gateway
 # Site-specific Telegram allowlist (numeric user ids, comma-separated).
 # Empty = leave existing ~/.hermes/.env values alone (pairing still works).

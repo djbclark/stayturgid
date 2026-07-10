@@ -1,7 +1,7 @@
 ---
 # Hermes Agent (control node): brew install, model/config, Telegram gateway keep-alive.
-# Secrets (TELEGRAM_BOT_TOKEN, xAI OAuth tokens) stay on the machine only — never in git.
-# First-time auth: hermes auth add xai-oauth --type oauth
+# Secrets (TELEGRAM_BOT_TOKEN, API keys) stay on the machine only — never in git.
+# First-time auth: hermes auth add opencode-zen --type api-key
 # First-time bot token: set TELEGRAM_BOT_TOKEN in ~/.hermes/.env (or env when running playbook).
 #
 # All tasks gated by stayturgid_hermes_enabled so include from agents.yml never end_host.
@@ -71,6 +71,34 @@
   register: _hermes_model_set
   changed_when: >-
     'Set model' in (_hermes_model_set.stdout | default(''))
+  failed_when: false
+  when: stayturgid_hermes_enabled | default(true) | bool
+
+- name: Set active Hermes provider in auth.json (idempotent)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    AUTH="{{ stayturgid_hermes_home }}/auth.json"
+    if [ ! -f "$AUTH" ]; then
+      echo '{"version":1,"providers":{},"active_provider":"{{ stayturgid_hermes_provider }}","credential_pool":{}}' > "$AUTH"
+      echo "Created auth.json with provider={{ stayturgid_hermes_provider }}"
+    else
+      python3 -c "
+    import json, sys
+    with open('$AUTH') as f:
+        data = json.load(f)
+    old = data.get('active_provider', '')
+    data['active_provider'] = '{{ stayturgid_hermes_provider }}'
+    with open('$AUTH', 'w') as f:
+        json.dump(data, f, indent=2)
+    print(f'active_provider: {old} -> {{ stayturgid_hermes_provider }}')
+    "
+    fi
+  args:
+    executable: /bin/bash
+  environment:
+    HERMES_HOME: "{{ stayturgid_hermes_home }}"
+  register: _hermes_provider_set
+  changed_when: "'->' in _hermes_provider_set.stdout | default('')"
   failed_when: false
   when: stayturgid_hermes_enabled | default(true) | bool
 
