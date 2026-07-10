@@ -13,12 +13,16 @@ unverified on Pixel, where button1 may be positive).
 import os
 import subprocess
 import sys
+import tempfile
 import time
+from pathlib import Path
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(REPO, "shared", "mac"))
 import stayturgid_device as dev  # noqa: E402
 import screen_control as sc  # noqa: E402
+import vlm_gate as vlm  # noqa: E402
+import vlm_helpers as vh  # noqa: E402
 
 OBTAINIUM_PKG = "dev.imranr.obtainium"
 BULK = (476, 2017)
@@ -75,10 +79,27 @@ def main(argv=None):
                     session.shell("input", "tap", str(center[0]), str(center[1]))
                     print("  confirmed package installer (button2)")
                 elif kind == "playprotect":
-                    print("  WARN: Play Protect dialog — dismiss manually or disable "
-                          "verifier (HACKING.md)")
+                    print("  WARN: Play Protect dialog — tapping dismiss coords")
+                    if vh.auto_verify_enabled():
+                        with tempfile.TemporaryDirectory() as td:
+                            shot = Path(td) / "playprotect.png"
+                            vlm.adb_screencap(serial, shot)
+                            ok, detail = vh.verify_shot(shot, "play_protect_clear")
+                            if not detail.get("skipped") and not ok:
+                                print("  VLM: Play Protect blocking visible")
                     session.shell("input", "tap", str(PLAY_PROTECT_DISMISS[0]),
                                   str(PLAY_PROTECT_DISMISS[1]))
+                    if vh.auto_verify_enabled():
+                        time.sleep(1.5)
+                        with tempfile.TemporaryDirectory() as td:
+                            shot = Path(td) / "after_dismiss.png"
+                            vlm.adb_screencap(serial, shot)
+                            ok, detail = vh.verify_shot(shot, "play_protect_clear")
+                            if not detail.get("skipped") and not ok:
+                                print("  VLM: Play Protect may still be blocking — "
+                                      "check screen or HACKING.md")
+                            elif not detail.get("skipped"):
+                                print("  VLM: Play Protect clear")
     except sc.ScreenControlError as e:
         sys.stderr.write("ERROR: %s\n" % e)
         return 1

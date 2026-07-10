@@ -26,7 +26,7 @@ DEPLOY_SCOPE_ARG := $(if $(filter-out full,$(SCOPE)),--scope $(SCOPE),)
 .PHONY: help all configure check unit test unit-and-pytest pytest ansible-test test-venv \
         lint clean verify verify-heal device dryrun dryrun-termux \
         health fix-hd8-google deploy deploy-check collections bootstrap-ssh deploy-termux syntax \
-        vlm-install vlm-server vlm-check vlm-stop verify-play-autoupdate
+        vlm-install vlm-server vlm-check vlm-stop verify-play-autoupdate verify-hd8-google
 
 # ------------------------------------------------------------------------------
 # Help
@@ -47,6 +47,7 @@ help:
 	@echo "  make health                     Mac fleet-health summary (exit 1 = tell operator)"
 	@echo "  make fix-hd8-google             Pin sideloaded GMS/Play on Fire hd8 (see docs)"
 	@echo "  make verify-play-autoupdate     Play Store auto-update VLM check (STAYTURGID_VLM=1)"
+	@echo "  make verify-hd8-google          Stack + crash + auto-update close-out (hd8)"
 	@echo "  make collections                Install ansible-galaxy collections"
 	@echo "  make syntax                     Syntax-check site.yml"
 	@echo ""
@@ -102,6 +103,9 @@ fix-hd8-google:
 
 verify-play-autoupdate:
 	STAYTURGID_VLM=1 python3 mac/verify_play_autoupdate.py $(or $(HOSTS),hd8)
+
+verify-hd8-google:
+	STAYTURGID_VLM=1 python3 mac/verify_hd8_google.py $(or $(HOSTS),hd8)
 
 vlm-install:
 	bash mac/vlm_install.sh

@@ -66,6 +66,25 @@ CHECK_PROMPTS: dict[str, str] = {
         'Reply JSON only: {"ok":true,"crash_visible":false,"confidence":0.0-1.0,"notes":"..."}\n'
         "Set ok:true only when NO such crash dialog is visible."
     ),
+    "play_protect_clear": (
+        "You verify an Android screenshot during an app install flow.\n"
+        "Is Google Play Protect blocking the install (warning dialog, 'Install anyway', "
+        "'Blocked', or similar Play Protect overlay)?\n"
+        'Reply JSON only: {"ok":true,"play_protect_visible":false,"confidence":0.0-1.0,"notes":"..."}\n'
+        "Set ok:true only when Play Protect is NOT blocking (installer may proceed)."
+    ),
+    "neo_shizuku_installer": (
+        "You verify a Neo Store (F-Droid client) settings screenshot.\n"
+        "Is Shizuku shown as the selected/active installer (radio, switch, or checkmark)?\n"
+        'Reply JSON only: {"ok":true,"confidence":0.0-1.0,"notes":"..."}\n'
+        "Set ok:true only when Shizuku installer is clearly selected."
+    ),
+    "aurora_shizuku_installer": (
+        "You verify an Aurora Store settings screenshot (Installation method).\n"
+        "Is Shizuku installer selected/enabled?\n"
+        'Reply JSON only: {"ok":true,"confidence":0.0-1.0,"notes":"..."}\n'
+        "Set ok:true only when Shizuku is the active installer choice."
+    ),
 }
 
 
@@ -205,9 +224,9 @@ def adb_screencap(serial: str, dest: Path) -> Path:
 class VlmGate:
     """Vision verification gate using local UI-TARS."""
 
-    def __init__(self, *, autostart: bool = True) -> None:
+    def __init__(self, *, autostart: bool = True, allow_server_only: bool = False) -> None:
         self.ready = False
-        if not vlm_enabled():
+        if not vlm_enabled() and not (allow_server_only and server_healthy()):
             return
         self.ready = ensure_server(start=autostart)
 
@@ -250,6 +269,8 @@ class VlmGate:
             detail["setting"] = setting
         if check == "no_gms_crash_dialog":
             ok = bool(parsed.get("ok")) and not bool(parsed.get("crash_visible", False))
+        if check == "play_protect_clear":
+            ok = bool(parsed.get("ok")) and not bool(parsed.get("play_protect_visible", False))
         if ok and conf < min_confidence:
             ok = False
             detail["reason"] = "low_confidence"

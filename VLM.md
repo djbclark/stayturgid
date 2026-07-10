@@ -66,17 +66,17 @@ curl -sf http://127.0.0.1:8081/health
 
 Stop: `make vlm-stop`
 
-### 3. Verify Play Store auto-update (hd8)
+### 3. Verify hd8 Google stack (full close-out)
 
 ```bash
-# terminal 1: make vlm-server
-STAYTURGID_VLM=1 make verify-play-autoupdate HOSTS=hd8
+make vlm-server    # terminal 1
+make verify-hd8-google HOSTS=hd8
 ```
 
-Or after Google stack repair:
+Or repair + auto close-out when server is already running:
 
 ```bash
-STAYTURGID_VLM=1 python3 mac/fix_hd8_google_stack.py hd8 --verify-autoupdate
+make fix-hd8-google   # runs verify_hd8_google when llama-server healthy
 ```
 
 Artifacts: `~/.config/stayturgid/artifacts/vlm-verify/<YYYY-MM-DD>/<host>/`
@@ -112,7 +112,7 @@ account drawer Settings row is unreliable under display inversion. Aurora checks
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `STAYTURGID_VLM` | `0` | Enable vision gates |
+| `STAYTURGID_VLM` | `0` | Enable vision gates (`1` or server-only auto when server up) |
 | `STAYTURGID_VLM_STRICT` | `0` | Exit non-zero when server down or check fails |
 | `STAYTURGID_VLM_PORT` | `8081` | `llama-server` port (`QSS_VLM_PORT` alias) |
 | `STAYTURGID_VLM_TIMEOUT` | `900` | Seconds per inference |
@@ -133,14 +133,21 @@ Defined in `shared/mac/vlm_gate.py` → `CHECK_PROMPTS`:
 | `play_autoupdate_dont` | Play Store → Auto-update apps → Don’t auto-update selected |
 | `aurora_autoupdate_dont` | Aurora Settings → Automatic updates → off |
 | `no_gms_crash_dialog` | No GSF/GMS/Play “has stopped” dialog visible |
+| `play_protect_clear` | Play Protect not blocking an install flow |
+| `neo_shizuku_installer` | Neo Store → Shizuku selected as installer |
+| `aurora_shizuku_installer` | Aurora Store → Shizuku installation method |
 
 ### Call sites
 
 | Script | When |
 |--------|------|
+| `mac/verify_hd8_google.py` | Full hd8 close-out (`make verify-hd8-google`) |
 | `mac/verify_play_autoupdate.py` | Manual / `make verify-play-autoupdate` |
-| `mac/fix_hd8_google_stack.py --verify-autoupdate` | After pin repair |
-| `mac/gui_audit.py` | On `14_aurora_auto_updates.png` when `STAYTURGID_VLM=1` |
+| `mac/fix_hd8_google_stack.py` | Auto-runs verify when llama-server healthy |
+| `mac/fleet_health_monitor.py` | Rate-limited verify after GMS pin heal (6h) |
+| `mac/gui_audit.py` | Neo/Aurora Shizuku + Aurora auto-update screenshots |
+| `mac/h2_confirm_ui.py` | Optional VLM report on Neo/Aurora installer shots |
+| `obtainium/mac/apply_updates.py` | Before/after Play Protect dismiss |
 
 ---
 
@@ -176,11 +183,13 @@ Smoke test: `make vlm-check`
 | Path | Role |
 |------|------|
 | `shared/mac/vlm_gate.py` | `VlmGate`, prompts, HTTP client |
+| `shared/mac/vlm_helpers.py` | `verify_shot`, `issue_tags_from_verify`, `auto_verify_enabled` |
 | `shared/mac/play_store_autoupdate.py` | Play Store nav to auto-update screen |
 | `mac/ui_tars_server.sh` | Start `llama-server` |
 | `mac/vlm_install.sh` | Brew + model download |
 | `mac/vlm_check.py` | Health smoke test |
-| `mac/verify_play_autoupdate.py` | hd8 / Play auto-update CLI |
+| `mac/verify_play_autoupdate.py` | Play auto-update only |
+| `mac/verify_hd8_google.py` | Full hd8 Google stack close-out |
 
 Model weights (not in git):
 

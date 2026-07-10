@@ -38,6 +38,7 @@ import stayturgid_device as dev  # noqa: E402
 import screen_control as sc  # noqa: E402
 import ui_driver as uid  # noqa: E402
 import vlm_gate as vlm  # noqa: E402
+import vlm_helpers as vh  # noqa: E402
 
 ROOT = Path(os.path.expanduser("~")) / ".config" / "stayturgid"
 LOG = ROOT / "logs" / "gui-audit.log"
@@ -75,15 +76,15 @@ AUTO_UPDATE_BAD = (
 
 def vlm_aurora_autoupdate_issues(shot: Path) -> list[str]:
     """Optional UI-TARS gate on Aurora auto-update screenshot (STAYTURGID_VLM=1)."""
-    if not vlm.vlm_enabled():
-        return []
-    gate = vlm.VlmGate(autostart=False)
-    ok, detail = gate.verify(shot, "aurora_autoupdate_dont")
-    if detail.get("skipped"):
-        return []
-    if not ok:
-        return ["aurora_autoupdate_on_vlm"]
-    return []
+    return vh.issue_tags_from_verify(shot, "aurora_autoupdate_dont", "aurora_autoupdate_on_vlm")
+
+
+def vlm_neo_shizuku_issues(shot: Path) -> list[str]:
+    return vh.issue_tags_from_verify(shot, "neo_shizuku_installer", "neo_shizuku_off_vlm")
+
+
+def vlm_aurora_shizuku_issues(shot: Path) -> list[str]:
+    return vh.issue_tags_from_verify(shot, "aurora_shizuku_installer", "aurora_shizuku_off_vlm")
 
 
 def load_gui_audit_overrides(path: Path | None = None) -> dict[str, set[str]]:
@@ -349,6 +350,11 @@ def audit_neo(host: str, session, hs, out: Path) -> list[str]:
                 issues.append("neo_autoupdate_off")
         if not opened:
             issues.append("neo_settings_nav_failed")
+        neo_inst = out / "03_neo_installer.png"
+        if neo_inst.is_file():
+            for tag in vlm_neo_shizuku_issues(neo_inst):
+                if tag not in issues:
+                    issues.append(tag)
     else:
         issues.append("handsets_unavailable")
         shot(serial, out / "02_neo_settings.png")
@@ -381,6 +387,12 @@ def audit_aurora(host: str, session, hs, out: Path) -> list[str]:
             issues.append("aurora_shizuku_missing")
         elif ok and checked is False:
             issues.append("aurora_shizuku_off")
+
+        aurora_inst = out / "12_aurora_installer.png"
+        if aurora_inst.is_file():
+            for tag in vlm_aurora_shizuku_issues(aurora_inst):
+                if tag not in issues and "aurora_shizuku_off" not in issues:
+                    issues.append(tag)
 
         # Back to Settings root (Installation / Updates categories).
         for _ in range(4):
@@ -435,7 +447,12 @@ def audit_aurora(host: str, session, hs, out: Path) -> list[str]:
             issues.append("aurora_autoupdate_unclear")
         auto_shot = out / "14_aurora_auto_updates.png"
         if auto_shot.is_file():
-            for tag in vlm_aurora_autoupdate_issues(auto_shot):
+            vlm_tags = vlm_aurora_autoupdate_issues(auto_shot)
+            if "aurora_autoupdate_unclear" in issues and not vlm_tags:
+                ok_vlm, detail = vh.verify_shot(auto_shot, "aurora_autoupdate_dont")
+                if ok_vlm and not detail.get("skipped"):
+                    issues.remove("aurora_autoupdate_unclear")
+            for tag in vlm_tags:
                 if tag not in issues:
                     issues.append(tag)
     else:

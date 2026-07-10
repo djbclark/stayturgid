@@ -27,18 +27,21 @@ if _SHARED_MAC not in sys.path:
 import fleet_health as fh  # noqa: E402
 import hd8_google_stack as hgs  # noqa: E402
 import stayturgid_device as dev  # noqa: E402
+import vlm_helpers as vh  # noqa: E402
 
 ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")
 CONF = os.environ.get("STAYTURGID_DEVICES_CONF", os.path.join(ROOT, "devices.conf"))
 STATE_DIR = os.path.join(ROOT, "state", "fleet-health")
 HEAL_STATE_DIR = os.path.join(ROOT, "state", "watchdog-heal")
 GOOGLE_HEAL_STATE_DIR = os.path.join(ROOT, "state", "google-stack-heal")
+GOOGLE_VERIFY_STATE_DIR = os.path.join(ROOT, "state", "google-stack-verify")
 LOG = os.path.join(ROOT, "logs", "fleet-health.log")
 CONSECUTIVE_LIMIT = 2
 # After this many soft fails with watchdog_stale/missing, restart main.js once.
 WATCHDOG_HEAL_AFTER = 2
 WATCHDOG_HEAL_COOLDOWN_SEC = 30 * 60
 GOOGLE_STACK_HEAL_COOLDOWN_SEC = 24 * 60 * 60
+GOOGLE_VERIFY_COOLDOWN_SEC = 6 * 60 * 60
 SKIP_HEALTH = os.environ.get("STAYTURGID_SKIP_HEALTH") == "1"
 SKIP_WATCHDOG_HEAL = os.environ.get("STAYTURGID_SKIP_WATCHDOG_HEAL") == "1"
 SKIP_GOOGLE_STACK_HEAL = os.environ.get("STAYTURGID_SKIP_GOOGLE_STACK_HEAL") == "1"
@@ -215,7 +218,7 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
         hgs.ensure_doze_whitelist(_run, serial)
         return
     if hgs.needs_gsf_reinstall(gsf_ver) and not hgs.needs_gms_downgrade(gms_ver):
-        log("%s google-stack heal: GSF %s — reinstalling 9-6957767" % (name, gsf_ver))
+        log("%s google-stack heal: GSF %s — reinstalling pinned 10-6494331" % (name, gsf_ver))
     else:
         log(
             "%s google-stack heal: GMS versionCode=%s > %s — pinning Fire-Tools stack"
@@ -229,7 +232,7 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
         if hgs.needs_gms_downgrade(new_ver):
             notify(
                 "stayturgid heal",
-                "%s GMS still too new (%s) — set Play Store: no auto-update"
+                "%s GMS still too new (%s) — run make fix-hd8-google"
                 % (name, new_ver),
                 sound="Basso",
             )
@@ -238,8 +241,42 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
                 "stayturgid heal",
                 "%s Google Play Services pinned (%s)" % (name, new_ver),
             )
+            maybe_verify_hd8_google_closeout(name)
     except Exception as e:  # noqa: BLE001
         log("%s google-stack heal error: %s" % (name, e))
+
+
+def maybe_verify_hd8_google_closeout(name: str) -> None:
+    """Rate-limited VLM verify after stack heal (auto-update + crash dialog)."""
+    if SKIP_HEALTH or name != "hd8" or not vh.auto_verify_enabled():
+        return
+    if not _heal_cooldown_ok_dir(name, GOOGLE_VERIFY_STATE_DIR, GOOGLE_VERIFY_COOLDOWN_SEC):
+        return
+    script = os.path.join(REPO, "mac", "verify_hd8_google.py")
+    if not os.path.isfile(script):
+        return
+    log("%s google-stack VLM close-out (verify_hd8_google)" % name)
+    env = os.environ.copy()
+    env.setdefault("STAYTURGID_VLM", "1")
+    try:
+        r = subprocess.run(
+            [sys.executable, script, name],
+            capture_output=True,
+            text=True,
+            timeout=600,
+            env=env,
+        )
+        detail = ((r.stdout or "") + (r.stderr or "")).strip().replace("\n", " | ")
+        log("%s google-stack VLM verify rc=%s %s" % (name, r.returncode, detail[:400]))
+        _touch_heal_dir(name, GOOGLE_VERIFY_STATE_DIR)
+        if r.returncode != 0:
+            notify(
+                "stayturgid heal",
+                "%s Google stack VLM check failed — see fleet-health.log" % name,
+                sound="Basso",
+            )
+    except (OSError, subprocess.TimeoutExpired) as e:
+        log("%s google-stack VLM verify error: %s" % (name, e))
 
 
 def check_device(name: str, ts_ip: str, lan_ip: str) -> None:

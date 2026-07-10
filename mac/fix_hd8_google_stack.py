@@ -10,10 +10,10 @@ Usage:
   ./mac/fix_hd8_google_stack.py [hd8]
   ./mac/fix_hd8_google_stack.py hd8 --force
   ./mac/fix_hd8_google_stack.py hd8 --verify-autoupdate
+  ./mac/fix_hd8_google_stack.py hd8 --no-verify
 
-After repair: open Play Store → Settings → Network preferences →
-Auto-update apps → **Don't auto-update apps** (prevents re-break).
-Or: STAYTURGID_VLM=1 make verify-play-autoupdate HOSTS=hd8
+When llama-server is running, auto-runs full VLM close-out (crash dialog +
+auto-update) unless --no-verify. See VLM.md and mac/verify_hd8_google.py.
 """
 from __future__ import annotations
 
@@ -27,6 +27,7 @@ REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO / "shared" / "mac"))
 import hd8_google_stack as hgs  # noqa: E402
 import stayturgid_device as dev  # noqa: E402
+import vlm_helpers as vh  # noqa: E402
 
 
 def run_command(cmd, *args, **kwargs):
@@ -47,7 +48,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--verify-autoupdate",
         action="store_true",
-        help="After stack check, VLM-verify Play Store auto-update is off (needs vlm-server)",
+        help="Run play auto-update VLM only (legacy; prefer full verify)",
+    )
+    parser.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="Skip VLM close-out even when llama-server is up",
     )
     args = parser.parse_args(argv)
 
@@ -83,20 +89,27 @@ def main(argv: list[str] | None = None) -> int:
     else:
         print("  OK — pinned stack (no reinstall needed)")
 
-    print(
-        "\nOperator: Play Store → Settings → Network preferences → "
-        "Auto-update apps → Don't auto-update apps"
-    )
-    if args.verify_autoupdate:
-        verify = REPO / "mac" / "verify_play_autoupdate.py"
+    verify_rc = 0
+    if not args.no_verify and (vh.auto_verify_enabled() or args.verify_autoupdate):
         env = os.environ.copy()
         env.setdefault("STAYTURGID_VLM", "1")
-        r = subprocess.run(
-            [sys.executable, str(verify), args.host],
+        if args.verify_autoupdate and not vh.auto_verify_enabled():
+            script = REPO / "mac" / "verify_play_autoupdate.py"
+        else:
+            script = REPO / "mac" / "verify_hd8_google.py"
+        print("\n--- VLM close-out (%s) ---" % script.name)
+        verify_rc = subprocess.run(
+            [sys.executable, str(script), args.host],
             env=env,
+        ).returncode
+    elif not args.no_verify:
+        print(
+            "\nOperator: Play Store → Settings → Network preferences → "
+            "Auto-update apps → Don't auto-update apps"
         )
-        return r.returncode
-    return 0
+        print("  (or: make vlm-server && make verify-hd8-google HOSTS=hd8)")
+
+    return verify_rc if verify_rc else 0
 
 
 if __name__ == "__main__":
