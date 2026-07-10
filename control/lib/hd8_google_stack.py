@@ -25,7 +25,9 @@ GMS_APKM = "Fire-Tools/Gapps/Google Play Services 24.35.30.apkm"
 PLAY_APKM = "Fire-Tools/Gapps/Google Play Store 42.6.23-23.apkm"
 GSF_APK = "Fire-Tools/Gapps/Google Services Framework 10-6494331.apk"
 PINNED_GSF_VERSION_PREFIX = "10-"
-# Reject 26.x auto-updates (262434022 observed crashing on hd8 2026-07-09).
+# Fire-Tools pin (legacy / emergency only via --force or STAYTURGID_HD8_PIN_GMS=1).
+# 2026-07-10: operator prefers newer GMS/Play over the 24.35.30 pin — auto-heal
+# no longer force-downgrades GMS/Play. Keep GSF 10-x + Doze whitelist.
 MAX_GMS_VERSION_CODE = 250_000_000
 PINNED_GMS_VERSION_CODE = 243_530_013
 PINNED_PLAY_VERSION_CODE = 84_262_300
@@ -34,6 +36,21 @@ GMS_PKG = "com.google.android.gms"
 GSF_PKG = "com.google.android.gsf"
 PLAY_PKG = "com.android.vending"
 WHITELIST_PKGS = (GMS_PKG, GSF_PKG)
+
+
+def pin_gms_enabled() -> bool:
+    """True when fleet heal / repair_if_needed may reinstall Fire-Tools GMS+Play.
+
+    Default **off** (2026-07-10): newer Play Store + device-matched GMS worked
+    better for the operator than the 24.35.30 pin. Opt-in with
+    ``STAYTURGID_HD8_PIN_GMS=1`` or ``fix_hd8_google_stack.py --force``.
+    """
+    return os.environ.get("STAYTURGID_HD8_PIN_GMS", "0").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
 
 _VERSION_CODE_RE = re.compile(r"versionCode=(\d+)")
 
@@ -87,12 +104,17 @@ def ensure_doze_whitelist(run_command, device: str) -> list[str]:
 
 
 def needs_gms_downgrade(gms_version_code: int | None) -> bool:
+    """True when GMS is newer than Fire-Tools pin *and* pin policy is enabled."""
+    if not pin_gms_enabled():
+        return False
     if gms_version_code is None:
         return False
     return gms_version_code > MAX_GMS_VERSION_CODE
 
 
 def needs_play_downgrade(play_version_code: int | None) -> bool:
+    if not pin_gms_enabled():
+        return False
     if play_version_code is None:
         return False
     return play_version_code > MAX_PLAY_VERSION_CODE
@@ -238,18 +260,24 @@ def repair_if_needed(
     cache_dir: Path | None = None,
     stop_aurora: bool = True,
 ) -> dict:
-    """Whitelist always; reinstall pinned APKs when GMS/Play/GSF drift."""
+    """Whitelist always; reinstall GSF 10 if missing; pin GMS/Play only if force/opt-in.
+
+    ``force=True`` or ``STAYTURGID_HD8_PIN_GMS=1`` reinstalls Fire-Tools GMS+Play.
+    Default path only keeps Doze whitelist + GSF 10-x (does not roll back new Play).
+    """
     gms_ver = package_version_code(run_command, device, GMS_PKG)
     play_ver = package_version_code(run_command, device, PLAY_PKG)
     gsf_ver = package_version_name(run_command, device, GSF_PKG)
     whitelist = ensure_doze_whitelist(run_command, device)
     if stop_aurora:
         stop_aurora_churn(run_command, device)
-    downgrade = (
-        force
-        or needs_gms_downgrade(gms_ver)
-        or needs_play_downgrade(play_ver)
-        or needs_gsf_reinstall(gsf_ver)
+    # Full stack pin only when explicitly forced or pin policy enabled + drift.
+    pin_stack = force or (
+        pin_gms_enabled()
+        and (
+            needs_gms_downgrade(gms_ver)
+            or needs_play_downgrade(play_ver)
+        )
     )
     out = {
         "gms_version": gms_ver,
@@ -257,16 +285,17 @@ def repair_if_needed(
         "gsf_version": gsf_ver,
         "whitelist": whitelist,
         "downgraded": False,
+        "pin_policy": pin_gms_enabled(),
     }
     cache = cache_dir or FIRE_TOOLS_CACHE
     zip_path = cache / "Fire-Tools.zip"
-    if needs_gsf_reinstall(gsf_ver) and not downgrade:
+    if needs_gsf_reinstall(gsf_ver) and not pin_stack:
         _ensure_fire_tools_zip(zip_path)
         out["gsf"] = reinstall_gsf(
             run_command, device, zip_path, (cache / "work")
         )
         out["gsf_version"] = package_version_name(run_command, device, GSF_PKG)
-    if downgrade:
+    if pin_stack:
         out["install"] = reinstall_pinned_stack(
             run_command, device, cache_dir=cache_dir
         )

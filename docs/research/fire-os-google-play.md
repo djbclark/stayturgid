@@ -61,18 +61,33 @@ Mac launchd (`fleet_health_monitor.py`) rate-limits the same repair when hd8 GMS
 `versionCode` exceeds **250000000** (26.x line), then runs VLM close-out when
 `llama-server` is healthy (6h cooldown). See [docs/vlm.md](../../docs/vlm.md).
 
+## Policy (2026-07-10 update)
+
+Operator feedback: the **24.35.30 pin caused more issues** than a newer stack.
+Default fleet heal **no longer force-downgrades** GMS/Play.
+
+| Mode | How | Behavior |
+|------|-----|----------|
+| **Default** | — | Doze whitelist + keep **GSF 10-x** only |
+| **Emergency pin** | `STAYTURGID_HD8_PIN_GMS=1` or `fix_hd8_google_stack.py --force` | Reinstall Fire-Tools GMS 24.35.30 + Play 42.6.23 |
+
+Live (2026-07-10): Play Store upgraded to **52.1.26** (user-installed). GMS remains
+**24.35.30** until a **minAPI ≤ 30** build is installed — current Play/apkeep
+“latest” GMS requires **API 35** and will not install on Fire OS 8 (API 30).
+Use Play Store on-device “Update” for Play Services (delivers a device-matched
+variant) or sideload a minAPI-30 APK (e.g. APKMirror 26.x 150400).
+
 ## Prevention
 
 | Action | Why |
 |--------|-----|
-| Don't auto-update in Play Store | Stops GMS/Play self-updating past Fire-compatible builds |
+| Prefer device-matched GMS via Play Store | Phone-latest GMS often needs API 35; Fire is API 30 |
 | Avoid Aurora Store on hd8 | Parked from fleet; triggers GMS auth failures on Fire — **uninstalled from hd8** |
-| Re-run `fix_hd8_google_stack.py` after manual Play use | Play may still push GMS in background until auto-update is off |
-| Avoid Fire OS OTA without checking | Amazon OTAs can break sideloaded Play; may need re-pin |
+| Keep GSF **10-6494331** | GSF 9.x breaks Play Store `READ_GSERVICES` |
+| Doze whitelist GMS+GSF | Reduces idle-related breakage |
+| Avoid Fire OS OTA without checking | Amazon OTAs can break sideloaded Play |
 
-GMS **cannot** be fully frozen without root (Google pushes critical updates).
-The practical Fire-tablet approach is **pin + disable Play auto-update**, not
-latest GMS.
+GMS **cannot** be fully frozen without root. Pinning is opt-in now.
 
 ## Not fleet scope
 

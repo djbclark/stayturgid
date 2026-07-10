@@ -29,12 +29,21 @@ def test_check_stack_ok(monkeypatch):
     assert ok is True
 
 
-def test_check_stack_drift(monkeypatch):
+def test_check_stack_missing_gsf(monkeypatch):
+    monkeypatch.setattr(vhg, "run_command", lambda *a, **k: (0, "", ""))
+    monkeypatch.setattr(hgs, "package_version_code", lambda *a: 999_999_999)
+    monkeypatch.setattr(hgs, "package_version_name", lambda *a: "9-6957767")
+    ok, detail = vhg.check_stack("SERIAL")
+    assert ok is False
+
+
+def test_check_stack_allows_modern_gms(monkeypatch):
+    monkeypatch.delenv("STAYTURGID_HD8_PIN_GMS", raising=False)
     monkeypatch.setattr(vhg, "run_command", lambda *a, **k: (0, "", ""))
     monkeypatch.setattr(hgs, "package_version_code", lambda *a: 999_999_999)
     monkeypatch.setattr(hgs, "package_version_name", lambda *a: "10-6494331")
     ok, detail = vhg.check_stack("SERIAL")
-    assert ok is False
+    assert ok is True
 
 
 def test_main_stack_only_no_vlm(monkeypatch):
@@ -43,6 +52,7 @@ def test_main_stack_only_no_vlm(monkeypatch):
     monkeypatch.setattr(vhg, "check_stack", lambda s: (True, {"ok": True}))
     gate = MagicMock()
     gate.ready = False
+    gate.usable = False
     monkeypatch.setattr(vhg.vlm, "VlmGate", lambda **kw: gate)
     monkeypatch.setattr(vhg.vlm, "vlm_strict", lambda: False)
     assert vhg.main(["hd8"]) == 0

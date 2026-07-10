@@ -200,7 +200,7 @@ def maybe_heal_watchdog(
 
 
 def maybe_heal_hd8_google_stack(name: str) -> None:
-    """Pin sideloaded GMS when Play Store auto-updated past Fire-compatible builds."""
+    """Keep Doze whitelist + GSF 10; optionally pin GMS if STAYTURGID_HD8_PIN_GMS=1."""
     if SKIP_HEALTH or SKIP_GOOGLE_STACK_HEAL or name != "hd8":
         return
     if not _heal_cooldown_ok_dir(
@@ -217,6 +217,17 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
         serial = dev.resolve_adb(name)
         gms_ver = hgs.package_version_code(_run, serial, hgs.GMS_PKG)
         gsf_ver = hgs.package_version_name(_run, serial, hgs.GSF_PKG)
+        # Default: whitelist only (no GMS/Play force-downgrade).
+        if not hgs.pin_gms_enabled():
+            hgs.ensure_doze_whitelist(_run, serial)
+            if hgs.needs_gsf_reinstall(gsf_ver):
+                log(
+                    "%s google-stack heal: GSF %s — reinstalling 10-6494331"
+                    % (name, gsf_ver)
+                )
+                hgs.repair_if_needed(_run, serial)
+                _touch_heal_dir(name, GOOGLE_HEAL_STATE_DIR)
+            return
         if not hgs.needs_gms_downgrade(gms_ver) and not hgs.needs_gsf_reinstall(gsf_ver):
             hgs.ensure_doze_whitelist(_run, serial)
             return

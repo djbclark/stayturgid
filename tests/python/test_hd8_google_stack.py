@@ -13,13 +13,26 @@ def test_parse_version_code():
     assert hgs.parse_version_code(text) == 243530013
 
 
-def test_needs_gms_downgrade():
-    assert hgs.needs_gms_downgrade(262434022) is True
+def test_needs_gms_downgrade_off_by_default(monkeypatch):
+    monkeypatch.delenv("STAYTURGID_HD8_PIN_GMS", raising=False)
+    assert hgs.pin_gms_enabled() is False
+    # Default: do not force-downgrade modern GMS.
+    assert hgs.needs_gms_downgrade(262434022) is False
     assert hgs.needs_gms_downgrade(243530013) is False
     assert hgs.needs_gms_downgrade(None) is False
 
 
-def test_needs_play_downgrade():
+def test_needs_gms_downgrade_when_pin_enabled(monkeypatch):
+    monkeypatch.setenv("STAYTURGID_HD8_PIN_GMS", "1")
+    assert hgs.pin_gms_enabled() is True
+    assert hgs.needs_gms_downgrade(262434022) is True
+    assert hgs.needs_gms_downgrade(243530013) is False
+
+
+def test_needs_play_downgrade(monkeypatch):
+    monkeypatch.delenv("STAYTURGID_HD8_PIN_GMS", raising=False)
+    assert hgs.needs_play_downgrade(85212620) is False
+    monkeypatch.setenv("STAYTURGID_HD8_PIN_GMS", "1")
     assert hgs.needs_play_downgrade(85212620) is True
     assert hgs.needs_play_downgrade(84262300) is False
 

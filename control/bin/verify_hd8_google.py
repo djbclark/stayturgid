@@ -44,19 +44,24 @@ def run_command(cmd, *args, **kwargs):
 
 
 def check_stack(serial: str) -> tuple[bool, dict]:
+    """Stack health: packages present + GSF 10-x. GMS pin is opt-in policy only."""
     gms = hgs.package_version_code(run_command, serial, hgs.GMS_PKG)
     play = hgs.package_version_code(run_command, serial, hgs.PLAY_PKG)
     gsf = hgs.package_version_name(run_command, serial, hgs.GSF_PKG)
     ok = (
-        not hgs.needs_gms_downgrade(gms)
-        and not hgs.needs_play_downgrade(play)
+        gms is not None
+        and play is not None
         and not hgs.needs_gsf_reinstall(gsf)
     )
+    # Optional pin-policy signal (does not fail the check by default).
+    pin_drift = hgs.needs_gms_downgrade(gms) or hgs.needs_play_downgrade(play)
     return ok, {
         "gms_version": gms,
         "play_version": play,
         "gsf_version": gsf,
         "ok": ok,
+        "pin_policy": hgs.pin_gms_enabled(),
+        "pin_drift": pin_drift,
     }
 
 

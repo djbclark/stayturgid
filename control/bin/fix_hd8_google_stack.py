@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Repair hd8 sideloaded Google Play stack (pin GMS + Play Store, Doze whitelist).
+"""Repair hd8 sideloaded Google Play stack (Doze whitelist + optional pin).
 
-Play Services auto-updated to 26.x on Fire OS and crashed with
-``CHANGE_DEVICE_IDLE_TEMP_WHITELIST`` SecurityException. This script
-reinstalls Fire-Tools-pinned APKs (GMS 24.35.30, Play Store 42.6.23) and
-whitelists GMS/GSF on Doze.
+Default (2026-07-10): whitelist GMS/GSF and ensure GSF 10-x. Does **not**
+force-downgrade GMS/Play (operator prefers newer stacks).
+
+Emergency pin (Fire-Tools GMS 24.35.30 + Play 42.6.23)::
+
+  STAYTURGID_HD8_PIN_GMS=1 ./control/bin/fix_hd8_google_stack.py hd8
+  ./control/bin/fix_hd8_google_stack.py hd8 --force
 
 Usage:
   ./control/bin/fix_hd8_google_stack.py [hd8]
