@@ -4,6 +4,11 @@
     path: "{{ ui_tars_service_plist }}"
   register: _ui_tars_plist_stat
 
+- name: Stat Hermes gateway launchd plist
+  ansible.builtin.stat:
+    path: "{{ agents_dir }}/{{ stayturgid_hermes_gateway_label }}.plist"
+  register: _hermes_gateway_plist_stat
+
 - name: Build launchd ensure service list
   ansible.builtin.set_fact:
     _mac_launchd_ensure_services: >-
@@ -14,6 +19,7 @@
         + _termux_pkg_nightly_agents
         + _vlm_upstream_check_agents
         + _ui_tars_launchd_agents
+        + _hermes_gateway_agents
       }}
   vars:
     _core_launchd_agents:
@@ -23,6 +29,17 @@
         plist: "{{ agents_dir }}/com.stayturgid.fleet-health.plist"
       - name: com.stayturgid.fire-help
         plist: "{{ agents_dir }}/com.stayturgid.fire-help.plist"
+    _hermes_gateway_agents: >-
+      {{
+        [{
+          'name': stayturgid_hermes_gateway_label,
+          'plist': agents_dir ~ '/' ~ stayturgid_hermes_gateway_label ~ '.plist'
+        }] if (
+          (stayturgid_hermes_enabled | default(true) | bool)
+          and (stayturgid_hermes_gateway_enabled | default(true) | bool)
+          and (_hermes_gateway_plist_stat.stat.exists | default(false))
+        ) else []
+      }}
     _termux_pkg_nightly_agents: >-
       {{
         [{

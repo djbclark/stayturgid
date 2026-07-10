@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{{ stayturgid_hermes_gateway_label }}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{ stayturgid_homebrew_prefix }}/bin/hermes</string>
+        <string>gateway</string>
+        <string>run</string>
+        <string>--replace</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HERMES_HOME</key>
+        <string>{{ stayturgid_hermes_home }}</string>
+        <key>PATH</key>
+        <string>{{ stayturgid_homebrew_prefix }}/bin:{{ stayturgid_homebrew_prefix }}/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+{% if (stayturgid_hermes_telegram_allowed_users | default('') | string | trim | length) > 0 %}
+        <key>TELEGRAM_ALLOWED_USERS</key>
+        <string>{{ stayturgid_hermes_telegram_allowed_users | string | trim }}</string>
+{% endif %}
+{% if (stayturgid_hermes_telegram_home_channel | default('') | string | trim | length) > 0 %}
+        <key>TELEGRAM_HOME_CHANNEL</key>
+        <string>{{ stayturgid_hermes_telegram_home_channel | string | trim }}</string>
+{% endif %}
+    </dict>
+    <key>WorkingDirectory</key>
+    <string>{{ stayturgid_hermes_home }}</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>StandardOutPath</key>
+    <string>{{ stayturgid_hermes_home }}/logs/gateway.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ stayturgid_hermes_home }}/logs/gateway.error.log</string>
+</dict>
+</plist>

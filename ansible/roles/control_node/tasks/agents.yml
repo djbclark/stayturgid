@@ -196,6 +196,10 @@
     - (item.stdout | trim | length) > 0
     - not (item.failed | default(false))
 
+- name: Configure Hermes Agent + Telegram gateway
+  ansible.builtin.include_tasks: hermes.yml
+  tags: [mac, agents, hermes]
+
 - name: Record launchd labels needing reload after plist template changes
   ansible.builtin.set_fact:
     _mac_launchd_reload_labels: >-
@@ -216,4 +220,13 @@
         + (['com.stayturgid.vlm-upstream-check']
            if (vlm_upstream_check_plist is defined
                and vlm_upstream_check_plist.changed) else [])
+        + (
+          [stayturgid_hermes_gateway_label]
+          if (
+            stayturgid_hermes_enabled | default(true) | bool
+            and stayturgid_hermes_gateway_enabled | default(true) | bool
+            and hermes_gateway_plist is defined
+            and hermes_gateway_plist.changed
+          ) else []
+        )
       }}

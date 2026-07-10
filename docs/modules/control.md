@@ -67,8 +67,40 @@ Logs: `~/.config/stayturgid/logs/`. Device list: `~/.config/stayturgid/devices.c
 | `com.stayturgid.fire-help` | 300 s | `fire-help.log` (Fire Shizuku/Handsets) |
 | `com.stayturgid.termux-pkg-nightly` | daily 04:15 | `termux-pkg-nightly.log` (`pkg update`/`upgrade` all hosts) |
 | `com.stayturgid.vlm-upstream-check` | weekly Sun 09:20 | Compare `~/src/RevengeQuickSwitcher/VLM.md` best practices |
+| `com.stayturgid.hermes-gateway` | KeepAlive | Hermes Agent Telegram gateway → `~/.hermes/logs/gateway.log` |
 
 `com.stayturgid.gui-audit` is **not** installed while app stores are parked.
+
+### Hermes Agent + Telegram (control node)
+
+[Hermes Agent](https://hermes-agent.nousresearch.com/) is installed via Homebrew (`hermes-agent`)
+and kept up by `make deploy-mac` / `control_node` agents:
+
+| Path | Purpose |
+|------|---------|
+| `ansible/roles/control_node/tasks/hermes.yml` | Install, model config, `.env` allowlist, launchd plist |
+| `~/.hermes/config.yaml` | Default model (e.g. `grok-4.5`) |
+| `~/.hermes/.env` | **Secrets** — `TELEGRAM_BOT_TOKEN`, optional allowlist (mode `0600`, never git) |
+| `~/.hermes/auth.json` | xAI OAuth tokens after `hermes auth add xai-oauth` |
+| `~/Library/LaunchAgents/com.stayturgid.hermes-gateway.plist` | KeepAlive gateway |
+
+**First-time (human):**
+
+```bash
+# SuperGrok / Premium+ OAuth (browser)
+hermes auth add xai-oauth --type oauth
+
+# Bot token from @BotFather → ~/.hermes/.env
+# TELEGRAM_BOT_TOKEN=123:AA…
+
+make deploy-mac
+# or: ansible-playbook ansible/playbooks/control_node/site.yml --tags hermes,agents-ensure
+```
+
+Site allowlist (Telegram numeric user ids) lives in `ansible/inventory/hosts.yml`
+(`stayturgid_hermes_telegram_allowed_users`). Pairing: `hermes pairing approve telegram CODE`.
+
+Disable: `-e stayturgid_hermes_enabled=false` or `stayturgid_hermes_gateway_enabled=false`.
 
 **Soft health** (`fleet_health_monitor.py`): when reachable, scrapes watchdog/repair
 ages, STATUS `port`/`shizuku`/`a11y`, AutoJs6 + profile a11y drift, boot loop,
