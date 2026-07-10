@@ -21,7 +21,7 @@
 |--|--|
 | **Scope** | Full-repo layout, `control/` + `device/termux/py` Python hot paths, docs tree + relative links, modules vs collections, parked features, new subsystems (ET Mac, Hermes gateway, cloud VLM, screen lease, portrait lock) |
 | **Method** | Structural inventory; full reads of focus Python modules; relative-link crawl under `docs/`; comparison to historical [code-review.md](code-review.md); no live device deploy in this pass |
-| **Tests** | Hermès worktree for this session had no local `.venv-test` (`make test-venv` not run). That is **environment-specific**, not a repo defect — `~/stayturgid` often has the venv; CI remains `make test` / `.github/workflows/test.yml` |
+| **Tests** | Hermes worktree for this session had no local `.venv-test` (`make test-venv` not run). That is **environment-specific**, not a repo defect — `~/stayturgid` often has the venv; CI remains `make test` / `.github/workflows/test.yml` |
 | **Severity** | **H** = broken in production paths or agent guidance systematically wrong · **M** = incorrect/harmful in realistic conditions · **L** = quality / completeness |
 
 ---
