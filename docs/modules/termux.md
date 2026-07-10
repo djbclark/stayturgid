@@ -56,6 +56,48 @@ Deploys Python runtime under `~/.stayturgid/bin/`, bridge shells, and boot hooks
 ./control/bin/deploy_termux.py s24   # or p7a
 ```
 
+## Package updates (standard Termux + fleet schedule)
+
+Termux’s package manager is **`pkg`** (thin wrapper over apt). The supported
+unattended maintenance commands are:
+
+```bash
+pkg update
+pkg upgrade -y
+# equivalent under the hood: apt-get update / apt-get full-upgrade
+```
+
+stayturgid uses the **`stayturgid.termux.termux_pkg`** module for this (same as
+deploy): pin mirror → `pkg update` → `apt-get full-upgrade` / `pkg upgrade -y`
+→ re-pin mirror (`packages-cf.termux.dev`).
+
+**Nightly (all inventory hosts):** Mac launchd
+`com.stayturgid.termux-pkg-nightly` (default **04:15 local**) runs:
+
+```bash
+python3 control/bin/termux_pkg_nightly.py
+# → ansible/playbooks/fleet/termux-pkg-upgrade.yml
+```
+
+```bash
+make termux-pkg-upgrade              # run now, all hosts
+make termux-pkg-upgrade HOSTS=s24    # one host
+CHECK=1 make termux-pkg-upgrade      # dry run
+make deploy-mac                      # install/reload the launchd agent
+```
+
+| Var | Default | Meaning |
+|-----|---------|---------|
+| `stayturgid_termux_pkg_nightly_enabled` | `true` | Install launchd agent on Mac |
+| `stayturgid_termux_pkg_nightly_hour` / `_minute` | `4` / `15` | Mac local time |
+| `stayturgid_termux_pkg_upgrade_enabled` | `true` | Per-host skip in the playbook |
+| `stayturgid_termux_pkg_upgrade_serial` | `1` | Ansible serial (one host at a time) |
+
+Logs: `~/.config/stayturgid/logs/termux-pkg-nightly.log`.
+
+On-device cron/`termux-job-scheduler` is **not** used: fleet control is already
+Mac→SSH Ansible, which keeps mirror pinning and failure logs in one place.
+
 ## Logs and status
 
 ```bash

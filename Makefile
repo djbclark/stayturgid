@@ -27,6 +27,7 @@ VLM_ANSIBLE := ansible-playbook $(MAC_SITE) -e stayturgid_vlm_enabled=true
 .PHONY: help all configure check unit test unit-and-pytest pytest ansible-test test-venv \
         lint clean verify verify-heal device dryrun dryrun-termux \
         health fix-hd8-google deploy deploy-check collections bootstrap-ssh deploy-termux deploy-mac syntax \
+        termux-pkg-upgrade \
         vlm-install vlm-server vlm-check vlm-stop vlm-service-install vlm-service-status \
         vlm-service-stop vlm-service-restart vlm-smoke verify-play-autoupdate verify-hd8-google
 
@@ -53,6 +54,7 @@ help:
 	@echo "  make verify-hd8-google          Stack + crash + auto-update close-out (hd8)"
 	@echo "  make collections                Install ansible-galaxy collections"
 	@echo "  make syntax                     Syntax-check site.yml + control_node/site.yml"
+	@echo "  make termux-pkg-upgrade [HOSTS=]  Nightly-style Termux pkg update/upgrade (all hosts)"
 	@echo ""
 	@echo "Verify (SSH to devices):"
 	@echo "  make verify [HOSTS=s24]           Read-only device tier (TAP)"
@@ -149,6 +151,12 @@ collections:
 syntax:
 	ansible-playbook ansible/playbooks/site.yml --syntax-check
 	ansible-playbook $(MAC_SITE) --syntax-check
+	ansible-playbook ansible/playbooks/fleet/termux-pkg-upgrade.yml --syntax-check
+
+# Termux pkg update + full-upgrade on inventory hosts (same module as deploy).
+# Nightly schedule: launchd com.stayturgid.termux-pkg-nightly (make deploy-mac).
+termux-pkg-upgrade:
+	python3 control/bin/termux_pkg_nightly.py $(if $(HOSTS),--limit "$(shell echo $(HOSTS) | tr ' ' ',')",)
 
 # ------------------------------------------------------------------------------
 # Device verification

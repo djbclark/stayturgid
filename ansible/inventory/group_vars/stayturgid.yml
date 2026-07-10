@@ -24,6 +24,11 @@ stayturgid_ensure_aurora_store: false
 stayturgid_install_aurora_store: false
 stayturgid_gui_audit_enabled: false
 
+# Nightly Termux pkg update/upgrade (Mac launchd → Ansible SSH). See docs/modules/termux.md.
+# stayturgid_termux_pkg_nightly_enabled: true   # Mac agent (control_node defaults)
+# stayturgid_termux_pkg_upgrade_enabled: true   # set false per-host to skip
+# stayturgid_termux_pkg_upgrade_serial: 1
+
 # Optional unified app ensure (stayturgid.android_common.ensure_apps in fleet.yml).
 stayturgid_ensure_apps: []
 # When app stores are re-enabled, Play downloads need GPLAY_* in play.env — see docs/modules/play.md.

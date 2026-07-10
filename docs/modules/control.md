@@ -65,6 +65,7 @@ Logs: `~/.config/stayturgid/logs/`. Device list: `~/.config/stayturgid/devices.c
 | `com.stayturgid.access-monitor` | 300 s | `access-monitor.log` (reachability) |
 | `com.stayturgid.fleet-health` | 300 s | `fleet-health.log` (soft health) |
 | `com.stayturgid.fire-help` | 300 s | `fire-help.log` (Fire Shizuku/Handsets) |
+| `com.stayturgid.termux-pkg-nightly` | daily 04:15 | `termux-pkg-nightly.log` (`pkg update`/`upgrade` all hosts) |
 
 `com.stayturgid.gui-audit` is **not** installed while app stores are parked.
 

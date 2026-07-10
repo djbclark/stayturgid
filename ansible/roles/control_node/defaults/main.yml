@@ -5,6 +5,12 @@ stayturgid_gui_audit_enabled: false
 # Set true (or pass -e) for VLM model download + launchd agent install tasks.
 stayturgid_vlm_enabled: false
 
+# Nightly Termux pkg update/upgrade on all fleet hosts (Mac launchd → Ansible SSH).
+# Uses stayturgid.termux.termux_pkg (same as deploy). Local time on the Mac.
+stayturgid_termux_pkg_nightly_enabled: true
+stayturgid_termux_pkg_nightly_hour: 4
+stayturgid_termux_pkg_nightly_minute: 15
+
 conf_dir: "{{ lookup('env', 'HOME') }}/.config/stayturgid"
 agents_dir: "{{ lookup('env', 'HOME') }}/Library/LaunchAgents"
 stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
