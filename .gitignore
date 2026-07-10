@@ -26,6 +26,7 @@ control/lib/a11y_backups/.*.tmp
 
 # Local screenshot / audit dumps (gui-audit writes under ~/.config; keep repo clean)
 artifacts/
+tmp/
 
 # SSH keys — live on the control node / devices only, never in git
 *.pem
