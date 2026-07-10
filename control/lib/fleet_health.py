@@ -35,7 +35,29 @@ def _adb_bin() -> str:
 
 ADB = _adb_bin()
 
-HEALTH_GATHER = r"""
+# Shared by SSH + adb gather scripts. Avoid GNU `date -d` (toybox → unknown ages
+# → stale looked clean on Mac soft-health).
+_PORTABLE_AGE_BODY = r"""
+  # Portable parse — GNU date -d fails on many Android toybox builds.
+  age=$(python3 -c '
+import sys, time
+from datetime import datetime
+s = sys.argv[1].strip()
+for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+    try:
+        ts = datetime.strptime(s, fmt).timestamp()
+        print(int(time.time() - ts))
+        raise SystemExit(0)
+    except ValueError:
+        pass
+print("unknown")
+' "$last" 2>/dev/null) || age=unknown
+  if [ -z "$age" ]; then age=unknown; fi
+  echo "$age"
+"""
+
+HEALTH_GATHER = (
+    r"""
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
 export TMPDIR=/data/data/com.termux/files/usr/tmp
 [ -f ~/.stayturgid/env ] && . ~/.stayturgid/env
@@ -57,22 +79,9 @@ _age() {
   marker="$1"
   last=$(grep -h "$marker" "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
   if [ -z "$last" ]; then echo missing; return; fi
-  # Portable parse — GNU date -d fails on many Android toybox builds (stale looked clean).
-  age=$(python3 -c '
-import sys, time
-from datetime import datetime
-s = sys.argv[1].strip()
-for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
-    try:
-        ts = datetime.strptime(s, fmt).timestamp()
-        print(int(time.time() - ts))
-        raise SystemExit(0)
-    except ValueError:
-        pass
-print("unknown")
-' "$last" 2>/dev/null) || age=unknown
-  if [ -z "$age" ]; then age=unknown; fi
-  echo "$age"
+"""
+    + _PORTABLE_AGE_BODY
+    + r"""
 }
 echo "repair_age=$(_age '\[repair\]')"
 echo "watchdog_age=$(_age '\[watchdog\]')"
@@ -98,6 +107,7 @@ case "$a11y_list" in
   *) echo "autojs6_a11y=missing" ;;
 esac
 """
+)
 
 
 def parse_kv(text: str) -> dict[str, str]:
@@ -259,28 +269,17 @@ def ssh_health(host: str, *, timeout: int = 30) -> dict[str, str]:
 def adb_health(serial: str, *, timeout: int = 30) -> dict[str, str]:
     """Best-effort Mac-side scrape when SSH is down but adb works (e.g. Fire)."""
     report: dict[str, str] = {"ssh_echo": "skip", "sshd": "unknown", "bootloop": "unknown"}
-    script = r"""
+    script = (
+        r"""
 now=$(date +%s)
 LOGS="/sdcard/stayturgid/logs/watchdog.log /data/data/com.termux/files/home/.stayturgid/shared/logs/watchdog.log"
 age_of() {
   m="$1"
   last=$(grep -hF "$m" $LOGS 2>/dev/null | tail -1 | cut -d" " -f1,2)
   if [ -z "$last" ]; then echo missing; return; fi
-  age=$(python3 -c '
-import sys, time
-from datetime import datetime
-s = sys.argv[1].strip()
-for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
-    try:
-        ts = datetime.strptime(s, fmt).timestamp()
-        print(int(time.time() - ts))
-        raise SystemExit(0)
-    except ValueError:
-        pass
-print("unknown")
-' "$last" 2>/dev/null) || age=unknown
-  if [ -z "$age" ]; then age=unknown; fi
-  echo "$age"
+"""
+        + _PORTABLE_AGE_BODY
+        + r"""
 }
 echo "repair_age=$(age_of '[repair]')"
 echo "watchdog_age=$(age_of '[watchdog]')"
@@ -299,6 +298,7 @@ echo "$st" | grep -oE 'a11y=[^ ]+' || echo "a11y=unknown"
 echo "shell5555=skip"
 echo "bootloop=unknown"
 """
+    )
     try:
         r = subprocess.run(
             [ADB, "-s", serial, "shell", "sh", "-c", script],

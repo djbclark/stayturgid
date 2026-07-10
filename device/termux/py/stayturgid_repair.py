@@ -254,8 +254,11 @@ def duplicate_branch():
         et_cfg = "skip"
     else:
         conf = os.path.join(HOME, ".ssh", "config")
+        existing = ""
         try:
-            existing = open(conf).read() if os.path.isfile(conf) else ""
+            if os.path.isfile(conf):
+                with open(conf) as f:
+                    existing = f.read()
         except OSError:
             existing = ""
         et_cfg = (

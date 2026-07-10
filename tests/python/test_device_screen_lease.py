@@ -82,6 +82,24 @@ def test_heartbeat_extends(lease_dir):
     assert updated["expires_at"] >= exp1
 
 
+def test_heartbeat_refreshes_alias_files(lease_dir):
+    """Multi-key leases must not leave stale expires_at on serial/IP aliases."""
+    import json
+
+    dsl.acquire("p7a", device_ids=["USB123"], purpose="alias-hb", ttl_sec=120)
+    primary = dsl.lease_path("p7a")
+    alias = dsl.lease_path("USB123")
+    exp_before = json.loads(alias.read_text())["expires_at"]
+    time.sleep(1.05)
+    updated = dsl.heartbeat("p7a", ttl_sec=120)
+    assert updated is not None
+    prim = json.loads(primary.read_text())
+    als = json.loads(alias.read_text())
+    assert prim["expires_at"] == als["expires_at"]
+    assert als["expires_at"] >= exp_before
+    assert als["expires_at"] == updated["expires_at"]
+
+
 def test_match_by_serial_alias(lease_dir):
     dsl.acquire("p7a", device_ids=["USB123", "10.0.0.1:5555"])
     assert dsl.find_active_lease("USB123") is not None

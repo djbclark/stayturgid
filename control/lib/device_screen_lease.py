@@ -359,11 +359,7 @@ def acquire(
                     session_id=sid,
                     ttl_sec=ttl_sec,
                 )
-                primary = lease_path(device)
-                _write_json_atomic(primary, lease)
-                for alt in device_ids or []:
-                    if device_key(alt) != device_key(device):
-                        _write_json_atomic(lease_path(alt), lease)
+                _write_lease_all_keys(lease, primary_device=device)
                 return lease
             remaining = deadline - _now()
             if remaining <= 0:
@@ -376,13 +372,47 @@ def acquire(
         time.sleep(min(2.0, remaining))
 
 
+def _write_lease_all_keys(
+    lease: dict[str, Any],
+    *,
+    primary_device: str | None = None,
+) -> None:
+    """Atomic-write lease under primary key, device_ids aliases, and optional _path."""
+    clean = {k: v for k, v in lease.items() if not k.startswith("_")}
+    written: set[Path] = set()
+    keys: list[str] = []
+    if primary_device:
+        keys.append(primary_device)
+    dev = lease.get("device")
+    if dev:
+        keys.append(str(dev))
+    for alt in lease.get("device_ids") or []:
+        if alt:
+            keys.append(str(alt))
+    for key in keys:
+        path = lease_path(key)
+        if path in written:
+            continue
+        written.add(path)
+        _write_json_atomic(path, clean)
+    extra = lease.get("_path")
+    if extra:
+        path = Path(extra)
+        if path not in written:
+            _write_json_atomic(path, clean)
+
+
 def heartbeat(
     device: str,
     *,
     session_id: str | None = None,
     ttl_sec: int | None = None,
 ) -> dict[str, Any] | None:
-    """Extend expires_at if we own the lease. Returns updated lease or None."""
+    """Extend expires_at if we own the lease. Returns updated lease or None.
+
+    Refreshes every alias file written at acquire (not only the discovered path),
+    so multi-key leases cannot leave a stale expires_at on a serial/IP alias.
+    """
     with _lease_lock():
         lease = find_active_lease(device)
         if not lease or not ours(lease):
@@ -393,13 +423,8 @@ def heartbeat(
         ttl = int(ttl_sec or lease.get("ttl_sec") or DEFAULT_TTL_SEC)
         lease["heartbeat_at"] = _iso(now)
         lease["expires_at"] = _iso(now + ttl)
-        # Write to the file we found + primary key.
-        path = Path(lease.get("_path") or lease_path(device))
-        clean = {k: v for k, v in lease.items() if not k.startswith("_")}
-        _write_json_atomic(path, clean)
-        if path != lease_path(device):
-            _write_json_atomic(lease_path(device), clean)
-        return clean
+        _write_lease_all_keys(lease, primary_device=device)
+        return {k: v for k, v in lease.items() if not k.startswith("_")}
 
 
 def release(

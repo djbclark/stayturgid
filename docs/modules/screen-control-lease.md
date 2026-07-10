@@ -57,7 +57,10 @@ XDG: if `XDG_STATE_HOME` is set, root is `$XDG_STATE_HOME/device-screen-control`
 3. On start of control: **acquire** (write lease, heartbeat while holding).
 4. On end: **release** (delete only if you own the lease).
 5. Heartbeat at least every ~60s while active; hard stop is `expires_at`.
-6. Same project may renew; cross-project requires wait or explicit FORCE.
+6. **Renew** only when free, same `session_id`, same process `pid`, or
+   `DEVICE_SCREEN_CONTROL_FORCE=1`. Same project with a *different* session must
+   wait or force (no silent peer takeover). Acquire/heartbeat/release use an
+   exclusive flock; multi-key leases refresh every `device_ids` alias on heartbeat.
 
 ## stayturgid integration
 
@@ -157,11 +160,15 @@ normalized serial. Filename = lowercase alias/serial with non-alnum → `_`.
 1. **check** — scan all `leases/*.json`. A lease is **active** if `expires_at` > now.
    Match if any of your device identifiers appear in `device` or `device_ids`
    (case-insensitive).
-2. If active and `holder.project` ≠ your project slug → **abort UI work** (or wait
-   up to `DEVICE_SCREEN_CONTROL_WAIT_SEC`). Print holder project/agent/purpose/expiry.
-3. If free or you already hold it → **acquire**: write/update the JSON with your
-   project, new `session_id` (or renew same session), `expires_at = now + ttl`.
-4. While controlling: **heartbeat** every ≤60s (refresh `heartbeat_at` + `expires_at`).
+2. If active and held by another controller → **abort UI work** (or wait up to
+   `DEVICE_SCREEN_CONTROL_WAIT_SEC`). That includes **same project, different
+   session** (peer agent) as well as a foreign `holder.project`. Print holder
+   project/agent/purpose/expiry.
+3. If free, same session, or same process pid → **acquire**: write/update JSON
+   under every device key/alias with your project, `session_id`,
+   `expires_at = now + ttl`. Do not silent-takeover a peer session without FORCE.
+4. While controlling: **heartbeat** every ≤60s (refresh `heartbeat_at` + `expires_at`
+   on **all** alias files for that lease).
 5. When done: **release** — delete the lease file **only if** `holder.project` is yours
    (and preferably same `session_id`). Never delete another project’s lease unless
    `DEVICE_SCREEN_CONTROL_FORCE=1` and the operator confirmed.

@@ -376,7 +376,7 @@ Landed on `master` in the same workstream as this review's nuance pass:
 | Docs M1 | **Fixed** — `control.md` / `termux.md` Full project → repo root README |
 | Docs M2/M5/M6 | **Partial** — lib README expanded; docs index + portrait note |
 | Docs M4 | **Fixed** — hacking tree shows `device/termux/py/` |
-| Follow-up | Lease flock also covers heartbeat/release; same-project peer no silent-takeover test; session unit tests isolate DSCL dir; access LOST test uses relative timestamps |
+| Follow-up | Lease flock also covers heartbeat/release; heartbeat refreshes all device_ids aliases; same-project peer no silent-takeover test; session unit tests isolate DSCL dir; access LOST test uses relative timestamps; Gemini key header unit test |
 | Remaining L/M | Opportunistic (coords, handsets daemon, Fire-Tools race, collection stubs, bin inventory) |
 
 ## Changelog of this document
