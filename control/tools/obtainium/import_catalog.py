@@ -35,8 +35,9 @@ CATALOGS = {
 }
 IMPORT_DIALOG_TITLE = "Import apps"
 CONTINUE_LABEL = "Continue"
+# Canaries must match catalogs/obtainium/stayturgid-apps.json (Aurora is optional).
 CANARY_APPS = {
-    "all": ["AutoJs6", "Aurora Store", "Termux", "Shizuku (thedjchi)"],
+    "all": ["AutoJs6", "Termux", "Shizuku (thedjchi)", "Tailscale"],
     "autojs6": ["AutoJs6"],
 }
 
@@ -151,17 +152,57 @@ def scroll_app_list(serial, height_hint=2200, shell=None):
 
 
 def tracked_with_scroll(serial, app_names, passes=4, shell=None):
+    """True when every canary is seen at least once across the current viewport + scrolls.
+
+    Obtainium shows large Flutter cards; canaries rarely share one screen, so we
+    accumulate hits rather than requiring all names on a single dump.
+    """
+    if not app_names:
+        return True
+    found: set[str] = set()
+
+    def _note(xml: str) -> None:
+        for name in app_names:
+            if name not in found and app_visible(xml, name):
+                found.add(name)
+
     xml = _screen_text(serial)
     dismiss_blocking_dialogs(serial, xml, shell=shell)
     xml = _screen_text(serial)
-    if catalog_tracked(xml, app_names):
+    _note(xml)
+    if found.issuperset(app_names):
         return True
+    # Scroll down looking for remaining apps.
     for _ in range(passes):
         scroll_app_list(serial, shell=shell)
         xml = _screen_text(serial)
         dismiss_blocking_dialogs(serial, xml, shell=shell)
         xml = _screen_text(serial)
-        if catalog_tracked(xml, app_names):
+        _note(xml)
+        if found.issuperset(app_names):
+            return True
+    # Scroll back up once in case we started mid-list after a prior session.
+    for _ in range(passes):
+        if _HS is not None:
+            _HS.swipe("down")
+            time.sleep(0.6)
+        else:
+            runner = shell or (lambda *a, **kw: adb_shell(serial, *a, **kw))
+            runner(
+                "input",
+                "swipe",
+                "400",
+                "500",
+                "400",
+                "1600",
+                "350",
+            )
+            time.sleep(0.6)
+        xml = _screen_text(serial)
+        dismiss_blocking_dialogs(serial, xml, shell=shell)
+        xml = _screen_text(serial)
+        _note(xml)
+        if found.issuperset(app_names):
             return True
     return False
 
@@ -198,30 +239,47 @@ def dismiss_blocking_dialogs(serial, ui_xml, shell=None):
 
 
 def canary_names(which, catalog_path, apps):
+    """Prefer hard-coded canaries for known catalogs; else first apps in the payload."""
     if which in CANARY_APPS:
-        return CANARY_APPS[which]
-    if catalog_path == CATALOGS.get("all"):
-        return CANARY_APPS["all"]
-    if catalog_path == CATALOGS.get("autojs6"):
-        return CANARY_APPS["autojs6"]
-    return [a.get("name") or a["id"] for a in apps[:3]]
+        names = list(CANARY_APPS[which])
+    elif catalog_path == CATALOGS.get("all"):
+        names = list(CANARY_APPS["all"])
+    elif catalog_path == CATALOGS.get("autojs6"):
+        names = list(CANARY_APPS["autojs6"])
+    else:
+        names = [a.get("name") or a["id"] for a in apps[:4]]
+    # Drop canaries not present in this catalog payload (e.g. optional stores).
+    catalog_labels = {(a.get("name") or a["id"]) for a in apps}
+    catalog_labels |= {tracking_label(n) for n in catalog_labels}
+    filtered = [
+        n
+        for n in names
+        if n in catalog_labels or tracking_label(n) in catalog_labels
+    ]
+    return filtered or names
 
 
 def confirm_import(serial, timeout=12, shell=None):
+    """Tap Continue until the Import apps dialog is gone (may need multiple taps)."""
+    saw_dialog = False
+    confirmed = False
     for _ in range(timeout):
         xml = _screen_text(serial)
         dismiss_blocking_dialogs(serial, xml, shell=shell)
+        xml = _screen_text(serial)
         if not import_dialog_visible(xml):
+            if confirmed or saw_dialog:
+                return True
             time.sleep(0.4)
             continue
+        saw_dialog = True
         if _HS is not None:
             if _HS.tap_desc("Continue", timeout_ms=2000) or _HS.tap_text(
                 "Continue", timeout_ms=2000
             ):
-                time.sleep(2)
-                xml = _screen_text(serial)
-                dismiss_blocking_dialogs(serial, xml, shell=shell)
-                return True
+                confirmed = True
+                time.sleep(1.5)
+                continue
             time.sleep(0.4)
             continue
         point = continue_button(xml)
@@ -229,18 +287,22 @@ def confirm_import(serial, timeout=12, shell=None):
             time.sleep(0.4)
             continue
         tap(serial, point, shell=shell)
-        time.sleep(2)
-        xml = _screen_text(serial)
-        dismiss_blocking_dialogs(serial, xml, shell=shell)
-        return True
-    return False
+        confirmed = True
+        time.sleep(1.5)
+    # Final check: dialog gone after last tap.
+    xml = _screen_text(serial)
+    dismiss_blocking_dialogs(serial, xml, shell=shell)
+    return confirmed and not import_dialog_visible(_screen_text(serial))
 
 
 def launch_import_uri(serial, uri, shell=None):
     wake(serial, shell=shell)
     runner = shell or (lambda *args, **kw: adb_shell(serial, *args, **kw))
+    # Fresh process so a stuck empty Import dialog does not swallow the deep link.
+    runner("am", "force-stop", OBTAINIUM_PKG)
+    time.sleep(0.5)
     runner("am", "start", "-a", "android.intent.action.VIEW", "-d", uri)
-    time.sleep(2)
+    time.sleep(2.5)
 
 
 def import_catalog(serial, catalog_path, which="all", force=False, shell=None):
@@ -262,14 +324,26 @@ def import_catalog(serial, catalog_path, which="all", force=False, shell=None):
         sys.stderr.write("ERROR: Obtainium import dialog not confirmed on %s\n" % serial)
         return False
 
-    if tracked_with_scroll(serial, canaries, passes=5, shell=shell):
+    if tracked_with_scroll(serial, canaries, passes=6, shell=shell):
         print("Imported %d apps into Obtainium on %s." % (len(names), serial))
         return True
 
-    missing = [n for n in canaries if not app_visible(_screen_text(serial), n)]
+    # Re-scan for a better missing report (single-viewport app_visible is wrong).
+    seen = set()
+    xml = _screen_text(serial)
+    for n in canaries:
+        if app_visible(xml, n):
+            seen.add(n)
+    for _ in range(6):
+        scroll_app_list(serial, shell=shell)
+        xml = _screen_text(serial)
+        for n in canaries:
+            if app_visible(xml, n):
+                seen.add(n)
+    missing = [n for n in canaries if n not in seen]
     sys.stderr.write(
         "ERROR: import finished but catalog canaries missing in Obtainium UI: %s\n"
-        % ", ".join(missing)
+        % ", ".join(missing or canaries)
     )
     return False
 

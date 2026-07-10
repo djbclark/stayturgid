@@ -39,6 +39,13 @@ def test_catalog_tracked_requires_all_names():
     assert ic.catalog_tracked(xml, ["AutoJs6", "Aurora Store"]) is False
 
 
+def test_app_visible_handles_handsets_newlines():
+    # Handsets dump uses real newlines; uiautomator uses &#10;
+    hs = 'ImageView  "AutoJs6\nBy SuperMonster003\n6.7.0 → Unknown"'
+    assert ic.app_visible(hs, "AutoJs6") is True
+    assert ic.app_visible(hs, "Shizuku (thedjchi)") is False
+
+
 def test_app_visible_parenthetical_name():
     xml = '<node content-desc="Shizuku&#10;By thedjchi" />'
     assert ic.app_visible(xml, "Shizuku (thedjchi)") is True
@@ -50,9 +57,20 @@ def test_tracking_label_strips_parenthetical():
 
 
 def test_canary_names_for_known_catalogs():
-    apps = [{"id": "x", "name": "AutoJs6"}]
+    # Canaries are filtered to apps actually present in the catalog payload.
+    apps = [
+        {"id": "x", "name": "AutoJs6"},
+        {"id": "com.termux", "name": "Termux"},
+        {"id": "moe.shizuku.privileged.api", "name": "Shizuku (thedjchi)"},
+        {"id": "com.tailscale.ipn", "name": "Tailscale"},
+    ]
     assert ic.canary_names("all", ic.CATALOGS["all"], apps) == ic.CANARY_APPS["all"]
     assert ic.canary_names("autojs6", ic.CATALOGS["autojs6"], apps) == ["AutoJs6"]
+
+
+def test_canary_names_drops_missing_from_payload():
+    apps = [{"id": "x", "name": "AutoJs6"}, {"id": "com.termux", "name": "Termux"}]
+    assert ic.canary_names("all", ic.CATALOGS["all"], apps) == ["AutoJs6", "Termux"]
 
 
 def test_catalog_tracked_empty_names():
