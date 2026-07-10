@@ -427,7 +427,7 @@ first-run, AutoJs6 drawer — not fake “modules” for UI taps.
 | AutoJs6 deploy | `autojs6_watchdog` role + `autojs6/mac/*.py` | Partial |
 | Post-deploy UI | `enable_autojs6_shizuku.py` (Aurora configure parked) | Tagged `script:` steps |
 | ADB reconnect launchd | `adb_reconnect.py` + `mac.yml` | localhost role |
-| Validation | `device_tier.py` + TAP + `stayturgid_repair_check` | `validate.yml` playbook |
+| Validation | `device_tier.py` + TAP + `stayturgid_repair_check` | `stayturgid.fleet.validate` role |
 
 **Should NOT move into Ansible:** runtime watchdog (`stayturgid-repair`, AutoJs6
 `main.js`); catastrophic accessibility Shizuku tap; Obtainium in-app state API
@@ -443,9 +443,10 @@ first-run, AutoJs6 drawer — not fake “modules” for UI taps.
 [ivansible/termux](https://galaxy.ansible.com/ui/repo/published/ivansible/termux/),
 [AnsibleAndroidAutomationADB](https://github.com/shresthagrawal/AnsibleAndroidAutomationADB).
 
-**Concrete Ansible track steps:** ✅ `site.yml` shipped; `deploy_fleet.py` thin wrapper;
-`validate.yml` + ADR 001–002; `android_ui` + `post_ui` + `android_a11y_services`.
-Optional: **60**, Galaxy publish when H5 creds exist.
+**Concrete Ansible track steps:** ✅ `site.yml` shipped (`preflight` → bootstrap → fleet → post-ui → validate);
+`deploy_fleet.py` thin wrapper (collection install); ADR 001–002;
+`android_ui` + `post_ui` + `android_a11y_services` + `stayturgid.fleet.validate`.
+Optional: Galaxy publish when H5 creds exist.
 
 ### F-Droid + Play (integrated in fleet.yml)
 

@@ -1,0 +1,101 @@
+---
+# Post-deploy validation over SSH (complements make verify / device_tier TAP).
+
+- name: Run stayturgid-repair and parse STATUS
+  stayturgid.termux.stayturgid_repair_check:
+    repair_script: "{{ termux_home }}/.stayturgid/bin/stayturgid-repair.sh"
+    termux_prefix: "{{ termux_prefix }}"
+    fail_on_unhealthy: false
+  register: _repair
+
+- name: Assert repair layer healthy
+  ansible.builtin.assert:
+    that:
+      - _repair.healthy | default(false)
+    fail_msg: >-
+      Repair unhealthy on {{ inventory_hostname }}:
+      {{ _repair.status_line | default('no STATUS') }}
+    quiet: true
+  when: not ansible_check_mode
+
+- name: Assert Shizuku not FAILED when repair layer is up
+  ansible.builtin.assert:
+    that:
+      - _repair.shizuku | default('') != 'FAILED'
+    fail_msg: >-
+      Shizuku FAILED on {{ inventory_hostname }}:
+      {{ _repair.status_line | default('no STATUS') }}
+    quiet: true
+  when:
+    - not ansible_check_mode
+    - _repair.healthy | default(false)
+
+- name: Assert sshd not FAILED when repair layer is up
+  ansible.builtin.assert:
+    that:
+      - _repair.sshd | default('') != 'FAILED'
+    fail_msg: >-
+      sshd FAILED on {{ inventory_hostname }}:
+      {{ _repair.status_line | default('no STATUS') }}
+    quiet: true
+  when:
+    - not ansible_check_mode
+    - _repair.healthy | default(false)
+
+- name: Assert a11y not FAILED when repair reports it
+  ansible.builtin.assert:
+    that:
+      - _repair.a11y | default('') != 'FAILED'
+    fail_msg: >-
+      Accessibility FAILED on {{ inventory_hostname }}:
+      {{ _repair.status_line | default('no STATUS') }}
+    quiet: true
+  when:
+    - not ansible_check_mode
+    - _repair.healthy | default(false)
+    - _repair.a11y is defined
+    - _repair.a11y | default('') not in ['', 'skip']
+
+- name: Probe accessibility profile drift (check mode)
+  stayturgid.android_common.android_a11y_services:
+    device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+    alias: "{{ inventory_hostname }}"
+    repo_root: "{{ stayturgid_repo_root }}"
+    state: present
+  delegate_to: localhost
+  check_mode: true
+  register: _a11y_drift
+  when:
+    - not ansible_check_mode
+    - stayturgid_validate_a11y_profile | default(true) | bool
+
+- name: Merge-restore accessibility on profile drift
+  stayturgid.android_common.android_a11y_services:
+    device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+    alias: "{{ inventory_hostname }}"
+    repo_root: "{{ stayturgid_repo_root }}"
+    state: present
+  delegate_to: localhost
+  when:
+    - not ansible_check_mode
+    - stayturgid_validate_a11y_merge | default(false) | bool
+    - _a11y_drift.changed | default(false) | bool
+
+- name: Assert accessibility profile matches merge target
+  ansible.builtin.assert:
+    that:
+      - not (_a11y_drift.changed | default(false) | bool)
+    fail_msg: >-
+      Accessibility profile drift on {{ inventory_hostname }}
+      (set stayturgid_validate_a11y_merge: true to merge-restore).
+    quiet: true
+  when:
+    - not ansible_check_mode
+    - stayturgid_validate_a11y_profile | default(true) | bool
+    - not (stayturgid_validate_a11y_merge | default(false) | bool)
+
+- name: SSH echo probe
+  ansible.builtin.command:
+    argv: [echo, termux_ssh_ok]
+  changed_when: false
+  when: not ansible_check_mode

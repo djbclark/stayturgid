@@ -5,7 +5,7 @@ Canonical entry (from repo root)::
 
   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml
 
-This wrapper adds SSH preflight and collection install only.
+This wrapper adds collection install only (SSH preflight is in site.yml preflight.yml).
 
 Usage:
   deploy_fleet.py [host ...]              # full site deploy
@@ -33,9 +33,6 @@ SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "site.yml"
 REQUIREMENTS = REPO_ROOT / "ansible" / "requirements.yml"
 COLLECTIONS_PATH = REPO_ROOT / ".ansible" / "collections"
 
-sys.path.insert(0, str(REPO_ROOT / "shared" / "mac"))
-import adb_cli as ac  # noqa: E402
-import termux_ssh_bootstrap as boot  # noqa: E402
 
 
 class Scope(str, Enum):
@@ -133,32 +130,6 @@ def require_ansible() -> None:
         sys.exit(1)
 
 
-def ssh_target(host: str) -> str:
-    return ac.resolve_ssh(host) or host
-
-
-def hosts_without_ssh(hosts: list[str]) -> list[str]:
-    return [h for h in hosts if not ac.ssh_ok(ssh_target(h))]
-
-
-def ensure_ssh_bootstrap(hosts: list[str]) -> int:
-    need = hosts_without_ssh(hosts)
-    if not need:
-        return 0
-    print(f"SSH preflight failed for {', '.join(need)} — running bootstrap playbook...")
-    rc = boot.run_bootstrap_playbook(REPO_ROOT, need)
-    if rc != 0:
-        return rc
-    still = hosts_without_ssh(need)
-    if still:
-        print(
-            f"ERROR: SSH still unavailable after bootstrap: {', '.join(still)}",
-            file=sys.stderr,
-        )
-        return 1
-    return 0
-
-
 def install_collections() -> None:
     subprocess.run(
         [
@@ -209,15 +180,8 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
     install_collections()
 
     targets = resolve_hosts(hosts)
-    skip_bootstrap = None
-    if not check:
-        need = hosts_without_ssh(targets)
-        if need:
-            rc = ensure_ssh_bootstrap(need)
-            if rc != 0:
-                return rc
-        else:
-            skip_bootstrap = "bootstrap"
+    # preflight.yml bootstraps SSH when needed; skip redundant full bootstrap pass.
+    skip_bootstrap = None if check else "bootstrap"
     return run_playbook(
         limit=targets,
         check=check,

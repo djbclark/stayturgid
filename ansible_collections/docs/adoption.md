@@ -98,9 +98,9 @@ This repo currently installs from Git paths; Galaxy publication is optional foll
 ## Bootstrap vs ongoing key management
 
 1. **First SSH access (pre-Ansible):** `stayturgid.termux.termux_ssh_bootstrap` via
-   `ansible/playbooks/bootstrap.yml`, `./mac/bootstrap_ssh.py`, or auto from
-   `deploy_fleet.py` when SSH preflight fails. Requires debuggable Termux with
-   `run-as com.termux`.
+   `ansible/playbooks/bootstrap.yml`, `ansible/playbooks/preflight.yml` (auto at
+   start of `site.yml`), `./mac/bootstrap_ssh.py`, or legacy `deploy_fleet.py`.
+   Requires debuggable Termux with `run-as com.termux`.
 2. **Ongoing:** `ansible.posix.authorized_key` in `termux_userland` installs every
    `*.pub` from `stayturgid_ssh_keys_dir` (default `~/.ssh` on the control node);
    matching private keys are copied to each device. `termux_sshd` applies

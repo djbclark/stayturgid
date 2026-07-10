@@ -70,8 +70,8 @@ for SSH preflight and collection install only.
 - `--check` on site.yml stays honest: UI tasks skipped or no-op with warning.
 - Galaxy consumers get clearer split: modules for adb state, documented UI tasks
   for one-time / rare screen work.
-- OPTIONS **58–59** shipped (`android_ui`, `post_ui`, `android_a11y_services`).
-  Optional follow-up: **60** (more validate/a11y in deploy).
+- OPTIONS **58–60** shipped (`android_ui`, `post_ui`, `android_a11y_services`,
+  `stayturgid.fleet.validate`, `preflight.yml`).
 
 ## Non-goals
 

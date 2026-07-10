@@ -15,11 +15,11 @@ Target split: **~80% Ansible / ~20% scripts + on-device logic**.
 
 | Concern | Mechanism |
 |---------|-----------|
-| Pre-SSH bootstrap | `termux_ssh_bootstrap` + `bootstrap.yml` |
+| Pre-SSH bootstrap | `termux_ssh_bootstrap` + `preflight.yml` / `bootstrap.yml` |
 | Termux packages, files, sshd, SSH mesh | `termux_userland` role |
 | VPN, app stores, privileges | domain roles + adb modules |
-| Deploy orchestration | `site.yml` (bootstrap → fleet → post-ui → validate) |
-| Post-deploy checks | `validate.yml` + `stayturgid_repair_check` |
+| Deploy orchestration | `site.yml` (preflight → bootstrap → fleet → post-ui → validate) |
+| Post-deploy checks | `stayturgid.fleet.validate` + `stayturgid_repair_check` |
 | Mac launchd | `mac.yml` (localhost) |
 
 ## Out of Ansible (by design)

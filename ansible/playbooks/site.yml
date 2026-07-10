@@ -9,10 +9,13 @@
 #   --tags fdroid          F-Droid roles only
 #   --tags play,post-ui    Play + Aurora UI
 #   --tags app-stores      F-Droid + Play roles
-#   --tags validate        repair + SSH smoke only
+#   --tags validate        repair + SSH smoke only (preflight always runs first)
 #
-# SSH preflight (adb bootstrap when SSH is down) runs from deploy_fleet.py before
-# this playbook when not in check mode.
+# SSH preflight (probe + conditional adb bootstrap) is in preflight.yml — runs
+# at the start of every site.yml invocation (including bare ansible-playbook).
+- name: Import SSH preflight play
+  import_playbook: preflight.yml
+
 - name: Import bootstrap play
   import_playbook: bootstrap.yml
   tags: [bootstrap]

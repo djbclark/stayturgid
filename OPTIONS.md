@@ -32,8 +32,8 @@ across dependent UI steps.
 config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
-**Suggested agent order:** H5/38 only if Galaxy publish wanted; **60** if more
-validate/a11y in Ansible; soft-heal p7a if soak stalls. Do not touch incubator.
+**Suggested agent order:** H5/38 only if Galaxy publish wanted; soft-heal p7a if
+soak stalls. Do not touch incubator.
 
 ---
 
@@ -42,7 +42,7 @@ validate/a11y in Ansible; soft-heal p7a if soak stalls. Do not touch incubator.
 | Track | Focus | Open IDs | Typical risk |
 |-------|-------|----------|--------------|
 | **A — Operational** | Live deploy, human unblockers | H5, 38 | Medium–High (live phones / publish) |
-| **B — Ansible-native** | ADR 002 follow-ups (optional) | 60 | Low |
+| **B — Ansible-native** | ADR 002 follow-ups (optional) | — | — |
 | **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; incubator note | 54 | Medium (mis-scope risk) |
 
@@ -53,13 +53,14 @@ Parked (not a track): Inferno/Styx → [docs/incubator/inferno-styx/](docs/incub
 ### Track B — Ansible-native (optional follow-ups)
 
 **Shipped (2026-07-09):** ADR 002 accepted; `android_ui` + `android_a11y_services`
-modules; `stayturgid.fleet.post_ui` role; `validate.yml` Shizuku assert.
+modules; `stayturgid.fleet.post_ui` role; `stayturgid.fleet.validate` role;
+`preflight.yml` SSH probe + conditional adb bootstrap in `site.yml`.
 
-#### 60 — Expand Ansible validate + a11y in deploy (agent) · Risk: **Low**
+#### ~~60 — Expand Ansible validate + a11y in deploy (agent)~~ · **Closed 2026-07-09**
 
-Optional: wire `android_a11y_services` into `validate.yml` or post-deploy when
-`a11y_profile_drift` is detected; mirror more `device_tier.py` probes in Ansible.
-Defer `autojs6_project_deploy` module until AutoJs6 push logic is next touched.
+`stayturgid.fleet.validate` (repair/sshd/a11y asserts + optional a11y drift merge);
+`preflight.yml` replaces `deploy_fleet.py` SSH preflight. `autojs6_project_deploy`
+module still deferred until AutoJs6 push logic is next touched.
 
 ---
 

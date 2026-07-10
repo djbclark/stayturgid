@@ -13,7 +13,8 @@ on only what they need:
 | [stayturgid.play](../play/README.md) | `play_apps` | apkeep/gplaycli + adb install |
 | [stayturgid.android_common](../android_common/README.md) | `android_ui`, `android_a11y_services`, … | ADB + UI tasks (ADR 002) |
 
-**Fleet role:** `stayturgid.fleet.post_ui` — post-deploy screen-control (`post-ui.yml`).
+**Fleet roles:** `stayturgid.fleet.post_ui` (post-deploy screen-control);
+`stayturgid.fleet.validate` (repair/sshd/a11y smoke + optional a11y drift merge).
 
 ## Backward compatibility
 

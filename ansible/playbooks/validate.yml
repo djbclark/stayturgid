@@ -4,38 +4,7 @@
   hosts: stayturgid
   gather_facts: false
   tags: [validate]
-  tasks:
-    - name: Run stayturgid-repair and parse STATUS
-      stayturgid.termux.stayturgid_repair_check:
-        repair_script: "{{ termux_home }}/.stayturgid/bin/stayturgid-repair.sh"
-        termux_prefix: "{{ termux_prefix }}"
-        fail_on_unhealthy: false
-      register: _repair
-
-    - name: Assert repair layer healthy
-      ansible.builtin.assert:
-        that:
-          - _repair.healthy | default(false)
-        fail_msg: >-
-          Repair unhealthy on {{ inventory_hostname }}:
-          {{ _repair.status_line | default('no STATUS') }}
-        quiet: true
-      when: not ansible_check_mode
-
-    - name: Assert Shizuku not FAILED when repair layer is up
-      ansible.builtin.assert:
-        that:
-          - _repair.shizuku | default('') != 'FAILED'
-        fail_msg: >-
-          Shizuku FAILED on {{ inventory_hostname }}:
-          {{ _repair.status_line | default('no STATUS') }}
-        quiet: true
-      when:
-        - not ansible_check_mode
-        - _repair.healthy | default(false)
-
-    - name: SSH echo probe
-      ansible.builtin.command:
-        argv: [echo, termux_ssh_ok]
-      changed_when: false
-      when: not ansible_check_mode
+  vars:
+    stayturgid_repo_root: "{{ playbook_dir }}/../.."
+  roles:
+    - role: stayturgid.fleet.validate

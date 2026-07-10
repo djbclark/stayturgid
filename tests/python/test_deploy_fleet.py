@@ -66,25 +66,19 @@ def test_resolve_hosts_explicit():
     assert df.resolve_hosts(["s24"]) == ["s24"]
 
 
-def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0, bootstrap_rc=0, ssh_down=None):
+def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0):
     monkeypatch.setattr(df, "require_ansible", lambda: None)
     monkeypatch.setattr(df, "warn_prerequisites", lambda scope: None)
     monkeypatch.setattr(df, "install_collections", lambda: None)
-    monkeypatch.setattr(df, "hosts_without_ssh", lambda hosts: ssh_down if ssh_down is not None else [])
-
-    def ensure_ssh_bootstrap(hosts):
-        calls.append(("bootstrap", list(hosts)))
-        return bootstrap_rc
 
     def run_playbook(*, limit, check, tags, skip_tags=None):
         calls.append(("playbook", tags, check, skip_tags))
         return playbook_rc
 
-    monkeypatch.setattr(df, "ensure_ssh_bootstrap", ensure_ssh_bootstrap)
     monkeypatch.setattr(df, "run_playbook", run_playbook)
 
 
-def test_deploy_skips_bootstrap_when_ssh_up(monkeypatch):
+def test_deploy_skips_bootstrap_tag(monkeypatch):
     calls = []
     _stub_deploy_deps(monkeypatch, calls)
     rc = df.deploy(df.Scope.FULL, ["s24"], check=False)
@@ -92,15 +86,12 @@ def test_deploy_skips_bootstrap_when_ssh_up(monkeypatch):
     assert calls == [("playbook", None, False, "bootstrap")]
 
 
-def test_deploy_runs_bootstrap_when_ssh_down(monkeypatch):
+def test_deploy_check_does_not_skip_bootstrap_tag(monkeypatch):
     calls = []
-    _stub_deploy_deps(monkeypatch, calls, ssh_down=["s24"])
-    rc = df.deploy(df.Scope.FULL, ["s24"], check=False)
+    _stub_deploy_deps(monkeypatch, calls)
+    rc = df.deploy(df.Scope.FULL, ["s24"], check=True)
     assert rc == 0
-    assert calls == [
-        ("bootstrap", ["s24"]),
-        ("playbook", None, False, None),
-    ]
+    assert calls == [("playbook", None, True, None)]
 
 
 def test_deploy_playbook_failure(monkeypatch):
