@@ -56,6 +56,24 @@ BOOTLOOP_PID_FILE="$STG/run/bootloop.pid"
         pgrep sshd > /dev/null 2>&1 || sshd
     fi
 
+    # Ensure Termux:API is healthy before calling any scripts that use it.
+    # When KeepAliveService dies (Android memory pressure) or the socket
+    # gets stuck, CLI calls produce "Error in ResultReturner" notifications
+    # that stack up in the shade.  Force-stop clears them and a fresh
+    # start restores normal operation.  Cost is ~4 s (force-stop + restart
+    # + one battery-status probe); skipped when API is already responsive.
+    if command -v termux-battery-status >/dev/null 2>&1; then
+        if ! termux-battery-status >/dev/null 2>&1; then
+            adb -s localhost:5555 shell am force-stop com.termux.api 2>/dev/null || true
+            sleep 2
+            termux-api-start >/dev/null 2>&1 || true
+            sleep 2
+        else
+            # API is responsive — just ensure KeepAliveService is bound.
+            termux-api-start >/dev/null 2>&1 || true
+        fi
+    fi
+
     if [ -x "$BIN/stayturgid_battery_alarm.py" ]; then
         python3 "$BIN/stayturgid_battery_alarm.py" >/dev/null 2>&1 || true
     fi
