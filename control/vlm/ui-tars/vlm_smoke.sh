@@ -19,7 +19,7 @@ fail() {
 
 echo "==> stop"
 launchctl bootout "$DOMAIN" "$PLIST" 2>/dev/null || true
-sleep +2
+sleep 2
 ui_tars_healthy && fail "still healthy after bootout"
 
 echo "==> start"

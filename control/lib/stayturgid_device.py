@@ -217,7 +217,7 @@ class PrivShell:
             r = _run([adb_bin(), "-s", self.target, "shell", cmd], timeout=timeout)
         if r is None:
             return 127, ""
-        return r.returncode, r.stdout.replace("\r", "")
+        return r.returncode, (r.stdout or "").replace("\r", "")
 
     def push(self, local_path, remote_path):
         r = _run([adb_bin(), "-s", self.target, "push", local_path, remote_path])

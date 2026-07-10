@@ -238,17 +238,14 @@ def ssh_health(host: str, *, timeout: int = 30) -> dict[str, str]:
     """Run HEALTH_GATHER over SSH. On failure return ssh_echo=fail."""
     try:
         r = subprocess.run(
-            [
-                "ssh",
-                "-o",
-                "BatchMode=yes",
-                "-o",
-                "ConnectTimeout=8",
-                "-o",
-                "LogLevel=ERROR",
-                host,
-                "bash",
-                "-s",
+            ["ssh",
+             "-o", "BatchMode=yes",
+             "-o", "ConnectTimeout=8",
+             "-o", "LogLevel=ERROR",
+             "-o", "ServerAliveInterval=5",
+             "-o", "ServerAliveCountMax=3",
+             host,
+             "bash", "-s",
             ],
             input=HEALTH_GATHER,
             capture_output=True,

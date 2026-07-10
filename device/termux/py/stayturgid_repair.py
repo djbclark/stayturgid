@@ -135,9 +135,15 @@ def trim_log(path, keep=500, over=1000):
     except OSError:
         return
     if len(lines) > over:
+        lock_path = path + ".lock"
         try:
-            with open(path, "w") as f:
-                f.writelines(lines[-keep:])
+            with open(lock_path, "a") as lock_fd:
+                fcntl.flock(lock_fd, fcntl.LOCK_EX)
+                try:
+                    with open(path, "w") as f:
+                        f.writelines(lines[-keep:])
+                finally:
+                    fcntl.flock(lock_fd, fcntl.LOCK_UN)
         except OSError:
             pass
 
@@ -280,12 +286,15 @@ def acquire_lock():
     contention path (macOS test host has no flock(1)); real runs use fcntl."""
     if os.environ.get("FLOCK_RC") == "1":
         return None
+    fd = None
     try:
         os.makedirs(os.path.dirname(LOCKFILE), exist_ok=True)
         fd = open(LOCKFILE, "w")
         fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         return fd
     except (OSError, IOError):
+        if fd is not None:
+            fd.close()
         return None
 
 

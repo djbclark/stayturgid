@@ -378,5 +378,5 @@ def try_handsets(serial: str, alias: str) -> Iterator["HandsetsSession | None"]:
     finally:
         try:
             session.stop()
-        except Exception:
+        except (OSError, UiDriverError):
             pass

@@ -32,9 +32,6 @@ def main(argv: list[str] | None = None) -> int:
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except subprocess.CalledProcessError as exc:
-        print(f"ERROR: {exc}", file=sys.stderr)
-        sys.exit(exc.returncode or 1)
     except KeyboardInterrupt:
         print("interrupted", file=sys.stderr)
         sys.exit(130)

@@ -466,7 +466,7 @@ if command -v ansible >/dev/null 2>&1; then
     FAKE="$SANDBOX/fakeprefix"
     mkdir -p "$FAKE/bin"
     cat > "$FAKE/bin/bash" <<'STUB'
-#!/bin/bash
+#!/usr/bin/env bash
 LOG="$(dirname "$0")/../module-calls.log"
 printf '%s\n' "$2" >> "$LOG"
 case "$2" in

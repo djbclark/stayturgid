@@ -14,6 +14,7 @@ Device list comes from ~/.config/stayturgid/devices.conf (generated from the
 Ansible inventory) — no device facts live here.
 """
 import datetime
+import fcntl
 import os
 import socket
 import subprocess
@@ -63,12 +64,18 @@ def log(msg):
 
 
 def trim_log(max_lines=1000):
+    lock_path = LOG + ".lock"
     try:
-        with open(LOG) as f:
-            lines = f.readlines()
-        if len(lines) > max_lines:
-            with open(LOG, "w") as f:
-                f.writelines(lines[-max_lines:])
+        with open(lock_path, "a") as lock_fd:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+            try:
+                with open(LOG) as f:
+                    lines = f.readlines()
+                if len(lines) > max_lines:
+                    with open(LOG, "w") as f:
+                        f.writelines(lines[-max_lines:])
+            finally:
+                fcntl.flock(lock_fd, fcntl.LOCK_UN)
     except OSError:
         pass
 

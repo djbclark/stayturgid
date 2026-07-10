@@ -139,7 +139,7 @@ GitHub `master` is the source of truth. To release:
    [docs/modules/play.md](modules/play.md). Idempotent (re-run = `changed=0`). Granular:
    `make deploy-termux` or `control/tools/autojs6/deploy.py` for single layers.
 
-Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `termux-notification` when GitHub `version.json` moves ahead of the last-seen stamp.
+Optional on-device notifier: `stayturgid_check_repo_version.py` (max once/24 h) fires `termux-notification` when GitHub `version.json` moves ahead of the last-seen stamp.
 
 ---
 
@@ -524,7 +524,7 @@ version.json                 — repo release version + changelog
 
 ## Repository & environment
 
-- **Mac path:** `~/stayturgid/`. **GitHub:** `github.com/djbclark/stayturgid` (private), branch `master`, HTTPS via `gh` CLI (GitHub login = Google SSO + GitHub Mobile 2FA). AI session working dir: `~/upmon-handoff/` (legacy name).
+- **Mac path:** `~/stayturgid/`. **GitHub:** `github.com/djbclark/stayturgid` (private), branch `master`, HTTPS via `gh` CLI (GitHub login = Google SSO + GitHub Mobile 2FA). AI session working dir: `~/stayturgid-hermes` (Hermes worktree).
 - **Commit signing:** autonomous file key `~/.ssh/git_signing_key` (passphrase-less, GitHub-verified); `git_signing` memory has the "failed to fill whole buffer" gotcha.
 - **Mac tools:** Homebrew ADB (`/opt/homebrew/bin/adb`), Python 3.14.6, pipx 1.15, uiautomator2 3.7, scrcpy 4.0. SSH key `~/.ssh/termux_key` (ed25519). `~/.ssh/config` has `s24`/`p7a` blocks **above** `Host *` with `IdentityAgent none` (first-match wins) so phone SSH doesn't trigger the 1Password dialog; git still uses 1Password.
 

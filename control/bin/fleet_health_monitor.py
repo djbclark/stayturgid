@@ -16,6 +16,7 @@ STAYTURGID_SKIP_WATCHDOG_HEAL=1.
 from __future__ import annotations
 
 import datetime
+import fcntl
 import os
 import subprocess
 import sys
@@ -70,12 +71,18 @@ def log(msg: str) -> None:
 
 
 def trim_log(max_lines: int = MAX_LOG_LINES) -> None:
+    lock_path = LOG + ".lock"
     try:
-        with open(LOG) as f:
-            lines = f.readlines()
-        if len(lines) > max_lines:
-            with open(LOG, "w") as f:
-                f.writelines(lines[-max_lines:])
+        with open(lock_path, "a") as lock_fd:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+            try:
+                with open(LOG) as f:
+                    lines = f.readlines()
+                if len(lines) > max_lines:
+                    with open(LOG, "w") as f:
+                        f.writelines(lines[-max_lines:])
+            finally:
+                fcntl.flock(lock_fd, fcntl.LOCK_UN)
     except OSError:
         pass
 

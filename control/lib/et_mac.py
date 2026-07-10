@@ -265,7 +265,7 @@ def hosts_from_devices_conf(path: Path | None = None) -> list[str]:
         from stayturgid_device import iter_devices_conf
 
         return [name for name, *_ in iter_devices_conf(str(conf))]
-    except Exception:  # noqa: BLE001
+    except (ImportError, AttributeError):  # noqa: BLE001
         pass
     hosts: list[str] = []
     try:

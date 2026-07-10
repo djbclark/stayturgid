@@ -19,6 +19,7 @@ Candidates, tried in order:
   4. the device's Tailscale address (stable fallback of last resort)
 """
 import datetime
+import fcntl
 import os
 import re
 import subprocess
@@ -67,12 +68,18 @@ def log(serial, msg):
 
 
 def trim_log(max_lines=MAX_LINES):
+    lock_path = LOG + ".lock"
     try:
-        with open(LOG) as f:
-            lines = f.readlines()
-        if len(lines) > max_lines:
-            with open(LOG, "w") as f:
-                f.writelines(lines[-max_lines:])
+        with open(lock_path, "a") as lock_fd:
+            fcntl.flock(lock_fd, fcntl.LOCK_EX)
+            try:
+                with open(LOG) as f:
+                    lines = f.readlines()
+                if len(lines) > max_lines:
+                    with open(LOG, "w") as f:
+                        f.writelines(lines[-max_lines:])
+            finally:
+                fcntl.flock(lock_fd, fcntl.LOCK_UN)
     except OSError:
         pass
 

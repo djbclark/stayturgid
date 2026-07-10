@@ -24,7 +24,7 @@ This document gets a developer from a clean Android + macOS install to a fully w
 | Android | — | 16 (SDK 36) | — |
 | AutoJs6 | `org.autojs.autojs6` | 6.7.0 | GitHub (see below) |
 | Shizuku (thedjchi fork) | `moe.shizuku.privileged.api` | 13.6.0.r1349-thedjchi-beta | GitHub (see below) |
-| Termux | `com.termux` | 2026.06.21 | Google Play or F-Droid |
+| Termux | `com.termux` | 0.118.3 | GitHub (via Obtainium) |
 | Termux:Boot | `com.termux.boot` | 0.8.1 | F-Droid / GitHub |
 | Termux:API (app) | `com.termux.api` | 0.53.0 | F-Droid / GitHub |
 
@@ -349,7 +349,7 @@ import sys
 sys.path.insert(0, '/Users/djbclark/.local/pipx/venvs/uiautomator2/lib/python3.14/site-packages')
 import uiautomator2 as u2
 
-d = u2.connect('35261JEHN12374')  # USB serial, or '192.168.68.62:5555' for wireless
+d = u2.connect('35261JEHN12374')  # USB serial, or '<tailscale-ip>:5555' for wireless
 print(d.info)
 ```
 
@@ -404,10 +404,10 @@ This runs `adb connect` every 60 seconds, handles DHCP IP changes, and sends a m
 npm install -g @anthropic-ai/claude-code
 ```
 
-The AI agent session runs from `~/upmon-handoff/` (legacy working directory name). Start a session:
+The AI agent session runs from `~/stayturgid-hermes` (the Hermes worktree). Start a session:
 
 ```bash
-cd ~/upmon-handoff
+cd ~/stayturgid-hermes
 claude
 ```
 
@@ -474,7 +474,7 @@ adb -s 35261JEHN12374 shell "ip addr show wlan0 | grep 'inet '"
 adb connect <discovered-ip>:5555
 ```
 
-Default/cached IP: `192.168.68.62:5555` (stored in `~/.config/stayturgid/device_ip`).
+Default/cached IP: `100.x.x.x:5555` (Tailscale, stable) or `192.168.x.x:5555` (LAN, DHCP — do not hardcode).
 
 ### SSH to Termux
 
@@ -755,8 +755,8 @@ adb -s 35261JEHN12374 shell "ss -tln 2>/dev/null | grep ':5555'"
 # Expected: LISTEN line for :5555
 
 # 2. Connect wirelessly
-adb connect 192.168.68.62:5555
-# Expected: "connected to 192.168.68.62:5555"
+adb connect <tailscale-ip>:5555
+# Expected: "connected to <tailscale-ip>:5555"
 
 # 3. Check sshd is running (Termux:Boot did its job)
 adb shell "ss -tln 2>/dev/null | grep ':8022'"

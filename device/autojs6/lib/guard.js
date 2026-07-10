@@ -64,7 +64,7 @@ function enforce(profile) {
     }
 
     log.append("[watchdog] accessibility disabled — invoking repair to re-enable");
-    termux.invokeRepair();
+    termux.invokeRepair(profile);
     var deadline = Date.now() + 20000;
     while (Date.now() < deadline && !autoJs6AccessibilityEnabled()) {
         sleep(2000);

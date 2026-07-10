@@ -15,7 +15,7 @@
 
 - name: nudge autojs6 watchdog via Mac adb (Fire OS)
   stayturgid.android_common.android_intent:
-    device: "{{ device_usb_serial }}"
+    device: "{{ device_usb_serial | default('localhost:5555') }}"
     data: "file://{{ autojs6_target }}/scripts/boot-launcher.js"
     mime_type: text/javascript
     component: org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity
