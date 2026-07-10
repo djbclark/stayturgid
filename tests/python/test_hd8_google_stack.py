@@ -22,3 +22,9 @@ def test_needs_gms_downgrade():
 def test_needs_play_downgrade():
     assert hgs.needs_play_downgrade(85212620) is True
     assert hgs.needs_play_downgrade(84262300) is False
+
+
+def test_needs_gsf_reinstall():
+    assert hgs.needs_gsf_reinstall("10-6494331") is True
+    assert hgs.needs_gsf_reinstall("9-6957767") is False
+    assert hgs.needs_gsf_reinstall(None) is True

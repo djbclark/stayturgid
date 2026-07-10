@@ -210,13 +210,17 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
         log("%s google-stack heal skipped (adb): %s" % (name, e))
         return
     gms_ver = hgs.package_version_code(_run, serial, hgs.GMS_PKG)
-    if not hgs.needs_gms_downgrade(gms_ver):
+    gsf_ver = hgs.package_version_name(_run, serial, hgs.GSF_PKG)
+    if not hgs.needs_gms_downgrade(gms_ver) and not hgs.needs_gsf_reinstall(gsf_ver):
         hgs.ensure_doze_whitelist(_run, serial)
         return
-    log(
-        "%s google-stack heal: GMS versionCode=%s > %s — pinning Fire-Tools stack"
-        % (name, gms_ver, hgs.MAX_GMS_VERSION_CODE)
-    )
+    if hgs.needs_gsf_reinstall(gsf_ver) and not hgs.needs_gms_downgrade(gms_ver):
+        log("%s google-stack heal: GSF %s — reinstalling 9-6957767" % (name, gsf_ver))
+    else:
+        log(
+            "%s google-stack heal: GMS versionCode=%s > %s — pinning Fire-Tools stack"
+            % (name, gms_ver, hgs.MAX_GMS_VERSION_CODE)
+        )
     try:
         result = hgs.repair_if_needed(_run, serial)
         _touch_heal_dir(name, GOOGLE_HEAL_STATE_DIR)

@@ -6,7 +6,15 @@ Date: 2026-07-09. Device: Fire HD 8 (`KFRASWI`), Fire OS 8 / Android 11.
 
 Repeated dialog: **Google Services Framework has stopped** (App info / Close app).
 
-Logcat shows the real crash in **`com.google.android.gms.persistent`**:
+Two observed causes on hd8 (2026-07-09):
+
+1. **GMS auto-updated to 26.x** — logcat shows `com.google.android.gms.persistent`
+   crashing on `CHANGE_DEVICE_IDLE_TEMP_WHITELIST`.
+2. **Wrong GSF build (10.x) + Aurora Store open** — `com.google.process.gapps`
+   Application Error while Aurora settings triggers `BadAuthentication` in GMS.
+   Fleet has Aurora **parked**; avoid opening it on hd8.
+
+Logcat (GMS 26.x case):
 
 ```
 SecurityException: Permission Denial: com.google.android.c2dm.intent.RECEIVE
@@ -29,6 +37,7 @@ Doze whitelist alone does **not** fix the broadcast permission crash.
    Fire OS 8:
    - Google Play Services **24.35.30** (040400 arm64)
    - Google Play Store **42.6.23**
+   - Google Services Framework **9-6957767** (not 10-6494331 on Fire OS 8)
 2. **Doze whitelist** GMS + GSF: `cmd deviceidle whitelist +com.google.android.gms`
 3. **Disable Play Store auto-updates** (UI): Play Store → Settings → Network
    preferences → Auto-update apps → **Don't auto-update apps**
@@ -51,6 +60,7 @@ Mac launchd (`fleet_health_monitor.py`) rate-limits the same repair when hd8 GMS
 | Action | Why |
 |--------|-----|
 | Don't auto-update in Play Store | Stops GMS/Play self-updating past Fire-compatible builds |
+| Avoid Aurora Store on hd8 | Parked from fleet; opening it triggers GMS auth failures on Fire |
 | Re-run `fix_hd8_google_stack.py` after manual Play use | Play may still push GMS in background until auto-update is off |
 | Avoid Fire OS OTA without checking | Amazon OTAs can break sideloaded Play; may need re-pin |
 

@@ -23,6 +23,8 @@ FIRE_TOOLS_ZIP_URL = (
 FIRE_TOOLS_CACHE = Path.home() / ".cache" / "stayturgid" / "fire-tools"
 GMS_APKM = "Fire-Tools/Gapps/Google Play Services 24.35.30.apkm"
 PLAY_APKM = "Fire-Tools/Gapps/Google Play Store 42.6.23-23.apkm"
+GSF_APK = "Fire-Tools/Gapps/Google Services Framework 9-6957767.apk"
+PINNED_GSF_VERSION_PREFIX = "9-"
 # Reject 26.x auto-updates (262434022 observed crashing on hd8 2026-07-09).
 MAX_GMS_VERSION_CODE = 250_000_000
 PINNED_GMS_VERSION_CODE = 243_530_013
@@ -130,6 +132,45 @@ def _apkm_from_fire_tools(zip_path: Path, member: str, work_dir: Path) -> Path:
     return out
 
 
+def package_version_name(run_command, device: str, package: str) -> str | None:
+    rc, out, _err = adb_shell(run_command, device, "dumpsys", "package", package)
+    if rc != 0:
+        return None
+    for line in out.splitlines():
+        line = line.strip()
+        if line.startswith("versionName="):
+            return line.split("=", 1)[1].split()[0]
+    return None
+
+
+def needs_gsf_reinstall(gsf_version_name: str | None) -> bool:
+    if not gsf_version_name:
+        return True
+    return not gsf_version_name.startswith(PINNED_GSF_VERSION_PREFIX)
+
+
+def _install_apk(run_command, device: str, apk: Path) -> tuple[int, str]:
+    cmd = ["adb", "-s", device, "install", "-r", "-g", str(apk)]
+    rc, out, err = run_command(cmd)
+    return rc, (out + err).strip()
+
+
+def reinstall_gsf(run_command, device: str, zip_path: Path, work_dir: Path) -> dict:
+    gsf_apk = _apkm_from_fire_tools(zip_path, GSF_APK, work_dir / "apkm")
+    _uninstall_user_package(run_command, device, GSF_PKG)
+    rc, msg = _install_apk(run_command, device, gsf_apk)
+    return {
+        "rc": rc,
+        "message": msg,
+        "version": package_version_name(run_command, device, GSF_PKG),
+    }
+
+
+def stop_aurora_churn(run_command, device: str) -> None:
+    """Aurora Store (parked) triggers GMS BadAuthentication on uncertified Fire."""
+    adb_shell(run_command, device, "am", "force-stop", "com.aurora.store")
+
+
 def _install_splits(run_command, device: str, apks: list[Path]) -> tuple[int, str]:
     if not apks:
         return 1, "no APK splits"
@@ -161,7 +202,9 @@ def reinstall_pinned_stack(
     gms_splits = _extract_apkm_splits(gms_apkm, work / "gms-splits")
     play_splits = _extract_apkm_splits(play_apkm, work / "play-splits")
 
-    results: dict = {"gms": {}, "play": {}}
+    results: dict = {"gsf": {}, "gms": {}, "play": {}}
+
+    results["gsf"] = reinstall_gsf(run_command, device, zip_path, work)
 
     _uninstall_user_package(run_command, device, GMS_PKG)
     gms_rc, gms_msg = _install_splits(run_command, device, gms_splits)
@@ -174,6 +217,7 @@ def reinstall_pinned_stack(
     results["whitelist"] = ensure_doze_whitelist(run_command, device)
     results["gms_version"] = package_version_code(run_command, device, GMS_PKG)
     results["play_version"] = package_version_code(run_command, device, PLAY_PKG)
+    results["gsf_version"] = package_version_name(run_command, device, GSF_PKG)
     return results
 
 
@@ -183,18 +227,36 @@ def repair_if_needed(
     *,
     force: bool = False,
     cache_dir: Path | None = None,
+    stop_aurora: bool = True,
 ) -> dict:
-    """Whitelist always; reinstall pinned APKs when GMS/Play are too new."""
+    """Whitelist always; reinstall pinned APKs when GMS/Play/GSF drift."""
     gms_ver = package_version_code(run_command, device, GMS_PKG)
     play_ver = package_version_code(run_command, device, PLAY_PKG)
+    gsf_ver = package_version_name(run_command, device, GSF_PKG)
     whitelist = ensure_doze_whitelist(run_command, device)
-    downgrade = force or needs_gms_downgrade(gms_ver) or needs_play_downgrade(play_ver)
+    if stop_aurora:
+        stop_aurora_churn(run_command, device)
+    downgrade = (
+        force
+        or needs_gms_downgrade(gms_ver)
+        or needs_play_downgrade(play_ver)
+        or needs_gsf_reinstall(gsf_ver)
+    )
     out = {
         "gms_version": gms_ver,
         "play_version": play_ver,
+        "gsf_version": gsf_ver,
         "whitelist": whitelist,
         "downgraded": False,
     }
+    cache = cache_dir or FIRE_TOOLS_CACHE
+    zip_path = cache / "Fire-Tools.zip"
+    if needs_gsf_reinstall(gsf_ver) and not downgrade:
+        _ensure_fire_tools_zip(zip_path)
+        out["gsf"] = reinstall_gsf(
+            run_command, device, zip_path, (cache / "work")
+        )
+        out["gsf_version"] = package_version_name(run_command, device, GSF_PKG)
     if downgrade:
         out["install"] = reinstall_pinned_stack(
             run_command, device, cache_dir=cache_dir
@@ -202,4 +264,5 @@ def repair_if_needed(
         out["downgraded"] = True
         out["gms_version"] = package_version_code(run_command, device, GMS_PKG)
         out["play_version"] = package_version_code(run_command, device, PLAY_PKG)
+        out["gsf_version"] = package_version_name(run_command, device, GSF_PKG)
     return out

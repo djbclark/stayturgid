@@ -54,7 +54,8 @@ def main(argv: list[str] | None = None) -> int:
 
     gms = result.get("gms_version")
     play = result.get("play_version")
-    print("  gms versionCode=%s play versionCode=%s" % (gms, play))
+    gsf = result.get("gsf_version")
+    print("  gms versionCode=%s play versionCode=%s gsf=%s" % (gms, play, gsf))
     print("  doze whitelist: %s" % ", ".join(result.get("whitelist") or []))
 
     if result.get("downgraded"):
