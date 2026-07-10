@@ -54,6 +54,50 @@ def test_session_fails_closed_when_presence_on_missing(monkeypatch):
         assert "agent-presence on failed" in str(e)
 
 
+def test_skip_presence_still_enables_inversion(monkeypatch):
+    """SKIP_PRESENCE skips consent/torch but must still invert + gate input."""
+    calls = []
+    session = sc.ScreenControlSession("s24", skip_request=True)
+    session._skip = True
+    monkeypatch.setattr(
+        sc,
+        "_run",
+        lambda *a, **k: type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})(),
+    )
+    monkeypatch.setattr(sc.uc, "clear_ui_obstructions", lambda *a, **k: [])
+    monkeypatch.setattr(sc, "get_default_ime", lambda _s: "com.example/.Ime")
+    monkeypatch.setattr(
+        sc, "set_inversion", lambda _s, en: calls.append(("inv", en)) or True
+    )
+    monkeypatch.setattr(
+        sc,
+        "ssh_presence",
+        lambda *a, **k: (_ for _ in ()).throw(AssertionError("presence must not run")),
+    )
+    session.__enter__()
+    assert session.active is True
+    assert ("inv", True) in calls
+    # Exit must clear inversion even when presence was skipped.
+    monkeypatch.setattr(sc, "restore_default_ime", lambda *a, **k: True)
+    session.__exit__(None, None, None)
+    assert ("inv", False) in calls
+    assert session.active is False
+
+
+def test_guarded_shell_blocks_input_when_inversion_off(monkeypatch):
+    monkeypatch.setattr(sc, "inversion_enabled", lambda _s: False)
+
+    def boom(*_a, **_k):
+        raise AssertionError("adb must not run")
+
+    monkeypatch.setattr(sc, "mac_adb_shell", boom)
+    try:
+        sc.guarded_adb_shell("serial", True, "input", "tap", "1", "2")
+        assert False, "expected ScreenControlError"
+    except sc.ScreenControlError as e:
+        assert "inversion is off" in str(e)
+
+
 def test_ssh_presence_timeout_returns_124(monkeypatch):
     import subprocess
 

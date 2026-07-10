@@ -95,6 +95,14 @@ def deviceidle_whitelist_add(run_command, device, package):
     )
 
 
+def deviceidle_whitelist_remove(run_command, device, package):
+    return adb_shell(
+        run_command,
+        device,
+        "dumpsys deviceidle whitelist -%s" % package,
+    )
+
+
 def standby_bucket_get(run_command, device, package):
     return adb_shell(run_command, device, "am get-standby-bucket %s" % package)
 

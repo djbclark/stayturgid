@@ -78,7 +78,7 @@
     "package": "com.machiav3lli.fdroid"
   },
   {
-    "battery_unrestricted": true,
+    "battery_unrestricted": false,
     "disable_unused_restrictions": true,
     "grant_all_runtime": true,
     "package": "com.aurora.store"

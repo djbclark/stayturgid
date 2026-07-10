@@ -22,12 +22,12 @@
 > Parked side projects: [docs/incubator/](docs/incubator/) — **do not implement**
 > unless the operator unparks a named project (Inferno, etc.).
 
-**Fleet snapshot (2026-07-09):** Post-UI SSH-first on s24/p7a with Mac adb
-fallback; hd8 Handsets via **peer bootstrap** (s24/p7a ADB) or Mac
-(F1–F5). AutoJs6 **co-monitor** runs on **all** hosts each cycle; Mac
-fleet-health restarts stale `main.js`. Play **H1** + **15b** done.
-Item **46** drawer **PASS** on **s24 + hd8 + p7a**. **57** Handsets + Fire
-peer path shipped. Operator **H2** eyeball (Neo Store / Aurora) remains.
+**Fleet snapshot (2026-07-09 evening):** Soft health **ok** on s24/p7a/hd8.
+Aurora thrash mitigation shipped: battery-**optimized** (not unrestricted),
+**Filter apps from other sources** + F-Droid filter on all three; harden +
+`configure_aurora` bake it in. Screen-control: hold session across short UI
+gaps; `SKIP_PRESENCE` still **must invert**. Co-monitor + Mac AutoJs6 heal
+already live. Operator **H2** eyeball remains (confirm Neo Store + Aurora UI).
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
@@ -55,16 +55,11 @@ Parked (not a track): Inferno/Styx → [docs/incubator/inferno-styx/](docs/incub
 
 #### H2 — Neo Store + Aurora one-time confirm (human) · Risk: **Low**
 
-Per-host UI check after deploy: Neo Store installer = Shizuku + background
-updates; Aurora installer = Shizuku + auto-updates; no stuck Fire OS background
-dialog on hd8. Mostly already automated; this is operator eyeball confirmation.
-Does not change code.
-
-#### H3 — Fleet deploy go/no-go · **DONE** (2026-07-09, partial→complete)
-
-Operator approved expand; s24/hd8 green earlier; **p7a** AutoJs6 drawer
-finished 2026-07-09 (Handsets port 9010, probe `operational=true`). Checkpoint
-`human/CHECKPOINT-p7a-autojs6.md` closed.
+Per-host UI check: Neo Store installer = Shizuku + background updates; Aurora
+installer = Shizuku + auto-updates + **Filter apps from other sources** (+
+F-Droid filter); Aurora battery = **Optimized**; no stuck Fire OS background
+dialog on hd8. Agent already applied Aurora battery/filters on s24/p7a/hd8 —
+this is operator eyeball only.
 
 #### H5 — Galaxy publish API token (human, optional) · Risk: **Medium**
 
@@ -76,32 +71,14 @@ fleet does not depend on it day-to-day. Unlocks agent item **38**.
 Publish `stayturgid.*` collections to Ansible Galaxy. Public/irreversible for
 that version; only after H5 and a deliberate version bump review.
 
-#### 57 — Handsets UI driver · **DONE** (2026-07-09)
-
-Mac: `shared/mac/ui_driver.py` primary for AutoJs6 / Aurora / Obtainium.
-Termux: `stayturgid_handsets.py` wire client — s24 bench ~12× vs dump;
-`enable_autojs6` / `configure_aurora` / `import_catalog` Handsets-primary
-(probe OK on s24). Fire OS: peer bootstrap
-(`stayturgid_peer_bootstrap` → `stayturgid_peer_help` / Mac
-`fire_peer_help` + shared `adbkey-fleet`); boot keepalive + Mac
-`com.stayturgid.fire-help`; ForceCommand `id_ed25519_peerhelp`. rish
-installed by default. Bench/research:
-[handsets-vs-u2-bench.md](docs/research/handsets-vs-u2-bench.md),
-[handsets-under-termux.md](docs/research/handsets-under-termux.md),
-[fire-os-local-adb.md](docs/research/fire-os-local-adb.md).
-Ports Mac 9008–9010 / Termux 9012 (hd8 peer port 9008). Never with uiautomator2.
-
 ---
 
 ### Track D — Reliability (do not start without a symptom)
 
-Mac **soft health** (2026-07-09): dedicated launchd
-`com.stayturgid.fleet-health` → `mac/fleet_health_monitor.py` logs
-watchdog/repair/a11y/sshd/bootloop/shell5555 every 5 min when reachable
-(`~/.config/stayturgid/logs/fleet-health.log`). On persistent
-`watchdog_stale`/`watchdog_missing`, restarts AutoJs6 `main.js` (rate-limited).
-Reachability stays in `access-monitor`. Use the health trail before picking
-43–45.
+Mac **soft health**: launchd `com.stayturgid.fleet-health` →
+`mac/fleet_health_monitor.py` every 5 min (`~/.config/stayturgid/logs/fleet-health.log`).
+Restarts stale AutoJs6 `main.js` when `watchdog_stale`/`watchdog_missing`.
+Reachability in `access-monitor`. Prefer health trail before 43–45.
 
 #### 43 — AutoJs6 WorkManager (agent) · Risk: **Latent / Low until upstream**
 
@@ -143,9 +120,10 @@ API; Tasker rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal;
 always-on Ollama in Termux:Boot; **any Inferno/`emu`/Styx work** (parked under
 [docs/incubator/inferno-styx/](docs/incubator/inferno-styx/)).
 
-**Closed (2026-07-09):** **15b** `source: play` ensure_apps (metronome on s24;
-split APK `install-multiple`; `deploy_fleet` loads `play.env`). **H1** Play AAS.
-**56** post-UI Mac adb fallback. **46** AutoJs6 drawer. **55** on-device post-UI.
-**27** s24 live deploy. Portfolio 2 — **48–52**, **53**. Handsets Termux twins
-(Aurora + Obtainium catalog).
+**Closed (2026-07-09 evening):** Aurora CPU thrash → battery-optimized +
+aurora-only/F-Droid update filters (harden + configure); screen-control hold
+rule + `SKIP_PRESENCE` still inverts. Soft health ok s24/p7a/hd8.
+**Closed (2026-07-09):** **15b**, **H1**, **H3**, **56**, **46**, **55**, **27**,
+**57**, Portfolio 2 **48–52**/53, co-monitor + Mac AutoJs6 heal, Fire F1–F5,
+self-heal agent rule.
 **Closed (2026-07-08):** drawer profile, a11y, PiP, Aurora order, #553.

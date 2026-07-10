@@ -14,6 +14,10 @@ def test_fleet_app_profiles_json_is_valid():
     assert "org.autojs.autojs6" in packages
     assert "com.termux" in packages
     assert "dev.imranr.obtainium" in packages
+    aurora = next(e for e in data if e["package"] == "com.aurora.store")
+    assert aurora.get("battery_unrestricted") is False
     for entry in data:
-        assert entry.get("battery_unrestricted") is True
+        assert "battery_unrestricted" in entry
         assert entry.get("disable_unused_restrictions") is True
+        if entry["package"] != "com.aurora.store":
+            assert entry.get("battery_unrestricted") is True

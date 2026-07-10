@@ -12,8 +12,12 @@ run inside ScreenControlSession. The session:
   6. Cleans up on exit (inversion off, presence off).
 
 Raw `adb shell input …` outside this wrapper can still bypass the policy;
-project scripts must not do that. Set STAYTURGID_SKIP_PRESENCE=1 only for
-local debugging.
+project scripts must not do that.
+
+STAYTURGID_SKIP_PRESENCE=1 (debug only): skips consent countdown and
+torch/notification lease, but **still enables display inversion** and
+**still refuses input when inversion is off**. Never use it to hide active
+UI work on a phone a human is watching.
 """
 from __future__ import print_function
 
@@ -182,13 +186,6 @@ class ScreenControlSession(object):
         self._saved_ime = None
 
     def __enter__(self):
-        if self._skip:
-            sys.stderr.write(
-                "WARN: STAYTURGID_SKIP_PRESENCE=1 — input not gated by inversion\n"
-            )
-            self.active = True
-            return self
-
         _run(["adb", "connect", self.serial], timeout=15)
         _run(["adb", "-s", self.serial, "wait-for-device"], timeout=30)
         cleared = uc.clear_ui_obstructions(self.serial, mac_adb_shell)
@@ -196,30 +193,39 @@ class ScreenControlSession(object):
             print("Cleared UI obstructions on %s: %s" % (self.host, ", ".join(cleared)))
         self._saved_ime = get_default_ime(self.serial)
 
-        if not self.skip_request:
+        if self._skip:
+            sys.stderr.write(
+                "WARN: STAYTURGID_SKIP_PRESENCE=1 — skipping consent/torch; "
+                "display inversion still required\n"
+            )
+        elif not self.skip_request:
             rc, out = ssh_presence(self.host, "request-screen", self.label, self.agent)
             if rc == 75:
                 raise ScreenControlError("screen control denied on %s" % self.host)
             # rc 127 = presence script missing — fail closed (do not skip consent).
             if rc != 0:
                 raise ScreenControlError(
-                    "request-screen failed on %s (rc=%s): %s" % (self.host, rc, out.strip())
+                    "request-screen failed on %s (rc=%s): %s"
+                    % (self.host, rc, out.strip())
                 )
 
+        # Inversion is the visible "agent has the glass" signal — always on,
+        # including SKIP_PRESENCE. Input stays gated on inversion.
         if not set_inversion(self.serial, True):
             raise ScreenControlError(
                 "failed to enable display inversion on %s" % self.serial
             )
 
-        rc, out = ssh_presence(self.host, "on", self.label, self.agent)
-        # Presence missing (127) or other failure: fail closed — do not leave
-        # inversion on without torch/notification/lease.
-        if rc != 0:
-            set_inversion(self.serial, False)
-            raise ScreenControlError(
-                "agent-presence on failed on %s (rc=%s): %s"
-                % (self.host, rc, out.strip())
-            )
+        if not self._skip:
+            rc, out = ssh_presence(self.host, "on", self.label, self.agent)
+            # Presence missing (127) or other failure: fail closed — do not leave
+            # inversion on without torch/notification/lease.
+            if rc != 0:
+                set_inversion(self.serial, False)
+                raise ScreenControlError(
+                    "agent-presence on failed on %s (rc=%s): %s"
+                    % (self.host, rc, out.strip())
+                )
 
         self.active = True
         return self
@@ -227,10 +233,9 @@ class ScreenControlSession(object):
     def __exit__(self, exc_type, exc, tb):
         if not self.active:
             return False
-        if self._skip:
-            return False
 
-        ssh_presence(self.host, "off", self.label, self.agent)
+        if not self._skip:
+            ssh_presence(self.host, "off", self.label, self.agent)
         if not set_inversion(self.serial, False):
             sys.stderr.write(
                 "WARN: failed to disable display inversion on %s\n" % self.serial
@@ -243,7 +248,7 @@ class ScreenControlSession(object):
         return False
 
     def shell(self, *args, **kwargs):
-        return guarded_adb_shell(self.serial, self.active and not self._skip, *args, **kwargs)
+        return guarded_adb_shell(self.serial, self.active, *args, **kwargs)
 
     def tap(self, x, y):
         self.shell("input", "tap", str(x), str(y))

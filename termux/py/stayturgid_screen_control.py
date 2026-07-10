@@ -134,19 +134,17 @@ class ScreenControlSession(object):
                 "localhost:5555 shell unavailable — run stayturgid-repair first"
             )
 
-        if self._skip:
-            sys.stderr.write(
-                "WARN: STAYTURGID_SKIP_PRESENCE=1 — input not gated by inversion\n"
-            )
-            self.active = True
-            return self
-
         cleared = uc.clear_ui_obstructions(self.serial, sh.shell_fn)
         if cleared:
             print("Cleared UI obstructions: %s" % ", ".join(cleared))
         self._saved_ime = get_default_ime()
 
-        if not self.skip_request:
+        if self._skip:
+            sys.stderr.write(
+                "WARN: STAYTURGID_SKIP_PRESENCE=1 — skipping consent/torch; "
+                "display inversion still required\n"
+            )
+        elif not self.skip_request:
             rc, out = local_presence("request-screen", self.label, self.agent)
             if rc == 75:
                 raise ScreenControlError("screen control denied")
@@ -155,15 +153,17 @@ class ScreenControlSession(object):
                     "request-screen failed (rc=%s): %s" % (rc, out.strip())
                 )
 
+        # Inversion is the visible "agent has the glass" signal — always on.
         if not set_inversion(None, True):
             raise ScreenControlError("failed to enable display inversion")
 
-        rc, out = local_presence("on", self.label, self.agent)
-        if rc != 0:
-            set_inversion(None, False)
-            raise ScreenControlError(
-                "agent-presence on failed (rc=%s): %s" % (rc, out.strip())
-            )
+        if not self._skip:
+            rc, out = local_presence("on", self.label, self.agent)
+            if rc != 0:
+                set_inversion(None, False)
+                raise ScreenControlError(
+                    "agent-presence on failed (rc=%s): %s" % (rc, out.strip())
+                )
 
         self.active = True
         return self
@@ -171,9 +171,8 @@ class ScreenControlSession(object):
     def __exit__(self, exc_type, exc, tb):
         if not self.active:
             return False
-        if self._skip:
-            return False
-        local_presence("off", self.label, self.agent)
+        if not self._skip:
+            local_presence("off", self.label, self.agent)
         if not set_inversion(None, False):
             sys.stderr.write("WARN: failed to disable display inversion\n")
         if not restore_default_ime(None, self._saved_ime):
@@ -182,7 +181,7 @@ class ScreenControlSession(object):
         return False
 
     def shell(self, *args, **kwargs):
-        return guarded_shell(self.active and not self._skip, *args, **kwargs)
+        return guarded_shell(self.active, *args, **kwargs)
 
     def tap(self, x, y):
         self.shell("input", "tap", str(x), str(y))

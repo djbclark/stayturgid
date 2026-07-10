@@ -84,6 +84,26 @@ def test_parse_switch_missing_label():
     assert session._parse_switch_from_ui("No such row", _SAMPLE_DRAWER_UI) is None
 
 
+_SAMPLE_AURORA_UPDATES_UI = """\
+-    TextView     "Filter F-Droid apps"  #title  219,705
+-    Switch       #switchWidget  969,735  [check checked]
+-    TextView     "Filter apps from other sources"  #title  333,928
+-    Switch       #switchWidget  969,980  [check checked]
+-    Switch       #switchWidget  969,1360  [check]
+"""
+
+
+def test_parse_switch_aurora_preference_rows():
+    session = ud.HandsetsSession("SERIAL", alias="p7a", port=9010)
+    session.active = True
+    assert session._parse_switch_from_ui(
+        "Filter F-Droid apps", _SAMPLE_AURORA_UPDATES_UI
+    ) == (True, 969, 735)
+    assert session._parse_switch_from_ui(
+        "Filter apps from other sources", _SAMPLE_AURORA_UPDATES_UI
+    ) == (True, 969, 980)
+
+
 def test_try_handsets_yields_none_when_missing(monkeypatch):
     monkeypatch.setattr(ud, "handsets_available", lambda: False)
     with ud.try_handsets("SERIAL", "s24") as hs:

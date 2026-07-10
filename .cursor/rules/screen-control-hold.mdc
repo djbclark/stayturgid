@@ -1,0 +1,34 @@
+---
+description: Keep ScreenControlSession / inversion held across multi-step UI work
+alwaysApply: true
+---
+
+# Screen control — hold the session across short gaps
+
+When you will use an Android device screen several times in relatively quick succession — especially when a later step depends on the UI end state of an earlier one — **keep `ScreenControlSession` open** (display inversion + presence lease) for the whole multi-step sequence. Do not drop control between steps just because you briefly are not tapping.
+
+## Why
+
+Exiting the session clears inversion and presence. Re-entering re-runs consent, reinverts the glass, and can lose or change the on-screen state you were chaining on. Short idle gaps while you read dumps / decide the next tap are normal — leave the session held.
+
+## Do
+
+- One `with ScreenControlSession(...):` (or on-device equivalent) spanning open → navigate → tap → verify → next taps.
+- Keep inversion on during brief gaps (seconds to a few minutes) between related UI actions on the same host.
+- Emit **USING** once when you first take the screen; **FREE** only when done with that phone until the next user reply (see HANDOFF).
+
+## Don't
+
+- Open/close a new session per tap or per probe in the same flow.
+- End the session between dependent steps (e.g. “open Settings”, then a new session for “toggle filter”).
+- Use `STAYTURGID_SKIP_PRESENCE=1` to avoid holding a real session (debug only).
+
+## Exception
+
+Independent one-shots with a long idle between them (operator walked away, different host, unrelated task later) may release and re-acquire. When unsure and steps are minutes apart on the same host with a preserved UI, prefer hold.
+
+## Inversion is mandatory for live UI
+
+Display inversion is the visible "agent has the glass" signal. **Always** invert while actively controlling a phone, including when using `STAYTURGID_SKIP_PRESENCE=1` (that flag may skip consent/torch only — never inversion, and input stays gated on inversion).
+
+Do **not** set `STAYTURGID_SKIP_PRESENCE=1` just to avoid a presence timeout on a device a human is watching. Fix presence / hold a normal session instead.

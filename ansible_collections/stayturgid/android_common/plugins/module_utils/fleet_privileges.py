@@ -60,18 +60,6 @@ def ensure_battery_unrestricted(run_command, device, package, check_mode=False):
         )
         changed = changed or item_changed
         results.append(dict(kind="appops", op=op, status=status))
-    return changed, results
-
-
-def ensure_disable_unused(run_command, device, package, check_mode=False):
-    results = []
-    changed = False
-    for op, mode in UNUSED_APPOPS:
-        item_changed, status = ensure_appop(
-            run_command, device, package, op, mode, check_mode
-        )
-        changed = changed or item_changed
-        results.append(dict(kind="appops", op=op, status=status))
 
     rc, out, _err = adb_shell.standby_bucket_get(run_command, device, package)
     current = adb_shell.normalize_adb_output(out).lower()
@@ -95,6 +83,53 @@ def ensure_disable_unused(run_command, device, package, check_mode=False):
     return changed, results
 
 
+def ensure_battery_optimized(run_command, device, package, check_mode=False):
+    """Undo Doze whitelist / background-unrestricted so the OS can throttle the app."""
+    results = []
+    changed = False
+    if adb_shell.deviceidle_whitelisted(run_command, device, package):
+        if check_mode:
+            results.append(dict(kind="deviceidle", status="would_unwhitelist"))
+            changed = True
+        else:
+            rc, _out, err = adb_shell.deviceidle_whitelist_remove(
+                run_command, device, package
+            )
+            ok = rc == 0
+            results.append(
+                dict(
+                    kind="deviceidle",
+                    status="unwhitelisted"
+                    if ok
+                    else adb_shell.normalize_adb_output(err) or "failed",
+                )
+            )
+            changed = changed or ok
+    else:
+        results.append(dict(kind="deviceidle", status="already"))
+
+    for op in BATTERY_APPOPS:
+        item_changed, status = ensure_appop(
+            run_command, device, package, op, "ignore", check_mode
+        )
+        changed = changed or item_changed
+        results.append(dict(kind="appops", op=op, status=status))
+    return changed, results
+
+
+def ensure_disable_unused(run_command, device, package, check_mode=False):
+    """Keep unused-app auto-revoke from removing fleet packages."""
+    results = []
+    changed = False
+    for op, mode in UNUSED_APPOPS:
+        item_changed, status = ensure_appop(
+            run_command, device, package, op, mode, check_mode
+        )
+        changed = changed or item_changed
+        results.append(dict(kind="appops", op=op, status=status))
+    return changed, results
+
+
 def apply_profile(run_command, device, profile, check_mode=False, skip_missing=True):
     package = profile["package"]
     if skip_missing and not adb_shell.package_installed(run_command, device, package):
@@ -103,8 +138,15 @@ def apply_profile(run_command, device, profile, check_mode=False, skip_missing=T
     results = []
     changed = False
 
-    if profile.get("battery_unrestricted"):
+    # Explicit False restores OS battery optimization (Doze / background limits).
+    if profile.get("battery_unrestricted") is True:
         item_changed, items = ensure_battery_unrestricted(
+            run_command, device, package, check_mode
+        )
+        changed = changed or item_changed
+        results.extend(items)
+    elif profile.get("battery_unrestricted") is False:
+        item_changed, items = ensure_battery_optimized(
             run_command, device, package, check_mode
         )
         changed = changed or item_changed

@@ -51,3 +51,37 @@ def test_apply_profile_skips_missing_package():
     )
     assert changed is False
     assert results[0]["status"] == "skipped"
+
+
+def test_battery_optimized_removes_whitelist_and_denies_background():
+    calls = []
+
+    def run(cmd):
+        joined = " ".join(cmd)
+        calls.append(joined)
+        if "pm list packages" in joined:
+            return (0, "package:com.aurora.store\n", "")
+        # GET whitelist (no +/- package suffix on the shell fragment).
+        if joined.endswith("dumpsys deviceidle whitelist"):
+            return (0, "user,com.aurora.store,1000\n", "")
+        if "dumpsys deviceidle whitelist -com.aurora.store" in joined:
+            return (0, "", "")
+        if "appops get" in joined:
+            return (0, "Mode: allow\n", "")
+        if "appops set" in joined:
+            return (0, "", "")
+        return (0, "", "")
+
+    changed, results = fp.apply_profile(
+        run,
+        "dev",
+        {"package": "com.aurora.store", "battery_unrestricted": False},
+        skip_missing=True,
+    )
+    assert changed is True
+    joined = " ".join(calls)
+    assert "whitelist -com.aurora.store" in joined
+    assert any("appops set com.aurora.store RUN_IN_BACKGROUND ignore" in c for c in calls)
+    assert any("appops set com.aurora.store RUN_ANY_IN_BACKGROUND ignore" in c for c in calls)
+    items = results[0]["items"]
+    assert any(i.get("status") == "unwhitelisted" for i in items)

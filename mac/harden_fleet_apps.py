@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Apply stayturgid fleet app privileges over adb (Mac-side).
 
-Grants runtime permissions, disables unused-app restrictions, and sets
-battery-unrestricted (Doze whitelist + background appops) for every central
-stayturgid package. Mirrors android_common.app_privileges Ansible role.
+Grants runtime permissions, disables unused-app restrictions, and applies
+per-package battery policy from shared/fleet_app_profiles.json (most fleet
+apps are Doze-whitelisted; Aurora Store stays battery-optimized). Mirrors
+android_common.app_privileges Ansible role.
 
 Usage: ./harden_fleet_apps.py <s24|p7a|hd8|serial>
 """

@@ -25,11 +25,31 @@ BACKGROUND_DIALOG_MARKERS = (
     "Let app always run in background",
     "always run in the background",
 )
-BACKGROUND_ALLOW_LABELS = ("ALLOW", "Allow", "Always allow", "ALWAYS ALLOW")
-AURORA_BACKGROUND_APPOPS = (
-    ("RUN_IN_BACKGROUND", "allow"),
-    ("RUN_ANY_IN_BACKGROUND", "allow"),
-    ("AUTO_REVOKE_PERMISSIONS_IF_UNUSED", "ignore"),
+BACKGROUND_DENY_LABELS = (
+    "DENY",
+    "Deny",
+    "Don't allow",
+    "Don't Allow",
+    "DONT ALLOW",
+    "Cancel",
+)
+# Prefer OS battery optimization so Aurora cannot thrash CPU in the background.
+AURORA_BATTERY_APPOPS = (
+    ("RUN_IN_BACKGROUND", "ignore"),
+    ("RUN_ANY_IN_BACKGROUND", "ignore"),
+)
+FILTER_AURORA_ONLY_LABELS = (
+    "Filter apps from other sources",
+    "Do not check for updates for apps installed from sources outside Aurora Store",
+    "Aurora Store apps only",
+)
+FILTER_FDROID_LABELS = (
+    "Filter F-Droid apps",
+    "Don't check updates for apps installed from F-Droid",
+)
+AUTO_UPDATE_RESTRICTION_LABELS = (
+    "When device is idle",
+    "When battery is not low",
 )
 
 
@@ -78,15 +98,16 @@ def open_aurora(shell):
     time.sleep(3)
 
 
-def ensure_background_unrestricted(shell):
-    for op, mode in AURORA_BACKGROUND_APPOPS:
+def ensure_battery_optimized(shell):
+    """Restore Doze / background limits — Aurora must not run unrestricted."""
+    for op, mode in AURORA_BATTERY_APPOPS:
         shell("cmd", "appops", "set", AURORA_PKG, op, mode)
-    shell("cmd", "deviceidle", "whitelist", "+%s" % AURORA_PKG)
-    shell("am", "set-standby-bucket", AURORA_PKG, "active")
-    print("Aurora Store background unrestricted via appops.")
+    shell("cmd", "deviceidle", "whitelist", "-%s" % AURORA_PKG)
+    print("Aurora Store battery optimization restored.")
 
 
 def dismiss_background_run_dialog(shell, app_hint="Aurora"):
+    """Dismiss Settings 'run in background' modal with DENY/Back (keep battery opt)."""
     for _ in range(6):
         xml = dump_xml(shell)
         if not any(marker in xml for marker in BACKGROUND_DIALOG_MARKERS):
@@ -94,48 +115,101 @@ def dismiss_background_run_dialog(shell, app_hint="Aurora"):
         if app_hint.lower() not in xml.lower():
             return False
         if _HS is not None:
-            hit = _HS.tap_any_text(*BACKGROUND_ALLOW_LABELS)
+            hit = _HS.tap_any_text(*BACKGROUND_DENY_LABELS)
             if hit:
                 print("Tapped %s on background-run dialog (%s)." % (hit, app_hint))
                 time.sleep(1.5)
                 return True
-            if _HS.tap_rid("android:id/button1"):
-                print("Tapped ALLOW on background-run dialog (%s)." % app_hint)
+            if _HS.tap_rid("android:id/button2"):
+                print("Tapped DENY on background-run dialog (%s)." % app_hint)
                 time.sleep(1.5)
                 return True
-            return False
-        allow = parse_button_center(xml, "android:id/button1")
-        if allow:
-            print("Tapped ALLOW on background-run dialog (%s)." % app_hint)
-            tap(shell, allow)
-            time.sleep(1.5)
+            _HS.key("BACK")
+            time.sleep(1)
             return True
-        for label in BACKGROUND_ALLOW_LABELS:
+        for label in BACKGROUND_DENY_LABELS:
             point = parse_text_center(xml, label)
             if point:
                 print("Tapped %s on background-run dialog (%s)." % (label, app_hint))
                 tap(shell, point)
                 time.sleep(1.5)
                 return True
+        deny = parse_button_center(xml, "android:id/button2")
+        if deny:
+            print("Tapped DENY on background-run dialog (%s)." % app_hint)
+            tap(shell, deny)
+            time.sleep(1.5)
+            return True
+        shell("input", "keyevent", "KEYCODE_BACK")
+        time.sleep(1)
+        return True
     return False
+
+
+def ensure_preference_on(shell, labels, description, *, required=True):
+    """Turn on the first matching preference switch among *labels*."""
+    ui = dump_xml(shell)
+    chosen = None
+    for label in labels:
+        if label in ui:
+            chosen = label
+            break
+    if not chosen:
+        msg = "could not find Aurora preference for %s (tried %r)" % (
+            description,
+            labels,
+        )
+        if required:
+            sys.stderr.write("ERROR: %s\n" % msg)
+        else:
+            print("WARN: %s" % msg)
+        return False
+
+    if _HS is not None:
+        checked, ok = _HS.switch_near_label(chosen)
+        if ok and checked:
+            print("Aurora %s already on (%s)." % (description, chosen))
+            return True
+        if not (_HS.tap_switch_for_label(chosen) or _HS.tap_text(chosen)):
+            msg = "could not toggle Aurora %s (%s)" % (description, chosen)
+            if required:
+                sys.stderr.write("ERROR: %s\n" % msg)
+            else:
+                print("WARN: %s" % msg)
+            return False
+        time.sleep(1.5)
+        checked, ok = _HS.switch_near_label(chosen)
+        if not (ok and checked):
+            msg = "Aurora %s still off after tap" % description
+            if required:
+                sys.stderr.write("ERROR: %s\n" % msg)
+            else:
+                print("WARN: %s" % msg)
+            return False
+        print("Aurora %s enabled (%s)." % (description, chosen))
+        return True
+
+    if not tap_text(shell, chosen, timeout=8):
+        return False
+    time.sleep(1)
+    print("Aurora %s enabled (%s)." % (description, chosen))
+    return True
 
 
 def _aurora_home(ui: str) -> bool:
     """True when Aurora main UI is up (first-run finished)."""
+    if "Skip" in ui or "btn_anonymous" in ui:
+        return False
     # Handsets dump_text includes rid; XML dumps use resource-id="…".
     has_nav = (
         "nav_view" in ui
         or "nav_host_fragment" in ui
         or 'resource-id="com.aurora.store:id/nav_view"' in ui
+        or "menu_more" in ui
     )
-    if has_nav and "Apps" in ui:
-        return "Skip" not in ui and "btn_anonymous" not in ui
-    return (
-        "Apps" in ui
-        and "Library" in ui
-        and "Skip" not in ui
-        and "btn_anonymous" not in ui
-    )
+    if has_nav and any(t in ui for t in ("Apps", "Updates", "Library")):
+        return True
+    return "Apps" in ui and "Library" in ui
 
 
 def finish_first_run(shell):
@@ -307,6 +381,47 @@ def configure_auto_updates(shell):
     return True
 
 
+def configure_update_filters(shell):
+    """Limit update checks to apps Aurora installed; also drop F-Droid packages."""
+    for _ in range(3):
+        ui = dump_xml(shell)
+        if any(l in ui for l in FILTER_AURORA_ONLY_LABELS + FILTER_FDROID_LABELS):
+            break
+        if "Settings" in ui and "Updates" in ui:
+            if not tap_text(shell, "Updates"):
+                return False
+            break
+        if _HS is not None:
+            _HS.key("BACK")
+        else:
+            shell("input", "keyevent", "KEYCODE_BACK")
+        time.sleep(1)
+    else:
+        if not open_settings(shell):
+            return False
+        if not tap_text(shell, "Updates"):
+            return False
+
+    if not ensure_preference_on(
+        shell, FILTER_AURORA_ONLY_LABELS, "filter apps from other sources"
+    ):
+        return False
+    if not ensure_preference_on(shell, FILTER_FDROID_LABELS, "filter F-Droid apps"):
+        return False
+
+    ui = dump_xml(shell)
+    if "Automatic updates restrictions" in ui:
+        if tap_text(shell, "Automatic updates restrictions", timeout=6):
+            for label in AUTO_UPDATE_RESTRICTION_LABELS:
+                ensure_preference_on(
+                    shell,
+                    (label,),
+                    "auto-update restriction %s" % label,
+                    required=False,
+                )
+    return True
+
+
 def main(argv=None):
     global _HS
     del argv
@@ -315,8 +430,7 @@ def main(argv=None):
             shell = session.shell
             with hs.try_session() as handsets:
                 _HS = handsets
-                ensure_background_unrestricted(shell)
-                dismiss_background_run_dialog(shell)
+                ensure_battery_optimized(shell)
                 open_aurora(shell)
                 dismiss_background_run_dialog(shell)
                 if not finish_first_run(shell):
@@ -324,6 +438,8 @@ def main(argv=None):
                 if not configure_installer(shell):
                     return 1
                 if not configure_auto_updates(shell):
+                    return 1
+                if not configure_update_filters(shell):
                     return 1
                 if _HS is not None:
                     _HS.key("HOME")

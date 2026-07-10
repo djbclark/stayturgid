@@ -87,14 +87,17 @@ After `./mac/deploy_fleet.py <host>` (or `--scope fdroid`):
 
 ### 2.2 Aurora Store (Play)
 
-Fleet deploy now **pre-grants** Aurora background appops before opening Aurora.
-`configure_aurora.py` dismisses the Fire OS **“Let app always run in background?”**
-dialog if it still appears.
+Fleet harden keeps Aurora **battery-optimized** (not unrestricted). 
+`configure_aurora.py` dismisses any Fire OS **“Let app always run in background?”**
+prompt with **DENY**/Back, enables Shizuku installer + auto-updates, and turns on
+**Filter apps from other sources** (and Filter F-Droid apps).
 
 **You confirm** (once per host if unsure):
 
 1. Aurora Settings → Installer = **Shizuku**, automatic updates on.
-2. No stuck Settings modal on hd8.
+2. Updates → **Filter apps from other sources** on (only apps Aurora installed).
+3. App info → Battery = Optimized (not Unrestricted).
+4. No stuck Settings modal on hd8.
 
 ### 2.3 Accessibility services (if wiped again)
 

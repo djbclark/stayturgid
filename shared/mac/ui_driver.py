@@ -22,12 +22,13 @@ from typing import Callable, Iterator
 
 # AutoJs6 drawer: label TextView ~x=342, Switch ~x=669 → ~327px; 200 is too tight.
 _SWITCH_NEAR_PX = 400
+# Handsets ``hs ui`` rows look like ``-    Switch …`` or ``tap  Switch …``.
 _UI_SWITCH_RE = re.compile(
-    r"^\s*(?:tap\s+)?Switch\b.*?(\d+)\s*,\s*(\d+)\s*(.*)$",
+    r"^\s*(?:-\s*)?(?:tap\s+)?Switch\b.*?(\d+)\s*,\s*(\d+)\s*(.*)$",
     re.IGNORECASE,
 )
 _UI_LABEL_RE = re.compile(
-    r'^\s*.*?"(?P<label>[^"]+)"\s+.*?(?P<x>\d+)\s*,\s*(?P<y>\d+)\s*',
+    r'^\s*(?:-\s*)?(?:tap\s+)?.*?"(?P<label>[^"]+)"\s+.*?(?P<x>\d+)\s*,\s*(?P<y>\d+)\s*',
 )
 
 # Alias → local forward port (avoid 9008 clash with uiautomator2 default).
@@ -253,26 +254,35 @@ class HandsetsSession:
     def _parse_switch_from_ui(self, label: str, ui: str | None = None):
         """Return (checked, x, y) from ``hs ui`` table, or None if missing.
 
-        Handsets ``Switch:near(..., 200)`` misses AutoJs6 drawer rows (~327px
-        label→switch). Prefer the flat UI table: label line then adjacent Switch.
+        Preference screens list a TextView title then a Switch on the next
+        line(s). Prefer the first Switch within a few lines after the label
+        (not the globally nearest Switch in a wide window — that grabbed the
+        wrong control for Aurora Updates filters).
         """
         text = ui if ui is not None else self.ui()
         if label not in text:
             return None
         lines = text.splitlines()
-        best = None  # (dy, checked, x, y)
         for i, line in enumerate(lines):
-            if '"%s"' % label not in line and label not in line:
-                continue
-            # Prefer exact quoted title match.
             mlab = _UI_LABEL_RE.search(line)
-            ly = int(mlab.group("y")) if mlab and (
-                mlab.group("label") == label or label in mlab.group("label")
-            ) else None
-            if ly is None and '"%s"' % label not in line:
+            if not mlab:
                 continue
-            if ly is None and mlab:
-                ly = int(mlab.group("y"))
+            if mlab.group("label") != label and label not in mlab.group("label"):
+                continue
+            # Prefer Switch shortly after this title row.
+            for w in lines[i + 1 : i + 6]:
+                if "Switch" not in w:
+                    continue
+                m = _UI_SWITCH_RE.match(w)
+                if not m:
+                    continue
+                x, y = int(m.group(1)), int(m.group(2))
+                rest = m.group(3).lower()
+                checked = "checked" in rest
+                return checked, x, y
+            # Fallback: nearest Switch in a local window (AutoJs6 drawer).
+            ly = int(mlab.group("y"))
+            best = None  # (dy, checked, x, y)
             window = lines[max(0, i - 2) : i + 5]
             for w in window:
                 if "Switch" not in w:
@@ -282,15 +292,14 @@ class HandsetsSession:
                     continue
                 x, y = int(m.group(1)), int(m.group(2))
                 rest = m.group(3).lower()
-                # Handsets: "[check checked]" = on; "[check]" alone = off.
                 checked = "checked" in rest
-                dy = abs(y - ly) if ly is not None else 0
+                dy = abs(y - ly)
                 if best is None or dy < best[0]:
                     best = (dy, checked, x, y)
-        if best is None:
-            return None
-        _, checked, x, y = best
-        return checked, x, y
+            if best is not None:
+                _, checked, x, y = best
+                return checked, x, y
+        return None
 
     def switch_near_label(self, label: str, *, timeout_ms: int = 4000):
         """Return (checked: bool|None, ok: bool) for Switch near label text."""

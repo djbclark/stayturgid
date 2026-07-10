@@ -26,11 +26,33 @@ BACKGROUND_DIALOG_MARKERS = (
     "Let app always run in background",
     "always run in the background",
 )
-BACKGROUND_ALLOW_LABELS = ("ALLOW", "Allow", "Always allow", "ALWAYS ALLOW")
-AURORA_BACKGROUND_APPOPS = (
-    ("RUN_IN_BACKGROUND", "allow"),
-    ("RUN_ANY_IN_BACKGROUND", "allow"),
-    ("AUTO_REVOKE_PERMISSIONS_IF_UNUSED", "ignore"),
+BACKGROUND_DENY_LABELS = (
+    "DENY",
+    "Deny",
+    "Don't allow",
+    "Don't Allow",
+    "DONT ALLOW",
+    "Cancel",
+)
+# Prefer OS battery optimization so Aurora cannot thrash CPU in the background.
+# AUTO_REVOKE ignore is applied via fleet_app_profiles (harden), not Doze whitelist.
+AURORA_BATTERY_APPOPS = (
+    ("RUN_IN_BACKGROUND", "ignore"),
+    ("RUN_ANY_IN_BACKGROUND", "ignore"),
+)
+# Updates filter switches (Aurora 4.8+ labels). Prefer primary; fall back to aliases.
+FILTER_AURORA_ONLY_LABELS = (
+    "Filter apps from other sources",
+    "Do not check for updates for apps installed from sources outside Aurora Store",
+    "Aurora Store apps only",
+)
+FILTER_FDROID_LABELS = (
+    "Filter F-Droid apps",
+    "Don't check updates for apps installed from F-Droid",
+)
+AUTO_UPDATE_RESTRICTION_LABELS = (
+    "When device is idle",
+    "When battery is not low",
 )
 
 # Bound inside ScreenControlSession so input is inversion-gated.
@@ -89,13 +111,100 @@ def open_aurora(serial):
     time.sleep(3)
 
 
-def ensure_background_unrestricted(serial):
-    """Pre-grant background run so Fire OS / Android skip the modal prompt."""
-    for op, mode in AURORA_BACKGROUND_APPOPS:
+def ensure_battery_optimized(serial):
+    """Restore Doze / background limits — Aurora must not run unrestricted."""
+    for op, mode in AURORA_BATTERY_APPOPS:
         adb(serial, "cmd", "appops", "set", AURORA_PKG, op, mode)
-    adb(serial, "cmd", "deviceidle", "whitelist", "+%s" % AURORA_PKG)
-    adb(serial, "am", "set-standby-bucket", AURORA_PKG, "active")
-    print("Aurora Store background unrestricted via appops on %s." % serial)
+    adb(serial, "cmd", "deviceidle", "whitelist", "-%s" % AURORA_PKG)
+    # Don't force standby bucket active; leave OS scheduling alone.
+    print("Aurora Store battery optimization restored on %s." % serial)
+
+
+def _switch_checked_xml(ui_xml, label):
+    """Best-effort: Switch/CheckBox near label text is checked."""
+    if label not in (ui_xml or ""):
+        return None
+    # Prefer a checked=true node whose line/context mentions the label.
+    for m in re.finditer(
+        r"<node\b[^>]*\btext=\"%s\"[^>]*>" % re.escape(saxutils.escape(label, {'"': "&quot;"})),
+        ui_xml or "",
+    ):
+        # Look ahead for a sibling Switch with checked in the next ~800 chars.
+        window = ui_xml[m.start() : m.start() + 1200]
+        if 'class="android.widget.Switch"' in window or "Switch" in window:
+            if 'checked="true"' in window:
+                return True
+            if 'checked="false"' in window:
+                return False
+    if 'checked="true"' in (ui_xml or "") and label in ui_xml:
+        # Ambiguous when multiple switches — treat as unknown.
+        return None
+    return None
+
+
+def ensure_preference_on(serial, labels, description, *, required=True):
+    """Turn on the first matching preference switch among *labels*.
+
+    When *required* is False, missing or stuck switches warn and return False
+    without failing the overall configure run.
+    """
+    ui = _ui_text(serial)
+    chosen = None
+    for label in labels:
+        if label in ui:
+            chosen = label
+            break
+    if not chosen:
+        msg = (
+            "could not find Aurora preference for %s on %s (tried %r)"
+            % (description, serial, labels)
+        )
+        if required:
+            sys.stderr.write("ERROR: %s\n" % msg)
+        else:
+            print("WARN: %s" % msg)
+        return False
+
+    if _HS is not None:
+        checked, ok = _HS.switch_near_label(chosen, timeout_ms=3000)
+        if ok and checked:
+            print("Aurora %s already on (%s)." % (description, chosen))
+            return True
+        if not (
+            _HS.tap_switch_for_label(chosen, timeout_ms=4000)
+            or _HS.tap_text(chosen, timeout_ms=2000)
+        ):
+            msg = "could not toggle Aurora %s (%s) on %s" % (
+                description,
+                chosen,
+                serial,
+            )
+            if required:
+                sys.stderr.write("ERROR: %s\n" % msg)
+            else:
+                print("WARN: %s" % msg)
+            return False
+        time.sleep(1.5)
+        checked, ok = _HS.switch_near_label(chosen, timeout_ms=3000)
+        if not (ok and checked):
+            msg = "Aurora %s still off after tap on %s" % (description, serial)
+            if required:
+                sys.stderr.write("ERROR: %s\n" % msg)
+            else:
+                print("WARN: %s" % msg)
+            return False
+        print("Aurora %s enabled (%s)." % (description, chosen))
+        return True
+
+    checked = _switch_checked_xml(ui, chosen)
+    if checked is True:
+        print("Aurora %s already on (%s)." % (description, chosen))
+        return True
+    if not tap_text(serial, chosen, timeout=8):
+        return False
+    time.sleep(1)
+    print("Aurora %s enabled (%s)." % (description, chosen))
+    return True
 
 
 def _ui_text(serial):
@@ -105,7 +214,7 @@ def _ui_text(serial):
 
 
 def dismiss_background_run_dialog(serial, app_hint="Aurora"):
-    """Tap ALLOW on Settings 'run in background' modal if visible."""
+    """Dismiss Settings 'run in background' modal with DENY/Back (keep battery opt)."""
     for _ in range(6):
         ui = _ui_text(serial)
         if not any(marker in ui for marker in BACKGROUND_DIALOG_MARKERS):
@@ -113,31 +222,42 @@ def dismiss_background_run_dialog(serial, app_hint="Aurora"):
         if app_hint.lower() not in ui.lower():
             return False
         if _HS is not None:
-            hit = _HS.tap_any_text(*BACKGROUND_ALLOW_LABELS, timeout_ms=2000)
+            hit = _HS.tap_any_text(*BACKGROUND_DENY_LABELS, timeout_ms=2000)
             if hit:
                 print("Tapped %s on background-run dialog (%s)." % (hit, app_hint))
                 time.sleep(1.5)
                 return True
-            return False
-        allow = dev.parse_button_center(ui, "android:id/button1")
-        if allow:
-            print("Tapped ALLOW on background-run dialog (%s)." % app_hint)
-            tap(serial, allow)
-            time.sleep(1.5)
+            adb(serial, "input", "keyevent", "KEYCODE_BACK")
+            time.sleep(1)
             return True
-        for label in BACKGROUND_ALLOW_LABELS:
-            point = dev.parse_text_center(ui, label)
+        for label in BACKGROUND_DENY_LABELS:
+            point = dev.parse_text_center(ui, label) or center_for_attr(ui, "text", label)
             if point:
                 print("Tapped %s on background-run dialog (%s)." % (label, app_hint))
                 tap(serial, point)
                 time.sleep(1.5)
                 return True
+        deny = center_for_attr(ui, "resource-id", "android:id/button2")
+        if deny:
+            print("Tapped DENY on background-run dialog (%s)." % app_hint)
+            tap(serial, deny)
+            time.sleep(1.5)
+            return True
+        adb(serial, "input", "keyevent", "KEYCODE_BACK")
+        time.sleep(1)
+        return True
     return False
 
 
 def _aurora_home(ui: str) -> bool:
+    """True when Aurora main UI is up (Apps/Updates/Library tabs, first-run done)."""
+    if "Skip" in ui or "btn_anonymous" in ui:
+        return False
+    if "menu_more" in ui or "More" in ui:
+        if any(t in ui for t in ("Apps", "Updates", "Library", "nav_view", "nav_host")):
+            return True
     return ("nav_view" in ui and "Apps" in ui) or (
-        "Apps" in ui and "Library" in ui and "Skip" not in ui and "btn_anonymous" not in ui
+        "Apps" in ui and "Library" in ui
     )
 
 
@@ -336,6 +456,47 @@ def configure_auto_updates(serial):
     return True
 
 
+def configure_update_filters(serial):
+    """Limit update checks to apps Aurora installed; also drop F-Droid packages."""
+    # Stay on / return to Updates settings screen.
+    for _ in range(3):
+        ui = _ui_text(serial)
+        if any(l in ui for l in FILTER_AURORA_ONLY_LABELS + FILTER_FDROID_LABELS):
+            break
+        if "Settings" in ui and "Updates" in ui:
+            if not tap_text(serial, "Updates"):
+                return False
+            break
+        adb(serial, "input", "keyevent", "KEYCODE_BACK")
+        time.sleep(1)
+    else:
+        if not open_settings(serial):
+            return False
+        if not tap_text(serial, "Updates"):
+            return False
+
+    if not ensure_preference_on(
+        serial, FILTER_AURORA_ONLY_LABELS, "filter apps from other sources"
+    ):
+        return False
+    if not ensure_preference_on(serial, FILTER_FDROID_LABELS, "filter F-Droid apps"):
+        return False
+
+    # Optional WorkManager restrictions — fail soft if submenu missing or
+    # OS/WorkManager refuses the switch (common when battery is optimized).
+    ui = _ui_text(serial)
+    if "Automatic updates restrictions" in ui:
+        if tap_text(serial, "Automatic updates restrictions", timeout=6):
+            for label in AUTO_UPDATE_RESTRICTION_LABELS:
+                ensure_preference_on(
+                    serial,
+                    (label,),
+                    "auto-update restriction %s" % label,
+                    required=False,
+                )
+    return True
+
+
 def main_mac_adb(host):
     """Mac-side ScreenControlSession via resolve_adb (USB or wireless)."""
     global _SHELL, _HS
@@ -346,8 +507,7 @@ def main_mac_adb(host):
             _SHELL = session.shell
             with uid.try_handsets(serial, host) as hs:
                 _HS = hs
-                ensure_background_unrestricted(serial)
-                dismiss_background_run_dialog(serial)
+                ensure_battery_optimized(serial)
                 open_aurora(serial)
                 dismiss_background_run_dialog(serial)
                 if not finish_first_run(serial):
@@ -355,6 +515,8 @@ def main_mac_adb(host):
                 if not configure_installer(serial):
                     return 1
                 if not configure_auto_updates(serial):
+                    return 1
+                if not configure_update_filters(serial):
                     return 1
                 adb(serial, "input", "keyevent", "KEYCODE_HOME")
     except sc.ScreenControlError as e:
