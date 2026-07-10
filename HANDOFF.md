@@ -170,6 +170,7 @@ hosts OK; s24 had a resolved morning access-monitor LOST — informational only)
 - Split storage — Termux under `~/.stayturgid/shared`; AutoJs6 under `/sdcard/stayturgid/`.
 - No Termux→localhost:5555 loopback — verify item 4 is an expected informational note, not a failure. Post-UI stays on Mac adb (USB or wireless).
 - Mac adb: Tailscale or USB `GN43T503430603PS`; wireless failover works after one USB bootstrap.
+- **Sideloaded Google Play:** Play Store can auto-update GMS past Fire-compatible builds → GSF/GMS crash loop. Pin via `make fix-hd8-google`; disable Play Store auto-updates. See [docs/research/fire-os-google-play.md](docs/research/fire-os-google-play.md).
 
 **Next work:** [OPTIONS.md](OPTIONS.md) — open items only. Human unlocks: [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md).
 

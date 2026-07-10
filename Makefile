@@ -25,7 +25,7 @@ DEPLOY_SCOPE_ARG := $(if $(filter-out full,$(SCOPE)),--scope $(SCOPE),)
 
 .PHONY: help all configure check unit test unit-and-pytest pytest ansible-test test-venv \
         lint clean verify verify-heal device dryrun dryrun-termux \
-        health deploy deploy-check collections bootstrap-ssh deploy-termux syntax
+        health fix-hd8-google deploy deploy-check collections bootstrap-ssh deploy-termux syntax
 
 # ------------------------------------------------------------------------------
 # Help
@@ -44,6 +44,7 @@ help:
 	@echo "  make deploy-termux [HOSTS=s24]    Termux layer only (termux_userland role)"
 	@echo "  make bootstrap-ssh [HOSTS=s24]    ADB bootstrap Termux SSH keys + sshd"
 	@echo "  make health                     Mac fleet-health summary (exit 1 = tell operator)"
+	@echo "  make fix-hd8-google             Pin sideloaded GMS/Play on Fire hd8 (see docs)"
 	@echo "  make collections                Install ansible-galaxy collections"
 	@echo "  make syntax                     Syntax-check site.yml"
 	@echo ""
@@ -87,6 +88,9 @@ bootstrap-ssh:
 
 health:
 	python3 mac/check_fleet_health.py
+
+fix-hd8-google:
+	python3 mac/fix_hd8_google_stack.py hd8
 
 collections:
 	ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections

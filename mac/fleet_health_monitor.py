@@ -25,18 +25,23 @@ _SHARED_MAC = os.path.join(_REPO, "shared", "mac")
 if _SHARED_MAC not in sys.path:
     sys.path.insert(0, _SHARED_MAC)
 import fleet_health as fh  # noqa: E402
+import hd8_google_stack as hgs  # noqa: E402
+import stayturgid_device as dev  # noqa: E402
 
 ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")
 CONF = os.environ.get("STAYTURGID_DEVICES_CONF", os.path.join(ROOT, "devices.conf"))
 STATE_DIR = os.path.join(ROOT, "state", "fleet-health")
 HEAL_STATE_DIR = os.path.join(ROOT, "state", "watchdog-heal")
+GOOGLE_HEAL_STATE_DIR = os.path.join(ROOT, "state", "google-stack-heal")
 LOG = os.path.join(ROOT, "logs", "fleet-health.log")
 CONSECUTIVE_LIMIT = 2
 # After this many soft fails with watchdog_stale/missing, restart main.js once.
 WATCHDOG_HEAL_AFTER = 2
 WATCHDOG_HEAL_COOLDOWN_SEC = 30 * 60
+GOOGLE_STACK_HEAL_COOLDOWN_SEC = 24 * 60 * 60
 SKIP_HEALTH = os.environ.get("STAYTURGID_SKIP_HEALTH") == "1"
 SKIP_WATCHDOG_HEAL = os.environ.get("STAYTURGID_SKIP_WATCHDOG_HEAL") == "1"
+SKIP_GOOGLE_STACK_HEAL = os.environ.get("STAYTURGID_SKIP_GOOGLE_STACK_HEAL") == "1"
 MAX_LOG_LINES = 2000
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -117,26 +122,30 @@ def write_state(state_file: str, n: int) -> None:
         pass
 
 
-def _heal_stamp(name: str) -> str:
-    return os.path.join(HEAL_STATE_DIR, name)
-
-
-def _heal_cooldown_ok(name: str) -> bool:
-    path = _heal_stamp(name)
+def _heal_cooldown_ok_dir(name: str, state_dir: str, cooldown_sec: int) -> bool:
+    path = os.path.join(state_dir, name)
     try:
         age = datetime.datetime.now().timestamp() - os.path.getmtime(path)
-        return age >= WATCHDOG_HEAL_COOLDOWN_SEC
+        return age >= cooldown_sec
     except OSError:
         return True
 
 
-def _touch_heal(name: str) -> None:
+def _touch_heal_dir(name: str, state_dir: str) -> None:
     try:
-        os.makedirs(HEAL_STATE_DIR, exist_ok=True)
-        with open(_heal_stamp(name), "w") as f:
+        os.makedirs(state_dir, exist_ok=True)
+        with open(os.path.join(state_dir, name), "w") as f:
             f.write(str(int(datetime.datetime.now().timestamp())))
     except OSError:
         pass
+
+
+def _heal_cooldown_ok(name: str) -> bool:
+    return _heal_cooldown_ok_dir(name, HEAL_STATE_DIR, WATCHDOG_HEAL_COOLDOWN_SEC)
+
+
+def _touch_heal(name: str) -> None:
+    _touch_heal_dir(name, HEAL_STATE_DIR)
 
 
 def maybe_heal_watchdog(name: str, issues: list[str], fails: int) -> None:
@@ -182,12 +191,61 @@ def maybe_heal_watchdog(name: str, issues: list[str], fails: int) -> None:
         log("%s watchdog heal error: %s" % (name, e))
 
 
+def maybe_heal_hd8_google_stack(name: str) -> None:
+    """Pin sideloaded GMS when Play Store auto-updated past Fire-compatible builds."""
+    if SKIP_HEALTH or SKIP_GOOGLE_STACK_HEAL or name != "hd8":
+        return
+    if not _heal_cooldown_ok_dir(
+        name, GOOGLE_HEAL_STATE_DIR, GOOGLE_STACK_HEAL_COOLDOWN_SEC
+    ):
+        return
+
+    def _run(cmd):
+        r = subprocess.run(cmd, capture_output=True, text=True)
+        return r.returncode, r.stdout or "", r.stderr or ""
+
+    try:
+        serial = dev.resolve_adb(name)
+    except Exception as e:  # noqa: BLE001
+        log("%s google-stack heal skipped (adb): %s" % (name, e))
+        return
+    gms_ver = hgs.package_version_code(_run, serial, hgs.GMS_PKG)
+    if not hgs.needs_gms_downgrade(gms_ver):
+        hgs.ensure_doze_whitelist(_run, serial)
+        return
+    log(
+        "%s google-stack heal: GMS versionCode=%s > %s — pinning Fire-Tools stack"
+        % (name, gms_ver, hgs.MAX_GMS_VERSION_CODE)
+    )
+    try:
+        result = hgs.repair_if_needed(_run, serial)
+        _touch_heal_dir(name, GOOGLE_HEAL_STATE_DIR)
+        new_ver = result.get("gms_version")
+        log("%s google-stack heal done gms versionCode=%s" % (name, new_ver))
+        if hgs.needs_gms_downgrade(new_ver):
+            notify(
+                "stayturgid heal",
+                "%s GMS still too new (%s) — set Play Store: no auto-update"
+                % (name, new_ver),
+                sound="Basso",
+            )
+        else:
+            notify(
+                "stayturgid heal",
+                "%s Google Play Services pinned (%s)" % (name, new_ver),
+            )
+    except Exception as e:  # noqa: BLE001
+        log("%s google-stack heal error: %s" % (name, e))
+
+
 def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     state_file = os.path.join(STATE_DIR, name)
     path, report = fh.probe_device(name, ts_ip, lan_ip)
     if not path:
         log("%s unreachable — skip soft health (see access-monitor)" % name)
         return
+
+    maybe_heal_hd8_google_stack(name)
 
     issues = fh.evaluate_health(report, alias=name)
     summary = fh.summarize(report, issues)
