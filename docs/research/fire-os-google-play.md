@@ -43,7 +43,9 @@ Doze whitelist alone does **not** fix the broadcast permission crash.
 3. **Disable Play Store auto-updates** (UI): Play Store → Settings → Network
    preferences → Auto-update apps → **Don't auto-update apps**
 
-   Verify (optional, Mac UI-TARS): `STAYTURGID_VLM=1 make verify-play-autoupdate HOSTS=hd8`
+   Verify (optional, Mac UI-TARS): `make verify-hd8-google HOSTS=hd8` (full
+   close-out: versions + crash dialog + auto-update). Play-only:
+   `make verify-play-autoupdate HOSTS=hd8`
 
 Fleet automation:
 
@@ -56,7 +58,8 @@ Downloads [Fire-Tools](https://github.com/mrhaydendp/Fire-Tools) GApps once to
 `~/.cache/stayturgid/fire-tools/`, reinstalls pinned splits, applies whitelist.
 
 Mac launchd (`fleet_health_monitor.py`) rate-limits the same repair when hd8 GMS
-`versionCode` exceeds **250000000** (26.x line).
+`versionCode` exceeds **250000000** (26.x line), then runs VLM close-out when
+`llama-server` is healthy (6h cooldown). See [VLM.md](../../VLM.md).
 
 ## Prevention
 
