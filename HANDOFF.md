@@ -18,9 +18,11 @@ use this order (least disruptive / best lab device first):
 Use **all** hosts when the task requires fleet-wide validation. Examples:
 
 ```bash
+make help                         # list common commands
+make health                       # session start (agents)
 make verify HOSTS=s24
-./mac/deploy_fleet.py s24
-CHECK=1 ./mac/deploy_fleet.py s24
+make deploy HOSTS=s24
+make deploy-check HOSTS=s24       # dry run (same as CHECK=1 make deploy)
 ```
 
 Announce before live deploy when someone may be on the device:
@@ -160,8 +162,9 @@ See [OPTIONS.md](OPTIONS.md).
 **Next work:** [OPTIONS.md](OPTIONS.md) — open items only. Human unlocks: [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md).
 
 **Deploy / test:**
-- Deploy: `./mac/deploy_fleet.py`. Verify: `make verify HOSTS=<host>`.
+- Deploy: `make deploy [HOSTS=<host>]`. Verify: `make verify HOSTS=<host>`.
 - Test (no device): `make test`. First run: `make test-venv`. CI runs `make test` on push.
+- All commands: `make help`.
 
 ---
 

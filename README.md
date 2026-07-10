@@ -41,7 +41,9 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 4. Obtainium catalog — [obtainium/README.md](obtainium/README.md)
 5. Mac — [mac/README.md](mac/README.md) (ADB reconnect + access monitor)
 
-**One command (fleet):** `./mac/deploy_fleet.py` — Termux, AutoJs6, Obtainium, Tailscale, optional ensure_apps.
+**One command (fleet):** `make deploy` — Termux, AutoJs6, Obtainium, Tailscale, optional ensure_apps.
+
+(`./mac/deploy_fleet.py` is the same; `make help` lists all targets.)
 
 Neo Store / Aurora Store are **parked** (not in active deploy); see [fdroid/README.md](fdroid/README.md) and [play/README.md](play/README.md) to re-enable.
 

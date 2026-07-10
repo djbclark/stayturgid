@@ -29,4 +29,4 @@ if [ "${fail:-0}" = 1 ]; then
     rm -f "$out"
     exit 1
 fi
-echo "wrote $out — next: make check | make test | make verify"
+echo "wrote $out — next: make help | make test | make verify"
