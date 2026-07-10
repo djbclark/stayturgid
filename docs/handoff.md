@@ -43,6 +43,7 @@ when AutoJs6 stalls or a11y drifts — the Mac log is the signal.
 make health
 python3 control/bin/screen_lease.py status   # cross-project glass holds (esp. p7a)
 # Optional when touching VLM: make vlm-upstream-check  # RQS VLM.md best practices
+# Optional when touching phone→Mac et: make check-et-mac
 ```
 
 | Exit | Meaning | Your job |

@@ -133,6 +133,18 @@ stayturgid_ssh_mesh_device_identity: true
 stayturgid_ssh_device_identity_key: id_ed25519_fleet
 stayturgid_ssh_mesh_known_hosts: true
 
+# Phone → Mac Eternal Terminal (et). SSH config + optional et package.
+# IPs/user from inventory: stayturgid_control_* or stayturgid_mac_peer.
+stayturgid_control_et_enabled: true
+stayturgid_control_et_install_pkg: true
+stayturgid_control_et_port: 2022
+stayturgid_control_ssh_identity: "{{ stayturgid_ssh_device_identity_key }}"
+stayturgid_control_ssh_aliases:
+  - mac
+  - macbook
+# stayturgid_control_tailscale_ip / stayturgid_control_lan_ip / stayturgid_control_ssh_user
+# are site inventory vars (see ansible/inventory/group_vars/stayturgid.yml).
+
 # Pin a single reliable mirror instead of Termux's random per-run rotation:
 # deterministic + avoids the intermittent "Mirror sync in progress" failures.
 # packages-cf.termux.dev is the official Cloudflare CDN (highest default weight).

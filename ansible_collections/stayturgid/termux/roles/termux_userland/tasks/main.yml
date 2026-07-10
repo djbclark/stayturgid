@@ -43,6 +43,10 @@
   ansible.builtin.include_tasks: ssh_keys.yml
   when: _termux_home_stat.stat.exists
 
+- name: Configure phone→Mac Eternal Terminal SSH (control ET)
+  ansible.builtin.include_tasks: control_et.yml
+  when: _termux_home_stat.stat.exists
+
 # Single-root layout: all stayturgid files live under ~/.stayturgid (private)
 # and /sdcard/stayturgid (shared). Create the tree up front; every runtime
 # writer also mkdir -p's on demand so a user-deleted dir self-heals.

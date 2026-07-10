@@ -316,6 +316,51 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
         notify("stayturgid health", "%s: %s" % (name, detail), sound="Basso")
 
 
+ET_MAC_HEAL_STATE = os.path.join(ROOT, "state", "et-mac-ensure")
+ET_MAC_HEAL_COOLDOWN_SEC = 30 * 60  # re-sync fleet keys on Mac at most 2×/hour
+
+
+def maybe_ensure_et_mac() -> None:
+    """Idempotent phone→Mac ET authorized_keys reconcile (marked block).
+
+    Collects fleet pubs when hosts are up and rewrites STAYTURGID-ET-MAC.
+    Does not touch peer-help ForceCommand lines. Rate-limited.
+    """
+    if SKIP_HEALTH or os.environ.get("STAYTURGID_SKIP_ET_MAC") == "1":
+        return
+    stamp = os.path.join(ET_MAC_HEAL_STATE, "last")
+    try:
+        age = datetime.datetime.now().timestamp() - os.path.getmtime(stamp)
+        if age < ET_MAC_HEAL_COOLDOWN_SEC:
+            return
+    except OSError:
+        pass
+    script = os.path.join(REPO, "control", "bin", "ensure_et_mac.py")
+    if not os.path.isfile(script):
+        return
+    try:
+        r = subprocess.run(
+            [sys.executable, script],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            env={
+                **os.environ,
+                "PATH": "/opt/homebrew/bin:/usr/local/bin:" + os.environ.get("PATH", ""),
+            },
+        )
+        detail = ((r.stdout or "") + (r.stderr or "")).strip().replace("\n", " | ")
+        log("et-mac ensure rc=%s %s" % (r.returncode, detail[:400]))
+        try:
+            os.makedirs(ET_MAC_HEAL_STATE, exist_ok=True)
+            with open(stamp, "w") as f:
+                f.write(str(int(datetime.datetime.now().timestamp())))
+        except OSError:
+            pass
+    except (OSError, subprocess.TimeoutExpired) as e:
+        log("et-mac ensure error: %s" % e)
+
+
 def main() -> int:
     if SKIP_HEALTH:
         return 0
@@ -323,6 +368,7 @@ def main() -> int:
         return 0
     os.makedirs(STATE_DIR, exist_ok=True)
     trim_log()
+    maybe_ensure_et_mac()
     for name, ts_ip, lan_ip in read_devices(CONF):
         try:
             check_device(name, ts_ip, lan_ip)

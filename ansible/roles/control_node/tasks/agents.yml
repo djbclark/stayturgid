@@ -196,6 +196,48 @@
     - (item.stdout | trim | length) > 0
     - not (item.failed | default(false))
 
+# Phone → Mac Eternal Terminal: unrestricted fleet keys in marked AK block.
+# Does not touch peer-help ForceCommand lines (separate from STAYTURGID-ET-MAC).
+- name: Ensure phone→Mac ET fleet keys on Mac authorized_keys
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_python_interpreter | default('python3') }}"
+      - "{{ stayturgid_repo_root | realpath }}/control/bin/ensure_et_mac.py"
+      - "--user"
+      - "{{ stayturgid_control_et_user | default(lookup('env', 'USER')) }}"
+      - "--et-port"
+      - "{{ stayturgid_control_et_port | default(2022) | string }}"
+  environment:
+    PATH: "/opt/homebrew/bin:/usr/local/bin:{{ lookup('env', 'PATH') }}"
+    STAYTURGID_CONTROL_ET_USER: "{{ stayturgid_control_et_user | default(lookup('env', 'USER')) }}"
+    STAYTURGID_CONTROL_ET_PORT: "{{ stayturgid_control_et_port | default(2022) | string }}"
+    STAYTURGID_CONTROL_TAILSCALE_IP: >-
+      {{
+        stayturgid_control_tailscale_ip
+        | default(hostvars[groups['stayturgid'][0]].stayturgid_control_tailscale_ip
+                  | default(hostvars[groups['stayturgid'][0]].stayturgid_mac_peer.tailscale
+                            | default('')), true)
+      }}
+    STAYTURGID_CONTROL_LAN_IP: >-
+      {{
+        stayturgid_control_lan_ip
+        | default(hostvars[groups['stayturgid'][0]].stayturgid_control_lan_ip
+                  | default(hostvars[groups['stayturgid'][0]].stayturgid_mac_peer.lan
+                            | default('')), true)
+      }}
+  register: _ensure_et_mac
+  changed_when: >-
+    'authorized_keys updated' in (_ensure_et_mac.stdout | default(''))
+  failed_when: false
+  when: stayturgid_control_et_enabled | default(true) | bool
+
+- name: Show ensure_et_mac result
+  ansible.builtin.debug:
+    msg: "{{ _ensure_et_mac.stdout_lines | default([]) }}"
+  when:
+    - stayturgid_control_et_enabled | default(true) | bool
+    - _ensure_et_mac is defined
+
 - name: Configure Hermes Agent + Telegram gateway
   ansible.builtin.include_tasks: hermes.yml
   tags: [mac, agents, hermes]

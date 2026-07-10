@@ -105,7 +105,41 @@ Disable: `-e stayturgid_hermes_enabled=false` or `stayturgid_hermes_gateway_enab
 **Soft health** (`fleet_health_monitor.py`): when reachable, scrapes watchdog/repair
 ages, STATUS `port`/`shizuku`/`a11y`, AutoJs6 + profile a11y drift, boot loop,
 `localhost:5555` shell. Always logs; macOS notify after ~10 min debounce.
-Disable with `STAYTURGID_SKIP_HEALTH=1`. Does not mutate devices.
+Also rate-limits `ensure_et_mac.py` (phone→Mac fleet keys). Disable with
+`STAYTURGID_SKIP_HEALTH=1` or `STAYTURGID_SKIP_ET_MAC=1`. Does not mutate devices
+except ET authorized_keys reconcile + existing watchdog/Google heals.
+
+### Phone → Mac Eternal Terminal
+
+Phones use **Eternal Terminal** (`et`) to the Mac control node’s `etserver`
+(Homebrew LaunchDaemon `homebrew.mxcl.et`, port **2022**). The client always
+**bootstraps over SSH** first — TCP 2022 alone is not enough.
+
+| Piece | Where | What |
+|-------|--------|------|
+| Fleet pubkeys on Mac | `~/.ssh/authorized_keys` marked `# BEGIN/END STAYTURGID-ET-MAC` | Unrestricted `id_ed25519_fleet` from each host |
+| Peer-help keys | Same file, **outside** the block | ForceCommand `fire_peer_help.py` — never overwritten by ET ensure |
+| Device SSH config | Termux `~/.ssh/config` markers `STAYTURGID-CONTROL-ET` | `Host mac …` → Tailscale IP, `IdentityFile ~/.ssh/id_ed25519_fleet` |
+| Self-heal Mac | `control/bin/ensure_et_mac.py` via `make deploy-mac` / fleet-health | Re-collects pubs + rewrites marked block |
+| Self-heal device | `stayturgid_repair` + share file | Restores config from `~/.stayturgid/share/ssh-config-control-et` |
+| Inventory | `stayturgid_control_*` / `stayturgid_mac_peer` in `group_vars/stayturgid.yml` | User, Tailscale IP, LAN IP, et port |
+
+```bash
+# Control node (idempotent)
+python3 control/bin/ensure_et_mac.py
+python3 control/bin/check_et_mac.py
+python3 control/bin/check_et_mac.py --probe-host s24
+
+# From Termux (after deploy-termux)
+et mac
+et -c 'hostname; whoami' mac
+ssh -o BatchMode=yes mac true
+```
+
+**Passphrase policy:** phone→Mac must use a **non-passphrase** key
+(`id_ed25519_fleet`). Passphrase-protected `id_ed25519` breaks BatchMode/et.
+Do **not** use `et --macserver` on Apple Silicon Homebrew (wrong
+`/usr/local/bin/etterminal` path); Mac `~/.zshenv` Homebrew PATH is enough.
 
 **Agents — session start:** `make health` — if exit ≠ 0,
 surface host/`issues=` to the operator immediately (see HANDOFF § Mac fleet health).

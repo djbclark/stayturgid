@@ -1,0 +1,25 @@
+{# Phone → Mac control node: Eternal Terminal bootstrap + BatchMode SSH.
+   Identity must be passphrase-less fleet key (id_ed25519_fleet). -#}
+{% set et_user = stayturgid_control_ssh_user | default(stayturgid_mac_peer.user | default('djbclark')) -%}
+{% set ts_ip = stayturgid_control_tailscale_ip | default(stayturgid_mac_peer.tailscale | default('')) -%}
+{% set lan_ip = stayturgid_control_lan_ip | default(stayturgid_mac_peer.lan | default('')) -%}
+{% set ident = stayturgid_control_ssh_identity | default(stayturgid_ssh_device_identity_key | default('id_ed25519_fleet')) -%}
+{% set aliases = stayturgid_control_ssh_aliases | default(['mac', 'macbook']) -%}
+{% set host_tokens = (aliases + [ts_ip] + ([lan_ip] if lan_ip else [])) | select | unique | list -%}
+Host {{ host_tokens | join(' ') }}
+    HostName {{ ts_ip }}
+    User {{ et_user }}
+    IdentityFile ~/.ssh/{{ ident }}
+    IdentitiesOnly yes
+    PreferredAuthentications publickey
+    StrictHostKeyChecking accept-new
+{% if lan_ip and lan_ip != ts_ip %}
+
+Host mac-lan
+    HostName {{ lan_ip }}
+    User {{ et_user }}
+    IdentityFile ~/.ssh/{{ ident }}
+    IdentitiesOnly yes
+    PreferredAuthentications publickey
+    StrictHostKeyChecking accept-new
+{% endif %}

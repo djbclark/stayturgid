@@ -29,7 +29,8 @@ VLM_ANSIBLE := ansible-playbook $(MAC_SITE) -e stayturgid_vlm_enabled=true
         health fix-hd8-google deploy deploy-check collections bootstrap-ssh deploy-termux deploy-mac syntax \
         termux-pkg-upgrade vlm-upstream-check \
         vlm-install vlm-server vlm-check vlm-stop vlm-service-install vlm-service-status \
-        vlm-service-stop vlm-service-restart vlm-smoke verify-play-autoupdate verify-hd8-google
+        vlm-service-stop vlm-service-restart vlm-smoke verify-play-autoupdate verify-hd8-google \
+        ensure-et-mac check-et-mac
 
 # ------------------------------------------------------------------------------
 # Help
@@ -50,6 +51,8 @@ help:
 	@echo "  make bootstrap-ssh [HOSTS=s24]    ADB bootstrap Termux SSH keys + sshd"
 	@echo "  make health                     Mac fleet-health summary (exit 1 = tell operator)"
 	@echo "  make fix-hd8-google             Pin sideloaded GMS/Play on Fire hd8 (see docs)"
+	@echo "  make ensure-et-mac              Phone→Mac ET: fleet keys in authorized_keys"
+	@echo "  make check-et-mac               Soft-check etserver + fleet key block"
 	@echo "  make verify-play-autoupdate     Play Store auto-update VLM check (STAYTURGID_VLM=1)"
 	@echo "  make verify-hd8-google          Stack + crash + auto-update close-out (hd8)"
 	@echo "  make collections                Install ansible-galaxy collections"
@@ -110,6 +113,13 @@ bootstrap-ssh:
 
 health:
 	python3 control/bin/check_fleet_health.py
+
+# Phone→Mac Eternal Terminal (fleet keys + etserver soft check)
+ensure-et-mac:
+	python3 control/bin/ensure_et_mac.py
+
+check-et-mac:
+	python3 control/bin/check_et_mac.py
 
 fix-hd8-google:
 	python3 control/bin/fix_hd8_google_stack.py hd8

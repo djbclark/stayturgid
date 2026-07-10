@@ -254,6 +254,54 @@ def acquire_lock():
         return None
 
 
+def ensure_control_et_ssh_config():
+    """Restore phone→Mac ET Host block from deploy share if markers missing.
+
+    Deploy plants ~/.stayturgid/share/ssh-config-control-et. Cheap no-op when
+    inventory never shipped the fragment.
+    """
+    share = os.path.join(STG, "share", "ssh-config-control-et")
+    conf = os.path.join(HOME, ".ssh", "config")
+    if not os.path.isfile(share):
+        return "skip"
+    try:
+        with open(share) as f:
+            fragment = f.read().strip()
+    except OSError:
+        return "skip"
+    if not fragment or "Host " not in fragment:
+        return "skip"
+    # Ansible blockinfile marker "# {mark} STAYTURGID-CONTROL-ET"
+    alt_begin = "# BEGIN STAYTURGID-CONTROL-ET"
+    alt_end = "# END STAYTURGID-CONTROL-ET"
+    try:
+        existing = ""
+        if os.path.isfile(conf):
+            with open(conf) as f:
+                existing = f.read()
+    except OSError:
+        existing = ""
+    if "STAYTURGID-CONTROL-ET" in existing and "IdentityFile" in existing:
+        return "up"
+    block = "%s\n%s\n%s\n" % (alt_begin, fragment, alt_end)
+    try:
+        os.makedirs(os.path.dirname(conf), exist_ok=True)
+        if existing and not existing.endswith("\n"):
+            existing += "\n"
+        # Drop a stale partial Host mac without our markers
+        with open(conf, "w") as f:
+            f.write(existing)
+            if existing and not existing.endswith("\n"):
+                f.write("\n")
+            f.write(block)
+        os.chmod(conf, 0o600)
+        log("control-ET ssh config restored from share")
+        return "repaired"
+    except OSError as e:
+        log("control-ET ssh config restore FAILED: %s" % e)
+        return "FAILED"
+
+
 def main():
     try:
         os.makedirs(TMPDIR, exist_ok=True)
@@ -340,8 +388,11 @@ def main():
                     a11y = "FAILED"
                     log("AutoJs6 accessibility re-enable FAILED")
 
-    status = "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s" % (
-        port, shizuku, sshd, a11y, "yes" if have_sh else "no", wifi)
+    # --- 5. phone→Mac Eternal Terminal SSH config (share-backed self-heal) ---
+    et_cfg = ensure_control_et_ssh_config()
+
+    status = "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s" % (
+        port, shizuku, sshd, a11y, "yes" if have_sh else "no", wifi, et_cfg)
     log(status + " rc=%d" % rc)
     print(status)
     return rc

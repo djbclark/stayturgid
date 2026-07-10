@@ -9,10 +9,24 @@
 # Mac as last peer for Fire Handsets/Shizuku bootstrap (device → Mac SSH).
 stayturgid_mac_peer:
   tailscale: "100.113.53.87"
-  lan: "192.168.68.69"
+  lan: "192.168.68.59"
   user: "djbclark"
   port: 22
   help_cmd: "python3 /Users/djbclark/stayturgid/control/bin/fire_peer_help.py"
+
+# Phone → Mac Eternal Terminal (et). Shared with stayturgid_mac_peer IPs.
+# Devices get ~/.ssh/config Host mac … IdentityFile id_ed25519_fleet (passphrase-less).
+# Mac authorized_keys STAYTURGID-ET-MAC block: control/bin/ensure_et_mac.py + deploy-mac.
+stayturgid_control_et_enabled: true
+stayturgid_control_et_port: 2022
+stayturgid_control_ssh_user: "djbclark"
+stayturgid_control_tailscale_ip: "{{ stayturgid_mac_peer.tailscale }}"
+stayturgid_control_lan_ip: "{{ stayturgid_mac_peer.lan }}"
+stayturgid_control_ssh_aliases:
+  - mac
+  - macbook
+  - djbclarks-macbook-air
+  - djbclarks-MacBook-Air.local
 
 # Neo Store + Aurora Store are PARKED (2026-07-09): not installed, configured, or
 # health-checked by fleet deploy. Apps may remain on devices from earlier deploys.

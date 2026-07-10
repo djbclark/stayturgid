@@ -24,6 +24,14 @@ stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
 ssh_config_dir: "{{ lookup('env', 'HOME') }}/.ssh"
 ssh_config_fragment: "{{ lookup('env', 'HOME') }}/.ssh/config.d/stayturgid"
 
+# Phone → Mac Eternal Terminal: fleet keys in ~/.ssh/authorized_keys (marked block).
+stayturgid_control_et_enabled: true
+stayturgid_control_et_port: 2022
+# Optional overrides (empty = ensure_et_mac.py auto-detects Tailscale/LAN).
+stayturgid_control_tailscale_ip: ""
+stayturgid_control_lan_ip: ""
+stayturgid_control_et_user: "{{ lookup('env', 'USER') }}"
+
 # Homebrew install path (Apple Silicon default; Intel uses /usr/local).
 stayturgid_homebrew_prefix: >-
   {{
