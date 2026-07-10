@@ -60,6 +60,19 @@ def test_same_project_renews(lease_dir):
     assert dsl.find_active_lease("s24")["holder"]["agent"] == "b"
 
 
+def test_same_project_different_session_blocks(lease_dir, monkeypatch):
+    """Peer stayturgid jobs (different process) must not silent-takeover (M2)."""
+    monkeypatch.setenv("DEVICE_SCREEN_CONTROL_WAIT_SEC", "0")
+    a = dsl.acquire("s24", purpose="one", agent="a", session_id="sess-a")
+    assert a["holder"]["session_id"] == "sess-a"
+    holder_pid = a.get("holder", {}).get("pid") or os.getpid()
+    # Same pytest process would match pid renew; simulate a peer process.
+    monkeypatch.setattr(os, "getpid", lambda: int(holder_pid) + 9001)
+    with pytest.raises(dsl.LeaseConflict):
+        dsl.acquire("s24", purpose="two", agent="b", session_id="sess-b")
+    assert dsl.find_active_lease("s24")["holder"]["session_id"] == "sess-a"
+
+
 def test_heartbeat_extends(lease_dir):
     lease = dsl.acquire("hd8", ttl_sec=120)
     exp1 = lease["expires_at"]

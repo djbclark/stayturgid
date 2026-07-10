@@ -45,9 +45,9 @@ IP_PORT_RE = re.compile(r"\d+\.\d+\.\d+\.\d+:\d+")
 def ts():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+
 def _applescript_escape(s):
     return str(s).replace("\\", "\\\\").replace('"', '\\"')
-
 
 
 def _ensure(path):

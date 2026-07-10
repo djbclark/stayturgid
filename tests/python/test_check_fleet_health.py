@@ -61,9 +61,11 @@ def test_main_ok_with_stale_access_lost(tmp_path, monkeypatch, capsys):
     access = tmp_path / "logs" / "access-monitor.log"
     log.parent.mkdir(parents=True)
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    # Within the default --hours window (relative, not a hard-coded date).
+    old = (dt.datetime.now() - dt.timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
     log.write_text("%s  s24 via adb:1.2.3.4:5555: sshd=ok issues=none\n" % now)
     access.write_text(
-        "2026-07-09 08:42:17  s24 unreachable on all paths (consecutive: 2)\n"
+        "%s  s24 unreachable on all paths (consecutive: 2)\n" % old
     )
     state = tmp_path / "state" / "fleet-health"
     state.mkdir(parents=True)

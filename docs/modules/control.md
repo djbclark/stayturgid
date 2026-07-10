@@ -2,7 +2,7 @@
 
 Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 
-**Full project:** [../README.md](../README.md)
+**Full project:** [../../README.md](../../README.md)
 
 ## What this module does
 
@@ -153,6 +153,6 @@ Other subprojects resolve adb targets via [control/lib/stayturgid_device.py](../
 
 ## Related docs
 
-- [README.md § Full stack](../README.md)
+- [README.md § Full stack](../../README.md)
 - [docs/modules/termux.md](termux.md) — device-side sshd (SSH probe in access_monitor)
 - [control/tools/autojs6/](../../control/tools/autojs6) — AutoJs6 deploy scripts

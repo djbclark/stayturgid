@@ -823,8 +823,9 @@ device/autojs6/
 control/tools/autojs6/                    — deploy.py, setup_autojs6.py, grant_shizuku.py, start_watchdog.py
 device/termux/
   boot/start-adb.sh                     — deploy to ~/.termux/boot/ on device
-  stayturgid_repair.py                  — Termux-side self-heal
-  stayturgid_check_repo_version.py      — optional update notifier (Python)
+  py/stayturgid_repair.py               — Termux-side self-heal
+  py/stayturgid_check_repo_version.py   — optional update notifier (Python)
+  py/stayturgid_screen_control.py       — on-device consent / inversion / portrait
 ansible/                                — idempotent Termux userland deploy
 control/bin/                            — adb_reconnect.py, access_monitor.py (launchd via control_node/agents)
 catalogs/obtainium/                     — APK tracking catalogs

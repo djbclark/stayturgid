@@ -41,9 +41,9 @@ SSH_PORT = 8022
 def ts():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+
 def _applescript_escape(s):
     return str(s).replace("\\", "\\\\").replace('"', '\\"')
-
 
 
 def _ensure(path):
@@ -74,9 +74,12 @@ def trim_log(max_lines=1000):
 
 
 def notify(title, message, sound=None):
-    script = 'display notification "%s" with title "%s"' % (_applescript_escape(message), _applescript_escape(title))
+    script = 'display notification "%s" with title "%s"' % (
+        _applescript_escape(message),
+        _applescript_escape(title),
+    )
     if sound:
-        script += ' sound name "%s"' % sound
+        script += ' sound name "%s"' % _applescript_escape(sound)
     try:
         subprocess.run(["osascript", "-e", script], capture_output=True, timeout=10)
     except (OSError, subprocess.TimeoutExpired):

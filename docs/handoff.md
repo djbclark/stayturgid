@@ -223,7 +223,7 @@ See [docs/options.md](options.md).
 - Ansible: `control_node` role extracted; canonical playbooks under `playbooks/fleet/` +
   `playbooks/control_node/`; flat playbook shims removed (OPTIONS 62 closed) — entry is `site.yml` only.
 - `launchd_ensure` idempotency (probe `launchctl` before reload).
-- OPTIONS **62** expanded: shim inventory + post-shim directory cleanup.
+- OPTIONS **62** closed: flat playbook shims removed (keep `site.yml` + `fleet/` + `control_node/`).
 - Pushed to GitHub; remote verified clean of legacy root dirs.
 
 **Recent landings (2026-07-09 night — Ansible batch):**

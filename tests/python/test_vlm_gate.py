@@ -34,6 +34,12 @@ def test_parse_json_blob_embedded():
 
 def test_verify_skipped_when_disabled(monkeypatch, tmp_path):
     monkeypatch.setenv("STAYTURGID_VLM", "0")
+    # Host may have real cloud keys; isolate so "disabled" means no backends.
+    monkeypatch.setenv("STAYTURGID_VLM_CLOUD", "off")
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    if vlm.cloud is not None:
+        monkeypatch.setattr(vlm.cloud, "cloud_enabled", lambda: False)
     shot = tmp_path / "x.png"
     shot.write_bytes(b"png")
     gate = vlm.VlmGate(autostart=False)
@@ -118,10 +124,14 @@ def test_ensure_server_kickstarts_launchd(monkeypatch, tmp_path):
 def test_verify_strict_unavailable(monkeypatch, tmp_path):
     monkeypatch.setenv("STAYTURGID_VLM", "1")
     monkeypatch.setenv("STAYTURGID_VLM_STRICT", "1")
+    monkeypatch.setenv("STAYTURGID_VLM_CLOUD", "off")
+    if vlm.cloud is not None:
+        monkeypatch.setattr(vlm.cloud, "cloud_enabled", lambda: False)
     shot = tmp_path / "x.png"
     shot.write_bytes(b"png")
     gate = vlm.VlmGate(autostart=False)
     gate.ready = False
+    gate.cloud_ready = False
     ok, detail = gate.verify(shot, "play_autoupdate_dont")
     assert ok is False
     assert detail.get("reason") == "vlm_unavailable" or detail.get("skipped")

@@ -373,8 +373,11 @@ Landed on `master` in the same workstream as this review's nuance pass:
 | Code L3 | **Fixed** — single `ss` invoke in `sshd_listening` |
 | Docs H1 | **Fixed** — relative links under `docs/` (0 broken at re-check) |
 | Docs H2 | **Fixed** — OPTIONS 62 closed consistently (handoff + human) |
+| Docs M1 | **Fixed** — `control.md` / `termux.md` Full project → repo root README |
 | Docs M2/M5/M6 | **Partial** — lib README expanded; docs index + portrait note |
-| Remaining L/M | Opportunistic (coords, handsets daemon, Fire-Tools race, collection stubs) |
+| Docs M4 | **Fixed** — hacking tree shows `device/termux/py/` |
+| Follow-up | Lease flock also covers heartbeat/release; same-project peer no silent-takeover test; session unit tests isolate DSCL dir; access LOST test uses relative timestamps |
+| Remaining L/M | Opportunistic (coords, handsets daemon, Fire-Tools race, collection stubs, bin inventory) |
 
 ## Changelog of this document
 
@@ -383,3 +386,4 @@ Landed on `master` in the same workstream as this review's nuance pass:
 | 2026-07-10 | Initial combined code + docs review against tree tip `1d2df1a`; file first published on `bccc3b3` |
 | 2026-07-10 | Implemented Code H1/M1–M6 + L2/L3, Docs H1/H2, partial docs M; see Implementation status |
 | 2026-07-10 | Operator nuance pass: tip vs doc tip note; M1 “stale looks clean” (not age=0) + portability; H1 STATUS omits `a11y=`/schema drift; pytest venv environment-specific; planning order Code H1 → Docs H2 → links → M1/M5/M2–M4 |
+| 2026-07-10 | Post-implementation pass: lease lock on heartbeat/release + docstring; docs M1/M4; handoff OPTIONS 62 wording; test isolation (lease/VLM/access timestamps) |

@@ -2,7 +2,7 @@
 
 Scripts that run **on the phone** inside Termux. Usable without AutoJs6 or Ansible if you deploy manually.
 
-**Full project:** [../README.md](../README.md)
+**Full project:** [../../README.md](../../README.md)
 
 ## What this module does
 

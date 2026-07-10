@@ -132,8 +132,12 @@ def test_restore_foreground_app_am_start(monkeypatch):
     assert "com.discord/.MainActivity" in calls[0]
 
 
-def test_session_restores_prior_screen_on_exit(monkeypatch):
+def test_session_restores_prior_screen_on_exit(monkeypatch, tmp_path):
     restored = []
+    # Isolate DSCL so a real foreign lease on the host cannot block the unit test.
+    monkeypatch.setenv("DEVICE_SCREEN_CONTROL_DIR", str(tmp_path / "dsc"))
+    monkeypatch.setenv("DEVICE_SCREEN_CONTROL_PROJECT", "stayturgid")
+    monkeypatch.setenv("DEVICE_SCREEN_CONTROL_WAIT_SEC", "0")
     session = sc.ScreenControlSession("s24", skip_request=True)
     session._skip = True
     monkeypatch.setattr(
@@ -157,14 +161,19 @@ def test_session_restores_prior_screen_on_exit(monkeypatch):
     )
     monkeypatch.setattr(sc.ScreenControlSession, "_start_keepalive", lambda self: None)
     monkeypatch.setattr(sc.ScreenControlSession, "_stop_keepalive_thread", lambda self: None)
+    monkeypatch.setattr(sc.dev, "device_row", lambda *a, **k: None)
+    monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-s24")
     session.__enter__()
     assert session._saved_component == "com.discord/.MainActivity"
     session.__exit__(None, None, None)
     assert restored == ["com.discord/.MainActivity"]
 
 
-def test_session_fails_closed_when_presence_on_missing(monkeypatch):
+def test_session_fails_closed_when_presence_on_missing(monkeypatch, tmp_path):
     """rc 127 from agent-presence on must abort (not warn-and-continue)."""
+    monkeypatch.setenv("DEVICE_SCREEN_CONTROL_DIR", str(tmp_path / "dsc"))
+    monkeypatch.setenv("DEVICE_SCREEN_CONTROL_PROJECT", "stayturgid")
+    monkeypatch.setenv("DEVICE_SCREEN_CONTROL_WAIT_SEC", "0")
     session = sc.ScreenControlSession("s24", skip_request=True)
     session._skip = False
     monkeypatch.setattr(sc, "_run", lambda *a, **k: type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})())
@@ -174,6 +183,8 @@ def test_session_fails_closed_when_presence_on_missing(monkeypatch):
     monkeypatch.setattr(sc, "get_foreground_component", lambda _s: None)
     monkeypatch.setattr(sc, "set_inversion", lambda _s, en: True)
     monkeypatch.setattr(sc, "ssh_presence", lambda *a, **k: (127, "missing"))
+    monkeypatch.setattr(sc.dev, "device_row", lambda *a, **k: None)
+    monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-s24")
     try:
         session.__enter__()
         assert False, "expected ScreenControlError"

@@ -325,10 +325,11 @@ def acquire(
 ) -> dict[str, Any]:
     """Acquire or renew a lease. Raises LeaseConflict if another holder is active.
 
-    Same project + same process may renew. Same project different session:
-    takes over after warning via return (still succeeds) unless force is false
-    and wait expires — actually same-project takeover is allowed with replace.
-    Cross-project: block unless force or wait until free.
+    May write when free, when renewing the same session_id, when the same
+    process (pid) already holds the lease, or when ``force`` is true.
+    Same project with a *different* session does **not** silent-takeover —
+    wait until free or use force. Cross-project: same (block / wait / force).
+    Check+write runs under an exclusive flock to avoid TOCTOU races.
     """
     force = force_acquire() if force is None else force
     wait = wait_sec() if wait is None else max(0.0, float(wait))
@@ -382,22 +383,23 @@ def heartbeat(
     ttl_sec: int | None = None,
 ) -> dict[str, Any] | None:
     """Extend expires_at if we own the lease. Returns updated lease or None."""
-    lease = find_active_lease(device)
-    if not lease or not ours(lease):
-        return None
-    if session_id and holder_session(lease) and holder_session(lease) != session_id:
-        return None
-    now = _now()
-    ttl = int(ttl_sec or lease.get("ttl_sec") or DEFAULT_TTL_SEC)
-    lease["heartbeat_at"] = _iso(now)
-    lease["expires_at"] = _iso(now + ttl)
-    # Write to the file we found + primary key.
-    path = Path(lease.get("_path") or lease_path(device))
-    clean = {k: v for k, v in lease.items() if not k.startswith("_")}
-    _write_json_atomic(path, clean)
-    if path != lease_path(device):
-        _write_json_atomic(lease_path(device), clean)
-    return clean
+    with _lease_lock():
+        lease = find_active_lease(device)
+        if not lease or not ours(lease):
+            return None
+        if session_id and holder_session(lease) and holder_session(lease) != session_id:
+            return None
+        now = _now()
+        ttl = int(ttl_sec or lease.get("ttl_sec") or DEFAULT_TTL_SEC)
+        lease["heartbeat_at"] = _iso(now)
+        lease["expires_at"] = _iso(now + ttl)
+        # Write to the file we found + primary key.
+        path = Path(lease.get("_path") or lease_path(device))
+        clean = {k: v for k, v in lease.items() if not k.startswith("_")}
+        _write_json_atomic(path, clean)
+        if path != lease_path(device):
+            _write_json_atomic(lease_path(device), clean)
+        return clean
 
 
 def release(
@@ -407,49 +409,50 @@ def release(
     force: bool = False,
 ) -> bool:
     """Clear lease if we own it (or force). Returns True if a file was removed."""
-    removed = False
-    want = {device_key(device), str(device).strip().lower()}
-    targets: list[Path] = [lease_path(device)]
-    for lease in list_leases(active_only=False):
-        ids = lease_device_ids(lease)
-        if not (ids & want):
-            continue
-        if not force and not ours(lease):
-            continue
-        if (
-            not force
-            and session_id
-            and holder_session(lease)
-            and holder_session(lease) != session_id
-        ):
-            continue
-        p = Path(lease.get("_path") or lease_path(device))
-        if p not in targets:
-            targets.append(p)
-        for alt in lease.get("device_ids") or []:
-            ap = lease_path(str(alt))
-            if ap not in targets:
-                targets.append(ap)
-    for p in targets:
-        try:
-            if not p.is_file():
+    with _lease_lock():
+        removed = False
+        want = {device_key(device), str(device).strip().lower()}
+        targets: list[Path] = [lease_path(device)]
+        for lease in list_leases(active_only=False):
+            ids = lease_device_ids(lease)
+            if not (ids & want):
                 continue
-            data = _read_json(p)
-            if data and not force and not ours(data):
+            if not force and not ours(lease):
                 continue
             if (
-                data
-                and not force
+                not force
                 and session_id
-                and holder_session(data)
-                and holder_session(data) != session_id
+                and holder_session(lease)
+                and holder_session(lease) != session_id
             ):
                 continue
-            p.unlink()
-            removed = True
-        except OSError:
-            pass
-    return removed
+            p = Path(lease.get("_path") or lease_path(device))
+            if p not in targets:
+                targets.append(p)
+            for alt in lease.get("device_ids") or []:
+                ap = lease_path(str(alt))
+                if ap not in targets:
+                    targets.append(ap)
+        for p in targets:
+            try:
+                if not p.is_file():
+                    continue
+                data = _read_json(p)
+                if data and not force and not ours(data):
+                    continue
+                if (
+                    data
+                    and not force
+                    and session_id
+                    and holder_session(data)
+                    and holder_session(data) != session_id
+                ):
+                    continue
+                p.unlink()
+                removed = True
+            except OSError:
+                pass
+        return removed
 
 
 def status_lines(device: str | None = None) -> list[str]:
