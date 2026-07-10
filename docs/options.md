@@ -137,6 +137,19 @@ API; Tasker rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal;
 always-on Ollama in Termux:Boot; **any Inferno/`emu`/Styx work** (parked under
 [docs/incubator/inferno-styx/](incubator/inferno-styx)).
 
+### Parked — FIRERPA Integration (paused 2026-07-10)
+
+FIRERPA/lamda integration plan exists at
+`docs/plans/firerpa-integration-plan.md` (9 steps, ~8.5 days).
+Non-root viability research at
+`docs/history/firerpa-nonroot-research-2026-07-10.md`.
+
+**Status: paused.** Key findings: non-root FIRERPA is possible but the
+minority path; our devices are consumer daily drivers, not phone farms.
+The value proposition shrinks without root (lose MITM, Frida, SELinux).
+Revisit when: (a) we need remote desktop + MCP for tablet-control-phone,
+or (b) FIRERPA ships a standalone APK for non-root Shizuku mode.
+
 **Closed (2026-07-09 night):** **60–61** validate role + preflight + `autojs6_project_deploy`;
 `make help`/Makefile ops; `make health` stale LOST fix; docs sweep. **58–59** ADR 002 +
 `android_ui` / `post_ui` / `android_a11y_services`. Neo/Aurora parked.
