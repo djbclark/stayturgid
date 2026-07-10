@@ -288,6 +288,26 @@ presence_suite() {
     tap_like "$(grep 'termux-dialog' "$STUB_LOG")" "has released" \
         "presence[$T]: off pops modal release dialog after a stop"
     unset ADB_FG_PKG ADB_WAKE DIALOG_CHOICE 2>/dev/null || true
+
+    # Quiet mode: no torch / vibrate / dialog / notification on request-screen + on/off
+    reset_sandbox
+    export STAYTURGID_PRESENCE_QUIET=1 DIALOG_CHOICE="no"
+    : > "$STUB_LOG"
+    run_sandboxed "$PRES" request-screen
+    tap_is "$RC" 0 "presence[$T]: quiet request-screen auto-allows (ignores Disallow stub)"
+    tap_is "$(stub_calls 'termux-dialog')" 0 "presence[$T]: quiet request-screen skips dialog"
+    tap_is "$(stub_calls 'termux-vibrate')" 0 "presence[$T]: quiet request-screen skips vibrate"
+    : > "$STUB_LOG"
+    run_sandboxed "$PRES" on "QuietPhone" "QuietAgent"
+    tap_is "$RC" 0 "presence[$T]: quiet on exits 0"
+    tap_is "$(stub_calls 'termux-torch')" 0 "presence[$T]: quiet on skips torch"
+    tap_is "$(stub_calls 'termux-notification ')" 0 "presence[$T]: quiet on skips notification"
+    : > "$STUB_LOG"
+    run_sandboxed "$PRES" off "QuietPhone" "QuietAgent"
+    tap_is "$(stub_calls 'termux-torch')" 0 "presence[$T]: quiet off skips torch"
+    tap_is "$(stub_calls 'termux-vibrate')" 0 "presence[$T]: quiet off skips vibrate"
+    unset STAYTURGID_PRESENCE_QUIET DIALOG_CHOICE
+    unset ADB_FG_PKG ADB_WAKE DIALOG_CHOICE 2>/dev/null || true
 }
 
 # agent-presence migrated to Python (agent-presence.sh is now a compat shim).

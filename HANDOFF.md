@@ -53,12 +53,18 @@ Also skim when the operator asks about fleet status, soak, OPTIONS **43–45**, 
 | Path | What |
 |------|------|
 | `~/.config/stayturgid/logs/fleet-health.log` | Soft health (watchdog, repair, a11y, sshd, bootloop, shell5555) |
+| `~/.config/stayturgid/logs/gui-audit.log` | Nightly quiet Neo/Aurora GUI assertions (`com.stayturgid.gui-audit` @ 03:14) |
 | `~/.config/stayturgid/logs/fire-help.log` | Mac→Fire Shizuku/Handsets help (`com.stayturgid.fire-help`) |
 | `~/.config/stayturgid/logs/access-monitor.log` | Total outage (ADB+SSH all dead) |
 | `~/.config/stayturgid/state/fleet-health/<host>` | Consecutive soft-fail count (≥2 ≈ notified) |
+| `~/.config/stayturgid/artifacts/gui-audit/` | Dated screenshots from GUI audit |
 
-Agents: `com.stayturgid.fleet-health`, `com.stayturgid.access-monitor` (via
-`ansible/playbooks/mac.yml`). Disable soft probes: `STAYTURGID_SKIP_HEALTH=1`.
+Agents: `com.stayturgid.fleet-health`, `com.stayturgid.gui-audit`,
+`com.stayturgid.access-monitor` (via `ansible/playbooks/mac.yml`). Disable soft
+probes: `STAYTURGID_SKIP_HEALTH=1`. GUI audit uses `STAYTURGID_PRESENCE_QUIET=1`
+(no torch/sound). Unreachable hosts are skipped, not fatal.
+
+Mac→Android UI playbook: [docs/research/mac-android-ui-automation.md](docs/research/mac-android-ui-automation.md).
 
 ### How to talk about problems
 

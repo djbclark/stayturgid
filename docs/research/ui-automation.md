@@ -74,6 +74,9 @@ Docs already call **uiautomator2** the preferred *dev* tool and raw dump the
 
 Live numbers: [handsets-vs-u2-bench.md](handsets-vs-u2-bench.md).
 
+**Agent playbook (Mac → Android UI):** [mac-android-ui-automation.md](mac-android-ui-automation.md)
+(best practices, quiet audits, sample code).
+
 ### Implementation — **DONE** (2026-07-09)
 
 1. `shared/mac/ui_driver.py` — `HandsetsSession`, `try_handsets()`, switch

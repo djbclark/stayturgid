@@ -22,19 +22,18 @@
 > Parked side projects: [docs/incubator/](docs/incubator/) — **do not implement**
 > unless the operator unparks a named project (Inferno, etc.).
 
-**Fleet snapshot (2026-07-09 evening):** Soft health **ok** on s24/p7a/hd8.
-Aurora thrash mitigation shipped: battery-**optimized** (not unrestricted),
-**Filter apps from other sources** + F-Droid filter on all three; harden +
-`configure_aurora` bake it in. Screen-control: hold session across short UI
-gaps; `SKIP_PRESENCE` still **must invert**. Co-monitor + Mac AutoJs6 heal
-already live. Operator **H2** eyeball remains (confirm Neo Store + Aurora UI).
+**Fleet snapshot (2026-07-09 night):** Soft health + **gui-audit** (03:14 quiet
+Neo/Aurora screenshots) report H2-style gaps via `check_fleet_health.py`.
+Aurora thrash mitigation shipped earlier. Operator **H2** eyeball still useful
+for one-time confirm; nightly job + triage cover recurrence.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
-**Suggested agent order:** human **H2** confirm (Neo Store / Aurora). Do not
-touch incubator (Inferno) or start **54** unless asked.
+**Suggested agent order:** skim `check_fleet_health.py` (includes gui-audit);
+human **H2** only if gaps remain. Do not touch incubator (Inferno) or start
+**54** unless asked.
 
 ---
 
@@ -55,11 +54,14 @@ Parked (not a track): Inferno/Styx → [docs/incubator/inferno-styx/](docs/incub
 
 #### H2 — Neo Store + Aurora one-time confirm (human) · Risk: **Low**
 
-Per-host UI check: Neo Store installer = Shizuku + background updates; Aurora
-installer = Shizuku + auto-updates + **Filter apps from other sources** (+
-F-Droid filter); Aurora battery = **Optimized**; no stuck Fire OS background
-dialog on hd8. Agent already applied Aurora battery/filters on s24/p7a/hd8 —
-this is operator eyeball only.
+Nightly `mac/gui_audit.py` (launchd 03:14, quiet presence) + session triage now
+detect/report the same gaps (`aurora_autoupdate_disabled`,
+`aurora_filter_fdroid_off`, etc.). Agent Handsets pass (2026-07-09): Neo
+Shizuku+auto OK on s24/p7a; Aurora Shizuku + **Filter apps from other sources**
++ battery Optimized on all three. **Still open for human/agent retry:** Aurora
+**auto-update** often stuck on “Do not auto-update” (check&install prompts
+battery unrestrict — Deny); **Filter F-Droid apps** visually OFF on some shots.
+Close H2 when gui-audit shows `issues=none` on all hosts (or operator signs off).
 
 #### H5 — Galaxy publish API token (human, optional) · Risk: **Medium**
 
@@ -78,6 +80,8 @@ that version; only after H5 and a deliberate version bump review.
 Mac **soft health**: launchd `com.stayturgid.fleet-health` →
 `mac/fleet_health_monitor.py` every 5 min (`~/.config/stayturgid/logs/fleet-health.log`).
 Restarts stale AutoJs6 `main.js` when `watchdog_stale`/`watchdog_missing`.
+**GUI audit**: `com.stayturgid.gui-audit` @ 03:14 → `mac/gui_audit.py` (quiet;
+no torch/sound); gaps in `gui-audit.log` surface in `check_fleet_health.py`.
 Reachability in `access-monitor`. Prefer health trail before 43–45.
 
 #### 43 — AutoJs6 WorkManager (agent) · Risk: **Latent / Low until upstream**

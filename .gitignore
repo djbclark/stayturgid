@@ -10,6 +10,8 @@ ansible_collections/stayturgid/*/tests/output/
 ansible_collections/stayturgid/*/collections/
 human/RESPONSES.md
 shared/a11y_backups/*.txt
+# Local screenshot / audit dumps (gui-audit writes under ~/.config; keep repo clean)
+artifacts/
 # SSH keys — live on the control node / devices only, never in git
 *.pem
 id_*

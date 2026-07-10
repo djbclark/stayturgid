@@ -18,6 +18,10 @@ STAYTURGID_SKIP_PRESENCE=1 (debug only): skips consent countdown and
 torch/notification lease, but **still enables display inversion** and
 **still refuses input when inversion is off**. Never use it to hide active
 UI work on a phone a human is watching.
+
+STAYTURGID_PRESENCE_QUIET=1 (scheduled audits): keeps inversion + lease, but
+skips torch, vibrate, consent dialog, and presence notifications. Prefer this
+over SKIP_PRESENCE for overnight GUI jobs.
 """
 from __future__ import print_function
 
@@ -120,11 +124,15 @@ def ssh_presence(host, action, label, agent):
     host = dev.resolve_ssh_host(host) or host
     if not host:
         return 127, "no ssh host"
+    quiet = os.environ.get("STAYTURGID_PRESENCE_QUIET") == "1"
+    quiet_export = "export STAYTURGID_PRESENCE_QUIET=1; " if quiet else ""
     # Prefer single-root deploy path; fall back to legacy ~/ shim if present.
     remote = (
+        "%s"
         "if [ -x %s ]; then P=%s; elif [ -x %s ]; then P=%s; else exit 127; fi; "
         '"$P" %s %s %s'
         % (
+            quiet_export,
             PRESENCE_SCRIPT,
             PRESENCE_SCRIPT,
             PRESENCE_SCRIPT_LEGACY,

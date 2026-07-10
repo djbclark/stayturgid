@@ -98,6 +98,22 @@ def test_guarded_shell_blocks_input_when_inversion_off(monkeypatch):
         assert "inversion is off" in str(e)
 
 
+def test_ssh_presence_exports_quiet(monkeypatch):
+    captured = {}
+
+    def fake_run(cmd, **kw):
+        captured["cmd"] = cmd
+        return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+
+    monkeypatch.setenv("STAYTURGID_PRESENCE_QUIET", "1")
+    monkeypatch.setattr(sc.dev, "resolve_ssh_host", lambda h: "s24")
+    monkeypatch.setattr(sc.subprocess, "run", fake_run)
+    rc, _out = sc.ssh_presence("s24", "on", "s24", "Auto")
+    assert rc == 0
+    remote = captured["cmd"][-1]
+    assert "STAYTURGID_PRESENCE_QUIET=1" in remote
+
+
 def test_ssh_presence_timeout_returns_124(monkeypatch):
     import subprocess
 

@@ -142,16 +142,27 @@ def clear_lease():
     rm(LEASE_FILE)
 
 
+def _quiet_presence() -> bool:
+    """STAYTURGID_PRESENCE_QUIET=1 — no torch, vibrate, or toast (scheduled audits)."""
+    return os.environ.get("STAYTURGID_PRESENCE_QUIET") == "1"
+
+
 def pulse(n):
     # Fire OS: termux-torch often hangs past subprocess timeouts and blows the
     # Mac SSH presence budget (~30s). Skip torch; Mac already sets inversion.
-    if _no_local_adb():
+    if _no_local_adb() or _quiet_presence():
         return
     for _ in range(n):
         run(["termux-torch", "on"], timeout=3)
         time.sleep(0.25)
         run(["termux-torch", "off"], timeout=3)
         time.sleep(0.20)
+
+
+def _vibrate(ms: int) -> None:
+    if _quiet_presence():
+        return
+    run(["termux-vibrate", "-d", str(ms)], timeout=3)
 
 
 def foreground_pkg():
@@ -226,7 +237,7 @@ def consent_gate(label, agent):
         print("presence gate: proceed (screen idle; foreground=%s)" % (pkg or "unknown"))
         return 0
 
-    run(["termux-vibrate", "-d", "200"])
+    _vibrate(200)
     choice = dialog_choice(["30", "termux-dialog", "radio",
                             "-t", "%s wants to use %s" % (agent, label),
                             "-v", "Continue,Pause,Check again in 10 minutes"])
@@ -257,7 +268,12 @@ def request_screen(label, agent):
     if pause_active():
         print("request-screen: paused (run agent-presence.sh resume to clear)")
         return 75
-    run(["termux-vibrate", "-d", "300"])
+    # Quiet / overnight audits: no vibrate, no dialog — proceed (inversion still on).
+    if _quiet_presence():
+        rm(STOP_FILE)
+        print("request-screen: allowed (quiet mode)")
+        return 0
+    _vibrate(300)
     choice = dialog_choice([str(REQUEST_SCREEN_COUNTDOWN_SEC), "termux-dialog", "confirm",
                             "-t", "%s wants to CONTROL THE SCREEN of %s" % (agent, label),
                             "-i", "Starting in %d seconds. Press No to disallow, Yes to start now."
@@ -288,9 +304,12 @@ def action_on(label, agent):
     write_lease(label, agent)
     if not invert("1"):
         sys.stderr.write("WARN: could not confirm display inversion (localhost:5555 shell?)\n")
-    run(["termux-vibrate", "-d", "400"], timeout=3)
+    _vibrate(400)
     pulse(3)
     now = datetime.datetime.now().strftime("%H:%M:%S")
+    if _quiet_presence():
+        print("presence ON quiet (%s)" % label)
+        return 0
     btn = ("mkdir -p %s 2>/dev/null; touch %s; "
            "termux-toast 'Stop requested — agent wrapping up (~1 min)'" % (STATE, STOP_FILE))
     _notify_presence(
@@ -312,9 +331,9 @@ def action_off(label, agent):
     run(["termux-notification-remove", NID], timeout=_notify_timeout())
     run(["termux-notification-remove", "claude-presence"], timeout=_notify_timeout())  # legacy id
     pulse(2)
-    run(["termux-vibrate", "-d", "250"], timeout=3)
+    _vibrate(250)
     rm(STOP_FILE)
-    if stopped and not _no_local_adb():
+    if stopped and not _no_local_adb() and not _quiet_presence():
         # Modal handoff-back dialog, detached so `off` returns immediately.
         # Skip on Fire — termux-dialog hangs there.
         try:
@@ -348,19 +367,19 @@ def action_guard():
     if not inversion_enabled():
         if not invert("1"):
             sys.stderr.write("WARN: guard could not re-enable inversion\n")
-    # Refresh ongoing notification so it stays visible if channels were cleared.
     label = lease.get("label", "this phone")
     agent = lease.get("agent", "Auto")
     now = datetime.datetime.now().strftime("%H:%M:%S")
-    btn = ("mkdir -p %s 2>/dev/null; touch %s; "
-           "termux-toast 'Stop requested — agent wrapping up (~1 min)'" % (STATE, STOP_FILE))
-    _notify_presence(
-        "🤖 %s is using %s" % (agent, label),
-        "Automation in progress — guarded %s. Graceful stop gives "
-        "the agent ~1 min to wrap up." % now,
-        button1="Graceful stop",
-        button1_action=btn,
-    )
+    if not _quiet_presence():
+        btn = ("mkdir -p %s 2>/dev/null; touch %s; "
+               "termux-toast 'Stop requested — agent wrapping up (~1 min)'" % (STATE, STOP_FILE))
+        _notify_presence(
+            "🤖 %s is using %s" % (agent, label),
+            "Automation in progress — guarded %s. Graceful stop gives "
+            "the agent ~1 min to wrap up." % now,
+            button1="Graceful stop",
+            button1_action=btn,
+        )
     # Extend lease while automation is still marked active.
     write_lease(label, agent)
     return 0

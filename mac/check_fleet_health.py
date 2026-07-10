@@ -22,11 +22,18 @@ from pathlib import Path
 ROOT = Path(os.path.expanduser("~")) / ".config" / "stayturgid"
 LOG = ROOT / "logs" / "fleet-health.log"
 ACCESS_LOG = ROOT / "logs" / "access-monitor.log"
+GUI_AUDIT_LOG = ROOT / "logs" / "gui-audit.log"
 STATE_DIR = ROOT / "state" / "fleet-health"
 CONSECUTIVE_ALERT = 2
+# GUI audit runs once nightly; treat scrapes older than this as stale (not alert).
+GUI_AUDIT_FRESH_HOURS = 36.0
 
 LINE_RE = re.compile(
     r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+(\S+)\s+(.*)$"
+)
+# gui-audit.log: "2026-07-09 03:14:01  s24 done issues=aurora_filter_fdroid_off …"
+GUI_DONE_RE = re.compile(
+    r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+(\S+)\s+done\s+issues=([^\s]+)"
 )
 
 
@@ -125,6 +132,33 @@ def recent_access_lost(hours: float) -> list[str]:
     return hits[-5:]
 
 
+def latest_gui_audit(
+    log_path: Path, since: dt.datetime | None
+) -> dict[str, tuple[dt.datetime, list[str]]]:
+    """host -> (timestamp, issue tags) from last 'done issues=' line per host."""
+    out: dict[str, tuple[dt.datetime, list[str]]] = {}
+    if not log_path.is_file():
+        return out
+    try:
+        text = log_path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return out
+    for line in text.splitlines():
+        m = GUI_DONE_RE.match(line.strip())
+        if not m:
+            continue
+        ts = parse_ts(m.group(1))
+        if ts is None:
+            continue
+        if since and ts < since:
+            continue
+        host = m.group(2)
+        raw = m.group(3)
+        issues = [] if raw in ("none", "?", "") else [x for x in raw.split(",") if x]
+        out[host] = (ts, issues)
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
@@ -185,10 +219,33 @@ def main(argv: list[str] | None = None) -> int:
 
     access_hits = recent_access_lost(args.hours)
 
-    if not problems and not access_hits:
+    gui_since = dt.datetime.now() - dt.timedelta(hours=GUI_AUDIT_FRESH_HOURS)
+    gui_latest = latest_gui_audit(GUI_AUDIT_LOG, gui_since)
+    gui_problems: list[str] = []
+    for host in sorted(gui_latest):
+        gts, gissues = gui_latest[host]
+        if not gissues:
+            continue
+        age_h = (dt.datetime.now() - gts).total_seconds() / 3600.0
+        gui_problems.append(
+            "%s issues=%s last=%.1fh ago | gui-audit"
+            % (host, ",".join(gissues), age_h)
+        )
+
+    if not problems and not access_hits and not gui_problems:
         if not args.quiet_ok:
             print("fleet-health: OK — %s" % (", ".join(ok_hosts) or "no hosts"))
             print("log: %s" % LOG)
+            if gui_latest:
+                print(
+                    "gui-audit: OK — %s (log: %s)"
+                    % (
+                        ", ".join(
+                            "%s (issues=none)" % h for h in sorted(gui_latest)
+                        ),
+                        GUI_AUDIT_LOG,
+                    )
+                )
         return 0
 
     print("=== fleet-health PROBLEMS (tell the operator) ===")
@@ -199,10 +256,15 @@ def main(argv: list[str] | None = None) -> int:
         print("recent access-monitor LOST/unreachable@2:")
         for h in access_hits:
             print("  • %s" % h)
+    if gui_problems:
+        print("gui-audit gaps (H2-style; log: %s):" % GUI_AUDIT_LOG)
+        for g in gui_problems:
+            print("  • %s" % g)
     if ok_hosts:
         print("ok: %s" % ", ".join(ok_hosts))
     print(
         "Next: prefer fixing AutoJs6/a11y/repair before OPTIONS 43–45; "
+        "GUI gaps → mac/gui_audit.py / configure_aurora; "
         "see HANDOFF.md § Mac fleet health."
     )
     return 1

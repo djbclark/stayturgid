@@ -14,6 +14,7 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 | `fire_help_monitor.py` | Mac→Fire help when Shizuku/Handsets down → `fire-help.log` |
 | `fire_peer_help.py` | Peer ADB helper (Handsets/Shizuku) for Fire; SSH ForceCommand entry |
 | `check_fleet_health.py` | **Session triage** — agents run at start; exit 1 ⇒ tell operator |
+| `gui_audit.py` | Quiet Neo/Aurora GUI screenshots + H2 assertions (03:14 launchd) |
 | `deploy_fleet.py` | Full fleet deploy via `ansible/playbooks/site.yml` (bootstrap → fleet → post-UI → validate) |
 | `bootstrap_ssh.py` | First-time Termux SSH: adb + `run-as com.termux` or `--ansible` → `bootstrap.yml` |
 | `a11y_services.py` | Backup/restore `enabled_accessibility_services` per host (`shared/a11y_profiles.json`) |
@@ -56,16 +57,25 @@ Logs: `~/.config/stayturgid/logs/`. Device list: `~/.config/stayturgid/devices.c
 | `com.stayturgid.access-monitor` | 300 s | `access-monitor.log` (reachability) |
 | `com.stayturgid.fleet-health` | 300 s | `fleet-health.log` (soft health) |
 | `com.stayturgid.fire-help` | 300 s | `fire-help.log` (Fire Shizuku/Handsets) |
+| `com.stayturgid.gui-audit` | **03:14** daily | `gui-audit.log` + screenshots (quiet; no torch/sound) |
 
 **Soft health** (`fleet_health_monitor.py`): when reachable, scrapes watchdog/repair
 ages, STATUS `port`/`shizuku`/`a11y`, AutoJs6 + profile a11y drift, boot loop,
 `localhost:5555` shell. Always logs; macOS notify after ~10 min debounce.
 Disable with `STAYTURGID_SKIP_HEALTH=1`. Does not mutate devices.
 
+**GUI audit** (`gui_audit.py`): nightly quiet ScreenControlSession (no flashlight,
+vibrate, or presence dialogs). Skips unreachable hosts. Assertion tags land in
+`gui-audit.log` and are surfaced by `check_fleet_health.py`. Screenshots under
+`~/.config/stayturgid/artifacts/gui-audit/`.
+
 **Agents — session start:** `python3 mac/check_fleet_health.py` — if exit ≠ 0,
 surface host/`issues=` to the operator immediately (see HANDOFF § Mac fleet health).
 Any health fix must also update self-heal (Termux / AutoJs6 co-monitor / this
 monitor’s `maybe_heal_watchdog`) — see `.cursor/rules/fleet-health-self-heal.mdc`.
+
+UI automation playbook for other agents:
+[docs/research/mac-android-ui-automation.md](../docs/research/mac-android-ui-automation.md).
 
 Other subprojects resolve adb targets via [shared/mac/stayturgid_device.py](../shared/mac/stayturgid_device.py) or [shared/mac/resolve_adb.py](../shared/mac/resolve_adb.py).
 

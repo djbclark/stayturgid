@@ -31,4 +31,6 @@ Independent one-shots with a long idle between them (operator walked away, diffe
 
 Display inversion is the visible "agent has the glass" signal. **Always** invert while actively controlling a phone, including when using `STAYTURGID_SKIP_PRESENCE=1` (that flag may skip consent/torch only — never inversion, and input stays gated on inversion).
 
+For overnight / unattended screenshot jobs use `STAYTURGID_PRESENCE_QUIET=1` instead (no torch, vibrate, or dialogs; inversion still on). Prefer that over `SKIP_PRESENCE`.
+
 Do **not** set `STAYTURGID_SKIP_PRESENCE=1` just to avoid a presence timeout on a device a human is watching. Fix presence / hold a normal session instead.
