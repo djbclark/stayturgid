@@ -5,6 +5,10 @@ Every 5 minutes: for each host with STAYTURGID_NO_LOCAL_ADB semantics (hd8),
 if ADB reachable and shizuku_server / Handsets port look down, run
 `control/bin/fire_peer_help.py` via Mac adb (fleet adbkey).
 
+Also re-asserts **wireless debugging** (``adb_wifi_enabled=1``) whenever Mac
+has a shell — Fire on-device repair cannot do this (no loopback adb), so the
+toggle drifts off until Mac/USB help runs.
+
 Logs: ~/.config/stayturgid/logs/fire-help.log
 Disable: STAYTURGID_SKIP_FIRE_HELP=1
 """
@@ -14,6 +18,7 @@ import datetime
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -22,6 +27,11 @@ sys.path.insert(0, str(REPO / "control" / "lib"))
 
 import fleet_health as fh  # noqa: E402
 import fire_peer_help as fph  # noqa: E402
+
+try:
+    import stayturgid_device as dev  # noqa: E402
+except Exception:  # noqa: BLE001
+    dev = None  # type: ignore
 
 ROOT = Path.home() / ".config" / "stayturgid"
 CONF = Path(os.environ.get("STAYTURGID_DEVICES_CONF", ROOT / "devices.conf"))
@@ -88,13 +98,49 @@ def write_state(host: str, n: int) -> None:
         pass
 
 
-def adb_targets(ts_ip: str, lan_ip: str) -> list[str]:
-    out = []
+def adb_targets(name: str, ts_ip: str, lan_ip: str) -> list[str]:
+    """Ordered adb endpoints: shared resolve_adb first (USB / mDNS wireless-debug),
+    then classic LAN/TS :5555. Fire often only has wireless-debugging (random port).
+    """
+    out: list[str] = []
+    seen: set[str] = set()
+
+    def add(t: str) -> None:
+        t = (t or "").strip()
+        if not t or t in seen:
+            return
+        seen.add(t)
+        out.append(t)
+
+    if dev is not None:
+        try:
+            add(dev.resolve_adb(name))
+        except Exception:  # noqa: BLE001
+            pass
     if lan_ip and lan_ip != "-":
-        out.append("%s:5555" % lan_ip)
+        add("%s:5555" % lan_ip)
     if ts_ip and ts_ip != "-":
-        out.append("%s:5555" % ts_ip)
+        add("%s:5555" % ts_ip)
     return out
+
+
+def ensure_wireless_debugging(target: str) -> str:
+    """Keep Developer-options wireless debugging on (Mac shell only; Fire self-heal skip)."""
+    try:
+        fph._ensure_connected(target)
+    except SystemExit as e:
+        return "skip:%s" % e
+    cur = fph._shell(target, "settings get global adb_wifi_enabled", timeout=10)
+    val = (cur.stdout or "").strip().replace("\r", "")
+    if val in ("1", "true"):
+        return "up"
+    fph._shell(target, "settings put global adb_wifi_enabled 1", timeout=10)
+    time.sleep(1)
+    again = fph._shell(target, "settings get global adb_wifi_enabled", timeout=10)
+    val2 = (again.stdout or "").strip().replace("\r", "")
+    if val2 in ("1", "true"):
+        return "repaired"
+    return "FAILED:%s" % val2
 
 
 def needs_help(target: str) -> tuple[bool, bool]:
@@ -117,12 +163,8 @@ def needs_help(target: str) -> tuple[bool, bool]:
 
 
 def help_host(name: str, ts_ip: str, lan_ip: str) -> None:
-    path = fh.resolve_path(name, ts_ip, lan_ip)
-    if not path:
-        log("%s unreachable — skip" % name)
-        return
-    # Prefer adb path for Mac help
-    targets = adb_targets(ts_ip, lan_ip)
+    # Soft-health path may be SSH-only; still try full adb candidate list for help.
+    targets = adb_targets(name, ts_ip, lan_ip)
     if not targets:
         log("%s no adb targets" % name)
         return
@@ -135,20 +177,26 @@ def help_host(name: str, ts_ip: str, lan_ip: str) -> None:
         except SystemExit:
             continue
     if not target:
-        log("%s adb connect failed all targets" % name)
+        log("%s adb connect failed all targets (%s)" % (name, ",".join(targets[:4])))
         fails = read_state(name) + 1
         write_state(name, fails)
         return
+
+    wifi = ensure_wireless_debugging(target)
+    if wifi not in ("up", "repaired"):
+        log("%s wireless-debug %s via %s" % (name, wifi, target))
+    elif wifi == "repaired":
+        log("%s wireless-debug re-enabled via %s" % (name, target))
 
     need_sh, need_hs = needs_help(target)
     if not need_sh and not need_hs:
         if read_state(name) >= CONSECUTIVE_LIMIT:
             log("%s RECOVERED (shizuku+handsets up)" % name)
         write_state(name, 0)
-        log("%s ok via %s" % (name, target))
+        log("%s ok via %s wifi=%s" % (name, target, wifi))
         return
 
-    actions = []
+    actions = ["wifi=%s" % wifi]
     if need_sh:
         rc = fph.cmd_shizuku_start(target)
         actions.append("shizuku=%s" % ("ok" if rc == 0 else "fail"))

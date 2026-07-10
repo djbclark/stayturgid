@@ -7,10 +7,21 @@
 > **Index:** [human/README.md](README.md) · Agent context: [docs/handoff.md](../docs/handoff.md)
 > · Open work: [docs/options.md](../docs/options.md)
 
-Last updated: **2026-07-10 morning** (repo restructure `d950c53` + handoff pass)
+Last updated: **2026-07-10 afternoon** (review fixes + Fire wireless-debug self-heal + handoff)
 
 ---
 
+## Session notes (2026-07-10 evening) — agent completed
+
+| Area | Status |
+|------|--------|
+| Code/docs review follow-through | H1/M1–M6 + L1–L9 on `master`; pytest green |
+| Fire wireless debugging | Mac `fire_help` re-asserts `adb_wifi_enabled`; resolve prefers mDNS |
+| hd8 AutoJs6 “Save main.js” dialog | Caused by wrong `termux-open` path — use `start_watchdog.py` only |
+| `make health` | **OK** s24/p7a/hd8 at handoff write (hd8 soft health often SSH) |
+| Live full-fleet soak | **Still optional** — announce before `make deploy` / `make verify` |
+
+**Operator (only if Mac agents still old):** after pull, optional `make deploy-mac` to reload launchd with latest `fire_help_monitor`.
 
 ## Session notes (2026-07-10 afternoon) — agent completed
 

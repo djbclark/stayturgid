@@ -81,10 +81,13 @@ def tcp_reachable(endpoint, timeout=CONNECT_PROBE_TIMEOUT):
         return False
 
 
-def connect_wireless(run_command, endpoint):
+def connect_wireless(run_command, endpoint, *, require_probe=True):
+    """``adb connect`` to host:port. TCP probe is optional (mDNS wireless-debug
+    often fails a plain socket probe but still accepts ``adb connect``).
+    """
     if ":" not in endpoint:
         return False
-    if not tcp_reachable(endpoint):
+    if require_probe and not tcp_reachable(endpoint):
         return False
     run_command(["adb", "connect", endpoint])
     return adb_online(adb_devices_output(run_command), endpoint)
@@ -146,11 +149,35 @@ def static_fallback(row, alias):
     return alias
 
 
+def discover_mdns_endpoint(run_command, usb_serial):
+    """Wireless-debugging mDNS ``host:port`` for a USB serial (Fire / modern ADB).
+
+    ``adb mdns services`` lines look like::
+
+      adb-GN43T503430603PS-Av5cQl_adb-tls-connect._tcp192.168.68.68:39081
+
+    Classic ``ip:5555`` is often refused on Fire while this listener is up.
+    """
+    if not usb_serial or usb_serial == "-":
+        return None
+    rc, out, _err = run_command(["adb", "mdns", "services"])
+    if rc != 0:
+        return None
+    needle = "adb-%s" % usb_serial
+    for line in (out or "").splitlines():
+        if needle not in line or "_adb-tls-connect" not in line:
+            continue
+        m = re.search(r"(\d+\.\d+\.\d+\.\d+:\d+)", line)
+        if m:
+            return m.group(1)
+    return None
+
+
 def resolve_adb(alias, run_command=None, conf_path=None):
-    """USB when online, else first reachable wireless endpoint (LAN then Tailscale).
+    """USB when online, else mDNS wireless-debug, else LAN/TS :5555.
 
     When run_command is provided, tries adb connect for wireless targets and
-  scans connected devices by ro.serialno when inventory IPs drift.
+    scans connected devices by ro.serialno when inventory IPs drift.
     """
     row = device_row(alias, conf_path)
     if not row:
@@ -165,6 +192,17 @@ def resolve_adb(alias, run_command=None, conf_path=None):
     match = match_usb_serial(run_command, usb, devices)
     if match:
         return match
+
+    # Prefer wireless-debugging mDNS (ephemeral port) before classic :5555 —
+    # Fire HD often has adb_wifi_enabled without listening on 5555. Skip the
+    # plain TCP probe — mDNS TLS endpoints often fail socket connect but work
+    # with ``adb connect``.
+    mdns = discover_mdns_endpoint(run_command, usb)
+    if mdns and (
+        adb_online(devices, mdns)
+        or connect_wireless(run_command, mdns, require_probe=False)
+    ):
+        return mdns
 
     for endpoint in wireless_endpoints(row):
         if adb_online(devices, endpoint) or connect_wireless(run_command, endpoint):

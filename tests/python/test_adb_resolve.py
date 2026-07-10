@@ -86,11 +86,45 @@ def test_resolve_adb_skips_connect_for_unreachable_endpoints(tmp_path, monkeypat
         seen.append(cmd)
         if cmd[:2] == ["adb", "devices"]:
             return 0, "", ""
+        if cmd[:3] == ["adb", "mdns", "services"]:
+            return 0, "", ""
         return 1, "", ""
 
     # nothing reachable -> Tailscale fallback (LAN dead), no adb connect calls
     assert adb_resolve.resolve_adb("p7a", run, str(conf)) == "100.65.230.108:5555"
     assert not any(c[:2] == ["adb", "connect"] for c in seen)
+
+
+def test_resolve_adb_prefers_mdns_wireless_debug(tmp_path, monkeypatch):
+    """Fire: classic :5555 refused; mDNS wireless-debugging port is live.
+
+    mDNS endpoints skip the plain TCP probe (often false-negative).
+    """
+    conf = tmp_path / "devices.conf"
+    conf.write_text("hd8 GN43T503430603PS 100.124.55.39 192.168.1.157\n")
+    monkeypatch.setattr(adb_resolve, "tcp_reachable", lambda ep, timeout=None: False)
+    seen = []
+
+    def run(cmd):
+        seen.append(cmd)
+        if cmd[:2] == ["adb", "devices"]:
+            if any(c[:2] == ["adb", "connect"] for c in seen):
+                return 0, "192.168.68.68:39081\tdevice\n", ""
+            return 0, "", ""
+        if cmd[:3] == ["adb", "mdns", "services"]:
+            return (
+                0,
+                "adb-GN43T503430603PS-Av5cQl_adb-tls-connect._tcp"
+                "192.168.68.68:39081\n",
+                "",
+            )
+        if cmd[:2] == ["adb", "connect"]:
+            return 0, "connected", ""
+        return 0, "", ""
+
+    assert adb_resolve.resolve_adb("hd8", run, str(conf)) == "192.168.68.68:39081"
+    assert ["adb", "connect", "192.168.68.68:39081"] in seen
+    assert ["adb", "connect", "100.124.55.39:5555"] not in seen
 
 
 def test_resolve_adb_matches_ro_serialno_when_ip_drifted(tmp_path, monkeypatch):

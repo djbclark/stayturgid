@@ -145,7 +145,35 @@ Optional on-device notifier: `check-repo-version.py` (max once/24 h) fires `term
 
 ## 🚦 Cold-start — current state (read this first)
 
-**As of 2026-07-10 morning.** Three-device fleet: **s24**, **p7a**, **hd8**.
+**As of 2026-07-10 afternoon (handoff pass).** Three-device fleet: **s24**, **p7a**, **hd8**.
+Source of truth: **`origin/master`** on `https://github.com/djbclark/stayturgid.git`.
+
+### Session start (every agent)
+
+```bash
+cd ~/stayturgid && git fetch origin --prune && git status -sb
+git pull --ff-only origin master   # if behind only
+make health
+python3 control/bin/screen_lease.py status
+# Optional: make check-et-mac · make vlm-upstream-check
+```
+
+| Exit / signal | Meaning |
+|---------------|---------|
+| `make health` **0** | Clean — continue |
+| `make health` **1** | Soft problems — **tell operator first reply** (host + `issues=`) |
+| Lease **HELD** foreign project | Do not take glass; wait or pick another host |
+| **s24** preferred for single-host work | then hd8, then p7a (daily driver) |
+
+### Fleet snapshot (2026-07-10 late afternoon)
+
+| Host | Soft health | Notes |
+|------|-------------|--------|
+| **s24** | OK | USB + wireless adb; lab preferred |
+| **p7a** | OK | Wireless adb; avoid UI unless needed |
+| **hd8** | Often OK over **SSH** scrape | Fire: **no Termux loopback 5555**. Prefer **wireless debugging** (mDNS ephemeral port) over classic `:5555`. USB serial `GN43…` often absent when only s24 is plugged. On-device repair **skips** `adb_wifi_enabled` (no shell) — **Mac `fire_help_monitor` re-asserts wireless debug + Shizuku/Handsets** when adb is reachable |
+
+**Do not** open AutoJs6 scripts with `termux-open` / bare `file://` VIEW — that pops Termux **“Save file in ~/downloads/ main.js”**. Use `control/tools/autojs6/start_watchdog.py` → `adb_cli.start_autojs_file` (**RunIntentActivity** only).
 
 ### ⚠️ Massive repo restructure landed (`d950c53` on `master`)
 
@@ -177,9 +205,10 @@ memory, and grep hits may still reference them.**
 `stayturgid_repair.py` / `stayturgid_agent_presence.py`; `gplaycli.sh` removed.
 Keep real shell bridges (`repair-bridge.sh`, `autojs6-bridge.sh`) and boot scripts.
 
-**Verified after reorg + review fixes (2026-07-10):** unit TAP; module docs restored;
-launchd templates include Homebrew `PATH` + `STAYTURGID_ADB`. **Still required:**
-`make deploy-mac` (reload agents), live `make deploy` / `make verify` soak on s24.
+**Verified (2026-07-10 afternoon handoff):** review H1/M1–M6 + L1–L9 landed on
+`master`; full pytest green at last push; `make health` **OK** all hosts after
+hd8 watchdog recovery. **Still optional:** `make deploy-mac` (reload agents with
+latest fire_help), live `make deploy` / `make verify` soak on s24.
 
 **Assume lingering breakage until proven.** Next agent should grep for stale paths
 before any deploy:
@@ -201,19 +230,29 @@ If anything looks wrong: fix paths, run `make check` + `make test`, then
 
 ---
 
-**Fleet health (run first):** `make health` — as of handoff write, **exit 1**:
-`hd8` `SCRAPE_STALE` (last scrape ~157m; probes otherwise OK). **p7a/s24 OK.**
-Resolved morning s24 access-monitor LOST (informational). Tell operator if exit ≠ 0.
+**Fleet health (run first):** `make health` — tell operator if exit ≠ 0.
 
 On-device post-UI prefers SSH on s24/p7a via Termux `localhost:5555`, with
-automatic Mac adb fallback if SSH-invoke fails. hd8 is Mac adb only.
-See [docs/options.md](options.md).
+automatic Mac adb fallback if SSH-invoke fails. **hd8 is Mac adb only** (wireless
+debugging mDNS preferred). See [docs/options.md](options.md).
 
 | Host | Verify | Mac adb | Notes |
 |------|--------|---------|-------|
-| s24 | **16/16 PASS** (last pre-reorg soak) | USB / LAN / Tailscale | Lab reference; **re-verify after reorg** |
+| s24 | **16/16 PASS** (last pre-reorg soak) | USB / LAN / Tailscale | Lab reference; re-verify after large deploys |
 | p7a | **16/16** (last run) | mDNS + Tailscale | may need Tailscale/USB when offline |
-| hd8 | **16/16 PASS** (Fire OS, pre-reorg) | **USB** + wireless | `SCRAPE_STALE` on Mac health log — not necessarily device-down |
+| hd8 | **16/16 PASS** (Fire OS, pre-reorg) | Wireless-debug mDNS + USB when present | Soft health often **SSH**; classic `:5555` often refused |
+
+### Recent landings (2026-07-10 afternoon — code/docs review + Fire adb)
+
+- **Code/docs review** ([history](history/code-and-docs-review-2026-07-10.md)): H1 STATUS schema;
+  portable soft-health ages; DSCL flock + no peer silent-takeover + alias heartbeat;
+  Gemini `x-goog-api-key`; `adb_bin` in monitors; drawer verify; presence fallback;
+  OPTIONS 62 + relative docs links; opportunistic L1/L4–L9 (Handsets refcount, Fire-Tools
+  flock, devices.conf single parser, deploy always re-runs control_node, etc.).
+- **Fire / hd8:** `adb_resolve` prefers **mDNS wireless-debugging** before `:5555`;
+  `fire_help_monitor` uses `resolve_adb` + re-asserts `adb_wifi_enabled` (on-device
+  repair cannot). `start_autojs_file` RunIntentActivity-only (no Termux save dialog).
+- Cloud VLM + DSCL + portrait lock + ET Mac + Hermes gateway Ansible (earlier same day).
 
 **Recent landings (2026-07-10 — layout + path consistency, commit `d950c53`):**
 - Full tree move: `control/`, `device/`, `catalogs/`, `docs/`; flatten `control/tools/*`.
