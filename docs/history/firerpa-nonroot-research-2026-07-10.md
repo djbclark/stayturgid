@@ -110,7 +110,7 @@ the app is in stopped state (never launched since install or last
 force-stop), the grant is a no-op.
 
 **Impact:** `stayturgid_battery_alarm.py` fires `termux-notification`
-which silently fails without POST_NOTIFICATIONS — the30% alert never
+which silently fails without POST_NOTIFICATIONS — the 30% alert never
 appears.
 
 **Fix needed:** In `android_app_privileges` role, force-start apps
