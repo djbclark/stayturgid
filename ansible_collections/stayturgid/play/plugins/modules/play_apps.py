@@ -268,13 +268,14 @@ def install_apks(module, device, apks, spoof, installer):
     """Install one APK or a split set via adb install / install-multiple."""
     if not apks:
         return 1, "no APKs to install"
+    user = "--user", module.params.get("install_user", "0")
     if len(apks) == 1:
-        cmd = ["adb", "-s", device, "install", "-r"]
+        cmd = ["adb", "-s", device, "install", "-r", *user]
         if spoof:
             cmd.extend(["-i", installer])
         cmd.append(apks[0])
     else:
-        cmd = ["adb", "-s", device, "install-multiple", "-r"]
+        cmd = ["adb", "-s", device, "install-multiple", "-r", *user]
         if spoof:
             cmd.extend(["-i", installer])
         cmd.extend(apks)
@@ -394,6 +395,7 @@ def main():
             download_dir=dict(type="str", default="/tmp/stayturgid-play-apps"),
             spoof_play_installer=dict(type="bool", default=True),
             installer_package=dict(type="str", default="com.android.vending"),
+            install_user=dict(type="str", default="0"),
         ),
         supports_check_mode=True,
     )

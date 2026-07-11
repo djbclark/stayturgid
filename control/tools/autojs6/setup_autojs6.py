@@ -99,7 +99,7 @@ def main(argv: list[str] | None = None) -> int:
         print("AutoJs6 already installed")
     else:
         print("Installing AutoJs6...")
-        adb.adb(serial, "install", "-r", str(apk_path), check=True)
+        adb.adb(serial, "install", "-r", "--user", "0", str(apk_path), check=True)
 
     print("Granting Termux RUN_COMMAND to AutoJs6...")
     grant = adb.adb(serial, "shell", "pm", "grant", AUTOJS_PKG, "com.termux.permission.RUN_COMMAND")

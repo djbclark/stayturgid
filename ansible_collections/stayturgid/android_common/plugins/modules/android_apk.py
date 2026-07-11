@@ -160,6 +160,9 @@ def main():
             force=dict(type="bool", default=False),
             installer=dict(type="str"),
             extra_args=dict(type="list", elements="str", default=[]),
+            install_user=dict(type="str", default="0"),
+            work_profile=dict(type="bool", default=False),
+            work_profile_user=dict(type="str", default="10"),
             connect=dict(type="bool", default=True),
         ),
         required_one_of=[["apk_path", "url", "gh_repo"]],
@@ -199,7 +202,8 @@ def main():
             module.params["gh_tag"],
         )
 
-    cmd = ["adb", "-s", device, "install", "-r"]
+    user = module.params.get("install_user", "0")
+    cmd = ["adb", "-s", device, "install", "-r", "--user", user]
     if module.params["installer"]:
         cmd += ["-i", module.params["installer"]]
     cmd += module.params["extra_args"]
@@ -209,6 +213,14 @@ def main():
     ok, reason = parse_install_result(out + "\n" + err)
     if rc != 0 or not ok:
         module.fail_json(msg="adb install failed: %s" % reason)
+
+    if module.params["work_profile"]:
+        wp_cmd = ["adb", "-s", device, "install", "-r", "--user", module.params["work_profile_user"], apk]
+        rc2, _out2, _err2 = module.run_command(wp_cmd)
+        if rc2 == 0:
+            reason += " (also installed for user %s)" % module.params["work_profile_user"]
+        else:
+            module.warn("work profile install failed (rc=%d) — app may not be available in work profile" % rc2)
 
     module.exit_json(changed=True, reason=reason)
 

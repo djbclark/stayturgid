@@ -201,7 +201,7 @@ def needs_gsf_reinstall(gsf_version_name: str | None) -> bool:
 
 
 def _install_apk(run_command, device: str, apk: Path) -> tuple[int, str]:
-    cmd = [_adb(), "-s", device, "install", "-r", "-g", str(apk)]
+    cmd = [_adb(), "-s", device, "install", "-r", "-g", "--user", "0", str(apk)]
     rc, out, err = run_command(cmd)
     return rc, (out + err).strip()
 
@@ -225,7 +225,7 @@ def stop_aurora_churn(run_command, device: str) -> None:
 def _install_splits(run_command, device: str, apks: list[Path]) -> tuple[int, str]:
     if not apks:
         return 1, "no APK splits"
-    cmd = [_adb(), "-s", device, "install-multiple", "-r", "-g", *[str(p) for p in apks]]
+    cmd = [_adb(), "-s", device, "install-multiple", "-r", "-g", "--user", "0", *[str(p) for p in apks]]
     rc, out, err = run_command(cmd)
     return rc, (out + err).strip()
 
