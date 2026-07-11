@@ -15,6 +15,7 @@ Usage: ./enable_autojs6_shizuku.py <s24|p7a|hd8|serial>
 """
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 import time
@@ -153,6 +154,9 @@ def push_fleet_profile(serial: str) -> bool:
     return True
 
 
+FLEET_RESULT_PATH = "/sdcard/autojs6-fleet-result.json"
+
+
 def apply_fleet_profile(serial: str) -> bool:
     """Apply fleet profile via FleetProfileActivity intent."""
     result = adb(
@@ -170,6 +174,21 @@ def apply_fleet_profile(serial: str) -> bool:
             % (result.returncode, result.stderr or result.stdout or "")
         )
         return False
+    result_json = adb(serial, "cat", FLEET_RESULT_PATH)
+    if result_json and result_json.returncode == 0 and result_json.stdout:
+        try:
+            data = json.loads(result_json.stdout)
+            if data.get("success"):
+                print("Fleet profile applied: %d keys, %d skipped, %d failed"
+                      % (data.get("applied_count", 0),
+                         data.get("skipped_count", 0),
+                         data.get("failed_keys", [])))
+            else:
+                sys.stderr.write("WARN: profile applied with errors: %s\n"
+                                 % data.get("message", ""))
+            return data.get("success", True)
+        except (json.JSONDecodeError, KeyError) as e:
+            sys.stderr.write("WARN: unreadable result file: %s\n" % e)
     print("Fleet profile applied via intent.")
     return True
 

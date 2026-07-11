@@ -157,12 +157,25 @@ def apply_fleet_profile(shell, *, silent=False):
     ])
     rc, out = adb_shell(shell, *cmd)
     time.sleep(3)
-    # Check if the activity launched
     if rc != 0:
         sys.stderr.write(
             "ERROR: FleetProfileActivity failed (rc=%d): %s\n" % (rc, out or "")
         )
         return False
+    # Read JSON result file for detailed status.
+    rc, result_out = shell("cat", "/sdcard/autojs6-fleet-result.json")
+    if rc == 0 and result_out:
+        try:
+            data = json.loads(result_out)
+            if data.get("success"):
+                print("Fleet profile applied: %d keys, %d skipped"
+                      % (data.get("applied_count", 0),
+                         data.get("skipped_count", 0)))
+            else:
+                sys.stderr.write("WARN: profile errors: %s\n"
+                                 % data.get("message", ""))
+        except (json.JSONDecodeError, KeyError):
+            pass
     print("Fleet profile applied via intent.")
     return True
 
