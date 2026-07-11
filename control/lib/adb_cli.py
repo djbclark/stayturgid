@@ -128,12 +128,14 @@ def dismiss_usb_debugging_dialog(serial: str) -> bool:
     if "UsbDebuggingActivity" not in text and "WifiDebuggingActivity" not in text:
         return False
 
-    run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_TAB"], check=False)
-    time.sleep(0.2)
+    # Try both tab sequences — standard and Samsung bottom-sheet variant.
+    for _ in range(2):
+        run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_TAB"], check=False)
+        time.sleep(0.15)
     run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_SPACE"], check=False)
     time.sleep(0.3)
     run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_TAB"], check=False)
-    time.sleep(0.2)
+    time.sleep(0.15)
     run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_ENTER"], check=False)
     print("Dismissed 'Allow USB debugging?' dialog on %s." % serial)
     return True
