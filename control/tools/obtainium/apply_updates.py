@@ -44,6 +44,7 @@ def main(argv=None):
 
     # Send headless update deep-link with auto-install.
     adb(serial, "am", "start",
+        "-f", "0x10200000",  # FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TOP
         "-a", "android.intent.action.VIEW",
         "-d", "obtainium://update/all?autoInstall=true&headless=true")
     print("Headless update triggered — waiting up to 90s...")

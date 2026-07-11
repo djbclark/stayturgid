@@ -56,7 +56,9 @@ def import_catalog(serial, catalog_path):
 
     adb_shell(serial, "am", "force-stop", OBTAINIUM_PKG)
     time.sleep(0.5)
-    adb_shell(serial, "am", "start", "-a", "android.intent.action.VIEW", "-d", uri)
+    adb_shell(serial, "am", "start",
+              "-f", "0x10200000",  # FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TOP
+              "-a", "android.intent.action.VIEW", "-d", uri)
     time.sleep(4)
 
     # Check headless_result.json for confirmation.
