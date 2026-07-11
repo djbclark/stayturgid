@@ -87,8 +87,8 @@ stayturgid_ui_data_files:
     dest: catalog/stayturgid-apps.json
   - src: catalogs/obtainium/autojs6-only.json
     dest: catalog/autojs6-only.json
-  - src: control/lib/autojs6_drawer_defaults.json
-    dest: autojs6_drawer_defaults.json
+  - src: device/autojs6/fleet_profile.json
+    dest: autojs6/fleet_profile.json
   - src: control/lib/a11y_profiles.json
     dest: a11y_profiles.json
 
