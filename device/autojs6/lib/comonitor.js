@@ -69,8 +69,9 @@ function restartSshd() {
 
 function probeShizuku() {
     if (shizukuShell.isOperational()) return "up";
-    var r = sh("pgrep -f shizuku_server >/dev/null 2>&1");
-    return r.code === 0 ? "up" : "down";
+    var r = sh("am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null");
+    if (r && r.code === 0 && r.result && r.result.indexOf("result=1") >= 0) return "up";
+    return "down";
 }
 
 function probeShell5555(split, termuxStatus) {

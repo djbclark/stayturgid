@@ -3,37 +3,12 @@ var sh = require("./shizuku_shell.js");
 
 var SHIZUKU_PKG = "moe.shizuku.privileged.api";
 
-function launchManager(profile) {
-    var pkg = profile.shizukuPackage || SHIZUKU_PKG;
-    var cls = profile.shizukuActivity || "moe.shizuku.manager.MainActivity";
-    app.startActivity({
-        packageName: pkg,
-        className: cls,
-        flags: ["activity_new_task"],
-    });
-    sleep(3000);
-}
-
-function findStartButton() {
-    var selectors = [
-        function () { return text("Start").findOne(4000); },
-        function () { return desc("Start").findOne(3000); },
-        function () { return textContains("Start via").findOne(3000); },
-        function () { return textMatches(/start/i).className("android.widget.Button").findOne(3000); },
-        function () { return textMatches(/^start$/i).findOne(3000); },
-    ];
-    for (var i = 0; i < selectors.length; i++) {
-        try {
-            var node = selectors[i]();
-            if (node) return node;
-        } catch (e) { /* try next */ }
-    }
-    return null;
-}
-
 function serverRunning() {
-    var r = sh.exec("pgrep -f shizuku_server");
-    return r && r.code === 0 && String(r.result || "").trim().length > 0;
+    var r = sh.exec("am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null");
+    if (r && r.code === 0 && r.result) {
+        return r.result.indexOf("result=1") >= 0;
+    }
+    return false;
 }
 
 /**
@@ -71,7 +46,7 @@ function tryShellWirelessRepair() {
 
 /**
  * Headless start via djbclark/Shizuku HEADLESS_START broadcast.
- * Uses shizuku shell (privileged) to send the broadcast — no UI needed.
+ * The fork has built-in retry logic (3 attempts, 5s delay).
  */
 function headlessStart() {
     if (!sh.isOperational()) {
@@ -79,34 +54,13 @@ function headlessStart() {
     }
     log.append("[watchdog] shizuku headless: sending HEADLESS_START broadcast");
     sh.exec("am broadcast -a moe.shizuku.privileged.api.HEADLESS_START");
-    sleep(3000);
-    return sh.exec("pgrep -f shizuku_server").code === 0;
+    sleep(5000);
+    return serverRunning();
 }
 
 /**
- * Catastrophic recovery via accessibility tap (last resort — requires unlocked
- * screen). Only reached when shell and HEADLESS_START both fail.
- */
-function tapStartButton(profile) {
-    if (!device.isScreenOn()) {
-        log.append("[watchdog] shizuku Start skipped — screen off (unlock for UI tap)");
-        return false;
-    }
-    launchManager(profile);
-    var btn = findStartButton();
-    if (btn) {
-        btn.click();
-        log.append("[watchdog] shizuku Start tapped (text match)");
-        sleep(5000);
-        return true;
-    }
-    log.append("[watchdog] shizuku Start button not found");
-    return false;
-}
-
-/**
- * Catastrophic path: shell repair, then HEADLESS_START broadcast,
- * then accessibility UI tap as last resort.
+ * Catastrophic path: shell repair, then HEADLESS_START broadcast
+ * (with built-in retry logic in the fork).
  */
 function repairCatastrophic(profile) {
     if (serverRunning() && tryShellWirelessRepair()) {
@@ -115,8 +69,6 @@ function repairCatastrophic(profile) {
     if (tryShellWirelessRepair()) {
         return true;
     }
-    // djbclark/Shizuku fork: HEADLESS_START broadcast starts the server
-    // and ensures wireless ADB without any UI interaction.
     if (headlessStart()) {
         log.append("[watchdog] shizuku headless start succeeded");
         if (tryShellWirelessRepair()) {
@@ -124,17 +76,12 @@ function repairCatastrophic(profile) {
         }
         return serverRunning();
     }
-    // Last resort: accessibility UI tap (requires unlocked screen).
-    var ok = tapStartButton(profile);
-    if (!ok) {
-        ok = tapStartButton(profile);  // retry once
-    }
-    return ok;
+    log.append("[watchdog] shizuku headless start failed after retries");
+    return false;
 }
 
 module.exports = {
     headlessStart: headlessStart,
-    tapStartButton: tapStartButton,
     repairCatastrophic: repairCatastrophic,
     tryShellWirelessRepair: tryShellWirelessRepair,
     serverRunning: serverRunning,
