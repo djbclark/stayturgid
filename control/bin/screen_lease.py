@@ -90,7 +90,7 @@ def cmd_acquire(device: str, purpose: str) -> int:
 def cmd_release(device: str) -> int:
     ok = dsl.release(device)
     print("released=%s device=%s" % (ok, device))
-    return 0 if ok else 0
+    return 0 if ok else 1
 
 
 def cmd_heartbeat(device: str) -> int:

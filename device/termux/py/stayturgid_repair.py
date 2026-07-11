@@ -266,7 +266,7 @@ def duplicate_branch():
         port, sh, shizuku, a11y, wifi = "skip", False, "skip", "skip", "skip"
     elif privileged_shell():
         port, sh = "open", True
-        rc, _ = sh_adb("pgrep -f shizuku_server")
+        rc, _ = sh_adb("pgrep -f '[s]hizuku_server'")
         shizuku = "up" if rc == 0 else "down"
         wifi = (
             "up"
@@ -437,7 +437,7 @@ def main():
 
     # --- 3. shizuku (via privileged shell) ---
     if expect_shell and have_sh:
-        shizuku = "up" if sh_adb("pgrep -f shizuku_server")[0] == 0 else "down"
+        shizuku = "up" if sh_adb("pgrep -f '[s]hizuku_server'")[0] == 0 else "down"
     elif expect_shell:
         shizuku = "unknown"
 

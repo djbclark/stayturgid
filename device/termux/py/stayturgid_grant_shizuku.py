@@ -62,7 +62,7 @@ def install_shizuku_json(content):
     rc, _ = sh.shell("cp", STAGING, SHIZUKU_JSON)
     if rc != 0:
         return False
-    sh.shell("chmod", "666", SHIZUKU_JSON)
+    sh.shell("chmod", "644", SHIZUKU_JSON)
     return True
 
 
