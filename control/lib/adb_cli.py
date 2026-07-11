@@ -121,11 +121,11 @@ def dismiss_usb_debugging_dialog(serial: str) -> bool:
     Returns True if the dialog was found and dismissed.
     """
     result = run(
-        ["adb", "-s", serial, "shell", "dumpsys", "window", "windows"],
+        ["adb", "-s", serial, "shell", "dumpsys", "activity", "activities"],
         check=False,
     )
     text = (result.stdout or "") + (result.stderr or "")
-    if "Allow USB debugging" not in text and "allow USB debugging" not in text.lower():
+    if "UsbDebuggingActivity" not in text:
         return False
 
     run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_TAB"], check=False)
