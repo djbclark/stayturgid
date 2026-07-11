@@ -45,6 +45,7 @@ Findings that inform **shipping** fleet behavior (Handsets, Fire OS, UI drivers)
 | [research/fire-os-local-adb.md](research/fire-os-local-adb.md) | Fire HD loopback ADB limits |
 | [research/fire-os-google-play.md](research/fire-os-google-play.md) | Fire HD Google Play / GMS stack |
 | [research/mac-android-ui-automation.md](research/mac-android-ui-automation.md) | Mac→Android UI playbook |
+| [research/text-based-android-config.md](research/text-based-android-config.md) | Best practices for adding text-based configuration to Android apps; candidate apps in the stayturgid stack |
 
 ## `docs/incubator/` — parked side projects (do not implement)
 
