@@ -15,7 +15,6 @@ Usage: ./enable_autojs6_shizuku.py <s24|p7a|hd8|serial>
 """
 from __future__ import annotations
 
-import json
 import subprocess
 import sys
 import time
@@ -25,7 +24,6 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
 import a11y_services as a11y  # noqa: E402
 import stayturgid_device as dev  # noqa: E402
-import screen_control as sc  # noqa: E402
 import post_ui_remote as remote  # noqa: E402
 
 AUTOJS_PKG = "org.autojs.autojs6"
