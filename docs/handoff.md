@@ -286,11 +286,11 @@ debugging mDNS preferred). See [docs/options.md](options.md).
 - Parked side projects: [docs/incubator/](incubator) — Inferno/Styx **do not implement**.
 
 **Recent landings (2026-07-08):**
-- AutoJs6 fleet drawer profile (`autojs6_drawer_defaults.json`, `enable_autojs6_shizuku.py`).
+- AutoJs6 fleet profile (`device/autojs6/fleet_profile.json`, `enable_autojs6_shizuku.py` via FleetProfileActivity intent).
 - Accessibility merge-only + `control/bin/a11y_services.py` backup/restore (`control/lib/a11y_profiles.json`).
 - PiP/overlay clearance at `ScreenControlSession` start (`control/lib/ui_clearance.py`).
 - Deploy order: harden (core apps) → `enable_autojs6_shizuku` (Aurora configure parked).
-- AutoJs6 upstream fleet-config request: [issue #553](https://github.com/SuperMonster003/AutoJs6/issues/553).
+- AutoJs6 fleet profile API: [issue #553](https://github.com/SuperMonster003/AutoJs6/issues/553), implemented in [djbclark/AutoJs6](https://github.com/djbclark/AutoJs6/releases).
 
 **Recent landings (2026-07-07):**
 - Termux mirror re-pinned after `pkg update`; Fire OS localhost adb skip reports as verify note (not TODO).

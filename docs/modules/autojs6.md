@@ -39,7 +39,7 @@ engine self-heals without a manual `start_watchdog.py`.
 1. AutoJs6 (`org.autojs.autojs6`) — `setup_autojs6.py` or Obtainium; fleet harden grants storage, `RUN_COMMAND`, notifications, battery unrestricted, unused-app off
 2. Termux repair scripts deployed (`deploy_termux.py` / fleet)
 3. Shizuku (thedjchi fork), TCP mode
-4. **AutoJs6 drawer fleet profile** — `control/lib/autojs6_drawer_defaults.json` applied by `enable_autojs6_shizuku.py` (UI automation; upstream API request [AutoJs6 #553](https://github.com/SuperMonster003/AutoJs6/issues/553)).
+4. **AutoJs6 fleet profile** — `device/autojs6/fleet_profile.json` applied via `FleetProfileActivity` intent by `enable_autojs6_shizuku.py` (no UI automation; uses [djbclark/AutoJs6 fleet-profile-553](https://github.com/djbclark/AutoJs6) build with [upstream API request](https://github.com/SuperMonster003/AutoJs6/issues/553)).
 
 ## Shizuku API (built-in, not a separate plugin)
 

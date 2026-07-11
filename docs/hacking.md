@@ -110,11 +110,11 @@ Or F-Droid: search "Termux:API".
 
 JavaScript automation engine — runs the stayturgid watchdog (accessibility UI repair + Termux bridge). See [docs/modules/autojs6.md](modules/autojs6.md).
 
-**Source:** https://github.com/SuperMonster003/AutoJs6/releases
+**Source:** https://github.com/djbclark/AutoJs6/releases (fleet-profile-553 build with non-UI configuration)
 
 **Obtainium URL** (add this in Obtainium → Add App, or import `catalogs/obtainium/autojs6-only.json` via `control/tools/obtainium/sync_to_device.py`):
 ```
-https://github.com/SuperMonster003/AutoJs6
+https://github.com/djbclark/AutoJs6
 ```
 APK filter: `arm64-v8a` (or enable auto-filter-by-arch). Grant **Run commands in Termux environment** after install.
 

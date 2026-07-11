@@ -7,9 +7,9 @@ from ansible_collections.stayturgid.obtainium.plugins.modules import obtainium_a
 
 AUTOJS = {
     "id": "org.autojs.autojs6",
-    "url": "https://github.com/SuperMonster003/AutoJs6",
+    "url": "https://github.com/djbclark/AutoJs6",
     "name": "AutoJs6",
-    "author": "SuperMonster003",
+    "author": "djbclark",
     "categories": ["Automation"],
     "settings": {"apkFilterRegEx": "arm64-v8a", "about": "watchdog"},
 }

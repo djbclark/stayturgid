@@ -58,14 +58,14 @@ EXAMPLES = r"""
   stayturgid.obtainium.obtainium_app:
     apps:
       - id: org.autojs.autojs6
-        url: https://github.com/SuperMonster003/AutoJs6
+        url: https://github.com/djbclark/AutoJs6
         name: AutoJs6
-        author: SuperMonster003
+        author: djbclark
         categories: [Automation]
         settings:
           apkFilterRegEx: arm64-v8a
           autoApkFilterByArch: true
-          about: stayturgid AutoJs6 watchdog
+          about: stayturgid fleet-profile AutoJs6
 """
 
 RETURN = r"""

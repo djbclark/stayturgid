@@ -86,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
                 "download",
                 "v6.7.0",
                 "--repo",
-                "SuperMonster003/AutoJs6",
+                "djbclark/AutoJs6",
                 "-p",
                 APK_NAME,
                 "-D",

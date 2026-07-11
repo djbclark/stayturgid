@@ -4,26 +4,24 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
-ENABLE = REPO / "control" / "tools" / "autojs6" / "enable_autojs6_shizuku.py"
+sys.path.insert(0, str(REPO / "control" / "lib"))
+import a11y_services as a11y  # noqa: E402
 
-spec = importlib.util.spec_from_file_location("enable_autojs6_shizuku", ENABLE)
-mod = importlib.util.module_from_spec(spec)
-sys.modules["enable_autojs6_shizuku"] = mod
-spec.loader.exec_module(mod)
+A11Y_SVC = a11y.AUTOJS6_A11Y
 
 
 def test_a11y_append_empty():
-    assert mod.a11y_append_value("") == mod.A11Y_SVC
-    assert mod.a11y_append_value("null") == mod.A11Y_SVC
+    assert a11y.append_service("", A11Y_SVC) == A11Y_SVC
+    assert a11y.append_service("null", A11Y_SVC) == A11Y_SVC
 
 
 def test_a11y_append_preserves_existing():
     cur = "com.other.app/.Service"
-    out = mod.a11y_append_value(cur)
+    out = a11y.append_service(cur, A11Y_SVC)
     assert out.startswith(cur + ":")
-    assert mod.A11Y_SVC in out
+    assert A11Y_SVC in out
 
 
 def test_a11y_append_idempotent():
-    cur = "com.other.app/.Service:" + mod.A11Y_SVC
-    assert mod.a11y_append_value(cur) == cur
+    cur = "com.other.app/.Service:" + A11Y_SVC
+    assert a11y.append_service(cur, A11Y_SVC) == cur

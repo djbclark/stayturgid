@@ -80,8 +80,8 @@ These do **not** need operator action unless noted.
 
 | Area | Status |
 |------|--------|
-| AutoJs6 drawer fleet profile | `control/lib/autojs6_drawer_defaults.json` + `enable_autojs6_shizuku.py` |
-| AutoJs6 upstream API request | [AutoJs6 #553](https://github.com/SuperMonster003/AutoJs6/issues/553) |
+| AutoJs6 fleet profile | `device/autojs6/fleet_profile.json` + `FleetProfileActivity` intent |
+| AutoJs6 fleet API | [issue #553](https://github.com/SuperMonster003/AutoJs6/issues/553), [djbclark/AutoJs6](https://github.com/djbclark/AutoJs6/releases) |
 | PiP / overlay clearance | `ScreenControlSession` clears YouTube PiP via `stack remove` (Samsung verified) |
 | Accessibility list wipe fix | Drawer a11y toggle **removed**; merge-only via `control/bin/a11y_services.py` |
 | p7a a11y restore | Profile merge restored Buzzkill / Notch / existing apps (6 services) |
@@ -204,7 +204,7 @@ phone when deploy runs import.
 ### 4.3 Upstream tracking
 
 - **AutoJs6 fleet config API:** [issue #553](https://github.com/SuperMonster003/AutoJs6/issues/553)
-  — no non-UI drawer prefs on release builds today.
+  — implemented in [djbclark/AutoJs6](https://github.com/djbclark/AutoJs6/releases) (FleetProfileActivity intent).
 
 ---
 
