@@ -7,13 +7,14 @@ sshd, SSH invoke ``stayturgid_peer_help.py`` (phones) or ``fire_peer_help.py``
 
 Usage:
   stayturgid_peer_bootstrap.py              # start Handsets via first peer
-  stayturgid_peer_bootstrap.py --port 9008
+  stayturgid_peer_bootstrap.py --port 9012
   stayturgid_peer_bootstrap.py --list
   stayturgid_peer_bootstrap.py shizuku      # start Shizuku via peer instead
 
 Env:
   STAYTURGID_PEER_BOOTSTRAP=0   disable
-  STAYTURGID_HANDSETS_PORT      daemon port (default from peers file / 9008)
+  STAYTURGID_HANDSETS_PORT      daemon port (default from peers file / 9012)
+  STAYTURGID_PEER_SSH_USER      fallback SSH user for legacy fleet keys (default termux)
 """
 from __future__ import annotations
 
@@ -32,7 +33,7 @@ PEERS_PATH = os.path.join(STG, "peers")
 FLEET_KEY = os.path.join(HOME, ".ssh", "id_ed25519_fleet")
 PEERHELP_KEY = os.path.join(HOME, ".ssh", "id_ed25519_peerhelp")
 DEFAULT_SSH_PORT = 8022
-DEFAULT_SSH_USER = "djbclark"
+DEFAULT_SSH_USER = os.environ.get("STAYTURGID_PEER_SSH_USER", "termux")
 
 
 def enabled() -> bool:
@@ -200,7 +201,7 @@ def bootstrap_handsets(
         port
         or os.environ.get("STAYTURGID_HANDSETS_PORT")
         or cfg.get("handsets_port")
-        or 9008
+        or 9012
     )
     if _wire_ping(port):
         return True, "already up port=%d" % port
@@ -246,7 +247,7 @@ def bootstrap_shizuku(peers_path: str = PEERS_PATH) -> tuple[bool, str]:
         return False, "no self addresses"
     if not os.path.isfile(FLEET_KEY) and not os.path.isfile(PEERHELP_KEY):
         return False, "missing SSH key"
-    port = int(cfg.get("handsets_port") or 9008)
+    port = int(cfg.get("handsets_port") or 9012)
     for peer in cfg.get("peers") or []:
         if peer.get("can_help") is False:
             continue

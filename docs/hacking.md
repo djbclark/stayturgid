@@ -811,7 +811,7 @@ ANDROID_SERIAL="$(resolve_adb s24)" fdroidcl install com.example.app
 
 **Historical E2E (2026-07-07, pre-park):** fdroidcl install smoke test on s24/p7a/hd8; uninstalled after verify.
 
-See [docs/modules/fdroid.md](modules/fdroid.md), [modules/fdroid.md](modules/fdroid.md), [modules/play.md](modules/play.md).
+See [modules/fdroid.md](modules/fdroid.md), [modules/obtainium.md](modules/obtainium.md), [modules/play.md](modules/play.md).
 
 ---
 

@@ -140,9 +140,9 @@ always-on Ollama in Termux:Boot; **any Inferno/`emu`/Styx work** (parked under
 ### Parked — FIRERPA Integration (paused 2026-07-10)
 
 FIRERPA/lamda integration plan exists at
-`docs/plans/firerpa-integration-plan.md` (9 steps, ~8.5 days).
+[plans/firerpa-integration-plan.md](plans/firerpa-integration-plan.md) (9 steps, ~8.5 days).
 Non-root viability research at
-`docs/history/firerpa-nonroot-research-2026-07-10.md`.
+[history/firerpa-nonroot-research-2026-07-10.md](history/firerpa-nonroot-research-2026-07-10.md).
 
 **Status: paused.** Key findings: non-root FIRERPA is possible but the
 minority path; our devices are consumer daily drivers, not phone farms.

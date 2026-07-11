@@ -1,6 +1,6 @@
 {# Phone → Mac control node: Eternal Terminal bootstrap + BatchMode SSH.
    Identity must be passphrase-less fleet key (id_ed25519_fleet). -#}
-{% set et_user = stayturgid_control_ssh_user | default(stayturgid_mac_peer.user | default('djbclark')) -%}
+{% set et_user = stayturgid_control_ssh_user | default(stayturgid_mac_peer.user | default(ansible_user | default('termux'))) -%}
 {% set ts_ip = stayturgid_control_tailscale_ip | default(stayturgid_mac_peer.tailscale | default('')) -%}
 {% set lan_ip = stayturgid_control_lan_ip | default(stayturgid_mac_peer.lan | default('')) -%}
 {% set ident = stayturgid_control_ssh_identity | default(stayturgid_ssh_device_identity_key | default('id_ed25519_fleet')) -%}

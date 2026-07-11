@@ -21,10 +21,18 @@ def _write(path, text):
     """Write, self-healing the parent dir (a user may delete ~/.stayturgid)."""
     try:
         os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-        with open(path, "w") as f:
+        with open(path, "w", encoding="utf-8") as f:
             f.write(text)
     except OSError:
         pass
+
+
+def _read_text(path):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    except OSError:
+        return None
 
 
 def _field(text, key):
@@ -46,12 +54,9 @@ def main():
     if not remote:
         return 0
 
-    seen = ""
-    try:
-        with open(STAMP) as f:
-            seen = f.read().strip()
-    except OSError:
-        pass
+    seen = _read_text(STAMP)
+    if seen is not None:
+        seen = seen.strip()
     if remote == seen:
         return 0
 

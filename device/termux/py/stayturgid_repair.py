@@ -72,6 +72,17 @@ def _parse_a11y_list(raw):
     return out
 
 
+def _a11y_value_safe(value):
+    """Return an adb-safe quoted value for enabled_accessibility_services.
+
+    Avoids single-quote injection in shell commands. adb 'shell' passes the
+    argument string to /system/bin/sh, so we use shlex.quote for any dynamic
+    value.
+    """
+    import shlex
+    return shlex.quote(value)
+
+
 def _merge_a11y_list(current, add):
     merged = _parse_a11y_list(current)
     seen = set(merged)
@@ -148,19 +159,21 @@ def trim_log(path, keep=500, over=1000):
             pass
 
 
-def run(args):
+def run(args, timeout=15):
     """Run a command via the sandbox/real PATH; return (rc, stdout)."""
     try:
-        p = subprocess.run(args, capture_output=True, text=True)
+        p = subprocess.run(args, capture_output=True, text=True, timeout=timeout)
         return p.returncode, p.stdout
     except OSError:
         return 127, ""
+    except subprocess.TimeoutExpired:
+        return 124, ""
 
 
-def sh_adb(cmd):
+def sh_adb(cmd, timeout=15):
     """adb -s localhost:5555 shell <cmd> — cmd is one string, matching $SH "...".
     Returns (rc, stdout without CR)."""
-    rc, out = run(["adb", "-s", "localhost:5555", "shell", cmd])
+    rc, out = run(["adb", "-s", "localhost:5555", "shell", cmd], timeout=timeout)
     return rc, out.replace("\r", "")
 
 
@@ -438,12 +451,12 @@ def main():
                 a11y = "up"
             else:
                 new = _merge_a11y_list(before, [A11Y_SVC])
-                sh_adb("settings put secure enabled_accessibility_services '%s'" % new)
+                sh_adb("settings put secure enabled_accessibility_services %s" % _a11y_value_safe(new))
                 sh_adb("settings put secure accessibility_enabled 1")
                 recheck = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
                 repaired = _repair_a11y_shrink(before, recheck)
                 if repaired:
-                    sh_adb("settings put secure enabled_accessibility_services '%s'" % repaired)
+                    sh_adb("settings put secure enabled_accessibility_services %s" % _a11y_value_safe(repaired))
                     sh_adb("settings put secure accessibility_enabled 1")
                     recheck = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
                 if A11Y_SVC in recheck:

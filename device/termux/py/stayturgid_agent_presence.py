@@ -89,6 +89,11 @@ def run(args, timeout=15):
         )
     except subprocess.TimeoutExpired as e:
         pid = getattr(e, "pid", None)
+        if pid is None and hasattr(e, "process"):
+            try:
+                pid = e.process.pid
+            except AttributeError:
+                pid = None
         if pid and not str(args[0]).startswith("termux-"):
             try:
                 os.killpg(pid, signal.SIGKILL)

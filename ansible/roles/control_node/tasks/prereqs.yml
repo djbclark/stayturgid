@@ -1,6 +1,6 @@
 ---
 - name: Check for Homebrew
-  ansible.builtin.command: command -v brew
+  ansible.builtin.shell: command -v brew
   register: _brew_which
   changed_when: false
   failed_when: false

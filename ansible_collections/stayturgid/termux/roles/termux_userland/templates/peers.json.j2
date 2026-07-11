@@ -6,7 +6,7 @@
     "lan": {{ (device_lan_ip | default('')) | to_json }},
     "usb_serial": {{ (device_usb_serial | default('')) | to_json }}
   },
-  "handsets_port": {{ stayturgid_handsets_port | default(9008) | int }},
+  "handsets_port": {{ stayturgid_handsets_port | default(9012) | int }},
   "ssh_port": {{ ansible_port | default(8022) | int }},
   "peers": [
 {% set ns = namespace(entries=[]) %}
@@ -18,7 +18,7 @@
         'tailscale': hostvars[h].ansible_host,
         'lan': hostvars[h].device_lan_ip | default(''),
         'can_help': not (hostvars[h].stayturgid_no_local_adb | default(false) | bool),
-        'ssh_user': 'djbclark',
+        'ssh_user': hostvars[h].ansible_user | default('termux'),
         'ssh_port': (hostvars[h].ansible_port | default(8022)) | int,
         'help_cmd': '',
         'force_command': true
@@ -32,7 +32,7 @@
       'tailscale': stayturgid_mac_peer.tailscale,
       'lan': stayturgid_mac_peer.lan | default(''),
       'can_help': true,
-      'ssh_user': stayturgid_mac_peer.user | default('djbclark'),
+      'ssh_user': stayturgid_mac_peer.user | default(ansible_user | default('termux')),
       'ssh_port': (stayturgid_mac_peer.port | default(22)) | int,
       'help_cmd': stayturgid_mac_peer.help_cmd | default(''),
       'force_command': true

@@ -89,14 +89,17 @@ def append_log(line):
         pass
 
 
+def _read_int(path, default=0):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return int(f.read().strip() or default)
+    except (OSError, ValueError):
+        return default
+
+
 def maybe_notify():
     now = int(time.time())
-    last = 0
-    if os.path.isfile(NOTIFY_STAMP):
-        try:
-            last = int(open(NOTIFY_STAMP).read().strip() or "0")
-        except (OSError, ValueError):
-            last = 0
+    last = _read_int(NOTIFY_STAMP) if os.path.isfile(NOTIFY_STAMP) else 0
     if now - last < NOTIFY_COOLDOWN_SEC:
         return
     run([
@@ -109,7 +112,7 @@ def maybe_notify():
     ])
     os.makedirs(STATE, exist_ok=True)
     try:
-        with open(NOTIFY_STAMP, "w") as fh:
+        with open(NOTIFY_STAMP, "w", encoding="utf-8") as fh:
             fh.write(str(now))
     except OSError:
         pass
@@ -118,12 +121,7 @@ def maybe_notify():
 def maybe_restart_trigger():
     """Arm autojs6-bridge (trigger file) — not RunIntentActivity from boot loop."""
     now = int(time.time())
-    last = 0
-    if os.path.isfile(RESTART_STAMP):
-        try:
-            last = int(open(RESTART_STAMP).read().strip() or "0")
-        except (OSError, ValueError):
-            last = 0
+    last = _read_int(RESTART_STAMP) if os.path.isfile(RESTART_STAMP) else 0
     if now - last < RESTART_COOLDOWN_SEC:
         return
     os.makedirs(os.path.dirname(TRIGGER), exist_ok=True)
@@ -137,7 +135,7 @@ def maybe_restart_trigger():
         return
     os.makedirs(STATE, exist_ok=True)
     try:
-        with open(RESTART_STAMP, "w") as fh:
+        with open(RESTART_STAMP, "w", encoding="utf-8") as fh:
             fh.write(str(now))
     except OSError:
         pass

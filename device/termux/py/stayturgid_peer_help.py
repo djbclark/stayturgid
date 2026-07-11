@@ -66,8 +66,10 @@ def _ensure_connected(target: str, timeout: float = 20) -> None:
     lines = (d.stdout or "").splitlines()
     state = None
     for line in lines:
-        if line.startswith(target) or line.split()[0] == target:
-            parts = line.split()
+        parts = line.split()
+        if not parts:
+            continue
+        if parts[0] == target or line.startswith(target):
             if len(parts) >= 2:
                 state = parts[1]
             break
@@ -212,8 +214,8 @@ def main(argv=None) -> int:
     p.add_argument(
         "--port",
         type=int,
-        default=int(os.environ.get("STAYTURGID_HANDSETS_PORT", "9008")),
-        help="Handsets daemon port on target (default 9008 / hd8)",
+        default=int(os.environ.get("STAYTURGID_HANDSETS_PORT", "9012")),
+        help="Handsets daemon port on target (default from STAYTURGID_HANDSETS_PORT, else 9012)",
     )
     args = p.parse_args(argv)
     if args.verb == "ping":

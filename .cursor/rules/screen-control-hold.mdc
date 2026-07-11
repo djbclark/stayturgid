@@ -52,4 +52,4 @@ python3 control/bin/screen_lease.py check <host>   # exit 1 = foreign hold
 operator and use **s24** (or wait) instead of FORCE-stealing.
 
 Full protocol + interop prompt for other AIs:
-[docs/modules/screen-control-lease.md](docs/modules/screen-control-lease.md).
+[../docs/modules/screen-control-lease.md](../docs/modules/screen-control-lease.md).

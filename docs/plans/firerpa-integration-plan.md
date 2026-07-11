@@ -1,11 +1,12 @@
 # FIRERPA Integration Plan
 
 **Created:** 2026-07-10
-**Status:** IN PROGRESS — Step 1 (Spike) starting
+**Status:** PAUSED 2026-07-10 — see [../options.md](../options.md) — "Parked — FIRERPA Integration (paused 2026-07-10)".
 **Author:** Hermes (AI) + Dan
 **Prerequisite analysis:** [firerpa-lamda-analysis-2026-07-10.md](../history/firerpa-lamda-analysis-2026-07-10.md)
 
----
+This plan is not scheduled. Steps remain for reference if the integration is
+reopened.
 
 ## Safety Principle
 
