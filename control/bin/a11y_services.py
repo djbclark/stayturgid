@@ -16,7 +16,6 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
-sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
 import a11y_services as a11y  # noqa: E402
 import stayturgid_device as dev  # noqa: E402
 
@@ -46,7 +45,9 @@ def push_device_backup(serial: str, value: str) -> None:
     adb(serial, "mkdir", "-p", "%s/state" % SD_ROOT)
     tmp = a11y.backup_file_for(".device_push")
     a11y.write_backup_file(tmp, value)
-    subprocess.run(["adb", "-s", serial, "push", str(tmp), path], check=False)
+    r = subprocess.run(["adb", "-s", serial, "push", str(tmp), path], check=False)
+    if r.returncode != 0:
+        print("WARNING: adb push to %s failed (rc=%d)" % (path, r.returncode), file=sys.stderr)
     tmp.unlink(missing_ok=True)
 
 

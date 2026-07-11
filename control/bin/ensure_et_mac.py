@@ -112,8 +112,8 @@ def main(argv: list[str] | None = None) -> int:
     lan_ip = args.lan_ip or _detect_lan_ip()
     hostname = socket.gethostname().split(".")[0]
     aliases = ["mac", "macbook", hostname]
-    if hostname.endswith("s-MacBook-Air"):
-        aliases.append(hostname)
+    # Include the full hostname as an alias (works on any machine)
+    aliases.append(hostname)
     # MagicDNS-style short names often used with et
     full = socket.gethostname()
     if full and full not in aliases:

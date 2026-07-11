@@ -31,15 +31,15 @@ def load_profiles() -> list[dict]:
     return json.loads(PROFILES_JSON.read_text())
 
 
-def adb_run(cmd: list[str]) -> tuple[int, str, str]:
-    result = subprocess.run(cmd, capture_output=True, text=True)
+def adb_run(cmd: list[str], **kwargs) -> tuple[int, str, str]:
+    result = subprocess.run(cmd, capture_output=True, text=True, **kwargs)
     return result.returncode, result.stdout, result.stderr
 
 
-def run_command(cmd, *args, **kwargs):
+def run_command(cmd, **kwargs):
     if isinstance(cmd, str):
         cmd = cmd.split()
-    return adb_run(cmd)
+    return adb_run(cmd, **kwargs)
 
 
 def summarize(results: list[dict]) -> None:

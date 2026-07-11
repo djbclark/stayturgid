@@ -93,7 +93,9 @@ def read_state(host: str) -> int:
 def write_state(host: str, n: int) -> None:
     try:
         STATE_DIR.mkdir(parents=True, exist_ok=True)
-        (STATE_DIR / host).write_text(str(n))
+        tmp = STATE_DIR / (host + ".tmp")
+        tmp.write_text(str(n))
+        tmp.rename(STATE_DIR / host)
     except OSError:
         pass
 

@@ -135,10 +135,11 @@ def warn_prerequisites(scope: Scope) -> None:
     needs_fdroid = scope in (Scope.FULL, Scope.FDROID, Scope.APP_STORES)
     needs_apkeep = scope in (Scope.FULL, Scope.PLAY, Scope.APP_STORES)
     if needs_fdroid and not shutil.which("fdroidcl"):
-        print(
-            "WARNING: fdroidcl not found (brew install fdroidcl) — F-Droid repo sync will fail",
-            file=sys.stderr,
-        )
+        msg = "fdroidcl not found (brew install fdroidcl)"
+        if scope is Scope.FDROID:
+            print("ERROR: " + msg, file=sys.stderr)
+        else:
+            print("WARNING: " + msg + " — F-Droid repo sync will fail", file=sys.stderr)
     if needs_apkeep and not shutil.which("apkeep"):
         print(
             "WARNING: apkeep not found (brew install apkeep) — Aurora auto-install will fail",
