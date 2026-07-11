@@ -164,6 +164,7 @@ def apply_fleet_profile(serial: str) -> bool:
         "am", "start",
         "-a", FLEET_ACTION,
         "-e", "profile_path", DEVICE_PROFILE,
+        "-e", "result_path", FLEET_RESULT_PATH,
         "-e", "silent", "true",
         "-n", "%s/%s" % (AUTOJS_PKG, FLEET_ACTIVITY),
     )
@@ -182,7 +183,7 @@ def apply_fleet_profile(serial: str) -> bool:
                 print("Fleet profile applied: %d keys, %d skipped, %d failed"
                       % (data.get("applied_count", 0),
                          data.get("skipped_count", 0),
-                         data.get("failed_keys", [])))
+                         len(data.get("failed_keys", []))))
             else:
                 sys.stderr.write("WARN: profile applied with errors: %s\n"
                                  % data.get("message", ""))

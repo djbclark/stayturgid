@@ -26,6 +26,7 @@ A11Y_SVC = a11y.AUTOJS6_A11Y
 SHIZUKU_PERM = "moe.shizuku.manager.permission.API_V23"
 PROBE_REMOTE = "/sdcard/stayturgid/autojs6/scripts/shizuku-probe.js"
 WATCHDOG_LOG = "/sdcard/stayturgid/logs/watchdog.log"
+FLEET_RESULT_PATH = "/sdcard/autojs6-fleet-result.json"
 
 # Fleet profile shipped with the device tree
 LOCAL_PROFILE = os.path.join(sh.STG, "autojs6", "fleet_profile.json")
@@ -155,6 +156,7 @@ def apply_fleet_profile(shell, *, silent=False):
     cmd.extend([
         "-n", "%s/%s" % (AUTOJS_PKG, AUTOJS_FLEET_ACTIVITY),
     ])
+    cmd.extend(["-e", "result_path", FLEET_RESULT_PATH])
     rc, out = adb_shell(shell, *cmd)
     time.sleep(3)
     if rc != 0:
@@ -162,8 +164,7 @@ def apply_fleet_profile(shell, *, silent=False):
             "ERROR: FleetProfileActivity failed (rc=%d): %s\n" % (rc, out or "")
         )
         return False
-    # Read JSON result file for detailed status.
-    rc, result_out = shell("cat", "/sdcard/autojs6-fleet-result.json")
+    rc, result_out = shell("cat", FLEET_RESULT_PATH)
     if rc == 0 and result_out:
         try:
             data = json.loads(result_out)
