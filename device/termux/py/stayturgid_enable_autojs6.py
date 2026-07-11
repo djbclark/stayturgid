@@ -30,6 +30,10 @@ WATCHDOG_LOG = "/sdcard/stayturgid/logs/watchdog.log"
 # Fleet profile shipped with the device tree
 LOCAL_PROFILE = os.path.join(sh.STG, "autojs6", "fleet_profile.json")
 if not os.path.isfile(LOCAL_PROFILE):
+    _sd_profile = "/sdcard/stayturgid/autojs6/fleet_profile.json"
+    if os.path.isfile(_sd_profile):
+        LOCAL_PROFILE = _sd_profile
+if not os.path.isfile(LOCAL_PROFILE):
     _here = os.path.abspath(__file__)
     _repo = os.path.dirname(_here)
     while _repo != os.path.dirname(_repo):
