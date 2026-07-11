@@ -46,7 +46,8 @@ engine self-heals without a manual `start_watchdog.py`.
 AutoJs6 ships a global `shizuku(cmd)` function ([docs](https://docs.autojs6.com/#/shizuku)).
 `lib/shizuku_shell.js` uses it for privileged shell before falling back to `shell()`.
 Catastrophic repair tries `shizuku()` wireless-debug settings before the accessibility
-Start-button tap.
+Start-button tap. See [ADR 003](../adr/003-shizuku-catastrophic-recovery.md) for rationale
+on why the UI fallback is retained.
 
 Requires: Shizuku running, AutoJs6 authorized in Shizuku, **drawer toggle enabled**.
 

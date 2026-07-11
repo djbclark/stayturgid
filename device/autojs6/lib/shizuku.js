@@ -39,6 +39,14 @@ function serverRunning() {
 /**
  * Best-effort wireless-debug / adbd enable via Shizuku shell (no manager UI).
  * Returns true when localhost:5555 answers after the attempt.
+ *
+ * Steps (in order):
+ *   1. Enable developer options (belt-and-suspenders).
+ *   2. Enable USB ADB (some ROMs require this before wifi ADB).
+ *   3. Enable wireless debugging — triggers AdbService ContentObserver.
+ *   4. Force adbd to listen on TCP 5555 (legacy mode).
+ *   5. Connect local ADB client to the local adbd.
+ *   6. Verify shell uid 2000 on localhost:5555.
  */
 function tryShellWirelessRepair() {
     if (!sh.isOperational()) {
@@ -46,9 +54,13 @@ function tryShellWirelessRepair() {
     }
     log.append("[watchdog] shizuku shell: trying wireless-debug repair");
     sh.exec("settings put global development_settings_enabled 1");
+    sh.exec("settings put global adb_enabled 1");
     sh.exec("settings put global adb_wifi_enabled 1");
     sleep(2000);
+    sh.exec("setprop service.adb.tcp.port 5555");
+    sleep(1000);
     sh.exec("adb connect 127.0.0.1:5555");
+    sleep(1000);
     var uid = sh.exec("adb -s localhost:5555 shell id -u");
     if (uid && uid.code === 0 && String(uid.result || "").trim() === "2000") {
         log.append("[watchdog] shizuku shell: localhost:5555 shell uid 2000");
@@ -60,6 +72,19 @@ function tryShellWirelessRepair() {
 /**
  * Catastrophic recovery: launch Shizuku manager and tap the wireless-debug
  * "Start" button via accessibility. Requires an unlocked screen.
+ *
+ * WHY this function still exists (no non-UI alternative):
+ *   - Shizuku (official) has no hidden intent/API to restart its daemon or
+ *     toggle wireless debugging. The only headless path is
+ *     /sdcard/Android/data/moe.shizuku.privileged.api/start.sh, which itself
+ *     requires a working ADB/root shell — the exact resource we are trying
+ *     to re-establish (chicken-and-egg problem).
+ *   - settings put global adb_wifi_enabled 1 does not stick on Fire OS,
+ *     leaving UI tap as the only recovery path on those devices.
+ *   - Community forks (timschneeb/ShizukuExt-SystemUID, thedjchi/Shizuku)
+ *     add start/stop intents, but switching forks is a separate fleet decision.
+ *   - This function is only reached after two failed shell repair attempts,
+ *     so it is a deliberate last resort, not the primary path.
  */
 function tapStartButton(profile) {
     if (!device.isScreenOn()) {
