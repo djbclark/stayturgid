@@ -15,7 +15,7 @@ import stayturgid_device as dev  # noqa: E402
 AUTOJS_PKG = "org.autojs.autojs6"
 AUTOJS_RUN = "org.autojs.autojs.external.open.RunIntentActivity"
 AUTOJS_PROJECT_BASE = "/sdcard/stayturgid/autojs6"
-SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "LogLevel=ERROR"]
+SSH_OPTS = ["-o", "BatchMode=yes", "-o", "LogLevel=ERROR"]
 
 
 def resolve_target(alias: str) -> str:

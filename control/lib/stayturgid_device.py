@@ -19,7 +19,7 @@ DEVICES_CONF = os.environ.get(
     "STAYTURGID_DEVICES_CONF",
     os.path.join(os.path.expanduser("~"), ".config", "stayturgid", "devices.conf"),
 )
-SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "LogLevel=ERROR"]
+SSH_OPTS = ["-o", "BatchMode=yes", "-o", "LogLevel=ERROR"]
 
 # Cached absolute adb path — launchd agents often have no Homebrew on PATH.
 _ADB_BIN: str | None = None

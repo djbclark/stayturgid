@@ -19,7 +19,7 @@ if str(_COLLECTION_UTILS) not in sys.path:
 
 import termux_run_as as tr  # noqa: E402
 
-SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "LogLevel=ERROR"]
+SSH_OPTS = ["-o", "BatchMode=yes", "-o", "LogLevel=ERROR"]
 
 # Re-export discovery helpers for tests and callers.
 default_keys_dir = tr.default_keys_dir

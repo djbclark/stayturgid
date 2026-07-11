@@ -10,10 +10,7 @@ from __future__ import annotations
 import re
 import time
 
-try:
-    from ui_parse import parse_content_desc_center, parse_text_center
-except ImportError:
-    from ui_parse import parse_content_desc_center, parse_text_center  # noqa: E402
+from ui_parse import parse_content_desc_center, parse_text_center
 
 PIP_ACTIVITY_MARKERS = (
     "mIsInPictureInPictureMode=true",

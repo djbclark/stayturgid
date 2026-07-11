@@ -32,7 +32,7 @@ try:
     from stayturgid_device import adb_bin as _adb_bin
 
     ADB = _adb_bin()
-except Exception:  # noqa: BLE001
+except ImportError:
     ADB = os.environ.get("STAYTURGID_ADB", "/opt/homebrew/bin/adb")
 # Single Mac root: ~/.config/stayturgid/{devices.conf,logs/,state/}.
 ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")

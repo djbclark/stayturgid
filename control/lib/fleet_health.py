@@ -29,7 +29,7 @@ def _adb_bin() -> str:
         from stayturgid_device import adb_bin  # type: ignore
 
         return adb_bin()
-    except Exception:  # noqa: BLE001
+    except ImportError:
         return os.environ.get("STAYTURGID_ADB", "/opt/homebrew/bin/adb")
 
 

@@ -38,18 +38,11 @@ def replace_marked_block(
         return new_text, new_text != (text or "")
 
     base = text or ""
-    if base and not base.endswith("\n"):
+    if not base.endswith("\n"):
         base += "\n"
-    if base and not base.endswith("\n\n"):
-        # keep a blank line before a new managed block when file non-empty
-        if not base.endswith("\n"):
-            base += "\n"
-    new_text = base + ("\n" if base and not base.endswith("\n") else "")
-    if base and not base.endswith("\n"):
-        new_text = base + "\n" + block
-    else:
-        sep = "" if (not base or base.endswith("\n")) else "\n"
-        new_text = base + sep + block
+    if base != "\n" and not base.endswith("\n\n"):
+        base += "\n"
+    new_text = base + block
     if not new_text.endswith("\n"):
         new_text += "\n"
     return new_text, new_text != (text or "")
