@@ -125,7 +125,7 @@ def dismiss_usb_debugging_dialog(serial: str) -> bool:
         check=False,
     )
     text = (result.stdout or "") + (result.stderr or "")
-    if "UsbDebuggingActivity" not in text:
+    if "UsbDebuggingActivity" not in text and "WifiDebuggingActivity" not in text:
         return False
 
     run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_TAB"], check=False)
