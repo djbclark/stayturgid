@@ -358,7 +358,7 @@ def guarded_adb_shell(serial, active, *args, timeout=30):
     return mac_adb_shell(serial, *args, timeout=timeout)
 
 
-class ScreenControlSession(object):
+class ScreenControlSession:
     """Context manager: consent + inverted screen for UI automation."""
 
     def __init__(

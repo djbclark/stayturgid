@@ -316,7 +316,8 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
         log("%s unreachable — skip soft health (see access-monitor)" % name)
         return
 
-    maybe_heal_hd8_google_stack(name)
+    if name == "hd8":
+        maybe_heal_hd8_google_stack(name)
 
     issues = fh.evaluate_health(report, alias=name)
     summary = fh.summarize(report, issues)
