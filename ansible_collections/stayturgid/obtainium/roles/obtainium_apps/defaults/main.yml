@@ -25,7 +25,6 @@ stayturgid_obtainium_apps:
     categories: [stayturgid]
     settings:
       includePrereleases: true
-      filterReleaseTitlesByRegEx: stayturgid
       apkFilterRegEx: universal
       autoApkFilterByArch: false
       about: djbclark fork with fleet/headless features (HEADLESS_START)
