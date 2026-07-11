@@ -19,7 +19,7 @@
 
 - name: Import fleet app-stores pass (post-Obtainium)
   import_playbook: fleet/fleet.yml
-  tags: [post-ui-app-stores, full]
+  tags: [post-ui-app-stores, app-stores, full]
 
 - name: Import validate play
   import_playbook: fleet/validate.yml

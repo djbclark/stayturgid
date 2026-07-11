@@ -99,6 +99,7 @@
       - package: com.termux.api
         permission: android.permission.POST_NOTIFICATIONS
   register: termux_perm_grant
+  when: not (stayturgid_no_local_adb | default(false) | bool)
 
 - name: Render stayturgid environment (STAYTURGID_SD for boot/repair scripts)
   ansible.builtin.copy:
