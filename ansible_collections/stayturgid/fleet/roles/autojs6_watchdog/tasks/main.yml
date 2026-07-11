@@ -102,3 +102,55 @@
   changed_when: false
   failed_when: false
   when: not (stayturgid_autojs6_deploy_via_adb | default(false))
+
+# ─────────────────────────────────────────────────────────────────
+# Shizuku headless configuration (djbclark fork)
+# ─────────────────────────────────────────────────────────────────
+- name: Whitelist Shizuku from device idle / battery optimization
+  ansible.builtin.shell: |
+    {{ stayturgid_adb_bin | default('adb') }} -s \
+      "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}" \
+      shell dumpsys deviceidle whitelist +moe.shizuku.privileged.api
+  changed_when: false
+  failed_when: false
+  when: not (stayturgid_no_local_adb | default(false) | bool)
+
+- name: Push Shizuku fleet profile to Download
+  ansible.builtin.copy:
+    dest: "/tmp/shizuku-fleet-{{ inventory_hostname }}.json"
+    content: |
+      {"mode":"adb","start_on_boot":true,"tcp_mode":true,"tcp_port":5555,"watchdog":true}
+    mode: "0644"
+  delegate_to: localhost
+  when: not (stayturgid_no_local_adb | default(false) | bool)
+
+- name: Push Shizuku fleet profile to device
+  ansible.builtin.shell: |
+    {{ stayturgid_adb_bin | default('adb') }} -s \
+      "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}" \
+      push /tmp/shizuku-fleet-{{ inventory_hostname }}.json /sdcard/Download/shizuku-fleet.json
+  changed_when: false
+  failed_when: false
+  when: not (stayturgid_no_local_adb | default(false) | bool)
+
+- name: Apply Shizuku fleet profile via intent
+  stayturgid.android_common.android_intent:
+    device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+    connect: true
+    action: moe.shizuku.privileged.api.APPLY_FLEET_PROFILE
+    component: moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity
+    extras:
+      profile_path: /sdcard/Download/shizuku-fleet.json
+      silent: "true"
+  changed_when: false
+  failed_when: false
+  when: not (stayturgid_no_local_adb | default(false) | bool)
+
+- name: Send HEADLESS_START to Shizuku
+  stayturgid.android_common.android_intent:
+    device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+    connect: true
+    action: moe.shizuku.privileged.api.HEADLESS_START
+  changed_when: false
+  failed_when: false
+  when: not (stayturgid_no_local_adb | default(false) | bool)
