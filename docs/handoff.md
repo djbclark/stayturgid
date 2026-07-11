@@ -341,7 +341,7 @@ Deployed scripts → `~/.stayturgid/bin`; AutoJs6 project → `/sdcard/stayturgi
 |-------|-------|
 | Device / Android | Google Pixel 7a / 16 |
 | USB serial | `35261JEHN12374` |
-| Wireless ADB | `100.65.230.108:5555` (Tailscale, stable); LAN `192.168.68.x` is DHCP — do not hardcode |
+| Wireless ADB | `100.65.230.108:5555` (Tailscale, stable); LAN `192.168.68.60` (DHCP — may change; see `ansible/inventory/hosts.yml`) |
 | SSH | `ssh p7a` (alias → Tailscale :8022, key auth, no 1Password dialog) |
 | Termux uid | `u0_a591` (changed from a590 in the 2026-07-05 GitHub/Obtainium swap) |
 | AutoJs6 | `org.autojs.autojs6` v6.7.0 |
@@ -354,7 +354,7 @@ Deployed scripts → `~/.stayturgid/bin`; AutoJs6 project → `/sdcard/stayturgi
 |-------|-------|
 | Device / Android | Amazon Kindle Fire HD 8 (KFRASWI) / 11 (API 30) |
 | USB serial | `GN43T503430603PS` |
-| Wireless ADB | `100.124.55.39:5555` (Tailscale); LAN `192.168.68.69:5555` fallback |
+| Wireless ADB | `100.124.55.39:5555` (Tailscale); LAN `192.168.1.157:5555` fallback (DHCP — see `ansible/inventory/hosts.yml`) |
 | SSH | `ssh hd8` (alias → Tailscale :8022, `u0_a310`, key auth); LAN: `ssh hd8-lan` |
 | Termux | GitHub-debug `com.termux` 0.118.3 + api/boot (share-uid); **must** be debug build for `run-as` recovery |
 | AutoJs6 | `org.autojs.autojs6` v6.7.0 — project at `/sdcard/stayturgid/autojs6` |
@@ -366,7 +366,7 @@ Deployed scripts → `~/.stayturgid/bin`; AutoJs6 project → `/sdcard/stayturgi
 |-------|-------|
 | Device / Android | Samsung Galaxy S24 (SM-S921U1) / 16 (SDK 36) |
 | USB serial | `RFCX219CHKA` (**use when plugged in**) |
-| Wireless ADB | `adb connect 100.123.218.30:5555` (Tailscale, stable) — also `192.168.68.60:5555` LAN (DHCP) |
+| Wireless ADB | `adb connect 100.123.218.30:5555` (Tailscale, stable) — also `192.168.68.54:5555` LAN (DHCP — see `ansible/inventory/hosts.yml`) |
 | SSH | `ssh s24` (alias → Tailscale, key auth, no 1Password dialog); via USB: `adb -s RFCX219CHKA forward tcp:8022 tcp:8022 && ssh -p 8022 localhost` |
 | Tailscale | `dannys24` = `100.123.218.30`; always-on VPN ON. "Block connections without VPN" deliberately OFF (would sever LAN ADB/mDNS on tunnel blips) |
 | AutoJs6 | `org.autojs.autojs6` v6.7.0 |
