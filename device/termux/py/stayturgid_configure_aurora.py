@@ -392,10 +392,7 @@ def configure_auto_updates(shell):
     for lab in AUTO_UPDATE_OFF_LABELS:
         if lab in ui:
             if _HS is not None:
-                try:
-                    checked, ok = _HS.switch_near_label(lab, timeout_ms=2000)
-                except TypeError:
-                    checked, ok = _HS.switch_near_label(lab)
+                checked, ok = _HS.switch_near_label(lab, timeout_ms=2000)
                 if ok and checked:
                     print("Aurora Store automatic updates already off (%s)." % lab)
                     return True

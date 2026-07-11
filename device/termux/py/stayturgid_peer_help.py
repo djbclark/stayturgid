@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shlex
 import subprocess
 import sys
 import time
@@ -185,12 +186,12 @@ def cmd_shizuku_start(target: str) -> int:
     if not apk:
         print("FAIL Shizuku not installed", file=sys.stderr)
         return 1
-    libdir = apk.rsplit("/", 1)[0] + "/lib/arm64"
+    libdir = shlex.quote(apk.rsplit("/", 1)[0] + "/lib/arm64")
     start = (
         "test -x %s/libshizuku.so && "
         "LD_LIBRARY_PATH=%s %s/libshizuku.so || "
         "sh /storage/emulated/0/Android/data/%s/start.sh"
-        % (libdir, libdir, libdir, SHIZUKU_PKG)
+        % (libdir, libdir, libdir, shlex.quote(SHIZUKU_PKG))
     )
     out = _shell(target, start, timeout=30)
     text = ((out.stdout or "") + (out.stderr or "")).replace("\r", "")

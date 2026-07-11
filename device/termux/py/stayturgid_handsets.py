@@ -443,7 +443,7 @@ class Session:
                     return label
         return None
 
-    def switch_near_label(self, label: str) -> tuple[bool, bool]:
+    def switch_near_label(self, label: str, timeout_ms: int | None = None) -> tuple[bool, bool]:
         """Return (checked, found) for Switch nearest to label text."""
         data = self.dump()
         label_node = None
