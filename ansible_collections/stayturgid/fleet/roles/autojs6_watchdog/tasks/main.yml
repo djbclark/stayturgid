@@ -16,7 +16,7 @@
   notify: nudge autojs6 watchdog
   when: not (stayturgid_autojs6_deploy_via_adb | default(false))
 
-- name: Deploy AutoJs6 project files
+- name: Deploy AutoJs6 project files (SSH path)
   ansible.builtin.copy:
     src: "{{ autojs6_repo_root }}/device/autojs6/{{ item }}"
     dest: "{{ autojs6_target }}/"
@@ -25,7 +25,14 @@
     - main.js
     - lib
     - scripts
+    - fleet_profile.json
   notify: nudge autojs6 watchdog
+  when: not (stayturgid_autojs6_deploy_via_adb | default(false))
+
+- name: Copy fleet profile to Download location (SSH path)
+  ansible.builtin.shell: |
+    cp "{{ autojs6_target }}/fleet_profile.json" /sdcard/Download/autojs6-fleet.json
+  changed_when: false
   when: not (stayturgid_autojs6_deploy_via_adb | default(false))
 
 - name: Stage device profile for adb push (Fire OS)
@@ -45,6 +52,33 @@
   notify: nudge autojs6 watchdog
   when: stayturgid_autojs6_deploy_via_adb | default(false)
 
+- name: Copy fleet profile to Download location (Fire OS adb)
+  ansible.builtin.command:
+    argv:
+      - adb
+      - -s
+      - "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+      - shell
+      - cp
+      - "{{ autojs6_target }}/fleet_profile.json"
+      - /sdcard/Download/autojs6-fleet.json
+  changed_when: false
+  failed_when: false
+  when: stayturgid_autojs6_deploy_via_adb | default(false)
+
+- name: Apply AutoJs6 fleet profile via intent (Fire OS adb)
+  stayturgid.android_common.android_intent:
+    device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+    connect: true
+    action: org.autojs.autojs6.action.APPLY_FLEET_PROFILE
+    component: org.autojs.autojs6/org.autojs.autojs.core.pref.fleet.FleetProfileActivity
+    extras:
+      profile_path: /sdcard/Download/autojs6-fleet.json
+      silent: "true"
+  changed_when: false
+  failed_when: false
+  when: stayturgid_autojs6_deploy_via_adb | default(false)
+
 - name: Ensure AutoJs6 watchdog is running (boot-launcher no-ops when alive)
   stayturgid.android_common.android_intent:
     device: localhost:5555
@@ -52,6 +86,19 @@
     data: "file://{{ autojs6_target }}/scripts/boot-launcher.js"
     mime_type: text/javascript
     component: org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity
+  changed_when: false
+  failed_when: false
+  when: not (stayturgid_autojs6_deploy_via_adb | default(false))
+
+- name: Apply AutoJs6 fleet profile via intent (SSH path)
+  stayturgid.android_common.android_intent:
+    device: localhost:5555
+    connect: true
+    action: org.autojs.autojs6.action.APPLY_FLEET_PROFILE
+    component: org.autojs.autojs6/org.autojs.autojs.core.pref.fleet.FleetProfileActivity
+    extras:
+      profile_path: /sdcard/Download/autojs6-fleet.json
+      silent: "true"
   changed_when: false
   failed_when: false
   when: not (stayturgid_autojs6_deploy_via_adb | default(false))

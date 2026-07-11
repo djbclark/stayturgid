@@ -47,7 +47,7 @@ def adb_push(run_command, device, local, remote):
 def deploy_project(run_command, device, repo_root, target=DEFAULT_TARGET, check_mode=False):
     """Wipe lib/scripts, push project tree, verify. Returns (ok, message, changed)."""
     src = project_src_dir(repo_root)
-    for name in ("project.json", "main.js", "lib", "scripts"):
+    for name in ("project.json", "main.js", "lib", "scripts", "fleet_profile.json"):
         path = os.path.join(src, name)
         if not os.path.exists(path):
             return False, "missing source path: %s" % path, False
@@ -63,7 +63,7 @@ def deploy_project(run_command, device, repo_root, target=DEFAULT_TARGET, check_
     if rc != 0:
         return False, "failed to wipe remote lib/scripts: %s" % (err.strip() or rc), False
 
-    for local_name in ("project.json", "main.js"):
+    for local_name in ("project.json", "main.js", "fleet_profile.json"):
         local = os.path.join(src, local_name)
         rc, _out, err = adb_push(run_command, device, local, "%s/%s" % (target, local_name))
         if rc != 0:
