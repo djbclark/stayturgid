@@ -1,110 +1,75 @@
 #!/usr/bin/env python3
-"""Open Obtainium and drive the bulk "Install/update apps" flow.
+"""Trigger Obtainium headless update check via deep-link (no UI automation).
 
-Python replacement for apply-updates.sh — the installer-dialog button parsing
-is now the unit-tested control/lib/stayturgid_device.parse_button_center()
-instead of `tr '>' '\n' | grep | sed`.
+Uses djbclark/Obtainium fork's headless update deep-link:
+  obtainium://update/all?autoInstall=true&headless=true
 
-Usage: ./apply_updates.py <p7a|s24|serial>
-Requires: unlocked screen, Obtainium in foreground. Confirms package-installer
-dialogs (taps android:id/button2 — the positive action on Samsung One UI;
-unverified on Pixel, where button1 may be positive).
+No screen control, no tap automation, no installer dialog handling needed.
+The fork handles Shizuku silent install internally.
+
+Usage: ./apply_updates.py <p7a|s24|hd8|serial>
 """
+import json
 import os
 import subprocess
 import sys
-import tempfile
 import time
-from pathlib import Path
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.join(REPO, "control", "lib"))
 import stayturgid_device as dev  # noqa: E402
-import screen_control as sc  # noqa: E402
-import vlm_gate as vlm  # noqa: E402
-import vlm_helpers as vh  # noqa: E402
 
 OBTAINIUM_PKG = "dev.imranr.obtainium"
-BULK = (476, 2017)
-CONTINUE = (727, 1433)
-PLAY_PROTECT_DISMISS = (540, 1629)
+RESULT_FILE = "/data/data/%s/app_flutter/headless_result.json" % OBTAINIUM_PKG
 
 
-def installer_action(xml):
-    """Classify the current screen from a uiautomator dump. Returns one of:
-      ("installer", (cx, cy))  -- package installer up; tap button2 center
-      ("playprotect", None)    -- Play Protect blocked the install
-      (None, None)             -- nothing to do
-    Pure — the tap-decision logic, unit-tested without a device."""
-    xml = xml or ""
-    if 'package="com.google.android.packageinstaller"' in xml:
-        center = dev.parse_button_center(xml, "android:id/button2")
-        return ("installer", center)
-    if 'package="com.android.vending"' in xml:
-        return ("playprotect", None)
-    return (None, None)
-
-
-def adb_shell(serial, *args):
+def adb(serial, *args, timeout=30):
     try:
-        return subprocess.run(["adb", "-s", serial, "shell"] + list(args),
-                              capture_output=True, text=True)
-    except OSError:
+        return subprocess.run(
+            ["adb", "-s", serial, "shell"] + list(args),
+            capture_output=True, text=True, timeout=timeout,
+        )
+    except (OSError, subprocess.TimeoutExpired):
         return None
 
 
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
-        sys.stderr.write("usage: apply_updates.py <p7a|s24|serial>\n")
+        sys.stderr.write("usage: apply_updates.py <p7a|s24|hd8|serial>\n")
         return 2
-    serial = dev.resolve_adb(argv[0])
+    host = argv[0]
+    serial = dev.resolve_adb(host)
+    subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
 
-    try:
-        with sc.ScreenControlSession(argv[0], label=argv[0]) as session:
-            serial = session.serial
-            session.shell("am", "start", "-n", "%s/.MainActivity" % OBTAINIUM_PKG)
-            time.sleep(3)
-            session.shell("input", "tap", str(BULK[0]), str(BULK[1]))
-            time.sleep(2)
-            session.shell("input", "tap", str(CONTINUE[0]), str(CONTINUE[1]))
-            print("Tapped bulk update + Continue — handling installer dialogs for ~90s...")
+    # Send headless update deep-link with auto-install.
+    adb(serial, "am", "start",
+        "-a", "android.intent.action.VIEW",
+        "-d", "obtainium://update/all?autoInstall=true&headless=true")
+    print("Headless update triggered — waiting up to 90s...")
 
-            for _ in range(18):
-                time.sleep(5)
-                session.shell("uiautomator", "dump", "/sdcard/obtainium_apply.xml")
-                rc, xml = session.shell("cat", "/sdcard/obtainium_apply.xml")
-                kind, center = installer_action(xml)
-                if kind == "installer" and center:
-                    session.shell("input", "tap", str(center[0]), str(center[1]))
-                    print("  confirmed package installer (button2)")
-                elif kind == "playprotect":
-                    print("  WARN: Play Protect dialog — tapping dismiss coords")
-                    if vh.auto_verify_enabled():
-                        with tempfile.TemporaryDirectory() as td:
-                            shot = Path(td) / "playprotect.png"
-                            vlm.adb_screencap(serial, shot)
-                            ok, detail = vh.verify_shot(shot, "play_protect_clear")
-                            if not detail.get("skipped") and not ok:
-                                print("  VLM: Play Protect blocking visible")
-                    session.shell("input", "tap", str(PLAY_PROTECT_DISMISS[0]),
-                                  str(PLAY_PROTECT_DISMISS[1]))
-                    if vh.auto_verify_enabled():
-                        time.sleep(1.5)
-                        with tempfile.TemporaryDirectory() as td:
-                            shot = Path(td) / "after_dismiss.png"
-                            vlm.adb_screencap(serial, shot)
-                            ok, detail = vh.verify_shot(shot, "play_protect_clear")
-                            if not detail.get("skipped") and not ok:
-                                print("  VLM: Play Protect may still be blocking — "
-                                      "check screen or docs/hacking.md")
-                            elif not detail.get("skipped"):
-                                print("  VLM: Play Protect clear")
-    except sc.ScreenControlError as e:
-        sys.stderr.write("ERROR: %s\n" % e)
-        return 1
+    # Poll for headless_result.json.
+    deadline = time.time() + 90
+    result = None
+    while time.time() < deadline:
+        time.sleep(5)
+        r = adb(serial, "cat", RESULT_FILE)
+        if r and r.returncode == 0 and r.stdout and r.stdout.strip():
+            result = r.stdout.strip()
+            break
 
-    print("Done. Re-check Obtainium app list for any remaining Update badges.")
+    if result:
+        try:
+            parsed = json.loads(result)
+            updated = parsed.get("updatedCount", parsed.get("updated", 0))
+            failed = parsed.get("failedCount", parsed.get("failed", 0))
+            skipped = parsed.get("skippedCount", parsed.get("skipped", 0))
+            print("Update complete: %d updated, %d failed, %d skipped" % (updated, failed, skipped))
+        except (json.JSONDecodeError, KeyError):
+            print("Update result: %s" % result[:200])
+        return 0
+
+    print("Update check sent (no result file — may still be running or fork not yet installed).")
     return 0
 
 

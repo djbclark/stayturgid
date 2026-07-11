@@ -1,168 +1,113 @@
 #!/usr/bin/env python3
-"""Enable Obtainium's Shizuku/Dhizuku/Sui installer for quieter APK updates.
+"""Enable Obtainium's Shizuku installer via headless fleet profile intent.
 
-Python replacement for enable-shizuku-installer.sh:
+Uses djbclark/Obtainium fork's FleetProfileActivity to set
+installMethod=shizuku directly via SharedPreferences — no UI needed.
+
+Steps:
   1. pm grant API_V23 to Obtainium
-  2. add Obtainium's uid to shizuku.json (unit-tested patcher)
-  3. toggle "Use Dhizuku, Shizuku or Sui to install" in the Obtainium UI
-     (uiautomator-XML parsing is now a unit-tested function, not
-     `tr '>' '\n' | grep | sed`)
+  2. Add Obtainium's uid to shizuku.json
+  3. Push fleet profile JSON with installMethod: shizuku
+  4. Apply via FleetProfileActivity intent
 
-Usage: ./enable_shizuku_installer.py <p7a|s24|serial>
-Requires: unlocked screen, Shizuku running, privileged shell on localhost:5555.
+Usage: ./enable_shizuku_installer.py <p7a|s24|hd8|serial>
 """
+import json
 import os
+import subprocess
 import sys
 import time
+import tempfile
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.join(REPO, "control", "lib"))
 import stayturgid_device as dev  # noqa: E402
-import screen_control as sc  # noqa: E402
-import ui_driver as uid  # noqa: E402
 
 OBTAINIUM_PKG = "dev.imranr.obtainium"
 SHIZUKU_PERM = "moe.shizuku.manager.permission.API_V23"
 SHIZUKU_JSON = "/data/local/tmp/shizuku/shizuku.json"
 STAGING = "/sdcard/Download/shizuku-obtainium.json"
-SWITCH_LABEL = "Use Dhizuku, Shizuku or Sui to install"
-PERM_PROMPT = "Allow Obtainium to access Shizuku"
+FLEET_PROFILE = {"installMethod": "shizuku"}
+FLEET_JSON_PATH = "/sdcard/Download/obtainium-fleet.json"
+FLEET_ACTIVITY = "dev.imranr.obtainium/.FleetProfileActivity"
+FLEET_ACTION = "dev.imranr.obtainium.action.APPLY_FLEET_PROFILE"
 
 
-def grant_json(shell):
-    uid = shell.app_uid(OBTAINIUM_PKG)
-    if not uid:
-        sys.stderr.write("ERROR: Obtainium not installed on %s\n" % shell.target)
+def adb(serial, *args, timeout=30):
+    try:
+        return subprocess.run(
+            ["adb", "-s", serial, "shell"] + list(args),
+            capture_output=True, text=True, timeout=timeout,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def grant_json(serial):
+    print("Granting Shizuku API to Obtainium...")
+    adb(serial, "pm", "grant", OBTAINIUM_PKG, SHIZUKU_PERM)
+    # Read current shizuku.json, patch in Obtainium
+    rc, out = adb(serial, "cat", SHIZUKU_JSON).stdout or ""
+    if not out:
+        sys.stderr.write("ERROR: shizuku.json not readable\n")
         return False
-    print("Granting Shizuku API to %s (uid=%s)..." % (OBTAINIUM_PKG, uid))
-    shell.sh("pm grant %s %s" % (OBTAINIUM_PKG, SHIZUKU_PERM))
-
-    current, ok = shell.read_shizuku_json(SHIZUKU_JSON)
-    if not ok:
-        sys.stderr.write("ERROR: no privileged shell or unreadable %s — "
-                         "aborting to avoid clobbering grants\n" % SHIZUKU_JSON)
-        return False
-    patched = dev.patch_shizuku_json(current, uid, OBTAINIUM_PKG)
-    if not shell.install_shizuku_json(patched, STAGING, SHIZUKU_JSON):
-        sys.stderr.write("ERROR: failed to install patched shizuku.json\n")
-        return False
-    return True
-
-
-def dump_ui(priv, path):
-    priv.sh("uiautomator dump %s" % path)
-    return priv.sh("cat %s" % path)[1]
-
-
-def toggle_installer(priv, session, hs=None):
-    """UI taps go through session.shell (inversion-gated); dumps via PrivShell."""
-    def run(*args):
-        return session.shell(*args)
-
-    print("Opening Obtainium settings to enable Shizuku installer...")
-    run("input", "keyevent", "KEYCODE_WAKEUP")
-    time.sleep(1)
-    run("am", "start", "-n", "%s/.MainActivity" % OBTAINIUM_PKG)
-    time.sleep(2)
-
-    if hs is not None:
-        if not (
-            hs.tap_desc("Settings", timeout_ms=2500)
-            or hs.tap_text("Settings", timeout_ms=2000)
-        ):
-            # Gear often has no text — fall back to known coords then Handsets scroll.
-            run("input", "tap", "945", "2196")
-        time.sleep(2)
-        for _ in range(4):
-            hs.swipe("down")
-            time.sleep(0.3)
-        found = False
-        for _ in range(12):
-            if hs.find_text(SWITCH_LABEL, timeout_ms=1200):
-                found = True
-                break
-            hs.swipe("up")
-            time.sleep(0.45)
-        if not found:
-            sys.stderr.write("WARN: Shizuku installer row not found — scroll manually.\n")
-            return False
-        checked, ok = hs.switch_near_label(SWITCH_LABEL, timeout_ms=3000)
-        if ok and checked:
-            print("Shizuku installer already enabled in Obtainium UI.")
-        else:
-            hs.tap_switch_for_label(SWITCH_LABEL, timeout_ms=4000)
-            time.sleep(2)
-            print("Tapped Shizuku installer switch.")
-        if PERM_PROMPT in hs.ui() or hs.find_text(PERM_PROMPT, timeout_ms=1500):
-            if hs.tap_text("Allow", timeout_ms=2000):
-                time.sleep(1)
-                print("Approved Shizuku permission dialog for Obtainium.")
-        # Prior screen restored by ScreenControlSession.__exit__.
-        return True
-
-    run("input", "tap", "945", "2196")  # settings gear
-    time.sleep(2)
-    for _ in range(6):  # scroll to top
-        run("input", "swipe", "540", "400", "540", "1600", "350")
-        time.sleep(0.4)
-
-    xml = ""
-    for _ in range(12):
-        xml = dump_ui(priv, "/sdcard/obtainium_shizuku.xml")
-        if SWITCH_LABEL in xml:
+    current = out.strip()
+    # Get Obtainium's uid
+    rc2, pkginfo = adb(serial, "dumpsys", "package", OBTAINIUM_PKG).stdout or ""
+    uid = None
+    for line in (pkginfo or "").splitlines():
+        if "userId=" in line:
+            uid = line.split("userId=")[-1].strip()
             break
-        run("input", "swipe", "540", "1600", "540", "400", "350")
-        time.sleep(0.6)
-    else:
-        sys.stderr.write("WARN: Shizuku installer row not found — scroll manually.\n")
+    if not uid:
+        sys.stderr.write("ERROR: could not determine Obtainium uid\n")
         return False
-
-    sw = dev.parse_switch(xml, SWITCH_LABEL)
-    if sw and sw[0]:
-        print("Shizuku installer already enabled in Obtainium UI.")
-    elif sw:
-        run("input", "tap", str(sw[1]), str(sw[2]))
-        time.sleep(2)
-        print("Tapped Shizuku installer switch.")
-    else:
-        run("input", "tap", "959", "1266")  # fallback coords
-        time.sleep(2)
-        print("Tapped Shizuku installer switch (fallback coords).")
-
-    # Shizuku may prompt "Allow Obtainium to access Shizuku?" — approve if shown.
-    perm_xml = dump_ui(priv, "/sdcard/obtainium_shizuku_perm.xml")
-    if PERM_PROMPT in perm_xml:
-        btn = dev.parse_button_center(perm_xml, "android:id/button1")
-        if btn:
-            run("input", "tap", str(btn[0]), str(btn[1]))
-        else:
-            run("input", "tap", "540", "1284")
-        time.sleep(1)
-        print("Approved Shizuku permission dialog for Obtainium.")
-
-    # Prior screen restored by ScreenControlSession.__exit__.
+    patched = dev.patch_shizuku_json(json.loads(current) if current else {}, uid, OBTAINIUM_PKG)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(patched, f)
+        tmp = f.name
+    subprocess.run(["adb", "-s", serial, "push", tmp, STAGING], capture_output=True, check=False)
+    adb(serial, "cp", STAGING, SHIZUKU_JSON)
+    adb(serial, "chmod", "644", SHIZUKU_JSON)
+    os.unlink(tmp)
     return True
+
+
+def apply_fleet_profile(serial):
+    """Push fleet profile and apply via FleetProfileActivity intent."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
+        json.dump(FLEET_PROFILE, f)
+        tmp = f.name
+    subprocess.run(["adb", "-s", serial, "push", tmp, FLEET_JSON_PATH], capture_output=True, check=False)
+    os.unlink(tmp)
+
+    result = adb(serial, "am", "start",
+                 "-a", FLEET_ACTION,
+                 "-e", "profile_path", FLEET_JSON_PATH,
+                 "-e", "silent", "true",
+                 "-n", FLEET_ACTIVITY)
+    time.sleep(2)
+    if result and result.returncode == 0:
+        print("Shizuku installer enabled via fleet profile (installMethod=shizuku).")
+        return True
+    sys.stderr.write("ERROR: FleetProfileActivity failed\n")
+    return False
 
 
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
-        sys.stderr.write("usage: enable_shizuku_installer.py <p7a|s24|serial>\n")
+        sys.stderr.write("usage: enable_shizuku_installer.py <p7a|s24|hd8|serial>\n")
         return 2
     host = argv[0]
-    priv = dev.PrivShell(host)
-    if not grant_json(priv):
-        return 1
     serial = dev.resolve_adb(host)
-    try:
-        with sc.ScreenControlSession(host, label=host, skip_request=True) as session:
-            with uid.try_handsets(serial, host) as hs:
-                if not toggle_installer(priv, session, hs=hs):
-                    return 1
-    except sc.ScreenControlError as e:
-        sys.stderr.write("ERROR: %s\n" % e)
+    subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
+
+    if not grant_json(serial):
         return 1
-    print("Done. Obtainium should use Shizuku for installs (fewer dialogs).")
+    if not apply_fleet_profile(serial):
+        return 1
+    print("Done. Obtainium will use Shizuku for installs.")
     return 0
 
 
