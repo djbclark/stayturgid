@@ -28,6 +28,13 @@ options:
     description: Restart sshd (detached) when sshd_config changed.
     type: bool
     default: true
+  ensure_running:
+    description: >-
+      If true, remove the runsv ``down`` file so the sshd service can start.
+      A stale ``down`` file (e.g. left by manual troubleshooting) silently
+      prevents sshd from launching after reboot.
+    type: bool
+    default: true
   termux_prefix:
     description: Termux prefix.
     type: str
@@ -39,15 +46,24 @@ EXAMPLES = r"""
   stayturgid.termux.termux_sshd:
     config:
       PerSourcePenalties: "no"
+
+- name: Ensure sshd is not disabled by a stale down file
+  stayturgid.termux.termux_sshd:
+    ensure_running: true
 """
 
 RETURN = r"""
 changed:
-  description: True when sshd_config changed.
+  description: True when sshd_config changed or the down file was removed.
   type: bool
 config_changed:
   type: bool
   description: sshd_config was modified (triggers restart when enabled).
+down_removed:
+  type: bool
+  description: >-
+    True when a stale runsv ``down`` file was removed, allowing the sshd
+    service to start on next boot.
 """
 
 import os
@@ -86,6 +102,7 @@ def main():
         argument_spec=dict(
             config=dict(type="dict", default={}),
             restart_on_change=dict(type="bool", default=True),
+            ensure_running=dict(type="bool", default=True),
             termux_prefix=dict(type="str", default="/data/data/com.termux/files/usr"),
         ),
         supports_check_mode=True,
@@ -93,7 +110,17 @@ def main():
 
     prefix = module.params["termux_prefix"]
     sshd_config = os.path.join(prefix, "etc", "ssh", "sshd_config")
+    service_dir = os.path.join(prefix, "var", "service", "sshd")
     config_changed = False
+    down_removed = False
+
+    # --- ensure_running: remove stale down file ---
+    if module.params["ensure_running"]:
+        down_path = os.path.join(service_dir, "down")
+        if os.path.isfile(down_path):
+            if not module.check_mode:
+                os.unlink(down_path)
+            down_removed = True
 
     if module.params["config"]:
         current = read_file(sshd_config)
@@ -119,8 +146,9 @@ def main():
         )
 
     module.exit_json(
-        changed=config_changed,
+        changed=config_changed or down_removed,
         config_changed=config_changed,
+        down_removed=down_removed,
     )
 
 

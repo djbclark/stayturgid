@@ -74,3 +74,50 @@ def test_termux_sshd_updates_config(mocker, tmp_path, monkeypatch):
     )
     assert out["config_changed"] is True
     assert out["changed"] is True
+
+
+def test_ensure_running_removes_down_file(mocker, tmp_path, monkeypatch):
+    """A stale 'down' file in the runsv service dir must be removed."""
+    prefix = tmp_path / "termux"
+    (prefix / "var" / "service" / "sshd").mkdir(parents=True)
+    down_file = prefix / "var" / "service" / "sshd" / "down"
+    down_file.write_text("")
+
+    out = run_module(
+        mocker,
+        dict(ensure_running=True, restart_on_change=False),
+        tmp_path,
+        monkeypatch,
+    )
+    assert out["down_removed"] is True
+    assert out["changed"] is True
+    assert not down_file.exists()
+
+
+def test_ensure_running_noop_when_no_down(mocker, tmp_path, monkeypatch):
+    """No-op when the down file doesn't exist."""
+    out = run_module(
+        mocker,
+        dict(ensure_running=True, restart_on_change=False),
+        tmp_path,
+        monkeypatch,
+    )
+    assert out["down_removed"] is False
+    assert out["changed"] is False
+
+
+def test_ensure_running_disabled(mocker, tmp_path, monkeypatch):
+    """When ensure_running=false, leave the down file alone."""
+    prefix = tmp_path / "termux"
+    (prefix / "var" / "service" / "sshd").mkdir(parents=True)
+    down_file = prefix / "var" / "service" / "sshd" / "down"
+    down_file.write_text("")
+
+    out = run_module(
+        mocker,
+        dict(ensure_running=False, restart_on_change=False),
+        tmp_path,
+        monkeypatch,
+    )
+    assert out["down_removed"] is False
+    assert down_file.exists()
