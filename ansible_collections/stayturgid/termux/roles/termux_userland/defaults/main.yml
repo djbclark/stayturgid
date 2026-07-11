@@ -43,7 +43,6 @@ stayturgid_py_scripts:
   - stayturgid_shell.py
   - stayturgid_screen_control.py
   - stayturgid_grant_shizuku.py
-  - stayturgid_import_catalog.py
   - stayturgid_enable_autojs6.py
   - stayturgid_handsets.py
   - stayturgid_rish.py

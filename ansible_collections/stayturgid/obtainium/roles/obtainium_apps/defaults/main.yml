@@ -8,22 +8,38 @@ stayturgid_obtainium_catalog: "{{ stayturgid_sd_root }}/import/stayturgid-obtain
 
 stayturgid_obtainium_apps:
   - id: org.autojs.autojs6
-    url: https://github.com/SuperMonster003/AutoJs6
+    url: https://github.com/djbclark/AutoJs6
     name: AutoJs6
-    author: SuperMonster003
+    author: djbclark
     categories: [Automation]
     settings:
+      includePrereleases: true
+      filterReleaseTitlesByRegEx: fleet-profile
       apkFilterRegEx: arm64-v8a
-      about: stayturgid AutoJs6 watchdog alternative
+      autoApkFilterByArch: true
+      about: stayturgid fleet-profile AutoJs6 (djbclark fork)
   - id: moe.shizuku.privileged.api
-    url: https://github.com/thedjchi/Shizuku
-    name: Shizuku (thedjchi)
-    author: thedjchi
+    url: https://github.com/djbclark/Shizuku
+    name: Shizuku (stayturgid fork)
+    author: djbclark
     categories: [stayturgid]
     settings:
-      apkFilterRegEx: thedjchi
+      includePrereleases: true
+      filterReleaseTitlesByRegEx: stayturgid
+      apkFilterRegEx: universal
       autoApkFilterByArch: false
-      about: TCP mode for wireless ADB port 5555
+      about: djbclark fork with fleet/headless features (HEADLESS_START)
+  - id: dev.imranr.obtainium
+    url: https://github.com/djbclark/Obtainium
+    name: Obtainium (stayturgid fork)
+    author: djbclark
+    categories: [stayturgid]
+    settings:
+      includePrereleases: true
+      filterReleaseTitlesByRegEx: stayturgid
+      apkFilterRegEx: universal
+      autoApkFilterByArch: false
+      about: djbclark fork with fleet/headless features
   - id: com.tailscale.ipn
     url: https://github.com/tailscale/tailscale-android
     name: Tailscale

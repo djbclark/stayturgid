@@ -70,21 +70,22 @@ function tryShellWirelessRepair() {
 }
 
 /**
- * Catastrophic recovery: launch Shizuku manager and tap the wireless-debug
- * "Start" button via accessibility. Requires an unlocked screen.
- *
- * WHY this function still exists (no non-UI alternative):
- *   - Shizuku (official) has no hidden intent/API to restart its daemon or
- *     toggle wireless debugging. The only headless path is
- *     /sdcard/Android/data/moe.shizuku.privileged.api/start.sh, which itself
- *     requires a working ADB/root shell — the exact resource we are trying
- *     to re-establish (chicken-and-egg problem).
- *   - settings put global adb_wifi_enabled 1 does not stick on Fire OS,
- *     leaving UI tap as the only recovery path on those devices.
- *   - Community forks (timschneeb/ShizukuExt-SystemUID, thedjchi/Shizuku)
- *     add start/stop intents, but switching forks is a separate fleet decision.
- *   - This function is only reached after two failed shell repair attempts,
- *     so it is a deliberate last resort, not the primary path.
+ * Headless start via djbclark/Shizuku HEADLESS_START broadcast.
+ * Uses shizuku shell (privileged) to send the broadcast — no UI needed.
+ */
+function headlessStart() {
+    if (!sh.isOperational()) {
+        return false;
+    }
+    log.append("[watchdog] shizuku headless: sending HEADLESS_START broadcast");
+    sh.exec("am broadcast -a moe.shizuku.privileged.api.HEADLESS_START");
+    sleep(3000);
+    return sh.exec("pgrep -f shizuku_server").code === 0;
+}
+
+/**
+ * Catastrophic recovery via accessibility tap (last resort — requires unlocked
+ * screen). Only reached when shell and HEADLESS_START both fail.
  */
 function tapStartButton(profile) {
     if (!device.isScreenOn()) {
@@ -99,60 +100,13 @@ function tapStartButton(profile) {
         sleep(5000);
         return true;
     }
-    // Blind-coordinate fallback only when the manager is actually foreground —
-    // otherwise we'd tap random coordinates in whatever app is open.
-    var fg = String(currentPackage() || "");
-    if (fg !== (profile.shizukuPackage || SHIZUKU_PKG)) {
-        log.append("[watchdog] shizuku Start skipped — manager not foreground (fg=" + fg + ")");
-        return false;
-    }
-    if (profile.shizukuStartCoords) {
-        click(profile.shizukuStartCoords.x, profile.shizukuStartCoords.y);
-        log.append("[watchdog] shizuku Start tapped (coords fallback "
-            + profile.shizukuStartCoords.x + "," + profile.shizukuStartCoords.y + ")");
-        sleep(5000);
-        return true;
-    }
     log.append("[watchdog] shizuku Start button not found");
     return false;
 }
 
 /**
- * Samsung fallback: open wireless debugging settings and toggle the master switch.
- * Best-effort; only used when profile.samsungWirelessDebugFallback is true.
- */
-function enableWirelessDebuggingUi(profile) {
-    if (!profile.samsungWirelessDebugFallback) return false;
-    try {
-        app.startActivity({
-            action: "android.settings.APPLICATION_DEVELOPMENT_SETTINGS",
-            flags: ["activity_new_task"],
-        });
-        sleep(2000);
-        var entry = textContains("Wireless debugging").findOne(5000)
-            || textContains("Wireless Debugging").findOne(3000);
-        if (!entry) {
-            log.append("[watchdog] wireless debug entry not found — skipping toggle");
-            return false;
-        }
-        entry.click();
-        sleep(1500);
-        var toggle = className("android.widget.Switch").findOne(3000)
-            || descContains("Wireless debugging").findOne(3000);
-        if (toggle && !toggle.checked()) {
-            toggle.click();
-            log.append("[watchdog] wireless debugging toggle tapped (Samsung fallback)");
-            sleep(2000);
-            return true;
-        }
-    } catch (e) {
-        log.append("[watchdog] wireless debug UI fallback failed: " + e);
-    }
-    return false;
-}
-
-/**
- * Catastrophic path: Shizuku shell first (no GUI), then accessibility UI tap.
+ * Catastrophic path: shell repair, then HEADLESS_START broadcast,
+ * then accessibility UI tap as last resort.
  */
 function repairCatastrophic(profile) {
     if (serverRunning() && tryShellWirelessRepair()) {
@@ -161,17 +115,26 @@ function repairCatastrophic(profile) {
     if (tryShellWirelessRepair()) {
         return true;
     }
+    // djbclark/Shizuku fork: HEADLESS_START broadcast starts the server
+    // and ensures wireless ADB without any UI interaction.
+    if (headlessStart()) {
+        log.append("[watchdog] shizuku headless start succeeded");
+        if (tryShellWirelessRepair()) {
+            return true;
+        }
+        return serverRunning();
+    }
+    // Last resort: accessibility UI tap (requires unlocked screen).
     var ok = tapStartButton(profile);
-    if (!ok && profile.samsungWirelessDebugFallback) {
-        enableWirelessDebuggingUi(profile);
-        ok = tapStartButton(profile);
+    if (!ok) {
+        ok = tapStartButton(profile);  // retry once
     }
     return ok;
 }
 
 module.exports = {
+    headlessStart: headlessStart,
     tapStartButton: tapStartButton,
-    enableWirelessDebuggingUi: enableWirelessDebuggingUi,
     repairCatastrophic: repairCatastrophic,
     tryShellWirelessRepair: tryShellWirelessRepair,
     serverRunning: serverRunning,
