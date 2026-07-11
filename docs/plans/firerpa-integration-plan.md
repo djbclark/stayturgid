@@ -652,8 +652,7 @@ devices are configured, and record decisions.
 - [ ] All documentation updated
 - [ ] `make health` OK across fleet
 - [ ] FIRERPA accessible on all opted-in devices
-- [ ] All changes committed and pushed to origin/master
-- [ ] ~/stayturgid synced (`git pull --ff-only`)
+- [ ] Changes committed and pushed to origin/master (another AI manages ~/stayturgid sync)
 
 **ROLLBACK 9:** At this point, FIRERPA is deployed and integrated.
 Full rollback = set `firerpa_enabled: false` everywhere and redeploy.
