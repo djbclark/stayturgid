@@ -13,9 +13,9 @@ import ui_driver as ud  # noqa: E402
 
 
 def test_port_for_defaults():
-    assert ud.port_for("s24") == 9009
-    assert ud.port_for("hd8") == 9008
-    assert ud.port_for("p7a") == 9010
+    assert ud.port_for("s24") == 9013
+    assert ud.port_for("hd8") == 9012
+    assert ud.port_for("p7a") == 9014
     assert ud.port_for("unknown") == 9011
 
 
@@ -48,12 +48,12 @@ def test_session_start_pushes_and_forwards(monkeypatch, tmp_path):
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(ud, "_run", fake_run)
-    session = ud.HandsetsSession("SERIAL", alias="s24", port=9009)
+    session = ud.HandsetsSession("SERIAL", alias="s24", port=9013)
     session.start()
     assert session.active
     joined = [" ".join(c) for c in calls]
     assert any("push" in j and "hs.jar" in j for j in joined)
-    assert any("forward" in j and "9009" in j for j in joined)
+    assert any("forward" in j and "9013" in j for j in joined)
     assert any("app_process" in j for j in joined)
     session.stop()
     assert session.active is False
@@ -70,7 +70,7 @@ tap  Switch                #sw  669,2189  [check checked]
 
 
 def test_parse_switch_from_ui_checked_and_coords():
-    session = ud.HandsetsSession("SERIAL", alias="s24", port=9009)
+    session = ud.HandsetsSession("SERIAL", alias="s24", port=9013)
     session.active = True
     got = session._parse_switch_from_ui("Shizuku access", _SAMPLE_DRAWER_UI)
     assert got == (True, 669, 2189)
@@ -79,7 +79,7 @@ def test_parse_switch_from_ui_checked_and_coords():
 
 
 def test_parse_switch_missing_label():
-    session = ud.HandsetsSession("SERIAL", alias="s24", port=9009)
+    session = ud.HandsetsSession("SERIAL", alias="s24", port=9013)
     session.active = True
     assert session._parse_switch_from_ui("No such row", _SAMPLE_DRAWER_UI) is None
 
@@ -94,7 +94,7 @@ _SAMPLE_AURORA_UPDATES_UI = """\
 
 
 def test_parse_switch_aurora_preference_rows():
-    session = ud.HandsetsSession("SERIAL", alias="p7a", port=9010)
+    session = ud.HandsetsSession("SERIAL", alias="p7a", port=9014)
     session.active = True
     assert session._parse_switch_from_ui(
         "Filter F-Droid apps", _SAMPLE_AURORA_UPDATES_UI

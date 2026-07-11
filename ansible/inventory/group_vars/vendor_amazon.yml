@@ -10,7 +10,7 @@ stayturgid_sd_root: "{{ termux_home }}/.stayturgid/shared"
 stayturgid_privileged_shell_expected: false
 stayturgid_no_local_adb: true
 # Match Mac ui_driver.py DEFAULT_PORTS["hd8"].
-stayturgid_handsets_port: 9008
+stayturgid_handsets_port: 9012
 # AutoJs6 still reads scripts from /sdcard (deployed via adb push from Mac).
 autojs6_target: /sdcard/stayturgid/autojs6
 stayturgid_autojs6_deploy_via_adb: true

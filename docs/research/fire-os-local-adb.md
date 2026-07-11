@@ -145,7 +145,7 @@ Mac gets `command=…/fire_peer_help.py`.
 Inventory already has Tailscale + LAN per host (`hosts.yml` / `devices.conf`). On-device sketch:
 
 1. Read peer list from `~/.stayturgid/peers` (rendered by Ansible from inventory, exclude self).
-2. For each peer (prefer LAN, then Tailscale): TCP probe `:8022` → SSH `BatchMode` → run `stayturgid-peer-help handsets-start --target <hd8-ts-or-lan>:5555 --port 9008`.
+2. For each peer (prefer LAN, then Tailscale): TCP probe `:8022` → SSH `BatchMode` → run `stayturgid-peer-help handsets-start --target <hd8-ts-or-lan>:5555 --port 9012`.
 3. Local wire `ping`; on success stop. Else next peer. Else leave Handsets disabled / fall back to raw dump / wait for Mac.
 
 Mac can be last in the list once device→Mac SSH is enabled (authorize fleet pubkeys on Mac sshd).

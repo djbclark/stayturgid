@@ -34,7 +34,7 @@ def test_self_adb_targets(tmp_path):
 def test_bootstrap_skips_can_help_false(monkeypatch, tmp_path):
     peers = {
         "self": {"lan": "1.2.3.4", "tailscale": "100.1.1.1"},
-        "handsets_port": 9008,
+        "handsets_port": 9012,
         "peers": [
             {
                 "name": "hd8",
@@ -85,10 +85,10 @@ def test_remote_help_cmd_force_vs_fleet(tmp_path, monkeypatch):
         {"kind": "termux"},
         verb="handsets-start",
         target="1.2.3.4:5555",
-        port=9008,
+        port=9012,
         identity=ph,
     )
-    assert short == "handsets-start --target 1.2.3.4:5555 --port 9008"
+    assert short == "handsets-start --target 1.2.3.4:5555 --port 9012"
     mac = pb._remote_help_cmd(
         {
             "kind": "mac",
@@ -96,7 +96,7 @@ def test_remote_help_cmd_force_vs_fleet(tmp_path, monkeypatch):
         },
         verb="shizuku-start",
         target="1.2.3.4:5555",
-        port=9008,
+        port=9012,
         identity=fleet,
     )
     assert mac.startswith("python3 /Users/x/stayturgid/control/bin/fire_peer_help.py")
@@ -105,7 +105,7 @@ def test_remote_help_cmd_force_vs_fleet(tmp_path, monkeypatch):
         {"kind": "termux"},
         verb="ping",
         target="1.2.3.4:5555",
-        port=9008,
+        port=9012,
         identity=fleet,
     )
     assert "stayturgid_peer_help.py" in termux

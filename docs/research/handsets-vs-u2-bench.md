@@ -46,7 +46,7 @@ recheck the same day: Handsets `switch_near_label("Shizuku access")` →
 | Hierarchy latency | Handsets (17–42× vs raw; ~4× vs u2) |
 | Settings find+tap | Handsets (faster + Fire reliability) |
 | Coexists with AutoJs6 a11y | Handsets (proven); u2 fights UiAutomation |
-| Multi-device | Handsets via fixed ports (9008/9009/9010) |
+| Multi-device | Handsets via fixed ports (9012/9013/9014) |
 | On-device Termux scripts | Raw dump only (no Mac `hs` forward) |
 
 **Keep:** raw `uiautomator dump` as fallback when Handsets unavailable.

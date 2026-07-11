@@ -2,4 +2,4 @@
 # Galaxy S24 (SM-S921U1), 1080x2340. Tap target for Shizuku "Start" when
 # accessibility text search fails (default font/DPI).
 stayturgid_shizuku_start_coords: { x: 227, y: 1977 }
-stayturgid_handsets_port: 9009
+stayturgid_handsets_port: 9013

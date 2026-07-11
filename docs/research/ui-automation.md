@@ -44,8 +44,8 @@ Docs already call **uiautomator2** the preferred *dev* tool and raw dump the
   (`unknown connect arg`). With many `adb devices` entries it demands
   `--device` but `use` still won’t take the serial as an arg. **Workaround that
   worked:** push `hs.jar`, start
-  `CLASSPATH=… app_process … Main --port=N`, `adb forward tcp:N tcp:N`, then
-  `hs --host 127.0.0.1 --port N …` (s24:9009, hd8:9008).
+  `hs --host 127.0.0.1 --port N …` (s24:9013, hd8:9012).
+
 - Pre-1.0; PATH `hs` conflicts with shell alias `herdr status` — use full path
   or `handsets` symlink (do not overwrite herdr).
 
@@ -81,7 +81,7 @@ Live numbers: [handsets-vs-u2-bench.md](handsets-vs-u2-bench.md).
 
 1. `control/lib/ui_driver.py` — `HandsetsSession`, `try_handsets()`, switch
    table parse, `tap_id` / `tap_any_text` / `wait_text`.
-2. Ports: s24 **9009**, hd8 **9008**, p7a **9010**.
+2. Ports: s24 **9013**, hd8 **9012**, p7a **9014**.
 3. Mac scripts Handsets-primary: `enable_autojs6_shizuku.py`,
    `configure_aurora.py`, `import_catalog.py`, `enable_shizuku_installer.py`.
 4. Termux Handsets wire client **shipped** (`stayturgid_handsets.py`):

@@ -6,7 +6,7 @@ export PATH="${PREFIX:-/data/data/com.termux/files/usr}/bin:$PATH"
 HOME="${HOME:-/data/data/com.termux/files/home}"
 HELP="$HOME/.stayturgid/bin/stayturgid_peer_help.py"
 # SSH_ORIGINAL_COMMAND should look like:
-#   stayturgid_peer_help.py handsets-start --target IP:5555 --port 9008
+#   stayturgid_peer_help.py handsets-start --target IP:5555 --port 9012
 # or the same without the script name.
 raw="${SSH_ORIGINAL_COMMAND:-}"
 if [ -z "$raw" ]; then

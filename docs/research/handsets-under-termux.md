@@ -15,14 +15,14 @@ Mac hs (Mach-O / Linux host binary)
 
 - Daemon: `hs.jar` via `app_process` as **shell UID** — binds **`127.0.0.1:N` only**.
 - Client: host `hs` CLI (or PyPI `handsets`, which **subprocess-wraps `hs`**).
-- Fleet: `control/lib/ui_driver.py` — ports s24 9009 / hd8 9008 / p7a 9010.
+- Fleet: `control/lib/ui_driver.py` — ports s24 9013 / hd8 9012 / p7a 9014.
 
 ## What Termux can do (proven)
 
 | Step | Result |
 |------|--------|
-| TCP to `127.0.0.1:9009` from Termux Python | **OK** (same loopback as shell daemon) |
-| Start daemon via `adb -s localhost:5555 shell app_process …` | **OK** (`hsd ready`, `listening on 127.0.0.1:9009`) |
+| TCP to `127.0.0.1:9013` from Termux Python | **OK** (same loopback as shell daemon) |
+| Start daemon via `adb -s localhost:5555 shell app_process …` | **OK** (`hsd ready`, `listening on 127.0.0.1:9013`) |
 | Wire `ping` → `pong` | **OK** (~180 ms cold) |
 | Wire `dump_active` → JSON hierarchy | **OK** (~24 KB, **~267 ms**) |
 | Wire `info` → `1080 2340` | **OK** |

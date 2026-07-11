@@ -290,7 +290,7 @@ Fleet Mac post-UI uses Handsets via `control/lib/ui_driver.py` (not stock
 `hs use` with `ip:5555`). Install into `~/.handsets/{hs,hs.jar}` and invoke
 as `~/.handsets/hs` (PATH `hs` may be a herdr alias — do not overwrite).
 
-Ports: s24 **9009**, hd8 **9008**, p7a **9010**. Do **not** run alongside
+Ports: s24 **9013**, hd8 **9012**, p7a **9014**. Do **not** run alongside
 uiautomator2. Research + bench: `docs/research/ui-automation.md`,
 `docs/research/handsets-vs-u2-bench.md`,
 `docs/research/handsets-under-termux.md`.

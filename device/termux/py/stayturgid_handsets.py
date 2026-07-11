@@ -10,7 +10,7 @@ asks a fleet peer via ``stayturgid_peer_bootstrap`` to run the same
 
 Env:
   STAYTURGID_HANDSETS=0     disable (callers fall back to uiautomator dump)
-  STAYTURGID_HANDSETS_PORT  daemon port (default 9012; Fire peers file often 9008)
+  STAYTURGID_HANDSETS_PORT  daemon port (default 9012)
   STAYTURGID_HS_JAR         path to hs.jar (default /data/local/tmp/hs.jar)
   STAYTURGID_PEER_BOOTSTRAP=0  disable peer start on no-local-adb hosts
   STAYTURGID_HANDSETS_KEEP=1   Session exit never stops daemon (operator soak)
@@ -178,7 +178,7 @@ def _default_port() -> int:
                 return int(cfg["handsets_port"])
         except (OSError, ValueError, TypeError):
             pass
-        return 9008
+        return 9012
     return DEFAULT_PORT
 
 

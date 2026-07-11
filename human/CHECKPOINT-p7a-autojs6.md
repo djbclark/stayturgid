@@ -6,7 +6,7 @@
 ## Result
 
 - `./control/tools/autojs6/enable_autojs6_shizuku.py p7a` — **PASS**
-- UI driver: Handsets port **9010**
+- UI driver: Handsets port **9014**
 - Probe: `shizuku operational=true hasPermission=true isRunning=true`
 - Presence/inversion cleared after run; stay-awake held by agent until wrap-up.
 

@@ -44,7 +44,7 @@ FIRE_HOSTS = [
 LOG = ROOT / "logs" / "fire-help.log"
 STATE_DIR = ROOT / "state" / "fire-help"
 SKIP = os.environ.get("STAYTURGID_SKIP_FIRE_HELP") == "1"
-HANDSETS_PORT = int(os.environ.get("STAYTURGID_HANDSETS_PORT_HD8", "9008"))
+HANDSETS_PORT = int(os.environ.get("STAYTURGID_HANDSETS_PORT_HD8", "9012"))
 CONSECUTIVE_LIMIT = 2
 
 

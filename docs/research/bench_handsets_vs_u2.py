@@ -285,7 +285,7 @@ def bench_u2_drawer(d, serial: str, n: int = 3):
 def connect_u2(serial: str):
     import uiautomator2 as u2
 
-    # Use non-default port to avoid Handsets 9008 on hd8 after restart
+    # Use non-default port to avoid Handsets 9012 on hd8 after restart
     d = u2.connect(serial)
     d.implicitly_wait(2.0)
     # force a hierarchy read to confirm

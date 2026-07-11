@@ -210,7 +210,7 @@ def _from_ssh_original() -> int | None:
     verbs = ("handsets-start", "shizuku-start", "ping", "status")
     verb = None
     target = None
-    port = 9008
+    port = 9012
     i = 0
     while i < len(parts):
         if parts[i] in verbs and verb is None:
@@ -236,7 +236,7 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("verb", choices=("handsets-start", "shizuku-start", "ping", "status"))
     p.add_argument("--target", required=True)
-    p.add_argument("--port", type=int, default=9008)
+    p.add_argument("--port", type=int, default=9012)
     args = p.parse_args(argv)
     return run_verb(args.verb, args.target, args.port)
 
