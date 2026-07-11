@@ -24,6 +24,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
 import a11y_services as a11y  # noqa: E402
+import adb_cli  # noqa: E402
 import stayturgid_device as dev  # noqa: E402
 import post_ui_remote as remote  # noqa: E402
 
@@ -227,6 +228,10 @@ def main_mac_adb(alias: str) -> int:
     """Mac-side: fleet profile intent + a11y via adb (no UI automation)."""
     serial = dev.resolve_adb(alias)
     subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
+
+    # Pre-authorize fleet ADB key so no "Allow USB debugging?" dialog on reconnect.
+    adb_cli.authorize_fleet_adb_key(serial)
+    adb_cli.dismiss_usb_debugging_dialog(serial)
 
     if sync_shizuku_grants(alias) != 0:
         sys.stderr.write("ERROR: grant_shizuku failed\n")

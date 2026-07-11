@@ -223,7 +223,16 @@ def main(argv=None):
         with sc.ScreenControlSession(label=alias) as session:
             shell = session.shell
 
-            # 2. Check Shizuku server
+            # 2. Authorize fleet ADB key so no dialog on reconnect.
+            fleet_pub = os.path.join(sh.STG, "adbkey-fleet.pub")
+            if os.path.isfile(fleet_pub):
+                with open(fleet_pub) as f:
+                    pub = f.read().strip()
+                if pub:
+                    shell("sh", "-c", 'echo "%s" >> /data/misc/adb/adb_keys' % pub.replace('"', '\\"'))
+                    print("Fleet ADB key authorized.")
+
+            # 3. Check Shizuku server
             if not shizuku_server_running(shell):
                 sys.stderr.write(
                     "ERROR: shizuku_server not running — start Shizuku first\n"
