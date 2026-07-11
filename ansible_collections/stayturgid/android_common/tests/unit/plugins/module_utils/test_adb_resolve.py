@@ -78,7 +78,12 @@ def test_match_usb_serial_mdns_id_with_spaces(tmp_path):
     assert ar.resolve_adb("p7a", run, conf) == "adb-35261JEHN12374-JIE0Dg (2)._adb-tls-connect._tcp"
 
 
-def test_resolve_static_fallback_without_run_command(tmp_path):
+def test_resolve_static_fallback_without_run_command(tmp_path, monkeypatch):
+    # Static fallback prefers the first reachable endpoint (LAN is listed first).
+    # Without a monkeypatch, the real network state makes this test flaky.
+    def _reachable(ep, timeout=None):
+        return ep == "192.168.1.9:5555"
+    monkeypatch.setattr(ar, "tcp_reachable", _reachable)
     conf = _conf(tmp_path, "p7a - 100.1.1.1 192.168.1.9\n")
     assert ar.resolve_adb("p7a", None, conf) == "192.168.1.9:5555"
 
