@@ -4,11 +4,14 @@ var sh = require("./shizuku_shell.js");
 var SHIZUKU_PKG = "moe.shizuku.privileged.api";
 
 function serverRunning() {
+    // HEADLESS_STATUS on Samsung returns result=0 even when running
+    // (Samsung freezes the Java broadcast receiver). Fall back to pgrep.
     var r = sh.exec("am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null");
-    if (r && r.code === 0 && r.result) {
-        return r.result.indexOf("result=1") >= 0;
+    if (r && r.code === 0 && r.result && r.result.indexOf("result=1") >= 0) {
+        return true;
     }
-    return false;
+    var p = sh.exec("pgrep -f shizuku_server");
+    return p && p.code === 0 && String(p.result || "").trim().length > 0;
 }
 
 /**

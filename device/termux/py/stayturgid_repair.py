@@ -267,7 +267,11 @@ def duplicate_branch():
     elif privileged_shell():
         port, sh = "open", True
         _, shizuku_out = sh_adb("am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null")
-        shizuku = "up" if "result=1" in shizuku_out else "down"
+        if "result=1" in shizuku_out:
+            shizuku = "up"
+        else:
+            rc, _ = sh_adb("pgrep -f shizuku_server")
+            shizuku = "up" if rc == 0 else "down"
         wifi = (
             "up"
             if sh_adb("settings get global adb_wifi_enabled")[1].strip()
@@ -438,7 +442,11 @@ def main():
     # --- 3. shizuku (via privileged shell) ---
     if expect_shell and have_sh:
         _, shizuku_out = sh_adb("am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null")
-        shizuku = "up" if "result=1" in shizuku_out else "down"
+        if "result=1" in shizuku_out:
+            shizuku = "up"
+        else:
+            rc, _ = sh_adb("pgrep -f shizuku_server")
+            shizuku = "up" if rc == 0 else "down"
     elif expect_shell:
         shizuku = "unknown"
 
