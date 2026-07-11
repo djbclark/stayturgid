@@ -7,11 +7,12 @@
  */
 
 var engineGuard = require("../lib/engine_guard.js");
+var config = require("../lib/config.js");
 var MAIN = engineGuard.MAIN;
 var STALE_WATCHDOG_MS = 25 * 60 * 1000;
 
 function latestWatchdogCycleMs() {
-    var logPath = "/sdcard/stayturgid/logs/watchdog.log";
+    var logPath = config.WATCHDOG_LOG;
     if (!files.exists(logPath)) return null;
     try {
         var lines = String(files.read(logPath)).split("\n");

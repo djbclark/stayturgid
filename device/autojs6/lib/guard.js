@@ -13,10 +13,20 @@ function autoJs6AccessibilityEnabled() {
         if (typeof auto !== "undefined" && auto.service) return true;
     } catch (e) { /* fall through to the settings probe */ }
     // Fallback (best effort): if a privileged read happens to work, use it.
+    // Run in a thread with a timeout to avoid blocking the watchdog cycle
+    // if the settings daemon hangs (observed on Fire OS).
     try {
-        var r = shell("settings get secure enabled_accessibility_services", false);
-        if (r && r.code === 0) {
-            var list = String(r.result || "").trim();
+        var shellResult = { code: -1, result: "" };
+        var t = threads.start(function () {
+            try {
+                var r = shell("settings get secure enabled_accessibility_services", false);
+                shellResult.code = r.code;
+                shellResult.result = String(r.result || "");
+            } catch (e) { /* thread-local failure */ }
+        });
+        t.join(5000);
+        if (shellResult.code === 0) {
+            var list = shellResult.result.trim();
             return list && list !== "null" && list.indexOf(config.AUTOJS6_A11Y) >= 0;
         }
     } catch (e2) { /* ignore */ }

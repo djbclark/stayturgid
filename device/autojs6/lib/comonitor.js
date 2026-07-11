@@ -126,7 +126,7 @@ function probeAndRepairA11y(split) {
         return "unknown";
     }
     var merged = mergeA11y(list, [A11Y_SVC]);
-    sh("settings put secure enabled_accessibility_services '" + merged + "'");
+    sh("settings put secure enabled_accessibility_services '" + merged.replace(/'/g, "'\\''") + "'");
     sh("settings put secure accessibility_enabled 1");
     sleep(500);
     var re = sh("settings get secure enabled_accessibility_services");

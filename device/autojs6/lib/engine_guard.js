@@ -25,6 +25,9 @@ function dedupeMainEngines() {
     try {
         self = engines.myEngine();
     } catch (e) { /* best effort */ }
+    if (!self) {
+        return 0;
+    }
     var existing = findMainEngines();
     if (existing.length <= 1) {
         return 0;

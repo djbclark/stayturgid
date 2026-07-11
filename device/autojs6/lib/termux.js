@@ -77,7 +77,7 @@ function tryRunCommand() {
 
 function tryTriggerFile(triggerFile) {
     try {
-        files.ensureDir(triggerFile);   // self-heal if run/ was deleted
+        files.ensureDir(files.getParent(triggerFile) + "/");   // self-heal if run/ was deleted
         files.write(triggerFile, String(Date.now()));
     } catch (e) {
         log.append("[watchdog] trigger file write failed: " + e);
