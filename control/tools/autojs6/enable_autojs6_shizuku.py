@@ -229,8 +229,8 @@ def main_mac_adb(alias: str) -> int:
     serial = dev.resolve_adb(alias)
     subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
 
-    # Pre-authorize fleet ADB key so no "Allow USB debugging?" dialog on reconnect.
-    adb_cli.authorize_fleet_adb_key(serial)
+    # Dismiss "Allow USB debugging?" dialog if visible (first-time key authorization).
+    # adbd writes the key to /data/misc/adb/adb_keys after user confirms via UI.
     adb_cli.dismiss_usb_debugging_dialog(serial)
 
     if sync_shizuku_grants(alias) != 0:

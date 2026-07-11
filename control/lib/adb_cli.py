@@ -110,40 +110,13 @@ def scp(local: Path, host: str, remote: str) -> None:
     run(["scp", "-q", str(local), f"{host}:{remote}"], check=True)
 
 
-def authorize_fleet_adb_key(serial: str) -> bool:
-    """Pre-authorize the fleet ADB key on device (Option 1).
-
-    Pushes the fleet ADB public key into /data/misc/adb/adb_keys so the
-    'Allow USB debugging?' dialog never appears for this key. Requires
-    a privileged shell (uid 2000) on the device.
-
-    The key is authorized for both USB and wireless debugging.
-    """
-    key_path = Path.home() / ".config" / "stayturgid" / "adbkey.pub"
-    if not key_path.is_file():
-        print("WARN: fleet ADB key not found at %s" % key_path, file=sys.stderr)
-        return False
-    pub_key = key_path.read_text(encoding="utf-8").strip()
-    if not pub_key:
-        return False
-
-    result = run(
-        ["adb", "-s", serial, "shell",
-         "echo", "%s" % pub_key, ">>", "/data/misc/adb/adb_keys"],
-        check=False,
-    )
-    if result.returncode == 0:
-        print("Fleet ADB key authorized on %s." % serial)
-        return True
-    print("WARN: could not authorize fleet ADB key (rc=%d)" % result.returncode, file=sys.stderr)
-    return False
-
-
 def dismiss_usb_debugging_dialog(serial: str) -> bool:
-    """Dismiss the 'Allow USB debugging?' dialog (Option 2).
+    """Dismiss the 'Allow USB debugging?' dialog.
 
-    Uses key events to check 'Always allow from this computer' and tap
-    'Allow'. No uiautomator or Handsets needed — pure input keyevents.
+    On Android 11+, /data/misc/adb/adb_keys is not directly writable by
+    the shell uid — only adbd can write it after the user confirms the
+    dialog. This function checks for the dialog and accepts it via
+    keyevents (check 'Always allow' + tap 'Allow').
 
     Returns True if the dialog was found and dismissed.
     """
@@ -156,9 +129,11 @@ def dismiss_usb_debugging_dialog(serial: str) -> bool:
         return False
 
     run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_TAB"], check=False)
+    time.sleep(0.2)
     run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_SPACE"], check=False)
     time.sleep(0.3)
     run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_TAB"], check=False)
+    time.sleep(0.2)
     run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_ENTER"], check=False)
     print("Dismissed 'Allow USB debugging?' dialog on %s." % serial)
     return True
