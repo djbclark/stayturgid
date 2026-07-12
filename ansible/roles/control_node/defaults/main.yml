@@ -94,3 +94,9 @@ stayturgid_hermes_telegram_home_channel: ""
 #   TELEGRAM_BOT_TOKEN=… ansible-playbook … --tags hermes
 # Prefer writing the token once into ~/.hermes/.env by hand.
 stayturgid_hermes_telegram_bot_token: ""
+
+# ── OpenCode web (control-node web UI reachable from fleet devices) ─────────
+stayturgid_opencode_web_enabled: true
+stayturgid_opencode_web_port: 4096
+stayturgid_opencode_path: "{{ lookup('env', 'HOME') }}/.local/bin/opencode"
+stayturgid_opencode_web_label: com.stayturgid.opencode-web

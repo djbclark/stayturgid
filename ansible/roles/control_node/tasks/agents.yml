@@ -70,6 +70,15 @@
   loop: "{{ _fleet_host_keyscan.results }}"
   when: item.stdout_lines | select('match', '^\\[') | list | length > 0
 
+- name: Add @cert-authority for stayturgid CA to Mac known_hosts
+  ansible.builtin.lineinfile:
+    path: "{{ ssh_config_dir }}/known_hosts"
+    create: true
+    regexp: '@cert-authority \* .*stayturgid-ca'
+    line: "@cert-authority * {{ lookup('file', stayturgid_ca_key_path | default(lookup('env', 'HOME') ~ '/.ssh/stayturgid_ca') ~ '.pub') }}"
+    mode: "0644"
+  when: stayturgid_ca_enabled | default(true) | bool
+
 - name: Render adb-reconnect launchd agent per device
   ansible.builtin.template:
     src: adb-reconnect.plist.j2
@@ -242,6 +251,28 @@
   ansible.builtin.include_tasks: hermes.yml
   tags: [mac, agents, hermes]
 
+- name: Render OpenCode web launchd agent
+  ansible.builtin.template:
+    src: opencode-web.plist.j2
+    dest: "{{ agents_dir }}/{{ stayturgid_opencode_web_label }}.plist"
+    mode: "0644"
+  when: stayturgid_opencode_web_enabled | bool
+  register: opencode_web_plist
+
+- name: Remove OpenCode web launchd agent when disabled
+  ansible.builtin.file:
+    path: "{{ agents_dir }}/{{ stayturgid_opencode_web_label }}.plist"
+    state: absent
+  when: not (stayturgid_opencode_web_enabled | bool)
+  register: opencode_web_removed
+
+- name: Unload OpenCode web when disabled
+  community.general.launchd:
+    name: "{{ stayturgid_opencode_web_label }}"
+    state: unloaded
+  when: opencode_web_removed.changed
+  failed_when: false
+
 - name: Record launchd labels needing reload after plist template changes
   ansible.builtin.set_fact:
     _mac_launchd_reload_labels: >-
@@ -269,6 +300,14 @@
             and stayturgid_hermes_gateway_enabled | default(true) | bool
             and hermes_gateway_plist is defined
             and hermes_gateway_plist.changed
+          ) else []
+        )
+        + (
+          [stayturgid_opencode_web_label]
+          if (
+            stayturgid_opencode_web_enabled | default(true) | bool
+            and opencode_web_plist is defined
+            and opencode_web_plist.changed
           ) else []
         )
       }}

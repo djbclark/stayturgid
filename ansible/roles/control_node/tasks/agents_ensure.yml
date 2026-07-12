@@ -9,6 +9,11 @@
     path: "{{ agents_dir }}/{{ stayturgid_hermes_gateway_label }}.plist"
   register: _hermes_gateway_plist_stat
 
+- name: Stat OpenCode web launchd plist
+  ansible.builtin.stat:
+    path: "{{ agents_dir }}/{{ stayturgid_opencode_web_label }}.plist"
+  register: _opencode_web_plist_stat
+
 - name: Build launchd ensure service list
   ansible.builtin.set_fact:
     _mac_launchd_ensure_services: >-
@@ -20,6 +25,7 @@
         + _vlm_upstream_check_agents
         + _ui_tars_launchd_agents
         + _hermes_gateway_agents
+        + _opencode_web_agents
       }}
   vars:
     _core_launchd_agents:
@@ -38,6 +44,17 @@
           (stayturgid_hermes_enabled | default(true) | bool)
           and (stayturgid_hermes_gateway_enabled | default(true) | bool)
           and (_hermes_gateway_plist_stat.stat.exists | default(false))
+        ) else []
+      }}
+    _opencode_web_agents: >-
+      {{
+        [{
+          'name': stayturgid_opencode_web_label,
+          'plist': agents_dir ~ '/' ~ stayturgid_opencode_web_label ~ '.plist',
+          'health_url': 'http://127.0.0.1:' ~ (stayturgid_opencode_web_port | string) ~ '/'
+        }] if (
+          (stayturgid_opencode_web_enabled | default(true) | bool)
+          and (_opencode_web_plist_stat.stat.exists | default(false))
         ) else []
       }}
     _termux_pkg_nightly_agents: >-

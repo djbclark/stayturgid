@@ -32,7 +32,11 @@ VLM_ANSIBLE := ansible-playbook $(MAC_SITE) -e stayturgid_vlm_enabled=true
         vlm-service-stop vlm-service-restart vlm-smoke verify-play-autoupdate verify-hd8-google \
         ensure-et-mac check-et-mac \
         hermes-start hermes-stop hermes-restart hermes-status hermes-status-full \
-        hermes-logs hermes-logs-follow hermes-doctor hermes-deploy hermes-disable hermes-update
+        hermes-logs hermes-logs-follow hermes-doctor hermes-deploy hermes-disable hermes-update \
+        opencode-web-status opencode-web-restart \
+        opencode-web-deploy opencode-web-disable \
+        ca-init ca-sign ca-status \
+        firerpa-deploy firerpa-remove
 
 # ------------------------------------------------------------------------------
 # Help
@@ -102,6 +106,21 @@ help:
 	@echo "  make hermes-deploy                Ansible: install, configure, launchd plist"
 	@echo "  make hermes-disable               Ansible: remove plist + unload launchd"
 	@echo "  make hermes-update                Update hermes-agent package"
+	@echo ""
+	@echo "OpenCode web (fleet-reachable web UI on http://<ts-ip>:4096):"
+	@echo "  make opencode-web-deploy           Ansible: install + load launchd agent"
+	@echo "  make opencode-web-status           Health check + launchctl state"
+	@echo "  make opencode-web-restart          kickstart launchd agent"
+	@echo "  make opencode-web-disable          Ansible: remove plist + unload"
+	@echo ""
+	@echo "SSH CA (certificate authority for fleet host-key trust):"
+	@echo "  make ca-status                     Show CA key fingerprint + cert status"
+	@echo "  make ca-init                       Generate CA key pair (~/.ssh/stayturgid_ca)"
+	@echo "  make ca-sign                       Sign all device host keys + deploy certs"
+	@echo ""
+	@echo "FIRERPA (optional on-device failsafe daemon):"
+	@echo "  make firerpa-deploy [HOSTS=s24]     Install + configure + start FIRERPA"
+	@echo "  make firerpa-remove [HOSTS=s24]     Stop + uninstall FIRERPA"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make deploy HOSTS=s24"
@@ -218,6 +237,65 @@ hermes-disable:
 
 hermes-update:
 	hermes update
+
+# ── OpenCode web (control-node launchd) ────────────────────────────────────
+OPENCODE_LABEL := com.stayturgid.opencode-web
+OPENCODE_PORT := 4096
+
+opencode-web-status:
+	@echo "OpenCode web:"
+	@launchctl list $(OPENCODE_LABEL) 2>/dev/null || echo "  not loaded"
+	@curl -sf -o /dev/null -w "  HTTP %{http_code}" http://127.0.0.1:$(OPENCODE_PORT)/ 2>/dev/null || echo "  HTTP unreachable"
+	@echo ""
+
+opencode-web-restart:
+	launchctl kickstart -k gui/$$(id -u)/$(OPENCODE_LABEL)
+
+opencode-web-deploy:
+	ansible-playbook $(MAC_SITE) --tags agents -e stayturgid_opencode_web_enabled=true
+	@echo ""
+	@-launchctl kickstart -k gui/$$(id -u)/$(OPENCODE_LABEL) 2>/dev/null
+	@echo "OpenCode web deployed. Verify: make opencode-web-status"
+
+opencode-web-disable:
+	ansible-playbook $(MAC_SITE) --tags agents -e stayturgid_opencode_web_enabled=false
+
+# ── SSH Certificate Authority ──────────────────────────────────────────────
+CA_KEY := $(HOME)/.ssh/stayturgid_ca
+CA_CERTDIR := $(HOME)/.ssh/host-certs
+
+ca-status:
+	@echo "SSH CA:"
+	@[ -f "$(CA_KEY)" ] && ssh-keygen -lf "$(CA_KEY)" || echo "  CA key missing (run make ca-init)"
+	@[ -f "$(CA_KEY).pub" ] && echo "  pub: $$(cat $(CA_KEY).pub | awk '{print $$3}')" || true
+	@echo ""
+	@-grep -c "cert-authority" ~/.ssh/known_hosts && echo "  entries in Mac known_hosts" || true
+	@-for host in p7a hd8 s24; do \
+	  ssh -o BatchMode=yes -o ConnectTimeout=5 $$host 'grep -c cert-authority ~/.ssh/known_hosts' 2>/dev/null \
+	    && echo "  $$host known_hosts: ok" || echo "  $$host: unreachable"; \
+	done
+	@echo ""
+
+ca-init:
+	@[ -f "$(CA_KEY)" ] && echo "CA key already exists" || \
+	  ssh-keygen -t ed25519 -f "$(CA_KEY)" -C "stayturgid-ca" -N ""
+	@ssh-keygen -lf "$(CA_KEY)"
+	@echo "@cert-authority * $$(cat $(CA_KEY).pub)" >> ~/.ssh/known_hosts \
+	  && echo "Added @cert-authority to ~/.ssh/known_hosts" || true
+
+ca-sign:
+	@mkdir -p "$(CA_CERTDIR)"
+	@ansible-playbook ansible/playbooks/fleet/termux-userland.yml --tags ca 2>&1 || true
+	@echo "Host certs signed. Run 'make deploy-mac' to update Mac known_hosts."
+
+# ── FIRERPA/lamda failsafe daemon ─────────────────────────────────────────
+firerpa-deploy:
+	ansible-playbook ansible/playbooks/fleet/firerpa.yml \
+	  $(if $(HOSTS),-l "$(HOSTS)",) -e firerpa_enabled=true
+
+firerpa-remove:
+	ansible-playbook ansible/playbooks/fleet/firerpa.yml \
+	  $(if $(HOSTS),-l "$(HOSTS)",) -e firerpa_enabled=false
 
 collections:
 	ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections
