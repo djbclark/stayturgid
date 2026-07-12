@@ -47,22 +47,25 @@ def grant_json(serial):
     print("Granting Shizuku API to Obtainium...")
     adb(serial, "pm", "grant", OBTAINIUM_PKG, SHIZUKU_PERM)
     # Read current shizuku.json, patch in Obtainium
-    rc, out = adb(serial, "cat", SHIZUKU_JSON).stdout or ""
-    if not out:
+    result = adb(serial, "cat", SHIZUKU_JSON)
+    if not result or not result.stdout:
         sys.stderr.write("ERROR: shizuku.json not readable\n")
         return False
-    current = out.strip()
+    current = result.stdout.strip()
     # Get Obtainium's uid
-    rc2, pkginfo = adb(serial, "dumpsys", "package", OBTAINIUM_PKG).stdout or ""
+    pkginfo = adb(serial, "dumpsys", "package", OBTAINIUM_PKG).stdout or ""
     uid = None
     for line in (pkginfo or "").splitlines():
         if "userId=" in line:
             uid = line.split("userId=")[-1].strip()
             break
+        if line.strip().startswith("uid="):
+            uid = line.strip().split()[0].split("=")[-1].rstrip(",")
+            break
     if not uid:
         sys.stderr.write("ERROR: could not determine Obtainium uid\n")
         return False
-    patched = dev.patch_shizuku_json(json.loads(current) if current else {}, uid, OBTAINIUM_PKG)
+    patched = dev.patch_shizuku_json(current, uid, OBTAINIUM_PKG)
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
         json.dump(patched, f)
         tmp = f.name
