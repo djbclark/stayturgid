@@ -28,7 +28,7 @@ SHIZUKU_PERM = "moe.shizuku.manager.permission.API_V23"
 SHIZUKU_JSON = "/data/local/tmp/shizuku/shizuku.json"
 STAGING = "/sdcard/Download/shizuku-obtainium.json"
 FLEET_PROFILE = {"installMethod": "shizuku"}
-FLEET_JSON_PATH = "/sdcard/Download/obtainium-fleet.json"
+FLEET_JSON_PATH = "/data/local/tmp/obtainium-fleet.json"
 FLEET_ACTIVITY = "dev.imranr.obtainium/.FleetProfileActivity"
 FLEET_ACTION = "dev.imranr.obtainium.action.APPLY_FLEET_PROFILE"
 

@@ -489,8 +489,8 @@ def main():
              "-e", "profile_path", "/sdcard/Download/autojs6-fleet.json",
              "-e", "silent", "true",
              "-n", "org.autojs.autojs6/org.autojs.autojs.core.pref.fleet.FleetProfileActivity"],
-            ["am", "start", "-a", "moe.shizuku.privileged.api.APPLY_FLEET_PROFILE",
-             "-e", "profile_path", "/sdcard/Download/shizuku-fleet.json",
+             ["am", "start", "-a", "moe.shizuku.privileged.api.APPLY_FLEET_PROFILE",
+              "-e", "profile_path", "/data/local/tmp/shizuku-fleet.json",
              "-e", "silent", "true",
              "-n", "moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity"],
         ):

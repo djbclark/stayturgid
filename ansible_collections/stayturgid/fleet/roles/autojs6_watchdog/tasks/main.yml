@@ -128,7 +128,7 @@
   ansible.builtin.shell: |
     {{ stayturgid_adb_bin | default('adb') }} -s \
       "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}" \
-      push /tmp/shizuku-fleet-{{ inventory_hostname }}.json /sdcard/Download/shizuku-fleet.json
+      push /tmp/shizuku-fleet-{{ inventory_hostname }}.json /data/local/tmp/shizuku-fleet.json
   changed_when: false
   failed_when: false
   when: not (stayturgid_no_local_adb | default(false) | bool)
@@ -140,7 +140,7 @@
     action: moe.shizuku.privileged.api.APPLY_FLEET_PROFILE
     component: moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity
     extras:
-      profile_path: /sdcard/Download/shizuku-fleet.json
+      profile_path: /data/local/tmp/shizuku-fleet.json
       silent: "true"
   changed_when: false
   failed_when: false
