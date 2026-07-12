@@ -22,3 +22,7 @@
     [ -n "$new" ] && [ -d "/proc/$new" ]
   args:
     executable: "{{ termux_prefix }}/bin/bash"
+
+- name: reload sshd
+  ansible.builtin.command: pkill -HUP sshd
+  changed_when: true

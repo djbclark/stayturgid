@@ -162,6 +162,12 @@
     state: directory
     mode: "0755"
 
+- name: Ensure on-device autojs6 directory exists
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.stayturgid/autojs6"
+    state: directory
+    mode: "0755"
+
 - name: Deploy shared libs to ~/.stayturgid/lib
   ansible.builtin.copy:
     src: "{{ stayturgid_repo_root }}/{{ item.src }}"
@@ -227,6 +233,31 @@
     line: "allow-external-apps={{ 'true' if stayturgid_allow_external_apps else 'false' }}"
     mode: "0644"
   notify: reload termux settings
+
+- name: Sanitize Mac-style PATH from Termux shell profiles
+  ansible.builtin.lineinfile:
+    path: "{{ termux_home }}/{{ item }}"
+    regexp: '^(export )?PATH=.*(/Users/|/opt/homebrew/|/Library/Apple/|/System/Cryptexes/).*'
+    state: absent
+  loop:
+    - .profile
+    - .bashrc
+    - .bash_profile
+  failed_when: false
+
+- name: Ensure correct PATH in Termux shell profiles
+  ansible.builtin.lineinfile:
+    path: "{{ termux_home }}/{{ item }}"
+    create: true
+    regexp: '^export PATH=.*termux/files/usr'
+    line: 'export PATH="$HOME/bin:{{ termux_prefix }}/bin:{{ termux_prefix }}/sbin:$PATH"'
+    insertbefore: BOF
+    mode: "0644"
+  loop:
+    - .profile
+    - .bashrc
+    - .bash_profile
+  when: item is not none
 
 - name: Write automation mode file when configured
   ansible.builtin.copy:

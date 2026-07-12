@@ -26,6 +26,8 @@ termux-wake-lock 2>/dev/null || true
 
 # Start SSH server so the device is reachable via ADB port-forward
 # (or directly via the Tailscale IP on port 8022 when Tailscale is up)
+# Remove a stale runsv down file that silently blocks sshd startup.
+rm -f /data/data/com.termux/files/usr/var/service/sshd/down 2>/dev/null || true
 sshd
 
 # Keep sshd alive — the AutoJs6 watchdog checks its status and notifies on failure,

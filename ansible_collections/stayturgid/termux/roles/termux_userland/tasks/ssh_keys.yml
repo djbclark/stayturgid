@@ -53,6 +53,12 @@
   changed_when: false
   when: _termux_home_stat.stat.exists
 
+- name: Sign host keys with stayturgid CA + deploy certs + configure sshd
+  ansible.builtin.include_tasks: ca.yml
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ca_enabled | default(true) | bool
+
 - name: Generate per-device fleet SSH identity (ed25519)
   ansible.builtin.command:
     cmd: >-

@@ -247,6 +247,11 @@ def ensure_wireless_debugging():
     if wifi in ("null", ""):
         log("wireless debugging: cannot reach shell (adb_wifi_enabled=%s)" % wifi)
         return "NO_SHELL"
+    # Toggle reads 0 but shell is responding — cosmetic false on Samsung/
+    # some OneUI where adb_wifi_enabled is disconnected from the actual
+    # Shizuku-opened port.  Don't touch the toggle.
+    if wifi == "0" and _rc == 0:
+        return "up"
     # Toggle is off — try to enable via settings put.
     sh_adb("settings put global adb_wifi_enabled 1")
     time.sleep(2)
@@ -332,6 +337,111 @@ def acquire_lock():
         return None
 
 
+MAC_PATH_KEYWORDS = ("/Users/", "/opt/homebrew/", "/Library/Apple/",
+                     "/System/Cryptexes/")
+
+PROFILES = [".profile", ".bashrc", ".bash_profile"]
+
+
+CANONICAL_MIRROR = "https://packages-cf.termux.dev/apt/termux-main"
+SSHD_SERVICE_DIR = PREFIX + "/var/service/sshd"
+
+
+def ensure_sshd_down_file():
+    """Remove a stale runsv ``down`` file that silently blocks sshd.
+
+    The file is set by ``sv down sshd`` or manual troubleshooting.  When
+    present, runsv refuses to start sshd even after a reboot.  Returns
+    ``repaired`` when removed, ``up`` when clean.
+    """
+    down = os.path.join(SSHD_SERVICE_DIR, "down")
+    if not os.path.isfile(down):
+        return "up"
+    try:
+        os.unlink(down)
+        log("removed stale sshd down file -> runsv can start sshd")
+        return "repaired"
+    except OSError:
+        return "FAILED"
+
+
+def ensure_shell_profile_path():
+    """Remove Mac-style PATH lines from Termux shell profiles.
+
+    A leaked Mac PATH replaces the Termux prefix, breaking pkg/apt and
+    every Termux binary.  Returns 'repaired' when a line was fixed,
+    'up' when clean, 'skip' when nothing to check.
+    """
+    fixed = 0
+    for rel in PROFILES:
+        path = os.path.join(HOME, rel)
+        try:
+            if not os.path.isfile(path):
+                continue
+            with open(path) as f:
+                lines = f.readlines()
+        except (OSError, UnicodeDecodeError):
+            continue
+        new = []
+        changed = False
+        for line in lines:
+            stripped = line.strip()
+            if (stripped.startswith("export PATH=") or stripped.startswith("PATH=")) \
+                    and any(kw in stripped for kw in MAC_PATH_KEYWORDS):
+                new.append('export PATH="$HOME/bin:%s/bin:%s/sbin:$PATH"\n'
+                           % (PREFIX, PREFIX))
+                changed = True
+            else:
+                new.append(line)
+        if changed:
+            try:
+                with open(path, "w") as f:
+                    f.writelines(new)
+                os.chmod(path, 0o644)
+                fixed += 1
+                log("shell profile %s PATH was broken (Mac paths) -> repaired" % path)
+            except OSError:
+                pass
+    if fixed:
+        return "repaired"
+    if any(os.path.isfile(os.path.join(HOME, r)) for r in PROFILES):
+        return "up"
+    return "skip"
+
+
+def ensure_termux_mirror():
+    """Re-pin the Termux mirror after a random mirror change by pkg update.
+
+    pkg update selects a random mirror and rewrites sources.list.  The
+    canonical CDN (packages-cf.termux.dev) is the most reliable.
+    Returns 'repaired' when the mirror was changed, 'up' when already
+    correct, 'FAILED' when unwritable.
+    """
+    sources = os.path.join(PREFIX, "etc", "apt", "sources.list")
+    expected = "deb %s stable main\n" % CANONICAL_MIRROR
+    try:
+        if os.path.isfile(sources):
+            with open(sources) as f:
+                current = f.read()
+            if current == expected:
+                return "up"
+        else:
+            current = ""
+    except OSError:
+        return "FAILED"
+    try:
+        os.makedirs(os.path.dirname(sources), exist_ok=True)
+        with open(sources, "w") as f:
+            f.write(expected)
+        run(["apt-get", "update", "-y"], timeout=30)
+        log("Termux mirror re-pinned from %s -> %s" % (
+            current.strip().split()[1] if len(current.split()) > 1 else "absent",
+            CANONICAL_MIRROR))
+        return "repaired"
+    except OSError:
+        return "FAILED"
+
+
 def ensure_control_et_ssh_config():
     """Restore phone→Mac ET Host block from deploy share if markers missing.
 
@@ -397,6 +507,7 @@ def main():
     rc = 0
 
     # --- 1. sshd ---
+    sshd_down = ensure_sshd_down_file()
     if sshd_up():
         sshd = "up"
     else:
@@ -479,22 +590,30 @@ def main():
                     a11y = "FAILED"
                     log("AutoJs6 accessibility re-enable FAILED")
 
-    # --- 5. phone→Mac Eternal Terminal SSH config (share-backed self-heal) ---
+    # --- 5. Shell profile PATH (remove leaked Mac PATH that breaks pkg/apt) ---
+    profile_path = ensure_shell_profile_path()
+
+    # --- 6. Termux mirror pin (re-pin after random mirror selection by pkg) ---
+    mirror = ensure_termux_mirror()
+
+    # --- 7. phone→Mac Eternal Terminal SSH config (share-backed self-heal) ---
     et_cfg = ensure_control_et_ssh_config()
 
-    # --- 6. Re-apply fleet profiles (AutoJs6 + Shizuku) in case app data was cleared ---
+    # --- 8. Re-apply fleet profiles (AutoJs6 + Shizuku) in case app data was cleared ---
     if expect_shell and have_sh:
-        for intent in (
-            ["am", "start", "-a", "org.autojs.autojs6.action.APPLY_FLEET_PROFILE",
-             "-e", "profile_path", "/sdcard/Download/autojs6-fleet.json",
-             "-e", "silent", "true",
-             "-n", "org.autojs.autojs6/org.autojs.autojs.core.pref.fleet.FleetProfileActivity"],
+        for profile_path, intent in (
+            ("/sdcard/Download/autojs6-fleet.json",
+             ["am", "start", "-a", "org.autojs.autojs6.action.APPLY_FLEET_PROFILE",
+              "-e", "profile_path", "/sdcard/Download/autojs6-fleet.json",
+              "-e", "silent", "true",
+              "-n", "org.autojs.autojs6/org.autojs.autojs.core.pref.fleet.FleetProfileActivity"]),
+            ("/data/local/tmp/shizuku-fleet.json",
              ["am", "start", "-a", "moe.shizuku.privileged.api.APPLY_FLEET_PROFILE",
               "-e", "profile_path", "/data/local/tmp/shizuku-fleet.json",
-             "-e", "silent", "true",
-             "-n", "moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity"],
+              "-e", "silent", "true",
+              "-n", "moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity"]),
         ):
-            sh_adb(" ".join(intent))
+            sh_adb("if [ -f %s ]; then %s; fi" % (profile_path, " ".join(intent)))
             time.sleep(0.5)
         sh_adb("dumpsys deviceidle whitelist +moe.shizuku.privileged.api")
 

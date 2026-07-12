@@ -154,3 +154,10 @@ stayturgid_termux_overlay_packages:
   - com.termux
   - com.termux.api
   - com.termux.window
+
+# ── SSH Certificate Authority (host cert signing) ──────────────────────────
+# Enabled by default: sign every device host key with the Mac CA key so that
+# @cert-authority * in known_hosts eliminates host-key warnings fleet-wide.
+stayturgid_ca_enabled: true
+stayturgid_ca_key_path: "{{ lookup('env', 'HOME') }}/.ssh/stayturgid_ca"
+stayturgid_ca_tmpdir: "{{ lookup('env', 'HOME') }}/.ssh/host-certs"
