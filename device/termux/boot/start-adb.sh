@@ -30,6 +30,24 @@ termux-wake-lock 2>/dev/null || true
 rm -f /data/data/com.termux/files/usr/var/service/sshd/down 2>/dev/null || true
 sshd
 
+# ── FIRERPA failsafe daemon (optional) ──────────────────────────────────────
+# Start the FIRERPA server on port 65000 if the binary exists.
+# Provides gRPC backup control channel independent of Termux sshd + Shizuku.
+FIRERPA_DIR=/data/local/tmp/firerpa/server
+FIRERPA_PID_FILE="$STG/run/firerpa.pid"
+FIRERPA_ENABLED="${STAYTURGID_FIRERPA_ENABLED:-1}"
+
+if [ "$FIRERPA_ENABLED" = "1" ] && [ -x "$FIRERPA_DIR/bin/python3.9" ]; then
+    if [ ! -f "$FIRERPA_PID_FILE" ] || ! kill -0 "$(cat "$FIRERPA_PID_FILE" 2>/dev/null)" 2>/dev/null; then
+        (cd "$FIRERPA_DIR" && PATH="$FIRERPA_DIR/bin:$PATH" \
+         LD_LIBRARY_PATH="$FIRERPA_DIR/lib" \
+         nohup "$FIRERPA_DIR/bin/python3.9" -u -m lamda --launch --port=65000 \
+         > "$STG/logs/firerpa.log" 2>&1 &)
+        echo "$!" > "$FIRERPA_PID_FILE"
+        echo "[$(date +%H:%M:%S)] FIRERPA started (pid $(cat $FIRERPA_PID_FILE))" >> "$STG/logs/boot.log"
+    fi
+fi
+
 # Keep sshd alive — the AutoJs6 watchdog checks its status and notifies on failure,
 # but this loop is the self-healing mechanism (runs as Termux user, right UID).
 # Low-battery tiers (30/25/20/…%) handled by ~/stayturgid_battery_alarm.py each loop.
@@ -117,6 +135,19 @@ BOOTLOOP_PID_FILE="$STG/run/bootloop.pid"
         && [ "${STAYTURGID_PEER_BOOTSTRAP:-1}" != "0" ] \
         && [ -x "$BIN/stayturgid_peer_keepalive.py" ]; then
         python3 "$BIN/stayturgid_peer_keepalive.py" >/dev/null 2>&1 || true
+    fi
+
+    # FIRERPA monitor: restart the failsafe daemon if it died.
+    if [ "$FIRERPA_ENABLED" = "1" ] && [ -f "$FIRERPA_PID_FILE" ]; then
+        _firerpa_pid="$(cat "$FIRERPA_PID_FILE" 2>/dev/null || true)"
+        if [ -z "$_firerpa_pid" ] || ! kill -0 "$_firerpa_pid" 2>/dev/null; then
+            (cd "$FIRERPA_DIR" && PATH="$FIRERPA_DIR/bin:$PATH" \
+             LD_LIBRARY_PATH="$FIRERPA_DIR/lib" \
+             nohup "$FIRERPA_DIR/bin/python3.9" -u -m lamda --launch --port=65000 \
+             > "$STG/logs/firerpa.log" 2>&1 &)
+            echo "$!" > "$FIRERPA_PID_FILE"
+            echo "[$(date +%H:%M:%S)] FIRERPA restarted (old pid $_firerpa_pid dead)" >> "$STG/logs/boot.log"
+        fi
     fi
 
         sleep 300
