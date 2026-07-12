@@ -128,14 +128,33 @@ def dismiss_usb_debugging_dialog(serial: str) -> bool:
     if "UsbDebuggingActivity" not in text and "WifiDebuggingActivity" not in text:
         return False
 
-    # Try both tab sequences — standard and Samsung bottom-sheet variant.
-    for _ in range(2):
-        run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_TAB"], check=False)
-        time.sleep(0.15)
-    run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_SPACE"], check=False)
-    time.sleep(0.3)
-    run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_TAB"], check=False)
-    time.sleep(0.15)
-    run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_ENTER"], check=False)
-    print("Dismissed 'Allow USB debugging?' dialog on %s." % serial)
-    return True
+    # Try multiple focus sequences — the dialog layout varies across Android
+    # versions and OEMs (standard, Samsung bottom-sheet, etc.).
+    sequences = [
+        # Standard: checkbox (1 TAB) → Allow (1 TAB)
+        [["KEYCODE_TAB"], ["KEYCODE_SPACE"], ["KEYCODE_TAB"], ["KEYCODE_ENTER"]],
+        # Samsung: checkbox (2 TABs) → Allow (1 TAB)
+        [["KEYCODE_TAB"], ["KEYCODE_TAB"], ["KEYCODE_SPACE"], ["KEYCODE_TAB"], ["KEYCODE_ENTER"]],
+        # Samsung bottom sheet: Cancel(1) → checkbox(2) → Allow(1)
+        [["KEYCODE_TAB"], ["KEYCODE_TAB"], ["KEYCODE_TAB"], ["KEYCODE_SPACE"],
+         ["KEYCODE_TAB"], ["KEYCODE_ENTER"]],
+    ]
+    for seq in sequences:
+        for key in seq:
+            run(["adb", "-s", serial, "shell", "input", "keyevent", key[0]], check=False)
+            time.sleep(0.15)
+        time.sleep(0.5)
+        # Check if dialog is gone
+        check = run(
+            ["adb", "-s", serial, "shell", "dumpsys", "activity", "activities"],
+            check=False,
+        )
+        text = (check.stdout or "") + (check.stderr or "")
+        if "UsbDebuggingActivity" not in text and "WifiDebuggingActivity" not in text:
+            print("Dismissed 'Allow USB debugging?' dialog on %s." % serial)
+            return True
+        # Reset focus: HOME then re-open the dialog... actually just BACK
+        run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_BACK"], check=False)
+        time.sleep(0.5)
+    print("WARN: could not dismiss USB debugging dialog on %s — try manual." % serial)
+    return False

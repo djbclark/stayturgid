@@ -60,6 +60,12 @@ def patch_shizuku_json(current_text, uid, pkg):
         data = json.loads(raw) if raw else {"version": 2, "packages": []}
     except ValueError:
         data = {"version": 2, "packages": []}
+    # Handle double-encoded JSON (written by json.dump of a json.dumps result).
+    if isinstance(data, str):
+        try:
+            data = json.loads(data)
+        except (ValueError, json.JSONDecodeError):
+            data = {"version": 2, "packages": []}
     pkgs = [e for e in data.get("packages", []) if e.get("uid") != uid]
     pkgs.append({"uid": uid, "flags": 2, "packages": [pkg]})
     data["packages"] = pkgs

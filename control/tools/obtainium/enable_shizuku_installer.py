@@ -67,7 +67,7 @@ def grant_json(serial):
         return False
     patched = dev.patch_shizuku_json(current, uid, OBTAINIUM_PKG)
     with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as f:
-        json.dump(patched, f)
+        f.write(patched)
         tmp = f.name
     subprocess.run(["adb", "-s", serial, "push", tmp, STAGING], capture_output=True, check=False)
     adb(serial, "cp", STAGING, SHIZUKU_JSON)
