@@ -207,13 +207,17 @@ def clear_alert_state():
 def blink_screen_color(color, count, quiet):
     png = os.path.join(COLOR_DIR, "%s.png" % color)
     black = os.path.join(COLOR_DIR, "black.png")
-    on_s, off_s = (0.18, 0.10) if quiet else (0.35, 0.20)
 
     backup_wallpaper_once()
     use_wallpaper = os.path.exists(png) and wallpaper_backup_valid()
 
     save_brightness()
     adb_shell("input", "keyevent", "KEYCODE_WAKEUP")
+
+    if use_wallpaper:
+        on_s, off_s = (0.18, 0.10) if quiet else (0.35, 0.20)
+    else:
+        on_s, off_s = (0.50, 0.30)
 
     for _ in range(count):
         run(["termux-brightness", "255"])
