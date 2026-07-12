@@ -1,0 +1,29 @@
+port={{ firerpa_port }}
+
+[cron]
+cron.enable={{ 'true' if firerpa_cron_enabled else 'false' }}
+
+[sshd]
+sshd.enable={{ 'true' if firerpa_sshd_enabled else 'false' }}
+
+[adb]
+adb.enable={{ 'true' if firerpa_adb_enabled else 'false' }}
+adb.privileged=false
+
+[fwd]
+fwd.enable={{ 'true' if firerpa_fwd_enabled else 'false' }}
+
+[tunnel2]
+tunnel2.enable={{ 'true' if firerpa_tunnel2_enabled else 'false' }}
+
+[mdns]
+mdns.enable={{ 'true' if firerpa_mdns_enabled else 'false' }}
+
+{% if firerpa_webui_enabled %}
+[webui]
+webui.darkmode=off
+webui.audio=off
+webui.webrtc={{ 'on' if firerpa_webrtc_enabled else 'off' }}
+webui.video.h264={{ 'on' if firerpa_h264_enabled else 'off' }}
+webui.share-clipboard=off
+{% endif %}

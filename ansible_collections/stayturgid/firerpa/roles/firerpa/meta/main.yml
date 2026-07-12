@@ -1,0 +1,18 @@
+---
+galaxy_info:
+  namespace: stayturgid
+  role_name: firerpa
+  description: Deploy FIRERPA/lamda server as optional on-device failsafe daemon
+  author: stayturgid
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: Android
+      versions:
+        - all
+  galaxy_tags:
+    - firerpa
+    - lamda
+    - android
+    - failsafe
+dependencies: []

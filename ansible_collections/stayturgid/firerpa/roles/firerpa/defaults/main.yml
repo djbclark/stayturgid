@@ -1,0 +1,31 @@
+---
+# FIRERPA/lamda server role — optional on-device failsafe daemon.
+# Deployed via Ansible; no APK required.  Default: disabled.
+firerpa_enabled: false
+firerpa_version: "10.0"
+firerpa_port: 65000
+firerpa_install_dir: /data/local/tmp/firerpa
+firerpa_server_archive_arm64: "lamda-server-arm64-v8a.tar.gz"
+firerpa_server_archive_url_arm64: >-
+  https://github.com/djbclark/lamda/releases/download/v{{ firerpa_version }}-binaries/{{ firerpa_server_archive_arm64 }}
+
+# Minimal failsafe config — only sshd + gRPC.  All other services off by default.
+# Enable additional services per-device via host_vars.
+firerpa_sshd_enabled: true
+firerpa_adb_enabled: false
+firerpa_cron_enabled: false
+firerpa_webui_enabled: false
+firerpa_webrtc_enabled: false
+firerpa_h264_enabled: false
+firerpa_fwd_enabled: false
+firerpa_tunnel2_enabled: false
+firerpa_mdns_enabled: false
+
+# SSH: documented limitation — FIRERPA sshd reads authorized_keys from
+# ~/.ssh/ where HOME=/ (read-only on Android).  Key-based auth requires
+# root or an alternative auth mechanism (not yet configurable in v10.0).
+# The gRPC API on port 65000 is the primary programmatic control channel.
+firerpa_ssh_known_issue: true
+
+# Paths (must match termux_userland role)
+termux_home: /data/data/com.termux/files/home

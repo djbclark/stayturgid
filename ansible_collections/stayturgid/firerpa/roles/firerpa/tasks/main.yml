@@ -1,0 +1,16 @@
+---
+- name: Install FIRERPA server binary
+  ansible.builtin.include_tasks: install.yml
+  when: firerpa_enabled | bool
+
+- name: Configure FIRERPA
+  ansible.builtin.include_tasks: configure.yml
+  when: firerpa_enabled | bool
+
+- name: Ensure FIRERPA service state
+  ansible.builtin.include_tasks: service.yml
+  when: firerpa_enabled | bool
+
+- name: Uninstall FIRERPA when disabled
+  ansible.builtin.include_tasks: uninstall.yml
+  when: not (firerpa_enabled | bool)

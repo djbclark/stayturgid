@@ -4,6 +4,7 @@
 **Status:** PAUSED 2026-07-10 — see [../options.md](../options.md) — "Parked — FIRERPA Integration (paused 2026-07-10)".
 **Author:** Hermes (AI) + Dan
 **Prerequisite analysis:** [firerpa-lamda-analysis-2026-07-10.md](../history/firerpa-lamda-analysis-2026-07-10.md)
+**Fork (stayturgid):** [djbclark/lamda](https://github.com/djbclark/lamda) — all binaries (APK + server tarballs) in one GitHub-hosted [release](https://github.com/djbclark/lamda/releases/tag/v10.0-binaries)
 
 This plan is not scheduled. Steps remain for reference if the integration is
 reopened.
@@ -97,6 +98,12 @@ responds, and no stayturgid services are disrupted.
 
 1. **Download server binary** to Mac:
    ```
+   # From stayturgid fork (GitHub-hosted, all binaries in one place):
+   curl -L -o /tmp/firerpa.apk \
+     https://github.com/djbclark/lamda/releases/download/v10.0-binaries/firerpa.apk
+   curl -L -o /tmp/lamda-server.tar.gz \
+     https://github.com/djbclark/lamda/releases/download/v10.0-binaries/lamda-server-arm64-v8a.tar.gz
+   # OR from upstream:
    curl -L -o /tmp/lamda-server.tar.gz \
      https://github.com/firerpa/lamda/releases/download/v10.0/lamda-server-arm64-v8a.tar.gz
    ```

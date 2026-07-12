@@ -1,0 +1,16 @@
+---
+- name: Stage properties.local in Termux home
+  ansible.builtin.template:
+    src: properties.local.j2
+    dest: "{{ termux_home }}/firerpa-properties.local"
+    mode: "0644"
+
+- name: Deploy properties.local to install dir via run-as
+  ansible.builtin.command:
+    cmd: "run-as com.termux cp {{ termux_home }}/firerpa-properties.local {{ firerpa_install_dir }}/server/properties.local"
+  changed_when: true
+
+- name: Clean up staged properties file
+  ansible.builtin.file:
+    path: "{{ termux_home }}/firerpa-properties.local"
+    state: absent

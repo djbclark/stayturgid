@@ -1,0 +1,10 @@
+---
+- name: Stop FIRERPA server
+  ansible.builtin.shell: |
+    run-as com.termux pkill -9 lamda 2>/dev/null || true
+  changed_when: false
+
+- name: Remove FIRERPA install directory
+  ansible.builtin.file:
+    path: "{{ firerpa_install_dir }}"
+    state: absent

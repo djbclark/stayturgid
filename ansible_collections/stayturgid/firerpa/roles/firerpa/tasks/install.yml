@@ -1,0 +1,29 @@
+---
+# FIRERPA install: push server archive to Termux home, then extract to
+# /data/local/tmp/ via run-as (Termux user can't write directly).
+
+- name: Ensure install directory exists on shared storage
+  ansible.builtin.command:
+    cmd: "run-as com.termux mkdir -p {{ firerpa_install_dir }}"
+  changed_when: false
+
+- name: Push server archive to Termux home
+  ansible.builtin.copy:
+    src: "{{ firerpa_install_dir }}/{{ firerpa_server_archive_arm64 }}"
+    dest: "{{ termux_home }}/{{ firerpa_server_archive_arm64 }}"
+    mode: "0644"
+  delegate_to: localhost
+  register: _firerpa_archive_push
+
+- name: Extract server archive via run-as
+  ansible.builtin.shell: |
+    run-as com.termux cat {{ termux_home }}/{{ firerpa_server_archive_arm64 }} | tar xz -C {{ firerpa_install_dir }}/
+  args:
+    creates: "{{ firerpa_install_dir }}/server/bin/launch.sh"
+  when: _firerpa_archive_push.changed or firerpa_force_reinstall | default(false) | bool
+
+- name: Remove archive from Termux home after extract
+  ansible.builtin.file:
+    path: "{{ termux_home }}/{{ firerpa_server_archive_arm64 }}"
+    state: absent
+  when: _firerpa_archive_push.changed
