@@ -146,7 +146,7 @@ Optional on-device notifier: `stayturgid_check_repo_version.py` (max once/24 h) 
 
 ## 🚦 Cold-start — current state (read this first)
 
-**As of 2026-07-10 afternoon (handoff pass).** Three-device fleet: **s24**, **p7a**, **hd8**.
+**As of 2026-07-11 evening (handoff pass).** Three-device fleet: **s24**, **p7a**, **hd8**.
 Source of truth: **`origin/master`** on `https://github.com/djbclark/stayturgid.git`.
 
 ### Session start (every agent)
@@ -156,122 +156,68 @@ cd ~/stayturgid && git fetch origin --prune && git status -sb
 git pull --ff-only origin master   # if behind only
 make health
 python3 control/bin/screen_lease.py status
-# Optional: make check-et-mac · make vlm-upstream-check
 ```
 
-| Exit / signal | Meaning |
-|---------------|---------|
-| `make health` **0** | Clean — continue |
-| `make health` **1** | Soft problems — **tell operator first reply** (host + `issues=`) |
-| Lease **HELD** foreign project | Do not take glass; wait or pick another host |
-| **s24** preferred for single-host work | then hd8, then p7a (daily driver) |
+### Fleet snapshot (2026-07-11 evening)
 
-### Fleet snapshot (2026-07-10 late afternoon)
+| Host | Soft health | Shizuku | Obtainium | AutoJs6 |
+|------|-------------|---------|-----------|---------|
+| **s24** | OK | release10 (v13.7.0-thedjchi-stayturgid-release10, versionCode 1371) | debug8 (v1.6.5) | debug5 (v6.7.0 fleet-profile) |
+| **p7a** | OK (battery 24%) | release10 | debug8 | debug5 |
+| **hd8** | OK (SSH scrape, watchdog_stale expected) | release10 | debug8 | debug5 |
 
-| Host | Soft health | Notes |
-|------|-------------|--------|
-| **s24** | OK | USB + wireless adb; lab preferred |
-| **p7a** | OK | Wireless adb; avoid UI unless needed |
-| **hd8** | Often OK over **SSH** scrape | Fire: **no Termux loopback 5555**. Prefer **wireless debugging** (mDNS ephemeral port) over classic `:5555`. USB serial `GN43…` often absent when only s24 is plugged. On-device repair **skips** `adb_wifi_enabled` (no shell) — **Mac `fire_help_monitor` re-asserts wireless debug + Shizuku/Handsets** when adb is reachable |
+All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/obtainium/stayturgid-apps.json`.
+**Fork sources:** `~/src/AutoJs6/`, `~/src/Shizuku/`, `~/src/Obtainium/` — **read-only** for this project. If changes needed, write a prompt for the fork's AI.
 
-**Do not** open AutoJs6 scripts with `termux-open` / bare `file://` VIEW — that pops Termux **“Save file in ~/downloads/ main.js”**. Use `control/tools/autojs6/start_watchdog.py` → `adb_cli.start_autojs_file` (**RunIntentActivity** only).
+### Major changes (2026-07-11 — fork migration + headless automation)
 
-### ⚠️ Massive repo restructure landed (`d950c53` on `master`)
+**Fork migration:**
+- Migrated from `SuperMonster003/AutoJs6` → `djbclark/AutoJs6` (fleet profile support)
+- Migrated from `thedjchi/Shizuku` → `djbclark/Shizuku` (HEADLESS_START/STOP/STATUS broadcasts)
+- Added `djbclark/Obtainium` (headless import/update deep-links)
+- Catalogs updated in both `stayturgid-apps.json` and Ansible role defaults
+- All `filterReleaseTitlesByRegEx` cleared for future mainline switch-back
 
-**Read this before touching paths.** The tree was reorganized around *where code
-runs* (not Ansible alone). GitHub `master` no longer has root `mac/`, `shared/`,
-`termux/`, `autojs6/`, or `obtainium/` — but **docs, external consumers, muscle
-memory, and grep hits may still reference them.**
+**UI automation eliminated (-1,440 lines):**
+- **Shizuku**: `findOne`/`tapStartButton` replaced by `HEADLESS_START` broadcast
+- **Obtainium import**: `ui_driver` + `ScreenControlSession` replaced by `obtainium://apps?confirm=true&headless=true` deep-link
+- **Obtainium updates**: replaced with `obtainium://update/all?autoInstall=true&headless=true`
+- **Obtainium Shizuku installer**: replaced with `FleetProfileActivity` intent (`installMethod: shizuku`)
+- `stayturgid_import_catalog.py` (389 lines) deleted
+- `enableWirelessDebuggingUi` Samsung fallback deleted
 
-| Old path | New canonical path |
-|----------|-------------------|
-| `mac/*.py` | `control/bin/*.py` |
-| `shared/*`, `shared/mac/*` | `control/lib/*` |
-| `termux/` | `device/termux/` |
-| `autojs6/` (repo) | `device/autojs6/` |
-| `obtainium/*.json` | `catalogs/obtainium/*.json` |
-| `*/mac/*` deploy tools | `control/tools/<domain>/` |
-| Root `HACKING.md`, `HANDOFF.md`, `OPTIONS.md`, … | `docs/*.md` |
-| `ansible/playbooks/mac*.yml` (logic) | `ansible/playbooks/control_node/` + `ansible/roles/control_node/` |
-| `ansible/playbooks/{fleet,bootstrap,…}.yml` (logic) | `ansible/playbooks/fleet/` |
+**Headless API use:**
+- `HEADLESS_START` (djbclark/Shizuku) — starts Shizuku daemon + wireless ADB, no UI
+- `HEADLESS_STATUS` (djbclark/Shizuku) — returns server state; pgrep fallback on Samsung
+- `FleetProfileActivity` (djbclark/AutoJs6 + djbclark/Obtainium) — SharedPreferences via intent
+- `obtainium://apps` (djbclark/Obtainium) — headless catalog import with auto-confirm
+- `obtainium://update` (djbclark/Obtainium) — headless update check with auto-install
 
-**On-device AutoJs6** (not the repo path): `/sdcard/stayturgid/autojs6/` everywhere
-(boot scripts, deploy util, `adb_cli.AUTOJS_PROJECT_BASE`). Repo source:
-`device/autojs6/` via `autojs6_deploy_util.project_src_dir`.
+**Battery alarm:** Lower brightness pulses for better visibility. Wallpaper backup optional.
 
-**Repo root discovery:** `control/lib/stayturgid_root.py` (markers `device/termux/` +
-`control/lib/` only; legacy fallbacks removed with OPTIONS **62**).
+**USB debugging dialog auto-dismiss:** `fleet_health_monitor.py` now auto-dismisses `UsbDebuggingActivity` and `WifiDebuggingActivity` on every 5-min health cycle.
 
-**OPTIONS 62 closed (2026-07-10):** flat playbook shims removed; Termux callers use
-`stayturgid_repair.py` / `stayturgid_agent_presence.py`; `gplaycli.sh` removed.
-Keep real shell bridges (`repair-bridge.sh`, `autojs6-bridge.sh`) and boot scripts.
+**Self-heal loop:** `repair_fleet_profiles()` applies AutoJs6 + Shizuku profiles on every 5-min cycle.
 
-**Verified (2026-07-10 afternoon handoff):** review H1/M1–M6 + L1–L9 landed on
-`master`; full pytest green at last push; `make health` **OK** all hosts after
-hd8 watchdog recovery. **Still optional:** `make deploy-mac` (reload agents with
-latest fire_help), live `make deploy` / `make verify` soak on s24.
+**Fleet profile paths:** Moved to `/data/local/tmp/` (no scoped storage). `/sdcard/Download/` blocked on Android 16 without `MANAGE_EXTERNAL_STORAGE`.
 
-**Assume lingering breakage until proven.** Next agent should grep for stale paths
-before any deploy:
+**Persistent goal:** Every capability must be in deploy (Ansible), self-heal (repair.py), **and** catastrophic recovery (JS watchdog) — see `.cursor/rules/deploy-self-heal-catastrophic.mdc`.
 
-```bash
-# Stale repo paths (should return nothing material outside docs/history + OPTIONS 62)
-rg -n '\b(mac/|shared/|termux/|autojs6/|obtainium/)' --glob '!docs/history/**' --glob '!docs/options.md'
+### ⚠️ Key gotchas for next agent
 
-# Wrong on-device AutoJs6 path
-rg -n 'stayturgid/device/autojs6'
+**Samsung process freezer**: On s24, Samsung freezes the Shizuku Java process so `HEADLESS_STATUS` returns `result=0` even when `shizuku_server` is running. Fallback to `pgrep -f shizuku_server` is in place. After the first manual "Start" tap from the Shizuku app, HEADLESS_START works.
 
-# Wrong shared import
-rg -n 'shared/mac|join.*shared'
-```
+**Obtainium FleetProfileActivity**: Must use `getSharedPreferences("FlutterSharedPreferences", ...)` (the `flutter.` prefixed keys). DataStore DOES NOT work — the app's `SettingsProvider` uses legacy `SharedPreferences`, not `SharedPreferencesAsync`. See docs/handoff-obtainium-shizuku.md for full debugging history.
 
-If anything looks wrong: fix paths, run `make check` + `make test`, then
-`make deploy-check HOSTS=s24` before live deploy. Architecture reference:
-[docs/architecture.md](architecture.md).
+**Fire OS (hd8)**: Fire OS blocks background broadcasts. Shizuku must be started via peer bootstrap (`fire_peer_help.py`) or USB-tap, not HEADLESS_START.
 
----
+**`run-as` restricted on Android 16**: Can't read app SharedPreferences files directly for debugging.
 
-**Fleet health (run first):** `make health` — tell operator if exit ≠ 0.
+**Shizuku versioning**: Installed release10 has `versionCode=1371`. The GitHub release has `versionCode=1369`. If new releases have lower versionCode, uninstall before install.
 
-On-device post-UI prefers SSH on s24/p7a via Termux `localhost:5555`, with
-automatic Mac adb fallback if SSH-invoke fails. **hd8 is Mac adb only** (wireless
-debugging mDNS preferred). See [docs/options.md](options.md).
+**Obtainium self-update**: The `djbclark/Obtainium` entry uses `filterReleaseTitlesByRegEx: ""` (empty). The fork release titles don't contain "stayturgid" (unlike Shizuku which does).
 
-| Host | Verify | Mac adb | Notes |
-|------|--------|---------|-------|
-| s24 | **16/16 PASS** (last pre-reorg soak) | USB / LAN / Tailscale | Lab reference; re-verify after large deploys |
-| p7a | **16/16** (last run) | mDNS + Tailscale | may need Tailscale/USB when offline |
-| hd8 | **16/16 PASS** (Fire OS, pre-reorg) | Wireless-debug mDNS + USB when present | Soft health often **SSH**; classic `:5555` often refused |
-
-### Recent landings (2026-07-10 afternoon — code/docs review + Fire adb)
-
-- **Code/docs review** ([history](history/code-and-docs-review-2026-07-10.md)): H1 STATUS schema;
-  portable soft-health ages; DSCL flock + no peer silent-takeover + alias heartbeat;
-  Gemini `x-goog-api-key`; `adb_bin` in monitors; drawer verify; presence fallback;
-  OPTIONS 62 + relative docs links; opportunistic L1/L4–L9 (Handsets refcount, Fire-Tools
-  flock, devices.conf single parser, deploy always re-runs control_node, etc.).
-- **Fire / hd8:** `adb_resolve` prefers **mDNS wireless-debugging** before `:5555`;
-  `fire_help_monitor` uses `resolve_adb` + re-asserts `adb_wifi_enabled` (on-device
-  repair cannot). `start_autojs_file` RunIntentActivity-only (no Termux save dialog).
-- Cloud VLM + DSCL + portrait lock + ET Mac + Hermes gateway Ansible (earlier same day).
-
-**Recent landings (2026-07-10 — layout + path consistency, commit `d950c53`):**
-- Full tree move: `control/`, `device/`, `catalogs/`, `docs/`; flatten `control/tools/*`.
-- Path alignment: on-device `/sdcard/stayturgid/autojs6/`; `project_src_dir` → `device/autojs6`;
-  `control/lib` imports (drop `shared/`); `vlm_gate` → `playbooks/control_node/site.yml`;
-  `termux_ssh_bootstrap` → `playbooks/fleet/bootstrap.yml`.
-- Ansible: `control_node` role extracted; canonical playbooks under `playbooks/fleet/` +
-  `playbooks/control_node/`; flat playbook shims removed (OPTIONS 62 closed) — entry is `site.yml` only.
-- `launchd_ensure` idempotency (probe `launchctl` before reload).
-- OPTIONS **62** closed: flat playbook shims removed (keep `site.yml` + `fleet/` + `control_node/`).
-- Pushed to GitHub; remote verified clean of legacy root dirs.
-
-**Recent landings (2026-07-09 night — Ansible batch):**
-- **Track B closed:** `stayturgid.fleet.validate` role (repair/sshd/a11y + optional a11y drift);
-  `preflight.yml` (SSH probe + conditional adb bootstrap) in `site.yml`; SSH preflight removed
-  from `deploy_fleet.py`.
-- **`autojs6_project_deploy`** module + shared util — hd8 full fleet deploy path; `control/tools/autojs6/deploy.py`
-  thin wrapper retained.
+**Fork builds are debug (unsigned)**: Must sign with `apksigner sign --ks ~/.android/debug.keystore` before `adb install`.
 - **`make help`** + operational targets (`deploy`, `deploy-check`, `health`, `collections`, `syntax`, etc.).
 - **`make health` fix:** stale access-monitor LOST for hosts currently OK no longer fails exit 1
   (`control/bin/check_fleet_health.py` + tests).
