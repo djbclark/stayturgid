@@ -1,10 +1,15 @@
 ---
-- name: Stop FIRERPA server
+- name: Stop FIRERPA server via adb
   ansible.builtin.shell: |
-    run-as com.termux pkill -9 lamda 2>/dev/null || true
+    adb -s {{ _firerpa_adb_target }} shell "pkill -9 lamda 2>/dev/null; rm -f /data/local/tmp/usr/lamda.pid 2>/dev/null; echo stopped"
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
   changed_when: false
 
-- name: Remove FIRERPA install directory
-  ansible.builtin.file:
-    path: "{{ firerpa_install_dir }}"
-    state: absent
+- name: Remove FIRERPA install directory via adb
+  ansible.builtin.shell: |
+    adb -s {{ _firerpa_adb_target }} shell "rm -rf {{ firerpa_install_dir }} /data/local/tmp/usr 2>/dev/null; echo removed"
+  args:
+    executable: /bin/bash
+  delegate_to: localhost

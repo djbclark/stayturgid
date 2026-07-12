@@ -1,16 +1,31 @@
 ---
-- name: Stage properties.local in Termux home
-  ansible.builtin.template:
-    src: properties.local.j2
-    dest: "{{ termux_home }}/firerpa-properties.local"
-    mode: "0644"
-
-- name: Deploy properties.local to install dir via run-as
-  ansible.builtin.command:
-    cmd: "run-as com.termux cp {{ termux_home }}/firerpa-properties.local {{ firerpa_install_dir }}/server/properties.local"
-  changed_when: true
-
-- name: Clean up staged properties file
-  ansible.builtin.file:
-    path: "{{ termux_home }}/firerpa-properties.local"
-    state: absent
+- name: Write properties.local via adb
+  ansible.builtin.shell: |
+    cat > /tmp/__firerpa_props << 'ENDOFPROPERTIES'
+    port={{ firerpa_port }}
+    [sshd]
+    sshd.enable={{ 'true' if firerpa_sshd_enabled else 'false' }}
+    [adb]
+    adb.enable={{ 'true' if firerpa_adb_enabled else 'false' }}
+    [cron]
+    cron.enable={{ 'true' if firerpa_cron_enabled else 'false' }}
+    [fwd]
+    fwd.enable=false
+    [tunnel2]
+    tunnel2.enable=false
+    [mdns]
+    mdns.enable=false
+    {% if not firerpa_webui_enabled %}
+    [webui]
+    webui.darkmode=off
+    webui.audio=off
+    webui.webrtc=off
+    webui.video.h264=off
+    webui.share-clipboard=off
+    {% endif %}
+    ENDOFPROPERTIES
+    adb -s {{ _firerpa_adb_target }} push /tmp/__firerpa_props {{ firerpa_install_dir }}/server/properties.local
+    rm -f /tmp/__firerpa_props
+  args:
+    executable: /bin/bash
+  delegate_to: localhost

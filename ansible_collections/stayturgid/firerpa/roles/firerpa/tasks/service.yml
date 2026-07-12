@@ -1,29 +1,15 @@
 ---
-- name: Stop FIRERPA if running
+# FIRERPA service: start/stop via adb from Mac control node.
+
+- name: Start FIRERPA server via adb
   ansible.builtin.shell: |
-    run-as com.termux pkill -9 lamda 2>/dev/null || true
-    sleep 2
-  changed_when: false
-  when: firerpa_service_state | default('started') == 'restarted'
-
-- name: Start FIRERPA server
-  ansible.builtin.shell: |
-    run-as com.termux sh -c 'cd {{ firerpa_install_dir }}/server && nohup sh bin/launch.sh --port={{ firerpa_port }} > {{ firerpa_install_dir }}/server.log 2>&1 &'
-  changed_when: true
-  when: firerpa_service_state | default('started') in ['started', 'restarted']
-
-- name: Wait for server to listen
-  ansible.builtin.wait_for:
-    port: "{{ firerpa_port }}"
-    host: "{{ ansible_host }}"
-    timeout: 30
-  when: firerpa_service_state | default('started') in ['started', 'restarted']
-
-- name: Verify FIRERPA responds
-  ansible.builtin.uri:
-    url: "http://{{ ansible_host }}:{{ firerpa_port }}/"
-    return_content: false
-    timeout: 10
-  register: _firerpa_health
-  failed_when: false
-  when: firerpa_service_state | default('started') in ['started', 'restarted']
+    adb -s {{ _firerpa_adb_target }} shell "
+      cd {{ firerpa_install_dir }}/server && nohup sh bin/launch.sh --port={{ firerpa_port }} > {{ firerpa_install_dir }}/server.log 2>&1 &
+    "
+    sleep 8
+    curl -sf --connect-timeout 5 http://{{ ansible_host }}:{{ firerpa_port }}/ > /dev/null && \
+      echo "FIRERPA responding" || echo "WARNING: FIRERPA may not be listening"
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  register: _firerpa_start

@@ -1,6 +1,19 @@
 ---
-# FIRERPA install: all operations delegate to localhost (Mac).
-# The Mac pushes the tarball via adb, extracts via adb shell, configures via adb.
+# FIRERPA install: all operations delegate to localhost (Mac → adb).
+
+- name: Check adb reachable for FIRERPA deploy
+  ansible.builtin.command: "adb -s {{ _firerpa_adb_target }} shell echo ok"
+  delegate_to: localhost
+  changed_when: false
+  register: _firerpa_adb_check
+  failed_when: false
+
+- name: Fall back to USB serial if Tailscale ADB unreachable
+  ansible.builtin.set_fact:
+    _firerpa_adb_target: "{{ device_usb_serial }}"
+  when:
+    - device_usb_serial is defined
+    - _firerpa_adb_check.rc | default(0) != 0
 
 - name: Download FIRERPA server archive on Mac
   ansible.builtin.get_url:
@@ -13,40 +26,19 @@
 - name: Push server archive to device via adb
   ansible.builtin.command:
     cmd: >-
-      adb -s {{ device_usb_serial | default(ansible_host + ':5555') }}
+      adb -s {{ _firerpa_adb_target }}
       push /tmp/{{ firerpa_server_archive_arm64 }} /data/local/tmp/firerpa-server.tar.gz
   delegate_to: localhost
-  when: _firerpa_dl is defined
 
-- name: Extract and configure on device via adb shell
+- name: Extract server via adb shell
   ansible.builtin.shell: |
-    set -e
-    T={{ firerpa_install_dir }}
-    rm -rf "$T"/server "$T"/usr 2>/dev/null || true
-    mkdir -p "$T"
-    cd /data/local/tmp && tar xzf firerpa-server.tar.gz -C "$T"/
-    adb -s {{ device_usb_serial | default(ansible_host + ':5555') }} shell "cat > $T/server/properties.local" << 'ENDOFPROPERTIES'
-    port={{ firerpa_port }}
-    [sshd]
-    sshd.enable={{ 'true' if firerpa_sshd_enabled else 'false' }}
-    [adb]
-    adb.enable={{ 'true' if firerpa_adb_enabled else 'false' }}
-    [cron]
-    cron.enable={{ 'true' if firerpa_cron_enabled else 'false' }}
-    ENDOFPROPERTIES
+    adb -s {{ _firerpa_adb_target }} shell "
+      rm -rf {{ firerpa_install_dir }}/server /data/local/tmp/usr 2>/dev/null
+      mkdir -p {{ firerpa_install_dir }}
+      cd /data/local/tmp && tar xzf firerpa-server.tar.gz -C {{ firerpa_install_dir }}/
+      echo EXTRACT_OK
+    "
   args:
     executable: /bin/bash
   delegate_to: localhost
   register: _firerpa_extract
-
-- name: Start FIRERPA server via adb
-  ansible.builtin.shell: |
-    adb -s {{ device_usb_serial | default(ansible_host + ':5555') }} shell \
-      "cd {{ firerpa_install_dir }}/server && nohup sh bin/launch.sh --port={{ firerpa_port }} > {{ firerpa_install_dir }}/server.log 2>&1 &"
-    sleep 8
-    # Verify port is listening from Mac
-    curl -sf --connect-timeout 5 http://{{ ansible_host }}:{{ firerpa_port }}/ > /dev/null && echo "FIRERPA responding" || echo "WARNING: FIRERPA may not be listening"
-  args:
-    executable: /bin/bash
-  delegate_to: localhost
-  register: _firerpa_start

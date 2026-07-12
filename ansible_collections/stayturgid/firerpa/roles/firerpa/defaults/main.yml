@@ -29,3 +29,4 @@ firerpa_ssh_known_issue: true
 
 # Paths (must match termux_userland role)
 termux_home: /data/data/com.termux/files/home
+_firerpa_adb_target: "{{ ansible_host }}:5555"

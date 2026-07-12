@@ -131,8 +131,9 @@ def heal_device(host: str, port: int = 65000) -> dict[str, str]:
     try:
         d = Device(host, port=port)
     except Exception as e:
-        log(f"Cannot connect to FIRERPA on {host}:{port}: {e}")
-        return {"firerpa": "unreachable"}
+        err = str(e)[:80]
+        log(f"Cannot connect to FIRERPA on {host}:{port}: {err}")
+        return {"firerpa": "unreachable", "error": err}
 
     server_info = d.server_info()
     log(f"{host}: FIRERPA v{server_info.version} uptime={server_info.uptime}s")
@@ -198,8 +199,10 @@ def main(argv: list[str] | None = None) -> int:
     for alias, ip in targets.items():
         try:
             results = heal_device(ip, args.port)
-            if results.get("firerpa") == "unreachable":
-                rc = 1
+        if results.get("firerpa") == "unreachable":
+            if alias == "hd8":
+                log(f"{alias}: FIRERPA not running (expected — USB ADB only, tablet moves around)")
+            rc = 1
         except Exception as e:
             log(f"{alias} ({ip}): heal error: {e}")
             rc = 1

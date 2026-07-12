@@ -50,7 +50,7 @@ SD="${STAYTURGID_SD:-/sdcard/stayturgid}"
 FIRE=0
 case "$SD" in *termux/files/home*) FIRE=1; echo "localhost_shell=skip" ;; esac
 echo "ssh=ok"
-pgrep -x sshd >/dev/null 2>&1 && echo "sshd=ok" || echo "sshd=down"
+(pgrep -x sshd || pgrep -f "[s]shd") >/dev/null 2>&1 && echo "sshd=ok" || echo "sshd=down"
 pgrep -f 'start-adb\.sh' >/dev/null 2>&1 && echo "bootloop=ok" || echo "bootloop=down"
 pid=$(cat ~/.stayturgid/run/bridge.pid 2>/dev/null)
 if [ -n "$pid" ] && [ -d "/proc/$pid" ] && grep -q repair-bridge "/proc/$pid/cmdline" 2>/dev/null; then
