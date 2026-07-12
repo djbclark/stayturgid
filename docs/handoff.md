@@ -146,7 +146,7 @@ Optional on-device notifier: `stayturgid_check_repo_version.py` (max once/24 h) 
 
 ## 🚦 Cold-start — current state (read this first)
 
-**As of 2026-07-11 evening (handoff pass).** Three-device fleet: **s24**, **p7a**, **hd8**.
+**As of 2026-07-12 evening (handoff pass).** Three-device fleet: **s24**, **p7a**, **hd8**.
 Source of truth: **`origin/master`** on `https://github.com/djbclark/stayturgid.git`.
 
 ### Session start (every agent)
@@ -155,19 +155,57 @@ Source of truth: **`origin/master`** on `https://github.com/djbclark/stayturgid.
 cd ~/stayturgid && git fetch origin --prune && git status -sb
 git pull --ff-only origin master   # if behind only
 make health
+make firerpa-health 2>/dev/null    # check FIRERPA fleet health
 python3 control/bin/screen_lease.py status
 ```
 
-### Fleet snapshot (2026-07-11 evening)
+### Fleet snapshot (2026-07-12 evening)
 
-| Host | Soft health | Shizuku | Obtainium | AutoJs6 |
-|------|-------------|---------|-----------|---------|
-| **s24** | OK | release10 (v13.7.0-thedjchi-stayturgid-release10, versionCode 1371) | debug8 (v1.6.5) | debug5 (v6.7.0 fleet-profile) |
-| **p7a** | OK (battery 24%) | release10 | debug8 | debug5 |
-| **hd8** | OK (SSH scrape, watchdog_stale expected) | release10 | debug8 | debug5 |
+| Host | Soft health | Shizuku | FIRERPA | AutoJs6 | Notes |
+|------|-------------|---------|:------:|---------|-------|
+| **s24** | OK | release10 | ✅ v10.0 :65000 | debug5 | Repair + boot integration deployed; 24-hr soak started |
+| **p7a** | OK (battery 39%) | release10 | ✅ v10.0 :65000 | debug5 | Repair + boot integration deployed; wifi=up fix confirmed on Pixel Android 16 |
+| **hd8** | OK (SSH scrape, watchdog_stale expected) | release10 | ⚠️ USB only | debug5 | FIRERPA works via USB ADB (gRPC + WebUI); blocked for always-on by Fire OS SELinux |
 
 All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/obtainium/stayturgid-apps.json`.
 **Fork sources:** `~/src/AutoJs6/`, `~/src/Shizuku/`, `~/src/Obtainium/` — **read-only** for this project. If changes needed, write a prompt for the fork's AI.
+**FIRERPA fork:** `~/src/firerpa-fork/` → [djbclark/lamda](https://github.com/djbclark/lamda) — binaries at [v10.0-binaries](https://github.com/djbclark/lamda/releases/tag/v10.0-binaries).
+
+### Major changes (2026-07-12 — repair hardening, SSH CA, FIRERPA integration)
+
+**Repair self-heal (8 commits, 7 files):**
+- `ensure_sshd_down_file()` — removes stale runit `down` file that blocks sshd
+- `ensure_wireless_debugging()` — skips cosmetic Samsung toggle + blocked Pixel Android 16 `settings put`
+- `ensure_shell_profile_path()` — removes leaked Mac PATH from `.profile`/`.bashrc`/`.bash_profile`
+- `ensure_termux_mirror()` — re-pins `packages-cf.termux.dev` after random mirror changes
+- Fleet profile guard — checks `[ -f ]` before firing `APPLY_FLEET_PROFILE` intent
+- Boot script: `rm -f sshd/down` before `sshd` in `start-adb.sh`
+
+**SSH Certificate Authority:**
+- CA key at `~/.ssh/stayturgid_ca` — signs all device host keys
+- `@cert-authority *` in Mac + device known_hosts → zero SSH warnings
+- `ca.yml` in termux_userland role — auto-signs + deploys certs
+- SSH config: `StrictHostKeyChecking accept-new`, `UserKnownHostsFile ~/.ssh/known_hosts` (was `/dev/null`)
+- Makefile: `ca-status`, `ca-init`, `ca-sign`
+
+**OpenCode web:**
+- Launchd KeepAlive agent: `com.stayturgid.opencode-web` on `:4096`
+- Reachable from all fleet devices at `http://<ts-ip>:4096`
+- Makefile: `opencode-web-status`, `--restart`, `--deploy`, `--disable`
+
+**FIRERPA/lamda integration (spike + deploy + docs):**
+- Spike confirmed on s24 + p7a: gRPC API works, ~43 MB PSS / 120 MB RSS
+- Ansible role: `ansible_collections/stayturgid/firerpa/` (install/configure/service/uninstall)
+- Playbook: `ansible/playbooks/fleet/firerpa.yml` (default disabled)
+- gRPC heal: `control/bin/firerpa_heal.py` — repairs stayturgid via FIRERPA backup channel
+- Health monitor: `control/bin/firerpa_health_monitor.py` + launchd agent (10-min)
+- Boot integration: FIRERPA lifecycle in `start-adb.sh` (start + monitor + restart)
+- 4 research docs: `docs/history/firerpa-*-deepseek-pro-2026-07-12.md`
+- Install map: `docs/history/firerpa-install-map-2026-07-12.md`
+- Upstream issue filed: [firerpa/lamda#145](https://github.com/firerpa/lamda/issues/145) — SSH authorized_keys path
+- Known limitations: FIRERPA sshd blocked (HOME=/ read-only), ADB built-in needs root, hd8 USB-only
+- Makefile: `firerpa-deploy`, `firerpa-remove`, `firerpa-heal`, `firerpa-health`
+- Make sure `lamda-client` is installed in Python 3.12 venv: `source /tmp/lamda-venv/bin/activate`
 
 ### Major changes (2026-07-11 — fork migration + headless automation)
 

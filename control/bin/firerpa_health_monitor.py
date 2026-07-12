@@ -33,7 +33,7 @@ except ImportError:
 FLEET = {
     "s24": "100.123.218.30",
     "p7a": "100.65.230.108",
-    # hd8 blocked until Fire OS SELinux support
+    "hd8": "100.124.55.39",   # USB ADB only — not always-on
 }
 
 

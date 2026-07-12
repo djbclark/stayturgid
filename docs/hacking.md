@@ -836,3 +836,33 @@ docs/hacking.md                         — this file
 docs/handoff.md                         — AI session handoff prompt
 README.md                               — user-facing setup guide
 ```
+
+## Recent additions (2026-07-12)
+
+**FIRERPA/lamda failsafe daemon:** Optional gRPC backup control channel on port 65000.
+```bash
+# Ensure lamda-client is installed (Python 3.12 venv)
+/opt/homebrew/bin/python3.12 -m venv /tmp/lamda-venv
+source /tmp/lamda-venv/bin/activate
+pip install ~/src/firerpa-binaries/lamda-client-py-10.0.tar.gz
+
+# Start FIRERPA on s24 (one-time via adb):
+adb -s 100.123.218.30:5555 shell \
+  'cd /data/local/tmp/firerpa/server && nohup sh bin/launch.sh --port=65000 &'
+
+# Check fleet health via FIRERPA:
+make firerpa-health
+make firerpa-heal --host s24
+```
+See [docs/history/firerpa-install-map-2026-07-12.md](history/firerpa-install-map-2026-07-12.md) for full details.
+
+**SSH Certificate Authority:** No more host-key warnings.
+```bash
+make ca-status    # check CA fingerprint + cert status
+# Host certs are auto-signed on every deploy-termux
+```
+
+**OpenCode web:** Fleet-reachable web UI at http://<ts-ip>:4096
+```bash
+make opencode-web-status
+```

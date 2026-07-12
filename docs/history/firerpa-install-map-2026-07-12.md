@@ -75,7 +75,7 @@ The server files MUST be extracted with the correct SELinux context. Two methods
 
 **Do NOT `chmod -R 755`** after extraction — this breaks execute permissions for security-sensitive files. The tarball preserves correct permissions.
 
-**hd8 (Fire OS) is blocked:** The Termux SSH user lacks SELinux execute permission for shell-context binaries. Only ADB USB can start the server. Since hd8 is a tablet without always-on USB, FIRERPA is not viable there.
+**hd8 (Fire OS) is blocked for always-on:** The Termux SSH user lacks SELinux execute permission for shell-context binaries. Only ADB USB can start the server. The server works fine when started via USB (11 processes, gRPC + WebUI OK, UIAutomator fails as expected on Fire OS). Since hd8 is a tablet without always-on USB, FIRERPA is not viable as an always-on failsafe there. It CAN be started on-demand when USB is connected.
 
 **Stale PID issue:** On restart, `pkill -9 lamda` may miss processes (different ADB session groups). Always run `rm -rf /data/local/tmp/usr/` before restarting to clear lamda.pid and lamda.db files.
 

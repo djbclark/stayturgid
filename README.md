@@ -12,6 +12,8 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 | **Ansible deploy** | `ansible/` | Yes — Termux over SSH only | [ansible/README.md](ansible/README.md) |
 | **Control node** | `control/bin/` | Yes — launchd reconnect + outage alert | [docs/modules/control.md](docs/modules/control.md) |
 | **AutoJs6 watchdog** | `device/autojs6/` | Yes — needs Termux repair scripts | [docs/modules/autojs6.md](docs/modules/autojs6.md) |
+| **FIRERPA failsafe** | `ansible_collections/stayturgid/firerpa/` | Yes — optional gRPC backup channel | [docs/history/firerpa-install-map-2026-07-12.md](docs/history/firerpa-install-map-2026-07-12.md) |
+| **SSH Certificate Authority** | `ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ca.yml` | Yes — fleet host-key trust | [docs/handoff.md § Major changes](docs/handoff.md) |
 | **Obtainium catalogs** | `catalogs/obtainium/` | Yes — any Obtainium user | [docs/modules/obtainium.md](docs/modules/obtainium.md) |
 | **F-Droid / Neo Store** | `stayturgid.fdroid` collection | Parked — manual / `--scope fdroid` when re-enabled | [docs/modules/fdroid.md](docs/modules/fdroid.md) |
 | **Play / Aurora Store** | `stayturgid.play` collection | Parked — manual / `--scope play` when re-enabled | [docs/modules/play.md](docs/modules/play.md) |
