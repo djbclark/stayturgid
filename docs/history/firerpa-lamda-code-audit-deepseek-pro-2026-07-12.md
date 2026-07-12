@@ -599,7 +599,35 @@ The code inspection confirms three things the documentation-only analysis couldn
 
 2. **MCP is real and well-designed.** The `@mcp("tool")` decorator pattern with annotation-based typing, the pure-msgspec type reimplementation (no pydantic dependency), and the 20+ tool official extension show serious engineering investment.
 
-3. **The server binary is a heavy hammer.** The 163 MB tarball unpacks to a full Python 3.9 runtime with 8,395 files including ffmpeg, Frida, numpy, cv2, and 14 native .so extensions. This is a powerful platform — but deploying it solely for a redundant failsafe is architectural overkill. The battery, RAM, and CPU costs must be measured in the spike on s24 before proceeding.
+3. **The server binary is a heavy hammer.** The 163 MB tarball unpacks to a full Python 3.9 runtime with 8,395 files including ffmpeg, Frida, numpy, cv2, and 14 native .so extensions. This is a powerful platform — but deploying it solely for a redundant failsafe is architectural overkill.
+
+### Spike Results (2026-07-12)
+
+| Device | Result | Key findings |
+|--------|--------|-------------|
+| **s24** | ✅ Working | 12 processes, 43 MB PSS / 120 MB RSS, gRPC OK, stayturgid coexists, boot integration deployed, 24-hr soak started |
+| **p7a** | ✅ Working | 12 processes, gRPC OK, stayturgid coexists. Stale PID file issue (same as s24) — must `rm -rf /data/local/tmp/usr/` before restart. WiFi toggle fix confirmed working on Android 16 Pixel. |
+| **hd8** | ❌ Blocked | Fire OS SELinux prevents Termux SSH user from executing shell-context binaries. ADB USB can start server but tablet moves around — not viable as always-on failsafe. hd8 is actually arm64 (not armv7a as originally documented) — inventory needs updating. |
+
+### Updated fleet viability
+
+| Device | FIRERPA viable? | Self-heal channels |
+|--------|:---:|--------|
+| s24 | ✅ | Termux repair + Shizuku + AutoJs6 + FIRERPA gRPC + FIRERPA heal script |
+| p7a | ✅ | Termux repair + Shizuku + AutoJs6 + FIRERPA gRPC + FIRERPA heal script |
+| hd8 | ❌ | Termux repair + peer bootstrap (existing) — no FIRERPA |
+
+### What was built this session:
+
+| Component | Path | Purpose |
+|-----------|------|---------|
+| Ansible role | `ansible_collections/stayturgid/firerpa/` | Install + configure + service + uninstall |
+| Playbook | `ansible/playbooks/fleet/firerpa.yml` | Fleet deploy entry |
+| gRPC heal | `control/bin/firerpa_heal.py` | Repair stayturgid via FIRERPA gRPC API |
+| Health monitor | `control/bin/firerpa_health_monitor.py` | Fleet health via FIRERPA shell |
+| Boot integration | `device/termux/boot/start-adb.sh` | FIRERPA lifecycle management |
+| Launchd agent | `com.stayturgid.firerpa-health` | Mac 10-min health scrape |
+| Research docs | `docs/history/firerpa-*deepseek-pro*.md` | 4 documents (code audit, redundancy, install map, AI prompt) |
 
 **Updated recommendation from external AI review (consolidated 2026-07-12):**
 
