@@ -59,18 +59,31 @@ CFEngine runs on Linux, macOS, Windows, AIX, Solaris, HP-UX. The `configure.ac` 
 
 ---
 
-## Hard blockers for stayturgid integration
+## Hard blockers for stayturgid integration (Revised)
 
-### #1: Written in C — cannot run on Android/Termux without cross-compilation
+### #1: Source code supports Android, but no pre-built binaries exist
 
-The entire CFEngine agent is compiled C (183k lines). To run on an Android device:
+**Correction from initial analysis:** CFEngine DOES have first-class Android support in the C source code. Evidence found:
 
-1. Cross-compile for aarch64-linux-android (different from aarch64-linux-gnu)
-2. Link against Android's bionic libc (not glibc)
-3. Package as a Termux-compatible binary
-4. Maintain custom builds for every CFEngine release
+| File | Android support |
+|------|----------------|
+| `libpromises/systype.h:52` | `PLATFORM_CONTEXT_ANDROID` enum value |
+| `libpromises/systype.c` | 14 Android-specific paths and behaviors (e.g., `/system/xbin/busybox ps`) |
+| `libpromises/patches.c` | `#ifdef __ANDROID__` — `link()` not supported workaround |
+| `libpromises/bootstrap.c` | `#if defined(__CYGWIN__) || defined(__ANDROID__)` |
+| `libcfnet/client_code.c` | **`termux` referenced by name** — "Always say 'root' if windows or termux." |
+| `libpromises/evalfunction.c` | `#if defined(HAVE_GETPWENT) && !defined(__ANDROID__)` |
+| 14 total references across 6 source files | |
 
-CFEngine does not distribute Android binaries. The ARM64 support in INSTALL refers to ARM Linux servers (e.g., AWS Graviton), not Android devices. This is a **compilation blocker** — not just a "needs testing" gap.
+This is NOT a "needs porting" situation. The code already handles Android/Bionic libc, has Termux-specific behavior, and uses Android system paths. The developers explicitly designed for this platform.
+
+**What's missing:** Pre-built Android/Termux binaries. The `buildscripts` repo and `platforms.json` only list Ubuntu and Debian targets. The downloads page has no Android packages. Building from source would require:
+
+1. Cross-compiling on a Linux host targeting `aarch64-linux-android` (or compiling directly in Termux using its native gcc/make)
+2. Building all bundled dependencies (OpenSSL, PCRE2, libcurl, libxml2, libyaml, LMDB, zlib) for Android bionic
+3. Packaging as a Termux-compatible `.deb` or tarball
+
+**This is feasible but non-trivial** — the build scripts support the autotools toolchain, and Termux provides a full build environment. A CI pipeline could produce Android binaries from the existing source.
 
 ### #2: Client/server pull model incompatible with SSH push model
 
@@ -164,23 +177,27 @@ This is a months-long engineering project with ongoing maintenance burden.
 
 ---
 
-## Recommendation
+## Recommendation (Revised)
 
-**Do not integrate CFEngine.** Despite being the most mature and actively maintained of the three config management tools evaluated, the hard blockers are:
+**CFEngine is worth deeper investigation but not immediate integration.** The initial evaluation understated its Android readiness — the C codebase has first-class `__ANDROID__` support and even references "termux" by name. However, the practical blockers remain significant:
 
-1. **No Android builds** — 183k lines of C need cross-compilation for bionic libc. No Termux package exists.
-2. **Architectural mismatch** — client/server pull model vs stayturgid's SSH push model
-3. **Separate policy language** — would need to express fleet state in BOTH Ansible YAML and CFEngine `.cf` policy
-4. **Infrastructure overhead** — would need policy server, key trust bootstrapping, agent scheduling
+| Blocker | Status | Notes |
+|---------|--------|-------|
+| **Android code support** | ✅ **Resolved** | `PLATFORM_CONTEXT_ANDROID` + `__ANDROID__` ifdefs + termux references in core |
+| **Pre-built binaries** | ❌ **Missing** | Would need to build from source (cross-compile or Termux-native) |
+| **Separate policy language** | ❌ **Still a blocker** | Must maintain Ansible YAML AND CFEngine .cf policies for same fleet |
+| **Client/server model** | ❌ **Still a blocker** | Requires policy server infrastructure alongside existing Ansible SSH push |
+| **Infrastructure overhead** | ❌ **Still a blocker** | cf-serverd + cf-execd + cf-monitord — parallel stack to Ansible |
 
-**The verification functionality CFEngine provides is already implemented in stayturgid:**
+**If someone wanted to pursue this:**
 
-| CFEngine capability | stayturgid equivalent |
-|--------------------|----------------------|
-| `verify_files` | `device_tier.py` check 15 (scripts match) + `stayturgid_verify` (scripts_match) |
-| `verify_processes` | `device_tier.py` checks 2-3, 5, 7 (sshd, bootloop, bridge, watchdog) + module checks |
-| `verify_services` | `device_tier.py` checks 2-3 + `stayturgid_verify` (sshd, bootloop, shizuku) |
-| `verify_packages` | `device_tier.py` check 10 (mirror) + Ansible `termux_pkg` module |
-| `cf-monitord` | `fleet_health_monitor.py` + `firerpa_health_monitor.py` |
+1. **Build cf-agent for Termux** — try `./configure --host=aarch64-linux-android` in Termux native build environment, or cross-compile on a Linux host. Target just `cf-agent` and `cf-promises` (not the full stack).
+2. **Write a .cf policy that mirrors Ansible desired state** — start with the 14 checks from `stayturgid_verify.py`, express them in CFEngine policy language.
+3. **Run cf-agent in standalone mode** (no policy server) — CFEngine can run with local policy files: `cf-agent -f /path/to/policy.cf`
+4. **Compare output** — cf-agent reports compliance state. Compare with Ansible's view.
 
-**CFEngine's approach is admirable and the "promise theory" philosophy is worth studying, but the engineering cost of integration far exceeds the value it would add over stayturgid's existing verification infrastructure.**
+**The killer use case:** CFEngine's promise theory aligns with the "secondary verify-only" concept. A lightweight standalone cf-agent binary with just the verify_* module could run every 5 minutes and report drift independently of Ansible's view. This would be more robust than the Python-based verify module (which depends on SSH being up, Python being available, etc.) — a compiled C binary has fewer failure modes.
+
+**However:** The cost of building, packaging, and maintaining CFEngine binaries for 3 Android devices, plus authoring and maintaining parallel policy in a separate language, still exceeds the value over stayturgid's existing verification (250 lines of Python, no new deps, already works).
+
+**Bottom line:** CFEngine is the most capable tool evaluated and the only one with genuine Android support in the codebase. If the existing verification infrastructure ever proves insufficient (e.g., Python unavailable, SSH consistently down), CFEngine is the best candidate for a compiled-C fallback verification agent. But for now, the cost/benefit ratio of building binaries and maintaining dual policy languages doesn't justify it.
