@@ -1,6 +1,6 @@
 # ADR 004: Self-heal vs Ansible deploy coverage — gap analysis
 
-**Status:** Draft (2026-07-11)  
+**Status:** Accepted (2026-07-11)  
 **Context:** After migrating to djbclark/Shizuku, djbclark/AutoJs6, and djbclark/Obtainium forks with headless APIs, many one-time setup steps were added to the Ansible deploy flow but not to the on-device self-heal loop — and vice versa.
 
 ## 1. Coverage matrix
@@ -45,11 +45,7 @@
 ### Gap A: Fleet profiles not re-applied by self-heal
 If AutoJs6 or Shizuku app data is cleared between deploys, the SharedPreferences written by `FleetProfileActivity` are lost. Neither the self-heal loop nor the JS watchdog re-applies them.
 
-**Impact:** Low (app data cleared is rare). When it happens, the next `make deploy` restores them.
-
-**Fix options:**
-1. Add a `repair_fleet_profiles()` call to `stayturgid_repair.py` that checks a sentinel file and re-applies the profiles if missing. (~10 lines)
-2. Have the self-heal loop run `enable_autojs6_shizuku.py` periodically. (~1 line)
+**Status:** **Closed 2026-07-11** — `repair_fleet_profiles()` added to `stayturgid_repair.py` step 6. On every 5-min cycle, re-applies both AutoJs6 and Shizuku fleet profiles via `am start` intents, and whitelists Shizuku from device idle. No sentinel file needed — re-applying is fast (~500ms per intent) and idempotent.
 
 ### Gap B: Samsung process freezer blocks broadcast receivers
 On Samsung devices, the system can freeze the Shizuku Java process even when `shizuku_server` (native daemon) is running. This causes `HEADLESS_STATUS` to return `result=0` (STARTING) even though the daemon is healthy.
@@ -136,8 +132,41 @@ control/lib/fleet_self_heal.py
 - Existing Ansible `android_intent` tasks would need to change to `script` or `command` module calls — or the module could emit `--dry-run` output for Ansible's change tracking.
 - The `repair.py` import path needs `sys.path` setup for `control/lib/` (already done for `stayturgid_shell.py`).
 
-## 6. Recommendations
+## 6. Refactoring worth it?
 
-1. **Short term** — Accept the current gaps. Fleet profile loss requires app data clear + waiting for next deploy, which is rare.
-2. **If duplication becomes a problem** — Implement `control/lib/fleet_self_heal.py` as described in §5. This eliminates the YAML/Python drift for the core self-heal primitives without requiring Ansible on-device.
-3. **Not now** — On-device Ansible. The shared-module pattern is a better ROI if duplication grows.
+With `repair_fleet_profiles()` in `stayturgid_repair.py`, the remaining duplication is:
+
+| Operation | YAML (Ansible) | Python (repair.py) | JS (watchdog) |
+|---|---|---|---|
+| Fleet profile apply | `android_intent` task | ✅ `repair_fleet_profiles()` | ❌ |
+| Shizuku status | ❌ | ✅ `HEADLESS_STATUS` + pgrep | ✅ `HEADLESS_STATUS` + pgrep |
+| HEADLESS_START | ✅ `android_intent` (deploy) | ❌ | ✅ `headlessStart()` |
+| a11y merge | ✅ `enable_autojs6_shizuku.py` | ✅ `_merge_a11y_list()` | ✅ `comonitor.mergeA11y()` |
+| Wireless ADB | ✅ `settings put` (deploy) | ✅ `ensure_wireless_debugging()` | ✅ `tryShellWirelessRepair()` |
+
+The remaining duplication is intentional: deploy-time tasks (YAML) configure initial state, while runtime tasks (Python/JS) handle recovery. They overlap on purpose — that's redundancy, not drift.
+
+**Worth refactoring?** No. The shared-module proposal in §5 would eliminate ~5 lines of YAML and ~20 lines of Python, at the cost of a new abstraction layer. The current layout is clearer: Ansible handles deploy-time configuration, the self-heal loop handles runtime recovery, and the JS watchdog handles in-process catastrophic repair. Each has its own scope and failure mode.
+
+**Worth running Ansible on-device?** No. The constraints from §3 still apply (ansible-core dependency, secrets, git access, Fire OS limitations). The `repair_fleet_profiles()` function achieves the same outcome with 10 lines of Python.
+
+## 7. Persistent goal: no deploy/self-heal gaps
+
+Every new capability should answer three questions:
+
+1. **Deploy:** Is it applied by `make deploy`? (Ansible role or task)
+2. **Self-heal:** Is it restored by the 5-min repair loop? (`stayturgid_repair.py`)
+3. **Catastrophic:** Is it recovered by the 20-min AutoJs6 watchdog? (`watchdog.js` / `comonitor.js`)
+
+At minimum, items 1 and 2 should always be "yes". Item 3 is optional for non-critical settings (e.g., fleet profiles), but mandatory for anything that affects ADB/SSH reachability.
+
+This is now part of the project convention: when adding a fleet-affecting feature, add it to all three tiers, or document in the commit message which tiers are intentionally skipped and why.
+
+To enforce this, the reviewer checklist (`.cursor/rules/` or handoff doc) should include:
+> "Does this change affect device behavior? If yes: is it deployed by Ansible, healed by repair.py, and covered by the JS watchdog?"
+
+## 8. Recommendations
+
+1. ✅ **Gap A closed** — `repair_fleet_profiles()` added to self-heal loop.
+2. ❌ **Shared module not needed** — remaining duplication is intentional redundancy.
+3. ❌ **On-device Ansible not recommended** — constraints outweigh benefits.

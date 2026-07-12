@@ -20,6 +20,7 @@ These are **durable project policies** for AI agents (Cursor and handoff success
 |------|--------|
 | [`.cursor/rules/fleet-health-self-heal.mdc`](../.cursor/rules/fleet-health-self-heal.mdc) | Health fixes must also update self-heal paths (Termux / AutoJs6 / Mac monitors) — session-only heals are incomplete |
 | [`.cursor/rules/screen-control-hold.mdc`](../.cursor/rules/screen-control-hold.mdc) | Keep `ScreenControlSession` held across multi-step UI work; do not open/close per tap |
+| [`.cursor/rules/deploy-self-heal-catastrophic.mdc`](../.cursor/rules/deploy-self-heal-catastrophic.mdc) | Every capability must be in deploy, self-heal, **and** catastrophic recovery — no gaps |
 
 ```bash
 ls .cursor/rules/          # inventory of agent rules

@@ -482,6 +482,22 @@ def main():
     # --- 5. phone→Mac Eternal Terminal SSH config (share-backed self-heal) ---
     et_cfg = ensure_control_et_ssh_config()
 
+    # --- 6. Re-apply fleet profiles (AutoJs6 + Shizuku) in case app data was cleared ---
+    if expect_shell and have_sh:
+        for intent in (
+            ["am", "start", "-a", "org.autojs.autojs6.action.APPLY_FLEET_PROFILE",
+             "-e", "profile_path", "/sdcard/Download/autojs6-fleet.json",
+             "-e", "silent", "true",
+             "-n", "org.autojs.autojs6/org.autojs.autojs.core.pref.fleet.FleetProfileActivity"],
+            ["am", "start", "-a", "moe.shizuku.privileged.api.APPLY_FLEET_PROFILE",
+             "-e", "profile_path", "/sdcard/Download/shizuku-fleet.json",
+             "-e", "silent", "true",
+             "-n", "moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity"],
+        ):
+            sh_adb(" ".join(intent))
+            time.sleep(0.5)
+        sh_adb("dumpsys deviceidle whitelist +moe.shizuku.privileged.api")
+
     status = "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s" % (
         port, shizuku, sshd, a11y, "yes" if have_sh else "no", wifi, et_cfg)
     log(status + " rc=%d" % rc)
