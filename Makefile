@@ -36,7 +36,7 @@ VLM_ANSIBLE := ansible-playbook $(MAC_SITE) -e stayturgid_vlm_enabled=true
         opencode-web-status opencode-web-restart \
         opencode-web-deploy opencode-web-disable \
         ca-init ca-sign ca-status \
-        firerpa-deploy firerpa-remove firerpa-heal
+        firerpa-deploy firerpa-remove firerpa-heal firerpa-health
 
 # ------------------------------------------------------------------------------
 # Help
@@ -122,6 +122,7 @@ help:
 	@echo "  make firerpa-deploy [HOSTS=s24]     Install + configure + start FIRERPA"
 	@echo "  make firerpa-remove [HOSTS=s24]     Stop + uninstall FIRERPA"
 	@echo "  make firerpa-heal [HOSTS=s24]       Repair stayturgid via FIRERPA gRPC API"
+	@echo "  make firerpa-health                  Check FIRERPA fleet health now"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make deploy HOSTS=s24"
@@ -300,6 +301,9 @@ firerpa-remove:
 
 firerpa-heal:
 	python3 control/bin/firerpa_heal.py $(if $(HOSTS),--host $(HOSTS),--all)
+
+firerpa-health:
+	source /tmp/lamda-venv/bin/activate && python3 control/bin/firerpa_health_monitor.py
 
 collections:
 	ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections

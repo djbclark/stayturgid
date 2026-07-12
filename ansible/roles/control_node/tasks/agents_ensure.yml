@@ -14,6 +14,11 @@
     path: "{{ agents_dir }}/{{ stayturgid_opencode_web_label }}.plist"
   register: _opencode_web_plist_stat
 
+- name: Stat FIRERPA health launchd plist
+  ansible.builtin.stat:
+    path: "{{ agents_dir }}/com.stayturgid.firerpa-health.plist"
+  register: _firerpa_health_plist_stat
+
 - name: Build launchd ensure service list
   ansible.builtin.set_fact:
     _mac_launchd_ensure_services: >-
@@ -26,6 +31,7 @@
         + _ui_tars_launchd_agents
         + _hermes_gateway_agents
         + _opencode_web_agents
+        + _firerpa_health_agents
       }}
   vars:
     _core_launchd_agents:
@@ -55,6 +61,15 @@
         }] if (
           (stayturgid_opencode_web_enabled | default(true) | bool)
           and (_opencode_web_plist_stat.stat.exists | default(false))
+        ) else []
+      }}
+    _firerpa_health_agents: >-
+      {{
+        [{
+          'name': 'com.stayturgid.firerpa-health',
+          'plist': agents_dir ~ '/com.stayturgid.firerpa-health.plist'
+        }] if (
+          (stayturgid_firerpa_health_enabled | default(true) | bool)
         ) else []
       }}
     _termux_pkg_nightly_agents: >-

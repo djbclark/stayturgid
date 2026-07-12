@@ -64,6 +64,21 @@
 
 ## 2. Required vs Optional
 
+### Critical install note — SELinux context
+
+The server files MUST be extracted with the correct SELinux context. Two methods work:
+
+| Method | Context | Works on | Start via |
+|--------|---------|----------|-----------|
+| `run-as com.termux cat ... | tar xz` | Termux app (`u:object_r:app_data_file`) | `adb shell` (only way — shell UID has broader context permissions) |
+| `adb push ... && tar xzf` | shell (`u:object_r:shell_data_file`) | ADB directly | `adb shell` |
+
+**Do NOT `chmod -R 755`** after extraction — this breaks execute permissions for security-sensitive files. The tarball preserves correct permissions.
+
+**hd8 (Fire OS) is blocked:** The Termux SSH user lacks SELinux execute permission for shell-context binaries. Only ADB USB can start the server. Since hd8 is a tablet without always-on USB, FIRERPA is not viable there.
+
+**Stale PID issue:** On restart, `pkill -9 lamda` may miss processes (different ADB session groups). Always run `rm -rf /data/local/tmp/usr/` before restarting to clear lamda.pid and lamda.db files.
+
 ### 🔴 Required — can't operate without
 
 | Component | Why |
