@@ -24,17 +24,18 @@
 > Parked side projects: [docs/incubator/](incubator) — **do not implement**
 > unless the operator unparks a named project (Inferno, etc.).
 
-**Fleet snapshot (2026-07-10 afternoon):** Senior review fixes landed (adb launchd PATH,
-module docs, OPTIONS **62** shim removal, lint). Re-run `make health` after
-`make deploy-mac`. Still need live soak: `make deploy-check` → deploy → verify on s24.
-Neo Store + Aurora **parked**. Open menu = H5/38, 43–45, 54.
+**Fleet snapshot (2026-07-12 evening):** FIRERPA deployed on s24 + p7a (v10.0 :65000)
+with Ansible collection, gRPC heal, launchd health monitor, and boot integration.
+hd8 blocked by Fire OS SELinux (peer-bootstrap covers it). Neo Store + Aurora **parked**.
+Open menu = H5/38, 43–45, 54, F1–F4.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
-**Suggested agent order:** `make deploy-mac` (launchd PATH) + `make deploy-check
-HOSTS=s24` then announced soak. H5/38 only if Galaxy publish wanted.
+**Suggested agent order:** `make health` + `make firerpa-health` then
+`make deploy-check HOSTS=s24` for any soak. H5/38 only if Galaxy publish wanted.
+FIRERPA F1–F4 are future enhancements; core integration is done.
 
 ---
 
@@ -46,6 +47,7 @@ HOSTS=s24` then announced soak. H5/38 only if Galaxy publish wanted.
 | **B — Ansible-native** | ADR 002 follow-ups (optional) | *(none open — 62 closed)* | Low |
 | **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; incubator note | 54 | Medium (mis-scope risk) |
+| **F — FIRERPA** | gRPC backup channel enhancements | F1–F4 | Medium (future, core is done) |
 
 Parked (not a track): Inferno/Styx → [docs/incubator/inferno-styx/](incubator/inferno-styx).
 
@@ -138,18 +140,51 @@ API; Tasker rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal;
 always-on Ollama in Termux:Boot; **any Inferno/`emu`/Styx work** (parked under
 [docs/incubator/inferno-styx/](incubator/inferno-styx)).
 
-### Parked — FIRERPA Integration (paused 2026-07-10)
+### Track F — FIRERPA (gRPC backup channel — core shipped 2026-07-12)
 
-FIRERPA/lamda integration plan exists at
-[plans/firerpa-integration-plan.md](plans/firerpa-integration-plan.md) (9 steps, ~8.5 days).
-Non-root viability research at
-[history/firerpa-nonroot-research-2026-07-10.md](history/firerpa-nonroot-research-2026-07-10.md).
+**Shipped:** Ansible collection (`ansible_collections/stayturgid/firerpa/`) with
+install/configure/service/uninstall; playbook (`fleet/firerpa.yml`); Python heal script
+(`firerpa_heal.py`); launchd health monitor (`firerpa_health_monitor.py` every 10 min);
+Termux boot integration in `start-adb.sh` (start + monitor); Makefile targets
+(`firerpa-deploy`, `firerpa-remove`, `firerpa-heal`, `firerpa-health`). Deployed on
+s24 + p7a (v10.0 :65000). hd8 blocked by Fire OS SELinux (peer-bootstrap covers it;
+no plan to fix).
 
-**Status: paused.** Key findings: non-root FIRERPA is possible but the
-minority path; our devices are consumer daily drivers, not phone farms.
-The value proposition shrinks without root (lose MITM, Frida, SELinux).
-Revisit when: (a) we need remote desktop + MCP for tablet-control-phone,
-or (b) FIRERPA ships a standalone APK for non-root Shizuku mode.
+**Known limitations (by design, not open work):** FIRERPA built-in SSH blocked
+(HOME=/ read-only, key auth needs root — [upstream #145](https://github.com/firerpa/lamda/issues/145));
+built-in ADB needs root (stayturgid uses Shizuku's adbd :5555); stale PID on restart
+(workaround: `rm -rf /data/local/tmp/usr/` before restart). Architecture docs:
+`docs/history/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md`,
+`docs/history/firerpa-nonroot-redundancy-deepseek-pro-2026-07-12.md`,
+`docs/history/firerpa-install-map-2026-07-12.md`.
+
+#### F1 — MCP bridge extension (agent) · Risk: **Medium** · Core: gRPC heal works without it
+
+Build a lamda MCP extension that exposes stayturgid repair primitives through the
+gRPC channel, so any MCP-capable agent can run fleet heal commands. Core gRPC heal
+(`firerpa_heal.py`) works today; MCP just provides agent-native tool calling.
+See `docs/history/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md` for MCP
+extension pattern.
+
+#### F2 — WebRTC remote desktop test (agent) · Risk: **Low**
+
+Test FIRERPA's built-in WebRTC screen mirroring (`scrcpy`-style). Useful for
+tablet-control-phone use cases or no-USB glass access. Spike only — scrcpy +
+Tailscale already covers this for s24/p7a.
+
+#### F3 — MITM-on-demand playbook (agent) · Risk: **Medium**
+
+Build an Ansible playbook that enables FIRERPA's MITM proxy + Frida on-demand for
+debugging, then disables it. FIRERPA ships proxy/Frida modules but they're off
+by default (minimal-failsafe config). Useful for debugging app network behavior
+on non-rooted devices.
+
+#### F4 — Network isolation (agent) · Risk: **Medium** · Latent
+
+The 163 MB closed-source server binary could phone home. Bind FIRERPA to Tailscale
+interfaces only and use Tailscale ACLs to drop outbound WAN access from the lamda
+process. Not urgent — gRPC is already on Tailscale IP. Track if upstream changes
+or network audit is needed.
 
 **Closed (2026-07-09 night):** **60–61** validate role + preflight + `autojs6_project_deploy`;
 `make help`/Makefile ops; `make health` stale LOST fix; docs sweep. **58–59** ADR 002 +

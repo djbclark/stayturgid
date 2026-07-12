@@ -75,6 +75,11 @@ def is_port_5555_alive(device: Device) -> bool:
     return ':5555' in out
 
 
+def is_shizuku_alive(device: Device) -> bool:
+    out = _exec_stdout(device, "pgrep -f shizuku_server 2>/dev/null")
+    return bool(out)
+
+
 def is_bootloop_alive(device: Device) -> bool:
     out = _exec_stdout(device, "pgrep -f start-adb\\.sh")
     return bool(out)
@@ -113,13 +118,16 @@ def restart_bootloop(device: Device) -> str:
 
 def restart_shizuku(device: Device) -> str:
     try:
-        if is_port_5555_alive(device):
+        if is_shizuku_alive(device):
             return "up"
         device.execute_script("am broadcast -a moe.shizuku.privileged.api.HEADLESS_START", timeout=5)
         time.sleep(3)
-        if is_port_5555_alive(device):
+        if is_shizuku_alive(device):
             log("Shizuku started via HEADLESS_START")
             return "repaired"
+        if is_port_5555_alive(device):
+            log("Shizuku: port 5555 up but shizuku_server not found via pgrep")
+            return "port_only"
         return "FAILED"
     except Exception as e:
         log(f"Shizuku restart error: {e}")

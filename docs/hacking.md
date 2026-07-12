@@ -532,6 +532,7 @@ stdin pipe), never bare `ssh host '<commands>'` through the login shell.
   `fdroid`, `play` under `ansible_collections/stayturgid/`). `make test` runs all
   three.
 - **Tier c (device, read-only):** `make verify` / `tests/run.sh device`.
+- **Drift detection:** `make verify-drift [HOSTS=s24]` — Ansible-based declarative state verification (complements TAP verify). `make verify-heal [HOSTS=s24]` runs verify + auto-heal.
 
 Setup once: `make test-venv` (builds `.venv-test` with ansible-core + pytest +
 pytest-mock + pytest-ansible). CI runs `make test` on every push

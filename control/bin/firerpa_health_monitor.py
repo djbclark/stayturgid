@@ -69,7 +69,20 @@ def check_device(alias: str, ip: str) -> dict:
         stdout = getattr(out, 'stdout', b'')
         if isinstance(stdout, bytes):
             stdout = stdout.decode(errors='replace')
-        result["shizuku"] = "up" if ":5555" in (stdout or "") else "down"
+        port_5555 = ":5555" in (stdout or "")
+        # Port 5555 alone is not sufficient — it can be provided by developer-
+        # options wireless debugging, not Shizuku. Confirm with pgrep.
+        out2 = d.execute_script("pgrep -f shizuku_server 2>/dev/null", timeout=5)
+        stdout2 = getattr(out2, 'stdout', b'')
+        if isinstance(stdout2, bytes):
+            stdout2 = stdout2.decode(errors='replace')
+        shizuku_proc = bool(stdout2 and stdout2.strip())
+        if shizuku_proc:
+            result["shizuku"] = "up"
+        elif port_5555:
+            result["shizuku"] = "port_only"
+        else:
+            result["shizuku"] = "down"
     except Exception:
         result["shizuku"] = "unknown"
 

@@ -111,7 +111,7 @@ bundle agent check_a11y(p) {
 
 bundle agent check_profile(p, h) {
   classes:
-    "profile_clean" expression => returnszero("! $(p)/bin/grep -qE '^(export )?PATH=.*(/Users/|/opt/homebrew/|/Library/Apple/)' $(h)/.profile $(h)/.bashrc 2>/dev/null", "useshell");
+    "profile_clean" expression => returnszero("! $(p)/bin/grep -qE '^(export )?PATH=.*(/Users/|/opt/homebrew/|/Library/Apple/|/System/Cryptexes/)' $(h)/.profile $(h)/.bashrc 2>/dev/null", "useshell");
 
   reports:
     profile_clean::

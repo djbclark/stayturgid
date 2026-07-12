@@ -109,18 +109,18 @@ def settings_put(run_command, device, value, check_mode=False):
         device,
         "settings put secure enabled_accessibility_services %s" % target,
     )
-    adb_shell.adb_shell(
+    # Only flip accessibility_enabled if it isn't already 1 (avoids dialog on Android 13+)
+    rc, out, _err = adb_shell.adb_shell(
         run_command,
         device,
-        "settings put secure accessibility_enabled 1",
+        "settings get secure accessibility_enabled",
     )
-    # Android 13+ shows a confirmation dialog when accessibility services
-    # are modified via settings put.  Dismiss it if it appeared.
-    adb_shell.adb_shell(
-        run_command,
-        device,
-        "input keyevent KEYCODE_BACK 2>/dev/null; true",
-    )
+    if rc == 0 and out.strip() != "1":
+        adb_shell.adb_shell(
+            run_command,
+            device,
+            "settings put secure accessibility_enabled 1",
+        )
     return True, current, target
 
 

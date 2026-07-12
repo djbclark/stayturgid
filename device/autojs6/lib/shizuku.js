@@ -31,12 +31,25 @@ function tryShellWirelessRepair() {
         return false;
     }
     log.append("[watchdog] shizuku shell: trying wireless-debug repair");
-    sh.exec("settings put global development_settings_enabled 1");
-    sh.exec("settings put global adb_enabled 1");
-    sh.exec("settings put global adb_wifi_enabled 1");
+    // Read before write — avoid redundant settings triggers and adbd restart
+    var dev = sh.exec("settings get global development_settings_enabled");
+    if (!dev || String(dev.result || "").trim() !== "1") {
+        sh.exec("settings put global development_settings_enabled 1");
+    }
+    var adbEn = sh.exec("settings get global adb_enabled");
+    if (!adbEn || String(adbEn.result || "").trim() !== "1") {
+        sh.exec("settings put global adb_enabled 1");
+    }
+    var wifiEn = sh.exec("settings get global adb_wifi_enabled");
+    if (!wifiEn || String(wifiEn.result || "").trim() !== "1") {
+        sh.exec("settings put global adb_wifi_enabled 1");
+    }
+    var curPort = sh.exec("getprop service.adb.tcp.port");
+    if (!curPort || String(curPort.result || "").trim() !== "5555") {
+        sh.exec("setprop service.adb.tcp.port 5555");
+        sleep(1000);
+    }
     sleep(2000);
-    sh.exec("setprop service.adb.tcp.port 5555");
-    sleep(1000);
     sh.exec("adb connect 127.0.0.1:5555");
     sleep(1000);
     var uid = sh.exec("adb -s localhost:5555 shell id -u");

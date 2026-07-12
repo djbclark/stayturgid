@@ -158,3 +158,34 @@ def dismiss_usb_debugging_dialog(serial: str) -> bool:
         time.sleep(0.5)
     print("WARN: could not dismiss USB debugging dialog on %s — try manual." % serial)
     return False
+
+
+def dismiss_app_compatibility_dialog(serial: str) -> bool:
+    """Dismiss the 'Android App Compatibility' 16 KB alignment dialog.
+
+    Android 16 shows this for debuggable apps with unaligned native libraries.
+    The dialog has [OK] and [Don't Show Again] buttons. Returns True if found
+    and dismissed.
+    """
+    result = run(
+        ["adb", "-s", serial, "shell", "dumpsys", "activity", "activities"],
+        check=False,
+    )
+    text = (result.stdout or "") + (result.stderr or "")
+    if "AppCompatibility" not in text and "16 KB" not in text:
+        return False
+
+    # Tap OK (default focused) to dismiss. ENTER clicks the focused button.
+    run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_ENTER"],
+        check=False)
+    time.sleep(0.3)
+    # Verify it's gone.
+    check = run(
+        ["adb", "-s", serial, "shell", "dumpsys", "activity", "activities"],
+        check=False,
+    )
+    check_text = (check.stdout or "") + (check.stderr or "")
+    if "AppCompatibility" not in check_text and "16 KB" not in check_text:
+        print("Dismissed App Compatibility (16 KB) dialog on %s." % serial)
+        return True
+    return False

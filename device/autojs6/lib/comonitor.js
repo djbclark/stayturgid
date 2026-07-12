@@ -60,6 +60,8 @@ function probeSshd() {
 }
 
 function restartSshd() {
+    // Remove stale runit down file that silently blocks sshd from starting.
+    sh("rm -f /data/data/com.termux/files/usr/var/service/sshd/down 2>/dev/null; true");
     sh("export PATH=/data/data/com.termux/files/usr/bin:$PATH; "
         + "pgrep -x sshd >/dev/null 2>&1 || "
         + "/data/data/com.termux/files/usr/bin/sshd || true");
@@ -100,11 +102,14 @@ function probeShell5555(split, termuxStatus) {
     return { port: "CLOSED_NO_SHELL", shell: "no" };
 }
 
-function probeWifi(split) {
+function probeWifi(split, shellProbe) {
     if (split) return "skip";
     var r = sh("settings get global adb_wifi_enabled");
     var v = (r.result || "").trim();
     if (v === "1" || v === "true") return "up";
+    // Samsung: adb_wifi_enabled reads 0 but port 5555 works (Shizuku opens it).
+    // Pixel Android 16: settings put blocked on this key. If shell works, skip write.
+    if (shellProbe && shellProbe.port === "open") return "up";
     sh("settings put global adb_wifi_enabled 1");
     sleep(1000);
     var r2 = sh("settings get global adb_wifi_enabled");
@@ -129,13 +134,38 @@ function probeAndRepairA11y(split) {
     if (split && !shizukuShell.isOperational()) {
         return "unknown";
     }
+    // Backup current list before writing, in case settings put shrinks the list.
+    var backup = list;
     var merged = mergeA11y(list, [A11Y_SVC]);
     sh("settings put secure enabled_accessibility_services '" + merged.replace(/'/g, "'\\''") + "'");
-    sh("settings put secure accessibility_enabled 1");
+    var a11yEn = sh("settings get secure accessibility_enabled");
+    if (!a11yEn || String(a11yEn.result || "").trim() !== "1") {
+        sh("settings put secure accessibility_enabled 1");
+    }
     sleep(500);
     var re = sh("settings get secure enabled_accessibility_services");
     var after = (re.result || "").trim();
-    if (after.indexOf(A11Y_SVC) >= 0) return "repaired";
+    if (after.indexOf(A11Y_SVC) >= 0) {
+        // Check if non-AutoJs6 services were lost — merge them back.
+        var lost = [];
+        var beforeParts = backup.split(":");
+        var afterParts = after.split(":");
+        for (var i = 0; i < beforeParts.length; i++) {
+            var svc = beforeParts[i];
+            if (svc && afterParts.indexOf(svc) < 0 && svc.indexOf(A11Y_SVC) < 0) {
+                lost.push(svc);
+            }
+        }
+        if (lost.length > 0) {
+            var recovered = mergeA11y(after, lost);
+            sh("settings put secure enabled_accessibility_services '" + recovered.replace(/'/g, "'\\''") + "'");
+            var re2 = sh("settings get secure enabled_accessibility_services");
+            if ((re2.result || "").trim().indexOf(A11Y_SVC) >= 0) {
+                return "repaired";
+            }
+        }
+        return "repaired";
+    }
     return "FAILED";
 }
 
@@ -174,7 +204,7 @@ function run(profile, opts) {
         }
     } catch (e) { /* best effort */ }
     var shellProbe = probeShell5555(split, termuxStatus);
-    var wifi = probeWifi(split);
+    var wifi = probeWifi(split, shellProbe);
     var a11y = probeAndRepairA11y(split);
 
     // Trust fresh Termux [repair] port=open over a flaky nc/adb probe.

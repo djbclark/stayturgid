@@ -76,7 +76,9 @@ def a11y_enabled(shell):
 
 def put_a11y_services(shell, value):
     shell("settings", "put", "secure", "enabled_accessibility_services", value)
-    shell("settings", "put", "secure", "accessibility_enabled", "1")
+    _rc, cur = shell("settings", "get", "secure", "accessibility_enabled")
+    if (cur or "").strip() != "1":
+        shell("settings", "put", "secure", "accessibility_enabled", "1")
 
 
 def enable_a11y_shell_append(shell, alias):

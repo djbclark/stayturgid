@@ -311,12 +311,13 @@ def maybe_verify_hd8_google_closeout(name: str) -> None:
 
 def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     state_file = os.path.join(STATE_DIR, name)
-    # Dismiss USB/WiFi debugging dialogs — they block ADB if left open.
+    # Dismiss system dialogs that appear on debuggable-app devices and block the screen.
     target = dev.resolve_adb(name) if dev else None
     if target:
         try:
             import adb_cli
             adb_cli.dismiss_usb_debugging_dialog(target)
+            adb_cli.dismiss_app_compatibility_dialog(target)
         except Exception:
             pass
     path, report = fh.probe_device(name, ts_ip, lan_ip)

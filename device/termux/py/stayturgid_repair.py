@@ -544,7 +544,9 @@ def main():
     elif privileged_shell():
         have_sh = True
         port = "open"
-        sh_adb("setprop service.adb.tcp.port 5555")  # keep 5555 sticky
+        _rc, cur = sh_adb("getprop service.adb.tcp.port")
+        if cur.strip() != "5555":
+            sh_adb("setprop service.adb.tcp.port 5555")  # keep 5555 sticky
         # wifi already set by proactive ensure_wireless_debugging() above
     else:
         have_sh = False
@@ -574,18 +576,20 @@ def main():
                 a11y = "up"
             else:
                 # Only merge if AutoJs6 is actually missing from the list.
-                # Android 13+ shows a confirmation dialog on settings put —
-                # dismiss it immediately with a back key.
+                # accessibility_enabled 1 is skipped when already set (avoids
+                # the Android 13+ confirmation dialog on redundant writes).
                 new = _merge_a11y_list(before, [A11Y_SVC])
                 sh_adb("settings put secure enabled_accessibility_services %s" % _a11y_value_safe(new))
-                sh_adb("settings put secure accessibility_enabled 1")
-                sh_adb("input keyevent KEYCODE_BACK 2>/dev/null; true")
+                en = sh_adb("settings get secure accessibility_enabled")[1].strip()
+                if en != "1":
+                    sh_adb("settings put secure accessibility_enabled 1")
                 recheck = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
                 repaired = _repair_a11y_shrink(before, recheck)
                 if repaired:
                     sh_adb("settings put secure enabled_accessibility_services %s" % _a11y_value_safe(repaired))
-                    sh_adb("settings put secure accessibility_enabled 1")
-                    sh_adb("input keyevent KEYCODE_BACK 2>/dev/null; true")
+                    en2 = sh_adb("settings get secure accessibility_enabled")[1].strip()
+                    if en2 != "1":
+                        sh_adb("settings put secure accessibility_enabled 1")
                     recheck = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
                 if A11Y_SVC in recheck:
                     a11y = "repaired"
@@ -607,23 +611,34 @@ def main():
     # --- 7. phone→Mac Eternal Terminal SSH config (share-backed self-heal) ---
     et_cfg = ensure_control_et_ssh_config()
 
-    # --- 8. Re-apply fleet profiles (AutoJs6 + Shizuku) in case app data was cleared ---
+    # --- 8. Re-apply fleet profiles (AutoJs6 + Shizuku) in case app data was cleared.
+    # Gate each independently: AutoJs6 only re-applies when its process is dead
+    # (likely after data clear); Shizuku only when HEADLESS_STATUS/pgrep says down.
+    # Avoids waking healthy apps and suppresses toasts every cycle.
     if expect_shell and have_sh:
-        for profile_path, intent in (
-            ("/sdcard/Download/autojs6-fleet.json",
-             ["am", "start", "-a", "org.autojs.autojs6.action.APPLY_FLEET_PROFILE",
-              "-e", "profile_path", "/sdcard/Download/autojs6-fleet.json",
-              "-e", "silent", "true",
-              "-n", "org.autojs.autojs6/org.autojs.autojs.core.pref.fleet.FleetProfileActivity"]),
-            ("/data/local/tmp/shizuku-fleet.json",
-             ["am", "start", "-a", "moe.shizuku.privileged.api.APPLY_FLEET_PROFILE",
-              "-e", "profile_path", "/data/local/tmp/shizuku-fleet.json",
-              "-e", "silent", "true",
-              "-n", "moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity"]),
-        ):
-            sh_adb("if [ -f %s ]; then %s; fi" % (profile_path, " ".join(intent)))
+        # AutoJs6: only re-apply if the process is dead (cleared data or crash).
+        auto_running = False
+        rc_auto, _ = sh_adb("pgrep -f org.autojs.autojs6 2>/dev/null")
+        if rc_auto == 0:
+            auto_running = True
+        if not auto_running:
+            profile = "/sdcard/Download/autojs6-fleet.json"
+            sh_adb("if [ -f %s ]; then am start --user 0 "
+                   "-a org.autojs.autojs6.action.APPLY_FLEET_PROFILE "
+                   "-e profile_path %s -e silent true "
+                   "-n org.autojs.autojs6/org.autojs.autojs.core.pref.fleet.FleetProfileActivity; fi"
+                   % (profile, profile))
             time.sleep(0.5)
-        sh_adb("dumpsys deviceidle whitelist +moe.shizuku.privileged.api")
+        # Shizuku: only re-apply when Shizuku is down.
+        if shizuku != "up":
+            profile = "/data/local/tmp/shizuku-fleet.json"
+            sh_adb("if [ -f %s ]; then am start "
+                   "-a moe.shizuku.privileged.api.APPLY_FLEET_PROFILE "
+                   "-e profile_path %s -e silent true "
+                   "-n moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity; fi"
+                   % (profile, profile))
+            time.sleep(0.5)
+            sh_adb("dumpsys deviceidle whitelist +moe.shizuku.privileged.api")
 
     status = "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s" % (
         port, shizuku, sshd, a11y, "yes" if have_sh else "no", wifi, et_cfg)

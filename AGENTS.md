@@ -14,13 +14,19 @@ make health && make firerpa-health
 | Command | Purpose |
 |---------|---------|
 | `make deploy [HOSTS=s24]` | Full fleet deploy |
+| `make deploy-check [HOSTS=s24]` | Dry-run deploy (CHECK=1) |
 | `make verify [HOSTS=s24]` | Device tier checks |
+| `make verify-drift [HOSTS=s24]` | Ansible-based drift detect |
+| `make verify-heal [HOSTS=s24]` | Verify + auto-heal |
 | `make health` | Fleet health summary |
 | `make firerpa-health` | FIRERPA fleet health |
 | `make firerpa-heal --host s24` | Repair via FIRERPA gRPC |
-| `make verify-drift [HOSTS=s24]` | Ansible-based verification |
 | `make test` | Code-only tests |
 | `make deploy-mac` | Mac workstation (brew, launchd) |
+| `make ca-status` | SSH CA status/fingerprints |
+| `make opencode-web-status` | OpenCode web UI status |
+| `make hermes-status` | Hermes worktree status |
+| `make vlm-check` | Check VLM server + cloud |
 
 ## Environment
 

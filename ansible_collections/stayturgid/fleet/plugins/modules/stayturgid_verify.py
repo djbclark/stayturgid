@@ -89,6 +89,7 @@ ALL_CHECKS = [
     "write_settings",
     "tailscale_vpn",
     "scripts_match",
+    "wireless_debugging",
 ]
 
 REPO_SCRIPTS = {
@@ -328,11 +329,26 @@ CHECK_MAP = {
     "write_settings": check_write_settings,
     "tailscale_vpn": check_tailscale_vpn,
     "scripts_match": check_scripts_match,
+    "wireless_debugging": check_wireless_debugging,
 }
 
 
+def check_wireless_debugging():
+    rc, out, _ = _shell(
+        "adb -s localhost:5555 shell settings get global adb_wifi_enabled 2>/dev/null",
+        timeout=8,
+    )
+    val = (out or "").strip()
+    if val in ("1", "true"):
+        return True, "adb_wifi_enabled=%s" % val
+    # Samsung: toggle reads 0 but port 5555 works via Shizuku.
+    # Pixel Android 16: settings put blocked on this key.
+    if rc == 0:
+        return True, "adb_wifi_enabled=%s (shell reachable via 5555)" % val
+    return False, "adb_wifi_enabled=%s (unreachable)" % val
+
+
 def main():
-    module = AnsibleModule(
         argument_spec=dict(
             checks=dict(type="list", elements="str", default=[]),
             strict=dict(type="bool", default=False),

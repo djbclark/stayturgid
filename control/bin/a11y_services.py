@@ -37,7 +37,9 @@ def get_services(serial: str) -> str:
 
 def put_services(serial: str, value: str) -> None:
     adb(serial, "settings", "put", "secure", "enabled_accessibility_services", value)
-    adb(serial, "settings", "put", "secure", "accessibility_enabled", "1")
+    r = adb(serial, "settings", "get", "secure", "accessibility_enabled")
+    if (r.stdout or "").strip() != "1":
+        adb(serial, "settings", "put", "secure", "accessibility_enabled", "1")
 
 
 def push_device_backup(serial: str, value: str) -> None:

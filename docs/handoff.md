@@ -4,7 +4,7 @@
 >
 > **Modular docs:** each subfolder is usable on its own. Human index: [docs/README.md](README.md) · [README.md](../README.md). Full clean-install setup + device gotchas: [docs/hacking.md](hacking.md). **Operator tasks (credentials, deploy approval):** [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md). **Open work menu:** [docs/options.md](options.md) (single list — replace + push when items close). **Layout reference:** [docs/architecture.md](architecture.md). Git history has the detailed narrative of every change; this file is the condensed durable record.
 >
-> **Agent rules (always read on handoff):** [`.cursor/rules/`](../.cursor/rules/) — project policy Cursor/agents load as `alwaysApply` rules. See [§ Cursor agent rules](#cursor-agent-rules--read-on-every-handoff) below.
+> **Agent rules (always read on handoff):** [`.cursor/rules/`](../.cursor/rules/) — project policy Cursor/agents load as `alwaysApply` rules. See [§ Cursor agent rules](#cursor-agent-rules--read-on-every-handoff) below. Also read root [`AGENTS.md`](../AGENTS.md) (quick-start + key commands table).
 >
 > **2026-07-10:** Massive repo restructure on `master` (`d950c53`) — read [§ Cold-start](#-cold-start--current-state-read-this-first) before assuming any path.
 
@@ -46,6 +46,7 @@ Use **all** hosts when the task requires fleet-wide validation. Examples:
 make help                         # list common commands
 make health                       # session start (agents)
 make verify HOSTS=s24
+make verify-drift HOSTS=s24       # Ansible-based drift check
 make deploy HOSTS=s24
 make deploy-check HOSTS=s24       # dry run (same as CHECK=1 make deploy)
 ```
@@ -64,7 +65,7 @@ when AutoJs6 stalls or a11y drifts — the Mac log is the signal.
 
 ```bash
 make health
-python3 control/bin/screen_lease.py status   # cross-project glass holds (esp. p7a)
+python3 control/bin/screen_lease.py status   # cross-project glass holds (esp. p7a); see docs/modules/screen-control-lease.md
 # Optional when touching VLM: make vlm-upstream-check  # RQS VLM.md best practices
 # Optional when touching phone→Mac et: make check-et-mac
 ```
@@ -162,6 +163,7 @@ git pull --ff-only origin master   # if behind only
 make health
 make firerpa-health 2>/dev/null    # check FIRERPA fleet health
 python3 control/bin/screen_lease.py status
+# Optional: make verify-drift HOSTS=s24  # Ansible-based drift check
 ```
 
 ### Fleet snapshot (2026-07-12 evening — final)
@@ -214,6 +216,48 @@ All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/
 - Makefile: `firerpa-deploy`, `firerpa-remove`, `firerpa-heal`, `firerpa-health`
 - Make sure `lamda-client` is installed in Python 3.12 venv: `source /tmp/lamda-venv/bin/activate`
 
+**CFEngine standalone self-heal (deployed 2026-07-12):**
+- Policy at `device/termux/cfengine/stayturgid.cf` — 7 check bundles: sshd, bootloop, mirror, shell5555, shizuku, a11y, profile
+- Runs in the Termux boot loop via `cf-agent -D android,linux -Kf` every 5-min cycle (alongside `stayturgid_repair.py`)
+- Each bundle is a read-only verify + lightweight auto-repair (sshd restart, mirror re-pin, PATH leak fix, etc.)
+- Minimal standalone mode (per evaluation doc's recommendation), not a full policy-server deploy
+- s24 + p7a pass all 7 checks; hd8 passes 4/7 (no Shizuku, no AutoJs6 a11y, no localhost:5555 on Fire OS)
+- Ansible deploys `os-release` for CFEngine platform detection (`termux_userland` role)
+- Evaluation: `docs/history/cfengine-evaluation-2026-07-12.md`
+
+**Ansible-based verification + drift detection (deployed 2026-07-12):**
+- `make verify-drift [HOSTS=s24]` — `control/bin/verify_drift.py` → `ansible/playbooks/fleet/verify-drift.yml`
+- Uses `stayturgid.fleet.stayturgid_verify` module — declarative Ansible checks for device state drift
+- Complements `make verify` (device-tier TAP) with Ansible-native verification
+- `make deploy-check` for dry-run deploy verification (`CHECK=1 make deploy`)
+
+**Cross-layer read-before-write guard hardening (2026-07-12):**
+All self-heal layers audited for redundant `settings put` / `setprop` / `am start`
+triggers that could fire every cycle when state is already correct. Fixes ensure
+every write is gated on a read of the current value. Specific changes:
+
+- `stayturgid_repair.py`: `setprop service.adb.tcp.port 5555` now checks `getprop`
+first — avoids pointless adbd restart every 5 min. `accessibility_enabled 1` gated
+on current value. Fleet profile re-apply gated on `shizuku != "up"`. Removed
+KEYCODE_BACK dialog dismissals (replaced with read-before-write gates).
+- `comonitor.js`: `restartSshd()` removes `sshd/down` file before restart (was
+silently blocked if present). `probeAndRepairA11y()` has backup + shrink-recovery
+(matching repair.py's `_repair_a11y_shrink`). `probeWifi()` has Samsung/Pixel
+cosmetic false-positive guard. `accessibility_enabled 1` gated on current value.
+- `shizuku.js`: `tryShellWirelessRepair()` reads all 3 `settings get global` +
+`getprop` before each `settings put` / `setprop` (was 4 unconditional writes per
+catastrophic cycle).
+- `android_a11y_services.py` (Ansible module): `settings_put()` gates
+`accessibility_enabled 1` on current value (matching repair.js + comonitor.js).
+- `a11y_services.py` + `stayturgid_enable_autojs6.py`: `put_services()` same gate.
+- `firerpa_heal.py` + `firerpa_health_monitor.py`: Shizuku detection uses `pgrep -f
+shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
+- `cfengine/stayturgid.cf`: Mac PATH pattern includes `/System/Cryptexes/`
+(matches repair.py + Ansible).
+- `stayturgid_verify.py`: Added `wireless_debugging` check to ALL_CHECKS.
+- `AGENTS.md`: Added `deploy-check`, `verify-heal`, `ca-status`, `opencode-web-status`,
+`hermes-status`, `vlm-check` to key commands table.
+
 ### Major changes (2026-07-11 — fork migration + headless automation)
 
 **Fork migration:**
@@ -227,7 +271,7 @@ All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/
 - **Shizuku**: `findOne`/`tapStartButton` replaced by `HEADLESS_START` broadcast
 - **Obtainium import**: `ui_driver` + `ScreenControlSession` replaced by `obtainium://apps?confirm=true&headless=true` deep-link
 - **Obtainium updates**: replaced with `obtainium://update/all?autoInstall=true&headless=true`
-- **Obtainium Shizuku installer**: replaced with `FleetProfileActivity` intent (`installMethod: shizuku`)
+- **Obtainium Shizuku installer**: attempted via `FleetProfileActivity` intent (`installMethod: shizuku`) — **unresolved** (app still shows "System"); see `docs/handoff-obtainium-shizuku.md` for full debugging history
 - `stayturgid_import_catalog.py` (389 lines) deleted
 - `enableWirelessDebuggingUi` Samsung fallback deleted
 
@@ -470,16 +514,18 @@ control/                     — Mac control node (see docs/architecture.md)
 device/
   autojs6/                   — watchdog JS (deployed to /sdcard/stayturgid/autojs6/)
   termux/                    — boot/*.sh, repair-bridge, py/*.py → ~/.stayturgid/bin/
+  termux/cfengine/           — CFEngine standalone policy (stayturgid.cf, 7 check bundles)
 catalogs/obtainium/          — JSON catalogs
 docs/                        — handoff.md, hacking.md, options.md, modules/, adr/
 ansible/
   playbooks/site.yml         — canonical fleet entry (imports fleet/* + control_node/*)
-  playbooks/fleet/           — bootstrap, fleet.yml, post-ui, validate, preflight, …
+  playbooks/fleet/           — bootstrap, fleet.yml, post-ui, validate, preflight, firerpa, verify-drift
   playbooks/control_node/    — Mac prereqs, agents, vlm
   roles/control_node/        — launchd plists, devices.conf templates
 ansible_collections/stayturgid/
   termux/roles/termux_userland
   fleet/roles/{autojs6_watchdog,post_ui,validate}
+  firerpa/roles/firerpa
   obtainium/, fdroid/, play/, android_common/
 tests/                       — device_tier.py, python/, test-*.sh TAP harness
 Makefile                     — make help, deploy, health, verify, check, test
