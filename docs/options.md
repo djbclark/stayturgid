@@ -20,6 +20,7 @@
 > Strategic directions: [docs/handoff.md appendix](handoff.md#appendix--strategic-directions-equal-weight).
 > Ansible boundary: [docs/adr/001-ansible-boundary.md](adr/001-ansible-boundary.md),
 > [docs/adr/002-ansible-ui-tasks.md](adr/002-ansible-ui-tasks.md).
+> Self-heal vs Ansible coverage: [docs/adr/004-self-heal-vs-ansible-coverage.md](adr/004-self-heal-vs-ansible-coverage.md).
 > Parked side projects: [docs/incubator/](incubator) — **do not implement**
 > unless the operator unparks a named project (Inferno, etc.).
 
