@@ -144,7 +144,8 @@ BOOTLOOP_PID_FILE="$STG/run/bootloop.pid"
     # stderr → /dev/null: suppress cosmetic OS-not-recognized warning
     CFENGINE_CF="$STG/cfengine/stayturgid.cf"
     if [ -x "$PREFIX/bin/cf-agent" ] && [ -f "$CFENGINE_CF" ]; then
-        "$PREFIX/bin/cf-agent" -D android,linux -Kf "$CFENGINE_CF" >> "$STG/logs/repair-cfengine.log" 2>/dev/null || true
+        "$PREFIX/bin/cf-agent" -D android,linux -Kf "$CFENGINE_CF" \
+            >> "$STG/logs/repair-cfengine.log" 2>&1 || true
     fi
 
     # FIRERPA monitor: restart the failsafe daemon if it died.
