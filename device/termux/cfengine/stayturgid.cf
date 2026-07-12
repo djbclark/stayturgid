@@ -1,0 +1,134 @@
+# stayturgid.cf — Standalone self-heal policy for CFEngine on Termux
+# Deploy to: ~/.stayturgid/cfengine/stayturgid.cf
+# Run: cf-agent -f ~/.stayturgid/cfengine/stayturgid.cf
+
+bundle agent main {
+  methods:
+    "heal" usebundle => stayturgid_heal;
+}
+
+bundle agent stayturgid_heal {
+  vars:
+    "prefix" string => "/data/data/com.termux/files/usr";
+    "home"   string => "/data/data/com.termux/files/home";
+    "stg"    string => "$(home)/.stayturgid";
+
+  methods:
+    "heal" usebundle => check_sshd("$(prefix)");
+    "heal" usebundle => check_bootloop("$(stg)");
+    "heal" usebundle => check_mirror("$(prefix)");
+    "heal" usebundle => check_shell5555("$(prefix)");
+    "heal" usebundle => check_shizuku("$(prefix)");
+    "heal" usebundle => check_a11y("$(prefix)");
+    "heal" usebundle => check_profile("$(prefix)", "$(home)");
+
+  reports:
+    cfengine::
+      "CFEngine $(sys.version) stayturgid heal on $(sys.flavor) $(sys.arch)";
+}
+
+# ── Individual check bundles ──────────────────────────────────────────────
+
+bundle agent check_sshd(p) {
+  classes:
+    "sshd_running" expression => returnszero("$(p)/bin/pgrep -x sshd >/dev/null 2>&1 || $(p)/bin/pgrep -f '[s]shd' >/dev/null 2>&1", "useshell");
+
+  reports:
+    sshd_running::
+      "sshd: running";
+    !sshd_running::
+      "sshd: RESTARTING";
+
+  commands:
+    !sshd_running::
+      "$(p)/bin/bash"
+        args => "-c 'rm -f $(p)/var/service/sshd/down 2>/dev/null; $(p)/bin/sshd'",
+        contain => silent_bg;
+}
+
+bundle agent check_bootloop(s) {
+  classes:
+    "pidfile_exists" expression => fileexists("$(s)/run/bootloop.pid");
+
+  reports:
+    pidfile_exists::
+      "bootloop: pidfile present";
+    !pidfile_exists::
+      "bootloop: pidfile MISSING";
+}
+
+bundle agent check_mirror(p) {
+  classes:
+    "mirror_ok" expression => returnszero("$(p)/bin/grep -q packages-cf.termux.dev $(p)/etc/apt/sources.list", "useshell");
+
+  reports:
+    mirror_ok::
+      "mirror: pinned";
+    !mirror_ok::
+      "mirror: REPINNING";
+
+  commands:
+    !mirror_ok::
+      "$(p)/bin/bash"
+        args => "-c 'echo deb https://packages-cf.termux.dev/apt/termux-main stable main > $(p)/etc/apt/sources.list && $(p)/bin/apt-get update -y'",
+        contain => silent_bg;
+}
+
+bundle agent check_shell5555(p) {
+  classes:
+    "shell_ok" expression => returnszero("$(p)/bin/adb connect localhost:5555 >/dev/null 2>&1 && $(p)/bin/adb -s localhost:5555 shell id -u 2>/dev/null | grep -q 2000", "useshell");
+
+  reports:
+    shell_ok::
+      "shell5555: privileged shell working";
+    !shell_ok::
+      "shell5555: NOT available";
+}
+
+bundle agent check_shizuku(p) {
+  classes:
+    "shizuku_headless" expression => returnszero("$(p)/bin/adb -s localhost:5555 shell am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null | grep -q result=1", "useshell");
+    "shizuku_pgrep"    expression => returnszero("$(p)/bin/adb -s localhost:5555 shell pgrep -f shizuku_server >/dev/null 2>&1", "useshell");
+    "shizuku_ok" or => { "shizuku_headless", "shizuku_pgrep" };
+
+  reports:
+    shizuku_ok::
+      "shizuku: up";
+    !shizuku_ok::
+      "shizuku: DOWN";
+}
+
+bundle agent check_a11y(p) {
+  classes:
+    "a11y_ok" expression => returnszero("$(p)/bin/adb -s localhost:5555 shell 'settings get secure enabled_accessibility_services' 2>/dev/null | grep -q org.autojs.autojs6", "useshell");
+
+  reports:
+    a11y_ok::
+      "a11y: AutoJs6 enabled";
+    !a11y_ok::
+      "a11y: AutoJs6 MISSING — use repair.py merge";
+}
+
+bundle agent check_profile(p, h) {
+  classes:
+    "profile_clean" expression => returnszero("! $(p)/bin/grep -qE '^(export )?PATH=.*(/Users/|/opt/homebrew/|/Library/Apple/)' $(h)/.profile $(h)/.bashrc 2>/dev/null", "useshell");
+
+  reports:
+    profile_clean::
+      "profile: clean";
+    !profile_clean::
+      "profile: MAC PATH LEAK — fixing";
+
+  commands:
+    !profile_clean::
+      "$(p)/bin/sed"
+        args => "-i.bak 's|^export PATH=.*/Users/.*|export PATH=\"\\$$HOME/bin:$(p)/bin:$(p)/sbin:\\$$PATH\"|' $(h)/.profile $(h)/.bashrc 2>/dev/null; true",
+        contain => silent_bg;
+}
+
+# ── Utility bodies ────────────────────────────────────────────────────────
+
+body contain silent_bg {
+    useshell => "true";
+    no_output => "true";
+}
