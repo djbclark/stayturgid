@@ -573,14 +573,19 @@ def main():
             if A11Y_SVC in before:
                 a11y = "up"
             else:
+                # Only merge if AutoJs6 is actually missing from the list.
+                # Android 13+ shows a confirmation dialog on settings put —
+                # dismiss it immediately with a back key.
                 new = _merge_a11y_list(before, [A11Y_SVC])
                 sh_adb("settings put secure enabled_accessibility_services %s" % _a11y_value_safe(new))
                 sh_adb("settings put secure accessibility_enabled 1")
+                sh_adb("input keyevent KEYCODE_BACK 2>/dev/null; true")
                 recheck = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
                 repaired = _repair_a11y_shrink(before, recheck)
                 if repaired:
                     sh_adb("settings put secure enabled_accessibility_services %s" % _a11y_value_safe(repaired))
                     sh_adb("settings put secure accessibility_enabled 1")
+                    sh_adb("input keyevent KEYCODE_BACK 2>/dev/null; true")
                     recheck = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
                 if A11Y_SVC in recheck:
                     a11y = "repaired"
