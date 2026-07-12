@@ -34,6 +34,18 @@
     content: "deb {{ stayturgid_termux_mirror }} stable main\n"
     mode: "0644"
 
+- name: Create os-release for CFEngine platform detection
+  ansible.builtin.copy:
+    dest: "{{ termux_prefix }}/etc/os-release"
+    mode: "0644"
+    content: |
+      NAME="Termux"
+      ID=termux
+      ID_LIKE=android
+      PRETTY_NAME="Termux (Android)"
+      VERSION_ID="1"
+      HOME_URL="https://termux.dev/"
+
 - name: Detect Termux account owning termux_home
   ansible.builtin.stat:
     path: "{{ termux_home }}"
