@@ -247,11 +247,14 @@ def ensure_wireless_debugging():
     if wifi in ("null", ""):
         log("wireless debugging: cannot reach shell (adb_wifi_enabled=%s)" % wifi)
         return "NO_SHELL"
-    # Toggle reads 0 but shell is responding — cosmetic false on Samsung/
+    # Port is open and shell works — wireless debugging is functionally up.
+    # On both Samsung (cosmetic toggle=0) and Pixel (settings put blocked on
+    # Android 16), the toggle value is irrelevant when 5555 responds.
+    if _rc == 0:
+        return "up"
+    # Toggle reads 0 but shell responded — cosmetic false on Samsung/
     # some OneUI where adb_wifi_enabled is disconnected from the actual
     # Shizuku-opened port.  Don't touch the toggle.
-    if wifi == "0" and _rc == 0:
-        return "up"
     # Toggle is off — try to enable via settings put.
     sh_adb("settings put global adb_wifi_enabled 1")
     time.sleep(2)
