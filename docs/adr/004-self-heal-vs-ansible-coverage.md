@@ -87,8 +87,57 @@ This avoids duplication at the code level without requiring Ansible on-device.
 ### Verdict
 Running Ansible on-device is architecturally interesting but heavyweight for the gain. The shared-module approach is more practical. **Not recommended for now** — the gap coverage is already adequate with the `pgrep` fallback and the fleet profile deploy-time tasks. If fleet profile drift becomes a real problem, the shared-module approach is the next step.
 
-## 4. Recommendations
+## 4. The triple-language duplication problem
+
+A deeper issue: the same self-heal logic exists in three languages.
+
+| Operation | YAML (Ansible) | Python (repair.py) | JS (watchdog) |
+|---|---|---|---|
+| Shizuku status check | ❌ | `HEADLESS_STATUS` + pgrep | `HEADLESS_STATUS` + pgrep |
+| HEADLESS_START | `android_intent` task | ❌ | `headlessStart()` function |
+| a11y merge | `enable_autojs6_shizuku.py` | `_merge_a11y_list()` | `comonitor.mergeA11y()` |
+| Wireless ADB | `settings put` task | `ensure_wireless_debugging()` | `tryShellWirelessRepair()` |
+
+Each language was chosen for its context: YAML for Ansible's declarative model, Python for the Mac/device runtime scripts, JS for the in-process AutoJs6 watchdog. But the same recovery primitives end up re-implemented three times with slightly different edge-case handling.
+
+### Why this matters
+When a fix is made in one place (e.g., adding `adb_enabled` to `tryShellWirelessRepair()`), it's easy to miss the other two. The 2026-07-11 code review found exactly this class of bug: `tryShellWirelessRepair()` was missing `settings put global adb_enabled 1` while the Python twin had it.
+
+## 5. Concrete proposal: shared `control/lib/fleet_self_heal.py`
+
+Instead of running Ansible on-device or accepting duplication, create a single Python module that Ansible invokes at deploy time AND the self-heal loop calls periodically.
+
+```
+control/lib/fleet_self_heal.py
+├── apply_autojs6_profile(shell)     # am start FleetProfileActivity
+├── apply_shizuku_profile(shell)      # am start FleetProfileActivity  
+├── whitelist_shizuku(shell)          # dumpsys deviceidle whitelist +
+├── ensure_shizuku_running(shell)     # HEADLESS_STATUS → HEADLESS_START → pgrep
+├── ensure_wireless_adb(shell)        # settings put global adb_*
+└── ensure_autojs6_a11y(shell)        # settings put secure a11y  (merge-only)
+```
+
+### Callers
+
+| Caller | How it calls | When |
+|---|---|---|
+| **Ansible** (`android_ui` module or `script` module) | `python3 control/lib/fleet_self_heal.py --host s24 --apply-all` | Every `make deploy` |
+| **repair.py** | `from control.lib import fleet_self_heal; fleet_self_heal.apply_autojs6_profile(shell)` | Every 5-min cycle |
+| **JS watchdog** (shizuku.js) | Keep `headlessStart()` inline — single `am broadcast` is too simple to extract | 20-min cycle + boot |
+
+### Benefits
+- Single source of truth for recovery logic.
+- Ansible deploy and self-heal loop agree on what "fixed" means.
+- Python can be called from both Ansible (via `script` or `command` module) and Termux shell.
+- The JS watchdog keeps only the thin `HEADLESS_START` wrapper (too simple to share).
+
+### Cost
+- ~100 lines of Python for the module.
+- Existing Ansible `android_intent` tasks would need to change to `script` or `command` module calls — or the module could emit `--dry-run` output for Ansible's change tracking.
+- The `repair.py` import path needs `sys.path` setup for `control/lib/` (already done for `stayturgid_shell.py`).
+
+## 6. Recommendations
 
 1. **Short term** — Accept the current gaps. Fleet profile loss requires app data clear + waiting for next deploy, which is rare.
-2. **Medium term** — If fleet profile drift becomes observable, add `repair_fleet_profiles()` to `stayturgid_repair.py`.
+2. **If duplication becomes a problem** — Implement `control/lib/fleet_self_heal.py` as described in §5. This eliminates the YAML/Python drift for the core self-heal primitives without requiring Ansible on-device.
 3. **Not now** — On-device Ansible. The shared-module pattern is a better ROI if duplication grows.
