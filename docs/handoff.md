@@ -146,8 +146,13 @@ Optional on-device notifier: `stayturgid_check_repo_version.py` (max once/24 h) 
 
 ## 🚦 Cold-start — current state (read this first)
 
-**As of 2026-07-12 evening (handoff pass).** Three-device fleet: **s24**, **p7a**, **hd8**.
+**As of 2026-07-12 evening (final handoff pass).** Three-device fleet: **s24**, **p7a**, **hd8**.
 Source of truth: **`origin/master`** on `https://github.com/djbclark/stayturgid.git`.
+
+### Environment
+
+- **Mac shell:** `/bin/bash` (changed from zsh on 2026-07-12 — dotfiles in `~/.bash_profile`, `~/.bashrc`, zsh backups at `~/.zsh-backup/`)
+- **Project venv (FIRERPA):** Python 3.12 at `/tmp/lamda-venv` — `source /tmp/lamda-venv/bin/activate`
 
 ### Session start (every agent)
 
@@ -159,11 +164,13 @@ make firerpa-health 2>/dev/null    # check FIRERPA fleet health
 python3 control/bin/screen_lease.py status
 ```
 
-### Fleet snapshot (2026-07-12 evening)
+### Fleet snapshot (2026-07-12 evening — final)
 
-| Host | Soft health | Shizuku | FIRERPA | AutoJs6 | Notes |
-|------|-------------|---------|:------:|---------|-------|
-| **s24** | OK | release10 | ✅ v10.0 :65000 | debug5 | Repair + boot integration deployed; 24-hr soak started |
+| Host | Verify | stayturgid | FIRERPA | CFEngine | Notes |
+|------|:------:|:----------:|:-------:|:--------:|-------|
+| **s24** | 14/16 PASS | all green | ✅ v10.0 :65000 | ✅ 7/7 | Boot integrations deployed; 24-hr soak started |
+| **p7a** | 14/16 PASS | all green | ✅ v10.0 :65000 | ✅ 7/7 | Ansible-deployed; wifi=up fix confirmed on Pixel Android 16 |
+| **hd8** | 13/16 PASS | all green | ⚠️ USB only | ✅ 4/7 | Fire OS: no localhost:5555, no Shizuku, no AutoJs6 a11y |
 | **p7a** | OK (battery 39%) | release10 | ✅ v10.0 :65000 | debug5 | Repair + boot integration deployed; wifi=up fix confirmed on Pixel Android 16 |
 | **hd8** | OK (SSH scrape, watchdog_stale expected) | release10 | ⚠️ USB only | debug5 | FIRERPA works via USB ADB (gRPC + WebUI); blocked for always-on by Fire OS SELinux |
 
