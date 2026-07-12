@@ -1,11 +1,58 @@
-# CFEngine — Integration Evaluation
+# CFEngine — Integration Evaluation (Revised 2026-07-12)
 
-**Date:** 2026-07-12
+**Date:** 2026-07-12 (revised after on-device testing)
 **Analyst:** DeepSeek V4 Pro
 **Source:** https://github.com/cfengine/core (528 stars, 200 forks, 19,019 commits)
-**Local:** `~/src/cfengine/`
-**Version:** 3.29.0 (commit 2 days ago — actively maintained)
-**License:** GPL v3 + COSL (Commercial Open Source License), sponsored by Northern.tech AS
+**Local:** `~/src/cfengine/`, `~/src/cfengine-buildscripts/`
+**Version:** 3.27.1 (Termux package), 3.29.0 (git master)
+**License:** GPL v3 + COSL, sponsored by Northern.tech AS
+
+---
+
+## On-Device Test Results (p7a, 2026-07-12)
+
+CFEngine was installed and tested on the Pixel 7a via Termux:
+
+```
+$ pkg install cfengine
+→ cfengine 3.27.1 (aarch64) installed with deps: liblmdb, librsync, libyaml
+
+$ cf-agent --version
+CFEngine Core 3.27.1
+
+$ ls /data/data/com.termux/files/usr/bin/cf-*
+cf-agent cf-check cf-execd cf-key cf-monitord cf-net
+cf-promises cf-runagent cf-secret cf-serverd cf-support cf-upgrade
+```
+
+**12 compiled binaries** (cf-agent 320 KB, cf-serverd 115 KB, etc.) — all installed in Termux's `$PREFIX/bin`.
+
+### Hello World test
+
+```cfengine
+bundle agent main {
+  reports:
+    "Hello from CFEngine $(sys.version) on $(sys.flavor) $(sys.arch)";
+}
+```
+
+**Output:**
+```
+R: Hello from CFEngine 3.27.1 on termux aarch64
+R: Platform classes: linux
+R: Home: /data/data/com.termux/files/usr/var/lib/cfengine
+```
+
+**Confirmed:**
+- `sys.flavor` = `termux` — correctly identifies the Termux environment
+- `sys.arch` = `aarch64` — correct ARM64 detection
+- Work directory uses `$PREFIX` (`/data/data/com.termux/files/usr/`) — no root filesystem access needed
+- `linux` hard class present
+
+### Known quirks
+
+- **OS detection warning:** `"Operating System not properly recognized, setting sys.os_name_human to Unknown"` — cosmetic. The `android` hard class was NOT present in 3.27.1, suggesting 3.29.0 git source has newer platform detection that hasn't made it to the Termux package yet.
+- **Policy validation works:** `cf-promises -f policy.cf` validates syntax before execution.
 
 ---
 
@@ -184,10 +231,10 @@ This is a months-long engineering project with ongoing maintenance burden.
 | Blocker | Status | Notes |
 |---------|--------|-------|
 | **Android code support** | ✅ **Resolved** | `PLATFORM_CONTEXT_ANDROID` + `__ANDROID__` ifdefs + termux references in core |
-| **Pre-built binaries** | ❌ **Missing** | Would need to build from source (cross-compile or Termux-native) |
+| **Pre-built binaries** | ✅ **Resolved** | `pkg install cfengine` → v3.27.1 for aarch64 in Termux main repo. 12 binaries, tested working on p7a |
 | **Separate policy language** | ❌ **Still a blocker** | Must maintain Ansible YAML AND CFEngine .cf policies for same fleet |
-| **Client/server model** | ❌ **Still a blocker** | Requires policy server infrastructure alongside existing Ansible SSH push |
-| **Infrastructure overhead** | ❌ **Still a blocker** | cf-serverd + cf-execd + cf-monitord — parallel stack to Ansible |
+| **Client/server model** | ⚠️ **Partial** | Can run in standalone mode (`cf-agent -f policy.cf`) — no server needed for verification |
+| **Infrastructure overhead** | ⚠️ **Minimal** | Standalone cf-agent is 320 KB. No server needed for local verification. cf-execd adds battery drain.
 
 **If someone wanted to pursue this:**
 
@@ -200,4 +247,71 @@ This is a months-long engineering project with ongoing maintenance burden.
 
 **However:** The cost of building, packaging, and maintaining CFEngine binaries for 3 Android devices, plus authoring and maintaining parallel policy in a separate language, still exceeds the value over stayturgid's existing verification (250 lines of Python, no new deps, already works).
 
-**Bottom line:** CFEngine is the most capable tool evaluated and the only one with genuine Android support in the codebase. If the existing verification infrastructure ever proves insufficient (e.g., Python unavailable, SSH consistently down), CFEngine is the best candidate for a compiled-C fallback verification agent. But for now, the cost/benefit ratio of building binaries and maintaining dual policy languages doesn't justify it.
+**Bottom line:** CFEngine is the most capable tool evaluated and the only one with genuine Android support in the codebase AND in the Termux package manager. If the existing verification infrastructure ever proves insufficient, CFEngine is the best candidate for a compiled-C fallback verification agent. The standalone mode (`cf-agent -f policy.cf`) avoids the infrastructure overhead and the dual-policy-language blocker is manageable for a verification-only use case.
+
+## Plausible Next Steps for Parallel CFEngine Use
+
+### 1. Write a verification-only .cf policy
+
+Translate the 14 checks from `stayturgid_verify.py` into CFEngine policy language. Target: a standalone `verify.cf` that cf-agent runs locally with NO server infrastructure. Example:
+
+```cfengine
+bundle agent stayturgid_verify {
+  vars:
+    "termux_prefix" string => "/data/data/com.termux/files/usr";
+    "stg_home" string => "/data/data/com.termux/files/home/.stayturgid";
+
+  classes:
+    "sshd_alive" expression => returnszero("$(termux_prefix)/bin/pgrep -x sshd", "useshell");
+    "bootloop_alive" expression => returnszero("/usr/bin/test -f $(stg_home)/run/bootloop.pid", "useshell");
+
+  reports:
+    sshd_alive::
+      "PASS: sshd running";
+    !sshd_alive::
+      "FAIL: sshd not running";
+}
+```
+
+### 2. Run as a periodic check (event-driven, not daemon)
+
+Instead of running `cf-execd` as a persistent daemon (battery drain from Doze conflicts), trigger `cf-agent` via:
+
+- **Termux boot loop integration:** Add a cf-agent cycle to `start-adb.sh` alongside the existing repair loop
+- **Tasker/MacroDroid:** On Wi-Fi connect → execute `cf-agent -f ~/verify.cf`
+- **Mac launchd agent:** SSH to device → `cf-agent -f verify.cf` → collect output
+- **Ansible playbook:** `ansible.builtin.command: cf-agent -f /path/to/verify.cf`
+
+### 3. Use CFEngine for drift reporting alongside Ansible
+
+CFEngine's "promise theory" model naturally produces compliance reports. Run `cf-agent -f verify.cf` every N minutes. If any promise fails, CFEngine logs it AND returns a non-zero exit code. This can feed into stayturgid's existing health monitoring:
+
+```bash
+# In fleet_health_monitor.py or a new check:
+result = ssh(host, "cf-agent -f ~/verify.cf")
+if result.rc != 0:
+    log(f"{host}: CFEngine verification failed")
+```
+
+### 4. Gradual adoption — start with one check
+
+Write a single CFEngine policy that checks ONE thing (e.g., sshd running) and runs alongside `stayturgid_verify`. Compare outputs for a week. If they always agree, great — you have a second opinion. If they disagree, you've found a bug in one of them.
+
+### 5. Integrate as an Ansible module
+
+Write an Ansible module that:
+1. Templates a `.cf` policy from Ansible variables (desired state from inventory)
+2. Copies it to the device
+3. Runs `cf-agent -f policy.cf` and captures output
+4. Parses CFEngine's JSON output format for structured results
+
+This avoids maintaining parallel policy manually — Ansible IS the policy source, CFEngine is the verification engine.
+
+### 6. Contact Northern.tech about the `android` hard class
+
+The 3.27.1 Termux package doesn't expose the `android` hard class (returns `linux` instead). The 3.29.0 source code has `PLATFORM_CONTEXT_ANDROID`. Check if a newer Termux package is available or if the hard class detection needs a build flag. Having the `android` class would enable conditional policies like:
+
+```cfengine
+classify_android::
+  "adb_enabled" expression => returnszero("adb connect localhost:5555", "useshell");
+```
