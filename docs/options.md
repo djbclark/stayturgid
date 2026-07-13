@@ -38,7 +38,7 @@ greyhound-sidemirror.ts.net; all old machine names purged. s24 + p7a: FIRERPA se
 SSH/gRPC live without suppressing AutoJs6, AutoInput, or Octoclip; Python runtime and
 watchdogs healthy. Open menu = remaining hd8 deployment under H1/H3, H8 (`rish`
 dashboard action), H9 (post-UI foreground cleanup), H10–H12 reliability fixes,
-H5/38, 43–45, 54, F1–F4, T1.
+H5/38, 43–45, 54, F1–F4, T1, and optional T2 runtime-supervision evaluation.
 `make firerpa-health` is clean and live health is clean for s24 + p7a. The aggregate
 `make health` command remains nonzero only for hd8's documented `watchdog_stale` /
 offline state while that USB-only tablet deployment is intentionally deferred.
@@ -189,6 +189,14 @@ read-only doctor/status/SSH/gRPC recipes were exercised against S24. Repository-
 inspection found little meaningful Make build-graph behavior; the migration cost is
 primarily current documentation and compatibility across approximately 63 non-history
 files. Implementation remains deferred until T1 is deliberately selected.
+
+#### T2 — Evaluate PM2 or another JS runtime supervisor (operator decision) · Risk: **Medium** · Deferred
+
+The evaluation is complete: PM2 can supervise a Node process in Termux but cannot
+manage AutoJs6's Android process, accessibility consent, Shizuku/UI recovery, or the
+existing Termux/Python/Ansible layers. Do not add PM2 to the watchdog. If a genuine
+Node helper is introduced later, follow the S24-only pilot and rollback boundaries in
+[JavaScript Runtime Supervision Evaluation](research/javascript-runtime-supervision-2026-07-13.md).
 
 ---
 
