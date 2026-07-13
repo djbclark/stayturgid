@@ -75,6 +75,7 @@
   loop:
     - stayturgid.cf
     - cf-serverd.cf
+    - cf-runagent-wrapper.sh
   when: "'cfengine' in stayturgid_termux_packages"
 
 - name: Detect Termux account owning termux_home

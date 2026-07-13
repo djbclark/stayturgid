@@ -23,9 +23,9 @@ body server control {
     trustkeysfrom => { "100.64.0.0/10" };
     allowusers    => { "root" };
 
-    # Path to cf-agent. Policy file specified so cf-agent loads the repair
-    # bundles (check_sshd etc.) from stayturgid.cf.
-    cfruncommand  => "/data/data/com.termux/files/usr/bin/cf-agent -f /data/data/com.termux/files/home/.stayturgid/cfengine/stayturgid.cf";
+    # Wrapper script sets Termux PATH/LD_LIBRARY_PATH before invoking cf-agent
+    # with the stayturgid repair policy.
+    cfruncommand  => "/data/data/com.termux/files/home/.stayturgid/cfengine/cf-runagent-wrapper.sh";
 
     port          => "5308";
     maxconnections => "5";

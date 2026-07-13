@@ -168,11 +168,11 @@ python3 control/bin/screen_lease.py status
 
 ### Fleet snapshot (2026-07-12 evening — final)
 
-| Host | Verify | stayturgid | FIRERPA | CFEngine | Notes |
-|------|:------:|:----------:|:-------:|:--------:|-------|
-| **s24** | 14/16 PASS | all green | ✅ v10.0 :65000 | ✅ 7/7 | Boot integrations deployed; 24-hr soak started |
-| **p7a** | 14/16 PASS | all green | ✅ v10.0 :65000 | ✅ 7/7 | Ansible-deployed; wifi=up fix confirmed on Pixel Android 16 |
-| **hd8** | 13/16 PASS | all green | ⚠️ USB only | ✅ 4/7 | Fire OS: no localhost:5555, no Shizuku, no AutoJs6 a11y |
+| Host | Verify | stayturgid | FIRERPA | CFEngine | cf-serverd | Notes |
+|------|:------:|:----------:|:-------:|:--------:|:----------:|-------|
+| **s24** | 14/16 PASS | all green | ✅ v10.0 :65000 | ✅ 7/7 | ✅ :5308 | cf-runagent TLS trust established; bundle exec: 3.28.0 Mac vs 3.27.1 Termux version mismatch |
+| **p7a** | 14/16 PASS | all green | ✅ v10.0 :65000 | ✅ 7/7 | ⬜ deployed | cf-serverd policy + wrapper pushed; boot loop restart pending |
+| **hd8** | 13/16 PASS | all green | ⚠️ USB only | ✅ 4/7 | ⬜ deployed | Fire OS: no localhost:5555, no Shizuku, no AutoJs6 a11y |
 | **p7a** | OK (battery 39%) | release10 | ✅ v10.0 :65000 | debug5 | Repair + boot integration deployed; wifi=up fix confirmed on Pixel Android 16 |
 | **hd8** | OK (SSH scrape, watchdog_stale expected) | release10 | ⚠️ USB only | debug5 | FIRERPA works via USB ADB (gRPC + WebUI); blocked for always-on by Fire OS SELinux |
 
@@ -257,6 +257,26 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 - `stayturgid_verify.py`: Added `wireless_debugging` check to ALL_CHECKS.
 - `AGENTS.md`: Added `deploy-check`, `verify-heal`, `ca-status`, `opencode-web-status`,
 `hermes-status`, `vlm-check` to key commands table.
+
+**CFEngine server mode — Tier 4 redundancy transport (2026-07-12):**
+- `cf-serverd` listens on port 5308 (TLS) for remote repair triggers via `cf-runagent`
+  from the Mac. Provides a completely independent repair channel — different port,
+  protocol (TLS key trust vs SSH CA), and binary from sshd/FIRERPA.
+- Policy: `device/termux/cfengine/cf-serverd.cf` — IP ACL (Tailscale 100.64.0.0/10),
+  access rules for 9 bundles, auto-trust on first connection
+- Wrapper: `device/termux/cfengine/cf-runagent-wrapper.sh` — sets Termux PATH/LD_LIBRARY_PATH
+  before invoking cf-agent with stayturgid.cf repair bundles
+- Boot integration: `start-adb.sh` starts cf-serverd after sshd (like FIRERPA), monitors
+  liveness in boot loop, restarts if dead (uses `-F`: no fork for Android seccomp)
+- Mac: `control/cfengine/cf-runagent.cf` — runagent policy targeting all 3 devices.
+  cfengine installed via Homebrew; keys exchanged and trusted.
+- Ansible: cfengine added to `stayturgid_termux_packages`; cf-serverd.cf + wrapper
+  deployed via termux_userland role
+- Fleet health: cf-serverd port 5308 probed in health gather (`cfengine=ok|down`);
+  `cf-runagent` trigger planned for Tier 3a fallback in fleet_health_monitor.py
+- Known issue: Mac cf-runagent 3.28.0 protocol negotiation with Termux cf-serverd
+  3.27.1 returns "Unspecified server refusal." TLS layer + trust proven working.
+  Fix: align CFEngine versions or use `cf-runagent --protocol-version 2`.
 
 ### Major changes (2026-07-11 — fork migration + headless automation)
 
