@@ -106,6 +106,14 @@ case "$a11y_list" in
   ""|null) echo "autojs6_a11y=unknown" ;;
   *) echo "autojs6_a11y=missing" ;;
 esac
+# CFEngine self-heal: scrape last line of its repair log for visibility.
+cf_line=$(tail -1 "$HOME/.stayturgid/logs/repair-cfengine.log" 2>/dev/null)
+if [ -n "$cf_line" ]; then
+  echo "cfengine=ok"  # log exists and has content
+  echo "cfengine_last=${cf_line:0:200}"
+else
+  echo "cfengine=down"
+fi
 """
 )
 
@@ -210,6 +218,10 @@ def evaluate_health(report: dict[str, str], *, alias: str | None = None) -> list
             issues.append("a11y_profile_drift")
             report["a11y_missing_n"] = str(len(missing))
 
+    # CFEngine is complementary (not critical). Report down but don't alert.
+    if report.get("cfengine") == "down":
+        issues.append("cfengine_down")
+
     return sorted(set(issues))
 
 
@@ -224,6 +236,7 @@ def summarize(report: dict[str, str], issues: list[str]) -> str:
         "shizuku=%s" % report.get("shizuku", "?"),
         "a11y=%s" % report.get("a11y", "?"),
         "autojs6_a11y=%s" % report.get("autojs6_a11y", "?"),
+        "cfengine=%s" % report.get("cfengine", "?"),
     ]
     if report.get("a11y_missing_n"):
         bits.append("a11y_missing_n=%s" % report["a11y_missing_n"])

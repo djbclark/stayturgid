@@ -325,6 +325,9 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     path, report = fh.probe_device(name, ts_ip, lan_ip)
     if not path:
         log("%s unreachable — skip soft health (see access-monitor)" % name)
+        # FIRERPA gRPC (port 65000) is an independent transport — try it as
+        # a last-resort repair channel when both ADB and SSH are down.
+        _try_firerpa_heal_fallback(name, ts_ip)
         return
 
     if name == "hd8":
@@ -355,6 +358,38 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
 
 ET_MAC_HEAL_STATE = os.path.join(ROOT, "state", "et-mac-ensure")
 ET_MAC_HEAL_COOLDOWN_SEC = 30 * 60  # re-sync fleet keys on Mac at most 2×/hour
+FIRERPA_HEAL_COOLDOWN_SEC = 30 * 60  # try FIRERPA heal at most 2×/hour per host
+
+
+def _try_firerpa_heal_fallback(name: str, ts_ip: str) -> None:
+    """Attempt FIRERPA gRPC repair when both ADB and SSH are down."""
+    if not ts_ip:
+        return
+    # Check if FIRERPA port is reachable via TCP before attempting heal.
+    import socket
+    try:
+        s = socket.create_connection((ts_ip, 65000), timeout=5)
+        s.close()
+    except (OSError, socket.timeout):
+        return
+    # Rate-limit — don't spam FIRERPA heals on a device with flaky Tailscale.
+    state_file = os.path.join(ROOT, "state", "firerpa-heal-fallback-%s" % name)
+    try:
+        mtime = os.path.getmtime(state_file)
+        if time.time() - mtime < FIRERPA_HEAL_COOLDOWN_SEC:
+            return
+    except OSError:
+        pass
+    log("trigger %s firerpa-heal fallback (ADB+SSH down, gRPC reachable)" % name)
+    try:
+        import firerpa_heal
+        result = firerpa_heal.heal_device(ts_ip)
+        log("firerpa-heal %s: %s" % (name, result))
+    except Exception as e:
+        log("firerpa-heal %s error: %s" % (name, e))
+    # Write stamp so we don't retry immediately.
+    write_state(state_file, int(time.time()))
+
 
 
 def maybe_ensure_et_mac() -> None:
