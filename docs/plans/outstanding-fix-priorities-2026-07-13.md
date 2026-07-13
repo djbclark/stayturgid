@@ -190,6 +190,11 @@ The current scheduled flow can leave the operator waiting without an immediate r
 - The dashboard never claims it can automate a consent action Android requires from
   the human.
 
+H8 completed 2026-07-13. `control/bin/dashboard.py` adds the Shizuku launch and
+UID-2000 `rish` verification endpoint; `_device_card.html` exposes it only for
+the actionable `shizuku_down` state. Tests cover the UID requirement, launch
+sequence, and unknown-host rejection. H9 remains open for foreground-screen cleanup.
+
 ## Priority 5 — Exercise untested recovery paths (B63/B64)
 
 ### B63: native Shizuku launch

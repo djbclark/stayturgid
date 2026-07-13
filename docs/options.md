@@ -36,8 +36,8 @@ links and hourly discovery scan. HTTPS consolidation behind Caddy reverse proxy
 (mac.greyhound-sidemirror.ts.net) with HTTP→HTTPS redirect. Tailnet renamed to
 greyhound-sidemirror.ts.net; all old machine names purged. s24 + p7a: FIRERPA secure
 SSH/gRPC live without suppressing AutoJs6, AutoInput, or Octoclip; Python runtime and
-watchdogs healthy. Open menu = remaining hd8 deployment under H1/H3, H8 (`rish`
-dashboard action), H9 (post-UI foreground cleanup),
+watchdogs healthy. Open menu = remaining hd8 deployment under H1/H3, H9
+(post-UI foreground cleanup),
 H5/38, 43–45, 54, F1–F4, T1, and optional T2 runtime-supervision evaluation.
 `make firerpa-health` is clean and live health is clean for s24 + p7a. The aggregate
 `make health` command remains nonzero only for hd8's documented `watchdog_stale` /
@@ -49,7 +49,7 @@ radius · **Latent** = only act if a symptom returns.
 
 **Suggested agent order:** Follow
 [Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md): H1/H3,
-H8/H9, B63/B64, F4, then T1. Hardware-blocked items stay open
+H9, B63/B64, F4, then T1. Hardware-blocked items stay open
 while independent safe work may continue. H5/38, 43–45, 54, and F1–F3 remain lower
 priority or symptom-triggered.
 
@@ -59,7 +59,7 @@ priority or symptom-triggered.
 
 | Track | Focus | Open IDs | Typical risk |
 |-------|-------|----------|--------------|
-| **A — Operational** | Live deploy, human unblockers, current reliability | H1, H3, H5, H8, H9, 38 | Low–High |
+| **A — Operational** | Live deploy, human unblockers, current reliability | H1, H3, H5, H9, 38 | Low–High |
 | **B — Ansible-native** | Bootstrap APK automation follow-ups | B63, B64 | Low–Medium |
 | **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; incubator note | 54 | Medium (mis-scope risk) |
@@ -279,12 +279,14 @@ A controlled S24 stop/start and both phones' secure SSH returned UID 2000.
 If authorization is revoked, the supervisor safely reports the privileged shell unavailable.
 Localhost ADB remains the other validated path.
 
-#### H8 — Dashboard Shizuku authorization action · Risk: **Low**
+#### H8 — Dashboard Shizuku authorization action · **Complete 2026-07-13** · Risk: **Low**
 
-Expose `rish` authorization in the web dashboard: show missing/non-persistent
-Termux authorization as an actionable device state and add an immediate request/test action.
-The action should open or trigger the Shizuku authorization flow where Android permits it,
-then run the UID-2000 probe, so the user need not wait for the scheduled supervisor cycle.
+The dashboard now marks `shizuku_down` as actionable and provides an immediate
+**open Shizuku and test rish** button. The endpoint opens the Shizuku launcher via
+the device shell, runs `~/.stayturgid/bin/rish -c 'id -u'` over Termux SSH, and
+requires UID 2000. If Android still needs consent, the response explicitly tells
+the operator to tap **Allow all the time** and retry. The implementation never
+claims to automate Android consent.
 
 #### H9 — Post-UI unlock and foreground-screen cleanup · Risk: **Low**
 

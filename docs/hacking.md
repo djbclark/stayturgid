@@ -502,9 +502,24 @@ Prefer Python for substantial orchestration, parsing, retries, and validation. K
 shell wrappers small. AutoJs6 runtime code is a justified JavaScript exception.
 
 At session start, run `make health` and distinguish active failures from recovered
- history. Preserve unrelated worktree changes. Landing discovery writes runtime
- observations under `~/.config/stayturgid/landing/services.json`; the tracked
- `control/landing/services.json` is static configuration and should stay clean.
+history. Preserve unrelated worktree changes. Landing discovery writes runtime
+observations under `~/.config/stayturgid/landing/services.json`; the tracked
+`control/landing/services.json` is static configuration and should stay clean.
+
+### Dashboard human-action checks
+
+The Flask dashboard is normally served on `127.0.0.1:4097` and exposed through
+the control-node proxy. For a `shizuku_down` card, use **open Shizuku and test
+rish**. The action only launches the Shizuku app and runs the verification probe;
+it cannot press Android's consent button. Select **Allow all the time** on the
+phone and retry until this returns `2000`:
+
+```bash
+ssh s24 '~/.stayturgid/bin/rish -c "id -u"'
+```
+
+If the device has no Termux SSH path, the dashboard must report that limitation;
+do not interpret opening the Shizuku app alone as authorization.
 
 ### Making watchdog changes
 

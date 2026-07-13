@@ -99,6 +99,13 @@
       <div class="human-item">
         <span class="tag error">{{ action.issue }}</span>
         <p class="human-msg">{{ action.message }}</p>
+        {% if action.shizuku_action %}
+        <button class="link-btn"
+                hx-post="/api/shizuku/{{ device.name }}"
+                hx-target="#shizuku-result-{{ device.name }}"
+                hx-swap="innerHTML">open Shizuku and test rish</button>
+        <div id="shizuku-result-{{ device.name }}" class="shizuku-result"></div>
+        {% endif %}
       </div>
       {% endfor %}
     </details>

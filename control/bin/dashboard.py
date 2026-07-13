@@ -15,6 +15,7 @@ import argparse
 import datetime as dt
 import os
 import re
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -31,10 +32,10 @@ if str(_REPO) not in sys.path:
     sys.path.append(str(_REPO))
 
 from flask import Flask, render_template_string, request
-from markupsafe import Markup
+from markupsafe import Markup, escape
 from fleet_health import probe_device as live_probe, evaluate_health
 from check_fleet_health import read_consecutive as read_fleet_consecutive
-from stayturgid_device import iter_devices_conf
+from stayturgid_device import iter_devices_conf, resolve_ssh_host, PrivShell, SSH_OPTS
 import control.lib.stats as _stats
 
 ROOT = Path(os.path.expanduser("~")) / ".config" / "stayturgid"
@@ -296,12 +297,51 @@ HUMAN_ACTIONS = {
 }
 
 
+def _rish_probe(hostname: str) -> tuple[bool, str]:
+    """Run the canonical UID-2000 probe over the device's Termux SSH path."""
+    ssh_host = resolve_ssh_host(hostname)
+    if not ssh_host:
+        return False, "no Termux SSH path is configured"
+    try:
+        result = subprocess.run(
+            ["ssh", *SSH_OPTS, ssh_host, "~/.stayturgid/bin/rish -c 'id -u'"],
+            capture_output=True, text=True, timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False, "rish probe timed out or SSH is unavailable"
+    uid = (result.stdout or "").strip().splitlines()[-1] if result.stdout else ""
+    if result.returncode == 0 and uid == "2000":
+        return True, "authorized (UID 2000)"
+    detail = (result.stderr or result.stdout or "no UID-2000 response").strip()
+    return False, "not authorized (%s)" % detail[:180]
+
+
+def request_shizuku_authorization(hostname: str) -> tuple[bool, str]:
+    """Open Shizuku on-device, then verify rish; Android consent stays human-gated."""
+    try:
+        rc, _output = PrivShell(hostname).sh(
+            "am start -a android.intent.action.MAIN "
+            "-c android.intent.category.LAUNCHER "
+            "-p moe.shizuku.privileged.api",
+            timeout=20,
+        )
+    except (OSError, ValueError) as exc:
+        return False, "could not open Shizuku: %s" % exc
+    if rc != 0:
+        return False, "could not open Shizuku (device shell rc=%s)" % rc
+    ok, detail = _rish_probe(hostname)
+    if ok:
+        return True, detail
+    return False, "Shizuku opened; tap Allow all the time, then retry (%s)" % detail
+
+
 def _human_actions(issues: list[str], hostname: str) -> list[dict]:
     out: list[dict] = []
     for tag in issues:
         if tag in HUMAN_ACTIONS:
             msg = HUMAN_ACTIONS[tag].replace("<host>", hostname)
-            out.append({"issue": tag, "message": msg})
+            out.append({"issue": tag, "message": msg,
+                        "shizuku_action": tag == "shizuku_down"})
     return out
 
 
@@ -522,6 +562,19 @@ def api_probe(host: str):
 
     return _render_template("_device_card.html", device=d,
                             oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
+
+
+@app.route("/api/shizuku/<host>", methods=["POST"])
+def api_shizuku(host: str):
+    """Open Shizuku and immediately verify Termux rish authorization."""
+    known = {name for name, *_row in iter_devices_conf(str(DEVICES_CONF))}
+    if host not in known:
+        return '<div class="probe-error">Unknown host: %s</div>' % escape(host), 404
+    ok, message = request_shizuku_authorization(host)
+    cls = "ok" if ok else "warn"
+    return '<div class="shizuku-result %s"><strong>Shizuku:</strong> %s</div>' % (
+        cls, escape(message)
+    )
 
 
 @app.route("/health")

@@ -14,6 +14,7 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 | `fire_help_monitor.py` | Mac→Fire: resolve_adb (mDNS wireless-debug), keep `adb_wifi_enabled`, Shizuku/Handsets → `fire-help.log` |
 | `fire_peer_help.py` | Peer ADB helper (Handsets/Shizuku) for Fire; SSH ForceCommand entry |
 | `check_fleet_health.py` | **Session triage** — agents run at start; exit 1 ⇒ tell operator |
+| `dashboard.py` | Flask + HTMX fleet dashboard; human-action cards include the H8 Shizuku open/test action |
 | `check_et_mac.py` / `ensure_et_mac.py` | Phone→Mac ET authorized_keys + health/probe |
 | `gui_audit.py` | Neo/Aurora GUI audit — **parked**; manual only (`docs/modules/fdroid.md`, `docs/modules/play.md`) |
 | `verify_play_autoupdate.py` | Play Store auto-update VLM gate (optional; see [docs/vlm.md](../vlm.md)) |
@@ -50,6 +51,22 @@ CHECK=1 ./control/bin/deploy_fleet.py s24      # same as make deploy-check
 ```
 
 Verify: `make verify` or `make verify-heal` or `bash tests/run.sh device --heal [host]`
+
+### Dashboard Shizuku authorization (H8)
+
+The dashboard runs on `127.0.0.1:4097` (normally published through the control-node
+proxy). When a device reports `shizuku_down`, its card offers **open Shizuku and
+test rish**. The action opens the Shizuku app through the device shell, then runs
+the canonical Termux probe over SSH:
+
+```bash
+~/.stayturgid/bin/rish -c 'id -u'
+```
+
+Only output `2000` counts as success. Android authorization remains human-gated;
+select **Allow all the time** on the phone when prompted, then press the dashboard
+button again. A missing Termux SSH path (for example HD8) is reported rather than
+silently falling back to a misleading success state.
 
 ## Standalone ADB keepalive
 

@@ -187,10 +187,22 @@ end of that plan.
 | **p7a** | 14/16 PASS | all green | pending | ✅ v10.0 secure | ✅ 7/7 | FIRERPA + Termux supervisor deploy verified |
 | **hd8** | 13/16 PASS | offline / watchdog stale | pending | ⚠️ USB only | last ✅ 4/7 | Deferred H1/H3; aggregate `make health` remains nonzero |
 
-**Current fix order:** H1/H3 HD8 health decision → H8/H9 dashboard human actions →
+**Current fix order:** H1/H3 HD8 maintenance decision → H9 foreground-screen cleanup →
 B63/B64 recovery tests → F4 FIRERPA network audit/isolation → T1 `just` migration. See
 [the execution plan](plans/outstanding-fix-priorities-2026-07-13.md) for gates and
 rollback rules.
+
+**Last verified 2026-07-13:** `make check` and `make test` passed (296 pytest tests,
+129 local TAP checks, and all Ansible collection unit suites). `make firerpa-health`
+passed; `make health` remains exit 1 only for HD8's documented stale/offline state.
+There are no active screen-control leases. H8 is implemented and documented but has
+not been live-clicked because the current healthy S24 does not expose a
+`shizuku_down` action; use the dashboard action only when that state is present.
+
+**Recommended next decision:** because HD8 is explicitly lower concern and USB-only,
+choose intentional maintenance/offline representation for H1/H3 rather than a risky
+Fire OS deployment. Do not globally suppress its warning; make the state visible and
+reversible in health and the dashboard.
 
 All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/obtainium/stayturgid-apps.json`.
 **Fork sources:** `~/src/AutoJs6/`, `~/src/Shizuku/`, `~/src/Obtainium/` — **read-only** for this project. If changes needed, write a prompt for the fork's AI.
@@ -640,10 +652,12 @@ version.json                 — repo release version + changelog
 - **Recovered error noise (H12 complete 2026-07-13):** default fleet health keeps
   raw `errors.log` detail but groups repeated messages and labels active, recovered,
   and historical conditions. Exit status remains based on current actionable state.
-- **Termux Shizuku authorization is human-gated (open H8):** the user must select
-  **Allow all the time**. The durable success probe is
-  `~/.stayturgid/bin/rish -c 'id -u'` returning UID 2000. Dashboard request/test/retry
-  support is still pending.
+- **Termux Shizuku authorization (H8 complete 2026-07-13):** the dashboard now
+  offers **open Shizuku and test rish** when `shizuku_down` is actionable. It opens
+  the Shizuku launcher through the device shell, then verifies
+  `~/.stayturgid/bin/rish -c 'id -u'` over Termux SSH. The operator must still select
+  **Allow all the time**; Android consent is never automated. A missing SSH path
+  (notably HD8) is reported explicitly.
 - **s24 AutoJs6 watchdog stale (resolved 2026-07-13):** after the human accessibility
   toggle, `boot-launcher.js` still spawned `main.js` with the launcher's `scripts/`
   working directory, making every `./lib/...` import fail. It now supplies the project
@@ -666,6 +680,10 @@ version.json                 — repo release version + changelog
   Termux:API, Shizuku, or Settings and leave an arbitrary screen visible. The role now
   waits explicitly for an on/unlocked screen. Foreground restoration is OPTIONS H9;
   it is cosmetic and must not block service work.
+- **Dashboard H8 implementation:** `control/bin/dashboard.py` owns
+  `request_shizuku_authorization()` and `/api/shizuku/<host>`; the card action lives
+  in `control/templates/_device_card.html`. Flask is an optional runtime dependency,
+  so dashboard tests are skipped when it is not installed in the host test Python.
 - **Post-reorg path drift (2026-07-10):** treat any `mac/`, `shared/`, root `termux/`,
   `autojs6/`, `obtainium/` reference as a bug unless it is historical (`docs/history/`),
   OPTIONS **62**, or an on-device path (`/sdcard/stayturgid/autojs6`). External

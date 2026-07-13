@@ -55,6 +55,13 @@ Neo Store / Aurora Store are **parked** (not in active deploy); see [docs/module
 
 **Partial re-runs:** `./control/bin/deploy_fleet.py --scope fdroid [host]` · `./control/bin/deploy_fleet.py --scope play [host]` (no-op while app stores are parked)
 
+The fleet dashboard is available on the control node at `http://127.0.0.1:4097/`
+(normally reached through the configured HTTPS proxy). A device card with a
+`shizuku_down` issue includes an **open Shizuku and test rish** action. Android
+still requires the operator to choose **Allow all the time**; success is verified
+only when `~/.stayturgid/bin/rish -c 'id -u'` returns UID 2000. See
+[the control-node guide](docs/modules/control.md#dashboard-shizuku-authorization-h8).
+
 ### Maintainer resume order
 
 Before selecting new work, read [docs/options.md](docs/options.md) and follow the
