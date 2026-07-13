@@ -21,6 +21,7 @@ bundle agent stayturgid_heal {
     "heal" usebundle => check_shizuku("$(prefix)");
     "heal" usebundle => check_a11y("$(prefix)");
     "heal" usebundle => check_profile("$(prefix)", "$(home)");
+    "heal" usebundle => check_bootloop_repair("$(prefix)", "$(home)");
 
   reports:
     cfengine::
@@ -123,6 +124,26 @@ bundle agent check_profile(p, h) {
     !profile_clean::
       "$(p)/bin/sed"
         args => "-i.bak 's|^export PATH=.*/Users/.*|export PATH=\"\\$$HOME/bin:$(p)/bin:$(p)/sbin:\\$$PATH\"|' $(h)/.profile $(h)/.bashrc 2>/dev/null; true",
+        contain => silent_bg;
+}
+
+bundle agent check_bootloop_repair(p, s) {
+  classes:
+    "boot_running" expression => returnszero("$(p)/bin/pgrep -f start-adb.sh >/dev/null 2>&1", "useshell");
+    "repair_recent" expression => returnszero("[ -f $(s)/logs/repair.log ] && [ $(stat -c %%Y $(s)/logs/repair.log 2>/dev/null || echo 0) -ge $(($(date +%%s) - 3600)) ]", "useshell");
+
+  reports:
+    boot_running.repair_recent::
+      "bootloop_repair: running and recent";
+    boot_running.!repair_recent::
+      "bootloop_repair: running but repair stale over 1h — RESTARTING";
+    !boot_running::
+      "bootloop_repair: not running — STARTING";
+
+  commands:
+    (boot_running.!repair_recent)|(!boot_running)::
+      "$(p)/bin/bash"
+        args => "-c 'pkill -f stayturgid_repair 2>/dev/null; pkill -f start-adb.sh 2>/dev/null; sleep 2; nohup bash $(s)/boot/start-adb.sh >/dev/null 2>&1 &'",
         contain => silent_bg;
 }
 

@@ -1,3 +1,4 @@
+// @heals: A11Y-AUTOJS6
 var config = require("./config.js");
 var notify = require("./notify.js");
 var termux = require("./termux.js");

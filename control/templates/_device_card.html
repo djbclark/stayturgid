@@ -29,70 +29,90 @@
   <div class="probe-error">probe timed out or device unreachable</div>
   {% endif %}
 
-  <div class="card-meta">
-    {% if device.ts_ip %}<span>Tailscale <code>{{ device.ts_ip }}</code></span>{% endif %}
-    {% if device.lan_ip %}<span>LAN <code>{{ device.lan_ip }}</code></span>{% else %}<span class="na">LAN: N/A</span>{% endif %}
-    {% if device.usb_serial %}<span>USB <code>{{ device.usb_serial }}</code></span>{% endif %}
+  <div class="data-section">
+    {% if device.ts_ip %}<div class="row"><span class="row-label">Tailscale</span><span class="row-value"><code>{{ device.ts_ip }}</code></span></div>{% endif %}
+    {% if device.lan_ip %}<div class="row"><span class="row-label">LAN</span><span class="row-value"><code>{{ device.lan_ip }}</code></span></div>{% else %}<div class="row"><span class="row-label">LAN</span><span class="row-value na">N/A</span></div>{% endif %}
+    {% if device.usb_serial %}<div class="row"><span class="row-label">USB</span><span class="row-value"><code>{{ device.usb_serial }}</code></span></div>{% endif %}
   </div>
 
   {% if device.health %}
-  <div class="card-services">
-    <div class="service-row">
-      <span class="svc-label">services</span>
-      {{ device.service_badges.sshd }}
-      {{ device.service_badges.bootloop }}
-      {{ device.service_badges.shell5555 }}
-      {{ device.service_badges.shizuku }}
-      {{ device.service_badges.a11y }}
-      {{ device.service_badges.autojs6_a11y }}
-      {{ device.service_badges.cfengine }}
-      {{ device.service_badges.port }}
-    </div>
-    <div class="service-row">
-      <span class="svc-label">ages</span>
-      <span class="svc-label">watchdog</span>{{ device.watchdog_badge }}
-      <span class="svc-label">repair</span>{{ device.repair_badge }}
-    </div>
-  </div>
+  <div class="data-section">
 
-  <div class="card-path">
-    <span class="svc-label">via</span>
-    <code>{{ device.via_display }}</code>
-    <span class="svc-label">consecutive</span>
-    <span class="badge {% if device.fleet_consec >= 2 %}error{% else %}ok{% endif %}">{{ device.fleet_consec }}/2</span>
+    {% for svc in device.services %}
+    <div class="row">
+      <span class="row-label">{{ svc.label }}</span>
+      <span class="row-value">
+        <span class="badge {{ svc.cls }}">{{ svc.value }}</span>
+      </span>
+    </div>
+    {% endfor %}
+
+    <div class="row">
+      <span class="row-label">watchdog</span>
+      <span class="row-value">{{ device.watchdog_badge }}</span>
+    </div>
+    <div class="row">
+      <span class="row-label">repair</span>
+      <span class="row-value">{{ device.repair_badge }}</span>
+    </div>
+
+    <div class="row">
+      <span class="row-label">via</span>
+      <span class="row-value"><code>{{ device.via_display }}</code></span>
+    </div>
+    <div class="row">
+      <span class="row-label">consecutive</span>
+      <span class="row-value"><span class="badge {% if device.fleet_consec >= 2 %}error{% else %}ok{% endif %}">{{ device.fleet_consec }}/2</span></span>
+    </div>
   </div>
   {% endif %}
 
-  <div class="card-firerpa">
-    {% if device.firerpa %}
-    <span class="svc-label">FIRERPA</span>
-    {{ device.firerpa_badge }}
-    <span class="svc-label">via gRPC</span>
-    {{ device.firerpa_sshd_badge }}
-    {{ device.firerpa_shizuku_badge }}
-    <span class="badge dim">{{ device.firerpa_age }} ago</span>
-    {% else %}
-    <span class="svc-label">FIRERPA</span>
-    <span class="na">not installed on this device</span>
-    {% endif %}
+  <div class="data-section">
+    <div class="row">
+      <span class="row-label">FIRERPA</span>
+      <span class="row-value">
+        {% if device.firerpa %}
+          {{ device.firerpa_badge }}
+          <span style="margin-left:4px">{{ device.firerpa_sshd_badge }}{{ device.firerpa_shizuku_badge }}</span>
+          <span class="badge dim">{{ device.firerpa_age }} ago</span>
+        {% else %}
+          <span class="na">not installed</span>
+        {% endif %}
+      </span>
+    </div>
   </div>
 
   {% if device.issues %}
-  <div class="card-issues">
-    <span class="svc-label">issues</span>
-    {{ device.issue_tags }}
+  <div class="row">
+    <span class="row-label">issues</span>
+    <span class="row-value">{{ device.issue_tags }}</span>
   </div>
   {% endif %}
 
-  <div class="card-links">
+  {% if device.human_actions %}
+  <div class="human-actions">
+    <details class="human-details">
+      <summary class="human-summary">
+        <span class="badge warn">&#9888; human action needed</span>
+      </summary>
+      {% for action in device.human_actions %}
+      <div class="human-item">
+        <span class="tag error">{{ action.issue }}</span>
+        <p class="human-msg">{{ action.message }}</p>
+      </div>
+      {% endfor %}
+    </details>
+  </div>
+  {% endif %}
+
+  <div class="links">
     {% if device.ts_ip %}
       <a href="ssh://{{ device.name }}" class="link-btn">ssh://{{ device.name }}</a>
+      <a href="cfengine://{{ device.name }}:5308" class="link-btn">cfengine :5308</a>
       <a href="http://{{ device.ts_ip }}:65000" target="_blank" class="link-btn">firerpa :65000</a>
     {% endif %}
     {% if device.lan_ip %}
       <a href="http://{{ device.lan_ip }}:65000" target="_blank" class="link-btn">firerpa LAN</a>
-    {% else %}
-      <span class="na">FIRERPA LAN: N/A</span>
     {% endif %}
     {% if device.usb_serial %}
       <span class="link-btn dim">adb:{{ device.usb_serial }}</span>

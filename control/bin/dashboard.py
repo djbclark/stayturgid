@@ -29,7 +29,8 @@ for d in [_LIB, _BIN]:
         sys.path.insert(0, str(d))
 
 from flask import Flask, render_template_string, request, url_for
-from fleet_health import probe_device as live_probe, evaluate_health, parse_kv
+from markupsafe import Markup
+from fleet_health import probe_device as live_probe, evaluate_health
 from check_fleet_health import read_consecutive as read_fleet_consecutive
 from stayturgid_device import iter_devices_conf
 
@@ -75,6 +76,16 @@ def _badge(value: str, mapping: dict[str, str]) -> str:
 # ---------------------------------------------------------------------------
 # fleet-health.log parsing
 # ---------------------------------------------------------------------------
+def _parse_space_kv(text: str) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for token in text.split():
+        if "=" not in token:
+            continue
+        k, v = token.split("=", 1)
+        out[k.strip()] = v.strip()
+    return out
+
+
 _HEALTH_LINE_RE = re.compile(
     r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(\S+)\s+via\s+(\S+):\s+(.*)$"
 )
@@ -94,7 +105,7 @@ def _latest_fleet_health() -> dict[str, dict]:
         ts = _parse_log_ts(ts_s)
         if ts is None:
             continue
-        body = parse_kv(rest)
+        body = _parse_space_kv(rest)
         body["ts"] = ts
         body["via"] = via
         body["host"] = host
@@ -124,7 +135,7 @@ def _latest_firerpa_health() -> dict[str, dict]:
         ts = _parse_log_ts(ts_s)
         if ts is None:
             continue
-        kv = parse_kv(rest)
+        kv = _parse_space_kv(rest)
         out[host] = {
             "ts": ts,
             "firerpa_ip": ip,
@@ -162,8 +173,24 @@ _SERVICE_BAD = {"down": "error", "closed": "error", "failed": "error", "missing"
 _AGE_WARN = 30 * 60
 _AGE_CRIT = 45 * 60
 
+_SVC_LABELS = {
+    "sshd": "sshd", "bootloop": "bootloop", "shell5555": "sh 5555",
+    "shizuku": "shizuku", "a11y": "a11y", "autojs6_a11y": "autojs6",
+    "cfengine": "cfengine", "port": "port",
+}
 
-def _svc_badge(key: str, value: str | None, ok_values: frozenset[str] | None = None) -> str:
+
+def _svc_cls(value: str | None) -> str:
+    if value is None:
+        return "unknown"
+    if value in _SERVICE_OK:
+        return "ok"
+    if value in _SERVICE_BAD:
+        return "error"
+    return "unknown"
+
+
+def _svc_badge(key: str, value: str | None, ok_values: frozenset[str] | None = None) -> Markup:
     if value is None:
         value = "?"
     if ok_values and value in ok_values:
@@ -174,23 +201,86 @@ def _svc_badge(key: str, value: str | None, ok_values: frozenset[str] | None = N
         cls = "error"
     else:
         cls = "unknown"
-    return f'<span class="badge {cls}" title="{key}">{value}</span>'
+    return Markup(f'<span class="badge {cls}" title="{key}">{value}</span>')
 
 
-def _age_badge(sec: int | None) -> str:
+def _age_badge(sec: int | None) -> Markup:
     if sec is None:
-        return '<span class="badge unknown">N/A</span>'
+        return Markup('<span class="badge unknown">N/A</span>')
     if sec >= _AGE_CRIT:
-        return f'<span class="badge error">{_age_str(sec)}</span>'
+        return Markup(f'<span class="badge error">{_age_str(sec)}</span>')
     if sec >= _AGE_WARN:
-        return f'<span class="badge warn">{_age_str(sec)}</span>'
-    return f'<span class="badge ok">{_age_str(sec)}</span>'
+        return Markup(f'<span class="badge warn">{_age_str(sec)}</span>')
+    return Markup(f'<span class="badge ok">{_age_str(sec)}</span>')
 
 
-def _issue_tags(issues: list[str]) -> str:
+def _issue_tags(issues: list[str]) -> Markup:
     if not issues:
-        return '<span class="badge ok">none</span>'
-    return " ".join(f'<span class="tag error">{i}</span>' for i in issues)
+        return Markup('<span class="badge ok">none</span>')
+    return Markup(" ".join(f'<span class="tag error">{i}</span>' for i in issues))
+
+
+def _human_actions(issues: list[str], hostname: str) -> list[dict]:
+    out: list[dict] = []
+    for tag in issues:
+        if tag in HUMAN_ACTIONS:
+            msg = HUMAN_ACTIONS[tag].replace("<host>", hostname)
+            out.append({"issue": tag, "message": msg})
+    return out
+
+
+HUMAN_ACTIONS = {
+    "autojs6_a11y_missing": (
+        "Open Android Settings → Accessibility → Downloaded apps → AutoJs6 "
+        "→ toggle ON. If already ON, toggle OFF then ON again. "
+        "This must be done on the device screen — Android blocks programmatic enable on 16+."
+    ),
+    "a11y_failed": (
+        "Accessibility repair failed. Open Android Settings → Accessibility → "
+        "Downloaded apps → AutoJs6 → toggle ON. If already ON, toggle OFF then ON again."
+    ),
+    "a11y_profile_drift": (
+        "Expected accessibility services are missing from this device. "
+        "Run: make verify-heal HOSTS=<host> to merge-restore the profile."
+    ),
+    "port_closed": (
+        "ADB wireless debugging port 5555 is closed. On the device, open "
+        "Developer Options → Wireless debugging → enable. Or connect USB and run: "
+        "adb tcpip 5555"
+    ),
+    "sshd_down": (
+        "SSH daemon is not running on the device. The repair loop should auto-restart it. "
+        "If persistent, run: make deploy-termux HOSTS=<host>"
+    ),
+    "repair_stale": (
+        "The Termux repair loop has not cycled in over 45 minutes. "
+        "The self-heal monitor will attempt to restart it. "
+        "If persistent, run: make verify-heal HOSTS=<host>"
+    ),
+    "repair_missing": (
+        "No repair log found. The Termux boot loop may not be running. "
+        "Run: make deploy-termux HOSTS=<host>"
+    ),
+    "shizuku_down": (
+        "Shizuku is not running. The repair loop should auto-restart it. "
+        "If persistent, open the Shizuku app and tap Start."
+    ),
+}
+
+
+def _build_services(h: dict) -> list[dict]:
+    svc_order = ["sshd", "bootloop", "shell5555", "shizuku", "a11y",
+                 "autojs6_a11y", "cfengine", "port"]
+    out: list[dict] = []
+    for key in svc_order:
+        val = h.get(key)
+        if val is None or val in ("skip",):
+            continue
+        cls = _svc_cls(val)
+        if key == "port":
+            cls = "ok" if val == "open" else ("error" if val == "closed" else "unknown")
+        out.append({"label": _SVC_LABELS.get(key, key), "value": val, "cls": cls})
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -223,16 +313,7 @@ def build_device_data() -> list[dict]:
             d["health_age_s"] = _age_s(h["ts"])
             d["health_age"] = _age_str(d["health_age_s"])
             d["via_display"] = h.get("via", "?")
-            d["service_badges"] = {
-                "sshd": _svc_badge("sshd", h.get("sshd")),
-                "bootloop": _svc_badge("bootloop", h.get("bootloop")),
-                "shell5555": _svc_badge("shell5555", h.get("shell5555")),
-                "shizuku": _svc_badge("shizuku", h.get("shizuku")),
-                "a11y": _svc_badge("a11y", h.get("a11y")),
-                "autojs6_a11y": _svc_badge("autojs6", h.get("autojs6_a11y")),
-                "cfengine": _svc_badge("cfengine", h.get("cfengine")),
-                "port": _svc_badge("port", h.get("port"), ok_values=frozenset({"open"})),
-            }
+            d["services"] = _build_services(h)
             wa = h.get("watchdog_age")
             d["watchdog_age"] = int(wa) if wa and wa not in ("missing", "unknown") else None
             ra = h.get("repair_age")
@@ -240,17 +321,19 @@ def build_device_data() -> list[dict]:
             d["watchdog_badge"] = _age_badge(d["watchdog_age"])
             d["repair_badge"] = _age_badge(d["repair_age"])
             d["issue_tags"] = _issue_tags(report_issues)
+            d["human_actions"] = _human_actions(report_issues, name)
         else:
             d["issues"] = []
             d["health_age_s"] = None
             d["health_age"] = "--"
             d["via_display"] = "?"
-            d["service_badges"] = {}
+            d["services"] = []
             d["watchdog_age"] = None
             d["repair_age"] = None
             d["watchdog_badge"] = _age_badge(None)
             d["repair_badge"] = _age_badge(None)
             d["issue_tags"] = _issue_tags([])
+            d["human_actions"] = []
 
         fr = d["firerpa"]
         if fr is not None:
@@ -341,12 +424,13 @@ def api_probe(host: str):
             "health_age_s": None,
             "health_age": "--",
             "via_display": "unreachable",
-            "service_badges": {},
+            "services": [],
             "watchdog_age": None,
             "repair_age": None,
             "watchdog_badge": _age_badge(None),
             "repair_badge": _age_badge(None),
             "issue_tags": _issue_tags([]),
+            "human_actions": [],
             "probe_error": True,
         }
     else:
@@ -368,21 +452,13 @@ def api_probe(host: str):
             "health_age_s": 0,
             "health_age": "live",
             "via_display": h.get("via", "live"),
-            "service_badges": {
-                "sshd": _svc_badge("sshd", h.get("sshd")),
-                "bootloop": _svc_badge("bootloop", h.get("bootloop")),
-                "shell5555": _svc_badge("shell5555", h.get("shell5555")),
-                "shizuku": _svc_badge("shizuku", h.get("shizuku")),
-                "a11y": _svc_badge("a11y", h.get("a11y")),
-                "autojs6_a11y": _svc_badge("autojs6", h.get("autojs6_a11y")),
-                "cfengine": _svc_badge("cfengine", h.get("cfengine")),
-                "port": _svc_badge("port", h.get("port"), ok_values=frozenset({"open"})),
-            },
+            "services": _build_services(h),
             "watchdog_age": int(h.get("watchdog_age", "0")) if h.get("watchdog_age") not in ("missing", "unknown", None) else None,
             "repair_age": int(h.get("repair_age", "0")) if h.get("repair_age") not in ("missing", "unknown", None) else None,
             "watchdog_badge": _age_badge(None),
             "repair_badge": _age_badge(None),
             "issue_tags": _issue_tags(report_issues),
+            "human_actions": _human_actions(report_issues, name),
             "probe_live": True,
         }
         wa = d["watchdog_age"]

@@ -65,7 +65,7 @@ SD="${STAYTURGID_SD:-/sdcard/stayturgid}"
 FIRE=0
 case "$SD" in *termux/files/home*) FIRE=1; echo "localhost_shell=skip" ;; esac
 echo "ssh_echo=ok"
-pgrep -x sshd >/dev/null 2>&1 && echo "sshd=ok" || echo "sshd=down"
+pgrep sshd >/dev/null 2>&1 && echo "sshd=ok" || echo "sshd=down"
 pgrep -f 'start-adb\.sh' >/dev/null 2>&1 && echo "bootloop=ok" || echo "bootloop=down"
 if [ "$FIRE" = 1 ]; then
   echo "shell5555=skip"

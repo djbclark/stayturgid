@@ -67,6 +67,10 @@ bundle server access_rules() {
     "check_bootloop"
       resource_type => "query",
       admit         => { "100.64.0.0/10" };
+
+    "check_bootloop_repair"
+      resource_type => "query",
+      admit         => { "100.64.0.0/10" };
 }
 
 # Aggregate repair bundle — runs all auto-repair bundles.
@@ -75,6 +79,7 @@ bundle agent stayturgid_heal {
     "sshd"     usebundle => check_sshd;
     "mirror"   usebundle => check_mirror;
     "profile"  usebundle => check_profile;
+    "bootloop" usebundle => check_bootloop_repair;
 
   reports:
     cfengine::

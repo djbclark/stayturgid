@@ -106,14 +106,14 @@ def iter_devices_conf(conf_path=None):
 
 def iter_monitor_hosts(conf_path=None):
     """Yield ``(name, tailscale_ip, lan_ip)`` — monitors that ignore USB serial."""
-    for name, _usb, ts_ip, lan in iter_devices_conf(conf_path):
+    for name, _usb, ts_ip, lan, *_label in iter_devices_conf(conf_path):
         yield name, ts_ip, lan
 
 
 def device_row(alias, conf_path=None):
     """alias -> (usb_serial, tailscale_ip, lan_ip) from devices.conf, or None."""
     conf_path = conf_path or DEVICES_CONF
-    for name, usb, ts_ip, lan in iter_devices_conf(conf_path):
+    for name, usb, ts_ip, lan, *_label in iter_devices_conf(conf_path):
         if name == alias:
             return (usb, ts_ip, lan)
     return None

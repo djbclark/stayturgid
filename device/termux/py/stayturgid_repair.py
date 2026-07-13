@@ -1,4 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/python
+# @heals: SSHD-RUNNING PORT5555-OPEN SHIZUKU-HEADLESS A11Y-AUTOJS6 MIRROR-PINNED PATH-CLEAN ET-CONFIG OS-RELEASE PKG-UPGRADE AUTOJS6-PROFILE SHIZUKU-PROFILE DEVICE-JSON ENV-FILE
 """stayturgid-repair.py — Termux-side self-heal (deployed as ~/stayturgid_repair.py,
 reached via the ~/stayturgid_repair.py compat shim).
 

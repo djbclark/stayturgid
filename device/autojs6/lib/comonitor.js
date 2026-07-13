@@ -1,3 +1,4 @@
+// @heals: SSHD-RUNNING PORT5555-OPEN SHIZUKU-HEADLESS A11Y-AUTOJS6
 /**
  * AutoJs6 co-monitor — redundant health probes via Shizuku when Termux is
  * stale, hung, or skipped (Fire OS / NO_LOCAL_ADB).
