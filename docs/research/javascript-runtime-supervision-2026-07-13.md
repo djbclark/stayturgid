@@ -1,7 +1,7 @@
 # JavaScript Runtime Supervision Evaluation
 
 **Date:** 2026-07-13  
-**Status:** Evaluation complete; no runtime change authorized
+**Status:** Evaluation complete; no runtime framework change authorized
 
 ## Scope and current architecture
 
@@ -102,6 +102,61 @@ settings, explicit log paths, a fleet-health probe, Termux:Boot integration behi
 an explicit flag, resource measurements, and tested rollback. It must not own
 AutoJs6, wireless ADB, Shizuku, accessibility, or the Python repair path.
 
+## AutoJs6 code quality: what would actually help
+
+The project currently has about 1,532 lines of AutoJs6 JavaScript in 20 files. The
+largest module is `comonitor.js` at 242 lines; most other modules are small adapters.
+This is not enough code to justify a new application framework, dependency-injection
+container, reactive runtime, or general-purpose state-management library. The Android
+APIs are the difficult part, not JavaScript boilerplate.
+
+The practical quality stack should run on the Mac/CI only and never be bundled onto
+phones:
+
+1. **ESLint with an ES5-compatible parser configuration.** Enable syntax checks,
+   `no-undef` with an explicit AutoJs6-global allowlist, `no-unused-vars`,
+   `eqeqeq`, `no-unreachable`, `no-shadow`, and a project rule against silently
+   swallowing new errors. Keep platform adapter files separately configured where
+   Java/Android globals are unavoidable.
+2. **JSDoc plus TypeScript `checkJs` for portable modules.** Start with `config.js`,
+   `log.js`, and pure parsing/path helpers. Add a small checked declaration file for
+   AutoJs6 globals rather than pretending the entire Android API is Node. This gives
+   parameter/return checking without converting the deployed source to TypeScript.
+3. **Keep the existing Node harness.** It is already a fast compatibility seam for
+   `log`, `comonitor`, and boot-launcher behavior. Jest would add a test runner but
+   not AutoJs6 fidelity; migrate only if the test count or fixtures make the current
+   TAP-style harness painful.
+4. **Prefer “functional core, platform shell.”** Keep string parsing, path handling,
+   status classification, retry policy, and state transitions pure and testable; keep
+   `shizuku()`, `files`, `device`, `context`, `app`, and UI calls in thin adapters.
+   This is a structural improvement that reduces risk without adding a runtime.
+5. **Use dependency-free runtime code by default.** Packages such as RxJS, fp-ts,
+   Zod, or generic Android automation libraries would add compatibility and deploy
+   risks to the Rhino/AutoJs6 environment for little benefit at this size.
+
+AutoJs6 compatibility is the limiting constraint. Auto.js documentation describes
+the legacy Rhino engine as ES5 plus limited ES6 support, while its newer Node/V8
+engine is a separate mode. The current project deliberately uses conservative
+CommonJS/ES5-style code, so modern TypeScript/ESM libraries cannot simply be dropped
+into `device/autojs6/` without proving the selected engine, packaging, and boot path.
+
+### Bounded implementation proposal
+
+If the operator selects T2, the first change should be a host-only lint/type-check
+pilot—not a runtime rewrite:
+
+```text
+1. Add pinned dev-only ESLint and TypeScript packages in a control-node package
+   manifest, with no npm dependencies copied to Android.
+2. Lint and `tsc --allowJs --checkJs --noEmit` only the pure modules first.
+3. Add AutoJs6 ambient declarations for the globals used by platform adapters.
+4. Fix findings in small commits; preserve Node tests and `make check` contracts.
+5. Measure false positives and deploy nothing new to S24 until the checks are clean.
+```
+
+This would improve correctness and reviewability. It is more valuable than adopting
+PM2, Uptime Kuma, Pulumi, Shipit, or Flightplan for this JavaScript.
+
 ## Sources
 
 - [PM2 overview](https://pm2.io/docs/runtime/overview/)
@@ -114,4 +169,7 @@ AutoJs6, wireless ADB, Shizuku, accessibility, or the Python repair path.
 - [Google `zx`](https://github.com/google/zx)
 - [Shipit CLI](https://www.npmjs.com/package/shipit-cli)
 - [Flightplan package](https://www.npmjs.com/package/flightplan)
+- [Auto.js engine documentation](https://www.autojs.cc/docs/en/guide/quickstart.html.htm)
+- [TypeScript `checkJs` documentation](https://www.typescriptlang.org/tsconfig/checkJs.html)
+- [ESLint documentation](https://eslint.org/docs/latest/)
 - Local source checkout: `~/src/pm2` (shallow clone inspected 2026-07-13)

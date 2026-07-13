@@ -193,11 +193,10 @@ files. Implementation remains deferred until T1 is deliberately selected.
 #### T2 — Evaluate PM2 or another JS/runtime operations tool (operator decision) · Risk: **Medium** · Deferred
 
 The evaluation now covers PM2, Uptime Kuma, Pulumi, Jest, `zx`, Shipit, and
-Flightplan. Uptime Kuma is the only plausible near-term complement: a read-only
-external monitor for existing dashboard/health endpoints. PM2 cannot manage
-AutoJs6's Android process; Pulumi would duplicate Ansible; Jest/`zx` are developer
-tools; Shipit/Flightplan duplicate or weaken the existing deployment boundary. Keep
-all deferred. Details and sources are in
+Flightplan. None should become an AutoJs6 runtime dependency. The most useful
+follow-up is a host-only ESLint plus JSDoc/TypeScript `checkJs` pilot for pure modules;
+the existing Node harness remains the device-test seam. Details, compatibility
+constraints, and bounded implementation steps are in
 [JavaScript Runtime Supervision Evaluation](research/javascript-runtime-supervision-2026-07-13.md).
 
 ---
