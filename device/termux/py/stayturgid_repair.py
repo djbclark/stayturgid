@@ -315,7 +315,7 @@ def duplicate_branch():
             else "down"
         )
     status = (
-        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s"
+        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s os_release=skip auto_profile=skip shizuku_profile=skip device_profile=skip env=skip"
         % (port, shizuku, sshd, a11y, "yes" if sh else "no", wifi, et_cfg)
     )
     log(status + " rc=0 (skipped-duplicate)")
@@ -658,8 +658,8 @@ def main():
         rc_auto, _ = sh_adb("pgrep -f org.autojs.autojs6 2>/dev/null")
         if rc_auto == 0:
             auto_running = True
-        rc_afp, _ = sh_adb("[ -f /sdcard/Download/autojs6-fleet.json ] && echo ok || echo missing")
-        if "ok" in rc_afp:
+        _, afp_out = sh_adb("[ -f /sdcard/Download/autojs6-fleet.json ] && echo ok || echo missing")
+        if "ok" in afp_out:
             if not auto_running:
                 profile = "/sdcard/Download/autojs6-fleet.json"
                 sh_adb("if [ -f %s ]; then am start --user 0 "
@@ -675,8 +675,8 @@ def main():
             auto_profile = "MISSING"
             log("autojs6-fleet.json is MISSING from /sdcard/Download/ — re-deploy required")
         # Shizuku: only re-apply when Shizuku is down.
-        rc_sf, _ = sh_adb("[ -f /data/local/tmp/shizuku-fleet.json ] && echo ok || echo missing")
-        if "ok" in rc_sf:
+        _, sf_out = sh_adb("[ -f /data/local/tmp/shizuku-fleet.json ] && echo ok || echo missing")
+        if "ok" in sf_out:
             shizuku_profile = "present"
             if shizuku != "up":
                 profile = "/data/local/tmp/shizuku-fleet.json"

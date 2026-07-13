@@ -89,7 +89,10 @@ def check_mode(cli_check: bool) -> bool:
 
 
 def parse_inventory_hosts(data: dict, group: str = "stayturgid") -> list[str]:
-    return list(data[group]["hosts"].keys())
+    hosts = data[group]["hosts"]
+    if isinstance(hosts, list):
+        return list(hosts)
+    return list(hosts.keys())
 
 
 def inventory_hosts(group: str = "stayturgid") -> list[str]:
