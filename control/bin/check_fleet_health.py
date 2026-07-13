@@ -247,9 +247,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     # Show recent device errors
     if ERROR_LOG.is_file():
-        errors = _read_device_errors(hours=hours)
+        errors = _read_device_errors(hours=args.hours)
         if errors:
-            print("\n=== recent device errors (%dh) ===" % hours)
+            print("\n=== recent device errors (%dh) ===" % args.hours)
             for e in errors:
                 print("  %s" % e)
     return 1

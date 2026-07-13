@@ -424,7 +424,7 @@ Deployed scripts → `~/.stayturgid/bin`; AutoJs6 project → `/sdcard/stayturgi
 | USB serial | `RFCX219CHKA` (**use when plugged in**) |
 | Wireless ADB | `adb connect 100.123.218.30:5555` (Tailscale, stable) — also `192.168.68.54:5555` LAN (DHCP — see `ansible/inventory/hosts.yml`) |
 | SSH | `ssh s24` (alias → Tailscale, key auth, no 1Password dialog); via USB: `adb -s RFCX219CHKA forward tcp:8022 tcp:8022 && ssh -p 8022 localhost` |
-| Tailscale | `dannys24` = `100.123.218.30`; always-on VPN ON. "Block connections without VPN" deliberately OFF (would sever LAN ADB/mDNS on tunnel blips) |
+| Tailscale | `s24` = `100.123.218.30`; always-on VPN ON. "Block connections without VPN" deliberately OFF (would sever LAN ADB/mDNS on tunnel blips) |
 | AutoJs6 | `org.autojs.autojs6` v6.7.0 |
 | Shizuku | thedjchi fork — **survives cold reboot** (persistent wireless-debugging pairing established) |
 | Termux / Obtainium | GitHub-signed stack via Obtainium; Shizuku installer enabled |

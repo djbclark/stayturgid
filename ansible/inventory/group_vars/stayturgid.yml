@@ -25,6 +25,7 @@ stayturgid_control_lan_ip: "{{ stayturgid_mac_peer.lan }}"
 stayturgid_control_ssh_aliases:
   - mac
   - macbook
+  - mac.greyhound-sidemirror.ts.net
   - djbclarks-macbook-air
   - djbclarks-MacBook-Air.local
 

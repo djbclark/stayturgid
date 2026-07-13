@@ -49,7 +49,7 @@ app = Flask(__name__,
             static_folder=str(_CONTROL / "static"),
             static_url_path="/static")
 
-OC_WEB_URL = "http://djbclarks-macbook-air.local:4096/"
+OC_WEB_URL = "https://mac.greyhound-sidemirror.ts.net/"
 
 
 def _parse_log_ts(s: str) -> dt.datetime | None:
