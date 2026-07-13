@@ -83,6 +83,17 @@ def log(msg, level=INFO):
             pass
 
 
+def _write_status(status):
+    """Write STATUS line to run/repair.status for Ansible/module consumers."""
+    status_path = os.path.join(STG, "run", "repair.status")
+    try:
+        ensure_parent(status_path)
+        with open(status_path, "w") as f:
+            f.write(status + "\n")
+    except OSError:
+        pass
+
+
 def trim_log(path, keep=500, over=1000):
     try:
         with open(path) as f:
@@ -211,7 +222,8 @@ def ensure_wireless_debugging():
 
 
 def duplicate_branch():
-    """Another invocation holds the lock: read-only advisory probe, exit 0."""
+    """Another invocation holds the lock: read-only advisory probe, exit 0.
+    Output goes only to log — never stdout, even when quiet mode is off."""
     sshd = "up" if (sshd_up() or sshd_listening()) else "unknown"
     # Match main() STATUS schema (a11y=, et_cfg=) so parsers stay consistent.
     if not privileged_shell_expected():
@@ -261,8 +273,7 @@ def duplicate_branch():
         % (port, shizuku, sshd, a11y, "yes" if sh else "no", wifi, et_cfg)
     )
     log(status + " rc=0 (skipped-duplicate)")
-    print(status)
-    return 0
+    _write_status(status)
 
 
 def acquire_lock():
@@ -744,7 +755,7 @@ def main():
         port, shizuku, sshd, a11y, "yes" if have_sh else "no", wifi, et_cfg, os_release, pkg_upgrade,
         auto_profile, shizuku_profile, device_profile, env_file)
     log(status + " rc=%d" % rc)
-    print(status)
+    _write_status(status)
     return rc
 
 

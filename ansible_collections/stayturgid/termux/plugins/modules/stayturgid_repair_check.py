@@ -150,7 +150,14 @@ def main():
         module.fail_json(msg="repair script not found: %s" % script)
 
     rc, stdout, stderr = module.run_command(runner)
-    status_line = find_status_line(stdout)
+    # STATUS is written to ~/.stayturgid/run/repair.status (not stdout).
+    # Fall back to stdout for backward compatibility with older repair scripts.
+    status_line = find_status_line(stdout) or ""
+    if not status_line:
+        rc2, status_file, _ = module.run_command(
+            "cat %s/.stayturgid/run/repair.status 2>/dev/null || true" % os.path.expanduser("~")
+        )
+        status_line = (status_file or "").strip()
     parsed = parse_status_line(status_line) if status_line else None
     healthy = is_healthy(parsed)
 
