@@ -37,6 +37,8 @@ HEAL_STATE_DIR = os.path.join(ROOT, "state", "watchdog-heal")
 GOOGLE_HEAL_STATE_DIR = os.path.join(ROOT, "state", "google-stack-heal")
 GOOGLE_VERIFY_STATE_DIR = os.path.join(ROOT, "state", "google-stack-verify")
 LOG = os.path.join(ROOT, "logs", "fleet-health.log")
+# CONSECUTIVE_LIMIT x launchd_interval = alert delay (default 2 x 15 min = 30 min).
+# The interval is controlled by STAYTURGID_INTERVAL_SEC in the launchd plist config.
 CONSECUTIVE_LIMIT = 2
 # After this many soft fails with watchdog_stale/missing, restart main.js once.
 WATCHDOG_HEAL_AFTER = 2

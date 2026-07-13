@@ -124,6 +124,7 @@
       export STAYTURGID_NO_LOCAL_ADB=1
       {% endif %}
       export STAYTURGID_HANDSETS_PORT="{{ stayturgid_handsets_port | default(9012) }}"
+      export STAYTURGID_INTERVAL_SEC="{{ stayturgid_interval_sec | default(900) }}"
 
 - name: Render fleet peers list for peer Handsets/Shizuku bootstrap
   ansible.builtin.template:
@@ -214,6 +215,13 @@
     state: absent
   loop: "{{ stayturgid_retired_scripts | default([]) }}"
 
+- name: Remove retired Python scripts from device
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.stayturgid/bin/{{ item }}"
+    state: absent
+  loop: "{{ stayturgid_retired_py_scripts | default([]) }}"
+  when: stayturgid_retired_py_scripts | default([]) | length > 0
+
 - name: Deploy battery color assets
   ansible.builtin.copy:
     src: "{{ stayturgid_repo_root }}/device/termux/assets/battery-colors/{{ item }}"
@@ -234,6 +242,13 @@
     mode: "0755"
   loop: "{{ stayturgid_boot_scripts }}"
   notify: restart boot loop
+
+- name: Remove retired boot scripts from device
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.termux/boot/{{ item }}"
+    state: absent
+  loop: "{{ stayturgid_retired_boot_scripts | default([]) }}"
+  when: stayturgid_retired_boot_scripts | default([]) | length > 0
 
 # lineinfile, not a template: templating would clobber unrelated user
 # properties (extra-keys etc.) in termux.properties.

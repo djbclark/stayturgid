@@ -195,3 +195,10 @@
   changed_when: false
   failed_when: false
   when: not (stayturgid_no_local_adb | default(false) | bool)
+
+- name: Remove retired AutoJs6 project files from device
+  ansible.builtin.file:
+    path: "{{ autojs6_target }}/{{ item }}"
+    state: absent
+  loop: "{{ autojs6_retired_files | default([]) }}"
+  when: autojs6_retired_files | default([]) | length > 0

@@ -65,6 +65,10 @@ BOOTLOOP_PID_FILE="$STG/run/bootloop.pid"
     adb connect 127.0.0.1:5555 || true
     adb tcpip 5555 || true
 
+    # Default 300s (5 min) for backward compat; set STAYTURGID_INTERVAL_SEC
+    # in ~/.stayturgid/env to change (Ansible default: 900 = 15 min).
+    BOOT_INTERVAL="${STAYTURGID_INTERVAL_SEC:-300}"
+
     while true; do
     mkdir -p "$STG/state" "$SD/run" 2>/dev/null   # self-heal each cycle
     # Full Termux-side self-heal (sshd + privileged checks/repairs via
@@ -165,7 +169,7 @@ BOOTLOOP_PID_FILE="$STG/run/bootloop.pid"
         fi
     fi
 
-        sleep 300
+        sleep "$BOOT_INTERVAL"
     done
 ) &
 _bootloop_pid=$!

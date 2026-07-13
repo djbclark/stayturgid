@@ -16,7 +16,7 @@
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
     </dict>
     <key>StartInterval</key>
-    <integer>600</integer>
+    <integer>{{ stayturgid_interval_sec | default(900) }}</integer>
     <key>RunAtLoad</key>
     <true/>
     <key>StandardOutPath</key>

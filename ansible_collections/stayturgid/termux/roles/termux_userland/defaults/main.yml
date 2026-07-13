@@ -1,6 +1,10 @@
 ---
 stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"
 
+# How often (in seconds) the Termux boot-heal loop and fleet health monitors
+# run. Change this single value to adjust all periodic timers. 900 = 15 min.
+stayturgid_interval_sec: 900
+
 stayturgid_termux_packages:
   - openssh
   - android-tools
@@ -19,6 +23,10 @@ stayturgid_boot_scripts:
   - start-repair-bridge.sh
   - start-autojs6-bridge.sh
   - start-autojs6-watchdog.sh
+
+# Boot scripts removed from the deploy list — deleted from devices on next deploy.
+# When you remove a script from stayturgid_boot_scripts, add it here.
+stayturgid_retired_boot_scripts: []
 
 # Override examples (Termux-only, no AutoJs6):
 # stayturgid_boot_scripts: [start-adb.sh]
@@ -49,6 +57,10 @@ stayturgid_py_scripts:
   - stayturgid_peer_help.py
   - stayturgid_peer_bootstrap.py
   - stayturgid_peer_keepalive.py
+
+# Python scripts removed from the deploy list — deleted from devices on next
+# deploy. When you remove a script from stayturgid_py_scripts, add it here.
+stayturgid_retired_py_scripts: []
 
 # Restricted SSH ForceCommand wrapper (helpers only; see ssh_keys.yml F5).
 stayturgid_peer_help_force_script: stayturgid-peer-help-force.sh

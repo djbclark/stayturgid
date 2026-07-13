@@ -3,3 +3,8 @@ autojs6_target: "{{ stayturgid_sd_root }}/autojs6"
 # Repo checkout containing device/autojs6/ project files (collection roles cannot
 # bundle them — they are runtime payload, not Ansible content).
 autojs6_repo_root: "{{ stayturgid_repo_root | default(ansible_config_file | dirname | dirname) }}"
+
+# AutoJs6 project files removed from the deploy list — deleted from devices on
+# next deploy. When you remove a file/dir from the autojs6 project, add its
+# path (relative to autojs6_target, e.g. "lib/old_module.js") here.
+autojs6_retired_files: []
