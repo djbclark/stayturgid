@@ -28,7 +28,9 @@ termux-wake-lock 2>/dev/null || true
 # (or directly via the Tailscale IP on port 8022 when Tailscale is up)
 # Remove a stale runsv down file that silently blocks sshd startup.
 rm -f /data/data/com.termux/files/usr/var/service/sshd/down 2>/dev/null || true
-sshd
+# Only start sshd if not already running — avoids lock competition with
+# Ansible's termux_sshd module during deploy.
+pgrep -x sshd >/dev/null 2>&1 || sshd
 
 # ── CFEngine server daemon (remote repair trigger) ─────────────────────────
 # Listens on port 5308 (TLS). The Mac runs cf-runagent to trigger cf-agent
