@@ -168,6 +168,24 @@
     - stayturgid_ssh_distribute_private_keys | bool
     - (_stayturgid_ssh_private_key_paths | default([]) | length) > 0
 
+- name: Verify fleet SSH private keys exist after copy
+  ansible.builtin.stat:
+    path: "{{ termux_home }}/.ssh/{{ item | basename }}"
+  loop: "{{ _stayturgid_ssh_private_key_paths | default([]) }}"
+  register: _stayturgid_ssh_key_stat
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ssh_distribute_private_keys | bool
+    - (_stayturgid_ssh_private_key_paths | default([]) | length) > 0
+
+- name: Fail if SSH private key missing after copy
+  ansible.builtin.fail:
+    msg: "SSH private key {{ item.item | basename }} NOT found on {{ inventory_hostname }} after copy"
+  loop: "{{ _stayturgid_ssh_key_stat.results | default([]) }}"
+  when:
+    - item is defined
+    - not (item.stat.exists | default(false))
+
 - name: Install fleet SSH known_hosts mesh entries
   ansible.builtin.known_hosts:
     path: "{{ termux_home }}/.ssh/known_hosts"

@@ -17,6 +17,7 @@ AUTOJS_PKG=org.autojs.autojs6
 AUTOJS_RUN=org.autojs.autojs.external.open.RunIntentActivity
 
 if [[ ! -f "$BOOT_SCRIPT" ]]; then
+    echo "[$(date -Iseconds)] start-autojs6-watchdog: $BOOT_SCRIPT missing — deploy required" >> "$STG/logs/watchdog.log" 2>&1 || true
     exit 0
 fi
 

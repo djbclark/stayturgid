@@ -49,3 +49,22 @@
   when:
     - _termux_home_stat.stat.exists
     - _fleet_adbkey_stat.stat.exists | default(false)
+
+- name: Verify fleet ADB keys exist after copy
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop:
+    - "{{ termux_home }}/.stayturgid/adbkey-fleet"
+    - "{{ termux_home }}/.stayturgid/adbkey-fleet.pub"
+  register: _fleet_adbkey_verify
+  when:
+    - _termux_home_stat.stat.exists
+    - _fleet_adbkey_stat.stat.exists | default(false)
+
+- name: Fail if ADB key missing after copy
+  ansible.builtin.fail:
+    msg: "Fleet ADB key {{ item.item }} NOT found on {{ inventory_hostname }} after copy"
+  loop: "{{ _fleet_adbkey_verify.results | default([]) }}"
+  when:
+    - item is defined
+    - not (item.stat.exists | default(false))

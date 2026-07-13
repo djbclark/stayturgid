@@ -493,6 +493,37 @@ def ensure_control_et_ssh_config():
         return "FAILED"
 
 
+OS_RELEASE_PATH = os.path.join(PREFIX, "etc", "os-release")
+OS_RELEASE_CONTENT = (
+    'NAME="Termux"\n'
+    'ID=termux\n'
+    'ID_LIKE=android\n'
+    'PRETTY_NAME="Termux (Android)"\n'
+    'VERSION_ID="1"\n'
+    'HOME_URL="https://termux.dev/"\n'
+)
+
+
+def ensure_os_release():
+    """Re-create /etc/os-release if missing (needed by CFEngine platform detection)."""
+    try:
+        with open(OS_RELEASE_PATH) as f:
+            if f.read().strip():
+                return "present"
+    except OSError:
+        pass
+    try:
+        os.makedirs(os.path.dirname(OS_RELEASE_PATH), exist_ok=True)
+        with open(OS_RELEASE_PATH, "w") as f:
+            f.write(OS_RELEASE_CONTENT)
+        os.chmod(OS_RELEASE_PATH, 0o644)
+        log("os-release was missing — re-created")
+        return "repaired"
+    except OSError as e:
+        log("os-release re-create FAILED: %s" % e)
+        return "FAILED"
+
+
 def main():
     try:
         os.makedirs(TMPDIR, exist_ok=True)
@@ -611,6 +642,9 @@ def main():
     # --- 7. phone→Mac Eternal Terminal SSH config (share-backed self-heal) ---
     et_cfg = ensure_control_et_ssh_config()
 
+    # --- 7b. os-release (CFEngine platform detection needs it) ---
+    os_release = ensure_os_release()
+
     # --- 8. Re-apply fleet profiles (AutoJs6 + Shizuku) in case app data was cleared.
     # Gate each independently: AutoJs6 only re-applies when its process is dead
     # (likely after data clear); Shizuku only when HEADLESS_STATUS/pgrep says down.
@@ -664,8 +698,8 @@ def main():
     # --- 9. Env file presence (STAYTURGID_SD, NO_LOCAL_ADB, etc.) ---
     env_file = "present" if os.path.isfile(_ENV_FILE) else "MISSING"
 
-    status = "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s auto_profile=%s shizuku_profile=%s device_profile=%s env=%s" % (
-        port, shizuku, sshd, a11y, "yes" if have_sh else "no", wifi, et_cfg,
+    status = "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s os_release=%s auto_profile=%s shizuku_profile=%s device_profile=%s env=%s" % (
+        port, shizuku, sshd, a11y, "yes" if have_sh else "no", wifi, et_cfg, os_release,
         auto_profile, shizuku_profile, device_profile, env_file)
     log(status + " rc=%d" % rc)
     print(status)

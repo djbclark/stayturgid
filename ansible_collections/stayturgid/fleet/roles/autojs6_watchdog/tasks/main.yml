@@ -83,7 +83,6 @@
       - "{{ autojs6_target }}/fleet_profile.json"
       - /sdcard/Download/autojs6-fleet.json
   changed_when: false
-  failed_when: false
   when: stayturgid_autojs6_deploy_via_adb | default(false)
 
 - name: Apply AutoJs6 fleet profile via intent (Fire OS adb)
@@ -96,7 +95,6 @@
       profile_path: /sdcard/Download/autojs6-fleet.json
       silent: "true"
   changed_when: false
-  failed_when: false
   when: stayturgid_autojs6_deploy_via_adb | default(false)
 
 - name: Ensure AutoJs6 watchdog is running (boot-launcher no-ops when alive)
@@ -120,7 +118,6 @@
       profile_path: /sdcard/Download/autojs6-fleet.json
       silent: "true"
   changed_when: false
-  failed_when: false
   when: not (stayturgid_autojs6_deploy_via_adb | default(false))
 
 # ─────────────────────────────────────────────────────────────────
@@ -185,9 +182,11 @@
       profile_path: /data/local/tmp/shizuku-fleet.json
       silent: "true"
   changed_when: false
-  failed_when: false
   when: not (stayturgid_no_local_adb | default(false) | bool)
 
+# HEADLESS_START may fail on Samsung (process freezer blocks the Java
+# broadcast receiver).  Shizuku's internal watchdog restarts the daemon;
+# this is a best-effort deploy-time nudge.
 - name: Send HEADLESS_START to Shizuku
   stayturgid.android_common.android_intent:
     device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
