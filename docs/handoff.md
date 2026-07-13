@@ -187,8 +187,8 @@ end of that plan.
 | **p7a** | 14/16 PASS | all green | pending | ✅ v10.0 secure | ✅ 7/7 | FIRERPA + Termux supervisor deploy verified |
 | **hd8** | 13/16 PASS | offline / watchdog stale | pending | ⚠️ USB only | last ✅ 4/7 | Deferred H1/H3; aggregate `make health` remains nonzero |
 
-**Current fix order:** H10 AutoJs6 parent-path error → H1/H3 HD8 health decision →
-H11 landing runtime state → H8/H9 dashboard human actions → B63/B64 recovery tests →
+**Current fix order:** H1/H3 HD8 health decision → H11 landing runtime state →
+H8/H9 dashboard human actions → B63/B64 recovery tests →
 H12 health summary → F4 FIRERPA network audit/isolation → T1 `just` migration. See
 [the execution plan](plans/outstanding-fix-priorities-2026-07-13.md) for gates and
 rollback rules.
@@ -413,7 +413,7 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 
 **Next work:** follow
 [Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md), with
-live status in [options.md](options.md). Start with H10; do not let Galaxy publishing,
+live status in [options.md](options.md). Start with the first incomplete priority; do not let Galaxy publishing,
 LLM, FIRERPA MCP/WebRTC/MITM, Tasker, or `sshd -D` work displace the ordered fixes.
 If validating bootstrap flow: `make verify-bootstrap-apks HOSTS=s24` →
 `make bootstrap-apks HOSTS=s24` → `make ensure-shizuku HOSTS=s24` →
@@ -629,11 +629,11 @@ version.json                 — repo release version + changelog
 
 ## Known issues / gotchas
 
-- **AutoJs6 parent-path API failure (open H10):** P7A logged
-  `TypeError: Cannot find function getParent` while recreating the trigger-file
-  directory. Unsupported `files.getParent()` calls remain in `lib/termux.js` and
-  `lib/notify.js`; fix both and add a missing-parent regression before relying on
-  that self-heal branch.
+- **AutoJs6 parent-path API failure (H10 complete 2026-07-13):** replaced both
+  unsupported `files.getParent()` calls with the shared `config.ensureParentDir()`
+  helper and added missing-parent regression coverage. S24 and P7A were redeployed;
+  no new `getParent` errors appeared. P7A's separate headless-Shizuku/
+  `CLOSED_NO_SHELL` failures remain tracked by H12.
 - **Landing discovery mutates tracked state (open H11):** hourly discovery writes
   timestamps and reachability into `control/landing/services.json`, leaving Git dirty.
   Preserve the current file; the planned fix separates a committed static catalog

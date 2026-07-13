@@ -55,7 +55,7 @@ For every item:
 - Keep changes scoped, test them in proportion to risk, commit, and push.
 - Do not stage, reset, or overwrite unrelated worktree changes.
 
-## Priority 1 — Fix the AutoJs6 parent-path failure (H10)
+## Priority 1 — Fix the AutoJs6 parent-path failure (H10) — COMPLETE 2026-07-13
 
 ### Problem
 
@@ -91,6 +91,10 @@ directories during self-heal.
 - Automated regression coverage fails with the old implementation and passes with
   the replacement.
 - Live health remains clean.
+
+Completed with the shared `config.ensureParentDir()` helper, tests for both trigger
+and notification parent paths, standalone deploy-tool import-path coverage, and
+S24/P7A deployment. P7A's unrelated headless-Shizuku failures remain open as H12.
 
 ## Priority 2 — Resolve HD8's permanently red health state (H1/H3)
 

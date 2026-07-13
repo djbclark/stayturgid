@@ -43,6 +43,25 @@ function pathsFor(profile) {
     };
 }
 
+/** Return the directory portion of a file path without relying on AutoJs6 APIs. */
+function parentDir(filePath) {
+    var path = String(filePath);
+    while (path.length > 1 && path.charAt(path.length - 1) === "/") {
+        path = path.substring(0, path.length - 1);
+    }
+    var slash = path.lastIndexOf("/");
+    if (slash < 0) return ".";
+    if (slash === 0) return "/";
+    return path.substring(0, slash);
+}
+
+/** Ensure the parent directory of a file exists, including deleted run/state dirs. */
+function ensureParentDir(filePath) {
+    var dir = parentDir(filePath);
+    files.ensureDir(dir === "/" ? dir : dir + "/");
+    return dir;
+}
+
 /** Fire OS: Termux state/logs live under private home; AutoJs6 uses /sdcard only. */
 function splitStorage(profile) {
     var root = (profile && profile.sdRoot) ? profile.sdRoot : resolveSdRoot();
@@ -129,6 +148,8 @@ module.exports = {
     AUTOJS6_A11Y: AUTOJS6_A11Y,
     PROFILE_DEFAULTS: PROFILE_DEFAULTS,
     ensureDirs: ensureDirs,
+    ensureParentDir: ensureParentDir,
+    parentDir: parentDir,
     detectDeviceProfile: detectDeviceProfile,
     pathsFor: pathsFor,
     resolveSdRoot: resolveSdRoot,

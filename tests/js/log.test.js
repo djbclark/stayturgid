@@ -14,8 +14,16 @@ var mapped = function (p) { return path.join(tmp, String(p).replace(/\//g, "_"))
 
 var ensureDirCalls = [];
 global.files = {
-    exists: function (p) { return fs.existsSync(mapped(p)); },
-    read:   function (p) { return fs.readFileSync(mapped(p), "utf8"); },
+    exists: function (p) {
+        if (String(p) === "/sdcard/stayturgid/state/device.json") return true;
+        return fs.existsSync(mapped(p));
+    },
+    read:   function (p) {
+        if (String(p) === "/sdcard/stayturgid/state/device.json") {
+            return JSON.stringify({ id: "s24", sdRoot: "/sdcard/stayturgid" });
+        }
+        return fs.readFileSync(mapped(p), "utf8");
+    },
     append: function (p, s) { fs.appendFileSync(mapped(p), s); },
     write:  function (p, s) { fs.writeFileSync(mapped(p), s); },
     // AutoJs6 files.ensureDir(path) expects a directory (trailing slash). The
@@ -94,6 +102,18 @@ ok(/\/logs\/?$/.test(dirArg) && dirArg.indexOf("watchdog.log") < 0,
     "append() ensures the log directory, not the log file path");
 ok(log.readWatchdogLog().indexOf(written) >= 0,
     "append() writes the timestamped line to the watchdog log");
+
+// H10 regression: AutoJs6 does not provide files.getParent(). The shared helper
+// must derive the directory using plain string operations and ensure the parent
+// of a missing state/trigger file without treating the file path as a directory.
+ok(config.parentDir("/sdcard/stayturgid/run/repair_now") === "/sdcard/stayturgid/run",
+    "parentDir derives the trigger directory without files.getParent");
+ok(config.parentDir("/sdcard/stayturgid/state/notify_state.json") === "/sdcard/stayturgid/state",
+    "parentDir derives the notification directory without files.getParent");
+ensureDirCalls.length = 0;
+config.ensureParentDir("/sdcard/stayturgid/run/repair_now");
+ok(ensureDirCalls[ensureDirCalls.length - 1] === "/sdcard/stayturgid/run/",
+    "ensureParentDir creates the missing trigger directory");
 
 console.log("1.." + n);
 process.exit(failed ? 1 : 0);

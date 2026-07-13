@@ -10,8 +10,16 @@ var tmp = fs.mkdtempSync(path.join(os.tmpdir(), "stcom-"));
 var mapped = function (p) { return path.join(tmp, String(p).replace(/\//g, "_")); };
 
 global.files = {
-    exists: function (p) { return fs.existsSync(mapped(p)); },
-    read:   function (p) { return fs.readFileSync(mapped(p), "utf8"); },
+    exists: function (p) {
+        if (String(p) === "/sdcard/stayturgid/state/device.json") return true;
+        return fs.existsSync(mapped(p));
+    },
+    read:   function (p) {
+        if (String(p) === "/sdcard/stayturgid/state/device.json") {
+            return JSON.stringify({ id: "s24", sdRoot: "/sdcard/stayturgid" });
+        }
+        return fs.readFileSync(mapped(p), "utf8");
+    },
     append: function (p, s) { fs.appendFileSync(mapped(p), s); },
     write:  function (p, s) { fs.writeFileSync(mapped(p), s); },
     ensureDir: function () {},

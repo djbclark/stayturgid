@@ -44,7 +44,7 @@ function readCounts() {
 
 function writeCounts(counts) {
     try {
-        files.ensureDir(files.getParent(STATE_FILE) + "/");   // self-heal if the state dir was deleted
+        config.ensureParentDir(STATE_FILE);   // self-heal if the state dir was deleted
         files.write(STATE_FILE, JSON.stringify(counts));
     } catch (e) { /* best effort */ }
 }

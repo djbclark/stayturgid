@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -94,3 +95,15 @@ def test_project_src_dir_under_device_tree():
     assert deploy_util.project_src_dir(root).endswith(
         os.path.join("device", "autojs6")
     )
+
+
+def test_deploy_script_usage_works_standalone():
+    result = subprocess.run(
+        [sys.executable, str(REPO / "control" / "tools" / "autojs6" / "deploy.py")],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    assert "usage:" in result.stderr
+    assert "ModuleNotFoundError" not in result.stderr

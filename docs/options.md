@@ -286,13 +286,15 @@ an arbitrary screen visible when it finishes. This does not affect service healt
 future UI pass, inventory every foreground transition, minimize unnecessary launches, and
 restore a predictable final screen. Do not block core deployment work on this cleanup.
 
-#### H10 — Fix unsupported AutoJs6 parent-path calls · Risk: **Medium**
+#### H10 — Fix unsupported AutoJs6 parent-path calls · **Complete 2026-07-13** · Risk: **Medium**
 
-P7A logged `TypeError: Cannot find function getParent` while the watchdog attempted
-to recreate a missing trigger-file directory. The unsupported `files.getParent()` call
-remains in both `device/autojs6/lib/termux.js` and `device/autojs6/lib/notify.js`.
-Replace both with an AutoJs6-compatible parent-path implementation, add missing-parent
-regression coverage, then deploy and validate on S24 followed by P7A.
+Replaced both unsupported `files.getParent()` calls with the shared AutoJs6-compatible
+`config.ensureParentDir()` helper, added missing-parent regression coverage (including
+the notification state path), and fixed the standalone deployer's repository import
+path. `make test` passed (289 pytest tests plus shell, Ansible, and AutoJs6 suites).
+The change was deployed to S24 and P7A; fresh bridge/watchdog runs recreate the S24
+bridge successfully and no new `getParent` errors appear. P7A still has the separate,
+pre-existing `CLOSED_NO_SHELL`/headless-Shizuku failures tracked by H12.
 
 #### H11 — Move landing discovery runtime state out of Git · Risk: **Low**
 
