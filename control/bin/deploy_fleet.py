@@ -165,6 +165,7 @@ def run_playbook(
     tags: str | None,
     skip_tags: str | None = None,
     extra_vars: list[str] | None = None,
+    verbose: int = 0,
 ) -> int:
     cmd = ["ansible-playbook", str(playbook)]
     if limit:
@@ -177,19 +178,22 @@ def run_playbook(
         cmd.extend(["--skip-tags", skip_tags])
     if extra_vars:
         cmd.extend(extra_vars)
+    if verbose:
+        cmd.append("-" + "v" * min(verbose, 4))
     return subprocess.run(cmd, env=repo_env(), cwd=REPO_ROOT).returncode
 
 
-def deploy_mac(*, check: bool, tags: str = "mac") -> int:
+def deploy_mac(*, check: bool, tags: str = "mac", verbose: int = 0) -> int:
     """Mac localhost playbooks are not affected by device --limit."""
     return run_playbook(
         MAC_SITE_PLAYBOOK,
         check=check,
         tags=tags,
+        verbose=verbose,
     )
 
 
-def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
+def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0) -> int:
     require_ansible()
     warn_prerequisites(scope)
     install_collections()
@@ -203,10 +207,11 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool) -> int:
         check=check,
         tags=scope.ansible_tags,
         skip_tags=skip_bootstrap,
+        verbose=verbose,
     )
     # Always refresh Mac control node: deploy_fleet always passes a device --limit,
     # so site.yml's control_node import never selects localhost (review L8).
-    mac_rc = deploy_mac(check=check)
+    mac_rc = deploy_mac(check=check, verbose=verbose)
     return rc if rc != 0 else mac_rc
 
 
@@ -239,14 +244,16 @@ def main(argv: list[str] | None = None) -> int:
         help="Deploy scope (default: full site.yml)",
     )
     parser.add_argument("--check", action="store_true", help="Ansible dry run (--check --diff); also honors CHECK=1")
+    parser.add_argument("-v", "--verbose", action="count", default=0, help="Ansible verbosity (-v, -vv, -vvv, -vvvv); also honors VERBOSE=N env")
     args = parser.parse_args(argv)
 
+    verbose = args.verbose or int(os.environ.get("VERBOSE", "0"))
     scope = Scope(args.scope)
     if scope is Scope.FDROID and not shutil.which("fdroidcl"):
         print("ERROR: fdroidcl not found (brew install fdroidcl)", file=sys.stderr)
         return 1
 
-    rc = deploy(scope, args.hosts, check=check_mode(args.check))
+    rc = deploy(scope, args.hosts, check=check_mode(args.check), verbose=verbose)
     print_footer(rc, scope)
     return rc
 

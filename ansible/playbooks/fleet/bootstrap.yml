@@ -19,3 +19,4 @@
         keys_dir: "{{ stayturgid_ssh_keys_dir }}"
         public_key_files: "{{ stayturgid_ssh_public_key_files | default([]) }}"
       delegate_to: localhost
+      when: not (_ssh_preflight_ok | default(false) | bool)
