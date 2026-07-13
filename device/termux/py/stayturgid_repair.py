@@ -315,7 +315,7 @@ def duplicate_branch():
             else "down"
         )
     status = (
-        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s os_release=skip auto_profile=skip shizuku_profile=skip device_profile=skip env=skip"
+        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s os_release=skip pkg_upgrade=skip auto_profile=skip shizuku_profile=skip device_profile=skip env=skip"
         % (port, shizuku, sshd, a11y, "yes" if sh else "no", wifi, et_cfg)
     )
     log(status + " rc=0 (skipped-duplicate)")
@@ -524,6 +524,90 @@ def ensure_os_release():
         return "FAILED"
 
 
+PKG_UPGRADE_STAMP = os.path.join(STG, "state", "pkg-upgrade.stamp")
+PKG_UPGRADE_LOW_HOURS = range(3, 6)  # 3am-5am local device time
+
+
+def ensure_pkg_upgrade_daily():
+    """Run pkg upgrade at most once per day, during low-activity hours.
+
+    Checks a timestamp file: if >24h since last successful upgrade AND the
+    current hour is in a low-activity window (3-5am) OR the stamp is very old
+    (>48h), runs pkg update + upgrade. Records success/failure so the next
+    cycle retries if needed.
+    """
+    now_ts = time.time()
+    now_hour = time.localtime(now_ts).tm_hour
+    try:
+        with open(PKG_UPGRADE_STAMP) as f:
+            last_line = f.read().strip()
+            if last_line.startswith("ok "):
+                last_ts = float(last_line.split(" ", 1)[1])
+                age_hours = (now_ts - last_ts) / 3600.0
+                if age_hours < 24:
+                    return "up"
+    except (OSError, ValueError, IndexError):
+        pass
+
+    # Only run during low-activity hours (3-5am), or if very stale (>48h).
+    if now_hour not in PKG_UPGRADE_LOW_HOURS:
+        try:
+            with open(PKG_UPGRADE_STAMP) as f:
+                first_line = f.read().strip().split("\n")[0]
+            if first_line.startswith("ok "):
+                try:
+                    last_ts = float(first_line.split(" ", 1)[1])
+                    if (now_ts - last_ts) / 3600.0 < 48:
+                        return "waiting"
+                except (ValueError, IndexError):
+                    pass
+        except OSError:
+            return "waiting"
+
+    log("daily pkg upgrade: running update + full-upgrade")
+    env = os.environ.copy()
+    env["DEBIAN_FRONTEND"] = "noninteractive"
+    try:
+        # pkg update (non-fatal — indexes may already be fresh)
+        subprocess.run(
+            ["pkg", "update", "-y"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.STDOUT,
+            timeout=120,
+            env=env,
+        )
+        p = subprocess.run(
+            ["apt-get", "-y",
+             "-o", "Dpkg::Options::=--force-confdef",
+             "-o", "Dpkg::Options::=--force-confold",
+             "full-upgrade"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=600,
+            env=env,
+        )
+        rc = p.returncode
+    except subprocess.TimeoutExpired:
+        log("daily pkg upgrade TIMEOUT")
+        return "FAILED"
+    except Exception as e:
+        log("daily pkg upgrade ERROR: %s" % e)
+        return "FAILED"
+
+    if rc == 0:
+        try:
+            with open(PKG_UPGRADE_STAMP, "w") as f:
+                f.write("ok %s\n" % now_ts)
+        except OSError:
+            pass
+        log("daily pkg upgrade succeeded")
+        return "repaired"
+    else:
+        log("daily pkg upgrade FAILED rc=%d" % rc)
+        return "FAILED"
+
+
 def main():
     try:
         os.makedirs(TMPDIR, exist_ok=True)
@@ -645,6 +729,9 @@ def main():
     # --- 7b. os-release (CFEngine platform detection needs it) ---
     os_release = ensure_os_release()
 
+    # --- 7c. Daily pkg upgrade (once/24h, 3-5am; retries if phone was off) ---
+    pkg_upgrade = ensure_pkg_upgrade_daily()
+
     # --- 8. Re-apply fleet profiles (AutoJs6 + Shizuku) in case app data was cleared.
     # Gate each independently: AutoJs6 only re-applies when its process is dead
     # (likely after data clear); Shizuku only when HEADLESS_STATUS/pgrep says down.
@@ -698,8 +785,8 @@ def main():
     # --- 9. Env file presence (STAYTURGID_SD, NO_LOCAL_ADB, etc.) ---
     env_file = "present" if os.path.isfile(_ENV_FILE) else "MISSING"
 
-    status = "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s os_release=%s auto_profile=%s shizuku_profile=%s device_profile=%s env=%s" % (
-        port, shizuku, sshd, a11y, "yes" if have_sh else "no", wifi, et_cfg, os_release,
+    status = "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s os_release=%s pkg_upgrade=%s auto_profile=%s shizuku_profile=%s device_profile=%s env=%s" % (
+        port, shizuku, sshd, a11y, "yes" if have_sh else "no", wifi, et_cfg, os_release, pkg_upgrade,
         auto_profile, shizuku_profile, device_profile, env_file)
     log(status + " rc=%d" % rc)
     print(status)

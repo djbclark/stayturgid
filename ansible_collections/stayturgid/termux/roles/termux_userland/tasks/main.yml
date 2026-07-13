@@ -6,7 +6,14 @@
     content: "deb {{ stayturgid_termux_mirror }} stable main\n"
     mode: "0644"
 
-- name: Update and upgrade all Termux packages
+- name: Check when pkg was last upgraded on device
+  ansible.builtin.shell: |
+    cat {{ termux_home }}/.stayturgid/state/pkg-upgrade.stamp 2>/dev/null || echo "never"
+  register: _pkg_upgrade_stamp
+  changed_when: false
+  failed_when: false
+
+- name: Update and upgrade all Termux packages (if >24h since last)
   stayturgid.termux.termux_pkg:
     name: []
     state: present
@@ -15,6 +22,13 @@
     force_confold: true
     _termux_prefix: "{{ termux_prefix }}"
   register: pkg_upgrade
+  when: >-
+    _pkg_upgrade_stamp.stdout is not defined
+    or 'never' in (_pkg_upgrade_stamp.stdout | default(''))
+    or (_pkg_upgrade_stamp.stdout | regex_search('^ok ([0-9.]+)')
+        and ((ansible_date_time.epoch | float)
+             - (_pkg_upgrade_stamp.stdout | regex_search('^ok ([0-9.]+)', '\1')
+                | first | float)) > 86400)
 
 - name: Ensure Termux packages are installed
   stayturgid.termux.termux_pkg:
