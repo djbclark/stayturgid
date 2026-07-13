@@ -190,12 +190,14 @@ inspection found little meaningful Make build-graph behavior; the migration cost
 primarily current documentation and compatibility across approximately 63 non-history
 files. Implementation remains deferred until T1 is deliberately selected.
 
-#### T2 — Evaluate PM2 or another JS runtime supervisor (operator decision) · Risk: **Medium** · Deferred
+#### T2 — Evaluate PM2 or another JS/runtime operations tool (operator decision) · Risk: **Medium** · Deferred
 
-The evaluation is complete: PM2 can supervise a Node process in Termux but cannot
-manage AutoJs6's Android process, accessibility consent, Shizuku/UI recovery, or the
-existing Termux/Python/Ansible layers. Do not add PM2 to the watchdog. If a genuine
-Node helper is introduced later, follow the S24-only pilot and rollback boundaries in
+The evaluation now covers PM2, Uptime Kuma, Pulumi, Jest, `zx`, Shipit, and
+Flightplan. Uptime Kuma is the only plausible near-term complement: a read-only
+external monitor for existing dashboard/health endpoints. PM2 cannot manage
+AutoJs6's Android process; Pulumi would duplicate Ansible; Jest/`zx` are developer
+tools; Shipit/Flightplan duplicate or weaken the existing deployment boundary. Keep
+all deferred. Details and sources are in
 [JavaScript Runtime Supervision Evaluation](research/javascript-runtime-supervision-2026-07-13.md).
 
 ---
