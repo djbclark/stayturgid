@@ -27,14 +27,19 @@ mac.greyhound-sidemirror.ts.net {
         get_certificate tailscale
     }
 
-    # Network landing page (service directory)
-    handle_path /services/* {
+    # Network landing page (service directory) — root
+    handle {
         reverse_proxy localhost:8088
     }
 
     # Fleet dashboard
     handle_path /dashboard/* {
         reverse_proxy localhost:4097
+    }
+
+    # OpenCode web UI
+    handle_path /opencode/* {
+        reverse_proxy localhost:4096
     }
 
     # VLM server (llama.cpp UI-TARS)
@@ -45,11 +50,6 @@ mac.greyhound-sidemirror.ts.net {
     # Fleet stats
     handle_path /stats/* {
         reverse_proxy localhost:4097
-    }
-
-    # Default: OpenCode web UI
-    handle {
-        reverse_proxy localhost:4096
     }
 }
 

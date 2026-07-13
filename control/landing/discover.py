@@ -23,10 +23,10 @@ SERVICES_FILE = Path(__file__).resolve().parent / "services.json"
 # ── Known service definitions (URL, label, group) ───────────────────────────
 KNOWN_SERVICES: list[dict] = [
     # Mac control node — all served via Caddy HTTPS
-    {"url": "https://mac.greyhound-sidemirror.ts.net", "label": "stayturgid (Tailscale HTTPS)", "group": "mac"},
+    {"url": "https://mac.greyhound-sidemirror.ts.net", "label": "Network Landing (root)", "group": "mac"},
+    {"url": "https://mac.greyhound-sidemirror.ts.net/opencode/", "label": "OpenCode Web (HTTPS)", "group": "mac"},
     {"url": "https://mac.greyhound-sidemirror.ts.net/dashboard/", "label": "Fleet Dashboard (HTTPS)", "group": "mac"},
     {"url": "https://mac.greyhound-sidemirror.ts.net/stats/", "label": "Fleet Stats (HTTPS)", "group": "mac"},
-    {"url": "https://mac.greyhound-sidemirror.ts.net/services/", "label": "Network Landing (HTTPS)", "group": "mac"},
     # Localhost (direct, for Mac-only access)
     {"url": "http://localhost:4096", "label": "OpenCode (localhost)", "group": "mac"},
     {"url": "http://localhost:4097", "label": "Dashboard (localhost)", "group": "mac"},
