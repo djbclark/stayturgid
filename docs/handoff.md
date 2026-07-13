@@ -416,15 +416,32 @@ Prefer the **S24 over USB** for interactive work when plugged in; use **7a over 
 
 ## Remote-access resilience — the architecture (≥2 independent, mutually-repairing methods)
 
-| # | Method | Path | Depends on | Can repair |
-|---|--------|------|-----------|------------|
-| 1 | ADB over WiFi/Tailscale | `adb connect <ip>:5555` | port 5555 open (Shizuku TCP) | restart sshd, redeploy scripts, reinstall apps |
-| 2 | SSH to Termux | `ssh p7a` / `ssh s24` (Tailscale) | sshd + Termux alive | re-open 5555 (`adb tcpip` via Termux android-tools) |
-| 3 | On-device auto-repair | AutoJs6 watchdog (20 min + boot) | AutoJs6 a11y + Termux bridge | invokes `stayturgid_repair.py`, Shizuku Start tap, notifies |
+### Mac → device connection fallback chain
+
+`fleet_health.py:resolve_path()` and `fleet_health_monitor.py:check_device()` probe in this order:
+
+| Tier | Transport | Probe | Port |
+|------|-----------|-------|------|
+| **1** | **ADB** | `adb connect` LAN → Tailscale | 5555 |
+| **2** | **SSH** | TCP probe (tcp_open) | 8022 |
+| **3** | **FIRERPA gRPC** | TCP probe → `firerpa_heal.heal_device()` | 65000 |
+
+If all three are down, `access-monitor` fires a Mac notification. FIRERPA heal is rate-limited (30 min cooldown per host) to prevent restart storms.
+
+### On-device self-heal layers (independent of Mac connectivity)
+
+| # | Layer | Cycle | Transport | Repairs |
+|---|-------|-------|-----------|---------|
+| 1 | **Termux boot loop** (`start-adb.sh`) | 15 min | localhost:5555 privileged shell | sshd restart, mirror pin, PATH leak, a11y merge, fleet profiles |
+| 2 | **AutoJs6 watchdog** (`main.js` + `comonitor.js`) | 20 min + boot | AutoJs6 accessibility + Termux bridge | catastrophic Shizuku repair, sshd restart, a11y merge |
+| 3 | **CFEngine** (`cf-agent -Kf stayturgid.cf`) | 15 min (in boot loop) | local process | sshd restart, mirror re-pin, PATH leak fix (3 of 7 bundles auto-repair) |
+| 4 | **Repair bridge** (`~/.stayturgid/run/repair_now`) | 15 min poll | any transport that can write files | touch trigger file → boot loop runs full repair next cycle |
+
+CFEngine runs alongside the repair script in the same boot loop cycle — two separate tools, two separate policies, checking the same things independently. CFEngine output (`repair-cfengine.log`) is scraped by the Mac fleet health gather and reported as `cfengine=ok|down`.
 
 ### Repair channel — confirmed primitives (tested live 2026-07-05)
 - **`adb -s localhost:5555 shell` from Termux = full shell uid 2000** (groups incl. `input`, `adb`, `log`). While 5555 is open, the repair layer runs `input tap` / `settings put` / `setprop` / `am` / `svc` with shell privileges — **no accessibility and no Shizuku token needed.** This is the primary repair channel. (Needs `TMPDIR=$PREFIX/tmp` or localhost:5555 checks falsely report `CLOSED_NO_SHELL`.)
-- **Catastrophic case** (5555 closed AND Shizuku down): no shell reachable → only the AutoJs6 accessibility tap on Shizuku "Start", or a reboot, recovers. This is the one place accessibility automation is irreplaceable; it can't tap behind a locked screen (notification still fires; boot loop keeps retrying shell repairs).
+- **Catastrophic case** (5555 closed AND Shizuku down): no shell reachable → only the AutoJs6 accessibility tap on Shizuku "Start", or a reboot, recovers. This is the one place accessibility automation is irreplaceable; it can't tap behind a locked screen (notification still fires; boot loop keeps retrying shell repairs). **FIRERPA gRPC heal** (`firerpa_heal.py`) provides an independent recovery path without ADB or SSH.
 - **RUN_COMMAND from an adb shell is BLOCKED** ("Requires permission com.termux.permission.RUN_COMMAND"). The shell-usable trigger for repair is the **bridge**: `touch /sdcard/stayturgid/run/repair_now` (2 s poll). `run-as com.termux` works on these debuggable Termux builds as an adb-side recovery path when SSH is down (must export PATH/LD_LIBRARY_PATH/HOME/PREFIX/TMPDIR).
 
 ### Shizuku primitives (for the watchdog)
