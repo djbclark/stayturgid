@@ -107,6 +107,17 @@ else
     tap_skip "yamllint" "not installed (pipx install yamllint)"
 fi
 
+# --- justfiles -------------------------------------------------------------
+if command -v just >/dev/null 2>&1; then
+    if just --justfile examples/firerpa-nonroot/justfile --fmt --check >/dev/null 2>&1; then
+        tap_ok "just --fmt --check: standalone FIRERPA justfile"
+    else
+        tap_fail "just --fmt --check: standalone FIRERPA justfile"
+    fi
+else
+    tap_skip "justfile format/parse" "just not installed (brew install just)"
+fi
+
 # Python test collection — catches import/syntax breakage in the pytest layer
 # even when the full run happens via `make pytest`.
 PYTEST_BIN="$([ -x .venv-test/bin/pytest ] && echo .venv-test/bin/pytest || command -v pytest || true)"

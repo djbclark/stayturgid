@@ -109,6 +109,14 @@ make firerpa-health
 ssh s24 'tail -n 100 ~/.stayturgid/logs/boot.log'
 ```
 
+For a deployment outside stayturgid, use the self-documenting
+[`examples/firerpa-nonroot/justfile`](../../examples/firerpa-nonroot/justfile) and
+[standalone guide](../../examples/firerpa-nonroot/README.md). They download and verify
+upstream v10.0, generate a private certificate, install the Python client, build the
+hash-pinned accessibility patch, deploy over an arbitrary UID-2000 ADB target, and run
+the same signed-start/patched-swap lifecycle used by the fleet. The guide includes all
+manual command equivalents, reboot/`rish` recovery, security notes, and troubleshooting.
+
 If a handset reboot leaves both localhost ADB and Shizuku down, restore one privileged bridge
 using the normal stayturgid recovery path (USB ADB, wireless debugging/Shizuku, or the
 AutoJs6 catastrophic recovery). The Python supervisor will then start FIRERPA on its next
@@ -127,3 +135,6 @@ A suitable resolution comment for issue #145 is:
 > not. A certificate produced by `cert.py` works without PKCS conversion when the server is
 > launched with the explicit `--certificate` option. We now use a private custom certificate
 > for both gRPC and inbound SSH. No configurable authorized_keys path is needed for our case.
+
+This resolution, the standalone command lines, and the maintainer thanks were posted when
+closing upstream issue #145 on 2026-07-13.

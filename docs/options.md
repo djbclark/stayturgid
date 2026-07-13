@@ -176,6 +176,13 @@ operator overrides, environment propagation, CI/developer installation cost, com
 and whether a staged dual-Makefile/justfile period is safer than a direct replacement.
 Produce a recommendation and migration map before changing the operator interface.
 
+**2026-07-13 evidence:** `examples/firerpa-nonroot/justfile` now uses `just` for a
+bounded, standalone installation workflow. It provides a useful real-world trial of
+discoverable recipes, dotenv configuration, dependencies, formatting checks, and
+operator overrides. This does not yet authorize or imply migration of stayturgid's
+existing Make interface; use the example's ergonomics and maintenance history as input
+to the eventual comparison.
+
 ---
 
 ### Track G — Python migration & logging (completed)

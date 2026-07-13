@@ -69,6 +69,7 @@ firerpa_webui_enabled: false
 
 ## Related docs
 
+- [Standalone non-root justfile and guide](../../../examples/firerpa-nonroot/README.md)
 - [FIRERPA Code Audit](../../../docs/history/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md)
 - [FIRERPA Redundancy Analysis](../../../docs/history/firerpa-nonroot-redundancy-deepseek-pro-2026-07-12.md)
 - [FIRERPA Install Map](../../../docs/history/firerpa-install-map-2026-07-12.md)
