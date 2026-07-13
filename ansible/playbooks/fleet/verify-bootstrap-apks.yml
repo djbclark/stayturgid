@@ -1,0 +1,67 @@
+---
+# Preflight: verify all bootstrap APKs are installed at the latest version.
+# Fails early with clear list of missing APKs; warns about stale ones.
+# Runs over ADB — no device SSH required.
+#
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
+#     ansible/playbooks/fleet/verify-bootstrap-apks.yml --limit s24
+- name: stayturgid verify bootstrap APK versions
+  hosts: stayturgid
+  gather_facts: false
+  tags: [bootstrap-apks, verify-bootstrap-apks]
+  tasks:
+    - name: Resolve ADB target
+      ansible.builtin.set_fact:
+        _vfy_adb: "{{ target_device | default(lookup('stayturgid.android_common.adb_device', inventory_hostname)) }}"
+      delegate_to: localhost
+      delegate_facts: true
+
+    - name: Check each bootstrap APK version
+      ansible.builtin.include_tasks: ../../../ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/check_apk.yml
+      loop: "{{ stayturgid_bootstrap_apks }}"
+      loop_control:
+        label: "{{ _apk.id }}"
+        loop_var: _apk
+
+    - name: Extract missing APK list
+      delegate_to: localhost
+      delegate_facts: true
+      ansible.builtin.set_fact:
+        _vfy_missing_list: "{{ _vfy_results | selectattr('missing', 'true') | list }}"
+
+    - name: Extract stale APK list
+      delegate_to: localhost
+      delegate_facts: true
+      ansible.builtin.set_fact:
+        _vfy_stale_list: "{{ _vfy_results | selectattr('stale', 'true') | list }}"
+
+    - name: Fail if any APKs are missing
+      delegate_to: localhost
+      ansible.builtin.assert:
+        that: _vfy_missing_list | length == 0
+        fail_msg: >-
+          MISSING BOOTSTRAP APKs on {{ inventory_hostname }}:
+          {% for a in _vfy_missing_list %}- {{ a.id }} ({{ a.repo }})
+          {% endfor %}
+          These must be installed before deploy can proceed.
+          Run: make deploy -- --limit {{ inventory_hostname }}
+        success_msg: "All {{ stayturgid_bootstrap_apks | length }} bootstrap APKs present on {{ inventory_hostname }}"
+        quiet: true
+
+    - name: Warn about stale APK versions
+      delegate_to: localhost
+      ansible.builtin.debug:
+        msg: >-
+          STALE BOOTSTRAP APKs on {{ inventory_hostname }}:
+          {% for a in _vfy_stale_list %}- {{ a.id }} (installed={{ a.installed }}, latest={{ a.latest }})
+          {% endfor %}
+          Obtainium may not have been running. Versions will be updated during deploy.
+      when: _vfy_stale_list | length > 0
+
+    - name: Show all checked versions
+      delegate_to: localhost
+      ansible.builtin.debug:
+        msg: >-
+          {% for a in _vfy_results %}
+          {{ a.id }}: installed={{ a.installed if a.installed else 'MISSING' }} latest={{ a.latest }}
+          {% endfor %}

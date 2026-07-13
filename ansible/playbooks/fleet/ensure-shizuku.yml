@@ -1,0 +1,16 @@
+---
+# Start Shizuku and apply fleet profile over ADB — runs before SSH bootstrap.
+# Uses HEADLESS_START broadcast + native libshizuku.so launch as fallback.
+# Idempotent: skips when Shizuku is already running with port 5555 open.
+#
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
+#     ansible/playbooks/fleet/ensure-shizuku.yml --limit s24
+- name: stayturgid ensure Shizuku started
+  hosts: stayturgid
+  gather_facts: false
+  tags: [bootstrap-apks]
+  tasks:
+    - name: Start Shizuku and apply fleet profile
+      stayturgid.android_common.shizuku_start:
+        device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+      delegate_to: localhost

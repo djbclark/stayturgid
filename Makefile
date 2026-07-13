@@ -26,7 +26,7 @@ VLM_ANSIBLE := ansible-playbook $(MAC_SITE) -e stayturgid_vlm_enabled=true
 
 .PHONY: help all configure check unit test unit-and-pytest pytest ansible-test test-venv \
         lint clean verify verify-heal device dryrun dryrun-termux \
-        health fix-hd8-google deploy deploy-check collections bootstrap-ssh bootstrap-apks deploy-termux deploy-mac syntax \
+        health fix-hd8-google deploy deploy-check collections bootstrap-ssh bootstrap-apks verify-bootstrap-apks ensure-shizuku deploy-termux deploy-mac syntax \
         termux-pkg-upgrade vlm-upstream-check \
         vlm-install vlm-server vlm-check vlm-stop vlm-service-install vlm-service-status \
         vlm-service-stop vlm-service-restart vlm-smoke verify-play-autoupdate verify-hd8-google \
@@ -61,6 +61,8 @@ help:
 	@echo "  make deploy-termux [HOSTS=s24]    Termux layer only (termux_userland role)"
 	@echo "  make bootstrap-ssh [HOSTS=s24]    ADB bootstrap Termux SSH keys + sshd"
 	@echo "  make bootstrap-apks [HOSTS=s24]   ADB install prerequisite APKs (no device interaction)"
+	@echo "  make verify-bootstrap-apks [HOSTS=s24]  Check APK versions before deploy"
+	@echo "  make ensure-shizuku [HOSTS=s24]  Start Shizuku + apply fleet profile over ADB"
 	@echo "  make health                     Mac fleet-health summary (exit 1 = tell operator)"
 	@echo "  make errors                     Show recent device errors from all logs (last 24h)"
 	@echo "  make fix-hd8-google             Pin sideloaded GMS/Play on Fire hd8 (see docs)"
@@ -174,6 +176,12 @@ bootstrap-ssh:
 
 bootstrap-apks:
 	ansible-playbook ansible/playbooks/fleet/ensure-bootstrap-apks.yml $(if $(HOSTS),-l $(HOSTS),)
+
+verify-bootstrap-apks:
+	ansible-playbook ansible/playbooks/fleet/verify-bootstrap-apks.yml $(if $(HOSTS),-l $(HOSTS),)
+
+ensure-shizuku:
+	ansible-playbook ansible/playbooks/fleet/ensure-shizuku.yml $(if $(HOSTS),-l $(HOSTS),)
 
 health:
 	python3 control/bin/check_fleet_health.py

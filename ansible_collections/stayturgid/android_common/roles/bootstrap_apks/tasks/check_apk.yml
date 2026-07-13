@@ -1,0 +1,54 @@
+---
+# Check a single bootstrap APK: compare installed version against latest GitHub release.
+# Accumulates result into _vfy_results list for post-loop analysis.
+# Expected vars: _apk, _vfy_adb
+
+- name: "{{ _apk.id }} — fetch latest GitHub release tag"
+  ansible.builtin.command:
+    argv:
+      - gh
+      - release
+      - view
+      - --repo
+      - "{{ _apk.gh_repo }}"
+      - --json
+      - tagName
+  register: _check_gh
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+
+- name: "{{ _apk.id }} — parse latest version"
+  ansible.builtin.set_fact:
+    _check_latest: >-
+      {%- set raw = (_check_gh.stdout | default('{}') | from_json).tagName | default('') -%}
+      {%- if raw and _check_gh.rc == 0 -%}
+      {{ raw | regex_replace('^v', '') }}
+      {%- else -%}
+      unknown
+      {%- endif -%}
+    _check_gh_failed: "{{ (_check_gh.rc | default(1)) != 0 }}"
+
+- name: "{{ _apk.id }} — query installed version on device"
+  ansible.builtin.shell: >
+    adb -s {{ _vfy_adb }} shell
+    "dumpsys package {{ _apk.id }} 2>/dev/null | grep versionName | head -1"
+  register: _check_dev
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+
+- name: "{{ _apk.id }} — accumulate result"
+  ansible.builtin.set_fact:
+    _vfy_results: >-
+      {{ _vfy_results | default([]) + [dict(
+        id=_apk.id,
+        repo=_apk.gh_repo,
+        installed=(_check_dev.stdout | default('') | regex_replace('.*versionName=', '')).strip(),
+        latest=_check_latest,
+        missing=(_check_dev.stdout | default('') | trim) == '',
+        gh_failed=_check_gh_failed,
+        stale=(_check_dev.stdout | default('') | trim) != ''
+              and _check_latest != 'unknown'
+              and (_check_dev.stdout | default('') | regex_replace('.*versionName=', '')).strip() != _check_latest
+      )] }}
