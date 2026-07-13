@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Install AutoJs6, grant Termux bridge perms, deploy project, start repair-bridge.
+"""Install AutoJs6, grant Termux bridge perms, deploy project, start bridges.py.
 
 Usage: ./setup_autojs6.py <serial|s24|hd8|p7a> [device-id]
 """
@@ -24,11 +24,11 @@ chmod +x ~/.stayturgid/bin/stayturgid_repair.py ~/.stayturgid/bin/bridges.py \
     ~/.termux/boot/start-repair-bridge.sh ~/.termux/boot/start-autojs6-bridge.sh \
     ~/.termux/boot/start-autojs6-watchdog.sh 2>/dev/null
 pid=$(cat ~/.stayturgid/run/bridge.pid 2>/dev/null)
-if [ -n "$pid" ] && [ -d "/proc/$pid" ] && grep -q "bridges\\|repair-bridge" "/proc/$pid/cmdline" 2>/dev/null; then
-    echo "repair-bridge already running (pid $pid)"
+if [ -n "$pid" ] && [ -d "/proc/$pid" ] && grep -q "bridges" "/proc/$pid/cmdline" 2>/dev/null; then
+    echo "repair bridge already running (pid $pid)"
 else
     nohup ~/.stayturgid/bin/bridges.py --mode repair >> ~/.stayturgid/logs/repair-bridge.log 2>&1 &
-    echo "repair-bridge started"
+    echo "repair bridge started"
 fi
 pid=$(cat ~/.stayturgid/run/autojs6-bridge.pid 2>/dev/null)
 if [ -n "$pid" ] && [ -d "/proc/$pid" ] && grep -q "autojs6\\|bridges" "/proc/$pid/cmdline" 2>/dev/null; then
