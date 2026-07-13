@@ -32,6 +32,8 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 | [`.cursor/rules/`](.cursor/rules/) | **AI agent policies** (always-on; read on every handoff) — self-heal, screen-control hold, … |
 | [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md) | Operator tasks (credentials, deploy approval) — human-only |
 | [docs/options.md](docs/options.md) | Next-work menu — agents append + push when operator asks for options |
+| [Outstanding fix priorities](docs/plans/outstanding-fix-priorities-2026-07-13.md) | Ordered reliability work and copy-paste junior-agent resume prompt |
+| [`just` migration plan](docs/plans/just-migration-plan.md) | Staged command-runner migration after reliability work is stable |
 | [version.json](version.json) | Repo release version (Ansible / manual deploy) |
 
 ---
@@ -52,6 +54,14 @@ Neo Store / Aurora Store are **parked** (not in active deploy); see [docs/module
 
 **Partial re-runs:** `./control/bin/deploy_fleet.py --scope fdroid [host]` · `./control/bin/deploy_fleet.py --scope play [host]` (no-op while app stores are parked)
 
+### Maintainer resume order
+
+Before selecting new work, read [docs/options.md](docs/options.md) and follow the
+[ordered outstanding-fix plan](docs/plans/outstanding-fix-priorities-2026-07-13.md).
+Current reliability work takes precedence over optional Galaxy publishing, LLM,
+FIRERPA MCP/WebRTC/MITM, and command-runner enhancements. The plan includes a
+[junior-agent resume prompt](docs/plans/outstanding-fix-priorities-2026-07-13.md#junior-developer-resume-prompt).
+
 ---
 
 ## How it works
@@ -59,7 +69,9 @@ Neo Store / Aurora Store are **parked** (not in active deploy); see [docs/module
 After each cold reboot and PIN unlock:
 
 1. **Shizuku** auto-starts via Wireless Debugging (TCP mode → port 5555).
-2. **Termux:Boot** runs `~/.termux/boot/start-adb.sh` → `sshd` + 5-min self-heal + repair loop.
+2. **Termux:Boot** runs the compatibility entrypoint
+   `~/.termux/boot/start-adb.sh`, which immediately delegates to Python
+   `start_adb.py` → `sshd` + 5-min self-heal + repair loop.
 3. **AutoJs6** `main.js` (20 min + boot via `boot-launcher.js`) → `stayturgid_repair.py`, notifications, Shizuku UI repair if needed.
 
 ---

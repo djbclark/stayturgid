@@ -489,16 +489,38 @@ ssh -i ~/.ssh/termux_key -p 8022 localhost
 
 ## Part 4 — Development workflow
 
+### Resume current work before choosing a task
+
+Maintainers and AI agents must first read [the handoff](handoff.md),
+[the open-work menu](options.md), and the
+[ordered outstanding-fix plan](plans/outstanding-fix-priorities-2026-07-13.md).
+That plan contains the current execution order, acceptance gates, rollback rules,
+and a copy-paste junior-agent prompt. Reliability work takes precedence over optional
+Galaxy, LLM, FIRERPA MCP/WebRTC/MITM, and task-runner enhancements.
+
+Prefer Python for substantial orchestration, parsing, retries, and validation. Keep
+shell wrappers small. AutoJs6 runtime code is a justified JavaScript exception.
+
+At session start, run `make health` and distinguish active failures from recovered
+history. Preserve unrelated worktree changes. Until H11 is complete,
+`control/landing/services.json` is expected to be modified by hourly discovery; do
+not reset or accidentally commit it.
+
 ### Making watchdog changes
 
 1. Edit the JavaScript in `device/autojs6/` on the Mac.
 2. Deploy to the device and restart the watchdog:
    ```bash
-   ./control/tools/autojs6/deploy.py p7a
-   ./control/tools/autojs6/start_watchdog.py p7a
+   ./control/tools/autojs6/deploy.py s24
+   ./control/tools/autojs6/start_watchdog.py s24
    ```
 3. Check the log: `adb shell cat /sdcard/stayturgid/logs/watchdog.log` (or the AutoJs6 console).
 4. Commit and push.
+
+**Current AutoJs6 defect (H10):** `files.getParent()` is not available in the live
+runtime. It failed on P7A while recreating a trigger directory and is present in both
+`lib/termux.js` and `lib/notify.js`. Any fix must cover both sites, add a
+missing-parent regression, and validate on S24 before P7A.
 
 ### Testing shell scripts off-device (added 2026-07-06)
 
@@ -596,58 +618,33 @@ curl -sS https://raw.githubusercontent.com/djbclark/stayturgid/master/version.js
 
 ## Part 5 — Cross-device testing safety rules (discovered 2026-07-01)
 
-### NEVER replace `enabled_accessibility_services` — always append
+### Accessibility is detection-only — never write the enabled-service list
 
-`settings put secure enabled_accessibility_services <value>` **replaces the entire list**. Running it with just one service wipes every other accessibility service on the device (screen readers, switch access, automation apps, Wispr Flow, Buzzkill — all gone silently).
+`settings put secure enabled_accessibility_services <value>` replaces the entire
+colon-separated list. An incomplete value silently disables other accessibility
+services such as screen readers, automation tools, Wispr Flow, or BuzzKill.
 
-**Protocol when you need to enable an accessibility service for testing:**
+Stayturgid therefore treats accessibility state as **detection-only**. Automated
+work must not run `settings put` for `enabled_accessibility_services`, append to the
+list, restore a stored list, or use an app toggle that rewrites the list. This rule
+also applies to other consent-sensitive colon-separated settings unless a specific
+policy says otherwise.
 
-```bash
-# 1. Save original list
-ORIG=$(adb shell settings get secure enabled_accessibility_services)
-echo "ORIG: $ORIG"
+Read-only verification is allowed:
 
-# 2. Append new service (do NOT replace)
-adb shell settings put secure enabled_accessibility_services \
-  "${ORIG}:com.example.app/com.example.app.MyService"
-
-# 3. ... do testing ...
-
-# 4. ALWAYS restore original list when done
-adb shell settings put secure enabled_accessibility_services "$ORIG"
-```
-
-Also applies to any setting that is a colon-separated list:
-`enabled_input_methods`, `enabled_notification_listeners`, etc.
-
-**Verify current state before and after any accessibility change:**
 ```bash
 adb shell settings get secure enabled_accessibility_services | tr ':' '\n'
+./control/bin/a11y_services.py show s24
 ```
 
-**Fleet backup/restore (preferred):** `control/lib/a11y_profiles.json` holds per-device known-good lists; `control/lib/a11y_backups/<alias>.txt` stores live snapshots. Mac CLI:
+If AutoJs6 or another required service is missing, stop the dependent automation and
+ask the user to enable it manually in **Android Settings → Accessibility**. Verify the
+result read-only afterward. `control/lib/a11y_profiles.json` and historical backups
+are diagnostic references, not authorization for an automatic restore.
 
-```bash
-./control/bin/a11y_services.py backup p7a    # snapshot live list → repo + /sdcard/stayturgid/state/
-./control/bin/a11y_services.py restore p7a   # merge profile + backup + AutoJs6 (never wipe others)
-./control/bin/a11y_services.py show p7a
-```
-
-**AutoJs6 drawer accessibility toggle replaces the entire list** — fleet setup uses settings merge only (`enable_autojs6_shizuku.py`), not the drawer switch.
-
-If accessibility services are accidentally wiped, restore from a known-good list recorded at session start. The Pixel 7a's known-good list (as of 2026-07-06; append AutoJs6 — never replace the whole list):
-```
-com.samruston.buzzkill/com.samruston.buzzkill.background.accessibility.WorkaroundAccessibilityService
-com.notch.touch/com.notch.touch.lock.tas
-com.wispr.flowapp/com.wispr.flowapp.service.FlowAccessibilityService
-org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher
-```
-
-Restore (example — verify current list first; **append** new services, never replace):
-```bash
-adb -s 35261JEHN12374 shell settings put secure enabled_accessibility_services \
-  "com.samruston.buzzkill/com.samruston.buzzkill.background.accessibility.WorkaroundAccessibilityService:com.notch.touch/com.notch.touch.lock.tas:com.wispr.flowapp/com.wispr.flowapp.service.FlowAccessibilityService:org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
-```
+If a service list was accidentally wiped, report the incident immediately. Have the
+user restore services through Android Settings; do not guess or push a remembered
+whole-list value from another date or device.
 
 ### At the start of every session: snapshot device state
 
@@ -657,7 +654,9 @@ adb shell settings get secure enabled_accessibility_services
 adb shell settings get secure default_input_method
 adb shell settings get global package_verifier_enable
 ```
-…and restore all of them at the end.
+At the end, compare the snapshots. Report unexpected drift. Restore only a setting
+that the approved task deliberately changed and whose restoration method is permitted;
+accessibility remains a human Settings action.
 
 ---
 
@@ -835,8 +834,20 @@ ansible/playbooks/fleet/fleet.yml       — full fleet (includes fdroid + play r
 ansible/playbooks/site.yml              — full fleet (preflight → … → validate)
 docs/hacking.md                         — this file
 docs/handoff.md                         — AI session handoff prompt
+docs/options.md                         — live open-work menu
+docs/plans/                             — accepted execution and migration plans
 README.md                               — user-facing setup guide
 ```
+
+## Current maintenance plans (2026-07-13)
+
+- [Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md) —
+  current ordered work, safety/completion gates, and junior-agent resume prompt.
+- [GNU Make to `just` Migration Plan](plans/just-migration-plan.md) — staged tooling
+  work after the reliability priorities are stable.
+
+Live completion/blocker status remains in [docs/options.md](options.md). Update it
+with evidence whenever an item is completed or blocked.
 
 ## Recent additions (2026-07-12)
 

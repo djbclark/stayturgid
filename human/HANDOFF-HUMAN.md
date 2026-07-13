@@ -83,18 +83,20 @@ These do **not** need operator action unless noted.
 | AutoJs6 fleet profile | `device/autojs6/fleet_profile.json` + `FleetProfileActivity` intent |
 | AutoJs6 fleet API | [issue #553](https://github.com/SuperMonster003/AutoJs6/issues/553), [djbclark/AutoJs6](https://github.com/djbclark/AutoJs6/releases) |
 | PiP / overlay clearance | `ScreenControlSession` clears YouTube PiP via `stack remove` (Samsung verified) |
-| Accessibility list wipe fix | Drawer a11y toggle **removed**; merge-only via `control/bin/a11y_services.py` |
-| p7a a11y restore | Profile merge restored Buzzkill / Notch / existing apps (6 services) |
+| Accessibility list wipe fix | Fleet automation is detection-only; enable missing services manually in Android Settings |
+| p7a a11y restore | Historical profile merge restored Buzzkill / Notch / existing apps (6 services); do not repeat automatically |
 | Aurora background dialog (hd8) | Historical — Aurora parked from fleet 2026-07-09 |
 | Fleet deploy order | harden (core apps) → AutoJs6 enable (Aurora configure parked) |
 
 **Operator check (optional):** On p7a, confirm Buzzkill / Notch / Wispr / Tasker / AutoInput
-still work in Settings → Accessibility. If anything missing:
+still work in Settings → Accessibility. Read-only inspection is available with:
 
 ```bash
 python3 control/bin/a11y_services.py show p7a
-python3 control/bin/a11y_services.py restore p7a
 ```
+
+If anything is missing, enable it manually in Android Settings. Do not run the legacy
+restore path or write `enabled_accessibility_services` from automation.
 
 ---
 
@@ -133,17 +135,19 @@ python3 control/bin/a11y_services.py restore p7a
 
 Record in `RESPONSES.md` only if it fails on a host.
 
-### 2.1 Accessibility services (if wiped again)
+### 2.1 Accessibility services (if missing)
 
-**Never** use the AutoJs6 drawer accessibility toggle alone — it replaces the
-entire system list. Fleet tooling uses merge-only writes.
+Fleet tooling is detection-only. Do not use the AutoJs6 drawer toggle, the legacy
+restore command, or `settings put secure enabled_accessibility_services`; any of them
+can replace or unexpectedly alter the entire consent-sensitive system list.
 
 ```bash
-python3 control/bin/a11y_services.py backup <host>   # snapshot live list
-python3 control/bin/a11y_services.py restore <host>    # merge profile + backup + AutoJs6
+python3 control/bin/a11y_services.py show <host>   # read-only inspection
 ```
 
-Profiles: `control/lib/a11y_profiles.json`. See [docs/hacking.md](../docs/hacking.md) Part 5.
+Enable missing services manually in **Android Settings → Accessibility**, then rerun
+the read-only inspection. Profiles in `control/lib/a11y_profiles.json` are diagnostic
+references only. See [docs/hacking.md](../docs/hacking.md) Part 5.
 
 ---
 

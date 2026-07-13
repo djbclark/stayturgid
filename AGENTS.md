@@ -62,6 +62,8 @@ make health && make firerpa-health
 ## Handoff
 
 Full details: `docs/handoff.md` (cold-start, architecture, known issues)
+Ordered current work: `docs/plans/outstanding-fix-priorities-2026-07-13.md`
+Open item status: `docs/options.md`
 Session history: `docs/history/session-*.md`
 
 ## Multi-Agent Protocol

@@ -2,7 +2,7 @@
 
 > **Purpose:** This file is a prompt for an AI agent taking over development. Read it fully before doing anything else. It describes what the project does, the current state, the environment, the tooling rules, and what's next.
 >
-> **Modular docs:** each subfolder is usable on its own. Human index: [docs/README.md](README.md) · [README.md](../README.md). Full clean-install setup + device gotchas: [docs/hacking.md](hacking.md). **Operator tasks (credentials, deploy approval):** [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md). **Open work menu:** [docs/options.md](options.md) (single list — replace + push when items close). **Layout reference:** [docs/architecture.md](architecture.md). Git history has the detailed narrative of every change; this file is the condensed durable record.
+> **Modular docs:** each subfolder is usable on its own. Human index: [docs/README.md](README.md) · [README.md](../README.md). Full clean-install setup + device gotchas: [docs/hacking.md](hacking.md). **Operator tasks (credentials, deploy approval):** [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md). **Open work menu:** [docs/options.md](options.md) (single list — replace + push when items close). **Current execution order and junior-agent prompt:** [Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md). **Layout reference:** [docs/architecture.md](architecture.md). Git history has the detailed narrative of every change; this file is the condensed durable record.
 >
 > **Agent rules (always read on handoff):** [`.cursor/rules/`](../.cursor/rules/) — project policy Cursor/agents load as `alwaysApply` rules. See [§ Cursor agent rules](#cursor-agent-rules--read-on-every-handoff) below. Also read root [`AGENTS.md`](../AGENTS.md) (quick-start + key commands table).
 >
@@ -170,6 +170,13 @@ python3 control/bin/screen_lease.py status
 # Optional: make verify-drift HOSTS=s24  # Ansible-based drift check
 ```
 
+Then read [docs/options.md](options.md) and the
+[ordered outstanding-fix plan](plans/outstanding-fix-priorities-2026-07-13.md)
+before selecting work. Its priority order is authoritative for reliability work;
+hardware- or human-blocked items remain open while the next independent safe item
+may proceed. A copy-paste prompt for a junior implementation agent is included at the
+end of that plan.
+
 ### Fleet snapshot (2026-07-13 — bootstrap automation deployed)
 
 | Host | Verify | stayturgid | Bootstrap APKs | FIRERPA | CFEngine | Notes |
@@ -177,6 +184,12 @@ python3 control/bin/screen_lease.py status
 | **s24** | 14/16 PASS | all green | ✅ All 7 current | ✅ v10.0 secure | ✅ 7/7 | Full deploy + AutoJs6 watchdog verified |
 | **p7a** | 14/16 PASS | all green | pending | ✅ v10.0 secure | ✅ 7/7 | FIRERPA + Termux supervisor deploy verified |
 | **hd8** | 13/16 PASS | offline / watchdog stale | pending | ⚠️ USB only | last ✅ 4/7 | Deferred H1/H3; aggregate `make health` remains nonzero |
+
+**Current fix order:** H10 AutoJs6 parent-path error → H1/H3 HD8 health decision →
+H11 landing runtime state → H8/H9 dashboard human actions → B63/B64 recovery tests →
+H12 health summary → F4 FIRERPA network audit/isolation → T1 `just` migration. See
+[the execution plan](plans/outstanding-fix-priorities-2026-07-13.md) for gates and
+rollback rules.
 
 All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/obtainium/stayturgid-apps.json`.
 **Fork sources:** `~/src/AutoJs6/`, `~/src/Shizuku/`, `~/src/Obtainium/` — **read-only** for this project. If changes needed, write a prompt for the fork's AI.
@@ -396,10 +409,13 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 - Mac adb: Tailscale or USB `GN43T503430603PS`; wireless failover works after one USB bootstrap.
 - **Sideloaded Google Play:** Play Store can auto-update GMS past Fire-compatible builds → GSF/GMS crash loop. Pin via `make fix-hd8-google`; disable Play Store auto-updates. **VLM close-out** (when `make vlm-server` running): `make verify-hd8-google` or auto after `fix-hd8-google`. See [docs/research/fire-os-google-play.md](research/fire-os-google-play.md) and [docs/vlm.md](vlm.md).
 
-**Next work:** [options.md](options.md) — open items: B63–B64 (bootstrap APK follow-ups),
-H5/38 (Galaxy publish), 43–45 (reliability), 54 (LLM), F1–F4 (FIRERPA). If validating
-bootstrap flow: `make verify-bootstrap-apks HOSTS=s24` → `make bootstrap-apks HOSTS=s24` →
-`make ensure-shizuku HOSTS=s24` → `make deploy-check HOSTS=s24`. Human unlocks:
+**Next work:** follow
+[Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md), with
+live status in [options.md](options.md). Start with H10; do not let Galaxy publishing,
+LLM, FIRERPA MCP/WebRTC/MITM, Tasker, or `sshd -D` work displace the ordered fixes.
+If validating bootstrap flow: `make verify-bootstrap-apks HOSTS=s24` →
+`make bootstrap-apks HOSTS=s24` → `make ensure-shizuku HOSTS=s24` →
+`make deploy-check HOSTS=s24`. Human unlocks:
 [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md).
 
 **Deploy / test:**
@@ -611,6 +627,22 @@ version.json                 — repo release version + changelog
 
 ## Known issues / gotchas
 
+- **AutoJs6 parent-path API failure (open H10):** P7A logged
+  `TypeError: Cannot find function getParent` while recreating the trigger-file
+  directory. Unsupported `files.getParent()` calls remain in `lib/termux.js` and
+  `lib/notify.js`; fix both and add a missing-parent regression before relying on
+  that self-heal branch.
+- **Landing discovery mutates tracked state (open H11):** hourly discovery writes
+  timestamps and reachability into `control/landing/services.json`, leaving Git dirty.
+  Preserve the current file; the planned fix separates a committed static catalog
+  from runtime state under `~/.config/stayturgid/`.
+- **Recovered error noise (open H12):** default fleet health may show many historical
+  P7A errors after live health has recovered. Treat the live host summary and exit
+  status as current state; H12 will group repeated history and label it recovered.
+- **Termux Shizuku authorization is human-gated (open H8):** the user must select
+  **Allow all the time**. The durable success probe is
+  `~/.stayturgid/bin/rish -c 'id -u'` returning UID 2000. Dashboard request/test/retry
+  support is still pending.
 - **s24 AutoJs6 watchdog stale (resolved 2026-07-13):** after the human accessibility
   toggle, `boot-launcher.js` still spawned `main.js` with the launcher's `scripts/`
   working directory, making every `./lib/...` import fail. It now supplies the project

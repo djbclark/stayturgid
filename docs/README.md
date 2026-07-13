@@ -26,6 +26,8 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 | [`.cursor/rules/`](../.cursor/rules/) | Always-on AI agent rules (self-heal, screen-control hold, …) — **read on handoff** |
 | [docs/architecture.md](architecture.md) | Repo layout (`control/`, `device/`, `catalogs/`, `docs/`) |
 | [docs/options.md](options.md) | Open work menu |
+| [plans/outstanding-fix-priorities-2026-07-13.md](plans/outstanding-fix-priorities-2026-07-13.md) | Ordered reliability work + junior-agent resume prompt |
+| [plans/just-migration-plan.md](plans/just-migration-plan.md) | Staged GNU Make → `just` migration after reliability fixes |
 | [docs/other-sites.md](other-sites.md) | Multi-site adoption, control-node OS matrix |
 | [docs/vlm.md](vlm.md) | UI-TARS vision gates |
 | [adr/001-ansible-boundary.md](adr/001-ansible-boundary.md) | Ansible 80/20 boundary (ADR 001) |
