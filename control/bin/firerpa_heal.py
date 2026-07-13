@@ -11,7 +11,6 @@ Usage:
 
 Requirements: pip install lamda-client (from firerpa-binaries or fork release)
 """
-
 from __future__ import annotations
 
 import argparse
@@ -23,13 +22,16 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
+from control.lib.logging import (  # noqa: E402
+    INFO, NOTICE, WARNING, ERR,
+    log, trim_log,
+)
 
 try:
     from lamda.client import Device
 except ImportError:
     print("ERROR: lamda-client not installed.", file=sys.stderr)
     print("  pip install ~/src/firerpa-binaries/lamda-client-py-10.0.tar.gz", file=sys.stderr)
-    print("  (use Python 3.12 venv: /opt/homebrew/bin/python3.12 -m venv /tmp/lamda-venv)", file=sys.stderr)
     sys.exit(1)
 
 SSHD_DOWN = "/data/data/com.termux/files/usr/var/service/sshd/down"
@@ -40,20 +42,15 @@ BOOTLAUNCH = (
     "/data/data/com.termux/files/home/.stayturgid/bin/start_adb.py "
     ">/dev/null 2>&1 < /dev/null &"
 )
+LOG_ROOT = os.path.expanduser("~/.config/stayturgid")
+LOG_NAME = "firerpa-heal.log"
 
 
-def log(msg: str) -> None:
-    ts = time.strftime("%Y-%m-%d %H:%M:%S")
-    line = f"{ts} [firerpa_heal] {msg}"
-    log_path = os.path.expanduser("~/.config/stayturgid/logs/firerpa-heal.log")
-    os.makedirs(os.path.dirname(log_path), exist_ok=True)
-    with open(log_path, "a") as f:
-        f.write(line + "\n")
-    print(line)
+def _log(level: int, msg: str) -> None:
+    log(LOG_NAME, level, msg, also_print=True)
 
 
 def _exec_stdout(device: Device, cmd: str, timeout: int = 5) -> str:
-    """Execute a script via FIRERPA and return stdout as str, or '' on error."""
     try:
         result = device.execute_script(cmd, timeout=timeout)
         if hasattr(result, 'stdout'):
@@ -83,7 +80,7 @@ def is_shizuku_alive(device: Device) -> bool:
 
 
 def is_bootloop_alive(device: Device) -> bool:
-    out = _exec_stdout(device, "pgrep -f start-adb\\.sh")
+    out = _exec_stdout(device, "pgrep -f start_adb\\.py")
     return bool(out)
 
 
@@ -91,30 +88,30 @@ def remove_sshd_down(device: Device) -> str:
     out = _exec_stdout(device,
         f"run-as com.termux rm -f {SSHD_DOWN} 2>/dev/null && echo REMOVED || echo ABSENT")
     if "REMOVED" in out:
-        log("removed sshd down file")
+        _log(NOTICE, "removed sshd down file")
         return "repaired"
     return "up"
 
 
 def restart_sshd(device: Device) -> str:
-    # Can't start sshd as Termux user from shell context — use am start instead
     _exec_stdout(device,
         "am start -n com.termux/.app.TermuxActivity 2>/dev/null")
     time.sleep(3)
     if is_sshd_alive(device):
-        log("sshd alive after activity trigger")
+        _log(NOTICE, "sshd alive after activity trigger")
         return "up"
+    _log(WARNING, "sshd restart via TermuxActivity FAILED")
     return "FAILED"
 
 
 def restart_bootloop(device: Device) -> str:
-    # Boot loop is started by Termux activity launch
     _exec_stdout(device,
         "am start -n com.termux/.app.TermuxActivity 2>/dev/null")
     time.sleep(5)
     if is_bootloop_alive(device):
-        log("boot loop alive after activity trigger")
+        _log(NOTICE, "boot loop alive after activity trigger")
         return "up"
+    _log(WARNING, "boot loop restart via TermuxActivity FAILED")
     return "FAILED"
 
 
@@ -125,14 +122,15 @@ def restart_shizuku(device: Device) -> str:
         device.execute_script("am broadcast -a moe.shizuku.privileged.api.HEADLESS_START", timeout=5)
         time.sleep(3)
         if is_shizuku_alive(device):
-            log("Shizuku started via HEADLESS_START")
+            _log(NOTICE, "Shizuku started via HEADLESS_START")
             return "repaired"
         if is_port_5555_alive(device):
-            log("Shizuku: port 5555 up but shizuku_server not found via pgrep")
+            _log(WARNING, "Shizuku: port 5555 up but shizuku_server not found via pgrep")
             return "port_only"
+        _log(ERR, "Shizuku restart FAILED")
         return "FAILED"
     except Exception as e:
-        log(f"Shizuku restart error: {e}")
+        _log(ERR, "Shizuku restart error: %s" % e)
         return "FAILED"
 
 
@@ -142,11 +140,11 @@ def heal_device(host: str, port: int = 65000) -> dict[str, str]:
         d = Device(host, port=port)
     except Exception as e:
         err = str(e)[:80]
-        log(f"Cannot connect to FIRERPA on {host}:{port}: {err}")
+        _log(ERR, "Cannot connect to FIRERPA on %s:%s: %s" % (host, port, err))
         return {"firerpa": "unreachable", "error": err}
 
     server_info = d.server_info()
-    log(f"{host}: FIRERPA v{server_info.version} uptime={server_info.uptime}s")
+    _log(INFO, "%s: FIRERPA v%s uptime=%ss" % (host, server_info.version, server_info.uptime))
 
     sshd_alive = is_sshd_alive(d)
     port5555_alive = is_port_5555_alive(d)
@@ -171,12 +169,11 @@ def heal_device(host: str, port: int = 65000) -> dict[str, str]:
         r = restart_bootloop(d)
         results["bootloop_restart"] = r
 
-    # Final state
     results["sshd_final"] = "up" if is_sshd_alive(d) else "down"
     results["shizuku_final"] = "up" if is_port_5555_alive(d) else "down"
 
     status = " ".join(f"{k}={v}" for k, v in results.items())
-    log(f"{host}: {status}")
+    _log(INFO, "%s: %s" % (host, status))
     return results
 
 
@@ -187,7 +184,6 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=65000)
     args = parser.parse_args(argv)
 
-    # Device IPs from inventory (inline — see ansible/inventory/hosts.yml)
     fleet = {
         "s24": "100.123.218.30",
         "p7a": "100.65.230.108",
@@ -205,16 +201,17 @@ def main(argv: list[str] | None = None) -> int:
         print("Specify --host <alias> or --all", file=sys.stderr)
         return 1
 
+    trim_log(os.path.join(LOG_ROOT, "logs", LOG_NAME), max_age_days=30, max_lines=2000)
     rc = 0
     for alias, ip in targets.items():
         try:
             results = heal_device(ip, args.port)
-        if results.get("firerpa") == "unreachable":
-            if alias == "hd8":
-                log(f"{alias}: FIRERPA not running (expected — USB ADB only, tablet moves around)")
-            rc = 1
+            if results.get("firerpa") == "unreachable":
+                if alias == "hd8":
+                    _log(INFO, "%s: FIRERPA not running (expected)" % alias)
+                rc = 1
         except Exception as e:
-            log(f"{alias} ({ip}): heal error: {e}")
+            _log(ERR, "%s (%s): heal error: %s" % (alias, ip, e))
             rc = 1
 
     return rc

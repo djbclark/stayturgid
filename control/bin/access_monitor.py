@@ -8,13 +8,14 @@ consecutive runs does it fire a macOS notification — one per outage, not one
 per run. Recovery resets the counter and notifies once.
 
 Soft health (watchdog/a11y/sshd echo) is a separate agent:
-`control/bin/fleet_health_monitor.py` → com.stayturgid.fleet-health.
+`control/bin/fleet_health_monitor.py` -> com.stayturgid.fleet-health.
 
 Device list comes from ~/.config/stayturgid/devices.conf (generated from the
 Ansible inventory) — no device facts live here.
 """
+from __future__ import annotations
+
 import datetime
-import fcntl
 import os
 import socket
 import subprocess
@@ -23,6 +24,10 @@ import sys
 _LIB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib")
 if _LIB not in sys.path:
     sys.path.insert(0, _LIB)
+from control.lib.logging import (  # noqa: E402
+    INFO, NOTICE, WARNING, ERR,
+    log, trim_log,
+)
 try:
     import control.lib.stats as stats
 except Exception:
@@ -33,55 +38,21 @@ try:
     ADB = _adb_bin()
 except ImportError:
     ADB = os.environ.get("STAYTURGID_ADB", "/opt/homebrew/bin/adb")
-# Single Mac root: ~/.config/stayturgid/{devices.conf,logs/,state/}. mkdir on
-# demand so a user-deleted dir self-heals.
+
 ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")
 CONF = os.environ.get("STAYTURGID_DEVICES_CONF", os.path.join(ROOT, "devices.conf"))
 STATE_DIR = os.path.join(ROOT, "state", "access-monitor")
-LOG = os.path.join(ROOT, "logs", "access-monitor.log")
-CONSECUTIVE_LIMIT = 2  # 2 runs x 5 min = alert after ~10 min of total outage
+LOG_NAME = "access-monitor.log"
+CONSECUTIVE_LIMIT = 2
 SSH_PORT = 8022
 
 
-def ts():
-    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+def _access_log(level: int, msg: str) -> None:
+    log(LOG_NAME, level, msg, also_print=False)
 
 
 def _applescript_escape(s):
     return str(s).replace("\\", "\\\\").replace('"', '\\"')
-
-
-def _ensure(path):
-    try:
-        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    except OSError:
-        pass
-    return path
-
-
-def log(msg):
-    try:
-        with open(_ensure(LOG), "a") as f:
-            f.write("%s  %s\n" % (ts(), msg))
-    except OSError:
-        pass
-
-
-def trim_log(max_lines=1000):
-    lock_path = LOG + ".lock"
-    try:
-        with open(lock_path, "a") as lock_fd:
-            fcntl.flock(lock_fd, fcntl.LOCK_EX)
-            try:
-                with open(LOG) as f:
-                    lines = f.readlines()
-                if len(lines) > max_lines:
-                    with open(LOG, "w") as f:
-                        f.writelines(lines[-max_lines:])
-            finally:
-                fcntl.flock(lock_fd, fcntl.LOCK_UN)
-    except OSError:
-        pass
 
 
 def notify(title, message, sound=None):
@@ -106,7 +77,6 @@ def read_devices(conf_path):
     if iter_monitor_hosts is not None:
         yield from iter_monitor_hosts(conf_path)
         return
-    # Minimal fallback if lib import fails under launchd.
     try:
         with open(conf_path) as f:
             for line in f:
@@ -123,7 +93,6 @@ def read_devices(conf_path):
 
 
 def adb_reachable(addrs):
-    """Return 'adb:<addr>' if any address is connected/connectable, else None."""
     try:
         listed = subprocess.run([ADB, "devices"], capture_output=True, text=True,
                                 timeout=15).stdout
@@ -181,7 +150,7 @@ def check_device(name, ts_ip, lan_ip):
 
     if ok:
         if fails >= CONSECUTIVE_LIMIT:
-            log("%s RECOVERED via %s" % (name, ok))
+            _access_log(NOTICE, "%s RECOVERED via %s" % (name, ok))
             notify("stayturgid access", "%s reachable again (%s)" % (name, ok))
             if stats:
                 stats.record_event("device_status", name, status="online")
@@ -189,7 +158,7 @@ def check_device(name, ts_ip, lan_ip):
     else:
         fails += 1
         write_state(state_file, fails)
-        log("%s unreachable on all paths (consecutive: %d)" % (name, fails))
+        _access_log(WARNING, "%s unreachable on all paths (consecutive: %d)" % (name, fails))
         if fails == CONSECUTIVE_LIMIT:
             notify("stayturgid access LOST",
                    "%s unreachable on ALL paths (ADB + SSH) for ~10 min" % name,
@@ -202,9 +171,9 @@ def main():
     if not os.path.exists(ADB):
         return 1
     if not os.path.exists(CONF):
-        return 0  # nothing to monitor until control_node/agents generates the conf
+        return 0
     os.makedirs(STATE_DIR, exist_ok=True)
-    trim_log()
+    trim_log(os.path.join(ROOT, "logs", LOG_NAME), max_age_days=30, max_lines=2000)
     for name, ts_ip, lan_ip in read_devices(CONF):
         check_device(name, ts_ip, lan_ip)
     return 0

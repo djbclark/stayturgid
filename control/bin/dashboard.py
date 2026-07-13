@@ -40,6 +40,7 @@ import control.lib.stats as _stats
 ROOT = Path(os.path.expanduser("~")) / ".config" / "stayturgid"
 FLEET_LOG = ROOT / "logs" / "fleet-health.log"
 FIRERPA_LOG = ROOT / "logs" / "firerpa-health.log"
+ERROR_LOG = ROOT / "logs" / "errors.log"
 DEVICES_CONF = ROOT / "devices.conf"
 ACCESS_STATE = ROOT / "state" / "access-monitor"
 DEFAULT_PORT = 4097
@@ -523,6 +524,37 @@ _SELECT_OPTIONS = [
     ("2w", "2 weeks"), ("1M", "1 month"), ("3M", "3 months"),
     ("1y", "1 year"),
 ]
+
+
+@app.route("/errors")
+def errors_page():
+    """Show recent device errors from errors.log."""
+    _ERROR_LINE_RE = re.compile(
+        r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(\S+)\s+(.*)$"
+    )
+    entries: list[dict] = []
+    if ERROR_LOG.is_file():
+        try:
+            raw = ERROR_LOG.read_text().splitlines()
+        except OSError:
+            raw = []
+        for line in reversed(raw[-500:]):
+            m = _ERROR_LINE_RE.match(line)
+            if not m:
+                continue
+            ts, level, rest = m.group(1), m.group(2), m.group(3)
+            entries.append({
+                "ts": ts,
+                "level": level,
+                "msg": rest[:300],
+                "cls": "error" if level in ("ERR", "CRIT", "EMERG") else ("warn" if level == "WARNING" else "info"),
+            })
+
+    return _render_template("errors.html",
+                            entries=entries,
+                            count=len(entries),
+                            oc_web_url=OC_WEB_URL,
+                            now=time.strftime("%Y-%m-%d %H:%M:%S"))
 
 
 @app.route("/stats")

@@ -11,45 +11,40 @@ with FIRERPA running, checks:
 Usage:
   python3 control/bin/firerpa_health_monitor.py
 """
-
 from __future__ import annotations
 
 import os
 import subprocess
 import sys
-import time
-import json
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-LOG = os.path.expanduser("~/.config/stayturgid/logs/firerpa-health.log")
+sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
+from control.lib.logging import (  # noqa: E402
+    INFO, NOTICE, WARNING, ERR,
+    log, trim_log,
+)
+
+LOG_NAME = "firerpa-health.log"
+ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")
 
 try:
     from lamda.client import Device
 except ImportError:
-    print("lamda-client not installed — skipping FIRERPA health check", file=sys.stderr)
+    print("lamda-client not installed -- skipping FIRERPA health check", file=sys.stderr)
     sys.exit(0)
 
 FLEET = {
     "s24": "100.123.218.30",
     "p7a": "100.65.230.108",
-    "hd8": "100.124.55.39",   # USB ADB only — not always-on
+    "hd8": "100.124.55.39",
 }
-
-
-def log(msg: str) -> None:
-    ts = time.strftime("%Y-%m-%d %H:%M:%S")
-    line = f"{ts} {msg}"
-    os.makedirs(os.path.dirname(LOG), exist_ok=True)
-    with open(LOG, "a") as f:
-        f.write(line + "\n")
-    print(line)
 
 
 def check_device(alias: str, ip: str) -> dict:
     try:
         d = Device(ip, port=65000)
-        _ = d.server_info()  # verify connectivity
+        _ = d.server_info()
     except Exception as e:
         return {"firerpa": "unreachable", "error": str(e)[:120]}
 
@@ -70,8 +65,6 @@ def check_device(alias: str, ip: str) -> dict:
         if isinstance(stdout, bytes):
             stdout = stdout.decode(errors='replace')
         port_5555 = ":5555" in (stdout or "")
-        # Port 5555 alone is not sufficient — it can be provided by developer-
-        # options wireless debugging, not Shizuku. Confirm with pgrep.
         out2 = d.execute_script("pgrep -f shizuku_server 2>/dev/null", timeout=5)
         stdout2 = getattr(out2, 'stdout', b'')
         if isinstance(stdout2, bytes):
@@ -91,6 +84,7 @@ def check_device(alias: str, ip: str) -> dict:
 
 def main() -> int:
     rc = 0
+    trim_log(os.path.join(ROOT, "logs", LOG_NAME), max_age_days=30, max_lines=2000)
     for alias, ip in FLEET.items():
         result = check_device(alias, ip)
         firerpa = result.get("firerpa", "unreachable")
@@ -98,19 +92,23 @@ def main() -> int:
         shizuku = result.get("shizuku", "unknown")
 
         issues = []
+        level = INFO
         if firerpa == "unreachable":
             issues.append("firerpa_down")
             rc = 1
+            level = WARNING
         if sshd == "down":
             issues.append("sshd_down")
+            level = WARNING
         if shizuku == "down":
             issues.append("shizuku_down")
+            level = WARNING
 
         status = f"firerpa={firerpa} sshd={sshd} shizuku={shizuku}"
         if issues:
             status += f" issues={','.join(issues)}"
 
-        log(f"{alias} via firerpa:{ip}:65000: {status}")
+        log(LOG_NAME, level, "%s via firerpa:%s:65000: %s" % (alias, ip, status), also_print=False)
 
     return rc
 
