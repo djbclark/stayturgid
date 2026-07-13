@@ -11,6 +11,28 @@
     - "{{ conf_dir }}/artifacts"
     - "{{ agents_dir }}"
 
+- name: Ensure system-wide Homebrew PATH for login and SSH sessions
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/paths.d/homebrew
+    content: |
+      {{ stayturgid_homebrew_prefix }}/bin
+      {{ stayturgid_homebrew_prefix }}/sbin
+    owner: root
+    group: wheel
+    mode: "0644"
+
+- name: Ensure SSH daemon exposes Homebrew PATH to noninteractive sessions
+  become: true
+  ansible.builtin.copy:
+    dest: /etc/ssh/sshd_config.d/50-stayturgid-homebrew-path.conf
+    content: |
+      # stayturgid: expose Homebrew tools to noninteractive SSH sessions.
+      SetEnv PATH={{ stayturgid_homebrew_prefix }}/bin:{{ stayturgid_homebrew_prefix }}/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
+    owner: root
+    group: wheel
+    mode: "0644"
+
 - name: Render devices.conf from inventory (alias usb_serial tailscale_ip lan_ip)
   ansible.builtin.template:
     src: devices.conf.j2
