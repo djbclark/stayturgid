@@ -33,6 +33,7 @@ from control.lib.logging import (  # noqa: E402
     INFO, NOTICE, WARNING, ERR, CRIT,
     log, trim_log, scrape_errors,
 )
+import control.lib.stats as stats  # noqa: E402
 
 ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")
 CONF = os.environ.get("STAYTURGID_DEVICES_CONF", os.path.join(ROOT, "devices.conf"))
@@ -56,6 +57,13 @@ REPO = _REPO
 REPAIR_HEAL_STATE_DIR = os.path.join(ROOT, "state", "repair-heal")
 REPAIR_HEAL_COOLDOWN_SEC = 30 * 60
 REPAIR_HEAL_AFTER = 2
+
+
+def _stats_event(event_type: str, device: str, **details: object) -> None:
+    try:
+        stats.record_event(event_type, device, **details)
+    except Exception:
+        pass
 
 
 def _fleet_log(level: int, msg: str) -> None:
@@ -399,6 +407,10 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     issues = fh.evaluate_health(report, alias=name)
     summary = fh.summarize(report, issues)
     _fleet_log(INFO, "%s via %s: %s" % (name, path, summary))
+
+    _stats_event("connection_path", name, via=path)
+    for issue in issues:
+        _stats_event("issue_detected", name, issue=issue)
 
     _scrape_device_errors(name, ts_ip)
 
