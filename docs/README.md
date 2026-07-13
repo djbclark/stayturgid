@@ -29,6 +29,7 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 | [docs/options.md](options.md) | Open work menu |
 | [plans/outstanding-fix-priorities-2026-07-13.md](plans/outstanding-fix-priorities-2026-07-13.md) | Ordered reliability work + junior-agent resume prompt |
 | [plans/just-migration-plan.md](plans/just-migration-plan.md) | Staged GNU Make → `just` migration after reliability fixes |
+| [prompts/dashboard-framework-research.md](prompts/dashboard-framework-research.md) | Self-contained prompt for evaluating Ansible/operations frameworks as a dashboard foundation |
 | [docs/other-sites.md](other-sites.md) | Multi-site adoption, control-node OS matrix |
 | [docs/vlm.md](vlm.md) | UI-TARS vision gates |
 | [adr/001-ansible-boundary.md](adr/001-ansible-boundary.md) | Ansible 80/20 boundary (ADR 001) |
