@@ -226,7 +226,7 @@ Representative hotspots:
 
 Collection READMEs (especially `stayturgid/fleet`) also point at non-existent
 `stayturgid/docs/…` trees; real shared collection docs live under
-`ansible_collections/docs/`.
+`docs/ansible_collections/`.
 
 **Fix direction:** from `docs/*` use sibling-relative paths (`hacking.md`,
 `modules/…`, `../human/…`, `../control/…`). Add a CI/linkcheck script.

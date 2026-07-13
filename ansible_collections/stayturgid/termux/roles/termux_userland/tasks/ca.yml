@@ -41,7 +41,10 @@
 - name: Build host cert principals from inventory facts
   ansible.builtin.set_fact:
     _stg_cert_principals_str: >-
-      {{ inventory_hostname }},{{ ansible_host }}{% if device_lan_ip is defined and (device_lan_ip | string | trim | length) > 0 %},{{ device_lan_ip }}{% endif %}
+      {{ ([inventory_hostname, ansible_host]
+          + ([device_lan_ip] if device_lan_ip is defined
+             and (device_lan_ip | string | trim | length) > 0 else []))
+         | join(',') }}
   when: _termux_home_stat.stat.exists
 
 - name: Sign host key with CA (delegated to control node)

@@ -2,6 +2,8 @@
 import os
 import sys
 
+import pytest
+
 ROOT = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "ansible_collections", "stayturgid", "android_common")
 )
@@ -29,6 +31,65 @@ def test_parse_ungranted_runtime_permissions():
     assert "android.permission.POST_NOTIFICATIONS" not in perms
 
 
+def test_parse_permission_granted_supports_android_dump_formats():
+    assert adb_shell.parse_permission_granted(
+        SAMPLE_DUMPSYS, "android.permission.POST_NOTIFICATIONS"
+    )
+    assert not adb_shell.parse_permission_granted(
+        SAMPLE_DUMPSYS, "android.permission.CAMERA"
+    )
+    inline = "android.permission.POST_NOTIFICATIONS: granted=true, flags=[ USER_SET]"
+    assert adb_shell.parse_permission_granted(
+        inline, "android.permission.POST_NOTIFICATIONS"
+    )
+
+
+def test_ensure_permission_skips_launch_when_already_granted():
+    calls = []
+
+    def run(cmd):
+        joined = " ".join(cmd)
+        calls.append(joined)
+        if "dumpsys package" in joined:
+            return (
+                0,
+                "android.permission.POST_NOTIFICATIONS: granted=true, flags=[]",
+                "",
+            )
+        return (0, "", "")
+
+    changed, status = fp.ensure_permission(
+        run,
+        "dev",
+        "com.termux.api",
+        "android.permission.POST_NOTIFICATIONS",
+    )
+    assert changed is False
+    assert status == "already"
+    assert not any("monkey" in call or "pm grant" in call for call in calls)
+
+
+def test_ensure_permission_skips_undeclared_legacy_permission():
+    calls = []
+
+    def run(cmd):
+        joined = " ".join(cmd)
+        calls.append(joined)
+        if "dumpsys package" in joined:
+            return (0, "android.permission.POST_NOTIFICATIONS\n", "")
+        return (0, "", "")
+
+    changed, status = fp.ensure_permission(
+        run,
+        "dev",
+        "org.autojs.autojs6",
+        "android.permission.READ_EXTERNAL_STORAGE",
+    )
+    assert changed is False
+    assert status == "not_requested"
+    assert not any("monkey" in call or "pm grant" in call for call in calls)
+
+
 def test_deviceidle_whitelisted_detects_package():
     def run(_cmd):
         return (0, "user,org.autojs.autojs6,com.termux\n", "")
@@ -51,6 +112,32 @@ def test_apply_profile_skips_missing_package():
     )
     assert changed is False
     assert results[0]["status"] == "skipped"
+
+
+@pytest.mark.parametrize("bucket", ["5", "10"])
+def test_battery_unrestricted_accepts_numeric_active_bucket(bucket):
+    calls = []
+
+    def run(cmd):
+        joined = " ".join(cmd)
+        calls.append(joined)
+        if "pm list packages" in joined:
+            return (0, "package:com.termux\n", "")
+        if joined.endswith("dumpsys deviceidle whitelist"):
+            return (0, "user,com.termux,1000\n", "")
+        if "cmd appops get" in joined:
+            return (0, "Mode: allow\n", "")
+        if "am get-standby-bucket" in joined:
+            return (0, bucket + "\n", "")
+        return (0, "", "")
+
+    changed, _results = fp.apply_profile(
+        run,
+        "dev",
+        {"package": "com.termux", "battery_unrestricted": True},
+    )
+    assert changed is False
+    assert not any("am set-standby-bucket" in call for call in calls)
 
 
 def test_battery_optimized_removes_whitelist_and_denies_background():

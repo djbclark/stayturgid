@@ -61,7 +61,7 @@ def sync_shizuku_grants(alias: str) -> int:
 
 
 def shizuku_server_running(serial: str) -> bool:
-    result = adb(serial, "pgrep", "-f", "shizuku_server")
+    result = adb(serial, "pgrep", "-f", "[s]hizuku_server")
     return result.returncode == 0 and bool((result.stdout or "").strip())
 
 
@@ -81,9 +81,6 @@ def a11y_services_list(serial: str) -> str:
 
 def a11y_enabled(serial: str) -> bool:
     return A11Y_SVC in a11y_services_list(serial)
-
-
-def push_fleet_profile(serial: str) -> bool:
 
 
 def push_fleet_profile(serial: str) -> bool:

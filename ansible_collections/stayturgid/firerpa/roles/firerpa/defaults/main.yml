@@ -8,6 +8,13 @@ firerpa_install_dir: /data/local/tmp/firerpa
 firerpa_server_archive_arm64: "lamda-server-arm64-v8a.tar.gz"
 firerpa_server_archive_url_arm64: >-
   https://github.com/djbclark/lamda/releases/download/v{{ firerpa_version }}-binaries/{{ firerpa_server_archive_arm64 }}
+firerpa_certificate_path: >-
+  {{
+    lookup('env', 'FIRERPA_CERTIFICATE')
+    | default(lookup('env', 'HOME') ~ '/.config/stayturgid/firerpa.pem', true)
+  }}
+firerpa_certificate_device_path: "{{ firerpa_install_dir }}/server/lamda.pem"
+firerpa_certificate_required: true
 
 # Minimal failsafe config — only sshd + gRPC.  All other services off by default.
 # Enable additional services per-device via host_vars.
@@ -21,11 +28,9 @@ firerpa_fwd_enabled: false
 firerpa_tunnel2_enabled: false
 firerpa_mdns_enabled: false
 
-# SSH: documented limitation — FIRERPA sshd reads authorized_keys from
-# ~/.ssh/ where HOME=/ (read-only on Android).  Key-based auth requires
-# root or an alternative auth mechanism (not yet configurable in v10.0).
-# The gRPC API on port 65000 is the primary programmatic control channel.
-firerpa_ssh_known_issue: true
+# The service certificate supplies both gRPC mutual TLS credentials and the
+# SSH authorized key. Non-root devices authenticate as Android user "shell".
+firerpa_ssh_user: shell
 
 # Paths (must match termux_userland role)
 termux_home: /data/data/com.termux/files/home

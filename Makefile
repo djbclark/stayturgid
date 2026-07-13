@@ -148,6 +148,7 @@ help:
 	@echo "  make firerpa-remove [HOSTS=s24]     Stop + uninstall FIRERPA"
 	@echo "  make firerpa-heal [HOSTS=s24]       Repair stayturgid via FIRERPA gRPC API"
 	@echo "  make firerpa-health                  Check FIRERPA fleet health now"
+	@echo "  ssh s24-firerpa                      SSH via FIRERPA custom certificate"
 	@echo ""
 	@echo "Verify + drift detection:"
 	@echo "  make verify-drift [HOSTS=s24]         Ansible-based verification + drift report"
@@ -394,7 +395,7 @@ firerpa-remove:
 	  $(if $(HOSTS),-l "$(HOSTS)",) -e firerpa_enabled=false
 
 firerpa-heal:
-	python3 control/bin/firerpa_heal.py $(if $(HOSTS),--host $(HOSTS),--all)
+	source /tmp/lamda-venv/bin/activate && python3 control/bin/firerpa_heal.py $(if $(HOSTS),--host $(HOSTS),--all)
 
 firerpa-health:
 	source /tmp/lamda-venv/bin/activate && python3 control/bin/firerpa_health_monitor.py

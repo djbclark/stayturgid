@@ -121,7 +121,9 @@ Tailscale via **two independent, mutually-repairing channels (ADB + SSH)**.
 
 After a reboot and PIN unlock:
 1. **Shizuku** (thedjchi fork) auto-starts via Android Wireless Debugging and uses TCP mode to call `adb tcpip 5555` — opens port 5555 without USB.
-2. **Termux:Boot** fires `~/.termux/boot/start-adb.sh` → starts `sshd`, then loops self-healing sshd every 5 min (liveness by pidfile, relaunch via `setsid`).
+2. **Termux:Boot** fires the minimal `~/.termux/boot/start-adb.sh` compatibility
+   entrypoint, which delegates immediately to Python `start_adb.py`; that supervisor
+   starts `sshd` and loops self-healing every 5 min (liveness by pidfile, relaunch via `setsid`).
 3. **AutoJs6** `main.js` (20 min when engine alive; boot once via `boot-launcher.js`) → notifications, Tailscale probe, catastrophic Shizuku repair. **Routine repair is Termux-only** (5-min loop); no `RunIntentActivity` from the boot loop.
 
 On the Mac, a launchd agent runs every 60 s and reconnects `adb connect <ip>:5555` if it drops, handling DHCP IP changes automatically.
@@ -172,9 +174,9 @@ python3 control/bin/screen_lease.py status
 
 | Host | Verify | stayturgid | Bootstrap APKs | FIRERPA | CFEngine | Notes |
 |------|:------:|:----------:|:--------------:|:-------:|:--------:|-------|
-| **s24** | 14/16 PASS | all green | ✅ All 7 current | ✅ v10.0 :65000 | ✅ 7/7 | Bootstrap vfy tested; AutoJs6 versionName fix deployed |
-| **p7a** | 14/16 PASS | all green | pending | ✅ v10.0 :65000 | ✅ 7/7 | Bootstrap not yet run via `make deploy` |
-| **hd8** | 13/16 PASS | all green | pending | ⚠️ USB only | ✅ 4/7 | Fire OS: no localhost:5555, no Shizuku, no AutoJs6 a11y |
+| **s24** | 14/16 PASS | all green | ✅ All 7 current | ✅ v10.0 secure | ✅ 7/7 | Full deploy + AutoJs6 watchdog verified |
+| **p7a** | 14/16 PASS | all green | pending | ✅ v10.0 secure | ✅ 7/7 | FIRERPA + Termux supervisor deploy verified |
+| **hd8** | 13/16 PASS | offline / watchdog stale | pending | ⚠️ USB only | last ✅ 4/7 | Deferred H1/H3; aggregate `make health` remains nonzero |
 
 All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/obtainium/stayturgid-apps.json`.
 **Fork sources:** `~/src/AutoJs6/`, `~/src/Shizuku/`, `~/src/Obtainium/` — **read-only** for this project. If changes needed, write a prompt for the fork's AI.
@@ -208,11 +210,17 @@ All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/
 - Playbook: `ansible/playbooks/fleet/firerpa.yml` (default disabled)
 - gRPC heal: `control/bin/firerpa_heal.py` — repairs stayturgid via FIRERPA backup channel
 - Health monitor: `control/bin/firerpa_health_monitor.py` + launchd agent (10-min)
-- Boot integration: FIRERPA lifecycle in `start-adb.sh` (start + monitor + restart)
+- Boot integration: FIRERPA lifecycle in Python `start_adb.py`; it prefers localhost
+  ADB and uses authorized Shizuku `rish` to restart adbd when needed (direct `rish`
+  background children do not survive their binder session)
+- Accessibility coexistence: hash-guarded DEX patch changes FIRERPA's
+  `getUiAutomation(0)` to `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`; lifecycle starts
+  the signed JAR for integrity validation, swaps the patch, and restarts only UI helpers
 - 4 research docs: `docs/history/firerpa-*-deepseek-pro-2026-07-12.md`
 - Install map: `docs/history/firerpa-install-map-2026-07-12.md`
-- Upstream issue filed: [firerpa/lamda#145](https://github.com/firerpa/lamda/issues/145) — SSH authorized_keys path
-- Known limitations: FIRERPA sshd blocked (HOME=/ read-only), ADB built-in needs root, hd8 USB-only
+- Upstream issue resolved: [firerpa/lamda#145](https://github.com/firerpa/lamda/issues/145) — inbound SSH works as `shell` with the service certificate
+- Secure aliases: `ssh s24-firerpa` / `ssh p7a-firerpa`; gRPC and SSH use `~/.config/stayturgid/firerpa.pem`
+- Known limitations: a UID-2000 bridge must exist to start FIRERPA after reboot, built-in ADB needs root, hd8 is USB-only
 - Makefile: `firerpa-deploy`, `firerpa-remove`, `firerpa-heal`, `firerpa-health`
 - Make sure `lamda-client` is installed in Python 3.12 venv: `source /tmp/lamda-venv/bin/activate`
 
@@ -266,7 +274,8 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
   access rules for 9 bundles, auto-trust on first connection
 - Wrapper: `device/termux/cfengine/cf-runagent-wrapper.sh` — sets Termux PATH/LD_LIBRARY_PATH
   before invoking cf-agent with stayturgid.cf repair bundles
-- Boot integration: `start-adb.sh` starts cf-serverd after sshd (like FIRERPA), monitors
+- Boot integration: Python `start_adb.py` starts cf-serverd after sshd (via the
+  `start-adb.sh` compatibility shim), monitors
   liveness in boot loop, restarts if dead (uses `-F`: no fork for Android seccomp)
 - Mac: `control/cfengine/cf-runagent.cf` — runagent policy targeting all 3 devices.
   cfengine installed via Homebrew; keys exchanged and trusted.
@@ -602,33 +611,36 @@ version.json                 — repo release version + changelog
 
 ## Known issues / gotchas
 
-- **s24 AutoJs6 watchdog stale (2026-07-12 16:30 – ongoing):** AutoJs6 main.js task
-  stuck after `getParent` TypeError when trying to repair accessibility. The app
-  process is alive, a11y service is in the enabled list, but the JavaScript task
-  won't cycle. `start_watchdog.py`, `am force-stop`, and ADB trigger files all fail
-  to restart it. Android 16 likely broke the `getParent()` API. Terminal 1 (repair
-  loop) continues normally; only the AutoJs6 watchdog layer is down. See OPTIONS H6.
-  When working on this: check AutoJs6 internal logs, consider downgrade or alternative.
-- **p7a CLOSED_NO_SHELL (2026-07-13 ~06:20 – ongoing):** wireless debugging toggle
-  off on p7a. Shizuku daemon runs but can't serve ADB shells. SSH works. Manual
-  fix: Developer Options → Wireless debugging → enable. See OPTIONS H2.
+- **s24 AutoJs6 watchdog stale (resolved 2026-07-13):** after the human accessibility
+  toggle, `boot-launcher.js` still spawned `main.js` with the launcher's `scripts/`
+  working directory, making every `./lib/...` import fail. It now supplies the project
+  directory explicitly. Clean boot and interval cycles are verified; see closed H6.
+- **p7a CLOSED_NO_SHELL (2026-07-13 ~06:20–12:49, resolved):** wireless debugging
+  was restored; port 5555, Shizuku, accessibility, the Python supervisor, and secure
+  FIRERPA now pass live checks. Historical errors remain in the 24-hour log window;
+  a brief 15:21 recurrence was the expected supervisor restart window during deploy,
+  followed by green 15:25+ checks. Recovery used the normal wireless-debugging/ADB
+  path. See closed OPTIONS H2.
 - **Fleet-health monitor log format (2026-07-13):** The shared logging refactoring
   added severity labels (`INFO`, `ERR`) before the hostname in log lines. The
-  dashboard regex was updated to handle both old and new formats, but any other
-  log parser that reads `fleet-health.log` directly needs to account for the extra
-  field. Format: `TIMESTAMP  [SEVERITY] host via path: ...`
+  dashboard regex and `check_fleet_health.py` now handle both old and new formats.
+  Format: `TIMESTAMP  [SEVERITY] host via path: ...`
 - **Dashboard/stats/landing run on Flask dev server (2026-07-13):** All three web
   UIs (dashboard :4097, stats :4097/stats, landing :8088, HTTPS :443) use Flask's
   dev server behind Caddy. Adequate for local/ Tailscale access; replace with
   gunicorn/uwsgi if external traffic grows.
+- **Post-UI foreground churn (deferred):** deploy may foreground Obtainium, AutoJs6,
+  Termux:API, Shizuku, or Settings and leave an arbitrary screen visible. The role now
+  waits explicitly for an on/unlocked screen. Foreground restoration is OPTIONS H9;
+  it is cosmetic and must not block service work.
 - **Post-reorg path drift (2026-07-10):** treat any `mac/`, `shared/`, root `termux/`,
   `autojs6/`, `obtainium/` reference as a bug unless it is historical (`docs/history/`),
   OPTIONS **62**, or an on-device path (`/sdcard/stayturgid/autojs6`). External
   consumers (LaunchAgents, RevengeQuickSwitcher, operator scripts outside repo) may
   still point at old paths — grep before deploy.
-- **Reorg not fleet-soaked:** `make deploy` / `make verify` on s24 not run after
-  `d950c53`. Run `make deploy-check` then live deploy before assuming phones match
-  the new layout on disk.
+- **Reorg soak:** full live `make deploy HOSTS=s24` and focused p7a Termux/FIRERPA
+  deploys passed on 2026-07-13. hd8 remains deliberately deferred until USB recovery
+  is available.
 - **make check lint tier:** `shellcheck` / `ansible-lint` / `yamllint` may still fail
   (pre-existing); tier-a syntax/pytest collection passed post-reorg.
 - **uiautomator2 `exists()` False:** usually a dismissable popup from another app blocking the UI — `d(text='OK').click()` first.
@@ -652,6 +664,13 @@ version.json                 — repo release version + changelog
 
 ## Changelog (condensed, reverse chronological — git history has full detail)
 
+- **2026-07-13** — **Secure FIRERPA + accessibility coexistence:** private
+  certificate auth and `shell` SSH aliases validated on s24/p7a; upstream
+  `getUiAutomation(0)` patched to preserve ordinary accessibility services using a
+  signed-start/patched-swap lifecycle; Termux Python supervisor can restore localhost
+  adbd through authorized `rish`; full S24 deploy and focused p7a deploy passed.
+  AutoJs6 child working-directory bug fixed, restoring watchdog self-heal. Post-UI
+  unlock is explicit; foreground-screen cleanup deferred as OPTIONS H9.
 - **2026-07-13** — **Fleet dashboard + stats + landing + HTTPS consolidation:**
   Fleet dashboard (Flask + HTMX, :4097) with device status cards, human-action-needed
   indicators, long-term stats tracking with timeframe selector, and network landing
@@ -663,8 +682,8 @@ version.json                 — repo release version + changelog
   fleet_health_monitor.py + CFEngine check_bootloop_repair bundle). CFEngine
   check_bootloop_repair added to stayturgid.cf and cf-serverd.cf (detects stale
   repair log >1h and restarts). Log format issue fixed (severity_label import +
-  dashboard regex). Known: s24 AutoJs6 watchdog stuck (see OPTIONS H6), p7a
-  wireless ADB down (see OPTIONS H2).
+  dashboard regex). S24's AutoJs6 child working-directory failure and p7a wireless
+  ADB were both resolved on 2026-07-13 (OPTIONS H6/H2 closed).
 - **2026-07-10** — **Repo restructure + path consistency** (`d950c53`): `control/`,
   `device/`, `catalogs/`, `docs/` layout; Ansible `control_node` role; canonical
   playbooks under `fleet/` + `control_node/`; on-device AutoJs6 path unified;
@@ -741,7 +760,7 @@ first-run, AutoJs6 drawer — not fake “modules” for UI taps.
 **Shipped modules (fault-tolerance):** `termux_pkg`, `termux_ssh_bootstrap`,
 `termux_sshd`, `stayturgid_repair_check`, `obtainium_app`, `android_apk`,
 `android_app_privileges`, fdroid/play/android_common adb modules — see
-[std_modules_audit.md](../ansible_collections/docs/std_modules_audit.md).
+[std_modules_audit.md](ansible_collections/std_modules_audit.md).
 
 **Prior art:** [termux-jenkins-automation](https://github.com/gounthar/termux-jenkins-automation),
 [ansible-android-termux](https://github.com/guoqiao/ansible-android-termux),

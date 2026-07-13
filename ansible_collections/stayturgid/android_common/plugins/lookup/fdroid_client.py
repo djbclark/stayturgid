@@ -44,7 +44,7 @@ class LookupModule(LookupBase):
     def run(self, terms, variables=None, **kwargs):
         if not terms:
             raise AnsibleError("fdroid_client lookup requires a device term")
-        device = self._templar.template(terms[0], disable_lookups=False)
+        device = self._templar.template(terms[0])
         wantlist = kwargs.get("wantlist", False)
         if wantlist:
             return fdroid_components_for_device(_run_command, str(device))

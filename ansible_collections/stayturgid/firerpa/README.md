@@ -13,8 +13,14 @@ on-device failsafe daemon on stayturgid-managed Android devices.
 ## Quick start
 
 ```bash
+# Provision a private service certificate first (default path shown)
+test -f ~/.config/stayturgid/firerpa.pem
+
 # Deploy to s24
 make firerpa-deploy HOSTS=s24
+
+# Use FIRERPA's certificate-authenticated backup SSH transport
+ssh s24-firerpa
 
 # Remove from s24
 make firerpa-remove HOSTS=s24
@@ -30,6 +36,7 @@ Set `firerpa_enabled: true` in host_vars or pass `-e firerpa_enabled=true`.
 Default config (minimal failsafe — gRPC + SSH only):
 ```yaml
 firerpa_port: 65000
+firerpa_certificate_path: ~/.config/stayturgid/firerpa.pem
 firerpa_sshd_enabled: true
 firerpa_adb_enabled: false
 firerpa_cron_enabled: false
@@ -38,9 +45,23 @@ firerpa_webui_enabled: false
 
 ## Known limitations
 
-- **SSH auth:** FIRERPA's sshd reads `authorized_keys` from `~/.ssh/` where
-  HOME=/ (read-only system partition). Key-based auth requires root or an
-  alternative mechanism. The gRPC API is the primary control channel.
+- **Bootstrapping:** The server archive must run as Android UID 2000 (`shell`).
+  After a reboot, the Python Termux supervisor uses localhost ADB. If it is absent,
+  authorized Shizuku `rish` restarts adbd on localhost:5555; the supervisor then
+  launches through that persistent ADB transport. Direct `rish` background children
+  die with their binder session. If neither privileged bridge is usable, USB/wireless
+  recovery must restore one before FIRERPA can start. S24 and P7A are validated after
+  granting Termux **Allow all the time** in Shizuku.
+- **Accessibility coexistence:** Upstream v10.0 calls `getUiAutomation(0)`, suppressing
+  ordinary accessibility services. The role hash-guards and patches the bundled DEX to
+  use `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`, but starts with the signed original
+  JAR so FIRERPA's integrity check still passes. It then swaps the patched JAR and
+  restarts only the UI helpers. The pinned signed and patched SHA-256 values are
+  `b1ac32d902227b7413ff6c867aa42c1630df1de57141e2efbefa0eca8169a67a` and
+  `805e39de934d39ebaabe221b4db1464f835cc8ad7753bf3f34f4313569f8f1e1`.
+- **SSH auth:** Inbound SSH works as user `shell` on port 65000. The private
+  custom service certificate supplies both TLS and SSH trust; the role requires
+  it and all Mac gRPC clients fail closed when it is missing.
 - **ADB built-in:** Requires root on v10.0 non-root devices. Use Shizuku's
   adbd on port 5555 as the primary ADB channel.
 - **Server binary:** 163 MB (arm64) closed-source native runtime. Pinned to
@@ -48,7 +69,7 @@ firerpa_webui_enabled: false
 
 ## Related docs
 
-- [FIRERPA Code Audit](../docs/history/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md)
-- [FIRERPA Redundancy Analysis](../docs/history/firerpa-nonroot-redundancy-deepseek-pro-2026-07-12.md)
-- [FIRERPA Install Map](../docs/history/firerpa-install-map-2026-07-12.md)
-- [FIRERPA Integration Plan](../docs/plans/firerpa-integration-plan.md)
+- [FIRERPA Code Audit](../../../docs/history/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md)
+- [FIRERPA Redundancy Analysis](../../../docs/history/firerpa-nonroot-redundancy-deepseek-pro-2026-07-12.md)
+- [FIRERPA Install Map](../../../docs/history/firerpa-install-map-2026-07-12.md)
+- [FIRERPA Integration Plan](../../../docs/plans/firerpa-integration-plan.md)

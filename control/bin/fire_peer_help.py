@@ -95,7 +95,7 @@ def cmd_status(target: str) -> int:
     _ensure_connected(target)
     r = _shell(
         target,
-        "id -u; pgrep -af shizuku_server | head -2; "
+        "id -u; pgrep -af '[s]hizuku_server' | head -2; "
         "pgrep -af 'dev.handsets.daemon.Main' | head -3; "
         "test -f %s && echo jar=ok || echo jar=missing" % REMOTE_JAR,
         timeout=20,
@@ -174,7 +174,7 @@ def cmd_shizuku_start(target: str) -> int:
     out = _shell(target, start, timeout=30)
     text = ((out.stdout or "") + (out.stderr or "")).replace("\r", "")
     time.sleep(1.5)
-    check = _shell(target, "pgrep -f shizuku_server >/dev/null && echo up", timeout=10)
+    check = _shell(target, "pgrep -f '[s]hizuku_server' >/dev/null && echo up", timeout=10)
     if "up" in (check.stdout or ""):
         print("OK shizuku_server target=%s" % target)
         return 0

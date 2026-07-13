@@ -64,13 +64,14 @@ def parse_ts(line):
 
 
 def latest_line_marker(path, marker):
+    markers = (marker,) if isinstance(marker, str) else tuple(marker)
     if not os.path.isfile(path):
         return None, None
     last = None
     try:
         with open(path, encoding="utf-8") as fh:
             for line in fh:
-                if marker in line:
+                if all(item in line for item in markers):
                     last = line
     except OSError:
         return None, None
@@ -139,17 +140,22 @@ def maybe_restart_trigger():
             fh.write(str(now))
     except OSError:
         pass
+    else:
+        append_log("[termux] autojs6 guard: armed start_autojs6_now")
     # Restart AutoJs6 watchdog directly via am start (no ADB needed).
     boot_script = os.path.join(SD, "autojs6", "scripts", "boot-launcher.js")
     if os.path.isfile(boot_script):
-        subprocess.run(
+        result = run(
             ["am", "start", "-a", "android.intent.action.VIEW",
              "-d", "file://" + boot_script,
              "-t", "text/javascript",
              "-n", "org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity"],
-            capture_output=True, timeout=15, start_new_session=True,
         )
-        append_log("[termux] autojs6 guard: restarted AutoJs6 watchdog via am start")
+        if result is not None and result.returncode == 0:
+            append_log("[termux] autojs6 guard: restart requested via am start")
+        else:
+            rc = result.returncode if result is not None else "unavailable"
+            append_log("[termux] autojs6 guard: restart request FAILED rc=%s" % rc)
     else:
         append_log("[termux] autojs6 guard: boot-launcher.js NOT FOUND at %s" % boot_script)
     os.makedirs(STATE, exist_ok=True)
@@ -162,7 +168,7 @@ def maybe_restart_trigger():
 
 def action_check():
     cycle_ts, _cycle = latest_line_marker(LOG, "[watchdog] cycle start")
-    repair_ts, _repair = latest_line_marker(LOG, "[repair] STATUS")
+    repair_ts, _repair = latest_line_marker(LOG, ("[repair]", "STATUS"))
     now = datetime.datetime.now()
 
     if cycle_ts is None:

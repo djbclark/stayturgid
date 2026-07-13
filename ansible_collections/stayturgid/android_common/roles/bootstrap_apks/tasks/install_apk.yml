@@ -2,10 +2,10 @@
 # Install a single bootstrap APK with version-aware idempotency.
 # Expected vars: _apk (dict with id, gh_repo, gh_pattern, resign?, monkey?), _bootstrap_adb
 
-- name: "{{ _apk.id }} — resolve latest GitHub release version"
+- name: Resolve latest GitHub release version — {{ _apk.id }}
   delegate_to: localhost
   block:
-    - name: "{{ _apk.id }} — fetch latest GitHub release tag"
+    - name: Fetch latest GitHub release tag — {{ _apk.id }}
       ansible.builtin.command:
         argv:
           - gh
@@ -20,17 +20,16 @@
       changed_when: false
       failed_when: false
 
-    - name: "{{ _apk.id }} — parse latest version from tag"
+    - name: Read latest release tag — {{ _apk.id }}
       ansible.builtin.set_fact:
-        _latest_version: >-
-          {%- set raw = (_gh_release.stdout | default('{}') | from_json).tagName | default('') -%}
-          {%- if raw -%}
-          {{ raw | regex_replace('^v', '') }}
-          {%- else -%}
-          {{ omit }}
-          {%- endif -%}
+        _latest_release_tag: >-
+          {{ (_gh_release.stdout | default('{}') | from_json).tagName | default('') }}
 
-    - name: "{{ _apk.id }} — query installed version on device"
+    - name: Parse latest version from tag — {{ _apk.id }}
+      ansible.builtin.set_fact:
+        _latest_version: "{{ _latest_release_tag | regex_replace('^v', '') if _latest_release_tag else omit }}"
+
+    - name: Query installed version on device — {{ _apk.id }}
       ansible.builtin.shell: >
         adb -s {{ _bootstrap_adb }} shell
         "dumpsys package {{ _apk.id }} 2>/dev/null | grep versionName | head -1"
@@ -38,12 +37,12 @@
       changed_when: false
       failed_when: false
 
-    - name: "{{ _apk.id }} — parse installed versionName"
+    - name: Parse installed versionName — {{ _apk.id }}
       ansible.builtin.set_fact:
         _installed_version: >-
           {{ (_installed_version_info.stdout | default('') | regex_replace('.*versionName=', '')).strip() }}
 
-    - name: "{{ _apk.id }} — check if version is current"
+    - name: Check if version is current — {{ _apk.id }}
       ansible.builtin.set_fact:
         _version_current: >-
           {{ not stayturgid_bootstrap_apks_force
@@ -52,7 +51,7 @@
         _version_unknown: >-
           {{ _latest_version == omit or _installed_version == '' }}
 
-    - name: "{{ _apk.id }} — install over ADB"
+    - name: Install over ADB — {{ _apk.id }}
       stayturgid.android_common.android_apk:
         device: "{{ _bootstrap_adb }}"
         package: "{{ _apk.id }}"
@@ -68,7 +67,7 @@
       when: not _version_current | default(false)
       delegate_to: localhost
 
-- name: "{{ _apk.id }} — launch via monkey (un-stop package)"
+- name: Launch via monkey (un-stop package) — {{ _apk.id }}
   delegate_to: localhost
   ansible.builtin.command:
     argv:

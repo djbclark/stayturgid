@@ -1,4 +1,33 @@
 ---
+# @heals: FIRERPA-SECURE-RUNNING
+- name: Check FIRERPA service certificate on control node
+  ansible.builtin.stat:
+    path: "{{ firerpa_certificate_path }}"
+  delegate_to: localhost
+  register: _firerpa_certificate
+
+- name: Require a private FIRERPA service certificate
+  ansible.builtin.assert:
+    that:
+      - _firerpa_certificate.stat.exists
+      - _firerpa_certificate.stat.isreg
+    fail_msg: >-
+      FIRERPA certificate missing at {{ firerpa_certificate_path }}.
+      Generate one with upstream tools/cert.py or set FIRERPA_CERTIFICATE.
+  when: firerpa_certificate_required | bool
+
+- name: Install FIRERPA service certificate via adb
+  ansible.builtin.shell: |
+    adb -s {{ _firerpa_adb_target }} push \
+      {{ firerpa_certificate_path | quote }} \
+      {{ firerpa_certificate_device_path | quote }}
+    adb -s {{ _firerpa_adb_target }} shell \
+      "chmod 600 {{ firerpa_certificate_device_path }}"
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  when: _firerpa_certificate.stat.exists
+
 - name: Write properties.local via adb
   ansible.builtin.shell: |
     cat > /tmp/__firerpa_props << 'ENDOFPROPERTIES'

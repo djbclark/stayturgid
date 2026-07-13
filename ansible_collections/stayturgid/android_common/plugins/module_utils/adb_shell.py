@@ -49,6 +49,10 @@ def monkey_launch(run_command, device, package):
 
 
 def pm_grant(run_command, device, package, permission):
+    if permission_granted(run_command, device, package, permission):
+        return False, "already"
+    if not permission_requested(run_command, device, package, permission):
+        return False, "not_requested"
     rc, out, err = adb_shell(
         run_command,
         device,
@@ -60,6 +64,43 @@ def pm_grant(run_command, device, package, permission):
     if "already" in combined:
         return False, "already"
     return False, combined or "failed"
+
+
+def parse_permission_granted(dumpsys_output, permission):
+    """Return whether user 0 has ``permission`` in package dump output."""
+    current = False
+    needle = permission + ":"
+    for line in normalize_adb_output(dumpsys_output).splitlines():
+        stripped = line.strip()
+        if stripped.startswith(needle):
+            suffix = stripped[len(needle) :]
+            if "granted=true" in suffix:
+                return True
+            if "granted=false" in suffix:
+                return False
+            current = True
+            continue
+        if current and stripped.startswith("granted="):
+            return stripped == "granted=true"
+        if stripped == "--":
+            break
+    return False
+
+
+def permission_granted(run_command, device, package, permission):
+    rc, out, _err = dumpsys_package(run_command, device, package)
+    return rc == 0 and parse_permission_granted(out, permission)
+
+
+def permission_requested(run_command, device, package, permission):
+    rc, out, _err = dumpsys_package(run_command, device, package)
+    if rc != 0:
+        return False
+    needle = permission + ":"
+    return any(
+        line.strip() == permission or line.strip().startswith(needle)
+        for line in normalize_adb_output(out).splitlines()
+    )
 
 
 def parse_appops_mode(output):

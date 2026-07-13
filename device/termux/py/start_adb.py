@@ -9,6 +9,7 @@ immediately so the Ansible handler can verify it without waiting.
 Deploy to: ~/.termux/boot/start-adb.sh (compat shim) or call directly.
 """
 import os
+import shlex
 import signal
 import subprocess
 import sys
@@ -38,8 +39,6 @@ BOOTLOOP_PID_FILE = os.path.join(STG, "run", "bootloop.pid")
 CFENGINE_CF = os.path.join(STG, "cfengine", "stayturgid.cf")
 CF_SERVERD_CF = os.path.join(STG, "cfengine", "cf-serverd.cf")
 CF_SERVERD_PID = os.path.join(STG, "run", "cf-serverd.pid")
-FIRERPA_DIR = "/data/local/tmp/firerpa/server"
-FIRERPA_PID_FILE = os.path.join(STG, "run", "firerpa.pid")
 VERSION_CHECK_STAMP = os.path.join(STG, "state", "last_version_check")
 
 _ENV_FILE = os.path.join(STG, "env")
@@ -56,6 +55,22 @@ except OSError:
     pass
 
 SD = os.environ.get("STAYTURGID_SD", "/sdcard/stayturgid")
+FIRERPA_DIR = os.environ.get(
+    "STAYTURGID_FIRERPA_DIR", "/data/local/tmp/firerpa/server"
+)
+try:
+    FIRERPA_PORT = int(os.environ.get("STAYTURGID_FIRERPA_PORT", "65000"))
+except ValueError:
+    FIRERPA_PORT = 65000
+FIRERPA_CERTIFICATE = os.environ.get(
+    "STAYTURGID_FIRERPA_CERTIFICATE", os.path.join(FIRERPA_DIR, "lamda.pem")
+)
+FIRERPA_ROOT = os.path.dirname(FIRERPA_DIR)
+FIRERPA_LIFECYCLE = os.environ.get(
+    "STAYTURGID_FIRERPA_LIFECYCLE",
+    os.path.join(FIRERPA_ROOT, "firerpa_lifecycle.py"),
+)
+RISH = os.path.join(BIN, "rish")
 
 
 def _ensure_dirs() -> None:
@@ -115,6 +130,20 @@ def _run(cmd: list[str], **kwargs) -> int:
         return -1
 
 
+def _capture(cmd: list[str], *, timeout: float = 30) -> tuple[int, str]:
+    """Run a command and return a stable ``(rc, stdout)`` result."""
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        return result.returncode, result.stdout or ""
+    except (OSError, subprocess.TimeoutExpired):
+        return -1, ""
+
+
 def _run_bg(cmd: list[str], log_path: str | None = None) -> int:
     try:
         kwargs = {}
@@ -168,32 +197,114 @@ def startup_cfserverd() -> None:
         _boot_log(f"cf-serverd started (pid {pid})")
 
 
+# @heals: FIRERPA-SECURE-RUNNING
+def _localhost_adb_available() -> bool:
+    _run(["adb", "connect", "localhost:5555"], timeout=5)
+    rc, output = _capture(
+        ["adb", "-s", "localhost:5555", "shell", "id -u"], timeout=5
+    )
+    return rc == 0 and output.strip() == "2000"
+
+
+def _shell_transport() -> tuple[list[str] | None, str]:
+    """Return persistent shell-UID ADB, recovering adbd through rish if needed."""
+    if _localhost_adb_available():
+        return ["adb", "-s", "localhost:5555", "shell"], "localhost-adb"
+
+    # A FIRERPA child launched directly inside a Shizuku rish session is killed
+    # when that binder shell closes, even with nohup/setsid. Use rish only to
+    # recover persistent TCP adbd, then launch through Termux localhost ADB.
+    if os.access(RISH, os.X_OK):
+        rc, output = _capture([RISH, "-c", "id -u"], timeout=8)
+        if rc == 0 and output.strip().endswith("2000"):
+            restart = (
+                "setprop service.adb.tcp.port 5555; "
+                "setprop ctl.restart adbd"
+            )
+            if _run([RISH, "-c", restart], timeout=10) == 0:
+                for _ in range(8):
+                    if _localhost_adb_available():
+                        return (
+                            ["adb", "-s", "localhost:5555", "shell"],
+                            "localhost-adb-rish-recovered",
+                        )
+                    time.sleep(1)
+
+    return None, "unavailable"
+
+
+def _shell_run(command: str, *, timeout: float = 12) -> tuple[int, str]:
+    transport, name = _shell_transport()
+    if transport is None:
+        return -1, name
+    return _run(transport + [command], timeout=timeout), name
+
+
+def _firerpa_alive() -> bool:
+    """Probe FIRERPA through the shell identity that owns the service."""
+    cmd = f"ss -ltn 2>/dev/null | grep -q ':{FIRERPA_PORT} '"
+    rc, _ = _shell_run(cmd, timeout=8)
+    return rc == 0
+
+
+def _launch_firerpa_via_shell(reason: str) -> bool:
+    """Launch FIRERPA as Android uid 2000 through local ADB or rish."""
+    test_cmd = (
+        f"test -x {shlex.quote(os.path.join(FIRERPA_DIR, 'bin', 'python3.9'))} "
+        f"&& test -r {shlex.quote(FIRERPA_CERTIFICATE)} "
+        f"&& test -r {shlex.quote(FIRERPA_LIFECYCLE)}"
+    )
+    rc, transport = _shell_run(test_cmd, timeout=8)
+    if transport == "unavailable":
+        _boot_log(f"FIRERPA {reason}: privileged shell unavailable")
+        return False
+    if rc != 0:
+        _boot_log(
+            f"FIRERPA {reason}: runtime, lifecycle wrapper, or certificate missing "
+            f"via {transport}"
+        )
+        return False
+
+    lifecycle_cmd = [
+        sys.executable,
+        FIRERPA_LIFECYCLE,
+        "start",
+        f"--port={FIRERPA_PORT}",
+        f"--certificate={FIRERPA_CERTIFICATE}",
+    ]
+    if transport.startswith("localhost-adb"):
+        lifecycle_cmd.extend(["--adb-target", "localhost:5555"])
+    else:
+        lifecycle_cmd.extend(["--rish", RISH])
+    rc = _run(lifecycle_cmd, timeout=75)
+    if rc == 0:
+        _boot_log(
+            f"FIRERPA secure {reason} with accessibility coexistence "
+            f"activated via {transport}"
+        )
+        return True
+    # Some Android adb/rish versions keep the client pipe open after the
+    # fully redirected background launch. A local client timeout is not a
+    # launch failure if the listener subsequently appears.
+    for _ in range(10):
+        time.sleep(2)
+        if _firerpa_alive():
+            _boot_log(
+                f"FIRERPA secure {reason} confirmed via {transport} "
+                f"after client rc={rc}"
+            )
+            return True
+    _boot_log(f"FIRERPA secure {reason} failed rc={rc} via {transport}")
+    return False
+
+
 def startup_firerpa() -> None:
     enabled = os.environ.get("STAYTURGID_FIRERPA_ENABLED", "1")
     if enabled != "1":
         return
-    firerpa_bin = os.path.join(FIRERPA_DIR, "bin", "python3.9")
-    if not os.access(firerpa_bin, os.X_OK):
+    if _firerpa_alive():
         return
-    if _pid_alive(FIRERPA_PID_FILE):
-        return
-    try:
-        p = subprocess.Popen(
-            [firerpa_bin, "-u", "-m", "lamda", "--launch", "--port=65000"],
-            stdin=subprocess.DEVNULL,
-            cwd=FIRERPA_DIR,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            env={
-                "PATH": os.path.join(FIRERPA_DIR, "bin") + ":" + os.environ.get("PATH", ""),
-                "LD_LIBRARY_PATH": os.path.join(FIRERPA_DIR, "lib"),
-                "HOME": HOME,
-            },
-        )
-        _write_pid(FIRERPA_PID_FILE, p.pid)
-        _boot_log(f"FIRERPA started (pid {p.pid})")
-    except OSError:
-        pass
+    _launch_firerpa_via_shell("startup")
 
 
 # ── Daemon loop ─────────────────────────────────────────────────────────────
@@ -217,41 +328,56 @@ def daemon_loop() -> None:
     _run(["adb", "tcpip", "5555"])
 
     while True:
-        _ensure_dirs()
+        try:
+            _ensure_dirs()
 
-        repair = os.path.join(BIN, "stayturgid_repair.py")
-        if os.access(repair, os.X_OK):
-            subprocess.run(["python3", repair], capture_output=True, timeout=300)
-        else:
-            if _run(["pgrep", "sshd"], capture_output=True) != 0:
+            repair = os.path.join(BIN, "stayturgid_repair.py")
+            if os.access(repair, os.X_OK):
+                subprocess.run(
+                    ["python3", repair], capture_output=True, timeout=300
+                )
+            elif _run(["pgrep", "sshd"], capture_output=True) != 0:
                 _run_bg(["sshd"])
 
-        if _cmd_exists("termux-battery-status"):
-            r = subprocess.run(
-                ["timeout", "8", "termux-battery-status"],
-                capture_output=True, timeout=15,
-            )
-            if r.returncode != 0:
-                _run(["adb", "-s", "localhost:5555", "shell", "am", "force-stop", "com.termux.api"])
-                time.sleep(2)
-                _run(["termux-api-start"])
-                time.sleep(2)
-            else:
-                _run(["termux-api-start"])
+            if _cmd_exists("termux-battery-status"):
+                r = subprocess.run(
+                    ["timeout", "8", "termux-battery-status"],
+                    capture_output=True,
+                    timeout=15,
+                )
+                if r.returncode != 0:
+                    _run(
+                        [
+                            "adb", "-s", "localhost:5555", "shell", "am",
+                            "force-stop", "com.termux.api",
+                        ]
+                    )
+                    time.sleep(2)
+                    _run(["termux-api-start"])
+                    time.sleep(2)
+                else:
+                    _run(["termux-api-start"])
 
-        _run_guard("stayturgid_battery_alarm.py")
-        _run_guard("stayturgid_screen_awake_guard.py", extra_args=["check"])
-        _run_guard("stayturgid_agent_presence.py", extra_args=["guard"])
+            _run_guard("stayturgid_battery_alarm.py")
+            _run_guard("stayturgid_screen_awake_guard.py", extra_args=["check"])
+            _run_guard("stayturgid_agent_presence.py", extra_args=["guard"])
 
-        _version_check()
-        _run_guard("stayturgid_autojs6_guard.py", extra_args=["check"])
+            _version_check()
+            _run_guard("stayturgid_autojs6_guard.py", extra_args=["check"])
 
-        if os.environ.get("STAYTURGID_NO_LOCAL_ADB", "0") == "1" and os.environ.get("STAYTURGID_PEER_BOOTSTRAP", "1") != "0":
-            _run_guard("stayturgid_peer_keepalive.py")
+            if (
+                os.environ.get("STAYTURGID_NO_LOCAL_ADB", "0") == "1"
+                and os.environ.get("STAYTURGID_PEER_BOOTSTRAP", "1") != "0"
+            ):
+                _run_guard("stayturgid_peer_keepalive.py")
 
-        _run_cfagent()
-        _monitor_cfserverd()
-        _monitor_firerpa()
+            _run_cfagent()
+            _monitor_cfserverd()
+            _monitor_firerpa()
+        except Exception as exc:
+            # A single slow Termux API or repair command must never terminate
+            # the only on-device supervisor.
+            _boot_log(f"bootloop iteration failed: {type(exc).__name__}: {exc}")
 
         time.sleep(interval)
 
@@ -332,30 +458,9 @@ def _monitor_firerpa() -> None:
     enabled = os.environ.get("STAYTURGID_FIRERPA_ENABLED", "1")
     if enabled != "1":
         return
-    if not os.path.isfile(FIRERPA_PID_FILE):
+    if _firerpa_alive():
         return
-    if _pid_alive(FIRERPA_PID_FILE):
-        return
-    firerpa_bin = os.path.join(FIRERPA_DIR, "bin", "python3.9")
-    if not os.access(firerpa_bin, os.X_OK):
-        return
-    try:
-        p = subprocess.Popen(
-            [firerpa_bin, "-u", "-m", "lamda", "--launch", "--port=65000"],
-            stdin=subprocess.DEVNULL,
-            cwd=FIRERPA_DIR,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            env={
-                "PATH": os.path.join(FIRERPA_DIR, "bin") + ":" + os.environ.get("PATH", ""),
-                "LD_LIBRARY_PATH": os.path.join(FIRERPA_DIR, "lib"),
-                "HOME": HOME,
-            },
-        )
-        _write_pid(FIRERPA_PID_FILE, p.pid)
-        _boot_log(f"FIRERPA restarted (pid {p.pid})")
-    except OSError:
-        pass
+    _launch_firerpa_via_shell("restart")
 
 
 # ── Entry point ────────────────────────────────────────────────────────────
@@ -369,11 +474,17 @@ def main() -> int:
 
     startup_sshd()
     startup_cfserverd()
-    startup_firerpa()
 
     pid = os.fork()
     if pid == 0:
-        # Child: daemon loop (runs forever or until SIGTERM)
+        # Child: detach from Termux:Boot's launch pipe, then run forever.
+        os.setsid()
+        devnull = os.open(os.devnull, os.O_RDWR)
+        for fd in (0, 1, 2):
+            os.dup2(devnull, fd)
+        if devnull > 2:
+            os.close(devnull)
+        startup_firerpa()
         daemon_loop()
         sys.exit(0)
     else:

@@ -46,8 +46,8 @@ class LookupModule(LookupBase):
     def run(self, terms, variables=None, **kwargs):
         if not terms:
             raise AnsibleError("android_packages lookup requires at least a device term")
-        device = self._templar.template(terms[0], disable_lookups=False)
+        device = self._templar.template(terms[0])
         pattern = None
         if len(terms) > 1:
-            pattern = self._templar.template(terms[1], disable_lookups=False)
+            pattern = self._templar.template(terms[1])
         return packages_matching(_run_command, str(device), pattern=pattern)

@@ -11,7 +11,7 @@ function serverRunning() {
     if (r && r.code === 0 && r.result && r.result.indexOf("result=1") >= 0) {
         return true;
     }
-    var p = sh.exec("pgrep -f shizuku_server");
+    var p = sh.exec("pgrep -f '[s]hizuku_server'");
     return p && p.code === 0 && String(p.result || "").trim().length > 0;
 }
 

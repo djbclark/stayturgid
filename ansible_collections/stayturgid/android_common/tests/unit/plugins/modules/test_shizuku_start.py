@@ -45,7 +45,7 @@ def test_shizuku_running_headless_status_up():
 def test_shizuku_running_pgrep_fallback():
     run = fake_run([
         ("HEADLESS_STATUS", (0, "Broadcast completed: result=0\n", "")),
-        ("pgrep -f shizuku_server", (0, "up\n", "")),
+        ("pgrep -f '[s]hizuku_server'", (0, "up\n", "")),
     ])
     assert mod.shizuku_running(run, "dev") is True
 
@@ -53,7 +53,7 @@ def test_shizuku_running_pgrep_fallback():
 def test_shizuku_running_down():
     run = fake_run([
         ("HEADLESS_STATUS", (0, "Broadcast completed: result=0\n", "")),
-        ("pgrep -f shizuku_server", (1, "", "")),
+        ("pgrep -f '[s]hizuku_server'", (1, "", "")),
     ])
     assert mod.shizuku_running(run, "dev") is False
 
@@ -202,7 +202,7 @@ def test_module_check_mode_would_start(mocker):
         ),
         cmd_results=[
             ("HEADLESS_STATUS", (0, "Broadcast completed: result=0\n", "")),
-            ("pgrep -f shizuku_server", (1, "", "")),
+            ("pgrep -f '[s]hizuku_server'", (1, "", "")),
         ],
     )
     assert out.get("failed") is not True, out
@@ -229,7 +229,7 @@ def test_module_starts_with_headless(mocker):
                 # third call during verification poll: running
                 (0, "Broadcast completed: result=1\n", ""),
             ]),
-            ("pgrep -f shizuku_server", (1, "", "")),
+            ("pgrep -f '[s]hizuku_server'", (1, "", "")),
             # headless start and fleet profile
             ("HEADLESS_START", (0, "", "")),
             ("adb push", (0, "", "")),
@@ -266,7 +266,7 @@ def test_module_native_fallback(mocker):
                 # verification poll: running after native launch
                 (0, "Broadcast completed: result=1\n", ""),
             ]),
-            ("pgrep -f shizuku_server", (1, "", "")),
+            ("pgrep -f '[s]hizuku_server'", (1, "", "")),
             # headless start sent
             ("HEADLESS_START", (0, "", "")),
             # native launch: libshizuku.so

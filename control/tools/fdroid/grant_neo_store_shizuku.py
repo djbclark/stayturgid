@@ -9,7 +9,7 @@ Ansible (from repo root)::
       -m stayturgid.android_common.shizuku_grant \\
       -a "device=p7a package=com.machiav3lli.fdroid" -c local
 
-See ansible_collections/docs/modules/shizuku_grant.md
+See docs/ansible_collections/modules/shizuku_grant.md
 """
 import sys
 

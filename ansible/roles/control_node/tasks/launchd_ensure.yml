@@ -9,7 +9,7 @@
 # Vars:
 #   mac_launchd_ensure_services — list of {name, plist, health_url?}
 #   mac_launchd_reload_labels   — labels needing reloaded after plist template change
-- name: Stat launchd plist for {{ item.name }}
+- name: Stat configured launchd plists
   ansible.builtin.stat:
     path: "{{ item.plist }}"
   loop: "{{ mac_launchd_ensure_services }}"
@@ -27,7 +27,7 @@
         | list
       }}
 
-- name: Probe launchd job state for {{ item.name }}
+- name: Probe configured launchd job states
   ansible.builtin.shell: |
     set -eu
     label="{{ item.name }}"
@@ -53,7 +53,7 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: Reload launchd agent {{ item.item.name }} after plist template change
+- name: Reload launchd agents after plist template changes
   community.general.launchd:
     name: "{{ item.item.name }}"
     state: reloaded
@@ -64,7 +64,7 @@
   loop_control:
     label: "{{ item.item.name }}"
 
-- name: Load launchd agent {{ item.item.name }} when unloaded
+- name: Load configured launchd agents when unloaded
   community.general.launchd:
     name: "{{ item.item.name }}"
     state: started
@@ -77,7 +77,7 @@
   loop_control:
     label: "{{ item.item.name }}"
 
-- name: Restart launchd agent {{ item.item.name }} after abnormal exit
+- name: Restart configured launchd agents after abnormal exit
   community.general.launchd:
     name: "{{ item.item.name }}"
     state: restarted
@@ -91,7 +91,7 @@
   loop_control:
     label: "{{ item.item.name }}"
 
-- name: Probe HTTP health for {{ item.name }}
+- name: Probe HTTP health for configured launchd agents
   ansible.builtin.uri:
     url: "{{ item.health_url }}"
     status_code: 200

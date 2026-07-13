@@ -27,4 +27,16 @@ Host {{ h }}-lan
   IdentityFile {{ key }}
 {%     endfor %}
 {%   endif %}
+Host {{ h }}-firerpa
+  HostName {{ hostvars[h].ansible_host }}
+  Port 65000
+  User shell
+  IdentityAgent none
+  IdentitiesOnly yes
+  IdentityFile {{ stayturgid_firerpa_certificate_path }}
+  LogLevel ERROR
+  # The server host key is regenerated when FIRERPA state is reinstalled.
+  # Tailscale authenticates the node; the service certificate authenticates us.
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
 {% endfor %}

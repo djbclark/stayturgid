@@ -23,12 +23,43 @@
   delegate_to: localhost
   register: _firerpa_dl
 
+- name: Patch FIRERPA driver for accessibility service coexistence
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ role_path }}/files/firerpa_service_patch.py"
+      - --archive
+      - "/tmp/{{ firerpa_server_archive_arm64 }}"
+      - --output
+      - /tmp/firerpa-service-patched.jar
+  delegate_to: localhost
+  changed_when: "'patched FIRERPA' in _firerpa_driver_patch.stdout"
+  register: _firerpa_driver_patch
+
 - name: Push server archive to device via adb
   ansible.builtin.command:
     cmd: >-
       adb -s {{ _firerpa_adb_target }}
       push /tmp/{{ firerpa_server_archive_arm64 }} /data/local/tmp/firerpa-server.tar.gz
   delegate_to: localhost
+
+- name: Stop existing FIRERPA process tree before replacing files
+  ansible.builtin.shell: |
+    adb -s {{ _firerpa_adb_target }} shell '
+      pkill -9 -x lamda 2>/dev/null || true
+      for proc in /proc/[0-9]*; do
+        exe=$(readlink "$proc/exe" 2>/dev/null) || continue
+        case "$exe" in
+          {{ firerpa_install_dir }}/server/*)
+            kill -9 "${proc##*/}" 2>/dev/null || true
+            ;;
+        esac
+      done
+    '
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  changed_when: true
 
 - name: Extract server via adb shell
   ansible.builtin.shell: |
@@ -42,6 +73,49 @@
     executable: /bin/bash
   delegate_to: localhost
   register: _firerpa_extract
+
+- name: Prepare FIRERPA driver override directory
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ _firerpa_adb_target }} shell
+      mkdir -p {{ firerpa_install_dir }}/overrides
+  delegate_to: localhost
+  changed_when: true
+
+- name: Preserve signed FIRERPA driver for integrity validation
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ _firerpa_adb_target }} shell cp
+      {{ firerpa_install_dir }}/server/lib/python3.9/site-packages/lamda/service.jar
+      {{ firerpa_install_dir }}/overrides/service.jar.signed
+  delegate_to: localhost
+  changed_when: true
+
+- name: Install accessibility-compatible FIRERPA driver override
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ _firerpa_adb_target }} push
+      /tmp/firerpa-service-patched.jar
+      {{ firerpa_install_dir }}/overrides/service.jar.patched
+  delegate_to: localhost
+  changed_when: true
+
+- name: Install Python FIRERPA lifecycle wrapper
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ _firerpa_adb_target }} push
+      {{ role_path }}/files/firerpa_lifecycle.py
+      {{ firerpa_install_dir }}/firerpa_lifecycle.py
+  delegate_to: localhost
+  changed_when: true
+
+- name: Make Python FIRERPA lifecycle wrapper executable
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ _firerpa_adb_target }} shell chmod 0755
+      {{ firerpa_install_dir }}/firerpa_lifecycle.py
+  delegate_to: localhost
+  changed_when: true
 
 - name: Verify FIRERPA server binary exists after extract
   ansible.builtin.command:

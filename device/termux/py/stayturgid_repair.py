@@ -182,11 +182,11 @@ def privileged_shell_expected():
 
 
 def ensure_wireless_debugging():
-    """Proactively enable the Developer-options wireless-debugging toggle.
+    """Assess the localhost shell bridge and repair the toggle when possible.
 
-    Called on every boot cycle *before* the privileged-shell probe so that
-    a disabled toggle is caught and repaired even when 5555 was temporarily
-    down.  Returns one of: 'up', 'repaired', 'FAILED', 'NO_SHELL'.
+    A responsive UID-2000 shell is functionally healthy even when Android 16
+    reports the cosmetic ``adb_wifi_enabled=0`` value; Samsung and Pixel both
+    exhibit that state. Returns: 'up', 'repaired', 'FAILED', or 'NO_SHELL'.
     """
     # Try the settings check; if ADB is unreachable, attempt reconnect first.
     _rc, raw = sh_adb("settings get global adb_wifi_enabled")
@@ -234,8 +234,8 @@ def duplicate_branch():
         if "result=1" in shizuku_out:
             shizuku = "up"
         else:
-            rc, _ = sh_adb("pgrep -f shizuku_server")
-            shizuku = "up" if rc == 0 else "down"
+            shizuku_rc, _ = sh_adb("pgrep -f '[s]hizuku_server'")
+            shizuku = "up" if shizuku_rc == 0 else "down"
         wifi = (
             "up"
             if sh_adb("settings get global adb_wifi_enabled")[1].strip()
@@ -247,7 +247,7 @@ def duplicate_branch():
     else:
         # Port 5555 down — fall back to Termux-native pgrep for Shizuku.
         port, sh = "CLOSED_NO_SHELL", False
-        rc, _ = run(["pgrep", "-f", "shizuku_server"])
+        rc, _ = run(["pgrep", "-f", "[s]hizuku_server"])
         shizuku = "up" if rc == 0 else "down"
         wifi, a11y = "unknown", "unknown"
     # Contention path never mutates SSH config; report presence only.
@@ -629,13 +629,13 @@ def main():
         if "result=1" in shizuku_out:
             shizuku = "up"
         else:
-            rc, _ = sh_adb("pgrep -f shizuku_server")
+            rc, _ = sh_adb("pgrep -f '[s]hizuku_server'")
             shizuku = "up" if rc == 0 else "down"
     elif expect_shell:
         # Port 5555 is down — can't use adb shell. Fall back to Termux-native
         # commands: pgrep for liveness, am broadcast for HEADLESS_START/STATUS.
-        rc, _ = run(["pgrep", "-f", "shizuku_server"])
-        if rc == 0:
+        shizuku_rc, _ = run(["pgrep", "-f", "[s]hizuku_server"])
+        if shizuku_rc == 0:
             shizuku = "up"
             # Shizuku daemon is running but port 5555 is closed — likely
             # TCP mode wasn't enabled (fleet profile not applied). Apply the
@@ -662,7 +662,7 @@ def main():
             log("shizuku_server NOT running — trying HEADLESS_START from Termux", WARNING)
             run(["am", "broadcast", "-a", "moe.shizuku.privileged.api.HEADLESS_START"])
             time.sleep(3)
-            rc2, _ = run(["pgrep", "-f", "shizuku_server"])
+            rc2, _ = run(["pgrep", "-f", "[s]hizuku_server"])
             if rc2 == 0:
                 shizuku = "repaired"
                 log("shizuku_server started via HEADLESS_START from Termux", NOTICE)
@@ -681,7 +681,6 @@ def main():
                 a11y = "down"
                 log("AutoJs6 accessibility is OFF — re-enable in Settings > Accessibility > AutoJs6", WARNING)
                 log("ACTION_REQUIRED: AutoJs6 accessibility disabled on %s" % (os.uname().nodename if hasattr(os, 'uname') else "device"), NOTICE)
-                log("ACTION_REQUIRED: AutoJs6 accessibility disabled on %s" % (os.uname().nodename if hasattr(os, 'uname') else "device"))
 
     # --- 5. Shell profile PATH (remove leaked Mac PATH that breaks pkg/apt) ---
     profile_path = ensure_shell_profile_path()

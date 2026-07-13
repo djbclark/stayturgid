@@ -113,7 +113,7 @@ bundle agent check_autojs6(p, h) {
 bundle agent check_shizuku(p) {
   classes:
     "shizuku_headless" expression => returnszero("$(p)/bin/adb -s localhost:5555 shell am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null | grep -q result=1", "useshell");
-    "shizuku_pgrep"    expression => returnszero("$(p)/bin/adb -s localhost:5555 shell pgrep -f shizuku_server >/dev/null 2>&1", "useshell");
+    "shizuku_pgrep"    expression => returnszero("$(p)/bin/adb -s localhost:5555 shell pgrep -f '[s]hizuku_server' >/dev/null 2>&1", "useshell");
     "shizuku_ok" or => { "shizuku_headless", "shizuku_pgrep" };
 
   reports:

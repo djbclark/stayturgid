@@ -39,6 +39,6 @@ Termux + AutoJs6 + Obtainium + Tailscale.
 
 ## Related
 
-- [ansible_collections/docs/modules/fdroid_repos.md](../../ansible_collections/docs/modules/fdroid_repos.md)  
+- [ansible_collections/modules/fdroid_repos.md](../ansible_collections/modules/fdroid_repos.md)
 - [play.md](play.md) — Aurora / Play (also parked)  
 - [obtainium.md](obtainium.md) — preferred APK update path  

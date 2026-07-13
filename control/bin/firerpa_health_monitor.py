@@ -14,18 +14,15 @@ Usage:
 from __future__ import annotations
 
 import os
-import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 for _p in (REPO_ROOT, REPO_ROOT / "control" / "lib"):
     if str(_p) not in sys.path:
-        sys.path.insert(0, str(_p))
-from control.lib.logging import (  # noqa: E402
-    INFO, NOTICE, WARNING, ERR,
-    log, trim_log,
-)
+        sys.path.append(str(_p))
+from control.lib.logging import INFO, WARNING, log, trim_log  # noqa: E402
+from control.lib.firerpa_auth import certificate_path  # noqa: E402
 
 LOG_NAME = "firerpa-health.log"
 ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")
@@ -39,18 +36,17 @@ except ImportError:
 FLEET = {
     "s24": "100.123.218.30",
     "p7a": "100.65.230.108",
-    "hd8": "100.124.55.39",
 }
 
 
 def check_device(alias: str, ip: str) -> dict:
     try:
-        d = Device(ip, port=65000)
-        _ = d.server_info()
+        d = Device(ip, port=65000, certificate=certificate_path())
+        info = d.server_info()
     except Exception as e:
         return {"firerpa": "unreachable", "error": str(e)[:120]}
 
-    result = {"firerpa": d.server_info().version}
+    result = {"firerpa": info.version}
 
     try:
         out = d.execute_script("ss -tlnp 2>/dev/null | grep ':8022 '", timeout=5)
@@ -67,7 +63,7 @@ def check_device(alias: str, ip: str) -> dict:
         if isinstance(stdout, bytes):
             stdout = stdout.decode(errors='replace')
         port_5555 = ":5555" in (stdout or "")
-        out2 = d.execute_script("pgrep -f shizuku_server 2>/dev/null", timeout=5)
+        out2 = d.execute_script("pgrep -f '[s]hizuku_server' 2>/dev/null", timeout=5)
         stdout2 = getattr(out2, 'stdout', b'')
         if isinstance(stdout2, bytes):
             stdout2 = stdout2.decode(errors='replace')

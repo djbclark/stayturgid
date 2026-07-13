@@ -53,7 +53,7 @@ def adb_shell(shell, *args, timeout=30):
 
 
 def shizuku_server_running(shell):
-    rc, out = shell("pgrep", "-f", "shizuku_server")
+    rc, out = shell("pgrep", "-f", "[s]hizuku_server")
     return rc == 0 and bool((out or "").strip())
 
 

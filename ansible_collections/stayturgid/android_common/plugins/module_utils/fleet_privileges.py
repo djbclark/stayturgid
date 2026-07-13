@@ -13,6 +13,8 @@ import time
 BATTERY_APPOPS = ("RUN_ANY_IN_BACKGROUND", "RUN_IN_BACKGROUND")
 UNUSED_APPOPS = (("AUTO_REVOKE_PERMISSIONS_IF_UNUSED", "ignore"),)
 STANDBY_BUCKET_ACTIVE = "active"
+# Android 16 reports 5; earlier releases commonly report 10.
+STANDBY_BUCKET_ACTIVE_VALUES = (STANDBY_BUCKET_ACTIVE, "5", "10")
 
 
 def ensure_appop(run_command, device, package, op, mode, check_mode=False):
@@ -29,6 +31,10 @@ def ensure_appop(run_command, device, package, op, mode, check_mode=False):
 
 
 def ensure_permission(run_command, device, package, permission, check_mode=False):
+    if adb_shell.permission_granted(run_command, device, package, permission):
+        return False, "already"
+    if not adb_shell.permission_requested(run_command, device, package, permission):
+        return False, "not_requested"
     if check_mode:
         return True, "would_grant"
     # Android 13+ (SDK 33+): POST_NOTIFICATIONS silently fails when the
@@ -70,7 +76,7 @@ def ensure_battery_unrestricted(run_command, device, package, check_mode=False):
 
     rc, out, _err = adb_shell.standby_bucket_get(run_command, device, package)
     current = adb_shell.normalize_adb_output(out).lower()
-    if current == STANDBY_BUCKET_ACTIVE:
+    if current in STANDBY_BUCKET_ACTIVE_VALUES:
         results.append(dict(kind="standby_bucket", status="already"))
     elif check_mode:
         results.append(dict(kind="standby_bucket", status="would_set"))

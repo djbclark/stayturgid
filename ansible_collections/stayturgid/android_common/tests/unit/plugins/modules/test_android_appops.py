@@ -95,3 +95,32 @@ def test_android_appops_already_allowed(mocker):
     )
     assert out["changed"] is False
     assert out["results"][0]["status"] == "already"
+
+
+def test_android_appops_already_granted(mocker):
+    out = run_module(
+        mocker,
+        dict(
+            device="dev",
+            connect=False,
+            appops=[],
+            permissions=[
+                dict(
+                    package="com.termux.api",
+                    permission="android.permission.POST_NOTIFICATIONS",
+                ),
+            ],
+        ),
+        cmd_results=[
+            (
+                "dumpsys package com.termux.api",
+                (
+                    0,
+                    "android.permission.POST_NOTIFICATIONS: granted=true, flags=[]",
+                    "",
+                ),
+            ),
+        ],
+    )
+    assert out["changed"] is False
+    assert out["results"][0]["status"] == "already"

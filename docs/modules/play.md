@@ -55,6 +55,6 @@ See [docs/research/fire-os-google-play.md](../research/fire-os-google-play.md) a
 
 ## Related
 
-- [ansible_collections/docs/modules/play_apps.md](../../ansible_collections/docs/modules/play_apps.md)  
+- [ansible_collections/modules/play_apps.md](../ansible_collections/modules/play_apps.md)
 - [fdroid.md](fdroid.md) — F-Droid / Neo (parked)  
 - [obtainium.md](obtainium.md) — default update path  

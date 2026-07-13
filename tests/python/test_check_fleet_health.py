@@ -27,6 +27,29 @@ def test_latest_per_host(tmp_path):
     assert "hd8" not in latest
 
 
+def test_latest_per_host_accepts_severity_column(tmp_path):
+    log = tmp_path / "fleet-health.log"
+    log.write_text(
+        "2026-07-13 12:55:00  INFO s24 via adb:1.2.3.4:5555: "
+        "sshd=ok issues=watchdog_stale\n"
+        "2026-07-13 12:55:01  INFO p7a via adb:2.2.2.2:5555: "
+        "sshd=ok issues=none\n"
+    )
+
+    latest = cfh.latest_per_host(log, dt.datetime(2026, 7, 13, 12, 0, 0))
+
+    assert set(latest) == {"s24", "p7a"}
+    assert "watchdog_stale" in latest["s24"][1]
+
+
+def test_access_host_accepts_severity_column():
+    line = (
+        "2026-07-13 12:22:51  WARNING hd8 unreachable on all paths "
+        "(consecutive: 2)"
+    )
+    assert cfh.host_from_access_line(line) == "hd8"
+
+
 def test_issues_from_rest():
     assert cfh.issues_from_rest("sshd=ok issues=none") == []
     assert cfh.issues_from_rest("issues=watchdog_stale,repair_stale") == [
@@ -78,6 +101,36 @@ def test_main_ok_with_stale_access_lost(tmp_path, monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "OK" in out
     assert "resolved access-monitor" in out
+
+
+def test_soft_issue_still_resolves_old_access_loss(tmp_path, monkeypatch, capsys):
+    log = tmp_path / "logs" / "fleet-health.log"
+    access = tmp_path / "logs" / "access-monitor.log"
+    log.parent.mkdir(parents=True)
+    now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    old = (dt.datetime.now() - dt.timedelta(hours=2)).strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+    log.write_text(
+        "%s  INFO s24 via adb:1.2.3.4:5555: sshd=ok "
+        "issues=watchdog_stale\n" % now
+    )
+    access.write_text(
+        "%s  WARNING s24 unreachable on all paths (consecutive: 2)\n" % old
+    )
+    state = tmp_path / "state" / "fleet-health"
+    state.mkdir(parents=True)
+    (state / "s24").write_text("3")
+    monkeypatch.setattr(cfh, "LOG", log)
+    monkeypatch.setattr(cfh, "STATE_DIR", state)
+    monkeypatch.setattr(cfh, "ACCESS_LOG", access)
+
+    rc = cfh.main(["--hours", "24"])
+
+    assert rc == 1
+    out = capsys.readouterr().out
+    assert "resolved access-monitor" in out
+    assert "recent access-monitor LOST" not in out
 
 
 def test_main_fails_access_lost_when_host_not_ok(tmp_path, monkeypatch, capsys):

@@ -41,7 +41,7 @@ Module._load = function (request, parent) {
                 if (cmd.indexOf("pgrep -x sshd") >= 0 || cmd.indexOf("[s]shd") >= 0) {
                     return { code: 0, result: "" };
                 }
-                if (cmd.indexOf("pgrep -f shizuku_server") >= 0) {
+                if (cmd.indexOf("pgrep -f '[s]hizuku_server'") >= 0) {
                     return { code: 0, result: "" };
                 }
                 if (cmd.indexOf("enabled_accessibility_services") >= 0

@@ -30,8 +30,8 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 | [docs/vlm.md](vlm.md) | UI-TARS vision gates |
 | [adr/001-ansible-boundary.md](adr/001-ansible-boundary.md) | Ansible 80/20 boundary (ADR 001) |
 | [adr/002-ansible-ui-tasks.md](adr/002-ansible-ui-tasks.md) | UI tasks vs modules (ADR 002) |
-| [../ansible_collections/docs/roles/validate.md](../ansible_collections/docs/roles/validate.md) | Post-deploy validate role |
-| [../ansible_collections/docs/playbooks/preflight.md](../ansible_collections/docs/playbooks/preflight.md) | SSH preflight playbook |
+| [ansible_collections/roles/validate.md](ansible_collections/roles/validate.md) | Post-deploy validate role |
+| [ansible_collections/playbooks/preflight.md](ansible_collections/playbooks/preflight.md) | SSH preflight playbook |
 
 ## `docs/research/` — production-adjacent (agents should read)
 

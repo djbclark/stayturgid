@@ -37,13 +37,23 @@ function watchdogStale() {
     return (Date.now() - last) > STALE_WATCHDOG_MS;
 }
 
-var existing = engineGuard.findMainEngines();
-if (existing.length === 1 && !watchdogStale()) {
-    exit();
+function launchIfNeeded() {
+    var existing = engineGuard.findMainEngines();
+    if (existing.length === 1 && !watchdogStale()) {
+        return;
+    }
+    if (existing.length === 1 && watchdogStale()) {
+        existing[0].forceStop();
+    } else if (existing.length > 1) {
+        engineGuard.dedupeMainEngines();
+    }
+    // execScriptFile otherwise inherits this launcher's scripts/ working
+    // directory.  main.js loads ./lib/*, so give the child its own directory
+    // explicitly instead of letting every relative require resolve one level
+    // too low.
+    var childConfig = new org.autojs.autojs.execution.ExecutionConfig();
+    childConfig.setWorkingDirectory(MAIN.substring(0, MAIN.lastIndexOf("/")));
+    engines.execScriptFile(MAIN, childConfig);
 }
-if (existing.length === 1 && watchdogStale()) {
-    existing[0].forceStop();
-} else if (existing.length > 1) {
-    engineGuard.dedupeMainEngines();
-}
-engines.execScriptFile(MAIN);
+
+launchIfNeeded();

@@ -103,7 +103,7 @@ def shizuku_running(run_command, device):
         return True
     rc, out, _err = adb_shell(
         run_command, device,
-        "pgrep -f shizuku_server >/dev/null && echo up"
+        "pgrep -f '[s]hizuku_server' >/dev/null && echo up"
     )
     return rc == 0 and "up" in normalize_adb_output(out)
 

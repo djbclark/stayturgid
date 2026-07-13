@@ -152,7 +152,7 @@ def needs_help(target: str) -> tuple[bool, bool]:
     except SystemExit as e:
         log("%s connect fail: %s" % (target, e))
         return False, False
-    sh = fph._shell(target, "pgrep -f shizuku_server >/dev/null && echo up", timeout=10)
+    sh = fph._shell(target, "pgrep -f '[s]hizuku_server' >/dev/null && echo up", timeout=10)
     need_sh = "up" not in (sh.stdout or "")
     hs = fph._shell(
         target,

@@ -29,6 +29,9 @@ CONSECUTIVE_ALERT = 2
 LINE_RE = re.compile(
     r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+(\S+)\s+(.*)$"
 )
+SEVERITY_TOKENS = {
+    "EMERG", "ALERT", "CRIT", "ERR", "WARNING", "NOTICE", "INFO", "DEBUG"
+}
 
 
 def parse_ts(s: str) -> dt.datetime | None:
@@ -52,6 +55,16 @@ def scrape_rest(rest: str) -> str | None:
     return body
 
 
+def record_host_and_rest(host: str, rest: str) -> tuple[str, str] | None:
+    """Normalize legacy logs and newer logs that include a severity column."""
+    if host in SEVERITY_TOKENS:
+        fields = rest.split(None, 1)
+        if len(fields) != 2:
+            return None
+        host, rest = fields
+    return host, rest
+
+
 def latest_per_host(log_path: Path, since: dt.datetime | None) -> dict[str, tuple[dt.datetime, str]]:
     """host -> (timestamp, scrape body) for last matching scrape."""
     out: dict[str, tuple[dt.datetime, str]] = {}
@@ -66,6 +79,10 @@ def latest_per_host(log_path: Path, since: dt.datetime | None) -> dict[str, tupl
         if not m:
             continue
         ts_s, host, rest = m.group(1), m.group(2), m.group(3)
+        normalized = record_host_and_rest(host, rest)
+        if normalized is None:
+            continue
+        host, rest = normalized
         if host in ("health",):
             continue
         body = scrape_rest(rest)
@@ -108,8 +125,11 @@ def issues_from_rest(rest: str) -> list[str]:
 
 
 def host_from_access_line(line: str) -> str | None:
-    m = re.match(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+(\S+)\s+", line.strip())
-    return m.group(2) if m else None
+    m = LINE_RE.match(line.strip())
+    if not m:
+        return None
+    normalized = record_host_and_rest(m.group(2), m.group(3))
+    return normalized[0] if normalized else None
 
 
 def partition_access_hits(
@@ -193,12 +213,15 @@ def main(argv: list[str] | None = None) -> int:
 
     problems: list[str] = []
     ok_hosts: list[str] = []
+    currently_reachable: set[str] = set()
     for host in sorted(latest):
         ts, rest = latest[host]
         issues = issues_from_rest(rest)
         n = consec.get(host, 0)
         age_min = (dt.datetime.now() - ts).total_seconds() / 60.0
         stale_scrape = age_min > 20  # launchd is 5 min; >20 min = agent stuck
+        if not stale_scrape:
+            currently_reachable.add(host)
         if issues or n >= CONSECUTIVE_ALERT or stale_scrape:
             bits = ["%s" % host]
             if issues:
@@ -214,8 +237,9 @@ def main(argv: list[str] | None = None) -> int:
             ok_hosts.append("%s (ok, last=%.0fm)" % (host, age_min))
 
     access_hits = recent_access_lost(args.hours)
-    recovered = ok_host_names(ok_hosts)
-    active_access, historical_access = partition_access_hits(access_hits, recovered)
+    active_access, historical_access = partition_access_hits(
+        access_hits, currently_reachable
+    )
 
     if not problems and not active_access:
         if not args.quiet_ok:

@@ -3,3 +3,5 @@ stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"
 stayturgid_obtainium_catalog_import: all
 stayturgid_post_ui_retries: 2
 stayturgid_post_ui_retry_delay: 3
+stayturgid_post_ui_unlock_retries: 60
+stayturgid_post_ui_unlock_retry_delay: 2

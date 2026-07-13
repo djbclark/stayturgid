@@ -21,11 +21,14 @@ import time
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
+for _p in (REPO_ROOT / "control" / "lib", REPO_ROOT):
+    if str(_p) not in sys.path:
+        sys.path.append(str(_p))
 from control.lib.logging import (  # noqa: E402
     INFO, NOTICE, WARNING, ERR,
     log, trim_log,
 )
+from control.lib.firerpa_auth import certificate_path  # noqa: E402
 
 try:
     from lamda.client import Device
@@ -75,7 +78,7 @@ def is_port_5555_alive(device: Device) -> bool:
 
 
 def is_shizuku_alive(device: Device) -> bool:
-    out = _exec_stdout(device, "pgrep -f shizuku_server 2>/dev/null")
+    out = _exec_stdout(device, "pgrep -f '[s]hizuku_server' 2>/dev/null")
     return bool(out)
 
 
@@ -137,7 +140,7 @@ def restart_shizuku(device: Device) -> str:
 def heal_device(host: str, port: int = 65000) -> dict[str, str]:
     results = {}
     try:
-        d = Device(host, port=port)
+        d = Device(host, port=port, certificate=certificate_path())
     except Exception as e:
         err = str(e)[:80]
         _log(ERR, "Cannot connect to FIRERPA on %s:%s: %s" % (host, port, err))

@@ -1,7 +1,19 @@
 ---
 - name: Stop FIRERPA server via adb
   ansible.builtin.shell: |
-    adb -s {{ _firerpa_adb_target }} shell "pkill -9 lamda 2>/dev/null; rm -f /data/local/tmp/usr/lamda.pid 2>/dev/null; echo stopped"
+    adb -s {{ _firerpa_adb_target }} shell '
+      pkill -9 -x lamda 2>/dev/null || true
+      for proc in /proc/[0-9]*; do
+        exe=$(readlink "$proc/exe" 2>/dev/null) || continue
+        case "$exe" in
+          {{ firerpa_install_dir }}/server/*)
+            kill -9 "${proc##*/}" 2>/dev/null || true
+            ;;
+        esac
+      done
+      rm -f /data/local/tmp/usr/lamda.pid
+      echo stopped
+    '
   args:
     executable: /bin/bash
   delegate_to: localhost

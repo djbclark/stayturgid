@@ -14,7 +14,7 @@
   tasks:
     - name: Run stayturgid device verification
       stayturgid.fleet.stayturgid_verify:
-        checks: "{{ verify_checks.split(',') | reject('eq','') | list if verify_checks | length > 0 else [] }}"
+        checks: "{{ verify_checks.split(',') | reject('eq', '') | list if verify_checks | length > 0 else [] }}"
       register: _verify_result
 
     - name: Report verification results

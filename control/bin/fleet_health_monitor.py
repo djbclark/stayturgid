@@ -23,10 +23,9 @@ import sys
 
 _REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _LIB = os.path.join(_REPO, "control", "lib")
-if _LIB not in sys.path:
-    sys.path.insert(0, _LIB)
-if _REPO not in sys.path:
-    sys.path.insert(0, _REPO)
+for _p in (_LIB, _REPO):
+    if _p not in sys.path:
+        sys.path.append(_p)
 import fleet_health as fh  # noqa: E402
 import hd8_google_stack as hgs  # noqa: E402
 import stayturgid_device as dev  # noqa: E402
@@ -381,10 +380,22 @@ def _scrape_device_errors(name: str, ts_ip: str) -> None:
 
     errors = scrape_errors(text)
     for level, line in errors:
+        event_time = _device_log_epoch(line)
+        if event_time is not None and event_time <= last:
+            continue
         _error_log(level, "%s: %s" % (name, line))
         if level <= WARNING:
             _fleet_log(level, "%s device error [%s]: %s" % (
                 name, severity_label(level), line[:200]))
+
+
+def _device_log_epoch(line: str) -> float | None:
+    """Return the timestamp embedded in a device log line, when present."""
+    try:
+        stamp = line[:19]
+        return datetime.datetime.strptime(stamp, "%Y-%m-%d %H:%M:%S").timestamp()
+    except (ValueError, OverflowError):
+        return None
 
 
 def check_device(name: str, ts_ip: str, lan_ip: str) -> None:

@@ -39,6 +39,7 @@ def _seed_project(tmp_path):
     (proj / "scripts").mkdir(parents=True)
     (proj / "project.json").write_text("{}")
     (proj / "main.js").write_text("// main")
+    (proj / "fleet_profile.json").write_text("{}")
     (proj / "lib" / "shizuku_shell.js").write_text("//")
     (proj / "lib" / "comonitor.js").write_text("//")
     (proj / "scripts" / "shizuku-probe.js").write_text("//")

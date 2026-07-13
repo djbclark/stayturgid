@@ -20,6 +20,19 @@
   changed_when: false
   delegate_to: localhost
 
+- name: Parse previous pkg upgrade epoch
+  ansible.builtin.set_fact:
+    _pkg_upgrade_epoch: >-
+      {{
+        (
+          _pkg_upgrade_stamp.stdout
+          | default('')
+          | regex_findall('^ok ([0-9]+(?:\.[0-9]+)?)')
+          | first
+          | default('0', true)
+        ) | float
+      }}
+
 - name: Update and upgrade all Termux packages (if >24h since last)
   stayturgid.termux.termux_pkg:
     name: []
@@ -30,12 +43,7 @@
     _termux_prefix: "{{ termux_prefix }}"
   register: pkg_upgrade
   when: >-
-    _pkg_upgrade_stamp.stdout is not defined
-    or 'never' in (_pkg_upgrade_stamp.stdout | default(''))
-    or (_pkg_upgrade_stamp.stdout | regex_search('^ok ([0-9.]+)')
-        and ((_now_epoch.stdout | trim | float)
-             - (_pkg_upgrade_stamp.stdout | regex_search('^ok ([0-9.]+)', '\1')
-                | first | float)) > 86400)
+    ((_now_epoch.stdout | trim | float) - (_pkg_upgrade_epoch | float)) > 86400
 
 - name: Ensure Termux packages are installed
   stayturgid.termux.termux_pkg:
@@ -191,6 +199,7 @@
     dest: "{{ termux_home }}/.stayturgid/bin/{{ item }}"
     mode: "0755"
   loop: "{{ stayturgid_py_scripts | default([]) }}"
+  notify: restart boot loop
 
 - name: Deploy peer-help ForceCommand wrapper
   ansible.builtin.copy:

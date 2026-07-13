@@ -7,11 +7,19 @@ Steps 6–8 are open as Track F items (F1–F3) in [../options.md](../options.md
 **Prerequisite analysis:** [firerpa-lamda-analysis-2026-07-10.md](../history/firerpa-lamda-analysis-2026-07-10.md)
 **Fork (stayturgid):** [djbclark/lamda](https://github.com/djbclark/lamda) — all binaries (APK + server tarballs) in one GitHub-hosted [release](https://github.com/djbclark/lamda/releases/tag/v10.0-binaries)
 
+**Completion note (2026-07-13):** Secure SSH/gRPC and accessibility coexistence are
+live on s24 + p7a. FIRERPA's `getUiAutomation(0)` suppression was fixed with a
+hash-guarded DEX patch to `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`; the lifecycle
+starts the signed JAR, waits for validation/listeners, atomically swaps the patched
+JAR, and restarts only its UI helpers. AutoJs6, AutoInput, and Octoclip remain bound.
+After reboot the Python supervisor prefers localhost ADB; authorized Shizuku `rish`
+can restart adbd, after which FIRERPA is launched through persistent UID-2000 ADB.
+
 **Implementation details (2026-07-12):** Ansible collection at
 `ansible_collections/stayturgid/firerpa/` (not flat `ansible/roles/` as planned);
 manual binary path (server tarball via ADB, no APK needed); gRPC heal
 (`control/bin/firerpa_heal.py`); launchd health monitor every 10 min
-(`control/bin/firerpa_health_monitor.py`); boot integration in `start-adb.sh`
+(`control/bin/firerpa_health_monitor.py`); boot integration in Python `start_adb.py`
 (start + monitor). Deployed on s24 + p7a; hd8 blocked by Fire OS SELinux.
 Python client in `/tmp/lamda-venv` (Python 3.12).
 
@@ -726,7 +734,9 @@ Record decisions as they're made during implementation.
 | 2026-07-12 | 4 | hd8 blocked (Fire OS SELinux) | Termux SSH user can't exec shell-context binaries; peer-bootstrap already covers hd8 |
 | 2026-07-12 | 5 | Python 3.12 venv at `/tmp/lamda-venv` | `lamda-client` needs 3.12; separate from project's 3.14 venv |
 | 2026-07-12 | N/A | Boot integration in `start-adb.sh` | Mutual repair pair: Termux boot loop monitors FIRERPA, FIRERPA heals Termux |
-| 2026-07-12 | N/A | FIRERPA built-in SSH/ADB disabled | SSH needs root (HOME=/ read-only); ADB needs root on v10.0. stayturgid uses Shizuku's adbd :5555 + Termux sshd :8022 |
+| 2026-07-13 | N/A | FIRERPA SSH enabled with private service certificate; built-in ADB disabled | Inbound SSH works as `shell` on :65000 when launched with explicit `--certificate`; built-in ADB still needs root. Post-reboot startup prefers localhost ADB; `rish` restores adbd when needed |
+| 2026-07-13 | p7a | Shizuku `rish` bridge validation | After granting Termux **Allow all the time**, `rish -c 'id -u'` returned 2000. Direct background children proved session-bound, so the supervisor uses `rish` to restore persistent localhost ADB before FIRERPA launch |
+| 2026-07-13 | s24 | Shizuku `rish` bridge + controlled lifecycle restart | The same persistent grant returned UID 2000; localhost adbd recovery, signed-start/patched-swap FIRERPA launch, secure SSH, gRPC UI hierarchy, and concurrent accessibility services all passed |
 | 2026-07-12 | N/A | FIRERPA health monitor via launchd | `firerpa_health_monitor.py` every 10 min, separate from fleet-health (5 min) |
 | 2026-07-12 | N/A | `firerpa_heal.py` does direct repair (not delegate to `stayturgid_repair.py`) | Independent channel; sshd down file removal, HEADLESS_START, etc. re-implemented in Python |
 
@@ -771,4 +781,3 @@ Step 9 (Rollout + docs) ◄─────────────────�
 ```
 
 Steps 5-8 can run in parallel after Step 4 completes.
-

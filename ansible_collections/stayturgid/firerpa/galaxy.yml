@@ -6,6 +6,7 @@ readme: README.md
 authors:
   - stayturgid
 description: Ansible collection for FIRERPA/lamda deployment on Android devices
-license: MIT
+license:
+  - MIT
 repository: https://github.com/djbclark/stayturgid
 tags: [firerpa, lamda, android, failsafe]

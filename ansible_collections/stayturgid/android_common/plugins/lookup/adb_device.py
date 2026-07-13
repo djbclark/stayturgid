@@ -51,6 +51,6 @@ class LookupModule(LookupBase):
     def run(self, terms, variables=None, **kwargs):
         ret = []
         for term in terms:
-            alias = self._templar.template(term, disable_lookups=False)
+            alias = self._templar.template(term)
             ret.append(resolve_adb(str(alias), run_command=_run_command))
         return ret

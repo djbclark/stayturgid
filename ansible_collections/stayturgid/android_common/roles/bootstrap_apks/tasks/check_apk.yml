@@ -3,7 +3,7 @@
 # Accumulates result into _vfy_results list for post-loop analysis.
 # Expected vars: _apk, _vfy_adb
 
-- name: "{{ _apk.id }} — fetch latest GitHub release tag"
+- name: Fetch latest GitHub release tag — {{ _apk.id }}
   ansible.builtin.command:
     argv:
       - gh
@@ -18,18 +18,15 @@
   failed_when: false
   delegate_to: localhost
 
-- name: "{{ _apk.id }} — parse latest version"
+- name: Parse latest version — {{ _apk.id }}
   ansible.builtin.set_fact:
     _check_latest: >-
-      {%- set raw = (_check_gh.stdout | default('{}') | from_json).tagName | default('') -%}
-      {%- if raw and _check_gh.rc == 0 -%}
-      {{ raw | regex_replace('^v', '') }}
-      {%- else -%}
-      unknown
-      {%- endif -%}
+      {{ ((_check_gh.stdout | default('{}') | from_json).tagName
+          | default('unknown', true) | regex_replace('^v', ''))
+         if (_check_gh.rc | default(1)) == 0 else 'unknown' }}
     _check_gh_failed: "{{ (_check_gh.rc | default(1)) != 0 }}"
 
-- name: "{{ _apk.id }} — query installed version on device"
+- name: Query installed version on device — {{ _apk.id }}
   ansible.builtin.shell: >
     adb -s {{ _vfy_adb }} shell
     "dumpsys package {{ _apk.id }} 2>/dev/null | grep versionName | head -1"
@@ -38,7 +35,7 @@
   failed_when: false
   delegate_to: localhost
 
-- name: "{{ _apk.id }} — accumulate result"
+- name: Accumulate result — {{ _apk.id }}
   ansible.builtin.set_fact:
     _vfy_results: >-
       {{ _vfy_results | default([]) + [dict(

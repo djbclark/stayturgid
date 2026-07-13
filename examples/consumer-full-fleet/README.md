@@ -45,4 +45,4 @@ ansible-playbook playbook.yml --tags validate --limit s24
 ansible-playbook playbook.yml --tags post-ui --limit s24
 ```
 
-See [ansible_collections/docs/roles/validate.md](../../ansible_collections/docs/roles/validate.md).
+See [docs/ansible_collections/roles/validate.md](../../docs/ansible_collections/roles/validate.md).

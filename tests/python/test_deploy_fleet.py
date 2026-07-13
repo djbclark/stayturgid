@@ -98,7 +98,9 @@ def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0):
     monkeypatch.setattr(df, "warn_prerequisites", lambda scope: None)
     monkeypatch.setattr(df, "install_collections", lambda: None)
 
-    def run_playbook(playbook, *, limit=None, check, tags, skip_tags=None, extra_vars=None):
+    def run_playbook(
+        playbook, *, limit=None, check, tags, skip_tags=None, extra_vars=None, verbose=0
+    ):
         calls.append(("playbook", tags, check, skip_tags))
         return playbook_rc
 
@@ -195,4 +197,3 @@ def test_repo_env_includes_ansible_config(monkeypatch, tmp_path):
     monkeypatch.delenv("GPLAY_EMAIL", raising=False)
     env = df.repo_env()
     assert env["ANSIBLE_CONFIG"] == str(df.ANSIBLE_CFG)
-

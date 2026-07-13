@@ -24,7 +24,8 @@
 > Parked side projects: [docs/incubator/](incubator) — **do not implement**
 > unless the operator unparks a named project (Inferno, etc.).
 
-**Fleet snapshot (2026-07-13):** Shell → Python migration complete. Unified syslog
+**Fleet snapshot (2026-07-13):** Shell → Python migration complete and deployed to
+s24 + p7a. Unified syslog
 logging with 30-day rotation and remote error scraping. Bootstrap APK automation
 deployed (7 APKs). FIRERPA on s24 + p7a (v10.0). Fleet dashboard (Flask + HTMX, :4097)
 with device status cards, human-action-needed indicators, live probe buttons, and
@@ -32,11 +33,13 @@ long-term stats tracking (JSONL, forever, with selectable timeframe). Network la
 page (:8088, also :443/services/) with MagicDNS / mDNS / LAN / Tailscale service
 links and hourly discovery scan. HTTPS consolidation behind Caddy reverse proxy
 (mac.greyhound-sidemirror.ts.net) with HTTP→HTTPS redirect. Tailnet renamed to
-greyhound-sidemirror.ts.net; all old machine names purged. **Python migration
-NOT YET deployed to devices** (see H1). s24: AutoJs6 watchdog stale since Jul 12
-16:30 (watchdog_heal ineffective on Android 16 — task stuck after a11y detection).
-p7a: port 5555 down (H2), but SSH/ADB probe now works after monitor fix.
-Open menu = H1/H3 (deploy), H2 (p7a), H6 (s24 watchdog), H5/38, 43–45, 54, F1–F4.
+greyhound-sidemirror.ts.net; all old machine names purged. s24 + p7a: FIRERPA secure
+SSH/gRPC live without suppressing AutoJs6, AutoInput, or Octoclip; Python runtime and
+watchdogs healthy. Open menu = remaining hd8 deployment under H1/H3, H8 (`rish`
+dashboard action), H9 (post-UI foreground cleanup), H5/38, 43–45, 54, F1–F4, T1.
+`make firerpa-health` is clean and live health is clean for s24 + p7a. The aggregate
+`make health` command remains nonzero only for hd8's documented `watchdog_stale` /
+offline state while that USB-only tablet deployment is intentionally deferred.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
@@ -54,11 +57,12 @@ B63–B64 are follow-ups needing hardware access.
 
 | Track | Focus | Open IDs | Typical risk |
 |-------|-------|----------|--------------|
-| **A — Operational** | Live deploy, human unblockers | H5, 38, H6 (s24 watchdog) | Medium–High (live phones / publish) |
+| **A — Operational** | Live deploy, human unblockers | H5, 38, H8, H9 | Medium–High (live phones / publish) |
 | **B — Ansible-native** | Bootstrap APK automation follow-ups | B63, B64 | Low–Medium |
-| **D — Reliability** | Symptom-driven hardening | H6, 43–45 | Latent until triggered |
+| **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; incubator note | 54 | Medium (mis-scope risk) |
 | **F — FIRERPA** | gRPC backup channel enhancements | F1–F4 | Medium (future, core is done) |
+| **T — Tooling** | Deferred developer-experience evaluations | T1 | Low |
 
 Parked (not a track): Inferno/Styx → [docs/incubator/inferno-styx/](incubator/inferno-styx).
 
@@ -162,6 +166,18 @@ when 5555 is dead. Note (incubator):
 
 ---
 
+### Track T — Tooling (deferred)
+
+#### T1 — Evaluate GNU Make → `just` migration (agent) · Risk: **Low** · Deferred
+
+Investigate whether [casey/just](https://github.com/casey/just) is a better command
+runner for stayturgid than GNU Make. Compare command discoverability, `HOSTS=` and other
+operator overrides, environment propagation, CI/developer installation cost, completion,
+and whether a staged dual-Makefile/justfile period is safer than a direct replacement.
+Produce a recommendation and migration map before changing the operator interface.
+
+---
+
 ### Track G — Python migration & logging (completed)
 
 **Shipped (2026-07-13):** Shell → Python migration of `start-adb.sh`, `autojs6-bridge.sh`,
@@ -172,8 +188,12 @@ local `errors.log`). `/errors` route on fleet dashboard. All monitors use shared
 
 #### ~~G1 — Healing coverage registry + pre-flight checker~~ · **Closed 2026-07-13**
 
-`tests/healing_registry.json` (SSOT of all 27 desired states with must_cover/should_cover
+`tests/healing_registry.json` (SSOT of all 28 desired states with must_cover/should_cover
 mechanism requirements). `tests/check_healing_coverage.py` runs in `make test` tier:code.
+All mandatory coverage is present. Its ten soft `should_cover` TODOs remain visible for
+secondary-path hardening: SSHD/port 5555/Shizuku/accessibility/bootloop/device-profile
+coverage across Ansible, CFEngine, fleet health, and FIRERPA, plus fleet-health coverage
+of secure FIRERPA. They are non-blocking but should not silently disappear from test output.
 
 #### ~~G2 — Shell → Python migration (bridges, boot supervisor, VLM)~~ · **Closed 2026-07-13**
 
@@ -192,69 +212,86 @@ with notifications directing user to Settings.
 
 ### Track H — Post-migration cleanup (open items)
 
-#### H1 — Deploy new Python files to devices · Risk: **Medium**
+#### H1 — Finish Python deployment on hd8 · Risk: **Medium**
 
-The new `start_adb.py`, `bridges.py`, and updated `stayturgid_repair.py` with severity
-logging haven't been deployed yet. Run `make deploy` to push to fleet. Until then,
-old shell shims on-device fall through to bare sshd start (no repair loop). P7a is
-already in this state (`CLOSED_NO_SHELL` for hours).
+Completed on s24 + p7a on 2026-07-13. hd8 remains because it was not needed for the
+FIRERPA investigation and has a different Fire OS/USB-only recovery profile.
 
-#### H2 — p7a port 5555 is down · Risk: **Medium** · Trigger: operator action
+#### ~~H2 — p7a port 5555 restored~~ · **Closed 2026-07-13**
 
-p7a wireless debugging (port 5555) has been down since ~06:20 2026-07-13.
-`CLOSED_NO_SHELL` in co-monitor. Shizuku daemon IS running (pgrep) but can't
-serve shells. Needs manual re-enable in Developer Options → Wireless debugging,
-or a reboot. SSH and fleet-health probes work fine via the ADB fallback path.
+Port 5555, the shell bridge, Shizuku, and accessibility checks are all healthy.
+The historical `CLOSED_NO_SHELL` alerts remain in the 24-hour log window but are
+not current failures. A second short set at 15:21 occurred while the deployment
+restarted its supervisors; fresh 15:25+ repair checks and live validation are green.
 
 #### H3 — `make deploy` to push Python runtime to fleet · Risk: **Medium**
 
-Run `make deploy [HOSTS=s24]` to push all new Python scripts (bridges, start_adb, repair
-with severity logging) and retire old shell scripts from devices via `stayturgid_retired_scripts`.
+Completed on s24 + p7a. Run the same deploy on hd8 only with USB recovery available.
 
-#### H6 — s24 AutoJs6 watchdog stale (Android 16) · Risk: **Medium** · Latent
+#### ~~H6 — s24 AutoJs6 watchdog stale (Android 16)~~ · **Closed 2026-07-13**
 
-s24's AutoJs6 watchdog has been stuck since Jul 12 16:30 EDT. The watchdog detected
-"accessibility disabled" and tried to re-enable it, but the trigger file write failed
-(`TypeError: Cannot find function getParent`). After that error, the AutoJs6 main.js
-JavaScript task stopped cycling entirely — the app process is alive (including a11y
-service IS enabled) but the task won't restart.
-
-**What's been tried:**
-- `start_watchdog.py` (Mac → ADB trigger file) — reported success but no new cycle
-- `am force-stop` + `monkey` relaunch of AutoJs6 — app restarts but task doesn't
-- `am broadcast RunIntentActivity` with main.js path — no effect
-- Fleet-health watchdog heal triggered at 09:45 with `start_watchdog.py` — the
-  guard log shows the task briefly started then got stuck on the same error
-
-**Root cause speculation:** AutoJs6 v6.7.0 on Android 16 — the `getParent()` API
-may have been removed or restricted. The task enters an error loop at startup and
-can't proceed past the accessibility check.
-
-**Next steps if fixing:**
-1. Check AutoJs6 logs on-device (`logcat -s "AutoJs6:*"` or internal error log)
-2. Consider downgrading AutoJs6 or switching to a different approach
-3. The dashboard shows `bootloop_down` — confirmed false positive (bootloop IS running)
-4. All other services healthy (sshd=ok, shizuku=up, ADB=ok)
+The accessibility service resumed after the operator toggled it off/on. A later stale
+watchdog exposed a separate deterministic bug: `boot-launcher.js` inherited its own
+`scripts/` working directory when spawning `main.js`, so the child failed every
+`require("./lib/...")`. The launcher now supplies the project directory explicitly.
+S24 produced clean boot and interval cycles with `sshd=ok`, Shizuku up, localhost ADB
+up, and all three accessibility services bound. The Python/Termux guard and Mac health
+monitor retain the automatic stale-engine restart path; accessibility enablement itself
+remains a deliberate human action.
 
 **Non-goals / do-not-touch:** MDM / root / Play Protect bypass; full Obtainium
 API; Tasker rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal;
 always-on Ollama in Termux:Boot; **any Inferno/`emu`/Styx work** (parked under
 [docs/incubator/inferno-styx/](incubator/inferno-styx)).
 
+#### ~~H7 — Authorize Termux `rish` bridge~~ · **Closed 2026-07-13**
+
+S24 and P7A were fixed by choosing **Allow all the time** for Termux in Shizuku's
+authorization prompt. On both phones, `~/.stayturgid/bin/rish -c 'id -u'` returns UID 2000.
+Directly backgrounding FIRERPA through `rish` is not durable because the binder session
+owns and kills its child. The supervisor instead uses `rish` to restore shell adbd on
+localhost:5555, then launches FIRERPA through that persistent UID-2000 ADB transport.
+A controlled S24 stop/start and both phones' secure SSH returned UID 2000.
+
+If authorization is revoked, the supervisor safely reports the privileged shell unavailable.
+Localhost ADB remains the other validated path.
+
+#### H8 — Dashboard Shizuku authorization action · Risk: **Low**
+
+Expose `rish` authorization in the web dashboard: show missing/non-persistent
+Termux authorization as an actionable device state and add an immediate request/test action.
+The action should open or trigger the Shizuku authorization flow where Android permits it,
+then run the UID-2000 probe, so the user need not wait for the scheduled supervisor cycle.
+
+#### H9 — Post-UI unlock and foreground-screen cleanup · Risk: **Low**
+
+Full deploy's `post_ui` phase requires the screen to be on and unlocked; the role now waits
+and prints an `ACTION REQUIRED` task instead of silently stalling. The UI sequence can bring
+Obtainium, AutoJs6, Termux:API, Shizuku, or Android Settings to the foreground and may leave
+an arbitrary screen visible when it finishes. This does not affect service health. In a
+future UI pass, inventory every foreground transition, minimize unnecessary launches, and
+restore a predictable final screen. Do not block core deployment work on this cleanup.
+
 ### Track F — FIRERPA (gRPC backup channel — core shipped 2026-07-12)
 
 **Shipped:** Ansible collection (`ansible_collections/stayturgid/firerpa/`) with
 install/configure/service/uninstall; playbook (`fleet/firerpa.yml`); Python heal script
 (`firerpa_heal.py`); launchd health monitor (`firerpa_health_monitor.py` every 10 min);
-Termux boot integration in `start-adb.sh` (start + monitor); Makefile targets
+Termux boot integration in Python `start_adb.py` (start + monitor); Makefile targets
 (`firerpa-deploy`, `firerpa-remove`, `firerpa-heal`, `firerpa-health`). Deployed on
 s24 + p7a (v10.0 :65000). hd8 blocked by Fire OS SELinux (peer-bootstrap covers it;
 no plan to fix).
 
-**Known limitations (by design, not open work):** FIRERPA built-in SSH blocked
-(HOME=/ read-only, key auth needs root — [upstream #145](https://github.com/firerpa/lamda/issues/145));
-built-in ADB needs root (stayturgid uses Shizuku's adbd :5555); stale PID on restart
-(workaround: `rm -rf /data/local/tmp/usr/` before restart). Architecture docs:
+**Known limitations (by design, not open work):** FIRERPA inbound SSH is enabled as
+user `shell` with a private custom service certificate (`ssh s24-firerpa`; resolution of
+[upstream #145](https://github.com/firerpa/lamda/issues/145)). After reboot the server
+archive still needs a UID-2000 bridge: Python `start_adb.py` first tries localhost ADB;
+when needed it uses authorized Shizuku `rish` to restart adbd, waits for localhost:5555,
+then launches through persistent ADB. Both phones' paths are validated after granting
+Termux **Allow all the time**. USB/wireless recovery is required if neither bridge is
+available.
+Built-in ADB needs root
+(stayturgid uses the shell bridge); hd8 remains unsupported. Architecture docs:
 `docs/history/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md`,
 `docs/history/firerpa-nonroot-redundancy-deepseek-pro-2026-07-12.md`,
 `docs/history/firerpa-install-map-2026-07-12.md`.

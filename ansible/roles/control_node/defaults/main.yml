@@ -27,14 +27,16 @@ stayturgid_vlm_upstream_check_minute: 20
 # tailscale get_certificate module). Proxies OpenCode, dashboard, VLM.
 stayturgid_caddy_enabled: true
 
-# Hermes AI gateway
-stayturgid_hermes_enabled: true
-
 conf_dir: "{{ lookup('env', 'HOME') }}/.config/stayturgid"
 agents_dir: "{{ lookup('env', 'HOME') }}/Library/LaunchAgents"
 stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
 ssh_config_dir: "{{ lookup('env', 'HOME') }}/.ssh"
 ssh_config_fragment: "{{ lookup('env', 'HOME') }}/.ssh/config.d/stayturgid"
+stayturgid_firerpa_certificate_path: >-
+  {{
+    lookup('env', 'FIRERPA_CERTIFICATE')
+    | default(lookup('env', 'HOME') ~ '/.config/stayturgid/firerpa.pem', true)
+  }}
 
 # Phone → Mac Eternal Terminal: fleet keys in ~/.ssh/authorized_keys (marked block).
 stayturgid_control_et_enabled: true

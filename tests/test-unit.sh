@@ -111,13 +111,15 @@ repair_suite() {
     _RSTATUS="$(cat "$SANDBOX/home/.stayturgid/run/repair.status" 2>/dev/null || echo "$OUT")"
     tap_like "$_RSTATUS" "STATUS port=open shizuku=up sshd=up a11y=up shell=yes wifi=up" "repair[$T]: healthy STATUS line"
 
-    # wireless debugging off => re-enabled via settings put (Pixel / stock Android)
+    # Android 16 can report cosmetic toggle=0 while the UID-2000 shell is live.
     reset_sandbox
     export PGREP_RC=0 ADB_WIFI=0
     run_sandboxed "$RSCRIPT"
     unset ADB_WIFI
     _RSTATUS="$(cat "$SANDBOX/home/.stayturgid/run/repair.status" 2>/dev/null || echo "$OUT")"
-    tap_like "$_RSTATUS" "wifi=repaired" "repair[$T]: wireless debugging off => repaired"
+    tap_like "$_RSTATUS" "wifi=up" "repair[$T]: cosmetic wifi=0 with live shell => healthy"
+    tap_unlike "$(cat "$STUB_LOG")" "settings put global adb_wifi_enabled" \
+        "repair[$T]: live shell avoids an ineffective Android 16 toggle write"
 
     # a11y: detection-only — no longer auto-repairs, reports status
     reset_sandbox
@@ -460,9 +462,16 @@ if command -v node >/dev/null 2>&1; then
         tap_fail "autojs6 comonitor.js: node unit tests pass"
     fi
     printf '%s\n' "$jsout" | sed 's/^/#   /'
+    if jsout="$(node tests/js/boot-launcher.test.js 2>&1)"; then
+        tap_ok "autojs6 boot-launcher.js: node unit tests pass"
+    else
+        tap_fail "autojs6 boot-launcher.js: node unit tests pass"
+    fi
+    printf '%s\n' "$jsout" | sed 's/^/#   /'
 else
     tap_skip "autojs6 log.js unit tests" "node not installed"
     tap_skip "autojs6 comonitor.js unit tests" "node not installed"
+    tap_skip "autojs6 boot-launcher.js unit tests" "node not installed"
 fi
 
 # ===========================================================================
@@ -547,19 +556,45 @@ export STAYTURGID_SD=/sdcard/stayturgid
 export STAYTURGID_BOOT_SETTLE_SEC=0
 export STAYTURGID_INTERVAL_SEC=300
 ENV
+cat > "$SANDBOX/home/.stayturgid/bin/firerpa_lifecycle.py" <<'STUB'
+#!/usr/bin/env python3
+import os
+import sys
+
+with open(os.environ["STUB_LOG"], "a", encoding="utf-8") as log:
+    log.write("firerpa_lifecycle.py " + " ".join(sys.argv[1:]) + "\n")
+STUB
+printf 'export STAYTURGID_FIRERPA_LIFECYCLE=%s\n' \
+    "$SANDBOX/home/.stayturgid/bin/firerpa_lifecycle.py" \
+    >> "$SANDBOX/home/.stayturgid/env"
 touch "$SANDBOX/home/.stayturgid/bin/stayturgid_repair.py"
-chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_repair.py"
+chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_repair.py" \
+    "$SANDBOX/home/.stayturgid/bin/firerpa_lifecycle.py"
 run_sandboxed "$START_ADB"
 if [ -f "$SANDBOX/home/.stayturgid/run/bootloop.pid" ]; then
     tap_ok "start-adb: writes bootloop.pid immediately (before 30s settle)"
 else
     tap_fail "start-adb: writes bootloop.pid immediately (before 30s settle)"
 fi
+# The parent intentionally records the child before startup_firerpa() runs.
+# Observe the asynchronous launch before terminating the sandbox daemon.
+wait_stub_like "firerpa_lifecycle.py start" || true
 kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bootloop.pid"
 tap_is "$RC" 0 "start-adb: exits 0 after launching boot loop"
 
 tap_like "$(cat "$STUB_LOG")" "sshd" "start-adb: starts sshd"
 tap_like "$(cat "$STUB_LOG")" "termux-wake-lock" "start-adb: requests wakelock"
+tap_like "$(cat "$STUB_LOG")" "adb -s localhost:5555 shell" \
+    "start-adb: FIRERPA lifecycle uses uid-2000 localhost ADB shell"
+tap_like "$(cat "$STUB_LOG")" \
+    "--certificate=/data/local/tmp/firerpa/server/lamda.pem" \
+    "start-adb: FIRERPA launch requires the service certificate"
+tap_like "$(cat "$STUB_LOG")" \
+    "firerpa_lifecycle.py start" \
+    "start-adb: FIRERPA launch uses the accessibility coexistence lifecycle"
+tap_unlike "$(cat "$STUB_LOG")" \
+    "/data/local/tmp/firerpa/server/bin/python3.9 -u -m lamda" \
+    "start-adb: never launches FIRERPA directly as the Termux app UID"
 
 # start-adb: empty version stamp must not break daily check arithmetic
 reset_sandbox
@@ -570,6 +605,7 @@ cat > "$SANDBOX/home/.stayturgid/env" <<'ENV'
 export STAYTURGID_SD=/sdcard/stayturgid
 export STAYTURGID_BOOT_SETTLE_SEC=0
 export STAYTURGID_INTERVAL_SEC=1
+export STAYTURGID_FIRERPA_ENABLED=0
 ENV
 : > "$SANDBOX/home/.stayturgid/state/last_version_check"
 touch "$SANDBOX/home/.stayturgid/bin/stayturgid_check_repo_version.py"

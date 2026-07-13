@@ -5,7 +5,10 @@
   "mechanisms": {
     "termux_repair": {
       "description": "Primary on-device Python self-healer (stayturgid_repair.py)",
-      "files": ["device/termux/py/stayturgid_repair.py"]
+      "files": [
+        "device/termux/py/stayturgid_repair.py",
+        "device/termux/py/start_adb.py"
+      ]
     },
     "autojs6_watchdog": {
       "description": "AutoJs6 watchdog + co-monitor + catastrophic Shizuku repair",
@@ -38,7 +41,9 @@
         "ansible_collections/stayturgid/termux/roles/termux_userland/tasks/main.yml",
         "ansible_collections/stayturgid/termux/roles/termux_userland/tasks/control_et.yml",
         "ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ssh_keys.yml",
-        "ansible_collections/stayturgid/fleet/roles/validate/tasks/main.yml"
+        "ansible_collections/stayturgid/fleet/roles/validate/tasks/main.yml",
+        "ansible_collections/stayturgid/firerpa/roles/firerpa/tasks/configure.yml",
+        "ansible_collections/stayturgid/firerpa/roles/firerpa/tasks/service.yml"
       ]
     },
     "mac_heal": {
@@ -181,6 +186,11 @@
       "description": "Termux:Boot autostart scripts deployed and enabled",
       "must_cover": ["ansible_deploy"],
       "should_cover": []
+    },
+    "FIRERPA-SECURE-RUNNING": {
+      "description": "FIRERPA runs as Android shell with its private service certificate, providing mutual-TLS gRPC and SSH on port 65000",
+      "must_cover": ["termux_repair", "ansible_deploy"],
+      "should_cover": ["fleet_health"]
     },
     "A11Y-PROFILE-MATCH": {
       "description": "Post-deploy accessibility profile matches fleet standard",

@@ -27,7 +27,7 @@ def test_recovery_notifies_once_and_resets(tmp_path, monkeypatch):
     monkeypatch.setattr(am, "STATE_DIR", str(tmp_path))
     monkeypatch.setattr(am, "adb_reachable", lambda addrs: "adb:100.1:5555")
     logs, notifs = [], []
-    monkeypatch.setattr(am, "log", lambda m: logs.append(m))
+    monkeypatch.setattr(am, "_access_log", lambda _level, message: logs.append(message))
     monkeypatch.setattr(am, "notify", lambda *a, **k: notifs.append(a))
 
     sf = os.path.join(str(tmp_path), "s24")
@@ -42,7 +42,7 @@ def test_outage_alerts_only_at_limit(tmp_path, monkeypatch):
     monkeypatch.setattr(am, "adb_reachable", lambda addrs: None)
     monkeypatch.setattr(am, "tcp_open", lambda h, p, timeout=5: False)
     notifs = []
-    monkeypatch.setattr(am, "log", lambda m: None)
+    monkeypatch.setattr(am, "_access_log", lambda *_: None)
     monkeypatch.setattr(am, "notify", lambda *a, **k: notifs.append(a))
 
     # run 1: fails=1, no alert; run 2: fails=2 == limit, one alert; run 3: no repeat
@@ -59,7 +59,7 @@ def test_ssh_fallback_when_adb_down(tmp_path, monkeypatch):
     monkeypatch.setattr(am, "adb_reachable", lambda addrs: None)
     seen = {}
     monkeypatch.setattr(am, "tcp_open", lambda h, p, timeout=5: seen.setdefault("hp", (h, p)) or True)
-    monkeypatch.setattr(am, "log", lambda m: None)
+    monkeypatch.setattr(am, "_access_log", lambda *_: None)
     monkeypatch.setattr(am, "notify", lambda *a, **k: None)
     am.check_device("s24", "100.1", "192.1")
     assert seen["hp"] == ("100.1", am.SSH_PORT)  # probes the Tailscale ip:8022

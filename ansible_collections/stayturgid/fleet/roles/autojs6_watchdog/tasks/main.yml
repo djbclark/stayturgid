@@ -130,6 +130,7 @@
       shell dumpsys deviceidle whitelist +moe.shizuku.privileged.api
   changed_when: false
   failed_when: false
+  delegate_to: localhost
   when: not (stayturgid_no_local_adb | default(false) | bool)
 
 - name: Push Shizuku fleet profile to Download
@@ -157,6 +158,7 @@
   register: _shizuku_fp_remote
   changed_when: false
   failed_when: false
+  delegate_to: localhost
   when: not (stayturgid_no_local_adb | default(false) | bool)
 
 - name: Push Shizuku fleet profile to device
@@ -171,6 +173,7 @@
       or 'MISSING' in (_shizuku_fp_remote.stdout | default(''))
       or _shizuku_fp_remote.stdout.strip() != (_shizuku_fp_local.stdout | default('')).strip()
   changed_when: true
+  delegate_to: localhost
 
 - name: Apply Shizuku fleet profile via intent
   stayturgid.android_common.android_intent:
@@ -182,6 +185,7 @@
       profile_path: /data/local/tmp/shizuku-fleet.json
       silent: "true"
   changed_when: false
+  delegate_to: localhost
   when: not (stayturgid_no_local_adb | default(false) | bool)
 
 # HEADLESS_START may fail on Samsung (process freezer blocks the Java
@@ -194,6 +198,7 @@
     action: moe.shizuku.privileged.api.HEADLESS_START
   changed_when: false
   failed_when: false
+  delegate_to: localhost
   when: not (stayturgid_no_local_adb | default(false) | bool)
 
 - name: Remove retired AutoJs6 project files from device

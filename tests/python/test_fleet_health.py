@@ -1,6 +1,7 @@
 """Unit tests for control/lib/fleet_health.py and control/bin/fleet_health_monitor.py."""
 from __future__ import annotations
 
+import datetime
 import os
 import sys
 from pathlib import Path
@@ -17,6 +18,20 @@ def test_parse_kv():
     text = "sshd=ok\nwatchdog_age=120\na11y=ok\njunk\n"
     assert fh.parse_kv(text)["sshd"] == "ok"
     assert fh.parse_kv(text)["watchdog_age"] == "120"
+
+
+def test_health_gather_tracks_python_boot_supervisor():
+    assert "start_adb\\.py" in fh.HEALTH_GATHER
+    assert "start-adb\\.sh" not in fh.HEALTH_GATHER
+
+
+def test_device_log_epoch():
+    parsed = fhm._device_log_epoch(
+        "2026-07-13 12:38:56 [watchdog] example failure"
+    )
+    expected = datetime.datetime(2026, 7, 13, 12, 38, 56).timestamp()
+    assert parsed == expected
+    assert fhm._device_log_epoch("no timestamp") is None
 
 
 def test_evaluate_healthy():
@@ -114,7 +129,7 @@ def test_monitor_notifies_after_debounce(tmp_path, monkeypatch):
     )
     notifs, logs = [], []
     monkeypatch.setattr(fhm, "notify", lambda *a, **k: notifs.append(a))
-    monkeypatch.setattr(fhm, "log", lambda m: logs.append(m))
+    monkeypatch.setattr(fhm, "_fleet_log", lambda _level, message: logs.append(message))
 
     fhm.check_device("s24", "100.1", "192.1")
     assert not notifs
@@ -160,7 +175,7 @@ def test_monitor_heals_stale_watchdog(tmp_path, monkeypatch):
 
     monkeypatch.setattr(fhm.subprocess, "run", fake_run)
     monkeypatch.setattr(fhm, "notify", lambda *a, **k: None)
-    monkeypatch.setattr(fhm, "log", lambda m: None)
+    monkeypatch.setattr(fhm, "_fleet_log", lambda *_: None)
     # Ensure script path exists check passes
     script = tmp_path / "start_watchdog.py"
     script.write_text("#!/usr/bin/env python3\n")
@@ -170,11 +185,17 @@ def test_monitor_heals_stale_watchdog(tmp_path, monkeypatch):
     (tmp_path / "control" / "tools" / "autojs6" / "start_watchdog.py").write_text("x")
 
     fhm.check_device("s24", "100.1", "192.1")
-    assert calls == []  # first fail — below threshold
+    assert not any(
+        any("start_watchdog.py" in str(part) for part in call) for call in calls
+    )
     fhm.check_device("s24", "100.1", "192.1")
-    assert len(calls) == 1
-    assert "start_watchdog.py" in calls[0][1]
-    assert calls[0][2:] == ["s24", "1.1.1.1:5555"]
+    watchdog_calls = [
+        call
+        for call in calls
+        if any("start_watchdog.py" in str(part) for part in call)
+    ]
+    assert len(watchdog_calls) == 1
+    assert watchdog_calls[0][2:] == ["s24", "1.1.1.1:5555"]
 
 
 def test_monitor_heal_failure_skips_cooldown(tmp_path, monkeypatch):
@@ -213,7 +234,7 @@ def test_monitor_heal_failure_skips_cooldown(tmp_path, monkeypatch):
 
     monkeypatch.setattr(fhm.subprocess, "run", fail_run)
     monkeypatch.setattr(fhm, "notify", lambda *a, **k: None)
-    monkeypatch.setattr(fhm, "log", lambda m: None)
+    monkeypatch.setattr(fhm, "_fleet_log", lambda *_: None)
     monkeypatch.setattr(fhm, "REPO", str(tmp_path))
     (tmp_path / "control" / "tools" / "autojs6").mkdir(parents=True)
     (tmp_path / "control" / "tools" / "autojs6" / "start_watchdog.py").write_text("x")
@@ -226,7 +247,7 @@ def test_monitor_skips_unreachable(tmp_path, monkeypatch):
     monkeypatch.setattr(fhm, "STATE_DIR", str(tmp_path))
     monkeypatch.setattr(fhm.fh, "probe_device", lambda *a, **k: (None, {"reachable": "no"}))
     logs = []
-    monkeypatch.setattr(fhm, "log", lambda m: logs.append(m))
+    monkeypatch.setattr(fhm, "_fleet_log", lambda _level, message: logs.append(message))
     monkeypatch.setattr(fhm, "notify", lambda *a, **k: None)
     fhm.check_device("s24", "100.1", "192.1")
     assert any("unreachable" in m for m in logs)

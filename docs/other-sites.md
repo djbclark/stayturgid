@@ -10,7 +10,7 @@ The **upstream repo should not embed that production fleet** — see §4 for mov
 real hostnames, IPs, and operator paths into a separate GitHub project, and for
 platform-describing example hostnames in the main tree.
 
-**Related docs:** [ansible_collections/docs/adoption.md](../ansible_collections/docs/adoption.md),
+**Related docs:** [ansible_collections/adoption.md](ansible_collections/adoption.md),
 [examples/consumer-termux-only/](../examples/consumer-termux-only),
 [examples/consumer-full-fleet/](../examples/consumer-full-fleet).
 

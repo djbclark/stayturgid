@@ -48,11 +48,14 @@ make_sandbox() {
 echo "adb $*" >> "$STUB_LOG"
 case "$*" in
   connect*) exit "${ADB_CONNECT_RC:-0}" ;;
+  *"grep -q ':65000 '"*) exit "${ADB_FIRERPA_RC:-1}" ;;
+  *"test -x /data/local/tmp/firerpa/server/bin/python3.9"*)
+      exit "${ADB_FIRERPA_FILES_RC:-0}" ;;
   *"exec-out cmd wallpaper get-image"*)
       [ -n "${ADB_WALLPAPER_FILE:-}" ] && cat "$ADB_WALLPAPER_FILE"
       exit 0 ;;
   *"shell id -u"*) printf '%s\n' "${ADB_SHELL_UID-2000}"; exit 0 ;;
-  *shizuku_server*) exit "${ADB_SHIZUKU_RC:-0}" ;;
+  *hizuku_server*) exit "${ADB_SHIZUKU_RC:-0}" ;;
   *"settings get global zen_mode"*) printf '%s\n' "${ADB_ZEN:-0}"; exit 0 ;;
   *"dumpsys notification"*) printf 'mInterruptionFilter=%s\n' "${ADB_INTERRUPT:-ALL}"; exit 0 ;;
   *"cmd audio get-ringer-mode"*) printf '%s\n' "${ADB_RINGER:-2}"; exit 0 ;;
