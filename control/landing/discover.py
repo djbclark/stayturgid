@@ -23,7 +23,7 @@ SERVICES_FILE = Path(__file__).resolve().parent / "services.json"
 # ── Known service definitions (URL, label, group) ───────────────────────────
 KNOWN_SERVICES: list[dict] = [
     # Mac control node
-    {"url": "http://localhost:8080", "label": "Network Services (this page)", "group": "mac"},
+    {"url": "http://localhost:8088", "label": "Network Landing", "group": "mac"},
     {"url": "http://localhost:4096", "label": "OpenCode Web", "group": "mac"},
     {"url": "http://localhost:4097", "label": "Fleet Dashboard", "group": "mac"},
     {"url": "http://localhost:4097/stats", "label": "Fleet Stats", "group": "mac"},
@@ -33,6 +33,7 @@ KNOWN_SERVICES: list[dict] = [
     {"url": "http://192.168.68.68:4097", "label": "Dashboard (LAN)", "group": "mac"},
     {"url": "http://100.113.53.87:4096", "label": "OpenCode (Tailscale)", "group": "mac"},
     {"url": "http://100.113.53.87:4097", "label": "Dashboard (Tailscale)", "group": "mac"},
+    {"url": "http://localhost:8080", "label": "Caddy Proxy", "group": "mac"},
     {"url": "http://localhost:8081", "label": "VLM UI-TARS API", "group": "mac"},
     # Devices — Tailscale
     {"url": "http://100.123.218.30:65000", "label": "s24 FIRERPA", "group": "devices"},

@@ -127,7 +127,7 @@ help:
 	@echo "  make dashboard-logs                tail -f dashboard.log"
 	@echo "  make dashboard-disable             Ansible: remove plist + unload"
 	@echo ""
-	@echo "Network landing page (service directory on http://localhost:8080):"
+	@echo "Network landing page (service directory on http://localhost:8088):"
 	@echo "  make landing-status                Health check + launchctl state"
 	@echo "  make landing-restart               kickstart launchd agent"
 	@echo "  make landing-discover              Run service discovery scan"
@@ -319,7 +319,7 @@ dashboard-logs:
 
 # ── Network landing page (service directory, port 8080) ─────────────────────
 LANDING_LABEL := com.stayturgid.landing
-LANDING_PORT := 8080
+LANDING_PORT := 8088
 LANDING_LOG := $$(HOME)/.config/stayturgid/logs/landing.log
 
 landing-status:
