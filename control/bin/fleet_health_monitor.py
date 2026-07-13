@@ -196,6 +196,7 @@ def maybe_heal_watchdog(
                 "stayturgid heal",
                 "%s AutoJs6 watchdog restarted" % name,
             )
+            _stats_event("heal_triggered", name, heal="watchdog")
     except (OSError, subprocess.TimeoutExpired) as e:
         _fleet_log(INFO, "%s watchdog heal error: %s" % (name, e))
 
@@ -232,6 +233,7 @@ def maybe_heal_repair_stale(name: str, issues: list[str], fails: int) -> None:
             _touch_heal_repair(name)
             _fleet_log(INFO, "%s repair heal: boot loop restarted (rc=%s)" % (name, r.returncode))
             notify("stayturgid heal", "%s repair loop restarted" % name)
+            _stats_event("heal_triggered", name, heal="repair")
         else:
             _fleet_log(INFO, "%s repair heal: unexpected rc=%s stderr=%s" % (
                 name, r.returncode, (r.stderr or "").strip()[:200]))
