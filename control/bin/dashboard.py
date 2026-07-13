@@ -30,7 +30,7 @@ for d in [_LIB, _BIN]:
 if str(_REPO) not in sys.path:
     sys.path.append(str(_REPO))
 
-from flask import Flask, render_template_string, request, url_for
+from flask import Flask, render_template_string, request
 from markupsafe import Markup
 from fleet_health import probe_device as live_probe, evaluate_health
 from check_fleet_health import read_consecutive as read_fleet_consecutive
@@ -51,6 +51,7 @@ app = Flask(__name__,
             static_url_path="/static")
 
 OC_WEB_URL = "https://mac.greyhound-sidemirror.ts.net/opencode/"
+NETWORK_URL = "https://mac.greyhound-sidemirror.ts.net/"
 
 
 def _parse_log_ts(s: str) -> dt.datetime | None:
@@ -121,7 +122,7 @@ def _latest_fleet_health() -> dict[str, dict]:
 # firerpa-health.log parsing
 # ---------------------------------------------------------------------------
 _FIRERPA_LINE_RE = re.compile(
-    r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(\S+)\s+via\s+firerpa:(\S+):\s+(.*)$"
+    r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(?:[A-Z]+\s+)?(\S+)\s+via\s+firerpa:(\S+):\s+(.*)$"
 )
 
 
@@ -187,9 +188,10 @@ _SVC_LABELS = {
 def _svc_cls(value: str | None) -> str:
     if value is None:
         return "unknown"
-    if value in _SERVICE_OK:
+    v = value.lower()
+    if v in _SERVICE_OK or v == "repaired":
         return "ok"
-    if value in _SERVICE_BAD:
+    if v in _SERVICE_BAD or v.startswith(("failed", "closed")):
         return "error"
     return "unknown"
 
@@ -199,12 +201,8 @@ def _svc_badge(key: str, value: str | None, ok_values: frozenset[str] | None = N
         value = "?"
     if ok_values and value in ok_values:
         cls = "ok"
-    elif value in _SERVICE_OK:
-        cls = "ok"
-    elif value in _SERVICE_BAD:
-        cls = "error"
     else:
-        cls = "unknown"
+        cls = _svc_cls(value)
     return Markup(f'<span class="badge {cls}" title="{key}">{value}</span>')
 
 
@@ -222,15 +220,6 @@ def _issue_tags(issues: list[str]) -> Markup:
     if not issues:
         return Markup('<span class="badge ok">none</span>')
     return Markup(" ".join(f'<span class="tag error">{i}</span>' for i in issues))
-
-
-def _human_actions(issues: list[str], hostname: str) -> list[dict]:
-    out: list[dict] = []
-    for tag in issues:
-        if tag in HUMAN_ACTIONS:
-            msg = HUMAN_ACTIONS[tag].replace("<host>", hostname)
-            out.append({"issue": tag, "message": msg})
-    return out
 
 
 HUMAN_ACTIONS = {
@@ -269,7 +258,60 @@ HUMAN_ACTIONS = {
         "Shizuku is not running. The repair loop should auto-restart it. "
         "If persistent, open the Shizuku app and tap Start."
     ),
+    "watchdog_stale": (
+        "AutoJs6 watchdog has not cycled in over 30 minutes. "
+        "The self-heal monitor attempts to restart it via ADB. "
+        "If persistent, the AutoJs6 JavaScript task may be stuck — "
+        "force-stop the AutoJs6 app in Android Settings, then run: "
+        "make verify-heal HOSTS=<host>"
+    ),
+    "watchdog_missing": (
+        "No AutoJs6 watchdog log entries found. The AutoJs6 app may not "
+        "be running. Run: make verify-heal HOSTS=<host> to attempt restart."
+    ),
+    "bootloop_down": (
+        "The Termux boot loop (start-adb.sh) was not detected at probe time. "
+        "This is often a false positive (probe timing gap). If persistent, "
+        "run: make deploy-termux HOSTS=<host>"
+    ),
+    "shell5555_down": (
+        "Termux cannot reach ADB on localhost:5555. Wireless debugging "
+        "may be off or Shizuku's ADB service needs restart. "
+        "Run: make verify-heal HOSTS=<host>"
+    ),
+    "probe_error": (
+        "The fleet-health monitor could not probe this device (ADB missing, "
+        "timeout, or script error). Check the fleet-health log for details. "
+        "If USB ADB is disconnected, reconnect it."
+    ),
+    "ssh_echo": (
+        "SSH probe echo failed — TCP connection may work but command "
+        "execution is failing. Check PerSourcePenalties on the device."
+    ),
+    "cfengine_down": (
+        "CFEngine repair log not found on device. The CFEngine self-heal "
+        "policy may not be running. Run: make deploy-termux HOSTS=<host> "
+        "to redeploy."
+    ),
 }
+
+
+def _human_actions(issues: list[str], hostname: str) -> list[dict]:
+    out: list[dict] = []
+    for tag in issues:
+        if tag in HUMAN_ACTIONS:
+            msg = HUMAN_ACTIONS[tag].replace("<host>", hostname)
+            out.append({"issue": tag, "message": msg})
+    return out
+
+
+def _safe_int(s: str | None) -> int | None:
+    if s is None or s in ("missing", "unknown", ""):
+        return None
+    try:
+        return int(s)
+    except (ValueError, TypeError):
+        return None
 
 
 def _build_services(h: dict) -> list[dict]:
@@ -280,10 +322,8 @@ def _build_services(h: dict) -> list[dict]:
         val = h.get(key)
         if val is None or val in ("skip",):
             continue
-        cls = _svc_cls(val)
-        if key == "port":
-            cls = "ok" if val == "open" else ("error" if val == "closed" else "unknown")
-        out.append({"label": _SVC_LABELS.get(key, key), "value": val, "cls": cls})
+        out.append({"label": _SVC_LABELS.get(key, key), "value": val,
+                     "cls": _svc_cls(val)})
     return out
 
 
@@ -318,10 +358,8 @@ def build_device_data() -> list[dict]:
             d["health_age"] = _age_str(d["health_age_s"])
             d["via_display"] = h.get("via", "?")
             d["services"] = _build_services(h)
-            wa = h.get("watchdog_age")
-            d["watchdog_age"] = int(wa) if wa and wa not in ("missing", "unknown") else None
-            ra = h.get("repair_age")
-            d["repair_age"] = int(ra) if ra and ra not in ("missing", "unknown") else None
+            d["watchdog_age"] = _safe_int(h.get("watchdog_age"))
+            d["repair_age"] = _safe_int(h.get("repair_age"))
             d["watchdog_badge"] = _age_badge(d["watchdog_age"])
             d["repair_badge"] = _age_badge(d["repair_age"])
             d["issue_tags"] = _issue_tags(report_issues)
@@ -378,11 +416,11 @@ def index():
     now = time.strftime("%Y-%m-%d %H:%M:%S")
     cards = "\n".join(
         _render_template("_device_card.html", device=d,
-                         oc_web_url=OC_WEB_URL, now=now)
+                         oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
         for d in devices
     )
     return _render_template("dashboard.html", cards=cards,
-                            oc_web_url=OC_WEB_URL, now=now)
+                            oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
 
 
 @app.route("/api/devices")
@@ -391,7 +429,7 @@ def api_devices():
     now = time.strftime("%Y-%m-%d %H:%M:%S")
     cards = "\n".join(
         _render_template("_device_card.html", device=d,
-                         oc_web_url=OC_WEB_URL, now=now)
+                         oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
         for d in devices
     )
     return cards
@@ -457,8 +495,8 @@ def api_probe(host: str):
             "health_age": "live",
             "via_display": h.get("via", "live"),
             "services": _build_services(h),
-            "watchdog_age": int(h.get("watchdog_age", "0")) if h.get("watchdog_age") not in ("missing", "unknown", None) else None,
-            "repair_age": int(h.get("repair_age", "0")) if h.get("repair_age") not in ("missing", "unknown", None) else None,
+            "watchdog_age": _safe_int(h.get("watchdog_age")),
+            "repair_age": _safe_int(h.get("repair_age")),
             "watchdog_badge": _age_badge(None),
             "repair_badge": _age_badge(None),
             "issue_tags": _issue_tags(report_issues),
@@ -483,7 +521,7 @@ def api_probe(host: str):
         d["firerpa_age"] = "--"
 
     return _render_template("_device_card.html", device=d,
-                            oc_web_url=OC_WEB_URL, now=now)
+                            oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
 
 
 @app.route("/health")
@@ -573,8 +611,8 @@ def stats_page():
                             range_str=range_str,
                             display_range=display_range,
                             select_options=_SELECT_OPTIONS,
-                            oc_web_url=OC_WEB_URL,
-                            now=time.strftime("%Y-%m-%d %H:%M:%S"))
+                             oc_web_url=OC_WEB_URL, network_url=NETWORK_URL,
+                             now=time.strftime("%Y-%m-%d %H:%M:%S"))
 
 
 @app.route("/api/stats")
