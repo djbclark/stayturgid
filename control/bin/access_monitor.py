@@ -21,9 +21,11 @@ import socket
 import subprocess
 import sys
 
-_LIB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib")
-if _LIB not in sys.path:
-    sys.path.insert(0, _LIB)
+_REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_LIB = os.path.join(_REPO, "control", "lib")
+for _p in (_REPO, _LIB):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 from control.lib.logging import (  # noqa: E402
     INFO, NOTICE, WARNING, ERR,
     log, trim_log,
