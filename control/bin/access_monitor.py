@@ -24,6 +24,10 @@ _LIB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 if _LIB not in sys.path:
     sys.path.insert(0, _LIB)
 try:
+    import control.lib.stats as stats
+except Exception:
+    stats = None
+try:
     from stayturgid_device import adb_bin as _adb_bin
 
     ADB = _adb_bin()
@@ -179,6 +183,8 @@ def check_device(name, ts_ip, lan_ip):
         if fails >= CONSECUTIVE_LIMIT:
             log("%s RECOVERED via %s" % (name, ok))
             notify("stayturgid access", "%s reachable again (%s)" % (name, ok))
+            if stats:
+                stats.record_event("device_status", name, status="online")
         write_state(state_file, 0)
     else:
         fails += 1
@@ -188,6 +194,8 @@ def check_device(name, ts_ip, lan_ip):
             notify("stayturgid access LOST",
                    "%s unreachable on ALL paths (ADB + SSH) for ~10 min" % name,
                    sound="Basso")
+            if stats:
+                stats.record_event("device_status", name, status="offline")
 
 
 def main():
