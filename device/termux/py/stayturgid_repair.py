@@ -18,6 +18,13 @@ import subprocess
 import sys
 import time
 
+# Syslog-style severity levels
+EMERG, ALERT, CRIT, ERR, WARNING, NOTICE, INFO, DEBUG = range(8)
+_SEV_LABEL = {
+    EMERG: "EMERG", ALERT: "ALERT", CRIT: "CRIT", ERR: "ERR",
+    WARNING: "WARNING", NOTICE: "NOTICE", INFO: "INFO", DEBUG: "DEBUG",
+}
+
 PREFIX = os.environ.get("PREFIX", "/data/data/com.termux/files/usr")
 HOME = os.environ.get("HOME", "/data/data/com.termux/files/home")
 TMPDIR = os.environ.get("TMPDIR", PREFIX + "/tmp")
@@ -63,8 +70,8 @@ def ts():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
-def log(msg):
-    line = "%s [repair] %s" % (ts(), msg)
+def log(msg, level=INFO):
+    line = "%s [repair] %s: %s" % (ts(), _SEV_LABEL.get(level, "INFO"), msg)
     paths = [LOG, SDLOG]
     if os.path.normpath(SDLOG) != os.path.normpath(SDCARD_WATCHDOG_LOG):
         paths.append(SDCARD_WATCHDOG_LOG)
@@ -182,7 +189,7 @@ def ensure_wireless_debugging():
     if wifi in ("1", "true"):
         return "up"
     if wifi in ("null", ""):
-        log("wireless debugging: cannot reach shell (adb_wifi_enabled=%s)" % wifi)
+        log("wireless debugging: cannot reach shell (adb_wifi_enabled=%s)" % wifi, ERR)
         return "NO_SHELL"
     # Port is open and shell works — wireless debugging is functionally up.
     # On both Samsung (cosmetic toggle=0) and Pixel (settings put blocked on
@@ -199,7 +206,7 @@ def ensure_wireless_debugging():
     if wifi2 in ("1", "true"):
         log("wireless debugging was off -> re-enabled adb_wifi_enabled")
         return "repaired"
-    log("wireless debugging re-enable FAILED (adb_wifi_enabled=%s)" % wifi2)
+    log("wireless debugging re-enable FAILED (adb_wifi_enabled=%s)" % wifi2, ERR)
     return "FAILED"
 
 
@@ -603,7 +610,7 @@ def main():
         port = "CLOSED_NO_SHELL"
         wifi = "unknown"
         rc = 1
-        log("5555 CLOSED / no privileged shell — escalate to AutoJs6 UI repair or reboot")
+        log("5555 CLOSED / no privileged shell, ERR — escalate to AutoJs6 UI repair or reboot")
 
     # --- 3. shizuku (via privileged shell, fallback to Termux am/pgrep) ---
     if expect_shell and have_sh:
@@ -623,7 +630,7 @@ def main():
             # TCP mode wasn't enabled (fleet profile not applied). Apply the
             # fleet profile via am start (works from Termux, no ADB needed),
             # then send HEADLESS_START to open port 5555.
-            log("shizuku_server running but port 5555 closed — applying fleet profile + HEADLESS_START")
+            log("shizuku_server running but port 5555 closed, WARNING — applying fleet profile + HEADLESS_START")
             shizuku_fp = "/data/local/tmp/shizuku-fleet.json"
             if os.path.isfile(shizuku_fp):
                 run(["am", "start", "--user", "0",
@@ -638,16 +645,16 @@ def main():
             if privileged_shell():
                 have_sh = True
                 port = "open"
-                log("port 5555 restored via HEADLESS_START from Termux")
+                log("port 5555 restored, NOTICE via HEADLESS_START from Termux")
         else:
             shizuku = "down"
-            log("shizuku_server NOT running — trying HEADLESS_START from Termux")
+            log("shizuku_server NOT running, WARNING — trying HEADLESS_START from Termux")
             run(["am", "broadcast", "-a", "moe.shizuku.privileged.api.HEADLESS_START"])
             time.sleep(3)
             rc2, _ = run(["pgrep", "-f", "shizuku_server"])
             if rc2 == 0:
                 shizuku = "repaired"
-                log("shizuku_server started via HEADLESS_START from Termux")
+                log("shizuku_server started via, NOTICE HEADLESS_START from Termux")
                 if privileged_shell():
                     have_sh = True
                     port = "open"
@@ -661,7 +668,7 @@ def main():
                 a11y = "up"
             else:
                 a11y = "down"
-                log("AutoJs6 accessibility is OFF — re-enable in Settings > Accessibility > AutoJs6")
+                log("AutoJs6 accessibility is OFF, WARNING — re-enable in Settings > Accessibility > AutoJs6")
                 log("ACTION_REQUIRED: AutoJs6 accessibility disabled on %s" % (os.uname().nodename if hasattr(os, 'uname') else "device"))
 
     # --- 5. Shell profile PATH (remove leaked Mac PATH that breaks pkg/apt) ---

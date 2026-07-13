@@ -22,6 +22,7 @@ from pathlib import Path
 ROOT = Path(os.path.expanduser("~")) / ".config" / "stayturgid"
 LOG = ROOT / "logs" / "fleet-health.log"
 ACCESS_LOG = ROOT / "logs" / "access-monitor.log"
+ERROR_LOG = ROOT / "logs" / "errors.log"
 STATE_DIR = ROOT / "state" / "fleet-health"
 CONSECUTIVE_ALERT = 2
 
@@ -244,7 +245,35 @@ def main(argv: list[str] | None = None) -> int:
         "Next: prefer fixing AutoJs6/a11y/repair before OPTIONS 43–45; "
         "see docs/handoff.md § Mac fleet health."
     )
+    # Show recent device errors
+    if ERROR_LOG.is_file():
+        errors = _read_device_errors(hours=hours)
+        if errors:
+            print("\n=== recent device errors (%dh) ===" % hours)
+            for e in errors:
+                print("  %s" % e)
     return 1
+
+
+def _read_device_errors(hours: int) -> list[str]:
+    """Read errors.log and return recent entries."""
+    since = dt.datetime.now() - dt.timedelta(hours=hours)
+    results: list[str] = []
+    try:
+        with open(ERROR_LOG) as f:
+            for line in f:
+                line = line.rstrip()
+                m = LINE_RE.match(line)
+                if not m:
+                    continue
+                ts_val = parse_ts(m.group(1))
+                if ts_val and ts_val >= since:
+                    rest = m.group(3).strip()
+                    if rest:
+                        results.append("%s %s" % (m.group(1), rest[:200]))
+    except OSError:
+        pass
+    return results[-50:]
 
 
 if __name__ == "__main__":

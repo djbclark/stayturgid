@@ -60,6 +60,7 @@ help:
 	@echo "  make bootstrap-ssh [HOSTS=s24]    ADB bootstrap Termux SSH keys + sshd"
 	@echo "  make bootstrap-apks [HOSTS=s24]   ADB install prerequisite APKs (no device interaction)"
 	@echo "  make health                     Mac fleet-health summary (exit 1 = tell operator)"
+	@echo "  make errors                     Show recent device errors from all logs (last 24h)"
 	@echo "  make fix-hd8-google             Pin sideloaded GMS/Play on Fire hd8 (see docs)"
 	@echo "  make ensure-et-mac              Phone→Mac ET: fleet keys in authorized_keys"
 	@echo "  make check-et-mac               Soft-check etserver + fleet key block"
@@ -168,6 +169,9 @@ bootstrap-apks:
 
 health:
 	python3 control/bin/check_fleet_health.py
+
+errors:
+	python3 control/bin/check_fleet_health.py --hours 168
 
 # Phone→Mac Eternal Terminal (fleet keys + etserver soft check)
 ensure-et-mac:

@@ -122,7 +122,9 @@ repair_suite() {
     export PGREP_RC=0 ADB_A11Y="com.other.app/.TheirService"
     run_sandboxed "$RSCRIPT"
     tap_like "$OUT" "a11y=down" "repair[$T]: disabled accessibility => down (detection only)"
-    tap_like "$OUT" "ACTION_REQUIRED" "repair[$T]: logs ACTION_REQUIRED when a11y disabled"
+    # Check the repair log for the ACTION_REQUIRED message (not stdout)
+    tap_like "$(cat "$SANDBOX/home/.stayturgid/logs/repair.log" 2>/dev/null)" \
+        "ACTION_REQUIRED" "repair[$T]: logs ACTION_REQUIRED when a11y disabled"
     # a11y list is NOT modified — detection-only, no settings put
     if [ -f "$SANDBOX/a11y_state" ]; then
         tap_fail "repair[$T]: a11y list should NOT be modified (detection-only)"

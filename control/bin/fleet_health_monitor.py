@@ -17,7 +17,6 @@ STAYTURGID_SKIP_WATCHDOG_HEAL=1.
 from __future__ import annotations
 
 import datetime
-import fcntl
 import os
 import subprocess
 import sys
@@ -30,6 +29,10 @@ import fleet_health as fh  # noqa: E402
 import hd8_google_stack as hgs  # noqa: E402
 import stayturgid_device as dev  # noqa: E402
 import vlm_helpers as vh  # noqa: E402
+from control.lib.logging import (  # noqa: E402
+    INFO, NOTICE, WARNING, ERR, CRIT,
+    log, trim_log, scrape_errors,
+)
 
 ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")
 CONF = os.environ.get("STAYTURGID_DEVICES_CONF", os.path.join(ROOT, "devices.conf"))
@@ -37,9 +40,8 @@ STATE_DIR = os.path.join(ROOT, "state", "fleet-health")
 HEAL_STATE_DIR = os.path.join(ROOT, "state", "watchdog-heal")
 GOOGLE_HEAL_STATE_DIR = os.path.join(ROOT, "state", "google-stack-heal")
 GOOGLE_VERIFY_STATE_DIR = os.path.join(ROOT, "state", "google-stack-verify")
-LOG = os.path.join(ROOT, "logs", "fleet-health.log")
-# CONSECUTIVE_LIMIT x launchd_interval = alert delay (default 2 x 15 min = 30 min).
-# The interval is controlled by STAYTURGID_INTERVAL_SEC in the launchd plist config.
+ERROR_LOG = os.path.join(ROOT, "logs", "errors.log")
+LOG_NAME = "fleet-health.log"
 CONSECUTIVE_LIMIT = 2
 # After this many soft fails with watchdog_stale/missing, restart main.js once.
 WATCHDOG_HEAL_AFTER = 2
@@ -56,41 +58,12 @@ REPAIR_HEAL_COOLDOWN_SEC = 30 * 60
 REPAIR_HEAL_AFTER = 2
 
 
-def ts() -> str:
-    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+def _fleet_log(level: int, msg: str) -> None:
+    log(LOG_NAME, level, msg, also_print=False)
 
 
-def _ensure(path: str) -> str:
-    try:
-        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    except OSError:
-        pass
-    return path
-
-
-def log(msg: str) -> None:
-    try:
-        with open(_ensure(LOG), "a") as f:
-            f.write("%s  %s\n" % (ts(), msg))
-    except OSError:
-        pass
-
-
-def trim_log(max_lines: int = MAX_LOG_LINES) -> None:
-    lock_path = LOG + ".lock"
-    try:
-        with open(lock_path, "a") as lock_fd:
-            fcntl.flock(lock_fd, fcntl.LOCK_EX)
-            try:
-                with open(LOG) as f:
-                    lines = f.readlines()
-                if len(lines) > max_lines:
-                    with open(LOG, "w") as f:
-                        f.writelines(lines[-max_lines:])
-            finally:
-                fcntl.flock(lock_fd, fcntl.LOCK_UN)
-    except OSError:
-        pass
+def _error_log(level: int, msg: str) -> None:
+    log(ERROR_LOG, level, msg, also_print=False)
 
 
 def notify(title: str, message: str, sound: str | None = None) -> None:
@@ -187,13 +160,13 @@ def maybe_heal_watchdog(
     if "watchdog_stale" not in issues and "watchdog_missing" not in issues:
         return
     if not _heal_cooldown_ok(name):
-        log("%s watchdog heal skipped (cooldown)" % name)
+        _fleet_log(WARNING, "%s watchdog heal skipped (cooldown)" % name)
         return
     script = os.path.join(REPO, "control", "tools", "autojs6", "start_watchdog.py")
     if not os.path.isfile(script):
-        log("%s watchdog heal skipped (missing %s)" % (name, script))
+        _fleet_log(WARNING, "%s watchdog heal skipped (missing %s)" % (name, script))
         return
-    log("%s watchdog heal: starting main.js via start_watchdog.py" % name)
+    _fleet_log(INFO, "%s watchdog heal: starting main.js via start_watchdog.py" % name)
     cmd = [sys.executable, script, name]
     if adb_serial:
         cmd.append(adb_serial)
@@ -216,7 +189,7 @@ def maybe_heal_watchdog(
                 "%s AutoJs6 watchdog restarted" % name,
             )
     except (OSError, subprocess.TimeoutExpired) as e:
-        log("%s watchdog heal error: %s" % (name, e))
+        _fleet_log(INFO, "%s watchdog heal error: %s" % (name, e))
 
 
 def _heal_repair_cooldown_ok(name: str) -> bool:
@@ -235,10 +208,10 @@ def maybe_heal_repair_stale(name: str, issues: list[str], fails: int) -> None:
     if "repair_stale" not in issues and "repair_missing" not in issues:
         return
     if not _heal_repair_cooldown_ok(name):
-        log("%s repair heal skipped (cooldown)" % name)
+        _fleet_log(INFO, "%s repair heal skipped (cooldown)" % name)
         return
 
-    log("%s repair heal: restarting boot loop via SSH" % name)
+    _fleet_log(INFO, "%s repair heal: restarting boot loop via SSH" % name)
     try:
         r = subprocess.run(
             ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
@@ -249,13 +222,13 @@ def maybe_heal_repair_stale(name: str, issues: list[str], fails: int) -> None:
         )
         if r.returncode == 0 or r.returncode == 255:
             _touch_heal_repair(name)
-            log("%s repair heal: boot loop restarted (rc=%s)" % (name, r.returncode))
+            _fleet_log(INFO, "%s repair heal: boot loop restarted (rc=%s)" % (name, r.returncode))
             notify("stayturgid heal", "%s repair loop restarted" % name)
         else:
-            log("%s repair heal: unexpected rc=%s stderr=%s" % (
+            _fleet_log(INFO, "%s repair heal: unexpected rc=%s stderr=%s" % (
                 name, r.returncode, (r.stderr or "").strip()[:200]))
     except (OSError, subprocess.TimeoutExpired) as e:
-        log("%s repair heal error: %s" % (name, e))
+        _fleet_log(INFO, "%s repair heal error: %s" % (name, e))
 
 
 def maybe_heal_hd8_google_stack(name: str) -> None:
@@ -303,7 +276,7 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
         result = hgs.repair_if_needed(_run, serial)
         _touch_heal_dir(name, GOOGLE_HEAL_STATE_DIR)
         new_ver = result.get("gms_version")
-        log("%s google-stack heal done gms versionCode=%s" % (name, new_ver))
+        _fleet_log(INFO, "%s google-stack heal done gms versionCode=%s" % (name, new_ver))
         if hgs.needs_gms_downgrade(new_ver):
             notify(
                 "stayturgid heal",
@@ -318,7 +291,7 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
             )
             maybe_verify_hd8_google_closeout(name)
     except Exception as e:  # noqa: BLE001
-        log("%s google-stack heal skipped: %s" % (name, e))
+        _fleet_log(INFO, "%s google-stack heal skipped: %s" % (name, e))
 
 
 def maybe_verify_hd8_google_closeout(name: str) -> None:
@@ -330,7 +303,7 @@ def maybe_verify_hd8_google_closeout(name: str) -> None:
     script = os.path.join(REPO, "control", "bin", "verify_hd8_google.py")
     if not os.path.isfile(script):
         return
-    log("%s google-stack VLM close-out (verify_hd8_google)" % name)
+    _fleet_log(INFO, "%s google-stack VLM close-out (verify_hd8_google)" % name)
     env = os.environ.copy()
     env.setdefault("STAYTURGID_VLM", "1")
     try:
@@ -342,7 +315,7 @@ def maybe_verify_hd8_google_closeout(name: str) -> None:
             env=env,
         )
         detail = ((r.stdout or "") + (r.stderr or "")).strip().replace("\n", " | ")
-        log("%s google-stack VLM verify rc=%s %s" % (name, r.returncode, detail[:400]))
+        _fleet_log(INFO, "%s google-stack VLM verify rc=%s %s" % (name, r.returncode, detail[:400]))
         _touch_heal_dir(name, GOOGLE_VERIFY_STATE_DIR)
         if r.returncode != 0:
             notify(
@@ -351,7 +324,54 @@ def maybe_verify_hd8_google_closeout(name: str) -> None:
                 sound="Basso",
             )
     except (OSError, subprocess.TimeoutExpired) as e:
-        log("%s google-stack VLM verify error: %s" % (name, e))
+        _fleet_log(INFO, "%s google-stack VLM verify error: %s" % (name, e))
+
+
+def _scrape_device_errors(name: str, ts_ip: str) -> None:
+    """SSH into device, grep repair/watchdog logs for errors, log locally."""
+    import time as _time
+    state_file = os.path.join(ROOT, "state", "error-scrape", name)
+    try:
+        os.makedirs(os.path.dirname(state_file), exist_ok=True)
+        last = 0.0
+        try:
+            with open(state_file) as f:
+                last = float(f.read().strip() or 0)
+        except (OSError, ValueError):
+            pass
+        now = _time.time()
+        if now - last < 120:
+            return
+        with open(state_file, "w") as f:
+            f.write(str(int(now)))
+    except OSError:
+        return
+
+    grep_cmd = (
+        "grep -h -i -E 'FAILED|CLOSED_NO_SHELL|Error|Exception|Traceback|"
+        "cannot find|crash|permission' "
+        "~/.stayturgid/logs/repair.log "
+        "/sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -50"
+    )
+    try:
+        r = subprocess.run(
+            ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
+             "-o", "LogLevel=ERROR", name, grep_cmd],
+            capture_output=True, text=True, timeout=20,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return
+
+    text = (r.stdout or "").strip()
+    if not text:
+        return
+
+    errors = scrape_errors(text)
+    for level, line in errors:
+        _error_log(level, "%s: %s" % (name, line))
+        if level <= WARNING:
+            _fleet_log(level, "%s device error [%s]: %s" % (
+                name, severity_label(level), line[:200]))
 
 
 def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
@@ -367,7 +387,7 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
             pass
     path, report = fh.probe_device(name, ts_ip, lan_ip)
     if not path:
-        log("%s unreachable — skip soft health (see access-monitor)" % name)
+        _fleet_log(INFO, "%s unreachable — skip soft health (see access-monitor)" % name)
         # FIRERPA gRPC (port 65000) is an independent transport — try it as
         # a last-resort repair channel when both ADB and SSH are down.
         _try_firerpa_heal_fallback(name, ts_ip)
@@ -378,12 +398,14 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
 
     issues = fh.evaluate_health(report, alias=name)
     summary = fh.summarize(report, issues)
-    log("%s via %s: %s" % (name, path, summary))
+    _fleet_log(INFO, "%s via %s: %s" % (name, path, summary))
+
+    _scrape_device_errors(name, ts_ip)
 
     fails = read_state(state_file)
     if not issues:
         if fails >= CONSECUTIVE_LIMIT:
-            log("%s health RECOVERED" % name)
+            _fleet_log(INFO, "%s health RECOVERED" % name)
             notify("stayturgid health", "%s soft checks OK again" % name)
         write_state(state_file, 0)
         return
@@ -424,13 +446,13 @@ def _try_firerpa_heal_fallback(name: str, ts_ip: str) -> None:
             return
     except OSError:
         pass
-    log("trigger %s firerpa-heal fallback (ADB+SSH down, gRPC reachable)" % name)
+    _fleet_log(INFO, "trigger %s firerpa-heal fallback (ADB+SSH down, gRPC reachable)" % name)
     try:
         import firerpa_heal
         result = firerpa_heal.heal_device(ts_ip)
-        log("firerpa-heal %s: %s" % (name, result))
+        _fleet_log(INFO, "firerpa-heal %s: %s" % (name, result))
     except Exception as e:
-        log("firerpa-heal %s error: %s" % (name, e))
+        _fleet_log(INFO, "firerpa-heal %s error: %s" % (name, e))
     # Write stamp so we don't retry immediately.
     write_state(state_file, int(time.time()))
 
@@ -466,7 +488,7 @@ def maybe_ensure_et_mac() -> None:
             },
         )
         detail = ((r.stdout or "") + (r.stderr or "")).strip().replace("\n", " | ")
-        log("et-mac ensure rc=%s %s" % (r.returncode, detail[:400]))
+        _fleet_log(INFO, "et-mac ensure rc=%s %s" % (r.returncode, detail[:400]))
         try:
             os.makedirs(ET_MAC_HEAL_STATE, exist_ok=True)
             with open(stamp, "w") as f:
@@ -474,7 +496,7 @@ def maybe_ensure_et_mac() -> None:
         except OSError:
             pass
     except (OSError, subprocess.TimeoutExpired) as e:
-        log("et-mac ensure error: %s" % e)
+        _fleet_log(INFO, "et-mac ensure error: %s" % e)
 
 
 def main() -> int:
@@ -483,14 +505,14 @@ def main() -> int:
     if not os.path.exists(CONF):
         return 0
     os.makedirs(STATE_DIR, exist_ok=True)
-    trim_log()
+    trim_log(os.path.join(ROOT, "logs", LOG_NAME), max_age_days=30, max_lines=4000)
+    trim_log(os.path.join(ROOT, "logs", "errors.log"), max_age_days=30, max_lines=2000)
     maybe_ensure_et_mac()
     for name, ts_ip, lan_ip in read_devices(CONF):
         try:
             check_device(name, ts_ip, lan_ip)
         except Exception as e:  # noqa: BLE001
-            # Structured line so check_fleet_health can triage (not only SCRAPE_STALE).
-            log(
+            _fleet_log(ERR,
                 "%s via none: sshd=unknown issues=probe_error probe_error=%s"
                 % (name, str(e).replace(" ", "_")[:120])
             )
