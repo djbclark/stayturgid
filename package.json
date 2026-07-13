@@ -1,0 +1,11 @@
+{
+  "name": "stayturgid-host-quality",
+  "private": true,
+  "description": "Host-side quality checks for stayturgid JavaScript",
+  "scripts": {
+    "lint:autojs6": "eslint device/autojs6"
+  },
+  "devDependencies": {
+    "eslint": "10.7.0"
+  }
+}

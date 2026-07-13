@@ -1,7 +1,7 @@
 # JavaScript Runtime Supervision Evaluation
 
 **Date:** 2026-07-13  
-**Status:** Evaluation complete; no runtime framework change authorized
+**Status:** Host-quality pilot A implemented 2026-07-13; later stages deferred
 
 ## Scope and current architecture
 
@@ -140,22 +140,23 @@ engine is a separate mode. The current project deliberately uses conservative
 CommonJS/ES5-style code, so modern TypeScript/ESM libraries cannot simply be dropped
 into `device/autojs6/` without proving the selected engine, packaging, and boot path.
 
-### Bounded implementation proposal
+### Bounded implementation proposal and current status
 
-If the operator selects T2, the first change should be a host-only lint/type-check
-pilot—not a runtime rewrite:
+The first A pilot is now implemented as a host-only lint layer—not a runtime rewrite:
 
 ```text
-1. Add pinned dev-only ESLint and TypeScript packages in a control-node package
-   manifest, with no npm dependencies copied to Android.
-2. Lint and `tsc --allowJs --checkJs --noEmit` only the pure modules first.
-3. Add AutoJs6 ambient declarations for the globals used by platform adapters.
-4. Fix findings in small commits; preserve Node tests and `make check` contracts.
-5. Measure false positives and deploy nothing new to S24 until the checks are clean.
+1. Add a pinned dev-only ESLint package in a control-node package manifest, with no
+   npm dependencies copied to Android.
+2. Fix findings in small commits; preserve Node tests and `make check` contracts.
+3. Measure false positives and deploy nothing new to S24 until the checks are clean.
 ```
 
-This would improve correctness and reviewability. It is more valuable than adopting
-PM2, Uptime Kuma, Pulumi, Shipit, or Flightplan for this JavaScript.
+The repository now has a pinned host-only ESLint dependency and `eslint.config.cjs`.
+ESLint covers all AutoJs6 sources through `make check` and CI after `npm ci`. The
+first pass removed three real lint warnings (unused helper, shadowed variable, and
+unused constant), and the gate passes. Options B (JSDoc/checkJs), C (typed functional
+core), and D (full TypeScript build) are intentionally deferred for later. This
+improves correctness and reviewability without putting packages on phones.
 
 ## Sources
 

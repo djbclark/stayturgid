@@ -193,9 +193,9 @@ files. Implementation remains deferred until T1 is deliberately selected.
 #### T2 — Evaluate PM2 or another JS/runtime operations tool (operator decision) · Risk: **Medium** · Deferred
 
 The evaluation now covers PM2, Uptime Kuma, Pulumi, Jest, `zx`, Shipit, and
-Flightplan. None should become an AutoJs6 runtime dependency. The most useful
-follow-up is a host-only ESLint plus JSDoc/TypeScript `checkJs` pilot for pure modules;
-the existing Node harness remains the device-test seam. Details, compatibility
+Flightplan. None should become an AutoJs6 runtime dependency. Option A is now the
+host-only ESLint pilot; the existing Node harness remains the device-test seam.
+Options B, C, and D are intentionally deferred for later. Details, compatibility
 constraints, and bounded implementation steps are in
 [JavaScript Runtime Supervision Evaluation](research/javascript-runtime-supervision-2026-07-13.md).
 

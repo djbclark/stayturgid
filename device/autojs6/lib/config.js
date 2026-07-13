@@ -132,10 +132,6 @@ function detectDeviceProfile() {
     return merged;
 }
 
-function sdRootFor(profile) {
-    return pathsFor(profile).sdRoot;
-}
-
 module.exports = {
     SD_ROOT: SD_ROOT,
     DEVICE_JSON: DEVICE_JSON,

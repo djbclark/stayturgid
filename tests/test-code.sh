@@ -35,6 +35,16 @@ else
     tap_skip "node --check: all AutoJs6 sources parse" "node not installed"
 fi
 
+# --- host-side AutoJs6 quality tooling -------------------------------------
+if [ -x node_modules/.bin/eslint ]; then
+    if node_modules/.bin/eslint device/autojs6 >/dev/null 2>&1; then
+        tap_ok "eslint: AutoJs6 sources clean"
+    else
+        tap_fail "eslint: AutoJs6 sources clean" "run: npm run lint:autojs6"
+    fi
+else
+    tap_skip "eslint: AutoJs6 sources clean" "run: npm ci"
+fi
 # --- json ------------------------------------------------------------------
 bad=""
 for f in $(git ls-files '*.json'); do

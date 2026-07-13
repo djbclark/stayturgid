@@ -2,8 +2,6 @@
 var log = require("./log.js");
 var sh = require("./shizuku_shell.js");
 
-var SHIZUKU_PKG = "moe.shizuku.privileged.api";
-
 function serverRunning() {
     // HEADLESS_STATUS on Samsung returns result=0 even when running
     // (Samsung freezes the Java broadcast receiver). Fall back to pgrep.

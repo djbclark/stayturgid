@@ -517,10 +517,11 @@ not reset or accidentally commit it.
 3. Check the log: `adb shell cat /sdcard/stayturgid/logs/watchdog.log` (or the AutoJs6 console).
 4. Commit and push.
 
-**Current AutoJs6 defect (H10):** `files.getParent()` is not available in the live
-runtime. It failed on P7A while recreating a trigger directory and is present in both
-`lib/termux.js` and `lib/notify.js`. Any fix must cover both sites, add a
-missing-parent regression, and validate on S24 before P7A.
+Before deploying, install the host-only JavaScript quality tools once with
+`npm ci`. `make check` then runs ESLint over all AutoJs6 sources. These tools and
+their lockfile are never copied to Android. Keep platform globals in the explicit
+`eslint.config.cjs` allowlist; do not silence a finding merely to make the gate
+pass. TypeScript `checkJs` is intentionally deferred.
 
 ### Testing shell scripts off-device (added 2026-07-06)
 

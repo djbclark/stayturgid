@@ -112,8 +112,8 @@ function latestRepairTimestampMs() {
         // Termux [repair] is authoritative freshness; [comonitor] does not
         // count as "Termux alive" (would hide a dead boot loop).
         if (lines[i].indexOf("[repair]") >= 0) {
-            var ts = _lineTimestampMs(lines[i]);
-            if (ts !== null) return ts;
+            var lineTs = _lineTimestampMs(lines[i]);
+            if (lineTs !== null) return lineTs;
         }
     }
     return null;
