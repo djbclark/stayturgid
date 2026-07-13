@@ -37,6 +37,8 @@ VLM_ANSIBLE := ansible-playbook $(MAC_SITE) -e stayturgid_vlm_enabled=true
         opencode-web-deploy opencode-web-disable \
         dashboard-status dashboard-restart dashboard-deploy dashboard-disable \
         dashboard-logs \
+        landing-status landing-restart landing-deploy landing-disable \
+        landing-discover \
         ca-init ca-sign ca-status \
         firerpa-deploy firerpa-remove firerpa-heal firerpa-health \
         verify-drift
@@ -124,6 +126,12 @@ help:
 	@echo "  make dashboard-restart             kickstart launchd agent"
 	@echo "  make dashboard-logs                tail -f dashboard.log"
 	@echo "  make dashboard-disable             Ansible: remove plist + unload"
+	@echo ""
+	@echo "Network landing page (service directory on http://localhost:8080):"
+	@echo "  make landing-status                Health check + launchctl state"
+	@echo "  make landing-restart               kickstart launchd agent"
+	@echo "  make landing-discover              Run service discovery scan"
+	@echo "  make landing-disable               Stop + unload launchd agent"
 	@echo ""
 	@echo "SSH CA (certificate authority for fleet host-key trust):"
 	@echo "  make ca-status                     Show CA key fingerprint + cert status"
@@ -308,6 +316,31 @@ dashboard-disable:
 
 dashboard-logs:
 	tail -f $(DASHBOARD_LOG)
+
+# ── Network landing page (service directory, port 8080) ─────────────────────
+LANDING_LABEL := com.stayturgid.landing
+LANDING_PORT := 8080
+LANDING_LOG := $$(HOME)/.config/stayturgid/logs/landing.log
+
+landing-status:
+	@echo "Network landing:"
+	@launchctl list $(LANDING_LABEL) 2>/dev/null || echo "  not loaded"
+	@curl -sf -o /dev/null -w "  HTTP %{http_code}" http://127.0.0.1:$(LANDING_PORT)/health 2>/dev/null || echo "  HTTP unreachable"
+	@echo ""
+
+landing-restart:
+	launchctl kickstart -k gui/$$(id -u)/$(LANDING_LABEL)
+
+landing-deploy:
+	launchctl load ~/Library/LaunchAgents/$(LANDING_LABEL).plist 2>/dev/null || true
+	@echo "Landing page deployed. Verify: make landing-status"
+
+landing-disable:
+	-launchctl unload ~/Library/LaunchAgents/$(LANDING_LABEL).plist 2>/dev/null
+	@echo "Landing page disabled."
+
+landing-discover:
+	python3 control/landing/discover.py
 
 # ── SSH Certificate Authority ──────────────────────────────────────────────
 CA_KEY := $(HOME)/.ssh/stayturgid_ca

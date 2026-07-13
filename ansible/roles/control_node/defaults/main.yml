@@ -23,6 +23,13 @@ stayturgid_vlm_upstream_check_weekday: 0
 stayturgid_vlm_upstream_check_hour: 9
 stayturgid_vlm_upstream_check_minute: 20
 
+# Caddy HTTPS reverse proxy (Tailscale TLS certs via Caddy's built-in
+# tailscale get_certificate module). Proxies OpenCode, dashboard, VLM.
+stayturgid_caddy_enabled: true
+
+# Hermes AI gateway
+stayturgid_hermes_enabled: true
+
 conf_dir: "{{ lookup('env', 'HOME') }}/.config/stayturgid"
 agents_dir: "{{ lookup('env', 'HOME') }}/Library/LaunchAgents"
 stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"

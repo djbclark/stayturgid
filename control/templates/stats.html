@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>stayturgid stats</title>
+<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <h1>stayturgid stats</h1>
+  <span class="header-sub">{{ now }}</span>
+  <span style="display:flex;gap:8px;">
+    <a href="/" style="color:var(--link);text-decoration:none;">fleet</a>
+    <a href="{{ oc_web_url }}" target="_blank" style="color:var(--link);text-decoration:none;">OpenCode</a>
+  </span>
+</header>
+
+<main>
+  <div class="timeframe-bar">
+    <span class="svc-label">range</span>
+    <form hx-get="/api/stats" hx-target="#stats-content" hx-trigger="change" style="display:inline;">
+      <select name="range" class="range-select">
+        {% for val, label in select_options %}
+        <option value="{{ val }}" {% if val == range_str %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+
+  <div id="stats-content"
+       hx-get="/api/stats?range={{ range_str }}"
+       hx-trigger="load"
+       hx-swap="innerHTML">
+    loading&hellip;
+  </div>
+</main>
+
+<footer>
+  <span>stayturgid stats :4097</span>
+  <a href="{{ oc_web_url }}" target="_blank">{{ oc_web_url }}</a>
+</footer>
+
+</body>
+</html>

@@ -26,13 +26,16 @@ _BIN = _CONTROL / "bin"
 
 for d in [_LIB, _BIN]:
     if str(d) not in sys.path:
-        sys.path.insert(0, str(d))
+        sys.path.append(str(d))
+if str(_REPO) not in sys.path:
+    sys.path.append(str(_REPO))
 
 from flask import Flask, render_template_string, request, url_for
 from markupsafe import Markup
 from fleet_health import probe_device as live_probe, evaluate_health
 from check_fleet_health import read_consecutive as read_fleet_consecutive
 from stayturgid_device import iter_devices_conf
+import control.lib.stats as _stats
 
 ROOT = Path(os.path.expanduser("~")) / ".config" / "stayturgid"
 FLEET_LOG = ROOT / "logs" / "fleet-health.log"
@@ -485,6 +488,80 @@ def api_probe(host: str):
 @app.route("/health")
 def health():
     return "ok", 200, {"Content-Type": "text/plain"}
+
+
+# ---------------------------------------------------------------------------
+# stats
+# ---------------------------------------------------------------------------
+_TIMEFRAME_RE = re.compile(r"^(\d+)\s*(m|min|h|hr|d|day|w|wk|M|mo|y|yr)$")
+
+
+def _parse_timeframe(range_str: str) -> dt.timedelta:
+    m = _TIMEFRAME_RE.match(range_str.strip().lower())
+    if not m:
+        return dt.timedelta(weeks=1)
+    n = int(m.group(1))
+    unit = m.group(2)
+    if unit in ("m", "min"):
+        return dt.timedelta(minutes=n)
+    if unit in ("h", "hr"):
+        return dt.timedelta(hours=n)
+    if unit in ("d", "day"):
+        return dt.timedelta(days=n)
+    if unit in ("w", "wk"):
+        return dt.timedelta(weeks=n)
+    if unit in ("M", "mo"):
+        return dt.timedelta(days=n * 30)
+    if unit in ("y", "yr"):
+        return dt.timedelta(days=n * 365)
+    return dt.timedelta(weeks=1)
+
+
+_SELECT_OPTIONS = [
+    ("15m", "15 minutes"), ("1h", "1 hour"), ("6h", "6 hours"),
+    ("1d", "1 day"), ("3d", "3 days"), ("1w", "1 week"),
+    ("2w", "2 weeks"), ("1M", "1 month"), ("3M", "3 months"),
+    ("1y", "1 year"),
+]
+
+
+@app.route("/stats")
+def stats_page():
+    range_str = request.args.get("range", "1w")
+    delta = _parse_timeframe(range_str)
+    since = dt.datetime.now(dt.timezone.utc) - delta
+    stat_data = _stats.aggregate_stats(since=since)
+
+    devices = [name for name, *_ in iter_devices_conf(str(DEVICES_CONF))]
+    display_range = dict(_SELECT_OPTIONS).get(range_str, range_str)
+
+    return _render_template("stats.html",
+                            stats=stat_data,
+                            devices=devices,
+                            range_str=range_str,
+                            display_range=display_range,
+                            select_options=_SELECT_OPTIONS,
+                            oc_web_url=OC_WEB_URL,
+                            now=time.strftime("%Y-%m-%d %H:%M:%S"))
+
+
+@app.route("/api/stats")
+def api_stats():
+    range_str = request.args.get("range", "1w")
+    delta = _parse_timeframe(range_str)
+    since = dt.datetime.now(dt.timezone.utc) - delta
+    stat_data = _stats.aggregate_stats(since=since)
+
+    devices = [name for name, *_ in iter_devices_conf(str(DEVICES_CONF))]
+    display_range = dict(_SELECT_OPTIONS).get(range_str, range_str)
+
+    return _render_template("_stats_content.html",
+                            stats=stat_data,
+                            devices=devices,
+                            range_str=range_str,
+                            display_range=display_range,
+                            select_options=_SELECT_OPTIONS,
+                            now=time.strftime("%Y-%m-%d %H:%M:%S"))
 
 
 # ---------------------------------------------------------------------------

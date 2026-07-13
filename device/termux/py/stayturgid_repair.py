@@ -610,7 +610,7 @@ def main():
         port = "CLOSED_NO_SHELL"
         wifi = "unknown"
         rc = 1
-        log("5555 CLOSED / no privileged shell, ERR — escalate to AutoJs6 UI repair or reboot")
+        log("5555 CLOSED / no privileged shell — escalate to AutoJs6 UI repair or reboot", ERR)
 
     # --- 3. shizuku (via privileged shell, fallback to Termux am/pgrep) ---
     if expect_shell and have_sh:
@@ -630,7 +630,7 @@ def main():
             # TCP mode wasn't enabled (fleet profile not applied). Apply the
             # fleet profile via am start (works from Termux, no ADB needed),
             # then send HEADLESS_START to open port 5555.
-            log("shizuku_server running but port 5555 closed, WARNING — applying fleet profile + HEADLESS_START")
+            log("shizuku_server running but port 5555 closed — applying fleet profile + HEADLESS_START", WARNING)
             shizuku_fp = "/data/local/tmp/shizuku-fleet.json"
             if os.path.isfile(shizuku_fp):
                 run(["am", "start", "--user", "0",
@@ -645,16 +645,16 @@ def main():
             if privileged_shell():
                 have_sh = True
                 port = "open"
-                log("port 5555 restored, NOTICE via HEADLESS_START from Termux")
+                log("port 5555 restored via HEADLESS_START from Termux", NOTICE)
         else:
             shizuku = "down"
-            log("shizuku_server NOT running, WARNING — trying HEADLESS_START from Termux")
+            log("shizuku_server NOT running — trying HEADLESS_START from Termux", WARNING)
             run(["am", "broadcast", "-a", "moe.shizuku.privileged.api.HEADLESS_START"])
             time.sleep(3)
             rc2, _ = run(["pgrep", "-f", "shizuku_server"])
             if rc2 == 0:
                 shizuku = "repaired"
-                log("shizuku_server started via, NOTICE HEADLESS_START from Termux")
+                log("shizuku_server started via HEADLESS_START from Termux", NOTICE)
                 if privileged_shell():
                     have_sh = True
                     port = "open"
@@ -668,7 +668,8 @@ def main():
                 a11y = "up"
             else:
                 a11y = "down"
-                log("AutoJs6 accessibility is OFF, WARNING — re-enable in Settings > Accessibility > AutoJs6")
+                log("AutoJs6 accessibility is OFF — re-enable in Settings > Accessibility > AutoJs6", WARNING)
+                log("ACTION_REQUIRED: AutoJs6 accessibility disabled on %s" % (os.uname().nodename if hasattr(os, 'uname') else "device"), NOTICE)
                 log("ACTION_REQUIRED: AutoJs6 accessibility disabled on %s" % (os.uname().nodename if hasattr(os, 'uname') else "device"))
 
     # --- 5. Shell profile PATH (remove leaked Mac PATH that breaks pkg/apt) ---

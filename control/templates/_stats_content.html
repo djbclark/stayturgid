@@ -1,0 +1,82 @@
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-title">Events ({{ display_range }})</div>
+    <div class="stat-value">{{ stats.total_events }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-title">Devices Seen</div>
+    <div class="stat-value">{{ stats.devices_seen | join(", ") or "none" }}</div>
+  </div>
+</div>
+
+{% if stats.connection_paths %}
+<div class="stats-section">
+  <div class="stats-section-title">Connection Paths</div>
+  <div class="stats-table">
+    {% for via, count in stats.connection_paths.items() %}
+    <div class="stats-row">
+      <span class="stats-label"><code>{{ via }}</code></span>
+      <span class="bar-container">
+        <span class="bar" style="width:{{ (count / stats.connection_paths.values()|max) * 100 }}%"></span>
+      </span>
+      <span class="stats-count">{{ count }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if stats.heals %}
+<div class="stats-section">
+  <div class="stats-section-title">Heals Triggered</div>
+  <div class="stats-table">
+    {% for heal, count in stats.heals.items() %}
+    <div class="stats-row">
+      <span class="stats-label">{{ heal }}</span>
+      <span class="bar-container">
+        <span class="bar bar-heal" style="width:{{ (count / stats.heals.values()|max) * 100 }}%"></span>
+      </span>
+      <span class="stats-count">{{ count }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if stats.issues %}
+<div class="stats-section">
+  <div class="stats-section-title">Issues Detected</div>
+  <div class="stats-table">
+    {% for issue, count in stats.issues.items() %}
+    <div class="stats-row">
+      <span class="stats-label"><span class="tag error">{{ issue }}</span></span>
+      <span class="bar-container">
+        <span class="bar bar-issue" style="width:{{ (count / stats.issues.values()|max) * 100 }}%"></span>
+      </span>
+      <span class="stats-count">{{ count }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if stats.device_status %}
+<div class="stats-section">
+  <div class="stats-section-title">Device Status Transitions</div>
+  <div class="stats-table">
+    {% for device, statuses in stats.device_status.items() %}
+    <div class="stats-row">
+      <span class="stats-label">{{ device }}</span>
+      <span class="stats-count">
+        <span class="badge ok">online {{ statuses.online }}</span>
+        <span class="badge error">offline {{ statuses.offline }}</span>
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if not stats.total_events %}
+<div class="stats-empty">No events recorded yet. Data will appear as monitors run.</div>
+{% endif %}

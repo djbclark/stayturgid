@@ -25,6 +25,8 @@ _REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 _LIB = os.path.join(_REPO, "control", "lib")
 if _LIB not in sys.path:
     sys.path.insert(0, _LIB)
+if _REPO not in sys.path:
+    sys.path.insert(0, _REPO)
 import fleet_health as fh  # noqa: E402
 import hd8_google_stack as hgs  # noqa: E402
 import stayturgid_device as dev  # noqa: E402
@@ -186,7 +188,7 @@ def maybe_heal_watchdog(
             timeout=60,
         )
         detail = ((r.stdout or "") + (r.stderr or "")).strip().replace("\n", " | ")
-        log(
+        _fleet_log(INFO,
             "%s watchdog heal rc=%s %s"
             % (name, r.returncode, detail[:300])
         )
@@ -263,7 +265,7 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
         if not hgs.pin_gms_enabled():
             hgs.ensure_doze_whitelist(_run, serial)
             if hgs.needs_gsf_reinstall(gsf_ver):
-                log(
+                _fleet_log(NOTICE,
                     "%s google-stack heal: GSF %s — reinstalling 10-6494331"
                     % (name, gsf_ver)
                 )
@@ -274,12 +276,12 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
             hgs.ensure_doze_whitelist(_run, serial)
             return
         if hgs.needs_gsf_reinstall(gsf_ver) and not hgs.needs_gms_downgrade(gms_ver):
-            log(
+            _fleet_log(NOTICE,
                 "%s google-stack heal: GSF %s — reinstalling pinned 10-6494331"
                 % (name, gsf_ver)
             )
         else:
-            log(
+            _fleet_log(NOTICE,
                 "%s google-stack heal: GMS versionCode=%s > %s — pinning Fire-Tools stack"
                 % (name, gms_ver, hgs.MAX_GMS_VERSION_CODE)
             )

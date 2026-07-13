@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.stayturgid.caddy</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{ stayturgid_caddy_bin | default('/opt/homebrew/bin/caddy') }}</string>
+        <string>run</string>
+        <string>--config</string>
+        <string>{{ conf_dir }}/Caddyfile</string>
+        <string>--adapter</string>
+        <string>caddyfile</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>{{ conf_dir }}/logs/caddy.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ conf_dir }}/logs/caddy.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>{{ lookup('env', 'HOME') }}</string>
+    </dict>
+</dict>
+</plist>
