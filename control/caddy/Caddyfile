@@ -2,11 +2,9 @@
 # Deployed by: ansible/roles/control_node (caddy tasks)
 # Config path: ~/.config/stayturgid/Caddyfile
 #
-# TLS: uses internal CA by default (no admin-console setup needed — valid
-# on the Mac without browser warnings). To switch to publicly-trusted
-# Let's Encrypt certs via Tailscale, enable "HTTPS Certificates" in the
-# Tailscale admin console (DNS page), then change 'tls internal' below to
-# 'tls { get_certificate tailscale }'.
+# TLS: uses Tailscale's native Let's Encrypt integration. Caddy auto-fetches
+# certs from the local tailscaled daemon. Zero maintenance — auto-renewed.
+# Requires "HTTPS Certificates" enabled in Tailscale admin console → DNS.
 
 {
     auto_https disable_redirects
@@ -20,7 +18,9 @@ http://127.0.0.1:8080 {
 
 # Main HTTPS entrypoint — all stayturgid services under one domain
 https://djbclarks-macbook-air.tailf47663.ts.net {
-    tls internal
+    tls {
+        get_certificate tailscale
+    }
 
     # Fleet dashboard
     handle_path /dashboard/* {
