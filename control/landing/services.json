@@ -1,212 +1,24 @@
 {
   "hidden": [],
-  "last_scan": "2026-07-13T14:27:43Z",
   "services": [
-    {
-      "group": "devices",
-      "label": "s24 FIRERPA",
-      "last_seen": null,
-      "reachable": false,
-      "status_code": null,
-      "url": "http://100.123.218.30:65000"
-    },
-    {
-      "group": "devices",
-      "label": "hd8 FIRERPA",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "reachable": true,
-      "status_code": 200,
-      "url": "http://100.124.55.39:65000"
-    },
-    {
-      "group": "devices",
-      "label": "p7a FIRERPA",
-      "last_seen": null,
-      "reachable": false,
-      "status_code": null,
-      "url": "http://100.65.230.108:65000"
-    },
-    {
-      "group": "devices",
-      "label": "s24 FIRERPA (LAN)",
-      "last_seen": null,
-      "reachable": false,
-      "status_code": null,
-      "url": "http://192.168.68.54:65000"
-    },
-    {
-      "group": "devices",
-      "label": "p7a FIRERPA (LAN)",
-      "last_seen": null,
-      "reachable": false,
-      "status_code": null,
-      "url": "http://192.168.68.60:65000"
-    },
-    {
-      "group": "devices",
-      "label": "hd8 FIRERPA (MagicDNS)",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "reachable": true,
-      "status_code": 200,
-      "url": "http://hd8.greyhound-sidemirror.ts.net:65000"
-    },
-    {
-      "group": "mac",
-      "label": "Port 17600",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "note": "HTTP 404",
-      "reachable": true,
-      "status_code": 404,
-      "url": "http://localhost:17600"
-    },
-    {
-      "group": "mac",
-      "label": "Port 23373",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "note": "HTTP 302",
-      "reachable": true,
-      "status_code": 302,
-      "url": "http://localhost:23373"
-    },
-    {
-      "group": "mac",
-      "label": "OpenCode (localhost)",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "reachable": true,
-      "status_code": 200,
-      "url": "http://localhost:4096"
-    },
-    {
-      "group": "mac",
-      "label": "Dashboard (localhost)",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "reachable": true,
-      "status_code": 200,
-      "url": "http://localhost:4097"
-    },
-    {
-      "group": "mac",
-      "label": "Stats (localhost)",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "reachable": true,
-      "status_code": 200,
-      "url": "http://localhost:4097/stats"
-    },
-    {
-      "group": "mac",
-      "label": "Port 443",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "note": "HTTP 400",
-      "reachable": true,
-      "status_code": 400,
-      "url": "http://localhost:443"
-    },
-    {
-      "group": "mac",
-      "label": "Port 49710",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "note": "HTTP 400",
-      "reachable": true,
-      "status_code": 400,
-      "url": "http://localhost:49710"
-    },
-    {
-      "group": "mac",
-      "label": "Port 49711",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "note": "HTTP 404",
-      "reachable": true,
-      "status_code": 404,
-      "url": "http://localhost:49711"
-    },
-    {
-      "group": "mac",
-      "label": "Port 80",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "note": "HTTP 200",
-      "reachable": true,
-      "status_code": 200,
-      "url": "http://localhost:80"
-    },
-    {
-      "group": "mac",
-      "label": "Caddy Health",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "reachable": true,
-      "status_code": 200,
-      "url": "http://localhost:8080"
-    },
-    {
-      "group": "mac",
-      "label": "VLM UI-TARS API",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "reachable": true,
-      "status_code": 415,
-      "url": "http://localhost:8081"
-    },
-    {
-      "group": "mac",
-      "label": "Network Landing (localhost)",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "reachable": true,
-      "status_code": 200,
-      "url": "http://localhost:8088"
-    },
-    {
-      "group": "mac",
-      "label": "PHP-FPM / Dev Server",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "reachable": true,
-      "status_code": 405,
-      "url": "http://localhost:9000"
-    },
-    {
-      "group": "devices",
-      "label": "p7a FIRERPA (MagicDNS)",
-      "last_seen": null,
-      "reachable": false,
-      "status_code": null,
-      "url": "http://p7a.greyhound-sidemirror.ts.net:65000"
-    },
-    {
-      "group": "devices",
-      "label": "s24 FIRERPA (MagicDNS)",
-      "last_seen": null,
-      "reachable": false,
-      "status_code": null,
-      "url": "http://s24.greyhound-sidemirror.ts.net:65000"
-    },
-    {
-      "group": "mac",
-      "label": "Network Landing (root)",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "reachable": true,
-      "status_code": 200,
-      "url": "https://mac.greyhound-sidemirror.ts.net"
-    },
-    {
-      "group": "mac",
-      "label": "Fleet Dashboard (HTTPS)",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "reachable": true,
-      "status_code": 200,
-      "url": "https://mac.greyhound-sidemirror.ts.net/dashboard/"
-    },
-    {
-      "group": "mac",
-      "label": "OpenCode Web (HTTPS)",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "reachable": true,
-      "status_code": 200,
-      "url": "https://mac.greyhound-sidemirror.ts.net/opencode/"
-    },
-    {
-      "group": "mac",
-      "label": "Fleet Stats (HTTPS)",
-      "last_seen": "2026-07-13T14:27:43Z",
-      "reachable": true,
-      "status_code": 200,
-      "url": "https://mac.greyhound-sidemirror.ts.net/stats/"
-    }
+    {"group": "mac", "label": "Network Landing (root)", "url": "https://mac.greyhound-sidemirror.ts.net"},
+    {"group": "mac", "label": "OpenCode Web (HTTPS)", "url": "https://mac.greyhound-sidemirror.ts.net/opencode/"},
+    {"group": "mac", "label": "Fleet Dashboard (HTTPS)", "url": "https://mac.greyhound-sidemirror.ts.net/dashboard/"},
+    {"group": "mac", "label": "Fleet Stats (HTTPS)", "url": "https://mac.greyhound-sidemirror.ts.net/stats/"},
+    {"group": "mac", "label": "OpenCode (localhost)", "url": "http://localhost:4096"},
+    {"group": "mac", "label": "Dashboard (localhost)", "url": "http://localhost:4097"},
+    {"group": "mac", "label": "Stats (localhost)", "url": "http://localhost:4097/stats"},
+    {"group": "mac", "label": "Network Landing (localhost)", "url": "http://localhost:8088"},
+    {"group": "mac", "label": "Caddy Health", "url": "http://localhost:8080"},
+    {"group": "mac", "label": "VLM UI-TARS API", "url": "http://localhost:8081"},
+    {"group": "devices", "label": "s24 FIRERPA", "url": "http://100.123.218.30:65000"},
+    {"group": "devices", "label": "p7a FIRERPA", "url": "http://100.65.230.108:65000"},
+    {"group": "devices", "label": "hd8 FIRERPA", "url": "http://100.124.55.39:65000"},
+    {"group": "devices", "label": "s24 FIRERPA (LAN)", "url": "http://192.168.68.54:65000"},
+    {"group": "devices", "label": "p7a FIRERPA (LAN)", "url": "http://192.168.68.60:65000"},
+    {"group": "devices", "label": "s24 FIRERPA (MagicDNS)", "url": "http://s24.greyhound-sidemirror.ts.net:65000"},
+    {"group": "devices", "label": "p7a FIRERPA (MagicDNS)", "url": "http://p7a.greyhound-sidemirror.ts.net:65000"},
+    {"group": "devices", "label": "hd8 FIRERPA (MagicDNS)", "url": "http://hd8.greyhound-sidemirror.ts.net:65000"},
+    {"group": "mac", "label": "PHP-FPM / Dev Server", "url": "http://localhost:9000"}
   ]
 }

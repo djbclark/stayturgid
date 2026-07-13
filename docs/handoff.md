@@ -187,8 +187,8 @@ end of that plan.
 | **p7a** | 14/16 PASS | all green | pending | ✅ v10.0 secure | ✅ 7/7 | FIRERPA + Termux supervisor deploy verified |
 | **hd8** | 13/16 PASS | offline / watchdog stale | pending | ⚠️ USB only | last ✅ 4/7 | Deferred H1/H3; aggregate `make health` remains nonzero |
 
-**Current fix order:** H1/H3 HD8 health decision → H11 landing runtime state →
-H8/H9 dashboard human actions → B63/B64 recovery tests →
+**Current fix order:** H1/H3 HD8 health decision → H8/H9 dashboard human actions →
+B63/B64 recovery tests →
 H12 health summary → F4 FIRERPA network audit/isolation → T1 `just` migration. See
 [the execution plan](plans/outstanding-fix-priorities-2026-07-13.md) for gates and
 rollback rules.
@@ -634,10 +634,10 @@ version.json                 — repo release version + changelog
   helper and added missing-parent regression coverage. S24 and P7A were redeployed;
   no new `getParent` errors appeared. P7A's separate headless-Shizuku/
   `CLOSED_NO_SHELL` failures remain tracked by H12.
-- **Landing discovery mutates tracked state (open H11):** hourly discovery writes
-  timestamps and reachability into `control/landing/services.json`, leaving Git dirty.
-  Preserve the current file; the planned fix separates a committed static catalog
-  from runtime state under `~/.config/stayturgid/`.
+- **Landing discovery runtime state (H11 complete 2026-07-13):** static service
+  definitions remain in `control/landing/services.json`; discovery observations and
+  hidden entries now live under `~/.config/stayturgid/landing/services.json`, with
+  first-use migration and atomic writes.
 - **Recovered error noise (open H12):** default fleet health may show many historical
   P7A errors after live health has recovered. Treat the live host summary and exit
   status as current state; H12 will group repeated history and label it recovered.

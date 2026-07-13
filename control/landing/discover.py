@@ -1,24 +1,26 @@
 #!/usr/bin/env python3
 """Network service discovery — scans local and Tailscale hosts for HTTP servers.
 
-Outputs a services.json catalog with label, URL, reachability, and last-seen
-timestamp. Designed to run periodically (via launchd or cron). Never removes
-entries — unreachable services stay in the catalog with reachable=false.
+Updates user-local landing state with reachability and last-seen timestamps.
+Designed to run periodically (via launchd or cron). Never removes entries —
+unreachable services stay in the catalog with reachable=false.
 """
 from __future__ import annotations
 
 import datetime
 import json
-import os
 import socket
 import subprocess
 import sys
 from pathlib import Path
 
-_REPO = Path(__file__).resolve().parents[3]
+_REPO = Path(__file__).resolve().parents[2]
 _LIB = _REPO / "control" / "lib"
+sys.path.insert(0, str(_REPO))
 
-SERVICES_FILE = Path(__file__).resolve().parent / "services.json"
+from control.landing import state  # noqa: E402
+
+SERVICES_FILE = state.STATE_FILE
 
 # ── Known service definitions (URL, label, group) ───────────────────────────
 KNOWN_SERVICES: list[dict] = [
@@ -50,6 +52,10 @@ KNOWN_SERVICES: list[dict] = [
     # Additional Mac services discovered dynamically
     {"url": "http://localhost:9000", "label": "PHP-FPM / Dev Server", "group": "mac"},
 ]
+
+# The committed catalog is the source of truth; the fallback list keeps older
+# checkouts importable until their catalog has been migrated.
+KNOWN_SERVICES = state.load_catalog().get("services", KNOWN_SERVICES)
 
 
 def _http_probe(url: str, timeout: float = 3.0) -> int | None:
@@ -117,13 +123,7 @@ def discover() -> dict:
     """Run a full discovery scan. Returns the updated catalog."""
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    # Load existing
-    existing: dict = {"services": [], "hidden": [], "last_scan": None}
-    if SERVICES_FILE.is_file():
-        try:
-            existing = json.loads(SERVICES_FILE.read_text())
-        except (json.JSONDecodeError, OSError):
-            pass
+    existing: dict = state.load_state()
 
     # Start with known services, merge with existing
     known_urls: dict[str, dict] = {}
@@ -174,9 +174,8 @@ def discover() -> dict:
         "hidden": sorted(hidden),
         "last_scan": now,
     }
-    SERVICES_FILE.parent.mkdir(parents=True, exist_ok=True)
     try:
-        SERVICES_FILE.write_text(json.dumps(output, indent=2, sort_keys=True))
+        state.write_state(output)
     except OSError:
         pass
 

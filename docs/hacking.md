@@ -502,9 +502,9 @@ Prefer Python for substantial orchestration, parsing, retries, and validation. K
 shell wrappers small. AutoJs6 runtime code is a justified JavaScript exception.
 
 At session start, run `make health` and distinguish active failures from recovered
-history. Preserve unrelated worktree changes. Until H11 is complete,
-`control/landing/services.json` is expected to be modified by hourly discovery; do
-not reset or accidentally commit it.
+ history. Preserve unrelated worktree changes. Landing discovery writes runtime
+ observations under `~/.config/stayturgid/landing/services.json`; the tracked
+ `control/landing/services.json` is static configuration and should stay clean.
 
 ### Making watchdog changes
 

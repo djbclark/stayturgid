@@ -37,7 +37,7 @@ links and hourly discovery scan. HTTPS consolidation behind Caddy reverse proxy
 greyhound-sidemirror.ts.net; all old machine names purged. s24 + p7a: FIRERPA secure
 SSH/gRPC live without suppressing AutoJs6, AutoInput, or Octoclip; Python runtime and
 watchdogs healthy. Open menu = remaining hd8 deployment under H1/H3, H8 (`rish`
-dashboard action), H9 (post-UI foreground cleanup), H11–H12 reliability fixes,
+dashboard action), H9 (post-UI foreground cleanup), H12 reliability fix,
 H5/38, 43–45, 54, F1–F4, T1, and optional T2 runtime-supervision evaluation.
 `make firerpa-health` is clean and live health is clean for s24 + p7a. The aggregate
 `make health` command remains nonzero only for hd8's documented `watchdog_stale` /
@@ -49,7 +49,7 @@ radius · **Latent** = only act if a symptom returns.
 
 **Suggested agent order:** Follow
 [Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md): H1/H3,
-H11, H8/H9, B63/B64, H12, F4, then T1. Hardware-blocked items stay open
+H8/H9, B63/B64, H12, F4, then T1. Hardware-blocked items stay open
 while independent safe work may continue. H5/38, 43–45, 54, and F1–F3 remain lower
 priority or symptom-triggered.
 
@@ -59,7 +59,7 @@ priority or symptom-triggered.
 
 | Track | Focus | Open IDs | Typical risk |
 |-------|-------|----------|--------------|
-| **A — Operational** | Live deploy, human unblockers, current reliability | H1, H3, H5, H8, H9, H11, H12, 38 | Low–High |
+| **A — Operational** | Live deploy, human unblockers, current reliability | H1, H3, H5, H8, H9, H12, 38 | Low–High |
 | **B — Ansible-native** | Bootstrap APK automation follow-ups | B63, B64 | Low–Medium |
 | **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; incubator note | 54 | Medium (mis-scope risk) |
@@ -305,13 +305,13 @@ The change was deployed to S24 and P7A; fresh bridge/watchdog runs recreate the 
 bridge successfully and no new `getParent` errors appear. P7A still has the separate,
 pre-existing `CLOSED_NO_SHELL`/headless-Shizuku failures tracked by H12.
 
-#### H11 — Move landing discovery runtime state out of Git · Risk: **Low**
+#### H11 — Move landing discovery runtime state out of Git · **Complete 2026-07-13** · Risk: **Low**
 
-Hourly discovery writes `last_scan`, `last_seen`, reachability, and status codes into
-tracked `control/landing/services.json`, leaving the worktree continuously dirty.
-Separate the committed static service catalog from generated state under
-`~/.config/stayturgid/`, include a safe first-run migration, and prove repeated scans
-do not modify tracked files.
+Static definitions now live in tracked `control/landing/services.json`; discovery
+and the landing UI use `~/.config/stayturgid/landing/services.json` for timestamps,
+reachability, status codes, and hidden entries. First use migrates the prior tracked
+state, writes atomically, and tests plus two live discovery runs prove the catalog
+remains unchanged.
 
 #### H12 — Summarize recovered errors in default fleet health · Risk: **Low**
 

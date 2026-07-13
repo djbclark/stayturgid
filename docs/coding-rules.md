@@ -39,8 +39,10 @@ git status --short --branch
 - If the pull cannot fast-forward or produces a conflict, stop and report it.
 - Treat all existing worktree changes as belonging to the operator or another agent
   unless their origin is proven. Never reset or overwrite them.
-- Until OPTIONS H11 is complete, hourly landing discovery modifies the tracked
-  `control/landing/services.json`. Preserve it and do not stage it incidentally.
+- Landing discovery keeps static definitions in tracked
+  `control/landing/services.json` and writes observations to
+  `~/.config/stayturgid/landing/services.json`; do not reintroduce runtime fields
+  into the committed catalog.
 
 ## Work selection and scope
 

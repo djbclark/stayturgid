@@ -122,7 +122,7 @@ and reversible.
   and the dashboard clearly shows the state.
 - H1/H3 are consolidated or closed accurately rather than left contradictory.
 
-## Priority 3 — Separate landing configuration from runtime state (H11)
+## Priority 3 — Separate landing configuration from runtime state (H11) — COMPLETE 2026-07-13
 
 ### Problem
 
@@ -150,6 +150,10 @@ dirty and can accidentally mix transient network observations into code commits.
 - Fresh installation creates runtime state automatically.
 - Repeated discovery leaves `git status --short` unchanged.
 - Static service definitions remain reviewable in Git.
+
+Completed with `control/landing/state.py`, static catalog cleanup, first-use migration,
+atomic runtime writes, landing/discovery integration, and regression coverage. Two
+live discovery runs left the tracked catalog unchanged.
 
 ## Priority 4 — Complete dashboard human-action workflows (H8, then H9)
 
