@@ -44,9 +44,9 @@ KNOWN_SERVICES: list[dict] = [
     {"url": "http://192.168.68.54:65000", "label": "s24 FIRERPA (LAN)", "group": "devices"},
     {"url": "http://192.168.68.60:65000", "label": "p7a FIRERPA (LAN)", "group": "devices"},
     # Devices — MagicDNS (Tailscale HTTPS)
-    {"url": "https://s24.greyhound-sidemirror.ts.net:65000", "label": "s24 FIRERPA (MagicDNS)", "group": "devices"},
-    {"url": "https://p7a.greyhound-sidemirror.ts.net:65000", "label": "p7a FIRERPA (MagicDNS)", "group": "devices"},
-    {"url": "https://hd8.greyhound-sidemirror.ts.net:65000", "label": "hd8 FIRERPA (MagicDNS)", "group": "devices"},
+    {"url": "http://s24.greyhound-sidemirror.ts.net:65000", "label": "s24 FIRERPA (MagicDNS)", "group": "devices"},
+    {"url": "http://p7a.greyhound-sidemirror.ts.net:65000", "label": "p7a FIRERPA (MagicDNS)", "group": "devices"},
+    {"url": "http://hd8.greyhound-sidemirror.ts.net:65000", "label": "hd8 FIRERPA (MagicDNS)", "group": "devices"},
     # Additional Mac services discovered dynamically
     {"url": "http://localhost:9000", "label": "PHP-FPM / Dev Server", "group": "mac"},
 ]

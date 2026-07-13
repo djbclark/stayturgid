@@ -17,7 +17,7 @@ http://127.0.0.1:8080 {
 }
 
 # Main HTTPS entrypoint — all stayturgid services under one domain
-https://djbclarks-macbook-air.greyhound-sidemirror.ts.net {
+https://mac.greyhound-sidemirror.ts.net {
     tls {
         get_certificate tailscale
     }

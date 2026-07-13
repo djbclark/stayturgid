@@ -21,11 +21,12 @@ body server control {
     # Only the Mac's Tailscale IP can connect.
     allowconnects  => { "100.64.0.0/10" };
     trustkeysfrom => { "100.64.0.0/10" };
-    allowusers    => { "root" };
+    allowusers    => { "root", "djbclark" };
 
-    # Wrapper script sets Termux PATH/LD_LIBRARY_PATH before invoking cf-agent
-    # with the stayturgid repair policy.
-    cfruncommand  => "/data/data/com.termux/files/home/.stayturgid/cfengine/cf-runagent-wrapper.sh";
+    # Direct cf-agent invocation with explicit policy file.
+    # The wrapper script path was restricted by ACL. Invoking cf-agent
+    # directly with the stayturgid.cf policy avoids the extra file ACL.
+    cfruncommand  => "/data/data/com.termux/files/usr/bin/cf-agent -f /data/data/com.termux/files/home/.stayturgid/cfengine/stayturgid.cf";
 
     port          => "5308";
     maxconnections => "5";
@@ -34,6 +35,8 @@ body server control {
 
 bundle server access_rules() {
   access:
+    # Mac can trigger stayturgid_heal bundle for full repair.
+
     # Mac can trigger stayturgid_heal bundle for full repair.
     "stayturgid_heal"
       resource_type => "query",
