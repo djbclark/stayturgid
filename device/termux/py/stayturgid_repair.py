@@ -14,6 +14,7 @@ import datetime
 import fcntl
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -425,11 +426,31 @@ def ensure_control_et_ssh_config():
                 existing = f.read()
     except OSError:
         existing = ""
-    if "STAYTURGID-CONTROL-ET" in existing and "IdentityFile" in existing:
-        return "up"
+    # Older deployments wrote an unmarked Mac block before the managed block.
+    # OpenSSH keeps the first value for each option, so that stale block wins
+    # and silently routes ET to the old hostname/key. Remove only that known
+    # legacy block; preserve all unrelated SSH configuration.
+    legacy = re.compile(
+        r"(?ms)^# MacBook Air via Tailscale.*?^    IdentitiesOnly yes[ \t]*\n?"
+    )
+    cleaned = legacy.sub("", existing)
+    has_managed = "STAYTURGID-CONTROL-ET" in cleaned and "IdentityFile" in cleaned
+    if has_managed:
+        if cleaned == existing:
+            return "up"
+        try:
+            with open(conf, "w") as f:
+                f.write(cleaned)
+            os.chmod(conf, 0o600)
+            log("stale legacy control-ET ssh config removed")
+            return "repaired"
+        except OSError as e:
+            log("control-ET legacy ssh config cleanup FAILED: %s" % e)
+            return "FAILED"
     block = "%s\n%s\n%s\n" % (alt_begin, fragment, alt_end)
     try:
         os.makedirs(os.path.dirname(conf), exist_ok=True)
+        existing = cleaned
         if existing and not existing.endswith("\n"):
             existing += "\n"
         # Drop a stale partial Host mac without our markers

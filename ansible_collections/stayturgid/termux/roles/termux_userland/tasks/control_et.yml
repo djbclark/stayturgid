@@ -57,6 +57,16 @@
     - _control_et_enabled | bool
     - _control_et_ts_ip | length > 0
 
+- name: Remove legacy unmarked Mac SSH config block
+  ansible.builtin.replace:
+    path: "{{ termux_home }}/.ssh/config"
+    regexp: '(?ms)^# MacBook Air via Tailscale.*?^    IdentitiesOnly yes[ \t]*\n?'
+    replace: ''
+  when:
+    - _termux_home_stat.stat.exists
+    - _control_et_enabled | bool
+    - _control_et_ts_ip | length > 0
+
 - name: Install control-ET SSH config marked block into ~/.ssh/config
   ansible.builtin.blockinfile:
     path: "{{ termux_home }}/.ssh/config"
