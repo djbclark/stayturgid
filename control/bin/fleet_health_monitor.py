@@ -287,6 +287,7 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
         _touch_heal_dir(name, GOOGLE_HEAL_STATE_DIR)
         new_ver = result.get("gms_version")
         _fleet_log(INFO, "%s google-stack heal done gms versionCode=%s" % (name, new_ver))
+        _stats_event("heal_triggered", name, heal="google_stack")
         if hgs.needs_gms_downgrade(new_ver):
             notify(
                 "stayturgid heal",
