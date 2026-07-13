@@ -36,7 +36,8 @@ links and hourly discovery scan. HTTPS consolidation behind Caddy reverse proxy
 greyhound-sidemirror.ts.net; all old machine names purged. s24 + p7a: FIRERPA secure
 SSH/gRPC live without suppressing AutoJs6, AutoInput, or Octoclip; Python runtime and
 watchdogs healthy. Open menu = remaining hd8 deployment under H1/H3, H8 (`rish`
-dashboard action), H9 (post-UI foreground cleanup), H5/38, 43–45, 54, F1–F4, T1.
+dashboard action), H9 (post-UI foreground cleanup), H10–H12 reliability fixes,
+H5/38, 43–45, 54, F1–F4, T1.
 `make firerpa-health` is clean and live health is clean for s24 + p7a. The aggregate
 `make health` command remains nonzero only for hd8's documented `watchdog_stale` /
 offline state while that USB-only tablet deployment is intentionally deferred.
@@ -45,11 +46,11 @@ offline state while that USB-only tablet deployment is intentionally deferred.
 config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
-**Suggested agent order:** `make health` + `make firerpa-health` then
-`make verify-bootstrap-apks HOSTS=s24` to check APK freshness, then
-`make deploy-check HOSTS=s24` for any soak. H5/38 only if Galaxy publish wanted.
-FIRERPA F1–F4 are future enhancements; core integration is done. Bootstrap
-B63–B64 are follow-ups needing hardware access.
+**Suggested agent order:** Follow
+[Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md): H10,
+H1/H3, H11, H8/H9, B63/B64, H12, F4, then T1. Hardware-blocked items stay open
+while independent safe work may continue. H5/38, 43–45, 54, and F1–F3 remain lower
+priority or symptom-triggered.
 
 ---
 
@@ -57,12 +58,12 @@ B63–B64 are follow-ups needing hardware access.
 
 | Track | Focus | Open IDs | Typical risk |
 |-------|-------|----------|--------------|
-| **A — Operational** | Live deploy, human unblockers | H5, 38, H8, H9 | Medium–High (live phones / publish) |
+| **A — Operational** | Live deploy, human unblockers, current reliability | H1, H3, H5, H8–H12, 38 | Low–High |
 | **B — Ansible-native** | Bootstrap APK automation follow-ups | B63, B64 | Low–Medium |
 | **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; incubator note | 54 | Medium (mis-scope risk) |
 | **F — FIRERPA** | gRPC backup channel enhancements | F1–F4 | Medium (future, core is done) |
-| **T — Tooling** | Deferred developer-experience evaluations | T1 | Low |
+| **T — Tooling** | Planned command-runner migration | T1 | Low–Medium |
 
 Parked (not a track): Inferno/Styx → [docs/incubator/inferno-styx/](incubator/inferno-styx).
 
@@ -283,6 +284,32 @@ Obtainium, AutoJs6, Termux:API, Shizuku, or Android Settings to the foreground a
 an arbitrary screen visible when it finishes. This does not affect service health. In a
 future UI pass, inventory every foreground transition, minimize unnecessary launches, and
 restore a predictable final screen. Do not block core deployment work on this cleanup.
+
+#### H10 — Fix unsupported AutoJs6 parent-path calls · Risk: **Medium**
+
+P7A logged `TypeError: Cannot find function getParent` while the watchdog attempted
+to recreate a missing trigger-file directory. The unsupported `files.getParent()` call
+remains in both `device/autojs6/lib/termux.js` and `device/autojs6/lib/notify.js`.
+Replace both with an AutoJs6-compatible parent-path implementation, add missing-parent
+regression coverage, then deploy and validate on S24 followed by P7A.
+
+#### H11 — Move landing discovery runtime state out of Git · Risk: **Low**
+
+Hourly discovery writes `last_scan`, `last_seen`, reachability, and status codes into
+tracked `control/landing/services.json`, leaving the worktree continuously dirty.
+Separate the committed static service catalog from generated state under
+`~/.config/stayturgid/`, include a safe first-run migration, and prove repeated scans
+do not modify tracked files.
+
+#### H12 — Summarize recovered errors in default fleet health · Risk: **Low**
+
+The default health output currently prints many repeated historical P7A errors after
+the host has recovered. Preserve raw detail, but group repeated failures and separate
+active, recovered, and historical conditions. Keep exit status based on current
+actionable health and add coverage for repeated/recovered/stale cases.
+
+Execution order, gates, and junior-agent resume prompt:
+[Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md).
 
 ### Track F — FIRERPA (gRPC backup channel — core shipped 2026-07-12)
 
