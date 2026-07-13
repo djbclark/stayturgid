@@ -85,6 +85,29 @@ bundle agent check_shell5555(p) {
       "shell5555: privileged shell working";
     !shell_ok::
       "shell5555: NOT available";
+
+  commands:
+    !shell_ok::
+      "$(p)/bin/adb"
+        args => "tcpip 5555 2>/dev/null; true",
+        contain => silent_bg;
+}
+
+bundle agent check_autojs6(p, h) {
+  classes:
+    "autojs6_alive" expression => returnszero("$(p)/bin/pgrep -f org.autojs.autojs6 >/dev/null 2>&1", "useshell");
+
+  reports:
+    autojs6_alive::
+      "autojs6: running";
+    !autojs6_alive::
+      "autojs6: NOT RUNNING — attempting restart";
+
+  commands:
+    !autojs6_alive::
+      "$(p)/bin/am"
+        args => "start -a android.intent.action.VIEW -d file://$(h)/.stayturgid/cfengine/../../../../sdcard/stayturgid/autojs6/scripts/boot-launcher.js -t text/javascript -n org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity",
+        contain => silent_bg;
 }
 
 bundle agent check_shizuku(p) {
@@ -97,12 +120,21 @@ bundle agent check_shizuku(p) {
     shizuku_ok::
       "shizuku: up";
     !shizuku_ok::
-      "shizuku: DOWN";
+      "shizuku: DOWN — attempting HEADLESS_START from Termux";
+
+  commands:
+    !shizuku_ok::
+      "$(p)/bin/am"
+        args => "broadcast -a moe.shizuku.privileged.api.HEADLESS_START",
+        contain => silent_bg;
 }
 
 bundle agent check_a11y(p) {
   classes:
     "a11y_ok" expression => returnszero("$(p)/bin/adb -s localhost:5555 shell 'settings get secure enabled_accessibility_services' 2>/dev/null | grep -q org.autojs.autojs6", "useshell");
+    # Fall back to Termux-native settings when ADB is down.
+    "a11y_ok_local" expression => returnszero("$(p)/bin/settings get secure enabled_accessibility_services 2>/dev/null | grep -q org.autojs.autojs6", "useshell");
+    "a11y_ok" or => { "a11y_ok_local" };
 
   reports:
     a11y_ok::

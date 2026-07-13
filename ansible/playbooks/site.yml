@@ -4,6 +4,10 @@
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml
 #   ansible-playbook ansible/playbooks/site.yml --limit s24
 #   CHECK=1 ansible-playbook ansible/playbooks/site.yml --check --diff
+- name: Import bootstrap APK ensure
+  import_playbook: fleet/ensure-bootstrap-apks.yml
+  tags: [bootstrap-apks]
+
 - name: Import SSH preflight play
   import_playbook: fleet/preflight.yml
 

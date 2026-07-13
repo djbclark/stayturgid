@@ -1,5 +1,4 @@
-"""Unit tests for AutoJs6 accessibility append helper."""
-import importlib.util
+"""Unit tests for AutoJs6 accessibility detection."""
 import sys
 from pathlib import Path
 
@@ -10,18 +9,22 @@ import a11y_services as a11y  # noqa: E402
 A11Y_SVC = a11y.AUTOJS6_A11Y
 
 
-def test_a11y_append_empty():
-    assert a11y.append_service("", A11Y_SVC) == A11Y_SVC
-    assert a11y.append_service("null", A11Y_SVC) == A11Y_SVC
+def test_parse_empty():
+    assert a11y.parse_services("") == []
+    assert a11y.parse_services("null") == []
+    assert a11y.parse_services(None) == []
 
 
-def test_a11y_append_preserves_existing():
-    cur = "com.other.app/.Service"
-    out = a11y.append_service(cur, A11Y_SVC)
-    assert out.startswith(cur + ":")
-    assert A11Y_SVC in out
-
-
-def test_a11y_append_idempotent():
+def test_parse_preserves_all():
     cur = "com.other.app/.Service:" + A11Y_SVC
-    assert a11y.append_service(cur, A11Y_SVC) == cur
+    services = a11y.parse_services(cur)
+    assert len(services) == 2
+    assert A11Y_SVC in services
+    assert "com.other.app/.Service" in services
+
+
+def test_has_autojs6_detection():
+    assert a11y.has_autojs6("com.other.app/.Service:" + A11Y_SVC)
+    assert a11y.has_autojs6(A11Y_SVC)
+    assert not a11y.has_autojs6("com.other.app/.Service")
+    assert not a11y.has_autojs6("")

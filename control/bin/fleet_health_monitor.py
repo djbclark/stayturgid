@@ -51,13 +51,6 @@ SKIP_WATCHDOG_HEAL = os.environ.get("STAYTURGID_SKIP_WATCHDOG_HEAL") == "1"
 SKIP_GOOGLE_STACK_HEAL = os.environ.get("STAYTURGID_SKIP_GOOGLE_STACK_HEAL") == "1"
 MAX_LOG_LINES = 2000
 REPO = _REPO
-A11Y_HEAL_STATE_DIR = os.path.join(ROOT, "state", "a11y-heal")
-A11Y_HEAL_COOLDOWN_SEC = 30 * 60
-A11Y_HEAL_AFTER = 2
-AUTOJS6_A11Y = (
-    "org.autojs.autojs6/"
-    "org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
-)
 REPAIR_HEAL_STATE_DIR = os.path.join(ROOT, "state", "repair-heal")
 REPAIR_HEAL_COOLDOWN_SEC = 30 * 60
 REPAIR_HEAL_AFTER = 2
@@ -265,64 +258,6 @@ def maybe_heal_repair_stale(name: str, issues: list[str], fails: int) -> None:
         log("%s repair heal error: %s" % (name, e))
 
 
-def _heal_a11y_cooldown_ok(name: str) -> bool:
-    return _heal_cooldown_ok_dir(name, A11Y_HEAL_STATE_DIR, A11Y_HEAL_COOLDOWN_SEC)
-
-
-def _touch_heal_a11y(name: str) -> None:
-    _touch_heal_dir(name, A11Y_HEAL_STATE_DIR)
-
-
-def maybe_heal_a11y(
-    name: str, issues: list[str], fails: int, adb_serial: str | None = None
-) -> bool:
-    if SKIP_WATCHDOG_HEAL or SKIP_HEALTH:
-        return False
-    if fails < A11Y_HEAL_AFTER:
-        return False
-    if "autojs6_a11y_missing" not in issues and "a11y_failed" not in issues:
-        return False
-    if not adb_serial:
-        return False
-    if not _heal_a11y_cooldown_ok(name):
-        log("%s a11y heal skipped (cooldown)" % name)
-        return False
-
-    adb = dev.adb_bin()
-    try:
-        r = subprocess.run(
-            [adb, "-s", adb_serial, "shell",
-             "settings get secure enabled_accessibility_services"],
-            capture_output=True, text=True, timeout=15,
-        )
-        current = (r.stdout or "").strip().replace("\r", "")
-    except (OSError, subprocess.TimeoutExpired) as e:
-        log("%s a11y heal error reading settings: %s" % (name, e))
-        return False
-
-    if AUTOJS6_A11Y in current:
-        return False
-
-    new = current + ":" + AUTOJS6_A11Y if current and current != "null" else AUTOJS6_A11Y
-    log("%s a11y heal: merging AutoJs6 into accessibility list" % name)
-    try:
-        r = subprocess.run(
-            [adb, "-s", adb_serial, "shell",
-             "settings put secure enabled_accessibility_services '%s'" % new],
-            capture_output=True, text=True, timeout=15,
-        )
-        if r.returncode == 0:
-            _touch_heal_a11y(name)
-            log("%s a11y heal: AutoJs6 added to accessibility" % name)
-            notify("stayturgid heal", "%s a11y AutoJs6 re-enabled" % name)
-            return True
-        log("%s a11y heal failed rc=%s: %s" % (
-            name, r.returncode, (r.stderr or "").strip()[:200]))
-    except (OSError, subprocess.TimeoutExpired) as e:
-        log("%s a11y heal error: %s" % (name, e))
-    return False
-
-
 def maybe_heal_hd8_google_stack(name: str) -> None:
     """Keep Doze whitelist + GSF 10; optionally pin GMS if STAYTURGID_HD8_PIN_GMS=1."""
     if SKIP_HEALTH or SKIP_GOOGLE_STACK_HEAL or name != "hd8":
@@ -456,7 +391,6 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     fails += 1
     write_state(state_file, fails)
     adb_serial = path.split(":", 1)[1] if path and path.startswith("adb:") else None
-    maybe_heal_a11y(name, issues, fails, adb_serial=adb_serial)
     maybe_heal_repair_stale(name, issues, fails)
     maybe_heal_watchdog(name, issues, fails, adb_serial=adb_serial)
     if fails == CONSECUTIVE_LIMIT:

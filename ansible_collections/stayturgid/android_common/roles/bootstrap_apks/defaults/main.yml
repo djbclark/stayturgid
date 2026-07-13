@@ -1,0 +1,55 @@
+---
+# Bootstrap APK list — installed over ADB from the Mac before Termux SSH exists.
+# These are the minimum set needed for the stayturgid fleet to bootstrap itself.
+#
+# Version-aware: each deploy queries the latest GitHub release tag for every APK,
+# compares against the installed versionName, and reinstalls only when newer.
+# Set stayturgid_bootstrap_apks_force=true to skip version check and always reinstall.
+#
+# After initial install, Obtainium handles ongoing updates on-device. The
+# version check here is a safety net if Obtainium hasn't been running.
+#
+# Each entry:
+#   id          — Android package name (required)
+#   gh_repo     — GitHub owner/repo for latest release download (required)
+#   gh_pattern  — Asset glob for `gh release download --pattern` (required)
+#   resign      — Resign with debug keystore before install (fork debug builds)
+#   monkey      — Launch app via monkey after install (Termux:Boot)
+#
+# Override via inventory group_vars to pin versions or adjust patterns:
+#   stayturgid_bootstrap_apks
+
+stayturgid_bootstrap_apks_force: false
+
+# Debug signing defaults (shared with obtainium_apps role).
+stayturgid_apksigner_bin: "{{ lookup('env', 'HOME') }}/Library/Android/sdk/build-tools/36.0.0/apksigner"
+stayturgid_debug_keystore: "{{ lookup('env', 'HOME') }}/.android/debug.keystore"
+stayturgid_debug_keystore_pass: "android"
+stayturgid_debug_key_alias: "androiddebugkey"
+
+stayturgid_bootstrap_apks:
+  - id: com.termux
+    gh_repo: termux/termux-app
+    gh_pattern: "github-debug*arm64-v8a*"
+  - id: com.termux.boot
+    gh_repo: termux/termux-boot
+    gh_pattern: "github*debug*"
+    monkey: true
+  - id: com.termux.api
+    gh_repo: termux/termux-api
+    gh_pattern: "github*debug*"
+  - id: moe.shizuku.privileged.api
+    gh_repo: djbclark/Shizuku
+    gh_pattern: "*universal*"
+    resign: true
+  - id: org.autojs.autojs6
+    gh_repo: djbclark/AutoJs6
+    gh_pattern: "*arm64-v8a*"
+    resign: true
+  - id: com.tailscale.ipn
+    gh_repo: tailscale/tailscale-android
+    gh_pattern: "*universal*"
+  - id: dev.imranr.obtainium
+    gh_repo: djbclark/Obtainium
+    gh_pattern: "*universal*"
+    resign: true

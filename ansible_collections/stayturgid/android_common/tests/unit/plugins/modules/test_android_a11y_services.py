@@ -1,4 +1,4 @@
-"""Unit tests for android_a11y_services module."""
+"""Unit tests for android_a11y_services module (detection-only)."""
 import json
 import os
 import sys
@@ -25,8 +25,6 @@ def run_module(mocker, args, cmd_results=None):
                 return result
         if "settings get" in joined:
             return (0, "", "")
-        if "settings put" in joined:
-            return (0, "", "")
         return (0, "", "")
 
     def fake_exit(self, **kw):
@@ -45,45 +43,38 @@ def run_module(mocker, args, cmd_results=None):
     return captured
 
 
-def test_a11y_backup_writes_file(mocker, tmp_path):
-    profiles = tmp_path / "control" / "lib"
-    profiles.mkdir(parents=True)
-    (profiles / "a11y_profiles.json").write_text('{"devices": {"s24": {"services": []}}}')
-    out = run_module(
-        mocker,
-        dict(
-            device="dev",
-            alias="s24",
-            repo_root=str(tmp_path),
-            state="backup",
-            connect=False,
-        ),
-        cmd_results=[
-            ("settings get", (0, "com.foo/.Bar", "")),
-        ],
-    )
-    assert out["changed"] is True
-    backup = profiles / "a11y_backups" / "s24.txt"
-    assert backup.is_file()
-    assert "com.foo/.Bar" in backup.read_text()
-
-
-def test_a11y_present_no_change_when_match(mocker, tmp_path):
-    profiles = tmp_path / "control" / "lib"
-    profiles.mkdir(parents=True)
-    (profiles / "a11y_profiles.json").write_text('{"devices": {"s24": {"services": []}}}')
+def test_a11y_report_shows_autojs6_present(mocker):
     autojs = mod.a11y.AUTOJS6_A11Y
     out = run_module(
         mocker,
-        dict(
-            device="dev",
-            alias="s24",
-            repo_root=str(tmp_path),
-            state="present",
-            connect=False,
-        ),
+        dict(device="dev", connect=False),
         cmd_results=[
             ("settings get", (0, autojs, "")),
         ],
     )
-    assert out["changed"] is False
+    assert out["autojs6_present"] is True
+    assert autojs in out["services"]
+
+
+def test_a11y_report_shows_autojs6_missing(mocker):
+    out = run_module(
+        mocker,
+        dict(device="dev", connect=False),
+        cmd_results=[
+            ("settings get", (0, "com.foo/.Bar", "")),
+        ],
+    )
+    assert out["autojs6_present"] is False
+    assert "com.foo/.Bar" in out["services"]
+
+
+def test_a11y_report_empty_list(mocker):
+    out = run_module(
+        mocker,
+        dict(device="dev", connect=False),
+        cmd_results=[
+            ("settings get", (0, "null", "")),
+        ],
+    )
+    assert out["autojs6_present"] is False
+    assert out["services_count"] == 0

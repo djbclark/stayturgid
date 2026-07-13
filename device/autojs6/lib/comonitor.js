@@ -26,33 +26,31 @@ function sh(cmd) {
     };
 }
 
-function parseA11yList(raw) {
-    var text = String(raw || "").trim();
-    if (!text || text === "null") return [];
-    var out = [];
-    var seen = {};
-    var parts = text.split(":");
-    for (var i = 0; i < parts.length; i++) {
-        var svc = String(parts[i]).trim();
-        if (svc && !seen[svc]) {
-            seen[svc] = true;
-            out.push(svc);
+function probeA11y(split) {
+    try {
+        if (typeof auto !== "undefined" && auto.service) {
+            return "up";
         }
-    }
-    return out;
-}
+    } catch (e) { /* fall through */ }
 
-function mergeA11y(current, add) {
-    var merged = parseA11yList(current);
-    var seen = {};
-    for (var i = 0; i < merged.length; i++) seen[merged[i]] = true;
-    for (var j = 0; j < add.length; j++) {
-        if (add[j] && !seen[add[j]]) {
-            seen[add[j]] = true;
-            merged.push(add[j]);
-        }
+    var r = sh("settings get secure enabled_accessibility_services");
+    var list = (r.result || "").trim();
+    if (list && list !== "null" && list.indexOf(A11Y_SVC) >= 0) {
+        return "up";
     }
-    return merged.join(":");
+    if (split && !shizukuShell.isOperational()) {
+        return "unknown";
+    }
+
+    // Detection only — no automatic repair.
+    // User must re-enable AutoJs6 in Settings > Accessibility > AutoJs6.
+    log.append("[comonitor] A11Y OFF — AutoJs6 accessibility disabled; re-enable in Settings");
+    notify.show(
+        "AutoJs6 accessibility disabled",
+        "Re-enable AutoJs6 in Settings > Accessibility to restore on-screen self-heal.",
+        "a11y-blocked"
+    );
+    return "down";
 }
 
 function probeSshd() {
@@ -119,58 +117,8 @@ function probeWifi(split, shellProbe) {
     return "FAILED";
 }
 
-function probeAndRepairA11y(split) {
-    // Prefer AutoJs6's own service binding when available.
-    try {
-        if (typeof auto !== "undefined" && auto.service) {
-            return "up";
-        }
-    } catch (e) { /* fall through */ }
-
-    var r = sh("settings get secure enabled_accessibility_services");
-    var list = (r.result || "").trim();
-    if (list && list !== "null" && list.indexOf(A11Y_SVC) >= 0) {
-        return "up";
-    }
-    if (split && !shizukuShell.isOperational()) {
-        return "unknown";
-    }
-    // Backup current list before writing, in case settings put shrinks the list.
-    var backup = list;
-    var merged = mergeA11y(list, [A11Y_SVC]);
-    sh("settings put secure enabled_accessibility_services '" + merged.replace(/'/g, "'\\''") + "'");
-    var a11yEn = sh("settings get secure accessibility_enabled");
-    if (!a11yEn || String(a11yEn.result || "").trim() !== "1") {
-        sh("settings put secure accessibility_enabled 1");
-    }
-    sleep(500);
-    var re = sh("settings get secure enabled_accessibility_services");
-    var after = (re.result || "").trim();
-    if (after.indexOf(A11Y_SVC) >= 0) {
-        // Check if non-AutoJs6 services were lost — merge them back.
-        var lost = [];
-        var beforeParts = backup.split(":");
-        var afterParts = after.split(":");
-        for (var i = 0; i < beforeParts.length; i++) {
-            var svc = beforeParts[i];
-            if (svc && afterParts.indexOf(svc) < 0 && svc.indexOf(A11Y_SVC) < 0) {
-                lost.push(svc);
-            }
-        }
-        if (lost.length > 0) {
-            var recovered = mergeA11y(after, lost);
-            sh("settings put secure enabled_accessibility_services '" + recovered.replace(/'/g, "'\\''") + "'");
-            var re2 = sh("settings get secure enabled_accessibility_services");
-            if ((re2.result || "").trim().indexOf(A11Y_SVC) >= 0) {
-                return "repaired";
-            }
-        }
-        return "repaired";
-    }
-    return "FAILED";
-}
-
 /**
+
  * Run co-monitor probes. Returns a STATUS-like object.
  * @param {object} profile
  * @param {{force?: boolean, reason?: string}} opts
@@ -206,7 +154,7 @@ function run(profile, opts) {
     } catch (e) { /* best effort */ }
     var shellProbe = probeShell5555(split, termuxStatus);
     var wifi = probeWifi(split, shellProbe);
-    var a11y = probeAndRepairA11y(split);
+    var a11y = probeA11y(split);
 
     // Trust fresh Termux [repair] port=open over a flaky nc/adb probe.
     if (!split && shellProbe.port === "CLOSED_NO_SHELL" && !log.isRepairLoopStale()) {
@@ -290,6 +238,5 @@ module.exports = {
     run: run,
     probeSshd: probeSshd,
     probeShizuku: probeShizuku,
-    parseA11yList: parseA11yList,
-    mergeA11y: mergeA11y,
+    probeA11y: probeA11y,
 };

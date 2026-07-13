@@ -31,9 +31,8 @@ stayturgid_retired_boot_scripts: []
 
 # Override examples (Termux-only, no AutoJs6):
 # stayturgid_boot_scripts: [start-adb.sh]
-# stayturgid_home_scripts: [repair-bridge.sh]  # drop autojs6-bridge if unused
 
-# Real shell only (bridges). Logic entrypoints are stayturgid_py_scripts.
+# Real shell only (boot wrappers). Logic entrypoints are stayturgid_py_scripts.
 stayturgid_home_scripts: []
 
 # Python runtime scripts (twins that have finished their parity soak and now

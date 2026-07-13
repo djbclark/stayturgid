@@ -1,4 +1,4 @@
-"""Unit tests for control/lib/a11y_services.py."""
+"""Unit tests for control/lib/a11y_services.py (detection-only)."""
 import sys
 from pathlib import Path
 
@@ -7,32 +7,25 @@ sys.path.insert(0, str(REPO / "control" / "lib"))
 import a11y_services as a11y  # noqa: E402
 
 
-def test_append_preserves_existing():
-    cur = "com.other.app/.Service"
-    out = a11y.append_service(cur, a11y.AUTOJS6_A11Y)
-    assert cur in out
-    assert a11y.AUTOJS6_A11Y in out
+def test_parse_services():
+    cur = "com.other.app/.Service:%s" % a11y.AUTOJS6_A11Y
+    parsed = a11y.parse_services(cur)
+    assert "com.other.app/.Service" in parsed
+    assert a11y.AUTOJS6_A11Y in parsed
 
 
-def test_services_lost_detects_shrink():
-    before = "com.a/.A:com.b/.B:com.c/.C"
-    after = "com.c/.C"
-    assert a11y.services_lost(before, after) == ["com.a/.A", "com.b/.B"]
+def test_has_autojs6():
+    assert a11y.has_autojs6("foo:bar:%s:baz" % a11y.AUTOJS6_A11Y)
+    assert not a11y.has_autojs6("")
+    assert not a11y.has_autojs6(None)
 
 
-def test_desired_services_merges_profile():
-    merged = a11y.parse_services(
-        a11y.desired_services("p7a", "com.live/.Svc", ensure_autojs6=True)
-    )
-    assert "com.live/.Svc" in merged
-    assert a11y.AUTOJS6_A11Y in merged
-    assert "com.wispr.flowapp/com.wispr.flowapp.service.FlowAccessibilityService" in merged
+def test_normalize_value():
+    assert a11y.normalize_value("  foo  ") == "foo"
+    assert a11y.normalize_value("null") == ""
+    assert a11y.normalize_value(None) == ""
 
 
-def test_repair_after_shrink():
-    before = "com.a/.A:com.b/.B"
-    after = a11y.AUTOJS6_A11Y
-    fixed = a11y.repair_after_shrink(before, after, "p7a")
-    assert fixed
-    assert "com.a/.A" in fixed
-    assert a11y.AUTOJS6_A11Y in fixed
+def test_profile_services():
+    svcs = a11y.profile_services("p7a")
+    assert isinstance(svcs, list)

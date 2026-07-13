@@ -21,7 +21,7 @@ if [[ ! -f "$BOOT_SCRIPT" ]]; then
     exit 0
 fi
 
-# Let Wi-Fi, Shizuku, and unlock settle (Termux:Boot already slept 30s in start-adb.sh)
+# Let Wi-Fi, Shizuku, and unlock settle (Termux:Boot already slept in start_adb.py)
 sleep 45
 
 am start -a android.intent.action.VIEW \

@@ -57,70 +57,6 @@ SDLOG = os.path.join(SD, "logs", "watchdog.log")
 # freshness even when STAYTURGID_SD is ~/.stayturgid/shared.
 SDCARD_WATCHDOG_LOG = "/sdcard/stayturgid/logs/watchdog.log"
 A11Y_SVC = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
-A11Y_BACKUP = os.path.join(SD, "state", "a11y_services_backup.txt")
-
-
-def _parse_a11y_list(raw):
-    text = (raw or "").strip()
-    if text in ("", "null"):
-        return []
-    out, seen = [], set()
-    for part in text.split(":"):
-        svc = part.strip()
-        if svc and svc not in seen:
-            seen.add(svc)
-            out.append(svc)
-    return out
-
-
-def _a11y_value_safe(value):
-    """Return an adb-safe quoted value for enabled_accessibility_services.
-
-    Avoids single-quote injection in shell commands. adb 'shell' passes the
-    argument string to /system/bin/sh, so we use shlex.quote for any dynamic
-    value.
-    """
-    import shlex
-    return shlex.quote(value)
-
-
-def _merge_a11y_list(current, add):
-    merged = _parse_a11y_list(current)
-    seen = set(merged)
-    for svc in add:
-        if svc and svc not in seen:
-            seen.add(svc)
-            merged.append(svc)
-    return ":".join(merged)
-
-
-def _a11y_lost(before, after):
-    return [s for s in _parse_a11y_list(before) if s not in set(_parse_a11y_list(after))]
-
-
-def _backup_a11y_list(value):
-    ensure_parent(A11Y_BACKUP)
-    try:
-        with open(A11Y_BACKUP, "w") as f:
-            f.write((value or "").strip() + "\n")
-    except OSError:
-        pass
-
-
-def _read_a11y_backup():
-    try:
-        with open(A11Y_BACKUP) as f:
-            return f.read().strip()
-    except OSError:
-        return ""
-
-
-def _repair_a11y_shrink(before, after):
-    lost = _a11y_lost(before, after)
-    if not lost:
-        return ""
-    backup = _read_a11y_backup()
-    return _merge_a11y_list(_merge_a11y_list(before, _parse_a11y_list(backup)), [A11Y_SVC])
 
 
 def ts():
@@ -716,41 +652,17 @@ def main():
                     have_sh = True
                     port = "open"
 
-    # --- 4. AutoJs6 accessibility (Samsung disables it) — merge, never replace ---
+    # --- 4. AutoJs6 accessibility (detection only; user must enable manually) ---
+    a11y = "unknown"
     if expect_shell:
-        a11y = "unknown"
         if have_sh:
-            before = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
-            _backup_a11y_list(before)
-            if A11Y_SVC in before:
+            raw = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
+            if A11Y_SVC in raw:
                 a11y = "up"
             else:
-                # Only merge if AutoJs6 is actually missing from the list.
-                # accessibility_enabled 1 is skipped when already set (avoids
-                # the Android 13+ confirmation dialog on redundant writes).
-                new = _merge_a11y_list(before, [A11Y_SVC])
-                sh_adb("settings put secure enabled_accessibility_services %s" % _a11y_value_safe(new))
-                en = sh_adb("settings get secure accessibility_enabled")[1].strip()
-                if en != "1":
-                    sh_adb("settings put secure accessibility_enabled 1")
-                recheck = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
-                repaired = _repair_a11y_shrink(before, recheck)
-                if repaired:
-                    sh_adb("settings put secure enabled_accessibility_services %s" % _a11y_value_safe(repaired))
-                    en2 = sh_adb("settings get secure accessibility_enabled")[1].strip()
-                    if en2 != "1":
-                        sh_adb("settings put secure accessibility_enabled 1")
-                    recheck = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
-                if A11Y_SVC in recheck:
-                    a11y = "repaired"
-                    lost = _a11y_lost(before, recheck)
-                    if lost:
-                        log("AutoJs6 a11y re-enabled but still missing: %s" % ",".join(lost))
-                    else:
-                        log("AutoJs6 accessibility was off -> re-enabled (merged)")
-                else:
-                    a11y = "FAILED"
-                    log("AutoJs6 accessibility re-enable FAILED")
+                a11y = "down"
+                log("AutoJs6 accessibility is OFF — re-enable in Settings > Accessibility > AutoJs6")
+                log("ACTION_REQUIRED: AutoJs6 accessibility disabled on %s" % (os.uname().nodename if hasattr(os, 'uname') else "device"))
 
     # --- 5. Shell profile PATH (remove leaked Mac PATH that breaks pkg/apt) ---
     profile_path = ensure_shell_profile_path()

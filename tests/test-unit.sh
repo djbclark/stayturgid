@@ -117,21 +117,18 @@ repair_suite() {
     unset ADB_WIFI
     tap_like "$OUT" "wifi=repaired" "repair[$T]: wireless debugging off => repaired"
 
-    # a11y self-heal: service missing => APPENDED to existing list, never replaced
+    # a11y: detection-only — no longer auto-repairs, reports status
     reset_sandbox
     export PGREP_RC=0 ADB_A11Y="com.other.app/.TheirService"
     run_sandboxed "$RSCRIPT"
-    tap_like "$OUT" "a11y=repaired" "repair[$T]: disabled accessibility => repaired"
-    tap_is "$(cat "$SANDBOX/a11y_state" 2>/dev/null)" \
-        "com.other.app/.TheirService:org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher" \
-        "repair[$T]: a11y re-enable APPENDS, preserving other services (HACKING Part 5 rule)"
-    reset_sandbox
-    export ADB_A11Y="null"
-    run_sandboxed "$RSCRIPT"
-    tap_is "$(cat "$SANDBOX/a11y_state" 2>/dev/null)" \
-        "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher" \
-        "repair[$T]: empty a11y list => service alone, no stray separator"
-    unset ADB_A11Y
+    tap_like "$OUT" "a11y=down" "repair[$T]: disabled accessibility => down (detection only)"
+    tap_like "$OUT" "ACTION_REQUIRED" "repair[$T]: logs ACTION_REQUIRED when a11y disabled"
+    # a11y list is NOT modified — detection-only, no settings put
+    if [ -f "$SANDBOX/a11y_state" ]; then
+        tap_fail "repair[$T]: a11y list should NOT be modified (detection-only)"
+    else
+        tap_ok "repair[$T]: a11y list preserved (no auto-write)"
+    fi
 
     # sshd down => restarted via sshd stub
     reset_sandbox

@@ -70,15 +70,14 @@ Module._load = function (request, parent) {
 var comonitor = require(path.join(repo, "device", "autojs6", "lib", "comonitor.js"));
 var log = require(path.join(repo, "device", "autojs6", "lib", "log.js"));
 
-ok(comonitor.parseA11yList("a:b:a").join(",") === "a,b", "parseA11yList dedupes");
-ok(comonitor.mergeA11y("a:b", ["c", "a"]) === "a:b:c", "mergeA11y appends missing");
+ok(typeof comonitor.probeA11y === "function", "probeA11y exported");
 
 var profile = { id: "s24", sdRoot: "/sdcard/stayturgid", notifyTag: "" };
 var result = comonitor.run(profile, { force: true, reason: "test" });
 ok(result !== null, "comonitor.run returns a status object when forced");
 ok(result.sshd === "up" || result.sshd === "restarted", "comonitor probes sshd");
 ok(result.shizuku === "up", "comonitor probes shizuku");
-ok(result.a11y === "up" || result.a11y === "repaired", "comonitor probes a11y");
+ok(result.a11y === "up", "comonitor probes a11y (detection only)");
 ok(result.port === "open", "comonitor probes shell 5555 on non-split");
 
 // Fire / split-storage: skip localhost:5555

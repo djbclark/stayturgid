@@ -24,7 +24,7 @@ that does not depend on ADB or SSH.
 |------|---------|
 | `device/termux/cfengine/cf-serverd.cf` | Server policy: IP ACL (Tailscale 100.64.0.0/10), access rules for 9 repair bundles, auto-trust on first connection. Specifies `cfruncommand` (wrapper script). |
 | `device/termux/cfengine/cf-runagent-wrapper.sh` | Shell wrapper that sets Termux PATH/LD_LIBRARY_PATH before invoking `cf-agent -f stayturgid.cf`. Needed because cf-serverd inherits minimal env. |
-| `device/termux/boot/start-adb.sh` | Lines 33-47: starts cf-serverd after sshd, before FIRERPA. Lines 174-185: monitors cf-serverd liveness in boot loop, restarts if dead. Uses `-F` flag (no fork — Android seccomp blocks fork for Termux). |
+| `device/termux/py/start_adb.py` | `startup_cfserverd()`: starts cf-serverd after sshd, before FIRERPA. `_monitor_cfserverd()`: monitors cf-serverd liveness in boot loop, restarts if dead. Uses `-F` flag (no fork — Android seccomp blocks fork for Termux). |
 
 ### Mac control-node side
 

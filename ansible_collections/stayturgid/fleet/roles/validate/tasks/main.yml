@@ -57,43 +57,24 @@
     - _repair.a11y is defined
     - _repair.a11y | default('') not in ['', 'skip']
 
-- name: Probe accessibility profile drift (check mode)
+- name: Probe accessibility state (detection only)
   stayturgid.android_common.android_a11y_services:
     device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
-    alias: "{{ inventory_hostname }}"
-    repo_root: "{{ stayturgid_repo_root }}"
-    state: present
   delegate_to: localhost
-  check_mode: true
-  register: _a11y_drift
+  register: _a11y_probe
   when:
     - not ansible_check_mode
     - stayturgid_validate_a11y_profile | default(true) | bool
 
-- name: Merge-restore accessibility on profile drift
-  stayturgid.android_common.android_a11y_services:
-    device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
-    alias: "{{ inventory_hostname }}"
-    repo_root: "{{ stayturgid_repo_root }}"
-    state: present
-  delegate_to: localhost
-  when:
-    - not ansible_check_mode
-    - stayturgid_validate_a11y_merge | default(false) | bool
-    - _a11y_drift.changed | default(false) | bool
-
-- name: Assert accessibility profile matches merge target
-  ansible.builtin.assert:
-    that:
-      - not (_a11y_drift.changed | default(false) | bool)
-    fail_msg: >-
-      Accessibility profile drift on {{ inventory_hostname }}
-      (set stayturgid_validate_a11y_merge: true to merge-restore).
-    quiet: true
+- name: Warn when AutoJs6 accessibility is not enabled
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: AutoJs6 accessibility is NOT enabled on {{ inventory_hostname }}.
+      Re-enable in Settings > Accessibility > AutoJs6.
   when:
     - not ansible_check_mode
     - stayturgid_validate_a11y_profile | default(true) | bool
-    - not (stayturgid_validate_a11y_merge | default(false) | bool)
+    - not (_a11y_probe.autojs6_present | default(false) | bool)
 
 - name: SSH echo probe
   ansible.builtin.command:

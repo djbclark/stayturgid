@@ -35,16 +35,14 @@ function autoJs6AccessibilityEnabled() {
 }
 
 /**
- * Best-effort accessibility for the watchdog — DEGRADES, never blocks.
+ * Best-effort accessibility check for the watchdog — DEGRADES, never blocks.
  *
- * Self-healing: the Termux repair script re-enables the service through the
- * privileged 5555 shell (append-only). We trigger a repair and wait briefly.
+ * When accessibility is off: on split-storage, co-monitor probes via Shizuku.
+ * On normal hosts, invokes Termux repair to check status. The watchdog cycle
+ * always proceeds (sshd/Tailscale/comonitor still run without a11y).
  *
- * Critically this returns whether or not a11y comes back — it must NEVER call
- * auto.waitFor() (which blocks forever if the service won't attach). Blocking
- * here froze the entire watchdog on a device where auto.service stayed null,
- * killing even the non-a11y work (sshd/Tailscale/repair via RUN_COMMAND). The
- * caller runs the cycle regardless; a11y-dependent steps no-op when it's off.
+ * No longer automatically re-enables accessibility — the user must enable
+ * AutoJs6 in Settings > Accessibility > AutoJs6.
  */
 function enforce(profile) {
     profile = profile || config.detectDeviceProfile();
@@ -54,7 +52,7 @@ function enforce(profile) {
     }
 
     if (config.splitStorage(profile)) {
-        log.append("[watchdog] split-storage: a11y off — co-monitor will try Shizuku merge");
+        log.append("[watchdog] split-storage: a11y off — co-monitor will probe via Shizuku");
         try {
             var comonitor = require("./comonitor.js");
             comonitor.run(profile, { force: true, reason: "a11y-off-split" });
@@ -65,34 +63,27 @@ function enforce(profile) {
             notify.clear("a11y-blocked");
             return;
         }
-        notify.show(
-            "stayturgid AutoJs6 degraded",
-            "Accessibility is off — sshd/Tailscale self-heal still runs, but on-screen "
-                + "repairs are paused. Enable the AutoJs6 accessibility service to restore.",
-            "a11y-blocked"
-        );
-        return;
+    } else {
+        log.append("[watchdog] accessibility disabled — checking repair status");
+        // Check if Termux repair already detected and logged this.
+        termux.invokeRepair(profile);
+        var deadline = Date.now() + 20000;
+        while (Date.now() < deadline && !autoJs6AccessibilityEnabled()) {
+            sleep(2000);
+        }
+        if (autoJs6AccessibilityEnabled()) {
+            log.append("[watchdog] accessibility restored by user");
+            notify.clear("a11y-blocked");
+            return;
+        }
     }
 
-    log.append("[watchdog] accessibility disabled — invoking repair to re-enable");
-    termux.invokeRepair(profile);
-    var deadline = Date.now() + 20000;
-    while (Date.now() < deadline && !autoJs6AccessibilityEnabled()) {
-        sleep(2000);
-    }
-
-    if (autoJs6AccessibilityEnabled()) {
-        log.append("[watchdog] accessibility restored by repair");
-        notify.clear("a11y-blocked");
-        return;
-    }
-
-    // Still off — proceed with a degraded cycle rather than freezing.
-    log.append("[watchdog] accessibility still off — running degraded (no UI repair)");
+    // Still off — user must enable manually.
+    log.append("[watchdog] accessibility still off — user must re-enable in Settings");
     notify.show(
-        "stayturgid AutoJs6 degraded",
-        "Accessibility is off — sshd/Tailscale self-heal still runs, but on-screen "
-            + "repairs are paused. Enable the AutoJs6 accessibility service to restore.",
+        "AutoJs6 accessibility disabled",
+        "Open Settings > Accessibility > AutoJs6 to re-enable. "
+            + "sshd/Tailscale self-heal still runs without a11y.",
         "a11y-blocked"
     );
 }

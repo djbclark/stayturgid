@@ -1,6 +1,4 @@
 ---
 stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"
-# Assert merge target matches live a11y list (check_mode probe via android_a11y_services).
+# Probe accessibility state and warn if AutoJs6 is not enabled (detection only).
 stayturgid_validate_a11y_profile: true
-# When true, merge-restore on drift instead of failing validate.
-stayturgid_validate_a11y_merge: false

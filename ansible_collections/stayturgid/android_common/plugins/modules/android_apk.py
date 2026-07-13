@@ -59,6 +59,26 @@ options:
     description: Run C(adb connect) before other operations (for wireless targets).
     type: bool
     default: true
+  resign:
+    description:
+      - Resign the downloaded APK with a debug keystore before installing.
+      - Required for unsigned fork builds (djbclark/Obtainium, djbclark/Shizuku, etc.).
+    type: bool
+    default: false
+  apksigner_bin:
+    description: Path to C(apksigner) (Android SDK build-tools). Ignored unless I(resign=true).
+    type: path
+  keystore:
+    description: Debug keystore path. Ignored unless I(resign=true).
+    type: path
+  keystore_pass:
+    description: Keystore password. Ignored unless I(resign=true).
+    type: str
+    default: android
+  key_alias:
+    description: Key alias in the keystore. Ignored unless I(resign=true).
+    type: str
+    default: androiddebugkey
 """
 
 EXAMPLES = r"""
@@ -75,6 +95,15 @@ EXAMPLES = r"""
     package: moe.shizuku.privileged.api
     gh_repo: thedjchi/Shizuku
     gh_pattern: "*.apk"
+  delegate_to: localhost
+
+- name: Install fork build with resign
+  stayturgid.android_common.android_apk:
+    device: "{{ adb_target }}"
+    package: moe.shizuku.privileged.api
+    gh_repo: djbclark/Shizuku
+    gh_pattern: "*universal*"
+    resign: true
   delegate_to: localhost
 """
 
@@ -146,6 +175,36 @@ def download_gh_release(module, repo, pattern, tag):
     return os.path.join(destdir, apks[0])
 
 
+def resign_apk(module, apk_path):
+    apksigner = module.params.get("apksigner_bin")
+    if not apksigner:
+        home = os.path.expanduser("~")
+        apksigner = os.path.join(home, "Library", "Android", "sdk", "build-tools", "36.0.0", "apksigner")
+    if not os.path.isfile(apksigner):
+        module.fail_json(msg="apksigner not found at %s; set apksigner_bin or install Android SDK build-tools" % apksigner)
+
+    keystore = module.params.get("keystore")
+    if not keystore:
+        home = os.path.expanduser("~")
+        keystore = os.path.join(home, ".android", "debug.keystore")
+    if not os.path.isfile(keystore):
+        module.fail_json(msg="debug keystore not found at %s" % keystore)
+
+    keystore_pass = module.params.get("keystore_pass", "android")
+    key_alias = module.params.get("key_alias", "androiddebugkey")
+
+    cmd = [
+        apksigner, "sign",
+        "--ks", keystore,
+        "--ks-pass", "pass:" + keystore_pass,
+        "--ks-key-alias", key_alias,
+        apk_path,
+    ]
+    rc, _out, err = module.run_command(cmd)
+    if rc != 0:
+        module.fail_json(msg="apksigner sign failed: %s" % err.strip())
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -164,6 +223,11 @@ def main():
             work_profile=dict(type="bool", default=False),
             work_profile_user=dict(type="str", default="10"),
             connect=dict(type="bool", default=True),
+            resign=dict(type="bool", default=False),
+            apksigner_bin=dict(type="path"),
+            keystore=dict(type="path"),
+            keystore_pass=dict(type="str", default="android", no_log=True),
+            key_alias=dict(type="str", default="androiddebugkey"),
         ),
         required_one_of=[["apk_path", "url", "gh_repo"]],
         mutually_exclusive=[["apk_path", "url", "gh_repo"]],
@@ -201,6 +265,9 @@ def main():
             module.params["gh_pattern"],
             module.params["gh_tag"],
         )
+
+    if module.params["resign"]:
+        resign_apk(module, apk)
 
     user = module.params.get("install_user", "0")
     cmd = ["adb", "-s", device, "install", "-r", "--user", user]

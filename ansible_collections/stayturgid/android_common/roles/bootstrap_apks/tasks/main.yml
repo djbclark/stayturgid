@@ -1,0 +1,20 @@
+---
+# Installs bootstrap APKs over ADB before Termux SSH exists.
+# All tasks delegate to localhost (the Mac) since the device has no SSH yet.
+# Version-aware idempotency: queries latest GitHub release tag for each APK
+# and compares against the installed version before deciding to reinstall.
+#
+# Set stayturgid_bootstrap_apks_force=true to skip version check and always reinstall.
+
+- name: Resolve ADB target for bootstrap
+  ansible.builtin.set_fact:
+    _bootstrap_adb: "{{ target_device | default(lookup('stayturgid.android_common.adb_device', inventory_hostname)) }}"
+  delegate_to: localhost
+  delegate_facts: true
+
+- name: Install each bootstrap APK with version check
+  ansible.builtin.include_tasks: install_apk.yml
+  loop: "{{ stayturgid_bootstrap_apks }}"
+  loop_control:
+    label: "{{ _apk.id }}"
+    loop_var: _apk

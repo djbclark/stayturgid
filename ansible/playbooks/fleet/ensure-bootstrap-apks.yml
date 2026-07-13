@@ -1,0 +1,16 @@
+---
+# Pre-SSH bootstrap APK installation over ADB.
+# Ensures Termux (debug), Termux:Boot, Termux:API, Shizuku, AutoJs6, Tailscale,
+# and Obtainium are installed on the device before SSH bootstrapping begins.
+#
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
+#     ansible/playbooks/fleet/ensure-bootstrap-apks.yml --limit s24
+#
+# All tasks delegate to localhost — no device SSH required.
+# Idempotent by package presence; set stayturgid_bootstrap_apks_force=true to reinstall.
+- name: stayturgid bootstrap APK ensure
+  hosts: stayturgid
+  gather_facts: false
+  tags: [bootstrap-apks]
+  roles:
+    - role: stayturgid.android_common.bootstrap_apks

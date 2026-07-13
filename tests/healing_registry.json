@@ -68,7 +68,7 @@
       "should_cover": ["cfengine"]
     },
     "A11Y-AUTOJS6": {
-      "description": "AutoJs6 accessibility service enabled (merge-only, never replace)",
+      "description": "AutoJs6 accessibility service enabled (detection-only; user must enable manually)",
       "must_cover": ["termux_repair", "autojs6_watchdog", "fleet_health"],
       "should_cover": ["cfengine", "ansible_deploy"]
     },
@@ -143,7 +143,7 @@
       "should_cover": []
     },
     "BOOTLOOP-ALIVE": {
-      "description": "Termux boot loop (start-adb.sh) running",
+      "description": "Termux boot loop (start_adb.py managed by start-adb.sh shim) running",
       "must_cover": ["firerpa"],
       "should_cover": ["cfengine", "fleet_health"]
     },

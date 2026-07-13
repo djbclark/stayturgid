@@ -509,7 +509,7 @@ review validated the battery-alarm tier logic this way.
 
 **pgrep gotcha (bit us in H2 of CODE-REVIEW.md):** on Termux (procps/Linux),
 `pgrep -f PATTERN` matches the *caller's own cmdline* — a guard like
-`pgrep -f repair-bridge.sh` inside `start-repair-bridge.sh` (or inside an ssh
+`pgrep -f bridges` inside `start-repair-bridge.sh` (or inside an ssh
 command string containing the pattern) always self-matches. macOS/BSD pgrep
 does **not** do this, so Mac-side dry-runs pass while the on-device guard is
 broken. Use pidfiles (`~/.stayturgid/run/repair-bridge.pid` + `/proc/$pid/cmdline`

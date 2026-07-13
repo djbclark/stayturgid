@@ -119,11 +119,17 @@ def maybe_notify():
 
 
 def maybe_restart_trigger():
-    """Arm autojs6-bridge (trigger file) — not RunIntentActivity from boot loop."""
+    """Restart AutoJs6 watchdog directly via am start from Termux.
+
+    The bridge (autojs6-bridge.sh) was removed in the 2026-07-10 restructure.
+    When port 5555 is down, the boot loop's RunIntentActivity path can't fire.
+    Termux am start works without ADB and restarts main.js immediately.
+    """
     now = int(time.time())
     last = _read_int(RESTART_STAMP) if os.path.isfile(RESTART_STAMP) else 0
     if now - last < RESTART_COOLDOWN_SEC:
         return
+    # Arm trigger file as backup (repair-bridge may still poll it).
     os.makedirs(os.path.dirname(TRIGGER), exist_ok=True)
     os.makedirs(os.path.dirname(TRIGGER_SDCARD), exist_ok=True)
     try:
@@ -132,14 +138,26 @@ def maybe_restart_trigger():
         with open(TRIGGER_SDCARD, "w", encoding="utf-8") as fh:
             fh.write(str(now))
     except OSError:
-        return
+        pass
+    # Restart AutoJs6 watchdog directly via am start (no ADB needed).
+    boot_script = os.path.join(SD, "autojs6", "scripts", "boot-launcher.js")
+    if os.path.isfile(boot_script):
+        subprocess.run(
+            ["am", "start", "-a", "android.intent.action.VIEW",
+             "-d", "file://" + boot_script,
+             "-t", "text/javascript",
+             "-n", "org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity"],
+            capture_output=True, timeout=15, start_new_session=True,
+        )
+        append_log("[termux] autojs6 guard: restarted AutoJs6 watchdog via am start")
+    else:
+        append_log("[termux] autojs6 guard: boot-launcher.js NOT FOUND at %s" % boot_script)
     os.makedirs(STATE, exist_ok=True)
     try:
         with open(RESTART_STAMP, "w", encoding="utf-8") as fh:
             fh.write(str(now))
     except OSError:
         pass
-    append_log("[termux] autojs6 guard: armed start_autojs6_now for bridge")
 
 
 def action_check():

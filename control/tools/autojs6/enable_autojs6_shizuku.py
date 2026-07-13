@@ -83,59 +83,7 @@ def a11y_enabled(serial: str) -> bool:
     return A11Y_SVC in a11y_services_list(serial)
 
 
-def put_a11y_services(serial: str, value: str) -> None:
-    adb(serial, "settings", "put", "secure", "enabled_accessibility_services", value)
-    adb(serial, "settings", "put", "secure", "accessibility_enabled", "1")
-
-
-def backup_a11y_services(serial: str, alias: str) -> str:
-    live = a11y_services_list(serial)
-    a11y.write_backup_file(a11y.backup_file_for(alias), live)
-    tmp = REPO_ROOT / "control" / "lib" / "a11y_backups" / (".push_%s.tmp" % alias)
-    a11y.write_backup_file(tmp, live)
-    adb(serial, "mkdir", "-p", "/sdcard/stayturgid/state")
-    subprocess.run(
-        ["adb", "-s", serial, "push", str(tmp), "/sdcard/stayturgid/%s" % a11y.DEVICE_BACKUP_REL],
-        capture_output=True,
-        check=False,
-    )
-    tmp.unlink(missing_ok=True)
-    return live
-
-
-def enable_a11y_shell_append(serial: str, alias: str) -> bool:
-    """Append AutoJs6 to the system accessibility list (merge-safe)."""
-    before = a11y_services_list(serial)
-    if A11Y_SVC in before:
-        return True
-    target = a11y.desired_services(alias, before, ensure_autojs6=True)
-    put_a11y_services(serial, target)
-    time.sleep(1)
-    after = a11y_services_list(serial)
-    repair = a11y.repair_after_shrink(before, after, alias)
-    if repair and repair != after:
-        put_a11y_services(serial, repair)
-        time.sleep(1)
-        after = a11y_services_list(serial)
-    return A11Y_SVC in after
-
-
-def enable_accessibility(serial: str, alias: str) -> bool:
-    """Enable AutoJs6 accessibility via settings put (no UI needed)."""
-    backup_a11y_services(serial, alias)
-    if a11y_enabled(serial):
-        print("AutoJs6 accessibility already enabled (settings).")
-        return True
-    if enable_a11y_shell_append(serial, alias):
-        print("AutoJs6 accessibility enabled via settings merge (append-safe).")
-        return True
-    lost = a11y.services_lost(backup_a11y_services(serial, alias), a11y_services_list(serial))
-    if lost:
-        sys.stderr.write(
-            "ERROR: accessibility list shrank (%s)\n" % ", ".join(lost)
-        )
-    sys.stderr.write("ERROR: AutoJs6 accessibility still disabled after settings merge\n")
-    return False
+def push_fleet_profile(serial: str) -> bool:
 
 
 def push_fleet_profile(serial: str) -> bool:
@@ -249,10 +197,11 @@ def main_mac_adb(alias: str) -> int:
             report_debug_state(serial, alias)
             return 1
 
-        # Enable accessibility via settings put (no UI needed)
-        if not enable_accessibility(serial, alias):
-            report_debug_state(serial, alias)
-            return 1
+        # Check accessibility (detection only — user must enable manually)
+        if not a11y_enabled(serial):
+            print("WARN: AutoJs6 accessibility is NOT enabled.")
+            print("      Enable it in Settings > Accessibility > AutoJs6.")
+            print("      sshd/Tailscale self-heal runs without a11y.")
 
         # Verify Shizuku permission
         if not pm_shizuku_granted(serial):

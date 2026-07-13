@@ -1,0 +1,82 @@
+---
+# Install a single bootstrap APK with version-aware idempotency.
+# Expected vars: _apk (dict with id, gh_repo, gh_pattern, resign?, monkey?), _bootstrap_adb
+
+- name: "{{ _apk.id }} — resolve latest GitHub release version"
+  delegate_to: localhost
+  block:
+    - name: "{{ _apk.id }} — fetch latest GitHub release tag"
+      ansible.builtin.command:
+        argv:
+          - gh
+          - release
+          - view
+          - --repo
+          - "{{ _apk.gh_repo }}"
+          - --json
+          - tagName
+        # gh release view hits GitHub API; quiet flag suppresses interactive prompts
+      register: _gh_release
+      changed_when: false
+      failed_when: false
+
+    - name: "{{ _apk.id }} — parse latest version from tag"
+      ansible.builtin.set_fact:
+        _latest_version: >-
+          {%- set raw = (_gh_release.stdout | default('{}') | from_json).tagName | default('') -%}
+          {%- if raw -%}
+          {{ raw | regex_replace('^v', '') }}
+          {%- else -%}
+          {{ omit }}
+          {%- endif -%}
+
+    - name: "{{ _apk.id }} — query installed version on device"
+      ansible.builtin.shell: >
+        adb -s {{ _bootstrap_adb }} shell
+        "dumpsys package {{ _apk.id }} 2>/dev/null | grep versionName | head -1"
+      register: _installed_version_info
+      changed_when: false
+      failed_when: false
+
+    - name: "{{ _apk.id }} — parse installed versionName"
+      ansible.builtin.set_fact:
+        _installed_version: >-
+          {{ (_installed_version_info.stdout | default('') | regex_replace('.*versionName=', '')).strip() }}
+
+    - name: "{{ _apk.id }} — check if version is current"
+      ansible.builtin.set_fact:
+        _version_current: >-
+          {{ not stayturgid_bootstrap_apks_force
+             and _latest_version != omit
+             and _installed_version == _latest_version }}
+        _version_unknown: >-
+          {{ _latest_version == omit or _installed_version == '' }}
+
+    - name: "{{ _apk.id }} — install over ADB"
+      stayturgid.android_common.android_apk:
+        device: "{{ _bootstrap_adb }}"
+        package: "{{ _apk.id }}"
+        gh_repo: "{{ _apk.gh_repo }}"
+        gh_pattern: "{{ _apk.gh_pattern }}"
+        resign: "{{ _apk.resign | default(false) }}"
+        force: "{{ (stayturgid_bootstrap_apks_force | default(false)) or _version_unknown }}"
+        version_name: "{{ _latest_version if _latest_version != omit else omit }}"
+        apksigner_bin: "{{ stayturgid_apksigner_bin | default(omit) }}"
+        keystore: "{{ stayturgid_debug_keystore | default(omit) }}"
+        keystore_pass: "{{ stayturgid_debug_keystore_pass | default('android') }}"
+        key_alias: "{{ stayturgid_debug_key_alias | default('androiddebugkey') }}"
+      when: not _version_current | default(false)
+      delegate_to: localhost
+
+- name: "{{ _apk.id }} — launch via monkey (un-stop package)"
+  delegate_to: localhost
+  ansible.builtin.command:
+    argv:
+      - adb
+      - -s
+      - "{{ _bootstrap_adb }}"
+      - shell
+      - monkey -p {{ _apk.id }} -c android.intent.category.LAUNCHER 1 2>/dev/null
+  changed_when: false
+  failed_when: false
+  when: _apk.monkey | default(false)

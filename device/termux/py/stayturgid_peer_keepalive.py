@@ -2,7 +2,7 @@
 """Fire OS peer keepalive — Shizuku + Handsets via fleet peers (boot loop).
 
 Only runs when ``STAYTURGID_NO_LOCAL_ADB=1``. Rate-limited so the 5-min boot
-loop does not hammer SSH/ADB. Invoked from ``device/termux/boot/start-adb.sh``.
+loop does not hammer SSH/ADB. Invoked from ``device/termux/py/start_adb.py``.
 
 Usage:
   stayturgid_peer_keepalive.py          # shizuku then handsets

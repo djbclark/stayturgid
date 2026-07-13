@@ -3,6 +3,7 @@
 
 Uses the FleetProfileActivity intent from djbclark/AutoJs6 fleet-profile-553
 build to apply drawer preferences without UI automation.
+Accessibility detection only — user must enable AutoJs6 in Settings manually.
 
 Usage: stayturgid_enable_autojs6.py [alias]
 """
@@ -72,58 +73,6 @@ def a11y_services_list(shell):
 
 def a11y_enabled(shell):
     return A11Y_SVC in a11y_services_list(shell)
-
-
-def put_a11y_services(shell, value):
-    shell("settings", "put", "secure", "enabled_accessibility_services", value)
-    _rc, cur = shell("settings", "get", "secure", "accessibility_enabled")
-    if (cur or "").strip() != "1":
-        shell("settings", "put", "secure", "accessibility_enabled", "1")
-
-
-def enable_a11y_shell_append(shell, alias):
-    """Append AutoJs6 to the system accessibility list (merge-safe)."""
-    before = a11y_services_list(shell)
-    if A11Y_SVC in before:
-        return True
-    target = a11y.desired_services(alias, before, ensure_autojs6=True)
-    put_a11y_services(shell, target)
-    time.sleep(1)
-    after = a11y_services_list(shell)
-    repair = a11y.repair_after_shrink(before, after, alias)
-    if repair and repair != after:
-        put_a11y_services(shell, repair)
-        time.sleep(1)
-        after = a11y_services_list(shell)
-    return A11Y_SVC in after
-
-
-def backup_a11y_services(shell, alias):
-    live = a11y_services_list(shell)
-    state = os.path.join(os.environ.get("STAYTURGID_SD", "/sdcard/stayturgid"), "state")
-    os.makedirs(state, exist_ok=True)
-    path = os.path.join(state, "a11y_services_backup.txt")
-    with open(path, "w") as f:
-        f.write(a11y.normalize_value(live) + "\n")
-    return live
-
-
-def enable_accessibility(shell, alias):
-    """Enable AutoJs6 accessibility via settings put (no UI needed)."""
-    before = backup_a11y_services(shell, alias)
-    if a11y_enabled(shell):
-        print("AutoJs6 accessibility already enabled (settings).")
-        return True
-    if enable_a11y_shell_append(shell, alias):
-        print("AutoJs6 accessibility enabled via settings merge (append-safe).")
-        return True
-    lost = a11y.services_lost(before, a11y_services_list(shell))
-    if lost:
-        sys.stderr.write(
-            "ERROR: accessibility list shrank (%s)\n" % ", ".join(lost)
-        )
-    sys.stderr.write("ERROR: AutoJs6 accessibility still disabled after settings merge\n")
-    return False
 
 
 def push_fleet_profile(shell):
@@ -238,10 +187,11 @@ def main(argv=None):
             if not apply_fleet_profile(shell):
                 return 1
 
-            # 4. Enable accessibility (system-level, still needs settings put)
-            if not enable_accessibility(shell, alias):
-                sys.stderr.write("ERROR: accessibility enable failed\n")
-                return 1
+            # 4. Check accessibility (detection only — user must enable manually)
+            if not a11y_enabled(shell):
+                print("WARN: AutoJs6 accessibility is NOT enabled.")
+                print("      Enable it in Settings > Accessibility > AutoJs6.")
+                print("      sshd/Tailscale self-heal runs without a11y.")
 
             # 5. Verify Shizuku permission granted
             if not pm_shizuku_granted(shell):
