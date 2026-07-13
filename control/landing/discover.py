@@ -22,28 +22,28 @@ SERVICES_FILE = Path(__file__).resolve().parent / "services.json"
 
 # ── Known service definitions (URL, label, group) ───────────────────────────
 KNOWN_SERVICES: list[dict] = [
-    # Mac control node
-    {"url": "http://localhost:8088", "label": "Network Landing", "group": "mac"},
-    {"url": "http://localhost:4096", "label": "OpenCode Web", "group": "mac"},
-    {"url": "http://localhost:4097", "label": "Fleet Dashboard", "group": "mac"},
-    {"url": "http://localhost:4097/stats", "label": "Fleet Stats", "group": "mac"},
-    {"url": "http://djbclarks-macbook-air.local:4096", "label": "OpenCode (mDNS)", "group": "mac"},
-    {"url": "http://djbclarks-macbook-air.local:4097", "label": "Dashboard (mDNS)", "group": "mac"},
-    {"url": "https://mac.greyhound-sidemirror.ts.net", "label": "stayturgid HTTPS (Tailscale)", "group": "mac"},
-    {"url": "http://192.168.68.68:4096", "label": "OpenCode (LAN)", "group": "mac"},
-    {"url": "http://192.168.68.68:4097", "label": "Dashboard (LAN)", "group": "mac"},
-    {"url": "http://100.113.53.87:4096", "label": "OpenCode (Tailscale)", "group": "mac"},
-    {"url": "http://100.113.53.87:4097", "label": "Dashboard (Tailscale)", "group": "mac"},
-    {"url": "http://localhost:8080", "label": "Caddy Proxy", "group": "mac"},
+    # Mac control node — all served via Caddy HTTPS
+    {"url": "https://mac.greyhound-sidemirror.ts.net", "label": "stayturgid (Tailscale HTTPS)", "group": "mac"},
+    {"url": "https://mac.greyhound-sidemirror.ts.net/dashboard/", "label": "Fleet Dashboard (HTTPS)", "group": "mac"},
+    {"url": "https://mac.greyhound-sidemirror.ts.net/stats/", "label": "Fleet Stats (HTTPS)", "group": "mac"},
+    {"url": "https://mac.greyhound-sidemirror.ts.net/services/", "label": "Network Landing (HTTPS)", "group": "mac"},
+    # Localhost (direct, for Mac-only access)
+    {"url": "http://localhost:4096", "label": "OpenCode (localhost)", "group": "mac"},
+    {"url": "http://localhost:4097", "label": "Dashboard (localhost)", "group": "mac"},
+    {"url": "http://localhost:4097/stats", "label": "Stats (localhost)", "group": "mac"},
+    {"url": "http://localhost:8088", "label": "Network Landing (localhost)", "group": "mac"},
+    {"url": "http://localhost:8080", "label": "Caddy Health", "group": "mac"},
     {"url": "http://localhost:8081", "label": "VLM UI-TARS API", "group": "mac"},
-    # Devices — Tailscale
+    # mDNS (Bonjour, LAN-only)
+    {"url": "http://djbclarks-macbook-air.local:8080", "label": "Caddy (mDNS)", "group": "mac"},
+    # Devices — Tailscale IPs
     {"url": "http://100.123.218.30:65000", "label": "s24 FIRERPA", "group": "devices"},
     {"url": "http://100.65.230.108:65000", "label": "p7a FIRERPA", "group": "devices"},
     {"url": "http://100.124.55.39:65000", "label": "hd8 FIRERPA", "group": "devices"},
     # Devices — LAN
     {"url": "http://192.168.68.54:65000", "label": "s24 FIRERPA (LAN)", "group": "devices"},
     {"url": "http://192.168.68.60:65000", "label": "p7a FIRERPA (LAN)", "group": "devices"},
-    # Devices — MagicDNS (Tailscale HTTPS)
+    # Devices — MagicDNS
     {"url": "http://s24.greyhound-sidemirror.ts.net:65000", "label": "s24 FIRERPA (MagicDNS)", "group": "devices"},
     {"url": "http://p7a.greyhound-sidemirror.ts.net:65000", "label": "p7a FIRERPA (MagicDNS)", "group": "devices"},
     {"url": "http://hd8.greyhound-sidemirror.ts.net:65000", "label": "hd8 FIRERPA (MagicDNS)", "group": "devices"},
