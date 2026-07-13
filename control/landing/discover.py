@@ -29,6 +29,7 @@ KNOWN_SERVICES: list[dict] = [
     {"url": "http://localhost:4097/stats", "label": "Fleet Stats", "group": "mac"},
     {"url": "http://djbclarks-macbook-air.local:4096", "label": "OpenCode (mDNS)", "group": "mac"},
     {"url": "http://djbclarks-macbook-air.local:4097", "label": "Dashboard (mDNS)", "group": "mac"},
+    {"url": "https://djbclarks-macbook-air.greyhound-sidemirror.ts.net", "label": "stayturgid HTTPS (Tailscale)", "group": "mac"},
     {"url": "http://192.168.68.68:4096", "label": "OpenCode (LAN)", "group": "mac"},
     {"url": "http://192.168.68.68:4097", "label": "Dashboard (LAN)", "group": "mac"},
     {"url": "http://100.113.53.87:4096", "label": "OpenCode (Tailscale)", "group": "mac"},
@@ -42,6 +43,10 @@ KNOWN_SERVICES: list[dict] = [
     # Devices — LAN
     {"url": "http://192.168.68.54:65000", "label": "s24 FIRERPA (LAN)", "group": "devices"},
     {"url": "http://192.168.68.60:65000", "label": "p7a FIRERPA (LAN)", "group": "devices"},
+    # Devices — MagicDNS (Tailscale HTTPS)
+    {"url": "https://dannys24.greyhound-sidemirror.ts.net:65000", "label": "s24 FIRERPA (MagicDNS)", "group": "devices"},
+    {"url": "https://pixel7a-termux.greyhound-sidemirror.ts.net:65000", "label": "p7a FIRERPA (MagicDNS)", "group": "devices"},
+    {"url": "https://kfraswi.greyhound-sidemirror.ts.net:65000", "label": "hd8 FIRERPA (MagicDNS)", "group": "devices"},
     # Additional Mac services discovered dynamically
     {"url": "http://localhost:9000", "label": "PHP-FPM / Dev Server", "group": "mac"},
 ]

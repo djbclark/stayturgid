@@ -2,12 +2,12 @@
   "hidden": [
     "http://test.example.com:1234"
   ],
-  "last_scan": "2026-07-13T12:31:51Z",
+  "last_scan": "2026-07-13T12:46:10Z",
   "services": [
     {
       "group": "mac",
       "label": "OpenCode (Tailscale)",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "reachable": true,
       "status_code": 200,
       "url": "http://100.113.53.87:4096"
@@ -21,7 +21,7 @@
     {
       "group": "devices",
       "label": "s24 FIRERPA",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "reachable": true,
       "status_code": 200,
       "url": "http://100.123.218.30:65000"
@@ -29,7 +29,7 @@
     {
       "group": "devices",
       "label": "hd8 FIRERPA",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "reachable": true,
       "status_code": 200,
       "url": "http://100.124.55.39:65000"
@@ -55,7 +55,7 @@
     {
       "group": "mac",
       "label": "OpenCode (LAN)",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "reachable": true,
       "status_code": 200,
       "url": "http://192.168.68.68:4096"
@@ -69,7 +69,7 @@
     {
       "group": "mac",
       "label": "OpenCode (mDNS)",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "reachable": true,
       "status_code": 200,
       "url": "http://djbclarks-macbook-air.local:4096"
@@ -77,7 +77,7 @@
     {
       "group": "mac",
       "label": "Dashboard (mDNS)",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "reachable": true,
       "status_code": 200,
       "url": "http://djbclarks-macbook-air.local:4097"
@@ -85,7 +85,7 @@
     {
       "group": "mac",
       "label": "Port 17600",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "note": "HTTP 404",
       "reachable": true,
       "status_code": 404,
@@ -94,7 +94,7 @@
     {
       "group": "mac",
       "label": "Port 23373",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "note": "HTTP 302",
       "reachable": true,
       "status_code": 302,
@@ -103,7 +103,7 @@
     {
       "group": "mac",
       "label": "OpenCode Web",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "reachable": true,
       "status_code": 200,
       "url": "http://localhost:4096"
@@ -111,7 +111,7 @@
     {
       "group": "mac",
       "label": "Fleet Dashboard",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "reachable": true,
       "status_code": 200,
       "url": "http://localhost:4097"
@@ -119,7 +119,7 @@
     {
       "group": "mac",
       "label": "Fleet Stats",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "reachable": true,
       "status_code": 200,
       "url": "http://localhost:4097/stats"
@@ -127,7 +127,7 @@
     {
       "group": "mac",
       "label": "Port 443",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "note": "HTTP 400",
       "reachable": true,
       "status_code": 400,
@@ -136,7 +136,7 @@
     {
       "group": "mac",
       "label": "Port 49710",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "note": "HTTP 400",
       "reachable": true,
       "status_code": 400,
@@ -145,7 +145,7 @@
     {
       "group": "mac",
       "label": "Port 49711",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "note": "HTTP 404",
       "reachable": true,
       "status_code": 404,
@@ -154,7 +154,7 @@
     {
       "group": "mac",
       "label": "Caddy Proxy",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "note": "HTTP 200",
       "reachable": true,
       "status_code": 200,
@@ -163,7 +163,7 @@
     {
       "group": "mac",
       "label": "VLM UI-TARS API",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "reachable": true,
       "status_code": 415,
       "url": "http://localhost:8081"
@@ -171,7 +171,7 @@
     {
       "group": "mac",
       "label": "Network Landing",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "reachable": true,
       "status_code": 200,
       "url": "http://localhost:8088"
@@ -179,10 +179,34 @@
     {
       "group": "mac",
       "label": "PHP-FPM / Dev Server",
-      "last_seen": "2026-07-13T12:31:51Z",
+      "last_seen": "2026-07-13T12:46:10Z",
       "reachable": true,
       "status_code": 405,
       "url": "http://localhost:9000"
+    },
+    {
+      "group": "devices",
+      "label": "s24 FIRERPA (MagicDNS)",
+      "reachable": false,
+      "url": "https://dannys24.greyhound-sidemirror.ts.net:65000"
+    },
+    {
+      "group": "mac",
+      "label": "stayturgid HTTPS (Tailscale)",
+      "reachable": false,
+      "url": "https://djbclarks-macbook-air.greyhound-sidemirror.ts.net"
+    },
+    {
+      "group": "devices",
+      "label": "hd8 FIRERPA (MagicDNS)",
+      "reachable": false,
+      "url": "https://kfraswi.greyhound-sidemirror.ts.net:65000"
+    },
+    {
+      "group": "devices",
+      "label": "p7a FIRERPA (MagicDNS)",
+      "reachable": false,
+      "url": "https://pixel7a-termux.greyhound-sidemirror.ts.net:65000"
     }
   ]
 }
