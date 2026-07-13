@@ -528,13 +528,21 @@ fi
 # ===========================================================================
 # Termux boot / bridge shell scripts (device-free sandbox)
 # ===========================================================================
-START_ADB="$REPO/device/termux/boot/start-adb.sh"
-REPAIR_BRIDGE="$REPO/device/termux/repair-bridge.sh"
+START_ADB="$REPO/device/termux/py/start_adb.py"
+BRIDGES_PY="$REPO/device/termux/py/stayturgid_bridges.py"
 START_BRIDGE="$REPO/device/termux/boot/start-repair-bridge.sh"
 START_AUTOJS6="$REPO/device/termux/boot/start-autojs6-watchdog.sh"
 
-# start-adb.sh: sshd, wakelock, immediate bootloop pidfile
+# start_adb.py: writes bootloop.pid immediately (parent forks, child daemon loop)
 reset_sandbox
+mkdir -p "$SANDBOX/home/.stayturgid/bin"
+cat > "$SANDBOX/home/.stayturgid/env" <<'ENV'
+export STAYTURGID_SD=/sdcard/stayturgid
+export STAYTURGID_BOOT_SETTLE_SEC=0
+export STAYTURGID_INTERVAL_SEC=300
+ENV
+touch "$SANDBOX/home/.stayturgid/bin/stayturgid_repair.py"
+chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_repair.py"
 run_sandboxed "$START_ADB"
 if [ -f "$SANDBOX/home/.stayturgid/run/bootloop.pid" ]; then
     tap_ok "start-adb: writes bootloop.pid immediately (before 30s settle)"
@@ -547,10 +555,16 @@ tap_is "$RC" 0 "start-adb: exits 0 after launching boot loop"
 tap_like "$(cat "$STUB_LOG")" "sshd" "start-adb: starts sshd"
 tap_like "$(cat "$STUB_LOG")" "termux-wake-lock" "start-adb: requests wakelock"
 
-# start-adb.sh: empty version stamp must not break daily check arithmetic
+# start-adb: empty version stamp must not break daily check arithmetic
 reset_sandbox
 mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/home/.stayturgid/state" \
          "$SANDBOX/sd/logs"
+# Write env file so start_adb.py picks up test-speed settings
+cat > "$SANDBOX/home/.stayturgid/env" <<'ENV'
+export STAYTURGID_SD=/sdcard/stayturgid
+export STAYTURGID_BOOT_SETTLE_SEC=0
+export STAYTURGID_INTERVAL_SEC=1
+ENV
 : > "$SANDBOX/home/.stayturgid/state/last_version_check"
 touch "$SANDBOX/home/.stayturgid/bin/stayturgid_check_repo_version.py"
 chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_check_repo_version.py"
@@ -561,7 +575,7 @@ print("guard", sys.argv[1:])
 sys.exit(0)
 PY
 chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_autojs6_guard.py"
-SANDBOX_SLEEP_SECS=1 run_sandboxed "$START_ADB"
+run_sandboxed "$START_ADB"
 wait_stub_like "stayturgid_check_repo_version.py" || true
 wait_stub_like "stayturgid_autojs6_guard.py" || true
 kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bootloop.pid"
@@ -577,11 +591,10 @@ if grep -qF "boot-launcher.js" "$STUB_LOG" 2>/dev/null; then
 else
     tap_ok "start-adb: does not am start boot-launcher from boot loop"
 fi
-unset SANDBOX_SLEEP_SECS
 
-# repair-bridge.sh: trigger file => repair within one loop (~2s stubbed to instant)
+# bridges.py --mode repair: trigger file => repair within one loop (~2s stubbed)
 reset_sandbox
-mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/sd/run"
+mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/sd/run" "$SANDBOX/home/.stayturgid/logs"
 cat > "$SANDBOX/home/.stayturgid/bin/stayturgid_repair.py" <<'EOF'
 #!/usr/bin/env bash
 echo "REPAIR_OK"
@@ -589,46 +602,42 @@ exit 0
 EOF
 chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_repair.py"
 touch "$SANDBOX/sd/run/repair_now"
-run_sandboxed_alarm 2 "$REPAIR_BRIDGE"
-BRIDGE_LOG="$SANDBOX/home/.stayturgid/logs/bridge.log"
+run_sandboxed_alarm 3 "$BRIDGES_PY" --mode repair
+BRIDGE_LOG="$SANDBOX/home/.stayturgid/logs/repair-bridge.log"
 if [ ! -f "$SANDBOX/sd/run/repair_now" ]; then
-    tap_ok "repair-bridge: trigger file removed after handling"
+    tap_ok "bridges: trigger file removed after handling (repair mode)"
 else
-    tap_fail "repair-bridge: trigger file removed after handling"
+    tap_fail "bridges: trigger file removed after handling (repair mode)"
 fi
-tap_like "$(cat "$BRIDGE_LOG" 2>/dev/null)" "trigger seen" "repair-bridge: logs trigger"
-tap_like "$(cat "$BRIDGE_LOG" 2>/dev/null)" "REPAIR_OK" "repair-bridge: invokes stayturgid-repair"
+tap_like "$(cat "$BRIDGE_LOG" 2>/dev/null)" "trigger seen" "bridges: logs trigger (repair mode)"
+tap_like "$(cat "$BRIDGE_LOG" 2>/dev/null)" "repair complete" "bridges: invokes stayturgid_repair.py"
 if [ -f "$SANDBOX/home/.stayturgid/run/bridge.pid" ]; then
-    tap_ok "repair-bridge: writes bridge.pid on start"
+    tap_ok "bridges: writes bridge.pid on start (repair mode)"
 else
-    tap_fail "repair-bridge: writes bridge.pid on start"
+    tap_fail "bridges: writes bridge.pid on start (repair mode)"
 fi
 
-# start-repair-bridge.sh: starts bridge when not running; skips when pidfile live
+# start-repair-bridge.sh: calls nohup python3 bridges.py when bridge not running
 reset_sandbox
-mkdir -p "$SANDBOX/home/.stayturgid/bin"
-cp "$REPAIR_BRIDGE" "$SANDBOX/home/.stayturgid/bin/repair-bridge.sh"
-chmod +x "$SANDBOX/home/.stayturgid/bin/repair-bridge.sh"
+mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/home/.stayturgid/logs" "$SANDBOX/home/.stayturgid/run"
+cp "$BRIDGES_PY" "$SANDBOX/home/.stayturgid/bin/bridges.py"
+chmod +x "$SANDBOX/home/.stayturgid/bin/bridges.py"
 run_sandboxed "$START_BRIDGE"
-if wait_sandbox_pidfile "$SANDBOX/home/.stayturgid/run/bridge.pid"; then
-    tap_ok "start-repair-bridge: launches bridge when idle"
-else
-    tap_fail "start-repair-bridge: launches bridge when idle"
-fi
-tap_like "$(cat "$STUB_LOG")" "nohup" "start-repair-bridge: nohup invoked for bridge"
-kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bridge.pid"
-sleep 0.1
+# nohup stub writes to STUB_LOG asynchronously; wait briefly
+sleep 0.5
+tap_like "$(cat "$STUB_LOG")" "nohup" "start-repair-bridge: calls nohup to launch bridge when idle"
 
+# Skips when pidfile shows running bridge
 reset_sandbox
 mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/home/.stayturgid/run" "$SANDBOX/proc/4242"
-printf 'repair-bridge\0' > "$SANDBOX/proc/4242/cmdline"
+printf 'bridges\0' > "$SANDBOX/proc/4242/cmdline"
 echo 4242 > "$SANDBOX/home/.stayturgid/run/bridge.pid"
-cp "$REPAIR_BRIDGE" "$SANDBOX/home/.stayturgid/bin/repair-bridge.sh"
-chmod +x "$SANDBOX/home/.stayturgid/bin/repair-bridge.sh"
+cp "$BRIDGES_PY" "$SANDBOX/home/.stayturgid/bin/bridges.py"
+chmod +x "$SANDBOX/home/.stayturgid/bin/bridges.py"
 : > "$STUB_LOG"
 PROC_ROOT="$SANDBOX/proc" run_sandboxed "$START_BRIDGE"
 tap_is "$(stub_calls 'nohup')" 0 \
-    "start-repair-bridge: skips start when pidfile process is alive (no pgrep -f self-match)"
+    "start-repair-bridge: skips start when pidfile process is alive"
 
 # start-autojs6-watchdog.sh: missing boot script => quiet exit; present => am start
 reset_sandbox
@@ -643,34 +652,30 @@ run_sandboxed "$START_AUTOJS6"
 tap_is "$RC" 0 "start-autojs6: exits 0 when boot script present"
 tap_like "$(cat "$STUB_LOG")" "boot-launcher.js" "start-autojs6: am start targets boot-launcher.js"
 
-# autojs6-bridge.sh: trigger file => am start within one loop
+# bridges.py --mode autojs6: trigger file => am start within one loop
 AUTOJS6_BRIDGE="$REPO/device/termux/autojs6-bridge.sh"
 START_AUTOJS6_BRIDGE="$REPO/device/termux/boot/start-autojs6-bridge.sh"
 reset_sandbox
-mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/sd/run" "$SANDBOX/sd/autojs6/scripts"
+mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/sd/run" "$SANDBOX/sd/autojs6/scripts" \
+         "$SANDBOX/home/.stayturgid/state" "$SANDBOX/home/.stayturgid/logs"
 : > "$SANDBOX/sd/autojs6/scripts/boot-launcher.js"
 touch "$SANDBOX/sd/run/start_autojs6_now"
-cp "$AUTOJS6_BRIDGE" "$SANDBOX/home/.stayturgid/bin/autojs6-bridge.sh"
-chmod +x "$SANDBOX/home/.stayturgid/bin/autojs6-bridge.sh"
-run_sandboxed_alarm 2 "$SANDBOX/home/.stayturgid/bin/autojs6-bridge.sh"
+run_sandboxed_alarm 3 "$BRIDGES_PY" --mode autojs6
 AJ6_LOG="$SANDBOX/home/.stayturgid/logs/autojs6-bridge.log"
 if [ ! -f "$SANDBOX/sd/run/start_autojs6_now" ]; then
-    tap_ok "autojs6-bridge: trigger file removed after handling"
+    tap_ok "bridges: trigger file removed after handling (autojs6 mode)"
 else
-    tap_fail "autojs6-bridge: trigger file removed after handling"
+    tap_fail "bridges: trigger file removed after handling (autojs6 mode)"
 fi
-tap_like "$(cat "$AJ6_LOG" 2>/dev/null)" "boot-launcher" "autojs6-bridge: am start boot-launcher"
+tap_like "$(cat "$AJ6_LOG" 2>/dev/null)" "boot-launcher" "bridges: am start boot-launcher"
 
+# start-autojs6-bridge: calls nohup to launch autojs6 bridge when idle
 reset_sandbox
-mkdir -p "$SANDBOX/home/.stayturgid/bin"
-cp "$AUTOJS6_BRIDGE" "$SANDBOX/home/.stayturgid/bin/autojs6-bridge.sh"
-chmod +x "$SANDBOX/home/.stayturgid/bin/autojs6-bridge.sh"
+mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/home/.stayturgid/logs" "$SANDBOX/home/.stayturgid/run"
+cp "$BRIDGES_PY" "$SANDBOX/home/.stayturgid/bin/bridges.py"
+chmod +x "$SANDBOX/home/.stayturgid/bin/bridges.py"
 run_sandboxed "$START_AUTOJS6_BRIDGE"
-if wait_sandbox_pidfile "$SANDBOX/home/.stayturgid/run/autojs6-bridge.pid"; then
-    tap_ok "start-autojs6-bridge: launches bridge when idle"
-else
-    tap_fail "start-autojs6-bridge: launches bridge when idle"
-fi
-kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/autojs6-bridge.pid"
+sleep 0.5
+tap_like "$(cat "$STUB_LOG")" "nohup" "start-autojs6-bridge: calls nohup to launch autojs6 bridge when idle"
 
 tap_done

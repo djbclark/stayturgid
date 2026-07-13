@@ -142,9 +142,10 @@ STUB
 #!/usr/bin/env bash
 echo "nohup $*" >> "$STUB_LOG"
 cmd="$1"
+shift
 case "$cmd" in
-  *.sh) bash "$cmd" & ;;
-  *) [ -n "$cmd" ] && "$cmd" & ;;
+  *.sh) bash "$cmd" "$@" & ;;
+  *) [ -n "$cmd" ] && "$cmd" "$@" & ;;
 esac
 exit 0
 STUB

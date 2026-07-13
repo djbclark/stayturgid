@@ -32,8 +32,7 @@ DEVICES_CONF = os.environ.get(
 # the remaining .sh are compat shims / the bridge.
 TRACKED_SCRIPTS = {
     "stayturgid_repair.py": "device/termux/py/stayturgid_repair.py",
-    "repair-bridge.sh": "device/termux/repair-bridge.sh",
-    "autojs6-bridge.sh": "device/termux/autojs6-bridge.sh",
+    "stayturgid_bridges.py": "device/termux/py/stayturgid_bridges.py",
     "stayturgid_agent_presence.py": "device/termux/py/stayturgid_agent_presence.py",
     "stayturgid_check_repo_version.py": "device/termux/py/stayturgid_check_repo_version.py",
     "stayturgid_screen_awake_guard.py": "device/termux/py/stayturgid_screen_awake_guard.py",
@@ -51,7 +50,7 @@ FIRE=0
 case "$SD" in *termux/files/home*) FIRE=1; echo "localhost_shell=skip" ;; esac
 echo "ssh=ok"
 (pgrep -x sshd || pgrep -f "[s]shd") >/dev/null 2>&1 && echo "sshd=ok" || echo "sshd=down"
-pgrep -f 'start-adb\.sh' >/dev/null 2>&1 && echo "bootloop=ok" || echo "bootloop=down"
+pgrep -f 'start_adb\.py' >/dev/null 2>&1 && echo "bootloop=ok" || echo "bootloop=down"
 pid=$(cat ~/.stayturgid/run/bridge.pid 2>/dev/null)
 if [ -n "$pid" ] && [ -d "/proc/$pid" ] && grep -q repair-bridge "/proc/$pid/cmdline" 2>/dev/null; then
     echo "bridge=ok"
@@ -133,7 +132,7 @@ else
     echo "vpn_always_on=MISSING"
   fi
 fi
-for f in stayturgid_repair.py repair-bridge.sh autojs6-bridge.sh stayturgid_agent_presence.py stayturgid_check_repo_version.py stayturgid_screen_awake_guard.py stayturgid_battery_alarm.py stayturgid_autojs6_guard.py; do
+for f in stayturgid_repair.py stayturgid_bridges.py stayturgid_agent_presence.py stayturgid_check_repo_version.py stayturgid_screen_awake_guard.py stayturgid_battery_alarm.py stayturgid_autojs6_guard.py; do
     printf 'md5 %s %s\n' "$f" "$(md5sum "$HOME/.stayturgid/bin/$f" 2>/dev/null | cut -d' ' -f1)"
 done
 """

@@ -27,7 +27,7 @@
 
 - name: Migrate legacy UI-TARS paths under ~/.config/stayturgid
   ansible.builtin.command:
-    cmd: bash "{{ stayturgid_repo_root | realpath }}/control/vlm/ui-tars/vlm_migrate_paths.sh"
+    cmd: python3 "{{ stayturgid_repo_root | realpath }}/control/vlm/ui-tars/vlm_migrate_paths.py"
   register: _vlm_migrate
   changed_when: "'moved' in (_vlm_migrate.stdout | default(''))"
   tags: [vlm, vlm-service]

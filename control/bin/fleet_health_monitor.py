@@ -251,7 +251,7 @@ def maybe_heal_repair_stale(name: str, issues: list[str], fails: int) -> None:
             ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
              "-o", "LogLevel=ERROR", name,
              "pkill -f stayturgid_repair 2>/dev/null; "
-             "nohup bash ~/.stayturgid/boot/start-adb.sh >/dev/null 2>&1 &"],
+             "nohup python3 ~/.stayturgid/bin/start_adb.py >/dev/null 2>&1 &"],
             capture_output=True, text=True, timeout=30,
         )
         if r.returncode == 0 or r.returncode == 255:

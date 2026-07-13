@@ -2,8 +2,7 @@
 """Pre-flight healing coverage checker — runs as part of `make test` (tier code).
 
 Reads `tests/healing_registry.json` (SSOT of all desired states), scans each
-healing mechanism's source files for `@heals:` / `__healing_ids__` annotations,
-then cross-references:
+healing mechanism's source files for `@heals:` annotations, cross-references:
 
   1. Every mechanism declared in the registry has at least one source file.
   2. Every must_cover ID for a mechanism is declared in its source files.
@@ -11,15 +10,17 @@ then cross-references:
   4. Every desired state has at least one mechanism covering it.
   5. No mechanism declares an ID that is not in the registry (drift guard).
 
-Produces TAP on stdout. Exit 0 = all must_cover checks pass.
+Modes:
+  default  — full TAP output on stdout
+  --summary — one-line pass/fail message; exit 0/1 only (no TAP)
 """
 from __future__ import annotations
 
+import argparse
 import json
-import os
 import re
 import sys
-from fnmatch import fnmatch
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -30,33 +31,23 @@ _HEALS_LINE_RE = re.compile(r"@heals:\s*(.+?)$", re.MULTILINE)
 _HEALS_PY_SET_RE = re.compile(r"__healing_ids__\s*=\s*\{(.+?)\}", re.DOTALL)
 _ID_RE = re.compile(r"[A-Z][A-Z0-9]+(?:-[A-Z][A-Z0-9]+)*")
 
-TEST_NUM = 0
-FAILED = 0
 
-
-def tap_ok(msg: str) -> None:
-    global TEST_NUM
-    TEST_NUM += 1
-    print(f"ok {TEST_NUM} - {msg}")
-
-
-def tap_fail(msg: str, detail: str = "") -> None:
-    global TEST_NUM, FAILED
-    TEST_NUM += 1
-    FAILED += 1
-    print(f"not ok {TEST_NUM} - {msg}")
-    if detail:
-        for line in detail.splitlines():
-            print(f"  # {line}")
-
-
-def tap_todo(msg: str, detail: str = "") -> None:
-    global TEST_NUM
-    TEST_NUM += 1
-    print(f"ok {TEST_NUM} - {msg} # TODO {detail}")
+@dataclass
+class CheckResult:
+    registry_loaded: bool = False
+    num_states: int = 0
+    mech_counts: dict[str, int] = field(default_factory=dict)
+    missing_must: list[tuple[str, str]] = field(default_factory=list)
+    missing_should: list[tuple[str, str]] = field(default_factory=list)
+    uncovered_states: list[str] = field(default_factory=list)
+    drift_ids: set[str] = field(default_factory=set)
+    unknown_mechs: set[str] = field(default_factory=set)
+    no_must_defined: list[str] = field(default_factory=list)
+    errors: int = 0
 
 
 def extract_ids_from_file(filepath: Path) -> set[str]:
+    """Extract healing IDs from a source file via @heals: annotations."""
     if not filepath.is_file():
         return set()
     ids: set[str] = set()
@@ -103,81 +94,53 @@ def load_registry() -> dict[str, Any]:
         return {}
 
 
-def main() -> int:
+def run_check() -> CheckResult:
+    """Run the full cross-reference check. Returns result without printing TAP."""
+    r = CheckResult()
     reg = load_registry()
+    r.registry_loaded = bool(reg)
     if not reg:
-        tap_fail("registry: healing_registry.json loads")
-        print(f"1..{TEST_NUM}")
-        return 1
-
-    tap_ok("registry: healing_registry.json loads")
+        r.errors += 1
+        return r
 
     mechanisms = reg.get("mechanisms", {})
     desired_states = reg.get("desired_states", {})
+    r.num_states = len(desired_states)
 
-    if not mechanisms:
-        tap_fail("registry: mechanisms section present and non-empty")
-    else:
-        tap_ok("registry: mechanisms section present and non-empty")
-
-    if not desired_states:
-        tap_fail("registry: desired_states section present and non-empty")
-    else:
-        tap_ok(f"registry: {len(desired_states)} desired_states defined")
+    if not mechanisms or not desired_states:
+        r.errors += 1
+        return r
 
     all_registry_ids = set(desired_states.keys())
-
+    all_mech_names = set(mechanisms.keys())
     mech_ids: dict[str, set[str]] = {}
-    mech_files: dict[str, list[Path]] = {}
 
     for mech_name, mech_conf in sorted(mechanisms.items()):
-        patterns = mech_conf.get("files", [])
-        files = resolve_files(patterns)
-        mech_files[mech_name] = files
-
+        files = resolve_files(mech_conf.get("files", []))
         if not files:
-            tap_fail(
-                f"mechanism '{mech_name}': no source files found",
-                f"patterns: {patterns}",
-            )
+            r.errors += 1
             mech_ids[mech_name] = set()
             continue
-
         combined: set[str] = set()
         for fp in files:
             combined |= extract_ids_from_file(fp)
         mech_ids[mech_name] = combined
-
-        tap_ok(
-            f"mechanism '{mech_name}': {len(files)} source file(s), "
-            f"{len(combined)} healing ID(s) declared"
-        )
-
-    errors = 0
+        r.mech_counts[mech_name] = len(combined)
 
     for state_id in sorted(all_registry_ids):
         state = desired_states[state_id]
         must = set(state.get("must_cover", []))
         should = set(state.get("should_cover", []))
-        unknown_must = must - set(mechanisms.keys())
-        unknown_should = should - set(mechanisms.keys())
 
-        bad_refs = unknown_must | unknown_should
+        bad_refs = (must | should) - all_mech_names
         if bad_refs:
-            errors += 1
-            tap_fail(
-                f"state '{state_id}': references unknown mechanism(s): "
-                f"{' '.join(sorted(bad_refs))}",
-                f"description: {state.get('description', '')}",
-            )
+            r.errors += 1
+            r.unknown_mechs |= bad_refs
             continue
 
         if not must:
-            errors += 1
-            tap_fail(
-                f"state '{state_id}': no must_cover mechanisms defined",
-                f"description: {state.get('description', '')}",
-            )
+            r.errors += 1
+            r.no_must_defined.append(state_id)
             continue
 
         any_covered = False
@@ -185,47 +148,138 @@ def main() -> int:
             if state_id in mech_ids.get(mech, set()):
                 any_covered = True
             else:
-                errors += 1
-                tap_fail(
-                    f"state '{state_id}': missing from must_cover mechanism '{mech}'",
-                    f"Add @heals: {state_id} annotation to a source file of '{mech}'",
-                )
+                r.errors += 1
+                r.missing_must.append((state_id, mech))
 
         for mech in sorted(should):
             if state_id not in mech_ids.get(mech, set()):
-                tap_todo(
-                    f"state '{state_id}': missing from should_cover mechanism '{mech}'"
-                )
+                r.missing_should.append((state_id, mech))
 
         if not any_covered:
-            errors += 1
-            tap_fail(
-                f"state '{state_id}': NOT COVERED BY ANY MECHANISM",
-                f"description: {state.get('description', '')}",
-            )
+            r.uncovered_states.append(state_id)
 
     known_ids: set[str] = set()
-    for mech_name in sorted(mechanisms.keys()):
+    for mech_name in sorted(all_mech_names):
         known_ids |= mech_ids.get(mech_name, set())
 
-    unknown = known_ids - all_registry_ids
-    if unknown:
-        for uid in sorted(unknown):
-            errors += 1
-            tap_fail(
-                f"drift: mechanism declares unknown ID '{uid}' not in registry",
-                "Either add to healing_registry.json or remove the stale annotation",
-            )
+    r.drift_ids = known_ids - all_registry_ids
+    if r.drift_ids:
+        r.errors += len(r.drift_ids)
 
-    found_no_mech = all_registry_ids - known_ids
-    if found_no_mech:
-        tap_todo(
-            f"discovery: {len(found_no_mech)} registry ID(s) not declared "
-            f"by any mechanism source (no must_cover failures above = OK)"
+    return r
+
+
+def emit_tap(r: CheckResult) -> int:
+    """Produce TAP output from a CheckResult. Returns exit code."""
+    n = 0
+    failed = 0
+
+    def ok(msg):
+        nonlocal n
+        n += 1
+        print(f"ok {n} - {msg}")
+
+    def fail(msg, detail=""):
+        nonlocal n, failed
+        n += 1
+        failed += 1
+        print(f"not ok {n} - {msg}")
+        if detail:
+            for line in detail.splitlines():
+                print(f"  # {line}")
+
+    def todo(msg):
+        nonlocal n
+        n += 1
+        print(f"ok {n} - {msg} # TODO")
+
+    if not r.registry_loaded:
+        fail("registry: healing_registry.json loads")
+        print(f"1..{n}")
+        return 1
+
+    ok("registry: healing_registry.json loads")
+    ok(f"registry: {r.num_states} desired_states defined")
+
+    for mech_name, count in sorted(r.mech_counts.items()):
+        ok(f"mechanism '{mech_name}': {count} healing ID(s) declared")
+
+    for state_id, mech in sorted(r.missing_must):
+        fail(
+            f"state '{state_id}': missing from must_cover mechanism '{mech}'",
+            f"Add @heals: {state_id} annotation to a source file of '{mech}'",
         )
 
-    print(f"1..{TEST_NUM}")
-    return 1 if errors > 0 else 0
+    for state_id, mech in sorted(r.missing_should):
+        todo(f"state '{state_id}': missing from should_cover mechanism '{mech}'")
+
+    for state_id in sorted(r.uncovered_states):
+        fail(f"state '{state_id}': NOT COVERED BY ANY MECHANISM")
+
+    for uid in sorted(r.drift_ids):
+        fail(
+            f"drift: mechanism declares unknown ID '{uid}' not in registry",
+            "Either add to healing_registry.json or remove the stale annotation",
+        )
+
+    print(f"1..{n}")
+    return 1 if failed > 0 else 0
+
+
+def emit_summary(r: CheckResult) -> int:
+    """Produce a one-line summary message. Returns exit code."""
+    if not r.registry_loaded:
+        print("FAIL: healing_registry.json could not be loaded")
+        return 1
+
+    mech_info = ", ".join(
+        f"{m}={c}" for m, c in sorted(r.mech_counts.items())
+    )
+
+    if r.errors == 0:
+        print(
+            f"PASS: healing coverage — {r.num_states} states, "
+            f"{len(r.mech_counts)} mechanisms ({mech_info})"
+        )
+        return 0
+
+    parts = []
+    if r.missing_must:
+        parts.append(f"{len(r.missing_must)} must_cover gap(s)")
+    if r.uncovered_states:
+        parts.append(f"{len(r.uncovered_states)} uncovered state(s)")
+    if r.drift_ids:
+        parts.append(f"{len(r.drift_ids)} drift ID(s)")
+    if not parts:
+        parts.append("unknown error")
+
+    print(
+        f"FAIL: healing coverage — {', '.join(parts)}. "
+        f"Run without --summary for details."
+    )
+    return 1
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Healing coverage checker")
+    parser.add_argument(
+        "--summary",
+        action="store_true",
+        help="One-line pass/fail message (no TAP output)",
+    )
+    parser.add_argument(
+        "--tap",
+        dest="tap",
+        action="store_true",
+        default=True,
+        help="Full TAP output (default)",
+    )
+    args = parser.parse_args()
+
+    r = run_check()
+    if args.summary:
+        return emit_summary(r)
+    return emit_tap(r)
 
 
 if __name__ == "__main__":

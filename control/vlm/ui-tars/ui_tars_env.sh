@@ -1,114 +1,25 @@
-# Shared UI-TARS / llama-server paths (source from bash scripts).
-# Vendor-neutral layout — not tied to stayturgid.
 # shellcheck shell=bash
+# Thin compat shim — delegates to ui_tars_env.py. Source this from shell scripts.
+_UI_TARS_PY="$(dirname "${BASH_SOURCE[0]:-$0}")/ui_tars_env.py"
 
-ui_tars_home() {
-  printf '%s\n' "${UI_TARS_HOME:-${HOME}/.local/share/ui-tars}"
-}
-
-ui_tars_model_dir() {
-  if [[ -n "${UI_TARS_MODEL_DIR:-}" ]]; then
-    printf '%s\n' "$UI_TARS_MODEL_DIR"
-    return
-  fi
-  if [[ -n "${STAYTURGID_VLM_MODEL_DIR:-}" ]]; then
-    printf '%s\n' "$STAYTURGID_VLM_MODEL_DIR"
-    return
-  fi
-  if [[ -n "${QSS_VLM_MODEL_DIR:-}" ]]; then
-    printf '%s\n' "$QSS_VLM_MODEL_DIR"
-    return
-  fi
-  printf '%s\n' "$(ui_tars_home)/models/1.5-7b"
-}
-
-ui_tars_port() {
-  printf '%s\n' "${UI_TARS_PORT:-${STAYTURGID_VLM_PORT:-${QSS_VLM_PORT:-8081}}}"
-}
-
-ui_tars_pid_file() {
-  printf '%s\n' "${UI_TARS_PID_FILE:-$(ui_tars_home)/server/server.pid}"
-}
-
-ui_tars_log_file() {
-  if [[ -n "${UI_TARS_LOG:-}" ]]; then
-    printf '%s\n' "$UI_TARS_LOG"
-    return
-  fi
-  if [[ -n "${STAYTURGID_VLM_LOG:-}" ]]; then
-    printf '%s\n' "$STAYTURGID_VLM_LOG"
-    return
-  fi
-  if [[ -n "${QSS_VLM_LOG:-}" ]]; then
-    printf '%s\n' "$QSS_VLM_LOG"
-    return
-  fi
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    printf '%s\n' "${HOME}/Library/Logs/ui-tars/server.log"
-  else
-    printf '%s\n' "$(ui_tars_home)/server/server.log"
-  fi
-}
-
-ui_tars_working_dir() {
-  printf '%s\n' "${UI_TARS_HOME:-$(ui_tars_home)}/server"
-}
-
-ui_tars_ngl() {
-  if [[ -n "${UI_TARS_NGL:-${STAYTURGID_VLM_NGL:-${QSS_VLM_NGL:-}}}" ]]; then
-    printf '%s\n' "${UI_TARS_NGL:-${STAYTURGID_VLM_NGL:-$QSS_VLM_NGL}}"
-    return
-  fi
-  if [[ "$(uname -s)" == "Darwin" ]]; then
-    printf '%s\n' "99"
-  else
-    printf '%s\n' "0"
-  fi
-}
-
-ui_tars_llama_server_bin() {
-  if [[ -n "${UI_TARS_LLAMA_SERVER:-${STAYTURGID_VLM_LLAMA_SERVER:-${QSS_VLM_LLAMA_SERVER:-}}}" ]] \
-    && [[ -x "${UI_TARS_LLAMA_SERVER:-${STAYTURGID_VLM_LLAMA_SERVER:-${QSS_VLM_LLAMA_SERVER:-}}}" ]]; then
-    printf '%s\n' "${UI_TARS_LLAMA_SERVER:-${STAYTURGID_VLM_LLAMA_SERVER:-$QSS_VLM_LLAMA_SERVER}}"
-    return
-  fi
-  if command -v llama-server >/dev/null 2>&1; then
-    command -v llama-server
-    return
-  fi
-  local brew_prefix
-  brew_prefix="$(brew --prefix llama.cpp 2>/dev/null || true)"
-  if [[ -n "$brew_prefix" ]] && [[ -x "${brew_prefix}/bin/llama-server" ]]; then
-    printf '%s\n' "${brew_prefix}/bin/llama-server"
-    return
-  fi
-  return 1
-}
-
-ui_tars_health_url() {
-  printf 'http://127.0.0.1:%s/health\n' "$(ui_tars_port)"
-}
+ui_tars_home()            { python3 "$_UI_TARS_PY" --get home; }
+ui_tars_model_dir()       { python3 "$_UI_TARS_PY" --get model_dir; }
+ui_tars_port()            { python3 "$_UI_TARS_PY" --get port; }
+ui_tars_pid_file()        { python3 "$_UI_TARS_PY" --get pid_file; }
+ui_tars_log_file()        { python3 "$_UI_TARS_PY" --get log_file; }
+ui_tars_working_dir()     { python3 "$_UI_TARS_PY" --get working_dir; }
+ui_tars_ngl()             { python3 "$_UI_TARS_PY" --get ngl; }
+ui_tars_llama_server_bin(){ python3 "$_UI_TARS_PY" --get llama_server_bin; }
+ui_tars_health_url()      { python3 "$_UI_TARS_PY" --get health_url; }
+ui_tars_service_label()   { python3 "$_UI_TARS_PY" --get service_label; }
+ui_tars_service_plist()   { python3 "$_UI_TARS_PY" --get service_plist; }
+ui_tars_legacy_service_label()  { python3 "$_UI_TARS_PY" --get legacy_service_label; }
+ui_tars_legacy_service_plist()  { python3 "$_UI_TARS_PY" --get legacy_service_plist; }
 
 ui_tars_healthy() {
-  curl -sf "$(ui_tars_health_url)" >/dev/null 2>&1
-}
-
-ui_tars_service_label() {
-  printf '%s\n' "homebrew.mxcl.ui-tars"
-}
-
-ui_tars_service_plist() {
-  printf '%s\n' "${HOME}/Library/LaunchAgents/$(ui_tars_service_label).plist"
-}
-
-ui_tars_legacy_service_label() {
-  printf '%s\n' "homebrew.mxcl.qss-ui-tars"
-}
-
-ui_tars_legacy_service_plist() {
-  printf '%s\n' "${HOME}/Library/LaunchAgents/$(ui_tars_legacy_service_label).plist"
+    curl -sf "http://127.0.0.1:$(ui_tars_port)/health" >/dev/null 2>&1
 }
 
 ui_tars_service_installed() {
-  [[ -f "$(ui_tars_service_plist)" ]]
+    [[ -f "$(ui_tars_service_plist)" ]]
 }

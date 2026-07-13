@@ -290,13 +290,11 @@ def duplicate_branch():
         before = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
         a11y = "up" if A11Y_SVC in before else "down"
     else:
-        port, sh, shizuku, a11y, wifi = (
-            "CLOSED_NO_SHELL",
-            False,
-            "unknown",
-            "unknown",
-            "unknown",
-        )
+        # Port 5555 down — fall back to Termux-native pgrep for Shizuku.
+        port, sh = "CLOSED_NO_SHELL", False
+        rc, _ = run(["pgrep", "-f", "shizuku_server"])
+        shizuku = "up" if rc == 0 else "down"
+        wifi, a11y = "unknown", "unknown"
     # Contention path never mutates SSH config; report presence only.
     share = os.path.join(STG, "share", "ssh-config-control-et")
     if not os.path.isfile(share):
@@ -671,7 +669,7 @@ def main():
         rc = 1
         log("5555 CLOSED / no privileged shell — escalate to AutoJs6 UI repair or reboot")
 
-    # --- 3. shizuku (via privileged shell) ---
+    # --- 3. shizuku (via privileged shell, fallback to Termux am/pgrep) ---
     if expect_shell and have_sh:
         _, shizuku_out = sh_adb("am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null")
         if "result=1" in shizuku_out:
@@ -680,7 +678,43 @@ def main():
             rc, _ = sh_adb("pgrep -f shizuku_server")
             shizuku = "up" if rc == 0 else "down"
     elif expect_shell:
-        shizuku = "unknown"
+        # Port 5555 is down — can't use adb shell. Fall back to Termux-native
+        # commands: pgrep for liveness, am broadcast for HEADLESS_START/STATUS.
+        rc, _ = run(["pgrep", "-f", "shizuku_server"])
+        if rc == 0:
+            shizuku = "up"
+            # Shizuku daemon is running but port 5555 is closed — likely
+            # TCP mode wasn't enabled (fleet profile not applied). Apply the
+            # fleet profile via am start (works from Termux, no ADB needed),
+            # then send HEADLESS_START to open port 5555.
+            log("shizuku_server running but port 5555 closed — applying fleet profile + HEADLESS_START")
+            shizuku_fp = "/data/local/tmp/shizuku-fleet.json"
+            if os.path.isfile(shizuku_fp):
+                run(["am", "start", "--user", "0",
+                     "-a", "moe.shizuku.privileged.api.APPLY_FLEET_PROFILE",
+                     "-e", "profile_path", shizuku_fp,
+                     "-e", "silent", "true",
+                     "-n", "moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity"])
+                time.sleep(1)
+            run(["am", "broadcast", "-a", "moe.shizuku.privileged.api.HEADLESS_START"])
+            time.sleep(3)
+            # Re-check if port 5555 came up.
+            if privileged_shell():
+                have_sh = True
+                port = "open"
+                log("port 5555 restored via HEADLESS_START from Termux")
+        else:
+            shizuku = "down"
+            log("shizuku_server NOT running — trying HEADLESS_START from Termux")
+            run(["am", "broadcast", "-a", "moe.shizuku.privileged.api.HEADLESS_START"])
+            time.sleep(3)
+            rc2, _ = run(["pgrep", "-f", "shizuku_server"])
+            if rc2 == 0:
+                shizuku = "repaired"
+                log("shizuku_server started via HEADLESS_START from Termux")
+                if privileged_shell():
+                    have_sh = True
+                    port = "open"
 
     # --- 4. AutoJs6 accessibility (Samsung disables it) — merge, never replace ---
     if expect_shell:

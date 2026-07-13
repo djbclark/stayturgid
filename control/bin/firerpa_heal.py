@@ -36,7 +36,8 @@ SSHD_DOWN = "/data/data/com.termux/files/usr/var/service/sshd/down"
 SSHD_BIN = "/data/data/com.termux/files/usr/bin/sshd"
 BOOTLOOP_PID = "/data/data/com.termux/files/home/.stayturgid/run/bootloop.pid"
 BOOTLAUNCH = (
-    "setsid /data/data/com.termux/files/home/.termux/boot/start-adb.sh "
+    "setsid /data/data/com.termux/files/usr/bin/python3 "
+    "/data/data/com.termux/files/home/.stayturgid/bin/start_adb.py "
     ">/dev/null 2>&1 < /dev/null &"
 )
 

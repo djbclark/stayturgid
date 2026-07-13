@@ -130,7 +130,7 @@ bundle agent check_profile(p, h) {
 
 bundle agent check_bootloop_repair(p, s) {
   classes:
-    "boot_running" expression => returnszero("$(p)/bin/pgrep -f start-adb.sh >/dev/null 2>&1", "useshell");
+    "boot_running" expression => returnszero("$(p)/bin/pgrep -f start_adb.py >/dev/null 2>&1", "useshell");
     "repair_recent" expression => returnszero("[ -f $(s)/logs/repair.log ] && [ $(stat -c %%Y $(s)/logs/repair.log 2>/dev/null || echo 0) -ge $(($(date +%%s) - 3600)) ]", "useshell");
 
   reports:
@@ -144,7 +144,7 @@ bundle agent check_bootloop_repair(p, s) {
   commands:
     (boot_running.!repair_recent)|(!boot_running)::
       "$(p)/bin/bash"
-        args => "-c 'pkill -f stayturgid_repair 2>/dev/null; pkill -f start-adb.sh 2>/dev/null; sleep 2; nohup bash $(s)/boot/start-adb.sh >/dev/null 2>&1 &'",
+        args => "-c 'pkill -f stayturgid_repair 2>/dev/null; pkill -f start_adb 2>/dev/null; sleep 2; nohup $(p)/bin/python3 $(s)/bin/start_adb.py >/dev/null 2>&1 &'",
         contain => silent_bg;
 }
 
