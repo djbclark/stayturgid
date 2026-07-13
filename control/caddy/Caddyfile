@@ -16,10 +16,20 @@ http://127.0.0.1:8080 {
     respond /health "OK" 200
 }
 
-# Main HTTPS entrypoint — all stayturgid services under one domain
-https://mac.greyhound-sidemirror.ts.net {
+# ── HTTP → HTTPS redirect for short MagicDNS name ──────────────────────────
+http://mac.greyhound-sidemirror.ts.net {
+    redir https://mac.greyhound-sidemirror.ts.net{uri} 301
+}
+
+# ── Main HTTPS entrypoint — all stayturgid services under one domain ────────
+mac.greyhound-sidemirror.ts.net {
     tls {
         get_certificate tailscale
+    }
+
+    # Network landing page (service directory)
+    handle_path /services/* {
+        reverse_proxy localhost:8088
     }
 
     # Fleet dashboard
@@ -32,8 +42,21 @@ https://mac.greyhound-sidemirror.ts.net {
         reverse_proxy localhost:8081
     }
 
+    # Fleet stats
+    handle_path /stats/* {
+        reverse_proxy localhost:4097
+    }
+
     # Default: OpenCode web UI
     handle {
         reverse_proxy localhost:4096
     }
+}
+
+# Also serve on short MagicDNS name (mac)
+mac {
+    tls {
+        get_certificate tailscale
+    }
+    redir https://mac.greyhound-sidemirror.ts.net{uri} 301
 }

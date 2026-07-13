@@ -23,10 +23,9 @@ body server control {
     trustkeysfrom => { "100.64.0.0/10" };
     allowusers    => { "root", "djbclark" };
 
-    # Direct cf-agent invocation with explicit policy file.
-    # The wrapper script path was restricted by ACL. Invoking cf-agent
-    # directly with the stayturgid.cf policy avoids the extra file ACL.
-    cfruncommand  => "/data/data/com.termux/files/usr/bin/cf-agent -f /data/data/com.termux/files/home/.stayturgid/cfengine/stayturgid.cf";
+    # Direct cf-agent — no arguments needed. Policy data is sent inline
+    # by cf-runagent and cf-agent reads it from stdin.
+    cfruncommand  => "/data/data/com.termux/files/usr/bin/cf-agent";
 
     port          => "5308";
     maxconnections => "5";

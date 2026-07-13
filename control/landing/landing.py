@@ -132,7 +132,7 @@ def main() -> int:
     ap.add_argument("--debug", action="store_true")
     args = ap.parse_args()
 
-    app.run(host="0.0.0.0", port=args.port, debug=args.debug)
+    app.run(host="127.0.0.1", port=args.port, debug=args.debug)
     return 0
 
 
