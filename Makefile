@@ -26,7 +26,7 @@ VLM_ANSIBLE := ansible-playbook $(MAC_SITE) -e stayturgid_vlm_enabled=true
 
 .PHONY: help all configure check unit test unit-and-pytest pytest ansible-test test-venv \
         lint clean verify verify-heal device dryrun dryrun-termux \
-        health fix-hd8-google deploy deploy-check collections bootstrap-ssh bootstrap-apks verify-bootstrap-apks ensure-shizuku deploy-termux deploy-mac syntax \
+        health fix-hd8-google deploy deploy-check secretspec-check collections bootstrap-ssh bootstrap-apks verify-bootstrap-apks ensure-shizuku deploy-termux deploy-mac syntax \
         termux-pkg-upgrade vlm-upstream-check \
         vlm-install vlm-server vlm-check vlm-stop vlm-service-install vlm-service-status \
         vlm-service-stop vlm-service-restart vlm-smoke verify-play-autoupdate verify-hd8-google \
@@ -79,6 +79,9 @@ help:
 	@echo "  make verify-heal [HOSTS=s24]      Device tier with self-heal steps"
 	@echo "  make dryrun [HOSTS=s24]           Alias for deploy-check"
 	@echo "  make dryrun-termux [HOSTS=s24]    Ansible --check on termux-userland.yml only"
+	@echo ""
+	@echo "Secrets & config:"
+	@echo "  make secretspec-check             Verify all required secrets are set (no-prompt)"
 	@echo ""
 	@echo "Test & lint (no device required):"
 	@echo "  make test                         Unit + pytest + ansible-test (CI default)"
@@ -182,6 +185,9 @@ verify-bootstrap-apks:
 
 ensure-shizuku:
 	ansible-playbook ansible/playbooks/fleet/ensure-shizuku.yml $(if $(HOSTS),-l $(HOSTS),)
+
+secretspec-check:
+	secretspec check --no-prompt --explain --provider dotenv --reason "make secretspec-check"
 
 health:
 	python3 control/bin/check_fleet_health.py

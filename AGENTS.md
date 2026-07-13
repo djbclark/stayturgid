@@ -29,6 +29,7 @@ make health && make firerpa-health
 | `make hermes-status` | Hermes worktree status |
 | `make vlm-check` | Check VLM server + cloud |
 | `make landing-status` | Network landing page status |
+| `make secretspec-check` | Verify all required secrets are set |
 
 ## Environment
 
@@ -36,6 +37,7 @@ make health && make firerpa-health
 - **FIRERPA venv:** Python 3.12 at `/tmp/lamda-venv` — `source /tmp/lamda-venv/bin/activate`
 - **SSH CA:** `~/.ssh/stayturgid_ca` — `make ca-status`
 - **OpenCode web:** http://100.113.53.87:4096
+- **Secrets:** managed via `secretspec` (`brew install secretspec`). Spec at `secretspec.toml` (project root). All secrets defined there; run `make secretspec-check` before deploys.
 
 ## Fleet (s24, p7a, hd8)
 
