@@ -1,4 +1,5 @@
 ---
+# @heals: ET-CONFIG
 # Phone → Mac Eternal Terminal: SSH config + package + self-heal share copy.
 # Requires inventory stayturgid_control_tailscale_ip or stayturgid_mac_peer.tailscale.
 - name: Resolve control-node Tailscale IP for ET SSH config

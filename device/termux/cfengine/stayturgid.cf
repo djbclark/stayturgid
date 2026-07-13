@@ -1,3 +1,4 @@
+# @heals: SSHD-RUNNING MIRROR-PINNED PATH-CLEAN
 # stayturgid.cf — Standalone self-heal policy for CFEngine on Termux
 # Deploy to: ~/.stayturgid/cfengine/stayturgid.cf
 # Run: cf-agent -f ~/.stayturgid/cfengine/stayturgid.cf

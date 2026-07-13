@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# @heals: HD8-DOZE-WHITELIST HD8-GSF-PINNED HD8-GMS-PINNED
 """Repair hd8 sideloaded Google Play stack (Doze whitelist + optional pin).
 
 Default (2026-07-10): whitelist GMS/GSF and ensure GSF 10-x. Does **not**

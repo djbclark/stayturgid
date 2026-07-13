@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# @heals: SSHD-RUNNING SHIZUKU-HEADLESS BOOTLOOP-ALIVE
 """FIRERPA self-heal: repair stayturgid services via FIRERPA gRPC API.
 
 Runs on the Mac control node. Connects to FIRERPA on each device via

@@ -26,7 +26,7 @@ from typing import Any
 REPO = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = REPO / "tests" / "healing_registry.json"
 
-_HEALS_LINE_RE = re.compile(r"@heals:\s*(.+?)$")
+_HEALS_LINE_RE = re.compile(r"@heals:\s*(.+?)$", re.MULTILINE)
 _HEALS_PY_SET_RE = re.compile(r"__healing_ids__\s*=\s*\{(.+?)\}", re.DOTALL)
 _ID_RE = re.compile(r"[A-Z][A-Z0-9]+(?:-[A-Z][A-Z0-9]+)*")
 

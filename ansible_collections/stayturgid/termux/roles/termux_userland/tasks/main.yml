@@ -1,4 +1,5 @@
 ---
+# @heals: MIRROR-PINNED OS-RELEASE PATH-CLEAN ENV-FILE SSHD-PENALTIES TERMUX-WRITESETTINGS TERMUX-OVERLAY BOOTLOOP-AUTOSTART PKG-UPGRADE
 # Pin the mirror BEFORE any pkg operation so update/upgrade is deterministic.
 - name: Pin Termux main mirror (deterministic pkg update)
   ansible.builtin.copy:

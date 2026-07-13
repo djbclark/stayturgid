@@ -43,6 +43,17 @@ done
 [ -z "$bad" ] && tap_ok "json: all catalogs/configs valid" \
               || tap_fail "json: all catalogs/configs valid" "failed:$bad"
 
+# --- healing coverage check -------------------------------------------------
+_coverage_output=$(python3 tests/check_healing_coverage.py 2>&1)
+_coverage_rc=$?
+if [ "$_coverage_rc" -eq 0 ]; then
+    tap_ok "healing coverage: all must_cover IDs declared across mechanisms"
+else
+    # Show the checker's own TAP output in the failure detail.
+    _coverage_detail=$(echo "$_coverage_output" | grep '^not ok' | head -20 | sed 's/^/  /')
+    tap_fail "healing coverage: gaps found (see detail)" "$_coverage_detail"
+fi
+
 # --- launchd plists (macOS only) -------------------------------------------
 if command -v plutil >/dev/null 2>&1; then
     bad=""

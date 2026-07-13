@@ -1,4 +1,5 @@
 ---
+# @heals: A11Y-PROFILE-MATCH TAILSCALE-ALWAYSON
 # Post-deploy validation over SSH (complements make verify / device_tier TAP).
 
 - name: Run stayturgid-repair and parse STATUS

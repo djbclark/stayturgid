@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# @heals: PLAY-AUTOUPDATE-OFF
 """Verify Play Store 'Don't auto-update apps' via Handsets nav + optional VLM gate.
 
 Navigates Play Store without ScreenControlSession (account drawer is unreliable

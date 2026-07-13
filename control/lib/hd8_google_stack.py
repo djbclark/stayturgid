@@ -1,3 +1,4 @@
+# @heals: HD8-DOZE-WHITELIST HD8-GSF-PINNED HD8-GMS-PINNED
 """Fire HD 8 sideloaded Google Play stack — version pin + Doze whitelist.
 
 Play Services auto-updates (via Play Store) to builds that require
