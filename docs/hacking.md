@@ -491,8 +491,8 @@ ssh -i ~/.ssh/termux_key -p 8022 localhost
 
 ### Resume current work before choosing a task
 
-Maintainers and AI agents must first read [the handoff](handoff.md),
-[the open-work menu](options.md), and the
+Maintainers and AI agents must first read [the coding rules](coding-rules.md),
+[the handoff](handoff.md), [the open-work menu](options.md), and the
 [ordered outstanding-fix plan](plans/outstanding-fix-priorities-2026-07-13.md).
 That plan contains the current execution order, acceptance gates, rollback rules,
 and a copy-paste junior-agent prompt. Reliability work takes precedence over optional

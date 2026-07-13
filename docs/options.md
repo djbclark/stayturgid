@@ -17,6 +17,7 @@
 >
 > Human-only tasks: [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md). Operator
 > answers: `human/RESPONSES.md` (gitignored). Session context: [docs/handoff.md](handoff.md).
+> Coding and completion rules: [docs/coding-rules.md](coding-rules.md).
 > Strategic directions: [docs/handoff.md appendix](handoff.md#appendix--strategic-directions-equal-weight).
 > Ansible boundary: [docs/adr/001-ansible-boundary.md](adr/001-ansible-boundary.md),
 > [docs/adr/002-ansible-ui-tasks.md](adr/002-ansible-ui-tasks.md).

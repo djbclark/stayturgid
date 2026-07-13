@@ -4,7 +4,9 @@
 >
 > **Modular docs:** each subfolder is usable on its own. Human index: [docs/README.md](README.md) · [README.md](../README.md). Full clean-install setup + device gotchas: [docs/hacking.md](hacking.md). **Operator tasks (credentials, deploy approval):** [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md). **Open work menu:** [docs/options.md](options.md) (single list — replace + push when items close). **Current execution order and junior-agent prompt:** [Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md). **Layout reference:** [docs/architecture.md](architecture.md). Git history has the detailed narrative of every change; this file is the condensed durable record.
 >
-> **Agent rules (always read on handoff):** [`.cursor/rules/`](../.cursor/rules/) — project policy Cursor/agents load as `alwaysApply` rules. See [§ Cursor agent rules](#cursor-agent-rules--read-on-every-handoff) below. Also read root [`AGENTS.md`](../AGENTS.md) (quick-start + key commands table).
+> **Agent rules (always read on handoff):** root [`AGENTS.md`](../AGENTS.md),
+> [coding-rules.md](coding-rules.md), and [`.cursor/rules/`](../.cursor/rules/).
+> See [§ Cursor agent rules](#cursor-agent-rules--read-on-every-handoff) below.
 >
 > **2026-07-10:** Massive repo restructure on `master` (`d950c53`) — read [§ Cold-start](#-cold-start--current-state-read-this-first) before assuming any path.
 
@@ -170,7 +172,7 @@ python3 control/bin/screen_lease.py status
 # Optional: make verify-drift HOSTS=s24  # Ansible-based drift check
 ```
 
-Then read [docs/options.md](options.md) and the
+Then read [coding-rules.md](coding-rules.md), [docs/options.md](options.md), and the
 [ordered outstanding-fix plan](plans/outstanding-fix-priorities-2026-07-13.md)
 before selecting work. Its priority order is authoritative for reliability work;
 hardware- or human-blocked items remain open while the next independent safe item

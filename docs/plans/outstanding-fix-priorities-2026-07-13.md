@@ -273,73 +273,25 @@ Do not let these displace the ordered fixes above:
 
 ## Junior Developer Resume Prompt
 
-Copy the following prompt into a new AI session:
+The prompt is intentionally short. Project rules and work details live in the linked
+files so they can be maintained without rewriting handoff prompts.
 
 ```text
-You are resuming work as a junior developer responsible for the Stayturgid project
-at ~/stayturgid and its supporting projects under ~/src/*. Work carefully and in
-small, reviewable increments. The operator prefers Python for substantive logic;
-JavaScript is acceptable only where the AutoJs6 runtime requires it.
+Work as a junior developer on ~/stayturgid and, only when the task requires it, the
+supporting repositories under ~/src/*. Before doing anything, read these completely
+and follow them in order:
 
-Before editing anything:
+1. ~/stayturgid/AGENTS.md
+2. ~/stayturgid/docs/coding-rules.md
+3. every file under ~/stayturgid/.cursor/rules/
+4. ~/stayturgid/docs/handoff.md
+5. ~/stayturgid/docs/options.md
+6. ~/stayturgid/docs/plans/outstanding-fix-priorities-2026-07-13.md
 
-1. Read ~/stayturgid/AGENTS.md completely and follow it.
-2. Read ~/stayturgid/docs/handoff.md, ~/stayturgid/docs/options.md, and
-   ~/stayturgid/docs/plans/outstanding-fix-priorities-2026-07-13.md completely.
-3. Read the relevant module docs and .cursor/rules files before touching that area.
-4. From ~/stayturgid run:
-     git fetch origin --prune
-     git pull --ff-only origin master
-     make health
-     make firerpa-health
-5. Immediately report every active WARNING/ERROR and its host/issues tags. Historical
-   P7A log errors may be resolved; distinguish live state from history.
-6. Inspect git status. Do not reset, overwrite, or stage unrelated changes. In
-   particular, control/landing/services.json is currently modified by runtime discovery;
-   preserve it until Priority 3 deliberately migrates that state.
-
-Execute the priorities in this exact order:
-
-1. H10: fix the unsupported AutoJs6 files.getParent() calls in both termux.js and
-   notify.js, add a regression test for missing parent directories, deploy narrowly
-   to S24 then P7A, and verify fresh logs.
-2. H1/H3: resolve HD8's permanently red health state. Use USB recovery if deploying.
-   If the operator intends HD8 to stay offline, implement an explicit visible
-   maintenance state rather than silently suppressing it.
-3. H11: split the committed landing-page service catalog from generated runtime
-   reachability/timestamp state. Prove two discovery runs leave Git clean.
-4. H8 then H9: add dashboard detection plus immediate request/test/retry for Termux
-   Shizuku authorization, requiring rish UID 2000. Surface unlock/accessibility human
-   actions without bypassing Android consent. Treat foreground cleanup as secondary.
-5. B63/B64: test native Shizuku stopped-to-running with S24 and USB recovery, but ask
-   for explicit approval before stopping Shizuku. Run the cold bootstrap only on a
-   virgin/disposable device; otherwise record the hardware blocker and leave it open.
-6. H12: make default fleet-health output group repeated historical errors and clearly
-   separate active, recovered, and historical conditions while preserving raw detail
-   and current-state exit codes.
-7. F4: perform a read-only FIRERPA listener/outbound audit, then propose least-disruptive
-   isolation. Ask before applying ACL/network changes that could affect recovery.
-8. T1: only after reliability work is stable, follow docs/plans/just-migration-plan.md.
-   Keep a Make compatibility shim and move complex shell logic into Python.
-
-Rules while working:
-
-- Work on one numbered priority at a time and keep commits scoped.
-- If hardware or a human action blocks an item, document the exact blocker in
-  docs/options.md, leave the item open, and continue only with the next independent
-  safe item. Never mark an untested path complete.
-- Prefer S24 for live tests. Announce every device interaction with host, reason, and
-  expected duration, and obey the screen-control lease.
-- Never automatically rewrite enabled accessibility services.
-- Fix every new WARNING/ERROR you encounter or add a stable OPTIONS item explaining
-  its impact, evidence, and next action.
-- Run focused tests plus make check; run broader tests when risk warrants it.
-- Verify git diff and git status before committing. Commit and push completed work,
-  but never include unrelated runtime/user changes.
-- Update the plan and options with evidence, validation, and rollback information.
-
-Start with Priority 1 only. First inspect the AutoJs6 runtime APIs and existing tests,
-explain the smallest safe fix, implement it, test it locally, and then announce before
-touching S24. Do not begin optional Galaxy, LLM, MCP, WebRTC, MITM, Tasker, or sshd-D
-work while these priorities remain.
+Then run the session-start checks specified in those files, report active warnings or
+errors, and begin only the first incomplete priority in the ordered plan. Read any
+module, ADR, research, or task-plan documents that priority references before editing.
+Do not rely on this prompt for implementation details; the repository documents are
+authoritative. Stop and ask when those documents require operator approval or when a
+material decision is not already specified.
 ```

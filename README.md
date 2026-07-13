@@ -29,6 +29,7 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 | [docs/incubator/](docs/incubator/) | Parked side projects — do not implement unless revived ([tablet-control](docs/incubator/tablet-control-phone.md), Inferno, …) |
 | [docs/hacking.md](docs/hacking.md) | Developer setup, clean install, Obtainium, Termux swap |
 | [docs/handoff.md](docs/handoff.md) | Maintainer / AI handoff — includes mandatory Mac fleet-health triage |
+| [docs/coding-rules.md](docs/coding-rules.md) | Durable coding, safety, testing, Git, and completion rules |
 | [`.cursor/rules/`](.cursor/rules/) | **AI agent policies** (always-on; read on every handoff) — self-heal, screen-control hold, … |
 | [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md) | Operator tasks (credentials, deploy approval) — human-only |
 | [docs/options.md](docs/options.md) | Next-work menu — agents append + push when operator asks for options |
