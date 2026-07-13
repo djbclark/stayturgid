@@ -188,8 +188,7 @@ end of that plan.
 | **hd8** | 13/16 PASS | offline / watchdog stale | pending | ⚠️ USB only | last ✅ 4/7 | Deferred H1/H3; aggregate `make health` remains nonzero |
 
 **Current fix order:** H1/H3 HD8 health decision → H8/H9 dashboard human actions →
-B63/B64 recovery tests →
-H12 health summary → F4 FIRERPA network audit/isolation → T1 `just` migration. See
+B63/B64 recovery tests → F4 FIRERPA network audit/isolation → T1 `just` migration. See
 [the execution plan](plans/outstanding-fix-priorities-2026-07-13.md) for gates and
 rollback rules.
 
@@ -638,9 +637,9 @@ version.json                 — repo release version + changelog
   definitions remain in `control/landing/services.json`; discovery observations and
   hidden entries now live under `~/.config/stayturgid/landing/services.json`, with
   first-use migration and atomic writes.
-- **Recovered error noise (open H12):** default fleet health may show many historical
-  P7A errors after live health has recovered. Treat the live host summary and exit
-  status as current state; H12 will group repeated history and label it recovered.
+- **Recovered error noise (H12 complete 2026-07-13):** default fleet health keeps
+  raw `errors.log` detail but groups repeated messages and labels active, recovered,
+  and historical conditions. Exit status remains based on current actionable state.
 - **Termux Shizuku authorization is human-gated (open H8):** the user must select
   **Allow all the time**. The durable success probe is
   `~/.stayturgid/bin/rish -c 'id -u'` returning UID 2000. Dashboard request/test/retry

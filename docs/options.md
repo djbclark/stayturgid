@@ -37,7 +37,7 @@ links and hourly discovery scan. HTTPS consolidation behind Caddy reverse proxy
 greyhound-sidemirror.ts.net; all old machine names purged. s24 + p7a: FIRERPA secure
 SSH/gRPC live without suppressing AutoJs6, AutoInput, or Octoclip; Python runtime and
 watchdogs healthy. Open menu = remaining hd8 deployment under H1/H3, H8 (`rish`
-dashboard action), H9 (post-UI foreground cleanup), H12 reliability fix,
+dashboard action), H9 (post-UI foreground cleanup),
 H5/38, 43–45, 54, F1–F4, T1, and optional T2 runtime-supervision evaluation.
 `make firerpa-health` is clean and live health is clean for s24 + p7a. The aggregate
 `make health` command remains nonzero only for hd8's documented `watchdog_stale` /
@@ -49,7 +49,7 @@ radius · **Latent** = only act if a symptom returns.
 
 **Suggested agent order:** Follow
 [Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md): H1/H3,
-H8/H9, B63/B64, H12, F4, then T1. Hardware-blocked items stay open
+H8/H9, B63/B64, F4, then T1. Hardware-blocked items stay open
 while independent safe work may continue. H5/38, 43–45, 54, and F1–F3 remain lower
 priority or symptom-triggered.
 
@@ -59,7 +59,7 @@ priority or symptom-triggered.
 
 | Track | Focus | Open IDs | Typical risk |
 |-------|-------|----------|--------------|
-| **A — Operational** | Live deploy, human unblockers, current reliability | H1, H3, H5, H8, H9, H12, 38 | Low–High |
+| **A — Operational** | Live deploy, human unblockers, current reliability | H1, H3, H5, H8, H9, 38 | Low–High |
 | **B — Ansible-native** | Bootstrap APK automation follow-ups | B63, B64 | Low–Medium |
 | **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; incubator note | 54 | Medium (mis-scope risk) |
@@ -313,12 +313,12 @@ reachability, status codes, and hidden entries. First use migrates the prior tra
 state, writes atomically, and tests plus two live discovery runs prove the catalog
 remains unchanged.
 
-#### H12 — Summarize recovered errors in default fleet health · Risk: **Low**
+#### H12 — Summarize recovered errors in default fleet health · **Complete 2026-07-13** · Risk: **Low**
 
-The default health output currently prints many repeated historical P7A errors after
-the host has recovered. Preserve raw detail, but group repeated failures and separate
-active, recovered, and historical conditions. Keep exit status based on current
-actionable health and add coverage for repeated/recovered/stale cases.
+`control/bin/check_fleet_health.py` now preserves the raw log while grouping repeated
+messages with counts/latest timestamps and separating active, recovered, and
+historical conditions. Exit status remains based on current actionable health;
+unit coverage covers repeated and recovered classification.
 
 Execution order, gates, and junior-agent resume prompt:
 [Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md).

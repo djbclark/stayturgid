@@ -17,6 +17,7 @@ import datetime as dt
 import os
 import re
 import sys
+from collections import Counter
 from pathlib import Path
 
 ROOT = Path(os.path.expanduser("~")) / ".config" / "stayturgid"
@@ -269,20 +270,37 @@ def main(argv: list[str] | None = None) -> int:
         "Next: prefer fixing AutoJs6/a11y/repair before OPTIONS 43–45; "
         "see docs/handoff.md § Mac fleet health."
     )
-    # Show recent device errors
+    # Show grouped device errors.  The raw errors.log is deliberately left
+    # untouched for forensic detail; health output should stay triage-sized.
     if ERROR_LOG.is_file():
-        errors = _read_device_errors(hours=args.hours)
-        if errors:
-            print("\n=== recent device errors (%dh) ===" % args.hours)
-            for e in errors:
-                print("  %s" % e)
+        entries = _read_device_error_entries(hours=args.hours)
+        if entries:
+            active_hosts = {p.split()[0] for p in problems}
+            recovered_hosts = currently_reachable - active_hosts
+            summaries = summarize_device_errors(entries, active_hosts, recovered_hosts)
+            print("\n=== device error summary (%dh; raw detail in %s) ===" % (args.hours, ERROR_LOG))
+            labels = {
+                "active": "active device errors",
+                "recovered": "recovered device errors (host healthy now)",
+                "historical": "historical device errors (host not in current scrape)",
+            }
+            for category in ("active", "recovered", "historical"):
+                rows = summaries[category]
+                if not rows:
+                    continue
+                print("%s:" % labels[category])
+                for detail, count, latest_ts in rows[:20]:
+                    suffix = " (x%d, latest %s)" % (
+                        count, latest_ts.strftime("%Y-%m-%d %H:%M:%S")
+                    )
+                    print("  • %s%s" % (detail, suffix))
     return 1
 
 
-def _read_device_errors(hours: int) -> list[str]:
-    """Read errors.log and return recent entries."""
+def _read_device_error_entries(hours: float) -> list[tuple[dt.datetime, str, str]]:
+    """Read recent device errors as ``(timestamp, host, message)`` tuples."""
     since = dt.datetime.now() - dt.timedelta(hours=hours)
-    results: list[str] = []
+    results: list[tuple[dt.datetime, str, str]] = []
     try:
         with open(ERROR_LOG) as f:
             for line in f:
@@ -293,11 +311,55 @@ def _read_device_errors(hours: int) -> list[str]:
                 ts_val = parse_ts(m.group(1))
                 if ts_val and ts_val >= since:
                     rest = m.group(3).strip()
+                    # errors.log normally has ``ERR host: ...`` while older
+                    # entries may omit the severity column.
+                    host = m.group(2)
+                    if host in SEVERITY_TOKENS:
+                        fields = rest.split(None, 1)
+                        if len(fields) == 2:
+                            host, rest = fields
+                    if host.endswith(":"):
+                        host = host[:-1]
+                    nested = re.match(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\s+", rest)
+                    if nested:
+                        rest = rest[nested.end() :]
                     if rest:
-                        results.append("%s %s" % (m.group(1), rest[:200]))
+                        results.append((ts_val, host, rest[:240]))
     except OSError:
         pass
-    return results[-50:]
+    return results[-500:]
+
+
+def _read_device_errors(hours: float) -> list[str]:
+    """Compatibility view of recent errors; raw detail remains available in the log."""
+    return ["%s %s: %s" % (ts.strftime("%Y-%m-%d %H:%M:%S"), host, message)
+            for ts, host, message in _read_device_error_entries(hours)]
+
+
+def summarize_device_errors(
+    entries: list[tuple[dt.datetime, str, str]],
+    active_hosts: set[str],
+    recovered_hosts: set[str],
+) -> dict[str, list[tuple[str, int, dt.datetime]]]:
+    """Group repeated errors and classify them by current host health."""
+    grouped: dict[str, Counter[tuple[str, str]]] = {
+        "active": Counter(), "recovered": Counter(), "historical": Counter()
+    }
+    latest: dict[tuple[str, str], dt.datetime] = {}
+    for ts, host, message in entries:
+        category = "active" if host in active_hosts else (
+            "recovered" if host in recovered_hosts else "historical"
+        )
+        key = (host, " ".join(message.split()))
+        grouped[category][key] += 1
+        latest[key] = max(ts, latest.get(key, ts))
+    return {
+        category: [
+            ("%s: %s" % key[0:2], count, latest[key])
+            for key, count in counts.most_common()
+        ]
+        for category, counts in grouped.items()
+    }
 
 
 if __name__ == "__main__":

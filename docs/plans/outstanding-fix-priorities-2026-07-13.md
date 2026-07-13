@@ -211,7 +211,7 @@ not approximate a virgin-device result on an already-managed phone.
   on suitable hardware.
 - Recovery instructions reflect what was actually observed.
 
-## Priority 6 — Make fleet-health output emphasize current state (H12)
+## Priority 6 — Make fleet-health output emphasize current state (H12) — COMPLETE 2026-07-13
 
 ### Problem
 
@@ -227,6 +227,13 @@ problems harder to see.
 4. Separate active failures, resolved recent failures, and historical diagnostics.
 5. Keep exit status based on current actionable health, not historical log presence.
 6. Add tests for active, recovered, repeated, and stale-scrape cases.
+
+Implemented in `control/bin/check_fleet_health.py`: raw `errors.log` remains the
+forensic source, while default output groups normalized repeated messages and
+labels active, recovered, and historical host conditions. Counts and latest
+timestamps are shown, and health exit status still depends only on current
+actionable fleet/access state. Added unit coverage for grouping/classification and
+recovered output; `make check` and `make test` pass.
 
 ### Completion gate
 
