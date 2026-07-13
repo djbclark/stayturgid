@@ -34,7 +34,12 @@ body server control {
 
 bundle server access_rules() {
   access:
-    # Mac can trigger stayturgid_heal bundle for full repair.
+    # Allow remote execution of the cf-agent binary (the cfruncommand).
+    # Without this, cf-runagent connections get "EXEC denied due to ACL".
+    "/data/data/com.termux/files/usr/bin/cf-agent"
+      handle        => "cf_agent_exec_access",
+      resource_type => "literal",
+      admit         => { "100.64.0.0/10" };
 
     # Mac can trigger stayturgid_heal bundle for full repair.
     "stayturgid_heal"
