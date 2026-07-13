@@ -14,7 +14,10 @@
       ansible.builtin.set_fact:
         _vfy_adb: "{{ target_device | default(lookup('stayturgid.android_common.adb_device', inventory_hostname)) }}"
       delegate_to: localhost
-      delegate_facts: true
+
+    - name: Load bootstrap APK defaults
+      ansible.builtin.include_vars:
+        file: ../../../ansible_collections/stayturgid/android_common/roles/bootstrap_apks/defaults/main.yml
 
     - name: Check each bootstrap APK version
       ansible.builtin.include_tasks: ../../../ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/check_apk.yml
@@ -24,19 +27,14 @@
         loop_var: _apk
 
     - name: Extract missing APK list
-      delegate_to: localhost
-      delegate_facts: true
       ansible.builtin.set_fact:
         _vfy_missing_list: "{{ _vfy_results | selectattr('missing', 'true') | list }}"
 
     - name: Extract stale APK list
-      delegate_to: localhost
-      delegate_facts: true
       ansible.builtin.set_fact:
         _vfy_stale_list: "{{ _vfy_results | selectattr('stale', 'true') | list }}"
 
     - name: Fail if any APKs are missing
-      delegate_to: localhost
       ansible.builtin.assert:
         that: _vfy_missing_list | length == 0
         fail_msg: >-
@@ -49,7 +47,6 @@
         quiet: true
 
     - name: Warn about stale APK versions
-      delegate_to: localhost
       ansible.builtin.debug:
         msg: >-
           STALE BOOTSTRAP APKs on {{ inventory_hostname }}:
@@ -59,7 +56,6 @@
       when: _vfy_stale_list | length > 0
 
     - name: Show all checked versions
-      delegate_to: localhost
       ansible.builtin.debug:
         msg: >-
           {% for a in _vfy_results %}
