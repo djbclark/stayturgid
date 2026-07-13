@@ -168,20 +168,25 @@ when 5555 is dead. Note (incubator):
 
 ### Track T — Tooling (deferred)
 
-#### T1 — Evaluate GNU Make → `just` migration (agent) · Risk: **Low** · Deferred
+#### T1 — Make `just` the primary operator interface (agent) · Risk: **Low–Medium** · Deferred
 
-Investigate whether [casey/just](https://github.com/casey/just) is a better command
-runner for stayturgid than GNU Make. Compare command discoverability, `HOSTS=` and other
-operator overrides, environment propagation, CI/developer installation cost, completion,
-and whether a staged dual-Makefile/justfile period is safer than a direct replacement.
-Produce a recommendation and migration map before changing the operator interface.
+The evaluation is complete and the direction is accepted: replace most of the 494-line,
+79-target command-runner Makefile with a root `justfile`, keep substantive logic in
+Python or Ansible, and retain a small Make compatibility/bootstrap shim through CI and
+live-fleet soak. Do not perform a flag-day Make removal.
 
-**2026-07-13 evidence:** `examples/firerpa-nonroot/justfile` now uses `just` for a
-bounded, standalone installation workflow. It provides a useful real-world trial of
-discoverable recipes, dotenv configuration, dependencies, formatting checks, and
-operator overrides. This does not yet authorize or imply migration of stayturgid's
-existing Make interface; use the example's ergonomics and maintenance history as input
-to the eventual comparison.
+Follow the staged plan, compatibility contract, live S24 gates, rollback rules, and
+completion criteria in
+[GNU Make to `just` Migration Plan](plans/just-migration-plan.md). Task/Taskfile is the
+closest direct alternative; `mise` may be evaluated separately for toolchain pinning,
+not as a prerequisite for T1.
+
+**2026-07-13 evidence:** `examples/firerpa-nonroot/justfile` is the bounded real-world
+trial. Its prepare workflow was idempotent, its parser/formatter gate passed, and its
+read-only doctor/status/SSH/gRPC recipes were exercised against S24. Repository-wide
+inspection found little meaningful Make build-graph behavior; the migration cost is
+primarily current documentation and compatibility across approximately 63 non-history
+files. Implementation remains deferred until T1 is deliberately selected.
 
 ---
 
