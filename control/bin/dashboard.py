@@ -91,7 +91,7 @@ def _parse_space_kv(text: str) -> dict[str, str]:
 
 
 _HEALTH_LINE_RE = re.compile(
-    r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(\S+)\s+via\s+(\S+):\s+(.*)$"
+    r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(?:[A-Z]+\s+)?(\S+)\s+via\s+(\S+):\s+(.*)$"
 )
 
 
