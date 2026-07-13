@@ -54,9 +54,9 @@ B63–B64 are follow-ups needing hardware access.
 
 | Track | Focus | Open IDs | Typical risk |
 |-------|-------|----------|--------------|
-| **A — Operational** | Live deploy, human unblockers | H5, 38 | Medium–High (live phones / publish) |
+| **A — Operational** | Live deploy, human unblockers | H5, 38, H6 (s24 watchdog) | Medium–High (live phones / publish) |
 | **B — Ansible-native** | Bootstrap APK automation follow-ups | B63, B64 | Low–Medium |
-| **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
+| **D — Reliability** | Symptom-driven hardening | H6, 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; incubator note | 54 | Medium (mis-scope risk) |
 | **F — FIRERPA** | gRPC backup channel enhancements | F1–F4 | Medium (future, core is done) |
 
@@ -201,14 +201,40 @@ already in this state (`CLOSED_NO_SHELL` for hours).
 
 #### H2 — p7a port 5555 is down · Risk: **Medium** · Trigger: operator action
 
-p7a has been showing `CLOSED_NO_SHELL` since 06:20 2026-07-13. Wireless debugging
-needs manual re-enable in Developer Options, or a reboot. Other devices (s24) may
-be fine.
+p7a wireless debugging (port 5555) has been down since ~06:20 2026-07-13.
+`CLOSED_NO_SHELL` in co-monitor. Shizuku daemon IS running (pgrep) but can't
+serve shells. Needs manual re-enable in Developer Options → Wireless debugging,
+or a reboot. SSH and fleet-health probes work fine via the ADB fallback path.
 
 #### H3 — `make deploy` to push Python runtime to fleet · Risk: **Medium**
 
 Run `make deploy [HOSTS=s24]` to push all new Python scripts (bridges, start_adb, repair
 with severity logging) and retire old shell scripts from devices via `stayturgid_retired_scripts`.
+
+#### H6 — s24 AutoJs6 watchdog stale (Android 16) · Risk: **Medium** · Latent
+
+s24's AutoJs6 watchdog has been stuck since Jul 12 16:30 EDT. The watchdog detected
+"accessibility disabled" and tried to re-enable it, but the trigger file write failed
+(`TypeError: Cannot find function getParent`). After that error, the AutoJs6 main.js
+JavaScript task stopped cycling entirely — the app process is alive (including a11y
+service IS enabled) but the task won't restart.
+
+**What's been tried:**
+- `start_watchdog.py` (Mac → ADB trigger file) — reported success but no new cycle
+- `am force-stop` + `monkey` relaunch of AutoJs6 — app restarts but task doesn't
+- `am broadcast RunIntentActivity` with main.js path — no effect
+- Fleet-health watchdog heal triggered at 09:45 with `start_watchdog.py` — the
+  guard log shows the task briefly started then got stuck on the same error
+
+**Root cause speculation:** AutoJs6 v6.7.0 on Android 16 — the `getParent()` API
+may have been removed or restricted. The task enters an error loop at startup and
+can't proceed past the accessibility check.
+
+**Next steps if fixing:**
+1. Check AutoJs6 logs on-device (`logcat -s "AutoJs6:*"` or internal error log)
+2. Consider downgrading AutoJs6 or switching to a different approach
+3. The dashboard shows `bootloop_down` — confirmed false positive (bootloop IS running)
+4. All other services healthy (sshd=ok, shizuku=up, ADB=ok)
 
 **Non-goals / do-not-touch:** MDM / root / Play Protect bypass; full Obtainium
 API; Tasker rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal;
