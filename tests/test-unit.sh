@@ -108,20 +108,23 @@ repair_suite() {
     export PGREP_RC=0
     run_sandboxed "$RSCRIPT"
     tap_is "$RC" 0 "repair[$T]: healthy => exit 0"
-    tap_like "$OUT" "STATUS port=open shizuku=up sshd=up a11y=up shell=yes wifi=up" "repair[$T]: healthy STATUS line"
+    _RSTATUS="$(cat "$SANDBOX/home/.stayturgid/run/repair.status" 2>/dev/null || echo "$OUT")"
+    tap_like "$_RSTATUS" "STATUS port=open shizuku=up sshd=up a11y=up shell=yes wifi=up" "repair[$T]: healthy STATUS line"
 
     # wireless debugging off => re-enabled via settings put (Pixel / stock Android)
     reset_sandbox
     export PGREP_RC=0 ADB_WIFI=0
     run_sandboxed "$RSCRIPT"
     unset ADB_WIFI
-    tap_like "$OUT" "wifi=repaired" "repair[$T]: wireless debugging off => repaired"
+    _RSTATUS="$(cat "$SANDBOX/home/.stayturgid/run/repair.status" 2>/dev/null || echo "$OUT")"
+    tap_like "$_RSTATUS" "wifi=repaired" "repair[$T]: wireless debugging off => repaired"
 
     # a11y: detection-only — no longer auto-repairs, reports status
     reset_sandbox
     export PGREP_RC=0 ADB_A11Y="com.other.app/.TheirService"
     run_sandboxed "$RSCRIPT"
-    tap_like "$OUT" "a11y=down" "repair[$T]: disabled accessibility => down (detection only)"
+    _RSTATUS="$(cat "$SANDBOX/home/.stayturgid/run/repair.status" 2>/dev/null || echo "$OUT")"
+    tap_like "$_RSTATUS" "a11y=down" "repair[$T]: disabled accessibility => down (detection only)"
     # Check the repair log for the ACTION_REQUIRED message (not stdout)
     tap_like "$(cat "$SANDBOX/home/.stayturgid/logs/repair.log" 2>/dev/null)" \
         "ACTION_REQUIRED" "repair[$T]: logs ACTION_REQUIRED when a11y disabled"
@@ -137,7 +140,8 @@ repair_suite() {
     export PGREP_RC=1
     run_sandboxed "$RSCRIPT"
     tap_is "$RC" 0 "repair[$T]: sshd down => restarted, exit 0"
-    tap_like "$OUT" "sshd=restarted" "repair[$T]: STATUS reports sshd=restarted"
+    _RSTATUS="$(cat "$SANDBOX/home/.stayturgid/run/repair.status" 2>/dev/null || echo "$OUT")"
+    tap_like "$_RSTATUS" "sshd=restarted" "repair[$T]: STATUS reports sshd=restarted"
 
     # 5555 dead (shell uid probe fails) => CLOSED_NO_SHELL, exit 1
     reset_sandbox
@@ -145,7 +149,8 @@ repair_suite() {
     run_sandboxed "$RSCRIPT"
     unset ADB_SHELL_UID
     tap_is "$RC" 1 "repair[$T]: no privileged shell => exit 1"
-    tap_like "$OUT" "port=CLOSED_NO_SHELL" "repair[$T]: STATUS reports CLOSED_NO_SHELL"
+    _RSTATUS="$(cat "$SANDBOX/home/.stayturgid/run/repair.status" 2>/dev/null || echo "$OUT")"
+    tap_like "$_RSTATUS" "port=CLOSED_NO_SHELL" "repair[$T]: STATUS reports CLOSED_NO_SHELL"
 
     # Fire OS / split-storage: localhost:5555 not expected — sshd-only heal, exit 0
     reset_sandbox
@@ -155,9 +160,10 @@ repair_suite() {
     export STAYTURGID_SD="$SANDBOX/sd"
     run_sandboxed "$RSCRIPT"
     unset ADB_SHELL_UID STAYTURGID_SD
+    _RSTATUS="$(cat "$SANDBOX/home/.stayturgid/run/repair.status" 2>/dev/null || echo "$OUT")"
     tap_is "$RC" 0 "repair[$T]: Fire OS skip privileged shell => exit 0"
-    tap_like "$OUT" "port=skip" "repair[$T]: STATUS reports port=skip"
-    tap_unlike "$OUT" "CLOSED_NO_SHELL" "repair[$T]: Fire OS does not log CLOSED_NO_SHELL"
+    tap_like "$_RSTATUS" "port=skip" "repair[$T]: STATUS reports port=skip"
+    tap_unlike "$_RSTATUS" "CLOSED_NO_SHELL" "repair[$T]: Fire OS does not log CLOSED_NO_SHELL"
 
     # H1 regression: lock-contention branch must resolve its helpers
     reset_sandbox
@@ -165,7 +171,8 @@ repair_suite() {
     run_sandboxed "$RSCRIPT"
     unset FLOCK_RC
     tap_is "$RC" 0 "repair[$T]: duplicate invocation exits 0 (advisory)"
-    tap_like "$OUT" "sshd=up" "repair[$T]: duplicate branch reports real sshd state (H1)"
+    _RSTATUS="$(cat "$SANDBOX/home/.stayturgid/run/repair.status" 2>/dev/null || echo "$OUT")"
+    tap_like "$_RSTATUS" "sshd=up" "repair[$T]: duplicate branch reports real sshd state (H1)"
     tap_unlike "$ERR" "command not found" "repair[$T]: duplicate branch has no unresolved functions (H1)"
 
     # M8 regression: oversized log gets trimmed
