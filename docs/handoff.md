@@ -602,6 +602,25 @@ version.json                 — repo release version + changelog
 
 ## Known issues / gotchas
 
+- **s24 AutoJs6 watchdog stale (2026-07-12 16:30 – ongoing):** AutoJs6 main.js task
+  stuck after `getParent` TypeError when trying to repair accessibility. The app
+  process is alive, a11y service is in the enabled list, but the JavaScript task
+  won't cycle. `start_watchdog.py`, `am force-stop`, and ADB trigger files all fail
+  to restart it. Android 16 likely broke the `getParent()` API. Terminal 1 (repair
+  loop) continues normally; only the AutoJs6 watchdog layer is down. See OPTIONS H6.
+  When working on this: check AutoJs6 internal logs, consider downgrade or alternative.
+- **p7a CLOSED_NO_SHELL (2026-07-13 ~06:20 – ongoing):** wireless debugging toggle
+  off on p7a. Shizuku daemon runs but can't serve ADB shells. SSH works. Manual
+  fix: Developer Options → Wireless debugging → enable. See OPTIONS H2.
+- **Fleet-health monitor log format (2026-07-13):** The shared logging refactoring
+  added severity labels (`INFO`, `ERR`) before the hostname in log lines. The
+  dashboard regex was updated to handle both old and new formats, but any other
+  log parser that reads `fleet-health.log` directly needs to account for the extra
+  field. Format: `TIMESTAMP  [SEVERITY] host via path: ...`
+- **Dashboard/stats/landing run on Flask dev server (2026-07-13):** All three web
+  UIs (dashboard :4097, stats :4097/stats, landing :8088, HTTPS :443) use Flask's
+  dev server behind Caddy. Adequate for local/ Tailscale access; replace with
+  gunicorn/uwsgi if external traffic grows.
 - **Post-reorg path drift (2026-07-10):** treat any `mac/`, `shared/`, root `termux/`,
   `autojs6/`, `obtainium/` reference as a bug unless it is historical (`docs/history/`),
   OPTIONS **62**, or an on-device path (`/sdcard/stayturgid/autojs6`). External
@@ -633,6 +652,19 @@ version.json                 — repo release version + changelog
 
 ## Changelog (condensed, reverse chronological — git history has full detail)
 
+- **2026-07-13** — **Fleet dashboard + stats + landing + HTTPS consolidation:**
+  Fleet dashboard (Flask + HTMX, :4097) with device status cards, human-action-needed
+  indicators, long-term stats tracking with timeframe selector, and network landing
+  page (:8088). HTTPS-only reverse proxy via Caddy (mac.greyhound-sidemirror.ts.net)
+  with HTTP→HTTPS redirect; all backend services bound to 127.0.0.1. Tailnet renamed
+  to greyhound-sidemirror.ts.net; all old machine names purged (pixel7a-termux→p7a,
+  dannys24→s24, djbclarks-macbook-air→mac, kfraswi→hd8, pixel7a-kvm→p7a-kvm).
+  Auto-heal added for repair_stale (SSH restart of stuck boot loop daemon —
+  fleet_health_monitor.py + CFEngine check_bootloop_repair bundle). CFEngine
+  check_bootloop_repair added to stayturgid.cf and cf-serverd.cf (detects stale
+  repair log >1h and restarts). Log format issue fixed (severity_label import +
+  dashboard regex). Known: s24 AutoJs6 watchdog stuck (see OPTIONS H6), p7a
+  wireless ADB down (see OPTIONS H2).
 - **2026-07-10** — **Repo restructure + path consistency** (`d950c53`): `control/`,
   `device/`, `catalogs/`, `docs/` layout; Ansible `control_node` role; canonical
   playbooks under `fleet/` + `control_node/`; on-device AutoJs6 path unified;

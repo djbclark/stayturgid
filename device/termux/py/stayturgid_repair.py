@@ -746,7 +746,7 @@ def main():
             log("shizuku-fleet.json is MISSING from /data/local/tmp/ — re-deploy required")
         # device.json: using generic fallback loses tap coordinates.
         prof = read_device_profile()
-        if not prof.get("_comment") and not prof.get("device"):
+        if not prof.get("id") and not prof.get("_comment"):
             device_profile = "MISSING"
     # --- 9. Env file presence (STAYTURGID_SD, NO_LOCAL_ADB, etc.) ---
     env_file = "present" if os.path.isfile(_ENV_FILE) else "MISSING"
