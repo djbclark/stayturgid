@@ -26,8 +26,6 @@ stayturgid_control_ssh_aliases:
   - mac
   - macbook
   - mac.greyhound-sidemirror.ts.net
-  - djbclarks-macbook-air
-  - djbclarks-MacBook-Air.local
 
 # Neo Store + Aurora Store are PARKED (2026-07-09): not installed, configured, or
 # health-checked by fleet deploy. Apps may remain on devices from earlier deploys.

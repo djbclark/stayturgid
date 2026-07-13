@@ -34,8 +34,8 @@ KNOWN_SERVICES: list[dict] = [
     {"url": "http://localhost:8088", "label": "Network Landing (localhost)", "group": "mac"},
     {"url": "http://localhost:8080", "label": "Caddy Health", "group": "mac"},
     {"url": "http://localhost:8081", "label": "VLM UI-TARS API", "group": "mac"},
-    # mDNS (Bonjour, LAN-only)
-    {"url": "http://djbclarks-macbook-air.local:8080", "label": "Caddy (mDNS)", "group": "mac"},
+    # mDNS (Bonjour, LAN-only) — use if macOS hostname differs
+
     # Devices — Tailscale IPs
     {"url": "http://100.123.218.30:65000", "label": "s24 FIRERPA", "group": "devices"},
     {"url": "http://100.65.230.108:65000", "label": "p7a FIRERPA", "group": "devices"},
