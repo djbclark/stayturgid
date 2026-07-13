@@ -1,6 +1,6 @@
 /**
  * Boot helper: start main.js if not already running.
- * Invoked from Termux:Boot (start-autojs6-watchdog.sh), autojs6-bridge.sh
+ * Invoked from Termux:Boot (start-autojs6-watchdog.sh), bridges.py --mode autojs6
  * (trigger file), or AutoJs6 timed/broadcast task.
  *
  * No "auto" directive: this launcher doesn't need accessibility.

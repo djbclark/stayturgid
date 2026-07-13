@@ -104,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
     if grant.returncode == 0:
         print("RUN_COMMAND granted")
     else:
-        print("WARN: RUN_COMMAND grant failed — use repair-bridge.sh fallback (deployed below)")
+        print("WARN: RUN_COMMAND grant failed — use bridges.py --mode repair fallback (deployed below)")
 
     ssh_host = deploy_termux_scripts(alias, serial)
 

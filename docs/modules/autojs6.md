@@ -53,7 +53,7 @@ Requires: Shizuku running, AutoJs6 authorized in Shizuku, **drawer toggle enable
 
 ## Termux bridge
 
-Grant `com.termux.permission.RUN_COMMAND` to AutoJs6 (setup script). Fallback: `repair-bridge.sh` on a 2s poll (`touch run/repair_now`).
+Grant `com.termux.permission.RUN_COMMAND` to AutoJs6 (setup script). Fallback: `bridges.py --mode repair` on a 2s poll (`touch run/repair_now`).
 
 ## Cycle behavior
 
@@ -67,7 +67,7 @@ Grant `com.termux.permission.RUN_COMMAND` to AutoJs6 (setup script). Fallback: `
 
 - **Boot (once):** Termux:Boot → `start-autojs6-watchdog.sh` → `boot-launcher.js` (may use `RunIntentActivity` — acceptable right after unlock)
 - **5-min loop:** `stayturgid_autojs6_guard.py` — logs stale watchdog; arms `run/start_autojs6_now` for **autojs6-bridge** (rate-limited); **no** `am start` from the repair loop
-- **autojs6-bridge.sh:** 2s poll of `start_autojs6_now` → `boot-launcher.js` via `am start` (30 min cooldown)
+- **bridges.py --mode autojs6:** 2s poll of `start_autojs6_now` → `boot-launcher.js` via `am start` (30 min cooldown)
 - **Mac deploy / heal:** `./start_watchdog.py <host>` or `fleet_health_monitor` when `watchdog_stale`
 
 ## Layout

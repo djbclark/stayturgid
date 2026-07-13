@@ -6,6 +6,12 @@
 stayturgid_obtainium_import_ui: false   # true = pop Obtainium import UI on change
 stayturgid_obtainium_catalog: "{{ stayturgid_sd_root }}/import/stayturgid-obtainium-apps.json"
 
+# Debug signing for Obtainium APK deployment (fork produces unsigned debug APKs).
+stayturgid_apksigner_bin: "{{ lookup('env', 'HOME') }}/Library/Android/sdk/build-tools/36.0.0/apksigner"
+stayturgid_debug_keystore: "{{ lookup('env', 'HOME') }}/.android/debug.keystore"
+stayturgid_debug_keystore_pass: "android"
+stayturgid_debug_key_alias: "androiddebugkey"
+
 stayturgid_obtainium_apps:
   - id: org.autojs.autojs6
     url: https://github.com/djbclark/AutoJs6

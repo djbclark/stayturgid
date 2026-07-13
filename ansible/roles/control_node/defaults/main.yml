@@ -66,7 +66,7 @@ stayturgid_mac_brew_packages_vlm:
 stayturgid_mac_pipx_packages:
   - uiautomator2
 
-# UI-TARS vendor-neutral paths (see control/vlm/ui-tars/ui_tars_env.sh).
+# UI-TARS vendor-neutral paths (see control/vlm/ui-tars/ui_tars_env.py).
 ui_tars_hf_base: https://huggingface.co/adriabama06/UI-TARS-1.5-7B-GGUF/resolve/main
 ui_tars_model_dir: "{{ lookup('env', 'HOME') }}/.local/share/ui-tars/models/1.5-7b"
 ui_tars_port: "{{ lookup('env', 'UI_TARS_PORT') | default(lookup('env', 'STAYTURGID_VLM_PORT') | default(8081, true), true) }}"

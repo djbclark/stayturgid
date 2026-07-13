@@ -1,8 +1,70 @@
 ---
 # Renders the Obtainium import catalog on-device and reports missing apps as
-# warnings. On Mac, control/tools/obtainium/sync_to_device.py + import_catalog.py apply
-# the catalog via obtainium://apps; set stayturgid_obtainium_import_ui=true
-# to pop the legacy file VIEW intent on change.
+# warnings. Also deploys the Obtainium APK itself — Obtainium cannot self-update
+# reliably (compile-time URL, Android can't replace running app).
+- name: Get latest Obtainium fork release from GitHub API
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/djbclark/Obtainium/releases/latest"
+    return_content: true
+    headers:
+      Accept: "application/vnd.github.v3+json"
+  register: _obtainium_release
+  delegate_to: localhost
+  run_once: true
+
+- name: Find universal APK download URL
+  ansible.builtin.set_fact:
+    _obtainium_apk_url: >-
+      {{ (_obtainium_release.json.assets | selectattr('name', 'search', 'universal') | first).browser_download_url }}
+    _obtainium_version_tag: "{{ _obtainium_release.json.tag_name }}"
+  when: _obtainium_release.json.assets is defined
+
+- name: Download Obtainium APK to Mac
+  ansible.builtin.get_url:
+    url: "{{ _obtainium_apk_url }}"
+    dest: "/tmp/obtainium-latest.apk"
+    mode: "0644"
+  delegate_to: localhost
+  run_once: true
+
+- name: Sign Obtainium APK with debug keystore
+  ansible.builtin.command:
+    argv:
+      - "{{ stayturgid_apksigner_bin }}"
+      - sign
+      - --ks
+      - "{{ stayturgid_debug_keystore }}"
+      - --ks-pass
+      - "pass:{{ stayturgid_debug_keystore_pass }}"
+      - --ks-key-alias
+      - "{{ stayturgid_debug_key_alias }}"
+      - /tmp/obtainium-latest.apk
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+
+- name: Check installed Obtainium version on device
+  ansible.builtin.shell: |
+    {{ stayturgid_adb_bin | default('adb') }} -s \
+      "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}" \
+      shell "dumpsys package dev.imranr.obtainium 2>/dev/null | grep versionCode | head -1"
+  register: _obtainium_installed
+  changed_when: false
+  failed_when: false
+
+- name: Install Obtainium APK via ADB
+  ansible.builtin.command:
+    argv:
+      - "{{ stayturgid_adb_bin | default('adb') }}"
+      - -s
+      - "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+      - install
+      - -r
+      - /tmp/obtainium-latest.apk
+  delegate_to: localhost
+  register: _obtainium_install
+  changed_when: "'Success' in (_obtainium_install.stdout | default(''))"
+
 - name: Render Obtainium catalog from fleet app specs
   stayturgid.obtainium.obtainium_app:
     apps: "{{ stayturgid_obtainium_apps }}"

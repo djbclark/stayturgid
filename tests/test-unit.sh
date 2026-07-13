@@ -653,7 +653,6 @@ tap_is "$RC" 0 "start-autojs6: exits 0 when boot script present"
 tap_like "$(cat "$STUB_LOG")" "boot-launcher.js" "start-autojs6: am start targets boot-launcher.js"
 
 # bridges.py --mode autojs6: trigger file => am start within one loop
-AUTOJS6_BRIDGE="$REPO/device/termux/autojs6-bridge.sh"
 START_AUTOJS6_BRIDGE="$REPO/device/termux/boot/start-autojs6-bridge.sh"
 reset_sandbox
 mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/sd/run" "$SANDBOX/sd/autojs6/scripts" \

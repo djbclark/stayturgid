@@ -10,7 +10,7 @@ var RUN_ACTION = "com.termux.RUN_COMMAND";
  *
  * Primary: RUN_COMMAND intent (needs AutoJs6 v6.4.1+ with
  * com.termux.permission.RUN_COMMAND granted + allow-external-apps=true).
- * Fallback: touch <sd>/run/repair_now for repair-bridge.sh (2s poll).
+ * Fallback: touch <sd>/run/repair_now for bridges.py --mode repair (2s poll).
  */
 function invokeRepair(profile) {
     profile = profile || config.detectDeviceProfile();

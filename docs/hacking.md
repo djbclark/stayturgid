@@ -444,7 +444,7 @@ Requires `-e stayturgid_vlm_enabled=true` (set automatically by the make targets
 **Upgrading from old `~/.config/stayturgid/models/ui-tars-*` layout:**
 
 ```bash
-bash control/vlm/ui-tars/vlm_migrate_paths.sh
+python3 control/vlm/ui-tars/vlm_migrate_paths.py
 make vlm-service-install
 ```
 

@@ -27,7 +27,7 @@ writesettings=allow
 overlay=allow
 vpn_always_on=ok
 md5 stayturgid_repair.py aaa
-md5 repair-bridge.sh bbb
+md5 stayturgid_bridges.py bbb
 """
 
 
@@ -40,7 +40,7 @@ def test_parse_report_kv_and_md5():
     assert rep["ssh"] == "ok"
     assert rep["battery"] == "88"
     assert rep["taskerlegacy"] == "notif:0,files:0"
-    assert rep["md5"] == {"stayturgid_repair.py": "aaa", "repair-bridge.sh": "bbb"}
+    assert rep["md5"] == {"stayturgid_repair.py": "aaa", "stayturgid_bridges.py": "bbb"}
 
 
 def test_parse_report_ignores_malformed_md5_lines():

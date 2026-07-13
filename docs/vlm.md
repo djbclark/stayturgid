@@ -46,7 +46,7 @@ ansible-playbook ansible/playbooks/control_node/site.yml --tags vlm-service -e s
 Migrate old `~/.config/stayturgid/models/ui-tars-*` (also run automatically on service install):
 
 ```bash
-bash control/vlm/ui-tars/vlm_migrate_paths.sh
+python3 control/vlm/ui-tars/vlm_migrate_paths.py
 make vlm-service-install
 ```
 

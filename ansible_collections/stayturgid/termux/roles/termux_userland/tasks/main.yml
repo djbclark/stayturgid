@@ -14,6 +14,12 @@
   changed_when: false
   failed_when: false
 
+- name: Get current epoch for pkg upgrade gate
+  ansible.builtin.command: date +%s
+  register: _now_epoch
+  changed_when: false
+  delegate_to: localhost
+
 - name: Update and upgrade all Termux packages (if >24h since last)
   stayturgid.termux.termux_pkg:
     name: []
@@ -27,7 +33,7 @@
     _pkg_upgrade_stamp.stdout is not defined
     or 'never' in (_pkg_upgrade_stamp.stdout | default(''))
     or (_pkg_upgrade_stamp.stdout | regex_search('^ok ([0-9.]+)')
-        and ((ansible_date_time.epoch | float)
+        and ((_now_epoch.stdout | trim | float)
              - (_pkg_upgrade_stamp.stdout | regex_search('^ok ([0-9.]+)', '\1')
                 | first | float)) > 86400)
 

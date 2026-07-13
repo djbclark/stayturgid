@@ -9,13 +9,13 @@ Scripts that run **on the phone** inside Termux. Usable without AutoJs6 or Ansib
 | Piece | Role |
 |-------|------|
 | `stayturgid_repair.py` | Self-heal sshd, localhost:5555 ADB, Shizuku, phone→Mac ET SSH config; prints `STATUS …` for callers |
-| `repair-bridge.sh` | Polls `/sdcard/stayturgid/run/repair_now`; runs repair within ~2s (AutoJs6 fallback) |
+| `bridges.py --mode repair` | Polls `/sdcard/stayturgid/run/repair_now`; runs repair within ~2s (AutoJs6 fallback) |
 | `stayturgid_agent_presence.py` | Torch/notification + `request-screen` / `gate` / `on`/`off` |
 | `stayturgid_import_catalog.py` etc. | On-device post-UI (Obtainium / Aurora / AutoJs6) via `localhost:5555` |
 | `stayturgid_screen_control.py` | On-device consent + inversion gate (same policy as Mac `ScreenControlSession`) |
 | `check-repo-version` / battery / screen-awake | Python under `~/.stayturgid/bin/` (see `py/`) |
 | `boot/start-adb.sh` | Termux:Boot: sshd, wake-lock, 5-min self-heal loop, battery tier check |
-| `boot/start-repair-bridge.sh` | Starts `repair-bridge.sh` at boot |
+| `boot/start-repair-bridge.sh` | Starts `bridges.py --mode repair` at boot |
 | `boot/start-autojs6-watchdog.sh` | Launches AutoJs6 `boot-launcher.js` after boot |
 
 ### Presence / consent fail modes (caller choice)
@@ -39,7 +39,7 @@ All deployable tools land under **`~/.stayturgid/bin/`** (not `~/`).
 mkdir -p ~/.stayturgid/bin ~/.termux/boot
 cp device/termux/py/stayturgid_repair.py \
    device/termux/py/stayturgid_agent_presence.py \
-   device/termux/repair-bridge.sh \
+   device/termux/py/stayturgid_bridges.py \
    ~/.stayturgid/bin/
 cp device/termux/boot/*.sh ~/.termux/boot/
 chmod +x ~/.stayturgid/bin/* ~/.termux/boot/*.sh
