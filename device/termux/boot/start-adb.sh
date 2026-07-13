@@ -30,6 +30,22 @@ termux-wake-lock 2>/dev/null || true
 rm -f /data/data/com.termux/files/usr/var/service/sshd/down 2>/dev/null || true
 sshd
 
+# ── CFEngine server daemon (remote repair trigger) ─────────────────────────
+# Listens on port 5308 (TLS). The Mac runs cf-runagent to trigger cf-agent
+# repair bundles immediately — bypassing the 15-min boot-loop poll.
+# Tier 4 fallback: works when ADB + SSH are both down.
+CF_SERVERD_CF="$STG/cfengine/cf-serverd.cf"
+CF_SERVERD_PID="$STG/run/cf-serverd.pid"
+if [ -x "$PREFIX/bin/cf-serverd" ] && [ -f "$CF_SERVERD_CF" ]; then
+    if [ ! -f "$CF_SERVERD_PID" ] || ! kill -0 "$(cat "$CF_SERVERD_PID" 2>/dev/null)" 2>/dev/null; then
+        # -F: no fork (Android seccomp blocks fork for Termux). nohup keeps it alive.
+        nohup "$PREFIX/bin/cf-serverd" -Ff "$CF_SERVERD_CF" \
+            > "$STG/logs/cf-serverd.log" 2>&1 &
+        echo "$!" > "$CF_SERVERD_PID"
+        echo "[$(date +%H:%M:%S)] cf-serverd started (pid $(cat $CF_SERVERD_PID))" >> "$STG/logs/boot.log"
+    fi
+fi
+
 # ── FIRERPA failsafe daemon (optional) ──────────────────────────────────────
 # Start the FIRERPA server on port 65000 if the binary exists.
 # Provides gRPC backup control channel independent of Termux sshd + Shizuku.
@@ -154,6 +170,19 @@ BOOTLOOP_PID_FILE="$STG/run/bootloop.pid"
         echo "[$(date -Iseconds)] CFEngine: cf-agent binary missing, skipping self-heal" >> "$STG/logs/repair-cfengine.log" 2>&1 || true
     elif [ ! -f "$CFENGINE_CF" ]; then
         echo "[$(date -Iseconds)] CFEngine: policy file $CFENGINE_CF missing, re-deploy required" >> "$STG/logs/repair-cfengine.log" 2>&1 || true
+    fi
+
+    # CFEngine server daemon monitor: restart cf-serverd if it died.
+    if [ -f "$CF_SERVERD_PID" ]; then
+        _cf_serverd_pid="$(cat "$CF_SERVERD_PID" 2>/dev/null || true)"
+        if [ -z "$_cf_serverd_pid" ] || ! kill -0 "$_cf_serverd_pid" 2>/dev/null; then
+            if [ -x "$PREFIX/bin/cf-serverd" ] && [ -f "$CF_SERVERD_CF" ]; then
+                nohup "$PREFIX/bin/cf-serverd" -Ff "$CF_SERVERD_CF" \
+                    >> "$STG/logs/cf-serverd.log" 2>&1 &
+                echo "$!" > "$CF_SERVERD_PID"
+                echo "[$(date +%H:%M:%S)] cf-serverd restarted (old pid $_cf_serverd_pid dead)" >> "$STG/logs/boot.log"
+            fi
+        fi
     fi
 
     # FIRERPA monitor: restart the failsafe daemon if it died.

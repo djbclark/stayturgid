@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>stayturgid — fleet dashboard</title>
+<script src="https://unpkg.com/htmx.org@2.0.4"></script>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body hx-ext="no_error">
+
+<header>
+  <div class="header-left">
+    <h1>stayturgid fleet</h1>
+    <span class="header-sub">auto-refresh 60s &#8226; {{ now }}</span>
+  </div>
+  <div class="header-right">
+    <a href="{{ oc_web_url }}" target="_blank" class="link-btn">OpenCode web</a>
+  </div>
+</header>
+
+<main>
+  <div id="device-grid"
+       hx-get="/api/devices"
+       hx-trigger="every 60s, load"
+       hx-swap="innerHTML"
+       hx-indicator="#spinner">
+    {{ cards }}
+  </div>
+  <div id="spinner" class="htmx-indicator" style="display:none;">
+    <div class="spinner"></div>
+  </div>
+</main>
+
+<footer>
+  <span>stayturgid dashboard &#8226; port 4097</span>
+  <span>OpenCode web: <a href="{{ oc_web_url }}" target="_blank">{{ oc_web_url }}</a></span>
+</footer>
+
+</body>
+</html>

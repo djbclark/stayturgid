@@ -295,6 +295,28 @@
   when: firerpa_health_removed.changed
   failed_when: false
 
+- name: Render fleet dashboard launchd agent
+  ansible.builtin.template:
+    src: dashboard.plist.j2
+    dest: "{{ agents_dir }}/{{ stayturgid_dashboard_label }}.plist"
+    mode: "0644"
+  when: stayturgid_dashboard_enabled | bool
+  register: dashboard_plist
+
+- name: Remove fleet dashboard launchd agent when disabled
+  ansible.builtin.file:
+    path: "{{ agents_dir }}/{{ stayturgid_dashboard_label }}.plist"
+    state: absent
+  when: not (stayturgid_dashboard_enabled | bool)
+  register: dashboard_removed
+
+- name: Unload fleet dashboard when disabled
+  community.general.launchd:
+    name: "{{ stayturgid_dashboard_label }}"
+    state: unloaded
+  when: dashboard_removed.changed
+  failed_when: false
+
 - name: Record launchd labels needing reload after plist template changes
   ansible.builtin.set_fact:
     _mac_launchd_reload_labels: >-
@@ -338,6 +360,14 @@
             stayturgid_firerpa_health_enabled | default(true) | bool
             and firerpa_health_plist is defined
             and firerpa_health_plist.changed
+          ) else []
+        )
+        + (
+          [stayturgid_dashboard_label]
+          if (
+            stayturgid_dashboard_enabled | default(true) | bool
+            and dashboard_plist is defined
+            and dashboard_plist.changed
           ) else []
         )
       }}

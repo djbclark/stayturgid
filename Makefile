@@ -35,6 +35,8 @@ VLM_ANSIBLE := ansible-playbook $(MAC_SITE) -e stayturgid_vlm_enabled=true
         hermes-logs hermes-logs-follow hermes-doctor hermes-deploy hermes-disable hermes-update \
         opencode-web-status opencode-web-restart \
         opencode-web-deploy opencode-web-disable \
+        dashboard-status dashboard-restart dashboard-deploy dashboard-disable \
+        dashboard-logs \
         ca-init ca-sign ca-status \
         firerpa-deploy firerpa-remove firerpa-heal firerpa-health \
         verify-drift
@@ -113,6 +115,13 @@ help:
 	@echo "  make opencode-web-status           Health check + launchctl state"
 	@echo "  make opencode-web-restart          kickstart launchd agent"
 	@echo "  make opencode-web-disable          Ansible: remove plist + unload"
+	@echo ""
+	@echo "Fleet dashboard (HTMX web UI on http://<ts-ip>:4097):"
+	@echo "  make dashboard-deploy              Ansible: install + load launchd agent"
+	@echo "  make dashboard-status              Health check + launchctl state"
+	@echo "  make dashboard-restart             kickstart launchd agent"
+	@echo "  make dashboard-logs                tail -f dashboard.log"
+	@echo "  make dashboard-disable             Ansible: remove plist + unload"
 	@echo ""
 	@echo "SSH CA (certificate authority for fleet host-key trust):"
 	@echo "  make ca-status                     Show CA key fingerprint + cert status"
@@ -265,6 +274,32 @@ opencode-web-deploy:
 
 opencode-web-disable:
 	ansible-playbook $(MAC_SITE) --tags agents -e stayturgid_opencode_web_enabled=false
+
+# ── Fleet dashboard (Flask + HTMX, port 4097) ──────────────────────────────
+DASHBOARD_LABEL := com.stayturgid.dashboard
+DASHBOARD_PORT := 4097
+DASHBOARD_LOG := $$(HOME)/.config/stayturgid/logs/dashboard.log
+
+dashboard-status:
+	@echo "Fleet dashboard:"
+	@launchctl list $(DASHBOARD_LABEL) 2>/dev/null || echo "  not loaded"
+	@curl -sf -o /dev/null -w "  HTTP %{http_code}" http://127.0.0.1:$(DASHBOARD_PORT)/health 2>/dev/null || echo "  HTTP unreachable"
+	@echo ""
+
+dashboard-restart:
+	launchctl kickstart -k gui/$$(id -u)/$(DASHBOARD_LABEL)
+
+dashboard-deploy:
+	ansible-playbook $(MAC_SITE) --tags agents -e stayturgid_dashboard_enabled=true
+	@echo ""
+	@-launchctl kickstart -k gui/$$(id -u)/$(DASHBOARD_LABEL) 2>/dev/null
+	@echo "Dashboard deployed. Verify: make dashboard-status"
+
+dashboard-disable:
+	ansible-playbook $(MAC_SITE) --tags agents -e stayturgid_dashboard_enabled=false
+
+dashboard-logs:
+	tail -f $(DASHBOARD_LOG)
 
 # ── SSH Certificate Authority ──────────────────────────────────────────────
 CA_KEY := $(HOME)/.ssh/stayturgid_ca

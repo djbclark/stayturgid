@@ -1,0 +1,24 @@
+# Mac cf-runagent policy — triggers remote cf-agent repair on fleet devices.
+# cf-runagent connects to cf-serverd on each device (port 5308, TLS).
+
+body common control {
+    bundlesequence => { "main" };
+}
+
+bundle agent main {
+  reports:
+      "cf-runagent policy loaded for stayturgid fleet control";
+}
+
+body runagent control {
+    hosts => {
+        "100.123.218.30:5308",
+        "100.65.230.108:5308",
+        "100.124.55.39:5308",
+    };
+    background_children => "true";
+    max_children        => "5";
+    timeout             => "30";
+    trustkey            => "true";
+    encrypt             => "true";
+}

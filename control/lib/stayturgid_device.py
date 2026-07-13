@@ -79,10 +79,11 @@ def parse_uid(pm_output):
 
 
 def iter_devices_conf(conf_path=None):
-    """Yield ``(name, usb_serial, tailscale_ip, lan_ip)`` for each devices.conf row.
+    """Yield ``(name, usb_serial, tailscale_ip, lan_ip, label)`` for each devices.conf row.
 
-    Line format: ``name usb_serial tailscale_ip [lan_ip]``. Missing lan → ``"-"``.
-    Single source of truth for launchd monitors and resolve helpers (review L9).
+    Line format: ``name usb_serial tailscale_ip [lan_ip] [device_label]``.
+    Missing fields → ``"-"``. Single source of truth for launchd monitors and
+    resolve helpers (review L9).
     """
     conf_path = conf_path or DEVICES_CONF
     try:
@@ -97,7 +98,8 @@ def iter_devices_conf(conf_path=None):
                 name = parts[0]
                 usb, ts_ip = parts[1], parts[2]
                 lan = parts[3] if len(parts) > 3 else "-"
-                yield name, usb, ts_ip, lan
+                label = parts[4] if len(parts) > 4 else "-"
+                yield name, usb, ts_ip, lan, label
     except OSError:
         return
 

@@ -1,0 +1,82 @@
+# CFEngine server policy — stayturgid remote repair daemon.
+#
+# cf-serverd listens on port 5308 (TLS). The Mac control node connects via
+# cf-runagent to trigger cf-agent repair bundles immediately, bypassing
+# the 15-min boot-loop poll when SSH/ADB are down.
+#
+# Architecture: Mac (cf-runagent) → Device (cf-serverd) → cf-agent.
+# Key trust is peer-to-peer (not CA). First deploy uses trustkeysfrom;
+# remove that line after initial key exchange.
+
+body common control {
+    bundlesequence => { "main" };
+}
+
+bundle agent main {
+  reports:
+      "cf-serverd policy loaded successfully";
+}
+
+body server control {
+    # Only the Mac's Tailscale IP can connect.
+    allowconnects  => { "100.64.0.0/10" };
+    trustkeysfrom => { "100.64.0.0/10" };
+    allowusers    => { "root" };
+
+    # Path to cf-agent. Policy file specified so cf-agent loads the repair
+    # bundles (check_sshd etc.) from stayturgid.cf.
+    cfruncommand  => "/data/data/com.termux/files/usr/bin/cf-agent -f /data/data/com.termux/files/home/.stayturgid/cfengine/stayturgid.cf";
+
+    port          => "5308";
+    maxconnections => "5";
+    denybadclocks  => "false";
+}
+
+bundle server access_rules() {
+  access:
+    # Mac can trigger stayturgid_heal bundle for full repair.
+    "stayturgid_heal"
+      resource_type => "query",
+      admit         => { "100.64.0.0/10" };
+
+    # Individual check bundles for targeted diagnostics.
+    "check_sshd"
+      resource_type => "query",
+      admit         => { "100.64.0.0/10" };
+
+    "check_shizuku"
+      resource_type => "query",
+      admit         => { "100.64.0.0/10" };
+
+    "check_shell5555"
+      resource_type => "query",
+      admit         => { "100.64.0.0/10" };
+
+    "check_a11y"
+      resource_type => "query",
+      admit         => { "100.64.0.0/10" };
+
+    "check_mirror"
+      resource_type => "query",
+      admit         => { "100.64.0.0/10" };
+
+    "check_profile"
+      resource_type => "query",
+      admit         => { "100.64.0.0/10" };
+
+    "check_bootloop"
+      resource_type => "query",
+      admit         => { "100.64.0.0/10" };
+}
+
+# Aggregate repair bundle — runs all auto-repair bundles.
+bundle agent stayturgid_heal {
+  methods:
+    "sshd"     usebundle => check_sshd;
+    "mirror"   usebundle => check_mirror;
+    "profile"  usebundle => check_profile;
+
+  reports:
+    cfengine::
+      "stayturgid_heal: repair run completed";
+}

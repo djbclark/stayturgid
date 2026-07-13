@@ -60,6 +60,23 @@
       VERSION_ID="1"
       HOME_URL="https://termux.dev/"
 
+- name: Ensure CFEngine policy directory exists
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.stayturgid/cfengine"
+    state: directory
+    mode: "0755"
+  when: "'cfengine' in stayturgid_termux_packages"
+
+- name: Deploy CFEngine policies to device
+  ansible.builtin.copy:
+    src: "{{ stayturgid_repo_root }}/device/termux/cfengine/{{ item }}"
+    dest: "{{ termux_home }}/.stayturgid/cfengine/{{ item }}"
+    mode: "0644"
+  loop:
+    - stayturgid.cf
+    - cf-serverd.cf
+  when: "'cfengine' in stayturgid_termux_packages"
+
 - name: Detect Termux account owning termux_home
   ansible.builtin.stat:
     path: "{{ termux_home }}"

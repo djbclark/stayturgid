@@ -105,3 +105,8 @@ stayturgid_opencode_web_enabled: true
 stayturgid_opencode_web_port: 4096
 stayturgid_opencode_path: "{{ lookup('env', 'HOME') }}/.local/bin/opencode"
 stayturgid_opencode_web_label: com.stayturgid.opencode-web
+
+# ── Fleet dashboard (Flask + HTMX web UI, port 4097) ──────────────────────
+stayturgid_dashboard_enabled: true
+stayturgid_dashboard_port: 4097
+stayturgid_dashboard_label: com.stayturgid.dashboard

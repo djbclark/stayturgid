@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{{ stayturgid_dashboard_label }}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>python3</string>
+        <string>{{ stayturgid_repo_root | realpath }}/control/bin/dashboard.py</string>
+        <string>--port</string>
+        <string>{{ stayturgid_dashboard_port | string }}</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>{{ stayturgid_homebrew_prefix }}/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>STAYTURGID_ADB</key>
+        <string>{{ stayturgid_homebrew_prefix }}/bin/adb</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>WorkingDirectory</key>
+    <string>{{ stayturgid_repo_root | realpath }}</string>
+    <key>StandardOutPath</key>
+    <string>{{ conf_dir }}/logs/dashboard.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ conf_dir }}/logs/dashboard.error.log</string>
+</dict>
+</plist>

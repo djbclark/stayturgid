@@ -19,6 +19,11 @@
     path: "{{ agents_dir }}/com.stayturgid.firerpa-health.plist"
   register: _firerpa_health_plist_stat
 
+- name: Stat fleet dashboard launchd plist
+  ansible.builtin.stat:
+    path: "{{ agents_dir }}/{{ stayturgid_dashboard_label }}.plist"
+  register: _dashboard_plist_stat
+
 - name: Build launchd ensure service list
   ansible.builtin.set_fact:
     _mac_launchd_ensure_services: >-
@@ -31,6 +36,7 @@
         + _ui_tars_launchd_agents
         + _hermes_gateway_agents
         + _opencode_web_agents
+        + _dashboard_agents
         + _firerpa_health_agents
       }}
   vars:
@@ -61,6 +67,17 @@
         }] if (
           (stayturgid_opencode_web_enabled | default(true) | bool)
           and (_opencode_web_plist_stat.stat.exists | default(false))
+        ) else []
+      }}
+    _dashboard_agents: >-
+      {{
+        [{
+          'name': stayturgid_dashboard_label,
+          'plist': agents_dir ~ '/' ~ stayturgid_dashboard_label ~ '.plist',
+          'health_url': 'http://127.0.0.1:' ~ (stayturgid_dashboard_port | string) ~ '/health'
+        }] if (
+          (stayturgid_dashboard_enabled | default(true) | bool)
+          and (_dashboard_plist_stat.stat.exists | default(false))
         ) else []
       }}
     _firerpa_health_agents: >-

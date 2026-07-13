@@ -1,0 +1,101 @@
+<div class="card {% if not device.health %}offline{% endif %}">
+  <div class="card-header">
+    <div class="card-title">
+      <span class="hostname">{{ device.name }}</span>
+      <span class="label">{{ device.label }}</span>
+      {% if device.health %}
+        <span class="badge ok">online</span>
+        <span class="badge dim">{{ device.health_age }} ago</span>
+      {% else %}
+        <span class="badge error">offline</span>
+      {% endif %}
+      {% if device.probe_live %}
+        <span class="badge live">live</span>
+      {% endif %}
+    </div>
+    <button class="probe-btn"
+            hx-post="/api/probe/{{ device.name }}"
+            hx-swap="outerHTML"
+            hx-target="closest .card"
+            hx-indicator="#probe-spinner-{{ device.name }}"
+            title="Live probe via SSH/ADB">&#10227;</button>
+  </div>
+
+  <div id="probe-spinner-{{ device.name }}" class="htmx-indicator probe-spinning" style="display:none;">
+    probing&hellip;
+  </div>
+
+  {% if device.probe_error %}
+  <div class="probe-error">probe timed out or device unreachable</div>
+  {% endif %}
+
+  <div class="card-meta">
+    {% if device.ts_ip %}<span>Tailscale <code>{{ device.ts_ip }}</code></span>{% endif %}
+    {% if device.lan_ip %}<span>LAN <code>{{ device.lan_ip }}</code></span>{% else %}<span class="na">LAN: N/A</span>{% endif %}
+    {% if device.usb_serial %}<span>USB <code>{{ device.usb_serial }}</code></span>{% endif %}
+  </div>
+
+  {% if device.health %}
+  <div class="card-services">
+    <div class="service-row">
+      <span class="svc-label">services</span>
+      {{ device.service_badges.sshd }}
+      {{ device.service_badges.bootloop }}
+      {{ device.service_badges.shell5555 }}
+      {{ device.service_badges.shizuku }}
+      {{ device.service_badges.a11y }}
+      {{ device.service_badges.autojs6_a11y }}
+      {{ device.service_badges.cfengine }}
+      {{ device.service_badges.port }}
+    </div>
+    <div class="service-row">
+      <span class="svc-label">ages</span>
+      <span class="svc-label">watchdog</span>{{ device.watchdog_badge }}
+      <span class="svc-label">repair</span>{{ device.repair_badge }}
+    </div>
+  </div>
+
+  <div class="card-path">
+    <span class="svc-label">via</span>
+    <code>{{ device.via_display }}</code>
+    <span class="svc-label">consecutive</span>
+    <span class="badge {% if device.fleet_consec >= 2 %}error{% else %}ok{% endif %}">{{ device.fleet_consec }}/2</span>
+  </div>
+  {% endif %}
+
+  <div class="card-firerpa">
+    {% if device.firerpa %}
+    <span class="svc-label">FIRERPA</span>
+    {{ device.firerpa_badge }}
+    <span class="svc-label">via gRPC</span>
+    {{ device.firerpa_sshd_badge }}
+    {{ device.firerpa_shizuku_badge }}
+    <span class="badge dim">{{ device.firerpa_age }} ago</span>
+    {% else %}
+    <span class="svc-label">FIRERPA</span>
+    <span class="na">not installed on this device</span>
+    {% endif %}
+  </div>
+
+  {% if device.issues %}
+  <div class="card-issues">
+    <span class="svc-label">issues</span>
+    {{ device.issue_tags }}
+  </div>
+  {% endif %}
+
+  <div class="card-links">
+    {% if device.ts_ip %}
+      <a href="ssh://{{ device.name }}" class="link-btn">ssh://{{ device.name }}</a>
+      <a href="http://{{ device.ts_ip }}:65000" target="_blank" class="link-btn">firerpa :65000</a>
+    {% endif %}
+    {% if device.lan_ip %}
+      <a href="http://{{ device.lan_ip }}:65000" target="_blank" class="link-btn">firerpa LAN</a>
+    {% else %}
+      <span class="na">FIRERPA LAN: N/A</span>
+    {% endif %}
+    {% if device.usb_serial %}
+      <span class="link-btn dim">adb:{{ device.usb_serial }}</span>
+    {% endif %}
+  </div>
+</div>

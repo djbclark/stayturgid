@@ -17,6 +17,7 @@ stayturgid_termux_packages:
   - curl
   - termux-api
   - runit
+  - cfengine
 
 stayturgid_boot_scripts:
   - start-adb.sh
