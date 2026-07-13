@@ -1,8 +1,10 @@
 # GNU Make to `just` Migration Plan
 
-**Created:** 2026-07-13  
+**Created:** 2026-07-13
+
 **Status:** Direction accepted; implementation deferred and tracked as
-[OPTIONS T1](../options.md)  
+[OPTIONS T1](../options.md)
+
 **Decision:** Make `just` the primary operator command interface, retain a small
 GNU Make compatibility shim during a soak period, and keep substantive logic in
 Python or Ansible.
