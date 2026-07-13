@@ -18,15 +18,17 @@ make health && make firerpa-health
 | `make verify [HOSTS=s24]` | Device tier checks |
 | `make verify-drift [HOSTS=s24]` | Ansible-based drift detect |
 | `make verify-heal [HOSTS=s24]` | Verify + auto-heal |
-| `make health` | Fleet health summary |
+| `make health` | Fleet health summary + device error log |
+| `make errors` | Show recent device errors (7 days) |
 | `make firerpa-health` | FIRERPA fleet health |
 | `make firerpa-heal --host s24` | Repair via FIRERPA gRPC |
-| `make test` | Code-only tests |
+| `make test` | Code-only tests (includes healing coverage check) |
 | `make deploy-mac` | Mac workstation (brew, launchd) |
 | `make ca-status` | SSH CA status/fingerprints |
 | `make opencode-web-status` | OpenCode web UI status |
 | `make hermes-status` | Hermes worktree status |
 | `make vlm-check` | Check VLM server + cloud |
+| `make landing-status` | Network landing page status |
 
 ## Environment
 
@@ -48,10 +50,22 @@ make health && make firerpa-health
 - Use bash (not zsh). Termux has no zsh by default.
 - Announce before device interaction: 🚨📱🚨 USING — host — why — ~N min
 - Screen control requires `ScreenControlSession` (fail-closed).
-- Accessibility writes are merge-only. Never `settings put` the whole list.
+- Accessibility is detection-only. Never `settings put` accessibility services automatically.
+- Logging uses syslog severity levels (EMERG..DEBUG). See `control/lib/logging.py`.
+- Every desired state gets a unique ID in `tests/healing_registry.json`. Pre-flight
+  `make test` fails if a `must_cover` ID is missing from any healing mechanism.
+- Follow multi-agent protocol at bottom of AGENTS.md (fetch-pull before edits).
 - See full policies at `.cursor/rules/*.md`
 
 ## Handoff
 
 Full details: `docs/handoff.md` (cold-start, architecture, known issues)
 Session history: `docs/history/session-*.md`
+
+## Multi-Agent Protocol
+
+Before any edit: `git fetch origin --prune && git pull --ff-only origin master`.
+Always commit and push when done. Leave no uncommitted changes.
+If `git pull` fails with a merge conflict, STOP and report it.
+Verify changes are yours before editing — if a file has unrelated modifications
+from another agent, leave it alone and report it.

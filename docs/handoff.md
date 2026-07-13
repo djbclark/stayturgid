@@ -135,11 +135,13 @@ On the Mac, a launchd agent runs every 60 s and reconnects `adb connect <ip>:555
 GitHub `master` is the source of truth. To release:
 1. Bump `version.json` (`version` + `changelog`), commit, push.
 2. `make deploy` (or `./control/bin/deploy_fleet.py`) — full fleet via `ansible/playbooks/site.yml`
-   (`make deploy-check` / `CHECK=1 make deploy` = dry run): preflight, Termux,
-   AutoJs6, Obtainium, Tailscale, app privileges, post-UI automation, validate.
-   Neo Store / Aurora are **parked** — see [docs/modules/fdroid.md](modules/fdroid.md),
-   [docs/modules/play.md](modules/play.md). Idempotent (re-run = `changed=0`). Granular:
-   `make deploy-termux` or `control/tools/autojs6/deploy.py` for single layers.
+   (`make deploy-check` / `CHECK=1 make deploy` = dry run): bootstrap APK verify,
+   bootstrap APK ensure (version-aware over ADB), Shizuku start, preflight (SSH),
+   fleet deploy (Termux, AutoJs6, Obtainium, Tailscale, privileges), post-UI,
+   validate. The first three phases run over ADB (no SSH required) — they install
+   prerequisite APKs and start Shizuku before SSH bootstrap. Idempotent (re-run =
+   `changed=0`). Granular phases: `make bootstrap-apks`, `make verify-bootstrap-apks`,
+   `make ensure-shizuku`, `make deploy-termux`.
 
 Optional on-device notifier: `stayturgid_check_repo_version.py` (max once/24 h) fires `termux-notification` when GitHub `version.json` moves ahead of the last-seen stamp.
 
@@ -147,7 +149,7 @@ Optional on-device notifier: `stayturgid_check_repo_version.py` (max once/24 h) 
 
 ## 🚦 Cold-start — current state (read this first)
 
-**As of 2026-07-12 evening (final handoff pass).** Three-device fleet: **s24**, **p7a**, **hd8**.
+**As of 2026-07-13.** Three-device fleet: **s24**, **p7a**, **hd8**.
 Source of truth: **`origin/master`** on `https://github.com/djbclark/stayturgid.git`.
 
 ### Environment
@@ -166,15 +168,13 @@ python3 control/bin/screen_lease.py status
 # Optional: make verify-drift HOSTS=s24  # Ansible-based drift check
 ```
 
-### Fleet snapshot (2026-07-12 evening — final)
+### Fleet snapshot (2026-07-13 — bootstrap automation deployed)
 
-| Host | Verify | stayturgid | FIRERPA | CFEngine | cf-serverd | Notes |
-|------|:------:|:----------:|:-------:|:--------:|:----------:|-------|
-| **s24** | 14/16 PASS | all green | ✅ v10.0 :65000 | ✅ 7/7 | ✅ :5308 | cf-runagent TLS trust established; bundle exec: 3.28.0 Mac vs 3.27.1 Termux version mismatch |
-| **p7a** | 14/16 PASS | all green | ✅ v10.0 :65000 | ✅ 7/7 | ⬜ deployed | cf-serverd policy + wrapper pushed; boot loop restart pending |
-| **hd8** | 13/16 PASS | all green | ⚠️ USB only | ✅ 4/7 | ⬜ deployed | Fire OS: no localhost:5555, no Shizuku, no AutoJs6 a11y |
-| **p7a** | OK (battery 39%) | release10 | ✅ v10.0 :65000 | debug5 | Repair + boot integration deployed; wifi=up fix confirmed on Pixel Android 16 |
-| **hd8** | OK (SSH scrape, watchdog_stale expected) | release10 | ⚠️ USB only | debug5 | FIRERPA works via USB ADB (gRPC + WebUI); blocked for always-on by Fire OS SELinux |
+| Host | Verify | stayturgid | Bootstrap APKs | FIRERPA | CFEngine | Notes |
+|------|:------:|:----------:|:--------------:|:-------:|:--------:|-------|
+| **s24** | 14/16 PASS | all green | ✅ All 7 current | ✅ v10.0 :65000 | ✅ 7/7 | Bootstrap vfy tested; AutoJs6 versionName fix deployed |
+| **p7a** | 14/16 PASS | all green | pending | ✅ v10.0 :65000 | ✅ 7/7 | Bootstrap not yet run via `make deploy` |
+| **hd8** | 13/16 PASS | all green | pending | ⚠️ USB only | ✅ 4/7 | Fire OS: no localhost:5555, no Shizuku, no AutoJs6 a11y |
 
 All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/obtainium/stayturgid-apps.json`.
 **Fork sources:** `~/src/AutoJs6/`, `~/src/Shizuku/`, `~/src/Obtainium/` — **read-only** for this project. If changes needed, write a prompt for the fork's AI.
@@ -278,6 +278,30 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
   3.27.1 returns "Unspecified server refusal." TLS layer + trust proven working.
   Fix: align CFEngine versions or use `cf-runagent --protocol-version 2`.
 
+### Major changes (2026-07-13 — bootstrap APK automation + Shizuku start module)
+
+**Bootstrap APK automation (3 new playbooks + 1 module + 1 role):**
+- `android_apk` module extended with `resign`/`apksigner_bin`/`keystore`/`keystore_pass`/`key_alias` params for unsigned fork builds
+- `bootstrap_apks` role: version-aware install of 7 prerequisite APKs (Termux, Termux:Boot, Termux:API, Shizuku, AutoJs6, Tailscale, Obtainium) over ADB — queries `gh release view` per APK, compares against installed versionName, installs only when stale
+- `ensure-bootstrap-apks.yml`: playbook wired into `site.yml` before preflight
+- `verify-bootstrap-apks.yml`: preflight check that fails early with clear list of missing/stale APKs; tested on s24
+- `shizuku_start` module: starts Shizuku over ADB without device interaction — tries HEADLESS_START, falls back to native `libshizuku.so` launch; applies fleet profile, verifies port 5555
+- `ensure-shizuku.yml`: playbook wired after APK ensure, before SSH bootstrap
+- `check_apk.yml`: per-APK version checker with accumulator pattern
+- Makefile targets: `bootstrap-apks`, `verify-bootstrap-apks`, `ensure-shizuku`
+- 16 unit tests for `shizuku_start` module
+
+**AutoJs6 versionName fix:**
+- Discovered false-positive stale detection: tag `6.7.0-fleet-profile` vs versionName `6.7.0`
+- Fix applied in `djbclark/AutoJs6` fork build system (appends branch qualifier to versionName)
+- Verified: `aapt dump badging` shows `versionName='6.7.0-fleet-profile'` matching tag
+- Installed on s24 via `make bootstrap-apks HOSTS=s24`
+- Final verify: all 7 APKs current, no stale warnings
+
+**Bug fixes:**
+- `delegate_facts: true` removed from `bootstrap_apks/tasks/main.yml` and `verify-bootstrap-apks.yml` — was routing facts to localhost instead of inventory host, breaking `include_tasks` template resolution
+- `include_vars` added to `verify-bootstrap-apks.yml` to load role defaults
+
 ### Major changes (2026-07-11 — fork migration + headless automation)
 
 **Fork migration:**
@@ -343,7 +367,7 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 
 **Recent landings (2026-07-08):**
 - AutoJs6 fleet profile (`device/autojs6/fleet_profile.json`, `enable_autojs6_shizuku.py` via FleetProfileActivity intent).
-- Accessibility merge-only + `control/bin/a11y_services.py` backup/restore (`control/lib/a11y_profiles.json`).
+- Accessibility **detection-only** — no automatic writes. User must enable in Settings.
 - PiP/overlay clearance at `ScreenControlSession` start (`control/lib/ui_clearance.py`).
 - Deploy order: harden (core apps) → `enable_autojs6_shizuku` (Aurora configure parked).
 - AutoJs6 fleet profile API: [issue #553](https://github.com/SuperMonster003/AutoJs6/issues/553), implemented in [djbclark/AutoJs6](https://github.com/djbclark/AutoJs6/releases).
@@ -363,9 +387,11 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 - Mac adb: Tailscale or USB `GN43T503430603PS`; wireless failover works after one USB bootstrap.
 - **Sideloaded Google Play:** Play Store can auto-update GMS past Fire-compatible builds → GSF/GMS crash loop. Pin via `make fix-hd8-google`; disable Play Store auto-updates. **VLM close-out** (when `make vlm-server` running): `make verify-hd8-google` or auto after `fix-hd8-google`. See [docs/research/fire-os-google-play.md](research/fire-os-google-play.md) and [docs/vlm.md](vlm.md).
 
-**Next work:** [options.md](options.md) — open items only (OPTIONS **62** closed 2026-07-10).
-if doing cleanup, or **reorg soak** (`make deploy-check` → `make deploy HOSTS=s24` →
-`make verify`) if validating the layout move. Human unlocks: [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md).
+**Next work:** [options.md](options.md) — open items: B63–B64 (bootstrap APK follow-ups),
+H5/38 (Galaxy publish), 43–45 (reliability), 54 (LLM), F1–F4 (FIRERPA). If validating
+bootstrap flow: `make verify-bootstrap-apks HOSTS=s24` → `make bootstrap-apks HOSTS=s24` →
+`make ensure-shizuku HOSTS=s24` → `make deploy-check HOSTS=s24`. Human unlocks:
+[human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md).
 
 **Deploy / test:**
 - Deploy: `make deploy [HOSTS=<host>]`. Verify: `make verify HOSTS=<host>`.
@@ -452,8 +478,8 @@ If all three are down, `access-monitor` fires a Mac notification. FIRERPA heal i
 
 | # | Layer | Cycle | Transport | Repairs |
 |---|-------|-------|-----------|---------|
-| 1 | **Termux boot loop** (`start-adb.sh`) | 15 min | localhost:5555 privileged shell | sshd restart, mirror pin, PATH leak, a11y merge, fleet profiles |
-| 2 | **AutoJs6 watchdog** (`main.js` + `comonitor.js`) | 20 min + boot | AutoJs6 accessibility + Termux bridge | catastrophic Shizuku repair, sshd restart, a11y merge |
+| 1 | **Termux boot loop** (`start_adb.py`) | 15 min | localhost:5555 privileged shell | sshd restart, mirror pin, PATH leak, fleet profiles |
+| 2 | **AutoJs6 watchdog** (`main.js` + `comonitor.js`) | 20 min + boot | AutoJs6 accessibility + Termux bridge | catastrophic Shizuku repair, sshd restart, notifications |
 | 3 | **CFEngine** (`cf-agent -Kf stayturgid.cf`) | 15 min (in boot loop) | local process | sshd restart, mirror re-pin, PATH leak fix (3 of 7 bundles auto-repair) |
 | 4 | **Repair bridge** (`~/.stayturgid/run/repair_now`) | 15 min poll | any transport that can write files | touch trigger file → boot loop runs full repair next cycle |
 
@@ -527,7 +553,7 @@ Never assume the default shell — macOS is zsh, **Termux has no zsh by default*
 
 ## Accessibility state — verify at session start (APPEND ONLY)
 
-`settings put secure enabled_accessibility_services <value>` **replaces** the whole list — running it with one service silently wipes every other a11y service. Fleet setup uses **merge-only** writes (`control/bin/a11y_services.py`, `enable_autojs6_shizuku.py` shell path). **Do not** use the AutoJs6 drawer accessibility toggle — it replaces the list. Backup/restore: `control/lib/a11y_profiles.json`, `python3 control/bin/a11y_services.py backup|restore <host>`. See docs/hacking.md Part 5.
+`settings put secure enabled_accessibility_services <value>` **replaces** the whole list. **Fleet no longer writes accessibility settings automatically** — all auto-merge, backup, and shrink-repair was removed 2026-07-13. Accessibility is detection-only; the user must re-enable AutoJs6 in Settings > Accessibility > AutoJs6 manually. Detection still works: `settings get secure enabled_accessibility_services`, `a11y=up/down/unknown` in STATUS line, `autojs6_a11y_missing` in health tags. See docs/hacking.md Part 5 for manual instructions.
 
 Pixel 7a known-good list (as of 2026-07-06; stayturgid needs only AutoJs6 — the rest are the user's other apps):
 ```

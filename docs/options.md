@@ -24,18 +24,29 @@
 > Parked side projects: [docs/incubator/](incubator) — **do not implement**
 > unless the operator unparks a named project (Inferno, etc.).
 
-**Fleet snapshot (2026-07-12 evening):** FIRERPA deployed on s24 + p7a (v10.0 :65000)
-with Ansible collection, gRPC heal, launchd health monitor, and boot integration.
-hd8 blocked by Fire OS SELinux (peer-bootstrap covers it). Neo Store + Aurora **parked**.
-Open menu = H5/38, 43–45, 54, F1–F4.
+**Fleet snapshot (2026-07-13):** Shell → Python migration complete. Unified syslog
+logging with 30-day rotation and remote error scraping. Bootstrap APK automation
+deployed (7 APKs). FIRERPA on s24 + p7a (v10.0). Fleet dashboard (Flask + HTMX, :4097)
+with device status cards, human-action-needed indicators, live probe buttons, and
+long-term stats tracking (JSONL, forever, with selectable timeframe). Network landing
+page (:8088, also :443/services/) with MagicDNS / mDNS / LAN / Tailscale service
+links and hourly discovery scan. HTTPS consolidation behind Caddy reverse proxy
+(mac.greyhound-sidemirror.ts.net) with HTTP→HTTPS redirect. Tailnet renamed to
+greyhound-sidemirror.ts.net; all old machine names purged. **Python migration
+NOT YET deployed to devices** (see H1). s24: AutoJs6 watchdog stale since Jul 12
+16:30 (watchdog_heal ineffective on Android 16 — task stuck after a11y detection).
+p7a: port 5555 down (H2), but SSH/ADB probe now works after monitor fix.
+Open menu = H1/H3 (deploy), H2 (p7a), H6 (s24 watchdog), H5/38, 43–45, 54, F1–F4.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
 **Suggested agent order:** `make health` + `make firerpa-health` then
+`make verify-bootstrap-apks HOSTS=s24` to check APK freshness, then
 `make deploy-check HOSTS=s24` for any soak. H5/38 only if Galaxy publish wanted.
-FIRERPA F1–F4 are future enhancements; core integration is done.
+FIRERPA F1–F4 are future enhancements; core integration is done. Bootstrap
+B63–B64 are follow-ups needing hardware access.
 
 ---
 
@@ -44,7 +55,7 @@ FIRERPA F1–F4 are future enhancements; core integration is done.
 | Track | Focus | Open IDs | Typical risk |
 |-------|-------|----------|--------------|
 | **A — Operational** | Live deploy, human unblockers | H5, 38 | Medium–High (live phones / publish) |
-| **B — Ansible-native** | ADR 002 follow-ups (optional) | *(none open — 62 closed)* | Low |
+| **B — Ansible-native** | Bootstrap APK automation follow-ups | B63, B64 | Low–Medium |
 | **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
 | **E — On-device LLM** | shell-gpt escalation; incubator note | 54 | Medium (mis-scope risk) |
 | **F — FIRERPA** | gRPC backup channel enhancements | F1–F4 | Medium (future, core is done) |
@@ -76,6 +87,22 @@ Removed flat `ansible/playbooks/*.yml` shims (keep `site.yml` + `fleet/` +
 `control_node/`). Termux callers use `stayturgid_repair.py` /
 `stayturgid_agent_presence.py` (shell shims deleted; retired list cleans devices).
 `gplaycli.sh` removed; `stayturgid_root.py` legacy markers dropped.
+
+#### B63 — shizuku_start native launch path on real device (agent) · Risk: **Low** · Needs: device with Shizuku stopped
+
+Test the `shizuku_start` module's `libshizuku.so` native launch path on a live
+device. The module is idempotent (tested on s24 — already_up path OK). The
+native fallback mirrors `fire_peer_help.py:155-182` but has never been exercised
+in the Ansible module context. Requires stopping Shizuku first (disrupts services).
+Best done during cold-device end-to-end (B64) or with an idle device.
+
+#### B64 — Full cold-device end-to-end (agent) · Risk: **Medium** · Needs: virgin device
+
+Run `make deploy --limit <new_device>` from a device with only USB debugging
+enabled. Validates the entire bootstrap chain: APK install → Termux:Boot
+launch → Shizuku start → SSH bootstrap → fleet deploy. This is the only way
+to test all links in the chain together. Prefer a factory-reset device or one
+not in active fleet use.
 
 ---
 
@@ -134,6 +161,54 @@ when 5555 is dead. Note (incubator):
   real risk — keep allowlists and consent hard.
 
 ---
+
+### Track G — Python migration & logging (completed)
+
+**Shipped (2026-07-13):** Shell → Python migration of `start-adb.sh`, `autojs6-bridge.sh`,
+`repair-bridge.sh`, `ui_tars_env.sh`, `vlm_migrate_paths.sh`. All old shell files deleted,
+Ansible retired lists updated. Unified syslog logging (`control/lib/logging.py`) with
+severity levels, 30-day age-based rotation, and remote error scraping (device logs →
+local `errors.log`). `/errors` route on fleet dashboard. All monitors use shared logging.
+
+#### ~~G1 — Healing coverage registry + pre-flight checker~~ · **Closed 2026-07-13**
+
+`tests/healing_registry.json` (SSOT of all 27 desired states with must_cover/should_cover
+mechanism requirements). `tests/check_healing_coverage.py` runs in `make test` tier:code.
+
+#### ~~G2 — Shell → Python migration (bridges, boot supervisor, VLM)~~ · **Closed 2026-07-13**
+
+`start_adb.py`, `stayturgid_bridges.py`, `vlm_migrate_paths.py`, `ui_tars_env.py`.
+Old `.sh` files deleted from repo, listed in `stayturgid_retired_scripts`.
+
+#### ~~G3 — Remove automatic accessibility repair~~ · **Closed 2026-07-13**
+
+All automatic `settings put` for `enabled_accessibility_services` removed. Detection-only
+with notifications directing user to Settings.
+
+#### ~~G4 — Unified syslog logging + rotation + error scraping~~ · **Closed 2026-07-13**
+
+`control/lib/logging.py` with EMERG..DEBUG levels, all monitors refactored to use it,
+30-day log rotation, remote device error scraping into `errors.log`, dashboard `/errors` route.
+
+### Track H — Post-migration cleanup (open items)
+
+#### H1 — Deploy new Python files to devices · Risk: **Medium**
+
+The new `start_adb.py`, `bridges.py`, and updated `stayturgid_repair.py` with severity
+logging haven't been deployed yet. Run `make deploy` to push to fleet. Until then,
+old shell shims on-device fall through to bare sshd start (no repair loop). P7a is
+already in this state (`CLOSED_NO_SHELL` for hours).
+
+#### H2 — p7a port 5555 is down · Risk: **Medium** · Trigger: operator action
+
+p7a has been showing `CLOSED_NO_SHELL` since 06:20 2026-07-13. Wireless debugging
+needs manual re-enable in Developer Options, or a reboot. Other devices (s24) may
+be fine.
+
+#### H3 — `make deploy` to push Python runtime to fleet · Risk: **Medium**
+
+Run `make deploy [HOSTS=s24]` to push all new Python scripts (bridges, start_adb, repair
+with severity logging) and retire old shell scripts from devices via `stayturgid_retired_scripts`.
 
 **Non-goals / do-not-touch:** MDM / root / Play Protect bypass; full Obtainium
 API; Tasker rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal;
@@ -194,3 +269,6 @@ or network audit is needed.
 **57**, Portfolio 2 **48–52**/53, co-monitor + Mac AutoJs6 heal, Fire F1–F5,
 self-heal agent rule.
 **Closed (2026-07-08):** drawer profile, a11y, PiP, Aurora order, #553.
+**Shipped (2026-07-13):** bootstrap APK automation (version-aware install + verify +
+Shizuku start, 7 APKs); `android_apk` resign param; AutoJs6 versionName fix;
+`shizuku_start` module (16 unit tests).
