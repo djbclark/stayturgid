@@ -10,7 +10,6 @@
   ansible.builtin.set_fact:
     _bootstrap_adb: "{{ target_device | default(lookup('stayturgid.android_common.adb_device', inventory_hostname)) }}"
   delegate_to: localhost
-  delegate_facts: true
 
 - name: Install each bootstrap APK with version check
   ansible.builtin.include_tasks: install_apk.yml
