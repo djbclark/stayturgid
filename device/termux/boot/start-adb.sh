@@ -146,6 +146,10 @@ BOOTLOOP_PID_FILE="$STG/run/bootloop.pid"
     if [ -x "$PREFIX/bin/cf-agent" ] && [ -f "$CFENGINE_CF" ]; then
         "$PREFIX/bin/cf-agent" -D android,linux -Kf "$CFENGINE_CF" \
             >> "$STG/logs/repair-cfengine.log" 2>&1 || true
+    elif [ ! -x "$PREFIX/bin/cf-agent" ]; then
+        echo "[$(date -Iseconds)] CFEngine: cf-agent binary missing, skipping self-heal" >> "$STG/logs/repair-cfengine.log" 2>&1 || true
+    elif [ ! -f "$CFENGINE_CF" ]; then
+        echo "[$(date -Iseconds)] CFEngine: policy file $CFENGINE_CF missing, re-deploy required" >> "$STG/logs/repair-cfengine.log" 2>&1 || true
     fi
 
     # FIRERPA monitor: restart the failsafe daemon if it died.

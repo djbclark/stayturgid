@@ -42,3 +42,17 @@
     executable: /bin/bash
   delegate_to: localhost
   register: _firerpa_extract
+
+- name: Verify FIRERPA server binary exists after extract
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ _firerpa_adb_target }}
+      shell test -x {{ firerpa_install_dir }}/server/bin/python3.9 && echo OK || echo MISSING
+  delegate_to: localhost
+  changed_when: false
+  register: _firerpa_verify
+
+- name: Fail if FIRERPA binary missing after extract
+  ansible.builtin.fail:
+    msg: "FIRERPA server binary not found at {{ firerpa_install_dir }}/server/bin/python3.9 on {{ inventory_hostname }}"
+  when: "'OK' not in (_firerpa_verify.stdout | default(''))"

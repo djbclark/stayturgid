@@ -615,33 +615,58 @@ def main():
     # Gate each independently: AutoJs6 only re-applies when its process is dead
     # (likely after data clear); Shizuku only when HEADLESS_STATUS/pgrep says down.
     # Avoids waking healthy apps and suppresses toasts every cycle.
+    shizuku_profile = "skip"
+    auto_profile = "skip"
+    device_profile = "present"
     if expect_shell and have_sh:
         # AutoJs6: only re-apply if the process is dead (cleared data or crash).
         auto_running = False
         rc_auto, _ = sh_adb("pgrep -f org.autojs.autojs6 2>/dev/null")
         if rc_auto == 0:
             auto_running = True
-        if not auto_running:
-            profile = "/sdcard/Download/autojs6-fleet.json"
-            sh_adb("if [ -f %s ]; then am start --user 0 "
-                   "-a org.autojs.autojs6.action.APPLY_FLEET_PROFILE "
-                   "-e profile_path %s -e silent true "
-                   "-n org.autojs.autojs6/org.autojs.autojs.core.pref.fleet.FleetProfileActivity; fi"
-                   % (profile, profile))
-            time.sleep(0.5)
+        rc_afp, _ = sh_adb("[ -f /sdcard/Download/autojs6-fleet.json ] && echo ok || echo missing")
+        if "ok" in rc_afp:
+            if not auto_running:
+                profile = "/sdcard/Download/autojs6-fleet.json"
+                sh_adb("if [ -f %s ]; then am start --user 0 "
+                       "-a org.autojs.autojs6.action.APPLY_FLEET_PROFILE "
+                       "-e profile_path %s -e silent true "
+                       "-n org.autojs.autojs6/org.autojs.autojs.core.pref.fleet.FleetProfileActivity; fi"
+                       % (profile, profile))
+                time.sleep(0.5)
+                auto_profile = "applied"
+            else:
+                auto_profile = "up"
+        else:
+            auto_profile = "MISSING"
+            log("autojs6-fleet.json is MISSING from /sdcard/Download/ — re-deploy required")
         # Shizuku: only re-apply when Shizuku is down.
-        if shizuku != "up":
-            profile = "/data/local/tmp/shizuku-fleet.json"
-            sh_adb("if [ -f %s ]; then am start "
-                   "-a moe.shizuku.privileged.api.APPLY_FLEET_PROFILE "
-                   "-e profile_path %s -e silent true "
-                   "-n moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity; fi"
-                   % (profile, profile))
-            time.sleep(0.5)
-            sh_adb("dumpsys deviceidle whitelist +moe.shizuku.privileged.api")
+        rc_sf, _ = sh_adb("[ -f /data/local/tmp/shizuku-fleet.json ] && echo ok || echo missing")
+        if "ok" in rc_sf:
+            shizuku_profile = "present"
+            if shizuku != "up":
+                profile = "/data/local/tmp/shizuku-fleet.json"
+                sh_adb("if [ -f %s ]; then am start "
+                       "-a moe.shizuku.privileged.api.APPLY_FLEET_PROFILE "
+                       "-e profile_path %s -e silent true "
+                       "-n moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity; fi"
+                       % (profile, profile))
+                time.sleep(0.5)
+                shizuku_profile = "applied"
+                sh_adb("dumpsys deviceidle whitelist +moe.shizuku.privileged.api")
+        else:
+            shizuku_profile = "MISSING"
+            log("shizuku-fleet.json is MISSING from /data/local/tmp/ — re-deploy required")
+        # device.json: using generic fallback loses tap coordinates.
+        prof = read_device_profile()
+        if not prof.get("_comment") and not prof.get("device"):
+            device_profile = "MISSING"
+    # --- 9. Env file presence (STAYTURGID_SD, NO_LOCAL_ADB, etc.) ---
+    env_file = "present" if os.path.isfile(_ENV_FILE) else "MISSING"
 
-    status = "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s" % (
-        port, shizuku, sshd, a11y, "yes" if have_sh else "no", wifi, et_cfg)
+    status = "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s auto_profile=%s shizuku_profile=%s device_profile=%s env=%s" % (
+        port, shizuku, sshd, a11y, "yes" if have_sh else "no", wifi, et_cfg,
+        auto_profile, shizuku_profile, device_profile, env_file)
     log(status + " rc=%d" % rc)
     print(status)
     return rc

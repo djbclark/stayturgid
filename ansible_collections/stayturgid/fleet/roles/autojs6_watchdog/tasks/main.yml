@@ -29,11 +29,31 @@
   notify: nudge autojs6 watchdog
   when: not (stayturgid_autojs6_deploy_via_adb | default(false))
 
+- name: Compute local AutoJs6 fleet profile checksum
+  ansible.builtin.stat:
+    path: "{{ autojs6_target }}/fleet_profile.json"
+    checksum_algorithm: sha256
+  register: _autojs_fp_local
+  when: not (stayturgid_autojs6_deploy_via_adb | default(false))
+
+- name: Compute remote AutoJs6 fleet profile checksum
+  ansible.builtin.shell: |
+    sha256sum /sdcard/Download/autojs6-fleet.json 2>/dev/null | cut -d' ' -f1 || echo MISSING
+  register: _autojs_fp_remote
+  changed_when: false
+  failed_when: false
+  when: not (stayturgid_autojs6_deploy_via_adb | default(false))
+
 - name: Copy fleet profile to Download location (SSH path)
   ansible.builtin.shell: |
     cp "{{ autojs6_target }}/fleet_profile.json" /sdcard/Download/autojs6-fleet.json
-  changed_when: false
-  when: not (stayturgid_autojs6_deploy_via_adb | default(false))
+  when:
+    - not (stayturgid_autojs6_deploy_via_adb | default(false))
+    - >-
+      _autojs_fp_remote.stdout is not defined
+      or 'MISSING' in (_autojs_fp_remote.stdout | default(''))
+      or _autojs_fp_local.stat.checksum != (_autojs_fp_remote.stdout | default('')).strip()
+  changed_when: true
 
 - name: Stage device profile for adb push (Fire OS)
   ansible.builtin.template:
@@ -124,14 +144,36 @@
   delegate_to: localhost
   when: not (stayturgid_no_local_adb | default(false) | bool)
 
+- name: Compute local Shizuku fleet profile checksum
+  ansible.builtin.shell: |
+    md5 -q /tmp/shizuku-fleet-{{ inventory_hostname }}.json 2>/dev/null || md5sum /tmp/shizuku-fleet-{{ inventory_hostname }}.json | cut -d' ' -f1
+  register: _shizuku_fp_local
+  changed_when: false
+  delegate_to: localhost
+  when: not (stayturgid_no_local_adb | default(false) | bool)
+
+- name: Compute remote Shizuku fleet profile checksum
+  ansible.builtin.shell: |
+    {{ stayturgid_adb_bin | default('adb') }} -s \
+      "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}" \
+      shell "md5sum /data/local/tmp/shizuku-fleet.json 2>/dev/null | cut -d' ' -f1 || echo MISSING"
+  register: _shizuku_fp_remote
+  changed_when: false
+  failed_when: false
+  when: not (stayturgid_no_local_adb | default(false) | bool)
+
 - name: Push Shizuku fleet profile to device
   ansible.builtin.shell: |
     {{ stayturgid_adb_bin | default('adb') }} -s \
       "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}" \
       push /tmp/shizuku-fleet-{{ inventory_hostname }}.json /data/local/tmp/shizuku-fleet.json
-  changed_when: false
-  failed_when: false
-  when: not (stayturgid_no_local_adb | default(false) | bool)
+  when:
+    - not (stayturgid_no_local_adb | default(false) | bool)
+    - >-
+      _shizuku_fp_remote.stdout is not defined
+      or 'MISSING' in (_shizuku_fp_remote.stdout | default(''))
+      or _shizuku_fp_remote.stdout.strip() != (_shizuku_fp_local.stdout | default('')).strip()
+  changed_when: true
 
 - name: Apply Shizuku fleet profile via intent
   stayturgid.android_common.android_intent:
