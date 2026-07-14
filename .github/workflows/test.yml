@@ -28,6 +28,8 @@ jobs:
         run: npm install -g markdownlint-cli
       - name: Install prettier
         run: npm install -g prettier
+      - name: Install npm dev dependencies (prettier-plugin-toml, etc.)
+        run: npm install
       - name: Install ansible + linters
         run: uv tool install ansible-core && uv tool install ansible-lint && uv tool install yamllint
       - name: Install just

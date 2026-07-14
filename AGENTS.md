@@ -34,7 +34,7 @@ just health && just firerpa-health
 | `just biome`                        | JavaScript/CSS lint + format check (Biome)                                                                       |
 | `just shfmt`                        | Shell script format check (shfmt)                                                                                |
 | `just markdownlint`                 | Markdown lint check                                                                                              |
-| `just prettier`                     | Markdown/HTML/CSS format check (prettier)                                                                        |
+| `just prettier`                     | Markdown/HTML/CSS/TOML format check (prettier)                                                                   |
 | `just typos`                        | Source-code spelling check                                                                                       |
 | `just lint`                         | All linters: shellcheck, ansible-lint, yamllint, ruff, typos, biome, shfmt, justfile fmt, markdownlint, prettier |
 | `just check`                        | Syntax/import checks + ruff + typos + biome + shfmt + justfile fmt + markdownlint + prettier                     |

@@ -46,7 +46,7 @@ repos:
         entry: bash
         args: ["-c", "just --fmt --check"]
         language: system
-        files: '^(justfile|just/.*\.just)$'
+        files: '^(justfile|just/.*\.just|examples/.*/justfile)$'
 
   - repo: local
     hooks:
@@ -55,7 +55,7 @@ repos:
         entry: prettier
         args: ["--check"]
         language: system
-        types_or: [markdown, html, css]
+        types_or: [markdown, html, css, toml]
 
   - repo: local
     hooks:
@@ -71,6 +71,33 @@ repos:
     hooks:
       - id: yamllint
         args: [-c, .yamllint]
+
+  - repo: local
+    hooks:
+      - id: caddy-fmt
+        name: caddy fmt
+        entry: bash
+        args:
+          - -c
+          - |
+            if ! command -v caddy >/dev/null; then
+              echo 'caddy not installed — skipping'; exit 0
+            fi
+            if caddy fmt --diff control/caddy/Caddyfile | grep -q '^[+-]'; then
+              echo 'Caddyfile needs formatting — run caddy fmt --overwrite control/caddy/Caddyfile'
+              exit 1
+            fi
+        language: system
+        files: '^control/caddy/Caddyfile$'
+
+  - repo: local
+    hooks:
+      - id: yamllint-examples
+        name: yamllint (examples)
+        entry: bash
+        args: ["-c", "PATH=\"$HOME/.local/bin:$PATH\"; yamllint -c .yamllint \"$@\"", "--"]
+        language: system
+        files: '\.yml\.example$'
 
   - repo: local
     hooks:

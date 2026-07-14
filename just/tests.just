@@ -97,7 +97,7 @@ markdownlint:
 # prettier check (format — markdown, HTML, CSS).
 prettier:
     @if command -v prettier >/dev/null; then \
-      echo "### prettier --check"; prettier --check $(git ls-files '*.md' '*.html' '*.css'); \
+      echo "### prettier --check"; prettier --check $(git ls-files '*.md' '*.html' '*.css' '*.toml'); \
     else \
       echo "prettier not installed (brew install prettier) — skipped"; \
     fi
@@ -128,6 +128,7 @@ lint:
     fi
     if command -v yamllint >/dev/null; then
       yamllint ansible/ .ansible-lint .yamllint || rc=1
+      yamllint -c .yamllint $(git ls-files '*.yml.example') || rc=1
     else
       echo "yamllint not installed (uv tool install yamllint) — skipped"
     fi
@@ -164,9 +165,17 @@ lint:
       echo "markdownlint not installed (brew install markdownlint-cli) — skipped"
     fi
     if command -v prettier >/dev/null; then
-      prettier --check $(git ls-files '*.md' '*.html' '*.css') || rc=1
+      prettier --check $(git ls-files '*.md' '*.html' '*.css' '*.toml') || rc=1
     else
       echo "prettier not installed (brew install prettier) — skipped"
+    fi
+    if command -v caddy >/dev/null; then
+      if caddy fmt --diff control/caddy/Caddyfile | grep -q '^[+-]'; then
+        echo "Caddyfile needs formatting — run caddy fmt --overwrite control/caddy/Caddyfile"
+        rc=1
+      fi
+    else
+      echo "caddy not installed (brew install caddy) — skipped"
     fi
     exit $rc
 

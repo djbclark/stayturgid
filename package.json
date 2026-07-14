@@ -5,5 +5,8 @@
   "scripts": {
     "lint:autojs6": "biome check device/autojs6",
     "format:autojs6": "biome format --write device/autojs6"
+  },
+  "devDependencies": {
+    "prettier-plugin-toml": "^2.0.6"
   }
 }

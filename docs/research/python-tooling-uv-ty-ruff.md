@@ -130,14 +130,14 @@ No changes to the project needed yet.
    name = "stayturgid"
    requires-python = ">=3.9"
    description = "Android fleet resilience tooling"
-
+   
    [tool.ruff]
    target-version = "py39"
    line-length = 100
-
+   
    [tool.ruff.lint]
    select = ["E", "F", "W", "I", "UP"]
-
+   
    [tool.ty]
    python-version = "3.9"
    ```
@@ -158,8 +158,8 @@ No changes to the project needed yet.
 
    ```toml
    [tool.ruff.lint.per-file-ignores]
-   "tests/*" = ["S101"]  # allow assert
-   "device/termux/py/*" = ["T201"]  # allow print() in device scripts
+   "tests/*" = ["S101"]            # allow assert
+   "device/termux/py/*" = ["T201"] # allow print() in device scripts
    ```
 
 3. **Add to CI:**
