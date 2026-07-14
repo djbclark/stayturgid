@@ -262,6 +262,13 @@ restarted its supervisors; fresh 15:25+ repair checks and live validation are gr
 
 Completed on s24 + p7a. Run the same deploy on hd8 only with USB recovery available.
 
+#### ~~H4 — ruff + uv tooling~~ · **Closed 2026-07-14**
+
+`pyproject.toml` at project root with ruff config (line-length 120, py312 target, E/F/I/W
+rules). `just ruff` recipe runs `ruff check` + `ruff format --check`. `just lint` and
+`just check` both include ruff. `just test-venv` uses `uv` instead of `pip`. `uv` and
+`ruff` installed via `brew install uv ruff`.
+
 #### ~~H6 — s24 AutoJs6 watchdog stale (Android 16)~~ · **Closed 2026-07-13**
 
 The accessibility service resumed after the operator toggled it off/on. A later stale

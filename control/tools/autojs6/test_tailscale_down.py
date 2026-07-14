@@ -15,7 +15,6 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
 import adb_cli as adb  # noqa: E402
-
 import stayturgid_device as dev  # noqa: E402
 
 SCRIPT = f"{adb.AUTOJS_PROJECT_BASE}/scripts/test-tailscale-down-once.js"

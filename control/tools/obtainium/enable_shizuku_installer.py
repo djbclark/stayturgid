@@ -16,8 +16,8 @@ import json
 import os
 import subprocess
 import sys
-import time
 import tempfile
+import time
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.join(REPO, "control", "lib"))

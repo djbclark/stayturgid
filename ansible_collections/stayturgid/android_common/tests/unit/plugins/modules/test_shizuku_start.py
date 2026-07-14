@@ -11,7 +11,6 @@ sys.path.insert(0, os.path.join(ROOT, "plugins", "module_utils"))
 
 import shizuku_start as mod  # noqa: E402
 
-
 # --- pure-function unit tests ---
 
 

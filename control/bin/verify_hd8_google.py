@@ -31,7 +31,6 @@ import play_store_autoupdate as psa  # noqa: E402
 import stayturgid_device as dev  # noqa: E402
 import ui_driver as uid  # noqa: E402
 import vlm_gate as vlm  # noqa: E402
-import vlm_helpers as vh  # noqa: E402
 
 ART = Path.home() / ".config" / "stayturgid" / "artifacts" / "vlm-verify"
 

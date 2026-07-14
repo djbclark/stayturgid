@@ -7,9 +7,10 @@ test: unit-and-pytest
 configure:
     ./configure
 
-# Code-only syntax / import checks.
+# Code-only syntax / import checks + ruff.
 check:
     bash tests/run.sh code
+    @just ruff
 
 # Device-free unit tests (shell TAP).
 unit:
@@ -20,13 +21,13 @@ pytest:
     @if [ -x "{{ venv }}/bin/pytest" ]; then \
       echo "### pytest (Termux Python script twins)"; "{{ venv }}/bin/pytest"; \
     else \
-      echo "### pytest — SKIP (run 'make test-venv' to set up .venv-test)"; \
+      echo "### pytest — SKIP (run 'just test-venv' to set up .venv-test)"; \
     fi
 
 # Create .venv-test (once).
 test-venv:
-    python3 -m venv {{ venv }}
-    {{ venv }}/bin/pip install -q -r tests/python/requirements.txt
+    uv venv {{ venv }}
+    uv pip install --python {{ venv }}/bin/python -r tests/python/requirements.txt
 
 # ansible-test units for collections.
 ansible-test:
@@ -41,13 +42,23 @@ ansible-test:
       echo "### ansible-test — SKIP (run 'make test-venv')"; \
     fi
 
-# Unit + pytest + ansible-test (CI default).
+# Unit + pytest + ansible-test + ruff (CI default).
 unit-and-pytest:
     bash tests/run.sh local
     @just pytest
     @just ansible-test
+    @just ruff
 
-# shellcheck + ansible-lint + yamllint.
+# ruff check + format (Python).
+ruff:
+    @if command -v ruff >/dev/null; then \
+      echo "### ruff check"; ruff check .; \
+      echo "### ruff format"; ruff format --check .; \
+    else \
+      echo "ruff not installed (brew install ruff) — skipped"; \
+    fi
+
+# shellcheck + ansible-lint + yamllint + ruff.
 lint:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -67,6 +78,12 @@ lint:
       yamllint ansible/ .ansible-lint .yamllint || rc=1
     else
       echo "yamllint not installed (pipx install yamllint) — skipped"
+    fi
+    if command -v ruff >/dev/null; then
+      ruff check . || rc=1
+      ruff format --check . || rc=1
+    else
+      echo "ruff not installed (brew install ruff) — skipped"
     fi
     exit $rc
 

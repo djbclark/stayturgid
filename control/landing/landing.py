@@ -18,8 +18,9 @@ _REPO = _HERE.parents[1]
 _TEMPLATES = _HERE / "templates"
 
 sys.path.insert(0, str(_REPO))
-from control.landing import state  # noqa: E402
 from flask import Flask, render_template_string, request
+
+from control.landing import state  # noqa: E402
 
 PORT = 8080
 app = Flask(__name__, template_folder=str(_TEMPLATES))

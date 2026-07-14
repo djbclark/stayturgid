@@ -111,7 +111,6 @@ output:
 
 import glob
 import os
-import re
 import zipfile
 
 from ansible.module_utils.basic import AnsibleModule

@@ -6,7 +6,6 @@ sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "bin"))
 import deploy_fleet as df  # noqa: E402
 
-
 INVENTORY_JSON = {
     "stayturgid": {
         "hosts": {"s24": {}, "hd8": {}, "p7a": {}},

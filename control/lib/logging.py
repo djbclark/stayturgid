@@ -19,8 +19,6 @@ import fcntl
 import os
 import re
 import time
-from pathlib import Path
-from typing import Any
 
 # ── Syslog severity levels ──────────────────────────────────────────────────
 EMERG   = 0   # system is unusable

@@ -20,6 +20,7 @@ import datetime
 import os
 import subprocess
 import sys
+import time
 
 _REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _LIB = os.path.join(_REPO, "control", "lib")
@@ -30,11 +31,18 @@ import fleet_health as fh  # noqa: E402
 import hd8_google_stack as hgs  # noqa: E402
 import stayturgid_device as dev  # noqa: E402
 import vlm_helpers as vh  # noqa: E402
-from control.lib.logging import (  # noqa: E402
-    INFO, NOTICE, WARNING, ERR, CRIT,
-    log, trim_log, scrape_errors, severity_label,
-)
+
 import control.lib.stats as stats  # noqa: E402
+from control.lib.logging import (  # noqa: E402
+    ERR,
+    INFO,
+    NOTICE,
+    WARNING,
+    log,
+    scrape_errors,
+    severity_label,
+    trim_log,
+)
 
 ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")
 CONF = os.environ.get("STAYTURGID_DEVICES_CONF", os.path.join(ROOT, "devices.conf"))

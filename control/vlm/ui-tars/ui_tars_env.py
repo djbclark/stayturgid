@@ -18,7 +18,6 @@ import argparse
 import os
 import platform
 import shutil
-import shlex
 import subprocess
 import sys
 from dataclasses import dataclass, field

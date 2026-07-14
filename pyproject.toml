@@ -1,0 +1,21 @@
+[project]
+name = "stayturgid"
+description = "Keeps wireless ADB, Shizuku, and SSH alive on unrooted Android phones"
+requires-python = ">=3.12"
+dependencies = [
+    "ansible-core>=2.16",
+    "pytest>=7",
+    "pytest-mock>=3",
+    "pytest-ansible>=2",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501", "E402"]
+
+[tool.ruff.format]
+line-ending = "lf"

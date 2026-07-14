@@ -7,10 +7,10 @@ import sys
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
     "control", "lib"))
-import stayturgid_device as dev  # noqa: E402
-
 import importlib.util
 from pathlib import Path
+
+import stayturgid_device as dev  # noqa: E402
 
 _REPO = Path(__file__).resolve().parents[2]
 _MOD = _REPO / "ansible_collections/stayturgid/android_common/plugins/module_utils/adb_resolve.py"

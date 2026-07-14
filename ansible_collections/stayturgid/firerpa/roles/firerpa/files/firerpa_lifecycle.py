@@ -15,14 +15,12 @@ because its runtime applies a restrictive security policy.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import shlex
 import subprocess
 import sys
 import time
 from pathlib import Path
 from typing import Callable
-
 
 DEFAULT_ROOT = Path("/data/local/tmp/firerpa")
 SIGNED_JAR_SHA256 = (

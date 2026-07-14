@@ -15,7 +15,6 @@ Ansible inventory) — no device facts live here.
 """
 from __future__ import annotations
 
-import datetime
 import os
 import socket
 import subprocess
@@ -27,9 +26,12 @@ for _p in (_REPO, _LIB):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 from control.lib.logging import (  # noqa: E402
-    INFO, NOTICE, WARNING, ERR,
-    log, trim_log,
+    NOTICE,
+    WARNING,
+    log,
+    trim_log,
 )
+
 try:
     import control.lib.stats as stats
 except Exception:

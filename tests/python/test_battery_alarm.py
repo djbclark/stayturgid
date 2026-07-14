@@ -5,7 +5,6 @@ validation, quiet detection) — the end-to-end behavior + shell/Python parity
 is covered by tests/test-unit.sh (battery_suite run against both twins).
 """
 import importlib
-import os
 
 import pytest
 

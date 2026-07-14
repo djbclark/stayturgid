@@ -24,7 +24,6 @@ import zipfile
 import zlib
 from pathlib import Path
 
-
 ORIGINAL_DEX_SHA256 = (
     "69b52ebca5a0751b78f22c2f5a964b673e433be2e76e5b37f491813e472ec7c8"
 )

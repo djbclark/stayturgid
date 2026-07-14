@@ -1,8 +1,6 @@
 """Parity tests for Ansible adb_resolve vs control/lib/stayturgid_device."""
 import importlib.util
-import os
 import sys
-
 from pathlib import Path
 
 from conftest import REPO

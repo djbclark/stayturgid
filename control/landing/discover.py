@@ -8,7 +8,6 @@ unreachable services stay in the catalog with reachable=false.
 from __future__ import annotations
 
 import datetime
-import json
 import socket
 import subprocess
 import sys

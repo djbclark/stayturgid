@@ -28,7 +28,6 @@ import hashlib
 import os
 import re
 import subprocess
-import sys
 from pathlib import Path
 
 DEFAULT_UPSTREAM = Path.home() / "src" / "RevengeQuickSwitcher" / "VLM.md"

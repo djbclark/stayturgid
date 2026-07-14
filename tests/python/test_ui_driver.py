@@ -1,7 +1,6 @@
 """Unit tests for control/lib/ui_driver.py (Handsets helper)."""
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace

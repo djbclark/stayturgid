@@ -25,8 +25,8 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
 import a11y_services as a11y  # noqa: E402
 import adb_cli  # noqa: E402
-import stayturgid_device as dev  # noqa: E402
 import post_ui_remote as remote  # noqa: E402
+import stayturgid_device as dev  # noqa: E402
 
 AUTOJS_PKG = "org.autojs.autojs6"
 AUTOJS_RUN = "org.autojs.autojs.external.open.RunIntentActivity"

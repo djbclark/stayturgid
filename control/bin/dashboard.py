@@ -31,11 +31,13 @@ for d in [_LIB, _BIN]:
 if str(_REPO) not in sys.path:
     sys.path.append(str(_REPO))
 
-from flask import Flask, render_template_string, request
-from markupsafe import Markup, escape
-from fleet_health import probe_device as live_probe, evaluate_health
 from check_fleet_health import read_consecutive as read_fleet_consecutive
-from stayturgid_device import iter_devices_conf, resolve_ssh_host, PrivShell, SSH_OPTS
+from flask import Flask, render_template_string, request
+from fleet_health import evaluate_health
+from fleet_health import probe_device as live_probe
+from markupsafe import Markup, escape
+from stayturgid_device import SSH_OPTS, PrivShell, iter_devices_conf, resolve_ssh_host
+
 import control.lib.stats as _stats
 
 ROOT = Path(os.path.expanduser("~")) / ".config" / "stayturgid"

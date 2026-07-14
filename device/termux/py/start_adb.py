@@ -14,8 +14,6 @@ import signal
 import subprocess
 import sys
 import time
-from pathlib import Path
-
 
 PREFIX = "/data/data/com.termux/files/usr"
 HOME = os.environ.get("HOME", "/data/data/com.termux/files/home")

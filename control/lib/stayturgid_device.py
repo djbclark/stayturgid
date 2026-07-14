@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 """Shared Mac-side device helpers (Python).
 
 Pure, unit-tested logic (JSON patching, uid/UI-XML parsing, device resolution)
@@ -177,12 +178,6 @@ def resolve_ssh_host(alias, conf_path=None):
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _REPO not in sys.path:
     sys.path.insert(0, _REPO)
-from ui_parse import (  # noqa: E402
-    parse_button_center,
-    parse_content_desc_center,
-    parse_switch,
-    parse_text_center,
-)
 
 
 # --------------------------------------------------------------------------

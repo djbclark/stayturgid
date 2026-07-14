@@ -1,7 +1,6 @@
 """Unit tests for termux_run_as helpers and CLI wrapper."""
 import os
 import sys
-from pathlib import Path
 
 sys.path.insert(0, os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "lib"))
@@ -12,7 +11,6 @@ _COLLECTION_UTILS = os.path.join(
 sys.path.insert(0, _COLLECTION_UTILS)
 
 import termux_run_as as tr  # noqa: E402
-import termux_ssh_bootstrap as boot  # noqa: E402
 
 
 def test_discover_pubkey_paths_explicit(tmp_path):

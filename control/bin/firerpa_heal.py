@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -24,11 +23,15 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 for _p in (REPO_ROOT / "control" / "lib", REPO_ROOT):
     if str(_p) not in sys.path:
         sys.path.append(str(_p))
-from control.lib.logging import (  # noqa: E402
-    INFO, NOTICE, WARNING, ERR,
-    log, trim_log,
-)
 from control.lib.firerpa_auth import certificate_path  # noqa: E402
+from control.lib.logging import (  # noqa: E402
+    ERR,
+    INFO,
+    NOTICE,
+    WARNING,
+    log,
+    trim_log,
+)
 
 try:
     from lamda.client import Device

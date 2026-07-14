@@ -60,9 +60,7 @@ healthy:
   type: bool
 """
 
-import datetime
 import hashlib
-import json
 import os
 import subprocess
 import time
@@ -212,7 +210,6 @@ def check_repair_log():
 
 def check_watchdog():
     # Check if AutoJs6 main.js watchdog has run recently
-    import glob
     sd_logs = [
         "/sdcard/stayturgid/logs/watchdog.log",
         os.path.join(STG, "shared", "logs", "watchdog.log"),
@@ -329,7 +326,7 @@ CHECK_MAP = {
     "write_settings": check_write_settings,
     "tailscale_vpn": check_tailscale_vpn,
     "scripts_match": check_scripts_match,
-    "wireless_debugging": check_wireless_debugging,
+    "wireless_debugging": check_wireless_debugging,  # noqa: F821 — forward ref, defined below
 }
 
 

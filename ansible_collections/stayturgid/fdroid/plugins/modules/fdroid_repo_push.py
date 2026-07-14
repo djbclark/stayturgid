@@ -43,7 +43,6 @@ from ansible.module_utils.basic import AnsibleModule
 
 from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_packages import (
     fdroid_components_for_device,
-    list_packages,
 )
 from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_resolve import (
     resolve_adb,

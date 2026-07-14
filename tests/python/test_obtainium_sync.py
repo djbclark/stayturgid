@@ -5,7 +5,6 @@ import json
 import os
 
 import yaml
-
 from conftest import REPO
 
 

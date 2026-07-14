@@ -1,7 +1,7 @@
 """Unit tests for fdroid_repos module (pure helpers + mocked Ansible I/O)."""
 import json
-import sys
 import os
+import sys
 
 import pytest
 

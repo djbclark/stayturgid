@@ -9,8 +9,8 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
 sys.path.insert(0, str(REPO / "control" / "bin"))
 
-import verify_hd8_google as vhg  # noqa: E402
 import hd8_google_stack as hgs  # noqa: E402
+import verify_hd8_google as vhg  # noqa: E402
 
 
 def test_check_stack_ok(monkeypatch):

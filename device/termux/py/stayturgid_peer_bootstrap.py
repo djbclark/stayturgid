@@ -24,7 +24,6 @@ import socket
 import struct
 import subprocess
 import sys
-import time
 from typing import Any
 
 HOME = os.environ.get("HOME", "/data/data/com.termux/files/home")

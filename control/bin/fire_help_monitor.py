@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import datetime
 import os
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -25,7 +24,6 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
 
 
-import fleet_health as fh  # noqa: E402
 import fire_peer_help as fph  # noqa: E402
 
 try:

@@ -16,9 +16,9 @@ import xml.sax.saxutils as saxutils
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.join(REPO, "control", "lib"))
-import stayturgid_device as dev  # noqa: E402
-import screen_control as sc  # noqa: E402
 import post_ui_remote as remote  # noqa: E402
+import screen_control as sc  # noqa: E402
+import stayturgid_device as dev  # noqa: E402
 import ui_driver as uid  # noqa: E402
 
 AURORA_PKG = "com.aurora.store"

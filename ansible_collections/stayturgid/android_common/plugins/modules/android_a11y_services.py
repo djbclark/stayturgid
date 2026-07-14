@@ -38,15 +38,13 @@ services_count:
   type: int
 """
 
-import os
-import subprocess
 
 from ansible.module_utils.basic import AnsibleModule
 
-from ansible_collections.stayturgid.android_common.plugins.module_utils import adb_shell
 from ansible_collections.stayturgid.android_common.plugins.module_utils import (
     a11y_services_util as a11y,
 )
+from ansible_collections.stayturgid.android_common.plugins.module_utils import adb_shell
 
 
 def settings_get(run_command, device):
