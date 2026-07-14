@@ -29,7 +29,7 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 | [docs/options.md](options.md) | Open work menu |
 | [plans/outstanding-fix-priorities-2026-07-13.md](plans/outstanding-fix-priorities-2026-07-13.md) | Ordered reliability work + junior-agent resume prompt |
 | [plans/just-migration-plan.md](plans/just-migration-plan.md) | Staged GNU Make → `just` migration after reliability fixes |
-| [prompts/dashboard-framework-research.md](prompts/dashboard-framework-research.md) | Self-contained prompt for evaluating Ansible/operations frameworks as a dashboard foundation |
+| [prompts/dashboard-framework-research.md](prompts/dashboard-framework-research.md) | Self-contained prompt for evaluating dashboard / ops frameworks as a foundation |
 | [docs/other-sites.md](other-sites.md) | Multi-site adoption, control-node OS matrix |
 | [docs/vlm.md](vlm.md) | UI-TARS vision gates |
 | [adr/001-ansible-boundary.md](adr/001-ansible-boundary.md) | Ansible 80/20 boundary (ADR 001) |
@@ -49,6 +49,8 @@ Findings that inform **shipping** fleet behavior (Handsets, Fire OS, UI drivers)
 | [research/fire-os-local-adb.md](research/fire-os-local-adb.md) | Fire HD loopback ADB limits |
 | [research/fire-os-google-play.md](research/fire-os-google-play.md) | Fire HD Google Play / GMS stack |
 | [research/mac-android-ui-automation.md](research/mac-android-ui-automation.md) | Mac→Android UI playbook |
+| [research/autojs6-project-import-questions.md](research/autojs6-project-import-questions.md) | Questions for AutoJs6 maintainer about existing-project import and launch |
+| [research/autojs6-hd8-project/](research/autojs6-hd8-project/) | Reference copy of the hd8 AutoJs6 project files that actually ran |
 | [research/text-based-android-config.md](research/text-based-android-config.md) | Best practices for adding text-based configuration to Android apps; candidate apps in the stayturgid stack |
 
 ## `docs/incubator/` — parked side projects (do not implement)

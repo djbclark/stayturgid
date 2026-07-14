@@ -190,14 +190,20 @@ inspection found little meaningful Make build-graph behavior; the migration cost
 primarily current documentation and compatibility across approximately 63 non-history
 files. Implementation remains deferred until T1 is deliberately selected.
 
-#### T2 — Evaluate PM2 or another JS/runtime operations tool (operator decision) · Risk: **Medium** · Deferred
+#### T2 — Evaluate dashboard/framework options for JS runtime supervision · Risk: **Medium** · Deferred
 
-The evaluation now covers PM2, Uptime Kuma, Pulumi, Jest, `zx`, Shipit, and
-Flightplan. None should become an AutoJs6 runtime dependency. Option A is now the
-host-only ESLint pilot; the existing Node harness remains the device-test seam.
-Options B, C, and D are intentionally deferred for later. Details, compatibility
-constraints, and bounded implementation steps are in
+The research prompt for this work is
+[docs/prompts/dashboard-framework-research.md](prompts/dashboard-framework-research.md).
+The broader evaluation covers PM2, Uptime Kuma, Pulumi, Jest, `zx`, Shipit, and
+Flightplan. A useful candidate must reduce host-side glue or add meaningful job,
+approval, or audit support; generic uptime widgets do not count. None should become
+an AutoJs6 runtime dependency. Option A is now the host-only ESLint pilot; the
+existing Node harness remains the device-test seam. Options B, C, and D are
+intentionally deferred for later. Details, compatibility constraints, and bounded
+implementation steps are in
 [JavaScript Runtime Supervision Evaluation](research/javascript-runtime-supervision-2026-07-13.md).
+Also worth a later look: whether packaging the AutoJs6 side as a plugin would make
+deployment or recovery easier.
 
 ---
 

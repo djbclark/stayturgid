@@ -3,8 +3,8 @@ var config = require("./config.js");
 function ts() {
     var d = new Date();
     function pad(n) { return (n < 10 ? "0" : "") + n; }
-    return d.getFullYear() + "-"
-        + pad(d.getMonth() + 1) + "-"
+    var mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
+    return mon + " "
         + pad(d.getDate()) + " "
         + pad(d.getHours()) + ":"
         + pad(d.getMinutes()) + ":"

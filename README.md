@@ -33,6 +33,7 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 | [`.cursor/rules/`](.cursor/rules/) | **AI agent policies** (always-on; read on every handoff) — self-heal, screen-control hold, … |
 | [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md) | Operator tasks (credentials, deploy approval) — human-only |
 | [docs/options.md](docs/options.md) | Next-work menu — agents append + push when operator asks for options |
+| [dashboard-framework research prompt](docs/prompts/dashboard-framework-research.md) | Self-contained brief for evaluating dashboard / ops frameworks |
 | [Outstanding fix priorities](docs/plans/outstanding-fix-priorities-2026-07-13.md) | Ordered reliability work and copy-paste junior-agent resume prompt |
 | [`just` migration plan](docs/plans/just-migration-plan.md) | Staged command-runner migration after reliability work is stable |
 | [version.json](version.json) | Repo release version (Ansible / manual deploy) |

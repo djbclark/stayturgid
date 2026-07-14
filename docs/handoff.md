@@ -378,6 +378,7 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 **Obtainium FleetProfileActivity**: Must use `getSharedPreferences("FlutterSharedPreferences", ...)` (the `flutter.` prefixed keys). DataStore DOES NOT work — the app's `SettingsProvider` uses legacy `SharedPreferences`, not `SharedPreferencesAsync`. See docs/handoff-obtainium-shizuku.md for full debugging history.
 
 **Fire OS (hd8)**: Fire OS blocks background broadcasts. Shizuku must be started via peer bootstrap (`fire_peer_help.py`) or USB-tap, not HEADLESS_START.
+- **hd8 AutoJs6 project recovery (2026-07-13):** AutoJs6 would not recognize the repo tree as a project until the app-created project root was used. The working pair that brought hd8 back is saved under [docs/research/autojs6-hd8-project/](research/autojs6-hd8-project/); keep that as a reference for project-recognition behavior.
 
 **`run-as` restricted on Android 16**: Can't read app SharedPreferences files directly for debugging.
 
@@ -424,8 +425,11 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 
 **Next work:** follow
 [Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md), with
-live status in [options.md](options.md). Start with the first incomplete priority; do not let Galaxy publishing,
-LLM, FIRERPA MCP/WebRTC/MITM, Tasker, or `sshd -D` work displace the ordered fixes.
+live status in [options.md](options.md). Start with the first incomplete priority.
+The dashboard-framework research prompt is at
+[docs/prompts/dashboard-framework-research.md](prompts/dashboard-framework-research.md).
+Galaxy publishing, LLM, FIRERPA MCP/WebRTC/MITM, Tasker, or `sshd -D` work should
+not displace the ordered fixes.
 If validating bootstrap flow: `make verify-bootstrap-apks HOSTS=s24` →
 `make bootstrap-apks HOSTS=s24` → `make ensure-shizuku HOSTS=s24` →
 `make deploy-check HOSTS=s24`. Human unlocks:
@@ -437,6 +441,32 @@ If validating bootstrap flow: `make verify-bootstrap-apks HOSTS=s24` →
 - All commands: `make help`.
 
 ---
+
+### AutoJs6 project-import note (2026-07-13)
+
+On s24, the stayturgid AutoJs6 project can now be recognized when the full tree is copied into AutoJs6’s expected project shape (`project.json` plus the full `main.js`/`lib`/`scripts` tree). However, repeated testing showed that AutoJs6’s built-in LeakCanary integration surfaces retained-object toasts and heap-dump analysis during normal launch, which makes it hard to tell whether `main.js` actually started. The current follow-up is to ask AutoJs6 maintainers whether LeakCanary can be disabled, deferred, or moved out of the normal user-facing startup path.
+
+Relevant note:
+
+- `docs/research/autojs6-project-import-questions.md`
+- `docs/research/autojs6-hd8-project/`
+
+### AutoJs6 path normalization (2026-07-13)
+
+AutoJs6 v6.7.0-fleet-profile+ normalizes `/sdcard/` paths to
+`Environment.getExternalStorageDirectory()` in two places:
+- `ScriptIntents.normalizePath()` — for script execution via `RunIntentActivity`
+- `FleetProfileActivity.normalizePath()` — for fleet profile application
+
+Both check `File(path).exists()` **first** — if the file exists at the given
+path, no normalization occurs. This means hardcoded `/sdcard/` paths in
+stayturgid's deploy and control scripts **continue to work on all devices**
+including Fire OS, where `/sdcard` is the physical path (no symlink).
+
+`control/lib/adb_cli.py` now provides two Fire OS helpers:
+- `resolve_external_storage(serial)` — queries `$EXTERNAL_STORAGE` on device
+- `is_fire_os(serial)` — checks `ro.build.characteristics` for `amazon`
+
 
 ## Fleet layout & file roots (single-root, self-healing) — 2026-07-07
 

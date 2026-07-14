@@ -19,6 +19,27 @@ AUTOJS_RUN = "org.autojs.autojs.external.open.RunIntentActivity"
 AUTOJS_PROJECT_BASE = "/sdcard/stayturgid/autojs6"
 SSH_OPTS = ["-o", "BatchMode=yes", "-o", "LogLevel=ERROR"]
 
+# AutoJs6 normalizes /sdcard paths to Environment.getExternalStorageDirectory()
+# when the file doesn't exist at the given path (v6.7.0-fleet-profile+).
+# Hardcoded /sdcard/ paths work on all devices because:
+#  - Standard Android: /sdcard -> /storage/emulated/0 symlink works natively
+#  - Fire OS: /sdcard is the actual physical path (no symlink), deployed by adb
+#  - AutoJs6 checks File(path).exists() before normalizing, so valid paths pass through
+_SDCARD_DEFAULT = "/sdcard"
+
+
+def resolve_external_storage(serial: str) -> str:
+    """Return the device's external storage path, or fall back to /sdcard."""
+    result = adb(serial, "shell", "echo", "${EXTERNAL_STORAGE:-/sdcard}")
+    raw = (result.stdout or _SDCARD_DEFAULT).strip()
+    return raw if raw.startswith("/") else _SDCARD_DEFAULT
+
+
+def is_fire_os(serial: str) -> bool:
+    """Heuristic: Fire OS devices show amazon in build characteristics."""
+    result = adb(serial, "shell", "getprop", "ro.build.characteristics")
+    return "amazon" in (result.stdout or "").lower()
+
 
 def resolve_target(alias: str) -> str:
     return dev.resolve_adb(alias)
@@ -75,6 +96,11 @@ def start_autojs_file(serial: str, remote_path: str, *, force_stop: bool = False
     ``force_stop=True`` adds ``-S`` (force-stop before start) — needed on
     Fire OS where AutoJs6 can get stuck and ``am start`` delivers the intent
     to the zombie without running the script.
+
+    Path handling: AutoJs6 v6.7.0-fleet-profile+ normalizes /sdcard/ to the
+    device's Environment.getExternalStorageDirectory() when the file doesn't
+    exist at the given path.  Hardcoded /sdcard/ paths work on all platforms
+    because AutoJs6 checks File(path).exists() first (a no-op when valid).
     """
     # Prefer content URI under external storage when path is under /sdcard.
     data = f"file://{remote_path}"

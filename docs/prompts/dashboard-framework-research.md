@@ -148,6 +148,10 @@ Project rules and current state:
 
 - `~/stayturgid/AGENTS.md`
   <https://github.com/djbclark/stayturgid/blob/master/AGENTS.md>
+- `~/stayturgid/README.md`
+  <https://github.com/djbclark/stayturgid/blob/master/README.md>
+- `~/stayturgid/docs/README.md`
+  <https://github.com/djbclark/stayturgid/blob/master/docs/README.md>
 - `~/stayturgid/docs/coding-rules.md`
   <https://github.com/djbclark/stayturgid/blob/master/docs/coding-rules.md>
 - `~/stayturgid/.cursor/rules/`
@@ -187,41 +191,42 @@ Related research and plans:
 
 ## Candidates to investigate
 
-Search for additional strong candidates, but at minimum evaluate the relevant parts
-of these projects. Use current official documentation and repositories rather than
-relying on memory.
+Search for additional strong candidates, but prioritize self-hostable systems that
+can actually execute jobs, record history, and support approvals. At minimum,
+evaluate the relevant parts of these projects. Use current official documentation
+and repositories rather than relying on memory.
 
 Ansible-oriented tools:
 
-- AWX: <https://github.com/ansible/awx>
 - Ansible Runner: <https://github.com/ansible/ansible-runner>
-- Event-Driven Ansible / Rulebook: <https://github.com/ansible/ansible-rulebook>
+- AWX: <https://github.com/ansible/awx>
 - Semaphore UI: <https://github.com/semaphoreui/semaphore>
+- Event-Driven Ansible / Rulebook: <https://github.com/ansible/ansible-rulebook>
 - ARA Records Ansible: <https://github.com/ansible-community/ara>
 - Ansible Navigator, if relevant: <https://github.com/ansible/ansible-navigator>
 
 Operations and extensible administration frameworks:
 
-- Rundeck: <https://github.com/rundeck/rundeck>
-- Cockpit: <https://github.com/cockpit-project/cockpit>
-- NetBox and its plugin/job framework: <https://github.com/netbox-community/netbox>
 - Django: <https://github.com/django/django>
 - Flask-AppBuilder: <https://github.com/dpgaspar/Flask-AppBuilder>
 - Flask-Admin: <https://github.com/pallets-eco/flask-admin>
+- NetBox and its plugin/job framework: <https://github.com/netbox-community/netbox>
+- Rundeck: <https://github.com/rundeck/rundeck>
+- Cockpit: <https://github.com/cockpit-project/cockpit>
 
 Python dashboard/application frameworks:
 
+- NiceGUI: <https://github.com/zauberzeug/nicegui>
 - Dash: <https://github.com/plotly/dash>
 - Panel: <https://github.com/holoviz/panel>
-- NiceGUI: <https://github.com/zauberzeug/nicegui>
 - Streamlit, only if it can support safe operations workflows:
   <https://github.com/streamlit/streamlit>
 
 Portal and developer-platform candidates, only where they offer meaningful action
 or plugin capabilities beyond links and generic uptime widgets:
 
-- Backstage: <https://github.com/backstage/backstage>
 - Homepage: <https://github.com/gethomepage/homepage>
+- Backstage: <https://github.com/backstage/backstage>
 - Homarr: <https://github.com/homarr-labs/homarr>
 
 Do not treat Uptime Kuma, Grafana, or a status-page product as a complete answer.
@@ -346,4 +351,3 @@ worktree changes. Do not modify production dashboard code, devices, Caddy, launc
 or persistent host software. Run existing documentation/code checks relevant to the
 files changed. Commit and push only the research/documentation changes if the
 repository's rules authorize that normal completion workflow.
-

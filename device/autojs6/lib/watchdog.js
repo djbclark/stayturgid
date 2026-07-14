@@ -18,6 +18,13 @@ function runCycle(trigger, profile) {
     var tag = profile.notifyTag || "";
     var split = config.splitStorage(profile);
     var time = log.append("[watchdog] cycle start trigger=" + trigger + " (autojs6)");
+    try {
+        var p = config.pathsFor(profile);
+        files.ensureDir(String(p.watchdogStamp).replace(/\/[^/]+$/, "") + "/");
+        files.write(p.watchdogStamp, time + " trigger=" + trigger + "\n");
+    } catch (e) {
+        log.append("[watchdog] stamp write failed: " + e);
+    }
     var termuxStale = log.isRepairLoopStale();
     var comonitorReason = "periodic";
 
@@ -87,23 +94,21 @@ function runCycle(trigger, profile) {
                 notify.clear("bridge");
                 log.append("[watchdog] termux repair fresh — co-monitor still verifies (autojs6)");
             }
-
-            if (sshd === "down" || sshd === "FAILED") {
-                notify.show(
-                    "⚠ SSH daemon down " + tag,
-                    time + " — Termux sshd not running (repair couldn't restore it). "
-                        + "SSH in via ADB/Tailscale and run: sshd",
-                    "sshd"
-                );
-                comonitorReason = "sshd-down";
-            } else {
-                notify.clear("sshd");
-            }
         }
     }
 
     // Fleet parity: every host runs the same Shizuku co-monitor each cycle.
-    comonitor.run(profile, { force: true, reason: comonitorReason });
+    status = comonitor.run(profile, { force: true, reason: comonitorReason });
+    if (status && (status.sshd === "down" || status.sshd === "FAILED")) {
+        notify.show(
+            "⚠ SSH daemon down " + tag,
+            time + " — Fresh co-monitor probe still sees sshd down. "
+                + "SSH in via ADB/Tailscale and run: sshd",
+            "sshd"
+        );
+    } else {
+        notify.clear("sshd");
+    }
 
     var ts;
     if (profile.tailscaleEnabled === false) {

@@ -39,6 +39,7 @@ function pathsFor(profile) {
         termuxSdRoot: termuxRoot,
         deviceJson: root + "/state/device.json",
         watchdogLog: root + "/logs/watchdog.log",
+        watchdogStamp: root + "/run/watchdog.last",
         triggerFile: root + "/run/repair_now",
     };
 }
