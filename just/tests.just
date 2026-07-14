@@ -7,13 +7,14 @@ test: unit-and-pytest
 configure:
     ./configure
 
-# Code-only syntax / import checks + ruff + typos + biome + shfmt.
+# Code-only syntax / import checks + ruff + typos + biome + shfmt + justfiles.
 check:
     bash tests/run.sh code
     @just ruff
     @just typos
     @just biome
     @just shfmt
+    @just just-check
 
 # Device-free unit tests (shell TAP).
 unit:
@@ -45,7 +46,7 @@ ansible-test:
       echo "### ansible-test — SKIP (run 'just test-venv')"; \
     fi
 
-# Unit + pytest + ansible-test + ruff + typos + biome + shfmt (CI default).
+# Unit + pytest + ansible-test + ruff + typos + biome + shfmt + justfiles (CI default).
 unit-and-pytest:
     bash tests/run.sh local
     @just pytest
@@ -54,6 +55,7 @@ unit-and-pytest:
     @just typos
     @just biome
     @just shfmt
+    @just just-check
 
 # ruff check + format (Python).
 ruff:
@@ -88,7 +90,7 @@ typos:
       echo "typos not installed (brew install typos-cli) — skipped"; \
     fi
 
-# shellcheck + ansible-lint + yamllint + ruff + typos + biome + shfmt.
+# shellcheck + ansible-lint + yamllint + ruff + typos + biome + shfmt + justfiles.
 lint:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -129,6 +131,12 @@ lint:
       shfmt -d -i 2 -ci $(git ls-files '*.sh') || rc=1
     else
       echo "shfmt not installed (brew install shfmt) — skipped"
+    fi
+    if command -v just >/dev/null; then
+      just --fmt --check || rc=1
+      echo "justfiles: fmt ok"
+    else
+      echo "just not installed (brew install just) — skipped"
     fi
     exit $rc
 

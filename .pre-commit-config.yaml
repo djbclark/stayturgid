@@ -39,6 +39,15 @@ repos:
         language: system
         types: [shell]
 
+  - repo: local
+    hooks:
+      - id: just-fmt
+        name: justfile format
+        entry: bash
+        args: ["-c", "just --fmt --check"]
+        language: system
+        files: '^(justfile|just/.*\.just)$'
+
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.35.1
     hooks:
