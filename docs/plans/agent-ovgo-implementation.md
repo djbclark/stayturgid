@@ -1,7 +1,7 @@
 # O-V-G-O Stack & Site Identity Implementation Plan (Agent Instructions)
 
 **Audience:** Junior Developer / Autonomous AI Agent
-**Context:** This document provides explicit, step-by-step instructions to implement the unified architecture outlined in `docs/architecture.md`.
+**Context:** This document provides explicit, step-by-step instructions to implement the unified architecture outlined in [docs/architecture.md](file:///Users/djbclark/stayturgid/docs/architecture.md).
 **End Goal:** Completely replace the legacy custom Python dashboard (`dashboard.py`) and polling monitors (`fleet_health_monitor.py`, `access_monitor.py`) with a modern, resilient, push-based telemetry stack (Vector) and a clean OliveTin execution interface. All configuration must be generated from the Ansible site inventory.
 
 ---
