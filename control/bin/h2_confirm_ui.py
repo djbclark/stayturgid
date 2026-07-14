@@ -185,6 +185,15 @@ def confirm_host(host: str) -> Path:
     out = OUT / host
     out.mkdir(parents=True, exist_ok=True)
     print("=== H2 confirm %s (%s) ===" % (host, serial))
+
+    import ui_guard
+
+    ui_guard.check_ui_guard(
+        host=host,
+        action_type="H2-CONFIRM-UI",
+        message="Please manually perform the Neo Store and Aurora Store UI verification.",
+    )
+
     with sc.ScreenControlSession(host, label=host) as session:
         with uid.try_handsets(serial, host) as hs:
             confirm_neo(host, session, hs, out)

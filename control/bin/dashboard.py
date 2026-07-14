@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import json
 import os
 import re
 import subprocess
@@ -343,6 +344,54 @@ def request_shizuku_authorization(hostname: str) -> tuple[bool, str]:
     return False, "Shizuku opened; tap Allow all the time, then retry (%s)" % detail
 
 
+def _run(args, **kw):
+    try:
+        return subprocess.run(args, capture_output=True, text=True, **kw)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+
+
+def mac_adb_shell(serial, *args, timeout=30):
+    r = _run(["adb", "-s", serial, "shell"] + list(args), timeout=timeout)
+    if r is None:
+        return 127, ""
+    return r.returncode, r.stdout.replace("\r", "")
+
+
+def get_pending_ui(hostname: str) -> dict | None:
+    # 1. Check Mac-side pending UI file
+    mac_path = Path(os.path.expanduser("~")) / ".config" / "stayturgid" / "state" / "pending_ui.json"
+    if mac_path.is_file():
+        try:
+            with open(mac_path) as f:
+                data = json.load(f)
+                if data.get("host") == hostname and data.get("status") == "pending":
+                    data["elapsed_s"] = int(time.time() - data.get("started_at", time.time()))
+                    return data
+        except Exception:
+            pass
+
+    # 2. Check Device-side pending UI file
+    serial = None
+    for name, usb, ts_ip, lan, label in iter_devices_conf(str(DEVICES_CONF)):
+        if name == hostname:
+            serial = usb if usb != "-" else f"{ts_ip}:5555" if ts_ip != "-" else ""
+            break
+    if serial:
+        rc, out = mac_adb_shell(serial, "cat", "/sdcard/stayturgid/state/pending_ui.json", timeout=1.0)
+        if rc == 0 and out.strip():
+            try:
+                data = json.loads(out.strip())
+                if data.get("status") == "pending":
+                    data["elapsed_s"] = int(time.time() - data.get("started_at", time.time()))
+                    data["is_device"] = True
+                    data["serial"] = serial
+                    return data
+            except Exception:
+                pass
+    return None
+
+
 def _human_actions(issues: list[str], hostname: str) -> list[dict]:
     out: list[dict] = []
     for tag in issues:
@@ -435,6 +484,8 @@ def build_device_data() -> list[dict]:
         else:
             d["firerpa_age_s"] = None
             d["firerpa_age"] = "--"
+
+        d["pending_ui"] = get_pending_ui(name)
 
         devices.append(d)
 
@@ -579,6 +630,55 @@ def api_shizuku(host: str):
     ok, message = request_shizuku_authorization(host)
     cls = "ok" if ok else "warn"
     return '<div class="shizuku-result %s"><strong>Shizuku:</strong> %s</div>' % (cls, escape(message))
+
+
+@app.route("/api/pending_ui/done/<host>", methods=["POST"])
+def api_pending_ui_done(host: str):
+    """Mark the pending UI request for host as done, allowing blocked scripts to resume."""
+    # 1. Update Mac-side pending UI file
+    mac_path = Path(os.path.expanduser("~")) / ".config" / "stayturgid" / "state" / "pending_ui.json"
+    updated = False
+    if mac_path.is_file():
+        try:
+            with open(mac_path) as f:
+                data = json.load(f)
+            if data.get("host") == host:
+                data["status"] = "done"
+                with open(mac_path, "w") as f:
+                    json.dump(data, f, indent=2)
+                updated = True
+        except Exception:
+            pass
+
+    # 2. Update Device-side pending UI file
+    serial = None
+    for name, usb, ts_ip, lan, label in iter_devices_conf(str(DEVICES_CONF)):
+        if name == host:
+            serial = usb if usb != "-" else f"{ts_ip}:5555" if ts_ip != "-" else ""
+            break
+    if serial:
+        rc, out = mac_adb_shell(serial, "cat", "/sdcard/stayturgid/state/pending_ui.json", timeout=1.0)
+        if rc == 0 and out.strip():
+            try:
+                data = json.loads(out.strip())
+                data["status"] = "done"
+                content = json.dumps(data)
+                subprocess.run(
+                    ["adb", "-s", serial, "shell", "cat > /sdcard/stayturgid/state/pending_ui.json"],
+                    input=content,
+                    text=True,
+                    capture_output=True,
+                    timeout=2.0,
+                )
+                updated = True
+            except Exception:
+                pass
+
+    if updated:
+        return f'<div class="shizuku-result ok" style="color: #98c379;"><strong>Done signal sent</strong> for {escape(host)}</div>'
+    return (
+        f'<div class="shizuku-result warn" style="color: #e5c07b;">No pending UI request found for {escape(host)}</div>'
+    )
 
 
 @app.route("/health")

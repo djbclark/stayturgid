@@ -77,6 +77,8 @@ stayturgid_lib_files:
     dest: a11y_services.py
   - src: control/lib/termux_api.py
     dest: termux_api.py
+  - src: control/lib/ui_guard.py
+    dest: ui_guard.py
 
 # Handsets daemon jar (Mac ~/.handsets/hs.jar → on-device lib; shell loads via
 # adb push to /data/local/tmp). Skip when missing on the control node.

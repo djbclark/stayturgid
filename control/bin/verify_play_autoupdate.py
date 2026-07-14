@@ -54,6 +54,34 @@ def main(argv: list[str] | None = None) -> int:
     else:
         serial = dev.resolve_adb(args.host)
         subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
+
+        import ui_guard
+
+        def detect_play_autoupdate():
+            import tempfile
+
+            with tempfile.TemporaryDirectory() as td:
+                chk_shot = Path(td) / "check-autoupdate.png"
+                vlm.adb_screencap(serial, chk_shot)
+                gate = vlm.VlmGate(autostart=True, allow_server_only=True)
+                if not gate.usable:
+                    return False
+                ok, _ = gate.verify(chk_shot, "play_autoupdate_dont")
+                return ok
+
+        ui_guard.check_ui_guard(
+            host=args.host,
+            action_type="PLAY-AUTOUPDATE-OFF",
+            message=(
+                "Disable Google Play Store auto-updates:\n"
+                "1. Open Google Play Store.\n"
+                "2. Tap your profile icon (top right) -> Settings.\n"
+                "3. Tap 'Network preferences' -> 'Auto-update apps'.\n"
+                "4. Select 'Don't auto-update apps' and tap DONE."
+            ),
+            detect_fn=detect_play_autoupdate,
+        )
+
         day = datetime.now().strftime("%Y-%m-%d")
         shot = ART / day / args.host / "play-autoupdate.png"
         with uid.try_handsets(serial, args.host) as hs:

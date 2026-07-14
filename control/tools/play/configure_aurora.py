@@ -521,6 +521,30 @@ def main_mac_adb(host):
     global _SHELL, _HS
     serial = dev.resolve_adb(host)
     subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
+
+    import ui_guard
+
+    def detect_aurora_done():
+        r = subprocess.run(
+            ["adb", "-s", serial, "shell", "cmd", "appops", "get", "com.aurora.store", "RUN_IN_BACKGROUND"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        return r.returncode == 0 and "ignore" in (r.stdout or "")
+
+    ui_guard.check_ui_guard(
+        host=host,
+        action_type="AURORA-CONFIGURE",
+        message=(
+            "Please manually configure Aurora Store settings:\n"
+            "1. Open Aurora Store and log in (anonymous).\n"
+            "2. Navigate to Settings -> Updates -> disable Auto-updates.\n"
+            "3. Navigate to Settings -> Filters -> enable 'Filter apps from other sources'."
+        ),
+        detect_fn=detect_aurora_done,
+    )
+
     try:
         with sc.ScreenControlSession(host, label=host) as session:
             _SHELL = session.shell

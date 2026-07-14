@@ -499,6 +499,15 @@ def audit_host(host: str, day_dir: Path) -> list[str]:
     serial = serial_or
     out = day_dir / host
     out.mkdir(parents=True, exist_ok=True)
+
+    import ui_guard
+
+    ui_guard.check_ui_guard(
+        host=host,
+        action_type="GUI-AUDIT",
+        message="Please manually perform the GUI audit on Neo Store and Aurora Store settings.",
+    )
+
     issues: list[str] = []
     log("%s start serial=%s quiet=1" % (host, serial))
     try:

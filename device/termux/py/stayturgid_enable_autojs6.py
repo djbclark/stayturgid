@@ -179,6 +179,26 @@ def main(argv=None):
         return 1
 
     try:
+        import ui_guard
+
+        def local_shell(*args, **kwargs):
+            return sh.shell(*args, **kwargs)
+
+        def detect_a11y_enabled():
+            return A11Y_SVC in a11y_services_list(local_shell)
+
+        if not detect_a11y_enabled():
+            ui_guard.check_ui_guard(
+                host=alias,
+                action_type="ENABLE-AUTOJS6",
+                message=(
+                    "Enable AutoJs6 Accessibility Service:\n"
+                    "1. Open Settings -> Accessibility -> Downloaded apps -> AutoJs6.\n"
+                    "2. Toggle the switch ON. (Android 16+ requires manual enabling)."
+                ),
+                detect_fn=detect_a11y_enabled,
+            )
+
         import stayturgid_screen_control as sc
 
         with sc.ScreenControlSession(label=alias) as session:

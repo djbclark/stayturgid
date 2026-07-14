@@ -450,6 +450,26 @@ def main(argv=None):
     global _HS
     del argv
     try:
+        import ui_guard
+
+        alias = sh.read_device_profile().get("alias") or "device"
+
+        def detect_aurora_done():
+            rc, out = sh.shell("cmd", "appops", "get", "com.aurora.store", "RUN_IN_BACKGROUND")
+            return rc == 0 and "ignore" in (out or "")
+
+        ui_guard.check_ui_guard(
+            host=alias,
+            action_type="AURORA-CONFIGURE",
+            message=(
+                "Please manually configure Aurora Store settings:\n"
+                "1. Open Aurora Store and log in (anonymous).\n"
+                "2. Navigate to Settings -> Updates -> disable Auto-updates.\n"
+                "3. Navigate to Settings -> Filters -> enable 'Filter apps from other sources'."
+            ),
+            detect_fn=detect_aurora_done,
+        )
+
         with sc.ScreenControlSession() as session:
             shell = session.shell
             with hs.try_session() as handsets:

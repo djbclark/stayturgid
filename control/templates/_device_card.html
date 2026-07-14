@@ -117,6 +117,67 @@
     <span class="row-label">issues</span>
     <span class="row-value">{{ device.issue_tags }}</span>
   </div>
+  {% endif %} {% if device.pending_ui %}
+  <div
+    class="human-actions"
+    style="
+      border: 2px solid #e06c75;
+      background: #2d2627;
+      border-radius: 4px;
+      padding: 8px;
+      margin-top: 8px;
+    "
+  >
+    <div class="human-item">
+      <span
+        class="badge error"
+        style="
+          background-color: #e06c75;
+          color: #1e1e24;
+          font-weight: bold;
+          padding: 2px 6px;
+          border-radius: 3px;
+        "
+        >🚨 pending ui action</span
+      >
+      <span class="badge dim" style="margin-left: 6px"
+        >waiting: {{ device.pending_ui.elapsed_s }}s</span
+      >
+      <p
+        class="human-msg"
+        style="
+          margin: 8px 0;
+          font-weight: bold;
+          color: #e06c75;
+          white-space: pre-line;
+        "
+      >
+        {{ device.pending_ui.message }}
+      </p>
+      <button
+        class="probe-btn"
+        hx-post="/api/pending_ui/done/{{ device.name }}"
+        hx-target="#pending-ui-result-{{ device.name }}"
+        hx-swap="innerHTML"
+        style="
+          background: #98c379;
+          color: #282c34;
+          border: none;
+          font-weight: bold;
+          padding: 6px 12px;
+          border-radius: 4px;
+          cursor: pointer;
+        "
+      >
+        I'm Done / Resume
+      </button>
+      <div
+        id="pending-ui-result-{{ device.name }}"
+        class="shizuku-result"
+        style="margin-top: 6px"
+      ></div>
+    </div>
+  </div>
   {% endif %} {% if device.human_actions %}
   <div class="human-actions">
     <details class="human-details">

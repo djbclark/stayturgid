@@ -73,6 +73,31 @@ def check_crash_dialog(serial: str, gate: vlm.VlmGate) -> tuple[bool, dict]:
 def check_autoupdate(host: str, serial: str, gate: vlm.VlmGate) -> tuple[bool, dict]:
     if not gate.usable:
         return True, {"skipped": True, "reason": "vlm_unavailable"}
+
+    import ui_guard
+
+    def detect_play_autoupdate():
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as td:
+            chk_shot = Path(td) / "check-autoupdate.png"
+            vlm.adb_screencap(serial, chk_shot)
+            ok, _ = gate.verify(chk_shot, "play_autoupdate_dont")
+            return ok
+
+    ui_guard.check_ui_guard(
+        host=host,
+        action_type="PLAY-AUTOUPDATE-OFF",
+        message=(
+            "Disable Google Play Store auto-updates:\n"
+            "1. Open Google Play Store.\n"
+            "2. Tap your profile icon (top right) -> Settings.\n"
+            "3. Tap 'Network preferences' -> 'Auto-update apps'.\n"
+            "4. Select 'Don't auto-update apps' and tap DONE."
+        ),
+        detect_fn=detect_play_autoupdate,
+    )
+
     day = datetime.now().strftime("%Y-%m-%d")
     shot = ART / day / host / "play-autoupdate.png"
     with uid.try_handsets(serial, host) as hs:
