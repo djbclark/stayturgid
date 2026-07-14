@@ -110,6 +110,15 @@ repos:
 
   - repo: local
     hooks:
+      - id: pyinilint
+        name: pyinilint
+        entry: bash
+        args: ["-c", "PATH=\"$HOME/.local/bin:$PATH\"; pyinilint \"$@\"", "--"]
+        language: system
+        files: '\.ini$'
+
+  - repo: local
+    hooks:
       - id: ansible-lint-examples
         name: ansible-lint (examples)
         entry: bash

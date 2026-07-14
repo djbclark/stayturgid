@@ -177,6 +177,13 @@ lint:
     else
       echo "dotenv-linter not installed (brew install dotenv-linter) — skipped"
     fi
+    if pyinilint_cmd="$(command -v pyinilint)" || [ -x "$HOME/.local/bin/pyinilint" ]; then
+      pyinilint_cmd="${pyinilint_cmd:-$HOME/.local/bin/pyinilint}"
+      echo "### pyinilint"
+      "$pyinilint_cmd" $(git ls-files '*.ini') || rc=1
+    else
+      echo "pyinilint not installed (uv tool install pyinilint) — skipped"
+    fi
     if command -v caddy >/dev/null; then
       if caddy fmt --diff control/caddy/Caddyfile | grep -q '^[+-]'; then
         echo "Caddyfile needs formatting — run caddy fmt --overwrite control/caddy/Caddyfile"
