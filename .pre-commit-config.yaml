@@ -12,11 +12,32 @@ repos:
     hooks:
       - id: typos
 
-  - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.10.0.1
+  - repo: local
     hooks:
       - id: shellcheck
+        name: shellcheck
+        entry: shellcheck
         args: ["-S", "warning"]
+        language: system
+        types: [shell]
+
+  - repo: local
+    hooks:
+      - id: biome-check
+        name: biome check
+        entry: biome
+        args: [check, --no-errors-on-unmatched]
+        language: system
+        files: '^device/autojs6/.*\.js$'
+
+  - repo: local
+    hooks:
+      - id: shfmt
+        name: shfmt
+        entry: shfmt
+        args: ["-d", "-i", "2", "-ci"]
+        language: system
+        types: [shell]
 
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.35.1

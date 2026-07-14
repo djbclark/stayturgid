@@ -6,20 +6,31 @@
 TESTS_RUN=0
 TESTS_FAILED=0
 
-tap_ok()   { TESTS_RUN=$((TESTS_RUN + 1)); echo "ok $TESTS_RUN - $1"; }
+tap_ok() {
+  TESTS_RUN=$((TESTS_RUN + 1))
+  echo "ok $TESTS_RUN - $1"
+}
 tap_fail() {
-    TESTS_RUN=$((TESTS_RUN + 1)); TESTS_FAILED=$((TESTS_FAILED + 1))
-    echo "not ok $TESTS_RUN - $1"
-    [ -n "${2:-}" ] && echo "# $2"
+  TESTS_RUN=$((TESTS_RUN + 1))
+  TESTS_FAILED=$((TESTS_FAILED + 1))
+  echo "not ok $TESTS_RUN - $1"
+  [ -n "${2:-}" ] && echo "# $2"
 }
-tap_skip() { TESTS_RUN=$((TESTS_RUN + 1)); echo "ok $TESTS_RUN - $1 # SKIP ${2:-}"; }
-tap_todo_fail() {  # expected failure (doesn't fail the run) — e.g. known drift
-    TESTS_RUN=$((TESTS_RUN + 1)); echo "not ok $TESTS_RUN - $1 # TODO ${2:-}"
+tap_skip() {
+  TESTS_RUN=$((TESTS_RUN + 1))
+  echo "ok $TESTS_RUN - $1 # SKIP ${2:-}"
 }
-tap_is()     { if [ "$1" = "$2" ]; then tap_ok "$3"; else tap_fail "$3" "got '$1', want '$2'"; fi; }
-tap_like()   { if printf '%s' "$1" | grep -qF -- "$2"; then tap_ok "$3"; else tap_fail "$3" "missing '$2' in: $(printf '%s' "$1" | head -3)"; fi; }
+tap_todo_fail() { # expected failure (doesn't fail the run) — e.g. known drift
+  TESTS_RUN=$((TESTS_RUN + 1))
+  echo "not ok $TESTS_RUN - $1 # TODO ${2:-}"
+}
+tap_is() { if [ "$1" = "$2" ]; then tap_ok "$3"; else tap_fail "$3" "got '$1', want '$2'"; fi; }
+tap_like() { if printf '%s' "$1" | grep -qF -- "$2"; then tap_ok "$3"; else tap_fail "$3" "missing '$2' in: $(printf '%s' "$1" | head -3)"; fi; }
 tap_unlike() { if printf '%s' "$1" | grep -qF -- "$2"; then tap_fail "$3" "unexpectedly contains '$2'"; else tap_ok "$3"; fi; }
-tap_done()   { echo "1..$TESTS_RUN"; [ "$TESTS_FAILED" -eq 0 ]; }
+tap_done() {
+  echo "1..$TESTS_RUN"
+  [ "$TESTS_FAILED" -eq 0 ]
+}
 
 # ---------------------------------------------------------------------------
 # make_sandbox: tmpdir with home/, sd/, prefix/tmp/, stubs/ for termux-*, adb,
@@ -28,22 +39,22 @@ tap_done()   { echo "1..$TESTS_RUN"; [ "$TESTS_FAILED" -eq 0 ]; }
 # CURL_RC/CURL_BODY). Call once per test group; reset_sandbox between cases.
 # ---------------------------------------------------------------------------
 make_sandbox() {
-    SANDBOX="$(mktemp -d "${TMPDIR:-/tmp}/stayturgid-test.XXXXXX")"
-    export SANDBOX
-    REAL_PYTHON3="$(command -v python3)"
-    export REAL_PYTHON3
-    mkdir -p "$SANDBOX/home" "$SANDBOX/sd" "$SANDBOX/prefix/tmp" "$SANDBOX/stubs"
-    export STUB_LOG="$SANDBOX/calls.log"
-    : > "$STUB_LOG"
-    local d="$SANDBOX/stubs" c
+  SANDBOX="$(mktemp -d "${TMPDIR:-/tmp}/stayturgid-test.XXXXXX")"
+  export SANDBOX
+  REAL_PYTHON3="$(command -v python3)"
+  export REAL_PYTHON3
+  mkdir -p "$SANDBOX/home" "$SANDBOX/sd" "$SANDBOX/prefix/tmp" "$SANDBOX/stubs"
+  export STUB_LOG="$SANDBOX/calls.log"
+  : >"$STUB_LOG"
+  local d="$SANDBOX/stubs" c
 
-    for c in termux-notification termux-toast termux-vibrate termux-torch \
-             termux-brightness termux-wallpaper termux-notification-remove \
-             termux-wake-lock; do
-        printf '#!/usr/bin/env bash\necho "%s $*" >> "$STUB_LOG"\nexit 0\n' "$c" > "$d/$c"
-    done
+  for c in termux-notification termux-toast termux-vibrate termux-torch \
+    termux-brightness termux-wallpaper termux-notification-remove \
+    termux-wake-lock; do
+    printf '#!/usr/bin/env bash\necho "%s $*" >> "$STUB_LOG"\nexit 0\n' "$c" >"$d/$c"
+  done
 
-    cat > "$d/adb" <<'STUB'
+  cat >"$d/adb" <<'STUB'
 #!/usr/bin/env bash
 echo "adb $*" >> "$STUB_LOG"
 case "$*" in
@@ -88,17 +99,17 @@ esac
 exit 0
 STUB
 
-    cat > "$d/termux-battery-status" <<'STUB'
+  cat >"$d/termux-battery-status" <<'STUB'
 #!/usr/bin/env bash
 [ -f "$SANDBOX/batt.json" ] && cat "$SANDBOX/batt.json"
 exit 0
 STUB
 
-    # Multiline JSON like the real termux-dialog: the consumer awk expects
-    # "text": "..." on its own line (field 4 with FS='"').
-    # Answers come from DIALOG_CHOICE, or one per call from $SANDBOX/dialog_queue
-    # (first line consumed each call) when multi-dialog flows need different answers.
-    cat > "$d/termux-dialog" <<'STUB'
+  # Multiline JSON like the real termux-dialog: the consumer awk expects
+  # "text": "..." on its own line (field 4 with FS='"').
+  # Answers come from DIALOG_CHOICE, or one per call from $SANDBOX/dialog_queue
+  # (first line consumed each call) when multi-dialog flows need different answers.
+  cat >"$d/termux-dialog" <<'STUB'
 #!/usr/bin/env bash
 echo "termux-dialog $*" >> "$STUB_LOG"
 choice="${DIALOG_CHOICE:-}"
@@ -113,35 +124,35 @@ fi
 exit 0
 STUB
 
-    # timeout: drop the duration, run the command (macOS has no timeout(1))
-    printf '#!/usr/bin/env bash\nshift\nexec "$@"\n' > "$d/timeout"
-    # pgrep: sshd counts as up once the sshd stub has "started" it
-    cat > "$d/pgrep" <<'STUB'
+  # timeout: drop the duration, run the command (macOS has no timeout(1))
+  printf '#!/usr/bin/env bash\nshift\nexec "$@"\n' >"$d/timeout"
+  # pgrep: sshd counts as up once the sshd stub has "started" it
+  cat >"$d/pgrep" <<'STUB'
 #!/usr/bin/env bash
 [ -f "$SANDBOX/sshd_started" ] && exit 0
 exit "${PGREP_RC:-1}"
 STUB
-    cat > "$d/sshd" <<'STUB'
+  cat >"$d/sshd" <<'STUB'
 #!/usr/bin/env bash
 echo "sshd" >> "$STUB_LOG"
 touch "$SANDBOX/sshd_started"
 exit 0
 STUB
-    printf '#!/usr/bin/env bash\nexit "${SS_RC:-1}"\n'    > "$d/ss"
-    printf '#!/usr/bin/env bash\nexit "${SS_RC:-1}"\n'    > "$d/netstat"
-    printf '#!/usr/bin/env bash\nexit "${FLOCK_RC:-0}"\n' > "$d/flock"
-    printf '#!/usr/bin/env bash\n/bin/sleep "${SANDBOX_SLEEP_SECS:-0}"\nexit 0\n' > "$d/sleep"
-    cat > "$d/am" <<'STUB'
+  printf '#!/usr/bin/env bash\nexit "${SS_RC:-1}"\n' >"$d/ss"
+  printf '#!/usr/bin/env bash\nexit "${SS_RC:-1}"\n' >"$d/netstat"
+  printf '#!/usr/bin/env bash\nexit "${FLOCK_RC:-0}"\n' >"$d/flock"
+  printf '#!/usr/bin/env bash\n/bin/sleep "${SANDBOX_SLEEP_SECS:-0}"\nexit 0\n' >"$d/sleep"
+  cat >"$d/am" <<'STUB'
 #!/usr/bin/env bash
 echo "am $*" >> "$STUB_LOG"
 exit 0
 STUB
-    cat > "$d/python3" <<'STUB'
+  cat >"$d/python3" <<'STUB'
 #!/usr/bin/env bash
 echo "python3 $*" >> "$STUB_LOG"
 exit 0
 STUB
-    cat > "$d/nohup" <<'STUB'
+  cat >"$d/nohup" <<'STUB'
 #!/usr/bin/env bash
 echo "nohup $*" >> "$STUB_LOG"
 cmd="$1"
@@ -152,86 +163,87 @@ case "$cmd" in
 esac
 exit 0
 STUB
-    cat > "$d/date" <<'STUB'
+  cat >"$d/date" <<'STUB'
 #!/usr/bin/env bash
 echo "1700000000"
 exit 0
 STUB
-    cat > "$d/curl" <<'STUB'
+  cat >"$d/curl" <<'STUB'
 #!/usr/bin/env bash
 echo "curl $*" >> "$STUB_LOG"
 rc="${CURL_RC:-0}"
 [ "$rc" = 0 ] && printf '%s' "${CURL_BODY:-}"
 exit "$rc"
 STUB
-    chmod +x "$d"/*
+  chmod +x "$d"/*
 }
 
 reset_sandbox() {
-    : > "$STUB_LOG"
-    rm -rf "${SANDBOX:?}/home" "${SANDBOX:?}/sd" "${SANDBOX:?}/sshd_started" \
-           "${SANDBOX:?}/batt.json" "${SANDBOX:?}/a11y_state" "${SANDBOX:?}/adb_wifi_state" "${SANDBOX:?}/proc"
-    mkdir -p "$SANDBOX/home" "$SANDBOX/sd"
+  : >"$STUB_LOG"
+  rm -rf "${SANDBOX:?}/home" "${SANDBOX:?}/sd" "${SANDBOX:?}/sshd_started" \
+    "${SANDBOX:?}/batt.json" "${SANDBOX:?}/a11y_state" "${SANDBOX:?}/adb_wifi_state" "${SANDBOX:?}/proc"
+  mkdir -p "$SANDBOX/home" "$SANDBOX/sd"
 }
 
 # Kill a background pid recorded in the sandbox (boot loops, bridge listeners).
 kill_sandbox_pid() {
-    local pf="$1"
-    [ -f "$pf" ] || return 0
-    local pid
-    pid="$(tr -dc '0-9' < "$pf" 2>/dev/null || true)"
-    [ -n "$pid" ] && kill "$pid" 2>/dev/null || true
-    rm -f "$pf"
+  local pf="$1"
+  [ -f "$pf" ] || return 0
+  local pid
+  pid="$(tr -dc '0-9' <"$pf" 2>/dev/null || true)"
+  [ -n "$pid" ] && kill "$pid" 2>/dev/null || true
+  rm -f "$pf"
 }
 
 # Wait up to ~2s for a sandbox pidfile to appear (async boot/bridge starters).
 wait_sandbox_pidfile() {
-    local pf="$1" n=0
-    while [ "$n" -lt 20 ] && [ ! -f "$pf" ]; do
-        sleep 0.1
-        n=$((n + 1))
-    done
-    [ -f "$pf" ]
+  local pf="$1" n=0
+  while [ "$n" -lt 20 ] && [ ! -f "$pf" ]; do
+    sleep 0.1
+    n=$((n + 1))
+  done
+  [ -f "$pf" ]
 }
 
 wait_stub_like() {
-    local pattern="$1" n=0
-    while [ "$n" -lt 30 ]; do
-        grep -qF -- "$pattern" "$STUB_LOG" 2>/dev/null && return 0
-        sleep 0.1
-        n=$((n + 1))
-    done
-    return 1
+  local pattern="$1" n=0
+  while [ "$n" -lt 30 ]; do
+    grep -qF -- "$pattern" "$STUB_LOG" 2>/dev/null && return 0
+    sleep 0.1
+    n=$((n + 1))
+  done
+  return 1
 }
 
 # Shared env for sandboxed script runs (env(1) avoids SC2097/2098).
 _sandbox_env() {
-    env \
-        HOME="$SANDBOX/home" \
-        PREFIX="$SANDBOX/prefix" \
-        TMPDIR="$SANDBOX/prefix/tmp" \
-        STAYTURGID_SD="$SANDBOX/sd" \
-        SANDBOX="$SANDBOX" \
-        STUB_LOG="$STUB_LOG" \
-        SANDBOX_SLEEP_SECS="${SANDBOX_SLEEP_SECS:-}" \
-        PROC_ROOT="${PROC_ROOT:-}" \
-        PATH="$SANDBOX/stubs:$PATH" \
-        "$@"
+  env \
+    HOME="$SANDBOX/home" \
+    PREFIX="$SANDBOX/prefix" \
+    TMPDIR="$SANDBOX/prefix/tmp" \
+    STAYTURGID_SD="$SANDBOX/sd" \
+    SANDBOX="$SANDBOX" \
+    STUB_LOG="$STUB_LOG" \
+    SANDBOX_SLEEP_SECS="${SANDBOX_SLEEP_SECS:-}" \
+    PROC_ROOT="${PROC_ROOT:-}" \
+    PATH="$SANDBOX/stubs:$PATH" \
+    "$@"
 }
 
 # Run a script that loops forever; perl alarm stops it after <seconds>.
 run_sandboxed_alarm() {
-    local secs=$1; shift
-    local interp=bash
-    case "$1" in *.py) interp="${REAL_PYTHON3:-python3}" ;; esac
-    set +e
-    _sandbox_env perl -e 'alarm shift; exec @ARGV' "$secs" "$interp" "$@" \
-        >"$SANDBOX/out" 2>/dev/null
-    RC=$?
-    OUT="$(cat "$SANDBOX/out" 2>/dev/null)"
-    ERR="$(cat "$SANDBOX/err" 2>/dev/null)"
-    set -e 2>/dev/null || true
-    return 0
+  local secs=$1
+  shift
+  local interp=bash
+  case "$1" in *.py) interp="${REAL_PYTHON3:-python3}" ;; esac
+  set +e
+  _sandbox_env perl -e 'alarm shift; exec @ARGV' "$secs" "$interp" "$@" \
+    >"$SANDBOX/out" 2>/dev/null
+  RC=$?
+  OUT="$(cat "$SANDBOX/out" 2>/dev/null)"
+  ERR="$(cat "$SANDBOX/err" 2>/dev/null)"
+  set -e 2>/dev/null || true
+  return 0
 }
 
 # run_sandboxed <script> [args...]: run a repo script inside the sandbox.
@@ -240,15 +252,15 @@ run_sandboxed_alarm() {
 # to prove behavioral parity during language migrations.
 # shellcheck disable=SC2034
 run_sandboxed() {
-    local interp=bash
-    case "$1" in *.py) interp="${REAL_PYTHON3:-python3}" ;; esac
-    set +e
-    _sandbox_env "$interp" "$@" >"$SANDBOX/out" 2>"$SANDBOX/err"
-    RC=$?
-    OUT="$(cat "$SANDBOX/out" 2>/dev/null)"
-    ERR="$(cat "$SANDBOX/err" 2>/dev/null)"
-    set -e 2>/dev/null || true
-    return 0
+  local interp=bash
+  case "$1" in *.py) interp="${REAL_PYTHON3:-python3}" ;; esac
+  set +e
+  _sandbox_env "$interp" "$@" >"$SANDBOX/out" 2>"$SANDBOX/err"
+  RC=$?
+  OUT="$(cat "$SANDBOX/out" 2>/dev/null)"
+  ERR="$(cat "$SANDBOX/err" 2>/dev/null)"
+  set -e 2>/dev/null || true
+  return 0
 }
 
 stub_calls() { grep -c "^$1" "$STUB_LOG" 2>/dev/null || true; }

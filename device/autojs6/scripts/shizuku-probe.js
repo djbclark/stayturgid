@@ -9,17 +9,16 @@ var hasPerm = false;
 var running = false;
 var operational = false;
 try {
-    if (typeof shizuku !== "undefined") {
-        if (typeof shizuku.hasPermission === "function") {
-            hasPerm = shizuku.hasPermission();
-        }
-        if (typeof shizuku.isRunning === "function") {
-            running = shizuku.isRunning();
-        }
-        operational = sh.isOperational();
+  if (typeof shizuku !== "undefined") {
+    if (typeof shizuku.hasPermission === "function") {
+      hasPerm = shizuku.hasPermission();
     }
+    if (typeof shizuku.isRunning === "function") {
+      running = shizuku.isRunning();
+    }
+    operational = sh.isOperational();
+  }
 } catch (e) {
-    log.append("[setup] shizuku probe error: " + e);
+  log.append("[setup] shizuku probe error: " + e);
 }
-log.append("[setup] shizuku operational=" + operational
-    + " hasPermission=" + hasPerm + " isRunning=" + running);
+log.append("[setup] shizuku operational=" + operational + " hasPermission=" + hasPerm + " isRunning=" + running);

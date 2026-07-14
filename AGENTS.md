@@ -31,15 +31,19 @@ just health && just firerpa-health
 | `just landing-status` | Network landing page status |
 | `just secretspec-check` | Verify all required secrets are set |
 | `just ruff` | Python lint + format check (ruff) |
+| `just biome` | JavaScript lint + format check (Biome) |
+| `just shfmt` | Shell script format check (shfmt) |
 | `just typos` | Source-code spelling check |
-| `just lint` | All linters: shellcheck, ansible-lint, yamllint, ruff, typos |
-| `just check` | Syntax/import checks + ruff |
+| `just lint` | All linters: shellcheck, ansible-lint, yamllint, ruff, typos, biome, shfmt |
+| `just check` | Syntax/import checks + ruff + typos + biome + shfmt |
 
 ## Environment
 
 - **Mac shell:** `/bin/bash` (dotfiles: `~/.bash_profile`, `~/.bashrc`)
 - **FIRERPA venv:** Python 3.12 at `/tmp/lamda-venv` — `source /tmp/lamda-venv/bin/activate`
 - **Python tooling:** `uv` (package manager) + `ruff` (linter/formatter) — `brew install uv ruff`
+- **JavaScript tooling:** `biome` (linter/formatter) — `brew install biome`
+- **Shell tooling:** `shellcheck` (linter) + `shfmt` (formatter) — `brew install shellcheck shfmt`
 - **Git tooling:** `pre-commit` (hooks) + `typos` (spell check) — `brew install pre-commit typos-cli`; run `pre-commit install`
 - **SSH CA:** `~/.ssh/stayturgid_ca` — `just ca-status`
 - **OpenCode web:** http://100.113.53.87:4096

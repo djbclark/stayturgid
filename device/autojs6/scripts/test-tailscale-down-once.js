@@ -15,13 +15,13 @@ var profile = config.detectDeviceProfile();
 config.ensureDirs(profile);
 
 function waitForUp(maxMs) {
-    var deadline = Date.now() + maxMs;
-    while (Date.now() < deadline) {
-        var ts = tailscale.check(profile);
-        if (ts.up) return ts;
-        sleep(2000);
-    }
-    return tailscale.check(profile);
+  var deadline = Date.now() + maxMs;
+  while (Date.now() < deadline) {
+    var ts = tailscale.check(profile);
+    if (ts.up) return ts;
+    sleep(2000);
+  }
+  return tailscale.check(profile);
 }
 
 log.append("[watchdog] tailscale-down-test probe start (autojs6)");
@@ -33,6 +33,14 @@ var relaunched = tailscale.relaunch(profile);
 sleep(2000);
 var after = waitForUp(45000);
 
-log.append("[watchdog] tailscale-down-test after-relaunch tun=" + after.tun + " ping=" + after.ping
-    + " up=" + after.up + " relaunched=" + relaunched);
+log.append(
+  "[watchdog] tailscale-down-test after-relaunch tun=" +
+    after.tun +
+    " ping=" +
+    after.ping +
+    " up=" +
+    after.up +
+    " relaunched=" +
+    relaunched,
+);
 toast("tailscale-down probe up=" + after.up);

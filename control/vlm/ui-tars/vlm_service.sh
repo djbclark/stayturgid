@@ -247,8 +247,11 @@ main() {
     stop) cmd_stop ;;
     restart) cmd_restart ;;
     status) cmd_status ;;
-    -h|--help|help) usage ;;
-    *) usage; exit 1 ;;
+    -h | --help | help) usage ;;
+    *)
+      usage
+      exit 1
+      ;;
   esac
 }
 

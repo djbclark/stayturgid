@@ -3,9 +3,7 @@
   "private": true,
   "description": "Host-side quality checks for stayturgid JavaScript",
   "scripts": {
-    "lint:autojs6": "eslint device/autojs6"
-  },
-  "devDependencies": {
-    "eslint": "10.7.0"
+    "lint:autojs6": "biome check device/autojs6",
+    "format:autojs6": "biome format --write device/autojs6"
   }
 }

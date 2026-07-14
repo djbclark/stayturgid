@@ -15,8 +15,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Install host-side JavaScript quality tools
-        run: npm ci
+      - name: Install JavaScript quality tools (Biome)
+        run: npm install -g @biomejs/biome
+      - name: Install shfmt
+        run: |
+          curl -sSLO https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_linux_amd64
+          chmod +x shfmt_v3.13.1_linux_amd64
+          sudo mv shfmt_v3.13.1_linux_amd64 /usr/local/bin/shfmt
       - name: Install ansible + linters
         run: pipx install ansible-core && pipx install ansible-lint && pipx install yamllint
       - name: Install just

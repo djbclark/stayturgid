@@ -4,7 +4,7 @@
 # you up front what will run and what will be skipped.
 
 out=.config.mk
-: > "$out"
+: >"$out"
 
 have() { command -v "$1" >/dev/null 2>&1; }
 row() { printf '  %-16s %s\n' "$1" "$2"; }
@@ -12,42 +12,68 @@ row() { printf '  %-16s %s\n' "$1" "$2"; }
 echo "stayturgid configure"
 echo ""
 echo "required:"
-if have bash; then row "bash" "$(bash -c 'echo $BASH_VERSION')"; else row "bash" "MISSING"; fail=1; fi
-if have python3; then row "python3" "$(python3 -V 2>&1 | cut -d' ' -f2)"; else row "python3" "MISSING"; fail=1; fi
-if have git; then row "git" "ok"; else row "git" "MISSING"; fail=1; fi
+if have bash; then row "bash" "$(bash -c 'echo $BASH_VERSION')"; else
+  row "bash" "MISSING"
+  fail=1
+fi
+if have python3; then row "python3" "$(python3 -V 2>&1 | cut -d' ' -f2)"; else
+  row "python3" "MISSING"
+  fail=1
+fi
+if have git; then row "git" "ok"; else
+  row "git" "MISSING"
+  fail=1
+fi
 
 echo "optional (tests skip if missing):"
-if have node; then row "node" "$(node -v)"; echo "HAVE_NODE := 1" >> "$out"; else row "node" "missing — JS unit tests skipped"; fi
-if have ansible-playbook; then row "ansible" "$(ansible-playbook --version 2>/dev/null | head -1 | sed 's/.*core //;s/].*//')"; echo "HAVE_ANSIBLE := 1" >> "$out"; else row "ansible" "missing — ansible checks + module tests skipped"; fi
-if have shellcheck; then row "shellcheck" "ok"; echo "HAVE_SHELLCHECK := 1" >> "$out"; else row "shellcheck" "missing — make lint partial (brew install shellcheck)"; fi
-if have ansible-lint; then row "ansible-lint" "ok"; else row "ansible-lint" "missing — make lint partial"; fi
+if have node; then
+  row "node" "$(node -v)"
+  echo "HAVE_NODE := 1" >>"$out"
+else row "node" "missing — JS unit tests skipped"; fi
+if have ansible-playbook; then
+  row "ansible" "$(ansible-playbook --version 2>/dev/null | head -1 | sed 's/.*core //;s/].*//')"
+  echo "HAVE_ANSIBLE := 1" >>"$out"
+else row "ansible" "missing — ansible checks + module tests skipped"; fi
+if have biome; then
+  row "biome" "ok"
+  echo "HAVE_BIOME := 1" >>"$out"
+else row "biome" "missing — JS lint partial (brew install biome)"; fi
+if have shellcheck; then
+  row "shellcheck" "ok"
+  echo "HAVE_SHELLCHECK := 1" >>"$out"
+else row "shellcheck" "missing — shell lint partial (brew install shellcheck)"; fi
+if have shfmt; then
+  row "shfmt" "ok"
+  echo "HAVE_SHfmt := 1" >>"$out"
+else row "shfmt" "missing — shell format partial (brew install shfmt)"; fi
+if have ansible-lint; then row "ansible-lint" "ok"; else row "ansible-lint" "missing — ansible lint partial"; fi
 if have ssh; then row "ssh" "ok"; else row "ssh" "missing — device tier unavailable"; fi
 
 echo "optional (UI-TARS vision gates — vendor-neutral sidecar):"
 if have brew; then row "brew" "ok"; else row "brew" "missing — VLM install needs Homebrew"; fi
-if command -v llama-server >/dev/null 2>&1 || \
-   [ -x "$(brew --prefix llama.cpp 2>/dev/null)/bin/llama-server" ]; then
-    row "llama-server" "ok"
-    echo "HAVE_LLAMA_SERVER := 1" >> "$out"
+if command -v llama-server >/dev/null 2>&1 ||
+  [ -x "$(brew --prefix llama.cpp 2>/dev/null)/bin/llama-server" ]; then
+  row "llama-server" "ok"
+  echo "HAVE_LLAMA_SERVER := 1" >>"$out"
 else
-    row "llama-server" "missing — make vlm-install"
+  row "llama-server" "missing — make vlm-install"
 fi
 if [ -f "$HOME/Library/LaunchAgents/homebrew.mxcl.ui-tars.plist" ]; then
-    row "ui-tars launchd" "installed"
-    echo "HAVE_UI_TARS_SERVICE := 1" >> "$out"
+  row "ui-tars launchd" "installed"
+  echo "HAVE_UI_TARS_SERVICE := 1" >>"$out"
 else
-    row "ui-tars launchd" "not installed — make vlm-service-install after vlm-install"
+  row "ui-tars launchd" "not installed — make vlm-service-install after vlm-install"
 fi
 if curl -sf http://127.0.0.1:8081/health >/dev/null 2>&1; then
-    row "ui-tars health" "ok"
+  row "ui-tars health" "ok"
 else
-    row "ui-tars health" "down (optional)"
+  row "ui-tars health" "down (optional)"
 fi
 
 echo ""
 if [ "${fail:-0}" = 1 ]; then
-    echo "configure: FAILED (missing required tools)"
-    rm -f "$out"
-    exit 1
+  echo "configure: FAILED (missing required tools)"
+  rm -f "$out"
+  exit 1
 fi
 echo "wrote $out — next: make help | make test | make verify"

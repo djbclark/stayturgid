@@ -5,10 +5,10 @@ var termux = require("./termux.js");
  * is reachable from Termux (CLOSED_NO_SHELL).
  */
 function repairCatastrophic(profile) {
-    return require("./shizuku.js").repairCatastrophic(profile);
+  return require("./shizuku.js").repairCatastrophic(profile);
 }
 
 module.exports = {
-    repairCatastrophic: repairCatastrophic,
-    invokeTermuxRepair: termux.invokeRepair,
+  repairCatastrophic: repairCatastrophic,
+  invokeTermuxRepair: termux.invokeRepair,
 };

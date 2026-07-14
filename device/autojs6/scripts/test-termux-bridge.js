@@ -9,8 +9,9 @@ var log = require("../lib/log.js");
 toast("Testing Termux bridge…");
 var result = termux.invokeRepair();
 var status = log.latestRepairStatus();
-var line = log.append("[test] bridge ok=" + result.ok + " method=" + (result.method || "?")
-    + " status=" + (status ? status.port : "none"));
+var line = log.append(
+  "[test] bridge ok=" + result.ok + " method=" + (result.method || "?") + " status=" + (status ? status.port : "none"),
+);
 
 toast(result.ok ? "Bridge OK: " + result.method : "Bridge FAIL");
 console.log(line);

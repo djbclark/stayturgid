@@ -7,11 +7,13 @@ test: unit-and-pytest
 configure:
     ./configure
 
-# Code-only syntax / import checks + ruff + typos.
+# Code-only syntax / import checks + ruff + typos + biome + shfmt.
 check:
     bash tests/run.sh code
     @just ruff
     @just typos
+    @just biome
+    @just shfmt
 
 # Device-free unit tests (shell TAP).
 unit:
@@ -43,13 +45,15 @@ ansible-test:
       echo "### ansible-test — SKIP (run 'make test-venv')"; \
     fi
 
-# Unit + pytest + ansible-test + ruff + typos (CI default).
+# Unit + pytest + ansible-test + ruff + typos + biome + shfmt (CI default).
 unit-and-pytest:
     bash tests/run.sh local
     @just pytest
     @just ansible-test
     @just ruff
     @just typos
+    @just biome
+    @just shfmt
 
 # ruff check + format (Python).
 ruff:
@@ -60,6 +64,22 @@ ruff:
       echo "ruff not installed (brew install ruff) — skipped"; \
     fi
 
+# biome check + format (JavaScript/AutoJs6).
+biome:
+    @if command -v biome >/dev/null; then \
+      echo "### biome check"; biome check device/autojs6/; \
+    else \
+      echo "biome not installed (brew install biome) — skipped"; \
+    fi
+
+# shfmt diff (shell script format check).
+shfmt:
+    @if command -v shfmt >/dev/null; then \
+      echo "### shfmt -d"; shfmt -d -i 2 -ci $(git ls-files '*.sh'); \
+    else \
+      echo "shfmt not installed (brew install shfmt) — skipped"; \
+    fi
+
 # Source-code spelling check.
 typos:
     @if command -v typos >/dev/null; then \
@@ -68,7 +88,7 @@ typos:
       echo "typos not installed (brew install typos-cli) — skipped"; \
     fi
 
-# shellcheck + ansible-lint + yamllint + ruff + typos.
+# shellcheck + ansible-lint + yamllint + ruff + typos + biome + shfmt.
 lint:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -99,6 +119,16 @@ lint:
       typos || rc=1
     else
       echo "typos not installed (brew install typos-cli) — skipped"
+    fi
+    if command -v biome >/dev/null; then
+      biome ci device/autojs6/ || rc=1
+    else
+      echo "biome not installed (brew install biome) — skipped"
+    fi
+    if command -v shfmt >/dev/null; then
+      shfmt -d -i 2 -ci $(git ls-files '*.sh') || rc=1
+    else
+      echo "shfmt not installed (brew install shfmt) — skipped"
     fi
     exit $rc
 
