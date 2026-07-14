@@ -34,12 +34,12 @@ The Shizuku catastrophic recovery path (`device/autojs6/lib/shizuku.js`) uses a 
 
 ## Alternatives considered
 
-| Alternative | Reason rejected |
-|-------------|----------------|
-| `cmd` subcommand for wireless debugging | No such service exposed via `cmd` |
-| `am broadcast` to toggle wireless debug | No system intent exists; Shizuku broadcasts require per-install auth token |
-| Writing to `/data/misc/adb/adb_keys` from shell | Not writable by uid 2000; requires root |
-| Switching to timschneeb/ShizukuExt immediately | Separate decision; needs pilot on 1-2 devices first |
+| Alternative                                     | Reason rejected                                                            |
+| ----------------------------------------------- | -------------------------------------------------------------------------- |
+| `cmd` subcommand for wireless debugging         | No such service exposed via `cmd`                                          |
+| `am broadcast` to toggle wireless debug         | No system intent exists; Shizuku broadcasts require per-install auth token |
+| Writing to `/data/misc/adb/adb_keys` from shell | Not writable by uid 2000; requires root                                    |
+| Switching to timschneeb/ShizukuExt immediately  | Separate decision; needs pilot on 1-2 devices first                        |
 
 ## Next actions
 

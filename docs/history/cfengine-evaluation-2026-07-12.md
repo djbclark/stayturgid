@@ -37,6 +37,7 @@ bundle agent main {
 ```
 
 **Output:**
+
 ```
 R: Hello from CFEngine 3.27.1 on termux aarch64
 R: Platform classes: linux
@@ -44,6 +45,7 @@ R: Home: /data/data/com.termux/files/usr/var/lib/cfengine
 ```
 
 **Confirmed:**
+
 - `sys.flavor` = `termux` — correctly identifies the Termux environment
 - `sys.arch` = `aarch64` — correct ARM64 detection
 - Work directory uses `$PREFIX` (`/data/data/com.termux/files/usr/`) — no root filesystem access needed
@@ -72,19 +74,19 @@ CFEngine is one of the oldest configuration management systems still in active d
 
 CFEngine's `verify_*` subsystem is exactly what the user wants — a second opinion that confirms running state matches desired state:
 
-| Module | Lines | What it verifies |
-|--------|-------|-----------------|
-| `verify_files.c` | — | File existence, permissions, content, hashes |
-| `verify_packages.c` | — | Package installation state |
-| `verify_processes.c` | — | Process running/matches criteria |
-| `verify_services.c` | — | Service state (running/stopped) |
-| `verify_users.c` | — | User accounts, groups |
-| `verify_databases.c` | — | Database state |
-| `verify_environments.c` | — | Environment variables |
-| `verify_exec.c` | — | Command execution output |
-| `verify_methods.c` | — | Custom methods |
-| `verify_acl.c` | — | POSIX ACLs |
-| `verify_storage.c` | — | Storage/filesystem state |
+| Module                  | Lines | What it verifies                             |
+| ----------------------- | ----- | -------------------------------------------- |
+| `verify_files.c`        | —     | File existence, permissions, content, hashes |
+| `verify_packages.c`     | —     | Package installation state                   |
+| `verify_processes.c`    | —     | Process running/matches criteria             |
+| `verify_services.c`     | —     | Service state (running/stopped)              |
+| `verify_users.c`        | —     | User accounts, groups                        |
+| `verify_databases.c`    | —     | Database state                               |
+| `verify_environments.c` | —     | Environment variables                        |
+| `verify_exec.c`         | —     | Command execution output                     |
+| `verify_methods.c`      | —     | Custom methods                               |
+| `verify_acl.c`          | —     | POSIX ACLs                                   |
+| `verify_storage.c`      | —     | Storage/filesystem state                     |
 
 CFEngine's entire philosophy is "promise theory" — you declare desired state ("promises"), and the agent continuously verifies and enforces. This is the most mature verification engine in open source configuration management.
 
@@ -112,15 +114,15 @@ CFEngine runs on Linux, macOS, Windows, AIX, Solaris, HP-UX. The `configure.ac` 
 
 **Correction from initial analysis:** CFEngine DOES have first-class Android support in the C source code. Evidence found:
 
-| File | Android support |
-|------|----------------|
-| `libpromises/systype.h:52` | `PLATFORM_CONTEXT_ANDROID` enum value |
-| `libpromises/systype.c` | 14 Android-specific paths and behaviors (e.g., `/system/xbin/busybox ps`) |
-| `libpromises/patches.c` | `#ifdef __ANDROID__` — `link()` not supported workaround |
-| `libpromises/bootstrap.c` | `#if defined(__CYGWIN__) || defined(__ANDROID__)` |
-| `libcfnet/client_code.c` | **`termux` referenced by name** — "Always say 'root' if windows or termux." |
-| `libpromises/evalfunction.c` | `#if defined(HAVE_GETPWENT) && !defined(__ANDROID__)` |
-| 14 total references across 6 source files | |
+| File                                      | Android support                                                             |
+| ----------------------------------------- | --------------------------------------------------------------------------- |
+| `libpromises/systype.h:52`                | `PLATFORM_CONTEXT_ANDROID` enum value                                       |
+| `libpromises/systype.c`                   | 14 Android-specific paths and behaviors (e.g., `/system/xbin/busybox ps`)   |
+| `libpromises/patches.c`                   | `#ifdef __ANDROID__` — `link()` not supported workaround                    |
+| `libpromises/bootstrap.c`                 | `#if defined(**CYGWIN**)                                                    |     | defined(**ANDROID**)` |
+| `libcfnet/client_code.c`                  | **`termux` referenced by name** — "Always say 'root' if windows or termux." |
+| `libpromises/evalfunction.c`              | `#if defined(HAVE_GETPWENT) && !defined(__ANDROID__)`                       |
+| 14 total references across 6 source files |                                                                             |
 
 This is NOT a "needs porting" situation. The code already handles Android/Bionic libc, has Termux-specific behavior, and uses Android system paths. The developers explicitly designed for this platform.
 
@@ -135,11 +137,13 @@ This is NOT a "needs porting" situation. The code already handles Android/Bionic
 ### #2: Client/server pull model incompatible with SSH push model
 
 CFEngine works by:
+
 1. Policy server (`cf-serverd`) runs on a central host, hosts `.cf` policy files
 2. Agents (`cf-agent`) pull policies from the server on a schedule (default 5 minutes)
 3. Agents enforce policies locally and report back
 
 stayturgid works by:
+
 1. Ansible control node runs on Mac
 2. Push commands via SSH to each Android device
 3. No agent, no server, no pull model
@@ -154,7 +158,7 @@ CFEngine has its own policy language:
 bundle agent main {
   reports:
     "Hello, world";
-  
+
   files:
     "/etc/ssh/sshd_config"
       perms => mog("0600", "root", "root"),
@@ -189,19 +193,19 @@ Cross-compiled cf-agent binary would likely be 2-5 MB (C, statically linked). Pl
 
 ## Comparison with stayturgid's existing verification
 
-| Capability | stayturgid (current) | CFEngine |
-|-----------|---------------------|----------|
-| **Verification engine** | `device_tier.py` (bash TAP) + `stayturgid_verify` (Ansible module) | `verify_*.c` (183k lines C) |
-| **Policy format** | Ansible YAML | CFEngine policy language (.cf) |
-| **Deployment model** | SSH push (Mac → device) | Agent pull (policy server → agent) |
-| **Agent on device** | None (SSH-based) | cf-agent (cross-compiled C binary) |
-| **Language** | Python + Bash | C (cross-compilation needed) |
-| **Fleet integration** | Native (Ansible inventory) | Separate (cf-serverd inventory) |
-| **Health monitoring** | `fleet_health_monitor.py` | `cf-monitord` |
-| **Android support** | Native (Termux + Shizuku) | None (no bionic builds) |
-| **Drift detection** | `verify-drift` (14 checks) + `device_tier` (16 checks) | Built-in (continuous enforcement) |
-| **Lines of code** | ~200 (module) + ~500 (repair) | 183,000 |
-| **Dependencies** | Python 3.9+ (already in Termux) | None (standalone binary) but needs cross-compilation |
+| Capability              | stayturgid (current)                                               | CFEngine                                             |
+| ----------------------- | ------------------------------------------------------------------ | ---------------------------------------------------- |
+| **Verification engine** | `device_tier.py` (bash TAP) + `stayturgid_verify` (Ansible module) | `verify_*.c` (183k lines C)                          |
+| **Policy format**       | Ansible YAML                                                       | CFEngine policy language (.cf)                       |
+| **Deployment model**    | SSH push (Mac → device)                                            | Agent pull (policy server → agent)                   |
+| **Agent on device**     | None (SSH-based)                                                   | cf-agent (cross-compiled C binary)                   |
+| **Language**            | Python + Bash                                                      | C (cross-compilation needed)                         |
+| **Fleet integration**   | Native (Ansible inventory)                                         | Separate (cf-serverd inventory)                      |
+| **Health monitoring**   | `fleet_health_monitor.py`                                          | `cf-monitord`                                        |
+| **Android support**     | Native (Termux + Shizuku)                                          | None (no bionic builds)                              |
+| **Drift detection**     | `verify-drift` (14 checks) + `device_tier` (16 checks)             | Built-in (continuous enforcement)                    |
+| **Lines of code**       | ~200 (module) + ~500 (repair)                                      | 183,000                                              |
+| **Dependencies**        | Python 3.9+ (already in Termux)                                    | None (standalone binary) but needs cross-compilation |
 
 ---
 
@@ -210,11 +214,13 @@ Cross-compiled cf-agent binary would likely be 2-5 MB (C, statically linked). Pl
 CFEngine's `verify_*` subsystem is the most mature and well-tested verification engine in open source configuration management. The "promise theory" model is philosophically aligned with what the user wants: a separate, independent verification that current state matches desired state.
 
 However, the verification engine cannot be used independently. It is deeply embedded in the CFEngine architecture:
+
 - `verify_files.c` depends on `promises.h`, `eval_context.h`, `cf-agent.c`
 - Policy evaluation requires the full agent infrastructure
 - There is no "cf-verify" standalone binary — verification IS the agent
 
 **Extracting just the verification logic would require:**
+
 1. Porting 50+ C source files to a standalone library
 2. Replacing CFEngine's policy parser with Ansible YAML input
 3. Cross-compiling for Android bionic
@@ -228,13 +234,13 @@ This is a months-long engineering project with ongoing maintenance burden.
 
 **CFEngine is worth deeper investigation but not immediate integration.** The initial evaluation understated its Android readiness — the C codebase has first-class `__ANDROID__` support and even references "termux" by name. However, the practical blockers remain significant:
 
-| Blocker | Status | Notes |
-|---------|--------|-------|
-| **Android code support** | ✅ **Resolved** | `PLATFORM_CONTEXT_ANDROID` + `__ANDROID__` ifdefs + termux references in core |
-| **Pre-built binaries** | ✅ **Resolved** | `pkg install cfengine` → v3.27.1 for aarch64 in Termux main repo. 12 binaries, tested working on p7a |
-| **Separate policy language** | ❌ **Still a blocker** | Must maintain Ansible YAML AND CFEngine .cf policies for same fleet |
-| **Client/server model** | ⚠️ **Partial** | Can run in standalone mode (`cf-agent -f policy.cf`) — no server needed for verification |
-| **Infrastructure overhead** | ⚠️ **Minimal** | Standalone cf-agent is 320 KB. No server needed for local verification. cf-execd adds battery drain.
+| Blocker                      | Status                 | Notes                                                                                                |
+| ---------------------------- | ---------------------- | ---------------------------------------------------------------------------------------------------- |
+| **Android code support**     | ✅ **Resolved**        | `PLATFORM_CONTEXT_ANDROID` + `__ANDROID__` ifdefs + termux references in core                        |
+| **Pre-built binaries**       | ✅ **Resolved**        | `pkg install cfengine` → v3.27.1 for aarch64 in Termux main repo. 12 binaries, tested working on p7a |
+| **Separate policy language** | ❌ **Still a blocker** | Must maintain Ansible YAML AND CFEngine .cf policies for same fleet                                  |
+| **Client/server model**      | ⚠️ **Partial**         | Can run in standalone mode (`cf-agent -f policy.cf`) — no server needed for verification             |
+| **Infrastructure overhead**  | ⚠️ **Minimal**         | Standalone cf-agent is 320 KB. No server needed for local verification. cf-execd adds battery drain. |
 
 **If someone wanted to pursue this:**
 
@@ -300,6 +306,7 @@ Write a single CFEngine policy that checks ONE thing (e.g., sshd running) and ru
 ### 5. Integrate as an Ansible module
 
 Write an Ansible module that:
+
 1. Templates a `.cf` policy from Ansible variables (desired state from inventory)
 2. Copies it to the device
 3. Runs `cf-agent -f policy.cf` and captures output

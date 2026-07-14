@@ -24,10 +24,10 @@ UI automation is idempotent configuration.
 
 Prefer one of:
 
-| Pattern | When |
-|---------|------|
+| Pattern                                           | When                                                                                                                                                                                      |
+| ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`stayturgid.android_common.android_ui` module** | Named `task:` enum (`import_obtainium_catalog`, `enable_autojs6_drawer`, …) with structured args; module calls shared libs; `check_mode: false` or explicit `supported_check_mode: false` |
-| **`stayturgid.fleet.post_ui` role** | Tags per task; tasks call module or thin `command` wrapper; replaces scattered `post-ui.yml` `command` steps |
+| **`stayturgid.fleet.post_ui` role**               | Tags per task; tasks call module or thin `command` wrapper; replaces scattered `post-ui.yml` `command` steps                                                                              |
 
 Mac vs on-device routing (SSH-first, hd8 Mac-adb-only) stays inside the shared
 library (`post_ui_remote`), not duplicated in YAML.
@@ -38,22 +38,22 @@ library (`post_ui_remote`), not duplicated in YAML.
 
 Move remaining shell-idempotent Mac logic into collections when touched:
 
-| Candidate | Replaces / complements |
-|-----------|-------------------------|
-| `android_a11y_services` | `control/bin/a11y_services.py` merge-only backup/restore |
-| `autojs6_project_deploy` | ✅ `autojs6_watchdog` adb path + `deploy.py` |
-| Expanded validate | ✅ `stayturgid.fleet.validate` role + thin `validate.yml` playbook |
+| Candidate                | Replaces / complements                                             |
+| ------------------------ | ------------------------------------------------------------------ |
+| `android_a11y_services`  | `control/bin/a11y_services.py` merge-only backup/restore           |
+| `autojs6_project_deploy` | ✅ `autojs6_watchdog` adb path + `deploy.py`                       |
+| Expanded validate        | ✅ `stayturgid.fleet.validate` role + thin `validate.yml` playbook |
 
 Retire redundant CLIs when module parity exists (`harden_fleet_apps.py` already
 superseded by `android_app_privileges`).
 
 ## Package managers
 
-| System | Declarative (module) | UI task |
-|--------|----------------------|---------|
-| fdroidcl | `fdroid_repos`, `fdroid_install`, `fdroid_repo_push` | Neo settings (when unparked) |
-| apkeep / gplaycli | `play_apps`, `android_apk` | Aurora first-run (when unparked) |
-| Obtainium | `obtainium_app` (catalog render) | Import deep link + Continue |
+| System            | Declarative (module)                                 | UI task                          |
+| ----------------- | ---------------------------------------------------- | -------------------------------- |
+| fdroidcl          | `fdroid_repos`, `fdroid_install`, `fdroid_repo_push` | Neo settings (when unparked)     |
+| apkeep / gplaycli | `play_apps`, `android_apk`                           | Aurora first-run (when unparked) |
+| Obtainium         | `obtainium_app` (catalog render)                     | Import deep link + Continue      |
 
 No Obtainium state API — import remains a UI task until upstream provides one.
 

@@ -18,11 +18,11 @@
 
 These are **durable project policies** for AI agents (Cursor and handoff successors). They are short Markdown (`.mdc`) files with frontmatter `alwaysApply: true`. **Open the directory and read every rule** at session start / handoff — do not rely only on this handoff body; rules may be added or tightened without rewriting this whole document.
 
-| File | Topic |
-|------|--------|
-| [`.cursor/rules/fleet-health-self-heal.mdc`](../.cursor/rules/fleet-health-self-heal.mdc) | Health fixes must also update self-heal paths (Termux / AutoJs6 / Mac monitors) — session-only heals are incomplete |
-| [`.cursor/rules/screen-control-hold.mdc`](../.cursor/rules/screen-control-hold.mdc) | Keep `ScreenControlSession` held across multi-step UI work; do not open/close per tap |
-| [`.cursor/rules/deploy-self-heal-catastrophic.mdc`](../.cursor/rules/deploy-self-heal-catastrophic.mdc) | Every capability must be in deploy, self-heal, **and** catastrophic recovery — no gaps |
+| File                                                                                                    | Topic                                                                                                               |
+| ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| [`.cursor/rules/fleet-health-self-heal.mdc`](../.cursor/rules/fleet-health-self-heal.mdc)               | Health fixes must also update self-heal paths (Termux / AutoJs6 / Mac monitors) — session-only heals are incomplete |
+| [`.cursor/rules/screen-control-hold.mdc`](../.cursor/rules/screen-control-hold.mdc)                     | Keep `ScreenControlSession` held across multi-step UI work; do not open/close per tap                               |
+| [`.cursor/rules/deploy-self-heal-catastrophic.mdc`](../.cursor/rules/deploy-self-heal-catastrophic.mdc) | Every capability must be in deploy, self-heal, **and** catastrophic recovery — no gaps                              |
 
 ```bash
 ls .cursor/rules/          # inventory of agent rules
@@ -72,23 +72,23 @@ python3 control/bin/screen_lease.py status   # cross-project glass holds (esp. p
 # Optional when touching phone→Mac et: just check-et-mac
 ```
 
-| Exit | Meaning | Your job |
-|------|---------|----------|
-| **0** | Clean | Continue; no need to mention unless asked |
-| **1** | Soft problems | **Tell the operator in your first reply** (host + `issues=…`). Do not wait for “options”. **`SCRAPE_STALE` may mean Mac probe failure** (e.g. adb PATH), not a dead phone — read the log line |
-| **2** | Log missing / no scrapes | Tell operator launchd may be down; offer `ansible-playbook ansible/playbooks/control_node/agents.yml` |
+| Exit  | Meaning                  | Your job                                                                                                                                                                                      |
+| ----- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **0** | Clean                    | Continue; no need to mention unless asked                                                                                                                                                     |
+| **1** | Soft problems            | **Tell the operator in your first reply** (host + `issues=…`). Do not wait for “options”. **`SCRAPE_STALE` may mean Mac probe failure** (e.g. adb PATH), not a dead phone — read the log line |
+| **2** | Log missing / no scrapes | Tell operator launchd may be down; offer `ansible-playbook ansible/playbooks/control_node/agents.yml`                                                                                         |
 
 Also skim when the operator asks about fleet status, soak, OPTIONS **43–45**, or
 “is anything wrong?”
 
 ### Where to look
 
-| Path | What |
-|------|------|
-| `~/.config/stayturgid/logs/fleet-health.log` | Soft health (watchdog, repair, a11y, sshd, bootloop, shell5555) |
-| `~/.config/stayturgid/logs/fire-help.log` | Mac→Fire Shizuku/Handsets help (`com.stayturgid.fire-help`) |
-| `~/.config/stayturgid/logs/access-monitor.log` | Total outage (ADB+SSH all dead) |
-| `~/.config/stayturgid/state/fleet-health/<host>` | Consecutive soft-fail count (≥2 ≈ notified) |
+| Path                                             | What                                                            |
+| ------------------------------------------------ | --------------------------------------------------------------- |
+| `~/.config/stayturgid/logs/fleet-health.log`     | Soft health (watchdog, repair, a11y, sshd, bootloop, shell5555) |
+| `~/.config/stayturgid/logs/fire-help.log`        | Mac→Fire Shizuku/Handsets help (`com.stayturgid.fire-help`)     |
+| `~/.config/stayturgid/logs/access-monitor.log`   | Total outage (ADB+SSH all dead)                                 |
+| `~/.config/stayturgid/state/fleet-health/<host>` | Consecutive soft-fail count (≥2 ≈ notified)                     |
 
 Agents: `com.stayturgid.fleet-health`, `com.stayturgid.access-monitor` (via
 `ansible/playbooks/control_node/agents.yml`). Neo/Aurora gui-audit is **parked** (`control/bin/gui_audit.py`
@@ -122,6 +122,7 @@ launchd (`fleet_health_monitor` / `fire-help`). See Cursor rule
 Tailscale via **two independent, mutually-repairing channels (ADB + SSH)**.
 
 After a reboot and PIN unlock:
+
 1. **Shizuku** (thedjchi fork) auto-starts via Android Wireless Debugging and uses TCP mode to call `adb tcpip 5555` — opens port 5555 without USB.
 2. **Termux:Boot** fires the minimal `~/.termux/boot/start-adb.sh` compatibility
    entrypoint, which delegates immediately to Python `start_adb.py`; that supervisor
@@ -137,6 +138,7 @@ On the Mac, a launchd agent runs every 60 s and reconnects `adb connect <ip>:555
 ## How updates work
 
 GitHub `master` is the source of truth. To release:
+
 1. Bump `version.json` (`version` + `changelog`), commit, push.
 2. `just deploy` (or `python3 control/bin/deploy_fleet.py`) — full fleet via `ansible/playbooks/site.yml`
    (`just deploy-check` = dry run): bootstrap APK verify,
@@ -181,11 +183,11 @@ end of that plan.
 
 ### Fleet snapshot (2026-07-13 — bootstrap automation deployed)
 
-| Host | Verify | stayturgid | Bootstrap APKs | FIRERPA | CFEngine | Notes |
-|------|:------:|:----------:|:--------------:|:-------:|:--------:|-------|
-| **s24** | 14/16 PASS | all green | ✅ All 7 current | ✅ v10.0 secure | ✅ 7/7 | Full deploy + AutoJs6 watchdog verified |
-| **p7a** | 14/16 PASS | all green | pending | ✅ v10.0 secure | ✅ 7/7 | FIRERPA + Termux supervisor deploy verified |
-| **hd8** | 13/16 PASS | offline / watchdog stale | pending | ⚠️ USB only | last ✅ 4/7 | Deferred H1/H3; aggregate `just health` remains nonzero |
+| Host    |   Verify   |        stayturgid        |  Bootstrap APKs  |     FIRERPA     |  CFEngine   | Notes                                                   |
+| ------- | :--------: | :----------------------: | :--------------: | :-------------: | :---------: | ------------------------------------------------------- |
+| **s24** | 14/16 PASS |        all green         | ✅ All 7 current | ✅ v10.0 secure |   ✅ 7/7    | Full deploy + AutoJs6 watchdog verified                 |
+| **p7a** | 14/16 PASS |        all green         |     pending      | ✅ v10.0 secure |   ✅ 7/7    | FIRERPA + Termux supervisor deploy verified             |
+| **hd8** | 13/16 PASS | offline / watchdog stale |     pending      |   ⚠️ USB only   | last ✅ 4/7 | Deferred H1/H3; aggregate `just health` remains nonzero |
 
 **Current fix order:** H1/H3 HD8 maintenance decision → H9 foreground-screen cleanup →
 B63/B64 recovery tests → F4 FIRERPA network audit/isolation → T1 `just` migration. See
@@ -211,6 +213,7 @@ All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/
 ### Major changes (2026-07-12 — repair hardening, SSH CA, FIRERPA integration)
 
 **Repair self-heal (8 commits, 7 files):**
+
 - `ensure_sshd_down_file()` — removes stale runit `down` file that blocks sshd
 - `ensure_wireless_debugging()` — skips cosmetic Samsung toggle + blocked Pixel Android 16 `settings put`
 - `ensure_shell_profile_path()` — removes leaked Mac PATH from `.profile`/`.bashrc`/`.bash_profile`
@@ -219,6 +222,7 @@ All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/
 - Boot script: `rm -f sshd/down` before `sshd` in `start-adb.sh`
 
 **SSH Certificate Authority:**
+
 - CA key at `~/.ssh/stayturgid_ca` — signs all device host keys
 - `@cert-authority *` in Mac + device known_hosts → zero SSH warnings
 - `ca.yml` in termux_userland role — auto-signs + deploys certs
@@ -226,11 +230,13 @@ All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/
 - Makefile: `ca-status`, `ca-init`, `ca-sign`
 
 **OpenCode web:**
+
 - Launchd KeepAlive agent: `com.stayturgid.opencode-web` on `:4096`
 - Reachable from all fleet devices at `http://<ts-ip>:4096`
 - Makefile: `opencode-web-status`, `--restart`, `--deploy`, `--disable`
 
 **FIRERPA/lamda integration (spike + deploy + docs):**
+
 - Spike confirmed on s24 + p7a: gRPC API works, ~43 MB PSS / 120 MB RSS
 - Ansible role: `ansible_collections/stayturgid/firerpa/` (install/configure/service/uninstall)
 - Playbook: `ansible/playbooks/fleet/firerpa.yml` (default disabled)
@@ -251,6 +257,7 @@ All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/
 - Make sure `lamda-client` is installed in Python 3.12 venv: `source /tmp/lamda-venv/bin/activate`
 
 **CFEngine standalone self-heal (deployed 2026-07-12):**
+
 - CFEngine Build source at `device/termux/cfengine/policy/`; `cfbs.json` builds the
   exact standalone artifact Ansible deploys. Run `just cfbs-validate` then `just cfbs-build`.
 - Policy at `device/termux/cfengine/policy/stayturgid.cf` — 7 check bundles: sshd, bootloop, mirror, shell5555, shizuku, a11y, profile
@@ -262,6 +269,7 @@ All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/
 - Evaluation: `docs/history/cfengine-evaluation-2026-07-12.md`
 
 **Ansible-based verification + drift detection (deployed 2026-07-12):**
+
 - `make verify-drift [HOSTS=s24]` — `control/bin/verify_drift.py` → `ansible/playbooks/fleet/verify-drift.yml`
 - Uses `stayturgid.fleet.stayturgid_verify` module — declarative Ansible checks for device state drift
 - Complements `just verify` (device-tier TAP) with Ansible-native verification
@@ -273,28 +281,29 @@ triggers that could fire every cycle when state is already correct. Fixes ensure
 every write is gated on a read of the current value. Specific changes:
 
 - `stayturgid_repair.py`: `setprop service.adb.tcp.port 5555` now checks `getprop`
-first — avoids pointless adbd restart every 5 min. `accessibility_enabled 1` gated
-on current value. Fleet profile re-apply gated on `shizuku != "up"`. Removed
-KEYCODE_BACK dialog dismissals (replaced with read-before-write gates).
+  first — avoids pointless adbd restart every 5 min. `accessibility_enabled 1` gated
+  on current value. Fleet profile re-apply gated on `shizuku != "up"`. Removed
+  KEYCODE_BACK dialog dismissals (replaced with read-before-write gates).
 - `comonitor.js`: `restartSshd()` removes `sshd/down` file before restart (was
-silently blocked if present). `probeAndRepairA11y()` has backup + shrink-recovery
-(matching repair.py's `_repair_a11y_shrink`). `probeWifi()` has Samsung/Pixel
-cosmetic false-positive guard. `accessibility_enabled 1` gated on current value.
+  silently blocked if present). `probeAndRepairA11y()` has backup + shrink-recovery
+  (matching repair.py's `_repair_a11y_shrink`). `probeWifi()` has Samsung/Pixel
+  cosmetic false-positive guard. `accessibility_enabled 1` gated on current value.
 - `shizuku.js`: `tryShellWirelessRepair()` reads all 3 `settings get global` +
-`getprop` before each `settings put` / `setprop` (was 4 unconditional writes per
-catastrophic cycle).
+  `getprop` before each `settings put` / `setprop` (was 4 unconditional writes per
+  catastrophic cycle).
 - `android_a11y_services.py` (Ansible module): `settings_put()` gates
-`accessibility_enabled 1` on current value (matching repair.js + comonitor.js).
+  `accessibility_enabled 1` on current value (matching repair.js + comonitor.js).
 - `a11y_services.py` + `stayturgid_enable_autojs6.py`: `put_services()` same gate.
 - `firerpa_heal.py` + `firerpa_health_monitor.py`: Shizuku detection uses `pgrep -f
 shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 - `cfengine/stayturgid.cf`: Mac PATH pattern includes `/System/Cryptexes/`
-(matches repair.py + Ansible).
+  (matches repair.py + Ansible).
 - `stayturgid_verify.py`: Added `wireless_debugging` check to ALL_CHECKS.
 - `AGENTS.md`: Added `deploy-check`, `verify-heal`, `ca-status`, `opencode-web-status`,
-`hermes-status`, `vlm-check` to key commands table.
+  `hermes-status`, `vlm-check` to key commands table.
 
 **CFEngine server mode — Tier 4 redundancy transport (2026-07-12):**
+
 - `cf-serverd` listens on port 5308 (TLS) for remote repair triggers via `cf-runagent`
   from the Mac. Provides a completely independent repair channel — different port,
   protocol (TLS key trust vs SSH CA), and binary from sshd/FIRERPA.
@@ -318,6 +327,7 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 ### Major changes (2026-07-13 — bootstrap APK automation + Shizuku start module)
 
 **Bootstrap APK automation (3 new playbooks + 1 module + 1 role):**
+
 - `android_apk` module extended with `resign`/`apksigner_bin`/`keystore`/`keystore_pass`/`key_alias` params for unsigned fork builds
 - `bootstrap_apks` role: version-aware install of 7 prerequisite APKs (Termux, Termux:Boot, Termux:API, Shizuku, AutoJs6, Tailscale, Obtainium) over ADB — queries `gh release view` per APK, compares against installed versionName, installs only when stale
 - `ensure-bootstrap-apks.yml`: playbook wired into `site.yml` before preflight
@@ -329,6 +339,7 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 - 16 unit tests for `shizuku_start` module
 
 **AutoJs6 versionName fix:**
+
 - Discovered false-positive stale detection: tag `6.7.0-fleet-profile` vs versionName `6.7.0`
 - Fix applied in `djbclark/AutoJs6` fork build system (appends branch qualifier to versionName)
 - Verified: `aapt dump badging` shows `versionName='6.7.0-fleet-profile'` matching tag
@@ -336,12 +347,14 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 - Final verify: all 7 APKs current, no stale warnings
 
 **Bug fixes:**
+
 - `delegate_facts: true` removed from `bootstrap_apks/tasks/main.yml` and `verify-bootstrap-apks.yml` — was routing facts to localhost instead of inventory host, breaking `include_tasks` template resolution
 - `include_vars` added to `verify-bootstrap-apks.yml` to load role defaults
 
 ### Major changes (2026-07-11 — fork migration + headless automation)
 
 **Fork migration:**
+
 - Migrated from `SuperMonster003/AutoJs6` → `djbclark/AutoJs6` (fleet profile support)
 - Migrated from `thedjchi/Shizuku` → `djbclark/Shizuku` (HEADLESS_START/STOP/STATUS broadcasts)
 - Added `djbclark/Obtainium` (headless import/update deep-links)
@@ -349,6 +362,7 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 - All `filterReleaseTitlesByRegEx` cleared for future mainline switch-back
 
 **UI automation eliminated (-1,440 lines):**
+
 - **Shizuku**: `findOne`/`tapStartButton` replaced by `HEADLESS_START` broadcast
 - **Obtainium import**: `ui_driver` + `ScreenControlSession` replaced by `obtainium://apps?confirm=true&headless=true` deep-link
 - **Obtainium updates**: replaced with `obtainium://update/all?autoInstall=true&headless=true`
@@ -357,6 +371,7 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 - `enableWirelessDebuggingUi` Samsung fallback deleted
 
 **Headless API use:**
+
 - `HEADLESS_START` (djbclark/Shizuku) — starts Shizuku daemon + wireless ADB, no UI
 - `HEADLESS_STATUS` (djbclark/Shizuku) — returns server state; pgrep fallback on Samsung
 - `FleetProfileActivity` (djbclark/AutoJs6 + djbclark/Obtainium) — SharedPreferences via intent
@@ -380,6 +395,7 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 **Obtainium FleetProfileActivity**: Must use `getSharedPreferences("FlutterSharedPreferences", ...)` (the `flutter.` prefixed keys). DataStore DOES NOT work — the app's `SettingsProvider` uses legacy `SharedPreferences`, not `SharedPreferencesAsync`. See docs/handoff-obtainium-shizuku.md for full debugging history.
 
 **Fire OS (hd8)**: Fire OS blocks background broadcasts. Shizuku must be started via peer bootstrap (`fire_peer_help.py`) or USB-tap, not HEADLESS_START.
+
 - **hd8 AutoJs6 project recovery (2026-07-13):** AutoJs6 would not recognize the repo tree as a project until the app-created project root was used. The working pair that brought hd8 back is saved under [docs/research/autojs6-hd8-project/](research/autojs6-hd8-project/); keep that as a reference for project-recognition behavior.
 
 **`run-as` restricted on Android 16**: Can't read app SharedPreferences files directly for debugging.
@@ -389,12 +405,14 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 **Obtainium self-update**: The `djbclark/Obtainium` entry uses `filterReleaseTitlesByRegEx: ""` (empty). The fork release titles don't contain "stayturgid" (unlike Shizuku which does).
 
 **Fork builds are debug (unsigned)**: Must sign with `apksigner sign --ks ~/.android/debug.keystore` before `adb install`.
+
 - **`make help`** + operational targets (`deploy`, `deploy-check`, `health`, `collections`, `syntax`, etc.).
 - **`make health` fix:** stale access-monitor LOST for hosts currently OK no longer fails exit 1
   (`control/bin/check_fleet_health.py` + tests).
 - Docs sweep: ADR 002, adoption notes, consumer template, `play_store` → `play_apps` in examples.
 
 **Recent landings (2026-07-09):**
+
 - Neo/Aurora **parked** from active fleet deploy, Obtainium catalog, gui-audit, and fleet-health.
 - Post-UI routing: `post_ui_remote.run_with_mac_fallback` — SSH-first on s24/p7a, Mac adb on failure; hd8 Mac-only.
 - On-device deterministic GUI: `device/termux/py/stayturgid_{import_catalog,enable_autojs6,screen_control,shell,grant_shizuku}.py` + `~/.stayturgid/lib/`.
@@ -404,6 +422,7 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 - Parked side projects: [docs/incubator/](incubator) — Inferno/Styx **do not implement**.
 
 **Recent landings (2026-07-08):**
+
 - AutoJs6 fleet profile (`device/autojs6/fleet_profile.json`, `enable_autojs6_shizuku.py` via FleetProfileActivity intent).
 - Accessibility **detection-only** — no automatic writes. User must enable in Settings.
 - PiP/overlay clearance at `ScreenControlSession` start (`control/lib/ui_clearance.py`).
@@ -411,6 +430,7 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 - AutoJs6 fleet profile API: [issue #553](https://github.com/SuperMonster003/AutoJs6/issues/553), implemented in [djbclark/AutoJs6](https://github.com/djbclark/AutoJs6/releases).
 
 **Recent landings (2026-07-07):**
+
 - Termux mirror re-pinned after `pkg update`; Fire OS localhost adb skip reports as verify note (not TODO).
 - Shared `adb_resolve` auto-failover (USB → LAN → Tailscale, `adb connect`, `ro.serialno` match); TCP probe prevents hang on dead endpoints.
 - `test_tailscale_down.py` aborts when adb rides the tunnel it kills; log.js `ensureDir` regression tests; deploy/adb mocked CI; in-collection `adb_resolve` unit tests.
@@ -420,6 +440,7 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 **Solid on all three (unchanged):** Termux self-heal (`sshd` + boot loop + repair bridge); single-root file layout with self-healing dirs; AutoJs6 hardened startup; device-tier verify via `just verify`.
 
 **⚠ hd8 Fire OS caveats:**
+
 - Split storage — Termux under `~/.stayturgid/shared`; AutoJs6 under `/sdcard/stayturgid/`.
 - No Termux→localhost:5555 loopback — verify item 4 is an expected informational note, not a failure. Post-UI stays on Mac adb (USB or wireless).
 - Mac adb: Tailscale or USB `GN43T503430603PS`; wireless failover works after one USB bootstrap.
@@ -438,6 +459,7 @@ If validating bootstrap flow: `just --set hosts s24 verify-bootstrap-apks` →
 [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md).
 
 **Deploy / test:**
+
 - Deploy: `just deploy hosts=<host>`. Verify: `just verify hosts=<host>`.
 - Test (no device): `just test`. First run: `just test-venv`. CI runs `just test` on push.
 - All commands: `just --list`.
@@ -457,6 +479,7 @@ Relevant note:
 
 AutoJs6 v6.7.0-fleet-profile+ normalizes `/sdcard/` paths to
 `Environment.getExternalStorageDirectory()` in two places:
+
 - `ScriptIntents.normalizePath()` — for script execution via `RunIntentActivity`
 - `FleetProfileActivity.normalizePath()` — for fleet profile application
 
@@ -466,65 +489,68 @@ stayturgid's deploy and control scripts **continue to work on all devices**
 including Fire OS, where `/sdcard` is the physical path (no symlink).
 
 `control/lib/adb_cli.py` now provides two Fire OS helpers:
+
 - `resolve_external_storage(serial)` — queries `$EXTERNAL_STORAGE` on device
 - `is_fire_os(serial)` — checks `ro.build.characteristics` for `amazon`
-
 
 ## Fleet layout & file roots (single-root, self-healing) — 2026-07-07
 
 All stayturgid files live under ONE root per filesystem (was scattered at /sdcard root, ~/ home, ~/Library/Logs):
 
-| Filesystem | Root | Subdirs |
-|-----------|------|---------|
-| Device shared | `/sdcard/stayturgid/` (default) or `~/.stayturgid/shared` (Fire OS) | `autojs6/ state/ logs/ run/ tmp/` |
-| Termux private | `~/.stayturgid/` | `bin/ logs/ run/ state/ battery-colors/ env` |
-| Mac | `~/.config/stayturgid/` | `devices.conf logs/ state/` |
+| Filesystem     | Root                                                                | Subdirs                                      |
+| -------------- | ------------------------------------------------------------------- | -------------------------------------------- |
+| Device shared  | `/sdcard/stayturgid/` (default) or `~/.stayturgid/shared` (Fire OS) | `autojs6/ state/ logs/ run/ tmp/`            |
+| Termux private | `~/.stayturgid/`                                                    | `bin/ logs/ run/ state/ battery-colors/ env` |
+| Mac            | `~/.config/stayturgid/`                                             | `devices.conf logs/ state/`                  |
 
 Deployed scripts → `~/.stayturgid/bin`; AutoJs6 project → `/sdcard/stayturgid/autojs6`; `watchdog.log` → `logs/`; `device.json` + `automation_mode` → `state/`; repair-bridge trigger → `run/repair_now`; pidfiles (`bootloop.pid`, bridge) → `run/`. **Self-healing:** python `makedirs(exist_ok=True)`, shell `mkdir -p`, AutoJs6 `files.ensureDir` + `config.ensureDirs()`.
 
-⚠ **`device.json` is only re-rendered by Ansible** (`ansible/playbooks/fleet/fleet.yml`, task "Render device profile from inventory layers"). Deleting `/sdcard/stayturgid/state/` self-heals the *dir* but leaves device.json empty → AutoJs6 falls back to `device=generic` (loses tap coords). If you wipe state for a self-heal test, re-render device.json afterward (`ansible-playbook … --start-at-task="Render device profile from inventory layers" --limit <host>`).
+⚠ **`device.json` is only re-rendered by Ansible** (`ansible/playbooks/fleet/fleet.yml`, task "Render device profile from inventory layers"). Deleting `/sdcard/stayturgid/state/` self-heals the _dir_ but leaves device.json empty → AutoJs6 falls back to `device=generic` (loses tap coords). If you wipe state for a self-heal test, re-render device.json afterward (`ansible-playbook … --start-at-task="Render device profile from inventory layers" --limit <host>`).
 
 ---
 
 ## Device facts
 
 ### Google Pixel 7a (primary)
-| Field | Value |
-|-------|-------|
-| Device / Android | Google Pixel 7a / 16 |
-| USB serial | `35261JEHN12374` |
-| Wireless ADB | `100.65.230.108:5555` (Tailscale, stable); LAN `192.168.68.60` (DHCP — may change; see `ansible/inventory/hosts.yml`) |
-| SSH | `ssh p7a` (alias → Tailscale :8022, key auth, no 1Password dialog) |
-| Termux uid | `u0_a591` (changed from a590 in the 2026-07-05 GitHub/Obtainium swap) |
-| AutoJs6 | `org.autojs.autojs6` v6.7.0 |
-| Shizuku | `moe.shizuku.privileged.api` (thedjchi fork v13.6.0.r1349-thedjchi-beta) |
-| Termux stack | GitHub-debug via Obtainium (`com.termux` 0.118.3 + api/boot/styling/widget/float) — all share-uid aligned; `termux-api` works |
-| Tailscale | always-on VPN ON (the key to reboot-proof reachability) |
+
+| Field            | Value                                                                                                                         |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| Device / Android | Google Pixel 7a / 16                                                                                                          |
+| USB serial       | `35261JEHN12374`                                                                                                              |
+| Wireless ADB     | `100.65.230.108:5555` (Tailscale, stable); LAN `192.168.68.60` (DHCP — may change; see `ansible/inventory/hosts.yml`)         |
+| SSH              | `ssh p7a` (alias → Tailscale :8022, key auth, no 1Password dialog)                                                            |
+| Termux uid       | `u0_a591` (changed from a590 in the 2026-07-05 GitHub/Obtainium swap)                                                         |
+| AutoJs6          | `org.autojs.autojs6` v6.7.0                                                                                                   |
+| Shizuku          | `moe.shizuku.privileged.api` (thedjchi fork v13.6.0.r1349-thedjchi-beta)                                                      |
+| Termux stack     | GitHub-debug via Obtainium (`com.termux` 0.118.3 + api/boot/styling/widget/float) — all share-uid aligned; `termux-api` works |
+| Tailscale        | always-on VPN ON (the key to reboot-proof reachability)                                                                       |
 
 ### Kindle Fire HD 8 (`hd8` — USB `GN43T503430603PS`)
-| Field | Value |
-|-------|-------|
-| Device / Android | Amazon Kindle Fire HD 8 (KFRASWI) / 11 (API 30) |
-| USB serial | `GN43T503430603PS` |
-| Wireless ADB | `100.124.55.39:5555` (Tailscale); LAN `192.168.1.157:5555` fallback (DHCP — see `ansible/inventory/hosts.yml`) |
-| SSH | `ssh hd8` (alias → Tailscale :8022, `u0_a310`, key auth); LAN: `ssh hd8-lan` |
-| Termux | GitHub-debug `com.termux` 0.118.3 + api/boot (share-uid); **must** be debug build for `run-as` recovery |
-| AutoJs6 | `org.autojs.autojs6` v6.7.0 — project at `/sdcard/stayturgid/autojs6` |
-| Shizuku | thedjchi fork v13.7.0 — TCP mode ON |
-| Fire OS notes | Termux state/logs under `~/.stayturgid/shared` (`STAYTURGID_SD` in `~/.stayturgid/env`); no Termux localhost:5555 — Handsets via peer bootstrap / keepalive (`stayturgid_peer_bootstrap`, `stayturgid_peer_keepalive`) → s24/p7a or Mac (`fire_peer_help` + launchd `com.stayturgid.fire-help`) |
+
+| Field            | Value                                                                                                                                                                                                                                                                                           |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Device / Android | Amazon Kindle Fire HD 8 (KFRASWI) / 11 (API 30)                                                                                                                                                                                                                                                 |
+| USB serial       | `GN43T503430603PS`                                                                                                                                                                                                                                                                              |
+| Wireless ADB     | `100.124.55.39:5555` (Tailscale); LAN `192.168.1.157:5555` fallback (DHCP — see `ansible/inventory/hosts.yml`)                                                                                                                                                                                  |
+| SSH              | `ssh hd8` (alias → Tailscale :8022, `u0_a310`, key auth); LAN: `ssh hd8-lan`                                                                                                                                                                                                                    |
+| Termux           | GitHub-debug `com.termux` 0.118.3 + api/boot (share-uid); **must** be debug build for `run-as` recovery                                                                                                                                                                                         |
+| AutoJs6          | `org.autojs.autojs6` v6.7.0 — project at `/sdcard/stayturgid/autojs6`                                                                                                                                                                                                                           |
+| Shizuku          | thedjchi fork v13.7.0 — TCP mode ON                                                                                                                                                                                                                                                             |
+| Fire OS notes    | Termux state/logs under `~/.stayturgid/shared` (`STAYTURGID_SD` in `~/.stayturgid/env`); no Termux localhost:5555 — Handsets via peer bootstrap / keepalive (`stayturgid_peer_bootstrap`, `stayturgid_peer_keepalive`) → s24/p7a or Mac (`fire_peer_help` + launchd `com.stayturgid.fire-help`) |
 
 ### Samsung Galaxy S24 (primary dev device — USB `RFCX219CHKA`)
-| Field | Value |
-|-------|-------|
-| Device / Android | Samsung Galaxy S24 (SM-S921U1) / 16 (SDK 36) |
-| USB serial | `RFCX219CHKA` (**use when plugged in**) |
-| Wireless ADB | `adb connect 100.123.218.30:5555` (Tailscale, stable) — also `192.168.68.54:5555` LAN (DHCP — see `ansible/inventory/hosts.yml`) |
-| SSH | `ssh s24` (alias → Tailscale, key auth, no 1Password dialog); via USB: `adb -s RFCX219CHKA forward tcp:8022 tcp:8022 && ssh -p 8022 localhost` |
-| Tailscale | `s24` = `100.123.218.30`; always-on VPN ON. "Block connections without VPN" deliberately OFF (would sever LAN ADB/mDNS on tunnel blips) |
-| AutoJs6 | `org.autojs.autojs6` v6.7.0 |
-| Shizuku | thedjchi fork — **survives cold reboot** (persistent wireless-debugging pairing established) |
-| Termux / Obtainium | GitHub-signed stack via Obtainium; Shizuku installer enabled |
-| ⚠ Power | the USB *data* cable does NOT reliably charge it — keep it on a real charger or remote access dies with the battery |
+
+| Field              | Value                                                                                                                                          |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Device / Android   | Samsung Galaxy S24 (SM-S921U1) / 16 (SDK 36)                                                                                                   |
+| USB serial         | `RFCX219CHKA` (**use when plugged in**)                                                                                                        |
+| Wireless ADB       | `adb connect 100.123.218.30:5555` (Tailscale, stable) — also `192.168.68.54:5555` LAN (DHCP — see `ansible/inventory/hosts.yml`)               |
+| SSH                | `ssh s24` (alias → Tailscale, key auth, no 1Password dialog); via USB: `adb -s RFCX219CHKA forward tcp:8022 tcp:8022 && ssh -p 8022 localhost` |
+| Tailscale          | `s24` = `100.123.218.30`; always-on VPN ON. "Block connections without VPN" deliberately OFF (would sever LAN ADB/mDNS on tunnel blips)        |
+| AutoJs6            | `org.autojs.autojs6` v6.7.0                                                                                                                    |
+| Shizuku            | thedjchi fork — **survives cold reboot** (persistent wireless-debugging pairing established)                                                   |
+| Termux / Obtainium | GitHub-signed stack via Obtainium; Shizuku installer enabled                                                                                   |
+| ⚠ Power            | the USB _data_ cable does NOT reliably charge it — keep it on a real charger or remote access dies with the battery                            |
 
 Prefer the **S24 over USB** for interactive work when plugged in; use **7a over Tailscale** otherwise. Mac scripts resolve targets via [control/lib/stayturgid_device.py](../control/lib/stayturgid_device.py) or `./control/lib/resolve_adb.py` (USB serial when present, else Tailscale/LAN).
 
@@ -536,37 +562,40 @@ Prefer the **S24 over USB** for interactive work when plugged in; use **7a over 
 
 `fleet_health.py:resolve_path()` and `fleet_health_monitor.py:check_device()` probe in this order:
 
-| Tier | Transport | Probe | Port |
-|------|-----------|-------|------|
-| **1** | **ADB** | `adb connect` LAN → Tailscale | 5555 |
-| **2** | **SSH** | TCP probe (tcp_open) | 8022 |
+| Tier  | Transport        | Probe                                    | Port  |
+| ----- | ---------------- | ---------------------------------------- | ----- |
+| **1** | **ADB**          | `adb connect` LAN → Tailscale            | 5555  |
+| **2** | **SSH**          | TCP probe (tcp_open)                     | 8022  |
 | **3** | **FIRERPA gRPC** | TCP probe → `firerpa_heal.heal_device()` | 65000 |
 
 If all three are down, `access-monitor` fires a Mac notification. FIRERPA heal is rate-limited (30 min cooldown per host) to prevent restart storms.
 
 ### On-device self-heal layers (independent of Mac connectivity)
 
-| # | Layer | Cycle | Transport | Repairs |
-|---|-------|-------|-----------|---------|
-| 1 | **Termux boot loop** (`start_adb.py`) | 15 min | localhost:5555 privileged shell | sshd restart, mirror pin, PATH leak, fleet profiles |
-| 2 | **AutoJs6 watchdog** (`main.js` + `comonitor.js`) | 20 min + boot | AutoJs6 accessibility + Termux bridge | catastrophic Shizuku repair, sshd restart, notifications |
-| 3 | **CFEngine** (`cf-agent -Kf stayturgid.cf`) | 15 min (in boot loop) | local process | sshd restart, mirror re-pin, PATH leak fix (3 of 7 bundles auto-repair) |
-| 4 | **Repair bridge** (`~/.stayturgid/run/repair_now`) | 15 min poll | any transport that can write files | touch trigger file → boot loop runs full repair next cycle |
+| #   | Layer                                              | Cycle                 | Transport                             | Repairs                                                                 |
+| --- | -------------------------------------------------- | --------------------- | ------------------------------------- | ----------------------------------------------------------------------- |
+| 1   | **Termux boot loop** (`start_adb.py`)              | 15 min                | localhost:5555 privileged shell       | sshd restart, mirror pin, PATH leak, fleet profiles                     |
+| 2   | **AutoJs6 watchdog** (`main.js` + `comonitor.js`)  | 20 min + boot         | AutoJs6 accessibility + Termux bridge | catastrophic Shizuku repair, sshd restart, notifications                |
+| 3   | **CFEngine** (`cf-agent -Kf stayturgid.cf`)        | 15 min (in boot loop) | local process                         | sshd restart, mirror re-pin, PATH leak fix (3 of 7 bundles auto-repair) |
+| 4   | **Repair bridge** (`~/.stayturgid/run/repair_now`) | 15 min poll           | any transport that can write files    | touch trigger file → boot loop runs full repair next cycle              |
 
 CFEngine runs alongside the repair script in the same boot loop cycle — two separate tools, two separate policies, checking the same things independently. CFEngine output (`repair-cfengine.log`) is scraped by the Mac fleet health gather and reported as `cfengine=ok|down`.
 
 ### Repair channel — confirmed primitives (tested live 2026-07-05)
+
 - **`adb -s localhost:5555 shell` from Termux = full shell uid 2000** (groups incl. `input`, `adb`, `log`). While 5555 is open, the repair layer runs `input tap` / `settings put` / `setprop` / `am` / `svc` with shell privileges — **no accessibility and no Shizuku token needed.** This is the primary repair channel. (Needs `TMPDIR=$PREFIX/tmp` or localhost:5555 checks falsely report `CLOSED_NO_SHELL`.)
 - **Catastrophic case** (5555 closed AND Shizuku down): no shell reachable → only the AutoJs6 accessibility tap on Shizuku "Start", or a reboot, recovers. This is the one place accessibility automation is irreplaceable; it can't tap behind a locked screen (notification still fires; boot loop keeps retrying shell repairs). **FIRERPA gRPC heal** (`firerpa_heal.py`) provides an independent recovery path without ADB or SSH.
 - **RUN_COMMAND from an adb shell is BLOCKED** ("Requires permission com.termux.permission.RUN_COMMAND"). The shell-usable trigger for repair is the **bridge**: `touch /sdcard/stayturgid/run/repair_now` (2 s poll). `run-as com.termux` works on these debuggable Termux builds as an adb-side recovery path when SSH is down (must export PATH/LD_LIBRARY_PATH/HOME/PREFIX/TMPDIR).
 
 ### Shizuku primitives (for the watchdog)
+
 - shizuku_server runs as **`shell` uid**, has its own process watchdog (respawns on kill), and survives `am force-stop` of the manager app — very resilient.
 - **START/STOP automation broadcasts REQUIRE the per-install auth token** even when sent as shell (without it → silently ignored / `auth_errors`). Token changes on reinstall → fragile; don't rely on it.
 - **Proven auth-free restart (what `device/autojs6/lib/shizuku.js` does):** launch the manager MainActivity → accessibility-tap the **"Start"** button (wireless-debugging start). Needs POST_NOTIFICATIONS granted.
 - On Samsung, `adb_wifi_enabled` reads 0 after boot but 5555 is open anyway — the flag is cosmetic; Shizuku opens 5555 via its own path (so the old watchdog's `Custom Setting adb_wifi_enabled=1` was a no-op). adb enable flags live in the **global** namespace, not system/secure.
 
 ### Cold-reboot behavior (both validated 2026-07-05)
+
 After reboot + one PIN unlock, zero further intervention: Tailscale always-on tun0 comes up on unlock; sshd :8022 up (Termux:Boot); Shizuku auto-starts; Termux boot loop running. Port 5555 may lag briefly (7a: down at ~206 s, self-restored by ~338 s) then stays open. **Always-on VPN is the key that makes the tailnet leg reboot-proof — enable it on every device.**
 
 ---
@@ -574,6 +603,7 @@ After reboot + one PIN unlock, zero further intervention: Tailscale always-on tu
 ## Tooling rules (follow exactly)
 
 ### Android automation tools
+
 Use **Handsets** (`~/.handsets/hs` via `control/lib/ui_driver.py`) as the
 **primary Mac** UI driver for post-UI scripts. Raw ADB (`uiautomator dump` →
 parse bounds → `input tap`) is the fallback when Handsets is down and the
@@ -587,9 +617,11 @@ uiautomator2 in Python needs the uv tool venv on `sys.path`
 `uiautomator2 init` pushes u2.jar after a reboot.
 
 ### Termux packages (CRITICAL)
+
 At the start of any Termux setup/maintenance, and **before every `pkg install`**: `pkg update && pkg upgrade -y`. The Ansible `termux_userland` role + `termux_pkg` module do this automatically (mirror pinned to `packages-cf.termux.dev` for determinism). Prefer **Obtainium/GitHub over BOTH Play Store and F-Droid**; shared-uid Termux addons must all match signature.
 
 ### Phone announcement protocol (CRITICAL)
+
 Before any device interaction, emit a standalone message naming the phone(s): **🚨📱🚨 USING — &lt;phone(s)&gt; 🚨📱🚨**. When done and not expecting to touch them again until the next user reply: **✅📱✅ FREE — &lt;phone(s)&gt; ✅📱✅**. Announce a second phone if picked up mid-run.
 
 ### On-device presence indicator (screen control = inverted display)
@@ -617,6 +649,7 @@ ssh s24 '~/.stayturgid/bin/stayturgid_agent_presence.py status'
 The protocol is **shared, agent-agnostic infrastructure** — do NOT fork per-agent copies. Any agent (Claude/GPT/Gemini) identifies via the 3rd arg / `STAYTURGID_AGENT`, aborts on `request-screen` exit 75, and on `stop-requested` exit 0 has ~1 min to wrap up. On device: `~/.stayturgid/bin/stayturgid_agent_presence.py` (from `device/termux/py/stayturgid_agent_presence.py`). On-device post-UI uses `stayturgid_screen_control.py` (local presence, no Mac SSH).
 
 ### Shell conventions
+
 Never assume the default shell — macOS is zsh, **Termux has no zsh by default**. Declare bash in every shebang; run remote commands via `ssh host 'bash -s'` (stdin), never bare through the login shell. The Bash tool here runs zsh: brace `${var}` before `:`; quote whole remote command strings. `set -e` deliberately NOT used in boot/loop/runtime scripts (a boot loop must survive individual command failures).
 
 ---
@@ -626,12 +659,14 @@ Never assume the default shell — macOS is zsh, **Termux has no zsh by default*
 `settings put secure enabled_accessibility_services <value>` **replaces** the whole list. **Fleet no longer writes accessibility settings automatically** — all auto-merge, backup, and shrink-repair was removed 2026-07-13. Accessibility is detection-only; the user must re-enable AutoJs6 in Settings > Accessibility > AutoJs6 manually. Detection still works: `settings get secure enabled_accessibility_services`, `a11y=up/down/unknown` in STATUS line, `autojs6_a11y_missing` in health tags. See docs/hacking.md Part 5 for manual instructions.
 
 Pixel 7a known-good list (as of 2026-07-06; stayturgid needs only AutoJs6 — the rest are the user's other apps):
+
 ```
 com.samruston.buzzkill/com.samruston.buzzkill.background.accessibility.WorkaroundAccessibilityService
 com.notch.touch/com.notch.touch.lock.tas
 com.wispr.flowapp/com.wispr.flowapp.service.FlowAccessibilityService
 org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher
 ```
+
 Verify: `adb shell settings get secure enabled_accessibility_services | tr ':' '\n'`. Note: `dumpsys accessibility` "Bound services:" lists by **friendly label** (`label=AutoJs6`), not class name — grepping the class miscounts binding. Force-stopping an a11y app unbinds/drops it from the list (re-add is append-only via repair).
 
 ---
@@ -794,13 +829,13 @@ The fleet runs on **Ansible-first deploy** (`make deploy` → `site.yml`) with t
 Mac wrappers for health, ADB reconnect, and screen-control UI. Directions still
 valid for future investment:
 
-| Track | Summary | Best when… |
-|-------|---------|------------|
-| **A — Operational** | Deploy soak, human unblockers (H5, 38) | Fleet drift or Galaxy publish wanted |
-| **B — Ansible-native** | ✅ Shipped — optional Galaxy publish (38) only | — |
-| **C — Hybrid polish** | Incremental module/role fixes without re-architecting | Lowest risk tweaks to existing graph |
-| **D — Python orchestrator** | Replace Ansible boundary with Fabric/Invoke | Unlikely — YAML graph is working |
-| **E — On-device LLM** | shell-gpt escalation after deterministic heal; see [docs/incubator/on-device-llm.md](incubator/on-device-llm.md) | Rare adaptive repair; never hot-path |
+| Track                       | Summary                                                                                                          | Best when…                           |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| **A — Operational**         | Deploy soak, human unblockers (H5, 38)                                                                           | Fleet drift or Galaxy publish wanted |
+| **B — Ansible-native**      | ✅ Shipped — optional Galaxy publish (38) only                                                                   | —                                    |
+| **C — Hybrid polish**       | Incremental module/role fixes without re-architecting                                                            | Lowest risk tweaks to existing graph |
+| **D — Python orchestrator** | Replace Ansible boundary with Fabric/Invoke                                                                      | Unlikely — YAML graph is working     |
+| **E — On-device LLM**       | shell-gpt escalation after deterministic heal; see [docs/incubator/on-device-llm.md](incubator/on-device-llm.md) | Rare adaptive repair; never hot-path |
 
 **Parked (not equal-weight):** Inferno/Styx and similar experiments live under
 [docs/incubator/](incubator) — agents must not work on them unless the
@@ -823,18 +858,18 @@ first-run, AutoJs6 drawer — not fake “modules” for UI taps.
 
 **Gap analysis (today → Ansible-native):**
 
-| Layer | Today | Ansible-native? |
-|-------|-------|-----------------|
-| Pre-SSH bootstrap | ✅ `termux_ssh_bootstrap` + `bootstrap.yml` | Yes |
-| Termux packages + scripts | ✅ `termux_userland` + `termux_pkg` | Yes |
-| SSH mesh (steady state) | ✅ `authorized_key` + `known_hosts` in role | Yes |
-| App privileges | ✅ `stayturgid.android_common.app_privileges` in `fleet.yml` | Yes |
-| Shizuku install/grant | `shizuku_grant` module + Mac helpers | Mostly yes |
-| Obtainium catalog | `obtainium_app` render + `android_ui` / `post_ui` role | Yes (render + tagged UI steps) |
-| AutoJs6 deploy | `autojs6_watchdog` + `autojs6_project_deploy` (all hosts) | Yes |
-| Post-deploy UI | `stayturgid.fleet.post_ui` + `android_ui` module | Yes (Aurora configure parked) |
-| ADB reconnect launchd | `adb_reconnect.py` + `control_node/agents` | localhost role |
-| Validation | `device_tier.py` + TAP + `stayturgid_repair_check` | `stayturgid.fleet.validate` role |
+| Layer                     | Today                                                        | Ansible-native?                  |
+| ------------------------- | ------------------------------------------------------------ | -------------------------------- |
+| Pre-SSH bootstrap         | ✅ `termux_ssh_bootstrap` + `bootstrap.yml`                  | Yes                              |
+| Termux packages + scripts | ✅ `termux_userland` + `termux_pkg`                          | Yes                              |
+| SSH mesh (steady state)   | ✅ `authorized_key` + `known_hosts` in role                  | Yes                              |
+| App privileges            | ✅ `stayturgid.android_common.app_privileges` in `fleet.yml` | Yes                              |
+| Shizuku install/grant     | `shizuku_grant` module + Mac helpers                         | Mostly yes                       |
+| Obtainium catalog         | `obtainium_app` render + `android_ui` / `post_ui` role       | Yes (render + tagged UI steps)   |
+| AutoJs6 deploy            | `autojs6_watchdog` + `autojs6_project_deploy` (all hosts)    | Yes                              |
+| Post-deploy UI            | `stayturgid.fleet.post_ui` + `android_ui` module             | Yes (Aurora configure parked)    |
+| ADB reconnect launchd     | `adb_reconnect.py` + `control_node/agents`                   | localhost role                   |
+| Validation                | `device_tier.py` + TAP + `stayturgid_repair_check`           | `stayturgid.fleet.validate` role |
 
 **Should NOT move into Ansible:** runtime watchdog (`stayturgid-repair`, AutoJs6
 `main.js`); catastrophic accessibility Shizuku tap; Obtainium in-app state API

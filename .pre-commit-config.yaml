@@ -48,6 +48,24 @@ repos:
         language: system
         files: '^(justfile|just/.*\.just)$'
 
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier
+        entry: prettier
+        args: ["--check"]
+        language: system
+        types: [markdown]
+
+  - repo: local
+    hooks:
+      - id: markdownlint
+        name: markdownlint
+        entry: markdownlint
+        args: ["--config", ".markdownlint.json"]
+        language: system
+        types: [markdown]
+
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.35.1
     hooks:

@@ -56,5 +56,5 @@ just fix-hd8-google / just verify-hd8-google.
 ## Related
 
 - [ansible_collections/modules/play_apps.md](../ansible_collections/modules/play_apps.md)
-- [fdroid.md](fdroid.md) — F-Droid / Neo (parked)  
-- [obtainium.md](obtainium.md) — default update path  
+- [fdroid.md](fdroid.md) — F-Droid / Neo (parked)
+- [obtainium.md](obtainium.md) — default update path

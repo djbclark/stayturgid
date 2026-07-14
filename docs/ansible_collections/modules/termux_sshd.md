@@ -7,11 +7,11 @@ managed by `ansible.posix.authorized_key` in the `termux_userland` role.
 
 ## Parameters
 
-| Parameter | Description |
-|-----------|-------------|
-| `config` | Dict of sshd_config options (`{PerSourcePenalties: "no"}`) |
-| `restart_on_change` | Detached restart when config changes (default `true`) |
-| `termux_prefix` | Termux prefix |
+| Parameter           | Description                                                |
+| ------------------- | ---------------------------------------------------------- |
+| `config`            | Dict of sshd_config options (`{PerSourcePenalties: "no"}`) |
+| `restart_on_change` | Detached restart when config changes (default `true`)      |
+| `termux_prefix`     | Termux prefix                                              |
 
 ## Example
 

@@ -14,48 +14,54 @@ A single-click F-Droid-installable Nix package manager for Android. Uses a fork 
 **Key modules:** environment (packages, path, shell, login, networking, android-integration), home-manager, build/activation, nixpkgs config.
 
 **What it provides:**
+
 ```nix
 { pkgs, ... }: {
   environment.packages = [ pkgs.vim pkgs.git pkgs.openssh ];
   system.stateVersion = "24.05";
 }
 ```
+
 That's the entire config — declarative, reproducible Nix packages across devices.
 
 ---
 
 ## Comparison with stayturgid's current stack
 
-| Layer | stayturgid (current) | nix-on-droid approach |
-|-------|---------------------|----------------------|
-| **Package management** | `pkg`/`apt` (Termux), mirror pinning required | Nix (deterministic, binary cache, no mirror issues) |
-| **Shell environment** | `.profile`/`.bashrc` via Ansible lineinfile (PATH leaks) | Nix profiles (isolated, no cross-contamination) |
-| **Dotfile management** | Ansible templates + copy | Home-manager (declarative, idempotent) |
-| **Init/boot hooks** | Termux:Boot (start-adb.sh) | ❌ None — proot-based, no native boot hooks |
-| **Self-heal** | `stayturgid_repair.py` (570+ lines, fleet-specific) | ❌ None — just package activation |
-| **Process model** | Native Termux processes (sshd via runsv) | proot-wrapped (fake filesystem, PID namespace issues) |
-| **Device APIs** | termux-api (battery, notification, toast, wakelock) | ❌ None — separate app, no API bridge |
-| **Shizuku integration** | Via localhost:5555 (uid 2000 privileged shell) | ❌ No Shizuku or ADB integration |
-| **AutoJs6** | JS watchdog + UI automation | ❌ No support |
-| **Fire OS** | Specific adaptations (no localhost:5555, peer bootstrap) | ❌ Untested, unlikely to work |
-| **Fleet orchestration** | Ansible (inventory, roles, playbooks) | ❌ Single-device only |
-| **Health monitoring** | `fleet_health_monitor.py` + launchd | ❌ None |
+| Layer                   | stayturgid (current)                                     | nix-on-droid approach                                 |
+| ----------------------- | -------------------------------------------------------- | ----------------------------------------------------- |
+| **Package management**  | `pkg`/`apt` (Termux), mirror pinning required            | Nix (deterministic, binary cache, no mirror issues)   |
+| **Shell environment**   | `.profile`/`.bashrc` via Ansible lineinfile (PATH leaks) | Nix profiles (isolated, no cross-contamination)       |
+| **Dotfile management**  | Ansible templates + copy                                 | Home-manager (declarative, idempotent)                |
+| **Init/boot hooks**     | Termux:Boot (start-adb.sh)                               | ❌ None — proot-based, no native boot hooks           |
+| **Self-heal**           | `stayturgid_repair.py` (570+ lines, fleet-specific)      | ❌ None — just package activation                     |
+| **Process model**       | Native Termux processes (sshd via runsv)                 | proot-wrapped (fake filesystem, PID namespace issues) |
+| **Device APIs**         | termux-api (battery, notification, toast, wakelock)      | ❌ None — separate app, no API bridge                 |
+| **Shizuku integration** | Via localhost:5555 (uid 2000 privileged shell)           | ❌ No Shizuku or ADB integration                      |
+| **AutoJs6**             | JS watchdog + UI automation                              | ❌ No support                                         |
+| **Fire OS**             | Specific adaptations (no localhost:5555, peer bootstrap) | ❌ Untested, unlikely to work                         |
+| **Fleet orchestration** | Ansible (inventory, roles, playbooks)                    | ❌ Single-device only                                 |
+| **Health monitoring**   | `fleet_health_monitor.py` + launchd                      | ❌ None                                               |
 
 ---
 
 ## What nix-on-droid COULD replace
 
 ### 1. Package management (theoretically)
+
 Nix's deterministic package graph would eliminate:
+
 - Mirror pinning issues (no apt mirrors needed)
 - `pkg upgrade` conffile prompts
 - Package version drift across devices
 - The `ensure_termux_mirror()` self-heal function
 
 ### 2. Dotfile/shell config
+
 Home-manager would solve the Mac PATH leakage problem at the root — no Ansible lineinfile regexes, no profile drift detection, no self-heal needed.
 
 ### 3. Development tools
+
 Nix offers 80,000+ packages vs Termux's ~5,000. Development tools like `ripgrep`, `fd`, `bat`, `delta`, `lazygit` that don't exist in Termux would be available.
 
 ---
@@ -65,6 +71,7 @@ Nix offers 80,000+ packages vs Termux's ~5,000. Development tools like `ripgrep`
 ### Hard blocker #1: It replaces Termux
 
 nix-on-droid explicitly states: **"has no relation to Termux-the-distro. Please do not pester Termux folks."** The entire stayturgid stack runs INSIDE Termux:
+
 - `start-adb.sh`, `repair-bridge.sh`, `start-autojs6-watchdog.sh` (Termux:Boot hooks)
 - `sshd` (Termux runsv managed)
 - `stayturgid_repair.py` (needs Termux PATH, HOME, PREFIX)
@@ -78,6 +85,7 @@ Moving to nix-on-droid means porting or abandoning ALL of this. The termux-api f
 ### Hard blocker #2: proot fragility
 
 The Nix environment runs inside `proot` — a userspace chroot. This means:
+
 - Process visibility is restricted (AutoJs6 can't see Nix processes via `RUN_COMMAND`)
 - PID namespaces may not work with `pgrep`, `kill`, `setsid`
 - The Shizuku ADB bridge (localhost:5555) won't be accessible from inside proot
@@ -108,6 +116,7 @@ curl -L https://nixos.org/nix/install | sh  # (would need adaptation for Android
 ```
 
 But this:
+
 - Requires proot anyway (same fragility issues)
 - Adds ~500 MB of Nix store
 - Duplicates package management (apt for system, nix for tools)
@@ -122,6 +131,7 @@ The complexity-to-value ratio is terrible.
 **Do not integrate nix-on-droid.** The stayturgid stack is deeply coupled to Termux's process model, boot hooks, API bridge, and self-heal architecture. Nix-on-droid is a separate ecosystem that doesn't solve any of stayturgid's hard problems (Shizuku crashes, sshd down file, Samsung process freezer, Fire OS quirks) while creating new ones (proot fragility, no fleet management, prototype quality).
 
 The package management issues nix-on-droid would fix (mirror pinning, PATH leaks) have already been solved by self-heal code written in this session:
+
 - `ensure_termux_mirror()` — re-pins mirror every 5 minutes
 - `ensure_shell_profile_path()` — removes Mac PATH from profiles every 5 minutes
 

@@ -22,14 +22,14 @@ The `firerpa/lamda` GitHub repo at `~/src/firerpa-lamda/` is a **Python client l
 
 ### What actually ships in GitHub releases (v10.0)
 
-| Asset | Size | Type | Open source? |
-|-------|------|------|-------------|
-| `lamda-server-arm64-v8a.tar.gz` | 163 MB | Native binary | ❌ Closed source |
-| `lamda-server-armeabi-v7a.tar.gz` | 134 MB | Native binary | ❌ Closed source |
-| `lamda-magisk-module.zip` | 371 MB | Magisk module | ⚠️ Partially (scripts only) |
-| `lamda-client-py-10.0.tar.gz` | <1 MB | Python source | ✅ This repo |
-| `startmitm.exe` | 21 MB | Windows MITM tool | ❌ Binary |
-| `firerpa.apk` | 8.4 MB | Android APK | ❌ Not in releases (hosted at device-farm.com) |
+| Asset                             | Size   | Type              | Open source?                                   |
+| --------------------------------- | ------ | ----------------- | ---------------------------------------------- |
+| `lamda-server-arm64-v8a.tar.gz`   | 163 MB | Native binary     | ❌ Closed source                               |
+| `lamda-server-armeabi-v7a.tar.gz` | 134 MB | Native binary     | ❌ Closed source                               |
+| `lamda-magisk-module.zip`         | 371 MB | Magisk module     | ⚠️ Partially (scripts only)                    |
+| `lamda-client-py-10.0.tar.gz`     | <1 MB  | Python source     | ✅ This repo                                   |
+| `startmitm.exe`                   | 21 MB  | Windows MITM tool | ❌ Binary                                      |
+| `firerpa.apk`                     | 8.4 MB | Android APK       | ❌ Not in releases (hosted at device-farm.com) |
 
 ---
 
@@ -73,15 +73,15 @@ The `firerpa/lamda` GitHub repo at `~/src/firerpa-lamda/` is a **Python client l
 
 ### What's NOT here (closed-source or separate)
 
-| Component | Where it lives |
-|-----------|---------------|
-| Android server binary | GitHub releases as .tar.gz (compiled native code) |
-| FIRERPA Android APK | `https://device-farm.com/assets/apk/firerpa.apk` (Chinese-hosted, not on GitHub) |
-| Server-side MCP/HTTP extension runtime | Inside the server binary (not Python-runnable outside) |
-| StarLink Hub / hub-bridge | Separate closed-source components (referenced in docs) |
-| Shizuku deployment logic | Inside the APK (not in this repo) |
-| WebRTC signaling | Inside the server binary |
-| Port multiplexing engine | Inside the server binary |
+| Component                              | Where it lives                                                                   |
+| -------------------------------------- | -------------------------------------------------------------------------------- |
+| Android server binary                  | GitHub releases as .tar.gz (compiled native code)                                |
+| FIRERPA Android APK                    | `https://device-farm.com/assets/apk/firerpa.apk` (Chinese-hosted, not on GitHub) |
+| Server-side MCP/HTTP extension runtime | Inside the server binary (not Python-runnable outside)                           |
+| StarLink Hub / hub-bridge              | Separate closed-source components (referenced in docs)                           |
+| Shizuku deployment logic               | Inside the APK (not in this repo)                                                |
+| WebRTC signaling                       | Inside the server binary                                                         |
+| Port multiplexing engine               | Inside the server binary                                                         |
 
 ---
 
@@ -100,6 +100,7 @@ $launch --port=${port} --certificate=${cert}  # or without cert
 ```
 
 The server:
+
 1. Listens on a **single port** (default 65000)
 2. Multiplexes **all services** on that port: gRPC, HTTP (WebUI), WebSocket, ADB, SSH, proxy, WebRTC
 3. Reads `properties.local` (INI format) for configuration
@@ -109,6 +110,7 @@ The server:
 ### Port multiplexing
 
 The server inspects incoming TCP streams to distinguish:
+
 - **gRPC** (protobuf binary framing)
 - **HTTP** (WebUI, MCP endpoints, WebSocket upgrade)
 - **ADB** (ADB protocol)
@@ -129,6 +131,7 @@ adb.privileged=true    ; root vs shell privileges
 ```
 
 The gRPC interface for ADB (`lamda/rpc/debug.proto:1-12`):
+
 ```protobuf
 service Debug {
     rpc isAndroidDebugBridgeRunning(Empty) returns (Boolean) {}
@@ -142,6 +145,7 @@ service Debug {
 ### Built-in SSH
 
 The server includes an sshd, configurable via `properties.example`:
+
 ```ini
 [sshd]
 sshd.enable=true
@@ -154,6 +158,7 @@ CLI helpers: `tools/ssh.sh`, `tools/scp.sh` — for remote shell and file transf
 **v10.0 introduced non-root execution** (`adb shell` identity). From `CHANGELOG.txt:8`: "Support for non-root execution mode (adb shell)."
 
 The proto defines the flag at `lamda/rpc/util.proto:82`:
+
 ```protobuf
 message ServerInfoResponse {
     ...
@@ -162,6 +167,7 @@ message ServerInfoResponse {
 ```
 
 When `privileged=false`:
+
 - Cannot write `ro.*` system properties
 - Cannot manipulate SELinux
 - Cannot access system certificate store directly (MITM limited)
@@ -197,30 +203,31 @@ class Device(object):
 
 The `Device` class lazily proxies to 18 service stubs via `Device.proxy(module, class)`:
 
-| Stub | Proto | Lines | Purpose |
-|------|-------|-------|---------|
-| `UiAutomatorStub` | uiautomator.proto | 877-1161 | Click, swipe, screenshot, dump hierarchy, watchers, virtual display |
-| `ObjectUiAutomatorOpStub` | uiautomator.proto | 483-874 | Per-element: child/sibling chaining, drag, fling, scroll, pinch |
-| `ApplicationStub` | application.proto | 1484-1536 | Enumerate, start, install apps |
-| `ApplicationOpStub` | application.proto | 1287-1481 | Per-app: start/stop, permissions, Frida attach/detach |
-| `VirtualDisplayStub` | — | 1164-1261 | Create, list, release virtual displays |
-| `ShellStub` | shell.proto | 1841-1871 | Foreground/background script execution |
-| `StorageStub` | storage.proto | 1539-1643 | KV store with TTL, Fernet encryption |
-| `FileStub` | file.proto | 2033-2095 | Upload/download, streaming, chmod, stat |
-| `DebugStub` | debug.proto | 1759-1796 | Built-in ADB management |
-| `SettingsStub` | settings.proto | 1799-1838 | Android settings get/put |
-| `StatusStub` | status.proto | 1874-1930 | CPU, memory, disk, battery, net I/O |
-| `ProxyStub` | proxy.proto | 1933-1971 | OpenVPN, gproxy control |
-| `WifiStub` | wifi.proto | 2127-2213 | WiFi scan, status, signal |
-| `SelinuxPolicyStub` | policy.proto | 1974-2030 | SELinux enforce, permissive, domain creation |
-| `LockStub` | — | 2098-2124 | Exclusive API lock with session tokens |
-| `UtilStub` | util.proto | 1646-1756 | Reboot, shutdown, setprop/getprop, hex_patch, CA cert install |
-| `OcrEngine` / `OcrOperator` | — | 2293-2338 | PaddleOCR, EasyOCR, custom HTTP backend |
-| `MultiTouchOpStub` | types.proto | 360-425 | Multi-touch gesture construction and playback |
+| Stub                        | Proto             | Lines     | Purpose                                                             |
+| --------------------------- | ----------------- | --------- | ------------------------------------------------------------------- |
+| `UiAutomatorStub`           | uiautomator.proto | 877-1161  | Click, swipe, screenshot, dump hierarchy, watchers, virtual display |
+| `ObjectUiAutomatorOpStub`   | uiautomator.proto | 483-874   | Per-element: child/sibling chaining, drag, fling, scroll, pinch     |
+| `ApplicationStub`           | application.proto | 1484-1536 | Enumerate, start, install apps                                      |
+| `ApplicationOpStub`         | application.proto | 1287-1481 | Per-app: start/stop, permissions, Frida attach/detach               |
+| `VirtualDisplayStub`        | —                 | 1164-1261 | Create, list, release virtual displays                              |
+| `ShellStub`                 | shell.proto       | 1841-1871 | Foreground/background script execution                              |
+| `StorageStub`               | storage.proto     | 1539-1643 | KV store with TTL, Fernet encryption                                |
+| `FileStub`                  | file.proto        | 2033-2095 | Upload/download, streaming, chmod, stat                             |
+| `DebugStub`                 | debug.proto       | 1759-1796 | Built-in ADB management                                             |
+| `SettingsStub`              | settings.proto    | 1799-1838 | Android settings get/put                                            |
+| `StatusStub`                | status.proto      | 1874-1930 | CPU, memory, disk, battery, net I/O                                 |
+| `ProxyStub`                 | proxy.proto       | 1933-1971 | OpenVPN, gproxy control                                             |
+| `WifiStub`                  | wifi.proto        | 2127-2213 | WiFi scan, status, signal                                           |
+| `SelinuxPolicyStub`         | policy.proto      | 1974-2030 | SELinux enforce, permissive, domain creation                        |
+| `LockStub`                  | —                 | 2098-2124 | Exclusive API lock with session tokens                              |
+| `UtilStub`                  | util.proto        | 1646-1756 | Reboot, shutdown, setprop/getprop, hex_patch, CA cert install       |
+| `OcrEngine` / `OcrOperator` | —                 | 2293-2338 | PaddleOCR, EasyOCR, custom HTTP backend                             |
+| `MultiTouchOpStub`          | types.proto       | 360-425   | Multi-touch gesture construction and playback                       |
 
 ### Convenience methods on Device (2431-2668)
 
 The `Device` class exposes ~80 shortcut methods that delegate to service stubs:
+
 - `d.click(x, y)`, `d.swipe(...)`, `d.drag(...)`, `d.take_screenshot()`, `d.dump_window_hierarchy()`
 - `d.start_activity(...)`, `d.current_application()`, `d.enumerate_installed_apps()`
 - `d.execute_script(...)`, `d.setprop(...)`, `d.getprop(...)`
@@ -262,25 +269,25 @@ Both are provided by the server runtime (`lamda.mcp`, `lamda.extensions`) — NO
 **MCP route:** `/firerpa/mcp/`
 **Tools:** 20+ including:
 
-| Tool | Parameters | Purpose |
-|------|-----------|---------|
-| `dump_window_hierarchy` | compressed: bool | XML layout tree → JSON |
-| `click` | pointX, pointY | Coordinate tap |
-| `swipe` | fromX, fromY, toX, toY, step | Gesture |
-| `drag` | fromX, fromY, toX, toY, step, speed | Drag + hold |
-| `device_info` | — | Model, SDK version |
-| `show_toast` | text | On-screen toast |
-| `execute_shell_script` | script, timeout | Shell command |
-| `wake_up` / `sleep` | — | Screen state |
-| `get_clipboard` / `set_clipboard` | text | Clipboards |
-| `press_keycode` | code | Key injection |
-| `get_last_toast` | — | Recent toast text |
-| `find_by_text` / `find_by_desc` / `find_by_resource_id` | text | Selector-based clicks |
-| `set_text` | text | Input text |
-| `start_app` / `stop_app` / `install_app` | packageName | App lifecycle |
-| `current_application` | — | Foreground app |
-| `check_permission` / `request_permission` | package, permission | Permission ops |
-| `agent` | prompt | Natural-language agent |
+| Tool                                                    | Parameters                          | Purpose                |
+| ------------------------------------------------------- | ----------------------------------- | ---------------------- |
+| `dump_window_hierarchy`                                 | compressed: bool                    | XML layout tree → JSON |
+| `click`                                                 | pointX, pointY                      | Coordinate tap         |
+| `swipe`                                                 | fromX, fromY, toX, toY, step        | Gesture                |
+| `drag`                                                  | fromX, fromY, toX, toY, step, speed | Drag + hold            |
+| `device_info`                                           | —                                   | Model, SDK version     |
+| `show_toast`                                            | text                                | On-screen toast        |
+| `execute_shell_script`                                  | script, timeout                     | Shell command          |
+| `wake_up` / `sleep`                                     | —                                   | Screen state           |
+| `get_clipboard` / `set_clipboard`                       | text                                | Clipboards             |
+| `press_keycode`                                         | code                                | Key injection          |
+| `get_last_toast`                                        | —                                   | Recent toast text      |
+| `find_by_text` / `find_by_desc` / `find_by_resource_id` | text                                | Selector-based clicks  |
+| `set_text`                                              | text                                | Input text             |
+| `start_app` / `stop_app` / `install_app`                | packageName                         | App lifecycle          |
+| `current_application`                                   | —                                   | Foreground app         |
+| `check_permission` / `request_permission`               | package, permission                 | Permission ops         |
+| `agent`                                                 | prompt                              | Natural-language agent |
 
 The `agent` tool accepts natural-language prompts and executes them via the built-in AI agent (`agent` command).
 
@@ -337,12 +344,12 @@ The config is **hot-reloadable** via WebUI or API (`d.reload()`). Service restar
 
 ### Potential conflicts
 
-| FIRERPA service | stayturgid equivalent | Conflict risk |
-|----------------|----------------------|---------------|
-| Built-in sshd (port 65000) | Termux sshd (port 8022) | None — different ports |
-| Built-in ADB (on 65000) | Shizuku ADB (port 5555) | ⚠️ Both open 5555-style ADB |
-| WebUI (port 65000) | OpenCode web (port 4096) | None — different ports |
-| gRPC (port 65000) | No equivalent | None |
+| FIRERPA service            | stayturgid equivalent    | Conflict risk               |
+| -------------------------- | ------------------------ | --------------------------- |
+| Built-in sshd (port 65000) | Termux sshd (port 8022)  | None — different ports      |
+| Built-in ADB (on 65000)    | Shizuku ADB (port 5555)  | ⚠️ Both open 5555-style ADB |
+| WebUI (port 65000)         | OpenCode web (port 4096) | None — different ports      |
+| gRPC (port 65000)          | No equivalent            | None                        |
 
 The built-in ADB is the main concern. If FIRERPA's `adb.enable=true` and its adbd also opens port 5555, it would conflict with Shizuku's adbd. **Mitigation:** set `adb.enable=false` in FIRERPA config; let stayturgid manage ADB via Shizuku.
 
@@ -350,12 +357,12 @@ The built-in ADB is the main concern. If FIRERPA's `adb.enable=true` and its adb
 
 FIRERPA's built-in sshd and ADB provide **independent backup channels** for remote access when stayturgid's Termux sshd is down:
 
-| Channel | stayturgid (primary) | FIRERPA (backup) |
-|---------|---------------------|-------------------|
-| SSH | Termux sshd :8022 | FIRERPA sshd on :65000 |
-| ADB | Shizuku adbd :5555 | FIRERPA adbd on :65000 |
-| Screen control | scrcpy via SSH | WebRTC via browser |
-| UI automation | AutoJs6 + Termux scripts | gRPC API + MCP tools |
+| Channel        | stayturgid (primary)     | FIRERPA (backup)       |
+| -------------- | ------------------------ | ---------------------- |
+| SSH            | Termux sshd :8022        | FIRERPA sshd on :65000 |
+| ADB            | Shizuku adbd :5555       | FIRERPA adbd on :65000 |
+| Screen control | scrcpy via SSH           | WebRTC via browser     |
+| UI automation  | AutoJs6 + Termux scripts | gRPC API + MCP tools   |
 
 ---
 
@@ -363,42 +370,42 @@ FIRERPA's built-in sshd and ADB provide **independent backup channels** for remo
 
 ### Essential files (local filesystem)
 
-| File | Path | Lines |
-|------|------|-------|
-| Client SDK | `~/src/firerpa-lamda/lamda/client.py` | 2691 |
-| Service protos | `~/src/firerpa-lamda/lamda/rpc/services.proto` | 271 |
-| Properties reference | `~/src/firerpa-lamda/properties.example` | 148 |
-| MCP extension example | `~/src/firerpa-lamda/extensions/example_mcp_extension.py` | 28 |
-| Official MCP extension | `~/src/firerpa-lamda/extensions/firerpa.py` | 197 |
-| Magisk service.sh | `~/src/firerpa-lamda/tools/magisk/common/service.sh` | 13 |
-| Changelog | `~/src/firerpa-lamda/CHANGELOG.txt` | 630 |
+| File                   | Path                                                      | Lines |
+| ---------------------- | --------------------------------------------------------- | ----- |
+| Client SDK             | `~/src/firerpa-lamda/lamda/client.py`                     | 2691  |
+| Service protos         | `~/src/firerpa-lamda/lamda/rpc/services.proto`            | 271   |
+| Properties reference   | `~/src/firerpa-lamda/properties.example`                  | 148   |
+| MCP extension example  | `~/src/firerpa-lamda/extensions/example_mcp_extension.py` | 28    |
+| Official MCP extension | `~/src/firerpa-lamda/extensions/firerpa.py`               | 197   |
+| Magisk service.sh      | `~/src/firerpa-lamda/tools/magisk/common/service.sh`      | 13    |
+| Changelog              | `~/src/firerpa-lamda/CHANGELOG.txt`                       | 630   |
 
 ### Essential URLs
 
-| Resource | URL |
-|----------|-----|
-| GitHub repo | https://github.com/firerpa/lamda |
-| Releases | https://github.com/firerpa/lamda/releases |
-| Server binary (arm64) | https://github.com/firerpa/lamda/releases/download/v10.0/lamda-server-arm64-v8a.tar.gz |
-| Server binary (armv7a) | https://github.com/firerpa/lamda/releases/download/v10.0/lamda-server-armeabi-v7a.tar.gz |
-| Client tarball | https://github.com/firerpa/lamda/releases/download/v10.0/lamda-client-py-10.0.tar.gz |
-| APK download (fork) | https://github.com/djbclark/lamda/releases/download/v10.0-binaries/firerpa.apk |
-| APK download (upstream) | https://device-farm.com/assets/apk/firerpa.apk |
-| Server arm64 (fork) | https://github.com/djbclark/lamda/releases/download/v10.0-binaries/lamda-server-arm64-v8a.tar.gz |
-| Documentation (EN) | https://device-farm.com/docs/en/quick-start |
-| Documentation (ZH) | https://device-farm.com/docs/zh/quick-start |
-| LLMs.txt (full docs dump) | https://device-farm.com/llms-full.txt |
-| Shizuku APK | https://device-farm.com/assets/apk/shizuku-v13.6.0.r1086.2650830c-release.apk |
-| Issue tracker | https://github.com/firerpa/lamda/issues |
+| Resource                    | URL                                                                                                  |
+| --------------------------- | ---------------------------------------------------------------------------------------------------- |
+| GitHub repo                 | https://github.com/firerpa/lamda                                                                     |
+| Releases                    | https://github.com/firerpa/lamda/releases                                                            |
+| Server binary (arm64)       | https://github.com/firerpa/lamda/releases/download/v10.0/lamda-server-arm64-v8a.tar.gz               |
+| Server binary (armv7a)      | https://github.com/firerpa/lamda/releases/download/v10.0/lamda-server-armeabi-v7a.tar.gz             |
+| Client tarball              | https://github.com/firerpa/lamda/releases/download/v10.0/lamda-client-py-10.0.tar.gz                 |
+| APK download (fork)         | https://github.com/djbclark/lamda/releases/download/v10.0-binaries/firerpa.apk                       |
+| APK download (upstream)     | https://device-farm.com/assets/apk/firerpa.apk                                                       |
+| Server arm64 (fork)         | https://github.com/djbclark/lamda/releases/download/v10.0-binaries/lamda-server-arm64-v8a.tar.gz     |
+| Documentation (EN)          | https://device-farm.com/docs/en/quick-start                                                          |
+| Documentation (ZH)          | https://device-farm.com/docs/zh/quick-start                                                          |
+| LLMs.txt (full docs dump)   | https://device-farm.com/llms-full.txt                                                                |
+| Shizuku APK                 | https://device-farm.com/assets/apk/shizuku-v13.6.0.r1086.2650830c-release.apk                        |
+| Issue tracker               | https://github.com/firerpa/lamda/issues                                                              |
 | Stayturgid analysis (prior) | https://github.com/djbclark/stayturgid/blob/master/docs/history/firerpa-lamda-analysis-2026-07-10.md |
 
 ### Key issues for our use case
 
-| Issue | # | Relevance |
-|-------|---|-----------|
+| Issue                                          | #                                                   | Relevance                 |
+| ---------------------------------------------- | --------------------------------------------------- | ------------------------- |
 | Android 16 API 36 — Frida java.js incompatible | [#138](https://github.com/firerpa/lamda/issues/138) | Pixel 7a confirmed tested |
-| MCP调用报错 (MCP call error) | [#130](https://github.com/firerpa/lamda/issues/130) | MCP stability |
-| Child selector issues | [#139](https://github.com/firerpa/lamda/issues/139) | UI automation reliability |
+| MCP调用报错 (MCP call error)                   | [#130](https://github.com/firerpa/lamda/issues/130) | MCP stability             |
+| Child selector issues                          | [#139](https://github.com/firerpa/lamda/issues/139) | UI automation reliability |
 
 ---
 
@@ -408,17 +415,17 @@ Below is an updated comparison based on actual code inspection, not just documen
 
 ### High-value overlapping APIs (where FIRERPA is clearly better)
 
-| Capability | FIRERPA | stayturgid | FIRERPA advantage |
-|------------|---------|------------|-------------------|
-| UI click/tap | `d.click(x, y)` with Point type | `adb shell input tap` via shell | Type-safe, return value, error handling |
-| Screenshot | `d.take_screenshot()` returns PNG bytes | `adb exec-out screencap -p` | In-memory, no shell parsing |
-| Dump hierarchy | `d.dump_window_hierarchy()` returns XML | `adb exec-out uiautomator dump` | In-memory, no file roundtrip |
-| Swipe/drag | `d.swipe(...)`, `d.drag(...)` with step control | `adb shell input swipe` | Parameterized, multi-step |
-| App management | Enumerate, start, stop, install via API | `adb shell pm/am` commands | Typed return values, error codes |
-| Device info | `d.device_info()` returns structured | `adb shell getprop` + parsing | Structured proto response |
-| Shell execution | `d.execute_script(...)` with timeout | SSH + Ansible command module | Built-in timeout, background mode |
-| Clipboard | `d.get_clipboard()`, `d.set_clipboard()` | `termux-clipboard-get/set` | No Termux dependency |
-| Screen lock | `with d:` context manager | DSCL screen leases | Simpler API, token-based |
+| Capability      | FIRERPA                                         | stayturgid                      | FIRERPA advantage                       |
+| --------------- | ----------------------------------------------- | ------------------------------- | --------------------------------------- |
+| UI click/tap    | `d.click(x, y)` with Point type                 | `adb shell input tap` via shell | Type-safe, return value, error handling |
+| Screenshot      | `d.take_screenshot()` returns PNG bytes         | `adb exec-out screencap -p`     | In-memory, no shell parsing             |
+| Dump hierarchy  | `d.dump_window_hierarchy()` returns XML         | `adb exec-out uiautomator dump` | In-memory, no file roundtrip            |
+| Swipe/drag      | `d.swipe(...)`, `d.drag(...)` with step control | `adb shell input swipe`         | Parameterized, multi-step               |
+| App management  | Enumerate, start, stop, install via API         | `adb shell pm/am` commands      | Typed return values, error codes        |
+| Device info     | `d.device_info()` returns structured            | `adb shell getprop` + parsing   | Structured proto response               |
+| Shell execution | `d.execute_script(...)` with timeout            | SSH + Ansible command module    | Built-in timeout, background mode       |
+| Clipboard       | `d.get_clipboard()`, `d.set_clipboard()`        | `termux-clipboard-get/set`      | No Termux dependency                    |
+| Screen lock     | `with d:` context manager                       | DSCL screen leases              | Simpler API, token-based                |
 
 ### FIRERPA-unique capabilities (stayturgid has nothing comparable)
 
@@ -466,62 +473,62 @@ exec python3.9 -u -m lamda --launch $@
 
 ### Server composition
 
-| Component | Count | Examples |
-|-----------|-------|---------|
-| CLI tools in `bin/` | 149 | `python3.9`, `frida-server`, `iperf`, `dnsmasq`, `sshd`, `strace`, `tcpdump`, `sqlite3`, `scapy`, `curl`, `rsync` |
-| Python .pyc files | 7,975 | Full stdlib + grpc + protobuf + tornado + PIL + cv2 + numpy + unicorn + capstone + keystone |
-| Native .so libraries | 50+ | `ffmpeg.so` (H.264/MJPEG), `frida-*.so` (Frida runtime), 14 lamda service extensions (below) |
-| MiniCap variants | 22 | Android 21–35 + MIUI variants for screenshot capture |
-| iptables modules | 120+ | `xt_*.so`, `ipt_*.so`, `ip6t_*.so` in `lib/xtables-ext/` |
+| Component            | Count | Examples                                                                                                          |
+| -------------------- | ----- | ----------------------------------------------------------------------------------------------------------------- |
+| CLI tools in `bin/`  | 149   | `python3.9`, `frida-server`, `iperf`, `dnsmasq`, `sshd`, `strace`, `tcpdump`, `sqlite3`, `scapy`, `curl`, `rsync` |
+| Python .pyc files    | 7,975 | Full stdlib + grpc + protobuf + tornado + PIL + cv2 + numpy + unicorn + capstone + keystone                       |
+| Native .so libraries | 50+   | `ffmpeg.so` (H.264/MJPEG), `frida-*.so` (Frida runtime), 14 lamda service extensions (below)                      |
+| MiniCap variants     | 22    | Android 21–35 + MIUI variants for screenshot capture                                                              |
+| iptables modules     | 120+  | `xt_*.so`, `ipt_*.so`, `ip6t_*.so` in `lib/xtables-ext/`                                                          |
 
 ### The 14 lamda service extensions (.cpython-39.so)
 
 These ARE the server — each implements a core service:
 
-| .so file | Service |
-|----------|---------|
-| `ssh.cpython-39.so` | Built-in SSH daemon |
-| `adb.cpython-39.so` | Built-in ADB daemon (no Developer Options) |
-| `touch.cpython-39.so` | Touch injection + multi-touch |
-| `driver.cpython-39.so` | UI automation driver (selector engine) |
-| `openvpn.cpython-39.so` | OpenVPN client |
-| `gproxy.cpython-39.so` | Proxy services (SOCKS5/Shadowsocks/HTTP) |
-| `helper.cpython-39.so` | Port multiplexing, native helpers |
-| `frida.cpython-39.so` | Frida integration (persistent scripts, RPC) |
-| `mdns.cpython-39.so` | mDNS discovery |
-| `audio.cpython-39.so` | Live audio forwarding |
-| `fwd.cpython-39.so` | frp port forwarding |
-| `motion.cpython-39.so` | Motion/sensor events |
-| `cron.cpython-39.so` | Cron/task scheduler |
-| `top.cpython-39.so` | Process monitoring |
-| `upgrade.cpython-39.so` | Server self-update |
+| .so file                | Service                                     |
+| ----------------------- | ------------------------------------------- |
+| `ssh.cpython-39.so`     | Built-in SSH daemon                         |
+| `adb.cpython-39.so`     | Built-in ADB daemon (no Developer Options)  |
+| `touch.cpython-39.so`   | Touch injection + multi-touch               |
+| `driver.cpython-39.so`  | UI automation driver (selector engine)      |
+| `openvpn.cpython-39.so` | OpenVPN client                              |
+| `gproxy.cpython-39.so`  | Proxy services (SOCKS5/Shadowsocks/HTTP)    |
+| `helper.cpython-39.so`  | Port multiplexing, native helpers           |
+| `frida.cpython-39.so`   | Frida integration (persistent scripts, RPC) |
+| `mdns.cpython-39.so`    | mDNS discovery                              |
+| `audio.cpython-39.so`   | Live audio forwarding                       |
+| `fwd.cpython-39.so`     | frp port forwarding                         |
+| `motion.cpython-39.so`  | Motion/sensor events                        |
+| `cron.cpython-39.so`    | Cron/task scheduler                         |
+| `top.cpython-39.so`     | Process monitoring                          |
+| `upgrade.cpython-39.so` | Server self-update                          |
 
 ### Other native .so modules (9 utility)
 
-| .so file | Utility |
-|----------|---------|
-| `utils.cpython-39.so` | General utilities |
+| .so file                    | Utility                    |
+| --------------------------- | -------------------------- |
+| `utils.cpython-39.so`       | General utilities          |
 | `certificate.cpython-39.so` | TLS certificate generation |
-| `log.cpython-39.so` | Structured logging |
-| `bridge.cpython-39.so` | Network bridge |
-| `acmp.cpython-39.so` | Protocol handler |
-| `globals.cpython-39.so` | Global state |
-| `models.cpython-39.so` | Data models |
-| `selfix.cpython-39.so` | Selector engine helper |
-| `tcpkill.cpython-39.so` | TCP connection killer |
+| `log.cpython-39.so`         | Structured logging         |
+| `bridge.cpython-39.so`      | Network bridge             |
+| `acmp.cpython-39.so`        | Protocol handler           |
+| `globals.cpython-39.so`     | Global state               |
+| `models.cpython-39.so`      | Data models                |
+| `selfix.cpython-39.so`      | Selector engine helper     |
+| `tcpkill.cpython-39.so`     | TCP connection killer      |
 
 **Total lamda server module:** 144 files (excluding .pyc), all in `server/lib/python3.9/site-packages/lamda/`.
 
 ### Server size breakdown
 
-| Layer | Size |
-|-------|------|
-| Python 3.9 runtime + stdlib | ~60 MB |
+| Layer                                                          | Size   |
+| -------------------------------------------------------------- | ------ |
+| Python 3.9 runtime + stdlib                                    | ~60 MB |
 | Third-party Python deps (grpc, tornado, PIL, cv2, numpy, etc.) | ~50 MB |
-| Native .so extensions (lamda services + system libs) | ~30 MB |
-| CLI tools (frida, iperf, dnsmasq, etc.) | ~15 MB |
-| MiniCap variants (22 screenshots engines) | ~5 MB |
-| Proto definitions + config | ~3 MB |
+| Native .so extensions (lamda services + system libs)           | ~30 MB |
+| CLI tools (frida, iperf, dnsmasq, etc.)                        | ~15 MB |
+| MiniCap variants (22 screenshots engines)                      | ~5 MB  |
+| Proto definitions + config                                     | ~3 MB  |
 
 ---
 
@@ -545,14 +552,14 @@ Dependencies installed: `grpcio 1.74.0`, `protobuf 6.33.6`, `cryptography 49.0.0
 
 ### API surface confirmed
 
-| Item | Count | Notes |
-|------|-------|-------|
-| Public methods on Device | 88 | Including 80+ pass-through convenience methods |
-| Properties | 1 | `frida` (lazy Frida connection) |
-| gRPC service stubs | 14 | Application, Debug, File, Lock, Proxy, Shell, Status, Settings, UiAutomator, Wifi, Storage, SelinuxPolicy, Util, VirtualDisplay |
-| Exception types | 25 | ServiceUnavailable, UiObjectNotFoundException, SecurityException, etc. |
-| Permission constants | 30 | `PERMISSION_READ_EXTERNAL_STORAGE`, etc. |
-| FLAG constants | 22 | `FLAG_ACTIVITY_NEW_TASK`, etc. |
+| Item                     | Count | Notes                                                                                                                           |
+| ------------------------ | ----- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Public methods on Device | 88    | Including 80+ pass-through convenience methods                                                                                  |
+| Properties               | 1     | `frida` (lazy Frida connection)                                                                                                 |
+| gRPC service stubs       | 14    | Application, Debug, File, Lock, Proxy, Shell, Status, Settings, UiAutomator, Wifi, Storage, SelinuxPolicy, Util, VirtualDisplay |
+| Exception types          | 25    | ServiceUnavailable, UiObjectNotFoundException, SecurityException, etc.                                                          |
+| Permission constants     | 30    | `PERMISSION_READ_EXTERNAL_STORAGE`, etc.                                                                                        |
+| FLAG constants           | 22    | `FLAG_ACTIVITY_NEW_TASK`, etc.                                                                                                  |
 
 ### Connection behavior
 
@@ -578,16 +585,16 @@ Works correctly — no crash, clear error message.
 
 ## 11. Risks Assessment (Updated)
 
-| Risk | Old assessment | Updated from code |
-|------|---------------|-------------------|
-| APK not in GitHub releases | ⚠️ BLOCKER | Confirmed — APK only at device-farm.com |
-| Shizuku mode unvalidated | Medium risk | Still zero community reports |
-| Chinese-hosted APK trust | Medium | APK is 8.4 MB; server binary is 163 MB compiled native code — hard to audit |
-| Port conflict with ADB | Low | Configurable via `adb.enable=false` |
-| Memory footprint | Unknown until tested | Server is persistent daemon; memory impact unknown until spike |
-| Fire OS compatibility | Untested | Server binary must be armv7a; Fire OS 11 is API 30, FIRERPA supports 6+ |
-| MCP protocol breaking changes | Low | Protocol stable since v9.20; uses streamable-http |
-| License risk | MIT — no issue | MIT license confirmed; "offline licensing" mentioned in docs but no runtime check found in client code |
+| Risk                          | Old assessment       | Updated from code                                                                                      |
+| ----------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------ |
+| APK not in GitHub releases    | ⚠️ BLOCKER           | Confirmed — APK only at device-farm.com                                                                |
+| Shizuku mode unvalidated      | Medium risk          | Still zero community reports                                                                           |
+| Chinese-hosted APK trust      | Medium               | APK is 8.4 MB; server binary is 163 MB compiled native code — hard to audit                            |
+| Port conflict with ADB        | Low                  | Configurable via `adb.enable=false`                                                                    |
+| Memory footprint              | Unknown until tested | Server is persistent daemon; memory impact unknown until spike                                         |
+| Fire OS compatibility         | Untested             | Server binary must be armv7a; Fire OS 11 is API 30, FIRERPA supports 6+                                |
+| MCP protocol breaking changes | Low                  | Protocol stable since v9.20; uses streamable-http                                                      |
+| License risk                  | MIT — no issue       | MIT license confirmed; "offline licensing" mentioned in docs but no runtime check found in client code |
 
 ---
 
@@ -603,31 +610,31 @@ The code inspection confirms three things the documentation-only analysis couldn
 
 ### Spike Results (2026-07-12)
 
-| Device | Result | Key findings |
-|--------|--------|-------------|
-| **s24** | ✅ Working | 12 processes, 43 MB PSS / 120 MB RSS, gRPC OK, stayturgid coexists, boot integration deployed, 24-hr soak started |
-| **p7a** | ✅ Working | 12 processes, gRPC OK, stayturgid coexists. Stale PID file issue (same as s24) — must `rm -rf /data/local/tmp/usr/` before restart. WiFi toggle fix confirmed working on Android 16 Pixel. |
+| Device  | Result     | Key findings                                                                                                                                                                                                                                                 |
+| ------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **s24** | ✅ Working | 12 processes, 43 MB PSS / 120 MB RSS, gRPC OK, stayturgid coexists, boot integration deployed, 24-hr soak started                                                                                                                                            |
+| **p7a** | ✅ Working | 12 processes, gRPC OK, stayturgid coexists. Stale PID file issue (same as s24) — must `rm -rf /data/local/tmp/usr/` before restart. WiFi toggle fix confirmed working on Android 16 Pixel.                                                                   |
 | **hd8** | ❌ Blocked | Fire OS SELinux prevents Termux SSH user from executing shell-context binaries. ADB USB can start server but tablet moves around — not viable as always-on failsafe. hd8 is actually arm64 (not armv7a as originally documented) — inventory needs updating. |
 
 ### Updated fleet viability
 
-| Device | FIRERPA viable? | Self-heal channels |
-|--------|:---:|--------|
-| s24 | ✅ | Termux repair + Shizuku + AutoJs6 + FIRERPA gRPC + FIRERPA heal script |
-| p7a | ✅ | Termux repair + Shizuku + AutoJs6 + FIRERPA gRPC + FIRERPA heal script |
-| hd8 | ❌ | Termux repair + peer bootstrap (existing) — no FIRERPA |
+| Device | FIRERPA viable? | Self-heal channels                                                     |
+| ------ | :-------------: | ---------------------------------------------------------------------- |
+| s24    |       ✅        | Termux repair + Shizuku + AutoJs6 + FIRERPA gRPC + FIRERPA heal script |
+| p7a    |       ✅        | Termux repair + Shizuku + AutoJs6 + FIRERPA gRPC + FIRERPA heal script |
+| hd8    |       ❌        | Termux repair + peer bootstrap (existing) — no FIRERPA                 |
 
 ### What was built this session:
 
-| Component | Path | Purpose |
-|-----------|------|---------|
-| Ansible role | `ansible_collections/stayturgid/firerpa/` | Install + configure + service + uninstall |
-| Playbook | `ansible/playbooks/fleet/firerpa.yml` | Fleet deploy entry |
-| gRPC heal | `control/bin/firerpa_heal.py` | Repair stayturgid via FIRERPA gRPC API |
-| Health monitor | `control/bin/firerpa_health_monitor.py` | Fleet health via FIRERPA shell |
-| Boot integration | `device/termux/boot/start-adb.sh` | FIRERPA lifecycle management |
-| Launchd agent | `com.stayturgid.firerpa-health` | Mac 10-min health scrape |
-| Research docs | `docs/history/firerpa-*deepseek-pro*.md` | 4 documents (code audit, redundancy, install map, AI prompt) |
+| Component        | Path                                      | Purpose                                                      |
+| ---------------- | ----------------------------------------- | ------------------------------------------------------------ |
+| Ansible role     | `ansible_collections/stayturgid/firerpa/` | Install + configure + service + uninstall                    |
+| Playbook         | `ansible/playbooks/fleet/firerpa.yml`     | Fleet deploy entry                                           |
+| gRPC heal        | `control/bin/firerpa_heal.py`             | Repair stayturgid via FIRERPA gRPC API                       |
+| Health monitor   | `control/bin/firerpa_health_monitor.py`   | Fleet health via FIRERPA shell                               |
+| Boot integration | `device/termux/boot/start-adb.sh`         | FIRERPA lifecycle management                                 |
+| Launchd agent    | `com.stayturgid.firerpa-health`           | Mac 10-min health scrape                                     |
+| Research docs    | `docs/history/firerpa-*deepseek-pro*.md`  | 4 documents (code audit, redundancy, install map, AI prompt) |
 
 **Updated recommendation from external AI review (consolidated 2026-07-12):**
 

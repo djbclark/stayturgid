@@ -6,13 +6,13 @@ Date: 2026-07-09. Device: Fire HD 8 (`KFRASWI`), Fire OS **8.0** / Android **11*
 
 Termux Handsets (and any on-device privileged shell) needs **shell UID** via `adb -s localhost:5555`. On hd8 that path is dead:
 
-| Client | Target | Result |
-|--------|--------|--------|
-| Termux on hd8 | `127.0.0.1:5555` | `offline` / failed to connect |
-| Termux on hd8 | LAN `192.168.1.157:5555` | `offline` (same-device bind check) |
-| Termux on hd8 | Tailscale IP | no iface / same block |
-| Mac / external | USB or LAN `:5555` | **OK** (`device`) |
-| Termux on s24 → hd8 LAN | `192.168.1.157:5555` | reaches adbd; needs RSA allow (`unauthorized` until prompt) |
+| Client                  | Target                   | Result                                                      |
+| ----------------------- | ------------------------ | ----------------------------------------------------------- |
+| Termux on hd8           | `127.0.0.1:5555`         | `offline` / failed to connect                               |
+| Termux on hd8           | LAN `192.168.1.157:5555` | `offline` (same-device bind check)                          |
+| Termux on hd8           | Tailscale IP             | no iface / same block                                       |
+| Mac / external          | USB or LAN `:5555`       | **OK** (`device`)                                           |
+| Termux on s24 → hd8 LAN | `192.168.1.157:5555`     | reaches adbd; needs RSA allow (`unauthorized` until prompt) |
 
 `adbd` listens on `*:5555`, `adb_enabled=1`, `service.adb.tcp.port=5555`. The daemon is up; **on-device clients are rejected**.
 
@@ -57,14 +57,14 @@ Useful for Mac↔hd8 when LAN is messy. Does not make Termux→own adbd succeed 
 
 Live on hd8 (deepened 2026-07-09):
 
-| Step | Result |
-|------|--------|
-| Start Shizuku via Mac/`libshizuku.so` | **OK** — `shizuku_server` as shell UID |
-| Add Termux uid `10310` to `/data/local/tmp/shizuku/shizuku.json` | Applied |
-| `pm grant com.termux moe.shizuku.manager.permission.API_V23` | **Fails** — Termux does not declare that permission |
-| `rish -c id` (dex from Shizuku APK) | **Request timeout** even with json grant + `MANAGER_APPLICATION_ID` set |
+| Step                                                             | Result                                                                  |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Start Shizuku via Mac/`libshizuku.so`                            | **OK** — `shizuku_server` as shell UID                                  |
+| Add Termux uid `10310` to `/data/local/tmp/shizuku/shizuku.json` | Applied                                                                 |
+| `pm grant com.termux moe.shizuku.manager.permission.API_V23`     | **Fails** — Termux does not declare that permission                     |
+| `rish -c id` (dex from Shizuku APK)                              | **Request timeout** even with json grant + `MANAGER_APPLICATION_ID` set |
 
-Termux is not a Shizuku client app (no binder handshake / no declared API perm). AutoJs6 *is* granted and can use Shizuku APIs, but that does not give Termux a shell-UID `app_process` starter without going through AutoJs6 JS — and Shizuku itself still needs an **external** start every boot on Fire (“Start by connecting to a computer”).
+Termux is not a Shizuku client app (no binder handshake / no declared API perm). AutoJs6 _is_ granted and can use Shizuku APIs, but that does not give Termux a shell-UID `app_process` starter without going through AutoJs6 JS — and Shizuku itself still needs an **external** start every boot on Fire (“Start by connecting to a computer”).
 
 **Do not** build the Fire Handsets path on `rish`. Peer ADB (below) is strictly better.
 
@@ -75,9 +75,9 @@ External shell UID:  adb shell CLASSPATH=…/hs.jar app_process … Main --port=
 Termux on hd8:       length-prefixed wire → 127.0.0.1:N
 ```
 
-| Starter | Wire `ping` |
-|---------|-------------|
-| Mac adb | `pong` ~246 ms |
+| Starter                                         | Wire `ping`    |
+| ----------------------------------------------- | -------------- |
+| Mac adb                                         | `pong` ~246 ms |
 | **s24 Termux adb → hd8** (after one-time Allow) | `pong` ~238 ms |
 
 ### 7. Peer help (fleet device starts Handsets on hd8) — **proven; recommended for Mac-less self-heal**
@@ -117,11 +117,11 @@ hd8 Termux                    helper (s24 / p7a / Mac)
 
 Each helper has its own `~/.android/adbkey` today (Mac / s24 / p7a / hd8 all different). Fire stores accepted keys in `/data/misc/adb/adb_keys` (**not writable by shell**). Options:
 
-| Approach | Cost |
-|----------|------|
-| **A. Accept each peer once** (“Always allow”) | 2–3 taps per new helper; survives reboot |
-| **B. Shared fleet `adbkey`** on all Termux helpers | One Allow covers every phone; Ansible deploys identical keypair |
-| **C. Mac-only helper** | Already trusted; device→Mac SSH via peerhelp ForceCommand + launchd `fire-help` |
+| Approach                                           | Cost                                                                            |
+| -------------------------------------------------- | ------------------------------------------------------------------------------- |
+| **A. Accept each peer once** (“Always allow”)      | 2–3 taps per new helper; survives reboot                                        |
+| **B. Shared fleet `adbkey`** on all Termux helpers | One Allow covers every phone; Ansible deploys identical keypair                 |
+| **C. Mac-only helper**                             | Already trusted; device→Mac SSH via peerhelp ForceCommand + launchd `fire-help` |
 
 Recommend **B** for phones + keep Mac as fallback when present.
 
@@ -160,31 +160,31 @@ Does not need shell UID. Already the Termux fallback when Handsets is disabled.
 
 ## Recommendation
 
-| Option | Use? |
-|--------|------|
-| Pure Termux→`localhost:5555` Handsets on hd8 | **No** — Amazon block |
-| Wireless Debugging self-pair | **No** |
-| Tailscale for self-ADB | **No** — wrong problem |
-| Shizuku/`rish` to start Handsets from Termux | **No** on Fire (binder timeout); **rish still installed by default** for stock Android |
-| **Peer ADB bootstrap via SSH mesh** | **Shipped** — `stayturgid_peer_bootstrap` + `stayturgid_peer_help` |
-| Shared fleet `adbkey-fleet` + one Allow | **Shipped** — `~/.stayturgid/adbkey-fleet` (does **not** overwrite `~/.android/adbkey`) |
-| SSH `command=` restricted helper key | **Shipped** — Fire `id_ed25519_peerhelp` → helpers/Mac ForceCommand |
-| Hybrid wire client after peer start | **Yes** — `stayturgid_handsets.py` uses peer start when `NO_LOCAL_ADB` |
-| Mac Handsets when Mac present | **Yes** — Mac last in `peers` + launchd `fire-help` |
+| Option                                       | Use?                                                                                    |
+| -------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Pure Termux→`localhost:5555` Handsets on hd8 | **No** — Amazon block                                                                   |
+| Wireless Debugging self-pair                 | **No**                                                                                  |
+| Tailscale for self-ADB                       | **No** — wrong problem                                                                  |
+| Shizuku/`rish` to start Handsets from Termux | **No** on Fire (binder timeout); **rish still installed by default** for stock Android  |
+| **Peer ADB bootstrap via SSH mesh**          | **Shipped** — `stayturgid_peer_bootstrap` + `stayturgid_peer_help`                      |
+| Shared fleet `adbkey-fleet` + one Allow      | **Shipped** — `~/.stayturgid/adbkey-fleet` (does **not** overwrite `~/.android/adbkey`) |
+| SSH `command=` restricted helper key         | **Shipped** — Fire `id_ed25519_peerhelp` → helpers/Mac ForceCommand                     |
+| Hybrid wire client after peer start          | **Yes** — `stayturgid_handsets.py` uses peer start when `NO_LOCAL_ADB`                  |
+| Mac Handsets when Mac present                | **Yes** — Mac last in `peers` + launchd `fire-help`                                     |
 
 ### Shipped pieces (2026-07-09)
 
-| Piece | Path |
-|-------|------|
-| rish install (default deploy) | `device/termux/py/stayturgid_rish.py` → `~/.stayturgid/bin/rish` |
-| Shared fleet ADB key | Mac `~/.config/stayturgid/adbkey` → device `~/.stayturgid/adbkey-fleet` |
-| Helper (phones) | `stayturgid_peer_help.py` (`ADB_VENDOR_KEYS=…/adbkey-fleet`) |
-| Helper (Mac) | `control/bin/fire_peer_help.py` |
-| Asker | `stayturgid_peer_bootstrap.py` + `~/.stayturgid/peers` (phones + Mac) |
-| Keepalive (F1/F2) | `stayturgid_peer_keepalive.py` from boot loop when `NO_LOCAL_ADB` |
-| Mac launchd (F4) | `com.stayturgid.fire-help` → `control/bin/fire_help_monitor.py` |
-| ForceCommand (F5) | `stayturgid-peer-help-force.sh` on helpers; Mac `authorized_keys` → `fire_peer_help.py` |
-| Handsets integration | `stayturgid_handsets.start()` peer path when `STAYTURGID_NO_LOCAL_ADB=1` |
+| Piece                         | Path                                                                                    |
+| ----------------------------- | --------------------------------------------------------------------------------------- |
+| rish install (default deploy) | `device/termux/py/stayturgid_rish.py` → `~/.stayturgid/bin/rish`                        |
+| Shared fleet ADB key          | Mac `~/.config/stayturgid/adbkey` → device `~/.stayturgid/adbkey-fleet`                 |
+| Helper (phones)               | `stayturgid_peer_help.py` (`ADB_VENDOR_KEYS=…/adbkey-fleet`)                            |
+| Helper (Mac)                  | `control/bin/fire_peer_help.py`                                                         |
+| Asker                         | `stayturgid_peer_bootstrap.py` + `~/.stayturgid/peers` (phones + Mac)                   |
+| Keepalive (F1/F2)             | `stayturgid_peer_keepalive.py` from boot loop when `NO_LOCAL_ADB`                       |
+| Mac launchd (F4)              | `com.stayturgid.fire-help` → `control/bin/fire_help_monitor.py`                         |
+| ForceCommand (F5)             | `stayturgid-peer-help-force.sh` on helpers; Mac `authorized_keys` → `fire_peer_help.py` |
+| Handsets integration          | `stayturgid_handsets.start()` peer path when `STAYTURGID_NO_LOCAL_ADB=1`                |
 
 **Live E2E:** hd8 cold start → SSH s24 → `handsets-start` on `192.168.1.157:5555` → wire `pong`. Same fleet key works from p7a without a second Allow. Mac is last peer; launchd also helps if peers miss.
 

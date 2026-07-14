@@ -30,19 +30,19 @@ porting it to Node would remove the platform APIs required for catastrophic reco
 
 ## Alternatives
 
-| Option | Fit | Decision |
-|---|---|---|
-| PM2 | Good Node process restart/logging; no Android/AutoJs6 lifecycle control | Do not adopt for the watchdog |
-| Uptime Kuma | External HTTP/TCP/ping/status-page monitoring and alerting; not process supervision or repair | Consider as a read-only dashboard integration |
-| Pulumi | TypeScript/JavaScript infrastructure-as-code with desired state and stacks | Do not replace Ansible for Android fleet state |
-| Jest | Node/JavaScript unit-test framework | Optional only if the Node test surface grows |
-| `zx` | JavaScript wrapper for local shell commands | Not a reason to move Python orchestration to JavaScript |
-| Shipit | SSH deployment task runner for Node applications | Redundant with Ansible; no Android consent/state model |
-| Flightplan | Older Node SSH command/deployment library | Do not adopt; overlaps Ansible and has weaker maintenance signals |
-| `runit`/Termux:Boot | Already used for Termux services; appropriate for native on-device daemons | Keep |
-| `s6`/`supervisord` | Adds another daemon/config layer and still cannot control AutoJs6 | No |
-| Android WorkManager/JobScheduler | Cannot satisfy accessibility/UI recovery and consent gates without an Android app change | No |
-| TypeScript tools (`tsx`, `ts-node`, Taskfile/mise) | Developer ergonomics or command running, not Android supervision | Not relevant |
+| Option                                             | Fit                                                                                           | Decision                                                          |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| PM2                                                | Good Node process restart/logging; no Android/AutoJs6 lifecycle control                       | Do not adopt for the watchdog                                     |
+| Uptime Kuma                                        | External HTTP/TCP/ping/status-page monitoring and alerting; not process supervision or repair | Consider as a read-only dashboard integration                     |
+| Pulumi                                             | TypeScript/JavaScript infrastructure-as-code with desired state and stacks                    | Do not replace Ansible for Android fleet state                    |
+| Jest                                               | Node/JavaScript unit-test framework                                                           | Optional only if the Node test surface grows                      |
+| `zx`                                               | JavaScript wrapper for local shell commands                                                   | Not a reason to move Python orchestration to JavaScript           |
+| Shipit                                             | SSH deployment task runner for Node applications                                              | Redundant with Ansible; no Android consent/state model            |
+| Flightplan                                         | Older Node SSH command/deployment library                                                     | Do not adopt; overlaps Ansible and has weaker maintenance signals |
+| `runit`/Termux:Boot                                | Already used for Termux services; appropriate for native on-device daemons                    | Keep                                                              |
+| `s6`/`supervisord`                                 | Adds another daemon/config layer and still cannot control AutoJs6                             | No                                                                |
+| Android WorkManager/JobScheduler                   | Cannot satisfy accessibility/UI recovery and consent gates without an Android app change      | No                                                                |
+| TypeScript tools (`tsx`, `ts-node`, Taskfile/mise) | Developer ergonomics or command running, not Android supervision                              | Not relevant                                                      |
 
 ## Detailed findings
 

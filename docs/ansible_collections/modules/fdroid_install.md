@@ -6,11 +6,11 @@ Install an F-Droid app on a connected device via `fdroidcl install`.
 
 ## Parameters
 
-| Parameter | Description |
-|-----------|-------------|
-| `device` | ADB serial or fleet alias (resolved on control node) |
-| `package` | F-Droid application id |
-| `force` | Run fdroidcl even when package already installed |
+| Parameter | Description                                          |
+| --------- | ---------------------------------------------------- |
+| `device`  | ADB serial or fleet alias (resolved on control node) |
+| `package` | F-Droid application id                               |
+| `force`   | Run fdroidcl even when package already installed     |
 
 ## Example
 

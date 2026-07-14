@@ -22,12 +22,12 @@ Companion research: [ui-automation.md](ui-automation.md) (tool bake-off),
 
 ## Stack (recommended order)
 
-| Priority | Tool | When |
-|----------|------|------|
-| **1** | **Handsets** (`hs` + on-device jar) | Primary Mac driver — fast hierarchy, works with AutoJs6 a11y |
-| **2** | Raw `uiautomator dump` + regex + `adb shell input` | Fallback when Handsets missing; on-device Termux scripts |
-| **3** | uiautomator2 | One-off debug only — **never** alongside Handsets (exclusive UiAutomation) |
-| Avoid as core | Maestro / Appium | Fine for human YAML flows; heavy for dynamic agent scripts |
+| Priority      | Tool                                               | When                                                                       |
+| ------------- | -------------------------------------------------- | -------------------------------------------------------------------------- |
+| **1**         | **Handsets** (`hs` + on-device jar)                | Primary Mac driver — fast hierarchy, works with AutoJs6 a11y               |
+| **2**         | Raw `uiautomator dump` + regex + `adb shell input` | Fallback when Handsets missing; on-device Termux scripts                   |
+| **3**         | uiautomator2                                       | One-off debug only — **never** alongside Handsets (exclusive UiAutomation) |
+| Avoid as core | Maestro / Appium                                   | Fine for human YAML flows; heavy for dynamic agent scripts                 |
 
 Multi-device sharp edge: stock `hs use SERIAL` often rejects `ip:5555`. Push
 `hs.jar`, start `app_process … Main --port=N`, `adb forward`, then
@@ -195,13 +195,13 @@ Stayturgid’s fleet job: `control/bin/gui_audit.py` (3:14am launchd, quiet pres
 
 ## Assertion patterns that age well
 
-| Prefer | Avoid |
-|--------|--------|
-| Switch checked near a stable label | Absolute `(x,y)` from one phone skin |
-| `resource-id` when the app owns it | Matching transient toast text |
+| Prefer                                                          | Avoid                                  |
+| --------------------------------------------------------------- | -------------------------------------- |
+| Switch checked near a stable label                              | Absolute `(x,y)` from one phone skin   |
+| `resource-id` when the app owns it                              | Matching transient toast text          |
 | Soft-fail optional OEM labels (`Battery` / `App battery usage`) | Assuming Pixel strings on Samsung/Fire |
-| Log `issues=tag1,tag2` for triage | Silent `print("maybe ok")` |
-| Per-host skip on unreachable | Hard `sys.exit(1)` for one dead phone |
+| Log `issues=tag1,tag2` for triage                               | Silent `print("maybe ok")`             |
+| Per-host skip on unreachable                                    | Hard `sys.exit(1)` for one dead phone  |
 
 OEM label aliases (battery, overflow menus, “Don’t allow”) are normal — keep
 tuples of synonyms and try in order.
@@ -210,16 +210,16 @@ tuples of synonyms and try in order.
 
 ## Common failure modes
 
-| Symptom | Likely cause | Fix |
-|---------|--------------|-----|
-| Taps do nothing | Inversion off / session not held | Hold `ScreenControlSession`; gate input |
-| Wrong toggle flips | Nearest-Switch heuristic too wide | Prefer Switch *after* the title row |
-| Empty hierarchy | App animating / wrong activity | `wait_text` / sleep / re-dump |
-| Handsets `BadStatusLine` | u2 still holding UiAutomation | Kill u2 daemon; don’t run both |
-| `hs use` rejects serial | Crowded `adb devices` / `ip:5555` | Fixed port + `--host 127.0.0.1` |
-| Focus jumps to Discord/etc. | Overlay / notification | Clear obstructions; re-launch target |
-| Fire `termux-dialog` hangs | Fire OS Termux API stalls | Short SSH timeouts; quiet mode for audits |
-| Battery-unrestrict prompt | App wants unrestricted for auto-update | Deny; keep OS battery optimized if policy says so |
+| Symptom                     | Likely cause                           | Fix                                               |
+| --------------------------- | -------------------------------------- | ------------------------------------------------- |
+| Taps do nothing             | Inversion off / session not held       | Hold `ScreenControlSession`; gate input           |
+| Wrong toggle flips          | Nearest-Switch heuristic too wide      | Prefer Switch _after_ the title row               |
+| Empty hierarchy             | App animating / wrong activity         | `wait_text` / sleep / re-dump                     |
+| Handsets `BadStatusLine`    | u2 still holding UiAutomation          | Kill u2 daemon; don’t run both                    |
+| `hs use` rejects serial     | Crowded `adb devices` / `ip:5555`      | Fixed port + `--host 127.0.0.1`                   |
+| Focus jumps to Discord/etc. | Overlay / notification                 | Clear obstructions; re-launch target              |
+| Fire `termux-dialog` hangs  | Fire OS Termux API stalls              | Short SSH timeouts; quiet mode for audits         |
+| Battery-unrestrict prompt   | App wants unrestricted for auto-update | Deny; keep OS battery optimized if policy says so |
 
 ---
 
@@ -249,13 +249,13 @@ adb shell settings get secure enabled_accessibility_services
 
 ## Stayturgid wiring (this repo)
 
-| Piece | Role |
-|-------|------|
-| `control/lib/screen_control.py` | Consent + inversion + gated `input` |
-| `control/lib/ui_driver.py` | Handsets primary |
-| `control/bin/gui_audit.py` | Neo/Aurora GUI audit — **parked**; manual only |
+| Piece                               | Role                                                               |
+| ----------------------------------- | ------------------------------------------------------------------ |
+| `control/lib/screen_control.py`     | Consent + inversion + gated `input`                                |
+| `control/lib/ui_driver.py`          | Handsets primary                                                   |
+| `control/bin/gui_audit.py`          | Neo/Aurora GUI audit — **parked**; manual only                     |
 | `control/bin/check_fleet_health.py` | Session triage (`make health`); fleet-health + access-monitor only |
-| `com.stayturgid.gui-audit` | launchd **parked** (not installed while app stores disabled) |
+| `com.stayturgid.gui-audit`          | launchd **parked** (not installed while app stores disabled)       |
 
 Logs: `~/.config/stayturgid/logs/gui-audit.log`.
 Screenshots: `~/.config/stayturgid/artifacts/gui-audit/<date>/<host>/`.

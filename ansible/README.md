@@ -48,15 +48,15 @@ just deploy-mac
 ansible-playbook ansible/playbooks/control_node/site.yml --tags mac
 ```
 
-| Tag | What |
-|-----|------|
-| `prereqs` | Homebrew bootstrap (curl install.sh if needed), formulae (adb, python, uv, git, ansible, scrcpy), uv tool install uiautomator2, galaxy collections |
-| `agents` | `devices.conf`, SSH fragment, `com.stayturgid.*` launchd plists, Hermes gateway |
-| `hermes` | Hermes Agent brew formula, `~/.hermes` model/config, Telegram gateway launchd |
-| `agents-ensure` | Load/heal all control-node launchd jobs (`community.general.launchd` + HTTP probes) |
-| `vlm-models` | `llama.cpp` + UI-TARS weights (~6 GB); needs `-e stayturgid_vlm_enabled=true` |
-| `vlm-service` | `homebrew.mxcl.ui-tars` plist install; needs models + `stayturgid_vlm_enabled=true` |
-| `vlm-ensure` | Alias for `agents-ensure` (UI-TARS `/health` heal included) |
+| Tag             | What                                                                                                                                               |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `prereqs`       | Homebrew bootstrap (curl install.sh if needed), formulae (adb, python, uv, git, ansible, scrcpy), uv tool install uiautomator2, galaxy collections |
+| `agents`        | `devices.conf`, SSH fragment, `com.stayturgid.*` launchd plists, Hermes gateway                                                                    |
+| `hermes`        | Hermes Agent brew formula, `~/.hermes` model/config, Telegram gateway launchd                                                                      |
+| `agents-ensure` | Load/heal all control-node launchd jobs (`community.general.launchd` + HTTP probes)                                                                |
+| `vlm-models`    | `llama.cpp` + UI-TARS weights (~6 GB); needs `-e stayturgid_vlm_enabled=true`                                                                      |
+| `vlm-service`   | `homebrew.mxcl.ui-tars` plist install; needs models + `stayturgid_vlm_enabled=true`                                                                |
+| `vlm-ensure`    | Alias for `agents-ensure` (UI-TARS `/health` heal included)                                                                                        |
 
 **Idempotency:** a second `control_node/site.yml` run on a healthy Mac should report
 `changed=0`. `agents-ensure` probes `launchctl list` before touching jobs — interval
@@ -99,11 +99,11 @@ STATUS port=open shizuku=up sshd=up shell=yes
 
 ## Inventory
 
-| Host | SSH | Mode | Notes |
-|------|-----|------|-------|
-| `s24` | `100.123.218.30:8022` | `autojs6` | Galaxy S24 |
-| `p7a` | `100.65.230.108:8022` | `autojs6` | Pixel 7a |
-| `hd8` | `100.124.55.39:8022` | `autojs6` | Kindle Fire HD 8 (Mac adb for AutoJs6 deploy) |
+| Host  | SSH                   | Mode      | Notes                                         |
+| ----- | --------------------- | --------- | --------------------------------------------- |
+| `s24` | `100.123.218.30:8022` | `autojs6` | Galaxy S24                                    |
+| `p7a` | `100.65.230.108:8022` | `autojs6` | Pixel 7a                                      |
+| `hd8` | `100.124.55.39:8022`  | `autojs6` | Kindle Fire HD 8 (Mac adb for AutoJs6 deploy) |
 
 Both hosts are defined in `inventory/hosts.yml`.
 

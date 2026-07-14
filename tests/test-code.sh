@@ -161,6 +161,28 @@ else
   tap_skip "justfile format/parse" "just not installed (brew install just)"
 fi
 
+# --- markdown (lint + format) ------------------------------------------------
+if command -v markdownlint >/dev/null 2>&1; then
+  # shellcheck disable=SC2046
+  if markdownlint --config .markdownlint.json $(git ls-files '*.md') >/dev/null 2>&1; then
+    tap_ok "markdownlint: clean"
+  else
+    tap_fail "markdownlint: clean" "run: just markdownlint"
+  fi
+else
+  tap_skip "markdownlint" "not installed (brew install markdownlint-cli)"
+fi
+if command -v prettier >/dev/null 2>&1; then
+  # shellcheck disable=SC2046
+  if prettier --check $(git ls-files '*.md') >/dev/null 2>&1; then
+    tap_ok "prettier: markdown formatted"
+  else
+    tap_fail "prettier: markdown formatted" "run: just prettier"
+  fi
+else
+  tap_skip "prettier: markdown formatted" "not installed (brew install prettier)"
+fi
+
 # Python test collection — catches import/syntax breakage in the pytest layer
 # even when the full run happens via `just pytest`.
 PYTEST_BIN="$([ -x .venv-test/bin/pytest ] && echo .venv-test/bin/pytest || command -v pytest || true)"

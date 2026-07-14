@@ -58,6 +58,7 @@ Only 42 issues for 7.9k stars — most users engage via QQ/Telegram.
 ### 6. Deployment reality
 
 Ranked by community usage:
+
 1. Magisk module (root) — production path
 2. APK in root mode — quick setup
 3. APK in Shizuku mode — documented alternative
@@ -115,6 +116,7 @@ appears.
 
 **Fix needed:** In `android_app_privileges` role, force-start apps
 before granting POST_NOTIFICATIONS:
+
 ```
 adb shell monkey -p <package> -c android.intent.category.LAUNCHER 1
 sleep 2

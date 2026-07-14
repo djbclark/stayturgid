@@ -12,13 +12,13 @@ replace the existing Mac-to-device Ansible deployment path, and do not run the c
 
 The useful division of responsibility is:
 
-| Layer | Responsibility | Remains authoritative? |
-|---|---|---|
-| Mac push Ansible | Bootstrap, credentials, APKs, ADB/SSH transport, UI-assisted setup, fleet coordination, and repair of the pull runtime | Yes |
-| Device `ansible-pull` | A small allowlisted set of non-secret Termux files and local configuration | Additive pilot |
-| Python repair loop | Fast reachability and runtime repair when Git, Ansible, or the Mac is unavailable | Yes |
-| AutoJs6 watchdog | In-app and catastrophic Android recovery | Yes |
-| CFEngine | Small independent policy/recovery path already deployed to devices | Yes during the pilot |
+| Layer                 | Responsibility                                                                                                         | Remains authoritative? |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| Mac push Ansible      | Bootstrap, credentials, APKs, ADB/SSH transport, UI-assisted setup, fleet coordination, and repair of the pull runtime | Yes                    |
+| Device `ansible-pull` | A small allowlisted set of non-secret Termux files and local configuration                                             | Additive pilot         |
+| Python repair loop    | Fast reachability and runtime repair when Git, Ansible, or the Mac is unavailable                                      | Yes                    |
+| AutoJs6 watchdog      | In-app and catastrophic Android recovery                                                                               | Yes                    |
+| CFEngine              | Small independent policy/recovery path already deployed to devices                                                     | Yes during the pilot   |
 
 This is deliberately not a full “move to pull.” It gives devices eventual local
 convergence while preserving stayturgid's independent recovery paths. A successful

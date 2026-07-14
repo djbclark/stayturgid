@@ -31,14 +31,14 @@ Termux + AutoJs6 + Obtainium + Tailscale.
 
 ## What it does when enabled
 
-| Piece | Role |
-|-------|------|
-| `fdroid_repos` | Configure `fdroidcl` repos on the Mac / push to device |
-| `fdroid_apps` | Install selected packages |
-| Neo Store grant | Shizuku installer permission for Neo Store |
+| Piece           | Role                                                   |
+| --------------- | ------------------------------------------------------ |
+| `fdroid_repos`  | Configure `fdroidcl` repos on the Mac / push to device |
+| `fdroid_apps`   | Install selected packages                              |
+| Neo Store grant | Shizuku installer permission for Neo Store             |
 
 ## Related
 
 - [ansible_collections/modules/fdroid_repos.md](../ansible_collections/modules/fdroid_repos.md)
-- [play.md](play.md) — Aurora / Play (also parked)  
-- [obtainium.md](obtainium.md) — preferred APK update path  
+- [play.md](play.md) — Aurora / Play (also parked)
+- [obtainium.md](obtainium.md) — preferred APK update path

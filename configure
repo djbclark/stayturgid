@@ -47,6 +47,14 @@ if have shfmt; then
   echo "HAVE_SHfmt := 1" >>"$out"
 else row "shfmt" "missing — shell format partial (brew install shfmt)"; fi
 if have ansible-lint; then row "ansible-lint" "ok"; else row "ansible-lint" "missing — ansible lint partial"; fi
+if have markdownlint; then
+  row "markdownlint" "ok"
+  echo "HAVE_MARKDOWNLINT := 1" >>"$out"
+else row "markdownlint" "missing — markdown lint partial (brew install markdownlint-cli)"; fi
+if have prettier; then
+  row "prettier" "ok"
+  echo "HAVE_PRETTIER := 1" >>"$out"
+else row "prettier" "missing — markdown format partial (brew install prettier)"; fi
 if have ssh; then row "ssh" "ok"; else row "ssh" "missing — device tier unavailable"; fi
 
 echo "optional (UI-TARS vision gates — vendor-neutral sidecar):"

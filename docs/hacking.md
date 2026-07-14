@@ -6,50 +6,53 @@ This document gets a developer from a clean Android + macOS install to a fully w
 
 ## What you're setting up
 
-| Layer | Role |
-|-------|------|
-| Android device | Runs AutoJs6, Shizuku, Termux — the managed stack |
-| macOS (Mac) | Development workstation; runs ADB, Ansible, AI coding agent |
-| AutoJs6 | Watchdog automation on the device (accessibility + Termux bridge) |
+| Layer                   | Role                                                                |
+| ----------------------- | ------------------------------------------------------------------- |
+| Android device          | Runs AutoJs6, Shizuku, Termux — the managed stack                   |
+| macOS (Mac)             | Development workstation; runs ADB, Ansible, AI coding agent         |
+| AutoJs6                 | Watchdog automation on the device (accessibility + Termux bridge)   |
 | Shizuku (thedjchi fork) | Shell-privileged adbd on port 5555 via Wireless Debugging (no root) |
-| Termux | Linux environment on Android — runs sshd, adb, the boot script |
+| Termux                  | Linux environment on Android — runs sshd, adb, the boot script      |
 
 ---
 
 ## Tested versions
 
 ### Android device
-| App | Package | Version | Source |
-|-----|---------|---------|--------|
-| Android | — | 16 (SDK 36) | — |
-| AutoJs6 | `org.autojs.autojs6` | 6.7.0 | GitHub (see below) |
-| Shizuku (thedjchi fork) | `moe.shizuku.privileged.api` | 13.6.0.r1349-thedjchi-beta | GitHub (see below) |
-| Termux | `com.termux` | 0.118.3 | GitHub (via Obtainium) |
-| Termux:Boot | `com.termux.boot` | 0.8.1 | F-Droid / GitHub |
-| Termux:API (app) | `com.termux.api` | 0.53.0 | F-Droid / GitHub |
+
+| App                     | Package                      | Version                    | Source                 |
+| ----------------------- | ---------------------------- | -------------------------- | ---------------------- |
+| Android                 | —                            | 16 (SDK 36)                | —                      |
+| AutoJs6                 | `org.autojs.autojs6`         | 6.7.0                      | GitHub (see below)     |
+| Shizuku (thedjchi fork) | `moe.shizuku.privileged.api` | 13.6.0.r1349-thedjchi-beta | GitHub (see below)     |
+| Termux                  | `com.termux`                 | 0.118.3                    | GitHub (via Obtainium) |
+| Termux:Boot             | `com.termux.boot`            | 0.8.1                      | F-Droid / GitHub       |
+| Termux:API (app)        | `com.termux.api`             | 0.53.0                     | F-Droid / GitHub       |
 
 ### Termux packages (installed inside Termux via `pkg`)
-| Package | Version |
-|---------|---------|
-| openssh | 10.3p1-1 |
-| termux-api (CLI) | 0.59.1 |
-| android-tools (adb) | 35.0.2-7 |
-| python | 3.13.13-1 |
-| curl | 8.21.0 |
-| wget | 1.25.0-1 |
+
+| Package             | Version   |
+| ------------------- | --------- |
+| openssh             | 10.3p1-1  |
+| termux-api (CLI)    | 0.59.1    |
+| android-tools (adb) | 35.0.2-7  |
+| python              | 3.13.13-1 |
+| curl                | 8.21.0    |
+| wget                | 1.25.0-1  |
 
 ### macOS development tools
-| Tool | Version | Install |
-|------|---------|---------|
-| macOS | Sequoia 15.x+ | — |
-| Homebrew | current | https://brew.sh |
-| ADB (platform-tools) | 1.0.41 / 37.0.0-14910828 | `brew install android-platform-tools` |
-| Python | 3.14.6 | `brew install python` |
-| uv | 0.x | `brew install uv` |
-| Handsets (`~/.handsets/hs`) | 0.1.x | Mac primary UI driver — see `control/lib/ui_driver.py` |
-| uiautomator2 (Python) | 3.7.0 | Optional Mac debug only (`uv tool install uiautomator2`) |
-| Claude Code (AI agent) | current | `npm install -g @anthropic-ai/claude-code` |
-| git | current | `brew install git` |
+
+| Tool                        | Version                  | Install                                                  |
+| --------------------------- | ------------------------ | -------------------------------------------------------- |
+| macOS                       | Sequoia 15.x+            | —                                                        |
+| Homebrew                    | current                  | https://brew.sh                                          |
+| ADB (platform-tools)        | 1.0.41 / 37.0.0-14910828 | `brew install android-platform-tools`                    |
+| Python                      | 3.14.6                   | `brew install python`                                    |
+| uv                          | 0.x                      | `brew install uv`                                        |
+| Handsets (`~/.handsets/hs`) | 0.1.x                    | Mac primary UI driver — see `control/lib/ui_driver.py`   |
+| uiautomator2 (Python)       | 3.7.0                    | Optional Mac debug only (`uv tool install uiautomator2`) |
+| Claude Code (AI agent)      | current                  | `npm install -g @anthropic-ai/claude-code`               |
+| git                         | current                  | `brew install git`                                       |
 
 ---
 
@@ -74,9 +77,11 @@ The standard Shizuku from Play Store **does not have TCP mode**. You need thedjc
 **Source:** https://github.com/thedjchi/Shizuku/releases
 
 **Obtainium URL** (add this in Obtainium → Add App):
+
 ```
 https://github.com/thedjchi/Shizuku
 ```
+
 Select: "GitHub Releases" → filter for `.apk`.
 
 Install the latest `app-release.apk` from the releases page. Current version: **13.6.0.r1349-thedjchi-beta**.
@@ -86,6 +91,7 @@ Install the latest `app-release.apk` from the releases page. Current version: **
 ```
 https://github.com/termux/termux-app
 ```
+
 Or F-Droid: search "Termux" by Termux Dev Team.
 
 > Note: F-Droid and Google Play builds are signed differently and **cannot coexist**. Pick one source and stick with it. Google Play version may lag behind F-Droid.
@@ -95,6 +101,7 @@ Or F-Droid: search "Termux" by Termux Dev Team.
 ```
 https://github.com/termux/termux-boot
 ```
+
 Or F-Droid: search "Termux:Boot".
 
 **Must match the signing source of Termux** (F-Droid with F-Droid, Play with Play).
@@ -104,6 +111,7 @@ Or F-Droid: search "Termux:Boot".
 ```
 https://github.com/termux/termux-api
 ```
+
 Or F-Droid: search "Termux:API".
 
 #### AutoJs6 (stayturgid watchdog)
@@ -113,9 +121,11 @@ JavaScript automation engine — runs the stayturgid watchdog (accessibility UI 
 **Source:** https://github.com/djbclark/AutoJs6/releases (fleet-profile-553 build with non-UI configuration)
 
 **Obtainium URL** (add this in Obtainium → Add App, or import `catalogs/obtainium/autojs6-only.json` via `control/tools/obtainium/sync_to_device.py`):
+
 ```
 https://github.com/djbclark/AutoJs6
 ```
+
 APK filter: `arm64-v8a` (or enable auto-filter-by-arch). Grant **Run commands in Termux environment** after install.
 
 #### Tailscale
@@ -123,9 +133,11 @@ APK filter: `arm64-v8a` (or enable auto-filter-by-arch). Grant **Run commands in
 Gives the device a stable `100.x.y.z` IP that survives DHCP lease changes and network switches — so `adb connect <tailscale-ip>:5555` and SSH keep working without hunting for the current WiFi IP. (The S24's LAN IP changed mid-session once and broke every hardcoded `adb connect`; Tailscale eliminates that failure mode.)
 
 **Obtainium URL** (add this in Obtainium → Add App):
+
 ```
 https://github.com/tailscale/tailscale-android
 ```
+
 Select: "GitHub Releases" → filter for `.apk`.
 
 After install: sign in, and in Tailscale settings consider enabling **VPN On-Demand / Always-on VPN** so the tunnel survives reboots.
@@ -147,13 +159,13 @@ This grants `moe.shizuku.manager.permission.API_V23`, merges Obtainium into `/da
 
 Open Shizuku → **Settings (gear icon)**. Set:
 
-| Setting | Value | Why |
-|---------|-------|-----|
-| Start on boot | ON | Auto-starts via Wireless Debugging on every reboot |
-| Watchdog (restart if crash) | ON | Auto-restarts Shizuku if it crashes |
-| TCP mode | ON | Calls `adb tcpip 5555` after starting — this opens port 5555 without USB |
-| TCP port | 5555 (default) | Standard wireless ADB port |
-| Auto-disable USB debugging | OFF | Leave USB debugging active |
+| Setting                     | Value          | Why                                                                      |
+| --------------------------- | -------------- | ------------------------------------------------------------------------ |
+| Start on boot               | ON             | Auto-starts via Wireless Debugging on every reboot                       |
+| Watchdog (restart if crash) | ON             | Auto-restarts Shizuku if it crashes                                      |
+| TCP mode                    | ON             | Calls `adb tcpip 5555` after starting — this opens port 5555 without USB |
+| TCP port                    | 5555 (default) | Standard wireless ADB port                                               |
+| Auto-disable USB debugging  | OFF            | Leave USB debugging active                                               |
 
 Then tap **Start via Wireless debugging → Start**. Once it's running you should see the Shizuku notification. Subsequent reboots are automatic.
 
@@ -327,6 +339,7 @@ uv tool install uiautomator2
 ```
 
 Verify:
+
 ```bash
 /Users/$(whoami)/.local/bin/uiautomator2 --version
 # Should print: 3.7.0 (or newer)
@@ -353,6 +366,7 @@ print(d.info)
 ```
 
 Common operations:
+
 ```python
 d(text='OK').click()                          # click by visible text
 d(resourceId='com.foo:id/bar').exists         # check if element exists
@@ -369,6 +383,7 @@ ssh-keygen -t ed25519 -f ~/.ssh/termux_key
 ```
 
 Add to `~/.ssh/config` for convenience:
+
 ```
 Host termux
   HostName localhost
@@ -379,6 +394,7 @@ Host termux
 ```
 
 Connect:
+
 ```bash
 adb -s 35261JEHN12374 forward tcp:8022 tcp:8022
 ssh termux
@@ -432,12 +448,12 @@ just vlm-check
 Ansible playbooks: `ansible/playbooks/control_node/vlm.yml` (tags `vlm-models`, `vlm-service`).
 Requires `-e stayturgid_vlm_enabled=true` (set automatically by the recipe targets).
 
-| Scope | Path |
-|-------|------|
-| UI-TARS home | `~/.local/share/ui-tars/` |
-| Models | `~/.local/share/ui-tars/models/1.5-7b/` |
-| Server log | `~/Library/Logs/ui-tars/server.log` |
-| LaunchAgent | `homebrew.mxcl.ui-tars` |
+| Scope                    | Path                                         |
+| ------------------------ | -------------------------------------------- |
+| UI-TARS home             | `~/.local/share/ui-tars/`                    |
+| Models                   | `~/.local/share/ui-tars/models/1.5-7b/`      |
+| Server log               | `~/Library/Logs/ui-tars/server.log`          |
+| LaunchAgent              | `homebrew.mxcl.ui-tars`                      |
 | stayturgid VLM artifacts | `~/.config/stayturgid/artifacts/vlm-verify/` |
 
 **Upgrading from old `~/.config/stayturgid/models/ui-tars-*` layout:**
@@ -545,7 +561,7 @@ scratch dir and prepend a stub `bin/` (fake `termux-*`, `adb`, `sleep`) to
 review validated the battery-alarm tier logic this way.
 
 **pgrep gotcha (bit us in H2 of CODE-REVIEW.md):** on Termux (procps/Linux),
-`pgrep -f PATTERN` matches the *caller's own cmdline* — a guard like
+`pgrep -f PATTERN` matches the _caller's own cmdline_ — a guard like
 `pgrep -f bridges` inside `start-repair-bridge.sh` (or inside an ssh
 command string containing the pattern) always self-matches. macOS/BSD pgrep
 does **not** do this, so Mac-side dry-runs pass while the on-device guard is
@@ -594,6 +610,7 @@ d = u2.connect('35261JEHN12374')
 ```
 
 Run the HTTP server on the device first if it's not running:
+
 ```bash
 /Users/djbclark/.local/bin/uiautomator2 init
 ```
@@ -664,11 +681,13 @@ whole-list value from another date or device.
 ### At the start of every session: snapshot device state
 
 Before touching any device settings, record:
+
 ```bash
 adb shell settings get secure enabled_accessibility_services
 adb shell settings get secure default_input_method
 adb shell settings get global package_verifier_enable
 ```
+
 At the end, compare the snapshots. Report unexpected drift. Restore only a setting
 that the approved task deliberately changed and whose restoration method is permitted;
 accessibility remains a human Settings action.
@@ -682,6 +701,7 @@ accessibility remains a human Settings action.
 Samsung's SSL implementation throws `javax.net.ssl.SSLProtocolException: SSLV3_ALERT_CERTIFICATE_UNKNOWN` when Shizuku tries to connect to the Wireless Debugging service on port ~38279. **Do not use "Start via Wireless debugging" on Samsung.**
 
 Use **"Start by connecting to a computer"** instead:
+
 1. Connect device via USB ADB
 2. In Shizuku → Settings → "Start by connecting to a computer"
 3. Tap "View command" to get the actual path (it changes per install), then run it from Mac:
@@ -696,9 +716,11 @@ Use **"Start by connecting to a computer"** instead:
 ### Battery optimization blocks Shizuku toggles on Samsung
 
 Before Shizuku's "Start on boot" and "Watchdog" toggles will respond:
+
 ```bash
 adb shell dumpsys deviceidle whitelist +moe.shizuku.privileged.api
 ```
+
 Then the toggles work.
 
 ### Termux: sshd requires explicit environment when started from runit or run-as
@@ -708,6 +730,7 @@ On Samsung (tested Android 16), sshd fails silently when started via runit (whic
 **Root cause:** PATH does not include Termux's bin dir, so sshd's wrapper script can't find its deps.
 
 **Fix for runit service** (`$PREFIX/var/service/sshd/run`):
+
 ```bash
 #!/data/data/com.termux/files/usr/bin/bash
 export PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/sbin:$PATH
@@ -719,6 +742,7 @@ exec sshd -D -e 2>&1
 ```
 
 **run-as with Termux:** Must provide full path to Termux bash AND set env:
+
 ```bash
 adb -s RFCX219CHKA shell "run-as com.termux /data/data/com.termux/files/usr/bin/bash -c '
   export PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/sbin:\$PATH
@@ -739,6 +763,7 @@ On Samsung Android 16, `adb shell am start -d content://com.android.externalstor
 When Termux main app is installed from GitHub releases (via Obtainium), all add-ons must also come from GitHub — not F-Droid. Mixing sources causes `INSTALL_FAILED_SHARED_USER_INCOMPATIBLE`.
 
 GitHub release pages:
+
 - Termux:Boot — `github.com/termux/termux-boot/releases`
 - Termux:API — `github.com/termux/termux-api/releases`
 
@@ -788,6 +813,7 @@ ssh -i ~/.ssh/termux_key -p 8022 localhost "echo SSH_OK"
 ```
 
 If port 5555 is not open after 60s:
+
 - Check Shizuku is running: `adb shell pgrep -f shizuku`
 - Check TCP mode is ON in Shizuku Settings
 - Manually trigger: `adb shell "run-as com.termux sh -c 'adb tcpip 5555'"`
@@ -803,17 +829,17 @@ optional Obtainium catalog: `catalogs/obtainium/app-stores-optional.json`.
 When re-enabled: second `fleet.yml` pass (`post-ui-app-stores` tag) pushes F-Droid
 repos; `post-ui.yml` / `android_ui` task `configure_aurora` finishes Aurora first-run UI.
 
-| Command | Scope | Mac tools |
-|---------|-------|-----------|
-| `just deploy [HOSTS=…]` | Full `site.yml` (includes preflight) | fdroidcl, apkeep when stores on |
-| `just deploy SCOPE=fdroid HOSTS=…` | F-Droid tags only | fdroidcl |
-| `just deploy SCOPE=play HOSTS=…` | Play + post-ui Aurora | apkeep |
+| Command                            | Scope                                | Mac tools                       |
+| ---------------------------------- | ------------------------------------ | ------------------------------- |
+| `just deploy [HOSTS=…]`            | Full `site.yml` (includes preflight) | fdroidcl, apkeep when stores on |
+| `just deploy SCOPE=fdroid HOSTS=…` | F-Droid tags only                    | fdroidcl                        |
+| `just deploy SCOPE=play HOSTS=…`   | Play + post-ui Aurora                | apkeep                          |
 
 **Default repos** (`ansible_collections/stayturgid/fdroid/roles/fdroid_repos/defaults/main.yml`):
 
-| Name | URL | SHA-256 fingerprint |
-|------|-----|---------------------|
-| IzzyOnDroid | `https://apt.izzysoft.de/fdroid/repo` | `3BF0D6ABFEAE2F401707B6D966BE743BF0EEE49C2561B9BA39073711F628937A` |
+| Name             | URL                                        | SHA-256 fingerprint                                                |
+| ---------------- | ------------------------------------------ | ------------------------------------------------------------------ |
+| IzzyOnDroid      | `https://apt.izzysoft.de/fdroid/repo`      | `3BF0D6ABFEAE2F401707B6D966BE743BF0EEE49C2561B9BA39073711F628937A` |
 | Guardian Project | `https://guardianproject.info/fdroid/repo` | `B7C2EEFD8DAC7806AF67DFCD92EB18126BC08312A7F2D6F3862E46013C7A6135` |
 
 **Install from Mac after fleet deploy:**
@@ -867,6 +893,7 @@ with evidence whenever an item is completed or blocked.
 ## Recent additions (2026-07-12)
 
 **FIRERPA/lamda failsafe daemon:** Optional gRPC backup control channel on port 65000.
+
 ```bash
 # Ensure lamda-client is installed (Python 3.12 venv)
 uv venv --python 3.12 /tmp/lamda-venv
@@ -881,15 +908,18 @@ adb -s 100.123.218.30:5555 shell \
 just firerpa-health
 just firerpa-heal --host s24
 ```
+
 See [docs/history/firerpa-install-map-2026-07-12.md](history/firerpa-install-map-2026-07-12.md) for full details.
 
 **SSH Certificate Authority:** No more host-key warnings.
+
 ```bash
 just ca-status    # check CA fingerprint + cert status
 # Host certs are auto-signed on every deploy-termux
 ```
 
 **OpenCode web:** Fleet-reachable web UI at http://<ts-ip>:4096
+
 ```bash
 just opencode-web-status
 ```

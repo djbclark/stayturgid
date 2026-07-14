@@ -6,13 +6,13 @@ Idempotent Android appops and runtime permission grants over adb.
 
 ## Parameters
 
-| Parameter | Description |
-|-----------|-------------|
-| `device` | ADB serial or `host:5555` |
-| `connect` | Run `adb connect` first (default `true`) |
-| `appops` | List of `{package, op, mode}` — mode defaults to `allow` |
-| `permissions` | List of `{package, permission}` for `pm grant` |
-| `skip_missing_packages` | Skip when package not installed (default `true`) |
+| Parameter               | Description                                              |
+| ----------------------- | -------------------------------------------------------- |
+| `device`                | ADB serial or `host:5555`                                |
+| `connect`               | Run `adb connect` first (default `true`)                 |
+| `appops`                | List of `{package, op, mode}` — mode defaults to `allow` |
+| `permissions`           | List of `{package, permission}` for `pm grant`           |
+| `skip_missing_packages` | Skip when package not installed (default `true`)         |
 
 ## Example
 

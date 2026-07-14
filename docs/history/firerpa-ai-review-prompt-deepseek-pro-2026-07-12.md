@@ -16,6 +16,7 @@
 **Repo:** https://github.com/djbclark/stayturgid (private; `master` branch)
 **Version:** 2.7
 **Fleet:** 3 unrooted Android devices:
+
 - **s24** (Samsung Galaxy S24 SM-S921U1, Android 16, arm64, 73 GB free) — primary lab device
 - **p7a** (Google Pixel 7a, Android 16, arm64, 12 GB free) — daily driver
 - **hd8** (Amazon Kindle Fire HD 8 KFRASWI, Fire OS 11 / API 30, armv7a, 20 GB free) — tablet
@@ -23,6 +24,7 @@
 All three run Shizuku (thedjchi fork, TCP mode, port 5555), Termux (GitHub-debug, sshd on :8022), AutoJs6 (v6.7.0 fleet-profile), Obtainium (app catalog), and Tailscale (always-on VPN).
 
 **Access architecture:**
+
 ```
 Mac Control Node ←─SSH :8022 (Tailscale)──→ Android Device
                  ←─ADB :5555 (Tailscale)──→ Android Device
@@ -30,6 +32,7 @@ Mac Control Node ←─SSH :8022 (Tailscale)──→ Android Device
 ```
 
 **Self-heal system (what runs on each device):**
+
 1. Termux:Boot `start-adb.sh` — starts sshd, then loops every 5 min:
    - Removes stale sshd `down` file (runit lockout fix)
    - Checks/repairs sshd, privileged shell :5555, Shizuku, a11y services
@@ -44,11 +47,13 @@ Mac Control Node ←─SSH :8022 (Tailscale)──→ Android Device
 3. Mac launchd agents: fleet-health (5 min), access-monitor (5 min), adb-reconnect (60 sec)
 
 **Key recent failures (2026-07-12):**
+
 - s24: sshd `down` file + Shizuku Samsung freezer + boot loop death → unreachable until USB ADB
 - p7a: Mac PATH leaked into ~/.profile replacing Termux PATH → `pkg` not found
 - Samsung wireless debug cosmetic flip-flop: repair sets `adb_wifi_enabled=1`, Samsung resets it every cycle
 
 **Key repair scripts:**
+
 - `~/stayturgid/device/termux/py/stayturgid_repair.py` (main self-heal, 570+ lines)
 - `~/stayturgid/device/termux/boot/start-adb.sh` (Termux:Boot entry, 130+ lines)
 - Deployed to devices via Ansible (`make deploy-termux HOSTS=<host>`)
@@ -85,18 +90,20 @@ The `firerpa/lamda` GitHub repo is a **Python client library + deployment toolin
 - `lamda-server-armeabi-v7a.tar.gz` (135 MB) — for hd8
 
 **Key finding from tarball extraction:** The server is NOT a compiled Go/Rust binary. It's an entire self-contained Python 3.9 runtime (8,395 files) with 14 native `.cpython-39.so` service extensions. Launches via:
+
 ```bash
 # server/bin/launch.sh:
 exec python3.9 -u -m lamda --launch --port=65000
 ```
 
 **What we actually need (only 2 of 4 binaries):**
-| Binary | Use | Reason |
-|--------|:---:|--------|
-| `lamda-server-arm64-v8a.tar.gz` | ✅ | Both s24 + p7a are arm64 — same tarball |
-| `lamda-client-py-10.0.tar.gz` | ✅ | Mac talks to devices via gRPC |
-| `firerpa.apk` | ❌ | Manual deploy is the stayturgid way — no Chinese APK trust issue |
-| `lamda-server-armeabi-v7a.tar.gz` | ❌ | Only for hd8 (Fire OS), skip for now |
+
+| Binary                            | Use | Reason                                                           |
+| --------------------------------- | :-: | ---------------------------------------------------------------- |
+| `lamda-server-arm64-v8a.tar.gz`   | ✅  | Both s24 + p7a are arm64 — same tarball                          |
+| `lamda-client-py-10.0.tar.gz`     | ✅  | Mac talks to devices via gRPC                                    |
+| `firerpa.apk`                     | ❌  | Manual deploy is the stayturgid way — no Chinese APK trust issue |
+| `lamda-server-armeabi-v7a.tar.gz` | ❌  | Only for hd8 (Fire OS), skip for now                             |
 
 **Fork:** [djbclark/lamda](https://github.com/djbclark/lamda) mirrors all 4 binaries in one GitHub-hosted [release](https://github.com/djbclark/lamda/releases/tag/v10.0-binaries).
 
@@ -107,6 +114,7 @@ exec python3.9 -u -m lamda --launch --port=65000
 **Key code paths from the repo (for reference):**
 
 1. **Device class** (`lamda/client.py:2341-2386`):
+
 ```python
 class Device(object):
     def __init__(self, host, port=65000, certificate=None, session=None):
@@ -136,6 +144,7 @@ class Device(object):
 ```
 
 2. **Service stub architecture** — 18 service stubs proxied through Device:
+
 ```python
 # Device proxies to stubs:
 d = Device("100.123.218.30:65000")
@@ -151,6 +160,7 @@ with d:
 ```
 
 3. **MCP extension pattern** (`extensions/firerpa.py:36-50`):
+
 ```python
 class FireRpaMcpExtension(BaseMcpExtension):
     route = "/firerpa/mcp/"
@@ -164,6 +174,7 @@ class FireRpaMcpExtension(BaseMcpExtension):
 ```
 
 4. **Properties config** (`properties.example:1-148` — INI format):
+
 ```ini
 [DEFAULT]
 port=65000
@@ -177,6 +188,7 @@ cron.enable=true
 ```
 
 5. **Server startup** (`tools/magisk/common/service.sh:1-13`):
+
 ```bash
 port=65000
 sleep 25   # wait for boot
@@ -184,28 +196,31 @@ $launch --port=${port} --certificate=${cert}
 ```
 
 6. **Non-root support** (`CHANGELOG.txt:8`):
+
 ```
 * Support for non-root execution mode (adb shell)
 ```
+
 Proto: `ServerInfoResponse.privileged` (bool) — false = shell, true = root
 
 ### How FIRERPA could complement stayturgid
 
 **Redundant failsafe layers:**
 
-| Layer | What | Current | With FIRERPA |
-|-------|------|---------|-------------|
-| 1 | Termux sshd :8022 | ✅ | ✅ |
-| 2 | Shizuku adbd :5555 | ✅ | ✅ |
-| 3 | AutoJs6 watchdog | ✅ | ✅ |
-| 4 | **FIRERPA sshd on :65000** | ❌ | ✅ NEW |
-| 5 | **FIRERPA adbd on :65000** | ❌ | ✅ NEW |
-| 6 | **FIRERPA UI automation taps Shizuku Start** | ❌ | ✅ NEW |
-| 7 | **Mac→FIRERPA health monitor** | ❌ | ✅ NEW |
+| Layer | What                                         | Current | With FIRERPA |
+| ----- | -------------------------------------------- | ------- | ------------ |
+| 1     | Termux sshd :8022                            | ✅      | ✅           |
+| 2     | Shizuku adbd :5555                           | ✅      | ✅           |
+| 3     | AutoJs6 watchdog                             | ✅      | ✅           |
+| 4     | **FIRERPA sshd on :65000**                   | ❌      | ✅ NEW       |
+| 5     | **FIRERPA adbd on :65000**                   | ❌      | ✅ NEW       |
+| 6     | **FIRERPA UI automation taps Shizuku Start** | ❌      | ✅ NEW       |
+| 7     | **Mac→FIRERPA health monitor**               | ❌      | ✅ NEW       |
 
 **Mutual repair pair:** Termux repairs FIRERPA (start/stop via shell), FIRERPA repairs Termux (remove down file, restart sshd via API). Each monitors the other.
 
 **Self-heal via FIRERPA (conceptual):**
+
 ```python
 # Runs on FIRERPA (not Termux). Repairs stayturgid when primary channels are down.
 def repair_sshd():
@@ -236,7 +251,7 @@ def repair_shizuku():
    - A) Shizuku APK install (one-click, auto-start on boot, but Chinese-hosted APK)
    - B) Manual server binary + Ansible deploy (GitHub-hosted binary, fully auditable, no auto-start)
    - C) stayturgid boot integration (start-adb.sh manages FIRERPA lifecycle)
-   Which do you recommend and why?
+     Which do you recommend and why?
 
 3. **Co-dependent recovery pair — sound architecture or fragile coupling?** If Termux monitors FIRERPA and FIRERPA monitors Termux, both restarting each other, what are the failure modes? Is there a risk of restart loops?
 
@@ -278,55 +293,56 @@ def repair_shizuku():
 
 ### Local filesystem paths (on the Mac)
 
-| File | Path |
-|------|------|
-| stayturgid repair script | `~/stayturgid/device/termux/py/stayturgid_repair.py` |
-| stayturgid boot script | `~/stayturgid/device/termux/boot/start-adb.sh` |
-| stayturgid handoff doc | `~/stayturgid/docs/handoff.md` |
-| FIRERPA analysis (original) | `~/stayturgid/docs/history/firerpa-lamda-analysis-2026-07-10.md` |
-| FIRERPA non-root research (original) | `~/stayturgid/docs/history/firerpa-nonroot-research-2026-07-10.md` |
-| FIRERPA integration plan | `~/stayturgid/docs/plans/firerpa-integration-plan.md` |
-| FIRERPA code audit (DEEPSEEK-PRO) | `~/stayturgid/docs/history/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md` |
-| FIRERPA redundancy (DEEPSEEK-PRO) | `~/stayturgid/docs/history/firerpa-nonroot-redundancy-deepseek-pro-2026-07-12.md` |
-| FIRERPA install map | `~/stayturgid/docs/history/firerpa-install-map-2026-07-12.md` |
-| FIRERPA client SDK | `~/src/firerpa-lamda/lamda/client.py` |
-| FIRERPA fork (local) | `~/src/firerpa-fork/` |
-| FIRERPA binaries (local) | `~/src/firerpa-binaries/` (all 4 downloaded) |
-| FIRERPA MCP extension | `~/src/firerpa-lamda/extensions/firerpa.py` |
-| FIRERPA properties config | `~/src/firerpa-lamda/properties.example` |
-| FIRERPA CHANGELOG | `~/src/firerpa-lamda/CHANGELOG.txt` |
-| FIRERPA Magisk service.sh | `~/src/firerpa-lamda/tools/magisk/common/service.sh` |
-| stayturgid SSH CA | `~/stayturgid/ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ca.yml` |
-| stayturgid fleet inventory | `~/stayturgid/ansible/inventory/hosts.yml` |
+| File                                 | Path                                                                                    |
+| ------------------------------------ | --------------------------------------------------------------------------------------- |
+| stayturgid repair script             | `~/stayturgid/device/termux/py/stayturgid_repair.py`                                    |
+| stayturgid boot script               | `~/stayturgid/device/termux/boot/start-adb.sh`                                          |
+| stayturgid handoff doc               | `~/stayturgid/docs/handoff.md`                                                          |
+| FIRERPA analysis (original)          | `~/stayturgid/docs/history/firerpa-lamda-analysis-2026-07-10.md`                        |
+| FIRERPA non-root research (original) | `~/stayturgid/docs/history/firerpa-nonroot-research-2026-07-10.md`                      |
+| FIRERPA integration plan             | `~/stayturgid/docs/plans/firerpa-integration-plan.md`                                   |
+| FIRERPA code audit (DEEPSEEK-PRO)    | `~/stayturgid/docs/history/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md`         |
+| FIRERPA redundancy (DEEPSEEK-PRO)    | `~/stayturgid/docs/history/firerpa-nonroot-redundancy-deepseek-pro-2026-07-12.md`       |
+| FIRERPA install map                  | `~/stayturgid/docs/history/firerpa-install-map-2026-07-12.md`                           |
+| FIRERPA client SDK                   | `~/src/firerpa-lamda/lamda/client.py`                                                   |
+| FIRERPA fork (local)                 | `~/src/firerpa-fork/`                                                                   |
+| FIRERPA binaries (local)             | `~/src/firerpa-binaries/` (all 4 downloaded)                                            |
+| FIRERPA MCP extension                | `~/src/firerpa-lamda/extensions/firerpa.py`                                             |
+| FIRERPA properties config            | `~/src/firerpa-lamda/properties.example`                                                |
+| FIRERPA CHANGELOG                    | `~/src/firerpa-lamda/CHANGELOG.txt`                                                     |
+| FIRERPA Magisk service.sh            | `~/src/firerpa-lamda/tools/magisk/common/service.sh`                                    |
+| stayturgid SSH CA                    | `~/stayturgid/ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ca.yml` |
+| stayturgid fleet inventory           | `~/stayturgid/ansible/inventory/hosts.yml`                                              |
 
 ### URLs
 
-| Resource | URL |
-|----------|-----|
-| FIRERPA GitHub (upstream) | https://github.com/firerpa/lamda |
-| FIRERPA fork (stayturgid) | https://github.com/djbclark/lamda |
-| FIRERPA fork release (all 4 binaries) | https://github.com/djbclark/lamda/releases/tag/v10.0-binaries |
-| FIRERPA APK (fork) | https://github.com/djbclark/lamda/releases/download/v10.0-binaries/firerpa.apk |
-| FIRERPA server arm64 (fork) | https://github.com/djbclark/lamda/releases/download/v10.0-binaries/lamda-server-arm64-v8a.tar.gz |
-| FIRERPA server armv7a (fork) | https://github.com/djbclark/lamda/releases/download/v10.0-binaries/lamda-server-armeabi-v7a.tar.gz |
-| FIRERPA client (fork) | https://github.com/djbclark/lamda/releases/download/v10.0-binaries/lamda-client-py-10.0.tar.gz |
-| FIRERPA v10.0 release | https://github.com/firerpa/lamda/releases/tag/v10.0 |
-| FIRERPA docs (EN) | https://device-farm.com/docs/en/quick-start |
-| FIRERPA full docs dump | https://device-farm.com/llms-full.txt |
-| FIRERPA APK | https://device-farm.com/assets/apk/firerpa.apk |
-| Shizuku docs | https://shizuku.rikka.app/guide/setup/ |
-| stayturgid GitHub | https://github.com/djbclark/stayturgid |
-| FIRERPA issue #138 (Android 16/Pixel 7a) | https://github.com/firerpa/lamda/issues/138 |
-| scrcpy (alternative remote desktop) | https://github.com/Genymobile/scrcpy |
-| AutoJs6 (stayturgid watchdog) | https://github.com/djbclark/AutoJs6 |
-| Shizuku (fork used by stayturgid) | https://github.com/djbclark/Shizuku |
-| Obtainium (app catalog) | https://github.com/djbclark/Obtainium |
-| Hermes Agent (control-node gateway) | https://github.com/anomalyco/hermes-agent |
-| OpenCode (AI coding agent) | https://github.com/anomalyco/opencode |
+| Resource                                 | URL                                                                                                |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| FIRERPA GitHub (upstream)                | https://github.com/firerpa/lamda                                                                   |
+| FIRERPA fork (stayturgid)                | https://github.com/djbclark/lamda                                                                  |
+| FIRERPA fork release (all 4 binaries)    | https://github.com/djbclark/lamda/releases/tag/v10.0-binaries                                      |
+| FIRERPA APK (fork)                       | https://github.com/djbclark/lamda/releases/download/v10.0-binaries/firerpa.apk                     |
+| FIRERPA server arm64 (fork)              | https://github.com/djbclark/lamda/releases/download/v10.0-binaries/lamda-server-arm64-v8a.tar.gz   |
+| FIRERPA server armv7a (fork)             | https://github.com/djbclark/lamda/releases/download/v10.0-binaries/lamda-server-armeabi-v7a.tar.gz |
+| FIRERPA client (fork)                    | https://github.com/djbclark/lamda/releases/download/v10.0-binaries/lamda-client-py-10.0.tar.gz     |
+| FIRERPA v10.0 release                    | https://github.com/firerpa/lamda/releases/tag/v10.0                                                |
+| FIRERPA docs (EN)                        | https://device-farm.com/docs/en/quick-start                                                        |
+| FIRERPA full docs dump                   | https://device-farm.com/llms-full.txt                                                              |
+| FIRERPA APK                              | https://device-farm.com/assets/apk/firerpa.apk                                                     |
+| Shizuku docs                             | https://shizuku.rikka.app/guide/setup/                                                             |
+| stayturgid GitHub                        | https://github.com/djbclark/stayturgid                                                             |
+| FIRERPA issue #138 (Android 16/Pixel 7a) | https://github.com/firerpa/lamda/issues/138                                                        |
+| scrcpy (alternative remote desktop)      | https://github.com/Genymobile/scrcpy                                                               |
+| AutoJs6 (stayturgid watchdog)            | https://github.com/djbclark/AutoJs6                                                                |
+| Shizuku (fork used by stayturgid)        | https://github.com/djbclark/Shizuku                                                                |
+| Obtainium (app catalog)                  | https://github.com/djbclark/Obtainium                                                              |
+| Hermes Agent (control-node gateway)      | https://github.com/anomalyco/hermes-agent                                                          |
+| OpenCode (AI coding agent)               | https://github.com/anomalyco/opencode                                                              |
 
 ### Key code snippets for context
 
 **stayturgid repair — sshd down file fix (2026-07-12):**
+
 ```python
 # ~/stayturgid/device/termux/py/stayturgid_repair.py
 SSHD_SERVICE_DIR = PREFIX + "/var/service/sshd"
@@ -344,6 +360,7 @@ def ensure_sshd_down_file():
 ```
 
 **stayturgid repair — Samsung wireless debug cosmetic skip:**
+
 ```python
 def ensure_wireless_debugging():
     _rc, raw = sh_adb("settings get global adb_wifi_enabled")
@@ -358,6 +375,7 @@ def ensure_wireless_debugging():
 ```
 
 **stayturgid repair — shell profile path fix:**
+
 ```python
 MAC_PATH_KEYWORDS = ("/Users/", "/opt/homebrew/", "/Library/Apple/",
                      "/System/Cryptexes/")
@@ -369,9 +387,10 @@ def ensure_shell_profile_path():
 ```
 
 **stayturgid Ansible inventory (hosts.yml):**
+
 ```yaml
 s24:
-  ansible_host: 100.123.218.30      # Tailscale IP
+  ansible_host: 100.123.218.30 # Tailscale IP
   device_usb_serial: RFCX219CHKA
   device_lan_ip: 192.168.68.54
   device_label: Galaxy S24
@@ -405,26 +424,26 @@ Two independent AI reviews were received. Both recommend proceeding with the spi
 
 ### Areas of Agreement
 
-| Point | Consensus |
-|-------|-----------|
-| **Proceed with spike** | Both recommend it — lowest risk, highest information |
-| **Deployment model** | Both prefer boot integration (Option C) over APK |
-| **Keep Shizuku ADB primary** | Both say disable FIRERPA ADB by default, enable only in emergency |
-| **Don't use agent for self-heal** | Both say natural-language agent is non-deterministic; use deterministic gRPC calls |
-| **hd8 skip for now** | Both say prove on s24 first; Fire OS is too uncertain |
-| **Measure idle drain in spike** | Both say battery/RAM impact on p7a is a critical unknown |
-| **Clean uninstall path** | Both agree the `firerpa_enabled: false` toggle is well-designed |
-| **FIRERPA + stayturgid = complement** | Both see FIRERPA as transport (UI hand), stayturgid as brain (repair logic) |
+| Point                                 | Consensus                                                                          |
+| ------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Proceed with spike**                | Both recommend it — lowest risk, highest information                               |
+| **Deployment model**                  | Both prefer boot integration (Option C) over APK                                   |
+| **Keep Shizuku ADB primary**          | Both say disable FIRERPA ADB by default, enable only in emergency                  |
+| **Don't use agent for self-heal**     | Both say natural-language agent is non-deterministic; use deterministic gRPC calls |
+| **hd8 skip for now**                  | Both say prove on s24 first; Fire OS is too uncertain                              |
+| **Measure idle drain in spike**       | Both say battery/RAM impact on p7a is a critical unknown                           |
+| **Clean uninstall path**              | Both agree the `firerpa_enabled: false` toggle is well-designed                    |
+| **FIRERPA + stayturgid = complement** | Both see FIRERPA as transport (UI hand), stayturgid as brain (repair logic)        |
 
 ### Areas of Divergence
 
-| Point | Reviewer 1 | Reviewer 2 (Claude) |
-|-------|------------|---------------------|
-| **Port multiplexing** | Net feature with manageable risks | Significant architectural risk — single point of failure for entire redundant layer |
-| **Co-dependent recovery** | Sound with backoff + health checks | Fragile — restart storms, OOM thrashing need shared state + unilateral authority |
-| **Prioritize WebRTC test** | Not mentioned specifically | Move up to right after spike — if it works, it justifies the rest |
-| **Network isolation** | Not mentioned specifically | Critical — bind to Tailscale only, drop WAN access for FIRERPA UID |
-| **Closed-source trust** | Monitor outbound + pin version | More aggressive — iptables/Tailscale ACLs to enforce network isolation |
+| Point                      | Reviewer 1                         | Reviewer 2 (Claude)                                                                 |
+| -------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------- |
+| **Port multiplexing**      | Net feature with manageable risks  | Significant architectural risk — single point of failure for entire redundant layer |
+| **Co-dependent recovery**  | Sound with backoff + health checks | Fragile — restart storms, OOM thrashing need shared state + unilateral authority    |
+| **Prioritize WebRTC test** | Not mentioned specifically         | Move up to right after spike — if it works, it justifies the rest                   |
+| **Network isolation**      | Not mentioned specifically         | Critical — bind to Tailscale only, drop WAN access for FIRERPA UID                  |
+| **Closed-source trust**    | Monitor outbound + pin version     | More aggressive — iptables/Tailscale ACLs to enforce network isolation              |
 
 ### Decision
 

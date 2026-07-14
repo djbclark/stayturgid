@@ -27,12 +27,12 @@ Most importantly, FIRERPA can serve as a **2nd/3rd line of redundant failsafe** 
 
 FIRERPA distributes 4 binaries. For stayturgid's fleet, we only need 2:
 
-| Binary | Use? | Reason |
-|--------|:----:|--------|
-| `lamda-server-arm64-v8a.tar.gz` (163 MB) | ✅ **Needed** | Both s24 and p7a are arm64 — same tarball for both phones |
-| `lamda-client-py-10.0.tar.gz` (63 KB) | ✅ **Needed** | Mac control node talks to device servers via gRPC |
-| `firerpa.apk` (8 MB) | ❌ Skip | We already have Shizuku. Manual tar + Ansible deploy is the stayturgid way — version-controlled, idempotent, no Chinese APK trust issue. The APK is pure Dalvik/Java (14.7 MB dex, no native libs) — its only job is downloading and extracting the server tarball. |
-| `lamda-server-armeabi-v7a.tar.gz` (135 MB) | ❌ Skip | Only needed for the hd8 Fire tablet. Fire OS 11 has no localhost:5555, blocks background broadcasts, and FIRERPA has no Fire-specific code. The peer-bootstrap architecture already handles hd8. If we ever want FIRERPA on hd8, add it later. |
+| Binary                                     |     Use?      | Reason                                                                                                                                                                                                                                                              |
+| ------------------------------------------ | :-----------: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lamda-server-arm64-v8a.tar.gz` (163 MB)   | ✅ **Needed** | Both s24 and p7a are arm64 — same tarball for both phones                                                                                                                                                                                                           |
+| `lamda-client-py-10.0.tar.gz` (63 KB)      | ✅ **Needed** | Mac control node talks to device servers via gRPC                                                                                                                                                                                                                   |
+| `firerpa.apk` (8 MB)                       |    ❌ Skip    | We already have Shizuku. Manual tar + Ansible deploy is the stayturgid way — version-controlled, idempotent, no Chinese APK trust issue. The APK is pure Dalvik/Java (14.7 MB dex, no native libs) — its only job is downloading and extracting the server tarball. |
+| `lamda-server-armeabi-v7a.tar.gz` (135 MB) |    ❌ Skip    | Only needed for the hd8 Fire tablet. Fire OS 11 has no localhost:5555, blocks background broadcasts, and FIRERPA has no Fire-specific code. The peer-bootstrap architecture already handles hd8. If we ever want FIRERPA on hd8, add it later.                      |
 
 **Effective install:** one server tarball for the two arm64 phones, one pip package for the Mac. 163 MB on each phone, 63 KB on the Mac.
 
@@ -65,12 +65,12 @@ This gives you SSH backup on :65000 and ADB backup on :65000. No APK, no Shizuku
 
 ### Primary channels (fleet-maintained)
 
-| Layer | Channel | Port | Initiated by | Failure modes |
-|-------|---------|------|-------------|---------------|
-| 1 | **Termux sshd** | 8022 | Termux:Boot `start-adb.sh` | `down` file lockout, sshd crash, Termux force-stop |
-| 2 | **Shizuku adbd** | 5555 | Shizuku TCP mode + `ensure_wireless_debugging()` | Shizuku crash, Samsung process freezer, wireless debug toggle off |
-| 3 | **AutoJs6 watchdog** | N/A | `start-autojs6-watchdog.sh` → main.js | a11y drift, AutoJs6 crash, Fire OS zombie instance |
-| 4 | **Termux repair loop** | N/A | `start-adb.sh` (5-min cycle) | Boot loop death, `run-as` PATH poisoning |
+| Layer | Channel                | Port | Initiated by                                     | Failure modes                                                     |
+| ----- | ---------------------- | ---- | ------------------------------------------------ | ----------------------------------------------------------------- |
+| 1     | **Termux sshd**        | 8022 | Termux:Boot `start-adb.sh`                       | `down` file lockout, sshd crash, Termux force-stop                |
+| 2     | **Shizuku adbd**       | 5555 | Shizuku TCP mode + `ensure_wireless_debugging()` | Shizuku crash, Samsung process freezer, wireless debug toggle off |
+| 3     | **AutoJs6 watchdog**   | N/A  | `start-autojs6-watchdog.sh` → main.js            | a11y drift, AutoJs6 crash, Fire OS zombie instance                |
+| 4     | **Termux repair loop** | N/A  | `start-adb.sh` (5-min cycle)                     | Boot loop death, `run-as` PATH poisoning                          |
 
 ### What these channels repair
 
@@ -89,6 +89,7 @@ This gives you SSH backup on :65000 and ADB backup on :65000. No APK, no Shizuku
 ### The problem: all channels share one dependency
 
 Every channel ultimately depends on **at least one** of sshd:8022 or adbd:5555 being alive. If both die simultaneously (Shizuku crash + sshd `down` file), the device is **unreachable** until:
+
 1. The user physically interacts (open Shizuku app, tap "Start")
 2. The device reboots (Shizuku auto-starts)
 3. USB ADB is plugged in
@@ -221,20 +222,20 @@ FIRERPA's built-in MCP server and `agent` command allow AI-driven device control
 
 ### Failure matrix: what survives what
 
-| Failure | stayturgid repair | AutoJs6 | FIRERPA repair | Mac→FIRERPA |
-|---------|:---:|:---:|:---:|:---:|
-| sshd down file | ✅ NEW | ❌ | ✅ | ✅ |
-| sshd crash | ✅ | ❌ | ✅ | ✅ |
-| Boot loop dead | ❌ | ✅ | ✅ | ✅ |
-| Shizuku crash | ✅ | ✅ | ✅ | ✅ |
-| Samsung freezer | ✅ NEW | ❌ | ✅ | ✅ |
-| Wireless debug off | ✅ | ❌ | ✅ | ✅ |
-| a11y drift | ✅ | ❌ | ✅ | ✅ |
-| AutoJs6 dead | ✅ | N/A | ✅ | ✅ |
-| Termux force-stop | ❌ | ✅ | ✅ | ✅ |
-| FIRERPA crash | N/A | N/A | ❌ | ❌ |
-| Tailscale down | ❌ | ❌ | ❌ | ❌ |
-| Battery dead | ❌ | ❌ | ❌ | ❌ |
+| Failure            | stayturgid repair | AutoJs6 | FIRERPA repair | Mac→FIRERPA |
+| ------------------ | :---------------: | :-----: | :------------: | :---------: |
+| sshd down file     |      ✅ NEW       |   ❌    |       ✅       |     ✅      |
+| sshd crash         |        ✅         |   ❌    |       ✅       |     ✅      |
+| Boot loop dead     |        ❌         |   ✅    |       ✅       |     ✅      |
+| Shizuku crash      |        ✅         |   ✅    |       ✅       |     ✅      |
+| Samsung freezer    |      ✅ NEW       |   ❌    |       ✅       |     ✅      |
+| Wireless debug off |        ✅         |   ❌    |       ✅       |     ✅      |
+| a11y drift         |        ✅         |   ❌    |       ✅       |     ✅      |
+| AutoJs6 dead       |        ✅         |   N/A   |       ✅       |     ✅      |
+| Termux force-stop  |        ❌         |   ✅    |       ✅       |     ✅      |
+| FIRERPA crash      |        N/A        |   N/A   |       ❌       |     ❌      |
+| Tailscale down     |        ❌         |   ❌    |       ❌       |     ❌      |
+| Battery dead       |        ❌         |   ❌    |       ❌       |     ❌      |
 
 **Result:** With FIRERPA as layer 3/4, every single-device failure mode has at least one recovery path that doesn't require physical access. The only failures that still need human intervention are FIRERPA crash + stayturgid crash simultaneously, Tailscale outage, or power loss.
 
@@ -280,12 +281,12 @@ FIRERPA's built-in MCP server and `agent` command allow AI-driven device control
 
 This creates a **co-dependent recovery pair** — each monitors and repairs the other. External AI review flagged specific failure modes and mitigations:
 
-| Risk | Mitigation |
-|------|------------|
-| **Restart storm:** Both sides see the other as "down" simultaneously, triggering mutual restarts in a loop | Health checks must be functional (real gRPC call, actual sshd process check), not just port-based. Exponential backoff + max retries. |
-| **OOM thrashing:** System-level OOM killer takes both down; FIRERPA repeatedly trying to restart Termux could thrash CPU and drain battery | Shared state file in `~/.stayturgid/run/` to coordinate. Only one side has authority to restart at a time. |
-| **One side's repair kills the other:** e.g., Termux restart via `pkill` could accidentally kill FIRERPA's Python process | Use PID files and precise process management. Never `pkill -f` with overly broad patterns. |
-| **Port 65000 multiplexing single point of failure:** A crash in one sub-service (WebRTC, Frida) takes down the entire redundant layer | Run only minimal services (sshd + adb + gRPC) in the failsafe config. Disable WebUI, Frida, cron, proxy in `properties.local`. |
+| Risk                                                                                                                                       | Mitigation                                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| **Restart storm:** Both sides see the other as "down" simultaneously, triggering mutual restarts in a loop                                 | Health checks must be functional (real gRPC call, actual sshd process check), not just port-based. Exponential backoff + max retries. |
+| **OOM thrashing:** System-level OOM killer takes both down; FIRERPA repeatedly trying to restart Termux could thrash CPU and drain battery | Shared state file in `~/.stayturgid/run/` to coordinate. Only one side has authority to restart at a time.                            |
+| **One side's repair kills the other:** e.g., Termux restart via `pkill` could accidentally kill FIRERPA's Python process                   | Use PID files and precise process management. Never `pkill -f` with overly broad patterns.                                            |
+| **Port 65000 multiplexing single point of failure:** A crash in one sub-service (WebRTC, Frida) takes down the entire redundant layer      | Run only minimal services (sshd + adb + gRPC) in the failsafe config. Disable WebUI, Frida, cron, proxy in `properties.local`.        |
 
 **Architecture principle:** FIRERPA should be the **transport** (the hand that clicks the UI, the shell that removes the `down` file), not the **brain** (the logic that decides what needs fixing). It should call stayturgid's existing `stayturgid_repair.py` (570+ lines of fleet-specific fixes: Samsung cosmetic skip, Mac PATH leak, mirror pinning) rather than re-implementing repair decisions. The natural-language `agent` command is too non-deterministic for production self-heal — use deterministic gRPC/selector API calls for repair automation.
 
@@ -396,6 +397,7 @@ def main():
 ```
 
 **Trigger mechanisms:**
+
 1. **FIRERPA cron** (`[cron] cron.enable=true` in properties) — periodic Python scripts
 2. **Mac launchd agent** — SSH into FIRERPA → run heal script
 3. **stayturgid boot loop** — call FIRERPA's API to trigger heal if FIRERPA is down
@@ -449,14 +451,14 @@ curl -X POST http://100.123.218.30:65000/stayturgid/heal/ \
 
 ## 7. Deployment Order — From 0 to 4 Layers
 
-| Phase | What | Effort | Adds |
-|-------|------|--------|------|
-| **0 (current)** | stayturgid repair + AutoJs6 | Already done | Layers 1-2 |
-| **1 — FIRERPA spike** | Install FIRERPA on s24 (Shizuku mode) | 1 day | Verify FIRERPA coexists |
-| **2 — FIRERPA Ansible** | `ansible/roles/firerpa/` — install, config, start | 1 day | Deployable to fleet |
-| **3 — FIRERPA self-heal** | `stayturgid_firerpa_heal.py` + MCP extension | 1 day | Layer 3 (on-device) |
-| **4 — Mac monitor** | `com.stayturgid.firerpa-health` launchd agent | 0.5 day | Layer 4 (fleet-level) |
-| **5 — Boot integration** | `start-adb.sh` manages FIRERPA lifecycle | 0.5 day | Mutual repair pair |
+| Phase                     | What                                              | Effort       | Adds                    |
+| ------------------------- | ------------------------------------------------- | ------------ | ----------------------- |
+| **0 (current)**           | stayturgid repair + AutoJs6                       | Already done | Layers 1-2              |
+| **1 — FIRERPA spike**     | Install FIRERPA on s24 (Shizuku mode)             | 1 day        | Verify FIRERPA coexists |
+| **2 — FIRERPA Ansible**   | `ansible/roles/firerpa/` — install, config, start | 1 day        | Deployable to fleet     |
+| **3 — FIRERPA self-heal** | `stayturgid_firerpa_heal.py` + MCP extension      | 1 day        | Layer 3 (on-device)     |
+| **4 — Mac monitor**       | `com.stayturgid.firerpa-health` launchd agent     | 0.5 day      | Layer 4 (fleet-level)   |
+| **5 — Boot integration**  | `start-adb.sh` manages FIRERPA lifecycle          | 0.5 day      | Mutual repair pair      |
 
 **Total: ~4 days to full 4-layer redundant architecture.**
 
@@ -464,24 +466,24 @@ curl -X POST http://100.123.218.30:65000/stayturgid/heal/ \
 
 ## 8. Prior Art and References
 
-| Resource | URL | Relevance |
-|----------|-----|-----------|
-| FIRERPA v10.0 release | https://github.com/firerpa/lamda/releases/tag/v10.0 | v10.0 added non-root mode (shell identity) |
-| FIRERPA docs (EN) | https://device-farm.com/docs/en/quick-start | Deployment instructions |
-| FIRERPA docs (ZH) | https://device-farm.com/docs/zh/quick-start | Shizuku-mode deployment |
-| FIRERPA full docs dump | https://device-farm.com/llms-full.txt | AI-readable full documentation |
-| FIRERPA APK | https://device-farm.com/assets/apk/firerpa.apk | 8.4 MB, Shizuku-compatible |
-| Shizuku APK (FIRERPA-hosted) | https://device-farm.com/assets/apk/shizuku-v13.6.0.r1086.2650830c-release.apk | Recommended Shizuku version |
-| Shizuku docs | https://shizuku.rikka.app/guide/setup/ | Official Shizuku setup guide |
-| FIRERPA MCP extension (code) | ~/src/firerpa-lamda/extensions/firerpa.py | 20+ MCP tools |
-| FIRERPA MCP extension (web) | https://github.com/firerpa/lamda/blob/10/extensions/firerpa.py | Same, via GitHub |
-| stayturgid repair script | ~/stayturgid/device/termux/py/stayturgid_repair.py | Current self-heal |
-| stayturgid repair (web) | https://github.com/djbclark/stayturgid/blob/master/device/termux/py/stayturgid_repair.py | Same, via GitHub |
-| stayturgid boot script | ~/stayturgid/device/termux/boot/start-adb.sh | Termux:Boot entry |
-| stayturgid handoff doc | ~/stayturgid/docs/handoff.md | Fleet architecture reference |
-| stayturgid CA doc | ~/stayturgid/ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ca.yml | SSH CA integration |
-| Frida issue #138 (Android 16) | https://github.com/firerpa/lamda/issues/138 | p7a confirmed tested on FIRERPA |
-| stayturgid options (FIRERPA) | ~/stayturgid/docs/options.md#L141-L152 | Parked integration work |
+| Resource                      | URL                                                                                      | Relevance                                  |
+| ----------------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------ |
+| FIRERPA v10.0 release         | https://github.com/firerpa/lamda/releases/tag/v10.0                                      | v10.0 added non-root mode (shell identity) |
+| FIRERPA docs (EN)             | https://device-farm.com/docs/en/quick-start                                              | Deployment instructions                    |
+| FIRERPA docs (ZH)             | https://device-farm.com/docs/zh/quick-start                                              | Shizuku-mode deployment                    |
+| FIRERPA full docs dump        | https://device-farm.com/llms-full.txt                                                    | AI-readable full documentation             |
+| FIRERPA APK                   | https://device-farm.com/assets/apk/firerpa.apk                                           | 8.4 MB, Shizuku-compatible                 |
+| Shizuku APK (FIRERPA-hosted)  | https://device-farm.com/assets/apk/shizuku-v13.6.0.r1086.2650830c-release.apk            | Recommended Shizuku version                |
+| Shizuku docs                  | https://shizuku.rikka.app/guide/setup/                                                   | Official Shizuku setup guide               |
+| FIRERPA MCP extension (code)  | ~/src/firerpa-lamda/extensions/firerpa.py                                                | 20+ MCP tools                              |
+| FIRERPA MCP extension (web)   | https://github.com/firerpa/lamda/blob/10/extensions/firerpa.py                           | Same, via GitHub                           |
+| stayturgid repair script      | ~/stayturgid/device/termux/py/stayturgid_repair.py                                       | Current self-heal                          |
+| stayturgid repair (web)       | https://github.com/djbclark/stayturgid/blob/master/device/termux/py/stayturgid_repair.py | Same, via GitHub                           |
+| stayturgid boot script        | ~/stayturgid/device/termux/boot/start-adb.sh                                             | Termux:Boot entry                          |
+| stayturgid handoff doc        | ~/stayturgid/docs/handoff.md                                                             | Fleet architecture reference               |
+| stayturgid CA doc             | ~/stayturgid/ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ca.yml    | SSH CA integration                         |
+| Frida issue #138 (Android 16) | https://github.com/firerpa/lamda/issues/138                                              | p7a confirmed tested on FIRERPA            |
+| stayturgid options (FIRERPA)  | ~/stayturgid/docs/options.md#L141-L152                                                   | Parked integration work                    |
 
 ---
 

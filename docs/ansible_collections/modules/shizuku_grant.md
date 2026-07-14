@@ -7,13 +7,13 @@ privileged adb shell.
 
 ## Parameters
 
-| Parameter | Description |
-|-----------|-------------|
-| `device` | ADB serial or `host:5555` with privileged shell |
-| `package` | App package to authorize |
-| `connect` | Run `adb connect` first (default `true`) |
+| Parameter      | Description                                                                |
+| -------------- | -------------------------------------------------------------------------- |
+| `device`       | ADB serial or `host:5555` with privileged shell                            |
+| `package`      | App package to authorize                                                   |
+| `connect`      | Run `adb connect` first (default `true`)                                   |
 | `shizuku_json` | Path to Shizuku auth file (default `/data/local/tmp/shizuku/shizuku.json`) |
-| `staging_path` | Staging path for adb push |
+| `staging_path` | Staging path for adb push                                                  |
 
 ## Example
 

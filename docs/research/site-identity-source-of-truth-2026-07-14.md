@@ -20,12 +20,12 @@ finish enforcing that architecture.
 
 The target model has four distinct kinds of data:
 
-| Kind | Examples | Authority |
-|---|---|---|
-| Declared site identity | Stable device ID, aliases, USB serial, Tailscale address/name, control-node identity, ports, labels, taxonomy | Site Ansible inventory |
-| Generic product policy | Default ports, package IDs, intervals, platform behavior | Role defaults and generic group vars |
-| Observed runtime state | Current DHCP address, mDNS endpoint, online status, app version, last health result | Generated state/cache; never inventory authority |
-| Secrets | Tokens, passwords, private-key material, sensitive account IDs | `secretspec.toml` defines requirements; configured SecretSpec provider stores values |
+| Kind                   | Examples                                                                                                      | Authority                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Declared site identity | Stable device ID, aliases, USB serial, Tailscale address/name, control-node identity, ports, labels, taxonomy | Site Ansible inventory                                                               |
+| Generic product policy | Default ports, package IDs, intervals, platform behavior                                                      | Role defaults and generic group vars                                                 |
+| Observed runtime state | Current DHCP address, mDNS endpoint, online status, app version, last health result                           | Generated state/cache; never inventory authority                                     |
+| Secrets                | Tokens, passwords, private-key material, sensitive account IDs                                                | `secretspec.toml` defines requirements; configured SecretSpec provider stores values |
 
 Generated files such as `~/.config/stayturgid/devices.conf`, the SSH fragment, CFEngine
 run-agent targets, AutoJs6 profiles, and dashboard inputs are **projections**, not
@@ -105,22 +105,22 @@ A repository-wide, case-insensitive scan including hidden files and excluding on
 `.git/` found the logical aliases in **177 files and 1,140 matching lines**:
 
 | Alias | Occurrences |
-|---|---:|
-| `s24` | 710 |
-| `p7a` | 358 |
-| `hd8` | 454 |
+| ----- | ----------: |
+| `s24` |         710 |
+| `p7a` |         358 |
+| `hd8` |         454 |
 
 Files containing at least one alias were provisionally classified as:
 
-| Area | Files |
-|---|---:|
-| Active code/config (broad first-pass category) | 84 |
-| Current docs/research/incubator | 39 |
-| Tests, including collection tests | 33 |
-| History | 12 |
-| Plans | 3 |
-| Inventory authority | 3 |
-| Examples | 3 |
+| Area                                           | Files |
+| ---------------------------------------------- | ----: |
+| Active code/config (broad first-pass category) |    84 |
+| Current docs/research/incubator                |    39 |
+| Tests, including collection tests              |    33 |
+| History                                        |    12 |
+| Plans                                          |     3 |
+| Inventory authority                            |     3 |
+| Examples                                       |     3 |
 
 Reproduce the seed scan with:
 
@@ -263,15 +263,15 @@ site inventory
 
 Generated outputs should include:
 
-| Projection | Consumer | Migration action |
-|---|---|---|
-| `devices.conf` | Python monitors, dashboard, tests | Continue generating; define/version its schema |
-| SSH config fragment | OpenSSH/operator | Continue generating from inventory |
-| CFEngine `cf-runagent.cf` | Mac repair channel | Replace hardcoded address list with a template |
-| LaunchAgent arguments | Mac services | Render only from inventory-derived paths/aliases |
-| AutoJs6 device profile | Device watchdog | Render per host from `hostvars`; no embedded site fallback |
-| FIRERPA endpoint configuration | Backup health/heal tools | Generate from inventory, including port defaults |
-| Dashboard device list | Web UI | Read generated projection or shared identity library |
+| Projection                     | Consumer                          | Migration action                                           |
+| ------------------------------ | --------------------------------- | ---------------------------------------------------------- |
+| `devices.conf`                 | Python monitors, dashboard, tests | Continue generating; define/version its schema             |
+| SSH config fragment            | OpenSSH/operator                  | Continue generating from inventory                         |
+| CFEngine `cf-runagent.cf`      | Mac repair channel                | Replace hardcoded address list with a template             |
+| LaunchAgent arguments          | Mac services                      | Render only from inventory-derived paths/aliases           |
+| AutoJs6 device profile         | Device watchdog                   | Render per host from `hostvars`; no embedded site fallback |
+| FIRERPA endpoint configuration | Backup health/heal tools          | Generate from inventory, including port defaults           |
+| Dashboard device list          | Web UI                            | Read generated projection or shared identity library       |
 
 Prefer Ansible/Jinja templates when Ansible already owns installation of the output.
 Use the Python identity library for validations and formats that are awkward in Jinja.

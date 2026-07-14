@@ -18,13 +18,13 @@ shared lease:
 ~/.local/state/device-screen-control/leases/<device_key>.json
 ```
 
-| Env | Purpose |
-|-----|---------|
-| `DEVICE_SCREEN_CONTROL_DIR` | Override root (default `~/.local/state/device-screen-control`) |
-| `DEVICE_SCREEN_CONTROL_PROJECT` | Project id (stayturgid sets `stayturgid`) |
-| `DEVICE_SCREEN_CONTROL_AGENT` | Agent name (fallback `STAYTURGID_AGENT`) |
-| `DEVICE_SCREEN_CONTROL_FORCE=1` | Steal lease (emergency only) |
-| `DEVICE_SCREEN_CONTROL_WAIT_SEC` | Wait for foreign lease to expire before failing |
+| Env                              | Purpose                                                        |
+| -------------------------------- | -------------------------------------------------------------- |
+| `DEVICE_SCREEN_CONTROL_DIR`      | Override root (default `~/.local/state/device-screen-control`) |
+| `DEVICE_SCREEN_CONTROL_PROJECT`  | Project id (stayturgid sets `stayturgid`)                      |
+| `DEVICE_SCREEN_CONTROL_AGENT`    | Agent name (fallback `STAYTURGID_AGENT`)                       |
+| `DEVICE_SCREEN_CONTROL_FORCE=1`  | Steal lease (emergency only)                                   |
+| `DEVICE_SCREEN_CONTROL_WAIT_SEC` | Wait for foreign lease to expire before failing                |
 
 XDG: if `XDG_STATE_HOME` is set, root is `$XDG_STATE_HOME/device-screen-control`.
 
@@ -58,18 +58,18 @@ XDG: if `XDG_STATE_HOME` is set, root is `$XDG_STATE_HOME/device-screen-control`
 4. On end: **release** (delete only if you own the lease).
 5. Heartbeat at least every ~60s while active; hard stop is `expires_at`.
 6. **Renew** only when free, same `session_id`, same process `pid`, or
-   `DEVICE_SCREEN_CONTROL_FORCE=1`. Same project with a *different* session must
+   `DEVICE_SCREEN_CONTROL_FORCE=1`. Same project with a _different_ session must
    wait or force (no silent peer takeover). Acquire/heartbeat/release use an
    exclusive flock; multi-key leases refresh every `device_ids` alias on heartbeat.
 
 ## stayturgid integration
 
-| Piece | Role |
-|-------|------|
-| `control/lib/device_screen_lease.py` | DSCL library |
-| `control/bin/screen_lease.py` | CLI status/check/acquire/release |
-| `control/lib/screen_control.py` | `ScreenControlSession` acquires Mac lease before consent |
-| On-device mirror | `/sdcard/stayturgid/state/screen_control_lease.json` (presence) |
+| Piece                                | Role                                                            |
+| ------------------------------------ | --------------------------------------------------------------- |
+| `control/lib/device_screen_lease.py` | DSCL library                                                    |
+| `control/bin/screen_lease.py`        | CLI status/check/acquire/release                                |
+| `control/lib/screen_control.py`      | `ScreenControlSession` acquires Mac lease before consent        |
+| On-device mirror                     | `/sdcard/stayturgid/state/screen_control_lease.json` (presence) |
 
 ```bash
 python3 control/bin/screen_lease.py status
@@ -91,13 +91,13 @@ prefer **s24** / skip p7a UI until free.
 
 Sibling project on the same Mac — implements DSCL v1 without forking the library:
 
-| Setting | Value |
-|---------|-------|
-| `DEVICE_SCREEN_CONTROL_PROJECT` | `RevengeQuickSwitcher` |
-| `STAYTURGID_SCREEN_PURPOSE` | `qss-qa` |
-| Lease preflight | `scripts/device_qa_qss.py` → `preflight_screen_lease()` |
-| Session acquire | `ScreenControlSession` from `control/lib/screen_control.py` |
-| Operator check | `make lease-status` in RevengeQuickSwitcher repo |
+| Setting                         | Value                                                       |
+| ------------------------------- | ----------------------------------------------------------- |
+| `DEVICE_SCREEN_CONTROL_PROJECT` | `RevengeQuickSwitcher`                                      |
+| `STAYTURGID_SCREEN_PURPOSE`     | `qss-qa`                                                    |
+| Lease preflight                 | `scripts/device_qa_qss.py` → `preflight_screen_lease()`     |
+| Session acquire                 | `ScreenControlSession` from `control/lib/screen_control.py` |
+| Operator check                  | `make lease-status` in RevengeQuickSwitcher repo            |
 
 QSS imports `device_screen_lease` from `stayturgid/control/lib` via `STAYTURGID_REPO`.
 Foreign holds surface as `screen_lease_foreign_hold` in QA `report.json`.
@@ -176,13 +176,13 @@ normalized serial. Filename = lowercase alias/serial with non-alnum → `_`.
 
 **Env vars your project should honor:**
 
-| Var | Meaning |
-|-----|---------|
-| `DEVICE_SCREEN_CONTROL_DIR` | Override store root |
-| `DEVICE_SCREEN_CONTROL_PROJECT` | Your project slug (required uniqueness) |
-| `DEVICE_SCREEN_CONTROL_AGENT` | Agent display name |
-| `DEVICE_SCREEN_CONTROL_FORCE` | Steal lease (dangerous; operator-only) |
-| `DEVICE_SCREEN_CONTROL_WAIT_SEC` | Seconds to wait for foreign lease |
+| Var                              | Meaning                                 |
+| -------------------------------- | --------------------------------------- |
+| `DEVICE_SCREEN_CONTROL_DIR`      | Override store root                     |
+| `DEVICE_SCREEN_CONTROL_PROJECT`  | Your project slug (required uniqueness) |
+| `DEVICE_SCREEN_CONTROL_AGENT`    | Agent display name                      |
+| `DEVICE_SCREEN_CONTROL_FORCE`    | Steal lease (dangerous; operator-only)  |
+| `DEVICE_SCREEN_CONTROL_WAIT_SEC` | Seconds to wait for foreign lease       |
 
 **Do not** use stayturgid-only paths as the sole signal. Mac DSCL is the interop
 surface. Optional: also read/write
@@ -225,8 +225,8 @@ both write the same directory and refuse foreign active leases.
 
 ## Related
 
-- [docs/modules/control.md](control.md) — Mac tools  
-- [control/lib/screen_control.py](../../control/lib/screen_control.py) — session wrapper  
+- [docs/modules/control.md](control.md) — Mac tools
+- [control/lib/screen_control.py](../../control/lib/screen_control.py) — session wrapper
 - Handoff phone protocol: USING / FREE announcements
 
 ## Consent / presence vs lease (related)
@@ -246,4 +246,3 @@ rotation preference (`user_rotation=0`, accelerometer rotation off) so multi-ste
 automation does not flip landscape mid-batch. Restored when the session ends. See
 `control/lib/screen_control.py` (`apply_portrait_lock`) and the on-device twin in
 `device/termux/py/stayturgid_screen_control.py`.
-

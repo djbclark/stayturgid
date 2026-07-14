@@ -19,13 +19,13 @@ Mac hs (Mach-O / Linux host binary)
 
 ## What Termux can do (proven)
 
-| Step | Result |
-|------|--------|
-| TCP to `127.0.0.1:9013` from Termux Python | **OK** (same loopback as shell daemon) |
+| Step                                                         | Result                                              |
+| ------------------------------------------------------------ | --------------------------------------------------- |
+| TCP to `127.0.0.1:9013` from Termux Python                   | **OK** (same loopback as shell daemon)              |
 | Start daemon via `adb -s localhost:5555 shell app_process …` | **OK** (`hsd ready`, `listening on 127.0.0.1:9013`) |
-| Wire `ping` → `pong` | **OK** (~180 ms cold) |
-| Wire `dump_active` → JSON hierarchy | **OK** (~24 KB, **~267 ms**) |
-| Wire `info` → `1080 2340` | **OK** |
+| Wire `ping` → `pong`                                         | **OK** (~180 ms cold)                               |
+| Wire `dump_active` → JSON hierarchy                          | **OK** (~24 KB, **~267 ms**)                        |
+| Wire `info` → `1080 2340`                                    | **OK**                                              |
 
 Wire framing (from upstream README + MITM of Mac `hs`):
 
@@ -39,12 +39,12 @@ Wire framing (from upstream README + MITM of Mac `hs`):
 
 ## What Termux cannot do (without new work)
 
-| Approach | Blocker |
-|----------|---------|
-| Run Mac `~/.handsets/hs` on device | Wrong OS/arch (host Mach-O / Linux amd64/arm64, not Android) |
-| `pip install handsets` as-is | Pure-Python wheel that **shells out to `hs`** — no Android `hs` binary |
-| Stock `hs use` from Termux | Needs host adb + `hs` binary; rejects crowded `ip:5555` lists anyway |
-| hd8 on-device Handsets | No Termux→`localhost:5555`; cannot start `app_process` as shell from Termux |
+| Approach                           | Blocker                                                                     |
+| ---------------------------------- | --------------------------------------------------------------------------- |
+| Run Mac `~/.handsets/hs` on device | Wrong OS/arch (host Mach-O / Linux amd64/arm64, not Android)                |
+| `pip install handsets` as-is       | Pure-Python wheel that **shells out to `hs`** — no Android `hs` binary      |
+| Stock `hs use` from Termux         | Needs host adb + `hs` binary; rejects crowded `ip:5555` lists anyway        |
+| hd8 on-device Handsets             | No Termux→`localhost:5555`; cannot start `app_process` as shell from Termux |
 
 ## Options
 
@@ -87,15 +87,15 @@ Route all post-UI through Mac `ui_driver.py` even when SSH is up.
 
 Spike **A** shipped and switched on:
 
-| Item | Status |
-|------|--------|
-| `device/termux/py/stayturgid_handsets.py` | Wire client + Session |
-| Ansible deploy `hs.jar` → `~/.stayturgid/lib/hs.jar` | `termux_userland` |
-| Bench s24 (n=8) | `dump_active` p50 **243 ms** vs raw dump p50 **2979 ms** (~**12×**) |
-| `stayturgid_enable_autojs6.py` | Handsets-primary; probe `operational=true` |
-| `stayturgid_configure_aurora.py` | Handsets-primary; dump fallback |
-| `stayturgid_import_catalog.py` | Handsets-primary; dump fallback |
-| Disable | `STAYTURGID_HANDSETS=0` or `STAYTURGID_NO_LOCAL_ADB=1` (hd8) |
+| Item                                                 | Status                                                              |
+| ---------------------------------------------------- | ------------------------------------------------------------------- |
+| `device/termux/py/stayturgid_handsets.py`            | Wire client + Session                                               |
+| Ansible deploy `hs.jar` → `~/.stayturgid/lib/hs.jar` | `termux_userland`                                                   |
+| Bench s24 (n=8)                                      | `dump_active` p50 **243 ms** vs raw dump p50 **2979 ms** (~**12×**) |
+| `stayturgid_enable_autojs6.py`                       | Handsets-primary; probe `operational=true`                          |
+| `stayturgid_configure_aurora.py`                     | Handsets-primary; dump fallback                                     |
+| `stayturgid_import_catalog.py`                       | Handsets-primary; dump fallback                                     |
+| Disable                                              | `STAYTURGID_HANDSETS=0` or `STAYTURGID_NO_LOCAL_ADB=1` (hd8)        |
 
 **Do not** treat PyPI `handsets` as an on-device solution — it is a host CLI wrapper.
 

@@ -15,19 +15,19 @@ CHECK=1 ansible-playbook ansible/playbooks/site.yml --tags validate  # skips ass
 
 ## What it checks
 
-| Step | Source |
-|------|--------|
-| Repair layer healthy | `stayturgid_repair_check` (`port=open` or `skip`) |
-| Shizuku / sshd / a11y not `FAILED` | Parsed STATUS fields |
-| A11y profile drift (optional) | `android_a11y_services` check_mode merge probe |
-| SSH echo | `echo termux_ssh_ok` |
+| Step                               | Source                                            |
+| ---------------------------------- | ------------------------------------------------- |
+| Repair layer healthy               | `stayturgid_repair_check` (`port=open` or `skip`) |
+| Shizuku / sshd / a11y not `FAILED` | Parsed STATUS fields                              |
+| A11y profile drift (optional)      | `android_a11y_services` check_mode merge probe    |
+| SSH echo                           | `echo termux_ssh_ok`                              |
 
 ## Variables (role defaults)
 
-| Var | Default | Meaning |
-|-----|---------|---------|
-| `stayturgid_validate_a11y_profile` | `true` | Fail when merge target differs from live list |
-| `stayturgid_validate_a11y_merge` | `false` | When `true`, merge-restore on drift instead of failing |
+| Var                                | Default | Meaning                                                |
+| ---------------------------------- | ------- | ------------------------------------------------------ |
+| `stayturgid_validate_a11y_profile` | `true`  | Fail when merge target differs from live list          |
+| `stayturgid_validate_a11y_merge`   | `false` | When `true`, merge-restore on drift instead of failing |
 
 Example — heal a11y drift during deploy:
 

@@ -11,17 +11,20 @@
 
 **Primary Objective**  
 Run **hosted Inferno** inside Termux on multiple Android devices so they can form a unified distributed system. Devices should be able to:
+
 - Export and mount namespaces across the fleet via Styx (9P).
 - Create **synthetic/virtual files** that allow reading and modifying app permissions and system settings.
 - Achieve the closest possible "root-like" privileged access **without rooting** the devices.
 
 **Key Constraints**
+
 - No actual root on devices.
 - Use **Shizuku** (or equivalent) for elevated privileges.
 - Everything must run in Termux (user-space, no custom ROMs or invasive changes).
 - Focus on virtual filesystems as the control interface (Plan 9/Inferno philosophy).
 
 **Why Inferno (hosted) instead of plan9port?**
+
 - Superior native support for synthetic files (`file2chan`).
 - Designed from the ground up as a distributed operating system.
 - Cleaner integration of Styx, namespaces, auth, and remote execution.
@@ -32,6 +35,7 @@ Run **hosted Inferno** inside Termux on multiple Android devices so they can for
 ## 2. Research Findings
 
 ### 2.1 Inferno Hosted on Linux/Termux
+
 - Inferno can be built as a **hosted** application (`emu` binary) on Linux.
 - Standard build process (from reliable sources like bluishcoder.co.nz and inferno-os repo):
   1. Clone repo.
@@ -45,6 +49,7 @@ Run **hosted Inferno** inside Termux on multiple Android devices so they can for
 - No recent public reports of Inferno + Termux + Shizuku combination (this is novel work).
 
 ### 2.2 Shizuku for Privileged Access (Non-Root)
+
 - Shizuku allows apps to use privileged Android APIs without root by using ADB or wireless debugging.
 - In Termux: Use the `rish` wrapper (exported from Shizuku app) to run commands with elevated privileges.
 - Common pattern:
@@ -56,6 +61,7 @@ Run **hosted Inferno** inside Termux on multiple Android devices so they can for
 - Limitations: Not full root. Cannot access arbitrary protected files or perform all system-level changes.
 
 ### 2.3 Virtual/Synthetic Filesystems in Inferno
+
 - Core primitive: `file2chan` in Limbo.
 - Allows creation of virtual files whose read/write behavior is implemented in Limbo code.
 - Perfect for control interfaces:
@@ -64,12 +70,14 @@ Run **hosted Inferno** inside Termux on multiple Android devices so they can for
 - These can be exported via Styx and mounted on other devices.
 
 ### 2.4 Distributed Fleet Architecture
+
 - Each device runs its own Inferno instance in Termux.
 - Use Styx listeners to export control namespaces.
 - Mount remote namespaces (`mount -k tcp!deviceIP ...` with auth).
 - Result: Unified view across devices (e.g. `/n/phone2/ctl/...`).
 
 ### 2.5 Key Limitations (Honest Assessment)
+
 - **No true root**: Shizuku + virtual files get you significantly closer than a normal app, but many deep system operations remain restricted.
 - **Background execution**: Android will kill Termux/Inferno processes. Requires wake locks + foreground services.
 - **Scoped Storage**: Accessing broad Android storage from Termux/Inferno is restricted.
@@ -99,6 +107,7 @@ Result: Any device can see/control others via paths like:
 ```
 
 **Data Flow Example**
+
 1. User (or script) on Device 1 writes to `/n/device2/ctl/permissions/com.foo.app`.
 2. Inferno on Device 2 receives the write via Styx.
 3. Limbo `file2chan` handler executes elevated command via `rish`.
@@ -109,6 +118,7 @@ Result: Any device can see/control others via paths like:
 ## 4. Step-by-Step Implementation Plan
 
 ### Phase 0: Prerequisites on All Devices
+
 - Install **Termux** (F-Droid recommended).
 - Install **Shizuku** from Play Store.
 - Enable Wireless Debugging or pair Shizuku via ADB.
@@ -123,6 +133,7 @@ Result: Any device can see/control others via paths like:
 - Test: `rish -c "id"` (should show elevated context).
 
 ### Phase 1: Build Hosted Inferno in Termux
+
 ```bash
 pkg update && pkg install clang make git
 git clone https://github.com/inferno-os/inferno-os.git ~/inferno
@@ -140,6 +151,7 @@ mk install
 ```
 
 **Run test**:
+
 ```bash
 export EMU="-r$PWD -c1"
 emu
@@ -151,10 +163,12 @@ emu
 **Note on 32-bit vs 64-bit**: If `emu` fails due to architecture, investigate 64-bit forks or Termux multiarch support.
 
 ### Phase 2: Basic Inferno Environment + Styx
+
 - Create a startup script that sets up a clean namespace.
 - Start a Styx listener on a known port exporting a control directory.
 
 ### Phase 3: Create Virtual Control Files (Limbo)
+
 Example skeleton for a permission control file (`/appl/ctl/permissions.b`):
 
 ```limbo
@@ -201,6 +215,7 @@ init(ctxt: ref Draw->Context, args: list of string) {
 **Next**: Make the handler call a shell script that uses `rish` for actual privileged commands.
 
 ### Phase 4: Integrate Shizuku Elevation
+
 - Create a small shell script `elevated.sh` that Termux/Inferno can call:
   ```bash
   #!/data/data/com.termux/files/usr/bin/sh
@@ -209,14 +224,17 @@ init(ctxt: ref Draw->Context, args: list of string) {
 - From Limbo, use `os->exec` or pipe to run commands through this script when virtual files are written.
 
 ### Phase 5: Distributed Namespace Setup
+
 On each device, start a Styx server exporting the control tree.
 
 Example (in Inferno shell or startup script):
+
 ```rc
 styxlisten -A tcp!*!styx {export /ctl &}
 ```
 
 On coordinator:
+
 ```rc
 mount -k tcp!192.168.1.XX!styx /n/phone2
 # Now /n/phone2/ctl/permissions/... is available
@@ -225,11 +243,13 @@ mount -k tcp!192.168.1.XX!styx /n/phone2
 Use Inferno's auth mechanisms (`getauthinfo`, keyring) for security.
 
 ### Phase 6: Background Operation & Fleet Deployment
+
 - Use `termux-wake-lock`.
 - Run Inferno via Termux boot scripts or a foreground service wrapper.
 - For production fleet: Create a simple startup Limbo program or rc script that auto-exports the control namespace and optionally auto-mounts known peers.
 
 ### Phase 7: Testing & Hardening
+
 - Test permission changes from one device affecting another.
 - Add error handling and logging in Limbo handlers.
 - Implement basic discovery (manual IP list or simple mDNS if possible).
@@ -238,14 +258,14 @@ Use Inferno's auth mechanisms (`getauthinfo`, keyring) for security.
 
 ## 5. Challenges & Mitigations
 
-| Challenge                    | Mitigation                                      | Status     |
-|-----------------------------|--------------------------------------------------|------------|
-| 32-bit emu on 64-bit Termux | Use 386 target; test thoroughly or explore 64-bit forks | Medium    |
-| Background killing          | termux-wake-lock + foreground notification      | High      |
-| Scoped Storage              | Work within Termux home + app-specific dirs     | Medium    |
-| Shizuku command execution from Limbo | Wrapper script + os->exec or pipes             | High      |
-| No prior tutorials          | Build incrementally; test each layer            | —         |
-| Security of virtual control | Use Inferno auth + restrict exported namespaces | High      |
+| Challenge                            | Mitigation                                              | Status |
+| ------------------------------------ | ------------------------------------------------------- | ------ |
+| 32-bit emu on 64-bit Termux          | Use 386 target; test thoroughly or explore 64-bit forks | Medium |
+| Background killing                   | termux-wake-lock + foreground notification              | High   |
+| Scoped Storage                       | Work within Termux home + app-specific dirs             | Medium |
+| Shizuku command execution from Limbo | Wrapper script + os->exec or pipes                      | High   |
+| No prior tutorials                   | Build incrementally; test each layer                    | —      |
+| Security of virtual control          | Use Inferno auth + restrict exported namespaces         | High   |
 
 ---
 

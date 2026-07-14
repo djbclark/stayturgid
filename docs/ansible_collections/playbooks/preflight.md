@@ -14,10 +14,10 @@ Check mode (`CHECK=1` / `--check`): probe tasks skipped; no adb bootstrap.
 
 ## Relationship to `bootstrap.yml`
 
-| Play | Purpose |
-|------|---------|
-| `preflight.yml` | Conditional bootstrap **only for hosts that fail SSH probe** |
-| `bootstrap.yml` (`bootstrap` tag) | Force bootstrap for all limited hosts (manual recovery) |
+| Play                              | Purpose                                                      |
+| --------------------------------- | ------------------------------------------------------------ |
+| `preflight.yml`                   | Conditional bootstrap **only for hosts that fail SSH probe** |
+| `bootstrap.yml` (`bootstrap` tag) | Force bootstrap for all limited hosts (manual recovery)      |
 
 `deploy_fleet.py` passes `--skip-tags bootstrap` on live deploys because
 preflight covers the common cold-start case.

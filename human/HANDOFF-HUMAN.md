@@ -13,33 +13,33 @@ Last updated: **2026-07-10 afternoon** (review fixes + Fire wireless-debug self-
 
 ## Session notes (2026-07-10 evening) — agent completed
 
-| Area | Status |
-|------|--------|
-| Code/docs review follow-through | H1/M1–M6 + L1–L9 on `master`; pytest green |
-| Fire wireless debugging | Mac `fire_help` re-asserts `adb_wifi_enabled`; resolve prefers mDNS |
-| hd8 AutoJs6 “Save main.js” dialog | Caused by wrong `termux-open` path — use `start_watchdog.py` only |
-| `just health` | **OK** s24/p7a/hd8 at handoff write (hd8 soft health often SSH) |
-| Live full-fleet soak | **Still optional** — announce before `just deploy` / `just verify` |
+| Area                              | Status                                                              |
+| --------------------------------- | ------------------------------------------------------------------- |
+| Code/docs review follow-through   | H1/M1–M6 + L1–L9 on `master`; pytest green                          |
+| Fire wireless debugging           | Mac `fire_help` re-asserts `adb_wifi_enabled`; resolve prefers mDNS |
+| hd8 AutoJs6 “Save main.js” dialog | Caused by wrong `termux-open` path — use `start_watchdog.py` only   |
+| `just health`                     | **OK** s24/p7a/hd8 at handoff write (hd8 soft health often SSH)     |
+| Live full-fleet soak              | **Still optional** — announce before `just deploy` / `just verify`  |
 
 **Operator (only if Mac agents still old):** after pull, optional `just deploy-mac` to reload launchd with latest `fire_help_monitor`.
 
 ## Session notes (2026-07-10 afternoon) — agent completed
 
-| Area | Status |
-|------|--------|
-| Senior review fixes | H1–H3, OPTIONS 62, module docs, lint green |
-| Mac fleet-health adb PATH | Launchd plists patched + reloaded; `just health` OK for s24/p7a/hd8 |
-| `just deploy-check HOSTS=s24` | Pass (`failed=0`) after `stayturgid_repo_root` fix |
-| Live soak | **Still needed** — announced `just deploy` + `just verify` |
+| Area                          | Status                                                              |
+| ----------------------------- | ------------------------------------------------------------------- |
+| Senior review fixes           | H1–H3, OPTIONS 62, module docs, lint green                          |
+| Mac fleet-health adb PATH     | Launchd plists patched + reloaded; `just health` OK for s24/p7a/hd8 |
+| `just deploy-check HOSTS=s24` | Pass (`failed=0`) after `stayturgid_repo_root` fix                  |
+| Live soak                     | **Still needed** — announced `just deploy` + `just verify`          |
 
 ## Session notes (2026-07-10) — agent completed
 
-| Area | Status |
-|------|--------|
-| Repo restructure | `control/`, `device/`, `catalogs/`, `docs/` on `master`; pushed to GitHub |
-| Path consistency | On-device `/sdcard/stayturgid/autojs6/`; `control/lib` imports; canonical Ansible playbooks |
-| OPTIONS 62 | **Closed 2026-07-10** — flat playbook shims removed; keep `site.yml` + `fleet/` + `control_node/` |
-| Fleet soak post-reorg | **Not run** — see below |
+| Area                  | Status                                                                                            |
+| --------------------- | ------------------------------------------------------------------------------------------------- |
+| Repo restructure      | `control/`, `device/`, `catalogs/`, `docs/` on `master`; pushed to GitHub                         |
+| Path consistency      | On-device `/sdcard/stayturgid/autojs6/`; `control/lib` imports; canonical Ansible playbooks       |
+| OPTIONS 62            | **Closed 2026-07-10** — flat playbook shims removed; keep `site.yml` + `fleet/` + `control_node/` |
+| Fleet soak post-reorg | **Not run** — see below                                                                           |
 
 **Operator check (recommended before relying on fleet):**
 
@@ -56,37 +56,37 @@ Confirm Mac LaunchAgents still point at `control/bin/` (should already — reorg
 
 These do **not** need operator action unless noted.
 
-| Area | Status |
-|------|--------|
+| Area                         | Status                                                                                             |
+| ---------------------------- | -------------------------------------------------------------------------------------------------- |
 | Ansible validate + preflight | `stayturgid.fleet.validate`, `preflight.yml` in `site.yml`; SSH preflight out of `deploy_fleet.py` |
-| hd8 AutoJs6 deploy | `autojs6_project_deploy` module — full fleet path on Fire OS |
-| Makefile ops | `just --list` (default), `just deploy`, `just health`, etc. |
-| Fleet health triage | Stale morning s24 LOST no longer fails `just health` when host is OK now |
-| Neo/Aurora | Still **parked** — no operator action to unpark |
+| hd8 AutoJs6 deploy           | `autojs6_project_deploy` module — full fleet path on Fire OS                                       |
+| Makefile ops                 | `just --list` (default), `just deploy`, `just health`, etc.                                        |
+| Fleet health triage          | Stale morning s24 LOST no longer fails `just health` when host is OK now                           |
+| Neo/Aurora                   | Still **parked** — no operator action to unpark                                                    |
 
 **Operator check (optional):** `just health` at session start; `just deploy hosts=s24` only when you want a live soak (announce first).
 
 ## Session notes (2026-07-09) — agent completed
 
-| Area | Status |
-|------|--------|
+| Area                             | Status                                                                                           |
+| -------------------------------- | ------------------------------------------------------------------------------------------------ |
 | On-device Obtainium / AutoJs6 UI | Termux scripts via `localhost:5555`; Mac wrappers SSH-first with Mac adb fallback (hd8 Mac-only) |
-| Screen-control gate | Obtainium / AutoJs6 installer taps use `session.shell` |
-| shell-gpt / local LLM | Documented as OPTIONS track **E** — not implemented |
+| Screen-control gate              | Obtainium / AutoJs6 installer taps use `session.shell`                                           |
+| shell-gpt / local LLM            | Documented as OPTIONS track **E** — not implemented                                              |
 
 ## Session notes (2026-07-08) — agent completed
 
 These do **not** need operator action unless noted.
 
-| Area | Status |
-|------|--------|
-| AutoJs6 fleet profile | `device/autojs6/fleet_profile.json` + `FleetProfileActivity` intent |
-| AutoJs6 fleet API | [issue #553](https://github.com/SuperMonster003/AutoJs6/issues/553), [djbclark/AutoJs6](https://github.com/djbclark/AutoJs6/releases) |
-| PiP / overlay clearance | `ScreenControlSession` clears YouTube PiP via `stack remove` (Samsung verified) |
-| Accessibility list wipe fix | Fleet automation is detection-only; enable missing services manually in Android Settings |
-| p7a a11y restore | Historical profile merge restored Buzzkill / Notch / existing apps (6 services); do not repeat automatically |
-| Aurora background dialog (hd8) | Historical — Aurora parked from fleet 2026-07-09 |
-| Fleet deploy order | harden (core apps) → AutoJs6 enable (Aurora configure parked) |
+| Area                           | Status                                                                                                                                |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| AutoJs6 fleet profile          | `device/autojs6/fleet_profile.json` + `FleetProfileActivity` intent                                                                   |
+| AutoJs6 fleet API              | [issue #553](https://github.com/SuperMonster003/AutoJs6/issues/553), [djbclark/AutoJs6](https://github.com/djbclark/AutoJs6/releases) |
+| PiP / overlay clearance        | `ScreenControlSession` clears YouTube PiP via `stack remove` (Samsung verified)                                                       |
+| Accessibility list wipe fix    | Fleet automation is detection-only; enable missing services manually in Android Settings                                              |
+| p7a a11y restore               | Historical profile merge restored Buzzkill / Notch / existing apps (6 services); do not repeat automatically                          |
+| Aurora background dialog (hd8) | Historical — Aurora parked from fleet 2026-07-09                                                                                      |
+| Fleet deploy order             | harden (core apps) → AutoJs6 enable (Aurora configure parked)                                                                         |
 
 **Operator check (optional):** On p7a, confirm Buzzkill / Notch / Wispr / Tasker / AutoInput
 still work in Settings → Accessibility. Read-only inspection is available with:
@@ -155,11 +155,11 @@ references only. See [docs/hacking.md](../docs/hacking.md) Part 5.
 
 ### 3.1 Device reachability (2026-07-08)
 
-| Host | Mac adb | Notes |
-|------|---------|-------|
-| **s24** | USB wireless-debug or Tailscale | Lab reference; PiP clearance tested |
-| **p7a** | mDNS / Tailscale | May be adb-offline when Tailscale down — USB or open Tailscale |
-| **hd8** | **USB** `GN43T503430603PS` preferred | Fire OS; no Termux localhost:5555 loopback |
+| Host    | Mac adb                              | Notes                                                          |
+| ------- | ------------------------------------ | -------------------------------------------------------------- |
+| **s24** | USB wireless-debug or Tailscale      | Lab reference; PiP clearance tested                            |
+| **p7a** | mDNS / Tailscale                     | May be adb-offline when Tailscale down — USB or open Tailscale |
+| **hd8** | **USB** `GN43T503430603PS` preferred | Fire OS; no Termux localhost:5555 loopback                     |
 
 When **hd8** and **s24** are on USB, agents should use `resolve_adb` (USB wins
 when online).
@@ -214,11 +214,11 @@ phone when deploy runs import.
 
 ## Quick reference — env files (never commit)
 
-| Purpose | Path |
-|---------|------|
-| Play apkeep | `~/.config/stayturgid/play.env` |
-| gplaycli | `~/.config/gplaycli/gplaycli.conf` |
-| ADB aliases | `~/.config/stayturgid/devices.conf` |
+| Purpose          | Path                                                                                                     |
+| ---------------- | -------------------------------------------------------------------------------------------------------- |
+| Play apkeep      | `~/.config/stayturgid/play.env`                                                                          |
+| gplaycli         | `~/.config/gplaycli/gplaycli.conf`                                                                       |
+| ADB aliases      | `~/.config/stayturgid/devices.conf`                                                                      |
 | A11y live backup | `control/lib/a11y_backups/<host>.txt` (gitignored) + `/sdcard/stayturgid/state/a11y_services_backup.txt` |
 
 ---

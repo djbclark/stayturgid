@@ -8,14 +8,14 @@ p7a not touched. Stay-awake held during tests.
 Mac/on-device scripts: `uiautomator dump` → regex parse (`control/lib/ui_parse.py`) →
 `adb shell input tap`. Wrapped in `ScreenControlSession` (consent + inversion).
 
-| Metric | s24 | hd8 |
-|--------|-----|-----|
-| Raw dump+cat (n=5) | **~2500 ms** avg | similar order |
-| Hardcoded coords | Obtainium gear/bulk update | — |
-| Fragility | empty dumps, drawer toggle, dialogs, Fire `termux-dialog` | same + no Termux 5555 |
+| Metric             | s24                                                       | hd8                   |
+| ------------------ | --------------------------------------------------------- | --------------------- |
+| Raw dump+cat (n=5) | **~2500 ms** avg                                          | similar order         |
+| Hardcoded coords   | Obtainium gear/bulk update                                | —                     |
+| Fragility          | empty dumps, drawer toggle, dialogs, Fire `termux-dialog` | same + no Termux 5555 |
 
-Docs already call **uiautomator2** the preferred *dev* tool and raw dump the
-*fallback* (`docs/handoff.md`, `docs/hacking.md`) — but **fleet Python never imports u2**.
+Docs already call **uiautomator2** the preferred _dev_ tool and raw dump the
+_fallback_ (`docs/handoff.md`, `docs/hacking.md`) — but **fleet Python never imports u2**.
 
 ## Tools tested
 
@@ -65,12 +65,12 @@ Docs already call **uiautomator2** the preferred *dev* tool and raw dump the
 
 ## Recommendation
 
-| Priority | Choice | Why |
-|----------|--------|-----|
-| **1 — Primary (Mac)** | **Handsets** via `control/lib/ui_driver.py` | 17–42× faster hierarchy than raw; ~4× vs u2; works with AutoJs6 a11y; Fire Settings reliable |
-| **2 — Fallback** | Raw dump+tap | When Handsets missing; Termux on-device scripts; no UiAutomation lock |
-| **3 — Optional debug** | uiautomator2 | One-off Mac debugging only; **never** alongside Handsets |
-| **Avoid as fleet core** | Maestro / Appium | Wrong abstraction / weight for post-UI |
+| Priority                | Choice                                      | Why                                                                                          |
+| ----------------------- | ------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **1 — Primary (Mac)**   | **Handsets** via `control/lib/ui_driver.py` | 17–42× faster hierarchy than raw; ~4× vs u2; works with AutoJs6 a11y; Fire Settings reliable |
+| **2 — Fallback**        | Raw dump+tap                                | When Handsets missing; Termux on-device scripts; no UiAutomation lock                        |
+| **3 — Optional debug**  | uiautomator2                                | One-off Mac debugging only; **never** alongside Handsets                                     |
+| **Avoid as fleet core** | Maestro / Appium                            | Wrong abstraction / weight for post-UI                                                       |
 
 Live numbers: [handsets-vs-u2-bench.md](handsets-vs-u2-bench.md).
 

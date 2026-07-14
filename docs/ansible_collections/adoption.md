@@ -70,15 +70,15 @@ or `stayturgid.play` (declared in `galaxy.yml` dependencies).
 
 Companion roles ship in each collection:
 
-| Collection role FQCN | Purpose |
-|---------------------|---------|
-| `stayturgid.termux.termux_userland` | Termux bootstrap over SSH |
-| `stayturgid.obtainium.obtainium_apps` | Render Obtainium catalog on device |
-| `stayturgid.fdroid.fdroid_repos` | fdroidcl + Neo Store repo push |
-| `stayturgid.play.play_store` | Aurora Shizuku grant + `play_apps` |
-| `stayturgid.android_common.tailscale_vpn` | Always-on VPN secure settings |
-| `stayturgid.fleet.post_ui` | Post-deploy UI tasks (`android_ui` module) |
-| `stayturgid.fleet.validate` | Post-deploy repair/a11y smoke (role; wired by `validate.yml`) |
+| Collection role FQCN                      | Purpose                                                       |
+| ----------------------------------------- | ------------------------------------------------------------- |
+| `stayturgid.termux.termux_userland`       | Termux bootstrap over SSH                                     |
+| `stayturgid.obtainium.obtainium_apps`     | Render Obtainium catalog on device                            |
+| `stayturgid.fdroid.fdroid_repos`          | fdroidcl + Neo Store repo push                                |
+| `stayturgid.play.play_store`              | Aurora Shizuku grant + `play_apps`                            |
+| `stayturgid.android_common.tailscale_vpn` | Always-on VPN secure settings                                 |
+| `stayturgid.fleet.post_ui`                | Post-deploy UI tasks (`android_ui` module)                    |
+| `stayturgid.fleet.validate`               | Post-deploy repair/a11y smoke (role; wired by `validate.yml`) |
 
 ## Obtainium (on-device over SSH)
 

@@ -16,11 +16,11 @@ See [docs/hacking.md § 2.7](hacking.md#27-ui-tars-vision-gates-optional) for de
 
 ## Path layout
 
-| Scope | Location |
-|-------|----------|
-| UI-TARS models | `~/.local/share/ui-tars/models/1.5-7b/` |
-| Server log | `~/Library/Logs/ui-tars/server.log` |
-| LaunchAgent | `homebrew.mxcl.ui-tars` |
+| Scope                | Location                                     |
+| -------------------- | -------------------------------------------- |
+| UI-TARS models       | `~/.local/share/ui-tars/models/1.5-7b/`      |
+| Server log           | `~/Library/Logs/ui-tars/server.log`          |
+| LaunchAgent          | `homebrew.mxcl.ui-tars`                      |
 | stayturgid artifacts | `~/.config/stayturgid/artifacts/vlm-verify/` |
 
 Env: `UI_TARS_*` (server), `STAYTURGID_VLM_*` (harness), `QSS_VLM_*` (legacy aliases).
@@ -71,32 +71,32 @@ the plist exists, `--tags vlm-service` when installing). Every `just deploy` run
 
 ## Make targets
 
-| Target | Purpose |
-|--------|---------|
-| `vlm-install` | Ansible: `llama.cpp` + download GGUF (~6 GB) |
-| `vlm-service-install` | Ansible: launchd agent (persists at login) |
-| `vlm-service-status` | health + launchctl summary |
-| `vlm-check` | client smoke test |
-| `vlm-smoke` | bootout/bootstrap QA cycle |
-| `vlm-server` | manual start |
-| `vlm-service-stop` / `vlm-service-restart` | launchctl wrappers |
-| `verify-hd8-google` | Example fleet gate |
+| Target                                     | Purpose                                      |
+| ------------------------------------------ | -------------------------------------------- |
+| `vlm-install`                              | Ansible: `llama.cpp` + download GGUF (~6 GB) |
+| `vlm-service-install`                      | Ansible: launchd agent (persists at login)   |
+| `vlm-service-status`                       | health + launchctl summary                   |
+| `vlm-check`                                | client smoke test                            |
+| `vlm-smoke`                                | bootout/bootstrap QA cycle                   |
+| `vlm-server`                               | manual start                                 |
+| `vlm-service-stop` / `vlm-service-restart` | launchctl wrappers                           |
+| `verify-hd8-google`                        | Example fleet gate                           |
 
 ---
 
 ## Harness env
 
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `STAYTURGID_VLM` | `0` | Enable gates |
-| `STAYTURGID_VLM_STRICT` | `0` | Fail when server down |
-| `STAYTURGID_VLM_PORT` | `8081` | Port |
-| `STAYTURGID_VLM_TIMEOUT` | `900` | Inference timeout |
-| `STAYTURGID_VLM_MAX_WIDTH` | `720` | Downscale width |
-| `STAYTURGID_VLM_CLOUD` | `auto` | Cloud backend: `auto` / `gemini` / `claude` / `both` / `off` |
-| `STAYTURGID_VLM_CLOUD_ESCALATE` | `1` | Escalate to cloud when local fails / low conf / down |
-| `STAYTURGID_GEMINI_MODEL` | `gemini-3.1-flash-lite` | Gemini model id |
-| `STAYTURGID_CLAUDE_MODEL` | `claude-sonnet-5` | Claude model id |
+| Variable                        | Default                 | Purpose                                                      |
+| ------------------------------- | ----------------------- | ------------------------------------------------------------ |
+| `STAYTURGID_VLM`                | `0`                     | Enable gates                                                 |
+| `STAYTURGID_VLM_STRICT`         | `0`                     | Fail when server down                                        |
+| `STAYTURGID_VLM_PORT`           | `8081`                  | Port                                                         |
+| `STAYTURGID_VLM_TIMEOUT`        | `900`                   | Inference timeout                                            |
+| `STAYTURGID_VLM_MAX_WIDTH`      | `720`                   | Downscale width                                              |
+| `STAYTURGID_VLM_CLOUD`          | `auto`                  | Cloud backend: `auto` / `gemini` / `claude` / `both` / `off` |
+| `STAYTURGID_VLM_CLOUD_ESCALATE` | `1`                     | Escalate to cloud when local fails / low conf / down         |
+| `STAYTURGID_GEMINI_MODEL`       | `gemini-3.1-flash-lite` | Gemini model id                                              |
+| `STAYTURGID_CLAUDE_MODEL`       | `claude-sonnet-5`       | Claude model id                                              |
 
 ### Cloud API keys (operator-local, never git)
 
@@ -164,23 +164,23 @@ When cloud is enabled (`STAYTURGID_VLM_CLOUD=auto` + keys present):
 
 ### Model IDs (July 2026)
 
-| Role | Default | Notes |
-|------|---------|-------|
-| Gemini primary | `gemini-3.1-flash-lite` | Known-good on current keys |
-| Gemini alias | `gemini-flash-latest` | Tracks current Flash; may use thinking tokens |
-| Claude escalate | `claude-sonnet-5` | Second opinion / dense UI |
-| Claude cheap (optional) | `claude-haiku-4-5-20251001` | Set `STAYTURGID_CLAUDE_MODEL` |
+| Role                    | Default                     | Notes                                         |
+| ----------------------- | --------------------------- | --------------------------------------------- |
+| Gemini primary          | `gemini-3.1-flash-lite`     | Known-good on current keys                    |
+| Gemini alias            | `gemini-flash-latest`       | Tracks current Flash; may use thinking tokens |
+| Claude escalate         | `claude-sonnet-5`           | Second opinion / dense UI                     |
+| Claude cheap (optional) | `claude-haiku-4-5-20251001` | Set `STAYTURGID_CLAUDE_MODEL`                 |
 
 Pinned old IDs (`gemini-2.0-flash`, `claude-3-5-haiku-*`, etc.) often **404**.
 Override via env when upstream docs recommend a newer stable id.
 
 ### Timing budget
 
-| Phase | Cap |
-|-------|-----|
-| UI settle / Handsets | seconds |
-| Local VLM gate | `STAYTURGID_VLM_TIMEOUT` (default 900s) |
-| Cloud VLM gate | ~90–120s HTTP |
+| Phase                | Cap                                     |
+| -------------------- | --------------------------------------- |
+| UI settle / Handsets | seconds                                 |
+| Local VLM gate       | `STAYTURGID_VLM_TIMEOUT` (default 900s) |
+| Cloud VLM gate       | ~90–120s HTTP                           |
 
 ### Cross-project glass
 
@@ -209,12 +209,12 @@ just vlm-upstream-check          # now
 python3 control/bin/vlm_upstream_check.py --notify
 ```
 
-| Piece | Role |
-|-------|------|
-| `control/bin/vlm_upstream_check.py` | Hash/diff upstream; write report |
-| State | `~/.config/stayturgid/state/vlm-upstream/` |
-| Log | `~/.config/stayturgid/logs/vlm-upstream-check.log` |
-| Launchd | `com.stayturgid.vlm-upstream-check` (weekly Sun 09:20 local) |
+| Piece                               | Role                                                         |
+| ----------------------------------- | ------------------------------------------------------------ |
+| `control/bin/vlm_upstream_check.py` | Hash/diff upstream; write report                             |
+| State                               | `~/.config/stayturgid/state/vlm-upstream/`                   |
+| Log                                 | `~/.config/stayturgid/logs/vlm-upstream-check.log`           |
+| Launchd                             | `com.stayturgid.vlm-upstream-check` (weekly Sun 09:20 local) |
 
 On change: report lists new model ids + watched sections; macOS notification when
 run with `--notify` (launchd default). Agents should open the report and port
@@ -224,14 +224,14 @@ relevant defaults/docs — do not blindly copy QSS Discord checks.
 
 ## Repo files
 
-| Path | Role |
-|------|------|
-| `ansible/playbooks/control_node/vlm.yml` | Ansible: brew, models, launchd |
-| `control/vlm/ui-tars/` | server run scripts, status/stop helpers |
-| `control/lib/vlm_gate.py` | `VlmGate`, `ensure_server()`, cloud escalate |
-| `control/lib/vlm_cloud.py` | Gemini + Claude backends + key loading |
-| `control/lib/vlm_helpers.py` | `verify_shot` helpers |
-| `control/bin/vlm_check.py` | local + cloud smoke test |
+| Path                                     | Role                                         |
+| ---------------------------------------- | -------------------------------------------- |
+| `ansible/playbooks/control_node/vlm.yml` | Ansible: brew, models, launchd               |
+| `control/vlm/ui-tars/`                   | server run scripts, status/stop helpers      |
+| `control/lib/vlm_gate.py`                | `VlmGate`, `ensure_server()`, cloud escalate |
+| `control/lib/vlm_cloud.py`               | Gemini + Claude backends + key loading       |
+| `control/lib/vlm_helpers.py`             | `verify_shot` helpers                        |
+| `control/bin/vlm_check.py`               | local + cloud smoke test                     |
 
 Checks: `play_autoupdate_dont`, `aurora_autoupdate_dont`, `no_gms_crash_dialog`,
 `play_protect_clear`, `neo_shizuku_installer`, `aurora_shizuku_installer` — see

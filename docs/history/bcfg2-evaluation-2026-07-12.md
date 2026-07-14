@@ -20,7 +20,9 @@ Bcfg2 is a Python-based configuration management system from Argonne National La
 ## What Bcfg2 has that stayturgid could use
 
 ### 1. Launchd management (macOS)
+
 Bcfg2 has a `launchd.py` client tool (145 lines) that manages macOS launchd services:
+
 - `VerifyService` — checks if a launchd service is loaded and running
 - `InstallService` — loads/starts or unloads/stops a service
 - `FindExtra` — finds launchd services not in the config (drift detection)
@@ -29,7 +31,9 @@ Bcfg2 has a `launchd.py` client tool (145 lines) that manages macOS launchd serv
 This is exactly the kind of "verify only" tool the user is interested in — checking that launchd state matches desired state.
 
 ### 2. Package management plugins
+
 Bcfg2 has client tools for:
+
 - `APT.py` (253 lines) — Debian/Ubuntu APT
 - `RPM.py` (2,229 lines) — Red Hat RPM
 - `YUM.py` (1,116 lines) — YUM
@@ -40,9 +44,11 @@ Bcfg2 has client tools for:
 The `APK.py` tool handles Alpine Linux packages, not Android. There is no Android package management support.
 
 ### 3. Service management
+
 Bcfg2 has client tools for `launchd`, `Systemd`, `SYSV`, `Upstart`, `SMF`, `Chkconfig` — most init systems. No Android/Termux service management.
 
 ### 4. Verification model
+
 Bcfg2's core concept is "describe desired state → verify current state → report drift." This is what the user wants: a secondary verification system alongside Ansible.
 
 ---
@@ -50,6 +56,7 @@ Bcfg2's core concept is "describe desired state → verify current state → rep
 ## Code quality and maintainability assessment
 
 ### Structure
+
 - **203 files, 46k lines** — manageable size
 - **Plugin architecture** — extendable, but plugin interface is complex (multiple inheritance with Plugin, Structure, StructureValidator, XMLDirectoryBacked)
 - **XML-based config** — verbose, harder to read than Ansible YAML
@@ -57,11 +64,13 @@ Bcfg2's core concept is "describe desired state → verify current state → rep
 - **lxml dependency** — requires compiled C extension on each device
 
 ### Python compatibility
+
 - **Python 2-first design** — setup.py uses `execfile()` (Python 2 only), has `if sys.version_info[:2] < (2, 6)` shims
 - **No Python 3 migration** — code has Python 2 constructs throughout
 - **Would not run on Termux Python 3.9+** — major porting effort needed
 
 ### Activity level
+
 - **Last release: September 2014** — 12 years without a release
 - **Last commit: November 2023** — 2.5 years ago, and it was a minor IRC update
 - **5 commits in 2023** — all trivial (IRC network, timezone, pip index URL)
@@ -69,13 +78,14 @@ Bcfg2's core concept is "describe desired state → verify current state → rep
 - **19 open issues, 18 open PRs** — unmaintained backlog
 
 ### Dependencies (all stale)
-| Dependency | Last release | Status |
-|-----------|-------------|--------|
-| lxml | Active | Only maintained dependency |
-| genshi | 2012 | Deprecated, replaced by Jinja2 |
-| python-daemon | 2019 | Stale, Python 2-era |
-| CherryPy | Variable | Framework dependency |
-| Django ORM | — | For database models |
+
+| Dependency    | Last release | Status                         |
+| ------------- | ------------ | ------------------------------ |
+| lxml          | Active       | Only maintained dependency     |
+| genshi        | 2012         | Deprecated, replaced by Jinja2 |
+| python-daemon | 2019         | Stale, Python 2-era            |
+| CherryPy      | Variable     | Framework dependency           |
+| Django ORM    | —            | For database models            |
 
 ---
 
@@ -92,6 +102,7 @@ The codebase is Python 2 with partial Python 3 compatibility. It uses `execfile(
 ### #3: No Android support
 
 Bcfg2 has tools for macOS, Linux, FreeBSD, Solaris — but zero Android support:
+
 - No Termux package management
 - No runit/service management
 - No Shizuku or ADB integration
@@ -127,6 +138,7 @@ Bcfg2's verification model (describe state → verify → report drift) is conce
 ## What we COULD build instead
 
 A lightweight "stayturgid-verify" that:
+
 - Reads `ansible/inventory/hosts.yml` for desired state
 - SSHes to each device (using existing SSH CA)
 - Checks: packages installed, services running, files present, permissions correct

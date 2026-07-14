@@ -7,15 +7,15 @@
 
 ## What this module does
 
-| Piece | Role |
-|-------|------|
-| `catalogs/obtainium/stayturgid-apps.json` | Core fleet catalog (Termux, AutoJs6, Shizuku, …) |
-| `catalogs/obtainium/autojs6-only.json` | Minimal catalog |
-| `catalogs/obtainium/app-stores-optional.json` | Neo Store / Aurora (parked from default fleet) |
-| `control/tools/obtainium/import_catalog.py` | Deep-link / UI import of a catalog JSON |
-| `control/tools/obtainium/sync_to_device.py` | Push catalog files to the phone |
-| `control/tools/obtainium/apply_updates.py` | Drive Obtainium update / installer dialogs |
-| `control/tools/obtainium/enable_shizuku_installer.py` | Grant Shizuku installer to Obtainium |
+| Piece                                                 | Role                                             |
+| ----------------------------------------------------- | ------------------------------------------------ |
+| `catalogs/obtainium/stayturgid-apps.json`             | Core fleet catalog (Termux, AutoJs6, Shizuku, …) |
+| `catalogs/obtainium/autojs6-only.json`                | Minimal catalog                                  |
+| `catalogs/obtainium/app-stores-optional.json`         | Neo Store / Aurora (parked from default fleet)   |
+| `control/tools/obtainium/import_catalog.py`           | Deep-link / UI import of a catalog JSON          |
+| `control/tools/obtainium/sync_to_device.py`           | Push catalog files to the phone                  |
+| `control/tools/obtainium/apply_updates.py`            | Drive Obtainium update / installer dialogs       |
+| `control/tools/obtainium/enable_shizuku_installer.py` | Grant Shizuku installer to Obtainium             |
 
 ## Standalone use
 
@@ -40,6 +40,6 @@ python3 control/tools/obtainium/import_catalog.py s24
 
 ## Related
 
-- [docs/hacking.md](../hacking.md) — Obtainium setup notes  
+- [docs/hacking.md](../hacking.md) — Obtainium setup notes
 - [ansible_collections/modules/obtainium_app.md](../ansible_collections/modules/obtainium_app.md)
-- Parked app stores: [fdroid.md](fdroid.md), [play.md](play.md)  
+- Parked app stores: [fdroid.md](fdroid.md), [play.md](play.md)

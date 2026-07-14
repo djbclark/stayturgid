@@ -66,9 +66,9 @@ Mac launchd (`fleet_health_monitor.py`) rate-limits the same repair when hd8 GMS
 Operator feedback: the **24.35.30 pin caused more issues** than a newer stack.
 Default fleet heal **no longer force-downgrades** GMS/Play.
 
-| Mode | How | Behavior |
-|------|-----|----------|
-| **Default** | — | Doze whitelist + keep **GSF 10-x** only |
+| Mode              | How                                                             | Behavior                                         |
+| ----------------- | --------------------------------------------------------------- | ------------------------------------------------ |
+| **Default**       | —                                                               | Doze whitelist + keep **GSF 10-x** only          |
 | **Emergency pin** | `STAYTURGID_HD8_PIN_GMS=1` or `fix_hd8_google_stack.py --force` | Reinstall Fire-Tools GMS 24.35.30 + Play 42.6.23 |
 
 Live (2026-07-10): Play Store upgraded to **52.1.26** (user-installed). GMS remains
@@ -79,13 +79,13 @@ variant) or sideload a minAPI-30 APK (e.g. APKMirror 26.x 150400).
 
 ## Prevention
 
-| Action | Why |
-|--------|-----|
-| Prefer device-matched GMS via Play Store | Phone-latest GMS often needs API 35; Fire is API 30 |
-| Avoid Aurora Store on hd8 | Parked from fleet; triggers GMS auth failures on Fire — **uninstalled from hd8** |
-| Keep GSF **10-6494331** | GSF 9.x breaks Play Store `READ_GSERVICES` |
-| Doze whitelist GMS+GSF | Reduces idle-related breakage |
-| Avoid Fire OS OTA without checking | Amazon OTAs can break sideloaded Play |
+| Action                                   | Why                                                                              |
+| ---------------------------------------- | -------------------------------------------------------------------------------- |
+| Prefer device-matched GMS via Play Store | Phone-latest GMS often needs API 35; Fire is API 30                              |
+| Avoid Aurora Store on hd8                | Parked from fleet; triggers GMS auth failures on Fire — **uninstalled from hd8** |
+| Keep GSF **10-6494331**                  | GSF 9.x breaks Play Store `READ_GSERVICES`                                       |
+| Doze whitelist GMS+GSF                   | Reduces idle-related breakage                                                    |
+| Avoid Fire OS OTA without checking       | Amazon OTAs can break sideloaded Play                                            |
 
 GMS **cannot** be fully frozen without root. Pinning is opt-in now.
 

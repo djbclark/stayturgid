@@ -6,12 +6,12 @@ Cross-module helpers used by more than one component. **Import these; do not dup
 
 ## Mac / ADB
 
-| File | Purpose |
-|------|---------|
-| [stayturgid_device.py](stayturgid_device.py) | Device resolution, Shizuku JSON patch, UI XML parsing |
-| [adb_cli.py](adb_cli.py) | adb/ssh/scp helpers for Mac CLI scripts |
-| [resolve_adb.py](resolve_adb.py) | CLI: USB serial when plugged in, else Tailscale/LAN `:5555` |
-| [stayturgid_root.py](stayturgid_root.py) | CLI: find repo root from any nested script path |
+| File                                         | Purpose                                                     |
+| -------------------------------------------- | ----------------------------------------------------------- |
+| [stayturgid_device.py](stayturgid_device.py) | Device resolution, Shizuku JSON patch, UI XML parsing       |
+| [adb_cli.py](adb_cli.py)                     | adb/ssh/scp helpers for Mac CLI scripts                     |
+| [resolve_adb.py](resolve_adb.py)             | CLI: USB serial when plugged in, else Tailscale/LAN `:5555` |
+| [stayturgid_root.py](stayturgid_root.py)     | CLI: find repo root from any nested script path             |
 
 ### From a Python Mac script
 
@@ -40,22 +40,21 @@ ANDROID_SERIAL="$(./control/lib/resolve_adb.py s24)" fdroidcl install com.exampl
 
 ## Additional libraries (index)
 
-| Module | Role |
-|--------|------|
-| `et_mac.py` | Phone→Mac Eternal Terminal authorized_keys / soft checks |
-| `ssh_marked_block.py` | Marked blocks in authorized_keys / ssh config |
-| `screen_control.py` | Mac ScreenControlSession (inversion, presence, portrait lock) |
-| `device_screen_lease.py` | Cross-project glass lease (DSCL v1) |
-| `fleet_health.py` | Soft-health scrape + issue tags for monitors |
-| `vlm_gate.py` / `vlm_cloud.py` / `vlm_helpers.py` | Local UI-TARS + cloud VLM escalate |
-| `ui_driver.py` / `ui_clearance.py` / `ui_parse.py` | UI automation helpers |
-| `hd8_google_stack.py` | Fire HD8 Play/GMS stack helpers |
-| `post_ui_remote.py` | Post-deploy UI remote steps |
-| `a11y_services.py` | Accessibility service merge/profiles |
-| `termux_api.py` / `termux_ssh_bootstrap.py` | Termux API + SSH bootstrap |
-| `play_store_autoupdate.py` | Play auto-update checks |
-| `stayturgid_root.py` | Repo-root discovery |
-| `*.json` profiles | a11y / fleet app / AutoJs6 drawer defaults |
+| Module                                             | Role                                                          |
+| -------------------------------------------------- | ------------------------------------------------------------- |
+| `et_mac.py`                                        | Phone→Mac Eternal Terminal authorized_keys / soft checks      |
+| `ssh_marked_block.py`                              | Marked blocks in authorized_keys / ssh config                 |
+| `screen_control.py`                                | Mac ScreenControlSession (inversion, presence, portrait lock) |
+| `device_screen_lease.py`                           | Cross-project glass lease (DSCL v1)                           |
+| `fleet_health.py`                                  | Soft-health scrape + issue tags for monitors                  |
+| `vlm_gate.py` / `vlm_cloud.py` / `vlm_helpers.py`  | Local UI-TARS + cloud VLM escalate                            |
+| `ui_driver.py` / `ui_clearance.py` / `ui_parse.py` | UI automation helpers                                         |
+| `hd8_google_stack.py`                              | Fire HD8 Play/GMS stack helpers                               |
+| `post_ui_remote.py`                                | Post-deploy UI remote steps                                   |
+| `a11y_services.py`                                 | Accessibility service merge/profiles                          |
+| `termux_api.py` / `termux_ssh_bootstrap.py`        | Termux API + SSH bootstrap                                    |
+| `play_store_autoupdate.py`                         | Play auto-update checks                                       |
+| `stayturgid_root.py`                               | Repo-root discovery                                           |
+| `*.json` profiles                                  | a11y / fleet app / AutoJs6 drawer defaults                    |
 
 See [docs/modules/control.md](../../docs/modules/control.md), [docs/vlm.md](../../docs/vlm.md), and [docs/modules/screen-control-lease.md](../../docs/modules/screen-control-lease.md).
-

@@ -5,42 +5,42 @@ modules could replace custom code.
 
 ## Already using Ansible builtins / collection modules
 
-| Task | Module / lookup | Role |
-|------|---------------|------|
-| SSH public keys (steady state) | `ansible.posix.authorized_key` | `termux_userland` |
-| SSH bootstrap (pre-SSH, adb) | `stayturgid.termux.termux_ssh_bootstrap` | `preflight.yml`, `bootstrap.yml` |
-| sshd config + restart | `stayturgid.termux.termux_sshd` | `termux_userland` |
-| Package mirror / scripts | `ansible.builtin.copy` | `termux_userland`, `autojs6_watchdog` |
-| Termux packages | `stayturgid.termux.termux_pkg` | `termux_userland` |
-| ADB alias resolve | `stayturgid.android_common.adb_device` | fdroid, play, tailscale |
-| Package detection | `stayturgid.android_common.android_packages` | fdroid, play |
-| F-Droid client component | `stayturgid.android_common.fdroid_client` | fdroid (via `fdroid_repo_push`) |
-| Unified app ensure | `stayturgid.android_common.ensure_apps` | fleet (optional) |
+| Task                           | Module / lookup                              | Role                                  |
+| ------------------------------ | -------------------------------------------- | ------------------------------------- |
+| SSH public keys (steady state) | `ansible.posix.authorized_key`               | `termux_userland`                     |
+| SSH bootstrap (pre-SSH, adb)   | `stayturgid.termux.termux_ssh_bootstrap`     | `preflight.yml`, `bootstrap.yml`      |
+| sshd config + restart          | `stayturgid.termux.termux_sshd`              | `termux_userland`                     |
+| Package mirror / scripts       | `ansible.builtin.copy`                       | `termux_userland`, `autojs6_watchdog` |
+| Termux packages                | `stayturgid.termux.termux_pkg`               | `termux_userland`                     |
+| ADB alias resolve              | `stayturgid.android_common.adb_device`       | fdroid, play, tailscale               |
+| Package detection              | `stayturgid.android_common.android_packages` | fdroid, play                          |
+| F-Droid client component       | `stayturgid.android_common.fdroid_client`    | fdroid (via `fdroid_repo_push`)       |
+| Unified app ensure             | `stayturgid.android_common.ensure_apps`      | fleet (optional)                      |
 
 ## Custom modules (required — no upstream equivalent)
 
-| Module | Why custom |
-|--------|------------|
-| `termux_pkg` | Termux pkg/apt, not system apt |
-| `obtainium_app` | No Obtainium API |
-| `fdroid_repos` / `fdroid_install` / `fdroid_apps` / `fdroid_repo_push` | fdroidcl wrapper |
-| `play_apps` | apkeep/gplaycli + adb install |
-| `android_appops` / `android_settings` | adb grants/settings |
-| `android_a11y_services` | merge-only a11y list backup/restore |
-| `autojs6_project_deploy` | AutoJs6 project adb push (Fire OS / Mac recovery) |
-| `android_ui` | named screen-control tasks (ADR 002) |
-| `shizuku_grant` | shizuku.json patch |
-| `android_apk` / `android_intent` | adb install / intents |
-| `termux_ssh_bootstrap` | Pre-SSH adb + `run-as` key install (no SSH yet) |
+| Module                                                                 | Why custom                                        |
+| ---------------------------------------------------------------------- | ------------------------------------------------- |
+| `termux_pkg`                                                           | Termux pkg/apt, not system apt                    |
+| `obtainium_app`                                                        | No Obtainium API                                  |
+| `fdroid_repos` / `fdroid_install` / `fdroid_apps` / `fdroid_repo_push` | fdroidcl wrapper                                  |
+| `play_apps`                                                            | apkeep/gplaycli + adb install                     |
+| `android_appops` / `android_settings`                                  | adb grants/settings                               |
+| `android_a11y_services`                                                | merge-only a11y list backup/restore               |
+| `autojs6_project_deploy`                                               | AutoJs6 project adb push (Fire OS / Mac recovery) |
+| `android_ui`                                                           | named screen-control tasks (ADR 002)              |
+| `shizuku_grant`                                                        | shizuku.json patch                                |
+| `android_apk` / `android_intent`                                       | adb install / intents                             |
+| `termux_ssh_bootstrap`                                                 | Pre-SSH adb + `run-as` key install (no SSH yet)   |
 
 ## Shell tasks — remaining
 
-| Task | Role | Status |
-|------|------|--------|
-| Fire OS `mkdir` / adb push | `autojs6_watchdog` | `autojs6_project_deploy` module |
-| Termux `/sdcard` mkdir | `termux_userland` | Keep — Fire symlink quirks |
-| Repair verify | `stayturgid.termux.stayturgid_repair_check` | `termux_userland`, `validate` |
-| Boot loop handler | `termux_userland` | Keep — PIDFILE semantics |
+| Task                       | Role                                        | Status                          |
+| -------------------------- | ------------------------------------------- | ------------------------------- |
+| Fire OS `mkdir` / adb push | `autojs6_watchdog`                          | `autojs6_project_deploy` module |
+| Termux `/sdcard` mkdir     | `termux_userland`                           | Keep — Fire symlink quirks      |
+| Repair verify              | `stayturgid.termux.stayturgid_repair_check` | `termux_userland`, `validate`   |
+| Boot loop handler          | `termux_userland`                           | Keep — PIDFILE semantics        |
 
 ## Distribution
 

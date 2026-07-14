@@ -34,6 +34,7 @@ ansible-playbook ansible/playbooks/fleet/firerpa.yml -l s24 -e firerpa_enabled=t
 Set `firerpa_enabled: true` in host_vars or pass `-e firerpa_enabled=true`.
 
 Default config (minimal failsafe — gRPC + SSH only):
+
 ```yaml
 firerpa_port: 65000
 firerpa_certificate_path: ~/.config/stayturgid/firerpa.pem

@@ -4,14 +4,14 @@ stayturgid is organized around **where code runs**, not around Ansible alone.
 
 ## Top-level split
 
-| Tree | Runs on | Purpose |
-|------|---------|---------|
-| `control/` | Mac control node | Operator scripts, shared Python, VLM sidecar, per-domain deploy tools |
-| `device/` | Android phones | Termux runtime + AutoJs6 watchdog project |
-| `catalogs/` | Repo data | Obtainium JSON catalogs (no executable code) |
-| `ansible/` + `ansible_collections/` | Mac (deploy) | Idempotent fleet provisioning via Galaxy collections |
-| `docs/` | — | Narrative docs, ADRs, module guides |
-| `tests/` | Mac CI | Unit tests and device-tier harness |
+| Tree                                | Runs on          | Purpose                                                               |
+| ----------------------------------- | ---------------- | --------------------------------------------------------------------- |
+| `control/`                          | Mac control node | Operator scripts, shared Python, VLM sidecar, per-domain deploy tools |
+| `device/`                           | Android phones   | Termux runtime + AutoJs6 watchdog project                             |
+| `catalogs/`                         | Repo data        | Obtainium JSON catalogs (no executable code)                          |
+| `ansible/` + `ansible_collections/` | Mac (deploy)     | Idempotent fleet provisioning via Galaxy collections                  |
+| `docs/`                             | —                | Narrative docs, ADRs, module guides                                   |
+| `tests/`                            | Mac CI           | Unit tests and device-tier harness                                    |
 
 ## `control/`
 
@@ -27,12 +27,12 @@ stayturgid is organized around **where code runs**, not around Ansible alone.
 
 ## Runtime roots (single-root per filesystem)
 
-| Filesystem | Root | Notes |
-|------------|------|--------|
-| Device shared storage | `/sdcard/stayturgid/` | Default: `autojs6/`, `state/`, `logs/`, `run/` |
-| Fire OS Termux shared | `~/.stayturgid/shared` | Set via `STAYTURGID_SD` in `~/.stayturgid/env` |
-| Termux private | `~/.stayturgid/` | `bin/`, `logs/`, `run/`, `state/` |
-| Mac control node | `~/.config/stayturgid/` | `devices.conf`, `logs/`, `state/` |
+| Filesystem            | Root                    | Notes                                          |
+| --------------------- | ----------------------- | ---------------------------------------------- |
+| Device shared storage | `/sdcard/stayturgid/`   | Default: `autojs6/`, `state/`, `logs/`, `run/` |
+| Fire OS Termux shared | `~/.stayturgid/shared`  | Set via `STAYTURGID_SD` in `~/.stayturgid/env` |
+| Termux private        | `~/.stayturgid/`        | `bin/`, `logs/`, `run/`, `state/`              |
+| Mac control node      | `~/.config/stayturgid/` | `devices.conf`, `logs/`, `state/`              |
 
 On-device AutoJs6 project path is always **`/sdcard/stayturgid/autojs6/`** (not `…/device/autojs6/`).
 
@@ -60,24 +60,24 @@ App stores (F-Droid / Play) are **parked** unless
 
 Mac-to-device resilience uses 4 independent transport tiers, each on a different port with different auth:
 
-| Tier | Transport | Port | Protocol | Auth |
-|------|-----------|------|----------|------|
-| **1** | **ADB** | 5555 | ADB | RSA key (adbkey) |
-| **2** | **SSH** | 8022 | SSH | stayturgid CA cert + key |
-| **3a** | **CFEngine** | 5308 | TLS | Peer-to-peer key trust |
-| **3b** | **FIRERPA gRPC** | 65000 | gRPC/TLS | gRPC auth |
+| Tier   | Transport        | Port  | Protocol | Auth                     |
+| ------ | ---------------- | ----- | -------- | ------------------------ |
+| **1**  | **ADB**          | 5555  | ADB      | RSA key (adbkey)         |
+| **2**  | **SSH**          | 8022  | SSH      | stayturgid CA cert + key |
+| **3a** | **CFEngine**     | 5308  | TLS      | Peer-to-peer key trust   |
+| **3b** | **FIRERPA gRPC** | 65000 | gRPC/TLS | gRPC auth                |
 
 If all 4 tiers are unreachable, `access-monitor` fires a Mac notification. FIRERPA and CFEngine heals are rate-limited (30 min cooldown) to prevent restart storms.
 
 ## On-device self-heal layers
 
-| Layer | Cycle | Repair scope |
-|-------|-------|-------------|
-| Termux boot loop (`stayturgid_repair.py`) | 15 min | sshd, 5555, Shizuku, a11y, mirror, PATH, fleet profiles, daily pkg upgrade |
-| AutoJs6 watchdog (`main.js` + `comonitor.js`) | 20 min + boot | Catastrophic Shizuku repair, sshd, a11y |
-| CFEngine (`cf-agent stayturgid.cf`) | 15 min (in boot loop) | sshd, mirror, PATH — 3 of 7 bundles auto-repair |
-| CFEngine server (`cf-serverd :5308`) | On-demand (cf-runagent) | Remote trigger of any repair bundle |
-| Repair bridge (`repair_now` trigger) | 15 min poll | Full repair via file write by any transport |
+| Layer                                         | Cycle                   | Repair scope                                                               |
+| --------------------------------------------- | ----------------------- | -------------------------------------------------------------------------- |
+| Termux boot loop (`stayturgid_repair.py`)     | 15 min                  | sshd, 5555, Shizuku, a11y, mirror, PATH, fleet profiles, daily pkg upgrade |
+| AutoJs6 watchdog (`main.js` + `comonitor.js`) | 20 min + boot           | Catastrophic Shizuku repair, sshd, a11y                                    |
+| CFEngine (`cf-agent stayturgid.cf`)           | 15 min (in boot loop)   | sshd, mirror, PATH — 3 of 7 bundles auto-repair                            |
+| CFEngine server (`cf-serverd :5308`)          | On-demand (cf-runagent) | Remote trigger of any repair bundle                                        |
+| Repair bridge (`repair_now` trigger)          | 15 min poll             | Full repair via file write by any transport                                |
 
 CFEngine runs alongside the repair script in the same boot loop cycle — two separate tools, two separate policies, checking the same things independently.
 

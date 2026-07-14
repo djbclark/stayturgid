@@ -7,7 +7,7 @@ test: unit-and-pytest
 configure:
     ./configure
 
-# Code-only syntax / import checks + ruff + typos + biome + shfmt + justfiles.
+# Code-only syntax / import checks + ruff + typos + biome + shfmt + justfiles + markdown.
 check:
     bash tests/run.sh code
     @just ruff
@@ -15,6 +15,8 @@ check:
     @just biome
     @just shfmt
     @just just-check
+    @just markdownlint
+    @just prettier
 
 # Device-free unit tests (shell TAP).
 unit:
@@ -46,7 +48,7 @@ ansible-test:
       echo "### ansible-test — SKIP (run 'just test-venv')"; \
     fi
 
-# Unit + pytest + ansible-test + ruff + typos + biome + shfmt + justfiles (CI default).
+# Unit + pytest + ansible-test + ruff + typos + biome + shfmt + justfiles + markdown (CI default).
 unit-and-pytest:
     bash tests/run.sh local
     @just pytest
@@ -56,6 +58,8 @@ unit-and-pytest:
     @just biome
     @just shfmt
     @just just-check
+    @just markdownlint
+    @just prettier
 
 # ruff check + format (Python).
 ruff:
@@ -82,6 +86,22 @@ shfmt:
       echo "shfmt not installed (brew install shfmt) — skipped"; \
     fi
 
+# markdownlint check (lint).
+markdownlint:
+    @if command -v markdownlint >/dev/null; then \
+      echo "### markdownlint"; markdownlint --config .markdownlint.json $(git ls-files '*.md'); \
+    else \
+      echo "markdownlint not installed (brew install markdownlint-cli) — skipped"; \
+    fi
+
+# prettier check (format).
+prettier:
+    @if command -v prettier >/dev/null; then \
+      echo "### prettier --check"; prettier --check $(git ls-files '*.md'); \
+    else \
+      echo "prettier not installed (brew install prettier) — skipped"; \
+    fi
+
 # Source-code spelling check.
 typos:
     @if command -v typos >/dev/null; then \
@@ -90,7 +110,7 @@ typos:
       echo "typos not installed (brew install typos-cli) — skipped"; \
     fi
 
-# shellcheck + ansible-lint + yamllint + ruff + typos + biome + shfmt + justfiles.
+# shellcheck + ansible-lint + yamllint + ruff + typos + biome + shfmt + justfiles + markdown.
 lint:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -137,6 +157,16 @@ lint:
       echo "justfiles: fmt ok"
     else
       echo "just not installed (brew install just) — skipped"
+    fi
+    if command -v markdownlint >/dev/null; then
+      markdownlint --config .markdownlint.json $(git ls-files '*.md') || rc=1
+    else
+      echo "markdownlint not installed (brew install markdownlint-cli) — skipped"
+    fi
+    if command -v prettier >/dev/null; then
+      prettier --check $(git ls-files '*.md') || rc=1
+    else
+      echo "prettier not installed (brew install prettier) — skipped"
     fi
     exit $rc
 

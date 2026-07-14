@@ -17,10 +17,10 @@ for operator troubleshooting (content-provider / DB import is not automated).
 
 ## Parameters
 
-| Parameter | Description |
-|-----------|-------------|
-| `device` | ADB target |
-| `repos` | Same shape as `fdroid_repos` module |
+| Parameter    | Description                                       |
+| ------------ | ------------------------------------------------- |
+| `device`     | ADB target                                        |
+| `repos`      | Same shape as `fdroid_repos` module               |
 | `sync_index` | Run `fdroidcl update` after push (default `true`) |
 
 ## Example

@@ -6,37 +6,37 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 
 ## Modules
 
-| Module | Path | Standalone? | README |
-|--------|------|-------------|--------|
-| **Termux runtime** | `device/termux/` | Yes — repair, boot loop, presence | [docs/modules/termux.md](docs/modules/termux.md) |
-| **Ansible deploy** | `ansible/` | Yes — Termux over SSH only | [ansible/README.md](ansible/README.md) |
-| **Control node** | `control/bin/` | Yes — launchd reconnect + outage alert | [docs/modules/control.md](docs/modules/control.md) |
-| **AutoJs6 watchdog** | `device/autojs6/` | Yes — needs Termux repair scripts | [docs/modules/autojs6.md](docs/modules/autojs6.md) |
-| **FIRERPA failsafe** | `ansible_collections/stayturgid/firerpa/` | Yes — optional gRPC backup channel | [docs/history/firerpa-install-map-2026-07-12.md](docs/history/firerpa-install-map-2026-07-12.md) |
-| **SSH Certificate Authority** | `ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ca.yml` | Yes — fleet host-key trust | [docs/handoff.md § Major changes](docs/handoff.md) |
-| **Obtainium catalogs** | `catalogs/obtainium/` | Yes — any Obtainium user | [docs/modules/obtainium.md](docs/modules/obtainium.md) |
-| **F-Droid / Neo Store** | `stayturgid.fdroid` collection | Parked — manual / `--scope fdroid` when re-enabled | [docs/modules/fdroid.md](docs/modules/fdroid.md) |
-| **Play / Aurora Store** | `stayturgid.play` collection | Parked — manual / `--scope play` when re-enabled | [docs/modules/play.md](docs/modules/play.md) |
-| **Shared libraries** | `control/lib/` | Yes — `resolve-adb`, UI parse, fleet health | [control/lib/README.md](control/lib/README.md) |
+| Module                        | Path                                                                       | Standalone?                                        | README                                                                                           |
+| ----------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| **Termux runtime**            | `device/termux/`                                                           | Yes — repair, boot loop, presence                  | [docs/modules/termux.md](docs/modules/termux.md)                                                 |
+| **Ansible deploy**            | `ansible/`                                                                 | Yes — Termux over SSH only                         | [ansible/README.md](ansible/README.md)                                                           |
+| **Control node**              | `control/bin/`                                                             | Yes — launchd reconnect + outage alert             | [docs/modules/control.md](docs/modules/control.md)                                               |
+| **AutoJs6 watchdog**          | `device/autojs6/`                                                          | Yes — needs Termux repair scripts                  | [docs/modules/autojs6.md](docs/modules/autojs6.md)                                               |
+| **FIRERPA failsafe**          | `ansible_collections/stayturgid/firerpa/`                                  | Yes — optional gRPC backup channel                 | [docs/history/firerpa-install-map-2026-07-12.md](docs/history/firerpa-install-map-2026-07-12.md) |
+| **SSH Certificate Authority** | `ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ca.yml` | Yes — fleet host-key trust                         | [docs/handoff.md § Major changes](docs/handoff.md)                                               |
+| **Obtainium catalogs**        | `catalogs/obtainium/`                                                      | Yes — any Obtainium user                           | [docs/modules/obtainium.md](docs/modules/obtainium.md)                                           |
+| **F-Droid / Neo Store**       | `stayturgid.fdroid` collection                                             | Parked — manual / `--scope fdroid` when re-enabled | [docs/modules/fdroid.md](docs/modules/fdroid.md)                                                 |
+| **Play / Aurora Store**       | `stayturgid.play` collection                                               | Parked — manual / `--scope play` when re-enabled   | [docs/modules/play.md](docs/modules/play.md)                                                     |
+| **Shared libraries**          | `control/lib/`                                                             | Yes — `resolve-adb`, UI parse, fleet health        | [control/lib/README.md](control/lib/README.md)                                                   |
 
 ---
 
 ## Documentation
 
-| Document | Purpose |
-|----------|---------|
-| [docs/README.md](docs/README.md) | Documentation index |
-| [docs/incubator/](docs/incubator/) | Parked side projects — do not implement unless revived ([tablet-control](docs/incubator/tablet-control-phone.md), Inferno, …) |
-| [docs/hacking.md](docs/hacking.md) | Developer setup, clean install, Obtainium, Termux swap |
-| [docs/handoff.md](docs/handoff.md) | Maintainer / AI handoff — includes mandatory Mac fleet-health triage |
-| [docs/coding-rules.md](docs/coding-rules.md) | Durable coding, safety, testing, Git, and completion rules |
-| [`.cursor/rules/`](.cursor/rules/) | **AI agent policies** (always-on; read on every handoff) — self-heal, screen-control hold, … |
-| [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md) | Operator tasks (credentials, deploy approval) — human-only |
-| [docs/options.md](docs/options.md) | Next-work menu — agents append + push when operator asks for options |
-| [dashboard-framework research prompt](docs/prompts/dashboard-framework-research.md) | Self-contained brief for evaluating dashboard / ops frameworks |
-| [Outstanding fix priorities](docs/plans/outstanding-fix-priorities-2026-07-13.md) | Ordered reliability work and copy-paste junior-agent resume prompt |
-| [`just` migration plan](docs/plans/just-migration-plan.md) | Staged command-runner migration after reliability work is stable |
-| [version.json](version.json) | Repo release version (Ansible / manual deploy) |
+| Document                                                                            | Purpose                                                                                                                       |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| [docs/README.md](docs/README.md)                                                    | Documentation index                                                                                                           |
+| [docs/incubator/](docs/incubator/)                                                  | Parked side projects — do not implement unless revived ([tablet-control](docs/incubator/tablet-control-phone.md), Inferno, …) |
+| [docs/hacking.md](docs/hacking.md)                                                  | Developer setup, clean install, Obtainium, Termux swap                                                                        |
+| [docs/handoff.md](docs/handoff.md)                                                  | Maintainer / AI handoff — includes mandatory Mac fleet-health triage                                                          |
+| [docs/coding-rules.md](docs/coding-rules.md)                                        | Durable coding, safety, testing, Git, and completion rules                                                                    |
+| [`.cursor/rules/`](.cursor/rules/)                                                  | **AI agent policies** (always-on; read on every handoff) — self-heal, screen-control hold, …                                  |
+| [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md)                                    | Operator tasks (credentials, deploy approval) — human-only                                                                    |
+| [docs/options.md](docs/options.md)                                                  | Next-work menu — agents append + push when operator asks for options                                                          |
+| [dashboard-framework research prompt](docs/prompts/dashboard-framework-research.md) | Self-contained brief for evaluating dashboard / ops frameworks                                                                |
+| [Outstanding fix priorities](docs/plans/outstanding-fix-priorities-2026-07-13.md)   | Ordered reliability work and copy-paste junior-agent resume prompt                                                            |
+| [`just` migration plan](docs/plans/just-migration-plan.md)                          | Staged command-runner migration after reliability work is stable                                                              |
+| [version.json](version.json)                                                        | Repo release version (Ansible / manual deploy)                                                                                |
 
 ---
 

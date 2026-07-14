@@ -68,10 +68,10 @@
 
 The server files MUST be extracted with the correct SELinux context. Two methods work:
 
-| Method | Context | Works on | Start via |
-|--------|---------|----------|-----------|
-| `run-as com.termux cat ... | tar xz` | Termux app (`u:object_r:app_data_file`) | `adb shell` (only way — shell UID has broader context permissions) |
-| `adb push ... && tar xzf` | shell (`u:object_r:shell_data_file`) | ADB directly | `adb shell` |
+| Method                     | Context                              | Works on                                | Start via                                                          |
+| -------------------------- | ------------------------------------ | --------------------------------------- | ------------------------------------------------------------------ |
+| `run-as com.termux cat ... | tar xz`                              | Termux app (`u:object_r:app_data_file`) | `adb shell` (only way — shell UID has broader context permissions) |
+| `adb push ... && tar xzf`  | shell (`u:object_r:shell_data_file`) | ADB directly                            | `adb shell`                                                        |
 
 **Do NOT `chmod -R 755`** after extraction — this breaks execute permissions for security-sensitive files. The tarball preserves correct permissions.
 
@@ -81,21 +81,21 @@ The server files MUST be extracted with the correct SELinux context. Two methods
 
 ### 🔴 Required — can't operate without
 
-| Component | Why |
-|-----------|-----|
-| **lamda-server-*.tar.gz** (server runtime) | The actual FIRERPA daemon. Contains Python 3.9, 14 service modules, ffmpeg, Frida, SSH, ADB, WebUI. Nothing works without it. |
-| **lamda-client-py-10.0.tar.gz** (Mac only) | To call the server API programmatically from Ansible, health monitors, or self-heal scripts. You *could* use only the WebUI in a browser, but programmatic access needs the client. |
+| Component                                   | Why                                                                                                                                                                                 |
+| ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **lamda-server-\*.tar.gz** (server runtime) | The actual FIRERPA daemon. Contains Python 3.9, 14 service modules, ffmpeg, Frida, SSH, ADB, WebUI. Nothing works without it.                                                       |
+| **lamda-client-py-10.0.tar.gz** (Mac only)  | To call the server API programmatically from Ansible, health monitors, or self-heal scripts. You _could_ use only the WebUI in a browser, but programmatic access needs the client. |
 
 ### 🟡 Optional — choose one path
 
-| Component | Why optional |
-|-----------|-------------|
+| Component                       | Why optional                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **firerpa.apk** (GUI installer) | You need the server runtime. The APK is one way to install it. The manual `tar xzf` + launch.sh is another. They're mutually exclusive — you only need ONE install path. The APK adds: GUI buttons, Shizuku auth handling, auto-boot via Android app, auto-updates. The manual path adds: Ansible idempotency, Git-tracked config, boot loop integration. |
 
 ### 🟢 Deploy-only — needed for install, not runtime
 
-| Component | Why |
-|-----------|-----|
+| Component                 | Why                                                                                          |
+| ------------------------- | -------------------------------------------------------------------------------------------- |
 | **firerpa.apk** (if used) | Installed once, needed to download + start server. After that the server runs independently. |
 
 ---
@@ -106,50 +106,50 @@ Every service FIRERPA provides has an existing stayturgid equivalent. Choose per
 
 ### Connectivity — pick your remote access channel
 
-| Function | stayturgid | FIRERPA | Recommendation |
-|----------|-----------|---------|----------------|
-| **SSH to device** | Termux sshd on :8022 | FIRERPA sshd on :65000 | **Primary: Termux** (battle-tested, self-healed, CA-signed). FIRERPA SSH is the backup — enable it so you can still get in when Termux is down. |
-| **ADB to device** | Shizuku adbd on :5555 | FIRERPA adbd on :65000 | **Primary: Shizuku** (TCP mode, `ensure_wireless_debugging()` self-heals). FIRERPA ADB is the backup — no Developer Options needed, survives Shizuku crashes. |
-| **Remote desktop** | scrcpy via Mac ↔ SSH | FIRERPA WebRTC in browser | **Primary: scrcpy** (lower latency, harder to set up on Fire). FIRERPA WebRTC is the backup — browser-based, no client install, works on hd8's Silk browser, multi-user. |
+| Function           | stayturgid            | FIRERPA                   | Recommendation                                                                                                                                                           |
+| ------------------ | --------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **SSH to device**  | Termux sshd on :8022  | FIRERPA sshd on :65000    | **Primary: Termux** (battle-tested, self-healed, CA-signed). FIRERPA SSH is the backup — enable it so you can still get in when Termux is down.                          |
+| **ADB to device**  | Shizuku adbd on :5555 | FIRERPA adbd on :65000    | **Primary: Shizuku** (TCP mode, `ensure_wireless_debugging()` self-heals). FIRERPA ADB is the backup — no Developer Options needed, survives Shizuku crashes.            |
+| **Remote desktop** | scrcpy via Mac ↔ SSH  | FIRERPA WebRTC in browser | **Primary: scrcpy** (lower latency, harder to set up on Fire). FIRERPA WebRTC is the backup — browser-based, no client install, works on hd8's Silk browser, multi-user. |
 
 ### Automation — pick your automation engine
 
-| Function | stayturgid | FIRERPA | Recommendation |
-|----------|-----------|---------|----------------|
-| **UI automation** | AutoJs6 (JS, a11y-based) + `adb shell input` | FIRERPA gRPC API (Python, selector + coordinate) | **Primary: AutoJs6** (watchdog loops, notifications, fleet-profile). FIRERPA is the backup for when AutoJs6 is dead, or for advanced operations (virtual displays, OCR, multi-touch). |
-| **Self-heal loop** | `start-adb.sh` → `stayturgid_repair.py` (5-min cycle, Termux) | FIRERPA cron → self-heal script (5-min cycle, server daemon) | **Primary: stayturgid repair** (570+ lines, fleet-specific fixes). FIRERPA self-heal is the backup — repairs stayturgid when Termux itself is broken. They monitor each other. |
-| **App management** | Ansible + `adb shell pm/am` | FIRERPA `ApplicationStub` (gRPC) | Either is fine. FIRERPA is more granular (permissions, silent grant, launch non-exported activities). stayturgid is fleet-integrated. |
+| Function           | stayturgid                                                    | FIRERPA                                                      | Recommendation                                                                                                                                                                        |
+| ------------------ | ------------------------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **UI automation**  | AutoJs6 (JS, a11y-based) + `adb shell input`                  | FIRERPA gRPC API (Python, selector + coordinate)             | **Primary: AutoJs6** (watchdog loops, notifications, fleet-profile). FIRERPA is the backup for when AutoJs6 is dead, or for advanced operations (virtual displays, OCR, multi-touch). |
+| **Self-heal loop** | `start-adb.sh` → `stayturgid_repair.py` (5-min cycle, Termux) | FIRERPA cron → self-heal script (5-min cycle, server daemon) | **Primary: stayturgid repair** (570+ lines, fleet-specific fixes). FIRERPA self-heal is the backup — repairs stayturgid when Termux itself is broken. They monitor each other.        |
+| **App management** | Ansible + `adb shell pm/am`                                   | FIRERPA `ApplicationStub` (gRPC)                             | Either is fine. FIRERPA is more granular (permissions, silent grant, launch non-exported activities). stayturgid is fleet-integrated.                                                 |
 
 ### Monitoring — pick your health check
 
-| Function | stayturgid | FIRERPA | Recommendation |
-|----------|-----------|---------|----------------|
+| Function          | stayturgid                                         | FIRERPA                                                      | Recommendation                                                                                                                                             |
+| ----------------- | -------------------------------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Device health** | `fleet_health_monitor.py` (Mac launchd, SSH-based) | FIRERPA `StatusStub` (CPU/mem/disk/battery/net I/O via gRPC) | **Both.** stayturgid for fleet-wide aggregation + notifications. FIRERPA for richer per-device metrics. Feed FIRERPA metrics into stayturgid's health log. |
-| **Screen leases** | DSCL cross-device leases | FIRERPA API exclusive lock (`with d:`) | **Primary: stayturgid DSCL** (cross-device awareness). FIRERPA lock is simpler but single-device only. |
+| **Screen leases** | DSCL cross-device leases                           | FIRERPA API exclusive lock (`with d:`)                       | **Primary: stayturgid DSCL** (cross-device awareness). FIRERPA lock is simpler but single-device only.                                                     |
 
 ### AI / MCP — pick your agent platform
 
-| Function | stayturgid | FIRERPA | Recommendation |
-|----------|-----------|---------|----------------|
-| **AI agent** | Hermes (Telegram gateway, OpenCode API, Mac-based) | FIRERPA MCP server (on-device, 20+ tools, `agent` command) | **Complementary.** Hermes for fleet orchestration + user interaction. FIRERPA MCP for direct device control. Hermes can call FIRERPA MCP tools for on-device actions. |
-| **MCP server** | Hermes MCP (if configured) | FIRERPA `/mcp/` endpoint (streamable-http) | **FIRERPA is better for device MCP.** Hermes is better for fleet MCP. Bridge them: Hermes → FIRERPA MCP for device ops. |
+| Function       | stayturgid                                         | FIRERPA                                                    | Recommendation                                                                                                                                                        |
+| -------------- | -------------------------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **AI agent**   | Hermes (Telegram gateway, OpenCode API, Mac-based) | FIRERPA MCP server (on-device, 20+ tools, `agent` command) | **Complementary.** Hermes for fleet orchestration + user interaction. FIRERPA MCP for direct device control. Hermes can call FIRERPA MCP tools for on-device actions. |
+| **MCP server** | Hermes MCP (if configured)                         | FIRERPA `/mcp/` endpoint (streamable-http)                 | **FIRERPA is better for device MCP.** Hermes is better for fleet MCP. Bridge them: Hermes → FIRERPA MCP for device ops.                                               |
 
 ### Services that DON'T overlap — use both
 
-| Function | stayturgid | FIRERPA |
-|----------|-----------|---------|
-| **Fleet inventory + deploy** | Ansible playbooks, hosts.yml, group_vars | ❌ No fleet layer |
-| **Tailscale mesh** | always-on VPN, Tailscale IPs in inventory | ❌ No Tailscale integration (has frp/OpenVPN as alternatives) |
-| **Fire OS quirks** | Fire-specific boot scripts, `STAYTURGID_NO_LOCAL_ADB`, `fire_help_monitor` | ❌ No Fire-specific code |
-| **Obtainium catalog** | APK catalog management with version tracking | ❌ No app catalog (has its own APK distro) |
-| **Mac control node** | launchd agents, VLM, screen inversion | ❌ Android-only |
-| **Virtual displays** | ❌ Not available | ✅ Isolated background displays, full API parity |
-| **OCR / image matching** | ❌ Not available (VLM alternative) | ✅ On-device SIFT + PaddleOCR/EasyOCR |
-| **Multi-touch** | ❌ Basic adb input only | ✅ Record, replay, programmatic, pressure |
-| **MITM capture** | ❌ Not available | ✅ One-click system CA, per-package, live editing |
-| **Frida hooks** | ❌ Not available | ✅ Bundled, persistent scripts, RPC |
-| **Persistent KV store** | ❌ File-based configs only | ✅ `d.set()/get()` with TTL, Fernet encryption |
-| **Proxy/VPN** | ❌ Tailscale only | ✅ HTTP/SOCKS5/Shadowsocks, OpenVPN, frp, tunnel2 |
+| Function                     | stayturgid                                                                 | FIRERPA                                                       |
+| ---------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| **Fleet inventory + deploy** | Ansible playbooks, hosts.yml, group_vars                                   | ❌ No fleet layer                                             |
+| **Tailscale mesh**           | always-on VPN, Tailscale IPs in inventory                                  | ❌ No Tailscale integration (has frp/OpenVPN as alternatives) |
+| **Fire OS quirks**           | Fire-specific boot scripts, `STAYTURGID_NO_LOCAL_ADB`, `fire_help_monitor` | ❌ No Fire-specific code                                      |
+| **Obtainium catalog**        | APK catalog management with version tracking                               | ❌ No app catalog (has its own APK distro)                    |
+| **Mac control node**         | launchd agents, VLM, screen inversion                                      | ❌ Android-only                                               |
+| **Virtual displays**         | ❌ Not available                                                           | ✅ Isolated background displays, full API parity              |
+| **OCR / image matching**     | ❌ Not available (VLM alternative)                                         | ✅ On-device SIFT + PaddleOCR/EasyOCR                         |
+| **Multi-touch**              | ❌ Basic adb input only                                                    | ✅ Record, replay, programmatic, pressure                     |
+| **MITM capture**             | ❌ Not available                                                           | ✅ One-click system CA, per-package, live editing             |
+| **Frida hooks**              | ❌ Not available                                                           | ✅ Bundled, persistent scripts, RPC                           |
+| **Persistent KV store**      | ❌ File-based configs only                                                 | ✅ `d.set()/get()` with TTL, Fernet encryption                |
+| **Proxy/VPN**                | ❌ Tailscale only                                                          | ✅ HTTP/SOCKS5/Shadowsocks, OpenVPN, frp, tunnel2             |
 
 ---
 
@@ -157,13 +157,14 @@ Every service FIRERPA provides has an existing stayturgid equivalent. Choose per
 
 If you only want FIRERPA as a **backup remote-access channel** (no automation, no MCP, no Frida):
 
-| Device | Install | Configure |
-|--------|---------|-----------|
-| **s24 + p7a** | `tar xzf lamda-server-arm64-v8a.tar.gz` | `port=65000`, `adb.enable=true`, `adb.privileged=false`, `sshd.enable=true` |
-| **hd8** | `tar xzf lamda-server-armeabi-v7a.tar.gz` | Same config |
-| **Mac** | `pip install lamda-client-py-10.0.tar.gz` | Used by health monitor to check liveness |
+| Device        | Install                                   | Configure                                                                   |
+| ------------- | ----------------------------------------- | --------------------------------------------------------------------------- |
+| **s24 + p7a** | `tar xzf lamda-server-arm64-v8a.tar.gz`   | `port=65000`, `adb.enable=true`, `adb.privileged=false`, `sshd.enable=true` |
+| **hd8**       | `tar xzf lamda-server-armeabi-v7a.tar.gz` | Same config                                                                 |
+| **Mac**       | `pip install lamda-client-py-10.0.tar.gz` | Used by health monitor to check liveness                                    |
 
 **Minimal properties.local:**
+
 ```ini
 port=65000
 [sshd]

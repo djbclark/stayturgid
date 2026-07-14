@@ -21,11 +21,11 @@ The implementation-ready source-of-truth architecture and migration sequence are
 
 ## 1. Adoption tiers (pick one)
 
-| Tier | Control node | Devices | Effort | What you get |
-|------|--------------|---------|--------|--------------|
-| **A — Termux only** | Any OS with SSH | 1+ | Low | Repair scripts, boot loop, sshd; no AutoJs6 fleet |
-| **B — Ansible fleet** | Linux or macOS | 2+ | Medium | Full `site.yml` deploy; manual adb keepalive on Linux |
-| **C — Reference parity** | **macOS today** | 3+ incl. Fire | High | launchd health, Handsets UI, VLM, Fire peer-help |
+| Tier                     | Control node    | Devices       | Effort | What you get                                          |
+| ------------------------ | --------------- | ------------- | ------ | ----------------------------------------------------- |
+| **A — Termux only**      | Any OS with SSH | 1+            | Low    | Repair scripts, boot loop, sshd; no AutoJs6 fleet     |
+| **B — Ansible fleet**    | Linux or macOS  | 2+            | Medium | Full `site.yml` deploy; manual adb keepalive on Linux |
+| **C — Reference parity** | **macOS today** | 3+ incl. Fire | High   | launchd health, Handsets UI, VLM, Fire peer-help      |
 
 Tier **A** is Linux-friendly today via `examples/consumer-termux-only/`. Tier **C** matches
 this repo’s production path (`docs/handoff.md`, `just health`, Handsets). Tier **B** is the
@@ -79,12 +79,12 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 
 ### 2.3 Optional (reference site only)
 
-| Item | When needed |
-|------|-------------|
-| Handsets `~/.handsets/{hs,hs.jar}` | Mac Handsets post-UI, Fire peer bootstrap |
+| Item                                       | When needed                                           |
+| ------------------------------------------ | ----------------------------------------------------- |
+| Handsets `~/.handsets/{hs,hs.jar}`         | Mac Handsets post-UI, Fire peer bootstrap             |
 | `just vlm-install` + `vlm-service-install` | Screenshot verification gates ([docs/vlm.md](vlm.md)) |
-| `play.env` + `obtain_play_aas.py` | Google Play / Aurora downloads |
-| `uv tool install uiautomator2` | Mac debug (Ansible installs on `deploy-mac`) |
+| `play.env` + `obtain_play_aas.py`          | Google Play / Aurora downloads                        |
+| `uv tool install uiautomator2`             | Mac debug (Ansible installs on `deploy-mac`)          |
 
 ---
 
@@ -92,31 +92,31 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 
 ### 3.1 macOS (Sequoia+ — reference)
 
-| Concern | Status |
-|---------|--------|
-| Ansible deploy | Supported (`just deploy`, `control_node/site.yml`) |
-| Homebrew + adb | `control_node/prereqs.yml` (`community.general.homebrew`) |
-| Background keepalive | `community.general.launchd` agents (`com.stayturgid.*`) |
-| VLM sidecar | `control_node/vlm.yml` (llama.cpp + launchd) |
-| Handsets UI driver | `~/.handsets/hs` (manual binary install) |
+| Concern               | Status                                                                       |
+| --------------------- | ---------------------------------------------------------------------------- |
+| Ansible deploy        | Supported (`just deploy`, `control_node/site.yml`)                           |
+| Homebrew + adb        | `control_node/prereqs.yml` (`community.general.homebrew`)                    |
+| Background keepalive  | `community.general.launchd` agents (`com.stayturgid.*`)                      |
+| VLM sidecar           | `control_node/vlm.yml` (llama.cpp + launchd)                                 |
+| Handsets UI driver    | `~/.handsets/hs` (manual binary install)                                     |
 | Fire peer-help target | `stayturgid_mac_peer` + Remote Login + ForceCommand in `control_node/agents` |
 
 **Minimal path:** `just deploy-mac` then `just deploy`.
 
 ### 3.2 Debian / Ubuntu (stable, testing, unstable, LTS, current)
 
-| Concern | Status today | Packages (typical) |
-|---------|--------------|-------------------|
-| Ansible / Python / git | Works | `ansible` or `uv tool install ansible-core`, `python3`, `git` |
-| adb | Works if on PATH | `android-sdk-platform-tools` (Debian/Ubuntu) or Google zip |
-| Device Ansible (`site.yml` device plays) | Works | SSH to Termux :8022 |
-| `just test` / CI | Works | Ubuntu CI runs full unit suite |
-| `control_node/prereqs.yml` | Skipped (`end_host` when not Darwin) | — |
-| `control_node/agents` launchd | **Fails on Linux** | No equivalent shipped |
-| `just health` / fleet monitors | Broken default adb path | Set `STAYTURGID_ADB` |
-| VLM | Skipped on Linux playbooks | Manual `llama-server` possible (`vlm_gate.py`) |
-| Handsets on control node | Mac binary | Use on-device post-UI over SSH, or peer-only path |
-| Fire → control peer-help | Possible | Enable `openssh-server`, fix `help_cmd` path, run `control_node/agents` ForceCommand tasks |
+| Concern                                  | Status today                         | Packages (typical)                                                                         |
+| ---------------------------------------- | ------------------------------------ | ------------------------------------------------------------------------------------------ |
+| Ansible / Python / git                   | Works                                | `ansible` or `uv tool install ansible-core`, `python3`, `git`                              |
+| adb                                      | Works if on PATH                     | `android-sdk-platform-tools` (Debian/Ubuntu) or Google zip                                 |
+| Device Ansible (`site.yml` device plays) | Works                                | SSH to Termux :8022                                                                        |
+| `just test` / CI                         | Works                                | Ubuntu CI runs full unit suite                                                             |
+| `control_node/prereqs.yml`               | Skipped (`end_host` when not Darwin) | —                                                                                          |
+| `control_node/agents` launchd            | **Fails on Linux**                   | No equivalent shipped                                                                      |
+| `just health` / fleet monitors           | Broken default adb path              | Set `STAYTURGID_ADB`                                                                       |
+| VLM                                      | Skipped on Linux playbooks           | Manual `llama-server` possible (`vlm_gate.py`)                                             |
+| Handsets on control node                 | Mac binary                           | Use on-device post-UI over SSH, or peer-only path                                          |
+| Fire → control peer-help                 | Possible                             | Enable `openssh-server`, fix `help_cmd` path, run `control_node/agents` ForceCommand tasks |
 
 **Minimal path today (Tier B):**
 
@@ -132,13 +132,13 @@ Cron/systemd for `python3 control/bin/adb_reconnect.py <alias>` is manual until 
 
 ### 3.3 Cross-distro notes
 
-| Topic | Guidance |
-|-------|----------|
-| **Python** | 3.12+ tested in CI; 3.14 on reference Mac |
-| **Node** | Optional; only for JS unit tests |
-| **Tailscale** | Strongly recommended; inventory uses stable `100.x` addresses |
-| **LAN-only** | Supported: set `ansible_host` to LAN IP; drop Tailscale-specific watchdog features |
-| **Multiple control laptops** | Not supported as first-class; see §7 trust groups |
+| Topic                        | Guidance                                                                           |
+| ---------------------------- | ---------------------------------------------------------------------------------- |
+| **Python**                   | 3.12+ tested in CI; 3.14 on reference Mac                                          |
+| **Node**                     | Optional; only for JS unit tests                                                   |
+| **Tailscale**                | Strongly recommended; inventory uses stable `100.x` addresses                      |
+| **LAN-only**                 | Supported: set `ansible_host` to LAN IP; drop Tailscale-specific watchdog features |
+| **Multiple control laptops** | Not supported as first-class; see §7 trust groups                                  |
 
 ---
 
@@ -148,10 +148,10 @@ Today the main repo still carries **operator production data** (`s24`, `p7a`, `h
 Tailscale `100.x` addresses, `djbclark`, `/Users/djbclark/...`). That makes forks and
 docs harder than they need to be. The target shape is **two GitHub projects**:
 
-| Repo | Role | Visibility |
-|------|------|------------|
-| **`stayturgid`** (upstream) | Platform code, collections, playbooks, tests, **generic** example inventory | Public |
-| **`stayturgid-site-<operator>`** (overlay) | Real hostnames, IPs, USB serials, control-peer paths, `docs/handoff.md`-style ops notes | Private |
+| Repo                                       | Role                                                                                    | Visibility |
+| ------------------------------------------ | --------------------------------------------------------------------------------------- | ---------- |
+| **`stayturgid`** (upstream)                | Platform code, collections, playbooks, tests, **generic** example inventory             | Public     |
+| **`stayturgid-site-<operator>`** (overlay) | Real hostnames, IPs, USB serials, control-peer paths, `docs/handoff.md`-style ops notes | Private    |
 
 Consumers clone upstream, then point Ansible at their overlay inventory (submodule, sibling
 checkout, or `ANSIBLE_CONFIG` + custom `inventory/`).
@@ -161,11 +161,11 @@ checkout, or `ANSIBLE_CONFIG` + custom `inventory/`).
 Upstream docs, tests, and example inventory should use names that describe **what the
 device is for in the test matrix**, not who owns it:
 
-| Example hostname | Replaces (today) | Platform / role |
-|------------------|------------------|-----------------|
-| `oneui-device` | `s24` | Samsung One UI (e.g. Galaxy class), Android 16, local ADB + Termux SSH |
-| `stock-android-device` | `p7a` | Stock Android / Pixel class, Android 16, helper for Fire peer paths |
-| `fireos-device` | `hd8` | Fire OS / Amazon, `stayturgid_no_local_adb`, peer-help consumer |
+| Example hostname       | Replaces (today) | Platform / role                                                        |
+| ---------------------- | ---------------- | ---------------------------------------------------------------------- |
+| `oneui-device`         | `s24`            | Samsung One UI (e.g. Galaxy class), Android 16, local ADB + Termux SSH |
+| `stock-android-device` | `p7a`            | Stock Android / Pixel class, Android 16, helper for Fire peer paths    |
+| `fireos-device`        | `hd8`            | Fire OS / Amazon, `stayturgid_no_local_adb`, peer-help consumer        |
 
 Use **placeholder** addresses in upstream only:
 
@@ -179,25 +179,25 @@ they describe hardware/OS families, not site ownership.
 
 ### 4.2 What moves out of upstream → site repo
 
-| Artifact | Site repo path (suggested) |
-|----------|----------------------------|
-| Production `ansible/inventory/hosts.yml` | `inventory/hosts.yml` |
-| `ansible/inventory/group_vars/stayturgid.yml` (real `stayturgid_mac_peer`, IPs) | `inventory/group_vars/stayturgid.yml` |
-| Operator session docs | `docs/handoff.md`, `human/*` (or drop from upstream entirely) |
-| Live device notes (Tailscale names, DHCP anecdotes) | Site `docs/handoff.md` only |
-| `play.env`, secrets | Never in git; site repo may have `play.env.example` |
-| Makefile convenience defaults (`HOSTS=s24`) | Root `justfile` or recipe groups |
+| Artifact                                                                        | Site repo path (suggested)                                    |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Production `ansible/inventory/hosts.yml`                                        | `inventory/hosts.yml`                                         |
+| `ansible/inventory/group_vars/stayturgid.yml` (real `stayturgid_mac_peer`, IPs) | `inventory/group_vars/stayturgid.yml`                         |
+| Operator session docs                                                           | `docs/handoff.md`, `human/*` (or drop from upstream entirely) |
+| Live device notes (Tailscale names, DHCP anecdotes)                             | Site `docs/handoff.md` only                                   |
+| `play.env`, secrets                                                             | Never in git; site repo may have `play.env.example`           |
+| Makefile convenience defaults (`HOSTS=s24`)                                     | Root `justfile` or recipe groups                              |
 
 ### 4.3 What stays in upstream (generic)
 
-| Artifact | Notes |
-|----------|--------|
-| `ansible/inventory/hosts.yml.example` | Three example hosts (`oneui-device`, …) with RFC 5737 IPs |
-| `ansible/inventory/group_vars/*.yml` except site peer | Taxonomy quirks (Fire, One UI, Pixel) |
-| `ansible_collections/`, `ansible/playbooks/`, `device/termux/`, `device/autojs6/` | Product code |
-| Unit tests | Use example hostnames + `192.0.2.0/24` / `100.0.0.0/24` fixtures |
-| `docs/hacking.md` | Generic setup; link to docs/other-sites.md for site overlay |
-| `examples/consumer-*` | Already partially generic; align hostnames with §4.1 |
+| Artifact                                                                          | Notes                                                            |
+| --------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| `ansible/inventory/hosts.yml.example`                                             | Three example hosts (`oneui-device`, …) with RFC 5737 IPs        |
+| `ansible/inventory/group_vars/*.yml` except site peer                             | Taxonomy quirks (Fire, One UI, Pixel)                            |
+| `ansible_collections/`, `ansible/playbooks/`, `device/termux/`, `device/autojs6/` | Product code                                                     |
+| Unit tests                                                                        | Use example hostnames + `192.0.2.0/24` / `100.0.0.0/24` fixtures |
+| `docs/hacking.md`                                                                 | Generic setup; link to docs/other-sites.md for site overlay      |
+| `examples/consumer-*`                                                             | Already partially generic; align hostnames with §4.1             |
 
 ### 4.4 Example upstream inventory (after split)
 
@@ -283,17 +283,17 @@ the upstream checkout (or installed collections).
 Replace site-specific hostnames in **user-facing generic docs** with §4.1 names. Keep
 historical operator docs only in the site repo.
 
-| Area | Action |
-|------|--------|
-| `ansible/README.md`, `docs/hacking.md`, `control/bin/README.md` | `oneui-device` / `stock-android-device` / `fireos-device`; no real IPs |
-| `docs/handoff.md`, `human/*` | **Move** to site repo; upstream stub points to docs/other-sites.md |
-| `README.md` | Link docs/other-sites.md + example inventory; remove fleet-specific IPs |
-| Tests (`tests/python/*`) | Fixture `devices.conf` lines use example hostnames + `192.0.2.x` |
-| `control/lib/a11y_profiles.json` | Keys → example hostnames (or host-agnostic IDs) |
-| `peers.json.j2`, `stayturgid_peer_bootstrap.py` | Remove `djbclark`; use `ansible_user` from inventory |
-| `galaxy.yml` `repository:` | Upstream org URL (not operator home) |
-| `version.json` changelog | Generic; site ops notes in site repo |
-| Scripts default `HOSTS=hd8` | `HOSTS=fireos-device` or require explicit `HOSTS` |
+| Area                                                            | Action                                                                  |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| `ansible/README.md`, `docs/hacking.md`, `control/bin/README.md` | `oneui-device` / `stock-android-device` / `fireos-device`; no real IPs  |
+| `docs/handoff.md`, `human/*`                                    | **Move** to site repo; upstream stub points to docs/other-sites.md      |
+| `README.md`                                                     | Link docs/other-sites.md + example inventory; remove fleet-specific IPs |
+| Tests (`tests/python/*`)                                        | Fixture `devices.conf` lines use example hostnames + `192.0.2.x`        |
+| `control/lib/a11y_profiles.json`                                | Keys → example hostnames (or host-agnostic IDs)                         |
+| `peers.json.j2`, `stayturgid_peer_bootstrap.py`                 | Remove `djbclark`; use `ansible_user` from inventory                    |
+| `galaxy.yml` `repository:`                                      | Upstream org URL (not operator home)                                    |
+| `version.json` changelog                                        | Generic; site ops notes in site repo                                    |
+| Scripts default `HOSTS=hd8`                                     | `HOSTS=fireos-device` or require explicit `HOSTS`                       |
 
 **Do not scrub** research docs that record a specific historical debugging session unless
 you move them to the site repo — or add a banner: “example names: see §4.1”.
@@ -308,32 +308,32 @@ Stop defaulting `inventory = inventory/hosts.yml` to production data. Options:
 
 ### 4.8 Implementation phases (repo split)
 
-| Phase | Work |
-|-------|------|
-| **0** | This doc + `hosts.yml.example` with generic names (can land before site repo exists) |
+| Phase | Work                                                                                                |
+| ----- | --------------------------------------------------------------------------------------------------- |
+| **0** | This doc + `hosts.yml.example` with generic names (can land before site repo exists)                |
 | **1** | Create private `stayturgid-site-*` repo; move live `hosts.yml`, `stayturgid.yml`, `docs/handoff.md` |
-| **2** | Scrub upstream docs/tests per §4.6; fix `djbclark` defaults in templates |
-| **3** | `deploy_fleet.py` / `Makefile` accept `ANSIBLE_CONFIG` + external inventory |
-| **4** | Consumer `examples/consumer-full-fleet` uses §4.1 hostnames; documents overlay pattern |
+| **2** | Scrub upstream docs/tests per §4.6; fix `djbclark` defaults in templates                            |
+| **3** | `deploy_fleet.py` / `Makefile` accept `ANSIBLE_CONFIG` + external inventory                         |
+| **4** | Consumer `examples/consumer-full-fleet` uses §4.1 hostnames; documents overlay pattern              |
 
 ### 4.9 Per-site customization (until split is complete)
 
 Until Phase 1–2 ship, new operators still edit a forked `hosts.yml` in-tree:
 
-| File / artifact | Content |
-|-----------------|---------|
-| Site inventory | Host aliases, IPs, USB serials, taxonomy membership |
-| Site `group_vars/stayturgid.yml` | Control peer, app-store flags |
-| `~/.ssh/termux_key`, `~/.config/stayturgid/adbkey` | Secrets (never in git) |
+| File / artifact                                    | Content                                             |
+| -------------------------------------------------- | --------------------------------------------------- |
+| Site inventory                                     | Host aliases, IPs, USB serials, taxonomy membership |
+| Site `group_vars/stayturgid.yml`                   | Control peer, app-store flags                       |
+| `~/.ssh/termux_key`, `~/.config/stayturgid/adbkey` | Secrets (never in git)                              |
 
 **Upstream code still to genericize** (fix in main repo, not site overlay):
 
-| Location | Issue |
-|----------|--------|
-| `peers.json.j2` | Hardcoded `ssh_user: djbclark` |
-| `device/termux/py/stayturgid_peer_bootstrap.py` | `DEFAULT_SSH_USER = "djbclark"` |
-| `control/bin/*.py` adb path | Default `/opt/homebrew/bin/adb` — use `STAYTURGID_ADB` |
-| `control/tools/play/obtain_play_aas.py` | Default operator email |
+| Location                                        | Issue                                                  |
+| ----------------------------------------------- | ------------------------------------------------------ |
+| `peers.json.j2`                                 | Hardcoded `ssh_user: djbclark`                         |
+| `device/termux/py/stayturgid_peer_bootstrap.py` | `DEFAULT_SSH_USER = "djbclark"`                        |
+| `control/bin/*.py` adb path                     | Default `/opt/homebrew/bin/adb` — use `STAYTURGID_ADB` |
+| `control/tools/play/obtain_play_aas.py`         | Default operator email                                 |
 
 **Generic (do not fork):** collections, taxonomy `group_vars`, Termux/AutoJs6 scripts,
 `site.yml` playbook graph.
@@ -346,37 +346,37 @@ Ordered by impact for “minimal effort” on Debian/Ubuntu.
 
 ### 5.1 P0 — Unblock `just deploy` on Linux
 
-| Task | Detail |
-|------|--------|
-| Guard `control_node/agents` | `meta: end_host` when not Darwin (like `control_node/prereqs.yml`), or split OS-specific tasks |
-| Fix adb defaults | Use `shutil.which("adb")` or honor `STAYTURGID_ADB` in **all** `control/bin/*.py` (today `adb_reconnect.py` / `access_monitor.py` ignore env) |
-| Document `--skip-tags mac` | Until guard lands, consumer README for Linux |
+| Task                        | Detail                                                                                                                                        |
+| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Guard `control_node/agents` | `meta: end_host` when not Darwin (like `control_node/prereqs.yml`), or split OS-specific tasks                                                |
+| Fix adb defaults            | Use `shutil.which("adb")` or honor `STAYTURGID_ADB` in **all** `control/bin/*.py` (today `adb_reconnect.py` / `access_monitor.py` ignore env) |
+| Document `--skip-tags mac`  | Until guard lands, consumer README for Linux                                                                                                  |
 
 ### 5.2 P1 — Operator ergonomics without launchd
 
-| Task | Detail |
-|------|--------|
-| `ansible/playbooks/linux-control.yml` | systemd user units or timers for adb-reconnect, fleet-health, access-monitor, fire-help (templates parallel to existing plists) |
-| `just deploy` | Apt install adb, ansible, scrcpy, just; enable systemd units |
-| `configure` script | Detect systemd + `/usr/bin/adb`, not only Homebrew/launchd |
-| `devices.conf` + SSH fragment on Linux | Render from `control_node/agents` tasks that are OS-agnostic (split launchd out) |
+| Task                                   | Detail                                                                                                                          |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `ansible/playbooks/linux-control.yml`  | systemd user units or timers for adb-reconnect, fleet-health, access-monitor, fire-help (templates parallel to existing plists) |
+| `just deploy`                          | Apt install adb, ansible, scrcpy, just; enable systemd units                                                                    |
+| `configure` script                     | Detect systemd + `/usr/bin/adb`, not only Homebrew/launchd                                                                      |
+| `devices.conf` + SSH fragment on Linux | Render from `control_node/agents` tasks that are OS-agnostic (split launchd out)                                                |
 
 ### 5.3 P2 — Feature parity gaps
 
-| Task | Detail |
-|------|--------|
-| Handsets on Linux | Investigate Linux build of `hs`, or document on-device-only UI path |
-| VLM on Linux | `apt`/manual `llama.cpp` + systemd unit (mirror `control_node/vlm.yml` with `ansible.builtin.service`) |
-| fdroidcl/apkeep PATH | Extend `fdroidcl_install.py` PATH for `/usr/bin` |
-| Control-node sshd for Fire | Document `openssh-server` + firewall; `control_node/agents` ForceCommand is OS-neutral |
-| Consumer example | `examples/consumer-linux-control/` with inventory + skip-mac playbook |
+| Task                       | Detail                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Handsets on Linux          | Investigate Linux build of `hs`, or document on-device-only UI path                                    |
+| VLM on Linux               | `apt`/manual `llama.cpp` + systemd unit (mirror `control_node/vlm.yml` with `ansible.builtin.service`) |
+| fdroidcl/apkeep PATH       | Extend `fdroidcl_install.py` PATH for `/usr/bin`                                                       |
+| Control-node sshd for Fire | Document `openssh-server` + firewall; `control_node/agents` ForceCommand is OS-neutral                 |
+| Consumer example           | `examples/consumer-linux-control/` with inventory + skip-mac playbook                                  |
 
 ### 5.4 P3 — Polish
 
-| Task | Detail |
-|------|--------|
-| Remove `djbclark` defaults | Template `ansible_user` through peers JSON and peer bootstrap |
-| Notifications | Replace `osascript` with `notify-send` / email when not Darwin |
+| Task                       | Detail                                                                                |
+| -------------------------- | ------------------------------------------------------------------------------------- |
+| Remove `djbclark` defaults | Template `ansible_user` through peers JSON and peer bootstrap                         |
+| Notifications              | Replace `osascript` with `notify-send` / email when not Darwin                        |
 | Multi-arch Homebrew prefix | Already in `roles/control_node/defaults/main.yml`; Linux uses distro packages instead |
 
 ---
@@ -416,7 +416,7 @@ flowchart TB
 5. **ADB:** Single shared `adbkey-fleet` on all devices for peer ADB help.
 6. **Fire peer-help:** Restricted **second** channel — Fire’s `id_ed25519_peerhelp` may
    only run `stayturgid-peer-help-force.sh` on helpers (and `fire_peer_help.py` on
-   control node via ForceCommand). This is *not* general shell access.
+   control node via ForceCommand). This is _not_ general shell access.
 7. **peers.json:** Lists all fleet peers + control node for Handsets/Shizuku bootstrap.
 
 **Implication:** Any compromised device with Termux home readable gets keys that can SSH
@@ -429,34 +429,34 @@ users.
 
 ### 7.1 Desired policy (example)
 
-| Actor | SSH access | ADB / deploy | Notes |
-|-------|------------|--------------|-------|
-| **Control node (sysadmin)** | All devices | `ansible-playbook` full fleet | CI or laptop |
-| **sysadmin devices** | All devices | Same as today’s mesh | “Break glass” phones |
-| **bob** | bob’s devices only | `--limit bob_devices` | Cannot SSH to alice |
-| **alice** | alice’s devices only | `--limit alice_devices` | Cannot SSH to bob |
+| Actor                       | SSH access           | ADB / deploy                  | Notes                |
+| --------------------------- | -------------------- | ----------------------------- | -------------------- |
+| **Control node (sysadmin)** | All devices          | `ansible-playbook` full fleet | CI or laptop         |
+| **sysadmin devices**        | All devices          | Same as today’s mesh          | “Break glass” phones |
+| **bob**                     | bob’s devices only   | `--limit bob_devices`         | Cannot SSH to alice  |
+| **alice**                   | alice’s devices only | `--limit alice_devices`       | Cannot SSH to bob    |
 
 Everyone trusts the **control node** for configuration. **sysadmin** tier trusts
 everything; **bob** and **alice** are isolated from each other’s devices.
 
 ### 7.2 Gap analysis (what must change)
 
-| Component | Today | Trust-group change |
-|-----------|-------|-------------------|
-| **Inventory** | Flat `stayturgid` group | Add `trust_group` host var and/or child groups: `trust_sysadmin`, `trust_bob`, `trust_alice`; hosts may be in one user group |
-| **`ssh_keys.yml` mesh loop** | `loop: "{{ groups['stayturgid'] }}"` | Loop only peers in **trust closure** of host (e.g. bob + sysadmin + control, not alice) |
-| **Control node pub keys** | All `*.pub` → all devices | Map keys to groups: sysadmin keys everywhere; `bob_key.pub` only on bob + sysadmin hosts |
-| **Private key distribution** | All privates → all devices | **Stop** distributing operator privates to devices except sysadmin break-glass; devices only need their own `id_ed25519_fleet` + maybe one peer-help key |
-| **`stayturgid_ssh_mesh_group`** | Single group name | Per-host computed group or Jinja filter `trust_peers(host)` |
-| **`known_hosts_mesh.j2`** | All peers | Same trust closure filter |
-| **peers.json.j2`** | All peers + control | Filter `can_help` peers by trust; `fireos-device` must not list alice helpers unless shared sysadmin pool |
-| **`peerhelp-force.yml`** | Fire keys on all helpers | Only install Fire pubkey on helpers in same trust group (or sysadmin pool) |
-| **`stayturgid_mac_peer`** | One control peer | Renamed `stayturgid_control_peer`; optional list if multiple bastions |
-| **`devices.conf`** | All hosts | Operator-specific render or single file with ACL in scripts |
-| **Fleet ADB key** | One global `adbkey` | Per trust group (`adbkey-bob`, `adbkey-alice`) or per-device pairing |
-| **Ansible RBAC** | None | Convention: bob runs with `--limit trust_bob`; separate `termux_key` per operator |
-| **Tailscale ACLs** | Open tailnet | Optional network-layer mirror: tags `tag:bob`, `tag:alice` |
-| **`authorized_key` `exclusive`** | `false` (additive) | May need `exclusive: true` per key class + careful ordering, or separate `authorized_keys.d/` |
+| Component                        | Today                                | Trust-group change                                                                                                                                       |
+| -------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Inventory**                    | Flat `stayturgid` group              | Add `trust_group` host var and/or child groups: `trust_sysadmin`, `trust_bob`, `trust_alice`; hosts may be in one user group                             |
+| **`ssh_keys.yml` mesh loop**     | `loop: "{{ groups['stayturgid'] }}"` | Loop only peers in **trust closure** of host (e.g. bob + sysadmin + control, not alice)                                                                  |
+| **Control node pub keys**        | All `*.pub` → all devices            | Map keys to groups: sysadmin keys everywhere; `bob_key.pub` only on bob + sysadmin hosts                                                                 |
+| **Private key distribution**     | All privates → all devices           | **Stop** distributing operator privates to devices except sysadmin break-glass; devices only need their own `id_ed25519_fleet` + maybe one peer-help key |
+| **`stayturgid_ssh_mesh_group`**  | Single group name                    | Per-host computed group or Jinja filter `trust_peers(host)`                                                                                              |
+| **`known_hosts_mesh.j2`**        | All peers                            | Same trust closure filter                                                                                                                                |
+| **peers.json.j2`**               | All peers + control                  | Filter `can_help` peers by trust; `fireos-device` must not list alice helpers unless shared sysadmin pool                                                |
+| **`peerhelp-force.yml`**         | Fire keys on all helpers             | Only install Fire pubkey on helpers in same trust group (or sysadmin pool)                                                                               |
+| **`stayturgid_mac_peer`**        | One control peer                     | Renamed `stayturgid_control_peer`; optional list if multiple bastions                                                                                    |
+| **`devices.conf`**               | All hosts                            | Operator-specific render or single file with ACL in scripts                                                                                              |
+| **Fleet ADB key**                | One global `adbkey`                  | Per trust group (`adbkey-bob`, `adbkey-alice`) or per-device pairing                                                                                     |
+| **Ansible RBAC**                 | None                                 | Convention: bob runs with `--limit trust_bob`; separate `termux_key` per operator                                                                        |
+| **Tailscale ACLs**               | Open tailnet                         | Optional network-layer mirror: tags `tag:bob`, `tag:alice`                                                                                               |
+| **`authorized_key` `exclusive`** | `false` (additive)                   | May need `exclusive: true` per key class + careful ordering, or separate `authorized_keys.d/`                                                            |
 
 ### 7.3 Proposed inventory shape (sketch)
 
@@ -472,15 +472,15 @@ all:
         trust_alice:
           hosts: { alice-phone-1: {} }
       vars:
-        stayturgid_trust_model: grouped   # future; default full_mesh for back compat
+        stayturgid_trust_model: grouped # future; default full_mesh for back compat
 ```
 
 Host vars:
 
 ```yaml
 bob-phone-1:
-  stayturgid_trust_groups: [bob]          # membership
-  ansible_user: bob                       # Termux account name if per-user Termux
+  stayturgid_trust_groups: [bob] # membership
+  ansible_user: bob # Termux account name if per-user Termux
 ```
 
 Control-node keys in `group_vars`:
@@ -495,13 +495,13 @@ stayturgid_operator_keys:
 
 ### 7.4 Implementation phases
 
-| Phase | Scope | Backward compatible? |
-|-------|-------|----------------------|
-| **0** | Document `--limit` + separate inventories per user (no code) | Yes |
-| **1** | Add `stayturgid_trust_peers` Jinja helper; filter mesh loops when `stayturgid_trust_model: grouped` | Yes (`full_mesh` default) |
-| **2** | Per-operator `termux_key`; stop copying all privates to all devices | Breaking for scripts that SSH device→device as operator |
-| **3** | Trust-aware `peers.json`, peer-help, ADB keys | Breaking for cross-group Fire help |
-| **4** | Multi-control-node docs + optional Tailscale ACL templates | Additive |
+| Phase | Scope                                                                                               | Backward compatible?                                    |
+| ----- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| **0** | Document `--limit` + separate inventories per user (no code)                                        | Yes                                                     |
+| **1** | Add `stayturgid_trust_peers` Jinja helper; filter mesh loops when `stayturgid_trust_model: grouped` | Yes (`full_mesh` default)                               |
+| **2** | Per-operator `termux_key`; stop copying all privates to all devices                                 | Breaking for scripts that SSH device→device as operator |
+| **3** | Trust-aware `peers.json`, peer-help, ADB keys                                                       | Breaking for cross-group Fire help                      |
+| **4** | Multi-control-node docs + optional Tailscale ACL templates                                          | Additive                                                |
 
 ### 7.5 What stays “full trust” even with groups
 
@@ -568,13 +568,13 @@ cd examples/consumer-termux-only && ansible-playbook playbook.yml
 
 ## 10. Summary
 
-| Question | Answer |
-|----------|--------|
-| **Minimal effort today?** | Termux-only consumer, or site overlay + macOS `just deploy` |
-| **Repo split?** | Upstream = generic (`oneui-device`, …); site repo = real inventory (§4) |
-| **Linux control node?** | Device Ansible works; control-plane daemons need port (§5) |
-| **What must every site edit?** | Site inventory, control peer vars, `termux_key`, optional `adbkey` |
-| **Trust groups?** | Not implemented; §7 lists required work |
-| **Examples** | `examples/consumer-*` + `hosts.yml.example` |
+| Question                       | Answer                                                                  |
+| ------------------------------ | ----------------------------------------------------------------------- |
+| **Minimal effort today?**      | Termux-only consumer, or site overlay + macOS `just deploy`             |
+| **Repo split?**                | Upstream = generic (`oneui-device`, …); site repo = real inventory (§4) |
+| **Linux control node?**        | Device Ansible works; control-plane daemons need port (§5)              |
+| **What must every site edit?** | Site inventory, control peer vars, `termux_key`, optional `adbkey`      |
+| **Trust groups?**              | Not implemented; §7 lists required work                                 |
+| **Examples**                   | `examples/consumer-*` + `hosts.yml.example`                             |
 
 For tracked epics: §4 (repo split), §5 (Linux control node), §7 (trust groups).

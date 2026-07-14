@@ -24,6 +24,10 @@ jobs:
           curl -sSLO https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_linux_amd64
           chmod +x shfmt_v3.13.1_linux_amd64
           sudo mv shfmt_v3.13.1_linux_amd64 /usr/local/bin/shfmt
+      - name: Install markdownlint
+        run: npm install -g markdownlint-cli
+      - name: Install prettier
+        run: npm install -g prettier
       - name: Install ansible + linters
         run: uv tool install ansible-core && uv tool install ansible-lint && uv tool install yamllint
       - name: Install just

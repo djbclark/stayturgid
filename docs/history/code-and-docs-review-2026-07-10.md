@@ -17,12 +17,12 @@
 > on `hermes/review-nuances`). Multi-agent git source of truth remains
 > `origin/master` on `https://github.com/djbclark/stayturgid.git`.
 
-| | |
-|--|--|
-| **Scope** | Full-repo layout, `control/` + `device/termux/py` Python hot paths, docs tree + relative links, modules vs collections, parked features, new subsystems (ET Mac, Hermes gateway, cloud VLM, screen lease, portrait lock) |
-| **Method** | Structural inventory; full reads of focus Python modules; relative-link crawl under `docs/`; comparison to historical [code-review.md](code-review.md); no live device deploy in this pass |
-| **Tests** | Hermes worktree for this session had no local `.venv-test` (`make test-venv` not run). That is **environment-specific**, not a repo defect — `~/stayturgid` often has the venv; CI remains `make test` / `.github/workflows/test.yml` |
-| **Severity** | **H** = broken in production paths or agent guidance systematically wrong · **M** = incorrect/harmful in realistic conditions · **L** = quality / completeness |
+|              |                                                                                                                                                                                                                                       |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Scope**    | Full-repo layout, `control/` + `device/termux/py` Python hot paths, docs tree + relative links, modules vs collections, parked features, new subsystems (ET Mac, Hermes gateway, cloud VLM, screen lease, portrait lock)              |
+| **Method**   | Structural inventory; full reads of focus Python modules; relative-link crawl under `docs/`; comparison to historical [code-review.md](code-review.md); no live device deploy in this pass                                            |
+| **Tests**    | Hermes worktree for this session had no local `.venv-test` (`make test-venv` not run). That is **environment-specific**, not a repo defect — `~/stayturgid` often has the venv; CI remains `make test` / `.github/workflows/test.yml` |
+| **Severity** | **H** = broken in production paths or agent guidance systematically wrong · **M** = incorrect/harmful in realistic conditions · **L** = quality / completeness                                                                        |
 
 ---
 
@@ -145,18 +145,18 @@ falls back to `agent-presence.sh`.
 
 ### Low
 
-| ID | Topic | Notes |
-|----|--------|--------|
-| L1 | Hard-coded swipe coords in `stayturgid_import_catalog.py` | Prefer `wm size` ratios; Handsets path already preferred |
-| L2 | AppleScript notify escaping inconsistent | `fleet_health_monitor` escapes; `access_monitor` / `adb_reconnect` do not |
-| L3 | `sshd_listening` double-invokes `ss` | Capture once in `stayturgid_repair.py` |
-| L4 | Fire-Tools zip download race | Unique temp + atomic replace or flock in `hd8_google_stack.py` |
-| L5 | `handsets.Session.__exit__` always stops daemon | Nested UI scripts pay start latency / can kill each other |
-| L6 | `et_mac` `StrictHostKeyChecking=accept-new` | OK on trusted Tailscale; pin known_hosts if threat model needs it |
-| L7 | `request-screen` timeout fail-open | Intentional; `consent_gate` is fail-closed — document caller choice |
-| L8 | `deploy_fleet` Mac re-run only when host limit set | Depends on `site.yml` always importing control_node |
-| L9 | Duplicate devices.conf parsers | Consolidate on `stayturgid_device` |
-| L10 | `duplicate_branch` vs `main()` STATUS schema | Beyond H1 `wifi`: contention path omits `a11y=` / `et_cfg` etc. Align keys (see H1) |
+| ID  | Topic                                                     | Notes                                                                               |
+| --- | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| L1  | Hard-coded swipe coords in `stayturgid_import_catalog.py` | Prefer `wm size` ratios; Handsets path already preferred                            |
+| L2  | AppleScript notify escaping inconsistent                  | `fleet_health_monitor` escapes; `access_monitor` / `adb_reconnect` do not           |
+| L3  | `sshd_listening` double-invokes `ss`                      | Capture once in `stayturgid_repair.py`                                              |
+| L4  | Fire-Tools zip download race                              | Unique temp + atomic replace or flock in `hd8_google_stack.py`                      |
+| L5  | `handsets.Session.__exit__` always stops daemon           | Nested UI scripts pay start latency / can kill each other                           |
+| L6  | `et_mac` `StrictHostKeyChecking=accept-new`               | OK on trusted Tailscale; pin known_hosts if threat model needs it                   |
+| L7  | `request-screen` timeout fail-open                        | Intentional; `consent_gate` is fail-closed — document caller choice                 |
+| L8  | `deploy_fleet` Mac re-run only when host limit set        | Depends on `site.yml` always importing control_node                                 |
+| L9  | Duplicate devices.conf parsers                            | Consolidate on `stayturgid_device`                                                  |
+| L10 | `duplicate_branch` vs `main()` STATUS schema              | Beyond H1 `wifi`: contention path omits `a11y=` / `et_cfg` etc. Align keys (see H1) |
 
 ---
 
@@ -165,19 +165,19 @@ falls back to `agent-presence.sh`.
 > Rows below look plausible against the current Python tree; not every
 > historical fix was re-verified end-to-end in this review pass.
 
-| Historical | Status now |
-|------------|------------|
-| H1 repair functions-before-use | **Fixed** — Python + fcntl lock |
-| H2 `pgrep -f repair-bridge` self-match | **Fixed** — pidfile liveness |
-| M1 wallpaper destroy | **Fixed** — magic-byte check, restore paths |
-| M2 battery tier cascade | **Fixed** — lowest tier only |
-| M3 battery `set -e` parse | **Fixed** — JSON + None guard |
-| M4 consent timeout fail-open | **Fixed** for `consent_gate`; `request-screen` intentionally open |
-| M5 Pixel launcher idle | **Fixed** — nexuslauncher in idle list |
-| M8 unbounded watchdog log | **Fixed** — trim in repair |
-| M9 adb-reconnect notify spam | **Fixed** — reconnect silent; access_monitor owns alerts |
-| Path reorg `mac/` / root `termux/` | **Done** for production trees |
-| Secrets in repo | **None found** in focus Python; env under `~/.config/stayturgid/` |
+| Historical                             | Status now                                                        |
+| -------------------------------------- | ----------------------------------------------------------------- |
+| H1 repair functions-before-use         | **Fixed** — Python + fcntl lock                                   |
+| H2 `pgrep -f repair-bridge` self-match | **Fixed** — pidfile liveness                                      |
+| M1 wallpaper destroy                   | **Fixed** — magic-byte check, restore paths                       |
+| M2 battery tier cascade                | **Fixed** — lowest tier only                                      |
+| M3 battery `set -e` parse              | **Fixed** — JSON + None guard                                     |
+| M4 consent timeout fail-open           | **Fixed** for `consent_gate`; `request-screen` intentionally open |
+| M5 Pixel launcher idle                 | **Fixed** — nexuslauncher in idle list                            |
+| M8 unbounded watchdog log              | **Fixed** — trim in repair                                        |
+| M9 adb-reconnect notify spam           | **Fixed** — reconnect silent; access_monitor owns alerts          |
+| Path reorg `mac/` / root `termux/`     | **Done** for production trees                                     |
+| Secrets in repo                        | **None found** in focus Python; env under `~/.config/stayturgid/` |
 
 ---
 
@@ -215,14 +215,14 @@ files already under `docs/` use **repo-root-style** targets (`docs/…`,
 
 Representative hotspots:
 
-| File | Pattern |
-|------|---------|
-| `docs/handoff.md` | Many `docs/…`, `human/…`, `control/…` |
-| `docs/options.md` | `docs/…`, `human/…` |
-| `docs/hacking.md` | `docs/modules/…`; nonexistent collection module paths |
-| `docs/other-sites.md` | `docs/…`, `examples/…` |
-| `docs/modules/control.md` | `../docs/…` / wrong depth to `control/` |
-| `docs/vlm.md` | `docs/hacking.md` → `docs/docs/hacking.md` |
+| File                      | Pattern                                               |
+| ------------------------- | ----------------------------------------------------- |
+| `docs/handoff.md`         | Many `docs/…`, `human/…`, `control/…`                 |
+| `docs/options.md`         | `docs/…`, `human/…`                                   |
+| `docs/hacking.md`         | `docs/modules/…`; nonexistent collection module paths |
+| `docs/other-sites.md`     | `docs/…`, `examples/…`                                |
+| `docs/modules/control.md` | `../docs/…` / wrong depth to `control/`               |
+| `docs/vlm.md`             | `docs/hacking.md` → `docs/docs/hacking.md`            |
 
 Collection READMEs (especially `stayturgid/fleet`) also point at non-existent
 `stayturgid/docs/…` trees; real shared collection docs live under
@@ -233,13 +233,13 @@ Collection READMEs (especially `stayturgid/fleet`) also point at non-existent
 
 #### H2. Conflicting OPTIONS 62 / flat playbook shim status
 
-| Source | Claims |
-|--------|--------|
-| `docs/options.md` | OPTIONS **62 closed** 2026-07-10 |
-| `docs/architecture.md` | Flat shims **removed** |
-| `docs/handoff.md` (parts) | Closed / removed |
+| Source                          | Claims                                                 |
+| ------------------------------- | ------------------------------------------------------ |
+| `docs/options.md`               | OPTIONS **62 closed** 2026-07-10                       |
+| `docs/architecture.md`          | Flat shims **removed**                                 |
+| `docs/handoff.md` (parts)       | Closed / removed                                       |
 | `docs/handoff.md` (other parts) | Still says flat shims remain / “start with OPTIONS 62” |
-| `human/HANDOFF-HUMAN.md` | OPTIONS 62 “not executed yet” |
+| `human/HANDOFF-HUMAN.md`        | OPTIONS 62 “not executed yet”                          |
 
 **Ground truth at review tip:** only `ansible/playbooks/site.yml` at the flat
 playbooks level; no shim siblings. Agents may restart closed cleanup work.
@@ -250,26 +250,26 @@ playbooks level; no shim siblings. Agents may restart closed cleanup work.
 
 ### Medium (docs)
 
-| ID | Topic |
-|----|--------|
-| M1 | `control.md` / `termux.md` “Full project” links hit `docs/README.md` instead of repo root README |
-| M2 | `control/lib/README.md` documents ~4 helpers; missing et_mac, screen_control, lease, fleet_health, VLM, UI stack, hd8_google_stack, ssh_marked_block, … |
-| M3 | Collection doc gaps: `android_intent`, `stayturgid_repair_check`, `adb_device` lookup |
-| M4 | `docs/hacking.md` repo tree still shows Termux py scripts at `device/termux/*.py` not `device/termux/py/` |
-| M5 | `docs/README.md` index gaps: fire-os-google-play, mac-android-ui-automation, history/, human handoff, Hermes/et_mac as first-class rows |
-| M6 | Portrait lock under-documented (one handoff sentence; absent from screen-control-lease + cursor rule) |
-| M7 | Parked fdroid/play **story is consistent** (good); residual dead collection links from hacking |
-| M8 | `control.md` bin inventory incomplete vs live `control/bin/` |
+| ID  | Topic                                                                                                                                                   |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| M1  | `control.md` / `termux.md` “Full project” links hit `docs/README.md` instead of repo root README                                                        |
+| M2  | `control/lib/README.md` documents ~4 helpers; missing et_mac, screen_control, lease, fleet_health, VLM, UI stack, hd8_google_stack, ssh_marked_block, … |
+| M3  | Collection doc gaps: `android_intent`, `stayturgid_repair_check`, `adb_device` lookup                                                                   |
+| M4  | `docs/hacking.md` repo tree still shows Termux py scripts at `device/termux/*.py` not `device/termux/py/`                                               |
+| M5  | `docs/README.md` index gaps: fire-os-google-play, mac-android-ui-automation, history/, human handoff, Hermes/et_mac as first-class rows                 |
+| M6  | Portrait lock under-documented (one handoff sentence; absent from screen-control-lease + cursor rule)                                                   |
+| M7  | Parked fdroid/play **story is consistent** (good); residual dead collection links from hacking                                                          |
+| M8  | `control.md` bin inventory incomplete vs live `control/bin/`                                                                                            |
 
 New-feature coverage matrix:
 
-| Feature | Docs quality |
-|---------|----------------|
-| Screen lease (DSCL) | **Strong** — dedicated module + cursor rule |
-| Cloud VLM | **Strong** — `docs/vlm.md` |
-| et_mac / phone→Mac ET | **Good but buried** in control module |
+| Feature                | Docs quality                                  |
+| ---------------------- | --------------------------------------------- |
+| Screen lease (DSCL)    | **Strong** — dedicated module + cursor rule   |
+| Cloud VLM              | **Strong** — `docs/vlm.md`                    |
+| et_mac / phone→Mac ET  | **Good but buried** in control module         |
 | Hermes gateway Ansible | **Good but buried** in control/ansible README |
-| Portrait lock | **Thin** |
+| Portrait lock          | **Thin**                                      |
 
 ---
 
@@ -305,13 +305,13 @@ New-feature coverage matrix:
 
 ## Repo inventory snapshot (review tip)
 
-| Area | Approx |
-|------|--------|
-| Python | ~173 files |
-| YAML | ~92 |
-| Markdown | ~78 |
-| `tests/python` | ~42 test modules |
-| Top runtimes | Mac `control/`, device Termux + AutoJs6, Ansible collections |
+| Area           | Approx                                                       |
+| -------------- | ------------------------------------------------------------ |
+| Python         | ~173 files                                                   |
+| YAML           | ~92                                                          |
+| Markdown       | ~78                                                          |
+| `tests/python` | ~42 test modules                                             |
+| Top runtimes   | Mac `control/`, device Termux + AutoJs6, Ansible collections |
 
 Production layout reminder (for multi-agent coordination):
 
@@ -346,52 +346,50 @@ Production layout reminder (for multi-agent coordination):
 
 ## Planning priority (trust as planning doc)
 
-1. **Code H1** — `wifi` + STATUS schema on contention path.  
-2. **Docs H2** — OPTIONS 62 / shim single source of truth.  
-3. **Docs H1** — link batch (counts pinned to `1d2df1a`).  
-4. **Code M1 / M5 / M2–M4** — ages, drawer false-ok, lease, Gemini key, adb.  
+1. **Code H1** — `wifi` + STATUS schema on contention path.
+2. **Docs H2** — OPTIONS 62 / shim single source of truth.
+3. **Docs H1** — link batch (counts pinned to `1d2df1a`).
+4. **Code M1 / M5 / M2–M4** — ages, drawer false-ok, lease, Gemini key, adb.
 5. Remaining L / docs M items opportunistically.
 
 ---
-
-
 
 ## Implementation status (2026-07-10 follow-up)
 
 Landed on `master` in the same workstream as this review's nuance pass:
 
-| ID | Status |
-|----|--------|
-| Code H1 | **Fixed** — `wifi`/`a11y`/`et_cfg` on `duplicate_branch`; full STATUS schema |
-| Code M1 | **Fixed** — portable `python3` age parse in `fleet_health` gather scripts |
-| Code M2 | **Fixed** — flock around acquire; same-project peers no longer silent-takeover |
-| Code M3 | **Fixed** — Gemini `x-goog-api-key` header (no query key) |
-| Code M4 | **Fixed** — `adb_bin()` in `adb_reconnect` / `access_monitor` |
-| Code M5 | **Fixed** — drawer verify requires switch state match |
-| Code M6 | **Fixed** — on-device `PRESENCE_SH` → `agent-presence.sh` |
-| Code L2 | **Fixed** — AppleScript escape on notify paths |
-| Code L3 | **Fixed** — single `ss` invoke in `sshd_listening` |
-| Docs H1 | **Fixed** — relative links under `docs/` (0 broken at re-check) |
-| Docs H2 | **Fixed** — OPTIONS 62 closed consistently (handoff + human) |
-| Docs M1 | **Fixed** — `control.md` / `termux.md` Full project → repo root README |
-| Docs M2/M5/M6 | **Partial** — lib README expanded; docs index + portrait note |
-| Docs M4 | **Fixed** — hacking tree shows `device/termux/py/` |
-| Follow-up | Lease flock also covers heartbeat/release; heartbeat refreshes all device_ids aliases; same-project peer no silent-takeover test; session unit tests isolate DSCL dir; access LOST test uses relative timestamps; Gemini key header unit test |
-| Code L1 | **Fixed** — import_catalog ratio swipes via `wm size` |
-| Code L4 | **Fixed** — Fire-Tools zip flock + unique `.part` |
-| Code L5 | **Fixed** — Handsets Session refcount + `STAYTURGID_HANDSETS_KEEP` |
-| Code L6 | **Fixed** — `STAYTURGID_SSH_STRICT_HOST_KEY` / known_hosts (default accept-new) |
-| Code L7 | **Fixed** — documented request-screen fail-open vs gate fail-closed |
-| Code L8 | **Fixed** — `deploy_fleet` always re-runs control_node (device limit skips localhost) |
-| Code L9 | **Fixed** — `iter_devices_conf` / monitors use `stayturgid_device` |
-| Docs M3/M8 | **Fixed** — android_intent, stayturgid_repair_check, adb_device docs; control.md bin inventory |
+| ID            | Status                                                                                                                                                                                                                                        |
+| ------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Code H1       | **Fixed** — `wifi`/`a11y`/`et_cfg` on `duplicate_branch`; full STATUS schema                                                                                                                                                                  |
+| Code M1       | **Fixed** — portable `python3` age parse in `fleet_health` gather scripts                                                                                                                                                                     |
+| Code M2       | **Fixed** — flock around acquire; same-project peers no longer silent-takeover                                                                                                                                                                |
+| Code M3       | **Fixed** — Gemini `x-goog-api-key` header (no query key)                                                                                                                                                                                     |
+| Code M4       | **Fixed** — `adb_bin()` in `adb_reconnect` / `access_monitor`                                                                                                                                                                                 |
+| Code M5       | **Fixed** — drawer verify requires switch state match                                                                                                                                                                                         |
+| Code M6       | **Fixed** — on-device `PRESENCE_SH` → `agent-presence.sh`                                                                                                                                                                                     |
+| Code L2       | **Fixed** — AppleScript escape on notify paths                                                                                                                                                                                                |
+| Code L3       | **Fixed** — single `ss` invoke in `sshd_listening`                                                                                                                                                                                            |
+| Docs H1       | **Fixed** — relative links under `docs/` (0 broken at re-check)                                                                                                                                                                               |
+| Docs H2       | **Fixed** — OPTIONS 62 closed consistently (handoff + human)                                                                                                                                                                                  |
+| Docs M1       | **Fixed** — `control.md` / `termux.md` Full project → repo root README                                                                                                                                                                        |
+| Docs M2/M5/M6 | **Partial** — lib README expanded; docs index + portrait note                                                                                                                                                                                 |
+| Docs M4       | **Fixed** — hacking tree shows `device/termux/py/`                                                                                                                                                                                            |
+| Follow-up     | Lease flock also covers heartbeat/release; heartbeat refreshes all device_ids aliases; same-project peer no silent-takeover test; session unit tests isolate DSCL dir; access LOST test uses relative timestamps; Gemini key header unit test |
+| Code L1       | **Fixed** — import_catalog ratio swipes via `wm size`                                                                                                                                                                                         |
+| Code L4       | **Fixed** — Fire-Tools zip flock + unique `.part`                                                                                                                                                                                             |
+| Code L5       | **Fixed** — Handsets Session refcount + `STAYTURGID_HANDSETS_KEEP`                                                                                                                                                                            |
+| Code L6       | **Fixed** — `STAYTURGID_SSH_STRICT_HOST_KEY` / known_hosts (default accept-new)                                                                                                                                                               |
+| Code L7       | **Fixed** — documented request-screen fail-open vs gate fail-closed                                                                                                                                                                           |
+| Code L8       | **Fixed** — `deploy_fleet` always re-runs control_node (device limit skips localhost)                                                                                                                                                         |
+| Code L9       | **Fixed** — `iter_devices_conf` / monitors use `stayturgid_device`                                                                                                                                                                            |
+| Docs M3/M8    | **Fixed** — android_intent, stayturgid_repair_check, adb_device docs; control.md bin inventory                                                                                                                                                |
 
 ## Changelog of this document
 
-| Date | Note |
-|------|------|
-| 2026-07-10 | Initial combined code + docs review against tree tip `1d2df1a`; file first published on `bccc3b3` |
-| 2026-07-10 | Implemented Code H1/M1–M6 + L2/L3, Docs H1/H2, partial docs M; see Implementation status |
+| Date       | Note                                                                                                                                                                                                                        |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07-10 | Initial combined code + docs review against tree tip `1d2df1a`; file first published on `bccc3b3`                                                                                                                           |
+| 2026-07-10 | Implemented Code H1/M1–M6 + L2/L3, Docs H1/H2, partial docs M; see Implementation status                                                                                                                                    |
 | 2026-07-10 | Operator nuance pass: tip vs doc tip note; M1 “stale looks clean” (not age=0) + portability; H1 STATUS omits `a11y=`/schema drift; pytest venv environment-specific; planning order Code H1 → Docs H2 → links → M1/M5/M2–M4 |
-| 2026-07-10 | Post-implementation pass: lease lock on heartbeat/release + docstring; docs M1/M4; handoff OPTIONS 62 wording; test isolation (lease/VLM/access timestamps) |
-| 2026-07-10 | Opportunistic L1/L4–L9 + collection stubs + control bin inventory |
+| 2026-07-10 | Post-implementation pass: lease lock on heartbeat/release + docstring; docs M1/M4; handoff OPTIONS 62 wording; test isolation (lease/VLM/access timestamps)                                                                 |
+| 2026-07-10 | Opportunistic L1/L4–L9 + collection stubs + control bin inventory                                                                                                                                                           |

@@ -14,16 +14,16 @@ Requires a **debuggable** Termux build where `run-as com.termux` succeeds.
 
 ## Parameters
 
-| Parameter | Description |
-|-----------|-------------|
-| `device` | ADB serial or `host:5555` wireless target (required) |
-| `connect` | Run `adb connect` first (default `true`) |
-| `keys_dir` | Glob `*.pub` here when `public_key_files` / `public_keys` omitted (default `~/.ssh`) |
-| `public_key_files` | Explicit public key paths |
-| `public_keys` | Inline public key lines |
-| `install_openssh` | `pkg install -y openssh` when sshd binary missing (default `true`) |
-| `start_sshd` | Start `sshd` when not running (default `true`) |
-| `termux_package` | Termux package name (default `com.termux`) |
+| Parameter          | Description                                                                          |
+| ------------------ | ------------------------------------------------------------------------------------ |
+| `device`           | ADB serial or `host:5555` wireless target (required)                                 |
+| `connect`          | Run `adb connect` first (default `true`)                                             |
+| `keys_dir`         | Glob `*.pub` here when `public_key_files` / `public_keys` omitted (default `~/.ssh`) |
+| `public_key_files` | Explicit public key paths                                                            |
+| `public_keys`      | Inline public key lines                                                              |
+| `install_openssh`  | `pkg install -y openssh` when sshd binary missing (default `true`)                   |
+| `start_sshd`       | Start `sshd` when not running (default `true`)                                       |
+| `termux_package`   | Termux package name (default `com.termux`)                                           |
 
 ## Playbook
 

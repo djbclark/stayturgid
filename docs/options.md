@@ -63,14 +63,14 @@ priority or symptom-triggered.
 
 ## Pick a track
 
-| Track | Focus | Open IDs | Typical risk |
-|-------|-------|----------|--------------|
-| **A — Operational** | Live deploy, human unblockers, current reliability | H1, H3, H5, H9, 38 | Low–High |
-| **B — Ansible-native** | Bootstrap APK automation follow-ups | B63, B64 | Low–Medium |
-| **D — Reliability** | Symptom-driven hardening | 43–45 | Latent until triggered |
-| **E — On-device LLM** | shell-gpt escalation; incubator note | 54 | Medium (mis-scope risk) |
-| **F — FIRERPA** | gRPC backup channel enhancements | F1–F4 | Medium (future, core is done) |
-| **T — Tooling** | Planned command-runner migration | T1 | Low–Medium |
+| Track                  | Focus                                              | Open IDs           | Typical risk                  |
+| ---------------------- | -------------------------------------------------- | ------------------ | ----------------------------- |
+| **A — Operational**    | Live deploy, human unblockers, current reliability | H1, H3, H5, H9, 38 | Low–High                      |
+| **B — Ansible-native** | Bootstrap APK automation follow-ups                | B63, B64           | Low–Medium                    |
+| **D — Reliability**    | Symptom-driven hardening                           | 43–45              | Latent until triggered        |
+| **E — On-device LLM**  | shell-gpt escalation; incubator note               | 54                 | Medium (mis-scope risk)       |
+| **F — FIRERPA**        | gRPC backup channel enhancements                   | F1–F4              | Medium (future, core is done) |
+| **T — Tooling**        | Planned command-runner migration                   | T1                 | Low–Medium                    |
 
 Parked (not a track): Inferno/Styx → [docs/incubator/inferno-styx/](incubator/inferno-styx).
 

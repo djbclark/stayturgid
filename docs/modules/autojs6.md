@@ -9,12 +9,12 @@ defers `RUN_COMMAND` invoke unless the repair log is stale.
 
 ## What it does
 
-| Interval | Action |
-|----------|--------|
-| 20 min + boot | `main.js` cycle when engine alive |
-| On catastrophic | Shizuku `shizuku()` shell repair, then a11y Shizuku Start tap |
-| Real-time repair | Only when Termux boot loop stale (>15 min) |
-| Co-monitor | `lib/comonitor.js` — sshd / shizuku / a11y / shell5555 / wifi via `shizuku()` **every cycle on all hosts** |
+| Interval         | Action                                                                                                     |
+| ---------------- | ---------------------------------------------------------------------------------------------------------- |
+| 20 min + boot    | `main.js` cycle when engine alive                                                                          |
+| On catastrophic  | Shizuku `shizuku()` shell repair, then a11y Shizuku Start tap                                              |
+| Real-time repair | Only when Termux boot loop stale (>15 min)                                                                 |
+| Co-monitor       | `lib/comonitor.js` — sshd / shizuku / a11y / shell5555 / wifi via `shizuku()` **every cycle on all hosts** |
 
 Does **not** replace: Termux:Boot self-heal, Shizuku, Mac `adb_reconnect.py`, Obtainium APK updates.
 

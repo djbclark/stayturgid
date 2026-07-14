@@ -20,16 +20,16 @@ ansible_collections/  — Ansible module_utils + modules with their own unit tes
 
 Key observations:
 
-| Dimension | Current |
-|-----------|---------|
-| Python version | 3.14.6 (Mac), 3.12.x (Ansible CI), 3.9.x (Termux device) |
-| Package management | None — no pyproject.toml, no requirements.txt (except test deps) |
-| Virtualenv | `.venv-test` created by `make test-venv`, deps in `tests/python/requirements.txt` |
-| Test framework | pytest 9.1.1 + pytest-mock + pytest-xdist |
-| Linting | None for Python (ansible-lint + yamllint + shellcheck exist for other layers) |
-| Type checking | None |
-| Formatting | None |
-| CI | GitHub Actions: `make test` runs pytest + ansible-test, `make check` runs syntax checks |
+| Dimension          | Current                                                                                 |
+| ------------------ | --------------------------------------------------------------------------------------- |
+| Python version     | 3.14.6 (Mac), 3.12.x (Ansible CI), 3.9.x (Termux device)                                |
+| Package management | None — no pyproject.toml, no requirements.txt (except test deps)                        |
+| Virtualenv         | `.venv-test` created by `make test-venv`, deps in `tests/python/requirements.txt`       |
+| Test framework     | pytest 9.1.1 + pytest-mock + pytest-xdist                                               |
+| Linting            | None for Python (ansible-lint + yamllint + shellcheck exist for other layers)           |
+| Type checking      | None                                                                                    |
+| Formatting         | None                                                                                    |
+| CI                 | GitHub Actions: `make test` runs pytest + ansible-test, `make check` runs syntax checks |
 
 The codebase predates modern Python packaging conventions. It uses a flat layout with `sys.path.insert(0, ...)` in test conftest.py and some scripts to find sibling modules. The Ansible module_utils pattern (used by collections) is the only structured packaging.
 
@@ -51,8 +51,9 @@ The codebase predates modern Python packaging conventions. It uses a flat layout
 - **PEP 723 script support.** `uv run script.py` reads inline `# /// script` metadata and creates an ephemeral environment. Several device scripts (`device/termux/py/*.py`) could declare deps this way.
 
 **Caveats:**
+
 - The project has no `pyproject.toml` today. Adopting uv's project mode requires creating one.
-- Flat layout (no `src/`, no `__init__.py` in control/lib/) is not a standard PEP 621 project layout. uv can still manage it with a minimal `pyproject.toml` and `tool.uv.package = false`, but the primary use case here is *dependency management for the Mac controller + CI*, not publishing a package.
+- Flat layout (no `src/`, no `__init__.py` in control/lib/) is not a standard PEP 621 project layout. uv can still manage it with a minimal `pyproject.toml` and `tool.uv.package = false`, but the primary use case here is _dependency management for the Mac controller + CI_, not publishing a package.
 - Device-side scripts cannot use uv (Termux has no Rust toolchain, no uv binary). They must remain standalone or use the flat layout with `sys.path` injection.
 - `uv pip` compatibility mode works with existing requirements files today with zero config — instant speedup for `make test-venv`.
 
@@ -68,6 +69,7 @@ The codebase predates modern Python packaging conventions. It uses a flat layout
 - **Language server.** Richer editor experience (VS Code, Neovim, PyCharm) via LSP — auto-imports, hover docs, rename refactoring. The doc mentions opencode-web editing; this would give better error surfacing there too.
 
 **Caveats:**
+
 - **Beta software.** `0.0.x` versioning, no stable API, breaking changes between releases. The project operates a fleet of phones; CI could break after a `uvx ty` upgrade.
 - **Not all patterns supported.** `sys.path` hacks, dynamic imports, and `__import__`-style patterns confuse most type checkers. The flat-layout imports in this codebase may produce false positives.
 - **Device-side Python 3.9 incompatibility.** ty supports checking code targeting 3.10+. Device scripts target 3.9 (Termux). Using `ty --python-version 3.9` may produce false negatives.
@@ -86,6 +88,7 @@ The codebase predates modern Python packaging conventions. It uses a flat layout
 - **CI integration.** GitHub Actions `make check` already runs; adding `ruff check` and `ruff format --check` is a two-line addition.
 
 **Caveats:**
+
 - Formatting may produce large initial diffs. Best applied as a single "initial format" commit with `git blame`-ignore configured.
 - Some rules (`PLC0415` — import at module level) may conflict with the project's conditional import patterns. Easy to suppress per-rule in `pyproject.toml`.
 
@@ -109,6 +112,7 @@ No changes to the project needed yet.
 1. **Replace `pip install -r tests/python/requirements.txt` with `uv pip sync`**
 
    In `Makefile`:
+
    ```makefile
    test-venv:
    	uv venv --python 3.12 $(VENV)
@@ -120,6 +124,7 @@ No changes to the project needed yet.
 2. **Optional: Create minimal pyproject.toml for tool config**
 
    Ruff and ty both read config from `pyproject.toml`. A minimal file:
+
    ```toml
    [project]
    name = "stayturgid"
@@ -142,6 +147,7 @@ No changes to the project needed yet.
 ### Phase 2 — Ruff for linting (day)
 
 1. **Initial scan:**
+
    ```bash
    ruff check control/ device/ tests/ ansible_collections/
    ```
@@ -149,6 +155,7 @@ No changes to the project needed yet.
    Expect 200-600 findings. Many are auto-fixable (`ruff check --fix`).
 
 2. **Suppress intentional violations** in `pyproject.toml`:
+
    ```toml
    [tool.ruff.lint.per-file-ignores]
    "tests/*" = ["S101"]  # allow assert
@@ -156,6 +163,7 @@ No changes to the project needed yet.
    ```
 
 3. **Add to CI:**
+
    ```makefile
    lint: ruff-check
    ruff-check:
@@ -163,6 +171,7 @@ No changes to the project needed yet.
    ```
 
 4. **Add formatting check:**
+
    ```makefile
    ruff-format-check:
    	uvx ruff format --check
@@ -173,6 +182,7 @@ No changes to the project needed yet.
 ### Phase 3 — ty for type checking (weeks)
 
 1. **Initial run in warn-only mode:**
+
    ```bash
    uvx ty check control/lib/ --level=warn
    ```
@@ -182,6 +192,7 @@ No changes to the project needed yet.
 2. **Annotate control/lib/ first.** That is the most-reused code and has the highest bug surface.
 
 3. **Add to CI as allowed-to-fail (soft gate):**
+
    ```makefile
    .PHONY: typecheck
    typecheck:
@@ -200,6 +211,7 @@ No changes to the project needed yet.
 ### Phase 4 — uv for project management (optional, future)
 
 If the Mac controller grows enough to warrant a proper package layout:
+
 ```bash
 uv init --app  # creates pyproject.toml in current dir
 uv add flask markupsafe
@@ -212,14 +224,14 @@ This is a larger structural change. Defer until the flat layout becomes painful 
 
 ## Risk Analysis
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|-----------|--------|------------|
-| ty beta instability | Medium | High (CI breakage) | Pin `ty` version in CI; run in warn-only mode initially |
-| Formatting changes mental model | Medium | Low | Single-commit initial format; `git blame`-ignore |
-| False positives from flat layout | High | Medium | Per-file `--ignore` in early phases; annotate incrementally |
-| Device-side Python 3.9 mismatch | Low | Low | `ruff` targets `py39`; `ty` can skip device scripts |
-| Team/agent tool adoption | Medium | Medium | Add to AGENTS.md + Makefile; tool calls use `uvx` so no install needed |
-| No `pyproject.toml` today | Low | Low | Start with tool config only; no build backend required |
+| Risk                             | Likelihood | Impact             | Mitigation                                                             |
+| -------------------------------- | ---------- | ------------------ | ---------------------------------------------------------------------- |
+| ty beta instability              | Medium     | High (CI breakage) | Pin `ty` version in CI; run in warn-only mode initially                |
+| Formatting changes mental model  | Medium     | Low                | Single-commit initial format; `git blame`-ignore                       |
+| False positives from flat layout | High       | Medium             | Per-file `--ignore` in early phases; annotate incrementally            |
+| Device-side Python 3.9 mismatch  | Low        | Low                | `ruff` targets `py39`; `ty` can skip device scripts                    |
+| Team/agent tool adoption         | Medium     | Medium             | Add to AGENTS.md + Makefile; tool calls use `uvx` so no install needed |
+| No `pyproject.toml` today        | Low        | Low                | Start with tool config only; no build backend required                 |
 
 ---
 
@@ -260,11 +272,11 @@ ruff format control/ device/ tests/
 
 ### Files to Modify
 
-| File | Change |
-|------|--------|
-| `pyproject.toml` | Create with `[tool.ruff]` and `[tool.ty]` config |
-| `Makefile` | Replace `pip` with `uv pip` in test-venv; add `ruff-check`, `ruff-format-check`, `typecheck` targets |
-| `.github/workflows/test.yml` | Add `ruff check` and `ruff format --check` steps |
-| `.github/workflows/collection-build.yml` | Ensure uv available |
-| `AGENTS.md` | Document uv/ruff/ty commands |
-| `.git-blame-ignore-revs` | Add initial-format commit hash |
+| File                                     | Change                                                                                               |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `pyproject.toml`                         | Create with `[tool.ruff]` and `[tool.ty]` config                                                     |
+| `Makefile`                               | Replace `pip` with `uv pip` in test-venv; add `ruff-check`, `ruff-format-check`, `typecheck` targets |
+| `.github/workflows/test.yml`             | Add `ruff check` and `ruff format --check` steps                                                     |
+| `.github/workflows/collection-build.yml` | Ensure uv available                                                                                  |
+| `AGENTS.md`                              | Document uv/ruff/ty commands                                                                         |
+| `.git-blame-ignore-revs`                 | Add initial-format commit hash                                                                       |

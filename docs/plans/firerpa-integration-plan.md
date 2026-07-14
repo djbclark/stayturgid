@@ -37,11 +37,11 @@ reflects actual implementation choices below.
 
 ## Device Inventory (Baseline)
 
-| Device | Alias | Model | Android | Arch | Storage Free | Shizuku | Root | Role |
-|--------|-------|-------|---------|------|-------------|---------|------|------|
-| s24 | `s24` | SM-S921U1 | 16 | arm64 | 73 GB | ✅ installed | ❌ | Daily driver, primary test |
-| p7a | `p7a` | Pixel 7a | 16 | arm64 | 12 GB | ✅ installed | ❌ | Legacy device |
-| hd8 | `hd8` | KFRASWI (Fire HD 8) | 11 | armv7a | 20 GB | ✅ installed | ❌ | Tablet |
+| Device | Alias | Model               | Android | Arch   | Storage Free | Shizuku      | Root | Role                       |
+| ------ | ----- | ------------------- | ------- | ------ | ------------ | ------------ | ---- | -------------------------- |
+| s24    | `s24` | SM-S921U1           | 16      | arm64  | 73 GB        | ✅ installed | ❌   | Daily driver, primary test |
+| p7a    | `p7a` | Pixel 7a            | 16      | arm64  | 12 GB        | ✅ installed | ❌   | Legacy device              |
+| hd8    | `hd8` | KFRASWI (Fire HD 8) | 11      | armv7a | 20 GB        | ✅ installed | ❌   | Tablet                     |
 
 **Tailscale IPs:** s24=`100.123.218.30`, p7a=`100.65.230.108`, hd8=`100.124.55.39`
 **SSH port (all):** `8022`
@@ -50,21 +50,22 @@ reflects actual implementation choices below.
 
 ## FIRERPA Release Assets (v10.0)
 
-| Asset | Size | Use |
-|-------|------|-----|
-| `lamda-server-arm64-v8a.tar.gz` | 163 MB | Server binary for s24, p7a |
-| `lamda-server-armeabi-v7a.tar.gz` | 134 MB | Server binary for hd8 |
-| `lamda-magisk-module.zip` | 371 MB | Magisk module (NOT usable — no root) |
-| `lamda-client-py-10.0.tar.gz` | <1 MB | Python client for Mac control node |
-| `startmitm.exe` | 21 MB | Windows MITM tool (not needed) |
+| Asset                             | Size   | Use                                  |
+| --------------------------------- | ------ | ------------------------------------ |
+| `lamda-server-arm64-v8a.tar.gz`   | 163 MB | Server binary for s24, p7a           |
+| `lamda-server-armeabi-v7a.tar.gz` | 134 MB | Server binary for hd8                |
+| `lamda-magisk-module.zip`         | 371 MB | Magisk module (NOT usable — no root) |
+| `lamda-client-py-10.0.tar.gz`     | <1 MB  | Python client for Mac control node   |
+| `startmitm.exe`                   | 21 MB  | Windows MITM tool (not needed)       |
 
 **⚠️ BLOCKER — No APK in GitHub releases.**
 The README mentions "one-click APP (root or Shizuku)" but no APK is
 distributed through GitHub releases. Options:
-  1. The APK is on firerpa.com (currently DNS-unreachable)
-  2. The APK is built from a private source repo
-  3. The server binary can be run directly via Shizuku `rish` shell
-  4. We contact the FIRERPA maintainer to request APK distribution
+
+1. The APK is on firerpa.com (currently DNS-unreachable)
+2. The APK is built from a private source repo
+3. The server binary can be run directly via Shizuku `rish` shell
+4. We contact the FIRERPA maintainer to request APK distribution
 
 **Step 1 will determine which option works.**
 
@@ -73,6 +74,7 @@ distributed through GitHub releases. Options:
 ## FIRERPA Server Binary — What It Needs
 
 From README + code analysis:
+
 - **No JVM, no Python, no extra runtime** — single native binary
 - Listens on **port 65000** (configurable via INI)
 - Multiplexes: gRPC + HTTP (WebUI/MCP) + remote desktop + built-in ADB + SSH
@@ -86,17 +88,17 @@ From README + code analysis:
 
 ## Steps Overview
 
-| # | Step | Risk | Devices | Status | Gate |
-|---|------|------|---------|--------|------|
-| 1 | Spike: Verify FIRERPA runs on s24 | LOW | s24 only | ✅ Done | API responds, no stayturgid regression |
-| 2 | Create Ansible role `firerpa` | NONE | N/A | ✅ Done (as collection) | Collection passes syntax-check |
-| 3 | Deploy FIRERPA to s24 via Ansible | LOW | s24 | ✅ Done | Service starts, health passes |
-| 4 | Deploy to p7a + hd8 | LOW | p7a, hd8 | ⚠️ p7a done, hd8 blocked (Fire OS) | p7a healthy, hd8 USB-only |
-| 5 | Install Python client on Mac | NONE | Mac | ✅ Done | `Device("s24")` connects |
-| 6 | MCP bridge extension | LOW | s24 | ❌ F1 in options.md | MCP tools not yet built |
-| 7 | WebRTC desktop test | LOW | hd8→s24 | ❌ F2 in options.md | Browser remote desktop not tested |
-| 8 | MITM-on-demand playbook | LOW | s24 | ❌ F3 in options.md | Capture + restore not built |
-| 9 | Fleet-wide rollout + docs | NONE | all | ⚠️ Partial — handoff/hacking updated | Docs exist, options.md tracks F1–F3 |
+| #   | Step                              | Risk | Devices  | Status                               | Gate                                   |
+| --- | --------------------------------- | ---- | -------- | ------------------------------------ | -------------------------------------- |
+| 1   | Spike: Verify FIRERPA runs on s24 | LOW  | s24 only | ✅ Done                              | API responds, no stayturgid regression |
+| 2   | Create Ansible role `firerpa`     | NONE | N/A      | ✅ Done (as collection)              | Collection passes syntax-check         |
+| 3   | Deploy FIRERPA to s24 via Ansible | LOW  | s24      | ✅ Done                              | Service starts, health passes          |
+| 4   | Deploy to p7a + hd8               | LOW  | p7a, hd8 | ⚠️ p7a done, hd8 blocked (Fire OS)   | p7a healthy, hd8 USB-only              |
+| 5   | Install Python client on Mac      | NONE | Mac      | ✅ Done                              | `Device("s24")` connects               |
+| 6   | MCP bridge extension              | LOW  | s24      | ❌ F1 in options.md                  | MCP tools not yet built                |
+| 7   | WebRTC desktop test               | LOW  | hd8→s24  | ❌ F2 in options.md                  | Browser remote desktop not tested      |
+| 8   | MITM-on-demand playbook           | LOW  | s24      | ❌ F3 in options.md                  | Capture + restore not built            |
+| 9   | Fleet-wide rollout + docs         | NONE | all      | ⚠️ Partial — handoff/hacking updated | Docs exist, options.md tracks F1–F3    |
 
 **Total: ~8.5 days**
 
@@ -108,6 +110,7 @@ From README + code analysis:
 responds, and no stayturgid services are disrupted.
 
 **Pre-conditions:**
+
 - s24 online, SSH reachable (`ssh -p 8022 u0_a354@100.123.218.30`)
 - Fleet health OK (`make health`)
 - Shizuku running on s24
@@ -115,6 +118,7 @@ responds, and no stayturgid services are disrupted.
 **Actions:**
 
 1. **Download server binary** to Mac:
+
    ```
    # From stayturgid fork (GitHub-hosted, all binaries in one place):
    curl -L -o /tmp/firerpa.apk \
@@ -127,6 +131,7 @@ responds, and no stayturgid services are disrupted.
    ```
 
 2. **Record baseline** — snapshot what's running on s24 before changes:
+
    ```
    ssh s24 'ps -A | grep -E "termux|autojs|shizuku|adb" > /tmp/before-firerpa.txt'
    make health  # must say OK
@@ -140,24 +145,29 @@ responds, and no stayturgid services are disrupted.
      to install on non-root Shizuku devices without the APK
 
 4. **Push binary to device** (if binary works directly):
+
    ```
    scp -P 8022 /tmp/lamda-server.tar.gz u0_a354@100.123.218.30:/data/local/tmp/
    ssh s24 'cd /data/local/tmp && tar xzf lamda-server.tar.gz && chmod +x lamda-server'
    ```
 
 5. **Start FIRERPA** on s24 (minimal config, high port to avoid conflicts):
+
    ```
    ssh s24 '/data/local/tmp/lamda-server -p 65000 &'
    ```
+
    Or if it needs Shizuku: `rish -c '/data/local/tmp/lamda-server -p 65000 &'`
 
 6. **Test basic API** from Mac:
+
    ```
    pip3 install lamda-client  # or use the tar.gz
    python3 -c "from lamda.client import Device; d = Device('100.123.218.30:65000'); print(d.device_info())"
    ```
 
 7. **Verify no regression:**
+
    ```
    make health          # must say OK
    ssh s24 'ps -A | grep -E "termux|autojs|shizuku|adb" > /tmp/after-firerpa.txt'
@@ -170,6 +180,7 @@ responds, and no stayturgid services are disrupted.
    ```
 
 **CHECKPOINT 1:**
+
 - [ ] Server binary starts without crash
 - [ ] Basic API call succeeds (device_info returns JSON)
 - [ ] `make health` still says OK after start AND after stop
@@ -191,12 +202,14 @@ response, or explore building from source.
 idempotently to any device. Default: disabled.
 
 **Pre-conditions:**
+
 - Step 1 checkpoint passed (we know how to install and run FIRERPA)
 - Ansible control node functional
 
 **Actions:**
 
 1. **Create role structure:**
+
    ```
    ansible/roles/firerpa/
    ├── tasks/
@@ -213,26 +226,29 @@ idempotently to any device. Default: disabled.
    ```
 
 2. **Default variables** (`defaults/main.yml`):
+
    ```yaml
-   firerpa_enabled: false            # OFF by default — safe
+   firerpa_enabled: false # OFF by default — safe
    firerpa_version: "10.0"
    firerpa_port: 65000
-   firerpa_arch: "arm64"            # overridden per-device
+   firerpa_arch: "arm64" # overridden per-device
    firerpa_install_dir: /data/local/tmp
    firerpa_webui: true
-   firerpa_sshd: false              # don't conflict with Termux sshd
-   firerpa_adb: false               # don't conflict with stayturgid ADB
-   firerpa_mcp: true                # enable MCP server
-   firerpa_mdns: true               # enable mDNS discovery
+   firerpa_sshd: false # don't conflict with Termux sshd
+   firerpa_adb: false # don't conflict with stayturgid ADB
+   firerpa_mcp: true # enable MCP server
+   firerpa_mdns: true # enable mDNS discovery
    ```
 
 3. **Host_vars** for arch override:
+
    ```yaml
    # host_vars/hd8.yml
    firerpa_arch: "armeabi-v7a"
    ```
 
 4. **Playbook** (`ansible/playbooks/firerpa.yml`):
+
    ```yaml
    - hosts: android
      become: true
@@ -245,13 +261,14 @@ idempotently to any device. Default: disabled.
    (dry run — no changes applied).
 
 **CHECKPOINT 2:**
+
 - [ ] Role structure exists with all files
-   ```
-   ansible-playbook --syntax-check ansible/playbooks/firerpa.yml
-   ansible-playbook --check ansible/playbooks/firerpa.yml -l s24
-   ```
+  ```
+  ansible-playbook --syntax-check ansible/playbooks/firerpa.yml
+  ansible-playbook --check ansible/playbooks/firerpa.yml -l s24
+  ```
 - [ ] Default is `firerpa_enabled: false` — no device gets FIRERPA
-   unless explicitly opted in
+      unless explicitly opted in
 - [ ] No existing playbooks or roles modified
 
 **ROLLBACK 2:** Delete `ansible/roles/firerpa/` and
@@ -265,35 +282,41 @@ idempotently to any device. Default: disabled.
 Ansible, coexisting with all existing services.
 
 **Pre-conditions:**
+
 - Step 2 checkpoint passed
 - s24 online, fleet health OK
 
 **Actions:**
 
 1. **Record baseline:**
+
    ```
    make health
    ssh s24 'ps -A > /tmp/before-step3.txt; df -h /data | tail -1 > /tmp/disk-before.txt'
    ```
 
 2. **Enable FIRERPA on s24** in inventory:
+
    ```yaml
    # host_vars/s24.yml (add)
    firerpa_enabled: true
    ```
 
 3. **Deploy:**
+
    ```
    ansible-playbook ansible/playbooks/firerpa.yml -l s24 -v
    ```
 
 4. **Verify service:**
+
    ```
    ssh s24 'curl -s http://localhost:65000/api/v1/device 2>/dev/null | head -c 200'
    # Should return JSON with device info
    ```
 
 5. **Verify no regression:**
+
    ```
    make health                    # must say OK
    ssh s24 'diff <(ps -A) /tmp/before-step3.txt'  # only FIRERPA diff
@@ -308,6 +331,7 @@ Ansible, coexisting with all existing services.
    ```
 
 **CHECKPOINT 3:**
+
 - [ ] `curl localhost:65000` returns FIRERPA device info JSON
 - [ ] `make health` says OK
 - [ ] AutoJs6 watchdog still running
@@ -316,6 +340,7 @@ Ansible, coexisting with all existing services.
 - [ ] No process crashes in `logcat -d -s FIRERPA`
 
 **ROLLBACK 3:**
+
 ```
 ansible-playbook ansible/playbooks/firerpa.yml -l s24 -e "firerpa_enabled=false" --tags uninstall
 # OR manually:
@@ -331,10 +356,12 @@ make health
 running FIRERPA, all stayturgid services intact.
 
 **Pre-conditions:**
+
 - Step 3 checkpoint passed
 - p7a and hd8 online, fleet health OK
 
 **⚠️ Special considerations:**
+
 - **p7a** has only 12 GB free. FIRERPA binary is ~163 MB. Acceptable
   but monitor disk closely.
 - **hd8** is armv7a (not arm64). Needs `lamda-server-armeabi-v7a.tar.gz`
@@ -344,6 +371,7 @@ running FIRERPA, all stayturgid services intact.
 **Actions:**
 
 1. **Deploy to p7a** (lower risk, not daily driver):
+
    ```
    make health
    ssh p7a 'df -h /data | tail -1'          # confirm 12 GB free
@@ -356,6 +384,7 @@ running FIRERPA, all stayturgid services intact.
    ```
 
 2. **Deploy to hd8** (highest caution — daily driver tablet):
+
    ```
    make health
    # hd8 already has firerpa_arch: "armeabi-v7a" in host_vars
@@ -380,6 +409,7 @@ running FIRERPA, all stayturgid services intact.
    ```
 
 **CHECKPOINT 4:**
+
 - [ ] All 3 devices: `curl localhost:65000` returns device info
 - [ ] `make health` says OK for all 3
 - [ ] p7a disk still has > 10 GB free after install
@@ -387,6 +417,7 @@ running FIRERPA, all stayturgid services intact.
 - [ ] No device has FIRERPA conflicting with existing services
 
 **ROLLBACK 4:**
+
 ```
 # Disable on all devices:
 # Set firerpa_enabled: false in all host_vars
@@ -406,12 +437,14 @@ make health
 the Python `lamda` client. This unlocks scripted API access.
 
 **Pre-conditions:**
+
 - Step 4 checkpoint passed (FIRERPA running on devices)
 - Mac has Python 3.14 + venv
 
 **Actions:**
 
 1. **Install client in stayturgid venv:**
+
    ```
    cd ~/stayturgid-hermes
    source .venv/bin/activate
@@ -421,6 +454,7 @@ the Python `lamda` client. This unlocks scripted API access.
    ```
 
 2. **Test connection to s24:**
+
    ```
    python3 -c "
    from lamda.client import Device
@@ -439,15 +473,18 @@ the Python `lamda` client. This unlocks scripted API access.
    ```
 
 **CHECKPOINT 5:**
+
 - [ ] `pip install lamda-client` succeeds in stayturgid venv
 - [ ] `Device('100.123.218.30:65000').device_info()` returns JSON
 - [ ] Import works from stayturgid-hermes directory
 - [ ] No existing Python dependencies broken
 
 **ROLLBACK 5:**
+
 ```
 pip uninstall lamda-client
 ```
+
 Client is purely a library — no device-side changes.
 
 ---
@@ -460,6 +497,7 @@ as MCP tools. Hermes can then control devices through FIRERPA's
 MCP server using the standard Model Context Protocol.
 
 **Pre-conditions:**
+
 - Steps 4-5 checkpoint passed
 - FIRERPA MCP server enabled on at least s24
 - Understanding of `BaseMcpExtension` API (from `/tmp/lamda/extensions/`)
@@ -467,15 +505,16 @@ MCP server using the standard Model Context Protocol.
 **Actions:**
 
 1. **Design MCP tools** the extension exposes:
-   | Tool | Description |
-   |------|-------------|
-   | `stayturgid_health` | Get fleet health status for this device |
-   | `stayturgid_lease_status` | Check who holds the screen lease |
-   | `stayturgid_lease_acquire` | Acquire screen lease for automation |
-   | `stayturgid_lease_release` | Release screen lease |
-   | `stayturgid_watchdog_status` | Check AutoJs6 watchdog health |
-   | `stayturgid_watchdog_restart` | Restart AutoJs6 watchdog |
-   | `stayturgid_fleet_info` | Get device inventory info |
+
+   | Tool                          | Description                             |
+   | ----------------------------- | --------------------------------------- |
+   | `stayturgid_health`           | Get fleet health status for this device |
+   | `stayturgid_lease_status`     | Check who holds the screen lease        |
+   | `stayturgid_lease_acquire`    | Acquire screen lease for automation     |
+   | `stayturgid_lease_release`    | Release screen lease                    |
+   | `stayturgid_watchdog_status`  | Check AutoJs6 watchdog health           |
+   | `stayturgid_watchdog_restart` | Restart AutoJs6 watchdog                |
+   | `stayturgid_fleet_info`       | Get device inventory info               |
 
 2. **Write extension** (`extensions/stayturgid_bridge.py`):
    - Uses `BaseMcpExtension` decorator pattern
@@ -483,11 +522,13 @@ MCP server using the standard Model Context Protocol.
    - Deployed to device via Ansible
 
 3. **Deploy extension to s24** (via Ansible role update):
+
    ```
    ansible-playbook ansible/playbooks/firerpa.yml -l s24 --tags configure -v
    ```
 
 4. **Test MCP tools** from Mac:
+
    ```
    # Using FIRERPA's MCP endpoint:
    curl -X POST http://100.123.218.30:65000/mcp/ \
@@ -501,6 +542,7 @@ MCP server using the standard Model Context Protocol.
    `stayturgid_health` tool.
 
 **CHECKPOINT 6:**
+
 - [ ] Extension file deployed to s24
 - [ ] `tools/list` returns stayturgid_* tools
 - [ ] `stayturgid_health` returns device health data
@@ -509,10 +551,12 @@ MCP server using the standard Model Context Protocol.
 
 **ROLLBACK 6:**
 Remove extension file from device:
+
 ```
 ssh s24 'rm -f /data/local/tmp/firerpa/extensions/stayturgid_bridge.py'
 ssh s24 'kill -HUP $(pgrep lamda-server)'  # restart to unload extension
 ```
+
 Extension is additive — removing it restores previous state.
 
 ---
@@ -524,16 +568,19 @@ potential replacement for scrcpy-in-Termux for the tablet-control-phone
 incubator proposal.
 
 **Pre-conditions:**
+
 - Step 4 checkpoint passed (FIRERPA on all devices)
 - hd8 Silk browser or any browser available
 
 **Actions:**
 
 1. **Open FIRERPA WebUI** on s24 from hd8's browser:
+
    ```
    # On hd8, open Silk browser:
    http://100.123.218.30:65000
    ```
+
    Or from Mac: `http://100.123.218.30:65000`
 
 2. **Test remote desktop features:**
@@ -544,25 +591,27 @@ incubator proposal.
    - [ ] Latency acceptable (<200ms for touch response)
 
 3. **Compare with scrcpy approach** from tablet-control-phone.md:
-   | Criterion | FIRERPA WebRTC | scrcpy in Termux |
-   |-----------|---------------|------------------|
-   | Browser-based | ✅ Yes | ❌ Needs X11 |
-   | Install complexity | APK + config | Termux:X11 + scrcpy compile |
-   | Multi-user | ✅ Built-in | ❌ Single user |
-   | Audio forwarding | ✅ Android 10+ | ❌ Limited |
-   | Touch injection | ✅ Native API | ⚠️ scrcpy relay |
-   | Fire OS compat | ⚠️ Untested | ⚠️ Untested |
+
+   | Criterion          | FIRERPA WebRTC | scrcpy in Termux            |
+   | ------------------ | -------------- | --------------------------- |
+   | Browser-based      | ✅ Yes         | ❌ Needs X11                |
+   | Install complexity | APK + config   | Termux:X11 + scrcpy compile |
+   | Multi-user         | ✅ Built-in    | ❌ Single user              |
+   | Audio forwarding   | ✅ Android 10+ | ❌ Limited                  |
+   | Touch injection    | ✅ Native API  | ⚠️ scrcpy relay             |
+   | Fire OS compat     | ⚠️ Untested    | ⚠️ Untested                 |
 
 4. **Decision:** Does FIRERPA WebRTC solve tablet-control-phone?
    - If YES: Update tablet-control-phone.md with recommendation
    - If NO: Continue with scrcpy plan, keep FIRERPA as supplementary
 
 **CHECKPOINT 7:**
+
 - [ ] WebUI accessible from hd8 browser
-   ```
-   # From Mac (verify WebUI serves):
-   curl -s http://100.123.218.30:65000/ | head -c 100
-   ```
+  ```
+  # From Mac (verify WebUI serves):
+  curl -s http://100.123.218.30:65000/ | head -c 100
+  ```
 - [ ] Remote desktop stream works
 - [ ] Touch input functional
 - [ ] `make health` still OK on all devices
@@ -580,12 +629,14 @@ capture on a target device, captures traffic, and cleanly restores.
 One-shot debug capability for fleet devices.
 
 **Pre-conditions:**
+
 - Steps 4-5 checkpoint passed
 - `startmitm.py` tool available (from lamda-client or separate download)
 
 **Actions:**
 
 1. **Create playbook** (`ansible/playbooks/firerpa-mitm.yml`):
+
    ```yaml
    - hosts: "{{ target }}"
      tasks:
@@ -602,6 +653,7 @@ One-shot debug capability for fleet devices.
    ```
 
 2. **Test on s24** (short capture):
+
    ```
    ansible-playbook ansible/playbooks/firerpa-mitm.yml \
      -l s24 -e "capture_duration=30"
@@ -614,6 +666,7 @@ One-shot debug capability for fleet devices.
    ```
 
 **CHECKPOINT 8:**
+
 - [ ] MITM capture starts and produces .flow file
 - [ ] Capture stops after timeout
 - [ ] Device proxy settings restored to default
@@ -621,6 +674,7 @@ One-shot debug capability for fleet devices.
 - [ ] `make health` OK
 
 **ROLLBACK 8:**
+
 ```
 # Force-restore proxy settings:
 ssh s24 'settings put global http_proxy :0'
@@ -637,12 +691,14 @@ make health
 devices are configured, and record decisions.
 
 **Pre-conditions:**
+
 - Steps 1-8 all checkpointed
 - All devices healthy
 
 **Actions:**
 
 1. **Update device inventory** with FIRERPA info:
+
    ```yaml
    # devices.conf comment block:
    # FIRERPA: v10.0, port 65000, MCP enabled, Shizuku mode
@@ -658,6 +714,7 @@ devices are configured, and record decisions.
    Add FIRERPA integration as completed work item.
 
 4. **Final fleet verification:**
+
    ```
    make health
    # Verify FIRERPA on all opted-in devices
@@ -674,6 +731,7 @@ devices are configured, and record decisions.
    ```
 
 **CHECKPOINT 9:**
+
 - [ ] All documentation updated
 - [ ] `make health` OK across fleet
 - [ ] FIRERPA accessible on all opted-in devices
@@ -727,18 +785,18 @@ modify any stayturgid files, configs, or services.
 
 Record decisions as they're made during implementation.
 
-| Date | Step | Decision | Rationale |
-|------|------|----------|-----------|
-| 2026-07-12 | 1–4 | Manual binary path (no APK) | Server tarball via ADB works; APK not needed for non-root |
-| 2026-07-12 | 2 | Ansible collection not flat role | Follows repo convention: `ansible_collections/stayturgid/firerpa/` |
-| 2026-07-12 | 4 | hd8 blocked (Fire OS SELinux) | Termux SSH user can't exec shell-context binaries; peer-bootstrap already covers hd8 |
-| 2026-07-12 | 5 | Python 3.12 venv at `/tmp/lamda-venv` | `lamda-client` needs 3.12; separate from project's 3.14 venv |
-| 2026-07-12 | N/A | Boot integration in `start-adb.sh` | Mutual repair pair: Termux boot loop monitors FIRERPA, FIRERPA heals Termux |
-| 2026-07-13 | N/A | FIRERPA SSH enabled with private service certificate; built-in ADB disabled | Inbound SSH works as `shell` on :65000 when launched with explicit `--certificate`; built-in ADB still needs root. Post-reboot startup prefers localhost ADB; `rish` restores adbd when needed |
-| 2026-07-13 | p7a | Shizuku `rish` bridge validation | After granting Termux **Allow all the time**, `rish -c 'id -u'` returned 2000. Direct background children proved session-bound, so the supervisor uses `rish` to restore persistent localhost ADB before FIRERPA launch |
-| 2026-07-13 | s24 | Shizuku `rish` bridge + controlled lifecycle restart | The same persistent grant returned UID 2000; localhost adbd recovery, signed-start/patched-swap FIRERPA launch, secure SSH, gRPC UI hierarchy, and concurrent accessibility services all passed |
-| 2026-07-12 | N/A | FIRERPA health monitor via launchd | `firerpa_health_monitor.py` every 10 min, separate from fleet-health (5 min) |
-| 2026-07-12 | N/A | `firerpa_heal.py` does direct repair (not delegate to `stayturgid_repair.py`) | Independent channel; sshd down file removal, HEADLESS_START, etc. re-implemented in Python |
+| Date       | Step | Decision                                                                      | Rationale                                                                                                                                                                                                               |
+| ---------- | ---- | ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-07-12 | 1–4  | Manual binary path (no APK)                                                   | Server tarball via ADB works; APK not needed for non-root                                                                                                                                                               |
+| 2026-07-12 | 2    | Ansible collection not flat role                                              | Follows repo convention: `ansible_collections/stayturgid/firerpa/`                                                                                                                                                      |
+| 2026-07-12 | 4    | hd8 blocked (Fire OS SELinux)                                                 | Termux SSH user can't exec shell-context binaries; peer-bootstrap already covers hd8                                                                                                                                    |
+| 2026-07-12 | 5    | Python 3.12 venv at `/tmp/lamda-venv`                                         | `lamda-client` needs 3.12; separate from project's 3.14 venv                                                                                                                                                            |
+| 2026-07-12 | N/A  | Boot integration in `start-adb.sh`                                            | Mutual repair pair: Termux boot loop monitors FIRERPA, FIRERPA heals Termux                                                                                                                                             |
+| 2026-07-13 | N/A  | FIRERPA SSH enabled with private service certificate; built-in ADB disabled   | Inbound SSH works as `shell` on :65000 when launched with explicit `--certificate`; built-in ADB still needs root. Post-reboot startup prefers localhost ADB; `rish` restores adbd when needed                          |
+| 2026-07-13 | p7a  | Shizuku `rish` bridge validation                                              | After granting Termux **Allow all the time**, `rish -c 'id -u'` returned 2000. Direct background children proved session-bound, so the supervisor uses `rish` to restore persistent localhost ADB before FIRERPA launch |
+| 2026-07-13 | s24  | Shizuku `rish` bridge + controlled lifecycle restart                          | The same persistent grant returned UID 2000; localhost adbd recovery, signed-start/patched-swap FIRERPA launch, secure SSH, gRPC UI hierarchy, and concurrent accessibility services all passed                         |
+| 2026-07-12 | N/A  | FIRERPA health monitor via launchd                                            | `firerpa_health_monitor.py` every 10 min, separate from fleet-health (5 min)                                                                                                                                            |
+| 2026-07-12 | N/A  | `firerpa_heal.py` does direct repair (not delegate to `stayturgid_repair.py`) | Independent channel; sshd down file removal, HEADLESS_START, etc. re-implemented in Python                                                                                                                              |
 
 ---
 

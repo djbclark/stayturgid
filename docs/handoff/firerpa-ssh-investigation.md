@@ -82,16 +82,16 @@ The reboot also exposed two supervisor bugs that are now fixed in Python:
 
 ## Repository Integration
 
-| Path | Purpose |
-|------|---------|
-| `ansible_collections/stayturgid/firerpa/` | Installs the server and custom certificate, then launches it securely |
-| `ansible_collections/stayturgid/firerpa/roles/firerpa/files/firerpa_service_patch.py` | Hash-guarded, deterministic service-JAR/DEX patcher |
-| `ansible_collections/stayturgid/firerpa/roles/firerpa/files/firerpa_lifecycle.py` | Signed-start, patched-swap, helper-restart controller |
-| `device/termux/py/start_adb.py` | Python lifecycle monitor; localhost ADB first, `rish`-based adbd recovery second |
-| `control/lib/firerpa_auth.py` | Central fail-closed certificate resolution |
-| `control/bin/firerpa_heal.py` | Certificate-authenticated gRPC repair |
-| `control/bin/firerpa_health_monitor.py` | Certificate-authenticated fleet health monitor |
-| `ansible/roles/control_node/templates/ssh_config_stayturgid.j2` | Generates `s24-firerpa` and `p7a-firerpa` aliases |
+| Path                                                                                  | Purpose                                                                          |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `ansible_collections/stayturgid/firerpa/`                                             | Installs the server and custom certificate, then launches it securely            |
+| `ansible_collections/stayturgid/firerpa/roles/firerpa/files/firerpa_service_patch.py` | Hash-guarded, deterministic service-JAR/DEX patcher                              |
+| `ansible_collections/stayturgid/firerpa/roles/firerpa/files/firerpa_lifecycle.py`     | Signed-start, patched-swap, helper-restart controller                            |
+| `device/termux/py/start_adb.py`                                                       | Python lifecycle monitor; localhost ADB first, `rish`-based adbd recovery second |
+| `control/lib/firerpa_auth.py`                                                         | Central fail-closed certificate resolution                                       |
+| `control/bin/firerpa_heal.py`                                                         | Certificate-authenticated gRPC repair                                            |
+| `control/bin/firerpa_health_monitor.py`                                               | Certificate-authenticated fleet health monitor                                   |
+| `ansible/roles/control_node/templates/ssh_config_stayturgid.j2`                       | Generates `s24-firerpa` and `p7a-firerpa` aliases                                |
 
 ## Operator Commands
 

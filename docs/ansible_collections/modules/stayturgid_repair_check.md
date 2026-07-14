@@ -8,10 +8,10 @@ the `STATUS` line into structured fields (port, shizuku, sshd, a11y, wifi,
 
 ## Parameters
 
-| Parameter | Description |
-|-----------|-------------|
-| `repair_script` | Path on device (default `~/.stayturgid/bin/stayturgid_repair.py`) |
-| `termux_prefix` | Termux prefix (default `/data/data/com.termux/files/usr`) |
+| Parameter           | Description                                                                       |
+| ------------------- | --------------------------------------------------------------------------------- |
+| `repair_script`     | Path on device (default `~/.stayturgid/bin/stayturgid_repair.py`)                 |
+| `termux_prefix`     | Termux prefix (default `/data/data/com.termux/files/usr`)                         |
 | `fail_on_unhealthy` | Fail the task when STATUS is unhealthy (default `false` — return `healthy=false`) |
 
 ## Healthy rule

@@ -6,12 +6,12 @@ This document is based on the experience of adding fleet/headless text-based con
 
 ## 1. Why this matters for fleet automation
 
-| GUI automation | Text-based configuration |
-|----------------|--------------------------|
-| Breaks when layouts, themes, or translations change | Stable across app versions as long as the schema is supported |
-| Requires unlocked screen, exact timing, and coordinate/label heuristics | Can run headless, via `adb`, Termux, or a boot script |
-| Hard to review, diff, or version-control | Lives in git, can be templated per device, and audited |
-| Difficult to reproduce across devices with different DPI/languages | Identical input produces identical output on every device |
+| GUI automation                                                          | Text-based configuration                                      |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Breaks when layouts, themes, or translations change                     | Stable across app versions as long as the schema is supported |
+| Requires unlocked screen, exact timing, and coordinate/label heuristics | Can run headless, via `adb`, Termux, or a boot script         |
+| Hard to review, diff, or version-control                                | Lives in git, can be templated per device, and audited        |
+| Difficult to reproduce across devices with different DPI/languages      | Identical input produces identical output on every device     |
 
 For a fleet of Android devices (phones, tablets, Fire TV sticks), the same configuration must be applied repeatedly. Text-based config is the difference between "works on my device" and "works on every device every boot."
 
@@ -66,6 +66,7 @@ FleetProfileApplier.apply(context, profile)
 ```
 
 Call this from:
+
 - The exported activity (for external automation)
 - A GUI import screen (for manual users)
 - A test harness (for CI)
@@ -98,6 +99,7 @@ Support both.
 ### 4.5 Ship a default reference profile
 
 Include `assets/fleet_profile_default.json` in the APK. It serves as:
+
 - A documented schema example
 - A copy-paste starting point for operators
 - A built-in test fixture
@@ -117,6 +119,7 @@ Before adding any new public API, make sure the upstream project compiles cleanl
 ### 5.2 Build a test APK and run it
 
 A debug build proves the feature links and runs. Use the test build to:
+
 - Confirm the activity resolves the intent
 - Verify the profile applies without crashing
 - Check that the GUI still works after applying a profile
@@ -170,62 +173,62 @@ The following apps are part of the stayturgid stack and currently rely on GUI au
 
 ### 7.1 Shizuku (the `thedjchi` fork)
 
-| | |
-|---|---|
-| Package | `moe.shizuku.privileged.api` |
-| Current pain | `tapStartButton()` in `device/autojs6/lib/shizuku.js` opens the Shizuku manager and taps the **Start** button by text matching or blind coordinates. It needs an unlocked screen and can fail when the UI language or layout changes. |
-| What to ask for | A broadcast receiver or a service command that starts the Shizuku server directly when the app is already authorized, e.g. `am startservice -n moe.shizuku.privileged.api/.ServerService`. |
-| Upstream status | The `thedjchi` fork is maintained on GitHub. The change is small and security-sensitive, so it should be paired with a manifest permission or a `android:permission` on the receiver. |
-| Impact | High — removes the most fragile, screen-on dependency in the whole catastrophic-repair path. |
+|                 |                                                                                                                                                                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Package         | `moe.shizuku.privileged.api`                                                                                                                                                                                                          |
+| Current pain    | `tapStartButton()` in `device/autojs6/lib/shizuku.js` opens the Shizuku manager and taps the **Start** button by text matching or blind coordinates. It needs an unlocked screen and can fail when the UI language or layout changes. |
+| What to ask for | A broadcast receiver or a service command that starts the Shizuku server directly when the app is already authorized, e.g. `am startservice -n moe.shizuku.privileged.api/.ServerService`.                                            |
+| Upstream status | The `thedjchi` fork is maintained on GitHub. The change is small and security-sensitive, so it should be paired with a manifest permission or a `android:permission` on the receiver.                                                 |
+| Impact          | High — removes the most fragile, screen-on dependency in the whole catastrophic-repair path.                                                                                                                                          |
 
 ### 7.2 Obtainium
 
-| | |
-|---|---|
-| Package | `dev.imranr.obtainium` |
-| Current pain | Two UI automation flows: `apply_updates.py` taps fixed coordinates to bulk-install updates, and `enable_shizuku_installer.py` scrolls through settings to toggle the Shizuku installer switch. |
+|                 |                                                                                                                                                                                                                                               |
+| --------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Package         | `dev.imranr.obtainium`                                                                                                                                                                                                                        |
+| Current pain    | Two UI automation flows: `apply_updates.py` taps fixed coordinates to bulk-install updates, and `enable_shizuku_installer.py` scrolls through settings to toggle the Shizuku installer switch.                                                |
 | What to ask for | (1) A broadcast or shortcut to trigger the "Update all apps" flow without coordinate taps. (2) A `pm grant`-compatible way to enable the Shizuku installer, or a content-provider/config flag that can be set with `settings put` / `appops`. |
-| Upstream status | Active open-source project on GitHub. The maintainer is receptive to automation-friendly features. |
-| Impact | Medium-High — makes the default update path fully unattended and removes the need for `ScreenControlSession` during updates. |
+| Upstream status | Active open-source project on GitHub. The maintainer is receptive to automation-friendly features.                                                                                                                                            |
+| Impact          | Medium-High — makes the default update path fully unattended and removes the need for `ScreenControlSession` during updates.                                                                                                                  |
 
 ### 7.3 Aurora Store
 
-| | |
-|---|---|
-| Package | `com.aurora.store` |
-| Current pain | `control/tools/play/configure_aurora.py` walks through the first-run carousel, selects anonymous session, and toggles installer/update settings via UI parsing. |
+|                 |                                                                                                                                                                        |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Package         | `com.aurora.store`                                                                                                                                                     |
+| Current pain    | `control/tools/play/configure_aurora.py` walks through the first-run carousel, selects anonymous session, and toggles installer/update settings via UI parsing.        |
 | What to ask for | A "setup complete" file or shared-preferences flag that can be seeded before first launch, plus a programmatic way to set the installer and update-filter preferences. |
-| Upstream status | Open source on GitLab/GitHub. Currently **parked** in stayturgid, so this is lower priority unless Play-sourced APKs are re-enabled. |
-| Impact | Medium — only valuable if the Play/Aurora module is re-enabled. |
+| Upstream status | Open source on GitLab/GitHub. Currently **parked** in stayturgid, so this is lower priority unless Play-sourced APKs are re-enabled.                                   |
+| Impact          | Medium — only valuable if the Play/Aurora module is re-enabled.                                                                                                        |
 
 ### 7.4 Neo Store
 
-| | |
-|---|---|
-| Package | `com.machiav3lli.fdroid` |
-| Current pain | Historically needed UI automation to grant Shizuku installer permission; stayturgid now patches `shizuku.json` directly via Ansible. |
+|                 |                                                                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Package         | `com.machiav3lli.fdroid`                                                                                                                          |
+| Current pain    | Historically needed UI automation to grant Shizuku installer permission; stayturgid now patches `shizuku.json` directly via Ansible.              |
 | What to ask for | A documented intent or provider API for setting the default installer (Shizuku/Dhizuku/Sui) so the JSON patch can be replaced by a supported API. |
-| Upstream status | Open source on GitHub. Currently **parked** alongside Aurora. |
-| Impact | Low-Medium — the current Ansible workaround is already functional. |
+| Upstream status | Open source on GitHub. Currently **parked** alongside Aurora.                                                                                     |
+| Impact          | Low-Medium — the current Ansible workaround is already functional.                                                                                |
 
 ### 7.5 Tailscale
 
-| | |
-|---|---|
-| Package | `com.tailscale.ipn` |
-| Current pain | `device/autojs6/lib/tailscale.js` already relaunches Tailscale via `am start` to recover a dead tun0, but there is no programmatic way to force a re-auth or choose a tailnet without opening the UI. |
-| What to ask for | Documented intents for `start`, `stop`, and `status`, plus a way to seed the login server and auth key via a file (already partially supported on some platforms). |
-| Upstream status | Open source on GitHub. Tailscale already has rich platform support; Android intents are the main gap. |
-| Impact | Medium — would make tailnet onboarding and recovery more reliable. |
+|                 |                                                                                                                                                                                                       |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Package         | `com.tailscale.ipn`                                                                                                                                                                                   |
+| Current pain    | `device/autojs6/lib/tailscale.js` already relaunches Tailscale via `am start` to recover a dead tun0, but there is no programmatic way to force a re-auth or choose a tailnet without opening the UI. |
+| What to ask for | Documented intents for `start`, `stop`, and `status`, plus a way to seed the login server and auth key via a file (already partially supported on some platforms).                                    |
+| Upstream status | Open source on GitHub. Tailscale already has rich platform support; Android intents are the main gap.                                                                                                 |
+| Impact          | Medium — would make tailnet onboarding and recovery more reliable.                                                                                                                                    |
 
 ### 7.6 AutoJs6
 
-| | |
-|---|---|
-| Package | `org.autojs.autojs6` |
-| Current pain | Before the fleet-profile feature, AutoJs6 required GUI automation to grant storage, Shizuku, notification, and battery permissions. |
-| Status | **Already addressed** by `FleetProfileActivity` + `FleetProfileApplier` in [djbclark/AutoJs6#feature/fleet-profile-553](https://github.com/djbclark/AutoJs6/tree/feature/fleet-profile-553). The upstream issue is [SuperMonster003/AutoJs6#553](https://github.com/SuperMonster003/AutoJs6/issues/553). |
-| Impact | This is the proof of concept for the whole pattern described above. |
+|              |                                                                                                                                                                                                                                                                                                          |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Package      | `org.autojs.autojs6`                                                                                                                                                                                                                                                                                     |
+| Current pain | Before the fleet-profile feature, AutoJs6 required GUI automation to grant storage, Shizuku, notification, and battery permissions.                                                                                                                                                                      |
+| Status       | **Already addressed** by `FleetProfileActivity` + `FleetProfileApplier` in [djbclark/AutoJs6#feature/fleet-profile-553](https://github.com/djbclark/AutoJs6/tree/feature/fleet-profile-553). The upstream issue is [SuperMonster003/AutoJs6#553](https://github.com/SuperMonster003/AutoJs6/issues/553). |
+| Impact       | This is the proof of concept for the whole pattern described above.                                                                                                                                                                                                                                      |
 
 ---
 
@@ -257,4 +260,4 @@ https://github.com/djbclark/AutoJs6/releases/tag/v6.7.0-fleet-profile-553-debug
 
 ---
 
-*Last updated: 2026-07-11*
+_Last updated: 2026-07-11_

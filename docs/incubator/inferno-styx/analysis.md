@@ -23,14 +23,14 @@ Constraints match stayturgid: no root, Shizuku elevation, Termux userland.
 
 ## How stayturgid already covers the same jobs
 
-| Inferno idea | stayturgid today | Gap? |
-|--------------|------------------|------|
-| Elevated settings / appops | Ansible `app_privileges`, Mac/Termux harden scripts, `rish` already default-installed | No — Inferno wraps the same `rish` |
-| Cross-device control | SSH mesh (`id_ed25519_fleet`), `stayturgid_peer_help` / peer Handsets bootstrap, Mac adb | No — different UX, same reach |
-| Unified “fleet as one FS” | Not present | **Yes — UX only** |
-| Background always-on control plane | Termux:Boot + sshd; AutoJs6 a11y watchdog (20 min cycle) | Inferno would **add** a third always-on runtime |
-| Catastrophic no-shell heal | AutoJs6 accessibility (mandatory) | Inferno **cannot** replace this — needs a live process + shell/`rish` |
-| Fast UI hierarchy / taps | Handsets wire + dump fallback | Inferno is not a UI driver |
+| Inferno idea                       | stayturgid today                                                                         | Gap?                                                                  |
+| ---------------------------------- | ---------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Elevated settings / appops         | Ansible `app_privileges`, Mac/Termux harden scripts, `rish` already default-installed    | No — Inferno wraps the same `rish`                                    |
+| Cross-device control               | SSH mesh (`id_ed25519_fleet`), `stayturgid_peer_help` / peer Handsets bootstrap, Mac adb | No — different UX, same reach                                         |
+| Unified “fleet as one FS”          | Not present                                                                              | **Yes — UX only**                                                     |
+| Background always-on control plane | Termux:Boot + sshd; AutoJs6 a11y watchdog (20 min cycle)                                 | Inferno would **add** a third always-on runtime                       |
+| Catastrophic no-shell heal         | AutoJs6 accessibility (mandatory)                                                        | Inferno **cannot** replace this — needs a live process + shell/`rish` |
+| Fast UI hierarchy / taps           | Handsets wire + dump fallback                                                            | Inferno is not a UI driver                                            |
 
 **Bottom line:** Inferno would mostly re-skin privileged shell ops as path
 writes. The hard stayturgid problems (Fire loopback ADB, a11y wipe recovery,
@@ -65,29 +65,29 @@ UX** as a product goal. For reliability, battery, and deploy simplicity:
 
 ### Current always-on / frequent cost (production)
 
-| Component | When | Relative cost |
-|-----------|------|----------------|
-| AutoJs6 accessibility | Always (OEM a11y tax) | Medium — required for catastrophic path |
-| AutoJs6 `main.js` cycle | Every **20 min** (+ tiny 60s keep-alive) | Low–medium — not continuous CPU |
-| Termux `sshd` | After boot / repair | Low idle |
-| Shizuku | When started (wireless/ADB) | Low–medium while up |
-| Tailscale | Always-on VPN (fleet choice) | Medium (network) |
-| Handsets `hs.jar` | **Session-only** (UI scripts) | Spike then stop |
-| agent-presence / inversion | UI sessions only | Spike |
-| Mac `adb_reconnect` | Mac launchd | Zero on phone |
+| Component                  | When                                     | Relative cost                           |
+| -------------------------- | ---------------------------------------- | --------------------------------------- |
+| AutoJs6 accessibility      | Always (OEM a11y tax)                    | Medium — required for catastrophic path |
+| AutoJs6 `main.js` cycle    | Every **20 min** (+ tiny 60s keep-alive) | Low–medium — not continuous CPU         |
+| Termux `sshd`              | After boot / repair                      | Low idle                                |
+| Shizuku                    | When started (wireless/ADB)              | Low–medium while up                     |
+| Tailscale                  | Always-on VPN (fleet choice)             | Medium (network)                        |
+| Handsets `hs.jar`          | **Session-only** (UI scripts)            | Spike then stop                         |
+| agent-presence / inversion | UI sessions only                         | Spike                                   |
+| Mac `adb_reconnect`        | Mac launchd                              | Zero on phone                           |
 
 Phones are daily drivers: stayturgid already avoids keep-awake apps and holds
 `svc power stayon` only during agent sessions.
 
 ### Inferno-heavy alternative
 
-| Component | When | Relative cost |
-|-----------|------|----------------|
-| `emu` + JIT + Styx listeners | Always (to be useful as fleet FS) | **Medium–high RAM/CPU** vs sshd |
-| `termux-wake-lock` / FGS (plan §6) | Always (Android otherwise kills) | **High battery** — fights deep sleep |
-| Limbo → `rish` per write | On each ctl op | Process spawn; fine if rare, bad if chatty |
-| Still need AutoJs6 a11y | Always | **No savings** — cannot drop |
-| Still need Handsets/SSH for UI & heal | Sessions | **No savings** |
+| Component                             | When                              | Relative cost                              |
+| ------------------------------------- | --------------------------------- | ------------------------------------------ |
+| `emu` + JIT + Styx listeners          | Always (to be useful as fleet FS) | **Medium–high RAM/CPU** vs sshd            |
+| `termux-wake-lock` / FGS (plan §6)    | Always (Android otherwise kills)  | **High battery** — fights deep sleep       |
+| Limbo → `rish` per write              | On each ctl op                    | Process spawn; fine if rare, bad if chatty |
+| Still need AutoJs6 a11y               | Always                            | **No savings** — cannot drop               |
+| Still need Handsets/SSH for UI & heal | Sessions                          | **No savings**                             |
 
 Moving “as much as possible” to Inferno **increases** steady-state drain:
 wake locks + a second VM, while the expensive mandatory piece (a11y watchdog)
@@ -100,12 +100,12 @@ and competes poorly with existing SSH one-shots.
 
 ### Rough guidance
 
-| Approach | Battery vs today | Capability gain |
-|----------|------------------|-----------------|
-| Keep current hybrid | Baseline | Production |
-| Inferno always-on + wake-lock | **Worse** | Namespace UX |
-| Inferno session-only | Similar / slightly worse spikes | Niche ctl demos |
-| Drop AutoJs6 “because Inferno” | Looks better on paper | **Breaks** no-shell heal — reject |
+| Approach                       | Battery vs today                | Capability gain                   |
+| ------------------------------ | ------------------------------- | --------------------------------- |
+| Keep current hybrid            | Baseline                        | Production                        |
+| Inferno always-on + wake-lock  | **Worse**                       | Namespace UX                      |
+| Inferno session-only           | Similar / slightly worse spikes | Niche ctl demos                   |
+| Drop AutoJs6 “because Inferno” | Looks better on paper           | **Breaks** no-shell heal — reject |
 
 ## Side-project scope (if picked later)
 
@@ -147,4 +147,3 @@ Termux → Shizuku/rish → Inferno emu
 
 Treat [`plan-original.md`](plan-original.md) as inspiration for a future
 sandbox only — not a stayturgid roadmap. **Do not execute Phase 0–7.**
-

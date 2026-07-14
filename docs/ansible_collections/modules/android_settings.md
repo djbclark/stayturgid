@@ -6,11 +6,11 @@ Idempotent `settings put` over adb for `secure`, `global`, or `system` namespace
 
 ## Parameters
 
-| Parameter | Description |
-|-----------|-------------|
-| `device` | ADB serial or `host:5555` |
-| `connect` | Run `adb connect` first (default `true`) |
-| `settings` | List of `{namespace, key, value}` (required) |
+| Parameter         | Description                                    |
+| ----------------- | ---------------------------------------------- |
+| `device`          | ADB serial or `host:5555`                      |
+| `connect`         | Run `adb connect` first (default `true`)       |
+| `settings`        | List of `{namespace, key, value}` (required)   |
 | `require_package` | Skip all changes when package is not installed |
 
 ## Example

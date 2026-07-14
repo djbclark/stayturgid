@@ -13,28 +13,28 @@ Target split: **~80% Ansible / ~20% scripts + on-device logic**.
 
 ## In Ansible
 
-| Concern | Mechanism |
-|---------|-----------|
-| Pre-SSH bootstrap | `termux_ssh_bootstrap` + `preflight.yml` / `bootstrap.yml` |
-| Termux packages, files, sshd, SSH mesh | `termux_userland` role |
-| VPN, app stores, privileges | domain roles + adb modules |
-| Deploy orchestration | `site.yml` (preflight → bootstrap → fleet → post-ui → app-stores re-pass → validate → control_node/site) |
-| Post-deploy checks | `stayturgid.fleet.validate` + `stayturgid_repair_check` |
-| Mac Homebrew prereqs | `control_node/prereqs.yml` (`community.general.homebrew`) |
-| Mac launchd + conf | `control_node/agents.yml` + `control_node/site.yml` (localhost) |
-| Mac VLM sidecar (optional) | `control_node/vlm.yml` (brew `llama.cpp`, models, launchd install + `vlm-ensure` health) |
+| Concern                                | Mechanism                                                                                                |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Pre-SSH bootstrap                      | `termux_ssh_bootstrap` + `preflight.yml` / `bootstrap.yml`                                               |
+| Termux packages, files, sshd, SSH mesh | `termux_userland` role                                                                                   |
+| VPN, app stores, privileges            | domain roles + adb modules                                                                               |
+| Deploy orchestration                   | `site.yml` (preflight → bootstrap → fleet → post-ui → app-stores re-pass → validate → control_node/site) |
+| Post-deploy checks                     | `stayturgid.fleet.validate` + `stayturgid_repair_check`                                                  |
+| Mac Homebrew prereqs                   | `control_node/prereqs.yml` (`community.general.homebrew`)                                                |
+| Mac launchd + conf                     | `control_node/agents.yml` + `control_node/site.yml` (localhost)                                          |
+| Mac VLM sidecar (optional)             | `control_node/vlm.yml` (brew `llama.cpp`, models, launchd install + `vlm-ensure` health)                 |
 
 ## Out of Ansible (by design)
 
-| Concern | Why |
-|---------|-----|
-| `stayturgid-repair` loop, boot loop, repair bridge | Must run when SSH/adb is down |
-| AutoJs6 `main.js` watchdog | Runtime interval + notifications |
-| Obtainium / Aurora / AutoJs6 drawer UI | On-device Python (`stayturgid_*`) via Termux `localhost:5555`; Mac wrappers SSH-invoke with Mac adb fallback (hd8 = Mac adb only — no Fire OS loopback) |
-| Catastrophic Shizuku accessibility tap | Only recovery when shell is gone |
-| Play silent install | No consumer API without MDM |
-| PIN unlock, Play Protect, DHCP LAN | Environmental |
-| Optional LLM escalation (shell-gpt) | Future — [docs/incubator/on-device-llm.md](../incubator/on-device-llm.md); never hot-path |
+| Concern                                            | Why                                                                                                                                                     |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stayturgid-repair` loop, boot loop, repair bridge | Must run when SSH/adb is down                                                                                                                           |
+| AutoJs6 `main.js` watchdog                         | Runtime interval + notifications                                                                                                                        |
+| Obtainium / Aurora / AutoJs6 drawer UI             | On-device Python (`stayturgid_*`) via Termux `localhost:5555`; Mac wrappers SSH-invoke with Mac adb fallback (hd8 = Mac adb only — no Fire OS loopback) |
+| Catastrophic Shizuku accessibility tap             | Only recovery when shell is gone                                                                                                                        |
+| Play silent install                                | No consumer API without MDM                                                                                                                             |
+| PIN unlock, Play Protect, DHCP LAN                 | Environmental                                                                                                                                           |
+| Optional LLM escalation (shell-gpt)                | Future — [docs/incubator/on-device-llm.md](../incubator/on-device-llm.md); never hot-path                                                               |
 
 Post-UI scripts are invoked via `stayturgid.android_common.android_ui` and the
 `stayturgid.fleet.post_ui` role (`post-ui.yml`) — orchestration is Ansible;

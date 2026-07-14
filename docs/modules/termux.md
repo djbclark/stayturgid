@@ -6,25 +6,25 @@ Scripts that run **on the phone** inside Termux. Usable without AutoJs6 or Ansib
 
 ## What this module does
 
-| Piece | Role |
-|-------|------|
-| `stayturgid_repair.py` | Self-heal sshd, localhost:5555 ADB, Shizuku, phone→Mac ET SSH config; prints `STATUS …` for callers |
-| `bridges.py --mode repair` | Polls `/sdcard/stayturgid/run/repair_now`; runs repair within ~2s (AutoJs6 fallback) |
-| `stayturgid_agent_presence.py` | Torch/notification + `request-screen` / `gate` / `on`/`off` |
-| `stayturgid_import_catalog.py` etc. | On-device post-UI (Obtainium / Aurora / AutoJs6) via `localhost:5555` |
-| `stayturgid_screen_control.py` | On-device consent + inversion gate (same policy as Mac `ScreenControlSession`) |
-| `check-repo-version` / battery / screen-awake | Python under `~/.stayturgid/bin/` (see `py/`) |
-| `boot/start-adb.sh` | Termux:Boot: sshd, wake-lock, 5-min self-heal loop, battery tier check |
-| `boot/start-repair-bridge.sh` | Starts `bridges.py --mode repair` at boot |
-| `boot/start-autojs6-watchdog.sh` | Launches AutoJs6 `boot-launcher.js` after boot |
+| Piece                                         | Role                                                                                                |
+| --------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `stayturgid_repair.py`                        | Self-heal sshd, localhost:5555 ADB, Shizuku, phone→Mac ET SSH config; prints `STATUS …` for callers |
+| `bridges.py --mode repair`                    | Polls `/sdcard/stayturgid/run/repair_now`; runs repair within ~2s (AutoJs6 fallback)                |
+| `stayturgid_agent_presence.py`                | Torch/notification + `request-screen` / `gate` / `on`/`off`                                         |
+| `stayturgid_import_catalog.py` etc.           | On-device post-UI (Obtainium / Aurora / AutoJs6) via `localhost:5555`                               |
+| `stayturgid_screen_control.py`                | On-device consent + inversion gate (same policy as Mac `ScreenControlSession`)                      |
+| `check-repo-version` / battery / screen-awake | Python under `~/.stayturgid/bin/` (see `py/`)                                                       |
+| `boot/start-adb.sh`                           | Termux:Boot: sshd, wake-lock, 5-min self-heal loop, battery tier check                              |
+| `boot/start-repair-bridge.sh`                 | Starts `bridges.py --mode repair` at boot                                                           |
+| `boot/start-autojs6-watchdog.sh`              | Launches AutoJs6 `boot-launcher.js` after boot                                                      |
 
 ### Presence / consent fail modes (caller choice)
 
-| Action | Timeout / missing script | Intended policy |
-|--------|--------------------------|-----------------|
-| `request-screen` | Some Mac callers treat timeout as fail-**open** (proceed with care) | Soft ask before long batches; not a hard safety gate |
-| `gate` / consent dialog | Fail-**closed** (exit 75) | Human denial or timeout → **do not** take glass |
-| `on` / presence missing (rc 127) | Fail-**closed** | Never leave inversion on without presence |
+| Action                           | Timeout / missing script                                            | Intended policy                                      |
+| -------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------- |
+| `request-screen`                 | Some Mac callers treat timeout as fail-**open** (proceed with care) | Soft ask before long batches; not a hard safety gate |
+| `gate` / consent dialog          | Fail-**closed** (exit 75)                                           | Human denial or timeout → **do not** take glass      |
+| `on` / presence missing (rc 127) | Fail-**closed**                                                     | Never leave inversion on without presence            |
 
 Agents: prefer fail-closed for any path that enables inversion or `adb input`.
 Document which path you use if you wrap presence yourself.
@@ -102,12 +102,12 @@ just termux-pkg-upgrade (--check via just)      # dry run
 just deploy-mac                      # install/reload the launchd agent
 ```
 
-| Var | Default | Meaning |
-|-----|---------|---------|
-| `stayturgid_termux_pkg_nightly_enabled` | `true` | Install launchd agent on Mac |
-| `stayturgid_termux_pkg_nightly_hour` / `_minute` | `4` / `15` | Mac local time |
-| `stayturgid_termux_pkg_upgrade_enabled` | `true` | Per-host skip in the playbook |
-| `stayturgid_termux_pkg_upgrade_serial` | `1` | Ansible serial (one host at a time) |
+| Var                                              | Default    | Meaning                             |
+| ------------------------------------------------ | ---------- | ----------------------------------- |
+| `stayturgid_termux_pkg_nightly_enabled`          | `true`     | Install launchd agent on Mac        |
+| `stayturgid_termux_pkg_nightly_hour` / `_minute` | `4` / `15` | Mac local time                      |
+| `stayturgid_termux_pkg_upgrade_enabled`          | `true`     | Per-host skip in the playbook       |
+| `stayturgid_termux_pkg_upgrade_serial`           | `1`        | Ansible serial (one host at a time) |
 
 Logs: `~/.config/stayturgid/logs/termux-pkg-nightly.log`.
 
