@@ -256,7 +256,7 @@ All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/
 - Upstream issue resolved: [firerpa/lamda#145](https://github.com/firerpa/lamda/issues/145) — inbound SSH works as `shell` with the service certificate
 - Secure aliases: `ssh s24-firerpa` / `ssh p7a-firerpa`; gRPC and SSH use `~/.config/stayturgid/firerpa.pem`
 - Known limitations: a UID-2000 bridge must exist to start FIRERPA after reboot, built-in ADB needs root, hd8 is USB-only
-- Makefile: `firerpa-deploy`, `firerpa-remove`, `firerpa-heal`, `firerpa-health`
+- `just` targets: `firerpa-deploy`, `firerpa-remove`, `firerpa-heal`, `firerpa-health`
 - Make sure `lamda-client` is installed in Python 3.12 venv: `source /tmp/lamda-venv/bin/activate`
 
 **CFEngine standalone self-heal (deployed 2026-07-12):**
@@ -273,10 +273,10 @@ All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/
 
 **Ansible-based verification + drift detection (deployed 2026-07-12):**
 
-- `make verify-drift [HOSTS=s24]` — `control/bin/verify_drift.py` → `ansible/playbooks/fleet/verify-drift.yml`
+- `just --set hosts s24 verify-drift` — `control/bin/verify_drift.py` → `ansible/playbooks/fleet/verify-drift.yml`
 - Uses `stayturgid.fleet.stayturgid_verify` module — declarative Ansible checks for device state drift
 - Complements `just verify` (device-tier TAP) with Ansible-native verification
-- `make deploy-check` for dry-run deploy verification (`CHECK=1 make deploy`)
+- `just --set hosts s24 deploy-check` for dry-run deploy verification
 
 **Cross-layer read-before-write guard hardening (2026-07-12):**
 All self-heal layers audited for redundant `settings put` / `setprop` / `am start`
@@ -409,8 +409,8 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 
 **Fork builds are debug (unsigned)**: Must sign with `apksigner sign --ks ~/.android/debug.keystore` before `adb install`.
 
-- **`make help`** + operational targets (`deploy`, `deploy-check`, `health`, `collections`, `syntax`, etc.).
-- **`make health` fix:** stale access-monitor LOST for hosts currently OK no longer fails exit 1
+- **`just --list`** + operational targets (`deploy`, `deploy-check`, `health`, `collections`, `syntax`, etc.).
+- **`just health` fix:** stale access-monitor LOST for hosts currently OK no longer fails exit 1
   (`control/bin/check_fleet_health.py` + tests).
 - Docs sweep: ADR 002, adoption notes, consumer template, `play_store` → `play_apps` in examples.
 
@@ -759,10 +759,10 @@ version.json                 — repo release version + changelog
   OPTIONS **62**, or an on-device path (`/sdcard/stayturgid/autojs6`). External
   consumers (LaunchAgents, RevengeQuickSwitcher, operator scripts outside repo) may
   still point at old paths — grep before deploy.
-- **Reorg soak:** full live `make deploy HOSTS=s24` and focused p7a Termux/FIRERPA
+- **Reorg soak:** full live `just --set hosts s24 deploy` and focused p7a Termux/FIRERPA
   deploys passed on 2026-07-13. hd8 remains deliberately deferred until USB recovery
   is available.
-- **make check lint tier:** `shellcheck` / `ansible-lint` / `yamllint` may still fail
+- **just lint tier:** `shellcheck` / `ansible-lint` / `yamllint` may still fail
   (pre-existing); tier-a syntax/pytest collection passed post-reorg.
 - **uiautomator2 `exists()` False:** usually a dismissable popup from another app blocking the UI — `d(text='OK').click()` first.
 - **Taps at the screen edge:** tap slightly inward (gesture-nav zone interferes).
@@ -809,12 +809,12 @@ version.json                 — repo release version + changelog
   `device/`, `catalogs/`, `docs/` layout; Ansible `control_node` role; canonical
   playbooks under `fleet/` + `control_node/`; on-device AutoJs6 path unified;
   OPTIONS **62** shim cleanup menu; pushed to GitHub. **Not fleet-soaked post-reorg.**
-- **2026-07-09 night** — Ansible Track B closed: `stayturgid.fleet.validate`, `preflight.yml`, `autojs6_project_deploy`; `make help` + fleet Makefile targets; `make health` stale LOST fix; docs sweep (ADR 002, consumers, parked stores). Commits `5e2b05c`…`4aab300` on `master`.
+- **2026-07-09 night** — Ansible Track B closed: `stayturgid.fleet.validate`, `preflight.yml`, `autojs6_project_deploy`; `just --list` + fleet `just` targets; `just health` stale LOST fix; docs sweep (ADR 002, consumers, parked stores). Commits `5e2b05c`…`4aab300` on `master`.
 - **2026-07-09** — Fire OS peer fallbacks F1–F5: boot keepalive (Shizuku+Handsets), Mac as last peer, launchd `com.stayturgid.fire-help`, ForceCommand `id_ed25519_peerhelp` on helpers/Mac. See `docs/research/fire-os-local-adb.md`. Neo/Aurora parked; ADR 002 + `android_ui`/`post_ui`/`android_a11y_services`; on-device post-UI + screen-control port.
 - **2026-07-08** — Test/CI batch: log.js ensureDir tests, deploy_fleet/adb_cli mocked flows, in-collection `adb_resolve` units, TCP-probe gate for wireless `adb connect`, tailscale-down abort guard. docs/options.md simplified to single open-items list. hd8 verify 16/16 with Fire OS notes; p7a adb intermittently offline.
 - **2026-07-07** — Fleet recovery: s24/p7a AutoJs6 `pm clear` reset → `just verify` green. **hd8** (Kindle Fire HD 8) added to fleet. Fire OS support: `stayturgid_sd_root` override, `STAYTURGID_SD` env file, dual-path device-tier checks, AutoJs6 deploy via `adb push`. Ansible taxonomy: `android_11`, `vendor_amazon`, `model_kindle_hd8`. adb auto-failover, mirror-pin fix, tailscale-down regression fix on s24.
 - **2026-07-07** — F-Droid/Neo Store + Play/Aurora support added (`fdroidcl` + `gplaycli` on Mac). Later integrated into `fleet.yml` (2026-07-07). Modules/roles: repo ensure in fdroidcl, `fdroidrepos://` intents, Shizuku grant, Aurora catalog + automated setup.
-- **2026-07-06** — Migration to Python COMPLETE (v2.0): all 5 runtime scripts deploy as Python (repair/agent-presence keep thin ~/ shell entrypoints); Mac-side fragile parsers converted (device_tier/access_monitor/adb_reconnect + shared stayturgid_device.py) with pytest; shell fragility boundary reached. Device tier → `device_tier.py`. Taxonomy inventory (no device names in code; group_vars layers all→android_16→vendor→oneui_7→model→host; device.json rendered per host). `obtainium_app` module + `obtainium_apps` role. fleet-health folded into TAP tier (`--heal`). Idempotency/determinism pass (mirror pinned, LC_ALL=C). pytest + `ansible-test units` + `stayturgid.fleet` collection. Ansible-native `fleet.yml` + `autojs6_watchdog` role. Notification self-heal (repair re-enables a11y append-only; notify coalesces per-key). Tasker fully removed (legacy exports archived). CI (GitHub Actions `make test`) green; ansible-lint/yamllint clean. Screen-awake guard + agent-presence consent protocol. sshd PerSourcePenalties lockout fixed.
+- **2026-07-06** — Migration to Python COMPLETE (v2.0): all 5 runtime scripts deploy as Python (repair/agent-presence keep thin ~/ shell entrypoints); Mac-side fragile parsers converted (device_tier/access_monitor/adb_reconnect + shared stayturgid_device.py) with pytest; shell fragility boundary reached. Device tier → `device_tier.py`. Taxonomy inventory (no device names in code; group_vars layers all→android_16→vendor→oneui_7→model→host; device.json rendered per host). `obtainium_app` module + `obtainium_apps` role. fleet-health folded into TAP tier (`--heal`). Idempotency/determinism pass (mirror pinned, LC_ALL=C). pytest + `ansible-test units` + `stayturgid.fleet` collection. Ansible-native `fleet.yml` + `autojs6_watchdog` role. Notification self-heal (repair re-enables a11y append-only; notify coalesces per-key). Tasker fully removed (legacy exports archived). CI (GitHub Actions `just test`) green; ansible-lint/yamllint clean. Screen-awake guard + agent-presence consent protocol. sshd PerSourcePenalties lockout fixed.
 - **2026-07-06** — Code review (CODE-REVIEW.md): 2 high / 11 med / 13 low, all fixed (repair helpers before flock branch; bridge liveness → pidfile; battery alarm byte-verified backup; consent gate fails closed; shizuku.json patchers abort on failed read).
 - **2026-07-05** — 7a Termux ecosystem moved to GitHub/Obtainium (share-uid aligned; `termux-api` works). AutoJs6 watchdog live on S24 then rolled to 7a (`main.js` + boot relaunch + Tailscale probe + catastrophic Shizuku tap). Repair channel confirmed (localhost:5555 shell uid 2000). Shizuku reboot-survival fixed on S24 (persistent pairing). Tailscale always-on VPN enabled on both (reboot-proof). SSH hardening (`ssh s24`/`p7a`, no 1Password dialog). Mac access-monitor + battery alarm + adb-reconnect (cached→USB-LAN→mDNS-TLS→Tailscale). Ansible Termux skeleton validated.
 - **earlier** — Pixel 7a: port 5555 + sshd survive cold reboots (2026-06-29). S24 initial bring-up 2026-07-01 (Shizuku SSL workaround via "Start by connecting to a computer"; runit/run-as sshd env fix; content:// URI grant limitation) — see docs/hacking.md Part 5b.
@@ -828,7 +828,7 @@ version.json                 — repo release version + changelog
 > operational (H5/38 Galaxy), latent reliability (43–45), or optional LLM spike
 > (54) — see [docs/options.md](options.md).
 
-The fleet runs on **Ansible-first deploy** (`make deploy` → `site.yml`) with thin
+The fleet runs on **Ansible-first deploy** (`just deploy` → `site.yml`) with thin
 Mac wrappers for health, ADB reconnect, and screen-control UI. Directions still
 valid for future investment:
 
@@ -896,7 +896,7 @@ Optional: Galaxy publish when H5 creds exist.
 ### F-Droid + Play (wired in fleet.yml, parked by default)
 
 **Status (2026-07-09):** Roles exist in `fleet.yml` / `site.yml` but are gated off
-(`stayturgid_app_stores_enabled: false`). `./control/bin/deploy_fleet.py` / `make deploy`
+(`stayturgid_app_stores_enabled: false`). `./control/bin/deploy_fleet.py` / `just deploy`
 run `ansible/playbooks/site.yml` (post-UI via `fleet/post-ui.yml`).
 
 **Mac prerequisites:** `brew install fdroidcl apkeep`
