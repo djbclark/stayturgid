@@ -19,13 +19,17 @@ jobs:
         run: npm ci
       - name: Install ansible + linters
         run: pipx install ansible-core && pipx install ansible-lint && pipx install yamllint
+      - name: Install just
+        uses: extractions/setup-just@v3
       - name: Install Ansible collections
         run: ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections
       - name: Set up Python test venv (pytest + ansible-core)
         run: python3 -m venv .venv-test && .venv-test/bin/pip install -q -r tests/python/requirements.txt
       - name: configure
         run: ./configure
-      - name: make check (tier a — syntax/lint under CI interpreters)
+      - name: just check (tier a — syntax/lint under CI interpreters)
         run: make check
-      - name: make test (tier b shell suite + pytest twins + ansible-test units)
+      - name: just test (tier b shell suite + pytest twins + ansible-test units)
         run: make test
+      - name: just --fmt --check
+        run: just --fmt --check

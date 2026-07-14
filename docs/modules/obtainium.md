@@ -27,12 +27,12 @@ Any Obtainium user can import a JSON catalog without the rest of stayturgid:
 
 ## Fleet deploy
 
-Included in `make deploy` / `ansible/playbooks/site.yml` via `stayturgid.obtainium.obtainium_apps`.
+Included in `just deploy` / `ansible/playbooks/site.yml` via `stayturgid.obtainium.obtainium_apps`.
 
 Post-UI import (screen control) prefers SSH → Termux `localhost:5555` on s24/p7a; hd8 uses Mac adb (no Termux loopback).
 
 ```bash
-make deploy HOSTS=s24
+just deploy hosts=s24
 # catalog-only helpers:
 python3 control/tools/obtainium/sync_to_device.py s24
 python3 control/tools/obtainium/import_catalog.py s24

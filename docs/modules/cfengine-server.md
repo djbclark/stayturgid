@@ -68,7 +68,7 @@ that does not depend on ADB or SSH.
 
 ### New health indicators to show
 
-1. **cf-serverd status** — already reported as `cfengine=ok|down` in fleet-health.log. The existing `make health` output includes it. The dashboard should display a badge or indicator for each device showing CFEngine server status.
+1. **cf-serverd status** — already reported as `cfengine=ok|down` in fleet-health.log. The existing `just health` output includes it. The dashboard should display a badge or indicator for each device showing CFEngine server status.
 
 2. **Port 5308 reachability** — can be checked via `tcp_open(ts_ip, 5308)` in `fleet_health.py`. Currently not scraped but the probe function exists. Add to `HEALTH_GATHER` or as a separate Mac-side probe.
 
@@ -80,7 +80,7 @@ that does not depend on ADB or SSH.
 
 ### Existing data the dashboard can use
 
-- `make health` / `make firerpa-health` output, which already includes cfengine status
+- `just health` / `just firerpa-health` output, which already includes cfengine status
 - `~/.config/stayturgid/logs/fleet-health.log` — parsed by `fleet_health.py`
 - `~/.config/stayturgid/logs/firerpa-health.log` — parsed by `firerpa_health_monitor.py`
 - `~/.config/stayturgid/devices.conf` — device mapping (alias, tailscale_ip, lan_ip, usb_serial)
@@ -99,4 +99,4 @@ that does not depend on ADB or SSH.
 
 3. **cfengine package on Termux**: Currently in main repo (3.27.1). Added to
    Ansible `stayturgid_termux_packages` for fleet-wide deployment on next
-   `make deploy`.
+   `just deploy`.

@@ -6,7 +6,7 @@
 #
 #   ANSIBLE_CONFIG=ansible/ansible.cfg \
 #     ansible-playbook ansible/playbooks/fleet/termux-pkg-upgrade.yml
-#   make termux-pkg-upgrade [HOSTS=s24]
+#   just termux-pkg-upgrade [HOSTS=s24]
 #   python3 control/bin/termux_pkg_nightly.py
 #
 # Scheduled via Mac launchd com.stayturgid.termux-pkg-nightly (see control_node).

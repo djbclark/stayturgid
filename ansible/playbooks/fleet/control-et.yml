@@ -1,9 +1,9 @@
 ---
 # Phone → Mac Eternal Terminal: Termux SSH config + et package (all stayturgid hosts).
-# Mac authorized_keys marked block: make ensure-et-mac / control_node agents.
+# Mac authorized_keys marked block: just ensure-et-mac / control_node agents.
 #
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet/control-et.yml
-#   make deploy-termux   # also includes this via termux_userland main.yml
+#   just deploy-termux   # also includes this via termux_userland main.yml
 - name: Deploy phone→Mac ET SSH config on fleet
   hosts: stayturgid
   gather_facts: false

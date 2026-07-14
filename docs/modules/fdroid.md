@@ -2,7 +2,7 @@
 
 **Collection:** `stayturgid.fdroid`  
 **Role:** `stayturgid.fdroid.fdroid_repos`  
-**Playbook:** `ansible/playbooks/fleet/fdroid.yml` (or `make deploy` with app stores enabled)  
+**Playbook:** `ansible/playbooks/fleet/fdroid.yml` (or `just deploy` with app stores enabled)  
 **Mac tool:** `control/tools/fdroid/grant_neo_store_shizuku.py`
 
 ## Status
@@ -24,7 +24,7 @@ Termux + AutoJs6 + Obtainium + Tailscale.
 4. Deploy:
 
    ```bash
-   make deploy SCOPE=fdroid HOSTS=s24
+   just deploy scope=fdroid hosts=s24
    # or:
    ./control/bin/deploy_fleet.py --scope fdroid s24
    ```

@@ -186,7 +186,7 @@ pkg update && pkg upgrade -y && pkg install openssh android-tools termux-api pyt
 # echo "YOUR_PUBLIC_KEY" >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys
 ```
 
-After bootstrap, `ansible/playbooks/site.yml` (via `make deploy` / `deploy_fleet.py`)
+After bootstrap, `ansible/playbooks/site.yml` (via `just deploy` / `deploy_fleet.py`)
 keeps fleet SSH keys in sync. **`./control/bin/bootstrap_ssh.py`** (also auto-run from
 `control/bin/deploy_termux.py` via `fleet/bootstrap.yml` when SSH fails) installs
 control-node `*.pub` keys via adb + `run-as com.termux`, starts `sshd`, and
@@ -269,10 +269,10 @@ See [docs/modules/autojs6.md](modules/autojs6.md) for details.
 ### 2.1 Install Homebrew and core tools
 
 Homebrew itself and project formulae are installed by Ansible (`control_node/prereqs.yml`) on
-`make deploy-mac` or `make deploy`:
+`just deploy-mac` or `just deploy`:
 
 ```bash
-make deploy-mac          # Homebrew bootstrap (if missing) + adb, python, pipx, git, ansible, scrcpy
+just deploy-mac          # Homebrew bootstrap (if missing) + adb, python, pipx, git, ansible, scrcpy
 pipx ensurepath          # once, if pipx was just installed
 ```
 
@@ -321,7 +321,7 @@ out — peer ADB is the Handsets starter there.
 uiautomator2 is optional for one-off Mac debugging. Prefer Handsets for fleet
 scripts. Never run u2 while a Handsets daemon holds UiAutomation.
 
-Installed by Ansible (`community.general.pipx`) on `make deploy-mac`. Manual:
+Installed by Ansible (`community.general.pipx`) on `just deploy-mac`. Manual:
 
 ```bash
 pipx install uiautomator2
@@ -389,9 +389,9 @@ ssh termux
 
 This runs `adb connect` every 60 seconds, handles DHCP IP changes, and sends a macOS notification on reconnect or failure.
 
-**Current (Ansible-generated):** `make deploy` / `site.yml` ends with `control_node/site.yml`
+**Current (Ansible-generated):** `just deploy` / `site.yml` ends with `control_node/site.yml`
 (Homebrew prereqs, `devices.conf`, `com.stayturgid.*` launchd agents). Partial deploys
-(`make deploy HOSTS=s24`) also refresh Mac config via `deploy_fleet.py`. Agents launch
+(`just deploy HOSTS=s24`) also refresh Mac config via `deploy_fleet.py`. Agents launch
 `control/bin/adb_reconnect.py` + `control/bin/access_monitor.py`. Logs + state live under
 `~/.config/stayturgid/{logs,state}/`.
 
@@ -418,20 +418,20 @@ Verify it's using Pro/Max plan (not API billing): run `/status` inside Claude Co
 UI-TARS is a **vendor-neutral Mac sidecar** (`llama-server` on `127.0.0.1:8081`). It is
 not stored under `~/.config/stayturgid/` — only fleet config (`devices.conf`, logs,
 artifacts) lives there. stayturgid scripts auto-start the server when needed: if launchd is not installed they
-run `make vlm-service-install` via Ansible (through `vlm_gate.ensure_server()`), otherwise kickstart
+run `just vlm-service-install` via Ansible (through `vlm_gate.ensure_server()`), otherwise kickstart
 the existing agent.
 
 **One-time setup** (Apple Silicon Mac, ~6 GB disk, 16 GB RAM recommended):
 
 ```bash
-make configure          # reports llama-server + launchd status
-make vlm-install        # Ansible: brew llama.cpp + download GGUF weights
-make vlm-service-install   # Ansible: launchd agent homebrew.mxcl.ui-tars
-make vlm-check
+just configure          # reports llama-server + launchd status
+just vlm-install        # Ansible: brew llama.cpp + download GGUF weights
+just vlm-service-install   # Ansible: launchd agent homebrew.mxcl.ui-tars
+just vlm-check
 ```
 
 Ansible playbooks: `ansible/playbooks/control_node/vlm.yml` (tags `vlm-models`, `vlm-service`).
-Requires `-e stayturgid_vlm_enabled=true` (set automatically by the make targets).
+Requires `-e stayturgid_vlm_enabled=true` (set automatically by the recipe targets).
 
 | Scope | Path |
 |-------|------|
@@ -445,19 +445,19 @@ Requires `-e stayturgid_vlm_enabled=true` (set automatically by the make targets
 
 ```bash
 python3 control/vlm/ui-tars/vlm_migrate_paths.py
-make vlm-service-install
+just vlm-service-install
 ```
 
 **Day-to-day ops** (launchctl, not a dedicated terminal):
 
 ```bash
 curl -sf http://127.0.0.1:8081/health
-make vlm-service-status
+just vlm-service-status
 launchctl kickstart -k "gui/$(id -u)/homebrew.mxcl.ui-tars"
-make vlm-service-stop
+just vlm-service-stop
 ```
 
-Full reference: [docs/vlm.md](vlm.md). Example gate: `make verify-hd8-google HOSTS=hd8`.
+Full reference: [docs/vlm.md](vlm.md). Example gate: `just verify-hd8-google HOSTS=hd8`.
 
 ---
 
@@ -501,7 +501,7 @@ Galaxy, LLM, FIRERPA MCP/WebRTC/MITM, and task-runner enhancements.
 Prefer Python for substantial orchestration, parsing, retries, and validation. Keep
 shell wrappers small. AutoJs6 runtime code is a justified JavaScript exception.
 
-At session start, run `make health` and distinguish active failures from recovered
+At session start, run `just health` and distinguish active failures from recovered
 history. Preserve unrelated worktree changes. Landing discovery writes runtime
 observations under `~/.config/stayturgid/landing/services.json`; the tracked
 `control/landing/services.json` is static configuration and should stay clean.
@@ -533,7 +533,7 @@ do not interpret opening the Shizuku app alone as authorization.
 4. Commit and push.
 
 Before deploying, install the host-only JavaScript quality tools once with
-`npm ci`. `make check` then runs ESLint over all AutoJs6 sources. These tools and
+`npm ci`. `just check` then runs ESLint over all AutoJs6 sources. These tools and
 their lockfile are never copied to Android. Keep platform globals in the explicit
 `eslint.config.cjs` allowlist; do not silence a finding merely to make the gate
 pass. TypeScript `checkJs` is intentionally deferred.
@@ -561,24 +561,24 @@ stdin pipe), never bare `ssh host '<commands>'` through the login shell.
 
 ### Test suite (three tiers, three idiomatic entry points)
 
-- **Tier a (code):** syntax/lint under local interpreters — `make check` /
+- **Tier a (code):** syntax/lint under local interpreters — `just check` /
   `tests/run.sh code`.
 - **Tier b (unit, no device):** shell TAP harness (`tests/test-unit.sh`, runs
   the `battery_suite` against BOTH the shell and Python twins), plain **pytest**
   for the Python script twins (`tests/python/`), and the standard
   **`ansible-test units`** for domain collections (`stayturgid.termux`, `obtainium`,
-  `fdroid`, `play` under `ansible_collections/stayturgid/`). `make test` runs all
+  `fdroid`, `play` under `ansible_collections/stayturgid/`). `just test` runs all
   three.
-- **Tier c (device, read-only):** `make verify` / `tests/run.sh device`.
-- **Drift detection:** `make verify-drift [HOSTS=s24]` — Ansible-based declarative state verification (complements TAP verify). `make verify-heal [HOSTS=s24]` runs verify + auto-heal.
+- **Tier c (device, read-only):** `just verify` / `tests/run.sh device`.
+- **Drift detection:** `just verify-drift [HOSTS=s24]` — Ansible-based declarative state verification (complements TAP verify). `just verify-heal [HOSTS=s24]` runs verify + auto-heal.
 
-Setup once: `make test-venv` (builds `.venv-test` with ansible-core + pytest +
-pytest-mock + pytest-ansible). CI runs `make test` on every push
-(`.github/workflows/test.yml`). `make lint` = shellcheck + ansible-lint +
+Setup once: `just test-venv` (builds `.venv-test` with ansible-core + pytest +
+pytest-mock + pytest-ansible). CI runs `just test` on every push
+(`.github/workflows/test.yml`). `just lint` = shellcheck + ansible-lint +
 yamllint. Deploy the fleet with `./control/bin/deploy_fleet.py` (Ansible;
 `CHECK=1` for a dry run).
 
-Cheap pre-commit gates (if not running the full `make test`): `bash -n` each
+Cheap pre-commit gates (if not running the full `just test`): `bash -n` each
 script, `git ls-files '*.sh' | xargs shellcheck -S warning`,
 `node --check device/autojs6/**/*.js`, `python3 -m py_compile` the Python sources, and
 `ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet/fleet.yml --syntax-check`.
@@ -619,10 +619,10 @@ GitHub `master` is the source of truth; updates are pushed to devices from the M
 3. Commit and push.
 4. Deploy to the fleet:
    ```bash
-   make deploy                    # full site.yml (recommended)
-   make verify HOSTS=s24          # optional TAP after deploy
+   just deploy                    # full site.yml (recommended)
+   just verify HOSTS=s24          # optional TAP after deploy
    ```
-   Granular: `make deploy-termux`, `control/tools/autojs6/deploy.py <host>` (USB recovery on Fire).
+   Granular: `just deploy-termux`, `control/tools/autojs6/deploy.py <host>` (USB recovery on Fire).
 
 Devices can optionally run `stayturgid_check_repo_version.py` (deployed as `~/stayturgid_check_repo_version.py`; max once/24 h from the boot loop) to get a notification when GitHub's `version.json` is newer than the last deployed version:
 
@@ -806,9 +806,9 @@ repos; `post-ui.yml` / `android_ui` task `configure_aurora` finishes Aurora firs
 
 | Command | Scope | Mac tools |
 |---------|-------|-----------|
-| `make deploy [HOSTS=…]` | Full `site.yml` (includes preflight) | fdroidcl, apkeep when stores on |
-| `make deploy SCOPE=fdroid HOSTS=…` | F-Droid tags only | fdroidcl |
-| `make deploy SCOPE=play HOSTS=…` | Play + post-ui Aurora | apkeep |
+| `just deploy [HOSTS=…]` | Full `site.yml` (includes preflight) | fdroidcl, apkeep when stores on |
+| `just deploy SCOPE=fdroid HOSTS=…` | F-Droid tags only | fdroidcl |
+| `just deploy SCOPE=play HOSTS=…` | Play + post-ui Aurora | apkeep |
 
 **Default repos** (`ansible_collections/stayturgid/fdroid/roles/fdroid_repos/defaults/main.yml`):
 
@@ -879,18 +879,18 @@ adb -s 100.123.218.30:5555 shell \
   'cd /data/local/tmp/firerpa/server && nohup sh bin/launch.sh --port=65000 &'
 
 # Check fleet health via FIRERPA:
-make firerpa-health
-make firerpa-heal --host s24
+just firerpa-health
+just firerpa-heal --host s24
 ```
 See [docs/history/firerpa-install-map-2026-07-12.md](history/firerpa-install-map-2026-07-12.md) for full details.
 
 **SSH Certificate Authority:** No more host-key warnings.
 ```bash
-make ca-status    # check CA fingerprint + cert status
+just ca-status    # check CA fingerprint + cert status
 # Host certs are auto-signed on every deploy-termux
 ```
 
 **OpenCode web:** Fleet-reachable web UI at http://<ts-ip>:4096
 ```bash
-make opencode-web-status
+just opencode-web-status
 ```

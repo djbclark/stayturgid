@@ -22,7 +22,7 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 |-----|----------|
 | [README.md](../README.md) | Everyone — hub + full-stack quick path |
 | [docs/hacking.md](hacking.md) | Developers — clean install, Obtainium, Termux swap |
-| [docs/handoff.md](handoff.md) | AI agents / maintainers — **session start:** `make health`; **2026-07-10 reorg:** read Cold-start first; **[`.cursor/rules/`](../.cursor/rules/)** |
+| [docs/handoff.md](handoff.md) | AI agents / maintainers — **session start:** `just health`; **2026-07-10 reorg:** read Cold-start first; **[`.cursor/rules/`](../.cursor/rules/)** |
 | [docs/coding-rules.md](coding-rules.md) | Durable implementation, device-safety, test, Git, and done rules |
 | [`.cursor/rules/`](../.cursor/rules/) | Always-on AI agent rules (self-heal, screen-control hold, …) — **read on handoff** |
 | [docs/architecture.md](architecture.md) | Repo layout (`control/`, `device/`, `catalogs/`, `docs/`) |
@@ -77,6 +77,6 @@ Speculative / alternate architectures. Index:
 
 - **Termux only:** `device/termux/` + manual Shizuku
 - **Termux + Ansible:** `ansible/` + SSH keys
-- **Full stack:** `device/termux/` + `device/autojs6/` + `catalogs/obtainium/` + `control/bin/` + `make deploy`
+- **Full stack:** `device/termux/` + `device/autojs6/` + `catalogs/obtainium/` + `control/bin/` + `just deploy`
   (Neo/Aurora app stores **parked** unless `stayturgid_app_stores_enabled: true`)
 - **Obtainium only:** `catalogs/obtainium/` — APK updates without stayturgid watchdog

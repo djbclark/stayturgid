@@ -35,7 +35,7 @@ See collection docs and human handoff for token acquisition. Do not commit secre
 4. Deploy:
 
    ```bash
-   make deploy SCOPE=play HOSTS=s24
+   just deploy scope=play hosts=s24
    ./control/bin/deploy_fleet.py --scope play s24
    ```
 
@@ -51,7 +51,7 @@ python3 control/tools/play/gplaycli.py --help
 
 Sideloaded Google Play on Fire OS can auto-update GMS past compatible builds.
 See [docs/research/fire-os-google-play.md](../research/fire-os-google-play.md) and
-`make fix-hd8-google` / `make verify-hd8-google`.
+just fix-hd8-google / just verify-hd8-google.
 
 ## Related
 

@@ -19,7 +19,7 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 | `gui_audit.py` | Neo/Aurora GUI audit — **parked**; manual only (`docs/modules/fdroid.md`, `docs/modules/play.md`) |
 | `verify_play_autoupdate.py` | Play Store auto-update VLM gate (optional; see [docs/vlm.md](../vlm.md)) |
 | `verify_hd8_google.py` / `fix_hd8_google_stack.py` | Fire HD Play/GMS stack verify + optional reinstall |
-| `vlm_check.py` | Local UI-TARS client smoke test (`make vlm-check`) |
+| `vlm_check.py` | Local UI-TARS client smoke test (`just vlm-check`) |
 | `vlm_upstream_check.py` | Weekly RQS VLM.md best-practice sync check |
 | `deploy_fleet.py` | Full fleet deploy via `site.yml` + **always** re-runs `control_node` (device `--limit` skips localhost) |
 | `deploy_termux.py` | Termux-only deploy wrapper |
@@ -36,21 +36,21 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 | Screen-control lease | [docs/modules/screen-control-lease.md](screen-control-lease.md) — interop with other Mac projects |
 
 Launchd agents and `devices.conf` are rendered by `ansible/playbooks/control_node/site.yml`
-(`make deploy-mac` or automatically at end of `make deploy`).
+(`just deploy-mac` or automatically at end of `just deploy`).
 
 ## Fleet deploy
 
 ```bash
-make deploy [HOSTS=s24]                # whole fleet (recommended)
-make deploy-check HOSTS=s24            # dry run
+# just deploy hosts=s24                # whole fleet (recommended)
+# just deploy-check hosts=s24            # dry run
 ./control/bin/bootstrap_ssh.py s24             # first SSH key (when Ansible cannot connect yet)
-./control/bin/deploy_fleet.py s24              # same as make deploy
-CHECK=1 ./control/bin/deploy_fleet.py s24      # same as make deploy-check
+./control/bin/deploy_fleet.py s24              # same as just deploy
+CHECK=1 ./control/bin/deploy_fleet.py s24      # same as just deploy-check
 ./control/bin/deploy_fleet.py --scope fdroid s24 # F-Droid (parked until app stores re-enabled)
 ./control/bin/deploy_fleet.py --scope play s24   # Play / Aurora (parked)
 ```
 
-Verify: `make verify` or `make verify-heal` or `bash tests/run.sh device --heal [host]`
+Verify: `just verify` or `just verify-heal` or `bash tests/run.sh device --heal [host]`
 
 ### Dashboard Shizuku authorization (H8)
 
@@ -75,13 +75,13 @@ silently falling back to a misleading success state.
 python3 control/bin/adb_reconnect.py s24
 
 # Install launchd agents + Homebrew prereqs from inventory:
-make deploy-mac
+just deploy-mac
 # or: ansible-playbook ansible/playbooks/control_node/site.yml --tags agents
 ```
 
 Logs: `~/.config/stayturgid/logs/`. Device list: `~/.config/stayturgid/devices.conf` (from Ansible).
 
-**Launchd agents** (`make deploy-mac` / `ansible/playbooks/control_node/site.yml`):
+**Launchd agents** (`just deploy-mac` / `ansible/playbooks/control_node/site.yml`):
 
 | Agent | Interval | Log |
 |-------|----------|-----|
@@ -98,7 +98,7 @@ Logs: `~/.config/stayturgid/logs/`. Device list: `~/.config/stayturgid/devices.c
 ### Hermes Agent + Telegram (control node)
 
 [Hermes Agent](https://hermes-agent.nousresearch.com/) is installed via Homebrew (`hermes-agent`)
-and kept up by `make deploy-mac` / `control_node` agents:
+and kept up by `just deploy-mac` / `control_node` agents:
 
 | Path | Purpose |
 |------|---------|
@@ -117,7 +117,7 @@ hermes auth add xai-oauth --type oauth
 # Bot token from @BotFather → ~/.hermes/.env
 # TELEGRAM_BOT_TOKEN=123:AA…
 
-make deploy-mac
+just deploy-mac
 # or: ansible-playbook ansible/playbooks/control_node/site.yml --tags hermes,agents-ensure
 ```
 
@@ -144,7 +144,7 @@ Phones use **Eternal Terminal** (`et`) to the Mac control node’s `etserver`
 | Fleet pubkeys on Mac | `~/.ssh/authorized_keys` marked `# BEGIN/END STAYTURGID-ET-MAC` | Unrestricted `id_ed25519_fleet` from each host |
 | Peer-help keys | Same file, **outside** the block | ForceCommand `fire_peer_help.py` — never overwritten by ET ensure |
 | Device SSH config | Termux `~/.ssh/config` markers `STAYTURGID-CONTROL-ET` | `Host mac …` → Tailscale IP, `IdentityFile ~/.ssh/id_ed25519_fleet` |
-| Self-heal Mac | `control/bin/ensure_et_mac.py` via `make deploy-mac` / fleet-health | Re-collects pubs + rewrites marked block |
+| Self-heal Mac | `control/bin/ensure_et_mac.py` via `just deploy-mac` / fleet-health | Re-collects pubs + rewrites marked block |
 | Self-heal device | `stayturgid_repair` + share file | Restores config from `~/.stayturgid/share/ssh-config-control-et` |
 | Inventory | `stayturgid_control_*` / `stayturgid_mac_peer` in `group_vars/stayturgid.yml` | User, Tailscale IP, LAN IP, et port |
 
@@ -170,7 +170,7 @@ Do **not** use `et --macserver` on Apple Silicon Homebrew (wrong
 `STAYTURGID_SSH_STRICT_HOST_KEY=yes` and
 `STAYTURGID_SSH_KNOWN_HOSTS=~/.ssh/known_hosts_stayturgid` (see `control/lib/et_mac.py`).
 
-**Agents — session start:** `make health` — if exit ≠ 0,
+**Agents — session start:** `just health` — if exit ≠ 0,
 surface host/`issues=` to the operator immediately (see HANDOFF § Mac fleet health).
 Any health fix must also update self-heal (Termux / AutoJs6 co-monitor / this
 monitor’s `maybe_heal_watchdog`) — see `.cursor/rules/fleet-health-self-heal.mdc`.

@@ -1,5 +1,5 @@
 ---
-# Post-deploy validation over SSH (complements make verify / device_tier TAP).
+# Post-deploy validation over SSH (complements just verify / device_tier TAP).
 - name: stayturgid fleet validate
   hosts: stayturgid
   gather_facts: false

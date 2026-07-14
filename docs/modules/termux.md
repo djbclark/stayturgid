@@ -96,10 +96,10 @@ python3 control/bin/termux_pkg_nightly.py
 ```
 
 ```bash
-make termux-pkg-upgrade              # run now, all hosts
-make termux-pkg-upgrade HOSTS=s24    # one host
-CHECK=1 make termux-pkg-upgrade      # dry run
-make deploy-mac                      # install/reload the launchd agent
+just termux-pkg-upgrade              # run now, all hosts
+just termux-pkg-upgrade hosts=s24    # one host
+just termux-pkg-upgrade (--check via just)      # dry run
+just deploy-mac                      # install/reload the launchd agent
 ```
 
 | Var | Default | Meaning |

@@ -42,7 +42,7 @@
           {% for a in _vfy_missing_list %}- {{ a.id }} ({{ a.repo }})
           {% endfor %}
           These must be installed before deploy can proceed.
-          Run: make deploy -- --limit {{ inventory_hostname }}
+          Run: just deploy -- --limit {{ inventory_hostname }}
         success_msg: "All {{ stayturgid_bootstrap_apks | length }} bootstrap APKs present on {{ inventory_hostname }}"
         quiet: true
 

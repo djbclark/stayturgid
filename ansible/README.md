@@ -31,8 +31,8 @@ The deployed `~/.stayturgid/bin/stayturgid_agent_presence.py` includes the conse
 
 ## Prerequisites
 
-- Ansible 2.14+ on the Mac (`brew install ansible` or `make deploy-mac --tags prereqs`)
-- `ansible.posix` + `community.general` collections (`ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections`; `make collections` or `make deploy-mac`)
+- Ansible 2.14+ on the Mac (`brew install ansible` or `just deploy-mac --tags prereqs`)
+- `ansible.posix` + `community.general` collections (`ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections`; `just collections` or `just deploy-mac`)
 - SSH to Termux working (`ssh s24` or USB forward to port 8022)
 - `~/.ssh/termux_key` authorized on the device (bootstrap once with `ssh-copy-id`; `termux_userland` role manages keys on every deploy)
 
@@ -43,7 +43,7 @@ stayturgid prerequisites and agents). Logic lives in the `control_node` role; pl
 are under `playbooks/control_node/`:
 
 ```bash
-make deploy-mac
+just deploy-mac
 # or:
 ansible-playbook ansible/playbooks/control_node/site.yml --tags mac
 ```
@@ -157,7 +157,7 @@ post-UI import (`post_ui` / `android_ui`), app privileges, and validate smoke.
 
 ```bash
 ./control/bin/deploy_fleet.py          # or ansible-playbook ansible/playbooks/site.yml
-make verify                    # deep TAP (optional)
+just verify                    # deep TAP (optional)
 ```
 
 Manual recovery scripts remain under `control/tools/autojs6/` and `control/bin/bootstrap_ssh.py`.

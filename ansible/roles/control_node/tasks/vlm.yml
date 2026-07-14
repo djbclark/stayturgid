@@ -50,7 +50,7 @@
     that: item.stat.exists
     fail_msg: >-
       UI-TARS models missing in {{ ui_tars_model_dir }} —
-      run: make vlm-install (ansible --tags vlm-models)
+      run: just vlm-install (ansible --tags vlm-models)
   loop: "{{ _ui_tars_model_stats.results }}"
   loop_control:
     label: "{{ item.stat.path | default('model') }}"

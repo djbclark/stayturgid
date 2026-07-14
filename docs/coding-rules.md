@@ -28,8 +28,8 @@ From `~/stayturgid`:
 ```bash
 git fetch origin --prune
 git pull --ff-only origin master
-make health
-make firerpa-health
+just health
+just firerpa-health
 python3 control/bin/screen_lease.py status
 git status --short --branch
 ```
@@ -149,10 +149,10 @@ Run the smallest focused test during development, then the project gates appropr
 to the change:
 
 ```bash
-make check                 # code syntax, lint, collection and parser checks
-make test                  # device-free unit suites
-make verify HOSTS=s24      # read-only live tier when device behavior changed
-make deploy-check HOSTS=s24
+just check                 # code syntax, lint, collection and parser checks
+just test                  # device-free unit suites
+just verify hosts=s24      # read-only live tier when device behavior changed
+just deploy-check hosts=s24
 ```
 
 - Add a regression test that would fail on the old defect.

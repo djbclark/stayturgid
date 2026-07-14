@@ -39,7 +39,7 @@ On-device AutoJs6 project path is always **`/sdcard/stayturgid/autojs6/`** (not 
 ## Deploy flow
 
 ```
-make deploy
+`just deploy`
   → ansible/playbooks/site.yml
     → fleet/preflight.yml
     → fleet/bootstrap.yml (if needed)
@@ -91,7 +91,7 @@ Scripts find the repo root via `control/lib/stayturgid_root.py` (markers:
 
 - **Mac soft health:** launchd `com.stayturgid.fleet-health` →
   `control/bin/fleet_health_monitor.py` → `~/.config/stayturgid/logs/fleet-health.log`.
-  Agents run `make health` at session start.
+  Agents run `just health` at session start.
 - **`SCRAPE_STALE`** can mean the **Mac probe** is broken (e.g. adb not on PATH),
   not only that the phone is dead — read the log line body.
 - Launchd agents set `PATH` + `STAYTURGID_ADB` so Homebrew `adb` is found.

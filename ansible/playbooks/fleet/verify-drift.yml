@@ -3,7 +3,7 @@
 # Runs stayturgid_verify module on each host and reports drift.
 # Usage:
 #   ansible-playbook ansible/playbooks/fleet/verify-drift.yml -l s24
-#   make verify-drift HOSTS=s24
+#   just verify-drift hosts=s24
 
 - name: Verify stayturgid device state + drift detection
   hosts: "{{ target | default('stayturgid') }}"

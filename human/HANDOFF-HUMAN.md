@@ -18,19 +18,19 @@ Last updated: **2026-07-10 afternoon** (review fixes + Fire wireless-debug self-
 | Code/docs review follow-through | H1/M1–M6 + L1–L9 on `master`; pytest green |
 | Fire wireless debugging | Mac `fire_help` re-asserts `adb_wifi_enabled`; resolve prefers mDNS |
 | hd8 AutoJs6 “Save main.js” dialog | Caused by wrong `termux-open` path — use `start_watchdog.py` only |
-| `make health` | **OK** s24/p7a/hd8 at handoff write (hd8 soft health often SSH) |
-| Live full-fleet soak | **Still optional** — announce before `make deploy` / `make verify` |
+| `just health` | **OK** s24/p7a/hd8 at handoff write (hd8 soft health often SSH) |
+| Live full-fleet soak | **Still optional** — announce before `just deploy` / `just verify` |
 
-**Operator (only if Mac agents still old):** after pull, optional `make deploy-mac` to reload launchd with latest `fire_help_monitor`.
+**Operator (only if Mac agents still old):** after pull, optional `just deploy-mac` to reload launchd with latest `fire_help_monitor`.
 
 ## Session notes (2026-07-10 afternoon) — agent completed
 
 | Area | Status |
 |------|--------|
 | Senior review fixes | H1–H3, OPTIONS 62, module docs, lint green |
-| Mac fleet-health adb PATH | Launchd plists patched + reloaded; `make health` OK for s24/p7a/hd8 |
-| `make deploy-check HOSTS=s24` | Pass (`failed=0`) after `stayturgid_repo_root` fix |
-| Live soak | **Still needed** — announced `make deploy` + `make verify` |
+| Mac fleet-health adb PATH | Launchd plists patched + reloaded; `just health` OK for s24/p7a/hd8 |
+| `just deploy-check HOSTS=s24` | Pass (`failed=0`) after `stayturgid_repo_root` fix |
+| Live soak | **Still needed** — announced `just deploy` + `just verify` |
 
 ## Session notes (2026-07-10) — agent completed
 
@@ -44,10 +44,10 @@ Last updated: **2026-07-10 afternoon** (review fixes + Fire wireless-debug self-
 **Operator check (recommended before relying on fleet):**
 
 ```bash
-make health                    # expect hd8 SCRAPE_STALE possible; p7a/s24 should be OK
-make deploy-check HOSTS=s24    # dry-run after reorg
+just health                    # expect hd8 SCRAPE_STALE possible; p7a/s24 should be OK
+just deploy-check hosts=s24    # dry-run after reorg
 # optional live soak (announce first):
-# make deploy HOSTS=s24 && make verify HOSTS=s24
+# just deploy hosts=s24 && just verify hosts=s24
 ```
 
 Confirm Mac LaunchAgents still point at `control/bin/` (should already — reorg kept paths).
@@ -60,11 +60,11 @@ These do **not** need operator action unless noted.
 |------|--------|
 | Ansible validate + preflight | `stayturgid.fleet.validate`, `preflight.yml` in `site.yml`; SSH preflight out of `deploy_fleet.py` |
 | hd8 AutoJs6 deploy | `autojs6_project_deploy` module — full fleet path on Fire OS |
-| Makefile ops | `make help` (default), `make deploy`, `make health`, etc. |
-| Fleet health triage | Stale morning s24 LOST no longer fails `make health` when host is OK now |
+| Makefile ops | `just --list` (default), `just deploy`, `just health`, etc. |
+| Fleet health triage | Stale morning s24 LOST no longer fails `just health` when host is OK now |
 | Neo/Aurora | Still **parked** — no operator action to unpark |
 
-**Operator check (optional):** `make health` at session start; `make deploy HOSTS=s24` only when you want a live soak (announce first).
+**Operator check (optional):** `just health` at session start; `just deploy hosts=s24` only when you want a live soak (announce first).
 
 ## Session notes (2026-07-09) — agent completed
 

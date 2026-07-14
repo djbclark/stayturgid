@@ -78,7 +78,7 @@ python3 control/bin/screen_lease.py acquire p7a --purpose "manual test"
 python3 control/bin/screen_lease.py release p7a
 ```
 
-Agents: at session start, after `make health`, also:
+Agents: at session start, after `just health`, also:
 
 ```bash
 python3 control/bin/screen_lease.py status
