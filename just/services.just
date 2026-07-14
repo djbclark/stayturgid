@@ -66,7 +66,7 @@ hermes-status-full:
     hermes status
 
 # View recent gateway log (HERMES_LINES=N).
-hermes-logs lines="100":
+hermes-logs lines=`env_var_or_default("HERMES_LINES", "100")`:
     hermes logs gateway -n {{ lines }}
 
 # Follow gateway log in real time.

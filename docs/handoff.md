@@ -45,12 +45,12 @@ use this order (least disruptive / best lab device first):
 Use **all** hosts when the task requires fleet-wide validation. Examples:
 
 ```bash
-make help                         # list common commands
-make health                       # session start (agents)
-make verify HOSTS=s24
-make verify-drift HOSTS=s24       # Ansible-based drift check
-make deploy HOSTS=s24
-make deploy-check HOSTS=s24       # dry run (same as CHECK=1 make deploy)
+just --list                       # list all commands
+just health                       # session start (agents)
+just verify hosts=s24
+just verify-drift hosts=s24       # Ansible-based drift check
+just deploy hosts=s24
+just deploy-check hosts=s24       # dry run
 ```
 
 Announce before live deploy when someone may be on the device:
@@ -138,7 +138,7 @@ On the Mac, a launchd agent runs every 60 s and reconnects `adb connect <ip>:555
 
 GitHub `master` is the source of truth. To release:
 1. Bump `version.json` (`version` + `changelog`), commit, push.
-2. `make deploy` (or `./control/bin/deploy_fleet.py`) — full fleet via `ansible/playbooks/site.yml`
+2. `just deploy` (or `python3 control/bin/deploy_fleet.py`) — full fleet via `ansible/playbooks/site.yml`
    (`make deploy-check` / `CHECK=1 make deploy` = dry run): bootstrap APK verify,
    bootstrap APK ensure (version-aware over ADB), Shizuku start, preflight (SSH),
    fleet deploy (Termux, AutoJs6, Obtainium, Tailscale, privileges), post-UI,
@@ -166,10 +166,10 @@ Source of truth: **`origin/master`** on `https://github.com/djbclark/stayturgid.
 ```bash
 cd ~/stayturgid && git fetch origin --prune && git status -sb
 git pull --ff-only origin master   # if behind only
-make health
-make firerpa-health 2>/dev/null    # check FIRERPA fleet health
+just health
+just firerpa-health 2>/dev/null    # check FIRERPA fleet health
 python3 control/bin/screen_lease.py status
-# Optional: make verify-drift HOSTS=s24  # Ansible-based drift check
+# Optional: just verify-drift hosts=s24  # Ansible-based drift check
 ```
 
 Then read [coding-rules.md](coding-rules.md), [docs/options.md](options.md), and the
@@ -430,15 +430,15 @@ The dashboard-framework research prompt is at
 [docs/prompts/dashboard-framework-research.md](prompts/dashboard-framework-research.md).
 Galaxy publishing, LLM, FIRERPA MCP/WebRTC/MITM, Tasker, or `sshd -D` work should
 not displace the ordered fixes.
-If validating bootstrap flow: `make verify-bootstrap-apks HOSTS=s24` →
-`make bootstrap-apks HOSTS=s24` → `make ensure-shizuku HOSTS=s24` →
-`make deploy-check HOSTS=s24`. Human unlocks:
+If validating bootstrap flow: `just verify-bootstrap-apks hosts=s24` →
+`just bootstrap-apks hosts=s24` → `just ensure-shizuku hosts=s24` →
+`just deploy-check hosts=s24`. Human unlocks:
 [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md).
 
 **Deploy / test:**
-- Deploy: `make deploy [HOSTS=<host>]`. Verify: `make verify HOSTS=<host>`.
-- Test (no device): `make test`. First run: `make test-venv`. CI runs `make test` on push.
-- All commands: `make help`.
+- Deploy: `just deploy hosts=<host>`. Verify: `just verify hosts=<host>`.
+- Test (no device): `just test`. First run: `just test-venv`. CI runs `just test` on push.
+- All commands: `just --list`. Legacy: `make` targets forward to `just`.
 
 ---
 

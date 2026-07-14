@@ -6,30 +6,30 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on unrooted Android phone
 
 ```bash
 cd ~/stayturgid && git fetch origin --prune && git pull --ff-only origin master
-make health && make firerpa-health
+just health && just firerpa-health
 ```
 
 ## Key commands
 
 | Command | Purpose |
 |---------|---------|
-| `make deploy [HOSTS=s24]` | Full fleet deploy |
-| `make deploy-check [HOSTS=s24]` | Dry-run deploy (CHECK=1) |
-| `make verify [HOSTS=s24]` | Device tier checks |
-| `make verify-drift [HOSTS=s24]` | Ansible-based drift detect |
-| `make verify-heal [HOSTS=s24]` | Verify + auto-heal |
-| `make health` | Fleet health summary + device error log |
-| `make errors` | Show recent device errors (7 days) |
-| `make firerpa-health` | FIRERPA fleet health |
-| `make firerpa-heal --host s24` | Repair via FIRERPA gRPC |
-| `make test` | Code-only tests (includes healing coverage check) |
-| `make deploy-mac` | Mac workstation (brew, launchd) |
-| `make ca-status` | SSH CA status/fingerprints |
-| `make opencode-web-status` | OpenCode web UI status |
-| `make hermes-status` | Hermes worktree status |
-| `make vlm-check` | Check VLM server + cloud |
-| `make landing-status` | Network landing page status |
-| `make secretspec-check` | Verify all required secrets are set |
+| `just deploy hosts=s24` | Full fleet deploy |
+| `just deploy-check hosts=s24` | Dry-run deploy |
+| `just verify hosts=s24` | Device tier checks |
+| `just verify-drift hosts=s24` | Ansible-based drift detect |
+| `just verify-heal hosts=s24` | Verify + auto-heal |
+| `just health` | Fleet health summary + device error log |
+| `just errors` | Show recent device errors (7 days) |
+| `just firerpa-health` | FIRERPA fleet health |
+| `just firerpa-heal hosts=s24` | Repair via FIRERPA gRPC |
+| `just test` | Code-only tests (includes healing coverage check) |
+| `just deploy-mac` | Mac workstation (brew, launchd) |
+| `just ca-status` | SSH CA status/fingerprints |
+| `just opencode-web-status` | OpenCode web UI status |
+| `just hermes-status` | Hermes worktree status |
+| `just vlm-check` | Check VLM server + cloud |
+| `just landing-status` | Network landing page status |
+| `just secretspec-check` | Verify all required secrets are set |
 
 ## Environment
 
