@@ -1,0 +1,13 @@
+[default.extend-words]
+AAS = "AAS"
+OT = "OT"
+PN = "PN"
+PNG = "PNG"
+SER = "SER"
+aas = "aas"
+als = "als"
+laf = "laf"
+lamda = "lamda"
+mis = "mis"
+monitord = "monitord"
+unparseable = "unparseable"

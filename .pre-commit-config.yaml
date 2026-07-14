@@ -1,0 +1,37 @@
+---
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.21
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.48.0
+    hooks:
+      - id: typos
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.10.0.1
+    hooks:
+      - id: shellcheck
+        args: ["-S", "warning"]
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: [-c, .yamllint]
+
+  - repo: local
+    hooks:
+      - id: ansible-lint-project
+        name: ansible-lint
+        entry: >-
+          bash -c 'ansible-galaxy collection install -r ansible/requirements.yml
+          -p .ansible/collections >/dev/null 2>&1 || true; cd ansible &&
+          ansible-lint playbooks/ ../ansible_collections/stayturgid/'
+        language: python
+        additional_dependencies: [ansible-lint]
+        pass_filenames: false

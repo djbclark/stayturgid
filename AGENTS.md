@@ -31,7 +31,8 @@ just health && just firerpa-health
 | `just landing-status` | Network landing page status |
 | `just secretspec-check` | Verify all required secrets are set |
 | `just ruff` | Python lint + format check (ruff) |
-| `just lint` | All linters: shellcheck, ansible-lint, yamllint, ruff |
+| `just typos` | Source-code spelling check |
+| `just lint` | All linters: shellcheck, ansible-lint, yamllint, ruff, typos |
 | `just check` | Syntax/import checks + ruff |
 
 ## Environment
@@ -39,6 +40,7 @@ just health && just firerpa-health
 - **Mac shell:** `/bin/bash` (dotfiles: `~/.bash_profile`, `~/.bashrc`)
 - **FIRERPA venv:** Python 3.12 at `/tmp/lamda-venv` — `source /tmp/lamda-venv/bin/activate`
 - **Python tooling:** `uv` (package manager) + `ruff` (linter/formatter) — `brew install uv ruff`
+- **Git tooling:** `pre-commit` (hooks) + `typos` (spell check) — `brew install pre-commit typos-cli`; run `pre-commit install`
 - **SSH CA:** `~/.ssh/stayturgid_ca` — `just ca-status`
 - **OpenCode web:** http://100.113.53.87:4096
 - **Secrets:** managed via `secretspec` (`brew install secretspec`). Spec at `secretspec.toml` (project root). All secrets defined there; run `just secretspec-check` before deploys.

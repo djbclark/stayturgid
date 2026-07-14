@@ -269,6 +269,13 @@ rules). `just ruff` recipe runs `ruff check` + `ruff format --check`. `just lint
 `just check` both include ruff. `just test-venv` uses `uv` instead of `pip`. `uv` and
 `ruff` installed via `brew install uv ruff`.
 
+#### ~~H5 — pre-commit + typos tooling~~ · **Closed 2026-07-14**
+
+`.pre-commit-config.yaml` runs ruff, typos, shellcheck, yamllint, and the existing
+project-scoped Ansible lint command. `.typos.toml` carries approved project vocabulary
+such as `lamda` and `AAS`. `just typos`, `just check`, `just test`, and `just lint`
+include spelling checks. Hooks are installed with `pre-commit install`.
+
 #### ~~H6 — s24 AutoJs6 watchdog stale (Android 16)~~ · **Closed 2026-07-13**
 
 The accessibility service resumed after the operator toggled it off/on. A later stale

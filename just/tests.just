@@ -7,10 +7,11 @@ test: unit-and-pytest
 configure:
     ./configure
 
-# Code-only syntax / import checks + ruff.
+# Code-only syntax / import checks + ruff + typos.
 check:
     bash tests/run.sh code
     @just ruff
+    @just typos
 
 # Device-free unit tests (shell TAP).
 unit:
@@ -42,12 +43,13 @@ ansible-test:
       echo "### ansible-test — SKIP (run 'make test-venv')"; \
     fi
 
-# Unit + pytest + ansible-test + ruff (CI default).
+# Unit + pytest + ansible-test + ruff + typos (CI default).
 unit-and-pytest:
     bash tests/run.sh local
     @just pytest
     @just ansible-test
     @just ruff
+    @just typos
 
 # ruff check + format (Python).
 ruff:
@@ -58,7 +60,15 @@ ruff:
       echo "ruff not installed (brew install ruff) — skipped"; \
     fi
 
-# shellcheck + ansible-lint + yamllint + ruff.
+# Source-code spelling check.
+typos:
+    @if command -v typos >/dev/null; then \
+      typos; \
+    else \
+      echo "typos not installed (brew install typos-cli) — skipped"; \
+    fi
+
+# shellcheck + ansible-lint + yamllint + ruff + typos.
 lint:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -84,6 +94,11 @@ lint:
       ruff format --check . || rc=1
     else
       echo "ruff not installed (brew install ruff) — skipped"
+    fi
+    if command -v typos >/dev/null; then
+      typos || rc=1
+    else
+      echo "typos not installed (brew install typos-cli) — skipped"
     fi
     exit $rc
 

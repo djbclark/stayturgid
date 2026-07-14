@@ -32,7 +32,7 @@ if [[ -f "${PLIST}" ]]; then
   exit $?
 fi
 
-test -x "$(_env LLAMA_SERVER_BIN)" >/dev/null || {
+[[ -x "$(_env LLAMA_SERVER_BIN)" ]] || {
   echo "llama-server not found — run: just vlm-install" >&2
   exit 1
 }
