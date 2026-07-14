@@ -5,6 +5,12 @@
 
 This document serves as the definitive guide to both the platform's **runtime topology** (the O-V-G-O stack) and its **configuration management strategy** (Single Source of Truth / Private Site Overlay).
 
+**Related Documents:**
+
+- [Agent Implementation Plan](file:///Users/djbclark/stayturgid/docs/plans/agent-ovgo-implementation.md): Specific instructions for autonomous agents deploying this architecture.
+- [Coding Rules](file:///Users/djbclark/stayturgid/docs/coding-rules.md) and [AGENTS.md](file:///Users/djbclark/stayturgid/AGENTS.md): Strict policies and multi-agent protocols that must be followed.
+- [Handoff](file:///Users/djbclark/stayturgid/docs/handoff.md): Current session context and state.
+
 ---
 
 ## 1. The Single Source of Truth
