@@ -139,12 +139,13 @@ web-health:
     @just lighthouse
     @just pa11y
     @just puppeteer
+    @just vnu
 
 # stylelint for CSS.
 stylelint:
     @if [ -d node_modules ]; then \
       echo "### stylelint"; \
-      npx stylelint --config .stylelintrc.json $(git ls-files '*.css') || exit 1; \
+      bunx stylelint --config .stylelintrc.json $(git ls-files '*.css') || exit 1; \
     else \
       echo "stylelint not available (bun install) — skipped"; \
     fi
@@ -154,7 +155,7 @@ lighthouse:
     @if command -v google-chrome >/dev/null || command -v chromium >/dev/null || [ -f "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]; then \
       echo "### lighthouse"; \
       if curl -sf http://127.0.0.1:4097/ >/dev/null 2>&1; then \
-        echo "lighthouse — SKIP (manual: npx lighthouse http://127.0.0.1:4097/)"; \
+        echo "lighthouse — SKIP (manual: bunx lighthouse http://127.0.0.1:4097/)"; \
       else \
         echo "lighthouse — SKIP (dashboard not running on :4097)"; \
       fi; \
@@ -269,7 +270,7 @@ lint:
     bash just/tools/vnu_validate.sh || rc=1
     if [ -d node_modules ]; then
       echo "### stylelint"
-      npx stylelint --config .stylelintrc.json $(git ls-files '*.css') || rc=1
+      bunx stylelint --config .stylelintrc.json $(git ls-files '*.css') || rc=1
     else
       echo "stylelint not available (bun install) — skipped"
     fi

@@ -21,7 +21,7 @@ rc=0
 for url in http://127.0.0.1:4097/ http://127.0.0.1:4097/errors; do
   echo "  $url"
   set +e
-  output=$(PUPPETEER_EXECUTABLE_PATH="${PUPPETEER_EXECUTABLE_PATH:-}" npx pa11y --config .pa11yci.json "$url" 2>&1)
+  output=$(PUPPETEER_EXECUTABLE_PATH="${PUPPETEER_EXECUTABLE_PATH:-}" bunx pa11y --config .pa11yci.json "$url" 2>&1)
   pa11y_rc=$?
   set -e
   echo "$output" | grep -vE '(Welcome to Pa11y|Running Pa11y|Results for|No issues found|^$)' || true
