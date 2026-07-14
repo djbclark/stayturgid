@@ -4,16 +4,12 @@
 # to write /etc/paths.d and the SSH daemon environment drop-in; normal deploys
 # only report drift and never request sudo.
 system-homebrew-path-setup:
-    ansible-playbook ansible/playbooks/control_node/system-homebrew-path.yml --ask-become-pass
+    sudo -v
+    sudo python3 control/bin/configure_system_homebrew_path.py
 
 # Read-only check of the two system Homebrew PATH files.
 system-homebrew-path-status:
-    @if printf '%s\n%s\n' /opt/homebrew/bin /opt/homebrew/sbin | cmp -s - /etc/paths.d/homebrew 2>/dev/null && \
-      grep -Fxq 'SetEnv PATH=/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin' /etc/ssh/sshd_config.d/50-stayturgid-homebrew-path.conf 2>/dev/null; then \
-      echo 'system Homebrew PATH: configured'; \
-    else \
-      echo 'WARNING: system Homebrew PATH absent or drifted; run just system-homebrew-path-setup'; \
-    fi
+    python3 control/bin/configure_system_homebrew_path.py --check
 
 # ── VLM (optional Mac UI-TARS gates — see docs/vlm.md) ────────────────────
 

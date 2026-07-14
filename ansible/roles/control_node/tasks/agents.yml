@@ -11,32 +11,6 @@
     - "{{ conf_dir }}/artifacts"
     - "{{ agents_dir }}"
 
-- name: Ensure system-wide Homebrew PATH for login and SSH sessions
-  become: true
-  ansible.builtin.copy:
-    dest: /etc/paths.d/homebrew
-    content: |
-      {{ stayturgid_homebrew_prefix }}/bin
-      {{ stayturgid_homebrew_prefix }}/sbin
-    owner: root
-    group: wheel
-    mode: "0644"
-  when: stayturgid_manage_system_homebrew_path | bool
-  tags: [system-homebrew-path]
-
-- name: Ensure SSH daemon exposes Homebrew PATH to noninteractive sessions
-  become: true
-  ansible.builtin.copy:
-    dest: /etc/ssh/sshd_config.d/50-stayturgid-homebrew-path.conf
-    content: |
-      # stayturgid: expose Homebrew tools to noninteractive SSH sessions.
-      SetEnv PATH={{ stayturgid_homebrew_prefix }}/bin:{{ stayturgid_homebrew_prefix }}/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin
-    owner: root
-    group: wheel
-    mode: "0644"
-  when: stayturgid_manage_system_homebrew_path | bool
-  tags: [system-homebrew-path]
-
 - name: Check system Homebrew PATH configuration (report-only)
   ansible.builtin.shell: >-
     printf '%s\n%s\n' '{{ stayturgid_homebrew_prefix }}/bin'
@@ -47,7 +21,6 @@
   register: _system_homebrew_path_check
   changed_when: false
   failed_when: false
-  when: not stayturgid_manage_system_homebrew_path | bool
   tags: [system-homebrew-path]
 
 - name: Warn when system Homebrew PATH configuration needs operator setup
@@ -57,7 +30,6 @@
       report-only during normal deploys. Run `just system-homebrew-path-setup`
       once interactively to repair it.
   when:
-    - not stayturgid_manage_system_homebrew_path | bool
     - _system_homebrew_path_check.rc | default(1) != 0
   tags: [system-homebrew-path]
 

@@ -78,7 +78,7 @@ python3 control/bin/adb_reconnect.py s24
 just deploy-mac
 # or: ansible-playbook ansible/playbooks/control_node/site.yml --tags agents
 
-# One-time optional system PATH setup (prompts for sudo once).
+# One-time optional system PATH setup (one sudo authentication).
 just system-homebrew-path-setup
 
 # Later runs only inspect and report drift; they do not invoke sudo.
