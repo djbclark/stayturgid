@@ -186,7 +186,7 @@ wait_healthy() {
   local timeout="${1:-120}"
   local i
   for ((i = 1; i <= timeout; i++)); do
-    if curl -sf -o /dev/null http://127.0.0.1:${PORT}/health; then
+    if curl -sf -o /dev/null "http://127.0.0.1:${PORT}/health"; then
       echo "healthy: $(_env HEALTH_URL)"
       return 0
     fi
@@ -197,7 +197,7 @@ wait_healthy() {
 
 cmd_status() {
   local healthy="no"
-  curl -sf -o /dev/null http://127.0.0.1:${PORT}/health && healthy="yes"
+  curl -sf -o /dev/null "http://127.0.0.1:${PORT}/health" && healthy="yes"
 
   echo "UI-TARS VLM service"
   echo "  health:     ${healthy} ($(_env HEALTH_URL))"
@@ -221,7 +221,7 @@ cmd_status() {
     tail -8 "$LOG_FILE" 2>/dev/null || true
   fi
 
-  curl -sf -o /dev/null http://127.0.0.1:${PORT}/health
+  curl -sf -o /dev/null "http://127.0.0.1:${PORT}/health"
 }
 
 usage() {

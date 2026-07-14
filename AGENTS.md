@@ -43,6 +43,7 @@ just health && just firerpa-health
 | `just prettier`                     | Markdown/HTML/CSS/TOML/INI format check (prettier)                                                                                                                                                                                               |
 | `just typos`                        | Source-code spelling check                                                                                                                                                                                                                       |
 | `just lint`                         | All linters: shellcheck, ansible-lint (incl. examples), yamllint (incl. examples), ruff, typos, biome, shfmt, justfile fmt, markdownlint, prettier, dotenv-linter, caddy-fmt, pyinilint, html-validate, stylelint, lychee, vnu, pa11y, puppeteer |
+| `just lint-offline`                 | Same as lint but skip dashboard-dependent checks (lychee, vnu, pa11y, puppeteer)                                                                                                                                                                 |
 | `just check`                        | Syntax/import checks + ruff + typos + biome + shfmt + justfile fmt + markdownlint + prettier + html-validate + stylelint                                                                                                                         |
 
 ## Environment

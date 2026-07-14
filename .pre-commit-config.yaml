@@ -179,6 +179,7 @@ repos:
         entry: bunx
         args:
           - stylelint
+          - --fix
           - --config
           - .stylelintrc.json
         language: system

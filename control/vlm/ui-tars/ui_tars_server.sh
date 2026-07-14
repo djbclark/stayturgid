@@ -21,7 +21,7 @@ if [[ ! -f "$MODEL" ]] || [[ ! -f "$MMPROJ" ]]; then
   exit 1
 fi
 
-if curl -sf -o /dev/null http://127.0.0.1:${PORT}/health; then
+if curl -sf -o /dev/null "http://127.0.0.1:${PORT}/health"; then
   echo "UI-TARS server already running on port ${PORT}"
   exit 0
 fi
@@ -55,7 +55,7 @@ echo $! >"$PID_FILE"
 echo "PID $(cat "$PID_FILE") — log: $LOG_FILE"
 
 for _ in $(seq 1 180); do
-  if curl -sf -o /dev/null http://127.0.0.1:${PORT}/health; then
+  if curl -sf -o /dev/null "http://127.0.0.1:${PORT}/health"; then
     echo "UI-TARS server ready."
     exit 0
   fi

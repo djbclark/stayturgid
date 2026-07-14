@@ -21,15 +21,15 @@ fail() {
 echo "==> stop"
 launchctl bootout "$DOMAIN" "$PLIST" 2>/dev/null || true
 sleep 2
-curl -sf -o /dev/null http://127.0.0.1:${PORT}/health && fail "still healthy after bootout"
+curl -sf -o /dev/null "http://127.0.0.1:${PORT}/health" && fail "still healthy after bootout"
 
 echo "==> start"
 launchctl bootstrap "$DOMAIN" "$PLIST"
 for _ in $(seq 1 120); do
-  curl -sf -o /dev/null http://127.0.0.1:${PORT}/health && break
+  curl -sf -o /dev/null "http://127.0.0.1:${PORT}/health" && break
   sleep 1
 done
-curl -sf -o /dev/null http://127.0.0.1:${PORT}/health || fail "not healthy after bootstrap — see $(_env LOG_FILE)"
+curl -sf -o /dev/null "http://127.0.0.1:${PORT}/health" || fail "not healthy after bootstrap — see $(_env LOG_FILE)"
 
 echo "==> launchctl"
 launchctl print "$DOMAIN/$LABEL" 2>&1 | grep -E 'state = running|program =' | head -3

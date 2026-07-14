@@ -124,6 +124,9 @@ lychee:
       echo "### lychee"; \
       if curl -sf http://127.0.0.1:4097/ >/dev/null 2>&1; then \
         lychee --accept 100..=103,200..=299,500 http://127.0.0.1:4097/ http://127.0.0.1:4097/errors 2>&1 || true; \
+        if curl -sf http://127.0.0.1:4097/stats >/dev/null 2>&1; then \
+          lychee --accept 100..=103,200..=299,500 http://127.0.0.1:4097/stats 2>&1 || true; \
+        fi; \
       else \
         echo "lychee — SKIP (dashboard not running on :4097)"; \
       fi; \
@@ -183,6 +186,10 @@ puppeteer:
     else \
       echo "puppeteer not available (bun install) — skipped"; \
     fi
+
+# Same as lint but skip dashboard-dependent checks (lychee, vnu, pa11y, puppeteer).
+lint-offline:
+    STAYTURGID_LINT_OFFLINE=true just lint
 
 # shellcheck + ansible-lint + yamllint + ruff + typos + biome + shfmt + justfiles + markdown + html-validate.
 lint:
@@ -267,24 +274,31 @@ lint:
       echo "caddy not installed (brew install caddy) — skipped"
     fi
     bash just/tools/html_validate.sh || rc=1
-    bash just/tools/vnu_validate.sh || rc=1
+    if [ -z "${STAYTURGID_LINT_OFFLINE:-}" ]; then
+      bash just/tools/vnu_validate.sh || rc=1
+    fi
     if [ -d node_modules ]; then
       echo "### stylelint"
       bunx stylelint --config .stylelintrc.json $(git ls-files '*.css') || rc=1
     else
       echo "stylelint not available (bun install) — skipped"
     fi
-    if command -v lychee >/dev/null; then
+    if [ -n "${STAYTURGID_LINT_OFFLINE:-}" ]; then
+      echo "lychee — SKIP (offline mode)"
+    elif command -v lychee >/dev/null; then
       echo "### lychee"
       if curl -sf http://127.0.0.1:4097/ >/dev/null 2>&1; then
         lychee --accept 100..=103,200..=299,500 http://127.0.0.1:4097/ http://127.0.0.1:4097/errors 2>&1 || rc=1
+        if curl -sf http://127.0.0.1:4097/stats >/dev/null 2>&1; then
+          lychee --accept 100..=103,200..=299,500 http://127.0.0.1:4097/stats 2>&1 || rc=1
+        fi
       else
         echo "lychee — SKIP (dashboard not running on :4097)"
       fi
     else
       echo "lychee not installed (brew install lychee) — skipped"
     fi
-    if [ -d node_modules ]; then
+    if [ -z "${STAYTURGID_LINT_OFFLINE:-}" ] && [ -d node_modules ]; then
       echo "### pa11y"
       curl -sf http://127.0.0.1:4097/ >/dev/null 2>&1 && bash just/tools/pa11y_check.sh || echo "pa11y — SKIP (dashboard not running on :4097)"
       echo "### puppeteer"
