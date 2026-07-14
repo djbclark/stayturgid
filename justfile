@@ -1,0 +1,34 @@
+# stayturgid — operator commands (run `just` or `just --list`).
+#
+# Variables (optional on most recipes):
+#   hosts=s24       Limit to one or more inventory hosts: just deploy hosts=s24 hd8
+#   scope=full      Deploy scope: full | fdroid | play | app-stores
+#
+# Quick start:
+#   just help           → show this listing
+#   just check          → syntax / import checks
+#   just test           → full test suite
+#   just deploy --hosts s24  → fleet deploy
+
+set shell := ["bash", "-uc"]
+
+repo := justfile_directory()
+export ANSIBLE_CONFIG := repo + "/ansible/ansible.cfg"
+
+hosts := ""
+scope := "full"
+deploy_args := if hosts == "" { "" } else { hosts }
+deploy_scope_arg := if scope == "full" { "" } else { "--scope " + scope }
+limit_flag := if hosts == "" { "" } else { "-l " + hosts }
+
+mac_site := "ansible/playbooks/control_node/site.yml"
+venv := ".venv-test"
+collections := "android_common termux obtainium fdroid play"
+
+import "just/fleet.just"
+import "just/services.just"
+import "just/tests.just"
+
+# Show available recipes (default).
+help:
+    @just --justfile "{{ repo }}/justfile" --list
