@@ -28,7 +28,7 @@ repos:
         entry: biome
         args: [check, --no-errors-on-unmatched]
         language: system
-        files: '^device/autojs6/.*\.js$'
+        files: '^(device/autojs6/.*\.js|control/static/.*\.css)$'
 
   - repo: local
     hooks:
@@ -55,7 +55,7 @@ repos:
         entry: prettier
         args: ["--check"]
         language: system
-        types: [markdown]
+        types_or: [markdown, html, css]
 
   - repo: local
     hooks:

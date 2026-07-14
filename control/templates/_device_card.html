@@ -4,24 +4,31 @@
       <span class="hostname">{{ device.name }}</span>
       <span class="label">{{ device.label }}</span>
       {% if device.health %}
-        <span class="badge ok">online</span>
-        <span class="badge dim">{{ device.health_age }} ago</span>
+      <span class="badge ok">online</span>
+      <span class="badge dim">{{ device.health_age }} ago</span>
       {% else %}
-        <span class="badge error">offline</span>
-      {% endif %}
-      {% if device.probe_live %}
-        <span class="badge live">live</span>
+      <span class="badge error">offline</span>
+      {% endif %} {% if device.probe_live %}
+      <span class="badge live">live</span>
       {% endif %}
     </div>
-    <button class="probe-btn"
-            hx-post="/api/probe/{{ device.name }}"
-            hx-swap="outerHTML"
-            hx-target="closest .card"
-            hx-indicator="#probe-spinner-{{ device.name }}"
-            title="Live probe via SSH/ADB">&#10227;</button>
+    <button
+      class="probe-btn"
+      hx-post="/api/probe/{{ device.name }}"
+      hx-swap="outerHTML"
+      hx-target="closest .card"
+      hx-indicator="#probe-spinner-{{ device.name }}"
+      title="Live probe via SSH/ADB"
+    >
+      &#10227;
+    </button>
   </div>
 
-  <div id="probe-spinner-{{ device.name }}" class="htmx-indicator probe-spinning" style="display:none;">
+  <div
+    id="probe-spinner-{{ device.name }}"
+    class="htmx-indicator probe-spinning"
+    style="display: none"
+  >
     probing&hellip;
   </div>
 
@@ -30,14 +37,30 @@
   {% endif %}
 
   <div class="data-section">
-    {% if device.ts_ip %}<div class="row"><span class="row-label">Tailscale</span><span class="row-value"><code>{{ device.ts_ip }}</code></span></div>{% endif %}
-    {% if device.lan_ip %}<div class="row"><span class="row-label">LAN</span><span class="row-value"><code>{{ device.lan_ip }}</code></span></div>{% else %}<div class="row"><span class="row-label">LAN</span><span class="row-value na">N/A</span></div>{% endif %}
-    {% if device.usb_serial %}<div class="row"><span class="row-label">USB</span><span class="row-value"><code>{{ device.usb_serial }}</code></span></div>{% endif %}
+    {% if device.ts_ip %}
+    <div class="row">
+      <span class="row-label">Tailscale</span
+      ><span class="row-value"><code>{{ device.ts_ip }}</code></span>
+    </div>
+    {% endif %} {% if device.lan_ip %}
+    <div class="row">
+      <span class="row-label">LAN</span
+      ><span class="row-value"><code>{{ device.lan_ip }}</code></span>
+    </div>
+    {% else %}
+    <div class="row">
+      <span class="row-label">LAN</span><span class="row-value na">N/A</span>
+    </div>
+    {% endif %} {% if device.usb_serial %}
+    <div class="row">
+      <span class="row-label">USB</span
+      ><span class="row-value"><code>{{ device.usb_serial }}</code></span>
+    </div>
+    {% endif %}
   </div>
 
   {% if device.health %}
   <div class="data-section">
-
     {% for svc in device.services %}
     <div class="row">
       <span class="row-label">{{ svc.label }}</span>
@@ -62,7 +85,12 @@
     </div>
     <div class="row">
       <span class="row-label">consecutive</span>
-      <span class="row-value"><span class="badge {% if device.fleet_consec >= 2 %}error{% else %}ok{% endif %}">{{ device.fleet_consec }}/2</span></span>
+      <span class="row-value"
+        ><span
+          class="badge {% if device.fleet_consec >= 2 %}error{% else %}ok{% endif %}"
+          >{{ device.fleet_consec }}/2</span
+        ></span
+      >
     </div>
   </div>
   {% endif %}
@@ -71,12 +99,14 @@
     <div class="row">
       <span class="row-label">FIRERPA</span>
       <span class="row-value">
-        {% if device.firerpa %}
-          {{ device.firerpa_badge }}
-          <span style="margin-left:4px">{{ device.firerpa_sshd_badge }}{{ device.firerpa_shizuku_badge }}</span>
-          <span class="badge dim">{{ device.firerpa_age }} ago</span>
+        {% if device.firerpa %} {{ device.firerpa_badge }}
+        <span style="margin-left: 4px"
+          >{{ device.firerpa_sshd_badge }}{{ device.firerpa_shizuku_badge
+          }}</span
+        >
+        <span class="badge dim">{{ device.firerpa_age }} ago</span>
         {% else %}
-          <span class="na">not installed</span>
+        <span class="na">not installed</span>
         {% endif %}
       </span>
     </div>
@@ -87,9 +117,7 @@
     <span class="row-label">issues</span>
     <span class="row-value">{{ device.issue_tags }}</span>
   </div>
-  {% endif %}
-
-  {% if device.human_actions %}
+  {% endif %} {% if device.human_actions %}
   <div class="human-actions">
     <details class="human-details">
       <summary class="human-summary">
@@ -100,10 +128,14 @@
         <span class="tag error">{{ action.issue }}</span>
         <p class="human-msg">{{ action.message }}</p>
         {% if action.shizuku_action %}
-        <button class="link-btn"
-                hx-post="/api/shizuku/{{ device.name }}"
-                hx-target="#shizuku-result-{{ device.name }}"
-                hx-swap="innerHTML">open Shizuku and test rish</button>
+        <button
+          class="link-btn"
+          hx-post="/api/shizuku/{{ device.name }}"
+          hx-target="#shizuku-result-{{ device.name }}"
+          hx-swap="innerHTML"
+        >
+          open Shizuku and test rish
+        </button>
         <div id="shizuku-result-{{ device.name }}" class="shizuku-result"></div>
         {% endif %}
       </div>
@@ -114,15 +146,21 @@
 
   <div class="links">
     {% if device.ts_ip %}
-      <a href="ssh://{{ device.name }}" class="link-btn">ssh://{{ device.name }}</a>
-      <a href="cfengine://{{ device.name }}:5308" class="link-btn">cfengine :5308</a>
-      <a href="http://{{ device.ts_ip }}:65000" target="_blank" class="link-btn">firerpa :65000</a>
-    {% endif %}
-    {% if device.lan_ip %}
-      <a href="http://{{ device.lan_ip }}:65000" target="_blank" class="link-btn">firerpa LAN</a>
-    {% endif %}
-    {% if device.usb_serial %}
-      <span class="link-btn dim">adb:{{ device.usb_serial }}</span>
+    <a href="ssh://{{ device.name }}" class="link-btn"
+      >ssh://{{ device.name }}</a
+    >
+    <a href="cfengine://{{ device.name }}:5308" class="link-btn"
+      >cfengine :5308</a
+    >
+    <a href="http://{{ device.ts_ip }}:65000" target="_blank" class="link-btn"
+      >firerpa :65000</a
+    >
+    {% endif %} {% if device.lan_ip %}
+    <a href="http://{{ device.lan_ip }}:65000" target="_blank" class="link-btn"
+      >firerpa LAN</a
+    >
+    {% endif %} {% if device.usb_serial %}
+    <span class="link-btn dim">adb:{{ device.usb_serial }}</span>
     {% endif %}
   </div>
 </div>

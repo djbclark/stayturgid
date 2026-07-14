@@ -1,52 +1,65 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>device errors — stayturgid fleet</title>
-<link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>device errors — stayturgid fleet</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>device errors</h1>
+      <span class="header-sub">{{ now }} — {{ count }} line(s)</span>
+      <span style="display: flex; gap: 8px">
+        <a
+          href="/"
+          style="color: var(--link); text-decoration: none; font-size: 11px"
+          >dashboard</a
+        >
+        <a
+          href="/stats"
+          style="color: var(--link); text-decoration: none; font-size: 11px"
+          >stats</a
+        >
+      </span>
+    </header>
 
-<header>
-  <h1>device errors</h1>
-  <span class="header-sub">{{ now }} — {{ count }} line(s)</span>
-  <span style="display:flex;gap:8px;">
-    <a href="/" style="color:var(--link);text-decoration:none;font-size:11px;">dashboard</a>
-    <a href="/stats" style="color:var(--link);text-decoration:none;font-size:11px;">stats</a>
-  </span>
-</header>
+    <main>
+      {% if entries %}
+      <table
+        style="
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 11px;
+          font-family: monospace;
+        "
+      >
+        <thead>
+          <tr style="background: var(--surface2)">
+            <th style="text-align: left; padding: 4px 8px">time</th>
+            <th style="text-align: left; padding: 4px 8px">severity</th>
+            <th style="text-align: left; padding: 4px 8px">message</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in entries %}
+          <tr style="border-bottom: 1px solid var(--border)">
+            <td style="padding: 2px 8px; white-space: nowrap">{{ e.ts }}</td>
+            <td style="padding: 2px 8px">
+              <span class="badge {{ e.cls }}">{{ e.level }}</span>
+            </td>
+            <td style="padding: 2px 8px">{{ e.msg }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p>No errors logged.</p>
+      {% endif %}
+    </main>
 
-<main>
-  {% if entries %}
-  <table style="width:100%;border-collapse:collapse;font-size:11px;font-family:monospace;">
-    <thead>
-      <tr style="background:var(--surface2);">
-        <th style="text-align:left;padding:4px 8px;">time</th>
-        <th style="text-align:left;padding:4px 8px;">severity</th>
-        <th style="text-align:left;padding:4px 8px;">message</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for e in entries %}
-      <tr style="border-bottom:1px solid var(--border);">
-        <td style="padding:2px 8px;white-space:nowrap;">{{ e.ts }}</td>
-        <td style="padding:2px 8px;">
-          <span class="badge {{ e.cls }}">{{ e.level }}</span>
-        </td>
-        <td style="padding:2px 8px;">{{ e.msg }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
-  {% else %}
-  <p>No errors logged.</p>
-  {% endif %}
-</main>
-
-<footer>
-  <span>stayturgid :4097 /errors</span>
-</footer>
-
-</body>
+    <footer>
+      <span>stayturgid :4097 /errors</span>
+    </footer>
+  </body>
 </html>

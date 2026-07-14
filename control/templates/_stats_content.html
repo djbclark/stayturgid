@@ -5,7 +5,9 @@
   </div>
   <div class="stat-card">
     <div class="stat-title">Devices Seen</div>
-    <div class="stat-value">{{ stats.devices_seen | join(", ") or "none" }}</div>
+    <div class="stat-value">
+      {{ stats.devices_seen | join(", ") or "none" }}
+    </div>
   </div>
 </div>
 
@@ -17,16 +19,17 @@
     <div class="stats-row">
       <span class="stats-label"><code>{{ via }}</code></span>
       <span class="bar-container">
-        <span class="bar" style="width:{{ (count / stats.connection_paths.values()|max) * 100 }}%"></span>
+        <span
+          class="bar"
+          style="width:{{ (count / stats.connection_paths.values()|max) * 100 }}%"
+        ></span>
       </span>
       <span class="stats-count">{{ count }}</span>
     </div>
     {% endfor %}
   </div>
 </div>
-{% endif %}
-
-{% if stats.heals %}
+{% endif %} {% if stats.heals %}
 <div class="stats-section">
   <div class="stats-section-title">Heals Triggered</div>
   <div class="stats-table">
@@ -34,33 +37,37 @@
     <div class="stats-row">
       <span class="stats-label">{{ heal }}</span>
       <span class="bar-container">
-        <span class="bar bar-heal" style="width:{{ (count / stats.heals.values()|max) * 100 }}%"></span>
+        <span
+          class="bar bar-heal"
+          style="width:{{ (count / stats.heals.values()|max) * 100 }}%"
+        ></span>
       </span>
       <span class="stats-count">{{ count }}</span>
     </div>
     {% endfor %}
   </div>
 </div>
-{% endif %}
-
-{% if stats.issues %}
+{% endif %} {% if stats.issues %}
 <div class="stats-section">
   <div class="stats-section-title">Issues Detected</div>
   <div class="stats-table">
     {% for issue, count in stats.issues.items() %}
     <div class="stats-row">
-      <span class="stats-label"><span class="tag error">{{ issue }}</span></span>
+      <span class="stats-label"
+        ><span class="tag error">{{ issue }}</span></span
+      >
       <span class="bar-container">
-        <span class="bar bar-issue" style="width:{{ (count / stats.issues.values()|max) * 100 }}%"></span>
+        <span
+          class="bar bar-issue"
+          style="width:{{ (count / stats.issues.values()|max) * 100 }}%"
+        ></span>
       </span>
       <span class="stats-count">{{ count }}</span>
     </div>
     {% endfor %}
   </div>
 </div>
-{% endif %}
-
-{% if stats.device_status %}
+{% endif %} {% if stats.device_status %}
 <div class="stats-section">
   <div class="stats-section-title">Device Status Transitions</div>
   <div class="stats-table">
@@ -75,8 +82,8 @@
     {% endfor %}
   </div>
 </div>
-{% endif %}
-
-{% if not stats.total_events %}
-<div class="stats-empty">No events recorded yet. Data will appear as monitors run.</div>
+{% endif %} {% if not stats.total_events %}
+<div class="stats-empty">
+  No events recorded yet. Data will appear as monitors run.
+</div>
 {% endif %}

@@ -70,10 +70,10 @@ ruff:
       echo "ruff not installed (brew install ruff) — skipped"; \
     fi
 
-# biome check + format (JavaScript/AutoJs6).
+# biome check + format (JavaScript/AutoJs6 + CSS).
 biome:
     @if command -v biome >/dev/null; then \
-      echo "### biome check"; biome check device/autojs6/; \
+      echo "### biome check"; biome check device/autojs6/ control/static/; \
     else \
       echo "biome not installed (brew install biome) — skipped"; \
     fi
@@ -94,10 +94,10 @@ markdownlint:
       echo "markdownlint not installed (brew install markdownlint-cli) — skipped"; \
     fi
 
-# prettier check (format).
+# prettier check (format — markdown, HTML, CSS).
 prettier:
     @if command -v prettier >/dev/null; then \
-      echo "### prettier --check"; prettier --check $(git ls-files '*.md'); \
+      echo "### prettier --check"; prettier --check $(git ls-files '*.md' '*.html' '*.css'); \
     else \
       echo "prettier not installed (brew install prettier) — skipped"; \
     fi
@@ -143,7 +143,7 @@ lint:
       echo "typos not installed (brew install typos-cli) — skipped"
     fi
     if command -v biome >/dev/null; then
-      biome ci device/autojs6/ || rc=1
+      biome ci device/autojs6/ control/static/ || rc=1
     else
       echo "biome not installed (brew install biome) — skipped"
     fi
@@ -164,7 +164,7 @@ lint:
       echo "markdownlint not installed (brew install markdownlint-cli) — skipped"
     fi
     if command -v prettier >/dev/null; then
-      prettier --check $(git ls-files '*.md') || rc=1
+      prettier --check $(git ls-files '*.md' '*.html' '*.css') || rc=1
     else
       echo "prettier not installed (brew install prettier) — skipped"
     fi

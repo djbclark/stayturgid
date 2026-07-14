@@ -16,19 +16,31 @@
         "noUnsafeNegation": "error"
       }
     },
-    "includes": ["device/autojs6/**/*.js"]
+    "includes": [
+      "device/autojs6/**/*.js",
+      "control/static/**/*.css"
+    ]
   },
   "formatter": {
     "enabled": true,
     "indentStyle": "space",
     "indentWidth": 2,
     "lineWidth": 120,
-    "includes": ["device/autojs6/**/*.js"]
+    "includes": [
+      "device/autojs6/**/*.js",
+      "control/static/**/*.css"
+    ]
   },
   "javascript": {
     "formatter": {
       "quoteStyle": "double",
       "semicolons": "always"
+    }
+  },
+  "css": {
+    "formatter": {
+      "indentStyle": "space",
+      "indentWidth": 2
     }
   }
 }
