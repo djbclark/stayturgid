@@ -388,6 +388,10 @@ messages with counts/latest timestamps and separating active, recovered, and
 historical conditions. Exit status remains based on current actionable health;
 unit coverage covers repeated and recovered classification.
 
+#### H13 — Centralized UI Automation Gating · **Complete 2026-07-14** · Risk: **Medium**
+
+UI automation actions (clicks, taps, swipes) are gated by default unless `STAYTURGID_ALLOW_UI_AUTOMATION=1` is specified. Blocked scripts append warnings to `errors.log`, write state to `pending_ui.json`, and poll-wait for manual intervention. The web dashboard displays interactive warning cards showing elapsed duration, instructions, and an HTMX-powered "Done / Resume" button to signal completion. Gated scripts include Play Store autoupdates verification, HD8 vision checks, Neo/Aurora store audits, and AutoJs6 setup. Unit tests (`test_ui_guard.py`) verify the gating and override behavior.
+
 Execution order, gates, and junior-agent resume prompt:
 [Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md).
 
