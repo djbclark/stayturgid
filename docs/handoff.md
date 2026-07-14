@@ -9,6 +9,8 @@
 > See [§ Cursor agent rules](#cursor-agent-rules--read-on-every-handoff) below.
 >
 > **2026-07-10:** Massive repo restructure on `master` (`d950c53`) — read [§ Cold-start](#-cold-start--current-state-read-this-first) before assuming any path.
+>
+> **2026-07-14:** Makefile → `justfile` transition. Install `brew install just`. Run `just --list` or `just help`.
 
 ---
 
@@ -51,6 +53,7 @@ just --set hosts s24 verify
 just --set hosts s24 verify-drift       # Ansible-based drift check
 just --set hosts s24 deploy
 just --set hosts s24 deploy-check       # dry run
+just cf-run                       # SSH-based CFEngine repair (ssh p7a triggers explicit cf-agent, not cf-runagent)
 ```
 
 Announce before live deploy when someone may be on the device:

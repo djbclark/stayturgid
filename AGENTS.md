@@ -26,6 +26,7 @@ just health && just firerpa-health
 | `just test`                         | Code-only tests (includes healing coverage check)                                                                                                                                                                                                |
 | `just deploy-mac`                   | Mac workstation (brew, launchd)                                                                                                                                                                                                                  |
 | `just ca-status`                    | SSH CA status/fingerprints                                                                                                                                                                                                                       |
+| `just cf-run [HOSTS=s24]`           | SSH-based CFEngine repair (replaces cf-runagent)                                                                                                                                                                                                 |
 | `just opencode-web-status`          | OpenCode web UI status                                                                                                                                                                                                                           |
 | `just hermes-status`                | Hermes worktree status                                                                                                                                                                                                                           |
 | `just vlm-check`                    | Check VLM server + cloud                                                                                                                                                                                                                         |
@@ -48,6 +49,7 @@ just health && just firerpa-health
 
 ## Environment
 
+- **Orchestration:** `just` (command runner, replaces `make`). The Makefile was migrated to a `justfile` in July 2026. Install: `brew install just`. Run `just --list` to see all targets or `just` for categorized help.
 - **Mac shell:** `/bin/bash` (dotfiles: `~/.bash_profile`, `~/.bashrc`)
 - **FIRERPA venv:** Python 3.12 at `/tmp/lamda-venv` — `source /tmp/lamda-venv/bin/activate`
 - **Python tooling:** `uv` (package manager) + `ruff` (linter/formatter) — `brew install uv ruff`
