@@ -11,6 +11,7 @@ exchanges it with apkeep for a long-lived AAS token, and writes:
 Requires: Chrome, apkeep on PATH, and (once) Keychain access to Chrome cookies.
 Deps: pip install browser-cookie3  (or use a venv).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -32,6 +33,7 @@ def _ensure_browser_cookie3_python() -> None:
     """Re-exec under a venv that has browser-cookie3 if system Python lacks it."""
     try:
         import browser_cookie3  # noqa: F401
+
         return
     except ImportError:
         pass
@@ -100,9 +102,7 @@ def write_creds(email: str, aas: str) -> None:
     PLAY_ENV.chmod(0o600)
 
     APKEEP_INI.parent.mkdir(parents=True, exist_ok=True)
-    APKEEP_INI.write_text(
-        "[google]\nemail = %s\naas_token = %s\n" % (email, aas)
-    )
+    APKEEP_INI.write_text("[google]\nemail = %s\naas_token = %s\n" % (email, aas))
     APKEEP_INI.chmod(0o600)
 
 
@@ -138,8 +138,7 @@ def main(argv: list[str] | None = None) -> int:
     baseline = read_oauth_cookie()
     if baseline:
         print(
-            "Chrome already has an oauth_token (will wait until it changes — "
-            "stale cookies fail exchange).",
+            "Chrome already has an oauth_token (will wait until it changes — stale cookies fail exchange).",
             flush=True,
         )
 
@@ -153,8 +152,7 @@ def main(argv: list[str] | None = None) -> int:
         "  2. Click **I agree** on Terms of Service\n"
         "  3. Ignore the forever spinner — that is normal\n"
         "  4. Leave this terminal running; it will pick up the new cookie\n"
-        "  5. Approve any macOS Keychain prompt for Chrome cookies\n"
-        % args.email,
+        "  5. Approve any macOS Keychain prompt for Chrome cookies\n" % args.email,
         flush=True,
     )
 
@@ -195,8 +193,7 @@ def main(argv: list[str] | None = None) -> int:
 
     write_creds(args.email, aas)
     print(
-        "Wrote %s and %s (AAS prefix %s… len %d)"
-        % (PLAY_ENV, APKEEP_INI, aas[:12], len(aas)),
+        "Wrote %s and %s (AAS prefix %s… len %d)" % (PLAY_ENV, APKEEP_INI, aas[:12], len(aas)),
         flush=True,
     )
 

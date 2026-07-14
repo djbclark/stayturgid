@@ -3,6 +3,7 @@
 
 Usage: ./setup_autojs6.py <serial|s24|hd8|p7a> [device-id]
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -109,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
     ssh_host = deploy_termux_scripts(alias, serial)
 
     subprocess.run(
-        [sys.executable, str(TOOL_DIR / "deploy.py"), alias, *( [device_id] if device_id else [] )],
+        [sys.executable, str(TOOL_DIR / "deploy.py"), alias, *([device_id] if device_id else [])],
         check=True,
     )
 

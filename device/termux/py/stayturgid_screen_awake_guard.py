@@ -7,6 +7,7 @@ restore normal screen lock. Called with `check` every 5 min from the boot loop;
 `restore [ms]` applies a timeout. Migrated from screen-awake-guard.sh;
 unit-tested via tests/test-unit.sh (guard_suite).
 """
+
 import os
 import subprocess
 import sys
@@ -53,9 +54,7 @@ def run(args, timeout=CMD_TIMEOUT_SEC):
             return tapi.run_ff(args, timeout=min(float(timeout), 4.0))
         return tapi.run(args, timeout=timeout)
     try:
-        return subprocess.run(
-            args, capture_output=True, text=True, timeout=timeout, start_new_session=True
-        )
+        return subprocess.run(args, capture_output=True, text=True, timeout=timeout, start_new_session=True)
     except subprocess.TimeoutExpired:
         return None
     except OSError:
@@ -137,23 +136,47 @@ def fmt_ms(ms):
 def post_notification(reason):
     baseline = read_baseline()
     if baseline:
-        run([
-            "termux-notification", "--id", NID, "--priority", "high", "--alert-once",
-            "--title", "Screen is being kept awake",
-            "--content", reason + " — tap to restore normal lock. Ignore to keep it awake.",
-            "--button1", "Restore lock (%s)" % fmt_ms(baseline),
-            "--button1-action", "python3 %s restore %s" % (SELF, baseline),
-            "--button2", "Other timeout…",
-            "--button2-action", "python3 %s restore" % SELF,
-        ])
+        run(
+            [
+                "termux-notification",
+                "--id",
+                NID,
+                "--priority",
+                "high",
+                "--alert-once",
+                "--title",
+                "Screen is being kept awake",
+                "--content",
+                reason + " — tap to restore normal lock. Ignore to keep it awake.",
+                "--button1",
+                "Restore lock (%s)" % fmt_ms(baseline),
+                "--button1-action",
+                "python3 %s restore %s" % (SELF, baseline),
+                "--button2",
+                "Other timeout…",
+                "--button2-action",
+                "python3 %s restore" % SELF,
+            ]
+        )
     else:
-        run([
-            "termux-notification", "--id", NID, "--priority", "high", "--alert-once",
-            "--title", "Screen is being kept awake",
-            "--content", reason + " — pick a lock timeout to restore. Ignore to keep it awake.",
-            "--button1", "Set lock timeout…",
-            "--button1-action", "python3 %s restore" % SELF,
-        ])
+        run(
+            [
+                "termux-notification",
+                "--id",
+                NID,
+                "--priority",
+                "high",
+                "--alert-once",
+                "--title",
+                "Screen is being kept awake",
+                "--content",
+                reason + " — pick a lock timeout to restore. Ignore to keep it awake.",
+                "--button1",
+                "Set lock timeout…",
+                "--button1-action",
+                "python3 %s restore" % SELF,
+            ]
+        )
 
 
 def do_check():
@@ -177,8 +200,12 @@ def _dialog_choice(values):
 def pick_timeout_full():
     out = _dialog_choice("15 seconds,30 seconds,1 minute,2 minutes,5 minutes,10 minutes,30 minutes")
     for needle, ms in (
-        ("15 seconds", 15000), ("30 seconds", 30000), ("1 minute", 60000),
-        ("2 minutes", 120000), ("5 minutes", 300000), ("10 minutes", 600000),
+        ("15 seconds", 15000),
+        ("30 seconds", 30000),
+        ("1 minute", 60000),
+        ("2 minutes", 120000),
+        ("5 minutes", 300000),
+        ("10 minutes", 600000),
         ("30 minutes", 1800000),
     ):
         if needle in out:
@@ -189,8 +216,10 @@ def pick_timeout_full():
 def pick_timeout():
     out = _dialog_choice("1 minute,3 minutes,5 minutes,10 minutes,Other…")
     for needle, ms in (
-        ("1 minute", 60000), ("3 minutes", 180000),
-        ("5 minutes", 300000), ("10 minutes", 600000),
+        ("1 minute", 60000),
+        ("3 minutes", 180000),
+        ("5 minutes", 300000),
+        ("10 minutes", 600000),
     ):
         if needle in out:
             return ms
@@ -220,11 +249,19 @@ def do_restore(ms):
     holder = wakelock_holder()
     run(["termux-notification-remove", NID])
     if holder:
-        run([
-            "termux-notification", "--id", NID, "--priority", "high",
-            "--title", "Screen lock restored (%s)" % fmt_ms(ms),
-            "--content", "But '%s' still holds a wakelock — turn it off in that app." % holder,
-        ])
+        run(
+            [
+                "termux-notification",
+                "--id",
+                NID,
+                "--priority",
+                "high",
+                "--title",
+                "Screen lock restored (%s)" % fmt_ms(ms),
+                "--content",
+                "But '%s' still holds a wakelock — turn it off in that app." % holder,
+            ]
+        )
         print("restored timeout=%sms; wakelock holder remains: %s" % (ms, holder))
     else:
         run(["termux-toast", "Screen lock restored (%s)" % fmt_ms(ms)])

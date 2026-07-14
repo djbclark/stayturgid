@@ -5,6 +5,7 @@ own stdin-args contract, intercepting run_command so no device is touched.
 Complements the end-to-end `ansible localhost` checks in tests/test-unit.sh —
 here we assert the exact command sequence (check-mode skips, update-once).
 """
+
 import json
 
 import pytest
@@ -30,7 +31,7 @@ def run_module(mocker, args, rc_map=None, check=False):
     def fake_run_command(self, cmd, *a, **kw):
         script = cmd[-1] if isinstance(cmd, (list, tuple)) else str(cmd)
         scripts.append(script)
-        for needle, result in (rc_map or []):
+        for needle, result in rc_map or []:
             if needle in script:
                 return result
         return (0, "", "")
@@ -41,12 +42,15 @@ def run_module(mocker, args, rc_map=None, check=False):
     )
 
     captured = {}
+
     def fake_exit(self, **kw):
         captured.update(kw, failed=False)
         raise SystemExit(0)
+
     def fake_fail(self, **kw):
         captured.update(kw, failed=True)
         raise SystemExit(1)
+
     mocker.patch("ansible.module_utils.basic.AnsibleModule.exit_json", fake_exit)
     mocker.patch("ansible.module_utils.basic.AnsibleModule.fail_json", fake_fail)
 

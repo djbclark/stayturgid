@@ -1,13 +1,12 @@
 """Unit tests for fdroid_repos module (pure helpers + mocked Ansible I/O)."""
+
 import json
 import os
 import sys
 
 import pytest
 
-FLEET_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
-)
+FLEET_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 sys.path.insert(0, os.path.join(FLEET_ROOT, "plugins", "modules"))
 import fdroid_repos as mod  # noqa: E402
 
@@ -36,7 +35,7 @@ def run_module(mocker, args, cmd_results=None):
     def fake_run_command(self, cmd, *a, **kw):
         joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
         commands.append(joined)
-        for needle, result in (cmd_results or []):
+        for needle, result in cmd_results or []:
             if needle in joined:
                 return result
         if joined.startswith("fdroidcl repo"):
@@ -74,13 +73,14 @@ def test_parse_current_repos_real_format():
 
 
 def test_fdroidrepos_uri_with_and_without_fingerprint():
-    assert mod.fdroidrepos_uri("https://apt.izzysoft.de/fdroid/repo") == (
-        "fdroidrepos://apt.izzysoft.de/fdroid/repo"
+    assert mod.fdroidrepos_uri("https://apt.izzysoft.de/fdroid/repo") == ("fdroidrepos://apt.izzysoft.de/fdroid/repo")
+    assert (
+        mod.fdroidrepos_uri(
+            "https://guardianproject.info/fdroid/repo",
+            "B7:C2:EE:FD:8D:AC:78:06",
+        )
+        == "fdroidrepos://guardianproject.info/fdroid/repo?fingerprint=B7C2EEFD8DAC7806"
     )
-    assert mod.fdroidrepos_uri(
-        "https://guardianproject.info/fdroid/repo",
-        "B7:C2:EE:FD:8D:AC:78:06",
-    ) == "fdroidrepos://guardianproject.info/fdroid/repo?fingerprint=B7C2EEFD8DAC7806"
 
 
 def test_repo_present_exact_match_not_substring():
@@ -94,10 +94,12 @@ def test_adds_missing_repo(mocker):
     res, cmds = run_module(
         mocker,
         {
-            "repos": [{
-                "name": "NewRepo",
-                "address": "https://example.com/fdroid/repo",
-            }],
+            "repos": [
+                {
+                    "name": "NewRepo",
+                    "address": "https://example.com/fdroid/repo",
+                }
+            ],
             "device": "p7a",
         },
         cmd_results=[
@@ -114,10 +116,12 @@ def test_idempotent_when_present_and_enabled(mocker):
     res, cmds = run_module(
         mocker,
         {
-            "repos": [{
-                "name": "IzzyOnDroid",
-                "address": "https://apt.izzysoft.de/fdroid/repo",
-            }],
+            "repos": [
+                {
+                    "name": "IzzyOnDroid",
+                    "address": "https://apt.izzysoft.de/fdroid/repo",
+                }
+            ],
             "device": "p7a",
         },
         cmd_results=[("adb -s p7a shell true", (0, "", ""))],
@@ -130,10 +134,12 @@ def test_enables_disabled_repo(mocker):
     res, cmds = run_module(
         mocker,
         {
-            "repos": [{
-                "name": "Guardian Project",
-                "address": "https://guardianproject.info/fdroid/repo",
-            }],
+            "repos": [
+                {
+                    "name": "Guardian Project",
+                    "address": "https://guardianproject.info/fdroid/repo",
+                }
+            ],
             "device": "p7a",
         },
         cmd_results=[("adb -s p7a shell true", (0, "", ""))],
@@ -146,10 +152,12 @@ def test_check_mode_no_mutations(mocker):
     res, cmds = run_module(
         mocker,
         {
-            "repos": [{
-                "name": "NewRepo",
-                "address": "https://example.com/fdroid/repo",
-            }],
+            "repos": [
+                {
+                    "name": "NewRepo",
+                    "address": "https://example.com/fdroid/repo",
+                }
+            ],
             "device": "p7a",
             "_ansible_check_mode": True,
         },
@@ -184,11 +192,13 @@ def test_removes_repo(mocker):
     res, cmds = run_module(
         mocker,
         {
-            "repos": [{
-                "name": "IzzyOnDroid",
-                "address": "https://apt.izzysoft.de/fdroid/repo",
-                "state": "absent",
-            }],
+            "repos": [
+                {
+                    "name": "IzzyOnDroid",
+                    "address": "https://apt.izzysoft.de/fdroid/repo",
+                    "state": "absent",
+                }
+            ],
             "device": "p7a",
         },
         cmd_results=[("adb -s p7a shell true", (0, "", ""))],

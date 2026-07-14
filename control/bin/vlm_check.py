@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Smoke-test local UI-TARS and/or cloud VLM backends for stayturgid."""
+
 from __future__ import annotations
 
 import argparse
@@ -32,10 +33,7 @@ def main(argv: list[str] | None = None) -> int:
     if not args.cloud_only:
         if vlm.ensure_server(start=True):
             print("UI-TARS local: OK on %s" % vlm._base_url())
-            print(
-                "Expect ~10-20s per gate on Apple Silicon Metal; "
-                "CPU-only: much slower."
-            )
+            print("Expect ~10-20s per gate on Apple Silicon Metal; CPU-only: much slower.")
         else:
             print(
                 "UI-TARS local: NOT healthy (optional if cloud keys work)\n"
@@ -57,10 +55,7 @@ def main(argv: list[str] | None = None) -> int:
                 "present" if result.get("claude_key") else "missing",
             )
         )
-        print(
-            "Models: gemini=%s claude=%s"
-            % (result.get("gemini_model"), result.get("claude_model"))
-        )
+        print("Models: gemini=%s claude=%s" % (result.get("gemini_model"), result.get("claude_model")))
         g = result.get("gemini") or {}
         c = result.get("claude") or {}
         if g.get("ok"):

@@ -12,6 +12,7 @@ activates the patched JAR, then restarts only those helpers.  It runs under Mac
 or Termux Python; FIRERPA's embedded Python cannot parent another FIRERPA process
 because its runtime applies a restrictive security policy.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -23,12 +24,8 @@ from pathlib import Path
 from typing import Callable
 
 DEFAULT_ROOT = Path("/data/local/tmp/firerpa")
-SIGNED_JAR_SHA256 = (
-    "b1ac32d902227b7413ff6c867aa42c1630df1de57141e2efbefa0eca8169a67a"
-)
-PATCHED_JAR_SHA256 = (
-    "805e39de934d39ebaabe221b4db1464f835cc8ad7753bf3f34f4313569f8f1e1"
-)
+SIGNED_JAR_SHA256 = "b1ac32d902227b7413ff6c867aa42c1630df1de57141e2efbefa0eca8169a67a"
+PATCHED_JAR_SHA256 = "805e39de934d39ebaabe221b4db1464f835cc8ad7753bf3f34f4313569f8f1e1"
 SERVICE_JAR_FRAGMENT = "/site-packages/lamda/service.jar"
 
 
@@ -84,9 +81,7 @@ class FirerpaLifecycle:
         self.port = port
         self.certificate = certificate
         self.timeout = timeout
-        self.active_jar = (
-            self.server / "lib/python3.9/site-packages/lamda/service.jar"
-        )
+        self.active_jar = self.server / "lib/python3.9/site-packages/lamda/service.jar"
         self.signed_jar = root / "overrides/service.jar.signed"
         self.patched_jar = root / "overrides/service.jar.patched"
         self.launcher = self.server / "bin/launch.sh"
@@ -103,9 +98,7 @@ class FirerpaLifecycle:
         output = self._run(f"sha256sum {shlex.quote(str(path))}")
         for field in output.split():
             candidate = field.lower()
-            if len(candidate) == 64 and all(
-                character in "0123456789abcdef" for character in candidate
-            ):
+            if len(candidate) == 64 and all(character in "0123456789abcdef" for character in candidate):
                 return candidate
         raise LifecycleError(f"could not read SHA-256 for {path}")
 
@@ -119,9 +112,7 @@ class FirerpaLifecycle:
         self._run(command)
 
     def _port_open(self) -> bool:
-        rc, _ = self.transport.run(
-            f"ss -ltn 2>/dev/null | grep -q ':{self.port} '", timeout=5
-        )
+        rc, _ = self.transport.run(f"ss -ltn 2>/dev/null | grep -q ':{self.port} '", timeout=5)
         return rc == 0
 
     def service_jar_pids(self) -> set[int]:
@@ -147,17 +138,13 @@ class FirerpaLifecycle:
                 self.launcher,
             )
         )
-        self._run(f"for path in {required}; do test -f \"$path\" || exit 1; done")
+        self._run(f'for path in {required}; do test -f "$path" || exit 1; done')
         signed_digest = self._remote_sha256(self.signed_jar)
         if signed_digest != SIGNED_JAR_SHA256:
-            raise LifecycleError(
-                f"signed service.jar hash {signed_digest} is unsupported"
-            )
+            raise LifecycleError(f"signed service.jar hash {signed_digest} is unsupported")
         patched_digest = self._remote_sha256(self.patched_jar)
         if patched_digest != PATCHED_JAR_SHA256:
-            raise LifecycleError(
-                f"patched service.jar hash {patched_digest} is unsupported"
-            )
+            raise LifecycleError(f"patched service.jar hash {patched_digest} is unsupported")
 
     def _launch_signed_server(self) -> None:
         self._copy_atomic(self.signed_jar, self.active_jar)
@@ -176,9 +163,7 @@ class FirerpaLifecycle:
             if launch_rc != 0:
                 detail = launch_output.strip() or f"exit {launch_rc}"
                 raise LifecycleError(f"Android shell command failed: {detail}")
-            raise LifecycleError(
-                f"signed FIRERPA server did not listen on port {self.port}"
-            )
+            raise LifecycleError(f"signed FIRERPA server did not listen on port {self.port}")
 
     def _activate_coexistence_driver(self) -> None:
         original_pids: set[int] = set()
@@ -202,9 +187,7 @@ class FirerpaLifecycle:
             if remaining:
                 self._run("kill -9 " + " ".join(str(pid) for pid in sorted(remaining)))
             if not _wait_for(replacement_ready, self.timeout):
-                raise LifecycleError(
-                    "patched FIRERPA UIAutomation helpers did not restart"
-                )
+                raise LifecycleError("patched FIRERPA UIAutomation helpers did not restart")
         if not self._port_open():
             raise LifecycleError("FIRERPA listener stopped during driver activation")
 
@@ -228,9 +211,7 @@ def _transport_from_args(args: argparse.Namespace) -> ShellTransport:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Run FIRERPA with the accessibility coexistence driver."
-    )
+    parser = argparse.ArgumentParser(description="Run FIRERPA with the accessibility coexistence driver.")
     parser.add_argument("command", choices=("start",))
     transports = parser.add_mutually_exclusive_group(required=True)
     transports.add_argument("--adb-target")

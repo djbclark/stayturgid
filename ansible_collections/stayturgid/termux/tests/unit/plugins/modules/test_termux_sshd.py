@@ -1,4 +1,5 @@
 """Unit tests for termux_sshd module."""
+
 import json
 import os
 import sys

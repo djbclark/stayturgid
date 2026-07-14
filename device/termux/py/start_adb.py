@@ -8,6 +8,7 @@ immediately so the Ansible handler can verify it without waiting.
 
 Deploy to: ~/.termux/boot/start-adb.sh (compat shim) or call directly.
 """
+
 import os
 import shlex
 import signal
@@ -46,23 +47,19 @@ try:
             line = line.strip()
             if not line.startswith("export "):
                 continue
-            parts = line[len("export "):].split("=", 1)
+            parts = line[len("export ") :].split("=", 1)
             if len(parts) == 2:
                 os.environ[parts[0]] = parts[1].strip().strip('"')
 except OSError:
     pass
 
 SD = os.environ.get("STAYTURGID_SD", "/sdcard/stayturgid")
-FIRERPA_DIR = os.environ.get(
-    "STAYTURGID_FIRERPA_DIR", "/data/local/tmp/firerpa/server"
-)
+FIRERPA_DIR = os.environ.get("STAYTURGID_FIRERPA_DIR", "/data/local/tmp/firerpa/server")
 try:
     FIRERPA_PORT = int(os.environ.get("STAYTURGID_FIRERPA_PORT", "65000"))
 except ValueError:
     FIRERPA_PORT = 65000
-FIRERPA_CERTIFICATE = os.environ.get(
-    "STAYTURGID_FIRERPA_CERTIFICATE", os.path.join(FIRERPA_DIR, "lamda.pem")
-)
+FIRERPA_CERTIFICATE = os.environ.get("STAYTURGID_FIRERPA_CERTIFICATE", os.path.join(FIRERPA_DIR, "lamda.pem"))
 FIRERPA_ROOT = os.path.dirname(FIRERPA_DIR)
 FIRERPA_LIFECYCLE = os.environ.get(
     "STAYTURGID_FIRERPA_LIFECYCLE",
@@ -161,6 +158,7 @@ def _run_bg(cmd: list[str], log_path: str | None = None) -> int:
 
 # ── One-time startup ────────────────────────────────────────────────────────
 
+
 def startup_sshd() -> None:
     """Start sshd, removing a stale runsv/down file that silently blocks it."""
     down = os.path.join(PREFIX, "var", "service", "sshd", "down")
@@ -170,7 +168,9 @@ def startup_sshd() -> None:
         pass
     try:
         r = subprocess.run(
-            ["pgrep", "-x", "sshd"], capture_output=True, timeout=5,
+            ["pgrep", "-x", "sshd"],
+            capture_output=True,
+            timeout=5,
         )
         if r.returncode != 0:
             _run_bg(["sshd"], log_path=None)
@@ -198,9 +198,7 @@ def startup_cfserverd() -> None:
 # @heals: FIRERPA-SECURE-RUNNING
 def _localhost_adb_available() -> bool:
     _run(["adb", "connect", "localhost:5555"], timeout=5)
-    rc, output = _capture(
-        ["adb", "-s", "localhost:5555", "shell", "id -u"], timeout=5
-    )
+    rc, output = _capture(["adb", "-s", "localhost:5555", "shell", "id -u"], timeout=5)
     return rc == 0 and output.strip() == "2000"
 
 
@@ -215,10 +213,7 @@ def _shell_transport() -> tuple[list[str] | None, str]:
     if os.access(RISH, os.X_OK):
         rc, output = _capture([RISH, "-c", "id -u"], timeout=8)
         if rc == 0 and output.strip().endswith("2000"):
-            restart = (
-                "setprop service.adb.tcp.port 5555; "
-                "setprop ctl.restart adbd"
-            )
+            restart = "setprop service.adb.tcp.port 5555; setprop ctl.restart adbd"
             if _run([RISH, "-c", restart], timeout=10) == 0:
                 for _ in range(8):
                     if _localhost_adb_available():
@@ -257,10 +252,7 @@ def _launch_firerpa_via_shell(reason: str) -> bool:
         _boot_log(f"FIRERPA {reason}: privileged shell unavailable")
         return False
     if rc != 0:
-        _boot_log(
-            f"FIRERPA {reason}: runtime, lifecycle wrapper, or certificate missing "
-            f"via {transport}"
-        )
+        _boot_log(f"FIRERPA {reason}: runtime, lifecycle wrapper, or certificate missing via {transport}")
         return False
 
     lifecycle_cmd = [
@@ -276,10 +268,7 @@ def _launch_firerpa_via_shell(reason: str) -> bool:
         lifecycle_cmd.extend(["--rish", RISH])
     rc = _run(lifecycle_cmd, timeout=75)
     if rc == 0:
-        _boot_log(
-            f"FIRERPA secure {reason} with accessibility coexistence "
-            f"activated via {transport}"
-        )
+        _boot_log(f"FIRERPA secure {reason} with accessibility coexistence activated via {transport}")
         return True
     # Some Android adb/rish versions keep the client pipe open after the
     # fully redirected background launch. A local client timeout is not a
@@ -287,10 +276,7 @@ def _launch_firerpa_via_shell(reason: str) -> bool:
     for _ in range(10):
         time.sleep(2)
         if _firerpa_alive():
-            _boot_log(
-                f"FIRERPA secure {reason} confirmed via {transport} "
-                f"after client rc={rc}"
-            )
+            _boot_log(f"FIRERPA secure {reason} confirmed via {transport} after client rc={rc}")
             return True
     _boot_log(f"FIRERPA secure {reason} failed rc={rc} via {transport}")
     return False
@@ -306,6 +292,7 @@ def startup_firerpa() -> None:
 
 
 # ── Daemon loop ─────────────────────────────────────────────────────────────
+
 
 def daemon_loop() -> None:
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
@@ -331,9 +318,7 @@ def daemon_loop() -> None:
 
             repair = os.path.join(BIN, "stayturgid_repair.py")
             if os.access(repair, os.X_OK):
-                subprocess.run(
-                    ["python3", repair], capture_output=True, timeout=300
-                )
+                subprocess.run(["python3", repair], capture_output=True, timeout=300)
             elif _run(["pgrep", "sshd"], capture_output=True) != 0:
                 _run_bg(["sshd"])
 
@@ -346,8 +331,13 @@ def daemon_loop() -> None:
                 if r.returncode != 0:
                     _run(
                         [
-                            "adb", "-s", "localhost:5555", "shell", "am",
-                            "force-stop", "com.termux.api",
+                            "adb",
+                            "-s",
+                            "localhost:5555",
+                            "shell",
+                            "am",
+                            "force-stop",
+                            "com.termux.api",
                         ]
                     )
                     time.sleep(2)
@@ -382,6 +372,7 @@ def daemon_loop() -> None:
 
 def _cmd_exists(name: str) -> bool:
     import shutil
+
     return shutil.which(name) is not None
 
 
@@ -429,7 +420,9 @@ def _run_cfagent() -> None:
         with open(log_path, "a") as lf:
             subprocess.run(
                 [cf_agent, "-D", "android,linux", "-Kf", CFENGINE_CF],
-                stdout=lf, stderr=subprocess.STDOUT, timeout=120,
+                stdout=lf,
+                stderr=subprocess.STDOUT,
+                timeout=120,
             )
     except (OSError, subprocess.TimeoutExpired):
         pass
@@ -462,6 +455,7 @@ def _monitor_firerpa() -> None:
 
 
 # ── Entry point ────────────────────────────────────────────────────────────
+
 
 def main() -> int:
     # Hold wakelock for Doze resistance

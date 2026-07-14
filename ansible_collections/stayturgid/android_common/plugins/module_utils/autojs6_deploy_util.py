@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """AutoJs6 project deploy over adb (shared by module + control/bin/deploy.py)."""
+
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
@@ -28,9 +29,7 @@ def verify_shell_cmd(target):
 
 
 def verify_deploy(run_command, device, target):
-    rc, _out, err = adb_shell.adb_shell(
-        run_command, device, verify_shell_cmd(target)
-    )
+    rc, _out, err = adb_shell.adb_shell(run_command, device, verify_shell_cmd(target))
     if rc == 0:
         return True, ""
     return False, (
@@ -97,9 +96,7 @@ def push_device_json(
         return True, "", True
 
     state_dir = os.path.dirname(dest)
-    rc, _out, err = adb_shell.adb_shell(
-        run_command, device, "mkdir -p '%s'" % state_dir
-    )
+    rc, _out, err = adb_shell.adb_shell(run_command, device, "mkdir -p '%s'" % state_dir)
     if rc != 0:
         return False, "mkdir %s failed: %s" % (state_dir, err.strip() or rc), False
 

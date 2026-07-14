@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Lookup plugin: resolve fleet alias to ADB target on the control node."""
+
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Lookup plugin: preferred fdroidrepos:// activity component."""
+
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type

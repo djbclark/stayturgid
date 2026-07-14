@@ -4,6 +4,7 @@
 No adb / SSH — unit-tested. Imported by control/lib/stayturgid_device.py
 (compat re-export) and on-device screen-control scripts.
 """
+
 from __future__ import annotations
 
 import re
@@ -98,8 +99,7 @@ def parse_switch(xml, label):
     esc = re.escape(label)
     for attr in ("text", "content-desc"):
         for m in re.finditer(
-            r"<node\b(?=[^>]*\b%s=\"%s\")(?=[^>]*\bclass=\"android\.widget\.Switch\")[^>]*>"
-            % (attr, esc),
+            r"<node\b(?=[^>]*\b%s=\"%s\")(?=[^>]*\bclass=\"android\.widget\.Switch\")[^>]*>" % (attr, esc),
             xml,
         ):
             parsed = _parse_switch_attrs(m.group(0))
@@ -191,9 +191,7 @@ def parse_content_desc_center(xml, desc):
     )
     if not m:
         m = re.search(
-            r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"[^>]*?content-desc="'
-            + esc
-            + r'"',
+            r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"[^>]*?content-desc="' + esc + r'"',
             xml,
         )
     if not m:

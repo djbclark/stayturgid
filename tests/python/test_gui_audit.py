@@ -1,4 +1,5 @@
 """Unit tests for control/bin/gui_audit.py helpers (no device required)."""
+
 from __future__ import annotations
 
 import os
@@ -13,12 +14,7 @@ import gui_audit as ga  # noqa: E402
 
 def test_read_hosts(tmp_path):
     conf = tmp_path / "devices.conf"
-    conf.write_text(
-        "# comment\n"
-        "s24 SER1 1.1.1.1 2.2.2.2\n"
-        "\n"
-        "p7a SER2 3.3.3.3 -\n"
-    )
+    conf.write_text("# comment\ns24 SER1 1.1.1.1 2.2.2.2\n\np7a SER2 3.3.3.3 -\n")
     assert ga.read_hosts(conf) == ["s24", "p7a"]
 
 
@@ -52,11 +48,7 @@ def test_quiet_env_set(monkeypatch, tmp_path):
 
 def test_gui_audit_overrides(tmp_path):
     conf = tmp_path / "overrides.conf"
-    conf.write_text(
-        "# comment\n"
-        "hd8 neo_shizuku_missing  # operator\n"
-        "s24 neo_shizuku_missing\n"
-    )
+    conf.write_text("# comment\nhd8 neo_shizuku_missing  # operator\ns24 neo_shizuku_missing\n")
     loaded = ga.load_gui_audit_overrides(conf)
     assert loaded["hd8"] == {"neo_shizuku_missing"}
     kept, suppressed = ga.apply_gui_audit_overrides(

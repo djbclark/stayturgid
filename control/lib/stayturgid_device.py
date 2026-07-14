@@ -213,9 +213,9 @@ class PrivShell:
         """Privileged ``adb shell <cmd>``. Returns (rc, stdout)."""
         if self.ssh_host:
             import shlex
+
             remote = "adb -s localhost:5555 shell %s\n" % shlex.quote(cmd)
-            r = _run(["ssh"] + SSH_OPTS + [self.ssh_host, "bash", "-s"],
-                     input=remote, timeout=timeout)
+            r = _run(["ssh"] + SSH_OPTS + [self.ssh_host, "bash", "-s"], input=remote, timeout=timeout)
         else:
             r = _run([adb_bin(), "-s", self.target, "shell", cmd], timeout=timeout)
         if r is None:
@@ -244,6 +244,7 @@ class PrivShell:
     def install_shizuku_json(self, content, staging, path):
         """Push new shizuku.json content and move it into place (chmod 666)."""
         import tempfile
+
         tmp = tempfile.NamedTemporaryFile("w", delete=False)
         try:
             tmp.write(content)

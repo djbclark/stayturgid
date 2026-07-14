@@ -12,6 +12,7 @@ Steps:
 
 Usage: ./enable_shizuku_installer.py <p7a|s24|hd8|serial>
 """
+
 import json
 import os
 import subprocess
@@ -37,7 +38,9 @@ def adb(serial, *args, timeout=30):
     try:
         return subprocess.run(
             ["adb", "-s", serial, "shell"] + list(args),
-            capture_output=True, text=True, timeout=timeout,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -84,11 +87,21 @@ def apply_fleet_profile(serial):
     subprocess.run(["adb", "-s", serial, "push", tmp, FLEET_JSON_PATH], capture_output=True, check=False)
     os.unlink(tmp)
 
-    result = adb(serial, "am", "start",
-                 "-a", FLEET_ACTION,
-                 "-e", "profile_path", FLEET_JSON_PATH,
-                 "-e", "silent", "true",
-                 "-n", FLEET_ACTIVITY)
+    result = adb(
+        serial,
+        "am",
+        "start",
+        "-a",
+        FLEET_ACTION,
+        "-e",
+        "profile_path",
+        FLEET_JSON_PATH,
+        "-e",
+        "silent",
+        "true",
+        "-n",
+        FLEET_ACTIVITY,
+    )
     time.sleep(2)
     if result and result.returncode == 0:
         print("Shizuku installer enabled via fleet profile (installMethod=shizuku).")

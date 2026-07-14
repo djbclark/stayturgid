@@ -13,6 +13,7 @@ Usage:
 
 Logs: ~/.config/stayturgid/logs/termux-pkg-nightly.log
 """
+
 from __future__ import annotations
 
 import argparse

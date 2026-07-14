@@ -3,6 +3,7 @@
 
 Usage: deploy_termux.py <s24|hd8|p7a|host>
 """
+
 from __future__ import annotations
 
 import argparse

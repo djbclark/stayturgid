@@ -12,6 +12,7 @@ Python usage:
   cfg = UiTarsConfig()
   print(cfg.port)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -27,10 +28,12 @@ from typing import Any
 
 @dataclass
 class UiTarsConfig:
-    home: str = field(default_factory=lambda: os.environ.get(
-        "UI_TARS_HOME",
-        str(Path.home() / ".local" / "share" / "ui-tars"),
-    ))
+    home: str = field(
+        default_factory=lambda: os.environ.get(
+            "UI_TARS_HOME",
+            str(Path.home() / ".local" / "share" / "ui-tars"),
+        )
+    )
 
     @property
     def model_dir(self) -> str:
@@ -45,8 +48,7 @@ class UiTarsConfig:
     def port(self) -> str:
         return os.environ.get(
             "UI_TARS_PORT",
-            os.environ.get("STAYTURGID_VLM_PORT",
-                           os.environ.get("QSS_VLM_PORT", "8081")),
+            os.environ.get("STAYTURGID_VLM_PORT", os.environ.get("QSS_VLM_PORT", "8081")),
         )
 
     @property
@@ -80,8 +82,7 @@ class UiTarsConfig:
     def ngl(self) -> str:
         val = os.environ.get(
             "UI_TARS_NGL",
-            os.environ.get("STAYTURGID_VLM_NGL",
-                           os.environ.get("QSS_VLM_NGL", "")),
+            os.environ.get("STAYTURGID_VLM_NGL", os.environ.get("QSS_VLM_NGL", "")),
         )
         if val:
             return val
@@ -108,7 +109,9 @@ class UiTarsConfig:
         try:
             r = subprocess.run(
                 ["brew", "--prefix", pkg],
-                capture_output=True, text=True, timeout=5,
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             return r.stdout.strip()
         except (OSError, subprocess.TimeoutExpired):
@@ -120,6 +123,7 @@ class UiTarsConfig:
 
     def is_healthy(self) -> bool:
         import urllib.request
+
         try:
             urllib.request.urlopen(self.health_url, timeout=5)
             return True
@@ -169,8 +173,7 @@ class UiTarsConfig:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="UI-TARS configuration resolver")
-    parser.add_argument("--get", required=True, metavar="KEY",
-                        help="Configuration key to resolve")
+    parser.add_argument("--get", required=True, metavar="KEY", help="Configuration key to resolve")
     args = parser.parse_args()
 
     cfg = UiTarsConfig()

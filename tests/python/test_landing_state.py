@@ -1,4 +1,5 @@
 """Tests for the landing catalog/runtime-state split."""
+
 from __future__ import annotations
 
 import json
@@ -25,9 +26,7 @@ def test_first_use_migrates_legacy_observations(tmp_path, monkeypatch):
 
     assert migrated["services"][0]["url"] == "http://example"
     assert json.loads(runtime.read_text(encoding="utf-8")) == migrated
-    assert json.loads(catalog.read_text(encoding="utf-8"))["services"][0].keys() == {
-        "url", "label", "group"
-    }
+    assert json.loads(catalog.read_text(encoding="utf-8"))["services"][0].keys() == {"url", "label", "group"}
 
 
 def test_discovery_writes_runtime_state_not_catalog(tmp_path, monkeypatch):

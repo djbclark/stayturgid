@@ -1,4 +1,5 @@
 """Keep control/lib/fleet_app_profiles.json aligned with role defaults mirror."""
+
 import json
 from pathlib import Path
 

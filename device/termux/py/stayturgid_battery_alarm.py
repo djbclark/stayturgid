@@ -7,6 +7,7 @@ Migrated from stayturgid-battery-alarm.sh; unit-tested via tests/test-unit.sh
 Python is guaranteed on-device: it's in stayturgid_termux_packages and Ansible
 itself requires it (ansible_python_interpreter).
 """
+
 import datetime
 import json
 import os
@@ -172,8 +173,7 @@ def backup_wallpaper_once():
     r = run(["adb", "connect", "localhost:5555"], timeout=5)
     if r and r.returncode == 0:
         # exec-out keeps the image byte-exact
-        rr = run(["adb", "-s", "localhost:5555", "exec-out",
-                  "cmd", "wallpaper", "get-image"], text=False)
+        rr = run(["adb", "-s", "localhost:5555", "exec-out", "cmd", "wallpaper", "get-image"], text=False)
         if rr is not None:
             try:
                 with open(WALLPAPER_BACKUP, "wb") as f:
@@ -263,17 +263,38 @@ def fire_tier_alert(tier, pct, quiet):
 
     title = "⚠ stayturgid: battery %s%% (tier %d%%)" % (pct, tier)
     if not quiet:
-        run(["termux-notification", "--id", "stayturgid-batt", "--priority", "max",
-             "--ongoing", "--title", title,
-             "--content", "Not charging — remote access dies when this powers off. "
-                          "Plug in a charger."])
-        run(["termux-toast",
-             "stayturgid: battery %s%% — plug in! (tier %d%%)" % (pct, tier)])
+        run(
+            [
+                "termux-notification",
+                "--id",
+                "stayturgid-batt",
+                "--priority",
+                "max",
+                "--ongoing",
+                "--title",
+                title,
+                "--content",
+                "Not charging — remote access dies when this powers off. Plug in a charger.",
+            ]
+        )
+        run(["termux-toast", "stayturgid: battery %s%% — plug in! (tier %d%%)" % (pct, tier)])
         run(["termux-vibrate", "-d", "400"])
     else:
-        run(["termux-notification", "--id", "stayturgid-batt", "--priority", "max",
-             "--ongoing", "--alert-once", "--title", title,
-             "--content", "Not charging — plug in. (quiet hours: screen/torch only)"])
+        run(
+            [
+                "termux-notification",
+                "--id",
+                "stayturgid-batt",
+                "--priority",
+                "max",
+                "--ongoing",
+                "--alert-once",
+                "--title",
+                title,
+                "--content",
+                "Not charging — plug in. (quiet hours: screen/torch only)",
+            ]
+        )
 
 
 def on_signal(_sig, _frm):

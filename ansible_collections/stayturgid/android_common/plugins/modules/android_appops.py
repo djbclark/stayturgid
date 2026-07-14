@@ -153,12 +153,8 @@ def main():
 
     for item in appops:
         pkg = item["package"]
-        if module.params["skip_missing_packages"] and not package_installed(
-            module.run_command, device, pkg
-        ):
-            results.append(
-                dict(kind="appops", package=pkg, op=item["op"], status="skipped")
-            )
+        if module.params["skip_missing_packages"] and not package_installed(module.run_command, device, pkg):
+            results.append(dict(kind="appops", package=pkg, op=item["op"], status="skipped"))
             continue
         item_changed, status = ensure_appop(
             module.run_command,
@@ -169,27 +165,17 @@ def main():
             module.check_mode,
         )
         changed = changed or item_changed
-        results.append(
-            dict(kind="appops", package=pkg, op=item["op"], status=status)
-        )
+        results.append(dict(kind="appops", package=pkg, op=item["op"], status=status))
 
     for item in permissions:
         pkg = item["package"]
         perm = item["permission"]
-        if module.params["skip_missing_packages"] and not package_installed(
-            module.run_command, device, pkg
-        ):
-            results.append(
-                dict(kind="permission", package=pkg, permission=perm, status="skipped")
-            )
+        if module.params["skip_missing_packages"] and not package_installed(module.run_command, device, pkg):
+            results.append(dict(kind="permission", package=pkg, permission=perm, status="skipped"))
             continue
-        item_changed, status = ensure_permission(
-            module.run_command, device, pkg, perm, module.check_mode
-        )
+        item_changed, status = ensure_permission(module.run_command, device, pkg, perm, module.check_mode)
         changed = changed or item_changed
-        results.append(
-            dict(kind="permission", package=pkg, permission=perm, status=status)
-        )
+        results.append(dict(kind="permission", package=pkg, permission=perm, status=status))
 
     module.exit_json(changed=changed, results=results)
 

@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Shared fleet app privilege application (Ansible module + Mac harden script)."""
+
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
@@ -68,9 +69,7 @@ def ensure_battery_unrestricted(run_command, device, package, check_mode=False):
         results.append(dict(kind="deviceidle", status="already"))
 
     for op in BATTERY_APPOPS:
-        item_changed, status = ensure_appop(
-            run_command, device, package, op, "allow", check_mode
-        )
+        item_changed, status = ensure_appop(run_command, device, package, op, "allow", check_mode)
         changed = changed or item_changed
         results.append(dict(kind="appops", op=op, status=status))
 
@@ -82,9 +81,7 @@ def ensure_battery_unrestricted(run_command, device, package, check_mode=False):
         results.append(dict(kind="standby_bucket", status="would_set"))
         changed = True
     else:
-        rc, _out, err = adb_shell.standby_bucket_set(
-            run_command, device, package, STANDBY_BUCKET_ACTIVE
-        )
+        rc, _out, err = adb_shell.standby_bucket_set(run_command, device, package, STANDBY_BUCKET_ACTIVE)
         ok = rc == 0
         results.append(
             dict(
@@ -105,16 +102,12 @@ def ensure_battery_optimized(run_command, device, package, check_mode=False):
             results.append(dict(kind="deviceidle", status="would_unwhitelist"))
             changed = True
         else:
-            rc, _out, err = adb_shell.deviceidle_whitelist_remove(
-                run_command, device, package
-            )
+            rc, _out, err = adb_shell.deviceidle_whitelist_remove(run_command, device, package)
             ok = rc == 0
             results.append(
                 dict(
                     kind="deviceidle",
-                    status="unwhitelisted"
-                    if ok
-                    else adb_shell.normalize_adb_output(err) or "failed",
+                    status="unwhitelisted" if ok else adb_shell.normalize_adb_output(err) or "failed",
                 )
             )
             changed = changed or ok
@@ -122,9 +115,7 @@ def ensure_battery_optimized(run_command, device, package, check_mode=False):
         results.append(dict(kind="deviceidle", status="already"))
 
     for op in BATTERY_APPOPS:
-        item_changed, status = ensure_appop(
-            run_command, device, package, op, "ignore", check_mode
-        )
+        item_changed, status = ensure_appop(run_command, device, package, op, "ignore", check_mode)
         changed = changed or item_changed
         results.append(dict(kind="appops", op=op, status=status))
     return changed, results
@@ -135,9 +126,7 @@ def ensure_disable_unused(run_command, device, package, check_mode=False):
     results = []
     changed = False
     for op, mode in UNUSED_APPOPS:
-        item_changed, status = ensure_appop(
-            run_command, device, package, op, mode, check_mode
-        )
+        item_changed, status = ensure_appop(run_command, device, package, op, mode, check_mode)
         changed = changed or item_changed
         results.append(dict(kind="appops", op=op, status=status))
     return changed, results
@@ -153,22 +142,16 @@ def apply_profile(run_command, device, profile, check_mode=False, skip_missing=T
 
     # Explicit False restores OS battery optimization (Doze / background limits).
     if profile.get("battery_unrestricted") is True:
-        item_changed, items = ensure_battery_unrestricted(
-            run_command, device, package, check_mode
-        )
+        item_changed, items = ensure_battery_unrestricted(run_command, device, package, check_mode)
         changed = changed or item_changed
         results.extend(items)
     elif profile.get("battery_unrestricted") is False:
-        item_changed, items = ensure_battery_optimized(
-            run_command, device, package, check_mode
-        )
+        item_changed, items = ensure_battery_optimized(run_command, device, package, check_mode)
         changed = changed or item_changed
         results.extend(items)
 
     if profile.get("disable_unused_restrictions"):
-        item_changed, items = ensure_disable_unused(
-            run_command, device, package, check_mode
-        )
+        item_changed, items = ensure_disable_unused(run_command, device, package, check_mode)
         changed = changed or item_changed
         results.extend(items)
 
@@ -185,26 +168,18 @@ def apply_profile(run_command, device, profile, check_mode=False, skip_missing=T
         results.append(dict(kind="appops", op=item["op"], status=status))
 
     for permission in profile.get("permissions") or []:
-        item_changed, status = ensure_permission(
-            run_command, device, package, permission, check_mode
-        )
+        item_changed, status = ensure_permission(run_command, device, package, permission, check_mode)
         changed = changed or item_changed
         results.append(dict(kind="permission", permission=permission, status=status))
 
     if profile.get("grant_all_runtime"):
-        perms = (
-            ["would_scan"]
-            if check_mode
-            else adb_shell.ungranted_runtime_permissions(run_command, device, package)
-        )
+        perms = ["would_scan"] if check_mode else adb_shell.ungranted_runtime_permissions(run_command, device, package)
         for permission in perms:
             if permission == "would_scan":
                 results.append(dict(kind="permission", permission="*", status="would_grant"))
                 changed = True
                 continue
-            item_changed, status = ensure_permission(
-                run_command, device, package, permission, check_mode
-            )
+            item_changed, status = ensure_permission(run_command, device, package, permission, check_mode)
             changed = changed or item_changed
             results.append(dict(kind="permission", permission=permission, status=status))
 
@@ -217,9 +192,7 @@ def apply_profiles(run_command, device, profiles, check_mode=False, skip_missing
     results = []
     changed = False
     for profile in profiles:
-        item_changed, profile_results = apply_profile(
-            run_command, device, profile, check_mode, skip_missing
-        )
+        item_changed, profile_results = apply_profile(run_command, device, profile, check_mode, skip_missing)
         changed = changed or item_changed
         results.extend(profile_results)
     return changed, results

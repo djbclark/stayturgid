@@ -13,6 +13,7 @@ Escalation policy (used by vlm_gate.VlmGate):
   local UI-TARS first (when available) → Gemini Flash on fail/low conf/unavailable
   → Claude Sonnet as second cloud opinion when Gemini fails or conf is low.
 """
+
 from __future__ import annotations
 
 import base64
@@ -72,10 +73,10 @@ def load_cloud_keys() -> None:
 def cloud_mode() -> str:
     """off | auto | gemini | claude | both."""
     raw = (
-        os.environ.get("STAYTURGID_VLM_CLOUD")
-        or os.environ.get("STAYTURGID_VLM_CLOUD_BACKEND")
-        or "auto"
-    ).strip().lower()
+        (os.environ.get("STAYTURGID_VLM_CLOUD") or os.environ.get("STAYTURGID_VLM_CLOUD_BACKEND") or "auto")
+        .strip()
+        .lower()
+    )
     if raw in ("0", "false", "no", "off", "none"):
         return "off"
     if raw in ("1", "true", "yes", "on"):
@@ -108,26 +109,18 @@ def gemini_key() -> str:
 
 def anthropic_key() -> str:
     load_cloud_keys()
-    return (
-        os.environ.get("ANTHROPIC_API_KEY")
-        or os.environ.get("CLAUDE_API_KEY")
-        or ""
-    ).strip()
+    return (os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("CLAUDE_API_KEY") or "").strip()
 
 
 def gemini_model() -> str:
     return (
-        os.environ.get("STAYTURGID_GEMINI_MODEL")
-        or os.environ.get("GEMINI_VLM_MODEL")
-        or DEFAULT_GEMINI_MODEL
+        os.environ.get("STAYTURGID_GEMINI_MODEL") or os.environ.get("GEMINI_VLM_MODEL") or DEFAULT_GEMINI_MODEL
     ).strip()
 
 
 def claude_model() -> str:
     return (
-        os.environ.get("STAYTURGID_CLAUDE_MODEL")
-        or os.environ.get("ANTHROPIC_VLM_MODEL")
-        or DEFAULT_CLAUDE_MODEL
+        os.environ.get("STAYTURGID_CLAUDE_MODEL") or os.environ.get("ANTHROPIC_VLM_MODEL") or DEFAULT_CLAUDE_MODEL
     ).strip()
 
 
@@ -174,10 +167,7 @@ def ask_gemini(
     timeout = timeout or DEFAULT_TIMEOUT
     mime, b64 = _encode_png(path, prepare)
     model = gemini_model()
-    url = (
-        "https://generativelanguage.googleapis.com/v1beta/models/"
-        f"{model}:generateContent"
-    )
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
     body = {
         "contents": [
             {
@@ -276,9 +266,7 @@ def ask_claude(
     raw = ""
     try:
         blocks = payload.get("content") or []
-        raw = "".join(
-            str(b.get("text") or "") for b in blocks if isinstance(b, dict)
-        )
+        raw = "".join(str(b.get("text") or "") for b in blocks if isinstance(b, dict))
     except (KeyError, TypeError):
         raw = json.dumps(payload)
     return raw, _parse_json_blob(raw)
@@ -343,10 +331,7 @@ def ping_backends() -> dict[str, Any]:
     }
     # Gemini text
     if gemini_key():
-        url = (
-            "https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{gemini_model()}:generateContent"
-        )
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model()}:generateContent"
         body = {
             "contents": [{"parts": [{"text": 'Reply exactly: {"ok":true,"ping":"gemini"}'}]}],
             "generationConfig": {"temperature": 0, "maxOutputTokens": 64},

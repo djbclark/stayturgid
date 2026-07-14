@@ -39,7 +39,8 @@ def main(argv: list[str] | None = None) -> int:
 
     proc = subprocess.run(
         ["ansible-playbook", str(PLAYBOOK), "-l", hosts],
-        env=env, timeout=120,
+        env=env,
+        timeout=120,
     )
     return proc.returncode
 

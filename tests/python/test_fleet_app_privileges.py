@@ -1,4 +1,5 @@
 """Unit tests for fleet app privilege helpers."""
+
 import os
 import sys
 
@@ -31,16 +32,10 @@ def test_parse_ungranted_runtime_permissions():
 
 
 def test_parse_permission_granted_supports_android_dump_formats():
-    assert adb_shell.parse_permission_granted(
-        SAMPLE_DUMPSYS, "android.permission.POST_NOTIFICATIONS"
-    )
-    assert not adb_shell.parse_permission_granted(
-        SAMPLE_DUMPSYS, "android.permission.CAMERA"
-    )
+    assert adb_shell.parse_permission_granted(SAMPLE_DUMPSYS, "android.permission.POST_NOTIFICATIONS")
+    assert not adb_shell.parse_permission_granted(SAMPLE_DUMPSYS, "android.permission.CAMERA")
     inline = "android.permission.POST_NOTIFICATIONS: granted=true, flags=[ USER_SET]"
-    assert adb_shell.parse_permission_granted(
-        inline, "android.permission.POST_NOTIFICATIONS"
-    )
+    assert adb_shell.parse_permission_granted(inline, "android.permission.POST_NOTIFICATIONS")
 
 
 def test_ensure_permission_skips_launch_when_already_granted():

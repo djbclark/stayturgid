@@ -55,10 +55,7 @@ from ansible.module_utils.basic import AnsibleModule
 def _shell(module, script):
     prefix = module.params.get("_termux_prefix", "/data/data/com.termux/files/usr")
     bash = prefix + "/bin/bash"
-    env = (
-        "export PATH=%s/bin:$PATH\n"
-        "export DEBIAN_FRONTEND=noninteractive\n"
-    ) % prefix
+    env = ("export PATH=%s/bin:$PATH\nexport DEBIAN_FRONTEND=noninteractive\n") % prefix
     if module.params["force_confold"]:
         env += "export APT_OPTS='-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold'\n"
     else:
@@ -108,8 +105,7 @@ def main():
             # Mirror sync hiccups are routine; apt keeps the old indexes
             # ("They have been ignored, or old ones used instead"), so warn
             # and continue — a truly unusable cache fails at install below.
-            module.warn("pkg update failed (rc=%s, mirror sync?) — continuing "
-                        "with cached package indexes" % rc)
+            module.warn("pkg update failed (rc=%s, mirror sync?) — continuing with cached package indexes" % rc)
             messages.append("pkg update failed; used cached indexes")
         elif "Fetched" in out or "Get:" in out:
             changed = True

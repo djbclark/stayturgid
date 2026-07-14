@@ -5,6 +5,7 @@ Termux stayturgid-repair owns routine self-heal. When main.js stalls while
 repair is healthy, this script logs, arms autojs6-bridge (trigger file), and
 optionally notifies the operator (rate-limited).
 """
+
 import datetime
 import os
 import subprocess
@@ -49,9 +50,7 @@ def run(args):
     if tapi is not None and tapi.is_termux_api(args):
         return tapi.run_ff(args, timeout=4.0) if tapi.is_fire_and_forget(args) else tapi.run(args)
     try:
-        return subprocess.run(
-            args, capture_output=True, text=True, start_new_session=True, timeout=15
-        )
+        return subprocess.run(args, capture_output=True, text=True, start_new_session=True, timeout=15)
     except (OSError, subprocess.TimeoutExpired):
         return None
 
@@ -103,14 +102,21 @@ def maybe_notify():
     last = _read_int(NOTIFY_STAMP) if os.path.isfile(NOTIFY_STAMP) else 0
     if now - last < NOTIFY_COOLDOWN_SEC:
         return
-    run([
-        "termux-notification", "--id", "stayturgid-autojs6-stale",
-        "--priority", "default", "--alert-once",
-        "--title", "stayturgid: AutoJs6 watchdog stalled",
-        "--content",
-        "Termux repair is healthy but main.js has not cycled in 45+ min. "
-        "Mac fleet-health should restart main.js; if this persists, reboot.",
-    ])
+    run(
+        [
+            "termux-notification",
+            "--id",
+            "stayturgid-autojs6-stale",
+            "--priority",
+            "default",
+            "--alert-once",
+            "--title",
+            "stayturgid: AutoJs6 watchdog stalled",
+            "--content",
+            "Termux repair is healthy but main.js has not cycled in 45+ min. "
+            "Mac fleet-health should restart main.js; if this persists, reboot.",
+        ]
+    )
     os.makedirs(STATE, exist_ok=True)
     try:
         with open(NOTIFY_STAMP, "w", encoding="utf-8") as fh:
@@ -146,10 +152,18 @@ def maybe_restart_trigger():
     boot_script = os.path.join(SD, "autojs6", "scripts", "boot-launcher.js")
     if os.path.isfile(boot_script):
         result = run(
-            ["am", "start", "-a", "android.intent.action.VIEW",
-             "-d", "file://" + boot_script,
-             "-t", "text/javascript",
-             "-n", "org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity"],
+            [
+                "am",
+                "start",
+                "-a",
+                "android.intent.action.VIEW",
+                "-d",
+                "file://" + boot_script,
+                "-t",
+                "text/javascript",
+                "-n",
+                "org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity",
+            ],
         )
         if result is not None and result.returncode == 0:
             append_log("[termux] autojs6 guard: restart requested via am start")
@@ -181,10 +195,7 @@ def action_check():
     if cycle_age < WATCHDOG_STALE_SEC:
         return 0
 
-    append_log(
-        "[termux] autojs6 guard: watchdog stale %.0fs (repair_age=%.0fs)"
-        % (cycle_age, repair_age)
-    )
+    append_log("[termux] autojs6 guard: watchdog stale %.0fs (repair_age=%.0fs)" % (cycle_age, repair_age))
 
     if repair_ts and repair_age < REPAIR_FRESH_SEC:
         maybe_restart_trigger()

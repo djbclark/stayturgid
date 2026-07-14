@@ -1,12 +1,13 @@
 """Unit tests for control/lib/stayturgid_device.py — the shizuku.json patcher
 and UI-XML parsing that were fragile python-in-bash / sed pipelines."""
+
 import json
 import os
 import sys
 
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "control", "lib"))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "lib")
+)
 import importlib.util
 from pathlib import Path
 
@@ -21,9 +22,14 @@ _spec.loader.exec_module(adb_resolve)
 
 
 def test_patch_preserves_other_apps():
-    current = json.dumps({"version": 2, "packages": [
-        {"uid": 10001, "flags": 2, "packages": ["com.other.app"]},
-    ]})
+    current = json.dumps(
+        {
+            "version": 2,
+            "packages": [
+                {"uid": 10001, "flags": 2, "packages": ["com.other.app"]},
+            ],
+        }
+    )
     out = json.loads(dev.patch_shizuku_json(current, 10123, "org.autojs.autojs6"))
     uids = {e["uid"] for e in out["packages"]}
     assert uids == {10001, 10123}, "existing grant preserved, new one added"
@@ -32,9 +38,14 @@ def test_patch_preserves_other_apps():
 
 
 def test_patch_replaces_same_uid():
-    current = json.dumps({"version": 2, "packages": [
-        {"uid": 10123, "flags": 2, "packages": ["old.pkg"]},
-    ]})
+    current = json.dumps(
+        {
+            "version": 2,
+            "packages": [
+                {"uid": 10123, "flags": 2, "packages": ["old.pkg"]},
+            ],
+        }
+    )
     out = json.loads(dev.patch_shizuku_json(current, 10123, "new.pkg"))
     assert len(out["packages"]) == 1
     assert out["packages"][0]["packages"] == ["new.pkg"]
@@ -88,10 +99,7 @@ def test_parse_switch_absent():
 
 def test_parse_switch_same_node_text():
     """Label on the Switch node itself (text after bounds/checked)."""
-    xml = (
-        '<node class="android.widget.Switch" checked="true" '
-        'bounds="[1,2][3,4]" text="Shizuku access" />'
-    )
+    xml = '<node class="android.widget.Switch" checked="true" bounds="[1,2][3,4]" text="Shizuku access" />'
     assert dev.parse_switch(xml, "Shizuku access") == (True, 2, 3)
 
 

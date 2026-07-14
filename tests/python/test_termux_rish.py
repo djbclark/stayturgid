@@ -1,4 +1,5 @@
 """Unit tests for stayturgid_rish install helpers."""
+
 from __future__ import annotations
 
 import sys
@@ -12,9 +13,7 @@ import stayturgid_rish as rish  # noqa: E402
 
 
 def test_wrapper_body_sets_termux_app_id():
-    body = rish._WRAPPER_BODY.format(
-        rish_dir="/tmp/rish", dex="rish_shizuku.dex", pkg="moe.shizuku.privileged.api"
-    )
+    body = rish._WRAPPER_BODY.format(rish_dir="/tmp/rish", dex="rish_shizuku.dex", pkg="moe.shizuku.privileged.api")
     assert 'RISH_APPLICATION_ID="com.termux"' in body
     assert "ShizukuShellLoader" in body
 
@@ -26,12 +25,8 @@ def test_install_writes_dex_and_wrapper(tmp_path, monkeypatch):
     monkeypatch.setattr(rish, "HOME", str(tmp_path / "home"))
     monkeypatch.setattr(rish, "STG", str(tmp_path / "home" / ".stayturgid"))
     monkeypatch.setattr(rish, "BIN", str(tmp_path / "home" / ".stayturgid" / "bin"))
-    monkeypatch.setattr(
-        rish, "RISH_DIR", str(tmp_path / "home" / ".stayturgid" / "lib" / "rish")
-    )
-    monkeypatch.setattr(
-        rish, "WRAPPER", str(tmp_path / "home" / ".stayturgid" / "bin" / "rish")
-    )
+    monkeypatch.setattr(rish, "RISH_DIR", str(tmp_path / "home" / ".stayturgid" / "lib" / "rish"))
+    monkeypatch.setattr(rish, "WRAPPER", str(tmp_path / "home" / ".stayturgid" / "bin" / "rish"))
     monkeypatch.setattr(rish, "shizuku_apk_path", lambda: str(apk))
     path = rish.install(force=True)
     assert Path(path).is_file()

@@ -14,6 +14,7 @@ Modes:
   default  — full TAP output on stdout
   --summary — one-line pass/fail message; exit 0/1 only (no TAP)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -232,15 +233,10 @@ def emit_summary(r: CheckResult) -> int:
         print("FAIL: healing_registry.json could not be loaded")
         return 1
 
-    mech_info = ", ".join(
-        f"{m}={c}" for m, c in sorted(r.mech_counts.items())
-    )
+    mech_info = ", ".join(f"{m}={c}" for m, c in sorted(r.mech_counts.items()))
 
     if r.errors == 0:
-        print(
-            f"PASS: healing coverage — {r.num_states} states, "
-            f"{len(r.mech_counts)} mechanisms ({mech_info})"
-        )
+        print(f"PASS: healing coverage — {r.num_states} states, {len(r.mech_counts)} mechanisms ({mech_info})")
         return 0
 
     parts = []
@@ -253,10 +249,7 @@ def emit_summary(r: CheckResult) -> int:
     if not parts:
         parts.append("unknown error")
 
-    print(
-        f"FAIL: healing coverage — {', '.join(parts)}. "
-        f"Run without --summary for details."
-    )
+    print(f"FAIL: healing coverage — {', '.join(parts)}. Run without --summary for details.")
     return 1
 
 

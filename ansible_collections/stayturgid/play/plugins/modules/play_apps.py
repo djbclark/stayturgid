@@ -176,9 +176,7 @@ def extract_xapk(xapk_path, dest_dir):
                 dst.write(src.read())
             out_paths.append(out)
         # Prefer base first when multiple
-        out_paths.sort(
-            key=lambda p: (0 if "base" in os.path.basename(p).lower() else 1, p)
-        )
+        out_paths.sort(key=lambda p: (0 if "base" in os.path.basename(p).lower() else 1, p))
         return out_paths
 
 
@@ -307,15 +305,10 @@ def ensure_present(module, device, spec, outputs):
         backend = module.params["download_backend"]
         dest = os.path.expanduser(module.params["download_dir"])
         if backend == "none":
-            module.fail_json(
-                msg="app %s missing and download_backend=none (set apk_path)" % pkg
-            )
+            module.fail_json(msg="app %s missing and download_backend=none (set apk_path)" % pkg)
         if backend == "apkeep":
             src = module.params["apkeep_source"]
-            if src == "google-play" and not (
-                os.environ.get("GPLAY_AAS_TOKEN")
-                or os.environ.get("GPLAY_AUTH_TOKEN")
-            ):
+            if src == "google-play" and not (os.environ.get("GPLAY_AAS_TOKEN") or os.environ.get("GPLAY_AUTH_TOKEN")):
                 module.fail_json(
                     msg="google-play download needs GPLAY_AAS_TOKEN or GPLAY_AUTH_TOKEN "
                     "(and usually GPLAY_EMAIL) — see docs/modules/play.md",
@@ -329,8 +322,7 @@ def ensure_present(module, device, spec, outputs):
             outputs.append(out)
             if rc != 0:
                 module.fail_json(
-                    msg="gplaycli download failed for %s (configure gplaycli.conf?)"
-                    % pkg,
+                    msg="gplaycli download failed for %s (configure gplaycli.conf?)" % pkg,
                     rc=rc,
                     output=out,
                 )

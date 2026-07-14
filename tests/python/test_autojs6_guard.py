@@ -1,4 +1,5 @@
 """Unit tests for device/termux/py/stayturgid_autojs6_guard.py."""
+
 from __future__ import annotations
 
 import sys
@@ -27,12 +28,8 @@ def test_guard_arms_restart_when_stale_and_repair_fresh(tmp_path, monkeypatch):
     monkeypatch.setattr(guard, "STATE", str(home / ".stayturgid" / "state"))
     monkeypatch.setattr(guard, "TRIGGER", str(sd / "run" / "start_autojs6_now"))
     monkeypatch.setattr(guard, "TRIGGER_SDCARD", str(sd / "run" / "start_autojs6_now"))
-    monkeypatch.setattr(
-        guard, "RESTART_STAMP", str(home / ".stayturgid" / "state" / "last_autojs6_restart_trigger")
-    )
-    monkeypatch.setattr(
-        guard, "NOTIFY_STAMP", str(home / ".stayturgid" / "state" / "last_autojs6_stale_notify")
-    )
+    monkeypatch.setattr(guard, "RESTART_STAMP", str(home / ".stayturgid" / "state" / "last_autojs6_restart_trigger"))
+    monkeypatch.setattr(guard, "NOTIFY_STAMP", str(home / ".stayturgid" / "state" / "last_autojs6_stale_notify"))
     monkeypatch.setattr(guard, "maybe_notify", lambda: None)
 
     stale = datetime.now() - timedelta(hours=2)
@@ -65,9 +62,7 @@ def test_guard_skips_restart_when_watchdog_fresh(tmp_path, monkeypatch):
     monkeypatch.setattr(guard, "STATE", str(home / ".stayturgid" / "state"))
     monkeypatch.setattr(guard, "TRIGGER", str(sd / "run" / "start_autojs6_now"))
     monkeypatch.setattr(guard, "TRIGGER_SDCARD", str(sd / "run" / "start_autojs6_now"))
-    monkeypatch.setattr(
-        guard, "RESTART_STAMP", str(home / ".stayturgid" / "state" / "last_autojs6_restart_trigger")
-    )
+    monkeypatch.setattr(guard, "RESTART_STAMP", str(home / ".stayturgid" / "state" / "last_autojs6_restart_trigger"))
 
     now = datetime.now()
 
@@ -100,9 +95,7 @@ def test_restart_logs_request_not_unverified_success(tmp_path, monkeypatch):
     monkeypatch.setattr(guard, "STATE", str(home / ".stayturgid" / "state"))
     monkeypatch.setattr(guard, "TRIGGER", str(sd / "run" / "start_autojs6_now"))
     monkeypatch.setattr(guard, "TRIGGER_SDCARD", str(sd / "run" / "start_autojs6_now"))
-    monkeypatch.setattr(
-        guard, "RESTART_STAMP", str(home / ".stayturgid" / "state" / "restart")
-    )
+    monkeypatch.setattr(guard, "RESTART_STAMP", str(home / ".stayturgid" / "state" / "restart"))
     monkeypatch.setattr(guard, "run", lambda _args: SimpleNamespace(returncode=0))
 
     guard.maybe_restart_trigger()

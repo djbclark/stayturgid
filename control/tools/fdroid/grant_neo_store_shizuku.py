@@ -11,6 +11,7 @@ Ansible (from repo root)::
 
 See docs/ansible_collections/modules/shizuku_grant.md
 """
+
 import sys
 
 sys.stderr.write(

@@ -4,6 +4,7 @@ Play Store account-drawer navigation is brittle under display inversion; callers
 that only need a verification screenshot should use this module without
 ``ScreenControlSession``. See docs/vlm.md.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -77,9 +78,7 @@ def open_autoupdate_screen(hs: HandsetsSession, serial: str) -> bool:
     if not hs.tap_any_text("Auto-update apps", "Auto-update Apps", timeout_ms=4000):
         return False
     time.sleep(0.8)
-    return hs.find_text("auto-update") or hs.find_text("Don't auto-update") or hs.find_text(
-        "Over Wi-Fi"
-    )
+    return hs.find_text("auto-update") or hs.find_text("Don't auto-update") or hs.find_text("Over Wi-Fi")
 
 
 def capture_autoupdate_screenshot(serial: str, dest: Path, hs: HandsetsSession) -> Path | None:

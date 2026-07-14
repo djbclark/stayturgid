@@ -1,4 +1,5 @@
 """Unit tests for control/lib/ui_driver.py (Handsets helper)."""
+
 from __future__ import annotations
 
 import sys
@@ -95,12 +96,12 @@ _SAMPLE_AURORA_UPDATES_UI = """\
 def test_parse_switch_aurora_preference_rows():
     session = ud.HandsetsSession("SERIAL", alias="p7a", port=9014)
     session.active = True
-    assert session._parse_switch_from_ui(
-        "Filter F-Droid apps", _SAMPLE_AURORA_UPDATES_UI
-    ) == (True, 969, 735)
-    assert session._parse_switch_from_ui(
-        "Filter apps from other sources", _SAMPLE_AURORA_UPDATES_UI
-    ) == (True, 969, 980)
+    assert session._parse_switch_from_ui("Filter F-Droid apps", _SAMPLE_AURORA_UPDATES_UI) == (True, 969, 735)
+    assert session._parse_switch_from_ui("Filter apps from other sources", _SAMPLE_AURORA_UPDATES_UI) == (
+        True,
+        969,
+        980,
+    )
 
 
 def test_try_handsets_yields_none_when_missing(monkeypatch):

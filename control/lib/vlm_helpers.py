@@ -1,4 +1,5 @@
 """Optional UI-TARS orchestration for stayturgid Mac scripts."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -37,9 +38,7 @@ def verify_shot(shot: Path, check: str) -> tuple[bool, dict[str, Any]]:
     return gate.verify(shot, check)
 
 
-def issue_tags_from_verify(
-    shot: Path, check: str, fail_tag: str
-) -> list[str]:
+def issue_tags_from_verify(shot: Path, check: str, fail_tag: str) -> list[str]:
     ok, detail = verify_shot(shot, check)
     if detail.get("skipped"):
         return []

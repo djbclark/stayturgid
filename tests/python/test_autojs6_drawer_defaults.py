@@ -1,4 +1,5 @@
 """Validate device/autojs6/fleet_profile.json structure."""
+
 import json
 from pathlib import Path
 
@@ -27,7 +28,13 @@ def test_fleet_profile_has_critical_keys():
 
 def test_fleet_profile_booleans_are_booleans():
     data = json.loads(FLEET_PROFILE.read_text())
-    for key in ("foreground_service", "floating_menu_shown", "stable_mode",
-                "guard_mode", "auto_check_for_updates", "display_over_other_apps"):
+    for key in (
+        "foreground_service",
+        "floating_menu_shown",
+        "stable_mode",
+        "guard_mode",
+        "auto_check_for_updates",
+        "display_over_other_apps",
+    ):
         if key in data:
             assert isinstance(data[key], bool), f"{key} should be bool, got {type(data[key])}"

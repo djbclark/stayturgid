@@ -17,6 +17,7 @@ Env:
 
 See docs/research/handsets-under-termux.md and fire-os-local-adb.md.
 """
+
 from __future__ import annotations
 
 import json
@@ -53,11 +54,7 @@ def _no_local_adb() -> bool:
 
 
 def _peer_bootstrap_enabled() -> bool:
-    return (
-        _no_local_adb()
-        and os.environ.get("STAYTURGID_PEER_BOOTSTRAP", "1") != "0"
-        and os.path.isfile(_PEERS_PATH)
-    )
+    return _no_local_adb() and os.environ.get("STAYTURGID_PEER_BOOTSTRAP", "1") != "0" and os.path.isfile(_PEERS_PATH)
 
 
 def enabled() -> bool:
@@ -107,9 +104,7 @@ def _ensure_jar_on_device() -> str:
         timeout=60,
     )
     if r.returncode != 0:
-        raise HandsetsError(
-            "adb push hs.jar failed: %s" % ((r.stderr or r.stdout or "").strip())
-        )
+        raise HandsetsError("adb push hs.jar failed: %s" % ((r.stderr or r.stdout or "").strip()))
     return REMOTE_JAR
 
 
@@ -191,9 +186,7 @@ def _start_via_peer(port: int) -> None:
     if not ok:
         raise HandsetsError("peer Handsets start failed: %s" % detail)
     if not ping(port):
-        raise HandsetsError(
-            "peer reported OK but wire ping failed on :%d (%s)" % (port, detail)
-        )
+        raise HandsetsError("peer reported OK but wire ping failed on :%d (%s)" % (port, detail))
 
 
 def start(port: int | None = None) -> None:
@@ -214,8 +207,7 @@ def start(port: int | None = None) -> None:
     nice = "hsd%d" % port
     start_cmd = (
         "CLASSPATH=%s nohup app_process /system/bin --nice-name=%s "
-        "dev.handsets.daemon.Main --port=%d >/data/local/tmp/%s.log 2>&1 &"
-        % (jar, nice, port, nice)
+        "dev.handsets.daemon.Main --port=%d >/data/local/tmp/%s.log 2>&1 &" % (jar, nice, port, nice)
     )
     _adb(start_cmd, timeout=15)
     deadline = time.time() + 12
@@ -224,9 +216,7 @@ def start(port: int | None = None) -> None:
             return
         time.sleep(0.35)
     log = _adb("tail", "-20", "/data/local/tmp/%s.log" % nice, timeout=10)
-    raise HandsetsError(
-        "Handsets daemon not ready on :%d — %s" % (port, (log.stdout or "").strip())
-    )
+    raise HandsetsError("Handsets daemon not ready on :%d — %s" % (port, (log.stdout or "").strip()))
 
 
 def stop(port: int | None = None) -> None:
@@ -238,8 +228,7 @@ def stop(port: int | None = None) -> None:
         return
     nice = "hsd%d" % port
     _adb(
-        "pkill -f '%s' 2>/dev/null; pkill -f 'dev.handsets.daemon.Main --port=%d' 2>/dev/null; true"
-        % (nice, port),
+        "pkill -f '%s' 2>/dev/null; pkill -f 'dev.handsets.daemon.Main --port=%d' 2>/dev/null; true" % (nice, port),
         timeout=15,
     )
 
@@ -268,9 +257,7 @@ class Session:
             self._ref_held = True
         self.active = True
         how = "peer" if _peer_bootstrap_enabled() else "local-adb"
-        print(
-            "UI driver: Handsets wire on port %d (Termux/%s)" % (self.port, how)
-        )
+        print("UI driver: Handsets wire on port %d (Termux/%s)" % (self.port, how))
         return self
 
     def __exit__(self, exc_type, exc, tb) -> None:
@@ -527,9 +514,7 @@ def try_session(port: int | None = None) -> Iterator["Session | None"]:
 def main(argv=None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     if not argv or argv[0] in ("-h", "--help"):
-        sys.stderr.write(
-            "usage: stayturgid_handsets.py ping|start|stop|dump|bench\n"
-        )
+        sys.stderr.write("usage: stayturgid_handsets.py ping|start|stop|dump|bench\n")
         return 2
     cmd = argv[0]
     if cmd == "ping":

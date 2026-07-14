@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Resolve stayturgid repo root from any module script depth."""
+
 from __future__ import annotations
 
 import sys

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Idempotent BEGIN/END marked blocks for ssh config and authorized_keys."""
+
 from __future__ import annotations
 
 import re

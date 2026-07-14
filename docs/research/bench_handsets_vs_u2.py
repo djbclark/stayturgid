@@ -10,6 +10,7 @@ Scenarios mirror fleet post-UI work:
 Drivers share UiAutomation — kill the other before each block.
 Usage: PYTHONUNBUFFERED=1 python3 docs/research/bench_handsets_vs_u2.py
 """
+
 from __future__ import annotations
 
 import statistics
@@ -41,7 +42,10 @@ def run(cmd, timeout=60):
 def kill_ui_daemons(serial: str) -> None:
     run(
         [
-            "adb", "-s", serial, "shell",
+            "adb",
+            "-s",
+            serial,
+            "shell",
             "pkill -f 'dev.handsets.daemon' 2>/dev/null; "
             "pkill -f hsd900 2>/dev/null; "
             "pkill -f hsd901 2>/dev/null; "
@@ -61,8 +65,15 @@ def stay_awake(serial: str) -> None:
     run(["adb", "-s", serial, "shell", "svc", "power", "stayon", "true"])
     run(
         [
-            "adb", "-s", serial, "shell",
-            "settings", "put", "global", "stay_on_while_plugged_in", "7",
+            "adb",
+            "-s",
+            serial,
+            "shell",
+            "settings",
+            "put",
+            "global",
+            "stay_on_while_plugged_in",
+            "7",
         ]
     )
 
@@ -77,8 +88,16 @@ def open_autojs(serial: str) -> None:
     time.sleep(0.5)
     run(
         [
-            "adb", "-s", serial, "shell",
-            "monkey", "-p", AUTOJS, "-c", "android.intent.category.LAUNCHER", "1",
+            "adb",
+            "-s",
+            serial,
+            "shell",
+            "monkey",
+            "-p",
+            AUTOJS,
+            "-c",
+            "android.intent.category.LAUNCHER",
+            "1",
         ]
     )
     time.sleep(2.0)
@@ -87,8 +106,14 @@ def open_autojs(serial: str) -> None:
 def a11y_on(serial: str) -> bool:
     r = run(
         [
-            "adb", "-s", serial, "shell",
-            "settings", "get", "secure", "enabled_accessibility_services",
+            "adb",
+            "-s",
+            serial,
+            "shell",
+            "settings",
+            "get",
+            "secure",
+            "enabled_accessibility_services",
         ]
     )
     return AUTOJS in (r.stdout or "")
@@ -200,8 +225,7 @@ def bench_raw_settings_tap(serial: str, label: str, n: int = 5):
                 )
                 if not m:
                     m = re.search(
-                        r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"[^>]*text="%s"'
-                        % re.escape(label),
+                        r'bounds="\[(\d+),(\d+)\]\[(\d+),(\d+)\]"[^>]*text="%s"' % re.escape(label),
                         xml,
                     )
                 if m:
@@ -212,8 +236,14 @@ def bench_raw_settings_tap(serial: str, label: str, n: int = 5):
             if pt:
                 run(
                     [
-                        "adb", "-s", serial, "shell",
-                        "input", "tap", str(pt[0]), str(pt[1]),
+                        "adb",
+                        "-s",
+                        serial,
+                        "shell",
+                        "input",
+                        "tap",
+                        str(pt[0]),
+                        str(pt[1]),
                     ]
                 )
                 tapped = True
@@ -263,7 +293,7 @@ def bench_u2_drawer(d, serial: str, n: int = 3):
         found = el.exists(timeout=3.0)
         if found:
             # sibling switch: u2 xpath or right-of
-            sw = d(className="android.widget.Switch")
+            d(className="android.widget.Switch")
             # find switch near — iterate
             last_checked = None
             for s in d(className="android.widget.Switch"):
@@ -475,17 +505,21 @@ def summarize(results: list[dict]) -> str:
     lines.append("- Handsets Settings reliability: %s" % ("PASS" if hs_ok else "PARTIAL"))
     lines.append("- Handsets AutoJs6 drawer (a11y ON): %s" % ("PASS" if hs_drawer else "PARTIAL"))
     lines.append("- u2 Settings reliability: %s" % ("PASS" if u2_ok else "FAIL/PARTIAL"))
-    adopt = hs_ok and hs_drawer and (
-        not u2_ok
-        or all(
-            statistics.median(r["hs_hier"]) < 0.5 * statistics.median(r["u2_hier"])
-            for r in results
-            if r.get("hs_hier") and r.get("u2_hier")
-        )
-        or all(
-            statistics.median(r["hs_hier"]) < 0.2 * statistics.median(r["raw_hier"])
-            for r in results
-            if r.get("hs_hier") and r.get("raw_hier")
+    adopt = (
+        hs_ok
+        and hs_drawer
+        and (
+            not u2_ok
+            or all(
+                statistics.median(r["hs_hier"]) < 0.5 * statistics.median(r["u2_hier"])
+                for r in results
+                if r.get("hs_hier") and r.get("u2_hier")
+            )
+            or all(
+                statistics.median(r["hs_hier"]) < 0.2 * statistics.median(r["raw_hier"])
+                for r in results
+                if r.get("hs_hier") and r.get("raw_hier")
+            )
         )
     )
     lines.append("")

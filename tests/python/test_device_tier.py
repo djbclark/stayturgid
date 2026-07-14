@@ -4,11 +4,11 @@ These cover the parsing/evaluation that was fragile in the old shell version
 (heredoc paren miscounts, md5/md5sum split, sed key extraction). No device or
 SSH — the I/O layer is separate.
 """
+
 import os
 import sys
 
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tests"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tests"))
 import device_tier as dt  # noqa: E402
 
 HEALTHY = """\
@@ -57,11 +57,12 @@ def test_parse_report_value_with_equals():
 def test_evaluate_all_green(monkeypatch):
     # pretend deployed md5s match the repo
     monkeypatch.setattr(
-        dt, "TRACKED_SCRIPTS",
+        dt,
+        "TRACKED_SCRIPTS",
         {"stayturgid_repair.py": "device/termux/py/stayturgid_repair.py"},
     )
     monkeypatch.setattr(dt, "file_md5", lambda p: "aaa")
-    res = evaluate = dt.evaluate("s24", dt.parse_report(HEALTHY))
+    res = dt.evaluate("s24", dt.parse_report(HEALTHY))
     k = kinds(res)
     assert k["s24: sshd running"] == "ok"
     assert k["s24: Termux mirror pinned (deterministic pkg update)"] == "ok"
@@ -73,11 +74,13 @@ def test_evaluate_all_green(monkeypatch):
 
 
 def test_evaluate_flags_failures():
-    rep = dt.parse_report(HEALTHY.replace("penalties=off", "penalties=ON")
-                          .replace("writesettings=allow", "writesettings=MISSING")
-                          .replace("overlay=allow", "overlay=MISSING")
-                          .replace("vpn_always_on=ok", "vpn_always_on=MISSING")
-                          .replace("mirror=pinned", "mirror=UNPINNED"))
+    rep = dt.parse_report(
+        HEALTHY.replace("penalties=off", "penalties=ON")
+        .replace("writesettings=allow", "writesettings=MISSING")
+        .replace("overlay=allow", "overlay=MISSING")
+        .replace("vpn_always_on=ok", "vpn_always_on=MISSING")
+        .replace("mirror=pinned", "mirror=UNPINNED")
+    )
     k = kinds(dt.evaluate("p7a", rep))
     assert k["p7a: sshd per-source penalties disabled"] == "fail"
     assert k["p7a: Termux:API WRITE_SETTINGS granted (battery flash)"] == "fail"
@@ -87,15 +90,15 @@ def test_evaluate_flags_failures():
 
 
 def test_evaluate_tasker_remnant_fails():
-    rep = dt.parse_report(HEALTHY.replace("taskerlegacy=notif:0,files:0",
-                                          "taskerlegacy=notif:0,files:1"))
+    rep = dt.parse_report(HEALTHY.replace("taskerlegacy=notif:0,files:0", "taskerlegacy=notif:0,files:1"))
     k = kinds(dt.evaluate("p7a", rep))
     assert k["p7a: no legacy Tasker stayturgid remnants"] == "fail"
 
 
 def test_evaluate_bridge_and_drift_are_todo_not_fail(monkeypatch):
     monkeypatch.setattr(
-        dt, "TRACKED_SCRIPTS",
+        dt,
+        "TRACKED_SCRIPTS",
         {"stayturgid_repair.py": "device/termux/py/stayturgid_repair.py"},
     )
     monkeypatch.setattr(dt, "file_md5", lambda p: "DIFFERENT")
@@ -118,9 +121,7 @@ def test_evaluate_watchdog_liveness():
     k = kinds(dt.evaluate("s24", rep_stale))
     assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "todo"
     rep_both_bad = dt.parse_report(
-        HEALTHY.replace("watchdog=fresh", "watchdog=stale:4000s").replace(
-            "repairlog=fresh", "repairlog=stale"
-        )
+        HEALTHY.replace("watchdog=fresh", "watchdog=stale:4000s").replace("repairlog=fresh", "repairlog=stale")
     )
     k = kinds(dt.evaluate("s24", rep_both_bad))
     assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "fail"
@@ -128,9 +129,7 @@ def test_evaluate_watchdog_liveness():
     k = kinds(dt.evaluate("s24", rep_missing))
     assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "todo"
     rep_missing_stale_repair = dt.parse_report(
-        HEALTHY.replace("watchdog=fresh", "watchdog=missing").replace(
-            "repairlog=fresh", "repairlog=stale"
-        )
+        HEALTHY.replace("watchdog=fresh", "watchdog=missing").replace("repairlog=fresh", "repairlog=stale")
     )
     k = kinds(dt.evaluate("s24", rep_missing_stale_repair))
     assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "fail"
@@ -164,6 +163,7 @@ def test_evaluate_fire_split_storage_todos():
 
 def test_file_md5_matches_hashlib(tmp_path):
     import hashlib
+
     f = tmp_path / "x"
     f.write_bytes(b"hello")
     assert dt.file_md5(str(f)) == hashlib.md5(b"hello").hexdigest()

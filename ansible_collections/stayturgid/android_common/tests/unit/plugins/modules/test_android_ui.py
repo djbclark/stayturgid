@@ -1,4 +1,5 @@
 """Unit tests for android_ui module."""
+
 import json
 import os
 import sys

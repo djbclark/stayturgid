@@ -11,6 +11,7 @@ with FIRERPA running, checks:
 Usage:
   python3 control/bin/firerpa_health_monitor.py
 """
+
 from __future__ import annotations
 
 import os
@@ -50,23 +51,23 @@ def check_device(alias: str, ip: str) -> dict:
 
     try:
         out = d.execute_script("ss -tlnp 2>/dev/null | grep ':8022 '", timeout=5)
-        stdout = getattr(out, 'stdout', b'')
+        stdout = getattr(out, "stdout", b"")
         if isinstance(stdout, bytes):
-            stdout = stdout.decode(errors='replace')
+            stdout = stdout.decode(errors="replace")
         result["sshd"] = "up" if ":8022" in (stdout or "") else "down"
     except Exception:
         result["sshd"] = "unknown"
 
     try:
         out = d.execute_script("ss -tlnp 2>/dev/null | grep ':5555 '", timeout=5)
-        stdout = getattr(out, 'stdout', b'')
+        stdout = getattr(out, "stdout", b"")
         if isinstance(stdout, bytes):
-            stdout = stdout.decode(errors='replace')
+            stdout = stdout.decode(errors="replace")
         port_5555 = ":5555" in (stdout or "")
         out2 = d.execute_script("pgrep -f '[s]hizuku_server' 2>/dev/null", timeout=5)
-        stdout2 = getattr(out2, 'stdout', b'')
+        stdout2 = getattr(out2, "stdout", b"")
         if isinstance(stdout2, bytes):
-            stdout2 = stdout2.decode(errors='replace')
+            stdout2 = stdout2.decode(errors="replace")
         shizuku_proc = bool(stdout2 and stdout2.strip())
         if shizuku_proc:
             result["shizuku"] = "up"

@@ -8,6 +8,7 @@ Usage: ./control/bin/h2_confirm_ui.py [s24|p7a|hd8 ...]
 Holds one ScreenControlSession per host (inversion on). Navigates settings
 screens and saves PNGs under artifacts/h2-confirm/<host>/.
 """
+
 from __future__ import annotations
 
 import os
@@ -62,10 +63,15 @@ def _vlm_report(host: str, shot: Path, check: str, label: str) -> None:
     if detail.get("skipped"):
         return
     status = "PASS" if ok else "FAIL"
-    print("  VLM %s %s %s (%.1fs)" % (
-        status, label, detail.get("parsed", {}).get("notes", "")[:80],
-        detail.get("elapsed_s", 0),
-    ))
+    print(
+        "  VLM %s %s %s (%.1fs)"
+        % (
+            status,
+            label,
+            detail.get("parsed", {}).get("notes", "")[:80],
+            detail.get("elapsed_s", 0),
+        )
+    )
 
 
 def confirm_neo(host: str, session, hs, out: Path) -> None:
@@ -109,9 +115,7 @@ def confirm_aurora(host: str, session, hs, out: Path) -> None:
     time.sleep(1)
     shot(serial, out / "10_aurora_home.png")
     if hs is not None:
-        hs.tap_id("%s:id/menu_more" % AURORA, timeout_ms=2500) or hs.tap_desc(
-            "More", timeout_ms=2000
-        )
+        hs.tap_id("%s:id/menu_more" % AURORA, timeout_ms=2500) or hs.tap_desc("More", timeout_ms=2000)
         time.sleep(1)
         hs.tap_text("Settings", timeout_ms=2500)
         time.sleep(1.5)

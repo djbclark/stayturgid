@@ -1,4 +1,5 @@
 """Unit tests for control/lib/fleet_health.py and control/bin/fleet_health_monitor.py."""
+
 from __future__ import annotations
 
 import datetime
@@ -26,9 +27,7 @@ def test_health_gather_tracks_python_boot_supervisor():
 
 
 def test_device_log_epoch():
-    parsed = fhm._device_log_epoch(
-        "2026-07-13 12:38:56 [watchdog] example failure"
-    )
+    parsed = fhm._device_log_epoch("2026-07-13 12:38:56 [watchdog] example failure")
     expected = datetime.datetime(2026, 7, 13, 12, 38, 56).timestamp()
     assert parsed == expected
     assert fhm._device_log_epoch("no timestamp") is None
@@ -167,10 +166,12 @@ def test_monitor_heals_stale_watchdog(tmp_path, monkeypatch):
 
     def fake_run(args, **kw):
         calls.append(args)
+
         class R:
             returncode = 0
             stdout = "Starting main.js\n"
             stderr = ""
+
         return R()
 
     monkeypatch.setattr(fhm.subprocess, "run", fake_run)
@@ -185,15 +186,9 @@ def test_monitor_heals_stale_watchdog(tmp_path, monkeypatch):
     (tmp_path / "control" / "tools" / "autojs6" / "start_watchdog.py").write_text("x")
 
     fhm.check_device("s24", "100.1", "192.1")
-    assert not any(
-        any("start_watchdog.py" in str(part) for part in call) for call in calls
-    )
+    assert not any(any("start_watchdog.py" in str(part) for part in call) for call in calls)
     fhm.check_device("s24", "100.1", "192.1")
-    watchdog_calls = [
-        call
-        for call in calls
-        if any("start_watchdog.py" in str(part) for part in call)
-    ]
+    watchdog_calls = [call for call in calls if any("start_watchdog.py" in str(part) for part in call)]
     assert len(watchdog_calls) == 1
     assert watchdog_calls[0][2:] == ["s24", "1.1.1.1:5555"]
 
@@ -230,6 +225,7 @@ def test_monitor_heal_failure_skips_cooldown(tmp_path, monkeypatch):
             returncode = 1
             stdout = "fail"
             stderr = ""
+
         return R()
 
     monkeypatch.setattr(fhm.subprocess, "run", fail_run)

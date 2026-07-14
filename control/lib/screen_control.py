@@ -26,6 +26,7 @@ STAYTURGID_PRESENCE_QUIET=1 (scheduled audits): keeps inversion + lease, but
 skips torch, vibrate, consent dialog, and presence notifications. Prefer this
 over SKIP_PRESENCE for overnight GUI jobs.
 """
+
 import os
 import re
 import subprocess
@@ -114,9 +115,7 @@ def inversion_enabled(serial):
 
 def set_inversion(serial, enabled):
     state = "1" if enabled else "0"
-    rc, _out = mac_adb_shell(
-        serial, "settings", "put", "secure", INVERSION_KEY, state
-    )
+    rc, _out = mac_adb_shell(serial, "settings", "put", "secure", INVERSION_KEY, state)
     return rc == 0 and inversion_enabled(serial) == enabled
 
 
@@ -146,9 +145,7 @@ def apply_portrait_lock(serial):
         ("accelerometer_rotation", "0"),
         ("user_rotation", str(PORTRAIT_USER_ROTATION)),
     ):
-        rc, _out = mac_adb_shell(
-            serial, "settings", "put", "system", key, val, timeout=10
-        )
+        rc, _out = mac_adb_shell(serial, "settings", "put", "system", key, val, timeout=10)
         ok = ok and rc == 0
     # Android 11+ window window (ignore failures on older builds).
     for args in (
@@ -166,9 +163,7 @@ def lock_portrait_orientation(serial):
     """Save rotation prefs, then lock portrait for the session."""
     saved = read_rotation_settings(serial)
     if not apply_portrait_lock(serial):
-        sys.stderr.write(
-            "WARN: failed to lock portrait orientation on %s\n" % serial
-        )
+        sys.stderr.write("WARN: failed to lock portrait orientation on %s\n" % serial)
     return saved
 
 
@@ -190,14 +185,10 @@ def restore_rotation_settings(serial, saved):
         val = saved.get(key)
         if val is None:
             continue
-        rc, _out = mac_adb_shell(
-            serial, "settings", "put", "system", key, val, timeout=10
-        )
+        rc, _out = mac_adb_shell(serial, "settings", "put", "system", key, val, timeout=10)
         ok = ok and rc == 0
     if not ok:
-        sys.stderr.write(
-            "WARN: failed to restore rotation settings on %s\n" % serial
-        )
+        sys.stderr.write("WARN: failed to restore rotation settings on %s\n" % serial)
     return ok
 
 
@@ -213,9 +204,7 @@ def set_default_ime(serial, ime):
     if not ime or ime == "null":
         return False
     mac_adb_shell(serial, "ime", "enable", ime)
-    rc, _out = mac_adb_shell(
-        serial, "settings", "put", "secure", "default_input_method", ime
-    )
+    rc, _out = mac_adb_shell(serial, "settings", "put", "secure", "default_input_method", ime)
     return rc == 0 and get_default_ime(serial) == ime
 
 
@@ -305,20 +294,15 @@ def ssh_presence(host, action, label, agent):
     quiet = os.environ.get("STAYTURGID_PRESENCE_QUIET") == "1"
     quiet_export = "export STAYTURGID_PRESENCE_QUIET=1; " if quiet else ""
     # Prefer single-root deploy path; fall back to legacy ~/ shim if present.
-    remote = (
-        "%s"
-        "if [ -x %s ]; then P=%s; elif [ -x %s ]; then P=%s; else exit 127; fi; "
-        '"$P" %s %s %s'
-        % (
-            quiet_export,
-            PRESENCE_SCRIPT,
-            PRESENCE_SCRIPT,
-            PRESENCE_SCRIPT_LEGACY,
-            PRESENCE_SCRIPT_LEGACY,
-            action,
-            _shell_quote(label),
-            _shell_quote(agent),
-        )
+    remote = '%sif [ -x %s ]; then P=%s; elif [ -x %s ]; then P=%s; else exit 127; fi; "$P" %s %s %s' % (
+        quiet_export,
+        PRESENCE_SCRIPT,
+        PRESENCE_SCRIPT,
+        PRESENCE_SCRIPT_LEGACY,
+        PRESENCE_SCRIPT_LEGACY,
+        action,
+        _shell_quote(label),
+        _shell_quote(agent),
     )
     # request-screen uses termux-dialog; on Fire OS that can hang past the
     # on-device timeout — keep Mac SSH timeout tight and report distinctly.
@@ -415,17 +399,13 @@ class ScreenControlSession:
             )
             self._lease_session_id = lease.get("holder", {}).get("session_id")
             self._lease_acquired = True
-            print(
-                "screen-lease acquired %s (%s)"
-                % (self.host, dsl.format_holder(lease))
-            )
+            print("screen-lease acquired %s (%s)" % (self.host, dsl.format_holder(lease)))
         except dsl.LeaseConflict as e:
             raise ScreenControlError(
                 "screen control blocked on %s — %s. "
                 "Wait for the other project to FREE the device, or set "
                 "DEVICE_SCREEN_CONTROL_FORCE=1 / STAYTURGID_SCREEN_LEASE_FORCE=1 "
-                "only if you intentionally steal the glass."
-                % (self.host, e)
+                "only if you intentionally steal the glass." % (self.host, e)
             ) from e
 
     def _release_cross_project_lease(self):
@@ -434,9 +414,7 @@ class ScreenControlSession:
         try:
             dsl.release(self.host, session_id=self._lease_session_id)
         except Exception as e:  # noqa: BLE001
-            sys.stderr.write(
-                "WARN: screen-lease release on %s: %s\n" % (self.host, e)
-            )
+            sys.stderr.write("WARN: screen-lease release on %s: %s\n" % (self.host, e))
         self._lease_acquired = False
 
     def _keepalive_loop(self):
@@ -447,10 +425,7 @@ class ScreenControlSession:
             try:
                 if not inversion_enabled(self.serial):
                     if set_inversion(self.serial, True):
-                        sys.stderr.write(
-                            "WARN: re-enabled display inversion on %s (hold keepalive)\n"
-                            % self.host
-                        )
+                        sys.stderr.write("WARN: re-enabled display inversion on %s (hold keepalive)\n" % self.host)
                 if not self._skip:
                     # Extend lease without torch/dialog (quiet if already quiet).
                     ssh_presence(self.host, "guard", self.label, self.agent)
@@ -458,9 +433,7 @@ class ScreenControlSession:
                     dsl.heartbeat(self.host, session_id=self._lease_session_id)
                 apply_portrait_lock(self.serial)
             except Exception as e:  # noqa: BLE001
-                sys.stderr.write(
-                    "WARN: screen-control keepalive on %s: %s\n" % (self.host, e)
-                )
+                sys.stderr.write("WARN: screen-control keepalive on %s: %s\n" % (self.host, e))
 
     def _start_keepalive(self):
         self._stop_keepalive.clear()
@@ -501,8 +474,7 @@ class ScreenControlSession:
 
         if self._skip:
             sys.stderr.write(
-                "WARN: STAYTURGID_SKIP_PRESENCE=1 — skipping consent/torch; "
-                "display inversion still required\n"
+                "WARN: STAYTURGID_SKIP_PRESENCE=1 — skipping consent/torch; display inversion still required\n"
             )
         elif not self.skip_request:
             rc, out = ssh_presence(self.host, "request-screen", self.label, self.agent)
@@ -510,17 +482,12 @@ class ScreenControlSession:
                 raise ScreenControlError("screen control denied on %s" % self.host)
             # rc 127 = presence script missing — fail closed (do not skip consent).
             if rc != 0:
-                raise ScreenControlError(
-                    "request-screen failed on %s (rc=%s): %s"
-                    % (self.host, rc, out.strip())
-                )
+                raise ScreenControlError("request-screen failed on %s (rc=%s): %s" % (self.host, rc, out.strip()))
 
         # Inversion is the visible "agent has the glass" signal — always on,
         # including SKIP_PRESENCE. Input stays gated on inversion.
         if not set_inversion(self.serial, True):
-            raise ScreenControlError(
-                "failed to enable display inversion on %s" % self.serial
-            )
+            raise ScreenControlError("failed to enable display inversion on %s" % self.serial)
 
         if not self._skip:
             rc, out = ssh_presence(self.host, "on", self.label, self.agent)
@@ -528,10 +495,7 @@ class ScreenControlSession:
             # inversion on without torch/notification/lease.
             if rc != 0:
                 set_inversion(self.serial, False)
-                raise ScreenControlError(
-                    "agent-presence on failed on %s (rc=%s): %s"
-                    % (self.host, rc, out.strip())
-                )
+                raise ScreenControlError("agent-presence on failed on %s (rc=%s): %s" % (self.host, rc, out.strip()))
 
         self.active = True
         self._start_keepalive()
@@ -552,30 +516,21 @@ class ScreenControlSession:
                     shell_fn=self.shell,
                 )
                 if ok and self._saved_component:
-                    print(
-                        "Restored prior screen on %s: %s"
-                        % (self.host, self._saved_component)
-                    )
+                    print("Restored prior screen on %s: %s" % (self.host, self._saved_component))
                 elif not ok:
                     sys.stderr.write(
                         "WARN: failed to restore prior screen on %s (%s)\n"
                         % (self.host, self._saved_component or "HOME")
                     )
             except Exception as e:  # noqa: BLE001 — never block cleanup
-                sys.stderr.write(
-                    "WARN: restore prior screen on %s: %s\n" % (self.host, e)
-                )
+                sys.stderr.write("WARN: restore prior screen on %s: %s\n" % (self.host, e))
 
         if not self._skip:
             ssh_presence(self.host, "off", self.label, self.agent)
         if not set_inversion(self.serial, False):
-            sys.stderr.write(
-                "WARN: failed to disable display inversion on %s\n" % self.serial
-            )
+            sys.stderr.write("WARN: failed to disable display inversion on %s\n" % self.serial)
         if not restore_default_ime(self.serial, self._saved_ime):
-            sys.stderr.write(
-                "WARN: failed to restore keyboard IME on %s\n" % self.serial
-            )
+            sys.stderr.write("WARN: failed to restore keyboard IME on %s\n" % self.serial)
         restore_rotation_settings(self.serial, self._saved_rotation)
         self._release_cross_project_lease()
         self.active = False

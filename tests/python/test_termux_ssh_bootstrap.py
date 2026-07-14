@@ -1,12 +1,18 @@
 """Unit tests for termux_run_as helpers and CLI wrapper."""
+
 import os
 import sys
 
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "lib"))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "lib")
+)
 _COLLECTION_UTILS = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "ansible_collections", "stayturgid", "termux", "plugins", "module_utils",
+    "ansible_collections",
+    "stayturgid",
+    "termux",
+    "plugins",
+    "module_utils",
 )
 sys.path.insert(0, _COLLECTION_UTILS)
 

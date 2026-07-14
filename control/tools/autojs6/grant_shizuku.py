@@ -7,6 +7,7 @@ bash heredoc. Does not revoke anything; other apps keep their Shizuku access.
 
 Usage: ./grant_shizuku.py <p7a|s24|serial>
 """
+
 import os
 import sys
 
@@ -38,7 +39,8 @@ def main(argv=None):
     if not ok:
         sys.stderr.write(
             "ERROR: no privileged shell or unreadable %s — aborting before "
-            "touching it (would clobber other apps' grants)\n" % SHIZUKU_JSON)
+            "touching it (would clobber other apps' grants)\n" % SHIZUKU_JSON
+        )
         return 1
 
     patched = dev.patch_shizuku_json(current, uid, AUTOJS_PKG)

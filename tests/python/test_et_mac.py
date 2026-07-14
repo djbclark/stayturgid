@@ -1,4 +1,5 @@
 """Unit tests for phone→Mac Eternal Terminal key/config helpers."""
+
 from __future__ import annotations
 
 import sys
@@ -79,9 +80,7 @@ def test_ssh_host_key_pin_env(monkeypatch):
     opts = em.ssh_host_key_cli_opts()
     assert "StrictHostKeyChecking=yes" in opts
     assert "UserKnownHostsFile=/tmp/kh" in opts
-    cfg = em.render_device_ssh_config(
-        user="u", tailscale_ip="100.0.0.1", lan_ip="", aliases=["mac"]
-    )
+    cfg = em.render_device_ssh_config(user="u", tailscale_ip="100.0.0.1", lan_ip="", aliases=["mac"])
     assert "StrictHostKeyChecking yes" in cfg
     assert "UserKnownHostsFile /tmp/kh" in cfg
 
@@ -95,9 +94,7 @@ def test_apply_authorized_keys_file(tmp_path, monkeypatch):
     # point cache at tmp
     monkeypatch.setattr(em, "state_dir", lambda: tmp_path / "state")
     (tmp_path / "state").mkdir()
-    (tmp_path / "state" / "s24.pub").write_text(
-        "ssh-ed25519 AAAAs24 s24-fleet\n", encoding="utf-8"
-    )
+    (tmp_path / "state" / "s24.pub").write_text("ssh-ed25519 AAAAs24 s24-fleet\n", encoding="utf-8")
     changed = em.apply_authorized_keys(ak)
     assert changed
     text = ak.read_text(encoding="utf-8")

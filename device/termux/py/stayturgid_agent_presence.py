@@ -9,6 +9,7 @@ shim keeps the documented external interface stable.
 
 Exit codes: 0 = proceed, 2 = usage, 75 = gate deferred/disallowed.
 """
+
 import datetime
 import json
 import os
@@ -31,9 +32,7 @@ if os.path.isfile(_ENV_FILE):
                 if _line.startswith("export STAYTURGID_SD="):
                     os.environ["STAYTURGID_SD"] = _line.split("=", 1)[1].strip().strip('"')
                 elif _line.startswith("export STAYTURGID_NO_LOCAL_ADB="):
-                    os.environ["STAYTURGID_NO_LOCAL_ADB"] = (
-                        _line.split("=", 1)[1].strip().strip('"')
-                    )
+                    os.environ["STAYTURGID_NO_LOCAL_ADB"] = _line.split("=", 1)[1].strip().strip('"')
     except OSError:
         pass
 
@@ -60,10 +59,16 @@ REQUEST_SCREEN_COUNTDOWN_SEC = 10
 FIRE_NOTIFY_TIMEOUT_SEC = 3
 
 IDLE_PKGS = {
-    "", "com.sec.android.app.launcher", "com.google.android.apps.nexuslauncher",
-    "com.android.launcher3", "com.android.systemui",
-    "com.samsung.android.app.aodservice", "com.termux", "com.tailscale.ipn",
-    "moe.shizuku.privileged.api", "org.autojs.autojs6",
+    "",
+    "com.sec.android.app.launcher",
+    "com.google.android.apps.nexuslauncher",
+    "com.android.launcher3",
+    "com.android.systemui",
+    "com.samsung.android.app.aodservice",
+    "com.termux",
+    "com.tailscale.ipn",
+    "moe.shizuku.privileged.api",
+    "org.autojs.autojs6",
 }
 PKG_RE = re.compile(r"^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)+$")
 
@@ -145,29 +150,29 @@ def write_lease(label, agent):
     """
     now = int(time.time())
     project = (
-        os.environ.get("DEVICE_SCREEN_CONTROL_PROJECT")
-        or os.environ.get("STAYTURGID_SCREEN_PROJECT")
-        or "stayturgid"
+        os.environ.get("DEVICE_SCREEN_CONTROL_PROJECT") or os.environ.get("STAYTURGID_SCREEN_PROJECT") or "stayturgid"
     )
-    write(LEASE_FILE, json.dumps({
-        "schema": "device-screen-control-lease/v1",
-        "label": label,
-        "agent": agent,
-        "project": project,
-        "holder": {
-            "project": project,
-            "agent": agent,
-        },
-        "started": now,
-        "expires": now + LEASE_TTL_SEC,
-        "started_at": datetime.datetime.utcfromtimestamp(now).strftime(
-            "%Y-%m-%dT%H:%M:%SZ"
-        ),
-        "expires_at": datetime.datetime.utcfromtimestamp(
-            now + LEASE_TTL_SEC
-        ).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "ttl_sec": LEASE_TTL_SEC,
-    }) + "\n")
+    write(
+        LEASE_FILE,
+        json.dumps(
+            {
+                "schema": "device-screen-control-lease/v1",
+                "label": label,
+                "agent": agent,
+                "project": project,
+                "holder": {
+                    "project": project,
+                    "agent": agent,
+                },
+                "started": now,
+                "expires": now + LEASE_TTL_SEC,
+                "started_at": datetime.datetime.utcfromtimestamp(now).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "expires_at": datetime.datetime.utcfromtimestamp(now + LEASE_TTL_SEC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "ttl_sec": LEASE_TTL_SEC,
+            }
+        )
+        + "\n",
+    )
 
 
 def lease_active():
@@ -299,18 +304,37 @@ def consent_gate(label, agent):
         return 0
 
     _vibrate(200)
-    choice = dialog_choice(["30", "termux-dialog", "radio",
-                            "-t", "%s wants to use %s" % (agent, label),
-                            "-v", "Continue,Pause,Check again in 10 minutes"])
+    choice = dialog_choice(
+        [
+            "30",
+            "termux-dialog",
+            "radio",
+            "-t",
+            "%s wants to use %s" % (agent, label),
+            "-v",
+            "Continue,Pause,Check again in 10 minutes",
+        ]
+    )
     if choice == "Continue":
         rm(LATER_FILE)
         print("presence gate: continue")
         return 0
     if choice == "Pause":
         write(PAUSE_FILE, str(int(time.time())))
-        run(["termux-notification", "--id", NID, "--priority", "high", "--alert-once",
-             "--title", "%s paused on %s" % (agent, label),
-             "--content", "Run stayturgid_agent_presence.py resume to clear."])
+        run(
+            [
+                "termux-notification",
+                "--id",
+                NID,
+                "--priority",
+                "high",
+                "--alert-once",
+                "--title",
+                "%s paused on %s" % (agent, label),
+                "--content",
+                "Run stayturgid_agent_presence.py resume to clear.",
+            ]
+        )
         print("presence gate: pause")
         return 75
     # "Check again in 10 minutes", timeout, or unrecognized: fail closed.
@@ -335,10 +359,17 @@ def request_screen(label, agent):
         print("request-screen: allowed (quiet mode)")
         return 0
     _vibrate(300)
-    choice = dialog_choice([str(REQUEST_SCREEN_COUNTDOWN_SEC), "termux-dialog", "confirm",
-                            "-t", "%s wants to CONTROL THE SCREEN of %s" % (agent, label),
-                            "-i", "Starting in %d seconds. Press No to disallow, Yes to start now."
-                            % REQUEST_SCREEN_COUNTDOWN_SEC])
+    choice = dialog_choice(
+        [
+            str(REQUEST_SCREEN_COUNTDOWN_SEC),
+            "termux-dialog",
+            "confirm",
+            "-t",
+            "%s wants to CONTROL THE SCREEN of %s" % (agent, label),
+            "-i",
+            "Starting in %d seconds. Press No to disallow, Yes to start now." % REQUEST_SCREEN_COUNTDOWN_SEC,
+        ]
+    )
     if choice.lower() == "no":
         print("request-screen: DISALLOWED by user")
         return 75
@@ -350,9 +381,19 @@ def request_screen(label, agent):
 def _notify_presence(title, content, button1=None, button1_action=None):
     """Post ongoing presence notification; short wait, never SIGKILL."""
     args = [
-        "termux-notification", "--id", NID, "--ongoing", "--alert-once",
-        "--priority", "high", "--icon", "developer_board",
-        "--title", title, "--content", content,
+        "termux-notification",
+        "--id",
+        NID,
+        "--ongoing",
+        "--alert-once",
+        "--priority",
+        "high",
+        "--icon",
+        "developer_board",
+        "--title",
+        title,
+        "--content",
+        content,
     ]
     if button1 and button1_action:
         args.extend(["--button1", button1, "--button1-action", button1_action])
@@ -360,7 +401,8 @@ def _notify_presence(title, content, button1=None, button1_action=None):
 
 
 def action_on(label, agent):
-    rm(LATER_FILE); rm(STOP_FILE)
+    rm(LATER_FILE)
+    rm(STOP_FILE)
     write_lease(label, agent)
     if not invert("1"):
         sys.stderr.write("WARN: could not confirm display inversion (localhost:5555 shell?)\n")
@@ -370,12 +412,13 @@ def action_on(label, agent):
     if _quiet_presence():
         print("presence ON quiet (%s)" % label)
         return 0
-    btn = ("mkdir -p %s 2>/dev/null; touch %s; "
-           "termux-toast 'Stop requested — agent wrapping up (~1 min)'" % (STATE, STOP_FILE))
+    btn = "mkdir -p %s 2>/dev/null; touch %s; termux-toast 'Stop requested — agent wrapping up (~1 min)'" % (
+        STATE,
+        STOP_FILE,
+    )
     _notify_presence(
         "🤖 %s is using %s" % (agent, label),
-        "Automation in progress — started %s. Graceful stop gives "
-        "the agent ~1 min to wrap up." % now,
+        "Automation in progress — started %s. Graceful stop gives the agent ~1 min to wrap up." % now,
         button1="Graceful stop",
         button1_action=btn,
     )
@@ -398,12 +441,18 @@ def action_off(label, agent):
         # Skip on Fire — termux-dialog hangs there.
         try:
             subprocess.Popen(
-                ["termux-dialog", "confirm",
-                 "-t", "%s has released %s" % (agent, label),
-                 "-i", "Screen control ended after your stop request. "
-                       "The phone is all yours."],
-                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                start_new_session=True)
+                [
+                    "termux-dialog",
+                    "confirm",
+                    "-t",
+                    "%s has released %s" % (agent, label),
+                    "-i",
+                    "Screen control ended after your stop request. The phone is all yours.",
+                ],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
         except OSError:
             pass
         print("presence OFF (%s) — graceful stop honored" % label)
@@ -431,12 +480,13 @@ def action_guard():
     agent = lease.get("agent", "Auto")
     now = datetime.datetime.now().strftime("%H:%M:%S")
     if not _quiet_presence():
-        btn = ("mkdir -p %s 2>/dev/null; touch %s; "
-               "termux-toast 'Stop requested — agent wrapping up (~1 min)'" % (STATE, STOP_FILE))
+        btn = "mkdir -p %s 2>/dev/null; touch %s; termux-toast 'Stop requested — agent wrapping up (~1 min)'" % (
+            STATE,
+            STOP_FILE,
+        )
         _notify_presence(
             "🤖 %s is using %s" % (agent, label),
-            "Automation in progress — guarded %s. Graceful stop gives "
-            "the agent ~1 min to wrap up." % now,
+            "Automation in progress — guarded %s. Graceful stop gives the agent ~1 min to wrap up." % now,
             button1="Graceful stop",
             button1_action=btn,
         )
@@ -465,8 +515,7 @@ def main(argv=None):
         return request_screen(label, agent)
     if action == "stop-requested":
         if os.path.exists(STOP_FILE):
-            print("graceful stop requested — wrap up within ~1 minute, then run: "
-                  "stayturgid_agent_presence.py off")
+            print("graceful stop requested — wrap up within ~1 minute, then run: stayturgid_agent_presence.py off")
             return 0
         print("no stop requested")
         return 1
@@ -479,11 +528,14 @@ def main(argv=None):
     if action == "status":
         return action_status()
     if action in ("resume", "clear-pause"):
-        rm(PAUSE_FILE); rm(LATER_FILE)
+        rm(PAUSE_FILE)
+        rm(LATER_FILE)
         print("presence gate: pause cleared")
         return 0
-    sys.stderr.write("usage: stayturgid_agent_presence.py on|off|gate|request-screen|"
-                     "stop-requested|guard|status [label] [agent] | resume\n")
+    sys.stderr.write(
+        "usage: stayturgid_agent_presence.py on|off|gate|request-screen|"
+        "stop-requested|guard|status [label] [agent] | resume\n"
+    )
     return 2
 
 

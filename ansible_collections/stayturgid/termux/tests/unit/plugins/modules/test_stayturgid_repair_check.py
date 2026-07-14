@@ -1,4 +1,5 @@
 """Unit tests for stayturgid_repair_check module."""
+
 import json
 import os
 import sys
@@ -17,17 +18,13 @@ def test_find_status_line_picks_last():
 
 
 def test_parse_status_with_a11y():
-    parsed = mod.parse_status_line(
-        "STATUS port=open shizuku=up sshd=up a11y=up shell=yes"
-    )
+    parsed = mod.parse_status_line("STATUS port=open shizuku=up sshd=up a11y=up shell=yes")
     assert parsed["port"] == "open"
     assert parsed["a11y"] == "up"
 
 
 def test_parse_status_without_a11y():
-    parsed = mod.parse_status_line(
-        "STATUS port=skip shizuku=skip sshd=up shell=no"
-    )
+    parsed = mod.parse_status_line("STATUS port=skip shizuku=skip sshd=up shell=no")
     assert parsed["port"] == "skip"
     assert parsed.get("a11y") is None
 
@@ -38,12 +35,18 @@ def test_is_healthy_open_and_skip():
     assert mod.is_healthy({"port": "CLOSED_NO_SHELL"}) is False
 
 
-def run_module(mocker, args, tmp_path, monkeypatch, script_body="#!/bin/bash\necho STATUS port=open shizuku=up sshd=up a11y=up shell=yes\nexit 0\n"):
+def run_module(
+    mocker,
+    args,
+    tmp_path,
+    monkeypatch,
+    script_body="#!/bin/bash\necho STATUS port=open shizuku=up sshd=up a11y=up shell=yes\nexit 0\n",
+):
     monkeypatch.setenv("HOME", str(tmp_path))
     prefix = tmp_path / "termux"
     (prefix / "bin").mkdir(parents=True)
     bash = prefix / "bin" / "bash"
-    bash.write_text("#!/bin/sh\nexec /bin/sh \"$@\"\n")
+    bash.write_text('#!/bin/sh\nexec /bin/sh "$@"\n')
     bash.chmod(0o755)
 
     script = tmp_path / "repair.sh"

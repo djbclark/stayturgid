@@ -13,6 +13,7 @@ Deploy to ~/.stayturgid/bin/bridges.py. Started at boot by:
   ~/.termux/boot/start-repair-bridge.sh or start-autojs6-bridge.sh.
   Shell scripts are now minimal one-liners (pidfile guard lives here).
 """
+
 import argparse
 import os
 import subprocess
@@ -149,10 +150,16 @@ def run_autojs6_mode() -> None:
         try:
             subprocess.run(
                 [
-                    "am", "start", "-a", "android.intent.action.VIEW",
-                    "-d", f"file://{boot_script}",
-                    "-t", "text/javascript",
-                    "-n", f"{AUTOJS_PKG}/{AUTOJS_RUN}",
+                    "am",
+                    "start",
+                    "-a",
+                    "android.intent.action.VIEW",
+                    "-d",
+                    f"file://{boot_script}",
+                    "-t",
+                    "text/javascript",
+                    "-n",
+                    f"{AUTOJS_PKG}/{AUTOJS_RUN}",
                 ],
                 capture_output=True,
                 timeout=30,
@@ -182,7 +189,9 @@ def run_autojs6_mode() -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Stayturgid bridge daemon")
     parser.add_argument(
-        "--mode", required=True, choices=["repair", "autojs6"],
+        "--mode",
+        required=True,
+        choices=["repair", "autojs6"],
         help="Bridge mode: repair (stayturgid_repair.py) or autojs6 (boot-launcher.js)",
     )
     args = parser.parse_args()

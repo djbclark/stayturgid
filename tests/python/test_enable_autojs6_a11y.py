@@ -1,4 +1,5 @@
 """Unit tests for AutoJs6 accessibility detection."""
+
 import sys
 from pathlib import Path
 

@@ -13,6 +13,7 @@ Override root with env ``DEVICE_SCREEN_CONTROL_DIR``.
 See docs/modules/screen-control-lease.md for the full protocol and the
 interop prompt for other projects.
 """
+
 from __future__ import annotations
 
 import fcntl
@@ -105,9 +106,7 @@ def project_id() -> str:
 
 def agent_id(default: str = "Auto") -> str:
     return (
-        os.environ.get("DEVICE_SCREEN_CONTROL_AGENT")
-        or os.environ.get("STAYTURGID_AGENT")
-        or default
+        os.environ.get("DEVICE_SCREEN_CONTROL_AGENT") or os.environ.get("STAYTURGID_AGENT") or default
     ).strip() or default
 
 
@@ -124,9 +123,7 @@ def force_acquire() -> bool:
 
 
 def wait_sec() -> float:
-    raw = os.environ.get("DEVICE_SCREEN_CONTROL_WAIT_SEC") or os.environ.get(
-        "STAYTURGID_SCREEN_LEASE_WAIT_SEC", "0"
-    )
+    raw = os.environ.get("DEVICE_SCREEN_CONTROL_WAIT_SEC") or os.environ.get("STAYTURGID_SCREEN_LEASE_WAIT_SEC", "0")
     try:
         return max(0.0, float(raw))
     except ValueError:
@@ -342,9 +339,10 @@ def acquire(
         with _lease_lock():
             existing = find_active_lease(*keys)
             can_write = existing is None
-            if not can_write and ours(existing, session_id=None) and (
-                holder_session(existing) == sid
-                or existing.get("holder", {}).get("pid") == os.getpid()
+            if (
+                not can_write
+                and ours(existing, session_id=None)
+                and (holder_session(existing) == sid or existing.get("holder", {}).get("pid") == os.getpid())
             ):
                 can_write = True
             if not can_write and force:
@@ -364,8 +362,7 @@ def acquire(
             remaining = deadline - _now()
             if remaining <= 0:
                 raise LeaseConflict(
-                    "device %s held by another controller: %s"
-                    % (device, format_holder(existing)),
+                    "device %s held by another controller: %s" % (device, format_holder(existing)),
                     lease=existing,
                 )
         # Sleep outside the lock so other waiters / holders can progress.
@@ -444,12 +441,7 @@ def release(
                 continue
             if not force and not ours(lease):
                 continue
-            if (
-                not force
-                and session_id
-                and holder_session(lease)
-                and holder_session(lease) != session_id
-            ):
+            if not force and session_id and holder_session(lease) and holder_session(lease) != session_id:
                 continue
             p = Path(lease.get("_path") or lease_path(device))
             if p not in targets:
@@ -465,13 +457,7 @@ def release(
                 data = _read_json(p)
                 if data and not force and not ours(data):
                     continue
-                if (
-                    data
-                    and not force
-                    and session_id
-                    and holder_session(data)
-                    and holder_session(data) != session_id
-                ):
+                if data and not force and session_id and holder_session(data) and holder_session(data) != session_id:
                     continue
                 p.unlink()
                 removed = True

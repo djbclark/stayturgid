@@ -1,4 +1,5 @@
 """Unit tests for the adb_resolve module_util (control-node ADB target picker)."""
+
 import os
 import sys
 
@@ -10,6 +11,7 @@ import adb_resolve as ar  # noqa: E402
 
 def _listing(*lines):
     """Fake run_command: 'adb devices' returns lines; connect/shell succeed."""
+
     def run(cmd):
         if cmd[:2] == ["adb", "devices"]:
             return 0, ("\n".join(lines) + "\n") if lines else "", ""
@@ -18,6 +20,7 @@ def _listing(*lines):
         if len(cmd) >= 4 and cmd[:2] == ["adb", "-s"] and cmd[3] == "shell":
             return 0, "RFCX219CHKA\n", ""
         return 1, "", ""
+
     return run
 
 
@@ -83,6 +86,7 @@ def test_resolve_static_fallback_without_run_command(tmp_path, monkeypatch):
     # Without a monkeypatch, the real network state makes this test flaky.
     def _reachable(ep, timeout=None):
         return ep == "192.168.1.9:5555"
+
     monkeypatch.setattr(ar, "tcp_reachable", _reachable)
     conf = _conf(tmp_path, "p7a - 100.1.1.1 192.168.1.9\n")
     assert ar.resolve_adb("p7a", None, conf) == "192.168.1.9:5555"
@@ -111,8 +115,7 @@ def test_connect_wireless_connects_when_reachable(monkeypatch):
 
 def test_resolve_gates_connect_behind_probe(tmp_path, monkeypatch):
     conf = _conf(tmp_path, "p7a USB 100.65.0.1 192.168.1.9\n")
-    monkeypatch.setattr(ar, "tcp_reachable",
-                        lambda ep, timeout=None: ep == "100.65.0.1:5555")
+    monkeypatch.setattr(ar, "tcp_reachable", lambda ep, timeout=None: ep == "100.65.0.1:5555")
     seen = []
 
     def run(cmd):

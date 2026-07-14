@@ -5,6 +5,7 @@ Usage: ./deploy.py <serial|s24|hd8|p7a> [device-id]
 
 Does NOT install AutoJs6 — use setup_autojs6.py or Obtainium first.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -15,9 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
-_COLLECTION_UTILS = (
-    REPO_ROOT / "ansible_collections" / "stayturgid" / "android_common" / "plugins" / "module_utils"
-)
+_COLLECTION_UTILS = REPO_ROOT / "ansible_collections" / "stayturgid" / "android_common" / "plugins" / "module_utils"
 if str(_COLLECTION_UTILS) not in sys.path:
     sys.path.insert(0, str(_COLLECTION_UTILS))
 

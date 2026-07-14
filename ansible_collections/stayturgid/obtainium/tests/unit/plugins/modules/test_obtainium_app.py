@@ -1,4 +1,5 @@
 """Unit tests for the obtainium_app module (catalog rendering + idempotence)."""
+
 import json
 
 import pytest
@@ -30,7 +31,7 @@ def run_module(mocker, args, cmd_results=None):
     def fake_run_command(self, cmd, *a, **kw):
         joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
         commands.append(joined)
-        for needle, result in (cmd_results or []):
+        for needle, result in cmd_results or []:
             if needle in joined:
                 return result
         return (0, "", "")
@@ -86,9 +87,7 @@ def test_spec_change_is_detected(tmp_path, mocker):
     path = str(tmp_path / "catalog.json")
     run_module(mocker, {"apps": [AUTOJS], "catalog_path": path, "check_installed": False})
     changed_spec = dict(AUTOJS, settings={"apkFilterRegEx": "universal"})
-    res, _cmds, _w = run_module(
-        mocker, {"apps": [changed_spec], "catalog_path": path, "check_installed": False}
-    )
+    res, _cmds, _w = run_module(mocker, {"apps": [changed_spec], "catalog_path": path, "check_installed": False})
     assert res["changed"] is True
     settings = json.loads(json.load(open(path))["apps"][0]["additionalSettings"])
     assert settings["apkFilterRegEx"] == "universal"

@@ -1,4 +1,5 @@
 """Unit tests for autojs6_project_deploy module and deploy util."""
+
 import json
 import os
 import sys
@@ -55,9 +56,7 @@ def test_deploy_util_wipes_before_push(tmp_path):
         calls.append(joined)
         return _fake_run()(cmd)
 
-    ok, msg, changed = deploy_util.deploy_project(
-        run_command, "SERIAL", str(root), target="/sdcard/stayturgid/autojs6"
-    )
+    ok, msg, changed = deploy_util.deploy_project(run_command, "SERIAL", str(root), target="/sdcard/stayturgid/autojs6")
     assert ok, msg
     assert changed is True
     wipe_idx = next(i for i, c in enumerate(calls) if "rm -rf" in c)

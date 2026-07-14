@@ -4,6 +4,7 @@
 Usage: stayturgid_configure_aurora.py
 All input events go through ScreenControlSession.shell (inversion-gated).
 """
+
 from __future__ import annotations
 
 import re
@@ -337,17 +338,13 @@ def approve_shizuku_dialog(shell):
 def _installer_checked(ui_xml: str) -> bool:
     if _HS is not None:
         for n in _HS._walk_nodes():
-            if n.get("text") == "Shizuku installer" or "Shizuku installer" in str(
-                n.get("text") or ""
-            ):
+            if n.get("text") == "Shizuku installer" or "Shizuku installer" in str(n.get("text") or ""):
                 # Prefer nearby checked radio/switch; fall back to any checked flag.
                 if hs.Session._checked(n):
                     return True
         # Any checked node on the installation-method screen is enough when
         # the label is present (radio group).
-        return "Shizuku installer" in ui_xml and any(
-            hs.Session._checked(n) for n in _HS._walk_nodes()
-        )
+        return "Shizuku installer" in ui_xml and any(hs.Session._checked(n) for n in _HS._walk_nodes())
     return "Shizuku installer" in ui_xml and 'checked="true"' in ui_xml
 
 
@@ -405,7 +402,7 @@ def configure_auto_updates(shell):
             return True
     sys.stderr.write(
         "ERROR: could not select Do not auto-update (on_labels_present=%s)\n"
-        % any(l in ui for l in AUTO_UPDATE_ON_LABELS)
+        % any(label in ui for label in AUTO_UPDATE_ON_LABELS)
     )
     return False
 
@@ -414,7 +411,7 @@ def configure_update_filters(shell):
     """Limit update checks to apps Aurora installed; also drop F-Droid packages."""
     for _ in range(3):
         ui = dump_xml(shell)
-        if any(l in ui for l in FILTER_AURORA_ONLY_LABELS + FILTER_FDROID_LABELS):
+        if any(label in ui for label in FILTER_AURORA_ONLY_LABELS + FILTER_FDROID_LABELS):
             break
         if "Settings" in ui and "Updates" in ui:
             if not tap_text(shell, "Updates"):
@@ -431,9 +428,7 @@ def configure_update_filters(shell):
         if not tap_text(shell, "Updates"):
             return False
 
-    if not ensure_preference_on(
-        shell, FILTER_AURORA_ONLY_LABELS, "filter apps from other sources"
-    ):
+    if not ensure_preference_on(shell, FILTER_AURORA_ONLY_LABELS, "filter apps from other sources"):
         return False
     if not ensure_preference_on(shell, FILTER_FDROID_LABELS, "filter F-Droid apps"):
         return False

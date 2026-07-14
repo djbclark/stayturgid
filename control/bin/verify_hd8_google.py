@@ -13,6 +13,7 @@ Usage:
 VLM gates run when llama-server is healthy (see docs/vlm.md). Stack version checks
 always run (no VLM required).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -47,11 +48,7 @@ def check_stack(serial: str) -> tuple[bool, dict]:
     gms = hgs.package_version_code(run_command, serial, hgs.GMS_PKG)
     play = hgs.package_version_code(run_command, serial, hgs.PLAY_PKG)
     gsf = hgs.package_version_name(run_command, serial, hgs.GSF_PKG)
-    ok = (
-        gms is not None
-        and play is not None
-        and not hgs.needs_gsf_reinstall(gsf)
-    )
+    ok = gms is not None and play is not None and not hgs.needs_gsf_reinstall(gsf)
     # Optional pin-policy signal (does not fail the check by default).
     pin_drift = hgs.needs_gms_downgrade(gms) or hgs.needs_play_downgrade(play)
     return ok, {
@@ -104,17 +101,23 @@ def main(argv: list[str] | None = None) -> int:
     report["checks"]["stack"] = stack_detail
     if not stack_ok:
         failures.append("stack_drift")
-        print("FAIL stack: gms=%s play=%s gsf=%s" % (
-            stack_detail.get("gms_version"),
-            stack_detail.get("play_version"),
-            stack_detail.get("gsf_version"),
-        ))
+        print(
+            "FAIL stack: gms=%s play=%s gsf=%s"
+            % (
+                stack_detail.get("gms_version"),
+                stack_detail.get("play_version"),
+                stack_detail.get("gsf_version"),
+            )
+        )
     else:
-        print("OK stack pinned (gms=%s play=%s gsf=%s)" % (
-            stack_detail.get("gms_version"),
-            stack_detail.get("play_version"),
-            stack_detail.get("gsf_version"),
-        ))
+        print(
+            "OK stack pinned (gms=%s play=%s gsf=%s)"
+            % (
+                stack_detail.get("gms_version"),
+                stack_detail.get("play_version"),
+                stack_detail.get("gsf_version"),
+            )
+        )
 
     gate = vlm.VlmGate(autostart=True, allow_server_only=True)
     if gate.usable:
@@ -161,9 +164,7 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(report, indent=2))
 
     if failures:
-        return 1 if vlm.vlm_strict() or gate.usable else (
-            1 if "stack_drift" in failures else 0
-        )
+        return 1 if vlm.vlm_strict() or gate.usable else (1 if "stack_drift" in failures else 0)
     return 0
 
 

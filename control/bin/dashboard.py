@@ -9,6 +9,7 @@ device status cards.
 Usage:
   python3 control/bin/dashboard.py [--port 4097]
 """
+
 from __future__ import annotations
 
 import argparse
@@ -48,10 +49,12 @@ DEVICES_CONF = ROOT / "devices.conf"
 ACCESS_STATE = ROOT / "state" / "access-monitor"
 DEFAULT_PORT = 4097
 
-app = Flask(__name__,
-            template_folder=str(_CONTROL / "templates"),
-            static_folder=str(_CONTROL / "static"),
-            static_url_path="/static")
+app = Flask(
+    __name__,
+    template_folder=str(_CONTROL / "templates"),
+    static_folder=str(_CONTROL / "static"),
+    static_url_path="/static",
+)
 
 OC_WEB_URL = "https://mac.greyhound-sidemirror.ts.net/opencode/"
 NETWORK_URL = "https://mac.greyhound-sidemirror.ts.net/"
@@ -94,9 +97,7 @@ def _parse_space_kv(text: str) -> dict[str, str]:
     return out
 
 
-_HEALTH_LINE_RE = re.compile(
-    r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(?:[A-Z]+\s+)?(\S+)\s+via\s+(\S+):\s+(.*)$"
-)
+_HEALTH_LINE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(?:[A-Z]+\s+)?(\S+)\s+via\s+(\S+):\s+(.*)$")
 
 
 def _latest_fleet_health() -> dict[str, dict]:
@@ -182,9 +183,14 @@ _AGE_WARN = 30 * 60
 _AGE_CRIT = 45 * 60
 
 _SVC_LABELS = {
-    "sshd": "sshd", "bootloop": "bootloop", "shell5555": "sh 5555",
-    "shizuku": "shizuku", "a11y": "a11y", "autojs6_a11y": "autojs6",
-    "cfengine": "cfengine", "port": "port",
+    "sshd": "sshd",
+    "bootloop": "bootloop",
+    "shell5555": "sh 5555",
+    "shizuku": "shizuku",
+    "a11y": "a11y",
+    "autojs6_a11y": "autojs6",
+    "cfengine": "cfengine",
+    "port": "port",
 }
 
 
@@ -254,8 +260,7 @@ HUMAN_ACTIONS = {
         "If persistent, run: just verify-heal HOSTS=<host>"
     ),
     "repair_missing": (
-        "No repair log found. The Termux boot loop may not be running. "
-        "Run: just deploy-termux HOSTS=<host>"
+        "No repair log found. The Termux boot loop may not be running. Run: just deploy-termux HOSTS=<host>"
     ),
     "shizuku_down": (
         "Shizuku is not running. The repair loop should auto-restart it. "
@@ -307,7 +312,9 @@ def _rish_probe(hostname: str) -> tuple[bool, str]:
     try:
         result = subprocess.run(
             ["ssh", *SSH_OPTS, ssh_host, "~/.stayturgid/bin/rish -c 'id -u'"],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True,
+            text=True,
+            timeout=15,
         )
     except (OSError, subprocess.TimeoutExpired):
         return False, "rish probe timed out or SSH is unavailable"
@@ -322,9 +329,7 @@ def request_shizuku_authorization(hostname: str) -> tuple[bool, str]:
     """Open Shizuku on-device, then verify rish; Android consent stays human-gated."""
     try:
         rc, _output = PrivShell(hostname).sh(
-            "am start -a android.intent.action.MAIN "
-            "-c android.intent.category.LAUNCHER "
-            "-p moe.shizuku.privileged.api",
+            "am start -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p moe.shizuku.privileged.api",
             timeout=20,
         )
     except (OSError, ValueError) as exc:
@@ -342,8 +347,7 @@ def _human_actions(issues: list[str], hostname: str) -> list[dict]:
     for tag in issues:
         if tag in HUMAN_ACTIONS:
             msg = HUMAN_ACTIONS[tag].replace("<host>", hostname)
-            out.append({"issue": tag, "message": msg,
-                        "shizuku_action": tag == "shizuku_down"})
+            out.append({"issue": tag, "message": msg, "shizuku_action": tag == "shizuku_down"})
     return out
 
 
@@ -357,15 +361,13 @@ def _safe_int(s: str | None) -> int | None:
 
 
 def _build_services(h: dict) -> list[dict]:
-    svc_order = ["sshd", "bootloop", "shell5555", "shizuku", "a11y",
-                 "autojs6_a11y", "cfengine", "port"]
+    svc_order = ["sshd", "bootloop", "shell5555", "shizuku", "a11y", "autojs6_a11y", "cfengine", "port"]
     out: list[dict] = []
     for key in svc_order:
         val = h.get(key)
         if val is None or val in ("skip",):
             continue
-        out.append({"label": _SVC_LABELS.get(key, key), "value": val,
-                     "cls": _svc_cls(val)})
+        out.append({"label": _SVC_LABELS.get(key, key), "value": val, "cls": _svc_cls(val)})
     return out
 
 
@@ -423,8 +425,9 @@ def build_device_data() -> list[dict]:
         if fr is not None:
             d["firerpa_age_s"] = _age_s(fr["ts"])
             d["firerpa_age"] = _age_str(d["firerpa_age_s"])
-            d["firerpa_badge"] = _svc_badge("firerpa", fr.get("firerpa_ver"),
-                                           ok_values=frozenset({fr.get("firerpa_ver", "?")}))
+            d["firerpa_badge"] = _svc_badge(
+                "firerpa", fr.get("firerpa_ver"), ok_values=frozenset({fr.get("firerpa_ver", "?")})
+            )
             d["firerpa_sshd_badge"] = _svc_badge("sshd", fr.get("firerpa_sshd"))
             d["firerpa_shizuku_badge"] = _svc_badge("shizuku", fr.get("firerpa_shizuku"))
         else:
@@ -457,12 +460,10 @@ def index():
     devices = build_device_data()
     now = time.strftime("%Y-%m-%d %H:%M:%S")
     cards = "\n".join(
-        _render_template("_device_card.html", device=d,
-                         oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
+        _render_template("_device_card.html", device=d, oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
         for d in devices
     )
-    return _render_template("dashboard.html", cards=cards,
-                            oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
+    return _render_template("dashboard.html", cards=cards, oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
 
 
 @app.route("/api/devices")
@@ -470,8 +471,7 @@ def api_devices():
     devices = build_device_data()
     now = time.strftime("%Y-%m-%d %H:%M:%S")
     cards = "\n".join(
-        _render_template("_device_card.html", device=d,
-                         oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
+        _render_template("_device_card.html", device=d, oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
         for d in devices
     )
     return cards
@@ -554,16 +554,16 @@ def api_probe(host: str):
     if fr is not None:
         d["firerpa_age_s"] = _age_s(fr["ts"])
         d["firerpa_age"] = _age_str(d["firerpa_age_s"])
-        d["firerpa_badge"] = _svc_badge("firerpa", fr.get("firerpa_ver"),
-                                       ok_values=frozenset({fr.get("firerpa_ver", "?")}))
+        d["firerpa_badge"] = _svc_badge(
+            "firerpa", fr.get("firerpa_ver"), ok_values=frozenset({fr.get("firerpa_ver", "?")})
+        )
         d["firerpa_sshd_badge"] = _svc_badge("sshd", fr.get("firerpa_sshd"))
         d["firerpa_shizuku_badge"] = _svc_badge("shizuku", fr.get("firerpa_shizuku"))
     else:
         d["firerpa_age_s"] = None
         d["firerpa_age"] = "--"
 
-    return _render_template("_device_card.html", device=d,
-                            oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
+    return _render_template("_device_card.html", device=d, oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
 
 
 @app.route("/api/shizuku/<host>", methods=["POST"])
@@ -574,9 +574,7 @@ def api_shizuku(host: str):
         return '<div class="probe-error">Unknown host: %s</div>' % escape(host), 404
     ok, message = request_shizuku_authorization(host)
     cls = "ok" if ok else "warn"
-    return '<div class="shizuku-result %s"><strong>Shizuku:</strong> %s</div>' % (
-        cls, escape(message)
-    )
+    return '<div class="shizuku-result %s"><strong>Shizuku:</strong> %s</div>' % (cls, escape(message))
 
 
 @app.route("/health")
@@ -612,9 +610,15 @@ def _parse_timeframe(range_str: str) -> dt.timedelta:
 
 
 _SELECT_OPTIONS = [
-    ("15m", "15 minutes"), ("1h", "1 hour"), ("6h", "6 hours"),
-    ("1d", "1 day"), ("3d", "3 days"), ("1w", "1 week"),
-    ("2w", "2 weeks"), ("1M", "1 month"), ("3M", "3 months"),
+    ("15m", "15 minutes"),
+    ("1h", "1 hour"),
+    ("6h", "6 hours"),
+    ("1d", "1 day"),
+    ("3d", "3 days"),
+    ("1w", "1 week"),
+    ("2w", "2 weeks"),
+    ("1M", "1 month"),
+    ("3M", "3 months"),
     ("1y", "1 year"),
 ]
 
@@ -622,9 +626,7 @@ _SELECT_OPTIONS = [
 @app.route("/errors")
 def errors_page():
     """Show recent device errors from errors.log."""
-    _ERROR_LINE_RE = re.compile(
-        r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(\S+)\s+(.*)$"
-    )
+    _ERROR_LINE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s+(\S+)\s+(.*)$")
     entries: list[dict] = []
     if ERROR_LOG.is_file():
         try:
@@ -636,18 +638,22 @@ def errors_page():
             if not m:
                 continue
             ts, level, rest = m.group(1), m.group(2), m.group(3)
-            entries.append({
-                "ts": ts,
-                "level": level,
-                "msg": rest[:300],
-                "cls": "error" if level in ("ERR", "CRIT", "EMERG") else ("warn" if level == "WARNING" else "info"),
-            })
+            entries.append(
+                {
+                    "ts": ts,
+                    "level": level,
+                    "msg": rest[:300],
+                    "cls": "error" if level in ("ERR", "CRIT", "EMERG") else ("warn" if level == "WARNING" else "info"),
+                }
+            )
 
-    return _render_template("errors.html",
-                            entries=entries,
-                            count=len(entries),
-                            oc_web_url=OC_WEB_URL,
-                            now=time.strftime("%Y-%m-%d %H:%M:%S"))
+    return _render_template(
+        "errors.html",
+        entries=entries,
+        count=len(entries),
+        oc_web_url=OC_WEB_URL,
+        now=time.strftime("%Y-%m-%d %H:%M:%S"),
+    )
 
 
 @app.route("/stats")
@@ -660,14 +666,17 @@ def stats_page():
     devices = [name for name, *_ in iter_devices_conf(str(DEVICES_CONF))]
     display_range = dict(_SELECT_OPTIONS).get(range_str, range_str)
 
-    return _render_template("stats.html",
-                            stats=stat_data,
-                            devices=devices,
-                            range_str=range_str,
-                            display_range=display_range,
-                            select_options=_SELECT_OPTIONS,
-                             oc_web_url=OC_WEB_URL, network_url=NETWORK_URL,
-                             now=time.strftime("%Y-%m-%d %H:%M:%S"))
+    return _render_template(
+        "stats.html",
+        stats=stat_data,
+        devices=devices,
+        range_str=range_str,
+        display_range=display_range,
+        select_options=_SELECT_OPTIONS,
+        oc_web_url=OC_WEB_URL,
+        network_url=NETWORK_URL,
+        now=time.strftime("%Y-%m-%d %H:%M:%S"),
+    )
 
 
 @app.route("/api/stats")
@@ -680,13 +689,15 @@ def api_stats():
     devices = [name for name, *_ in iter_devices_conf(str(DEVICES_CONF))]
     display_range = dict(_SELECT_OPTIONS).get(range_str, range_str)
 
-    return _render_template("_stats_content.html",
-                            stats=stat_data,
-                            devices=devices,
-                            range_str=range_str,
-                            display_range=display_range,
-                            select_options=_SELECT_OPTIONS,
-                            now=time.strftime("%Y-%m-%d %H:%M:%S"))
+    return _render_template(
+        "_stats_content.html",
+        stats=stat_data,
+        devices=devices,
+        range_str=range_str,
+        display_range=display_range,
+        select_options=_SELECT_OPTIONS,
+        now=time.strftime("%Y-%m-%d %H:%M:%S"),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -694,8 +705,7 @@ def api_stats():
 # ---------------------------------------------------------------------------
 def main() -> int:
     ap = argparse.ArgumentParser(description="stayturgid fleet dashboard")
-    ap.add_argument("--port", type=int, default=DEFAULT_PORT,
-                    help=f"Listen port (default: {DEFAULT_PORT})")
+    ap.add_argument("--port", type=int, default=DEFAULT_PORT, help=f"Listen port (default: {DEFAULT_PORT})")
     ap.add_argument("--debug", action="store_true", help="Flask debug mode")
     args = ap.parse_args()
 

@@ -1,4 +1,5 @@
 """Unit tests for termux_ssh_bootstrap module and termux_run_as helpers."""
+
 import json
 
 import pytest
@@ -26,7 +27,7 @@ def run_module(mocker, args, cmd_results=None):
 
     def fake_run_command(self, cmd, *a, **kw):
         joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
-        for needle, result in (cmd_results or []):
+        for needle, result in cmd_results or []:
             if needle in joined:
                 return result
         if "run-as com.termux true" in joined:

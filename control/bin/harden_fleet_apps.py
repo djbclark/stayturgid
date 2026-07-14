@@ -8,6 +8,7 @@ android_common.app_privileges Ansible role.
 
 Usage: ./harden_fleet_apps.py <s24|p7a|hd8|serial>
 """
+
 from __future__ import annotations
 
 import json

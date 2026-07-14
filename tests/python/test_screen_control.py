@@ -1,12 +1,13 @@
 """Unit tests for control/lib/screen_control.py input gating."""
+
 import os
 import sys
 
 import pytest
 
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "control", "lib"))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "lib")
+)
 import screen_control as sc  # noqa: E402
 
 
@@ -33,8 +34,7 @@ def test_restore_default_ime_skips_when_unchanged(monkeypatch):
 def test_restore_default_ime_from_adb_keyboard(monkeypatch):
     calls = []
     monkeypatch.setattr(sc, "get_default_ime", lambda _s: sc.ADB_KEYBOARD)
-    monkeypatch.setattr(sc, "set_default_ime",
-                        lambda _s, ime: calls.append(ime) or True)
+    monkeypatch.setattr(sc, "set_default_ime", lambda _s, ime: calls.append(ime) or True)
     assert sc.restore_default_ime("serial", "com.amazon.redstone/.FireKeyboardService")
     assert calls == ["com.amazon.redstone/.FireKeyboardService"]
 
@@ -54,9 +54,7 @@ def test_skip_presence_still_enables_inversion(monkeypatch, tmp_path):
     monkeypatch.setattr(sc.uc, "clear_ui_obstructions", lambda *a, **k: [])
     monkeypatch.setattr(sc, "get_default_ime", lambda _s: "com.example/.Ime")
     monkeypatch.setattr(sc, "get_foreground_component", lambda _s: None)
-    monkeypatch.setattr(
-        sc, "set_inversion", lambda _s, en: calls.append(("inv", en)) or True
-    )
+    monkeypatch.setattr(sc, "set_inversion", lambda _s, en: calls.append(("inv", en)) or True)
     monkeypatch.setattr(
         sc,
         "ssh_presence",
@@ -125,9 +123,7 @@ def test_restore_foreground_app_am_start(monkeypatch):
         calls.append(args)
         return 0, ""
 
-    assert sc.restore_foreground(
-        "serial", "com.discord/.MainActivity", shell_fn=fake_shell
-    )
+    assert sc.restore_foreground("serial", "com.discord/.MainActivity", shell_fn=fake_shell)
     assert calls[0][0] == "am"
     assert "com.discord/.MainActivity" in calls[0]
 
@@ -147,9 +143,7 @@ def test_session_restores_prior_screen_on_exit(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(sc.uc, "clear_ui_obstructions", lambda *a, **k: [])
     monkeypatch.setattr(sc, "get_default_ime", lambda _s: "com.example/.Ime")
-    monkeypatch.setattr(
-        sc, "get_foreground_component", lambda _s: "com.discord/.MainActivity"
-    )
+    monkeypatch.setattr(sc, "get_foreground_component", lambda _s: "com.discord/.MainActivity")
     monkeypatch.setattr(sc, "set_inversion", lambda _s, en: True)
     monkeypatch.setattr(sc, "restore_default_ime", lambda *a, **k: True)
     monkeypatch.setattr(sc, "lock_portrait_orientation", lambda _s: {"user_rotation": "1"})
@@ -301,8 +295,7 @@ def test_session_locks_portrait_on_enter_and_restores_on_exit(monkeypatch, tmp_p
     monkeypatch.setattr(
         sc,
         "lock_portrait_orientation",
-        lambda s: rotation_calls.append(("lock", s))
-        or {"accelerometer_rotation": "1", "user_rotation": "2"},
+        lambda s: rotation_calls.append(("lock", s)) or {"accelerometer_rotation": "1", "user_rotation": "2"},
     )
     monkeypatch.setattr(
         sc,

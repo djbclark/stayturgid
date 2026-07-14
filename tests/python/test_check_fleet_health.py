@@ -1,4 +1,5 @@
 """Unit tests for control/bin/check_fleet_health.py (no device required)."""
+
 from __future__ import annotations
 
 import datetime as dt
@@ -42,10 +43,7 @@ def test_latest_per_host_accepts_severity_column(tmp_path):
 
 
 def test_access_host_accepts_severity_column():
-    line = (
-        "2026-07-13 12:22:51  WARNING hd8 unreachable on all paths "
-        "(consecutive: 2)"
-    )
+    line = "2026-07-13 12:22:51  WARNING hd8 unreachable on all paths (consecutive: 2)"
     assert cfh.host_from_access_line(line) == "hd8"
 
 
@@ -61,9 +59,7 @@ def test_main_reports_problems(tmp_path, monkeypatch, capsys):
     log = tmp_path / "logs" / "fleet-health.log"
     log.parent.mkdir(parents=True)
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    log.write_text(
-        "%s  s24 via adb:1.2.3.4:5555: sshd=ok watchdog_age=9 issues=watchdog_stale\n" % now
-    )
+    log.write_text("%s  s24 via adb:1.2.3.4:5555: sshd=ok watchdog_age=9 issues=watchdog_stale\n" % now)
     state = tmp_path / "state" / "fleet-health"
     state.mkdir(parents=True)
     (state / "s24").write_text("3")
@@ -86,9 +82,7 @@ def test_main_ok_with_stale_access_lost(tmp_path, monkeypatch, capsys):
     # Within the default --hours window (relative, not a hard-coded date).
     old = (dt.datetime.now() - dt.timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
     log.write_text("%s  s24 via adb:1.2.3.4:5555: sshd=ok issues=none\n" % now)
-    access.write_text(
-        "%s  s24 unreachable on all paths (consecutive: 2)\n" % old
-    )
+    access.write_text("%s  s24 unreachable on all paths (consecutive: 2)\n" % old)
     state = tmp_path / "state" / "fleet-health"
     state.mkdir(parents=True)
     (state / "s24").write_text("0")
@@ -107,16 +101,9 @@ def test_soft_issue_still_resolves_old_access_loss(tmp_path, monkeypatch, capsys
     access = tmp_path / "logs" / "access-monitor.log"
     log.parent.mkdir(parents=True)
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    old = (dt.datetime.now() - dt.timedelta(hours=2)).strftime(
-        "%Y-%m-%d %H:%M:%S"
-    )
-    log.write_text(
-        "%s  INFO s24 via adb:1.2.3.4:5555: sshd=ok "
-        "issues=watchdog_stale\n" % now
-    )
-    access.write_text(
-        "%s  WARNING s24 unreachable on all paths (consecutive: 2)\n" % old
-    )
+    old = (dt.datetime.now() - dt.timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
+    log.write_text("%s  INFO s24 via adb:1.2.3.4:5555: sshd=ok issues=watchdog_stale\n" % now)
+    access.write_text("%s  WARNING s24 unreachable on all paths (consecutive: 2)\n" % old)
     state = tmp_path / "state" / "fleet-health"
     state.mkdir(parents=True)
     (state / "s24").write_text("3")
@@ -139,8 +126,7 @@ def test_main_fails_access_lost_when_host_not_ok(tmp_path, monkeypatch, capsys):
     now = dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log.write_text("%s  p7a via adb:1.2.3.4:5555: sshd=ok issues=none\n" % now)
     access.write_text(
-        "%s  s24 unreachable on all paths (consecutive: 2)\n"
-        % dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "%s  s24 unreachable on all paths (consecutive: 2)\n" % dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     )
     state = tmp_path / "state" / "fleet-health"
     state.mkdir(parents=True)
@@ -196,13 +182,11 @@ def test_main_groups_recovered_device_errors(tmp_path, monkeypatch, capsys):
     old = (now - dt.timedelta(minutes=2)).strftime("%Y-%m-%d %H:%M:%S")
     log.write_text(
         "%s  s24 via adb:1.2.3.4:5555: sshd=ok issues=none\n"
-        "%s  hd8 via adb:2.2.2.2:5555: sshd=ok issues=watchdog_stale\n"
-        % (stamp, stamp)
+        "%s  hd8 via adb:2.2.2.2:5555: sshd=ok issues=watchdog_stale\n" % (stamp, stamp)
     )
     errors.write_text(
         "%s  ERR s24: %s [watchdog] transient failure\n"
-        "%s  ERR s24: %s [watchdog] transient failure\n"
-        % (old, old, stamp, stamp)
+        "%s  ERR s24: %s [watchdog] transient failure\n" % (old, old, stamp, stamp)
     )
     state = tmp_path / "state" / "fleet-health"
     state.mkdir(parents=True)

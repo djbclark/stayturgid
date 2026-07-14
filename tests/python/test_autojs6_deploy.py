@@ -1,4 +1,5 @@
 """Unit tests for control/tools/autojs6/deploy.py clean push + verify."""
+
 from __future__ import annotations
 
 import os
@@ -92,9 +93,7 @@ def test_deploy_util_matches_default_target():
 
 def test_project_src_dir_under_device_tree():
     root = "/path/to/stayturgid"
-    assert deploy_util.project_src_dir(root).endswith(
-        os.path.join("device", "autojs6")
-    )
+    assert deploy_util.project_src_dir(root).endswith(os.path.join("device", "autojs6"))
 
 
 def test_deploy_script_usage_works_standalone():

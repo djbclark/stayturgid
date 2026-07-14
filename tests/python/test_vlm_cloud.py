@@ -1,4 +1,5 @@
 """Unit tests for control/lib/vlm_cloud.py (no live network)."""
+
 from __future__ import annotations
 
 import json
@@ -80,11 +81,7 @@ def test_ask_gemini_uses_api_key_header_not_query(monkeypatch, tmp_path):
         captured["headers"] = dict(getattr(req, "headers", {}) or {})
         resp = mock.MagicMock()
         resp.read.return_value = json.dumps(
-            {
-                "candidates": [
-                    {"content": {"parts": [{"text": '{"ok":true,"confidence":0.9}'}]}}
-                ]
-            }
+            {"candidates": [{"content": {"parts": [{"text": '{"ok":true,"confidence":0.9}'}]}}]}
         ).encode()
         resp.__enter__ = lambda s: s
         resp.__exit__ = mock.MagicMock(return_value=False)

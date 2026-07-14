@@ -7,6 +7,7 @@ Accessibility detection only — user must enable AutoJs6 in Settings manually.
 
 Usage: stayturgid_enable_autojs6.py [alias]
 """
+
 from __future__ import annotations
 
 import json
@@ -98,34 +99,39 @@ def push_fleet_profile(shell):
 def apply_fleet_profile(shell, *, silent=False):
     """Apply the fleet profile via FleetProfileActivity intent."""
     cmd = [
-        "am", "start",
-        "-a", FLEET_PROFILE_ACTION,
-        "-e", "profile_path", DEVICE_PROFILE,
+        "am",
+        "start",
+        "-a",
+        FLEET_PROFILE_ACTION,
+        "-e",
+        "profile_path",
+        DEVICE_PROFILE,
     ]
     if silent:
         cmd.extend(["-e", "silent", "true"])
-    cmd.extend([
-        "-n", "%s/%s" % (AUTOJS_PKG, AUTOJS_FLEET_ACTIVITY),
-    ])
+    cmd.extend(
+        [
+            "-n",
+            "%s/%s" % (AUTOJS_PKG, AUTOJS_FLEET_ACTIVITY),
+        ]
+    )
     cmd.extend(["-e", "result_path", FLEET_RESULT_PATH])
     rc, out = adb_shell(shell, *cmd)
     time.sleep(3)
     if rc != 0:
-        sys.stderr.write(
-            "ERROR: FleetProfileActivity failed (rc=%d): %s\n" % (rc, out or "")
-        )
+        sys.stderr.write("ERROR: FleetProfileActivity failed (rc=%d): %s\n" % (rc, out or ""))
         return False
     rc, result_out = shell("cat", FLEET_RESULT_PATH)
     if rc == 0 and result_out:
         try:
             data = json.loads(result_out)
             if data.get("success"):
-                print("Fleet profile applied: %d keys, %d skipped"
-                      % (data.get("applied_count", 0),
-                         data.get("skipped_count", 0)))
+                print(
+                    "Fleet profile applied: %d keys, %d skipped"
+                    % (data.get("applied_count", 0), data.get("skipped_count", 0))
+                )
             else:
-                sys.stderr.write("WARN: profile errors: %s\n"
-                                 % data.get("message", ""))
+                sys.stderr.write("WARN: profile errors: %s\n" % data.get("message", ""))
         except (json.JSONDecodeError, KeyError):
             pass
     print("Fleet profile applied via intent.")
@@ -135,12 +141,16 @@ def apply_fleet_profile(shell, *, silent=False):
 def run_shizuku_probe(shell):
     """Run the in-app shizuku probe script to verify end-to-end."""
     shell(
-        "am", "start",
-        "-a", "android.intent.action.VIEW",
-        "-d", "file://" + PROBE_REMOTE,
-        "-t", "text/javascript",
-        "-n", "%s/org.autojs.autojs.external.open.RunIntentActivity"
-        % AUTOJS_PKG,
+        "am",
+        "start",
+        "-a",
+        "android.intent.action.VIEW",
+        "-d",
+        "file://" + PROBE_REMOTE,
+        "-t",
+        "text/javascript",
+        "-n",
+        "%s/org.autojs.autojs.external.open.RunIntentActivity" % AUTOJS_PKG,
     )
     time.sleep(4)
     rc, out = shell("tail", "-12", WATCHDOG_LOG)
@@ -176,9 +186,7 @@ def main(argv=None):
 
             # 2. Check Shizuku server
             if not shizuku_server_running(shell):
-                sys.stderr.write(
-                    "ERROR: shizuku_server not running — start Shizuku first\n"
-                )
+                sys.stderr.write("ERROR: shizuku_server not running — start Shizuku first\n")
                 return 1
 
             # 3. Push and apply fleet profile (no UI automation)

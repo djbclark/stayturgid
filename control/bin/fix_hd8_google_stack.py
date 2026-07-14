@@ -19,6 +19,7 @@ Usage:
 When llama-server is running, auto-runs full VLM close-out (crash dialog +
 auto-update) unless --no-verify. See docs/vlm.md and control/bin/verify_hd8_google.py.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -83,9 +84,7 @@ def main(argv: list[str] | None = None) -> int:
         print("  reinstalled GMS (%s splits) rc=%s" % (gms_i.get("splits"), gms_i.get("rc")))
         print("  reinstalled Play (%s splits) rc=%s" % (play_i.get("splits"), play_i.get("rc")))
         if gms_i.get("rc") != 0 or play_i.get("rc") != 0:
-            sys.stderr.write(
-                "install error — see messages above; Play Store may need manual setup\n"
-            )
+            sys.stderr.write("install error — see messages above; Play Store may need manual setup\n")
             return 1
     elif hgs.needs_gms_downgrade(gms) or hgs.needs_play_downgrade(play):
         print("  still out of range after repair attempt")
@@ -107,10 +106,7 @@ def main(argv: list[str] | None = None) -> int:
             env=env,
         ).returncode
     elif not args.no_verify:
-        print(
-            "\nOperator: Play Store → Settings → Network preferences → "
-            "Auto-update apps → Don't auto-update apps"
-        )
+        print("\nOperator: Play Store → Settings → Network preferences → Auto-update apps → Don't auto-update apps")
         print("  (or: just vlm-server && just verify-hd8-google HOSTS=hd8)")
 
     return verify_rc if verify_rc else 0

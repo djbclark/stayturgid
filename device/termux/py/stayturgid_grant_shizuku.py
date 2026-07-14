@@ -3,6 +3,7 @@
 
 Usage: stayturgid_grant_shizuku.py
 """
+
 from __future__ import annotations
 
 import json
@@ -82,9 +83,7 @@ def main(argv=None):
 
     current, ok = read_shizuku_json()
     if not ok:
-        sys.stderr.write(
-            "ERROR: unreadable %s — aborting (would clobber other grants)\n" % SHIZUKU_JSON
-        )
+        sys.stderr.write("ERROR: unreadable %s — aborting (would clobber other grants)\n" % SHIZUKU_JSON)
         return 1
 
     patched = patch_shizuku_json(current, uid, AUTOJS_PKG)

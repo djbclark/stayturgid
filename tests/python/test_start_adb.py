@@ -1,4 +1,5 @@
 """Unit tests for the Python Termux boot supervisor."""
+
 from __future__ import annotations
 
 import sys
@@ -23,9 +24,7 @@ def test_shell_transport_prefers_localhost_adb(monkeypatch):
 def test_shell_transport_falls_back_to_rish(monkeypatch):
     responses = iter([(-1, ""), (0, "Entering shell...\n2000\n"), (0, "2000\n")])
     monkeypatch.setattr(start_adb, "_run", lambda *args, **kwargs: 0)
-    monkeypatch.setattr(
-        start_adb, "_capture", lambda *args, **kwargs: next(responses)
-    )
+    monkeypatch.setattr(start_adb, "_capture", lambda *args, **kwargs: next(responses))
     monkeypatch.setattr(start_adb.os, "access", lambda *args, **kwargs: True)
 
     command, name = start_adb._shell_transport()
@@ -35,9 +34,7 @@ def test_shell_transport_falls_back_to_rish(monkeypatch):
 
 
 def test_launch_accepts_listener_after_client_timeout(monkeypatch):
-    monkeypatch.setattr(
-        start_adb, "_shell_run", lambda *args, **kwargs: (0, "localhost-adb")
-    )
+    monkeypatch.setattr(start_adb, "_shell_run", lambda *args, **kwargs: (0, "localhost-adb"))
     monkeypatch.setattr(start_adb, "_run", lambda *args, **kwargs: -1)
     monkeypatch.setattr(start_adb, "_firerpa_alive", lambda: True)
     monkeypatch.setattr(start_adb.time, "sleep", lambda *_: None)
@@ -50,9 +47,7 @@ def test_launch_accepts_listener_after_client_timeout(monkeypatch):
 
 def test_launch_uses_accessibility_coexistence_lifecycle(monkeypatch):
     commands = []
-    monkeypatch.setattr(
-        start_adb, "_shell_run", lambda *args, **kwargs: (0, "localhost-adb")
-    )
+    monkeypatch.setattr(start_adb, "_shell_run", lambda *args, **kwargs: (0, "localhost-adb"))
     monkeypatch.setattr(
         start_adb,
         "_run",

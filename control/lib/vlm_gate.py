@@ -11,6 +11,7 @@ Env (STAYTURGID_VLM_* preferred; QSS_VLM_* accepted for shared model dir):
   STAYTURGID_VLM_TIMEOUT=900   — seconds per inference
   STAYTURGID_VLM_MAX_WIDTH=720 — downscale width before encode
 """
+
 from __future__ import annotations
 
 import base64
@@ -354,9 +355,7 @@ class VlmGate:
             t0 = time.time()
             try:
                 raw, parsed = ask_image(image_path, prompt)
-                local_ok, scored = _score_check(
-                    check, parsed, min_confidence=min_confidence
-                )
+                local_ok, scored = _score_check(check, parsed, min_confidence=min_confidence)
                 local_detail = {
                     "check": check,
                     "backend": "local-ui-tars",
@@ -376,15 +375,13 @@ class VlmGate:
                 }
                 local_ok = False
 
-            if local_ok and not _should_escalate_cloud(
-                True, local_detail, min_confidence=min_confidence
-            ):
+            if local_ok and not _should_escalate_cloud(True, local_detail, min_confidence=min_confidence):
                 return True, local_detail or {"ok": True, "backend": "local-ui-tars"}
 
         # Local unavailable / failed / low confidence → cloud (if configured).
-        if _should_escalate_cloud(
-            self.ready, local_detail, min_confidence=min_confidence
-        ) or (not self.ready and self.cloud_ready):
+        if _should_escalate_cloud(self.ready, local_detail, min_confidence=min_confidence) or (
+            not self.ready and self.cloud_ready
+        ):
             t1 = time.time()
             try:
                 raw, parsed, backend = cloud.ask_cloud(
@@ -393,9 +390,7 @@ class VlmGate:
                     prepare=prepare_image,
                     timeout=min(DEFAULT_TIMEOUT, 120),
                 )
-                ok, scored = _score_check(
-                    check, parsed, min_confidence=min_confidence
-                )
+                ok, scored = _score_check(check, parsed, min_confidence=min_confidence)
                 detail: dict[str, Any] = {
                     "check": check,
                     "backend": "cloud-%s" % (backend or "unknown"),

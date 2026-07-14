@@ -15,6 +15,7 @@ Rules used here:
 4. Fire-and-forget helpers (notify / toast / vibrate / torch) wait briefly
    then orphan — never SIGKILL.
 """
+
 from __future__ import annotations
 
 import os

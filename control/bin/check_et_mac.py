@@ -6,6 +6,7 @@
 
 Exit 0 = ok; 1 = problem; 2 = misconfig.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -72,10 +73,7 @@ def main(argv: list[str] | None = None) -> int:
 
         host = args.probe_host
         # From device: BatchMode ssh mac true using device's config
-        remote = (
-            "ssh -o BatchMode=yes -o ConnectTimeout=8 -o IdentitiesOnly=yes "
-            "mac true 2>&1"
-        )
+        remote = "ssh -o BatchMode=yes -o ConnectTimeout=8 -o IdentitiesOnly=yes mac true 2>&1"
         try:
             proc = subprocess.run(
                 [

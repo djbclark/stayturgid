@@ -10,6 +10,7 @@ If this exits non-zero, **tell the operator** — do not wait to be asked.
 Reads ~/.config/stayturgid/logs/fleet-health.log and state/fleet-health/.
 Does not mutate devices. Exit 0 = clean; 1 = problems; 2 = no log / misconfig.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -27,12 +28,8 @@ ERROR_LOG = ROOT / "logs" / "errors.log"
 STATE_DIR = ROOT / "state" / "fleet-health"
 CONSECUTIVE_ALERT = 2
 
-LINE_RE = re.compile(
-    r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+(\S+)\s+(.*)$"
-)
-SEVERITY_TOKENS = {
-    "EMERG", "ALERT", "CRIT", "ERR", "WARNING", "NOTICE", "INFO", "DEBUG"
-}
+LINE_RE = re.compile(r"^(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\s+(\S+)\s+(.*)$")
+SEVERITY_TOKENS = {"EMERG", "ALERT", "CRIT", "ERR", "WARNING", "NOTICE", "INFO", "DEBUG"}
 
 
 def parse_ts(s: str) -> dt.datetime | None:
@@ -133,9 +130,7 @@ def host_from_access_line(line: str) -> str | None:
     return normalized[0] if normalized else None
 
 
-def partition_access_hits(
-    hits: list[str], recovered_hosts: set[str]
-) -> tuple[list[str], list[str]]:
+def partition_access_hits(hits: list[str], recovered_hosts: set[str]) -> tuple[list[str], list[str]]:
     """Split access LOST lines: active (still alarming) vs historical (host ok now)."""
     active: list[str] = []
     historical: list[str] = []
@@ -194,8 +189,7 @@ def main(argv: list[str] | None = None) -> int:
     if not LOG.is_file():
         print(
             "ALERT: fleet-health.log missing at %s — launchd com.stayturgid.fleet-health "
-            "may not be installed (run: ansible-playbook ansible/playbooks/control_node/agents.yml)"
-            % LOG,
+            "may not be installed (run: ansible-playbook ansible/playbooks/control_node/agents.yml)" % LOG,
             file=sys.stderr,
         )
         return 2
@@ -238,9 +232,7 @@ def main(argv: list[str] | None = None) -> int:
             ok_hosts.append("%s (ok, last=%.0fm)" % (host, age_min))
 
     access_hits = recent_access_lost(args.hours)
-    active_access, historical_access = partition_access_hits(
-        access_hits, currently_reachable
-    )
+    active_access, historical_access = partition_access_hits(access_hits, currently_reachable)
 
     if not problems and not active_access:
         if not args.quiet_ok:
@@ -266,10 +258,7 @@ def main(argv: list[str] | None = None) -> int:
             print("  • %s" % h)
     if ok_hosts:
         print("ok: %s" % ", ".join(ok_hosts))
-    print(
-        "Next: prefer fixing AutoJs6/a11y/repair before OPTIONS 43–45; "
-        "see docs/handoff.md § Mac fleet health."
-    )
+    print("Next: prefer fixing AutoJs6/a11y/repair before OPTIONS 43–45; see docs/handoff.md § Mac fleet health.")
     # Show grouped device errors.  The raw errors.log is deliberately left
     # untouched for forensic detail; health output should stay triage-sized.
     if ERROR_LOG.is_file():
@@ -290,9 +279,7 @@ def main(argv: list[str] | None = None) -> int:
                     continue
                 print("%s:" % labels[category])
                 for detail, count, latest_ts in rows[:20]:
-                    suffix = " (x%d, latest %s)" % (
-                        count, latest_ts.strftime("%Y-%m-%d %H:%M:%S")
-                    )
+                    suffix = " (x%d, latest %s)" % (count, latest_ts.strftime("%Y-%m-%d %H:%M:%S"))
                     print("  • %s%s" % (detail, suffix))
     return 1
 
@@ -332,8 +319,10 @@ def _read_device_error_entries(hours: float) -> list[tuple[dt.datetime, str, str
 
 def _read_device_errors(hours: float) -> list[str]:
     """Compatibility view of recent errors; raw detail remains available in the log."""
-    return ["%s %s: %s" % (ts.strftime("%Y-%m-%d %H:%M:%S"), host, message)
-            for ts, host, message in _read_device_error_entries(hours)]
+    return [
+        "%s %s: %s" % (ts.strftime("%Y-%m-%d %H:%M:%S"), host, message)
+        for ts, host, message in _read_device_error_entries(hours)
+    ]
 
 
 def summarize_device_errors(
@@ -343,21 +332,18 @@ def summarize_device_errors(
 ) -> dict[str, list[tuple[str, int, dt.datetime]]]:
     """Group repeated errors and classify them by current host health."""
     grouped: dict[str, Counter[tuple[str, str]]] = {
-        "active": Counter(), "recovered": Counter(), "historical": Counter()
+        "active": Counter(),
+        "recovered": Counter(),
+        "historical": Counter(),
     }
     latest: dict[tuple[str, str], dt.datetime] = {}
     for ts, host, message in entries:
-        category = "active" if host in active_hosts else (
-            "recovered" if host in recovered_hosts else "historical"
-        )
+        category = "active" if host in active_hosts else ("recovered" if host in recovered_hosts else "historical")
         key = (host, " ".join(message.split()))
         grouped[category][key] += 1
         latest[key] = max(ts, latest.get(key, ts))
     return {
-        category: [
-            ("%s: %s" % key[0:2], count, latest[key])
-            for key, count in counts.most_common()
-        ]
+        category: [("%s: %s" % key[0:2], count, latest[key]) for key, count in counts.most_common()]
         for category, counts in grouped.items()
     }
 

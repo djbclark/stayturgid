@@ -1,4 +1,5 @@
 """Dashboard H8 tests; no device or network access required."""
+
 from __future__ import annotations
 
 import sys

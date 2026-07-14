@@ -1,4 +1,5 @@
 """Tests for hd8 Google Play stack helpers."""
+
 from __future__ import annotations
 
 import sys

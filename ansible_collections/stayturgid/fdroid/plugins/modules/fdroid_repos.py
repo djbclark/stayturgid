@@ -196,8 +196,7 @@ def ensure_repos(module, desired, current, check_mode):
         fp = normalize_fingerprint(spec.get("fingerprint"))
         if not validate_fingerprint(fp):
             module.fail_json(
-                msg="repo %s: fingerprint must be 64 hex chars (got %d after "
-                    "normalization)" % (name, len(fp))
+                msg="repo %s: fingerprint must be 64 hex chars (got %d after normalization)" % (name, len(fp))
             )
         key = repo_key(name, address)
         ensured.append({"name": key[0], "address": key[1], "state": state})
@@ -308,8 +307,7 @@ def main():
         rc, out = run_cmd(module, ["adb", "-s", device, "shell", "true"])
         if rc != 0:
             module.fail_json(
-                msg="adb device %s not reachable (fdroidcl needs a connected device for index sync)"
-                % device,
+                msg="adb device %s not reachable (fdroidcl needs a connected device for index sync)" % device,
                 adb_output=out,
             )
 
@@ -318,9 +316,7 @@ def main():
             module.fail_json(msg="fdroidcl repo failed", rc=rc, output=repo_list_out)
         current = parse_current_repos(repo_list_out)
 
-        repo_changed, repo_out, ensured = ensure_repos(
-            module, desired, current, module.check_mode
-        )
+        repo_changed, repo_out, ensured = ensure_repos(module, desired, current, module.check_mode)
         outputs.extend(repo_out)
         changed = changed or repo_changed
 
@@ -331,9 +327,7 @@ def main():
                 module.warn("fdroidcl update failed after repo change: %s" % out)
 
         if setups:
-            setups_changed, setup_out = ensure_setups(
-                module, setups, module.params["apply_setups"], module.check_mode
-            )
+            setups_changed, setup_out = ensure_setups(module, setups, module.params["apply_setups"], module.check_mode)
             outputs.extend(setup_out)
             changed = changed or setups_changed
 

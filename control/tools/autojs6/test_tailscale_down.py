@@ -6,6 +6,7 @@ Usage: ./test_tailscale_down.py [s24|RFCX219CHKA]
 1. Mac: force-stop Tailscale + wait for coord ping to fail
 2. AutoJs6: probe, relaunch, wait for recovery (logged to watchdog.log)
 """
+
 from __future__ import annotations
 
 import sys
@@ -82,7 +83,11 @@ def main(argv: list[str] | None = None) -> int:
 
     print(f"=== Phase 1: baseline (USB {serial}) ===")
     adb.adb(serial, "shell", "input keyevent KEYCODE_WAKEUP", check=False)
-    print(shell_line(serial, "ping -c1 -W2 100.100.100.100 >/dev/null && echo baseline_ping=ok || echo baseline_ping=fail"))
+    print(
+        shell_line(
+            serial, "ping -c1 -W2 100.100.100.100 >/dev/null && echo baseline_ping=ok || echo baseline_ping=fail"
+        )
+    )
 
     print("=== Phase 2: force-stop Tailscale + wait for tunnel blip ===")
     adb.adb(serial, "shell", f"am force-stop {TS_PKG}", check=False)
@@ -123,7 +128,9 @@ def main(argv: list[str] | None = None) -> int:
     if "up=false" in probe_down:
         print("PASS: probe detected Tailscale down")
     elif probe_down:
-        print(f"NOTE: probe saw Tailscale up={probe_down.split('up=')[-1] if 'up=' in probe_down else '?'} (VPN may have restarted before probe)")
+        print(
+            f"NOTE: probe saw Tailscale up={probe_down.split('up=')[-1] if 'up=' in probe_down else '?'} (VPN may have restarted before probe)"
+        )
     else:
         print(f"WARN: no probe tun line — {probe_down}", file=sys.stderr)
         rc = 1

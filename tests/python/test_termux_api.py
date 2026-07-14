@@ -1,4 +1,5 @@
 """Unit tests for control/lib/termux_api.py (no device)."""
+
 from __future__ import annotations
 
 import subprocess

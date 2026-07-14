@@ -1,4 +1,5 @@
 """Unit tests for android_intent module."""
+
 import json
 import os
 import sys
@@ -22,7 +23,7 @@ def run_module(mocker, args, cmd_results=None):
     def fake_run_command(self, cmd, *a, **kw):
         joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
         commands.append(joined)
-        for needle, result in (cmd_results or []):
+        for needle, result in cmd_results or []:
             if needle in joined:
                 return result
         if "am start" in joined:

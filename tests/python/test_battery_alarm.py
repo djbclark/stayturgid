@@ -4,6 +4,7 @@ These test the pure decision logic directly (tiers, wallpaper-backup
 validation, quiet detection) — the end-to-end behavior + shell/Python parity
 is covered by tests/test-unit.sh (battery_suite run against both twins).
 """
+
 import importlib
 
 import pytest
@@ -11,15 +12,18 @@ import pytest
 alarm = importlib.import_module("stayturgid_battery_alarm")
 
 
-@pytest.mark.parametrize("tier,color,blinks", [
-    (30, "purple", 1),
-    (25, "blue", 2),
-    (20, "green", 3),
-    (15, "yellow", 4),
-    (10, "orange", 5),
-    (5, "red", 10),
-    (0, "red", 10),
-])
+@pytest.mark.parametrize(
+    "tier,color,blinks",
+    [
+        (30, "purple", 1),
+        (25, "blue", 2),
+        (20, "green", 3),
+        (15, "yellow", 4),
+        (10, "orange", 5),
+        (5, "red", 10),
+        (0, "red", 10),
+    ],
+)
 def test_tier_color_and_blinks(tier, color, blinks):
     assert alarm.TIER_COLOR.get(tier, "red") == color
     assert alarm.TIER_BLINKS.get(tier, 10 if tier <= 5 else 1) == blinks
@@ -47,6 +51,7 @@ def test_wallpaper_backup_valid(tmp_path, monkeypatch):
 
 def test_dnd_detection(monkeypatch):
     calls = {"zen": "0", "filter": "mInterruptionFilter=ALL", "ringer": "2"}
+
     def fake_adb_shell(*cmd):
         c = " ".join(cmd)
         if "zen_mode" in c:
@@ -56,6 +61,7 @@ def test_dnd_detection(monkeypatch):
         if "get-ringer-mode" in c:
             return calls["ringer"]
         return ""
+
     monkeypatch.setattr(alarm, "adb_shell", fake_adb_shell)
 
     assert alarm.dnd_or_sleep_quiet() is False

@@ -4,6 +4,7 @@ The Ansible *module* (termux_pkg) is tested inside the collection via
 `ansible-test units`; these plain-pytest tests cover the Termux Python
 script twins under device/termux/py/ and control/lib helpers.
 """
+
 import os
 import sys
 

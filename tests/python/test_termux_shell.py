@@ -1,4 +1,5 @@
 """Unit tests for termux stayturgid_shell helpers (no device)."""
+
 import json
 import os
 import sys

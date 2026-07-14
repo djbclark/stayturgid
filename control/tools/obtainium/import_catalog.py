@@ -39,7 +39,9 @@ def adb_shell(serial, *args, timeout=30):
     try:
         return subprocess.run(
             ["adb", "-s", serial, "shell"] + list(args),
-            capture_output=True, text=True, timeout=timeout,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -56,9 +58,17 @@ def import_catalog(serial, catalog_path):
 
     adb_shell(serial, "am", "force-stop", OBTAINIUM_PKG)
     time.sleep(0.5)
-    adb_shell(serial, "am", "start",
-              "-f", "0x10200000",  # FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TOP
-              "-a", "android.intent.action.VIEW", "-d", uri)
+    adb_shell(
+        serial,
+        "am",
+        "start",
+        "-f",
+        "0x10200000",  # FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TOP
+        "-a",
+        "android.intent.action.VIEW",
+        "-d",
+        uri,
+    )
     time.sleep(4)
 
     # Check headless_result.json for confirmation.

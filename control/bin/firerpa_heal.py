@@ -11,6 +11,7 @@ Usage:
 
 Requirements: pip install lamda-client (from firerpa-binaries or fork release)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -59,25 +60,25 @@ def _log(level: int, msg: str) -> None:
 def _exec_stdout(device: Device, cmd: str, timeout: int = 5) -> str:
     try:
         result = device.execute_script(cmd, timeout=timeout)
-        if hasattr(result, 'stdout'):
+        if hasattr(result, "stdout"):
             out = result.stdout
             if isinstance(out, bytes):
-                return out.decode(errors='replace').strip()
-            return (out or '').strip()
-        out = str(result or '')
+                return out.decode(errors="replace").strip()
+            return (out or "").strip()
+        out = str(result or "")
         return out
     except Exception:
-        return ''
+        return ""
 
 
 def is_sshd_alive(device: Device) -> bool:
     out = _exec_stdout(device, "ss -tlnp 2>/dev/null | grep ':8022 '")
-    return ':8022' in out
+    return ":8022" in out
 
 
 def is_port_5555_alive(device: Device) -> bool:
     out = _exec_stdout(device, "ss -tlnp 2>/dev/null | grep ':5555 '")
-    return ':5555' in out
+    return ":5555" in out
 
 
 def is_shizuku_alive(device: Device) -> bool:
@@ -91,8 +92,7 @@ def is_bootloop_alive(device: Device) -> bool:
 
 
 def remove_sshd_down(device: Device) -> str:
-    out = _exec_stdout(device,
-        f"run-as com.termux rm -f {SSHD_DOWN} 2>/dev/null && echo REMOVED || echo ABSENT")
+    out = _exec_stdout(device, f"run-as com.termux rm -f {SSHD_DOWN} 2>/dev/null && echo REMOVED || echo ABSENT")
     if "REMOVED" in out:
         _log(NOTICE, "removed sshd down file")
         return "repaired"
@@ -100,8 +100,7 @@ def remove_sshd_down(device: Device) -> str:
 
 
 def restart_sshd(device: Device) -> str:
-    _exec_stdout(device,
-        "am start -n com.termux/.app.TermuxActivity 2>/dev/null")
+    _exec_stdout(device, "am start -n com.termux/.app.TermuxActivity 2>/dev/null")
     time.sleep(3)
     if is_sshd_alive(device):
         _log(NOTICE, "sshd alive after activity trigger")
@@ -111,8 +110,7 @@ def restart_sshd(device: Device) -> str:
 
 
 def restart_bootloop(device: Device) -> str:
-    _exec_stdout(device,
-        "am start -n com.termux/.app.TermuxActivity 2>/dev/null")
+    _exec_stdout(device, "am start -n com.termux/.app.TermuxActivity 2>/dev/null")
     time.sleep(5)
     if is_bootloop_alive(device):
         _log(NOTICE, "boot loop alive after activity trigger")

@@ -9,6 +9,7 @@ dialogs (root crash is ``com.google.android.gms.persistent``).
 Pinned APKs ship in the Fire-Tools release (APKMirror bundles). See
 ``docs/research/fire-os-google-play.md``.
 """
+
 from __future__ import annotations
 
 import os
@@ -17,9 +18,7 @@ import subprocess
 import zipfile
 from pathlib import Path
 
-FIRE_TOOLS_ZIP_URL = (
-    "https://github.com/mrhaydendp/Fire-Tools/releases/latest/download/Fire-Tools.zip"
-)
+FIRE_TOOLS_ZIP_URL = "https://github.com/mrhaydendp/Fire-Tools/releases/latest/download/Fire-Tools.zip"
 FIRE_TOOLS_CACHE = Path.home() / ".cache" / "stayturgid" / "fire-tools"
 GMS_APKM = "Fire-Tools/Gapps/Google Play Services 24.35.30.apkm"
 PLAY_APKM = "Fire-Tools/Gapps/Google Play Store 42.6.23-23.apkm"
@@ -51,6 +50,7 @@ def pin_gms_enabled() -> bool:
         "yes",
         "on",
     )
+
 
 _VERSION_CODE_RE = re.compile(r"versionCode=(\d+)")
 
@@ -88,9 +88,7 @@ def package_version_code(run_command, device: str, package: str) -> int | None:
 
 
 def deviceidle_whitelist_add(run_command, device: str, package: str) -> bool:
-    rc, out, err = adb_shell(
-        run_command, device, "cmd", "deviceidle", "whitelist", "+%s" % package
-    )
+    rc, out, err = adb_shell(run_command, device, "cmd", "deviceidle", "whitelist", "+%s" % package)
     text = (out + err).lower()
     return rc == 0 or "added" in text or "already" in text
 
@@ -136,9 +134,7 @@ def _ensure_fire_tools_zip(zip_path: Path) -> None:
         # Re-check under lock — another process may have finished the download.
         if zip_path.is_file() and zip_path.stat().st_size > 1_000_000:
             return
-        tmp = zip_path.with_name(
-            "%s.%s.part" % (zip_path.name, uuid.uuid4().hex[:10])
-        )
+        tmp = zip_path.with_name("%s.%s.part" % (zip_path.name, uuid.uuid4().hex[:10]))
         try:
             subprocess.run(
                 ["curl", "-fsSL", "-o", str(tmp), FIRE_TOOLS_ZIP_URL],
@@ -292,13 +288,7 @@ def repair_if_needed(
     if stop_aurora:
         stop_aurora_churn(run_command, device)
     # Full stack pin only when explicitly forced or pin policy enabled + drift.
-    pin_stack = force or (
-        pin_gms_enabled()
-        and (
-            needs_gms_downgrade(gms_ver)
-            or needs_play_downgrade(play_ver)
-        )
-    )
+    pin_stack = force or (pin_gms_enabled() and (needs_gms_downgrade(gms_ver) or needs_play_downgrade(play_ver)))
     out = {
         "gms_version": gms_ver,
         "play_version": play_ver,
@@ -311,14 +301,10 @@ def repair_if_needed(
     zip_path = cache / "Fire-Tools.zip"
     if needs_gsf_reinstall(gsf_ver) and not pin_stack:
         _ensure_fire_tools_zip(zip_path)
-        out["gsf"] = reinstall_gsf(
-            run_command, device, zip_path, (cache / "work")
-        )
+        out["gsf"] = reinstall_gsf(run_command, device, zip_path, (cache / "work"))
         out["gsf_version"] = package_version_name(run_command, device, GSF_PKG)
     if pin_stack:
-        out["install"] = reinstall_pinned_stack(
-            run_command, device, cache_dir=cache_dir
-        )
+        out["install"] = reinstall_pinned_stack(run_command, device, cache_dir=cache_dir)
         out["downgraded"] = True
         out["gms_version"] = package_version_code(run_command, device, GMS_PKG)
         out["play_version"] = package_version_code(run_command, device, PLAY_PKG)

@@ -5,6 +5,7 @@ Updates user-local landing state with reachability and last-seen timestamps.
 Designed to run periodically (via launchd or cron). Never removes entries —
 unreachable services stay in the catalog with reachable=false.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -36,7 +37,6 @@ KNOWN_SERVICES: list[dict] = [
     {"url": "http://localhost:8080", "label": "Caddy Health", "group": "mac"},
     {"url": "http://localhost:8081", "label": "VLM UI-TARS API", "group": "mac"},
     # mDNS (Bonjour, LAN-only) — use if macOS hostname differs
-
     # Devices — Tailscale IPs
     {"url": "http://100.123.218.30:65000", "label": "s24 FIRERPA", "group": "devices"},
     {"url": "http://100.65.230.108:65000", "label": "p7a FIRERPA", "group": "devices"},
@@ -61,9 +61,10 @@ def _http_probe(url: str, timeout: float = 3.0) -> int | None:
     """Return HTTP status code or None if unreachable."""
     try:
         r = subprocess.run(
-            ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
-             "--connect-timeout", str(int(timeout)), url],
-            capture_output=True, text=True, timeout=timeout + 2,
+            ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "--connect-timeout", str(int(timeout)), url],
+            capture_output=True,
+            text=True,
+            timeout=timeout + 2,
         )
         code = r.stdout.strip()
         return int(code) if code.isdigit() and code != "000" else None
@@ -85,7 +86,9 @@ def _scan_localhost() -> list[dict]:
     try:
         r = subprocess.run(
             ["lsof", "-iTCP", "-sTCP:LISTEN", "-P", "-n"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True,
+            text=True,
+            timeout=10,
         )
     except (OSError, subprocess.TimeoutExpired):
         return services
@@ -108,12 +111,14 @@ def _scan_localhost() -> list[dict]:
 
         status = _http_probe(f"http://127.0.0.1:{port}", timeout=2.0)
         if status is not None:
-            services.append({
-                "url": f"http://localhost:{port}",
-                "label": f"Port {port}",
-                "group": "mac",
-                "note": f"HTTP {status}",
-            })
+            services.append(
+                {
+                    "url": f"http://localhost:{port}",
+                    "label": f"Port {port}",
+                    "group": "mac",
+                    "note": f"HTTP {status}",
+                }
+            )
 
     return services
 

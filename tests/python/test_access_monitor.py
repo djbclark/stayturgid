@@ -1,9 +1,9 @@
 """Unit tests for control/bin/access_monitor.py — the debounce/parse logic."""
+
 import os
 import sys
 
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "mac"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "mac"))
 import access_monitor as am  # noqa: E402
 
 

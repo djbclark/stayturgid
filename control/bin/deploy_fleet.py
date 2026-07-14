@@ -17,6 +17,7 @@ Usage:
 
 Scopes map to ansible-playbook --tags on site.yml (see site.yml header).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -35,7 +36,6 @@ SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "site.yml"
 MAC_SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "control_node" / "site.yml"
 REQUIREMENTS = REPO_ROOT / "ansible" / "requirements.yml"
 COLLECTIONS_PATH = REPO_ROOT / ".ansible" / "collections"
-
 
 
 class Scope(str, Enum):
@@ -220,15 +220,9 @@ def print_footer(rc: int, scope: Scope) -> None:
     if rc != 0:
         print(f"Fleet deploy finished with errors (exit {rc}). Failed hosts are listed above.", file=sys.stderr)
     elif scope is Scope.FDROID:
-        print(
-            "Fdroid scope finished (app stores parked — set "
-            "stayturgid_app_stores_enabled: true to activate)."
-        )
+        print("Fdroid scope finished (app stores parked — set stayturgid_app_stores_enabled: true to activate).")
     elif scope is Scope.PLAY:
-        print(
-            "Play scope finished (app stores parked — set "
-            "stayturgid_app_stores_enabled: true to activate)."
-        )
+        print("Play scope finished (app stores parked — set stayturgid_app_stores_enabled: true to activate).")
     else:
         print("Fleet deploy complete.")
     print("Verify: just verify   (or just verify-heal / bash tests/run.sh device --heal)")
@@ -244,7 +238,13 @@ def main(argv: list[str] | None = None) -> int:
         help="Deploy scope (default: full site.yml)",
     )
     parser.add_argument("--check", action="store_true", help="Ansible dry run (--check --diff); also honors CHECK=1")
-    parser.add_argument("-v", "--verbose", action="count", default=0, help="Ansible verbosity (-v, -vv, -vvv, -vvvv); also honors VERBOSE=N env")
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Ansible verbosity (-v, -vv, -vvv, -vvvv); also honors VERBOSE=N env",
+    )
     args = parser.parse_args(argv)
 
     verbose = args.verbose or int(os.environ.get("VERBOSE", "0"))

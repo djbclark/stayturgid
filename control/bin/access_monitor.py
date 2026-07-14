@@ -13,6 +13,7 @@ Soft health (watchdog/a11y/sshd echo) is a separate agent:
 Device list comes from ~/.config/stayturgid/devices.conf (generated from the
 Ansible inventory) — no device facts live here.
 """
+
 from __future__ import annotations
 
 import os
@@ -98,16 +99,14 @@ def read_devices(conf_path):
 
 def adb_reachable(addrs):
     try:
-        listed = subprocess.run([ADB, "devices"], capture_output=True, text=True,
-                                timeout=15).stdout
+        listed = subprocess.run([ADB, "devices"], capture_output=True, text=True, timeout=15).stdout
     except (OSError, subprocess.TimeoutExpired):
         listed = ""
     for addr in addrs:
         if "%s\tdevice" % addr in listed:
             return "adb:%s" % addr
         try:
-            out = subprocess.run([ADB, "connect", addr], capture_output=True,
-                                 text=True, timeout=15).stdout
+            out = subprocess.run([ADB, "connect", addr], capture_output=True, text=True, timeout=15).stdout
             if "connected to" in out:
                 return "adb:%s" % addr
         except (OSError, subprocess.TimeoutExpired):
@@ -164,9 +163,9 @@ def check_device(name, ts_ip, lan_ip):
         write_state(state_file, fails)
         _access_log(WARNING, "%s unreachable on all paths (consecutive: %d)" % (name, fails))
         if fails == CONSECUTIVE_LIMIT:
-            notify("stayturgid access LOST",
-                   "%s unreachable on ALL paths (ADB + SSH) for ~10 min" % name,
-                   sound="Basso")
+            notify(
+                "stayturgid access LOST", "%s unreachable on ALL paths (ADB + SSH) for ~10 min" % name, sound="Basso"
+            )
             if stats:
                 stats.record_event("device_status", name, status="offline")
 

@@ -8,6 +8,7 @@ All stayturgid monitors and heal scripts should call record_event() for:
 
 Events are written as one JSON object per line to ~/.config/stayturgid/stats/.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -76,9 +77,9 @@ def query_events(
 
                 ev_ts_s = ev.get("ts", "")
                 try:
-                    ev_ts = datetime.datetime.strptime(
-                        ev_ts_s, "%Y-%m-%dT%H:%M:%SZ"
-                    ).replace(tzinfo=datetime.timezone.utc)
+                    ev_ts = datetime.datetime.strptime(ev_ts_s, "%Y-%m-%dT%H:%M:%SZ").replace(
+                        tzinfo=datetime.timezone.utc
+                    )
                 except (ValueError, TypeError):
                     continue
 
@@ -105,10 +106,10 @@ def aggregate_stats(
 
     result: dict = {
         "total_events": len(events),
-        "connection_paths": {},    # {"adb:...": 5, "ssh:...": 3}
-        "heals": {},                # {"watchdog": 2, "repair": 1, "a11y": 0, ...}
-        "device_status": {},        # {"s24": {"online": 42, "offline": 3}, ...}
-        "issues": {},               # {"watchdog_stale": 5, "bootloop_down": 3, ...}
+        "connection_paths": {},  # {"adb:...": 5, "ssh:...": 3}
+        "heals": {},  # {"watchdog": 2, "repair": 1, "a11y": 0, ...}
+        "device_status": {},  # {"s24": {"online": 42, "offline": 3}, ...}
+        "issues": {},  # {"watchdog_stale": 5, "bootloop_down": 3, ...}
         "devices_seen": set(),
         "time_range": {
             "since": since.isoformat() if since else None,
@@ -144,14 +145,8 @@ def aggregate_stats(
             result["issues"][issue] = result["issues"].get(issue, 0) + 1
 
     result["devices_seen"] = sorted(result["devices_seen"])
-    result["connection_paths"] = dict(sorted(
-        result["connection_paths"].items(), key=lambda x: -x[1]
-    ))
-    result["heals"] = dict(sorted(
-        result["heals"].items(), key=lambda x: -x[1]
-    ))
-    result["issues"] = dict(sorted(
-        result["issues"].items(), key=lambda x: -x[1]
-    ))
+    result["connection_paths"] = dict(sorted(result["connection_paths"].items(), key=lambda x: -x[1]))
+    result["heals"] = dict(sorted(result["heals"].items(), key=lambda x: -x[1]))
+    result["issues"] = dict(sorted(result["issues"].items(), key=lambda x: -x[1]))
 
     return result

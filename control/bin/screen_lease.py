@@ -13,6 +13,7 @@ Exit codes:
   1 — held by another project (check)
   2 — usage / error
 """
+
 from __future__ import annotations
 
 import argparse
@@ -77,10 +78,13 @@ def cmd_acquire(device: str, purpose: str) -> int:
     except dsl.LeaseConflict as e:
         print("CONFLICT: %s" % e, file=sys.stderr)
         if e.lease:
-            print(json.dumps(
-                {k: v for k, v in e.lease.items() if not str(k).startswith("_")},
-                indent=2,
-            ), file=sys.stderr)
+            print(
+                json.dumps(
+                    {k: v for k, v in e.lease.items() if not str(k).startswith("_")},
+                    indent=2,
+                ),
+                file=sys.stderr,
+            )
         return 1
     print(json.dumps(lease, indent=2))
     return 0

@@ -1,4 +1,5 @@
 """Static landing catalog plus user-local discovery state."""
+
 from __future__ import annotations
 
 import json

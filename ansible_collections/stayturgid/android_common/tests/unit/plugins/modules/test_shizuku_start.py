@@ -1,4 +1,5 @@
 """Unit tests for shizuku_start module."""
+
 import json
 import os
 import sys
@@ -17,10 +18,11 @@ import shizuku_start as mod  # noqa: E402
 def fake_run(cmd_results=None):
     def runner(cmd, *a, **kw):
         joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
-        for needle, result in (cmd_results or []):
+        for needle, result in cmd_results or []:
             if needle in joined:
                 return result
         return (0, "", "")
+
     return runner
 
 
@@ -35,46 +37,58 @@ def test_shizuku_installed_not_found():
 
 
 def test_shizuku_running_headless_status_up():
-    run = fake_run([
-        ("HEADLESS_STATUS", (0, "Broadcast completed: result=1\n", "")),
-    ])
+    run = fake_run(
+        [
+            ("HEADLESS_STATUS", (0, "Broadcast completed: result=1\n", "")),
+        ]
+    )
     assert mod.shizuku_running(run, "dev") is True
 
 
 def test_shizuku_running_pgrep_fallback():
-    run = fake_run([
-        ("HEADLESS_STATUS", (0, "Broadcast completed: result=0\n", "")),
-        ("pgrep -f '[s]hizuku_server'", (0, "up\n", "")),
-    ])
+    run = fake_run(
+        [
+            ("HEADLESS_STATUS", (0, "Broadcast completed: result=0\n", "")),
+            ("pgrep -f '[s]hizuku_server'", (0, "up\n", "")),
+        ]
+    )
     assert mod.shizuku_running(run, "dev") is True
 
 
 def test_shizuku_running_down():
-    run = fake_run([
-        ("HEADLESS_STATUS", (0, "Broadcast completed: result=0\n", "")),
-        ("pgrep -f '[s]hizuku_server'", (1, "", "")),
-    ])
+    run = fake_run(
+        [
+            ("HEADLESS_STATUS", (0, "Broadcast completed: result=0\n", "")),
+            ("pgrep -f '[s]hizuku_server'", (1, "", "")),
+        ]
+    )
     assert mod.shizuku_running(run, "dev") is False
 
 
 def test_port5555_open():
-    run = fake_run([
-        ("/proc/net/tcp", (0, "open\n", "")),
-    ])
+    run = fake_run(
+        [
+            ("/proc/net/tcp", (0, "open\n", "")),
+        ]
+    )
     assert mod.port5555_open(run, "dev") is True
 
 
 def test_port5555_closed():
-    run = fake_run([
-        ("/proc/net/tcp", (0, "closed\n", "")),
-    ])
+    run = fake_run(
+        [
+            ("/proc/net/tcp", (0, "closed\n", "")),
+        ]
+    )
     assert mod.port5555_open(run, "dev") is False
 
 
 def test_resolve_libdir():
-    run = fake_run([
-        ("pm path", (0, "package:/data/app/~~aaa==/moe.shizuku.privileged.api-bbb==/base.apk\n", "")),
-    ])
+    run = fake_run(
+        [
+            ("pm path", (0, "package:/data/app/~~aaa==/moe.shizuku.privileged.api-bbb==/base.apk\n", "")),
+        ]
+    )
     path = mod.resolve_libdir(run, "dev", "moe.shizuku.privileged.api")
     assert path == "/data/app/~~aaa==/moe.shizuku.privileged.api-bbb==/lib/arm64"
 
@@ -102,7 +116,7 @@ def run_module(mocker, args, cmd_results=None):
 
     def fake_run_command(self, cmd, *a, **kw):
         joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
-        for needle, result in (cmd_results or []):
+        for needle, result in cmd_results or []:
             if needle in joined:
                 idx = call_counts.get(needle, 0)
                 call_counts[needle] = idx + 1
@@ -221,13 +235,16 @@ def test_module_starts_with_headless(mocker):
             # installed check
             ("pm path", (0, "package:/data/app/.../base.apk\n", "")),
             # not running initially: HEADLESS_STATUS→result=0, pgrep→down
-            ("HEADLESS_STATUS", [
-                (0, "Broadcast completed: result=0\n", ""),
-                # second call after headless start: running
-                (0, "Broadcast completed: result=1\n", ""),
-                # third call during verification poll: running
-                (0, "Broadcast completed: result=1\n", ""),
-            ]),
+            (
+                "HEADLESS_STATUS",
+                [
+                    (0, "Broadcast completed: result=0\n", ""),
+                    # second call after headless start: running
+                    (0, "Broadcast completed: result=1\n", ""),
+                    # third call during verification poll: running
+                    (0, "Broadcast completed: result=1\n", ""),
+                ],
+            ),
             ("pgrep -f '[s]hizuku_server'", (1, "", "")),
             # headless start and fleet profile
             ("HEADLESS_START", (0, "", "")),
@@ -253,18 +270,24 @@ def test_module_native_fallback(mocker):
             start_timeout=1,
         ),
         cmd_results=[
-            ("pm path", [
-                (0, "package:/data/app/.../base.apk\n", ""),
-                # resolve_libdir call
-                (0, "package:/data/app/~~aaa==/moe.shizuku.privileged.api-bbb==/base.apk\n", ""),
-            ]),
+            (
+                "pm path",
+                [
+                    (0, "package:/data/app/.../base.apk\n", ""),
+                    # resolve_libdir call
+                    (0, "package:/data/app/~~aaa==/moe.shizuku.privileged.api-bbb==/base.apk\n", ""),
+                ],
+            ),
             # headless fails: first check down, second check still down
-            ("HEADLESS_STATUS", [
-                (0, "Broadcast completed: result=0\n", ""),
-                (0, "Broadcast completed: result=0\n", ""),
-                # verification poll: running after native launch
-                (0, "Broadcast completed: result=1\n", ""),
-            ]),
+            (
+                "HEADLESS_STATUS",
+                [
+                    (0, "Broadcast completed: result=0\n", ""),
+                    (0, "Broadcast completed: result=0\n", ""),
+                    # verification poll: running after native launch
+                    (0, "Broadcast completed: result=1\n", ""),
+                ],
+            ),
             ("pgrep -f '[s]hizuku_server'", (1, "", "")),
             # headless start sent
             ("HEADLESS_START", (0, "", "")),

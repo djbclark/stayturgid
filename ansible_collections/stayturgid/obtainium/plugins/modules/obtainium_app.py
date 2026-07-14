@@ -168,15 +168,11 @@ def check_installed(module, package_ids):
     rc, _out, _err = module.run_command(["adb", "connect", "localhost:5555"])
     if rc != 0:
         return None
-    rc, out, _err = module.run_command(
-        ["adb", "-s", "localhost:5555", "shell", "pm", "list", "packages"]
-    )
+    rc, out, _err = module.run_command(["adb", "-s", "localhost:5555", "shell", "pm", "list", "packages"])
     if rc != 0:
         return None
     present = {
-        line.split(":", 1)[1].strip()
-        for line in out.replace("\r", "").splitlines()
-        if line.startswith("package:")
+        line.split(":", 1)[1].strip() for line in out.replace("\r", "").splitlines() if line.startswith("package:")
     }
     return {pkg: (pkg in present) for pkg in package_ids}
 
@@ -185,9 +181,7 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             apps=dict(type="list", elements="dict", required=True),
-            catalog_path=dict(
-                type="str", default="/sdcard/Download/stayturgid-obtainium-apps.json"
-            ),
+            catalog_path=dict(type="str", default="/sdcard/Download/stayturgid-obtainium-apps.json"),
             extra_settings=dict(type="dict", default={"groupByCategory": True}),
             import_ui=dict(type="bool", default=False),
             check_installed=dict(type="bool", default=True),
@@ -207,9 +201,7 @@ def main():
     result = {"changed": changed, "catalog_path": path, "import_launched": False}
 
     if module.params["check_installed"]:
-        installed = check_installed(
-            module, [s["id"] for s in module.params["apps"]]
-        )
+        installed = check_installed(module, [s["id"] for s in module.params["apps"]])
         if installed is not None:
             result["installed"] = installed
             missing = sorted(p for p, ok in installed.items() if not ok)
@@ -236,11 +228,16 @@ def main():
         if module.params["import_ui"]:
             rc, _out, _err = module.run_command(
                 [
-                    "am", "start",
-                    "-a", "android.intent.action.VIEW",
-                    "-d", "file://" + path,
-                    "-t", "application/json",
-                    "-n", OBTAINIUM_PKG + "/.MainActivity",
+                    "am",
+                    "start",
+                    "-a",
+                    "android.intent.action.VIEW",
+                    "-d",
+                    "file://" + path,
+                    "-t",
+                    "application/json",
+                    "-n",
+                    OBTAINIUM_PKG + "/.MainActivity",
                 ]
             )
             result["import_launched"] = rc == 0

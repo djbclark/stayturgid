@@ -1,4 +1,5 @@
 """Shared FIRERPA service-certificate discovery for Mac-side clients."""
+
 from __future__ import annotations
 
 import os

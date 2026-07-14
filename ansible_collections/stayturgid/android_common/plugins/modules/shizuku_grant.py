@@ -127,9 +127,7 @@ def main():
 
     rc, _out, _err = adb_shell(module.run_command, device, "true")
     if rc != 0:
-        module.fail_json(
-            msg="no adb shell on %s — connect device and ensure Shizuku adbd is up" % device
-        )
+        module.fail_json(msg="no adb shell on %s — connect device and ensure Shizuku adbd is up" % device)
 
     rc, out, _err = adb_shell(module.run_command, device, "pm list packages -U %s" % pkg)
     uid = parse_uid(out if rc == 0 else "")
@@ -138,9 +136,7 @@ def main():
 
     current, ok = read_shizuku_json(module.run_command, device, json_path)
     if not ok:
-        module.fail_json(
-            msg="unreadable %s — aborting to avoid clobbering existing grants" % json_path
-        )
+        module.fail_json(msg="unreadable %s — aborting to avoid clobbering existing grants" % json_path)
 
     patched = patch_shizuku_json(current, uid, pkg)
     json_changed = patched.strip() != (current or "").strip()
@@ -152,9 +148,7 @@ def main():
     adb_shell(module.run_command, device, "pm grant %s %s" % (pkg, SHIZUKU_PERMISSION))
 
     if json_changed:
-        pushed, msg = push_shizuku_json(
-            module, device, patched, module.params["staging_path"], json_path
-        )
+        pushed, msg = push_shizuku_json(module, device, patched, module.params["staging_path"], json_path)
         if not pushed:
             module.fail_json(msg=msg)
 

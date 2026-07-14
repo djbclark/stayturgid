@@ -1,4 +1,5 @@
 """Unit tests for control/lib/vlm_gate.py (no llama-server required)."""
+
 from __future__ import annotations
 
 import json
@@ -53,12 +54,20 @@ def test_verify_play_autoupdate_ok(monkeypatch, tmp_path):
     gate = vlm.VlmGate(autostart=False)
     gate.ready = True
     payload = {
-        "choices": [{"message": {"content": json.dumps({
-            "ok": True,
-            "setting": "dont_auto_update",
-            "confidence": 0.99,
-            "notes": "selected",
-        })}}]
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "ok": True,
+                            "setting": "dont_auto_update",
+                            "confidence": 0.99,
+                            "notes": "selected",
+                        }
+                    )
+                }
+            }
+        ]
     }
 
     def fake_urlopen(req, timeout=None):
@@ -79,6 +88,7 @@ def test_verify_play_autoupdate_ok(monkeypatch, tmp_path):
                 ok, detail = gate.verify(shot, "play_autoupdate_dont")
     assert ok is True
     assert detail["confidence"] == 0.99
+
 
 def test_ensure_server_installs_launchd_when_missing(monkeypatch, tmp_path):
     plist = tmp_path / "homebrew.mxcl.ui-tars.plist"

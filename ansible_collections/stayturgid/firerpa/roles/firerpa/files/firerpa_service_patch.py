@@ -12,6 +12,7 @@ The patch is deliberately pinned to the known v10 DEX hashes and byte pattern.
 It fails closed on any upstream binary change so an upgrade cannot silently
 receive a potentially invalid DEX edit.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -24,12 +25,8 @@ import zipfile
 import zlib
 from pathlib import Path
 
-ORIGINAL_DEX_SHA256 = (
-    "69b52ebca5a0751b78f22c2f5a964b673e433be2e76e5b37f491813e472ec7c8"
-)
-PATCHED_DEX_SHA256 = (
-    "7801c9e77f675f25c2fbc2fe2d254ed3750f00f82fa7d925d0904690b0ca70c5"
-)
+ORIGINAL_DEX_SHA256 = "69b52ebca5a0751b78f22c2f5a964b673e433be2e76e5b37f491813e472ec7c8"
+PATCHED_DEX_SHA256 = "7801c9e77f675f25c2fbc2fe2d254ed3750f00f82fa7d925d0904690b0ca70c5"
 
 # Dalvik invoke-virtual, changed from {v0}, method@056a to
 # {v0, v1}, method@056b.  v1 is flag 1 on the supported Android versions.
@@ -68,10 +65,7 @@ def patch_dex(
     if digest == patched_sha256:
         return data, False
     if digest != original_sha256:
-        raise PatchError(
-            "unsupported FIRERPA classes.dex SHA-256 "
-            f"{digest}; expected {original_sha256}"
-        )
+        raise PatchError(f"unsupported FIRERPA classes.dex SHA-256 {digest}; expected {original_sha256}")
     if data.count(original_instruction) != 1:
         raise PatchError("expected exactly one UIAutomation invoke instruction")
     if patched_instruction in data:
@@ -84,10 +78,7 @@ def patch_dex(
     result = bytes(dex)
     result_digest = _sha256(result)
     if result_digest != patched_sha256:
-        raise PatchError(
-            "patched FIRERPA classes.dex SHA-256 mismatch: "
-            f"{result_digest}; expected {patched_sha256}"
-        )
+        raise PatchError(f"patched FIRERPA classes.dex SHA-256 mismatch: {result_digest}; expected {patched_sha256}")
     return result, True
 
 
@@ -116,14 +107,10 @@ def service_jar_from_archive(archive: Path) -> bytes:
     try:
         with tarfile.open(archive, "r:gz") as tar:
             matches = [
-                member
-                for member in tar.getmembers()
-                if member.isfile() and member.name.endswith(SERVICE_JAR_SUFFIX)
+                member for member in tar.getmembers() if member.isfile() and member.name.endswith(SERVICE_JAR_SUFFIX)
             ]
             if len(matches) != 1:
-                raise PatchError(
-                    "FIRERPA archive must contain exactly one lamda/service.jar"
-                )
+                raise PatchError("FIRERPA archive must contain exactly one lamda/service.jar")
             extracted = tar.extractfile(matches[0])
             if extracted is None:
                 raise PatchError("could not read lamda/service.jar from archive")
@@ -151,9 +138,7 @@ def write_atomic(path: Path, data: bytes) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(
-        description="Patch FIRERPA v10 service.jar for accessibility coexistence."
-    )
+    parser = argparse.ArgumentParser(description="Patch FIRERPA v10 service.jar for accessibility coexistence.")
     parser.add_argument("--archive", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args(argv)

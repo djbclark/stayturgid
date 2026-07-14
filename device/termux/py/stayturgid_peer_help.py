@@ -14,6 +14,7 @@ Env:
   STAYTURGID_HS_JAR   local path to push (default ~/.stayturgid/lib/hs.jar)
   ANDROID_SDK_HOME / HOME — adb uses ~/.android/adbkey (fleet-shared key)
 """
+
 from __future__ import annotations
 
 import argparse
@@ -29,9 +30,7 @@ DEFAULT_JAR = os.path.join(STG, "lib", "hs.jar")
 REMOTE_JAR = "/data/local/tmp/hs.jar"
 SHIZUKU_PKG = "moe.shizuku.privileged.api"
 # Shared fleet identity — do NOT overwrite ~/.android/adbkey (breaks localhost:5555).
-FLEET_ADBKEY = os.environ.get(
-    "STAYTURGID_FLEET_ADBKEY", os.path.join(STG, "adbkey-fleet")
-)
+FLEET_ADBKEY = os.environ.get("STAYTURGID_FLEET_ADBKEY", os.path.join(STG, "adbkey-fleet"))
 
 
 def _adb_env() -> dict[str, str]:
@@ -61,7 +60,7 @@ def _adb(*args: str, timeout: float = 45) -> subprocess.CompletedProcess:
 
 def _ensure_connected(target: str, timeout: float = 20) -> None:
     r = _adb("connect", target, timeout=timeout)
-    out = ((r.stdout or "") + (r.stderr or "")).lower()
+    ((r.stdout or "") + (r.stderr or "")).lower()
     # Refresh device list
     d = _adb("devices", timeout=15)
     lines = (d.stdout or "").splitlines()
@@ -77,16 +76,10 @@ def _ensure_connected(target: str, timeout: float = 20) -> None:
     if state == "device":
         return
     if state == "unauthorized":
-        raise SystemExit(
-            "adb %s unauthorized — accept Always allow on target once "
-            "(shared fleet adbkey)" % target
-        )
+        raise SystemExit("adb %s unauthorized — accept Always allow on target once (shared fleet adbkey)" % target)
     if state == "offline":
         raise SystemExit("adb %s offline" % target)
-    raise SystemExit(
-        "adb connect %s failed (state=%s): %s"
-        % (target, state, (r.stdout or r.stderr or "").strip())
-    )
+    raise SystemExit("adb connect %s failed (state=%s): %s" % (target, state, (r.stdout or r.stderr or "").strip()))
 
 
 def _shell(target: str, cmd: str, timeout: float = 30) -> subprocess.CompletedProcess:
@@ -127,9 +120,7 @@ def _push_jar(target: str) -> None:
         raise SystemExit("hs.jar missing locally (%s) and on target" % src)
     r = _adb("-s", target, "push", src, REMOTE_JAR, timeout=60)
     if r.returncode != 0:
-        raise SystemExit(
-            "adb push hs.jar failed: %s" % ((r.stderr or r.stdout or "").strip())
-        )
+        raise SystemExit("adb push hs.jar failed: %s" % ((r.stderr or r.stdout or "").strip()))
 
 
 def cmd_handsets_start(target: str, port: int) -> int:
@@ -138,16 +129,13 @@ def cmd_handsets_start(target: str, port: int) -> int:
     nice = "hsd%d" % port
     _shell(
         target,
-        "pkill -f '%s' 2>/dev/null; "
-        "pkill -f 'dev.handsets.daemon.Main --port=%d' 2>/dev/null; true"
-        % (nice, port),
+        "pkill -f '%s' 2>/dev/null; pkill -f 'dev.handsets.daemon.Main --port=%d' 2>/dev/null; true" % (nice, port),
         timeout=15,
     )
     time.sleep(0.3)
     start = (
         "CLASSPATH=%s nohup app_process /system/bin --nice-name=%s "
-        "dev.handsets.daemon.Main --port=%d >/data/local/tmp/%s.log 2>&1 &"
-        % (REMOTE_JAR, nice, port, nice)
+        "dev.handsets.daemon.Main --port=%d >/data/local/tmp/%s.log 2>&1 &" % (REMOTE_JAR, nice, port, nice)
     )
     _shell(target, start, timeout=15)
     deadline = time.time() + 12
@@ -157,8 +145,7 @@ def cmd_handsets_start(target: str, port: int) -> int:
             target,
             "toybox nc -z 127.0.0.1 %d >/dev/null 2>&1 && echo up || "
             "(ss -lntp 2>/dev/null | grep -q ':%d' && echo up || "
-            "grep -q 'listening' /data/local/tmp/%s.log 2>/dev/null && echo up || echo down)"
-            % (port, port, nice),
+            "grep -q 'listening' /data/local/tmp/%s.log 2>/dev/null && echo up || echo down)" % (port, port, nice),
             timeout=10,
         )
         if "up" in (r.stdout or ""):
@@ -190,8 +177,7 @@ def cmd_shizuku_start(target: str) -> int:
     start = (
         "test -x %s/libshizuku.so && "
         "LD_LIBRARY_PATH=%s %s/libshizuku.so || "
-        "sh /storage/emulated/0/Android/data/%s/start.sh"
-        % (libdir, libdir, libdir, shlex.quote(SHIZUKU_PKG))
+        "sh /storage/emulated/0/Android/data/%s/start.sh" % (libdir, libdir, libdir, shlex.quote(SHIZUKU_PKG))
     )
     out = _shell(target, start, timeout=30)
     text = ((out.stdout or "") + (out.stderr or "")).replace("\r", "")

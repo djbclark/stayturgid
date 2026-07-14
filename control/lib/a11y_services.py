@@ -3,14 +3,13 @@
 Detection-only — no automatic writes, no merge-repair, no backup/restore.
 Accessibility is a user-managed setting; all mechanisms detect and notify.
 """
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-AUTOJS6_A11Y = (
-    "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
-)
+AUTOJS6_A11Y = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
 
 _LIB = Path(__file__).resolve().parent
 _ON_DEVICE_PROFILES = Path.home() / ".stayturgid" / "a11y_profiles.json"

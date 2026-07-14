@@ -7,6 +7,7 @@ Examples:
   ./run_test.py s24 test-watchdog-once.js
   ./run_test.py s24 test-tailscale-probe-once.js
 """
+
 from __future__ import annotations
 
 import sys

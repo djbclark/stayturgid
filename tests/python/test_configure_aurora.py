@@ -1,4 +1,5 @@
 """Unit tests for Aurora background-run dialog helpers."""
+
 import importlib.util
 import sys
 from pathlib import Path

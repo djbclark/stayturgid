@@ -4,6 +4,7 @@
 Pure helpers shared by stayturgid.fdroid, stayturgid.play, and the adb_device
 lookup plugin. Mirrors control/lib/stayturgid_device.py resolve_adb().
 """
+
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
@@ -198,10 +199,7 @@ def resolve_adb(alias, run_command=None, conf_path=None):
     # plain TCP probe — mDNS TLS endpoints often fail socket connect but work
     # with ``adb connect``.
     mdns = discover_mdns_endpoint(run_command, usb)
-    if mdns and (
-        adb_online(devices, mdns)
-        or connect_wireless(run_command, mdns, require_probe=False)
-    ):
+    if mdns and (adb_online(devices, mdns) or connect_wireless(run_command, mdns, require_probe=False)):
         return mdns
 
     for endpoint in wireless_endpoints(row):

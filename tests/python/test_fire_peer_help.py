@@ -1,4 +1,5 @@
 """Unit tests for control/bin/fire_peer_help.py ForceCommand parsing."""
+
 from __future__ import annotations
 
 import sys

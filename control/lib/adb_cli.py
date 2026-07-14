@@ -1,4 +1,5 @@
 """Shared Mac adb helpers for stayturgid CLI scripts."""
+
 from __future__ import annotations
 
 import subprocess
@@ -106,12 +107,18 @@ def start_autojs_file(serial: str, remote_path: str, *, force_stop: bool = False
     cmd = ["shell", "am", "start", "--user", "0"]
     if force_stop:
         cmd.append("-S")
-    cmd.extend([
-        "-a", "android.intent.action.VIEW",
-        "-d", data,
-        "-t", "application/x-javascript",
-        "-n", f"{AUTOJS_PKG}/{AUTOJS_RUN}",
-    ])
+    cmd.extend(
+        [
+            "-a",
+            "android.intent.action.VIEW",
+            "-d",
+            data,
+            "-t",
+            "application/x-javascript",
+            "-n",
+            f"{AUTOJS_PKG}/{AUTOJS_RUN}",
+        ]
+    )
     adb(serial, *cmd, check=False)
 
 
@@ -161,8 +168,7 @@ def dismiss_usb_debugging_dialog(serial: str) -> bool:
         # Samsung: checkbox (2 TABs) → Allow (1 TAB)
         [["KEYCODE_TAB"], ["KEYCODE_TAB"], ["KEYCODE_SPACE"], ["KEYCODE_TAB"], ["KEYCODE_ENTER"]],
         # Samsung bottom sheet: Cancel(1) → checkbox(2) → Allow(1)
-        [["KEYCODE_TAB"], ["KEYCODE_TAB"], ["KEYCODE_TAB"], ["KEYCODE_SPACE"],
-         ["KEYCODE_TAB"], ["KEYCODE_ENTER"]],
+        [["KEYCODE_TAB"], ["KEYCODE_TAB"], ["KEYCODE_TAB"], ["KEYCODE_SPACE"], ["KEYCODE_TAB"], ["KEYCODE_ENTER"]],
     ]
     for seq in sequences:
         for key in seq:
@@ -201,8 +207,7 @@ def dismiss_app_compatibility_dialog(serial: str) -> bool:
         return False
 
     # Tap OK (default focused) to dismiss. ENTER clicks the focused button.
-    run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_ENTER"],
-        check=False)
+    run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_ENTER"], check=False)
     time.sleep(0.3)
     # Verify it's gone.
     check = run(

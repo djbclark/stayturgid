@@ -4,6 +4,7 @@
 Replaces vlm_migrate_paths.sh. Moves old models, logs, pid files from the
 stayturgid-embedded path to ~/.local/share/ui-tars/.
 """
+
 from __future__ import annotations
 
 import os
@@ -56,7 +57,8 @@ def unload_legacy_agent(cfg: UiTarsConfig) -> None:
             domain = f"gui/{os.getuid()}"
             subprocess.run(
                 ["launchctl", "bootout", domain, legacy],
-                capture_output=True, timeout=10,
+                capture_output=True,
+                timeout=10,
             )
         except (OSError, subprocess.TimeoutExpired):
             pass

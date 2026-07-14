@@ -3,6 +3,7 @@
 
 Prepends pip's vendored pkg_resources path, then runs gplaycli as a module.
 """
+
 from __future__ import annotations
 
 import os

@@ -1,4 +1,5 @@
 """Tests for the FIRERPA accessibility coexistence lifecycle controller."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -7,11 +8,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-LIFECYCLE_PATH = (
-    REPO
-    / "ansible_collections/stayturgid/firerpa/roles/firerpa/files"
-    / "firerpa_lifecycle.py"
-)
+LIFECYCLE_PATH = REPO / "ansible_collections/stayturgid/firerpa/roles/firerpa/files" / "firerpa_lifecycle.py"
 SPEC = importlib.util.spec_from_file_location("firerpa_lifecycle", LIFECYCLE_PATH)
 assert SPEC and SPEC.loader
 lifecycle_module = importlib.util.module_from_spec(SPEC)
@@ -51,9 +48,7 @@ def test_service_jar_pids_parses_remote_process_list(tmp_path):
 
 def test_remote_sha256_ignores_rish_banner(tmp_path):
     digest = lifecycle_module.SIGNED_JAR_SHA256
-    transport = FakeTransport(
-        [(0, f"Entering shell...\n{digest}  /remote/service.jar\n")]
-    )
+    transport = FakeTransport([(0, f"Entering shell...\n{digest}  /remote/service.jar\n")])
     lifecycle = _lifecycle(tmp_path, transport)
 
     assert lifecycle._remote_sha256(Path("/remote/service.jar")) == digest
@@ -66,9 +61,7 @@ def test_remote_sha256_fails_closed_without_digest(tmp_path):
         lifecycle._remote_sha256(Path("/remote/service.jar"))
 
 
-def test_start_is_idempotent_when_patched_driver_is_active(
-    tmp_path, monkeypatch, capsys
-):
+def test_start_is_idempotent_when_patched_driver_is_active(tmp_path, monkeypatch, capsys):
     lifecycle = _lifecycle(tmp_path)
     monkeypatch.setattr(lifecycle, "validate", lambda: None)
     monkeypatch.setattr(
@@ -94,9 +87,7 @@ def test_start_launches_signed_server_then_activates_patch(tmp_path, monkeypatch
         lambda _path: lifecycle_module.SIGNED_JAR_SHA256,
     )
     monkeypatch.setattr(lifecycle, "_port_open", lambda: False)
-    monkeypatch.setattr(
-        lifecycle, "_launch_signed_server", lambda: calls.append("launch")
-    )
+    monkeypatch.setattr(lifecycle, "_launch_signed_server", lambda: calls.append("launch"))
     monkeypatch.setattr(
         lifecycle,
         "_activate_coexistence_driver",
@@ -108,9 +99,7 @@ def test_start_launches_signed_server_then_activates_patch(tmp_path, monkeypatch
     assert calls == ["launch", "activate"]
 
 
-def test_launch_accepts_adb_client_timeout_when_listener_is_open(
-    tmp_path, monkeypatch
-):
+def test_launch_accepts_adb_client_timeout_when_listener_is_open(tmp_path, monkeypatch):
     lifecycle = _lifecycle(tmp_path, FakeTransport([(-1, "")]))
     monkeypatch.setattr(lifecycle, "_copy_atomic", lambda *_args: None)
     monkeypatch.setattr(lifecycle, "_port_open", lambda: True)
@@ -118,9 +107,7 @@ def test_launch_accepts_adb_client_timeout_when_listener_is_open(
     lifecycle._launch_signed_server()
 
 
-def test_launch_reports_adb_client_timeout_when_listener_stays_closed(
-    tmp_path, monkeypatch
-):
+def test_launch_reports_adb_client_timeout_when_listener_stays_closed(tmp_path, monkeypatch):
     lifecycle = _lifecycle(tmp_path, FakeTransport([(-1, "")]))
     monkeypatch.setattr(lifecycle, "_copy_atomic", lambda *_args: None)
     monkeypatch.setattr(lifecycle, "_port_open", lambda: False)

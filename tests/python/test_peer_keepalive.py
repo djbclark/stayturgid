@@ -1,4 +1,5 @@
 """Unit tests for stayturgid_peer_keepalive (no device)."""
+
 from __future__ import annotations
 
 import sys

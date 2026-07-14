@@ -141,9 +141,7 @@ def main():
     if config_changed and module.params["restart_on_change"] and not module.check_mode:
         # Detached: an inline restart would kill the SSH session Ansible uses.
         bash = os.path.join(prefix, "bin", "bash")
-        module.run_command(
-            [bash, "-c", "nohup bash -c 'sleep 5; pkill -x sshd; sleep 1; sshd' >/dev/null 2>&1 &"]
-        )
+        module.run_command([bash, "-c", "nohup bash -c 'sleep 5; pkill -x sshd; sleep 1; sshd' >/dev/null 2>&1 &"])
 
     module.exit_json(
         changed=config_changed or down_removed,

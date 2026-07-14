@@ -4,6 +4,7 @@
 Matches stayturgid_repair.py channel (uid 2000). Fire OS hosts with
 privilegedShellExpected=false must not use this — Mac USB adb instead.
 """
+
 from __future__ import annotations
 
 import json

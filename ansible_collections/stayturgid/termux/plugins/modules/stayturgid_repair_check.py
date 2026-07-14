@@ -115,9 +115,7 @@ def main():
     module = AnsibleModule(
         argument_spec=dict(
             repair_script=dict(type="path"),
-            termux_prefix=dict(
-                type="str", default="/data/data/com.termux/files/usr"
-            ),
+            termux_prefix=dict(type="str", default="/data/data/com.termux/files/usr"),
             fail_on_unhealthy=dict(type="bool", default=False),
         ),
         supports_check_mode=True,
@@ -125,9 +123,7 @@ def main():
 
     prefix = module.params["termux_prefix"]
     home = os.path.expanduser("~")
-    script = module.params["repair_script"] or os.path.join(
-        home, ".stayturgid", "bin", "stayturgid_repair.py"
-    )
+    script = module.params["repair_script"] or os.path.join(home, ".stayturgid", "bin", "stayturgid_repair.py")
     # Prefer python3 for .py repair scripts (OPTIONS 62 dropped the bash shim).
     # Fall back to bash for legacy shell repair entrypoints.
     python3 = os.path.join(prefix, "bin", "python3")

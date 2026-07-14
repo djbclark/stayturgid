@@ -6,6 +6,7 @@ Usage:
 
 Re-importing merges/updates existing entries (does not remove other apps).
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -53,9 +54,7 @@ def sync_catalog(alias: str, which: str = "all", *, import_catalog: bool = True)
 def main(argv: list[str] | None = None) -> int:
     argv = list(argv if argv is not None else sys.argv[1:])
     if not argv:
-        sys.stderr.write(
-            "usage: sync_to_device.py <p7a|s24|hd8|serial> [all|autojs6] [--no-import]\n"
-        )
+        sys.stderr.write("usage: sync_to_device.py <p7a|s24|hd8|serial> [all|autojs6] [--no-import]\n")
         return 2
 
     no_import = "--no-import" in argv

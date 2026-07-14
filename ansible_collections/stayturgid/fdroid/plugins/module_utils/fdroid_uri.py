@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """F-Droid URI helpers shared by fdroid collection modules."""
+
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type

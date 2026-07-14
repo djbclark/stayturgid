@@ -3,6 +3,7 @@
 Core logic lives in stayturgid.termux.plugins.module_utils.termux_run_as
 (collection). This module adds Mac-side SSH verification after bootstrap.
 """
+
 from __future__ import annotations
 
 import os
@@ -11,9 +12,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-_COLLECTION_UTILS = (
-    REPO_ROOT / "ansible_collections" / "stayturgid" / "termux" / "plugins" / "module_utils"
-)
+_COLLECTION_UTILS = REPO_ROOT / "ansible_collections" / "stayturgid" / "termux" / "plugins" / "module_utils"
 if str(_COLLECTION_UTILS) not in sys.path:
     sys.path.insert(0, str(_COLLECTION_UTILS))
 
@@ -25,8 +24,14 @@ SSH_OPTS = ["-o", "BatchMode=yes", "-o", "LogLevel=ERROR"]
 default_keys_dir = tr.default_keys_dir
 discover_pubkey_paths = tr.discover_pubkey_paths
 read_pubkey_lines = tr.read_pubkey_lines
-run_as_available = lambda serial: tr.run_as_available(_adb_run, serial)
-termux_installed = lambda serial: tr.termux_installed(_adb_run, serial)
+
+
+def run_as_available(serial):
+    return tr.run_as_available(_adb_run, serial)
+
+
+def termux_installed(serial):
+    return tr.termux_installed(_adb_run, serial)
 
 
 def _adb_run(cmd):

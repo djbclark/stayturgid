@@ -5,6 +5,7 @@ YouTube PiP (and similar) can steal taps and hide drawer rows. This module
 detects obstructions via dumpsys (no uiautomator unless needed) and dismisses
 them with the cheapest reliable action first.
 """
+
 from __future__ import annotations
 
 import re
@@ -37,22 +38,22 @@ PIP_CLOSE_LABELS = (
     "Exit picture-in-picture",
     "Close picture-in-picture",
 )
-PROTECTED_PACKAGES = frozenset({
-    "org.autojs.autojs6",
-    "com.termux",
-    "com.termux.api",
-    "com.termux.boot",
-    "moe.shizuku.privileged.api",
-    "com.android.settings",
-    "com.android.systemui",
-    "com.sec.android.app.launcher",
-})
+PROTECTED_PACKAGES = frozenset(
+    {
+        "org.autojs.autojs6",
+        "com.termux",
+        "com.termux.api",
+        "com.termux.boot",
+        "moe.shizuku.privileged.api",
+        "com.android.settings",
+        "com.android.systemui",
+        "com.sec.android.app.launcher",
+    }
+)
 
 _ROOT_TASK_RE = re.compile(r"RootTask id=(\d+)\b", re.IGNORECASE)
 _TASK_PKG_RE = re.compile(r"taskId=\d+:\s*([a-zA-Z0-9_.]+)/")
-_PKG_FROM_ACTIVITY_RE = re.compile(
-    r"\b([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)/[a-zA-Z0-9_.$]+"
-)
+_PKG_FROM_ACTIVITY_RE = re.compile(r"\b([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)/[a-zA-Z0-9_.$]+")
 _WINDOW_PKG_RE = re.compile(r"package=([a-zA-Z0-9_.]+)")
 _FRAME_RE = re.compile(r"frame=\[(\d+),(\d+)\]\[(\d+),(\d+)\]")
 _ROOT_PINNED_TASK_RE = re.compile(r"rootPinnedTask=Task=(\d+)")
@@ -65,7 +66,7 @@ def parse_pinned_stacks(stack_dump: str) -> list[tuple[int, str]]:
     found: list[tuple[int, str]] = []
     for match in _ROOT_TASK_RE.finditer(text):
         stack_id = int(match.group(1))
-        chunk = text[match.start():match.start() + 900]
+        chunk = text[match.start() : match.start() + 900]
         if not any(marker in chunk for marker in PIP_STACK_MARKERS):
             continue
         pkg_match = _TASK_PKG_RE.search(chunk)
@@ -83,7 +84,7 @@ def _packages_from_pinned_activity_tasks(activity_dump: str) -> set[str]:
     for idx, line in enumerate(lines):
         if "packageName=" not in line:
             continue
-        nearby = "\n".join(lines[max(0, idx - 3):idx + 4])
+        nearby = "\n".join(lines[max(0, idx - 3) : idx + 4])
         if "mode=pinned" not in nearby and "mWindowingMode=pinned" not in nearby:
             continue
         match = re.search(r"packageName=([a-zA-Z0-9_.]+)", line)
@@ -186,7 +187,7 @@ def _has_small_floating_window(window_dump: str, screen_size: tuple[int, int]) -
         if area < screen_area * 0.22 and area > screen_area * 0.01:
             # Ignore nav/status slivers; PiP is usually 5–20% of screen.
             chunk_start = max(0, match.start() - 400)
-            chunk = window_dump[chunk_start:match.end() + 200]
+            chunk = window_dump[chunk_start : match.end() + 200]
             if "isReadyForDisplay()=true" not in chunk and "mViewVisibility=0x0" not in chunk:
                 continue
             if _WINDOW_PKG_RE.search(chunk):
@@ -232,9 +233,7 @@ def clear_ui_obstructions(serial: str, shell) -> list[str]:
         rc_w, window = shell(serial, "dumpsys", "window", "windows")
         if rc_a != 0 and rc_s != 0:
             break
-        if not pip_obstruction_detected(
-            activity or "", stack or "", window or "", screen_size=screen_size
-        ):
+        if not pip_obstruction_detected(activity or "", stack or "", window or "", screen_size=screen_size):
             break
 
         for stack_id, pkg in pinned_stack_targets(activity or "", stack or ""):
@@ -255,9 +254,7 @@ def clear_ui_obstructions(serial: str, shell) -> list[str]:
         rc_a2, activity2 = shell(serial, "dumpsys", "activity", "activities")
         rc_s2, stack2 = shell(serial, "cmd", "activity", "stack", "list")
         rc_w2, window2 = shell(serial, "dumpsys", "window", "windows")
-        still_pip = pip_obstruction_detected(
-            activity2 or "", stack2 or "", window2 or "", screen_size=screen_size
-        )
+        still_pip = pip_obstruction_detected(activity2 or "", stack2 or "", window2 or "", screen_size=screen_size)
         if still_pip:
             for pkg in sorted(_packages_from_pinned_activity_tasks(activity2 or "")):
                 if pkg in PROTECTED_PACKAGES:

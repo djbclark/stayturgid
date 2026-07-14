@@ -94,34 +94,22 @@ def shizuku_installed(run_command, device, pkg=SHIZUKU_PKG):
 
 
 def shizuku_running(run_command, device):
-    rc, out, _err = adb_shell(
-        run_command, device,
-        "am broadcast -a %s 2>/dev/null" % HEADLESS_STATUS
-    )
+    rc, out, _err = adb_shell(run_command, device, "am broadcast -a %s 2>/dev/null" % HEADLESS_STATUS)
     text = normalize_adb_output(out)
     if rc == 0 and "result=1" in text:
         return True
-    rc, out, _err = adb_shell(
-        run_command, device,
-        "pgrep -f '[s]hizuku_server' >/dev/null && echo up"
-    )
+    rc, out, _err = adb_shell(run_command, device, "pgrep -f '[s]hizuku_server' >/dev/null && echo up")
     return rc == 0 and "up" in normalize_adb_output(out)
 
 
 def port5555_open(run_command, device):
-    rc, out, _err = adb_shell(
-        run_command, device,
-        "grep -q ':15B3' /proc/net/tcp && echo open || echo closed"
-    )
+    rc, out, _err = adb_shell(run_command, device, "grep -q ':15B3' /proc/net/tcp && echo open || echo closed")
     return rc == 0 and "open" in normalize_adb_output(out)
 
 
 def send_headless_start(run_command, device):
-    rc, out, _err = adb_shell(
-        run_command, device,
-        "am broadcast -a %s" % HEADLESS_START
-    )
-    text = normalize_adb_output(out)
+    rc, out, _err = adb_shell(run_command, device, "am broadcast -a %s" % HEADLESS_START)
+    normalize_adb_output(out)
     return rc == 0
 
 
@@ -150,22 +138,18 @@ def push_fleet_profile(module, device, profile):
     import json
     import os
     import tempfile
+
     content = json.dumps(profile, separators=(",", ":"))
     tmp = tempfile.NamedTemporaryFile("w", dir=module.tmpdir, suffix=".json", delete=False)
     try:
         tmp.write(content)
         tmp.close()
-        rc, _out, err = module.run_command(
-            ["adb", "-s", device, "push", tmp.name, FLEET_PROFILE_PATH]
-        )
+        rc, _out, err = module.run_command(["adb", "-s", device, "push", tmp.name, FLEET_PROFILE_PATH])
         if rc != 0:
             return False, "push fleet profile failed: %s" % normalize_adb_output(err)
     finally:
         os.unlink(tmp.name)
-    rc, _out, err = adb_shell(
-        module.run_command, device,
-        "chmod 644 %s" % FLEET_PROFILE_PATH
-    )
+    rc, _out, err = adb_shell(module.run_command, device, "chmod 644 %s" % FLEET_PROFILE_PATH)
     if rc != 0:
         return False, "chmod fleet profile failed"
     return True, "ok"
@@ -173,9 +157,10 @@ def push_fleet_profile(module, device, profile):
 
 def apply_fleet_profile(run_command, device):
     rc, _out, _err = adb_shell(
-        run_command, device,
+        run_command,
+        device,
         "am start --user 0 -a %s -e profile_path %s -e silent true -n %s"
-        % (APPLY_FLEET, FLEET_PROFILE_PATH, FLEET_ACTIVITY)
+        % (APPLY_FLEET, FLEET_PROFILE_PATH, FLEET_ACTIVITY),
     )
     return rc == 0
 
@@ -211,14 +196,10 @@ def main():
     port_open = port5555_open(module.run_command, device) if running else False
 
     if running and port_open:
-        module.exit_json(
-            changed=False, shizuku="already_up", start_method="already_up", port5555="open"
-        )
+        module.exit_json(changed=False, shizuku="already_up", start_method="already_up", port5555="open")
 
     if running and not port_open:
-        module.exit_json(
-            changed=False, shizuku="up_no_port", start_method="already_up", port5555="closed"
-        )
+        module.exit_json(changed=False, shizuku="up_no_port", start_method="already_up", port5555="closed")
 
     start_method = "none"
 
@@ -251,18 +232,12 @@ def main():
     final_port = "open" if port5555_open(module.run_command, device) else "closed"
 
     if final_running and final_port == "open":
-        module.exit_json(
-            changed=True, shizuku="up", start_method=start_method, port5555=final_port
-        )
+        module.exit_json(changed=True, shizuku="up", start_method=start_method, port5555=final_port)
     elif final_running:
         module.warn("Shizuku is running but port 5555 is closed — fleet profile may need a second apply")
-        module.exit_json(
-            changed=True, shizuku="up_no_port", start_method=start_method, port5555="closed"
-        )
+        module.exit_json(changed=True, shizuku="up_no_port", start_method=start_method, port5555="closed")
     else:
-        module.fail_json(
-            msg="Shizuku failed to come up within %ds timeout" % module.params["start_timeout"]
-        )
+        module.fail_json(msg="Shizuku failed to come up within %ds timeout" % module.params["start_timeout"])
 
 
 if __name__ == "__main__":

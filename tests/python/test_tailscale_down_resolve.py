@@ -1,4 +1,5 @@
 """Unit tests for control/tools/autojs6/test_tailscale_down.py endpoint resolution."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -19,7 +20,8 @@ def test_resolve_serial_delegates_to_device_helper(monkeypatch):
 
 def test_is_tailscale_path_detects_tunnel_target(monkeypatch):
     monkeypatch.setattr(
-        ttd.dev, "device_row",
+        ttd.dev,
+        "device_row",
         lambda alias: ("RFCX219CHKA", "100.65.230.108", "192.168.68.65"),
     )
     assert ttd.is_tailscale_path("p7a", "100.65.230.108:5555") is True

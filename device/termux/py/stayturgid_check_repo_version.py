@@ -5,6 +5,7 @@ Notify when GitHub's version.json is newer than the last seen version.
 Notify-only (updates are applied from the Mac). Migrated from the former
 check-repo-version.sh; unit-tested via tests/test-unit.sh (version_check_suite).
 """
+
 import os
 import re
 import subprocess

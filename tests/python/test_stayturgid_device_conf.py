@@ -1,4 +1,5 @@
 """devices.conf parsing in control/lib/stayturgid_device.py (review L9)."""
+
 from __future__ import annotations
 
 import sys

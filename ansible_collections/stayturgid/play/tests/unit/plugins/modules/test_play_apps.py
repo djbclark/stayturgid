@@ -1,13 +1,12 @@
 """Unit tests for play_apps module (helpers + mocked Ansible I/O)."""
+
 import json
 import os
 import sys
 
 import pytest
 
-FLEET_ROOT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")
-)
+FLEET_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 sys.path.insert(0, os.path.join(FLEET_ROOT, "plugins", "modules"))
 import play_apps as mod  # noqa: E402
 
@@ -24,7 +23,7 @@ def run_module(mocker, args, cmd_results=None, check=False):
     def fake_run_command(self, cmd, *a, **kw):
         joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
         commands.append(joined)
-        for needle, result in (cmd_results or []):
+        for needle, result in cmd_results or []:
             if needle in joined:
                 return result
         if "pm list packages" in joined and "com.example.app" in joined:

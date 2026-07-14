@@ -133,9 +133,7 @@ def main():
         module.fail_json(msg="failed to read public keys: %s" % exc)
 
     if not lines:
-        module.fail_json(
-            msg="no public keys found — set public_keys, public_key_files, or add *.pub under keys_dir"
-        )
+        module.fail_json(msg="no public keys found — set public_keys, public_key_files, or add *.pub under keys_dir")
 
     try:
         result = bootstrap_device(

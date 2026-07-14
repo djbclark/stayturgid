@@ -10,6 +10,7 @@ Usage:
   STAYTURGID_VLM=1 python3 control/bin/verify_play_autoupdate.py hd8
   python3 control/bin/verify_play_autoupdate.py hd8 --shot-only /tmp/play-auto.png
 """
+
 from __future__ import annotations
 
 import argparse
@@ -88,10 +89,7 @@ def main(argv: list[str] | None = None) -> int:
         print("VLM skipped (%s) — navigation/capture ok" % detail.get("reason"))
         return 0
     if ok:
-        print(
-            "PASS: Don't auto-update apps (VLM backend=%s)"
-            % detail.get("backend", "?")
-        )
+        print("PASS: Don't auto-update apps (VLM backend=%s)" % detail.get("backend", "?"))
         return 0
     print("FAIL: Play auto-update not confirmed off", file=sys.stderr)
     return 1 if vlm.vlm_strict() else 0

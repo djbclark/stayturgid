@@ -2,11 +2,10 @@
 
 Detection-only — no automatic writes or merge-repair.
 """
+
 from __future__ import absolute_import, division, print_function
 
-AUTOJS6_A11Y = (
-    "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
-)
+AUTOJS6_A11Y = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
 
 
 def normalize_value(raw):

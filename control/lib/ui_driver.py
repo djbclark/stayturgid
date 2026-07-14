@@ -10,6 +10,7 @@ talk via ``hs --host 127.0.0.1 --port N``.
 
 Do not run alongside uiautomator2 (exclusive UiAutomation slot).
 """
+
 from __future__ import annotations
 
 import os
@@ -65,9 +66,7 @@ def handsets_available() -> bool:
 
 
 def _run(cmd: list[str], timeout: float = 30) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        cmd, capture_output=True, text=True, timeout=timeout
-    )
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
 
 
 class HandsetsSession:
@@ -90,9 +89,7 @@ class HandsetsSession:
 
     def __enter__(self) -> "HandsetsSession":
         if not handsets_available():
-            raise UiDriverError(
-                "Handsets not installed (expected %s and %s)" % (HS_BIN, HS_JAR)
-            )
+            raise UiDriverError("Handsets not installed (expected %s and %s)" % (HS_BIN, HS_JAR))
         self.start()
         return self
 
@@ -105,7 +102,10 @@ class HandsetsSession:
         # Kill prior daemon on this port only.
         _run(
             [
-                "adb", "-s", self.serial, "shell",
+                "adb",
+                "-s",
+                self.serial,
+                "shell",
                 "pkill -f '%s' 2>/dev/null; pkill -f 'dev.handsets.daemon.Main --port=%d' 2>/dev/null; true"
                 % (self._nice, self.port),
             ],
@@ -116,9 +116,7 @@ class HandsetsSession:
             timeout=60,
         )
         if push.returncode != 0:
-            raise UiDriverError(
-                "adb push hs.jar failed: %s" % ((push.stderr or push.stdout or "").strip())
-            )
+            raise UiDriverError("adb push hs.jar failed: %s" % ((push.stderr or push.stdout or "").strip()))
         _run(
             ["adb", "-s", self.serial, "forward", "--remove", "tcp:%d" % self.port],
             timeout=10,
@@ -151,7 +149,10 @@ class HandsetsSession:
     def stop(self) -> None:
         _run(
             [
-                "adb", "-s", self.serial, "shell",
+                "adb",
+                "-s",
+                self.serial,
+                "shell",
                 "pkill -f '%s' 2>/dev/null; pkill -f 'dev.handsets.daemon.Main --port=%d' 2>/dev/null; true"
                 % (self._nice, self.port),
             ],
@@ -166,8 +167,10 @@ class HandsetsSession:
     def _hs(self, *args: str, timeout: float = 20) -> subprocess.CompletedProcess:
         cmd = [
             HS_BIN,
-            "--host", "127.0.0.1",
-            "--port", str(self.port),
+            "--host",
+            "127.0.0.1",
+            "--port",
+            str(self.port),
             *args,
         ]
         return _run(cmd, timeout=timeout)
@@ -310,7 +313,12 @@ class HandsetsSession:
         # Selector fallback (wider near radius than Handsets docs' 200).
         sel = 'Switch:near(TextView[text="%s"], %d)' % (label, _SWITCH_NEAR_PX)
         r = self.hs(
-            "find", sel, "--timeout", str(timeout_ms), "--nth", "1",
+            "find",
+            sel,
+            "--timeout",
+            str(timeout_ms),
+            "--nth",
+            "1",
         )
         out = ((r.stdout or "") + (r.stderr or "")).lower()
         if r.returncode == 0 and out.strip():
@@ -332,7 +340,9 @@ class HandsetsSession:
         coords = self.switch_coords(label)
         if coords is not None:
             r = self.hs(
-                "tap", str(coords[0]), str(coords[1]),
+                "tap",
+                str(coords[0]),
+                str(coords[1]),
                 timeout=max(10.0, timeout_ms / 1000.0 + 5),
             )
             if r.returncode == 0:

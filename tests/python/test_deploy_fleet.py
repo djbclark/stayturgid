@@ -1,9 +1,11 @@
 """Unit tests for control/bin/deploy_fleet.py — site.yml argv building and deploy wrapper."""
+
 import os
 import sys
 
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "bin"))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "bin")
+)
 import deploy_fleet as df  # noqa: E402
 
 INVENTORY_JSON = {
@@ -22,8 +24,10 @@ def test_run_playbook_argv_full(monkeypatch):
 
     def fake_run(cmd, **kwargs):
         seen.append(cmd)
+
         class R:
             returncode = 0
+
         return R()
 
     monkeypatch.setattr(df.subprocess, "run", fake_run)
@@ -41,8 +45,10 @@ def test_run_playbook_argv_skip_tags(monkeypatch):
 
     def fake_run(cmd, **kwargs):
         seen.append(cmd)
+
         class R:
             returncode = 0
+
         return R()
 
     monkeypatch.setattr(df.subprocess, "run", fake_run)
@@ -55,8 +61,10 @@ def test_run_playbook_argv_check_and_tags(monkeypatch):
 
     def fake_run(cmd, **kwargs):
         seen.append(cmd)
+
         class R:
             returncode = 0
+
         return R()
 
     monkeypatch.setattr(df.subprocess, "run", fake_run)
@@ -97,9 +105,7 @@ def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0):
     monkeypatch.setattr(df, "warn_prerequisites", lambda scope: None)
     monkeypatch.setattr(df, "install_collections", lambda: None)
 
-    def run_playbook(
-        playbook, *, limit=None, check, tags, skip_tags=None, extra_vars=None, verbose=0
-    ):
+    def run_playbook(playbook, *, limit=None, check, tags, skip_tags=None, extra_vars=None, verbose=0):
         calls.append(("playbook", tags, check, skip_tags))
         return playbook_rc
 

@@ -1,4 +1,5 @@
 """Tests for Termux repair's control-ET SSH config self-heal."""
+
 from __future__ import annotations
 
 import importlib.util
@@ -18,9 +19,7 @@ def _setup_repair_tree(tmp_path, monkeypatch, config_text):
     share = stg / "share"
     share.mkdir(parents=True)
     (share / "ssh-config-control-et").write_text(
-        "Host mac\n    HostName 100.0.0.1\n"
-        "    IdentityFile ~/.ssh/id_ed25519_fleet\n"
-        "    IdentitiesOnly yes\n",
+        "Host mac\n    HostName 100.0.0.1\n    IdentityFile ~/.ssh/id_ed25519_fleet\n    IdentitiesOnly yes\n",
         encoding="utf-8",
     )
     conf = home / ".ssh" / "config"

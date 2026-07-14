@@ -12,6 +12,7 @@ Usage:
   log("fleet-health.log", INFO, "p7a via ssh: sshd=ok")
   log("fleet-health.log", ERR, "p7a port 5555 CLOSED — escalate to reboot")
 """
+
 from __future__ import annotations
 
 import datetime
@@ -21,24 +22,24 @@ import re
 import time
 
 # ── Syslog severity levels ──────────────────────────────────────────────────
-EMERG   = 0   # system is unusable
-ALERT   = 1   # action must be taken immediately
-CRIT    = 2   # critical conditions
-ERR     = 3   # error conditions
-WARNING = 4   # warning conditions
-NOTICE  = 5   # normal but significant
-INFO    = 6   # informational
-DEBUG   = 7   # debug-level
+EMERG = 0  # system is unusable
+ALERT = 1  # action must be taken immediately
+CRIT = 2  # critical conditions
+ERR = 3  # error conditions
+WARNING = 4  # warning conditions
+NOTICE = 5  # normal but significant
+INFO = 6  # informational
+DEBUG = 7  # debug-level
 
 _SEVERITY_LABELS: dict[int, str] = {
-    EMERG:   "EMERG",
-    ALERT:   "ALERT",
-    CRIT:    "CRIT",
-    ERR:     "ERR",
+    EMERG: "EMERG",
+    ALERT: "ALERT",
+    CRIT: "CRIT",
+    ERR: "ERR",
     WARNING: "WARNING",
-    NOTICE:  "NOTICE",
-    INFO:    "INFO",
-    DEBUG:   "DEBUG",
+    NOTICE: "NOTICE",
+    INFO: "INFO",
+    DEBUG: "DEBUG",
 }
 
 # Compat aliases (lowercase, common aliases)
@@ -60,7 +61,11 @@ def _resolve_log_path(path_or_name: str) -> str:
     if path_or_name.startswith("/") or path_or_name.startswith("~"):
         return os.path.expanduser(path_or_name)
     return os.path.join(
-        os.path.expanduser("~"), ".config", "stayturgid", "logs", path_or_name,
+        os.path.expanduser("~"),
+        ".config",
+        "stayturgid",
+        "logs",
+        path_or_name,
     )
 
 
@@ -96,7 +101,8 @@ def _parse_ts(line: str) -> float | None:
         return None
     try:
         return datetime.datetime.strptime(
-            m.group(1), "%Y-%m-%d %H:%M:%S",
+            m.group(1),
+            "%Y-%m-%d %H:%M:%S",
         ).timestamp()
     except ValueError:
         return None
@@ -197,15 +203,13 @@ _ERROR_PATTERNS: list[tuple[re.Pattern, int]] = [
     (re.compile(r"\bskipped\b", re.I), INFO),
 ]
 
-_REPAIR_LOG_GREP = (
-    r"""export PATH=/data/data/com.termux/files/usr/bin:$PATH
+_REPAIR_LOG_GREP = r"""export PATH=/data/data/com.termux/files/usr/bin:$PATH
 l1=""; l2=""; [ -f ~/.stayturgid/logs/repair.log ] && l1="repair.log"; \
 [ -f /sdcard/stayturgid/logs/watchdog.log ] && l2="watchdog.log"
 grep -h -i -E 'FAILED|CLOSED_NO_SHELL|Error|Exception|Traceback|cannot find|crash|permission' \
   ${l1:+"~/.stayturgid/logs/repair.log"} \
   ${l2:+/sdcard/stayturgid/logs/watchdog.log} 2>/dev/null | tail -100
 """
-)
 
 
 def scrape_errors(text: str) -> list[tuple[int, str]]:

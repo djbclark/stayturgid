@@ -1,4 +1,5 @@
 """Unit tests for Termux Handsets wire helpers (no device required)."""
+
 from __future__ import annotations
 
 import sys
@@ -32,9 +33,7 @@ def test_center_for_rid(monkeypatch):
             pass
 
         def _walk_nodes(self, data=None):
-            return [
-                {"rid": "android:id/button1", "bounds": [10, 20, 30, 40], "text": "ALLOW"}
-            ]
+            return [{"rid": "android:id/button1", "bounds": [10, 20, 30, 40], "text": "ALLOW"}]
 
     s = Fake()
     assert s.center_for("resource-id", "android:id/button1") == (20, 30)

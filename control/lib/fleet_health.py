@@ -3,6 +3,7 @@
 Scrapes Termux logs / STATUS / a11y over SSH (preferred) or adb. Thresholds
 align with tests/device_tier.py. Never mutates the phone.
 """
+
 from __future__ import annotations
 
 import os
@@ -23,6 +24,8 @@ if str(_SHARED) not in sys.path:
 WATCHDOG_FRESH_SEC = 1800  # 30 min
 REPAIR_FRESH_SEC = 2700  # 45 min
 SSH_PORT = 8022
+
+
 # Resolved at import via stayturgid_device when available; absolute path for launchd.
 def _adb_bin() -> str:
     try:
@@ -172,9 +175,7 @@ def evaluate_health(report: dict[str, str], *, alias: str | None = None) -> list
     """Return sorted issue tags (empty = healthy / inconclusive-ok)."""
     issues: list[str] = []
     # Structured probe failures (Mac adb missing/timeout) — not device soft state.
-    if report.get("probe") in ("adb_missing", "adb_timeout") or report.get(
-        "issues"
-    ) == "probe_error":
+    if report.get("probe") in ("adb_missing", "adb_timeout") or report.get("issues") == "probe_error":
         issues.append("probe_error")
     if report.get("ssh_echo") == "fail":
         issues.append("ssh_echo")
@@ -251,14 +252,21 @@ def ssh_health(host: str, *, timeout: int = 30) -> dict[str, str]:
     """Run HEALTH_GATHER over SSH. On failure return ssh_echo=fail."""
     try:
         r = subprocess.run(
-            ["ssh",
-             "-o", "BatchMode=yes",
-             "-o", "ConnectTimeout=8",
-             "-o", "LogLevel=ERROR",
-             "-o", "ServerAliveInterval=5",
-             "-o", "ServerAliveCountMax=3",
-             host,
-             "bash", "-s",
+            [
+                "ssh",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ConnectTimeout=8",
+                "-o",
+                "LogLevel=ERROR",
+                "-o",
+                "ServerAliveInterval=5",
+                "-o",
+                "ServerAliveCountMax=3",
+                host,
+                "bash",
+                "-s",
             ],
             input=HEALTH_GATHER,
             capture_output=True,
@@ -337,18 +345,14 @@ def tcp_open(host: str, port: int, timeout: float = 5) -> bool:
 
 def adb_reachable(addrs: list[str]) -> str | None:
     try:
-        listed = subprocess.run(
-            [ADB, "devices"], capture_output=True, text=True, timeout=15
-        ).stdout
+        listed = subprocess.run([ADB, "devices"], capture_output=True, text=True, timeout=15).stdout
     except (OSError, subprocess.TimeoutExpired):
         listed = ""
     for addr in addrs:
         if "%s\tdevice" % addr in listed:
             return "adb:%s" % addr
         try:
-            out = subprocess.run(
-                [ADB, "connect", addr], capture_output=True, text=True, timeout=15
-            ).stdout
+            out = subprocess.run([ADB, "connect", addr], capture_output=True, text=True, timeout=15).stdout
             if "connected to" in out:
                 return "adb:%s" % addr
         except (OSError, subprocess.TimeoutExpired):

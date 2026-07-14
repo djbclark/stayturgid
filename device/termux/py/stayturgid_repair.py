@@ -10,6 +10,7 @@ Uses Shizuku's shell-privileged adbd on localhost:5555 (uid 2000) for
 privileged checks/repairs. Exit 0 = healthy after repair; 1 = a subsystem
 still down (needs AutoJs6 UI repair or reboot). Prints one STATUS line.
 """
+
 import datetime
 import fcntl
 import json
@@ -22,8 +23,14 @@ import time
 # Syslog-style severity levels
 EMERG, ALERT, CRIT, ERR, WARNING, NOTICE, INFO, DEBUG = range(8)
 _SEV_LABEL = {
-    EMERG: "EMERG", ALERT: "ALERT", CRIT: "CRIT", ERR: "ERR",
-    WARNING: "WARNING", NOTICE: "NOTICE", INFO: "INFO", DEBUG: "DEBUG",
+    EMERG: "EMERG",
+    ALERT: "ALERT",
+    CRIT: "CRIT",
+    ERR: "ERR",
+    WARNING: "WARNING",
+    NOTICE: "NOTICE",
+    INFO: "INFO",
+    DEBUG: "DEBUG",
 }
 
 PREFIX = os.environ.get("PREFIX", "/data/data/com.termux/files/usr")
@@ -34,7 +41,7 @@ os.environ["LC_ALL"] = "C"
 
 # All stayturgid files live under one root per filesystem (self-healing: every
 # writer mkdir -p's its dir, so a user-deleted dir just gets recreated).
-STG = os.path.join(HOME, ".stayturgid")             # Termux-private root
+STG = os.path.join(HOME, ".stayturgid")  # Termux-private root
 _ENV_FILE = os.path.join(STG, "env")
 if os.path.isfile(_ENV_FILE):
     try:
@@ -237,12 +244,7 @@ def duplicate_branch():
         else:
             shizuku_rc, _ = sh_adb("pgrep -f '[s]hizuku_server'")
             shizuku = "up" if shizuku_rc == 0 else "down"
-        wifi = (
-            "up"
-            if sh_adb("settings get global adb_wifi_enabled")[1].strip()
-            in ("1", "true")
-            else "down"
-        )
+        wifi = "up" if sh_adb("settings get global adb_wifi_enabled")[1].strip() in ("1", "true") else "down"
         before = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
         a11y = "up" if A11Y_SVC in before else "down"
     else:
@@ -264,11 +266,7 @@ def duplicate_branch():
                     existing = f.read()
         except OSError:
             existing = ""
-        et_cfg = (
-            "up"
-            if "STAYTURGID-CONTROL-ET" in existing and "IdentityFile" in existing
-            else "down"
-        )
+        et_cfg = "up" if "STAYTURGID-CONTROL-ET" in existing and "IdentityFile" in existing else "down"
     status = (
         "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s os_release=skip pkg_upgrade=skip auto_profile=skip shizuku_profile=skip device_profile=skip env=skip"
         % (port, shizuku, sshd, a11y, "yes" if sh else "no", wifi, et_cfg)
@@ -294,8 +292,7 @@ def acquire_lock():
         return None
 
 
-MAC_PATH_KEYWORDS = ("/Users/", "/opt/homebrew/", "/Library/Apple/",
-                     "/System/Cryptexes/")
+MAC_PATH_KEYWORDS = ("/Users/", "/opt/homebrew/", "/Library/Apple/", "/System/Cryptexes/")
 
 PROFILES = [".profile", ".bashrc", ".bash_profile"]
 
@@ -343,10 +340,10 @@ def ensure_shell_profile_path():
         changed = False
         for line in lines:
             stripped = line.strip()
-            if (stripped.startswith("export PATH=") or stripped.startswith("PATH=")) \
-                    and any(kw in stripped for kw in MAC_PATH_KEYWORDS):
-                new.append('export PATH="$HOME/bin:%s/bin:%s/sbin:$PATH"\n'
-                           % (PREFIX, PREFIX))
+            if (stripped.startswith("export PATH=") or stripped.startswith("PATH=")) and any(
+                kw in stripped for kw in MAC_PATH_KEYWORDS
+            ):
+                new.append('export PATH="$HOME/bin:%s/bin:%s/sbin:$PATH"\n' % (PREFIX, PREFIX))
                 changed = True
             else:
                 new.append(line)
@@ -391,9 +388,10 @@ def ensure_termux_mirror():
         with open(sources, "w") as f:
             f.write(expected)
         run(["apt-get", "update", "-y"], timeout=30)
-        log("Termux mirror re-pinned from %s -> %s" % (
-            current.strip().split()[1] if len(current.split()) > 1 else "absent",
-            CANONICAL_MIRROR))
+        log(
+            "Termux mirror re-pinned from %s -> %s"
+            % (current.strip().split()[1] if len(current.split()) > 1 else "absent", CANONICAL_MIRROR)
+        )
         return "repaired"
     except OSError:
         return "FAILED"
@@ -430,9 +428,7 @@ def ensure_control_et_ssh_config():
     # OpenSSH keeps the first value for each option, so that stale block wins
     # and silently routes ET to the old hostname/key. Remove only that known
     # legacy block; preserve all unrelated SSH configuration.
-    legacy = re.compile(
-        r"(?ms)^# MacBook Air via Tailscale.*?^    IdentitiesOnly yes[ \t]*\n?"
-    )
+    legacy = re.compile(r"(?ms)^# MacBook Air via Tailscale.*?^    IdentitiesOnly yes[ \t]*\n?")
     cleaned = legacy.sub("", existing)
     has_managed = "STAYTURGID-CONTROL-ET" in cleaned and "IdentityFile" in cleaned
     if has_managed:
@@ -470,8 +466,8 @@ def ensure_control_et_ssh_config():
 OS_RELEASE_PATH = os.path.join(PREFIX, "etc", "os-release")
 OS_RELEASE_CONTENT = (
     'NAME="Termux"\n'
-    'ID=termux\n'
-    'ID_LIKE=android\n'
+    "ID=termux\n"
+    "ID_LIKE=android\n"
     'PRETTY_NAME="Termux (Android)"\n'
     'VERSION_ID="1"\n'
     'HOME_URL="https://termux.dev/"\n'
@@ -551,10 +547,15 @@ def ensure_pkg_upgrade_daily():
             env=env,
         )
         p = subprocess.run(
-            ["apt-get", "-y",
-             "-o", "Dpkg::Options::=--force-confdef",
-             "-o", "Dpkg::Options::=--force-confold",
-             "full-upgrade"],
+            [
+                "apt-get",
+                "-y",
+                "-o",
+                "Dpkg::Options::=--force-confdef",
+                "-o",
+                "Dpkg::Options::=--force-confold",
+                "full-upgrade",
+            ],
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
@@ -599,7 +600,7 @@ def main():
     rc = 0
 
     # --- 1. sshd ---
-    sshd_down = ensure_sshd_down_file()
+    ensure_sshd_down_file()
     if sshd_up():
         sshd = "up"
     else:
@@ -665,11 +666,24 @@ def main():
             log("shizuku_server running but port 5555 closed — applying fleet profile + HEADLESS_START", WARNING)
             shizuku_fp = "/data/local/tmp/shizuku-fleet.json"
             if os.path.isfile(shizuku_fp):
-                run(["am", "start", "--user", "0",
-                     "-a", "moe.shizuku.privileged.api.APPLY_FLEET_PROFILE",
-                     "-e", "profile_path", shizuku_fp,
-                     "-e", "silent", "true",
-                     "-n", "moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity"])
+                run(
+                    [
+                        "am",
+                        "start",
+                        "--user",
+                        "0",
+                        "-a",
+                        "moe.shizuku.privileged.api.APPLY_FLEET_PROFILE",
+                        "-e",
+                        "profile_path",
+                        shizuku_fp,
+                        "-e",
+                        "silent",
+                        "true",
+                        "-n",
+                        "moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity",
+                    ]
+                )
                 time.sleep(1)
             run(["am", "broadcast", "-a", "moe.shizuku.privileged.api.HEADLESS_START"])
             time.sleep(3)
@@ -701,13 +715,17 @@ def main():
             else:
                 a11y = "down"
                 log("AutoJs6 accessibility is OFF — re-enable in Settings > Accessibility > AutoJs6", WARNING)
-                log("ACTION_REQUIRED: AutoJs6 accessibility disabled on %s" % (os.uname().nodename if hasattr(os, 'uname') else "device"), NOTICE)
+                log(
+                    "ACTION_REQUIRED: AutoJs6 accessibility disabled on %s"
+                    % (os.uname().nodename if hasattr(os, "uname") else "device"),
+                    NOTICE,
+                )
 
     # --- 5. Shell profile PATH (remove leaked Mac PATH that breaks pkg/apt) ---
-    profile_path = ensure_shell_profile_path()
+    ensure_shell_profile_path()
 
     # --- 6. Termux mirror pin (re-pin after random mirror selection by pkg) ---
-    mirror = ensure_termux_mirror()
+    ensure_termux_mirror()
 
     # --- 7. phone→Mac Eternal Terminal SSH config (share-backed self-heal) ---
     et_cfg = ensure_control_et_ssh_config()
@@ -735,11 +753,13 @@ def main():
         if "ok" in afp_out:
             if not auto_running:
                 profile = "/sdcard/Download/autojs6-fleet.json"
-                sh_adb("if [ -f %s ]; then am start --user 0 "
-                       "-a org.autojs.autojs6.action.APPLY_FLEET_PROFILE "
-                       "-e profile_path %s -e silent true "
-                       "-n org.autojs.autojs6/org.autojs.autojs.core.pref.fleet.FleetProfileActivity; fi"
-                       % (profile, profile))
+                sh_adb(
+                    "if [ -f %s ]; then am start --user 0 "
+                    "-a org.autojs.autojs6.action.APPLY_FLEET_PROFILE "
+                    "-e profile_path %s -e silent true "
+                    "-n org.autojs.autojs6/org.autojs.autojs.core.pref.fleet.FleetProfileActivity; fi"
+                    % (profile, profile)
+                )
                 time.sleep(0.5)
                 auto_profile = "applied"
             else:
@@ -753,11 +773,13 @@ def main():
             shizuku_profile = "present"
             if shizuku != "up":
                 profile = "/data/local/tmp/shizuku-fleet.json"
-                sh_adb("if [ -f %s ]; then am start "
-                       "-a moe.shizuku.privileged.api.APPLY_FLEET_PROFILE "
-                       "-e profile_path %s -e silent true "
-                       "-n moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity; fi"
-                       % (profile, profile))
+                sh_adb(
+                    "if [ -f %s ]; then am start "
+                    "-a moe.shizuku.privileged.api.APPLY_FLEET_PROFILE "
+                    "-e profile_path %s -e silent true "
+                    "-n moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity; fi"
+                    % (profile, profile)
+                )
                 time.sleep(0.5)
                 shizuku_profile = "applied"
                 sh_adb("dumpsys deviceidle whitelist +moe.shizuku.privileged.api")
@@ -771,9 +793,24 @@ def main():
     # --- 9. Env file presence (STAYTURGID_SD, NO_LOCAL_ADB, etc.) ---
     env_file = "present" if os.path.isfile(_ENV_FILE) else "MISSING"
 
-    status = "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s os_release=%s pkg_upgrade=%s auto_profile=%s shizuku_profile=%s device_profile=%s env=%s" % (
-        port, shizuku, sshd, a11y, "yes" if have_sh else "no", wifi, et_cfg, os_release, pkg_upgrade,
-        auto_profile, shizuku_profile, device_profile, env_file)
+    status = (
+        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s os_release=%s pkg_upgrade=%s auto_profile=%s shizuku_profile=%s device_profile=%s env=%s"
+        % (
+            port,
+            shizuku,
+            sshd,
+            a11y,
+            "yes" if have_sh else "no",
+            wifi,
+            et_cfg,
+            os_release,
+            pkg_upgrade,
+            auto_profile,
+            shizuku_profile,
+            device_profile,
+            env_file,
+        )
+    )
     log(status + " rc=%d" % rc)
     _write_status(status)
     return rc

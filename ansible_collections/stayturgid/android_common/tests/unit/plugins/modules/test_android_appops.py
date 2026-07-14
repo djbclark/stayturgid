@@ -1,4 +1,5 @@
 """Unit tests for android_appops module helpers."""
+
 import json
 import os
 import sys
@@ -36,7 +37,7 @@ def run_module(mocker, args, cmd_results=None):
 
     def fake_run_command(self, cmd, *a, **kw):
         joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
-        for needle, result in (cmd_results or []):
+        for needle, result in cmd_results or []:
             if needle in joined:
                 return result
         if "pm list packages" in joined:
@@ -55,7 +56,9 @@ def run_module(mocker, args, cmd_results=None):
 
     mocker.patch("ansible.module_utils.basic.AnsibleModule.run_command", fake_run_command)
     mocker.patch("ansible.module_utils.basic.AnsibleModule.exit_json", fake_exit)
-    mocker.patch("ansible.module_utils.basic.AnsibleModule.fail_json", lambda self, **kw: (_ for _ in ()).throw(SystemExit(1)))
+    mocker.patch(
+        "ansible.module_utils.basic.AnsibleModule.fail_json", lambda self, **kw: (_ for _ in ()).throw(SystemExit(1))
+    )
 
     with pytest.raises(SystemExit):
         mod.main()

@@ -20,6 +20,7 @@ Usage:
   python3 control/bin/vlm_upstream_check.py --notify   # macOS notification on change
   python3 control/bin/vlm_upstream_check.py --force    # rewrite report even if hash same
 """
+
 from __future__ import annotations
 
 import argparse
@@ -198,9 +199,11 @@ def main(argv: list[str] | None = None) -> int:
     changed = prev != digest
 
     hits = extract_hits(text)
-    new_ids = new_model_ids(prev_text, text) if prev_text else sorted(
-        set(re.findall(r"(?:gemini|claude|gpt-4o)[a-z0-9.\-]*", text, re.I))
-    )[:20]
+    new_ids = (
+        new_model_ids(prev_text, text)
+        if prev_text
+        else sorted(set(re.findall(r"(?:gemini|claude|gpt-4o)[a-z0-9.\-]*", text, re.I)))[:20]
+    )
 
     report = write_report(
         upstream=upstream,

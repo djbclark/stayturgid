@@ -36,11 +36,7 @@ def test_resolve_adb_cli_usb_tailscale_and_dash_ts(tmp_path):
     stubs = tmp_path / "stubs"
     stubs.mkdir()
     adb = stubs / "adb"
-    adb.write_text(
-        "#!/usr/bin/env bash\n"
-        'if [ "$1" = "devices" ]; then printf "RFCX\\tdevice\\n"; fi\n'
-        "exit 0\n"
-    )
+    adb.write_text('#!/usr/bin/env bash\nif [ "$1" = "devices" ]; then printf "RFCX\\tdevice\\n"; fi\nexit 0\n')
     adb.chmod(0o755)
     env = {
         "PATH": f"{stubs}:{os.environ.get('PATH', '')}",

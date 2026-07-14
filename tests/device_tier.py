@@ -14,6 +14,7 @@ Usage: device_tier.py [--ansible-check] [--heal] [host ...]
   (default hosts: every device in ~/.config/stayturgid/devices.conf)
 Emits TAP. Exit 0 = all pass.
 """
+
 import argparse
 import hashlib
 import os
@@ -221,21 +222,17 @@ def evaluate(host, report, repo_dir=REPO):
         (ok if report.get(key) == good else fail)("%s: %s" % (host, label))
 
     if report.get("localhost_shell") == "skip":
-        ok_note("%s: privileged shell on localhost:5555" % host,
-                "Fire OS — Mac adb only; Termux loopback unsupported")
+        ok_note("%s: privileged shell on localhost:5555" % host, "Fire OS — Mac adb only; Termux loopback unsupported")
     else:
-        (ok if report.get("shell5555") == "ok" else fail)(
-            "%s: privileged shell on localhost:5555" % host)
+        (ok if report.get("shell5555") == "ok" else fail)("%s: privileged shell on localhost:5555" % host)
 
     # bridge: TODO (not a hard fail — may lag a redeploy/reboot)
     if report.get("bridge") == "ok":
         ok("%s: repair bridge alive (pidfile)" % host)
     else:
-        todo("%s: repair bridge alive (pidfile)" % host,
-             "expected until post-fix redeploy + reboot")
+        todo("%s: repair bridge alive (pidfile)" % host, "expected until post-fix redeploy + reboot")
 
-    (ok if report.get("repairlog") == "fresh" else fail)(
-        "%s: repair log fresh (<45 min)" % host)
+    (ok if report.get("repairlog") == "fresh" else fail)("%s: repair log fresh (<45 min)" % host)
 
     # AutoJs6 secondary watchdog liveness (writes every ~20 min).
     wd = report.get("watchdog", "")
@@ -243,16 +240,19 @@ def evaluate(host, report, repo_dir=REPO):
         if wd == "fresh":
             ok("%s: AutoJs6 watchdog alive (<30 min)" % host)
         else:
-            todo("%s: AutoJs6 watchdog alive (<30 min)" % host,
-                 "Fire OS — confirm via Mac adb when USB connected")
+            todo("%s: AutoJs6 watchdog alive (<30 min)" % host, "Fire OS — confirm via Mac adb when USB connected")
     elif wd == "fresh":
         ok("%s: AutoJs6 watchdog alive (<30 min)" % host)
     elif report.get("repairlog") == "fresh":
-        todo("%s: AutoJs6 watchdog alive (<30 min)" % host,
-             "%s — Termux repair OK; restart main.js via start_watchdog.py when convenient" % (wd or "stale"))
+        todo(
+            "%s: AutoJs6 watchdog alive (<30 min)" % host,
+            "%s — Termux repair OK; restart main.js via start_watchdog.py when convenient" % (wd or "stale"),
+        )
     else:
-        fail("%s: AutoJs6 watchdog alive (<30 min)" % host,
-             "%s — repair also stale; fix Termux boot loop first" % (wd or "no data"))
+        fail(
+            "%s: AutoJs6 watchdog alive (<30 min)" % host,
+            "%s — repair also stale; fix Termux boot loop first" % (wd or "no data"),
+        )
 
     batt = report.get("battery", "unknown")
     if batt not in ("unknown", ""):
@@ -264,42 +264,47 @@ def evaluate(host, report, repo_dir=REPO):
     if tasker in ("notif:0,files:0", ""):
         ok("%s: no legacy Tasker stayturgid remnants" % host)
     else:
-        fail("%s: no legacy Tasker stayturgid remnants" % host,
-             "%s — swipe stale Tasker notifications / archive /sdcard/Tasker" % tasker)
+        fail(
+            "%s: no legacy Tasker stayturgid remnants" % host,
+            "%s — swipe stale Tasker notifications / archive /sdcard/Tasker" % tasker,
+        )
 
-    (ok if report.get("mirror") == "pinned" else fail)(
-        "%s: Termux mirror pinned (deterministic pkg update)" % host)
-    (ok if report.get("penalties") == "off" else fail)(
-        "%s: sshd per-source penalties disabled" % host)
+    (ok if report.get("mirror") == "pinned" else fail)("%s: Termux mirror pinned (deterministic pkg update)" % host)
+    (ok if report.get("penalties") == "off" else fail)("%s: sshd per-source penalties disabled" % host)
     if report.get("localhost_shell") == "skip":
         if report.get("writesettings") == "allow":
             ok("%s: Termux:API WRITE_SETTINGS granted (battery flash)" % host)
         else:
-            todo("%s: Termux:API WRITE_SETTINGS granted (battery flash)" % host,
-                 "Fire OS — confirm via Mac adb when USB connected")
+            todo(
+                "%s: Termux:API WRITE_SETTINGS granted (battery flash)" % host,
+                "Fire OS — confirm via Mac adb when USB connected",
+            )
     else:
         (ok if report.get("writesettings") == "allow" else fail)(
-            "%s: Termux:API WRITE_SETTINGS granted (battery flash)" % host)
+            "%s: Termux:API WRITE_SETTINGS granted (battery flash)" % host
+        )
 
     if report.get("localhost_shell") == "skip":
         if report.get("overlay") == "allow":
             ok("%s: Termux overlay (SYSTEM_ALERT_WINDOW) granted" % host)
         else:
-            todo("%s: Termux overlay (SYSTEM_ALERT_WINDOW) granted" % host,
-                 "Fire OS — confirm via Mac adb when USB connected")
+            todo(
+                "%s: Termux overlay (SYSTEM_ALERT_WINDOW) granted" % host,
+                "Fire OS — confirm via Mac adb when USB connected",
+            )
     else:
-        (ok if report.get("overlay") == "allow" else fail)(
-            "%s: Termux overlay (SYSTEM_ALERT_WINDOW) granted" % host)
+        (ok if report.get("overlay") == "allow" else fail)("%s: Termux overlay (SYSTEM_ALERT_WINDOW) granted" % host)
 
     if report.get("localhost_shell") == "skip":
         if report.get("vpn_always_on") == "ok":
             ok("%s: Tailscale always-on VPN enabled" % host)
         else:
-            todo("%s: Tailscale always-on VPN enabled" % host,
-                 "Fire OS — confirm via Mac adb when USB/Tailscale connected")
+            todo(
+                "%s: Tailscale always-on VPN enabled" % host,
+                "Fire OS — confirm via Mac adb when USB/Tailscale connected",
+            )
     else:
-        (ok if report.get("vpn_always_on") == "ok" else fail)(
-            "%s: Tailscale always-on VPN enabled" % host)
+        (ok if report.get("vpn_always_on") == "ok" else fail)("%s: Tailscale always-on VPN enabled" % host)
 
     # Deployment drift (informational TODO, not a failure)
     md5s = report.get("md5", {})
@@ -311,8 +316,10 @@ def evaluate(host, report, repo_dir=REPO):
     if not drift:
         ok("%s: deployed termux scripts match repo" % host)
     else:
-        todo("%s: deployed termux scripts match repo" % host,
-             "drift: %s (run ./control/bin/deploy_fleet.py)" % " ".join(drift))
+        todo(
+            "%s: deployed termux scripts match repo" % host,
+            "drift: %s (run ./control/bin/deploy_fleet.py)" % " ".join(drift),
+        )
     return r
 
 
@@ -322,8 +329,7 @@ def parse_heal(heal_out):
         return {"kind": "ok", "desc": "self-heal ran clean", "note": heal_out}
     if heal_out.startswith("STATUS"):
         return {"kind": "fail", "desc": "self-heal ran clean", "detail": heal_out}
-    return {"kind": "fail", "desc": "self-heal ran clean",
-            "detail": "no STATUS line (%s)" % (heal_out or "empty")}
+    return {"kind": "fail", "desc": "self-heal ran clean", "detail": "no STATUS line (%s)" % (heal_out or "empty")}
 
 
 # --------------------------------------------------------------------------
@@ -333,7 +339,10 @@ def ssh_gather(host, script, timeout=60):
     try:
         p = subprocess.run(
             SSH_BASE + ["-o", "ConnectTimeout=10", host, "bash", "-s"],
-            input=script, capture_output=True, text=True, timeout=timeout,
+            input=script,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
         )
         return p.stdout
     except (subprocess.TimeoutExpired, OSError):
@@ -342,8 +351,7 @@ def ssh_gather(host, script, timeout=60):
 
 def run_adb(args, timeout=15):
     try:
-        return subprocess.run(["adb"] + args, capture_output=True, text=True,
-                              timeout=timeout)
+        return subprocess.run(["adb"] + args, capture_output=True, text=True, timeout=timeout)
     except (subprocess.TimeoutExpired, OSError):
         return None
 
@@ -377,8 +385,7 @@ class Tap:
 
 def writesettings_via_adb(serial):
     """Mac-side WRITE_SETTINGS check (Fire: Termux cannot query appops)."""
-    p = run_adb(["-s", serial, "shell",
-                 "cmd appops get com.termux.api WRITE_SETTINGS </dev/null 2>/dev/null"])
+    p = run_adb(["-s", serial, "shell", "cmd appops get com.termux.api WRITE_SETTINGS </dev/null 2>/dev/null"])
     return bool(p and p.returncode == 0 and "allow" in p.stdout)
 
 
@@ -391,8 +398,7 @@ def overlay_via_adb(serial):
         lp = run_adb(["-s", serial, "shell", "pm", "list", "packages", "--user", "0", pkg])
         if not lp or pkg not in lp.stdout:
             continue
-        p = run_adb(["-s", serial, "shell",
-                     "cmd appops get %s SYSTEM_ALERT_WINDOW </dev/null 2>/dev/null" % pkg])
+        p = run_adb(["-s", serial, "shell", "cmd appops get %s SYSTEM_ALERT_WINDOW </dev/null 2>/dev/null" % pkg])
         if not p or "allow" not in p.stdout:
             return False
     return True
@@ -400,10 +406,8 @@ def overlay_via_adb(serial):
 
 def vpn_always_on_via_adb(serial, pkg="com.tailscale.ipn", lockdown="0"):
     """Mac-side always-on VPN check (Fire: Termux cannot query via loopback adb)."""
-    p = run_adb(["-s", serial, "shell",
-                 "settings get secure always_on_vpn_app </dev/null 2>/dev/null"])
-    p2 = run_adb(["-s", serial, "shell",
-                  "settings get secure always_on_vpn_lockdown </dev/null 2>/dev/null"])
+    p = run_adb(["-s", serial, "shell", "settings get secure always_on_vpn_app </dev/null 2>/dev/null"])
+    p2 = run_adb(["-s", serial, "shell", "settings get secure always_on_vpn_lockdown </dev/null 2>/dev/null"])
     if not p or not p2:
         return False
     app = p.stdout.strip().splitlines()[-1].strip()
@@ -413,8 +417,9 @@ def vpn_always_on_via_adb(serial, pkg="com.tailscale.ipn", lockdown="0"):
 
 def watchdog_fresh_via_adb(serial, max_age_s=1800):
     """Mac-side [watchdog] liveness (Fire OS: Termux cannot read /sdcard logs)."""
-    p = run_adb(["-s", serial, "shell",
-                 "grep '\\[watchdog\\]' /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1"])
+    p = run_adb(
+        ["-s", serial, "shell", "grep '\\[watchdog\\]' /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1"]
+    )
     if not p or p.returncode != 0 or not p.stdout.strip():
         return False
     line = p.stdout.strip().splitlines()[-1]
@@ -448,8 +453,7 @@ def check_host(host, tap, heal=False, ansible_check=False):
         if ":" in serial:
             run_adb(["connect", serial])
     if report.get("localhost_shell") == "skip" and serial:
-        if run_adb(["-s", serial, "shell", "true"]) and \
-                run_adb(["-s", serial, "shell", "true"]).returncode == 0:
+        if run_adb(["-s", serial, "shell", "true"]) and run_adb(["-s", serial, "shell", "true"]).returncode == 0:
             if watchdog_fresh_via_adb(serial):
                 report["watchdog"] = "fresh"
             if writesettings_via_adb(serial):
@@ -463,12 +467,10 @@ def check_host(host, tap, heal=False, ansible_check=False):
         tap.emit(res)
 
     # Mac->device adb path (the Mac's own route, distinct from on-device 5555)
-    if serial and run_adb(["-s", serial, "shell", "true"]) and \
-            run_adb(["-s", serial, "shell", "true"]).returncode == 0:
+    if serial and run_adb(["-s", serial, "shell", "true"]) and run_adb(["-s", serial, "shell", "true"]).returncode == 0:
         tap.emit({"kind": "ok", "desc": "%s: Mac adb path reachable (%s)" % (host, serial)})
     else:
-        tap.emit({"kind": "fail", "desc": "%s: Mac adb path reachable" % host,
-                  "detail": "serial=%s" % serial})
+        tap.emit({"kind": "fail", "desc": "%s: Mac adb path reachable" % host, "detail": "serial=%s" % serial})
 
     if heal:
         out = ssh_gather(host, '"$HOME/.stayturgid/bin/stayturgid_repair.py"\n', timeout=30)
@@ -479,16 +481,22 @@ def check_host(host, tap, heal=False, ansible_check=False):
         env = dict(os.environ, ANSIBLE_CONFIG="ansible/ansible.cfg")
         try:
             rc = subprocess.run(
-                ["ansible-playbook", "ansible/playbooks/fleet/fleet.yml",
-                 "--check", "--diff", "--limit", host],
-                cwd=REPO, env=env, capture_output=True, text=True, timeout=600,
+                ["ansible-playbook", "ansible/playbooks/fleet/fleet.yml", "--check", "--diff", "--limit", host],
+                cwd=REPO,
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=600,
             ).returncode
-            tap.emit({"kind": "ok" if rc == 0 else "fail",
-                      "desc": "%s: ansible --check dry run clean" % host,
-                      "detail": "re-run manually for the diff"})
+            tap.emit(
+                {
+                    "kind": "ok" if rc == 0 else "fail",
+                    "desc": "%s: ansible --check dry run clean" % host,
+                    "detail": "re-run manually for the diff",
+                }
+            )
         except FileNotFoundError:
-            tap.emit({"kind": "skip", "desc": "%s: ansible --check dry run" % host,
-                      "detail": "ansible not installed"})
+            tap.emit({"kind": "skip", "desc": "%s: ansible --check dry run" % host, "detail": "ansible not installed"})
 
 
 def main(argv=None):
@@ -501,8 +509,8 @@ def main(argv=None):
     hosts = args.hosts or load_hosts(DEVICES_CONF)
     if not hosts:
         sys.stderr.write(
-            "no hosts: pass host args or run ansible/playbooks/control_node/agents.yml "
-            "to generate devices.conf\n")
+            "no hosts: pass host args or run ansible/playbooks/control_node/agents.yml to generate devices.conf\n"
+        )
         return 2
 
     tap = Tap()

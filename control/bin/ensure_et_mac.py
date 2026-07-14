@@ -17,6 +17,7 @@ Usage::
 Idempotent. Safe to run from launchd / fleet-health / ``just deploy-mac``.
 Never prints or writes private keys.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -84,9 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument(
         "--user",
-        default=os.environ.get("STAYTURGID_CONTROL_ET_USER")
-        or os.environ.get("USER")
-        or "djbclark",
+        default=os.environ.get("STAYTURGID_CONTROL_ET_USER") or os.environ.get("USER") or "djbclark",
     )
     ap.add_argument(
         "--tailscale-ip",
@@ -154,10 +153,7 @@ def main(argv: list[str] | None = None) -> int:
                 file=sys.stderr,
             )
         changed = em.apply_authorized_keys(ak, keys)
-        print(
-            "OK authorized_keys %s (%d fleet keys)"
-            % ("updated" if changed else "unchanged", len(keys))
-        )
+        print("OK authorized_keys %s (%d fleet keys)" % ("updated" if changed else "unchanged", len(keys)))
 
     # always health-ish report at end unless pure collect
     if not args.collect_only or args.check:

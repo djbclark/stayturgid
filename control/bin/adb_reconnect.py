@@ -18,6 +18,7 @@ Candidates, tried in order:
   3. mDNS _adb-tls-connect endpoint (ephemeral port — never cached)
   4. the device's Tailscale address (stable fallback of last resort)
 """
+
 import datetime
 import fcntl
 import os
@@ -177,9 +178,11 @@ def build_candidates(cached, current_ip, mdns_addr, tailscale_ip):
 
 def notify(msg):
     try:
-        subprocess.run(["osascript", "-e",
-                        'display notification "%s" with title "stayturgid"' % _applescript_escape(msg)],
-                       capture_output=True, timeout=10)
+        subprocess.run(
+            ["osascript", "-e", 'display notification "%s" with title "stayturgid"' % _applescript_escape(msg)],
+            capture_output=True,
+            timeout=10,
+        )
     except (OSError, subprocess.TimeoutExpired):
         pass
 

@@ -5,6 +5,7 @@ Usage:
   resolve_adb.py s24
   resolve_adb.py --ssh-host s24
 """
+
 from __future__ import annotations
 
 import argparse

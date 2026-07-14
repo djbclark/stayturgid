@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Termux SSH bootstrap over adb + run-as (control-node helpers)."""
+
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
@@ -60,15 +61,15 @@ def install_keys_shell(keys_file):
     return (
         TERMUX_ENV
         + "set -e\n"
-        + "mkdir -p \"$HOME/.ssh\"\n"
-        + "chmod 700 \"$HOME/.ssh\"\n"
-        + "touch \"$HOME/.ssh/authorized_keys\"\n"
-        + "chmod 600 \"$HOME/.ssh/authorized_keys\"\n"
-        + "while IFS= read -r line || [ -n \"$line\" ]; do\n"
-        + "  [ -z \"$line\" ] && continue\n"
-        + "  case \"$line\" in \\#*) continue ;; esac\n"
-        + "  if ! grep -qF \"$line\" \"$HOME/.ssh/authorized_keys\" 2>/dev/null; then\n"
-        + "    printf '%s\\n' \"$line\" >> \"$HOME/.ssh/authorized_keys\"\n"
+        + 'mkdir -p "$HOME/.ssh"\n'
+        + 'chmod 700 "$HOME/.ssh"\n'
+        + 'touch "$HOME/.ssh/authorized_keys"\n'
+        + 'chmod 600 "$HOME/.ssh/authorized_keys"\n'
+        + 'while IFS= read -r line || [ -n "$line" ]; do\n'
+        + '  [ -z "$line" ] && continue\n'
+        + '  case "$line" in \\#*) continue ;; esac\n'
+        + '  if ! grep -qF "$line" "$HOME/.ssh/authorized_keys" 2>/dev/null; then\n'
+        + '    printf \'%s\\n\' "$line" >> "$HOME/.ssh/authorized_keys"\n'
         + "  fi\n"
         + "done < %s\n" % quoted
     )
@@ -97,7 +98,7 @@ def start_sshd_shell():
 
 
 def read_authorized_keys_shell():
-    return TERMUX_ENV + "cat \"$HOME/.ssh/authorized_keys\" 2>/dev/null || true\n"
+    return TERMUX_ENV + 'cat "$HOME/.ssh/authorized_keys" 2>/dev/null || true\n'
 
 
 def sshd_running_shell():

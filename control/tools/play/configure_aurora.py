@@ -7,6 +7,7 @@ Skips the intro carousel, selects Aurora's anonymous session, and configures the
 installer/update settings needed for unattended installs. Called automatically at
 the end of deploy_fleet.py (--scope full or play).
 """
+
 import os
 import re
 import subprocess
@@ -77,9 +78,11 @@ _HS = None
 def adb(serial, *args, timeout=30):
     if _SHELL is not None:
         rc, out = _SHELL(*args, timeout=timeout)
+
         class _R(object):
             returncode = rc
             stdout = out
+
         return _R()
     return subprocess.run(
         ["adb", "-s", serial, "shell"] + list(args),
@@ -168,10 +171,7 @@ def ensure_preference_on(serial, labels, description, *, required=True):
             chosen = label
             break
     if not chosen:
-        msg = (
-            "could not find Aurora preference for %s on %s (tried %r)"
-            % (description, serial, labels)
-        )
+        msg = "could not find Aurora preference for %s on %s (tried %r)" % (description, serial, labels)
         if required:
             sys.stderr.write("ERROR: %s\n" % msg)
         else:
@@ -183,10 +183,7 @@ def ensure_preference_on(serial, labels, description, *, required=True):
         if ok and checked:
             print("Aurora %s already on (%s)." % (description, chosen))
             return True
-        if not (
-            _HS.tap_switch_for_label(chosen, timeout_ms=4000)
-            or _HS.tap_text(chosen, timeout_ms=2000)
-        ):
+        if not (_HS.tap_switch_for_label(chosen, timeout_ms=4000) or _HS.tap_text(chosen, timeout_ms=2000)):
             msg = "could not toggle Aurora %s (%s) on %s" % (
                 description,
                 chosen,
@@ -269,9 +266,7 @@ def _aurora_home(ui: str) -> bool:
     if "menu_more" in ui or "More" in ui:
         if any(t in ui for t in ("Apps", "Updates", "Library", "nav_view", "nav_host")):
             return True
-    return ("nav_view" in ui and "Apps" in ui) or (
-        "Apps" in ui and "Library" in ui
-    )
+    return ("nav_view" in ui and "Apps" in ui) or ("Apps" in ui and "Library" in ui)
 
 
 def finish_first_run(serial):
@@ -289,9 +284,7 @@ def finish_first_run(serial):
                     adb(serial, "input", "keyevent", "KEYCODE_BACK")
                 time.sleep(2)
                 continue
-            if "Allow Aurora Store to access Shizuku" in ui and _HS.tap_text(
-                "Allow", timeout_ms=2000
-            ):
+            if "Allow Aurora Store to access Shizuku" in ui and _HS.tap_text("Allow", timeout_ms=2000):
                 time.sleep(2)
                 continue
             if _HS.tap_id("com.aurora.store:id/btn_anonymous", timeout_ms=2000):
@@ -382,10 +375,7 @@ def open_settings(serial):
         ui = _HS.ui()
         if "aurora.store" not in ui.lower() and "Apps" not in ui:
             open_aurora(serial)
-        if not (
-            _HS.tap_id("com.aurora.store:id/menu_more", timeout_ms=2500)
-            or _HS.tap_desc("More", timeout_ms=2000)
-        ):
+        if not (_HS.tap_id("com.aurora.store:id/menu_more", timeout_ms=2500) or _HS.tap_desc("More", timeout_ms=2000)):
             sys.stderr.write("ERROR: could not find Aurora More button on %s\n" % serial)
             return False
         time.sleep(2)
@@ -471,27 +461,18 @@ def configure_auto_updates(serial):
             if _HS is not None:
                 checked, ok = _HS.switch_near_label(lab, timeout_ms=2000)
                 if ok and checked:
-                    print(
-                        "Aurora Store automatic updates already off on %s (%s)."
-                        % (serial, lab)
-                    )
+                    print("Aurora Store automatic updates already off on %s (%s)." % (serial, lab))
                     return True
             if tap_text(serial, lab, timeout=6):
-                print(
-                    "Aurora Store automatic updates set to off on %s (%s)."
-                    % (serial, lab)
-                )
+                print("Aurora Store automatic updates set to off on %s (%s)." % (serial, lab))
                 return True
     for lab in AUTO_UPDATE_OFF_LABELS:
         if tap_text(serial, lab, timeout=4):
-            print(
-                "Aurora Store automatic updates set to off on %s (%s)."
-                % (serial, lab)
-            )
+            print("Aurora Store automatic updates set to off on %s (%s)." % (serial, lab))
             return True
     sys.stderr.write(
         "ERROR: could not select Do not auto-update on %s (ui had on=%s)\n"
-        % (serial, any(l in ui for l in AUTO_UPDATE_ON_LABELS))
+        % (serial, any(label in ui for label in AUTO_UPDATE_ON_LABELS))
     )
     return False
 
@@ -501,7 +482,7 @@ def configure_update_filters(serial):
     # Stay on / return to Updates settings screen.
     for _ in range(3):
         ui = _ui_text(serial)
-        if any(l in ui for l in FILTER_AURORA_ONLY_LABELS + FILTER_FDROID_LABELS):
+        if any(label in ui for label in FILTER_AURORA_ONLY_LABELS + FILTER_FDROID_LABELS):
             break
         if "Settings" in ui and "Updates" in ui:
             if not tap_text(serial, "Updates"):
@@ -515,9 +496,7 @@ def configure_update_filters(serial):
         if not tap_text(serial, "Updates"):
             return False
 
-    if not ensure_preference_on(
-        serial, FILTER_AURORA_ONLY_LABELS, "filter apps from other sources"
-    ):
+    if not ensure_preference_on(serial, FILTER_AURORA_ONLY_LABELS, "filter apps from other sources"):
         return False
     if not ensure_preference_on(serial, FILTER_FDROID_LABELS, "filter F-Droid apps"):
         return False

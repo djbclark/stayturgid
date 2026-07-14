@@ -14,6 +14,7 @@ Reachability-only outages stay in access_monitor.py (separate agent).
 Disable with STAYTURGID_SKIP_HEALTH=1; skip restarts with
 STAYTURGID_SKIP_WATCHDOG_HEAL=1.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -161,9 +162,7 @@ def _touch_heal(name: str) -> None:
     _touch_heal_dir(name, HEAL_STATE_DIR)
 
 
-def maybe_heal_watchdog(
-    name: str, issues: list[str], fails: int, adb_serial: str | None = None
-) -> None:
+def maybe_heal_watchdog(name: str, issues: list[str], fails: int, adb_serial: str | None = None) -> None:
     """Restart AutoJs6 main.js when soft health shows a dead watchdog.
 
     Manual start_watchdog.py was required previously — that is not self-heal.
@@ -195,10 +194,7 @@ def maybe_heal_watchdog(
             timeout=60,
         )
         detail = ((r.stdout or "") + (r.stderr or "")).strip().replace("\n", " | ")
-        _fleet_log(INFO,
-            "%s watchdog heal rc=%s %s"
-            % (name, r.returncode, detail[:300])
-        )
+        _fleet_log(INFO, "%s watchdog heal rc=%s %s" % (name, r.returncode, detail[:300]))
         if r.returncode == 0:
             _touch_heal(name)
             notify(
@@ -232,11 +228,21 @@ def maybe_heal_repair_stale(name: str, issues: list[str], fails: int) -> None:
     _fleet_log(INFO, "%s repair heal: restarting boot loop via SSH" % name)
     try:
         r = subprocess.run(
-            ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
-             "-o", "LogLevel=ERROR", name,
-             "pkill -f stayturgid_repair 2>/dev/null; "
-             "nohup python3 ~/.stayturgid/bin/start_adb.py >/dev/null 2>&1 &"],
-            capture_output=True, text=True, timeout=30,
+            [
+                "ssh",
+                "-o",
+                "BatchMode=yes",
+                "-o",
+                "ConnectTimeout=8",
+                "-o",
+                "LogLevel=ERROR",
+                name,
+                "pkill -f stayturgid_repair 2>/dev/null; "
+                "nohup python3 ~/.stayturgid/bin/start_adb.py >/dev/null 2>&1 &",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if r.returncode == 0 or r.returncode == 255:
             _touch_heal_repair(name)
@@ -244,8 +250,10 @@ def maybe_heal_repair_stale(name: str, issues: list[str], fails: int) -> None:
             notify("stayturgid heal", "%s repair loop restarted" % name)
             _stats_event("heal_triggered", name, heal="repair")
         else:
-            _fleet_log(INFO, "%s repair heal: unexpected rc=%s stderr=%s" % (
-                name, r.returncode, (r.stderr or "").strip()[:200]))
+            _fleet_log(
+                INFO,
+                "%s repair heal: unexpected rc=%s stderr=%s" % (name, r.returncode, (r.stderr or "").strip()[:200]),
+            )
     except (OSError, subprocess.TimeoutExpired) as e:
         _fleet_log(INFO, "%s repair heal error: %s" % (name, e))
 
@@ -254,9 +262,7 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
     """Keep Doze whitelist + GSF 10; optionally pin GMS if STAYTURGID_HD8_PIN_GMS=1."""
     if SKIP_HEALTH or SKIP_GOOGLE_STACK_HEAL or name != "hd8":
         return
-    if not _heal_cooldown_ok_dir(
-        name, GOOGLE_HEAL_STATE_DIR, GOOGLE_STACK_HEAL_COOLDOWN_SEC
-    ):
+    if not _heal_cooldown_ok_dir(name, GOOGLE_HEAL_STATE_DIR, GOOGLE_STACK_HEAL_COOLDOWN_SEC):
         return
 
     def _run(cmd):
@@ -272,10 +278,7 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
         if not hgs.pin_gms_enabled():
             hgs.ensure_doze_whitelist(_run, serial)
             if hgs.needs_gsf_reinstall(gsf_ver):
-                _fleet_log(NOTICE,
-                    "%s google-stack heal: GSF %s — reinstalling 10-6494331"
-                    % (name, gsf_ver)
-                )
+                _fleet_log(NOTICE, "%s google-stack heal: GSF %s — reinstalling 10-6494331" % (name, gsf_ver))
                 hgs.repair_if_needed(_run, serial)
                 _touch_heal_dir(name, GOOGLE_HEAL_STATE_DIR)
             return
@@ -283,14 +286,12 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
             hgs.ensure_doze_whitelist(_run, serial)
             return
         if hgs.needs_gsf_reinstall(gsf_ver) and not hgs.needs_gms_downgrade(gms_ver):
-            _fleet_log(NOTICE,
-                "%s google-stack heal: GSF %s — reinstalling pinned 10-6494331"
-                % (name, gsf_ver)
-            )
+            _fleet_log(NOTICE, "%s google-stack heal: GSF %s — reinstalling pinned 10-6494331" % (name, gsf_ver))
         else:
-            _fleet_log(NOTICE,
+            _fleet_log(
+                NOTICE,
                 "%s google-stack heal: GMS versionCode=%s > %s — pinning Fire-Tools stack"
-                % (name, gms_ver, hgs.MAX_GMS_VERSION_CODE)
+                % (name, gms_ver, hgs.MAX_GMS_VERSION_CODE),
             )
         result = hgs.repair_if_needed(_run, serial)
         _touch_heal_dir(name, GOOGLE_HEAL_STATE_DIR)
@@ -300,8 +301,7 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
         if hgs.needs_gms_downgrade(new_ver):
             notify(
                 "stayturgid heal",
-                "%s GMS still too new (%s) — run just fix-hd8-google"
-                % (name, new_ver),
+                "%s GMS still too new (%s) — run just fix-hd8-google" % (name, new_ver),
                 sound="Basso",
             )
         else:
@@ -350,6 +350,7 @@ def maybe_verify_hd8_google_closeout(name: str) -> None:
 def _scrape_device_errors(name: str, ts_ip: str) -> None:
     """SSH into device, grep repair/watchdog logs for errors, log locally."""
     import time as _time
+
     state_file = os.path.join(ROOT, "state", "error-scrape", name)
     try:
         os.makedirs(os.path.dirname(state_file), exist_ok=True)
@@ -375,9 +376,10 @@ def _scrape_device_errors(name: str, ts_ip: str) -> None:
     )
     try:
         r = subprocess.run(
-            ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8",
-             "-o", "LogLevel=ERROR", name, grep_cmd],
-            capture_output=True, text=True, timeout=20,
+            ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "LogLevel=ERROR", name, grep_cmd],
+            capture_output=True,
+            text=True,
+            timeout=20,
         )
     except (subprocess.TimeoutExpired, OSError):
         return
@@ -393,8 +395,7 @@ def _scrape_device_errors(name: str, ts_ip: str) -> None:
             continue
         _error_log(level, "%s: %s" % (name, line))
         if level <= WARNING:
-            _fleet_log(level, "%s device error [%s]: %s" % (
-                name, severity_label(level), line[:200]))
+            _fleet_log(level, "%s device error [%s]: %s" % (name, severity_label(level), line[:200]))
 
 
 def _device_log_epoch(line: str) -> float | None:
@@ -413,6 +414,7 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     if target:
         try:
             import adb_cli
+
             adb_cli.dismiss_usb_debugging_dialog(target)
             adb_cli.dismiss_app_compatibility_dialog(target)
         except Exception:
@@ -469,6 +471,7 @@ def _try_firerpa_heal_fallback(name: str, ts_ip: str) -> None:
         return
     # Check if FIRERPA port is reachable via TCP before attempting heal.
     import socket
+
     try:
         s = socket.create_connection((ts_ip, 65000), timeout=5)
         s.close()
@@ -485,13 +488,13 @@ def _try_firerpa_heal_fallback(name: str, ts_ip: str) -> None:
     _fleet_log(INFO, "trigger %s firerpa-heal fallback (ADB+SSH down, gRPC reachable)" % name)
     try:
         import firerpa_heal
+
         result = firerpa_heal.heal_device(ts_ip)
         _fleet_log(INFO, "firerpa-heal %s: %s" % (name, result))
     except Exception as e:
         _fleet_log(INFO, "firerpa-heal %s error: %s" % (name, e))
     # Write stamp so we don't retry immediately.
     write_state(state_file, int(time.time()))
-
 
 
 def maybe_ensure_et_mac() -> None:
@@ -548,9 +551,9 @@ def main() -> int:
         try:
             check_device(name, ts_ip, lan_ip)
         except Exception as e:  # noqa: BLE001
-            _fleet_log(ERR,
-                "%s via none: sshd=unknown issues=probe_error probe_error=%s"
-                % (name, str(e).replace(" ", "_")[:120])
+            _fleet_log(
+                ERR,
+                "%s via none: sshd=unknown issues=probe_error probe_error=%s" % (name, str(e).replace(" ", "_")[:120]),
             )
     return 0
 

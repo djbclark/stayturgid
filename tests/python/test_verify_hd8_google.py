@@ -1,4 +1,5 @@
 """Unit tests for control/bin/verify_hd8_google.py (no device)."""
+
 from __future__ import annotations
 
 import sys

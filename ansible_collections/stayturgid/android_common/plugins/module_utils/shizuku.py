@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Pure Shizuku grant helpers (mirrors control/lib/stayturgid_device.py)."""
+
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type

@@ -21,6 +21,7 @@ Usage:
   python3 control/bin/gui_audit.py s24 p7a
   python3 control/bin/gui_audit.py --dry-reach  # reachability only
 """
+
 from __future__ import annotations
 
 import argparse
@@ -251,15 +252,15 @@ def _open_aurora_settings(hs, session) -> bool:
     """Open Aurora Settings root (Installation / Updates categories), not Updates tab."""
     if hs is None:
         return False
-    hs.tap_id("%s:id/menu_more" % AURORA, timeout_ms=2500) or hs.tap_desc(
-        "More", timeout_ms=1500
-    ) or hs.tap_desc("Settings", timeout_ms=1500)
+    hs.tap_id("%s:id/menu_more" % AURORA, timeout_ms=2500) or hs.tap_desc("More", timeout_ms=1500) or hs.tap_desc(
+        "Settings", timeout_ms=1500
+    )
     time.sleep(0.8)
     if not hs.tap_text("Settings", timeout_ms=2500):
         # Gear on Updates tab / home — content-desc often "Settings"
-        if not (hs.tap_desc("Settings", timeout_ms=1500) or hs.tap_id(
-            "%s:id/action_settings" % AURORA, timeout_ms=1500
-        )):
+        if not (
+            hs.tap_desc("Settings", timeout_ms=1500) or hs.tap_id("%s:id/action_settings" % AURORA, timeout_ms=1500)
+        ):
             return False
     time.sleep(1.2)
     ui = hs.ui()
@@ -317,9 +318,7 @@ def audit_neo(host: str, session, hs, out: Path) -> list[str]:
                         tapped = True
                         break
             if not tapped:
-                hs.tap_text("Service", timeout_ms=2500) or hs.tap_desc(
-                    "Service", timeout_ms=1500
-                )
+                hs.tap_text("Service", timeout_ms=2500) or hs.tap_desc("Service", timeout_ms=1500)
             time.sleep(1.0)
             ui = hs.ui()
         for lab in ("Installer", "Installation", "Privileges", "Source"):
@@ -523,10 +522,7 @@ def audit_host(host: str, day_dir: Path) -> list[str]:
             uniq.append(i)
     uniq, suppressed = apply_gui_audit_overrides(host, uniq)
     if suppressed:
-        log(
-            "%s override suppressed=%s (%s)"
-            % (host, ",".join(suppressed), OVERRIDES)
-        )
+        log("%s override suppressed=%s (%s)" % (host, ",".join(suppressed), OVERRIDES))
     tag = ",".join(uniq) if uniq else "none"
     log("%s done issues=%s shots=%s" % (host, tag, out))
     return uniq

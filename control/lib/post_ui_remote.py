@@ -8,6 +8,7 @@ path (USB or wireless via resolve_adb).
 hd8 / raw serial / no privileged shell: Mac adb only — Fire OS has no
 Termux→localhost:5555 loopback, so SSH-invoking on-device UI cannot work.
 """
+
 from __future__ import annotations
 
 import os
@@ -77,9 +78,7 @@ def run_with_mac_fallback(
     if rc == 0:
         return 0
 
-    sys.stderr.write(
-        "WARN: on-device UI via SSH failed (rc=%s) — falling back to Mac adb\n" % rc
-    )
+    sys.stderr.write("WARN: on-device UI via SSH failed (rc=%s) — falling back to Mac adb\n" % rc)
     return mac_fn()
 
 

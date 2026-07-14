@@ -13,6 +13,7 @@ Deterministic order:
 
 Usage: ./enable_autojs6_shizuku.py <s24|p7a|hd8|serial>
 """
+
 from __future__ import annotations
 
 import json
@@ -91,7 +92,8 @@ def push_fleet_profile(serial: str) -> bool:
     adb(serial, "mkdir", "-p", str(Path(DEVICE_PROFILE).parent))
     result = subprocess.run(
         ["adb", "-s", serial, "push", str(LOCAL_PROFILE), DEVICE_PROFILE],
-        capture_output=True, text=True,
+        capture_output=True,
+        text=True,
     )
     if result.returncode != 0:
         sys.stderr.write("ERROR: adb push failed: %s\n" % (result.stderr or ""))
@@ -107,12 +109,21 @@ def apply_fleet_profile(serial: str) -> bool:
     """Apply fleet profile via FleetProfileActivity intent."""
     result = adb(
         serial,
-        "am", "start",
-        "-a", FLEET_ACTION,
-        "-e", "profile_path", DEVICE_PROFILE,
-        "-e", "result_path", FLEET_RESULT_PATH,
-        "-e", "silent", "true",
-        "-n", "%s/%s" % (AUTOJS_PKG, FLEET_ACTIVITY),
+        "am",
+        "start",
+        "-a",
+        FLEET_ACTION,
+        "-e",
+        "profile_path",
+        DEVICE_PROFILE,
+        "-e",
+        "result_path",
+        FLEET_RESULT_PATH,
+        "-e",
+        "silent",
+        "true",
+        "-n",
+        "%s/%s" % (AUTOJS_PKG, FLEET_ACTIVITY),
     )
     time.sleep(3)
     if result.returncode != 0:
@@ -126,13 +137,12 @@ def apply_fleet_profile(serial: str) -> bool:
         try:
             data = json.loads(result_json.stdout)
             if data.get("success"):
-                print("Fleet profile applied: %d keys, %d skipped, %d failed"
-                      % (data.get("applied_count", 0),
-                         data.get("skipped_count", 0),
-                         len(data.get("failed_keys", []))))
+                print(
+                    "Fleet profile applied: %d keys, %d skipped, %d failed"
+                    % (data.get("applied_count", 0), data.get("skipped_count", 0), len(data.get("failed_keys", [])))
+                )
             else:
-                sys.stderr.write("WARN: profile applied with errors: %s\n"
-                                 % data.get("message", ""))
+                sys.stderr.write("WARN: profile applied with errors: %s\n" % data.get("message", ""))
             return data.get("success", True)
         except (json.JSONDecodeError, KeyError) as e:
             sys.stderr.write("WARN: unreadable result file: %s\n" % e)
@@ -141,11 +151,19 @@ def apply_fleet_profile(serial: str) -> bool:
 
 
 def run_shizuku_probe(serial: str) -> bool:
-    adb(serial, "am", "start",
-        "-a", "android.intent.action.VIEW",
-        "-d", "file://" + PROBE_REMOTE,
-        "-t", "text/javascript",
-        "-n", "%s/%s" % (AUTOJS_PKG, AUTOJS_RUN))
+    adb(
+        serial,
+        "am",
+        "start",
+        "-a",
+        "android.intent.action.VIEW",
+        "-d",
+        "file://" + PROBE_REMOTE,
+        "-t",
+        "text/javascript",
+        "-n",
+        "%s/%s" % (AUTOJS_PKG, AUTOJS_RUN),
+    )
     time.sleep(4)
     result = adb(serial, "tail", "-12", WATCHDOG_LOG)
     lines = [ln for ln in (result.stdout or "").splitlines() if "[setup] shizuku" in ln]
@@ -158,9 +176,10 @@ def report_debug_state(serial: str, alias: str) -> None:
     sys.stderr.write("\n=== AutoJs6 enable FAILED on %s — debug state ===\n" % alias)
     sys.stderr.write("Host: %s  adb: %s\n" % (alias, serial))
     sys.stderr.write("enabled_accessibility_services:\n  %s\n" % a11y_services_list(serial))
-    sys.stderr.write("accessibility_enabled: %s\n" % (
-        (adb(serial, "settings", "get", "secure", "accessibility_enabled").stdout or "").strip()
-    ))
+    sys.stderr.write(
+        "accessibility_enabled: %s\n"
+        % ((adb(serial, "settings", "get", "secure", "accessibility_enabled").stdout or "").strip())
+    )
     sys.stderr.write("shizuku_server: %s\n" % ("up" if shizuku_server_running(serial) else "down"))
     sys.stderr.write("pm shizuku grant visible: %s\n" % pm_shizuku_granted(serial))
     sys.stderr.write("fleet profile: %s\n" % LOCAL_PROFILE)

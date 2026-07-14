@@ -127,9 +127,7 @@ def main():
     if module.params["connect"] and not module.check_mode:
         adb_connect(module.run_command, device)
 
-    if require_package and not package_installed(
-        module.run_command, device, require_package
-    ):
+    if require_package and not package_installed(module.run_command, device, require_package):
         skipped = True
         module.exit_json(changed=False, skipped=True, results=[])
 

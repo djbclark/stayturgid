@@ -5,6 +5,7 @@ Serves on port 8080. Reads static definitions from services.json and generated
 state from the user-local landing state file. Supports HTMX-based hide/show for
 unreachable services and on-demand rescan.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -57,7 +58,7 @@ def _render(name: str, **ctx) -> str:
 @app.route("/")
 def index():
     services = _load_services()
-    hidden = _load_hidden()
+    _load_hidden()
     last_scan = _load_last_scan()
     now = time.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -65,12 +66,14 @@ def index():
     device_services = [s for s in services if s.get("group") == "devices"]
     other_services = [s for s in services if s.get("group") not in ("mac", "devices")]
 
-    return _render("index.html",
-                    mac_services=mac_services,
-                    device_services=device_services,
-                    other_services=other_services,
-                    last_scan=last_scan,
-                    now=now)
+    return _render(
+        "index.html",
+        mac_services=mac_services,
+        device_services=device_services,
+        other_services=other_services,
+        last_scan=last_scan,
+        now=now,
+    )
 
 
 @app.route("/hide", methods=["POST"])
@@ -90,7 +93,9 @@ def rescan():
     try:
         subprocess.run(
             [sys.executable, str(script)],
-            capture_output=True, text=True, timeout=60,
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
     except (OSError, subprocess.TimeoutExpired):
         pass
@@ -104,8 +109,7 @@ def health():
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Network landing page")
-    ap.add_argument("--port", type=int, default=PORT,
-                    help=f"Listen port (default: {PORT})")
+    ap.add_argument("--port", type=int, default=PORT, help=f"Listen port (default: {PORT})")
     ap.add_argument("--debug", action="store_true")
     args = ap.parse_args()
 

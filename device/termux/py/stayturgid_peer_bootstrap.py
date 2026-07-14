@@ -16,6 +16,7 @@ Env:
   STAYTURGID_HANDSETS_PORT      daemon port (default from peers file / 9012)
   STAYTURGID_PEER_SSH_USER      fallback SSH user for legacy fleet keys (default termux)
 """
+
 from __future__ import annotations
 
 import json
@@ -110,15 +111,12 @@ def _remote_help_cmd(
         return "%s --target %s --port %d" % (verb, target, port)
     kind = peer.get("kind") or "termux"
     if kind == "mac":
-        help_cmd = (peer.get("help_cmd") or "").strip() or (
-            "python3 $HOME/stayturgid/control/bin/fire_peer_help.py"
-        )
+        help_cmd = (peer.get("help_cmd") or "").strip() or ("python3 $HOME/stayturgid/control/bin/fire_peer_help.py")
         return "%s %s --target %s --port %d" % (help_cmd, verb, target, port)
     return (
         "export PATH=$PREFIX/bin:$PATH; "
         "python3 $HOME/.stayturgid/bin/stayturgid_peer_help.py %s "
-        "--target %s --port %d"
-        % (verb, target, port)
+        "--target %s --port %d" % (verb, target, port)
     )
 
 
@@ -135,9 +133,7 @@ def _ssh_help(
     ssh_port = int(peer.get("ssh_port") or DEFAULT_SSH_PORT)
     user = peer.get("ssh_user") or DEFAULT_SSH_USER
     identity = _identity_for_peer(peer)
-    remote = _remote_help_cmd(
-        peer, verb=verb, target=target, port=port, identity=identity
-    )
+    remote = _remote_help_cmd(peer, verb=verb, target=target, port=port, identity=identity)
     return subprocess.run(
         [
             "ssh",
@@ -196,12 +192,7 @@ def bootstrap_handsets(
     if not os.path.isfile(peers_path):
         return False, "no peers file (%s)" % peers_path
     cfg = load_peers(peers_path)
-    port = int(
-        port
-        or os.environ.get("STAYTURGID_HANDSETS_PORT")
-        or cfg.get("handsets_port")
-        or 9012
-    )
+    port = int(port or os.environ.get("STAYTURGID_HANDSETS_PORT") or cfg.get("handsets_port") or 9012)
     if _wire_ping(port):
         return True, "already up port=%d" % port
     if not os.path.isfile(FLEET_KEY) and not os.path.isfile(PEERHELP_KEY):
@@ -230,10 +221,7 @@ def bootstrap_handsets(
                 detail = ((r.stdout or "") + (r.stderr or "")).strip()
                 if r.returncode == 0 and _wire_ping(port):
                     return True, "via %s → %s: %s" % (name, adb_target, detail)
-                errors.append(
-                    "%s→%s rc=%s %s"
-                    % (name, adb_target, r.returncode, detail[:200])
-                )
+                errors.append("%s→%s rc=%s %s" % (name, adb_target, r.returncode, detail[:200]))
     return False, "; ".join(errors[:6]) or "no peers reachable"
 
 
@@ -274,9 +262,7 @@ def bootstrap_shizuku(peers_path: str = PEERS_PATH) -> tuple[bool, str]:
 def main(argv=None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     if argv and argv[0] in ("-h", "--help"):
-        sys.stderr.write(
-            "usage: stayturgid_peer_bootstrap.py [--list] [--port N] [handsets|shizuku]\n"
-        )
+        sys.stderr.write("usage: stayturgid_peer_bootstrap.py [--list] [--port N] [handsets|shizuku]\n")
         return 2
     if argv and argv[0] == "--list":
         if not os.path.isfile(PEERS_PATH):

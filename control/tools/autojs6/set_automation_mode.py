@@ -3,6 +3,7 @@
 
 Usage: ./set_automation_mode.py <serial|s24|hd8|p7a>
 """
+
 from __future__ import annotations
 
 import subprocess

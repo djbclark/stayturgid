@@ -1,13 +1,19 @@
 """Unit tests for control/lib/adb_cli.py and obtainium sync_to_device catalogs."""
+
 import os
 import sys
 
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "lib"))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "lib")
+)
 import adb_cli as ac  # noqa: E402
 
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "tools", "obtainium"))
+sys.path.insert(
+    0,
+    os.path.join(
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "tools", "obtainium"
+    ),
+)
 import sync_to_device as sync  # noqa: E402
 
 

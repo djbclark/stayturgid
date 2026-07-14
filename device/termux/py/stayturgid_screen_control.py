@@ -5,6 +5,7 @@ Same policy as control/lib/screen_control.py, but presence is a local
 subprocess and adb is always localhost:5555. Fail closed when presence
 script is missing (rc 127).
 """
+
 from __future__ import annotations
 
 import os
@@ -250,8 +251,7 @@ def local_presence(action, label, agent):
 def guarded_shell(active, *args, timeout=30):
     if active and is_input_command(args) and not inversion_enabled():
         raise ScreenControlError(
-            "refusing adb input: accessibility display inversion is off "
-            "(screen-control session required)"
+            "refusing adb input: accessibility display inversion is off (screen-control session required)"
         )
     return sh.shell(*args, timeout=timeout)
 
@@ -280,9 +280,7 @@ class ScreenControlSession(object):
             try:
                 if not inversion_enabled():
                     if set_inversion(None, True):
-                        sys.stderr.write(
-                            "WARN: re-enabled display inversion (hold keepalive)\n"
-                        )
+                        sys.stderr.write("WARN: re-enabled display inversion (hold keepalive)\n")
                 apply_portrait_lock()
                 if not self._skip:
                     local_presence("guard", self.label, self.agent)
@@ -308,14 +306,9 @@ class ScreenControlSession(object):
 
     def __enter__(self):
         if not sh.privileged_shell_expected():
-            raise ScreenControlError(
-                "privileged localhost:5555 not expected on this host "
-                "(use Mac USB adb path)"
-            )
+            raise ScreenControlError("privileged localhost:5555 not expected on this host (use Mac USB adb path)")
         if not sh.privileged_shell_ok():
-            raise ScreenControlError(
-                "localhost:5555 shell unavailable — run stayturgid-repair first"
-            )
+            raise ScreenControlError("localhost:5555 shell unavailable — run stayturgid-repair first")
 
         self._saved_component = get_foreground_component()
         self._saved_rotation = lock_portrait_orientation()
@@ -326,17 +319,14 @@ class ScreenControlSession(object):
 
         if self._skip:
             sys.stderr.write(
-                "WARN: STAYTURGID_SKIP_PRESENCE=1 — skipping consent/torch; "
-                "display inversion still required\n"
+                "WARN: STAYTURGID_SKIP_PRESENCE=1 — skipping consent/torch; display inversion still required\n"
             )
         elif not self.skip_request:
             rc, out = local_presence("request-screen", self.label, self.agent)
             if rc == 75:
                 raise ScreenControlError("screen control denied")
             if rc != 0:
-                raise ScreenControlError(
-                    "request-screen failed (rc=%s): %s" % (rc, out.strip())
-                )
+                raise ScreenControlError("request-screen failed (rc=%s): %s" % (rc, out.strip()))
 
         # Inversion is the visible "agent has the glass" signal — always on.
         if not set_inversion(None, True):
@@ -346,9 +336,7 @@ class ScreenControlSession(object):
             rc, out = local_presence("on", self.label, self.agent)
             if rc != 0:
                 set_inversion(None, False)
-                raise ScreenControlError(
-                    "agent-presence on failed (rc=%s): %s" % (rc, out.strip())
-                )
+                raise ScreenControlError("agent-presence on failed (rc=%s): %s" % (rc, out.strip()))
 
         self.active = True
         self._start_keepalive()
@@ -368,10 +356,7 @@ class ScreenControlSession(object):
                 if ok and self._saved_component:
                     print("Restored prior screen: %s" % self._saved_component)
                 elif not ok:
-                    sys.stderr.write(
-                        "WARN: failed to restore prior screen (%s)\n"
-                        % (self._saved_component or "HOME")
-                    )
+                    sys.stderr.write("WARN: failed to restore prior screen (%s)\n" % (self._saved_component or "HOME"))
             except Exception as e:  # noqa: BLE001
                 sys.stderr.write("WARN: restore prior screen: %s\n" % e)
         if not self._skip:

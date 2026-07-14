@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """adb install output parsing for the android_apk module."""
+
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type

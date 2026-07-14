@@ -1,6 +1,7 @@
 """Sync guard: the obtainium_apps role defaults (authoritative) must stay
 aligned with catalogs/obtainium/stayturgid-apps.json (the adb-fallback rendering used
 by control/tools/obtainium/sync_to_device.py when SSH is unavailable)."""
+
 import json
 import os
 
@@ -39,12 +40,6 @@ def test_same_app_ids_and_urls():
 
 
 def test_same_apk_filters():
-    role = {
-        a["id"]: (a.get("settings") or {}).get("apkFilterRegEx", "")
-        for a in load_role_specs()
-    }
-    fallback = {
-        a["id"]: json.loads(a["additionalSettings"]).get("apkFilterRegEx", "")
-        for a in load_fallback_apps()
-    }
+    role = {a["id"]: (a.get("settings") or {}).get("apkFilterRegEx", "") for a in load_role_specs()}
+    fallback = {a["id"]: json.loads(a["additionalSettings"]).get("apkFilterRegEx", "") for a in load_fallback_apps()}
     assert role == fallback

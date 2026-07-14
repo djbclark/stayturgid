@@ -1,4 +1,5 @@
 """Unit tests for peer bootstrap / rish helpers (no device required)."""
+
 from __future__ import annotations
 
 import json

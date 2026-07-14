@@ -105,8 +105,12 @@ def _run(cmd, timeout=8, env=None, check=False):
     """Run a command, return (rc, stdout, stderr)."""
     try:
         p = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout,
-            env=env or os.environ, shell=False,
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=env or os.environ,
+            shell=False,
         )
         if check and p.returncode != 0:
             return p.returncode, p.stdout, p.stderr
@@ -385,14 +389,20 @@ def main():
     if strict and not healthy:
         module.fail_json(
             msg="%d/%d checks failed" % (failures, total),
-            results=results, passed=passed, failed_count=failures,
-            total=total, healthy=healthy,
+            results=results,
+            passed=passed,
+            failed_count=failures,
+            total=total,
+            healthy=healthy,
         )
 
     module.exit_json(
         changed=False,
-        results=results, passed=passed, failed_count=failures,
-        total=total, healthy=healthy,
+        results=results,
+        passed=passed,
+        failed_count=failures,
+        total=total,
+        healthy=healthy,
     )
 
 

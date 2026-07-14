@@ -12,6 +12,7 @@ toggle drifts off until Mac/USB help runs.
 Logs: ~/.config/stayturgid/logs/fire-help.log
 Disable: STAYTURGID_SKIP_FIRE_HELP=1
 """
+
 from __future__ import annotations
 
 import datetime
@@ -34,11 +35,7 @@ except Exception:  # noqa: BLE001
 ROOT = Path.home() / ".config" / "stayturgid"
 CONF = Path(os.environ.get("STAYTURGID_DEVICES_CONF", ROOT / "devices.conf"))
 # Hosts that need peer/Mac help (no Termux→5555). Override via env CSV.
-FIRE_HOSTS = [
-    h.strip()
-    for h in os.environ.get("STAYTURGID_FIRE_HELP_HOSTS", "hd8").split(",")
-    if h.strip()
-]
+FIRE_HOSTS = [h.strip() for h in os.environ.get("STAYTURGID_FIRE_HELP_HOSTS", "hd8").split(",") if h.strip()]
 LOG = ROOT / "logs" / "fire-help.log"
 STATE_DIR = ROOT / "state" / "fire-help"
 SKIP = os.environ.get("STAYTURGID_SKIP_FIRE_HELP") == "1"
@@ -154,8 +151,7 @@ def needs_help(target: str) -> tuple[bool, bool]:
     need_sh = "up" not in (sh.stdout or "")
     hs = fph._shell(
         target,
-        "toybox nc -z 127.0.0.1 %d >/dev/null 2>&1 && echo up || echo down"
-        % HANDSETS_PORT,
+        "toybox nc -z 127.0.0.1 %d >/dev/null 2>&1 && echo up || echo down" % HANDSETS_PORT,
         timeout=10,
     )
     need_hs = "up" not in (hs.stdout or "")

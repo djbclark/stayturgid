@@ -9,6 +9,7 @@ Usage:
   stayturgid_peer_keepalive.py shizuku
   stayturgid_peer_keepalive.py handsets
 """
+
 from __future__ import annotations
 
 import os

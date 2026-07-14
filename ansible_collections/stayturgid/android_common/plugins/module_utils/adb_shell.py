@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Thin adb shell helpers for stayturgid.android_common modules."""
+
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type
@@ -98,8 +99,7 @@ def permission_requested(run_command, device, package, permission):
         return False
     needle = permission + ":"
     return any(
-        line.strip() == permission or line.strip().startswith(needle)
-        for line in normalize_adb_output(out).splitlines()
+        line.strip() == permission or line.strip().startswith(needle) for line in normalize_adb_output(out).splitlines()
     )
 
 
@@ -181,6 +181,7 @@ def parse_ungranted_runtime_permissions(dumpsys_output):
     lines containing only ``--``.
     """
     import re
+
     text = normalize_adb_output(dumpsys_output)
     perms = []
     current = None

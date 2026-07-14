@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Lookup plugin: list installed packages on an adb device."""
+
 from __future__ import absolute_import, division, print_function
 
 __metaclass__ = type

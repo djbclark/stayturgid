@@ -1,4 +1,5 @@
 """Tests for the hash-guarded FIRERPA service JAR patch."""
+
 from __future__ import annotations
 
 import hashlib
@@ -12,11 +13,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[2]
-PATCHER_PATH = (
-    REPO
-    / "ansible_collections/stayturgid/firerpa/roles/firerpa/files"
-    / "firerpa_service_patch.py"
-)
+PATCHER_PATH = REPO / "ansible_collections/stayturgid/firerpa/roles/firerpa/files" / "firerpa_service_patch.py"
 SPEC = importlib.util.spec_from_file_location("firerpa_service_patch", PATCHER_PATH)
 assert SPEC and SPEC.loader
 patcher = importlib.util.module_from_spec(SPEC)
@@ -49,9 +46,7 @@ def test_patch_dex_changes_instruction_and_repairs_header():
     expected[64 : 64 + len(TEST_ORIGINAL)] = TEST_PATCHED
     patcher._repair_dex_header(expected)
 
-    result, changed = patcher.patch_dex(
-        original, **_patch_kwargs(original, bytes(expected))
-    )
+    result, changed = patcher.patch_dex(original, **_patch_kwargs(original, bytes(expected)))
 
     assert changed is True
     assert result == bytes(expected)
@@ -93,9 +88,7 @@ def test_patch_service_jar_and_archive_lookup(tmp_path):
 
     archive_path = tmp_path / "server.tar.gz"
     jar_data = jar_buffer.getvalue()
-    member = tarfile.TarInfo(
-        "server/lib/python3.9/site-packages/lamda/service.jar"
-    )
+    member = tarfile.TarInfo("server/lib/python3.9/site-packages/lamda/service.jar")
     member.size = len(jar_data)
     with tarfile.open(archive_path, "w:gz") as archive:
         archive.addfile(member, io.BytesIO(jar_data))

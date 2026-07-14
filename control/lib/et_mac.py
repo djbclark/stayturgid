@@ -12,6 +12,7 @@ Marked Mac authorized_keys block::
 
 Never touches ForceCommand / peer-help lines outside the block.
 """
+
 from __future__ import annotations
 
 import json
@@ -36,15 +37,11 @@ DEFAULT_SSH_PORT = 22
 FLEET_IDENTITY = "id_ed25519_fleet"
 STATE_SUBDIR = "et-mac"
 
-_PUBKEY_LINE = re.compile(
-    r"^(ssh-(?:ed25519|rsa|dss)|ecdsa-sha2-\S+|sk-ssh-\S+)\s+\S+"
-)
+_PUBKEY_LINE = re.compile(r"^(ssh-(?:ed25519|rsa|dss)|ecdsa-sha2-\S+|sk-ssh-\S+)\s+\S+")
 
 
 def config_root() -> Path:
-    return Path(
-        os.environ.get("STAYTURGID_CONFIG", os.path.expanduser("~/.config/stayturgid"))
-    )
+    return Path(os.environ.get("STAYTURGID_CONFIG", os.path.expanduser("~/.config/stayturgid")))
 
 
 def state_dir() -> Path:

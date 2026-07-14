@@ -134,9 +134,7 @@ from ansible_collections.stayturgid.android_common.plugins.module_utils.apk_inst
 
 
 def installed_version(run_command, device, package):
-    rc, out, _err = adb_shell(
-        run_command, device, "dumpsys package %s | grep versionName" % package
-    )
+    rc, out, _err = adb_shell(run_command, device, "dumpsys package %s | grep versionName" % package)
     if rc != 0:
         return None
     text = normalize_adb_output(out)
@@ -167,9 +165,7 @@ def download_gh_release(module, repo, pattern, tag):
     rc, _out, err = module.run_command(cmd)
     if rc != 0:
         module.fail_json(msg="gh release download failed: %s" % err.strip())
-    apks = sorted(
-        f for f in os.listdir(destdir) if f.lower().endswith(".apk")
-    )
+    apks = sorted(f for f in os.listdir(destdir) if f.lower().endswith(".apk"))
     if not apks:
         module.fail_json(msg="no .apk asset matched %r in %s" % (pattern, repo))
     return os.path.join(destdir, apks[0])
@@ -181,7 +177,9 @@ def resign_apk(module, apk_path):
         home = os.path.expanduser("~")
         apksigner = os.path.join(home, "Library", "Android", "sdk", "build-tools", "36.0.0", "apksigner")
     if not os.path.isfile(apksigner):
-        module.fail_json(msg="apksigner not found at %s; set apksigner_bin or install Android SDK build-tools" % apksigner)
+        module.fail_json(
+            msg="apksigner not found at %s; set apksigner_bin or install Android SDK build-tools" % apksigner
+        )
 
     keystore = module.params.get("keystore")
     if not keystore:
@@ -194,10 +192,14 @@ def resign_apk(module, apk_path):
     key_alias = module.params.get("key_alias", "androiddebugkey")
 
     cmd = [
-        apksigner, "sign",
-        "--ks", keystore,
-        "--ks-pass", "pass:" + keystore_pass,
-        "--ks-key-alias", key_alias,
+        apksigner,
+        "sign",
+        "--ks",
+        keystore,
+        "--ks-pass",
+        "pass:" + keystore_pass,
+        "--ks-key-alias",
+        key_alias,
         apk_path,
     ]
     rc, _out, err = module.run_command(cmd)

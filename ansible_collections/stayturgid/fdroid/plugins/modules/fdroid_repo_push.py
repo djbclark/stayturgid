@@ -59,6 +59,7 @@ from ansible_collections.stayturgid.fdroid.plugins.module_utils.fdroid_uri impor
 
 def _fdroidcl_env(device):
     import os
+
     env = os.environ.copy()
     env["ANDROID_SERIAL"] = device
     env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin"
@@ -101,19 +102,14 @@ def main():
     )
 
     device = resolve_adb(module.params["device"], module.run_command)
-    repos = [
-        r for r in module.params["repos"]
-        if r.get("state", "present") == "present" and r.get("address")
-    ]
+    repos = [r for r in module.params["repos"] if r.get("state", "present") == "present" and r.get("address")]
     results = []
 
     if module.check_mode:
         module.exit_json(changed=bool(repos), results=[])
 
     adb_connect(module.run_command, device)
-    components = fdroid_components_for_device(
-        module.run_command, device, connect=False
-    )
+    components = fdroid_components_for_device(module.run_command, device, connect=False)
     if not components:
         module.exit_json(changed=False, skipped=True, reason="no fdroid client installed")
 

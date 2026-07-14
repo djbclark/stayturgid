@@ -1,4 +1,5 @@
 """Parity tests for Ansible adb_resolve vs control/lib/stayturgid_device."""
+
 import importlib.util
 import sys
 from pathlib import Path
@@ -24,6 +25,7 @@ def _devices_listing(*lines):
         if len(cmd) >= 5 and cmd[:2] == ["adb", "-s"] and cmd[3] == "shell":
             return 0, "RFCX219CHKA\n", ""
         return 1, "", ""
+
     return run
 
 
@@ -54,8 +56,7 @@ def test_resolve_adb_connects_wireless_when_needed(tmp_path, monkeypatch):
     conf = tmp_path / "devices.conf"
     conf.write_text("p7a 35261JEHN12374 100.65.230.108 192.168.68.65\n")
     # LAN down, Tailscale reachable — probe gates the (blocking) adb connect.
-    monkeypatch.setattr(adb_resolve, "tcp_reachable",
-                        lambda ep, timeout=None: ep == "100.65.230.108:5555")
+    monkeypatch.setattr(adb_resolve, "tcp_reachable", lambda ep, timeout=None: ep == "100.65.230.108:5555")
     seen = []
 
     def run(cmd):
@@ -112,8 +113,7 @@ def test_resolve_adb_prefers_mdns_wireless_debug(tmp_path, monkeypatch):
         if cmd[:3] == ["adb", "mdns", "services"]:
             return (
                 0,
-                "adb-GN43T503430603PS-Av5cQl_adb-tls-connect._tcp"
-                "192.168.68.68:39081\n",
+                "adb-GN43T503430603PS-Av5cQl_adb-tls-connect._tcp192.168.68.68:39081\n",
                 "",
             )
         if cmd[:2] == ["adb", "connect"]:

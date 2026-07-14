@@ -1,4 +1,5 @@
 """Unit tests for control/lib/post_ui_remote.py routing."""
+
 import os
 import sys
 
@@ -50,9 +51,7 @@ def test_run_with_mac_fallback_skips_ssh_for_hd8(monkeypatch):
 def test_run_with_mac_fallback_ssh_success(monkeypatch):
     calls = []
     monkeypatch.setattr(remote, "host_uses_on_device_ui", lambda _a: True)
-    monkeypatch.setattr(
-        remote, "ssh_run_on_device", lambda *_a, **_k: calls.append("ssh") or 0
-    )
+    monkeypatch.setattr(remote, "ssh_run_on_device", lambda *_a, **_k: calls.append("ssh") or 0)
 
     def mac():
         calls.append("mac")
@@ -65,9 +64,7 @@ def test_run_with_mac_fallback_ssh_success(monkeypatch):
 def test_run_with_mac_fallback_ssh_fail_then_mac(monkeypatch):
     calls = []
     monkeypatch.setattr(remote, "host_uses_on_device_ui", lambda _a: True)
-    monkeypatch.setattr(
-        remote, "ssh_run_on_device", lambda *_a, **_k: calls.append("ssh") or 1
-    )
+    monkeypatch.setattr(remote, "ssh_run_on_device", lambda *_a, **_k: calls.append("ssh") or 1)
 
     def mac():
         calls.append("mac")

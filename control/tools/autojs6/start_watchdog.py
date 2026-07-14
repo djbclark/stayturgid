@@ -3,6 +3,7 @@
 
 Usage: ./start_watchdog.py <p7a|s24|hd8|serial>
 """
+
 from __future__ import annotations
 
 import sys

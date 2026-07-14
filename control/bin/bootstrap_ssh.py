@@ -14,6 +14,7 @@ Usage:
   ./control/bin/bootstrap_ssh.py --pubkey ~/.ssh/termux_key.pub hd8
   ./control/bin/bootstrap_ssh.py --ansible s24 p7a   # inventory hosts via bootstrap.yml
 """
+
 from __future__ import annotations
 
 import argparse

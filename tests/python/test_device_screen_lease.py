@@ -1,4 +1,5 @@
 """Unit tests for DSCL v1 (control/lib/device_screen_lease.py)."""
+
 from __future__ import annotations
 
 import os
@@ -47,9 +48,7 @@ def test_foreign_project_blocks(lease_dir, monkeypatch):
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_PROJECT", "stayturgid")
     with pytest.raises(dsl.LeaseConflict) as ei:
         dsl.acquire("p7a", purpose="ours")
-    assert "other-app" in str(ei.value) or "project=other-app" in dsl.format_holder(
-        ei.value.lease
-    )
+    assert "other-app" in str(ei.value) or "project=other-app" in dsl.format_holder(ei.value.lease)
 
 
 def test_same_project_renews(lease_dir):

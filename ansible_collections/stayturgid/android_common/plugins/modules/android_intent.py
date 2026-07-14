@@ -129,11 +129,7 @@ def main():
     output = normalize_adb_output(out + "\n" + err)
     used_component = bool(module.params["component"])
 
-    if (
-        am_start_failed(rc, output)
-        and module.params["component"]
-        and module.params["fallback_implicit"]
-    ):
+    if am_start_failed(rc, output) and module.params["component"] and module.params["fallback_implicit"]:
         cmd = build_am_start(
             module.params["action"],
             module.params["data"],

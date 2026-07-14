@@ -1,11 +1,12 @@
 """Unit tests for control/lib/ui_clearance.py."""
+
 import os
 import sys
 from pathlib import Path
 
-sys.path.insert(0, os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "control", "lib"))
+sys.path.insert(
+    0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "lib")
+)
 import ui_clearance as uc  # noqa: E402
 
 PINNED_STACK = """
@@ -61,11 +62,13 @@ def test_pip_packages_excludes_protected():
 
 def test_parse_services_skips_null_tokens():
     import sys
+
     sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "control" / "lib"))
     import a11y_services as a11y
-    assert a11y.parse_services("null:org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher") == [
-        "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
-    ]
+
+    assert a11y.parse_services(
+        "null:org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
+    ) == ["org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"]
 
 
 def test_pip_obstruction_negative():
