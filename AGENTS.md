@@ -11,34 +11,34 @@ just health && just firerpa-health
 
 ## Key commands
 
-| Command                             | Purpose                                                                                                          |
-| ----------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `just dotenv-lint`                  | .env file lint check (dotenv-linter)                                                                             |
-| `just --set hosts s24 deploy`       | Full fleet deploy                                                                                                |
-| `just --set hosts s24 deploy-check` | Dry-run deploy                                                                                                   |
-| `just --set hosts s24 verify`       | Device tier checks                                                                                               |
-| `just --set hosts s24 verify-drift` | Ansible-based drift detect                                                                                       |
-| `just --set hosts s24 verify-heal`  | Verify + auto-heal                                                                                               |
-| `just health`                       | Fleet health summary + device error log                                                                          |
-| `just errors`                       | Show recent device errors (7 days)                                                                               |
-| `just firerpa-health`               | FIRERPA fleet health                                                                                             |
-| `just --set hosts s24 firerpa-heal` | Repair via FIRERPA gRPC                                                                                          |
-| `just test`                         | Code-only tests (includes healing coverage check)                                                                |
-| `just deploy-mac`                   | Mac workstation (brew, launchd)                                                                                  |
-| `just ca-status`                    | SSH CA status/fingerprints                                                                                       |
-| `just opencode-web-status`          | OpenCode web UI status                                                                                           |
-| `just hermes-status`                | Hermes worktree status                                                                                           |
-| `just vlm-check`                    | Check VLM server + cloud                                                                                         |
-| `just landing-status`               | Network landing page status                                                                                      |
-| `just secretspec-check`             | Verify all required secrets are set                                                                              |
-| `just ruff`                         | Python lint + format check (ruff)                                                                                |
-| `just biome`                        | JavaScript/CSS lint + format check (Biome)                                                                       |
-| `just shfmt`                        | Shell script format check (shfmt)                                                                                |
-| `just markdownlint`                 | Markdown lint check                                                                                              |
-| `just prettier`                     | Markdown/HTML/CSS/TOML/INI format check (prettier)                                                               |
-| `just typos`                        | Source-code spelling check                                                                                       |
-| `just lint`                         | All linters: shellcheck, ansible-lint, yamllint, ruff, typos, biome, shfmt, justfile fmt, markdownlint, prettier |
-| `just check`                        | Syntax/import checks + ruff + typos + biome + shfmt + justfile fmt + markdownlint + prettier                     |
+| Command                             | Purpose                                                                                                                                                                                 |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `just dotenv-lint`                  | .env file lint check (dotenv-linter)                                                                                                                                                    |
+| `just --set hosts s24 deploy`       | Full fleet deploy                                                                                                                                                                       |
+| `just --set hosts s24 deploy-check` | Dry-run deploy                                                                                                                                                                          |
+| `just --set hosts s24 verify`       | Device tier checks                                                                                                                                                                      |
+| `just --set hosts s24 verify-drift` | Ansible-based drift detect                                                                                                                                                              |
+| `just --set hosts s24 verify-heal`  | Verify + auto-heal                                                                                                                                                                      |
+| `just health`                       | Fleet health summary + device error log                                                                                                                                                 |
+| `just errors`                       | Show recent device errors (7 days)                                                                                                                                                      |
+| `just firerpa-health`               | FIRERPA fleet health                                                                                                                                                                    |
+| `just --set hosts s24 firerpa-heal` | Repair via FIRERPA gRPC                                                                                                                                                                 |
+| `just test`                         | Code-only tests (includes healing coverage check)                                                                                                                                       |
+| `just deploy-mac`                   | Mac workstation (brew, launchd)                                                                                                                                                         |
+| `just ca-status`                    | SSH CA status/fingerprints                                                                                                                                                              |
+| `just opencode-web-status`          | OpenCode web UI status                                                                                                                                                                  |
+| `just hermes-status`                | Hermes worktree status                                                                                                                                                                  |
+| `just vlm-check`                    | Check VLM server + cloud                                                                                                                                                                |
+| `just landing-status`               | Network landing page status                                                                                                                                                             |
+| `just secretspec-check`             | Verify all required secrets are set                                                                                                                                                     |
+| `just ruff`                         | Python lint + format check (ruff)                                                                                                                                                       |
+| `just biome`                        | JavaScript/CSS lint + format check (Biome)                                                                                                                                              |
+| `just shfmt`                        | Shell script format check (shfmt)                                                                                                                                                       |
+| `just markdownlint`                 | Markdown lint check                                                                                                                                                                     |
+| `just prettier`                     | Markdown/HTML/CSS/TOML/INI format check (prettier)                                                                                                                                      |
+| `just typos`                        | Source-code spelling check                                                                                                                                                              |
+| `just lint`                         | All linters: shellcheck, ansible-lint (incl. examples), yamllint (incl. examples), ruff, typos, biome, shfmt, justfile fmt, markdownlint, prettier, dotenv-linter, caddy-fmt, pyinilint |
+| `just check`                        | Syntax/import checks + ruff + typos + biome + shfmt + justfile fmt + markdownlint + prettier                                                                                            |
 
 ## Environment
 
@@ -48,6 +48,9 @@ just health && just firerpa-health
 - **JavaScript tooling:** `biome` (linter/formatter) — `brew install biome`
 - **Shell tooling:** `shellcheck` (linter) + `shfmt` (formatter) — `brew install shellcheck shfmt`
 - **Markdown tooling:** `markdownlint` (linter) + `prettier` (formatter) — `brew install markdownlint-cli prettier`
+- **Ansible tooling:** `ansible-lint` (linter) + `yamllint` (linter) — `uv tool install ansible-lint yamllint`
+- **INI tooling:** `pyinilint` (linter) — `uv tool install pyinilint`
+- **Other linters:** `dotenv-linter` (.env) — `brew install dotenv-linter`; `caddy` (Caddyfile fmt) — `brew install caddy`
 - **Git tooling:** `pre-commit` (hooks) + `typos` (spell check) — `brew install pre-commit typos-cli`; run `pre-commit install`
 - **SSH CA:** `~/.ssh/stayturgid_ca` — `just ca-status`
 - **OpenCode web:** http://100.113.53.87:4096

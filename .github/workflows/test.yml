@@ -31,7 +31,12 @@ jobs:
       - name: Install npm dev dependencies (prettier-plugin-toml, etc.)
         run: npm install
       - name: Install ansible + linters
-        run: uv tool install ansible-core && uv tool install ansible-lint && uv tool install yamllint && uv tool install pyinilint
+        run: >
+          uv tool install ansible-core &&
+          uv tool install ansible-lint &&
+          uv tool install yamllint &&
+          uv tool install pyinilint &&
+          uv tool install dotenv-linter
       - name: Install just
         uses: extractions/setup-just@v3
       - name: Install Ansible collections
@@ -44,5 +49,7 @@ jobs:
         run: just check
       - name: just test (tier b shell suite + pytest twins + ansible-test units)
         run: just test
+      - name: just lint (tier c — full lint suite)
+        run: just lint
       - name: just --fmt --check
         run: just --fmt --check
