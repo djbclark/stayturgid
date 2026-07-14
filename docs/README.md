@@ -52,6 +52,8 @@ Findings that inform **shipping** fleet behavior (Handsets, Fire OS, UI drivers)
 | [research/autojs6-project-import-questions.md](research/autojs6-project-import-questions.md) | Questions for AutoJs6 maintainer about existing-project import and launch |
 | [research/autojs6-hd8-project/](research/autojs6-hd8-project/) | Reference copy of the hd8 AutoJs6 project files that actually ran |
 | [research/text-based-android-config.md](research/text-based-android-config.md) | Best practices for adding text-based configuration to Android apps; candidate apps in the stayturgid stack |
+| [research/ansible-pull-architecture-2026-07-14.md](research/ansible-pull-architecture-2026-07-14.md) | Hybrid `ansible-pull` architecture, security model, staged pilot, and junior-developer implementation guide |
+| [research/site-identity-source-of-truth-2026-07-14.md](research/site-identity-source-of-truth-2026-07-14.md) | Single authority for hostnames, addresses, serials, generated consumers, runtime observations, and SecretSpec-managed secrets |
 
 ## `docs/incubator/` — parked side projects (do not implement)
 

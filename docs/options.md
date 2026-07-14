@@ -219,12 +219,25 @@ where practical, and add a check that rejects new hard-coded fleet host identifi
 Plan this carefully: the current recovery paths intentionally retain a small set of
 bootstrap-safe constants, which must be distinguished from accidental duplication.
 
+**Research complete (2026-07-14):** [Site identity and secrets source-of-truth
+architecture](research/site-identity-source-of-truth-2026-07-14.md). The recommendation
+is that the site Ansible inventory own declared non-secret identity, generated files own
+no facts, runtime state hold observations, and SecretSpec providers own secret values.
+The document includes validation, anti-drift, migration, SecretSpec hardening, and
+private-site-overlay phases for a junior developer.
+
 #### T4 — Evaluate `ansible-pull` for fleet policy delivery · Risk: **Medium** · Deferred
 
 Evaluate whether Android/Termux devices should pull a signed or pinned policy checkout
 instead of relying primarily on Mac→device SSH push. Compare offline recovery,
 credential/bootstrap requirements, update trust, battery/Doze behavior, and coexistence
 with the existing Termux/AutoJs6 self-heal layers before adopting it.
+
+**Research complete (2026-07-14):** [Hybrid `ansible-pull` architecture and staged
+pilot](research/ansible-pull-architecture-2026-07-14.md). The recommendation is an
+opt-in, S24-first pilot for a strict device-local, non-secret policy subset. Mac push
+Ansible remains authoritative for bootstrap, credentials, apps, UI, and recovery. A
+new ADR is required after measured pilot results and before wider adoption.
 
 ---
 

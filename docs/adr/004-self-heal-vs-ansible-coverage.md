@@ -170,3 +170,12 @@ To enforce this, the reviewer checklist (`.cursor/rules/` or handoff doc) should
 1. ✅ **Gap A closed** — `repair_fleet_profiles()` added to self-heal loop.
 2. ❌ **Shared module not needed** — remaining duplication is intentional redundancy.
 3. ❌ **On-device Ansible not recommended** — constraints outweigh benefits.
+
+## 9. Follow-up research (2026-07-14)
+
+The narrower, additive design in
+[Research: adding `ansible-pull` to stayturgid](../research/ansible-pull-architecture-2026-07-14.md)
+does not propose replacing the repair loop or running the existing fleet playbook on a
+device. It proposes an opt-in S24 pilot for one pull-safe, non-secret local-policy
+subset, with push Ansible retained for bootstrap and recovery. ADR 004 remains the
+accepted decision until measured pilot results justify a new ADR.

@@ -10,6 +10,9 @@ The **upstream repo should not embed that production fleet** — see §4 for mov
 real hostnames, IPs, and operator paths into a separate GitHub project, and for
 platform-describing example hostnames in the main tree.
 
+The implementation-ready source-of-truth architecture and migration sequence are in
+[docs/research/site-identity-source-of-truth-2026-07-14.md](research/site-identity-source-of-truth-2026-07-14.md).
+
 **Related docs:** [ansible_collections/adoption.md](ansible_collections/adoption.md),
 [examples/consumer-termux-only/](../examples/consumer-termux-only),
 [examples/consumer-full-fleet/](../examples/consumer-full-fleet).
