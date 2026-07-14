@@ -77,6 +77,12 @@ python3 control/bin/adb_reconnect.py s24
 # Install launchd agents + Homebrew prereqs from inventory:
 just deploy-mac
 # or: ansible-playbook ansible/playbooks/control_node/site.yml --tags agents
+
+# One-time optional system PATH setup (prompts for sudo once).
+just system-homebrew-path-setup
+
+# Later runs only inspect and report drift; they do not invoke sudo.
+just system-homebrew-path-status
 ```
 
 Logs: `~/.config/stayturgid/logs/`. Device list: `~/.config/stayturgid/devices.conf` (from Ansible).

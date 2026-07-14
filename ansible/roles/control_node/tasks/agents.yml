@@ -22,6 +22,7 @@
     group: wheel
     mode: "0644"
   when: stayturgid_manage_system_homebrew_path | bool
+  tags: [system-homebrew-path]
 
 - name: Ensure SSH daemon exposes Homebrew PATH to noninteractive sessions
   become: true
@@ -34,6 +35,31 @@
     group: wheel
     mode: "0644"
   when: stayturgid_manage_system_homebrew_path | bool
+  tags: [system-homebrew-path]
+
+- name: Check system Homebrew PATH configuration (report-only)
+  ansible.builtin.shell: >-
+    printf '%s\n%s\n' '{{ stayturgid_homebrew_prefix }}/bin'
+    '{{ stayturgid_homebrew_prefix }}/sbin' | cmp -s - /etc/paths.d/homebrew &&
+    grep -Fxq
+    "SetEnv PATH={{ stayturgid_homebrew_prefix }}/bin:{{ stayturgid_homebrew_prefix }}/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    /etc/ssh/sshd_config.d/50-stayturgid-homebrew-path.conf
+  register: _system_homebrew_path_check
+  changed_when: false
+  failed_when: false
+  when: not stayturgid_manage_system_homebrew_path | bool
+  tags: [system-homebrew-path]
+
+- name: Warn when system Homebrew PATH configuration needs operator setup
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: system Homebrew PATH configuration is absent or drifted; it is
+      report-only during normal deploys. Run `just system-homebrew-path-setup`
+      once interactively to repair it.
+  when:
+    - not stayturgid_manage_system_homebrew_path | bool
+    - _system_homebrew_path_check.rc | default(1) != 0
+  tags: [system-homebrew-path]
 
 - name: Render devices.conf from inventory (alias usb_serial tailscale_ip lan_ip)
   ansible.builtin.template:

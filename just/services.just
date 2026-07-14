@@ -1,5 +1,20 @@
 # Services — Hermes, dashboard, landing, OpenCode, VLM.
 
+# One-time, intentional system setup. Prompts once for the local sudo password
+# to write /etc/paths.d and the SSH daemon environment drop-in; normal deploys
+# only report drift and never request sudo.
+system-homebrew-path-setup:
+    ansible-playbook ansible/playbooks/control_node/system-homebrew-path.yml --ask-become-pass
+
+# Read-only check of the two system Homebrew PATH files.
+system-homebrew-path-status:
+    @if printf '%s\n%s\n' /opt/homebrew/bin /opt/homebrew/sbin | cmp -s - /etc/paths.d/homebrew 2>/dev/null && \
+      grep -Fxq 'SetEnv PATH=/opt/homebrew/bin:/opt/homebrew/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin' /etc/ssh/sshd_config.d/50-stayturgid-homebrew-path.conf 2>/dev/null; then \
+      echo 'system Homebrew PATH: configured'; \
+    else \
+      echo 'WARNING: system Homebrew PATH absent or drifted; run just system-homebrew-path-setup'; \
+    fi
+
 # ── VLM (optional Mac UI-TARS gates — see docs/vlm.md) ────────────────────
 
 # Ansible: brew llama.cpp + download weights (~6GB).

@@ -219,6 +219,13 @@ where practical, and add a check that rejects new hard-coded fleet host identifi
 Plan this carefully: the current recovery paths intentionally retain a small set of
 bootstrap-safe constants, which must be distinguished from accidental duplication.
 
+#### T4 — Evaluate `ansible-pull` for fleet policy delivery · Risk: **Medium** · Deferred
+
+Evaluate whether Android/Termux devices should pull a signed or pinned policy checkout
+instead of relying primarily on Mac→device SSH push. Compare offline recovery,
+credential/bootstrap requirements, update trust, battery/Doze behavior, and coexistence
+with the existing Termux/AutoJs6 self-heal layers before adopting it.
+
 ---
 
 ### Track G — Python migration & logging (completed)
