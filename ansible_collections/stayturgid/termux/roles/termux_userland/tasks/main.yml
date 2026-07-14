@@ -82,15 +82,46 @@
     mode: "0755"
   when: "'cfengine' in stayturgid_termux_packages"
 
-- name: Deploy CFEngine policies to device
+- name: Validate CFEngine Build project on control node
+  ansible.builtin.command:
+    argv:
+      - cfbs
+      - validate
+  args:
+    chdir: "{{ stayturgid_repo_root }}/device/termux/cfengine"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  when:
+    - "'cfengine' in stayturgid_termux_packages"
+    - not ansible_check_mode
+
+- name: Build CFEngine policy artifact on control node
+  ansible.builtin.command:
+    argv:
+      - cfbs
+      - build
+  args:
+    chdir: "{{ stayturgid_repo_root }}/device/termux/cfengine"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  when:
+    - "'cfengine' in stayturgid_termux_packages"
+    - not ansible_check_mode
+
+- name: Deploy CFEngine Build artifact to device
   ansible.builtin.copy:
-    src: "{{ stayturgid_repo_root }}/device/termux/cfengine/{{ item }}"
-    dest: "{{ termux_home }}/.stayturgid/cfengine/{{ item }}"
-    mode: "0644"
+    src: "{{ stayturgid_repo_root }}/device/termux/cfengine/{{ 'policy' if ansible_check_mode else 'out/masterfiles' }}/{{ item.name }}"
+    dest: "{{ termux_home }}/.stayturgid/cfengine/{{ item.name }}"
+    mode: "{{ item.mode }}"
   loop:
-    - stayturgid.cf
-    - cf-serverd.cf
-    - cf-runagent-wrapper.sh
+    - name: stayturgid.cf
+      mode: "0644"
+    - name: cf-serverd.cf
+      mode: "0644"
+    - name: cf-runagent-wrapper.sh
+      mode: "0755"
   when: "'cfengine' in stayturgid_termux_packages"
 
 - name: Detect Termux account owning termux_home

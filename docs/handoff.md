@@ -251,7 +251,9 @@ All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/
 - Make sure `lamda-client` is installed in Python 3.12 venv: `source /tmp/lamda-venv/bin/activate`
 
 **CFEngine standalone self-heal (deployed 2026-07-12):**
-- Policy at `device/termux/cfengine/stayturgid.cf` — 7 check bundles: sshd, bootloop, mirror, shell5555, shizuku, a11y, profile
+- CFEngine Build source at `device/termux/cfengine/policy/`; `cfbs.json` builds the
+  exact standalone artifact Ansible deploys. Run `just cfbs-validate` then `just cfbs-build`.
+- Policy at `device/termux/cfengine/policy/stayturgid.cf` — 7 check bundles: sshd, bootloop, mirror, shell5555, shizuku, a11y, profile
 - Runs in the Termux boot loop via `cf-agent -D android,linux -Kf` every 5-min cycle (alongside `stayturgid_repair.py`)
 - Each bundle is a read-only verify + lightweight auto-repair (sshd restart, mirror re-pin, PATH leak fix, etc.)
 - Minimal standalone mode (per evaluation doc's recommendation), not a full policy-server deploy

@@ -22,8 +22,8 @@ that does not depend on ADB or SSH.
 
 | File | Purpose |
 |------|---------|
-| `device/termux/cfengine/cf-serverd.cf` | Server policy: IP ACL (Tailscale 100.64.0.0/10), access rules for 9 repair bundles, auto-trust on first connection. Specifies `cfruncommand` (wrapper script). |
-| `device/termux/cfengine/cf-runagent-wrapper.sh` | Shell wrapper that sets Termux PATH/LD_LIBRARY_PATH before invoking `cf-agent -f stayturgid.cf`. Needed because cf-serverd inherits minimal env. |
+| `device/termux/cfengine/policy/cf-serverd.cf` | Server policy: IP ACL (Tailscale 100.64.0.0/10), access rules for 9 repair bundles, auto-trust on first connection. Specifies `cfruncommand` (wrapper script). |
+| `device/termux/cfengine/policy/cf-runagent-wrapper.sh` | Shell wrapper that sets Termux PATH/LD_LIBRARY_PATH before invoking `cf-agent -f stayturgid.cf`. Needed because cf-serverd inherits minimal env. |
 | `device/termux/py/start_adb.py` | `startup_cfserverd()`: starts cf-serverd after sshd, before FIRERPA. `_monitor_cfserverd()`: monitors cf-serverd liveness in boot loop, restarts if dead. Uses `-F` flag (no fork — Android seccomp blocks fork for Termux). |
 
 ### Mac control-node side
@@ -38,7 +38,7 @@ that does not depend on ADB or SSH.
 | File | Change |
 |------|--------|
 | `ansible_collections/stayturgid/termux/roles/termux_userland/defaults/main.yml` | Line 20: added `cfengine` to `stayturgid_termux_packages` |
-| `ansible_collections/stayturgid/termux/roles/termux_userland/tasks/main.yml` | Lines 64-77: deploys `stayturgid.cf`, `cf-serverd.cf`, and `cf-runagent-wrapper.sh` to `~/.stayturgid/cfengine/` |
+| `ansible_collections/stayturgid/termux/roles/termux_userland/tasks/main.yml` | Validates/builds `device/termux/cfengine/cfbs.json` locally, then deploys `stayturgid.cf`, `cf-serverd.cf`, and `cf-runagent-wrapper.sh` to `~/.stayturgid/cfengine/` |
 
 ### Fleet health integration
 

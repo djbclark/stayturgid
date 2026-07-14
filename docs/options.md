@@ -43,6 +43,12 @@ H5/38, 43–45, 54, F1–F4. T1 shipped 2026-07-13.
 `just health` command remains nonzero only for hd8's documented `watchdog_stale` /
 offline state while that USB-only tablet deployment is intentionally deferred.
 
+**CFBS migration (2026-07-14):** CFEngine policy sources now live in the local
+CFEngine Build project at `device/termux/cfengine/`. The project deliberately
+builds the existing standalone Termux artifact, not a hub/MPF policy set. Ansible
+validates/builds the artifact before non-check deploys. Prerequisite: install
+`cfbs==5.5.6` with Python 3.12; details in `device/termux/cfengine/README.md`.
+
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
 config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.

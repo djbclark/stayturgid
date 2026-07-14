@@ -30,6 +30,9 @@ control/lib/a11y_backups/.*.tmp
 artifacts/
 tmp/
 
+# CFEngine Build output (built locally before Ansible deploy; never source).
+device/termux/cfengine/out/
+
 # SSH keys — live on the control node / devices only, never in git
 *.pem
 id_*

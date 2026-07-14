@@ -10,6 +10,7 @@ echo "# interpreters: bash $BASH_VERSION | $(python3 -V 2>&1) | node $(node -v 2
 # --- bash syntax -----------------------------------------------------------
 bad=""
 for f in $(git ls-files '*.sh'); do
+    [ -f "$f" ] || continue
     bash -n "$f" 2>/dev/null || bad="$bad $f"
 done
 [ -z "$bad" ] && tap_ok "bash -n: all shell scripts parse" \
@@ -53,6 +54,18 @@ done
 [ -z "$bad" ] && tap_ok "json: all catalogs/configs valid" \
               || tap_fail "json: all catalogs/configs valid" "failed:$bad"
 
+# --- CFEngine standalone policy sources ------------------------------------
+if command -v cf-promises >/dev/null 2>&1; then
+    if cf-promises -f "$PWD/device/termux/cfengine/policy/stayturgid.cf" >/dev/null 2>&1 && \
+       cf-promises -f "$PWD/device/termux/cfengine/policy/cf-serverd.cf" >/dev/null 2>&1; then
+        tap_ok "cf-promises: standalone CFEngine policy sources parse"
+    else
+        tap_fail "cf-promises: standalone CFEngine policy sources parse"
+    fi
+else
+    tap_skip "cf-promises: standalone CFEngine policy sources parse" "cfengine not installed (brew install cfengine)"
+fi
+
 # --- healing coverage check -------------------------------------------------
 if python3 tests/check_healing_coverage.py --summary; then
     tap_ok "healing coverage: all must_cover IDs declared across mechanisms"
@@ -88,7 +101,11 @@ fi
 
 # --- optional linters (run when installed, skip otherwise) ------------------
 if command -v shellcheck >/dev/null 2>&1; then
-    if git ls-files -z '*.sh' | xargs -0 shellcheck -S warning >/dev/null 2>&1; then
+    shell_files=()
+    while IFS= read -r -d '' f; do
+        [ -f "$f" ] && shell_files+=("$f")
+    done < <(git ls-files -z '*.sh')
+    if [ "${#shell_files[@]}" -eq 0 ] || shellcheck -S warning "${shell_files[@]}" >/dev/null 2>&1; then
         tap_ok "shellcheck -S warning: clean"
     else
         tap_fail "shellcheck -S warning: clean" "run: just lint"

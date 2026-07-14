@@ -1,0 +1,17 @@
+{
+  "name": "stayturgid Termux CFEngine policies",
+  "description": "Builds the standalone CFEngine policy artifact deployed to Termux devices.",
+  "type": "policy-set",
+  "git": false,
+  "build": [
+    {
+      "name": "./policy/",
+      "description": "stayturgid standalone repair and CFEngine server policies for Termux.",
+      "tags": ["local", "management"],
+      "added_by": "cfbs init",
+      "steps": [
+        "copy ./ ./"
+      ]
+    }
+  ]
+}

@@ -22,7 +22,7 @@
     },
     "cfengine": {
       "description": "CFEngine self-heal policy (stayturgid.cf)",
-      "files": ["device/termux/cfengine/stayturgid.cf"]
+      "files": ["device/termux/cfengine/policy/stayturgid.cf"]
     },
     "firerpa": {
       "description": "FIRERPA gRPC heal (out-of-band, independent transport)",
