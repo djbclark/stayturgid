@@ -37,7 +37,7 @@ links and hourly discovery scan. HTTPS consolidation behind Caddy reverse proxy
 greyhound-sidemirror.ts.net; all old machine names purged. s24 + p7a: FIRERPA secure
 SSH/gRPC live without suppressing AutoJs6, AutoInput, or Octoclip; Python runtime and
 watchdogs healthy. Open menu = remaining hd8 deployment under H1/H3, H9
-(post-UI foreground cleanup),
+(foreground cleanup — save/restore disabled 2026-07-14, may revisit via FIRERPA OCR),
 H5/38, 43–45, 54, F1–F4. T1 shipped 2026-07-13.
 `just firerpa-health` is clean and live health is clean for s24 + p7a. The aggregate
 `just health` command remains nonzero only for hd8's documented `watchdog_stale` /
@@ -55,7 +55,7 @@ radius · **Latent** = only act if a symptom returns.
 
 **Suggested agent order:** Follow
 [Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md): H1/H3,
-H9, B63/B64, F4, then T1. Hardware-blocked items stay open
+B63/B64, F4, then T1. Hardware-blocked items stay open
 while independent safe work may continue. H5/38, 43–45, 54, and F1–F3 remain lower
 priority or symptom-triggered.
 
@@ -63,14 +63,14 @@ priority or symptom-triggered.
 
 ## Pick a track
 
-| Track                  | Focus                                              | Open IDs           | Typical risk                  |
-| ---------------------- | -------------------------------------------------- | ------------------ | ----------------------------- |
-| **A — Operational**    | Live deploy, human unblockers, current reliability | H1, H3, H5, H9, 38 | Low–High                      |
-| **B — Ansible-native** | Bootstrap APK automation follow-ups                | B63, B64           | Low–Medium                    |
-| **D — Reliability**    | Symptom-driven hardening                           | 43–45              | Latent until triggered        |
-| **E — On-device LLM**  | shell-gpt escalation; incubator note               | 54                 | Medium (mis-scope risk)       |
-| **F — FIRERPA**        | gRPC backup channel enhancements                   | F1–F4              | Medium (future, core is done) |
-| **T — Tooling**        | Planned command-runner migration                   | T1                 | Low–Medium                    |
+| Track                  | Focus                                              | Open IDs       | Typical risk                  |
+| ---------------------- | -------------------------------------------------- | -------------- | ----------------------------- |
+| **A — Operational**    | Live deploy, human unblockers, current reliability | H1, H3, H5, 38 | Low–High                      |
+| **B — Ansible-native** | Bootstrap APK automation follow-ups                | B63, B64       | Low–Medium                    |
+| **D — Reliability**    | Symptom-driven hardening                           | 43–45          | Latent until triggered        |
+| **E — On-device LLM**  | shell-gpt escalation; incubator note               | 54             | Medium (mis-scope risk)       |
+| **F — FIRERPA**        | gRPC backup channel enhancements                   | F1–F4          | Medium (future, core is done) |
+| **T — Tooling**        | Planned command-runner migration                   | T1             | Low–Medium                    |
 
 Parked (not a track): Inferno/Styx → [docs/incubator/inferno-styx/](incubator/inferno-styx).
 
@@ -348,14 +348,20 @@ requires UID 2000. If Android still needs consent, the response explicitly tells
 the operator to tap **Allow all the time** and retry. The implementation never
 claims to automate Android consent.
 
-#### H9 — Post-UI unlock and foreground-screen cleanup · Risk: **Low**
+#### H9 — Foreground-screen save/restore disabled · Risk: **Low** · **Partially closed 2026-07-14**
 
-Full deploy's `post_ui` phase requires the screen to be on and unlocked; the role now waits
-and prints an `ACTION REQUIRED` task instead of silently stalling. The UI sequence can bring
-Obtainium, AutoJs6, Termux:API, Shizuku, or Android Settings to the foreground and may leave
-an arbitrary screen visible when it finishes. This does not affect service health. In a
-future UI pass, inventory every foreground transition, minimize unnecessary launches, and
-restore a predictable final screen. Do not block core deployment work on this cleanup.
+The unreliable `ScreenControlSession` foreground save/restore (both Mac-side
+`control/lib/screen_control.py` and on-device
+`device/termux/py/stayturgid_screen_control.py`) has been disabled. The save
+(`get_foreground_component` on `__enter__`) and restore (`restore_foreground` on
+`__exit__`) are both commented out with H9 references. The `restore_foreground()`
+and `parse_foreground_component()` functions remain intact for future use.
+
+**Remaining scope** (deferred, may revisit via FIRERPA OCR/screen-control):
+
+- Inventory every foreground transition across UI roles
+- Minimize unnecessary app launches
+- Restore a predictable final screen when it becomes reliable to do so
 
 #### H10 — Fix unsupported AutoJs6 parent-path calls · **Complete 2026-07-13** · Risk: **Medium**
 
