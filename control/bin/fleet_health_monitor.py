@@ -292,7 +292,7 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
         if hgs.needs_gms_downgrade(new_ver):
             notify(
                 "stayturgid heal",
-                "%s GMS still too new (%s) — run make fix-hd8-google"
+                "%s GMS still too new (%s) — run just fix-hd8-google"
                 % (name, new_ver),
                 sound="Basso",
             )

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Pre-flight healing coverage checker — runs as part of `make test` (tier code).
+"""Pre-flight healing coverage checker — runs as part of `just test` (tier code).
 
 Reads `tests/healing_registry.json` (SSOT of all desired states), scans each
 healing mechanism's source files for `@heals:` annotations, cross-references:

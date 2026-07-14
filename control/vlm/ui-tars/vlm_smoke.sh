@@ -15,7 +15,7 @@ fail() {
   exit 1
 }
 
-[[ -f "$PLIST" ]] || fail "plist missing — run make vlm-service-install"
+[[ -f "$PLIST" ]] || fail "plist missing — run just vlm-service-install"
 
 echo "==> stop"
 launchctl bootout "$DOMAIN" "$PLIST" 2>/dev/null || true

@@ -66,10 +66,10 @@ when AutoJs6 stalls or a11y drifts — the Mac log is the signal.
 ### Session start (do this)
 
 ```bash
-make health
+just health
 python3 control/bin/screen_lease.py status   # cross-project glass holds (esp. p7a); see docs/modules/screen-control-lease.md
-# Optional when touching VLM: make vlm-upstream-check  # RQS VLM.md best practices
-# Optional when touching phone→Mac et: make check-et-mac
+# Optional when touching VLM: just vlm-upstream-check  # RQS VLM.md best practices
+# Optional when touching phone→Mac et: just check-et-mac
 ```
 
 | Exit | Meaning | Your job |
@@ -139,13 +139,13 @@ On the Mac, a launchd agent runs every 60 s and reconnects `adb connect <ip>:555
 GitHub `master` is the source of truth. To release:
 1. Bump `version.json` (`version` + `changelog`), commit, push.
 2. `just deploy` (or `python3 control/bin/deploy_fleet.py`) — full fleet via `ansible/playbooks/site.yml`
-   (`make deploy-check` / `CHECK=1 make deploy` = dry run): bootstrap APK verify,
+   (`just deploy-check` = dry run): bootstrap APK verify,
    bootstrap APK ensure (version-aware over ADB), Shizuku start, preflight (SSH),
    fleet deploy (Termux, AutoJs6, Obtainium, Tailscale, privileges), post-UI,
    validate. The first three phases run over ADB (no SSH required) — they install
    prerequisite APKs and start Shizuku before SSH bootstrap. Idempotent (re-run =
-   `changed=0`). Granular phases: `make bootstrap-apks`, `make verify-bootstrap-apks`,
-   `make ensure-shizuku`, `make deploy-termux`.
+   `changed=0`). Granular phases: `just bootstrap-apks`, `just verify-bootstrap-apks`,
+   `just ensure-shizuku`, `just deploy-termux`.
 
 Optional on-device notifier: `stayturgid_check_repo_version.py` (max once/24 h) fires `termux-notification` when GitHub `version.json` moves ahead of the last-seen stamp.
 
@@ -185,16 +185,16 @@ end of that plan.
 |------|:------:|:----------:|:--------------:|:-------:|:--------:|-------|
 | **s24** | 14/16 PASS | all green | ✅ All 7 current | ✅ v10.0 secure | ✅ 7/7 | Full deploy + AutoJs6 watchdog verified |
 | **p7a** | 14/16 PASS | all green | pending | ✅ v10.0 secure | ✅ 7/7 | FIRERPA + Termux supervisor deploy verified |
-| **hd8** | 13/16 PASS | offline / watchdog stale | pending | ⚠️ USB only | last ✅ 4/7 | Deferred H1/H3; aggregate `make health` remains nonzero |
+| **hd8** | 13/16 PASS | offline / watchdog stale | pending | ⚠️ USB only | last ✅ 4/7 | Deferred H1/H3; aggregate `just health` remains nonzero |
 
 **Current fix order:** H1/H3 HD8 maintenance decision → H9 foreground-screen cleanup →
 B63/B64 recovery tests → F4 FIRERPA network audit/isolation → T1 `just` migration. See
 [the execution plan](plans/outstanding-fix-priorities-2026-07-13.md) for gates and
 rollback rules.
 
-**Last verified 2026-07-13:** `make check` and `make test` passed (296 pytest tests,
-129 local TAP checks, and all Ansible collection unit suites). `make firerpa-health`
-passed; `make health` remains exit 1 only for HD8's documented stale/offline state.
+**Last verified 2026-07-13:** `just check` and `just test` passed (296 pytest tests,
+129 local TAP checks, and all Ansible collection unit suites). `just firerpa-health`
+passed; `just health` remains exit 1 only for HD8's documented stale/offline state.
 There are no active screen-control leases. H8 is implemented and documented but has
 not been live-clicked because the current healthy S24 does not expose a
 `shizuku_down` action; use the dashboard action only when that state is present.
@@ -262,7 +262,7 @@ All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/
 **Ansible-based verification + drift detection (deployed 2026-07-12):**
 - `make verify-drift [HOSTS=s24]` — `control/bin/verify_drift.py` → `ansible/playbooks/fleet/verify-drift.yml`
 - Uses `stayturgid.fleet.stayturgid_verify` module — declarative Ansible checks for device state drift
-- Complements `make verify` (device-tier TAP) with Ansible-native verification
+- Complements `just verify` (device-tier TAP) with Ansible-native verification
 - `make deploy-check` for dry-run deploy verification (`CHECK=1 make deploy`)
 
 **Cross-layer read-before-write guard hardening (2026-07-12):**
@@ -330,7 +330,7 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 - Discovered false-positive stale detection: tag `6.7.0-fleet-profile` vs versionName `6.7.0`
 - Fix applied in `djbclark/AutoJs6` fork build system (appends branch qualifier to versionName)
 - Verified: `aapt dump badging` shows `versionName='6.7.0-fleet-profile'` matching tag
-- Installed on s24 via `make bootstrap-apks HOSTS=s24`
+- Installed on s24 via `just bootstrap-apks hosts=s24`
 - Final verify: all 7 APKs current, no stale warnings
 
 **Bug fixes:**
@@ -415,13 +415,13 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 - Battery alarm M1–M3 fixed in Python (`stayturgid_battery_alarm.py`) with `battery_suite` regression coverage.
 - `request-screen` countdown 10 s; `gplaycli.py` launcher; `deploy_fleet.py` post-step failure reporting.
 
-**Solid on all three (unchanged):** Termux self-heal (`sshd` + boot loop + repair bridge); single-root file layout with self-healing dirs; AutoJs6 hardened startup; device-tier verify via `make verify`.
+**Solid on all three (unchanged):** Termux self-heal (`sshd` + boot loop + repair bridge); single-root file layout with self-healing dirs; AutoJs6 hardened startup; device-tier verify via `just verify`.
 
 **⚠ hd8 Fire OS caveats:**
 - Split storage — Termux under `~/.stayturgid/shared`; AutoJs6 under `/sdcard/stayturgid/`.
 - No Termux→localhost:5555 loopback — verify item 4 is an expected informational note, not a failure. Post-UI stays on Mac adb (USB or wireless).
 - Mac adb: Tailscale or USB `GN43T503430603PS`; wireless failover works after one USB bootstrap.
-- **Sideloaded Google Play:** Play Store can auto-update GMS past Fire-compatible builds → GSF/GMS crash loop. Pin via `make fix-hd8-google`; disable Play Store auto-updates. **VLM close-out** (when `make vlm-server` running): `make verify-hd8-google` or auto after `fix-hd8-google`. See [docs/research/fire-os-google-play.md](research/fire-os-google-play.md) and [docs/vlm.md](vlm.md).
+- **Sideloaded Google Play:** Play Store can auto-update GMS past Fire-compatible builds → GSF/GMS crash loop. Pin via `just fix-hd8-google`; disable Play Store auto-updates. **VLM close-out** (when `just vlm-server` running): `just verify-hd8-google` or auto after `fix-hd8-google`. See [docs/research/fire-os-google-play.md](research/fire-os-google-play.md) and [docs/vlm.md](vlm.md).
 
 **Next work:** follow
 [Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md), with
@@ -772,7 +772,7 @@ version.json                 — repo release version + changelog
 - **2026-07-09 night** — Ansible Track B closed: `stayturgid.fleet.validate`, `preflight.yml`, `autojs6_project_deploy`; `make help` + fleet Makefile targets; `make health` stale LOST fix; docs sweep (ADR 002, consumers, parked stores). Commits `5e2b05c`…`4aab300` on `master`.
 - **2026-07-09** — Fire OS peer fallbacks F1–F5: boot keepalive (Shizuku+Handsets), Mac as last peer, launchd `com.stayturgid.fire-help`, ForceCommand `id_ed25519_peerhelp` on helpers/Mac. See `docs/research/fire-os-local-adb.md`. Neo/Aurora parked; ADR 002 + `android_ui`/`post_ui`/`android_a11y_services`; on-device post-UI + screen-control port.
 - **2026-07-08** — Test/CI batch: log.js ensureDir tests, deploy_fleet/adb_cli mocked flows, in-collection `adb_resolve` units, TCP-probe gate for wireless `adb connect`, tailscale-down abort guard. docs/options.md simplified to single open-items list. hd8 verify 16/16 with Fire OS notes; p7a adb intermittently offline.
-- **2026-07-07** — Fleet recovery: s24/p7a AutoJs6 `pm clear` reset → `make verify` green. **hd8** (Kindle Fire HD 8) added to fleet. Fire OS support: `stayturgid_sd_root` override, `STAYTURGID_SD` env file, dual-path device-tier checks, AutoJs6 deploy via `adb push`. Ansible taxonomy: `android_11`, `vendor_amazon`, `model_kindle_hd8`. adb auto-failover, mirror-pin fix, tailscale-down regression fix on s24.
+- **2026-07-07** — Fleet recovery: s24/p7a AutoJs6 `pm clear` reset → `just verify` green. **hd8** (Kindle Fire HD 8) added to fleet. Fire OS support: `stayturgid_sd_root` override, `STAYTURGID_SD` env file, dual-path device-tier checks, AutoJs6 deploy via `adb push`. Ansible taxonomy: `android_11`, `vendor_amazon`, `model_kindle_hd8`. adb auto-failover, mirror-pin fix, tailscale-down regression fix on s24.
 - **2026-07-07** — F-Droid/Neo Store + Play/Aurora support added (`fdroidcl` + `gplaycli` on Mac). Later integrated into `fleet.yml` (2026-07-07). Modules/roles: repo ensure in fdroidcl, `fdroidrepos://` intents, Shizuku grant, Aurora catalog + automated setup.
 - **2026-07-06** — Migration to Python COMPLETE (v2.0): all 5 runtime scripts deploy as Python (repair/agent-presence keep thin ~/ shell entrypoints); Mac-side fragile parsers converted (device_tier/access_monitor/adb_reconnect + shared stayturgid_device.py) with pytest; shell fragility boundary reached. Device tier → `device_tier.py`. Taxonomy inventory (no device names in code; group_vars layers all→android_16→vendor→oneui_7→model→host; device.json rendered per host). `obtainium_app` module + `obtainium_apps` role. fleet-health folded into TAP tier (`--heal`). Idempotency/determinism pass (mirror pinned, LC_ALL=C). pytest + `ansible-test units` + `stayturgid.fleet` collection. Ansible-native `fleet.yml` + `autojs6_watchdog` role. Notification self-heal (repair re-enables a11y append-only; notify coalesces per-key). Tasker fully removed (legacy exports archived). CI (GitHub Actions `make test`) green; ansible-lint/yamllint clean. Screen-awake guard + agent-presence consent protocol. sshd PerSourcePenalties lockout fixed.
 - **2026-07-06** — Code review (CODE-REVIEW.md): 2 high / 11 med / 13 low, all fixed (repair helpers before flock branch; bridge liveness → pidfile; battery alarm byte-verified backup; consent gate fails closed; shizuku.json patchers abort on failed read).

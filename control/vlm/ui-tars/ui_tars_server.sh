@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Start local UI-TARS-1.5-7B (GGUF) via llama.cpp.
-# Prefer launchd: make vlm-service-install (persists across login).
+# Prefer launchd: just vlm-service-install (persists across login).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -16,7 +16,7 @@ LOG_FILE="$(ui_tars_log_file)"
 
 if [[ ! -f "$MODEL" ]] || [[ ! -f "$MMPROJ" ]]; then
   echo "Missing model weights in $MODEL_DIR" >&2
-  echo "Run: make vlm-install" >&2
+  echo "Run: just vlm-install" >&2
   exit 1
 fi
 
@@ -32,7 +32,7 @@ if ui_tars_service_installed; then
 fi
 
 ui_tars_llama_server_bin >/dev/null || {
-  echo "llama-server not found — run: make vlm-install" >&2
+  echo "llama-server not found — run: just vlm-install" >&2
   exit 1
 }
 
@@ -47,7 +47,7 @@ if [[ -f "$PID_FILE" ]]; then
   fi
 fi
 
-echo "Starting UI-TARS-1.5-7B on 127.0.0.1:${PORT} (manual; use make vlm-service-install to persist)…"
+echo "Starting UI-TARS-1.5-7B on 127.0.0.1:${PORT} (manual; use just vlm-service-install to persist)…"
 nohup bash "${SCRIPT_DIR}/ui_tars_server_run.sh" >>"$LOG_FILE" 2>&1 &
 
 echo $! >"$PID_FILE"
@@ -62,5 +62,5 @@ for _ in $(seq 1 180); do
 done
 
 echo "Server did not become healthy within 180s — see $LOG_FILE" >&2
-echo "Tip: make vlm-service-install for launchd" >&2
+echo "Tip: just vlm-service-install for launchd" >&2
 exit 1

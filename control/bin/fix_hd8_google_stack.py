@@ -111,7 +111,7 @@ def main(argv: list[str] | None = None) -> int:
             "\nOperator: Play Store → Settings → Network preferences → "
             "Auto-update apps → Don't auto-update apps"
         )
-        print("  (or: make vlm-server && make verify-hd8-google HOSTS=hd8)")
+        print("  (or: just vlm-server && just verify-hd8-google HOSTS=hd8)")
 
     return verify_rc if verify_rc else 0
 

@@ -25,7 +25,7 @@ platform-describing example hostnames in the main tree.
 | **C — Reference parity** | **macOS today** | 3+ incl. Fire | High | launchd health, Handsets UI, VLM, Fire peer-help |
 
 Tier **A** is Linux-friendly today via `examples/consumer-termux-only/`. Tier **C** matches
-this repo’s production path (`docs/handoff.md`, `make health`, Handsets). Tier **B** is the
+this repo’s production path (`docs/handoff.md`, `just health`, Handsets). Tier **B** is the
 realistic target for Debian/Ubuntu after a modest port (see §6).
 
 ---
@@ -52,9 +52,9 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
    ```bash
    ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections
    ```
-8. **macOS only:** `make deploy-mac` (Homebrew bootstrap, adb, launchd agents, optional VLM).
+8. **macOS only:** `just deploy-mac` (Homebrew bootstrap, adb, launchd agents, optional VLM).
 9. **Linux:** set `export STAYTURGID_ADB=/usr/bin/adb` (or `which adb`) in shell profile;
-   deploy with `make deploy` only after §5 blockers are addressed, or use
+   deploy with `just deploy` only after §5 blockers are addressed, or use
    `--skip-tags mac` until then.
 
 ### 2.2 Each new Android device
@@ -64,12 +64,12 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 2. **Add host** to your site repo’s `inventory/hosts.yml` + taxonomy groups.
 3. **First SSH** (USB or wireless adb required once):
    ```bash
-   make bootstrap-ssh HOSTS=<alias>
+   just bootstrap-ssh HOSTS=<alias>
    # or: python3 control/bin/bootstrap_ssh.py <alias>
    ```
 4. **Deploy:**
    ```bash
-   make deploy HOSTS=<alias>
+   just deploy hosts=<alias>
    ```
 5. **One-time UI** on device if prompted: Shizuku start, AutoJs6 accessibility, Obtainium
    catalog import (post-ui playbooks).
@@ -79,7 +79,7 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 | Item | When needed |
 |------|-------------|
 | Handsets `~/.handsets/{hs,hs.jar}` | Mac Handsets post-UI, Fire peer bootstrap |
-| `make vlm-install` + `vlm-service-install` | Screenshot verification gates ([docs/vlm.md](vlm.md)) |
+| `just vlm-install` + `vlm-service-install` | Screenshot verification gates ([docs/vlm.md](vlm.md)) |
 | `play.env` + `obtain_play_aas.py` | Google Play / Aurora downloads |
 | `pipx install uiautomator2` | Mac debug (Ansible installs on `deploy-mac`) |
 
@@ -91,14 +91,14 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 
 | Concern | Status |
 |---------|--------|
-| Ansible deploy | Supported (`make deploy`, `control_node/site.yml`) |
+| Ansible deploy | Supported (`just deploy`, `control_node/site.yml`) |
 | Homebrew + adb | `control_node/prereqs.yml` (`community.general.homebrew`) |
 | Background keepalive | `community.general.launchd` agents (`com.stayturgid.*`) |
 | VLM sidecar | `control_node/vlm.yml` (llama.cpp + launchd) |
 | Handsets UI driver | `~/.handsets/hs` (manual binary install) |
 | Fire peer-help target | `stayturgid_mac_peer` + Remote Login + ForceCommand in `control_node/agents` |
 
-**Minimal path:** `make deploy-mac` then `make deploy`.
+**Minimal path:** `just deploy-mac` then `just deploy`.
 
 ### 3.2 Debian / Ubuntu (stable, testing, unstable, LTS, current)
 
@@ -107,10 +107,10 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 | Ansible / Python / git | Works | `ansible` or pipx `ansible-core`, `python3`, `git` |
 | adb | Works if on PATH | `android-sdk-platform-tools` (Debian/Ubuntu) or Google zip |
 | Device Ansible (`site.yml` device plays) | Works | SSH to Termux :8022 |
-| `make test` / CI | Works | Ubuntu CI runs full unit suite |
+| `just test` / CI | Works | Ubuntu CI runs full unit suite |
 | `control_node/prereqs.yml` | Skipped (`end_host` when not Darwin) | — |
 | `control_node/agents` launchd | **Fails on Linux** | No equivalent shipped |
-| `make health` / fleet monitors | Broken default adb path | Set `STAYTURGID_ADB` |
+| `just health` / fleet monitors | Broken default adb path | Set `STAYTURGID_ADB` |
 | VLM | Skipped on Linux playbooks | Manual `llama-server` possible (`vlm_gate.py`) |
 | Handsets on control node | Mac binary | Use on-device post-UI over SSH, or peer-only path |
 | Fire → control peer-help | Possible | Enable `openssh-server`, fix `help_cmd` path, run `control_node/agents` ForceCommand tasks |
@@ -121,7 +121,7 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 sudo apt install ansible python3 python3-venv git android-sdk-platform-tools openssh-client
 export STAYTURGID_ADB=/usr/bin/adb
 ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections
-make bootstrap-ssh HOSTS=phone1
+just bootstrap-ssh hosts=phone1
 ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml --skip-tags mac
 ```
 
@@ -341,7 +341,7 @@ Until Phase 1–2 ship, new operators still edit a forked `hosts.yml` in-tree:
 
 Ordered by impact for “minimal effort” on Debian/Ubuntu.
 
-### 5.1 P0 — Unblock `make deploy` on Linux
+### 5.1 P0 — Unblock `just deploy` on Linux
 
 | Task | Detail |
 |------|--------|
@@ -518,7 +518,7 @@ stayturgid_operator_keys:
 
 ### Single owner, mixed phones (site overlay repo)
 
-- **Control:** macOS, `make deploy` + `make health`.
+- **Control:** macOS, `just deploy` + `just health`.
 - **Inventory:** site repo `inventory/hosts.yml`, full mesh.
 - **Fire device:** `stayturgid_control_peer` + peer-help plays.
 
@@ -544,18 +544,18 @@ stayturgid_operator_keys:
 ./configure
 
 # macOS control-node setup
-make deploy-mac
+
 
 # Full fleet (macOS)
-make deploy
+
 
 # Full fleet (Linux interim)
 export STAYTURGID_ADB=/usr/bin/adb
 ansible-playbook ansible/playbooks/site.yml --skip-tags mac
 
 # One device bootstrap + deploy
-make bootstrap-ssh HOSTS=oneui-device
-make deploy HOSTS=oneui-device
+just bootstrap-ssh hosts=oneui-device
+just deploy hosts=oneui-device
 
 # Termux-only consumer
 cd examples/consumer-termux-only && ansible-playbook playbook.yml
@@ -567,7 +567,7 @@ cd examples/consumer-termux-only && ansible-playbook playbook.yml
 
 | Question | Answer |
 |----------|--------|
-| **Minimal effort today?** | Termux-only consumer, or site overlay + macOS `make deploy` |
+| **Minimal effort today?** | Termux-only consumer, or site overlay + macOS `just deploy` |
 | **Repo split?** | Upstream = generic (`oneui-device`, …); site repo = real inventory (§4) |
 | **Linux control node?** | Device Ansible works; control-plane daemons need port (§5) |
 | **What must every site edit?** | Site inventory, control peer vars, `termux_key`, optional `adbkey` |

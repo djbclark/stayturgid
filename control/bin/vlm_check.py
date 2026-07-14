@@ -40,7 +40,7 @@ def main(argv: list[str] | None = None) -> int:
             print(
                 "UI-TARS local: NOT healthy (optional if cloud keys work)\n"
                 "  curl -sf http://127.0.0.1:8081/health\n"
-                "  make vlm-service-status",
+                "  just vlm-service-status",
                 file=sys.stderr,
             )
             if args.local_only:

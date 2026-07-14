@@ -17,13 +17,13 @@ on-device failsafe daemon on stayturgid-managed Android devices.
 test -f ~/.config/stayturgid/firerpa.pem
 
 # Deploy to s24
-make firerpa-deploy HOSTS=s24
+just firerpa-deploy HOSTS=s24
 
 # Use FIRERPA's certificate-authenticated backup SSH transport
 ssh s24-firerpa
 
 # Remove from s24
-make firerpa-remove HOSTS=s24
+just firerpa-remove HOSTS=s24
 
 # Or via Ansible directly:
 ansible-playbook ansible/playbooks/fleet/firerpa.yml -l s24 -e firerpa_enabled=true

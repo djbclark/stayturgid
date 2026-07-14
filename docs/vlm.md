@@ -8,7 +8,7 @@ UI-TARS is a **vendor-neutral Mac sidecar** (Homebrew `llama.cpp` + launchd). We
 and server logs live outside `~/.config/stayturgid/`. stayturgid fleet config and
 `vlm-verify` artifacts stay under `~/.config/stayturgid/`.
 
-Mac install is **Ansible-managed** (`ansible/playbooks/control_node/vlm.yml` via `make vlm-*`).
+Mac install is **Ansible-managed** (`ansible/playbooks/control_node/vlm.yml` via `just vlm-*`).
 
 See [docs/hacking.md § 2.7](hacking.md#27-ui-tars-vision-gates-optional) for dev setup.
 
@@ -30,10 +30,10 @@ Env: `UI_TARS_*` (server), `STAYTURGID_VLM_*` (harness), `QSS_VLM_*` (legacy ali
 ## Initial setup
 
 ```bash
-make configure
-make vlm-install
-make vlm-service-install
-make vlm-check
+just configure
+just vlm-install
+just vlm-service-install
+just vlm-check
 ```
 
 Equivalent Ansible (from repo root):
@@ -47,7 +47,7 @@ Migrate old `~/.config/stayturgid/models/ui-tars-*` (also run automatically on s
 
 ```bash
 python3 control/vlm/ui-tars/vlm_migrate_paths.py
-make vlm-service-install
+just vlm-service-install
 ```
 
 ---
@@ -55,16 +55,16 @@ make vlm-service-install
 ## Operations
 
 ```bash
-make vlm-service-status
+just vlm-service-status
 curl -sf http://127.0.0.1:8081/health && echo OK
-make vlm-service-restart
-make vlm-service-stop
-make vlm-smoke          # stop/start QA (launchd required)
-make vlm-server         # manual background (no launchd)
+just vlm-service-restart
+just vlm-service-stop
+just vlm-smoke          # stop/start QA (launchd required)
+just vlm-server         # manual background (no launchd)
 ```
 
 `control/lib/vlm_gate.ensure_server()` runs Ansible (`control_node/site.yml --tags agents-ensure` when
-the plist exists, `--tags vlm-service` when installing). Every `make deploy` runs
+the plist exists, `--tags vlm-service` when installing). Every `just deploy` runs
 `agents-ensure` for all control-node launchd jobs (stayturgid + UI-TARS).
 
 ---
@@ -205,7 +205,7 @@ stayturgid periodically reviews sibling-project VLM notes for reusable practices
 ```
 
 ```bash
-make vlm-upstream-check          # now
+just vlm-upstream-check          # now
 python3 control/bin/vlm_upstream_check.py --notify
 ```
 

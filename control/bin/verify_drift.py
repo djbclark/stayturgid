@@ -3,7 +3,7 @@
 
 Usage:
   python3 control/bin/verify_drift.py [--host s24] [--all]
-  make verify-drift HOSTS=s24
+  just verify-drift HOSTS=s24
 """
 
 from __future__ import annotations

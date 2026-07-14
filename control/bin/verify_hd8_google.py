@@ -8,7 +8,7 @@ Closes the operator loop that previously required manually confirming:
 
 Usage:
   STAYTURGID_VLM=1 python3 control/bin/verify_hd8_google.py [hd8]
-  make verify-hd8-google HOSTS=hd8
+  just verify-hd8-google HOSTS=hd8
 
 VLM gates run when llama-server is healthy (see docs/vlm.md). Stack version checks
 always run (no VLM required).
@@ -152,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
             print("FAIL Play auto-update not off (VLM)")
     else:
         report["checks"]["vlm"] = {"skipped": True, "reason": "server_unavailable"}
-        print("SKIP VLM gates — start: make vlm-server (or configure cloud keys)")
+        print("SKIP VLM gates — start: just vlm-server (or configure cloud keys)")
         if not vlm.vlm_strict():
             print("  (stack-only pass; enable VLM for full close-out)")
 

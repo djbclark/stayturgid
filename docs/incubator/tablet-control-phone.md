@@ -153,7 +153,7 @@ Keep it **modular and opt-in** — same philosophy as Obtainium-only / control-o
 | `device/termux/bin` or `~/.stayturgid/bin/stayturgid-control-phone` | Wrapper: resolve target from peers.json / devices.conf, adb connect, set `DISPLAY`, run scrcpy with inventory flags |
 | `catalogs/obtainium/` optional | Termux:X11 APK / scrcpy if not fully in `pkg` (prefer pkg) |
 | Ansible | Tag `tablet-control` on termux_userland or tiny role; default **off** |
-| Mac | Optional: `make tablet-control-check HOSTS=hd8` — SSH and dry-run `adb devices` from tablet toward target |
+| Mac | Optional: `just tablet-control-check HOSTS=hd8` — SSH and dry-run `adb devices` from tablet toward target |
 | Leases | Wrapper records purpose `tablet-control` in DSCL for `s24` if Mac lease tools are reachable; else log-only |
 
 **Suggested CLI (tablet Termux):**

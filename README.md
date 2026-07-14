@@ -48,9 +48,9 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 4. Obtainium catalog — [docs/modules/obtainium.md](docs/modules/obtainium.md)
 5. Control node — [docs/modules/control.md](docs/modules/control.md) (ADB reconnect + access monitor)
 
-**One command (fleet):** `make deploy` — Termux, AutoJs6, Obtainium, Tailscale, optional ensure_apps.
+**One command (fleet):** `just deploy` — Termux, AutoJs6, Obtainium, Tailscale, optional ensure_apps.
 
-(`./control/bin/deploy_fleet.py` is the same; `make help` lists all targets.)
+(`./control/bin/deploy_fleet.py` is the same; `just --list` lists all targets.)
 
 Neo Store / Aurora Store are **parked** (not in active deploy); see [docs/modules/fdroid.md](docs/modules/fdroid.md) and [docs/modules/play.md](docs/modules/play.md) to re-enable.
 

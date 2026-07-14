@@ -14,7 +14,7 @@ Usage::
   python3 control/bin/ensure_et_mac.py --apply-only
   python3 control/bin/ensure_et_mac.py --check
 
-Idempotent. Safe to run from launchd / fleet-health / ``make deploy-mac``.
+Idempotent. Safe to run from launchd / fleet-health / ``just deploy-mac``.
 Never prints or writes private keys.
 """
 from __future__ import annotations

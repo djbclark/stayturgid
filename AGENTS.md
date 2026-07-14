@@ -35,9 +35,9 @@ just health && just firerpa-health
 
 - **Mac shell:** `/bin/bash` (dotfiles: `~/.bash_profile`, `~/.bashrc`)
 - **FIRERPA venv:** Python 3.12 at `/tmp/lamda-venv` — `source /tmp/lamda-venv/bin/activate`
-- **SSH CA:** `~/.ssh/stayturgid_ca` — `make ca-status`
+- **SSH CA:** `~/.ssh/stayturgid_ca` — `just ca-status`
 - **OpenCode web:** http://100.113.53.87:4096
-- **Secrets:** managed via `secretspec` (`brew install secretspec`). Spec at `secretspec.toml` (project root). All secrets defined there; run `make secretspec-check` before deploys.
+- **Secrets:** managed via `secretspec` (`brew install secretspec`). Spec at `secretspec.toml` (project root). All secrets defined there; run `just secretspec-check` before deploys.
 
 ## Fleet (s24, p7a, hd8)
 
@@ -55,7 +55,7 @@ just health && just firerpa-health
 - Accessibility is detection-only. Never `settings put` accessibility services automatically.
 - Logging uses syslog severity levels (EMERG..DEBUG). See `control/lib/logging.py`.
 - Every desired state gets a unique ID in `tests/healing_registry.json`. Pre-flight
-  `make test` fails if a `must_cover` ID is missing from any healing mechanism.
+  `just test` fails if a `must_cover` ID is missing from any healing mechanism.
 - Follow multi-agent protocol at bottom of AGENTS.md (fetch-pull before edits).
 - See full policies at `.cursor/rules/*.md`
 

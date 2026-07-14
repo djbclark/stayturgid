@@ -4,13 +4,13 @@ Three equivalent entry points (they call the same scripts — overlap is intenti
 
 | Way | Tier (a) code only | Tier (b) no device | Tier (c) device, read-only |
 |-----|--------------------|--------------------|----------------------------|
-| **GNU** | `./configure && make check` | `make test` (= a+b) | `make verify` · `make dryrun` |
-| **Ansible-standard** | `ansible-playbook … --syntax-check` (inside `make check`) | module test via `ansible localhost` (inside `make test`) | `ansible-playbook … --check --diff` (= `make dryrun`) |
+| **GNU** | `./configure && just check` | `just test` (= a+b) | `just verify` · `just dryrun` |
+| **Ansible-standard** | `ansible-playbook … --syntax-check` (inside `just check`) | module test via `ansible localhost` (inside `just test`) | `ansible-playbook … --check --diff` (= `just dryrun`) |
 | **Idiomatic (TAP shell harness)** | `tests/run.sh code` | `tests/run.sh unit` / `local` | `tests/run.sh device [--ansible-check] [host…]` |
 
 - **Tier (a)** catches "different bash/python/node/ansible version breaks parsing" —
   `bash -n`, `py_compile`, `node --check`, JSON/plist validation, playbook syntax
-  check, plus shellcheck/ansible-lint/yamllint when installed (`make lint`).
+  check, plus shellcheck/ansible-lint/yamllint when installed (`just lint`).
 - **Tier (b)** runs the Termux scripts in a sandbox (stubbed `termux-*`, `adb`,
   `pgrep`, `flock`; `HOME`/`PREFIX`/`STAYTURGID_SD` redirected), the AutoJs6 log
   parser under node with a `files{}` mock, and the `termux_pkg` module through

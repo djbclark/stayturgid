@@ -17,7 +17,7 @@ LLAMA="$(ui_tars_llama_server_bin)" || {
 }
 
 if [[ ! -f "$MODEL" ]] || [[ ! -f "$MMPROJ" ]]; then
-  echo "Missing model weights in $MODEL_DIR — run: make vlm-install" >&2
+  echo "Missing model weights in $MODEL_DIR — run: just vlm-install" >&2
   exit 1
 fi
 

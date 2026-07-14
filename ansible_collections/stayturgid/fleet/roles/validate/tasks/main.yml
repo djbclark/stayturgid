@@ -1,6 +1,6 @@
 ---
 # @heals: A11Y-PROFILE-MATCH TAILSCALE-ALWAYSON
-# Post-deploy validation over SSH (complements make verify / device_tier TAP).
+# Post-deploy validation over SSH (complements verify (see `just verify`) / device_tier TAP).
 
 - name: Run stayturgid-repair and parse STATUS
   stayturgid.termux.stayturgid_repair_check:

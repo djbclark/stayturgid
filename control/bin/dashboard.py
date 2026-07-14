@@ -235,7 +235,7 @@ HUMAN_ACTIONS = {
     ),
     "a11y_profile_drift": (
         "Expected accessibility services are missing from this device. "
-        "Run: make verify-heal HOSTS=<host> to merge-restore the profile."
+        "Run: just verify-heal HOSTS=<host> to merge-restore the profile."
     ),
     "port_closed": (
         "ADB wireless debugging port 5555 is closed. On the device, open "
@@ -244,16 +244,16 @@ HUMAN_ACTIONS = {
     ),
     "sshd_down": (
         "SSH daemon is not running on the device. The repair loop should auto-restart it. "
-        "If persistent, run: make deploy-termux HOSTS=<host>"
+        "If persistent, run: just deploy-termux HOSTS=<host>"
     ),
     "repair_stale": (
         "The Termux repair loop has not cycled in over 45 minutes. "
         "The self-heal monitor will attempt to restart it. "
-        "If persistent, run: make verify-heal HOSTS=<host>"
+        "If persistent, run: just verify-heal HOSTS=<host>"
     ),
     "repair_missing": (
         "No repair log found. The Termux boot loop may not be running. "
-        "Run: make deploy-termux HOSTS=<host>"
+        "Run: just deploy-termux HOSTS=<host>"
     ),
     "shizuku_down": (
         "Shizuku is not running. The repair loop should auto-restart it. "
@@ -264,21 +264,21 @@ HUMAN_ACTIONS = {
         "The self-heal monitor attempts to restart it via ADB. "
         "If persistent, the AutoJs6 JavaScript task may be stuck — "
         "force-stop the AutoJs6 app in Android Settings, then run: "
-        "make verify-heal HOSTS=<host>"
+        "just verify-heal HOSTS=<host>"
     ),
     "watchdog_missing": (
         "No AutoJs6 watchdog log entries found. The AutoJs6 app may not "
-        "be running. Run: make verify-heal HOSTS=<host> to attempt restart."
+        "be running. Run: just verify-heal HOSTS=<host> to attempt restart."
     ),
     "bootloop_down": (
         "The Termux boot loop (start-adb.sh) was not detected at probe time. "
         "This is often a false positive (probe timing gap). If persistent, "
-        "run: make deploy-termux HOSTS=<host>"
+        "run: just deploy-termux HOSTS=<host>"
     ),
     "shell5555_down": (
         "Termux cannot reach ADB on localhost:5555. Wireless debugging "
         "may be off or Shizuku's ADB service needs restart. "
-        "Run: make verify-heal HOSTS=<host>"
+        "Run: just verify-heal HOSTS=<host>"
     ),
     "probe_error": (
         "The fleet-health monitor could not probe this device (ADB missing, "
@@ -291,7 +291,7 @@ HUMAN_ACTIONS = {
     ),
     "cfengine_down": (
         "CFEngine repair log not found on device. The CFEngine self-heal "
-        "policy may not be running. Run: make deploy-termux HOSTS=<host> "
+        "policy may not be running. Run: just deploy-termux HOSTS=<host> "
         "to redeploy."
     ),
 }

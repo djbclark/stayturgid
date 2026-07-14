@@ -6,7 +6,7 @@
 > push** in the same turn.
 >
 > **Fleet health (mandatory):** at session start run
-> `make health` (or `python3 control/bin/check_fleet_health.py`). If exit ≠ 0, **tell the operator** the
+> `just health` (or `python3 control/bin/check_fleet_health.py`). If exit ≠ 0, **tell the operator** the
 > host/`issues=` tags in your first reply — do not wait to be asked. Details:
 > [docs/handoff.md § Mac fleet health](handoff.md#mac-fleet-health--mandatory-for-agents).
 >
@@ -104,7 +104,7 @@ Best done during cold-device end-to-end (B64) or with an idle device.
 
 #### B64 — Full cold-device end-to-end (agent) · Risk: **Medium** · Needs: virgin device
 
-Run `make deploy --limit <new_device>` from a device with only USB debugging
+Run `just deploy --limit <new_device>` from a device with only USB debugging
 enabled. Validates the entire bootstrap chain: APK install → Termux:Boot
 launch → Shizuku start → SSH bootstrap → fleet deploy. This is the only way
 to test all links in the chain together. Prefer a factory-reset device or one
@@ -217,7 +217,7 @@ local `errors.log`). `/errors` route on fleet dashboard. All monitors use shared
 #### ~~G1 — Healing coverage registry + pre-flight checker~~ · **Closed 2026-07-13**
 
 `tests/healing_registry.json` (SSOT of all 28 desired states with must_cover/should_cover
-mechanism requirements). `tests/check_healing_coverage.py` runs in `make test` tier:code.
+mechanism requirements). `tests/check_healing_coverage.py` runs in `just test` tier:code.
 All mandatory coverage is present. Its ten soft `should_cover` TODOs remain visible for
 secondary-path hardening: SSHD/port 5555/Shizuku/accessibility/bootloop/device-profile
 coverage across Ansible, CFEngine, fleet health, and FIRERPA, plus fleet-health coverage
@@ -252,7 +252,7 @@ The historical `CLOSED_NO_SHELL` alerts remain in the 24-hour log window but are
 not current failures. A second short set at 15:21 occurred while the deployment
 restarted its supervisors; fresh 15:25+ repair checks and live validation are green.
 
-#### H3 — `make deploy` to push Python runtime to fleet · Risk: **Medium**
+#### H3 — `just deploy` to push Python runtime to fleet · Risk: **Medium**
 
 Completed on s24 + p7a. Run the same deploy on hd8 only with USB recovery available.
 
@@ -307,7 +307,7 @@ restore a predictable final screen. Do not block core deployment work on this cl
 Replaced both unsupported `files.getParent()` calls with the shared AutoJs6-compatible
 `config.ensureParentDir()` helper, added missing-parent regression coverage (including
 the notification state path), and fixed the standalone deployer's repository import
-path. `make test` passed (289 pytest tests plus shell, Ansible, and AutoJs6 suites).
+path. `just test` passed (289 pytest tests plus shell, Ansible, and AutoJs6 suites).
 The change was deployed to S24 and P7A; fresh bridge/watchdog runs recreate the S24
 bridge successfully and no new `getParent` errors appear. P7A still has the separate,
 pre-existing `CLOSED_NO_SHELL`/headless-Shizuku failures tracked by H12.
@@ -383,7 +383,7 @@ process. Not urgent — gRPC is already on Tailscale IP. Track if upstream chang
 or network audit is needed.
 
 **Closed (2026-07-09 night):** **60–61** validate role + preflight + `autojs6_project_deploy`;
-`make help`/Makefile ops; `make health` stale LOST fix; docs sweep. **58–59** ADR 002 +
+`just --list`/Makefile ops; `just health` stale LOST fix; docs sweep. **58–59** ADR 002 +
 `android_ui` / `post_ui` / `android_a11y_services`. Neo/Aurora parked.
 **Closed (2026-07-09 evening):** Aurora CPU thrash policy documented; screen-control hold rule.
 **Closed (2026-07-09):** **15b**, **H1**, **H3**, **56**, **46**, **55**, **27**,

@@ -91,7 +91,7 @@ if command -v shellcheck >/dev/null 2>&1; then
     if git ls-files -z '*.sh' | xargs -0 shellcheck -S warning >/dev/null 2>&1; then
         tap_ok "shellcheck -S warning: clean"
     else
-        tap_fail "shellcheck -S warning: clean" "run: make lint"
+        tap_fail "shellcheck -S warning: clean" "run: just lint"
     fi
 else
     tap_skip "shellcheck" "not installed (brew install shellcheck)"
@@ -102,7 +102,7 @@ if command -v ansible-lint >/dev/null 2>&1; then
        >/dev/null 2>&1; then
         tap_ok "ansible-lint: clean"
     else
-        tap_fail "ansible-lint: clean" "run: make lint"
+        tap_fail "ansible-lint: clean" "run: just lint"
     fi
 else
     tap_skip "ansible-lint" "not installed (pipx install ansible-lint)"
@@ -111,7 +111,7 @@ if command -v yamllint >/dev/null 2>&1; then
     if yamllint -s ansible/ >/dev/null 2>&1; then
         tap_ok "yamllint: clean"
     else
-        tap_fail "yamllint: clean" "run: make lint"
+        tap_fail "yamllint: clean" "run: just lint"
     fi
 else
     tap_skip "yamllint" "not installed (pipx install yamllint)"
@@ -129,16 +129,16 @@ else
 fi
 
 # Python test collection — catches import/syntax breakage in the pytest layer
-# even when the full run happens via `make pytest`.
+# even when the full run happens via `just pytest`.
 PYTEST_BIN="$([ -x .venv-test/bin/pytest ] && echo .venv-test/bin/pytest || command -v pytest || true)"
 if [ -n "$PYTEST_BIN" ]; then
     if "$PYTEST_BIN" --collect-only -q >/dev/null 2>&1; then
         tap_ok "pytest: tests collect cleanly"
     else
-        tap_fail "pytest: tests collect cleanly" "run: make pytest"
+        tap_fail "pytest: tests collect cleanly" "run: just pytest"
     fi
 else
-    tap_skip "pytest collect" "no pytest (run: make test-venv)"
+    tap_skip "pytest collect" "no pytest (run: just test-venv)"
 fi
 
 tap_done

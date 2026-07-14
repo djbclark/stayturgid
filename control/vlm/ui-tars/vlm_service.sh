@@ -154,7 +154,7 @@ cmd_uninstall() {
 cmd_start() {
   need_macos
   need_brew
-  ui_tars_service_installed || die "not installed — run: make vlm-service-install"
+  ui_tars_service_installed || die "not installed — run: just vlm-service-install"
   service_bootstrap
   service_kickstart
   wait_healthy 240
@@ -173,7 +173,7 @@ cmd_stop() {
 cmd_restart() {
   need_macos
   need_brew
-  ui_tars_service_installed || die "not installed — run: make vlm-service-install"
+  ui_tars_service_installed || die "not installed — run: just vlm-service-install"
   stop_manual_server
   service_bootout
   service_bootstrap
