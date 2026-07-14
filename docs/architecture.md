@@ -1,104 +1,104 @@
-# Project architecture
+# Master Architecture & Identity Strategy
 
-stayturgid is organized around **where code runs**, not around Ansible alone.
+**Status:** Authoritative architecture for stayturgid.
+**Audience:** Maintainers, autonomous agents, and operators.
 
-## Top-level split
+This document serves as the definitive guide to both the platform's **runtime topology** (the O-V-G-O stack) and its **configuration management strategy** (Single Source of Truth / Private Site Overlay).
 
-| Tree                                | Runs on          | Purpose                                                               |
-| ----------------------------------- | ---------------- | --------------------------------------------------------------------- |
-| `control/`                          | Mac control node | Operator scripts, shared Python, VLM sidecar, per-domain deploy tools |
-| `device/`                           | Android phones   | Termux runtime + AutoJs6 watchdog project                             |
-| `catalogs/`                         | Repo data        | Obtainium JSON catalogs (no executable code)                          |
-| `ansible/` + `ansible_collections/` | Mac (deploy)     | Idempotent fleet provisioning via Galaxy collections                  |
-| `docs/`                             | —                | Narrative docs, ADRs, module guides                                   |
-| `tests/`                            | Mac CI           | Unit tests and device-tier harness                                    |
+---
 
-## `control/`
+## 1. The Single Source of Truth
 
-- **`bin/`** — Long-running monitors, fleet deploy entrypoints, health checks (`deploy_fleet.py`, `check_fleet_health.py`, launchd-backed monitors).
-- **`lib/`** — Shared Python imported by both `bin/` and `tools/` (adb resolution, screen control, a11y helpers, fleet profiles). Prefer `stayturgid_device.adb_bin()` for Mac adb (launchd-safe absolute path).
-- **`vlm/`** — Optional UI-TARS vision sidecar for verification gates.
-- **`tools/<domain>/`** — Focused Mac helpers (AutoJs6 deploy, Obtainium import, Play/Aurora, F-Droid) invoked by Ansible modules or operators.
+To maintain stability across multiple fallback tiers, **the site Ansible inventory is the sole authority for non-secret, declared site identity.**
 
-## `device/`
+Every machine-consumed derivative is generated from Ansible's normalized inventory. There is no hand-maintained `fleet.toml`, JSON device list, Python dictionary, or SSH list.
 
-- **`termux/`** — Boot scripts, repair loop, on-device Python (repo: `device/termux/`) deployed to `~/.stayturgid/`.
-- **`autojs6/`** — Watchdog JavaScript project (repo: `device/autojs6/`) pushed to `/sdcard/stayturgid/autojs6/`.
+### 1.1 Four Data Kinds
 
-## Runtime roots (single-root per filesystem)
+| Kind                       | Examples                                                                                                      | Authority                                                                            |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| **Declared site identity** | Stable device ID, aliases, USB serial, Tailscale address/name, control-node identity, ports, labels, taxonomy | Site Ansible inventory                                                               |
+| **Generic product policy** | Default ports, package IDs, intervals, platform behavior                                                      | Role defaults and generic group vars                                                 |
+| **Observed runtime state** | Current DHCP address, mDNS endpoint, online status, app version, last health result                           | Generated state/cache; never inventory authority                                     |
+| **Secrets**                | Tokens, passwords, private-key material, sensitive account IDs                                                | `secretspec.toml` defines requirements; configured SecretSpec provider stores values |
 
-| Filesystem            | Root                    | Notes                                          |
-| --------------------- | ----------------------- | ---------------------------------------------- |
-| Device shared storage | `/sdcard/stayturgid/`   | Default: `autojs6/`, `state/`, `logs/`, `run/` |
-| Fire OS Termux shared | `~/.stayturgid/shared`  | Set via `STAYTURGID_SD` in `~/.stayturgid/env` |
-| Termux private        | `~/.stayturgid/`        | `bin/`, `logs/`, `run/`, `state/`              |
-| Mac control node      | `~/.config/stayturgid/` | `devices.conf`, `logs/`, `state/`              |
+### 1.2 The Projection Pipeline
 
-On-device AutoJs6 project path is always **`/sdcard/stayturgid/autojs6/`** (not `…/device/autojs6/`).
+All operational configuration is a **projection** derived from the Ansible inventory. When a device address or name changes in the inventory, all projections must update automatically during the next deploy.
 
-## Deploy flow
+**Key Projections:**
+
+- **`devices.conf` and SSH Config:** Legacy fallback files still generated by `control_node/agents`.
+- **OliveTin Config:** The operational web UI configuration is generated to provide exact `just` targets for known hosts.
+- **Vector Configs:** The edge shipper configuration for Termux is generated per device.
+- **Grafana Dashboards:** Telemetry views are dynamically populated from inventory.
+
+No generated projection should ever be hand-edited.
+
+---
+
+## 2. The O-V-G-O Runtime Topology
+
+`stayturgid` uses the **O-V-G-O (OpenObserve, VictoriaMetrics, Grafana, OliveTin)** stack to provide a hardened, resilient control plane that replaces legacy custom Python pollers and Flask dashboards.
 
 ```
-`just deploy`
-  → ansible/playbooks/site.yml
-    → fleet/preflight.yml
-    → fleet/bootstrap.yml (if needed)
-    → fleet/fleet.yml (termux_userland, autojs6, obtainium, …)
-    → fleet/post-ui.yml
-    → fleet/validate.yml
-    → control_node/site.yml (launchd agents on Mac)
+[Android Fleet (Termux)]
+   └── Logcat Daemon Script ──> local file ──> Vector (aarch64)
+   └── Scheduled exec (Battery/WiFi) ────────┘
+                                                │ (Intermittent Connection / Gzip JSON)
+                                                ▼
+[Central Infrastructure (Control Node)]
+   ├── Ingestion ──> OpenObserve (Logs/Traces) & VictoriaMetrics (Metrics)
+   └── Read UI   ──> Grafana (Unified Dashboards)
+   └── Write UI  ──> OliveTin (Web buttons calling local Mac 'just' recipes)
 ```
 
-Canonical playbooks live under `ansible/playbooks/fleet/` and
-`ansible/playbooks/control_node/`. Flat `ansible/playbooks/*.yml` aliases were
-removed (OPTIONS 62). Entry point remains `ansible/playbooks/site.yml`.
+### 2.1 The Hardened Edge (Termux)
 
-App stores (F-Droid / Play) are **parked** unless
-`stayturgid_app_stores_enabled: true`.
+To protect against Android 14's background killing, the edge relies on **Vector** (`aarch64-unknown-linux-musl`) running natively inside Termux. Vector acts as the single shipper, pushing `logcat` logs and battery/status metrics directly to the central infrastructure. This eliminates the need for aggressive Mac-side polling and SSH session flapping.
 
-## Connection fallback chain
+### 2.2 The Central Core (Mac / Linux)
 
-Mac-to-device resilience uses 4 independent transport tiers, each on a different port with different auth:
+The control node runs highly efficient, single-binary engines:
 
-| Tier   | Transport        | Port  | Protocol | Auth                     |
-| ------ | ---------------- | ----- | -------- | ------------------------ |
-| **1**  | **ADB**          | 5555  | ADB      | RSA key (adbkey)         |
-| **2**  | **SSH**          | 8022  | SSH      | stayturgid CA cert + key |
-| **3a** | **CFEngine**     | 5308  | TLS      | Peer-to-peer key trust   |
-| **3b** | **FIRERPA gRPC** | 65000 | gRPC/TLS | gRPC auth                |
+- **VictoriaMetrics:** Ingests PromQL metrics from the fleet.
+- **OpenObserve:** Ingests logs and traces.
+- **Grafana:** Provides unified read-only observability.
+- **OliveTin:** Replaces the operator CLI. It provides a web UI of "buttons" that execute local `just` commands (e.g., `just deploy s24`), acting as the primary control interface.
 
-If all 4 tiers are unreachable, `access-monitor` fires a Mac notification. FIRERPA and CFEngine heals are rate-limited (30 min cooldown) to prevent restart storms.
+---
 
-## On-device self-heal layers
+## 3. The Private Site Overlay
 
-| Layer                                         | Cycle                   | Repair scope                                                               |
-| --------------------------------------------- | ----------------------- | -------------------------------------------------------------------------- |
-| Termux boot loop (`stayturgid_repair.py`)     | 15 min                  | sshd, 5555, Shizuku, a11y, mirror, PATH, fleet profiles, daily pkg upgrade |
-| AutoJs6 watchdog (`main.js` + `comonitor.js`) | 20 min + boot           | Catastrophic Shizuku repair, sshd, a11y                                    |
-| CFEngine (`cf-agent stayturgid.cf`)           | 15 min (in boot loop)   | sshd, mirror, PATH — 3 of 7 bundles auto-repair                            |
-| CFEngine server (`cf-serverd :5308`)          | On-demand (cf-runagent) | Remote trigger of any repair bundle                                        |
-| Repair bridge (`repair_now` trigger)          | 15 min poll             | Full repair via file write by any transport                                |
+Because the `stayturgid` repo is public and generic, it **must not contain production operator data** (like real Tailscale IPs, actual phone names like `s24`, or operator paths).
 
-CFEngine runs alongside the repair script in the same boot loop cycle — two separate tools, two separate policies, checking the same things independently.
+The architecture enforces a strict boundary between public platform code and private operator data:
 
-## Path discovery
+| Repository                                 | Role                                                                                                             | Visibility |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | ---------- |
+| **`stayturgid`** (upstream)                | Platform code, collections, playbooks, tests, generic example inventory (`oneui-device`, `stock-android-device`) | Public     |
+| **`stayturgid-site-<operator>`** (overlay) | Real hostnames, IPs, USB serials, control-peer paths, operator session logs                                      | Private    |
 
-Scripts find the repo root via `control/lib/stayturgid_root.py` (markers:
-`device/termux/` + `control/lib/`). Ansible uses `stayturgid_repo_root` in the
-`control_node` role defaults.
+### 3.1 Overlay Implementation
 
-## Soft health vs device health
+Consumers clone the upstream repository, then point Ansible at their private site overlay inventory.
 
-- **Mac soft health:** launchd `com.stayturgid.fleet-health` →
-  `control/bin/fleet_health_monitor.py` → `~/.config/stayturgid/logs/fleet-health.log`.
-  Agents run `just health` at session start.
-- **`SCRAPE_STALE`** can mean the **Mac probe** is broken (e.g. adb not on PATH),
-  not only that the phone is dead — read the log line body.
-- Launchd agents set `PATH` + `STAYTURGID_ADB` so Homebrew `adb` is found.
+```bash
+export STAYTURGID_ROOT=~/src/stayturgid
+export ANSIBLE_CONFIG=$PWD/ansible.cfg   # Points to site overlay inventory
+ansible-playbook "$STAYTURGID_ROOT/ansible/playbooks/site.yml"
+```
 
-## Related docs
+All O-V-G-O projections are generated _during_ deployment based on this overlay. The private site overlay prevents secrets or exact topology from leaking upstream.
 
-- [README.md](../README.md) — quick layout + getting started
-- [handoff.md](handoff.md) — operator / agent session context
-- [hacking.md](hacking.md) — device setup walkthrough
-- [options.md](options.md) — open work (OPTIONS 62 shim cleanup closed when landed)
+---
+
+## 4. Implementation Phasing
+
+For autonomous agents and junior developers, the roadmap to enforcing this architecture is as follows:
+
+1. **Census and Schema Validation:** Document the exact schema for the site identity and build a validator (`control/bin/validate_site_identity.py`) that strictly checks Ansible inventory without mutating it.
+2. **Deprecate Legacy Monitors:** Remove `control/bin/dashboard.py`, `fleet_health_monitor.py`, `access_monitor.py`, and their associated launchd plists.
+3. **Deploy Edge Vector:** Update the `termux_userland` Ansible role to download the `aarch64` Vector binary and configure its sources/sinks via `vector.toml.j2`.
+4. **Deploy OliveTin:** Template the `olivetin-config.yaml` using Ansible, ensuring it sources the Mac environment (e.g., `export PATH="/opt/homebrew/bin:$PATH"` and `STAYTURGID_ADB`).
+5. **Enforce Site Overlay:** Migrate all hardcoded literals (`s24`, `p7a`, `hd8`) from the public upstream repo to a private site overlay, leaving only placeholder `oneui-device` names in public fixtures.
