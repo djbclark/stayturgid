@@ -38,9 +38,9 @@ greyhound-sidemirror.ts.net; all old machine names purged. s24 + p7a: FIRERPA se
 SSH/gRPC live without suppressing AutoJs6, AutoInput, or Octoclip; Python runtime and
 watchdogs healthy. Open menu = remaining hd8 deployment under H1/H3, H9
 (post-UI foreground cleanup),
-H5/38, 43–45, 54, F1–F4, T1, and optional T2 runtime-supervision evaluation.
-`make firerpa-health` is clean and live health is clean for s24 + p7a. The aggregate
-`make health` command remains nonzero only for hd8's documented `watchdog_stale` /
+H5/38, 43–45, 54, F1–F4. T1 shipped 2026-07-13.
+`just firerpa-health` is clean and live health is clean for s24 + p7a. The aggregate
+`just health` command remains nonzero only for hd8's documented `watchdog_stale` /
 offline state while that USB-only tablet deployment is intentionally deferred.
 
 **Risk scale:** **Low** = reversible / read-mostly · **Medium** = live UI or
@@ -170,25 +170,24 @@ when 5555 is dead. Note (incubator):
 
 ### Track T — Tooling (deferred)
 
-#### T1 — Make `just` the primary operator interface (agent) · Risk: **Low–Medium** · Deferred
+#### T1 — Make `just` the primary operator interface (agent) · Risk: **Low–Medium** · **Shipped 2026-07-13**
 
 The evaluation is complete and the direction is accepted: replace most of the 494-line,
 79-target command-runner Makefile with a root `justfile`, keep substantive logic in
 Python or Ansible, and retain a small Make compatibility/bootstrap shim through CI and
 live-fleet soak. Do not perform a flag-day Make removal.
 
+**Shipped:** Root `justfile` with 3 imported recipe groups (fleet, services, tests)
+providing 84 discoverable recipes via `just --list`. Makefile reduced from 494 to 68
+lines as a forwarding shim (`make <target>` → `just <target>`). AGENTS.md, handoff.md
+session-start and deploy examples updated to `just` syntax. `make` targets preserved
+as compatibility wrappers for CI and operator muscle memory.
+
 Follow the staged plan, compatibility contract, live S24 gates, rollback rules, and
 completion criteria in
 [GNU Make to `just` Migration Plan](plans/just-migration-plan.md). Task/Taskfile is the
 closest direct alternative; `mise` may be evaluated separately for toolchain pinning,
 not as a prerequisite for T1.
-
-**2026-07-13 evidence:** `examples/firerpa-nonroot/justfile` is the bounded real-world
-trial. Its prepare workflow was idempotent, its parser/formatter gate passed, and its
-read-only doctor/status/SSH/gRPC recipes were exercised against S24. Repository-wide
-inspection found little meaningful Make build-graph behavior; the migration cost is
-primarily current documentation and compatibility across approximately 63 non-history
-files. Implementation remains deferred until T1 is deliberately selected.
 
 #### T2 — Evaluate dashboard/framework options for JS runtime supervision · Risk: **Medium** · Deferred
 
@@ -393,4 +392,5 @@ self-heal agent rule.
 **Closed (2026-07-08):** drawer profile, a11y, PiP, Aurora order, #553.
 **Shipped (2026-07-13):** bootstrap APK automation (version-aware install + verify +
 Shizuku start, 7 APKs); `android_apk` resign param; AutoJs6 versionName fix;
-`shizuku_start` module (16 unit tests).
+`shizuku_start` module (16 unit tests); T1 just migration (root justfile + 3 recipe
+groups, 84 discoverable recipes, Makefile forwarding shim).
