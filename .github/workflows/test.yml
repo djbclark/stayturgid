@@ -28,8 +28,8 @@ jobs:
       - name: configure
         run: ./configure
       - name: just check (tier a — syntax/lint under CI interpreters)
-        run: make check
+        run: just check
       - name: just test (tier b shell suite + pytest twins + ansible-test units)
-        run: make test
+        run: just test
       - name: just --fmt --check
         run: just --fmt --check

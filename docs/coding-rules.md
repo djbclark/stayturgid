@@ -81,7 +81,7 @@ retries, state transitions, structured output, and error classification.
   deployment within the boundaries in [ADR 001](adr/001-ansible-boundary.md).
 - **Shell:** acceptable for a small, clearer wrapper or direct pipeline. Do not put
   complex control flow, parsing, retries, or duplicated Python behavior into shell.
-- **`just`/Make:** command runners must remain thin entry points. Substantive behavior
+- **`just`:** command runners must remain thin entry points. Substantive behavior
   belongs in Python or Ansible. Follow the [`just` migration plan](plans/just-migration-plan.md).
 
 When touching an existing substantial shell implementation, consider migrating it to

@@ -1,6 +1,6 @@
 # stayturgid.fleet.validate
 
-Post-deploy smoke checks over Termux SSH. Complements `make verify` /
+Post-deploy smoke checks over Termux SSH. Complements `just verify` /
 `device_tier.py` (deep TAP); does not replace fleet-health launchd probes.
 
 ## Playbook wiring

@@ -26,7 +26,7 @@ redirects. New playbooks should use the domain FQCNs above.
 Module unit tests live in each domain collection under `tests/unit/`. Run all:
 
 ```bash
-make ansible-test
+ansible-test units --local
 ```
 
 ## Site playbooks

@@ -183,7 +183,7 @@ they describe hardware/OS families, not site ownership.
 | Operator session docs | `docs/handoff.md`, `human/*` (or drop from upstream entirely) |
 | Live device notes (Tailscale names, DHCP anecdotes) | Site `docs/handoff.md` only |
 | `play.env`, secrets | Never in git; site repo may have `play.env.example` |
-| Makefile convenience defaults (`HOSTS=s24`) | Site wrapper `Makefile` or `site.mk` |
+| Makefile convenience defaults (`HOSTS=s24`) | Root `justfile` or recipe groups |
 
 ### 4.3 What stays in upstream (generic)
 
@@ -252,14 +252,14 @@ Live deploys **do not** use this file — copy to the site repo and replace plac
 
 ```
 stayturgid-site-acme/
-  README.md                 # clone paths, make deploy wrapper
+  README.md                 # clone paths, just deploy wrapper
   ansible.cfg               # inventory = inventory/hosts.yml; collections_path → ../stayturgid/...
   inventory/
     hosts.yml               # real aliases (may keep s24 or rename), real 100.x / LAN IPs
     group_vars/
       stayturgid.yml        # stayturgid_control_peer, app-store flags
   docs/handoff.md                # operator + agent session context
-  Makefile                  # STAYTURGID_ROOT=../stayturgid make -C $(STAYTURGID_ROOT) deploy ...
+  justfile + just/              # STAYTURGID_ROOT=../stayturgid just -d '' deploy ...
 ```
 
 **Wire overlay to upstream:**
@@ -268,7 +268,7 @@ stayturgid-site-acme/
 export STAYTURGID_ROOT=~/src/stayturgid
 export ANSIBLE_CONFIG=$PWD/ansible.cfg   # site repo cfg → inventory here, playbooks in upstream
 ansible-playbook "$STAYTURGID_ROOT/ansible/playbooks/site.yml"
-# or: make -C "$STAYTURGID_ROOT" deploy HOSTS=oneui-device \
+# or: just -d "$STAYTURGID_ROOT" deploy hosts=oneui-device \
 #       ANSIBLE_CONFIG=$PWD/ansible.cfg
 ```
 
@@ -354,7 +354,7 @@ Ordered by impact for “minimal effort” on Debian/Ubuntu.
 | Task | Detail |
 |------|--------|
 | `ansible/playbooks/linux-control.yml` | systemd user units or timers for adb-reconnect, fleet-health, access-monitor, fire-help (templates parallel to existing plists) |
-| `make deploy-linux` | Apt install adb, ansible, scrcpy; enable systemd units |
+| `just deploy` | Apt install adb, ansible, scrcpy, just; enable systemd units |
 | `configure` script | Detect systemd + `/usr/bin/adb`, not only Homebrew/launchd |
 | `devices.conf` + SSH fragment on Linux | Render from `control_node/agents` tasks that are OS-agnostic (split launchd out) |
 

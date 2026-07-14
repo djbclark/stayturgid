@@ -178,8 +178,8 @@ Python or Ansible, and retain a small Make compatibility/bootstrap shim through 
 live-fleet soak. Do not perform a flag-day Make removal.
 
 **Shipped:** Root `justfile` with 3 imported recipe groups (fleet, services, tests)
-providing 84 discoverable recipes via `just --list`. Makefile reduced from 494 to 68
-lines as a forwarding shim (`make <target>` → `just <target>`). AGENTS.md, handoff.md
+providing 84 discoverable recipes via `just --list`. GNU Makefile retired
+
 session-start and deploy examples updated to `just` syntax. `make` targets preserved
 as compatibility wrappers for CI and operator muscle memory.
 
@@ -393,4 +393,4 @@ self-heal agent rule.
 **Shipped (2026-07-13):** bootstrap APK automation (version-aware install + verify +
 Shizuku start, 7 APKs); `android_apk` resign param; AutoJs6 versionName fix;
 `shizuku_start` module (16 unit tests); T1 just migration (root justfile + 3 recipe
-groups, 84 discoverable recipes, Makefile forwarding shim).
+groups, 84 discoverable recipes, Makefile retired).

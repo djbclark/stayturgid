@@ -438,7 +438,7 @@ If validating bootstrap flow: `just verify-bootstrap-apks hosts=s24` →
 **Deploy / test:**
 - Deploy: `just deploy hosts=<host>`. Verify: `just verify hosts=<host>`.
 - Test (no device): `just test`. First run: `just test-venv`. CI runs `just test` on push.
-- All commands: `just --list`. Legacy: `make` targets forward to `just`.
+- All commands: `just --list`.
 
 ---
 
@@ -659,7 +659,7 @@ ansible_collections/stayturgid/
   firerpa/roles/firerpa
   obtainium/, fdroid/, play/, android_common/
 tests/                       — device_tier.py, python/, test-*.sh TAP harness
-Makefile                     — make help, deploy, health, verify, check, test
+justfile + just/              — task runner (help, deploy, health, verify, check, test)
 version.json                 — repo release version + changelog
 ```
 
