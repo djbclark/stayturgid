@@ -24,12 +24,11 @@
     state: present
   when: stayturgid_app_stores_enabled | default(false) | bool
 
-- name: Install pipx Python tools for Mac device debug
-  community.general.pipx:
-    name: "{{ item }}"
-    state: install
-    executable: "{{ stayturgid_homebrew_prefix }}/bin/pipx"
-  loop: "{{ stayturgid_mac_pipx_packages }}"
+- name: Install uv Python tools for Mac device debug
+  ansible.builtin.command:
+    cmd: "{{ stayturgid_homebrew_prefix }}/bin/uv tool install {{ item }}"
+    creates: "{{ lookup('env', 'HOME') }}/.local/bin/{{ item }}"
+  loop: "{{ stayturgid_mac_uv_tools }}"
 
 - name: Install Galaxy collections into repo .ansible/collections
   ansible.builtin.command:

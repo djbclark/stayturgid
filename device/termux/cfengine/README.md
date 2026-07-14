@@ -15,7 +15,7 @@ Install CFEngine Build with a supported Python. The current package supports
 Python 3.5+, but on this Mac Python 3.12 is the known-compatible choice:
 
 ```bash
-pipx install --python /opt/homebrew/bin/python3.12 'cfbs==5.5.6'
+uv tool install --python /opt/homebrew/bin/python3.12 'cfbs==5.5.6'
 ```
 
 CFEngine Core (for `cf-promises` policy validation) is supplied by Homebrew:

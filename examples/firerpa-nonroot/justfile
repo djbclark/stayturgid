@@ -152,9 +152,8 @@ venv: fetch
       exit 0
     fi
     rm -rf "{{ VENV }}"
-    "{{ FIRERPA_PYTHON }}" -m venv "{{ VENV }}"
-    "{{ VENV }}/bin/python" -m pip install --disable-pip-version-check --quiet --upgrade pip
-    "{{ VENV }}/bin/python" -m pip install --disable-pip-version-check --quiet cryptography "{{ CLIENT_ARCHIVE }}"
+    uv venv "{{ VENV }}"
+    uv pip install --python "{{ VENV }}/bin/python" --quiet cryptography "{{ CLIENT_ARCHIVE }}"
     touch "$stamp"
     echo "OK: Python environment ready at {{ VENV }}"
 

@@ -45,9 +45,9 @@ This document gets a developer from a clean Android + macOS install to a fully w
 | Homebrew | current | https://brew.sh |
 | ADB (platform-tools) | 1.0.41 / 37.0.0-14910828 | `brew install android-platform-tools` |
 | Python | 3.14.6 | `brew install python` |
-| pipx | 1.15.0 | `brew install pipx` |
+| uv | 0.x | `brew install uv` |
 | Handsets (`~/.handsets/hs`) | 0.1.x | Mac primary UI driver — see `control/lib/ui_driver.py` |
-| uiautomator2 (Python) | 3.7.0 | Optional Mac debug only (`pipx install uiautomator2`) |
+| uiautomator2 (Python) | 3.7.0 | Optional Mac debug only (`uv tool install uiautomator2`) |
 | Claude Code (AI agent) | current | `npm install -g @anthropic-ai/claude-code` |
 | git | current | `brew install git` |
 
@@ -272,14 +272,13 @@ Homebrew itself and project formulae are installed by Ansible (`control_node/pre
 `just deploy-mac` or `just deploy`:
 
 ```bash
-just deploy-mac          # Homebrew bootstrap (if missing) + adb, python, pipx, git, ansible, scrcpy
-pipx ensurepath          # once, if pipx was just installed
+just deploy-mac          # Homebrew bootstrap (if missing) + adb, python, uv, git, ansible, scrcpy
 ```
 
 The playbook runs the standard Homebrew install script when `brew` is not on PATH, then
 uses `community.general.homebrew` for formulae. When app stores are re-enabled
 (`stayturgid_app_stores_enabled: true`), `fdroidcl` and `apkeep` are included too.
-`uiautomator2` is installed via `community.general.pipx`.
+`uiautomator2` is installed via `uv tool install`.
 
 Still manual: Handsets, SSH key generation (`termux_key`, `adbkey`), `play.env`,
 Claude Code, Node.
@@ -321,10 +320,10 @@ out — peer ADB is the Handsets starter there.
 uiautomator2 is optional for one-off Mac debugging. Prefer Handsets for fleet
 scripts. Never run u2 while a Handsets daemon holds UiAutomation.
 
-Installed by Ansible (`community.general.pipx`) on `just deploy-mac`. Manual:
+Installed by Ansible (`uv tool install`) on `just deploy-mac`. Manual:
 
 ```bash
-pipx install uiautomator2
+uv tool install uiautomator2
 ```
 
 Verify:
@@ -342,11 +341,11 @@ Verify:
 
 **Using uiautomator2 in Python scripts:**
 
-The pipx-installed package is in its own venv. Add it to sys.path:
+The uv-installed package is in its own venv. Add it to sys.path:
 
 ```python
 import sys
-sys.path.insert(0, '/Users/djbclark/.local/pipx/venvs/uiautomator2/lib/python3.14/site-packages')
+sys.path.insert(0, '/Users/djbclark/.local/share/uv/tools/uiautomator2/lib/python3.14/site-packages')
 import uiautomator2 as u2
 
 d = u2.connect('35261JEHN12374')  # USB serial, or '<tailscale-ip>:5555' for wireless
@@ -589,7 +588,7 @@ Use for: tapping buttons in app UIs, reading screen state, automating setup step
 
 ```python
 import sys
-sys.path.insert(0, '/Users/djbclark/.local/pipx/venvs/uiautomator2/lib/python3.14/site-packages')
+sys.path.insert(0, '/Users/djbclark/.local/share/uv/tools/uiautomator2/lib/python3.14/site-packages')
 import uiautomator2 as u2
 d = u2.connect('35261JEHN12374')
 ```
@@ -870,9 +869,9 @@ with evidence whenever an item is completed or blocked.
 **FIRERPA/lamda failsafe daemon:** Optional gRPC backup control channel on port 65000.
 ```bash
 # Ensure lamda-client is installed (Python 3.12 venv)
-/opt/homebrew/bin/python3.12 -m venv /tmp/lamda-venv
+uv venv --python 3.12 /tmp/lamda-venv
 source /tmp/lamda-venv/bin/activate
-pip install ~/src/firerpa-binaries/lamda-client-py-10.0.tar.gz
+uv pip install ~/src/firerpa-binaries/lamda-client-py-10.0.tar.gz
 
 # Start FIRERPA on s24 (one-time via adb):
 adb -s 100.123.218.30:5555 shell \

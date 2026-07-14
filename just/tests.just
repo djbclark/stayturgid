@@ -42,7 +42,7 @@ ansible-test:
         cd - >/dev/null; \
       done; \
     else \
-      echo "### ansible-test — SKIP (run 'make test-venv')"; \
+      echo "### ansible-test — SKIP (run 'just test-venv')"; \
     fi
 
 # Unit + pytest + ansible-test + ruff + typos + biome + shfmt (CI default).
@@ -102,12 +102,12 @@ lint:
     if command -v ansible-lint >/dev/null; then
       bash -c 'cd ansible && ansible-lint playbooks/ ../ansible_collections/stayturgid/' || rc=1
     else
-      echo "ansible-lint not installed (pipx install ansible-lint) — skipped"
+      echo "ansible-lint not installed (uv tool install ansible-lint) — skipped"
     fi
     if command -v yamllint >/dev/null; then
       yamllint ansible/ .ansible-lint .yamllint || rc=1
     else
-      echo "yamllint not installed (pipx install yamllint) — skipped"
+      echo "yamllint not installed (uv tool install yamllint) — skipped"
     fi
     if command -v ruff >/dev/null; then
       ruff check . || rc=1

@@ -1,5 +1,5 @@
 ---
-# Control-node prerequisites: Homebrew bootstrap, formulae, pipx, Galaxy collections.
+# Control-node prerequisites: Homebrew bootstrap, formulae, uv, Galaxy collections.
 #   ansible-playbook ansible/playbooks/control_node/prereqs.yml
 - name: stayturgid control-node prerequisites
   hosts: localhost

@@ -19,7 +19,7 @@ Docs already call **uiautomator2** the preferred *dev* tool and raw dump the
 
 ## Tools tested
 
-### 1. uiautomator2 3.7.0 (already on Mac via pipx)
+### 1. uiautomator2 3.7.0 (already on Mac via uv tool)
 
 - Init OK on s24 + hd8 (`u2.jar` + server).
 - Clean smoke (before Handsets): dump **~250–350 ms**, `d(text=…).click()` OK
@@ -28,7 +28,7 @@ Docs already call **uiautomator2** the preferred *dev* tool and raw dump the
   default port **9008** collides with Handsets. After Handsets ran, u2 failed
   with `AccessibilityServiceAlreadyRegisteredError` / binary-protocol
   `BadStatusLine` until daemons were killed.
-- Fits existing Python Mac scripts; needs `sys.path` to pipx venv (already
+- Fits existing Python Mac scripts; needs `sys.path` to uv tool venv (already
   documented).
 
 ### 2. Handsets 0.1.26 (installed `~/.handsets`, invoke as `~/.handsets/hs`)

@@ -84,7 +84,7 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 | Handsets `~/.handsets/{hs,hs.jar}` | Mac Handsets post-UI, Fire peer bootstrap |
 | `just vlm-install` + `vlm-service-install` | Screenshot verification gates ([docs/vlm.md](vlm.md)) |
 | `play.env` + `obtain_play_aas.py` | Google Play / Aurora downloads |
-| `pipx install uiautomator2` | Mac debug (Ansible installs on `deploy-mac`) |
+| `uv tool install uiautomator2` | Mac debug (Ansible installs on `deploy-mac`) |
 
 ---
 
@@ -107,7 +107,7 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 
 | Concern | Status today | Packages (typical) |
 |---------|--------------|-------------------|
-| Ansible / Python / git | Works | `ansible` or pipx `ansible-core`, `python3`, `git` |
+| Ansible / Python / git | Works | `ansible` or `uv tool install ansible-core`, `python3`, `git` |
 | adb | Works if on PATH | `android-sdk-platform-tools` (Debian/Ubuntu) or Google zip |
 | Device Ansible (`site.yml` device plays) | Works | SSH to Termux :8022 |
 | `just test` / CI | Works | Ubuntu CI runs full unit suite |

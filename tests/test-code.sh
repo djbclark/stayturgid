@@ -138,7 +138,7 @@ if command -v ansible-lint >/dev/null 2>&1; then
     tap_fail "ansible-lint: clean" "run: just lint"
   fi
 else
-  tap_skip "ansible-lint" "not installed (pipx install ansible-lint)"
+  tap_skip "ansible-lint" "not installed (uv tool install ansible-lint)"
 fi
 if command -v yamllint >/dev/null 2>&1; then
   if yamllint -s ansible/ >/dev/null 2>&1; then
@@ -147,7 +147,7 @@ if command -v yamllint >/dev/null 2>&1; then
     tap_fail "yamllint: clean" "run: just lint"
   fi
 else
-  tap_skip "yamllint" "not installed (pipx install yamllint)"
+  tap_skip "yamllint" "not installed (uv tool install yamllint)"
 fi
 
 # --- justfiles -------------------------------------------------------------

@@ -50,7 +50,7 @@ ansible-playbook ansible/playbooks/control_node/site.yml --tags mac
 
 | Tag | What |
 |-----|------|
-| `prereqs` | Homebrew bootstrap (curl install.sh if needed), formulae (adb, python, pipx, git, ansible, scrcpy), pipx uiautomator2, galaxy collections |
+| `prereqs` | Homebrew bootstrap (curl install.sh if needed), formulae (adb, python, uv, git, ansible, scrcpy), uv tool install uiautomator2, galaxy collections |
 | `agents` | `devices.conf`, SSH fragment, `com.stayturgid.*` launchd plists, Hermes gateway |
 | `hermes` | Hermes Agent brew formula, `~/.hermes` model/config, Telegram gateway launchd |
 | `agents-ensure` | Load/heal all control-node launchd jobs (`community.general.launchd` + HTTP probes) |

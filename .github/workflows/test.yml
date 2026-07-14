@@ -15,6 +15,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Install uv (Python package manager)
+        uses: astral-sh/setup-uv@v3
       - name: Install JavaScript quality tools (Biome)
         run: npm install -g @biomejs/biome
       - name: Install shfmt
@@ -23,13 +25,13 @@ jobs:
           chmod +x shfmt_v3.13.1_linux_amd64
           sudo mv shfmt_v3.13.1_linux_amd64 /usr/local/bin/shfmt
       - name: Install ansible + linters
-        run: pipx install ansible-core && pipx install ansible-lint && pipx install yamllint
+        run: uv tool install ansible-core && uv tool install ansible-lint && uv tool install yamllint
       - name: Install just
         uses: extractions/setup-just@v3
       - name: Install Ansible collections
         run: ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections
       - name: Set up Python test venv (pytest + ansible-core)
-        run: python3 -m venv .venv-test && .venv-test/bin/pip install -q -r tests/python/requirements.txt
+        run: uv venv .venv-test && uv pip install -q -r tests/python/requirements.txt
       - name: configure
         run: ./configure
       - name: just check (tier a — syntax/lint under CI interpreters)

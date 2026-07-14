@@ -58,7 +58,7 @@ stayturgid_homebrew_prefix: >-
 stayturgid_mac_brew_packages_base:
   - android-platform-tools
   - python
-  - pipx
+  - uv
   - git
   - ansible
   - scrcpy
@@ -72,7 +72,7 @@ stayturgid_mac_brew_packages_app_stores:
 stayturgid_mac_brew_packages_vlm:
   - llama.cpp
 
-stayturgid_mac_pipx_packages:
+stayturgid_mac_uv_tools:
   - uiautomator2
 
 # UI-TARS vendor-neutral paths (see control/vlm/ui-tars/ui_tars_env.py).

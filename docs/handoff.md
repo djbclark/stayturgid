@@ -582,8 +582,8 @@ debug only — never run it alongside Handsets (exclusive UiAutomation slot).
 Bench: [docs/research/handsets-vs-u2-bench.md](research/handsets-vs-u2-bench.md).
 `scrcpy -s <target> --stay-awake` for live mirror. Keep awake during
 automation: `adb shell svc power stayon true` (set `false` when done).
-uiautomator2 in Python needs the pipx venv on `sys.path`
-(`/Users/djbclark/.local/pipx/venvs/uiautomator2/lib/python3.14/site-packages`);
+uiautomator2 in Python needs the uv tool venv on `sys.path`
+(`/Users/djbclark/.local/share/uv/tools/uiautomator2/lib/python3.14/site-packages`);
 `uiautomator2 init` pushes u2.jar after a reboot.
 
 ### Termux packages (CRITICAL)
@@ -741,7 +741,7 @@ version.json                 — repo release version + changelog
 
 - **Mac path:** `~/stayturgid/`. **GitHub:** `github.com/djbclark/stayturgid` (private), branch `master`, HTTPS via `gh` CLI (GitHub login = Google SSO + GitHub Mobile 2FA). AI session working dir: `~/stayturgid-hermes` (Hermes worktree).
 - **Commit signing:** autonomous file key `~/.ssh/git_signing_key` (passphrase-less, GitHub-verified); `git_signing` memory has the "failed to fill whole buffer" gotcha.
-- **Mac tools:** Homebrew ADB (`/opt/homebrew/bin/adb`), Python 3.14.6, pipx 1.15, uiautomator2 3.7, scrcpy 4.0. SSH key `~/.ssh/termux_key` (ed25519). `~/.ssh/config` has `s24`/`p7a` blocks **above** `Host *` with `IdentityAgent none` (first-match wins) so phone SSH doesn't trigger the 1Password dialog; git still uses 1Password.
+- **Mac tools:** Homebrew ADB (`/opt/homebrew/bin/adb`), Python 3.14.6, uv 0.x, uiautomator2 3.7, scrcpy 4.0. SSH key `~/.ssh/termux_key` (ed25519). `~/.ssh/config` has `s24`/`p7a` blocks **above** `Host *` with `IdentityAgent none` (first-match wins) so phone SSH doesn't trigger the 1Password dialog; git still uses 1Password.
 
 ---
 

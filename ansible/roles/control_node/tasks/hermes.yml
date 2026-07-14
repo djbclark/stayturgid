@@ -25,7 +25,7 @@
 - name: Ensure python-telegram-bot in Hermes venv (Telegram gateway)
   ansible.builtin.command:
     cmd: >-
-      {{ _hermes_brew_prefix.stdout | trim }}/libexec/bin/python -m pip install
+      uv pip install --python {{ _hermes_brew_prefix.stdout | trim }}/libexec/bin/python
       --quiet 'python-telegram-bot>=21' 'qrcode[pil]'
   when:
     - stayturgid_hermes_enabled | default(true) | bool

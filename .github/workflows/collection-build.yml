@@ -13,8 +13,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install uv (Python package manager)
+        uses: astral-sh/setup-uv@v3
       - name: Install ansible
-        run: pipx install ansible-core
+        run: uv tool install ansible-core
       - name: Install just
         uses: extractions/setup-just@v3
       - name: Map tag to collection path
@@ -30,9 +32,9 @@ jobs:
         run: ansible-galaxy collection build "${{ steps.map.outputs.path }}" --output-path dist
       - name: Install ansible and test venv
         run: |
-          pipx install ansible-core
-          python3 -m venv .venv-test
-          .venv-test/bin/pip install -q -r tests/python/requirements.txt
+          uv tool install ansible-core
+          uv venv .venv-test
+          uv pip install -q -r tests/python/requirements.txt
       - name: Run collection unit tests
         run: just ansible-test
       - name: Upload artifact

@@ -176,8 +176,8 @@ test "$actual" = "$expected"
 Generate the private service certificate with upstream's pinned tool:
 
 ```bash
-$PYTHON -m venv "$WORK/venv"
-"$WORK/venv/bin/pip" install cryptography
+uv venv "$WORK/venv"
+uv pip install --python "$WORK/venv/bin/python" cryptography
 curl -fL -o "$PWD/certs/cert.py" \
   https://raw.githubusercontent.com/firerpa/lamda/9a4736f327aa89be687ee7c411fee59730081a5e/tools/cert.py
 (cd "$PWD/certs" && PYTHONWARNINGS=ignore::DeprecationWarning \
@@ -266,7 +266,7 @@ Install and test the gRPC client:
 ```bash
 curl -fL -o "$WORK/lamda-client-py-10.0.tar.gz" \
   https://github.com/firerpa/lamda/releases/download/v10.0/lamda-client-py-10.0.tar.gz
-"$WORK/venv/bin/pip" install "$WORK/lamda-client-py-10.0.tar.gz"
+uv pip install --python "$WORK/venv/bin/python" "$WORK/lamda-client-py-10.0.tar.gz"
 "$WORK/venv/bin/python" - "$HOST" "$PORT" "$CERT" <<'PY'
 from lamda.client import Device
 import sys
