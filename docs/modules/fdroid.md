@@ -24,7 +24,7 @@ Termux + AutoJs6 + Obtainium + Tailscale.
 4. Deploy:
 
    ```bash
-   just deploy scope=fdroid hosts=s24
+   just --set scope fdroid --set hosts s24 deploy
    # or:
    ./control/bin/deploy_fleet.py --scope fdroid s24
    ```

@@ -92,9 +92,7 @@
   delegate_to: localhost
   run_once: true
   changed_when: false
-  when:
-    - "'cfengine' in stayturgid_termux_packages"
-    - not ansible_check_mode
+  when: "'cfengine' in stayturgid_termux_packages"
 
 - name: Build CFEngine policy artifact on control node
   ansible.builtin.command:
@@ -106,13 +104,11 @@
   delegate_to: localhost
   run_once: true
   changed_when: false
-  when:
-    - "'cfengine' in stayturgid_termux_packages"
-    - not ansible_check_mode
+  when: "'cfengine' in stayturgid_termux_packages"
 
 - name: Deploy CFEngine Build artifact to device
   ansible.builtin.copy:
-    src: "{{ stayturgid_repo_root }}/device/termux/cfengine/{{ 'policy' if ansible_check_mode else 'out/masterfiles' }}/{{ item.name }}"
+    src: "{{ stayturgid_repo_root }}/device/termux/cfengine/out/masterfiles/{{ item.name }}"
     dest: "{{ termux_home }}/.stayturgid/cfengine/{{ item.name }}"
     mode: "{{ item.mode }}"
   loop:

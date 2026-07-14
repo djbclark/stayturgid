@@ -151,8 +151,8 @@ to the change:
 ```bash
 just check                 # code syntax, lint, collection and parser checks
 just test                  # device-free unit suites
-just verify hosts=s24      # read-only live tier when device behavior changed
-just deploy-check hosts=s24
+just --set hosts s24 verify      # read-only live tier when device behavior changed
+just --set hosts s24 deploy-check
 ```
 
 - Add a regression test that would fail on the old defect.

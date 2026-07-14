@@ -97,7 +97,7 @@ python3 control/bin/termux_pkg_nightly.py
 
 ```bash
 just termux-pkg-upgrade              # run now, all hosts
-just termux-pkg-upgrade hosts=s24    # one host
+just --set hosts s24 termux-pkg-upgrade    # one host
 just termux-pkg-upgrade (--check via just)      # dry run
 just deploy-mac                      # install/reload the launchd agent
 ```

@@ -41,8 +41,8 @@ Launchd agents and `devices.conf` are rendered by `ansible/playbooks/control_nod
 ## Fleet deploy
 
 ```bash
-# just deploy hosts=s24                # whole fleet (recommended)
-# just deploy-check hosts=s24            # dry run
+# just --set hosts s24 deploy                # whole fleet (recommended)
+# just --set hosts s24 deploy-check          # dry run
 ./control/bin/bootstrap_ssh.py s24             # first SSH key (when Ansible cannot connect yet)
 ./control/bin/deploy_fleet.py s24              # same as just deploy
 CHECK=1 ./control/bin/deploy_fleet.py s24      # same as just deploy-check

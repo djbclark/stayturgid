@@ -14,6 +14,9 @@
       - --json
       - tagName
   register: _check_gh
+  # Version lookup is read-only but ansible.builtin.command otherwise skips it
+  # under --check, leaving an empty string for the JSON parser below.
+  check_mode: false
   changed_when: false
   failed_when: false
   delegate_to: localhost
@@ -23,14 +26,18 @@
     _check_latest: >-
       {{ ((_check_gh.stdout | default('{}') | from_json).tagName
           | default('unknown', true) | regex_replace('^v', ''))
-         if (_check_gh.rc | default(1)) == 0 else 'unknown' }}
-    _check_gh_failed: "{{ (_check_gh.rc | default(1)) != 0 }}"
+         if ((_check_gh.rc | default(1)) == 0 and (_check_gh.stdout | default('') | trim))
+         else 'unknown' }}
+    _check_gh_failed: "{{ (_check_gh.rc | default(1)) != 0 or not (_check_gh.stdout | default('') | trim) }}"
 
 - name: Query installed version on device — {{ _apk.id }}
   ansible.builtin.shell: >
     adb -s {{ _vfy_adb }} shell
     "dumpsys package {{ _apk.id }} 2>/dev/null | grep versionName | head -1"
   register: _check_dev
+  # dumpsys is read-only; retain it during --check so deploy-check reports the
+  # device's actual installed versions instead of treating all APKs as missing.
+  check_mode: false
   changed_when: false
   failed_when: false
   delegate_to: localhost

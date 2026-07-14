@@ -54,6 +54,11 @@ stayturgid_homebrew_prefix: >-
     else '/usr/local'
   }}
 
+# /etc/paths.d and sshd_config are system policy, not ordinary fleet deploy
+# state. Keep them opt-in so `just deploy` never causes an interactive sudo
+# prompt. Apply deliberately with -e stayturgid_manage_system_homebrew_path=true.
+stayturgid_manage_system_homebrew_path: false
+
 # Project Homebrew formulae.
 stayturgid_mac_brew_packages_base:
   - android-platform-tools

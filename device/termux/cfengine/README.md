@@ -6,8 +6,8 @@ It intentionally does **not** build on the Masterfiles Policy Framework: Termux
 executes the two explicit policy entry points with `cf-agent -f` and
 `cf-serverd -f`, rather than running a CFEngine hub.
 
-`policy/` is the source of truth. `out/` is generated and ignored by Git; normal
-Ansible deploys use that generated artifact (check mode reads `policy/` only).
+`policy/` is the source of truth. `out/` is generated and ignored by Git; Ansible
+builds and deploys that generated artifact for both normal and check-mode runs.
 
 ## Prerequisites
 

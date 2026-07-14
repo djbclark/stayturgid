@@ -8,7 +8,7 @@
 #   just help           → show this listing
 #   just check          → syntax / import checks
 #   just test           → full test suite
-#   just deploy --hosts s24  → fleet deploy
+#   just --set hosts s24 deploy  → fleet deploy
 
 set shell := ["bash", "-uc"]
 

@@ -210,6 +210,15 @@ implementation steps are in
 Also worth a later look: whether packaging the AutoJs6 side as a plugin would make
 deployment or recovery easier.
 
+#### T3 — Consolidate host identity into one source of truth · Risk: **Medium** · Deferred
+
+Remove repeated host aliases, Tailscale addresses, USB serials, and service hostnames
+from scripts, policies, dashboard links, and documentation. Define each identity once
+in the authoritative inventory/configuration source, generate consumer configuration
+where practical, and add a check that rejects new hard-coded fleet host identifiers.
+Plan this carefully: the current recovery paths intentionally retain a small set of
+bootstrap-safe constants, which must be distinguished from accidental duplication.
+
 ---
 
 ### Track G — Python migration & logging (completed)

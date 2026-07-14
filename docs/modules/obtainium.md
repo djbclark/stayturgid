@@ -32,7 +32,7 @@ Included in `just deploy` / `ansible/playbooks/site.yml` via `stayturgid.obtaini
 Post-UI import (screen control) prefers SSH → Termux `localhost:5555` on s24/p7a; hd8 uses Mac adb (no Termux loopback).
 
 ```bash
-just deploy hosts=s24
+just --set hosts s24 deploy
 # catalog-only helpers:
 python3 control/tools/obtainium/sync_to_device.py s24
 python3 control/tools/obtainium/import_catalog.py s24

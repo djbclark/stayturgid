@@ -13,15 +13,15 @@ just health && just firerpa-health
 
 | Command | Purpose |
 |---------|---------|
-| `just deploy hosts=s24` | Full fleet deploy |
-| `just deploy-check hosts=s24` | Dry-run deploy |
-| `just verify hosts=s24` | Device tier checks |
-| `just verify-drift hosts=s24` | Ansible-based drift detect |
-| `just verify-heal hosts=s24` | Verify + auto-heal |
+| `just --set hosts s24 deploy` | Full fleet deploy |
+| `just --set hosts s24 deploy-check` | Dry-run deploy |
+| `just --set hosts s24 verify` | Device tier checks |
+| `just --set hosts s24 verify-drift` | Ansible-based drift detect |
+| `just --set hosts s24 verify-heal` | Verify + auto-heal |
 | `just health` | Fleet health summary + device error log |
 | `just errors` | Show recent device errors (7 days) |
 | `just firerpa-health` | FIRERPA fleet health |
-| `just firerpa-heal hosts=s24` | Repair via FIRERPA gRPC |
+| `just --set hosts s24 firerpa-heal` | Repair via FIRERPA gRPC |
 | `just test` | Code-only tests (includes healing coverage check) |
 | `just deploy-mac` | Mac workstation (brew, launchd) |
 | `just ca-status` | SSH CA status/fingerprints |

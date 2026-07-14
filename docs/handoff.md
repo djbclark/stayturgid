@@ -47,10 +47,10 @@ Use **all** hosts when the task requires fleet-wide validation. Examples:
 ```bash
 just --list                       # list all commands
 just health                       # session start (agents)
-just verify hosts=s24
-just verify-drift hosts=s24       # Ansible-based drift check
-just deploy hosts=s24
-just deploy-check hosts=s24       # dry run
+just --set hosts s24 verify
+just --set hosts s24 verify-drift       # Ansible-based drift check
+just --set hosts s24 deploy
+just --set hosts s24 deploy-check       # dry run
 ```
 
 Announce before live deploy when someone may be on the device:
@@ -169,7 +169,7 @@ git pull --ff-only origin master   # if behind only
 just health
 just firerpa-health 2>/dev/null    # check FIRERPA fleet health
 python3 control/bin/screen_lease.py status
-# Optional: just verify-drift hosts=s24  # Ansible-based drift check
+# Optional: just --set hosts s24 verify-drift  # Ansible-based drift check
 ```
 
 Then read [coding-rules.md](coding-rules.md), [docs/options.md](options.md), and the
@@ -432,9 +432,9 @@ The dashboard-framework research prompt is at
 [docs/prompts/dashboard-framework-research.md](prompts/dashboard-framework-research.md).
 Galaxy publishing, LLM, FIRERPA MCP/WebRTC/MITM, Tasker, or `sshd -D` work should
 not displace the ordered fixes.
-If validating bootstrap flow: `just verify-bootstrap-apks hosts=s24` →
-`just bootstrap-apks hosts=s24` → `just ensure-shizuku hosts=s24` →
-`just deploy-check hosts=s24`. Human unlocks:
+If validating bootstrap flow: `just --set hosts s24 verify-bootstrap-apks` →
+`just --set hosts s24 bootstrap-apks` → `just --set hosts s24 ensure-shizuku` →
+`just --set hosts s24 deploy-check`. Human unlocks:
 [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md).
 
 **Deploy / test:**

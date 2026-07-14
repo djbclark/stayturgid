@@ -17,13 +17,18 @@
           - tagName
         # gh release view hits GitHub API; quiet flag suppresses interactive prompts
       register: _gh_release
+      # This lookup is read-only; preserve it in --check so later facts do not
+      # parse skipped-command output as JSON.
+      check_mode: false
       changed_when: false
       failed_when: false
 
     - name: Read latest release tag — {{ _apk.id }}
       ansible.builtin.set_fact:
         _latest_release_tag: >-
-          {{ (_gh_release.stdout | default('{}') | from_json).tagName | default('') }}
+          {{ ((_gh_release.stdout | default('{}') | from_json).tagName | default(''))
+             if ((_gh_release.rc | default(1)) == 0 and (_gh_release.stdout | default('') | trim))
+             else '' }}
 
     - name: Parse latest version from tag — {{ _apk.id }}
       ansible.builtin.set_fact:
@@ -34,6 +39,7 @@
         adb -s {{ _bootstrap_adb }} shell
         "dumpsys package {{ _apk.id }} 2>/dev/null | grep versionName | head -1"
       register: _installed_version_info
+      check_mode: false
       changed_when: false
       failed_when: false
 

@@ -35,7 +35,7 @@ See collection docs and human handoff for token acquisition. Do not commit secre
 4. Deploy:
 
    ```bash
-   just deploy scope=play hosts=s24
+   just --set scope play --set hosts s24 deploy
    ./control/bin/deploy_fleet.py --scope play s24
    ```
 

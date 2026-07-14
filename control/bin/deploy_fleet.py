@@ -199,8 +199,9 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0) -> 
     install_collections()
 
     targets = resolve_hosts(hosts)
-    # preflight.yml bootstraps SSH when needed; skip redundant full bootstrap pass.
-    skip_bootstrap = None if check else "bootstrap"
+    # preflight.yml owns SSH bootstrap; skip the redundant bootstrap.yml pass in
+    # both normal deploys and dry runs.
+    skip_bootstrap = "bootstrap"
     rc = run_playbook(
         SITE_PLAYBOOK,
         limit=targets,
@@ -209,9 +210,14 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0) -> 
         skip_tags=skip_bootstrap,
         verbose=verbose,
     )
-    # Always refresh Mac control node: deploy_fleet always passes a device --limit,
-    # so site.yml's control_node import never selects localhost (review L8).
-    mac_rc = deploy_mac(check=check, verbose=verbose)
+    # A dry-run must not require local administrator credentials. The control-node
+    # agent role includes privileged /etc configuration, and its normal deploy is
+    # independent of the device host check below.
+    if check:
+        return rc
+    # Always refresh Mac control node on real deploys: deploy_fleet always passes a
+    # device --limit, so site.yml's control_node import never selects localhost.
+    mac_rc = deploy_mac(check=False, verbose=verbose)
     return rc if rc != 0 else mac_rc
 
 

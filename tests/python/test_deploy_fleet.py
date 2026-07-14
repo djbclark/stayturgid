@@ -134,14 +134,13 @@ def test_deploy_always_runs_mac_even_without_host_limit(monkeypatch):
     assert calls[-1] == ("playbook", "mac", False, None)
 
 
-def test_deploy_check_does_not_skip_bootstrap_tag(monkeypatch):
+def test_deploy_check_skips_mutating_bootstrap_tag(monkeypatch):
     calls = []
     _stub_deploy_deps(monkeypatch, calls)
     rc = df.deploy(df.Scope.FULL, ["s24"], check=True)
     assert rc == 0
     assert calls == [
-        ("playbook", None, True, None),
-        ("playbook", "mac", True, None),
+        ("playbook", None, True, "bootstrap"),
     ]
 
 
@@ -162,8 +161,7 @@ def test_deploy_check_skips_bootstrap(monkeypatch):
     rc = df.deploy(df.Scope.FDROID, ["s24"], check=True)
     assert rc == 0
     assert calls == [
-        ("playbook", "fdroid", True, None),
-        ("playbook", "mac", True, None),
+        ("playbook", "fdroid", True, "bootstrap"),
     ]
 
 

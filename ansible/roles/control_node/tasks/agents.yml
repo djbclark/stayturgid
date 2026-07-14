@@ -21,6 +21,7 @@
     owner: root
     group: wheel
     mode: "0644"
+  when: stayturgid_manage_system_homebrew_path | bool
 
 - name: Ensure SSH daemon exposes Homebrew PATH to noninteractive sessions
   become: true
@@ -32,6 +33,7 @@
     owner: root
     group: wheel
     mode: "0644"
+  when: stayturgid_manage_system_homebrew_path | bool
 
 - name: Render devices.conf from inventory (alias usb_serial tailscale_ip lan_ip)
   ansible.builtin.template:
