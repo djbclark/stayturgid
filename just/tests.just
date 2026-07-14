@@ -17,6 +17,8 @@ check:
     @just just-check
     @just markdownlint
     @just prettier
+    @just html-validate
+    @just stylelint
 
 # Device-free unit tests (shell TAP).
 unit:
@@ -60,6 +62,8 @@ unit-and-pytest:
     @just just-check
     @just markdownlint
     @just prettier
+    @just html-validate
+    @just stylelint
 
 # ruff check + format (Python).
 ruff:
@@ -110,7 +114,76 @@ typos:
       echo "typos not installed (brew install typos-cli) — skipped"; \
     fi
 
-# shellcheck + ansible-lint + yamllint + ruff + typos + biome + shfmt + justfiles + markdown.
+# html-validate for HTML templates (strips Jinja before validation).
+html-validate:
+    @bash just/tools/html_validate.sh
+
+# lychee — check links on the running fleet dashboard.
+lychee:
+    @if command -v lychee >/dev/null; then \
+      echo "### lychee"; \
+      if curl -sf http://127.0.0.1:4097/ >/dev/null 2>&1; then \
+        lychee --accept 100..=103,200..=299,500 http://127.0.0.1:4097/ http://127.0.0.1:4097/errors 2>&1 || true; \
+      else \
+        echo "lychee — SKIP (dashboard not running on :4097)"; \
+      fi; \
+    else \
+      echo "lychee not installed (brew install lychee) — skipped"; \
+    fi
+
+# Web health: validates rendered HTML and checks links on the running dashboard.
+web-health:
+    @echo "### web-health"
+    @just html-validate
+    @just lychee
+    @just lighthouse
+    @just pa11y
+    @just puppeteer
+
+# stylelint for CSS.
+stylelint:
+    @if [ -d node_modules ]; then \
+      echo "### stylelint"; \
+      npx stylelint --config .stylelintrc.json $(git ls-files '*.css') || exit 1; \
+    else \
+      echo "stylelint not available (bun install) — skipped"; \
+    fi
+
+# Lighthouse full-page audit (requires Chrome/Chromium on PATH).
+lighthouse:
+    @if command -v google-chrome >/dev/null || command -v chromium >/dev/null || [ -f "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]; then \
+      echo "### lighthouse"; \
+      if curl -sf http://127.0.0.1:4097/ >/dev/null 2>&1; then \
+        echo "lighthouse — SKIP (manual: npx lighthouse http://127.0.0.1:4097/)"; \
+      else \
+        echo "lighthouse — SKIP (dashboard not running on :4097)"; \
+      fi; \
+    else \
+      echo "lighthouse — SKIP (requires Chrome/Chromium)"; \
+    fi
+
+# VNU (Nu HTML Checker) — W3C validation of HTML templates.
+vnu:
+    @bash just/tools/vnu_validate.sh
+
+# Pa11y accessibility audit on the running dashboard.
+pa11y:
+    @bash just/tools/pa11y_check.sh
+
+# Puppeteer rendered-DOM check on the running dashboard.
+puppeteer:
+    @if [ -d node_modules ]; then \
+      echo "### puppeteer"; \
+      if curl -sf http://127.0.0.1:4097/ >/dev/null 2>&1; then \
+        node just/tools/rendered_dom_check.js || exit 1; \
+      else \
+        echo "puppeteer — SKIP (dashboard not running on :4097)"; \
+      fi; \
+    else \
+      echo "puppeteer not available (bun install) — skipped"; \
+    fi
+
+# shellcheck + ansible-lint + yamllint + ruff + typos + biome + shfmt + justfiles + markdown + html-validate.
 lint:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -191,6 +264,34 @@ lint:
       fi
     else
       echo "caddy not installed (brew install caddy) — skipped"
+    fi
+    bash just/tools/html_validate.sh || rc=1
+    bash just/tools/vnu_validate.sh || rc=1
+    if [ -d node_modules ]; then
+      echo "### stylelint"
+      npx stylelint --config .stylelintrc.json $(git ls-files '*.css') || rc=1
+    else
+      echo "stylelint not available (bun install) — skipped"
+    fi
+    if command -v lychee >/dev/null; then
+      echo "### lychee"
+      if curl -sf http://127.0.0.1:4097/ >/dev/null 2>&1; then
+        lychee --accept 100..=103,200..=299,500 http://127.0.0.1:4097/ http://127.0.0.1:4097/errors 2>&1 || rc=1
+      else
+        echo "lychee — SKIP (dashboard not running on :4097)"
+      fi
+    else
+      echo "lychee not installed (brew install lychee) — skipped"
+    fi
+    if [ -d node_modules ]; then
+      echo "### pa11y"
+      curl -sf http://127.0.0.1:4097/ >/dev/null 2>&1 && bash just/tools/pa11y_check.sh || echo "pa11y — SKIP (dashboard not running on :4097)"
+      echo "### puppeteer"
+      if curl -sf http://127.0.0.1:4097/ >/dev/null 2>&1; then
+        node just/tools/rendered_dom_check.js || rc=1
+      else
+        echo "puppeteer — SKIP (dashboard not running on :4097)"
+      fi
     fi
     exit $rc
 

@@ -7,9 +7,18 @@
     "format:autojs6": "biome format --write device/autojs6"
   },
   "devDependencies": {
-    "prettier-plugin-toml": "^2.0.6"
+    "html-validate": "^11.5.6",
+    "pa11y": "^9.1.1",
+    "prettier-plugin-toml": "^2.0.6",
+    "puppeteer": "^25.3.0",
+    "stylelint": "^17.14.0",
+    "stylelint-config-standard": "^40.0.0",
+    "vnu-jar": "^26.7.11"
   },
   "dependencies": {
     "prettier-plugin-ini": "^1.3.0"
-  }
+  },
+  "trustedDependencies": [
+    "vnu-jar"
+  ]
 }

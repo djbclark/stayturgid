@@ -51,3 +51,7 @@ known_hosts
 **/play.env
 secrets/
 .secrets/
+node_modules/
+package-lock.json
+/yarn.lock
+/pnpm-lock.yaml

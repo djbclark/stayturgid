@@ -152,11 +152,17 @@
     <a href="cfengine://{{ device.name }}:5308" class="link-btn"
       >cfengine :5308</a
     >
-    <a href="http://{{ device.ts_ip }}:65000" target="_blank" class="link-btn"
+    <a href="https://{{ device.ts_ip }}:65000" target="_blank" class="link-btn"
       >firerpa :65000</a
     >
+    <a
+      href="https://{{ device.magicdns }}:65000"
+      target="_blank"
+      class="link-btn"
+      >firerpa proxy</a
+    >
     {% endif %} {% if device.lan_ip %}
-    <a href="http://{{ device.lan_ip }}:65000" target="_blank" class="link-btn"
+    <a href="https://{{ device.lan_ip }}:65000" target="_blank" class="link-btn"
       >firerpa LAN</a
     >
     {% endif %} {% if device.usb_serial %}

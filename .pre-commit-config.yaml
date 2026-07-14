@@ -144,3 +144,43 @@ repos:
         language: python
         additional_dependencies: [ansible-lint]
         pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: html-validate
+        name: html-validate
+        entry: bash
+        args:
+          - -c
+          - |
+            if [ ! -d node_modules ]; then
+              echo 'html-validate not available (run bun install) — skipping'; exit 0
+            fi
+            for f in "$@"; do
+              cleaned="$(mktemp -t htmlvld.XXXXXX)"
+              python3 just/tools/html_strip_jinja.py "$f" > "$cleaned" 2>/dev/null
+              if ! npx --yes html-validate --config .html-validate.json "$cleaned" >/dev/null 2>&1; then
+                errors=$(npx --yes html-validate --config .html-validate.json "$cleaned" 2>&1 | grep -c 'error' || true)
+                if [ "$errors" -gt 0 ]; then
+                  echo "FAIL: $f ($errors errors)"
+                  rm -f "$cleaned"
+                  exit 1
+                fi
+              fi
+              rm -f "$cleaned"
+            done
+        language: system
+        files: '\.html$'
+
+  - repo: local
+    hooks:
+      - id: stylelint
+        name: stylelint
+        entry: npx
+        args:
+          - --yes
+          - stylelint
+          - --config
+          - .stylelintrc.json
+        language: system
+        files: '\.css$'

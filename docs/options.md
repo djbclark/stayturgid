@@ -423,11 +423,14 @@ gRPC channel, so any MCP-capable agent can run fleet heal commands. Core gRPC he
 See `docs/history/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md` for MCP
 extension pattern.
 
-#### F2 — WebRTC remote desktop test (agent) · Risk: **Low**
+#### F2 — WebRTC remote desktop test (agent) · Risk: **Low** · **Closed 2026-07-14**
 
-Test FIRERPA's built-in WebRTC screen mirroring (`scrcpy`-style). Useful for
-tablet-control-phone use cases or no-USB glass access. Spike only — scrcpy +
-Tailscale already covers this for s24/p7a.
+Spiked 2026-07-14. FIRERPA WebUI works well: shell, screen mirroring, info,
+graph. Auth credential `880aae23f526eb6fc86e28` derived from lamda.pem RSA
+private-key SHA-256. SPA at `https://<ip>:65000/` with WebSocket (`/ws/screen/`,
+`/ws/webrtc/signaling`) + WebRTC H.264. Config reverted to failsafe (WebRTC off)
+after spike. Useful for no-USB glass access but scrcpy + Tailscale already covers
+s24/p7a. Keep documented, leave dormant unless tablet-control-phone need arises.
 
 #### F3 — MITM-on-demand playbook (agent) · Risk: **Medium**
 
@@ -443,6 +446,7 @@ interfaces only and use Tailscale ACLs to drop outbound WAN access from the lamd
 process. Not urgent — gRPC is already on Tailscale IP. Track if upstream changes
 or network audit is needed.
 
+**Closed (2026-07-14):** F2 (FIRERPA WebRTC spike, confirmed working).
 **Closed (2026-07-09 night):** **60–61** validate role + preflight + `autojs6_project_deploy`;
 `just --list`/Makefile ops; `just health` stale LOST fix; docs sweep. **58–59** ADR 002 +
 `android_ui` / `post_ui` / `android_a11y_services`. Neo/Aurora parked.

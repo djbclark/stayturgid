@@ -56,8 +56,9 @@ app = Flask(
     static_url_path="/static",
 )
 
-OC_WEB_URL = "https://mac.greyhound-sidemirror.ts.net/opencode/"
-NETWORK_URL = "https://mac.greyhound-sidemirror.ts.net/"
+TAILNET = "greyhound-sidemirror.ts.net"
+OC_WEB_URL = f"https://mac.{TAILNET}/opencode/"
+NETWORK_URL = f"https://mac.{TAILNET}/"
 
 
 def _parse_log_ts(s: str) -> dt.datetime | None:
@@ -388,6 +389,7 @@ def build_device_data() -> list[dict]:
             "usb_serial": usb if usb != "-" else "",
             "ts_ip": ts_ip if ts_ip != "-" else "",
             "lan_ip": lan if lan != "-" else "",
+            "magicdns": f"{name}.{TAILNET}",
             "health": health.get(name),
             "firerpa": firerpa.get(name),
             "access_fails": access_state.get(name, 0),
@@ -500,6 +502,7 @@ def api_probe(host: str):
             "usb_serial": usb if usb != "-" else "",
             "ts_ip": ts_ip if ts_ip != "-" else "",
             "lan_ip": lan if lan != "-" else "",
+            "magicdns": f"{name}.{TAILNET}",
             "health": None,
             "firerpa": _latest_firerpa_health().get(name),
             "access_fails": _read_access_state().get(name, 0),
@@ -528,6 +531,7 @@ def api_probe(host: str):
             "usb_serial": usb if usb != "-" else "",
             "ts_ip": ts_ip if ts_ip != "-" else "",
             "lan_ip": lan if lan != "-" else "",
+            "magicdns": f"{name}.{TAILNET}",
             "health": h,
             "firerpa": _latest_firerpa_health().get(name),
             "access_fails": _read_access_state().get(name, 0),

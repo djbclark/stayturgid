@@ -35,13 +35,14 @@
             {% for val, label in select_options %}
             <option
               value="{{ val }}"
-              {%
+              {%-
               if
               val=""
               ="range_str"
-              %}selected{%
-              endif
               %}
+              selected{%
+              endif
+              -%}
             >
               {{ label }}
             </option>
