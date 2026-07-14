@@ -128,9 +128,9 @@ def test_restore_foreground_app_am_start(monkeypatch):
     assert "com.discord/.MainActivity" in calls[0]
 
 
-def test_session_restores_prior_screen_on_exit(monkeypatch, tmp_path):
+def test_session_does_not_save_or_restore_foreground(monkeypatch, tmp_path):
+    """Foreground save/restore disabled 2026-07-14 (H9)."""
     restored = []
-    # Isolate DSCL so a real foreign lease on the host cannot block the unit test.
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_DIR", str(tmp_path / "dsc"))
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_PROJECT", "stayturgid")
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_WAIT_SEC", "0")
@@ -143,7 +143,6 @@ def test_session_restores_prior_screen_on_exit(monkeypatch, tmp_path):
     )
     monkeypatch.setattr(sc.uc, "clear_ui_obstructions", lambda *a, **k: [])
     monkeypatch.setattr(sc, "get_default_ime", lambda _s: "com.example/.Ime")
-    monkeypatch.setattr(sc, "get_foreground_component", lambda _s: "com.discord/.MainActivity")
     monkeypatch.setattr(sc, "set_inversion", lambda _s, en: True)
     monkeypatch.setattr(sc, "restore_default_ime", lambda *a, **k: True)
     monkeypatch.setattr(sc, "lock_portrait_orientation", lambda _s: {"user_rotation": "1"})
@@ -158,9 +157,9 @@ def test_session_restores_prior_screen_on_exit(monkeypatch, tmp_path):
     monkeypatch.setattr(sc.dev, "device_row", lambda *a, **k: None)
     monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-s24")
     session.__enter__()
-    assert session._saved_component == "com.discord/.MainActivity"
+    assert session._saved_component is None
     session.__exit__(None, None, None)
-    assert restored == ["com.discord/.MainActivity"]
+    assert restored == []
 
 
 def test_session_fails_closed_when_presence_on_missing(monkeypatch, tmp_path):

@@ -465,7 +465,10 @@ class ScreenControlSession:
         _run(["adb", "connect", self.serial], timeout=15)
         _run(["adb", "-s", self.serial, "wait-for-device"], timeout=30)
         # Capture before clearance/consent so we restore what the human saw.
-        self._saved_component = get_foreground_component(self.serial)
+        # DISABLED 2026-07-14 (H9): foreground save/restore is unreliable across
+        # different launchers and Android versions. Commented out for now; may add
+        # back via FIRERPA OCR/screen-control when the approach is more robust.
+        # self._saved_component = get_foreground_component(self.serial)
         self._saved_rotation = lock_portrait_orientation(self.serial)
         cleared = uc.clear_ui_obstructions(self.serial, mac_adb_shell)
         if cleared:
@@ -507,23 +510,24 @@ class ScreenControlSession:
 
         self._stop_keepalive_thread()
 
-        # Restore prior screen while inversion is still on (input still gated).
-        if self.restore_screen:
-            try:
-                ok = restore_foreground(
-                    self.serial,
-                    self._saved_component,
-                    shell_fn=self.shell,
-                )
-                if ok and self._saved_component:
-                    print("Restored prior screen on %s: %s" % (self.host, self._saved_component))
-                elif not ok:
-                    sys.stderr.write(
-                        "WARN: failed to restore prior screen on %s (%s)\n"
-                        % (self.host, self._saved_component or "HOME")
-                    )
-            except Exception as e:  # noqa: BLE001 — never block cleanup
-                sys.stderr.write("WARN: restore prior screen on %s: %s\n" % (self.host, e))
+        # DISABLED 2026-07-14 (H9): foreground save/restore is unreliable.
+        # Kept for reference; see comment in _enter_session().
+        # if self.restore_screen:
+        #     try:
+        #         ok = restore_foreground(
+        #             self.serial,
+        #             self._saved_component,
+        #             shell_fn=self.shell,
+        #         )
+        #         if ok and self._saved_component:
+        #             print("Restored prior screen on %s: %s" % (self.host, self._saved_component))
+        #         elif not ok:
+        #             sys.stderr.write(
+        #                 "WARN: failed to restore prior screen on %s (%s)\n"
+        #                 % (self.host, self._saved_component or "HOME")
+        #             )
+        #     except Exception as e:
+        #         sys.stderr.write("WARN: restore prior screen on %s: %s\n" % (self.host, e))
 
         if not self._skip:
             ssh_presence(self.host, "off", self.label, self.agent)

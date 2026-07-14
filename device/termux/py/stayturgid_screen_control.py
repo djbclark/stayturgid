@@ -310,7 +310,10 @@ class ScreenControlSession(object):
         if not sh.privileged_shell_ok():
             raise ScreenControlError("localhost:5555 shell unavailable — run stayturgid-repair first")
 
-        self._saved_component = get_foreground_component()
+        # DISABLED 2026-07-14 (H9): foreground save/restore is unreliable across
+        # different launchers and Android versions. May add back via FIRERPA
+        # OCR/screen-control when more robust.
+        # self._saved_component = get_foreground_component()
         self._saved_rotation = lock_portrait_orientation()
         cleared = uc.clear_ui_obstructions(self.serial, sh.shell_fn)
         if cleared:
@@ -346,19 +349,21 @@ class ScreenControlSession(object):
         if not self.active:
             return False
         self._stop_keepalive_thread()
-        if self.restore_screen:
-            try:
-                ok = restore_foreground(
-                    self.serial,
-                    self._saved_component,
-                    shell_fn=self.shell,
-                )
-                if ok and self._saved_component:
-                    print("Restored prior screen: %s" % self._saved_component)
-                elif not ok:
-                    sys.stderr.write("WARN: failed to restore prior screen (%s)\n" % (self._saved_component or "HOME"))
-            except Exception as e:  # noqa: BLE001
-                sys.stderr.write("WARN: restore prior screen: %s\n" % e)
+        # DISABLED 2026-07-14 (H9): foreground save/restore is unreliable.
+        # Kept for reference.
+        # if self.restore_screen:
+        #     try:
+        #         ok = restore_foreground(
+        #             self.serial,
+        #             self._saved_component,
+        #             shell_fn=self.shell,
+        #         )
+        #         if ok and self._saved_component:
+        #             print("Restored prior screen: %s" % self._saved_component)
+        #         elif not ok:
+        #             sys.stderr.write("WARN: failed to restore prior screen (%s)\n" % (self._saved_component or "HOME"))
+        #     except Exception as e:
+        #         sys.stderr.write("WARN: restore prior screen: %s\n" % e)
         if not self._skip:
             local_presence("off", self.label, self.agent)
         if not set_inversion(None, False):
