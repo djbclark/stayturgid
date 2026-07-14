@@ -1,3 +1,5 @@
 docs/history/
 docs/research/
 docs/incubator/
+# Template uses # for comments (not headings)
+human/RESPONSES.md.example

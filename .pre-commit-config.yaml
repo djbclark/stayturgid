@@ -55,7 +55,7 @@ repos:
         entry: prettier
         args: ["--check"]
         language: system
-        types_or: [markdown, html, css, toml]
+        files: '\.(md(\.example)?|html|css|toml|ini)$'
 
   - repo: local
     hooks:
@@ -64,7 +64,7 @@ repos:
         entry: markdownlint
         args: ["--config", ".markdownlint.json"]
         language: system
-        types: [markdown]
+        files: '\.md(\.example)?$'
 
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.35.1
@@ -98,6 +98,31 @@ repos:
         args: ["-c", "PATH=\"$HOME/.local/bin:$PATH\"; yamllint -c .yamllint \"$@\"", "--"]
         language: system
         files: '\.yml\.example$'
+
+  - repo: local
+    hooks:
+      - id: dotenv-linter
+        name: dotenv-linter
+        entry: dotenv-linter
+        args: ["check"]
+        language: system
+        files: '\.env(\.example)?$'
+
+  - repo: local
+    hooks:
+      - id: ansible-lint-examples
+        name: ansible-lint (examples)
+        entry: bash
+        args:
+          - -c
+          - |
+            for d in examples/consumer-*/; do
+              (cd "$d" && ansible-lint --exclude ../../ playbook.yml) || exit 1
+            done
+        language: python
+        additional_dependencies: [ansible-lint]
+        pass_filenames: false
+        files: '^examples/consumer-.*/(ansible\.cfg|playbook\.yml|requirements\.yml|inventory/.*)$'
 
   - repo: local
     hooks:

@@ -166,12 +166,13 @@ If you only want FIRERPA as a **backup remote-access channel** (no automation, n
 **Minimal properties.local:**
 
 ```ini
-port=65000
+port = 65000
 [sshd]
-sshd.enable=true
+sshd.enable = true
+
 [adb]
-adb.enable=true
-adb.privileged=false
+adb.enable = true
+adb.privileged = false
 ```
 
 This gives you: SSH backup on :65000, ADB backup on :65000, remote desktop via browser — all without the APK, without Shizuku interaction, and without conflicting with existing stayturgid services.

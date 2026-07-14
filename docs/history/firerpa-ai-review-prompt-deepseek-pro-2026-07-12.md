@@ -177,14 +177,17 @@ class FireRpaMcpExtension(BaseMcpExtension):
 
 ```ini
 [DEFAULT]
-port=65000
+port = 65000
+
 [adb]
-adb.enable=true
-adb.privileged=false   # false = shell mode for non-root
+adb.enable = true
+adb.privileged = false   # false = shell mode for non-root
+
 [sshd]
-sshd.enable=true
+sshd.enable = true
+
 [cron]
-cron.enable=true
+cron.enable = true
 ```
 
 5. **Server startup** (`tools/magisk/common/service.sh:1-13`):

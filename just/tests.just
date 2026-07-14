@@ -89,7 +89,7 @@ shfmt:
 # markdownlint check (lint).
 markdownlint:
     @if command -v markdownlint >/dev/null; then \
-      echo "### markdownlint"; markdownlint --config .markdownlint.json $(git ls-files '*.md'); \
+      echo "### markdownlint"; markdownlint --config .markdownlint.json $(git ls-files '*.md' '*.md.example'); \
     else \
       echo "markdownlint not installed (brew install markdownlint-cli) — skipped"; \
     fi
@@ -97,7 +97,7 @@ markdownlint:
 # prettier check (format — markdown, HTML, CSS).
 prettier:
     @if command -v prettier >/dev/null; then \
-      echo "### prettier --check"; prettier --check $(git ls-files '*.md' '*.html' '*.css' '*.toml'); \
+      echo "### prettier --check"; prettier --check $(git ls-files '*.md' '*.md.example' '*.html' '*.css' '*.toml' '*.ini'); \
     else \
       echo "prettier not installed (brew install prettier) — skipped"; \
     fi
@@ -123,6 +123,9 @@ lint:
     fi
     if command -v ansible-lint >/dev/null; then
       bash -c 'cd ansible && ansible-lint playbooks/ ../ansible_collections/stayturgid/' || rc=1
+      for d in examples/consumer-*/; do
+        (cd "$d" && ansible-lint playbook.yml) || rc=1
+      done
     else
       echo "ansible-lint not installed (uv tool install ansible-lint) — skipped"
     fi
@@ -160,14 +163,19 @@ lint:
       echo "just not installed (brew install just) — skipped"
     fi
     if command -v markdownlint >/dev/null; then
-      markdownlint --config .markdownlint.json $(git ls-files '*.md') || rc=1
+      markdownlint --config .markdownlint.json $(git ls-files '*.md' '*.md.example') || rc=1
     else
       echo "markdownlint not installed (brew install markdownlint-cli) — skipped"
     fi
     if command -v prettier >/dev/null; then
-      prettier --check $(git ls-files '*.md' '*.html' '*.css' '*.toml') || rc=1
+      prettier --check $(git ls-files '*.md' '*.md.example' '*.html' '*.css' '*.toml' '*.ini') || rc=1
     else
       echo "prettier not installed (brew install prettier) — skipped"
+    fi
+    if command -v dotenv-linter >/dev/null; then
+      dotenv-linter check $(git ls-files '.env' '*.env.example') || rc=1
+    else
+      echo "dotenv-linter not installed (brew install dotenv-linter) — skipped"
     fi
     if command -v caddy >/dev/null; then
       if caddy fmt --diff control/caddy/Caddyfile | grep -q '^[+-]'; then

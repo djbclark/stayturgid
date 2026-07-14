@@ -3,9 +3,10 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 
-# Local tooling / CI scratch
+# Local tooling / CI scratch / linter backups
 .config.mk
 .DS_Store
+*.bak
 .venv-test/
 .venv-gplaycli/
 .node_modules/

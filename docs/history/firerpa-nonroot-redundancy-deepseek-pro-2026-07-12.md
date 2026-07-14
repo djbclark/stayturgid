@@ -53,12 +53,13 @@ The server launches via: `exec python3.9 -u -m lamda --launch --port=65000`
 If deploying only as a redundant backup channel (no automation, no MCP, no Frida), the config is 3 lines:
 
 ```ini
-port=65000
+port = 65000
 [sshd]
-sshd.enable=true
+sshd.enable = true
+
 [adb]
-adb.enable=true
-adb.privileged=false
+adb.enable = true
+adb.privileged = false
 ```
 
 This gives you SSH backup on :65000 and ADB backup on :65000. No APK, no Shizuku interaction, no conflicts with stayturgid's :8022 (SSH) or :5555 (ADB).

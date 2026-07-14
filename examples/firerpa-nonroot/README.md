@@ -226,11 +226,12 @@ Create `properties.local` in the extracted `server/` directory. The minimal impo
 part is:
 
 ```ini
-port=65000
+port = 65000
 [sshd]
-sshd.enable=true
+sshd.enable = true
+
 [adb]
-adb.enable=false
+adb.enable = false
 ```
 
 For example:

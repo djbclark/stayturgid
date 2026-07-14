@@ -1,0 +1,3 @@
+# RESPONSES.md.example uses # for comments (not markdown headings).
+# Prettier can't infer a parser for .md.example extension.
+human/RESPONSES.md.example

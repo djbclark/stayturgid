@@ -125,9 +125,9 @@ The server includes a standalone ADB daemon — **no system Developer Options ne
 
 ```ini
 [adb]
-adb.enable=true
-adb.directory=/data/local/tmp
-adb.privileged=true    ; root vs shell privileges
+adb.enable = true
+adb.directory = /data/local/tmp
+adb.privileged = true    ; root vs shell privileges
 ```
 
 The gRPC interface for ADB (`lamda/rpc/debug.proto:1-12`):
@@ -148,7 +148,7 @@ The server includes an sshd, configurable via `properties.example`:
 
 ```ini
 [sshd]
-sshd.enable=true
+sshd.enable = true
 ```
 
 CLI helpers: `tools/ssh.sh`, `tools/scp.sh` — for remote shell and file transfer through the FIRERPA port.
