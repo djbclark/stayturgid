@@ -3,15 +3,16 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=ui_tars_env.sh
-source "${SCRIPT_DIR}/ui_tars_env.sh"
 
-MODEL_DIR="$(ui_tars_model_dir)"
+# Inline env helper (replaces ui_tars_env.sh)
+_env() { python3 "${SCRIPT_DIR}/ui_tars_env.py" --get "$1"; }
+
+MODEL_DIR="$(_env MODEL_DIR)"
 MODEL="${MODEL_DIR}/ByteDance-Seed_UI-TARS-1.5-7B-Q4_K_M.gguf"
 MMPROJ="${MODEL_DIR}/mmproj-ByteDance-Seed_UI-TARS-1.5-7B.gguf"
-PORT="$(ui_tars_port)"
-LOG_FILE="$(ui_tars_log_file)"
-LLAMA="$(ui_tars_llama_server_bin)" || {
+PORT="$(_env PORT)"
+LOG_FILE="$(_env LOG_FILE)"
+LLAMA="$(_env LLAMA_SERVER_BIN)" || {
   echo "llama-server not found — run: brew install llama.cpp" >&2
   exit 1
 }
@@ -27,12 +28,12 @@ exec >>"$LOG_FILE" 2>&1
 
 echo "$(date '+%Y-%m-%d %H:%M:%S') ui-tars-server-run: starting llama-server on 127.0.0.1:${PORT}"
 echo "$(date '+%Y-%m-%d %H:%M:%S') model=$MODEL"
-echo "$(date '+%Y-%m-%d %H:%M:%S') llama=$LLAMA ngl=$(ui_tars_ngl)"
+echo "$(date '+%Y-%m-%d %H:%M:%S') llama=$LLAMA ngl=$(_env NGL)"
 
 exec caffeinate -dims "$LLAMA" \
   -m "$MODEL" \
   --mmproj "$MMPROJ" \
-  -ngl "$(ui_tars_ngl)" \
+  -ngl "$(_env NGL)" \
   -c "${UI_TARS_CTX:-${STAYTURGID_VLM_CTX:-${QSS_VLM_CTX:-2048}}}" \
   -t "${UI_TARS_THREADS:-${STAYTURGID_VLM_THREADS:-${QSS_VLM_THREADS:-4}}}" \
   -n 256 \

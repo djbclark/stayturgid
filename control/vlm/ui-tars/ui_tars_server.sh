@@ -4,15 +4,16 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=ui_tars_env.sh
-source "${SCRIPT_DIR}/ui_tars_env.sh"
 
-MODEL_DIR="$(ui_tars_model_dir)"
+# Inline env helper (replaces ui_tars_env.sh)
+_env() { python3 "${SCRIPT_DIR}/ui_tars_env.py" --get "$1"; }
+
+MODEL_DIR="$(_env MODEL_DIR)"
 MODEL="${MODEL_DIR}/ByteDance-Seed_UI-TARS-1.5-7B-Q4_K_M.gguf"
 MMPROJ="${MODEL_DIR}/mmproj-ByteDance-Seed_UI-TARS-1.5-7B.gguf"
-PORT="$(ui_tars_port)"
-PID_FILE="$(ui_tars_pid_file)"
-LOG_FILE="$(ui_tars_log_file)"
+PORT="$(_env PORT)"
+PID_FILE="$(_env PID_FILE)"
+LOG_FILE="$(_env LOG_FILE)"
 
 if [[ ! -f "$MODEL" ]] || [[ ! -f "$MMPROJ" ]]; then
   echo "Missing model weights in $MODEL_DIR" >&2
@@ -20,18 +21,18 @@ if [[ ! -f "$MODEL" ]] || [[ ! -f "$MMPROJ" ]]; then
   exit 1
 fi
 
-if ui_tars_healthy; then
+if curl -sf -o /dev/null http://127.0.0.1:${PORT}/health; then
   echo "UI-TARS server already running on port ${PORT}"
   exit 0
 fi
 
-if ui_tars_service_installed; then
+if [[ -f "${PLIST}" ]]; then
   echo "LaunchAgent installed but not healthy — restarting…"
   bash "${SCRIPT_DIR}/vlm_service.sh" restart
   exit $?
 fi
 
-ui_tars_llama_server_bin >/dev/null || {
+test -x "$(_env LLAMA_SERVER_BIN)" >/dev/null || {
   echo "llama-server not found — run: just vlm-install" >&2
   exit 1
 }
@@ -54,7 +55,7 @@ echo $! >"$PID_FILE"
 echo "PID $(cat "$PID_FILE") — log: $LOG_FILE"
 
 for _ in $(seq 1 180); do
-  if ui_tars_healthy; then
+  if curl -sf -o /dev/null http://127.0.0.1:${PORT}/health; then
     echo "UI-TARS server ready."
     exit 0
   fi

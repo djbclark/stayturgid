@@ -10,7 +10,8 @@ Modes:
                   (30-min cooldown to prevent spam restarts)
 
 Deploy to ~/.stayturgid/bin/bridges.py. Started at boot by:
-  start-repair-bridge.sh or start-autojs6-bridge.sh (thin pidfile-check wrappers).
+  ~/.termux/boot/start-repair-bridge.sh or start-autojs6-bridge.sh.
+  Shell scripts are now minimal one-liners (pidfile guard lives here).
 """
 import argparse
 import os
@@ -59,6 +60,17 @@ def _log(stg: str, name: str, msg: str) -> None:
             f.write(f"{ts()} [{name}-bridge] {msg}\n")
     except OSError:
         pass
+
+
+def _pidfile_alive(pidfile_path: str) -> bool:
+    try:
+        with open(pidfile_path) as f:
+            pid = int(f.read().strip())
+        with open(f"/proc/{pid}/cmdline") as f:
+            raw = f.read()
+        return "bridges" in raw or "stayturgid_bridges" in raw
+    except (OSError, ValueError):
+        return False
 
 
 def _write_pidfile(stg: str, pidfile_name: str) -> None:
@@ -176,6 +188,10 @@ def main() -> int:
         help="Bridge mode: repair (stayturgid_repair.py) or autojs6 (boot-launcher.js)",
     )
     args = parser.parse_args()
+
+    pidfile = os.path.join(STG, "run", "bridges.pid" if args.mode == "repair" else "autojs6-bridge.pid")
+    if _pidfile_alive(pidfile):
+        return 0
 
     if args.mode == "repair":
         run_repair_mode()

@@ -6,21 +6,22 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=ui_tars_env.sh
-source "${SCRIPT_DIR}/ui_tars_env.sh"
+
+# Inline env helper (replaces ui_tars_env.sh)
+_env() { python3 "${SCRIPT_DIR}/ui_tars_env.py" --get "$1"; }
 
 RUN_SCRIPT="${SCRIPT_DIR}/ui_tars_server_run.sh"
-LABEL="$(ui_tars_service_label)"
-PLIST="$(ui_tars_service_plist)"
-PORT="$(ui_tars_port)"
-LOG_FILE="$(ui_tars_log_file)"
+LABEL="$(_env SERVICE_LABEL)"
+PLIST="$(_env SERVICE_PLIST)"
+PORT="$(_env PORT)"
+LOG_FILE="$(_env LOG_FILE)"
 
 launchctl_domain() {
   printf 'gui/%s' "$(id -u)"
 }
 
 service_loaded() {
-  launchctl print "$(launchctl_domain)/$(ui_tars_service_label)" >/dev/null 2>&1
+  launchctl print "$(launchctl_domain)/$(_env SERVICE_LABEL)" >/dev/null 2>&1
 }
 
 service_bootstrap() {
@@ -41,7 +42,7 @@ service_bootout() {
 }
 
 service_kickstart() {
-  launchctl kickstart -k "$(launchctl_domain)/$(ui_tars_service_label)" 2>/dev/null || true
+  launchctl kickstart -k "$(launchctl_domain)/$(_env SERVICE_LABEL)" 2>/dev/null || true
 }
 
 die() {
@@ -61,13 +62,13 @@ write_plist() {
   need_macos
   need_brew
   chmod +x "$RUN_SCRIPT"
-  mkdir -p "$(dirname "$PLIST")" "$(dirname "$LOG_FILE")" "$(ui_tars_working_dir)"
+  mkdir -p "$(dirname "$PLIST")" "$(dirname "$LOG_FILE")" "$(_env WORKING_DIR)"
 
   local llama_bin work_dir
-  llama_bin="$(ui_tars_llama_server_bin)" || die "llama-server missing — brew install llama.cpp"
+  llama_bin="$(_env LLAMA_SERVER_BIN)" || die "llama-server missing — brew install llama.cpp"
   # model dir validated by run script; ensure parent tree exists
-  mkdir -p "$(ui_tars_model_dir)"
-  work_dir="$(ui_tars_working_dir)"
+  mkdir -p "$(_env MODEL_DIR)"
+  work_dir="$(_env WORKING_DIR)"
 
   cat >"$PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -114,7 +115,7 @@ EOF
 
 stop_manual_server() {
   local pid_file
-  pid_file="$(ui_tars_pid_file)"
+  pid_file="$(_env PID_FILE)"
   if [[ -f "$pid_file" ]]; then
     local old_pid
     old_pid="$(cat "$pid_file" 2>/dev/null || true)"
@@ -141,7 +142,7 @@ cmd_install() {
 cmd_uninstall() {
   need_macos
   need_brew
-  if ui_tars_service_installed; then
+  if [[ -f "${PLIST}" ]]; then
     service_bootout
     rm -f "$PLIST"
     echo "Removed ${PLIST}"
@@ -154,7 +155,7 @@ cmd_uninstall() {
 cmd_start() {
   need_macos
   need_brew
-  ui_tars_service_installed || die "not installed — run: just vlm-service-install"
+  [[ -f "${PLIST}" ]] || die "not installed — run: just vlm-service-install"
   service_bootstrap
   service_kickstart
   wait_healthy 240
@@ -163,7 +164,7 @@ cmd_start() {
 cmd_stop() {
   need_macos
   need_brew
-  if ui_tars_service_installed; then
+  if [[ -f "${PLIST}" ]]; then
     service_bootout
   fi
   stop_manual_server
@@ -173,7 +174,7 @@ cmd_stop() {
 cmd_restart() {
   need_macos
   need_brew
-  ui_tars_service_installed || die "not installed — run: just vlm-service-install"
+  [[ -f "${PLIST}" ]] || die "not installed — run: just vlm-service-install"
   stop_manual_server
   service_bootout
   service_bootstrap
@@ -185,8 +186,8 @@ wait_healthy() {
   local timeout="${1:-120}"
   local i
   for ((i = 1; i <= timeout; i++)); do
-    if ui_tars_healthy; then
-      echo "healthy: $(ui_tars_health_url)"
+    if curl -sf -o /dev/null http://127.0.0.1:${PORT}/health; then
+      echo "healthy: $(_env HEALTH_URL)"
       return 0
     fi
     sleep 1
@@ -196,22 +197,22 @@ wait_healthy() {
 
 cmd_status() {
   local healthy="no"
-  ui_tars_healthy && healthy="yes"
+  curl -sf -o /dev/null http://127.0.0.1:${PORT}/health && healthy="yes"
 
   echo "UI-TARS VLM service"
-  echo "  health:     ${healthy} ($(ui_tars_health_url))"
+  echo "  health:     ${healthy} ($(_env HEALTH_URL))"
   echo "  port:       ${PORT}"
   echo "  log:        ${LOG_FILE}"
   echo "  plist:      ${PLIST}"
-  echo "  models:     $(ui_tars_model_dir)"
-  echo "  installed:  $(ui_tars_service_installed && echo yes || echo no)"
+  echo "  models:     $(_env MODEL_DIR)"
+  echo "  installed:  $([[ -f "${PLIST}" ]] && echo yes || echo no)"
 
-  echo "  launchd:    $(service_loaded && echo loaded || echo not_loaded) ($(ui_tars_service_label))"
+  echo "  launchd:    $(service_loaded && echo loaded || echo not_loaded) ($(_env SERVICE_LABEL))"
 
   if [[ "$(uname -s)" == "Darwin" ]]; then
     echo ""
     echo "launchctl:"
-    launchctl print "$(launchctl_domain)/$(ui_tars_service_label)" 2>/dev/null | head -12 || echo "  (not loaded)"
+    launchctl print "$(launchctl_domain)/$(_env SERVICE_LABEL)" 2>/dev/null | head -12 || echo "  (not loaded)"
   fi
 
   if [[ "$healthy" == "no" ]] && [[ -f "$LOG_FILE" ]]; then
@@ -220,7 +221,7 @@ cmd_status() {
     tail -8 "$LOG_FILE" 2>/dev/null || true
   fi
 
-  ui_tars_healthy
+  curl -sf -o /dev/null http://127.0.0.1:${PORT}/health
 }
 
 usage() {
@@ -228,8 +229,8 @@ usage() {
 Usage: $(basename "$0") <install|uninstall|start|stop|restart|status>
 
 Install once, then use launchctl (see docs/vlm.md):
-  launchctl kickstart -k gui/\$(id -u)/$(ui_tars_service_label)
-  launchctl bootout gui/\$(id -u) $(ui_tars_service_plist)
+  launchctl kickstart -k gui/\$(id -u)/$(_env SERVICE_LABEL)
+  launchctl bootout gui/\$(id -u) $(_env SERVICE_PLIST)
 
   install    migrate paths, write plist, launchctl bootstrap
   uninstall  launchctl bootout + remove plist

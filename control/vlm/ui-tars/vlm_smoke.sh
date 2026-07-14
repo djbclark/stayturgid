@@ -3,11 +3,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=ui_tars_env.sh
-source "${SCRIPT_DIR}/ui_tars_env.sh"
 
-PLIST="$(ui_tars_service_plist)"
-LABEL="$(ui_tars_service_label)"
+# Inline env helper (replaces ui_tars_env.sh)
+_env() { python3 "${SCRIPT_DIR}/ui_tars_env.py" --get "$1"; }
+
+PLIST="$(_env SERVICE_PLIST)"
+LABEL="$(_env SERVICE_LABEL)"
 DOMAIN="gui/$(id -u)"
 
 fail() {
@@ -20,15 +21,15 @@ fail() {
 echo "==> stop"
 launchctl bootout "$DOMAIN" "$PLIST" 2>/dev/null || true
 sleep 2
-ui_tars_healthy && fail "still healthy after bootout"
+curl -sf -o /dev/null http://127.0.0.1:${PORT}/health && fail "still healthy after bootout"
 
 echo "==> start"
 launchctl bootstrap "$DOMAIN" "$PLIST"
 for _ in $(seq 1 120); do
-  ui_tars_healthy && break
+  curl -sf -o /dev/null http://127.0.0.1:${PORT}/health && break
   sleep 1
 done
-ui_tars_healthy || fail "not healthy after bootstrap — see $(ui_tars_log_file)"
+curl -sf -o /dev/null http://127.0.0.1:${PORT}/health || fail "not healthy after bootstrap — see $(_env LOG_FILE)"
 
 echo "==> launchctl"
 launchctl print "$DOMAIN/$LABEL" 2>&1 | grep -E 'state = running|program =' | head -3

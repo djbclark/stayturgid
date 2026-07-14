@@ -213,6 +213,12 @@ deployment or recovery easier.
 Ansible retired lists updated. Unified syslog logging (`control/lib/logging.py`) with
 severity levels, 30-day age-based rotation, and remote error scraping (device logs →
 local `errors.log`). `/errors` route on fleet dashboard. All monitors use shared logging.
+**Shim cleanup (2026-07-13):** Remaining thin shell wrappers eliminated — `ui_tars_env.sh`
+deleted (replaced with inline `_env()` helper), `vlm_install.sh` deleted (unused),
+`start-adb.sh` reduced to 5-line env+exec, bridge scripts reduced to one-liners
+(PID guard moved into `stayturgid_bridges.py`), `stayturgid-peer-help-force.sh` reduced
+to one-liner (verb whitelist in Python). Fleet devices need `just deploy` to pick up
+new boot scripts.
 
 #### ~~G1 — Healing coverage registry + pre-flight checker~~ · **Closed 2026-07-13**
 
