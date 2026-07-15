@@ -158,6 +158,30 @@ production device aliases (`s24`, `p7a`, `hd8`):
 The active code/config category is the priority. Documentation and history
 files will be addressed during the upstream scrub (§7.4).
 
+### 2.5 Active Code/Config Violations Breakdown
+
+The following active files contain hardcoded production literals (`s24`, `p7a`, `hd8`, or their respective Tailscale IPs and USB serials), which must be refactored to read from the site inventory projection or structured variables:
+
+| File Path                                         | Gaps Identified                                   | Classification / Action Required                                   |
+| :------------------------------------------------ | :------------------------------------------------ | :----------------------------------------------------------------- |
+| `control/cfengine/cf-runagent.cf`                 | Hardcoded Tailscale IPs for all three devices     | `violation` — Migrate to Jinja2 template rendered via Ansible      |
+| `control/landing/services.json`                   | Hardcoded hostnames, Tailscale IPs, LAN IPs       | `violation` — Separate static catalog from dynamic discovery state |
+| `control/landing/discover.py`                     | Reference to production aliases and IPs           | `violation` — Read from inventory projections                      |
+| `control/bin/cf-run.sh`                           | Embedded `s24`, `p7a`, `hd8` aliases              | `violation` — Require explicit target host argument                |
+| `control/bin/firerpa_heal.py`                     | Reference to production aliases and IPs           | `violation` — Resolve addresses dynamically using `resolve_adb`    |
+| `control/bin/firerpa_health_monitor.py`           | Reference to production aliases and IPs           | `violation` — Resolve addresses dynamically                        |
+| `control/tools/autojs6/deploy.py`                 | Default arguments and aliases `s24`, `p7a`, `hd8` | `violation` — Make targets required CLI arguments                  |
+| `control/tools/autojs6/enable_autojs6_shizuku.py` | Reference to production aliases                   | `violation` — Pass as arguments                                    |
+| `control/tools/autojs6/grant_shizuku.py`          | Reference to production aliases                   | `violation` — Pass as arguments                                    |
+| `control/tools/autojs6/run_test.py`               | Default targets `s24`, `p7a`, `hd8`               | `violation` — Make targets required CLI arguments                  |
+| `control/tools/autojs6/set_automation_mode.py`    | Reference to production aliases                   | `violation` — Pass as arguments                                    |
+| `control/tools/autojs6/setup_autojs6.py`          | Reference to production aliases                   | `violation` — Pass as arguments                                    |
+| `control/tools/autojs6/start_watchdog.py`         | Reference to production aliases                   | `violation` — Pass as arguments                                    |
+| `control/tools/autojs6/test_tailscale_down.py`    | Default targets and serials                       | `violation` — Parametrize with arguments                           |
+| `control/tools/obtainium/*.py`                    | Reference to production aliases                   | `violation` — Require CLI arguments                                |
+| `control/tools/play/*.py`                         | Reference to production aliases                   | `violation` — Require CLI arguments                                |
+| `device/termux/py/stayturgid_peer_help.py`        | References to sibling hostnames                   | `violation` — Read peers list from `peers.json` projection         |
+
 ---
 
 ## 3. The Canonical Site Inventory
@@ -947,12 +971,12 @@ Partially supported. Works for fleet management; missing Mac-specific features:
 
 **Goal:** Understand the current state. Produce a decision table.
 
-- [ ] Run seed alias scan to classify every production literal.
-- [ ] Review each gap against the classification system (§3.4).
-- [ ] Document operator decisions needed (§11) and obtain answers.
-- [ ] Fix stale reference in `hosts.yml.example` (currently points to
+- [x] Run seed alias scan to classify every production literal.
+- [x] Review each gap against the classification system (§3.4).
+- [x] Document operator decisions needed (§11) and obtain answers.
+- [x] Fix stale reference in `hosts.yml.example` (currently points to
       nonexistent `docs/other-sites.md`; should point to
-      `docs/architecture/multi-site-topology.md`).
+      `docs/architecture/platform-architecture.md §7.3`).
 
 ### Phase 1: Identity Validator and Python Interface
 

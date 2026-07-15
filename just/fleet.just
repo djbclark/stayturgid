@@ -75,8 +75,8 @@ syntax:
     ansible-playbook ansible/playbooks/fleet/termux-pkg-upgrade.yml --syntax-check
 
 # Nightly-style Termux pkg update/upgrade (all hosts).
-termux-pkg-upgrade:
-    python3 control/bin/termux_pkg_nightly.py {{ if hosts == "" { "" } else { "--limit " + replace(hosts, " ", ",") } }}
+termux-pkg-upgrade hosts="":
+    @just _termux-pkg-upgrade {{ hosts }}
 
 # Read-only device tier (TAP).
 verify +device:

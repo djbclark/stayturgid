@@ -1,0 +1,30 @@
+sources:
+  otlp_source:
+    type: "opentelemetry"
+    http:
+      address: "0.0.0.0:{{ vector_otlp_port }}"
+
+
+sinks:
+  openobserve_sink:
+    type: "http"
+    inputs: ["otlp_source"]
+    uri: "http://127.0.0.1:{{ openobserve_port }}/api/default/android_logs/_json"
+    method: "post"
+    auth:
+      strategy: "basic"
+      user: "{{ openobserve_root_email }}"
+      password: "{{ openobserve_root_password }}"
+    encoding:
+      codec: "json"
+      timestamp_format: "rfc3339"
+
+    # Disk buffering to handle thundering herd reconnects and offline periods
+    buffer:
+      type: "disk"
+      max_size: 1073741824 # 1 GB
+      when_full: "block"
+
+    healthcheck:
+      enabled: true
+      uri: "http://127.0.0.1:{{ openobserve_port }}/healthz"

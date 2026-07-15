@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{{ vector_label }}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{ vector_bin_path }}</string>
+        <string>--config</string>
+        <string>{{ vector_config_dir }}/vector.yaml</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>{{ conf_dir }}/logs/vector.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ conf_dir }}/logs/vector.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>{{ lookup('env', 'HOME') }}</string>
+    </dict>
+</dict>
+</plist>

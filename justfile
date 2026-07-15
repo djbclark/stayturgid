@@ -15,11 +15,12 @@ set shell := ["bash", "-uc"]
 repo := justfile_directory()
 export ANSIBLE_CONFIG := repo + "/ansible/ansible.cfg"
 
-hosts := ""
-scope := "full"
-deploy_args := if hosts == "" { "" } else { hosts }
-deploy_scope_arg := if scope == "full" { "" } else { "--scope " + scope }
-limit_flag := if hosts == "" { "" } else { "-l " + hosts }
+hosts := env_var_or_default("hosts", "")
+scope := env_var_or_default("scope", "full")
+
+deploy_args := env_var_or_default("deploy_args", if hosts == "" { "" } else { hosts })
+deploy_scope_arg := env_var_or_default("deploy_scope_arg", if scope == "full" { "" } else { "--scope " + scope })
+limit_flag := env_var_or_default("limit_flag", if hosts == "" { "" } else { "-l " + hosts })
 
 mac_site := "ansible/playbooks/control_node/site.yml"
 venv := ".venv-test"
