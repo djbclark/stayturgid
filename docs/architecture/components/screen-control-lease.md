@@ -226,7 +226,7 @@ both write the same directory and refuse foreign active leases.
 ## Related
 
 - [docs/architecture/components/control.md](control.md) — Mac tools
-- [control/lib/screen_control.py](../../control/lib/screen_control.py) — session wrapper
+- [control/lib/screen_control.py](../../../control/lib/screen_control.py) — session wrapper
 - Handoff phone protocol: USING / FREE announcements
 
 ## Consent / presence vs lease (related)

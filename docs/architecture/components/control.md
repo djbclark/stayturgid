@@ -17,7 +17,7 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 | `dashboard.py`                                           | Flask + HTMX fleet dashboard; human-action cards include the H8 Shizuku open/test action                                          |
 | `check_et_mac.py` / `ensure_et_mac.py`                   | Phone→Mac ET authorized_keys + health/probe                                                                                       |
 | `gui_audit.py`                                           | Neo/Aurora GUI audit — **parked**; manual only (`docs/architecture/components/fdroid.md`, `docs/architecture/components/play.md`) |
-| `verify_play_autoupdate.py`                              | Play Store auto-update VLM gate (optional; see [docs/architecture/vlm.md](../architecture/vlm.md))                                |
+| `verify_play_autoupdate.py`                              | Play Store auto-update VLM gate (optional; see [docs/architecture/vlm.md](../vlm.md))                                             |
 | `verify_hd8_google.py` / `fix_hd8_google_stack.py`       | Fire HD Play/GMS stack verify + optional reinstall                                                                                |
 | `vlm_check.py`                                           | Local UI-TARS client smoke test (`just vlm-check`)                                                                                |
 | `vlm_upstream_check.py`                                  | Weekly RQS VLM.md best-practice sync check                                                                                        |
@@ -182,12 +182,12 @@ Any health fix must also update self-heal (Termux / AutoJs6 co-monitor / this
 monitor’s `maybe_heal_watchdog`) — see `.cursor/rules/fleet-health-self-heal.mdc`.
 
 UI automation playbook for other agents:
-[docs/research/mac-android-ui-automation.md](../research/mac-android-ui-automation.md).
+[docs/research/mac-android-ui-automation.md](../../research/mac-android-ui-automation.md).
 
-Other subprojects resolve adb targets via [control/lib/stayturgid_device.py](../../control/lib/stayturgid_device.py) or [control/lib/resolve_adb.py](../../control/lib/resolve_adb.py).
+Other subprojects resolve adb targets via [control/lib/stayturgid_device.py](../../../control/lib/stayturgid_device.py) or [control/lib/resolve_adb.py](../../../control/lib/resolve_adb.py).
 
 ## Related docs
 
 - [README.md § Full stack](../../README.md)
 - [docs/architecture/components/termux.md](termux.md) — device-side sshd (SSH probe in access_monitor)
-- [control/tools/autojs6/](../../control/tools/autojs6) — AutoJs6 deploy scripts
+- [control/tools/autojs6/](../../../control/tools/autojs6) — AutoJs6 deploy scripts

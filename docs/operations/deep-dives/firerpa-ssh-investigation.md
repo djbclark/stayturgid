@@ -110,8 +110,8 @@ ssh s24 'tail -n 100 ~/.stayturgid/logs/boot.log'
 ```
 
 For a deployment outside stayturgid, use the self-documenting
-[`examples/firerpa-nonroot/justfile`](../../examples/firerpa-nonroot/justfile) and
-[standalone guide](../../examples/firerpa-nonroot/README.md). They download and verify
+[`examples/firerpa-nonroot/justfile`](../../../examples/firerpa-nonroot/justfile) and
+[standalone guide](../../../control/lib/README.md). They download and verify
 upstream v10.0, generate a private certificate, install the Python client, build the
 hash-pinned accessibility patch, deploy over an arbitrary UID-2000 ADB target, and run
 the same signed-start/patched-swap lifecycle used by the fleet. The guide includes all

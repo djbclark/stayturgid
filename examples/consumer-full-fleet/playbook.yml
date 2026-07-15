@@ -4,4 +4,5 @@
 #
 #   export ANSIBLE_CONFIG=ansible.cfg
 #   ansible-playbook playbook.yml [--limit s24]
-- import_playbook: "{{ stayturgid_repo_root | default(playbook_dir ~ '/../..') }}/ansible/playbooks/site.yml"
+- name: Import site playbook
+  import_playbook: "{{ stayturgid_repo_root | default(playbook_dir ~ '/../..') }}/ansible/playbooks/site.yml"

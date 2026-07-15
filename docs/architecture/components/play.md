@@ -50,11 +50,11 @@ python3 control/tools/play/gplaycli.py --help
 ## Fire HD 8 caveat
 
 Sideloaded Google Play on Fire OS can auto-update GMS past compatible builds.
-See [docs/research/fire-os-google-play.md](../research/fire-os-google-play.md) and
+See [docs/research/fire-os-google-play.md](../../research/fire-os-google-play.md) and
 just fix-hd8-google / just verify-hd8-google.
 
 ## Related
 
-- [ansible_collections/modules/play_apps.md](../ansible/collections/modules/play_apps.md)
+- [ansible_collections/modules/play_apps.md](../../ansible/collections/modules/play_apps.md)
 - [fdroid.md](fdroid.md) — F-Droid / Neo (parked)
 - [obtainium.md](obtainium.md) — default update path

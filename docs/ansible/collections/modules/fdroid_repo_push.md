@@ -12,7 +12,7 @@ Push F-Droid repository URLs to on-device clients via `fdroidrepos://` intents.
 4. Tries each installed client until one succeeds.
 5. Optionally runs `fdroidcl update` to sync the control-node index with the device.
 
-If all intents fail, see [human/HANDOFF-HUMAN.md](../../../human/HANDOFF-HUMAN.md) §4.2
+If all intents fail, see [human/HANDOFF-HUMAN.md](../../../../human/HANDOFF-HUMAN.md) §4.2
 for operator troubleshooting (content-provider / DB import is not automated).
 
 ## Parameters

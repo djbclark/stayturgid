@@ -62,7 +62,7 @@ Open **Termux:Boot** once after install. `start-adb.sh` runs repair every 5 min;
 
 **Repo version check:** `stayturgid_check_repo_version.py` runs at most once per day from the boot loop (notify only; deploy from Mac).
 
-**Callers:** [AutoJs6](autojs6.md) (`RUN_COMMAND` → `stayturgid_repair.py`), [Ansible](../../ansible/README.md) over SSH.
+**Callers:** [AutoJs6](autojs6.md) (`RUN_COMMAND` → `stayturgid_repair.py`), [Ansible](../../../control/lib/README.md) over SSH.
 
 ## Deploy with Ansible (recommended)
 
@@ -133,7 +133,7 @@ ssh s24 '~/.stayturgid/bin/stayturgid_agent_presence.py status'
 
 ## Related docs
 
-- [docs/hacking.md §1.4](../hacking.md) — manual Termux setup
-- [docs/handoff.md](../handoff.md) — repair architecture
-- [docs/research/experiments/on-device-llm.md](../research/experiments/on-device-llm.md) — optional shell-gpt escalation (not hot-path)
+- [docs/hacking.md §1.4](../../hacking.md) — manual Termux setup
+- [docs/handoff.md](../../handoff.md) — repair architecture
+- [docs/research/experiments/on-device-llm.md](../../research/experiments/on-device-llm.md) — optional shell-gpt escalation (not hot-path)
 - [docs/architecture/components/autojs6.md](autojs6.md) — watchdog layer

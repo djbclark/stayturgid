@@ -134,6 +134,16 @@ lychee:
       echo "lychee not installed (brew install lychee) — skipped"; \
     fi
 
+# lychee-docs — check markdown links offline.
+lychee-docs:
+    @if command -v lychee >/dev/null; then \
+      echo "### lychee-docs"; \
+      lychee --offline "docs/**/*.md" "README.md" "AGENTS.md"; \
+    else \
+      echo "lychee not installed (brew install lychee) — skipped"; \
+    fi
+
+
 # Web health: validates rendered HTML and checks links on the running dashboard.
 web-health:
     @echo "### web-health"
@@ -283,20 +293,24 @@ lint:
     else
       echo "stylelint not available (bun install) — skipped"
     fi
+    if command -v lychee >/dev/null; then
+      echo "### lychee-docs"
+      lychee --offline "docs/**/*.md" "README.md" "AGENTS.md" || rc=1
+    else
+      echo "lychee not installed (brew install lychee) — skipped"
+    fi
     if [ -n "${STAYTURGID_LINT_OFFLINE:-}" ]; then
-      echo "lychee — SKIP (offline mode)"
+      echo "lychee (dashboard) — SKIP (offline mode)"
     elif command -v lychee >/dev/null; then
-      echo "### lychee"
+      echo "### lychee (dashboard)"
       if curl -sf http://127.0.0.1:4097/ >/dev/null 2>&1; then
         lychee --accept 100..=103,200..=299,500 http://127.0.0.1:4097/ http://127.0.0.1:4097/errors 2>&1 || rc=1
         if curl -sf http://127.0.0.1:4097/stats >/dev/null 2>&1; then
           lychee --accept 100..=103,200..=299,500 http://127.0.0.1:4097/stats 2>&1 || rc=1
         fi
       else
-        echo "lychee — SKIP (dashboard not running on :4097)"
+        echo "lychee (dashboard) — SKIP (dashboard not running on :4097)"
       fi
-    else
-      echo "lychee not installed (brew install lychee) — skipped"
     fi
     if [ -z "${STAYTURGID_LINT_OFFLINE:-}" ] && [ -d node_modules ]; then
       echo "### pa11y"

@@ -3,7 +3,7 @@
 **Created:** 2026-07-13
 
 **Status:** Accepted execution order; open work remains tracked in
-[`docs/options.md`](../options.md).
+[`docs/options.md`](../../options.md).
 
 **Audience:** Maintainers and junior implementation agents resuming work on
 Stayturgid.

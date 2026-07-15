@@ -3,7 +3,7 @@
 **Created:** 2026-07-13
 
 **Status:** Direction accepted; implementation deferred and tracked as
-[OPTIONS T1](../options.md)
+[OPTIONS T1](../../options.md)
 
 **Decision:** Make `just` the primary operator command interface, retain a small
 GNU Make compatibility shim during a soak period, and keep substantive logic in
@@ -36,7 +36,7 @@ Measured on 2026-07-13:
 - `.venv-test/bin/pytest` is the only significant file-producing target. There is
   no compilation graph, pattern-rule system, or use of Make automatic variables
   that would be expensive to replace.
-- [`examples/firerpa-nonroot/justfile`](../../examples/firerpa-nonroot/justfile)
+- [`examples/firerpa-nonroot/justfile`](../../../examples/firerpa-nonroot/justfile)
   is a successful bounded trial: configuration, dependencies, idempotent setup,
   validation, formatting checks, and live read-only S24 operations have all been
   exercised.
@@ -67,7 +67,7 @@ The strong project rule to prefer Python still applies:
 - Multi-step control flow, parsing, error classification, retries, and device
   decisions belong in Python.
 - Desired-state work continues to belong in Ansible where it crosses the boundary
-  described by [ADR 001](../architecture/adr/001-ansible-boundary.md).
+  described by [ADR 001](../../architecture/adr/001-ansible-boundary.md).
 - Existing substantial shell bodies should be moved to Python when touched unless
   the shell is materially clearer and remains small.
 - Do not copy implementation logic into both Make and `just`; Make forwards only.
@@ -317,6 +317,5 @@ T1 is complete when:
 - [`just` recipe parameters and flags](https://just.systems/man/en/recipe-parameters.html)
 - [`just` imports](https://just.systems/man/en/imports.html)
 - [`just` formatting check](https://just.systems/man/en/formatting-and-dumping-justfiles.html)
-- [Standalone FIRERPA `justfile`](../../examples/firerpa-nonroot/justfile)
-- [GNU Make interface](../../Makefile)
-- [CI workflow](../../.github/workflows/test.yml)
+- [Standalone FIRERPA `justfile`](../../../examples/firerpa-nonroot/justfile)
+- [CI workflow](../../../.github/workflows/test.yml)

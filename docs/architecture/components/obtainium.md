@@ -40,6 +40,6 @@ python3 control/tools/obtainium/import_catalog.py s24
 
 ## Related
 
-- [docs/hacking.md](../hacking.md) — Obtainium setup notes
-- [ansible_collections/modules/obtainium_app.md](../ansible/collections/modules/obtainium_app.md)
+- [docs/hacking.md](../../hacking.md) — Obtainium setup notes
+- [ansible_collections/modules/obtainium_app.md](../../ansible/collections/modules/obtainium_app.md)
 - Parked app stores: [fdroid.md](fdroid.md), [play.md](play.md)

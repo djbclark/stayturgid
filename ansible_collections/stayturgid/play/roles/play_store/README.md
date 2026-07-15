@@ -16,4 +16,4 @@ just deploy HOSTS=s24     # full fleet (when app stores enabled)
 just deploy SCOPE=play HOSTS=s24
 ```
 
-See [docs/handoff.md](../../../../docs/handoff.md) for fleet status and [docs/architecture/components/play.md](../../../../docs/architecture/components/play.md).
+See [docs/handoff.md](../../../../../docs/handoff.md) for fleet status and [docs/architecture/components/play.md](../../../../../docs/architecture/components/play.md).

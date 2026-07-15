@@ -34,7 +34,7 @@ Target split: **~80% Ansible / ~20% scripts + on-device logic**.
 | Catastrophic Shizuku accessibility tap             | Only recovery when shell is gone                                                                                                                        |
 | Play silent install                                | No consumer API without MDM                                                                                                                             |
 | PIN unlock, Play Protect, DHCP LAN                 | Environmental                                                                                                                                           |
-| Optional LLM escalation (shell-gpt)                | Future — [docs/research/experiments/on-device-llm.md](../research/experiments/on-device-llm.md); never hot-path                                         |
+| Optional LLM escalation (shell-gpt)                | Future — [docs/research/experiments/on-device-llm.md](../../research/experiments/on-device-llm.md); never hot-path                                      |
 
 Post-UI scripts are invoked via `stayturgid.android_common.android_ui` and the
 `stayturgid.fleet.post_ui` role (`post-ui.yml`) — orchestration is Ansible;

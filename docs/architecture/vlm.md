@@ -10,7 +10,7 @@ and server logs live outside `~/.config/stayturgid/`. stayturgid fleet config an
 
 Mac install is **Ansible-managed** (`ansible/playbooks/control_node/vlm.yml` via `just vlm-*`).
 
-See [docs/hacking.md § 2.7](hacking.md#27-ui-tars-vision-gates-optional) for dev setup.
+See [docs/hacking.md § 2.7](../hacking.md#27-ui-tars-vision-gates-optional) for dev setup.
 
 ---
 
@@ -191,7 +191,7 @@ python3 control/bin/screen_lease.py status
 python3 control/bin/screen_lease.py check p7a
 ```
 
-See [docs/architecture/components/screen-control-lease.md](architecture/components/screen-control-lease.md).
+See [docs/architecture/components/screen-control-lease.md](components/screen-control-lease.md).
 
 ---
 

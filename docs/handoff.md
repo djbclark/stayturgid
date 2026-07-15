@@ -422,7 +422,7 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 - Portfolio 2 `site.yml` + thin `deploy_fleet.py`; ADR 001–002; `android_ui` + `post_ui` + `android_a11y_services`.
 - Mac soft health: launchd `com.stayturgid.fleet-health` → `control/bin/fleet_health_monitor.py` + `control/lib/fleet_health.py` (watchdog/repair/a11y/sshd/bootloop); log `~/.config/stayturgid/logs/fleet-health.log`; notify after debounce.
 - shell-gpt / local LLM (incubator): [docs/research/experiments/on-device-llm.md](research/experiments/on-device-llm.md) (OPTIONS **54** only if asked).
-- Parked side projects: [docs/research/experiments/](incubator) — Inferno/Styx **do not implement**.
+- Parked side projects: [docs/research/experiments/](research/experiments) — Inferno/Styx **do not implement**.
 
 **Recent landings (2026-07-08):**
 
@@ -841,7 +841,7 @@ valid for future investment:
 | **E — On-device LLM**       | shell-gpt escalation after deterministic heal; see [docs/research/experiments/on-device-llm.md](research/experiments/on-device-llm.md) | Rare adaptive repair; never hot-path |
 
 **Parked (not equal-weight):** Inferno/Styx and similar experiments live under
-[docs/research/experiments/](incubator) — agents must not work on them unless the
+[docs/research/experiments/](research/experiments) — agents must not work on them unless the
 operator unparks a named project.
 
 **No track fixes:** Play Protect, PIN unlock, DHCP LAN IP, Samsung Shizuku/content-URI

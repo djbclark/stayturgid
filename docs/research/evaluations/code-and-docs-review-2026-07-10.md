@@ -188,7 +188,7 @@ falls back to `agent-presence.sh`.
 - `ssh_marked_block` / `et_mac` keep peer-help ForceCommand lines outside fleet key blocks.
 - HD8 Google stack default no longer force-downgrades GMS/Play (`STAYTURGID_HD8_PIN_GMS` opt-in).
 - Dual-write of repair STATUS for Fire AutoJs6 co-monitor.
-- Clear `control/` vs `device/` vs `catalogs/` vs `ansible*` split ([architecture.md](../architecture/core-architecture.md)).
+- Clear `control/` vs `device/` vs `catalogs/` vs `ansible*` split ([architecture.md](../../architecture/core-architecture.md)).
 
 ### Suggested code fix order
 
@@ -294,11 +294,11 @@ New-feature coverage matrix:
 ## Documentation that is already in good shape
 
 - Root [README.md](../../README.md) module map + full-stack path
-- [architecture.md](../architecture/core-architecture.md) layout / deploy flow / soft health
-- [handoff.md](../handoff.md) agent session policy (modulo H2 contradictions)
-- [hacking.md](../hacking.md) clean install walkthrough (modulo link depth)
+- [architecture.md](../../architecture/core-architecture.md) layout / deploy flow / soft health
+- [handoff.md](../../handoff.md) agent session policy (modulo H2 contradictions)
+- [hacking.md](../../hacking.md) clean install walkthrough (modulo link depth)
 - Module docs: termux, autojs6, obtainium, fdroid/play parked, control (incl. Hermes/ET), screen-control-lease
-- [vlm.md](../architecture/vlm.md) local + cloud gates
+- [vlm.md](../../architecture/vlm.md) local + cloud gates
 - ADRs 001–002, incubator parking, `.cursor/rules/*.mdc`, `human/HANDOFF-HUMAN.md`
 
 ---

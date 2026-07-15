@@ -11,11 +11,11 @@ real hostnames, IPs, and operator paths into a separate GitHub project, and for
 platform-describing example hostnames in the main tree.
 
 The implementation-ready source-of-truth architecture and migration sequence are in
-[docs/research/site-identity-source-of-truth-2026-07-14.md](research/site-identity-source-of-truth-2026-07-14.md).
+[docs/research/site-identity-source-of-truth-2026-07-14.md](../research/site-identity-source-of-truth-2026-07-14.md).
 
-**Related docs:** [ansible_collections/adoption.md](ansible/collections/adoption.md),
-[examples/consumer-termux-only/](../examples/consumer-termux-only),
-[examples/consumer-full-fleet/](../examples/consumer-full-fleet).
+**Related docs:** [ansible_collections/adoption.md](../ansible/collections/adoption.md),
+[examples/consumer-termux-only/](../../examples/consumer-termux-only),
+[examples/consumer-full-fleet/](../../examples/consumer-full-fleet).
 
 ---
 
@@ -63,7 +63,7 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 ### 2.2 Each new Android device
 
 1. **Hardware / OS prep** — Termux debug build, Termux:Boot, Shizuku (thedjchi fork),
-   AutoJs6, Tailscale (recommended), wireless debugging — [docs/hacking.md](hacking.md) Part 1.
+   AutoJs6, Tailscale (recommended), wireless debugging — [docs/hacking.md](../hacking.md) Part 1.
 2. **Add host** to your site repo’s `inventory/hosts.yml` + taxonomy groups.
 3. **First SSH** (USB or wireless adb required once):
    ```bash
@@ -79,12 +79,12 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 
 ### 2.3 Optional (reference site only)
 
-| Item                                       | When needed                                                                     |
-| ------------------------------------------ | ------------------------------------------------------------------------------- |
-| Handsets `~/.handsets/{hs,hs.jar}`         | Mac Handsets post-UI, Fire peer bootstrap                                       |
-| `just vlm-install` + `vlm-service-install` | Screenshot verification gates ([docs/architecture/vlm.md](architecture/vlm.md)) |
-| `play.env` + `obtain_play_aas.py`          | Google Play / Aurora downloads                                                  |
-| `uv tool install uiautomator2`             | Mac debug (Ansible installs on `deploy-mac`)                                    |
+| Item                                       | When needed                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------ |
+| Handsets `~/.handsets/{hs,hs.jar}`         | Mac Handsets post-UI, Fire peer bootstrap                          |
+| `just vlm-install` + `vlm-service-install` | Screenshot verification gates ([docs/architecture/vlm.md](vlm.md)) |
+| `play.env` + `obtain_play_aas.py`          | Google Play / Aurora downloads                                     |
+| `uv tool install uiautomator2`             | Mac debug (Ansible installs on `deploy-mac`)                       |
 
 ---
 
@@ -406,7 +406,7 @@ flowchart TB
 
 1. **Operator → device:** Every `*.pub` under `stayturgid_ssh_keys_dir` (default
    `~/.ssh`) installed on every device
-   ([ssh_keys.yml](../ansible/collections/stayturgid/termux/roles/termux_userland/tasks/ssh_keys.yml)).
+   ([ssh_keys.yml](../../ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ssh_keys.yml)).
 2. **Device → device:** Per-host `id_ed25519_fleet` pubkey installed on all peers in
    `groups[stayturgid_ssh_mesh_group]` (default `stayturgid`).
 3. **Private keys on devices:** All control-node private keys (`id_*`, `termux_key`)

@@ -2,9 +2,9 @@
 
 **Created:** 2026-07-10
 **Status:** Core integration COMPLETE (2026-07-12). Steps 1–5 + 9 (partial) shipped.
-Steps 6–8 are open as Track F items (F1–F3) in [../options.md](../options.md).
+Steps 6–8 are open as Track F items (F1–F3) in [../options.md](../../options.md).
 **Author:** Hermes (AI) + Dan + DeepSeek V4 Pro (implementation)
-**Prerequisite analysis:** [firerpa-lamda-analysis-2026-07-10.md](../research/evaluations/firerpa-lamda-analysis-2026-07-10.md)
+**Prerequisite analysis:** [firerpa-lamda-analysis-2026-07-10.md](../../research/evaluations/firerpa-lamda-analysis-2026-07-10.md)
 **Fork (stayturgid):** [djbclark/lamda](https://github.com/djbclark/lamda) — all binaries (APK + server tarballs) in one GitHub-hosted [release](https://github.com/djbclark/lamda/releases/tag/v10.0-binaries)
 
 **Completion note (2026-07-13):** Secure SSH/gRPC and accessibility coexistence are

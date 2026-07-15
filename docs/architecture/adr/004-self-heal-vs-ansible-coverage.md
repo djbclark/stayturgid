@@ -186,7 +186,7 @@ To enforce this, the reviewer checklist (`.cursor/rules/` or handoff doc) should
 ## 9. Follow-up research (2026-07-14)
 
 The narrower, additive design in
-[Research: adding `ansible-pull` to stayturgid](../research/ansible-pull-architecture-2026-07-14.md)
+[Research: adding `ansible-pull` to stayturgid](../../research/ansible-pull-architecture-2026-07-14.md)
 does not propose replacing the repair loop or running the existing fleet playbook on a
 device. It proposes an opt-in S24 pilot for one pull-safe, non-secret local-policy
 subset, with push Ansible retained for bootstrap and recovery. ADR 004 remains the

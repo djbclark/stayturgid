@@ -22,7 +22,7 @@
 > Ansible boundary: [docs/architecture/adr/001-ansible-boundary.md](architecture/adr/001-ansible-boundary.md),
 > [docs/architecture/adr/002-ansible-ui-tasks.md](architecture/adr/002-ansible-ui-tasks.md).
 > Self-heal vs Ansible coverage: [docs/architecture/adr/004-self-heal-vs-ansible-coverage.md](architecture/adr/004-self-heal-vs-ansible-coverage.md).
-> Parked side projects: [docs/research/experiments/](incubator) — **do not implement**
+> Parked side projects: [docs/research/experiments/](research/experiments) — **do not implement**
 > unless the operator unparks a named project (Inferno, etc.).
 
 **Fleet snapshot (2026-07-13):** Shell → Python migration complete and deployed to

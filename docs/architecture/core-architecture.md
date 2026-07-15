@@ -99,6 +99,6 @@ Scripts find the repo root via `control/lib/stayturgid_root.py` (markers:
 ## Related docs
 
 - [README.md](../README.md) — quick layout + getting started
-- [handoff.md](handoff.md) — operator / agent session context
-- [hacking.md](hacking.md) — device setup walkthrough
-- [options.md](options.md) — open work (OPTIONS 62 shim cleanup closed when landed)
+- [handoff.md](../handoff.md) — operator / agent session context
+- [hacking.md](../hacking.md) — device setup walkthrough
+- [options.md](../options.md) — open work (OPTIONS 62 shim cleanup closed when landed)

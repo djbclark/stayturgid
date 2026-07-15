@@ -33,4 +33,4 @@ p7a 35261JEHN12374 100.65.230.108 192.168.68.65
 
 Override path with env `STAYTURGID_DEVICES_CONF`.
 
-See [docs/adoption.md](../docs/adoption.md) for install and consumption patterns.
+See [docs/adoption.md](../../../../../../../docs/ansible/collections/adoption.md) for install and consumption patterns.
