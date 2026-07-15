@@ -116,7 +116,7 @@ Or F-Droid: search "Termux:API".
 
 #### AutoJs6 (stayturgid watchdog)
 
-JavaScript automation engine — runs the stayturgid watchdog (accessibility UI repair + Termux bridge). See [docs/modules/autojs6.md](modules/autojs6.md).
+JavaScript automation engine — runs the stayturgid watchdog (accessibility UI repair + Termux bridge). See [docs/architecture/components/autojs6.md](architecture/components/autojs6.md).
 
 **Source:** https://github.com/djbclark/AutoJs6/releases (fleet-profile-553 build with non-UI configuration)
 
@@ -272,7 +272,7 @@ All of this is scripted from the Mac (device connected via USB or wireless ADB):
 
 On-device setup is automated: `enable_autojs6_shizuku.py` enables the accessibility service and Shizuku drawer; `setup_autojs6.py` / fleet harden grant storage, `RUN_COMMAND`, and battery settings. Termux `allow-external-apps=true` is set by the Ansible deploy (or manually in `~/.termux/termux.properties`).
 
-See [docs/modules/autojs6.md](modules/autojs6.md) for details.
+See [docs/architecture/components/autojs6.md](architecture/components/autojs6.md) for details.
 
 ---
 
@@ -472,7 +472,7 @@ launchctl kickstart -k "gui/$(id -u)/homebrew.mxcl.ui-tars"
 just vlm-service-stop
 ```
 
-Full reference: [docs/vlm.md](vlm.md). Example gate: `just verify-hd8-google HOSTS=hd8`.
+Full reference: [docs/architecture/vlm.md](architecture/vlm.md). Example gate: `just verify-hd8-google HOSTS=hd8`.
 
 ---
 
@@ -508,7 +508,7 @@ ssh -i ~/.ssh/termux_key -p 8022 localhost
 
 Maintainers and AI agents must first read [the coding rules](coding-rules.md),
 [the handoff](handoff.md), [the open-work menu](options.md), and the
-[ordered outstanding-fix plan](plans/outstanding-fix-priorities-2026-07-13.md).
+[ordered outstanding-fix plan](operations/plans/outstanding-fix-priorities-2026-07-13.md).
 That plan contains the current execution order, acceptance gates, rollback rules,
 and a copy-paste junior-agent prompt. Reliability work takes precedence over optional
 Galaxy, LLM, FIRERPA MCP/WebRTC/MITM, and task-runner enhancements.
@@ -852,7 +852,7 @@ ANDROID_SERIAL="$(resolve_adb s24)" fdroidcl install com.example.app
 
 **Historical E2E (2026-07-07, pre-park):** fdroidcl install smoke test on s24/p7a/hd8; uninstalled after verify.
 
-See [modules/fdroid.md](modules/fdroid.md), [modules/obtainium.md](modules/obtainium.md), [modules/play.md](modules/play.md).
+See [modules/fdroid.md](architecture/components/fdroid.md), [modules/obtainium.md](architecture/components/obtainium.md), [modules/play.md](architecture/components/play.md).
 
 ---
 
@@ -876,15 +876,15 @@ ansible/playbooks/site.yml              — full fleet (preflight → … → va
 docs/hacking.md                         — this file
 docs/handoff.md                         — AI session handoff prompt
 docs/options.md                         — live open-work menu
-docs/plans/                             — accepted execution and migration plans
+docs/operations/plans/                             — accepted execution and migration plans
 README.md                               — user-facing setup guide
 ```
 
 ## Current maintenance plans (2026-07-13)
 
-- [Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md) —
+- [Outstanding Fix Priorities](operations/plans/outstanding-fix-priorities-2026-07-13.md) —
   current ordered work, safety/completion gates, and junior-agent resume prompt.
-- [GNU Make to `just` Migration Plan](plans/just-migration-plan.md) — staged tooling
+- [GNU Make to `just` Migration Plan](operations/plans/just-migration-plan.md) — staged tooling
   work after the reliability priorities are stable.
 
 Live completion/blocker status remains in [docs/options.md](options.md). Update it
@@ -909,7 +909,7 @@ just firerpa-health
 just firerpa-heal --host s24
 ```
 
-See [docs/history/firerpa-install-map-2026-07-12.md](history/firerpa-install-map-2026-07-12.md) for full details.
+See [docs/research/evaluations/firerpa-install-map-2026-07-12.md](research/evaluations/firerpa-install-map-2026-07-12.md) for full details.
 
 **SSH Certificate Authority:** No more host-key warnings.
 

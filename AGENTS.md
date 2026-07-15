@@ -89,9 +89,9 @@ just health && just firerpa-health
 
 Full details: `docs/handoff.md` (cold-start, architecture, known issues)
 Coding and completion rules: `docs/coding-rules.md`
-Ordered current work: `docs/plans/outstanding-fix-priorities-2026-07-13.md`
+Ordered current work: `docs/operations/plans/outstanding-fix-priorities-2026-07-13.md`
 Open item status: `docs/options.md`
-Session history: `docs/history/session-*.md`
+Session history: `docs/operations/sessions/session-*.md`
 
 ## Multi-Agent Protocol
 

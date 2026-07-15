@@ -57,4 +57,4 @@ ANDROID_SERIAL="$(./control/lib/resolve_adb.py s24)" fdroidcl install com.exampl
 | `stayturgid_root.py`                               | Repo-root discovery                                           |
 | `*.json` profiles                                  | a11y / fleet app / AutoJs6 drawer defaults                    |
 
-See [docs/modules/control.md](../../docs/modules/control.md), [docs/vlm.md](../../docs/vlm.md), and [docs/modules/screen-control-lease.md](../../docs/modules/screen-control-lease.md).
+See [docs/architecture/components/control.md](../../docs/architecture/components/control.md), [docs/architecture/vlm.md](../../docs/architecture/vlm.md), and [docs/architecture/components/screen-control-lease.md](../../docs/architecture/components/screen-control-lease.md).

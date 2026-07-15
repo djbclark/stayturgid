@@ -52,8 +52,8 @@ explicit small class of bootstrap-safe constants.
 
 Read these completely before implementation:
 
-- [Architecture](../architecture.md), [other-site design](../other-sites.md), and
-  [ADR 001](../adr/001-ansible-boundary.md)
+- [Architecture](../architecture/core-architecture.md), [other-site design](../architecture/multi-site-topology.md), and
+  [ADR 001](../architecture/adr/001-ansible-boundary.md)
 - [Live inventory](../../ansible/inventory/hosts.yml),
   [example inventory](../../ansible/inventory/hosts.yml.example), and all files under
   `ansible/inventory/group_vars/`
@@ -71,7 +71,7 @@ GitHub equivalents:
 - <https://github.com/djbclark/stayturgid/tree/master/ansible/roles/control_node>
 - <https://github.com/djbclark/stayturgid/blob/master/control/lib/stayturgid_device.py>
 - <https://github.com/djbclark/stayturgid/blob/master/secretspec.toml>
-- <https://github.com/djbclark/stayturgid/blob/master/docs/other-sites.md>
+- <https://github.com/djbclark/stayturgid/blob/master/docs/architecture/multi-site-topology.md>
 
 What already works:
 
@@ -82,7 +82,7 @@ What already works:
 - Most Python control programs consume `devices.conf` through shared helpers rather than
   embedding their own fleet list.
 - `secretspec.toml` declares the project's secret names and intended uses.
-- `hosts.yml.example` and `docs/other-sites.md` already define a future generic-upstream
+- `hosts.yml.example` and `docs/architecture/multi-site-topology.md` already define a future generic-upstream
   plus private-site-overlay shape.
 
 Representative remaining gaps:
@@ -178,7 +178,7 @@ ansible/inventory/host_vars/<host>.yml       # only when a real host exception e
 ```
 
 Eventually, move the production version of that inventory tree to the private site
-overlay proposed in [Running stayturgid at another site](../other-sites.md). The public
+overlay proposed in [Running stayturgid at another site](../architecture/multi-site-topology.md). The public
 upstream should retain only generic examples and product taxonomy. This future move does
 not change the schema or generation architecture.
 
@@ -480,7 +480,7 @@ generated change against a device.
 
 1. Replace live identity tables in current generic docs with inventory lookup commands
    or links. Keep concise operational examples that use aliases.
-2. Leave `docs/history/` and truly historical incident evidence intact and allowlisted.
+2. Leave `docs/research/evaluations/` and truly historical incident evidence intact and allowlisted.
 3. Update `AGENTS.md`, `README.md`, `docs/hacking.md`, `docs/handoff.md`, and module docs
    to identify the authority and regeneration command.
 4. Enable the identity-literal scanner as a hard CI failure after the active backlog is
@@ -511,7 +511,7 @@ the actual consumer without exposing the value.
 ### Phase 5 — private site overlay
 
 After the main tree has no active production identity literals, perform the split already
-designed in `docs/other-sites.md`:
+designed in `docs/architecture/multi-site-topology.md`:
 
 1. create the private site repository with the canonical inventory tree and site-only
    operational notes;

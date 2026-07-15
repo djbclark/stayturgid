@@ -2,7 +2,7 @@
 
 > **Purpose:** This file is a prompt for an AI agent taking over development. Read it fully before doing anything else. It describes what the project does, the current state, the environment, the tooling rules, and what's next.
 >
-> **Modular docs:** each subfolder is usable on its own. Human index: [docs/README.md](README.md) · [README.md](../README.md). Full clean-install setup + device gotchas: [docs/hacking.md](hacking.md). **Operator tasks (credentials, deploy approval):** [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md). **Open work menu:** [docs/options.md](options.md) (single list — replace + push when items close). **Current execution order and junior-agent prompt:** [Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md). **Layout reference:** [docs/architecture.md](architecture.md). Git history has the detailed narrative of every change; this file is the condensed durable record.
+> **Modular docs:** each subfolder is usable on its own. Human index: [docs/README.md](README.md) · [README.md](../README.md). Full clean-install setup + device gotchas: [docs/hacking.md](hacking.md). **Operator tasks (credentials, deploy approval):** [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md). **Open work menu:** [docs/options.md](options.md) (single list — replace + push when items close). **Current execution order and junior-agent prompt:** [Outstanding Fix Priorities](operations/plans/outstanding-fix-priorities-2026-07-13.md). **Layout reference:** [docs/architecture/core-architecture.md](architecture/core-architecture.md). Git history has the detailed narrative of every change; this file is the condensed durable record.
 >
 > **Agent rules (always read on handoff):** root [`AGENTS.md`](../AGENTS.md),
 > [coding-rules.md](coding-rules.md), and [`.cursor/rules/`](../.cursor/rules/).
@@ -70,7 +70,7 @@ when AutoJs6 stalls or a11y drifts — the Mac log is the signal.
 
 ```bash
 just health
-python3 control/bin/screen_lease.py status   # cross-project glass holds (esp. p7a); see docs/modules/screen-control-lease.md
+python3 control/bin/screen_lease.py status   # cross-project glass holds (esp. p7a); see docs/architecture/components/screen-control-lease.md
 # Optional when touching VLM: just vlm-upstream-check  # RQS VLM.md best practices
 # Optional when touching phone→Mac et: just check-et-mac
 ```
@@ -178,7 +178,7 @@ python3 control/bin/screen_lease.py status
 ```
 
 Then read [coding-rules.md](coding-rules.md), [docs/options.md](options.md), and the
-[ordered outstanding-fix plan](plans/outstanding-fix-priorities-2026-07-13.md)
+[ordered outstanding-fix plan](operations/plans/outstanding-fix-priorities-2026-07-13.md)
 before selecting work. Its priority order is authoritative for reliability work;
 hardware- or human-blocked items remain open while the next independent safe item
 may proceed. A copy-paste prompt for a junior implementation agent is included at the
@@ -194,7 +194,7 @@ end of that plan.
 
 **Current fix order:** H1/H3 HD8 maintenance decision → H9 foreground-screen cleanup →
 B63/B64 recovery tests → F4 FIRERPA network audit/isolation → T1 `just` migration. See
-[the execution plan](plans/outstanding-fix-priorities-2026-07-13.md) for gates and
+[the execution plan](operations/plans/outstanding-fix-priorities-2026-07-13.md) for gates and
 rollback rules.
 
 **Last verified 2026-07-13:** `just check` and `just test` passed (296 pytest tests,
@@ -251,8 +251,8 @@ All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/
 - Accessibility coexistence: hash-guarded DEX patch changes FIRERPA's
   `getUiAutomation(0)` to `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`; lifecycle starts
   the signed JAR for integrity validation, swaps the patch, and restarts only UI helpers
-- 4 research docs: `docs/history/firerpa-*-deepseek-pro-2026-07-12.md`
-- Install map: `docs/history/firerpa-install-map-2026-07-12.md`
+- 4 research docs: `docs/research/evaluations/firerpa-*-deepseek-pro-2026-07-12.md`
+- Install map: `docs/research/evaluations/firerpa-install-map-2026-07-12.md`
 - Upstream issue resolved: [firerpa/lamda#145](https://github.com/firerpa/lamda/issues/145) — inbound SSH works as `shell` with the service certificate
 - Secure aliases: `ssh s24-firerpa` / `ssh p7a-firerpa`; gRPC and SSH use `~/.config/stayturgid/firerpa.pem`
 - Known limitations: a UID-2000 bridge must exist to start FIRERPA after reboot, built-in ADB needs root, hd8 is USB-only
@@ -269,7 +269,7 @@ All three apps track `djbclark/<repo>` forks via Obtainium catalog at `catalogs/
 - Minimal standalone mode (per evaluation doc's recommendation), not a full policy-server deploy
 - s24 + p7a pass all 7 checks; hd8 passes 4/7 (no Shizuku, no AutoJs6 a11y, no localhost:5555 on Fire OS)
 - Ansible deploys `os-release` for CFEngine platform detection (`termux_userland` role)
-- Evaluation: `docs/history/cfengine-evaluation-2026-07-12.md`
+- Evaluation: `docs/research/evaluations/cfengine-evaluation-2026-07-12.md`
 
 **Ansible-based verification + drift detection (deployed 2026-07-12):**
 
@@ -369,7 +369,7 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 - **Shizuku**: `findOne`/`tapStartButton` replaced by `HEADLESS_START` broadcast
 - **Obtainium import**: `ui_driver` + `ScreenControlSession` replaced by `obtainium://apps?confirm=true&headless=true` deep-link
 - **Obtainium updates**: replaced with `obtainium://update/all?autoInstall=true&headless=true`
-- **Obtainium Shizuku installer**: attempted via `FleetProfileActivity` intent (`installMethod: shizuku`) — **unresolved** (app still shows "System"); see `docs/handoff-obtainium-shizuku.md` for full debugging history
+- **Obtainium Shizuku installer**: attempted via `FleetProfileActivity` intent (`installMethod: shizuku`) — **unresolved** (app still shows "System"); see `docs/operations/deep-dives/obtainium-shizuku-handoff.md` for full debugging history
 - `stayturgid_import_catalog.py` (389 lines) deleted
 - `enableWirelessDebuggingUi` Samsung fallback deleted
 
@@ -395,7 +395,7 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 
 **Samsung process freezer**: On s24, Samsung freezes the Shizuku Java process so `HEADLESS_STATUS` returns `result=0` even when `shizuku_server` is running. Fallback to `pgrep -f shizuku_server` is in place. After the first manual "Start" tap from the Shizuku app, HEADLESS_START works.
 
-**Obtainium FleetProfileActivity**: Must use `getSharedPreferences("FlutterSharedPreferences", ...)` (the `flutter.` prefixed keys). DataStore DOES NOT work — the app's `SettingsProvider` uses legacy `SharedPreferences`, not `SharedPreferencesAsync`. See docs/handoff-obtainium-shizuku.md for full debugging history.
+**Obtainium FleetProfileActivity**: Must use `getSharedPreferences("FlutterSharedPreferences", ...)` (the `flutter.` prefixed keys). DataStore DOES NOT work — the app's `SettingsProvider` uses legacy `SharedPreferences`, not `SharedPreferencesAsync`. See docs/operations/deep-dives/obtainium-shizuku-handoff.md for full debugging history.
 
 **Fire OS (hd8)**: Fire OS blocks background broadcasts. Shizuku must be started via peer bootstrap (`fire_peer_help.py`) or USB-tap, not HEADLESS_START.
 
@@ -421,8 +421,8 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 - On-device deterministic GUI: `device/termux/py/stayturgid_{import_catalog,enable_autojs6,screen_control,shell,grant_shizuku}.py` + `~/.stayturgid/lib/`.
 - Portfolio 2 `site.yml` + thin `deploy_fleet.py`; ADR 001–002; `android_ui` + `post_ui` + `android_a11y_services`.
 - Mac soft health: launchd `com.stayturgid.fleet-health` → `control/bin/fleet_health_monitor.py` + `control/lib/fleet_health.py` (watchdog/repair/a11y/sshd/bootloop); log `~/.config/stayturgid/logs/fleet-health.log`; notify after debounce.
-- shell-gpt / local LLM (incubator): [docs/incubator/on-device-llm.md](incubator/on-device-llm.md) (OPTIONS **54** only if asked).
-- Parked side projects: [docs/incubator/](incubator) — Inferno/Styx **do not implement**.
+- shell-gpt / local LLM (incubator): [docs/research/experiments/on-device-llm.md](research/experiments/on-device-llm.md) (OPTIONS **54** only if asked).
+- Parked side projects: [docs/research/experiments/](incubator) — Inferno/Styx **do not implement**.
 
 **Recent landings (2026-07-08):**
 
@@ -447,13 +447,13 @@ shizuku_server` alongside port 5555 `ss` check (port alone is not sufficient).
 - Split storage — Termux under `~/.stayturgid/shared`; AutoJs6 under `/sdcard/stayturgid/`.
 - No Termux→localhost:5555 loopback — verify item 4 is an expected informational note, not a failure. Post-UI stays on Mac adb (USB or wireless).
 - Mac adb: Tailscale or USB `GN43T503430603PS`; wireless failover works after one USB bootstrap.
-- **Sideloaded Google Play:** Play Store can auto-update GMS past Fire-compatible builds → GSF/GMS crash loop. Pin via `just fix-hd8-google`; disable Play Store auto-updates. **VLM close-out** (when `just vlm-server` running): `just verify-hd8-google` or auto after `fix-hd8-google`. See [docs/research/fire-os-google-play.md](research/fire-os-google-play.md) and [docs/vlm.md](vlm.md).
+- **Sideloaded Google Play:** Play Store can auto-update GMS past Fire-compatible builds → GSF/GMS crash loop. Pin via `just fix-hd8-google`; disable Play Store auto-updates. **VLM close-out** (when `just vlm-server` running): `just verify-hd8-google` or auto after `fix-hd8-google`. See [docs/research/fire-os-google-play.md](research/fire-os-google-play.md) and [docs/architecture/vlm.md](architecture/vlm.md).
 
 **Next work:** follow
-[Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md), with
+[Outstanding Fix Priorities](operations/plans/outstanding-fix-priorities-2026-07-13.md), with
 live status in [options.md](options.md). Start with the first incomplete priority.
 The dashboard-framework research prompt is at
-[docs/prompts/dashboard-framework-research.md](prompts/dashboard-framework-research.md).
+[docs/research/prompts/dashboard-framework-research.md](research/prompts/dashboard-framework-research.md).
 Galaxy publishing, LLM, FIRERPA MCP/WebRTC/MITM, Tasker, or `sshd -D` work should
 not displace the ordered fixes.
 If validating bootstrap flow: `just --set hosts s24 verify-bootstrap-apks` →
@@ -677,7 +677,7 @@ Verify: `adb shell settings get secure enabled_accessibility_services | tr ':' '
 ## Key files
 
 ```
-control/                     — Mac control node (see docs/architecture.md)
+control/                     — Mac control node (see docs/architecture/core-architecture.md)
   bin/                       — deploy_fleet.py, check_fleet_health.py, monitors, a11y_services.py
   lib/                       — stayturgid_device.py, adb_cli.py, screen_control.py, fleet_health.py
   tools/{autojs6,obtainium,play,fdroid}/  — Mac deploy helpers (Ansible + operator)
@@ -755,7 +755,7 @@ version.json                 — repo release version + changelog
   in `control/templates/_device_card.html`. Flask is an optional runtime dependency,
   so dashboard tests are skipped when it is not installed in the host test Python.
 - **Post-reorg path drift (2026-07-10):** treat any `mac/`, `shared/`, root `termux/`,
-  `autojs6/`, `obtainium/` reference as a bug unless it is historical (`docs/history/`),
+  `autojs6/`, `obtainium/` reference as a bug unless it is historical (`docs/research/evaluations/`),
   OPTIONS **62**, or an on-device path (`/sdcard/stayturgid/autojs6`). External
   consumers (LaunchAgents, RevengeQuickSwitcher, operator scripts outside repo) may
   still point at old paths — grep before deploy.
@@ -832,22 +832,22 @@ The fleet runs on **Ansible-first deploy** (`just deploy` → `site.yml`) with t
 Mac wrappers for health, ADB reconnect, and screen-control UI. Directions still
 valid for future investment:
 
-| Track                       | Summary                                                                                                          | Best when…                           |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| **A — Operational**         | Deploy soak, human unblockers (H5, 38)                                                                           | Fleet drift or Galaxy publish wanted |
-| **B — Ansible-native**      | ✅ Shipped — optional Galaxy publish (38) only                                                                   | —                                    |
-| **C — Hybrid polish**       | Incremental module/role fixes without re-architecting                                                            | Lowest risk tweaks to existing graph |
-| **D — Python orchestrator** | Replace Ansible boundary with Fabric/Invoke                                                                      | Unlikely — YAML graph is working     |
-| **E — On-device LLM**       | shell-gpt escalation after deterministic heal; see [docs/incubator/on-device-llm.md](incubator/on-device-llm.md) | Rare adaptive repair; never hot-path |
+| Track                       | Summary                                                                                                                                | Best when…                           |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| **A — Operational**         | Deploy soak, human unblockers (H5, 38)                                                                                                 | Fleet drift or Galaxy publish wanted |
+| **B — Ansible-native**      | ✅ Shipped — optional Galaxy publish (38) only                                                                                         | —                                    |
+| **C — Hybrid polish**       | Incremental module/role fixes without re-architecting                                                                                  | Lowest risk tweaks to existing graph |
+| **D — Python orchestrator** | Replace Ansible boundary with Fabric/Invoke                                                                                            | Unlikely — YAML graph is working     |
+| **E — On-device LLM**       | shell-gpt escalation after deterministic heal; see [docs/research/experiments/on-device-llm.md](research/experiments/on-device-llm.md) | Rare adaptive repair; never hot-path |
 
 **Parked (not equal-weight):** Inferno/Styx and similar experiments live under
-[docs/incubator/](incubator) — agents must not work on them unless the
+[docs/research/experiments/](incubator) — agents must not work on them unless the
 operator unparks a named project.
 
 **No track fixes:** Play Protect, PIN unlock, DHCP LAN IP, Samsung Shizuku/content-URI
 quirks. **MDM and root remain rejected** (daily-driver phones; locked S24 bootloader).
 **Inferno always-on / replacing AutoJs6 or SSH** is rejected for battery and
-catastrophic-heal reasons ([incubator analysis](incubator/inferno-styx/analysis.md)).
+catastrophic-heal reasons ([incubator analysis](research/experiments/inferno-styx/analysis.md)).
 
 ### Track B — Ansible-native (detailed)
 
@@ -881,7 +881,7 @@ first-run, AutoJs6 drawer — not fake “modules” for UI taps.
 **Shipped modules (fault-tolerance):** `termux_pkg`, `termux_ssh_bootstrap`,
 `termux_sshd`, `stayturgid_repair_check`, `obtainium_app`, `android_apk`,
 `android_app_privileges`, fdroid/play/android_common adb modules — see
-[std_modules_audit.md](ansible_collections/std_modules_audit.md).
+[std_modules_audit.md](ansible/collections/std_modules_audit.md).
 
 **Prior art:** [termux-jenkins-automation](https://github.com/gounthar/termux-jenkins-automation),
 [ansible-android-termux](https://github.com/guoqiao/ansible-android-termux),
@@ -904,8 +904,8 @@ run `ansible/playbooks/site.yml` (post-UI via `fleet/post-ui.yml`).
 **Partial re-runs:** `./control/bin/deploy_fleet.py --scope fdroid [host]` · `./control/bin/deploy_fleet.py --scope play [host]` (parked until `stayturgid_app_stores_enabled: true`)
 
 **App stores (parked):** Neo/Aurora may remain on devices; fleet no longer installs,
-configures, or health-checks them. Re-enable: [docs/modules/fdroid.md](modules/fdroid.md),
-[docs/modules/play.md](modules/play.md).
+configures, or health-checks them. Re-enable: [docs/architecture/components/fdroid.md](architecture/components/fdroid.md),
+[docs/architecture/components/play.md](architecture/components/play.md).
 
 Run with announcements (`🚨📱🚨 USING — s24 ...`) when someone may be on the device.
 Operator-only steps (Play creds, deploy approval): [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md).

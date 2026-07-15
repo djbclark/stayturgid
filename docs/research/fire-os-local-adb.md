@@ -193,5 +193,5 @@ Does not need shell UID. Already the Termux fallback when Handsets is disabled.
 ## Related
 
 - `docs/research/handsets-under-termux.md` — s24 Termux Handsets; hd8 out of scope
-- `docs/adr/001-ansible-boundary.md` — hd8 Mac adb only
+- `docs/architecture/adr/001-ansible-boundary.md` — hd8 Mac adb only
 - `STAYTURGID_NO_LOCAL_ADB=1` — presence / Handsets / shell helpers

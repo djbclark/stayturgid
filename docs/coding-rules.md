@@ -14,7 +14,7 @@ Before changing the project, read:
 2. Every file in [`.cursor/rules/`](../.cursor/rules/)
 3. [`docs/handoff.md`](handoff.md), especially Cold-start and Known issues
 4. [`docs/options.md`](options.md) for live open/closed status
-5. [Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md)
+5. [Outstanding Fix Priorities](operations/plans/outstanding-fix-priorities-2026-07-13.md)
 6. The relevant module, ADR, research, or task-plan documents
 
 The priority plan supplies work order and acceptance gates. OPTIONS supplies current
@@ -78,11 +78,11 @@ retries, state transitions, structured output, and error classification.
 - **AutoJs6 JavaScript:** required for code executed inside AutoJs6. Keep platform
   calls narrow and cover portable logic with Node-compatible tests where possible.
 - **Ansible:** use for declared fleet/control-node desired state and idempotent
-  deployment within the boundaries in [ADR 001](adr/001-ansible-boundary.md).
+  deployment within the boundaries in [ADR 001](architecture/adr/001-ansible-boundary.md).
 - **Shell:** acceptable for a small, clearer wrapper or direct pipeline. Do not put
   complex control flow, parsing, retries, or duplicated Python behavior into shell.
 - **`just`:** command runners must remain thin entry points. Substantive behavior
-  belongs in Python or Ansible. Follow the [`just` migration plan](plans/just-migration-plan.md).
+  belongs in Python or Ansible. Follow the [`just` migration plan](operations/plans/just-migration-plan.md).
 
 When touching an existing substantial shell implementation, consider migrating it to
 Python as part of the scoped task. Do not inflate a small fix into an unrelated rewrite.

@@ -383,4 +383,4 @@ hash pins, then redeploy.
 - [Ansible install tasks](https://github.com/djbclark/stayturgid/blob/master/ansible_collections/stayturgid/firerpa/roles/firerpa/tasks/install.yml)
 - [Certificate and properties configuration](https://github.com/djbclark/stayturgid/blob/master/ansible_collections/stayturgid/firerpa/roles/firerpa/tasks/configure.yml)
 - [Secure client certificate resolution](https://github.com/djbclark/stayturgid/blob/master/control/lib/firerpa_auth.py)
-- [Investigation handoff and verification record](https://github.com/djbclark/stayturgid/blob/master/docs/handoff/firerpa-ssh-investigation.md)
+- [Investigation handoff and verification record](https://github.com/djbclark/stayturgid/blob/master/docs/operations/deep-dives/firerpa-ssh-investigation.md)

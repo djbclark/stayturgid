@@ -4,38 +4,38 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 
 ## By module
 
-| Module               | README                                                                  | Use when you want…                                                                   |
-| -------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| Termux runtime       | [docs/modules/termux.md](modules/termux.md)                             | Boot self-heal, repair script, presence indicator                                    |
-| Ansible              | [ansible/README.md](../ansible/README.md)                               | Idempotent Termux deploy over SSH                                                    |
-| Control node         | [docs/modules/control.md](modules/control.md)                           | ADB reconnect, fleet health, **Hermes gateway**, **phone→Mac ET** (`et_mac`), deploy |
-| AutoJs6              | [docs/modules/autojs6.md](modules/autojs6.md)                           | JS watchdog (only automation stack in repo)                                          |
-| Obtainium            | [docs/modules/obtainium.md](modules/obtainium.md)                       | GitHub APK catalog and updates                                                       |
-| F-Droid / Neo Store  | [docs/modules/fdroid.md](modules/fdroid.md)                             | F-Droid repos + Neo Store (**parked** by default)                                    |
-| Play / Aurora Store  | [docs/modules/play.md](modules/play.md)                                 | Aurora + apkeep/gplaycli (**parked** by default)                                     |
-| Shared libraries     | [control/lib/README.md](../control/lib/README.md)                       | `resolve-adb`, repo-root discovery, UI parse                                         |
-| Screen-control lease | [docs/modules/screen-control-lease.md](modules/screen-control-lease.md) | Cross-project glass lock (DSCL v1; interop prompt)                                   |
+| Module               | README                                                                                                  | Use when you want…                                                                   |
+| -------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Termux runtime       | [docs/architecture/components/termux.md](architecture/components/termux.md)                             | Boot self-heal, repair script, presence indicator                                    |
+| Ansible              | [ansible/README.md](../ansible/README.md)                                                               | Idempotent Termux deploy over SSH                                                    |
+| Control node         | [docs/architecture/components/control.md](architecture/components/control.md)                           | ADB reconnect, fleet health, **Hermes gateway**, **phone→Mac ET** (`et_mac`), deploy |
+| AutoJs6              | [docs/architecture/components/autojs6.md](architecture/components/autojs6.md)                           | JS watchdog (only automation stack in repo)                                          |
+| Obtainium            | [docs/architecture/components/obtainium.md](architecture/components/obtainium.md)                       | GitHub APK catalog and updates                                                       |
+| F-Droid / Neo Store  | [docs/architecture/components/fdroid.md](architecture/components/fdroid.md)                             | F-Droid repos + Neo Store (**parked** by default)                                    |
+| Play / Aurora Store  | [docs/architecture/components/play.md](architecture/components/play.md)                                 | Aurora + apkeep/gplaycli (**parked** by default)                                     |
+| Shared libraries     | [control/lib/README.md](../control/lib/README.md)                                                       | `resolve-adb`, repo-root discovery, UI parse                                         |
+| Screen-control lease | [docs/architecture/components/screen-control-lease.md](architecture/components/screen-control-lease.md) | Cross-project glass lock (DSCL v1; interop prompt)                                   |
 
 ## Project-wide
 
-| Doc                                                                                              | Audience                                                                                                                                           |
-| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [README.md](../README.md)                                                                        | Everyone — hub + full-stack quick path                                                                                                             |
-| [docs/hacking.md](hacking.md)                                                                    | Developers — clean install, Obtainium, Termux swap                                                                                                 |
-| [docs/handoff.md](handoff.md)                                                                    | AI agents / maintainers — **session start:** `just health`; **2026-07-10 reorg:** read Cold-start first; **[`.cursor/rules/`](../.cursor/rules/)** |
-| [docs/coding-rules.md](coding-rules.md)                                                          | Durable implementation, device-safety, test, Git, and done rules                                                                                   |
-| [`.cursor/rules/`](../.cursor/rules/)                                                            | Always-on AI agent rules (self-heal, screen-control hold, …) — **read on handoff**                                                                 |
-| [docs/architecture.md](architecture.md)                                                          | Repo layout (`control/`, `device/`, `catalogs/`, `docs/`)                                                                                          |
-| [docs/options.md](options.md)                                                                    | Open work menu                                                                                                                                     |
-| [plans/outstanding-fix-priorities-2026-07-13.md](plans/outstanding-fix-priorities-2026-07-13.md) | Ordered reliability work + junior-agent resume prompt                                                                                              |
-| [plans/just-migration-plan.md](plans/just-migration-plan.md)                                     | Staged GNU Make → `just` migration after reliability fixes                                                                                         |
-| [prompts/dashboard-framework-research.md](prompts/dashboard-framework-research.md)               | Self-contained prompt for evaluating dashboard / ops frameworks as a foundation                                                                    |
-| [docs/other-sites.md](other-sites.md)                                                            | Multi-site adoption, control-node OS matrix                                                                                                        |
-| [docs/vlm.md](vlm.md)                                                                            | UI-TARS vision gates                                                                                                                               |
-| [adr/001-ansible-boundary.md](adr/001-ansible-boundary.md)                                       | Ansible 80/20 boundary (ADR 001)                                                                                                                   |
-| [adr/002-ansible-ui-tasks.md](adr/002-ansible-ui-tasks.md)                                       | UI tasks vs modules (ADR 002)                                                                                                                      |
-| [ansible_collections/roles/validate.md](ansible_collections/roles/validate.md)                   | Post-deploy validate role                                                                                                                          |
-| [ansible_collections/playbooks/preflight.md](ansible_collections/playbooks/preflight.md)         | SSH preflight playbook                                                                                                                             |
+| Doc                                                                                                         | Audience                                                                                                                                           |
+| ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [README.md](../README.md)                                                                                   | Everyone — hub + full-stack quick path                                                                                                             |
+| [docs/hacking.md](hacking.md)                                                                               | Developers — clean install, Obtainium, Termux swap                                                                                                 |
+| [docs/handoff.md](handoff.md)                                                                               | AI agents / maintainers — **session start:** `just health`; **2026-07-10 reorg:** read Cold-start first; **[`.cursor/rules/`](../.cursor/rules/)** |
+| [docs/coding-rules.md](coding-rules.md)                                                                     | Durable implementation, device-safety, test, Git, and done rules                                                                                   |
+| [`.cursor/rules/`](../.cursor/rules/)                                                                       | Always-on AI agent rules (self-heal, screen-control hold, …) — **read on handoff**                                                                 |
+| [docs/architecture/core-architecture.md](architecture/core-architecture.md)                                 | Repo layout (`control/`, `device/`, `catalogs/`, `docs/`)                                                                                          |
+| [docs/options.md](options.md)                                                                               | Open work menu                                                                                                                                     |
+| [plans/outstanding-fix-priorities-2026-07-13.md](operations/plans/outstanding-fix-priorities-2026-07-13.md) | Ordered reliability work + junior-agent resume prompt                                                                                              |
+| [plans/just-migration-plan.md](operations/plans/just-migration-plan.md)                                     | Staged GNU Make → `just` migration after reliability fixes                                                                                         |
+| [prompts/dashboard-framework-research.md](research/prompts/dashboard-framework-research.md)                 | Self-contained prompt for evaluating dashboard / ops frameworks as a foundation                                                                    |
+| [docs/architecture/multi-site-topology.md](architecture/multi-site-topology.md)                             | Multi-site adoption, control-node OS matrix                                                                                                        |
+| [docs/architecture/vlm.md](architecture/vlm.md)                                                             | UI-TARS vision gates                                                                                                                               |
+| [adr/001-ansible-boundary.md](architecture/adr/001-ansible-boundary.md)                                     | Ansible 80/20 boundary (ADR 001)                                                                                                                   |
+| [adr/002-ansible-ui-tasks.md](architecture/adr/002-ansible-ui-tasks.md)                                     | UI tasks vs modules (ADR 002)                                                                                                                      |
+| [ansible_collections/roles/validate.md](ansible/collections/roles/validate.md)                              | Post-deploy validate role                                                                                                                          |
+| [ansible_collections/playbooks/preflight.md](ansible/collections/playbooks/preflight.md)                    | SSH preflight playbook                                                                                                                             |
 
 ## `docs/research/` — production-adjacent (agents should read)
 
@@ -55,25 +55,25 @@ Findings that inform **shipping** fleet behavior (Handsets, Fire OS, UI drivers)
 | [research/ansible-pull-architecture-2026-07-14.md](research/ansible-pull-architecture-2026-07-14.md)         | Hybrid `ansible-pull` architecture, security model, staged pilot, and junior-developer implementation guide                   |
 | [research/site-identity-source-of-truth-2026-07-14.md](research/site-identity-source-of-truth-2026-07-14.md) | Single authority for hostnames, addresses, serials, generated consumers, runtime observations, and SecretSpec-managed secrets |
 
-## `docs/incubator/` — parked side projects (do not implement)
+## `docs/research/experiments/` — parked side projects (do not implement)
 
 Speculative / alternate architectures. Index:
-[incubator/README.md](incubator/README.md).
+[incubator/README.md](research/experiments/README.md).
 
-| Path                                                                   | Status                                                             |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| [incubator/inferno-styx/](incubator/inferno-styx/)                     | Parked — Inferno/Styx fleet control                                |
-| [incubator/on-device-llm.md](incubator/on-device-llm.md)               | Optional spike (OPTIONS **54** only if asked)                      |
-| [incubator/tablet-control-phone.md](incubator/tablet-control-phone.md) | Parked proposal — hd8→s24 Termux:X11 + scrcpy at tablet native res |
+| Path                                                                              | Status                                                             |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| [incubator/inferno-styx/](research/experiments/inferno-styx/)                     | Parked — Inferno/Styx fleet control                                |
+| [incubator/on-device-llm.md](research/experiments/on-device-llm.md)               | Optional spike (OPTIONS **54** only if asked)                      |
+| [incubator/tablet-control-phone.md](research/experiments/tablet-control-phone.md) | Parked proposal — hd8→s24 Termux:X11 + scrcpy at tablet native res |
 
 ## Other
 
-| Path                                                                                     | Notes                                                                                           |
-| ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| [version.json](../version.json)                                                          | Repo release version; optional on-device version notifier                                       |
-| [examples/](../examples/)                                                                | Consumer Ansible playbooks plus standalone FIRERPA non-root `justfile`                          |
-| [history/code-and-docs-review-2026-07-10.md](history/code-and-docs-review-2026-07-10.md) | Full code + docs review (2026-07-10); see also [history/code-review.md](history/code-review.md) |
-| [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md)                                      | Operator tasks (credentials, deploy approval) — human-only                                      |
+| Path                                                                                                  | Notes                                                                                                        |
+| ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| [version.json](../version.json)                                                                       | Repo release version; optional on-device version notifier                                                    |
+| [examples/](../examples/)                                                                             | Consumer Ansible playbooks plus standalone FIRERPA non-root `justfile`                                       |
+| [history/code-and-docs-review-2026-07-10.md](research/evaluations/code-and-docs-review-2026-07-10.md) | Full code + docs review (2026-07-10); see also [history/code-review.md](research/evaluations/code-review.md) |
+| [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md)                                                   | Operator tasks (credentials, deploy approval) — human-only                                                   |
 
 ## Typical combinations
 

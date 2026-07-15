@@ -40,7 +40,7 @@ ordinary local files. It does **not** solve Android accessibility consent, Shizu
 authorization, wireless-debugging approval, ADB key authorization, or a device whose
 Termux/Python runtime is broken. The existing recovery layers remain necessary.
 
-The earlier analysis in [ADR 004](../adr/004-self-heal-vs-ansible-coverage.md) correctly
+The earlier analysis in [ADR 004](../architecture/adr/004-self-heal-vs-ansible-coverage.md) correctly
 rejected putting the full repair loop into Ansible: the dependency, secrets, Git access,
 and Fire OS costs outweighed the small amount of duplicated repair logic. This proposal
 is narrower. It runs infrequently, contains no reachability-critical hot-loop logic,
@@ -51,13 +51,13 @@ whether that narrower value is worth its ongoing complexity.
 
 Before designing the pilot, read these local sources completely:
 
-- [Architecture](../architecture.md) and
-  [ADR 001: Ansible boundary](../adr/001-ansible-boundary.md)
-- [ADR 004: self-heal versus Ansible coverage](../adr/004-self-heal-vs-ansible-coverage.md)
+- [Architecture](../architecture/core-architecture.md) and
+  [ADR 001: Ansible boundary](../architecture/adr/001-ansible-boundary.md)
+- [ADR 004: self-heal versus Ansible coverage](../architecture/adr/004-self-heal-vs-ansible-coverage.md)
 - [Ansible README](../../ansible/README.md),
   [fleet entry point](../../ansible/playbooks/fleet/fleet.yml), and
   [site entry point](../../ansible/playbooks/site.yml)
-- [Termux runtime](../modules/termux.md) and
+- [Termux runtime](../architecture/components/termux.md) and
   [`start_adb.py`](../../device/termux/py/start_adb.py)
 - [Coding rules](../coding-rules.md), [handoff](../handoff.md), and
   [options](../options.md)
@@ -66,7 +66,7 @@ GitHub equivalents for reviewers without the checkout:
 
 - <https://github.com/djbclark/stayturgid/tree/master/ansible>
 - <https://github.com/djbclark/stayturgid/blob/master/device/termux/py/start_adb.py>
-- <https://github.com/djbclark/stayturgid/blob/master/docs/adr/004-self-heal-vs-ansible-coverage.md>
+- <https://github.com/djbclark/stayturgid/blob/master/docs/architecture/adr/004-self-heal-vs-ansible-coverage.md>
 
 Important constraints:
 

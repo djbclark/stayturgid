@@ -4,6 +4,6 @@ F-Droid repository management via `fdroidcl` on the control node. Integrated in 
 
 - **Module:** `stayturgid.fdroid.fdroid_repos`, `stayturgid.fdroid.fdroid_apps`
 - **Role:** `stayturgid.fdroid.fdroid_repos`
-- **Docs:** [fdroid_repos.md](../../../docs/ansible_collections/modules/fdroid_repos.md), [fdroid_apps.md](../../../docs/ansible_collections/modules/fdroid_apps.md)
+- **Docs:** [fdroid_repos.md](../../../docs/ansible/collections/modules/fdroid_repos.md), [fdroid_apps.md](../../../docs/ansible/collections/modules/fdroid_apps.md)
 
 Depends on `stayturgid.android_common` for the `adb_device` lookup.

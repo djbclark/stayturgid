@@ -19,10 +19,10 @@
 > answers: `human/RESPONSES.md` (gitignored). Session context: [docs/handoff.md](handoff.md).
 > Coding and completion rules: [docs/coding-rules.md](coding-rules.md).
 > Strategic directions: [docs/handoff.md appendix](handoff.md#appendix--strategic-directions-equal-weight).
-> Ansible boundary: [docs/adr/001-ansible-boundary.md](adr/001-ansible-boundary.md),
-> [docs/adr/002-ansible-ui-tasks.md](adr/002-ansible-ui-tasks.md).
-> Self-heal vs Ansible coverage: [docs/adr/004-self-heal-vs-ansible-coverage.md](adr/004-self-heal-vs-ansible-coverage.md).
-> Parked side projects: [docs/incubator/](incubator) — **do not implement**
+> Ansible boundary: [docs/architecture/adr/001-ansible-boundary.md](architecture/adr/001-ansible-boundary.md),
+> [docs/architecture/adr/002-ansible-ui-tasks.md](architecture/adr/002-ansible-ui-tasks.md).
+> Self-heal vs Ansible coverage: [docs/architecture/adr/004-self-heal-vs-ansible-coverage.md](architecture/adr/004-self-heal-vs-ansible-coverage.md).
+> Parked side projects: [docs/research/experiments/](incubator) — **do not implement**
 > unless the operator unparks a named project (Inferno, etc.).
 
 **Fleet snapshot (2026-07-13):** Shell → Python migration complete and deployed to
@@ -54,7 +54,7 @@ config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
 **Suggested agent order:** Follow
-[Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md): H1/H3,
+[Outstanding Fix Priorities](operations/plans/outstanding-fix-priorities-2026-07-13.md): H1/H3,
 B63/B64, F4, then T1. Hardware-blocked items stay open
 while independent safe work may continue. H5/38, 43–45, 54, and F1–F3 remain lower
 priority or symptom-triggered.
@@ -72,7 +72,7 @@ priority or symptom-triggered.
 | **F — FIRERPA**        | gRPC backup channel enhancements                   | F1–F4          | Medium (future, core is done) |
 | **T — Tooling**        | Planned command-runner migration                   | T1             | Low–Medium                    |
 
-Parked (not a track): Inferno/Styx → [docs/incubator/inferno-styx/](incubator/inferno-styx).
+Parked (not a track): Inferno/Styx → [docs/research/experiments/inferno-styx/](research/experiments/inferno-styx).
 
 ---
 
@@ -165,7 +165,7 @@ Spike only: after deterministic `stayturgid-repair` fails, optionally ask
 shell-gpt for allowlisted shell advice. Consent still required for any `input`.
 **Not** in the 5-min repair hot path; AutoJs6 catastrophic path stays mandatory
 when 5555 is dead. Note (incubator):
-[docs/incubator/on-device-llm.md](incubator/on-device-llm.md).
+[docs/research/experiments/on-device-llm.md](research/experiments/on-device-llm.md).
 
 - Prefer **shell-gpt**; skip **aider-chat** (wrong job + aarch64 pain).
 - Local 1.5B–3B = bounded advisor only; cloud API for quality escalation.
@@ -191,14 +191,14 @@ as compatibility wrappers for CI and operator muscle memory.
 
 Follow the staged plan, compatibility contract, live S24 gates, rollback rules, and
 completion criteria in
-[GNU Make to `just` Migration Plan](plans/just-migration-plan.md). Task/Taskfile is the
+[GNU Make to `just` Migration Plan](operations/plans/just-migration-plan.md). Task/Taskfile is the
 closest direct alternative; `mise` may be evaluated separately for toolchain pinning,
 not as a prerequisite for T1.
 
 #### T2 — Evaluate dashboard/framework options for JS runtime supervision · Risk: **Medium** · Deferred
 
 The research prompt for this work is
-[docs/prompts/dashboard-framework-research.md](prompts/dashboard-framework-research.md).
+[docs/research/prompts/dashboard-framework-research.md](research/prompts/dashboard-framework-research.md).
 The broader evaluation covers PM2, Uptime Kuma, Pulumi, Jest, `zx`, Shipit, and
 Flightplan. A useful candidate must reduce host-side glue or add meaningful job,
 approval, or audit support; generic uptime widgets do not count. None should become
@@ -325,7 +325,7 @@ remains a deliberate human action.
 **Non-goals / do-not-touch:** MDM / root / Play Protect bypass; full Obtainium
 API; Tasker rebuild; AutoJs6 debug APK (#553); aider-chat as fleet heal;
 always-on Ollama in Termux:Boot; **any Inferno/`emu`/Styx work** (parked under
-[docs/incubator/inferno-styx/](incubator/inferno-styx)).
+[docs/research/experiments/inferno-styx/](research/experiments/inferno-styx)).
 
 #### ~~H7 — Authorize Termux `rish` bridge~~ · **Closed 2026-07-13**
 
@@ -393,7 +393,7 @@ unit coverage covers repeated and recovered classification.
 UI automation actions (clicks, taps, swipes) are gated by default unless `STAYTURGID_ALLOW_UI_AUTOMATION=1` is specified. Blocked scripts append warnings to `errors.log`, write state to `pending_ui.json`, and poll-wait for manual intervention. The web dashboard displays interactive warning cards showing elapsed duration, instructions, and an HTMX-powered "Done / Resume" button to signal completion. Gated scripts include Play Store autoupdates verification, HD8 vision checks, Neo/Aurora store audits, and AutoJs6 setup. Unit tests (`test_ui_guard.py`) verify the gating and override behavior.
 
 Execution order, gates, and junior-agent resume prompt:
-[Outstanding Fix Priorities](plans/outstanding-fix-priorities-2026-07-13.md).
+[Outstanding Fix Priorities](operations/plans/outstanding-fix-priorities-2026-07-13.md).
 
 ### Track F — FIRERPA (gRPC backup channel — core shipped 2026-07-12)
 
@@ -415,16 +415,16 @@ Termux **Allow all the time**. USB/wireless recovery is required if neither brid
 available.
 Built-in ADB needs root
 (stayturgid uses the shell bridge); hd8 remains unsupported. Architecture docs:
-`docs/history/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md`,
-`docs/history/firerpa-nonroot-redundancy-deepseek-pro-2026-07-12.md`,
-`docs/history/firerpa-install-map-2026-07-12.md`.
+`docs/research/evaluations/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md`,
+`docs/research/evaluations/firerpa-nonroot-redundancy-deepseek-pro-2026-07-12.md`,
+`docs/research/evaluations/firerpa-install-map-2026-07-12.md`.
 
 #### F1 — MCP bridge extension (agent) · Risk: **Medium** · Core: gRPC heal works without it
 
 Build a lamda MCP extension that exposes stayturgid repair primitives through the
 gRPC channel, so any MCP-capable agent can run fleet heal commands. Core gRPC heal
 (`firerpa_heal.py`) works today; MCP just provides agent-native tool calling.
-See `docs/history/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md` for MCP
+See `docs/research/evaluations/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md` for MCP
 extension pattern.
 
 #### F2 — WebRTC remote desktop test (agent) · Risk: **Low** · **Closed 2026-07-14**

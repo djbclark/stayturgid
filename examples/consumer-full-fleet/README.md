@@ -29,7 +29,7 @@ stayturgid_ensure_neo_store: true
 stayturgid_ensure_aurora_store: true
 ```
 
-See [docs/modules/fdroid.md](../../docs/modules/fdroid.md) and [docs/modules/play.md](../../docs/modules/play.md).
+See [docs/architecture/components/fdroid.md](../../docs/architecture/components/fdroid.md) and [docs/architecture/components/play.md](../../docs/architecture/components/play.md).
 
 ## Optional unified app ensure
 
@@ -45,4 +45,4 @@ ansible-playbook playbook.yml --tags validate --limit s24
 ansible-playbook playbook.yml --tags post-ui --limit s24
 ```
 
-See [docs/ansible_collections/roles/validate.md](../../docs/ansible_collections/roles/validate.md).
+See [docs/ansible/collections/roles/validate.md](../../docs/ansible/collections/roles/validate.md).

@@ -193,7 +193,7 @@ Apps may remain on devices from earlier deploys. To use again:
 
 - Set `stayturgid_app_stores_enabled: true` in `ansible/inventory/group_vars/stayturgid.yml`
 - Optional Obtainium import: `catalogs/obtainium/app-stores-optional.json`
-- See [docs/modules/fdroid.md](../docs/modules/fdroid.md) and [docs/modules/play.md](../docs/modules/play.md)
+- See [docs/architecture/components/fdroid.md](../docs/architecture/components/fdroid.md) and [docs/architecture/components/play.md](../docs/architecture/components/play.md)
 
 ### 4.1 Ansible Galaxy publish
 

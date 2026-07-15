@@ -27,7 +27,7 @@ Copy [inventory/example-standalone.yml](inventory/example-standalone.yml) as a s
 
 **Out of scope** (configure separately): Shizuku pairing, AutoJs6 install, Obtainium bootstrap, `WRITE_SECURE_SETTINGS`. Fleet app permissions, battery-unrestricted, and unused-app restrictions are automated via `stayturgid.android_common.app_privileges` (or ad-hoc `./control/bin/harden_fleet_apps.py`). SSH **bootstrap** before the first Ansible connection: `./control/bin/bootstrap_ssh.py` (adb + `run-as com.termux` on debuggable Termux); ongoing key distribution uses `ansible.posix.authorized_key` plus private-key sync in the `termux_userland` role (`control_node` role renders Mac `~/.ssh/config.d/stayturgid`). Keys live on the control node only — never in git.
 
-The deployed `~/.stayturgid/bin/stayturgid_agent_presence.py` includes the consent `gate` action ([docs/modules/termux.md](../docs/modules/termux.md)).
+The deployed `~/.stayturgid/bin/stayturgid_agent_presence.py` includes the consent `gate` action ([docs/architecture/components/termux.md](../docs/architecture/components/termux.md)).
 
 ## Prerequisites
 
@@ -79,7 +79,7 @@ ansible-playbook ansible/playbooks/site.yml --limit s24   # direct
 
 `site.yml` chains: `fleet/preflight.yml` → `fleet/bootstrap.yml` (tagged; skipped by
 `deploy_fleet.py` on live deploy) → `fleet/fleet.yml` → `fleet/post-ui.yml` → app-stores
-re-pass → `fleet/validate.yml`. See [docs/adr/001-ansible-boundary.md](../docs/adr/001-ansible-boundary.md).
+re-pass → `fleet/validate.yml`. See [docs/architecture/adr/001-ansible-boundary.md](../docs/architecture/adr/001-ansible-boundary.md).
 
 ## Run (Termux only)
 
@@ -119,7 +119,7 @@ ansible_python_interpreter: /data/data/com.termux/files/usr/bin/python
 
 Reusable modules live in domain collections under `ansible_collections/stayturgid/`
 (`termux`, `obtainium`, `fdroid`, `play`, `android_common`). See
-[../ansible_collections/README.md](../ansible_collections/README.md) for install
+[../ansible_collections/README.md](../ansible/collections/README.md) for install
 and adoption docs. In development, `ansible.cfg` discovers collections from
 `../ansible_collections` — no separate `ansible-galaxy install` for stayturgid
 modules beyond `ansible.posix`.
