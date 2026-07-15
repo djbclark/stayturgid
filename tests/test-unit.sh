@@ -660,11 +660,11 @@ else
   tap_fail "bridges: writes bridge.pid on start (repair mode)"
 fi
 
-# start-repair-bridge.sh: calls nohup python3 bridges.py when bridge not running
+# start-repair-bridge.sh: calls nohup python3 stayturgid_bridges.py when bridge not running
 reset_sandbox
 mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/home/.stayturgid/logs" "$SANDBOX/home/.stayturgid/run"
-cp "$BRIDGES_PY" "$SANDBOX/home/.stayturgid/bin/bridges.py"
-chmod +x "$SANDBOX/home/.stayturgid/bin/bridges.py"
+cp "$BRIDGES_PY" "$SANDBOX/home/.stayturgid/bin/stayturgid_bridges.py"
+chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_bridges.py"
 run_sandboxed "$START_BRIDGE"
 # nohup stub writes to STUB_LOG asynchronously; wait briefly
 sleep 0.5
@@ -675,8 +675,8 @@ reset_sandbox
 mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/home/.stayturgid/run" "$SANDBOX/proc/4242"
 printf 'bridges\0' >"$SANDBOX/proc/4242/cmdline"
 echo 4242 >"$SANDBOX/home/.stayturgid/run/bridge.pid"
-cp "$BRIDGES_PY" "$SANDBOX/home/.stayturgid/bin/bridges.py"
-chmod +x "$SANDBOX/home/.stayturgid/bin/bridges.py"
+cp "$BRIDGES_PY" "$SANDBOX/home/.stayturgid/bin/stayturgid_bridges.py"
+chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_bridges.py"
 : >"$STUB_LOG"
 PROC_ROOT="$SANDBOX/proc" run_sandboxed "$START_BRIDGE"
 tap_is "$(stub_calls 'nohup')" 0 \
@@ -714,8 +714,8 @@ tap_like "$(cat "$AJ6_LOG" 2>/dev/null)" "boot-launcher" "bridges: am start boot
 # start-autojs6-bridge: calls nohup to launch autojs6 bridge when idle
 reset_sandbox
 mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/home/.stayturgid/logs" "$SANDBOX/home/.stayturgid/run"
-cp "$BRIDGES_PY" "$SANDBOX/home/.stayturgid/bin/bridges.py"
-chmod +x "$SANDBOX/home/.stayturgid/bin/bridges.py"
+cp "$BRIDGES_PY" "$SANDBOX/home/.stayturgid/bin/stayturgid_bridges.py"
+chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_bridges.py"
 run_sandboxed "$START_AUTOJS6_BRIDGE"
 sleep 0.5
 tap_like "$(cat "$STUB_LOG")" "nohup" "start-autojs6-bridge: calls nohup to launch autojs6 bridge when idle"

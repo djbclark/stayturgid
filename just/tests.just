@@ -39,11 +39,11 @@ test-venv:
 
 # ansible-test units for collections.
 ansible-test:
-    @if [ -x "{{ venv }}/bin/ansible-test" ]; then \
-      PYV="$(python3 -c 'import sys;print(f"{sys.version_info.major}.{sys.version_info.minor}')")"; \
+    @if [ -x "{{ repo }}/{{ venv }}/bin/ansible-test" ]; then \
+      PYV="$(python3 -c 'import sys;print(f"{sys.version_info.major}.{sys.version_info.minor}")')"; \
       for c in {{ collections }}; do \
-        echo "### ansible-test units (stayturgid.$$c)"; \
-        cd ansible_collections/stayturgid/$$c && "{{ venv }}/bin/ansible-test" units --local --python $$PYV || exit $$?; \
+        echo "### ansible-test units (stayturgid.$c)"; \
+        cd ansible_collections/stayturgid/$c && "{{ repo }}/{{ venv }}/bin/ansible-test" units --local --python $PYV || exit $?; \
         cd - >/dev/null; \
       done; \
     else \
