@@ -58,9 +58,9 @@ stayturgid_py_scripts:
   - stayturgid_peer_bootstrap.py
   - stayturgid_peer_keepalive.py
 
-# Python scripts removed from the deploy list — deleted from devices on next
-# deploy. When you remove a script from stayturgid_py_scripts, add it here.
-stayturgid_retired_py_scripts: []
+stayturgid_retired_py_scripts:
+  - bridges.py
+
 
 # Restricted SSH ForceCommand wrapper (helpers only; see ssh_keys.yml F5).
 stayturgid_peer_help_force_script: stayturgid-peer-help-force.sh

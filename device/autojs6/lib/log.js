@@ -88,10 +88,10 @@ function latestRepairStatus() {
   for (var i = lines.length - 1; i >= 0; i--) {
     // Prefer Termux [repair] STATUS for bridge decisions. A bad
     // [comonitor] STATUS must not trigger CLOSED_NO_SHELL UI repair.
-    if (lines[i].indexOf("[repair] STATUS") >= 0) {
+    if (lines[i].indexOf("[repair]") >= 0 && lines[i].indexOf("STATUS") >= 0) {
       return parseStatusLine(lines[i]);
     }
-    if (comonitorFallback === null && lines[i].indexOf("[comonitor] STATUS") >= 0) {
+    if (comonitorFallback === null && lines[i].indexOf("[comonitor]") >= 0 && lines[i].indexOf("STATUS") >= 0) {
       comonitorFallback = parseStatusLine(lines[i]);
     }
   }
