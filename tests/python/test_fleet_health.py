@@ -126,6 +126,13 @@ def test_monitor_notifies_after_debounce(tmp_path, monkeypatch):
             },
         ),
     )
+
+    class MockResult:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    monkeypatch.setattr(fhm.subprocess, "run", lambda *a, **kw: MockResult())
     notifs, logs = [], []
     monkeypatch.setattr(fhm, "notify", lambda *a, **k: notifs.append(a))
     monkeypatch.setattr(fhm, "_fleet_log", lambda _level, message: logs.append(message))
