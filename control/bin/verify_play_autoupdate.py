@@ -53,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
             return 2
     else:
         serial = dev.resolve_adb(args.host)
-        subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
+        subprocess.run([dev.adb_bin(), "connect", serial], capture_output=True, text=True)
 
         import ui_guard
 

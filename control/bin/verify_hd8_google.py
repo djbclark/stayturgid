@@ -39,6 +39,8 @@ ART = Path.home() / ".config" / "stayturgid" / "artifacts" / "vlm-verify"
 def run_command(cmd, *args, **kwargs):
     if isinstance(cmd, str):
         cmd = cmd.split()
+    if cmd and cmd[0] == "adb":
+        cmd[0] = dev.adb_bin()
     r = subprocess.run(cmd, capture_output=True, text=True, **kwargs)
     return r.returncode, r.stdout or "", r.stderr or ""
 
@@ -117,7 +119,7 @@ def main(argv: list[str] | None = None) -> int:
 
     os.environ.setdefault("STAYTURGID_VLM", "1")
     serial = dev.resolve_adb(args.host)
-    subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
+    subprocess.run([dev.adb_bin(), "connect", serial], capture_output=True, text=True)
 
     report: dict = {"host": args.host, "serial": serial, "checks": {}}
     failures: list[str] = []

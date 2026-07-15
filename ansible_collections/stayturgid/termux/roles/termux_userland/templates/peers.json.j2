@@ -32,7 +32,7 @@
       'tailscale': stayturgid_mac_peer.tailscale,
       'lan': stayturgid_mac_peer.lan | default(''),
       'can_help': true,
-      'ssh_user': stayturgid_mac_peer.user | default(ansible_user | default('termux')),
+      'ssh_user': ansible_user | default('termux'),
       'ssh_port': (stayturgid_mac_peer.port | default(22)) | int,
       'help_cmd': stayturgid_mac_peer.help_cmd | default(''),
       'force_command': true

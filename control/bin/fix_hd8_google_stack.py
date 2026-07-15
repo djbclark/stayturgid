@@ -38,6 +38,8 @@ import vlm_helpers as vh  # noqa: E402
 def run_command(cmd, *args, **kwargs):
     if isinstance(cmd, str):
         cmd = cmd.split()
+    if cmd and cmd[0] == "adb":
+        cmd[0] = dev.adb_bin()
     r = subprocess.run(cmd, capture_output=True, text=True, **kwargs)
     return r.returncode, r.stdout or "", r.stderr or ""
 
@@ -66,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write("warning: this repair targets Fire OS; continuing for %s\n" % args.host)
 
     serial = dev.resolve_adb(args.host)
-    subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
+    subprocess.run([dev.adb_bin(), "connect", serial], capture_output=True, text=True)
 
     print("hd8 Google stack repair on %s (%s)..." % (args.host, serial))
     result = hgs.repair_if_needed(run_command, serial, force=args.force)

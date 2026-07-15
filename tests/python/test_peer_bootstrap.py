@@ -131,3 +131,9 @@ def test_handsets_disabled_without_peers_on_fire(monkeypatch, tmp_path):
     monkeypatch.setattr(th, "_PEERS_PATH", str(tmp_path / "missing"))
     monkeypatch.setattr(th.sh, "privileged_shell_expected", lambda: False)
     assert th.enabled() is False
+
+
+def test_bootstrap_ssh_user_arg(monkeypatch):
+    monkeypatch.setattr(pb, "DEFAULT_SSH_USER", "original-user")
+    pb.main(["--ssh-user", "custom-user", "--port", "9012"])
+    assert pb.DEFAULT_SSH_USER == "custom-user"

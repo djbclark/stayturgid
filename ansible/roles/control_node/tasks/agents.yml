@@ -54,6 +54,12 @@
     dest: "{{ conf_dir }}/devices.conf"
     mode: "0644"
 
+- name: Render cf-runagent.cf from inventory template
+  ansible.builtin.template:
+    src: cf-runagent.cf.j2
+    dest: "{{ stayturgid_repo_root }}/control/cfengine/cf-runagent.cf"
+    mode: "0644"
+
 - name: Resolve Mac SSH identity files from control-node keyring
   ansible.builtin.set_fact:
     stayturgid_ssh_identity_files: >-

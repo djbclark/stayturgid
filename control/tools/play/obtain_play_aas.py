@@ -110,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
     _ensure_browser_cookie3_python()
 
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("-e", "--email", default="djbclark@gmail.com")
+    p.add_argument("-e", "--email", required=True, help="Google Play account email address")
     p.add_argument(
         "--timeout",
         type=int,
