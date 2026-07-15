@@ -986,7 +986,7 @@ Partially supported. Works for fleet management; missing Mac-specific features:
 - [x] Create `control/bin/validate_site_identity.py` (§3.4).
 - [x] Add `just validate-identity` recipe.
 - [x] Integrate into `just check` and CI.
-- [ ] Convert `devices.conf` to versioned schema with generated header.
+- [x] Convert `devices.conf` to versioned schema with generated header.
 
 ### Phase 2: Migrate Active Code Consumers
 

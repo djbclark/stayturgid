@@ -33,6 +33,21 @@
     - _system_homebrew_path_check.rc | default(1) != 0
   tags: [system-homebrew-path]
 
+- name: Get current stayturgid git commit SHA
+  ansible.builtin.command: git rev-parse --short HEAD
+  args:
+    chdir: "{{ stayturgid_repo_root }}"
+  register: _git_commit_sha
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+  run_once: true
+
+- name: Set stayturgid git commit SHA fact
+  ansible.builtin.set_fact:
+    stayturgid_git_commit_sha: "{{ _git_commit_sha.stdout | default('unknown') | trim }}"
+  run_once: true
+
 - name: Render devices.conf from inventory (alias usb_serial tailscale_ip lan_ip)
   ansible.builtin.template:
     src: devices.conf.j2
