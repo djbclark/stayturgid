@@ -1,0 +1,6 @@
+# Lychee ignore file to exclude files not yet created in early phases of the implementation plan
+ansible/playbooks/control_node/observability.yml
+ansible/playbooks/fleet/deploy-otelcol.yml
+ansible/roles/control_node/templates/com.openobserve.plist.j2
+ansible_collections/stayturgid/android_common/roles/otelcol/templates/otel-config.yaml.j2
+device/autojs6/run/state.json
