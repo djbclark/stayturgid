@@ -17,38 +17,68 @@ function invokeRepair(profile) {
   var paths = config.pathsFor(profile);
   var triggerFile = paths.triggerFile;
   var beforeMs = log.latestRepairTimestampMs() || 0;
-  var runCommand = tryRunCommand();
   var start = Date.now();
-  var triggerArmed = false;
+  var triggeredViaShizuku = false;
 
-  // Immediate trigger only when RUN_COMMAND could not start at all.
-  if (!runCommand.started) {
-    tryTriggerFile(triggerFile);
-    triggerArmed = true;
+  // 1. Always arm the trigger file immediately (non-intrusive)
+  tryTriggerFile(triggerFile);
+
+  // 2. Try direct background execution via Shizuku shell if operational
+  var shizukuShell = require("./shizuku_shell.js");
+  if (shizukuShell.isOperational()) {
+    try {
+      var cmd =
+        "run-as com.termux /data/data/com.termux/files/usr/bin/bash -c '" +
+        "export PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/sbin:$PATH; " +
+        "export HOME=/data/data/com.termux/files/home; " +
+        "export PREFIX=/data/data/com.termux/files/usr; " +
+        "export TMPDIR=/data/data/com.termux/files/usr/tmp; " +
+        "python3 " +
+        config.REPAIR_SCRIPT +
+        " " +
+        "&'";
+      shizukuShell.exec(cmd);
+      triggeredViaShizuku = true;
+      log.append("[watchdog] termux bridge: triggered repair directly via Shizuku shell");
+    } catch (e) {
+      log.append("[watchdog] termux bridge: Shizuku direct trigger failed: " + e);
+    }
   }
 
+  // 3. Loop and wait to see if the background/Shizuku execution succeeds
   var deadline = Date.now() + 12000;
   while (Date.now() < deadline) {
     sleep(500);
-    // Delayed backup trigger if RUN_COMMAND started but no fresh STATUS yet.
-    if (!triggerArmed && runCommand.started && Date.now() - start > 5000) {
-      tryTriggerFile(triggerFile);
-      triggerArmed = true;
-    }
     var afterMs = log.latestRepairTimestampMs();
     if (afterMs !== null && afterMs > beforeMs) {
       return {
         ok: true,
         fresh: true,
-        method: runCommand.started ? "run_command" : "trigger_file",
+        method: triggeredViaShizuku ? "shizuku_shell" : "trigger_file",
         beforeMs: beforeMs,
         afterMs: afterMs,
       };
     }
   }
 
-  if (!triggerArmed) {
-    tryTriggerFile(triggerFile);
+  // 4. Fallback: Only use com.termux.RUN_COMMAND intent as a last resort
+  log.append("[watchdog] termux bridge: background triggers timed out. Falling back to RUN_COMMAND.");
+  var runCommand = tryRunCommand();
+  if (runCommand.started) {
+    var fallbackDeadline = Date.now() + 8000;
+    while (Date.now() < fallbackDeadline) {
+      sleep(500);
+      var afterMsFallback = log.latestRepairTimestampMs();
+      if (afterMsFallback !== null && afterMsFallback > beforeMs) {
+        return {
+          ok: true,
+          fresh: true,
+          method: "run_command",
+          beforeMs: beforeMs,
+          afterMs: afterMsFallback,
+        };
+      }
+    }
   }
 
   log.append(

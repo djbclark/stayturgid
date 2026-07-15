@@ -347,6 +347,23 @@ def maybe_verify_hd8_google_closeout(name: str) -> None:
         _fleet_log(INFO, "%s google-stack VLM verify error: %s" % (name, e))
 
 
+def _audit_scraped_errors(name: str, text: str) -> None:
+    """Scan scraped error text for excessive catastrophic repairs or loops."""
+    catastrophic_lines = [
+        line for line in text.splitlines() if "catastrophic" in line.lower() or "headless" in line.lower()
+    ]
+    if len(catastrophic_lines) >= 3:
+        _fleet_log(
+            WARNING,
+            "%s: ALERT - excessive catastrophic repairs detected (%d occurrences)" % (name, len(catastrophic_lines)),
+        )
+        notify(
+            "stayturgid alert",
+            "%s: Excessive catastrophic repairs! Loop bug?" % name,
+            sound="Basso",
+        )
+
+
 def _scrape_device_errors(name: str, ts_ip: str) -> None:
     """SSH into device, grep repair/watchdog logs for errors, log locally."""
     import time as _time
@@ -370,7 +387,7 @@ def _scrape_device_errors(name: str, ts_ip: str) -> None:
 
     grep_cmd = (
         "grep -h -i -E 'FAILED|CLOSED_NO_SHELL|Error|Exception|Traceback|"
-        "cannot find|crash|permission' "
+        "cannot find|crash|permission|catastrophic|headless' "
         "~/.stayturgid/logs/repair.log "
         "/sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -50"
     )
@@ -387,6 +404,8 @@ def _scrape_device_errors(name: str, ts_ip: str) -> None:
     text = (r.stdout or "").strip()
     if not text:
         return
+
+    _audit_scraped_errors(name, text)
 
     errors = scrape_errors(text)
     for level, line in errors:
@@ -426,6 +445,18 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
         # a last-resort repair channel when both ADB and SSH are down.
         _try_firerpa_heal_fallback(name, ts_ip)
         return
+
+    # Check for state divergence (Mac connected via ADB but watchdog claims CLOSED_NO_SHELL)
+    if path.startswith("adb:") and report.get("port") == "CLOSED_NO_SHELL":
+        _fleet_log(
+            WARNING,
+            "%s: ALERT - state divergence detected! Mac reached ADB but watchdog log reports CLOSED_NO_SHELL" % name,
+        )
+        notify(
+            "stayturgid alert",
+            "%s: State divergence! Watchdog reports CLOSED_NO_SHELL but ADB is reachable." % name,
+            sound="Basso",
+        )
 
     if name == "hd8":
         maybe_heal_hd8_google_stack(name)
