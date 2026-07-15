@@ -66,16 +66,66 @@ def ensure_parent(path):
 
 LOCKFILE = os.path.join(TMPDIR, "stayturgid-repair.lock")
 LOG = os.path.join(STG, "logs", "repair.log")
+LOG_JSONL = os.path.join(STG, "logs", "repair.jsonl")
 SDLOG = os.path.join(SD, "logs", "watchdog.log")
+SDLOG_JSONL = os.path.join(SD, "logs", "watchdog.jsonl")
 # AutoJs6 always reads /sdcard/stayturgid/logs (cannot write Termux-private
 # paths on Fire). Dual-write STATUS there so the JS co-monitor can see Termux
 # freshness even when STAYTURGID_SD is ~/.stayturgid/shared.
 SDCARD_WATCHDOG_LOG = "/sdcard/stayturgid/logs/watchdog.log"
+SDCARD_WATCHDOG_JSONL = "/sdcard/stayturgid/logs/watchdog.jsonl"
+STATE_JSON = os.path.join(STG, "run", "state.json")
 A11Y_SVC = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
 
 
 def ts():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def ts_iso():
+    """ISO 8601 timestamp with milliseconds for JSONL/OTel schema."""
+    now = datetime.datetime.now()
+    return now.strftime("%Y-%m-%dT%H:%M:%S.") + "%03dZ" % (now.microsecond // 1000)
+
+
+def _detect_hostname():
+    """Return device id from device.json, falling back to 'unknown'."""
+    for path in (
+        os.path.join(SD, "state", "device.json"),
+        os.path.join(STG, "state", "device.json"),
+    ):
+        try:
+            with open(path) as f:
+                d = json.load(f)
+                return str(d.get("id", "unknown"))
+        except (OSError, ValueError):
+            continue
+    return "unknown"
+
+
+def log_json(msg, level=INFO):
+    """Write a single JSON line (OTel schema) to repair.jsonl and watchdog.jsonl."""
+    level_label = _SEV_LABEL.get(level, "INFO").lower()
+    entry = json.dumps(
+        {
+            "timestamp": ts_iso(),
+            "level": level_label,
+            "hostname": _detect_hostname(),
+            "tag": "repair",
+            "pid": os.getpid(),
+            "tid": 0,
+            "message": str(msg),
+        }
+    )
+    jsonl_paths = [LOG_JSONL, SDLOG_JSONL]
+    if os.path.normpath(SDLOG_JSONL) != os.path.normpath(SDCARD_WATCHDOG_JSONL):
+        jsonl_paths.append(SDCARD_WATCHDOG_JSONL)
+    for path in jsonl_paths:
+        try:
+            with open(ensure_parent(path), "a") as f:
+                f.write(entry + "\n")
+        except OSError:
+            pass
 
 
 def log(msg, level=INFO):
@@ -89,10 +139,17 @@ def log(msg, level=INFO):
                 f.write(line + "\n")
         except OSError:
             pass
+    # Dual-write structured JSONL alongside the legacy text log.
+    try:
+        log_json(msg, level)
+    except Exception:
+        pass  # best effort — JSONL write failure must not break self-heal
 
 
 def _write_status(status):
-    """Write STATUS line to run/repair.status for Ansible/module consumers."""
+    """Write STATUS line to run/repair.status for Ansible/module consumers.
+    Also updates run/state.json atomically with parsed status fields.
+    """
     status_path = os.path.join(STG, "run", "repair.status")
     try:
         ensure_parent(status_path)
@@ -100,6 +157,30 @@ def _write_status(status):
             f.write(status + "\n")
     except OSError:
         pass
+    # Parse status string and write atomically to state.json.
+    try:
+        fields = {}
+        for token in status.split():
+            if "=" in token:
+                k, v = token.split("=", 1)
+                fields[k] = v
+        # Read existing state, merge repair namespace.
+        current = {}
+        try:
+            with open(STATE_JSON) as sf:
+                current = json.load(sf) or {}
+        except (OSError, ValueError):
+            pass
+        fields["timestamp"] = ts_iso()
+        current["repair"] = fields
+        tmp_path = STATE_JSON + ".tmp"
+        ensure_parent(tmp_path)
+        with open(tmp_path, "w") as f:
+            json.dump(current, f)
+            f.write("\n")
+        os.replace(tmp_path, STATE_JSON)
+    except Exception:
+        pass  # best effort — state.json write failure must not block self-heal
 
 
 def trim_log(path, keep=500, over=1000):

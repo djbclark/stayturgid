@@ -234,6 +234,20 @@ function run(profile, opts) {
     " wifi=" +
     wifi;
   log.append("[comonitor] " + status + " reason=" + reason);
+  // Persist status to shared state.json so latestRepairStatus() can do an O(1) read.
+  try {
+    log.writeState("comonitor", {
+      port: shellProbe.port,
+      shizuku: shizuku,
+      sshd: sshd,
+      a11y: a11y,
+      shell: shellProbe.shell,
+      wifi: wifi,
+      reason: reason,
+    });
+  } catch (we) {
+    /* best effort — state.json write failure must not break comonitor */
+  }
   return {
     port: shellProbe.port,
     shizuku: shizuku,

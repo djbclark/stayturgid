@@ -88,6 +88,18 @@ ok(result.shizuku === "up", "comonitor probes shizuku");
 ok(result.a11y === "up", "comonitor probes a11y (detection only)");
 ok(result.port === "open", "comonitor probes shell 5555 on non-split");
 
+// comonitor.run() should persist status to state.json via writeState
+var comonitorConfig = require(path.join(repo, "device", "autojs6", "lib", "config.js"));
+var statePath = comonitorConfig.pathsFor(profile).watchdogState;
+var stateContent = "";
+try { stateContent = fs.readFileSync(mapped(statePath), "utf8"); } catch (e) {}
+var stateObj = null;
+try { stateObj = JSON.parse(stateContent); } catch (e) {}
+ok(stateObj !== null && stateObj.comonitor && typeof stateObj.comonitor.port === "string",
+    "comonitor.run() writes comonitor.port to state.json via writeState");
+ok(stateObj !== null && stateObj.comonitor && typeof stateObj.comonitor.timestamp === "string",
+    "comonitor.run() includes timestamp in state.json comonitor namespace");
+
 // Fire / split-storage: skip localhost:5555
 var fire = { id: "hd8", sdRoot: "/data/data/com.termux/files/home/.stayturgid/shared" };
 var fireResult = comonitor.run(fire, { force: true, reason: "split-storage" });
