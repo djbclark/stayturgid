@@ -34,7 +34,7 @@ ansible-galaxy collection install \
 
 1. [docs/adoption.md](../docs/ansible/collections/adoption.md) — how other sites consume modules and roles
 2. [docs/std_modules_audit.md](../docs/ansible/collections/std_modules_audit.md) — what uses Ansible builtins vs custom modules
-3. [docs/architecture/components/](docs/architecture/components/) — per-module reference
+3. [docs/architecture/components/](../docs/architecture/components/) — per-module reference
 4. [examples/](../examples/) — consumer site templates (termux, fdroid, full-fleet)
 5. Per-collection `CHANGELOG.md` files
 6. [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md) — operator tasks that need a human (credentials, deploy approval)

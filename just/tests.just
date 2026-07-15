@@ -138,7 +138,7 @@ lychee:
 lychee-docs:
     @if command -v lychee >/dev/null; then \
       echo "### lychee-docs"; \
-      lychee --offline "docs/**/*.md" "README.md" "AGENTS.md"; \
+      lychee --offline --exclude-path node_modules "**/*.md"; \
     else \
       echo "lychee not installed (brew install lychee) — skipped"; \
     fi
@@ -295,7 +295,7 @@ lint:
     fi
     if command -v lychee >/dev/null; then
       echo "### lychee-docs"
-      lychee --offline "docs/**/*.md" "README.md" "AGENTS.md" || rc=1
+      lychee --offline --exclude-path node_modules "**/*.md" || rc=1
     else
       echo "lychee not installed (brew install lychee) — skipped"
     fi
