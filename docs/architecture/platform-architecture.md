@@ -993,12 +993,12 @@ Partially supported. Works for fleet management; missing Mac-specific features:
 **Goal:** Eliminate hardcoded production identity from active code, one file at
 a time.
 
-- [ ] Template `control/cfengine/cf-runagent.cf` from inventory.
-- [ ] Fix `peers.json.j2` (`ssh_user: djbclark` → `{{ ansible_user }}`).
-- [ ] Fix `stayturgid_peer_bootstrap.py` `DEFAULT_SSH_USER`.
-- [ ] Fix `control/bin/*.py` adb path defaults.
-- [ ] Fix `control/tools/play/obtain_play_aas.py` default email.
-- [ ] Verify each migration with `validate_site_identity.py`.
+- [x] Template `control/cfengine/cf-runagent.cf` from inventory.
+- [x] Fix `peers.json.j2` (`ssh_user: djbclark` → `{{ ansible_user }}`).
+- [x] Fix `stayturgid_peer_bootstrap.py` `DEFAULT_SSH_USER`.
+- [x] Fix `control/bin/*.py` adb path defaults.
+- [x] Fix `control/tools/play/obtain_play_aas.py` default email.
+- [x] Verify each migration with `validate_site_identity.py`.
 
 ### Phase 3: Deploy O-V-G-O Core Services
 
