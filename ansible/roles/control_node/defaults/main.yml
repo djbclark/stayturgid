@@ -133,6 +133,7 @@ openobserve_bin_path: "{{ lookup('env', 'HOME') }}/.local/bin/openobserve"
 
 vector_label: "com.stayturgid.vector"
 vector_config_dir: "{{ lookup('env', 'HOME') }}/.config/stayturgid/vector"
+vector_data_dir: "{{ lookup('env', 'HOME') }}/.config/stayturgid/vector/data"
 vector_ingestion_token: "{{ lookup('env', 'VECTOR_INGESTION_TOKEN') }}"
 vector_otlp_port: 4318
 vector_bin_path: "{{ stayturgid_homebrew_prefix }}/bin/vector"

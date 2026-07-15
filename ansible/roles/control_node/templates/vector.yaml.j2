@@ -1,14 +1,17 @@
+data_dir: "{{ vector_data_dir }}"
+
 sources:
   otlp_source:
     type: "opentelemetry"
+    grpc:
+      address: "127.0.0.1:4317"
     http:
       address: "0.0.0.0:{{ vector_otlp_port }}"
-
 
 sinks:
   openobserve_sink:
     type: "http"
-    inputs: ["otlp_source"]
+    inputs: ["otlp_source.logs"]
     uri: "http://127.0.0.1:{{ openobserve_port }}/api/default/android_logs/_json"
     method: "post"
     auth:

@@ -8,6 +8,7 @@
     mode: "0755"
   loop:
     - "{{ vector_config_dir }}"
+    - "{{ vector_data_dir }}"
     - "{{ openobserve_data_dir }}"
     - "{{ openobserve_data_dir }}/cache"
     - "{{ openobserve_bin_path | dirname }}"
