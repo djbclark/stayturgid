@@ -19,6 +19,7 @@ check:
     @just prettier
     @just html-validate
     @just stylelint
+    @just validate-identity
 
 # Device-free unit tests (shell TAP).
 unit:
@@ -64,6 +65,7 @@ unit-and-pytest:
     @just prettier
     @just html-validate
     @just stylelint
+    @just validate-identity
 
 # ruff check + format (Python).
 ruff:
@@ -322,6 +324,8 @@ lint:
         echo "puppeteer — SKIP (dashboard not running on :4097)"
       fi
     fi
+    # validate-identity (advisory warn-only during Phase 1-2 migration)
+    python3 control/bin/validate_site_identity.py --check-drift --check-secrets --warn-only 2>&1 || rc=1
     exit $rc
 
 # Remove temporary build + test artifacts.
@@ -337,3 +341,14 @@ just-check:
     @echo "justfiles: fmt ok"
     @just --list >/dev/null
     @echo "justfiles: parse ok"
+
+# Validate site identity: parse inventory, warn on drift and secrets (advisory during Phase 1-2).
+validate-identity:
+    @echo "### validate-identity"
+    @python3 control/bin/validate_site_identity.py --check-drift --check-secrets --warn-only
+
+# Validate site identity: hard exit on any drift or secret violation (use in Phase 3+).
+validate-identity-strict:
+    @echo "### validate-identity-strict"
+    @python3 control/bin/validate_site_identity.py --check-drift --check-secrets
+

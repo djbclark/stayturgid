@@ -982,10 +982,10 @@ Partially supported. Works for fleet management; missing Mac-specific features:
 
 **Goal:** Build the tooling that enforces the single source of truth.
 
-- [ ] Create `control/lib/site_identity.py` (§3.3).
-- [ ] Create `control/bin/validate_site_identity.py` (§3.4).
-- [ ] Add `just validate-identity` recipe.
-- [ ] Integrate into `just check` and CI.
+- [x] Create `control/lib/site_identity.py` (§3.3).
+- [x] Create `control/bin/validate_site_identity.py` (§3.4).
+- [x] Add `just validate-identity` recipe.
+- [x] Integrate into `just check` and CI.
 - [ ] Convert `devices.conf` to versioned schema with generated header.
 
 ### Phase 2: Migrate Active Code Consumers
@@ -1037,7 +1037,7 @@ a time.
 
 - [ ] Scrub `AGENTS.md`, `docs/hacking.md`, `docs/handoff.md`.
 - [ ] Replace all production hostnames in tests with example names.
-- [ ] Add `validate_site_identity.py` to `just lint` / CI.
+- [x] Add `validate_site_identity.py` to `just lint` / CI.
 - [ ] Move operator-specific docs to site overlay template.
 
 ### Phase 7: SecretSpec Provider Hardening
