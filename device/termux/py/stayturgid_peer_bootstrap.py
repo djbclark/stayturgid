@@ -260,9 +260,12 @@ def bootstrap_shizuku(peers_path: str = PEERS_PATH) -> tuple[bool, str]:
 
 
 def main(argv=None) -> int:
+    global DEFAULT_SSH_USER
     argv = argv if argv is not None else sys.argv[1:]
     if argv and argv[0] in ("-h", "--help"):
-        sys.stderr.write("usage: stayturgid_peer_bootstrap.py [--list] [--port N] [handsets|shizuku]\n")
+        sys.stderr.write(
+            "usage: stayturgid_peer_bootstrap.py [--list] [--port N] [--ssh-user USER] [handsets|shizuku]\n"
+        )
         return 2
     if argv and argv[0] == "--list":
         if not os.path.isfile(PEERS_PATH):
@@ -276,6 +279,10 @@ def main(argv=None) -> int:
     while args:
         if args[0] == "--port" and len(args) > 1:
             port = int(args[1])
+            args = args[2:]
+            continue
+        if args[0] == "--ssh-user" and len(args) > 1:
+            DEFAULT_SSH_USER = args[1]
             args = args[2:]
             continue
         if args[0] in ("handsets", "shizuku"):

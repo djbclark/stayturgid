@@ -33,6 +33,8 @@ def load_profiles() -> list[dict]:
 
 
 def adb_run(cmd: list[str], **kwargs) -> tuple[int, str, str]:
+    if cmd and cmd[0] == "adb":
+        cmd[0] = dev.adb_bin()
     result = subprocess.run(cmd, capture_output=True, text=True, **kwargs)
     return result.returncode, result.stdout, result.stderr
 
@@ -65,7 +67,7 @@ def main(argv: list[str] | None = None) -> int:
 
     alias = argv[0]
     serial = dev.resolve_adb(alias)
-    subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
+    subprocess.run([dev.adb_bin(), "connect", serial], capture_output=True, text=True)
 
     profiles = load_profiles()
     print("Hardening %d fleet app profile(s) on %s..." % (len(profiles), alias))

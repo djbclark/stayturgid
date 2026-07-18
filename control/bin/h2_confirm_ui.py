@@ -31,7 +31,7 @@ AURORA = "com.aurora.store"
 
 def adb(serial: str, *args: str, timeout: int = 30) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["adb", "-s", serial, "shell", *args],
+        [dev.adb_bin(), "-s", serial, "shell", *args],
         capture_output=True,
         text=True,
         timeout=timeout,
@@ -41,7 +41,7 @@ def adb(serial: str, *args: str, timeout: int = 30) -> subprocess.CompletedProce
 def shot(serial: str, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     r = subprocess.run(
-        ["adb", "-s", serial, "exec-out", "screencap", "-p"],
+        [dev.adb_bin(), "-s", serial, "exec-out", "screencap", "-p"],
         capture_output=True,
         timeout=40,
     )
@@ -181,7 +181,7 @@ def confirm_aurora(host: str, session, hs, out: Path) -> None:
 
 def confirm_host(host: str) -> Path:
     serial = dev.resolve_adb(host)
-    subprocess.run(["adb", "connect", serial], capture_output=True, text=True)
+    subprocess.run([dev.adb_bin(), "connect", serial], capture_output=True, text=True)
     out = OUT / host
     out.mkdir(parents=True, exist_ok=True)
     print("=== H2 confirm %s (%s) ===" % (host, serial))

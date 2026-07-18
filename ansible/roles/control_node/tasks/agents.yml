@@ -33,10 +33,31 @@
     - _system_homebrew_path_check.rc | default(1) != 0
   tags: [system-homebrew-path]
 
+- name: Get current stayturgid git commit SHA
+  ansible.builtin.command: git rev-parse --short HEAD
+  args:
+    chdir: "{{ stayturgid_repo_root }}"
+  register: _git_commit_sha
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+  run_once: true
+
+- name: Set stayturgid git commit SHA fact
+  ansible.builtin.set_fact:
+    stayturgid_git_commit_sha: "{{ _git_commit_sha.stdout | default('unknown') | trim }}"
+  run_once: true
+
 - name: Render devices.conf from inventory (alias usb_serial tailscale_ip lan_ip)
   ansible.builtin.template:
     src: devices.conf.j2
     dest: "{{ conf_dir }}/devices.conf"
+    mode: "0644"
+
+- name: Render cf-runagent.cf from inventory template
+  ansible.builtin.template:
+    src: cf-runagent.cf.j2
+    dest: "{{ stayturgid_repo_root }}/control/cfengine/cf-runagent.cf"
     mode: "0644"
 
 - name: Resolve Mac SSH identity files from control-node keyring
@@ -355,6 +376,13 @@
   when: caddy_removed.changed
   failed_when: false
 
+# ─────────────────────────────────────────────────────────────────
+# Observability Pipeline (Vector & OpenObserve)
+# ─────────────────────────────────────────────────────────────────
+- name: Include Observability tasks
+  ansible.builtin.include_tasks: observability.yml
+  when: stayturgid_observability_enabled | bool
+
 - name: Render fleet dashboard launchd agent
   ansible.builtin.template:
     src: dashboard.plist.j2
@@ -428,6 +456,21 @@
             stayturgid_dashboard_enabled | default(true) | bool
             and dashboard_plist is defined
             and dashboard_plist.changed
+          ) else []
+        )
+        + (
+          [openobserve_label]
+          if (
+            stayturgid_observability_enabled | bool
+            and _openobserve_plist is defined
+            and _openobserve_plist.changed
+          ) else []
+        )
+        + (
+          [vector_label]
+          if (
+            stayturgid_observability_enabled | bool
+            and (_vector_plist.changed or _vector_config.changed)
           ) else []
         )
       }}

@@ -156,7 +156,7 @@ def read_hosts(conf: Path) -> list[str]:
 
 def adb_connect(serial: str) -> bool:
     r = subprocess.run(
-        ["adb", "connect", serial],
+        [dev.adb_bin(), "connect", serial],
         capture_output=True,
         text=True,
         timeout=20,
@@ -166,7 +166,7 @@ def adb_connect(serial: str) -> bool:
         return True
     # Some adb builds print nothing useful; probe shell.
     probe = subprocess.run(
-        ["adb", "-s", serial, "shell", "echo", "ok"],
+        [dev.adb_bin(), "-s", serial, "shell", "echo", "ok"],
         capture_output=True,
         text=True,
         timeout=15,
@@ -190,7 +190,7 @@ def reachable(host: str) -> tuple[bool, str]:
 def shot(serial: str, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     r = subprocess.run(
-        ["adb", "-s", serial, "exec-out", "screencap", "-p"],
+        [dev.adb_bin(), "-s", serial, "exec-out", "screencap", "-p"],
         capture_output=True,
         timeout=45,
     )
@@ -199,7 +199,7 @@ def shot(serial: str, path: Path) -> None:
 
 def adb_shell(serial: str, *args: str, timeout: int = 30) -> str:
     r = subprocess.run(
-        ["adb", "-s", serial, "shell", *args],
+        [dev.adb_bin(), "-s", serial, "shell", *args],
         capture_output=True,
         text=True,
         timeout=timeout,

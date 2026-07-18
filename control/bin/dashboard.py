@@ -38,7 +38,7 @@ from flask import Flask, render_template_string, request
 from fleet_health import evaluate_health
 from fleet_health import probe_device as live_probe
 from markupsafe import Markup, escape
-from stayturgid_device import SSH_OPTS, PrivShell, iter_devices_conf, resolve_ssh_host
+from stayturgid_device import SSH_OPTS, PrivShell, adb_bin, iter_devices_conf, resolve_ssh_host
 
 import control.lib.stats as _stats
 
@@ -345,6 +345,9 @@ def request_shizuku_authorization(hostname: str) -> tuple[bool, str]:
 
 
 def _run(args, **kw):
+    args = list(args)
+    if args and args[0] == "adb":
+        args[0] = adb_bin()
     try:
         return subprocess.run(args, capture_output=True, text=True, **kw)
     except (OSError, subprocess.TimeoutExpired):
@@ -664,7 +667,7 @@ def api_pending_ui_done(host: str):
                 data["status"] = "done"
                 content = json.dumps(data)
                 subprocess.run(
-                    ["adb", "-s", serial, "shell", "cat > /sdcard/stayturgid/state/pending_ui.json"],
+                    [adb_bin(), "-s", serial, "shell", "cat > /sdcard/stayturgid/state/pending_ui.json"],
                     input=content,
                     text=True,
                     capture_output=True,

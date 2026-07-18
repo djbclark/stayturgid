@@ -1,7 +1,7 @@
 ---
 # Example fleet inventory for stayturgid (GENERIC — not a live site).
 # Copy to your site overlay repo as inventory/hosts.yml and replace placeholders.
-# See docs/other-sites.md §4.
+# See docs/architecture/platform-architecture.md §7.3
 #
 #   oneui-device          — Samsung One UI class (local ADB + Termux SSH)
 #   stock-android-device — stock Android / Pixel class (peer helper)
