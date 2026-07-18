@@ -30,12 +30,14 @@ from enum import Enum
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ANSIBLE_CFG = REPO_ROOT / "ansible" / "ansible.cfg"
-INVENTORY = REPO_ROOT / "ansible" / "inventory" / "hosts.yml"
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from control.lib.ansible_context import AnsibleConfigError, require_inventory, resolve_ansible_context
+
 SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "site.yml"
 MAC_SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "control_node" / "site.yml"
 REQUIREMENTS = REPO_ROOT / "ansible" / "requirements.yml"
-COLLECTIONS_PATH = REPO_ROOT / ".ansible" / "collections"
 
 
 class Scope(str, Enum):
@@ -79,7 +81,11 @@ def load_play_env(env: dict[str, str]) -> None:
 
 def repo_env() -> dict[str, str]:
     env = os.environ.copy()
-    env["ANSIBLE_CONFIG"] = str(ANSIBLE_CFG)
+    context = resolve_ansible_context(REPO_ROOT, env)
+    # Canonicalizing the selected path preserves the caller's choice while
+    # making relative ANSIBLE_CONFIG values reliable from any product recipe.
+    env["ANSIBLE_CONFIG"] = str(context.config)
+    env["STAYTURGID_ROOT"] = str(REPO_ROOT)
     load_play_env(env)
     return env
 
@@ -96,8 +102,10 @@ def parse_inventory_hosts(data: dict, group: str = "stayturgid") -> list[str]:
 
 
 def inventory_hosts(group: str = "stayturgid") -> list[str]:
+    context = resolve_ansible_context(REPO_ROOT)
+    require_inventory(context)
     result = subprocess.run(
-        ["ansible-inventory", "-i", str(INVENTORY), "--list"],
+        ["ansible-inventory", "-i", str(context.inventory), "--list"],
         capture_output=True,
         text=True,
         check=True,
@@ -118,6 +126,7 @@ def require_ansible() -> None:
 
 
 def install_collections() -> None:
+    context = resolve_ansible_context(REPO_ROOT)
     subprocess.run(
         [
             "ansible-galaxy",
@@ -126,7 +135,7 @@ def install_collections() -> None:
             "-r",
             str(REQUIREMENTS),
             "-p",
-            str(COLLECTIONS_PATH),
+            str(context.collections_path),
         ],
         check=True,
         stdout=subprocess.DEVNULL,
@@ -167,7 +176,15 @@ def run_playbook(
     extra_vars: list[str] | None = None,
     verbose: int = 0,
 ) -> int:
-    cmd = ["ansible-playbook", str(playbook)]
+    # Inventory belongs to the active site config, while product files always
+    # belong to this checkout. Passing the latter explicitly prevents roles
+    # from inferring the product root from an overlay's ansible.cfg path.
+    cmd = [
+        "ansible-playbook",
+        str(playbook),
+        "-e",
+        f"stayturgid_repo_root={REPO_ROOT}",
+    ]
     if limit:
         cmd.extend(["--limit", ",".join(limit)])
     if check:
@@ -195,6 +212,7 @@ def deploy_mac(*, check: bool, tags: str = "mac", verbose: int = 0) -> int:
 
 def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0) -> int:
     require_ansible()
+    require_inventory(resolve_ansible_context(REPO_ROOT))
     warn_prerequisites(scope)
     install_collections()
 
@@ -270,6 +288,9 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("interrupted", file=sys.stderr)
         sys.exit(130)
+    except AnsibleConfigError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(2)
     except subprocess.CalledProcessError as exc:
         print(f"ERROR: command failed: {exc}", file=sys.stderr)
         sys.exit(exc.returncode or 1)

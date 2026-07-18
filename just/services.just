@@ -15,7 +15,7 @@ system-homebrew-path-status:
 
 # Ansible: brew llama.cpp + download weights (~6GB).
 vlm-install:
-    ansible-playbook {{ mac_site }} -e stayturgid_vlm_enabled=true --tags vlm-models
+    {{ ansible_playbook }} {{ mac_site }} -e stayturgid_vlm_enabled=true --tags vlm-models
 
 # Manual foreground start (no launchd).
 vlm-server:
@@ -27,7 +27,7 @@ vlm-check:
 
 # Ansible: launchd agent.
 vlm-service-install:
-    ansible-playbook {{ mac_site }} -e stayturgid_vlm_enabled=true --tags vlm-service
+    {{ ansible_playbook }} {{ mac_site }} -e stayturgid_vlm_enabled=true --tags vlm-service
 
 # Health + launchctl summary.
 vlm-service-status:
@@ -90,11 +90,11 @@ hermes-doctor:
 
 # Ansible: install, configure, launchd plist.
 hermes-deploy:
-    ansible-playbook {{ mac_site }} --tags hermes
+    {{ ansible_playbook }} {{ mac_site }} --tags hermes
 
 # Ansible: remove plist + unload launchd.
 hermes-disable:
-    ansible-playbook {{ mac_site }} --tags agents -e stayturgid_hermes_enabled=false
+    {{ ansible_playbook }} {{ mac_site }} --tags agents -e stayturgid_hermes_enabled=false
 
 # Update hermes-agent package.
 hermes-update:
@@ -118,14 +118,14 @@ opencode-web-restart:
 
 # Ansible: install + load launchd agent.
 opencode-web-deploy:
-    ansible-playbook {{ mac_site }} --tags agents -e stayturgid_opencode_web_enabled=true
+    {{ ansible_playbook }} {{ mac_site }} --tags agents -e stayturgid_opencode_web_enabled=true
     @echo ""
     @-launchctl kickstart -k gui/$(id -u)/{{ opencode_web_label }} 2>/dev/null
     @echo "OpenCode web deployed. Verify: just opencode-web-status"
 
 # Ansible: remove plist + unload.
 opencode-web-disable:
-    ansible-playbook {{ mac_site }} --tags agents -e stayturgid_opencode_web_enabled=false
+    {{ ansible_playbook }} {{ mac_site }} --tags agents -e stayturgid_opencode_web_enabled=false
 
 # ── Fleet dashboard (Flask + HTMX, port 4097) ──────────────────────────────
 
@@ -144,14 +144,14 @@ dashboard-restart:
 
 # Ansible: install + load launchd agent.
 dashboard-deploy:
-    ansible-playbook {{ mac_site }} --tags agents -e stayturgid_dashboard_enabled=true
+    {{ ansible_playbook }} {{ mac_site }} --tags agents -e stayturgid_dashboard_enabled=true
     @echo ""
     @-launchctl kickstart -k gui/$(id -u)/{{ dashboard_label }} 2>/dev/null
     @echo "Dashboard deployed. Verify: just dashboard-status"
 
 # Ansible: remove plist + unload.
 dashboard-disable:
-    ansible-playbook {{ mac_site }} --tags agents -e stayturgid_dashboard_enabled=false
+    {{ ansible_playbook }} {{ mac_site }} --tags agents -e stayturgid_dashboard_enabled=false
 
 # tail -f dashboard.log.
 dashboard-logs:

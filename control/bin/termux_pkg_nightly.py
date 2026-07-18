@@ -24,7 +24,11 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ANSIBLE_CFG = REPO_ROOT / "ansible" / "ansible.cfg"
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from control.lib.ansible_context import AnsibleConfigError, require_inventory, resolve_ansible_context
+
 PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "fleet" / "termux-pkg-upgrade.yml"
 LOG_DIR = Path.home() / ".config" / "stayturgid" / "logs"
 LOG = LOG_DIR / "termux-pkg-nightly.log"
@@ -73,13 +77,18 @@ def main(argv: list[str] | None = None) -> int:
     if not PLAYBOOK.is_file():
         log("ERROR: missing playbook %s" % PLAYBOOK)
         return 2
-    if not ANSIBLE_CFG.is_file():
-        log("ERROR: missing %s" % ANSIBLE_CFG)
+    try:
+        context = resolve_ansible_context(REPO_ROOT)
+        require_inventory(context)
+    except AnsibleConfigError as exc:
+        log("ERROR: %s" % exc)
         return 2
 
     cmd = [
         "ansible-playbook",
         str(PLAYBOOK),
+        "-e",
+        "stayturgid_repo_root=%s" % REPO_ROOT,
     ]
     if args.limit:
         cmd.extend(["--limit", args.limit])
@@ -87,11 +96,13 @@ def main(argv: list[str] | None = None) -> int:
         cmd.extend(["--check", "--diff"])
 
     env = os.environ.copy()
-    env["ANSIBLE_CONFIG"] = str(ANSIBLE_CFG)
+    env["ANSIBLE_CONFIG"] = str(context.config)
+    env["STAYTURGID_ROOT"] = str(REPO_ROOT)
     # launchd has a minimal PATH; prefer Homebrew ansible.
     homebrew = "/opt/homebrew/bin:/usr/local/bin"
     env["PATH"] = homebrew + ":" + env.get("PATH", "/usr/bin:/bin")
 
+    log("start: config=%s (%s) inventory=%s" % (context.config, context.source, context.inventory))
     log("start: %s" % " ".join(cmd))
     try:
         r = subprocess.run(

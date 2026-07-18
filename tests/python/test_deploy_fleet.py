@@ -35,6 +35,8 @@ def test_run_playbook_argv_full(monkeypatch):
     assert seen[0] == [
         "ansible-playbook",
         str(df.SITE_PLAYBOOK),
+        "-e",
+        f"stayturgid_repo_root={df.REPO_ROOT}",
         "--limit",
         "s24,hd8",
     ]
@@ -72,6 +74,8 @@ def test_run_playbook_argv_check_and_tags(monkeypatch):
     assert seen[0] == [
         "ansible-playbook",
         str(df.SITE_PLAYBOOK),
+        "-e",
+        f"stayturgid_repo_root={df.REPO_ROOT}",
         "--limit",
         "s24",
         "--check",
@@ -198,5 +202,7 @@ def test_load_play_env_missing_file(tmp_path, monkeypatch):
 def test_repo_env_includes_ansible_config(monkeypatch, tmp_path):
     monkeypatch.setattr(df.Path, "home", classmethod(lambda cls, _t=tmp_path: _t))
     monkeypatch.delenv("GPLAY_EMAIL", raising=False)
+    monkeypatch.setenv("STAYTURGID_SITE_DIR", str(tmp_path / "missing-site"))
     env = df.repo_env()
-    assert env["ANSIBLE_CONFIG"] == str(df.ANSIBLE_CFG)
+    assert env["ANSIBLE_CONFIG"] == str(df.REPO_ROOT / "ansible" / "ansible.cfg")
+    assert env["STAYTURGID_ROOT"] == str(df.REPO_ROOT)

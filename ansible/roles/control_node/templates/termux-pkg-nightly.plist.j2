@@ -19,7 +19,9 @@
         <key>HOME</key>
         <string>{{ lookup('env', 'HOME') }}</string>
         <key>ANSIBLE_CONFIG</key>
-        <string>{{ stayturgid_repo_root | realpath }}/ansible/ansible.cfg</string>
+        <string>{{ ansible_config_file | realpath }}</string>
+        <key>STAYTURGID_ROOT</key>
+        <string>{{ stayturgid_repo_root | realpath }}</string>
     </dict>
     <key>StartCalendarInterval</key>
     <dict>
