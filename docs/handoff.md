@@ -11,6 +11,8 @@
 > **2026-07-10:** Massive repo restructure on `master` (`d950c53`) — read [§ Cold-start](#-cold-start--current-state-read-this-first) before assuming any path.
 >
 > **2026-07-14:** Makefile → `justfile` transition. Install `brew install just`. Run `just --list` or `just help`.
+>
+> **2026-07-18:** Repo checkout moved **`~/stayturgid` → `~/ops/stayturgid`** (permanent; base-dir convention `~/ops`, siblings with the private site repo `~/ops/site-djbclark`). Control-node launchd plists were regenerated for the new path (`--tags agents,agents-ensure`); the two hand-managed landing plists were patched manually (gap noted in [ADR 005](architecture/adr/005-two-repo-topology.md)). Stale checkouts `~/stayturgid_work` and `~/stayturgid.d` parked under `~/ops/scratch/`. Also removed an accidentally committed FIRERPA CA key pair from the repo root (never-deployed CA; see ADR 005 PR). Topology + segmentation decisions: ADR 005 and the site repo's `docs/plans/site-djbclark-step1-segmentation-architecture-v1.md`.
 
 ---
 
