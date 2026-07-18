@@ -25,10 +25,10 @@ SERVICES_FILE = state.STATE_FILE
 # ── Known service definitions (URL, label, group) ───────────────────────────
 KNOWN_SERVICES: list[dict] = [
     # Mac control node — all served via Caddy HTTPS
-    {"url": "https://mac.greyhound-sidemirror.ts.net", "label": "Network Landing (root)", "group": "mac"},
-    {"url": "https://mac.greyhound-sidemirror.ts.net/opencode/", "label": "OpenCode Web (HTTPS)", "group": "mac"},
-    {"url": "https://mac.greyhound-sidemirror.ts.net/dashboard/", "label": "Fleet Dashboard (HTTPS)", "group": "mac"},
-    {"url": "https://mac.greyhound-sidemirror.ts.net/stats/", "label": "Fleet Stats (HTTPS)", "group": "mac"},
+    {"url": "https://mac.example.ts.net", "label": "Network Landing (root)", "group": "mac"},
+    {"url": "https://mac.example.ts.net/opencode/", "label": "OpenCode Web (HTTPS)", "group": "mac"},
+    {"url": "https://mac.example.ts.net/dashboard/", "label": "Fleet Dashboard (HTTPS)", "group": "mac"},
+    {"url": "https://mac.example.ts.net/stats/", "label": "Fleet Stats (HTTPS)", "group": "mac"},
     # Localhost (direct, for Mac-only access)
     {"url": "http://localhost:4096", "label": "OpenCode (localhost)", "group": "mac"},
     {"url": "http://localhost:4097", "label": "Dashboard (localhost)", "group": "mac"},
@@ -38,16 +38,24 @@ KNOWN_SERVICES: list[dict] = [
     {"url": "http://localhost:8081", "label": "VLM UI-TARS API", "group": "mac"},
     # mDNS (Bonjour, LAN-only) — use if macOS hostname differs
     # Devices — Tailscale IPs
-    {"url": "http://100.123.218.30:65000", "label": "s24 FIRERPA", "group": "devices"},
-    {"url": "http://100.65.230.108:65000", "label": "p7a FIRERPA", "group": "devices"},
-    {"url": "http://100.124.55.39:65000", "label": "hd8 FIRERPA", "group": "devices"},
+    {"url": "http://100.0.0.11:65000", "label": "oneui-device FIRERPA", "group": "devices"},
+    {"url": "http://100.0.0.12:65000", "label": "stock-android-device FIRERPA", "group": "devices"},
+    {"url": "http://100.0.0.13:65000", "label": "fireos-device FIRERPA", "group": "devices"},
     # Devices — LAN
-    {"url": "http://192.168.68.54:65000", "label": "s24 FIRERPA (LAN)", "group": "devices"},
-    {"url": "http://192.168.68.60:65000", "label": "p7a FIRERPA (LAN)", "group": "devices"},
+    {"url": "http://192.0.2.11:65000", "label": "oneui-device FIRERPA (LAN)", "group": "devices"},
+    {"url": "http://192.0.2.12:65000", "label": "stock-android-device FIRERPA (LAN)", "group": "devices"},
     # Devices — MagicDNS
-    {"url": "http://s24.greyhound-sidemirror.ts.net:65000", "label": "s24 FIRERPA (MagicDNS)", "group": "devices"},
-    {"url": "http://p7a.greyhound-sidemirror.ts.net:65000", "label": "p7a FIRERPA (MagicDNS)", "group": "devices"},
-    {"url": "http://hd8.greyhound-sidemirror.ts.net:65000", "label": "hd8 FIRERPA (MagicDNS)", "group": "devices"},
+    {"url": "http://oneui-device.example.ts.net:65000", "label": "oneui-device FIRERPA (MagicDNS)", "group": "devices"},
+    {
+        "url": "http://stock-android-device.example.ts.net:65000",
+        "label": "stock-android-device FIRERPA (MagicDNS)",
+        "group": "devices",
+    },
+    {
+        "url": "http://fireos-device.example.ts.net:65000",
+        "label": "fireos-device FIRERPA (MagicDNS)",
+        "group": "devices",
+    },
     # Additional Mac services discovered dynamically
     {"url": "http://localhost:9000", "label": "PHP-FPM / Dev Server", "group": "mac"},
 ]

@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # Research — Android UI automation options (2026-07-09)
 
 Live comparison on **s24** (Samsung One UI / Android 16) and **hd8** (Fire OS 11).

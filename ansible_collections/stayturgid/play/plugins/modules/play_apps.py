@@ -78,7 +78,7 @@ author:
 EXAMPLES = r"""
 - name: Install a Play app (apk-pure mirror)
   stayturgid.play.play_apps:
-    device: p7a
+    device: stock-android-device
     apps:
       - id: com.google.android.apps.authenticator2
     download_backend: apkeep
@@ -86,7 +86,7 @@ EXAMPLES = r"""
 
 - name: Install from a local APK
   stayturgid.play.play_apps:
-    device: p7a
+    device: stock-android-device
     apps:
       - id: com.example.app
         apk_path: /tmp/com.example.app.apk

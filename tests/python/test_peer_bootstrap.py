@@ -23,12 +23,12 @@ def test_peer_endpoints_prefer_lan():
 
 def test_self_adb_targets(tmp_path):
     cfg = {
-        "self": {"lan": "192.168.1.157", "tailscale": "100.124.55.39"},
+        "self": {"lan": "192.0.2.13", "tailscale": "100.0.0.13"},
         "peers": [],
     }
     assert pb.self_adb_targets(cfg) == [
-        "192.168.1.157:5555",
-        "100.124.55.39:5555",
+        "192.0.2.13:5555",
+        "100.0.0.13:5555",
     ]
 
 
@@ -38,7 +38,7 @@ def test_bootstrap_skips_can_help_false(monkeypatch, tmp_path):
         "handsets_port": 9012,
         "peers": [
             {
-                "name": "hd8",
+                "name": "fireos-device",
                 "lan": "9.9.9.9",
                 "tailscale": "100.9.9.9",
                 "can_help": False,

@@ -44,7 +44,7 @@ def test_skip_presence_still_enables_inversion(monkeypatch, tmp_path):
     calls = []
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_DIR", str(tmp_path / "dsc"))
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_PROJECT", "stayturgid")
-    session = sc.ScreenControlSession("s24", skip_request=True)
+    session = sc.ScreenControlSession("oneui-device", skip_request=True)
     session._skip = True
     monkeypatch.setattr(
         sc,
@@ -63,7 +63,7 @@ def test_skip_presence_still_enables_inversion(monkeypatch, tmp_path):
     monkeypatch.setattr(sc.ScreenControlSession, "_start_keepalive", lambda self: None)
     monkeypatch.setattr(sc.ScreenControlSession, "_stop_keepalive_thread", lambda self: None)
     monkeypatch.setattr(sc.dev, "device_row", lambda *a, **k: None)
-    monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-s24")
+    monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-oneui-device")
     monkeypatch.setattr(sc, "lock_portrait_orientation", lambda _s: {})
     monkeypatch.setattr(sc, "restore_rotation_settings", lambda *a, **k: True)
     session.__enter__()
@@ -81,10 +81,10 @@ def test_foreign_lease_blocks_session(monkeypatch, tmp_path):
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_DIR", str(tmp_path / "dsc"))
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_PROJECT", "other-project")
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_WAIT_SEC", "0")
-    sc.dsl.acquire("p7a", purpose="foreign", agent="them")
+    sc.dsl.acquire("stock-android-device", purpose="foreign", agent="them")
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_PROJECT", "stayturgid")
-    session = sc.ScreenControlSession("p7a")
-    monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-p7a")
+    session = sc.ScreenControlSession("stock-android-device")
+    monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-stock-android-device")
     monkeypatch.setattr(sc.dev, "device_row", lambda *a, **k: None)
     with pytest.raises(sc.ScreenControlError) as ei:
         session.__enter__()
@@ -134,7 +134,7 @@ def test_session_does_not_save_or_restore_foreground(monkeypatch, tmp_path):
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_DIR", str(tmp_path / "dsc"))
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_PROJECT", "stayturgid")
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_WAIT_SEC", "0")
-    session = sc.ScreenControlSession("s24", skip_request=True)
+    session = sc.ScreenControlSession("oneui-device", skip_request=True)
     session._skip = True
     monkeypatch.setattr(
         sc,
@@ -155,7 +155,7 @@ def test_session_does_not_save_or_restore_foreground(monkeypatch, tmp_path):
     monkeypatch.setattr(sc.ScreenControlSession, "_start_keepalive", lambda self: None)
     monkeypatch.setattr(sc.ScreenControlSession, "_stop_keepalive_thread", lambda self: None)
     monkeypatch.setattr(sc.dev, "device_row", lambda *a, **k: None)
-    monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-s24")
+    monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-oneui-device")
     session.__enter__()
     assert session._saved_component is None
     session.__exit__(None, None, None)
@@ -167,7 +167,7 @@ def test_session_fails_closed_when_presence_on_missing(monkeypatch, tmp_path):
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_DIR", str(tmp_path / "dsc"))
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_PROJECT", "stayturgid")
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_WAIT_SEC", "0")
-    session = sc.ScreenControlSession("s24", skip_request=True)
+    session = sc.ScreenControlSession("oneui-device", skip_request=True)
     session._skip = False
     monkeypatch.setattr(sc, "_run", lambda *a, **k: type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})())
     monkeypatch.setattr(sc, "mac_adb_shell", lambda *a, **k: (0, "0\n"))
@@ -177,7 +177,7 @@ def test_session_fails_closed_when_presence_on_missing(monkeypatch, tmp_path):
     monkeypatch.setattr(sc, "set_inversion", lambda _s, en: True)
     monkeypatch.setattr(sc, "ssh_presence", lambda *a, **k: (127, "missing"))
     monkeypatch.setattr(sc.dev, "device_row", lambda *a, **k: None)
-    monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-s24")
+    monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-oneui-device")
     try:
         session.__enter__()
         assert False, "expected ScreenControlError"
@@ -207,9 +207,9 @@ def test_ssh_presence_exports_quiet(monkeypatch):
         return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
 
     monkeypatch.setenv("STAYTURGID_PRESENCE_QUIET", "1")
-    monkeypatch.setattr(sc.dev, "resolve_ssh_host", lambda h: "s24")
+    monkeypatch.setattr(sc.dev, "resolve_ssh_host", lambda h: "oneui-device")
     monkeypatch.setattr(sc.subprocess, "run", fake_run)
-    rc, _out = sc.ssh_presence("s24", "on", "s24", "Auto")
+    rc, _out = sc.ssh_presence("oneui-device", "on", "oneui-device", "Auto")
     assert rc == 0
     remote = captured["cmd"][-1]
     assert "STAYTURGID_PRESENCE_QUIET=1" in remote
@@ -221,9 +221,9 @@ def test_ssh_presence_timeout_returns_124(monkeypatch):
     def boom(*_a, **_k):
         raise subprocess.TimeoutExpired(cmd="ssh", timeout=25)
 
-    monkeypatch.setattr(sc.dev, "resolve_ssh_host", lambda h: "hd8")
+    monkeypatch.setattr(sc.dev, "resolve_ssh_host", lambda h: "fireos-device")
     monkeypatch.setattr(sc.subprocess, "run", boom)
-    rc, out = sc.ssh_presence("hd8", "request-screen", "hd8", "Auto")
+    rc, out = sc.ssh_presence("fireos-device", "request-screen", "fireos-device", "Auto")
     assert rc == 124
     assert "timed out" in out
 
@@ -278,9 +278,9 @@ def test_session_locks_portrait_on_enter_and_restores_on_exit(monkeypatch, tmp_p
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_PROJECT", "stayturgid")
     rotation_calls = []
     # resolve_adb is called in __init__ — mock first.
-    monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-s24")
+    monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-oneui-device")
     monkeypatch.setattr(sc.dev, "device_row", lambda *a, **k: None)
-    session = sc.ScreenControlSession("s24", skip_request=True)
+    session = sc.ScreenControlSession("oneui-device", skip_request=True)
     session._skip = True
     monkeypatch.setattr(
         sc,
@@ -304,14 +304,14 @@ def test_session_locks_portrait_on_enter_and_restores_on_exit(monkeypatch, tmp_p
     monkeypatch.setattr(sc.ScreenControlSession, "_start_keepalive", lambda self: None)
     monkeypatch.setattr(sc.ScreenControlSession, "_stop_keepalive_thread", lambda self: None)
     session.__enter__()
-    assert session.serial == "serial-s24"
+    assert session.serial == "serial-oneui-device"
     assert session._saved_rotation == {"accelerometer_rotation": "1", "user_rotation": "2"}
-    assert ("lock", "serial-s24") in rotation_calls
+    assert ("lock", "serial-oneui-device") in rotation_calls
     monkeypatch.setattr(sc, "restore_default_ime", lambda *a, **k: True)
     monkeypatch.setattr(sc, "restore_foreground", lambda *a, **k: True)
     session.__exit__(None, None, None)
     assert (
         "restore",
-        "serial-s24",
+        "serial-oneui-device",
         {"accelerometer_rotation": "1", "user_rotation": "2"},
     ) in rotation_calls

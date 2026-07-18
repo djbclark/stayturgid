@@ -12,8 +12,8 @@ Ensures Aurora Store (FOSS Google Play client) with Shizuku + optional app sidel
 ## Deploy
 
 ```bash
-just deploy HOSTS=s24     # full fleet (when app stores enabled)
-just deploy SCOPE=play HOSTS=s24
+just deploy HOSTS=oneui-device     # full fleet (when app stores enabled)
+just deploy SCOPE=play HOSTS=oneui-device
 ```
 
 See [docs/handoff.md](../../../../../docs/handoff.md) for fleet status and [docs/architecture/components/play.md](../../../../../docs/architecture/components/play.md).

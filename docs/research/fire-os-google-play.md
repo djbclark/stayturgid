@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # Research — Fire OS sideloaded Google Play (hd8)
 
 Date: 2026-07-09. Device: Fire HD 8 (`KFRASWI`), Fire OS 8 / Android 11.

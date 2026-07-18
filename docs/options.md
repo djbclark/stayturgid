@@ -33,21 +33,21 @@
 > unless the operator unparks a named project (Inferno, etc.).
 
 **Fleet snapshot (2026-07-13):** Shell → Python migration complete and deployed to
-s24 + p7a. Unified syslog
+oneui-device + stock-android-device. Unified syslog
 logging with 30-day rotation and remote error scraping. Bootstrap APK automation
-deployed (7 APKs). FIRERPA on s24 + p7a (v10.0). Fleet dashboard (Flask + HTMX, :4097)
+deployed (7 APKs). FIRERPA on oneui-device + stock-android-device (v10.0). Fleet dashboard (Flask + HTMX, :4097)
 with device status cards, human-action-needed indicators, live probe buttons, and
 long-term stats tracking (JSONL, forever, with selectable timeframe). Network landing
 page (:8088, also :443/services/) with MagicDNS / mDNS / LAN / Tailscale service
 links and hourly discovery scan. HTTPS consolidation behind Caddy reverse proxy
-(mac.greyhound-sidemirror.ts.net) with HTTP→HTTPS redirect. Tailnet renamed to
-greyhound-sidemirror.ts.net; all old machine names purged. s24 + p7a: FIRERPA secure
+(mac.example.ts.net) with HTTP→HTTPS redirect. Tailnet renamed to
+example.ts.net; all old machine names purged. oneui-device + stock-android-device: FIRERPA secure
 SSH/gRPC live without suppressing AutoJs6, AutoInput, or Octoclip; Python runtime and
-watchdogs healthy. Open menu = remaining hd8 deployment under H1/H3, H9
+watchdogs healthy. Open menu = remaining fireos-device deployment under H1/H3, H9
 (foreground cleanup — save/restore disabled 2026-07-14, may revisit via FIRERPA OCR),
 H5/38, 43–45, 54, F1–F4. T1 shipped 2026-07-13.
-`just firerpa-health` is clean and live health is clean for s24 + p7a. The aggregate
-`just health` command remains nonzero only for hd8's documented `watchdog_stale` /
+`just firerpa-health` is clean and live health is clean for oneui-device + stock-android-device. The aggregate
+`just health` command remains nonzero only for fireos-device's documented `watchdog_stale` /
 offline state while that USB-only tablet deployment is intentionally deferred.
 
 **CFBS migration (2026-07-14):** CFEngine policy sources now live in the local
@@ -88,7 +88,7 @@ Parked (not a track): Inferno/Styx → [docs/research/experiments/inferno-styx/]
 **Shipped (2026-07-09):** ADR 002 accepted; `android_ui` + `android_a11y_services`
 modules; `stayturgid.fleet.post_ui` role; `stayturgid.fleet.validate` role;
 `preflight.yml` SSH probe + conditional adb bootstrap in `site.yml`;
-`autojs6_project_deploy` module (hd8 full fleet deploy path).
+`autojs6_project_deploy` module (fireos-device full fleet deploy path).
 
 #### ~~60 — Expand Ansible validate + a11y in deploy (agent)~~ · **Closed 2026-07-09**
 
@@ -110,7 +110,7 @@ Removed flat `ansible/playbooks/*.yml` shims (keep `site.yml` + `fleet/` +
 #### B63 — shizuku_start native launch path on real device (agent) · Risk: **Low** · Needs: device with Shizuku stopped
 
 Test the `shizuku_start` module's `libshizuku.so` native launch path on a live
-device. The module is idempotent (tested on s24 — already_up path OK). The
+device. The module is idempotent (tested on oneui-device — already_up path OK). The
 native fallback mirrors `fire_peer_help.py:155-182` but has never been exercised
 in the Ansible module context. Requires stopping Shizuku first (disrupts services).
 Best done during cold-device end-to-end (B64) or with an idle device.
@@ -151,7 +151,7 @@ Reachability in `access-monitor`. Prefer health trail before 43–45.
 Adopt WorkManager-based scheduling when AutoJs6 upstream ships it. Idle until
 upstream; implementing early would fight the current watchdog model.
 
-#### 44 — Tasker kicker on p7a (agent) · Risk: **Latent / Medium** · Trigger: soak stalls
+#### 44 — Tasker kicker on stock-android-device (agent) · Risk: **Latent / Medium** · Trigger: soak stalls
 
 Only if Mac health / soak shows AutoJs6/watchdog stalls. Reintroduces a Tasker
 nudge path we otherwise removed — keep narrow and host-scoped.
@@ -288,12 +288,12 @@ with notifications directing user to Settings.
 
 ### Track H — Post-migration cleanup (open items)
 
-#### H1 — Finish Python deployment on hd8 · Risk: **Medium**
+#### H1 — Finish Python deployment on fireos-device · Risk: **Medium**
 
-Completed on s24 + p7a on 2026-07-13. hd8 remains because it was not needed for the
+Completed on oneui-device + stock-android-device on 2026-07-13. fireos-device remains because it was not needed for the
 FIRERPA investigation and has a different Fire OS/USB-only recovery profile.
 
-#### ~~H2 — p7a port 5555 restored~~ · **Closed 2026-07-13**
+#### ~~H2 — stock-android-device port 5555 restored~~ · **Closed 2026-07-13**
 
 Port 5555, the shell bridge, Shizuku, and accessibility checks are all healthy.
 The historical `CLOSED_NO_SHELL` alerts remain in the 24-hour log window but are
@@ -302,7 +302,7 @@ restarted its supervisors; fresh 15:25+ repair checks and live validation are gr
 
 #### H3 — `just deploy` to push Python runtime to fleet · Risk: **Medium**
 
-Completed on s24 + p7a. Run the same deploy on hd8 only with USB recovery available.
+Completed on oneui-device + stock-android-device. Run the same deploy on fireos-device only with USB recovery available.
 
 #### ~~H4 — ruff + uv tooling~~ · **Closed 2026-07-14**
 
@@ -318,7 +318,7 @@ project-scoped Ansible lint command. `.typos.toml` carries approved project voca
 such as `lamda` and `AAS`. `just typos`, `just check`, `just test`, and `just lint`
 include spelling checks. Hooks are installed with `pre-commit install`.
 
-#### ~~H6 — s24 AutoJs6 watchdog stale (Android 16)~~ · **Closed 2026-07-13**
+#### ~~H6 — oneui-device AutoJs6 watchdog stale (Android 16)~~ · **Closed 2026-07-13**
 
 The accessibility service resumed after the operator toggled it off/on. A later stale
 watchdog exposed a separate deterministic bug: `boot-launcher.js` inherited its own
@@ -409,11 +409,11 @@ install/configure/service/uninstall; playbook (`fleet/firerpa.yml`); Python heal
 (`firerpa_heal.py`); launchd health monitor (`firerpa_health_monitor.py` every 10 min);
 Termux boot integration in Python `start_adb.py` (start + monitor); Makefile targets
 (`firerpa-deploy`, `firerpa-remove`, `firerpa-heal`, `firerpa-health`). Deployed on
-s24 + p7a (v10.0 :65000). hd8 blocked by Fire OS SELinux (peer-bootstrap covers it;
+oneui-device + stock-android-device (v10.0 :65000). fireos-device blocked by Fire OS SELinux (peer-bootstrap covers it;
 no plan to fix).
 
 **Known limitations (by design, not open work):** FIRERPA inbound SSH is enabled as
-user `shell` with a private custom service certificate (`ssh s24-firerpa`; resolution of
+user `shell` with a private custom service certificate (`ssh oneui-device-firerpa`; resolution of
 [upstream #145](https://github.com/firerpa/lamda/issues/145)). After reboot the server
 archive still needs a UID-2000 bridge: Python `start_adb.py` first tries localhost ADB;
 when needed it uses authorized Shizuku `rish` to restart adbd, waits for localhost:5555,
@@ -421,7 +421,7 @@ then launches through persistent ADB. Both phones' paths are validated after gra
 Termux **Allow all the time**. USB/wireless recovery is required if neither bridge is
 available.
 Built-in ADB needs root
-(stayturgid uses the shell bridge); hd8 remains unsupported. Architecture docs:
+(stayturgid uses the shell bridge); fireos-device remains unsupported. Architecture docs:
 `docs/research/evaluations/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md`,
 `docs/research/evaluations/firerpa-nonroot-redundancy-deepseek-pro-2026-07-12.md`,
 `docs/research/evaluations/firerpa-install-map-2026-07-12.md`.
@@ -441,7 +441,7 @@ graph. Auth credential `880aae23f526eb6fc86e28` derived from lamda.pem RSA
 private-key SHA-256. SPA at `https://<ip>:65000/` with WebSocket (`/ws/screen/`,
 `/ws/webrtc/signaling`) + WebRTC H.264. Config reverted to failsafe (WebRTC off)
 after spike. Useful for no-USB glass access but scrcpy + Tailscale already covers
-s24/p7a. Keep documented, leave dormant unless tablet-control-phone need arises.
+oneui-device/stock-android-device. Keep documented, leave dormant unless tablet-control-phone need arises.
 
 #### F3 — MITM-on-demand playbook (agent) · Risk: **Medium**
 

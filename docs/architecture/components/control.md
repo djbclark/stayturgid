@@ -41,13 +41,13 @@ Launchd agents and `devices.conf` are rendered by `ansible/playbooks/control_nod
 ## Fleet deploy
 
 ```bash
-# just --set hosts s24 deploy                # whole fleet (recommended)
-# just --set hosts s24 deploy-check          # dry run
-./control/bin/bootstrap_ssh.py s24             # first SSH key (when Ansible cannot connect yet)
-./control/bin/deploy_fleet.py s24              # same as just deploy
-CHECK=1 ./control/bin/deploy_fleet.py s24      # same as just deploy-check
-./control/bin/deploy_fleet.py --scope fdroid s24 # F-Droid (parked until app stores re-enabled)
-./control/bin/deploy_fleet.py --scope play s24   # Play / Aurora (parked)
+# just --set hosts oneui-device deploy                # whole fleet (recommended)
+# just --set hosts oneui-device deploy-check          # dry run
+./control/bin/bootstrap_ssh.py oneui-device             # first SSH key (when Ansible cannot connect yet)
+./control/bin/deploy_fleet.py oneui-device              # same as just deploy
+CHECK=1 ./control/bin/deploy_fleet.py oneui-device      # same as just deploy-check
+./control/bin/deploy_fleet.py --scope fdroid oneui-device # F-Droid (parked until app stores re-enabled)
+./control/bin/deploy_fleet.py --scope play oneui-device   # Play / Aurora (parked)
 ```
 
 Verify: `just verify` or `just verify-heal` or `bash tests/run.sh device --heal [host]`
@@ -72,7 +72,7 @@ silently falling back to a misleading success state.
 
 ```bash
 # One-shot reconnect (conf-driven alias):
-python3 control/bin/adb_reconnect.py s24
+python3 control/bin/adb_reconnect.py oneui-device
 
 # Install launchd agents + Homebrew prereqs from inventory:
 just deploy-mac
@@ -158,7 +158,7 @@ Phones use **Eternal Terminal** (`et`) to the Mac control node’s `etserver`
 # Control node (idempotent)
 python3 control/bin/ensure_et_mac.py
 python3 control/bin/check_et_mac.py
-python3 control/bin/check_et_mac.py --probe-host s24
+python3 control/bin/check_et_mac.py --probe-host oneui-device
 
 # From Termux (after deploy-termux)
 et mac

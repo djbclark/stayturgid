@@ -197,14 +197,14 @@ def _run(args, **kw):
 
 
 # Fire OS / aliases without Termux→localhost:5555 — Mac adb is authoritative.
-MAC_ADB_PRIV_ALIASES = frozenset({"hd8"})
+MAC_ADB_PRIV_ALIASES = frozenset({"fireos-device"})
 
 
 class PrivShell:
     """Run privileged shell commands on a device.
 
     Prefer Termux SSH → ``adb -s localhost:5555`` when that channel works
-    (s24/p7a). Fire OS (hd8) and raw serials use Mac ``adb -s <target>`` —
+    (oneui-device/stock-android-device). Fire OS (fireos-device) and raw serials use Mac ``adb -s <target>`` —
     there is no Termux loopback on those hosts.
     """
 

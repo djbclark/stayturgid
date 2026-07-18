@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # FIRERPA — Install Map: What Goes Where, Required vs Optional, Duplicative Functions
 
 **Date:** 2026-07-12

@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # Master Architecture & Identity Strategy
 
 **Status:** Authoritative architecture for stayturgid.

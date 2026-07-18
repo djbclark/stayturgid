@@ -18,7 +18,7 @@ Overrides: ~/.config/stayturgid/gui-audit-overrides.conf (host issue per line)
 
 Usage:
   python3 control/bin/gui_audit.py              # all devices.conf hosts
-  python3 control/bin/gui_audit.py s24 p7a
+  python3 control/bin/gui_audit.py oneui-device stock-android-device
   python3 control/bin/gui_audit.py --dry-reach  # reachability only
 """
 

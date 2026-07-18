@@ -27,7 +27,7 @@ The **module** only manages `fdroidcl` on the Mac. Neo Store install, Shizuku gr
     - obtainium_apps
     - role: fdroid_repos
       vars:
-        target_device: p7a
+        target_device: stock-android-device
 ```
 
 Default repos: IzzyOnDroid + Guardian Project (with fingerprints).

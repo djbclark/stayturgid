@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """On-device AutoJs6 fleet profile + Shizuku enable (Termux → localhost:5555).
 
-Uses the FleetProfileActivity intent from djbclark/AutoJs6 fleet-profile-553
+Uses the FleetProfileActivity intent from operator/AutoJs6 fleet-profile-553
 build to apply drawer preferences without UI automation.
 Accessibility detection only — user must enable AutoJs6 in Settings manually.
 

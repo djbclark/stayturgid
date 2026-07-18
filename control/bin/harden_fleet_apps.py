@@ -6,7 +6,7 @@ per-package battery policy from control/lib/fleet_app_profiles.json (most fleet
 apps are Doze-whitelisted; Aurora Store stays battery-optimized). Mirrors
 android_common.app_privileges Ansible role.
 
-Usage: ./harden_fleet_apps.py <s24|p7a|hd8|serial>
+Usage: ./harden_fleet_apps.py <oneui-device|stock-android-device|fireos-device|serial>
 """
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ def summarize(results: list[dict]) -> None:
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
-        sys.stderr.write("usage: harden_fleet_apps.py <s24|p7a|hd8|serial>\n")
+        sys.stderr.write("usage: harden_fleet_apps.py <oneui-device|stock-android-device|fireos-device|serial>\n")
         return 2
 
     alias = argv[0]

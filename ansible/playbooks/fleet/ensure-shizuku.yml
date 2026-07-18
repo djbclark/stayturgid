@@ -4,7 +4,7 @@
 # Idempotent: skips when Shizuku is already running with port 5555 open.
 #
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
-#     ansible/playbooks/fleet/ensure-shizuku.yml --limit s24
+#     ansible/playbooks/fleet/ensure-shizuku.yml --limit oneui-device
 - name: stayturgid ensure Shizuku started
   hosts: stayturgid
   gather_facts: false

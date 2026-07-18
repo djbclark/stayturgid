@@ -112,7 +112,7 @@ One adapter per shared daemon. v1 set: `caddy`, `vector`, `openobserve`,
   whose only site-specific content comes from inventory/registry, reserves a
   user fragment directory, and manages the launchd/systemd unit under the
   _site_ namespace label (default `com.<site_ns>.<app>`; `site_ns` is a site
-  fact, e.g. `djbclark`).
+  fact, e.g. `operator`).
 - **inject** — the adapter leaves the user's daemon and base config alone and
   only maintains the product's fragment files inside the app's include
   location.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the Termux userland Ansible playbook for one device.
 
-Usage: deploy_termux.py <s24|hd8|p7a|host>
+Usage: deploy_termux.py <oneui-device|fireos-device|stock-android-device|host>
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ def verify_ssh(target: str) -> bool:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Deploy Termux userland via Ansible.")
-    parser.add_argument("host", help="Inventory host name (e.g. s24)")
+    parser.add_argument("host", help="Inventory host name (e.g. oneui-device)")
     args = parser.parse_args(argv)
 
     if not shutil.which("ansible-playbook"):

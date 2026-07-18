@@ -39,17 +39,17 @@ stayturgid_bootstrap_apks:
     gh_repo: termux/termux-api
     gh_pattern: "github*debug*"
   - id: moe.shizuku.privileged.api
-    gh_repo: djbclark/Shizuku
+    gh_repo: operator/Shizuku
     gh_pattern: "*universal*"
     resign: true
   - id: org.autojs.autojs6
-    gh_repo: djbclark/AutoJs6
+    gh_repo: operator/AutoJs6
     gh_pattern: "*arm64-v8a*"
     resign: true
   - id: com.tailscale.ipn
     gh_repo: tailscale/tailscale-android
     gh_pattern: "*universal*"
   - id: dev.imranr.obtainium
-    gh_repo: djbclark/Obtainium
+    gh_repo: operator/Obtainium
     gh_pattern: "*universal*"
     resign: true

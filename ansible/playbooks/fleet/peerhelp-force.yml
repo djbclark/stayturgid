@@ -1,6 +1,6 @@
 ---
 # After termux_userland: Fire hosts have published stayturgid_peerhelp_ssh_pubkey.
-# Install ForceCommand-restricted entries on helpers (s24/p7a) and leave Fire alone.
+# Install ForceCommand-restricted entries on helpers (oneui-device/stock-android-device) and leave Fire alone.
 - name: Install peer-help ForceCommand keys on helpers
   hosts: stayturgid
   gather_facts: false

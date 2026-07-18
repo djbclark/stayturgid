@@ -152,9 +152,10 @@ Cron/systemd for `python3 control/bin/adb_reconnect.py <alias>` is manual until 
 > adapter model live in the site repo's step1 architecture doc and
 > [ADR 005](adr/005-two-repo-topology.md).
 
-Today the main repo still carries **operator production data** (`s24`, `p7a`, `hd8`,
-Tailscale `100.x` addresses, `djbclark`, `/Users/djbclark/...`). That makes forks and
-docs harder than they need to be. The target shape is **two GitHub projects**:
+Upstream used to embed **operator production data** (short site aliases such as
+`s24` / `p7a` / `hd8`, real Tailscale/LAN addresses, operator usernames, absolute
+home paths). That made forks and docs harder than they need to be. The target
+shape is **two GitHub projects**:
 
 | Repo                                       | Role                                                                                    | Visibility |
 | ------------------------------------------ | --------------------------------------------------------------------------------------- | ---------- |

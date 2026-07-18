@@ -16,34 +16,34 @@ stayturgid_obtainium_apps:
   - id: org.autojs.autojs6
     url: https://github.com/djbclark/AutoJs6
     name: AutoJs6
-    author: djbclark
+    author: operator
     categories: [Automation]
     settings:
       includePrereleases: true
       filterReleaseTitlesByRegEx: fleet-profile
       apkFilterRegEx: arm64-v8a
       autoApkFilterByArch: true
-      about: stayturgid fleet-profile AutoJs6 (djbclark fork)
+      about: stayturgid fleet-profile AutoJs6 (operator fork)
   - id: moe.shizuku.privileged.api
     url: https://github.com/djbclark/Shizuku
     name: Shizuku (stayturgid fork)
-    author: djbclark
+    author: operator
     categories: [stayturgid]
     settings:
       includePrereleases: true
       apkFilterRegEx: universal
       autoApkFilterByArch: false
-      about: djbclark fork with fleet/headless features (HEADLESS_START)
+      about: operator fork with fleet/headless features (HEADLESS_START)
   - id: dev.imranr.obtainium
     url: https://github.com/djbclark/Obtainium
     name: Obtainium (stayturgid fork)
-    author: djbclark
+    author: operator
     categories: [stayturgid]
     settings:
       includePrereleases: true
       apkFilterRegEx: universal
       autoApkFilterByArch: false
-      about: djbclark fork with fleet/headless features
+      about: operator fork with fleet/headless features
   - id: com.tailscale.ipn
     url: https://github.com/tailscale/tailscale-android
     name: Tailscale

@@ -51,7 +51,7 @@ options:
 EXAMPLES = r"""
 - name: Import Obtainium fleet catalog
   stayturgid.android_common.android_ui:
-    host: s24
+    host: oneui-device
     task: import_obtainium_catalog
     repo_root: "{{ stayturgid_repo_root }}"
     catalog: all
@@ -59,7 +59,7 @@ EXAMPLES = r"""
 
 - name: Enable AutoJs6 fleet drawer
   stayturgid.android_common.android_ui:
-    host: p7a
+    host: stock-android-device
     task: enable_autojs6_drawer
     repo_root: "{{ stayturgid_repo_root }}"
     retries: 2

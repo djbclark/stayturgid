@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Enable AutoJs6 fleet drawer defaults via FleetProfileActivity intent.
 
-Uses the fleet profile intent from djbclark/AutoJs6 (fleet-profile-553)
+Uses the fleet profile intent from operator/AutoJs6 (fleet-profile-553)
 to apply all drawer preferences without UI automation.
 
 Deterministic order:
@@ -11,7 +11,7 @@ Deterministic order:
   4. Enable accessibility via settings put (no UI)
   5. Run shizuku-probe to verify end-to-end
 
-Usage: ./enable_autojs6_shizuku.py <s24|p7a|hd8|serial>
+Usage: ./enable_autojs6_shizuku.py <oneui-device|stock-android-device|fireos-device|serial>
 """
 
 from __future__ import annotations
@@ -240,7 +240,7 @@ def main_mac_adb(alias: str) -> int:
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
-        sys.stderr.write("usage: enable_autojs6_shizuku.py <s24|p7a|hd8|serial>\n")
+        sys.stderr.write("usage: enable_autojs6_shizuku.py <oneui-device|stock-android-device|fireos-device|serial>\n")
         return 2
 
     alias = argv[0]

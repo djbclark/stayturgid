@@ -69,7 +69,7 @@ Open **Termux:Boot** once after install. `start-adb.sh` runs repair every 5 min;
 Deploys Python runtime under `~/.stayturgid/bin/`, bridge shells, and boot hooks.
 
 ```bash
-./control/bin/deploy_termux.py s24   # or p7a
+./control/bin/deploy_termux.py oneui-device   # or stock-android-device
 ```
 
 ## Package updates (standard Termux + fleet schedule)
@@ -97,7 +97,7 @@ python3 control/bin/termux_pkg_nightly.py
 
 ```bash
 just termux-pkg-upgrade              # run now, all hosts
-just --set hosts s24 termux-pkg-upgrade    # one host
+just --set hosts oneui-device termux-pkg-upgrade    # one host
 just termux-pkg-upgrade (--check via just)      # dry run
 just deploy-mac                      # install/reload the launchd agent
 ```
@@ -125,10 +125,10 @@ tail -f /sdcard/stayturgid/logs/watchdog.log
 ## Presence protocol
 
 ```bash
-ssh s24 '~/.stayturgid/bin/stayturgid_agent_presence.py request-screen "Galaxy S24" Auto'
-ssh s24 '~/.stayturgid/bin/stayturgid_agent_presence.py on  "Galaxy S24" Auto'
-ssh s24 '~/.stayturgid/bin/stayturgid_agent_presence.py off "Galaxy S24" Auto'
-ssh s24 '~/.stayturgid/bin/stayturgid_agent_presence.py status'
+ssh oneui-device '~/.stayturgid/bin/stayturgid_agent_presence.py request-screen "Galaxy S24" Auto'
+ssh oneui-device '~/.stayturgid/bin/stayturgid_agent_presence.py on  "Galaxy S24" Auto'
+ssh oneui-device '~/.stayturgid/bin/stayturgid_agent_presence.py off "Galaxy S24" Auto'
+ssh oneui-device '~/.stayturgid/bin/stayturgid_agent_presence.py status'
 ```
 
 ## Related docs

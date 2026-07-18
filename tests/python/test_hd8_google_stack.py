@@ -1,4 +1,4 @@
-"""Tests for hd8 Google Play stack helpers."""
+"""Tests for fireos-device Google Play stack helpers."""
 
 from __future__ import annotations
 

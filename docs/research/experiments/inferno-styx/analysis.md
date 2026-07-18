@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # Inferno in Termux — side project (parked)
 
 **Status:** **Parked — do not work on.** (2026-07-09)  

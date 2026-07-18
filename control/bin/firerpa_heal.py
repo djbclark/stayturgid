@@ -7,7 +7,7 @@ Tailscale IP:65000. Uses FIRERPA's gRPC API (which works without SSH or
 ADB) to repair stayturgid when primary channels are down.
 
 Usage:
-  python3 control/bin/firerpa_heal.py [--host s24] [--all]
+  python3 control/bin/firerpa_heal.py [--host oneui-device] [--all]
 
 Requirements: pip install lamda-client (from firerpa-binaries or fork release)
 """
@@ -183,15 +183,15 @@ def heal_device(host: str, port: int = 65000) -> dict[str, str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Repair stayturgid via FIRERPA gRPC API.")
-    parser.add_argument("--host", help="Target host alias (s24, p7a, hd8)")
+    parser.add_argument("--host", help="Target host alias (oneui-device, stock-android-device, fireos-device)")
     parser.add_argument("--all", action="store_true", help="Heal all fleet devices")
     parser.add_argument("--port", type=int, default=65000)
     args = parser.parse_args(argv)
 
     fleet = {
-        "s24": "100.123.218.30",
-        "p7a": "100.65.230.108",
-        "hd8": "100.124.55.39",
+        "oneui-device": "100.0.0.11",
+        "stock-android-device": "100.0.0.12",
+        "fireos-device": "100.0.0.13",
     }
 
     if args.host:
@@ -211,7 +211,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             results = heal_device(ip, args.port)
             if results.get("firerpa") == "unreachable":
-                if alias == "hd8":
+                if alias == "fireos-device":
                     _log(INFO, "%s: FIRERPA not running (expected)" % alias)
                 rc = 1
         except Exception as e:

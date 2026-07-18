@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Run a single AutoJs6 test script on a phone.
 
-Usage: ./run_test.py <p7a|s24|hd8|serial> <script.js>
+Usage: ./run_test.py <stock-android-device|oneui-device|fireos-device|serial> <script.js>
 
 Examples:
-  ./run_test.py s24 test-watchdog-once.js
-  ./run_test.py s24 test-tailscale-probe-once.js
+  ./run_test.py oneui-device test-watchdog-once.js
+  ./run_test.py oneui-device test-tailscale-probe-once.js
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ SCRIPTS_BASE = f"{adb.AUTOJS_PROJECT_BASE}/scripts"
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     if len(argv) != 2:
-        sys.stderr.write("usage: run_test.py <p7a|s24|hd8|serial> <script.js>\n")
+        sys.stderr.write("usage: run_test.py <stock-android-device|oneui-device|fireos-device|serial> <script.js>\n")
         return 2
     serial = adb.resolve_target(argv[0])
     script = argv[1]

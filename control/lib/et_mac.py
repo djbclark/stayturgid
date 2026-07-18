@@ -6,7 +6,7 @@ See docs/modules/control.md (Phone → Mac Eternal Terminal).
 Marked Mac authorized_keys block::
 
   # BEGIN STAYTURGID-ET-MAC
-  ssh-ed25519 AAAA… s24-fleet
+  ssh-ed25519 AAAA… oneui-device-fleet
   …
   # END STAYTURGID-ET-MAC
 
@@ -154,7 +154,7 @@ def merge_control_facts(
         facts["identity"] = identity
     if hostname:
         facts["hostname"] = hostname
-    facts.setdefault("user", os.environ.get("USER") or "djbclark")
+    facts.setdefault("user", os.environ.get("USER") or "operator")
     facts.setdefault("et_port", DEFAULT_ET_PORT)
     facts.setdefault("ssh_port", DEFAULT_SSH_PORT)
     facts.setdefault("identity", FLEET_IDENTITY)

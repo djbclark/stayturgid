@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Full hd8 sideloaded Google Play health check (versions + optional VLM gates).
+"""Full fireos-device sideloaded Google Play health check (versions + optional VLM gates).
 
 Closes the operator loop that previously required manually confirming:
   - GMS / Play / GSF pinned versions
@@ -7,8 +7,8 @@ Closes the operator loop that previously required manually confirming:
   - Play Store auto-update set to Don't auto-update apps
 
 Usage:
-  STAYTURGID_VLM=1 python3 control/bin/verify_hd8_google.py [hd8]
-  just verify-hd8-google HOSTS=hd8
+  STAYTURGID_VLM=1 python3 control/bin/verify_hd8_google.py [fireos-device]
+  just verify-fireos-device-google HOSTS=fireos-device
 
 VLM gates run when llama-server is healthy (see docs/vlm.md). Stack version checks
 always run (no VLM required).
@@ -113,7 +113,7 @@ def check_autoupdate(host: str, serial: str, gate: vlm.VlmGate) -> tuple[bool, d
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("host", nargs="?", default="hd8")
+    ap.add_argument("host", nargs="?", default="fireos-device")
     ap.add_argument("--json", action="store_true", help="Emit JSON summary on stdout")
     args = ap.parse_args(argv)
 

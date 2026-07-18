@@ -80,7 +80,7 @@ the plist exists, `--tags vlm-service` when installing). Every `just deploy` run
 | `vlm-smoke`                                | bootout/bootstrap QA cycle                   |
 | `vlm-server`                               | manual start                                 |
 | `vlm-service-stop` / `vlm-service-restart` | launchctl wrappers                           |
-| `verify-hd8-google`                        | Example fleet gate                           |
+| `verify-fireos-device-google`              | Example fleet gate                           |
 
 ---
 
@@ -184,11 +184,11 @@ Override via env when upstream docs recommend a newer stable id.
 
 ### Cross-project glass
 
-Before UI work on a shared phone (especially **p7a**):
+Before UI work on a shared phone (especially **stock-android-device**):
 
 ```bash
 python3 control/bin/screen_lease.py status
-python3 control/bin/screen_lease.py check p7a
+python3 control/bin/screen_lease.py check stock-android-device
 ```
 
 See [docs/architecture/components/screen-control-lease.md](components/screen-control-lease.md).

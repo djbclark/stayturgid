@@ -137,10 +137,10 @@ def test_monitor_notifies_after_debounce(tmp_path, monkeypatch):
     monkeypatch.setattr(fhm, "notify", lambda *a, **k: notifs.append(a))
     monkeypatch.setattr(fhm, "_fleet_log", lambda _level, message: logs.append(message))
 
-    fhm.check_device("s24", "100.1", "192.1")
+    fhm.check_device("oneui-device", "100.1", "192.1")
     assert not notifs
     assert any("watchdog_stale" in m for m in logs)
-    fhm.check_device("s24", "100.1", "192.1")
+    fhm.check_device("oneui-device", "100.1", "192.1")
     assert len(notifs) == 1 and "watchdog_stale" in notifs[0][1]
 
 
@@ -192,12 +192,12 @@ def test_monitor_heals_stale_watchdog(tmp_path, monkeypatch):
     (tmp_path / "control" / "tools" / "autojs6").mkdir(parents=True)
     (tmp_path / "control" / "tools" / "autojs6" / "start_watchdog.py").write_text("x")
 
-    fhm.check_device("s24", "100.1", "192.1")
+    fhm.check_device("oneui-device", "100.1", "192.1")
     assert not any(any("start_watchdog.py" in str(part) for part in call) for call in calls)
-    fhm.check_device("s24", "100.1", "192.1")
+    fhm.check_device("oneui-device", "100.1", "192.1")
     watchdog_calls = [call for call in calls if any("start_watchdog.py" in str(part) for part in call)]
     assert len(watchdog_calls) == 1
-    assert watchdog_calls[0][2:] == ["s24", "1.1.1.1:5555"]
+    assert watchdog_calls[0][2:] == ["oneui-device", "1.1.1.1:5555"]
 
 
 def test_monitor_heal_failure_skips_cooldown(tmp_path, monkeypatch):
@@ -242,8 +242,8 @@ def test_monitor_heal_failure_skips_cooldown(tmp_path, monkeypatch):
     (tmp_path / "control" / "tools" / "autojs6").mkdir(parents=True)
     (tmp_path / "control" / "tools" / "autojs6" / "start_watchdog.py").write_text("x")
 
-    fhm.check_device("s24", "100.1", "192.1")
-    assert not (heal_dir / "s24").exists()
+    fhm.check_device("oneui-device", "100.1", "192.1")
+    assert not (heal_dir / "oneui-device").exists()
 
 
 def test_monitor_skips_unreachable(tmp_path, monkeypatch):
@@ -252,6 +252,6 @@ def test_monitor_skips_unreachable(tmp_path, monkeypatch):
     logs = []
     monkeypatch.setattr(fhm, "_fleet_log", lambda _level, message: logs.append(message))
     monkeypatch.setattr(fhm, "notify", lambda *a, **k: None)
-    fhm.check_device("s24", "100.1", "192.1")
+    fhm.check_device("oneui-device", "100.1", "192.1")
     assert any("unreachable" in m for m in logs)
-    assert fhm.read_state(os.path.join(str(tmp_path), "s24")) == 0
+    assert fhm.read_state(os.path.join(str(tmp_path), "oneui-device")) == 0

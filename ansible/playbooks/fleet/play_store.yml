@@ -7,7 +7,7 @@
 #
 # Usage (from repo root):
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet/play_store.yml
-#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet/play_store.yml --limit s24
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet/play_store.yml --limit oneui-device
 - name: stayturgid play store (Aurora Store + Shizuku grant)
   hosts: stayturgid
   gather_facts: false

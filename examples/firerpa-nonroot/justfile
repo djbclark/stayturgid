@@ -40,7 +40,7 @@ DEVICE_CERTIFICATE := FIRERPA_ROOT + "/server/lamda.pem"
 UPSTREAM_RELEASE := "https://github.com/firerpa/lamda/releases/download/v" + FIRERPA_VERSION
 UPSTREAM_SOURCE_REF := env_var_or_default("UPSTREAM_SOURCE_REF", "9a4736f327aa89be687ee7c411fee59730081a5e")
 STAYTURGID_REF := env_var_or_default("STAYTURGID_REF", "145ab25")
-STAYTURGID_RAW := "https://raw.githubusercontent.com/djbclark/stayturgid/" + STAYTURGID_REF
+STAYTURGID_RAW := "https://raw.githubusercontent.com/operator/stayturgid/" + STAYTURGID_REF
 
 # Update these only after auditing the corresponding immutable source revisions.
 CLIENT_SHA256 := env_var_or_default("CLIENT_SHA256", "c2db70e0f40eb2ae0c60555891c209aefb762546099bc369d82e830d96d3ca16")

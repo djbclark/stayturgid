@@ -10,13 +10,13 @@ import deploy_fleet as df  # noqa: E402
 
 INVENTORY_JSON = {
     "stayturgid": {
-        "hosts": {"s24": {}, "hd8": {}, "p7a": {}},
+        "hosts": {"oneui-device": {}, "fireos-device": {}, "stock-android-device": {}},
     }
 }
 
 
 def test_parse_inventory_hosts():
-    assert df.parse_inventory_hosts(INVENTORY_JSON) == ["s24", "hd8", "p7a"]
+    assert df.parse_inventory_hosts(INVENTORY_JSON) == ["oneui-device", "fireos-device", "stock-android-device"]
 
 
 def test_run_playbook_argv_full(monkeypatch):
@@ -31,14 +31,14 @@ def test_run_playbook_argv_full(monkeypatch):
         return R()
 
     monkeypatch.setattr(df.subprocess, "run", fake_run)
-    df.run_playbook(df.SITE_PLAYBOOK, limit=["s24", "hd8"], check=False, tags=None)
+    df.run_playbook(df.SITE_PLAYBOOK, limit=["oneui-device", "fireos-device"], check=False, tags=None)
     assert seen[0] == [
         "ansible-playbook",
         str(df.SITE_PLAYBOOK),
         "-e",
         f"stayturgid_repo_root={df.REPO_ROOT}",
         "--limit",
-        "s24,hd8",
+        "oneui-device,fireos-device",
     ]
 
 
@@ -54,7 +54,7 @@ def test_run_playbook_argv_skip_tags(monkeypatch):
         return R()
 
     monkeypatch.setattr(df.subprocess, "run", fake_run)
-    df.run_playbook(df.SITE_PLAYBOOK, limit=["s24"], check=False, tags=None, skip_tags="bootstrap")
+    df.run_playbook(df.SITE_PLAYBOOK, limit=["oneui-device"], check=False, tags=None, skip_tags="bootstrap")
     assert seen[0][-2:] == ["--skip-tags", "bootstrap"]
 
 
@@ -70,14 +70,14 @@ def test_run_playbook_argv_check_and_tags(monkeypatch):
         return R()
 
     monkeypatch.setattr(df.subprocess, "run", fake_run)
-    df.run_playbook(df.SITE_PLAYBOOK, limit=["s24"], check=True, tags="app-stores")
+    df.run_playbook(df.SITE_PLAYBOOK, limit=["oneui-device"], check=True, tags="app-stores")
     assert seen[0] == [
         "ansible-playbook",
         str(df.SITE_PLAYBOOK),
         "-e",
         f"stayturgid_repo_root={df.REPO_ROOT}",
         "--limit",
-        "s24",
+        "oneui-device",
         "--check",
         "--diff",
         "--tags",
@@ -101,7 +101,7 @@ def test_scope_ansible_tags():
 
 
 def test_resolve_hosts_explicit():
-    assert df.resolve_hosts(["s24"]) == ["s24"]
+    assert df.resolve_hosts(["oneui-device"]) == ["oneui-device"]
 
 
 def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0):
@@ -119,7 +119,7 @@ def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0):
 def test_deploy_skips_bootstrap_tag(monkeypatch):
     calls = []
     _stub_deploy_deps(monkeypatch, calls)
-    rc = df.deploy(df.Scope.FULL, ["s24"], check=False)
+    rc = df.deploy(df.Scope.FULL, ["oneui-device"], check=False)
     assert rc == 0
     assert calls == [
         ("playbook", None, False, "bootstrap"),
@@ -131,7 +131,7 @@ def test_deploy_always_runs_mac_even_without_host_limit(monkeypatch):
     """Full-fleet path uses device --limit; Mac must still refresh (L8)."""
     calls = []
     _stub_deploy_deps(monkeypatch, calls)
-    monkeypatch.setattr(df, "resolve_hosts", lambda hosts: ["s24", "p7a", "hd8"])
+    monkeypatch.setattr(df, "resolve_hosts", lambda hosts: ["oneui-device", "stock-android-device", "fireos-device"])
     rc = df.deploy(df.Scope.FULL, [], check=False)
     assert rc == 0
     assert ("playbook", "mac", False, None) in calls
@@ -141,7 +141,7 @@ def test_deploy_always_runs_mac_even_without_host_limit(monkeypatch):
 def test_deploy_check_skips_mutating_bootstrap_tag(monkeypatch):
     calls = []
     _stub_deploy_deps(monkeypatch, calls)
-    rc = df.deploy(df.Scope.FULL, ["s24"], check=True)
+    rc = df.deploy(df.Scope.FULL, ["oneui-device"], check=True)
     assert rc == 0
     assert calls == [
         ("playbook", None, True, "bootstrap"),
@@ -151,7 +151,7 @@ def test_deploy_check_skips_mutating_bootstrap_tag(monkeypatch):
 def test_deploy_playbook_failure(monkeypatch):
     calls = []
     _stub_deploy_deps(monkeypatch, calls, playbook_rc=2)
-    rc = df.deploy(df.Scope.FULL, ["s24"], check=False)
+    rc = df.deploy(df.Scope.FULL, ["oneui-device"], check=False)
     assert rc == 2
     assert calls == [
         ("playbook", None, False, "bootstrap"),
@@ -162,7 +162,7 @@ def test_deploy_playbook_failure(monkeypatch):
 def test_deploy_check_skips_bootstrap(monkeypatch):
     calls = []
     _stub_deploy_deps(monkeypatch, calls)
-    rc = df.deploy(df.Scope.FDROID, ["s24"], check=True)
+    rc = df.deploy(df.Scope.FDROID, ["oneui-device"], check=True)
     assert rc == 0
     assert calls == [
         ("playbook", "fdroid", True, "bootstrap"),

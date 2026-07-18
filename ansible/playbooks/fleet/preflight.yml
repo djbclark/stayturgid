@@ -2,7 +2,7 @@
 # SSH preflight — probe Termux SSH and adb-bootstrap hosts that are down.
 # Runs at the start of site.yml so ansible-playbook works without deploy_fleet.py.
 #
-#   ansible-playbook ansible/playbooks/fleet/preflight.yml --limit s24
+#   ansible-playbook ansible/playbooks/fleet/preflight.yml --limit oneui-device
 - name: stayturgid SSH preflight probe
   hosts: stayturgid
   gather_facts: false

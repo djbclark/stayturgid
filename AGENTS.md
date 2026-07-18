@@ -1,51 +1,56 @@
 # stayturgid
 
-Keeps wireless ADB (port 5555), Shizuku, and SSH alive on unrooted Android phones across reboots. Fleet: s24, p7a, hd8 managed via Ansible over Tailscale.
+Keeps wireless ADB (port 5555), Shizuku, and SSH alive on unrooted Android phones
+across reboots. Generic example fleet hosts (`oneui-device`, `stock-android-device`,
+`fireos-device`) live in `ansible/inventory/hosts.yml.example`; live inventory
+belongs in a private site overlay (see
+[multi-site-topology.md](docs/architecture/multi-site-topology.md) §4).
 
 ## Quick start
 
 ```bash
-cd ~/stayturgid && git fetch origin --prune && git pull --ff-only origin master
+cd ~/ops/stayturgid && git fetch origin --prune && git pull --ff-only origin master
 just health && just firerpa-health
 ```
 
 ## Key commands
 
-| Command                             | Purpose                                                                                                                                                                                                                                          |
-| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `just dotenv-lint`                  | .env file lint check (dotenv-linter)                                                                                                                                                                                                             |
-| `just --set hosts s24 deploy`       | Full fleet deploy                                                                                                                                                                                                                                |
-| `just --set hosts s24 deploy-check` | Dry-run deploy                                                                                                                                                                                                                                   |
-| `just --set hosts s24 verify`       | Device tier checks                                                                                                                                                                                                                               |
-| `just --set hosts s24 verify-drift` | Ansible-based drift detect                                                                                                                                                                                                                       |
-| `just --set hosts s24 verify-heal`  | Verify + auto-heal                                                                                                                                                                                                                               |
-| `just health`                       | Fleet health summary + device error log                                                                                                                                                                                                          |
-| `just errors`                       | Show recent device errors (7 days)                                                                                                                                                                                                               |
-| `just firerpa-health`               | FIRERPA fleet health                                                                                                                                                                                                                             |
-| `just --set hosts s24 firerpa-heal` | Repair via FIRERPA gRPC                                                                                                                                                                                                                          |
-| `just test`                         | Code-only tests (includes healing coverage check)                                                                                                                                                                                                |
-| `just deploy-mac`                   | Mac workstation (brew, launchd)                                                                                                                                                                                                                  |
-| `just ca-status`                    | SSH CA status/fingerprints                                                                                                                                                                                                                       |
-| `just cf-run [HOSTS=s24]`           | SSH-based CFEngine repair (replaces cf-runagent)                                                                                                                                                                                                 |
-| `just opencode-web-status`          | OpenCode web UI status                                                                                                                                                                                                                           |
-| `just hermes-status`                | Hermes worktree status                                                                                                                                                                                                                           |
-| `just vlm-check`                    | Check VLM server + cloud                                                                                                                                                                                                                         |
-| `just landing-status`               | Network landing page status                                                                                                                                                                                                                      |
-| `just web-health`                   | Full web audit: html-validate + lychee + lighthouse + pa11y + puppeteer + vnu (requires :4097)                                                                                                                                                   |
-| `just pa11y`                        | Accessibility audit on running dashboard                                                                                                                                                                                                         |
-| `just puppeteer`                    | Rendered-DOM check (visible HTML-as-text, missing JS) on running dashboard                                                                                                                                                                       |
-| `just vnu`                          | W3C Nu HTML Checker on rendered pages (requires :4097)                                                                                                                                                                                           |
-| `just lighthouse`                   | Full-page Lighthouse audit (requires Chrome/Chromium on PATH)                                                                                                                                                                                    |
-| `just secretspec-check`             | Verify all required secrets are set                                                                                                                                                                                                              |
-| `just ruff`                         | Python lint + format check (ruff)                                                                                                                                                                                                                |
-| `just biome`                        | JavaScript/CSS lint + format check (Biome)                                                                                                                                                                                                       |
-| `just shfmt`                        | Shell script format check (shfmt)                                                                                                                                                                                                                |
-| `just markdownlint`                 | Markdown lint check                                                                                                                                                                                                                              |
-| `just prettier`                     | Markdown/HTML/CSS/TOML/INI format check (prettier)                                                                                                                                                                                               |
-| `just typos`                        | Source-code spelling check                                                                                                                                                                                                                       |
-| `just lint`                         | All linters: shellcheck, ansible-lint (incl. examples), yamllint (incl. examples), ruff, typos, biome, shfmt, justfile fmt, markdownlint, prettier, dotenv-linter, caddy-fmt, pyinilint, html-validate, stylelint, lychee, vnu, pa11y, puppeteer |
-| `just lint-offline`                 | Same as lint but skip dashboard-dependent checks (lychee, vnu, pa11y, puppeteer)                                                                                                                                                                 |
-| `just check`                        | Syntax/import checks + ruff + typos + biome + shfmt + justfile fmt + markdownlint + prettier + html-validate + stylelint                                                                                                                         |
+| Command                                      | Purpose                                                                                                                  |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `just dotenv-lint`                           | .env file lint check (dotenv-linter)                                                                                     |
+| `just --set hosts oneui-device deploy`       | Full fleet deploy                                                                                                        |
+| `just --set hosts oneui-device deploy-check` | Dry-run deploy                                                                                                           |
+| `just --set hosts oneui-device verify`       | Device tier checks                                                                                                       |
+| `just --set hosts oneui-device verify-drift` | Ansible-based drift detect                                                                                               |
+| `just --set hosts oneui-device verify-heal`  | Verify + auto-heal                                                                                                       |
+| `just health`                                | Fleet health summary + device error log                                                                                  |
+| `just errors`                                | Show recent device errors (7 days)                                                                                       |
+| `just firerpa-health`                        | FIRERPA fleet health                                                                                                     |
+| `just --set hosts oneui-device firerpa-heal` | Repair via FIRERPA gRPC                                                                                                  |
+| `just test`                                  | Code-only tests (includes healing coverage check)                                                                        |
+| `just deploy-mac`                            | Mac workstation (brew, launchd)                                                                                          |
+| `just ca-status`                             | SSH CA status/fingerprints                                                                                               |
+| `just cf-run [HOSTS=oneui-device]`           | SSH-based CFEngine repair (replaces cf-runagent)                                                                         |
+| `just opencode-web-status`                   | OpenCode web UI status                                                                                                   |
+| `just hermes-status`                         | Hermes worktree status                                                                                                   |
+| `just vlm-check`                             | Check VLM server + cloud                                                                                                 |
+| `just landing-status`                        | Network landing page status                                                                                              |
+| `just web-health`                            | Full web audit: html-validate + lychee + lighthouse + pa11y + puppeteer + vnu (requires :4097)                           |
+| `just pa11y`                                 | Accessibility audit on running dashboard                                                                                 |
+| `just puppeteer`                             | Rendered-DOM check (visible HTML-as-text, missing JS) on running dashboard                                               |
+| `just vnu`                                   | W3C Nu HTML Checker on rendered pages (requires :4097)                                                                   |
+| `just lighthouse`                            | Full-page Lighthouse audit (requires Chrome/Chromium on PATH)                                                            |
+| `just secretspec-check`                      | Verify all required secrets are set                                                                                      |
+| `just ruff`                                  | Python lint + format check (ruff)                                                                                        |
+| `just biome`                                 | JavaScript/CSS lint + format check (Biome)                                                                               |
+| `just shfmt`                                 | Shell script format check (shfmt)                                                                                        |
+| `just markdownlint`                          | Markdown lint check                                                                                                      |
+| `just prettier`                              | Markdown/HTML/CSS/TOML/INI format check (prettier)                                                                       |
+| `just typos`                                 | Source-code spelling check                                                                                               |
+| `just lint`                                  | All linters (shellcheck, ansible-lint, yamllint, ruff, typos, biome, shfmt, markdownlint, prettier, …)                   |
+| `just lint-offline`                          | Same as lint but skip dashboard-dependent checks (lychee, vnu, pa11y, puppeteer)                                         |
+| `just check`                                 | Syntax/import checks + ruff + typos + biome + shfmt + justfile fmt + markdownlint + prettier + html-validate + stylelint |
+| `just validate-identity`                     | Hard-fail if production identity leaks outside the active inventory                                                      |
 
 ## Environment
 
@@ -62,16 +67,17 @@ just health && just firerpa-health
 - **Other linters:** `dotenv-linter` (.env) — `brew install dotenv-linter`; `caddy` (Caddyfile fmt) — `brew install caddy`
 - **Git tooling:** `pre-commit` (hooks) + `typos` (spell check) — `brew install pre-commit typos-cli`; run `pre-commit install`
 - **SSH CA:** `~/.ssh/stayturgid_ca` — `just ca-status`
-- **OpenCode web:** http://100.113.53.87:4096
+- **OpenCode web:** site-local service (see site overlay / landing); not a public fixed IP
 - **Secrets:** managed via `secretspec` (`brew install secretspec`). Spec at `secretspec.toml` (project root). All secrets defined there; run `just secretspec-check` before deploys.
+- **Site inventory:** resolved via `ANSIBLE_CONFIG` or `STAYTURGID_SITE_DIR` (default `~/ops/site-djbclark`); see `control/lib/ansible_context.py`
 
-## Fleet (s24, p7a, hd8)
+## Example fleet (generic — not a live site)
 
-| Device | Tailscale      | USB Serial       | SSH       |
-| ------ | -------------- | ---------------- | --------- |
-| s24    | 100.123.218.30 | RFCX219CHKA      | `ssh s24` |
-| p7a    | 100.65.230.108 | 35261JEHN12374   | `ssh p7a` |
-| hd8    | 100.124.55.39  | GN43T503430603PS | `ssh hd8` |
+| Device               | Tailscale  | USB Serial           | SSH                        |
+| -------------------- | ---------- | -------------------- | -------------------------- |
+| oneui-device         | 100.0.0.11 | EXAMPLE-SERIAL-ONEUI | `ssh oneui-device`         |
+| stock-android-device | 100.0.0.12 | EXAMPLE-SERIAL-STOCK | `ssh stock-android-device` |
+| fireos-device        | 100.0.0.13 | EXAMPLE-SERIAL-FIRE  | `ssh fireos-device`        |
 
 ## Conventions
 

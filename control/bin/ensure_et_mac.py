@@ -10,7 +10,7 @@
 Usage::
 
   python3 control/bin/ensure_et_mac.py
-  python3 control/bin/ensure_et_mac.py --hosts s24,p7a,hd8
+  python3 control/bin/ensure_et_mac.py --hosts oneui-device,stock-android-device,fireos-device
   python3 control/bin/ensure_et_mac.py --apply-only
   python3 control/bin/ensure_et_mac.py --check
 
@@ -85,7 +85,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument(
         "--user",
-        default=os.environ.get("STAYTURGID_CONTROL_ET_USER") or os.environ.get("USER") or "djbclark",
+        default=os.environ.get("STAYTURGID_CONTROL_ET_USER") or os.environ.get("USER") or "operator",
     )
     ap.add_argument(
         "--tailscale-ip",

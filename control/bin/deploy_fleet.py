@@ -11,9 +11,9 @@ the fleet site playbook. Ansible ``--limit`` is device hosts only, so localhost
 
 Usage:
   deploy_fleet.py [host ...]              # full site deploy
-  deploy_fleet.py --scope fdroid s24      # F-Droid roles only
-  deploy_fleet.py --scope play s24        # Play roles + Aurora UI
-  CHECK=1 deploy_fleet.py s24             # ansible --check --diff (no post-UI / validate asserts)
+  deploy_fleet.py --scope fdroid oneui-device      # F-Droid roles only
+  deploy_fleet.py --scope play oneui-device        # Play roles + Aurora UI
+  CHECK=1 deploy_fleet.py oneui-device             # ansible --check --diff (no post-UI / validate asserts)
 
 Scopes map to ansible-playbook --tags on site.yml (see site.yml header).
 """

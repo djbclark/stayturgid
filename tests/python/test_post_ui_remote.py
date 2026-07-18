@@ -16,26 +16,26 @@ import post_ui_remote as remote  # noqa: E402
 
 def test_hd8_uses_mac_usb(monkeypatch):
     monkeypatch.setattr(remote.dev, "device_row", lambda a, conf_path=None: ("usb", "ts", "lan"))
-    monkeypatch.setattr(remote.dev, "resolve_ssh_host", lambda a, conf_path=None: "hd8")
-    assert remote.host_uses_on_device_ui("hd8") is False
+    monkeypatch.setattr(remote.dev, "resolve_ssh_host", lambda a, conf_path=None: "fireos-device")
+    assert remote.host_uses_on_device_ui("fireos-device") is False
 
 
 def test_s24_uses_on_device(monkeypatch):
     monkeypatch.setattr(remote.dev, "device_row", lambda a, conf_path=None: ("usb", "ts", "lan"))
-    monkeypatch.setattr(remote.dev, "resolve_ssh_host", lambda a, conf_path=None: "s24")
-    assert remote.host_uses_on_device_ui("s24") is True
+    monkeypatch.setattr(remote.dev, "resolve_ssh_host", lambda a, conf_path=None: "oneui-device")
+    assert remote.host_uses_on_device_ui("oneui-device") is True
 
 
 def test_raw_serial_uses_mac(monkeypatch):
     monkeypatch.setattr(remote.dev, "device_row", lambda a, conf_path=None: None)
-    assert remote.host_uses_on_device_ui("RFCX219CHKA") is False
+    assert remote.host_uses_on_device_ui("EXAMPLE-SERIAL-ONEUI") is False
 
 
 def test_run_with_mac_fallback_skips_ssh_for_hd8(monkeypatch):
     calls = []
 
     def boom(*_a, **_k):
-        raise AssertionError("ssh_run_on_device must not run for hd8")
+        raise AssertionError("ssh_run_on_device must not run for fireos-device")
 
     monkeypatch.setattr(remote, "ssh_run_on_device", boom)
     monkeypatch.setattr(remote, "host_uses_on_device_ui", lambda _a: False)
@@ -44,7 +44,7 @@ def test_run_with_mac_fallback_skips_ssh_for_hd8(monkeypatch):
         calls.append("mac")
         return 0
 
-    assert remote.run_with_mac_fallback("hd8", "script.py", [], mac) == 0
+    assert remote.run_with_mac_fallback("fireos-device", "script.py", [], mac) == 0
     assert calls == ["mac"]
 
 
@@ -57,7 +57,7 @@ def test_run_with_mac_fallback_ssh_success(monkeypatch):
         calls.append("mac")
         return 0
 
-    assert remote.run_with_mac_fallback("s24", "script.py", ["all"], mac) == 0
+    assert remote.run_with_mac_fallback("oneui-device", "script.py", ["all"], mac) == 0
     assert calls == ["ssh"]
 
 
@@ -70,7 +70,7 @@ def test_run_with_mac_fallback_ssh_fail_then_mac(monkeypatch):
         calls.append("mac")
         return 0
 
-    assert remote.run_with_mac_fallback("s24", "script.py", [], mac) == 0
+    assert remote.run_with_mac_fallback("oneui-device", "script.py", [], mac) == 0
     assert calls == ["ssh", "mac"]
 
 
@@ -81,4 +81,4 @@ def test_run_with_mac_fallback_both_fail(monkeypatch):
     def mac():
         return 3
 
-    assert remote.run_with_mac_fallback("p7a", "script.py", [], mac) == 3
+    assert remote.run_with_mac_fallback("stock-android-device", "script.py", [], mac) == 3

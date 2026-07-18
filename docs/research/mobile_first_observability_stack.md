@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # Mobile-First Observability Stack & stayturgid Platform Context
 
 ## 1. stayturgid Platform Context & Current Implementation Details

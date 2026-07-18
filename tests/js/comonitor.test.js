@@ -16,7 +16,7 @@ global.files = {
     },
     read:   function (p) {
         if (String(p) === "/sdcard/stayturgid/state/device.json") {
-            return JSON.stringify({ id: "s24", sdRoot: "/sdcard/stayturgid" });
+            return JSON.stringify({ id: "oneui-device", sdRoot: "/sdcard/stayturgid" });
         }
         return fs.readFileSync(mapped(p), "utf8");
     },
@@ -80,7 +80,7 @@ var log = require(path.join(repo, "device", "autojs6", "lib", "log.js"));
 
 ok(typeof comonitor.probeA11y === "function", "probeA11y exported");
 
-var profile = { id: "s24", sdRoot: "/sdcard/stayturgid", notifyTag: "" };
+var profile = { id: "oneui-device", sdRoot: "/sdcard/stayturgid", notifyTag: "" };
 var result = comonitor.run(profile, { force: true, reason: "test" });
 ok(result !== null, "comonitor.run returns a status object when forced");
 ok(result.sshd === "up" || result.sshd === "restarted", "comonitor probes sshd");
@@ -101,7 +101,7 @@ ok(stateObj !== null && stateObj.comonitor && typeof stateObj.comonitor.timestam
     "comonitor.run() includes timestamp in state.json comonitor namespace");
 
 // Fire / split-storage: skip localhost:5555
-var fire = { id: "hd8", sdRoot: "/data/data/com.termux/files/home/.stayturgid/shared" };
+var fire = { id: "fireos-device", sdRoot: "/data/data/com.termux/files/home/.stayturgid/shared" };
 var fireResult = comonitor.run(fire, { force: true, reason: "split-storage" });
 ok(fireResult.port === "skip", "split-storage skips localhost:5555");
 ok(fireResult.wifi === "skip", "split-storage skips wifi flag");

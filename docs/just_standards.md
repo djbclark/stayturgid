@@ -40,7 +40,7 @@ deploy_scope_arg := env_var_or_default("DEPLOY_SCOPE_ARG", if scope == "full" { 
 limit_flag := env_var_or_default("LIMIT_FLAG", if hosts == "" { "" } else { "-l " + hosts })
 ```
 
-- Any of these can be set in the shell before invoking `just`, e.g. `HOSTS=s24 just deploy`.
+- Any of these can be set in the shell before invoking `just`, e.g. `HOSTS=oneui-device just deploy`.
 
 ## Legacy Shims
 

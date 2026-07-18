@@ -14,7 +14,7 @@ import fire_peer_help as fph  # noqa: E402
 def test_ssh_original_parses_verb(monkeypatch):
     monkeypatch.setenv(
         "SSH_ORIGINAL_COMMAND",
-        "handsets-start --target 192.168.1.157:5555 --port 9012",
+        "handsets-start --target 192.0.2.13:5555 --port 9012",
     )
     seen = {}
 
@@ -26,7 +26,7 @@ def test_ssh_original_parses_verb(monkeypatch):
 
     monkeypatch.setattr(fph, "run_verb", fake)
     assert fph.main([]) == 0
-    assert seen == {"v": "handsets-start", "t": "192.168.1.157:5555", "p": 9012}
+    assert seen == {"v": "handsets-start", "t": "192.0.2.13:5555", "p": 9012}
 
 
 def test_ssh_original_denies_empty(monkeypatch):

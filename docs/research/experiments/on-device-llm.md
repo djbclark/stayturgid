@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # On-device LLM for stayturgid (shell-gpt / local models)
 
 **Status:** Incubator note (2026-07-09) — optional future spike; not implemented.  

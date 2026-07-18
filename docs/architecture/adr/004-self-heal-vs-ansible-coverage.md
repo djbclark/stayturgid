@@ -1,7 +1,7 @@
 # ADR 004: Self-heal vs Ansible deploy coverage — gap analysis
 
 **Status:** Accepted (2026-07-11)  
-**Context:** After migrating to djbclark/Shizuku, djbclark/AutoJs6, and djbclark/Obtainium forks with headless APIs, many one-time setup steps were added to the Ansible deploy flow but not to the on-device self-heal loop — and vice versa.
+**Context:** After migrating to operator/Shizuku, operator/AutoJs6, and operator/Obtainium forks with headless APIs, many one-time setup steps were added to the Ansible deploy flow but not to the on-device self-heal loop — and vice versa.
 
 ## 1. Coverage matrix
 
@@ -126,7 +126,7 @@ control/lib/fleet_self_heal.py
 
 | Caller                                               | How it calls                                                                            | When                |
 | ---------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------- |
-| **Ansible** (`android_ui` module or `script` module) | `python3 control/lib/fleet_self_heal.py --host s24 --apply-all`                         | Every `make deploy` |
+| **Ansible** (`android_ui` module or `script` module) | `python3 control/lib/fleet_self_heal.py --host oneui-device --apply-all`                | Every `make deploy` |
 | **repair.py**                                        | `from control.lib import fleet_self_heal; fleet_self_heal.apply_autojs6_profile(shell)` | Every 5-min cycle   |
 | **JS watchdog** (shizuku.js)                         | Keep `headlessStart()` inline — single `am broadcast` is too simple to extract          | 20-min cycle + boot |
 

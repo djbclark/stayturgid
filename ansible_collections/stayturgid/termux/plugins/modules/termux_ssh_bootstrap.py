@@ -65,7 +65,7 @@ EXAMPLES = r"""
 
 - name: Bootstrap with explicit key files
   stayturgid.termux.termux_ssh_bootstrap:
-    device: RFCX219CHKA
+    device: EXAMPLE-SERIAL-ONEUI
     public_key_files:
       - "{{ lookup('env', 'HOME') }}/.ssh/termux_key.pub"
     connect: false

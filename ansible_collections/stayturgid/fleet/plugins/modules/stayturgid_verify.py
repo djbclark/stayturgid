@@ -27,7 +27,7 @@ author: stayturgid
 """
 
 EXAMPLES = r"""
-- name: Verify s24 device state
+- name: Verify oneui-device device state
   stayturgid.fleet.stayturgid_verify:
   register: verify
 

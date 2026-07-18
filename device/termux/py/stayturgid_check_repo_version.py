@@ -14,7 +14,7 @@ import sys
 os.environ["PATH"] = "/data/data/com.termux/files/usr/bin:" + os.environ.get("PATH", "")
 os.environ["LC_ALL"] = "C"
 
-URL = "https://raw.githubusercontent.com/djbclark/stayturgid/master/version.json"
+URL = "https://raw.githubusercontent.com/operator/stayturgid/master/version.json"
 STAMP = os.path.join(os.environ.get("HOME", ""), ".stayturgid", "state", "repo_version")
 
 

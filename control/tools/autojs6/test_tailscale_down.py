@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Live Tailscale-down test — use USB serial (Tailscale SSH may blip).
 
-Usage: ./test_tailscale_down.py [s24|RFCX219CHKA]
+Usage: ./test_tailscale_down.py [oneui-device|EXAMPLE-SERIAL-ONEUI]
 
 1. Mac: force-stop Tailscale + wait for coord ping to fail
 2. AutoJs6: probe, relaunch, wait for recovery (logged to watchdog.log)
@@ -69,7 +69,7 @@ def wait_for_log(serial: str, pattern: str, timeout_s: int) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
-    alias = argv[0] if argv else "s24"
+    alias = argv[0] if argv else "oneui-device"
     serial = resolve_serial(alias)
     rc = 0
 

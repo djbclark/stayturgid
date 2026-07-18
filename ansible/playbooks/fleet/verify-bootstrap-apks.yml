@@ -4,7 +4,7 @@
 # Runs over ADB — no device SSH required.
 #
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
-#     ansible/playbooks/fleet/verify-bootstrap-apks.yml --limit s24
+#     ansible/playbooks/fleet/verify-bootstrap-apks.yml --limit oneui-device
 - name: stayturgid verify bootstrap APK versions
   hosts: stayturgid
   gather_facts: false

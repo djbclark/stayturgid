@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Trigger Obtainium headless update check via deep-link (no UI automation).
 
-Uses djbclark/Obtainium fork's headless update deep-link:
+Uses operator/Obtainium fork's headless update deep-link:
   obtainium://update/all?autoInstall=true&headless=true
 
 No screen control, no tap automation, no installer dialog handling needed.
 The fork handles Shizuku silent install internally.
 
-Usage: ./apply_updates.py <p7a|s24|hd8|serial>
+Usage: ./apply_updates.py <stock-android-device|oneui-device|fireos-device|serial>
 """
 
 import json
@@ -39,7 +39,7 @@ def adb(serial, *args, timeout=30):
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
-        sys.stderr.write("usage: apply_updates.py <p7a|s24|hd8|serial>\n")
+        sys.stderr.write("usage: apply_updates.py <stock-android-device|oneui-device|fireos-device|serial>\n")
         return 2
     host = argv[0]
     serial = dev.resolve_adb(host)

@@ -11,7 +11,7 @@ Included in `fleet.yml` after `obtainium_apps` (Tailscale must be installed).
 
 ```bash
 ./control/bin/deploy_fleet.py          # all hosts
-./control/bin/deploy_fleet.py hd8      # one host
+./control/bin/deploy_fleet.py fireos-device      # one host
 ```
 
 Does not sign in to Tailscale — only configures always-on VPN once the app is installed and logged in.

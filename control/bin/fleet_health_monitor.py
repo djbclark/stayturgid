@@ -260,7 +260,7 @@ def maybe_heal_repair_stale(name: str, issues: list[str], fails: int) -> None:
 
 def maybe_heal_hd8_google_stack(name: str) -> None:
     """Keep Doze whitelist + GSF 10; optionally pin GMS if STAYTURGID_HD8_PIN_GMS=1."""
-    if SKIP_HEALTH or SKIP_GOOGLE_STACK_HEAL or name != "hd8":
+    if SKIP_HEALTH or SKIP_GOOGLE_STACK_HEAL or name != "fireos-device":
         return
     if not _heal_cooldown_ok_dir(name, GOOGLE_HEAL_STATE_DIR, GOOGLE_STACK_HEAL_COOLDOWN_SEC):
         return
@@ -301,7 +301,7 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
         if hgs.needs_gms_downgrade(new_ver):
             notify(
                 "stayturgid heal",
-                "%s GMS still too new (%s) — run just fix-hd8-google" % (name, new_ver),
+                "%s GMS still too new (%s) — run just fix-fireos-device-google" % (name, new_ver),
                 sound="Basso",
             )
         else:
@@ -316,7 +316,7 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
 
 def maybe_verify_hd8_google_closeout(name: str) -> None:
     """Rate-limited VLM verify after stack heal (auto-update + crash dialog)."""
-    if SKIP_HEALTH or name != "hd8" or not vh.auto_verify_enabled():
+    if SKIP_HEALTH or name != "fireos-device" or not vh.auto_verify_enabled():
         return
     if not _heal_cooldown_ok_dir(name, GOOGLE_VERIFY_STATE_DIR, GOOGLE_VERIFY_COOLDOWN_SEC):
         return
@@ -458,7 +458,7 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
             sound="Basso",
         )
 
-    if name == "hd8":
+    if name == "fireos-device":
         maybe_heal_hd8_google_stack(name)
 
     issues = fh.evaluate_health(report, alias=name)

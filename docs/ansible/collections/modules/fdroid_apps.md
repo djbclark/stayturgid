@@ -17,7 +17,7 @@ target. Idempotent when packages are already on the device.
 - stayturgid.fdroid.fdroid_apps:
     apps:
       - id: org.breezyweather
-    device: "{{ lookup('stayturgid.android_common.adb_device', 'p7a') }}"
+    device: "{{ lookup('stayturgid.android_common.adb_device', 'stock-android-device') }}"
   delegate_to: localhost
 ```
 

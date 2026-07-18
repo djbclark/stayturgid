@@ -13,15 +13,15 @@ import ui_driver as ud  # noqa: E402
 
 
 def test_port_for_defaults():
-    assert ud.port_for("s24") == 9013
-    assert ud.port_for("hd8") == 9012
-    assert ud.port_for("p7a") == 9014
+    assert ud.port_for("oneui-device") == 9013
+    assert ud.port_for("fireos-device") == 9012
+    assert ud.port_for("stock-android-device") == 9014
     assert ud.port_for("unknown") == 9011
 
 
 def test_port_for_env_override(monkeypatch):
     monkeypatch.setenv("STAYTURGID_HANDSETS_PORT", "9123")
-    assert ud.port_for("s24") == 9123
+    assert ud.port_for("oneui-device") == 9123
 
 
 def test_handsets_available_false_when_missing(monkeypatch):
@@ -48,7 +48,7 @@ def test_session_start_pushes_and_forwards(monkeypatch, tmp_path):
         return SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(ud, "_run", fake_run)
-    session = ud.HandsetsSession("SERIAL", alias="s24", port=9013)
+    session = ud.HandsetsSession("SERIAL", alias="oneui-device", port=9013)
     session.start()
     assert session.active
     joined = [" ".join(c) for c in calls]
@@ -70,7 +70,7 @@ tap  Switch                #sw  669,2189  [check checked]
 
 
 def test_parse_switch_from_ui_checked_and_coords():
-    session = ud.HandsetsSession("SERIAL", alias="s24", port=9013)
+    session = ud.HandsetsSession("SERIAL", alias="oneui-device", port=9013)
     session.active = True
     got = session._parse_switch_from_ui("Shizuku access", _SAMPLE_DRAWER_UI)
     assert got == (True, 669, 2189)
@@ -79,7 +79,7 @@ def test_parse_switch_from_ui_checked_and_coords():
 
 
 def test_parse_switch_missing_label():
-    session = ud.HandsetsSession("SERIAL", alias="s24", port=9013)
+    session = ud.HandsetsSession("SERIAL", alias="oneui-device", port=9013)
     session.active = True
     assert session._parse_switch_from_ui("No such row", _SAMPLE_DRAWER_UI) is None
 
@@ -94,7 +94,7 @@ _SAMPLE_AURORA_UPDATES_UI = """\
 
 
 def test_parse_switch_aurora_preference_rows():
-    session = ud.HandsetsSession("SERIAL", alias="p7a", port=9014)
+    session = ud.HandsetsSession("SERIAL", alias="stock-android-device", port=9014)
     session.active = True
     assert session._parse_switch_from_ui("Filter F-Droid apps", _SAMPLE_AURORA_UPDATES_UI) == (True, 969, 735)
     assert session._parse_switch_from_ui("Filter apps from other sources", _SAMPLE_AURORA_UPDATES_UI) == (
@@ -106,5 +106,5 @@ def test_parse_switch_aurora_preference_rows():
 
 def test_try_handsets_yields_none_when_missing(monkeypatch):
     monkeypatch.setattr(ud, "handsets_available", lambda: False)
-    with ud.try_handsets("SERIAL", "s24") as hs:
+    with ud.try_handsets("SERIAL", "oneui-device") as hs:
         assert hs is None

@@ -35,8 +35,8 @@ except ImportError:
     sys.exit(0)
 
 FLEET = {
-    "s24": "100.123.218.30",
-    "p7a": "100.65.230.108",
+    "oneui-device": "100.0.0.11",
+    "stock-android-device": "100.0.0.12",
 }
 
 

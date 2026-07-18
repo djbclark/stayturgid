@@ -70,7 +70,7 @@ def test_termux_ssh_bootstrap_installs_keys(mocker, tmp_path):
     out = run_module(
         mocker,
         dict(
-            device="RFCX219CHKA",
+            device="EXAMPLE-SERIAL-ONEUI",
             connect=False,
             public_key_files=[str(pub)],
             install_openssh=False,

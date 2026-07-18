@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Mac → Termux SSH invoke for on-device post-UI scripts.
 
-s24/p7a: prefer SSH → ~/.stayturgid/bin/<script>.py (Termux localhost:5555).
+oneui-device/stock-android-device: prefer SSH → ~/.stayturgid/bin/<script>.py (Termux localhost:5555).
 On SSH failure (connect error or non-zero), fall back to the caller's Mac adb
 path (USB or wireless via resolve_adb).
 
-hd8 / raw serial / no privileged shell: Mac adb only — Fire OS has no
+fireos-device / raw serial / no privileged shell: Mac adb only — Fire OS has no
 Termux→localhost:5555 loopback, so SSH-invoking on-device UI cannot work.
 """
 
@@ -25,7 +25,7 @@ SSH_OPTS = list(dev.SSH_OPTS)
 ON_DEVICE_BIN = "~/.stayturgid/bin"
 
 # Fire OS aliases: no Termux privileged localhost:5555 — never SSH-invoke UI.
-MAC_ADB_ONLY_ALIASES = frozenset({"hd8"})
+MAC_ADB_ONLY_ALIASES = frozenset({"fireos-device"})
 
 
 def host_uses_on_device_ui(alias: str) -> bool:
@@ -69,7 +69,7 @@ def run_with_mac_fallback(
 ) -> int:
     """Prefer on-device SSH when expected; on any failure, run mac_fn (Mac adb).
 
-    hd8 / raw serial skip SSH and call mac_fn immediately.
+    fireos-device / raw serial skip SSH and call mac_fn immediately.
     """
     if not host_uses_on_device_ui(alias):
         return mac_fn()

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Install AutoJs6, grant Termux bridge perms, deploy project, start bridges.py.
 
-Usage: ./setup_autojs6.py <serial|s24|hd8|p7a> [device-id]
+Usage: ./setup_autojs6.py <serial|oneui-device|fireos-device|stock-android-device> [device-id]
 """
 
 from __future__ import annotations
@@ -73,7 +73,9 @@ def deploy_termux_scripts(alias: str, serial: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
-        sys.stderr.write("usage: setup_autojs6.py <serial|s24|hd8|p7a> [device-id]\n")
+        sys.stderr.write(
+            "usage: setup_autojs6.py <serial|oneui-device|fireos-device|stock-android-device> [device-id]\n"
+        )
         return 2
     alias = argv[0]
     device_id = argv[1] if len(argv) > 1 else ""
@@ -91,7 +93,7 @@ def main(argv: list[str] | None = None) -> int:
                 "download",
                 "v6.7.0",
                 "--repo",
-                "djbclark/AutoJs6",
+                "operator/AutoJs6",
                 "-p",
                 APK_NAME,
                 "-D",

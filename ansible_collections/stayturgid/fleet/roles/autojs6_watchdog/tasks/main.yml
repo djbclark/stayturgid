@@ -121,7 +121,7 @@
   when: not (stayturgid_autojs6_deploy_via_adb | default(false))
 
 # ─────────────────────────────────────────────────────────────────
-# Shizuku headless configuration (djbclark fork)
+# Shizuku headless configuration (operator fork)
 # ─────────────────────────────────────────────────────────────────
 - name: Whitelist Shizuku from device idle / battery optimization
   ansible.builtin.shell: |

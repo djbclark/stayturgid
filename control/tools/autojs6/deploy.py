@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Deploy the stayturgid AutoJs6 project to a phone over ADB.
 
-Usage: ./deploy.py <serial|s24|hd8|p7a> [device-id]
+Usage: ./deploy.py <serial|oneui-device|fireos-device|stock-android-device> [device-id]
 
 Does NOT install AutoJs6 — use setup_autojs6.py or Obtainium first.
 """
@@ -56,7 +56,7 @@ def deploy_project(alias: str, device_id: str = "") -> int:
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
-        sys.stderr.write("usage: deploy.py <serial|s24|hd8|p7a> [device-id]\n")
+        sys.stderr.write("usage: deploy.py <serial|oneui-device|fireos-device|stock-android-device> [device-id]\n")
         return 2
     device_id = argv[1] if len(argv) > 1 else ""
     try:

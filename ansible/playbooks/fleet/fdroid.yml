@@ -7,7 +7,7 @@
 #
 # Usage (from repo root):
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet/fdroid.yml
-#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet/fdroid.yml --limit s24
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet/fdroid.yml --limit oneui-device
 - name: stayturgid fdroid repos (Neo Store + fdroidcl)
   hosts: stayturgid
   gather_facts: false

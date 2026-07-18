@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # Handsets vs uiautomator2 vs raw dump — live bench
 
 Date: 2026-07-09. Hosts: **s24** + **hd8**. Stay-awake held. Drivers run

@@ -7,8 +7,8 @@ under display inversion). When STAYTURGID_VLM=1 and the llama-server is up,
 confirms the radio selection from a screenshot.
 
 Usage:
-  STAYTURGID_VLM=1 python3 control/bin/verify_play_autoupdate.py hd8
-  python3 control/bin/verify_play_autoupdate.py hd8 --shot-only /tmp/play-auto.png
+  STAYTURGID_VLM=1 python3 control/bin/verify_play_autoupdate.py fireos-device
+  python3 control/bin/verify_play_autoupdate.py fireos-device --shot-only /tmp/play-auto.png
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ ART = Path.home() / ".config" / "stayturgid" / "artifacts" / "vlm-verify"
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("host", nargs="?", default="hd8", help="Fleet alias (default hd8)")
+    ap.add_argument("host", nargs="?", default="fireos-device", help="Fleet alias (default fireos-device)")
     ap.add_argument(
         "--shot-only",
         metavar="PNG",
