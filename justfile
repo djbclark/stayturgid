@@ -13,7 +13,8 @@
 set shell := ["bash", "-uc"]
 
 repo := justfile_directory()
-export ANSIBLE_CONFIG := repo + "/ansible/ansible.cfg"
+export STAYTURGID_ROOT := repo
+ansible_playbook := "python3 control/bin/ansible_exec.py ansible-playbook"
 
 hosts := env_var_or_default("hosts", "")
 scope := env_var_or_default("scope", "full")

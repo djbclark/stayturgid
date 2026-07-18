@@ -11,7 +11,7 @@ deploy-legacy:
     @just _deploy_impl
 
 deploy host="":
-    @just _deploy_impl {{ if host == "" { "" } else { "--limit " + host } }}
+    @just _deploy_impl {{ host }}
 
 # ---------- Deploy Check (dry‑run) ----------
 _deploy_check_impl:
@@ -21,11 +21,11 @@ deploy-check-legacy:
     @just _deploy_check_impl
 
 deploy-check host="":
-    @just _deploy_check_impl {{ if host == "" { "" } else { "--limit " + host } }}
+    @just _deploy_check_impl {{ host }}
 
 # ---------- Mac Workstation ----------
 _deploy_mac_impl:
-    ansible-playbook {{ mac_site }} --tags mac
+    {{ ansible_playbook }} {{ mac_site }} --tags mac
 
 deploy-mac-legacy:
     @just _deploy_mac_impl
@@ -55,7 +55,7 @@ bootstrap-ssh host="":
 
 # ---------- Bootstrap APKs ----------
 _bootstrap_apks_impl:
-    ansible-playbook ansible/playbooks/fleet/ensure-bootstrap-apks.yml {{ limit_flag }}
+    {{ ansible_playbook }} ansible/playbooks/fleet/ensure-bootstrap-apks.yml {{ limit_flag }}
 
 bootstrap-apks-legacy:
     @just _bootstrap_apks_impl
@@ -65,7 +65,7 @@ bootstrap-apks:
 
 # ---------- Verify Bootstrap APKs ----------
 _verify_bootstrap_apks_impl:
-    ansible-playbook ansible/playbooks/fleet/verify-bootstrap-apks.yml {{ limit_flag }}
+    {{ ansible_playbook }} ansible/playbooks/fleet/verify-bootstrap-apks.yml {{ limit_flag }}
 
 verify-bootstrap-apks-legacy:
     @just _verify_bootstrap_apks_impl
@@ -75,7 +75,7 @@ verify-bootstrap-apks host="":
 
 # ---------- Ensure Shizuku ----------
 _ensure_shizuku_impl:
-    ansible-playbook ansible/playbooks/fleet/ensure-shizuku.yml {{ limit_flag }}
+    {{ ansible_playbook }} ansible/playbooks/fleet/ensure-shizuku.yml {{ limit_flag }}
 
 ensure-shizuku-legacy:
     @just _ensure_shizuku_impl
@@ -175,9 +175,9 @@ collections:
 
 # ---------- Syntax Check ----------
 _syntax_impl:
-    ansible-playbook ansible/playbooks/site.yml --syntax-check
-    ansible-playbook {{ mac_site }} --syntax-check
-    ansible-playbook ansible/playbooks/fleet/termux-pkg-upgrade.yml --syntax-check
+    {{ ansible_playbook }} ansible/playbooks/site.yml --syntax-check
+    {{ ansible_playbook }} {{ mac_site }} --syntax-check
+    {{ ansible_playbook }} ansible/playbooks/fleet/termux-pkg-upgrade.yml --syntax-check
 
 syntax-legacy:
     @just _syntax_impl
@@ -214,7 +214,7 @@ dryrun: deploy-check-legacy
 
 # ---------- Dryrun Termux ----------
 _dryrun_termux_impl:
-    ansible-playbook ansible/playbooks/fleet/termux-userland.yml --check --diff {{ limit_flag }}
+    {{ ansible_playbook }} ansible/playbooks/fleet/termux-userland.yml --check --diff {{ limit_flag }}
 
 dryrun-termux-legacy:
     @just _dryrun_termux_impl
@@ -255,12 +255,12 @@ ca-status: _ca_status_impl
 # Sign all device host keys + deploy certs.
 ca-sign:
     @mkdir -p "{{ env_var("HOME") }}/.ssh/host-certs"
-    @ansible-playbook ansible/playbooks/fleet/termux-userland.yml --tags ca 2>&1 || true
+    @{{ ansible_playbook }} ansible/playbooks/fleet/termux-userland.yml --tags ca 2>&1 || true
     @echo "Host certs signed. Run 'just deploy-mac' to update Mac known_hosts."
 
 # ---------- FIRERPA ----------
 _firerpa_deploy_impl:
-    ansible-playbook ansible/playbooks/fleet/firerpa.yml {{ limit_flag }} -e firerpa_enabled=true
+    {{ ansible_playbook }} ansible/playbooks/fleet/firerpa.yml {{ limit_flag }} -e firerpa_enabled=true
 
 firerpa-deploy-legacy:
     @just _firerpa_deploy_impl
@@ -269,7 +269,7 @@ firerpa-deploy:
     @just _firerpa_deploy_impl
 
 _firerpa_remove_impl:
-    ansible-playbook ansible/playbooks/fleet/firerpa.yml {{ limit_flag }} -e firerpa_enabled=false
+    {{ ansible_playbook }} ansible/playbooks/fleet/firerpa.yml {{ limit_flag }} -e firerpa_enabled=false
 
 firerpa-remove-legacy:
     @just _firerpa_remove_impl
@@ -308,4 +308,3 @@ verify-drift-legacy:
 
 verify-drift host="":
     @just _verify_drift_impl {{ if host == "" { "--all" } else { "--host " + host } }}
-
