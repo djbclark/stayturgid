@@ -967,6 +967,16 @@ Partially supported. Works for fleet management; missing Mac-specific features:
 
 ## 10. Implementation Roadmap
 
+> **Cross-reference (2026-07-18, post branch consolidation):** execution of
+> the remaining phases is sequenced by the site repo's junior execution plan
+> (`site-djbclark/docs/plans/site-djbclark-step2-junior-execution-plan-v1.md`)
+> and its relay baton. Mapping: Phase 3 → step D5 (**executed under site
+> ownership per [ADR 005](adr/005-two-repo-topology.md), not stayturgid
+> labels**); Phase 4 → step D8 (edge **OTel collector** per
+> `docs/operations/plans/logging/` Phase-3 design supersedes the "edge
+> Vector" wording below); Phase 5 → D7; Phase 6 → B3+B5 (exit: flip
+> `validate-identity` to hard-fail); Phase 7 → §11 decisions #4/#5.
+
 ### Phase 0: Census and Schema Validation (No Code Changes)
 
 **Goal:** Understand the current state. Produce a decision table.
