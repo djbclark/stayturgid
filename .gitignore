@@ -34,8 +34,12 @@ tmp/
 # CFEngine Build output (built locally before Ansible deploy; never source).
 device/termux/cfengine/out/
 
-# SSH keys — live on the control node / devices only, never in git
+# SSH keys / TLS key material — live on the control node / devices only, never in git
 *.pem
+*.key
+*.crt
+/root.crt
+/root.key
 id_*
 termux_key
 termux_key.pub

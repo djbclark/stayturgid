@@ -144,6 +144,14 @@ Cron/systemd for `python3 control/bin/adb_reconnect.py <alias>` is manual until 
 
 ## 4. Generic upstream vs site overlay repository
 
+> **Status update (2026-07-18):** the reference site overlay repo now exists —
+> private `site-djbclark` — and Phase 0 is effectively complete. The base-dir
+> convention is a plain `~/ops` directory holding sibling checkouts
+> (`~/ops/stayturgid`, `~/ops/site-<operator>`); a site repo must never be
+> nested inside a public working tree. Topology rationale and the serverapp
+> adapter model live in the site repo's step1 architecture doc and
+> [ADR 005](adr/005-two-repo-topology.md).
+
 Today the main repo still carries **operator production data** (`s24`, `p7a`, `hd8`,
 Tailscale `100.x` addresses, `djbclark`, `/Users/djbclark/...`). That makes forks and
 docs harder than they need to be. The target shape is **two GitHub projects**:
