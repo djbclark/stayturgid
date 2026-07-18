@@ -2,6 +2,7 @@
 
 All tests use synthetic ansible-inventory JSON payloads injected via
 ``monkeypatch``; no real ``ansible-inventory`` binary is needed.
+Fixtures use §4.1 example aliases and RFC 5737 addresses only.
 """
 
 from __future__ import annotations
@@ -15,63 +16,63 @@ import pytest
 import site_identity as si
 
 # ---------------------------------------------------------------------------
-# Fixture helpers
+# Fixture helpers — generic example identity only
 # ---------------------------------------------------------------------------
 
 _GOOD_INVENTORY = {
     "stayturgid": {
-        "hosts": ["s24", "p7a", "hd8"],
+        "hosts": ["oneui-device", "stock-android-device", "fireos-device"],
     },
     "_meta": {
         "hostvars": {
-            "s24": {
-                "ansible_host": "100.123.218.30",
+            "oneui-device": {
+                "ansible_host": "100.0.0.11",
                 "ansible_port": 8022,
-                "ansible_user": "mobile",
-                "device_usb_serial": "RFCX219CHKA",
-                "device_lan_ip": "192.168.68.60",
-                "device_label": "Samsung S24",
+                "ansible_user": "termux",
+                "device_usb_serial": "EXAMPLE-SERIAL-ONEUI",
+                "device_lan_ip": "192.0.2.11",
+                "device_label": "Example One UI phone",
                 "stayturgid_automation_mode": "full",
                 "stayturgid_mac_peer": {
-                    "user": "djbclark",
-                    "lan": "192.168.68.1",
-                    "tailscale": "100.100.100.1",
+                    "user": "operator",
+                    "lan": "192.0.2.1",
+                    "tailscale": "100.0.0.1",
                 },
-                "stayturgid_control_ssh_user": "djbclark",
+                "stayturgid_control_ssh_user": "operator",
                 "stayturgid_hermes_telegram_allowed_users": "alice,bob",
                 "stayturgid_hermes_telegram_home_channel": "-1001234567890",
             },
-            "p7a": {
-                "ansible_host": "100.65.230.108",
+            "stock-android-device": {
+                "ansible_host": "100.0.0.12",
                 "ansible_port": 8022,
-                "ansible_user": "mobile",
-                "device_usb_serial": "35261JEHN12374",
-                "device_lan_ip": "192.168.68.65",
-                "device_label": "Pixel 7a",
+                "ansible_user": "termux",
+                "device_usb_serial": "EXAMPLE-SERIAL-STOCK",
+                "device_lan_ip": "192.0.2.12",
+                "device_label": "Example stock Android phone",
                 "stayturgid_automation_mode": "full",
                 "stayturgid_mac_peer": {
-                    "user": "djbclark",
-                    "lan": "192.168.68.1",
-                    "tailscale": "100.100.100.1",
+                    "user": "operator",
+                    "lan": "192.0.2.1",
+                    "tailscale": "100.0.0.1",
                 },
-                "stayturgid_control_ssh_user": "djbclark",
+                "stayturgid_control_ssh_user": "operator",
                 "stayturgid_hermes_telegram_allowed_users": "alice,bob",
                 "stayturgid_hermes_telegram_home_channel": "-1001234567890",
             },
-            "hd8": {
-                "ansible_host": "100.124.55.39",
+            "fireos-device": {
+                "ansible_host": "100.0.0.13",
                 "ansible_port": 2222,
-                "ansible_user": "mobile",
-                "device_usb_serial": "GN43T503430603PS",
-                "device_lan_ip": "192.168.1.157",
-                "device_label": "Fire HD 8",
+                "ansible_user": "termux",
+                "device_usb_serial": "EXAMPLE-SERIAL-FIRE",
+                "device_lan_ip": "192.0.2.13",
+                "device_label": "Example Fire OS tablet",
                 "stayturgid_automation_mode": "screen",
                 "stayturgid_mac_peer": {
-                    "user": "djbclark",
-                    "lan": "192.168.68.1",
-                    "tailscale": "100.100.100.1",
+                    "user": "operator",
+                    "lan": "192.0.2.1",
+                    "tailscale": "100.0.0.1",
                 },
-                "stayturgid_control_ssh_user": "djbclark",
+                "stayturgid_control_ssh_user": "operator",
                 "stayturgid_hermes_telegram_allowed_users": "alice,bob",
                 "stayturgid_hermes_telegram_home_channel": "-1001234567890",
             },
@@ -113,27 +114,27 @@ def fake_inventory(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 def test_site_has_three_devices(fake_inventory: Path) -> None:
     site = si.load_site_identity(inventory_path=fake_inventory)
-    assert set(site.devices.keys()) == {"s24", "p7a", "hd8"}
+    assert set(site.devices.keys()) == {"oneui-device", "stock-android-device", "fireos-device"}
 
 
 def test_device_fields_correct(fake_inventory: Path) -> None:
     site = si.load_site_identity(inventory_path=fake_inventory)
-    s24 = site.devices["s24"]
-    assert s24.alias == "s24"
-    assert s24.ansible_host == "100.123.218.30"
-    assert s24.device_usb_serial == "RFCX219CHKA"
-    assert s24.device_lan_ip == "192.168.68.60"
-    assert s24.ansible_port == 8022
-    assert s24.ansible_user == "mobile"
-    assert s24.stayturgid_automation_mode == "full"
+    oneui = site.devices["oneui-device"]
+    assert oneui.alias == "oneui-device"
+    assert oneui.ansible_host == "100.0.0.11"
+    assert oneui.device_usb_serial == "EXAMPLE-SERIAL-ONEUI"
+    assert oneui.device_lan_ip == "192.0.2.11"
+    assert oneui.ansible_port == 8022
+    assert oneui.ansible_user == "termux"
+    assert oneui.stayturgid_automation_mode == "full"
 
 
 def test_control_node_parsed(fake_inventory: Path) -> None:
     site = si.load_site_identity(inventory_path=fake_inventory)
     cn = site.control_node
-    assert cn.ssh_user == "djbclark"
-    assert cn.lan_ip == "192.168.68.1"
-    assert cn.tailscale_ip == "100.100.100.1"
+    assert cn.ssh_user == "operator"
+    assert cn.lan_ip == "192.0.2.1"
+    assert cn.tailscale_ip == "100.0.0.1"
 
 
 def test_telegram_users_tuple(fake_inventory: Path) -> None:
@@ -155,27 +156,27 @@ def test_device_order_deterministic(fake_inventory: Path) -> None:
 def test_optional_usb_serial_dash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """device_usb_serial missing → stored as '-'."""
     data = json.loads(json.dumps(_GOOD_INVENTORY))
-    del data["_meta"]["hostvars"]["hd8"]["device_usb_serial"]
+    del data["_meta"]["hostvars"]["fireos-device"]["device_usb_serial"]
     hosts_yml = tmp_path / "hosts.yml"
     hosts_yml.write_text("# dummy\n", encoding="utf-8")
     monkeypatch.setattr(subprocess, "run", lambda *_a, **_kw: _make_run_result(data))
     monkeypatch.setattr(si, "_CACHE_FILE", tmp_path / ".identity_cache.json")
     monkeypatch.setattr(si, "_CACHE_DIR", tmp_path)
     site = si.load_site_identity(inventory_path=hosts_yml)
-    assert site.devices["hd8"].device_usb_serial == "-"
+    assert site.devices["fireos-device"].device_usb_serial == "-"
 
 
 def test_optional_lan_ip_dash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """device_lan_ip missing → stored as '-'."""
     data = json.loads(json.dumps(_GOOD_INVENTORY))
-    del data["_meta"]["hostvars"]["hd8"]["device_lan_ip"]
+    del data["_meta"]["hostvars"]["fireos-device"]["device_lan_ip"]
     hosts_yml = tmp_path / "hosts.yml"
     hosts_yml.write_text("# dummy\n", encoding="utf-8")
     monkeypatch.setattr(subprocess, "run", lambda *_a, **_kw: _make_run_result(data))
     monkeypatch.setattr(si, "_CACHE_FILE", tmp_path / ".identity_cache.json")
     monkeypatch.setattr(si, "_CACHE_DIR", tmp_path)
     site = si.load_site_identity(inventory_path=hosts_yml)
-    assert site.devices["hd8"].device_lan_ip == "-"
+    assert site.devices["fireos-device"].device_lan_ip == "-"
 
 
 # ---------------------------------------------------------------------------
@@ -255,6 +256,108 @@ def test_force_refresh_bypasses_cache(fake_inventory: Path, tmp_path: Path, monk
     assert call_count["n"] == 1
 
 
+def test_cache_not_reused_for_different_inventory(
+    fake_inventory: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Cache is keyed by inventory path — a different inventory must re-export."""
+    cache_path = tmp_path / ".identity_cache.json"
+    monkeypatch.setattr(si, "_CACHE_FILE", cache_path)
+    monkeypatch.setattr(si, "_CACHE_DIR", tmp_path)
+
+    si.load_site_identity(inventory_path=fake_inventory)
+
+    other = tmp_path / "other-hosts.yml"
+    other.write_text("# other\n", encoding="utf-8")
+    future = time.time() + 9999
+    import os
+
+    os.utime(cache_path, (future, future))
+
+    call_count = {"n": 0}
+
+    def counting_run(*_a, **_kw):
+        call_count["n"] += 1
+        return _make_run_result(_GOOD_INVENTORY)
+
+    monkeypatch.setattr(subprocess, "run", counting_run)
+    si.load_site_identity(inventory_path=other)
+    assert call_count["n"] == 1
+
+
+# ---------------------------------------------------------------------------
+# Context-aware resolution
+# ---------------------------------------------------------------------------
+
+
+def _write_ansible_cfg(root: Path, inventory_rel: str = "inventory/hosts.yml") -> Path:
+    cfg = root / "ansible.cfg"
+    cfg.write_text(
+        f"[defaults]\ninventory = {inventory_rel}\ncollections_path = collections\n",
+        encoding="utf-8",
+    )
+    return cfg
+
+
+def test_resolve_inventory_explicit_ansible_config(tmp_path: Path) -> None:
+    product = tmp_path / "product"
+    (product / "ansible").mkdir(parents=True)
+    _write_ansible_cfg(product / "ansible")
+    explicit = tmp_path / "site"
+    explicit.mkdir()
+    _write_ansible_cfg(explicit, "inventory/live.yml")
+    (explicit / "inventory").mkdir()
+    inv = explicit / "inventory" / "live.yml"
+    inv.write_text("all: {}\n", encoding="utf-8")
+
+    resolved = si.resolve_inventory_path(
+        repo_root=product,
+        environ={"ANSIBLE_CONFIG": str(explicit / "ansible.cfg")},
+    )
+    assert resolved == inv.resolve()
+
+
+def test_resolve_inventory_site_overlay_default(tmp_path: Path) -> None:
+    product = tmp_path / "product"
+    (product / "ansible").mkdir(parents=True)
+    _write_ansible_cfg(product / "ansible")
+    site = tmp_path / "site-overlay"
+    site.mkdir()
+    _write_ansible_cfg(site)
+    (site / "inventory").mkdir()
+    inv = site / "inventory" / "hosts.yml"
+    inv.write_text("all: {}\n", encoding="utf-8")
+
+    resolved = si.resolve_inventory_path(
+        repo_root=product,
+        environ={"STAYTURGID_SITE_DIR": str(site)},
+    )
+    assert resolved == inv.resolve()
+
+
+def test_resolve_inventory_upstream_example_fallback(tmp_path: Path) -> None:
+    product = tmp_path / "product"
+    inv_dir = product / "ansible" / "inventory"
+    inv_dir.mkdir(parents=True)
+    _write_ansible_cfg(product / "ansible")
+    example = inv_dir / "hosts.yml.example"
+    example.write_text("all: {}\n", encoding="utf-8")
+    # No live hosts.yml, no site overlay
+    resolved = si.resolve_inventory_path(
+        repo_root=product,
+        environ={"STAYTURGID_SITE_DIR": str(tmp_path / "missing-site")},
+    )
+    assert resolved == example
+
+
+def test_ansible_listable_path_materialises_example(tmp_path: Path) -> None:
+    example = tmp_path / "hosts.yml.example"
+    example.write_text("all:\n  children: {}\n", encoding="utf-8")
+    listable = si._ansible_listable_path(example, tmp_dir=tmp_path / "mat")
+    assert listable.name == "hosts.yml"
+    assert listable.is_file()
+    assert listable.read_text(encoding="utf-8") == example.read_text(encoding="utf-8")
+
+
 # ---------------------------------------------------------------------------
 # Error-path / validation tests
 # ---------------------------------------------------------------------------
@@ -306,7 +409,7 @@ def test_missing_stayturgid_group(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
 def test_duplicate_usb_serial_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     data = json.loads(json.dumps(_GOOD_INVENTORY))
-    data["_meta"]["hostvars"]["p7a"]["device_usb_serial"] = "RFCX219CHKA"  # same as s24
+    data["_meta"]["hostvars"]["stock-android-device"]["device_usb_serial"] = "EXAMPLE-SERIAL-ONEUI"
     hosts_yml = tmp_path / "hosts.yml"
     hosts_yml.write_text("# dummy\n", encoding="utf-8")
     monkeypatch.setattr(subprocess, "run", lambda *_a, **_kw: _make_run_result(data))
@@ -318,7 +421,7 @@ def test_duplicate_usb_serial_rejected(tmp_path: Path, monkeypatch: pytest.Monke
 
 def test_duplicate_tailscale_ip_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     data = json.loads(json.dumps(_GOOD_INVENTORY))
-    data["_meta"]["hostvars"]["p7a"]["ansible_host"] = "100.123.218.30"  # same as s24
+    data["_meta"]["hostvars"]["stock-android-device"]["ansible_host"] = "100.0.0.11"
     hosts_yml = tmp_path / "hosts.yml"
     hosts_yml.write_text("# dummy\n", encoding="utf-8")
     monkeypatch.setattr(subprocess, "run", lambda *_a, **_kw: _make_run_result(data))
@@ -330,7 +433,7 @@ def test_duplicate_tailscale_ip_rejected(tmp_path: Path, monkeypatch: pytest.Mon
 
 def test_invalid_lan_ip_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     data = json.loads(json.dumps(_GOOD_INVENTORY))
-    data["_meta"]["hostvars"]["s24"]["device_lan_ip"] = "not-an-ip"
+    data["_meta"]["hostvars"]["oneui-device"]["device_lan_ip"] = "not-an-ip"
     hosts_yml = tmp_path / "hosts.yml"
     hosts_yml.write_text("# dummy\n", encoding="utf-8")
     monkeypatch.setattr(subprocess, "run", lambda *_a, **_kw: _make_run_result(data))
@@ -342,7 +445,7 @@ def test_invalid_lan_ip_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 
 def test_missing_device_label_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     data = json.loads(json.dumps(_GOOD_INVENTORY))
-    del data["_meta"]["hostvars"]["s24"]["device_label"]
+    del data["_meta"]["hostvars"]["oneui-device"]["device_label"]
     hosts_yml = tmp_path / "hosts.yml"
     hosts_yml.write_text("# dummy\n", encoding="utf-8")
     monkeypatch.setattr(subprocess, "run", lambda *_a, **_kw: _make_run_result(data))
@@ -354,9 +457,9 @@ def test_missing_device_label_rejected(tmp_path: Path, monkeypatch: pytest.Monke
 
 def test_invalid_alias_rejected(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     data = json.loads(json.dumps(_GOOD_INVENTORY))
-    data["stayturgid"]["hosts"] = ["BAD_HOST", "p7a", "hd8"]
-    data["_meta"]["hostvars"]["BAD_HOST"] = data["_meta"]["hostvars"]["s24"]
-    del data["_meta"]["hostvars"]["s24"]
+    data["stayturgid"]["hosts"] = ["BAD_HOST", "stock-android-device", "fireos-device"]
+    data["_meta"]["hostvars"]["BAD_HOST"] = data["_meta"]["hostvars"]["oneui-device"]
+    del data["_meta"]["hostvars"]["oneui-device"]
     hosts_yml = tmp_path / "hosts.yml"
     hosts_yml.write_text("# dummy\n", encoding="utf-8")
     monkeypatch.setattr(subprocess, "run", lambda *_a, **_kw: _make_run_result(data))
@@ -372,4 +475,4 @@ def test_site_is_immutable(fake_inventory: Path) -> None:
     with pytest.raises((AttributeError, TypeError)):
         site.telegram_home_channel = "mutated"  # type: ignore[misc]
     with pytest.raises((AttributeError, TypeError)):
-        site.devices["s24"].alias = "mutated"  # type: ignore[misc]
+        site.devices["oneui-device"].alias = "mutated"  # type: ignore[misc]
