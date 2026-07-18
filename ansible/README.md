@@ -33,7 +33,7 @@ The deployed `~/.stayturgid/bin/stayturgid_agent_presence.py` includes the conse
 
 - Ansible 2.14+ on the Mac (`brew install ansible` or `just deploy-mac --tags prereqs`)
 - `ansible.posix` + `community.general` collections (`ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections`; `just collections` or `just deploy-mac`)
-- SSH to Termux working (`ssh s24` or USB forward to port 8022)
+- SSH to Termux working (`ssh oneui-device` or USB forward to port 8022)
 - `~/.ssh/termux_key` authorized on the device (bootstrap once with `ssh-copy-id`; `termux_userland` role manages keys on every deploy)
 
 ## Control node (Mac workstation)
@@ -72,9 +72,9 @@ Still manual: Handsets, `termux_key` / `adbkey` generation, `play.env`, Claude C
 ## Full fleet deploy
 
 ```bash
-./control/bin/deploy_fleet.py s24              # ansible/playbooks/site.yml
-CHECK=1 ./control/bin/deploy_fleet.py s24      # dry run
-ansible-playbook ansible/playbooks/site.yml --limit s24   # direct
+./control/bin/deploy_fleet.py oneui-device              # ansible/playbooks/site.yml
+CHECK=1 ./control/bin/deploy_fleet.py oneui-device      # dry run
+ansible-playbook ansible/playbooks/site.yml --limit oneui-device   # direct
 ```
 
 `site.yml` chains: `fleet/preflight.yml` → `fleet/bootstrap.yml` (tagged; skipped by
@@ -85,10 +85,10 @@ re-pass → `fleet/validate.yml`. See [docs/architecture/adr/001-ansible-boundar
 
 ```bash
 # S24 (AutoJs6 production)
-./control/bin/deploy_termux.py s24
+./control/bin/deploy_termux.py oneui-device
 
 # 7a (AutoJs6)
-./control/bin/deploy_termux.py p7a
+./control/bin/deploy_termux.py stock-android-device
 ```
 
 Validated on S24 2026-07-05: playbook completed with `changed=0` on the final run and repair check returned:
@@ -99,11 +99,11 @@ STATUS port=open shizuku=up sshd=up shell=yes
 
 ## Inventory
 
-| Host  | SSH                   | Mode      | Notes                                         |
-| ----- | --------------------- | --------- | --------------------------------------------- |
-| `s24` | `100.123.218.30:8022` | `autojs6` | Galaxy S24                                    |
-| `p7a` | `100.65.230.108:8022` | `autojs6` | Pixel 7a                                      |
-| `hd8` | `100.124.55.39:8022`  | `autojs6` | Kindle Fire HD 8 (Mac adb for AutoJs6 deploy) |
+| Host                   | SSH               | Mode      | Notes                                         |
+| ---------------------- | ----------------- | --------- | --------------------------------------------- |
+| `oneui-device`         | `100.0.0.11:8022` | `autojs6` | Galaxy S24                                    |
+| `stock-android-device` | `100.0.0.12:8022` | `autojs6` | Pixel 7a                                      |
+| `fireos-device`        | `100.0.0.13:8022` | `autojs6` | Kindle Fire HD 8 (Mac adb for AutoJs6 deploy) |
 
 Both hosts are defined in `inventory/hosts.yml`.
 
@@ -151,7 +151,7 @@ post-UI import (`post_ui` / `android_ui`), app privileges, and validate smoke.
 1. Termux + Obtainium + AutoJs6 APKs (Obtainium catalog or `setup_autojs6.py`)
 2. Shizuku pairing (see docs/hacking.md)
 3. Open Termux:Boot once after fresh install
-4. Fire HD (`hd8`): USB/wireless adb for `autojs6_project_deploy` when not on USB
+4. Fire HD (`fireos-device`): USB/wireless adb for `autojs6_project_deploy` when not on USB
 
 **Routine updates** after `git pull`:
 

@@ -9,7 +9,7 @@ Post-deploy smoke checks over Termux SSH. Complements `just verify` /
 `site.yml` runs validate after fleet + post-ui.
 
 ```bash
-ansible-playbook ansible/playbooks/site.yml --tags validate --limit s24
+ansible-playbook ansible/playbooks/site.yml --tags validate --limit oneui-device
 CHECK=1 ansible-playbook ansible/playbooks/site.yml --tags validate  # skips asserts
 ```
 

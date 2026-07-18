@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Import Obtainium catalog — headless via deep-link (no UI automation).
 
-Uses djbclark/Obtainium fork's headless import with ?confirm=true to
+Uses operator/Obtainium fork's headless import with ?confirm=true to
 bypass the confirmation dialog and &headless=true to exit after import.
 
 Usage:
-  ./import_catalog.py <p7a|s24|hd8|serial> [all|autojs6|/path/to.json]
+  ./import_catalog.py <stock-android-device|oneui-device|fireos-device|serial> [all|autojs6|/path/to.json]
 """
 
 import json
@@ -110,7 +110,9 @@ def main(host, which):
 def main_cli(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
-        sys.stderr.write("usage: import_catalog.py <p7a|s24|hd8|serial> [all|autojs6|path.json]\n")
+        sys.stderr.write(
+            "usage: import_catalog.py <stock-android-device|oneui-device|fireos-device|serial> [all|autojs6|path.json]\n"
+        )
         return 2
 
     host = argv[0]

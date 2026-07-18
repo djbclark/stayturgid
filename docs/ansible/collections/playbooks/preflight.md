@@ -25,9 +25,9 @@ preflight covers the common cold-start case.
 ## Manual recovery
 
 ```bash
-./control/bin/bootstrap_ssh.py hd8
+./control/bin/bootstrap_ssh.py fireos-device
 # or
-ansible-playbook ansible/playbooks/fleet/bootstrap.yml --limit hd8
+ansible-playbook ansible/playbooks/fleet/bootstrap.yml --limit fireos-device
 ```
 
 ## Requirements

@@ -50,7 +50,7 @@ Findings that inform **shipping** fleet behavior (Handsets, Fire OS, UI drivers)
 | [research/fire-os-google-play.md](research/fire-os-google-play.md)                                           | Fire HD Google Play / GMS stack                                                                                               |
 | [research/mac-android-ui-automation.md](research/mac-android-ui-automation.md)                               | Mac→Android UI playbook                                                                                                       |
 | [research/autojs6-project-import-questions.md](research/autojs6-project-import-questions.md)                 | Questions for AutoJs6 maintainer about existing-project import and launch                                                     |
-| [research/autojs6-hd8-project/](research/autojs6-hd8-project/)                                               | Reference copy of the hd8 AutoJs6 project files that actually ran                                                             |
+| [research/autojs6-fireos-device-project/](research/autojs6-fireos-device-project/)                           | Reference copy of the fireos-device AutoJs6 project files that actually ran                                                   |
 | [research/text-based-android-config.md](research/text-based-android-config.md)                               | Best practices for adding text-based configuration to Android apps; candidate apps in the stayturgid stack                    |
 | [research/ansible-pull-architecture-2026-07-14.md](research/ansible-pull-architecture-2026-07-14.md)         | Hybrid `ansible-pull` architecture, security model, staged pilot, and junior-developer implementation guide                   |
 | [research/site-identity-source-of-truth-2026-07-14.md](research/site-identity-source-of-truth-2026-07-14.md) | Single authority for hostnames, addresses, serials, generated consumers, runtime observations, and SecretSpec-managed secrets |
@@ -60,11 +60,11 @@ Findings that inform **shipping** fleet behavior (Handsets, Fire OS, UI drivers)
 Speculative / alternate architectures. Index:
 [incubator/README.md](research/experiments/README.md).
 
-| Path                                                                              | Status                                                             |
-| --------------------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| [incubator/inferno-styx/](research/experiments/inferno-styx/)                     | Parked — Inferno/Styx fleet control                                |
-| [incubator/on-device-llm.md](research/experiments/on-device-llm.md)               | Optional spike (OPTIONS **54** only if asked)                      |
-| [incubator/tablet-control-phone.md](research/experiments/tablet-control-phone.md) | Parked proposal — hd8→s24 Termux:X11 + scrcpy at tablet native res |
+| Path                                                                              | Status                                                                                |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| [incubator/inferno-styx/](research/experiments/inferno-styx/)                     | Parked — Inferno/Styx fleet control                                                   |
+| [incubator/on-device-llm.md](research/experiments/on-device-llm.md)               | Optional spike (OPTIONS **54** only if asked)                                         |
+| [incubator/tablet-control-phone.md](research/experiments/tablet-control-phone.md) | Parked proposal — fireos-device→oneui-device Termux:X11 + scrcpy at tablet native res |
 
 ## Other
 

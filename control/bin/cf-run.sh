@@ -3,11 +3,11 @@
 # cf-serverd can't bind ports on Termux/Android (seccomp blocks).
 # Runs cf-agent on one or more devices via SSH, bypassing cf-serverd.
 #
-# Usage: cf-run [HOSTS=s24,p7a,hd8] [BUNDLE=check_sshd] [CLASSES=android,linux]
+# Usage: cf-run [HOSTS=oneui-device,stock-android-device,fireos-device] [BUNDLE=check_sshd] [CLASSES=android,linux]
 #
 # Default: runs all auto-repair bundles on all devices.
 
-HOSTS="${1:-s24 p7a hd8}"
+HOSTS="${1:-oneui-device stock-android-device fireos-device}"
 BUNDLE="${BUNDLE:-stayturgid_heal}"
 CLASSES="${CLASSES:-android,linux}"
 CF="$HOME/.stayturgid/cfengine/stayturgid.cf"

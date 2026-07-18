@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Launch stayturgid AutoJs6 watchdog (main.js) on a phone.
 
-Usage: ./start_watchdog.py <p7a|s24|hd8|serial>
+Usage: ./start_watchdog.py <stock-android-device|oneui-device|fireos-device|serial>
 """
 
 from __future__ import annotations
@@ -20,13 +20,15 @@ MAIN = f"{adb.AUTOJS_PROJECT_BASE}/main.js"
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
-        sys.stderr.write("usage: start_watchdog.py <p7a|s24|hd8|serial> [adb_serial]\n")
+        sys.stderr.write(
+            "usage: start_watchdog.py <stock-android-device|oneui-device|fireos-device|serial> [adb_serial]\n"
+        )
         return 2
     serial = argv[1] if len(argv) > 1 else adb.resolve_target(argv[0])
-    # Fire OS (hd8) can leave AutoJs6 stuck — am start delivers intent to the
+    # Fire OS (fireos-device) can leave AutoJs6 stuck — am start delivers intent to the
     # zombie instance without actually running the script.  -S force-stops first
     # so the RunIntentActivity starts clean.  Harmless on phone OS too.
-    is_fire = "hd8" in (argv[0] if argv else "") or "fire" in serial.lower()
+    is_fire = "fireos-device" in (argv[0] if argv else "") or "fire" in serial.lower()
     print(f"Starting main.js on {serial}{'  (force-stop first)' if is_fire else ''}...")
     adb.start_autojs_file(serial, MAIN, force_stop=is_fire)
     time.sleep(3)

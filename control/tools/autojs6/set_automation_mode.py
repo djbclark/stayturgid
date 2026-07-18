@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Write stayturgid automation marker and sync Shizuku grants for AutoJs6.
 
-Usage: ./set_automation_mode.py <serial|s24|hd8|p7a>
+Usage: ./set_automation_mode.py <serial|oneui-device|fireos-device|stock-android-device>
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ ENABLE = Path(__file__).resolve().parent / "enable_autojs6_shizuku.py"
 def main(argv: list[str] | None = None) -> int:
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
-        sys.stderr.write("usage: set_automation_mode.py <serial|s24|hd8|p7a>\n")
+        sys.stderr.write("usage: set_automation_mode.py <serial|oneui-device|fireos-device|stock-android-device>\n")
         return 2
     alias = argv[0]
     serial = adb.resolve_target(alias)

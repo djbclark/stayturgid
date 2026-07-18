@@ -113,14 +113,14 @@ errors-legacy:
 errors:
     @just _errors_impl
 
-# ---------- Fix hd8 Google ----------
+# ---------- Fix fireos-device Google ----------
 _fix_hd8_google_impl:
-    python3 control/bin/fix_hd8_google_stack.py hd8
+    python3 control/bin/fix_hd8_google_stack.py fireos-device
 
-fix-hd8-google-legacy:
+fix-fireos-device-google-legacy:
     @just _fix_hd8_google_impl
 
-fix-hd8-google:
+fix-fireos-device-google:
     @just _fix_hd8_google_impl
 
 # ---------- Ensure ET Mac ----------
@@ -145,23 +145,23 @@ check-et-mac:
 
 # ---------- Verify Play Autoupdate ----------
 _verify_play_autoupdate_impl:
-    STAYTURGID_VLM=1 python3 control/bin/verify_play_autoupdate.py {{ if hosts == "" { "hd8" } else { hosts } }}
+    STAYTURGID_VLM=1 python3 control/bin/verify_play_autoupdate.py {{ if hosts == "" { "fireos-device" } else { hosts } }}
 
 verify-play-autoupdate-legacy:
     @just _verify_play_autoupdate_impl
 
 verify-play-autoupdate host="":
-    @just _verify_play_autoupdate_impl {{ if host == "" { "hd8" } else { host } }}
+    @just _verify_play_autoupdate_impl {{ if host == "" { "fireos-device" } else { host } }}
 
-# ---------- Verify hd8 Google ----------
+# ---------- Verify fireos-device Google ----------
 _verify_hd8_google_impl:
-    STAYTURGID_VLM=1 python3 control/bin/verify_hd8_google.py {{ if hosts == "" { "hd8" } else { hosts } }}
+    STAYTURGID_VLM=1 python3 control/bin/verify_hd8_google.py {{ if hosts == "" { "fireos-device" } else { hosts } }}
 
-verify-hd8-google-legacy:
+verify-fireos-device-google-legacy:
     @just _verify_hd8_google_impl
 
-verify-hd8-google host="":
-    @just _verify_hd8_google_impl {{ if host == "" { "hd8" } else { host } }}
+verify-fireos-device-google host="":
+    @just _verify_hd8_google_impl {{ if host == "" { "fireos-device" } else { host } }}
 
 # ---------- Collections ----------
 _collections_impl:
@@ -245,7 +245,7 @@ _ca_status_impl:
     echo ""
     grep -c "cert-authority" ~/.ssh/known_hosts || true
     echo "  entries in Mac known_hosts"
-    for host in p7a hd8 s24; do
+    for host in stock-android-device fireos-device oneui-device; do
       ssh -o BatchMode=yes -o ConnectTimeout=5 $host 'grep -c cert-authority ~/.ssh/known_hosts' 2>/dev/null && echo "  $host known_hosts: ok" || echo "  $host: unreachable"
     done
     echo ""

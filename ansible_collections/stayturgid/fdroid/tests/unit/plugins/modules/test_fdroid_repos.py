@@ -100,10 +100,10 @@ def test_adds_missing_repo(mocker):
                     "address": "https://example.com/fdroid/repo",
                 }
             ],
-            "device": "p7a",
+            "device": "stock-android-device",
         },
         cmd_results=[
-            ("adb -s p7a shell true", (0, "", "")),
+            ("adb -s stock-android-device shell true", (0, "", "")),
             ("fdroidcl repo", (0, empty, "")),
             ("fdroidcl repo add", (0, "added", "")),
         ],
@@ -122,9 +122,9 @@ def test_idempotent_when_present_and_enabled(mocker):
                     "address": "https://apt.izzysoft.de/fdroid/repo",
                 }
             ],
-            "device": "p7a",
+            "device": "stock-android-device",
         },
-        cmd_results=[("adb -s p7a shell true", (0, "", ""))],
+        cmd_results=[("adb -s stock-android-device shell true", (0, "", ""))],
     )
     assert res["changed"] is False
     assert not any("fdroidcl repo add" in c for c in cmds)
@@ -140,9 +140,9 @@ def test_enables_disabled_repo(mocker):
                     "address": "https://guardianproject.info/fdroid/repo",
                 }
             ],
-            "device": "p7a",
+            "device": "stock-android-device",
         },
-        cmd_results=[("adb -s p7a shell true", (0, "", ""))],
+        cmd_results=[("adb -s stock-android-device shell true", (0, "", ""))],
     )
     assert res["changed"] is True
     assert any("fdroidcl repo enable Guardian Project" in c for c in cmds)
@@ -158,11 +158,11 @@ def test_check_mode_no_mutations(mocker):
                     "address": "https://example.com/fdroid/repo",
                 }
             ],
-            "device": "p7a",
+            "device": "stock-android-device",
             "_ansible_check_mode": True,
         },
         cmd_results=[
-            ("adb -s p7a shell true", (0, "", "")),
+            ("adb -s stock-android-device shell true", (0, "", "")),
             ("fdroidcl repo", (0, "Name: f-droid\nURL: https://f-droid.org/repo\nEnabled: yes\n\n", "")),
         ],
     )
@@ -199,9 +199,9 @@ def test_removes_repo(mocker):
                     "state": "absent",
                 }
             ],
-            "device": "p7a",
+            "device": "stock-android-device",
         },
-        cmd_results=[("adb -s p7a shell true", (0, "", ""))],
+        cmd_results=[("adb -s stock-android-device shell true", (0, "", ""))],
     )
     assert res["changed"] is True
     assert any("fdroidcl repo remove IzzyOnDroid" in c for c in cmds)
@@ -213,9 +213,9 @@ def test_setups_apply(mocker):
         {
             "repos": [],
             "setups": [{"name": "base-tools", "repos": ["IzzyOnDroid"], "apps": ["org.breezyweather"]}],
-            "device": "p7a",
+            "device": "stock-android-device",
         },
-        cmd_results=[("adb -s p7a shell true", (0, "", ""))],
+        cmd_results=[("adb -s stock-android-device shell true", (0, "", ""))],
     )
     assert res["changed"] is True
     assert any("fdroidcl setup apply base-tools" in c for c in cmds)

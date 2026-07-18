@@ -56,4 +56,4 @@ def test_main_stack_only_no_vlm(monkeypatch):
     gate.usable = False
     monkeypatch.setattr(vhg.vlm, "VlmGate", lambda **kw: gate)
     monkeypatch.setattr(vhg.vlm, "vlm_strict", lambda: False)
-    assert vhg.main(["hd8"]) == 0
+    assert vhg.main(["fireos-device"]) == 0

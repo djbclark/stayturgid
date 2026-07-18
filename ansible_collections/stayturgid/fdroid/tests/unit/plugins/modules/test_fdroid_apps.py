@@ -54,7 +54,7 @@ def test_fdroid_apps_installs(mocker):
     out = run_module(
         mocker,
         dict(
-            device="p7a",
+            device="stock-android-device",
             apps=[dict(id="org.breezyweather")],
         ),
     )
@@ -66,7 +66,7 @@ def test_fdroid_apps_skips_present(mocker):
     out = run_module(
         mocker,
         dict(
-            device="p7a",
+            device="stock-android-device",
             apps=[dict(id="org.breezyweather")],
         ),
         cmd_results=[

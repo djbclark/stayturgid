@@ -28,7 +28,7 @@ Control-node file (default `~/.config/stayturgid/devices.conf`):
 
 ```
 # alias usb_serial tailscale_ip lan_ip
-p7a 35261JEHN12374 100.65.230.108 192.168.68.65
+stock-android-device EXAMPLE-SERIAL-STOCK 100.0.0.12 192.168.68.65
 ```
 
 Override path with env `STAYTURGID_DEVICES_CONF`.

@@ -1,14 +1,14 @@
 # stayturgid — operator commands (run `just` or `just --list`).
 #
 # Variables (optional on most recipes):
-#   hosts=s24       Limit to one or more inventory hosts: just deploy hosts=s24 hd8
+#   hosts=oneui-device       Limit to one or more inventory hosts: just deploy hosts=oneui-device fireos-device
 #   scope=full      Deploy scope: full | fdroid | play | app-stores
 #
 # Quick start:
 #   just help           → show this listing
 #   just check          → syntax / import checks
 #   just test           → full test suite
-#   just --set hosts s24 deploy  → fleet deploy
+#   just --set hosts oneui-device deploy  → fleet deploy
 
 set shell := ["bash", "-uc"]
 

@@ -2,7 +2,7 @@
 # Full stayturgid site deploy — bootstrap, fleet state, post-UI, validate.
 #
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml
-#   ansible-playbook ansible/playbooks/site.yml --limit s24
+#   ansible-playbook ansible/playbooks/site.yml --limit oneui-device
 #   CHECK=1 ansible-playbook ansible/playbooks/site.yml --check --diff
 - name: Import bootstrap APK verify (fail early if missing)
   import_playbook: fleet/verify-bootstrap-apks.yml

@@ -3,7 +3,7 @@
 
 PARKED — not run by fleet. Manual use only when re-enabling app stores.
 
-Usage: ./control/bin/h2_confirm_ui.py [s24|p7a|hd8 ...]
+Usage: ./control/bin/h2_confirm_ui.py [oneui-device|stock-android-device|fireos-device ...]
 
 Holds one ScreenControlSession per host (inversion on). Navigates settings
 screens and saves PNGs under artifacts/h2-confirm/<host>/.
@@ -205,7 +205,7 @@ def confirm_host(host: str) -> Path:
 def main(argv: list[str] | None = None) -> int:
     hosts = argv if argv is not None else sys.argv[1:]
     if not hosts:
-        hosts = ["s24", "p7a", "hd8"]
+        hosts = ["oneui-device", "stock-android-device", "fireos-device"]
     # Never skip presence — inversion required for live UI.
     os.environ.pop("STAYTURGID_SKIP_PRESENCE", None)
     for host in hosts:

@@ -53,7 +53,7 @@ def run_module(mocker, args, cmd_results=None):
 def test_fdroid_install_installs(mocker):
     out = run_module(
         mocker,
-        dict(device="p7a", package="org.breezyweather"),
+        dict(device="stock-android-device", package="org.breezyweather"),
     )
     assert out["changed"] is True
 
@@ -61,7 +61,7 @@ def test_fdroid_install_installs(mocker):
 def test_fdroid_install_skips_present(mocker):
     out = run_module(
         mocker,
-        dict(device="p7a", package="org.breezyweather"),
+        dict(device="stock-android-device", package="org.breezyweather"),
         cmd_results=[
             ("pm list packages", (0, "package:org.breezyweather\n", "")),
         ],

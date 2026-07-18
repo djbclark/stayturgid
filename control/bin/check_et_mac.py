@@ -2,7 +2,7 @@
 """Soft-health probe for phone→Mac Eternal Terminal prerequisites.
 
   python3 control/bin/check_et_mac.py
-  python3 control/bin/check_et_mac.py --probe-host s24
+  python3 control/bin/check_et_mac.py --probe-host oneui-device
 
 Exit 0 = ok; 1 = problem; 2 = misconfig.
 """

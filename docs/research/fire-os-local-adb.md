@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # Research — Fire OS local ADB block (hd8)
 
 Date: 2026-07-09. Device: Fire HD 8 (`KFRASWI`), Fire OS **8.0** / Android **11** (SDK 30), build `RS8338.3339N`, USB `GN43T503430603PS`.

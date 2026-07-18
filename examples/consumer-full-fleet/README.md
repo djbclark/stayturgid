@@ -41,8 +41,8 @@ sources via `stayturgid.android_common.ensure_apps`.
 Included automatically on full deploy via `site.yml`. Partial runs:
 
 ```bash
-ansible-playbook playbook.yml --tags validate --limit s24
-ansible-playbook playbook.yml --tags post-ui --limit s24
+ansible-playbook playbook.yml --tags validate --limit oneui-device
+ansible-playbook playbook.yml --tags post-ui --limit oneui-device
 ```
 
 See [docs/ansible/collections/roles/validate.md](../../docs/ansible/collections/roles/validate.md).

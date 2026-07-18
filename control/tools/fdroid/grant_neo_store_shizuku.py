@@ -7,7 +7,7 @@ Ansible (from repo root)::
 
     ANSIBLE_CONFIG=ansible/ansible.cfg ansible localhost \\
       -m stayturgid.android_common.shizuku_grant \\
-      -a "device=p7a package=com.machiav3lli.fdroid" -c local
+      -a "device=stock-android-device package=com.machiav3lli.fdroid" -c local
 
 See docs/ansible_collections/modules/shizuku_grant.md
 """

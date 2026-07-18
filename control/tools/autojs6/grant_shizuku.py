@@ -5,7 +5,7 @@ Python replacement for grant-shizuku.sh — the shizuku.json patch is now a
 unit-tested function (control/lib/stayturgid_device.py) instead of an embedded
 bash heredoc. Does not revoke anything; other apps keep their Shizuku access.
 
-Usage: ./grant_shizuku.py <p7a|s24|serial>
+Usage: ./grant_shizuku.py <stock-android-device|oneui-device|serial>
 """
 
 import os
@@ -24,7 +24,7 @@ STAGING = "/sdcard/Download/shizuku.json"
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
-        sys.stderr.write("usage: grant_shizuku.py <p7a|s24|serial>\n")
+        sys.stderr.write("usage: grant_shizuku.py <stock-android-device|oneui-device|serial>\n")
         return 2
     shell = dev.PrivShell(argv[0])
 

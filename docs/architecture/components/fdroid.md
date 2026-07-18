@@ -24,9 +24,9 @@ Termux + AutoJs6 + Obtainium + Tailscale.
 4. Deploy:
 
    ```bash
-   just --set scope fdroid --set hosts s24 deploy
+   just --set scope fdroid --set hosts oneui-device deploy
    # or:
-   ./control/bin/deploy_fleet.py --scope fdroid s24
+   ./control/bin/deploy_fleet.py --scope fdroid oneui-device
    ```
 
 ## What it does when enabled

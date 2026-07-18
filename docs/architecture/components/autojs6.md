@@ -21,7 +21,7 @@ Does **not** replace: Termux:Boot self-heal, Shizuku, Mac `adb_reconnect.py`, Ob
 ## Co-monitor (redundancy)
 
 AutoJs6 has Shizuku API shell even when Termux hangs (battery API, Fire
-`NO_LOCAL_ADB`, dead boot loop). Each cycle on **s24 / p7a / hd8**:
+`NO_LOCAL_ADB`, dead boot loop). Each cycle on **oneui-device / stock-android-device / fireos-device**:
 
 1. Termux `[repair]` fresh → still run co-monitor (verify, don't skip)
 2. Fire split-storage / Termux stale / bridge-fail → same co-monitor path
@@ -39,7 +39,7 @@ engine self-heals without a manual `start_watchdog.py`.
 1. AutoJs6 (`org.autojs.autojs6`) — `setup_autojs6.py` or Obtainium; fleet harden grants storage, `RUN_COMMAND`, notifications, battery unrestricted, unused-app off
 2. Termux repair scripts deployed (`deploy_termux.py` / fleet)
 3. Shizuku (thedjchi fork), TCP mode
-4. **AutoJs6 fleet profile** — `device/autojs6/fleet_profile.json` applied via `FleetProfileActivity` intent by `enable_autojs6_shizuku.py` (no UI automation; uses [djbclark/AutoJs6 fleet-profile-553](https://github.com/djbclark/AutoJs6) build with [upstream API request](https://github.com/SuperMonster003/AutoJs6/issues/553)).
+4. **AutoJs6 fleet profile** — `device/autojs6/fleet_profile.json` applied via `FleetProfileActivity` intent by `enable_autojs6_shizuku.py` (no UI automation; uses [operator/AutoJs6 fleet-profile-553](https://github.com/djbclark/AutoJs6) build with [upstream API request](https://github.com/SuperMonster003/AutoJs6/issues/553)).
 
 ## Shizuku API (built-in, not a separate plugin)
 

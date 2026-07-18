@@ -19,7 +19,7 @@ on-device `fdroidrepos://` intent push and Shizuku grant.
       - name: IzzyOnDroid
         address: https://apt.izzysoft.de/fdroid/repo
         fingerprint: 3BF0D6ABFEAE2F401707B6D966BE743BF0EEE49C2561B9BA39073711F628937A
-    device: "{{ lookup('stayturgid.android_common.adb_device', 'p7a') }}"
+    device: "{{ lookup('stayturgid.android_common.adb_device', 'stock-android-device') }}"
   delegate_to: localhost
 ```
 

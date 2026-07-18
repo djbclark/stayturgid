@@ -81,7 +81,7 @@ def test_bootstrap_device_requires_run_as(monkeypatch):
     monkeypatch.setattr(tr, "termux_installed", lambda *_a, **_k: True)
     monkeypatch.setattr(tr, "run_as_available", lambda *_a, **_k: False)
     try:
-        tr.bootstrap_device(lambda c: (0, "", ""), "s24", ["ssh-ed25519 A"])
+        tr.bootstrap_device(lambda c: (0, "", ""), "oneui-device", ["ssh-ed25519 A"])
         assert False, "expected RuntimeError"
     except RuntimeError as exc:
         assert "run-as" in str(exc)

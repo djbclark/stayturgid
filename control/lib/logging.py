@@ -9,8 +9,8 @@ All stayturgid components should use these conventions:
 Usage:
   from control.lib.logging import log, ERR, WARNING, NOTICE, INFO, DEBUG
 
-  log("fleet-health.log", INFO, "p7a via ssh: sshd=ok")
-  log("fleet-health.log", ERR, "p7a port 5555 CLOSED — escalate to reboot")
+  log("fleet-health.log", INFO, "stock-android-device via ssh: sshd=ok")
+  log("fleet-health.log", ERR, "stock-android-device port 5555 CLOSED — escalate to reboot")
 """
 
 from __future__ import annotations

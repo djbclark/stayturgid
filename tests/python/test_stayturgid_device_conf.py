@@ -11,13 +11,13 @@ import stayturgid_device as sd  # noqa: E402
 
 def test_iter_devices_conf_and_monitor_hosts(tmp_path):
     conf = tmp_path / "devices.conf"
-    conf.write_text("# c\ns24 USB1 100.1 192.1\np7a USB2 100.2\nshort\n")
+    conf.write_text("# c\noneui-device USB1 100.1 192.1\nstock-android-device USB2 100.2\nshort\n")
     rows = list(sd.iter_devices_conf(str(conf)))
     assert rows == [
-        ("s24", "USB1", "100.1", "192.1", "-"),
-        ("p7a", "USB2", "100.2", "-", "-"),
+        ("oneui-device", "USB1", "100.1", "192.1", "-"),
+        ("stock-android-device", "USB2", "100.2", "-", "-"),
     ]
     mon = list(sd.iter_monitor_hosts(str(conf)))
-    assert mon == [("s24", "100.1", "192.1"), ("p7a", "100.2", "-")]
-    assert sd.device_row("s24", str(conf)) == ("USB1", "100.1", "192.1")
+    assert mon == [("oneui-device", "100.1", "192.1"), ("stock-android-device", "100.2", "-")]
+    assert sd.device_row("oneui-device", str(conf)) == ("USB1", "100.1", "192.1")
     assert sd.device_row("nope", str(conf)) is None

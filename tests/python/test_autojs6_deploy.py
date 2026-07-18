@@ -49,7 +49,7 @@ def test_deploy_wipes_lib_scripts_before_push(monkeypatch, tmp_path):
     monkeypatch.setattr(deploy_mod, "_run_command", fake_run_command)
     monkeypatch.setattr(deploy_mod.adb_shell, "adb_connect", lambda *a, **k: None)
 
-    assert deploy_mod.deploy_project("hd8") == 0
+    assert deploy_mod.deploy_project("fireos-device") == 0
 
     wipe = [c for c in calls if "rm -rf" in c]
     assert wipe, "expected shell wipe"
@@ -84,7 +84,7 @@ def test_deploy_fails_when_verify_missing(monkeypatch, tmp_path):
     monkeypatch.setattr(deploy_mod.adb, "resolve_target", lambda a: "SERIAL")
     monkeypatch.setattr(deploy_mod, "_run_command", fake_run_command)
     monkeypatch.setattr(deploy_mod.adb_shell, "adb_connect", lambda *a, **k: None)
-    assert deploy_mod.deploy_project("s24") == 1
+    assert deploy_mod.deploy_project("oneui-device") == 1
 
 
 def test_deploy_util_matches_default_target():

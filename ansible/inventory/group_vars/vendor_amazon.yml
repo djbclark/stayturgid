@@ -9,7 +9,7 @@ stayturgid_sd_root: "{{ termux_home }}/.stayturgid/shared"
 # for privileged shell; Handsets uses peer bootstrap (see peers.json).
 stayturgid_privileged_shell_expected: false
 stayturgid_no_local_adb: true
-# Match Mac ui_driver.py DEFAULT_PORTS["hd8"].
+# Match Mac ui_driver.py DEFAULT_PORTS["fireos-device"].
 stayturgid_handsets_port: 9012
 # AutoJs6 still reads scripts from /sdcard (deployed via adb push from Mac).
 autojs6_target: /sdcard/stayturgid/autojs6

@@ -62,14 +62,14 @@ def test_evaluate_all_green(monkeypatch):
         {"stayturgid_repair.py": "device/termux/py/stayturgid_repair.py"},
     )
     monkeypatch.setattr(dt, "file_md5", lambda p: "aaa")
-    res = dt.evaluate("s24", dt.parse_report(HEALTHY))
+    res = dt.evaluate("oneui-device", dt.parse_report(HEALTHY))
     k = kinds(res)
-    assert k["s24: sshd running"] == "ok"
-    assert k["s24: Termux mirror pinned (deterministic pkg update)"] == "ok"
-    assert k["s24: sshd per-source penalties disabled"] == "ok"
-    assert k["s24: Termux:API WRITE_SETTINGS granted (battery flash)"] == "ok"
-    assert k["s24: Tailscale always-on VPN enabled"] == "ok"
-    assert k["s24: deployed termux scripts match repo"] == "ok"
+    assert k["oneui-device: sshd running"] == "ok"
+    assert k["oneui-device: Termux mirror pinned (deterministic pkg update)"] == "ok"
+    assert k["oneui-device: sshd per-source penalties disabled"] == "ok"
+    assert k["oneui-device: Termux:API WRITE_SETTINGS granted (battery flash)"] == "ok"
+    assert k["oneui-device: Tailscale always-on VPN enabled"] == "ok"
+    assert k["oneui-device: deployed termux scripts match repo"] == "ok"
     assert all(v != "fail" for v in k.values())
 
 
@@ -81,18 +81,18 @@ def test_evaluate_flags_failures():
         .replace("vpn_always_on=ok", "vpn_always_on=MISSING")
         .replace("mirror=pinned", "mirror=UNPINNED")
     )
-    k = kinds(dt.evaluate("p7a", rep))
-    assert k["p7a: sshd per-source penalties disabled"] == "fail"
-    assert k["p7a: Termux:API WRITE_SETTINGS granted (battery flash)"] == "fail"
-    assert k["p7a: Termux overlay (SYSTEM_ALERT_WINDOW) granted"] == "fail"
-    assert k["p7a: Tailscale always-on VPN enabled"] == "fail"
-    assert k["p7a: Termux mirror pinned (deterministic pkg update)"] == "fail"
+    k = kinds(dt.evaluate("stock-android-device", rep))
+    assert k["stock-android-device: sshd per-source penalties disabled"] == "fail"
+    assert k["stock-android-device: Termux:API WRITE_SETTINGS granted (battery flash)"] == "fail"
+    assert k["stock-android-device: Termux overlay (SYSTEM_ALERT_WINDOW) granted"] == "fail"
+    assert k["stock-android-device: Tailscale always-on VPN enabled"] == "fail"
+    assert k["stock-android-device: Termux mirror pinned (deterministic pkg update)"] == "fail"
 
 
 def test_evaluate_tasker_remnant_fails():
     rep = dt.parse_report(HEALTHY.replace("taskerlegacy=notif:0,files:0", "taskerlegacy=notif:0,files:1"))
-    k = kinds(dt.evaluate("p7a", rep))
-    assert k["p7a: no legacy Tasker stayturgid remnants"] == "fail"
+    k = kinds(dt.evaluate("stock-android-device", rep))
+    assert k["stock-android-device: no legacy Tasker stayturgid remnants"] == "fail"
 
 
 def test_evaluate_bridge_and_drift_are_todo_not_fail(monkeypatch):
@@ -103,36 +103,36 @@ def test_evaluate_bridge_and_drift_are_todo_not_fail(monkeypatch):
     )
     monkeypatch.setattr(dt, "file_md5", lambda p: "DIFFERENT")
     rep = dt.parse_report(HEALTHY.replace("bridge=ok", "bridge=down"))
-    k = kinds(dt.evaluate("p7a", rep))
-    assert k["p7a: repair bridge alive (pidfile)"] == "todo"
-    assert k["p7a: deployed termux scripts match repo"] == "todo"
+    k = kinds(dt.evaluate("stock-android-device", rep))
+    assert k["stock-android-device: repair bridge alive (pidfile)"] == "todo"
+    assert k["stock-android-device: deployed termux scripts match repo"] == "todo"
 
 
 def test_evaluate_battery_unknown_fails():
     rep = dt.parse_report(HEALTHY.replace("battery=88", "battery=unknown"))
-    k = kinds(dt.evaluate("p7a", rep))
-    assert k["p7a: termux-api battery readable"] == "fail"
+    k = kinds(dt.evaluate("stock-android-device", rep))
+    assert k["stock-android-device: termux-api battery readable"] == "fail"
 
 
 def test_evaluate_watchdog_liveness():
-    k = kinds(dt.evaluate("s24", dt.parse_report(HEALTHY)))
-    assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "ok"
+    k = kinds(dt.evaluate("oneui-device", dt.parse_report(HEALTHY)))
+    assert k["oneui-device: AutoJs6 watchdog alive (<30 min)"] == "ok"
     rep_stale = dt.parse_report(HEALTHY.replace("watchdog=fresh", "watchdog=stale:4000s"))
-    k = kinds(dt.evaluate("s24", rep_stale))
-    assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "todo"
+    k = kinds(dt.evaluate("oneui-device", rep_stale))
+    assert k["oneui-device: AutoJs6 watchdog alive (<30 min)"] == "todo"
     rep_both_bad = dt.parse_report(
         HEALTHY.replace("watchdog=fresh", "watchdog=stale:4000s").replace("repairlog=fresh", "repairlog=stale")
     )
-    k = kinds(dt.evaluate("s24", rep_both_bad))
-    assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "fail"
+    k = kinds(dt.evaluate("oneui-device", rep_both_bad))
+    assert k["oneui-device: AutoJs6 watchdog alive (<30 min)"] == "fail"
     rep_missing = dt.parse_report(HEALTHY.replace("watchdog=fresh", "watchdog=missing"))
-    k = kinds(dt.evaluate("s24", rep_missing))
-    assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "todo"
+    k = kinds(dt.evaluate("oneui-device", rep_missing))
+    assert k["oneui-device: AutoJs6 watchdog alive (<30 min)"] == "todo"
     rep_missing_stale_repair = dt.parse_report(
         HEALTHY.replace("watchdog=fresh", "watchdog=missing").replace("repairlog=fresh", "repairlog=stale")
     )
-    k = kinds(dt.evaluate("s24", rep_missing_stale_repair))
-    assert k["s24: AutoJs6 watchdog alive (<30 min)"] == "fail"
+    k = kinds(dt.evaluate("oneui-device", rep_missing_stale_repair))
+    assert k["oneui-device: AutoJs6 watchdog alive (<30 min)"] == "fail"
 
 
 def test_evaluate_fire_split_storage_todos():
@@ -145,20 +145,20 @@ def test_evaluate_fire_split_storage_todos():
         .replace("vpn_always_on=ok", "vpn_always_on=MISSING")
         + "localhost_shell=skip\n"
     )
-    k = kinds(dt.evaluate("hd8", dt.parse_report(fire_missing)))
-    assert k["hd8: privileged shell on localhost:5555"] == "ok"
-    assert k["hd8: AutoJs6 watchdog alive (<30 min)"] == "todo"
-    assert k["hd8: Termux:API WRITE_SETTINGS granted (battery flash)"] == "todo"
-    assert k["hd8: Termux overlay (SYSTEM_ALERT_WINDOW) granted"] == "todo"
-    assert k["hd8: Tailscale always-on VPN enabled"] == "todo"
+    k = kinds(dt.evaluate("fireos-device", dt.parse_report(fire_missing)))
+    assert k["fireos-device: privileged shell on localhost:5555"] == "ok"
+    assert k["fireos-device: AutoJs6 watchdog alive (<30 min)"] == "todo"
+    assert k["fireos-device: Termux:API WRITE_SETTINGS granted (battery flash)"] == "todo"
+    assert k["fireos-device: Termux overlay (SYSTEM_ALERT_WINDOW) granted"] == "todo"
+    assert k["fireos-device: Tailscale always-on VPN enabled"] == "todo"
 
     # When the Mac adb probe upgraded them to fresh/allow, they pass as ok.
     fire_ok = HEALTHY + "localhost_shell=skip\n"
-    k2 = kinds(dt.evaluate("hd8", dt.parse_report(fire_ok)))
-    assert k2["hd8: AutoJs6 watchdog alive (<30 min)"] == "ok"
-    assert k2["hd8: Termux:API WRITE_SETTINGS granted (battery flash)"] == "ok"
-    assert k2["hd8: Termux overlay (SYSTEM_ALERT_WINDOW) granted"] == "ok"
-    assert k2["hd8: Tailscale always-on VPN enabled"] == "ok"
+    k2 = kinds(dt.evaluate("fireos-device", dt.parse_report(fire_ok)))
+    assert k2["fireos-device: AutoJs6 watchdog alive (<30 min)"] == "ok"
+    assert k2["fireos-device: Termux:API WRITE_SETTINGS granted (battery flash)"] == "ok"
+    assert k2["fireos-device: Termux overlay (SYSTEM_ALERT_WINDOW) granted"] == "ok"
+    assert k2["fireos-device: Tailscale always-on VPN enabled"] == "ok"
 
 
 def test_file_md5_matches_hashlib(tmp_path):
@@ -172,14 +172,14 @@ def test_file_md5_matches_hashlib(tmp_path):
 
 def test_load_hosts_skips_comments(tmp_path):
     conf = tmp_path / "devices.conf"
-    conf.write_text("# header\ns24 RFCX 100.1 192.1\np7a 3526 100.2 192.2\n\n")
-    assert dt.load_hosts(str(conf)) == ["s24", "p7a"]
+    conf.write_text("# header\noneui-device RFCX 100.1 192.1\nstock-android-device 3526 100.2 192.2\n\n")
+    assert dt.load_hosts(str(conf)) == ["oneui-device", "stock-android-device"]
 
 
 def test_device_row(tmp_path):
     conf = tmp_path / "devices.conf"
-    conf.write_text("s24 RFCX 100.1 192.1\n")
-    assert dt.device_row("s24", str(conf)) == ("RFCX", "100.1", "192.1")
+    conf.write_text("oneui-device RFCX 100.1 192.1\n")
+    assert dt.device_row("oneui-device", str(conf)) == ("RFCX", "100.1", "192.1")
     assert dt.device_row("nope", str(conf)) is None
 
 

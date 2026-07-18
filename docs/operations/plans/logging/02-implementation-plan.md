@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # 02-Implementation Plan: On-Device Structured Logging & State (Phase 2)
 
 Transitioning `stayturgid` on-device logging to structured JSON lines (JSONL) and implementing an atomic local state file (`state.json`) as a Single Source of Truth (SSOT). This decouples status monitoring from historical log scraping, resolving performance issues and bug loops.

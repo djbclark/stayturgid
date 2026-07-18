@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # OpenObserve + Netdata + Grafana + Aurora + OliveTin Rollout Plan
 
 Here is the complete chronological rollout plan for the **OpenObserve + Netdata + Grafana + Aurora + OliveTin** stack, entirely rewritten to utilize the lightweight, native macOS toolchain (`brew`, `uv`, `bun`, and raw binaries) instead of Docker.

@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 # @heals: HD8-DOZE-WHITELIST HD8-GSF-PINNED HD8-GMS-PINNED
-"""Repair hd8 sideloaded Google Play stack (Doze whitelist + optional pin).
+"""Repair fireos-device sideloaded Google Play stack (Doze whitelist + optional pin).
 
 Default (2026-07-10): whitelist GMS/GSF and ensure GSF 10-x. Does **not**
 force-downgrade GMS/Play (operator prefers newer stacks).
 
 Emergency pin (Fire-Tools GMS 24.35.30 + Play 42.6.23)::
 
-  STAYTURGID_HD8_PIN_GMS=1 ./control/bin/fix_hd8_google_stack.py hd8
-  ./control/bin/fix_hd8_google_stack.py hd8 --force
+  STAYTURGID_HD8_PIN_GMS=1 ./control/bin/fix_hd8_google_stack.py fireos-device
+  ./control/bin/fix_hd8_google_stack.py fireos-device --force
 
 Usage:
-  ./control/bin/fix_hd8_google_stack.py [hd8]
-  ./control/bin/fix_hd8_google_stack.py hd8 --force
-  ./control/bin/fix_hd8_google_stack.py hd8 --verify-autoupdate
-  ./control/bin/fix_hd8_google_stack.py hd8 --no-verify
+  ./control/bin/fix_hd8_google_stack.py [fireos-device]
+  ./control/bin/fix_hd8_google_stack.py fireos-device --force
+  ./control/bin/fix_hd8_google_stack.py fireos-device --verify-autoupdate
+  ./control/bin/fix_hd8_google_stack.py fireos-device --no-verify
 
 When llama-server is running, auto-runs full VLM close-out (crash dialog +
 auto-update) unless --no-verify. See docs/vlm.md and control/bin/verify_hd8_google.py.
@@ -45,8 +45,8 @@ def run_command(cmd, *args, **kwargs):
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Pin hd8 Google Play Services stack")
-    parser.add_argument("host", nargs="?", default="hd8", help="Device alias (default hd8)")
+    parser = argparse.ArgumentParser(description="Pin fireos-device Google Play Services stack")
+    parser.add_argument("host", nargs="?", default="fireos-device", help="Device alias (default fireos-device)")
     parser.add_argument(
         "--force",
         action="store_true",
@@ -64,13 +64,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    if args.host != "hd8":
+    if args.host != "fireos-device":
         sys.stderr.write("warning: this repair targets Fire OS; continuing for %s\n" % args.host)
 
     serial = dev.resolve_adb(args.host)
     subprocess.run([dev.adb_bin(), "connect", serial], capture_output=True, text=True)
 
-    print("hd8 Google stack repair on %s (%s)..." % (args.host, serial))
+    print("fireos-device Google stack repair on %s (%s)..." % (args.host, serial))
     result = hgs.repair_if_needed(run_command, serial, force=args.force)
 
     gms = result.get("gms_version")
@@ -109,7 +109,7 @@ def main(argv: list[str] | None = None) -> int:
         ).returncode
     elif not args.no_verify:
         print("\nOperator: Play Store → Settings → Network preferences → Auto-update apps → Don't auto-update apps")
-        print("  (or: just vlm-server && just verify-hd8-google HOSTS=hd8)")
+        print("  (or: just vlm-server && just verify-fireos-device-google HOSTS=fireos-device)")
 
     return verify_rc if verify_rc else 0
 

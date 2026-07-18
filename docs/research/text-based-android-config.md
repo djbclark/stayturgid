@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # Best Practices: Text-Based Configuration for Android Apps
 
 This document is based on the experience of adding fleet/headless text-based configuration support to AutoJs6 ([SuperMonster003/AutoJs6#553](https://github.com/SuperMonster003/AutoJs6/issues/553)). The goal is to turn fragile GUI automation into a single, repeatable, reviewable JSON (or similar) file that can be pushed to a device and applied without tapping through screens.

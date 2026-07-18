@@ -110,11 +110,11 @@ def run_module(mocker, args, cmd_results=None):
 def test_module_deploy_project_and_device_json(mocker, tmp_path):
     root = _seed_project(tmp_path)
     device_json = tmp_path / "device.json"
-    device_json.write_text('{"device":"hd8"}')
+    device_json.write_text('{"device":"fireos-device"}')
     out = run_module(
         mocker,
         dict(
-            device="hd8",
+            device="fireos-device",
             repo_root=str(root),
             target="/sdcard/stayturgid/autojs6",
             device_json=str(device_json),
@@ -131,7 +131,7 @@ def test_module_check_mode_reports_changed(mocker, tmp_path):
     stdin = json.dumps(
         {
             "ANSIBLE_MODULE_ARGS": {
-                "device": "hd8",
+                "device": "fireos-device",
                 "repo_root": str(root),
                 "connect": False,
                 "_ansible_check_mode": True,

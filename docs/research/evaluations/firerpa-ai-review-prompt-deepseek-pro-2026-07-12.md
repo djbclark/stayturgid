@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # FIRERPA/lamda — AI Review Prompt (DeepSeek V4 Pro)
 
 **Created:** 2026-07-12

@@ -22,16 +22,16 @@ def test_build_candidates_dedups_identical():
 
 def test_resolve_target_from_conf(tmp_path, monkeypatch):
     conf = tmp_path / "devices.conf"
-    conf.write_text("s24 RFCX 100.123 192.168.68.55\n")
+    conf.write_text("oneui-device RFCX 100.123 192.168.68.55\n")
     monkeypatch.setattr(ar, "CONF", str(conf))
-    assert ar.resolve_target(["s24"]) == ("RFCX", "192.168.68.55:5555", "100.123:5555")
+    assert ar.resolve_target(["oneui-device"]) == ("RFCX", "192.168.68.55:5555", "100.123:5555")
 
 
 def test_resolve_target_conf_no_lan(tmp_path, monkeypatch):
     conf = tmp_path / "devices.conf"
-    conf.write_text("p7a 3526 100.65 -\n")
+    conf.write_text("stock-android-device 3526 100.65 -\n")
     monkeypatch.setattr(ar, "CONF", str(conf))
-    assert ar.resolve_target(["p7a"]) == ("3526", None, "100.65:5555")
+    assert ar.resolve_target(["stock-android-device"]) == ("3526", None, "100.65:5555")
 
 
 def test_resolve_target_legacy_positional(tmp_path, monkeypatch):
@@ -42,11 +42,11 @@ def test_resolve_target_legacy_positional(tmp_path, monkeypatch):
 def test_discover_mdns_matches_serial(monkeypatch):
     out = (
         "_adb-tls-connect._tcp.\n"
-        "adb-RFCX219CHKA-abc _adb-tls-connect._tcp. 192.168.68.55:41234\n"
+        "adb-EXAMPLE-SERIAL-ONEUI-abc _adb-tls-connect._tcp. 192.168.68.55:41234\n"
         "adb-OTHER-xyz _adb-tls-connect._tcp. 10.0.0.9:5555\n"
     )
     monkeypatch.setattr(ar, "adb", lambda a, timeout=15: type("R", (), {"stdout": out})())
-    assert ar.discover_mdns("RFCX219CHKA") == "192.168.68.55:41234"
+    assert ar.discover_mdns("EXAMPLE-SERIAL-ONEUI") == "192.168.68.55:41234"
 
 
 def test_discover_lan_ip(monkeypatch):
@@ -57,7 +57,7 @@ def test_discover_lan_ip(monkeypatch):
 
 def test_main_exits_when_already_connected(tmp_path, monkeypatch):
     conf = tmp_path / "devices.conf"
-    conf.write_text("s24 RFCX 100.123 192.168.68.55\n")
+    conf.write_text("oneui-device RFCX 100.123 192.168.68.55\n")
     monkeypatch.setattr(ar, "CONF", str(conf))
     monkeypatch.setattr(os.path, "exists", lambda p: True)
     monkeypatch.setattr(ar, "trim_log", lambda *a, **k: None)
@@ -65,13 +65,13 @@ def test_main_exits_when_already_connected(tmp_path, monkeypatch):
     called = {"connect": False}
     monkeypatch.setattr(ar, "adb", lambda a, timeout=15: called.__setitem__("connect", True))
     # cached read will fail (no file) -> default_ip; is_connected True -> return 0
-    assert ar.main(["s24"]) == 0
+    assert ar.main(["oneui-device"]) == 0
     assert called["connect"] is False, "must not attempt connect when already up"
 
 
 def test_main_caches_successful_non_mdns(tmp_path, monkeypatch):
     conf = tmp_path / "devices.conf"
-    conf.write_text("s24 RFCX 100.123 192.168.68.55\n")
+    conf.write_text("oneui-device RFCX 100.123 192.168.68.55\n")
     monkeypatch.setattr(ar, "CONF", str(conf))
     monkeypatch.setattr(ar, "ROOT", str(tmp_path / ".config" / "stayturgid"))
     monkeypatch.setattr(os.path, "exists", lambda p: p == ar.ADB)
@@ -83,7 +83,7 @@ def test_main_caches_successful_non_mdns(tmp_path, monkeypatch):
     monkeypatch.setattr(ar, "notify", lambda m: None)
     monkeypatch.setattr(ar, "log", lambda *a: None)
     monkeypatch.setattr(ar, "adb", lambda a, timeout=15: type("R", (), {"stdout": "connected to 192.168.1.99:5555"})())
-    rc = ar.main(["s24"])
+    rc = ar.main(["oneui-device"])
     assert rc == 0
     cache = os.path.join(str(tmp_path), ".config", "stayturgid", "state", "device_ip_RFCX")
     assert open(cache).read() == "192.168.1.99:5555", "new address cached after DHCP move"

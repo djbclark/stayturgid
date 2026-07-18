@@ -14,8 +14,8 @@ import gui_audit as ga  # noqa: E402
 
 def test_read_hosts(tmp_path):
     conf = tmp_path / "devices.conf"
-    conf.write_text("# comment\ns24 SER1 1.1.1.1 2.2.2.2\n\np7a SER2 3.3.3.3 -\n")
-    assert ga.read_hosts(conf) == ["s24", "p7a"]
+    conf.write_text("# comment\noneui-device SER1 1.1.1.1 2.2.2.2\n\nstock-android-device SER2 3.3.3.3 -\n")
+    assert ga.read_hosts(conf) == ["oneui-device", "stock-android-device"]
 
 
 def test_main_dry_reach_no_hosts(tmp_path, monkeypatch, capsys):
@@ -31,14 +31,14 @@ def test_main_dry_reach_no_hosts(tmp_path, monkeypatch, capsys):
 
 def test_quiet_env_set(monkeypatch, tmp_path):
     conf = tmp_path / "devices.conf"
-    conf.write_text("s24 X 1.1.1.1 -\n")
+    conf.write_text("oneui-device X 1.1.1.1 -\n")
     monkeypatch.setattr(ga, "CONF", conf)
     monkeypatch.setattr(ga, "LOG", tmp_path / "gui-audit.log")
     monkeypatch.setattr(ga, "ART", tmp_path / "art")
     monkeypatch.setattr(ga, "reachable", lambda h: (False, "adb_unreachable"))
     monkeypatch.delenv("STAYTURGID_PRESENCE_QUIET", raising=False)
     monkeypatch.setenv("STAYTURGID_SKIP_PRESENCE", "1")
-    rc = ga.main(["s24"])
+    rc = ga.main(["oneui-device"])
     assert rc == 0
     assert os.environ.get("STAYTURGID_PRESENCE_QUIET") == "1"
     assert "STAYTURGID_SKIP_PRESENCE" not in os.environ
@@ -48,11 +48,11 @@ def test_quiet_env_set(monkeypatch, tmp_path):
 
 def test_gui_audit_overrides(tmp_path):
     conf = tmp_path / "overrides.conf"
-    conf.write_text("# comment\nhd8 neo_shizuku_missing  # operator\ns24 neo_shizuku_missing\n")
+    conf.write_text("# comment\nfireos-device neo_shizuku_missing  # operator\noneui-device neo_shizuku_missing\n")
     loaded = ga.load_gui_audit_overrides(conf)
-    assert loaded["hd8"] == {"neo_shizuku_missing"}
+    assert loaded["fireos-device"] == {"neo_shizuku_missing"}
     kept, suppressed = ga.apply_gui_audit_overrides(
-        "hd8",
+        "fireos-device",
         ["neo_shizuku_missing", "aurora_shizuku_off"],
         loaded,
     )

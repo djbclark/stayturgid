@@ -27,4 +27,4 @@ stayturgid_install_aurora_store: false
 aurora_store_package: com.aurora.store
 
 # target_device for adb and grant
-# target_device: p7a
+# target_device: stock-android-device

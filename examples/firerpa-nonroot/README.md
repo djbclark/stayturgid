@@ -85,9 +85,9 @@ from an immutable stayturgid commit:
 ```bash
 mkdir -p ~/firerpa-nonroot
 cd ~/firerpa-nonroot
-curl -fLO https://raw.githubusercontent.com/djbclark/stayturgid/master/examples/firerpa-nonroot/justfile
-curl -fLO https://raw.githubusercontent.com/djbclark/stayturgid/master/examples/firerpa-nonroot/.env.example
-curl -fLO https://raw.githubusercontent.com/djbclark/stayturgid/master/examples/firerpa-nonroot/README.md
+curl -fLO https://raw.githubusercontent.com/operator/stayturgid/master/examples/firerpa-nonroot/justfile
+curl -fLO https://raw.githubusercontent.com/operator/stayturgid/master/examples/firerpa-nonroot/.env.example
+curl -fLO https://raw.githubusercontent.com/operator/stayturgid/master/examples/firerpa-nonroot/README.md
 cp .env.example .env
 ${EDITOR:-vi} .env
 just install
@@ -193,7 +193,7 @@ real setup errors remain visible.
 Download the audited patch/lifecycle helpers and build the patched JAR:
 
 ```bash
-base=https://raw.githubusercontent.com/djbclark/stayturgid/145ab25/ansible_collections/stayturgid/firerpa/roles/firerpa/files
+base=https://raw.githubusercontent.com/operator/stayturgid/145ab25/ansible_collections/stayturgid/firerpa/roles/firerpa/files
 curl -fL -o "$WORK/firerpa_service_patch.py" "$base/firerpa_service_patch.py"
 curl -fL -o "$WORK/firerpa_lifecycle.py" "$base/firerpa_lifecycle.py"
 $PYTHON "$WORK/firerpa_service_patch.py" \

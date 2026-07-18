@@ -31,7 +31,7 @@ def _open_account_menu(hs: HandsetsSession) -> bool:
     if hs.tap_any_text(
         "Signed in as Daniel Clark",
         "Signed in as",
-        "djbclark@gmail.com",
+        "operator@gmail.com",
         timeout_ms=4000,
     ):
         return True

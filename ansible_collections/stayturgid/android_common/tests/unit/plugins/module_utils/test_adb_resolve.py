@@ -18,7 +18,7 @@ def _listing(*lines):
         if cmd[:2] == ["adb", "connect"]:
             return 0, "connected to %s" % cmd[2], ""
         if len(cmd) >= 4 and cmd[:2] == ["adb", "-s"] and cmd[3] == "shell":
-            return 0, "RFCX219CHKA\n", ""
+            return 0, "EXAMPLE-SERIAL-ONEUI\n", ""
         return 1, "", ""
 
     return run
@@ -31,9 +31,9 @@ def _conf(tmp_path, text):
 
 
 def test_device_row_parses_and_pads(tmp_path):
-    conf = _conf(tmp_path, "# comment\ns24 RFCX 100.1.1.1 192.168.1.9\np7a ONLYUSB\n")
-    assert ar.device_row("s24", conf) == ("RFCX", "100.1.1.1", "192.168.1.9")
-    assert ar.device_row("p7a", conf) == ("ONLYUSB", "-", "-")
+    conf = _conf(tmp_path, "# comment\noneui-device RFCX 100.1.1.1 192.168.1.9\nstock-android-device ONLYUSB\n")
+    assert ar.device_row("oneui-device", conf) == ("RFCX", "100.1.1.1", "192.168.1.9")
+    assert ar.device_row("stock-android-device", conf) == ("ONLYUSB", "-", "-")
     assert ar.device_row("missing", conf) is None
 
 
@@ -52,33 +52,35 @@ def test_adb_online_matches_only_device_state():
 
 
 def test_resolve_unknown_alias_passes_through(tmp_path):
-    conf = _conf(tmp_path, "s24 RFCX - -\n")
+    conf = _conf(tmp_path, "oneui-device RFCX - -\n")
     assert ar.resolve_adb("raw:5555", _listing(), conf) == "raw:5555"
 
 
 def test_resolve_prefers_online_usb(tmp_path):
-    conf = _conf(tmp_path, "s24 RFCX219CHKA 100.1.1.1 192.168.1.9\n")
-    assert ar.resolve_adb("s24", _listing("RFCX219CHKA\tdevice"), conf) == "RFCX219CHKA"
+    conf = _conf(tmp_path, "oneui-device EXAMPLE-SERIAL-ONEUI 100.1.1.1 192.168.1.9\n")
+    assert ar.resolve_adb("oneui-device", _listing("EXAMPLE-SERIAL-ONEUI\tdevice"), conf) == "EXAMPLE-SERIAL-ONEUI"
 
 
 def test_resolve_matches_ro_serialno_when_ip_drifts(tmp_path):
-    conf = _conf(tmp_path, "s24 RFCX219CHKA 100.1.1.1 192.168.1.55\n")
+    conf = _conf(tmp_path, "oneui-device EXAMPLE-SERIAL-ONEUI 100.1.1.1 192.168.1.55\n")
     # USB serial not directly listed, but a drifted IP reports the same ro.serialno
-    assert ar.resolve_adb("s24", _listing("192.168.68.99:5555\tdevice"), conf) == "192.168.68.99:5555"
+    assert ar.resolve_adb("oneui-device", _listing("192.168.68.99:5555\tdevice"), conf) == "192.168.68.99:5555"
 
 
 def test_match_usb_serial_mdns_id_with_spaces(tmp_path):
-    conf = _conf(tmp_path, "p7a 35261JEHN12374 100.65.0.1 192.168.1.9\n")
-    listing = "adb-35261JEHN12374-JIE0Dg (2)._adb-tls-connect._tcp\tdevice\n100.65.0.1:5555\tdevice\n"
+    conf = _conf(tmp_path, "stock-android-device EXAMPLE-SERIAL-STOCK 100.65.0.1 192.168.1.9\n")
+    listing = "adb-EXAMPLE-SERIAL-STOCK-JIE0Dg (2)._adb-tls-connect._tcp\tdevice\n100.65.0.1:5555\tdevice\n"
 
     def run(cmd):
         if cmd[:2] == ["adb", "devices"]:
             return 0, listing, ""
         if len(cmd) >= 5 and cmd[:2] == ["adb", "-s"] and cmd[3] == "shell":
-            return 0, "35261JEHN12374\n", ""
+            return 0, "EXAMPLE-SERIAL-STOCK\n", ""
         return 1, "", ""
 
-    assert ar.resolve_adb("p7a", run, conf) == "adb-35261JEHN12374-JIE0Dg (2)._adb-tls-connect._tcp"
+    assert (
+        ar.resolve_adb("stock-android-device", run, conf) == "adb-EXAMPLE-SERIAL-STOCK-JIE0Dg (2)._adb-tls-connect._tcp"
+    )
 
 
 def test_resolve_static_fallback_without_run_command(tmp_path, monkeypatch):
@@ -88,8 +90,8 @@ def test_resolve_static_fallback_without_run_command(tmp_path, monkeypatch):
         return ep == "192.168.1.9:5555"
 
     monkeypatch.setattr(ar, "tcp_reachable", _reachable)
-    conf = _conf(tmp_path, "p7a - 100.1.1.1 192.168.1.9\n")
-    assert ar.resolve_adb("p7a", None, conf) == "192.168.1.9:5555"
+    conf = _conf(tmp_path, "stock-android-device - 100.1.1.1 192.168.1.9\n")
+    assert ar.resolve_adb("stock-android-device", None, conf) == "192.168.1.9:5555"
 
 
 def test_connect_wireless_skips_unreachable(monkeypatch):
@@ -114,7 +116,7 @@ def test_connect_wireless_connects_when_reachable(monkeypatch):
 
 
 def test_resolve_gates_connect_behind_probe(tmp_path, monkeypatch):
-    conf = _conf(tmp_path, "p7a USB 100.65.0.1 192.168.1.9\n")
+    conf = _conf(tmp_path, "stock-android-device USB 100.65.0.1 192.168.1.9\n")
     monkeypatch.setattr(ar, "tcp_reachable", lambda ep, timeout=None: ep == "100.65.0.1:5555")
     seen = []
 
@@ -126,6 +128,6 @@ def test_resolve_gates_connect_behind_probe(tmp_path, monkeypatch):
             return 0, "", ""
         return 0, "", ""
 
-    assert ar.resolve_adb("p7a", run, conf) == "100.65.0.1:5555"
+    assert ar.resolve_adb("stock-android-device", run, conf) == "100.65.0.1:5555"
     assert ["adb", "connect", "192.168.1.9:5555"] not in seen
     assert ["adb", "connect", "100.65.0.1:5555"] in seen

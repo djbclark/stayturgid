@@ -28,5 +28,5 @@ def test_normalize_value():
 
 
 def test_profile_services():
-    svcs = a11y.profile_services("p7a")
+    svcs = a11y.profile_services("stock-android-device")
     assert isinstance(svcs, list)

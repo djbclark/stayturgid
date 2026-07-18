@@ -5,14 +5,14 @@ Installs every control-node ``*.pub`` into Termux ``~/.ssh/authorized_keys``,
 starts ``sshd``, and verifies SSH (USB forward and/or inventory SSH alias).
 
 Requires a debuggable Termux build with working ``run-as com.termux`` (fleet
-default on hd8; see docs/hacking.md). Keys are read from the Mac only — never
+default on fireos-device; see docs/hacking.md). Keys are read from the Mac only — never
 committed to git.
 
 Usage:
-  ./control/bin/bootstrap_ssh.py s24
-  ./control/bin/bootstrap_ssh.py --keys-dir ~/.ssh s24 p7a
-  ./control/bin/bootstrap_ssh.py --pubkey ~/.ssh/termux_key.pub hd8
-  ./control/bin/bootstrap_ssh.py --ansible s24 p7a   # inventory hosts via bootstrap.yml
+  ./control/bin/bootstrap_ssh.py oneui-device
+  ./control/bin/bootstrap_ssh.py --keys-dir ~/.ssh oneui-device stock-android-device
+  ./control/bin/bootstrap_ssh.py --pubkey ~/.ssh/termux_key.pub fireos-device
+  ./control/bin/bootstrap_ssh.py --ansible oneui-device stock-android-device   # inventory hosts via bootstrap.yml
 """
 
 from __future__ import annotations

@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # Code and documentation review — stayturgid (2026-07-10)
 
 > **Findings only.** No production code was changed in the commit that first

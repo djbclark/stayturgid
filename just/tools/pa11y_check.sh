@@ -12,7 +12,7 @@ if ! curl -sf http://127.0.0.1:4097/ >/dev/null 2>&1; then
 fi
 
 # Use Chromium from our Puppeteer (pa11y's own bundled one may have stale/corrupted Chrome)
-chrome=$(find /Users/djbclark/.cache/puppeteer/chrome -name "Google Chrome for Testing" -type f 2>/dev/null | head -1)
+chrome=$(find $HOME/.cache/puppeteer/chrome -name "Google Chrome for Testing" -type f 2>/dev/null | head -1)
 if [ -n "$chrome" ] && [ -x "$chrome" ]; then
   export PUPPETEER_EXECUTABLE_PATH="$chrome"
 fi

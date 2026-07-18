@@ -2,7 +2,7 @@
 """Push stayturgid Obtainium configs to a phone and import via deep link.
 
 Usage:
-  ./sync_to_device.py <s24|p7a|hd8|serial> [all|autojs6] [--no-import]
+  ./sync_to_device.py <oneui-device|stock-android-device|fireos-device|serial> [all|autojs6] [--no-import]
 
 Re-importing merges/updates existing entries (does not remove other apps).
 """
@@ -54,7 +54,9 @@ def sync_catalog(alias: str, which: str = "all", *, import_catalog: bool = True)
 def main(argv: list[str] | None = None) -> int:
     argv = list(argv if argv is not None else sys.argv[1:])
     if not argv:
-        sys.stderr.write("usage: sync_to_device.py <p7a|s24|hd8|serial> [all|autojs6] [--no-import]\n")
+        sys.stderr.write(
+            "usage: sync_to_device.py <stock-android-device|oneui-device|fireos-device|serial> [all|autojs6] [--no-import]\n"
+        )
         return 2
 
     no_import = "--no-import" in argv

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Mac launchd: help Fire OS hosts when Shizuku/Handsets look down.
 
-Every 5 minutes: for each host with STAYTURGID_NO_LOCAL_ADB semantics (hd8),
+Every 5 minutes: for each host with STAYTURGID_NO_LOCAL_ADB semantics (fireos-device),
 if ADB reachable and shizuku_server / Handsets port look down, run
 `control/bin/fire_peer_help.py` via Mac adb (fleet adbkey).
 
@@ -35,7 +35,7 @@ except Exception:  # noqa: BLE001
 ROOT = Path.home() / ".config" / "stayturgid"
 CONF = Path(os.environ.get("STAYTURGID_DEVICES_CONF", ROOT / "devices.conf"))
 # Hosts that need peer/Mac help (no Termux→5555). Override via env CSV.
-FIRE_HOSTS = [h.strip() for h in os.environ.get("STAYTURGID_FIRE_HELP_HOSTS", "hd8").split(",") if h.strip()]
+FIRE_HOSTS = [h.strip() for h in os.environ.get("STAYTURGID_FIRE_HELP_HOSTS", "fireos-device").split(",") if h.strip()]
 LOG = ROOT / "logs" / "fire-help.log"
 STATE_DIR = ROOT / "state" / "fire-help"
 SKIP = os.environ.get("STAYTURGID_SKIP_FIRE_HELP") == "1"

@@ -35,8 +35,8 @@ See collection docs and human handoff for token acquisition. Do not commit secre
 4. Deploy:
 
    ```bash
-   just --set scope play --set hosts s24 deploy
-   ./control/bin/deploy_fleet.py --scope play s24
+   just --set scope play --set hosts oneui-device deploy
+   ./control/bin/deploy_fleet.py --scope play oneui-device
    ```
 
 ## CLI helper
@@ -51,7 +51,7 @@ python3 control/tools/play/gplaycli.py --help
 
 Sideloaded Google Play on Fire OS can auto-update GMS past compatible builds.
 See [docs/research/fire-os-google-play.md](../../research/fire-os-google-play.md) and
-just fix-hd8-google / just verify-hd8-google.
+just fix-fireos-device-google / just verify-fireos-device-google.
 
 ## Related
 

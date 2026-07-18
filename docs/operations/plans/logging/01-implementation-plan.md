@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # 01-Implementation Plan: Mobile-First Observability Logging Pipeline
 
 Migration of the `stayturgid` Android phone fleet and macOS control node to a structured JSON-based pipeline using OpenTelemetry and Vector. Vector and OpenObserve will run natively on the macOS control node (no Docker), managed via Ansible and Homebrew.

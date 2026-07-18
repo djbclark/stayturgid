@@ -29,7 +29,7 @@ Prefer one of:
 | **`stayturgid.android_common.android_ui` module** | Named `task:` enum (`import_obtainium_catalog`, `enable_autojs6_drawer`, …) with structured args; module calls shared libs; `check_mode: false` or explicit `supported_check_mode: false` |
 | **`stayturgid.fleet.post_ui` role**               | Tags per task; tasks call module or thin `command` wrapper; replaces scattered `post-ui.yml` `command` steps                                                                              |
 
-Mac vs on-device routing (SSH-first, hd8 Mac-adb-only) stays inside the shared
+Mac vs on-device routing (SSH-first, fireos-device Mac-adb-only) stays inside the shared
 library (`post_ui_remote`), not duplicated in YAML.
 
 **Do not:** one module per tap, per switch, or per OEM layout fragment.

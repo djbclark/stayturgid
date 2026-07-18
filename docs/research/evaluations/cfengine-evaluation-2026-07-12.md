@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # CFEngine — Integration Evaluation (Revised 2026-07-12)
 
 **Date:** 2026-07-12 (revised after on-device testing)

@@ -18,11 +18,11 @@ def test_replace_marked_block_append():
         text,
         begin=em.AK_BEGIN,
         end=em.AK_END,
-        body="ssh-ed25519 AAAAfleet s24-fleet",
+        body="ssh-ed25519 AAAAfleet oneui-device-fleet",
     )
     assert changed
     assert em.AK_BEGIN in new
-    assert "s24-fleet" in new
+    assert "oneui-device-fleet" in new
     assert "human" in new
     assert new.index("human") < new.index(em.AK_BEGIN)
 
@@ -33,32 +33,32 @@ def test_replace_marked_block_update_preserves_outside():
         f"{em.AK_BEGIN}\n"
         "ssh-ed25519 AAAAold old-fleet\n"
         f"{em.AK_END}\n"
-        'command="/x",no-port-forwarding ssh-ed25519 AAAApeer hd8-peerhelp\n'
+        'command="/x",no-port-forwarding ssh-ed25519 AAAApeer fireos-device-peerhelp\n'
     )
     new, changed = smb.replace_marked_block(
         text,
         begin=em.AK_BEGIN,
         end=em.AK_END,
-        body="ssh-ed25519 AAAAnew s24-fleet",
+        body="ssh-ed25519 AAAAnew oneui-device-fleet",
     )
     assert changed
     assert "AAAAnew" in new
     assert "AAAAold" not in new
-    assert "hd8-peerhelp" in new
+    assert "fireos-device-peerhelp" in new
     assert "command=" in new
     assert "human" in new
 
 
 def test_normalize_pubkey_line():
     line = "ssh-ed25519 AAAATEST comment-here"
-    assert em.normalize_pubkey_line(line, comment="s24-fleet").endswith("s24-fleet")
+    assert em.normalize_pubkey_line(line, comment="oneui-device-fleet").endswith("oneui-device-fleet")
     assert em.normalize_pubkey_line("# comment") is None
     assert em.normalize_pubkey_line("not-a-key") is None
 
 
 def test_render_device_ssh_config_includes_identity_and_ips():
     cfg = em.render_device_ssh_config(
-        user="djbclark",
+        user="operator",
         tailscale_ip="100.1.2.3",
         lan_ip="192.168.1.1",
         identity="id_ed25519_fleet",
@@ -88,18 +88,18 @@ def test_ssh_host_key_pin_env(monkeypatch):
 def test_apply_authorized_keys_file(tmp_path, monkeypatch):
     ak = tmp_path / "authorized_keys"
     ak.write_text(
-        'command="/help",no-port-forwarding ssh-ed25519 AAAApeer hd8-peerhelp\n',
+        'command="/help",no-port-forwarding ssh-ed25519 AAAApeer fireos-device-peerhelp\n',
         encoding="utf-8",
     )
     # point cache at tmp
     monkeypatch.setattr(em, "state_dir", lambda: tmp_path / "state")
     (tmp_path / "state").mkdir()
-    (tmp_path / "state" / "s24.pub").write_text("ssh-ed25519 AAAAs24 s24-fleet\n", encoding="utf-8")
+    (tmp_path / "state" / "oneui-device.pub").write_text("ssh-ed25519 AAAAs24 oneui-device-fleet\n", encoding="utf-8")
     changed = em.apply_authorized_keys(ak)
     assert changed
     text = ak.read_text(encoding="utf-8")
-    assert "s24-fleet" in text
-    assert "hd8-peerhelp" in text
+    assert "oneui-device-fleet" in text
+    assert "fireos-device-peerhelp" in text
     assert "command=" in text
     # second apply idempotent
     assert em.apply_authorized_keys(ak) is False

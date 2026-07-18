@@ -5,7 +5,7 @@ and another remote-control project) do not fight over the same phone screen.
 
 ## Why
 
-`p7a` (and any fleet host) may be driven by more than one codebase. Without a
+`stock-android-device` (and any fleet host) may be driven by more than one codebase. Without a
 shared lease:
 
 - Two agents invert the display / tap at once
@@ -33,8 +33,12 @@ XDG: if `XDG_STATE_HOME` is set, root is `$XDG_STATE_HOME/device-screen-control`
 ```json
 {
   "schema": "device-screen-control-lease/v1",
-  "device": "p7a",
-  "device_ids": ["p7a", "35261JEHN12374", "100.65.230.108:5555"],
+  "device": "stock-android-device",
+  "device_ids": [
+    "stock-android-device",
+    "EXAMPLE-SERIAL-STOCK",
+    "100.0.0.12:5555"
+  ],
   "holder": {
     "project": "other-project-name",
     "agent": "claude",
@@ -73,9 +77,9 @@ XDG: if `XDG_STATE_HOME` is set, root is `$XDG_STATE_HOME/device-screen-control`
 
 ```bash
 python3 control/bin/screen_lease.py status
-python3 control/bin/screen_lease.py check p7a    # exit 1 if foreign hold
-python3 control/bin/screen_lease.py acquire p7a --purpose "manual test"
-python3 control/bin/screen_lease.py release p7a
+python3 control/bin/screen_lease.py check stock-android-device    # exit 1 if foreign hold
+python3 control/bin/screen_lease.py acquire stock-android-device --purpose "manual test"
+python3 control/bin/screen_lease.py release stock-android-device
 ```
 
 Agents: at session start, after `just health`, also:
@@ -84,8 +88,8 @@ Agents: at session start, after `just health`, also:
 python3 control/bin/screen_lease.py status
 ```
 
-If `p7a: HELD project=…` for a **non-stayturgid** project, tell the operator and
-prefer **s24** / skip p7a UI until free.
+If `stock-android-device: HELD project=…` for a **non-stayturgid** project, tell the operator and
+prefer **oneui-device** / skip stock-android-device UI until free.
 
 ### RevengeQuickSwitcher (reference interop)
 
@@ -130,7 +134,7 @@ Both must honor **DSCL v1** so only one project drives a phone’s screen at a t
 
 (or `$DEVICE_SCREEN_CONTROL_DIR/leases/` if set; or `$XDG_STATE_HOME/device-screen-control/leases/`)
 
-**File:** one JSON file per device key, e.g. `p7a.json`, `s24.json`, or a
+**File:** one JSON file per device key, e.g. `stock-android-device.json`, `oneui-device.json`, or a
 normalized serial. Filename = lowercase alias/serial with non-alnum → `_`.
 
 **JSON schema** — write/read exactly this shape:

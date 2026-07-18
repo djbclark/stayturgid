@@ -60,7 +60,7 @@ function tryShellWirelessRepair() {
 }
 
 /**
- * Headless start via djbclark/Shizuku HEADLESS_START broadcast.
+ * Headless start via operator/Shizuku HEADLESS_START broadcast.
  * The fork has built-in retry logic (3 attempts, 5s delay).
  */
 function headlessStart() {

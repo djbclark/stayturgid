@@ -57,7 +57,7 @@ app = Flask(
     static_url_path="/static",
 )
 
-TAILNET = "greyhound-sidemirror.ts.net"
+TAILNET = "example.ts.net"
 OC_WEB_URL = f"https://mac.{TAILNET}/opencode/"
 NETWORK_URL = f"https://mac.{TAILNET}/"
 

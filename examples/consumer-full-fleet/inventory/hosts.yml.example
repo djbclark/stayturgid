@@ -2,7 +2,7 @@
 # Copy to inventory/hosts.yml and edit.
 stayturgid:
   hosts:
-    s24:
+    oneui-device:
       ansible_host: 100.123.218.30
       ansible_port: 8022
       ansible_user: u0_a123
@@ -10,7 +10,7 @@ stayturgid:
       termux_prefix: /data/data/com.termux/files/usr
       termux_home: /data/data/com.termux/files/home
       stayturgid_sd_root: /sdcard/stayturgid
-      stayturgid_device_id: s24
+      stayturgid_device_id: oneui-device
       device_usb_serial: R5CX12345678
   vars:
     # Neo / Aurora parked by default — match production fleet (see docs/modules/fdroid.md).

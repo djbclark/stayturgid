@@ -51,10 +51,10 @@ options:
 EXAMPLES = r"""
 - name: Deploy AutoJs6 project to Fire HD over adb
   stayturgid.android_common.autojs6_project_deploy:
-    device: "{{ lookup('stayturgid.android_common.adb_device', 'hd8') }}"
+    device: "{{ lookup('stayturgid.android_common.adb_device', 'fireos-device') }}"
     repo_root: "{{ stayturgid_repo_root }}"
     target: "{{ autojs6_target }}"
-    device_json: "/tmp/stayturgid-hd8-device.json"
+    device_json: "/tmp/stayturgid-fireos-device-device.json"
   delegate_to: localhost
 """
 

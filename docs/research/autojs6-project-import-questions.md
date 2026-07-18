@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # AutoJs6 project import questions for the senior maintainer
 
 This is a short question set for someone who knows AutoJs6 internals well enough to answer how projects are supposed to be registered, imported, and launched. The immediate problem is now more specific: once the tree is imported in the app’s expected format, AutoJs6 recognizes the project on s24, but launch behavior is noisy because LeakCanary keeps surfacing retained-object toasts and heap-dump analysis during normal use. We still need to understand the canonical registration flow and whether an existing deployed tree should appear as a real task immediately.

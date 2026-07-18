@@ -113,7 +113,7 @@ every program. It means:
    that consumers need (projections).
 3. **No consumer may independently maintain** its own copy of an inventory
    fact. If a program needs a device's Tailscale IP, it reads a projection
-   that was generated from inventory — it does not hardcode `100.123.218.30`.
+   that was generated from inventory — it does not hardcode `100.0.0.11`.
 4. **Validation tooling** rejects new code that introduces hardcoded
    production identity literals.
 
@@ -137,13 +137,13 @@ The project is approximately 60% of the way to a clean single source of truth:
 | `control/cfengine/cf-runagent.cf`                 | ❌ Hardcoded IPs                | Embeds production Tailscale IPs directly                            |
 | `AGENTS.md`, `docs/hacking.md`, `docs/handoff.md` | ❌ Duplicated identity          | Fleet table duplicates IPs and serials from inventory               |
 | Several FIRERPA tools, tests, and plan documents  | ❌ Scattered literals           | Production addresses and serials appear in active code              |
-| `device/termux/py/stayturgid_peer_bootstrap.py`   | ❌ Hardcoded `DEFAULT_SSH_USER` | `djbclark` instead of reading from inventory/projection             |
-| `ansible_collections/*/peers.json.j2`             | ❌ Hardcoded `ssh_user`         | `djbclark` instead of `{{ ansible_user }}`                          |
+| `device/termux/py/stayturgid_peer_bootstrap.py`   | ❌ Hardcoded `DEFAULT_SSH_USER` | `operator` instead of reading from inventory/projection             |
+| `ansible_collections/*/peers.json.j2`             | ❌ Hardcoded `ssh_user`         | `operator` instead of `{{ ansible_user }}`                          |
 
 ### 2.4 Representative Gaps (Seed Alias Scan)
 
 A scan on 2026-07-14 found **177 files with 1,140 matching lines** containing
-production device aliases (`s24`, `p7a`, `hd8`):
+production device aliases (`oneui-device`, `stock-android-device`, `fireos-device`):
 
 | Classification            | Files | Lines |
 | ------------------------- | ----: | ----: |
@@ -160,27 +160,27 @@ files will be addressed during the upstream scrub (§7.4).
 
 ### 2.5 Active Code/Config Violations Breakdown
 
-The following active files contain hardcoded production literals (`s24`, `p7a`, `hd8`, or their respective Tailscale IPs and USB serials), which must be refactored to read from the site inventory projection or structured variables:
+The following active files contain hardcoded production literals (`oneui-device`, `stock-android-device`, `fireos-device`, or their respective Tailscale IPs and USB serials), which must be refactored to read from the site inventory projection or structured variables:
 
-| File Path                                         | Gaps Identified                                   | Classification / Action Required                                   |
-| :------------------------------------------------ | :------------------------------------------------ | :----------------------------------------------------------------- |
-| `control/cfengine/cf-runagent.cf`                 | Hardcoded Tailscale IPs for all three devices     | `violation` — Migrate to Jinja2 template rendered via Ansible      |
-| `control/landing/services.json`                   | Hardcoded hostnames, Tailscale IPs, LAN IPs       | `violation` — Separate static catalog from dynamic discovery state |
-| `control/landing/discover.py`                     | Reference to production aliases and IPs           | `violation` — Read from inventory projections                      |
-| `control/bin/cf-run.sh`                           | Embedded `s24`, `p7a`, `hd8` aliases              | `violation` — Require explicit target host argument                |
-| `control/bin/firerpa_heal.py`                     | Reference to production aliases and IPs           | `violation` — Resolve addresses dynamically using `resolve_adb`    |
-| `control/bin/firerpa_health_monitor.py`           | Reference to production aliases and IPs           | `violation` — Resolve addresses dynamically                        |
-| `control/tools/autojs6/deploy.py`                 | Default arguments and aliases `s24`, `p7a`, `hd8` | `violation` — Make targets required CLI arguments                  |
-| `control/tools/autojs6/enable_autojs6_shizuku.py` | Reference to production aliases                   | `violation` — Pass as arguments                                    |
-| `control/tools/autojs6/grant_shizuku.py`          | Reference to production aliases                   | `violation` — Pass as arguments                                    |
-| `control/tools/autojs6/run_test.py`               | Default targets `s24`, `p7a`, `hd8`               | `violation` — Make targets required CLI arguments                  |
-| `control/tools/autojs6/set_automation_mode.py`    | Reference to production aliases                   | `violation` — Pass as arguments                                    |
-| `control/tools/autojs6/setup_autojs6.py`          | Reference to production aliases                   | `violation` — Pass as arguments                                    |
-| `control/tools/autojs6/start_watchdog.py`         | Reference to production aliases                   | `violation` — Pass as arguments                                    |
-| `control/tools/autojs6/test_tailscale_down.py`    | Default targets and serials                       | `violation` — Parametrize with arguments                           |
-| `control/tools/obtainium/*.py`                    | Reference to production aliases                   | `violation` — Require CLI arguments                                |
-| `control/tools/play/*.py`                         | Reference to production aliases                   | `violation` — Require CLI arguments                                |
-| `device/termux/py/stayturgid_peer_help.py`        | References to sibling hostnames                   | `violation` — Read peers list from `peers.json` projection         |
+| File Path                                         | Gaps Identified                                                                       | Classification / Action Required                                   |
+| :------------------------------------------------ | :------------------------------------------------------------------------------------ | :----------------------------------------------------------------- |
+| `control/cfengine/cf-runagent.cf`                 | Hardcoded Tailscale IPs for all three devices                                         | `violation` — Migrate to Jinja2 template rendered via Ansible      |
+| `control/landing/services.json`                   | Hardcoded hostnames, Tailscale IPs, LAN IPs                                           | `violation` — Separate static catalog from dynamic discovery state |
+| `control/landing/discover.py`                     | Reference to production aliases and IPs                                               | `violation` — Read from inventory projections                      |
+| `control/bin/cf-run.sh`                           | Embedded `oneui-device`, `stock-android-device`, `fireos-device` aliases              | `violation` — Require explicit target host argument                |
+| `control/bin/firerpa_heal.py`                     | Reference to production aliases and IPs                                               | `violation` — Resolve addresses dynamically using `resolve_adb`    |
+| `control/bin/firerpa_health_monitor.py`           | Reference to production aliases and IPs                                               | `violation` — Resolve addresses dynamically                        |
+| `control/tools/autojs6/deploy.py`                 | Default arguments and aliases `oneui-device`, `stock-android-device`, `fireos-device` | `violation` — Make targets required CLI arguments                  |
+| `control/tools/autojs6/enable_autojs6_shizuku.py` | Reference to production aliases                                                       | `violation` — Pass as arguments                                    |
+| `control/tools/autojs6/grant_shizuku.py`          | Reference to production aliases                                                       | `violation` — Pass as arguments                                    |
+| `control/tools/autojs6/run_test.py`               | Default targets `oneui-device`, `stock-android-device`, `fireos-device`               | `violation` — Make targets required CLI arguments                  |
+| `control/tools/autojs6/set_automation_mode.py`    | Reference to production aliases                                                       | `violation` — Pass as arguments                                    |
+| `control/tools/autojs6/setup_autojs6.py`          | Reference to production aliases                                                       | `violation` — Pass as arguments                                    |
+| `control/tools/autojs6/start_watchdog.py`         | Reference to production aliases                                                       | `violation` — Pass as arguments                                    |
+| `control/tools/autojs6/test_tailscale_down.py`    | Default targets and serials                                                           | `violation` — Parametrize with arguments                           |
+| `control/tools/obtainium/*.py`                    | Reference to production aliases                                                       | `violation` — Require CLI arguments                                |
+| `control/tools/play/*.py`                         | Reference to production aliases                                                       | `violation` — Require CLI arguments                                |
+| `device/termux/py/stayturgid_peer_help.py`        | References to sibling hostnames                                                       | `violation` — Read peers list from `peers.json` projection         |
 
 ---
 
@@ -194,13 +194,13 @@ site identity. The file is
 
 **Per-device required fields:**
 
-| Field                | Type      | Example          | Constraint                                              |
-| -------------------- | --------- | ---------------- | ------------------------------------------------------- |
-| `inventory_hostname` | string    | `s24`            | Lowercase ASCII alias; immutable logical device ID      |
-| `ansible_host`       | IPv4/IPv6 | `100.123.218.30` | Stable management address (Tailscale IP or MagicDNS)    |
-| `device_usb_serial`  | string    | `RFCX219CHKA`    | USB serial from `adb devices`; optional if no USB route |
-| `device_label`       | string    | `Galaxy S24`     | Human-readable device name                              |
-| `device_lan_ip`      | IPv4      | `192.168.68.54`  | DHCP hint; non-authoritative, may be stale              |
+| Field                | Type      | Example                | Constraint                                              |
+| -------------------- | --------- | ---------------------- | ------------------------------------------------------- |
+| `inventory_hostname` | string    | `oneui-device`         | Lowercase ASCII alias; immutable logical device ID      |
+| `ansible_host`       | IPv4/IPv6 | `100.0.0.11`           | Stable management address (Tailscale IP or MagicDNS)    |
+| `device_usb_serial`  | string    | `EXAMPLE-SERIAL-ONEUI` | USB serial from `adb devices`; optional if no USB route |
+| `device_label`       | string    | `Galaxy S24`           | Human-readable device name                              |
+| `device_lan_ip`      | IPv4      | `192.0.2.11`           | DHCP hint; non-authoritative, may be stale              |
 
 **Per-fleet group variables** (in
 [`group_vars/stayturgid.yml`](../../ansible/inventory/group_vars/)):
@@ -208,7 +208,7 @@ site identity. The file is
 | Variable                       | Type    | Default | Notes                                              |
 | ------------------------------ | ------- | ------- | -------------------------------------------------- |
 | `ansible_port`                 | integer | `8022`  | Termux sshd port                                   |
-| `ansible_user`                 | string  | —       | SSH user (`djbclark` in prod, `termux` in example) |
+| `ansible_user`                 | string  | —       | SSH user (`operator` in prod, `termux` in example) |
 | `ansible_python_interpreter`   | path    | —       | Termux Python path                                 |
 | `ansible_ssh_private_key_file` | path    | —       | Path to Termux SSH key                             |
 | `stayturgid_device_id`         | string  | —       | `{{ inventory_hostname }}`                         |
@@ -229,7 +229,7 @@ Current taxonomy groups: `android_16`, `android_11`, `vendor_google`,
 
 ### 3.2 Normalization Rules
 
-1. **Aliases** are lowercase ASCII (e.g., `s24`, not `S24` or `Galaxy-S24`).
+1. **Aliases** are lowercase ASCII (e.g., `oneui-device`, not `S24` or `Galaxy-S24`).
 2. **USB serials** are exact strings from `adb devices`. Optional only when a
    device has no USB route (e.g., remote-only Tailscale devices).
 3. **Stable management address** (`ansible_host`) may be an IP address or a
@@ -272,8 +272,8 @@ identity, replacing ad-hoc parsing of `devices.conf` in individual scripts.
 
 - **Schema:** Required fields present, valid IP format, no duplicate aliases
   or serials.
-- **Anti-drift:** No production identity literals (`100.123.218.30`,
-  `RFCX219CHKA`, `s24` outside approved contexts) in active code.
+- **Anti-drift:** No production identity literals (`100.0.0.11`,
+  `EXAMPLE-SERIAL-ONEUI`, `oneui-device` outside approved contexts) in active code.
 - **Projection freshness:** Generated files match current inventory (checksum
   comparison).
 - **Secrets hygiene:** No secret-shaped values (tokens, long hex strings) in
@@ -288,7 +288,7 @@ identity, replacing ad-hoc parsing of `devices.conf` in individual scripts.
 | `generic-fixture`    | ✅       | Tests using `192.0.2.x` (RFC 5737 TEST-NET)      |
 | `historical`         | ⚠️       | Session logs (read-only, no enforcement)         |
 | `bootstrap-constant` | ⚠️       | ADB port `5555`, Tailscale CGNAT `100.64.0.0/10` |
-| `violation`          | ❌       | Hardcoded `100.123.218.30` in a Python script    |
+| `violation`          | ❌       | Hardcoded `100.0.0.11` in a Python script        |
 
 **Test fixtures** must use
 [RFC 5737](https://www.rfc-editor.org/rfc/rfc5737) reserved addresses:
@@ -781,15 +781,15 @@ desired feature set:
 
 ### 7.4 What Moves to the Site Overlay
 
-| Content                          | Why it moves                                       |
-| -------------------------------- | -------------------------------------------------- |
-| Production `hosts.yml`           | Contains real IPs, serials, aliases                |
-| `group_vars/stayturgid.yml`      | Contains `ansible_user: djbclark`, real peer paths |
-| Operator session docs            | `docs/handoff.md`, `human/*` are operator-specific |
-| Live device notes                | Not generic; specific to the operator's fleet      |
-| Secret dotenv files              | `play.env`, `firerpa.env` — never in public Git    |
-| Telegram user IDs                | Operator-specific identity, not platform policy    |
-| `HOSTS=s24` convenience defaults | Not applicable to other sites                      |
+| Content                                   | Why it moves                                       |
+| ----------------------------------------- | -------------------------------------------------- |
+| Production `hosts.yml`                    | Contains real IPs, serials, aliases                |
+| `group_vars/stayturgid.yml`               | Contains `ansible_user: operator`, real peer paths |
+| Operator session docs                     | `docs/handoff.md`, `human/*` are operator-specific |
+| Live device notes                         | Not generic; specific to the operator's fleet      |
+| Secret dotenv files                       | `play.env`, `firerpa.env` — never in public Git    |
+| Telegram user IDs                         | Operator-specific identity, not platform policy    |
+| `HOSTS=oneui-device` convenience defaults | Not applicable to other sites                      |
 
 ### 7.5 What Stays in Upstream
 
@@ -809,11 +809,11 @@ desired feature set:
 currently uses platform-describing hostnames. After the scrub, all upstream
 documentation and tests will use these names:
 
-| Example Hostname       | Replaces | Platform Description |
-| ---------------------- | -------- | -------------------- |
-| `oneui-device`         | `s24`    | Samsung OneUI        |
-| `stock-android-device` | `p7a`    | Stock Android/Pixel  |
-| `fireos-device`        | `hd8`    | Amazon Fire OS       |
+| Example Hostname       | Replaces               | Platform Description |
+| ---------------------- | ---------------------- | -------------------- |
+| `oneui-device`         | `oneui-device`         | Samsung OneUI        |
+| `stock-android-device` | `stock-android-device` | Stock Android/Pixel  |
+| `fireos-device`        | `fireos-device`        | Amazon Fire OS       |
 
 Placeholder addresses use RFC 5737 TEST-NET:
 
@@ -824,16 +824,16 @@ Placeholder addresses use RFC 5737 TEST-NET:
 
 ### 7.7 Code Scrub Targets
 
-| File/Area                                             | Action                                            |
-| ----------------------------------------------------- | ------------------------------------------------- |
-| `AGENTS.md` fleet table                               | Replace with example hostnames or `hosts.yml` ref |
-| `docs/hacking.md`, `docs/handoff.md`                  | Move operator-specific content to site overlay    |
-| `control/bin/*.py` default adb path                   | Use `shutil.which("adb")` or `STAYTURGID_ADB`     |
-| `peers.json.j2` hardcoded `ssh_user: djbclark`        | Replace with `{{ ansible_user }}`                 |
-| `stayturgid_peer_bootstrap.py` `DEFAULT_SSH_USER`     | Read from inventory/projection or require arg     |
-| `control/tools/play/obtain_play_aas.py` default email | Remove; require explicit argument                 |
-| Tests using `s24`/`p7a`/`hd8`                         | Replace with example hostnames + RFC 5737 IPs     |
-| `control/cfengine/cf-runagent.cf`                     | Generate from inventory template                  |
+| File/Area                                                         | Action                                            |
+| ----------------------------------------------------------------- | ------------------------------------------------- |
+| `AGENTS.md` fleet table                                           | Replace with example hostnames or `hosts.yml` ref |
+| `docs/hacking.md`, `docs/handoff.md`                              | Move operator-specific content to site overlay    |
+| `control/bin/*.py` default adb path                               | Use `shutil.which("adb")` or `STAYTURGID_ADB`     |
+| `peers.json.j2` hardcoded `ssh_user: operator`                    | Replace with `{{ ansible_user }}`                 |
+| `stayturgid_peer_bootstrap.py` `DEFAULT_SSH_USER`                 | Read from inventory/projection or require arg     |
+| `control/tools/play/obtain_play_aas.py` default email             | Remove; require explicit argument                 |
+| Tests using `oneui-device`/`stock-android-device`/`fireos-device` | Replace with example hostnames + RFC 5737 IPs     |
+| `control/cfengine/cf-runagent.cf`                                 | Generate from inventory template                  |
 
 ### 7.8 Site Overlay Layout
 
@@ -1004,7 +1004,7 @@ Partially supported. Works for fleet management; missing Mac-specific features:
 a time.
 
 - [x] Template `control/cfengine/cf-runagent.cf` from inventory.
-- [x] Fix `peers.json.j2` (`ssh_user: djbclark` → `{{ ansible_user }}`).
+- [x] Fix `peers.json.j2` (`ssh_user: operator` → `{{ ansible_user }}`).
 - [x] Fix `stayturgid_peer_bootstrap.py` `DEFAULT_SSH_USER`.
 - [x] Fix `control/bin/*.py` adb path defaults.
 - [x] Fix `control/tools/play/obtain_play_aas.py` default email.
@@ -1094,13 +1094,13 @@ and autonomous agents must **not** make these unilaterally:
 ## Appendix A: Seed Alias Census
 
 Scan performed 2026-07-14 across the full repository. Production aliases
-(`s24`, `p7a`, `hd8`) matched in 177 files, 1,140 lines:
+(`oneui-device`, `stock-android-device`, `fireos-device`) matched in 177 files, 1,140 lines:
 
-| Alias | Matches |
-| ----- | ------: |
-| `s24` |     710 |
-| `hd8` |     454 |
-| `p7a` |     358 |
+| Alias                  | Matches |
+| ---------------------- | ------: |
+| `oneui-device`         |     710 |
+| `fireos-device`        |     454 |
+| `stock-android-device` |     358 |
 
 **Classification breakdown:**
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Open an app's Play/Aurora details page on device (manual install fallback).
 
-Usage: ./open_play_app.py <p7a|s24|hd8|serial> <package.id>
+Usage: ./open_play_app.py <stock-android-device|oneui-device|fireos-device|serial> <package.id>
 """
 
 from __future__ import annotations

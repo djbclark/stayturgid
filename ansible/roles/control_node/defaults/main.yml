@@ -125,7 +125,7 @@ stayturgid_dashboard_label: com.stayturgid.dashboard
 stayturgid_observability_enabled: true
 openobserve_version: "0.91.1"
 openobserve_port: 5080
-openobserve_root_email: "djbclark@gmail.com"
+openobserve_root_email: "operator@gmail.com"
 openobserve_root_password: "{{ lookup('env', 'OPENOBSERVE_ROOT_PASSWORD') }}"
 openobserve_label: "com.stayturgid.openobserve"
 openobserve_data_dir: "{{ lookup('env', 'HOME') }}/.local/share/openobserve/data"

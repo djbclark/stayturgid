@@ -24,9 +24,9 @@ options:
 """
 
 EXAMPLES = r"""
-- name: Report accessibility services for s24
+- name: Report accessibility services for oneui-device
   stayturgid.android_common.android_a11y_services:
-    device: "{{ lookup('stayturgid.android_common.adb_device', 's24') }}"
+    device: "{{ lookup('stayturgid.android_common.adb_device', 'oneui-device') }}"
 """
 
 RETURN = r"""

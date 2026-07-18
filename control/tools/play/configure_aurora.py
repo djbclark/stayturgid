@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Finish Aurora Store first-run setup from the Mac.
 
-Usage: ./control/tools/play/configure_aurora.py <s24|hd8|p7a|serial>
+Usage: ./control/tools/play/configure_aurora.py <oneui-device|fireos-device|stock-android-device|serial>
 
 Skips the intro carousel, selects Aurora's anonymous session, and configures the
 installer/update settings needed for unattended installs. Called automatically at
@@ -574,7 +574,7 @@ def main_mac_adb(host):
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
-        sys.stderr.write("usage: configure_aurora.py <p7a|s24|hd8|serial>\n")
+        sys.stderr.write("usage: configure_aurora.py <stock-android-device|oneui-device|fireos-device|serial>\n")
         return 2
 
     host = argv[0]

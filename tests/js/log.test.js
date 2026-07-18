@@ -20,7 +20,7 @@ global.files = {
     },
     read:   function (p) {
         if (String(p) === "/sdcard/stayturgid/state/device.json") {
-            return JSON.stringify({ id: "s24", sdRoot: "/sdcard/stayturgid" });
+            return JSON.stringify({ id: "oneui-device", sdRoot: "/sdcard/stayturgid" });
         }
         return fs.readFileSync(mapped(p), "utf8");
     },
@@ -116,7 +116,7 @@ if (jsonlLines.length > 0) {
         "JSONL line has a timestamp field");
     ok(parsed !== null && typeof parsed.message === "string",
         "JSONL line has a message field");
-    ok(parsed !== null && parsed.hostname === "s24",
+    ok(parsed !== null && parsed.hostname === "oneui-device",
         "JSONL line contains hostname from device profile");
 }
 

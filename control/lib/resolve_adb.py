@@ -2,8 +2,8 @@
 """CLI for stayturgid ADB target resolution (USB when plugged in, else wireless).
 
 Usage:
-  resolve_adb.py s24
-  resolve_adb.py --ssh-host s24
+  resolve_adb.py oneui-device
+  resolve_adb.py --ssh-host oneui-device
 """
 
 from __future__ import annotations

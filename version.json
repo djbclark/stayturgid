@@ -1,4 +1,4 @@
 {
   "version": "2.7",
-  "changelog": "On-device post-UI (Termux localhost:5555) for s24/p7a; Mac SSH wrappers + hd8 USB fallback; screen-control fail-closed; shell-gpt research track E; parse_switch same-node labels."
+  "changelog": "On-device post-UI (Termux localhost:5555) for oneui-device/stock-android-device; Mac SSH wrappers + fireos-device USB fallback; screen-control fail-closed; shell-gpt research track E; parse_switch same-node labels."
 }

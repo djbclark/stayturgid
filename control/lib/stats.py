@@ -108,7 +108,7 @@ def aggregate_stats(
         "total_events": len(events),
         "connection_paths": {},  # {"adb:...": 5, "ssh:...": 3}
         "heals": {},  # {"watchdog": 2, "repair": 1, "a11y": 0, ...}
-        "device_status": {},  # {"s24": {"online": 42, "offline": 3}, ...}
+        "device_status": {},  # {"oneui-device": {"online": 42, "offline": 3}, ...}
         "issues": {},  # {"watchdog_stale": 5, "bootloop_down": 3, ...}
         "devices_seen": set(),
         "time_range": {

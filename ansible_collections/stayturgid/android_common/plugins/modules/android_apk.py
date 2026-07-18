@@ -62,7 +62,7 @@ options:
   resign:
     description:
       - Resign the downloaded APK with a debug keystore before installing.
-      - Required for unsigned fork builds (djbclark/Obtainium, djbclark/Shizuku, etc.).
+      - Required for unsigned fork builds (operator/Obtainium, operator/Shizuku, etc.).
     type: bool
     default: false
   apksigner_bin:
@@ -101,7 +101,7 @@ EXAMPLES = r"""
   stayturgid.android_common.android_apk:
     device: "{{ adb_target }}"
     package: moe.shizuku.privileged.api
-    gh_repo: djbclark/Shizuku
+    gh_repo: operator/Shizuku
     gh_pattern: "*universal*"
     resign: true
   delegate_to: localhost

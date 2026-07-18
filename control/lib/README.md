@@ -22,16 +22,16 @@ REPO = Path(__file__).resolve().parents[3]  # control/tools/<domain>/script.py
 sys.path.insert(0, str(REPO / "control" / "lib"))
 import adb_cli as adb
 
-serial = adb.resolve_target("s24")
+serial = adb.resolve_target("oneui-device")
 adb.start_autojs_file(serial, "/sdcard/stayturgid/autojs6/main.js")
 ```
 
 ### CLI (shell scripts, Make, ad-hoc)
 
 ```bash
-./control/lib/resolve_adb.py s24
-./control/lib/resolve_adb.py --ssh-host s24
-ANDROID_SERIAL="$(./control/lib/resolve_adb.py s24)" fdroidcl install com.example.app
+./control/lib/resolve_adb.py oneui-device
+./control/lib/resolve_adb.py --ssh-host oneui-device
+ANDROID_SERIAL="$(./control/lib/resolve_adb.py oneui-device)" fdroidcl install com.example.app
 ```
 
 ## Dependencies

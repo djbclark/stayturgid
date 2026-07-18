@@ -5,7 +5,7 @@
 #
 # Usage (from repo root, or via ./control/bin/deploy_fleet.py / site.yml):
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
-#     ansible/playbooks/fleet/fleet.yml [--limit s24]
+#     ansible/playbooks/fleet/fleet.yml [--limit oneui-device]
 #
 # Tags: app-stores (fdroid + play), fdroid, play, app-privileges, ensure_apps
 #

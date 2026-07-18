@@ -140,7 +140,7 @@ def test_parse_content_desc_center():
 
 def test_resolve_adb_and_ssh_host(tmp_path, monkeypatch):
     conf = tmp_path / "devices.conf"
-    conf.write_text("s24 RFCX 100.123 192.168.68.55\n")
+    conf.write_text("oneui-device RFCX 100.123 192.168.68.55\n")
 
     def fake_run(cmd, **kw):
         if cmd[:2] == ["adb", "devices"]:
@@ -148,7 +148,7 @@ def test_resolve_adb_and_ssh_host(tmp_path, monkeypatch):
         return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
 
     monkeypatch.setattr(dev, "_run", fake_run)
-    assert dev.resolve_adb("s24", str(conf)) == "RFCX"
+    assert dev.resolve_adb("oneui-device", str(conf)) == "RFCX"
 
     def offline(cmd, **kw):
         if cmd[:2] == ["adb", "devices"]:
@@ -163,10 +163,10 @@ def test_resolve_adb_and_ssh_host(tmp_path, monkeypatch):
         "tcp_reachable",
         lambda ep, timeout=None: False,
     )
-    assert dev.resolve_adb("s24", str(conf)) == "100.123:5555"
+    assert dev.resolve_adb("oneui-device", str(conf)) == "100.123:5555"
     # unknown alias passes through; ssh host only for known devices
     assert dev.resolve_adb("raw:5555", str(conf)) == "raw:5555"
-    assert dev.resolve_ssh_host("s24", str(conf)) == "s24"
+    assert dev.resolve_ssh_host("oneui-device", str(conf)) == "oneui-device"
     assert dev.resolve_ssh_host("raw:5555", str(conf)) == ""
 
     # ts=- must not yield "-:5555"; fall back to alias when USB absent
@@ -175,11 +175,11 @@ def test_resolve_adb_and_ssh_host(tmp_path, monkeypatch):
         "_run",
         lambda a, **k: type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})(),
     )
-    conf.write_text("s24 RFCX - -\n")
-    assert dev.resolve_adb("s24", str(conf)) == "s24"
+    conf.write_text("oneui-device RFCX - -\n")
+    assert dev.resolve_adb("oneui-device", str(conf)) == "oneui-device"
     # lan fallback when tailscale missing
-    conf.write_text("p7a - - 192.168.1.9\n")
-    assert dev.resolve_adb("p7a", str(conf)) == "192.168.1.9:5555"
+    conf.write_text("stock-android-device - - 192.168.1.9\n")
+    assert dev.resolve_adb("stock-android-device", str(conf)) == "192.168.1.9:5555"
 
 
 def test_read_shizuku_json_missing_ok():

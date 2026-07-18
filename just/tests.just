@@ -324,8 +324,8 @@ lint:
         echo "puppeteer — SKIP (dashboard not running on :4097)"
       fi
     fi
-    # validate-identity (advisory warn-only during Phase 1-2 migration)
-    python3 control/bin/validate_site_identity.py --check-drift --check-secrets --warn-only 2>&1 || rc=1
+    # validate-identity (hard-fail: no production identity outside site inventory)
+    python3 control/bin/validate_site_identity.py --check-drift --check-secrets 2>&1 || rc=1
     exit $rc
 
 # Remove temporary build + test artifacts.
@@ -342,12 +342,12 @@ just-check:
     @just --list >/dev/null
     @echo "justfiles: parse ok"
 
-# Validate site identity: parse inventory, warn on drift and secrets (advisory during Phase 1-2).
+# Validate site identity: parse inventory; hard-fail on drift or secrets.
 validate-identity:
     @echo "### validate-identity"
-    @python3 control/bin/validate_site_identity.py --check-drift --check-secrets --warn-only
+    @python3 control/bin/validate_site_identity.py --check-drift --check-secrets
 
-# Validate site identity: hard exit on any drift or secret violation (use in Phase 3+).
+# Alias kept for older docs/scripts; same as validate-identity.
 validate-identity-strict:
     @echo "### validate-identity-strict"
     @python3 control/bin/validate_site_identity.py --check-drift --check-secrets

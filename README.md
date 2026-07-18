@@ -88,7 +88,7 @@ After each cold reboot and PIN unlock:
 ## SSH to Termux
 
 ```bash
-ssh s24    # or: ssh p7a
+ssh oneui-device    # or: ssh stock-android-device
 ```
 
 Requires SSH keys on the Mac control node (`~/.ssh/*.pub` auto-synced to every device; bootstrap with `./control/bin/bootstrap_ssh.py` when SSH is not up yet). Tailscale or `adb forward tcp:8022 tcp:8022`. See [docs/hacking.md](docs/hacking.md).
@@ -121,5 +121,5 @@ stayturgid/
 ## Tested on
 
 - Google Pixel 7a, Samsung Galaxy S24 (SM-S921U1), Android 16
-- Amazon Kindle Fire HD 8 (Fire OS 11) — see [docs/handoff.md](docs/handoff.md) for hd8 quirks
+- Amazon Kindle Fire HD 8 (Fire OS 11) — see [docs/handoff.md](docs/handoff.md) for fireos-device quirks
 - Shizuku thedjchi fork · AutoJs6 6.7.0 · Termux GitHub-debug stack

@@ -10,7 +10,7 @@ AUTOJS = {
     "id": "org.autojs.autojs6",
     "url": "https://github.com/djbclark/AutoJs6",
     "name": "AutoJs6",
-    "author": "djbclark",
+    "author": "operator",
     "categories": ["Automation"],
     "settings": {"apkFilterRegEx": "arm64-v8a", "about": "watchdog"},
 }

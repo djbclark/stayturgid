@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Enable Obtainium's Shizuku installer via headless fleet profile intent.
 
-Uses djbclark/Obtainium fork's FleetProfileActivity to set
+Uses operator/Obtainium fork's FleetProfileActivity to set
 installMethod=shizuku directly via SharedPreferences — no UI needed.
 
 Steps:
@@ -10,7 +10,7 @@ Steps:
   3. Push fleet profile JSON with installMethod: shizuku
   4. Apply via FleetProfileActivity intent
 
-Usage: ./enable_shizuku_installer.py <p7a|s24|hd8|serial>
+Usage: ./enable_shizuku_installer.py <stock-android-device|oneui-device|fireos-device|serial>
 """
 
 import json
@@ -113,7 +113,9 @@ def apply_fleet_profile(serial):
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
     if not argv:
-        sys.stderr.write("usage: enable_shizuku_installer.py <p7a|s24|hd8|serial>\n")
+        sys.stderr.write(
+            "usage: enable_shizuku_installer.py <stock-android-device|oneui-device|fireos-device|serial>\n"
+        )
         return 2
     host = argv[0]
     serial = dev.resolve_adb(host)

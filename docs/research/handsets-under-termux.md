@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # Research — Handsets under Termux (on-device)
 
 Date: 2026-07-09. Live probes on **s24** (Termux + `localhost:5555`).

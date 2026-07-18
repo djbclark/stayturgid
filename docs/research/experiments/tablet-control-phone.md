@@ -1,3 +1,5 @@
+<!-- historical: production hostnames/IPs in this file are session records; see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # Proposal — Control phone from tablet (hd8 → s24) at tablet native resolution
 
 **Status:** parked proposal (do **not** implement unless the operator asks to revive)  

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Peer helper: start Handsets / Shizuku on a remote device via ADB.
 
-Runs on a helper phone (s24/p7a) that already has a trusted ADB key on the
+Runs on a helper phone (oneui-device/stock-android-device) that already has a trusted ADB key on the
 target. Invoked over SSH from a Fire OS device that cannot self-ADB.
 
 Usage:

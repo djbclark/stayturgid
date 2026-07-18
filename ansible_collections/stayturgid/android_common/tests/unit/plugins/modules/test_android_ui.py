@@ -41,7 +41,7 @@ def test_android_ui_skips_check_mode(mocker, tmp_path):
     out = run_module(
         mocker,
         dict(
-            host="s24",
+            host="oneui-device",
             task="import_obtainium_catalog",
             repo_root=str(tmp_path),
             _ansible_check_mode=True,
@@ -59,7 +59,7 @@ def test_android_ui_runs_script(mocker, tmp_path):
     out = run_module(
         mocker,
         dict(
-            host="p7a",
+            host="stock-android-device",
             task="enable_autojs6_drawer",
             repo_root=str(tmp_path),
         ),

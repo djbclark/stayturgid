@@ -32,11 +32,11 @@ _UI_LABEL_RE = re.compile(
     r'^\s*(?:-\s*)?(?:tap\s+)?.*?"(?P<label>[^"]+)"\s+.*?(?P<x>\d+)\s*,\s*(?P<y>\d+)\s*',
 )
 
-# Alias → local forward port (hd8/s24/p7a share 9012/9013/9014 to avoid uiautomator2 defaults).
+# Alias → local forward port (fireos-device/oneui-device/stock-android-device share 9012/9013/9014 to avoid uiautomator2 defaults).
 DEFAULT_PORTS = {
-    "hd8": 9012,
-    "s24": 9013,
-    "p7a": 9014,
+    "fireos-device": 9012,
+    "oneui-device": 9013,
+    "stock-android-device": 9014,
 }
 
 HS_BIN = os.environ.get(

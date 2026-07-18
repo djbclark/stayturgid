@@ -8,7 +8,7 @@ Standard Termux package maintenance is ``pkg update`` + ``pkg upgrade -y``
 
 Usage:
   python3 control/bin/termux_pkg_nightly.py
-  python3 control/bin/termux_pkg_nightly.py --limit s24
+  python3 control/bin/termux_pkg_nightly.py --limit oneui-device
   CHECK=1 python3 control/bin/termux_pkg_nightly.py   # ansible --check
 
 Logs: ~/.config/stayturgid/logs/termux-pkg-nightly.log

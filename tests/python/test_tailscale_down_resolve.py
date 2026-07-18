@@ -14,19 +14,19 @@ _spec.loader.exec_module(ttd)
 
 
 def test_resolve_serial_delegates_to_device_helper(monkeypatch):
-    monkeypatch.setattr(ttd.dev, "resolve_adb", lambda alias: "192.168.68.60:5555")
-    assert ttd.resolve_serial("s24") == "192.168.68.60:5555"
+    monkeypatch.setattr(ttd.dev, "resolve_adb", lambda alias: "192.0.2.12:5555")
+    assert ttd.resolve_serial("oneui-device") == "192.0.2.12:5555"
 
 
 def test_is_tailscale_path_detects_tunnel_target(monkeypatch):
     monkeypatch.setattr(
         ttd.dev,
         "device_row",
-        lambda alias: ("RFCX219CHKA", "100.65.230.108", "192.168.68.65"),
+        lambda alias: ("EXAMPLE-SERIAL-ONEUI", "100.0.0.12", "192.168.68.65"),
     )
-    assert ttd.is_tailscale_path("p7a", "100.65.230.108:5555") is True
-    assert ttd.is_tailscale_path("p7a", "192.168.68.65:5555") is False
-    assert ttd.is_tailscale_path("p7a", "RFCX219CHKA") is False
+    assert ttd.is_tailscale_path("stock-android-device", "100.0.0.12:5555") is True
+    assert ttd.is_tailscale_path("stock-android-device", "192.168.68.65:5555") is False
+    assert ttd.is_tailscale_path("stock-android-device", "EXAMPLE-SERIAL-ONEUI") is False
 
 
 def test_is_tailscale_path_unknown_alias(monkeypatch):

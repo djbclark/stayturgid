@@ -41,7 +41,7 @@ author:
 EXAMPLES = r"""
 - name: Install F-Droid apps
   stayturgid.fdroid.fdroid_apps:
-    device: p7a
+    device: stock-android-device
     apps:
       - id: org.breezyweather
   delegate_to: localhost

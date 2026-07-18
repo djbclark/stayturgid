@@ -2,8 +2,8 @@
 """Run stayturgid verification + drift detection via Ansible.
 
 Usage:
-  python3 control/bin/verify_drift.py [--host s24] [--all]
-  just verify-drift HOSTS=s24
+  python3 control/bin/verify_drift.py [--host oneui-device] [--all]
+  just verify-drift HOSTS=oneui-device
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "fleet" / "verify-drift.yml"
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Verify stayturgid device state")
-    parser.add_argument("--host", help="Single host alias (s24, p7a, hd8)")
+    parser.add_argument("--host", help="Single host alias (oneui-device, stock-android-device, fireos-device)")
     parser.add_argument("--all", action="store_true", help="Verify all fleet devices")
     args = parser.parse_args(argv)
 
