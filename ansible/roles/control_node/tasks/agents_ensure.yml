@@ -137,7 +137,7 @@
     _adb_launchd_agents: >-
       {{
         groups['stayturgid']
-        | map('regex_replace', '^(.*)$', '{"name": "com.stayturgid.adb-reconnect-\1", "plist": "' ~ agents_dir ~ '/com.stayturgid.adb-reconnect-\1.plist"}')
+        | map('regex_replace', '^(.*)$', '{"name": "com.stayturgid.adb-reconnect-\\1", "plist": "' ~ agents_dir ~ '/com.stayturgid.adb-reconnect-\\1.plist"}')
         | map('from_json')
 
         | list
