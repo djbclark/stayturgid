@@ -22,6 +22,8 @@ modules/live, Flux/Argo app-vs-config repos, Ansible inventory separation):
 There is **no third "glue" repo**: composition logic ships product-side
 (serverapp adapters with own-the-daemon vs inject-only modes) or site-side
 (thin wrappers) — a middle repo is not an industry pattern and adds no value.
+The full contract specification (CLI surface, lockfile semantics, adapter
+interface, acceptance tests) is [site-contract.md](../site-contract.md).
 
 Layout convention: a plain base directory (default `~/ops`, override
 `OPS_ROOT`) holding sibling checkouts. **A private site repo must never be
