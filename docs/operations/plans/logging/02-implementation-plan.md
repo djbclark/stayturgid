@@ -27,7 +27,7 @@ Transitioning `stayturgid` on-device logging to structured JSON lines (JSONL) an
 
 We will update the AutoJs6 client side to emit JSON lines, support `state.json`, and handle private/shared storage paths.
 
-#### [MODIFY] [log.js](file:///Users/djbclark/stayturgid.d/logging/device/autojs6/lib/log.js)
+#### [MODIFY] [log.js](file:///Users/djbclark/ops/stayturgid/device/autojs6/lib/log.js)
 
 - Modify `append(line)` to dual-write logs:
   - Text format to `watchdog.log` (calls `trimLogIfNeeded` to rotate at 1000 lines).
@@ -39,7 +39,7 @@ We will update the AutoJs6 client side to emit JSON lines, support `state.json`,
 
 ### Component 2: AutoJs6 Accessibility Watchdog & Co-Monitor (JS)
 
-#### [MODIFY] [comonitor.js](file:///Users/djbclark/stayturgid.d/logging/device/autojs6/lib/comonitor.js)
+#### [MODIFY] [comonitor.js](file:///Users/djbclark/ops/stayturgid/device/autojs6/lib/comonitor.js)
 
 - At the end of `run()`, call `log.writeState("comonitor", statusObj)` to save AutoJs6-probed statuses to the shared state file.
 
@@ -49,7 +49,7 @@ We will update the AutoJs6 client side to emit JSON lines, support `state.json`,
 
 We will update the Termux repair loop to write JSON logs and update the shared `state.json` file.
 
-#### [MODIFY] [stayturgid_repair.py](file:///Users/djbclark/stayturgid.d/logging/device/termux/py/stayturgid_repair.py)
+#### [MODIFY] [stayturgid_repair.py](file:///Users/djbclark/ops/stayturgid/device/termux/py/stayturgid_repair.py)
 
 - Import `threading` and `json`.
 - Modify `log(msg, level)` to write:
@@ -63,7 +63,7 @@ We will update the Termux repair loop to write JSON logs and update the shared `
 
 We will adapt the error scraper to scan both JSON lines and legacy log formats during rollout.
 
-#### [MODIFY] [logging.py](file:///Users/djbclark/stayturgid.d/logging/control/lib/logging.py)
+#### [MODIFY] [logging.py](file:///Users/djbclark/ops/stayturgid/control/lib/logging.py)
 
 - Import `json`.
 - Update `_REPAIR_LOG_GREP` to search both `*.log` and `*.jsonl` files on the device.
@@ -75,11 +75,11 @@ We will adapt the error scraper to scan both JSON lines and legacy log formats d
 
 We will update tests to cover the new structured configurations and state properties.
 
-#### [MODIFY] [log.test.js](file:///Users/djbclark/stayturgid.d/logging/tests/js/log.test.js)
+#### [MODIFY] [log.test.js](file:///Users/djbclark/ops/stayturgid/tests/js/log.test.js)
 
 - Add unit test cases to verify JSON log line parsing and `writeState()` file operations.
 
-#### [MODIFY] [comonitor.test.js](file:///Users/djbclark/stayturgid.d/logging/tests/js/comonitor.test.js)
+#### [MODIFY] [comonitor.test.js](file:///Users/djbclark/ops/stayturgid/tests/js/comonitor.test.js)
 
 - Update mock `files` object to simulate `state.json` read/write capabilities.
 

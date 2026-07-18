@@ -1,7 +1,7 @@
 # O-V-G-O Stack & Site Identity Implementation Plan (Agent Instructions)
 
 **Audience:** Junior Developer / Autonomous AI Agent
-**Context:** This document provides explicit, step-by-step instructions to implement the unified architecture outlined in [docs/architecture/core-architecture.md](file:///Users/djbclark/stayturgid/docs/architecture/core-architecture.md).
+**Context:** This document provides explicit, step-by-step instructions to implement the unified architecture outlined in [docs/architecture/core-architecture.md](file:///Users/djbclark/ops/stayturgid/docs/architecture/core-architecture.md).
 **End Goal:** Completely replace the legacy custom Python dashboard (`dashboard.py`) and polling monitors (`fleet_health_monitor.py`, `access_monitor.py`) with a modern, resilient, push-based telemetry stack (Vector) and a clean OliveTin execution interface. All configuration must be generated from the Ansible site inventory.
 
 ---
@@ -9,7 +9,7 @@
 ## Agent Guidelines & Rules
 
 1. **Check Before You Edit:** Always use `view_file` or `grep_search` to understand the current context of a file before modifying it.
-2. **Read Required Context:** You must review [docs/coding-rules.md](file:///Users/djbclark/stayturgid/docs/coding-rules.md), [AGENTS.md](file:///Users/djbclark/stayturgid/AGENTS.md), and [docs/handoff.md](file:///Users/djbclark/stayturgid/docs/handoff.md) to understand project conventions and current session state before starting work.
+2. **Read Required Context:** You must review [docs/coding-rules.md](file:///Users/djbclark/ops/stayturgid/docs/coding-rules.md), [AGENTS.md](file:///Users/djbclark/ops/stayturgid/AGENTS.md), and [docs/handoff.md](file:///Users/djbclark/ops/stayturgid/docs/handoff.md) to understand project conventions and current session state before starting work.
 3. **Do Not Hallucinate Paths:** All file paths must be exact. Refer to the directory structure using the `list_dir` tool if you are unsure.
 4. **Run Verifications Locally:** Use the `just check`, `just lint`, and `just test` commands heavily to catch regressions. If a test fails, you must revert or fix the error before proceeding.
 5. **Multi-Agent Protocol:** Before making any edits, run `git fetch origin --prune && git pull --ff-only origin master`. When a phase is complete and passes tests, commit your work with a clear message and push.

@@ -12,7 +12,7 @@ stayturgid_mac_peer:
   lan: "192.168.68.59"
   user: "djbclark"
   port: 22
-  help_cmd: "python3 /Users/djbclark/stayturgid/control/bin/fire_peer_help.py"
+  help_cmd: "python3 /Users/djbclark/ops/stayturgid/control/bin/fire_peer_help.py"
 
 # Phone → Mac Eternal Terminal (et). Shared with stayturgid_mac_peer IPs.
 # Devices get ~/.ssh/config Host mac … IdentityFile id_ed25519_fleet (passphrase-less).

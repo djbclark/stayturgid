@@ -1,5 +1,12 @@
 # OPTIONS — open work
 
+> **Sequencing note (2026-07-18):** the platform/segmentation workstream
+> (identity scrub, O-V-G-O completion, site contract, edge OTel) is sequenced
+> by the **site repo's relay**, not this list — see
+> `~/ops/site-djbclark/docs/relay/NEXT-PROMPT.md` and
+> `docs/plans/site-djbclark-step2-junior-execution-plan-v1.md` there. This
+> list remains the menu for fleet-reliability work outside that workstream.
+>
 > **For agents:** When the operator asks for **options** or **next steps**, read this
 > file, present the open items **with descriptions and risk**, do any requested work,
 > then **replace** this list (drop completed items; keep IDs stable). **Commit and
