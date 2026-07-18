@@ -103,6 +103,42 @@ ok(/\/logs\/?$/.test(dirArg) && dirArg.indexOf("watchdog.log") < 0,
 ok(log.readWatchdogLog().indexOf(written) >= 0,
     "append() writes the timestamped line to the watchdog log");
 
+// JSONL dual-write: append() should also write a valid JSON line to watchdog.jsonl
+var watchdogJsonlPath = config.pathsFor(config.detectDeviceProfile()).watchdogJsonl;
+var jsonlContent = "";
+try { jsonlContent = fs.readFileSync(mapped(watchdogJsonlPath), "utf8"); } catch (e) {}
+var jsonlLines = jsonlContent.split("\n").filter(function (l) { return l.trim(); });
+ok(jsonlLines.length > 0, "append() dual-writes at least one JSONL line to watchdog.jsonl");
+if (jsonlLines.length > 0) {
+    var parsed = null;
+    try { parsed = JSON.parse(jsonlLines[jsonlLines.length - 1]); } catch (e) {}
+    ok(parsed !== null && typeof parsed.timestamp === "string",
+        "JSONL line has a timestamp field");
+    ok(parsed !== null && typeof parsed.message === "string",
+        "JSONL line has a message field");
+    ok(parsed !== null && parsed.hostname === "s24",
+        "JSONL line contains hostname from device profile");
+}
+
+// writeState: writes state.json with source namespace and timestamp
+log.writeState("repair", { port: "open", shizuku: "up", sshd: "up", shell: "yes" });
+var statePath = config.pathsFor(config.detectDeviceProfile()).watchdogState;
+var stateContent = "";
+try { stateContent = fs.readFileSync(mapped(statePath), "utf8"); } catch (e) {}
+var stateObj = null;
+try { stateObj = JSON.parse(stateContent); } catch (e) {}
+ok(stateObj !== null && stateObj.repair && stateObj.repair.port === "open",
+    "writeState() persists repair.port to state.json");
+ok(stateObj !== null && stateObj.repair && typeof stateObj.repair.timestamp === "string",
+    "writeState() adds a timestamp to the state entry");
+
+// latestRepairStatus() prefers state.json over log scanning
+// Clear the watchdog log so any result must come from state.json
+files.write(config.WATCHDOG_LOG, "no status lines here\n");
+var fromState = log.latestRepairStatus();
+ok(fromState !== null && fromState.port === "open",
+    "latestRepairStatus() reads from state.json when available");
+
 // H10 regression: AutoJs6 does not provide files.getParent(). The shared helper
 // must derive the directory using plain string operations and ensure the parent
 // of a missing state/trigger file without treating the file path as a directory.
@@ -117,3 +153,4 @@ ok(ensureDirCalls[ensureDirCalls.length - 1] === "/sdcard/stayturgid/run/",
 
 console.log("1.." + n);
 process.exit(failed ? 1 : 0);
+

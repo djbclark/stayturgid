@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import datetime
 import fcntl
+import json
 import os
 import re
 import time
@@ -204,26 +205,71 @@ _ERROR_PATTERNS: list[tuple[re.Pattern, int]] = [
 ]
 
 _REPAIR_LOG_GREP = r"""export PATH=/data/data/com.termux/files/usr/bin:$PATH
-l1=""; l2=""; [ -f ~/.stayturgid/logs/repair.log ] && l1="repair.log"; \
-[ -f /sdcard/stayturgid/logs/watchdog.log ] && l2="watchdog.log"
-grep -h -i -E 'FAILED|CLOSED_NO_SHELL|Error|Exception|Traceback|cannot find|crash|permission' \
-  ${l1:+"~/.stayturgid/logs/repair.log"} \
-  ${l2:+/sdcard/stayturgid/logs/watchdog.log} 2>/dev/null | tail -100
+l1=""; l2=""; l3=""; l4=""
+[ -f ~/.stayturgid/logs/repair.log   ] && l1="~/.stayturgid/logs/repair.log"
+[ -f ~/.stayturgid/logs/repair.jsonl ] && l3="~/.stayturgid/logs/repair.jsonl"
+[ -f /sdcard/stayturgid/logs/watchdog.log  ] && l2="/sdcard/stayturgid/logs/watchdog.log"
+[ -f /sdcard/stayturgid/logs/watchdog.jsonl ] && l4="/sdcard/stayturgid/logs/watchdog.jsonl"
+grep -h -i -E 'FAILED|CLOSED_NO_SHELL|Error|Exception|Traceback|cannot find|crash|permission|"level":"(err|crit|alert|emerg)' \
+  ${l1:+"$l1"} ${l2:+"$l2"} ${l3:+"$l3"} ${l4:+"$l4"} 2>/dev/null | tail -100
 """
+
+
+_JSON_LEVEL_MAP: dict[str, int] = {
+    "emerg": EMERG,
+    "alert": ALERT,
+    "crit": CRIT,
+    "err": ERR,
+    "error": ERR,
+    "warning": WARNING,
+    "warn": WARNING,
+    "notice": NOTICE,
+    "info": INFO,
+    "debug": DEBUG,
+}
 
 
 def scrape_errors(text: str) -> list[tuple[int, str]]:
     """Parse a block of log text and extract error lines with severity levels.
 
+    Handles both structured JSONL lines (from the new dual-write pipeline) and
+    legacy plain-text log lines (backwards-compatible fallback during rollout).
+
     Returns list of (severity_level, line) tuples, sorted by severity (most severe first).
     """
     results: list[tuple[int, str]] = []
-    seen: set[str] = set()
+    seen: set[tuple[int, str]] = set()
 
     for line in text.splitlines():
         line = line.strip()
         if not line:
             continue
+
+        # --- Try structured JSONL first ---
+        if line.startswith("{"):
+            try:
+                obj = json.loads(line)
+                raw_level = str(obj.get("level", "")).lower()
+                level = _JSON_LEVEL_MAP.get(raw_level, INFO)
+                if level <= ERR:  # EMERG / ALERT / CRIT / ERR only
+                    msg = obj.get("message", line)
+                    ts_val = obj.get("timestamp", "")
+                    tag = obj.get("tag", "")
+                    formatted = "%s [%s] %s: %s" % (
+                        ts_val,
+                        tag,
+                        severity_label(level),
+                        msg,
+                    )
+                    dedup = (level, formatted[-200:])
+                    if dedup not in seen:
+                        seen.add(dedup)
+                        results.append((level, formatted))
+                continue
+            except (ValueError, KeyError):
+                pass  # Not valid JSON — fall through to regex matching
+
+        # --- Legacy plain-text regex matching ---
         for pattern, level in _ERROR_PATTERNS:
             if pattern.search(line):
                 dedup = (level, line[-200:])
