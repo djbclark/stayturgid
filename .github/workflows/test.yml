@@ -56,10 +56,14 @@ jobs:
         uses: extractions/setup-just@v3
       - name: Install Ansible collections
         run: ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections
+      - name: Prepare generic inventory for checks
+        run: cp ansible/inventory/hosts.yml.example ansible/inventory/hosts.yml
       - name: Set up Python test venv (pytest + ansible-core)
         run: uv venv .venv-test && uv pip install -q -r tests/python/requirements.txt
       - name: configure
         run: ./configure
+      - name: just syntax (generic inventory)
+        run: just syntax
       - name: just check (tier a — syntax/lint under CI interpreters)
         run: just check
       - name: just test (tier b shell suite + pytest twins + ansible-test units)

@@ -342,12 +342,21 @@ def main() -> int:
         )
     except FileNotFoundError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
+        if args.warn_only:
+            print("identity: WARN — inventory is unavailable (warn-only mode)")
+            return 0
         return 2
     except RuntimeError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
+        if args.warn_only:
+            print("identity: WARN — inventory could not be loaded (warn-only mode)")
+            return 0
         return 2
     except ValueError as exc:
         print(f"INVALID inventory: {exc}", file=sys.stderr)
+        if args.warn_only:
+            print("identity: WARN — inventory is incomplete (warn-only mode)")
+            return 0
         return 1
 
     # ---- Single host mode ----
