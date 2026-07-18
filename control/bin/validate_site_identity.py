@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 """Validate the stayturgid site identity and check for configuration drift.
 
-Operators: run after editing ``ansible/inventory/hosts.yml`` or before
-any fleet deploy to catch divergence between declared and hard-coded
-identity.
+Operators: run after editing site inventory or before any fleet deploy to catch
+divergence between declared and hard-coded identity.
+
+Inventory resolution reuses ``control/lib/ansible_context.py``:
+
+* ``ANSIBLE_CONFIG`` wins when set
+* else the site overlay (``STAYTURGID_SITE_DIR``, default ``~/ops/site-djbclark``)
+* else the upstream generic/example inventory
 
     python3 control/bin/validate_site_identity.py
     python3 control/bin/validate_site_identity.py --check-drift
     python3 control/bin/validate_site_identity.py --check-secrets
-    python3 control/bin/validate_site_identity.py --host s24
+    python3 control/bin/validate_site_identity.py --host oneui-device
     python3 control/bin/validate_site_identity.py --json
 
 Exit codes:
@@ -20,6 +25,7 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import json
 import re
 import sys
@@ -57,6 +63,45 @@ def _load_si():
 
 
 # ---------------------------------------------------------------------------
+# Generic fixture recognition (multi-site-topology §4.1 + RFC 5737)
+# ---------------------------------------------------------------------------
+
+# Platform-describing example aliases — intentional in generic docs/tools.
+_GENERIC_ALIASES = frozenset(
+    {
+        "oneui-device",
+        "stock-android-device",
+        "fireos-device",
+    }
+)
+
+_GENERIC_NETWORKS = tuple(
+    ipaddress.ip_network(n)
+    for n in (
+        "192.0.2.0/24",  # TEST-NET-1
+        "198.51.100.0/24",  # TEST-NET-2
+        "203.0.113.0/24",  # TEST-NET-3
+        "100.0.0.0/24",  # example Tailscale range used in §4.1
+    )
+)
+
+
+def is_generic_fixture(value: str) -> bool:
+    """Return True when *value* is reserved documentation/example identity."""
+    if not value or value == "-":
+        return True
+    if value in _GENERIC_ALIASES:
+        return True
+    if value.startswith("EXAMPLE-") or value.startswith("example-"):
+        return True
+    try:
+        addr = ipaddress.ip_address(value)
+    except ValueError:
+        return False
+    return any(addr in net for net in _GENERIC_NETWORKS)
+
+
+# ---------------------------------------------------------------------------
 # Drift scanner
 # ---------------------------------------------------------------------------
 
@@ -67,7 +112,7 @@ _SCAN_EXTS = {".py", ".sh", ".yml", ".yaml", ".json", ".toml", ".j2", ".conf", "
 _SKIP_PREFIXES = (
     "ansible/inventory/",  # SSOT — literals here are correct
     "tests/",  # test fixtures intentionally use literals
-    "docs/",  # documentation
+    "docs/",  # documentation (historical banners / architecture examples)
     "examples/",  # example configs
     ".ansible/",  # downloaded collections
     "node_modules/",
@@ -87,20 +132,21 @@ def _should_skip(rel: str) -> bool:
 
 
 def _build_drift_patterns(site) -> list[tuple[str, str]]:
-    """Return (pattern, description) pairs for every production literal."""
+    """Return (pattern, description) pairs for every non-generic production literal."""
     patterns: list[tuple[str, str]] = []
 
     for alias, dev in site.devices.items():
         # Device alias as a standalone word (not part of e.g. "s24ultra")
-        patterns.append((rf"\b{re.escape(alias)}\b", f"device alias '{alias}'"))
+        if not is_generic_fixture(alias):
+            patterns.append((rf"\b{re.escape(alias)}\b", f"device alias '{alias}'"))
 
         # Tailscale / management IP
-        if dev.ansible_host and dev.ansible_host != "-":
+        if dev.ansible_host and dev.ansible_host != "-" and not is_generic_fixture(dev.ansible_host):
             ip_esc = re.escape(dev.ansible_host)
             patterns.append((ip_esc, f"ansible_host IP '{dev.ansible_host}' ({alias})"))
 
         # USB serial
-        if dev.device_usb_serial and dev.device_usb_serial != "-":
+        if dev.device_usb_serial and dev.device_usb_serial != "-" and not is_generic_fixture(dev.device_usb_serial):
             patterns.append(
                 (
                     re.escape(dev.device_usb_serial),
@@ -109,15 +155,15 @@ def _build_drift_patterns(site) -> list[tuple[str, str]]:
             )
 
         # LAN IP
-        if dev.device_lan_ip and dev.device_lan_ip != "-":
+        if dev.device_lan_ip and dev.device_lan_ip != "-" and not is_generic_fixture(dev.device_lan_ip):
             ip_esc = re.escape(dev.device_lan_ip)
             patterns.append((ip_esc, f"LAN IP '{dev.device_lan_ip}' ({alias})"))
 
     # Control node
     cn = site.control_node
-    if cn.lan_ip:
+    if cn.lan_ip and not is_generic_fixture(cn.lan_ip):
         patterns.append((re.escape(cn.lan_ip), f"control node LAN IP '{cn.lan_ip}'"))
-    if cn.tailscale_ip:
+    if cn.tailscale_ip and not is_generic_fixture(cn.tailscale_ip):
         patterns.append((re.escape(cn.tailscale_ip), f"control node Tailscale IP '{cn.tailscale_ip}'"))
 
     return patterns
@@ -130,6 +176,8 @@ def check_drift(site, root: Path) -> list[dict]:
         {file, line, pattern_desc, excerpt}
     """
     compiled = [(re.compile(pat), desc) for pat, desc in _build_drift_patterns(site)]
+    if not compiled:
+        return []
     violations: list[dict] = []
 
     # Use git ls-files for tracked files only (fast, honours .gitignore)
@@ -304,7 +352,7 @@ def main() -> int:
     parser.add_argument(
         "--check-secrets",
         action="store_true",
-        help="Scan hosts.yml for secret-shaped strings.",
+        help="Scan inventory for secret-shaped strings.",
     )
     parser.add_argument(
         "--force-refresh",
@@ -314,7 +362,7 @@ def main() -> int:
     parser.add_argument(
         "--warn-only",
         action="store_true",
-        help="Print violations but always exit 0 (advisory / pre-Phase-2 mode).",
+        help="Print violations but always exit 0 (advisory / migration mode).",
     )
     parser.add_argument(
         "--json",
@@ -332,7 +380,15 @@ def main() -> int:
 
     si = _load_si()
 
-    inventory_path = root / "ansible" / "inventory" / "hosts.yml"
+    # ---- Resolve inventory via shared Ansible context ----
+    try:
+        inventory_path = si.resolve_inventory_path(repo_root=root)
+    except FileNotFoundError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        if args.warn_only:
+            print("identity: WARN — inventory is unavailable (warn-only mode)")
+            return 0
+        return 2
 
     # ---- Load site identity ----
     try:
@@ -397,6 +453,7 @@ def main() -> int:
         output = {
             "valid": exit_code == 0,
             "warn_only": args.warn_only,
+            "inventory_path": str(inventory_path),
             "site": {
                 "devices": {a: asdict(d) for a, d in site.devices.items()},
                 "control_node": asdict(site.control_node),
@@ -412,6 +469,7 @@ def main() -> int:
         return 0 if args.warn_only else exit_code
 
     # Human-readable output
+    print(f"inventory: {inventory_path}")
     _print_site_summary(site, None)
     if args.check_drift:
         _print_drift(drift_violations, args.json_out)
@@ -423,10 +481,7 @@ def main() -> int:
 
     if exit_code != 0 and args.warn_only:
         n = len(drift_violations) + len(secret_findings)
-        print(
-            f"identity: WARN — {n} violation(s) found (warn-only mode; "
-            "run without --warn-only for hard exit — Phase 2 will fix these)"
-        )
+        print(f"identity: WARN — {n} violation(s) found (warn-only mode; run without --warn-only for hard exit)")
         return 0
 
     return exit_code

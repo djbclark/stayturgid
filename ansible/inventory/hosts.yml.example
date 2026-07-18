@@ -32,6 +32,15 @@ all:
         ansible_ssh_private_key_file: "{{ lookup('env', 'HOME') }}/.ssh/termux_key"
         stayturgid_device_id: "{{ inventory_hostname }}"
         stayturgid_automation_mode: autojs6
+        # Generic control-node placeholders (RFC 5737 / example Tailscale).
+        # Site overlays replace these with real peer identity.
+        stayturgid_control_ssh_user: operator
+        stayturgid_mac_peer:
+          user: operator
+          lan: 192.0.2.1
+          tailscale: 100.0.0.1
+        stayturgid_hermes_telegram_allowed_users: ""
+        stayturgid_hermes_telegram_home_channel: ""
 
     android_16:
       hosts: { oneui-device: {}, stock-android-device: {} }

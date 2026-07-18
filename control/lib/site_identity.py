@@ -12,13 +12,15 @@ Usage::
     for alias, device in site.devices.items():
         print(alias, device.ansible_host)
 
-The module calls ``ansible-inventory --list`` to export the inventory as JSON,
-validates the schema, and caches the result to
-``~/.config/stayturgid/.identity_cache.json``.  The cache is invalidated
-whenever ``ansible/inventory/hosts.yml`` is newer than the cache file.
+The module resolves the active inventory via :mod:`ansible_context`
+(explicit ``ANSIBLE_CONFIG``, site overlay, or upstream fallback), calls
+``ansible-inventory --list`` to export JSON, validates the schema, and caches
+the result to ``~/.config/stayturgid/.identity_cache.json``.  The cache is
+keyed by inventory path and invalidated when the inventory is newer than the
+cache file.
 
-Uses only the Python standard library: ``dataclasses``, ``ipaddress``,
-``json``, ``pathlib``, ``re``, ``subprocess``.
+Uses only the Python standard library plus the sibling ``ansible_context``
+module.
 """
 
 from __future__ import annotations
@@ -29,6 +31,9 @@ import re
 import subprocess
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import Mapping
+
+import ansible_context as ac
 
 # ---------------------------------------------------------------------------
 # Cache location
@@ -246,10 +251,11 @@ def _parse_inventory(data: dict) -> Site:
 # ---------------------------------------------------------------------------
 
 
-def _write_cache(site: Site) -> None:
+def _write_cache(site: Site, inventory_path: Path) -> None:
     try:
         _CACHE_DIR.mkdir(parents=True, exist_ok=True)
         payload = {
+            "inventory_path": str(inventory_path.resolve()),
             "telegram_allowed_users": list(site.telegram_allowed_users),
             "telegram_home_channel": site.telegram_home_channel,
             "devices": {alias: asdict(dev) for alias, dev in site.devices.items()},
@@ -261,9 +267,12 @@ def _write_cache(site: Site) -> None:
         pass
 
 
-def _read_cache() -> Site | None:
+def _read_cache(expected_inventory: Path) -> Site | None:
     try:
         payload = json.loads(_CACHE_FILE.read_text(encoding="utf-8"))
+        cached_path = payload.get("inventory_path")
+        if cached_path is None or Path(cached_path).resolve() != expected_inventory.resolve():
+            return None
         devices = {alias: Device(**dev) for alias, dev in payload["devices"].items()}
         control_node = ControlNode(**payload["control_node"])
         return Site(
@@ -280,7 +289,78 @@ def _cache_fresh(hosts_yml: Path) -> bool:
     """Return True if the cache is newer than the inventory source file."""
     if not _CACHE_FILE.is_file():
         return False
-    return _CACHE_FILE.stat().st_mtime > hosts_yml.stat().st_mtime
+    try:
+        return _CACHE_FILE.stat().st_mtime > hosts_yml.stat().st_mtime
+    except OSError:
+        return False
+
+
+# ---------------------------------------------------------------------------
+# Inventory resolution
+# ---------------------------------------------------------------------------
+
+
+def resolve_inventory_path(
+    repo_root: Path | None = None,
+    environ: Mapping[str, str] | None = None,
+    inventory_path: Path | None = None,
+) -> Path:
+    """Return the inventory file used for identity loading.
+
+    Order:
+    1. Explicit ``inventory_path`` argument (tests / callers).
+    2. Inventory from :func:`ansible_context.resolve_ansible_context`.
+    3. When that path is missing, the committed generic example
+       (``ansible/inventory/hosts.yml.example``), which is always present on a
+       fresh clone.  Ansible only auto-detects ``.yml``; the example is
+       materialised to a temporary path by the loader when needed.
+    """
+    if inventory_path is not None:
+        return inventory_path
+
+    root = repo_root if repo_root is not None else _find_repo_root()
+    try:
+        context = ac.resolve_ansible_context(root, environ)
+        if context.inventory.is_file():
+            return context.inventory
+    except ac.AnsibleConfigError:
+        pass
+
+    example = root / "ansible" / "inventory" / "hosts.yml.example"
+    if example.is_file():
+        return example
+    raise FileNotFoundError(
+        "No inventory available: set ANSIBLE_CONFIG or STAYTURGID_SITE_DIR to a "
+        "site overlay, or ensure ansible/inventory/hosts.yml.example exists"
+    )
+
+
+def _ansible_listable_path(inventory_path: Path, tmp_dir: Path | None = None) -> Path:
+    """Return a path ansible-inventory will accept as YAML inventory.
+
+    Ansible's yaml inventory plugin declines non-``.yml``/``.yaml`` suffixes, so
+    ``hosts.yml.example`` must be materialised to a ``.yml`` path first.
+    """
+    if inventory_path.suffix in {".yml", ".yaml"} and inventory_path.name != "hosts.yml.example":
+        return inventory_path
+    if inventory_path.name.endswith(".yml.example") or inventory_path.suffix == ".example":
+        import tempfile
+
+        target_dir = tmp_dir if tmp_dir is not None else Path(tempfile.mkdtemp(prefix="stayturgid-inv-"))
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target = target_dir / "hosts.yml"
+        target.write_text(inventory_path.read_text(encoding="utf-8"), encoding="utf-8")
+        # Copy sibling group_vars when present so ansible-inventory expands them.
+        src_gv = inventory_path.parent / "group_vars"
+        if src_gv.is_dir():
+            import shutil
+
+            dest_gv = target_dir / "group_vars"
+            if dest_gv.exists():
+                shutil.rmtree(dest_gv)
+            shutil.copytree(src_gv, dest_gv)
+        return target
+    return inventory_path
 
 
 # ---------------------------------------------------------------------------
@@ -291,40 +371,50 @@ def _cache_fresh(hosts_yml: Path) -> bool:
 def load_site_identity(
     force_refresh: bool = False,
     inventory_path: Path | None = None,
+    environ: Mapping[str, str] | None = None,
+    repo_root: Path | None = None,
 ) -> Site:
     """Return the current site identity from the Ansible inventory.
 
     Args:
         force_refresh: Skip the cache and re-run ``ansible-inventory``.
-        inventory_path: Override the default inventory path (for testing).
+        inventory_path: Override the resolved inventory path (for testing).
+        environ: Optional environment mapping for Ansible context resolution.
+        repo_root: Optional repository root (defaults to discovery from this file).
 
     Returns:
         A validated, immutable :class:`Site` dataclass.
 
     Raises:
-        FileNotFoundError: If the inventory file does not exist.
+        FileNotFoundError: If no inventory file can be resolved.
         RuntimeError: If ``ansible-inventory`` fails or returns invalid JSON.
         ValueError: If the inventory fails schema validation.
     """
-    if inventory_path is None:
-        root = _find_repo_root()
-        inventory_path = root / "ansible" / "inventory" / "hosts.yml"
+    root = repo_root if repo_root is not None else _find_repo_root()
+    inventory_path = resolve_inventory_path(
+        repo_root=root,
+        environ=environ,
+        inventory_path=inventory_path,
+    )
 
     if not inventory_path.is_file():
         raise FileNotFoundError(f"Authoritative inventory not found at: {inventory_path}")
 
-    # Serve from cache when fresh
+    # Serve from cache when fresh for this inventory path
     if not force_refresh and _cache_fresh(inventory_path):
-        cached = _read_cache()
+        cached = _read_cache(inventory_path)
         if cached is not None:
             return cached
 
+    listable = _ansible_listable_path(inventory_path)
+
     # Export inventory to JSON via ansible-inventory
     result = subprocess.run(
-        ["ansible-inventory", "-i", str(inventory_path), "--list"],
+        ["ansible-inventory", "-i", str(listable), "--list"],
         capture_output=True,
         text=True,
         check=False,
+        cwd=str(listable.parent),
     )
     if result.returncode != 0:
         raise RuntimeError(f"ansible-inventory failed:\nstdout: {result.stdout}\nstderr: {result.stderr}")
@@ -337,5 +427,5 @@ def load_site_identity(
         ) from exc
 
     site = _parse_inventory(inventory_data)
-    _write_cache(site)
+    _write_cache(site, inventory_path)
     return site
