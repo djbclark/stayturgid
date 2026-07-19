@@ -26,6 +26,9 @@ ansible_collections/stayturgid/*/collections/
 # Operator-local notes (human/ is tracked; responses are not)
 human/RESPONSES.md
 
+# AI-session local state (Claude Code per-checkout config; never product content)
+.claude/
+
 # Fleet a11y live snapshots (Mac CLI + android_a11y_services push temps)
 control/lib/a11y_backups/*.txt
 control/lib/a11y_backups/.*.tmp
