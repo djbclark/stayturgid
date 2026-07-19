@@ -23,6 +23,13 @@
   args:
     executable: "{{ termux_prefix }}/bin/bash"
 
+- name: restart otelcol
+  ansible.builtin.shell: |
+    {{ stayturgid_otelcol_boot_script | quote }} stop >/dev/null 2>&1 || true
+    {{ stayturgid_otelcol_boot_script | quote }}
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+
 - name: reload sshd
   ansible.builtin.command: pkill -HUP sshd
   changed_when: true

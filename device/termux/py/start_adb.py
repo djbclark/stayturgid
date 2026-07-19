@@ -39,6 +39,7 @@ CFENGINE_CF = os.path.join(STG, "cfengine", "stayturgid.cf")
 CF_SERVERD_CF = os.path.join(STG, "cfengine", "cf-serverd.cf")
 CF_SERVERD_PID = os.path.join(STG, "run", "cf-serverd.pid")
 VERSION_CHECK_STAMP = os.path.join(STG, "state", "last_version_check")
+OTELCOL_START = os.path.join(HOME, ".termux", "boot", "start-otelcol.sh")
 
 _ENV_FILE = os.path.join(STG, "env")
 try:
@@ -362,6 +363,7 @@ def daemon_loop() -> None:
             _run_cfagent()
             _monitor_cfserverd()
             _monitor_firerpa()
+            _monitor_otelcol()
         except Exception as exc:
             # A single slow Termux API or repair command must never terminate
             # the only on-device supervisor.
@@ -452,6 +454,16 @@ def _monitor_firerpa() -> None:
     if _firerpa_alive():
         return
     _launch_firerpa_via_shell("restart")
+
+
+# @heals: OTELCOL-RUNNING
+def _monitor_otelcol() -> None:
+    """Re-run the pidfile-safe boot entrypoint if edge collection is enabled."""
+    if not os.access(OTELCOL_START, os.X_OK):
+        return
+    rc = _run([OTELCOL_START], timeout=15)
+    if rc != 0:
+        _boot_log(f"otelcol restart failed rc={rc}")
 
 
 # ── Entry point ────────────────────────────────────────────────────────────

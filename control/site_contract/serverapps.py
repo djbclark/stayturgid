@@ -1967,6 +1967,7 @@ def _materialize_vector_own_for_tests(plan: ServerAppsPlan, app: AppPlan, *, dry
     vector_bin = shutil.which("vector") or "/opt/homebrew/bin/vector"
     arg_lines = [
         f"        <string>{vector_bin}</string>",
+        "        <string>--dangerously-allow-env-var-interpolation</string>",
         "        <string>--config</string>",
         f"        <string>{config_path}</string>",
     ]
@@ -2055,7 +2056,9 @@ def _materialize_openobserve_own_for_tests(plan: ServerAppsPlan, app: AppPlan, *
         <string>{data_dir}/cache</string>
         <key>ZO_HTTP_PORT</key>
         <string>5080</string>
-        <key>ZO_BIND_ADDRESS</key>
+        <key>ZO_HTTP_ADDR</key>
+        <string>127.0.0.1</string>
+        <key>ZO_GRPC_ADDR</key>
         <string>127.0.0.1</string>
     </dict>
 </dict>

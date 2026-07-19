@@ -166,22 +166,26 @@
     - (_oo_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
   register: _oo_legacy_disable
 
-- name: Bootstrap site-namespace openobserve when unloaded
+- name: Boot out site-namespace openobserve when its launchd plist changed
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_openobserve_uid }}/{{ serverapp_openobserve_label }}
+  when:
+    - _oo_launch_state.stdout | trim == 'loaded'
+    - _oo_plist.changed | default(false)
+  register: _oo_plist_reload_bootout
+
+- name: Bootstrap site-namespace openobserve when unloaded or its plist changed
   ansible.builtin.command:
     cmd: >-
       launchctl bootstrap gui/{{ serverapp_openobserve_uid }}
       {{ serverapp_openobserve_plist_path }}
-  when: _oo_launch_state.stdout | trim == 'unloaded'
+  when: >-
+    (_oo_launch_state.stdout | trim == 'unloaded')
+    or (_oo_plist_reload_bootout.changed | default(false))
   register: _oo_bootstrap
-
-- name: Kickstart site-namespace openobserve after plist change
-  ansible.builtin.command:
-    cmd: >-
-      launchctl kickstart -k gui/{{ serverapp_openobserve_uid }}/{{ serverapp_openobserve_label }}
-  when:
-    - _oo_launch_state.stdout | trim == 'loaded'
-    - _oo_plist.changed | default(false)
-  register: _oo_kickstart
+  until: _oo_bootstrap.rc == 0
+  retries: 5
+  delay: 1
 
 - name: Wait for openobserve health endpoint
   ansible.builtin.uri:
