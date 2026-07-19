@@ -1,0 +1,16 @@
+---
+# serverapp_victoriametrics — own-mode VictoriaMetrics adapter (Site Contract v1 §5 / Phase D).
+# Callers pass site_ns and site_dir as extra-vars. Never hard-code site_ns.
+
+serverapp_victoriametrics_home: "{{ lookup('env', 'HOME') }}"
+serverapp_victoriametrics_config_dir: "{{ serverapp_victoriametrics_home }}/.config/{{ site_ns }}/victoriametrics"
+serverapp_victoriametrics_scrape_path: "{{ serverapp_victoriametrics_config_dir }}/scrape.yml"
+serverapp_victoriametrics_data_dir: "{{ serverapp_victoriametrics_config_dir }}/data"
+serverapp_victoriametrics_logs_dir: "{{ serverapp_victoriametrics_home }}/.config/{{ site_ns }}/logs"
+serverapp_victoriametrics_label: "com.{{ site_ns }}.victoriametrics"
+serverapp_victoriametrics_plist_path: "{{ serverapp_victoriametrics_home }}/Library/LaunchAgents/{{ serverapp_victoriametrics_label }}.plist"
+serverapp_victoriametrics_bin: /opt/homebrew/bin/victoria-metrics
+serverapp_victoriametrics_http_port: 8428
+serverapp_victoriametrics_http_listen: "127.0.0.1:{{ serverapp_victoriametrics_http_port }}"
+serverapp_victoriametrics_health_url: "http://127.0.0.1:{{ serverapp_victoriametrics_http_port }}/health"
+serverapp_victoriametrics_uid: "501"

@@ -1,0 +1,22 @@
+---
+# serverapp_olivetin — own-mode OliveTin adapter (Site Contract v1 §5 / Phase D).
+# Config is a projection (§5.3 / design §2): D5 boots a minimal live config;
+# D6 owns inventory→actions purity. Formula not in homebrew-core — install
+# pinned GitHub release binary if absent (never upgrade).
+
+serverapp_olivetin_home: "{{ lookup('env', 'HOME') }}"
+serverapp_olivetin_config_dir: "{{ serverapp_olivetin_home }}/.config/{{ site_ns }}/olivetin"
+serverapp_olivetin_config_path: "{{ serverapp_olivetin_config_dir }}/config.yaml"
+serverapp_olivetin_logs_dir: "{{ serverapp_olivetin_home }}/.config/{{ site_ns }}/logs"
+# Release tree keeps binary + webui together (OliveTin 3k serves static webui).
+serverapp_olivetin_install_dir: "{{ serverapp_olivetin_home }}/.local/share/olivetin"
+serverapp_olivetin_bin_path: "{{ serverapp_olivetin_install_dir }}/OliveTin"
+serverapp_olivetin_webui_dir: "{{ serverapp_olivetin_install_dir }}/webui"
+serverapp_olivetin_label: "com.{{ site_ns }}.olivetin"
+serverapp_olivetin_plist_path: "{{ serverapp_olivetin_home }}/Library/LaunchAgents/{{ serverapp_olivetin_label }}.plist"
+# Pin version for install-if-absent (never upgrade an existing binary).
+serverapp_olivetin_version: "3000.17.1"
+serverapp_olivetin_http_port: 1337
+serverapp_olivetin_listen: "127.0.0.1:{{ serverapp_olivetin_http_port }}"
+serverapp_olivetin_health_url: "http://127.0.0.1:{{ serverapp_olivetin_http_port }}/"
+serverapp_olivetin_uid: "501"

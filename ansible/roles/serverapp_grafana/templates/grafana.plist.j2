@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{{ serverapp_grafana_label }}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{ serverapp_grafana_bin }}</string>
+        <string>server</string>
+        <string>--config</string>
+        <string>{{ serverapp_grafana_ini_path }}</string>
+        <string>--homepath</string>
+        <string>{{ serverapp_grafana_homepath }}</string>
+        <string>--packaging=site</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>WorkingDirectory</key>
+    <string>{{ serverapp_grafana_data_dir }}</string>
+    <key>StandardOutPath</key>
+    <string>{{ serverapp_grafana_logs_dir }}/grafana.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ serverapp_grafana_logs_dir }}/grafana.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>{{ serverapp_grafana_home }}</string>
+        <key>GF_PATHS_PROVISIONING</key>
+        <string>{{ serverapp_grafana_provisioning_dir }}</string>
+    </dict>
+</dict>
+</plist>

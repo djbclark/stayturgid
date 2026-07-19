@@ -53,6 +53,30 @@ ports:
     source:
       file: control/landing/services.json
       json_service_label: Network Landing (localhost)
+  - service: grafana
+    scope: control_node
+    bind: 127.0.0.1
+    source:
+      file: ansible/roles/serverapp_grafana/defaults/main.yml
+      yaml_path: serverapp_grafana_http_port
+  - service: victoriametrics
+    scope: control_node
+    bind: 127.0.0.1
+    source:
+      file: ansible/roles/serverapp_victoriametrics/defaults/main.yml
+      yaml_path: serverapp_victoriametrics_http_port
+  - service: olivetin
+    scope: control_node
+    bind: 127.0.0.1
+    source:
+      file: ansible/roles/serverapp_olivetin/defaults/main.yml
+      yaml_path: serverapp_olivetin_http_port
+  - service: vector-api
+    scope: control_node
+    bind: 127.0.0.1
+    source:
+      file: ansible/roles/serverapp_vector/defaults/main.yml
+      yaml_path: serverapp_vector_api_port
   - service: caddy-health
     scope: control_node
     bind: 127.0.0.1

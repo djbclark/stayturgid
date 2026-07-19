@@ -7,12 +7,24 @@ product: stayturgid
 hosts: {}
 product_defaults:
   control_node:
+    - port: 1337
+      bind: 127.0.0.1
+      owner: stayturgid
+      service: olivetin
+      status: default-claim
+      source: ansible/roles/serverapp_olivetin/defaults/main.yml#serverapp_olivetin_http_port
     - port: 2022
       bind: '*'
       owner: stayturgid
       service: eternal-terminal
       status: default-claim
       source: ansible/roles/control_node/defaults/main.yml#stayturgid_control_et_port
+    - port: 3000
+      bind: 127.0.0.1
+      owner: stayturgid
+      service: grafana
+      status: default-claim
+      source: ansible/roles/serverapp_grafana/defaults/main.yml#serverapp_grafana_http_port
     - port: 4096
       bind: 127.0.0.1
       owner: stayturgid
@@ -61,6 +73,18 @@ product_defaults:
       service: landing
       status: default-claim
       source: control/landing/services.json#Network Landing (localhost)
+    - port: 8428
+      bind: 127.0.0.1
+      owner: stayturgid
+      service: victoriametrics
+      status: default-claim
+      source: ansible/roles/serverapp_victoriametrics/defaults/main.yml#serverapp_victoriametrics_http_port
+    - port: 8686
+      bind: 127.0.0.1
+      owner: stayturgid
+      service: vector-api
+      status: default-claim
+      source: ansible/roles/serverapp_vector/defaults/main.yml#serverapp_vector_api_port
   fleet_device:
     - port: 5555
       bind: '*'
