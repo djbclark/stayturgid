@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Network landing page — single page with links to all web services.
 
-Serves on port 8080. Reads static definitions from services.json and generated
-state from the user-local landing state file. Supports HTMX-based hide/show for
-unreachable services and on-demand rescan.
+Serves on port 8088 (must not collide with Caddy health on 8080). Reads static
+definitions from services.json and generated state from the user-local landing
+state file. Supports HTMX-based hide/show for unreachable services and
+on-demand rescan.
 """
 
 from __future__ import annotations
@@ -23,7 +24,7 @@ from flask import Flask, render_template_string, request
 
 from control.landing import state  # noqa: E402
 
-PORT = 8080
+PORT = 8088  # Phase D4: was 8080 (collided with caddy-health); plists pass --port 8088
 app = Flask(__name__, template_folder=str(_TEMPLATES))
 
 

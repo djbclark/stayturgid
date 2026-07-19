@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{{ serverapp_landing_label }}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{ serverapp_landing_python }}</string>
+        <string>{{ serverapp_landing_repo_root }}/control/landing/landing.py</string>
+        <string>--port</string>
+        <string>{{ serverapp_landing_port }}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>WorkingDirectory</key>
+    <string>{{ serverapp_landing_repo_root }}</string>
+    <key>StandardOutPath</key>
+    <string>{{ serverapp_landing_logs_dir }}/landing.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ serverapp_landing_logs_dir }}/landing.error.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>{{ serverapp_landing_home }}</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>STAYTURGID_SITE_DIR</key>
+        <string>{{ site_dir }}</string>
+    </dict>
+</dict>
+</plist>

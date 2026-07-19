@@ -9,6 +9,7 @@ unreachable services stay in the catalog with reachable=false.
 from __future__ import annotations
 
 import datetime
+import os
 import socket
 import subprocess
 import sys
@@ -19,6 +20,11 @@ _LIB = _REPO / "control" / "lib"
 sys.path.insert(0, str(_REPO))
 
 from control.landing import state  # noqa: E402
+
+try:
+    import yaml
+except ModuleNotFoundError:  # pragma: no cover - optional for bare runs
+    yaml = None  # type: ignore[assignment]
 
 SERVICES_FILE = state.STATE_FILE
 
@@ -88,8 +94,59 @@ def _tcp_probe(host: str, port: int, timeout: float = 2.0) -> bool:
         return False
 
 
-def _scan_localhost() -> list[dict]:
-    """Scan the Mac's local ports for HTTP servers using lsof."""
+def _resolve_registry_ports_path() -> Path | None:
+    """Locate site registry/ports.yml (STAYTURGID_SITE_DIR or OPS_ROOT/site-*)."""
+    env_dir = os.environ.get("STAYTURGID_SITE_DIR", "").strip()
+    if env_dir:
+        candidate = Path(env_dir).expanduser() / "registry" / "ports.yml"
+        if candidate.is_file():
+            return candidate
+    ops_root = Path(os.environ.get("OPS_ROOT", Path.home() / "ops")).expanduser()
+    if ops_root.is_dir():
+        sites = sorted(p for p in ops_root.glob("site-*") if p.is_dir())
+        if len(sites) == 1:
+            candidate = sites[0] / "registry" / "ports.yml"
+            if candidate.is_file():
+                return candidate
+    return None
+
+
+def load_registered_ports(registry_path: Path | None = None) -> set[int]:
+    """Return the set of ports declared in the site registry (any host)."""
+    path = registry_path if registry_path is not None else _resolve_registry_ports_path()
+    if path is None or not path.is_file() or yaml is None:
+        return set()
+    try:
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return set()
+    ports: set[int] = set()
+
+    def _ingest(entries: object) -> None:
+        if not isinstance(entries, list):
+            return
+        for entry in entries:
+            if isinstance(entry, dict) and isinstance(entry.get("port"), int):
+                ports.add(entry["port"])
+
+    hosts = doc.get("hosts") if isinstance(doc, dict) else None
+    if isinstance(hosts, dict):
+        for host_data in hosts.values():
+            if isinstance(host_data, dict):
+                _ingest(host_data.get("ports"))
+    product_defaults = doc.get("product_defaults") if isinstance(doc, dict) else None
+    if isinstance(product_defaults, dict):
+        for group_entries in product_defaults.values():
+            _ingest(group_entries)
+    return ports
+
+
+def _scan_localhost(*, registered_ports: set[int] | None = None) -> list[dict]:
+    """Scan the Mac's local ports for HTTP servers using lsof.
+
+    When *registered_ports* is provided, listeners not listed in the site
+    registry are badged ``unregistered`` (Phase D4 registry drift check).
+    """
     services: list[dict] = []
     try:
         r = subprocess.run(
@@ -119,14 +176,20 @@ def _scan_localhost() -> list[dict]:
 
         status = _http_probe(f"http://127.0.0.1:{port}", timeout=2.0)
         if status is not None:
-            services.append(
-                {
-                    "url": f"http://localhost:{port}",
-                    "label": f"Port {port}",
-                    "group": "mac",
-                    "note": f"HTTP {status}",
-                }
-            )
+            unregistered = registered_ports is not None and port not in registered_ports
+            label = f"Port {port}" + (" [unregistered]" if unregistered else "")
+            note = f"HTTP {status}"
+            if unregistered:
+                note += "; not in registry/ports.yml"
+            entry = {
+                "url": f"http://localhost:{port}",
+                "label": label,
+                "group": "mac",
+                "note": note,
+            }
+            if unregistered:
+                entry["unregistered"] = True
+            services.append(entry)
 
     return services
 
@@ -150,11 +213,17 @@ def discover() -> dict:
         else:
             known_urls[url] = dict(s)
 
-    # Discover new http ports on localhost
-    for s in _scan_localhost():
+    # Discover new http ports on localhost; badge registry drift (D4).
+    registered = load_registered_ports()
+    for s in _scan_localhost(registered_ports=registered if registered else None):
         url = s["url"]
         if url not in known_urls:
             known_urls[url] = s
+        elif s.get("unregistered"):
+            # Refresh badge on already-catalogued dynamic entries
+            known_urls[url]["unregistered"] = True
+            if "[unregistered]" not in known_urls[url].get("label", ""):
+                known_urls[url]["label"] = f"{known_urls[url].get('label', url)} [unregistered]"
 
     # Probe reachability
     hidden = set(existing.get("hidden", []))
@@ -198,7 +267,11 @@ if __name__ == "__main__":
     result = discover()
     reachable = sum(1 for s in result["services"] if s.get("reachable"))
     total = len(result["services"])
+    unregistered = sum(1 for s in result["services"] if s.get("unregistered"))
     print(f"Discovery complete: {reachable}/{total} services reachable")
+    if unregistered:
+        print(f"Registry drift: {unregistered} unregistered listener(s) (not in registry/ports.yml)")
     for s in result["services"]:
         status = "✓" if s.get("reachable") else "✗"
-        print(f"  {status} {s['url']:50s} — {s['label']}")
+        badge = " [unregistered]" if s.get("unregistered") else ""
+        print(f"  {status} {s['url']:50s} — {s['label']}{badge if badge not in s.get('label', '') else ''}")

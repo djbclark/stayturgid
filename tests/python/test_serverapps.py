@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -505,4 +506,75 @@ def test_openobserve_idempotent_second_own_run(tmp_path: Path) -> None:
     assert code2 == sa.EXIT_OK, err2
     assert plist.read_bytes() == before
     assert "mode=own" in stdout2
+    assert "skip" in stdout2
+
+
+# --- landing adapter (D4) --------------------------------------------------
+
+
+def test_landing_port_default_is_8088() -> None:
+    """Footgun closed: bare landing.py default must not collide with caddy-health 8080."""
+    # Avoid importing flask (not in test venv); assert the source constant.
+    text = (ROOT / "control" / "landing" / "landing.py").read_text(encoding="utf-8")
+    assert re.search(r"^PORT = 8088\b", text, re.MULTILINE)
+    assert not re.search(r"^PORT = 8080\b", text, re.MULTILINE)
+
+
+def test_landing_mode_defaults_to_own(tmp_path: Path) -> None:
+    dest = _init_and_sync(tmp_path)
+    home = tmp_path / "home"
+    home.mkdir()
+    code, stdout, stderr = _run(dir_path=str(dest), mode="dry-run", home=home, apps="landing")
+    assert code == sa.EXIT_OK, stderr
+    assert "landing: mode=own (source=default)" in stdout
+
+
+def test_landing_own_materializes_both_plists(tmp_path: Path) -> None:
+    dest = _init_and_sync(tmp_path)
+    home = tmp_path / "home"
+    (home / "Library" / "LaunchAgents").mkdir(parents=True)
+
+    code, stdout, stderr = _run(dir_path=str(dest), mode="apply", home=home, skip_ansible=True, apps="landing")
+    assert code == sa.EXIT_OK, stderr
+    assert "mode=own" in stdout
+
+    landing_plist = home / "Library" / "LaunchAgents" / "com.example.landing.plist"
+    discover_plist = home / "Library" / "LaunchAgents" / "com.example.landing-discover.plist"
+    assert landing_plist.is_file()
+    assert discover_plist.is_file()
+    text = landing_plist.read_text(encoding="utf-8")
+    assert "com.example.landing" in text
+    assert "8088" in text
+    assert "landing.py" in text
+    dtext = discover_plist.read_text(encoding="utf-8")
+    assert "landing-discover" in dtext
+    assert "discover.py" in dtext
+
+
+def test_landing_inject_refused(tmp_path: Path) -> None:
+    dest = _init_and_sync(tmp_path)
+    home = tmp_path / "home"
+    home.mkdir()
+    _write_site_map(
+        dest,
+        "contract_version: 1\nserverapps:\n  landing:\n    mode: inject\n",
+    )
+    code, stdout, stderr = _run(dir_path=str(dest), mode="apply", home=home, apps="landing")
+    assert code == sa.EXIT_WOULD_OVERWRITE, (stdout, stderr)
+    assert "inject" in stderr.lower()
+
+
+def test_landing_idempotent_second_own_run(tmp_path: Path) -> None:
+    dest = _init_and_sync(tmp_path)
+    home = tmp_path / "home"
+    (home / "Library" / "LaunchAgents").mkdir(parents=True)
+
+    code1, _, err1 = _run(dir_path=str(dest), mode="apply", home=home, skip_ansible=True, apps="landing")
+    assert code1 == sa.EXIT_OK, err1
+    plist = home / "Library" / "LaunchAgents" / "com.example.landing.plist"
+    before = plist.read_bytes()
+
+    code2, stdout2, err2 = _run(dir_path=str(dest), mode="apply", home=home, skip_ansible=True, apps="landing")
+    assert code2 == sa.EXIT_OK, err2
+    assert plist.read_bytes() == before
     assert "skip" in stdout2
