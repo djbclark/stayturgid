@@ -9,7 +9,7 @@ all:
     stayturgid:
       hosts:
         my_phone:
-          ansible_host: 192.168.1.50        # Tailscale IP or LAN
+          ansible_host: 192.0.2.50        # Tailscale IP or LAN
           ansible_port: 8022
           ansible_user: u0_aXXX             # any user — auth is by SSH key
           ansible_python_interpreter: /data/data/com.termux/files/usr/bin/python

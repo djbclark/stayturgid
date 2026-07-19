@@ -32,7 +32,7 @@ def test_stayturgid_root_cli(tmp_path):
 
 def test_resolve_adb_cli_usb_tailscale_and_dash_ts(tmp_path):
     conf = tmp_path / "devices.conf"
-    conf.write_text("oneui-device RFCX 100.123 192.168.68.55\n")
+    conf.write_text("oneui-device RFCX 100.0.0.11 192.0.2.55\n")
     stubs = tmp_path / "stubs"
     stubs.mkdir()
     adb = stubs / "adb"
@@ -52,15 +52,15 @@ def test_resolve_adb_cli_usb_tailscale_and_dash_ts(tmp_path):
     r = subprocess.run([str(cli), "oneui-device"], capture_output=True, text=True, env=env, check=False)
     # When neither LAN nor Tailscale is TCP-open, static_fallback prefers Tailscale
     # (stable) over DHCP LAN — see adb_resolve.static_fallback.
-    assert r.stdout.strip() == "100.123:5555"
+    assert r.stdout.strip() == "100.0.0.11:5555"
 
     conf.write_text("oneui-device RFCX - -\n")
     r = subprocess.run([str(cli), "oneui-device"], capture_output=True, text=True, env=env, check=False)
     assert r.stdout.strip() == "oneui-device"
 
-    conf.write_text("stock-android-device - - 192.168.1.9\n")
+    conf.write_text("stock-android-device - - 192.0.2.9\n")
     r = subprocess.run([str(cli), "stock-android-device"], capture_output=True, text=True, env=env, check=False)
-    assert r.stdout.strip() == "192.168.1.9:5555"
+    assert r.stdout.strip() == "192.0.2.9:5555"
 
     r = subprocess.run(
         [str(cli), "--ssh-host", "stock-android-device"],

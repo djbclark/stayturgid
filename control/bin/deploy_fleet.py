@@ -33,7 +33,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from control.lib.ansible_context import AnsibleConfigError, require_inventory, resolve_ansible_context
+from control.lib.ansible_context import (
+    AnsibleConfigError,
+    require_inventory,
+    require_limit_hosts,
+    resolve_ansible_context,
+    resolved_env,
+)
 
 SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "site.yml"
 MAC_SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "control_node" / "site.yml"
@@ -80,12 +86,9 @@ def load_play_env(env: dict[str, str]) -> None:
 
 
 def repo_env() -> dict[str, str]:
-    env = os.environ.copy()
-    context = resolve_ansible_context(REPO_ROOT, env)
     # Canonicalizing the selected path preserves the caller's choice while
     # making relative ANSIBLE_CONFIG values reliable from any product recipe.
-    env["ANSIBLE_CONFIG"] = str(context.config)
-    env["STAYTURGID_ROOT"] = str(REPO_ROOT)
+    env = resolved_env(REPO_ROOT)
     load_play_env(env)
     return env
 
@@ -212,11 +215,15 @@ def deploy_mac(*, check: bool, tags: str = "mac", verbose: int = 0) -> int:
 
 def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0) -> int:
     require_ansible()
-    require_inventory(resolve_ansible_context(REPO_ROOT))
+    context = resolve_ansible_context(REPO_ROOT)
+    require_inventory(context)
     warn_prerequisites(scope)
     install_collections()
 
     targets = resolve_hosts(hosts)
+    # A limit that matches no inventory hosts must fail loudly instead of
+    # letting an empty play report a green deploy.
+    require_limit_hosts(context, ",".join(targets))
     # preflight.yml owns SSH bootstrap; skip the redundant bootstrap.yml pass in
     # both normal deploys and dry runs.
     skip_bootstrap = "bootstrap"

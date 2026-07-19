@@ -65,7 +65,7 @@ the canonical Termux probe over SSH:
 
 Only output `2000` counts as success. Android authorization remains human-gated;
 select **Allow all the time** on the phone when prompted, then press the dashboard
-button again. A missing Termux SSH path (for example HD8) is reported rather than
+button again. A missing Termux SSH path (for example `fireos-device`) is reported rather than
 silently falling back to a misleading success state.
 
 ## Standalone ADB keepalive

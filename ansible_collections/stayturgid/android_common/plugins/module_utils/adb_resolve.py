@@ -155,7 +155,7 @@ def discover_mdns_endpoint(run_command, usb_serial):
 
     ``adb mdns services`` lines look like::
 
-      adb-EXAMPLE-SERIAL-FIRE-Av5cQl_adb-tls-connect._tcp192.168.68.68:39081
+      adb-EXAMPLE-SERIAL-FIRE-Av5cQl_adb-tls-connect._tcp192.0.2.68:39081
 
     Classic ``ip:5555`` is often refused on Fire while this listener is up.
     """

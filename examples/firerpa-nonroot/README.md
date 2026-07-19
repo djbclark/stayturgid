@@ -97,7 +97,7 @@ just install
 
 ```dotenv
 ADB_TARGET=R58M123456A
-FIRERPA_HOST=100.64.10.20
+FIRERPA_HOST=100.0.0.20
 ```
 
 `ADB_TARGET` may be a USB serial, `host:port`, or another serial accepted by
@@ -107,7 +107,7 @@ Tailscale IP or DNS name and does not need to equal `ADB_TARGET`.
 Variables can also be supplied without an `.env` file:
 
 ```bash
-just ADB_TARGET=R58M123456A FIRERPA_HOST=100.64.10.20 install
+just ADB_TARGET=R58M123456A FIRERPA_HOST=100.0.0.20 install
 ```
 
 To reuse an existing private certificate, set its absolute path instead of generating
@@ -150,7 +150,7 @@ These commands are useful for understanding or debugging the automation. Adjust
 
 ```bash
 export SERIAL=R58M123456A
-export HOST=100.64.10.20
+export HOST=100.0.0.20
 export PORT=65000
 export ROOT=/data/local/tmp/firerpa
 export WORK="$PWD/.work"

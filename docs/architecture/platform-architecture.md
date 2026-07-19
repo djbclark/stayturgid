@@ -134,7 +134,7 @@ The project is approximately 60% of the way to a clean single source of truth:
 | `ansible/roles/control_node/tasks/agents.yml`     | ✅ Generates from inventory     | Renders `devices.conf`, SSH fragment, launchd agents from templates |
 | `control/lib/stayturgid_device.py`                | ✅ Reads projection             | Parses `devices.conf` for device resolution                         |
 | `secretspec.toml`                                 | ✅ Declares secret names        | All secret metadata; values in providers                            |
-| `control/cfengine/cf-runagent.cf`                 | ❌ Hardcoded IPs                | Embeds production Tailscale IPs directly                            |
+| `control/cfengine/cf-runagent.cf.example`         | ✅ Generic example              | Live policy renders to `~/.config/stayturgid/cfengine/` (untracked) |
 | `AGENTS.md`, `docs/hacking.md`, `docs/handoff.md` | ❌ Duplicated identity          | Fleet table duplicates IPs and serials from inventory               |
 | Several FIRERPA tools, tests, and plan documents  | ❌ Scattered literals           | Production addresses and serials appear in active code              |
 | `device/termux/py/stayturgid_peer_bootstrap.py`   | ❌ Hardcoded `DEFAULT_SSH_USER` | `operator` instead of reading from inventory/projection             |
@@ -164,7 +164,7 @@ The following active files contain hardcoded production literals (`oneui-device`
 
 | File Path                                         | Gaps Identified                                                                       | Classification / Action Required                                   |
 | :------------------------------------------------ | :------------------------------------------------------------------------------------ | :----------------------------------------------------------------- |
-| `control/cfengine/cf-runagent.cf`                 | Hardcoded Tailscale IPs for all three devices                                         | `violation` — Migrate to Jinja2 template rendered via Ansible      |
+| `control/cfengine/cf-runagent.cf.example`         | Resolved: generic fixtures only; live render is untracked                             | `resolved` — Jinja2 template renders to runtime config home        |
 | `control/landing/services.json`                   | Hardcoded hostnames, Tailscale IPs, LAN IPs                                           | `violation` — Separate static catalog from dynamic discovery state |
 | `control/landing/discover.py`                     | Reference to production aliases and IPs                                               | `violation` — Read from inventory projections                      |
 | `control/bin/cf-run.sh`                           | Embedded `oneui-device`, `stock-android-device`, `fireos-device` aliases              | `violation` — Require explicit target host argument                |
@@ -342,12 +342,12 @@ inventory is the data model. Templates in
 
 ### 4.2 Current Projections
 
-| Projection                | Template                                                                                          | Consumer                                           | Rendered by                                                       |
-| ------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------- |
-| `devices.conf`            | [`devices.conf.j2`](../../ansible/roles/control_node/templates/devices.conf.j2)                   | `control/lib/stayturgid_device.py`, Python scripts | [`agents.yml`](../../ansible/roles/control_node/tasks/agents.yml) |
-| SSH config fragment       | [`ssh_config_stayturgid.j2`](../../ansible/roles/control_node/templates/ssh_config_stayturgid.j2) | `ssh`, `scp`, `rsync`                              | `agents.yml`                                                      |
-| launchd agent plists      | `com.stayturgid.*.plist.j2`                                                                       | macOS `launchd`                                    | `agents.yml`                                                      |
-| CFEngine `cf-runagent.cf` | ❌ **Currently hardcoded** — needs migration to template                                          | `cf-runagent`                                      | ❌ Manual                                                         |
+| Projection                | Template                                                                                                               | Consumer                                           | Rendered by                                                       |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- | ----------------------------------------------------------------- |
+| `devices.conf`            | [`devices.conf.j2`](../../ansible/roles/control_node/templates/devices.conf.j2)                                        | `control/lib/stayturgid_device.py`, Python scripts | [`agents.yml`](../../ansible/roles/control_node/tasks/agents.yml) |
+| SSH config fragment       | [`ssh_config_stayturgid.j2`](../../ansible/roles/control_node/templates/ssh_config_stayturgid.j2)                      | `ssh`, `scp`, `rsync`                              | `agents.yml`                                                      |
+| launchd agent plists      | `com.stayturgid.*.plist.j2`                                                                                            | macOS `launchd`                                    | `agents.yml`                                                      |
+| CFEngine `cf-runagent.cf` | [`cf-runagent.cf.j2`](../../ansible/roles/control_node/templates/cf-runagent.cf.j2) → `~/.config/stayturgid/cfengine/` | `cf-runagent`                                      | `agents.yml`                                                      |
 
 ### 4.3 Planned Projections (O-V-G-O Stack)
 
@@ -824,16 +824,16 @@ Placeholder addresses use RFC 5737 TEST-NET:
 
 ### 7.7 Code Scrub Targets
 
-| File/Area                                                         | Action                                            |
-| ----------------------------------------------------------------- | ------------------------------------------------- |
-| `AGENTS.md` fleet table                                           | Replace with example hostnames or `hosts.yml` ref |
-| `docs/hacking.md`, `docs/handoff.md`                              | Move operator-specific content to site overlay    |
-| `control/bin/*.py` default adb path                               | Use `shutil.which("adb")` or `STAYTURGID_ADB`     |
-| `peers.json.j2` hardcoded `ssh_user: operator`                    | Replace with `{{ ansible_user }}`                 |
-| `stayturgid_peer_bootstrap.py` `DEFAULT_SSH_USER`                 | Read from inventory/projection or require arg     |
-| `control/tools/play/obtain_play_aas.py` default email             | Remove; require explicit argument                 |
-| Tests using `oneui-device`/`stock-android-device`/`fireos-device` | Replace with example hostnames + RFC 5737 IPs     |
-| `control/cfengine/cf-runagent.cf`                                 | Generate from inventory template                  |
+| File/Area                                                             | Action                                            |
+| --------------------------------------------------------------------- | ------------------------------------------------- |
+| `AGENTS.md` fleet table                                               | Replace with example hostnames or `hosts.yml` ref |
+| `docs/hacking.md`, `docs/handoff.md`                                  | Move operator-specific content to site overlay    |
+| `control/bin/*.py` default adb path                                   | Use `shutil.which("adb")` or `STAYTURGID_ADB`     |
+| `peers.json.j2` hardcoded `ssh_user: operator`                        | Replace with `{{ ansible_user }}`                 |
+| `stayturgid_peer_bootstrap.py` `DEFAULT_SSH_USER`                     | Read from inventory/projection or require arg     |
+| `control/tools/play/obtain_play_aas.py` default email                 | Remove; require explicit argument                 |
+| Tests using `oneui-device`/`stock-android-device`/`fireos-device`     | Replace with example hostnames + RFC 5737 IPs     |
+| `control/cfengine/cf-runagent.cf` (now `.example` + untracked render) | Generate from inventory template                  |
 
 ### 7.8 Site Overlay Layout
 

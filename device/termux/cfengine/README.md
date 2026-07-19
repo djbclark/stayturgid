@@ -44,6 +44,13 @@ Do not run `cfbs install` or deploy this artifact as a CFEngine hub policy:
 Android uses the explicitly invoked standalone files above. The Ansible
 `termux_userland` role builds locally and deploys only this generated artifact.
 
+`cf-serverd.cf` is special: the tracked source is simultaneously valid
+CFEngine policy and an Ansible Jinja2 template — its `allowusers` entry is a
+`{{ ... }}` expression rendered from inventory (`stayturgid_control_ssh_user`)
+at deploy time, so the public repo carries no operator username. The role
+deploys it with `ansible.builtin.template`; the other artifacts are copied
+verbatim.
+
 ## Updating policy
 
 1. Edit a file under `policy/`.

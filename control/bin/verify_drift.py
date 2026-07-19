@@ -9,14 +9,20 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import os
 import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ANSIBLE_CFG = REPO_ROOT / "ansible" / "ansible.cfg"
 PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "fleet" / "verify-drift.yml"
+
+sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
+from ansible_context import (  # noqa: E402
+    AnsibleConfigError,
+    require_limit_hosts,
+    resolve_ansible_context,
+    resolved_env,
+)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -33,8 +39,13 @@ def main(argv: list[str] | None = None) -> int:
         print("Specify --host <alias> or --all")
         return 1
 
-    env = os.environ.copy()
-    env["ANSIBLE_CONFIG"] = str(ANSIBLE_CFG)
+    try:
+        context = resolve_ansible_context(REPO_ROOT)
+        require_limit_hosts(context, hosts)
+        env = resolved_env(REPO_ROOT)
+    except AnsibleConfigError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
     env["ANSIBLE_STDOUT_CALLBACK"] = "default"
 
     proc = subprocess.run(

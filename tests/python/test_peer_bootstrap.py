@@ -14,8 +14,8 @@ import stayturgid_peer_bootstrap as pb  # noqa: E402
 
 
 def test_peer_endpoints_prefer_lan():
-    assert pb.peer_endpoints({"lan": "192.168.1.1", "tailscale": "100.1.2.3"}) == [
-        "192.168.1.1",
+    assert pb.peer_endpoints({"lan": "192.0.2.1", "tailscale": "100.1.2.3"}) == [
+        "192.0.2.1",
         "100.1.2.3",
     ]
     assert pb.peer_endpoints({"lan": "-", "tailscale": "100.1.2.3"}) == ["100.1.2.3"]
@@ -34,7 +34,7 @@ def test_self_adb_targets(tmp_path):
 
 def test_bootstrap_skips_can_help_false(monkeypatch, tmp_path):
     peers = {
-        "self": {"lan": "1.2.3.4", "tailscale": "100.1.1.1"},
+        "self": {"lan": "1.2.3.4", "tailscale": "100.0.0.11"},
         "handsets_port": 9012,
         "peers": [
             {

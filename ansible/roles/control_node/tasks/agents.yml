@@ -9,6 +9,7 @@
     - "{{ conf_dir }}/logs"
     - "{{ conf_dir }}/state"
     - "{{ conf_dir }}/artifacts"
+    - "{{ conf_dir }}/cfengine"
     - "{{ agents_dir }}"
 
 - name: Check system Homebrew PATH configuration (report-only)
@@ -54,10 +55,12 @@
     dest: "{{ conf_dir }}/devices.conf"
     mode: "0644"
 
+# Rendered outside the checkout: the artifact carries live site identity and a
+# tracked destination would dirty the public working tree on every deploy.
 - name: Render cf-runagent.cf from inventory template
   ansible.builtin.template:
     src: cf-runagent.cf.j2
-    dest: "{{ stayturgid_repo_root }}/control/cfengine/cf-runagent.cf"
+    dest: "{{ conf_dir }}/cfengine/cf-runagent.cf"
     mode: "0644"
 
 - name: Resolve Mac SSH identity files from control-node keyring

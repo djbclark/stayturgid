@@ -31,8 +31,8 @@ def _devices_listing(*lines):
 
 def test_resolve_adb_lan_fallback(tmp_path):
     conf = tmp_path / "devices.conf"
-    conf.write_text("stock-android-device - - 192.168.1.9\n")
-    assert adb_resolve.resolve_adb("stock-android-device", _devices_listing(), str(conf)) == "192.168.1.9:5555"
+    conf.write_text("stock-android-device - - 192.0.2.9\n")
+    assert adb_resolve.resolve_adb("stock-android-device", _devices_listing(), str(conf)) == "192.0.2.9:5555"
 
 
 def test_resolve_adb_no_dash_tailscale(tmp_path):
@@ -54,7 +54,7 @@ def test_resolve_adb_prefers_online_lan_over_offline_tailscale(tmp_path):
 
 def test_resolve_adb_connects_wireless_when_needed(tmp_path, monkeypatch):
     conf = tmp_path / "devices.conf"
-    conf.write_text("stock-android-device EXAMPLE-SERIAL-STOCK 100.0.0.12 192.168.68.65\n")
+    conf.write_text("stock-android-device EXAMPLE-SERIAL-STOCK 100.0.0.12 192.0.2.65\n")
     # LAN down, Tailscale reachable — probe gates the (blocking) adb connect.
     monkeypatch.setattr(adb_resolve, "tcp_reachable", lambda ep, timeout=None: ep == "100.0.0.12:5555")
     seen = []
@@ -72,12 +72,12 @@ def test_resolve_adb_connects_wireless_when_needed(tmp_path, monkeypatch):
     assert adb_resolve.resolve_adb("stock-android-device", run, str(conf)) == "100.0.0.12:5555"
     assert ["adb", "connect", "100.0.0.12:5555"] in seen
     # unreachable LAN endpoint must never reach the blocking adb connect
-    assert ["adb", "connect", "192.168.68.65:5555"] not in seen
+    assert ["adb", "connect", "192.0.2.65:5555"] not in seen
 
 
 def test_resolve_adb_skips_connect_for_unreachable_endpoints(tmp_path, monkeypatch):
     conf = tmp_path / "devices.conf"
-    conf.write_text("stock-android-device EXAMPLE-SERIAL-STOCK 100.0.0.12 192.168.68.65\n")
+    conf.write_text("stock-android-device EXAMPLE-SERIAL-STOCK 100.0.0.12 192.0.2.65\n")
     monkeypatch.setattr(adb_resolve, "tcp_reachable", lambda ep, timeout=None: False)
     seen = []
 
@@ -108,28 +108,28 @@ def test_resolve_adb_prefers_mdns_wireless_debug(tmp_path, monkeypatch):
         seen.append(cmd)
         if cmd[:2] == ["adb", "devices"]:
             if any(c[:2] == ["adb", "connect"] for c in seen):
-                return 0, "192.168.68.68:39081\tdevice\n", ""
+                return 0, "192.0.2.68:39081\tdevice\n", ""
             return 0, "", ""
         if cmd[:3] == ["adb", "mdns", "services"]:
             return (
                 0,
-                "adb-EXAMPLE-SERIAL-FIRE-Av5cQl_adb-tls-connect._tcp192.168.68.68:39081\n",
+                "adb-EXAMPLE-SERIAL-FIRE-Av5cQl_adb-tls-connect._tcp192.0.2.68:39081\n",
                 "",
             )
         if cmd[:2] == ["adb", "connect"]:
             return 0, "connected", ""
         return 0, "", ""
 
-    assert adb_resolve.resolve_adb("fireos-device", run, str(conf)) == "192.168.68.68:39081"
-    assert ["adb", "connect", "192.168.68.68:39081"] in seen
+    assert adb_resolve.resolve_adb("fireos-device", run, str(conf)) == "192.0.2.68:39081"
+    assert ["adb", "connect", "192.0.2.68:39081"] in seen
     assert ["adb", "connect", "100.0.0.13:5555"] not in seen
 
 
 def test_resolve_adb_matches_ro_serialno_when_ip_drifted(tmp_path, monkeypatch):
     conf = tmp_path / "devices.conf"
-    conf.write_text("oneui-device EXAMPLE-SERIAL-ONEUI 100.0.0.11 192.168.68.55\n")
-    run = _devices_listing("192.168.68.99:5555\tdevice")
-    assert adb_resolve.resolve_adb("oneui-device", run, str(conf)) == "192.168.68.99:5555"
+    conf.write_text("oneui-device EXAMPLE-SERIAL-ONEUI 100.0.0.11 192.0.2.55\n")
+    run = _devices_listing("192.0.2.99:5555\tdevice")
+    assert adb_resolve.resolve_adb("oneui-device", run, str(conf)) == "192.0.2.99:5555"
 
 
 def test_stayturgid_device_matches_adb_resolve(tmp_path, monkeypatch):

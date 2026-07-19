@@ -315,7 +315,27 @@ Stop defaulting `inventory = inventory/hosts.yml` to production data. Options:
    operators must copy or set `ANSIBLE_CONFIG` from site repo.
 2. **CI** copies `hosts.yml.example` → `hosts.yml` before syntax-check (ephemeral).
 
-### 4.8 Implementation phases (repo split)
+### 4.8 Implementation phases (repo split) and configuration precedence
+
+Product entry points (`deploy_fleet.py`, `deploy_termux.py`, `verify_drift.py`,
+`ansible_exec.py`, `validate_site_identity.py`) resolve their Ansible
+configuration via `control/lib/ansible_context.py` in this order:
+
+1. **`ANSIBLE_CONFIG`** — explicit, always wins. Errors it produces (missing
+   file, missing inventory) are fatal; they never downgrade to a fallback.
+2. **`STAYTURGID_SITE_DIR`** — explicit overlay directory; its `ansible.cfg`
+   must exist or resolution fails.
+3. **Discovery** — `OPS_ROOT` (default `~/ops`) is scanned for `site-*`
+   checkouts containing an `ansible.cfg`. Exactly one match is used; zero or
+   multiple matches fail with instructions to set `STAYTURGID_SITE_DIR` or
+   `ANSIBLE_CONFIG`. There is **no operator-specific default directory** —
+   the public product never hardcodes a site checkout name.
+
+Identity validation additionally falls back to the committed
+`hosts.yml.example` when resolution fails _without_ an explicit
+`ANSIBLE_CONFIG` (the genuinely-unconfigured fresh-clone/CI case). Deploy and
+verify entry points also refuse to run when the resolved inventory matches
+zero hosts for the requested limit, naming the config file that was used.
 
 | Phase | Work                                                                                                |
 | ----- | --------------------------------------------------------------------------------------------------- |

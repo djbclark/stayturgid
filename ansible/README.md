@@ -16,7 +16,7 @@ You need only:
 ```bash
 # Custom host — no stayturgid fleet vars required:
 ansible-playbook ansible/playbooks/fleet/termux-userland.yml \
-  -i 'myphone ansible_host=192.168.1.50 ansible_port=8022 ansible_user=u0_aXXX' \
+  -i 'myphone ansible_host=192.0.2.50 ansible_port=8022 ansible_user=u0_aXXX' \
   -e ansible_python_interpreter=/data/data/com.termux/files/usr/bin/python \
   -e stayturgid_device_id=
 ```
@@ -84,14 +84,14 @@ re-pass → `fleet/validate.yml`. See [docs/architecture/adr/001-ansible-boundar
 ## Run (Termux only)
 
 ```bash
-# S24 (AutoJs6 production)
+# oneui-device (AutoJs6 production)
 ./control/bin/deploy_termux.py oneui-device
 
-# 7a (AutoJs6)
+# stock-android-device (AutoJs6)
 ./control/bin/deploy_termux.py stock-android-device
 ```
 
-Validated on S24 2026-07-05: playbook completed with `changed=0` on the final run and repair check returned:
+Validated on `oneui-device` (Galaxy S24 hardware) 2026-07-05: playbook completed with `changed=0` on the final run and repair check returned:
 
 ```text
 STATUS port=open shizuku=up sshd=up shell=yes

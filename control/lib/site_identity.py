@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import ipaddress
 import json
+import os
 import re
 import subprocess
 from dataclasses import asdict, dataclass
@@ -310,21 +311,34 @@ def resolve_inventory_path(
     Order:
     1. Explicit ``inventory_path`` argument (tests / callers).
     2. Inventory from :func:`ansible_context.resolve_ansible_context`.
-    3. When that path is missing, the committed generic example
-       (``ansible/inventory/hosts.yml.example``), which is always present on a
-       fresh clone.  Ansible only auto-detects ``.yml``; the example is
-       materialised to a temporary path by the loader when needed.
+    3. When resolution fails without an explicit ``ANSIBLE_CONFIG``, the
+       committed generic example (``ansible/inventory/hosts.yml.example``),
+       which is always present on a fresh clone.  Ansible only auto-detects
+       ``.yml``; the example is materialised to a temporary path by the loader
+       when needed.
+
+    An explicitly supplied ``ANSIBLE_CONFIG`` is authoritative: any error it
+    produces (unreadable file, missing inventory) is fatal rather than a
+    silent downgrade to generic fixtures.
     """
     if inventory_path is not None:
         return inventory_path
+
+    env = os.environ if environ is None else environ
+    explicit_config = env.get("ANSIBLE_CONFIG", "").strip()
 
     root = repo_root if repo_root is not None else _find_repo_root()
     try:
         context = ac.resolve_ansible_context(root, environ)
         if context.inventory.is_file():
             return context.inventory
+        if explicit_config:
+            raise ac.AnsibleConfigError(
+                f"ANSIBLE_CONFIG {context.config} selects a missing inventory: {context.inventory}"
+            )
     except ac.AnsibleConfigError:
-        pass
+        if explicit_config:
+            raise
 
     example = root / "ansible" / "inventory" / "hosts.yml.example"
     if example.is_file():

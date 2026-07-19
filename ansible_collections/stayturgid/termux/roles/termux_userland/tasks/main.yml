@@ -114,10 +114,17 @@
   loop:
     - name: stayturgid.cf
       mode: "0644"
-    - name: cf-serverd.cf
-      mode: "0644"
     - name: cf-runagent-wrapper.sh
       mode: "0755"
+  when: "'cfengine' in stayturgid_termux_packages"
+
+# cf-serverd.cf is rendered, not copied: the tracked policy source keeps a
+# Jinja2 allowusers entry so no operator username lives in the public repo.
+- name: Render CFEngine server policy to device (allowusers from inventory)
+  ansible.builtin.template:
+    src: "{{ stayturgid_repo_root }}/device/termux/cfengine/out/masterfiles/cf-serverd.cf"
+    dest: "{{ termux_home }}/.stayturgid/cfengine/cf-serverd.cf"
+    mode: "0644"
   when: "'cfengine' in stayturgid_termux_packages"
 
 - name: Detect Termux account owning termux_home

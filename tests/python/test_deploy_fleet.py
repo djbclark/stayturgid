@@ -108,6 +108,9 @@ def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0):
     monkeypatch.setattr(df, "require_ansible", lambda: None)
     monkeypatch.setattr(df, "warn_prerequisites", lambda scope: None)
     monkeypatch.setattr(df, "install_collections", lambda: None)
+    monkeypatch.setattr(df, "resolve_ansible_context", lambda root, environ=None: object())
+    monkeypatch.setattr(df, "require_inventory", lambda context: None)
+    monkeypatch.setattr(df, "require_limit_hosts", lambda context, limit: limit.split(","))
 
     def run_playbook(playbook, *, limit=None, check, tags, skip_tags=None, extra_vars=None, verbose=0):
         calls.append(("playbook", tags, check, skip_tags))
@@ -202,7 +205,25 @@ def test_load_play_env_missing_file(tmp_path, monkeypatch):
 def test_repo_env_includes_ansible_config(monkeypatch, tmp_path):
     monkeypatch.setattr(df.Path, "home", classmethod(lambda cls, _t=tmp_path: _t))
     monkeypatch.delenv("GPLAY_EMAIL", raising=False)
-    monkeypatch.setenv("STAYTURGID_SITE_DIR", str(tmp_path / "missing-site"))
+    site = tmp_path / "site-example"
+    (site / "inventory").mkdir(parents=True)
+    (site / "ansible.cfg").write_text("[defaults]\ninventory = inventory/hosts.yml\n", encoding="utf-8")
+    (site / "inventory" / "hosts.yml").write_text("all: {}\n", encoding="utf-8")
+    monkeypatch.setenv("ANSIBLE_CONFIG", str(site / "ansible.cfg"))
     env = df.repo_env()
-    assert env["ANSIBLE_CONFIG"] == str(df.REPO_ROOT / "ansible" / "ansible.cfg")
+    assert env["ANSIBLE_CONFIG"] == str(site / "ansible.cfg")
     assert env["STAYTURGID_ROOT"] == str(df.REPO_ROOT)
+
+
+def test_repo_env_fails_without_any_site_selection(monkeypatch, tmp_path):
+    """§4.8: zero discovered site-* checkouts must not silently default."""
+    monkeypatch.setattr(df.Path, "home", classmethod(lambda cls, _t=tmp_path: _t))
+    monkeypatch.delenv("ANSIBLE_CONFIG", raising=False)
+    monkeypatch.delenv("STAYTURGID_SITE_DIR", raising=False)
+    monkeypatch.setenv("OPS_ROOT", str(tmp_path / "empty-ops"))
+    import pytest
+
+    from control.lib.ansible_context import AnsibleConfigError
+
+    with pytest.raises(AnsibleConfigError, match="ANSIBLE_CONFIG or STAYTURGID_SITE_DIR"):
+        df.repo_env()

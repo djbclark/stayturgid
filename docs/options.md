@@ -1,3 +1,5 @@
+<!-- historical: closed/completed entries below record sessions on the former private fleet aliases (S24/P7A/HD8); see docs/architecture/multi-site-topology.md §4.1 for current example names -->
+
 # OPTIONS — open work
 
 > **Sequencing note (2026-07-18):** the platform/segmentation workstream
@@ -196,7 +198,7 @@ providing 84 discoverable recipes via `just --list`. GNU Makefile retired
 session-start and deploy examples updated to `just` syntax. `make` targets preserved
 as compatibility wrappers for CI and operator muscle memory.
 
-Follow the staged plan, compatibility contract, live S24 gates, rollback rules, and
+Follow the staged plan, compatibility contract, live `oneui-device` gates, rollback rules, and
 completion criteria in
 [GNU Make to `just` Migration Plan](operations/plans/just-migration-plan.md). Task/Taskfile is the
 closest direct alternative; `mise` may be evaluated separately for toolchain pinning,
@@ -242,7 +244,7 @@ with the existing Termux/AutoJs6 self-heal layers before adopting it.
 
 **Research complete (2026-07-14):** [Hybrid `ansible-pull` architecture and staged
 pilot](research/ansible-pull-architecture-2026-07-14.md). The recommendation is an
-opt-in, S24-first pilot for a strict device-local, non-secret policy subset. Mac push
+opt-in, `oneui-device`-first pilot for a strict device-local, non-secret policy subset. Mac push
 Ansible remains authoritative for bootstrap, credentials, apps, UI, and recovery. A
 new ADR is required after measured pilot results and before wider adoption.
 
