@@ -135,6 +135,41 @@
     - _caddy_launch_state.stdout | trim == 'unloaded'
   register: _caddy_legacy_bootout
 
+# R1 must-fix (2026-07-19): bootout is session-scoped — the retained legacy
+# plist (RunAtLoad + KeepAlive) would re-bootstrap at next login and fight the
+# site label for 80/443. Persistently disable the label instead of deleting
+# the plist (rollback/D7 still need the file). Rollback becomes:
+#   launchctl bootout gui/<uid>/com.<site_ns>.caddy \
+#     && launchctl enable gui/<uid>/com.stayturgid.caddy \
+#     && launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/com.stayturgid.caddy.plist
+- name: Check whether legacy caddy plist remains on disk
+  ansible.builtin.stat:
+    path: "{{ serverapp_caddy_home }}/Library/LaunchAgents/com.stayturgid.caddy.plist"
+  register: _caddy_legacy_plist
+
+- name: Probe whether legacy caddy label is persistently disabled
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print-disabled "gui/{{ serverapp_caddy_uid }}" 2>/dev/null \
+      | grep -Eq '"com\.stayturgid\.caddy" => (true|disabled)'; then
+      echo disabled
+    else
+      echo enabled
+    fi
+  args:
+    executable: /bin/bash
+  register: _caddy_legacy_disabled
+  changed_when: false
+  when: _caddy_legacy_plist.stat.exists
+
+- name: Persistently disable legacy caddy label (survives login; plist retained)
+  ansible.builtin.command:
+    cmd: launchctl disable gui/{{ serverapp_caddy_uid }}/com.stayturgid.caddy
+  when:
+    - _caddy_legacy_plist.stat.exists
+    - (_caddy_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
+  register: _caddy_legacy_disable
+
 - name: Bootstrap site-namespace caddy when unloaded
   ansible.builtin.command:
     cmd: >-
