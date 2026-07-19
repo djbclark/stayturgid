@@ -7,8 +7,15 @@ divergence between declared and hard-coded identity.
 Inventory resolution reuses ``control/lib/ansible_context.py``:
 
 * ``ANSIBLE_CONFIG`` wins when set
-* else the site overlay (``STAYTURGID_SITE_DIR``, default ``~/ops/site-djbclark``)
-* else the upstream generic/example inventory
+* else ``STAYTURGID_SITE_DIR``, else a single discovered ``site-*`` overlay
+  under ``OPS_ROOT`` (default ``~/ops``)
+* else the upstream generic/example inventory (identity checks only)
+
+When the active configuration's directory carries
+``registry/identity-patterns.yml`` (a site-private list of denylist regexes,
+e.g. the operator's LAN/tailnet ranges), those patterns are merged into the
+drift scan so near-miss identity (historical or alternate addresses not in
+the live inventory) also hard-fails.
 
     python3 control/bin/validate_site_identity.py
     python3 control/bin/validate_site_identity.py --check-drift
@@ -106,7 +113,7 @@ def is_generic_fixture(value: str) -> bool:
 # ---------------------------------------------------------------------------
 
 # File extensions to scan for hardcoded literals
-_SCAN_EXTS = {".py", ".sh", ".yml", ".yaml", ".json", ".toml", ".j2", ".conf", ".cfg"}
+_SCAN_EXTS = {".py", ".sh", ".yml", ".yaml", ".json", ".toml", ".j2", ".conf", ".cfg", ".cf"}
 
 # Paths to skip entirely (relative to repo root); exact prefix match
 _SKIP_PREFIXES = (
@@ -129,6 +136,78 @@ def _should_skip(rel: str) -> bool:
     if any(rel.startswith(p) for p in _SKIP_PREFIXES):
         return True
     return bool(_SKIP_FILENAME_RE.search(rel))
+
+
+# ---------------------------------------------------------------------------
+# Site-overlay denylist patterns (registry/identity-patterns.yml)
+# ---------------------------------------------------------------------------
+
+# Matches "- <regex>" YAML list items (optionally quoted) under `patterns:`.
+_PATTERN_LINE_RE = re.compile(r"^\s*-\s+(?P<item>.+?)\s*$")
+
+
+def _parse_identity_patterns(text: str) -> list[str]:
+    """Parse the site overlay's ``identity-patterns.yml`` (flat regex list).
+
+    Deliberately minimal YAML: comments, a ``patterns:`` key, and one quoted
+    regex per ``- `` list item. Site subnets never belong in this public
+    validator, so the denylist itself lives in the private overlay repo.
+    """
+    patterns: list[str] = []
+    in_list = False
+    for raw in text.splitlines():
+        line = raw.split("#", 1)[0].rstrip() if not raw.lstrip().startswith("-") else raw.rstrip()
+        if not line.strip():
+            continue
+        if line.strip() == "patterns:":
+            in_list = True
+            continue
+        match = _PATTERN_LINE_RE.match(line)
+        if in_list and match:
+            item = match.group("item").strip()
+            if (item.startswith("'") and item.endswith("'")) or (item.startswith('"') and item.endswith('"')):
+                item = item[1:-1]
+            if item:
+                patterns.append(item)
+        elif in_list:
+            in_list = False
+    return patterns
+
+
+def load_overlay_patterns(root: Path) -> list[tuple[str, str]]:
+    """Return (regex, description) denylist pairs from the active overlay.
+
+    The overlay is active when the resolved Ansible config's directory holds
+    ``registry/identity-patterns.yml``; without an overlay (or without the
+    file) the scan runs on inventory-derived patterns only.
+
+    Raises ``ValueError`` when the file contains a regex that does not compile.
+    """
+    lib = root / "control" / "lib"
+    if str(lib) not in sys.path:
+        sys.path.insert(0, str(lib))
+    import ansible_context as ac  # noqa: PLC0415
+
+    try:
+        context = ac.resolve_ansible_context(root)
+    except ac.AnsibleConfigError:
+        return []
+    patterns_file = context.config.parent / "registry" / "identity-patterns.yml"
+    if not patterns_file.is_file():
+        return []
+    try:
+        text = patterns_file.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ValueError(f"Cannot read {patterns_file}: {exc}") from exc
+
+    pairs: list[tuple[str, str]] = []
+    for pattern in _parse_identity_patterns(text):
+        try:
+            re.compile(pattern)
+        except re.error as exc:
+            raise ValueError(f"Invalid regex in {patterns_file}: {pattern!r} ({exc})") from exc
+        pairs.append((pattern, f"site denylist pattern '{pattern}' ({patterns_file.name})"))
+    return pairs
 
 
 def _build_drift_patterns(site) -> list[tuple[str, str]]:
@@ -169,13 +248,17 @@ def _build_drift_patterns(site) -> list[tuple[str, str]]:
     return patterns
 
 
-def check_drift(site, root: Path) -> list[dict]:
+def check_drift(site, root: Path, extra_patterns: list[tuple[str, str]] | None = None) -> list[dict]:
     """Scan tracked source files for hardcoded production literals.
+
+    ``extra_patterns`` carries the site overlay's denylist regexes (see
+    :func:`load_overlay_patterns`).
 
     Returns a list of violation dicts:
         {file, line, pattern_desc, excerpt}
     """
-    compiled = [(re.compile(pat), desc) for pat, desc in _build_drift_patterns(site)]
+    patterns = _build_drift_patterns(site) + list(extra_patterns or [])
+    compiled = [(re.compile(pat), desc) for pat, desc in patterns]
     if not compiled:
         return []
     violations: list[dict] = []
@@ -438,7 +521,12 @@ def main() -> int:
     secret_findings: list[dict] = []
 
     if args.check_drift:
-        drift_violations = check_drift(site, root)
+        try:
+            overlay_patterns = load_overlay_patterns(root)
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 2
+        drift_violations = check_drift(site, root, overlay_patterns)
         if drift_violations:
             exit_code = 1
 

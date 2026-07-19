@@ -63,6 +63,10 @@ jobs:
       - name: configure
         run: ./configure
       - name: just syntax (generic inventory)
+        # Site resolution has no silent default: CI selects the upstream
+        # config explicitly (§4.7/§4.8 of multi-site-topology.md).
+        env:
+          ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
         run: just syntax
       - name: just check (tier a — syntax/lint under CI interpreters)
         run: just check

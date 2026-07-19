@@ -140,7 +140,7 @@ def test_parse_content_desc_center():
 
 def test_resolve_adb_and_ssh_host(tmp_path, monkeypatch):
     conf = tmp_path / "devices.conf"
-    conf.write_text("oneui-device RFCX 100.123 192.168.68.55\n")
+    conf.write_text("oneui-device RFCX 100.0.0.11 192.0.2.55\n")
 
     def fake_run(cmd, **kw):
         if cmd[:2] == ["adb", "devices"]:
@@ -163,7 +163,7 @@ def test_resolve_adb_and_ssh_host(tmp_path, monkeypatch):
         "tcp_reachable",
         lambda ep, timeout=None: False,
     )
-    assert dev.resolve_adb("oneui-device", str(conf)) == "100.123:5555"
+    assert dev.resolve_adb("oneui-device", str(conf)) == "100.0.0.11:5555"
     # unknown alias passes through; ssh host only for known devices
     assert dev.resolve_adb("raw:5555", str(conf)) == "raw:5555"
     assert dev.resolve_ssh_host("oneui-device", str(conf)) == "oneui-device"
@@ -178,8 +178,8 @@ def test_resolve_adb_and_ssh_host(tmp_path, monkeypatch):
     conf.write_text("oneui-device RFCX - -\n")
     assert dev.resolve_adb("oneui-device", str(conf)) == "oneui-device"
     # lan fallback when tailscale missing
-    conf.write_text("stock-android-device - - 192.168.1.9\n")
-    assert dev.resolve_adb("stock-android-device", str(conf)) == "192.168.1.9:5555"
+    conf.write_text("stock-android-device - - 192.0.2.9\n")
+    assert dev.resolve_adb("stock-android-device", str(conf)) == "192.0.2.9:5555"
 
 
 def test_read_shizuku_json_missing_ok():

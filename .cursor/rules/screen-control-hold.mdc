@@ -39,7 +39,7 @@ Do **not** set `STAYTURGID_SKIP_PRESENCE=1` just to avoid a presence timeout on 
 
 ## Cross-project lease (DSCL v1)
 
-Other projects on this Mac may control the same phones (especially **p7a**). Before UI work:
+Other projects on this Mac may control the same phones (especially **stock-android-device**). Before UI work:
 
 ```bash
 python3 control/bin/screen_lease.py status
@@ -49,7 +49,7 @@ python3 control/bin/screen_lease.py check <host>   # exit 1 = foreign hold
 `ScreenControlSession` acquires a Mac lease under
 `~/.local/state/device-screen-control/leases/` automatically. If another
 `holder.project` holds the device, the session **fails closed** — tell the
-operator and use **s24** (or wait) instead of FORCE-stealing.
+operator and use **oneui-device** (or wait) instead of FORCE-stealing.
 
 Full protocol + interop prompt for other AIs:
 [../docs/modules/screen-control-lease.md](../docs/modules/screen-control-lease.md).

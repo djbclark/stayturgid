@@ -102,8 +102,9 @@ but raw diagnostic detail must remain available.
 
 ## Device safety
 
-- Use S24 for the first live test unless the task explicitly depends on P7A or HD8
-  behavior.
+- Use `oneui-device` for the first live test unless the task explicitly depends on
+  `stock-android-device` or `fireos-device` behavior (§4.1 names; your site inventory
+  maps them to real hosts).
 - Before interaction, announce the host, reason, and expected duration using the
   project device-warning convention.
 - Acquire and retain `ScreenControlSession` for multi-step on-glass work. Fail closed
@@ -158,7 +159,8 @@ just --set hosts oneui-device deploy-check
 - Add a regression test that would fail on the old defect.
 - Test failure behavior, not only the happy path.
 - Preserve established exit-code contracts used by CI and health monitoring.
-- For live changes, validate S24 first and expand only when the task requires it.
+- For live changes, validate `oneui-device` first and expand only when the task
+  requires it.
 - Record commands, results, warnings, and rollback evidence in the plan or OPTIONS.
 
 ## Git and documentation

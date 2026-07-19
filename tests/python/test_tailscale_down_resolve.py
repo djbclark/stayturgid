@@ -22,10 +22,10 @@ def test_is_tailscale_path_detects_tunnel_target(monkeypatch):
     monkeypatch.setattr(
         ttd.dev,
         "device_row",
-        lambda alias: ("EXAMPLE-SERIAL-ONEUI", "100.0.0.12", "192.168.68.65"),
+        lambda alias: ("EXAMPLE-SERIAL-ONEUI", "100.0.0.12", "192.0.2.65"),
     )
     assert ttd.is_tailscale_path("stock-android-device", "100.0.0.12:5555") is True
-    assert ttd.is_tailscale_path("stock-android-device", "192.168.68.65:5555") is False
+    assert ttd.is_tailscale_path("stock-android-device", "192.0.2.65:5555") is False
     assert ttd.is_tailscale_path("stock-android-device", "EXAMPLE-SERIAL-ONEUI") is False
 
 

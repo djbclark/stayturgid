@@ -1,14 +1,18 @@
 """Resolve the Ansible site overlay used by product-side entry points.
 
 The public checkout ships only a generic inventory example.  Real deployments
-therefore select a private site's ``ansible.cfg`` by explicit ``ANSIBLE_CONFIG``
-or, when unset, by the conventional ``STAYTURGID_SITE_DIR`` overlay.
+therefore select a private site's ``ansible.cfg`` by explicit ``ANSIBLE_CONFIG``,
+by ``STAYTURGID_SITE_DIR``, or by discovering exactly one ``site-*`` overlay
+checkout under ``OPS_ROOT`` (default ``~/ops``).  There is no operator-specific
+default: ambiguous or absent discovery fails with instructions instead of
+silently selecting a site.
 """
 
 from __future__ import annotations
 
 import configparser
 import os
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
@@ -43,36 +47,64 @@ def _config_value(config: Path, name: str) -> str:
     return parser.get("defaults", name, fallback="").strip()
 
 
+def _discover_site_config(env: Mapping[str, str]) -> Path:
+    """Return the single discovered ``site-*`` overlay ``ansible.cfg``.
+
+    Scans ``OPS_ROOT`` (default ``~/ops``) for sibling ``site-*`` checkouts
+    that carry an ``ansible.cfg``.  Exactly one match is unambiguous; zero or
+    multiple matches must be resolved by the operator — never by a hardcoded
+    site default.
+    """
+
+    ops_root = Path(env.get("OPS_ROOT", "~/ops")).expanduser()
+    candidates = sorted(p / "ansible.cfg" for p in ops_root.glob("site-*") if (p / "ansible.cfg").is_file())
+    if len(candidates) == 1:
+        return candidates[0]
+    if not candidates:
+        raise AnsibleConfigError(
+            f"No site overlay found: {ops_root} contains no site-* checkout with an "
+            "ansible.cfg. Set ANSIBLE_CONFIG or STAYTURGID_SITE_DIR to select a "
+            "configuration explicitly."
+        )
+    listing = ", ".join(str(c.parent) for c in candidates)
+    raise AnsibleConfigError(
+        f"Ambiguous site overlay: multiple site-* checkouts under {ops_root} "
+        f"({listing}). Set ANSIBLE_CONFIG or STAYTURGID_SITE_DIR to select one."
+    )
+
+
 def resolve_ansible_context(
     repo_root: Path,
     environ: Mapping[str, str] | None = None,
 ) -> AnsibleContext:
-    """Return the explicit, site-default, or generic-upstream Ansible context.
+    """Return the explicit, site-directory, or discovered-overlay Ansible context.
 
-    ``ANSIBLE_CONFIG`` always wins.  When it is absent, the private overlay
-    directory can be set with ``STAYTURGID_SITE_DIR``; its default is kept out
-    of the public inventory and is only a conventional local checkout path.
+    ``ANSIBLE_CONFIG`` always wins.  When it is absent, ``STAYTURGID_SITE_DIR``
+    selects the overlay directory explicitly; otherwise exactly one ``site-*``
+    checkout under ``OPS_ROOT`` (default ``~/ops``) is discovered.  Zero or
+    multiple discovery matches raise instead of silently picking a default.
     """
 
     env = os.environ if environ is None else environ
     explicit = env.get("ANSIBLE_CONFIG", "").strip()
+    site_dir_value = env.get("STAYTURGID_SITE_DIR", "").strip()
     if explicit:
         config = _expand_path(explicit, base=Path.cwd()).resolve()
         source = "ANSIBLE_CONFIG"
+    elif site_dir_value:
+        config = (Path(site_dir_value).expanduser() / "ansible.cfg").resolve()
+        source = "STAYTURGID_SITE_DIR"
     else:
-        site_dir = Path(env.get("STAYTURGID_SITE_DIR", "~/ops/site-djbclark")).expanduser()
-        site_config = site_dir / "ansible.cfg"
-        if site_config.is_file():
-            config = site_config.resolve()
-            source = "site overlay"
-        else:
-            config = (repo_root / "ansible" / "ansible.cfg").resolve()
-            source = "upstream fallback"
+        config = _discover_site_config(env).resolve()
+        source = "site overlay"
 
     if not config.is_file():
         if source == "ANSIBLE_CONFIG":
             raise AnsibleConfigError(f"ANSIBLE_CONFIG points to a missing file: {config}")
-        raise AnsibleConfigError(f"Selected {source} Ansible config is missing: {config}")
+        raise AnsibleConfigError(
+            f"Selected {source} Ansible config is missing: {config}. "
+            "Set ANSIBLE_CONFIG or STAYTURGID_SITE_DIR to a valid site overlay."
+        )
 
     inventory_value = _config_value(config, "inventory")
     if not inventory_value:
@@ -92,6 +124,53 @@ def resolve_ansible_context(
         collections_path=collections_path,
         source=source,
     )
+
+
+def resolved_env(repo_root: Path, environ: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Return a subprocess environment pinned to the resolved Ansible context.
+
+    Shared by every fleet entry point so no script can silently substitute the
+    upstream config for the caller's selected site configuration.
+    """
+
+    env = dict(os.environ if environ is None else environ)
+    context = resolve_ansible_context(repo_root, env)
+    env["ANSIBLE_CONFIG"] = str(context.config)
+    env["STAYTURGID_ROOT"] = str(repo_root)
+    return env
+
+
+def require_limit_hosts(context: AnsibleContext, limit: str) -> list[str]:
+    """Return the hosts the resolved inventory matches for *limit*; never zero.
+
+    A limit that matches no hosts means the wrong configuration was selected
+    (or the alias is unknown); succeeding with an empty play would report a
+    deploy/verify as green without touching any device.
+    """
+
+    require_inventory(context)
+    result = subprocess.run(
+        ["ansible", "--list-hosts", "-i", str(context.inventory), limit or "all"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise AnsibleConfigError(
+            f"ansible --list-hosts failed for limit '{limit}' using {context.source} "
+            f"config {context.config}:\n{result.stderr.strip()}"
+        )
+    hosts = [
+        line.strip() for line in result.stdout.splitlines() if line.strip() and not line.lstrip().startswith("hosts (")
+    ]
+    if not hosts:
+        raise AnsibleConfigError(
+            f"Limit '{limit}' matches zero hosts in the inventory selected by "
+            f"{context.source} config {context.config} (inventory {context.inventory}). "
+            "Check the host alias or point ANSIBLE_CONFIG/STAYTURGID_SITE_DIR at the "
+            "intended site overlay."
+        )
+    return hosts
 
 
 def require_inventory(context: AnsibleContext) -> None:

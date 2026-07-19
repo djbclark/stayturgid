@@ -7,6 +7,10 @@
 # Architecture: Mac (cf-runagent) → Device (cf-serverd) → cf-agent.
 # Key trust is peer-to-peer (not CA). First deploy uses trustkeysfrom;
 # remove that line after initial key exchange.
+#
+# This file is both valid CFEngine policy (cf-promises/cfbs validate it as-is)
+# and an Ansible Jinja2 template: the {{ ... }} allowusers entry is rendered
+# from inventory at deploy time, so no operator username is tracked here.
 
 body common control {
     bundlesequence => { "main" };
@@ -21,7 +25,7 @@ body server control {
     # Only the Mac's Tailscale IP can connect.
     allowconnects  => { "100.64.0.0/10" };
     trustkeysfrom => { "100.64.0.0/10" };
-    allowusers    => { "root", "djbclark" };
+    allowusers    => { "root", "{{ stayturgid_control_ssh_user | default(stayturgid_mac_peer.user | default(ansible_user)) }}" };
 
     # Direct cf-agent — no arguments needed. Policy data is sent inline
     # by cf-runagent and cf-agent reads it from stdin.

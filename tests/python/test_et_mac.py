@@ -60,7 +60,7 @@ def test_render_device_ssh_config_includes_identity_and_ips():
     cfg = em.render_device_ssh_config(
         user="operator",
         tailscale_ip="100.1.2.3",
-        lan_ip="192.168.1.1",
+        lan_ip="192.0.2.1",
         identity="id_ed25519_fleet",
         aliases=["mac", "macbook"],
     )
@@ -69,7 +69,7 @@ def test_render_device_ssh_config_includes_identity_and_ips():
     assert "IdentityFile ~/.ssh/id_ed25519_fleet" in cfg
     assert "IdentitiesOnly yes" in cfg
     assert "Host mac-lan" in cfg
-    assert "192.168.1.1" in cfg
+    assert "192.0.2.1" in cfg
     assert "StrictHostKeyChecking accept-new" in cfg
 
 

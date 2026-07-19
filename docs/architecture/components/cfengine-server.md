@@ -28,10 +28,10 @@ that does not depend on ADB or SSH.
 
 ### Mac control-node side
 
-| File                              | Purpose                                                                                                                                                                                                       |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `control/cfengine/cf-runagent.cf` | Runagent policy: hosts list (all 3 devices on port 5308), background children, auto-trust. Mac invokes via `cf-runagent -f <this-file> --remote-bundles <name> -D <class>`.                                   |
-| `~/.cfagent/ppkeys/`              | CFEngine key store. Contains Mac private key (`localhost.priv`), Mac public key (`localhost.pub`), and trusted device keys (`root-MD5=<hash>.pub`). Keys established via `cf-key --trust-key <ip>:<keyfile>`. |
+| File                                                                                                          | Purpose                                                                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `~/.config/stayturgid/cfengine/cf-runagent.cf` (rendered; example: `control/cfengine/cf-runagent.cf.example`) | Runagent policy: hosts list (all fleet devices on port 5308), background children, auto-trust. Rendered from `ansible/roles/control_node/templates/cf-runagent.cf.j2` by `just deploy-mac`; never tracked. Mac invokes via `cf-runagent -f <this-file> --remote-bundles <name> -D <class>`. |
+| `~/.cfagent/ppkeys/`                                                                                          | CFEngine key store. Contains Mac private key (`localhost.priv`), Mac public key (`localhost.pub`), and trusted device keys (`root-MD5=<hash>.pub`). Keys established via `cf-key --trust-key <ip>:<keyfile>`.                                                                               |
 
 ### Ansible deploy
 

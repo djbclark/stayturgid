@@ -1,7 +1,7 @@
 /**
  * Validate catastrophic UI repair (Shizuku Start tap) without breaking port 5555.
  * Mirrors the CLOSED_NO_SHELL branch in watchdog.js — use when 5555 cannot be
- * safely taken down (e.g. S24 Shizuku auto-restart).
+ * safely taken down (e.g. oneui-device Shizuku auto-restart).
  *
  * Requires: unlocked screen, AutoJs6 accessibility, mode=autojs6.
  */

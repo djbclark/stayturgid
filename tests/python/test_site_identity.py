@@ -476,3 +476,44 @@ def test_site_is_immutable(fake_inventory: Path) -> None:
         site.telegram_home_channel = "mutated"  # type: ignore[misc]
     with pytest.raises((AttributeError, TypeError)):
         site.devices["oneui-device"].alias = "mutated"  # type: ignore[misc]
+
+
+# ---------------------------------------------------------------------------
+# B6 M1: explicit ANSIBLE_CONFIG errors are fatal in resolve_inventory_path
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_inventory_path_explicit_config_error_is_fatal(tmp_path: Path) -> None:
+    """A misspelled explicit config must not downgrade to generic fixtures."""
+    with pytest.raises(si.ac.AnsibleConfigError):
+        si.resolve_inventory_path(
+            repo_root=_repo_root_with_example(tmp_path),
+            environ={"ANSIBLE_CONFIG": str(tmp_path / "missing.cfg")},
+        )
+
+
+def test_resolve_inventory_path_explicit_config_missing_inventory_is_fatal(tmp_path: Path) -> None:
+    config = tmp_path / "ansible.cfg"
+    config.write_text("[defaults]\ninventory = inventory/hosts.yml\n", encoding="utf-8")
+    with pytest.raises(si.ac.AnsibleConfigError, match="missing inventory"):
+        si.resolve_inventory_path(
+            repo_root=_repo_root_with_example(tmp_path),
+            environ={"ANSIBLE_CONFIG": str(config)},
+        )
+
+
+def test_resolve_inventory_path_unconfigured_falls_back_to_example(tmp_path: Path) -> None:
+    """The example fallback remains for the genuinely-unconfigured case."""
+    root = _repo_root_with_example(tmp_path)
+    resolved = si.resolve_inventory_path(
+        repo_root=root,
+        environ={"OPS_ROOT": str(tmp_path / "empty-ops")},
+    )
+    assert resolved == root / "ansible" / "inventory" / "hosts.yml.example"
+
+
+def _repo_root_with_example(tmp_path: Path) -> Path:
+    root = tmp_path / "repo"
+    (root / "ansible" / "inventory").mkdir(parents=True)
+    (root / "ansible" / "inventory" / "hosts.yml.example").write_text("all: {}\n", encoding="utf-8")
+    return root

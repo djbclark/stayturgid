@@ -7,22 +7,25 @@ Usage: deploy_termux.py <oneui-device|fireos-device|stock-android-device|host>
 from __future__ import annotations
 
 import argparse
-import os
 import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ANSIBLE_CFG = REPO_ROOT / "ansible" / "ansible.cfg"
 PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "fleet" / "termux-userland.yml"
 REQUIREMENTS = REPO_ROOT / "ansible" / "requirements.yml"
-COLLECTIONS_PATH = REPO_ROOT / ".ansible" / "collections"
 SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "LogLevel=ERROR"]
 
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
 import adb_cli as ac  # noqa: E402
 import termux_ssh_bootstrap as boot  # noqa: E402
+from ansible_context import (  # noqa: E402
+    AnsibleConfigError,
+    require_limit_hosts,
+    resolve_ansible_context,
+    resolved_env,
+)
 
 
 def ssh_target(host: str) -> str:
@@ -46,6 +49,9 @@ def main(argv: list[str] | None = None) -> int:
     if not shutil.which("ansible-playbook"):
         print("ERROR: ansible-playbook not found (brew install ansible)", file=sys.stderr)
         return 1
+
+    context = resolve_ansible_context(REPO_ROOT)
+    require_limit_hosts(context, args.host)
 
     target = ssh_target(args.host)
     print(f"Checking SSH to {target}...")
@@ -71,18 +77,16 @@ def main(argv: list[str] | None = None) -> int:
             "-r",
             str(REQUIREMENTS),
             "-p",
-            str(COLLECTIONS_PATH),
+            str(context.collections_path),
         ],
         check=True,
         stdout=subprocess.DEVNULL,
         cwd=REPO_ROOT,
     )
 
-    env = os.environ.copy()
-    env["ANSIBLE_CONFIG"] = str(ANSIBLE_CFG)
     rc = subprocess.run(
         ["ansible-playbook", str(PLAYBOOK), "--limit", args.host],
-        env=env,
+        env=resolved_env(REPO_ROOT),
         cwd=REPO_ROOT,
     ).returncode
     if rc == 0:
@@ -96,6 +100,9 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         print("interrupted", file=sys.stderr)
         sys.exit(130)
+    except AnsibleConfigError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        sys.exit(2)
     except subprocess.CalledProcessError as exc:
         print(f"ERROR: command failed: {exc}", file=sys.stderr)
         sys.exit(exc.returncode or 1)

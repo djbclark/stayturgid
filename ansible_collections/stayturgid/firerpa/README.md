@@ -51,7 +51,7 @@ firerpa_webui_enabled: false
   authorized Shizuku `rish` restarts adbd on localhost:5555; the supervisor then
   launches through that persistent ADB transport. Direct `rish` background children
   die with their binder session. If neither privileged bridge is usable, USB/wireless
-  recovery must restore one before FIRERPA can start. S24 and P7A are validated after
+  recovery must restore one before FIRERPA can start. `oneui-device` and `stock-android-device` are validated after
   granting Termux **Allow all the time** in Shizuku.
 - **Accessibility coexistence:** Upstream v10.0 calls `getUiAutomation(0)`, suppressing
   ordinary accessibility services. The role hash-guards and patches the bundled DEX to

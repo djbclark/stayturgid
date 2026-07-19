@@ -1,4 +1,10 @@
-"""Configuration precedence tests for the product/site Ansible boundary."""
+"""Configuration precedence tests for the product/site Ansible boundary.
+
+Resolution rule (multi-site-topology.md §4.8): explicit ``ANSIBLE_CONFIG``
+wins; else explicit ``STAYTURGID_SITE_DIR``; else exactly one discovered
+``site-*`` checkout under ``OPS_ROOT`` (default ``~/ops``). Zero or multiple
+discovery matches fail — there is no operator-specific default directory.
+"""
 
 from pathlib import Path
 
@@ -12,6 +18,15 @@ def write_config(root: Path, inventory: str = "inventory/hosts.yml") -> Path:
         f"[defaults]\ninventory = {inventory}\ncollections_path = collections:product-collections\n",
         encoding="utf-8",
     )
+    return config
+
+
+def make_site(root: Path, name: str = "site-example") -> Path:
+    site = root / name
+    site.mkdir(parents=True)
+    config = write_config(site)
+    (site / "inventory").mkdir()
+    (site / "inventory" / "hosts.yml").write_text("all: {}\n", encoding="utf-8")
     return config
 
 
@@ -39,7 +54,7 @@ def test_explicit_ansible_config_wins_over_site_overlay(tmp_path):
     assert context.collections_path == explicit / "collections"
 
 
-def test_site_overlay_is_selected_when_no_config_is_supplied(tmp_path):
+def test_site_dir_is_selected_when_no_config_is_supplied(tmp_path):
     repo = tmp_path / "product"
     (repo / "ansible").mkdir(parents=True)
     write_config(repo / "ansible")
@@ -51,24 +66,118 @@ def test_site_overlay_is_selected_when_no_config_is_supplied(tmp_path):
 
     context = ac.resolve_ansible_context(repo, {"STAYTURGID_SITE_DIR": str(site)})
 
+    assert context.source == "STAYTURGID_SITE_DIR"
+    assert context.config == config
+    ac.require_inventory(context)
+
+
+def test_explicit_site_dir_without_config_fails(tmp_path):
+    """An explicitly selected site dir must not silently fall back anywhere."""
+    repo = tmp_path / "product"
+    (repo / "ansible").mkdir(parents=True)
+    write_config(repo / "ansible")
+
+    with pytest.raises(ac.AnsibleConfigError, match="STAYTURGID_SITE_DIR"):
+        ac.resolve_ansible_context(repo, {"STAYTURGID_SITE_DIR": str(tmp_path / "missing-site")})
+
+
+def test_single_site_checkout_is_discovered_under_ops_root(tmp_path):
+    repo = tmp_path / "ops" / "product"
+    (repo / "ansible").mkdir(parents=True)
+    write_config(repo / "ansible")
+    config = make_site(tmp_path / "ops", "site-example")
+
+    context = ac.resolve_ansible_context(repo, {"OPS_ROOT": str(tmp_path / "ops")})
+
     assert context.source == "site overlay"
     assert context.config == config
     ac.require_inventory(context)
 
 
-def test_upstream_fallback_explains_missing_live_inventory(tmp_path):
-    repo = tmp_path / "product"
+def test_zero_discovered_sites_fails_with_instructions(tmp_path):
+    """No silent default: an empty OPS_ROOT names the knobs to set."""
+    repo = tmp_path / "ops" / "product"
     (repo / "ansible").mkdir(parents=True)
-    config = write_config(repo / "ansible")
+    write_config(repo / "ansible")
 
-    context = ac.resolve_ansible_context(repo, {"STAYTURGID_SITE_DIR": str(tmp_path / "missing-site")})
+    with pytest.raises(ac.AnsibleConfigError, match="ANSIBLE_CONFIG or STAYTURGID_SITE_DIR"):
+        ac.resolve_ansible_context(repo, {"OPS_ROOT": str(tmp_path / "ops")})
 
-    assert context.source == "upstream fallback"
-    assert context.config == config
-    with pytest.raises(ac.AnsibleConfigError, match="Live deploys require a site overlay"):
-        ac.require_inventory(context)
+
+def test_multiple_discovered_sites_fail_with_instructions(tmp_path):
+    repo = tmp_path / "ops" / "product"
+    (repo / "ansible").mkdir(parents=True)
+    write_config(repo / "ansible")
+    make_site(tmp_path / "ops", "site-alpha")
+    make_site(tmp_path / "ops", "site-beta")
+
+    with pytest.raises(ac.AnsibleConfigError, match="Ambiguous site overlay"):
+        ac.resolve_ansible_context(repo, {"OPS_ROOT": str(tmp_path / "ops")})
+
+
+def test_no_operator_specific_default_in_module_source():
+    """Gemini #2 regression: the public product hardcodes no site checkout name."""
+    source = Path(ac.__file__).read_text(encoding="utf-8")
+    assert "site-djbclark" not in source
 
 
 def test_missing_explicit_config_has_actionable_error(tmp_path):
     with pytest.raises(ac.AnsibleConfigError, match="ANSIBLE_CONFIG points to a missing file"):
         ac.resolve_ansible_context(tmp_path, {"ANSIBLE_CONFIG": str(tmp_path / "missing.cfg")})
+
+
+# ---------------------------------------------------------------------------
+# Zero-host guard (H3)
+# ---------------------------------------------------------------------------
+
+
+def _context_for(tmp_path: Path) -> ac.AnsibleContext:
+    site = tmp_path / "site"
+    site.mkdir()
+    config = write_config(site)
+    (site / "inventory").mkdir()
+    (site / "inventory" / "hosts.yml").write_text(
+        "all:\n  children:\n    stayturgid:\n      hosts:\n        oneui-device:\n",
+        encoding="utf-8",
+    )
+    return ac.resolve_ansible_context(tmp_path, {"ANSIBLE_CONFIG": str(config)})
+
+
+def test_require_limit_hosts_returns_matches(tmp_path, monkeypatch):
+    context = _context_for(tmp_path)
+
+    class R:
+        returncode = 0
+        stdout = "  hosts (1):\n    oneui-device\n"
+        stderr = ""
+
+    monkeypatch.setattr(ac.subprocess, "run", lambda *a, **k: R())
+    assert ac.require_limit_hosts(context, "oneui-device") == ["oneui-device"]
+
+
+def test_require_limit_hosts_zero_matches_names_config(tmp_path, monkeypatch):
+    """A limit matching no hosts must fail and name the config that was used."""
+    context = _context_for(tmp_path)
+
+    class R:
+        returncode = 0
+        stdout = "  hosts (0):\n"
+        stderr = ""
+
+    monkeypatch.setattr(ac.subprocess, "run", lambda *a, **k: R())
+    with pytest.raises(ac.AnsibleConfigError, match=str(context.config)):
+        ac.require_limit_hosts(context, "no-such-host")
+
+
+def test_resolved_env_pins_selected_config(tmp_path):
+    """H3 regression: entry points must honor the caller's explicit config."""
+    site = tmp_path / "site"
+    site.mkdir()
+    config = write_config(site)
+    (site / "inventory").mkdir()
+    (site / "inventory" / "hosts.yml").write_text("all: {}\n", encoding="utf-8")
+
+    env = ac.resolved_env(tmp_path, {"ANSIBLE_CONFIG": str(config)})
+
+    assert env["ANSIBLE_CONFIG"] == str(config)
+    assert env["STAYTURGID_ROOT"] == str(tmp_path)

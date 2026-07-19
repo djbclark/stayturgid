@@ -69,7 +69,7 @@ just health && just firerpa-health
 - **SSH CA:** `~/.ssh/stayturgid_ca` — `just ca-status`
 - **OpenCode web:** site-local service (see site overlay / landing); not a public fixed IP
 - **Secrets:** managed via `secretspec` (`brew install secretspec`). Spec at `secretspec.toml` (project root). All secrets defined there; run `just secretspec-check` before deploys.
-- **Site inventory:** resolved via `ANSIBLE_CONFIG` or `STAYTURGID_SITE_DIR` (default `~/ops/site-djbclark`); see `control/lib/ansible_context.py`
+- **Site inventory:** resolved via `ANSIBLE_CONFIG`, `STAYTURGID_SITE_DIR`, or a single discovered `site-*` checkout under `OPS_ROOT` (default `~/ops`); see `control/lib/ansible_context.py`
 
 ## Example fleet (generic — not a live site)
 
