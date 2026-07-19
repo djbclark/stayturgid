@@ -191,8 +191,6 @@ landing-discover:
     cd "{{ justfile_directory() }}"
     if [[ -n "${STAYTURGID_SITE_DIR:-}" ]]; then
       export STAYTURGID_SITE_DIR
-    elif [[ -d "${HOME}/ops/site-djbclark" ]]; then
-      export STAYTURGID_SITE_DIR="${HOME}/ops/site-djbclark"
     fi
     # Prefer project test venv (has PyYAML for registry drift) then brew python3.
     if [[ -x "{{ justfile_directory() }}/.venv-test/bin/python" ]]; then

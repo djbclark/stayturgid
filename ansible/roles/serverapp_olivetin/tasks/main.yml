@@ -37,6 +37,16 @@
     _ot_arch: "{{ 'darwin-arm64' if (_ot_uname.stdout | default('') | trim) in ['arm64', 'aarch64'] else 'darwin-amd64' }}"
   when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
 
+# M1-F MF-5: fail closed rather than install an unverified binary.
+- name: Fail closed when no pinned checksum exists for this OliveTin download arch
+  ansible.builtin.assert:
+    that:
+      - (serverapp_olivetin_archive_sha256[_ot_arch] | default('', true) | length) > 0
+    fail_msg: >-
+      No pinned sha256 for OliveTin {{ serverapp_olivetin_version }} ({{ _ot_arch }}) in
+      serverapp_olivetin_archive_sha256 — refusing to download an unverified binary.
+  when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
+
 - name: Download OliveTin archive when binary or webui missing
   vars:
     _ot_base: "https://github.com/OliveTin/OliveTin/releases/download"
@@ -46,6 +56,7 @@
     dest: /tmp/OliveTin-{{ serverapp_olivetin_version }}-{{ _ot_arch }}.tar.gz
     mode: "0644"
     force: true
+    checksum: "sha256:{{ serverapp_olivetin_archive_sha256[_ot_arch] }}"
   when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
 
 # macOS ships BSD tar; ansible.builtin.unarchive requires GNU tar for .tar.gz.
@@ -202,21 +213,35 @@
     - (_ot_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
   register: _ot_legacy_disable
 
-- name: Bootstrap site-namespace olivetin when unloaded
+- name: Boot out site-namespace olivetin when its launchd plist changed
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_olivetin_uid }}/{{ serverapp_olivetin_label }}
+  when:
+    - _ot_launch_state.stdout | trim == 'loaded'
+    - _ot_plist.changed | default(false)
+  register: _ot_plist_reload_bootout
+
+- name: Bootstrap site-namespace olivetin when unloaded or its plist changed
   ansible.builtin.command:
     cmd: >-
       launchctl bootstrap gui/{{ serverapp_olivetin_uid }}
       {{ serverapp_olivetin_plist_path }}
-  when: _ot_launch_state.stdout | trim == 'unloaded'
+  when: >-
+    (_ot_launch_state.stdout | trim == 'unloaded')
+    or (_ot_plist_reload_bootout.changed | default(false))
   register: _ot_bootstrap
+  until: _ot_bootstrap.rc == 0
+  retries: 5
+  delay: 1
 
-- name: Kickstart site-namespace olivetin after config/plist change
+- name: Kickstart site-namespace olivetin after config-only change
   ansible.builtin.command:
     cmd: >-
       launchctl kickstart -k gui/{{ serverapp_olivetin_uid }}/{{ serverapp_olivetin_label }}
   when:
     - _ot_launch_state.stdout | trim == 'loaded'
-    - (_ot_plist.changed | default(false)) or (_ot_config.changed | default(false))
+    - _ot_config.changed | default(false)
+    - not (_ot_plist.changed | default(false))
   register: _ot_kickstart
 
 - name: Wait for OliveTin HTTP frontend

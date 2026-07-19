@@ -141,21 +141,35 @@
     - (_gf_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
   register: _gf_legacy_disable
 
-- name: Bootstrap site-namespace grafana when unloaded
+- name: Boot out site-namespace grafana when its launchd plist changed
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_grafana_uid }}/{{ serverapp_grafana_label }}
+  when:
+    - _gf_launch_state.stdout | trim == 'loaded'
+    - _gf_plist.changed | default(false)
+  register: _gf_plist_reload_bootout
+
+- name: Bootstrap site-namespace grafana when unloaded or its plist changed
   ansible.builtin.command:
     cmd: >-
       launchctl bootstrap gui/{{ serverapp_grafana_uid }}
       {{ serverapp_grafana_plist_path }}
-  when: _gf_launch_state.stdout | trim == 'unloaded'
+  when: >-
+    (_gf_launch_state.stdout | trim == 'unloaded')
+    or (_gf_plist_reload_bootout.changed | default(false))
   register: _gf_bootstrap
+  until: _gf_bootstrap.rc == 0
+  retries: 5
+  delay: 1
 
-- name: Kickstart site-namespace grafana after config/plist change
+- name: Kickstart site-namespace grafana after config-only change
   ansible.builtin.command:
     cmd: >-
       launchctl kickstart -k gui/{{ serverapp_grafana_uid }}/{{ serverapp_grafana_label }}
   when:
     - _gf_launch_state.stdout | trim == 'loaded'
-    - (_gf_plist.changed | default(false)) or (_gf_ini.changed | default(false))
+    - _gf_ini.changed | default(false)
+    - not (_gf_plist.changed | default(false))
   register: _gf_kickstart
 
 - name: Wait for grafana health endpoint

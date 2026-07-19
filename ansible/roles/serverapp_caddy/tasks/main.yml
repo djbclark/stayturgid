@@ -82,6 +82,38 @@
   register: _caddy_validate
   changed_when: false
 
+# MF-4: caddy imports fragments/*.caddy at load (no-copy, design §1.3) — a
+# site-sync fragment rewrite changes on-disk content the base Caddyfile
+# `import` line does not track. Compare a combined checksum of the fragment
+# glob against a recorded state file so a fragment-only edit still reloads.
+- name: Reload caddy on fragment-content change
+  ansible.builtin.shell:
+    cmd: |
+      {% raw %}
+      set -eu
+      shopt -s nullglob
+      files=($FRAGMENT_GLOB)
+      if [ ${#files[@]} -eq 0 ]; then
+        new="no-fragments"
+      else
+        new=$(shasum -a 256 -- "${files[@]}" | sort | shasum -a 256 | awk '{print $1}')
+      fi
+      old=""
+      [ -f "$STATE_FILE" ] && old=$(cat "$STATE_FILE")
+      if [ "$new" != "$old" ]; then
+        echo "$new" >"$STATE_FILE"
+        echo changed
+      else
+        echo unchanged
+      fi
+      {% endraw %}
+    executable: /bin/bash
+  environment:
+    FRAGMENT_GLOB: "{{ serverapp_caddy_fragment_glob }}"
+    STATE_FILE: "{{ serverapp_caddy_config_dir }}/.fragments.sha256"
+  register: _caddy_fragments_reload
+  changed_when: _caddy_fragments_reload.stdout | trim == 'changed'
+
 - name: Render caddy launchd plist under site namespace
   ansible.builtin.template:
     src: caddy.plist.j2
@@ -170,21 +202,35 @@
     - (_caddy_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
   register: _caddy_legacy_disable
 
-- name: Bootstrap site-namespace caddy when unloaded
+- name: Boot out site-namespace caddy when its launchd plist changed
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_caddy_uid }}/{{ serverapp_caddy_label }}
+  when:
+    - _caddy_launch_state.stdout | trim == 'loaded'
+    - _caddy_plist.changed | default(false)
+  register: _caddy_plist_reload_bootout
+
+- name: Bootstrap site-namespace caddy when unloaded or its plist changed
   ansible.builtin.command:
     cmd: >-
       launchctl bootstrap gui/{{ serverapp_caddy_uid }}
       {{ serverapp_caddy_plist_path }}
-  when: _caddy_launch_state.stdout | trim == 'unloaded'
+  when: >-
+    (_caddy_launch_state.stdout | trim == 'unloaded')
+    or (_caddy_plist_reload_bootout.changed | default(false))
   register: _caddy_bootstrap
+  until: _caddy_bootstrap.rc == 0
+  retries: 5
+  delay: 1
 
-- name: Kickstart site-namespace caddy after config or plist change
+- name: Kickstart site-namespace caddy after config-only change
   ansible.builtin.command:
     cmd: >-
       launchctl kickstart -k gui/{{ serverapp_caddy_uid }}/{{ serverapp_caddy_label }}
   when:
     - _caddy_launch_state.stdout | trim == 'loaded'
-    - (_caddy_config.changed | default(false)) or (_caddy_plist.changed | default(false))
+    - (_caddy_config.changed | default(false)) or (_caddy_fragments_reload.changed | default(false))
+    - not (_caddy_plist.changed | default(false))
   register: _caddy_kickstart
 
 - name: Wait for caddy health endpoint
