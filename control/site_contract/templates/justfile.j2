@@ -1,0 +1,29 @@
+# site-{{ site_name }} — thin wrappers for the stayturgid product.
+
+{% raw %}
+set shell := ["bash", "-uc"]
+
+ops_root := env_var_or_default("OPS_ROOT", home_directory() / "ops")
+stayturgid_root := env_var_or_default("STAYTURGID_ROOT", ops_root / "stayturgid")
+site_dir := justfile_directory()
+hosts := env_var_or_default("hosts", "")
+
+_product recipe:
+    @test -f "{{ stayturgid_root }}/justfile" || { echo "stayturgid checkout not found at {{ stayturgid_root }}; set STAYTURGID_ROOT or OPS_ROOT" >&2; exit 1; }
+    ANSIBLE_CONFIG="${ANSIBLE_CONFIG:-{{ site_dir }}/ansible.cfg}" STAYTURGID_SITE_DIR="{{ site_dir }}" hosts="{{ hosts }}" just --justfile "{{ stayturgid_root }}/justfile" {{ recipe }}
+
+deploy:
+    @just _product deploy
+
+deploy-check:
+    @just _product deploy-check
+
+verify:
+    @just _product verify
+
+verify-drift:
+    @just _product verify-drift
+
+inventory-check:
+    ANSIBLE_CONFIG="${ANSIBLE_CONFIG:-{{ site_dir }}/ansible.cfg}" ansible-inventory --list
+{% endraw %}
