@@ -217,7 +217,7 @@ implementation steps are in
 Also worth a later look: whether packaging the AutoJs6 side as a plugin would make
 deployment or recovery easier.
 
-#### T3 — Consolidate host identity into one source of truth · Risk: **Medium** · Deferred
+#### T3 — Consolidate host identity into one source of truth · Risk: **Medium** · **Shipped 2026-07-18 (relay step B5)** — remaining gaps tracked in `~/ops/site-djbclark/docs/relay/reviews/` (Phase B review findings), not here
 
 Remove repeated host aliases, Tailscale addresses, USB serials, and service hostnames
 from scripts, policies, dashboard links, and documentation. Define each identity once

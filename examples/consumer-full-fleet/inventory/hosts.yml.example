@@ -3,7 +3,7 @@
 stayturgid:
   hosts:
     oneui-device:
-      ansible_host: 100.123.218.30
+      ansible_host: 100.0.0.2
       ansible_port: 8022
       ansible_user: u0_a123
       ansible_python_interpreter: /data/data/com.termux/files/usr/bin/python
