@@ -163,8 +163,10 @@ def test_config_has_required_pipeline_and_persistent_storage() -> None:
     assert watchdog["include"] == ["/sdcard/stayturgid/logs/watchdog.jsonl"]
     assert repair["storage"] == watchdog["storage"] == "file_storage"
     assert repair["start_at"] == watchdog["start_at"] == "end"
-    assert repair["operators"][0]["on_error"] == "drop_quiet"
-    assert watchdog["operators"][0]["on_error"] == "drop_quiet"
+    # drop (not drop_quiet, M1-Q S-10): malformed lines are still dropped,
+    # but the collector now logs the failure instead of discarding silently.
+    assert repair["operators"][0]["on_error"] == "drop"
+    assert watchdog["operators"][0]["on_error"] == "drop"
 
 
 def test_boot_entrypoint_is_idempotent_and_supports_rollback(tmp_path: Path) -> None:

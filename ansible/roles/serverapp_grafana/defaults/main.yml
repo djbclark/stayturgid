@@ -18,4 +18,5 @@ serverapp_grafana_homepath: /opt/homebrew/opt/grafana/share/grafana
 serverapp_grafana_http_addr: "127.0.0.1"
 serverapp_grafana_http_port: 3000
 serverapp_grafana_health_url: "http://127.0.0.1:{{ serverapp_grafana_http_port }}/api/health"
-serverapp_grafana_uid: "501"
+# No default for serverapp_grafana_uid — always supplied as an extra-var by
+# control/site_contract/serverapps.py (os.getuid()); fail closed otherwise.

@@ -22,7 +22,8 @@ serverapp_vector_health_url: "http://127.0.0.1:{{ serverapp_vector_api_port }}/h
 # fragment consumes the site registry values rather than these variables.
 serverapp_vector_otlp_grpc_port: 4317
 serverapp_vector_otlp_http_port: 4318
-serverapp_vector_uid: "501"
+# No default for serverapp_vector_uid — always supplied as an extra-var by
+# control/site_contract/serverapps.py (os.getuid()); fail closed otherwise.
 # OpenObserve sink credentials — never committed; passed via env / -e.
 serverapp_vector_openobserve_email: "{{ lookup('env', 'OPENOBSERVE_ROOT_EMAIL') | default('', true) }}"
 serverapp_vector_openobserve_password: "{{ lookup('env', 'OPENOBSERVE_ROOT_PASSWORD') | default('', true) }}"

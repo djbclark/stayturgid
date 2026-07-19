@@ -16,4 +16,5 @@ serverapp_caddy_health_port: 8080
 # Site-facing hostnames (override via -e or inventory/group_vars/all.yml).
 serverapp_caddy_public_hostname: ""
 serverapp_caddy_short_hostname: ""
-serverapp_caddy_uid: "501"
+# No default for serverapp_caddy_uid — always supplied as an extra-var by
+# control/site_contract/serverapps.py (os.getuid()); fail closed otherwise.
