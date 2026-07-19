@@ -16,6 +16,9 @@ node_modules/
 .ansible/modules/
 .ansible/.lock
 
+# Entangled file database / tmp (regenerable; parity uses SITE-CONTRACT.md API check)
+.entangled/
+
 # Site inventory is private. CI creates this ignored file from the example.
 ansible/inventory/hosts.yml
 

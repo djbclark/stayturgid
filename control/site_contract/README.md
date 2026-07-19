@@ -3,14 +3,23 @@
 This directory implements Phase C of the site contract in
 `docs/architecture/site-contract.md`.
 
+- Product-root `SITE-CONTRACT.md` is the human-readable contract and Entangled
+  literate source for the non-registry C1 scaffold templates (spec §7).
+- `entangled.toml` (product root) configures naked-annotation tangling for that
+  document only. Product roles/adapters are **not** literate.
+- `check_entangled.py` fails closed when the document and literate templates
+  drift (`just site-contract-check`).
 - `templates/` mirrors the files `site-init` creates. Files ending in `.j2` are
-  Jinja2 templates; other files are copied without rendering.
+  Jinja2 templates; other files are copied without rendering. Literate
+  templates must match `SITE-CONTRACT.md` fenced blocks exactly.
 - `registry_sources.yml` maps product-owned claims to their authoritative role
   defaults or other checked-in product declarations. It deliberately contains
   no port numbers or path literals.
 - `generate_registry_seeds.py` resolves that source map and writes the
-  committed `templates/registry/{ports,paths}.yml` seeds.
-- `site_init.py` is the `site-init` CLI (apply / dry-run / docs).
+  committed `templates/registry/{ports,paths}.yml` seeds (single authority —
+  those two files are intentionally **not** Entangled targets).
+- `site_init.py` is the `site-init` CLI (apply / dry-run / docs). `mode=docs`
+  emits `SITE-CONTRACT.md` (generic-only, write-free).
 - `site_map.py` loads and fail-closed validates optional Site Contract v1
   `site-map.yml` files for `site-init` and `site-sync`.
 - `sync_manifest.yml` is the product sync manifest (files under
@@ -32,7 +41,8 @@ python3 -m control.site_contract.site_init --sitename <name> [--dir <path>] [--m
 - `mode=apply` (default): create the §3 scaffold; never overwrite differing
   user-owned files (exit 2); identical re-apply is a no-op.
 - `mode=dry-run`: print per-file `create` / `skip` / `overwrite` actions; no writes.
-- `mode=docs`: emit self-contained Markdown with generic example values only.
+- `mode=docs`: emit product-root `SITE-CONTRACT.md` (generic example values
+  only; no writes; no live-site identity).
 - Exit codes: `0` success/no-op; `1` precondition/input failure; `2` would overwrite.
 - `map=` loads an explicit Site Contract v1 map; otherwise a map at
   `<site-dir>/site-map.yml` is auto-discovered. Supported C4 path keys are
@@ -79,4 +89,20 @@ python3 -m control.site_contract.generate_registry_seeds --check
 ```
 
 The focused tests compare generated output with the committed seeds, so a
-changed default cannot silently leave a stale site scaffold.
+changed default cannot silently leave a stale site scaffold. Registry seeds
+are not fenced in `SITE-CONTRACT.md` (single authority).
+
+## Entangled parity (literate templates)
+
+```bash
+# Full check (Entangled parity + registry seed freshness):
+just site-contract-check
+# or:
+python3 -m control.site_contract.check_entangled
+# Tangle after editing SITE-CONTRACT.md fenced blocks:
+entangled tangle --force
+```
+
+`annotation = "naked"` keeps tangled bytes identical to the fenced sources.
+Entangled's local `.entangled/` state is gitignored; the parity check uses the
+API and does not require a committed filedb.

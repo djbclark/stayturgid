@@ -1,0 +1,60 @@
+# Entangled configuration for Site Contract v1 literate layout.
+# See SITE-CONTRACT.md and docs/architecture/site-contract.md §7.
+#
+# Scope: only SITE-CONTRACT.md is literate. Product roles/adapters stay
+# conventional. Registry seeds stay generator-owned (single authority).
+
+version = "2.0"
+watch_list = ["SITE-CONTRACT.md"]
+# Ignore every other Markdown path so product docs/history never tangle.
+ignore_list = [
+  "README.md",
+  "**/README.md",
+  "docs/**",
+  "human/**",
+  "examples/**",
+  "control/**",
+  "ansible/**",
+  "tests/**",
+  "device/**",
+]
+# Naked: tangled scaffold bytes match the fenced sources exactly (no ~~ markers).
+annotation = "naked"
+# Disable default shebang hook; scaffold files are not executables.
+hooks = ["~shebang"]
+
+# Language ids used in SITE-CONTRACT.md fence headers (.gitignore, .j2, …).
+[[languages]]
+name = "Gitignore"
+identifiers = ["gitignore"]
+comment = { open = "#" }
+
+[[languages]]
+name = "Gitkeep"
+identifiers = ["gitkeep"]
+comment = { open = "#" }
+
+[[languages]]
+name = "Jinja"
+identifiers = ["j2", "jinja", "jinja2"]
+comment = { open = "#" }
+
+[[languages]]
+name = "YAML"
+identifiers = ["yaml", "yml"]
+comment = { open = "#" }
+
+[[languages]]
+name = "TOML"
+identifiers = ["toml"]
+comment = { open = "#" }
+
+[[languages]]
+name = "Text"
+identifiers = ["text"]
+comment = { open = "#" }
+
+[[languages]]
+name = "Just"
+identifiers = ["just", "justfile"]
+comment = { open = "#" }

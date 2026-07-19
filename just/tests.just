@@ -10,6 +10,7 @@ configure:
 # Code-only syntax / import checks + ruff + typos + biome + shfmt + justfiles + markdown.
 check:
     bash tests/run.sh code
+    @just site-contract-check
     @just ruff
     @just typos
     @just biome
