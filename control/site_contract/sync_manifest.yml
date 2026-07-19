@@ -15,3 +15,7 @@ files:
     template: fragments/.keep.j2
   - path: generated/stayturgid/fragments/caddy/stayturgid.caddy
     template: fragments/caddy/stayturgid.caddy.j2
+  - path: generated/stayturgid/fragments/vector/stayturgid_sources.yaml
+    template: fragments/vector/stayturgid_sources.yaml.j2
+  - path: generated/stayturgid/fragments/vector/stayturgid_sinks.yaml
+    template: fragments/vector/stayturgid_sinks.yaml.j2

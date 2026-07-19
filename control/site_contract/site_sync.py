@@ -784,6 +784,9 @@ def _docs_markdown() -> str:
         "opencode-web": 4096,
         "ui-tars-vlm": 8081,
         "caddy-health": 8080,
+        "vector-otlp-grpc": 4317,
+        "vector-otlp-http": 4318,
+        "openobserve-http": 5080,
     }
     # Render each template under generic context to prove StrictUndefined + structure.
     for entry in manifest.files:

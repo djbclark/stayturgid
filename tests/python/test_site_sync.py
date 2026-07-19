@@ -26,6 +26,8 @@ MANAGED_PATHS = {
     "generated/stayturgid/README.md",
     "generated/stayturgid/fragments/.keep",
     "generated/stayturgid/fragments/caddy/stayturgid.caddy",
+    "generated/stayturgid/fragments/vector/stayturgid_sources.yaml",
+    "generated/stayturgid/fragments/vector/stayturgid_sinks.yaml",
 }
 LOCKFILE = "generated/stayturgid/.lockfile.yml"
 
