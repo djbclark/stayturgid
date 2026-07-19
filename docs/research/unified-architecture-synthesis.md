@@ -9,9 +9,9 @@ This document serves as the definitive guide to both the platform's **runtime to
 
 **Related Documents:**
 
-- [Agent Implementation Plan](file:///Users/djbclark/stayturgid/docs/operations/plans/agent-ovgo-implementation.md): Specific instructions for autonomous agents deploying this architecture.
-- [Coding Rules](file:///Users/djbclark/stayturgid/docs/coding-rules.md) and [AGENTS.md](file:///Users/djbclark/stayturgid/AGENTS.md): Strict policies and multi-agent protocols that must be followed.
-- [Handoff](file:///Users/djbclark/stayturgid/docs/handoff.md): Current session context and state.
+- [Agent Implementation Plan](../operations/plans/agent-ovgo-implementation.md): Specific instructions for autonomous agents deploying this architecture.
+- [Coding Rules](../coding-rules.md) and [AGENTS.md](../../AGENTS.md): Strict policies and multi-agent protocols that must be followed.
+- [Handoff](../handoff.md): Current session context and state.
 
 ---
 
