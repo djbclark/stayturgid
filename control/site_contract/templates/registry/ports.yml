@@ -42,19 +42,19 @@ product_defaults:
       owner: stayturgid
       service: vector-otlp-grpc
       status: default-claim
-      source: ansible/roles/control_node/templates/vector.yaml.j2#regex
+      source: ansible/roles/serverapp_vector/defaults/main.yml#serverapp_vector_otlp_grpc_port
     - port: 4318
       bind: 0.0.0.0
       owner: stayturgid
       service: vector-otlp-http
       status: default-claim
-      source: ansible/roles/control_node/defaults/main.yml#vector_otlp_port
+      source: ansible/roles/serverapp_vector/defaults/main.yml#serverapp_vector_otlp_http_port
     - port: 5080
       bind: 127.0.0.1
       owner: stayturgid
       service: openobserve-http
       status: default-claim
-      source: ansible/roles/control_node/defaults/main.yml#openobserve_port
+      source: ansible/roles/serverapp_openobserve/defaults/main.yml#serverapp_openobserve_http_port
     - port: 8080
       bind: 127.0.0.1
       owner: stayturgid

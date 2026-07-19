@@ -95,10 +95,16 @@ def test_registry_seeds_are_current_and_derived_from_product_defaults() -> None:
         }
     )
     assert by_service["openobserve-http"]["port"] == seeds._port_from_source(
-        {"file": "ansible/roles/control_node/defaults/main.yml", "yaml_path": "openobserve_port"}
+        {
+            "file": "ansible/roles/serverapp_openobserve/defaults/main.yml",
+            "yaml_path": "serverapp_openobserve_http_port",
+        }
     )
     assert by_service["vector-otlp-http"]["port"] == seeds._port_from_source(
-        {"file": "ansible/roles/control_node/defaults/main.yml", "yaml_path": "vector_otlp_port"}
+        {
+            "file": "ansible/roles/serverapp_vector/defaults/main.yml",
+            "yaml_path": "serverapp_vector_otlp_http_port",
+        }
     )
     assert by_service["firerpa"]["port"] == seeds._port_from_source(
         {

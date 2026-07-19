@@ -24,16 +24,6 @@
     path: "{{ agents_dir }}/{{ stayturgid_dashboard_label }}.plist"
   register: _dashboard_plist_stat
 
-- name: Stat OpenObserve launchd plist
-  ansible.builtin.stat:
-    path: "{{ agents_dir }}/{{ openobserve_label }}.plist"
-  register: _openobserve_plist_stat
-
-- name: Stat Vector launchd plist
-  ansible.builtin.stat:
-    path: "{{ agents_dir }}/{{ vector_label }}.plist"
-  register: _vector_plist_stat
-
 - name: Build launchd ensure service list
   ansible.builtin.set_fact:
 
@@ -49,7 +39,6 @@
         + _opencode_web_agents
         + _dashboard_agents
         + _firerpa_health_agents
-        + _observability_agents
       }}
   vars:
     _core_launchd_agents:
@@ -115,25 +104,6 @@
           'plist': agents_dir ~ '/com.stayturgid.vlm-upstream-check.plist'
         }] if (stayturgid_vlm_upstream_check_enabled | default(true) | bool) else []
       }}
-    _observability_agents: >-
-      {{
-        [
-          {
-            'name': openobserve_label,
-            'plist': agents_dir ~ '/' ~ openobserve_label ~ '.plist',
-            'health_url': 'http://127.0.0.1:' ~ (openobserve_port | string) ~ '/healthz'
-          },
-          {
-            'name': vector_label,
-            'plist': agents_dir ~ '/' ~ vector_label ~ '.plist'
-          }
-        ] if (
-          (stayturgid_observability_enabled | default(true) | bool)
-          and (_openobserve_plist_stat.stat.exists | default(false))
-          and (_vector_plist_stat.stat.exists | default(false))
-        ) else []
-      }}
-
     _adb_launchd_agents: >-
       {{
         groups['stayturgid']

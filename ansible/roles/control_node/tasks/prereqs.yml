@@ -13,12 +13,6 @@
   args:
     creates: "{{ stayturgid_homebrew_prefix }}/bin/brew"
 
-- name: Tap Vector Homebrew repository
-  community.general.homebrew_tap:
-    name: vectordotdev/brew
-    state: present
-  when: stayturgid_observability_enabled | default(true) | bool
-
 - name: Install base Homebrew formulae for stayturgid
   community.general.homebrew:
     name: "{{ stayturgid_mac_brew_packages_base }}"
