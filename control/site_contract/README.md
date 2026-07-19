@@ -11,6 +11,8 @@ This directory implements Phase C of the site contract in
 - `generate_registry_seeds.py` resolves that source map and writes the
   committed `templates/registry/{ports,paths}.yml` seeds.
 - `site_init.py` is the `site-init` CLI (apply / dry-run / docs).
+- `site_map.py` loads and fail-closed validates optional Site Contract v1
+  `site-map.yml` files for `site-init` and `site-sync`.
 - `sync_manifest.yml` is the product sync manifest (files under
   `generated/<product>/` that `site-sync` owns).
 - `sync_templates/` holds Jinja2 sources for those generated files.
@@ -32,7 +34,14 @@ python3 -m control.site_contract.site_init --sitename <name> [--dir <path>] [--m
 - `mode=dry-run`: print per-file `create` / `skip` / `overwrite` actions; no writes.
 - `mode=docs`: emit self-contained Markdown with generic example values only.
 - Exit codes: `0` success/no-op; `1` precondition/input failure; `2` would overwrite.
-- `map=` is reserved for Phase C4 and is rejected until then.
+- `map=` loads an explicit Site Contract v1 map; otherwise a map at
+  `<site-dir>/site-map.yml` is auto-discovered. Supported C4 path keys are
+  `inventory`, `registry_ports`, and `registry_paths`.
+- Relative contract paths resolve from the site directory and may not escape
+  it or enter site-sync's `generated/stayturgid/` area. Unknown top-level,
+  path, serverapp, and per-app keys fail closed.
+- Serverapp mappings are validated for forward compatibility but no adapter
+  behavior or inject-mode writes occur in C4.
 - A destination nested inside this product checkout is rejected (ADR 005).
 
 ## site-sync
@@ -45,6 +54,9 @@ python3 -m control.site_contract.site_sync [--dir <path>] [--mode apply|dry-run|
 
 - Destination: explicit `dir=`, else `STAYTURGID_SITE_DIR`, else exactly one
   `site-*` under `$OPS_ROOT`. No hardcoded production-site fallback.
+- Auto-discovers `<site-dir>/site-map.yml` and reads inventory/registry facts
+  from mapped locations while keeping generated output under
+  `generated/stayturgid/`.
 - Re-renders every path in `sync_manifest.yml` into `generated/stayturgid/` and
   maintains `generated/stayturgid/.lockfile.yml` (spec §4).
 - Before overwriting, compares on-disk content hash to the lockfile hash. Drift

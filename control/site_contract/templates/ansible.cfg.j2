@@ -1,5 +1,5 @@
 [defaults]
-inventory = inventory/hosts.yml
+inventory = {{ inventory_path }}
 roles_path = {{ product_root }}/ansible/roles
 # Product collections are supplied by the stayturgid checkout rendered above.
 collections_path = {{ product_root }}/.ansible/collections:{{ product_root }}

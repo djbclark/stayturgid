@@ -22,6 +22,9 @@ def _render(name: str) -> str:
     return environment.from_string((TEMPLATES / name).read_text(encoding="utf-8")).render(
         site_name="example",
         product_root="/srv/products/stayturgid",
+        inventory_path="inventory/hosts.yml",
+        registry_ports_path="registry/ports.yml",
+        registry_paths_path="registry/paths.yml",
     )
 
 

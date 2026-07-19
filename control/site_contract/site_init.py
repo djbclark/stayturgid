@@ -20,6 +20,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Sequence
 
+from control.site_contract.site_map import SiteMap, SiteMapError, load_site_map
+
 try:
     from jinja2 import Environment, StrictUndefined
 except ModuleNotFoundError as exc:  # pragma: no cover - exercised when deps missing
@@ -170,6 +172,7 @@ def _render_context(
     site_name: str,
     product_root: Path,
     site_dir: Path,
+    site_map: SiteMap,
 ) -> dict[str, str]:
     product = str(product_root.resolve())
     return {
@@ -177,6 +180,9 @@ def _render_context(
         "product_root": product,
         "stayturgid_root": product,
         "site_dir": str(site_dir.resolve()),
+        "inventory_path": site_map.relative_path("inventory"),
+        "registry_ports_path": site_map.relative_path("registry_ports"),
+        "registry_paths_path": site_map.relative_path("registry_paths"),
     }
 
 
@@ -201,6 +207,7 @@ def build_plan(
     site_name: str,
     *,
     dir_path: str | None = None,
+    map_path: str | None = None,
     product_root: Path | None = None,
     env: dict[str, str] | None = None,
 ) -> InitPlan:
@@ -208,11 +215,20 @@ def build_plan(
     name = validate_site_name(site_name)
     product = (product_root or REPO_ROOT).resolve()
     destination = resolve_destination(name, dir_path=dir_path, product_root=product, env=env)
-    context = _render_context(site_name=name, product_root=product, site_dir=destination)
+    try:
+        site_map = load_site_map(site_dir=destination, product_root=product, map_path=map_path)
+    except SiteMapError as exc:
+        raise SiteInitError(str(exc)) from exc
+    context = _render_context(
+        site_name=name,
+        product_root=product,
+        site_dir=destination,
+        site_map=site_map,
+    )
 
     planned: list[PlannedFile] = []
     for template_path in _template_files():
-        relative = _destination_relative(template_path)
+        relative = _mapped_destination_relative(template_path, site_map)
         content = _load_payload(template_path, context)
         target = destination / relative
         if target.exists():
@@ -224,12 +240,32 @@ def build_plan(
             action = "create"
         planned.append(PlannedFile(relative_path=relative, content=content, action=action))
 
+    relative_paths = [item.relative_path for item in planned]
+    duplicate_paths = sorted({path for path in relative_paths if relative_paths.count(path) > 1})
+    if duplicate_paths:
+        raise SiteInitError("site map makes scaffold files collide at: " + ", ".join(duplicate_paths))
+
     return InitPlan(
         site_name=name,
         destination=destination,
         product_root=product,
         files=tuple(planned),
     )
+
+
+def _mapped_destination_relative(template_path: Path, site_map: SiteMap) -> str:
+    """Map contract-owned scaffold templates onto an existing site layout."""
+    default = _destination_relative(template_path)
+    if default == "inventory/hosts.yml":
+        return site_map.relative_path("inventory")
+    if default == "inventory/group_vars/.gitkeep":
+        inventory_parent = site_map.path("inventory").parent
+        return (inventory_parent / "group_vars/.gitkeep").relative_to(site_map.site_dir).as_posix()
+    if default == "registry/ports.yml":
+        return site_map.relative_path("registry_ports")
+    if default == "registry/paths.yml":
+        return site_map.relative_path("registry_paths")
+    return default
 
 
 def format_action_list(plan: InitPlan) -> str:
@@ -257,10 +293,16 @@ def apply_plan(plan: InitPlan) -> None:
 
 def _docs_markdown() -> str:
     """Self-contained Markdown for mode=docs (generic values only)."""
+    docs_site_dir = Path(_DOCS_SITE_DIR)
+    docs_site_map = load_site_map(
+        site_dir=docs_site_dir,
+        product_root=Path(_DOCS_PRODUCT_ROOT),
+    )
     context = _render_context(
         site_name=_DOCS_SITE_NAME,
         product_root=Path(_DOCS_PRODUCT_ROOT),
-        site_dir=Path(_DOCS_SITE_DIR),
+        site_dir=docs_site_dir,
+        site_map=docs_site_map,
     )
     rows: list[tuple[str, str, str]] = []
     for template_path in _template_files():
@@ -306,7 +348,12 @@ def _docs_markdown() -> str:
         "- `mode=dry-run`: print per-file `create` / `skip` / `overwrite` actions; no writes.",
         "- `mode=docs`: emit this document; no writes.",
         "- Exit codes: `0` success/no-op; `1` bad input/precondition; `2` would overwrite.",
-        "- `map=` is reserved for Phase C4 (`site-map.yml`); providing it fails closed today.",
+        "- `map=` loads an explicit Site Contract v1 map; otherwise `<site-dir>/site-map.yml`",
+        "  is auto-discovered before defaults are selected.",
+        "- Map keys fail closed. C4 path keys are `inventory`, `registry_ports`, and",
+        "  `registry_paths`; relative values resolve from the site directory and may not escape it.",
+        f"- Contract paths may not enter site-sync's owned `generated/{PRODUCT}/` area.",
+        "- `serverapps` entries are validated for Phase D but do not cause adapter writes in C4.",
         "",
         "## Scaffold layout",
         "",
@@ -352,6 +399,7 @@ def _docs_markdown() -> str:
             "## Invariants",
             "",
             f"- Everything outside `generated/{PRODUCT}/` is user-owned after creation.",
+            "- A site map redirects only declared contract files; unmapped files keep defaults.",
             "- `site-init` never overwrites a differing user file.",
             "- A second identical `apply` is a no-op (all files `skip`).",
             "- Private site data must never nest inside the public product working tree.",
@@ -383,10 +431,6 @@ def run_site_init(
     out = stdout if stdout is not None else sys.stdout
     err = stderr if stderr is not None else sys.stderr
     try:
-        if map_path and str(map_path).strip():
-            raise SiteInitError(
-                "site-map.yml support is not implemented in this phase (Phase C4); omit map= until then"
-            )
         parsed_mode = _parse_mode(mode)
         if parsed_mode == "docs":
             print(_docs_markdown(), end="", file=out)
@@ -395,6 +439,7 @@ def run_site_init(
         plan = build_plan(
             sitename,
             dir_path=dir_path,
+            map_path=map_path,
             product_root=product_root,
             env=env,
         )
@@ -446,7 +491,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
         "--map",
         dest="map_path",
         default="",
-        help="optional site-map.yml (Phase C4; rejected until then)",
+        help="optional explicit Site Contract v1 site-map.yml",
     )
     parser.add_argument(
         "--mode",

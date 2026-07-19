@@ -204,6 +204,32 @@ def test_apply_via_just_wrapper(tmp_path: Path) -> None:
     assert (dest / "inventory/hosts.yml").is_file()
 
 
+def test_explicit_map_via_just_wrapper(tmp_path: Path) -> None:
+    dest = tmp_path / "mapped-from-just"
+    map_file = tmp_path / "site-map.yml"
+    map_file.write_text(
+        "contract_version: 1\npaths:\n  inventory: custom/inventory.yml\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [
+            "just",
+            "site-init",
+            "sitename=example",
+            f"dir={dest}",
+            f"map={map_file}",
+            "mode=apply",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=ROOT,
+    )
+    assert result.returncode == 0, result.stderr + result.stdout
+    assert (dest / "custom/inventory.yml").is_file()
+    assert not (dest / "inventory").exists()
+
+
 def test_just_wrapper_dry_run_and_docs_exit_codes(tmp_path: Path) -> None:
     dest = tmp_path / "via-just"
     dry = subprocess.run(
@@ -284,16 +310,128 @@ def test_empty_sitename_via_just_exits_1() -> None:
     assert "usage:" in result.stderr.lower() or "sitename" in result.stderr.lower()
 
 
-def test_map_argument_rejected_until_c4(tmp_path: Path) -> None:
+def test_explicit_map_remaps_inventory_without_writing_default(tmp_path: Path) -> None:
+    dest = tmp_path / "site-example"
+    map_file = tmp_path / "custom-site-map.yml"
+    map_file.write_text(
+        "contract_version: 1\npaths:\n  inventory: ansible/inventories/home/hosts.yml\n",
+        encoding="utf-8",
+    )
+    code, _, stderr = _run_api(
+        sitename="example",
+        dir_path=str(dest),
+        map_path=str(map_file),
+        mode="apply",
+    )
+    assert code == si.EXIT_OK, stderr
+    mapped = dest / "ansible/inventories/home/hosts.yml"
+    assert mapped.is_file()
+    assert not (dest / "inventory/hosts.yml").exists()
+    assert not (dest / "inventory").exists()
+    config = configparser.ConfigParser(interpolation=None)
+    config.read_string((dest / "ansible.cfg").read_text(encoding="utf-8"))
+    assert config["defaults"]["inventory"] == "ansible/inventories/home/hosts.yml"
+
+
+@pytest.mark.parametrize(
+    ("map_text", "unknown_key"),
+    [
+        ("contract_version: 1\ntypo: true\n", "typo"),
+        ("contract_version: 1\npaths:\n  unknown_path: elsewhere/hosts.yml\n", "unknown_path"),
+        ("contract_version: 1\nserverapps:\n  unknown_app: {}\n", "unknown_app"),
+        ("contract_version: 1\nserverapps:\n  caddy:\n    unknown_field: caddy.d\n", "unknown_field"),
+    ],
+)
+def test_unknown_site_map_key_exits_1_naming_key(
+    tmp_path: Path,
+    map_text: str,
+    unknown_key: str,
+) -> None:
+    map_file = tmp_path / "site-map.yml"
+    map_file.write_text(map_text, encoding="utf-8")
     code, _, stderr = _run_api(
         sitename="example",
         dir_path=str(tmp_path / "site-example"),
-        map_path=str(tmp_path / "site-map.yml"),
+        map_path=str(map_file),
         mode="dry-run",
     )
     assert code == si.EXIT_PRECONDITION
-    assert "site-map" in stderr.lower() or "c4" in stderr.lower() or "phase" in stderr.lower()
+    assert unknown_key in stderr
     assert not (tmp_path / "site-example").exists()
+
+
+def test_site_map_relative_escape_exits_1_without_writes(tmp_path: Path) -> None:
+    dest = tmp_path / "site-example"
+    map_file = tmp_path / "site-map.yml"
+    map_file.write_text("contract_version: 1\npaths:\n  inventory: ../outside.yml\n", encoding="utf-8")
+    code, _, stderr = _run_api(
+        sitename="example",
+        dir_path=str(dest),
+        map_path=str(map_file),
+        mode="apply",
+    )
+    assert code == si.EXIT_PRECONDITION
+    assert "escapes" in stderr
+    assert not dest.exists()
+
+
+def test_site_map_rejects_contract_path_inside_generated_area(tmp_path: Path) -> None:
+    dest = tmp_path / "site-example"
+    map_file = tmp_path / "site-map.yml"
+    map_file.write_text(
+        "contract_version: 1\npaths:\n  inventory: generated/stayturgid/hosts.yml\n",
+        encoding="utf-8",
+    )
+    code, _, stderr = _run_api(
+        sitename="example",
+        dir_path=str(dest),
+        map_path=str(map_file),
+        mode="apply",
+    )
+    assert code == si.EXIT_PRECONDITION
+    assert "generated/stayturgid" in stderr
+    assert not dest.exists()
+
+
+def test_valid_serverapp_map_is_validation_only_in_c4(tmp_path: Path) -> None:
+    dest = tmp_path / "site-example"
+    map_file = tmp_path / "site-map.yml"
+    map_file.write_text(
+        "contract_version: 1\n"
+        "serverapps:\n"
+        "  caddy:\n"
+        "    config: /opt/homebrew/etc/Caddyfile\n"
+        "    fragment_dir: /opt/homebrew/etc/caddy.d\n"
+        "    mode: inject\n",
+        encoding="utf-8",
+    )
+    before = _snapshot(tmp_path)
+    code, stdout, stderr = _run_api(
+        sitename="example",
+        dir_path=str(dest),
+        map_path=str(map_file),
+        mode="dry-run",
+    )
+    assert code == si.EXIT_OK, stderr
+    assert "create" in stdout
+    assert _snapshot(tmp_path) == before
+    assert not dest.exists()
+
+
+def test_invalid_serverapp_mode_exits_1(tmp_path: Path) -> None:
+    map_file = tmp_path / "site-map.yml"
+    map_file.write_text(
+        "contract_version: 1\nserverapps:\n  caddy:\n    mode: typo\n",
+        encoding="utf-8",
+    )
+    code, _, stderr = _run_api(
+        sitename="example",
+        dir_path=str(tmp_path / "site-example"),
+        map_path=str(map_file),
+        mode="dry-run",
+    )
+    assert code == si.EXIT_PRECONDITION
+    assert "serverapps.caddy.mode" in stderr
 
 
 def test_invalid_mode_exits_1(tmp_path: Path) -> None:

@@ -11,9 +11,9 @@ otherwise.
 
 ## Layout
 
-- `inventory/hosts.yml` starts from the product's generic example. Replace all
+- `{{ inventory_path }}` starts from the product's generic example. Replace all
   RFC 5737 addresses, example aliases, and placeholder serials before deploy.
-- `registry/ports.yml` and `registry/paths.yml` contain product defaults to
+- `{{ registry_ports_path }}` and `{{ registry_paths_path }}` contain product defaults to
   reconcile with this site's actual allocations.
 - `secretspec.toml` declares the stayturgid secret profile without storing any
   values.
@@ -28,5 +28,5 @@ The wrapper `justfile` locates the public product at
 `~/ops/stayturgid` in that order. The site and product must remain sibling
 checkouts; never nest this private repository inside the public product tree.
 
-Review `inventory/hosts.yml` and the two registries before running a deployment.
+Review `{{ inventory_path }}` and the two registries before running a deployment.
 Then use `just inventory-check`, `just deploy-check`, and `just deploy`.
