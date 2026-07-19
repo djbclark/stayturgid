@@ -30,10 +30,10 @@ jobs:
         run: npm install -g prettier
       - name: Install lychee (link checker)
         run: |
-          curl -sSLO https://github.com/lycheeverse/lychee/releases/download/v0.24.2/lychee-v0.24.2-x86_64-unknown-linux-gnu.tar.gz
-          tar xzf lychee-v0.24.2-x86_64-unknown-linux-gnu.tar.gz
+          curl -fsSLO https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz
+          tar xzf lychee-x86_64-unknown-linux-gnu.tar.gz --strip-components=1 lychee-x86_64-unknown-linux-gnu/lychee
           sudo mv lychee /usr/local/bin/
-          rm lychee-v0.24.2-x86_64-unknown-linux-gnu.tar.gz
+          rm lychee-x86_64-unknown-linux-gnu.tar.gz
       - name: Cache bun dependencies
         uses: actions/cache@v4
         with:
