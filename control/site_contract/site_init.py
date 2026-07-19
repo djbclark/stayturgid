@@ -20,7 +20,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal, Sequence
 
-from jinja2 import Environment, StrictUndefined
+try:
+    from jinja2 import Environment, StrictUndefined
+except ModuleNotFoundError as exc:  # pragma: no cover - exercised when deps missing
+    raise SystemExit(
+        "error: jinja2 is required for site-init (install ansible-core, or use the project test venv: just test-venv)"
+    ) from exc
 
 PRODUCT = "stayturgid"
 CONTRACT_DIR = Path(__file__).resolve().parent

@@ -5,6 +5,7 @@
 #
 # The recipe is a thin wrapper: named KEY=VALUE tokens are forwarded to the
 # Python entry point. mode defaults to apply inside Python when omitted.
+# Prefers the project test venv (has Jinja2 via ansible-core) when present.
 
 # Initialize a private site overlay (apply | dry-run | docs).
 site-init *args:
@@ -15,4 +16,11 @@ site-init *args:
       exit 1
     fi
     cd "{{ repo }}"
-    python3 -m control.site_contract.site_init {{ args }}
+    if [[ -n "${SITE_INIT_PYTHON:-}" ]]; then
+      py="${SITE_INIT_PYTHON}"
+    elif [[ -x "{{ repo }}/.venv-test/bin/python" ]]; then
+      py="{{ repo }}/.venv-test/bin/python"
+    else
+      py="python3"
+    fi
+    exec "$py" -m control.site_contract.site_init {{ args }}
