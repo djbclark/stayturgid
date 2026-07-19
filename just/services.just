@@ -158,8 +158,10 @@ dashboard-logs:
     tail -f "{{ env_var("HOME") }}/.config/stayturgid/logs/dashboard.log"
 
 # ── Network landing page (service directory on http://localhost:8088) ──────
-
-landing_label := "com.stayturgid.landing"
+# Phase D4: default remains legacy for non-migrated sites; migrated sites set
+# LANDING_LABEL=com.<site_ns>.landing (this site: com.djbclark.landing).
+landing_label := env_var_or_default("LANDING_LABEL", "com.stayturgid.landing")
+landing_discover_label := env_var_or_default("LANDING_DISCOVER_LABEL", "com.stayturgid.landing-discover")
 
 # Health check + launchctl state.
 landing-status:
@@ -182,6 +184,14 @@ landing-disable:
     -launchctl unload "{{ env_var("HOME") }}/Library/LaunchAgents/{{ landing_label }}.plist" 2>/dev/null
     @echo "Landing page disabled."
 
-# Run service discovery scan.
+# Run service discovery scan (badges unregistered listeners vs registry/ports.yml).
 landing-discover:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{ justfile_directory() }}"
+    if [[ -n "${STAYTURGID_SITE_DIR:-}" ]]; then
+      export STAYTURGID_SITE_DIR
+    elif [[ -d "${HOME}/ops/site-djbclark" ]]; then
+      export STAYTURGID_SITE_DIR="${HOME}/ops/site-djbclark"
+    fi
     python3 control/landing/discover.py

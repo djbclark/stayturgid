@@ -39,7 +39,7 @@ def test_discovery_writes_runtime_state_not_catalog(tmp_path, monkeypatch):
     monkeypatch.setattr(state, "CATALOG_FILE", catalog)
     monkeypatch.setattr(state, "STATE_FILE", runtime)
     monkeypatch.setattr(discover, "KNOWN_SERVICES", state.load_catalog()["services"])
-    monkeypatch.setattr(discover, "_scan_localhost", lambda: [])
+    monkeypatch.setattr(discover, "_scan_localhost", lambda **_kwargs: [])
     monkeypatch.setattr(discover, "_http_probe", lambda _url: 200)
 
     before = catalog.read_text(encoding="utf-8")
@@ -48,3 +48,40 @@ def test_discovery_writes_runtime_state_not_catalog(tmp_path, monkeypatch):
     assert result["services"][0]["status_code"] == 200
     assert catalog.read_text(encoding="utf-8") == before
     assert runtime.is_file()
+
+
+def test_load_registered_ports_from_registry(tmp_path: Path) -> None:
+    reg = tmp_path / "registry" / "ports.yml"
+    reg.parent.mkdir(parents=True)
+    reg.write_text(
+        "hosts:\n"
+        "  m1-air:\n"
+        "    ports:\n"
+        "      - {port: 8088, service: landing}\n"
+        "      - {port: 8080, service: caddy-health}\n",
+        encoding="utf-8",
+    )
+    ports = discover.load_registered_ports(reg)
+    assert ports == {8088, 8080}
+
+
+def test_scan_localhost_badges_unregistered(monkeypatch) -> None:
+    """Registry drift: listeners not in registry get unregistered badge."""
+
+    def fake_lsof(*_a, **_k):
+        class R:
+            stdout = (
+                "COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME\n"
+                "Python  1 user 3u IPv4 0x1 0t0 TCP 127.0.0.1:9999 (LISTEN)\n"
+                "Python  2 user 3u IPv4 0x2 0t0 TCP 127.0.0.1:8088 (LISTEN)\n"
+            )
+
+        return R()
+
+    monkeypatch.setattr(discover.subprocess, "run", fake_lsof)
+    monkeypatch.setattr(discover, "_http_probe", lambda _url, timeout=2.0: 200)
+    found = discover._scan_localhost(registered_ports={8088})
+    by_port = {s["url"]: s for s in found}
+    assert by_port["http://localhost:9999"].get("unregistered") is True
+    assert "[unregistered]" in by_port["http://localhost:9999"]["label"]
+    assert by_port["http://localhost:8088"].get("unregistered") is not True
