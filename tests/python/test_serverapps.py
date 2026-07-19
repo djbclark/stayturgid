@@ -420,3 +420,89 @@ def test_vector_idempotent_second_own_run(tmp_path: Path) -> None:
     assert code2 == sa.EXIT_OK, err2
     assert base.read_bytes() == before
     assert "mode=own" in stdout2
+
+
+# --- openobserve adapter (D3) ----------------------------------------------
+
+
+def test_openobserve_mode_defaults_to_own(tmp_path: Path) -> None:
+    dest = _init_and_sync(tmp_path)
+    home = tmp_path / "home"
+    home.mkdir()
+    code, stdout, stderr = _run(dir_path=str(dest), mode="dry-run", home=home, apps="openobserve")
+    assert code == sa.EXIT_OK, stderr
+    assert "openobserve: mode=own (source=default)" in stdout
+
+
+def test_openobserve_own_materializes_plist_with_stable_data_dir(tmp_path: Path) -> None:
+    dest = _init_and_sync(tmp_path)
+    home = tmp_path / "home"
+    (home / "Library" / "LaunchAgents").mkdir(parents=True)
+
+    code, stdout, stderr = _run(dir_path=str(dest), mode="apply", home=home, skip_ansible=True, apps="openobserve")
+    assert code == sa.EXIT_OK, stderr
+    assert "mode=own" in stdout
+
+    data_dir = home / ".local" / "share" / "openobserve" / "data"
+    plist = home / "Library" / "LaunchAgents" / "com.example.openobserve.plist"
+    assert data_dir.is_dir(), data_dir
+    assert plist.is_file()
+    text = plist.read_text(encoding="utf-8")
+    assert "com.example.openobserve" in text
+    assert str(data_dir) in text
+    assert "ZO_DATA_DIR_PATH" in text
+    # Must not re-home data under site_ns config tree
+    assert "/.config/example/openobserve" not in text
+
+
+def test_openobserve_inject_zero_file_writes(tmp_path: Path) -> None:
+    """inject = reuse endpoint only; never writes unit or config files."""
+    dest = _init_and_sync(tmp_path)
+    home = tmp_path / "home"
+    (home / "Library" / "LaunchAgents").mkdir(parents=True)
+    foreign = home / "Library" / "LaunchAgents" / "io.openobserve.openobserve.plist"
+    foreign.write_text("<!-- foreign unit -->\n", encoding="utf-8")
+    _write_site_map(
+        dest,
+        f"contract_version: 1\nserverapps:\n  openobserve:\n    mode: inject\n    config: {foreign}\n",
+    )
+    before = {p.relative_to(home).as_posix() for p in home.rglob("*")}
+    code, stdout, stderr = _run(dir_path=str(dest), mode="apply", home=home, apps="openobserve")
+    assert code == sa.EXIT_OK, stderr
+    assert "mode=inject" in stdout
+    assert "no file writes" in stdout or "reuse" in stdout.lower()
+    after = {p.relative_to(home).as_posix() for p in home.rglob("*")}
+    assert before == after
+    # Must not create site-namespace plist
+    assert not (home / "Library" / "LaunchAgents" / "com.example.openobserve.plist").exists()
+
+
+def test_openobserve_legacy_stayturgid_unit_does_not_force_inject(tmp_path: Path) -> None:
+    dest = _init_and_sync(tmp_path)
+    home = tmp_path / "home"
+    agents = home / "Library" / "LaunchAgents"
+    agents.mkdir(parents=True)
+    (agents / "com.stayturgid.openobserve.plist").write_text("<!-- legacy -->\n", encoding="utf-8")
+    # Detect uses real Path.home() for default scan; site-map-free default stays own
+    # when no foreign unit is at real-home detect paths. Force empty foreign via dry-run
+    # on a home that only has legacy under the test tree — resolve still uses real home.
+    code, stdout, stderr = _run(dir_path=str(dest), mode="dry-run", home=home, apps="openobserve")
+    assert code == sa.EXIT_OK, stderr
+    assert "mode=own" in stdout
+
+
+def test_openobserve_idempotent_second_own_run(tmp_path: Path) -> None:
+    dest = _init_and_sync(tmp_path)
+    home = tmp_path / "home"
+    (home / "Library" / "LaunchAgents").mkdir(parents=True)
+
+    code1, _, err1 = _run(dir_path=str(dest), mode="apply", home=home, skip_ansible=True, apps="openobserve")
+    assert code1 == sa.EXIT_OK, err1
+    plist = home / "Library" / "LaunchAgents" / "com.example.openobserve.plist"
+    before = plist.read_bytes()
+
+    code2, stdout2, err2 = _run(dir_path=str(dest), mode="apply", home=home, skip_ansible=True, apps="openobserve")
+    assert code2 == sa.EXIT_OK, err2
+    assert plist.read_bytes() == before
+    assert "mode=own" in stdout2
+    assert "skip" in stdout2

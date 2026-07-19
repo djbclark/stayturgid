@@ -1,0 +1,20 @@
+---
+# serverapp_openobserve — own-mode OpenObserve adapter (Site Contract v1 §5 / Phase D).
+# Callers pass site_ns and site_dir as extra-vars. Never hard-code site_ns.
+# Data dir stays under ~/.local/share/openobserve (unchanged across migrate).
+
+serverapp_openobserve_home: "{{ lookup('env', 'HOME') }}"
+# Keep the live data path so parquet is not re-homed (D3 requirement).
+serverapp_openobserve_data_dir: "{{ serverapp_openobserve_home }}/.local/share/openobserve/data"
+serverapp_openobserve_bin_path: "{{ serverapp_openobserve_home }}/.local/bin/openobserve"
+serverapp_openobserve_logs_dir: "{{ serverapp_openobserve_home }}/.config/{{ site_ns }}/logs"
+serverapp_openobserve_label: "com.{{ site_ns }}.openobserve"
+serverapp_openobserve_plist_path: "{{ serverapp_openobserve_home }}/Library/LaunchAgents/{{ serverapp_openobserve_label }}.plist"
+serverapp_openobserve_version: "0.91.1"
+serverapp_openobserve_http_port: "5080"
+serverapp_openobserve_bind_address: "127.0.0.1"
+serverapp_openobserve_health_url: "http://127.0.0.1:5080/healthz"
+serverapp_openobserve_uid: "501"
+# Credentials — never commit; env / secretspec / site inventory email only.
+serverapp_openobserve_root_email: "{{ lookup('env', 'OPENOBSERVE_ROOT_EMAIL') | default('', true) }}"
+serverapp_openobserve_root_password: "{{ lookup('env', 'OPENOBSERVE_ROOT_PASSWORD') | default('', true) }}"
