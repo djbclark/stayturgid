@@ -23,10 +23,6 @@ stayturgid_vlm_upstream_check_weekday: 0
 stayturgid_vlm_upstream_check_hour: 9
 stayturgid_vlm_upstream_check_minute: 20
 
-# Caddy HTTPS reverse proxy (Tailscale TLS certs via Caddy's built-in
-# tailscale get_certificate module). Proxies OpenCode, dashboard, VLM.
-stayturgid_caddy_enabled: true
-
 conf_dir: "{{ lookup('env', 'HOME') }}/.config/stayturgid"
 agents_dir: "{{ lookup('env', 'HOME') }}/Library/LaunchAgents"
 stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
@@ -64,7 +60,6 @@ stayturgid_mac_brew_packages_base:
   - scrcpy
   # Hermes Agent (Telegram gateway + Grok OAuth CLI); see tasks/hermes.yml
   - hermes-agent
-  - vectordotdev/brew/vector
 
 stayturgid_mac_brew_packages_app_stores:
   - fdroidcl
@@ -120,20 +115,3 @@ stayturgid_opencode_web_label: com.stayturgid.opencode-web
 stayturgid_dashboard_enabled: true
 stayturgid_dashboard_port: 4097
 stayturgid_dashboard_label: com.stayturgid.dashboard
-
-# ── Observability Pipeline (Local Mac Host) ──────────────────────────────
-stayturgid_observability_enabled: true
-openobserve_version: "0.91.1"
-openobserve_port: 5080
-openobserve_root_email: "operator@gmail.com"
-openobserve_root_password: "{{ lookup('env', 'OPENOBSERVE_ROOT_PASSWORD') }}"
-openobserve_label: "com.stayturgid.openobserve"
-openobserve_data_dir: "{{ lookup('env', 'HOME') }}/.local/share/openobserve/data"
-openobserve_bin_path: "{{ lookup('env', 'HOME') }}/.local/bin/openobserve"
-
-vector_label: "com.stayturgid.vector"
-vector_config_dir: "{{ lookup('env', 'HOME') }}/.config/stayturgid/vector"
-vector_data_dir: "{{ lookup('env', 'HOME') }}/.config/stayturgid/vector/data"
-vector_ingestion_token: "{{ lookup('env', 'VECTOR_INGESTION_TOKEN') }}"
-vector_otlp_port: 4318
-vector_bin_path: "{{ stayturgid_homebrew_prefix }}/bin/vector"

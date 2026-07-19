@@ -341,51 +341,6 @@
   when: firerpa_health_removed.changed
   failed_when: false
 
-# ─────────────────────────────────────────────────────────────────
-# Caddy HTTPS reverse proxy (Tailscale TLS + Let's Encrypt certs)
-# ─────────────────────────────────────────────────────────────────
-- name: Ensure Caddy is installed via Homebrew
-  community.general.homebrew:
-    name: caddy
-    state: present
-  when: stayturgid_caddy_enabled | default(true) | bool
-
-- name: Deploy Caddyfile to stayturgid config
-  ansible.builtin.copy:
-    src: "{{ stayturgid_repo_root }}/control/caddy/Caddyfile"
-    dest: "{{ conf_dir }}/Caddyfile"
-    mode: "0644"
-  when: stayturgid_caddy_enabled | default(true) | bool
-
-- name: Render Caddy launchd agent
-  ansible.builtin.template:
-    src: caddy.plist.j2
-    dest: "{{ agents_dir }}/com.stayturgid.caddy.plist"
-    mode: "0644"
-  when: stayturgid_caddy_enabled | default(true) | bool
-  register: caddy_plist
-
-- name: Remove Caddy launchd agent when disabled
-  ansible.builtin.file:
-    path: "{{ agents_dir }}/com.stayturgid.caddy.plist"
-    state: absent
-  when: not (stayturgid_caddy_enabled | default(true) | bool)
-  register: caddy_removed
-
-- name: Unload Caddy when disabled
-  community.general.launchd:
-    name: com.stayturgid.caddy
-    state: unloaded
-  when: caddy_removed.changed
-  failed_when: false
-
-# ─────────────────────────────────────────────────────────────────
-# Observability Pipeline (Vector & OpenObserve)
-# ─────────────────────────────────────────────────────────────────
-- name: Include Observability tasks
-  ansible.builtin.include_tasks: observability.yml
-  when: stayturgid_observability_enabled | bool
-
 - name: Render fleet dashboard launchd agent
   ansible.builtin.template:
     src: dashboard.plist.j2
@@ -459,21 +414,6 @@
             stayturgid_dashboard_enabled | default(true) | bool
             and dashboard_plist is defined
             and dashboard_plist.changed
-          ) else []
-        )
-        + (
-          [openobserve_label]
-          if (
-            stayturgid_observability_enabled | bool
-            and _openobserve_plist is defined
-            and _openobserve_plist.changed
-          ) else []
-        )
-        + (
-          [vector_label]
-          if (
-            stayturgid_observability_enabled | bool
-            and (_vector_plist.changed or _vector_config.changed)
           ) else []
         )
       }}

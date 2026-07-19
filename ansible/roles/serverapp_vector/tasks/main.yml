@@ -16,7 +16,7 @@
 
 - name: Install vector via Homebrew when absent (never upgrade)
   community.general.homebrew:
-    name: vector
+    name: vectordotdev/brew/vector
     state: present
   when: _vector_brew_list.rc != 0
 

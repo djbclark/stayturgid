@@ -34,9 +34,9 @@ claim_sources:
   ~/.local/share/ui-tars/server/**:
     source: ansible/roles/control_node/defaults/main.yml#ui_tars_working_dir
   ~/.local/share/openobserve/data/**:
-    source: ansible/roles/control_node/defaults/main.yml#openobserve_data_dir
+    source: ansible/roles/serverapp_openobserve/defaults/main.yml#serverapp_openobserve_data_dir
   ~/.local/bin/openobserve:
-    source: ansible/roles/control_node/defaults/main.yml#openobserve_bin_path
+    source: ansible/roles/serverapp_openobserve/defaults/main.yml#serverapp_openobserve_bin_path
   /data/local/tmp/firerpa/**:
     source: ansible_collections/stayturgid/firerpa/roles/firerpa/defaults/main.yml#firerpa_install_dir
   /sdcard/stayturgid/**:

@@ -3,10 +3,10 @@
 # Callers pass site_ns and site_dir as extra-vars. Never hard-code site_ns.
 # Data dir stays under ~/.local/share/openobserve (unchanged across migrate).
 
-serverapp_openobserve_home: "{{ lookup('env', 'HOME') }}"
 # Keep the live data path so parquet is not re-homed (D3 requirement).
-serverapp_openobserve_data_dir: "{{ serverapp_openobserve_home }}/.local/share/openobserve/data"
-serverapp_openobserve_bin_path: "{{ serverapp_openobserve_home }}/.local/bin/openobserve"
+serverapp_openobserve_home: "{{ lookup('env', 'HOME') }}"
+serverapp_openobserve_data_dir: "{{ lookup('env', 'HOME') }}/.local/share/openobserve/data"
+serverapp_openobserve_bin_path: "{{ lookup('env', 'HOME') }}/.local/bin/openobserve"
 serverapp_openobserve_logs_dir: "{{ serverapp_openobserve_home }}/.config/{{ site_ns }}/logs"
 serverapp_openobserve_label: "com.{{ site_ns }}.openobserve"
 serverapp_openobserve_plist_path: "{{ serverapp_openobserve_home }}/Library/LaunchAgents/{{ serverapp_openobserve_label }}.plist"

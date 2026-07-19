@@ -33,20 +33,20 @@ ports:
     scope: control_node
     bind: 127.0.0.1
     source:
-      file: ansible/roles/control_node/defaults/main.yml
-      yaml_path: openobserve_port
+      file: ansible/roles/serverapp_openobserve/defaults/main.yml
+      yaml_path: serverapp_openobserve_http_port
   - service: vector-otlp-http
     scope: control_node
     bind: 0.0.0.0
     source:
-      file: ansible/roles/control_node/defaults/main.yml
-      yaml_path: vector_otlp_port
+      file: ansible/roles/serverapp_vector/defaults/main.yml
+      yaml_path: serverapp_vector_otlp_http_port
   - service: vector-otlp-grpc
     scope: control_node
     bind: 127.0.0.1
     source:
-      file: ansible/roles/control_node/templates/vector.yaml.j2
-      regex: 'grpc:\s*\n\s*address:\s*"127\.0\.0\.1:(\d+)"'
+      file: ansible/roles/serverapp_vector/defaults/main.yml
+      yaml_path: serverapp_vector_otlp_grpc_port
   - service: landing
     scope: control_node
     bind: 127.0.0.1
@@ -150,12 +150,12 @@ paths:
       yaml_path: ui_tars_working_dir
     suffix: "/**"
   - source:
-      file: ansible/roles/control_node/defaults/main.yml
-      yaml_path: openobserve_data_dir
+      file: ansible/roles/serverapp_openobserve/defaults/main.yml
+      yaml_path: serverapp_openobserve_data_dir
     suffix: "/**"
   - source:
-      file: ansible/roles/control_node/defaults/main.yml
-      yaml_path: openobserve_bin_path
+      file: ansible/roles/serverapp_openobserve/defaults/main.yml
+      yaml_path: serverapp_openobserve_bin_path
   - source:
       file: ansible_collections/stayturgid/firerpa/roles/firerpa/defaults/main.yml
       yaml_path: firerpa_install_dir

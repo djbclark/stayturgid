@@ -20,7 +20,7 @@ Migration of the `stayturgid` Android phone fleet and macOS control node to a st
 
 We will install and configure Vector and OpenObserve natively on the Mac control node.
 
-#### [NEW] [observability.yml](../../../../ansible/playbooks/control_node/observability.yml)
+#### [SUPERSEDED] [Vector adapter tasks](../../../../ansible/roles/serverapp_vector/tasks/main.yml)
 
 - Ansible playbook for the Mac control node:
   1. Installs Vector via Homebrew (`brew install vector`).
@@ -28,11 +28,11 @@ We will install and configure Vector and OpenObserve natively on the Mac control
   3. Creates a macOS launchd agent configuration (`com.openobserve.plist`) and starts the service.
   4. Deploys the Vector YAML configuration.
 
-#### [NEW] [com.openobserve.plist.j2](../../../../ansible/roles/control_node/templates/com.openobserve.plist.j2)
+#### [SUPERSEDED] [openobserve.plist.j2](../../../../ansible/roles/serverapp_openobserve/templates/openobserve.plist.j2)
 
 - Jinja2 template for the OpenObserve launchd service, setting environment variables for root email, password, and binding interface.
 
-#### [NEW] [vector.yaml.j2](../../../../ansible/roles/control_node/templates/vector.yaml.j2)
+#### [SUPERSEDED] [vector.yaml.j2](../../../../ansible/roles/serverapp_vector/templates/vector.yaml.j2)
 
 - Jinja2 template for Vector on the Mac, receiving OTLP JSON logs from the fleet devices over Tailscale and forwarding them to local OpenObserve (`http://127.0.0.1:5080/api/default/android_logs/_json`).
 
