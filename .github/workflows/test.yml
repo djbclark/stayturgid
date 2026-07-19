@@ -7,6 +7,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Site resolution has no silent default: CI explicitly selects the
+    # upstream generic config for every check and test subprocess.
+    env:
+      ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,6 +38,12 @@ jobs:
           tar xzf lychee-x86_64-unknown-linux-gnu.tar.gz --strip-components=1 lychee-x86_64-unknown-linux-gnu/lychee
           sudo mv lychee /usr/local/bin/
           rm lychee-x86_64-unknown-linux-gnu.tar.gz
+      - name: Install dotenv-linter
+        run: |
+          curl -fsSLO https://github.com/dotenv-linter/dotenv-linter/releases/download/v4.0.0/dotenv-linter-linux-x86_64.tar.gz
+          tar xzf dotenv-linter-linux-x86_64.tar.gz
+          sudo mv dotenv-linter /usr/local/bin/
+          rm dotenv-linter-linux-x86_64.tar.gz
       - name: Cache bun dependencies
         uses: actions/cache@v4
         with:
@@ -50,8 +60,7 @@ jobs:
           uv tool install ansible-core &&
           uv tool install ansible-lint &&
           uv tool install yamllint &&
-          uv tool install pyinilint &&
-          uv tool install dotenv-linter
+          uv tool install pyinilint
       - name: Install just
         uses: extractions/setup-just@v3
       - name: Install Ansible collections
@@ -63,10 +72,6 @@ jobs:
       - name: configure
         run: ./configure
       - name: just syntax (generic inventory)
-        # Site resolution has no silent default: CI selects the upstream
-        # config explicitly (§4.7/§4.8 of multi-site-topology.md).
-        env:
-          ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
         run: just syntax
       - name: just check (tier a — syntax/lint under CI interpreters)
         run: just check
