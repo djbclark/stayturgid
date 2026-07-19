@@ -1,8 +1,9 @@
-# Site-contract CLI surfaces (docs/architecture/site-contract.md §2).
+# Site-contract CLI surfaces (docs/architecture/site-contract.md §2 / §5).
 #
 # Usage:
 #   just site-init sitename=<name> [dir=<path>] [map=<site-map.yml>] [mode=apply|dry-run|docs]
 #   just site-sync [dir=<path>] [mode=apply|dry-run|docs] [force-generated=1]
+#   just site-serverapps [dir=<path>] [apps=<csv>] [mode=apply|dry-run] [force-generated=1]
 #   just site-contract-check
 #
 # Recipes are thin wrappers: named KEY=VALUE tokens are forwarded to the
@@ -58,3 +59,21 @@ site-sync *args:
       py="python3"
     fi
     exec "$py" -m control.site_contract.site_sync {{ args }}
+
+# Activate serverapp adapters (own / inject / off) for a site overlay.
+site-serverapps *args:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{ repo }}"
+    if [[ -n "${SITE_SERVERAPPS_PYTHON:-}" ]]; then
+      py="${SITE_SERVERAPPS_PYTHON}"
+    elif [[ -n "${SITE_SYNC_PYTHON:-}" ]]; then
+      py="${SITE_SYNC_PYTHON}"
+    elif [[ -n "${SITE_INIT_PYTHON:-}" ]]; then
+      py="${SITE_INIT_PYTHON}"
+    elif [[ -x "{{ repo }}/.venv-test/bin/python" ]]; then
+      py="{{ repo }}/.venv-test/bin/python"
+    else
+      py="python3"
+    fi
+    exec "$py" -m control.site_contract.serverapps {{ args }}

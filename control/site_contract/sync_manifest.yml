@@ -13,3 +13,5 @@ files:
     template: README.md.j2
   - path: generated/stayturgid/fragments/.keep
     template: fragments/.keep.j2
+  - path: generated/stayturgid/fragments/caddy/stayturgid.caddy
+    template: fragments/caddy/stayturgid.caddy.j2

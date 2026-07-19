@@ -344,7 +344,7 @@ def lockfile_hashes(lockfile: dict[str, Any] | None) -> dict[str, str]:
     return out
 
 
-def _render_template(template_path: Path, context: dict[str, str]) -> bytes:
+def _render_template(template_path: Path, context: dict[str, Any]) -> bytes:
     environment = Environment(
         undefined=StrictUndefined,
         keep_trailing_newline=True,
@@ -355,6 +355,54 @@ def _render_template(template_path: Path, context: dict[str, str]) -> bytes:
     return rendered.encode("utf-8")
 
 
+def _collect_inventory_hosts(node: Any, *, out: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """Flatten Ansible-style inventory into a sorted list of host dicts."""
+    if out is None:
+        out = []
+    if not isinstance(node, dict):
+        return out
+    hosts = node.get("hosts")
+    if isinstance(hosts, dict):
+        for name, vars_raw in hosts.items():
+            entry: dict[str, Any] = {"name": str(name)}
+            if isinstance(vars_raw, dict):
+                for key, value in vars_raw.items():
+                    entry[str(key)] = value
+            out.append(entry)
+    children = node.get("children")
+    if isinstance(children, dict):
+        for child in children.values():
+            _collect_inventory_hosts(child, out=out)
+    return out
+
+
+def _ports_by_service(ports_doc: dict[str, Any]) -> dict[str, int]:
+    """Map service name → port from hosts.* and product_defaults.* entries."""
+    result: dict[str, int] = {}
+
+    def _ingest(entries: Any) -> None:
+        if not isinstance(entries, list):
+            return
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            service = entry.get("service")
+            port = entry.get("port")
+            if isinstance(service, str) and service.strip() and isinstance(port, int):
+                result[service.strip()] = port
+
+    hosts = ports_doc.get("hosts")
+    if isinstance(hosts, dict):
+        for host_data in hosts.values():
+            if isinstance(host_data, dict):
+                _ingest(host_data.get("ports"))
+    product_defaults = ports_doc.get("product_defaults")
+    if isinstance(product_defaults, dict):
+        for group_entries in product_defaults.values():
+            _ingest(group_entries)
+    return result
+
+
 def _site_render_context(
     *,
     site_dir: Path,
@@ -363,9 +411,14 @@ def _site_render_context(
     product_commit: str,
     source_template: str,
     site_map: SiteMap,
-) -> dict[str, str]:
-    """Build template context from product identity + optional site registry facts."""
-    context: dict[str, str] = {
+) -> dict[str, Any]:
+    """Build template context from product identity + site registry/inventory facts.
+
+    Always includes ``ports`` (service→port mapping) and ``inventory_hosts``
+    (sorted host list). Fragments that reference an unregistered port fail via
+    StrictUndefined (exit 1).
+    """
+    context: dict[str, Any] = {
         "product": PRODUCT,
         "product_root": str(product_root.resolve()),
         "stayturgid_root": str(product_root.resolve()),
@@ -376,6 +429,8 @@ def _site_render_context(
         "inventory_path": site_map.relative_path("inventory"),
         "registry_ports_path": site_map.relative_path("registry_ports"),
         "registry_paths_path": site_map.relative_path("registry_paths"),
+        "ports": {},
+        "inventory_hosts": [],
     }
     inventory_path = site_map.path("inventory")
     if inventory_path.is_file():
@@ -385,15 +440,29 @@ def _site_render_context(
             inventory = {}
         if isinstance(inventory, dict):
             context["inventory_loaded"] = "true"
+            hosts = _collect_inventory_hosts(inventory)
+            # Dedupe by name (a host may appear under multiple groups); first wins.
+            seen: set[str] = set()
+            unique: list[dict[str, Any]] = []
+            for host in hosts:
+                name = str(host.get("name", ""))
+                if not name or name in seen:
+                    continue
+                seen.add(name)
+                unique.append(host)
+            unique.sort(key=lambda item: str(item.get("name", "")))
+            context["inventory_hosts"] = unique
     # Optional site facts from registry (never required for the minimal scaffold).
     ports_path = site_map.path("registry_ports")
     if ports_path.is_file():
         try:
-            ports = yaml.safe_load(ports_path.read_text(encoding="utf-8")) or {}
+            ports_doc = yaml.safe_load(ports_path.read_text(encoding="utf-8")) or {}
         except (OSError, yaml.YAMLError):
-            ports = {}
-        if isinstance(ports, dict) and isinstance(ports.get("product"), str):
-            context["registry_product"] = ports["product"]
+            ports_doc = {}
+        if isinstance(ports_doc, dict):
+            if isinstance(ports_doc.get("product"), str):
+                context["registry_product"] = ports_doc["product"]
+            context["ports"] = _ports_by_service(ports_doc)
     paths_path = site_map.path("registry_paths")
     if paths_path.is_file():
         try:
@@ -708,12 +777,20 @@ def apply_plan(plan: SyncPlan, *, force_generated: bool = False) -> None:
 def _docs_markdown() -> str:
     """Self-contained Markdown for mode=docs (generic values only)."""
     manifest = load_manifest()
+    # Generic RFC-5737-style ports so fragment templates StrictUndefined-render cleanly.
+    docs_ports = {
+        "landing": 8088,
+        "fleet-dashboard": 4097,
+        "opencode-web": 4096,
+        "ui-tars-vlm": 8081,
+        "caddy-health": 8080,
+    }
     # Render each template under generic context to prove StrictUndefined + structure.
     for entry in manifest.files:
         template_path = SYNC_TEMPLATE_DIR / entry.template
         if not template_path.is_file():
             raise SiteSyncError(f"sync template missing: {template_path}")
-        context = {
+        context: dict[str, Any] = {
             "product": PRODUCT,
             "product_root": _DOCS_PRODUCT_ROOT,
             "stayturgid_root": _DOCS_PRODUCT_ROOT,
@@ -724,6 +801,8 @@ def _docs_markdown() -> str:
             "inventory_path": "inventory/hosts.yml",
             "registry_ports_path": "registry/ports.yml",
             "registry_paths_path": "registry/paths.yml",
+            "ports": docs_ports,
+            "inventory_hosts": [{"name": "example-host", "ansible_host": "192.0.2.10"}],
         }
         _render_template(template_path, context)
 

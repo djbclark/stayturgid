@@ -1,0 +1,162 @@
+---
+# Own-mode caddy lifecycle: brew (never upgrade) → config → validate →
+# plist → bootstrap → health. Does not delete legacy com.stayturgid.caddy.
+
+- name: Resolve caddy binary path
+  ansible.builtin.set_fact:
+    serverapp_caddy_bin: "{{ serverapp_caddy_bin }}"
+
+- name: Check whether caddy formula is installed
+  ansible.builtin.command:
+    cmd: brew list --formula caddy
+  register: _caddy_brew_list
+  changed_when: false
+  failed_when: false
+
+- name: Install caddy via Homebrew when absent (never upgrade)
+  community.general.homebrew:
+    name: caddy
+    state: present
+  when: _caddy_brew_list.rc != 0
+
+- name: Resolve caddy binary after install
+  ansible.builtin.command:
+    cmd: brew --prefix caddy
+  register: _caddy_prefix
+  changed_when: false
+  failed_when: false
+
+- name: Set caddy binary from brew prefix when available
+  ansible.builtin.set_fact:
+    serverapp_caddy_bin: "{{ _caddy_prefix.stdout.strip() }}/bin/caddy"
+  when:
+    - _caddy_prefix.rc == 0
+    - _caddy_prefix.stdout is defined
+    - (_caddy_prefix.stdout | trim | length) > 0
+
+- name: Ensure caddy config and log directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ serverapp_caddy_config_dir }}"
+    - "{{ serverapp_caddy_logs_dir }}"
+    - "{{ serverapp_caddy_home }}/Library/LaunchAgents"
+
+- name: Load site group_vars for public hostname when present
+  ansible.builtin.include_vars:
+    file: "{{ site_dir }}/inventory/group_vars/all.yml"
+    name: _site_all_vars
+  failed_when: false
+
+- name: Apply site hostname facts when defined
+  ansible.builtin.set_fact:
+    serverapp_caddy_public_hostname: >-
+      {{
+        serverapp_caddy_public_hostname
+        if (serverapp_caddy_public_hostname | length) > 0
+        else (_site_all_vars.caddy_public_hostname | default(''))
+      }}
+    serverapp_caddy_short_hostname: >-
+      {{
+        serverapp_caddy_short_hostname
+        if (serverapp_caddy_short_hostname | length) > 0
+        else (_site_all_vars.caddy_short_hostname | default(''))
+      }}
+  when: _site_all_vars is defined
+
+- name: Render own-mode base Caddyfile
+  ansible.builtin.template:
+    src: Caddyfile.j2
+    dest: "{{ serverapp_caddy_config_path }}"
+    mode: "0644"
+  register: _caddy_config
+
+- name: Validate Caddyfile before activate
+  ansible.builtin.command:
+    cmd: >-
+      {{ serverapp_caddy_bin }} validate
+      --config {{ serverapp_caddy_config_path }}
+      --adapter caddyfile
+  register: _caddy_validate
+  changed_when: false
+
+- name: Render caddy launchd plist under site namespace
+  ansible.builtin.template:
+    src: caddy.plist.j2
+    dest: "{{ serverapp_caddy_plist_path }}"
+    mode: "0644"
+  register: _caddy_plist
+
+- name: Probe whether site-namespace caddy label is loaded
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_caddy_uid }}/{{ serverapp_caddy_label }}" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _caddy_launch_state
+  changed_when: false
+
+# Phase D migration (design §1.9): old and new cannot share 80/443. Boot out
+# the legacy product-namespace label when present; leave its plist on disk
+# (retirement is D7). Skip when already unloaded.
+- name: Probe legacy product-namespace caddy label
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_caddy_uid }}/com.stayturgid.caddy" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _caddy_legacy_state
+  changed_when: false
+
+- name: Pre-health-check before legacy cutover (old daemon must be healthy)
+  ansible.builtin.uri:
+    url: "{{ serverapp_caddy_health_url }}"
+    status_code: 200
+  when:
+    - _caddy_legacy_state.stdout | trim == 'loaded'
+    - _caddy_launch_state.stdout | trim == 'unloaded'
+  register: _caddy_pre_health
+
+- name: Boot out legacy com.stayturgid.caddy (plist retained on disk)
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_caddy_uid }}/com.stayturgid.caddy
+  when:
+    - _caddy_legacy_state.stdout | trim == 'loaded'
+    - _caddy_launch_state.stdout | trim == 'unloaded'
+  register: _caddy_legacy_bootout
+
+- name: Bootstrap site-namespace caddy when unloaded
+  ansible.builtin.command:
+    cmd: >-
+      launchctl bootstrap gui/{{ serverapp_caddy_uid }}
+      {{ serverapp_caddy_plist_path }}
+  when: _caddy_launch_state.stdout | trim == 'unloaded'
+  register: _caddy_bootstrap
+
+- name: Kickstart site-namespace caddy after config or plist change
+  ansible.builtin.command:
+    cmd: >-
+      launchctl kickstart -k gui/{{ serverapp_caddy_uid }}/{{ serverapp_caddy_label }}
+  when:
+    - _caddy_launch_state.stdout | trim == 'loaded'
+    - (_caddy_config.changed | default(false)) or (_caddy_plist.changed | default(false))
+  register: _caddy_kickstart
+
+- name: Wait for caddy health endpoint
+  ansible.builtin.uri:
+    url: "{{ serverapp_caddy_health_url }}"
+    status_code: 200
+  register: _caddy_health
+  until: _caddy_health.status == 200
+  retries: 30
+  delay: 1
