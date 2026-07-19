@@ -11,6 +11,10 @@ This directory implements Phase C of the site contract in
 - `generate_registry_seeds.py` resolves that source map and writes the
   committed `templates/registry/{ports,paths}.yml` seeds.
 - `site_init.py` is the `site-init` CLI (apply / dry-run / docs).
+- `sync_manifest.yml` is the product sync manifest (files under
+  `generated/<product>/` that `site-sync` owns).
+- `sync_templates/` holds Jinja2 sources for those generated files.
+- `site_sync.py` is the `site-sync` CLI (apply / dry-run / docs + lockfile).
 
 ## site-init
 
@@ -30,6 +34,26 @@ python3 -m control.site_contract.site_init --sitename <name> [--dir <path>] [--m
 - Exit codes: `0` success/no-op; `1` precondition/input failure; `2` would overwrite.
 - `map=` is reserved for Phase C4 and is rejected until then.
 - A destination nested inside this product checkout is rejected (ADR 005).
+
+## site-sync
+
+```bash
+just site-sync [dir=<path>] [mode=apply|dry-run|docs] [force-generated=1]
+# or:
+python3 -m control.site_contract.site_sync [--dir <path>] [--mode apply|dry-run|docs] [--force-generated]
+```
+
+- Destination: explicit `dir=`, else `STAYTURGID_SITE_DIR`, else exactly one
+  `site-*` under `$OPS_ROOT`. No hardcoded production-site fallback.
+- Re-renders every path in `sync_manifest.yml` into `generated/stayturgid/` and
+  maintains `generated/stayturgid/.lockfile.yml` (spec §4).
+- Before overwriting, compares on-disk content hash to the lockfile hash. Drift
+  (hand edit) → exit 2 listing paths; `force-generated=1` overwrites only
+  inside the generated area.
+- Paths removed from the manifest are deleted from the generated area (dry-run
+  lists `delete` first).
+- Never writes outside `generated/stayturgid/` in Phase C3.
+- Exit codes: `0` success/no-op; `1` precondition/input failure; `2` drift.
 
 ## Registry seeds
 
