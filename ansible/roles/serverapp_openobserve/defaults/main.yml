@@ -11,6 +11,15 @@ serverapp_openobserve_logs_dir: "{{ serverapp_openobserve_home }}/.config/{{ sit
 serverapp_openobserve_label: "com.{{ site_ns }}.openobserve"
 serverapp_openobserve_plist_path: "{{ serverapp_openobserve_home }}/Library/LaunchAgents/{{ serverapp_openobserve_label }}.plist"
 serverapp_openobserve_version: "0.91.1"
+# M1-F MF-5: pinned sha256 of the enterprise archive, per download arch. No
+# vendor checksum sidecar exists (CDN has no directory listing); obtained by
+# downloading over HTTPS and hashing directly (2026-07-19, recorded in the
+# M1-F PR). darwin-amd64 has no published archive for this version (CDN
+# returns AccessDenied) — left empty; the role fails closed rather than
+# installing an unverified binary if that arch is ever needed.
+serverapp_openobserve_archive_sha256:
+  darwin-arm64: "d1e01cfd91e67efb46539deab3601081ae29e6852b50ef323167b557ce66e665"
+  darwin-amd64: ""
 serverapp_openobserve_http_port: "5080"
 serverapp_openobserve_http_address: "127.0.0.1"
 serverapp_openobserve_grpc_address: "127.0.0.1"

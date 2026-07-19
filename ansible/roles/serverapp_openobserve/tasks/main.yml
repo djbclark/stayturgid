@@ -32,6 +32,16 @@
     _oo_arch: "{{ 'darwin-arm64' if (_oo_uname.stdout | default('') | trim) in ['arm64', 'aarch64'] else 'darwin-amd64' }}"
   when: not (_oo_bin_stat.stat.exists | default(false))
 
+# M1-F MF-5: fail closed rather than install an unverified binary.
+- name: Fail closed when no pinned checksum exists for this OpenObserve download arch
+  ansible.builtin.assert:
+    that:
+      - (serverapp_openobserve_archive_sha256[_oo_arch] | default('', true) | length) > 0
+    fail_msg: >-
+      No pinned sha256 for OpenObserve {{ serverapp_openobserve_version }} ({{ _oo_arch }}) in
+      serverapp_openobserve_archive_sha256 — refusing to download an unverified binary.
+  when: not (_oo_bin_stat.stat.exists | default(false))
+
 - name: Download OpenObserve archive when binary missing
   vars:
     _oo_base: "https://downloads.openobserve.ai/releases/o2-enterprise"
@@ -40,6 +50,7 @@
     url: "{{ _oo_base }}/v{{ serverapp_openobserve_version }}/{{ _oo_archive }}"
     dest: /tmp/openobserve.tar.gz
     mode: "0644"
+    checksum: "sha256:{{ serverapp_openobserve_archive_sha256[_oo_arch] }}"
   when: not (_oo_bin_stat.stat.exists | default(false))
 
 - name: Extract OpenObserve binary when missing
@@ -86,7 +97,7 @@
   ansible.builtin.template:
     src: openobserve.plist.j2
     dest: "{{ serverapp_openobserve_plist_path }}"
-    mode: "0644"
+    mode: "0600"
   register: _oo_plist
 
 - name: Probe whether site-namespace openobserve label is loaded

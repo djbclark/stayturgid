@@ -100,11 +100,42 @@
   changed_when: false
   # --skip-healthchecks: sink→openobserve health is runtime; config shape only here.
 
+# MF-4: vector reads its fragment --config files at start (no-copy, design
+# §1.3) — a site-sync fragment rewrite changes on-disk content the launch
+# args do not track. Compare a combined checksum of the fragment configs
+# against a recorded state file so a fragment-only edit still reloads.
+- name: Reload vector on fragment-content change
+  ansible.builtin.shell:
+    cmd: |
+      {% raw %}
+      set -eu
+      IFS=',' read -ra files <<< "$FRAGMENT_CONFIGS"
+      if [ ${#files[@]} -eq 0 ]; then
+        new="no-fragments"
+      else
+        new=$(shasum -a 256 -- "${files[@]}" | sort | shasum -a 256 | awk '{print $1}')
+      fi
+      old=""
+      [ -f "$STATE_FILE" ] && old=$(cat "$STATE_FILE")
+      if [ "$new" != "$old" ]; then
+        echo "$new" >"$STATE_FILE"
+        echo changed
+      else
+        echo unchanged
+      fi
+      {% endraw %}
+    executable: /bin/bash
+  environment:
+    FRAGMENT_CONFIGS: "{{ serverapp_vector_fragment_configs }}"
+    STATE_FILE: "{{ serverapp_vector_config_dir }}/.fragments.sha256"
+  register: _vector_fragments_reload
+  changed_when: _vector_fragments_reload.stdout | trim == 'changed'
+
 - name: Render vector launchd plist under site namespace
   ansible.builtin.template:
     src: vector.plist.j2
     dest: "{{ serverapp_vector_plist_path }}"
-    mode: "0644"
+    mode: "0600"
   register: _vector_plist
 
 - name: Probe whether site-namespace vector label is loaded
@@ -216,7 +247,7 @@
       launchctl kickstart -k gui/{{ serverapp_vector_uid }}/{{ serverapp_vector_label }}
   when:
     - _vector_launch_state.stdout | trim == 'loaded'
-    - _vector_config.changed | default(false)
+    - (_vector_config.changed | default(false)) or (_vector_fragments_reload.changed | default(false))
     - not (_vector_plist.changed | default(false))
   register: _vector_kickstart
 

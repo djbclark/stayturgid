@@ -123,7 +123,7 @@ def merge_config(
         f"# {GENERATED_MARKER} site-sync — DO NOT EDIT (single-writer projection; see design §2)\n"
         "# projection: control/site_contract/olivetin_projection.py "
         f"({FRAGMENT_RELATIVE} + optional {USER_ACTIONS_RELATIVE})\n"
-        f"# product_version: {product_version} commit: {product_commit}\n"
+        f"# product_version: {product_version}\n"
     )
     body = yaml.safe_dump(document, default_flow_style=False, sort_keys=False, allow_unicode=True)
     if not body.endswith("\n"):
