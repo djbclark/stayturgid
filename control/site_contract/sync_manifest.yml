@@ -1,0 +1,15 @@
+# Product sync manifest (Site Contract v1).
+# Single source of truth for files site-sync maintains under generated/<product>/.
+# Paths are relative to the site dir root. site-sync never writes outside that tree
+# in Phase C3 (no serverapp inject-mode writes — Phase D).
+#
+# contract_version must match the site contract major version.
+# template paths are relative to control/site_contract/sync_templates/.
+
+contract_version: 1
+product: stayturgid
+files:
+  - path: generated/stayturgid/README.md
+    template: README.md.j2
+  - path: generated/stayturgid/fragments/.keep
+    template: fragments/.keep.j2
