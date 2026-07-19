@@ -194,4 +194,12 @@ landing-discover:
     elif [[ -d "${HOME}/ops/site-djbclark" ]]; then
       export STAYTURGID_SITE_DIR="${HOME}/ops/site-djbclark"
     fi
-    python3 control/landing/discover.py
+    # Prefer project test venv (has PyYAML for registry drift) then brew python3.
+    if [[ -x "{{ justfile_directory() }}/.venv-test/bin/python" ]]; then
+      py="{{ justfile_directory() }}/.venv-test/bin/python"
+    elif [[ -x /opt/homebrew/bin/python3 ]]; then
+      py=/opt/homebrew/bin/python3
+    else
+      py=python3
+    fi
+    "$py" control/landing/discover.py
