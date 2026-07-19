@@ -213,6 +213,50 @@ def test_apply_via_just_wrapper(tmp_path: Path) -> None:
     assert (dest / "generated/stayturgid/README.md").is_file()
 
 
+# --- Acceptance test 4: site-map remap ------------------------------------
+
+
+def test_site_map_remapped_inventory_used_and_default_never_written(tmp_path: Path) -> None:
+    dest = tmp_path / "site-mapped"
+    dest.mkdir()
+    (dest / "site-map.yml").write_text(
+        "contract_version: 1\npaths:\n  inventory: ansible/inventories/home/hosts.yml\n",
+        encoding="utf-8",
+    )
+    init_code = si.run_site_init(
+        sitename="mapped",
+        dir_path=str(dest),
+        mode="apply",
+        product_root=ROOT,
+        env={},
+        stdout=io.StringIO(),
+        stderr=io.StringIO(),
+    )
+    assert init_code == si.EXIT_OK
+    mapped_inventory = dest / "ansible/inventories/home/hosts.yml"
+    assert mapped_inventory.is_file()
+    assert not (dest / "inventory").exists()
+
+    code, _, stderr = _run_api(dir_path=str(dest), mode="apply")
+    assert code == ss.EXIT_OK, stderr
+    generated = (dest / "generated/stayturgid/README.md").read_text(encoding="utf-8")
+    assert "ansible/inventories/home/hosts.yml" in generated
+    assert not (dest / "inventory").exists()
+
+
+def test_sync_invalid_auto_discovered_map_exits_1_naming_unknown_key(tmp_path: Path) -> None:
+    dest = _init_site(tmp_path)
+    (dest / "site-map.yml").write_text(
+        "contract_version: 1\npaths:\n  unknown_path: inventory/hosts.yml\n",
+        encoding="utf-8",
+    )
+    before = _snapshot(dest)
+    code, _, stderr = _run_api(dir_path=str(dest), mode="apply")
+    assert code == ss.EXIT_PRECONDITION
+    assert "unknown_path" in stderr
+    assert _snapshot(dest) == before
+
+
 # --- Acceptance test 3: hand-edit → exit 2; force-generated recovers -------
 
 

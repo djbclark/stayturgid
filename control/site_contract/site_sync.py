@@ -23,6 +23,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, Sequence
 
+from control.site_contract.site_map import SiteMap, SiteMapError, load_site_map
+
 try:
     from jinja2 import Environment, StrictUndefined
 except ModuleNotFoundError as exc:  # pragma: no cover - exercised when deps missing
@@ -360,6 +362,7 @@ def _site_render_context(
     product_version: str,
     product_commit: str,
     source_template: str,
+    site_map: SiteMap,
 ) -> dict[str, str]:
     """Build template context from product identity + optional site registry facts."""
     context: dict[str, str] = {
@@ -370,9 +373,20 @@ def _site_render_context(
         "product_version": product_version,
         "product_commit": product_commit,
         "source_template": source_template,
+        "inventory_path": site_map.relative_path("inventory"),
+        "registry_ports_path": site_map.relative_path("registry_ports"),
+        "registry_paths_path": site_map.relative_path("registry_paths"),
     }
+    inventory_path = site_map.path("inventory")
+    if inventory_path.is_file():
+        try:
+            inventory = yaml.safe_load(inventory_path.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError):
+            inventory = {}
+        if isinstance(inventory, dict):
+            context["inventory_loaded"] = "true"
     # Optional site facts from registry (never required for the minimal scaffold).
-    ports_path = site_dir / "registry" / "ports.yml"
+    ports_path = site_map.path("registry_ports")
     if ports_path.is_file():
         try:
             ports = yaml.safe_load(ports_path.read_text(encoding="utf-8")) or {}
@@ -380,7 +394,7 @@ def _site_render_context(
             ports = {}
         if isinstance(ports, dict) and isinstance(ports.get("product"), str):
             context["registry_product"] = ports["product"]
-    paths_path = site_dir / "registry" / "paths.yml"
+    paths_path = site_map.path("registry_paths")
     if paths_path.is_file():
         try:
             paths = yaml.safe_load(paths_path.read_text(encoding="utf-8")) or {}
@@ -437,6 +451,10 @@ def build_plan(
     """Compute the full sync plan without writing anything."""
     product = (product_root or REPO_ROOT).resolve()
     destination = resolve_site_dir(dir_path=dir_path, product_root=product, env=env)
+    try:
+        site_map = load_site_map(site_dir=destination, product_root=product)
+    except SiteMapError as exc:
+        raise SiteSyncError(str(exc)) from exc
     manifest = load_manifest(manifest_path)
     version = product_version if product_version is not None else load_product_version(product)
     commit = product_commit if product_commit is not None else load_product_commit(product)
@@ -468,6 +486,7 @@ def build_plan(
             product_version=version,
             product_commit=commit,
             source_template=source_template,
+            site_map=site_map,
         )
         content = _render_template(template_path, context)
         digest = _sha256_bytes(content)
@@ -702,6 +721,9 @@ def _docs_markdown() -> str:
             "product_version": _DOCS_PRODUCT_VERSION,
             "product_commit": _DOCS_PRODUCT_COMMIT,
             "source_template": f"control/site_contract/sync_templates/{entry.template}",
+            "inventory_path": "inventory/hosts.yml",
+            "registry_ports_path": "registry/ports.yml",
+            "registry_paths_path": "registry/paths.yml",
         }
         _render_template(template_path, context)
 
@@ -765,6 +787,8 @@ def _docs_markdown() -> str:
         "- `mode=docs`: emit this document; no writes.",
         "- `--force-generated` / `force-generated=1`: overwrite drifted generated files (still only under generated/).",
         "- Exit codes: `0` success/no-op; `1` bad input/precondition; `2` would overwrite drifted content.",
+        "- `<site-dir>/site-map.yml` is auto-discovered before defaults. Unknown keys",
+        "  fail closed; C4 maps inventory and registries but performs no serverapp writes.",
         "",
         "## Sync rules (spec §4)",
         "",
@@ -773,8 +797,9 @@ def _docs_markdown() -> str:
         "   (hand edit), stop with exit 2 and list drifted paths unless `force-generated`.",
         "3. Paths that leave the product manifest are deleted from the generated area",
         "   (listed in dry-run first).",
-        "4. Phase C3 never writes outside `generated/<product>/` (no serverapp inject mode).",
-        "5. User area outside `generated/<product>/` is never touched.",
+        "4. Site facts are read from mapped `inventory`, `registry_ports`, and `registry_paths` locations.",
+        "5. Phase C4 never writes outside `generated/<product>/` (no serverapp inject mode).",
+        "6. User area outside `generated/<product>/` is never touched.",
         "",
         "## Lockfile shape",
         "",
