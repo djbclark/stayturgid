@@ -2,6 +2,7 @@
 # Install: uv venv .venv-test && uv pip install -r tests/python/requirements.txt
 # Or:     uv sync
 ansible-core>=2.16
+jinja2>=3.1
 pytest>=7
 pytest-mock>=3
 pytest-ansible>=2

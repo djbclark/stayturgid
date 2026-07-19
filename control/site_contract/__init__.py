@@ -1,6 +1,6 @@
-"""Site-contract scaffold support.
+"""Site-contract scaffold and tooling.
 
-Phase C1 only provides templates and reproducible registry seeds. The
-``site-init`` and ``site-sync`` command surfaces are implemented in later
-phases.
+Phase C1 provides templates and reproducible registry seeds. Phase C2 provides
+``site-init`` (apply / dry-run / docs). ``site-sync`` and related surfaces land
+in later phases.
 """
