@@ -1,0 +1,23 @@
+---
+# serverapp_vector — own-mode Vector adapter (Site Contract v1 §5 / Phase D).
+# Callers (control/site_contract/serverapps.py) pass site_ns and site_dir as
+# extra-vars. Never hard-code a site_ns here — it is a site fact.
+
+serverapp_vector_home: "{{ lookup('env', 'HOME') }}"
+serverapp_vector_config_dir: "{{ serverapp_vector_home }}/.config/{{ site_ns }}/vector"
+serverapp_vector_config_path: "{{ serverapp_vector_config_dir }}/vector.yaml"
+serverapp_vector_data_dir: "{{ serverapp_vector_config_dir }}/data"
+serverapp_vector_logs_dir: "{{ serverapp_vector_home }}/.config/{{ site_ns }}/logs"
+serverapp_vector_label: "com.{{ site_ns }}.vector"
+serverapp_vector_plist_path: "{{ serverapp_vector_home }}/Library/LaunchAgents/{{ serverapp_vector_label }}.plist"
+# Comma-separated extra --config paths (product fragments under generated/).
+# serverapps.py expands the generated/vector/*.yaml glob into this list.
+serverapp_vector_fragment_configs: ""
+serverapp_vector_bin: /opt/homebrew/bin/vector
+# Vector API (loopback) used as the own-mode health endpoint.
+serverapp_vector_api_address: "127.0.0.1:8686"
+serverapp_vector_health_url: "http://127.0.0.1:8686/health"
+serverapp_vector_uid: "501"
+# OpenObserve sink credentials — never committed; passed via env / -e.
+serverapp_vector_openobserve_email: "{{ lookup('env', 'OPENOBSERVE_ROOT_EMAIL') | default('', true) }}"
+serverapp_vector_openobserve_password: "{{ lookup('env', 'OPENOBSERVE_ROOT_PASSWORD') | default('', true) }}"

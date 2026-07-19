@@ -1,0 +1,9 @@
+---
+# Own-mode vector adapter entry point. Invoked by control/site_contract/serverapps.py.
+# Uses local connection; extra-vars supply site_ns, site_dir, and path overrides.
+- name: Activate stayturgid vector serverapp (own mode)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: serverapp_vector
