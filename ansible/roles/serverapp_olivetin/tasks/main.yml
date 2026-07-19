@@ -1,0 +1,220 @@
+---
+# Own-mode olivetin lifecycle: binary if absent (never upgrade) → dirs →
+# minimal config.yaml → plist → bootstrap → health. Config is a projection
+# surface (design §2); D5 ships empty-actions bootstrap; D6 owns inventory
+# merge. New installs skip legacy cutover.
+
+- name: Ensure olivetin config, install, and log directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ serverapp_olivetin_config_dir }}"
+    - "{{ serverapp_olivetin_install_dir }}"
+    - "{{ serverapp_olivetin_logs_dir }}"
+    - "{{ serverapp_olivetin_home }}/Library/LaunchAgents"
+
+- name: Check whether OliveTin binary is installed
+  ansible.builtin.stat:
+    path: "{{ serverapp_olivetin_bin_path }}"
+  register: _ot_bin_stat
+
+- name: Check whether OliveTin webui directory is present
+  ansible.builtin.stat:
+    path: "{{ serverapp_olivetin_webui_dir }}"
+  register: _ot_webui_stat
+
+- name: Detect machine architecture for OliveTin download
+  ansible.builtin.command:
+    cmd: uname -m
+  register: _ot_uname
+  changed_when: false
+  when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
+
+- name: Set OliveTin download architecture fact
+  ansible.builtin.set_fact:
+    _ot_arch: "{{ 'darwin-arm64' if (_ot_uname.stdout | default('') | trim) in ['arm64', 'aarch64'] else 'darwin-amd64' }}"
+  when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
+
+- name: Download OliveTin archive when binary or webui missing
+  vars:
+    _ot_base: "https://github.com/OliveTin/OliveTin/releases/download"
+    _ot_archive: "OliveTin-{{ _ot_arch }}.tar.gz"
+  ansible.builtin.get_url:
+    url: "{{ _ot_base }}/{{ serverapp_olivetin_version }}/{{ _ot_archive }}"
+    dest: /tmp/OliveTin-{{ serverapp_olivetin_version }}-{{ _ot_arch }}.tar.gz
+    mode: "0644"
+    force: true
+  when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
+
+# macOS ships BSD tar; ansible.builtin.unarchive requires GNU tar for .tar.gz.
+# noqa: command-instead-of-module — intentional system tar for portability.
+- name: Extract OliveTin archive with system tar when missing
+  # noqa: command-instead-of-module — BSD tar; unarchive needs GNU tar
+  ansible.builtin.command:
+    cmd: >-
+      tar -xzf /tmp/OliveTin-{{ serverapp_olivetin_version }}-{{ _ot_arch }}.tar.gz
+      -C /tmp
+  when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
+  tags:
+    - skip_ansible_lint
+
+- name: Install OliveTin binary to install dir when missing
+  ansible.builtin.copy:
+    src: /tmp/OliveTin-{{ _ot_arch }}/OliveTin
+    dest: "{{ serverapp_olivetin_bin_path }}"
+    mode: "0755"
+    remote_src: true
+  when: not (_ot_bin_stat.stat.exists | default(false))
+
+- name: Install OliveTin webui directory when missing
+  ansible.builtin.copy:
+    src: /tmp/OliveTin-{{ _ot_arch }}/webui/
+    dest: "{{ serverapp_olivetin_webui_dir }}/"
+    remote_src: true
+    mode: preserve
+  when: not (_ot_webui_stat.stat.isdir | default(false))
+
+- name: Clear quarantine on OliveTin install tree (macOS Gatekeeper)
+  ansible.builtin.command:
+    cmd: xattr -dr com.apple.quarantine {{ serverapp_olivetin_install_dir }}
+  changed_when: false
+  failed_when: false
+  when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
+
+- name: Clean up temporary OliveTin download artifacts
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/OliveTin-{{ serverapp_olivetin_version }}-{{ _ot_arch }}.tar.gz
+    - /tmp/OliveTin-{{ _ot_arch }}
+  when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
+
+- name: Assert OliveTin binary is present
+  ansible.builtin.stat:
+    path: "{{ serverapp_olivetin_bin_path }}"
+  register: _ot_bin_final
+  failed_when: not (_ot_bin_final.stat.exists | default(false))
+
+- name: Assert OliveTin webui directory is present
+  ansible.builtin.stat:
+    path: "{{ serverapp_olivetin_webui_dir }}"
+  register: _ot_webui_final
+  failed_when: not (_ot_webui_final.stat.isdir | default(false))
+
+- name: Render minimal own-mode OliveTin config.yaml
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ serverapp_olivetin_config_path }}"
+    mode: "0644"
+  register: _ot_config
+
+- name: Render olivetin launchd plist under site namespace
+  ansible.builtin.template:
+    src: olivetin.plist.j2
+    dest: "{{ serverapp_olivetin_plist_path }}"
+    mode: "0644"
+  register: _ot_plist
+
+- name: Probe whether site-namespace olivetin label is loaded
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_olivetin_uid }}/{{ serverapp_olivetin_label }}" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _ot_launch_state
+  changed_when: false
+
+- name: Probe legacy product-namespace olivetin label
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_olivetin_uid }}/com.stayturgid.olivetin" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _ot_legacy_state
+  changed_when: false
+
+- name: Pre-health-check before legacy cutover (old daemon must be healthy)
+  ansible.builtin.uri:
+    url: "{{ serverapp_olivetin_health_url }}"
+    status_code: 200
+  when:
+    - _ot_legacy_state.stdout | trim == 'loaded'
+    - _ot_launch_state.stdout | trim == 'unloaded'
+  register: _ot_pre_health
+
+- name: Boot out legacy com.stayturgid.olivetin (plist retained on disk)
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_olivetin_uid }}/com.stayturgid.olivetin
+  when:
+    - _ot_legacy_state.stdout | trim == 'loaded'
+    - _ot_launch_state.stdout | trim == 'unloaded'
+  register: _ot_legacy_bootout
+
+# Rollback (if legacy ever existed):
+#   launchctl bootout gui/<uid>/com.<site_ns>.olivetin \
+#     && launchctl enable gui/<uid>/com.stayturgid.olivetin \
+#     && launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/com.stayturgid.olivetin.plist
+- name: Check whether legacy olivetin plist remains on disk
+  ansible.builtin.stat:
+    path: "{{ serverapp_olivetin_home }}/Library/LaunchAgents/com.stayturgid.olivetin.plist"
+  register: _ot_legacy_plist
+
+- name: Probe whether legacy olivetin label is persistently disabled
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print-disabled "gui/{{ serverapp_olivetin_uid }}" 2>/dev/null \
+      | grep -Eq '"com\.stayturgid\.olivetin" => (true|disabled)'; then
+      echo disabled
+    else
+      echo enabled
+    fi
+  args:
+    executable: /bin/bash
+  register: _ot_legacy_disabled
+  changed_when: false
+  when: _ot_legacy_plist.stat.exists
+
+- name: Persistently disable legacy olivetin label (survives login; plist retained)
+  ansible.builtin.command:
+    cmd: launchctl disable gui/{{ serverapp_olivetin_uid }}/com.stayturgid.olivetin
+  when:
+    - _ot_legacy_plist.stat.exists
+    - (_ot_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
+  register: _ot_legacy_disable
+
+- name: Bootstrap site-namespace olivetin when unloaded
+  ansible.builtin.command:
+    cmd: >-
+      launchctl bootstrap gui/{{ serverapp_olivetin_uid }}
+      {{ serverapp_olivetin_plist_path }}
+  when: _ot_launch_state.stdout | trim == 'unloaded'
+  register: _ot_bootstrap
+
+- name: Kickstart site-namespace olivetin after config/plist change
+  ansible.builtin.command:
+    cmd: >-
+      launchctl kickstart -k gui/{{ serverapp_olivetin_uid }}/{{ serverapp_olivetin_label }}
+  when:
+    - _ot_launch_state.stdout | trim == 'loaded'
+    - (_ot_plist.changed | default(false)) or (_ot_config.changed | default(false))
+  register: _ot_kickstart
+
+- name: Wait for OliveTin HTTP frontend
+  ansible.builtin.uri:
+    url: "{{ serverapp_olivetin_health_url }}"
+    status_code: 200
+  register: _ot_health
+  until: _ot_health.status == 200
+  retries: 30
+  delay: 1

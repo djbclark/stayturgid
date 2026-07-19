@@ -1,0 +1,14 @@
+---
+galaxy_info:
+  role_name: serverapp_olivetin
+  author: stayturgid
+  description: >-
+    Site Contract v1 olivetin adapter (own mode) — binary if absent, minimal
+    config, launchd site namespace. Full actions projection is D6.
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: macOS
+      versions:
+        - all
+dependencies: []

@@ -1,0 +1,168 @@
+---
+# Own-mode grafana lifecycle: brew (never upgrade) → dirs → grafana.ini →
+# plist → bootstrap → health. Provisioning reads product fragments from
+# generated/stayturgid/fragments/grafana/ (site-sync is the single writer).
+# New installs skip legacy cutover. Does not delete legacy product labels (D7).
+
+- name: Check whether grafana formula is installed
+  ansible.builtin.command:
+    cmd: brew list --formula grafana
+  register: _gf_brew_list
+  changed_when: false
+  failed_when: false
+
+- name: Install grafana via Homebrew when absent (never upgrade)
+  community.general.homebrew:
+    name: grafana
+    state: present
+  when: _gf_brew_list.rc != 0
+
+- name: Resolve grafana binary after install
+  ansible.builtin.command:
+    cmd: brew --prefix grafana
+  register: _gf_prefix
+  changed_when: false
+  failed_when: false
+
+- name: Set grafana binary and homepath from brew prefix when available
+  ansible.builtin.set_fact:
+    serverapp_grafana_bin: "{{ _gf_prefix.stdout.strip() }}/bin/grafana"
+    serverapp_grafana_homepath: "{{ _gf_prefix.stdout.strip() }}/share/grafana"
+  when:
+    - _gf_prefix.rc == 0
+    - _gf_prefix.stdout is defined
+    - (_gf_prefix.stdout | trim | length) > 0
+
+- name: Ensure grafana config, data, plugins, and log directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ serverapp_grafana_config_dir }}"
+    - "{{ serverapp_grafana_data_dir }}"
+    - "{{ serverapp_grafana_plugins_dir }}"
+    - "{{ serverapp_grafana_logs_dir }}"
+    - "{{ serverapp_grafana_home }}/Library/LaunchAgents"
+
+- name: Assert product grafana provisioning fragments exist
+  ansible.builtin.stat:
+    path: "{{ serverapp_grafana_provisioning_dir }}/datasources"
+  register: _gf_prov
+  failed_when: not (_gf_prov.stat.exists | default(false))
+  # Fail closed: site-sync must render fragments before own-mode activate.
+
+- name: Render own-mode grafana.ini
+  ansible.builtin.template:
+    src: grafana.ini.j2
+    dest: "{{ serverapp_grafana_ini_path }}"
+    mode: "0600"
+  register: _gf_ini
+
+- name: Render grafana launchd plist under site namespace
+  ansible.builtin.template:
+    src: grafana.plist.j2
+    dest: "{{ serverapp_grafana_plist_path }}"
+    mode: "0644"
+  register: _gf_plist
+
+- name: Probe whether site-namespace grafana label is loaded
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_grafana_uid }}/{{ serverapp_grafana_label }}" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _gf_launch_state
+  changed_when: false
+
+- name: Probe legacy product-namespace grafana label
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_grafana_uid }}/com.stayturgid.grafana" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _gf_legacy_state
+  changed_when: false
+
+- name: Pre-health-check before legacy cutover (old daemon must be healthy)
+  ansible.builtin.uri:
+    url: "{{ serverapp_grafana_health_url }}"
+    status_code: 200
+  when:
+    - _gf_legacy_state.stdout | trim == 'loaded'
+    - _gf_launch_state.stdout | trim == 'unloaded'
+  register: _gf_pre_health
+
+- name: Boot out legacy com.stayturgid.grafana (plist retained on disk)
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_grafana_uid }}/com.stayturgid.grafana
+  when:
+    - _gf_legacy_state.stdout | trim == 'loaded'
+    - _gf_launch_state.stdout | trim == 'unloaded'
+  register: _gf_legacy_bootout
+
+# Rollback (if legacy ever existed):
+#   launchctl bootout gui/<uid>/com.<site_ns>.grafana \
+#     && launchctl enable gui/<uid>/com.stayturgid.grafana \
+#     && launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/com.stayturgid.grafana.plist
+- name: Check whether legacy grafana plist remains on disk
+  ansible.builtin.stat:
+    path: "{{ serverapp_grafana_home }}/Library/LaunchAgents/com.stayturgid.grafana.plist"
+  register: _gf_legacy_plist
+
+- name: Probe whether legacy grafana label is persistently disabled
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print-disabled "gui/{{ serverapp_grafana_uid }}" 2>/dev/null \
+      | grep -Eq '"com\.stayturgid\.grafana" => (true|disabled)'; then
+      echo disabled
+    else
+      echo enabled
+    fi
+  args:
+    executable: /bin/bash
+  register: _gf_legacy_disabled
+  changed_when: false
+  when: _gf_legacy_plist.stat.exists
+
+- name: Persistently disable legacy grafana label (survives login; plist retained)
+  ansible.builtin.command:
+    cmd: launchctl disable gui/{{ serverapp_grafana_uid }}/com.stayturgid.grafana
+  when:
+    - _gf_legacy_plist.stat.exists
+    - (_gf_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
+  register: _gf_legacy_disable
+
+- name: Bootstrap site-namespace grafana when unloaded
+  ansible.builtin.command:
+    cmd: >-
+      launchctl bootstrap gui/{{ serverapp_grafana_uid }}
+      {{ serverapp_grafana_plist_path }}
+  when: _gf_launch_state.stdout | trim == 'unloaded'
+  register: _gf_bootstrap
+
+- name: Kickstart site-namespace grafana after config/plist change
+  ansible.builtin.command:
+    cmd: >-
+      launchctl kickstart -k gui/{{ serverapp_grafana_uid }}/{{ serverapp_grafana_label }}
+  when:
+    - _gf_launch_state.stdout | trim == 'loaded'
+    - (_gf_plist.changed | default(false)) or (_gf_ini.changed | default(false))
+  register: _gf_kickstart
+
+- name: Wait for grafana health endpoint
+  ansible.builtin.uri:
+    url: "{{ serverapp_grafana_health_url }}"
+    status_code: 200
+  register: _gf_health
+  until: _gf_health.status == 200
+  retries: 60
+  delay: 2

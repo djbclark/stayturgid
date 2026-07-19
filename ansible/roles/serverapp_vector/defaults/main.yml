@@ -15,8 +15,9 @@ serverapp_vector_plist_path: "{{ serverapp_vector_home }}/Library/LaunchAgents/{
 serverapp_vector_fragment_configs: ""
 serverapp_vector_bin: /opt/homebrew/bin/vector
 # Vector API (loopback) used as the own-mode health endpoint.
-serverapp_vector_api_address: "127.0.0.1:8686"
-serverapp_vector_health_url: "http://127.0.0.1:8686/health"
+serverapp_vector_api_port: 8686
+serverapp_vector_api_address: "127.0.0.1:{{ serverapp_vector_api_port }}"
+serverapp_vector_health_url: "http://127.0.0.1:{{ serverapp_vector_api_port }}/health"
 serverapp_vector_uid: "501"
 # OpenObserve sink credentials — never committed; passed via env / -e.
 serverapp_vector_openobserve_email: "{{ lookup('env', 'OPENOBSERVE_ROOT_EMAIL') | default('', true) }}"

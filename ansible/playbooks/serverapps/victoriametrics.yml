@@ -1,0 +1,8 @@
+---
+# Own-mode victoriametrics adapter entry point. Invoked by control/site_contract/serverapps.py.
+- name: Activate stayturgid victoriametrics serverapp (own mode)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: serverapp_victoriametrics

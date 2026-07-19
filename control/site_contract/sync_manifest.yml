@@ -19,3 +19,11 @@ files:
     template: fragments/vector/stayturgid_sources.yaml.j2
   - path: generated/stayturgid/fragments/vector/stayturgid_sinks.yaml
     template: fragments/vector/stayturgid_sinks.yaml.j2
+  - path: generated/stayturgid/fragments/grafana/datasources/stayturgid.yaml
+    template: fragments/grafana/datasources/stayturgid.yaml.j2
+  - path: generated/stayturgid/fragments/grafana/dashboards/provider.yaml
+    template: fragments/grafana/dashboards/provider.yaml.j2
+  - path: generated/stayturgid/fragments/grafana/dashboards/json/stayturgid-fleet.json
+    template: fragments/grafana/dashboards/json/stayturgid-fleet.json.j2
+  - path: generated/stayturgid/fragments/olivetin/stayturgid_actions.yaml
+    template: fragments/olivetin/stayturgid_actions.yaml.j2

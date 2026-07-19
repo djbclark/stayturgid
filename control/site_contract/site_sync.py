@@ -786,7 +786,11 @@ def _docs_markdown() -> str:
         "caddy-health": 8080,
         "vector-otlp-grpc": 4317,
         "vector-otlp-http": 4318,
+        "vector-api": 8686,
         "openobserve-http": 5080,
+        "grafana": 3000,
+        "victoriametrics": 8428,
+        "olivetin": 1337,
     }
     # Render each template under generic context to prove StrictUndefined + structure.
     for entry in manifest.files:

@@ -28,6 +28,10 @@ MANAGED_PATHS = {
     "generated/stayturgid/fragments/caddy/stayturgid.caddy",
     "generated/stayturgid/fragments/vector/stayturgid_sources.yaml",
     "generated/stayturgid/fragments/vector/stayturgid_sinks.yaml",
+    "generated/stayturgid/fragments/grafana/datasources/stayturgid.yaml",
+    "generated/stayturgid/fragments/grafana/dashboards/provider.yaml",
+    "generated/stayturgid/fragments/grafana/dashboards/json/stayturgid-fleet.json",
+    "generated/stayturgid/fragments/olivetin/stayturgid_actions.yaml",
 }
 LOCKFILE = "generated/stayturgid/.lockfile.yml"
 

@@ -1,0 +1,160 @@
+---
+# Own-mode victoriametrics lifecycle: brew (never upgrade) → dirs → scrape
+# config → plist → bootstrap → health. New installs skip legacy cutover.
+# Does not delete any legacy product label (retirement is D7).
+
+- name: Check whether victoriametrics formula is installed
+  ansible.builtin.command:
+    cmd: brew list --formula victoriametrics
+  register: _vm_brew_list
+  changed_when: false
+  failed_when: false
+
+- name: Install victoriametrics via Homebrew when absent (never upgrade)
+  community.general.homebrew:
+    name: victoriametrics
+    state: present
+  when: _vm_brew_list.rc != 0
+
+- name: Resolve victoria-metrics binary after install
+  ansible.builtin.command:
+    cmd: brew --prefix victoriametrics
+  register: _vm_prefix
+  changed_when: false
+  failed_when: false
+
+- name: Set victoria-metrics binary from brew prefix when available
+  ansible.builtin.set_fact:
+    serverapp_victoriametrics_bin: "{{ _vm_prefix.stdout.strip() }}/bin/victoria-metrics"
+  when:
+    - _vm_prefix.rc == 0
+    - _vm_prefix.stdout is defined
+    - (_vm_prefix.stdout | trim | length) > 0
+
+- name: Ensure victoriametrics config, data, and log directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ serverapp_victoriametrics_config_dir }}"
+    - "{{ serverapp_victoriametrics_data_dir }}"
+    - "{{ serverapp_victoriametrics_logs_dir }}"
+    - "{{ serverapp_victoriametrics_home }}/Library/LaunchAgents"
+
+- name: Render own-mode scrape.yml
+  ansible.builtin.template:
+    src: scrape.yml.j2
+    dest: "{{ serverapp_victoriametrics_scrape_path }}"
+    mode: "0644"
+  register: _vm_scrape
+
+- name: Render victoriametrics launchd plist under site namespace
+  ansible.builtin.template:
+    src: victoriametrics.plist.j2
+    dest: "{{ serverapp_victoriametrics_plist_path }}"
+    mode: "0644"
+  register: _vm_plist
+
+- name: Probe whether site-namespace victoriametrics label is loaded
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_victoriametrics_uid }}/{{ serverapp_victoriametrics_label }}" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _vm_launch_state
+  changed_when: false
+
+# R1 MF-1 pattern: if a legacy product label exists, bootout + persistent disable.
+# New installs typically have no com.stayturgid.victoriametrics — tasks no-op.
+- name: Probe legacy product-namespace victoriametrics label
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_victoriametrics_uid }}/com.stayturgid.victoriametrics" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _vm_legacy_state
+  changed_when: false
+
+- name: Pre-health-check before legacy cutover (old daemon must be healthy)
+  ansible.builtin.uri:
+    url: "{{ serverapp_victoriametrics_health_url }}"
+    status_code: 200
+  when:
+    - _vm_legacy_state.stdout | trim == 'loaded'
+    - _vm_launch_state.stdout | trim == 'unloaded'
+  register: _vm_pre_health
+
+- name: Boot out legacy com.stayturgid.victoriametrics (plist retained on disk)
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_victoriametrics_uid }}/com.stayturgid.victoriametrics
+  when:
+    - _vm_legacy_state.stdout | trim == 'loaded'
+    - _vm_launch_state.stdout | trim == 'unloaded'
+  register: _vm_legacy_bootout
+
+# Rollback (if legacy ever existed):
+#   launchctl bootout gui/<uid>/com.<site_ns>.victoriametrics \
+#     && launchctl enable gui/<uid>/com.stayturgid.victoriametrics \
+#     && launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/com.stayturgid.victoriametrics.plist
+- name: Check whether legacy victoriametrics plist remains on disk
+  ansible.builtin.stat:
+    path: "{{ serverapp_victoriametrics_home }}/Library/LaunchAgents/com.stayturgid.victoriametrics.plist"
+  register: _vm_legacy_plist
+
+- name: Probe whether legacy victoriametrics label is persistently disabled
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print-disabled "gui/{{ serverapp_victoriametrics_uid }}" 2>/dev/null \
+      | grep -Eq '"com\.stayturgid\.victoriametrics" => (true|disabled)'; then
+      echo disabled
+    else
+      echo enabled
+    fi
+  args:
+    executable: /bin/bash
+  register: _vm_legacy_disabled
+  changed_when: false
+  when: _vm_legacy_plist.stat.exists
+
+- name: Persistently disable legacy victoriametrics label (survives login; plist retained)
+  ansible.builtin.command:
+    cmd: launchctl disable gui/{{ serverapp_victoriametrics_uid }}/com.stayturgid.victoriametrics
+  when:
+    - _vm_legacy_plist.stat.exists
+    - (_vm_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
+  register: _vm_legacy_disable
+
+- name: Bootstrap site-namespace victoriametrics when unloaded
+  ansible.builtin.command:
+    cmd: >-
+      launchctl bootstrap gui/{{ serverapp_victoriametrics_uid }}
+      {{ serverapp_victoriametrics_plist_path }}
+  when: _vm_launch_state.stdout | trim == 'unloaded'
+  register: _vm_bootstrap
+
+- name: Kickstart site-namespace victoriametrics after config/plist change
+  ansible.builtin.command:
+    cmd: >-
+      launchctl kickstart -k gui/{{ serverapp_victoriametrics_uid }}/{{ serverapp_victoriametrics_label }}
+  when:
+    - _vm_launch_state.stdout | trim == 'loaded'
+    - (_vm_plist.changed | default(false)) or (_vm_scrape.changed | default(false))
+  register: _vm_kickstart
+
+- name: Wait for victoriametrics health endpoint
+  ansible.builtin.uri:
+    url: "{{ serverapp_victoriametrics_health_url }}"
+    status_code: 200
+  register: _vm_health
+  until: _vm_health.status == 200
+  retries: 30
+  delay: 1
