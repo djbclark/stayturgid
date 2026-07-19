@@ -8,6 +8,7 @@
     <key>ProgramArguments</key>
     <array>
         <string>{{ serverapp_vector_bin }}</string>
+        <string>--dangerously-allow-env-var-interpolation</string>
         <string>--config</string>
         <string>{{ serverapp_vector_config_path }}</string>
 {% for frag in (serverapp_vector_fragment_configs | default('', true) | string).split(',') if frag | trim | length > 0 %}

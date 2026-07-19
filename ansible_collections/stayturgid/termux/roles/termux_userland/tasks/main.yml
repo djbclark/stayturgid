@@ -1,5 +1,12 @@
 ---
-# @heals: MIRROR-PINNED OS-RELEASE PATH-CLEAN ENV-FILE SSHD-PENALTIES TERMUX-WRITESETTINGS TERMUX-OVERLAY BOOTLOOP-AUTOSTART PKG-UPGRADE
+# @heals: MIRROR-PINNED OS-RELEASE PATH-CLEAN ENV-FILE SSHD-PENALTIES TERMUX-WRITESETTINGS TERMUX-OVERLAY BOOTLOOP-AUTOSTART PKG-UPGRADE OTELCOL-RUNNING
+- name: Configure edge otelcol-contrib
+  ansible.builtin.include_tasks:
+    file: otelcol.yml
+    apply:
+      tags: [otelcol]
+  tags: [otelcol]
+
 # Pin the mirror BEFORE any pkg operation so update/upgrade is deterministic.
 - name: Pin Termux main mirror (deterministic pkg update)
   ansible.builtin.copy:

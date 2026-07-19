@@ -1,5 +1,12 @@
 ---
-stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"
+# Resolve from the explicit site-wrapper override when present; otherwise the
+# collection role path is authoritative even when ANSIBLE_CONFIG belongs to a
+# sibling private site checkout.
+stayturgid_repo_root: >-
+  {{
+    lookup('env', 'STAYTURGID_ROOT')
+    | default(role_path | dirname | dirname | dirname | dirname | dirname, true)
+  }}
 
 # How often (in seconds) the Termux boot-heal loop and fleet health monitors
 # run. Change this single value to adjust all periodic timers. 900 = 15 min.
@@ -18,6 +25,30 @@ stayturgid_termux_packages:
   - termux-api
   - runit
   - cfengine
+
+# Edge OpenTelemetry Collector. The official contrib archive is downloaded
+# once to the Mac controller, checksum/ELF-architecture verified, then copied
+# to each supported Termux device. Bump version, URL, and SHA-256 together.
+stayturgid_otelcol_enabled: true
+stayturgid_otelcol_version: "0.156.0"
+stayturgid_otelcol_archive_arch: linux_arm64
+stayturgid_otelcol_archive_name: >-
+  otelcol-contrib_{{ stayturgid_otelcol_version }}_{{ stayturgid_otelcol_archive_arch }}.tar.gz
+stayturgid_otelcol_archive_url: >-
+  https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v{{ stayturgid_otelcol_version }}/{{ stayturgid_otelcol_archive_name }}
+stayturgid_otelcol_archive_sha256: 1f9afe1d245b4babbb4bcb7d6b57ba2836b3b23c5f61b38abc00ab461f049288
+stayturgid_otelcol_cache_dir: >-
+  {{ lookup('env', 'HOME') }}/.cache/stayturgid/otelcol-contrib/{{ stayturgid_otelcol_version }}
+stayturgid_otelcol_cached_binary: "{{ stayturgid_otelcol_cache_dir }}/otelcol-contrib"
+stayturgid_otelcol_supported_uname_arches:
+  - aarch64
+  - arm64
+stayturgid_otelcol_binary: "{{ termux_home }}/.stayturgid/bin/otelcol-contrib"
+stayturgid_otelcol_config: "{{ termux_home }}/.stayturgid/otel-config.yaml"
+stayturgid_otelcol_state_dir: "{{ termux_home }}/.stayturgid/state/otelcol"
+stayturgid_otelcol_pid_file: "{{ termux_home }}/.stayturgid/run/otelcol.pid"
+stayturgid_otelcol_boot_script: "{{ termux_home }}/.termux/boot/start-otelcol.sh"
+stayturgid_otelcol_endpoint: "http://{{ stayturgid_control_tailscale_ip }}:4318"
 
 stayturgid_boot_scripts:
   - start-adb.sh

@@ -83,7 +83,19 @@
 
 - name: Validate vector configs before activate
   ansible.builtin.command:
-    argv: "{{ [serverapp_vector_bin, 'validate', '--skip-healthchecks'] + _vector_validate_args }}"
+    argv: >-
+      {{
+        [
+          serverapp_vector_bin,
+          'validate',
+          '--dangerously-allow-env-var-interpolation',
+          '--skip-healthchecks'
+        ] + _vector_validate_args
+      }}
+  environment:
+    OPENOBSERVE_ROOT_EMAIL: "{{ serverapp_vector_openobserve_email }}"
+    OPENOBSERVE_ROOT_PASSWORD: "{{ serverapp_vector_openobserve_password }}"
+  no_log: true
   register: _vector_validate
   changed_when: false
   # --skip-healthchecks: sink→openobserve health is runtime; config shape only here.
@@ -177,21 +189,35 @@
     - (_vector_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
   register: _vector_legacy_disable
 
-- name: Bootstrap site-namespace vector when unloaded
+- name: Boot out site-namespace vector when its launchd plist changed
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_vector_uid }}/{{ serverapp_vector_label }}
+  when:
+    - _vector_launch_state.stdout | trim == 'loaded'
+    - _vector_plist.changed | default(false)
+  register: _vector_plist_reload_bootout
+
+- name: Bootstrap site-namespace vector when unloaded or its plist changed
   ansible.builtin.command:
     cmd: >-
       launchctl bootstrap gui/{{ serverapp_vector_uid }}
       {{ serverapp_vector_plist_path }}
-  when: _vector_launch_state.stdout | trim == 'unloaded'
+  when: >-
+    (_vector_launch_state.stdout | trim == 'unloaded')
+    or (_vector_plist_reload_bootout.changed | default(false))
   register: _vector_bootstrap
+  until: _vector_bootstrap.rc == 0
+  retries: 5
+  delay: 1
 
-- name: Kickstart site-namespace vector after config or plist change
+- name: Kickstart site-namespace vector after base config-only change
   ansible.builtin.command:
     cmd: >-
       launchctl kickstart -k gui/{{ serverapp_vector_uid }}/{{ serverapp_vector_label }}
   when:
     - _vector_launch_state.stdout | trim == 'loaded'
-    - (_vector_config.changed | default(false)) or (_vector_plist.changed | default(false))
+    - _vector_config.changed | default(false)
+    - not (_vector_plist.changed | default(false))
   register: _vector_kickstart
 
 - name: Wait for vector health endpoint

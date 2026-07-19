@@ -1,0 +1,63 @@
+#!/data/data/com.termux/files/usr/bin/bash
+# Termux:Boot + start_adb.py self-heal entrypoint for edge telemetry.
+export HOME="${HOME:-{{ termux_home }}}"
+export PREFIX="${PREFIX:-{{ termux_prefix }}}"
+export PATH="$PREFIX/bin:$PATH"
+[ -f "$HOME/.stayturgid/env" ] && . "$HOME/.stayturgid/env"
+
+STG="${STAYTURGID_HOME:-$HOME/.stayturgid}"
+PROC_ROOT="${PROC_ROOT:-/proc}"
+OTELCOL_BIN="${OTELCOL_BIN:-{{ stayturgid_otelcol_binary }}}"
+OTELCOL_CONFIG="${OTELCOL_CONFIG:-{{ stayturgid_otelcol_config }}}"
+OTELCOL_PID_FILE="${OTELCOL_PID_FILE:-{{ stayturgid_otelcol_pid_file }}}"
+OTELCOL_LOG="${OTELCOL_LOG:-$STG/logs/otelcol.log}"
+export GOMEMLIMIT="${OTELCOL_GOMEMLIMIT:-80MiB}"
+
+otelcol_alive() {
+  pid="$(cat "$OTELCOL_PID_FILE" 2>/dev/null || true)"
+  [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null || return 1
+  if [ -r "$PROC_ROOT/$pid/cmdline" ]; then
+    tr '\0' ' ' <"$PROC_ROOT/$pid/cmdline" 2>/dev/null | grep -Fq -- "$OTELCOL_BIN"
+  fi
+}
+
+stop_otelcol() {
+  if ! otelcol_alive; then
+    rm -f "$OTELCOL_PID_FILE"
+    return 1
+  fi
+  pid="$(cat "$OTELCOL_PID_FILE")"
+  kill "$pid" 2>/dev/null || true
+  n=0
+  while [ "$n" -lt 20 ] && [ -d "$PROC_ROOT/$pid" ]; do
+    sleep 0.1
+    n=$((n + 1))
+  done
+  [ -d "$PROC_ROOT/$pid" ] && kill -9 "$pid" 2>/dev/null || true
+  rm -f "$OTELCOL_PID_FILE"
+  return 0
+}
+
+if [ "${1:-start}" = stop ]; then
+  stop_otelcol
+  exit $?
+fi
+
+mkdir -p "$STG/logs" "$STG/run" "{{ stayturgid_otelcol_state_dir }}" 2>/dev/null || true
+if otelcol_alive; then
+  exit 0
+fi
+rm -f "$OTELCOL_PID_FILE"
+
+if [ ! -x "$OTELCOL_BIN" ] || [ ! -r "$OTELCOL_CONFIG" ]; then
+  echo "[$(date -Iseconds)] otelcol binary or config missing" >>"$OTELCOL_LOG"
+  exit 1
+fi
+
+nohup "$OTELCOL_BIN" --config "$OTELCOL_CONFIG" >>"$OTELCOL_LOG" 2>&1 < /dev/null &
+printf '%s\n' "$!" >"$OTELCOL_PID_FILE"
+sleep 1
+if ! otelcol_alive; then
+  rm -f "$OTELCOL_PID_FILE"
+  exit 1
+fi

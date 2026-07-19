@@ -354,6 +354,7 @@ def test_vector_own_materializes_base_and_multi_config_plist(tmp_path: Path) -> 
     assert str(sources.resolve()) in plist_text
     assert str(sinks.resolve()) in plist_text
     assert plist_text.count("--config") >= 3
+    assert "--dangerously-allow-env-var-interpolation" in plist_text
 
 
 def test_vector_fragments_have_prefixed_component_ids(tmp_path: Path) -> None:
@@ -452,6 +453,9 @@ def test_openobserve_own_materializes_plist_with_stable_data_dir(tmp_path: Path)
     assert "com.example.openobserve" in text
     assert str(data_dir) in text
     assert "ZO_DATA_DIR_PATH" in text
+    assert "ZO_HTTP_ADDR" in text
+    assert "ZO_GRPC_ADDR" in text
+    assert "ZO_BIND_ADDRESS" not in text
     # Must not re-home data under site_ns config tree
     assert "/.config/example/openobserve" not in text
 
