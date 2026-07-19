@@ -46,7 +46,7 @@ class EntangledCheckError(Exception):
 def _require_entangled():
     try:
         from entangled.config import AnnotationMethod  # noqa: F401
-        from entangled.interface import Context, Document  # noqa: F401
+        from entangled.interface import Document  # noqa: F401
         from entangled.io import TransactionMode, transaction  # noqa: F401
         from entangled.io.virtual import FileCache  # noqa: F401
     except ModuleNotFoundError as exc:  # pragma: no cover - env-dependent
@@ -56,20 +56,11 @@ def _require_entangled():
         ) from exc
 
 
-def _all_template_files() -> dict[str, Path]:
-    if not TEMPLATE_DIR.is_dir():
-        raise EntangledCheckError(f"template directory missing: {TEMPLATE_DIR}")
-    files = {path.relative_to(TEMPLATE_DIR).as_posix(): path for path in TEMPLATE_DIR.rglob("*") if path.is_file()}
-    if not files:
-        raise EntangledCheckError(f"no template files under {TEMPLATE_DIR}")
-    return files
-
-
 def expected_literate_contents(*, repo_root: Path | None = None) -> dict[str, str]:
     """Return relative template path → expected text from SITE-CONTRACT.md."""
     _require_entangled()
     from entangled.config import AnnotationMethod
-    from entangled.interface import Context, Document
+    from entangled.interface import Document
     from entangled.io import TransactionMode, transaction
     from entangled.io.virtual import FileCache
 
@@ -82,8 +73,10 @@ def expected_literate_contents(*, repo_root: Path | None = None) -> dict[str, st
 
     # Entangled resolves config and paths relative to the process cwd.
     # Callers must chdir to repo root (main and tests do).
+    # Construct Document() without injecting FileCache into Context so the check
+    # works on entangled-cli 2.4.0 (Python 3.12 CI) and newer 2.4.x APIs.
     fs = FileCache()
-    doc = Document(context=Context(fs=fs))
+    doc = Document()
     with transaction(TransactionMode.SHOW, fs=fs) as txn:
         doc.load(txn)
         targets = list(doc.reference_map.targets())
@@ -103,7 +96,7 @@ def expected_literate_contents(*, repo_root: Path | None = None) -> dict[str, st
             if rel in expected:
                 raise EntangledCheckError(f"duplicate Entangled target for {rel}")
             expected[rel] = text
-        # AnnotationMethod imported to document naked requirement in config.
+        # AnnotationMethod documents the naked requirement in entangled.toml.
         _ = AnnotationMethod.NAKED
         return expected
 

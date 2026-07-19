@@ -6,5 +6,7 @@ jinja2>=3.1
 pytest>=7
 pytest-mock>=3
 pytest-ansible>=2
-# Site Contract v1 §7 literate layout (C5). Pin minor for deterministic CI.
-entangled-cli>=2.4.3,<3
+# Site Contract v1 §7 literate layout (C5).
+# 2.4.0 is the newest release that still supports Python 3.12 (CI).
+# 2.4.2+ require Python >=3.13. Cap below 2.4.2 for CI parity.
+entangled-cli>=2.4.0,<2.4.2
