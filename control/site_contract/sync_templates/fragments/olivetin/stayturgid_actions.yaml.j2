@@ -3,8 +3,47 @@
 # product_version: {{ product_version }} commit: {{ product_commit }}
 #
 # OliveTin action projection INPUT (design §2 / site-contract §5.3) — not the
-# live config.yaml. D5 seeds an empty product action list; D6 owns the pure
-# inventory→actions merge into ~/.config/<site_ns>/olivetin/config.yaml.
-# Action ids must be stayturgid_-prefixed (collisions with user_ → exit 1).
+# live config.yaml. site-sync merges this file with the optional site file
+# <site_dir>/olivetin/user-actions.yaml into ~/.config/<site_ns>/olivetin/
+# config.yaml (single writer). Action ids here must be stayturgid_-prefixed;
+# user actions must be user_-prefixed; any other prefix or duplicate id → exit 1.
+#
+# Pure projection of (inventory, registry): hosts sorted by name, no probes,
+# no timestamps. OliveTin runs actions in a clean launchd shell — every shell
+# block exports PATH explicitly (ovgo plan §Phase-3 env-propagation warning).
 
-actions: []
+actions:
+  - id: stayturgid_fleet_health
+    title: "Fleet health (just health)"
+    icon: "&#129658;"
+    timeout: 300
+    shell: |
+      export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+      cd {{ product_root }}
+      just health
+  - id: stayturgid_fleet_deploy_check
+    title: "Deploy check — all hosts (dry-run)"
+    icon: "&#128269;"
+    timeout: 1800
+    shell: |
+      export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+      cd {{ product_root }}
+      just deploy-check
+  - id: stayturgid_fleet_deploy
+    title: "Deploy fleet — all hosts"
+    icon: "&#128640;"
+    timeout: 3600
+    shell: |
+      export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+      cd {{ product_root }}
+      just deploy
+{% for host in inventory_hosts %}
+  - id: stayturgid_deploy_{{ host.name | replace('-', '_') }}
+    title: "Deploy {{ host.device_label | default(host.name) }} ({{ host.name }})"
+    icon: "&#128640;"
+    timeout: 1800
+    shell: |
+      export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+      cd {{ product_root }}
+      just deploy {{ host.name }}
+{% endfor %}

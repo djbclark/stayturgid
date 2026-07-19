@@ -47,6 +47,13 @@ REPO_ROOT = CONTRACT_DIR.parents[1]
 LOCKFILE_RELATIVE = f"generated/{PRODUCT}/.lockfile.yml"
 GENERATED_PREFIX = f"generated/{PRODUCT}/"
 
+# D6 closed write set (design §2): inventory-derived content may only land in
+# these fragment dirs (plus the lockfile), so a host add/remove/rename rewrites
+# a bounded, reviewable file set. A template consuming ``inventory_hosts``
+# outside this set is a projection bug — refused at plan time (exit 1).
+PROJECTION_CLOSED_PREFIXES = tuple(f"generated/{PRODUCT}/fragments/{app}/" for app in ("caddy", "grafana", "olivetin"))
+OLIVETIN_FRAGMENT_RELATIVE = f"generated/{PRODUCT}/fragments/olivetin/stayturgid_actions.yaml"
+
 EXIT_OK = 0
 EXIT_PRECONDITION = 1
 EXIT_WOULD_OVERWRITE = 2
@@ -68,6 +75,13 @@ class SiteSyncError(Exception):
     def __init__(self, message: str, *, exit_code: int = EXIT_PRECONDITION) -> None:
         super().__init__(message)
         self.exit_code = exit_code
+
+
+class ForeignLiveConfigError(SiteSyncError):
+    """Projection target exists but is not ours — would overwrite user content (exit 2)."""
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message, exit_code=EXIT_WOULD_OVERWRITE)
 
 
 @dataclass(frozen=True)
@@ -351,28 +365,59 @@ def _render_template(template_path: Path, context: dict[str, Any]) -> bytes:
         autoescape=False,
     )
     text = template_path.read_text(encoding="utf-8")
-    rendered = environment.from_string(text).render(**context)
+    try:
+        rendered = environment.from_string(text).render(**context)
+    except Exception as exc:  # StrictUndefined (e.g. unregistered port) → loud exit 1
+        raise SiteSyncError(f"cannot render sync template {template_path.name!r}: {exc}") from exc
     return rendered.encode("utf-8")
 
 
-def _collect_inventory_hosts(node: Any, *, out: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
-    """Flatten Ansible-style inventory into a sorted list of host dicts."""
-    if out is None:
-        out = []
-    if not isinstance(node, dict):
-        return out
-    hosts = node.get("hosts")
-    if isinstance(hosts, dict):
-        for name, vars_raw in hosts.items():
-            entry: dict[str, Any] = {"name": str(name)}
-            if isinstance(vars_raw, dict):
-                for key, value in vars_raw.items():
-                    entry[str(key)] = value
-            out.append(entry)
-    children = node.get("children")
-    if isinstance(children, dict):
-        for child in children.values():
-            _collect_inventory_hosts(child, out=out)
+def _assert_projection_closed_set(entry_path: str, template_path: Path) -> None:
+    """Refuse inventory-consuming templates outside the D6 closed write set."""
+    if entry_path.startswith(PROJECTION_CLOSED_PREFIXES):
+        return
+    try:
+        text = template_path.read_text(encoding="utf-8")
+    except OSError:
+        return
+    if "inventory_hosts" in text:
+        allowed = ", ".join(PROJECTION_CLOSED_PREFIXES)
+        raise SiteSyncError(
+            f"projection bug (closed write set, design §2): template {template_path.name!r} for "
+            f"{entry_path!r} consumes inventory_hosts but renders outside the closed fragment set "
+            f"({allowed}). Inventory-derived content is restricted so host edits stay reviewable."
+        )
+
+
+def _collect_inventory_hosts(doc: Any) -> list[dict[str, Any]]:
+    """Flatten an Ansible-style inventory document into a list of host dicts.
+
+    The document root maps group names (typically just ``all``) to group
+    mappings; each group may carry ``hosts`` and nested ``children`` groups.
+    (Pre-D6 this walked only ``children`` keys and returned [] for standard
+    ``all:``-rooted inventories — every projection saw zero hosts.)
+    """
+    out: list[dict[str, Any]] = []
+
+    def _walk_group(group: Any) -> None:
+        if not isinstance(group, dict):
+            return
+        hosts = group.get("hosts")
+        if isinstance(hosts, dict):
+            for name, vars_raw in hosts.items():
+                entry: dict[str, Any] = {"name": str(name)}
+                if isinstance(vars_raw, dict):
+                    for key, value in vars_raw.items():
+                        entry[str(key)] = value
+                out.append(entry)
+        children = group.get("children")
+        if isinstance(children, dict):
+            for child in children.values():
+                _walk_group(child)
+
+    if isinstance(doc, dict):
+        for group in doc.values():
+            _walk_group(group)
     return out
 
 
@@ -548,6 +593,7 @@ def build_plan(
         except ValueError as exc:
             raise SiteSyncError(f"sync template escapes sync_templates/: {template_path}") from exc
 
+        _assert_projection_closed_set(entry.path, template_path)
         source_template = f"control/site_contract/sync_templates/{entry.template}"
         context = _site_render_context(
             site_dir=destination,
@@ -720,6 +766,45 @@ def build_plan(
         files=tuple(planned),
         lockfile_content=lock_bytes,
         lockfile_action=lock_action,
+    )
+
+
+def _plan_olivetin_projection(plan: SyncPlan, *, home: Path | None = None):
+    """Plan the OliveTin live-config merge (design §2 single-writer projection).
+
+    Returns an ``olivetin_projection.ProjectionPlan``. Raises SiteSyncError
+    (exit 1) for bad action files / missing port, ForeignLiveConfigError
+    (exit 2) when the live config is not ours.
+    """
+    from control.site_contract.olivetin_projection import build_projection
+
+    try:
+        site_map = load_site_map(site_dir=plan.destination, product_root=plan.product_root)
+    except SiteMapError as exc:
+        raise SiteSyncError(str(exc)) from exc
+    ports: dict[str, int] = {}
+    ports_path = site_map.path("registry_ports")
+    if ports_path.is_file():
+        try:
+            ports_doc = yaml.safe_load(ports_path.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError):
+            ports_doc = {}
+        if isinstance(ports_doc, dict):
+            ports = _ports_by_service(ports_doc)
+    fragment = next(
+        (item.content for item in plan.files if item.relative_path == OLIVETIN_FRAGMENT_RELATIVE),
+        None,
+    )
+    return build_projection(
+        site_dir=plan.destination,
+        site_map=site_map,
+        fragment_content=fragment,
+        olivetin_port=ports.get("olivetin"),
+        product_version=plan.product_version,
+        product_commit=plan.product_commit,
+        home=home,
+        exc=SiteSyncError,
+        foreign_exc=ForeignLiveConfigError,
     )
 
 
@@ -958,6 +1043,7 @@ def run_site_sync(
     synced: str | None = None,
     stdout: object | None = None,
     stderr: object | None = None,
+    home: Path | None = None,
 ) -> int:
     """Programmatic entry point used by tests and ``main``."""
     out = stdout if stdout is not None else sys.stdout
@@ -980,9 +1066,14 @@ def run_site_sync(
             synced=synced,
         )
         action_list = format_action_list(plan)
+        # Planned before any write so a foreign live config (exit 2) or bad
+        # action file (exit 1) refuses without partial writes.
+        projection = _plan_olivetin_projection(plan, home=home)
 
         if parsed_mode == "dry-run":
             print(action_list, end="", file=out)
+            if projection.action != "noop":
+                print(f"{projection.action:9} {projection.live_path} (olivetin projection)", file=out)
             if plan.drifts and not force:
                 drift_paths = ", ".join(item.relative_path for item in plan.drifts)
                 print(
@@ -1005,6 +1096,13 @@ def run_site_sync(
             return EXIT_WOULD_OVERWRITE
 
         apply_plan(plan, force_generated=force)
+        if projection.action == "overwrite":
+            from control.site_contract.olivetin_projection import apply_projection
+
+            apply_projection(projection)
+            print(f"site-sync: olivetin projection: overwrite {projection.live_path}", file=err)
+        elif projection.action == "skip":
+            print(f"site-sync: olivetin projection: skip {projection.live_path} (up to date)", file=err)
         created = sum(1 for item in plan.files if item.action == "create")
         overwritten = sum(1 for item in plan.files if item.action == "overwrite")
         skipped = sum(1 for item in plan.files if item.action == "skip")
