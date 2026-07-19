@@ -6,3 +6,5 @@ jinja2>=3.1
 pytest>=7
 pytest-mock>=3
 pytest-ansible>=2
+# Site Contract v1 §7 literate layout (C5). Pin minor for deterministic CI.
+entangled-cli>=2.4.3,<3

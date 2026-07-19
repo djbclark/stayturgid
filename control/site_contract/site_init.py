@@ -292,7 +292,24 @@ def apply_plan(plan: InitPlan) -> None:
 
 
 def _docs_markdown() -> str:
-    """Self-contained Markdown for mode=docs (generic values only)."""
+    """Self-contained Markdown for mode=docs (generic values only).
+
+    Site Contract v1 §2 + §7: with the Entangled layout, mode=docs is a render
+    of product-root ``SITE-CONTRACT.md``. The checked-in document already uses
+    only generic/example identity (RFC 5737, ``example`` sitename). This path
+    never reads the live site overlay, operator home, or production inventory,
+    and writes nothing.
+    """
+    site_contract = REPO_ROOT / "SITE-CONTRACT.md"
+    if not site_contract.is_file():
+        raise SiteInitError(
+            f"SITE-CONTRACT.md missing at {site_contract}; required for mode=docs "
+            "(Site Contract v1 §7 Entangled layout)"
+        )
+
+    # Still validate that every scaffold template renders under the fixed
+    # generic docs context (StrictUndefined) so docs mode cannot mask broken
+    # Jinja templates.
     docs_site_dir = Path(_DOCS_SITE_DIR)
     docs_site_map = load_site_map(
         site_dir=docs_site_dir,
@@ -304,109 +321,13 @@ def _docs_markdown() -> str:
         site_dir=docs_site_dir,
         site_map=docs_site_map,
     )
-    rows: list[tuple[str, str, str]] = []
     for template_path in _template_files():
-        relative = _destination_relative(template_path)
-        if template_path.name.endswith(".j2"):
-            kind = "Jinja2 render"
-            note = (
-                f"Render `{template_path.relative_to(CONTRACT_DIR).as_posix()}` with "
-                f"`site_name={_DOCS_SITE_NAME!r}`, `product_root={_DOCS_PRODUCT_ROOT!r}`, "
-                f"`stayturgid_root={_DOCS_PRODUCT_ROOT!r}`, `site_dir={_DOCS_SITE_DIR!r}`."
-            )
-            # Ensure templates still render under docs context (StrictUndefined).
-            _load_payload(template_path, context)
-        else:
-            kind = "byte-for-byte copy"
-            note = f"Copy `{template_path.relative_to(CONTRACT_DIR).as_posix()}` unchanged to `{relative}`."
-        rows.append((relative, kind, note))
+        _load_payload(template_path, context)
 
-    lines = [
-        "# site-init — manual equivalent (Site Contract v1)",
-        "",
-        "This document is produced by `just site-init mode=docs`. It describes every",
-        "filesystem step `site-init` performs so an operator can reproduce the scaffold",
-        "by hand. Values below are **generic only** (RFC 5737 / example inventory names);",
-        "they are not taken from any private site overlay.",
-        "",
-        "## Preconditions",
-        "",
-        f"1. Public product checkout available (example path: `{_DOCS_PRODUCT_ROOT}`).",
-        "2. Destination site directory does not nest inside the product tree (ADR 005).",
-        f"3. Default destination is `$OPS_ROOT/site-<name>` (example: `{_DOCS_SITE_DIR}`).",
-        "4. Bare sitename matches `^[a-z][a-z0-9-]*$` (no `site-` prefix).",
-        "5. Existing destination files with **different** content block initialization",
-        "   (exit code 2); identical content is skipped (idempotent no-op).",
-        "",
-        "## CLI",
-        "",
-        "```text",
-        "just site-init sitename=<name> [dir=<path>] [map=<site-map.yml>] [mode=apply|dry-run|docs]",
-        "```",
-        "",
-        "- `mode=apply` (default): create missing files; never overwrite user content.",
-        "- `mode=dry-run`: print per-file `create` / `skip` / `overwrite` actions; no writes.",
-        "- `mode=docs`: emit this document; no writes.",
-        "- Exit codes: `0` success/no-op; `1` bad input/precondition; `2` would overwrite.",
-        "- `map=` loads an explicit Site Contract v1 map; otherwise `<site-dir>/site-map.yml`",
-        "  is auto-discovered before defaults are selected.",
-        "- Map keys fail closed. C4 path keys are `inventory`, `registry_ports`, and",
-        "  `registry_paths`; relative values resolve from the site directory and may not escape it.",
-        f"- Contract paths may not enter site-sync's owned `generated/{PRODUCT}/` area.",
-        "- `serverapps` entries are validated for Phase D but do not cause adapter writes in C4.",
-        "",
-        "## Scaffold layout",
-        "",
-        "```text",
-        f"site-{_DOCS_SITE_NAME}/",
-        "  README.md",
-        "  ansible.cfg",
-        "  justfile",
-        "  .gitignore",
-        "  inventory/",
-        "    hosts.yml          # product example inventory (RFC 5737 / §4.1 names)",
-        "    group_vars/",
-        "  registry/",
-        "    ports.yml          # product port defaults (derived seeds)",
-        "    paths.yml          # product path defaults (derived seeds)",
-        "  secretspec.toml",
-        f"  generated/{PRODUCT}/",
-        "  docs/",
-        "```",
-        "",
-        "## Per-file steps",
-        "",
-        "| Destination | Action | Manual equivalent |",
-        "| --- | --- | --- |",
-    ]
-    for relative, kind, note in rows:
-        safe_note = note.replace("|", "\\|")
-        lines.append(f"| `{relative}` | {kind} | {safe_note} |")
-
-    lines.extend(
-        [
-            "",
-            "## After initialization",
-            "",
-            "1. Edit `inventory/hosts.yml`: replace example aliases, RFC 5737 addresses,",
-            "   and placeholder serials with this site's values.",
-            "2. Reconcile `registry/ports.yml` and `registry/paths.yml` with local allocations.",
-            "3. Provide secret *values* via a secretspec provider (never commit them).",
-            "4. Point product tooling at the site via `STAYTURGID_SITE_DIR` or `ANSIBLE_CONFIG`,",
-            "   or place the site as the sole `site-*` checkout under `$OPS_ROOT`.",
-            "5. Later product upgrades use `site-sync` (Phase C3) for `generated/<product>/` only.",
-            "",
-            "## Invariants",
-            "",
-            f"- Everything outside `generated/{PRODUCT}/` is user-owned after creation.",
-            "- A site map redirects only declared contract files; unmapped files keep defaults.",
-            "- `site-init` never overwrites a differing user file.",
-            "- A second identical `apply` is a no-op (all files `skip`).",
-            "- Private site data must never nest inside the public product working tree.",
-            "",
-        ]
-    )
-    return "\n".join(lines)
+    text = site_contract.read_text(encoding="utf-8")
+    if not text.endswith("\n"):
+        text += "\n"
+    return text
 
 
 def _parse_mode(value: str) -> Mode:

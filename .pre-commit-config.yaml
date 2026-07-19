@@ -66,6 +66,25 @@ repos:
         language: system
         files: '\.md(\.example)?$'
 
+  - repo: local
+    hooks:
+      - id: site-contract-check
+        name: site-contract Entangled + registry seeds
+        entry: bash
+        args:
+          - -c
+          - |
+            if [[ -x .venv-test/bin/python ]]; then
+              py=.venv-test/bin/python
+            else
+              py=python3
+            fi
+            "$py" -m control.site_contract.check_entangled &&
+              "$py" -m control.site_contract.generate_registry_seeds --check
+        language: system
+        pass_filenames: false
+        files: '^(SITE-CONTRACT\.md|entangled\.toml|control/site_contract/)'
+
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.35.1
     hooks:

@@ -3,10 +3,27 @@
 # Usage:
 #   just site-init sitename=<name> [dir=<path>] [map=<site-map.yml>] [mode=apply|dry-run|docs]
 #   just site-sync [dir=<path>] [mode=apply|dry-run|docs] [force-generated=1]
+#   just site-contract-check
 #
 # Recipes are thin wrappers: named KEY=VALUE tokens are forwarded to the
 # Python entry points. mode defaults to apply inside Python when omitted.
 # Prefers the project test venv (has Jinja2/PyYAML via ansible-core) when present.
+
+# Fail closed if SITE-CONTRACT.md and literate C1 templates drift (Entangled parity)
+# or if generator-owned registry seeds are stale.
+site-contract-check:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{ repo }}"
+    if [[ -n "${SITE_INIT_PYTHON:-}" ]]; then
+      py="${SITE_INIT_PYTHON}"
+    elif [[ -x "{{ repo }}/.venv-test/bin/python" ]]; then
+      py="{{ repo }}/.venv-test/bin/python"
+    else
+      py="python3"
+    fi
+    "$py" -m control.site_contract.check_entangled
+    "$py" -m control.site_contract.generate_registry_seeds --check
 
 # Initialize a private site overlay (apply | dry-run | docs).
 site-init *args:

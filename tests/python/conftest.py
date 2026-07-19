@@ -5,10 +5,42 @@ The Ansible *module* (termux_pkg) is tested inside the collection via
 script twins under device/termux/py/ and control/lib helpers.
 """
 
+from __future__ import annotations
+
 import os
 import sys
+
+import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(REPO, "control", "lib"))
 sys.path.insert(0, os.path.join(REPO, "control", "bin"))
 sys.path.insert(0, os.path.join(REPO, "device", "termux", "py"))
+
+# device/termux/py/start_adb.py mutates os.environ at import time (Termux
+# PREFIX/TMPDIR/HOME). Pytest collection imports that module, which would
+# leave host `just` wrappers writing under a non-existent Termux path.
+# Snapshot the host values before collection and restore after every test.
+_HOST_ENV_KEYS = ("TMPDIR", "TEMP", "TMP", "HOME", "PREFIX", "LD_LIBRARY_PATH", "PATH")
+_HOST_ENV_SNAPSHOT = {key: os.environ.get(key) for key in _HOST_ENV_KEYS}
+
+
+def _restore_host_env() -> None:
+    for key, value in _HOST_ENV_SNAPSHOT.items():
+        if value is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = value
+
+
+def pytest_collection_finish(session: pytest.Session) -> None:  # noqa: ARG001
+    """Undo Termux boot-supervisor env mutations performed during collection."""
+    _restore_host_env()
+
+
+@pytest.fixture(autouse=True)
+def _host_env_guard() -> None:
+    """Keep host TMPDIR/HOME stable even if a test imports start_adb mid-run."""
+    _restore_host_env()
+    yield
+    _restore_host_env()

@@ -7,6 +7,7 @@ dependencies = [
   "pytest>=7",
   "pytest-mock>=3",
   "pytest-ansible>=2",
+  "entangled-cli>=2.4.3,<3",
 ]
 
 [tool.ruff]
