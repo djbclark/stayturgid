@@ -137,6 +137,14 @@
 # Phase D migration (design §1.9): old and new cannot share 80/443. Boot out
 # the legacy product-namespace label when present; leave its plist on disk
 # (retirement is D7). Skip when already unloaded.
+#
+# R2 A-5 (generic-product note, M1-Q): the bootout below is gated on the new
+# site label being unloaded (_caddy_launch_state == unloaded). If a mid-apply
+# failure leaves both labels loaded at once, this gate skips the bootout and
+# the dual-loaded state persists until a manual bootout. On this site that's
+# superseded in practice by D7 (legacy plists archived+removed once a site
+# reaches that stage) — but the product code path above still runs for any
+# site that hasn't gotten there yet.
 - name: Probe legacy product-namespace caddy label
   ansible.builtin.shell: |
     set -eu

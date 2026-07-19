@@ -25,4 +25,5 @@ serverapp_olivetin_archive_sha256:
 serverapp_olivetin_http_port: 1337
 serverapp_olivetin_listen: "127.0.0.1:{{ serverapp_olivetin_http_port }}"
 serverapp_olivetin_health_url: "http://127.0.0.1:{{ serverapp_olivetin_http_port }}/"
-serverapp_olivetin_uid: "501"
+# No default for serverapp_olivetin_uid — always supplied as an extra-var by
+# control/site_contract/serverapps.py (os.getuid()); fail closed otherwise.

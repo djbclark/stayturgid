@@ -13,4 +13,5 @@ serverapp_victoriametrics_bin: /opt/homebrew/bin/victoria-metrics
 serverapp_victoriametrics_http_port: 8428
 serverapp_victoriametrics_http_listen: "127.0.0.1:{{ serverapp_victoriametrics_http_port }}"
 serverapp_victoriametrics_health_url: "http://127.0.0.1:{{ serverapp_victoriametrics_http_port }}/health"
-serverapp_victoriametrics_uid: "501"
+# No default for serverapp_victoriametrics_uid — always supplied as an extra-var by
+# control/site_contract/serverapps.py (os.getuid()); fail closed otherwise.

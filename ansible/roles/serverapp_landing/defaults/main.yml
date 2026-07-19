@@ -13,5 +13,6 @@ serverapp_landing_repo_root: "{{ site_dir }}/../stayturgid"
 serverapp_landing_python: /opt/homebrew/bin/python3
 serverapp_landing_port: "8088"
 serverapp_landing_health_url: "http://127.0.0.1:8088/health"
-serverapp_landing_uid: "501"
+# No default for serverapp_landing_uid — always supplied as an extra-var by
+# control/site_contract/serverapps.py (os.getuid()); fail closed otherwise.
 serverapp_landing_discover_interval: "3600"
