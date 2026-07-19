@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{{ serverapp_openobserve_label }}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{ serverapp_openobserve_bin_path }}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>WorkingDirectory</key>
+    <string>{{ serverapp_openobserve_data_dir }}</string>
+    <key>StandardOutPath</key>
+    <string>{{ serverapp_openobserve_logs_dir }}/openobserve.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ serverapp_openobserve_logs_dir }}/openobserve.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>{{ serverapp_openobserve_home }}</string>
+        <key>ZO_ROOT_USER_EMAIL</key>
+        <string>{{ serverapp_openobserve_root_email | default('', true) }}</string>
+        <key>ZO_ROOT_USER_PASSWORD</key>
+        <string>{{ serverapp_openobserve_root_password | default('', true) }}</string>
+        <key>ZO_DATA_DIR_PATH</key>
+        <string>{{ serverapp_openobserve_data_dir }}</string>
+        <key>ZO_DATA_CACHE_DIR</key>
+        <string>{{ serverapp_openobserve_data_dir }}/cache</string>
+        <key>ZO_HTTP_PORT</key>
+        <string>{{ serverapp_openobserve_http_port }}</string>
+        <key>ZO_BIND_ADDRESS</key>
+        <string>{{ serverapp_openobserve_bind_address }}</string>
+    </dict>
+</dict>
+</plist>
