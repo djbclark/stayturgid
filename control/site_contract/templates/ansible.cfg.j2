@@ -1,0 +1,11 @@
+[defaults]
+inventory = inventory/hosts.yml
+roles_path = {{ product_root }}/ansible/roles
+# Product collections are supplied by the stayturgid checkout rendered above.
+collections_path = {{ product_root }}/.ansible/collections:{{ product_root }}
+host_key_checking = False
+retry_files_enabled = False
+interpreter_python = auto_silent
+
+[ssh_connection]
+pipelining = True
