@@ -1,8 +1,8 @@
 ---
 # Own-mode olivetin lifecycle: binary if absent (never upgrade) → dirs →
-# minimal config.yaml → plist → bootstrap → health. Config is a projection
-# surface (design §2); D5 ships empty-actions bootstrap; D6 owns inventory
-# merge. New installs skip legacy cutover.
+# config.yaml bootstrap (only when absent — site-sync's projection is the
+# single writer of the live file, design §2) → plist → bootstrap → health.
+# New installs skip legacy cutover.
 
 - name: Ensure olivetin config, install, and log directories exist
   ansible.builtin.file:
@@ -104,11 +104,20 @@
   register: _ot_webui_final
   failed_when: not (_ot_webui_final.stat.isdir | default(false))
 
-- name: Render minimal own-mode OliveTin config.yaml
+# D6 single-writer rule (design §2): site-sync's olivetin projection is the
+# only writer of the live config.yaml. The role only BOOTSTRAPS it when
+# absent (first install); it must never re-render an existing file.
+- name: Check whether live OliveTin config already exists (single-writer projection)
+  ansible.builtin.stat:
+    path: "{{ serverapp_olivetin_config_path }}"
+  register: _ot_config_stat
+
+- name: Bootstrap minimal own-mode OliveTin config.yaml only when absent
   ansible.builtin.template:
     src: config.yaml.j2
     dest: "{{ serverapp_olivetin_config_path }}"
     mode: "0644"
+  when: not (_ot_config_stat.stat.exists | default(false))
   register: _ot_config
 
 - name: Render olivetin launchd plist under site namespace

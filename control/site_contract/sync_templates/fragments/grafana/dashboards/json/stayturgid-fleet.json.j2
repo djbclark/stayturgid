@@ -237,7 +237,82 @@
       ],
       "title": "VictoriaMetrics internal series (thin until fleet scrapes)",
       "type": "timeseries"
-    }
+    }{% for host in inventory_hosts %},
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "stayturgid-victoriametrics"
+      },
+      "description": "Inventory-projected host panel (D6). Panel id = 100 + sorted host index, so a one-host inventory edit diffs as one panel block. Honest scope: no per-device metrics land until D8 (edge otelcol); noValue shows pre-D8.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "text": "DOWN"
+                },
+                "1": {
+                  "color": "green",
+                  "text": "UP"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "noValue": "no data (pre-D8)",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 6,
+        "x": {{ (loop.index0 % 4) * 6 }},
+        "y": {{ 12 + (loop.index0 // 4) * 4 }}
+      },
+      "id": {{ 100 + loop.index0 }},
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "stayturgid-victoriametrics"
+          },
+          "expr": "last_over_time(stayturgid_host_up{host=\"{{ host.name }}\"}[15m])",
+          "legendFormat": "{{ host.name }}",
+          "refId": "A"
+        }
+      ],
+      "title": "{{ host.device_label | default(host.name) }} ({{ host.name }})",
+      "type": "stat"
+    }{% endfor %}
   ],
   "refresh": "30s",
   "schemaVersion": 39,
