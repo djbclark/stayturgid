@@ -162,6 +162,13 @@ def _parse_serverapps(
                 product_root=product_root,
             )
         if mode is not None:
+            # YAML 1.1 loads bare `off`/`on` as booleans; accept that spelling.
+            if mode is False:
+                mode = "off"
+            elif mode is True:
+                raise SiteMapError(
+                    f"serverapps.{app}.mode: bare YAML true/on is ambiguous; use quoted 'own', 'inject', or 'off'"
+                )
             if not isinstance(mode, str) or mode not in ALLOWED_SERVERAPP_MODES:
                 allowed = ", ".join(sorted(ALLOWED_SERVERAPP_MODES))
                 raise SiteMapError(f"serverapps.{app}.mode must be one of: {allowed}; got {mode!r}")

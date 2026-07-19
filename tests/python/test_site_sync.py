@@ -25,6 +25,7 @@ FIXED_SYNCED = "2026-07-19T12:00:00Z"
 MANAGED_PATHS = {
     "generated/stayturgid/README.md",
     "generated/stayturgid/fragments/.keep",
+    "generated/stayturgid/fragments/caddy/stayturgid.caddy",
 }
 LOCKFILE = "generated/stayturgid/.lockfile.yml"
 

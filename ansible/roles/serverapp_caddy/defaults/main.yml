@@ -1,0 +1,19 @@
+---
+# serverapp_caddy — own-mode Caddy adapter (Site Contract v1 §5 / Phase D).
+# Callers (control/site_contract/serverapps.py) pass site_ns and site_dir as
+# extra-vars. Never hard-code a site_ns here — it is a site fact.
+
+serverapp_caddy_home: "{{ lookup('env', 'HOME') }}"
+serverapp_caddy_config_dir: "{{ serverapp_caddy_home }}/.config/{{ site_ns }}/caddy"
+serverapp_caddy_config_path: "{{ serverapp_caddy_config_dir }}/Caddyfile"
+serverapp_caddy_logs_dir: "{{ serverapp_caddy_home }}/.config/{{ site_ns }}/logs"
+serverapp_caddy_label: "com.{{ site_ns }}.caddy"
+serverapp_caddy_plist_path: "{{ serverapp_caddy_home }}/Library/LaunchAgents/{{ serverapp_caddy_label }}.plist"
+serverapp_caddy_fragment_glob: "{{ site_dir }}/generated/stayturgid/fragments/caddy/*.caddy"
+serverapp_caddy_bin: /opt/homebrew/bin/caddy
+serverapp_caddy_health_url: "http://127.0.0.1:8080/health"
+serverapp_caddy_health_port: 8080
+# Site-facing hostnames (override via -e or inventory/group_vars/all.yml).
+serverapp_caddy_public_hostname: ""
+serverapp_caddy_short_hostname: ""
+serverapp_caddy_uid: "501"
