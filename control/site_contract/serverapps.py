@@ -23,7 +23,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal, Sequence
+from typing import Any, Literal, Sequence
 
 from control.site_contract.site_map import SiteMap, SiteMapError, load_site_map
 from control.site_contract.site_sync import (
@@ -172,9 +172,8 @@ def _is_under_our_prefixes(path: Path, site_ns: str) -> bool:
     return False
 
 
-def load_site_ns(site_dir: Path, site_map: SiteMap) -> str:
-    """Read site_ns from inventory/group_vars/all.yml (site fact)."""
-    # Prefer group_vars next to inventory file's parent.
+def _load_group_vars_all(site_dir: Path, site_map: SiteMap) -> dict[str, Any]:
+    """Load inventory/group_vars/all.yml if present (empty dict otherwise)."""
     inventory = site_map.path("inventory")
     candidates = [
         inventory.parent / "group_vars" / "all.yml",
@@ -188,15 +187,34 @@ def load_site_ns(site_dir: Path, site_map: SiteMap) -> str:
         except (OSError, yaml.YAMLError) as exc:
             raise ServerAppsError(f"cannot parse {path}: {exc}") from exc
         if isinstance(data, dict):
-            value = data.get("site_ns")
-            if isinstance(value, str) and value.strip():
-                ns = value.strip()
-                if not re.fullmatch(r"[a-z][a-z0-9_-]*", ns):
-                    raise ServerAppsError(f"site_ns must be a lowercase identifier (got {ns!r}) in {path}")
-                return ns
+            return data
+    return {}
+
+
+def load_site_ns(site_dir: Path, site_map: SiteMap) -> str:
+    """Read site_ns from inventory/group_vars/all.yml (site fact)."""
+    data = _load_group_vars_all(site_dir, site_map)
+    value = data.get("site_ns")
+    if isinstance(value, str) and value.strip():
+        ns = value.strip()
+        if not re.fullmatch(r"[a-z][a-z0-9_-]*", ns):
+            raise ServerAppsError(f"site_ns must be a lowercase identifier (got {ns!r})")
+        return ns
     raise ServerAppsError(
         "site_ns missing from inventory/group_vars/all.yml (D1 requires site_ns: <name> — e.g. site_ns: djbclark)"
     )
+
+
+def load_caddy_public_hostname(site_dir: Path, site_map: SiteMap) -> str | None:
+    """Optional Tailscale MagicDNS name for Choice E front-door subpaths.
+
+    Used for Grafana root_url (/grafana/) and OpenObserve ZO_BASE_URI (/oo).
+    """
+    data = _load_group_vars_all(site_dir, site_map)
+    value = data.get("caddy_public_hostname")
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
 
 
 def _caddy_detect_paths(site_map: SiteMap) -> list[Path]:
@@ -969,6 +987,7 @@ def plan_openobserve(
     logs_dir = home_path / ".config" / site_ns / "logs"
     label = f"com.{site_ns}.openobserve"
     plist = home_path / "Library" / "LaunchAgents" / f"{label}.plist"
+    # Inject/off keep loopback root health (no ZO_BASE_URI). Own mode may remap.
     health_url = "http://127.0.0.1:5080/healthz"
 
     if mode == "off":
@@ -1022,6 +1041,17 @@ def plan_openobserve(
                     )
                     return plan
 
+    public_host = load_caddy_public_hostname(site_dir, site_map)
+    # Choice E (D7-ROUTES-E): ZO_BASE_URI remaps *all* HTTP routes (UI + API +
+    # healthz) under the prefix. Vector sink + health_url must match.
+    if public_host:
+        oo_base_uri = "/oo"
+        oo_web_url = f"https://{public_host}/oo"
+        health_url = f"http://127.0.0.1:5080{oo_base_uri}/healthz"
+    else:
+        oo_base_uri = ""
+        oo_web_url = ""
+
     plan.ansible_extra = {
         "site_ns": site_ns,
         "site_dir": str(site_dir.resolve()),
@@ -1033,6 +1063,8 @@ def plan_openobserve(
         "serverapp_openobserve_plist_path": str(plist),
         "serverapp_openobserve_health_url": health_url,
         "serverapp_openobserve_uid": str(os.getuid()),
+        "serverapp_openobserve_base_uri": oo_base_uri,
+        "serverapp_openobserve_web_url": oo_web_url,
     }
 
     if plist.is_file():
@@ -1451,6 +1483,18 @@ def plan_grafana(
             f"generated/{PRODUCT}/fragments/grafana/ — run `just site-sync` first"
         )
 
+    public_host = load_caddy_public_hostname(site_dir, site_map)
+    # Choice E (D7-ROUTES-E): serve Grafana under https://<host>/grafana/ when
+    # the site declares caddy_public_hostname; otherwise keep loopback defaults.
+    if public_host:
+        grafana_domain = public_host
+        grafana_root_url = f"https://{public_host}/grafana/"
+        grafana_sub_path = True
+    else:
+        grafana_domain = "localhost"
+        grafana_root_url = "http://127.0.0.1:3000/"
+        grafana_sub_path = False
+
     plan.ansible_extra = {
         "site_ns": site_ns,
         "site_dir": str(site_dir.resolve()),
@@ -1465,6 +1509,9 @@ def plan_grafana(
         "serverapp_grafana_plist_path": str(plist),
         "serverapp_grafana_health_url": health_url,
         "serverapp_grafana_uid": str(os.getuid()),
+        "serverapp_grafana_domain": grafana_domain,
+        "serverapp_grafana_root_url": grafana_root_url,
+        "serverapp_grafana_serve_from_sub_path": grafana_sub_path,
         "product_version": product_version or "unknown",
     }
 

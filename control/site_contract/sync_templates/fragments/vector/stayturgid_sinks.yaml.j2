@@ -6,11 +6,12 @@
 # OpenObserve credentials come from process env (plist EnvironmentVariables in
 # own mode) — never embed secrets in committed fragments.
 
+{# openobserve_http_prefix: "" or "/oo" (Choice E ZO_BASE_URI remaps API+health). #}
 sinks:
   stayturgid_openobserve_sink:
     type: "http"
     inputs: ["stayturgid_otlp_source.logs"]
-    uri: "http://127.0.0.1:{{ ports['openobserve-http'] }}/api/default/android_logs/_json"
+    uri: "http://127.0.0.1:{{ ports['openobserve-http'] }}{{ openobserve_http_prefix }}/api/default/android_logs/_json"
     method: "post"
     auth:
       strategy: "basic"
@@ -25,4 +26,4 @@ sinks:
       when_full: "block"
     healthcheck:
       enabled: true
-      uri: "http://127.0.0.1:{{ ports['openobserve-http'] }}/healthz"
+      uri: "http://127.0.0.1:{{ ports['openobserve-http'] }}{{ openobserve_http_prefix }}/healthz"

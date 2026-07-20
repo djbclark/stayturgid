@@ -476,6 +476,8 @@ def _site_render_context(
         "registry_paths_path": site_map.relative_path("registry_paths"),
         "ports": {},
         "inventory_hosts": [],
+        # Choice E: empty unless site has caddy_public_hostname (ZO_BASE_URI=/oo).
+        "openobserve_http_prefix": "",
     }
     inventory_path = site_map.path("inventory")
     if inventory_path.is_file():
@@ -517,6 +519,22 @@ def _site_render_context(
         if isinstance(paths, dict) and isinstance(paths.get("prefixes"), dict):
             # Expose as JSON string for templates that need it later; unused in C3.
             context["registry_has_paths"] = "true"
+    # Choice E (D7-ROUTES-E): when the site declares a public front door, own-mode
+    # OpenObserve sets ZO_BASE_URI=/oo and remaps API+health under that prefix.
+    # Vector sink URIs must match (see stayturgid_sinks.yaml.j2).
+    inv_path = site_map.path("inventory")
+    group_vars = inv_path.parent / "group_vars" / "all.yml"
+    if not group_vars.is_file():
+        group_vars = site_dir / "inventory" / "group_vars" / "all.yml"
+    if group_vars.is_file():
+        try:
+            gv = yaml.safe_load(group_vars.read_text(encoding="utf-8")) or {}
+        except (OSError, yaml.YAMLError):
+            gv = {}
+        if isinstance(gv, dict):
+            host = gv.get("caddy_public_hostname")
+            if isinstance(host, str) and host.strip():
+                context["openobserve_http_prefix"] = "/oo"
     return context
 
 
@@ -895,6 +913,7 @@ def _docs_markdown() -> str:
             "registry_paths_path": "registry/paths.yml",
             "ports": docs_ports,
             "inventory_hosts": [{"name": "example-host", "ansible_host": "192.0.2.10"}],
+            "openobserve_http_prefix": "",
         }
         _render_template(template_path, context)
 

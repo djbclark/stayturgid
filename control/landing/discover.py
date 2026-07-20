@@ -30,8 +30,12 @@ SERVICES_FILE = state.STATE_FILE
 
 # ── Known service definitions (URL, label, group) ───────────────────────────
 KNOWN_SERVICES: list[dict] = [
-    # Mac control node — all served via Caddy HTTPS
+    # Mac control node — all served via Caddy HTTPS (Choice E paths)
     {"url": "https://mac.example.ts.net", "label": "Network Landing (root)", "group": "mac"},
+    {"url": "https://mac.example.ts.net/grafana/", "label": "Grafana (HTTPS)", "group": "mac"},
+    {"url": "https://mac.example.ts.net/oo/", "label": "OpenObserve (HTTPS)", "group": "mac"},
+    {"url": "https://mac.example.ts.net/olivetin/", "label": "OliveTin (HTTPS)", "group": "mac"},
+    {"url": "https://mac.example.ts.net/vm/", "label": "VictoriaMetrics (HTTPS)", "group": "mac"},
     {"url": "https://mac.example.ts.net/opencode/", "label": "OpenCode Web (HTTPS)", "group": "mac"},
     {"url": "https://mac.example.ts.net/dashboard/", "label": "Fleet Dashboard (HTTPS)", "group": "mac"},
     {"url": "https://mac.example.ts.net/stats/", "label": "Fleet Stats (HTTPS)", "group": "mac"},
@@ -39,6 +43,10 @@ KNOWN_SERVICES: list[dict] = [
     {"url": "http://localhost:4096", "label": "OpenCode (localhost)", "group": "mac"},
     {"url": "http://localhost:4097", "label": "Dashboard (localhost)", "group": "mac"},
     {"url": "http://localhost:4097/stats", "label": "Stats (localhost)", "group": "mac"},
+    {"url": "http://localhost:3000", "label": "Grafana (localhost)", "group": "mac"},
+    {"url": "http://localhost:5080/oo/", "label": "OpenObserve (localhost)", "group": "mac"},
+    {"url": "http://localhost:1337", "label": "OliveTin (localhost)", "group": "mac"},
+    {"url": "http://localhost:8428", "label": "VictoriaMetrics (localhost)", "group": "mac"},
     {"url": "http://localhost:8088", "label": "Network Landing (localhost)", "group": "mac"},
     {"url": "http://localhost:8080", "label": "Caddy Health", "group": "mac"},
     {"url": "http://localhost:8081", "label": "VLM UI-TARS API", "group": "mac"},
@@ -69,6 +77,66 @@ KNOWN_SERVICES: list[dict] = [
 # The committed catalog is the source of truth; the fallback list keeps older
 # checkouts importable until their catalog has been migrated.
 KNOWN_SERVICES = state.load_catalog().get("services", KNOWN_SERVICES)
+
+# Generic catalog host in services.json / KNOWN_SERVICES (RFC-style example).
+_CATALOG_PUBLIC_HOST = "mac.example.ts.net"
+
+
+def _site_caddy_public_hostname() -> str | None:
+    """Read caddy_public_hostname from site inventory group_vars if present."""
+    env_dir = os.environ.get("STAYTURGID_SITE_DIR", "").strip()
+    candidates: list[Path] = []
+    if env_dir:
+        candidates.append(Path(env_dir).expanduser() / "inventory" / "group_vars" / "all.yml")
+    ops_root = Path(os.environ.get("OPS_ROOT", Path.home() / "ops")).expanduser()
+    if ops_root.is_dir():
+        for site in sorted(p for p in ops_root.glob("site-*") if p.is_dir()):
+            candidates.append(site / "inventory" / "group_vars" / "all.yml")
+    for path in candidates:
+        if not path.is_file():
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if yaml is not None:
+            try:
+                data = yaml.safe_load(text) or {}
+            except yaml.YAMLError:
+                data = {}
+            if isinstance(data, dict):
+                value = data.get("caddy_public_hostname")
+                if isinstance(value, str) and value.strip():
+                    return value.strip()
+        # Fallback without PyYAML (bare python3 on operator Macs).
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped.startswith("#") or "caddy_public_hostname" not in stripped:
+                continue
+            if ":" not in stripped:
+                continue
+            key, _, rest = stripped.partition(":")
+            if key.strip() != "caddy_public_hostname":
+                continue
+            value = rest.strip().strip("\"'")
+            if value:
+                return value
+    return None
+
+
+def _known_services_for_site() -> list[dict]:
+    """Catalog services with example.ts.net rewritten to the site front-door host."""
+    host = _site_caddy_public_hostname()
+    if not host:
+        return list(KNOWN_SERVICES)
+    out: list[dict] = []
+    for entry in KNOWN_SERVICES:
+        item = dict(entry)
+        url = str(item.get("url") or "")
+        if _CATALOG_PUBLIC_HOST in url:
+            item["url"] = url.replace(_CATALOG_PUBLIC_HOST, host)
+        out.append(item)
+    return out
 
 
 def _http_probe(url: str, timeout: float = 3.0) -> int | None:
@@ -205,8 +273,8 @@ def discover() -> dict:
     for s in existing.get("services", []):
         known_urls[s["url"]] = s
 
-    # Add/update known services
-    for s in KNOWN_SERVICES:
+    # Add/update known services (site MagicDNS substituted for catalog placeholder)
+    for s in _known_services_for_site():
         url = s["url"]
         if url in known_urls:
             known_urls[url].update({k: v for k, v in s.items() if k != "url"})

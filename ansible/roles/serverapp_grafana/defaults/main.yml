@@ -18,5 +18,11 @@ serverapp_grafana_homepath: /opt/homebrew/opt/grafana/share/grafana
 serverapp_grafana_http_addr: "127.0.0.1"
 serverapp_grafana_http_port: 3000
 serverapp_grafana_health_url: "http://127.0.0.1:{{ serverapp_grafana_http_port }}/api/health"
+# Choice E (D7-ROUTES-E): front-door subpath. Callers pass public hostname
+# via serverapps extra-vars when Caddy serves /grafana/; defaults stay
+# loopback-only for sites without a public front door.
+serverapp_grafana_domain: "localhost"
+serverapp_grafana_root_url: "http://127.0.0.1:{{ serverapp_grafana_http_port }}/"
+serverapp_grafana_serve_from_sub_path: false
 # No default for serverapp_grafana_uid — always supplied as an extra-var by
 # control/site_contract/serverapps.py (os.getuid()); fail closed otherwise.
