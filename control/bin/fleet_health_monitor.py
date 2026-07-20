@@ -349,8 +349,8 @@ def maybe_verify_hd8_google_closeout(name: str) -> None:
 
 # Only count catastrophic/headless failures inside this window. Counting the
 # entire log (or last-50 grep with no time filter) re-fired Mac notifications
-# forever after a resolved CLOSED_NO_SHELL incident (p7a 2026-07-19: 55 historical
-# lines → alert every 5 min while fleet was healthy).
+# forever after a resolved CLOSED_NO_SHELL incident (2026-07-19: one fleet phone
+# had 55 historical lines → alert every 5 min while fleet was healthy).
 CATASTROPHIC_ALERT_WINDOW_SEC = 2 * 60 * 60
 CATASTROPHIC_ALERT_MIN = 3
 CATASTROPHIC_NOTIFY_COOLDOWN_SEC = 6 * 60 * 60
