@@ -44,17 +44,23 @@ function probeA11y(split) {
   var list = (r.result || "").trim();
   var listed = !!(list && list !== "null" && list.indexOf(A11Y_SVC) >= 0);
 
-  // Sticky: Settings ON, service not bound (Android a11y lifecycle bug).
+  // Sticky candidate: Settings ON but auto.service null. On some builds/devices
+  // auto.service flickers null even while the engine is mid-cycle and listed
+  // (s24 noise after debug APK). Treat as degraded, not hard FAILED, and notify
+  // at most once per engine process so STATUS stays operational for health scrapes.
   if (listed && typeof auto !== "undefined") {
     try {
       if (!auto.service) {
-        log.append("[comonitor] A11Y STICKY — Settings lists AutoJs6 but service not bound; toggle OFF then ON");
-        notify.show(
-          "AutoJs6 accessibility stuck (ON but not bound)",
-          "Open Settings > Accessibility > AutoJs6: turn OFF then ON again, then re-run main.js.",
-          "a11y-stale",
-        );
-        return "FAILED";
+        if (!probeA11y._stickyLogged) {
+          probeA11y._stickyLogged = true;
+          log.append("[comonitor] A11Y STICKY candidate — listed ON but auto.service null (notify once; not FAILED)");
+          notify.show(
+            "AutoJs6 accessibility may be sticky",
+            "If Task is empty or UI automations fail: Settings → Accessibility → AutoJs6 OFF then ON, then re-run main.js.",
+            "a11y-stale",
+          );
+        }
+        return "degraded";
       }
     } catch (e2) {
       /* fall through */
@@ -261,8 +267,12 @@ function run(profile, opts) {
       "Co-monitor could not re-enable accessibility — enable AutoJs6 a11y.",
       "a11y-blocked",
     );
-  } else if (a11y === "up" || a11y === "repaired") {
+  } else if (a11y === "up" || a11y === "repaired" || a11y === "degraded") {
+    // degraded = sticky candidate already notified once under a11y-stale
     notify.clear("a11y-blocked");
+    if (a11y === "up" || a11y === "repaired") {
+      notify.clear("a11y-stale");
+    }
   }
 
   if (shellProbe.port === "open" || shellProbe.port === "skip") {

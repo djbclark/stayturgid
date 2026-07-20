@@ -82,12 +82,11 @@ ok(typeof comonitor.probeA11y === "function", "probeA11y exported");
 
 var profile = { id: "oneui-device", sdRoot: "/sdcard/stayturgid", notifyTag: "" };
 
-// Sticky: auto present, service null, settings lists AutoJs6 → FAILED (not false "up")
+// Sticky candidate: auto present, service null, settings lists AutoJs6 → degraded (not hard FAILED)
 global.auto = { service: null };
 var sticky = comonitor.run(profile, { force: true, reason: "sticky" });
-ok(sticky !== null && sticky.a11y === "FAILED",
-    "comonitor reports a11y FAILED when settings list ON but auto.service null (sticky)");
-
+ok(sticky !== null && sticky.a11y === "degraded",
+    "comonitor reports a11y degraded when settings list ON but auto.service null (sticky candidate)");
 // Bound: auto.service truthy → up
 global.auto = { service: {} };
 var result = comonitor.run(profile, { force: true, reason: "test" });
