@@ -1,5 +1,6 @@
 [project]
 name = "stayturgid"
+version = "0.1.0"
 description = "Keeps wireless ADB, Shizuku, and SSH alive on unrooted Android phones"
 requires-python = ">=3.12"
 dependencies = [

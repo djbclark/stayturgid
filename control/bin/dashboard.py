@@ -347,6 +347,13 @@ def request_shizuku_authorization(hostname: str) -> tuple[bool, str]:
         return False, "could not open Shizuku (device shell rc=%s)" % rc
     ok, detail = _rish_probe(hostname)
     if ok:
+        try:
+            PrivShell(hostname).sh(
+                "am start -a android.intent.action.MAIN -c android.intent.category.HOME",
+                timeout=10,
+            )
+        except (OSError, ValueError):
+            pass
         return True, detail
     return False, "Shizuku opened; tap Allow all the time, then retry (%s)" % detail
 
@@ -681,6 +688,16 @@ def api_pending_ui_done(host: str):
                     timeout=2.0,
                 )
                 updated = True
+                mac_adb_shell(
+                    serial,
+                    "am",
+                    "start",
+                    "-a",
+                    "android.intent.action.MAIN",
+                    "-c",
+                    "android.intent.category.HOME",
+                    timeout=5.0,
+                )
             except Exception:
                 pass
 

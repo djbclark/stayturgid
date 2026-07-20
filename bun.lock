@@ -8,6 +8,7 @@
         "prettier-plugin-ini": "^1.3.0",
       },
       "devDependencies": {
+        "@alibaba-group/open-code-review": "^1.7.13",
         "html-validate": "^11.5.6",
         "pa11y": "^9.1.1",
         "prettier-plugin-toml": "^2.0.6",
@@ -22,6 +23,20 @@
     "vnu-jar",
   ],
   "packages": {
+    "@alibaba-group/ocr-darwin-arm64": ["@alibaba-group/ocr-darwin-arm64@1.7.13", "", { "os": "darwin", "cpu": "arm64" }, "sha512-ivQ57pXs5uFHlvhf8SgsvLAPciitPz0zraRrigNX4Jz92crOwGm1/EefpnTJ9cDbLevLCT07EDWh8/FjGTDd6w=="],
+
+    "@alibaba-group/ocr-darwin-x64": ["@alibaba-group/ocr-darwin-x64@1.7.13", "", { "os": "darwin", "cpu": "x64" }, "sha512-NS3iquAjURR+XOYfbhbPRsbsx7UMWxNLp9e2tpXULjD0qvQ40thJr0Y5/sUkbO4kYzs3b3MS070i05gHwBFnJQ=="],
+
+    "@alibaba-group/ocr-linux-arm64": ["@alibaba-group/ocr-linux-arm64@1.7.13", "", { "os": "linux", "cpu": "arm64" }, "sha512-1gJo1udT+aols0CCsdlTXLPROm+TVojItHVYniO7cHsB4dY3Hsararz3yMmrHdcAKMeuSbGae71n+1bwdVnI+A=="],
+
+    "@alibaba-group/ocr-linux-x64": ["@alibaba-group/ocr-linux-x64@1.7.13", "", { "os": "linux", "cpu": "x64" }, "sha512-lsOKHelLieCRmNBtTt6E4HNDRA+xMvWPsSyeGoEVOyfY/WBfli2i72R5wK6SRNiN55NPg8fsoTMMZW4guSqZ7w=="],
+
+    "@alibaba-group/ocr-win32-arm64": ["@alibaba-group/ocr-win32-arm64@1.7.13", "", { "os": "win32", "cpu": "arm64" }, "sha512-JQetDtWzFY4FYsJ576JU9YYxchl3L16JM/sEPjMhLKwX3lbD4ME82WqrM1qImyuZLrkKatIR7BHKPgPhfpSiGg=="],
+
+    "@alibaba-group/ocr-win32-x64": ["@alibaba-group/ocr-win32-x64@1.7.13", "", { "os": "win32", "cpu": "x64" }, "sha512-f6jZkHidHJe136qe6bWdOpcnvk9GvhVDk5KNmd8Gwbo+6BQxNB3EYIVNqZUdA8Amh4Swb6q54lodEOTpH89gow=="],
+
+    "@alibaba-group/open-code-review": ["@alibaba-group/open-code-review@1.7.13", "", { "optionalDependencies": { "@alibaba-group/ocr-darwin-arm64": "1.7.13", "@alibaba-group/ocr-darwin-x64": "1.7.13", "@alibaba-group/ocr-linux-arm64": "1.7.13", "@alibaba-group/ocr-linux-x64": "1.7.13", "@alibaba-group/ocr-win32-arm64": "1.7.13", "@alibaba-group/ocr-win32-x64": "1.7.13" }, "bin": { "ocr": "bin/ocr.js" } }, "sha512-ksHp4yEj4RLbXIIc5COJCQfESBj9sva9MdpcdlxmzLIMvxlPkz+vUfw3KXZhD01/El7w4+JCGo+bU1VXjuomoA=="],
+
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
 
     "@babel/helper-validator-identifier": ["@babel/helper-validator-identifier@7.29.7", "", {}, "sha512-qehxGkRj55h/ff8EMaJ+cYhyaKlHIxqYDn682wQD7RNp9UujOQsHog2uS0r2vzr4pW+sXf90NeeayjcNaX3fFg=="],

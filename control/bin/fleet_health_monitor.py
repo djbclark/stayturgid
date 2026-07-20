@@ -481,6 +481,12 @@ def _device_log_epoch(line: str) -> float | None:
 
 def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     state_file = os.path.join(STATE_DIR, name)
+    maintenance_file = os.path.join(STATE_DIR, f"{name}.maintenance")
+    if os.path.isfile(maintenance_file):
+        _fleet_log(INFO, "%s via bypass: issues=maintenance" % name)
+        write_state(state_file, 0)
+        return
+
     # Dismiss system dialogs that appear on debuggable-app devices and block the screen.
     target = dev.resolve_adb(name) if dev else None
     if target:
