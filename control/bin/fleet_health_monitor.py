@@ -347,21 +347,57 @@ def maybe_verify_hd8_google_closeout(name: str) -> None:
         _fleet_log(INFO, "%s google-stack VLM verify error: %s" % (name, e))
 
 
+# Only count catastrophic/headless failures inside this window. Counting the
+# entire log (or last-50 grep with no time filter) re-fired Mac notifications
+# forever after a resolved CLOSED_NO_SHELL incident (p7a 2026-07-19: 55 historical
+# lines → alert every 5 min while fleet was healthy).
+CATASTROPHIC_ALERT_WINDOW_SEC = 2 * 60 * 60
+CATASTROPHIC_ALERT_MIN = 3
+CATASTROPHIC_NOTIFY_COOLDOWN_SEC = 6 * 60 * 60
+
+
 def _audit_scraped_errors(name: str, text: str) -> None:
-    """Scan scraped error text for excessive catastrophic repairs or loops."""
-    catastrophic_lines = [
-        line for line in text.splitlines() if "catastrophic" in line.lower() or "headless" in line.lower()
-    ]
-    if len(catastrophic_lines) >= 3:
-        _fleet_log(
-            WARNING,
-            "%s: ALERT - excessive catastrophic repairs detected (%d occurrences)" % (name, len(catastrophic_lines)),
-        )
-        notify(
-            "stayturgid alert",
-            "%s: Excessive catastrophic repairs! Loop bug?" % name,
-            sound="Basso",
-        )
+    """Scan scraped errors for *recent* excessive catastrophic repairs / loops."""
+    now = time.time()
+    recent: list[str] = []
+    for line in text.splitlines():
+        low = line.lower()
+        if "catastrophic" not in low and "headless start failed" not in low:
+            continue
+        epoch = _device_log_epoch(line)
+        if epoch is None:
+            # Cannot age the line — do not inflate the alert with undated history.
+            continue
+        if now - epoch <= CATASTROPHIC_ALERT_WINDOW_SEC:
+            recent.append(line)
+    if len(recent) < CATASTROPHIC_ALERT_MIN:
+        return
+    _fleet_log(
+        WARNING,
+        "%s: ALERT - excessive catastrophic repairs detected (%d in last %dh)"
+        % (name, len(recent), CATASTROPHIC_ALERT_WINDOW_SEC // 3600),
+    )
+    # Rate-limit operator notifications (log every scrape; ping Mac at most 6h).
+    cooldown_path = os.path.join(ROOT, "state", "catastrophic-alert", name)
+    try:
+        os.makedirs(os.path.dirname(cooldown_path), exist_ok=True)
+        last = 0.0
+        try:
+            with open(cooldown_path) as f:
+                last = float(f.read().strip() or 0)
+        except (OSError, ValueError):
+            pass
+        if now - last < CATASTROPHIC_NOTIFY_COOLDOWN_SEC:
+            return
+        with open(cooldown_path, "w") as f:
+            f.write(str(int(now)))
+    except OSError:
+        pass
+    notify(
+        "stayturgid alert",
+        "%s: Excessive catastrophic repairs (%d in 2h)! Loop bug?" % (name, len(recent)),
+        sound="Basso",
+    )
 
 
 def _scrape_device_errors(name: str, ts_ip: str) -> None:
@@ -418,10 +454,27 @@ def _scrape_device_errors(name: str, ts_ip: str) -> None:
 
 
 def _device_log_epoch(line: str) -> float | None:
-    """Return the timestamp embedded in a device log line, when present."""
+    """Return the timestamp embedded in a device log line, when present.
+
+    Supports Termux-style ``YYYY-MM-DD HH:MM:SS`` and AutoJs6 syslog-style
+    ``Mon DD HH:MM:SS`` (year assumed current; roll back one year if future).
+    """
     try:
         stamp = line[:19]
         return datetime.datetime.strptime(stamp, "%Y-%m-%d %H:%M:%S").timestamp()
+    except (ValueError, OverflowError):
+        pass
+    try:
+        # "Jul 19 20:19:46 ..." — AutoJs6 log.append prefix (year not in line).
+        # Bind year explicitly to avoid Python 3.15 ambiguous-day-without-year.
+        now = datetime.datetime.now()
+        partial = line[:15].strip()
+        dt = datetime.datetime.strptime("%d %s" % (now.year, partial), "%Y %b %d %H:%M:%S")
+        ts = dt.timestamp()
+        if ts > time.time() + 86400:
+            dt = datetime.datetime.strptime("%d %s" % (now.year - 1, partial), "%Y %b %d %H:%M:%S")
+            ts = dt.timestamp()
+        return ts
     except (ValueError, OverflowError):
         return None
 

@@ -163,10 +163,22 @@ function run(profile, opts) {
   log.append("[comonitor] start reason=" + reason + " shizuku_api=" + (shizukuShell.isOperational() ? "yes" : "no"));
 
   var sshd = probeSshd();
-  if (sshd === "down") {
+  // Shizuku pgrep is unreliable when the AutoJs6↔Shizuku binder is broken
+  // (s24 "Unable to use Shizuku service") or on Fire split-storage. Prefer a
+  // fresh Termux STATUS before restarting or notifying.
+  if (sshd === "down" && !log.isRepairLoopStale()) {
+    var earlyTrust = log.latestRepairStatus();
+    if (earlyTrust && earlyTrust.sshd === "up") {
+      log.append("[comonitor] trusting fresh [repair] sshd=up over shizuku pgrep");
+      sshd = "up";
+    }
+  }
+  if (sshd === "down" && !split) {
     log.append("[comonitor] sshd down — restarting via shizuku/shell");
     sshd = restartSshd();
     if (sshd === "up") sshd = "restarted";
+  } else if (sshd === "down" && split) {
+    log.append("[comonitor] sshd probe down on split-storage — leave to Termux (no shizuku restart)");
   }
 
   var shizuku = probeShizuku();
@@ -191,9 +203,13 @@ function run(profile, opts) {
     }
   }
 
-  // Catastrophic: no shell on stock Android, or Shizuku dead on any host.
-  // Only escalate CLOSED_NO_SHELL when Termux is also stale/unknown — avoid
-  // fighting a healthy Termux repair with UI taps every 20 min.
+  // Catastrophic: no shell on stock Android, or Shizuku dead on phones that
+  // expect privileged shell. Only escalate CLOSED_NO_SHELL when Termux is also
+  // stale/unknown — avoid fighting a healthy Termux repair with UI taps every 20 min.
+  //
+  // Fire OS / split-storage: Termux cannot drive Shizuku the same way; co-monitor
+  // used to call repairCatastrophic every cycle → "shizuku headless start failed"
+  // + Mac "excessive catastrophic" spam while sshd was fine via Termux.
   if (!split && shellProbe.port === "CLOSED_NO_SHELL" && log.isRepairLoopStale()) {
     log.append("[comonitor] CLOSED_NO_SHELL — catastrophic repair");
     notify.show(
@@ -208,7 +224,7 @@ function run(profile, opts) {
     }
     shellProbe = probeShell5555(false, null);
     shizuku = probeShizuku();
-  } else if (shizuku === "down") {
+  } else if (shizuku === "down" && !split && profile.privilegedShellExpected !== false) {
     log.append("[comonitor] shizuku_server down — catastrophic Start path");
     try {
       repair.repairCatastrophic(profile);
@@ -216,6 +232,17 @@ function run(profile, opts) {
       log.append("[comonitor] shizuku start error: " + e);
     }
     shizuku = probeShizuku();
+  } else if (shizuku === "down" && (split || profile.privilegedShellExpected === false)) {
+    log.append("[comonitor] shizuku down — skip catastrophic on split/no-privileged-shell host (Termux is primary)");
+  }
+
+  // Trust fresh Termux [repair] sshd=up over a flaky shizuku pgrep (s24 spam).
+  if ((sshd === "down" || sshd === "FAILED") && !log.isRepairLoopStale()) {
+    var trustSsh = log.latestRepairStatus();
+    if (trustSsh && trustSsh.sshd === "up") {
+      log.append("[comonitor] trusting fresh [repair] sshd=up over shizuku pgrep");
+      sshd = "up";
+    }
   }
 
   if (sshd === "down" || sshd === "FAILED") {
