@@ -153,17 +153,18 @@ by **toggle OFF → ON**, then re-ran `main.js`. Root cause is primarily **Andro
 Secondary: AutoJs6 recovery UX; tertiary: stayturgid false-positive `a11y=up` from
 settings-list alone.
 
-**AutoJs6 fork PR** (code): `fix/a11y-sticky-malfunction-rebind` on
-`djbclark/AutoJs6` — when `isMalfunctioning()` (listed but not bound),
-`ensureService()` tries privileged `restartService()` then opens Accessibility
-with an OFF→ON toast. Cross-links stayturgid **A11**.
+**AutoJs6 fork PR:** https://github.com/djbclark/AutoJs6/pull/1
+(`fix/a11y-sticky-malfunction-rebind`) — when `isMalfunctioning()` (listed but
+not bound), `ensureService()` tries privileged `restartService()` then opens
+Accessibility with an OFF→ON toast. Cross-links stayturgid **A11** /
+https://github.com/djbclark/stayturgid/pull/29.
 
-**This item:** after the AutoJs6 PR is reviewed/merged (or from the branch),
+**This item:** after AutoJs6#1 is reviewed/merged (or from the branch),
 **build the fleet-profile APK**, ship via Obtainium/fleet, and smoke on s24:
 force sticky if possible (or after a Termux freeze) and confirm rebind or clear
 OFF→ON prompt. Operator can do GUI smoke steps.
 
-**Stayturgid half is A11** (detect + notify without `settings put`).
+**Stayturgid half is A11** / stayturgid#29 (detect + notify without `settings put`).
 
 ---
 
@@ -185,8 +186,9 @@ Land / finish fleet-side sticky-a11y observability (companion to AutoJs6 **H14**
 - `stayturgid_repair.py`: ACTION_REQUIRED when a11y listed but watchdog quiet ≥30m.
 - **Policy G3 unchanged:** never auto-`settings put` `enabled_accessibility_services`.
 
-PR branch: `fix/a11y-sticky-detect-notify` on `djbclark/stayturgid`. Merge when
-green; deploy AutoJs6 project to phones. Pair with **H14** APK for full rebind.
+**PR:** https://github.com/djbclark/stayturgid/pull/29
+(`fix/a11y-sticky-detect-notify`). Merge when green; deploy AutoJs6 project to
+phones. Pair with **H14** / AutoJs6#1 APK for full rebind.
 
 #### 43 — AutoJs6 WorkManager (agent) · Risk: **Latent / Low until upstream**
 
