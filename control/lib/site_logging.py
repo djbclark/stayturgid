@@ -7,7 +7,7 @@ All stayturgid components should use these conventions:
   Error scraping (remote logs):        scrape_errors() detects severity from text patterns.
 
 Usage:
-  from control.lib.logging import log, ERR, WARNING, NOTICE, INFO, DEBUG
+  from control.lib.site_logging import log, ERR, WARNING, NOTICE, INFO, DEBUG
 
   log("fleet-health.log", INFO, "stock-android-device via ssh: sshd=ok")
   log("fleet-health.log", ERR, "stock-android-device port 5555 CLOSED — escalate to reboot")

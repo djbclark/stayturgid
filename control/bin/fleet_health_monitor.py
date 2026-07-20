@@ -34,7 +34,7 @@ import stayturgid_device as dev  # noqa: E402
 import vlm_helpers as vh  # noqa: E402
 
 import control.lib.stats as stats  # noqa: E402
-from control.lib.logging import (  # noqa: E402
+from control.lib.site_logging import (  # noqa: E402
     ERR,
     INFO,
     NOTICE,

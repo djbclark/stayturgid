@@ -58,6 +58,8 @@ stayturgid_mac_brew_packages_base:
   - git
   - ansible
   - scrcpy
+  - semgrep
+  - gitleaks
   # Hermes Agent (Telegram gateway + Grok OAuth CLI); see tasks/hermes.yml
   - hermes-agent
 
@@ -70,6 +72,8 @@ stayturgid_mac_brew_packages_vlm:
 
 stayturgid_mac_uv_tools:
   - uiautomator2
+  - mypy
+  - bandit
 
 # UI-TARS vendor-neutral paths (see control/vlm/ui-tars/ui_tars_env.py).
 ui_tars_hf_base: https://huggingface.co/adriabama06/UI-TARS-1.5-7B-GGUF/resolve/main

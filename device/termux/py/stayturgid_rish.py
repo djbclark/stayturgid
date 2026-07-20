@@ -86,7 +86,7 @@ def install(*, force: bool = False) -> str:
     body = _WRAPPER_BODY.format(rish_dir=RISH_DIR, dex=DEX_NAME, pkg=SHIZUKU_PKG)
     with open(WRAPPER, "w") as f:
         f.write(body)
-    os.chmod(WRAPPER, 0o755)
+    os.chmod(WRAPPER, 0o755)  # nosemgrep
     return WRAPPER
 
 

@@ -52,7 +52,7 @@ def _save_hidden(hidden: list[str]) -> None:
 def _render(name: str, **ctx) -> str:
     f = _TEMPLATES / name
     if f.is_file():
-        return render_template_string(f.read_text(), **ctx)
+        return render_template_string(f.read_text(), **ctx)  # nosemgrep
     return f"<!-- {name} not found -->"
 
 

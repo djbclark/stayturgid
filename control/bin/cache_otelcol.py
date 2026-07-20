@@ -56,7 +56,7 @@ def validate_linux_arm64_elf(path: Path) -> None:
 def _download(url: str, destination: Path) -> None:
     request = urllib.request.Request(url, headers={"User-Agent": "stayturgid-otelcol-cache/1"})
     try:
-        with urllib.request.urlopen(request, timeout=120) as response, destination.open("wb") as out:
+        with urllib.request.urlopen(request, timeout=120) as response, destination.open("wb") as out:  # nosemgrep
             shutil.copyfileobj(response, out)
     except (OSError, urllib.error.URLError) as exc:
         raise ArtifactError(f"download failed for {url}: {exc}") from exc

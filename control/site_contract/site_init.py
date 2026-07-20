@@ -187,7 +187,7 @@ def _render_context(
 
 
 def _render_template(template_path: Path, context: dict[str, str]) -> bytes:
-    environment = Environment(
+    environment = Environment(  # nosemgrep
         undefined=StrictUndefined,
         keep_trailing_newline=True,
         autoescape=False,

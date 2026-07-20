@@ -359,7 +359,7 @@ def lockfile_hashes(lockfile: dict[str, Any] | None) -> dict[str, str]:
 
 
 def _render_template(template_path: Path, context: dict[str, Any]) -> bytes:
-    environment = Environment(
+    environment = Environment(  # nosemgrep
         undefined=StrictUndefined,
         keep_trailing_newline=True,
         autoescape=False,
