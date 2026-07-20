@@ -37,6 +37,16 @@
         <string>{{ serverapp_openobserve_http_address }}</string>
         <key>ZO_GRPC_ADDR</key>
         <string>{{ serverapp_openobserve_grpc_address }}</string>
+{# Choice E (D7-ROUTES-E): subpath front door when site has public hostname.
+   Empty base_uri leaves OO at / (loopback-only / inject sites). #}
+{% if serverapp_openobserve_base_uri | default('', true) | length > 0 %}
+        <key>ZO_BASE_URI</key>
+        <string>{{ serverapp_openobserve_base_uri }}</string>
+{% endif %}
+{% if serverapp_openobserve_web_url | default('', true) | length > 0 %}
+        <key>ZO_WEB_URL</key>
+        <string>{{ serverapp_openobserve_web_url }}</string>
+{% endif %}
     </dict>
 </dict>
 </plist>
