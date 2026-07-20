@@ -305,12 +305,12 @@
             "type": "prometheus",
             "uid": "stayturgid-victoriametrics"
           },
-          "expr": "last_over_time(stayturgid_host_up{host=\"{{ host.name }}\"}[15m])",
-          "legendFormat": "{{ host.name }}",
+          "expr": "last_over_time(stayturgid_host_up{host=\"{{ host.name | json_string_escape }}\"}[15m])",
+          "legendFormat": "{{ host.name | json_string_escape }}",
           "refId": "A"
         }
       ],
-      "title": "{{ host.device_label | default(host.name) }} ({{ host.name }})",
+      "title": "{{ host.device_label | default(host.name) | json_string_escape }} ({{ host.name | json_string_escape }})",
       "type": "stat"
     }{% endfor %}
   ],

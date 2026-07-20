@@ -160,9 +160,10 @@ def _has_generated_header(path: Path) -> bool:
     return GENERATED_MARKER in head or '"_generated"' in head
 
 
-def _is_under_our_prefixes(path: Path, site_ns: str) -> bool:
+def _is_under_our_prefixes(path: Path, site_ns: str, *, home: Path | None = None) -> bool:
     resolved = path.resolve()
-    prefixes = list(OUR_CONFIG_PREFIXES) + [Path.home() / ".config" / site_ns]
+    home_path = home if home is not None else Path.home()
+    prefixes = list(OUR_CONFIG_PREFIXES) + [home_path / ".config" / site_ns]
     for prefix in prefixes:
         try:
             resolved.relative_to(prefix.resolve())
@@ -217,11 +218,12 @@ def load_caddy_public_hostname(site_dir: Path, site_map: SiteMap) -> str | None:
     return None
 
 
-def _caddy_detect_paths(site_map: SiteMap) -> list[Path]:
+def _caddy_detect_paths(site_map: SiteMap, *, home: Path | None = None) -> list[Path]:
     app = site_map.serverapps.get("caddy")
     if app and app.config is not None:
         return [app.config]
-    paths = [Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "caddy" / "Caddyfile"]
+    home_path = home if home is not None else Path.home()
+    paths = [Path(os.environ.get("XDG_CONFIG_HOME", home_path / ".config")) / "caddy" / "Caddyfile"]
     paths.append(Path("/opt/homebrew/etc/Caddyfile"))
     # Dedup preserving order
     seen: set[Path] = set()
@@ -238,7 +240,7 @@ def _caddy_detect_paths(site_map: SiteMap) -> list[Path]:
     return out
 
 
-def _vector_detect_paths(site_map: SiteMap) -> list[Path]:
+def _vector_detect_paths(site_map: SiteMap, *, home: Path | None = None) -> list[Path]:
     """§5.3 foreign detect: existing vector.yaml / vector.toml service config.
 
     Default paths are XDG only. Homebrew ships a sample at
@@ -250,7 +252,8 @@ def _vector_detect_paths(site_map: SiteMap) -> list[Path]:
     app = site_map.serverapps.get("vector")
     if app and app.config is not None:
         return [app.config]
-    xdg = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    home_path = home if home is not None else Path.home()
+    xdg = Path(os.environ.get("XDG_CONFIG_HOME", home_path / ".config"))
     paths = [
         xdg / "vector" / "vector.yaml",
         xdg / "vector" / "vector.toml",
@@ -311,6 +314,7 @@ def resolve_app_mode(
     *,
     site_map: SiteMap,
     site_ns: str,
+    home: Path | None = None,
 ) -> tuple[AppMode, str]:
     """Deterministic mode selection (§1.2): site-map → foreign detect → own."""
     mapping = site_map.serverapps.get(app)
@@ -321,20 +325,20 @@ def resolve_app_mode(
         return mode, "site-map"  # type: ignore[return-value]
 
     if app == "caddy":
-        for path in _caddy_detect_paths(site_map):
+        for path in _caddy_detect_paths(site_map, home=home):
             if not path.is_file():
                 continue
-            if _is_under_our_prefixes(path, site_ns):
+            if _is_under_our_prefixes(path, site_ns, home=home):
                 continue
             if _has_generated_header(path):
                 continue
             return "inject", "detect"
 
     if app == "vector":
-        for path in _vector_detect_paths(site_map):
+        for path in _vector_detect_paths(site_map, home=home):
             if not path.is_file():
                 continue
-            if _is_under_our_prefixes(path, site_ns):
+            if _is_under_our_prefixes(path, site_ns, home=home):
                 continue
             if _has_generated_header(path):
                 continue
@@ -343,23 +347,23 @@ def resolve_app_mode(
     if app == "openobserve":
         # §5.3: single-owner; inject if a foreign unit/config is present.
         # Legacy com.stayturgid.* and com.<site_ns>.* are not foreign.
-        for path in _openobserve_detect_paths(site_map, site_ns=site_ns):
+        for path in _openobserve_detect_paths(site_map, site_ns=site_ns, home=home):
             if path.is_file():
                 return "inject", "detect"
 
     if app == "victoriametrics":
         # §5.3: single-owner; inject = reuse registry endpoint only.
-        for path in _victoriametrics_detect_paths(site_map, site_ns=site_ns):
+        for path in _victoriametrics_detect_paths(site_map, site_ns=site_ns, home=home):
             if path.is_file():
                 return "inject", "detect"
 
     if app == "grafana":
-        for path in _grafana_detect_paths(site_map, site_ns=site_ns):
+        for path in _grafana_detect_paths(site_map, site_ns=site_ns, home=home):
             if path.is_file():
                 return "inject", "detect"
 
     if app == "olivetin":
-        for path in _olivetin_detect_paths(site_map, site_ns=site_ns):
+        for path in _olivetin_detect_paths(site_map, site_ns=site_ns, home=home):
             if path.is_file():
                 return "inject", "detect"
 
@@ -367,7 +371,14 @@ def resolve_app_mode(
 
 
 def _import_line_covers(caddyfile: Path, fragment_dir: Path) -> bool:
-    """True if Caddyfile has an import line covering fragment_dir (glob ok)."""
+    """True if Caddyfile has an import line covering fragment_dir (glob ok).
+
+    Every accepted form is anchored so ``fragment_dir`` must be followed by a
+    literal ``/`` (or be the exact final path segment) — a naive substring
+    check would also accept a sibling directory whose name happens to start
+    with the same characters (e.g. fragment_dir ``/etc/caddy.d`` wrongly
+    "covered" by an import of ``/etc/caddy.d-other/*.caddy``).
+    """
     if not caddyfile.is_file():
         return False
     try:
@@ -381,18 +392,7 @@ def _import_line_covers(caddyfile: Path, fragment_dir: Path) -> bool:
         re.compile(rf"^\s*import\s+{re.escape(frag)}/\*\s*$", re.MULTILINE),
         re.compile(rf"^\s*import\s+{re.escape(frag)}/[\w.-]+\.caddy\s*$", re.MULTILINE),
     ]
-    # Also accept relative or unexpanded forms containing the path suffix.
-    for line in text.splitlines():
-        stripped = line.strip()
-        if not stripped.startswith("import "):
-            continue
-        target = stripped[len("import ") :].strip()
-        if frag in target and (target.endswith("*.caddy") or target.endswith("/*") or target.endswith(".caddy")):
-            return True
-        for pat in patterns:
-            if pat.search(line):
-                return True
-    return False
+    return any(pattern.search(text) for pattern in patterns)
 
 
 def _suggested_import_line(fragment_dir: Path) -> str:
@@ -400,8 +400,33 @@ def _suggested_import_line(fragment_dir: Path) -> str:
 
 
 def _vector_unit_includes_fragments(fragment_dir: Path, home: Path) -> bool:
-    """True if a known launchd plist already passes --config for fragment_dir."""
-    frag = str(fragment_dir.resolve())
+    """True if a known launchd plist already passes --config for fragment_dir.
+
+    A launchd ``ProgramArguments`` array renders each argument as its own
+    ``<string>`` element, so ``--config`` and its value are never on the same
+    line/adjacent text — this matches consecutive ``<string>--config</string>``
+    / ``<string><value></string>`` pairs and checks the *value* is fragment_dir
+    itself or a path under it. The previous implementation just checked
+    whether the fragment_dir string appeared anywhere in the plist at all
+    (no association with ``--config``, no path-boundary check), which both
+    false-positived on any incidental text match and false-positived on a
+    sibling directory with a name-prefix collision (e.g. fragment_dir
+    ``/etc/vector.d`` "covered" by an unrelated ``--config
+    /etc/vector.d-other/foo.yaml``).
+    """
+    frag = fragment_dir.resolve()
+    pair_pattern = re.compile(r"<string>\s*--config\s*</string>\s*<string>\s*([^<]+?)\s*</string>")
+
+    def _covers(text: str) -> bool:
+        for match in pair_pattern.finditer(text):
+            try:
+                value = Path(match.group(1)).resolve()
+            except OSError:
+                continue
+            if value == frag or value.is_relative_to(frag):
+                return True
+        return False
+
     candidates = [
         home / "Library" / "LaunchAgents" / "com.stayturgid.vector.plist",
         Path("/Library/LaunchAgents/com.stayturgid.vector.plist"),
@@ -424,7 +449,7 @@ def _vector_unit_includes_fragments(fragment_dir: Path, home: Path) -> bool:
             text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
-        if frag in text:
+        if _covers(text):
             return True
     return False
 
@@ -484,7 +509,7 @@ def plan_caddy(
     product_version: str | None = None,
 ) -> AppPlan:
     """Build the plan for the caddy adapter only."""
-    mode, source = resolve_app_mode("caddy", site_map=site_map, site_ns=site_ns)
+    mode, source = resolve_app_mode("caddy", site_map=site_map, site_ns=site_ns, home=home)
     plan = AppPlan(app="caddy", mode=mode, source=source)
     home_path = home if home is not None else Path.home()
     config_dir = home_path / ".config" / site_ns / "caddy"
@@ -519,8 +544,12 @@ def plan_caddy(
     if mode == "own":
         # Site-map forced own against a foreign config → exit 2.
         if source == "site-map":
-            for path in _caddy_detect_paths(site_map):
-                if path.is_file() and not _is_under_our_prefixes(path, site_ns) and not _has_generated_header(path):
+            for path in _caddy_detect_paths(site_map, home=home_path):
+                if (
+                    path.is_file()
+                    and not _is_under_our_prefixes(path, site_ns, home=home_path)
+                    and not _has_generated_header(path)
+                ):
                     # Only refuse if the foreign path is the site-map config target
                     # and differs from our own destination.
                     app_map = site_map.serverapps.get("caddy")
@@ -616,8 +645,8 @@ def plan_caddy(
 
     # Detect the foreign Caddyfile for import-line verification.
     foreign: Path | None = None
-    for path in _caddy_detect_paths(site_map):
-        if path.is_file() and not _is_under_our_prefixes(path, site_ns):
+    for path in _caddy_detect_paths(site_map, home=home_path):
+        if path.is_file() and not _is_under_our_prefixes(path, site_ns, home=home_path):
             foreign = path
             break
     app_map = site_map.serverapps.get("caddy")
@@ -627,7 +656,7 @@ def plan_caddy(
     if foreign is None or not foreign.is_file():
         raise ServerAppsError(
             "caddy inject mode selected but no foreign Caddyfile found at detect paths "
-            f"({', '.join(str(p) for p in _caddy_detect_paths(site_map))})"
+            f"({', '.join(str(p) for p in _caddy_detect_paths(site_map, home=home_path))})"
         )
 
     if not _import_line_covers(foreign, fragment_dir):
@@ -732,7 +761,7 @@ def plan_vector(
     product_version: str | None = None,
 ) -> AppPlan:
     """Build the plan for the vector adapter (clone of plan_caddy; multi --config)."""
-    mode, source = resolve_app_mode("vector", site_map=site_map, site_ns=site_ns)
+    mode, source = resolve_app_mode("vector", site_map=site_map, site_ns=site_ns, home=home)
     plan = AppPlan(app="vector", mode=mode, source=source)
     home_path = home if home is not None else Path.home()
     config_dir = home_path / ".config" / site_ns / "vector"
@@ -764,8 +793,12 @@ def plan_vector(
 
     if mode == "own":
         if source == "site-map":
-            for path in _vector_detect_paths(site_map):
-                if path.is_file() and not _is_under_our_prefixes(path, site_ns) and not _has_generated_header(path):
+            for path in _vector_detect_paths(site_map, home=home_path):
+                if (
+                    path.is_file()
+                    and not _is_under_our_prefixes(path, site_ns, home=home_path)
+                    and not _has_generated_header(path)
+                ):
                     app_map = site_map.serverapps.get("vector")
                     if app_map and app_map.config is not None and path.resolve() == app_map.config.resolve():
                         if path.resolve() != base_config.resolve():
@@ -858,8 +891,8 @@ def plan_vector(
         )
 
     foreign: Path | None = None
-    for path in _vector_detect_paths(site_map):
-        if path.is_file() and not _is_under_our_prefixes(path, site_ns):
+    for path in _vector_detect_paths(site_map, home=home_path):
+        if path.is_file() and not _is_under_our_prefixes(path, site_ns, home=home_path):
             foreign = path
             break
     app_map = site_map.serverapps.get("vector")
@@ -869,7 +902,7 @@ def plan_vector(
     if foreign is None or not foreign.is_file():
         raise ServerAppsError(
             "vector inject mode selected but no foreign vector config found at detect paths "
-            f"({', '.join(str(p) for p in _vector_detect_paths(site_map))})"
+            f"({', '.join(str(p) for p in _vector_detect_paths(site_map, home=home_path))})"
         )
 
     # Include mechanism: unit must pass --config for each product fragment (§5.3).
@@ -978,7 +1011,7 @@ def plan_openobserve(
     keeps data dir at ~/.local/share/openobserve/data.
     """
     del force_generated  # no inject fragment copies for openobserve
-    mode, source = resolve_app_mode("openobserve", site_map=site_map, site_ns=site_ns)
+    mode, source = resolve_app_mode("openobserve", site_map=site_map, site_ns=site_ns, home=home)
     plan = AppPlan(app="openobserve", mode=mode, source=source)
     home_path = home if home is not None else Path.home()
     # Data dir is intentionally NOT under site_ns — must match live path.
@@ -1226,7 +1259,7 @@ def plan_victoriametrics(
     Own mode: ansible role brew-if-absent + site-namespace unit on 8428.
     """
     del force_generated
-    mode, source = resolve_app_mode("victoriametrics", site_map=site_map, site_ns=site_ns)
+    mode, source = resolve_app_mode("victoriametrics", site_map=site_map, site_ns=site_ns, home=home)
     plan = AppPlan(app="victoriametrics", mode=mode, source=source)
     home_path = home if home is not None else Path.home()
     config_dir = home_path / ".config" / site_ns / "victoriametrics"
@@ -1354,7 +1387,7 @@ def plan_grafana(
     into the user's provisioning dirs (site-map fragment_dir), or refuse when
     missing include/fragment_dir.
     """
-    mode, source = resolve_app_mode("grafana", site_map=site_map, site_ns=site_ns)
+    mode, source = resolve_app_mode("grafana", site_map=site_map, site_ns=site_ns, home=home)
     plan = AppPlan(app="grafana", mode=mode, source=source)
     home_path = home if home is not None else Path.home()
     config_dir = home_path / ".config" / site_ns / "grafana"
@@ -1558,7 +1591,7 @@ def plan_olivetin(
     Inject is not supported (config is a projection, single writer).
     """
     del force_generated
-    mode, source = resolve_app_mode("olivetin", site_map=site_map, site_ns=site_ns)
+    mode, source = resolve_app_mode("olivetin", site_map=site_map, site_ns=site_ns, home=home)
     plan = AppPlan(app="olivetin", mode=mode, source=source)
     home_path = home if home is not None else Path.home()
     config_dir = home_path / ".config" / site_ns / "olivetin"
@@ -1665,7 +1698,7 @@ def plan_landing(
     with a verify note if forced via site-map.
     """
     del force_generated
-    mode, source = resolve_app_mode("landing", site_map=site_map, site_ns=site_ns)
+    mode, source = resolve_app_mode("landing", site_map=site_map, site_ns=site_ns, home=home)
     plan = AppPlan(app="landing", mode=mode, source=source)
     home_path = home if home is not None else Path.home()
     logs_dir = home_path / ".config" / site_ns / "logs"

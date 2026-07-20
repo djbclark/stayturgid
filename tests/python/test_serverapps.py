@@ -147,6 +147,29 @@ def test_mode_detect_inject_for_foreign_caddyfile(tmp_path: Path) -> None:
     assert str(frag_dir) in stderr
 
 
+def test_mode_detection_uses_passed_home_not_process_home(tmp_path: Path, monkeypatch) -> None:
+    """resolve_app_mode() (and the detect helpers it calls) must honor the
+    ``home`` override threaded through build_plan/plan_caddy, not silently
+    fall back to the real process ``Path.home()`` (see FINAL-REVIEW finding —
+    every one of these previously ignored the override for mode selection
+    even though plan_caddy/plan_vector/etc. already accept and use it for
+    everything else)."""
+    real_home = tmp_path / "real-home-with-foreign-caddyfile"
+    foreign = real_home / ".config" / "caddy" / "Caddyfile"
+    foreign.parent.mkdir(parents=True)
+    foreign.write_text("# a real user's caddyfile that must NOT be scanned\n", encoding="utf-8")
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: real_home))
+
+    dest = _init_and_sync(tmp_path)
+    clean_home = tmp_path / "clean-home"
+    clean_home.mkdir()
+    code, stdout, stderr = _run(dir_path=str(dest), mode="dry-run", home=clean_home)
+    assert code == sa.EXIT_OK, stderr
+    # If the bug were present, detect would scan real_home's foreign
+    # Caddyfile (via Path.home()) instead of clean_home and force inject.
+    assert "caddy: mode=own (source=default)" in stdout
+
+
 def test_legacy_stayturgid_config_does_not_force_inject(tmp_path: Path) -> None:
     """Our own legacy ~/.config/stayturgid/Caddyfile must not flip default to inject."""
     dest = _init_and_sync(tmp_path)
@@ -252,6 +275,38 @@ def test_inject_with_import_line_copies_fragments(tmp_path: Path) -> None:
     assert "create" not in stdout2.split("inject fragment")[0] if False else True
     # Stronger: action lines for the placed file are skip
     assert any(line.startswith("  skip") and str(placed) in line for line in stdout2.splitlines())
+
+
+def test_import_line_for_sibling_dir_does_not_wrongly_cover_fragment_dir(tmp_path: Path) -> None:
+    """A foreign Caddyfile importing an unrelated sibling directory whose
+    name starts with fragment_dir's name (e.g. ``caddy.d-other``) must not
+    be treated as covering ``caddy.d`` (see FINAL-REVIEW finding — the old
+    substring check accepted this)."""
+    dest = _init_and_sync(tmp_path)
+    home = tmp_path / "home"
+    foreign = home / "etc" / "Caddyfile"
+    foreign.parent.mkdir(parents=True)
+    frag_dir = home / "etc" / "caddy.d"
+    frag_dir.mkdir()
+    sibling_dir = home / "etc" / "caddy.d-other"
+    sibling_dir.mkdir()
+    foreign.write_text(
+        f"{{\n\tadmin off\n}}\nexample.test {{\n\timport {sibling_dir.resolve()}/*.caddy\n}}\n",
+        encoding="utf-8",
+    )
+    _write_site_map(
+        dest,
+        "contract_version: 1\n"
+        "serverapps:\n"
+        "  caddy:\n"
+        "    mode: inject\n"
+        f"    config: {foreign}\n"
+        f"    fragment_dir: {frag_dir}\n",
+    )
+    code, stdout, stderr = _run(dir_path=str(dest), mode="apply", home=home)
+    assert code == sa.EXIT_WOULD_OVERWRITE, (stdout, stderr)
+    assert "import" in stderr.lower()
+    assert list(frag_dir.glob("*.caddy")) == []
 
 
 def test_idempotent_second_own_run(tmp_path: Path) -> None:
@@ -380,6 +435,47 @@ def test_vector_inject_without_unit_config_args_exits_2(tmp_path: Path) -> None:
     foreign.write_text("data_dir: /tmp/vector\n", encoding="utf-8")
     frag_dir = home / "etc" / "vector.d"
     frag_dir.mkdir()
+    _write_site_map(
+        dest,
+        "contract_version: 1\n"
+        "serverapps:\n"
+        "  vector:\n"
+        "    mode: inject\n"
+        f"    config: {foreign}\n"
+        f"    fragment_dir: {frag_dir}\n",
+    )
+    code, stdout, stderr = _run(dir_path=str(dest), mode="apply", home=home, apps="vector")
+    assert code == sa.EXIT_WOULD_OVERWRITE, (stdout, stderr)
+    assert "--config" in stderr
+    assert list(frag_dir.glob("*.yaml")) == []
+
+
+def test_vector_config_arg_for_sibling_dir_does_not_wrongly_cover_fragment_dir(tmp_path: Path) -> None:
+    """A launchd plist's ``--config`` pointing at an unrelated sibling
+    directory whose name starts with fragment_dir's name (e.g.
+    ``vector.d-other``) must not be treated as covering ``vector.d`` (see
+    FINAL-REVIEW finding — the old check just searched the whole plist text
+    for the fragment_dir string, with no association to ``--config`` at
+    all)."""
+    dest = _init_and_sync(tmp_path)
+    home = tmp_path / "home"
+    foreign = home / "etc" / "vector" / "vector.yaml"
+    foreign.parent.mkdir(parents=True)
+    foreign.write_text("data_dir: /tmp/vector\n", encoding="utf-8")
+    frag_dir = home / "etc" / "vector.d"
+    frag_dir.mkdir()
+    sibling_dir = home / "etc" / "vector.d-other"
+    sibling_dir.mkdir()
+    plist_dir = home / "Library" / "LaunchAgents"
+    plist_dir.mkdir(parents=True)
+    (plist_dir / "com.example.vector.plist").write_text(
+        '<?xml version="1.0"?>\n<plist><dict><key>ProgramArguments</key><array>\n'
+        "<string>/opt/homebrew/bin/vector</string>\n"
+        "<string>--config</string>\n"
+        f"<string>{sibling_dir.resolve()}/foo.yaml</string>\n"
+        "</array></dict></plist>\n",
+        encoding="utf-8",
+    )
     _write_site_map(
         dest,
         "contract_version: 1\n"
