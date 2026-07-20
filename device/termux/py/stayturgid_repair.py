@@ -793,9 +793,35 @@ def main():
             raw = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
             if A11Y_SVC in raw:
                 a11y = "up"
+                # Settings-list alone cannot detect sticky ON (enabled but not bound).
+                # If the AutoJs6 watchdog has gone quiet while we remain listed, nudge
+                # the operator — OFF→ON rebind is the human fix (policy G3: no settings put).
+                try:
+                    wd = os.path.join(SD, "logs", "watchdog.log")
+                    if os.path.isfile(wd):
+                        age = time.time() - os.path.getmtime(wd)
+                        if age >= 1800:  # 30 min — matches fleet WATCHDOG_FRESH_SEC band
+                            log(
+                                "AutoJs6 a11y listed ON but watchdog quiet %.0fs — "
+                                "if Task is empty, toggle Accessibility OFF then ON "
+                                "and re-run main.js" % age,
+                                WARNING,
+                            )
+                            log(
+                                "ACTION_REQUIRED: AutoJs6 accessibility may be sticky "
+                                "(Settings ON, service not bound) on %s — toggle OFF then ON"
+                                % (os.uname().nodename if hasattr(os, "uname") else "device"),
+                                NOTICE,
+                            )
+                except OSError:
+                    pass
             else:
                 a11y = "down"
-                log("AutoJs6 accessibility is OFF — re-enable in Settings > Accessibility > AutoJs6", WARNING)
+                log(
+                    "AutoJs6 accessibility is OFF — re-enable in Settings > Accessibility > "
+                    "AutoJs6 (if already ON, turn OFF then ON again)",
+                    WARNING,
+                )
                 log(
                     "ACTION_REQUIRED: AutoJs6 accessibility disabled on %s"
                     % (os.uname().nodename if hasattr(os, "uname") else "device"),

@@ -29,8 +29,11 @@ function sh(cmd) {
 }
 
 function probeA11y(split) {
+  // Prefer live bind (auto.service). Settings-list alone false-positives sticky ON.
   try {
     if (typeof auto !== "undefined" && auto.service) {
+      notify.clear("a11y-blocked");
+      notify.clear("a11y-stale");
       return "up";
     }
   } catch (e) {
@@ -39,19 +42,38 @@ function probeA11y(split) {
 
   var r = sh("settings get secure enabled_accessibility_services");
   var list = (r.result || "").trim();
-  if (list && list !== "null" && list.indexOf(A11Y_SVC) >= 0) {
+  var listed = !!(list && list !== "null" && list.indexOf(A11Y_SVC) >= 0);
+
+  // Sticky: Settings ON, service not bound (Android a11y lifecycle bug).
+  if (listed && typeof auto !== "undefined") {
+    try {
+      if (!auto.service) {
+        log.append("[comonitor] A11Y STICKY — Settings lists AutoJs6 but service not bound; toggle OFF then ON");
+        notify.show(
+          "AutoJs6 accessibility stuck (ON but not bound)",
+          "Open Settings > Accessibility > AutoJs6: turn OFF then ON again, then re-run main.js.",
+          "a11y-stale",
+        );
+        return "FAILED";
+      }
+    } catch (e2) {
+      /* fall through */
+    }
+  }
+
+  if (listed) {
+    // Outside AutoJs6 engine context: cannot confirm bind; treat listed as up.
     return "up";
   }
   if (split && !shizukuShell.isOperational()) {
     return "unknown";
   }
 
-  // Detection only — no automatic repair.
-  // User must re-enable AutoJs6 in Settings > Accessibility > AutoJs6.
+  // Detection only — no automatic repair (policy G3: never settings put a11y).
   log.append("[comonitor] A11Y OFF — AutoJs6 accessibility disabled; re-enable in Settings");
   notify.show(
     "AutoJs6 accessibility disabled",
-    "Re-enable AutoJs6 in Settings > Accessibility to restore on-screen self-heal.",
+    "Open Settings > Accessibility > AutoJs6: if already ON, turn OFF then ON again.",
     "a11y-blocked",
   );
   return "down";
@@ -141,10 +163,22 @@ function run(profile, opts) {
   log.append("[comonitor] start reason=" + reason + " shizuku_api=" + (shizukuShell.isOperational() ? "yes" : "no"));
 
   var sshd = probeSshd();
-  if (sshd === "down") {
+  // Shizuku pgrep is unreliable when the AutoJs6↔Shizuku binder is broken
+  // (s24 "Unable to use Shizuku service") or on Fire split-storage. Prefer a
+  // fresh Termux STATUS before restarting or notifying.
+  if (sshd === "down" && !log.isRepairLoopStale()) {
+    var earlyTrust = log.latestRepairStatus();
+    if (earlyTrust && earlyTrust.sshd === "up") {
+      log.append("[comonitor] trusting fresh [repair] sshd=up over shizuku pgrep");
+      sshd = "up";
+    }
+  }
+  if (sshd === "down" && !split) {
     log.append("[comonitor] sshd down — restarting via shizuku/shell");
     sshd = restartSshd();
     if (sshd === "up") sshd = "restarted";
+  } else if (sshd === "down" && split) {
+    log.append("[comonitor] sshd probe down on split-storage — leave to Termux (no shizuku restart)");
   }
 
   var shizuku = probeShizuku();
@@ -169,9 +203,13 @@ function run(profile, opts) {
     }
   }
 
-  // Catastrophic: no shell on stock Android, or Shizuku dead on any host.
-  // Only escalate CLOSED_NO_SHELL when Termux is also stale/unknown — avoid
-  // fighting a healthy Termux repair with UI taps every 20 min.
+  // Catastrophic: no shell on stock Android, or Shizuku dead on phones that
+  // expect privileged shell. Only escalate CLOSED_NO_SHELL when Termux is also
+  // stale/unknown — avoid fighting a healthy Termux repair with UI taps every 20 min.
+  //
+  // Fire OS / split-storage: Termux cannot drive Shizuku the same way; co-monitor
+  // used to call repairCatastrophic every cycle → "shizuku headless start failed"
+  // + Mac "excessive catastrophic" spam while sshd was fine via Termux.
   if (!split && shellProbe.port === "CLOSED_NO_SHELL" && log.isRepairLoopStale()) {
     log.append("[comonitor] CLOSED_NO_SHELL — catastrophic repair");
     notify.show(
@@ -186,7 +224,7 @@ function run(profile, opts) {
     }
     shellProbe = probeShell5555(false, null);
     shizuku = probeShizuku();
-  } else if (shizuku === "down") {
+  } else if (shizuku === "down" && !split && profile.privilegedShellExpected !== false) {
     log.append("[comonitor] shizuku_server down — catastrophic Start path");
     try {
       repair.repairCatastrophic(profile);
@@ -194,6 +232,17 @@ function run(profile, opts) {
       log.append("[comonitor] shizuku start error: " + e);
     }
     shizuku = probeShizuku();
+  } else if (shizuku === "down" && (split || profile.privilegedShellExpected === false)) {
+    log.append("[comonitor] shizuku down — skip catastrophic on split/no-privileged-shell host (Termux is primary)");
+  }
+
+  // Trust fresh Termux [repair] sshd=up over a flaky shizuku pgrep (s24 spam).
+  if ((sshd === "down" || sshd === "FAILED") && !log.isRepairLoopStale()) {
+    var trustSsh = log.latestRepairStatus();
+    if (trustSsh && trustSsh.sshd === "up") {
+      log.append("[comonitor] trusting fresh [repair] sshd=up over shizuku pgrep");
+      sshd = "up";
+    }
   }
 
   if (sshd === "down" || sshd === "FAILED") {
