@@ -137,6 +137,7 @@
     dest: "{{ serverapp_vector_plist_path }}"
     mode: "0600"
   register: _vector_plist
+  no_log: true
 
 - name: Probe whether site-namespace vector label is loaded
   ansible.builtin.shell: |

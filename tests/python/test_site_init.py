@@ -393,6 +393,26 @@ def test_site_map_rejects_contract_path_inside_generated_area(tmp_path: Path) ->
     assert not dest.exists()
 
 
+def test_site_map_inventory_remap_colliding_with_group_vars_dir_exits_1(tmp_path: Path) -> None:
+    """A remapped `inventory` path can collide with the *derived*
+    `<inventory-parent>/group_vars/.gitkeep` scaffold path (one wants
+    `group_vars` as a file, the other as a directory). The exact-string
+    duplicate check misses this; build_plan() must still catch it before
+    any writes happen (see FINAL-REVIEW finding)."""
+    dest = tmp_path / "site-example"
+    map_file = tmp_path / "site-map.yml"
+    map_file.write_text("contract_version: 1\npaths:\n  inventory: group_vars\n", encoding="utf-8")
+    code, _, stderr = _run_api(
+        sitename="example",
+        dir_path=str(dest),
+        map_path=str(map_file),
+        mode="dry-run",
+    )
+    assert code == si.EXIT_PRECONDITION
+    assert "collide" in stderr.lower()
+    assert not dest.exists()
+
+
 def test_valid_serverapp_map_is_validation_only_in_c4(tmp_path: Path) -> None:
     dest = tmp_path / "site-example"
     map_file = tmp_path / "site-map.yml"
@@ -460,6 +480,32 @@ def test_destination_nested_in_product_rejected(tmp_path: Path) -> None:
 def test_destination_equals_product_rejected() -> None:
     code, _, stderr = _run_api(sitename="example", dir_path=str(ROOT), mode="dry-run")
     assert code == si.EXIT_PRECONDITION
+
+
+def test_destination_nested_via_case_insensitive_alias_rejected(tmp_path: Path) -> None:
+    """ADR-005 nesting must not be bypassable on case-insensitive filesystems.
+
+    Default macOS APFS resolves a differently-cased path to the exact same
+    physical directory; a purely string-based relative_to() check misses
+    that aliasing entirely (see FINAL-REVIEW finding). Skips itself on a
+    genuinely case-sensitive filesystem where the alias doesn't apply.
+    """
+    aliased_root = ROOT.parent / ROOT.name.upper()
+    try:
+        same = aliased_root.exists() and os.path.samestat(aliased_root.stat(), ROOT.stat())
+    except OSError:
+        same = False
+    if not same:
+        pytest.skip("filesystem is case-sensitive; product-root alias does not apply here")
+    nested = aliased_root / ".tmp-site-init-case-alias-test"
+    try:
+        code, _, stderr = _run_api(sitename="example", dir_path=str(nested), mode="dry-run")
+        assert code == si.EXIT_PRECONDITION
+        assert "nested" in stderr.lower() or "product" in stderr.lower()
+        assert not nested.exists()
+    finally:
+        if nested.exists():
+            shutil.rmtree(nested)
     assert "product" in stderr.lower()
 
 

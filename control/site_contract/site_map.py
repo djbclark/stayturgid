@@ -7,6 +7,7 @@ here.
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -46,6 +47,29 @@ ALLOWED_SERVERAPP_MODES = frozenset({"own", "inject", "off"})
 
 class SiteMapError(Exception):
     """Invalid or unsafe ``site-map.yml`` input."""
+
+
+def is_physically_within(path: Path, root: Path) -> bool:
+    """True if ``path`` shares on-disk identity with ``root`` or a descendant of it.
+
+    Case-insensitive filesystems (default macOS APFS) can make a path that
+    differs from ``root`` only in letter case resolve to the exact same
+    physical directory without ever failing a string-based ``relative_to()``
+    check, so this compares inode identity (``os.path.samestat``) for every
+    existing ancestor of ``path`` instead of trusting path text alone.
+    """
+    try:
+        root_stat = root.stat()
+    except OSError:
+        return False
+    for candidate in (path, *path.parents):
+        try:
+            candidate_stat = candidate.stat()
+        except OSError:
+            continue
+        if os.path.samestat(candidate_stat, root_stat):
+            return True
+    return False
 
 
 @dataclass(frozen=True)
@@ -93,17 +117,19 @@ def _resolve_contract_path(*, key: str, value: Any, site_dir: Path, product_root
             f"paths.{key} escapes the site directory {site_dir}: {value!r} resolves to {resolved}"
         ) from exc
     generated_root = (site_dir / "generated" / PRODUCT).resolve()
+    escapes_generated = True
     try:
         resolved.relative_to(generated_root)
     except ValueError:
-        pass
-    else:
+        escapes_generated = is_physically_within(resolved, generated_root)
+    if escapes_generated:
         raise SiteMapError(f"paths.{key} resolves inside site-sync's owned generated/{PRODUCT}/ area: {resolved}")
+    nested_in_product = True
     try:
         resolved.relative_to(product_root)
     except ValueError:
-        pass
-    else:
+        nested_in_product = is_physically_within(resolved, product_root)
+    if nested_in_product:
         raise SiteMapError(
             f"paths.{key} resolves inside the public product checkout {product_root} (ADR 005): {resolved}"
         )
@@ -117,9 +143,12 @@ def _resolve_serverapp_path(*, app: str, key: str, value: Any, site_dir: Path, p
     if not candidate.is_absolute():
         candidate = site_dir / candidate
     resolved = candidate.resolve()
+    nested_in_product = True
     try:
         resolved.relative_to(product_root)
     except ValueError:
+        nested_in_product = is_physically_within(resolved, product_root)
+    if not nested_in_product:
         return resolved
     raise SiteMapError(
         f"serverapps.{app}.{key} resolves inside the public product checkout {product_root} (ADR 005): {resolved}"
