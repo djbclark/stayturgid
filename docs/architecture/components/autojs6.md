@@ -34,6 +34,21 @@ Mac soft-health (`fleet_health_monitor.py`) restarts `main.js` if
 `watchdog_stale`/`watchdog_missing` persists (~10 min), so a dead AutoJs6
 engine self-heals without a manual `start_watchdog.py`.
 
+## Project path (ASCII only)
+
+Canonical install path (all hosts):
+
+```text
+/sdcard/stayturgid/autojs6/main.js
+```
+
+Do **not** run or leave a stayturgid project under AutoJs6’s locale sample
+directories (`Scripts/` or Chinese **脚本/**). A stale tree at
+`/sdcard/脚本/stayturgid` on p7a produced `SyntaxError: Invalid quantifier` when
+opening that copy (2026-07-19). Deploy retires those mirrors
+(`STALE_PROJECT_MIRRORS` in `autojs6_deploy_util.py`). Policy:
+[coding-rules.md — Path and character set](../../coding-rules.md).
+
 ## Prerequisites
 
 1. AutoJs6 (`org.autojs.autojs6`) — `setup_autojs6.py` or Obtainium; fleet harden grants storage, `RUN_COMMAND`, notifications, battery unrestricted, unused-app off

@@ -77,14 +77,14 @@ priority or symptom-triggered.
 
 ## Pick a track
 
-| Track                  | Focus                                              | Open IDs            | Typical risk                  |
-| ---------------------- | -------------------------------------------------- | ------------------- | ----------------------------- |
-| **A — Operational**    | Live deploy, human unblockers, current reliability | H1, H3, H5, 38, H14 | Low–High                      |
-| **B — Ansible-native** | Bootstrap APK automation follow-ups                | B63, B64            | Low–Medium                    |
-| **D — Reliability**    | Symptom-driven hardening                           | 43–45, A11          | Latent until triggered        |
-| **E — On-device LLM**  | shell-gpt escalation; incubator note               | 54                  | Medium (mis-scope risk)       |
-| **F — FIRERPA**        | gRPC backup channel enhancements                   | F1–F4               | Medium (future, core is done) |
-| **T — Tooling**        | Planned command-runner migration                   | T1                  | Low–Medium                    |
+| Track                  | Focus                                              | Open IDs       | Typical risk                  |
+| ---------------------- | -------------------------------------------------- | -------------- | ----------------------------- |
+| **A — Operational**    | Live deploy, human unblockers, current reliability | H1, H3, H5, 38 | Low–High                      |
+| **B — Ansible-native** | Bootstrap APK automation follow-ups                | B63, B64       | Low–Medium                    |
+| **D — Reliability**    | Symptom-driven hardening                           | 43–45          | Latent until triggered        |
+| **E — On-device LLM**  | shell-gpt escalation; incubator note               | 54             | Medium (mis-scope risk)       |
+| **F — FIRERPA**        | gRPC backup channel enhancements                   | F1–F4          | Medium (future, core is done) |
+| **T — Tooling**        | Planned command-runner migration                   | T1             | Low–Medium                    |
 
 Parked (not a track): Inferno/Styx → [docs/research/experiments/inferno-styx/](research/experiments/inferno-styx).
 
@@ -144,27 +144,12 @@ fleet does not depend on it day-to-day. Unlocks agent item **38**.
 Publish `stayturgid.*` collections to Ansible Galaxy. Public/irreversible for
 that version; only after H5 and a deliberate version bump review.
 
-#### H14 — Build & deploy AutoJs6 sticky-a11y rebind APK (agent + human) · Risk: **Medium** · Cross-ref: **A11**, AutoJs6 PR
+#### ~~H14 — Build & deploy AutoJs6 sticky-a11y rebind APK~~ · **Done 2026-07-19** · Cross-ref: **A11**
 
-**Problem (2026-07-19, s24):** Settings showed AutoJs6 Accessibility **ON**, but
-Task was empty and `main.js` bounced to the Accessibility screen. Operator fixed
-by **toggle OFF → ON**, then re-ran `main.js`. Root cause is primarily **Android**
-(enabled in settings ≠ service bound; AutoJs6 has a 2017 FIXME blaming Android).
-Secondary: AutoJs6 recovery UX; tertiary: stayturgid false-positive `a11y=up` from
-settings-list alone.
-
-**AutoJs6 fork PR:** https://github.com/djbclark/AutoJs6/pull/1
-(`fix/a11y-sticky-malfunction-rebind`) — when `isMalfunctioning()` (listed but
-not bound), `ensureService()` tries privileged `restartService()` then opens
-Accessibility with an OFF→ON toast. Cross-links stayturgid **A11** /
-https://github.com/djbclark/stayturgid/pull/29.
-
-**This item:** after AutoJs6#1 is reviewed/merged (or from the branch),
-**build the fleet-profile APK**, ship via Obtainium/fleet, and smoke on s24:
-force sticky if possible (or after a Termux freeze) and confirm rebind or clear
-OFF→ON prompt. Operator can do GUI smoke steps.
-
-**Stayturgid half is A11** / stayturgid#29 (detect + notify without `settings put`).
+AutoJs6#1 merged; fleet **debug17** arm64 installed on s24/p7a/hd8 (LeakCanary
+disabled). GitHub release asset upload may still be flaky (503). **Code-review
+carry-forward:** include AutoJs6 sticky-rebind + LeakCanary-off defaults +
+stayturgid#29 + ASCII-only path policy in the next project-level review.
 
 ---
 
@@ -175,20 +160,12 @@ Mac **soft health**: launchd `com.stayturgid.fleet-health` →
 Restarts stale AutoJs6 `main.js` when `watchdog_stale`/`watchdog_missing`.
 Reachability in `access-monitor`. Prefer health trail before 43–45.
 
-#### A11 — Sticky AutoJs6 a11y detect + notify (agent) · Risk: **Low** · Cross-ref: **H14**, AutoJs6 PR
+#### ~~A11 — Sticky AutoJs6 a11y detect + notify~~ · **Merged 2026-07-19** · stayturgid#29
 
-Land / finish fleet-side sticky-a11y observability (companion to AutoJs6 **H14**):
-
-- `guard.js` / `comonitor.js`: do not treat settings-list alone as bound when
-  `auto.service` is null; notify OFF→ON (`a11y-stale`).
-- `fleet_health`: issue `autojs6_a11y_stale` when `autojs6_a11y=ok` but watchdog
-  missing/stale; dashboard `HUMAN_ACTIONS` text for OFF→ON + run `main.js`.
-- `stayturgid_repair.py`: ACTION_REQUIRED when a11y listed but watchdog quiet ≥30m.
-- **Policy G3 unchanged:** never auto-`settings put` `enabled_accessibility_services`.
-
-**PR:** https://github.com/djbclark/stayturgid/pull/29
-(`fix/a11y-sticky-detect-notify`). Merge when green; deploy AutoJs6 project to
-phones. Pair with **H14** / AutoJs6#1 APK for full rebind.
+Shipped on master (`199ea20`). Companion AutoJs6#1 + fleet debug APK builds 16–17
+(LeakCanary off on 17). **Code-review carry-forward (next project review):**
+sticky a11y detect/notify, catastrophic-alert 2h window, Fire OS skip-catastrophic,
+ASCII-only AutoJs6 paths / `STALE_PROJECT_MIRRORS` (p7a `脚本/` SyntaxError).
 
 #### 43 — AutoJs6 WorkManager (agent) · Risk: **Latent / Low until upstream**
 
