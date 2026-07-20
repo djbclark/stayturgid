@@ -58,7 +58,39 @@ def test_evaluate_watchdog_stale():
         "a11y": "ok",
         "autojs6_a11y": "ok",
     }
-    assert "watchdog_stale" in fh.evaluate_health(report)
+    issues = fh.evaluate_health(report)
+    assert "watchdog_stale" in issues
+    # Settings lists AutoJs6 but watchdog quiet → sticky-a11y heuristic
+    assert "autojs6_a11y_stale" in issues
+
+
+def test_evaluate_autojs6_a11y_stale_missing_watchdog():
+    report = {
+        "ssh_echo": "ok",
+        "sshd": "ok",
+        "watchdog_age": "missing",
+        "repair_age": "100",
+        "a11y": "ok",
+        "autojs6_a11y": "ok",
+    }
+    issues = fh.evaluate_health(report)
+    assert "watchdog_missing" in issues
+    assert "autojs6_a11y_stale" in issues
+
+
+def test_evaluate_no_a11y_stale_when_autojs_missing():
+    """Missing from settings is autojs6_a11y_missing only, not sticky."""
+    report = {
+        "ssh_echo": "ok",
+        "sshd": "ok",
+        "watchdog_age": str(fh.WATCHDOG_FRESH_SEC + 1),
+        "repair_age": "100",
+        "a11y": "down",
+        "autojs6_a11y": "missing",
+    }
+    issues = fh.evaluate_health(report)
+    assert "autojs6_a11y_missing" in issues
+    assert "autojs6_a11y_stale" not in issues
 
 
 def test_evaluate_shell_bootloop_port():

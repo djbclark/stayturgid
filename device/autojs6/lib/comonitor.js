@@ -29,8 +29,11 @@ function sh(cmd) {
 }
 
 function probeA11y(split) {
+  // Prefer live bind (auto.service). Settings-list alone false-positives sticky ON.
   try {
     if (typeof auto !== "undefined" && auto.service) {
+      notify.clear("a11y-blocked");
+      notify.clear("a11y-stale");
       return "up";
     }
   } catch (e) {
@@ -39,19 +42,38 @@ function probeA11y(split) {
 
   var r = sh("settings get secure enabled_accessibility_services");
   var list = (r.result || "").trim();
-  if (list && list !== "null" && list.indexOf(A11Y_SVC) >= 0) {
+  var listed = !!(list && list !== "null" && list.indexOf(A11Y_SVC) >= 0);
+
+  // Sticky: Settings ON, service not bound (Android a11y lifecycle bug).
+  if (listed && typeof auto !== "undefined") {
+    try {
+      if (!auto.service) {
+        log.append("[comonitor] A11Y STICKY — Settings lists AutoJs6 but service not bound; toggle OFF then ON");
+        notify.show(
+          "AutoJs6 accessibility stuck (ON but not bound)",
+          "Open Settings > Accessibility > AutoJs6: turn OFF then ON again, then re-run main.js.",
+          "a11y-stale",
+        );
+        return "FAILED";
+      }
+    } catch (e2) {
+      /* fall through */
+    }
+  }
+
+  if (listed) {
+    // Outside AutoJs6 engine context: cannot confirm bind; treat listed as up.
     return "up";
   }
   if (split && !shizukuShell.isOperational()) {
     return "unknown";
   }
 
-  // Detection only — no automatic repair.
-  // User must re-enable AutoJs6 in Settings > Accessibility > AutoJs6.
+  // Detection only — no automatic repair (policy G3: never settings put a11y).
   log.append("[comonitor] A11Y OFF — AutoJs6 accessibility disabled; re-enable in Settings");
   notify.show(
     "AutoJs6 accessibility disabled",
-    "Re-enable AutoJs6 in Settings > Accessibility to restore on-screen self-heal.",
+    "Open Settings > Accessibility > AutoJs6: if already ON, turn OFF then ON again.",
     "a11y-blocked",
   );
   return "down";

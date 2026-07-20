@@ -205,6 +205,15 @@ def evaluate_health(report: dict[str, str], *, alias: str | None = None) -> list
     if report.get("autojs6_a11y") == "missing":
         issues.append("autojs6_a11y_missing")
 
+    # Sticky a11y heuristic: Settings still lists AutoJs6 (autojs6_a11y=ok) but
+    # the watchdog has not cycled — classic "enabled but not bound" after process
+    # death / OEM freezers. Human fix: toggle Accessibility OFF then ON.
+    # Pair with watchdog_stale/missing so we do not alert on a brief quiet window.
+    if report.get("autojs6_a11y") == "ok" and (
+        report.get("watchdog_age") == "missing" or (wage is not None and wage >= WATCHDOG_FRESH_SEC)
+    ):
+        issues.append("autojs6_a11y_stale")
+
     port = report.get("port", "")
     if port in ("closed", "CLOSED", "CLOSED_NO_SHELL"):
         issues.append("port_closed")

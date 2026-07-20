@@ -239,6 +239,13 @@ HUMAN_ACTIONS = {
         "→ toggle ON. If already ON, toggle OFF then ON again. "
         "This must be done on the device screen — Android blocks programmatic enable on 16+."
     ),
+    "autojs6_a11y_stale": (
+        "AutoJs6 is still listed as ON in Accessibility but the watchdog is not "
+        "cycling — sticky/malfunctioning a11y (enabled but not bound). "
+        "On the device: Settings → Accessibility → AutoJs6 → turn OFF then ON, "
+        "then open AutoJs6 → run main.js. Do not only flip the switch once if it "
+        "already shows ON."
+    ),
     "a11y_failed": (
         "Accessibility repair failed. Open Android Settings → Accessibility → "
         "Downloaded apps → AutoJs6 → toggle ON. If already ON, toggle OFF then ON again."

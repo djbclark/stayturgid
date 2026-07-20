@@ -81,11 +81,20 @@ var log = require(path.join(repo, "device", "autojs6", "lib", "log.js"));
 ok(typeof comonitor.probeA11y === "function", "probeA11y exported");
 
 var profile = { id: "oneui-device", sdRoot: "/sdcard/stayturgid", notifyTag: "" };
+
+// Sticky: auto present, service null, settings lists AutoJs6 → FAILED (not false "up")
+global.auto = { service: null };
+var sticky = comonitor.run(profile, { force: true, reason: "sticky" });
+ok(sticky !== null && sticky.a11y === "FAILED",
+    "comonitor reports a11y FAILED when settings list ON but auto.service null (sticky)");
+
+// Bound: auto.service truthy → up
+global.auto = { service: {} };
 var result = comonitor.run(profile, { force: true, reason: "test" });
 ok(result !== null, "comonitor.run returns a status object when forced");
 ok(result.sshd === "up" || result.sshd === "restarted", "comonitor probes sshd");
 ok(result.shizuku === "up", "comonitor probes shizuku");
-ok(result.a11y === "up", "comonitor probes a11y (detection only)");
+ok(result.a11y === "up", "comonitor probes a11y when auto.service bound");
 ok(result.port === "open", "comonitor probes shell 5555 on non-split");
 
 // comonitor.run() should persist status to state.json via writeState
