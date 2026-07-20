@@ -12,6 +12,17 @@ from ansible_collections.stayturgid.android_common.plugins.module_utils import a
 DEFAULT_TARGET = "/sdcard/stayturgid/autojs6"
 DEFAULT_DEVICE_JSON_DEST = "/sdcard/stayturgid/state/device.json"
 
+# Stale project copies outside the ASCII canonical target confuse operators and
+# AutoJs6 (Chinese-locale default sample dir is 脚本/Scripts). Never deploy there;
+# remove leftover trees on each deploy so main.js is only under DEFAULT_TARGET.
+STALE_PROJECT_MIRRORS = (
+    "/sdcard/Scripts/stayturgid",
+    "/storage/emulated/0/Scripts/stayturgid",
+    # AutoJs6 Chinese UI "Scripts" folder name (U+811A U+672C)
+    "/sdcard/\u811a\u672c/stayturgid",
+    "/storage/emulated/0/\u811a\u672c/stayturgid",
+)
+
 VERIFY_SHELL = (
     "test -f '{target}/lib/shizuku_shell.js' "
     "&& test -f '{target}/lib/comonitor.js' "
@@ -77,6 +88,13 @@ def deploy_project(run_command, device, repo_root, target=DEFAULT_TARGET, check_
     ok, msg = verify_deploy(run_command, device, target)
     if not ok:
         return False, msg, True
+
+    # Retire non-canonical / non-ASCII project mirrors (see STALE_PROJECT_MIRRORS).
+    for mirror in STALE_PROJECT_MIRRORS:
+        if os.path.normpath(mirror) == os.path.normpath(target):
+            continue
+        adb_shell.adb_shell(run_command, device, "rm -rf '%s'" % mirror)
+
     return True, "", True
 
 

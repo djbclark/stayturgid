@@ -100,6 +100,26 @@ Do not hide a warning, force a zero exit code, weaken a test, or broadly catch a
 exception merely to make output green. Default summaries may group historical errors,
 but raw diagnostic detail must remain available.
 
+## Path and character set (ASCII-only for on-device paths)
+
+- **On-device filesystem paths must be ASCII-only** (English letters, digits, `/`,
+  `_`, `-`, `.`). No CJK or other non-ASCII code points in path segments we create
+  or deploy to.
+- Canonical AutoJs6 project path: **`/sdcard/stayturgid/autojs6`** (also reachable
+  as `/storage/emulated/0/stayturgid/autojs6`). Do **not** install or leave a
+  project under AutoJs6’s locale sample folders:
+  - English: `/sdcard/Scripts/stayturgid`
+  - Chinese UI: `/sdcard/脚本/stayturgid` (U+811A U+672C “Scripts”)
+- AutoJs6 Chinese builds open **脚本** as the default sample directory. A stale
+  copy there was the p7a `SyntaxError: Invalid quantifier` failure when running
+  an old `main.js` under a non-ASCII path (2026-07-19). Always open/run
+  `file:///sdcard/stayturgid/autojs6/main.js`.
+- Repo-relative paths and identifiers used as paths in code (`device/autojs6/…`,
+  inventory targets, deploy destinations) must also stay ASCII. Prose docs may
+  use Unicode punctuation (em dash, etc.); path **literals** must not.
+- After AutoJs6 project deploy, remove known stale mirrors (see
+  `STALE_PROJECT_MIRRORS` in `autojs6_deploy_util.py`).
+
 ## Device safety
 
 - Use `oneui-device` for the first live test unless the task explicitly depends on
