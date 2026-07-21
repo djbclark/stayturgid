@@ -39,11 +39,11 @@ actions:
       just deploy
 {% for host in inventory_hosts %}
   - id: stayturgid_deploy_{{ host.name | replace('-', '_') }}
-    title: "Deploy {{ host.device_label | default(host.name) }} ({{ host.name }})"
+    title: "Deploy {{ host.device_label | default(host.name) | json_string_escape }} ({{ host.name | json_string_escape }})"
     icon: "&#128640;"
     timeout: 1800
     shell: |
       export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
       cd {{ product_root }}
-      just deploy {{ host.name }}
+      just deploy {{ host.name | shell_quote }}
 {% endfor %}

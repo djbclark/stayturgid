@@ -99,6 +99,7 @@
     dest: "{{ serverapp_openobserve_plist_path }}"
     mode: "0600"
   register: _oo_plist
+  no_log: true
 
 - name: Probe whether site-namespace openobserve label is loaded
   ansible.builtin.shell: |

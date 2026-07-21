@@ -16,6 +16,7 @@ import argparse
 import hashlib
 import json
 import os
+import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -358,18 +359,63 @@ def lockfile_hashes(lockfile: dict[str, Any] | None) -> dict[str, str]:
     return out
 
 
+def _json_string_escape(value: object) -> str:
+    """Escape ``value`` for embedding inside an existing double-quoted string
+    literal in a rendered fragment (JSON, or a YAML double-quoted scalar —
+    JSON's escape set is a strict subset of YAML's double-quoted escapes, so
+    this is safe for both). Returns only the escaped content, without the
+    surrounding quote characters, so it drops straight into templates that
+    already wrap the interpolation in ``"..."``.
+
+    Inventory-controlled values (host.name, host.device_label) are rendered
+    into these fragments unescaped otherwise, which lets a crafted host name
+    containing a quote inject or corrupt structure in the generated file.
+    """
+    return json.dumps(str(value))[1:-1]
+
+
+def _shell_quote(value: object) -> str:
+    """POSIX-shell-quote ``value`` for embedding as a single argument inside
+    a rendered ``shell:`` block (e.g. OliveTin actions). Inventory-controlled
+    values (host.name) are otherwise spliced unquoted into a command line,
+    which lets a host name containing shell metacharacters break out of the
+    intended single argument.
+    """
+    return shlex.quote(str(value))
+
+
 def _render_template(template_path: Path, context: dict[str, Any]) -> bytes:
     environment = Environment(  # nosemgrep
         undefined=StrictUndefined,
         keep_trailing_newline=True,
         autoescape=False,
     )
+    environment.filters["json_string_escape"] = _json_string_escape
+    environment.filters["shell_quote"] = _shell_quote
     text = template_path.read_text(encoding="utf-8")
     try:
         rendered = environment.from_string(text).render(**context)
     except Exception as exc:  # StrictUndefined (e.g. unregistered port) → loud exit 1
         raise SiteSyncError(f"cannot render sync template {template_path.name!r}: {exc}") from exc
     return rendered.encode("utf-8")
+
+
+def _assert_rendered_content_parses(entry_path: str, content: bytes) -> None:
+    """Defense in depth: a rendered fragment must parse as the format its
+    extension promises. Catches template-interpolation bugs (e.g. an
+    inventory value that breaks JSON/YAML structure despite escaping) before
+    a broken file is written to the committed generated/ area."""
+    text = content.decode("utf-8")
+    if entry_path.endswith(".json"):
+        try:
+            json.loads(text)
+        except json.JSONDecodeError as exc:
+            raise SiteSyncError(f"rendered {entry_path!r} is not valid JSON: {exc}") from exc
+    elif entry_path.endswith((".yaml", ".yml")):
+        try:
+            yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise SiteSyncError(f"rendered {entry_path!r} is not valid YAML: {exc}") from exc
 
 
 def _assert_projection_closed_set(entry_path: str, template_path: Path) -> None:
@@ -622,6 +668,7 @@ def build_plan(
             site_map=site_map,
         )
         content = _render_template(template_path, context)
+        _assert_rendered_content_parses(entry.path, content)
         digest = _sha256_bytes(content)
         new_hashes.append((entry.path, digest))
 
@@ -728,12 +775,21 @@ def build_plan(
             raise SiteSyncError(f"lockfile lists path outside {GENERATED_PREFIX!r}: {locked_path!r}")
         target = destination / locked_path
         if target.exists() and target.is_file():
+            # Same drift check the overwrite path runs above: a file that
+            # left the manifest but was hand-edited since the last sync must
+            # not be silently destroyed — refuse (exit 2) unless
+            # --force-generated, exactly like acceptance test 3 requires for
+            # overwrites.
+            on_disk_hash = _sha256_bytes(target.read_bytes())
+            lock_hash = known_hashes.get(locked_path)
+            drifted = lock_hash is not None and on_disk_hash != lock_hash
             planned.append(
                 PlannedFile(
                     relative_path=locked_path,
                     content=None,
                     action="delete",
                     sha256=None,
+                    drift=drifted and not force_generated,
                 )
             )
         # If already gone, nothing to do (no skip row — not in new manifest).
@@ -848,8 +904,8 @@ def apply_plan(plan: SyncPlan, *, force_generated: bool = False) -> None:
     if drifts and not force_generated:
         paths = ", ".join(item.relative_path for item in drifts)
         raise SiteSyncError(
-            f"refusing to overwrite drifted generated file(s): {paths} "
-            "(re-run with --force-generated to overwrite inside generated/ only)",
+            f"refusing to modify or delete drifted generated file(s): {paths} "
+            "(re-run with --force-generated to overwrite/delete inside generated/ only)",
             exit_code=EXIT_WOULD_OVERWRITE,
         )
 
@@ -1096,8 +1152,8 @@ def run_site_sync(
             if plan.drifts and not force:
                 drift_paths = ", ".join(item.relative_path for item in plan.drifts)
                 print(
-                    f"error: would overwrite drifted generated file(s): {drift_paths} "
-                    "(re-run with --force-generated to overwrite inside generated/ only)",
+                    f"error: would modify or delete drifted generated file(s): {drift_paths} "
+                    "(re-run with --force-generated to overwrite/delete inside generated/ only)",
                     file=err,
                 )
                 return EXIT_WOULD_OVERWRITE
@@ -1108,8 +1164,8 @@ def run_site_sync(
             drift_paths = ", ".join(item.relative_path for item in plan.drifts)
             print(action_list, end="", file=out)
             print(
-                f"error: refusing to overwrite drifted generated file(s): {drift_paths} "
-                "(re-run with --force-generated to overwrite inside generated/ only)",
+                f"error: refusing to modify or delete drifted generated file(s): {drift_paths} "
+                "(re-run with --force-generated to overwrite/delete inside generated/ only)",
                 file=err,
             )
             return EXIT_WOULD_OVERWRITE

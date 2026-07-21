@@ -17,10 +17,10 @@ import os
 import re
 import sys
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Literal, Sequence
 
-from control.site_contract.site_map import SiteMap, SiteMapError, load_site_map
+from control.site_contract.site_map import SiteMap, SiteMapError, is_physically_within, load_site_map
 
 try:
     from jinja2 import Environment, StrictUndefined
@@ -141,9 +141,12 @@ def _reject_nested_in_product(destination: Path, product_root: Path) -> None:
             f"destination {dest} is the product checkout; a private site dir "
             "must not live inside (or as) the public product tree (ADR 005)"
         )
+    nested = True
     try:
         dest.relative_to(product)
     except ValueError:
+        nested = is_physically_within(dest, product)
+    if not nested:
         return
     raise SiteInitError(
         f"destination {dest} is nested inside the product checkout {product}; "
@@ -244,6 +247,26 @@ def build_plan(
     duplicate_paths = sorted({path for path in relative_paths if relative_paths.count(path) > 1})
     if duplicate_paths:
         raise SiteInitError("site map makes scaffold files collide at: " + ", ".join(duplicate_paths))
+
+    # A site-map remap can also make one planned file's path double as an
+    # ancestor directory of another planned file (e.g. `paths.inventory:
+    # group_vars` collides with the derived `group_vars/.gitkeep`) — that
+    # passes the exact-string dedup above but still crashes apply_plan()
+    # mid-write, since one path can't be both a file and a directory.
+    path_set = set(relative_paths)
+    type_collisions = sorted(
+        {
+            path
+            for path in relative_paths
+            for ancestor in PurePosixPath(path).parents
+            if str(ancestor) != "." and str(ancestor) in path_set
+        }
+    )
+    if type_collisions:
+        raise SiteInitError(
+            "site map makes scaffold files collide (one path is used as both a file and a directory): "
+            + ", ".join(type_collisions)
+        )
 
     return InitPlan(
         site_name=name,

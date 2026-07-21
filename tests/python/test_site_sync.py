@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import io
+import json
 import os
+import shlex
 import shutil
 import subprocess
 import sys
@@ -347,6 +349,89 @@ def test_manifest_removal_lists_delete_then_apply_deletes(tmp_path: Path) -> Non
     assert {item["path"] for item in lock["files"]} == {keep_path}
     # User area untouched.
     assert (dest / "registry/ports.yml").is_file()
+
+
+def test_manifest_removal_of_hand_edited_file_is_refused_without_force(tmp_path: Path) -> None:
+    """The delete path must run the same drift check the overwrite path
+    runs: a hand-edited generated file must not be silently destroyed just
+    because its manifest entry disappeared (see FINAL-REVIEW finding)."""
+    dest = _init_site(tmp_path)
+    assert _run_api(dir_path=str(dest), mode="apply")[0] == ss.EXIT_OK
+    keep_path = "generated/stayturgid/README.md"
+    drop_path = "generated/stayturgid/fragments/.keep"
+    target = dest / drop_path
+    target.write_text("hand edited — should trip drift on delete too\n", encoding="utf-8")
+
+    reduced = tmp_path / "reduced-manifest.yml"
+    _write_reduced_manifest(reduced, keep=[keep_path])
+
+    before = _snapshot(dest)
+    code_dry, dry_out, dry_err = _run_api(dir_path=str(dest), mode="dry-run", manifest_path=reduced)
+    assert code_dry == ss.EXIT_WOULD_OVERWRITE
+    assert drop_path in dry_err
+    assert _snapshot(dest) == before
+
+    code, _, stderr = _run_api(dir_path=str(dest), mode="apply", manifest_path=reduced)
+    assert code == ss.EXIT_WOULD_OVERWRITE
+    assert drop_path in stderr
+    assert _snapshot(dest) == before
+    assert target.is_file()
+
+    code_force, _, err_force = _run_api(dir_path=str(dest), mode="apply", manifest_path=reduced, force_generated=True)
+    assert code_force == ss.EXIT_OK, err_force
+    assert not target.exists()
+
+
+# --- Inventory-controlled values are escaped, not spliced raw -------------
+
+
+def test_crafted_inventory_names_render_safely_not_corrupted(tmp_path: Path) -> None:
+    """host.name / device_label must not be able to break JSON/YAML structure
+    or escape their intended shell argument when rendered into fragments
+    (see FINAL-REVIEW findings on the grafana dashboard + olivetin actions
+    templates)."""
+    dest = _init_site(tmp_path)
+    crafted_name = 'evil;touch-pwned-marker"}'
+    crafted_label = 'Say "hi"\\ and go'
+    inventory_doc = {
+        "all": {
+            "children": {
+                "stayturgid": {
+                    "hosts": {crafted_name: {"device_label": crafted_label}},
+                }
+            }
+        }
+    }
+    # Use PyYAML's own dumper (not hand-rolled string quoting — Python str
+    # repr() and YAML quoted-scalar escaping rules differ) so the file we
+    # write is guaranteed to round-trip back to exactly `crafted_name` /
+    # `crafted_label` when site-sync parses it.
+    (dest / "inventory/hosts.yml").write_text(
+        yaml.safe_dump(inventory_doc, default_flow_style=False, sort_keys=False),
+        encoding="utf-8",
+    )
+
+    code, _, stderr = _run_api(dir_path=str(dest), mode="apply")
+    assert code == ss.EXIT_OK, stderr
+
+    dashboard = json.loads(
+        (dest / "generated/stayturgid/fragments/grafana/dashboards/json/stayturgid-fleet.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    host_panel = next(p for p in dashboard["panels"] if p.get("id") == 100)
+    assert host_panel["title"] == f"{crafted_label} ({crafted_name})"
+    assert host_panel["targets"][0]["legendFormat"] == crafted_name
+    assert crafted_name in host_panel["targets"][0]["expr"]
+
+    actions_doc = yaml.safe_load(
+        (dest / "generated/stayturgid/fragments/olivetin/stayturgid_actions.yaml").read_text(encoding="utf-8")
+    )
+    deploy_action = next(a for a in actions_doc["actions"] if a["id"].startswith("stayturgid_deploy_"))
+    assert deploy_action["title"] == f"Deploy {crafted_label} ({crafted_name})"
+    shell_lines = deploy_action["shell"].strip().splitlines()
+    deploy_line = next(line for line in shell_lines if line.strip().startswith("just deploy"))
+    assert shlex.split(deploy_line.strip()) == ["just", "deploy", crafted_name]
 
 
 # --- Never writes outside generated/<product>/ -----------------------------
