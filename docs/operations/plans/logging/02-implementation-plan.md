@@ -65,7 +65,7 @@ We will update the Termux repair loop to write JSON logs and update the shared `
 
 We will adapt the error scraper to scan both JSON lines and legacy log formats during rollout.
 
-#### [MODIFY] [logging.py](../../../../control/lib/logging.py)
+#### [MODIFY] [site_logging.py](../../../../control/lib/site_logging.py)
 
 - Import `json`.
 - Update `_REPAIR_LOG_GREP` to search both `*.log` and `*.jsonl` files on the device.

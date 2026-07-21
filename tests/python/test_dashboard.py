@@ -30,6 +30,8 @@ def test_rish_probe_requires_uid_2000(monkeypatch):
 def test_request_shizuku_opens_app_then_reports_uid_2000(monkeypatch):
     class Shell:
         def sh(self, command, timeout=20):
+            if "android.intent.category.HOME" in command:
+                return 0, "Starting: Intent { ... HOME ... }"
             assert "moe.shizuku.privileged.api" in command
             return 0, "Starting: Intent { ... }"
 

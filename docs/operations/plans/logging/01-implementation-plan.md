@@ -48,7 +48,7 @@ We will transition all logging to structured JSON.
 - Format logs conforming to the payload schema and write synchronously to `/sdcard/stayturgid/logs/watchdog.jsonl` (or Fire OS equivalent).
 - Refactor status indicators (`latestRepairStatus` and `latestRepairTimestampMs`) to read state from the new local `state.json` file.
 
-#### [MODIFY] [logging.py](../../../../control/lib/logging.py)
+#### [MODIFY] [site_logging.py](../../../../control/lib/site_logging.py)
 
 - Refactor the Python logging utilities (`log`) to format entries as JSON lines when writing to `repair.jsonl`.
 - Maintain backwards compatibility in `scrape_errors` to parse both JSON and legacy text logs.

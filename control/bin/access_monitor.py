@@ -26,7 +26,7 @@ _LIB = os.path.join(_REPO, "control", "lib")
 for _p in (_REPO, _LIB):
     if _p not in sys.path:
         sys.path.insert(0, _p)
-from control.lib.logging import (  # noqa: E402
+from control.lib.site_logging import (  # noqa: E402
     NOTICE,
     WARNING,
     log,

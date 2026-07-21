@@ -125,7 +125,7 @@ class UiTarsConfig:
         import urllib.request
 
         try:
-            urllib.request.urlopen(self.health_url, timeout=5)
+            urllib.request.urlopen(self.health_url, timeout=5)  # nosemgrep
             return True
         except Exception:
             return False

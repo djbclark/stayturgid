@@ -36,3 +36,24 @@ import "just/site.just"
 # Show available recipes (default).
 help:
     @just --justfile "{{ repo }}/justfile" --list
+
+# Run AI-powered code review on staged changes (via Alibaba Open Code Review)
+ocr *args:
+    bunx ocr review {{ args }}
+
+# Run AI-powered file scan (via Alibaba Open Code Review)
+ocr-scan *args:
+    bunx ocr scan {{ args }}
+
+# Generate a prompt and diff for Antigravity to review directly
+agent-review:
+    @echo "Hey Antigravity, please act as an expert senior staff engineer and perform a deep code review on the following diff."
+    @echo "Focus on:"
+    @echo "1. Logic bugs, race conditions, and edge cases"
+    @echo "2. Security vulnerabilities (e.g. injection, permissions)"
+    @echo "3. Maintainability, readability, and DRY principles"
+    @echo "4. Do not nitpick stylistic choices unless they violate the project's established patterns."
+    @echo ""
+    @echo '```diff'
+    @git diff HEAD
+    @echo '```'

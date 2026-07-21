@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Callable
 
 try:
-    from control.lib.logging import ERR, log
+    from control.lib.site_logging import ERR, log
 except ImportError:
     log = None
     ERR = 3

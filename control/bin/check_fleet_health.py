@@ -208,6 +208,7 @@ def main(argv: list[str] | None = None) -> int:
 
     problems: list[str] = []
     ok_hosts: list[str] = []
+    maintenance_hosts: list[str] = []
     currently_reachable: set[str] = set()
     for host in sorted(latest):
         ts, rest = latest[host]
@@ -217,6 +218,9 @@ def main(argv: list[str] | None = None) -> int:
         stale_scrape = age_min > 20  # launchd is 5 min; >20 min = agent stuck
         if not stale_scrape:
             currently_reachable.add(host)
+        if issues == ["maintenance"]:
+            maintenance_hosts.append("%s (maintenance, last=%.0fm)" % (host, age_min))
+            continue
         if issues or n >= CONSECUTIVE_ALERT or stale_scrape:
             bits = ["%s" % host]
             if issues:
@@ -237,6 +241,8 @@ def main(argv: list[str] | None = None) -> int:
     if not problems and not active_access:
         if not args.quiet_ok:
             print("fleet-health: OK — %s" % (", ".join(ok_hosts) or "no hosts"))
+            if maintenance_hosts:
+                print("maintenance: %s" % ", ".join(maintenance_hosts))
             print("log: %s" % LOG)
             if historical_access:
                 print("note: resolved access-monitor events (not counted):")

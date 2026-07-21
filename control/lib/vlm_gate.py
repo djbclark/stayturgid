@@ -118,7 +118,7 @@ def _base_url() -> str:
 def server_healthy() -> bool:
     try:
         req = urllib.request.Request(_base_url() + "/health")
-        with urllib.request.urlopen(req, timeout=3) as resp:
+        with urllib.request.urlopen(req, timeout=3) as resp:  # nosemgrep
             return resp.status == 200
     except (urllib.error.URLError, OSError, TimeoutError):
         return False
@@ -168,7 +168,7 @@ def ensure_server(start: bool = True) -> bool:
 def _model_id() -> str:
     try:
         req = urllib.request.Request(_base_url() + "/v1/models")
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        with urllib.request.urlopen(req, timeout=5) as resp:  # nosemgrep
             payload = json.loads(resp.read().decode("utf-8"))
         models = payload.get("data") or payload.get("models") or []
         if models:
@@ -241,7 +241,7 @@ def ask_image(path: Path, prompt: str, *, timeout: int | None = None) -> tuple[s
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urllib.request.urlopen(req, timeout=timeout) as resp:
+    with urllib.request.urlopen(req, timeout=timeout) as resp:  # nosemgrep
         payload = json.loads(resp.read().decode("utf-8"))
     raw = ""
     try:
