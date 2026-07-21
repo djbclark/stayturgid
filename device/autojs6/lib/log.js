@@ -1,5 +1,7 @@
+// @generated
+"use strict";
+// @ts-nocheck
 var config = require("./config.js");
-
 function ts() {
   var d = new Date();
   function pad(n) {
@@ -8,7 +10,6 @@ function ts() {
   var mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getMonth()];
   return mon + " " + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
 }
-
 /** ISO 8601 timestamp for JSONL/OTel schema. */
 function tsISO() {
   var d = new Date();
@@ -35,10 +36,8 @@ function tsISO() {
     "Z"
   );
 }
-
 var LOG_KEEP_LINES = 500;
 var LOG_TRIM_OVER = 1000;
-
 function trimLogIfNeeded(logPath) {
   try {
     if (!files.exists(logPath)) return;
@@ -53,7 +52,6 @@ function trimLogIfNeeded(logPath) {
     /* best effort */
   }
 }
-
 /**
  * Build a JSONL entry conforming to the universal OTel log schema.
  * Fields: timestamp, level, hostname, tag, pid, tid, message
@@ -73,7 +71,6 @@ function buildJsonlEntry(line, profile) {
     message: String(line),
   });
 }
-
 function append(line) {
   var msg = ts() + " " + line;
   console.log(msg);
@@ -97,7 +94,6 @@ function append(line) {
   }
   return msg;
 }
-
 /**
  * Atomically write or merge a status object into the shared state.json.
  * source: e.g. "repair" or "comonitor"
@@ -112,7 +108,6 @@ function writeState(source, statusObj) {
     var profile = config.detectDeviceProfile();
     var statePath = config.pathsFor(profile).watchdogState;
     config.ensureParentDir(statePath);
-
     // Read current state (may be empty/missing).
     var current = {};
     try {
@@ -122,7 +117,6 @@ function writeState(source, statusObj) {
     } catch (pe) {
       current = {};
     }
-
     // Merge the source namespace with a fresh timestamp.
     var entry = {};
     for (var k in statusObj) {
@@ -130,7 +124,6 @@ function writeState(source, statusObj) {
     }
     entry.timestamp = tsISO();
     current[source] = entry;
-
     // Write atomically: write to tmp then overwrite final path.
     var tmpPath = statePath + ".tmp";
     files.write(tmpPath, JSON.stringify(current) + "\n");
@@ -140,7 +133,6 @@ function writeState(source, statusObj) {
     /* best effort — state.json write failure must not break the watchdog */
   }
 }
-
 /** Read state.json; return parsed object or null. */
 function _readState() {
   try {
@@ -154,7 +146,6 @@ function _readState() {
   }
   return null;
 }
-
 /** Read watchdog log; prefer a tail when the file is large (FUSE / battery). */
 function readWatchdogLog() {
   var profile = config.detectDeviceProfile();
@@ -171,7 +162,6 @@ function readWatchdogLog() {
     return "";
   }
 }
-
 function parseStatusLine(line) {
   var s = String(line);
   var m = s.match(/port=(\S+)\s+shizuku=(\S+)\s+sshd=(\S+)/);
@@ -185,13 +175,11 @@ function parseStatusLine(line) {
   if (wifi) out.wifi = wifi[1];
   return out;
 }
-
 function _lineTimestampMs(line) {
   var m = String(line).match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
   if (!m) return null;
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6])).getTime();
 }
-
 /**
  * Read the latest repair status.
  * Prefers state.json["repair"] for O(1) read; falls back to log-scan for
@@ -210,7 +198,6 @@ function latestRepairStatus() {
       wifi: state.repair.wifi || null,
     };
   }
-
   // --- Fallback: legacy log scan ---
   var content = readWatchdogLog();
   if (!content) return null;
@@ -228,7 +215,6 @@ function latestRepairStatus() {
   }
   return comonitorFallback;
 }
-
 /**
  * Return the millisecond timestamp of the most recent Termux [repair] run.
  * Prefers state.json["repair"].timestamp; falls back to log-scan.
@@ -244,7 +230,6 @@ function latestRepairTimestampMs() {
       /* fall through */
     }
   }
-
   // --- Fallback: legacy log scan ---
   var content = readWatchdogLog();
   if (!content) return null;
@@ -259,13 +244,11 @@ function latestRepairTimestampMs() {
   }
   return null;
 }
-
 function isRepairLoopStale() {
   var last = latestRepairTimestampMs();
   if (last === null) return true;
   return Date.now() - last > config.STALE_REPAIR_MS;
 }
-
 module.exports = {
   append: append,
   writeState: writeState,

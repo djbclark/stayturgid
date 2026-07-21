@@ -1,9 +1,11 @@
+// @generated
+"use strict";
+// @ts-nocheck
 /**
  * Ensure at most one stayturgid main.js engine is running.
  * Shared by main.js (startup) and boot-launcher.js.
  */
 var MAIN = "/sdcard/stayturgid/autojs6/main.js";
-
 function findMainEngines() {
   var out = [];
   var all = runtime.engines.all();
@@ -15,7 +17,6 @@ function findMainEngines() {
   }
   return out;
 }
-
 /**
  * Stop duplicate main.js engines. Keeps the current engine when identifiable.
  * @returns {number} engines force-stopped
@@ -48,7 +49,6 @@ function dedupeMainEngines() {
   }
   return stopped;
 }
-
 module.exports = {
   MAIN: MAIN,
   findMainEngines: findMainEngines,

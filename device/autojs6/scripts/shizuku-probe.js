@@ -1,10 +1,12 @@
+// @generated
+"use strict";
+// @ts-nocheck
 /**
  * One-shot setup probe — logs Shizuku operational state to watchdog.log.
  * Invoked from control/tools/autojs6/enable_autojs6_shizuku.py during fleet setup only.
  */
 var log = require("../lib/log.js");
 var sh = require("../lib/shizuku_shell.js");
-
 var hasPerm = false;
 var running = false;
 var operational = false;

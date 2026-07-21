@@ -1,3 +1,6 @@
+// @generated
+"use strict";
+// @ts-nocheck
 // @heals: SSHD-RUNNING PORT5555-OPEN SHIZUKU-HEADLESS A11Y-AUTOJS6
 /**
  * AutoJs6 co-monitor — redundant health probes via Shizuku when Termux is
@@ -14,9 +17,7 @@ var log = require("./log.js");
 var notify = require("./notify.js");
 var shizukuShell = require("./shizuku_shell.js");
 var repair = require("./repair.js");
-
 var A11Y_SVC = config.AUTOJS6_A11Y;
-
 function sh(cmd) {
   var r = shizukuShell.exec(cmd);
   if (!r) return { code: -1, result: "" };
@@ -27,7 +28,6 @@ function sh(cmd) {
       .trim(),
   };
 }
-
 function probeA11y(split) {
   // Prefer live bind (auto.service). Settings-list alone false-positives sticky ON.
   try {
@@ -39,11 +39,9 @@ function probeA11y(split) {
   } catch (e) {
     /* fall through */
   }
-
   var r = sh("settings get secure enabled_accessibility_services");
   var list = (r.result || "").trim();
   var listed = !!(list && list !== "null" && list.indexOf(A11Y_SVC) >= 0);
-
   // Sticky candidate: Settings ON but auto.service null. On some builds/devices
   // auto.service flickers null even while the engine is mid-cycle and listed
   // (s24 noise after debug APK). Treat as degraded, not hard FAILED, and notify
@@ -66,7 +64,6 @@ function probeA11y(split) {
       /* fall through */
     }
   }
-
   if (listed) {
     // Outside AutoJs6 engine context: cannot confirm bind; treat listed as up.
     return "up";
@@ -74,7 +71,6 @@ function probeA11y(split) {
   if (split && !shizukuShell.isOperational()) {
     return "unknown";
   }
-
   // Detection only — no automatic repair (policy G3: never settings put a11y).
   log.append("[comonitor] A11Y OFF — AutoJs6 accessibility disabled; re-enable in Settings");
   notify.show(
@@ -84,12 +80,10 @@ function probeA11y(split) {
   );
   return "down";
 }
-
 function probeSshd() {
   var r = sh("pgrep -x sshd >/dev/null 2>&1 || pgrep -f '[s]shd' >/dev/null 2>&1");
   return r.code === 0 ? "up" : "down";
 }
-
 function restartSshd() {
   // Remove stale runit down file that silently blocks sshd from starting.
   sh("rm -f /data/data/com.termux/files/usr/var/service/sshd/down 2>/dev/null; true");
@@ -101,7 +95,6 @@ function restartSshd() {
   sleep(1500);
   return probeSshd();
 }
-
 function probeShizuku() {
   if (shizukuShell.isOperational()) return "up";
   var r = sh("am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null");
@@ -111,7 +104,6 @@ function probeShizuku() {
   if (p.code === 0) return "up";
   return "down";
 }
-
 function probeShell5555(split, termuxStatus) {
   if (split) return { port: "skip", shell: "no" };
   // Prefer fresh Termux STATUS — AutoJs6 shizuku() often lacks a working
@@ -131,7 +123,6 @@ function probeShell5555(split, termuxStatus) {
   }
   return { port: "CLOSED_NO_SHELL", shell: "no" };
 }
-
 function probeWifi(split, shellProbe) {
   if (split) return "skip";
   var r = sh("settings get global adb_wifi_enabled");
@@ -147,7 +138,6 @@ function probeWifi(split, shellProbe) {
   if (v2 === "1" || v2 === "true") return "repaired";
   return "FAILED";
 }
-
 /**
 
  * Run co-monitor probes. Returns a STATUS-like object.
@@ -159,15 +149,12 @@ function run(profile, opts) {
   profile = profile || config.detectDeviceProfile();
   var split = config.splitStorage(profile);
   var reason = opts.reason || (split ? "split-storage" : "termux-stale");
-
   if (!opts.force && !log.isRepairLoopStale() && !config.splitStorage(profile)) {
     // Callers normally pass force=true (periodic fleet parity). Keep the
     // defer path for unit tests / ad-hoc imports.
     return null;
   }
-
   log.append("[comonitor] start reason=" + reason + " shizuku_api=" + (shizukuShell.isOperational() ? "yes" : "no"));
-
   var sshd = probeSshd();
   // Shizuku pgrep is unreliable when the AutoJs6↔Shizuku binder is broken
   // (s24 "Unable to use Shizuku service") or on Fire split-storage. Prefer a
@@ -186,7 +173,6 @@ function run(profile, opts) {
   } else if (sshd === "down" && split) {
     log.append("[comonitor] sshd probe down on split-storage — leave to Termux (no shizuku restart)");
   }
-
   var shizuku = probeShizuku();
   var termuxStatus = null;
   try {
@@ -199,7 +185,6 @@ function run(profile, opts) {
   var shellProbe = probeShell5555(split, termuxStatus);
   var wifi = probeWifi(split, shellProbe);
   var a11y = probeA11y(split);
-
   // Trust fresh Termux [repair] port=open over a flaky nc/adb probe.
   if (!split && shellProbe.port === "CLOSED_NO_SHELL" && !log.isRepairLoopStale()) {
     var trust = log.latestRepairStatus();
@@ -208,7 +193,6 @@ function run(profile, opts) {
       log.append("[comonitor] trusting fresh [repair] port=open over shell probe");
     }
   }
-
   // Catastrophic: no shell on stock Android, or Shizuku dead on phones that
   // expect privileged shell. Only escalate CLOSED_NO_SHELL when Termux is also
   // stale/unknown — avoid fighting a healthy Termux repair with UI taps every 20 min.
@@ -241,7 +225,6 @@ function run(profile, opts) {
   } else if (shizuku === "down" && (split || profile.privilegedShellExpected === false)) {
     log.append("[comonitor] shizuku down — skip catastrophic on split/no-privileged-shell host (Termux is primary)");
   }
-
   // Trust fresh Termux [repair] sshd=up over a flaky shizuku pgrep (s24 spam).
   if ((sshd === "down" || sshd === "FAILED") && !log.isRepairLoopStale()) {
     var trustSsh = log.latestRepairStatus();
@@ -250,7 +233,6 @@ function run(profile, opts) {
       sshd = "up";
     }
   }
-
   if (sshd === "down" || sshd === "FAILED") {
     notify.show(
       "⚠ SSH daemon down (co-monitor)",
@@ -260,7 +242,6 @@ function run(profile, opts) {
   } else {
     notify.clear("sshd");
   }
-
   if (a11y === "FAILED") {
     notify.show(
       "stayturgid AutoJs6 degraded",
@@ -274,11 +255,9 @@ function run(profile, opts) {
       notify.clear("a11y-stale");
     }
   }
-
   if (shellProbe.port === "open" || shellProbe.port === "skip") {
     notify.clear("adb5555");
   }
-
   var status =
     "STATUS port=" +
     shellProbe.port +
@@ -317,7 +296,6 @@ function run(profile, opts) {
     reason: reason,
   };
 }
-
 module.exports = {
   run: run,
   probeSshd: probeSshd,

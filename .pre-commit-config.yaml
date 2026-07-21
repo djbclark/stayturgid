@@ -12,7 +12,7 @@ repos:
       - id: mypy
         name: mypy
         entry: mypy
-        args: [control/, device/termux/py/, ansible_collections/, tests/]
+        args: [control/, device/termux/py/, ansible_collections/, tests/, just/tools/]
         language: system
         pass_filenames: false
         files: '\.py$'
@@ -33,12 +33,40 @@ repos:
 
   - repo: local
     hooks:
+      - id: ts-compile
+        name: TypeScript Compile
+        entry: bash
+        args:
+          - -c
+          - |
+            set -euo pipefail
+            just build-ts
+            just check-ts
+            # Rebuilding can touch .js files beyond what this commit staged
+            # (e.g. an unrelated local edit sitting in the working tree, or a
+            # brand-new generated file that's untracked so `git diff` alone
+            # wouldn't see it). Fail and name them rather than silently
+            # `git add`-ing whatever changed — the developer reviews and
+            # stages, same as ruff --fix.
+            dirty=$(git status --porcelain -- device/autojs6 tests/js just/tools docs/research | cut -c4- | grep -E '\.(js|ts)$' || true)
+            if [ -n "$dirty" ]; then
+              echo "error: TypeScript build produced unstaged changes:"
+              echo "$dirty" | sed 's/^/  /'
+              echo "Review these files, 'git add' them, then commit again."
+              exit 1
+            fi
+        language: system
+        files: '\.ts$'
+        pass_filenames: false
+
+  - repo: local
+    hooks:
       - id: biome-check
         name: biome check
         entry: biome
         args: [check, --no-errors-on-unmatched]
         language: system
-        files: '^(device/autojs6/.*\.js|control/static/.*\.css)$'
+        files: '^(device/autojs6/.*\.(js|ts)|tests/js/.*\.(js|ts)|just/tools/.*\.(js|ts)|docs/research/.*\.(js|ts)|control/static/.*\.css)$'
 
   - repo: local
     hooks:

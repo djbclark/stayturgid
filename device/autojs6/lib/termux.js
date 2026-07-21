@@ -1,10 +1,11 @@
+// @generated
+"use strict";
+// @ts-nocheck
 var config = require("./config.js");
 var log = require("./log.js");
-
 var TERMUX_PKG = "com.termux";
 var RUN_SERVICE = "com.termux.app.RunCommandService";
 var RUN_ACTION = "com.termux.RUN_COMMAND";
-
 /**
  * Invoke stayturgid_repair.py in Termux.
  *
@@ -19,10 +20,8 @@ function invokeRepair(profile) {
   var beforeMs = log.latestRepairTimestampMs() || 0;
   var start = Date.now();
   var triggeredViaShizuku = false;
-
   // 1. Always arm the trigger file immediately (non-intrusive)
   tryTriggerFile(triggerFile);
-
   // 2. Try direct background execution via Shizuku shell if operational
   var shizukuShell = require("./shizuku_shell.js");
   if (shizukuShell.isOperational()) {
@@ -44,7 +43,6 @@ function invokeRepair(profile) {
       log.append("[watchdog] termux bridge: Shizuku direct trigger failed: " + e);
     }
   }
-
   // 3. Loop and wait to see if the background/Shizuku execution succeeds
   var deadline = Date.now() + 12000;
   while (Date.now() < deadline) {
@@ -60,7 +58,6 @@ function invokeRepair(profile) {
       };
     }
   }
-
   // 4. Fallback: Only use com.termux.RUN_COMMAND intent as a last resort
   log.append("[watchdog] termux bridge: background triggers timed out. Falling back to RUN_COMMAND.");
   var runCommand = tryRunCommand();
@@ -80,7 +77,6 @@ function invokeRepair(profile) {
       }
     }
   }
-
   log.append(
     "[watchdog] termux bridge timeout method=" +
       (runCommand.started ? "run_command" : "trigger_file") +
@@ -88,7 +84,6 @@ function invokeRepair(profile) {
   );
   return { ok: false, fresh: false, method: runCommand.started ? "run_command" : "trigger_file" };
 }
-
 function tryRunCommand() {
   try {
     app.startService({
@@ -106,7 +101,6 @@ function tryRunCommand() {
     return { started: false, error: String(e) };
   }
 }
-
 function tryTriggerFile(triggerFile) {
   try {
     config.ensureParentDir(triggerFile); // self-heal if run/ was deleted
@@ -115,12 +109,10 @@ function tryTriggerFile(triggerFile) {
     log.append("[watchdog] trigger file write failed: " + e);
   }
 }
-
 function bridgeFailed(invokeResult) {
   if (!invokeResult || !invokeResult.fresh) return true;
   return log.latestRepairStatus() === null;
 }
-
 module.exports = {
   invokeRepair: invokeRepair,
   bridgeFailed: bridgeFailed,

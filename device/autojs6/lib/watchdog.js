@@ -1,3 +1,6 @@
+// @generated
+"use strict";
+// @ts-nocheck
 // @heals: TAILSCALE-VPN
 var config = require("./config.js");
 var log = require("./log.js");
@@ -6,7 +9,6 @@ var termux = require("./termux.js");
 var repair = require("./repair.js");
 var tailscale = require("./tailscale.js");
 var comonitor = require("./comonitor.js");
-
 /**
  * One watchdog cycle — Termux-primary + AutoJs6 co-monitor redundancy:
  *   Termux boot loop  → routine repair every 5 min (authoritative when healthy)
@@ -27,7 +29,6 @@ function runCycle(trigger, profile) {
   }
   var termuxStale = log.isRepairLoopStale();
   var comonitorReason = "periodic";
-
   if (split) {
     notify.clear("stale");
     notify.clear("bridge");
@@ -46,11 +47,9 @@ function runCycle(trigger, profile) {
     } else {
       notify.clear("stale");
     }
-
     var status = log.latestRepairStatus();
     var port = status ? status.port : null;
     var sshd = status ? status.sshd : "unknown";
-
     if (port === "CLOSED_NO_SHELL") {
       notify.show(
         "⚠ ADB 5555 down — auto-repairing " + tag,
@@ -68,7 +67,6 @@ function runCycle(trigger, profile) {
       }
     } else {
       notify.clear("adb5555");
-
       if (termuxStale) {
         var invoke = termux.invokeRepair(profile);
         status = invoke.fresh ? log.latestRepairStatus() : status;
@@ -104,7 +102,6 @@ function runCycle(trigger, profile) {
       }
     }
   }
-
   // Fleet parity: every host runs the same Shizuku co-monitor each cycle.
   status = comonitor.run(profile, { force: true, reason: comonitorReason });
   if (status && (status.sshd === "down" || status.sshd === "FAILED")) {
@@ -116,7 +113,6 @@ function runCycle(trigger, profile) {
   } else {
     notify.clear("sshd");
   }
-
   var ts;
   if (profile.tailscaleEnabled === false) {
     notify.clear("tailscale");
@@ -136,5 +132,4 @@ function runCycle(trigger, profile) {
     }
   }
 }
-
 module.exports = { runCycle: runCycle };

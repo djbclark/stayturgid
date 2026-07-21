@@ -18,6 +18,13 @@
     },
     "includes": [
       "device/autojs6/**/*.js",
+      "device/autojs6/**/*.ts",
+      "tests/js/**/*.js",
+      "tests/js/**/*.ts",
+      "just/tools/**/*.js",
+      "just/tools/**/*.ts",
+      "docs/research/**/*.js",
+      "docs/research/**/*.ts",
       "control/static/**/*.css"
     ]
   },
@@ -28,6 +35,13 @@
     "lineWidth": 120,
     "includes": [
       "device/autojs6/**/*.js",
+      "device/autojs6/**/*.ts",
+      "tests/js/**/*.js",
+      "tests/js/**/*.ts",
+      "just/tools/**/*.js",
+      "just/tools/**/*.ts",
+      "docs/research/**/*.js",
+      "docs/research/**/*.ts",
       "control/static/**/*.css"
     ]
   },
