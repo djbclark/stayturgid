@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "target": "ES2015",
+    "module": "CommonJS",
+    "lib": ["ES2015"],
+    "types": [],
+    "strict": true,
+    "forceConsistentCasingInFileNames": true
+  },
+  "include": ["*.ts", "../../../device/autojs6/types/globals.d.ts"]
+}

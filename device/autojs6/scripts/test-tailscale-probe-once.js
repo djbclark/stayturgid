@@ -1,17 +1,17 @@
 // @generated
 "use strict";
-// @ts-nocheck
 /**
  * Log Tailscale probe results (tun0 + coord ping) and optional relaunch dry-run.
  * Usage: run from AutoJs6 while mode=autojs6.
  */
 "auto";
-var config = require("../lib/config.js");
-var guard = require("../lib/guard.js");
-var log = require("../lib/log.js");
-var tailscale = require("../lib/tailscale.js");
+Object.defineProperty(exports, "__esModule", { value: true });
+const config = require("../lib/config.js");
+const guard = require("../lib/guard.js");
+const log = require("../lib/log.js");
+const tailscale = require("../lib/tailscale.js");
 guard.enforce();
-var profile = config.detectDeviceProfile();
-var ts = tailscale.check(profile);
+const profile = config.detectDeviceProfile();
+const ts = tailscale.check(profile);
 log.append("[watchdog] tailscale-probe-test tun=" + ts.tun + " ping=" + ts.ping + " up=" + ts.up);
 toast("tailscale probe up=" + ts.up + " tun=" + ts.tun + " ping=" + ts.ping);

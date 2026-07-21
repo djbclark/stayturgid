@@ -1,15 +1,15 @@
 // @generated
 "use strict";
-// @ts-nocheck
+Object.defineProperty(exports, "__esModule", { value: true });
 /**
  * One-shot setup probe — logs Shizuku operational state to watchdog.log.
  * Invoked from control/tools/autojs6/enable_autojs6_shizuku.py during fleet setup only.
  */
-var log = require("../lib/log.js");
-var sh = require("../lib/shizuku_shell.js");
-var hasPerm = false;
-var running = false;
-var operational = false;
+const log = require("../lib/log.js");
+const sh = require("../lib/shizuku_shell.js");
+let hasPerm = false;
+let running = false;
+let operational = false;
 try {
   if (typeof shizuku !== "undefined") {
     if (typeof shizuku.hasPermission === "function") {

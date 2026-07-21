@@ -1,6 +1,5 @@
 // @generated
 "use strict";
-// @ts-nocheck
 /**
  * stayturgid AutoJs6 watchdog — entry point.
  *
@@ -8,20 +7,19 @@
  * Optional: AutoJs6 timed task every 20 min + run on boot for main.js.
  */
 "auto";
-var config = require("./lib/config.js");
-var guard = require("./lib/guard.js");
-var watchdog = require("./lib/watchdog.js");
-var log = require("./lib/log.js");
-var engineGuard = require("./lib/engine_guard.js");
-var profile;
-try {
-  profile = config.detectDeviceProfile();
-} catch (e) {
-  profile = {};
-}
+Object.defineProperty(exports, "__esModule", { value: true });
+const config = require("./lib/config.js");
+const guard = require("./lib/guard.js");
+const watchdog = require("./lib/watchdog.js");
+const log = require("./lib/log.js");
+const engineGuard = require("./lib/engine_guard.js");
+// detectDeviceProfile() cannot throw (its only internal try/catch is around
+// the device.json file read, which it already swallows) — no defensive
+// try/catch needed around this call.
+const profile = config.detectDeviceProfile();
 try {
   config.ensureDirs(profile); // create shared dirs (self-heal)
-} catch (e) {
+} catch (_a) {
   /* best effort — cycles mkdir on demand too */
 }
 if (profile.usingGenericDefaults) {
@@ -45,15 +43,15 @@ function safeCycle(trigger) {
   }
 }
 log.append("[watchdog] stayturgid AutoJs6 started device=" + (profile.id || "?"));
-var stopped = engineGuard.dedupeMainEngines();
+const stopped = engineGuard.dedupeMainEngines();
 if (stopped > 0) {
   log.append("[watchdog] stopped " + stopped + " duplicate main.js engine(s)");
 }
 safeCycle("boot"); // covers manual launch + boot auto-start
 // Every 20 minutes — the loop is ALWAYS established, even if the boot cycle
 // above hit trouble, so the watchdog self-recovers on the next tick.
-setInterval(function () {
+setInterval(() => {
   safeCycle("interval");
 }, config.INTERVAL_MS);
 // Keep the script process alive (AutoJs6 stops when the main thread exits)
-setInterval(function () {}, 60000);
+setInterval(() => {}, 60000);

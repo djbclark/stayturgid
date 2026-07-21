@@ -1,11 +1,35 @@
 // @generated
 "use strict";
-// @ts-nocheck
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.autoJs6AccessibilityEnabled = autoJs6AccessibilityEnabled;
+exports.isMalfunctioning = isMalfunctioning;
+exports.enforce = enforce;
+exports.statusReport = statusReport;
 // @heals: A11Y-AUTOJS6
-var config = require("./config.js");
-var notify = require("./notify.js");
-var termux = require("./termux.js");
-var log = require("./log.js");
+const config = require("./config.js");
+const notify = require("./notify.js");
+const termux = require("./termux.js");
+const log = require("./log.js");
+const comonitor = require("./comonitor.js");
+/** Run a shell probe on a worker thread with a timeout, so a hung settings daemon (seen on Fire OS) cannot block the watchdog cycle. */
+function probeAccessibilitySettings() {
+  const probe = { code: -1, result: "" };
+  try {
+    const thread = threads.start(() => {
+      try {
+        const r = shell("settings get secure enabled_accessibility_services", false);
+        probe.code = r.code;
+        probe.result = r.result;
+      } catch (_a) {
+        /* thread-local failure */
+      }
+    });
+    thread.join(5000);
+  } catch (_a) {
+    /* ignore */
+  }
+  return probe;
+}
 // Authoritative, permission-free check: AutoJs6's own accessibility service
 // instance is non-null exactly when the service is enabled AND bound.
 //
@@ -22,30 +46,14 @@ function autoJs6AccessibilityEnabled() {
       // would hide sticky ON (enabled but not running).
       return false;
     }
-  } catch (e) {
+  } catch (_a) {
     /* fall through to the settings probe only when `auto` is unavailable */
   }
   // Fallback (best effort): if a privileged read happens to work, use it.
-  // Run in a thread with a timeout to avoid blocking the watchdog cycle
-  // if the settings daemon hangs (observed on Fire OS).
-  try {
-    var shellResult = { code: -1, result: "" };
-    var t = threads.start(function () {
-      try {
-        var r = shell("settings get secure enabled_accessibility_services", false);
-        shellResult.code = r.code;
-        shellResult.result = String(r.result || "");
-      } catch (e) {
-        /* thread-local failure */
-      }
-    });
-    t.join(5000);
-    if (shellResult.code === 0) {
-      var list = shellResult.result.trim();
-      return list && list !== "null" && list.indexOf(config.AUTOJS6_A11Y) >= 0;
-    }
-  } catch (e2) {
-    /* ignore */
+  const probe = probeAccessibilitySettings();
+  if (probe.code === 0) {
+    const list = probe.result.trim();
+    return Boolean(list && list !== "null" && list.indexOf(config.AUTOJS6_A11Y) >= 0);
   }
   return false;
 }
@@ -53,29 +61,15 @@ function autoJs6AccessibilityEnabled() {
 function isMalfunctioning() {
   try {
     if (typeof auto === "undefined" || auto.service) return false;
-  } catch (e) {
+  } catch (_a) {
     return false;
   }
-  try {
-    var shellResult = { code: -1, result: "" };
-    var t = threads.start(function () {
-      try {
-        var r = shell("settings get secure enabled_accessibility_services", false);
-        shellResult.code = r.code;
-        shellResult.result = String(r.result || "");
-      } catch (e) {
-        /* ignore */
-      }
-    });
-    t.join(5000);
-    if (shellResult.code !== 0) return false;
-    var list = shellResult.result.trim();
-    return !!(list && list !== "null" && list.indexOf(config.AUTOJS6_A11Y) >= 0);
-  } catch (e2) {
-    return false;
-  }
+  const probe = probeAccessibilitySettings();
+  if (probe.code !== 0) return false;
+  const list = probe.result.trim();
+  return Boolean(list && list !== "null" && list.indexOf(config.AUTOJS6_A11Y) >= 0);
 }
-var A11Y_TOGGLE_MSG =
+const A11Y_TOGGLE_MSG =
   "Open Settings > Accessibility > AutoJs6: if already ON, turn OFF then ON again. " +
   "sshd/Tailscale self-heal still runs without a11y.";
 /**
@@ -90,21 +84,20 @@ var A11Y_TOGGLE_MSG =
  * restartService when WRITE_SECURE_SETTINGS is granted.
  */
 function enforce(profile) {
-  profile = profile || config.detectDeviceProfile();
+  const resolvedProfile = profile || config.detectDeviceProfile();
   if (autoJs6AccessibilityEnabled()) {
     notify.clear("a11y-blocked");
     notify.clear("a11y-stale");
     return;
   }
-  var sticky = isMalfunctioning();
+  const sticky = isMalfunctioning();
   if (sticky) {
     log.append("[watchdog] accessibility STICKY (Settings ON, service not bound) — user must toggle OFF then ON");
   }
-  if (config.splitStorage(profile)) {
+  if (config.splitStorage(resolvedProfile)) {
     log.append("[watchdog] split-storage: a11y off/sticky — co-monitor will probe via Shizuku");
     try {
-      var comonitor = require("./comonitor.js");
-      comonitor.run(profile, { force: true, reason: sticky ? "a11y-sticky-split" : "a11y-off-split" });
+      comonitor.run(resolvedProfile, { force: true, reason: sticky ? "a11y-sticky-split" : "a11y-off-split" });
     } catch (e) {
       log.append("[watchdog] comonitor a11y attempt failed: " + e);
     }
@@ -120,8 +113,8 @@ function enforce(profile) {
         : "[watchdog] accessibility disabled — checking repair status",
     );
     // Check if Termux repair already detected and logged this.
-    termux.invokeRepair(profile);
-    var deadline = Date.now() + 20000;
+    termux.invokeRepair(resolvedProfile);
+    const deadline = Date.now() + 20000;
     while (Date.now() < deadline && !autoJs6AccessibilityEnabled()) {
       sleep(2000);
     }
@@ -147,9 +140,3 @@ function statusReport() {
     autojs6A11yMalfunctioning: isMalfunctioning(),
   };
 }
-module.exports = {
-  enforce: enforce,
-  statusReport: statusReport,
-  autoJs6AccessibilityEnabled: autoJs6AccessibilityEnabled,
-  isMalfunctioning: isMalfunctioning,
-};

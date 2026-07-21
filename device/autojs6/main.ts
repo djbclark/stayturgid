@@ -1,4 +1,3 @@
-// @ts-nocheck
 /**
  * stayturgid AutoJs6 watchdog — entry point.
  *
@@ -7,22 +6,20 @@
  */
 "auto";
 
-var config = require("./lib/config.js");
-var guard = require("./lib/guard.js");
-var watchdog = require("./lib/watchdog.js");
-var log = require("./lib/log.js");
-var engineGuard = require("./lib/engine_guard.js");
+import config = require("./lib/config.js");
+import guard = require("./lib/guard.js");
+import watchdog = require("./lib/watchdog.js");
+import log = require("./lib/log.js");
+import engineGuard = require("./lib/engine_guard.js");
 
-var profile;
-try {
-  profile = config.detectDeviceProfile();
-} catch (e) {
-  profile = {};
-}
+// detectDeviceProfile() cannot throw (its only internal try/catch is around
+// the device.json file read, which it already swallows) — no defensive
+// try/catch needed around this call.
+const profile = config.detectDeviceProfile();
 
 try {
   config.ensureDirs(profile); // create shared dirs (self-heal)
-} catch (e) {
+} catch {
   /* best effort — cycles mkdir on demand too */
 }
 
@@ -40,7 +37,7 @@ try {
 }
 
 // Run one guarded cycle.
-function safeCycle(trigger) {
+function safeCycle(trigger: string): void {
   try {
     guard.enforce(profile);
     watchdog.runCycle(trigger, profile);
@@ -50,7 +47,7 @@ function safeCycle(trigger) {
 }
 
 log.append("[watchdog] stayturgid AutoJs6 started device=" + (profile.id || "?"));
-var stopped = engineGuard.dedupeMainEngines();
+const stopped = engineGuard.dedupeMainEngines();
 if (stopped > 0) {
   log.append("[watchdog] stopped " + stopped + " duplicate main.js engine(s)");
 }
@@ -58,9 +55,9 @@ safeCycle("boot"); // covers manual launch + boot auto-start
 
 // Every 20 minutes — the loop is ALWAYS established, even if the boot cycle
 // above hit trouble, so the watchdog self-recovers on the next tick.
-setInterval(function () {
+setInterval(() => {
   safeCycle("interval");
 }, config.INTERVAL_MS);
 
 // Keep the script process alive (AutoJs6 stops when the main thread exits)
-setInterval(function () {}, 60000);
+setInterval(() => {}, 60000);

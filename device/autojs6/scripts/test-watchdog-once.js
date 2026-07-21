@@ -1,16 +1,17 @@
 // @generated
 "use strict";
-// @ts-nocheck
 /**
  * Run a single watchdog cycle (no 20-min interval). For manual testing.
  * Usage: run from AutoJs6 while mode=autojs6 and accessibility is enabled.
  */
 "auto";
-var config = require("../lib/config.js");
-var guard = require("../lib/guard.js");
-var watchdog = require("../lib/watchdog.js");
+Object.defineProperty(exports, "__esModule", { value: true });
+const config = require("../lib/config.js");
+const guard = require("../lib/guard.js");
+const watchdog = require("../lib/watchdog.js");
 guard.enforce();
+// The "auto" directive above guarantees AutoJs6 has populated this global.
 auto.waitFor();
-var profile = config.detectDeviceProfile();
+const profile = config.detectDeviceProfile();
 watchdog.runCycle("manual-test", profile);
 toast("stayturgid watchdog test cycle done — check /sdcard/stayturgid/logs/watchdog.log");

@@ -1,28 +1,41 @@
-// @ts-nocheck
 /**
  * stayturgid AutoJs6 watchdog — entry point.
  *
  * Enable AutoJs6 accessibility, then run this script (or use boot-launcher.js from Termux:Boot).
  * Optional: AutoJs6 timed task every 20 min + run on boot for main.js.
+ *
+ * Kept as a reference copy (see README.md) — this directory has no sibling
+ * ./lib/*, so its requires below are typed against the canonical
+ * device/autojs6/lib/*.ts sources via a type-only import (erased at compile
+ * time; the require() calls below are unaffected and still resolve exactly
+ * as originally written, or not at all, matching this file's documented
+ * "reference, not the source of truth" status).
  */
 "auto";
 
-var config = require("./lib/config.js");
-var guard = require("./lib/guard.js");
-var watchdog = require("./lib/watchdog.js");
-var log = require("./lib/log.js");
-var engineGuard = require("./lib/engine_guard.js");
+import type { DeviceProfile } from "../../../device/autojs6/lib/config.js";
 
-var profile;
-try {
-  profile = config.detectDeviceProfile();
-} catch (e) {
-  profile = {};
-}
+declare function require(id: "./lib/config.js"): {
+  detectDeviceProfile(): DeviceProfile;
+  ensureDirs(profile: DeviceProfile): void;
+  INTERVAL_MS: number;
+};
+declare function require(id: "./lib/guard.js"): { enforce(profile: DeviceProfile): void };
+declare function require(id: "./lib/watchdog.js"): { runCycle(trigger: string, profile: DeviceProfile): void };
+declare function require(id: "./lib/log.js"): { append(line: string): string };
+declare function require(id: "./lib/engine_guard.js"): { dedupeMainEngines(): number };
+
+const config = require("./lib/config.js");
+const guard = require("./lib/guard.js");
+const watchdog = require("./lib/watchdog.js");
+const log = require("./lib/log.js");
+const engineGuard = require("./lib/engine_guard.js");
+
+const profile = config.detectDeviceProfile();
 
 try {
   config.ensureDirs(profile); // create shared dirs (self-heal)
-} catch (e) {
+} catch {
   /* best effort — cycles mkdir on demand too */
 }
 
@@ -40,7 +53,7 @@ try {
 }
 
 // Run one guarded cycle.
-function safeCycle(trigger) {
+function safeCycle(trigger: string): void {
   try {
     guard.enforce(profile);
     watchdog.runCycle(trigger, profile);
@@ -50,7 +63,7 @@ function safeCycle(trigger) {
 }
 
 log.append("[watchdog] stayturgid AutoJs6 started device=" + (profile.id || "?"));
-var stopped = engineGuard.dedupeMainEngines();
+const stopped = engineGuard.dedupeMainEngines();
 if (stopped > 0) {
   log.append("[watchdog] stopped " + stopped + " duplicate main.js engine(s)");
 }
@@ -58,11 +71,11 @@ safeCycle("boot"); // covers manual launch + boot auto-start
 
 // Every 20 minutes — the loop is ALWAYS established, even if the boot cycle
 // above hit trouble, so the watchdog self-recovers on the next tick.
-setInterval(function () {
+setInterval(() => {
   safeCycle("interval");
 }, config.INTERVAL_MS);
 
-setTimeout(function () {
+setTimeout(() => {
   try {
     toast("stayturgid main.js still running after 1 minute");
     log.append("[watchdog] delayed startup toast emitted");
@@ -72,4 +85,4 @@ setTimeout(function () {
 }, 60000);
 
 // Keep the script process alive (AutoJs6 stops when the main thread exits)
-setInterval(function () {}, 60000);
+setInterval(() => {}, 60000);

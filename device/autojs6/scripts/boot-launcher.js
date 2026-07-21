@@ -1,6 +1,5 @@
 // @generated
 "use strict";
-// @ts-nocheck
 /**
  * Boot helper: start main.js if not already running.
  * Invoked from Termux:Boot (start-autojs6-watchdog.sh), bridges.py --mode autojs6
@@ -8,18 +7,19 @@
  *
  * No "auto" directive: this launcher doesn't need accessibility.
  */
-var engineGuard = require("../lib/engine_guard.js");
-var config = require("../lib/config.js");
-var MAIN = engineGuard.MAIN;
-var STALE_WATCHDOG_MS = 25 * 60 * 1000;
+Object.defineProperty(exports, "__esModule", { value: true });
+const engineGuard = require("../lib/engine_guard.js");
+const config = require("../lib/config.js");
+const MAIN = engineGuard.MAIN;
+const STALE_WATCHDOG_MS = 25 * 60 * 1000;
 function latestWatchdogCycleMs() {
-  var logPath = config.WATCHDOG_LOG;
+  const logPath = config.WATCHDOG_LOG;
   if (!files.exists(logPath)) return null;
   try {
-    var lines = String(files.read(logPath)).split("\n");
-    for (var i = lines.length - 1; i >= 0; i--) {
+    const lines = String(files.read(logPath)).split("\n");
+    for (let i = lines.length - 1; i >= 0; i--) {
       if (lines[i].indexOf("[watchdog] cycle start") >= 0) {
-        var m = lines[i].match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+        const m = lines[i].match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
         if (m) {
           return new Date(
             Number(m[1]),
@@ -32,18 +32,18 @@ function latestWatchdogCycleMs() {
         }
       }
     }
-  } catch (e) {
+  } catch (_a) {
     /* best effort */
   }
   return null;
 }
 function watchdogStale() {
-  var last = latestWatchdogCycleMs();
+  const last = latestWatchdogCycleMs();
   if (last === null) return true;
   return Date.now() - last > STALE_WATCHDOG_MS;
 }
 function launchIfNeeded() {
-  var existing = engineGuard.findMainEngines();
+  const existing = engineGuard.findMainEngines();
   if (existing.length === 1 && !watchdogStale()) {
     return;
   }
@@ -56,7 +56,7 @@ function launchIfNeeded() {
   // directory.  main.js loads ./lib/*, so give the child its own directory
   // explicitly instead of letting every relative require resolve one level
   // too low.
-  var childConfig = new org.autojs.autojs.execution.ExecutionConfig();
+  const childConfig = new org.autojs.autojs.execution.ExecutionConfig();
   childConfig.setWorkingDirectory(MAIN.substring(0, MAIN.lastIndexOf("/")));
   engines.execScriptFile(MAIN, childConfig);
 }
