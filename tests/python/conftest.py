@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import sys
+from typing import Iterator
 
 import pytest
 
@@ -39,7 +40,7 @@ def pytest_collection_finish(session: pytest.Session) -> None:  # noqa: ARG001
 
 
 @pytest.fixture(autouse=True)
-def _host_env_guard() -> None:
+def _host_env_guard() -> Iterator[None]:
     """Keep host TMPDIR/HOME stable even if a test imports start_adb mid-run."""
     _restore_host_env()
     yield

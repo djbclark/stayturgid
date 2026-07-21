@@ -16,6 +16,7 @@ import stayturgid_device as dev  # noqa: E402
 _REPO = Path(__file__).resolve().parents[2]
 _MOD = _REPO / "ansible_collections/stayturgid/android_common/plugins/module_utils/adb_resolve.py"
 _spec = importlib.util.spec_from_file_location("adb_resolve", _MOD)
+assert _spec is not None
 adb_resolve = importlib.util.module_from_spec(_spec)
 assert _spec.loader is not None
 _spec.loader.exec_module(adb_resolve)

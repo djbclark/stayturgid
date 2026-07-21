@@ -29,7 +29,7 @@ SSH_PORT = 8022
 # Resolved at import via stayturgid_device when available; absolute path for launchd.
 def _adb_bin() -> str:
     try:
-        from stayturgid_device import adb_bin  # type: ignore
+        from stayturgid_device import adb_bin
 
         return adb_bin()
     except ImportError:

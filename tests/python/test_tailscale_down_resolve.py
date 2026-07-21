@@ -8,6 +8,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 _MAC = REPO / "control" / "tools" / "autojs6" / "test_tailscale_down.py"
 _spec = importlib.util.spec_from_file_location("tailscale_down_mac", _MAC)
+assert _spec is not None
 ttd = importlib.util.module_from_spec(_spec)
 assert _spec.loader is not None
 _spec.loader.exec_module(ttd)

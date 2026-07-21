@@ -26,9 +26,9 @@ from pathlib import Path
 from typing import Any
 
 try:
-    import vlm_cloud as cloud  # type: ignore
+    import vlm_cloud as cloud
 except ImportError:  # pragma: no cover
-    cloud = None  # type: ignore
+    cloud = None
 
 REPO = Path(__file__).resolve().parents[2]
 UI_TARS_DIR = REPO / "control" / "vlm" / "ui-tars"

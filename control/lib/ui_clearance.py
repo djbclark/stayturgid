@@ -87,9 +87,9 @@ def _packages_from_pinned_activity_tasks(activity_dump: str) -> set[str]:
         nearby = "\n".join(lines[max(0, idx - 3) : idx + 4])
         if "mode=pinned" not in nearby and "mWindowingMode=pinned" not in nearby:
             continue
-        match = re.search(r"packageName=([a-zA-Z0-9_.]+)", line)
-        if match:
-            packages.add(match.group(1))
+        pkg_match = re.search(r"packageName=([a-zA-Z0-9_.]+)", line)
+        if pkg_match:
+            packages.add(pkg_match.group(1))
     return packages
 
 

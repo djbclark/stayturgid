@@ -21,6 +21,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 _REPO = Path(__file__).resolve().parents[2]
 _CONTROL = _REPO / "control"
@@ -116,7 +117,7 @@ def _latest_fleet_health() -> dict[str, dict]:
         ts = _parse_log_ts(ts_s)
         if ts is None:
             continue
-        body = _parse_space_kv(rest)
+        body: dict[str, Any] = dict(_parse_space_kv(rest))
         body["ts"] = ts
         body["via"] = via
         body["host"] = host

@@ -235,6 +235,12 @@ lint:
     else
       echo "ruff not installed (brew install ruff) — skipped"
     fi
+    if command -v mypy >/dev/null; then
+      echo "### mypy"
+      mypy control/ device/termux/py/ ansible_collections/ tests/ || rc=1
+    else
+      echo "mypy not installed (uv tool install mypy) — skipped"
+    fi
     if command -v typos >/dev/null; then
       typos || rc=1
     else

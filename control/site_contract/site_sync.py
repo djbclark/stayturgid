@@ -19,10 +19,11 @@ import os
 import shlex
 import subprocess
 import sys
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal, Sequence
+from typing import Any, Literal, Sequence, TextIO
 
 from control.site_contract.site_map import SiteMap, SiteMapError, load_site_map
 
@@ -140,7 +141,7 @@ class SyncPlan:
         return any(item.action != "skip" for item in self.files)
 
 
-def _ops_root(env: dict[str, str] | None = None) -> Path:
+def _ops_root(env: Mapping[str, str] | None = None) -> Path:
     environ = env if env is not None else os.environ
     raw = environ.get("OPS_ROOT", "").strip()
     if raw:
@@ -298,7 +299,7 @@ def resolve_site_dir(
     return destination
 
 
-def _discover_single_site_dir(environ: dict[str, str]) -> Path:
+def _discover_single_site_dir(environ: Mapping[str, str]) -> Path:
     """Exactly one site-* checkout under OPS_ROOT; zero/multiple → exit 1."""
     ops = _ops_root(environ)
     if not ops.is_dir():
@@ -578,8 +579,8 @@ def _site_render_context(
         except (OSError, yaml.YAMLError):
             gv = {}
         if isinstance(gv, dict):
-            host = gv.get("caddy_public_hostname")
-            if isinstance(host, str) and host.strip():
+            public_hostname = gv.get("caddy_public_hostname")
+            if isinstance(public_hostname, str) and public_hostname.strip():
                 context["openobserve_http_prefix"] = "/oo"
     return context
 
@@ -1116,13 +1117,13 @@ def run_site_sync(
     product_version: str | None = None,
     product_commit: str | None = None,
     synced: str | None = None,
-    stdout: object | None = None,
-    stderr: object | None = None,
+    stdout: TextIO | None = None,
+    stderr: TextIO | None = None,
     home: Path | None = None,
 ) -> int:
     """Programmatic entry point used by tests and ``main``."""
-    out = stdout if stdout is not None else sys.stdout
-    err = stderr if stderr is not None else sys.stderr
+    out: TextIO = stdout if stdout is not None else sys.stdout
+    err: TextIO = stderr if stderr is not None else sys.stderr
     try:
         parsed_mode = _parse_mode(mode)
         force = _parse_bool_flag(force_generated)
