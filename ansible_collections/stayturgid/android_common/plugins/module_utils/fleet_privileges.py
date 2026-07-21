@@ -8,7 +8,7 @@ __metaclass__ = type
 try:
     from ansible_collections.stayturgid.android_common.plugins.module_utils import adb_shell
 except ImportError:
-    import adb_shell  # noqa: F401 — Mac CLI adds module_utils to sys.path
+    import adb_shell  # type: ignore[no-redef]  # noqa: F401 — Mac CLI adds module_utils to sys.path
 import time
 
 BATTERY_APPOPS = ("RUN_ANY_IN_BACKGROUND", "RUN_IN_BACKGROUND")

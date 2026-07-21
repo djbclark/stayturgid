@@ -23,7 +23,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, Sequence
+from typing import Any, Literal, Sequence, TextIO
 
 from control.site_contract.site_map import SiteMap, SiteMapError, load_site_map
 from control.site_contract.site_sync import (
@@ -1522,11 +1522,11 @@ def plan_grafana(
     if public_host:
         grafana_domain = public_host
         grafana_root_url = f"https://{public_host}/grafana/"
-        grafana_sub_path = True
+        grafana_sub_path = "true"
     else:
         grafana_domain = "localhost"
         grafana_root_url = "http://127.0.0.1:3000/"
-        grafana_sub_path = False
+        grafana_sub_path = "false"
 
     plan.ansible_extra = {
         "site_ns": site_ns,
@@ -1822,7 +1822,7 @@ def build_plan(
         planner = planners.get(app)
         if planner is None:  # pragma: no cover - guarded by KNOWN_APPS
             raise ServerAppsError(f"no adapter for {app}")
-        kwargs = {
+        kwargs: dict[str, object] = {
             "site_dir": destination,
             "site_map": site_map,
             "site_ns": site_ns,
@@ -1833,7 +1833,12 @@ def build_plan(
             kwargs["product_root"] = product
         if app in {"caddy", "vector", "grafana", "olivetin", "victoriametrics"}:
             kwargs["product_version"] = product_version
-        app_plans.append(planner(**kwargs))
+        # Each plan_<app>() has a distinct signature (only some accept
+        # product_root/product_version); kwargs is tailored per-app above.
+        # mypy can't verify a dynamic-dispatch **kwargs call against the
+        # union of all seven signatures — each is exercised directly by
+        # tests/python/test_serverapps.py.
+        app_plans.append(planner(**kwargs))  # type: ignore[arg-type]
 
     return ServerAppsPlan(
         destination=destination,
@@ -2345,12 +2350,12 @@ def run_site_serverapps(
     env: dict[str, str] | None = None,
     home: Path | None = None,
     skip_ansible: bool = False,
-    stdout: object | None = None,
-    stderr: object | None = None,
+    stdout: TextIO | None = None,
+    stderr: TextIO | None = None,
 ) -> int:
     """Programmatic entry point used by tests and ``main``."""
-    out = stdout if stdout is not None else sys.stdout
-    err = stderr if stderr is not None else sys.stderr
+    out: TextIO = stdout if stdout is not None else sys.stdout
+    err: TextIO = stderr if stderr is not None else sys.stderr
     try:
         parsed_mode = _parse_mode(mode)
         force = _parse_bool_flag(force_generated)

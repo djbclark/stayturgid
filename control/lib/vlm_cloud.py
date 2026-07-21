@@ -332,7 +332,7 @@ def ping_backends() -> dict[str, Any]:
     # Gemini text
     if gemini_key():
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{gemini_model()}:generateContent"
-        body = {
+        body: dict[str, Any] = {
             "contents": [{"parts": [{"text": 'Reply exactly: {"ok":true,"ping":"gemini"}'}]}],
             "generationConfig": {"temperature": 0, "maxOutputTokens": 64},
         }

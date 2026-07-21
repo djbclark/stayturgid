@@ -11,6 +11,7 @@ import json
 import subprocess
 import time
 from pathlib import Path
+from typing import Any
 
 import pytest
 import site_identity as si
@@ -397,7 +398,7 @@ def test_invalid_json_from_ansible(tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
 
 def test_missing_stayturgid_group(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    data = {"_meta": {"hostvars": {}}}
+    data: dict[str, Any] = {"_meta": {"hostvars": {}}}
     hosts_yml = tmp_path / "hosts.yml"
     hosts_yml.write_text("# dummy\n", encoding="utf-8")
     monkeypatch.setattr(subprocess, "run", lambda *_a, **_kw: _make_run_result(data))
@@ -473,9 +474,9 @@ def test_site_is_immutable(fake_inventory: Path) -> None:
     """Site and Device are frozen dataclasses — mutation must raise."""
     site = si.load_site_identity(inventory_path=fake_inventory)
     with pytest.raises((AttributeError, TypeError)):
-        site.telegram_home_channel = "mutated"  # type: ignore[misc]
+        site.telegram_home_channel = "mutated"
     with pytest.raises((AttributeError, TypeError)):
-        site.devices["oneui-device"].alias = "mutated"  # type: ignore[misc]
+        site.devices["oneui-device"].alias = "mutated"
 
 
 # ---------------------------------------------------------------------------

@@ -30,7 +30,7 @@ import fire_peer_help as fph  # noqa: E402
 try:
     import stayturgid_device as dev  # noqa: E402
 except Exception:  # noqa: BLE001
-    dev = None  # type: ignore
+    dev = None
 
 ROOT = Path.home() / ".config" / "stayturgid"
 CONF = Path(os.environ.get("STAYTURGID_DEVICES_CONF", ROOT / "devices.conf"))

@@ -69,7 +69,7 @@ REPAIR_HEAL_COOLDOWN_SEC = 30 * 60
 REPAIR_HEAL_AFTER = 2
 
 
-def _stats_event(event_type: str, device: str, **details: object) -> None:
+def _stats_event(event_type: str, device: str, **details: str | int | float) -> None:
     try:
         stats.record_event(event_type, device, **details)
     except Exception:

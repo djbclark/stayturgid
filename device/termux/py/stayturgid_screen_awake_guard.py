@@ -34,7 +34,7 @@ sh.ensure_lib_path()
 try:
     import termux_api as tapi  # noqa: E402
 except ImportError:
-    tapi = None  # type: ignore
+    tapi = None
 
 NID = "stayturgid-screenlock"
 BASELINE_FILE = os.path.join(STG, "state", "screen_timeout_baseline")

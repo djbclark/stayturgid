@@ -38,7 +38,7 @@ sh.ensure_lib_path()
 try:
     import termux_api as tapi  # noqa: E402
 except ImportError:
-    tapi = None  # type: ignore
+    tapi = None
 
 STATE_FILE = os.path.join(STG, "state", "batt_alerted")
 COLOR_DIR = os.path.join(STG, "battery-colors")

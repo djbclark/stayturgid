@@ -31,7 +31,7 @@ sh.ensure_lib_path()
 try:
     import termux_api as tapi  # noqa: E402
 except ImportError:
-    tapi = None  # type: ignore
+    tapi = None
 
 SD = os.environ.get("STAYTURGID_SD", "/sdcard/stayturgid")
 LOG = os.path.join(SD, "logs", "watchdog.log")

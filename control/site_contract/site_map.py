@@ -214,6 +214,7 @@ def load_site_map(
     """Load an explicit map or auto-discover ``site-map.yml`` at the site root."""
     site = site_dir.resolve()
     product = product_root.resolve()
+    source: Path | None
     if map_path is not None and str(map_path).strip():
         source = Path(map_path).expanduser()
         if not source.is_absolute():

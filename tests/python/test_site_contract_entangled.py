@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Iterator
 
 import pytest
 
@@ -37,7 +38,7 @@ LITERATE_TEMPLATES = EXPECTED_TEMPLATES - ce.REGISTRY_SEED_RELATIVE
 
 
 @pytest.fixture(autouse=True)
-def _chdir_repo() -> None:
+def _chdir_repo() -> Iterator[None]:
     """Entangled loads entangled.toml from the process cwd."""
     previous = Path.cwd()
     os.chdir(ROOT)

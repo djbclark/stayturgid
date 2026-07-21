@@ -20,6 +20,7 @@ import os
 import socket
 import subprocess
 import sys
+from types import ModuleType
 
 _REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _LIB = os.path.join(_REPO, "control", "lib")
@@ -33,6 +34,7 @@ from control.lib.site_logging import (  # noqa: E402
     trim_log,
 )
 
+stats: ModuleType | None
 try:
     import control.lib.stats as stats
 except Exception:

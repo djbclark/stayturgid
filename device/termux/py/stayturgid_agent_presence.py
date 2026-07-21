@@ -43,7 +43,7 @@ sh.ensure_lib_path()
 try:
     import termux_api as tapi  # noqa: E402
 except ImportError:
-    tapi = None  # type: ignore
+    tapi = None
 
 NID = "stayturgid-presence"
 # Shared-storage root; self-healing (writers mkdir -p first).

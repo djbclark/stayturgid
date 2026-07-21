@@ -184,12 +184,14 @@ def is_active(lease: dict[str, Any] | None, *, now: float | None = None) -> bool
 
 
 def holder_project(lease: dict[str, Any]) -> str:
-    h = lease.get("holder") if isinstance(lease.get("holder"), dict) else {}
+    raw_holder = lease.get("holder")
+    h = raw_holder if isinstance(raw_holder, dict) else {}
     return str(h.get("project") or lease.get("project") or "").strip()
 
 
 def holder_session(lease: dict[str, Any]) -> str:
-    h = lease.get("holder") if isinstance(lease.get("holder"), dict) else {}
+    raw_holder = lease.get("holder")
+    h = raw_holder if isinstance(raw_holder, dict) else {}
     return str(h.get("session_id") or lease.get("session_id") or "").strip()
 
 
@@ -243,7 +245,8 @@ def find_active_lease(*device_keys: str) -> dict[str, Any] | None:
 
 
 def format_holder(lease: dict[str, Any]) -> str:
-    h = lease.get("holder") if isinstance(lease.get("holder"), dict) else {}
+    raw_holder = lease.get("holder")
+    h = raw_holder if isinstance(raw_holder, dict) else {}
     project = h.get("project") or lease.get("project") or "?"
     agent = h.get("agent") or lease.get("agent") or "?"
     purpose = lease.get("purpose") or ""
@@ -339,12 +342,12 @@ def acquire(
         with _lease_lock():
             existing = find_active_lease(*keys)
             can_write = existing is None
-            if (
-                not can_write
-                and ours(existing, session_id=None)
-                and (holder_session(existing) == sid or existing.get("holder", {}).get("pid") == os.getpid())
-            ):
-                can_write = True
+            if not can_write:
+                assert existing is not None  # can_write is False only when existing was found
+                if ours(existing, session_id=None) and (
+                    holder_session(existing) == sid or existing.get("holder", {}).get("pid") == os.getpid()
+                ):
+                    can_write = True
             if not can_write and force:
                 can_write = True
             if can_write:
@@ -361,6 +364,7 @@ def acquire(
                 return lease
             remaining = deadline - _now()
             if remaining <= 0:
+                assert existing is not None  # can_write is still False here => existing was found
                 raise LeaseConflict(
                     "device %s held by another controller: %s" % (device, format_holder(existing)),
                     lease=existing,

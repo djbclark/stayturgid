@@ -21,3 +21,12 @@ ignore = ["E501", "E402"]
 
 [tool.ruff.format]
 line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.12"
+explicit_package_bases = true
+ignore_missing_imports = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_unreachable = true
+exclude = ['^\.venv-test/', '^\.ansible/', '^device/autojs6/']
