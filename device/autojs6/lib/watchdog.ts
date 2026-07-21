@@ -92,7 +92,11 @@ export function runCycle(trigger: string, profile: DeviceProfile): void {
           comonitorReason = "bridge-fail";
         } else {
           notify.clear("bridge");
-          if (invokedSshd === "down" || (status && status.shizuku === "down")) {
+          // invokedSshd comes from Termux's stayturgid_repair.py STATUS line
+          // (via log.latestRepairStatus()), which can genuinely write
+          // sshd=FAILED (see device/termux/py/stayturgid_repair.py) — unlike
+          // comonitor.ts's own SshdStatus below, this is not a closed union.
+          if (invokedSshd === "down" || invokedSshd === "FAILED" || (status && status.shizuku === "down")) {
             comonitorReason = "post-bridge-unhealthy";
           }
         }
