@@ -10,7 +10,7 @@ REPO = Path(__file__).resolve().parents[2]
 
 def test_stayturgid_root_finds_repo():
     sys.path.insert(0, str(REPO / "control" / "lib"))
-    import stayturgid_root as root_mod  # noqa: E402
+    import stayturgid_root as root_mod
 
     assert root_mod.stayturgid_root(REPO / "control/bin/deploy_fleet.py") == REPO
 

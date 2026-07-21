@@ -10,8 +10,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..",
 sys.path.insert(0, os.path.join(ROOT, "plugins", "modules"))
 sys.path.insert(0, os.path.join(ROOT, "plugins", "module_utils"))
 
-import autojs6_deploy_util as deploy_util  # noqa: E402
-import autojs6_project_deploy as mod  # noqa: E402
+import autojs6_deploy_util as deploy_util
+import autojs6_project_deploy as mod
 
 
 def _fake_run(cmd_results=None):

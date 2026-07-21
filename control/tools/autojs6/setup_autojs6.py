@@ -13,7 +13,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[3]
 TOOL_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
-import adb_cli as adb  # noqa: E402
+import adb_cli as adb
 
 DL_DIR = Path(__import__("os").environ.get("TMPDIR", "/tmp")) / "stayturgid-autojs6"
 APK_NAME = "autojs6-v6.7.0-arm64-v8a-62db1ff8.apk"

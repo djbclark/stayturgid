@@ -9,7 +9,7 @@ import pytest
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "plugins", "modules"))
 
-import stayturgid_repair_check as mod  # noqa: E402
+import stayturgid_repair_check as mod
 
 
 def test_find_status_line_picks_last():

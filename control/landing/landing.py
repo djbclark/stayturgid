@@ -22,7 +22,7 @@ _TEMPLATES = _HERE / "templates"
 sys.path.insert(0, str(_REPO))
 from flask import Flask, render_template_string, request
 
-from control.landing import state  # noqa: E402
+from control.landing import state
 
 PORT = 8088  # Phase D4: was 8080 (collided with caddy-health); plists pass --port 8088
 app = Flask(__name__, template_folder=str(_TEMPLATES))

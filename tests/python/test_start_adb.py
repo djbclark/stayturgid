@@ -8,7 +8,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "device" / "termux" / "py"))
 
-import start_adb  # noqa: E402
+import start_adb
 
 
 def test_shell_transport_prefers_localhost_adb(monkeypatch):

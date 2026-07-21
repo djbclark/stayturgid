@@ -64,7 +64,7 @@ def _load_si():
     lib = root / "control" / "lib"
     if str(lib) not in sys.path:
         sys.path.insert(0, str(lib))
-    import site_identity as _si  # noqa: PLC0415
+    import site_identity as _si
 
     return _si
 
@@ -186,7 +186,7 @@ def load_overlay_patterns(root: Path) -> list[tuple[str, str]]:
     lib = root / "control" / "lib"
     if str(lib) not in sys.path:
         sys.path.insert(0, str(lib))
-    import ansible_context as ac  # noqa: PLC0415
+    import ansible_context as ac
 
     try:
         context = ac.resolve_ansible_context(root)

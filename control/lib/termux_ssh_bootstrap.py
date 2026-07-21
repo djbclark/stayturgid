@@ -16,7 +16,7 @@ _COLLECTION_UTILS = REPO_ROOT / "ansible_collections" / "stayturgid" / "termux" 
 if str(_COLLECTION_UTILS) not in sys.path:
     sys.path.insert(0, str(_COLLECTION_UTILS))
 
-import termux_run_as as tr  # noqa: E402
+import termux_run_as as tr
 
 SSH_OPTS = ["-o", "BatchMode=yes", "-o", "LogLevel=ERROR"]
 

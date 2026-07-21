@@ -50,10 +50,10 @@ def open_autoupdate_screen(hs: HandsetsSession, serial: str) -> bool:
     # No ScreenControlSession here (inversion breaks Play drawer); still pin
     # portrait so Fire/phone coords match Handsets assumptions.
     try:
-        import screen_control as sc  # noqa: WPS433 — optional fleet dep
+        import screen_control as sc  # optional fleet dep
 
         sc.apply_portrait_lock(serial)
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     launch_play_store(serial)
     time.sleep(1.5)

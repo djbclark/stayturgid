@@ -22,8 +22,8 @@ COLLECTION = REPO_ROOT / "ansible_collections" / "stayturgid" / "android_common"
 
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
 sys.path.insert(0, str(COLLECTION / "plugins" / "module_utils"))
-import fleet_privileges as fp  # noqa: E402
-import stayturgid_device as dev  # noqa: E402
+import fleet_privileges as fp
+import stayturgid_device as dev
 
 
 def load_profiles() -> list[dict]:

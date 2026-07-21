@@ -16,7 +16,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
 
-import et_mac as em  # noqa: E402
+import et_mac as em
 
 
 def main(argv: list[str] | None = None) -> int:

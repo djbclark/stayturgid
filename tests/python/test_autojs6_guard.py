@@ -10,7 +10,7 @@ from types import SimpleNamespace
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "device" / "termux" / "py"))
 
-import stayturgid_autojs6_guard as guard  # noqa: E402
+import stayturgid_autojs6_guard as guard
 
 
 def _write_log(path: Path, lines: list[str]) -> None:

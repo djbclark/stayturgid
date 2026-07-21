@@ -21,7 +21,7 @@ sh.ensure_lib_path()
 try:
     import ui_clearance as uc
 except ImportError:
-    from shared import ui_clearance as uc  # noqa: E402
+    from shared import ui_clearance as uc
 
 INVERSION_KEY = "accessibility_display_inversion_enabled"
 ADB_KEYBOARD = "com.github.uiautomator/.AdbKeyboard"
@@ -284,7 +284,7 @@ class ScreenControlSession(object):
                 apply_portrait_lock()
                 if not self._skip:
                     local_presence("guard", self.label, self.agent)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 sys.stderr.write("WARN: screen-control keepalive: %s\n" % e)
 
     def _start_keepalive(self):

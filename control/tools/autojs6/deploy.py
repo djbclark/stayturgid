@@ -20,9 +20,9 @@ _COLLECTION_UTILS = REPO_ROOT / "ansible_collections" / "stayturgid" / "android_
 if str(_COLLECTION_UTILS) not in sys.path:
     sys.path.insert(0, str(_COLLECTION_UTILS))
 
-import adb_cli as adb  # noqa: E402
-import adb_shell  # noqa: E402
-import autojs6_deploy_util as deploy_util  # noqa: E402
+import adb_cli as adb
+import adb_shell
+import autojs6_deploy_util as deploy_util
 
 
 def _run_command(cmd):

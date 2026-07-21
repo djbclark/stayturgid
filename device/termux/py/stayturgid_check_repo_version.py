@@ -64,10 +64,10 @@ def main():
     changelog = _field(body, "changelog") or "Run control/bin/deploy_termux.py from your Mac"
     # Never SIGKILL termux-notification — orphan on hang (ResultReturner).
     try:
-        import stayturgid_shell as sh  # noqa: WPS433
+        import stayturgid_shell as sh
 
         sh.ensure_lib_path()
-        import termux_api as tapi  # noqa: WPS433
+        import termux_api as tapi
 
         tapi.notify(
             [

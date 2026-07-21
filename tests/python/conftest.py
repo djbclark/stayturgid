@@ -34,7 +34,7 @@ def _restore_host_env() -> None:
             os.environ[key] = value
 
 
-def pytest_collection_finish(session: pytest.Session) -> None:  # noqa: ARG001
+def pytest_collection_finish(session: pytest.Session) -> None:
     """Undo Termux boot-supervisor env mutations performed during collection."""
     _restore_host_env()
 

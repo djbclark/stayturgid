@@ -35,10 +35,10 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
-import screen_control as sc  # noqa: E402
-import stayturgid_device as dev  # noqa: E402
-import ui_driver as uid  # noqa: E402
-import vlm_helpers as vh  # noqa: E402
+import screen_control as sc
+import stayturgid_device as dev
+import ui_driver as uid
+import vlm_helpers as vh
 
 ROOT = Path(os.path.expanduser("~")) / ".config" / "stayturgid"
 LOG = ROOT / "logs" / "gui-audit.log"
@@ -178,7 +178,7 @@ def reachable(host: str) -> tuple[bool, str]:
     """Return (ok, serial_or_reason)."""
     try:
         serial = dev.resolve_adb(host)
-    except Exception as e:  # noqa: BLE001 — soft skip
+    except Exception as e:  # soft skip
         return False, "resolve_failed:%s" % e
     if not serial:
         return False, "no_serial"
@@ -518,7 +518,7 @@ def audit_host(host: str, day_dir: Path) -> list[str]:
     except sc.ScreenControlError as e:
         issues.append("screen_control_failed")
         log("%s screen_control_error: %s" % (host, e))
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         issues.append("audit_exception")
         log("%s exception: %s" % (host, e))
 

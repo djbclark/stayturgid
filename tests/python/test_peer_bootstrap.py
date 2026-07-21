@@ -9,8 +9,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "device" / "termux" / "py"))
 
-import stayturgid_handsets as th  # noqa: E402
-import stayturgid_peer_bootstrap as pb  # noqa: E402
+import stayturgid_handsets as th
+import stayturgid_peer_bootstrap as pb
 
 
 def test_peer_endpoints_prefer_lan():

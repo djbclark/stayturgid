@@ -9,7 +9,7 @@ from types import SimpleNamespace
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
 
-import ui_driver as ud  # noqa: E402
+import ui_driver as ud
 
 
 def test_port_for_defaults():

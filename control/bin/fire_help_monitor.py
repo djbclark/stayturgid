@@ -25,11 +25,11 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
 
 
-import fire_peer_help as fph  # noqa: E402
+import fire_peer_help as fph
 
 try:
-    import stayturgid_device as dev  # noqa: E402
-except Exception:  # noqa: BLE001
+    import stayturgid_device as dev
+except Exception:
     dev = None
 
 ROOT = Path.home() / ".config" / "stayturgid"
@@ -64,7 +64,7 @@ def read_devices():
 
         yield from iter_monitor_hosts(str(CONF))
         return
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     for line in CONF.read_text().splitlines():
         line = line.strip()
@@ -112,7 +112,7 @@ def adb_targets(name: str, ts_ip: str, lan_ip: str) -> list[str]:
     if dev is not None:
         try:
             add(dev.resolve_adb(name))
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
     if lan_ip and lan_ip != "-":
         add("%s:5555" % lan_ip)
@@ -218,7 +218,7 @@ def main() -> int:
             continue
         try:
             help_host(name, ts_ip, lan_ip)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             log("%s error: %s" % (name, e))
     return 0
 

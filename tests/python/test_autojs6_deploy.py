@@ -16,8 +16,8 @@ sys.path.insert(
     str(REPO / "ansible_collections" / "stayturgid" / "android_common" / "plugins" / "module_utils"),
 )
 
-import autojs6_deploy_util as deploy_util  # noqa: E402
-import deploy as deploy_mod  # noqa: E402
+import autojs6_deploy_util as deploy_util
+import deploy as deploy_mod
 
 
 def test_deploy_wipes_lib_scripts_before_push(monkeypatch, tmp_path):

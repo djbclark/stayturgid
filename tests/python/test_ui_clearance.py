@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(
     0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "lib")
 )
-import ui_clearance as uc  # noqa: E402
+import ui_clearance as uc
 
 PINNED_STACK = """
 RootTask id=42 bounds=[800,1600][1080,1900] displayId=0 userId=0

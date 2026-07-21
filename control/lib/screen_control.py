@@ -37,9 +37,9 @@ import time
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if REPO not in sys.path:
     sys.path.insert(0, os.path.join(REPO, "control", "lib"))
-import device_screen_lease as dsl  # noqa: E402
-import stayturgid_device as dev  # noqa: E402
-import ui_clearance as uc  # noqa: E402
+import device_screen_lease as dsl
+import stayturgid_device as dev
+import ui_clearance as uc
 
 INPUT_PREFIXES = ("input",)
 INVERSION_KEY = "accessibility_display_inversion_enabled"
@@ -383,7 +383,7 @@ class ScreenControlSession:
                     ids.append("%s:5555" % ts_ip)
                 if lan and lan != "-":
                     ids.append("%s:5555" % lan)
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
         return ids
 
@@ -413,7 +413,7 @@ class ScreenControlSession:
             return
         try:
             dsl.release(self.host, session_id=self._lease_session_id)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             sys.stderr.write("WARN: screen-lease release on %s: %s\n" % (self.host, e))
         self._lease_acquired = False
 
@@ -432,7 +432,7 @@ class ScreenControlSession:
                 if self._lease_acquired:
                     dsl.heartbeat(self.host, session_id=self._lease_session_id)
                 apply_portrait_lock(self.serial)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 sys.stderr.write("WARN: screen-control keepalive on %s: %s\n" % (self.host, e))
 
     def _start_keepalive(self):

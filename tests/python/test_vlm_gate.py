@@ -11,7 +11,7 @@ from unittest.mock import MagicMock, patch
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
 
-import vlm_gate as vlm  # noqa: E402
+import vlm_gate as vlm
 
 
 def test_vlm_disabled_by_default(monkeypatch):

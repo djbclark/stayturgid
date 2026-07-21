@@ -5,7 +5,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
-import a11y_services as a11y  # noqa: E402
+import a11y_services as a11y
 
 
 def test_parse_services():

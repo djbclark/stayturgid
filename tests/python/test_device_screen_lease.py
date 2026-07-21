@@ -13,7 +13,7 @@ sys.path.insert(
     0,
     str(Path(__file__).resolve().parents[2] / "control" / "lib"),
 )
-import device_screen_lease as dsl  # noqa: E402
+import device_screen_lease as dsl
 
 
 @pytest.fixture()

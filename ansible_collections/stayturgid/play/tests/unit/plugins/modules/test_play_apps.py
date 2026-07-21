@@ -8,7 +8,7 @@ import pytest
 
 FLEET_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 sys.path.insert(0, os.path.join(FLEET_ROOT, "plugins", "modules"))
-import play_apps as mod  # noqa: E402
+import play_apps as mod
 
 
 def run_module(mocker, args, cmd_results=None, check=False):

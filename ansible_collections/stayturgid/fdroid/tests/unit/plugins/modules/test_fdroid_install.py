@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.join(ROOT, "plugins", "module_utils"))
 sys.path.insert(0, REPO_ROOT)
 sys.path.insert(0, os.path.join(ROOT, "plugins", "module_utils"))
 
-import fdroid_install as mod  # noqa: E402
+import fdroid_install as mod
 
 
 def run_module(mocker, args, cmd_results=None):

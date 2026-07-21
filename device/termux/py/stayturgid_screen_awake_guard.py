@@ -28,11 +28,11 @@ if os.path.isfile(_ENV_FILE):
     except OSError:
         pass
 
-import stayturgid_shell as sh  # noqa: E402
+import stayturgid_shell as sh
 
 sh.ensure_lib_path()
 try:
-    import termux_api as tapi  # noqa: E402
+    import termux_api as tapi
 except ImportError:
     tapi = None
 

@@ -23,8 +23,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
-import device_screen_lease as dsl  # noqa: E402
-import stayturgid_device as dev  # noqa: E402
+import device_screen_lease as dsl
+import stayturgid_device as dev
 
 
 def _ids(device: str) -> list[str]:
@@ -42,7 +42,7 @@ def _ids(device: str) -> list[str]:
                 ids.append("%s:5555" % ts_ip)
             if lan and lan != "-":
                 ids.append("%s:5555" % lan)
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     return ids
 
