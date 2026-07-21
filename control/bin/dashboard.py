@@ -214,15 +214,16 @@ def _svc_badge(key: str, value: str | None, ok_values: frozenset[str] | None = N
         cls = "ok"
     else:
         cls = _svc_cls(value)
-    return Markup(f'<span class="badge {cls}" title="{key}">{value}</span>')  # nosemgrep
+    # cls is one of _svc_cls's fixed literal returns; value is explicitly escaped below.
+    return Markup(f'<span class="badge {cls}" title="{key}">{escape(value)}</span>')  # nosemgrep
 
 
 def _age_badge(sec: int | None) -> Markup:
     if sec is None:
-        return Markup('<span class="badge" style="opacity: 0.5">--</span>')
-    if sec > 3600 * 24:
+        return Markup('<span class="badge unknown">N/A</span>')
+    if sec >= _AGE_CRIT:
         return Markup(f'<span class="badge error">{_age_str(sec)}</span>')  # nosemgrep
-    if sec > 3600 * 2:
+    if sec >= _AGE_WARN:
         return Markup(f'<span class="badge warn">{_age_str(sec)}</span>')  # nosemgrep
     return Markup(f'<span class="badge ok">{_age_str(sec)}</span>')  # nosemgrep
 
