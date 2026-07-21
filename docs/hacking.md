@@ -538,20 +538,29 @@ do not interpret opening the Shizuku app alone as authorization.
 
 ### Making watchdog changes
 
-1. Edit the JavaScript in `device/autojs6/` on the Mac.
-2. Deploy to the device and restart the watchdog:
+1. Edit the TypeScript in `device/autojs6/` on the Mac — each `.js` has a
+   co-located `.ts` source; the `.js` is generated (`// @generated` header)
+   and must never be hand-edited.
+2. Compile and verify: `just build-ts` (runs `tsc` + Biome format + header
+   injection) then `just check-ts` (1:1 `.ts`/`.js` mapping + header check).
+   Commit both the `.ts` and its regenerated `.js` sibling.
+3. Deploy to the device and restart the watchdog:
    ```bash
    ./control/tools/autojs6/deploy.py oneui-device
    ./control/tools/autojs6/start_watchdog.py oneui-device
    ```
-3. Check the log: `adb shell cat /sdcard/stayturgid/logs/watchdog.log` (or the AutoJs6 console).
-4. Commit and push.
+4. Check the log: `adb shell cat /sdcard/stayturgid/logs/watchdog.log` (or the AutoJs6 console).
+5. Commit and push.
 
-Before deploying, install the host-only JavaScript quality tools once with
-`npm ci`. `just check` then runs ESLint over all AutoJs6 sources. These tools and
-their lockfile are never copied to Android. Keep platform globals in the explicit
-`eslint.config.cjs` allowlist; do not silence a finding merely to make the gate
-pass. TypeScript `checkJs` is intentionally deferred.
+Before deploying, install the host-only JS/TS quality tools once with
+`bun install`. `just check` then runs `biome check device/autojs6` (lint +
+format) and `just build-ts`/`just check-ts` (TypeScript compile). These
+tools and their lockfile are never copied to Android. All `.ts` files are
+`strict: true` with no `any`; ambient Rhino/AutoJs6 globals (`files`,
+`shell`, `app`, `engines`, `shizuku`, Java interop, etc.) are declared in
+`device/autojs6/types/globals.d.ts` — extend it there rather than casting to
+`any` or re-declaring a global locally. Do not silence a type or lint
+finding merely to make the gate pass.
 
 ### Testing shell scripts off-device (added 2026-07-06)
 

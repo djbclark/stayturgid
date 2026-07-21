@@ -230,8 +230,10 @@ The research prompt for this work is
 The broader evaluation covers PM2, Uptime Kuma, Pulumi, Jest, `zx`, Shipit, and
 Flightplan. A useful candidate must reduce host-side glue or add meaningful job,
 approval, or audit support; generic uptime widgets do not count. None should become
-an AutoJs6 runtime dependency. Option A is now the host-only ESLint pilot; the
-existing Node harness remains the device-test seam. Options B, C, and D are
+an AutoJs6 runtime dependency. Option A is now the host-only Biome lint/format pilot
+(ESLint was replaced by Biome; the AutoJs6 sources also completed a full TypeScript
+migration 2026-07-21 — see the handoff changelog); the existing Node harness remains
+the device-test seam. Options B, C, and D are
 intentionally deferred for later. Details, compatibility constraints, and bounded
 implementation steps are in
 [JavaScript Runtime Supervision Evaluation](research/javascript-runtime-supervision-2026-07-13.md).
