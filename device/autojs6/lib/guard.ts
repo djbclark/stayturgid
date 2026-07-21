@@ -1,11 +1,10 @@
-// @generated
-"use strict";
 // @ts-nocheck
 // @heals: A11Y-AUTOJS6
 var config = require("./config.js");
 var notify = require("./notify.js");
 var termux = require("./termux.js");
 var log = require("./log.js");
+
 // Authoritative, permission-free check: AutoJs6's own accessibility service
 // instance is non-null exactly when the service is enabled AND bound.
 //
@@ -49,6 +48,7 @@ function autoJs6AccessibilityEnabled() {
   }
   return false;
 }
+
 /** True when Settings lists AutoJs6 but `auto.service` is not bound (sticky). */
 function isMalfunctioning() {
   try {
@@ -75,9 +75,11 @@ function isMalfunctioning() {
     return false;
   }
 }
+
 var A11Y_TOGGLE_MSG =
   "Open Settings > Accessibility > AutoJs6: if already ON, turn OFF then ON again. " +
   "sshd/Tailscale self-heal still runs without a11y.";
+
 /**
  * Best-effort accessibility check for the watchdog — DEGRADES, never blocks.
  *
@@ -96,10 +98,12 @@ function enforce(profile) {
     notify.clear("a11y-stale");
     return;
   }
+
   var sticky = isMalfunctioning();
   if (sticky) {
     log.append("[watchdog] accessibility STICKY (Settings ON, service not bound) — user must toggle OFF then ON");
   }
+
   if (config.splitStorage(profile)) {
     log.append("[watchdog] split-storage: a11y off/sticky — co-monitor will probe via Shizuku");
     try {
@@ -132,6 +136,7 @@ function enforce(profile) {
       return;
     }
   }
+
   // Still off or sticky — user must enable / cycle manually.
   if (sticky) {
     log.append("[watchdog] accessibility still sticky — user must toggle OFF then ON");
@@ -141,12 +146,14 @@ function enforce(profile) {
     notify.show("AutoJs6 accessibility disabled", A11Y_TOGGLE_MSG, "a11y-blocked");
   }
 }
+
 function statusReport() {
   return {
     autojs6A11y: autoJs6AccessibilityEnabled(),
     autojs6A11yMalfunctioning: isMalfunctioning(),
   };
 }
+
 module.exports = {
   enforce: enforce,
   statusReport: statusReport,

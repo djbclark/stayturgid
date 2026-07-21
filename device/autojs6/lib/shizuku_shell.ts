@@ -1,7 +1,6 @@
-// @generated
-"use strict";
 // @ts-nocheck
 var log = require("./log.js");
+
 /**
  * Run a shell command via AutoJs6's Shizuku API when operational, else shell().
  * Requires Shizuku drawer toggle ON in AutoJs6 (see docs/modules/autojs6.md).
@@ -24,6 +23,7 @@ function isOperational() {
     return false;
   }
 }
+
 function exec(cmd) {
   if (isOperational()) {
     try {
@@ -34,6 +34,7 @@ function exec(cmd) {
   }
   return shell(cmd, false);
 }
+
 module.exports = {
   isOperational: isOperational,
   exec: exec,

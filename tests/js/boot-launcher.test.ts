@@ -1,23 +1,26 @@
-// @generated
 // @ts-nocheck
 /**
  * Regression test for boot-launcher.js child working-directory handling.
  * AutoJs6 otherwise inherits scripts/ and main.js cannot load ./lib/*.
  */
 "use strict";
+
 var fs = require("fs");
 var path = require("path");
 var vm = require("vm");
+
 var repo = path.resolve(__dirname, "..", "..");
 var source = fs.readFileSync(path.join(repo, "device", "autojs6", "scripts", "boot-launcher.js"), "utf8");
 var main = "/sdcard/stayturgid/autojs6/main.js";
 var execution = null;
+
 function ExecutionConfig() {
   this.workingDirectory = null;
 }
 ExecutionConfig.prototype.setWorkingDirectory = function (value) {
   this.workingDirectory = String(value);
 };
+
 var sandbox = {
   require: function (name) {
     if (name === "../lib/engine_guard.js") {
@@ -50,7 +53,9 @@ var sandbox = {
     },
   },
 };
+
 vm.runInNewContext(source, sandbox, { filename: "boot-launcher.js" });
+
 var passed =
   execution !== null &&
   execution.script === main &&

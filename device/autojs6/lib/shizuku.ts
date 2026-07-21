@@ -1,9 +1,8 @@
-// @generated
-"use strict";
 // @ts-nocheck
 // @heals: PORT5555-OPEN SHIZUKU-HEADLESS
 var log = require("./log.js");
 var sh = require("./shizuku_shell.js");
+
 function serverRunning() {
   // HEADLESS_STATUS on Samsung returns result=0 even when running
   // (Samsung freezes the Java broadcast receiver). Fall back to pgrep.
@@ -14,6 +13,7 @@ function serverRunning() {
   var p = sh.exec("pgrep -f '[s]hizuku_server'");
   return p && p.code === 0 && String(p.result || "").trim().length > 0;
 }
+
 /**
  * Best-effort wireless-debug / adbd enable via Shizuku shell (no manager UI).
  * Returns true when localhost:5555 answers after the attempt.
@@ -59,6 +59,7 @@ function tryShellWirelessRepair() {
   }
   return false;
 }
+
 /**
  * Headless start via operator/Shizuku HEADLESS_START broadcast.
  * The fork has built-in retry logic (3 attempts, 5s delay).
@@ -72,6 +73,7 @@ function headlessStart() {
   sleep(5000);
   return serverRunning();
 }
+
 /**
  * Catastrophic path: shell repair, then HEADLESS_START broadcast
  * (with built-in retry logic in the fork).
@@ -93,6 +95,7 @@ function repairCatastrophic(profile) {
   log.append("[watchdog] shizuku headless start failed after retries");
   return false;
 }
+
 module.exports = {
   headlessStart: headlessStart,
   repairCatastrophic: repairCatastrophic,

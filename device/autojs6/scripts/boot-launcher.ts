@@ -1,5 +1,3 @@
-// @generated
-"use strict";
 // @ts-nocheck
 /**
  * Boot helper: start main.js if not already running.
@@ -8,10 +6,12 @@
  *
  * No "auto" directive: this launcher doesn't need accessibility.
  */
+
 var engineGuard = require("../lib/engine_guard.js");
 var config = require("../lib/config.js");
 var MAIN = engineGuard.MAIN;
 var STALE_WATCHDOG_MS = 25 * 60 * 1000;
+
 function latestWatchdogCycleMs() {
   var logPath = config.WATCHDOG_LOG;
   if (!files.exists(logPath)) return null;
@@ -37,11 +37,13 @@ function latestWatchdogCycleMs() {
   }
   return null;
 }
+
 function watchdogStale() {
   var last = latestWatchdogCycleMs();
   if (last === null) return true;
   return Date.now() - last > STALE_WATCHDOG_MS;
 }
+
 function launchIfNeeded() {
   var existing = engineGuard.findMainEngines();
   if (existing.length === 1 && !watchdogStale()) {
@@ -60,4 +62,5 @@ function launchIfNeeded() {
   childConfig.setWorkingDirectory(MAIN.substring(0, MAIN.lastIndexOf("/")));
   engines.execScriptFile(MAIN, childConfig);
 }
+
 launchIfNeeded();

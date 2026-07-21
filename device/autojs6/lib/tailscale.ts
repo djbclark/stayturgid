@@ -1,11 +1,11 @@
-// @generated
-"use strict";
 // @ts-nocheck
 var log = require("./log.js");
 var sh = require("./shizuku_shell.js");
+
 var DEFAULT_PKG = "com.tailscale.ipn";
 var DEFAULT_ACTIVITY = "com.tailscale.ipn.MainActivity";
 var COORD_PING_HOST = "100.100.100.100";
+
 function isTunUp(profile) {
   var ip = sh.exec("ip -4 addr show tun0 2>/dev/null");
   if (ip.code === 0 && ip.result && String(ip.result).indexOf("inet ") >= 0) {
@@ -21,6 +21,7 @@ function isTunUp(profile) {
   }
   return false;
 }
+
 /**
  * Check Tailscale tunnel health: tun0 has traffic + coord server pings.
  */
@@ -34,6 +35,7 @@ function check(profile) {
     ping: pingOk,
   };
 }
+
 /** Relaunch Tailscale so always-on VPN can re-establish tun0. */
 function relaunch(profile) {
   var pkg = (profile && profile.tailscalePackage) || DEFAULT_PKG;
@@ -56,6 +58,7 @@ function relaunch(profile) {
     return false;
   }
 }
+
 module.exports = {
   check: check,
   relaunch: relaunch,

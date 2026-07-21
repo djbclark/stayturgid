@@ -1,5 +1,3 @@
-// @generated
-"use strict";
 // @ts-nocheck
 /**
  * Validate catastrophic UI repair (Shizuku Start tap) without breaking port 5555.
@@ -9,12 +7,15 @@
  * Requires: unlocked screen, AutoJs6 accessibility, mode=autojs6.
  */
 "auto";
+
 var config = require("../lib/config.js");
 var guard = require("../lib/guard.js");
 var log = require("../lib/log.js");
 var repair = require("../lib/repair.js");
+
 guard.enforce();
 auto.waitFor();
+
 var profile = config.detectDeviceProfile();
 log.append("[watchdog] catastrophic UI test start (autojs6)");
 var ok = repair.repairCatastrophic(profile);

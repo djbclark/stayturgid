@@ -23,12 +23,29 @@ repos:
 
   - repo: local
     hooks:
+      - id: ts-compile
+        name: TypeScript Compile
+        entry: bash
+        args:
+          - -c
+          - |
+            just build-ts
+            just check-ts
+            for f in $(find device/autojs6 tests/js just/tools docs/research -name "*.js" -not -path "*/node_modules/*" 2>/dev/null); do
+              git add "$f"
+            done
+        language: system
+        files: '\.ts$'
+        pass_filenames: false
+
+  - repo: local
+    hooks:
       - id: biome-check
         name: biome check
         entry: biome
         args: [check, --no-errors-on-unmatched]
         language: system
-        files: '^(device/autojs6/.*\.js|control/static/.*\.css)$'
+        files: '^(device/autojs6/.*\.(js|ts)|tests/js/.*\.(js|ts)|just/tools/.*\.(js|ts)|docs/research/.*\.(js|ts)|control/static/.*\.css)$'
 
   - repo: local
     hooks:

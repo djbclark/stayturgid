@@ -1,5 +1,3 @@
-// @generated
-"use strict";
 // @ts-nocheck
 /** Shared constants and device profile resolution.
  *
@@ -9,6 +7,7 @@
  * code names a specific device; without the JSON a generic profile applies
  * (no tap-coordinate fallback, no self-ping — degraded but functional).
  */
+
 // Single stayturgid root per filesystem. SD_ROOT is created by the ensureDirs()
 // call below so a user-deleted directory self-heals before we read/write.
 var SD_ROOT = "/sdcard/stayturgid";
@@ -17,6 +16,7 @@ var ENV_FILE = TERMUX_HOME + "/.stayturgid/env";
 var DEVICE_JSON = SD_ROOT + "/state/device.json";
 var WATCHDOG_LOG = SD_ROOT + "/logs/watchdog.log";
 var REPAIR_SCRIPT = TERMUX_HOME + "/.stayturgid/bin/stayturgid_repair.py";
+
 /** Resolve shared-storage root (Fire OS uses ~/.stayturgid/shared). */
 function resolveSdRoot() {
   try {
@@ -29,6 +29,7 @@ function resolveSdRoot() {
   }
   return SD_ROOT;
 }
+
 function pathsFor(profile) {
   var termuxRoot = profile && profile.sdRoot ? profile.sdRoot : resolveSdRoot();
   var root = termuxRoot;
@@ -47,6 +48,7 @@ function pathsFor(profile) {
     triggerFile: root + "/run/repair_now",
   };
 }
+
 /** Return the directory portion of a file path without relying on AutoJs6 APIs. */
 function parentDir(filePath) {
   var path = String(filePath);
@@ -58,17 +60,20 @@ function parentDir(filePath) {
   if (slash === 0) return "/";
   return path.substring(0, slash);
 }
+
 /** Ensure the parent directory of a file exists, including deleted run/state dirs. */
 function ensureParentDir(filePath) {
   var dir = parentDir(filePath);
   files.ensureDir(dir === "/" ? dir : dir + "/");
   return dir;
 }
+
 /** Fire OS: Termux state/logs live under private home; AutoJs6 uses /sdcard only. */
 function splitStorage(profile) {
   var root = profile && profile.sdRoot ? profile.sdRoot : resolveSdRoot();
   return root.indexOf(TERMUX_HOME) === 0;
 }
+
 /** mkdir -p the shared-storage subdirs the watchdog writes (self-healing). */
 function ensureDirs(profile) {
   var root = pathsFor(profile || {}).sdRoot;
@@ -80,10 +85,13 @@ function ensureDirs(profile) {
     }
   });
 }
+
 var INTERVAL_MS = 20 * 60 * 1000;
 var STALE_REPAIR_MS = 15 * 60 * 1000;
 var NOTIFY_CHANNEL = "stayturgid";
+
 var AUTOJS6_A11Y = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher";
+
 var PROFILE_DEFAULTS = {
   id: "generic",
   label: "unknown device",
@@ -97,6 +105,7 @@ var PROFILE_DEFAULTS = {
   tailscaleActivity: "com.tailscale.ipn.MainActivity",
   wirelessDebugUiFallback: false,
 };
+
 function detectDeviceProfile() {
   var profile = {};
   var profileSource = "";
@@ -133,6 +142,7 @@ function detectDeviceProfile() {
   merged.samsungWirelessDebugFallback = merged.wirelessDebugUiFallback;
   return merged;
 }
+
 module.exports = {
   SD_ROOT: SD_ROOT,
   DEVICE_JSON: DEVICE_JSON,

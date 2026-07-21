@@ -1,5 +1,3 @@
-// @generated
-"use strict";
 // @ts-nocheck
 /**
  * Tailscale-down probe + relaunch (Mac script force-stops first).
@@ -9,11 +7,14 @@
  * so the Mac driver gets log lines within ~60s (relaunch + waitForUp only).
  */
 "auto";
+
 var config = require("../lib/config.js");
 var log = require("../lib/log.js");
 var tailscale = require("../lib/tailscale.js");
+
 var profile = config.detectDeviceProfile();
 config.ensureDirs(profile);
+
 function waitForUp(maxMs) {
   var deadline = Date.now() + maxMs;
   while (Date.now() < deadline) {
@@ -23,12 +24,16 @@ function waitForUp(maxMs) {
   }
   return tailscale.check(profile);
 }
+
 log.append("[watchdog] tailscale-down-test probe start (autojs6)");
+
 var down = tailscale.check(profile);
 log.append("[watchdog] tailscale-down-test probe tun=" + down.tun + " ping=" + down.ping + " up=" + down.up);
+
 var relaunched = tailscale.relaunch(profile);
 sleep(2000);
 var after = waitForUp(45000);
+
 log.append(
   "[watchdog] tailscale-down-test after-relaunch tun=" +
     after.tun +
