@@ -11,6 +11,7 @@ configure:
 check:
     bash tests/run.sh code
     @just site-contract-check
+    @just check-ts
     @just ruff
     @just typos
     @just biome
@@ -57,6 +58,7 @@ unit-and-pytest:
     bash tests/run.sh local
     @just pytest
     @just ansible-test
+    @just check-ts
     @just ruff
     @just typos
     @just biome
@@ -237,7 +239,7 @@ lint:
     fi
     if command -v mypy >/dev/null; then
       echo "### mypy"
-      mypy control/ device/termux/py/ ansible_collections/ tests/ || rc=1
+      mypy control/ device/termux/py/ ansible_collections/ tests/ just/tools/ || rc=1
     else
       echo "mypy not installed (uv tool install mypy) — skipped"
     fi

@@ -6,6 +6,8 @@ from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
 import os
+import shutil
+import tempfile
 
 from ansible_collections.stayturgid.android_common.plugins.module_utils import adb_shell
 
@@ -54,6 +56,22 @@ def adb_push(run_command, device, local, remote):
     return run_command(["adb", "-s", device, "push", str(local), remote])
 
 
+def _staged_dir_without_ts_sources(local_dir):
+    """Copy local_dir into a scratch dir, excluding *.ts.
+
+    Rhino/AutoJs6 loads the compiled .js siblings only (every require() in the
+    generated output uses an explicit .js extension); the committed .ts source
+    is for git review/debugging, not device use. Pushing the raw source dir
+    with `adb push` would ship .ts alongside .js to every device with no
+    on-device purpose. Returns (scratch_root, staged_dir) — caller must clean
+    up scratch_root.
+    """
+    scratch_root = tempfile.mkdtemp(prefix="stayturgid-deploy-")
+    staged_dir = os.path.join(scratch_root, os.path.basename(local_dir))
+    shutil.copytree(local_dir, staged_dir, ignore=shutil.ignore_patterns("*.ts"))
+    return scratch_root, staged_dir
+
+
 def deploy_project(run_command, device, repo_root, target=DEFAULT_TARGET, check_mode=False):
     """Wipe lib/scripts, push project tree, verify. Returns (ok, message, changed)."""
     src = project_src_dir(repo_root)
@@ -81,7 +99,11 @@ def deploy_project(run_command, device, repo_root, target=DEFAULT_TARGET, check_
 
     for dir_name in ("lib", "scripts"):
         local = os.path.join(src, dir_name)
-        rc, _out, err = adb_push(run_command, device, local, "%s/%s" % (target, dir_name))
+        scratch_root, staged = _staged_dir_without_ts_sources(local)
+        try:
+            rc, _out, err = adb_push(run_command, device, staged, "%s/%s" % (target, dir_name))
+        finally:
+            shutil.rmtree(scratch_root, ignore_errors=True)
         if rc != 0:
             return False, "adb push %s/ failed: %s" % (dir_name, err.strip() or rc), False
 

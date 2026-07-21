@@ -12,7 +12,7 @@ repos:
       - id: mypy
         name: mypy
         entry: mypy
-        args: [control/, device/termux/py/, ansible_collections/, tests/]
+        args: [control/, device/termux/py/, ansible_collections/, tests/, just/tools/]
         language: system
         pass_filenames: false
         files: '\.py$'
@@ -41,9 +41,17 @@ repos:
           - |
             just build-ts
             just check-ts
-            for f in $(find device/autojs6 tests/js just/tools docs/research -name "*.js" -not -path "*/node_modules/*" 2>/dev/null); do
-              git add "$f"
-            done
+            # Rebuilding can touch .js files beyond what this commit staged
+            # (e.g. an unrelated local edit sitting in the working tree).
+            # Fail and name them rather than silently `git add`-ing whatever
+            # changed — the developer reviews and stages, same as ruff --fix.
+            dirty=$(git diff --name-only -- device/autojs6 tests/js just/tools docs/research | grep -E '\.(js|ts)$' || true)
+            if [ -n "$dirty" ]; then
+              echo "error: TypeScript build produced unstaged changes:"
+              echo "$dirty" | sed 's/^/  /'
+              echo "Review these files, 'git add' them, then commit again."
+              exit 1
+            fi
         language: system
         files: '\.ts$'
         pass_filenames: false

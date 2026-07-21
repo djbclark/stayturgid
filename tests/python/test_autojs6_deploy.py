@@ -62,6 +62,56 @@ def test_deploy_wipes_lib_scripts_before_push(monkeypatch, tmp_path):
     assert verify, "expected post-push file check"
 
 
+def test_deploy_excludes_ts_source_files(monkeypatch, tmp_path):
+    """Committed .ts source lives beside the compiled .js for git review/debug;
+    Rhino only ever loads the .js (every require() uses an explicit .js
+    extension). adb push must not ship .ts to the device — it serves no
+    on-device purpose and would grow unbounded as more files migrate."""
+    root = tmp_path / "repo"
+    proj = root / "device" / "autojs6"
+    (proj / "lib").mkdir(parents=True)
+    (proj / "scripts").mkdir(parents=True)
+    (proj / "project.json").write_text("{}")
+    (proj / "main.js").write_text("//")
+    (proj / "fleet_profile.json").write_text("{}")
+    (proj / "lib" / "shizuku_shell.js").write_text("//")
+    (proj / "lib" / "shizuku_shell.ts").write_text("// source")
+    (proj / "lib" / "comonitor.js").write_text("//")
+    (proj / "lib" / "comonitor.ts").write_text("// source")
+    (proj / "scripts" / "shizuku-probe.js").write_text("//")
+    (proj / "scripts" / "shizuku-probe.ts").write_text("// source")
+
+    staged_dir_contents: dict[str, list[str]] = {}
+
+    def fake_run_command(cmd):
+        if len(cmd) >= 5 and cmd[3] == "push":
+            local = Path(cmd[4])
+            if local.is_dir():
+                staged_dir_contents[local.name] = sorted(p.name for p in local.rglob("*") if p.is_file())
+        if "shizuku_shell.js" in " ".join(cmd) and "test -f" in " ".join(cmd):
+            return 0, "", ""
+        return 0, "", ""
+
+    monkeypatch.setattr(deploy_mod, "REPO_ROOT", root)
+    monkeypatch.setattr(deploy_mod.adb, "resolve_target", lambda a: "SERIAL")
+    monkeypatch.setattr(deploy_mod, "_run_command", fake_run_command)
+    monkeypatch.setattr(deploy_mod.adb_shell, "adb_connect", lambda *a, **k: None)
+
+    assert deploy_mod.deploy_project("fireos-device") == 0
+
+    assert "lib" in staged_dir_contents and "scripts" in staged_dir_contents
+    for pushed_files in staged_dir_contents.values():
+        assert not any(f.endswith(".ts") for f in pushed_files), pushed_files
+    assert "shizuku_shell.js" in staged_dir_contents["lib"]
+    assert "comonitor.js" in staged_dir_contents["lib"]
+    assert "shizuku-probe.js" in staged_dir_contents["scripts"]
+
+    # Staging dirs are scratch — must not leak into the real source tree or survive after push.
+    assert not any((proj / "lib").glob("*.tmp*"))
+    for pushed_files in staged_dir_contents.values():
+        assert pushed_files, "staged dir should not be empty"
+
+
 def test_deploy_fails_when_verify_missing(monkeypatch, tmp_path):
     root = tmp_path / "repo"
     proj = root / "device" / "autojs6"

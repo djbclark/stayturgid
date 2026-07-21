@@ -61,7 +61,8 @@ agent-review:
 # Build TypeScript files into JavaScript and add generated header
 build-ts:
     bunx tsc
-    bash just/tools/add_generated_header.sh
+    bunx biome format --write device/autojs6 tests/js just/tools docs/research
+    python3 just/tools/add_generated_header.py
 
 # Verify TS/JS migration and mappings
 check-ts:
@@ -74,8 +75,10 @@ check-ts:
     done
     @echo "Verifying no stray JS files..."
     @for f in $(find device/autojs6 tests/js just/tools docs/research -name "*.js" -not -path "*/node_modules/*" 2>/dev/null); do \
-      if ! head -n 1 "$f" | grep -q "^// @generated"; then \
-        echo "Error: Non-generated JS file found: $f (Ensure it's migrated to TS and compiled)"; exit 1; \
+      ts_file="${f%.js}.ts"; \
+      if [ ! -f "$ts_file" ]; then \
+        echo "Error: Stray JS file with no corresponding TS source: $f"; exit 1; \
       fi \
     done
-    @echo "TS checks passed."
+    @echo "Verifying generated headers..."
+    @python3 just/tools/add_generated_header.py --check
