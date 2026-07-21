@@ -48,7 +48,18 @@ repos:
             # wouldn't see it). Fail and name them rather than silently
             # `git add`-ing whatever changed — the developer reviews and
             # stages, same as ruff --fix.
-            dirty=$(git status --porcelain -- device/autojs6 tests/js just/tools docs/research | cut -c4- | grep -E '\.(js|ts)$' || true)
+            #
+            # Only flag what's NOT reflected in the index: unstaged edits to
+            # tracked files (git diff) plus brand-new untracked files (status
+            # `??`). Deliberately NOT `git status --porcelain` wholesale —
+            # that also matches files already staged for *this* commit,
+            # which is the normal, correct state right before committing.
+            dirty=$(
+              {
+                git diff --name-only -- device/autojs6 tests/js just/tools docs/research
+                git status --porcelain --untracked-files=normal -- device/autojs6 tests/js just/tools docs/research | grep '^??' | cut -c4-
+              } | sort -u | grep -E '\.(js|ts)$' || true
+            )
             if [ -n "$dirty" ]; then
               echo "error: TypeScript build produced unstaged changes:"
               echo "$dirty" | sed 's/^/  /'

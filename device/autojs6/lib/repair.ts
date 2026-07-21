@@ -1,15 +1,14 @@
-// @ts-nocheck
-var termux = require("./termux.js");
+import termux = require("./termux.js");
+import shizuku = require("./shizuku.js");
+
+import type { DeviceProfile } from "./config.js";
 
 /**
  * Run the catastrophic repair path when port 5555 is down and no privileged shell
  * is reachable from Termux (CLOSED_NO_SHELL).
  */
-function repairCatastrophic(profile) {
-  return require("./shizuku.js").repairCatastrophic(profile);
+export function repairCatastrophic(profile: DeviceProfile): boolean {
+  return shizuku.repairCatastrophic(profile);
 }
 
-module.exports = {
-  repairCatastrophic: repairCatastrophic,
-  invokeTermuxRepair: termux.invokeRepair,
-};
+export const invokeTermuxRepair = termux.invokeRepair;

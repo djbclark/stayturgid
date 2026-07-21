@@ -1,11 +1,10 @@
-// @ts-nocheck
-var log = require("./log.js");
+import log = require("./log.js");
 
 /**
  * Run a shell command via AutoJs6's Shizuku API when operational, else shell().
  * Requires Shizuku drawer toggle ON in AutoJs6 (see docs/modules/autojs6.md).
  */
-function isOperational() {
+export function isOperational(): boolean {
   try {
     if (typeof shizuku === "undefined" || typeof shizuku !== "function") {
       return false;
@@ -14,18 +13,18 @@ function isOperational() {
       return shizuku.isOperational();
     }
     if (typeof shizuku.state !== "undefined") {
-      var st = shizuku.state;
+      const st = shizuku.state;
       return st === true || st === "ready" || st === "operational";
     }
-    var probe = shizuku("true");
-    return probe && probe.code === 0;
-  } catch (e) {
+    const probe = shizuku("true");
+    return probe.code === 0;
+  } catch {
     return false;
   }
 }
 
-function exec(cmd) {
-  if (isOperational()) {
+export function exec(cmd: string): ShellResult {
+  if (isOperational() && shizuku) {
     try {
       return shizuku(cmd);
     } catch (e) {
@@ -34,8 +33,3 @@ function exec(cmd) {
   }
   return shell(cmd, false);
 }
-
-module.exports = {
-  isOperational: isOperational,
-  exec: exec,
-};

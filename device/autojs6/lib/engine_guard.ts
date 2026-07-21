@@ -1,57 +1,45 @@
-// @ts-nocheck
 /**
  * Ensure at most one stayturgid main.js engine is running.
  * Shared by main.js (startup) and boot-launcher.js.
  */
-var MAIN = "/sdcard/stayturgid/autojs6/main.js";
+export const MAIN = "/sdcard/stayturgid/autojs6/main.js";
 
-function findMainEngines() {
-  var out = [];
-  var all = runtime.engines.all();
-  for (var i = 0; i < all.length; i++) {
-    var src = String(all[i].getSource() || "");
-    if (src.indexOf(MAIN) >= 0 || src.indexOf("stayturgid/autojs6/main.js") >= 0) {
-      out.push(all[i]);
-    }
-  }
-  return out;
+export function findMainEngines(): Engine[] {
+  return runtime.engines.all().filter((engine) => {
+    const src = engine.getSource() || "";
+    return src.indexOf(MAIN) >= 0 || src.indexOf("stayturgid/autojs6/main.js") >= 0;
+  });
 }
 
 /**
  * Stop duplicate main.js engines. Keeps the current engine when identifiable.
- * @returns {number} engines force-stopped
+ * Returns the number of engines force-stopped.
  */
-function dedupeMainEngines() {
-  var self = null;
+export function dedupeMainEngines(): number {
+  let self: Engine | null = null;
   try {
     self = engines.myEngine();
-  } catch (e) {
+  } catch {
     /* best effort */
   }
   if (!self) {
     return 0;
   }
-  var existing = findMainEngines();
+  const existing = findMainEngines();
   if (existing.length <= 1) {
     return 0;
   }
-  var stopped = 0;
-  for (var i = 0; i < existing.length; i++) {
-    if (self && existing[i].id === self.id) {
+  let stopped = 0;
+  for (const engine of existing) {
+    if (engine.id === self.id) {
       continue;
     }
     try {
-      existing[i].forceStop();
+      engine.forceStop();
       stopped++;
-    } catch (e2) {
+    } catch {
       /* ignore */
     }
   }
   return stopped;
 }
-
-module.exports = {
-  MAIN: MAIN,
-  findMainEngines: findMainEngines,
-  dedupeMainEngines: dedupeMainEngines,
-};

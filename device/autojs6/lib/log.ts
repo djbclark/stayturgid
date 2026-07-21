@@ -1,56 +1,56 @@
-// @ts-nocheck
-var config = require("./config.js");
+import config = require("./config.js");
 
-function ts() {
-  var d = new Date();
-  function pad(n) {
-    return (n < 10 ? "0" : "") + n;
-  }
-  var mon = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][d.getMonth()];
-  return mon + " " + pad(d.getDate()) + " " + pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+import type { DeviceProfile } from "./config.js";
+
+function pad2(n: number): string {
+  return (n < 10 ? "0" : "") + n;
+}
+
+function pad3(n: number): string {
+  return (n < 10 ? "00" : n < 100 ? "0" : "") + n;
+}
+
+function ts(): string {
+  const d = new Date();
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${months[d.getMonth()]} ${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
 }
 
 /** ISO 8601 timestamp for JSONL/OTel schema. */
-function tsISO() {
-  var d = new Date();
-  function pad(n) {
-    return (n < 10 ? "0" : "") + n;
-  }
-  function pad3(n) {
-    return (n < 10 ? "00" : n < 100 ? "0" : "") + n;
-  }
+function tsISO(): string {
+  const d = new Date();
   return (
     d.getFullYear() +
     "-" +
-    pad(d.getMonth() + 1) +
+    pad2(d.getMonth() + 1) +
     "-" +
-    pad(d.getDate()) +
+    pad2(d.getDate()) +
     "T" +
-    pad(d.getHours()) +
+    pad2(d.getHours()) +
     ":" +
-    pad(d.getMinutes()) +
+    pad2(d.getMinutes()) +
     ":" +
-    pad(d.getSeconds()) +
+    pad2(d.getSeconds()) +
     "." +
     pad3(d.getMilliseconds()) +
     "Z"
   );
 }
 
-var LOG_KEEP_LINES = 500;
-var LOG_TRIM_OVER = 1000;
+const LOG_KEEP_LINES = 500;
+const LOG_TRIM_OVER = 1000;
 
-function trimLogIfNeeded(logPath) {
+function trimLogIfNeeded(logPath: string): void {
   try {
     if (!files.exists(logPath)) return;
-    var content = String(files.read(logPath));
-    var lines = content.split("\n");
+    const content = String(files.read(logPath));
+    const lines = content.split("\n");
     // Drop trailing empty from final newline
     if (lines.length && lines[lines.length - 1] === "") lines.pop();
     if (lines.length <= LOG_TRIM_OVER) return;
-    var kept = lines.slice(-LOG_KEEP_LINES);
+    const kept = lines.slice(-LOG_KEEP_LINES);
     files.write(logPath, kept.join("\n") + "\n");
-  } catch (e) {
+  } catch {
     /* best effort */
   }
 }
@@ -59,30 +59,30 @@ function trimLogIfNeeded(logPath) {
  * Build a JSONL entry conforming to the universal OTel log schema.
  * Fields: timestamp, level, hostname, tag, pid, tid, message
  */
-function buildJsonlEntry(line, profile) {
-  var hostname = profile && profile.id ? profile.id : "unknown";
+function buildJsonlEntry(line: string, profile: Pick<DeviceProfile, "id"> | null | undefined): string {
+  const hostname = profile && profile.id ? profile.id : "unknown";
   // Extract tag from [tag] pattern at the start of the message if present.
-  var tagMatch = String(line).match(/^\[([^\]]+)\]/);
-  var tag = tagMatch ? tagMatch[1] : "watchdog";
+  const tagMatch = line.match(/^\[([^\]]+)\]/);
+  const tag = tagMatch ? tagMatch[1] : "watchdog";
   return JSON.stringify({
     timestamp: tsISO(),
     level: "info",
-    hostname: hostname,
-    tag: tag,
+    hostname,
+    tag,
     pid: 0,
     tid: 0,
-    message: String(line),
+    message: line,
   });
 }
 
-function append(line) {
-  var msg = ts() + " " + line;
+export function append(line: string): string {
+  const msg = ts() + " " + line;
   console.log(msg);
   try {
-    var profile = config.detectDeviceProfile();
-    var paths = config.pathsFor(profile);
-    var logPath = paths.watchdogLog;
-    var logDir = String(logPath).replace(/\/[^/]+$/, "");
+    const profile = config.detectDeviceProfile();
+    const paths = config.pathsFor(profile);
+    const logPath = paths.watchdogLog;
+    const logDir = logPath.replace(/\/[^/]+$/, "");
     files.ensureDir(logDir + "/");
     // Dual-write: legacy text format
     files.append(logPath, msg + "\n");
@@ -99,6 +99,12 @@ function append(line) {
   return msg;
 }
 
+/** Namespaced status entry persisted into state.json by writeState(). */
+type StateEntry = Record<string, unknown> & { timestamp: string };
+
+/** state.json's shape: one entry per source namespace (e.g. "repair", "comonitor"). */
+type WatchdogState = Record<string, StateEntry>;
+
 /**
  * Atomically write or merge a status object into the shared state.json.
  * source: e.g. "repair" or "comonitor"
@@ -108,89 +114,106 @@ function append(line) {
  * In AutoJs6 we do not have fs.rename, so we use files.write directly
  * (best effort — partial writes are an extremely small window vs. the 20-min interval).
  */
-function writeState(source, statusObj) {
+export function writeState(source: string, statusObj: Record<string, unknown>): void {
   try {
-    var profile = config.detectDeviceProfile();
-    var statePath = config.pathsFor(profile).watchdogState;
+    const profile = config.detectDeviceProfile();
+    const statePath = config.pathsFor(profile).watchdogState;
     config.ensureParentDir(statePath);
 
     // Read current state (may be empty/missing).
-    var current = {};
+    let current: WatchdogState = {};
     try {
       if (files.exists(statePath)) {
-        current = JSON.parse(String(files.read(statePath))) || {};
+        current = (JSON.parse(String(files.read(statePath))) as WatchdogState) || {};
       }
-    } catch (pe) {
+    } catch {
       current = {};
     }
 
     // Merge the source namespace with a fresh timestamp.
-    var entry = {};
-    for (var k in statusObj) {
-      entry[k] = statusObj[k];
-    }
-    entry.timestamp = tsISO();
-    current[source] = entry;
+    current[source] = { ...statusObj, timestamp: tsISO() };
 
     // Write atomically: write to tmp then overwrite final path.
-    var tmpPath = statePath + ".tmp";
+    const tmpPath = statePath + ".tmp";
     files.write(tmpPath, JSON.stringify(current) + "\n");
     // AutoJs6 `files` has no rename; overwrite directly as best effort.
     files.write(statePath, JSON.stringify(current) + "\n");
-  } catch (e) {
+  } catch {
     /* best effort — state.json write failure must not break the watchdog */
   }
 }
 
 /** Read state.json; return parsed object or null. */
-function _readState() {
+function readState(): WatchdogState | null {
   try {
-    var profile = config.detectDeviceProfile();
-    var statePath = config.pathsFor(profile).watchdogState;
+    const profile = config.detectDeviceProfile();
+    const statePath = config.pathsFor(profile).watchdogState;
     if (files.exists(statePath)) {
-      return JSON.parse(String(files.read(statePath))) || null;
+      return (JSON.parse(String(files.read(statePath))) as WatchdogState) || null;
     }
-  } catch (e) {
+  } catch {
     /* ignore */
   }
   return null;
 }
 
 /** Read watchdog log; prefer a tail when the file is large (FUSE / battery). */
-function readWatchdogLog() {
-  var profile = config.detectDeviceProfile();
-  var logPath = config.pathsFor(profile).watchdogLog;
+export function readWatchdogLog(): string {
+  const profile = config.detectDeviceProfile();
+  const logPath = config.pathsFor(profile).watchdogLog;
   if (!files.exists(logPath)) return "";
   try {
-    var content = String(files.read(logPath));
-    var lines = content.split("\n");
+    const content = String(files.read(logPath));
+    const lines = content.split("\n");
     if (lines.length > LOG_TRIM_OVER) {
       return lines.slice(-LOG_KEEP_LINES).join("\n");
     }
     return content;
-  } catch (e) {
+  } catch {
     return "";
   }
 }
 
-function parseStatusLine(line) {
-  var s = String(line);
-  var m = s.match(/port=(\S+)\s+shizuku=(\S+)\s+sshd=(\S+)/);
+/** A STATUS line parsed from the watchdog log or state.json — fields are free-form parsed text, not verified enum members. */
+export interface RepairStatus {
+  port: string;
+  shizuku: string | null;
+  sshd: string | null;
+  a11y?: string;
+  shell?: string;
+  wifi?: string;
+}
+
+export function parseStatusLine(line: string): RepairStatus | null {
+  const m = line.match(/port=(\S+)\s+shizuku=(\S+)\s+sshd=(\S+)/);
   if (!m) return null;
-  var out = { port: m[1], shizuku: m[2], sshd: m[3] };
-  var a11y = s.match(/\ba11y=(\S+)/);
-  var shell = s.match(/\bshell=(\S+)/);
-  var wifi = s.match(/\bwifi=(\S+)/);
+  const out: RepairStatus = { port: m[1], shizuku: m[2], sshd: m[3] };
+  const a11y = line.match(/\ba11y=(\S+)/);
+  const shell = line.match(/\bshell=(\S+)/);
+  const wifi = line.match(/\bwifi=(\S+)/);
   if (a11y) out.a11y = a11y[1];
   if (shell) out.shell = shell[1];
   if (wifi) out.wifi = wifi[1];
   return out;
 }
 
-function _lineTimestampMs(line) {
-  var m = String(line).match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
+function lineTimestampMs(line: string): number | null {
+  const m = line.match(/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/);
   if (!m) return null;
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6])).getTime();
+}
+
+function statusFromState(state: WatchdogState | null): RepairStatus | null {
+  const repair = state?.repair;
+  if (!repair || !repair.port || typeof repair.port !== "string") return null;
+  return {
+    port: repair.port,
+    shizuku: typeof repair.shizuku === "string" ? repair.shizuku : null,
+    sshd: typeof repair.sshd === "string" ? repair.sshd : null,
+    a11y: typeof repair.a11y === "string" ? repair.a11y : undefined,
+    shell: typeof repair.shell === "string" ? repair.shell : undefined,
+    wifi: typeof repair.wifi === "string" ? repair.wifi : undefined,
+  };
 }
 
 /**
@@ -198,26 +221,17 @@ function _lineTimestampMs(line) {
  * Prefers state.json["repair"] for O(1) read; falls back to log-scan for
  * backwards compatibility when the state file is absent or corrupt.
  */
-function latestRepairStatus() {
+export function latestRepairStatus(): RepairStatus | null {
   // --- Primary: state.json ---
-  var state = _readState();
-  if (state && state.repair && state.repair.port) {
-    return {
-      port: state.repair.port,
-      shizuku: state.repair.shizuku || null,
-      sshd: state.repair.sshd || null,
-      a11y: state.repair.a11y || null,
-      shell: state.repair.shell || null,
-      wifi: state.repair.wifi || null,
-    };
-  }
+  const fromState = statusFromState(readState());
+  if (fromState) return fromState;
 
   // --- Fallback: legacy log scan ---
-  var content = readWatchdogLog();
+  const content = readWatchdogLog();
   if (!content) return null;
-  var lines = content.split("\n");
-  var comonitorFallback = null;
-  for (var i = lines.length - 1; i >= 0; i--) {
+  const lines = content.split("\n");
+  let comonitorFallback: RepairStatus | null = null;
+  for (let i = lines.length - 1; i >= 0; i--) {
     // Prefer Termux [repair] STATUS for bridge decisions. A bad
     // [comonitor] STATUS must not trigger CLOSED_NO_SHELL UI repair.
     if (lines[i].indexOf("[repair]") >= 0 && lines[i].indexOf("STATUS") >= 0) {
@@ -234,45 +248,32 @@ function latestRepairStatus() {
  * Return the millisecond timestamp of the most recent Termux [repair] run.
  * Prefers state.json["repair"].timestamp; falls back to log-scan.
  */
-function latestRepairTimestampMs() {
+export function latestRepairTimestampMs(): number | null {
   // --- Primary: state.json ---
-  var state = _readState();
-  if (state && state.repair && state.repair.timestamp) {
-    try {
-      var t = new Date(state.repair.timestamp).getTime();
-      if (!isNaN(t)) return t;
-    } catch (e) {
-      /* fall through */
-    }
+  const state = readState();
+  const repairTimestamp = state?.repair?.timestamp;
+  if (typeof repairTimestamp === "string") {
+    const t = new Date(repairTimestamp).getTime();
+    if (!Number.isNaN(t)) return t;
   }
 
   // --- Fallback: legacy log scan ---
-  var content = readWatchdogLog();
+  const content = readWatchdogLog();
   if (!content) return null;
-  var lines = content.split("\n");
-  for (var i = lines.length - 1; i >= 0; i--) {
+  const lines = content.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
     // Termux [repair] is authoritative freshness; [comonitor] does not
     // count as "Termux alive" (would hide a dead boot loop).
     if (lines[i].indexOf("[repair]") >= 0) {
-      var lineTs = _lineTimestampMs(lines[i]);
+      const lineTs = lineTimestampMs(lines[i]);
       if (lineTs !== null) return lineTs;
     }
   }
   return null;
 }
 
-function isRepairLoopStale() {
-  var last = latestRepairTimestampMs();
+export function isRepairLoopStale(): boolean {
+  const last = latestRepairTimestampMs();
   if (last === null) return true;
   return Date.now() - last > config.STALE_REPAIR_MS;
 }
-
-module.exports = {
-  append: append,
-  writeState: writeState,
-  readWatchdogLog: readWatchdogLog,
-  parseStatusLine: parseStatusLine,
-  latestRepairStatus: latestRepairStatus,
-  latestRepairTimestampMs: latestRepairTimestampMs,
-  isRepairLoopStale: isRepairLoopStale,
-};
