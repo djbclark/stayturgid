@@ -68,7 +68,14 @@ def _staged_dir_without_ts_sources(local_dir):
     """
     scratch_root = tempfile.mkdtemp(prefix="stayturgid-deploy-")
     staged_dir = os.path.join(scratch_root, os.path.basename(local_dir))
-    shutil.copytree(local_dir, staged_dir, ignore=shutil.ignore_patterns("*.ts"))
+    try:
+        shutil.copytree(local_dir, staged_dir, ignore=shutil.ignore_patterns("*.ts"))
+    except BaseException:
+        # A partial copytree (e.g. disk full, permissions) must not leak the
+        # scratch dir — the caller never receives scratch_root to clean up
+        # if this raises before returning, so clean up here instead.
+        shutil.rmtree(scratch_root, ignore_errors=True)
+        raise
     return scratch_root, staged_dir
 
 

@@ -39,13 +39,16 @@ repos:
         args:
           - -c
           - |
+            set -euo pipefail
             just build-ts
             just check-ts
             # Rebuilding can touch .js files beyond what this commit staged
-            # (e.g. an unrelated local edit sitting in the working tree).
-            # Fail and name them rather than silently `git add`-ing whatever
-            # changed — the developer reviews and stages, same as ruff --fix.
-            dirty=$(git diff --name-only -- device/autojs6 tests/js just/tools docs/research | grep -E '\.(js|ts)$' || true)
+            # (e.g. an unrelated local edit sitting in the working tree, or a
+            # brand-new generated file that's untracked so `git diff` alone
+            # wouldn't see it). Fail and name them rather than silently
+            # `git add`-ing whatever changed — the developer reviews and
+            # stages, same as ruff --fix.
+            dirty=$(git status --porcelain -- device/autojs6 tests/js just/tools docs/research | cut -c4- | grep -E '\.(js|ts)$' || true)
             if [ -n "$dirty" ]; then
               echo "error: TypeScript build produced unstaged changes:"
               echo "$dirty" | sed 's/^/  /'
