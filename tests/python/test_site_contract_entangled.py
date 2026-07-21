@@ -6,15 +6,16 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Iterator
 
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from control.site_contract import check_entangled as ce  # noqa: E402
-from control.site_contract import generate_registry_seeds as seeds  # noqa: E402
-from control.site_contract import site_init as si  # noqa: E402
+from control.site_contract import check_entangled as ce
+from control.site_contract import generate_registry_seeds as seeds
+from control.site_contract import site_init as si
 
 TEMPLATES = ROOT / "control" / "site_contract" / "templates"
 SITE_CONTRACT = ROOT / "SITE-CONTRACT.md"
@@ -37,7 +38,7 @@ LITERATE_TEMPLATES = EXPECTED_TEMPLATES - ce.REGISTRY_SEED_RELATIVE
 
 
 @pytest.fixture(autouse=True)
-def _chdir_repo() -> None:
+def _chdir_repo() -> Iterator[None]:
     """Entangled loads entangled.toml from the process cwd."""
     previous = Path.cwd()
     os.chdir(ROOT)

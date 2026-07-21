@@ -8,12 +8,13 @@ from conftest import REPO
 
 _MOD = Path(REPO) / "ansible_collections/stayturgid/android_common/plugins/module_utils/adb_resolve.py"
 _spec = importlib.util.spec_from_file_location("adb_resolve", _MOD)
+assert _spec is not None
 adb_resolve = importlib.util.module_from_spec(_spec)
 assert _spec.loader is not None
 _spec.loader.exec_module(adb_resolve)
 
 sys.path.insert(0, str(Path(REPO) / "control" / "lib"))
-import stayturgid_device as dev  # noqa: E402
+import stayturgid_device as dev
 
 
 def _devices_listing(*lines):

@@ -19,7 +19,7 @@ import time
 import stayturgid_shell as sh
 
 sh.ensure_lib_path()
-import a11y_services as a11y  # noqa: E402
+import a11y_services as a11y
 
 AUTOJS_PKG = "org.autojs.autojs6"
 AUTOJS_FLEET_ACTIVITY = "org.autojs.autojs.core.pref.fleet.FleetProfileActivity"

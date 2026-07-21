@@ -18,9 +18,9 @@ REQUIREMENTS = REPO_ROOT / "ansible" / "requirements.yml"
 SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "LogLevel=ERROR"]
 
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
-import adb_cli as ac  # noqa: E402
-import termux_ssh_bootstrap as boot  # noqa: E402
-from ansible_context import (  # noqa: E402
+import adb_cli as ac
+import termux_ssh_bootstrap as boot
+from ansible_context import (
     AnsibleConfigError,
     require_limit_hosts,
     resolve_ansible_context,

@@ -20,19 +20,21 @@ import os
 import socket
 import subprocess
 import sys
+from types import ModuleType
 
 _REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 _LIB = os.path.join(_REPO, "control", "lib")
 for _p in (_REPO, _LIB):
     if _p not in sys.path:
         sys.path.insert(0, _p)
-from control.lib.site_logging import (  # noqa: E402
+from control.lib.site_logging import (
     NOTICE,
     WARNING,
     log,
     trim_log,
 )
 
+stats: ModuleType | None
 try:
     import control.lib.stats as stats
 except Exception:
@@ -77,7 +79,7 @@ def read_devices(conf_path):
     """Yield (name, tailscale_ip, lan_ip) from devices.conf."""
     try:
         from stayturgid_device import iter_monitor_hosts
-    except Exception:  # noqa: BLE001
+    except Exception:
         iter_monitor_hosts = None
     if iter_monitor_hosts is not None:
         yield from iter_monitor_hosts(conf_path)

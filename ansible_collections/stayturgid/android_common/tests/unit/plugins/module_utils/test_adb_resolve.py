@@ -6,7 +6,7 @@ import sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "plugins", "module_utils"))
 
-import adb_resolve as ar  # noqa: E402
+import adb_resolve as ar
 
 
 def _listing(*lines):

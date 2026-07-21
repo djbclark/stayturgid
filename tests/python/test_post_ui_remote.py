@@ -11,7 +11,7 @@ sys.path.insert(
         "lib",
     ),
 )
-import post_ui_remote as remote  # noqa: E402
+import post_ui_remote as remote
 
 
 def test_hd8_uses_mac_usb(monkeypatch):

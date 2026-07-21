@@ -26,9 +26,9 @@ from pathlib import Path
 from typing import Any
 
 try:
-    import vlm_cloud as cloud  # type: ignore
+    import vlm_cloud as cloud
 except ImportError:  # pragma: no cover
-    cloud = None  # type: ignore
+    cloud = None
 
 REPO = Path(__file__).resolve().parents[2]
 UI_TARS_DIR = REPO / "control" / "vlm" / "ui-tars"
@@ -407,7 +407,7 @@ class VlmGate:
                     local_detail["cloud_attempt"] = detail
                     return True, local_detail
                 return ok, detail
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 if local_detail is not None:
                     local_detail = dict(local_detail)
                     local_detail["cloud_error"] = str(e)[:200]

@@ -19,7 +19,7 @@ from typing import Callable
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if REPO not in sys.path:
     sys.path.insert(0, os.path.join(REPO, "control", "lib"))
-import stayturgid_device as dev  # noqa: E402
+import stayturgid_device as dev
 
 SSH_OPTS = list(dev.SSH_OPTS)
 ON_DEVICE_BIN = "~/.stayturgid/bin"

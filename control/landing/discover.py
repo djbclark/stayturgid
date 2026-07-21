@@ -14,17 +14,18 @@ import socket
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 _REPO = Path(__file__).resolve().parents[2]
 _LIB = _REPO / "control" / "lib"
 sys.path.insert(0, str(_REPO))
 
-from control.landing import state  # noqa: E402
+from control.landing import state
 
 try:
     import yaml
 except ModuleNotFoundError:  # pragma: no cover - optional for bare runs
-    yaml = None  # type: ignore[assignment]
+    yaml = None
 
 SERVICES_FILE = state.STATE_FILE
 
@@ -249,7 +250,7 @@ def _scan_localhost(*, registered_ports: set[int] | None = None) -> list[dict]:
             note = f"HTTP {status}"
             if unregistered:
                 note += "; not in registry/ports.yml"
-            entry = {
+            entry: dict[str, Any] = {
                 "url": f"http://localhost:{port}",
                 "label": label,
                 "group": "mac",

@@ -16,7 +16,7 @@ _COLLECTION_UTILS = os.path.join(
 )
 sys.path.insert(0, _COLLECTION_UTILS)
 
-import termux_run_as as tr  # noqa: E402
+import termux_run_as as tr
 
 
 def test_discover_pubkey_paths_explicit(tmp_path):

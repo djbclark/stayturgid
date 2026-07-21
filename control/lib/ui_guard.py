@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 from typing import Callable
 
+log: Callable[..., None] | None
 try:
     from control.lib.site_logging import ERR, log
 except ImportError:

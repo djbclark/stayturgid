@@ -10,7 +10,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..",
 sys.path.insert(0, os.path.join(ROOT, "plugins", "modules"))
 sys.path.insert(0, os.path.join(ROOT, "plugins", "module_utils"))
 
-import shizuku_start as mod  # noqa: E402
+import shizuku_start as mod
 
 # --- pure-function unit tests ---
 

@@ -17,6 +17,7 @@ import re
 import subprocess
 import zipfile
 from pathlib import Path
+from typing import Any
 
 FIRE_TOOLS_ZIP_URL = "https://github.com/mrhaydendp/Fire-Tools/releases/latest/download/Fire-Tools.zip"
 FIRE_TOOLS_CACHE = Path.home() / ".cache" / "stayturgid" / "fire-tools"
@@ -67,10 +68,10 @@ def parse_version_code(dumpsys_package: str) -> int | None:
 
 def _adb() -> str:
     try:
-        from stayturgid_device import adb_bin  # type: ignore
+        from stayturgid_device import adb_bin
 
         return adb_bin()
-    except Exception:  # noqa: BLE001
+    except Exception:
         return os.environ.get("STAYTURGID_ADB", "adb")
 
 
@@ -289,7 +290,7 @@ def repair_if_needed(
         stop_aurora_churn(run_command, device)
     # Full stack pin only when explicitly forced or pin policy enabled + drift.
     pin_stack = force or (pin_gms_enabled() and (needs_gms_downgrade(gms_ver) or needs_play_downgrade(play_ver)))
-    out = {
+    out: dict[str, Any] = {
         "gms_version": gms_ver,
         "play_version": play_ver,
         "gsf_version": gsf_ver,

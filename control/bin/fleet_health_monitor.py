@@ -28,13 +28,13 @@ _LIB = os.path.join(_REPO, "control", "lib")
 for _p in (_LIB, _REPO):
     if _p not in sys.path:
         sys.path.append(_p)
-import fleet_health as fh  # noqa: E402
-import hd8_google_stack as hgs  # noqa: E402
-import stayturgid_device as dev  # noqa: E402
-import vlm_helpers as vh  # noqa: E402
+import fleet_health as fh
+import hd8_google_stack as hgs
+import stayturgid_device as dev
+import vlm_helpers as vh
 
-import control.lib.stats as stats  # noqa: E402
-from control.lib.site_logging import (  # noqa: E402
+import control.lib.stats as stats
+from control.lib.site_logging import (
     ERR,
     INFO,
     NOTICE,
@@ -69,7 +69,7 @@ REPAIR_HEAL_COOLDOWN_SEC = 30 * 60
 REPAIR_HEAL_AFTER = 2
 
 
-def _stats_event(event_type: str, device: str, **details: object) -> None:
+def _stats_event(event_type: str, device: str, **details: str | int | float) -> None:
     try:
         stats.record_event(event_type, device, **details)
     except Exception:
@@ -100,7 +100,7 @@ def notify(title: str, message: str, sound: str | None = None) -> None:
 def read_devices(conf_path: str):
     try:
         from stayturgid_device import iter_monitor_hosts
-    except Exception:  # noqa: BLE001
+    except Exception:
         iter_monitor_hosts = None
     if iter_monitor_hosts is not None:
         yield from iter_monitor_hosts(conf_path)
@@ -310,7 +310,7 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
                 "%s Google Play Services pinned (%s)" % (name, new_ver),
             )
             maybe_verify_hd8_google_closeout(name)
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         _fleet_log(INFO, "%s google-stack heal skipped: %s" % (name, e))
 
 
@@ -640,7 +640,7 @@ def main() -> int:
     for name, ts_ip, lan_ip in read_devices(CONF):
         try:
             check_device(name, ts_ip, lan_ip)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             _fleet_log(
                 ERR,
                 "%s via none: sshd=unknown issues=probe_error probe_error=%s" % (name, str(e).replace(" ", "_")[:120]),

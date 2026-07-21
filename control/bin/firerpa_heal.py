@@ -24,8 +24,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 for _p in (REPO_ROOT / "control" / "lib", REPO_ROOT):
     if str(_p) not in sys.path:
         sys.path.append(str(_p))
-from control.lib.firerpa_auth import certificate_path  # noqa: E402
-from control.lib.site_logging import (  # noqa: E402
+from control.lib.firerpa_auth import certificate_path
+from control.lib.site_logging import (
     ERR,
     INFO,
     NOTICE,

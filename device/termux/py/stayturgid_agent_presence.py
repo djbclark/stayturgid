@@ -37,13 +37,13 @@ if os.path.isfile(_ENV_FILE):
         pass
 
 # Prefer ~/.stayturgid/lib (deployed) then repo control/lib (dev / unit tests).
-import stayturgid_shell as sh  # noqa: E402
+import stayturgid_shell as sh
 
 sh.ensure_lib_path()
 try:
-    import termux_api as tapi  # noqa: E402
+    import termux_api as tapi
 except ImportError:
-    tapi = None  # type: ignore
+    tapi = None
 
 NID = "stayturgid-presence"
 # Shared-storage root; self-healing (writers mkdir -p first).

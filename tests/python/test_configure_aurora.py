@@ -8,8 +8,10 @@ REPO = Path(__file__).resolve().parents[2]
 CFG = REPO / "control" / "tools" / "play" / "configure_aurora.py"
 
 spec = importlib.util.spec_from_file_location("configure_aurora", CFG)
+assert spec is not None
 mod = importlib.util.module_from_spec(spec)
 sys.modules["configure_aurora"] = mod
+assert spec.loader is not None
 spec.loader.exec_module(mod)
 
 FIRE_DIALOG = """

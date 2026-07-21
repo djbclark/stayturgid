@@ -8,7 +8,7 @@ import pytest
 sys.path.insert(
     0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "lib")
 )
-import screen_control as sc  # noqa: E402
+import screen_control as sc
 
 
 def test_is_input_command_detects_tap():

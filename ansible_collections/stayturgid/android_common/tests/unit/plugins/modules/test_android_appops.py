@@ -10,8 +10,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..",
 sys.path.insert(0, os.path.join(ROOT, "plugins", "modules"))
 sys.path.insert(0, os.path.join(ROOT, "plugins", "module_utils"))
 
-import adb_shell  # noqa: E402
-import android_appops as mod  # noqa: E402
+import adb_shell
+import android_appops as mod
 
 
 def test_parse_appops_mode():

@@ -11,8 +11,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
 
-import vlm_cloud as cloud  # noqa: E402
-import vlm_gate as vlm  # noqa: E402
+import vlm_cloud as cloud
+import vlm_gate as vlm
 
 
 def main(argv: list[str] | None = None) -> int:

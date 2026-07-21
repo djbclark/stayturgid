@@ -22,8 +22,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 for _p in (REPO_ROOT, REPO_ROOT / "control" / "lib"):
     if str(_p) not in sys.path:
         sys.path.append(str(_p))
-from control.lib.firerpa_auth import certificate_path  # noqa: E402
-from control.lib.site_logging import INFO, WARNING, log, trim_log  # noqa: E402
+from control.lib.firerpa_auth import certificate_path
+from control.lib.site_logging import INFO, WARNING, log, trim_log
 
 LOG_NAME = "firerpa-health.log"
 ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")

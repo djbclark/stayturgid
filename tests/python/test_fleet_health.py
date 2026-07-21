@@ -11,8 +11,8 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
 sys.path.insert(0, str(REPO / "control" / "bin"))
 
-import fleet_health as fh  # noqa: E402
-import fleet_health_monitor as fhm  # noqa: E402
+import fleet_health as fh
+import fleet_health_monitor as fhm
 
 
 def test_parse_kv():

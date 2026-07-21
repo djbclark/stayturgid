@@ -10,8 +10,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..",
 sys.path.insert(0, os.path.join(ROOT, "plugins", "modules"))
 sys.path.insert(0, os.path.join(ROOT, "plugins", "module_utils"))
 
-import shizuku as shizuku_utils  # noqa: E402
-import shizuku_grant as mod  # noqa: E402
+import shizuku as shizuku_utils
+import shizuku_grant as mod
 
 
 def test_patch_shizuku_json_adds_entry():

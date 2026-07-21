@@ -11,7 +11,7 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "bin"))
 
 pytest.importorskip("flask")
-import dashboard  # noqa: E402
+import dashboard
 
 
 def test_rish_probe_requires_uid_2000(monkeypatch):

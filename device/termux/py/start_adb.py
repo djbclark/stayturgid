@@ -15,6 +15,7 @@ import signal
 import subprocess
 import sys
 import time
+from typing import IO, Any
 
 PREFIX = "/data/data/com.termux/files/usr"
 HOME = os.environ.get("HOME", "/data/data/com.termux/files/home")
@@ -142,15 +143,17 @@ def _capture(cmd: list[str], *, timeout: float = 30) -> tuple[int, str]:
 
 def _run_bg(cmd: list[str], log_path: str | None = None) -> int:
     try:
-        kwargs = {}
+        stdout: IO[Any] | int | None = None
+        stderr: int | None = None
         if log_path:
             os.makedirs(os.path.dirname(log_path), exist_ok=True)
-            f = open(log_path, "a")
-            kwargs = {"stdout": f, "stderr": subprocess.STDOUT}
+            stdout = open(log_path, "a")
+            stderr = subprocess.STDOUT
         p = subprocess.Popen(
             cmd,
             stdin=subprocess.DEVNULL,
-            **kwargs,
+            stdout=stdout,
+            stderr=stderr,
         )
         return p.pid
     except OSError:
@@ -495,6 +498,7 @@ def main() -> int:
         # Parent: write pidfile immediately, then exit (Ansible handler checks this)
         _write_pid(BOOTLOOP_PID_FILE, pid)
         _boot_log(f"bootloop started (pid {pid})")
+        return 0
 
 
 if __name__ == "__main__":

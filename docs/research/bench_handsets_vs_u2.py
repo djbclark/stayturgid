@@ -23,8 +23,8 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(REPO / "control" / "lib")]
-import stayturgid_device as dev  # noqa: E402
-import ui_driver as uid  # noqa: E402
+import stayturgid_device as dev
+import ui_driver as uid
 
 U2_SITE = Path.home() / ".local/pipx/venvs/uiautomator2/lib/python3.14/site-packages"
 sys.path.insert(0, str(U2_SITE))

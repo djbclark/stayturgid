@@ -7,6 +7,16 @@ repos:
         args: [--fix]
       - id: ruff-format
 
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: mypy
+        args: [control/, device/termux/py/, ansible_collections/, tests/]
+        language: system
+        pass_filenames: false
+        files: '\.py$'
+
   - repo: https://github.com/crate-ci/typos
     rev: v1.48.0
     hooks:

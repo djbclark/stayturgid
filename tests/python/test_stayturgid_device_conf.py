@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "control" / "lib"))
-import stayturgid_device as sd  # noqa: E402
+import stayturgid_device as sd
 
 
 def test_iter_devices_conf_and_monitor_hosts(tmp_path):

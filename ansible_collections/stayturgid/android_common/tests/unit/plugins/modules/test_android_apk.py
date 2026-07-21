@@ -10,8 +10,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..",
 sys.path.insert(0, os.path.join(ROOT, "plugins", "modules"))
 sys.path.insert(0, os.path.join(ROOT, "plugins", "module_utils"))
 
-import android_apk as mod  # noqa: E402
-import apk_install  # noqa: E402
+import android_apk as mod
+import apk_install
 
 
 def test_parse_install_result_success():

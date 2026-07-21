@@ -29,7 +29,7 @@ SSH_PORT = 8022
 # Resolved at import via stayturgid_device when available; absolute path for launchd.
 def _adb_bin() -> str:
     try:
-        from stayturgid_device import adb_bin  # type: ignore
+        from stayturgid_device import adb_bin
 
         return adb_bin()
     except ImportError:
@@ -161,7 +161,7 @@ def a11y_profile_missing(alias: str, a11y_list: str | None) -> list[str]:
     if not a11y_list or a11y_list in ("null", "unknown", ""):
         return []
     try:
-        import a11y_services as a11y  # noqa: WPS433
+        import a11y_services as a11y
     except ImportError:
         return []
     expected = a11y.profile_services(alias)

@@ -11,15 +11,16 @@ import io
 import sys
 import textwrap
 from pathlib import Path
+from typing import Any
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from control.site_contract import olivetin_projection as op  # noqa: E402
-from control.site_contract import site_init as si  # noqa: E402
-from control.site_contract import site_sync as ss  # noqa: E402
+from control.site_contract import olivetin_projection as op
+from control.site_contract import site_init as si
+from control.site_contract import site_sync as ss
 
 FIXED_VERSION = "9.9.9-test"
 FIXED_COMMIT = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -392,7 +393,7 @@ def test_projection_missing_registry_port_exits_1(tmp_path: Path) -> None:
 def test_merge_config_deterministic_and_stable_key_order() -> None:
     fragment = "actions:\n  - id: stayturgid_a\n    shell: echo a\n"
     user = "actions:\n  - id: user_b\n    shell: echo b\n"
-    kwargs = dict(
+    kwargs: dict[str, Any] = dict(
         fragment_text=fragment,
         user_text=user,
         listen_address="127.0.0.1:1337",

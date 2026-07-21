@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "control" / "lib"))
-import vlm_cloud as cloud  # noqa: E402
+import vlm_cloud as cloud
 
 
 def test_load_env_file(tmp_path, monkeypatch):

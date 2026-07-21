@@ -6,7 +6,7 @@ import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, os.path.join(REPO, "device", "termux", "py"))
-import stayturgid_shell as sh  # noqa: E402
+import stayturgid_shell as sh
 
 
 def test_privileged_shell_expected_false_from_profile(tmp_path, monkeypatch):

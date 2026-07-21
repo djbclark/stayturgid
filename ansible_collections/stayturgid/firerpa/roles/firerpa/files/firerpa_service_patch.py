@@ -82,7 +82,14 @@ def patch_dex(
     return result, True
 
 
-def patch_service_jar(data: bytes, **patch_kwargs: object) -> tuple[bytes, bool]:
+def patch_service_jar(
+    data: bytes,
+    *,
+    original_sha256: str = ORIGINAL_DEX_SHA256,
+    patched_sha256: str = PATCHED_DEX_SHA256,
+    original_instruction: bytes = ORIGINAL_INSTRUCTION,
+    patched_instruction: bytes = PATCHED_INSTRUCTION,
+) -> tuple[bytes, bool]:
     """Patch ``classes.dex`` inside a FIRERPA service JAR."""
     source = io.BytesIO(data)
     output = io.BytesIO()
@@ -95,7 +102,13 @@ def patch_service_jar(data: bytes, **patch_kwargs: object) -> tuple[bytes, bool]
             for info in zin.infolist():
                 member = zin.read(info.filename)
                 if info.filename == "classes.dex":
-                    member, changed = patch_dex(member, **patch_kwargs)
+                    member, changed = patch_dex(
+                        member,
+                        original_sha256=original_sha256,
+                        patched_sha256=patched_sha256,
+                        original_instruction=original_instruction,
+                        patched_instruction=patched_instruction,
+                    )
                 zout.writestr(info, member)
     except zipfile.BadZipFile as exc:
         raise PatchError("service.jar is not a valid ZIP archive") from exc

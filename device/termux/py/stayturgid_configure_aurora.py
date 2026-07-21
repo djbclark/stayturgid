@@ -15,9 +15,9 @@ import xml.sax.saxutils as saxutils
 import stayturgid_shell as sh
 
 sh.ensure_lib_path()
-import stayturgid_handsets as hs  # noqa: E402
-import stayturgid_screen_control as sc  # noqa: E402
-from ui_parse import parse_button_center, parse_text_center  # noqa: E402
+import stayturgid_handsets as hs
+import stayturgid_screen_control as sc
+from ui_parse import parse_button_center, parse_text_center
 
 _HS: hs.Session | None = None
 

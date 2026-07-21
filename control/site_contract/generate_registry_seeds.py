@@ -7,6 +7,7 @@ import argparse
 import json
 import re
 from pathlib import Path
+from typing import cast
 from urllib.parse import urlparse
 
 import yaml
@@ -79,7 +80,9 @@ def _port_from_source(source: dict[str, object]) -> int:
     if isinstance(value, bool):
         raise RegistrySourceError(f"port source {_source_label(source)} resolved to a boolean")
     try:
-        port = int(value)
+        # value is untrusted external data (YAML/regex/JSON); int() is deliberately
+        # attempted on an unvalidated object and any failure is caught below.
+        port = int(value)  # type: ignore[call-overload]
     except (TypeError, ValueError) as exc:
         raise RegistrySourceError(f"port source {_source_label(source)} is not an integer: {value!r}") from exc
     if not 1 <= port <= 65535:
@@ -123,7 +126,9 @@ def port_registry() -> dict[str, object]:
             }
         )
     for entries in claims.values():
-        entries.sort(key=lambda entry: (int(entry["port"]), str(entry["service"])))
+        # "port" is always populated from _port_from_source()'s int return above;
+        # cast() documents that known invariant since the dict literal widens it.
+        entries.sort(key=lambda entry: (cast(int, entry["port"]), str(entry["service"])))
     return {"contract_version": 1, "product": "stayturgid", "hosts": {}, "product_defaults": claims}
 
 

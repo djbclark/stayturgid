@@ -9,7 +9,7 @@ import pytest
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "plugins", "modules"))
 
-import android_intent as mod  # noqa: E402
+import android_intent as mod
 
 
 def run_module(mocker, args, cmd_results=None):

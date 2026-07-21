@@ -32,13 +32,13 @@ if os.path.isfile(_ENV_FILE):
     except OSError:
         pass
 
-import stayturgid_shell as sh  # noqa: E402
+import stayturgid_shell as sh
 
 sh.ensure_lib_path()
 try:
-    import termux_api as tapi  # noqa: E402
+    import termux_api as tapi
 except ImportError:
-    tapi = None  # type: ignore
+    tapi = None
 
 STATE_FILE = os.path.join(STG, "state", "batt_alerted")
 COLOR_DIR = os.path.join(STG, "battery-colors")

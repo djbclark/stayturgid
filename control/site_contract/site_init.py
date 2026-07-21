@@ -18,7 +18,7 @@ import re
 import sys
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Literal, Sequence
+from typing import Literal, Sequence, TextIO
 
 from control.site_contract.site_map import SiteMap, SiteMapError, is_physically_within, load_site_map
 
@@ -368,12 +368,12 @@ def run_site_init(
     mode: str = "apply",
     product_root: Path | None = None,
     env: dict[str, str] | None = None,
-    stdout: object | None = None,
-    stderr: object | None = None,
+    stdout: TextIO | None = None,
+    stderr: TextIO | None = None,
 ) -> int:
     """Programmatic entry point used by tests and ``main``."""
-    out = stdout if stdout is not None else sys.stdout
-    err = stderr if stderr is not None else sys.stderr
+    out: TextIO = stdout if stdout is not None else sys.stdout
+    err: TextIO = stderr if stderr is not None else sys.stderr
     try:
         parsed_mode = _parse_mode(mode)
         if parsed_mode == "docs":

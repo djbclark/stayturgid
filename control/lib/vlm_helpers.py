@@ -13,7 +13,7 @@ def vlm_usable() -> bool:
     try:
         import vlm_cloud as cloud
     except ImportError:
-        cloud = None  # type: ignore
+        cloud = None
     local = vlm.vlm_enabled() and vlm.server_healthy()
     remote = bool(cloud and cloud.cloud_enabled())
     return local or remote
@@ -24,7 +24,7 @@ def auto_verify_enabled() -> bool:
     try:
         import vlm_cloud as cloud
     except ImportError:
-        cloud = None  # type: ignore
+        cloud = None
     if vlm.server_healthy():
         return True
     if cloud and cloud.cloud_enabled():

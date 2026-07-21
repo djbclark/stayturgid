@@ -15,7 +15,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
-import adb_cli as adb  # noqa: E402
+import adb_cli as adb
 
 OBTAINIUM_PKG = "dev.imranr.obtainium"
 IMPORT_SCRIPT = Path(__file__).resolve().parent / "import_catalog.py"

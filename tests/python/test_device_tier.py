@@ -9,7 +9,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "tests"))
-import device_tier as dt  # noqa: E402
+import device_tier as dt
 
 HEALTHY = """\
 ssh=ok

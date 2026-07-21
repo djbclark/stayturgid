@@ -12,7 +12,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
-import adb_cli as adb  # noqa: E402
+import adb_cli as adb
 
 GRANT = Path(__file__).resolve().parent / "grant_shizuku.py"
 ENABLE = Path(__file__).resolve().parent / "enable_autojs6_shizuku.py"
