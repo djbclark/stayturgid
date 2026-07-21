@@ -17,10 +17,10 @@ import xml.sax.saxutils as saxutils
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.join(REPO, "control", "lib"))
-import post_ui_remote as remote  # noqa: E402
-import screen_control as sc  # noqa: E402
-import stayturgid_device as dev  # noqa: E402
-import ui_driver as uid  # noqa: E402
+import post_ui_remote as remote
+import screen_control as sc
+import stayturgid_device as dev
+import ui_driver as uid
 
 AURORA_PKG = "com.aurora.store"
 BACKGROUND_DIALOG_MARKERS = (

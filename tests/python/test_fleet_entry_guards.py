@@ -18,9 +18,9 @@ _BIN = _ROOT / "control" / "bin"
 if str(_BIN) not in sys.path:
     sys.path.insert(0, str(_BIN))
 
-import deploy_termux as dt  # noqa: E402
-import verify_drift as vd  # noqa: E402
-from ansible_context import AnsibleConfigError, AnsibleContext  # noqa: E402
+import deploy_termux as dt
+import verify_drift as vd
+from ansible_context import AnsibleConfigError, AnsibleContext
 
 # ---------------------------------------------------------------------------
 # H1: no tracked file is a render/copy target of agents.yml

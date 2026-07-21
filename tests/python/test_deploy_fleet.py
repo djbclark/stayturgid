@@ -7,7 +7,7 @@ from typing import Any
 sys.path.insert(
     0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "bin")
 )
-import deploy_fleet as df  # noqa: E402
+import deploy_fleet as df
 
 INVENTORY_JSON: dict[str, Any] = {
     "stayturgid": {

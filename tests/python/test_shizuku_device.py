@@ -11,7 +11,7 @@ sys.path.insert(
 import importlib.util
 from pathlib import Path
 
-import stayturgid_device as dev  # noqa: E402
+import stayturgid_device as dev
 
 _REPO = Path(__file__).resolve().parents[2]
 _MOD = _REPO / "ansible_collections/stayturgid/android_common/plugins/module_utils/adb_resolve.py"

@@ -14,7 +14,7 @@ assert _spec.loader is not None
 _spec.loader.exec_module(adb_resolve)
 
 sys.path.insert(0, str(Path(REPO) / "control" / "lib"))
-import stayturgid_device as dev  # noqa: E402
+import stayturgid_device as dev
 
 
 def _devices_listing(*lines):

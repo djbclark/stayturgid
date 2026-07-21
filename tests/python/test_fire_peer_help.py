@@ -8,7 +8,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "bin"))
 
-import fire_peer_help as fph  # noqa: E402
+import fire_peer_help as fph
 
 
 def test_ssh_original_parses_verb(monkeypatch):

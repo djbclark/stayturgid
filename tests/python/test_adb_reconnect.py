@@ -4,7 +4,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "mac"))
-import adb_reconnect as ar  # noqa: E402
+import adb_reconnect as ar
 
 
 def test_build_candidates_order_and_dedup():

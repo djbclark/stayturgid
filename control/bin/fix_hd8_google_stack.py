@@ -30,9 +30,9 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
-import hd8_google_stack as hgs  # noqa: E402
-import stayturgid_device as dev  # noqa: E402
-import vlm_helpers as vh  # noqa: E402
+import hd8_google_stack as hgs
+import stayturgid_device as dev
+import vlm_helpers as vh
 
 
 def run_command(cmd, *args, **kwargs):

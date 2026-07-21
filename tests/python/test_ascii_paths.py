@@ -11,7 +11,7 @@ sys.path.insert(
     0,
     str(REPO / "ansible_collections" / "stayturgid" / "android_common" / "plugins" / "module_utils"),
 )
-import autojs6_deploy_util as util  # noqa: E402
+import autojs6_deploy_util as util
 
 AUTOJS6 = REPO / "device" / "autojs6"
 NON_ASCII = re.compile(r"[^\x00-\x7F]")

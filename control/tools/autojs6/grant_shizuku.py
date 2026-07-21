@@ -13,7 +13,7 @@ import sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.join(REPO, "control", "lib"))
-import stayturgid_device as dev  # noqa: E402
+import stayturgid_device as dev
 
 AUTOJS_PKG = "org.autojs.autojs6"
 SHIZUKU_PERM = "moe.shizuku.manager.permission.API_V23"

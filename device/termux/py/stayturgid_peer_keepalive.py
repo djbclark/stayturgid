@@ -116,7 +116,7 @@ def ensure_handsets() -> bool:
         _touch("handsets")
         _log(("OK" if ok else "FAIL") + " handsets start port=%d" % port)
         return ok
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         _touch("handsets")
         _log("FAIL handsets: %s" % e)
         return False

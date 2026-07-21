@@ -12,7 +12,7 @@ from jinja2 import Environment, StrictUndefined
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from control.site_contract import generate_registry_seeds as seeds  # noqa: E402
+from control.site_contract import generate_registry_seeds as seeds
 
 TEMPLATES = ROOT / "control" / "site_contract" / "templates"
 

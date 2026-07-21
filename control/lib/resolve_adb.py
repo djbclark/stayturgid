@@ -16,7 +16,7 @@ _HERE = Path(__file__).resolve().parent
 if str(_HERE) not in sys.path:
     sys.path.insert(0, str(_HERE))
 
-import stayturgid_device as dev  # noqa: E402
+import stayturgid_device as dev
 
 
 def main(argv: list[str] | None = None) -> int:

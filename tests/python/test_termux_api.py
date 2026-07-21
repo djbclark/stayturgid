@@ -9,7 +9,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
 
-import termux_api as tapi  # noqa: E402
+import termux_api as tapi
 
 
 def test_is_termux_api():

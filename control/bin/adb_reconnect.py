@@ -98,7 +98,7 @@ def device_row(alias, conf_path):
         from stayturgid_device import device_row as _device_row
 
         return _device_row(alias, conf_path)
-    except Exception:  # noqa: BLE001
+    except Exception:
         pass
     try:
         with open(conf_path) as f:

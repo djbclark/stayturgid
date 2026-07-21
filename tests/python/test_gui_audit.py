@@ -9,7 +9,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "bin"))
 
-import gui_audit as ga  # noqa: E402
+import gui_audit as ga
 
 
 def test_read_hosts(tmp_path):

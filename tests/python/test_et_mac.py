@@ -8,8 +8,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "control" / "lib"))
 
-import et_mac as em  # noqa: E402
-import ssh_marked_block as smb  # noqa: E402
+import et_mac as em
+import ssh_marked_block as smb
 
 
 def test_replace_marked_block_append():

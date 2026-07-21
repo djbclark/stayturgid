@@ -17,8 +17,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from control.site_contract import site_init as si  # noqa: E402
-from control.site_contract import site_sync as ss  # noqa: E402
+from control.site_contract import site_init as si
+from control.site_contract import site_sync as ss
 
 FIXED_VERSION = "9.9.9-test"
 FIXED_COMMIT = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"

@@ -20,7 +20,7 @@ _REPO = Path(__file__).resolve().parents[2]
 _LIB = _REPO / "control" / "lib"
 sys.path.insert(0, str(_REPO))
 
-from control.landing import state  # noqa: E402
+from control.landing import state
 
 try:
     import yaml

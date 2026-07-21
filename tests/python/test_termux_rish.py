@@ -9,7 +9,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "device" / "termux" / "py"))
 
-import stayturgid_rish as rish  # noqa: E402
+import stayturgid_rish as rish
 
 
 def test_wrapper_body_sets_termux_app_id():

@@ -350,7 +350,7 @@ def ping_backends() -> dict[str, Any]:
                 payload = json.loads(resp.read().decode())
             text = payload["candidates"][0]["content"]["parts"][0]["text"]
             out["gemini"] = {"ok": True, "text": text[:120]}
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             out["gemini"] = {"ok": False, "error": str(e)[:200]}
     else:
         out["gemini"] = {"ok": False, "error": "no_key"}
@@ -381,7 +381,7 @@ def ping_backends() -> dict[str, Any]:
                 payload = json.loads(resp.read().decode())
             text = payload["content"][0]["text"]
             out["claude"] = {"ok": True, "text": text[:120]}
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             out["claude"] = {"ok": False, "error": str(e)[:200]}
     else:
         out["claude"] = {"ok": False, "error": "no_key"}

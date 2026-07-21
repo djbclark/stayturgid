@@ -8,7 +8,7 @@ import pytest
 
 FLEET_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 sys.path.insert(0, os.path.join(FLEET_ROOT, "plugins", "modules"))
-import fdroid_repos as mod  # noqa: E402
+import fdroid_repos as mod
 
 REAL_REPO_LIST = """\
 Name: f-droid

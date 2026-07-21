@@ -161,7 +161,7 @@ def a11y_profile_missing(alias: str, a11y_list: str | None) -> list[str]:
     if not a11y_list or a11y_list in ("null", "unknown", ""):
         return []
     try:
-        import a11y_services as a11y  # noqa: WPS433
+        import a11y_services as a11y
     except ImportError:
         return []
     expected = a11y.profile_services(alias)

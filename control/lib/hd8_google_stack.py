@@ -71,7 +71,7 @@ def _adb() -> str:
         from stayturgid_device import adb_bin
 
         return adb_bin()
-    except Exception:  # noqa: BLE001
+    except Exception:
         return os.environ.get("STAYTURGID_ADB", "adb")
 
 

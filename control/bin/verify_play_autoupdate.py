@@ -23,10 +23,10 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
-import play_store_autoupdate as psa  # noqa: E402
-import stayturgid_device as dev  # noqa: E402
-import ui_driver as uid  # noqa: E402
-import vlm_gate as vlm  # noqa: E402
+import play_store_autoupdate as psa
+import stayturgid_device as dev
+import ui_driver as uid
+import vlm_gate as vlm
 
 ART = Path.home() / ".config" / "stayturgid" / "artifacts" / "vlm-verify"
 

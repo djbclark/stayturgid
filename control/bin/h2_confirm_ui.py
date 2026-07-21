@@ -19,10 +19,10 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
-import screen_control as sc  # noqa: E402
-import stayturgid_device as dev  # noqa: E402
-import ui_driver as uid  # noqa: E402
-import vlm_helpers as vh  # noqa: E402
+import screen_control as sc
+import stayturgid_device as dev
+import ui_driver as uid
+import vlm_helpers as vh
 
 OUT = REPO / "artifacts" / "h2-confirm"
 NEO = "com.machiav3lli.fdroid"

@@ -10,8 +10,8 @@ ROOT = os.path.abspath(
 )
 sys.path.insert(0, os.path.join(ROOT, "plugins", "module_utils"))
 
-import adb_shell  # noqa: E402
-import fleet_privileges as fp  # noqa: E402
+import adb_shell
+import fleet_privileges as fp
 
 SAMPLE_DUMPSYS = """
 runtime permissions:

@@ -23,8 +23,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
-import adb_cli as ac  # noqa: E402
-import termux_ssh_bootstrap as boot  # noqa: E402
+import adb_cli as ac
+import termux_ssh_bootstrap as boot
 
 
 def main(argv: list[str] | None = None) -> int:

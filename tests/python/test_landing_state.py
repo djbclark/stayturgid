@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from control.landing import discover, state  # noqa: E402
+from control.landing import discover, state
 
 
 def test_first_use_migrates_legacy_observations(tmp_path, monkeypatch):

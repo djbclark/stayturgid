@@ -18,7 +18,7 @@ import time
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 sys.path.insert(0, os.path.join(REPO, "control", "lib"))
-import stayturgid_device as dev  # noqa: E402
+import stayturgid_device as dev
 
 OBTAINIUM_PKG = "dev.imranr.obtainium"
 RESULT_FILE = "/data/data/%s/app_flutter/headless_result.json" % OBTAINIUM_PKG

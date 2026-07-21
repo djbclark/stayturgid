@@ -6,7 +6,7 @@ import sys
 sys.path.insert(
     0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "lib")
 )
-import adb_cli as ac  # noqa: E402
+import adb_cli as ac
 
 sys.path.insert(
     0,
@@ -14,7 +14,7 @@ sys.path.insert(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "tools", "obtainium"
     ),
 )
-import sync_to_device as sync  # noqa: E402
+import sync_to_device as sync
 
 
 def test_autojs_constants():
