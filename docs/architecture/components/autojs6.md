@@ -7,12 +7,12 @@ on **every host every cycle** (fleet parity — not Fire-only).
 **Routine repair is Termux-primary** (`stayturgid-repair` every 5 min) — AutoJs6
 defers `RUN_COMMAND` invoke unless the repair log is stale.
 
-**Native replacement (in progress, dual-run):** Kotlin APK `device/native-agent/`
-(OPTIONS **K1**) is taking over inject + co-monitor + shell catastrophic first.
-**You do not need to rebuild or redeploy AutoJs6 to continue native-agent work.**
-Leave the existing AutoJs6 project/APK running as the safety net until Phase 4
-cutover. Plan:
-[autojs6-to-native-apk-plan.md](../../operations/plans/autojs6-to-native-apk-plan.md).
+**Native replacement (dual-run):** Kotlin APK `device/native-agent/` (OPTIONS **K1**)
+owns inject + co-monitor + shell catastrophic on rolled-out hosts; AutoJs6 remains
+for a11y UI last resort until Phase 4. **Do not rebuild AutoJs6** unless changing
+AutoJs6 itself. Status + remaining steps:
+[native-agent-status-2026-07-22.md](../../operations/plans/native-agent-status-2026-07-22.md).
+Plan: [autojs6-to-native-apk-plan.md](../../operations/plans/autojs6-to-native-apk-plan.md).
 
 ## What it does
 

@@ -192,11 +192,11 @@ hot path. Plan:
 Checkpoint:
 [session-2026-07-22-native-agent.md](operations/sessions/session-2026-07-22-native-agent.md).
 
-**Code:** `device/native-agent/` v0.3.1 dual-run on Pixel 7a: inject (screen-on),
-co-monitor heartbeat (screen-off too), shell catastrophic, Mac `agent_stale` heal
-via `start_agent.py`. Fleet: `agent_age` in health (missing APK OK). Build:
-`just agent-assemble` (JDK 21); `just agent-start <host>`. **No AutoJs6 rebuild**
-needed to continue. AutoJs6 still owns a11y UI last-resort until Phase 4.
+**Code:** `device/native-agent/` v0.3.1 dual-run. **Rollout 2026-07-22:** p7a full
+(STATUS live); hd8 APK+grant (Shizuku server flaky); s24 offline. Status + remaining
+steps: [native-agent-status-2026-07-22.md](operations/plans/native-agent-status-2026-07-22.md).
+`just agent-rollout` / `just agent-assemble` (JDK 21). **No AutoJs6 rebuild** needed.
+AutoJs6 remains for a11y UI last-resort until Phase 4.
 
 ---
 

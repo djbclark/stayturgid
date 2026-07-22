@@ -2,8 +2,9 @@
 
 **Created:** 2026-07-22
 
-**Status:** **Phase 1 implementation in progress** (2026-07-22). Operator directed
-continuous implementation (G-C end-state assumed; AutoJs6 dual-run until cutover).
+**Status:** **Phases 1–3b implemented; dual-run rollout in progress** (2026-07-22).
+Live status + remaining steps:
+[native-agent-status-2026-07-22.md](native-agent-status-2026-07-22.md).
 Checkpoint: [session-2026-07-22-native-agent.md](../sessions/session-2026-07-22-native-agent.md).
 
 **Audience:** Maintainers and implementation agents. Advisory prompt material

@@ -53,8 +53,14 @@ From repo root:
 
 ```bash
 just agent-assemble
-just agent-install host=oneui-device   # when adb path known
+just agent-rollout              # reachable hosts from devices.conf
+just agent-rollout p7a s24      # subset
+just agent-install 100.x.x.x:5555
+just agent-grant p7a
+just agent-start p7a
 ```
+
+Live fleet status: [docs/operations/plans/native-agent-status-2026-07-22.md](../../docs/operations/plans/native-agent-status-2026-07-22.md).
 
 ## Install / pilot
 

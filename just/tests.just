@@ -418,3 +418,17 @@ agent-grant target:
 agent-start target:
     python3 "{{ repo }}/control/tools/native-agent/start_agent.py" "{{ target }}"
 
+# Install + grant + start native-agent on reachable hosts (dual-run; leaves AutoJs6).
+# Example: just agent-rollout
+#          just agent-rollout p7a s24
+agent-rollout +hosts="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [[ -z "{{ hosts }}" ]]; then
+      python3 "{{ repo }}/control/tools/native-agent/rollout.py"
+    else
+      # shell-split host list
+      # shellcheck disable=SC2086
+      python3 "{{ repo }}/control/tools/native-agent/rollout.py" {{ hosts }}
+    fi
+

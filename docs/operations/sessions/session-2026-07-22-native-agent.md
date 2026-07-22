@@ -140,6 +140,17 @@ Version: `0.3.0-phase3-catastrophic` (versionCode 4).
 
 Version: `0.3.1-heartbeat-heal` (versionCode 5).
 
+## Fleet rollout 2026-07-22
+
+| Host | Result                                                   |
+| ---- | -------------------------------------------------------- |
+| p7a  | **full** — 0.3.1, UserService, agent.log STATUS          |
+| hd8  | **APK+grant** — Shizuku server flaky, no UserService yet |
+| s24  | **offline** — not installed                              |
+
+Status doc: [native-agent-status-2026-07-22.md](../plans/native-agent-status-2026-07-22.md)
+Rollout tool: `control/tools/native-agent/rollout.py` / `just agent-rollout`
+
 ## Next agent priorities
 
 1. Commit/push if not already on origin.
