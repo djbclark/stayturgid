@@ -32,6 +32,7 @@ import "just/services.just"
 import "just/tests.just"
 import "just/cfengine.just"
 import "just/site.just"
+import "just/vendor.just"
 
 # Show available recipes (default).
 help:

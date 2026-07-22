@@ -481,23 +481,33 @@ if command -v node >/dev/null 2>&1; then
     tap_fail "autojs6 guard.js: node unit tests pass"
   fi
   printf '%s\n' "$jsout" | sed 's/^/#   /'
-  if jsout="$(node tests/js/rhino-syntax-guard.test.js 2>&1)"; then
-    tap_ok "autojs6: no known Rhino-incompatible syntax/collisions in compiled output"
-  else
-    tap_fail "autojs6: no known Rhino-incompatible syntax/collisions in compiled output"
-  fi
-  printf '%s\n' "$jsout" | sed 's/^/#   /'
 else
   tap_skip "autojs6 log.js unit tests" "node not installed"
   tap_skip "autojs6 comonitor.js unit tests" "node not installed"
   tap_skip "autojs6 boot-launcher.js unit tests" "node not installed"
   tap_skip "autojs6 termux.js unit tests" "node not installed"
   tap_skip "autojs6 guard.js unit tests" "node not installed"
-  tap_skip "autojs6 rhino-syntax-guard unit tests" "node not installed"
 fi
 
 # ===========================================================================
-# AutoJs6 real-Rhino compile check (optional — needs java + AutoJs6's own
+# AutoJs6 Rhino checks — delegated to the vendored autojs6-typescript
+# toolkit (vendor/autojs6-typescript, git submodule) rather than a parallel
+# local implementation. See docs/architecture/components/autojs6.md
+# ("Rhino JS-engine gotchas") for what these catch and why.
+# ===========================================================================
+rhino_toolkit="vendor/autojs6-typescript/tools"
+if command -v python3 >/dev/null 2>&1 && [ -f "$rhino_toolkit/check_require_bindings.py" ]; then
+  if jsout="$(python3 "$rhino_toolkit/check_require_bindings.py" device/autojs6 --exclude scripts/ 2>&1)"; then
+    tap_ok "autojs6: no known Rhino-incompatible syntax/collisions in compiled output"
+  else
+    tap_fail "autojs6: no known Rhino-incompatible syntax/collisions in compiled output"
+  fi
+  printf '%s\n' "$jsout" | sed 's/^/#   /'
+else
+  tap_skip "autojs6 rhino-syntax-guard check" "python3 or vendor/autojs6-typescript submodule not found (run: git submodule update --init)"
+fi
+
+# Real-Rhino compile check (optional — needs java + AutoJs6 fork's own
 # bundled rhino jar). This is a genuine parse against AutoJs6's exact Rhino
 # build (org-mozilla-rhino-2_0_0-SNAPSHOT.jar — NOT mainline Rhino; mainline
 # 1.9.1 via `brew install rhino` does NOT reproduce these bugs, since it has
@@ -506,39 +516,51 @@ fi
 # (files/context/shizuku/etc. are AutoJs6 globals this check doesn't stub —
 # reaching a ReferenceError means the file parsed fine and started running).
 #
+# No default path is assumed: an AutoJs6 fork checkout is a per-operator,
+# per-machine thing — it may not exist at all on a given machine, and when
+# it does its location is not guaranteed to be ~/src, nor is the directory
+# guaranteed to be named "AutoJs6" (same reasoning as STAYTURGID_SITE_DIR /
+# STAYTURGID_FIRERPA_DIR elsewhere in this repo: explicit env var, no
+# guessed fallback path). Set exactly one of:
+#   STAYTURGID_RHINO_JAR          — direct path to the fork's bundled jar
+#   STAYTURGID_AUTOJS6_FORK_DIR   — a fork checkout dir; resolved via
+#                                   vendor/autojs6-typescript's
+#                                   find_rhino_jar.py (searches app/libs/ etc.)
+#
 # The jar is a SNAPSHOT build — its filename never changes even if the fork
 # rebuilds it with a different (or upgraded) Rhino underneath. Pinning its
 # sha256 means a rebuilt jar FAILS this check (not silently passes with
 # unverified behavior) until a human re-runs the gotcha investigation against
 # the new build and deliberately updates the pinned hash below.
-# ===========================================================================
 STAYTURGID_AUTOJS6_RHINO_JAR_SHA256="4b92486727763999d98119070c0455e68e25d3af05fe06d6202e71b90b419938"
 rhino_jar="${STAYTURGID_RHINO_JAR:-}"
-if [ -z "$rhino_jar" ]; then
-  rhino_jar="$(ls "$HOME"/src/AutoJs6/libs/org-mozilla-rhino-*.jar 2>/dev/null | head -1)"
+if [ -z "$rhino_jar" ] && [ -n "${STAYTURGID_AUTOJS6_FORK_DIR:-}" ] && command -v python3 >/dev/null 2>&1 &&
+  [ -f "$rhino_toolkit/find_rhino_jar.py" ]; then
+  rhino_jar="$(python3 "$rhino_toolkit/find_rhino_jar.py" "$STAYTURGID_AUTOJS6_FORK_DIR" 2>/dev/null)"
 fi
-if command -v java >/dev/null 2>&1 && [ -n "$rhino_jar" ] && [ -f "$rhino_jar" ]; then
-  rhino_jar_hash="$(shasum -a 256 "$rhino_jar" 2>/dev/null | awk '{print $1}')"
+if command -v java >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1 &&
+  [ -n "$rhino_jar" ] && [ -f "$rhino_jar" ] && [ -f "$rhino_toolkit/rhino_check.py" ]; then
+  if command -v sha256sum >/dev/null 2>&1; then
+    rhino_jar_hash="$(sha256sum "$rhino_jar" 2>/dev/null | awk '{print $1}')"
+  else
+    rhino_jar_hash="$(shasum -a 256 "$rhino_jar" 2>/dev/null | awk '{print $1}')"
+  fi
   if [ "$rhino_jar_hash" = "$STAYTURGID_AUTOJS6_RHINO_JAR_SHA256" ]; then
     tap_ok "autojs6: AutoJs6 fork's bundled Rhino jar matches the last-verified build"
   else
     tap_fail "autojs6: AutoJs6 fork's bundled Rhino jar matches the last-verified build" \
       "jar hash changed ($rhino_jar) — was $STAYTURGID_AUTOJS6_RHINO_JAR_SHA256, now $rhino_jar_hash. The fork's Rhino runtime was rebuilt/updated: re-run the Rhino-gotchas investigation (docs/architecture/components/autojs6.md) against the new build, then update STAYTURGID_AUTOJS6_RHINO_JAR_SHA256 in tests/test-unit.sh to acknowledge it."
   fi
-  rhino_bad=""
-  for f in device/autojs6/main.js device/autojs6/lib/*.js; do
-    out="$(java -cp "$rhino_jar" org.mozilla.javascript.tools.shell.Main -version 200 -interpreted -f "$f" 2>&1 || true)"
-    if printf '%s' "$out" | grep -qi "syntax error\|Compilation produced"; then
-      rhino_bad="$rhino_bad $f"
-    fi
-  done
-  if [ -z "$rhino_bad" ]; then
+  # shellcheck disable=SC2086
+  if rhinoout="$(python3 "$rhino_toolkit/rhino_check.py" "$rhino_jar" device/autojs6/main.js device/autojs6/lib/*.js 2>&1)"; then
     tap_ok "autojs6: main.js + lib/*.js parse cleanly under AutoJs6's actual Rhino build"
   else
-    tap_fail "autojs6: main.js + lib/*.js parse cleanly under AutoJs6's actual Rhino build" "syntax errors in:$rhino_bad"
+    tap_fail "autojs6: main.js + lib/*.js parse cleanly under AutoJs6's actual Rhino build"
   fi
+  printf '%s\n' "$rhinoout" | sed 's/^/#   /'
 else
-  tap_skip "autojs6 real-Rhino compile check" "java or AutoJs6 rhino jar (~/src/AutoJs6/libs/org-mozilla-rhino-*.jar) not found"
+  tap_skip "autojs6 real-Rhino compile check" \
+    "needs java, python3, vendor/autojs6-typescript, and either STAYTURGID_RHINO_JAR (path to a jar) or STAYTURGID_AUTOJS6_FORK_DIR (path to a fork checkout) — an AutoJs6 fork isn't assumed to be present, or if present to live under any particular path/name"
 fi
 
 # ===========================================================================

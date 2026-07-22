@@ -183,6 +183,26 @@ else
   tap_skip "prettier: markdown formatted" "not installed (brew install prettier)"
 fi
 
+# --- vendored submodules ----------------------------------------------------
+# Network-free check: the checked-out commit in vendor/<name> must match what
+# git recorded when the submodule pointer was last committed. Catches the
+# common mistake of bumping the pointer (or cloning fresh) without running
+# `git submodule update` — NOT a check against upstream's latest (that's
+# `just vendor-check-autojs6-typescript`, deliberately kept out of this
+# no-network tier since it needs a fetch).
+if command -v git >/dev/null 2>&1 && [ -d vendor/autojs6-typescript/.git ] || [ -f vendor/autojs6-typescript/.git ]; then
+  recorded_rev="$(git ls-tree HEAD vendor/autojs6-typescript 2>/dev/null | awk '{print $3}')"
+  checked_out_rev="$(git -C vendor/autojs6-typescript rev-parse HEAD 2>/dev/null || true)"
+  if [ -n "$recorded_rev" ] && [ "$recorded_rev" = "$checked_out_rev" ]; then
+    tap_ok "vendor/autojs6-typescript: checked out at the commit git recorded"
+  else
+    tap_fail "vendor/autojs6-typescript: checked out at the commit git recorded" \
+      "recorded=$recorded_rev checked_out=$checked_out_rev — run: git submodule update --init"
+  fi
+else
+  tap_skip "vendor/autojs6-typescript: submodule consistency" "not initialized (run: git submodule update --init)"
+fi
+
 # Python test collection — catches import/syntax breakage in the pytest layer
 # even when the full run happens via `just pytest`.
 PYTEST_BIN="$([ -x .venv-test/bin/pytest ] && echo .venv-test/bin/pytest || command -v pytest || true)"

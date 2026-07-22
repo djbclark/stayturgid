@@ -1,0 +1,3 @@
+[submodule "vendor/autojs6-typescript"]
+	path = vendor/autojs6-typescript
+	url = https://github.com/djbclark/autojs6-typescript.git
