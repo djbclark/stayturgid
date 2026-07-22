@@ -547,8 +547,12 @@ def _record_soft_health_snapshot(
 ) -> None:
     """Persist one soft-health row per probe for dual-run debugging (K1 Phase 3.5).
 
-    Written to ~/.config/stayturgid/stats/events.jsonl as type=soft_health.
-    Does not rotate — query with control.lib.stats.query_events.
+    Written (fsync) to:
+      - ~/.config/stayturgid/stats/events.jsonl (all event types)
+      - ~/.config/stayturgid/stats/soft_health.jsonl (Vector → OpenObserve)
+
+    Vector tails soft_health.jsonl with disk buffer + e2e acks so OpenObserve
+    can be offline for days. Does not rotate — local query via stats.query_events.
     """
     _stats_event(
         "soft_health",

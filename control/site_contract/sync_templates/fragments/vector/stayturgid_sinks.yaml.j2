@@ -27,3 +27,38 @@ sinks:
     healthcheck:
       enabled: true
       uri: "http://127.0.0.1:{{ ports['openobserve-http'] }}{{ openobserve_http_prefix }}/healthz"
+
+  # Soft-health dual-run samples → OpenObserve stream "soft_health".
+  # Micro-batches + large disk buffer + block forever (until success) + e2e acks
+  # so file checkpoints only advance after OO accepts (crash/outage safe).
+  stayturgid_soft_health_oo_sink:
+    type: "http"
+    inputs: ["stayturgid_soft_health_parse"]
+    uri: "http://127.0.0.1:{{ ports['openobserve-http'] }}{{ openobserve_http_prefix }}/api/default/soft_health/_json"
+    method: "post"
+    auth:
+      strategy: "basic"
+      user: "${OPENOBSERVE_ROOT_EMAIL}"
+      password: "${OPENOBSERVE_ROOT_PASSWORD}"
+    encoding:
+      codec: "json"
+      timestamp_format: "rfc3339"
+    batch:
+      max_events: 100
+      timeout_secs: 15
+    buffer:
+      type: "disk"
+      max_size: 536870912 # 512 MB — soft_health is tiny; days of backlog fit
+      when_full: "block"
+    request:
+      # High finite cap (Vector rejects u64::MAX). Disk buffer + restart
+      # continue after exhaustion; file source e2e acks only advance on success.
+      retry_attempts: 1000000
+      retry_initial_backoff_secs: 1
+      retry_max_duration_secs: 86400
+      timeout_secs: 60
+    acknowledgements:
+      enabled: true
+    healthcheck:
+      enabled: true
+      uri: "http://127.0.0.1:{{ ports['openobserve-http'] }}{{ openobserve_http_prefix }}/healthz"

@@ -7,8 +7,15 @@ All stayturgid monitors and heal scripts should call record_event() for:
   - issue_detected:   per-issue occurrence
   - soft_health:      full dual-run probe snapshot (agent_age, watchdog_age, port, …)
 
-Events are written as one JSON object per line to
-``~/.config/stayturgid/stats/events.jsonl``.
+Primary durable files under ``~/.config/stayturgid/stats/``:
+
+  - ``events.jsonl`` — all event types (local query_events)
+  - ``soft_health.jsonl`` — soft_health only, for Vector → OpenObserve
+
+Writers use whole-line append + flush + fsync so a crash mid-write at worst
+leaves one corrupt last line (Vector drops parse errors). Vector tails
+``soft_health.jsonl`` with disk buffers and end-to-end acks so OpenObserve can
+be down for days without data loss.
 
 Query examples::
 
@@ -28,6 +35,8 @@ from pathlib import Path
 
 ROOT = Path(os.path.expanduser("~")) / ".config" / "stayturgid"
 STATS_DIR = ROOT / "stats"
+EVENTS_JSONL = "events.jsonl"
+SOFT_HEALTH_JSONL = "soft_health.jsonl"
 
 
 def _ensure_dir() -> None:
@@ -37,24 +46,68 @@ def _ensure_dir() -> None:
         pass
 
 
+def soft_health_path() -> Path:
+    """Path Vector tails. Create empty file so the file source can attach early."""
+    _ensure_dir()
+    path = STATS_DIR / SOFT_HEALTH_JSONL
+    try:
+        if not path.is_file():
+            path.touch()
+    except OSError:
+        pass
+    return path
+
+
 def ts() -> str:
     return datetime.datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def record_event(event_type: str, device: str, **details: str | int | float) -> None:
+def _append_jsonl_line(path: Path, event: dict) -> None:
+    """Append one complete JSON line; fsync for crash durability.
+
+    Never raises — soft-health must not break fleet_health_monitor.
+    """
+    try:
+        line = json.dumps(event, sort_keys=True, default=str) + "\n"
+    except (TypeError, ValueError):
+        return
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # Binary open avoids newline translation surprises; we control LF.
+        with open(path, "ab", buffering=0) as f:
+            f.write(line.encode("utf-8"))
+            f.flush()
+            try:
+                os.fsync(f.fileno())
+            except OSError:
+                # fsync can fail on some FS; line is still on OS page cache.
+                pass
+    except OSError:
+        pass
+
+
+def record_event(event_type: str, device: str, **details: object) -> None:
     _ensure_dir()
     event: dict = {
         "ts": ts(),
         "type": event_type,
         "device": device,
     }
-    event.update(details)
-    filepath = STATS_DIR / "events.jsonl"
-    try:
-        with open(filepath, "a") as f:
-            f.write(json.dumps(event, sort_keys=True) + "\n")
-    except OSError:
-        pass
+    # Coerce non-JSON-safe values defensively
+    for k, v in details.items():
+        if v is None:
+            event[k] = ""
+        elif isinstance(v, (str, int, float, bool)):
+            event[k] = v
+        else:
+            event[k] = str(v)
+
+    _append_jsonl_line(STATS_DIR / EVENTS_JSONL, event)
+
+    # Dedicated file for Vector micro-batch → OpenObserve stream soft_health.
+    # Keeps OO ingest independent of other event types and easy to re-tail.
+    if event_type == "soft_health":
+        _append_jsonl_line(soft_health_path(), event)
 
 
 def query_events(
@@ -63,13 +116,13 @@ def query_events(
     event_type: str | None = None,
     device: str | None = None,
 ) -> list[dict]:
-    filepath = STATS_DIR / "events.jsonl"
+    filepath = STATS_DIR / EVENTS_JSONL
     if not filepath.is_file():
         return []
 
     results: list[dict] = []
     try:
-        with open(filepath) as f:
+        with open(filepath, encoding="utf-8", errors="replace") as f:
             for line in f:
                 line = line.strip()
                 if not line:
@@ -77,6 +130,7 @@ def query_events(
                 try:
                     ev = json.loads(line)
                 except json.JSONDecodeError:
+                    # Corrupt/partial line (crash mid-write) — skip, keep going.
                     continue
 
                 if event_type and ev.get("type") != event_type:
@@ -154,7 +208,6 @@ def aggregate_stats(
             result["issues"][issue] = result["issues"].get(issue, 0) + 1
 
         elif etype == "soft_health":
-            # Count dual-run / agent freshness signals for cutover debugging.
             if "soft_health" not in result:
                 result["soft_health"] = {
                     "samples": 0,
@@ -181,5 +234,4 @@ def aggregate_stats(
     result["connection_paths"] = dict(sorted(result["connection_paths"].items(), key=lambda x: -x[1]))
     result["heals"] = dict(sorted(result["heals"].items(), key=lambda x: -x[1]))
     result["issues"] = dict(sorted(result["issues"].items(), key=lambda x: -x[1]))
-
     return result

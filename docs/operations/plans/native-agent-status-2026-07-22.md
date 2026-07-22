@@ -166,23 +166,63 @@ Only after B soaks pass on all fleet hosts you care about:
 Three layers already exist; use them together when debugging “why did agent die
 last Tuesday?”
 
-| Layer                    | Where                                                    | Retention                           | What it captures                                                   |
-| ------------------------ | -------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------ |
-| **Device STATUS**        | `/sdcard/stayturgid/logs/agent.log` (and `watchdog.log`) | Device storage (not rotated by Mac) | Co-monitor STATUS, catastrophic lines (`[agent] catastrophic…`)    |
-| **Mac soft-health text** | `~/.config/stayturgid/logs/fleet-health.log`             | Rotated (~2000 lines)               | Human-readable `agent_age=` / `watchdog_age=` / issues every 5 min |
-| **Mac stats JSONL**      | `~/.config/stayturgid/stats/events.jsonl`                | **Forever** (by design)             | Structured events for dashboards and long soaks                    |
+| Layer                    | Where                                                                        | Retention                           | What it captures                                                   |
+| ------------------------ | ---------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------ |
+| **Device STATUS**        | `/sdcard/stayturgid/logs/agent.log` (and `watchdog.log`)                     | Device storage (not rotated by Mac) | Co-monitor STATUS, catastrophic lines (`[agent] catastrophic…`)    |
+| **Mac soft-health text** | `~/.config/stayturgid/logs/fleet-health.log`                                 | Rotated (~2000 lines)               | Human-readable `agent_age=` / `watchdog_age=` / issues every 5 min |
+| **Mac stats JSONL**      | `events.jsonl` + **`soft_health.jsonl`** under `~/.config/stayturgid/stats/` | **Forever**                         | Local SSOT; soft_health.jsonl is Vector-tailed                     |
+| **OpenObserve**          | stream `soft_health` (Vector HTTP)                                           | OO retention                        | SQL queries once auth works                                        |
 
 ### Already logged forever (`events.jsonl`)
 
-| `type`                  | Source                          | Fields of interest                                                                                                                                    |
-| ----------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `connection_path`       | fleet_health_monitor            | `via` (ssh/adb path)                                                                                                                                  |
-| `issue_detected`        | fleet_health_monitor            | `issue` (one event per tag, e.g. `agent_stale`)                                                                                                       |
-| `heal_triggered`        | fleet_health_monitor            | `heal=agent\|watchdog\|repair\|…`                                                                                                                     |
-| `device_status`         | access-monitor et al.           | online/offline                                                                                                                                        |
-| **`soft_health`** (new) | fleet_health_monitor each probe | `agent_age`, `watchdog_age`, `repair_age`, `port`, `shizuku`, `a11y`, `autojs6_a11y`, `sshd`, `shell5555`, `bootloop`, `issues`, `issue_count`, `via` |
+| `type`            | Source                          | Fields of interest                                                                                                                                    |
+| ----------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `connection_path` | fleet_health_monitor            | `via` (ssh/adb path)                                                                                                                                  |
+| `issue_detected`  | fleet_health_monitor            | `issue` (one event per tag, e.g. `agent_stale`)                                                                                                       |
+| `heal_triggered`  | fleet_health_monitor            | `heal=agent\|watchdog\|repair\|…`                                                                                                                     |
+| `device_status`   | access-monitor et al.           | online/offline                                                                                                                                        |
+| **`soft_health`** | fleet_health_monitor each probe | `agent_age`, `watchdog_age`, `repair_age`, `port`, `shizuku`, `a11y`, `autojs6_a11y`, `sshd`, `shell5555`, `bootloop`, `issues`, `issue_count`, `via` |
 
-Query example:
+### Crash-safe path to OpenObserve (chosen design)
+
+```text
+fleet_health_monitor
+   │  append whole JSON line + fsync
+   ▼
+~/.config/stayturgid/stats/soft_health.jsonl   (append-only, never truncated)
+   │  Vector file source (device_and_inode fingerprint, checkpoints in data_dir)
+   │  remap: drop corrupt lines
+   │  HTTP micro-batch (≤100 events / 15s)
+   │  disk buffer 512MB, when_full=block, e2e acknowledgements
+   ▼
+OpenObserve stream soft_health  (SQL)
+```
+
+**Why not emit HTTP from Python directly:** process crash loses in-flight events;
+OO down for days needs a durable queue. **Why not only `events.jsonl`:** keeps
+Vector ingest scoped; other event types stay local unless we add more tails.
+
+**Unclean state recovery:**
+
+| Failure                   | What happens                                                                                              |
+| ------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Writer crash mid-line     | One corrupt last line; Vector VRL `abort` drops it                                                        |
+| Vector crash              | File checkpoint + sink disk buffer; restarts resume unread/unacked                                        |
+| OpenObserve down for days | Sink disk buffer blocks; JSONL keeps growing; catch-up when OO returns                                    |
+| soft_health.jsonl missing | Vector `ignore_not_found`; first probe `touch`es file                                                     |
+| OO Unauthorized           | Pre-existing creds issue — fix `OPENOBSERVE_ROOT_PASSWORD` in Vector launchd env; JSONL still accumulates |
+
+SQL (OpenObserve UI, stream `soft_health`):
+
+```sql
+SELECT device, agent_age, watchdog_age, port, shizuku, issues, _timestamp
+FROM soft_health
+WHERE device = 'p7a'
+ORDER BY _timestamp DESC
+LIMIT 50;
+```
+
+Local query example:
 
 ```bash
 python3 - <<'PY'
