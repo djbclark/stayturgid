@@ -87,6 +87,8 @@ repos:
         args: ["-d", "-i", "2", "-ci"]
         language: system
         types: [shell]
+        # Upstream Gradle wrapper scripts; do not reformat.
+        exclude: '(^|/)gradlew$'
 
   - repo: local
     hooks:
@@ -265,7 +267,8 @@ repos:
     hooks:
       - id: semgrep
         name: semgrep
-        entry: semgrep scan --config auto --quiet --error --exclude .github
+        # exported_activity: false positive for required LAUNCHER activities (native-agent).
+        entry: semgrep scan --config auto --quiet --error --exclude .github --exclude-rule java.android.security.exported_activity.exported_activity
         language: system
         pass_filenames: false
 

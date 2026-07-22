@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">stayturgid-agent</string>
+    <string name="notification_channel_name">Agent host</string>
+    <string name="notification_channel_desc">Keeps the stayturgid Shizuku host alive</string>
+    <string name="notification_title">stayturgid-agent</string>
+    <string name="notification_text_idle">Waiting for screen-on / Shizuku</string>
+    <string name="notification_text_bound">UserService bound — ping every %1$d min while screen on</string>
+    <string name="notification_text_no_shizuku">Shizuku permission missing — open app</string>
+    <string name="main_status_heading">Phase 1 host</string>
+    <string name="main_start">Start host service</string>
+    <string name="main_stop">Stop host service</string>
+    <string name="main_request_shizuku">Request Shizuku permission</string>
+    <string name="main_hint">End-state: replace AutoJs6 (OPTIONS K1). Phase 1 is UserService + pingAwake only; AutoJs6 stays installed.</string>
+</resources>

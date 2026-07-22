@@ -361,3 +361,50 @@ validate-identity-strict:
     @echo "### validate-identity-strict"
     @python3 control/bin/validate_site_identity.py --check-drift --check-secrets
 
+# ── Native agent (OPTIONS K1 Phase 1) ─────────────────────────────────────
+
+# Assemble stayturgid-agent debug APK (device/native-agent).
+# composite=false uses Maven Central instead of ~/src/Shizuku/api.
+# Prefers Homebrew OpenJDK 21 if present (AGP rejects JDK 25+).
+agent-assemble composite="true":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{ repo }}/device/native-agent"
+    if [[ -z "${JAVA_HOME:-}" ]]; then
+      for cand in \
+        /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home \
+        /opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home; do
+        if [[ -x "$cand/bin/java" ]]; then
+          export JAVA_HOME="$cand"
+          break
+        fi
+      done
+    fi
+    if [[ ! -f local.properties ]]; then
+      sdk="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Library/Android/sdk}}"
+      if [[ -d "$sdk" ]]; then
+        echo "sdk.dir=$sdk" > local.properties
+      fi
+    fi
+    props=()
+    if [[ "{{ composite }}" == "false" ]]; then
+      props+=(-Pshizuku.composite=false)
+    fi
+    ./gradlew --no-daemon "${props[@]}" :app:assembleDebug
+    echo "APK: {{ repo }}/device/native-agent/app/build/outputs/apk/debug/app-debug.apk"
+
+# Install debug APK via adb serial or host alias (optional).
+# Example: just agent-install serial=R5CX12ABC
+agent-install serial="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    apk="{{ repo }}/device/native-agent/app/build/outputs/apk/debug/app-debug.apk"
+    if [[ ! -f "$apk" ]]; then
+      just agent-assemble
+    fi
+    if [[ -n "{{ serial }}" ]]; then
+      adb -s "{{ serial }}" install -r "$apk"
+    else
+      adb install -r "$apk"
+    fi
+

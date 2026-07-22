@@ -183,19 +183,19 @@ If sshd freezes again (TCP up but `ssh_echo` fails in health log), try
 foreground `-D` / supervision. Wrong change can lock out SSH; only with a
 reproduced freeze and USB adb recovery.
 
-#### K1 — AutoJs6 → native Kotlin APK (agent) · Risk: **High** · **Plan only 2026-07-22** · Do not start without Phase 0
+#### K1 — AutoJs6 → native Kotlin APK (agent) · Risk: **High** · **Phase 1 in progress 2026-07-22**
 
 Replace the Rhino/AutoJs6 watchdog with a purpose-built Kotlin app that binds a
 Shizuku **UserService** (UID 2000) for privileged work without shell-spawn on the
-hot path. Plan (inventory, phased cutover, composite build against
-`~/src/Shizuku/api`, destroy()/daemon refinements, and a Phase‑1 agent prompt):
+hot path. Plan:
 [AutoJs6 → native Kotlin APK migration plan](operations/plans/autojs6-to-native-apk-plan.md).
+Checkpoint:
+[session-2026-07-22-native-agent.md](operations/sessions/session-2026-07-22-native-agent.md).
 
-**Phase 0 gate (operator):** confirm goal G-A (app inactivity → input inject),
-G-B (system screen timeout only — prefer settings/wakelock, not inject), and/or
-G-C (full AutoJs6 replacement). Default plan end-state is G-C; Phase 1 is only
-the UserService + `injectInputEvent` scaffold. Dual-run with AutoJs6 until soak
-passes. Not ordered above live reliability items unless deliberately picked.
+**Code:** `device/native-agent/` (`org.stayturgid.agent`) — Phase 1 **device-proven**
+on Pixel 7a (HostService FGS + UserService bind + `pingAwake` inject via
+InputManager Context path). Build: `just agent-assemble` (JDK 21).
+**AutoJs6 remains deployed** until Phases 2–4. End-state goal G-C.
 
 ---
 
