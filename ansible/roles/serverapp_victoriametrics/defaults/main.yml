@@ -20,7 +20,7 @@ serverapp_victoriametrics_blackbox_exporter_address: "127.0.0.1:9115"
 # Per-module target lists for blackbox_exporter scrape jobs, e.g.:
 #   serverapp_victoriametrics_blackbox_targets:
 #     http_2xx: ["127.0.0.1:80", "127.0.0.1:8080"]
-#     ssh_banner: ["100.123.218.30:8022"]
+#     ssh_banner: ["192.0.2.1:8022"]
 # Empty by default (product default); real per-site values come from
 # {{ site_dir }}/inventory/group_vars/all.yml, loaded by this role's tasks
 # the same way serverapp_openobserve loads its root email — targets are
