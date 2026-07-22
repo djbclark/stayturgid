@@ -156,7 +156,13 @@ class HostService : Service() {
                 return START_NOT_STICKY
             }
             ACTION_PING_NOW -> {
-                scope.launch { callPingAwake() }
+                scope.launch {
+                    callPingAwake()
+                    callComonitor()
+                }
+            }
+            ACTION_REPAIR_NOW -> {
+                scope.launch { callRepairCatastrophic() }
             }
             else -> {
                 // ensure FGS + bind path
@@ -288,6 +294,17 @@ class HostService : Service() {
         try {
             val line = svc.runComonitor()
             Log.i(TAG, "comonitor: $line")
+            // Phase 3: if agent STATUS says CLOSED_NO_SHELL, try shell-first repair
+            // (no a11y). AutoJs6 still owns UI fallback until cutover.
+            if (line.contains("port=CLOSED_NO_SHELL") || line.contains("port=closed")) {
+                Log.w(TAG, "CLOSED_NO_SHELL — invoking repairCatastrophic")
+                try {
+                    val r = svc.repairCatastrophic()
+                    Log.i(TAG, "repairCatastrophic: $r")
+                } catch (e: RemoteException) {
+                    Log.e(TAG, "repairCatastrophic IPC failed", e)
+                }
+            }
         } catch (e: RemoteException) {
             Log.e(TAG, "runComonitor IPC failed", e)
         }
@@ -375,6 +392,7 @@ class HostService : Service() {
 
         const val ACTION_STOP = "org.stayturgid.agent.action.STOP"
         const val ACTION_PING_NOW = "org.stayturgid.agent.action.PING_NOW"
+        const val ACTION_REPAIR_NOW = "org.stayturgid.agent.action.REPAIR_NOW"
 
         fun start(context: Context) {
             val intent = Intent(context, HostService::class.java)
@@ -395,6 +413,29 @@ class HostService : Service() {
                     action = ACTION_PING_NOW
                 }
             ContextCompat.startForegroundService(context, intent)
+        }
+
+        fun repairNow(context: Context) {
+            val intent =
+                Intent(context, HostService::class.java).apply {
+                    action = ACTION_REPAIR_NOW
+                }
+            ContextCompat.startForegroundService(context, intent)
+        }
+    }
+
+    private fun callRepairCatastrophic() {
+        val svc = serviceRef.get()
+        if (svc == null) {
+            Log.w(TAG, "repair skipped — not bound")
+            ensureBound()
+            return
+        }
+        try {
+            val r = svc.repairCatastrophic()
+            Log.i(TAG, "repairCatastrophic: $r")
+        } catch (e: RemoteException) {
+            Log.e(TAG, "repairCatastrophic IPC failed", e)
         }
     }
 }

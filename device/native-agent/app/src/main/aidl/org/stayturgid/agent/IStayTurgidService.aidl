@@ -18,4 +18,10 @@ interface IStayTurgidService {
      * (also appended to /sdcard/stayturgid/logs/agent.log).
      */
     String runComonitor() = 2;
+
+    /**
+     * Phase 3: shell-first catastrophic repair (wireless ADB + HEADLESS_START).
+     * Returns a short result string; does not use Accessibility.
+     */
+    String repairCatastrophic() = 3;
 }

@@ -26,6 +26,13 @@ def test_health_gather_tracks_python_boot_supervisor():
     assert "start-adb\\.sh" not in fh.HEALTH_GATHER
 
 
+def test_health_gather_reads_native_agent_log():
+    """Dual-run: STATUS and agent_age come from agent.log as well as watchdog."""
+    assert "agent.log" in fh.HEALTH_GATHER
+    assert "agent_age=" in fh.HEALTH_GATHER
+    assert r"\[agent\] STATUS" in fh.HEALTH_GATHER
+
+
 def test_device_log_epoch():
     parsed = fhm._device_log_epoch("2026-07-13 12:38:56 [watchdog] example failure")
     expected = datetime.datetime(2026, 7, 13, 12, 38, 56).timestamp()
@@ -132,6 +139,29 @@ def test_summarize_includes_issues():
     s = fh.summarize({"sshd": "ok", "watchdog_age": "9"}, ["watchdog_stale"])
     assert "issues=watchdog_stale" in s
     assert "sshd=ok" in s
+
+
+def test_summarize_includes_agent_age():
+    s = fh.summarize({"sshd": "ok", "agent_age": "42", "watchdog_age": "9"}, [])
+    assert "agent_age=42" in s
+
+
+def test_evaluate_agent_missing_is_not_hard_fail():
+    """During dual-run, hosts without the APK must not fail fleet health."""
+    report = {
+        "ssh_echo": "ok",
+        "sshd": "ok",
+        "bootloop": "ok",
+        "shell5555": "ok",
+        "watchdog_age": "100",
+        "repair_age": "200",
+        "agent_age": "missing",
+        "a11y": "ok",
+        "autojs6_a11y": "ok",
+        "port": "open",
+        "shizuku": "up",
+    }
+    assert fh.evaluate_health(report) == []
 
 
 def test_monitor_notifies_after_debounce(tmp_path, monkeypatch):

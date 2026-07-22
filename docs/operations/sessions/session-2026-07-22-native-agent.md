@@ -112,6 +112,20 @@ Notes:
 
 Version: `0.2.0-phase2-comonitor` (versionCode 3).
 
+## Phase 3 progress (continued session)
+
+| Step                                              | Status                                                              |
+| ------------------------------------------------- | ------------------------------------------------------------------- |
+| Fleet health dual-read `agent.log`                | **done** (`agent_age`, STATUS merge; missing agent not a hard fail) |
+| `CatastrophicRepair` shell-first + HEADLESS_START | **done** (no a11y)                                                  |
+| AIDL `repairCatastrophic()`                       | **done**                                                            |
+| Auto-trigger on CLOSED_NO_SHELL                   | **done**                                                            |
+| Device reinstall 0.3.0 + STATUS                   | **done** (Pixel 7a; userservice up)                                 |
+| Forced CLOSED_NO_SHELL soak                       | **not done**                                                        |
+| AutoJs6 rebuild                                   | **not needed** to continue                                          |
+
+Version: `0.3.0-phase3-catastrophic` (versionCode 4).
+
 ## Next agent priorities
 
 1. Commit/push if not already on origin.

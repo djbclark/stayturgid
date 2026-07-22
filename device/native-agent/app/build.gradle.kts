@@ -11,8 +11,8 @@ android {
         applicationId = "org.stayturgid.agent"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "0.2.0-phase2-comonitor"
+        versionCode = 4
+        versionName = "0.3.0-phase3-catastrophic"
     }
 
     buildFeatures {

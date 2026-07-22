@@ -192,10 +192,11 @@ hot path. Plan:
 Checkpoint:
 [session-2026-07-22-native-agent.md](operations/sessions/session-2026-07-22-native-agent.md).
 
-**Code:** `device/native-agent/` (`org.stayturgid.agent`) — Phase 1 inject **and** Phase 2
-co-monitor STATUS **device-proven** on Pixel 7a (`agent.log`). Build: `just agent-assemble`
-(JDK 21). Grant: `control/tools/native-agent/grant_shizuku.py`.
-**AutoJs6 remains deployed** until Phases 3–4. End-state goal G-C.
+**Code:** `device/native-agent/` — Phases 1–3 in dual-run on Pixel 7a: inject,
+co-monitor (`agent.log`), shell-first catastrophic (no a11y). Fleet health reads
+`agent_age` / STATUS from `agent.log` (missing agent is not a hard fail). Build:
+`just agent-assemble` (JDK 21). **Do not rebuild AutoJs6** to continue agent work.
+**AutoJs6 remains** for a11y UI last-resort until Phase 4 cutover.
 
 ---
 

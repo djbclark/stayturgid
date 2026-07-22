@@ -88,7 +88,24 @@ _age() {
 }
 echo "repair_age=$(_age '\[repair\]')"
 echo "watchdog_age=$(_age '\[watchdog\]')"
-status=$(grep -h 'STATUS port=' "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log ~/.stayturgid/logs/repair.log 2>/dev/null | tail -1)
+# Native agent (OPTIONS K1) dual-run: agent.log STATUS + age. Optional during
+# dual-run — missing agent is not a hard failure (see evaluate_health).
+_agent_age() {
+  last=$(grep -h '\[agent\] STATUS' "$SD/logs/agent.log" /sdcard/stayturgid/logs/agent.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
+  # agent lines are "[agent] STATUS ... ts=YYYY-MM-DD HH:MM:SS" — prefer ts=
+  ts=$(grep -h '\[agent\] STATUS' "$SD/logs/agent.log" /sdcard/stayturgid/logs/agent.log 2>/dev/null | tail -1 | sed -n 's/.*ts=\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]\).*/\1/p')
+  if [ -n "$ts" ]; then last="$ts"; fi
+  if [ -z "$last" ]; then echo missing; return; fi
+"""
+    + _PORTABLE_AGE_BODY
+    + r"""
+}
+echo "agent_age=$(_agent_age)"
+# Prefer freshest STATUS among watchdog, repair, and native agent.
+status=$( {
+  grep -h 'STATUS port=' "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log ~/.stayturgid/logs/repair.log 2>/dev/null
+  grep -h 'STATUS port=' "$SD/logs/agent.log" /sdcard/stayturgid/logs/agent.log 2>/dev/null
+} | tail -1 )
 if [ -n "$status" ]; then
   echo "status_line=$status"
   echo "$status" | grep -oE 'port=[^ ]+' || true
@@ -241,6 +258,7 @@ def summarize(report: dict[str, str], issues: list[str]) -> str:
         "bootloop=%s" % report.get("bootloop", "?"),
         "shell5555=%s" % report.get("shell5555", "?"),
         "watchdog_age=%s" % report.get("watchdog_age", "?"),
+        "agent_age=%s" % report.get("agent_age", "?"),
         "repair_age=%s" % report.get("repair_age", "?"),
         "port=%s" % report.get("port", "?"),
         "shizuku=%s" % report.get("shizuku", "?"),
@@ -299,7 +317,7 @@ def adb_health(serial: str, *, timeout: int = 30) -> dict[str, str]:
     script = (
         r"""
 now=$(date +%s)
-LOGS="/sdcard/stayturgid/logs/watchdog.log /data/data/com.termux/files/home/.stayturgid/shared/logs/watchdog.log"
+LOGS="/sdcard/stayturgid/logs/watchdog.log /data/data/com.termux/files/home/.stayturgid/shared/logs/watchdog.log /sdcard/stayturgid/logs/agent.log"
 age_of() {
   m="$1"
   last=$(grep -hF "$m" $LOGS 2>/dev/null | tail -1 | cut -d" " -f1,2)
@@ -310,6 +328,31 @@ age_of() {
 }
 echo "repair_age=$(age_of '[repair]')"
 echo "watchdog_age=$(age_of '[watchdog]')"
+# agent.ts= prefer explicit ts= field on [agent] STATUS lines
+agent_last=$(grep -h '\[agent\] STATUS' /sdcard/stayturgid/logs/agent.log 2>/dev/null | tail -1)
+agent_ts=$(echo "$agent_last" | sed -n 's/.*ts=\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]\).*/\1/p')
+if [ -n "$agent_ts" ]; then
+  last="$agent_ts"
+"""
+        + r"""
+  age=$(python3 -c '
+import sys, time
+from datetime import datetime
+s = sys.argv[1].strip()
+for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+    try:
+        ts = datetime.strptime(s, fmt).timestamp()
+        print(int(time.time() - ts))
+        raise SystemExit(0)
+    except ValueError:
+        pass
+print("unknown")
+' "$last" 2>/dev/null) || age=unknown
+  if [ -z "$age" ]; then age=unknown; fi
+  echo "agent_age=$age"
+else
+  echo "agent_age=missing"
+fi
 list=$(settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r')
 echo "a11y_list=$list"
 case "$list" in

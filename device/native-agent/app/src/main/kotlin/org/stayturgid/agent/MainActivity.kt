@@ -114,6 +114,19 @@ class MainActivity : ComponentActivity() {
                 }
             },
         )
+        root.addView(
+            Button(this).apply {
+                text = "Catastrophic repair now"
+                setOnClickListener {
+                    HostService.repairNow(this@MainActivity)
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Catastrophic repair requested",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            },
+        )
         setContentView(ScrollView(this).apply { addView(root) })
 
         Shizuku.addBinderReceivedListenerSticky(binderListener)

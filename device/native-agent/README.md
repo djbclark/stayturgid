@@ -79,7 +79,19 @@ adb logcat -s StayTurgidHost:I StayTurgidUS:I StayTurgidMain:I StayTurgidApp:I S
 - `ShizukuUserService` — AIDL stub, `destroy()=16777114`, `pingAwake()`
 - Composite build: `dev.rikka.shizuku:api` / `:provider` from local fork
 
-## Non-goals (still AutoJs6 / Termux)
+## What AutoJs6 is still for (and do you need to rebuild it?)
 
-Co-monitor, catastrophic repair, Termux bridge, Obtainium catalog entry,
-removing AutoJs6. See plan Phases 2–4.
+| AutoJs6 duty today                     | Need AutoJs6 rebuild to continue agent work?  |
+| -------------------------------------- | --------------------------------------------- |
+| Co-monitor STATUS → `watchdog.log`     | **No** — agent writes `agent.log` in parallel |
+| Catastrophic UI tap (a11y) last resort | **No** — agent does shell-first only          |
+| Termux bridge when repair log stale    | **No** for agent Phase 1–3                    |
+| Sticky a11y detect (fork APK)          | **No** unless you change AutoJs6 itself       |
+
+**Do not** build/push AutoJs6 just to continue native-agent work. Only rebuild
+AutoJs6 if you change `device/autojs6/**` or the AutoJs6 APK fork.
+
+## Non-goals still on AutoJs6 / Termux
+
+Termux primary repair loop, a11y UI catastrophic taps, Obtainium catalog for
+agent, removing AutoJs6 (Phase 4).

@@ -57,6 +57,19 @@ class ShizukuUserService : IStayTurgidService.Stub {
         }
     }
 
+    override fun repairCatastrophic(): String {
+        return try {
+            val r = CatastrophicRepair.repair()
+            Log.i(TAG, "repairCatastrophic ok=${r.ok} detail=${r.detail}")
+            // Re-probe after repair so agent.log has a fresh STATUS.
+            runComonitor()
+            "ok=${r.ok} detail=${r.detail}"
+        } catch (t: Throwable) {
+            Log.e(TAG, "repairCatastrophic failed", t)
+            "ok=false detail=${t.message}"
+        }
+    }
+
     private fun injectSilentKey() {
         val inputManager = resolveInputManager()
         val inject = resolveInjectMethod(inputManager.javaClass)
