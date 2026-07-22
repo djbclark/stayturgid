@@ -65,6 +65,12 @@ ports:
     source:
       file: ansible/roles/serverapp_victoriametrics/defaults/main.yml
       yaml_path: serverapp_victoriametrics_http_port
+  - service: blackbox-exporter
+    scope: control_node
+    bind: 127.0.0.1
+    source:
+      file: ansible/roles/serverapp_blackbox_exporter/defaults/main.yml
+      yaml_path: serverapp_blackbox_exporter_http_port
   - service: olivetin
     scope: control_node
     bind: 127.0.0.1
@@ -156,6 +162,9 @@ paths:
   - source:
       file: ansible/roles/serverapp_openobserve/defaults/main.yml
       yaml_path: serverapp_openobserve_bin_path
+  - source:
+      file: ansible/roles/serverapp_blackbox_exporter/defaults/main.yml
+      yaml_path: serverapp_blackbox_exporter_bin_path
   - source:
       file: ansible_collections/stayturgid/firerpa/roles/firerpa/defaults/main.yml
       yaml_path: firerpa_install_dir

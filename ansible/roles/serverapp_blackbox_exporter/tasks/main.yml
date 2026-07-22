@@ -1,0 +1,181 @@
+---
+# Own-mode blackbox_exporter lifecycle: dirs → binary if absent (never
+# upgrade) → blackbox.yml + plist → bootstrap → health → best-effort ICMP
+# probe. New role (no legacy label to migrate away from), so this is
+# simpler than serverapp_openobserve's cutover logic.
+
+- name: Ensure blackbox_exporter config, bin parent, and log directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ serverapp_blackbox_exporter_config_dir }}"
+    - "{{ serverapp_blackbox_exporter_bin_path | dirname }}"
+    - "{{ serverapp_blackbox_exporter_logs_dir }}"
+    - "{{ serverapp_blackbox_exporter_home }}/Library/LaunchAgents"
+
+- name: Check whether blackbox_exporter binary is installed
+  ansible.builtin.stat:
+    path: "{{ serverapp_blackbox_exporter_bin_path }}"
+  register: _bbe_bin_stat
+
+- name: Detect machine architecture for blackbox_exporter download
+  ansible.builtin.command:
+    cmd: uname -m
+  register: _bbe_uname
+  changed_when: false
+  when: not (_bbe_bin_stat.stat.exists | default(false))
+
+- name: Set blackbox_exporter download architecture fact
+  ansible.builtin.set_fact:
+    _bbe_arch: "{{ 'darwin-arm64' if (_bbe_uname.stdout | default('') | trim) in ['arm64', 'aarch64'] else 'darwin-amd64' }}"
+  when: not (_bbe_bin_stat.stat.exists | default(false))
+
+# M1-F-style MF-5: fail closed rather than install an unverified binary.
+- name: Fail closed when no pinned checksum exists for this blackbox_exporter download arch
+  ansible.builtin.assert:
+    that:
+      - (serverapp_blackbox_exporter_archive_sha256[_bbe_arch] | default('', true) | length) > 0
+    fail_msg: >-
+      No pinned sha256 for blackbox_exporter {{ serverapp_blackbox_exporter_version }} ({{ _bbe_arch }}) in
+      serverapp_blackbox_exporter_archive_sha256 — refusing to download an unverified binary.
+  when: not (_bbe_bin_stat.stat.exists | default(false))
+
+- name: Download blackbox_exporter archive when binary missing
+  vars:
+    _bbe_base: "https://github.com/prometheus/blackbox_exporter/releases/download"
+    _bbe_archive: "blackbox_exporter-{{ serverapp_blackbox_exporter_version }}.{{ _bbe_arch }}.tar.gz"
+  ansible.builtin.get_url:
+    url: "{{ _bbe_base }}/v{{ serverapp_blackbox_exporter_version }}/{{ _bbe_archive }}"
+    dest: /tmp/blackbox_exporter.tar.gz
+    mode: "0644"
+    checksum: "sha256:{{ serverapp_blackbox_exporter_archive_sha256[_bbe_arch] }}"
+  when: not (_bbe_bin_stat.stat.exists | default(false))
+
+# ansible.builtin.unarchive requires GNU tar for .tar.gz on the local
+# strategy it picks for this archive shape; macOS ships only BSD tar by
+# default (confirmed live — unarchive fails with "GNU tar required" without
+# this). `brew install gnu-tar` provides it as `gtar`; prepend its gnubin
+# shim to PATH for just this task rather than requiring the operator's shell
+# profile to be edited (brew's own caveat suggests a global PATH change —
+# scoping it here avoids depending on that).
+- name: Extract blackbox_exporter archive when missing
+  ansible.builtin.unarchive:
+    src: /tmp/blackbox_exporter.tar.gz
+    dest: /tmp
+    remote_src: true
+  environment:
+    # lookup('env', ...), not ansible_env — this playbook runs with
+    # gather_facts: false (matches every other serverapp_* playbook).
+    PATH: "/opt/homebrew/opt/gnu-tar/libexec/gnubin:{{ lookup('env', 'PATH') }}"
+  when: not (_bbe_bin_stat.stat.exists | default(false))
+
+- name: Install blackbox_exporter binary to destination when missing
+  ansible.builtin.copy:
+    src: "/tmp/blackbox_exporter-{{ serverapp_blackbox_exporter_version }}.{{ _bbe_arch }}/blackbox_exporter"
+    dest: "{{ serverapp_blackbox_exporter_bin_path }}"
+    mode: "0755"
+    remote_src: true
+  when: not (_bbe_bin_stat.stat.exists | default(false))
+
+- name: Clean up temporary blackbox_exporter files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /tmp/blackbox_exporter.tar.gz
+    - "/tmp/blackbox_exporter-{{ serverapp_blackbox_exporter_version }}.{{ _bbe_arch }}"
+  when: not (_bbe_bin_stat.stat.exists | default(false))
+
+- name: Render blackbox_exporter module config
+  ansible.builtin.template:
+    src: blackbox.yml.j2
+    dest: "{{ serverapp_blackbox_exporter_config_path }}"
+    mode: "0644"
+  register: _bbe_config
+
+- name: Render blackbox_exporter launchd plist under site namespace
+  ansible.builtin.template:
+    src: blackbox_exporter.plist.j2
+    dest: "{{ serverapp_blackbox_exporter_plist_path }}"
+    mode: "0644"
+  register: _bbe_plist
+
+- name: Probe whether site-namespace blackbox_exporter label is loaded
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_blackbox_exporter_uid }}/{{ serverapp_blackbox_exporter_label }}" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _bbe_launch_state
+  changed_when: false
+
+- name: Boot out site-namespace blackbox_exporter when its launchd plist changed
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_blackbox_exporter_uid }}/{{ serverapp_blackbox_exporter_label }}
+  when:
+    - _bbe_launch_state.stdout | trim == 'loaded'
+    - _bbe_plist.changed | default(false)
+  register: _bbe_plist_reload_bootout
+
+- name: Bootstrap site-namespace blackbox_exporter when unloaded or its plist changed
+  ansible.builtin.command:
+    cmd: >-
+      launchctl bootstrap gui/{{ serverapp_blackbox_exporter_uid }}
+      {{ serverapp_blackbox_exporter_plist_path }}
+  when: >-
+    (_bbe_launch_state.stdout | trim == 'unloaded')
+    or (_bbe_plist_reload_bootout.changed | default(false))
+  register: _bbe_bootstrap
+  until: _bbe_bootstrap.rc == 0
+  retries: 5
+  delay: 1
+
+- name: Kickstart site-namespace blackbox_exporter after config-only change
+  ansible.builtin.command:
+    cmd: >-
+      launchctl kickstart -k gui/{{ serverapp_blackbox_exporter_uid }}/{{ serverapp_blackbox_exporter_label }}
+  when:
+    - _bbe_launch_state.stdout | trim == 'loaded'
+    - _bbe_config.changed | default(false)
+    - not (_bbe_plist.changed | default(false))
+  register: _bbe_kickstart
+
+- name: Wait for blackbox_exporter health endpoint (http_2xx self-probe)
+  ansible.builtin.uri:
+    url: "{{ serverapp_blackbox_exporter_health_url }}"
+    status_code: 200
+  register: _bbe_health
+  until: _bbe_health.status == 200
+  retries: 30
+  delay: 1
+
+# Best-effort: confirm unprivileged ICMP actually works under this launchd
+# gui/<uid> context rather than assuming it (macOS support is real but not
+# guaranteed everywhere — see role defaults comment / plan doc). Failure
+# here is a warning, not a fatal error: the icmp module stays defined in
+# blackbox.yml but VictoriaMetrics simply won't get an icmp scrape job
+# wired to it until this is confirmed working.
+- name: Probe whether unprivileged ICMP works under this launchd context
+  ansible.builtin.uri:
+    url: "{{ serverapp_blackbox_exporter_icmp_probe_url }}"
+    status_code: 200
+    return_content: true
+  register: _bbe_icmp_probe
+  failed_when: false
+
+- name: Warn if ICMP probe did not succeed
+  ansible.builtin.debug:
+    msg: >-
+      blackbox_exporter icmp module probe did not report probe_success 1
+      (unprivileged ICMP may not be permitted under this launchd gui/<uid>
+      context). The icmp module stays defined but should not be wired into
+      VictoriaMetrics scrape targets until this is resolved.
+  when: >-
+    _bbe_icmp_probe.status | default(0) != 200
+    or 'probe_success 1' not in (_bbe_icmp_probe.content | default(''))

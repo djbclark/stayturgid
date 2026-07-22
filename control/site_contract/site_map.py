@@ -36,6 +36,7 @@ ALLOWED_SERVERAPPS = frozenset(
         "vector",
         "openobserve",
         "victoriametrics",
+        "blackbox_exporter",
         "grafana",
         "olivetin",
         "landing",

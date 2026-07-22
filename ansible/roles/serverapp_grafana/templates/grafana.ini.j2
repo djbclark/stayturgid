@@ -21,9 +21,9 @@ enable_gzip = true
 
 [security]
 # Local loopback only; admin still required for UI. No secrets in this file.
-admin_user = admin
+admin_user = {{ serverapp_grafana_admin_user }}
 # Default brew password; operator should change on first login if exposed.
-admin_password = admin
+admin_password = {{ serverapp_grafana_admin_password }}
 disable_gravatar = true
 
 [users]

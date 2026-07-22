@@ -2,7 +2,10 @@
 # template: ansible/roles/serverapp_victoriametrics/templates/scrape.yml.j2
 # product_version: {{ product_version }}
 #
-# Minimal self-scrape so Fleet Control Room has at least one up series.
+# Self-scrape so Fleet Control Room has at least one up series, plus one
+# blackbox_exporter scrape job per configured probe module (standard
+# Prometheus blackbox relabel pattern — see serverapp_blackbox_exporter and
+# serverapp_victoriametrics_blackbox_targets in this role's defaults).
 # Ports come from role defaults / registry (own-mode bootstrap).
 
 global:
@@ -12,3 +15,23 @@ scrape_configs:
   - job_name: "victoriametrics"
     static_configs:
       - targets: ["{{ serverapp_victoriametrics_http_listen }}"]
+{% for module, targets in (serverapp_victoriametrics_blackbox_targets | default({})).items() %}
+{% if targets | length > 0 %}
+  - job_name: "blackbox-{{ module }}"
+    metrics_path: /probe
+    params:
+      module: ["{{ module }}"]
+    static_configs:
+      - targets:
+{% for target in targets %}
+          - "{{ target }}"
+{% endfor %}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: "{{ serverapp_victoriametrics_blackbox_exporter_address }}"
+{% endif %}
+{% endfor %}

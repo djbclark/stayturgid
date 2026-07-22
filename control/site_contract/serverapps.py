@@ -57,6 +57,7 @@ KNOWN_APPS = (
     "vector",
     "openobserve",
     "victoriametrics",
+    "blackbox_exporter",
     "grafana",
     "olivetin",
     "landing",
@@ -357,6 +358,12 @@ def resolve_app_mode(
             if path.is_file():
                 return "inject", "detect"
 
+    if app == "blackbox_exporter":
+        # §5.3: single-owner; inject = reuse registry endpoint only.
+        for path in _blackbox_exporter_detect_paths(site_map, site_ns=site_ns, home=home):
+            if path.is_file():
+                return "inject", "detect"
+
     if app == "grafana":
         for path in _grafana_detect_paths(site_map, site_ns=site_ns, home=home):
             if path.is_file():
@@ -484,6 +491,42 @@ def _openobserve_detect_paths(
         Path("/Library/LaunchDaemons/openobserve.plist"),
         Path("/Library/LaunchAgents/openobserve.plist"),
         Path("/opt/homebrew/opt/openobserve/homebrew.mxcl.openobserve.plist"),
+    ]
+    seen: set[Path] = set()
+    out: list[Path] = []
+    for path in candidates:
+        try:
+            resolved = path.expanduser().resolve()
+        except OSError:
+            resolved = path.expanduser()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        out.append(resolved)
+    return out
+
+
+def _blackbox_exporter_detect_paths(
+    site_map: SiteMap,
+    *,
+    site_ns: str,
+    home: Path | None = None,
+) -> list[Path]:
+    """§5.3 foreign detect: existing blackbox_exporter unit outside our labels.
+
+    Not brew-distributed (see plan doc — no macOS bottle exists), so there's
+    no homebrew.mxcl.* service definition to exclude; only well-known
+    manually-installed unit paths are treated as foreign.
+    """
+    app = site_map.serverapps.get("blackbox_exporter")
+    if app and app.config is not None:
+        return [app.config]
+    del site_ns  # reserved for future site-map-relative detection
+    home_path = home if home is not None else Path.home()
+    candidates = [
+        home_path / "Library" / "LaunchAgents" / "io.prometheus.blackbox_exporter.plist",
+        Path("/Library/LaunchDaemons/blackbox_exporter.plist"),
+        Path("/Library/LaunchAgents/blackbox_exporter.plist"),
     ]
     seen: set[Path] = set()
     out: list[Path] = []
@@ -1132,6 +1175,134 @@ def plan_openobserve(
             kind="ansible",
             target="serverapp_openobserve",
             detail="binary (if absent) + bootstrap + health (data dir unchanged)",
+        )
+    )
+    return plan
+
+
+def plan_blackbox_exporter(
+    *,
+    site_dir: Path,
+    site_map: SiteMap,
+    site_ns: str,
+    force_generated: bool,
+    home: Path | None = None,
+    product_version: str | None = None,
+) -> AppPlan:
+    """Build the plan for the blackbox_exporter adapter (single-owner; §5.3).
+
+    Inject mode: zero file writes — reuse registry endpoint only.
+    Own mode: ansible role installs binary if absent (GitHub release,
+    pinned sha256 — not brew-distributed), site-namespace unit on 9115.
+    """
+    del force_generated
+    mode, source = resolve_app_mode("blackbox_exporter", site_map=site_map, site_ns=site_ns, home=home)
+    plan = AppPlan(app="blackbox_exporter", mode=mode, source=source)
+    home_path = home if home is not None else Path.home()
+    config_dir = home_path / ".config" / site_ns / "blackbox_exporter"
+    config_path = config_dir / "blackbox.yml"
+    bin_path = home_path / ".local" / "bin" / "blackbox_exporter"
+    logs_dir = home_path / ".config" / site_ns / "logs"
+    label = f"com.{site_ns}.blackbox_exporter"
+    plist = home_path / "Library" / "LaunchAgents" / f"{label}.plist"
+    health_url = "http://127.0.0.1:9115/probe?target=127.0.0.1&module=http_2xx"
+
+    if mode == "off":
+        plan.actions.append(
+            PlannedAction(
+                app="blackbox_exporter",
+                kind="noop",
+                target="-",
+                detail="mode=off; no activation (single-owner; no inject copies)",
+            )
+        )
+        return plan
+
+    if mode == "inject":
+        plan.actions.append(
+            PlannedAction(
+                app="blackbox_exporter",
+                kind="verify",
+                target=health_url,
+                detail="inject: reuse blackbox-exporter endpoint from registry (no file writes)",
+            )
+        )
+        plan.actions.append(
+            PlannedAction(
+                app="blackbox_exporter",
+                kind="noop",
+                target="registry:blackbox-exporter",
+                detail="inject mode never installs, never writes unit/config",
+            )
+        )
+        return plan
+
+    if source == "site-map":
+        for path in _blackbox_exporter_detect_paths(site_map, site_ns=site_ns, home=home_path):
+            if not path.is_file():
+                continue
+            app_map = site_map.serverapps.get("blackbox_exporter")
+            if app_map and app_map.config is not None and path.resolve() == app_map.config.resolve():
+                if path.resolve() != plist.resolve():
+                    plan.refusals.append(
+                        Refusal(
+                            kind="forced_own_foreign",
+                            message=(
+                                f"blackbox_exporter: site-map forces own but foreign unit/config exists at {path}; "
+                                "refusing to take over user-owned blackbox_exporter (exit 2). "
+                                "Set serverapps.blackbox_exporter.mode: inject, or remove the foreign unit."
+                            ),
+                        )
+                    )
+                    return plan
+
+    plan.ansible_extra = {
+        "site_ns": site_ns,
+        "site_dir": str(site_dir.resolve()),
+        "serverapp_blackbox_exporter_home": str(home_path),
+        "serverapp_blackbox_exporter_config_dir": str(config_dir),
+        "serverapp_blackbox_exporter_config_path": str(config_path),
+        "serverapp_blackbox_exporter_bin_path": str(bin_path),
+        "serverapp_blackbox_exporter_logs_dir": str(logs_dir),
+        "serverapp_blackbox_exporter_label": label,
+        "serverapp_blackbox_exporter_plist_path": str(plist),
+        "serverapp_blackbox_exporter_health_url": health_url,
+        "serverapp_blackbox_exporter_uid": str(os.getuid()),
+        "product_version": product_version or "unknown",
+    }
+
+    if plist.is_file():
+        plan.actions.append(
+            PlannedAction(
+                app="blackbox_exporter",
+                kind="skip",
+                target=str(plist),
+                detail=f"launchd plist {label}",
+            )
+        )
+    else:
+        plan.actions.append(
+            PlannedAction(
+                app="blackbox_exporter",
+                kind="create",
+                target=str(plist),
+                detail=f"launchd plist {label}",
+            )
+        )
+    plan.actions.append(
+        PlannedAction(
+            app="blackbox_exporter",
+            kind="create" if not config_path.is_file() else "skip",
+            target=str(config_path),
+            detail="own-mode blackbox.yml (module definitions)",
+        )
+    )
+    plan.actions.append(
+        PlannedAction(
+            app="blackbox_exporter",
+            kind="ansible",
+            target="serverapp_blackbox_exporter",
+            detail="binary (if absent) + bootstrap + health + best-effort ICMP probe on 9115",
         )
     )
     return plan
@@ -1813,6 +1984,7 @@ def build_plan(
         "vector": plan_vector,
         "openobserve": plan_openobserve,
         "victoriametrics": plan_victoriametrics,
+        "blackbox_exporter": plan_blackbox_exporter,
         "grafana": plan_grafana,
         "olivetin": plan_olivetin,
         "landing": plan_landing,
@@ -1831,7 +2003,7 @@ def build_plan(
         }
         if app == "landing":
             kwargs["product_root"] = product
-        if app in {"caddy", "vector", "grafana", "olivetin", "victoriametrics"}:
+        if app in {"caddy", "vector", "grafana", "olivetin", "victoriametrics", "blackbox_exporter"}:
             kwargs["product_version"] = product_version
         # Each plan_<app>() has a distinct signature (only some accept
         # product_root/product_version); kwargs is tailored per-app above.
@@ -1971,6 +2143,8 @@ def apply_plan(
                     _materialize_openobserve_own_for_tests(plan, app, dry_run=dry_run)
                 elif app.app == "victoriametrics":
                     _materialize_victoriametrics_own_for_tests(plan, app, dry_run=dry_run)
+                elif app.app == "blackbox_exporter":
+                    _materialize_blackbox_exporter_own_for_tests(plan, app, dry_run=dry_run)
                 elif app.app == "grafana":
                     _materialize_grafana_own_for_tests(plan, app, dry_run=dry_run)
                 elif app.app == "olivetin":
@@ -2156,6 +2330,41 @@ def _materialize_openobserve_own_for_tests(plan: ServerAppsPlan, app: AppPlan, *
                 "ZO_HTTP_ADDR": "127.0.0.1",
                 "ZO_GRPC_ADDR": "127.0.0.1",
             },
+        ),
+        encoding="utf-8",
+    )
+
+
+def _materialize_blackbox_exporter_own_for_tests(plan: ServerAppsPlan, app: AppPlan, *, dry_run: bool) -> None:
+    """Write blackbox.yml + launchd plist without ansible (unit tests)."""
+    del plan  # unused; signature matches sibling materializers
+    if dry_run:
+        return
+    plist_path = Path(app.ansible_extra["serverapp_blackbox_exporter_plist_path"])
+    config_dir = Path(app.ansible_extra["serverapp_blackbox_exporter_config_dir"])
+    logs_dir = Path(app.ansible_extra["serverapp_blackbox_exporter_logs_dir"])
+    bin_path = Path(app.ansible_extra["serverapp_blackbox_exporter_bin_path"])
+    label = app.ansible_extra["serverapp_blackbox_exporter_label"]
+    home = app.ansible_extra["serverapp_blackbox_exporter_home"]
+    config_dir.mkdir(parents=True, exist_ok=True)
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    bin_path.parent.mkdir(parents=True, exist_ok=True)
+    plist_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path = Path(app.ansible_extra["serverapp_blackbox_exporter_config_path"])
+    if not config_path.is_file():
+        config_path.write_text("modules: {}\n", encoding="utf-8")
+    # Placeholder binary for unit tests only (not executed under skip_ansible).
+    if not bin_path.is_file():
+        bin_path.write_text("#!/bin/sh\n# test stub\n", encoding="utf-8")
+        bin_path.chmod(0o755)
+    plist_path.write_text(
+        _render_test_launchd_plist(
+            label=label,
+            program_arguments=[str(bin_path), f"--config.file={config_path}"],
+            home=home,
+            working_directory=str(config_dir),
+            stdout_path=f"{logs_dir}/blackbox_exporter.log",
+            stderr_path=f"{logs_dir}/blackbox_exporter.log",
         ),
         encoding="utf-8",
     )

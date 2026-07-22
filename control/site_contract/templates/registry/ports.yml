@@ -85,6 +85,12 @@ product_defaults:
       service: vector-api
       status: default-claim
       source: ansible/roles/serverapp_vector/defaults/main.yml#serverapp_vector_api_port
+    - port: 9115
+      bind: 127.0.0.1
+      owner: stayturgid
+      service: blackbox-exporter
+      status: default-claim
+      source: ansible/roles/serverapp_blackbox_exporter/defaults/main.yml#serverapp_blackbox_exporter_http_port
   fleet_device:
     - port: 5555
       bind: '*'

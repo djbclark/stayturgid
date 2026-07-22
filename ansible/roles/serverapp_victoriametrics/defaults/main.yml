@@ -13,5 +13,18 @@ serverapp_victoriametrics_bin: /opt/homebrew/bin/victoria-metrics
 serverapp_victoriametrics_http_port: 8428
 serverapp_victoriametrics_http_listen: "127.0.0.1:{{ serverapp_victoriametrics_http_port }}"
 serverapp_victoriametrics_health_url: "http://127.0.0.1:{{ serverapp_victoriametrics_http_port }}/health"
+# blackbox_exporter's own scrape endpoint (serverapp_blackbox_exporter's
+# default http_port) — relabeled as the __address__ target for every
+# blackbox scrape job below, per the standard Prometheus blackbox pattern.
+serverapp_victoriametrics_blackbox_exporter_address: "127.0.0.1:9115"
+# Per-module target lists for blackbox_exporter scrape jobs, e.g.:
+#   serverapp_victoriametrics_blackbox_targets:
+#     http_2xx: ["127.0.0.1:80", "127.0.0.1:8080"]
+#     ssh_banner: ["100.123.218.30:8022"]
+# Empty by default (product default); real per-site values come from
+# {{ site_dir }}/inventory/group_vars/all.yml, loaded by this role's tasks
+# the same way serverapp_openobserve loads its root email — targets are
+# site-specific facts, not something the product should hard-code.
+serverapp_victoriametrics_blackbox_targets: {}
 # No default for serverapp_victoriametrics_uid — always supplied as an extra-var by
 # control/site_contract/serverapps.py (os.getuid()); fail closed otherwise.

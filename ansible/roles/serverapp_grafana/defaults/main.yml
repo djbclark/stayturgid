@@ -24,5 +24,20 @@ serverapp_grafana_health_url: "http://127.0.0.1:{{ serverapp_grafana_http_port }
 serverapp_grafana_domain: "localhost"
 serverapp_grafana_root_url: "http://127.0.0.1:{{ serverapp_grafana_http_port }}/"
 serverapp_grafana_serve_from_sub_path: false
+# Referenced by both grafana.ini.j2 and this role's Alerting API task (single
+# source, not duplicated) — brew default; operator should change if exposed.
+serverapp_grafana_admin_user: admin
+serverapp_grafana_admin_password: admin
+# Telegram contact point for blackbox_exporter alert rules (see
+# sync_templates/fragments/grafana/alerting/rules.yaml.j2 — deliberately NOT
+# file-provisioned; Grafana hard-fails startup if a file-provisioned
+# contact-point's settings are empty, so this must be applied via the
+# Alerting HTTP API after Grafana is already running). Bot token reuses the
+# same TELEGRAM_BOT_TOKEN env var as the Hermes gateway
+# (ansible/roles/control_node/tasks/hermes.yml) — never committed. Chat id
+# defaults to the site's stayturgid_hermes_telegram_home_channel when unset
+# here (loaded from site inventory in tasks/main.yml); override this var to
+# use a distinct bot/chat instead of reusing Hermes's.
+serverapp_grafana_telegram_chat_id: ""
 # No default for serverapp_grafana_uid — always supplied as an extra-var by
 # control/site_contract/serverapps.py (os.getuid()); fail closed otherwise.

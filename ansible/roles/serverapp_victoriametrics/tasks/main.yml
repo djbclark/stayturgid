@@ -42,6 +42,22 @@
     - "{{ serverapp_victoriametrics_logs_dir }}"
     - "{{ serverapp_victoriametrics_home }}/Library/LaunchAgents"
 
+- name: Load site group_vars for blackbox_exporter targets when present
+  ansible.builtin.include_vars:
+    file: "{{ site_dir }}/inventory/group_vars/all.yml"
+    name: _site_all_vars
+  failed_when: false
+
+- name: Apply blackbox_exporter targets from site inventory when defined
+  ansible.builtin.set_fact:
+    serverapp_victoriametrics_blackbox_targets: >-
+      {{
+        _site_all_vars.serverapp_victoriametrics_blackbox_targets
+        if (_site_all_vars is defined and _site_all_vars.serverapp_victoriametrics_blackbox_targets is defined)
+        else serverapp_victoriametrics_blackbox_targets
+      }}
+  when: _site_all_vars is defined
+
 - name: Render own-mode scrape.yml
   ansible.builtin.template:
     src: scrape.yml.j2

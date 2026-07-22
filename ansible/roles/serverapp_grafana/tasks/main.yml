@@ -180,3 +180,183 @@
   until: _gf_health.status == 200
   retries: 60
   delay: 2
+
+# Telegram contact point for blackbox_exporter alert rules — applied via the
+# Alerting HTTP API, not file provisioning (see rules.yaml.j2 header comment
+# for why: confirmed live that Grafana hard-fails startup if a
+# file-provisioned contact point's settings are empty). Skips entirely if no
+# bot token is configured, same "only act if length > 0" convention as
+# Hermes's token handling (ansible/roles/control_node/tasks/hermes.yml).
+- name: Load site group_vars for grafana Telegram chat id when present
+  ansible.builtin.include_vars:
+    file: "{{ site_dir }}/inventory/group_vars/all.yml"
+    name: _site_all_vars
+  failed_when: false
+
+# stayturgid_hermes_telegram_home_channel lives under hosts.yml's `all: vars:`
+# block (real inventory `all:vars:`, not group_vars/all.yml — confirmed by
+# actually running this task live and observing the loaded dict didn't have
+# it), so it needs a separate include_vars against the inventory file itself.
+- name: Load site inventory hosts.yml for grafana Telegram chat id when present
+  ansible.builtin.include_vars:
+    file: "{{ site_dir }}/inventory/hosts.yml"
+    name: _site_hosts_vars
+  failed_when: false
+
+- name: Apply grafana Telegram chat id from site inventory when defined
+  ansible.builtin.set_fact:
+    serverapp_grafana_telegram_chat_id: >-
+      {{
+        serverapp_grafana_telegram_chat_id
+        if (serverapp_grafana_telegram_chat_id | default('', true) | length) > 0
+        else (_site_all_vars.stayturgid_hermes_telegram_home_channel
+              | default(_site_hosts_vars.all.vars.stayturgid_hermes_telegram_home_channel, true)
+              | default('', true))
+      }}
+  when: _site_all_vars is defined or _site_hosts_vars is defined
+
+- name: Resolve Telegram bot token from environment (optional, never from git)
+  ansible.builtin.set_fact:
+    _gf_telegram_bot_token: "{{ lookup('env', 'TELEGRAM_BOT_TOKEN') }}"
+  no_log: true
+
+# Uses the App Platform alerting API (notifications.alerting.grafana.app/v1beta1),
+# not the /api/v1/provisioning/* endpoints — those are deprecated on this
+# Grafana version (confirmed live: X-Api-Deprecation-Date 2026-04-07, already
+# past). The new API is Kubernetes-style: resources have a server-assigned
+# metadata.name (base64 of spec.title — confirmed empirically, not derived
+# client-side since the exact encoding isn't documented) and updates require
+# the current metadata.resourceVersion (optimistic concurrency; a PUT without
+# it 409s — confirmed live).
+- name: Set App Platform alerting API base URL
+  ansible.builtin.set_fact:
+    _gf_alerting_api: "http://127.0.0.1:{{ serverapp_grafana_http_port }}/apis/notifications.alerting.grafana.app/v1beta1/namespaces/default"
+
+- name: List existing grafana receivers (App Platform alerting API)
+  ansible.builtin.uri:
+    url: "{{ _gf_alerting_api }}/receivers"
+    url_username: "{{ serverapp_grafana_admin_user }}"
+    url_password: "{{ serverapp_grafana_admin_password }}"
+    force_basic_auth: true
+    status_code: 200
+  register: _gf_receivers
+  when:
+    - (_gf_telegram_bot_token | default('', true) | length) > 0
+    - (serverapp_grafana_telegram_chat_id | default('', true) | length) > 0
+
+- name: Find existing stayturgid-telegram receiver by title
+  ansible.builtin.set_fact:
+    # _gf_receivers.json.items resolves to the dict's .items() *method*
+    # (Ansible/Jinja dot-access pitfall), not the JSON "items" key — bracket
+    # notation forces the key lookup (confirmed live: dot form threw
+    # "'method' object is not iterable").
+    _gf_existing_receiver: >-
+      {{
+        (_gf_receivers.json['items'] | default([]))
+        | selectattr('spec.title', 'equalto', 'stayturgid-telegram')
+        | list
+        | first
+        | default(none)
+      }}
+  when: _gf_receivers.json is defined
+
+- name: Create stayturgid-telegram receiver when absent
+  ansible.builtin.uri:
+    url: "{{ _gf_alerting_api }}/receivers"
+    method: POST
+    url_username: "{{ serverapp_grafana_admin_user }}"
+    url_password: "{{ serverapp_grafana_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      kind: Receiver
+      apiVersion: notifications.alerting.grafana.app/v1beta1
+      metadata:
+        namespace: default
+      spec:
+        title: stayturgid-telegram
+        integrations:
+          - uid: stayturgid-telegram-receiver
+            type: telegram
+            disableResolveMessage: false
+            settings:
+              bottoken: "{{ _gf_telegram_bot_token }}"
+              chatid: "{{ serverapp_grafana_telegram_chat_id }}"
+    status_code: [201]
+  when:
+    - (_gf_telegram_bot_token | default('', true) | length) > 0
+    - (serverapp_grafana_telegram_chat_id | default('', true) | length) > 0
+    - _gf_existing_receiver is defined
+    - _gf_existing_receiver is none
+  no_log: true
+
+- name: Update stayturgid-telegram receiver when present (token may have rotated)
+  ansible.builtin.uri:
+    url: "{{ _gf_alerting_api }}/receivers/{{ _gf_existing_receiver.metadata.name }}"
+    method: PUT
+    url_username: "{{ serverapp_grafana_admin_user }}"
+    url_password: "{{ serverapp_grafana_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      kind: Receiver
+      apiVersion: notifications.alerting.grafana.app/v1beta1
+      metadata:
+        name: "{{ _gf_existing_receiver.metadata.name }}"
+        namespace: default
+        resourceVersion: "{{ _gf_existing_receiver.metadata.resourceVersion }}"
+      spec:
+        title: stayturgid-telegram
+        integrations:
+          - uid: stayturgid-telegram-receiver
+            type: telegram
+            disableResolveMessage: false
+            settings:
+              bottoken: "{{ _gf_telegram_bot_token }}"
+              chatid: "{{ serverapp_grafana_telegram_chat_id }}"
+    status_code: [200]
+  when:
+    - (_gf_telegram_bot_token | default('', true) | length) > 0
+    - (serverapp_grafana_telegram_chat_id | default('', true) | length) > 0
+    - _gf_existing_receiver is defined
+    - _gf_existing_receiver is not none
+  no_log: true
+
+# RoutingTree is a singleton resource (fixed name "user-defined"), unlike
+# Receiver — always GET-then-PUT with the current resourceVersion.
+- name: Get current routing tree
+  ansible.builtin.uri:
+    url: "{{ _gf_alerting_api }}/routingtrees/user-defined"
+    url_username: "{{ serverapp_grafana_admin_user }}"
+    url_password: "{{ serverapp_grafana_admin_password }}"
+    force_basic_auth: true
+    status_code: 200
+  register: _gf_routing_tree
+  when:
+    - (_gf_telegram_bot_token | default('', true) | length) > 0
+    - (serverapp_grafana_telegram_chat_id | default('', true) | length) > 0
+
+- name: Route default notification policy to stayturgid-telegram
+  ansible.builtin.uri:
+    url: "{{ _gf_alerting_api }}/routingtrees/user-defined"
+    method: PUT
+    url_username: "{{ serverapp_grafana_admin_user }}"
+    url_password: "{{ serverapp_grafana_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body:
+      kind: RoutingTree
+      apiVersion: notifications.alerting.grafana.app/v1beta1
+      metadata:
+        name: user-defined
+        namespace: default
+        resourceVersion: "{{ _gf_routing_tree.json.metadata.resourceVersion }}"
+      spec:
+        defaults:
+          receiver: stayturgid-telegram
+          group_by: ["grafana_folder", "alertname"]
+        routes: "{{ _gf_routing_tree.json.spec.routes | default([]) }}"
+    status_code: [200]
+  when:
+    - (_gf_telegram_bot_token | default('', true) | length) > 0
+    - (serverapp_grafana_telegram_chat_id | default('', true) | length) > 0
