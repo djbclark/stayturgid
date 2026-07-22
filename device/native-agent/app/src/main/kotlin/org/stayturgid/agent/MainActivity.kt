@@ -101,6 +101,19 @@ class MainActivity : ComponentActivity() {
                 }
             },
         )
+        root.addView(
+            Button(this).apply {
+                text = "Run co-monitor now"
+                setOnClickListener {
+                    HostService.pingNow(this@MainActivity)
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Ping+comonitor requested (see agent.log)",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            },
+        )
         setContentView(ScrollView(this).apply { addView(root) })
 
         Shizuku.addBinderReceivedListenerSticky(binderListener)

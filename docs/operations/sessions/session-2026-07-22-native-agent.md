@@ -98,6 +98,20 @@ Notes:
 - After `shizuku.json` patch, restart Shizuku (`shizuku_starter`) if permission still denied.
 - Modern Android: use **Context constructor** InputManager path (getInstance removed).
 
+## Phase 2 progress (same session)
+
+| Step                                          | Status                                                      |
+| --------------------------------------------- | ----------------------------------------------------------- |
+| `runComonitor()` AIDL                         | **done**                                                    |
+| `ComonitorProbes` (/proc + settings)          | **done**                                                    |
+| Write `/sdcard/stayturgid/logs/agent.log`     | **done**                                                    |
+| Device STATUS line on Pixel 7a                | **done** (`port=open shizuku=up sshd=up a11y=up shell=yes`) |
+| `control/tools/native-agent/grant_shizuku.py` | **done**                                                    |
+| Fleet health dual-read agent.log              | **not started**                                             |
+| AutoJs6 still dual-running                    | **yes**                                                     |
+
+Version: `0.2.0-phase2-comonitor` (versionCode 3).
+
 ## Next agent priorities
 
 1. Commit/push if not already on origin.

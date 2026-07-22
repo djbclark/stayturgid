@@ -192,10 +192,10 @@ hot path. Plan:
 Checkpoint:
 [session-2026-07-22-native-agent.md](operations/sessions/session-2026-07-22-native-agent.md).
 
-**Code:** `device/native-agent/` (`org.stayturgid.agent`) — Phase 1 **device-proven**
-on Pixel 7a (HostService FGS + UserService bind + `pingAwake` inject via
-InputManager Context path). Build: `just agent-assemble` (JDK 21).
-**AutoJs6 remains deployed** until Phases 2–4. End-state goal G-C.
+**Code:** `device/native-agent/` (`org.stayturgid.agent`) — Phase 1 inject **and** Phase 2
+co-monitor STATUS **device-proven** on Pixel 7a (`agent.log`). Build: `just agent-assemble`
+(JDK 21). Grant: `control/tools/native-agent/grant_shizuku.py`.
+**AutoJs6 remains deployed** until Phases 3–4. End-state goal G-C.
 
 ---
 

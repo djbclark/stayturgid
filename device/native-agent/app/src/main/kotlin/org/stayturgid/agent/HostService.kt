@@ -242,12 +242,20 @@ class HostService : Service() {
         if (pingJob?.isActive == true) return
         pingJob =
             scope.launch {
-                // Immediate smoke ping on (re)bind while screen is on.
+                // Immediate smoke ping + co-monitor on (re)bind while screen is on.
                 callPingAwake()
+                callComonitor()
+                var elapsed = 0L
                 while (isActive && screenOn) {
                     delay(PING_INTERVAL_MS)
                     if (!screenOn) break
                     callPingAwake()
+                    elapsed += PING_INTERVAL_MS
+                    // Co-monitor roughly every 20 min while screen is on (matches AutoJs6 cycle scale).
+                    if (elapsed >= COMONTOR_INTERVAL_MS) {
+                        callComonitor()
+                        elapsed = 0L
+                    }
                 }
             }
     }
@@ -272,6 +280,16 @@ class HostService : Service() {
             serviceRef.set(null)
             bound = false
             if (screenOn) ensureBound()
+        }
+    }
+
+    private fun callComonitor() {
+        val svc = serviceRef.get() ?: return
+        try {
+            val line = svc.runComonitor()
+            Log.i(TAG, "comonitor: $line")
+        } catch (e: RemoteException) {
+            Log.e(TAG, "runComonitor IPC failed", e)
         }
     }
 
@@ -351,6 +369,9 @@ class HostService : Service() {
         private const val NOTIFICATION_ID = 7101
         /** 5 minutes; override later via config if needed. */
         const val PING_INTERVAL_MS: Long = 5 * 60 * 1000L
+
+        /** Co-monitor cadence while screen on (Phase 2). */
+        const val COMONTOR_INTERVAL_MS: Long = 20 * 60 * 1000L
 
         const val ACTION_STOP = "org.stayturgid.agent.action.STOP"
         const val ACTION_PING_NOW = "org.stayturgid.agent.action.PING_NOW"

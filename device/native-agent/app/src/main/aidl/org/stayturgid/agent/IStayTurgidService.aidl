@@ -12,4 +12,10 @@ interface IStayTurgidService {
 
     /** Inject a silent input event to reset app-level idle timers (Phase 1). */
     void pingAwake() = 1;
+
+    /**
+     * Phase 2 co-monitor: run probes and return a single STATUS line
+     * (also appended to /sdcard/stayturgid/logs/agent.log).
+     */
+    String runComonitor() = 2;
 }

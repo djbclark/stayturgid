@@ -48,6 +48,15 @@ class ShizukuUserService : IStayTurgidService.Stub {
         }
     }
 
+    override fun runComonitor(): String {
+        return try {
+            ComonitorProbes.runAndLog()
+        } catch (t: Throwable) {
+            Log.e(TAG, "runComonitor failed", t)
+            "[agent] STATUS error=${t.message}"
+        }
+    }
+
     private fun injectSilentKey() {
         val inputManager = resolveInputManager()
         val inject = resolveInjectMethod(inputManager.javaClass)
