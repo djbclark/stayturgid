@@ -34,10 +34,43 @@ except ImportError:
     print("lamda-client not installed -- skipping FIRERPA health check", file=sys.stderr)
     sys.exit(0)
 
-FLEET = {
-    "oneui-device": "100.0.0.11",
-    "stock-android-device": "100.0.0.12",
-}
+import json
+import subprocess
+
+from control.lib.ansible_context import resolve_ansible_context, resolved_env
+
+
+def get_fleet() -> dict[str, str]:
+    context = resolve_ansible_context(REPO_ROOT)
+    env = resolved_env(REPO_ROOT)
+
+    result = subprocess.run(
+        ["ansible-inventory", "--list", "-i", str(context.inventory)],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        print("Failed to resolve inventory: " + result.stderr, file=sys.stderr)
+        return {}
+
+    inv = json.loads(result.stdout)
+    hosts = inv.get("stayturgid", {}).get("hosts", [])
+    if not hosts:
+        # Fallback to children of stayturgid if it's a group of groups
+        for child_group in inv.get("stayturgid", {}).get("children", []):
+            hosts.extend(inv.get(child_group, {}).get("hosts", []))
+
+    hostvars = inv.get("_meta", {}).get("hostvars", {})
+
+    fleet = {}
+    for host in hosts:
+        ip = hostvars.get(host, {}).get("ansible_host")
+        if ip:
+            fleet[host] = ip
+
+    return fleet
 
 
 def check_device(alias: str, ip: str) -> dict:
@@ -84,7 +117,12 @@ def check_device(alias: str, ip: str) -> dict:
 def main() -> int:
     rc = 0
     trim_log(os.path.join(ROOT, "logs", LOG_NAME), max_age_days=30, max_lines=2000)
-    for alias, ip in FLEET.items():
+    fleet = get_fleet()
+    if not fleet:
+        print("No active devices found in inventory.", file=sys.stderr)
+        return 1
+
+    for alias, ip in fleet.items():
         result = check_device(alias, ip)
         firerpa = result.get("firerpa", "unreachable")
         sshd = result.get("sshd", "unknown")
