@@ -172,6 +172,50 @@ def test_module_skips_when_already_up(mocker):
     assert out.get("failed") is not True, out
     assert out["changed"] is False
     assert out["shizuku"] == "already_up"
+    # Even when the daemon itself isn't (re)started, the fleet profile
+    # (watchdog, tcp_mode, ...) must still be reconciled every run — see
+    # stayturgid#34: watchdog defaults to off in the app and is only ever
+    # set by this profile.
+    assert out["fleet_profile_reconciled"] is True
+
+
+def test_module_reconciles_profile_when_already_up_no_port(mocker):
+    out = run_module(
+        mocker,
+        dict(
+            device="dev",
+            connect=False,
+        ),
+        cmd_results=[
+            ("pm path", (0, "package:/data/app/.../base.apk\n", "")),
+            ("HEADLESS_STATUS", (0, "Broadcast completed: result=1\n", "")),
+            ("/proc/net/tcp", (0, "closed\n", "")),
+        ],
+    )
+    assert out.get("failed") is not True, out
+    assert out["changed"] is False
+    assert out["shizuku"] == "up_no_port"
+    assert out["fleet_profile_reconciled"] is True
+
+
+def test_module_reports_reconcile_failure_when_already_up(mocker):
+    out = run_module(
+        mocker,
+        dict(
+            device="dev",
+            connect=False,
+        ),
+        cmd_results=[
+            ("pm path", (0, "package:/data/app/.../base.apk\n", "")),
+            ("HEADLESS_STATUS", (0, "Broadcast completed: result=1\n", "")),
+            ("/proc/net/tcp", (0, "open\n", "")),
+            ("push", (1, "", "device offline")),
+        ],
+    )
+    assert out.get("failed") is not True, out
+    assert out["changed"] is False
+    assert out["shizuku"] == "already_up"
+    assert out["fleet_profile_reconciled"] is False
 
 
 def test_module_fails_when_not_installed(mocker):

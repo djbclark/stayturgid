@@ -1,4 +1,5 @@
-import config = require("./config.js");
+// Rhino gotchas (redeclaration collisions, for...of, exports stamp, Java-string coercion): see docs/architecture/components/autojs6.md "Rhino JS-engine gotchas" before editing.
+import logConfig = require("./config.js");
 
 import type { DeviceProfile } from "./config.js";
 
@@ -79,8 +80,8 @@ export function append(line: string): string {
   const msg = ts() + " " + line;
   console.log(msg);
   try {
-    const profile = config.detectDeviceProfile();
-    const paths = config.pathsFor(profile);
+    const profile = logConfig.detectDeviceProfile();
+    const paths = logConfig.pathsFor(profile);
     const logPath = paths.watchdogLog;
     const logDir = logPath.replace(/\/[^/]+$/, "");
     files.ensureDir(logDir + "/");
@@ -116,9 +117,9 @@ type WatchdogState = Record<string, StateEntry>;
  */
 export function writeState(source: string, statusObj: Record<string, unknown>): void {
   try {
-    const profile = config.detectDeviceProfile();
-    const statePath = config.pathsFor(profile).watchdogState;
-    config.ensureParentDir(statePath);
+    const profile = logConfig.detectDeviceProfile();
+    const statePath = logConfig.pathsFor(profile).watchdogState;
+    logConfig.ensureParentDir(statePath);
 
     // Read current state (may be empty/missing).
     let current: WatchdogState = {};
@@ -146,8 +147,8 @@ export function writeState(source: string, statusObj: Record<string, unknown>): 
 /** Read state.json; return parsed object or null. */
 function readState(): WatchdogState | null {
   try {
-    const profile = config.detectDeviceProfile();
-    const statePath = config.pathsFor(profile).watchdogState;
+    const profile = logConfig.detectDeviceProfile();
+    const statePath = logConfig.pathsFor(profile).watchdogState;
     if (files.exists(statePath)) {
       return (JSON.parse(String(files.read(statePath))) as WatchdogState) || null;
     }
@@ -159,8 +160,8 @@ function readState(): WatchdogState | null {
 
 /** Read watchdog log; prefer a tail when the file is large (FUSE / battery). */
 export function readWatchdogLog(): string {
-  const profile = config.detectDeviceProfile();
-  const logPath = config.pathsFor(profile).watchdogLog;
+  const profile = logConfig.detectDeviceProfile();
+  const logPath = logConfig.pathsFor(profile).watchdogLog;
   if (!files.exists(logPath)) return "";
   try {
     const content = String(files.read(logPath));
@@ -275,5 +276,5 @@ export function latestRepairTimestampMs(): number | null {
 export function isRepairLoopStale(): boolean {
   const last = latestRepairTimestampMs();
   if (last === null) return true;
-  return Date.now() - last > config.STALE_REPAIR_MS;
+  return Date.now() - last > logConfig.STALE_REPAIR_MS;
 }

@@ -3,7 +3,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.isOperational = isOperational;
 exports.exec = exec;
-const log = require("./log.js");
+// Rhino gotchas (redeclaration collisions, for...of, exports stamp, Java-string coercion): see docs/architecture/components/autojs6.md "Rhino JS-engine gotchas" before editing.
+const shizukuShellLog = require("./log.js");
 /**
  * Run a shell command via AutoJs6's Shizuku API when operational, else shell().
  * Requires Shizuku drawer toggle ON in AutoJs6 (see docs/modules/autojs6.md).
@@ -31,7 +32,7 @@ function exec(cmd) {
     try {
       return shizuku(cmd);
     } catch (e) {
-      log.append("[watchdog] shizuku exec failed: " + e);
+      shizukuShellLog.append("[watchdog] shizuku exec failed: " + e);
     }
   }
   return shell(cmd, false);

@@ -1,34 +1,38 @@
 // @generated
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.tryRunCommand = tryRunCommand;
 exports.invokeRepair = invokeRepair;
 exports.bridgeFailed = bridgeFailed;
-const config = require("./config.js");
-const log = require("./log.js");
-const shizukuShell = require("./shizuku_shell.js");
+// Rhino gotchas (redeclaration collisions, for...of, exports stamp, Java-string coercion): see docs/architecture/components/autojs6.md "Rhino JS-engine gotchas" before editing.
+const termuxConfig = require("./config.js");
+const termuxLog = require("./log.js");
+const termuxShizukuShell = require("./shizuku_shell.js");
 const TERMUX_PKG = "com.termux";
 const RUN_SERVICE = "com.termux.app.RunCommandService";
 const RUN_ACTION = "com.termux.RUN_COMMAND";
 function tryTriggerFile(triggerFile) {
   try {
-    config.ensureParentDir(triggerFile); // self-heal if run/ was deleted
+    termuxConfig.ensureParentDir(triggerFile); // self-heal if run/ was deleted
     files.write(triggerFile, String(Date.now()));
   } catch (e) {
-    log.append("[watchdog] trigger file write failed: " + e);
+    termuxLog.append("[watchdog] trigger file write failed: " + e);
   }
 }
 function tryRunCommand() {
   try {
-    app.startService({
-      action: RUN_ACTION,
-      packageName: TERMUX_PKG,
-      className: RUN_SERVICE,
-      extras: {
-        "com.termux.RUN_COMMAND_PATH": config.REPAIR_SCRIPT,
-        "com.termux.RUN_COMMAND_BACKGROUND": "true",
-        "com.termux.RUN_COMMAND_WORKDIR": config.TERMUX_HOME,
-      },
-    });
+    // Built via raw Intent (not app.startService()'s extras, which can only
+    // send string values) so RUN_COMMAND_BACKGROUND reaches Termux as a real
+    // boolean. Termux's RunCommandService reads it with getBooleanExtra(),
+    // which silently falls back to its default (false) — running the command
+    // in the foreground and popping Termux to the front — when the extra was
+    // sent as a String instead of a boolean. See stayturgid#34.
+    const intent = new android.content.Intent(RUN_ACTION);
+    intent.setClassName(TERMUX_PKG, RUN_SERVICE);
+    intent.putExtra("com.termux.RUN_COMMAND_PATH", termuxConfig.REPAIR_SCRIPT);
+    intent.putExtra("com.termux.RUN_COMMAND_BACKGROUND", true);
+    intent.putExtra("com.termux.RUN_COMMAND_WORKDIR", termuxConfig.TERMUX_HOME);
+    context.startService(intent);
     return { started: true };
   } catch (e) {
     return { started: false, error: String(e) };
@@ -42,15 +46,15 @@ function tryRunCommand() {
  * Fallback: touch <sd>/run/repair_now for bridges.py --mode repair (2s poll).
  */
 function invokeRepair(profile) {
-  const resolvedProfile = profile || config.detectDeviceProfile();
-  const paths = config.pathsFor(resolvedProfile);
+  const resolvedProfile = profile || termuxConfig.detectDeviceProfile();
+  const paths = termuxConfig.pathsFor(resolvedProfile);
   const triggerFile = paths.triggerFile;
-  const beforeMs = log.latestRepairTimestampMs() || 0;
+  const beforeMs = termuxLog.latestRepairTimestampMs() || 0;
   let triggeredViaShizuku = false;
   // 1. Always arm the trigger file immediately (non-intrusive)
   tryTriggerFile(triggerFile);
   // 2. Try direct background execution via Shizuku shell if operational
-  if (shizukuShell.isOperational()) {
+  if (termuxShizukuShell.isOperational()) {
     try {
       const cmd =
         "run-as com.termux /data/data/com.termux/files/usr/bin/bash -c '" +
@@ -59,21 +63,21 @@ function invokeRepair(profile) {
         "export PREFIX=/data/data/com.termux/files/usr; " +
         "export TMPDIR=/data/data/com.termux/files/usr/tmp; " +
         "python3 " +
-        config.REPAIR_SCRIPT +
+        termuxConfig.REPAIR_SCRIPT +
         " " +
         "&'";
-      shizukuShell.exec(cmd);
+      termuxShizukuShell.exec(cmd);
       triggeredViaShizuku = true;
-      log.append("[watchdog] termux bridge: triggered repair directly via Shizuku shell");
+      termuxLog.append("[watchdog] termux bridge: triggered repair directly via Shizuku shell");
     } catch (e) {
-      log.append("[watchdog] termux bridge: Shizuku direct trigger failed: " + e);
+      termuxLog.append("[watchdog] termux bridge: Shizuku direct trigger failed: " + e);
     }
   }
   // 3. Loop and wait to see if the background/Shizuku execution succeeds
   const deadline = Date.now() + 12000;
   while (Date.now() < deadline) {
     sleep(500);
-    const afterMs = log.latestRepairTimestampMs();
+    const afterMs = termuxLog.latestRepairTimestampMs();
     if (afterMs !== null && afterMs > beforeMs) {
       return {
         ok: true,
@@ -85,13 +89,13 @@ function invokeRepair(profile) {
     }
   }
   // 4. Fallback: Only use com.termux.RUN_COMMAND intent as a last resort
-  log.append("[watchdog] termux bridge: background triggers timed out. Falling back to RUN_COMMAND.");
+  termuxLog.append("[watchdog] termux bridge: background triggers timed out. Falling back to RUN_COMMAND.");
   const runCommand = tryRunCommand();
   if (runCommand.started) {
     const fallbackDeadline = Date.now() + 8000;
     while (Date.now() < fallbackDeadline) {
       sleep(500);
-      const afterMsFallback = log.latestRepairTimestampMs();
+      const afterMsFallback = termuxLog.latestRepairTimestampMs();
       if (afterMsFallback !== null && afterMsFallback > beforeMs) {
         return {
           ok: true,
@@ -103,7 +107,7 @@ function invokeRepair(profile) {
       }
     }
   }
-  log.append(
+  termuxLog.append(
     "[watchdog] termux bridge timeout method=" +
       (runCommand.started ? "run_command" : "trigger_file") +
       (runCommand.error ? " err=" + runCommand.error : ""),
@@ -112,5 +116,5 @@ function invokeRepair(profile) {
 }
 function bridgeFailed(invokeResult) {
   if (!invokeResult || !invokeResult.fresh) return true;
-  return log.latestRepairStatus() === null;
+  return termuxLog.latestRepairStatus() === null;
 }

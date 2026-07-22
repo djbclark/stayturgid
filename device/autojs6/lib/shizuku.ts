@@ -1,17 +1,18 @@
+// Rhino gotchas (redeclaration collisions, for...of, exports stamp, Java-string coercion): see docs/architecture/components/autojs6.md "Rhino JS-engine gotchas" before editing.
 // @heals: PORT5555-OPEN SHIZUKU-HEADLESS
-import log = require("./log.js");
-import sh = require("./shizuku_shell.js");
+import shizukuLog = require("./log.js");
+import shizukuSh = require("./shizuku_shell.js");
 
 import type { DeviceProfile } from "./config.js";
 
 function serverRunning(): boolean {
   // HEADLESS_STATUS on Samsung returns result=0 even when running
   // (Samsung freezes the Java broadcast receiver). Fall back to pgrep.
-  const r = sh.exec("am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null");
+  const r = shizukuSh.exec("am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null");
   if (r.code === 0 && r.result.indexOf("result=1") >= 0) {
     return true;
   }
-  const p = sh.exec("pgrep -f '[s]hizuku_server'");
+  const p = shizukuSh.exec("pgrep -f '[s]hizuku_server'");
   return p.code === 0 && p.result.trim().length > 0;
 }
 
@@ -28,34 +29,34 @@ function serverRunning(): boolean {
  *   6. Verify shell uid 2000 on localhost:5555.
  */
 function tryShellWirelessRepair(): boolean {
-  if (!sh.isOperational()) {
+  if (!shizukuSh.isOperational()) {
     return false;
   }
-  log.append("[watchdog] shizuku shell: trying wireless-debug repair");
+  shizukuLog.append("[watchdog] shizuku shell: trying wireless-debug repair");
   // Read before write — avoid redundant settings triggers and adbd restart
-  const dev = sh.exec("settings get global development_settings_enabled");
+  const dev = shizukuSh.exec("settings get global development_settings_enabled");
   if (dev.result.trim() !== "1") {
-    sh.exec("settings put global development_settings_enabled 1");
+    shizukuSh.exec("settings put global development_settings_enabled 1");
   }
-  const adbEn = sh.exec("settings get global adb_enabled");
+  const adbEn = shizukuSh.exec("settings get global adb_enabled");
   if (adbEn.result.trim() !== "1") {
-    sh.exec("settings put global adb_enabled 1");
+    shizukuSh.exec("settings put global adb_enabled 1");
   }
-  const wifiEn = sh.exec("settings get global adb_wifi_enabled");
+  const wifiEn = shizukuSh.exec("settings get global adb_wifi_enabled");
   if (wifiEn.result.trim() !== "1") {
-    sh.exec("settings put global adb_wifi_enabled 1");
+    shizukuSh.exec("settings put global adb_wifi_enabled 1");
   }
-  const curPort = sh.exec("getprop service.adb.tcp.port");
+  const curPort = shizukuSh.exec("getprop service.adb.tcp.port");
   if (curPort.result.trim() !== "5555") {
-    sh.exec("setprop service.adb.tcp.port 5555");
+    shizukuSh.exec("setprop service.adb.tcp.port 5555");
     sleep(1000);
   }
   sleep(2000);
-  sh.exec("adb connect 127.0.0.1:5555");
+  shizukuSh.exec("adb connect 127.0.0.1:5555");
   sleep(1000);
-  const uid = sh.exec("adb -s localhost:5555 shell id -u");
+  const uid = shizukuSh.exec("adb -s localhost:5555 shell id -u");
   if (uid.code === 0 && uid.result.trim() === "2000") {
-    log.append("[watchdog] shizuku shell: localhost:5555 shell uid 2000");
+    shizukuLog.append("[watchdog] shizuku shell: localhost:5555 shell uid 2000");
     return true;
   }
   return false;
@@ -66,11 +67,11 @@ function tryShellWirelessRepair(): boolean {
  * The fork has built-in retry logic (3 attempts, 5s delay).
  */
 function headlessStart(): boolean {
-  if (!sh.isOperational()) {
+  if (!shizukuSh.isOperational()) {
     return false;
   }
-  log.append("[watchdog] shizuku headless: sending HEADLESS_START broadcast");
-  sh.exec("am broadcast -a moe.shizuku.privileged.api.HEADLESS_START");
+  shizukuLog.append("[watchdog] shizuku headless: sending HEADLESS_START broadcast");
+  shizukuSh.exec("am broadcast -a moe.shizuku.privileged.api.HEADLESS_START");
   sleep(5000);
   return serverRunning();
 }
@@ -90,13 +91,13 @@ function repairCatastrophic(_profile: DeviceProfile): boolean {
     return true;
   }
   if (headlessStart()) {
-    log.append("[watchdog] shizuku headless start succeeded");
+    shizukuLog.append("[watchdog] shizuku headless start succeeded");
     if (tryShellWirelessRepair()) {
       return true;
     }
     return serverRunning();
   }
-  log.append("[watchdog] shizuku headless start failed after retries");
+  shizukuLog.append("[watchdog] shizuku headless start failed after retries");
   return false;
 }
 

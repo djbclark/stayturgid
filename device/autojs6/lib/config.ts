@@ -1,3 +1,4 @@
+// Rhino gotchas (redeclaration collisions, for...of, exports stamp, Java-string coercion): see docs/architecture/components/autojs6.md "Rhino JS-engine gotchas" before editing.
 /** Shared constants and device profile resolution.
  *
  * The device profile is DATA, not code: Ansible renders
@@ -110,9 +111,13 @@ export function splitStorage(profile: Pick<DeviceProfile, "sdRoot"> | null | und
 /** mkdir -p the shared-storage subdirs the watchdog writes (self-healing). */
 export function ensureDirs(profile?: Pick<DeviceProfile, "sdRoot"> | null): void {
   const root = pathsFor(profile || {}).sdRoot;
-  for (const d of ["state", "logs", "run", "tmp"]) {
+  // Plain indexed loop, not for...of: this Rhino build's interpreted mode
+  // doesn't support the for...of iterator protocol (EvaluatorException:
+  // syntax error). See stayturgid#34's follow-up investigation.
+  const dirs = ["state", "logs", "run", "tmp"];
+  for (let i = 0; i < dirs.length; i++) {
     try {
-      files.ensureDir(root + "/" + d + "/");
+      files.ensureDir(root + "/" + dirs[i] + "/");
     } catch {
       /* best effort */
     }
@@ -148,7 +153,8 @@ function readDeviceJson(): { profile: DeviceJson; source: string } {
     DEVICE_JSON,
     TERMUX_HOME + "/.stayturgid/shared/state/device.json",
   ];
-  for (const candidate of candidates) {
+  for (let i = 0; i < candidates.length; i++) {
+    const candidate = candidates[i];
     try {
       if (files.exists(candidate)) {
         const parsed = JSON.parse(String(files.read(candidate))) as DeviceJson;

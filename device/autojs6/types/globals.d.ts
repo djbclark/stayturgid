@@ -64,6 +64,23 @@ declare const device: {
   sdkInt: number;
 };
 
+declare namespace android.content {
+  /**
+   * Raw Java interop escape hatch — used instead of app.startService() when a
+   * receiving component reads a boolean extra via Intent#getBooleanExtra().
+   * app.startService()'s `extras` option can only send string-typed extras
+   * (see AppStartServiceOptions above); a String-typed extra read via
+   * getBooleanExtra() silently resolves to that method's default value
+   * instead of throwing, so the intended value never arrives.
+   */
+  class Intent {
+    constructor(action?: string);
+    setClassName(packageName: string, className: string): Intent;
+    putExtra(name: string, value: string): Intent;
+    putExtra(name: string, value: boolean): Intent;
+  }
+}
+
 /** A running AutoJs6 script engine (as returned by engines.all() / myEngine()). */
 interface Engine {
   id: unknown;
@@ -83,6 +100,7 @@ declare const runtime: {
 declare const context: {
   getSystemService(serviceName: string): unknown;
   NOTIFICATION_SERVICE: string;
+  startService(intent: android.content.Intent): unknown;
 };
 
 interface ThreadHandle {

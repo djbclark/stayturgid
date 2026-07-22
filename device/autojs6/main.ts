@@ -1,3 +1,4 @@
+// Rhino gotchas (redeclaration collisions, for...of, exports stamp, Java-string coercion): see docs/architecture/components/autojs6.md "Rhino JS-engine gotchas" before editing.
 /**
  * stayturgid AutoJs6 watchdog — entry point.
  *
@@ -6,25 +7,33 @@
  */
 "auto";
 
-import config = require("./lib/config.js");
-import guard = require("./lib/guard.js");
-import watchdog = require("./lib/watchdog.js");
-import log = require("./lib/log.js");
-import engineGuard = require("./lib/engine_guard.js");
+declare function require(id: string): any;
+
+// Plain `require()` calls, not `import x = require(...)`: this file has no
+// `import`/`export` syntax anywhere, so tsc emits it as a script rather than
+// a CommonJS module — no `Object.defineProperty(exports, "__esModule", ...)`
+// stamp. That stamp is only safe for files actually loaded via require();
+// main.js is the raw entry script AutoJs6 executes directly (never
+// require()'d), and it has no `exports`/`module` object in that context.
+const mainConfig: typeof import("./lib/config.js") = require("./lib/config.js");
+const guard: typeof import("./lib/guard.js") = require("./lib/guard.js");
+const watchdog: typeof import("./lib/watchdog.js") = require("./lib/watchdog.js");
+const mainLog: typeof import("./lib/log.js") = require("./lib/log.js");
+const engineGuard: typeof import("./lib/engine_guard.js") = require("./lib/engine_guard.js");
 
 // detectDeviceProfile() cannot throw (its only internal try/catch is around
 // the device.json file read, which it already swallows) — no defensive
 // try/catch needed around this call.
-const profile = config.detectDeviceProfile();
+const profile = mainConfig.detectDeviceProfile();
 
 try {
-  config.ensureDirs(profile); // create shared dirs (self-heal)
+  mainConfig.ensureDirs(profile); // create shared dirs (self-heal)
 } catch {
   /* best effort — cycles mkdir on demand too */
 }
 
 if (profile.usingGenericDefaults) {
-  log.append("[watchdog] WARNING: device.json missing — device=generic; run Ansible fleet deploy for tap coords");
+  mainLog.append("[watchdog] WARNING: device.json missing — device=generic; run Ansible fleet deploy for tap coords");
 }
 
 // Keep script process alive under Doze (AutoJs6 6.6+)
@@ -33,7 +42,7 @@ try {
     timers.keepAlive();
   }
 } catch (e) {
-  log.append("[watchdog] timers.keepAlive unavailable: " + e);
+  mainLog.append("[watchdog] timers.keepAlive unavailable: " + e);
 }
 
 // Run one guarded cycle.
@@ -42,14 +51,14 @@ function safeCycle(trigger: string): void {
     guard.enforce(profile);
     watchdog.runCycle(trigger, profile);
   } catch (e) {
-    log.append("[watchdog] " + trigger + " cycle error: " + e);
+    mainLog.append("[watchdog] " + trigger + " cycle error: " + e);
   }
 }
 
-log.append("[watchdog] stayturgid AutoJs6 started device=" + (profile.id || "?"));
+mainLog.append("[watchdog] stayturgid AutoJs6 started device=" + (profile.id || "?"));
 const stopped = engineGuard.dedupeMainEngines();
 if (stopped > 0) {
-  log.append("[watchdog] stopped " + stopped + " duplicate main.js engine(s)");
+  mainLog.append("[watchdog] stopped " + stopped + " duplicate main.js engine(s)");
 }
 safeCycle("boot"); // covers manual launch + boot auto-start
 
@@ -57,7 +66,7 @@ safeCycle("boot"); // covers manual launch + boot auto-start
 // above hit trouble, so the watchdog self-recovers on the next tick.
 setInterval(() => {
   safeCycle("interval");
-}, config.INTERVAL_MS);
+}, mainConfig.INTERVAL_MS);
 
 // Keep the script process alive (AutoJs6 stops when the main thread exits)
 setInterval(() => {}, 60000);

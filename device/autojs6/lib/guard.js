@@ -5,12 +5,13 @@ exports.autoJs6AccessibilityEnabled = autoJs6AccessibilityEnabled;
 exports.isMalfunctioning = isMalfunctioning;
 exports.enforce = enforce;
 exports.statusReport = statusReport;
+// Rhino gotchas (redeclaration collisions, for...of, exports stamp, Java-string coercion): see docs/architecture/components/autojs6.md "Rhino JS-engine gotchas" before editing.
 // @heals: A11Y-AUTOJS6
-const config = require("./config.js");
-const notify = require("./notify.js");
-const termux = require("./termux.js");
-const log = require("./log.js");
-const comonitor = require("./comonitor.js");
+const guardConfig = require("./config.js");
+const guardNotify = require("./notify.js");
+const guardTermux = require("./termux.js");
+const guardLog = require("./log.js");
+const guardComonitor = require("./comonitor.js");
 /** Run a shell probe on a worker thread with a timeout, so a hung settings daemon (seen on Fire OS) cannot block the watchdog cycle. */
 function probeAccessibilitySettings() {
   const probe = { code: -1, result: "" };
@@ -53,7 +54,7 @@ function autoJs6AccessibilityEnabled() {
   const probe = probeAccessibilitySettings();
   if (probe.code === 0) {
     const list = probe.result.trim();
-    return Boolean(list && list !== "null" && list.indexOf(config.AUTOJS6_A11Y) >= 0);
+    return Boolean(list && list !== "null" && list.indexOf(guardConfig.AUTOJS6_A11Y) >= 0);
   }
   return false;
 }
@@ -67,7 +68,7 @@ function isMalfunctioning() {
   const probe = probeAccessibilitySettings();
   if (probe.code !== 0) return false;
   const list = probe.result.trim();
-  return Boolean(list && list !== "null" && list.indexOf(config.AUTOJS6_A11Y) >= 0);
+  return Boolean(list && list !== "null" && list.indexOf(guardConfig.AUTOJS6_A11Y) >= 0);
 }
 const A11Y_TOGGLE_MSG =
   "Open Settings > Accessibility > AutoJs6: if already ON, turn OFF then ON again. " +
@@ -84,54 +85,62 @@ const A11Y_TOGGLE_MSG =
  * restartService when WRITE_SECURE_SETTINGS is granted.
  */
 function enforce(profile) {
-  const resolvedProfile = profile || config.detectDeviceProfile();
+  const resolvedProfile = profile || guardConfig.detectDeviceProfile();
   if (autoJs6AccessibilityEnabled()) {
-    notify.clear("a11y-blocked");
-    notify.clear("a11y-stale");
+    guardNotify.clear("a11y-blocked");
+    guardNotify.clear("a11y-stale");
     return;
   }
   const sticky = isMalfunctioning();
   if (sticky) {
-    log.append("[watchdog] accessibility STICKY (Settings ON, service not bound) — user must toggle OFF then ON");
+    guardLog.append("[watchdog] accessibility STICKY (Settings ON, service not bound) — user must toggle OFF then ON");
   }
-  if (config.splitStorage(resolvedProfile)) {
-    log.append("[watchdog] split-storage: a11y off/sticky — co-monitor will probe via Shizuku");
+  if (guardConfig.splitStorage(resolvedProfile)) {
+    guardLog.append("[watchdog] split-storage: a11y off/sticky — co-monitor will probe via Shizuku");
     try {
-      comonitor.run(resolvedProfile, { force: true, reason: sticky ? "a11y-sticky-split" : "a11y-off-split" });
+      guardComonitor.run(resolvedProfile, { force: true, reason: sticky ? "a11y-sticky-split" : "a11y-off-split" });
     } catch (e) {
-      log.append("[watchdog] comonitor a11y attempt failed: " + e);
+      guardLog.append("[watchdog] comonitor a11y attempt failed: " + e);
     }
     if (autoJs6AccessibilityEnabled()) {
-      notify.clear("a11y-blocked");
-      notify.clear("a11y-stale");
+      guardNotify.clear("a11y-blocked");
+      guardNotify.clear("a11y-stale");
       return;
     }
   } else {
-    log.append(
+    guardLog.append(
       sticky
         ? "[watchdog] accessibility sticky — checking repair status"
         : "[watchdog] accessibility disabled — checking repair status",
     );
-    // Check if Termux repair already detected and logged this.
-    termux.invokeRepair(resolvedProfile);
+    // Only nudge Termux repair when its own boot loop looks stale/dead.
+    // a11y off/sticky can persist for a long time (it can't be fixed here —
+    // policy G3, user must toggle it), and invokeRepair() falls through to
+    // the Shizuku/RUN_COMMAND chain when Termux's own loop isn't already
+    // handling things. Without this gate, a persistently degraded a11y state
+    // alone forces that fallback chain every single cycle, independent of
+    // Termux's actual health — see stayturgid#34.
+    if (guardLog.isRepairLoopStale()) {
+      guardTermux.invokeRepair(resolvedProfile);
+    }
     const deadline = Date.now() + 20000;
     while (Date.now() < deadline && !autoJs6AccessibilityEnabled()) {
       sleep(2000);
     }
     if (autoJs6AccessibilityEnabled()) {
-      log.append("[watchdog] accessibility restored by user");
-      notify.clear("a11y-blocked");
-      notify.clear("a11y-stale");
+      guardLog.append("[watchdog] accessibility restored by user");
+      guardNotify.clear("a11y-blocked");
+      guardNotify.clear("a11y-stale");
       return;
     }
   }
   // Still off or sticky — user must enable / cycle manually.
   if (sticky) {
-    log.append("[watchdog] accessibility still sticky — user must toggle OFF then ON");
-    notify.show("AutoJs6 accessibility stuck (ON but not bound)", A11Y_TOGGLE_MSG, "a11y-stale");
+    guardLog.append("[watchdog] accessibility still sticky — user must toggle OFF then ON");
+    guardNotify.show("AutoJs6 accessibility stuck (ON but not bound)", A11Y_TOGGLE_MSG, "a11y-stale");
   } else {
-    log.append("[watchdog] accessibility still off — user must re-enable in Settings");
-    notify.show("AutoJs6 accessibility disabled", A11Y_TOGGLE_MSG, "a11y-blocked");
+    guardLog.append("[watchdog] accessibility still off — user must re-enable in Settings");
+    guardNotify.show("AutoJs6 accessibility disabled", A11Y_TOGGLE_MSG, "a11y-blocked");
   }
 }
 function statusReport() {

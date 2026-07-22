@@ -13,9 +13,14 @@ description:
   - Starts the Shizuku daemon on an Android device over ADB.
   - First tries C(HEADLESS_START) broadcast (works when Shizuku has been paired).
   - Falls back to direct C(libshizuku.so) native launch (first-time, no pairing).
-  - Applies the fleet profile (TCP mode, start-on-boot, watchdog) after start.
+  - Applies the fleet profile (TCP mode, start-on-boot, watchdog) after start,
+    and reconciles it on every run (even when Shizuku is already up) so
+    preferences like C(watchdog) — which the app itself defaults to off,
+    and which can only be turned on via this profile — cannot silently drift
+    back to a non-self-healing configuration between cold starts.
   - Verifies the daemon is running and port 5555 is reachable.
-  - Idempotent: skips when Shizuku is already running with port 5555 open.
+  - Idempotent with respect to the Shizuku daemon itself: does not
+    restart/relaunch it when already running with port 5555 open.
 options:
   device:
     description: ADB device serial.
@@ -50,7 +55,7 @@ changed:
   description: True when Shizuku was started.
   type: bool
 shizuku:
-  description: Final Shizuku state (up / down / already_up).
+  description: Final Shizuku state (up / down / already_up / up_no_port).
   type: str
 start_method:
   description: How Shizuku was started (headless / native / already_up).
@@ -58,6 +63,14 @@ start_method:
 port5555:
   description: Whether port 5555 is open after start.
   type: str
+fleet_profile_reconciled:
+  description: >-
+    True when the fleet profile (watchdog, tcp_mode, etc.) was successfully
+    (re-)pushed and applied this run. The app defaults C(watchdog) to false,
+    and it is only ever set by this profile — reconciling it on every run
+    (not just on a cold start) keeps a device from silently drifting out of
+    its self-healing configuration.
+  type: bool
 """
 
 import time
@@ -165,6 +178,29 @@ def apply_fleet_profile(run_command, device):
     return rc == 0
 
 
+def reconcile_fleet_profile(module, device, profile):
+    """Push + apply the fleet profile regardless of whether Shizuku was just
+    started or was already running.
+
+    ``watchdog`` (and the rest of the fleet profile) is only ever set by this
+    profile, and the app itself defaults ``watchdog`` to off. Only applying
+    the profile on a cold start means a device that has drifted out of the
+    desired configuration (fresh install predating the profile, an app
+    update that reset SharedPreferences, a partial first provisioning run)
+    never gets reconciled as long as Shizuku happens to stay up — silently
+    disarming the binder-death auto-restart chain the profile is meant to
+    arm. See stayturgid#34.
+    """
+    ok, msg = push_fleet_profile(module, device, profile)
+    if not ok:
+        module.warn("fleet profile reconciliation: %s" % msg)
+        return False
+    if not apply_fleet_profile(module.run_command, device):
+        module.warn("fleet profile reconciliation: apply_fleet_profile failed")
+        return False
+    return True
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -192,14 +228,30 @@ def main():
     if not shizuku_installed(module.run_command, device, pkg):
         module.fail_json(msg="Shizuku (%s) is not installed on %s" % (pkg, device))
 
+    profile = module.params["fleet_profile"] or DEFAULT_FLEET_PROFILE
+
     running = shizuku_running(module.run_command, device)
     port_open = port5555_open(module.run_command, device) if running else False
 
     if running and port_open:
-        module.exit_json(changed=False, shizuku="already_up", start_method="already_up", port5555="open")
+        reconciled = reconcile_fleet_profile(module, device, profile)
+        module.exit_json(
+            changed=False,
+            shizuku="already_up",
+            start_method="already_up",
+            port5555="open",
+            fleet_profile_reconciled=reconciled,
+        )
 
     if running and not port_open:
-        module.exit_json(changed=False, shizuku="up_no_port", start_method="already_up", port5555="closed")
+        reconciled = reconcile_fleet_profile(module, device, profile)
+        module.exit_json(
+            changed=False,
+            shizuku="up_no_port",
+            start_method="already_up",
+            port5555="closed",
+            fleet_profile_reconciled=reconciled,
+        )
 
     start_method = "none"
 
@@ -217,8 +269,7 @@ def main():
             else:
                 module.fail_json(msg="Shizuku failed to start via both HEADLESS_START and native launch")
 
-    push_fleet_profile(module, device, module.params["fleet_profile"] or DEFAULT_FLEET_PROFILE)
-    apply_fleet_profile(module.run_command, device)
+    reconciled = reconcile_fleet_profile(module, device, profile)
     time.sleep(1)
     send_headless_start(module.run_command, device)
 
@@ -232,10 +283,22 @@ def main():
     final_port = "open" if port5555_open(module.run_command, device) else "closed"
 
     if final_running and final_port == "open":
-        module.exit_json(changed=True, shizuku="up", start_method=start_method, port5555=final_port)
+        module.exit_json(
+            changed=True,
+            shizuku="up",
+            start_method=start_method,
+            port5555=final_port,
+            fleet_profile_reconciled=reconciled,
+        )
     elif final_running:
         module.warn("Shizuku is running but port 5555 is closed — fleet profile may need a second apply")
-        module.exit_json(changed=True, shizuku="up_no_port", start_method=start_method, port5555="closed")
+        module.exit_json(
+            changed=True,
+            shizuku="up_no_port",
+            start_method=start_method,
+            port5555="closed",
+            fleet_profile_reconciled=reconciled,
+        )
     else:
         module.fail_json(msg="Shizuku failed to come up within %ds timeout" % module.params["start_timeout"])
 

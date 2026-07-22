@@ -1,4 +1,5 @@
-import log = require("./log.js");
+// Rhino gotchas (redeclaration collisions, for...of, exports stamp, Java-string coercion): see docs/architecture/components/autojs6.md "Rhino JS-engine gotchas" before editing.
+import shizukuShellLog = require("./log.js");
 
 /**
  * Run a shell command via AutoJs6's Shizuku API when operational, else shell().
@@ -28,7 +29,7 @@ export function exec(cmd: string): ShellResult {
     try {
       return shizuku(cmd);
     } catch (e) {
-      log.append("[watchdog] shizuku exec failed: " + e);
+      shizukuShellLog.append("[watchdog] shizuku exec failed: " + e);
     }
   }
   return shell(cmd, false);

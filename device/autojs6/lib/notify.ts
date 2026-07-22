@@ -1,14 +1,15 @@
-import config = require("./config.js");
+// Rhino gotchas (redeclaration collisions, for...of, exports stamp, Java-string coercion): see docs/architecture/components/autojs6.md "Rhino JS-engine gotchas" before editing.
+import notifyConfig = require("./config.js");
 
 let channelReady = false;
-const STATE_FILE = config.SD_ROOT + "/state/notify_state.json";
+const STATE_FILE = notifyConfig.SD_ROOT + "/state/notify_state.json";
 
 function ensureChannel(): void {
   if (channelReady) return;
   if (device.sdkInt >= 26) {
     const nm = context.getSystemService(context.NOTIFICATION_SERVICE) as android.app.NotificationManager;
     const channel = new android.app.NotificationChannel(
-      config.NOTIFY_CHANNEL,
+      notifyConfig.NOTIFY_CHANNEL,
       "stayturgid",
       android.app.NotificationManager.IMPORTANCE_HIGH,
     );
@@ -45,7 +46,7 @@ function readCounts(): RepeatCounts {
 
 function writeCounts(counts: RepeatCounts): void {
   try {
-    config.ensureParentDir(STATE_FILE); // self-heal if the state dir was deleted
+    notifyConfig.ensureParentDir(STATE_FILE); // self-heal if the state dir was deleted
     files.write(STATE_FILE, JSON.stringify(counts));
   } catch {
     /* best effort */
@@ -65,7 +66,7 @@ export function show(title: string, text: string, key?: string): void {
   const nm = context.getSystemService(context.NOTIFICATION_SERVICE) as android.app.NotificationManager;
   const builder =
     device.sdkInt >= 26
-      ? new android.app.Notification.Builder(context, config.NOTIFY_CHANNEL)
+      ? new android.app.Notification.Builder(context, notifyConfig.NOTIFY_CHANNEL)
       : new android.app.Notification.Builder(context);
   builder
     .setContentTitle(displayTitle)

@@ -1,11 +1,12 @@
+// Rhino gotchas (redeclaration collisions, for...of, exports stamp, Java-string coercion): see docs/architecture/components/autojs6.md "Rhino JS-engine gotchas" before editing.
 // @heals: TAILSCALE-VPN
-import config = require("./config.js");
-import log = require("./log.js");
-import notify = require("./notify.js");
-import termux = require("./termux.js");
-import repair = require("./repair.js");
+import watchdogConfig = require("./config.js");
+import watchdogLog = require("./log.js");
+import watchdogNotify = require("./notify.js");
+import watchdogTermux = require("./termux.js");
+import watchdogRepair = require("./repair.js");
 import tailscale = require("./tailscale.js");
-import comonitor = require("./comonitor.js");
+import watchdogComonitor = require("./comonitor.js");
 
 import type { DeviceProfile } from "./config.js";
 
@@ -18,26 +19,26 @@ import type { DeviceProfile } from "./config.js";
  */
 export function runCycle(trigger: string, profile: DeviceProfile): void {
   const tag = profile.notifyTag || "";
-  const split = config.splitStorage(profile);
-  const time = log.append("[watchdog] cycle start trigger=" + trigger + " (autojs6)");
+  const split = watchdogConfig.splitStorage(profile);
+  const time = watchdogLog.append("[watchdog] cycle start trigger=" + trigger + " (autojs6)");
   try {
-    const p = config.pathsFor(profile);
+    const p = watchdogConfig.pathsFor(profile);
     files.ensureDir(p.watchdogStamp.replace(/\/[^/]+$/, "") + "/");
     files.write(p.watchdogStamp, time + " trigger=" + trigger + "\n");
   } catch (e) {
-    log.append("[watchdog] stamp write failed: " + e);
+    watchdogLog.append("[watchdog] stamp write failed: " + e);
   }
-  const termuxStale = log.isRepairLoopStale();
+  const termuxStale = watchdogLog.isRepairLoopStale();
   let comonitorReason = "periodic";
 
   if (split) {
-    notify.clear("stale");
-    notify.clear("bridge");
-    log.append("[watchdog] split-storage: Termux bridge skipped — co-monitor via Shizuku");
+    watchdogNotify.clear("stale");
+    watchdogNotify.clear("bridge");
+    watchdogLog.append("[watchdog] split-storage: Termux bridge skipped — co-monitor via Shizuku");
     comonitorReason = "split-storage";
   } else {
     if (termuxStale) {
-      notify.show(
+      watchdogNotify.show(
         "⚠ Repair loop stale " + tag,
         time +
           " — No [repair] log line in 15+ min; Termux boot loop may be dead. AutoJs6 co-monitor will probe via Shizuku.",
@@ -45,34 +46,34 @@ export function runCycle(trigger: string, profile: DeviceProfile): void {
       );
       comonitorReason = "termux-stale";
     } else {
-      notify.clear("stale");
+      watchdogNotify.clear("stale");
     }
 
-    let status = log.latestRepairStatus();
+    let status = watchdogLog.latestRepairStatus();
     const port = status ? status.port : null;
 
     if (port === "CLOSED_NO_SHELL") {
-      notify.show(
+      watchdogNotify.show(
         "⚠ ADB 5555 down — auto-repairing " + tag,
         time + " — port 5555 unreachable + no shell. Trying Shizuku shell, then UI Start tap. If it persists, reboot.",
         "adb5555",
       );
-      repair.repairCatastrophic(profile);
-      termux.invokeRepair(profile);
-      const after = log.latestRepairStatus();
+      watchdogRepair.repairCatastrophic(profile);
+      watchdogTermux.invokeRepair(profile);
+      const after = watchdogLog.latestRepairStatus();
       if (after && after.port === "CLOSED_NO_SHELL") {
-        log.append("[watchdog] catastrophic repair finished but port still CLOSED_NO_SHELL");
+        watchdogLog.append("[watchdog] catastrophic repair finished but port still CLOSED_NO_SHELL");
         comonitorReason = "closed-no-shell";
       }
     } else {
-      notify.clear("adb5555");
+      watchdogNotify.clear("adb5555");
 
       if (termuxStale) {
-        const invoke = termux.invokeRepair(profile);
-        status = invoke.fresh ? log.latestRepairStatus() : status;
+        const invoke = watchdogTermux.invokeRepair(profile);
+        status = invoke.fresh ? watchdogLog.latestRepairStatus() : status;
         const invokedPort = status ? status.port : "BRIDGE_FAIL";
         const invokedSshd = status ? status.sshd : "unknown";
-        log.append(
+        watchdogLog.append(
           "[watchdog] port=" +
             invokedPort +
             " sshd=" +
@@ -83,17 +84,17 @@ export function runCycle(trigger: string, profile: DeviceProfile): void {
             invoke.method +
             " (autojs6 stale-loop)",
         );
-        if (!invoke.ok || invokedPort === "BRIDGE_FAIL" || termux.bridgeFailed(invoke)) {
-          notify.show(
+        if (!invoke.ok || invokedPort === "BRIDGE_FAIL" || watchdogTermux.bridgeFailed(invoke)) {
+          watchdogNotify.show(
             "⚠ Watchdog bridge failed " + tag,
             time + " — Termux RUN_COMMAND returned no fresh STATUS; co-monitor taking over via Shizuku.",
             "bridge",
           );
           comonitorReason = "bridge-fail";
         } else {
-          notify.clear("bridge");
+          watchdogNotify.clear("bridge");
           // invokedSshd comes from Termux's stayturgid_repair.py STATUS line
-          // (via log.latestRepairStatus()), which can genuinely write
+          // (via watchdogLog.latestRepairStatus()), which can genuinely write
           // sshd=FAILED (see device/termux/py/stayturgid_repair.py) — unlike
           // comonitor.ts's own SshdStatus below, this is not a closed union.
           if (invokedSshd === "down" || invokedSshd === "FAILED" || (status && status.shizuku === "down")) {
@@ -101,39 +102,39 @@ export function runCycle(trigger: string, profile: DeviceProfile): void {
           }
         }
       } else {
-        notify.clear("bridge");
-        log.append("[watchdog] termux repair fresh — co-monitor still verifies (autojs6)");
+        watchdogNotify.clear("bridge");
+        watchdogLog.append("[watchdog] termux repair fresh — co-monitor still verifies (autojs6)");
       }
     }
   }
 
   // Fleet parity: every host runs the same Shizuku co-monitor each cycle.
-  const comonitorStatus = comonitor.run(profile, { force: true, reason: comonitorReason });
+  const comonitorStatus = watchdogComonitor.run(profile, { force: true, reason: comonitorReason });
   if (comonitorStatus && comonitorStatus.sshd === "down") {
-    notify.show(
+    watchdogNotify.show(
       "⚠ SSH daemon down " + tag,
       time + " — Fresh co-monitor probe still sees sshd down. SSH in via ADB/Tailscale and run: sshd",
       "sshd",
     );
   } else {
-    notify.clear("sshd");
+    watchdogNotify.clear("sshd");
   }
 
   if (profile.tailscaleEnabled === false) {
-    notify.clear("tailscale");
-    log.append("[watchdog] tailscale checks disabled (not on tailnet yet) (autojs6)");
+    watchdogNotify.clear("tailscale");
+    watchdogLog.append("[watchdog] tailscale checks disabled (not on tailnet yet) (autojs6)");
   } else {
     const ts = tailscale.check(profile);
-    log.append("[watchdog] tailscale tun=" + ts.tun + " ping=" + ts.ping + " up=" + ts.up);
+    watchdogLog.append("[watchdog] tailscale tun=" + ts.tun + " ping=" + ts.ping + " up=" + ts.up);
     if (!ts.up) {
-      notify.show(
+      watchdogNotify.show(
         "⚠ Tailscale down " + tag,
         time + " — tun0 or ping " + tailscale.COORD_PING_HOST + " failed; relaunching Tailscale.",
         "tailscale",
       );
       tailscale.relaunch(profile);
     } else {
-      notify.clear("tailscale");
+      watchdogNotify.clear("tailscale");
     }
   }
 }

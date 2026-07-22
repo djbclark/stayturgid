@@ -5,6 +5,7 @@ exports.probeA11y = probeA11y;
 exports.probeSshd = probeSshd;
 exports.probeShizuku = probeShizuku;
 exports.run = run;
+// Rhino gotchas (redeclaration collisions, for...of, exports stamp, Java-string coercion): see docs/architecture/components/autojs6.md "Rhino JS-engine gotchas" before editing.
 // @heals: SSHD-RUNNING PORT5555-OPEN SHIZUKU-HEADLESS A11Y-AUTOJS6
 /**
  * AutoJs6 co-monitor — redundant health probes via Shizuku when Termux is
@@ -16,14 +17,14 @@ exports.run = run;
  *
  * Does NOT replace Termux-primary repair when the boot loop is healthy.
  */
-const config = require("./config.js");
-const log = require("./log.js");
-const notify = require("./notify.js");
-const shizukuShell = require("./shizuku_shell.js");
-const repair = require("./repair.js");
-const A11Y_SVC = config.AUTOJS6_A11Y;
+const comonitorConfig = require("./config.js");
+const comonitorLog = require("./log.js");
+const comonitorNotify = require("./notify.js");
+const comonitorShizukuShell = require("./shizuku_shell.js");
+const comonitorRepair = require("./repair.js");
+const A11Y_SVC = comonitorConfig.AUTOJS6_A11Y;
 function sh(cmd) {
-  const r = shizukuShell.exec(cmd);
+  const r = comonitorShizukuShell.exec(cmd);
   return { code: r.code, result: r.result.replace(/\r/g, "").trim() };
 }
 // Notify at most once per engine process that a11y looks sticky (Settings ON,
@@ -34,8 +35,8 @@ function probeA11y(split) {
   // Prefer live bind (auto.service). Settings-list alone false-positives sticky ON.
   try {
     if (typeof auto !== "undefined" && auto.service) {
-      notify.clear("a11y-blocked");
-      notify.clear("a11y-stale");
+      comonitorNotify.clear("a11y-blocked");
+      comonitorNotify.clear("a11y-stale");
       return "up";
     }
   } catch (_a) {
@@ -53,8 +54,10 @@ function probeA11y(split) {
       if (!auto.service) {
         if (!stickyA11yLogged) {
           stickyA11yLogged = true;
-          log.append("[comonitor] A11Y STICKY candidate — listed ON but auto.service null (notify once; not FAILED)");
-          notify.show(
+          comonitorLog.append(
+            "[comonitor] A11Y STICKY candidate — listed ON but auto.service null (notify once; not FAILED)",
+          );
+          comonitorNotify.show(
             "AutoJs6 accessibility may be sticky",
             "If Task is empty or UI automations fail: Settings → Accessibility → AutoJs6 OFF then ON, then re-run main.js.",
             "a11y-stale",
@@ -70,12 +73,12 @@ function probeA11y(split) {
     // Outside AutoJs6 engine context: cannot confirm bind; treat listed as up.
     return "up";
   }
-  if (split && !shizukuShell.isOperational()) {
+  if (split && !comonitorShizukuShell.isOperational()) {
     return "unknown";
   }
   // Detection only — no automatic repair (policy G3: never settings put a11y).
-  log.append("[comonitor] A11Y OFF — AutoJs6 accessibility disabled; re-enable in Settings");
-  notify.show(
+  comonitorLog.append("[comonitor] A11Y OFF — AutoJs6 accessibility disabled; re-enable in Settings");
+  comonitorNotify.show(
     "AutoJs6 accessibility disabled",
     "Open Settings > Accessibility > AutoJs6: if already ON, turn OFF then ON again.",
     "a11y-blocked",
@@ -98,7 +101,7 @@ function restartSshd() {
   return probeSshd();
 }
 function probeShizuku() {
-  if (shizukuShell.isOperational()) return "up";
+  if (comonitorShizukuShell.isOperational()) return "up";
   const r = sh("am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null");
   if (r.code === 0 && r.result.indexOf("result=1") >= 0) return "up";
   // Samsung freezes the Java receiver; fall back to pgrep.
@@ -120,7 +123,7 @@ function probeShell5555(split, termuxStatus) {
   const nc = sh("toybox nc -z 127.0.0.1 5555 >/dev/null 2>&1 || nc -z 127.0.0.1 5555 >/dev/null 2>&1");
   if (nc.code === 0) return { port: "open", shell: "yes" };
   // Shizuku API up ⇒ privileged shell available even if adbd TCP is odd.
-  if (shizukuShell.isOperational()) {
+  if (comonitorShizukuShell.isOperational()) {
     return { port: "open", shell: "yes" };
   }
   return { port: "CLOSED_NO_SHELL", shell: "no" };
@@ -142,43 +145,45 @@ function probeWifi(split, shellProbe) {
 }
 /** Run co-monitor probes. Returns a STATUS-like object, or null when deferred. */
 function run(profile, opts) {
-  const resolvedProfile = profile || config.detectDeviceProfile();
-  const split = config.splitStorage(resolvedProfile);
+  const resolvedProfile = profile || comonitorConfig.detectDeviceProfile();
+  const split = comonitorConfig.splitStorage(resolvedProfile);
   const reason =
     (opts === null || opts === void 0 ? void 0 : opts.reason) || (split ? "split-storage" : "termux-stale");
   if (
     !(opts === null || opts === void 0 ? void 0 : opts.force) &&
-    !log.isRepairLoopStale() &&
-    !config.splitStorage(resolvedProfile)
+    !comonitorLog.isRepairLoopStale() &&
+    !comonitorConfig.splitStorage(resolvedProfile)
   ) {
     // Callers normally pass force=true (periodic fleet parity). Keep the
     // defer path for unit tests / ad-hoc imports.
     return null;
   }
-  log.append("[comonitor] start reason=" + reason + " shizuku_api=" + (shizukuShell.isOperational() ? "yes" : "no"));
+  comonitorLog.append(
+    "[comonitor] start reason=" + reason + " shizuku_api=" + (comonitorShizukuShell.isOperational() ? "yes" : "no"),
+  );
   let sshd = probeSshd();
   // Shizuku pgrep is unreliable when the AutoJs6↔Shizuku binder is broken
   // (s24 "Unable to use Shizuku service") or on Fire split-storage. Prefer a
   // fresh Termux STATUS before restarting or notifying.
-  if (sshd === "down" && !log.isRepairLoopStale()) {
-    const earlyTrust = log.latestRepairStatus();
+  if (sshd === "down" && !comonitorLog.isRepairLoopStale()) {
+    const earlyTrust = comonitorLog.latestRepairStatus();
     if (earlyTrust && earlyTrust.sshd === "up") {
-      log.append("[comonitor] trusting fresh [repair] sshd=up over shizuku pgrep");
+      comonitorLog.append("[comonitor] trusting fresh [repair] sshd=up over shizuku pgrep");
       sshd = "up";
     }
   }
   if (sshd === "down" && !split) {
-    log.append("[comonitor] sshd down — restarting via shizuku/shell");
+    comonitorLog.append("[comonitor] sshd down — restarting via shizuku/shell");
     sshd = restartSshd();
     if (sshd === "up") sshd = "restarted";
   } else if (sshd === "down" && split) {
-    log.append("[comonitor] sshd probe down on split-storage — leave to Termux (no shizuku restart)");
+    comonitorLog.append("[comonitor] sshd probe down on split-storage — leave to Termux (no shizuku restart)");
   }
   let shizukuStatus = probeShizuku();
   let termuxStatus = null;
   try {
-    if (!log.isRepairLoopStale()) {
-      termuxStatus = log.latestRepairStatus();
+    if (!comonitorLog.isRepairLoopStale()) {
+      termuxStatus = comonitorLog.latestRepairStatus();
     }
   } catch (_a) {
     /* best effort */
@@ -187,11 +192,11 @@ function run(profile, opts) {
   const wifi = probeWifi(split, shellProbe);
   const a11y = probeA11y(split);
   // Trust fresh Termux [repair] port=open over a flaky nc/adb probe.
-  if (!split && shellProbe.port === "CLOSED_NO_SHELL" && !log.isRepairLoopStale()) {
-    const trust = log.latestRepairStatus();
+  if (!split && shellProbe.port === "CLOSED_NO_SHELL" && !comonitorLog.isRepairLoopStale()) {
+    const trust = comonitorLog.latestRepairStatus();
     if (trust && trust.port === "open") {
       shellProbe = { port: "open", shell: trust.shell === "no" ? "no" : "yes" };
-      log.append("[comonitor] trusting fresh [repair] port=open over shell probe");
+      comonitorLog.append("[comonitor] trusting fresh [repair] port=open over shell probe");
     }
   }
   // Catastrophic: no shell on stock Android, or Shizuku dead on phones that
@@ -201,57 +206,59 @@ function run(profile, opts) {
   // Fire OS / split-storage: Termux cannot drive Shizuku the same way; co-monitor
   // used to call repairCatastrophic every cycle → "shizuku headless start failed"
   // + Mac "excessive catastrophic" spam while sshd was fine via Termux.
-  if (!split && shellProbe.port === "CLOSED_NO_SHELL" && log.isRepairLoopStale()) {
-    log.append("[comonitor] CLOSED_NO_SHELL — catastrophic repair");
-    notify.show(
+  if (!split && shellProbe.port === "CLOSED_NO_SHELL" && comonitorLog.isRepairLoopStale()) {
+    comonitorLog.append("[comonitor] CLOSED_NO_SHELL — catastrophic repair");
+    comonitorNotify.show(
       "⚠ ADB 5555 down — co-monitor repairing",
       "Termux repair stale/hung; AutoJs6 co-monitor running Shizuku repair.",
       "adb5555",
     );
     try {
-      repair.repairCatastrophic(resolvedProfile);
+      comonitorRepair.repairCatastrophic(resolvedProfile);
     } catch (e) {
-      log.append("[comonitor] catastrophic error: " + e);
+      comonitorLog.append("[comonitor] catastrophic error: " + e);
     }
     shellProbe = probeShell5555(false, null);
     shizukuStatus = probeShizuku();
   } else if (shizukuStatus === "down" && !split && resolvedProfile.privilegedShellExpected !== false) {
-    log.append("[comonitor] shizuku_server down — catastrophic Start path");
+    comonitorLog.append("[comonitor] shizuku_server down — catastrophic Start path");
     try {
-      repair.repairCatastrophic(resolvedProfile);
+      comonitorRepair.repairCatastrophic(resolvedProfile);
     } catch (e) {
-      log.append("[comonitor] shizuku start error: " + e);
+      comonitorLog.append("[comonitor] shizuku start error: " + e);
     }
     shizukuStatus = probeShizuku();
   } else if (shizukuStatus === "down" && (split || resolvedProfile.privilegedShellExpected === false)) {
-    log.append("[comonitor] shizuku down — skip catastrophic on split/no-privileged-shell host (Termux is primary)");
+    comonitorLog.append(
+      "[comonitor] shizuku down — skip catastrophic on split/no-privileged-shell host (Termux is primary)",
+    );
   }
   // Trust fresh Termux [repair] sshd=up over a flaky shizuku pgrep (s24 spam).
-  if (sshd === "down" && !log.isRepairLoopStale()) {
-    const trustSsh = log.latestRepairStatus();
+  if (sshd === "down" && !comonitorLog.isRepairLoopStale()) {
+    const trustSsh = comonitorLog.latestRepairStatus();
     if (trustSsh && trustSsh.sshd === "up") {
-      log.append("[comonitor] trusting fresh [repair] sshd=up over shizuku pgrep");
+      comonitorLog.append("[comonitor] trusting fresh [repair] sshd=up over shizuku pgrep");
       sshd = "up";
     }
   }
   if (sshd === "down") {
-    notify.show(
+    comonitorNotify.show(
       "⚠ SSH daemon down (co-monitor)",
       "sshd still down after AutoJs6 restart attempt — check Termux.",
       "sshd",
     );
   } else {
-    notify.clear("sshd");
+    comonitorNotify.clear("sshd");
   }
   if (a11y === "up" || a11y === "degraded") {
     // degraded = sticky candidate already notified once under a11y-stale
-    notify.clear("a11y-blocked");
+    comonitorNotify.clear("a11y-blocked");
     if (a11y === "up") {
-      notify.clear("a11y-stale");
+      comonitorNotify.clear("a11y-stale");
     }
   }
   if (shellProbe.port === "open" || shellProbe.port === "skip") {
-    notify.clear("adb5555");
+    comonitorNotify.clear("adb5555");
   }
   const status =
     "STATUS port=" +
@@ -266,10 +273,10 @@ function run(profile, opts) {
     shellProbe.shell +
     " wifi=" +
     wifi;
-  log.append("[comonitor] " + status + " reason=" + reason);
+  comonitorLog.append("[comonitor] " + status + " reason=" + reason);
   // Persist status to shared state.json so latestRepairStatus() can do an O(1) read.
   try {
-    log.writeState("comonitor", {
+    comonitorLog.writeState("comonitor", {
       port: shellProbe.port,
       shizuku: shizukuStatus,
       sshd,
