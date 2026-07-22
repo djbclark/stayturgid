@@ -338,6 +338,47 @@ def test_monitor_skips_unreachable(tmp_path, monkeypatch):
     assert fhm.read_state(os.path.join(str(tmp_path), "oneui-device")) == 0
 
 
+def test_soft_health_snapshot_recorded(tmp_path, monkeypatch):
+    monkeypatch.setattr(fhm, "STATE_DIR", str(tmp_path))
+    monkeypatch.setattr(fhm, "SKIP_HEALTH", False)
+    monkeypatch.setattr(fhm, "SKIP_WATCHDOG_HEAL", True)
+    events = []
+
+    def capture(etype, device, **details):
+        events.append((etype, device, details))
+
+    monkeypatch.setattr(fhm, "_stats_event", capture)
+    monkeypatch.setattr(fhm, "_fleet_log", lambda *_: None)
+    monkeypatch.setattr(fhm, "notify", lambda *a, **k: None)
+    monkeypatch.setattr(fhm, "_scrape_device_errors", lambda *a, **k: None)
+    monkeypatch.setattr(
+        fhm.fh,
+        "probe_device",
+        lambda name, ts, lan: (
+            "adb:1.1.1.1:5555",
+            {
+                "ssh_echo": "ok",
+                "sshd": "ok",
+                "bootloop": "ok",
+                "shell5555": "ok",
+                "watchdog_age": "100",
+                "repair_age": "50",
+                "agent_age": "42",
+                "a11y": "up",
+                "autojs6_a11y": "ok",
+                "port": "open",
+                "shizuku": "up",
+            },
+        ),
+    )
+    fhm.check_device("p7a", "100.1", "192.1")
+    soft = [e for e in events if e[0] == "soft_health"]
+    assert len(soft) == 1
+    assert soft[0][1] == "p7a"
+    assert soft[0][2]["agent_age"] == 42
+    assert soft[0][2]["issues"] == "none"
+
+
 def test_monitor_heals_stale_agent(tmp_path, monkeypatch):
     monkeypatch.setattr(fhm, "STATE_DIR", str(tmp_path))
     monkeypatch.setattr(fhm, "AGENT_HEAL_STATE_DIR", str(tmp_path / "agent-heal"))

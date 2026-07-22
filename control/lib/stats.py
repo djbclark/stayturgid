@@ -5,8 +5,17 @@ All stayturgid monitors and heal scripts should call record_event() for:
   - heal_triggered:   which self-heal fired
   - device_status:    online / offline transitions
   - issue_detected:   per-issue occurrence
+  - soft_health:      full dual-run probe snapshot (agent_age, watchdog_age, port, …)
 
-Events are written as one JSON object per line to ~/.config/stayturgid/stats/.
+Events are written as one JSON object per line to
+``~/.config/stayturgid/stats/events.jsonl``.
+
+Query examples::
+
+    from control.lib import stats
+    from datetime import datetime, timedelta, timezone
+    since = datetime.now(timezone.utc) - timedelta(days=7)
+    rows = stats.query_events(since=since, event_type="soft_health", device="p7a")
 """
 
 from __future__ import annotations
@@ -143,6 +152,30 @@ def aggregate_stats(
         elif etype == "issue_detected":
             issue = ev.get("issue", "unknown")
             result["issues"][issue] = result["issues"].get(issue, 0) + 1
+
+        elif etype == "soft_health":
+            # Count dual-run / agent freshness signals for cutover debugging.
+            if "soft_health" not in result:
+                result["soft_health"] = {
+                    "samples": 0,
+                    "agent_stale_samples": 0,
+                    "agent_missing_samples": 0,
+                    "port_closed_samples": 0,
+                    "shizuku_down_samples": 0,
+                }
+            sh = result["soft_health"]
+            sh["samples"] = int(sh["samples"]) + 1
+            issues_s = str(ev.get("issues") or "")
+            if "agent_stale" in issues_s:
+                sh["agent_stale_samples"] = int(sh["agent_stale_samples"]) + 1
+            if ev.get("agent_age") in ("missing", None, ""):
+                sh["agent_missing_samples"] = int(sh["agent_missing_samples"]) + 1
+            port = str(ev.get("port") or "")
+            if port in ("CLOSED_NO_SHELL", "closed", "CLOSED"):
+                sh["port_closed_samples"] = int(sh["port_closed_samples"]) + 1
+            shizuku = str(ev.get("shizuku") or "").lower()
+            if shizuku in ("down", "dead", "failed", "false", "0"):
+                sh["shizuku_down_samples"] = int(sh["shizuku_down_samples"]) + 1
 
     result["devices_seen"] = sorted(result["devices_seen"])
     result["connection_paths"] = dict(sorted(result["connection_paths"].items(), key=lambda x: -x[1]))

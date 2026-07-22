@@ -527,6 +527,48 @@ def _device_log_epoch(line: str) -> float | None:
         return None
 
 
+def _age_field(raw: str | None) -> int | str:
+    """Numeric age for stats, or sentinel strings missing/unknown."""
+    if raw is None or raw == "":
+        return "unknown"
+    if raw in ("missing", "unknown"):
+        return raw
+    try:
+        return int(raw)
+    except ValueError:
+        return "unknown"
+
+
+def _record_soft_health_snapshot(
+    name: str,
+    path: str,
+    report: dict[str, str],
+    issues: list[str],
+) -> None:
+    """Persist one soft-health row per probe for dual-run debugging (K1 Phase 3.5).
+
+    Written to ~/.config/stayturgid/stats/events.jsonl as type=soft_health.
+    Does not rotate — query with control.lib.stats.query_events.
+    """
+    _stats_event(
+        "soft_health",
+        name,
+        via=path or "",
+        agent_age=_age_field(report.get("agent_age")),
+        watchdog_age=_age_field(report.get("watchdog_age")),
+        repair_age=_age_field(report.get("repair_age")),
+        port=report.get("port") or "unknown",
+        shizuku=report.get("shizuku") or "unknown",
+        a11y=report.get("a11y") or "unknown",
+        autojs6_a11y=report.get("autojs6_a11y") or "unknown",
+        sshd=report.get("sshd") or "unknown",
+        shell5555=report.get("shell5555") or "unknown",
+        bootloop=report.get("bootloop") or "unknown",
+        issues=",".join(issues) if issues else "none",
+        issue_count=len(issues),
+    )
+
+
 def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     state_file = os.path.join(STATE_DIR, name)
     maintenance_file = os.path.join(STATE_DIR, f"{name}.maintenance")
@@ -575,6 +617,8 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     _stats_event("connection_path", name, via=path)
     for issue in issues:
         _stats_event("issue_detected", name, issue=issue)
+    # Long-term dual-run / pre-cutover telemetry (JSONL forever under stats/).
+    _record_soft_health_snapshot(name, path, report, issues)
 
     _scrape_device_errors(name, ts_ip)
 

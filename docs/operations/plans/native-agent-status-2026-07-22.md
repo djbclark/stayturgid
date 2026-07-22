@@ -137,6 +137,10 @@ python3 control/tools/native-agent/rollout.py --serial GN43T503430603PS
 11. Dashboard: show `agent_age` / agent STATUS card
 12. Healing registry: optional `native_agent` mechanism for PORT5555 / SHIZUKU-HEADLESS should_cover
 
+**How B is measured over time** — see [Observability](#observability-for-dual-run--pre-cutover) below.
+Fleet soft-health now writes a durable `soft_health` JSONL sample every ~5 min per
+reachable host so dual-run regressions are debuggable weeks later.
+
 ### C — Phase 4 cutover (retire AutoJs6)
 
 Only after B soaks pass on all fleet hosts you care about:
@@ -156,6 +160,67 @@ Only after B soaks pass on all fleet hosts you care about:
 - Keep-awake productization beyond inject proof unless G-A is confirmed for a host
 
 ---
+
+## Observability for dual-run / pre-cutover
+
+Three layers already exist; use them together when debugging “why did agent die
+last Tuesday?”
+
+| Layer                    | Where                                                    | Retention                           | What it captures                                                   |
+| ------------------------ | -------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------ |
+| **Device STATUS**        | `/sdcard/stayturgid/logs/agent.log` (and `watchdog.log`) | Device storage (not rotated by Mac) | Co-monitor STATUS, catastrophic lines (`[agent] catastrophic…`)    |
+| **Mac soft-health text** | `~/.config/stayturgid/logs/fleet-health.log`             | Rotated (~2000 lines)               | Human-readable `agent_age=` / `watchdog_age=` / issues every 5 min |
+| **Mac stats JSONL**      | `~/.config/stayturgid/stats/events.jsonl`                | **Forever** (by design)             | Structured events for dashboards and long soaks                    |
+
+### Already logged forever (`events.jsonl`)
+
+| `type`                  | Source                          | Fields of interest                                                                                                                                    |
+| ----------------------- | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `connection_path`       | fleet_health_monitor            | `via` (ssh/adb path)                                                                                                                                  |
+| `issue_detected`        | fleet_health_monitor            | `issue` (one event per tag, e.g. `agent_stale`)                                                                                                       |
+| `heal_triggered`        | fleet_health_monitor            | `heal=agent\|watchdog\|repair\|…`                                                                                                                     |
+| `device_status`         | access-monitor et al.           | online/offline                                                                                                                                        |
+| **`soft_health`** (new) | fleet_health_monitor each probe | `agent_age`, `watchdog_age`, `repair_age`, `port`, `shizuku`, `a11y`, `autojs6_a11y`, `sshd`, `shell5555`, `bootloop`, `issues`, `issue_count`, `via` |
+
+Query example:
+
+```bash
+python3 - <<'PY'
+from datetime import datetime, timedelta, timezone
+from control.lib import stats
+since = datetime.now(timezone.utc) - timedelta(days=7)
+for e in stats.query_events(since=since, event_type="soft_health", device="p7a")[-5:]:
+    print(e["ts"], e.get("agent_age"), e.get("watchdog_age"), e.get("port"), e.get("issues"))
+PY
+```
+
+Or: `rg '"type": "soft_health"' ~/.config/stayturgid/stats/events.jsonl | tail`
+
+### Map Phase 3.5 (B) items → what to watch
+
+| B item                    | Metric / log signal                                                          | Pass condition for cutover confidence |
+| ------------------------- | ---------------------------------------------------------------------------- | ------------------------------------- |
+| Battery unrestricted      | Manual `dumpsys deviceidle` / appops note; optional future soft_health field | No `agent_stale` heals overnight      |
+| Release APK / no `.debug` | package name in rollout notes                                                | Release package on all hosts          |
+| Obtainium / Ansible       | deploy runbooks + inventory                                                  | `just deploy` installs agent          |
+| CLOSED_NO_SHELL soak      | `soft_health.port` spikes + `heal_triggered` / agent.log catastrophic        | Recovery without AJ6 a11y             |
+| Fire Shizuku durable      | `soft_health.shizuku` + agent_age missing/stale on hd8                       | Reboot → agent STATUS resumes         |
+| Dashboard card            | dashboard UI                                                                 | Operator sees agent_age               |
+| Healing registry          | `just test` / coverage                                                       | AGENT-FRESH + optional PORT5555       |
+
+### Also useful to track (recommended next)
+
+| Signal                              | Why                                           | Suggested home                                                                |
+| ----------------------------------- | --------------------------------------------- | ----------------------------------------------------------------------------- |
+| **agent package versionCode**       | Correlate regressions with APK builds         | soft_health or weekly inventory scrape                                        |
+| **UserService bound?** (pid / peek) | Distinct from “Shizuku up” (hd8 failure mode) | soft_health `userservice=up\|down`                                            |
+| **FGS notification present**        | OEM kill of host process                      | soft_health or dumpsys activity services                                      |
+| **Catastrophic fire count**         | Dual-run double-heal                          | already agent.log + optional `heal_triggered` detail                          |
+| **AJ6 vs agent STATUS agreement**   | Drift between stacks                          | compare soft_health vs watchdog scrape                                        |
+| **Battery / standby bucket**        | Screen-off death                              | occasional dumpsys, not every 5 min                                           |
+| **Checklist completion**            | B/C items done when                           | keep this status doc + OPTIONS K1 (human SSOT); don’t invent a second tracker |
+
+Avoid logging every dumpsys every 5 min (noise + cost). Prefer: high-cadence **ages/STATUS** (done), low-cadence **inventory** (version, battery, userservice) on demand or daily.
 
 ## Risk register (current)
 
