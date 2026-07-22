@@ -192,11 +192,12 @@ hot path. Plan:
 Checkpoint:
 [session-2026-07-22-native-agent.md](operations/sessions/session-2026-07-22-native-agent.md).
 
-**Code:** `device/native-agent/` v0.3.1 dual-run. **Rollout:** p7a + **s24 full**
-(STATUS live); **hd8** agent installed + Shizuku server fixed (uncompressed libs) but
-UserService binder handoff still flaky on Fire. Status:
-[native-agent-status-2026-07-22.md](operations/plans/native-agent-status-2026-07-22.md).
-`just agent-rollout`. **No AutoJs6 rebuild** needed. Phase 4 cutover later.
+**Code:** `device/native-agent/` v0.3.1 dual-run on **s24 + p7a + hd8** (STATUS live at
+2026-07-22 handoff). Soft-health → `soft_health.jsonl` → Vector → OO stream
+`soft_health` (OO needs Vector password fix + reingest). **Handoff:**
+[handoff-2026-07-22-native-agent-k1.md](operations/handoffs/handoff-2026-07-22-native-agent-k1.md).
+Status: [native-agent-status-2026-07-22.md](operations/plans/native-agent-status-2026-07-22.md).
+**No AutoJs6 rebuild** needed. Phase 4 cutover later.
 
 ---
 
