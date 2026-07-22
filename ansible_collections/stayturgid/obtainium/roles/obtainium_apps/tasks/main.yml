@@ -19,10 +19,25 @@
     _obtainium_version_tag: "{{ _obtainium_release.json.tag_name }}"
   when: _obtainium_release.json.assets is defined
 
+# Not a per-run tempfile: this same downloaded/signed APK is reused across
+# every device host's "Install" task below in one play (run_once + a fixed
+# path the subsequent per-host delegate_to: localhost tasks can find again —
+# a per-run tempfile created here wouldn't reliably propagate to other
+# hosts' fact scope). It's genuinely a persistent cache re-downloaded each
+# run, not ephemeral scratch space, so it belongs outside /tmp with a name
+# that doesn't imply "delete me" (see tmpfile security audit, 2026-07-21).
+- name: Ensure stayturgid cache directory exists
+  ansible.builtin.file:
+    path: "{{ lookup('env', 'HOME') }}/.cache/stayturgid"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  run_once: true
+
 - name: Download Obtainium APK to Mac
   ansible.builtin.get_url:
     url: "{{ _obtainium_apk_url }}"
-    dest: "/tmp/obtainium-latest.apk"
+    dest: "{{ lookup('env', 'HOME') }}/.cache/stayturgid/obtainium-latest.apk"
     mode: "0644"
   delegate_to: localhost
   run_once: true
@@ -38,7 +53,7 @@
       - "pass:{{ stayturgid_debug_keystore_pass }}"
       - --ks-key-alias
       - "{{ stayturgid_debug_key_alias }}"
-      - /tmp/obtainium-latest.apk
+      - "{{ lookup('env', 'HOME') }}/.cache/stayturgid/obtainium-latest.apk"
   delegate_to: localhost
   run_once: true
   changed_when: false
@@ -60,7 +75,7 @@
       - "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
       - install
       - -r
-      - /tmp/obtainium-latest.apk
+      - "{{ lookup('env', 'HOME') }}/.cache/stayturgid/obtainium-latest.apk"
   delegate_to: localhost
   register: _obtainium_install
   changed_when: "'Success' in (_obtainium_install.stdout | default(''))"

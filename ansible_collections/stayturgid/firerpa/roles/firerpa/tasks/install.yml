@@ -15,10 +15,22 @@
     - device_usb_serial is defined
     - _firerpa_adb_check.rc | default(0) != 0
 
+# Canonical Ansible equivalent of Python's tempfile.mkdtemp / shell mktemp -d
+# (unpredictable name under the system temp dir, not fixed /tmp paths) — see
+# tmpfile security audit, 2026-07-21. Nothing previously cleaned these up on
+# the Mac side (only the on-device /data/local/tmp copy was ever removed, in
+# uninstall.yml) — cleanup task added at the end of this file.
+- name: Create temporary directory for FIRERPA archive download/patch
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: firerpa-
+  register: _firerpa_tmp
+  delegate_to: localhost
+
 - name: Download FIRERPA server archive on Mac
   ansible.builtin.get_url:
     url: "{{ firerpa_server_archive_url_arm64 }}"
-    dest: "/tmp/{{ firerpa_server_archive_arm64 }}"
+    dest: "{{ _firerpa_tmp.path }}/{{ firerpa_server_archive_arm64 }}"
     mode: "0644"
   delegate_to: localhost
   register: _firerpa_dl
@@ -29,9 +41,9 @@
       - python3
       - "{{ role_path }}/files/firerpa_service_patch.py"
       - --archive
-      - "/tmp/{{ firerpa_server_archive_arm64 }}"
+      - "{{ _firerpa_tmp.path }}/{{ firerpa_server_archive_arm64 }}"
       - --output
-      - /tmp/firerpa-service-patched.jar
+      - "{{ _firerpa_tmp.path }}/firerpa-service-patched.jar"
   delegate_to: localhost
   changed_when: "'patched FIRERPA' in _firerpa_driver_patch.stdout"
   register: _firerpa_driver_patch
@@ -40,7 +52,7 @@
   ansible.builtin.command:
     cmd: >-
       adb -s {{ _firerpa_adb_target }}
-      push /tmp/{{ firerpa_server_archive_arm64 }} /data/local/tmp/firerpa-server.tar.gz
+      push {{ _firerpa_tmp.path }}/{{ firerpa_server_archive_arm64 }} /data/local/tmp/firerpa-server.tar.gz
   delegate_to: localhost
 
 - name: Stop existing FIRERPA process tree before replacing files
@@ -95,7 +107,7 @@
   ansible.builtin.command:
     cmd: >-
       adb -s {{ _firerpa_adb_target }} push
-      /tmp/firerpa-service-patched.jar
+      {{ _firerpa_tmp.path }}/firerpa-service-patched.jar
       {{ firerpa_install_dir }}/overrides/service.jar.patched
   delegate_to: localhost
   changed_when: true
@@ -130,3 +142,16 @@
   ansible.builtin.fail:
     msg: "FIRERPA server binary not found at {{ firerpa_install_dir }}/server/bin/python3.9 on {{ inventory_hostname }}"
   when: "'OK' not in (_firerpa_verify.stdout | default(''))"
+
+# Covers the happy path only — this file isn't wrapped in a block/always
+# (unlike serverapp_openobserve/blackbox_exporter/olivetin) because doing so
+# would mean restructuring a long chain of adb push/shell steps I can't
+# fully exercise against a live device from here; a failure partway through
+# will still leave the temp dir behind. Better than the previous "never
+# cleaned up at all," not as strong a guarantee as the serverapp_* roles.
+- name: Clean up temporary FIRERPA directory
+  ansible.builtin.file:
+    path: "{{ _firerpa_tmp.path }}"
+    state: absent
+  delegate_to: localhost
+  when: _firerpa_tmp.path is defined

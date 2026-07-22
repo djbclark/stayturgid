@@ -62,8 +62,13 @@ options:
     type: str
     default: ""
   download_dir:
+    description:
+      - Persistent cache of downloaded APK/XAPK files, re-read across
+        invocations by find_apk()/resolve_installable_apks() — not ephemeral
+        scratch space, so it belongs outside /tmp (see tmpfile security
+        audit, 2026-07-21).
     type: str
-    default: /tmp/stayturgid-play-apps
+    default: ~/.cache/stayturgid/play-apps
   spoof_play_installer:
     description: Pass C(-i com.android.vending) to adb install.
     type: bool
@@ -383,7 +388,7 @@ def main():
                 default="",
                 description="Repo root when gplaycli_bin is a relative path.",
             ),
-            download_dir=dict(type="str", default="/tmp/stayturgid-play-apps"),
+            download_dir=dict(type="str", default="~/.cache/stayturgid/play-apps"),
             spoof_play_installer=dict(type="bool", default=True),
             installer_package=dict(type="str", default="com.android.vending"),
             install_user=dict(type="str", default="0"),

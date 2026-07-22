@@ -47,61 +47,71 @@
       serverapp_olivetin_archive_sha256 — refusing to download an unverified binary.
   when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
 
-- name: Download OliveTin archive when binary or webui missing
-  vars:
-    _ot_base: "https://github.com/OliveTin/OliveTin/releases/download"
-    _ot_archive: "OliveTin-{{ _ot_arch }}.tar.gz"
-  ansible.builtin.get_url:
-    url: "{{ _ot_base }}/{{ serverapp_olivetin_version }}/{{ _ot_archive }}"
-    dest: /tmp/OliveTin-{{ serverapp_olivetin_version }}-{{ _ot_arch }}.tar.gz
-    mode: "0644"
-    force: true
-    checksum: "sha256:{{ serverapp_olivetin_archive_sha256[_ot_arch] }}"
+# Canonical Ansible equivalent of Python's tempfile.mkdtemp / shell mktemp -d
+# (unpredictable name under the system temp dir, not a fixed
+# /tmp/OliveTin-<version>-<arch> path) — see tmpfile security audit,
+# 2026-07-21. Cleanup lives in `always:` below so it runs even if
+# download/extract/install fails partway through.
+- name: Create temporary directory for OliveTin download/extract
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: olivetin-
+  register: _ot_tmp
   when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
 
-# macOS ships BSD tar; ansible.builtin.unarchive requires GNU tar for .tar.gz.
-# noqa: command-instead-of-module — intentional system tar for portability.
-- name: Extract OliveTin archive with system tar when missing
-  # noqa: command-instead-of-module — BSD tar; unarchive needs GNU tar
-  ansible.builtin.command:
-    cmd: >-
-      tar -xzf /tmp/OliveTin-{{ serverapp_olivetin_version }}-{{ _ot_arch }}.tar.gz
-      -C /tmp
+- name: Download, extract, and install OliveTin binary/webui when missing
   when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
-  tags:
-    - skip_ansible_lint
+  block:
+    - name: Download OliveTin archive when binary or webui missing
+      vars:
+        _ot_base: "https://github.com/OliveTin/OliveTin/releases/download"
+        _ot_archive: "OliveTin-{{ _ot_arch }}.tar.gz"
+      ansible.builtin.get_url:
+        url: "{{ _ot_base }}/{{ serverapp_olivetin_version }}/{{ _ot_archive }}"
+        dest: "{{ _ot_tmp.path }}/OliveTin.tar.gz"
+        mode: "0644"
+        force: true
+        checksum: "sha256:{{ serverapp_olivetin_archive_sha256[_ot_arch] }}"
 
-- name: Install OliveTin binary to install dir when missing
-  ansible.builtin.copy:
-    src: /tmp/OliveTin-{{ _ot_arch }}/OliveTin
-    dest: "{{ serverapp_olivetin_bin_path }}"
-    mode: "0755"
-    remote_src: true
-  when: not (_ot_bin_stat.stat.exists | default(false))
+    # ansible.builtin.unarchive requires GNU tar for .tar.gz; macOS ships
+    # only BSD tar by default. `brew install gnu-tar` provides it as `gtar`;
+    # prepend its gnubin shim to PATH for just this task (matches
+    # serverapp_blackbox_exporter's fix — same underlying issue).
+    - name: Extract OliveTin archive when missing
+      ansible.builtin.unarchive:
+        src: "{{ _ot_tmp.path }}/OliveTin.tar.gz"
+        dest: "{{ _ot_tmp.path }}"
+        remote_src: true
+      environment:
+        PATH: "/opt/homebrew/opt/gnu-tar/libexec/gnubin:{{ lookup('env', 'PATH') }}"
 
-- name: Install OliveTin webui directory when missing
-  ansible.builtin.copy:
-    src: /tmp/OliveTin-{{ _ot_arch }}/webui/
-    dest: "{{ serverapp_olivetin_webui_dir }}/"
-    remote_src: true
-    mode: preserve
-  when: not (_ot_webui_stat.stat.isdir | default(false))
+    - name: Install OliveTin binary to install dir when missing
+      ansible.builtin.copy:
+        src: "{{ _ot_tmp.path }}/OliveTin-{{ _ot_arch }}/OliveTin"
+        dest: "{{ serverapp_olivetin_bin_path }}"
+        mode: "0755"
+        remote_src: true
+      when: not (_ot_bin_stat.stat.exists | default(false))
 
-- name: Clear quarantine on OliveTin install tree (macOS Gatekeeper)
-  ansible.builtin.command:
-    cmd: xattr -dr com.apple.quarantine {{ serverapp_olivetin_install_dir }}
-  changed_when: false
-  failed_when: false
-  when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
+    - name: Install OliveTin webui directory when missing
+      ansible.builtin.copy:
+        src: "{{ _ot_tmp.path }}/OliveTin-{{ _ot_arch }}/webui/"
+        dest: "{{ serverapp_olivetin_webui_dir }}/"
+        remote_src: true
+        mode: preserve
+      when: not (_ot_webui_stat.stat.isdir | default(false))
 
-- name: Clean up temporary OliveTin download artifacts
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - /tmp/OliveTin-{{ serverapp_olivetin_version }}-{{ _ot_arch }}.tar.gz
-    - /tmp/OliveTin-{{ _ot_arch }}
-  when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
+    - name: Clear quarantine on OliveTin install tree (macOS Gatekeeper)
+      ansible.builtin.command:
+        cmd: xattr -dr com.apple.quarantine {{ serverapp_olivetin_install_dir }}
+      changed_when: false
+      failed_when: false
+  always:
+    - name: Clean up temporary OliveTin directory
+      ansible.builtin.file:
+        path: "{{ _ot_tmp.path }}"
+        state: absent
+      when: _ot_tmp.path is defined
 
 - name: Assert OliveTin binary is present
   ansible.builtin.stat:

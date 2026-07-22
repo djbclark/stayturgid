@@ -55,7 +55,7 @@ When your Pixels regain a solid cellular or Tailscale connection, they will dump
 Because `stayturgid` uses a central Mac control node executing Python wrappers and `just` commands, **OliveTin** is the ultimate lightweight operational interface.
 
 - **The Controller:** **OliveTin (Go single-binary)** running on your Mac manager.
-- **Why it beats Semaphore here:** OliveTin doesn't care about static Ansible host reachability. It provides a clean web UI where clicking a button simply fires off your existing `just` commands locally on the Mac. The Mac node then uses your local virtual environments (`.venv-test` or `/tmp/lamda-venv`) to handle the heavy lifting, network fallbacks, and gRPC execution to the devices.
+- **Why it beats Semaphore here:** OliveTin doesn't care about static Ansible host reachability. It provides a clean web UI where clicking a button simply fires off your existing `just` commands locally on the Mac. The Mac node then uses your local virtual environments (`.venv-test` or `~/.venv-stayturgid-firerpa`) to handle the heavy lifting, network fallbacks, and gRPC execution to the devices.
 - **The Interface Integration:** In your Grafana device health dashboards, you can embed clean markdown links or variables that point directly to your OliveTin web interface, automatically passing the exact `host` string (e.g., `s24` or `hd8`) into OliveTin's execution execution bar.
 
 ---
@@ -87,7 +87,7 @@ The O-V-G-O stack maps perfectly to the `stayturgid` operational model and provi
 
 #### 5.4 OliveTin's Execution Environment Constraints
 
-**Current State:** Operators run `just` commands in a macOS Terminal session where Homebrew paths, `STAYTURGID_ADB`, and virtual environments (`.venv-test`, `/tmp/lamda-venv`) are properly initialized.
+**Current State:** Operators run `just` commands in a macOS Terminal session where Homebrew paths, `STAYTURGID_ADB`, and virtual environments (`.venv-test`, `~/.venv-stayturgid-firerpa`) are properly initialized.
 **Integration Plan:** When configuring OliveTin to execute `just` recipes, ensure the OliveTin daemon runs under a context that mirrors the Mac user's environment. The `stayturgid` deployment heavily relies on absolute paths to Homebrew (`/opt/homebrew/bin/adb`) and specific Python virtualenvs for FIRERPA gRPC commands. The OliveTin `config.yaml` should explicitly source these before running `just deploy`.
 
 #### 5.5 Ansible Provisioning for the Edge (Vector)

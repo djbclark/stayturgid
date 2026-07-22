@@ -42,40 +42,48 @@
       serverapp_openobserve_archive_sha256 — refusing to download an unverified binary.
   when: not (_oo_bin_stat.stat.exists | default(false))
 
-- name: Download OpenObserve archive when binary missing
-  vars:
-    _oo_base: "https://downloads.openobserve.ai/releases/o2-enterprise"
-    _oo_archive: "openobserve-ee-v{{ serverapp_openobserve_version }}-{{ _oo_arch }}.tar.gz"
-  ansible.builtin.get_url:
-    url: "{{ _oo_base }}/v{{ serverapp_openobserve_version }}/{{ _oo_archive }}"
-    dest: /tmp/openobserve.tar.gz
-    mode: "0644"
-    checksum: "sha256:{{ serverapp_openobserve_archive_sha256[_oo_arch] }}"
+# Canonical Ansible equivalent of Python's tempfile.mkdtemp / shell mktemp -d
+# (unpredictable name under the system temp dir, not a fixed /tmp/openobserve*
+# path) — see tmpfile security audit, 2026-07-21. Cleanup lives in `always:`
+# below so it runs even if download/extract/install fails partway through.
+- name: Create temporary directory for OpenObserve download/extract
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: openobserve-
+  register: _oo_tmp
   when: not (_oo_bin_stat.stat.exists | default(false))
 
-- name: Extract OpenObserve binary when missing
-  ansible.builtin.unarchive:
-    src: /tmp/openobserve.tar.gz
-    dest: /tmp
-    remote_src: true
+- name: Download, extract, and install OpenObserve binary when missing
   when: not (_oo_bin_stat.stat.exists | default(false))
+  block:
+    - name: Download OpenObserve archive when binary missing
+      vars:
+        _oo_base: "https://downloads.openobserve.ai/releases/o2-enterprise"
+        _oo_archive: "openobserve-ee-v{{ serverapp_openobserve_version }}-{{ _oo_arch }}.tar.gz"
+      ansible.builtin.get_url:
+        url: "{{ _oo_base }}/v{{ serverapp_openobserve_version }}/{{ _oo_archive }}"
+        dest: "{{ _oo_tmp.path }}/openobserve.tar.gz"
+        mode: "0644"
+        checksum: "sha256:{{ serverapp_openobserve_archive_sha256[_oo_arch] }}"
 
-- name: Install OpenObserve binary to destination when missing
-  ansible.builtin.copy:
-    src: /tmp/openobserve
-    dest: "{{ serverapp_openobserve_bin_path }}"
-    mode: "0755"
-    remote_src: true
-  when: not (_oo_bin_stat.stat.exists | default(false))
+    - name: Extract OpenObserve binary when missing
+      ansible.builtin.unarchive:
+        src: "{{ _oo_tmp.path }}/openobserve.tar.gz"
+        dest: "{{ _oo_tmp.path }}"
+        remote_src: true
 
-- name: Clean up temporary OpenObserve files
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - /tmp/openobserve.tar.gz
-    - /tmp/openobserve
-  when: not (_oo_bin_stat.stat.exists | default(false))
+    - name: Install OpenObserve binary to destination when missing
+      ansible.builtin.copy:
+        src: "{{ _oo_tmp.path }}/openobserve"
+        dest: "{{ serverapp_openobserve_bin_path }}"
+        mode: "0755"
+        remote_src: true
+  always:
+    - name: Clean up temporary OpenObserve directory
+      ansible.builtin.file:
+        path: "{{ _oo_tmp.path }}"
+        state: absent
+      when: _oo_tmp.path is defined
 
 - name: Load site group_vars for openobserve email when present
   ansible.builtin.include_vars:

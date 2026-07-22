@@ -35,7 +35,9 @@
     apkeep_source: f-droid
     apkeep_options: ""
     spoof_play_installer: false
-    download_dir: /tmp
+    # Explicit /tmp override removed — inherits play_apps' own default
+    # (~/.cache/stayturgid/play-apps), a properly namespaced persistent
+    # cache rather than raw /tmp (see tmpfile security audit, 2026-07-21).
   delegate_to: localhost
 
 - name: Refresh Aurora install fact after optional install

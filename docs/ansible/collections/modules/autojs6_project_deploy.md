@@ -12,10 +12,22 @@ Does **not** install the AutoJs6 APK or start `main.js` — Obtainium + role
 handlers own that.
 
 ```yaml
+- name: Create temporary file for device profile staging
+  ansible.builtin.tempfile:
+    state: file
+    prefix: "stayturgid-{{ inventory_hostname }}-device-"
+    suffix: .json
+  register: _device_json_tmp
+  delegate_to: localhost
+
 - stayturgid.android_common.autojs6_project_deploy:
     device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
     repo_root: "{{ stayturgid_repo_root }}"
     target: "{{ autojs6_target }}"
-    device_json: "/tmp/stayturgid-{{ inventory_hostname }}-device.json"
+    device_json: "{{ _device_json_tmp.path }}"
   delegate_to: localhost
 ```
+
+(`ansible.builtin.tempfile`, not a fixed `/tmp/stayturgid-<host>-device.json`
+path — see tmpfile security audit, 2026-07-21; matches how
+`stayturgid.fleet.autojs6_watchdog` itself calls this module.)

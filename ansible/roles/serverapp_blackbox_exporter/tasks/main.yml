@@ -42,51 +42,59 @@
       serverapp_blackbox_exporter_archive_sha256 — refusing to download an unverified binary.
   when: not (_bbe_bin_stat.stat.exists | default(false))
 
-- name: Download blackbox_exporter archive when binary missing
-  vars:
-    _bbe_base: "https://github.com/prometheus/blackbox_exporter/releases/download"
-    _bbe_archive: "blackbox_exporter-{{ serverapp_blackbox_exporter_version }}.{{ _bbe_arch }}.tar.gz"
-  ansible.builtin.get_url:
-    url: "{{ _bbe_base }}/v{{ serverapp_blackbox_exporter_version }}/{{ _bbe_archive }}"
-    dest: /tmp/blackbox_exporter.tar.gz
-    mode: "0644"
-    checksum: "sha256:{{ serverapp_blackbox_exporter_archive_sha256[_bbe_arch] }}"
+# Canonical Ansible equivalent of Python's tempfile.mkdtemp / shell mktemp -d
+# (unpredictable name under the system temp dir, not a fixed /tmp/blackbox_*
+# path) — see tmpfile security audit, 2026-07-21. Cleanup lives in `always:`
+# below so it runs even if download/extract/install fails partway through.
+- name: Create temporary directory for blackbox_exporter download/extract
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: blackbox_exporter-
+  register: _bbe_tmp
   when: not (_bbe_bin_stat.stat.exists | default(false))
 
-# ansible.builtin.unarchive requires GNU tar for .tar.gz on the local
-# strategy it picks for this archive shape; macOS ships only BSD tar by
-# default (confirmed live — unarchive fails with "GNU tar required" without
-# this). `brew install gnu-tar` provides it as `gtar`; prepend its gnubin
-# shim to PATH for just this task rather than requiring the operator's shell
-# profile to be edited (brew's own caveat suggests a global PATH change —
-# scoping it here avoids depending on that).
-- name: Extract blackbox_exporter archive when missing
-  ansible.builtin.unarchive:
-    src: /tmp/blackbox_exporter.tar.gz
-    dest: /tmp
-    remote_src: true
-  environment:
-    # lookup('env', ...), not ansible_env — this playbook runs with
-    # gather_facts: false (matches every other serverapp_* playbook).
-    PATH: "/opt/homebrew/opt/gnu-tar/libexec/gnubin:{{ lookup('env', 'PATH') }}"
+- name: Download, extract, and install blackbox_exporter binary when missing
   when: not (_bbe_bin_stat.stat.exists | default(false))
+  block:
+    - name: Download blackbox_exporter archive when binary missing
+      vars:
+        _bbe_base: "https://github.com/prometheus/blackbox_exporter/releases/download"
+        _bbe_archive: "blackbox_exporter-{{ serverapp_blackbox_exporter_version }}.{{ _bbe_arch }}.tar.gz"
+      ansible.builtin.get_url:
+        url: "{{ _bbe_base }}/v{{ serverapp_blackbox_exporter_version }}/{{ _bbe_archive }}"
+        dest: "{{ _bbe_tmp.path }}/blackbox_exporter.tar.gz"
+        mode: "0644"
+        checksum: "sha256:{{ serverapp_blackbox_exporter_archive_sha256[_bbe_arch] }}"
 
-- name: Install blackbox_exporter binary to destination when missing
-  ansible.builtin.copy:
-    src: "/tmp/blackbox_exporter-{{ serverapp_blackbox_exporter_version }}.{{ _bbe_arch }}/blackbox_exporter"
-    dest: "{{ serverapp_blackbox_exporter_bin_path }}"
-    mode: "0755"
-    remote_src: true
-  when: not (_bbe_bin_stat.stat.exists | default(false))
+    # ansible.builtin.unarchive requires GNU tar for .tar.gz on the local
+    # strategy it picks for this archive shape; macOS ships only BSD tar by
+    # default (confirmed live — unarchive fails with "GNU tar required"
+    # without this). `brew install gnu-tar` provides it as `gtar`; prepend
+    # its gnubin shim to PATH for just this task rather than requiring the
+    # operator's shell profile to be edited (brew's own caveat suggests a
+    # global PATH change — scoping it here avoids depending on that).
+    - name: Extract blackbox_exporter archive when missing
+      ansible.builtin.unarchive:
+        src: "{{ _bbe_tmp.path }}/blackbox_exporter.tar.gz"
+        dest: "{{ _bbe_tmp.path }}"
+        remote_src: true
+      environment:
+        # lookup('env', ...), not ansible_env — this playbook runs with
+        # gather_facts: false (matches every other serverapp_* playbook).
+        PATH: "/opt/homebrew/opt/gnu-tar/libexec/gnubin:{{ lookup('env', 'PATH') }}"
 
-- name: Clean up temporary blackbox_exporter files
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: absent
-  loop:
-    - /tmp/blackbox_exporter.tar.gz
-    - "/tmp/blackbox_exporter-{{ serverapp_blackbox_exporter_version }}.{{ _bbe_arch }}"
-  when: not (_bbe_bin_stat.stat.exists | default(false))
+    - name: Install blackbox_exporter binary to destination when missing
+      ansible.builtin.copy:
+        src: "{{ _bbe_tmp.path }}/blackbox_exporter-{{ serverapp_blackbox_exporter_version }}.{{ _bbe_arch }}/blackbox_exporter"
+        dest: "{{ serverapp_blackbox_exporter_bin_path }}"
+        mode: "0755"
+        remote_src: true
+  always:
+    - name: Clean up temporary blackbox_exporter directory
+      ansible.builtin.file:
+        path: "{{ _bbe_tmp.path }}"
+        state: absent
+      when: _bbe_tmp.path is defined
 
 - name: Render blackbox_exporter module config
   ansible.builtin.template:

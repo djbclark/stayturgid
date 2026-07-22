@@ -30,7 +30,14 @@
 
 - name: Write properties.local via adb
   ansible.builtin.shell: |
-    cat > /tmp/__firerpa_props << 'ENDOFPROPERTIES'
+    set -euo pipefail
+    # mktemp + trap, not a fixed /tmp/__firerpa_props name — the file briefly
+    # holds sshd/adb/cron enable flags, and the old fixed name was both
+    # predictable and only cleaned up on the happy path (no guard against a
+    # failed push leaving it behind). See tmpfile security audit, 2026-07-21.
+    tmp=$(mktemp)
+    trap 'rm -f -- "$tmp"' EXIT
+    cat > "$tmp" << 'ENDOFPROPERTIES'
     port={{ firerpa_port }}
     [sshd]
     sshd.enable={{ 'true' if firerpa_sshd_enabled else 'false' }}
@@ -53,8 +60,7 @@
     webui.share-clipboard=off
     {% endif %}
     ENDOFPROPERTIES
-    adb -s {{ _firerpa_adb_target }} push /tmp/__firerpa_props {{ firerpa_install_dir }}/server/properties.local
-    rm -f /tmp/__firerpa_props
+    adb -s {{ _firerpa_adb_target }} push "$tmp" {{ firerpa_install_dir }}/server/properties.local
   args:
     executable: /bin/bash
   delegate_to: localhost

@@ -83,14 +83,12 @@ def push_fleet_profile(shell):
         return False
     with open(LOCAL_PROFILE) as f:
         profile = json.load(f)
-    # Write to a temp location then push
-    tmp = "/tmp/autojs6-fleet.json"
-    with open(tmp, "w") as f:
-        json.dump(profile, f, indent=2)
+    # profile is already in memory — no need to round-trip it through a
+    # /tmp file just to re-read it as a string before pushing via stdin
+    # (see tmpfile security audit, 2026-07-21).
+    content = json.dumps(profile, indent=2)
     shell("mkdir", "-p", os.path.dirname(DEVICE_PROFILE))
-    # Read and push via stdin to avoid push_file needing ADB
-    with open(tmp) as f:
-        content = f.read()
+    # Push via stdin to avoid push_file needing ADB
     shell("sh", "-c", "cat > %s" % DEVICE_PROFILE, input=content)
     print("Pushed fleet profile to %s" % DEVICE_PROFILE)
     return True
