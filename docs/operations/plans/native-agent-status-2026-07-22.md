@@ -55,11 +55,11 @@ Routine repair stays **Termux-primary**. Agent does not own the 5‑min repair l
 
 ## Fleet rollout (2026-07-22, updated after s24/hd8 attach)
 
-| Host                 | Reachability                       | Agent install       | Shizuku UserService | `agent.log` STATUS    | AutoJs6  |
-| -------------------- | ---------------------------------- | ------------------- | ------------------- | --------------------- | -------- |
-| **p7a** (Pixel 7a)   | adb wireless OK                    | **0.3.1**           | **bound**           | **writing** (~20 min) | dual-run |
-| **s24** (Galaxy S24) | adb wireless `100.123.218.30:5555` | **0.3.1**           | **bound**           | **writing**           | dual-run |
-| **hd8** (Fire HD 8)  | USB + TS adb OK                    | **0.3.1 installed** | **partial**         | not yet               | dual-run |
+| Host                 | Reachability                       | Agent install | Shizuku UserService | `agent.log` STATUS    | AutoJs6  |
+| -------------------- | ---------------------------------- | ------------- | ------------------- | --------------------- | -------- |
+| **p7a** (Pixel 7a)   | adb wireless OK                    | **0.3.1**     | **bound**           | **writing** (~20 min) | dual-run |
+| **s24** (Galaxy S24) | adb wireless `100.123.218.30:5555` | **0.3.1**     | **bound**           | **writing**           | dual-run |
+| **hd8** (Fire HD 8)  | USB + TS adb OK                    | **0.3.1**     | **bound**           | **writing**           | dual-run |
 
 ### p7a — full
 
@@ -79,20 +79,7 @@ Routine repair stays **Termux-primary**. Agent does not own the 5‑min repair l
 `System.load(…/base.apk!/lib/…)` → `UnsatisfiedLinkError`. Repackage with
 **STORED** `.so` + `resources.arsc`, zipalign, re-sign → `shizuku_server` stays up.
 
-**Still broken:** UserService sometimes constructs then dies:
-
-```text
-ShizukuServiceStarter: failed send binder to moe.shizuku.privileged.api
-android.os.DeadObjectException
-```
-
-Stuck daemon records also seen. Follow-up: clear server, keep manager warm,
-fork packaging + binder handoff on Fire.
-
-```bash
-adb -s GN43T503430603PS shell /data/local/tmp/shizuku_starter
-just agent-start GN43T503430603PS
-```
+**Working:** Started the Shizuku server via USB, and the agent successfully bound to UserService (`uid=2000`).
 
 ---
 
@@ -121,8 +108,8 @@ python3 control/tools/native-agent/rollout.py --serial GN43T503430603PS
 ### A — Finish dual-run fleet coverage (now)
 
 1. ~~**s24 online** → roll out~~ **Done 2026-07-22**
-2. **hd8 UserService binder handoff** — Shizuku server fixed (uncompressed libs); still DeadObjectException returning binder to manager. Confirm `agent.log` after fix
-3. Clear **hd8 maintenance** only when soft-health should resume (site policy)
+2. ~~**hd8 UserService binder handoff** — Shizuku server fixed (uncompressed libs); still DeadObjectException returning binder to manager. Confirm `agent.log` after fix~~ **Done 2026-07-22**
+3. ~~Clear **hd8 maintenance** only when soft-health should resume (site policy)~~ **Done 2026-07-22**
 4. Optional soak: 24–48h p7a/s24 overnight → `agent_age` should stay fresh
 5. **Shizuku fork packaging** — release APKs with STORED native libs (Fire requires this for `System.load` from APK path)
 

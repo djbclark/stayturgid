@@ -32,7 +32,7 @@
 
     - name: Parse latest version from tag — {{ _apk.id }}
       ansible.builtin.set_fact:
-        _latest_version: "{{ _latest_release_tag | regex_replace('^v', '') if _latest_release_tag else omit }}"
+        _latest_version: "{{ _latest_release_tag | regex_replace('^v', '') if _latest_release_tag else '' }}"
 
     - name: Query installed version on device — {{ _apk.id }}
       ansible.builtin.shell: >
@@ -52,10 +52,10 @@
       ansible.builtin.set_fact:
         _version_current: >-
           {{ not stayturgid_bootstrap_apks_force
-             and _latest_version != omit
+             and _latest_version != ''
              and _installed_version == _latest_version }}
         _version_unknown: >-
-          {{ _latest_version == omit or _installed_version == '' }}
+          {{ _latest_version == '' or _installed_version == '' }}
 
     - name: Install over ADB — {{ _apk.id }}
       stayturgid.android_common.android_apk:
@@ -65,7 +65,7 @@
         gh_pattern: "{{ _apk.gh_pattern }}"
         resign: "{{ _apk.resign | default(false) }}"
         force: "{{ (stayturgid_bootstrap_apks_force | default(false)) or _version_unknown }}"
-        version_name: "{{ _latest_version if _latest_version != omit else omit }}"
+        version_name: "{{ _latest_version if _latest_version != '' else omit }}"
         apksigner_bin: "{{ stayturgid_apksigner_bin | default(omit) }}"
         keystore: "{{ stayturgid_debug_keystore | default(omit) }}"
         keystore_pass: "{{ stayturgid_debug_keystore_pass | default('android') }}"
