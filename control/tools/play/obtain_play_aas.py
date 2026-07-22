@@ -37,12 +37,12 @@ def _ensure_browser_cookie3_python() -> None:
         return
     except ImportError:
         pass
-    for py in (
-        Path("/tmp/stayturgid-cookie-venv/bin/python"),
-        Path.home() / ".venv-stayturgid-play/bin/python",
-    ):
-        if py.is_file():
-            os.execv(str(py), [str(py), os.path.abspath(__file__), *sys.argv[1:]])
+    # Only the home-dir venv is checked — a fixed /tmp path here would mean
+    # execv()'ing a binary from a predictable, world-writable location (see
+    # tmpfile security audit, 2026-07-21).
+    py = Path.home() / ".venv-stayturgid-play" / "bin" / "python"
+    if py.is_file():
+        os.execv(str(py), [str(py), os.path.abspath(__file__), *sys.argv[1:]])
     sys.stderr.write(
         "ERROR: browser-cookie3 not installed. Try:\n"
         "  python3 -m venv ~/.venv-stayturgid-play\n"

@@ -57,7 +57,7 @@ just health && just firerpa-health
 
 - **Orchestration:** `just` (command runner, replaces `make`). The Makefile was migrated to a `justfile` in July 2026. Install: `brew install just`. Run `just --list` to see all targets or `just` for categorized help.
 - **Mac shell:** `/bin/bash` (dotfiles: `~/.bash_profile`, `~/.bashrc`)
-- **FIRERPA venv:** Python 3.12 at `/tmp/lamda-venv` — `source /tmp/lamda-venv/bin/activate`
+- **FIRERPA venv:** Python 3.12 at `~/.venv-stayturgid-firerpa` — `source ~/.venv-stayturgid-firerpa/bin/activate`
 - **Python tooling:** `uv` (package manager) + `ruff` (linter/formatter) — `brew install uv ruff`
 - **JavaScript tooling:** `bun` (package manager) — `brew install oven-sh/bun/bun`; `biome` (linter/formatter) — `brew install biome`
 - **Shell tooling:** `shellcheck` (linter) + `shfmt` (formatter) — `brew install shellcheck shfmt`

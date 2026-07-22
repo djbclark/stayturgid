@@ -279,7 +279,7 @@ firerpa-remove:
 
 _firerpa_heal_impl:
     #!/usr/bin/env bash
-    source /tmp/lamda-venv/bin/activate
+    source ~/.venv-stayturgid-firerpa/bin/activate
     python3 control/bin/firerpa_heal.py {{ if hosts == "" { "--all" } else { "--host " + hosts } }}
 
 firerpa-heal-legacy:
@@ -290,7 +290,7 @@ firerpa-heal host="":
 
 _firerpa_health_impl:
     #!/usr/bin/env bash
-    source /tmp/lamda-venv/bin/activate
+    source ~/.venv-stayturgid-firerpa/bin/activate
     python3 control/bin/firerpa_health_monitor.py
 
 firerpa-health-legacy:

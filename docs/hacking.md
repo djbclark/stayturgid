@@ -905,8 +905,11 @@ with evidence whenever an item is completed or blocked.
 
 ```bash
 # Ensure lamda-client is installed (Python 3.12 venv)
-uv venv --python 3.12 /tmp/lamda-venv
-source /tmp/lamda-venv/bin/activate
+# Not /tmp: this venv is meant to persist across sessions, and a fixed
+# world-writable /tmp path sourced by a script is a local privilege-escalation
+# vector on any shared host (see tmpfile security audit, 2026-07-21).
+uv venv --python 3.12 ~/.venv-stayturgid-firerpa
+source ~/.venv-stayturgid-firerpa/bin/activate
 uv pip install ~/src/firerpa-binaries/lamda-client-py-10.0.tar.gz
 
 # Start FIRERPA on oneui-device (one-time via adb):
