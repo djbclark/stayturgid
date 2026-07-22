@@ -11,8 +11,8 @@ android {
         applicationId = "org.stayturgid.agent"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "0.3.0-phase3-catastrophic"
+        versionCode = 5
+        versionName = "0.3.1-heartbeat-heal"
     }
 
     buildFeatures {

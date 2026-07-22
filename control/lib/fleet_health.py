@@ -209,6 +209,13 @@ def evaluate_health(report: dict[str, str], *, alias: str | None = None) -> list
     elif wage is not None and wage >= WATCHDOG_FRESH_SEC:
         issues.append("watchdog_stale")
 
+    # Native agent dual-run: agent_missing is normal on hosts without the APK.
+    # agent_stale only when we have seen a numeric age that went cold (APK is
+    # installed and was writing agent.log). Heartbeat runs screen-off too.
+    aage = _int_age(report.get("agent_age"))
+    if aage is not None and aage >= WATCHDOG_FRESH_SEC:
+        issues.append("agent_stale")
+
     rage = _int_age(report.get("repair_age"))
     if report.get("repair_age") == "missing":
         issues.append("repair_missing")

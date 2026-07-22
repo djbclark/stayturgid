@@ -393,18 +393,28 @@ agent-assemble composite="true":
     ./gradlew --no-daemon "${props[@]}" :app:assembleDebug
     echo "APK: {{ repo }}/device/native-agent/app/build/outputs/apk/debug/app-debug.apk"
 
-# Install debug APK via adb serial or host alias (optional).
-# Example: just agent-install serial=R5CX12ABC
-agent-install serial="":
+# Install debug APK via adb. Positional serial/host optional.
+# Example: just agent-install 100.65.230.108:5555
+agent-install target="":
     #!/usr/bin/env bash
     set -euo pipefail
     apk="{{ repo }}/device/native-agent/app/build/outputs/apk/debug/app-debug.apk"
     if [[ ! -f "$apk" ]]; then
       just agent-assemble
     fi
-    if [[ -n "{{ serial }}" ]]; then
-      adb -s "{{ serial }}" install -r "$apk"
+    if [[ -n "{{ target }}" ]]; then
+      adb -s "{{ target }}" install -r "$apk"
     else
       adb install -r "$apk"
     fi
+
+# Grant Shizuku to debug agent package (pm + shizuku.json).
+# Example: just agent-grant 100.65.230.108:5555
+agent-grant target:
+    python3 "{{ repo }}/control/tools/native-agent/grant_shizuku.py" "{{ target }}"
+
+# Launch MainActivity → HostService (app context FGS).
+# Example: just agent-start stock-android-device
+agent-start target:
+    python3 "{{ repo }}/control/tools/native-agent/start_agent.py" "{{ target }}"
 

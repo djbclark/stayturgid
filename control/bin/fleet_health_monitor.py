@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# @heals: A11Y-AUTOJS6 WATCHDOG-FRESH REPAIRLOG-FRESH ET-CONFIG HD8-DOZE-WHITELIST HD8-GSF-PINNED HD8-GMS-PINNED
+# @heals: A11Y-AUTOJS6 WATCHDOG-FRESH AGENT-FRESH REPAIRLOG-FRESH ET-CONFIG HD8-DOZE-WHITELIST HD8-GSF-PINNED HD8-GMS-PINNED
 """Dedicated Mac fleet soft-health monitor (launchd every 5 min).
 
 Scrapes watchdog/repair/a11y/sshd/bootloop/shell5555 when a device is
@@ -10,9 +10,12 @@ When ``watchdog_stale`` / ``watchdog_missing`` persists, restarts AutoJs6
 ``main.js`` via ``control/tools/autojs6/start_watchdog.py`` (rate-limited) so agents do
 not need a manual heal.
 
+When ``agent_stale`` persists (native-agent dual-run, OPTIONS K1), restarts the
+Kotlin HostService via ``control/tools/native-agent/start_agent.py`` (rate-limited).
+
 Reachability-only outages stay in access_monitor.py (separate agent).
 Disable with STAYTURGID_SKIP_HEALTH=1; skip restarts with
-STAYTURGID_SKIP_WATCHDOG_HEAL=1.
+STAYTURGID_SKIP_WATCHDOG_HEAL=1 (also skips agent heal).
 """
 
 from __future__ import annotations
@@ -49,6 +52,7 @@ ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")
 CONF = os.environ.get("STAYTURGID_DEVICES_CONF", os.path.join(ROOT, "devices.conf"))
 STATE_DIR = os.path.join(ROOT, "state", "fleet-health")
 HEAL_STATE_DIR = os.path.join(ROOT, "state", "watchdog-heal")
+AGENT_HEAL_STATE_DIR = os.path.join(ROOT, "state", "agent-heal")
 GOOGLE_HEAL_STATE_DIR = os.path.join(ROOT, "state", "google-stack-heal")
 GOOGLE_VERIFY_STATE_DIR = os.path.join(ROOT, "state", "google-stack-verify")
 ERROR_LOG = os.path.join(ROOT, "logs", "errors.log")
@@ -57,6 +61,8 @@ CONSECUTIVE_LIMIT = 2
 # After this many soft fails with watchdog_stale/missing, restart main.js once.
 WATCHDOG_HEAL_AFTER = 2
 WATCHDOG_HEAL_COOLDOWN_SEC = 30 * 60
+AGENT_HEAL_AFTER = 2
+AGENT_HEAL_COOLDOWN_SEC = 30 * 60
 GOOGLE_STACK_HEAL_COOLDOWN_SEC = 24 * 60 * 60
 GOOGLE_VERIFY_COOLDOWN_SEC = 6 * 60 * 60
 SKIP_HEALTH = os.environ.get("STAYTURGID_SKIP_HEALTH") == "1"
@@ -204,6 +210,48 @@ def maybe_heal_watchdog(name: str, issues: list[str], fails: int, adb_serial: st
             _stats_event("heal_triggered", name, heal="watchdog")
     except (OSError, subprocess.TimeoutExpired) as e:
         _fleet_log(INFO, "%s watchdog heal error: %s" % (name, e))
+
+
+def maybe_heal_agent(name: str, issues: list[str], fails: int, adb_serial: str | None = None) -> None:
+    """Restart native-agent HostService when agent_stale (dual-run OPTIONS K1).
+
+    Does not fire on hosts without the APK (no agent_stale without prior agent.log).
+    """
+    if SKIP_WATCHDOG_HEAL or SKIP_HEALTH:
+        return
+    if fails < AGENT_HEAL_AFTER:
+        return
+    if "agent_stale" not in issues:
+        return
+    if not _heal_cooldown_ok_dir(name, AGENT_HEAL_STATE_DIR, AGENT_HEAL_COOLDOWN_SEC):
+        _fleet_log(WARNING, "%s agent heal skipped (cooldown)" % name)
+        return
+    script = os.path.join(REPO, "control", "tools", "native-agent", "start_agent.py")
+    if not os.path.isfile(script):
+        _fleet_log(WARNING, "%s agent heal skipped (missing %s)" % (name, script))
+        return
+    _fleet_log(INFO, "%s agent heal: starting HostService via start_agent.py" % name)
+    cmd = [sys.executable, script, name]
+    if adb_serial:
+        cmd.append(adb_serial)
+    try:
+        r = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        detail = ((r.stdout or "") + (r.stderr or "")).strip().replace("\n", " | ")
+        _fleet_log(INFO, "%s agent heal rc=%s %s" % (name, r.returncode, detail[:300]))
+        if r.returncode == 0:
+            _touch_heal_dir(name, AGENT_HEAL_STATE_DIR)
+            notify(
+                "stayturgid heal",
+                "%s native-agent restarted" % name,
+            )
+            _stats_event("heal_triggered", name, heal="agent")
+    except (OSError, subprocess.TimeoutExpired) as e:
+        _fleet_log(INFO, "%s agent heal error: %s" % (name, e))
 
 
 def _heal_repair_cooldown_ok(name: str) -> bool:
@@ -543,6 +591,7 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     adb_serial = path.split(":", 1)[1] if path and path.startswith("adb:") else None
     maybe_heal_repair_stale(name, issues, fails)
     maybe_heal_watchdog(name, issues, fails, adb_serial=adb_serial)
+    maybe_heal_agent(name, issues, fails, adb_serial=adb_serial)
     if fails == CONSECUTIVE_LIMIT:
         detail = ",".join(issues)
         if len(detail) > 180:

@@ -39,6 +39,7 @@ import java.util.concurrent.atomic.AtomicReference
 class HostService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var pingJob: Job? = null
+    private var heartbeatJob: Job? = null
     private val serviceRef = AtomicReference<IStayTurgidService?>(null)
     private var bound = false
     private var screenOn = false
@@ -141,7 +142,9 @@ class HostService : Service() {
 
         val pm = getSystemService(PowerManager::class.java)
         screenOn = pm?.isInteractive == true
-        if (screenOn) onScreenOn()
+        // Co-monitor always (screen-independent); inject only while interactive.
+        startHeartbeatLoop()
+        if (screenOn) onScreenOn() else ensureBound()
         Log.i(TAG, "HostService created screenOn=$screenOn")
     }
 
@@ -176,7 +179,9 @@ class HostService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        onScreenOff()
+        stopPingLoop()
+        heartbeatJob?.cancel()
+        heartbeatJob = null
         unbindUserService(remove = true)
         try {
             unregisterReceiver(screenReceiver)
@@ -201,9 +206,9 @@ class HostService : Service() {
     private fun onScreenOff() {
         screenOn = false
         Log.i(TAG, "SCREEN_OFF")
+        // Stop inject timer only. Keep UserService bound for co-monitor heartbeats
+        // so agent_age stays fresh overnight (fleet dual-run).
         stopPingLoop()
-        // Keep daemon alive but drop our connection to avoid idle binder work.
-        unbindUserService(remove = false)
     }
 
     private fun ensureBound() {
@@ -248,20 +253,12 @@ class HostService : Service() {
         if (pingJob?.isActive == true) return
         pingJob =
             scope.launch {
-                // Immediate smoke ping + co-monitor on (re)bind while screen is on.
+                // Inject only while interactive (Phase 1 keep-awake proof / G-A).
                 callPingAwake()
-                callComonitor()
-                var elapsed = 0L
                 while (isActive && screenOn) {
                     delay(PING_INTERVAL_MS)
                     if (!screenOn) break
                     callPingAwake()
-                    elapsed += PING_INTERVAL_MS
-                    // Co-monitor roughly every 20 min while screen is on (matches AutoJs6 cycle scale).
-                    if (elapsed >= COMONTOR_INTERVAL_MS) {
-                        callComonitor()
-                        elapsed = 0L
-                    }
                 }
             }
     }
@@ -271,11 +268,29 @@ class HostService : Service() {
         pingJob = null
     }
 
+    /** Screen-independent co-monitor + catastrophic shell path. */
+    private fun startHeartbeatLoop() {
+        if (heartbeatJob?.isActive == true) return
+        heartbeatJob =
+            scope.launch {
+                ensureBound()
+                // Brief settle for first bind.
+                delay(2_000)
+                callComonitor()
+                while (isActive) {
+                    delay(COMONTOR_INTERVAL_MS)
+                    ensureBound()
+                    callComonitor()
+                }
+            }
+    }
+
     private fun callPingAwake() {
+        if (!screenOn) return
         val svc = serviceRef.get()
         if (svc == null) {
             Log.w(TAG, "ping skipped — not bound")
-            if (screenOn) ensureBound()
+            ensureBound()
             return
         }
         try {
@@ -285,12 +300,21 @@ class HostService : Service() {
             Log.e(TAG, "pingAwake IPC failed", e)
             serviceRef.set(null)
             bound = false
-            if (screenOn) ensureBound()
+            ensureBound()
         }
     }
 
     private fun callComonitor() {
-        val svc = serviceRef.get() ?: return
+        var svc = serviceRef.get()
+        if (svc == null) {
+            ensureBound()
+            // Binder connect is async; skip this tick if not ready yet.
+            svc = serviceRef.get()
+            if (svc == null) {
+                Log.w(TAG, "comonitor skipped — not bound")
+                return
+            }
+        }
         try {
             val line = svc.runComonitor()
             Log.i(TAG, "comonitor: $line")
@@ -307,6 +331,8 @@ class HostService : Service() {
             }
         } catch (e: RemoteException) {
             Log.e(TAG, "runComonitor IPC failed", e)
+            serviceRef.set(null)
+            bound = false
         }
     }
 

@@ -6,6 +6,8 @@ import java.util.concurrent.TimeUnit
 /**
  * Phase 3: catastrophic path when port 5555 is closed / shell dead.
  *
+ * // @heals: PORT5555-OPEN SHIZUKU-HEADLESS
+ *
  * Mirrors AutoJs6 `lib/shizuku.ts` **shell-first** sequence (ADR 003):
  * 1. settings: development + adb + adb_wifi
  * 2. setprop service.adb.tcp.port 5555

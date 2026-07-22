@@ -29,10 +29,11 @@
       "files": ["control/bin/firerpa_heal.py"]
     },
     "fleet_health": {
-      "description": "Mac launchd fleet-health auto-heals (a11y merge, watchdog restart, HD8 stack, ET reconcile, repair restart)",
+      "description": "Mac launchd fleet-health auto-heals (a11y merge, watchdog restart, native-agent restart, HD8 stack, ET reconcile, repair restart)",
       "files": [
         "control/bin/fleet_health_monitor.py",
-        "control/lib/fleet_health.py"
+        "control/lib/fleet_health.py",
+        "control/tools/native-agent/start_agent.py"
       ]
     },
     "ansible_deploy": {
@@ -154,6 +155,11 @@
     },
     "WATCHDOG-FRESH": {
       "description": "AutoJs6 watchdog alive and logging within 30 min",
+      "must_cover": ["fleet_health"],
+      "should_cover": []
+    },
+    "AGENT-FRESH": {
+      "description": "native-agent co-monitor STATUS fresh in agent.log (dual-run OPTIONS K1)",
       "must_cover": ["fleet_health"],
       "should_cover": []
     },

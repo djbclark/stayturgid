@@ -126,6 +126,20 @@ Version: `0.2.0-phase2-comonitor` (versionCode 3).
 
 Version: `0.3.0-phase3-catastrophic` (versionCode 4).
 
+## Phase 3b progress (continued)
+
+| Step                                          | Status               |
+| --------------------------------------------- | -------------------- |
+| Screen-independent co-monitor heartbeat       | **done** (v0.3.1)    |
+| `agent_stale` health issue (numeric age only) | **done**             |
+| Mac `maybe_heal_agent` + `start_agent.py`     | **done**             |
+| just agent-grant / agent-start                | **done**             |
+| Healing registry AGENT-FRESH                  | **done**             |
+| Device 0.3.1 on Pixel 7a                      | **done**             |
+| AutoJs6 rebuild                               | **still not needed** |
+
+Version: `0.3.1-heartbeat-heal` (versionCode 5).
+
 ## Next agent priorities
 
 1. Commit/push if not already on origin.

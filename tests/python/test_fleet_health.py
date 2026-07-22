@@ -164,6 +164,25 @@ def test_evaluate_agent_missing_is_not_hard_fail():
     assert fh.evaluate_health(report) == []
 
 
+def test_evaluate_agent_stale():
+    report = {
+        "ssh_echo": "ok",
+        "sshd": "ok",
+        "bootloop": "ok",
+        "shell5555": "ok",
+        "watchdog_age": "100",
+        "repair_age": "200",
+        "agent_age": str(fh.WATCHDOG_FRESH_SEC + 50),
+        "a11y": "ok",
+        "autojs6_a11y": "ok",
+        "port": "open",
+        "shizuku": "up",
+    }
+    issues = fh.evaluate_health(report)
+    assert "agent_stale" in issues
+    assert "watchdog_stale" not in issues
+
+
 def test_monitor_notifies_after_debounce(tmp_path, monkeypatch):
     monkeypatch.setattr(fhm, "STATE_DIR", str(tmp_path))
     monkeypatch.setattr(fhm, "HEAL_STATE_DIR", str(tmp_path / "heal"))
@@ -317,3 +336,56 @@ def test_monitor_skips_unreachable(tmp_path, monkeypatch):
     fhm.check_device("oneui-device", "100.1", "192.1")
     assert any("unreachable" in m for m in logs)
     assert fhm.read_state(os.path.join(str(tmp_path), "oneui-device")) == 0
+
+
+def test_monitor_heals_stale_agent(tmp_path, monkeypatch):
+    monkeypatch.setattr(fhm, "STATE_DIR", str(tmp_path))
+    monkeypatch.setattr(fhm, "AGENT_HEAL_STATE_DIR", str(tmp_path / "agent-heal"))
+    monkeypatch.setattr(fhm, "SKIP_HEALTH", False)
+    monkeypatch.setattr(fhm, "SKIP_WATCHDOG_HEAL", False)
+    monkeypatch.setattr(fhm, "AGENT_HEAL_AFTER", 2)
+    monkeypatch.setattr(fhm, "WATCHDOG_HEAL_AFTER", 99)  # isolate agent heal
+    monkeypatch.setattr(
+        fhm.fh,
+        "probe_device",
+        lambda name, ts, lan: (
+            "adb:1.1.1.1:5555",
+            {
+                "ssh_echo": "ok",
+                "sshd": "ok",
+                "bootloop": "ok",
+                "shell5555": "ok",
+                "watchdog_age": "10",
+                "repair_age": "10",
+                "agent_age": "99999",
+                "a11y": "ok",
+                "autojs6_a11y": "ok",
+                "port": "open",
+                "shizuku": "up",
+            },
+        ),
+    )
+    calls = []
+
+    def fake_run(args, **kw):
+        calls.append(args)
+
+        class R:
+            returncode = 0
+            stdout = "Starting native-agent\n"
+            stderr = ""
+
+        return R()
+
+    monkeypatch.setattr(fhm.subprocess, "run", fake_run)
+    monkeypatch.setattr(fhm, "notify", lambda *a, **k: None)
+    monkeypatch.setattr(fhm, "_fleet_log", lambda *_: None)
+    monkeypatch.setattr(fhm, "REPO", str(tmp_path))
+    (tmp_path / "control" / "tools" / "native-agent").mkdir(parents=True)
+    (tmp_path / "control" / "tools" / "native-agent" / "start_agent.py").write_text("x")
+
+    fhm.check_device("oneui-device", "100.1", "192.1")
+    assert not any(any("start_agent.py" in str(part) for part in call) for call in calls)
+    fhm.check_device("oneui-device", "100.1", "192.1")
+    agent_calls = [call for call in calls if any("start_agent.py" in str(part) for part in call)]
+    assert len(agent_calls) == 1
