@@ -28,6 +28,9 @@ vendor-check-autojs6-typescript:
     @just _vendor_autojs6_typescript_check_impl
 
 # ---------- Update ----------
+# Re-detaches HEAD at the end (canonical submodule state — a stray `git pull`
+# run later inside vendor/autojs6-typescript by habit can't silently drift
+# the checkout away from the exact commit the outer repo's index records).
 _vendor_autojs6_typescript_update_impl:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -37,6 +40,7 @@ _vendor_autojs6_typescript_update_impl:
     git checkout main --quiet
     git pull origin main --quiet
     after="$(git rev-parse HEAD)"
+    git checkout --detach "$after" --quiet
     cd ../..
     if [ "$before" = "$after" ]; then
       echo "vendor/autojs6-typescript already at latest ($after)"
