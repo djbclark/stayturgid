@@ -472,8 +472,10 @@ def build_device_data() -> list[dict]:
             d["health_age"] = _age_str(d["health_age_s"])
             d["via_display"] = h.get("via", "?")
             d["services"] = _build_services(h)
+            d["agent_age"] = _safe_int(h.get("agent_age"))
             d["watchdog_age"] = _safe_int(h.get("watchdog_age"))
             d["repair_age"] = _safe_int(h.get("repair_age"))
+            d["agent_badge"] = _age_badge(d["agent_age"])
             d["watchdog_badge"] = _age_badge(d["watchdog_age"])
             d["repair_badge"] = _age_badge(d["repair_age"])
             d["issue_tags"] = _issue_tags(report_issues)
@@ -582,8 +584,10 @@ def api_probe(host: str):
             "health_age": "--",
             "via_display": "unreachable",
             "services": [],
+            "agent_age": None,
             "watchdog_age": None,
             "repair_age": None,
+            "agent_badge": _age_badge(None),
             "watchdog_badge": _age_badge(None),
             "repair_badge": _age_badge(None),
             "issue_tags": _issue_tags([]),
@@ -611,14 +615,18 @@ def api_probe(host: str):
             "health_age": "live",
             "via_display": h.get("via", "live"),
             "services": _build_services(h),
+            "agent_age": _safe_int(h.get("agent_age")),
             "watchdog_age": _safe_int(h.get("watchdog_age")),
             "repair_age": _safe_int(h.get("repair_age")),
+            "agent_badge": _age_badge(None),
             "watchdog_badge": _age_badge(None),
             "repair_badge": _age_badge(None),
             "issue_tags": _issue_tags(report_issues),
             "human_actions": _human_actions(report_issues, name),
             "probe_live": True,
         }
+        aa = d["agent_age"]
+        d["agent_badge"] = _age_badge(aa)
         wa = d["watchdog_age"]
         d["watchdog_badge"] = _age_badge(wa)
         ra = d["repair_age"]

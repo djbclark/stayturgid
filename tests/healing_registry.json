@@ -1,7 +1,6 @@
 {
   "_schema": 1,
   "_doc": "SSOT registry of every desired state and bug fix with unique IDs. Pre-flight checker (check_healing_coverage.py) cross-references annotations in healing source files against this registry. Adding a new fix: (1) add ID here, (2) add annotation to each mechanism source that implements it, (3) make test gates it.",
-
   "mechanisms": {
     "termux_repair": {
       "description": "Primary on-device Python self-healer (stayturgid_repair.py)",
@@ -10,14 +9,11 @@
         "device/termux/py/start_adb.py"
       ]
     },
-    "autojs6_watchdog": {
-      "description": "AutoJs6 watchdog + co-monitor + catastrophic Shizuku repair",
+    "native_agent": {
+      "description": "Native Kotlin agent (Phase 1-4) handling co-monitor + catastrophic Shizuku repair without a11y UI dependencies",
       "files": [
-        "device/autojs6/lib/comonitor.js",
-        "device/autojs6/lib/shizuku.js",
-        "device/autojs6/lib/watchdog.js",
-        "device/autojs6/lib/guard.js",
-        "device/autojs6/lib/repair.js"
+        "device/native-agent/app/src/main/kotlin/org/stayturgid/agent/HostService.kt",
+        "device/native-agent/app/src/main/kotlin/org/stayturgid/agent/CatastrophicRepair.kt"
       ]
     },
     "cfengine": {
@@ -56,26 +52,25 @@
       ]
     }
   },
-
   "desired_states": {
     "SSHD-RUNNING": {
       "description": "sshd running on port 8022",
-      "must_cover": ["termux_repair", "autojs6_watchdog", "cfengine", "firerpa"],
+      "must_cover": ["termux_repair", "cfengine", "firerpa", "native_agent"],
       "should_cover": ["ansible_deploy"]
     },
     "PORT5555-OPEN": {
       "description": "Privileged shell on localhost:5555 (wireless debug enabled, uid 2000)",
-      "must_cover": ["termux_repair", "autojs6_watchdog"],
+      "must_cover": ["termux_repair", "native_agent"],
       "should_cover": ["cfengine", "firerpa"]
     },
     "SHIZUKU-HEADLESS": {
       "description": "Shizuku headless server running (HEADLESS_STATUS + pgrep)",
-      "must_cover": ["termux_repair", "autojs6_watchdog", "firerpa"],
+      "must_cover": ["termux_repair", "firerpa", "native_agent"],
       "should_cover": ["cfengine"]
     },
     "A11Y-AUTOJS6": {
       "description": "AutoJs6 accessibility service enabled (detection-only; user must enable manually)",
-      "must_cover": ["termux_repair", "autojs6_watchdog", "fleet_health"],
+      "must_cover": ["termux_repair", "fleet_health", "native_agent"],
       "should_cover": ["cfengine", "ansible_deploy"]
     },
     "MIRROR-PINNED": {
@@ -100,7 +95,7 @@
     },
     "TAILSCALE-VPN": {
       "description": "Tailscale VPN tunnel running (tun0 up + ping)",
-      "must_cover": ["autojs6_watchdog"],
+      "must_cover": ["native_agent"],
       "should_cover": []
     },
     "TAILSCALE-ALWAYSON": {

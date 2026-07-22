@@ -25,6 +25,12 @@
     "battery_unrestricted": true,
     "disable_unused_restrictions": true,
     "grant_all_runtime": true,
+    "package": "org.stayturgid.agent"
+  },
+  {
+    "battery_unrestricted": true,
+    "disable_unused_restrictions": true,
+    "grant_all_runtime": true,
     "package": "com.tailscale.ipn"
   },
   {

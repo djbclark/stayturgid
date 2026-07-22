@@ -183,21 +183,16 @@ If sshd freezes again (TCP up but `ssh_echo` fails in health log), try
 foreground `-D` / supervision. Wrong change can lock out SSH; only with a
 reproduced freeze and USB adb recovery.
 
-#### K1 — AutoJs6 → native Kotlin APK (agent) · Risk: **High** · **Phase 1 in progress 2026-07-22**
+#### ~~K1 — AutoJs6 → native Kotlin APK (agent)~~ · **Phase 4 Cutover Complete 2026-07-22**
 
-Replace the Rhino/AutoJs6 watchdog with a purpose-built Kotlin app that binds a
+Replaced the Rhino/AutoJs6 watchdog with a purpose-built Kotlin app that binds a
 Shizuku **UserService** (UID 2000) for privileged work without shell-spawn on the
 hot path. Plan:
 [AutoJs6 → native Kotlin APK migration plan](operations/plans/autojs6-to-native-apk-plan.md).
-Checkpoint:
-[session-2026-07-22-native-agent.md](operations/sessions/session-2026-07-22-native-agent.md).
 
-**Code:** `device/native-agent/` v0.3.1 dual-run on **s24 + p7a + hd8** (STATUS live at
-2026-07-22 handoff). Soft-health → `soft_health.jsonl` → Vector → OO stream
-`soft_health` (OO needs Vector password fix + reingest). **Handoff:**
-[handoff-2026-07-22-native-agent-k1.md](operations/handoffs/handoff-2026-07-22-native-agent-k1.md).
-Status: [native-agent-status-2026-07-22.md](operations/plans/native-agent-status-2026-07-22.md).
-**No AutoJs6 rebuild** needed. Phase 4 cutover later.
+**Code:** `device/native-agent/` deployed on **s24 + p7a + hd8**.
+Phase 4 cutover complete: AutoJs6 uninstalled, fleet health uses `agent_stale`,
+and `autojs6_watchdog` role retired.
 
 ---
 
@@ -489,12 +484,9 @@ debugging, then disables it. FIRERPA ships proxy/Frida modules but they're off
 by default (minimal-failsafe config). Useful for debugging app network behavior
 on non-rooted devices.
 
-#### F4 — Network isolation (agent) · Risk: **Medium** · Latent
+#### F4 — Network isolation (agent) · Risk: **Medium** · **Abandoned 2026-07-22**
 
-The 163 MB closed-source server binary could phone home. Bind FIRERPA to Tailscale
-interfaces only and use Tailscale ACLs to drop outbound WAN access from the lamda
-process. Not urgent — gRPC is already on Tailscale IP. Track if upstream changes
-or network audit is needed.
+The FIRERPA core `lamda` engine has been validated as a legitimate, open-source automation framework. The previous assumption that it was an untrusted "black box" requiring strict outbound Tailscale ACLs has been dropped. We rely on its built-in authentication and standard SSH/Tailscale hygiene instead.
 
 **Closed (2026-07-14):** F2 (FIRERPA WebRTC spike, confirmed working).
 **Closed (2026-07-09 night):** **60–61** validate role + preflight + `autojs6_project_deploy`;

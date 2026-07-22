@@ -104,20 +104,18 @@
           'plist': agents_dir ~ '/com.stayturgid.vlm-upstream-check.plist'
         }] if (stayturgid_vlm_upstream_check_enabled | default(true) | bool) else []
       }}
-    _adb_launchd_agents: >-
-      {{
-        groups['stayturgid']
-        | map('regex_replace', '^(.*)$', '{"name": "com.stayturgid.adb-reconnect-\\1", "plist": "' ~ agents_dir ~ '/com.stayturgid.adb-reconnect-\\1.plist"}')
-        | map('from_json')
-
-        | list
-      }}
+    _adb_launchd_agents: "{{ _adb_launchd_agents_yaml | from_yaml | default([], true) }}"
+    _adb_launchd_agents_yaml: |
+      {% for h in groups.get('stayturgid', []) %}
+      - name: com.stayturgid.adb-reconnect-{{ h }}
+        plist: {{ agents_dir }}/com.stayturgid.adb-reconnect-{{ h }}.plist
+      {% endfor %}
     _gui_launchd_agents: >-
       {{
         [{
           'name': 'com.stayturgid.gui-audit',
           'plist': agents_dir ~ '/com.stayturgid.gui-audit.plist'
-        }] if (stayturgid_gui_audit_enabled | bool) else []
+        }] if (stayturgid_gui_audit_enabled | default(false) | bool) else []
       }}
 
     _ui_tars_launchd_agents: >-

@@ -15,7 +15,7 @@
   gather_facts: false
   roles:
     - role: stayturgid.termux.termux_userland
-    - role: stayturgid.fleet.autojs6_watchdog
+    - role: stayturgid.fleet.shizuku_config
     - role: stayturgid.obtainium.obtainium_apps
     - role: stayturgid.android_common.tailscale_vpn
     - role: stayturgid.fdroid.fdroid_repos

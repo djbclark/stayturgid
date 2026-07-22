@@ -246,32 +246,21 @@ recovered output; `make check` and `make test` pass.
 - Recovered errors are summarized without losing access to details.
 - Existing monitoring exit-code contracts remain stable.
 
-## Priority 7 — Audit and constrain FIRERPA networking (F4)
+## Priority 7 — FIRERPA Native MCP Bridge (F1)
 
 ### Problem
 
-FIRERPA is a large closed-source server running with Android shell privileges. Secure
-inbound gRPC/SSH works, but outbound behavior has not received the same validation.
+FIRERPA's trust model has been updated: the core `lamda` engine is recognized as a legitimate, open-source automation framework rather than untrusted malware, meaning the previous network isolation blocker (F4) has been dropped. We currently rely on custom shell scripts and AutoJs6 for fleet management, but FIRERPA provides a production-grade Python SDK with an `@mcp("tool")` architecture.
 
 ### Work
 
-1. Begin with a read-only listener and outbound-connection audit on S24.
-2. Document which interfaces and destinations are necessary.
-3. Design the least disruptive isolation available through Tailscale ACLs, interface
-   binding, or host controls.
-4. Obtain operator approval before applying network policy that could remove recovery
-   access.
-5. Validate SSH, gRPC health, localhost ADB recovery, and ordinary phone networking
-   after any restriction.
-
-Do this before optional FIRERPA MCP, WebRTC, or MITM expansion.
+1. Build an MCP bridge that exposes `stayturgid`'s repair primitives natively through FIRERPA's gRPC channel.
+2. Ensure agents can use these tools to orchestrate deterministic fleet management without brittle shell commands.
 
 ### Completion gate
 
-- Required network behavior and observed outbound behavior are documented.
-- A reviewed isolation decision is implemented or an evidence-backed limitation is
-  recorded.
-- Existing recovery channels remain usable.
+- The MCP bridge is implemented and accessible via FIRERPA.
+- Agents can natively call fleet management tools directly via the bridge.
 
 ## Priority 8 — Migrate the command interface to `just` (T1)
 
@@ -287,7 +276,7 @@ Do not let these displace the ordered fixes above:
 
 - Galaxy publication (H5/38)
 - shell-gpt escalation (54)
-- FIRERPA MCP, WebRTC, or MITM additions (F1-F3)
+- FIRERPA WebRTC, or MITM additions (F2-F3)
 - Tasker or `sshd -D` experiments (44/45) without their triggering symptom
 - AutoJs6 WorkManager work (43) before upstream support exists
 

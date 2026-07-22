@@ -29,6 +29,15 @@ android {
         jvmTarget = "17"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../agent-release.jks")
+            storePassword = "stayturgid"
+            keyAlias = "agent"
+            keyPassword = "stayturgid"
+        }
+    }
+
     buildTypes {
         debug {
             isMinifyEnabled = false
@@ -42,6 +51,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 

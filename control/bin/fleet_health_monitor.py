@@ -59,8 +59,6 @@ ERROR_LOG = os.path.join(ROOT, "logs", "errors.log")
 LOG_NAME = "fleet-health.log"
 CONSECUTIVE_LIMIT = 2
 # After this many soft fails with watchdog_stale/missing, restart main.js once.
-WATCHDOG_HEAL_AFTER = 2
-WATCHDOG_HEAL_COOLDOWN_SEC = 30 * 60
 AGENT_HEAL_AFTER = 2
 AGENT_HEAL_COOLDOWN_SEC = 30 * 60
 GOOGLE_STACK_HEAL_COOLDOWN_SEC = 24 * 60 * 60
@@ -160,56 +158,8 @@ def _touch_heal_dir(name: str, state_dir: str) -> None:
         pass
 
 
-def _heal_cooldown_ok(name: str) -> bool:
-    return _heal_cooldown_ok_dir(name, HEAL_STATE_DIR, WATCHDOG_HEAL_COOLDOWN_SEC)
-
-
 def _touch_heal(name: str) -> None:
     _touch_heal_dir(name, HEAL_STATE_DIR)
-
-
-def maybe_heal_watchdog(name: str, issues: list[str], fails: int, adb_serial: str | None = None) -> None:
-    """Restart AutoJs6 main.js when soft health shows a dead watchdog.
-
-    Manual start_watchdog.py was required previously — that is not self-heal.
-    Mac already has adb; Termux boot loop deliberately avoids RunIntentActivity
-    (foreground steal). Rate-limited to once per WATCHDOG_HEAL_COOLDOWN_SEC.
-    """
-    if SKIP_WATCHDOG_HEAL or SKIP_HEALTH:
-        return
-    if fails < WATCHDOG_HEAL_AFTER:
-        return
-    if "watchdog_stale" not in issues and "watchdog_missing" not in issues:
-        return
-    if not _heal_cooldown_ok(name):
-        _fleet_log(WARNING, "%s watchdog heal skipped (cooldown)" % name)
-        return
-    script = os.path.join(REPO, "control", "tools", "autojs6", "start_watchdog.py")
-    if not os.path.isfile(script):
-        _fleet_log(WARNING, "%s watchdog heal skipped (missing %s)" % (name, script))
-        return
-    _fleet_log(INFO, "%s watchdog heal: starting main.js via start_watchdog.py" % name)
-    cmd = [sys.executable, script, name]
-    if adb_serial:
-        cmd.append(adb_serial)
-    try:
-        r = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
-        detail = ((r.stdout or "") + (r.stderr or "")).strip().replace("\n", " | ")
-        _fleet_log(INFO, "%s watchdog heal rc=%s %s" % (name, r.returncode, detail[:300]))
-        if r.returncode == 0:
-            _touch_heal(name)
-            notify(
-                "stayturgid heal",
-                "%s AutoJs6 watchdog restarted" % name,
-            )
-            _stats_event("heal_triggered", name, heal="watchdog")
-    except (OSError, subprocess.TimeoutExpired) as e:
-        _fleet_log(INFO, "%s watchdog heal error: %s" % (name, e))
 
 
 def maybe_heal_agent(name: str, issues: list[str], fails: int, adb_serial: str | None = None) -> None:
@@ -638,7 +588,6 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     write_state(state_file, fails)
     adb_serial = path.split(":", 1)[1] if path and path.startswith("adb:") else None
     maybe_heal_repair_stale(name, issues, fails)
-    maybe_heal_watchdog(name, issues, fails, adb_serial=adb_serial)
     maybe_heal_agent(name, issues, fails, adb_serial=adb_serial)
     if fails == CONSECUTIVE_LIMIT:
         detail = ",".join(issues)

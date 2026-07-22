@@ -746,6 +746,8 @@ def main():
             # then send HEADLESS_START to open port 5555.
             log("shizuku_server running but port 5555 closed — applying fleet profile + HEADLESS_START", WARNING)
             shizuku_fp = "/data/local/tmp/shizuku-fleet.json"
+            if not os.path.isfile(shizuku_fp):
+                shizuku_fp = "/sdcard/Download/shizuku-fleet.json"
             if os.path.isfile(shizuku_fp):
                 run(
                     [
@@ -876,10 +878,16 @@ def main():
             log("autojs6-fleet.json is MISSING from /sdcard/Download/ — re-deploy required")
         # Shizuku: only re-apply when Shizuku is down.
         _, sf_out = sh_adb("[ -f /data/local/tmp/shizuku-fleet.json ] && echo ok || echo missing")
+        profile = "/data/local/tmp/shizuku-fleet.json"
+        if "missing" in sf_out:
+            _, sf_out2 = sh_adb("[ -f /sdcard/Download/shizuku-fleet.json ] && echo ok || echo missing")
+            if "ok" in sf_out2:
+                sf_out = sf_out2
+                profile = "/sdcard/Download/shizuku-fleet.json"
+
         if "ok" in sf_out:
             shizuku_profile = "present"
             if shizuku != "up":
-                profile = "/data/local/tmp/shizuku-fleet.json"
                 sh_adb(
                     "if [ -f %s ]; then am start "
                     "-a moe.shizuku.privileged.api.APPLY_FLEET_PROFILE "
@@ -892,7 +900,7 @@ def main():
                 sh_adb("dumpsys deviceidle whitelist +moe.shizuku.privileged.api")
         else:
             shizuku_profile = "MISSING"
-            log("shizuku-fleet.json is MISSING from /data/local/tmp/ — re-deploy required")
+            log("shizuku-fleet.json is MISSING from /data/local/tmp/ and /sdcard/Download/ — re-deploy required")
         # device.json: using generic fallback loses tap coordinates.
         prof = read_device_profile()
         if not prof.get("id") and not prof.get("_comment"):

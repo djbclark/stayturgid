@@ -203,17 +203,10 @@ def evaluate_health(report: dict[str, str], *, alias: str | None = None) -> list
     if report.get("shell5555") == "down":
         issues.append("shell5555_down")
 
-    wage = _int_age(report.get("watchdog_age"))
-    if report.get("watchdog_age") == "missing":
-        issues.append("watchdog_missing")
-    elif wage is not None and wage >= WATCHDOG_FRESH_SEC:
-        issues.append("watchdog_stale")
-
-    # Native agent dual-run: agent_missing is normal on hosts without the APK.
-    # agent_stale only when we have seen a numeric age that went cold (APK is
-    # installed and was writing agent.log). Heartbeat runs screen-off too.
     aage = _int_age(report.get("agent_age"))
-    if aage is not None and aage >= WATCHDOG_FRESH_SEC:
+    if report.get("agent_age") == "missing":
+        issues.append("agent_missing")
+    elif aage is not None and aage >= WATCHDOG_FRESH_SEC:
         issues.append("agent_stale")
 
     rage = _int_age(report.get("repair_age"))
@@ -225,18 +218,6 @@ def evaluate_health(report: dict[str, str], *, alias: str | None = None) -> list
     a11y = report.get("a11y", "")
     if a11y.startswith("FAILED") or a11y == "FAILED":
         issues.append("a11y_failed")
-
-    if report.get("autojs6_a11y") == "missing":
-        issues.append("autojs6_a11y_missing")
-
-    # Sticky a11y heuristic: Settings still lists AutoJs6 (autojs6_a11y=ok) but
-    # the watchdog has not cycled — classic "enabled but not bound" after process
-    # death / OEM freezers. Human fix: toggle Accessibility OFF then ON.
-    # Pair with watchdog_stale/missing so we do not alert on a brief quiet window.
-    if report.get("autojs6_a11y") == "ok" and (
-        report.get("watchdog_age") == "missing" or (wage is not None and wage >= WATCHDOG_FRESH_SEC)
-    ):
-        issues.append("autojs6_a11y_stale")
 
     port = report.get("port", "")
     if port in ("closed", "CLOSED", "CLOSED_NO_SHELL"):

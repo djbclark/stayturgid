@@ -111,18 +111,18 @@ python3 control/tools/native-agent/rollout.py --serial GN43T503430603PS
 2. ~~**hd8 UserService binder handoff** — Shizuku server fixed (uncompressed libs); still DeadObjectException returning binder to manager. Confirm `agent.log` after fix~~ **Done 2026-07-22**
 3. ~~Clear **hd8 maintenance** only when soft-health should resume (site policy)~~ **Done 2026-07-22**
 4. Optional soak: 24–48h p7a/s24 overnight → `agent_age` should stay fresh
-5. **Shizuku fork packaging** — release APKs with STORED native libs (Fire requires this for `System.load` from APK path)
+5. ~~**Shizuku fork packaging** — release APKs with STORED native libs (Fire requires this for `System.load` from APK path)~~ **Done**
 
 ### B — Hardening before cutover (Phase 3.5)
 
-5. Battery unrestricted + unused-app off for `org.stayturgid.agent(.debug)` (mirror AutoJs6 harden)
-6. Release signing key + non-debug `applicationId` without `.debug`
-7. Obtainium catalog entry for agent APK updates
-8. Ansible: install agent, grant Shizuku, battery flags (new role or bootstrap_apks + grant task)
+5. ~~**Battery unrestricted + unused-app off** for `org.stayturgid.agent(.debug)`~~ **Done**
+6. ~~**Release signing key** + non-debug `applicationId` without `.debug`~~ **Done (verified in build.gradle.kts)**
+7. ~~**Obtainium catalog entry** for agent APK updates~~ **Done**
+8. ~~**Ansible: install agent, grant Shizuku, battery flags**~~ **Done**
 9. Forced `CLOSED_NO_SHELL` soak: prove `repairCatastrophic` restores 5555 without AutoJs6 a11y
-10. Fire-specific: durable Shizuku start (starter/fleet profile) so agent binds after reboot
-11. Dashboard: show `agent_age` / agent STATUS card
-12. Healing registry: optional `native_agent` mechanism for PORT5555 / SHIZUKU-HEADLESS should_cover
+10. ~~**Fire-specific: durable Shizuku start** (starter/fleet profile) so agent binds after reboot~~ **Done**
+11. ~~**Dashboard**: show `agent_age` / agent STATUS card~~ **Done**
+12. ~~**Healing registry**: optional `native_agent` mechanism for PORT5555 / SHIZUKU-HEADLESS should_cover~~ **Done**
 
 **How B is measured over time** — see [Observability](#observability-for-dual-run--pre-cutover) below.
 Fleet soft-health now writes a durable `soft_health` JSONL sample every ~5 min per
