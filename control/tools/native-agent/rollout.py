@@ -11,7 +11,7 @@ Does **not** remove AutoJs6. Dual-run only (OPTIONS K1).
 
 Usage:
   ./rollout.py                     # all hosts from devices.conf
-  ./rollout.py p7a s24             # named aliases
+  ./rollout.py device1 device2     # named aliases
   ./rollout.py --serial 100.x:5555 # raw serial only
 """
 

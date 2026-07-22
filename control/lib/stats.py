@@ -22,7 +22,7 @@ Query examples::
     from control.lib import stats
     from datetime import datetime, timedelta, timezone
     since = datetime.now(timezone.utc) - timedelta(days=7)
-    rows = stats.query_events(since=since, event_type="soft_health", device="p7a")
+    rows = stats.query_events(since=since, event_type="soft_health", device="example-device")
 """
 
 from __future__ import annotations
