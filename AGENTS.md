@@ -80,6 +80,12 @@ just health && just firerpa-health
 | stock-android-device | 100.0.0.12 | EXAMPLE-SERIAL-STOCK | `ssh stock-android-device` |
 | fireos-device        | 100.0.0.13 | EXAMPLE-SERIAL-FIRE  | `ssh fireos-device`        |
 
+## Adding a launchd service
+
+See [docs/adding-a-launchd-service.md](docs/adding-a-launchd-service.md) — two
+paths: `control_node` role for fleet-wide agents, `site_agents` role for
+per-site agents.
+
 ## Conventions
 
 - Use bash (not zsh). Termux has no zsh by default.
