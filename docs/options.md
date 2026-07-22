@@ -192,11 +192,11 @@ hot path. Plan:
 Checkpoint:
 [session-2026-07-22-native-agent.md](operations/sessions/session-2026-07-22-native-agent.md).
 
-**Code:** `device/native-agent/` v0.3.1 dual-run. **Rollout 2026-07-22:** p7a full
-(STATUS live); hd8 APK+grant (Shizuku server flaky); s24 offline. Status + remaining
-steps: [native-agent-status-2026-07-22.md](operations/plans/native-agent-status-2026-07-22.md).
-`just agent-rollout` / `just agent-assemble` (JDK 21). **No AutoJs6 rebuild** needed.
-AutoJs6 remains for a11y UI last-resort until Phase 4.
+**Code:** `device/native-agent/` v0.3.1 dual-run. **Rollout:** p7a + **s24 full**
+(STATUS live); **hd8** agent installed + Shizuku server fixed (uncompressed libs) but
+UserService binder handoff still flaky on Fire. Status:
+[native-agent-status-2026-07-22.md](operations/plans/native-agent-status-2026-07-22.md).
+`just agent-rollout`. **No AutoJs6 rebuild** needed. Phase 4 cutover later.
 
 ---
 

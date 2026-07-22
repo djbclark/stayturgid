@@ -53,43 +53,46 @@ Routine repair stays **Termux-primary**. Agent does not own the 5‑min repair l
 
 ---
 
-## Fleet rollout (2026-07-22)
+## Fleet rollout (2026-07-22, updated after s24/hd8 attach)
 
-| Host                 | Reachability                                      | Agent install       | Shizuku UserService | `agent.log` STATUS    | AutoJs6         |
-| -------------------- | ------------------------------------------------- | ------------------- | ------------------- | --------------------- | --------------- |
-| **p7a** (Pixel 7a)   | adb wireless OK                                   | **0.3.1**           | **bound**           | **writing** (~20 min) | still installed |
-| **hd8** (Fire HD 8)  | USB OK today; TS often down; **maintenance** flag | **0.3.1 installed** | **not bound**       | none yet              | still installed |
-| **s24** (Galaxy S24) | **unreachable** (TS + LAN timeout)                | **not installed**   | —                   | —                     | unknown offline |
+| Host                 | Reachability                       | Agent install       | Shizuku UserService | `agent.log` STATUS    | AutoJs6  |
+| -------------------- | ---------------------------------- | ------------------- | ------------------- | --------------------- | -------- |
+| **p7a** (Pixel 7a)   | adb wireless OK                    | **0.3.1**           | **bound**           | **writing** (~20 min) | dual-run |
+| **s24** (Galaxy S24) | adb wireless `100.123.218.30:5555` | **0.3.1**           | **bound**           | **writing**           | dual-run |
+| **hd8** (Fire HD 8)  | USB + TS adb OK                    | **0.3.1 installed** | **partial**         | not yet               | dual-run |
 
-### p7a — fully rolled out
+### p7a — full
 
-- Grant: `control/tools/native-agent/grant_shizuku.py`
-- Status lines like:  
-  `[agent] STATUS port=open shizuku=up sshd=up a11y=up shell=yes … uid=2000`
-- Fleet health already shows `agent_age=…` without issues when fresh
+- UserService bound; STATUS with `uid=2000`; fleet `agent_age` when fresh
 
-### hd8 — APK only (blocked on Shizuku server)
+### s24 — full (rolled out this session)
 
-- APK + `shizuku.json` grant for `org.stayturgid.agent.debug` **ok**
-- `shizuku_starter` reports start but **`shizuku_server` does not stay up** reliably on this Fire session → HostService logs `Shizuku not running` → no UserService
-- **Operator follow-up:** open Shizuku on tablet, Start, confirm server process, then:
+- Install + grant + Shizuku restart + start OK
+- Evidence: userservice pid live;  
+  `[agent] STATUS port=open shizuku=up sshd=up a11y=up shell=yes … ts=2026-07-22 12:08:27 uid=2000`
 
-  ```bash
-  just agent-start GN43T503430603PS
-  # or: python3 control/tools/native-agent/rollout.py --serial GN43T503430603PS
-  ```
+### hd8 — agent APK in; Fire Shizuku/UserService flaky
 
-- Fire also often uses split storage / `NO_LOCAL_ADB`; agent log path is still `/sdcard/stayturgid/logs/agent.log` when shell can write
+**Done:** agent 0.3.1 + `shizuku.json` grant.
 
-### s24 — blocked offline
+**Server crash fixed:** fleet release17 packs `librish.so` **Deflated**. Fire
+`System.load(…/base.apk!/lib/…)` → `UnsatisfiedLinkError`. Repackage with
+**STORED** `.so` + `resources.arsc`, zipalign, re-sign → `shizuku_server` stays up.
 
-- No adb/ssh as of 2026-07-22 afternoon
-- When back:
+**Still broken:** UserService sometimes constructs then dies:
 
-  ```bash
-  just agent-rollout s24
-  # or: python3 control/tools/native-agent/rollout.py s24
-  ```
+```text
+ShizukuServiceStarter: failed send binder to moe.shizuku.privileged.api
+android.os.DeadObjectException
+```
+
+Stuck daemon records also seen. Follow-up: clear server, keep manager warm,
+fork packaging + binder handoff on Fire.
+
+```bash
+adb -s GN43T503430603PS shell /data/local/tmp/shizuku_starter
+just agent-start GN43T503430603PS
+```
 
 ---
 
@@ -117,10 +120,11 @@ python3 control/tools/native-agent/rollout.py --serial GN43T503430603PS
 
 ### A — Finish dual-run fleet coverage (now)
 
-1. **s24 online** → `just agent-rollout s24` → confirm `agent.log` + `agent_age` in `just health`
-2. **hd8 Shizuku stable** → start server, `just agent-start` USB serial → confirm UserService + STATUS
+1. ~~**s24 online** → roll out~~ **Done 2026-07-22**
+2. **hd8 UserService binder handoff** — Shizuku server fixed (uncompressed libs); still DeadObjectException returning binder to manager. Confirm `agent.log` after fix
 3. Clear **hd8 maintenance** only when soft-health should resume (site policy)
-4. Optional soak: 24–48h p7a with screen off overnight → `agent_age` should not go `agent_stale` if heartbeat lives
+4. Optional soak: 24–48h p7a/s24 overnight → `agent_age` should stay fresh
+5. **Shizuku fork packaging** — release APKs with STORED native libs (Fire requires this for `System.load` from APK path)
 
 ### B — Hardening before cutover (Phase 3.5)
 
