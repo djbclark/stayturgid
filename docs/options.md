@@ -183,6 +183,20 @@ If sshd freezes again (TCP up but `ssh_echo` fails in health log), try
 foreground `-D` / supervision. Wrong change can lock out SSH; only with a
 reproduced freeze and USB adb recovery.
 
+#### K1 — AutoJs6 → native Kotlin APK (agent) · Risk: **High** · **Plan only 2026-07-22** · Do not start without Phase 0
+
+Replace the Rhino/AutoJs6 watchdog with a purpose-built Kotlin app that binds a
+Shizuku **UserService** (UID 2000) for privileged work without shell-spawn on the
+hot path. Plan (inventory, phased cutover, composite build against
+`~/src/Shizuku/api`, destroy()/daemon refinements, and a Phase‑1 agent prompt):
+[AutoJs6 → native Kotlin APK migration plan](operations/plans/autojs6-to-native-apk-plan.md).
+
+**Phase 0 gate (operator):** confirm goal G-A (app inactivity → input inject),
+G-B (system screen timeout only — prefer settings/wakelock, not inject), and/or
+G-C (full AutoJs6 replacement). Default plan end-state is G-C; Phase 1 is only
+the UserService + `injectInputEvent` scaffold. Dual-run with AutoJs6 until soak
+passes. Not ordered above live reliability items unless deliberately picked.
+
 ---
 
 ### Track E — On-device LLM (future; only if deliberately picked)

@@ -7,6 +7,11 @@ on **every host every cycle** (fleet parity — not Fire-only).
 **Routine repair is Termux-primary** (`stayturgid-repair` every 5 min) — AutoJs6
 defers `RUN_COMMAND` invoke unless the repair log is stale.
 
+**Future replacement (not started):** a native Kotlin APK + Shizuku UserService
+is planned under OPTIONS **K1** —
+[autojs6-to-native-apk-plan.md](../../operations/plans/autojs6-to-native-apk-plan.md).
+Until that cutover, this document remains the on-device automation source of truth.
+
 ## What it does
 
 | Interval         | Action                                                                                                     |
