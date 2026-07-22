@@ -126,3 +126,14 @@ copy of the checks:
   in the `autojs6-typescript` repo directly and update the submodule
   pointer here (`git -C vendor/autojs6-typescript pull && git add
 vendor/autojs6-typescript`) rather than duplicating fixes in both places.
+
+Gotcha #1 (the redeclaration crash) has a confirmed root cause: AutoJs6's
+vendored `jvm-npm.js` dropped upstream jvm-npm's per-module Function-wrapper
+isolation in favor of delegating to its own installed Rhino
+`commonjs.module.Require`, which doesn't isolate `const`/`let` the same way —
+entirely an AutoJs6-side change, not an upstream jvm-npm limitation. Reported:
+[SuperMonster003/AutoJs6#564](https://github.com/SuperMonster003/AutoJs6/issues/564).
+Renaming every shared `require()` binding to a globally-unique name (already
+done throughout `device/autojs6/`, enforced by the checks above) is a
+workaround, not a fix — it remains necessary until AutoJs6 addresses #564
+upstream.
