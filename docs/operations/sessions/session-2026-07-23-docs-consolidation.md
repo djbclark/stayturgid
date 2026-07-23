@@ -1,9 +1,8 @@
 # Session 2026-07-23 — docs consolidation, GitHub tracking migration
 
-**Status: IN PROGRESS — this file is the continuation checkpoint.** If this
-session dies, a successor AI should read this file top-to-bottom, then continue
-from the first unchecked item in "Remaining steps". Update checkboxes and the
-"Where I stopped" line as you go, committing after each step.
+**Status: COMPLETE.** All planned steps finished, committed, and pushed
+(final commit `07d8e62`). Kept as a historical record of the consolidation —
+read `docs/STATUS.md` for current state, not this file.
 
 ## Operator decisions (locked — do not re-ask)
 
@@ -39,67 +38,46 @@ from the first unchecked item in "Remaining steps". Update checkboxes and the
       identity genericization: `docs/archive/plans/blackbox-exporter-plan-2026-07-21.md`
       and `docs/research/active-passive-monitoring-evaluation-2026-07-21.md`.
 
-## Remaining steps (in order)
+## Remaining steps — all done
 
-- [ ] **STATUS.md** — write `docs/STATUS.md`: dated fleet/workstream snapshot
-      (source: consolidated-state summary at the bottom of this file), operator
-      actions needed, doc map. Keep ≤120 lines, weaker-AI-friendly.
-- [ ] **handoff.md** — rewrite the 8-line stub to point at STATUS.md +
-      sessions + private overlay (many inbound links expect this file; keep the
-      filename).
-- [ ] **options.md rewrite** — fix stale front-matter (fleet snapshot is
-      2026-07-13; pick-a-track table lists T1/F2/F4 wrong; suggested order
-      cites shipped/abandoned items; dead handoff.md anchors); fix T2's wrong
-      cross-link (its body is JS-runtime supervision →
-      `research/javascript-runtime-supervision-2026-07-13.md`, NOT the
-      dashboard-framework prompt); note ID collisions (H5, H1/H3, F1 each mean
-      two things); move closed-entry bodies to
-      `docs/archive/options-closed-2026-07-23.md`, keep one-line ledger; add
-      GitHub issue links once issues exist; add post-K1 rescope notes to
-      43/44/54 (they presuppose live AutoJs6).
-- [ ] **coding-rules.md + AGENTS.md updates** — reading order becomes
-      AGENTS.md → docs/rules/ → docs/STATUS.md → docs/options.md + GitHub
-      issues → task docs (outstanding-fix-priorities is archived; do NOT tell
-      agents to read it); fix `~/stayturgid` → `~/ops/stayturgid` in
-      coding-rules session-start; add GitHub-issues policy section (when to
-      file, labels, hygiene: no raw dumps/contacts/IPs); note AutoJs6 runtime
-      retired 2026-07-22 (K1) in the language-boundary section
-      (device/autojs6/ is legacy reference code).
-- [ ] **docs/README.md index refresh** — add STATUS.md, docs/rules/, archive
-      rows; drop/relabel archived rows.
-- [ ] **Code-side pointer fixes** (docstrings/messages only, then
-      `just check` + `pytest tests/python/test_fleet_health.py`):
-      `control/bin/check_fleet_health.py:267` (says "prefer fixing
-      AutoJs6/a11y/repair before OPTIONS 43–45; see docs/handoff.md" — stale
-      post-K1); `control/bin/fleet_health_monitor.py` lines ~9/13/61/166
-      ("dual-run", AutoJs6-restart wording); `tests/healing_registry.json`
-      AGENT-FRESH description says "dual-run OPTIONS K1";
-      `docs/architecture/components/autojs6.md` header still says dual-run —
-      mark retired-from-fleet 2026-07-22, code kept as reference (Rhino
-      gotchas section stays).
-- [ ] **GitHub migration** — create labels `k1-native-agent`, `f1-mcp-bridge`,
-      `observability`, `operator-action`; create issues (bodies must follow
-      hygiene policy; device aliases s24/p7a/hd8 OK, no IPs/serials/contacts): 1. K1 post-cutover fleet verification (p7a+hd8 offline; AutoJs6
-      uninstall unverified — uninstall task is `failed_when: false`; hd8
-      maintenance flag; p7a FIRERPA UID-2000 bridge gap; battery
-      verification). Source: operations/sessions/handoff-2026-07-23-native-agent-k1.md. 2. OpenObserve↔Vector 401 fleet-wide (operator: set
-      OPENOBSERVE_ROOT_EMAIL/PASSWORD for the Vector LaunchAgent, restart,
-      then `control/tools/native-agent/reingest_soft_health.py` dry-run →
-      real). Blocks K1 soak evidence + both T5 threads. Still live as of
-      2026-07-23T12:21Z (vector.log). 3. K1 residuals: fleet still on `.debug` APK → release APK + GitHub
-      release asset matching Obtainium filter; forced CLOSED_NO_SHELL soak
-      (never run); Fire Shizuku official STORED-libs packaging
-      (~/src/Shizuku). 4. F1 FIRERPA MCP bridge implementation (plan
-      operations/plans/firerpa-mcp-bridge-plan-2026-07-22.md steps 2–10;
-      step 1 done, mcp 1.28.1 installed; ⚑ consent-surface phasing awaits
-      operator). 5. T5 follow-ons: OO→Grafana Prometheus datasource + run
-      dashboard-framework research prompt (both blocked by issue 2).
-      Cross-comment #16 ↔ #41 (overlapping battery-percentage symptom).
-      Then backfill issue numbers into STATUS.md + options.md, commit.
-- [ ] **Push** everything; verify `just check` green; update this checkpoint's
-      checkboxes; final wrap-up.
+- [x] `7863b86` **STATUS.md + handoff.md + options.md rewrite + GitHub-issues
+      policy** — `docs/STATUS.md` added as the single entry point;
+      `docs/handoff.md` rewritten to point at it; `docs/options.md` slimmed
+      from 523 to ~250 lines (closed bodies moved to
+      `docs/archive/options-closed-2026-07-23.md`, T2's cross-link fixed, ID
+      collisions documented, 43/44/54 rescope notes added);
+      `docs/rules/github-issues.md` added; AGENTS.md + coding-rules.md
+      updated (reading order, `~/stayturgid` path fix, AutoJs6→native-agent
+      wording, GitHub-issues option in the error/warning policy);
+      docs/README.md index refreshed.
+- [x] `cb4a958` **Code-side pointer fixes** — `check_fleet_health.py`'s stale
+      "see docs/handoff.md"/AutoJs6 hint; `fleet_health_monitor.py`'s
+      "dual-run" docstrings (AutoJs6 path relabeled legacy fallback,
+      native-agent path relabeled current mechanism); `healing_registry.json`
+      AGENT-FRESH description; `autojs6.md` header marked retired/reference
+      only. Verified via `git stash` that the pre-existing `pytest`
+      failures in `test_fleet_health.py` (`WATCHDOG_HEAL_AFTER`
+      AttributeError) and the `just check` healing-coverage gap
+      (native_agent mechanism missing `@heals` annotations) both predate this
+      session — not introduced by these edits.
+- [x] `07d8e62` **GitHub migration** — labels `k1-native-agent`,
+      `f1-mcp-bridge`, `observability`, `operator-action` created; issues
+      [#43](https://github.com/djbclark/stayturgid/issues/43) (K1 fleet-state
+      verification), [#44](https://github.com/djbclark/stayturgid/issues/44)
+      (OpenObserve↔Vector 401), [#45](https://github.com/djbclark/stayturgid/issues/45)
+      (K1 residuals), [#46](https://github.com/djbclark/stayturgid/issues/46)
+      (F1 MCP bridge, consent-surface question included),
+      [#47](https://github.com/djbclark/stayturgid/issues/47) (T5 follow-ons)
+      filed — all hygiene-compliant (device aliases only, no real
+      IPs/serials/contacts). Cross-linked #16 ↔ #41. Backfilled issue links
+      into `docs/STATUS.md` and the corresponding `docs/options.md` entries.
+- [x] **Push + verify** — all commits through `07d8e62` pushed to
+      `origin/master`; `lychee --offline` across all docs: 0 errors;
+      `just check` run (same pre-existing healing-coverage gap as baseline,
+      not a regression).
 
-**Where I stopped:** all 5 commits through `923a1b1` PUSHED to origin. Continue at the "STATUS.md" step. Working tree should be clean — run git status first per protocol.
+**Where I stopped:** nowhere — session complete. Working tree clean, in sync
+with origin at `07d8e62`.
 
 ## Consolidated current state (evidence-checked 2026-07-23, ~12:20Z)
 
