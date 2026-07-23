@@ -100,11 +100,11 @@ per-site agents.
 
 ## Handoff
 
-Full details: `docs/handoff.md` (cold-start, architecture, known issues)
+Current state: `docs/STATUS.md` (fleet/workstream snapshot, known gotchas, operator queue)
 Coding and completion rules: `docs/coding-rules.md`
-Ordered current work: `docs/archive/plans/outstanding-fix-priorities-2026-07-13.md`
-Open item status: `docs/options.md`
+Open work: [GitHub issues](https://github.com/djbclark/stayturgid/issues) (discrete items) + `docs/options.md` (strategic/deferred tracks)
 Session history: `docs/operations/sessions/session-*.md`
+Superseded plans and old sessions: `docs/archive/`
 
 ## Multi-Agent Protocol
 

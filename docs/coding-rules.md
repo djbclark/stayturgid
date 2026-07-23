@@ -12,18 +12,20 @@ Before changing the project, read:
 
 1. [`AGENTS.md`](../AGENTS.md)
 2. Every file in [`docs/rules/`](rules/)
-3. [`docs/handoff.md`](handoff.md), especially Cold-start and Known issues
-4. [`docs/options.md`](options.md) for live open/closed status
-5. [Outstanding Fix Priorities](archive/plans/outstanding-fix-priorities-2026-07-13.md)
-6. The relevant module, ADR, research, or task-plan documents
+3. [`docs/STATUS.md`](STATUS.md) — current fleet/workstream state, known gotchas
+4. [`docs/options.md`](options.md) — strategic/deferred work with stable IDs,
+   plus [GitHub issues](https://github.com/djbclark/stayturgid/issues) for
+   discrete bugs and ops follow-ups
+5. The relevant module, ADR, research, or task-plan documents
 
-The priority plan supplies work order and acceptance gates. OPTIONS supplies current
-status. Historical documents explain past decisions but do not override current
-instructions.
+`docs/archive/` holds superseded plans and old sessions — read for historical
+context only, never as current work order. STATUS.md and GitHub issues supply
+current status; historical documents explain past decisions but do not
+override current instructions.
 
 ## Session start
 
-From `~/stayturgid`:
+From `~/ops/stayturgid`:
 
 ```bash
 git fetch origin --prune
@@ -46,18 +48,20 @@ git status --short --branch
 
 ## Work selection and scope
 
-- Start with the first incomplete item in the ordered priority plan unless the
-  operator names a different item.
-- Work on one numbered priority at a time. Keep fixes, tests, documentation, and
-  deployment evidence for that item together.
+- Start with the highest-priority open GitHub issue or `docs/options.md` entry
+  unless the operator names a different item. Check `docs/STATUS.md` first for
+  anything time-sensitive (e.g. an ongoing incident) that should come first.
+- Work on one item at a time. Keep fixes, tests, documentation, and deployment
+  evidence for that item together.
 - Optional Galaxy, LLM, FIRERPA MCP/WebRTC/MITM, Tasker, `sshd -D`, or tooling work
   must not displace an ordered reliability fix.
 - Do not expand into supporting repositories under `~/src/*` without a task-specific
   reason. Read their own instructions before changing them and keep commits in the
   correct repository.
 - If required hardware, human consent, credentials, or a safety decision blocks an
-  item, record exact evidence in `docs/options.md`, leave the item open, and proceed
-  only to the next independent safe item.
+  item, record exact evidence in a GitHub issue (or `docs/options.md` for a
+  strategic/deferred track), leave the item open, and proceed only to the next
+  independent safe item.
 
 ## Language and architecture boundaries
 
@@ -75,8 +79,12 @@ retries, state transitions, structured output, and error classification.
 
 ### Exceptions require a concrete reason
 
-- **AutoJs6 JavaScript:** required for code executed inside AutoJs6. Keep platform
-  calls narrow and cover portable logic with Node-compatible tests where possible.
+- **AutoJs6 JavaScript:** the AutoJs6 watchdog runtime was retired fleet-wide
+  by the K1 native-agent cutover (2026-07-22 — see `docs/STATUS.md`).
+  `device/autojs6/` is kept as reference code; do not add new fleet-facing
+  AutoJs6 automation. Code executed inside AutoJs6 for other purposes should
+  still keep platform calls narrow and cover portable logic with
+  Node-compatible tests where possible.
 - **Ansible:** use for declared fleet/control-node desired state and idempotent
   deployment within the boundaries in [ADR 001](architecture/adr/001-ansible-boundary.md).
 - **Shell:** acceptable for a small, clearer wrapper or direct pipeline. Do not put
@@ -94,7 +102,10 @@ during work must have one of these outcomes before handoff:
 
 1. Fixed and covered by a regression test where feasible.
 2. Demonstrated to be recovered history or expected state, with the evidence stated.
-3. Added to `docs/options.md` with a stable ID, impact, evidence, risk, and next action.
+3. Filed as a GitHub issue (discrete bug/follow-up — see
+   [`docs/rules/github-issues.md`](rules/github-issues.md) for hygiene rules)
+   or added to `docs/options.md` with a stable ID (strategic/deferred track),
+   with impact, evidence, risk, and next action either way.
 
 Do not hide a warning, force a zero exit code, weaken a test, or broadly catch an
 exception merely to make output green. Default summaries may group historical errors,
@@ -155,7 +166,8 @@ update the appropriate durable recovery layers so the same condition can recover
 without the one-shot intervention:
 
 - Termux supervisor/repair
-- AutoJs6 watchdog/co-monitor
+- Native agent heartbeat/repair (`device/native-agent/`) — replaces the
+  retired AutoJs6 watchdog/co-monitor as of the K1 cutover (2026-07-22)
 - Mac launchd health/heal
 - Ansible deployment and validation
 - Catastrophic recovery where applicable
