@@ -99,7 +99,7 @@ from the first unchecked item in "Remaining steps". Update checkboxes and the
 - [ ] **Push** everything; verify `just check` green; update this checkpoint's
       checkboxes; final wrap-up.
 
-**Where I stopped:** after commit `70953d4`. Checkpoint file committed; NOTHING pushed yet this session — push first. Continue at "STATUS.md" step.
+**Where I stopped:** all 5 commits through `923a1b1` PUSHED to origin. Continue at the "STATUS.md" step. Working tree should be clean — run git status first per protocol.
 
 ## Consolidated current state (evidence-checked 2026-07-23, ~12:20Z)
 
