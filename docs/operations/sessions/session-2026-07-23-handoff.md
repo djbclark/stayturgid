@@ -31,8 +31,13 @@ Both issues appear to share a root-cause hypothesis: Android system settings/sta
 
 ## Where to store artifacts
 
-- Upload raw dumps and log files as attachments to the relevant GitHub issue(s).
-- Add a short summary and any hypotheses back into this session handoff file or as an issue comment.
+- **Do not attach raw dumps to the public GitHub issues.** Raw `dumpsys`/logcat
+  output contains device identifiers, account hints, and network details; this
+  is a public repository. Store raw artifacts in the private site overlay repo
+  (or a private location the operator names) and reference them from the issue.
+- Post only short, sanitized excerpts (the specific corrupted settings rows,
+  correlated timestamps) plus your summary/hypotheses as issue comments on
+  #41/#42.
 
 ## Who should take this
 
@@ -41,11 +46,11 @@ Both issues appear to share a root-cause hypothesis: Android system settings/sta
 
 ## Notes for healers
 
-- After the investigation, add a `desired_states` entry to tests/healing_registry.json (ID: SETTINGS-STATE-CORRUPTION) and annotate the implementing mechanisms: device/termux/py/stayturgid_repair.py, device/autojs6/lib/repair.js, device/autojs6/lib/watchdog.js, control/bin/firerpa_heal.py.
+- After the investigation, add a `desired_states` entry to tests/healing_registry.json (ID: SETTINGS-STATE-CORRUPTION) and annotate the implementing mechanisms: device/termux/py/stayturgid_repair.py, the native agent (device/native-agent/ — the AutoJs6 repair.js/watchdog.js layer was retired by the K1 cutover, commit 195c5c7), and control/bin/firerpa_heal.py.
 - Run `check_healing_coverage.py` to ensure tests/gates are satisfied.
 
 ## Contact
 
-For clarifications, reply on issues #41/#42 or contact djbclark on Tailscale/Slack.
+For clarifications, reply on issues #41/#42.
 
 <!-- Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com> -->
