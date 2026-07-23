@@ -169,8 +169,9 @@ OpenObserve soak that were meant to gate "complete" never ran; the fleet was
 last confirmed running the `.debug` APK, not a signed release. See
 [docs/STATUS.md](STATUS.md) and
 [operations/sessions/handoff-2026-07-23-native-agent-k1.md](operations/sessions/handoff-2026-07-23-native-agent-k1.md).
-Tracked as a GitHub issue for the concrete verification steps — see repo
-issues labeled `k1-native-agent`.
+Tracked as [#43](https://github.com/djbclark/stayturgid/issues/43) (fleet-state
+verification) and [#45](https://github.com/djbclark/stayturgid/issues/45)
+(release APK, forced soak, official Shizuku packaging).
 
 ---
 
@@ -230,9 +231,10 @@ apps, UI, and recovery. A new ADR is required after measured pilot results.
 evaluation](research/evaluations/observability-portal-unification-evaluation-2026-07-23.md).
 Recommendation: reject Homer/Glance as a portal replacement. Two separable
 next steps: (1) wire OpenObserve into Grafana as a Prometheus-compatible
-datasource; (2) actually run the dashboard-framework evaluation prompt. Both
-blocked on the OpenObserve↔Vector 401 auth break — see
-[docs/STATUS.md](STATUS.md).
+datasource; (2) actually run the dashboard-framework evaluation prompt.
+Tracked as [#47](https://github.com/djbclark/stayturgid/issues/47), blocked on
+the OpenObserve↔Vector 401 auth break tracked in
+[#44](https://github.com/djbclark/stayturgid/issues/44).
 
 ---
 
@@ -305,8 +307,8 @@ Build a lamda MCP extension that exposes stayturgid repair primitives through
 the gRPC channel. Core gRPC heal (`firerpa_heal.py`) works today; MCP just
 provides agent-native tool calling. **Plan finalized:**
 [operations/plans/firerpa-mcp-bridge-plan-2026-07-22.md](operations/plans/firerpa-mcp-bridge-plan-2026-07-22.md)
-(decisions D1–D3 resolved; implementation gated on operator go). Tracked as a
-GitHub issue labeled `f1-mcp-bridge`.
+(decisions D1–D3 resolved; implementation gated on operator go). Tracked as
+[#46](https://github.com/djbclark/stayturgid/issues/46).
 
 #### F3 — MITM-on-demand playbook (agent) · Risk: **Medium**
 
