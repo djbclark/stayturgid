@@ -367,6 +367,27 @@ Until Phase 1–2 ship, new operators still edit a forked `hosts.yml` in-tree:
 **Generic (do not fork):** collections, taxonomy `group_vars`, Termux/AutoJs6 scripts,
 `site.yml` playbook graph.
 
+### 4.10 The third repo: `~/ops/site-private`
+
+Every operator running this stack has **three** sibling checkouts under
+`~/ops/`, not two:
+
+| Repo                 | Visibility                         | Purpose                                                                               |
+| -------------------- | ---------------------------------- | ------------------------------------------------------------------------------------- |
+| `~/ops/stayturgid`   | Always public                      | This repo — code, fleet conventions, durable rules, session history                   |
+| `~/ops/site-<name>`  | Operator's choice (public/private) | One operator's live site overlay (§4 above)                                           |
+| `~/ops/site-private` | **Always private**                 | Anything not managed by either of the above — canonical name, same for every operator |
+
+**`~/ops/site-private` is the canonical policy home** for what belongs where
+across all three repos, and for how Claude Code's cross-session memory system
+is backed on a given machine (its live memory directory symlinks into
+`site-private/memory/`). Read that repo's `README.md` for the full policy —
+it is not duplicated here. In short: durable stayturgid-specific lessons
+belong in this repo (see
+[docs/notes/lessons-learned.md](../notes/lessons-learned.md)); site-specific
+facts belong in `~/ops/site-<name>`; everything else belongs in
+`~/ops/site-private`.
+
 ---
 
 ## 5. Work needed for Linux control-node parity

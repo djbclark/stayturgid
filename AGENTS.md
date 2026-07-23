@@ -140,17 +140,23 @@ Canonical map — read this before creating a new doc or wondering where
 something lives. `README.md` and `docs/STATUS.md` both point back here rather
 than duplicating it.
 
-| Location                                                       | What goes here                                                                         | Update cadence                   |
-| -------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------- |
-| [`README.md`](README.md)                                       | Human-facing project overview, module list, quick-start                                | Rare                             |
-| `AGENTS.md` (this file)                                        | Durable coding-agent entry point: conventions, commands, protocols, this doc map       | Rare                             |
-| [`docs/STATUS.md`](docs/STATUS.md)                             | Dated snapshot: fleet health, active workstreams, operator-action queue, known gotchas | Every session that changes state |
-| [`docs/coding-rules.md`](docs/coding-rules.md)                 | Durable implementation, safety, testing, Git, and completion rules                     | Rare                             |
-| [`docs/rules/`](docs/rules/)                                   | Always-on agent policies (self-heal, screen-control, GitHub-issues hygiene)            | Rare                             |
-| [`docs/options.md`](docs/options.md)                           | Strategic/deferred work tracks with stable IDs                                         | As tracks open/close             |
-| [GitHub issues](https://github.com/djbclark/stayturgid/issues) | Discrete bugs, ops follow-ups, soak verifications                                      | As they arise                    |
-| [`docs/operations/sessions/`](docs/operations/sessions/)       | Session-by-session history and handoffs                                                | Every session                    |
-| [`docs/archive/`](docs/archive/)                               | Superseded plans and old sessions — historical record only, never treat as current     | Append-only                      |
+| Location                                                         | What goes here                                                                         | Update cadence                   |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------- |
+| [`README.md`](README.md)                                         | Human-facing project overview, module list, quick-start                                | Rare                             |
+| `AGENTS.md` (this file)                                          | Durable coding-agent entry point: conventions, commands, protocols, this doc map       | Rare                             |
+| [`docs/STATUS.md`](docs/STATUS.md)                               | Dated snapshot: fleet health, active workstreams, operator-action queue, known gotchas | Every session that changes state |
+| [`docs/coding-rules.md`](docs/coding-rules.md)                   | Durable implementation, safety, testing, Git, and completion rules                     | Rare                             |
+| [`docs/rules/`](docs/rules/)                                     | Always-on agent policies (self-heal, screen-control, GitHub-issues hygiene)            | Rare                             |
+| [`docs/notes/lessons-learned.md`](docs/notes/lessons-learned.md) | Session-learned gotchas/conventions, narrower than coding-rules.md/docs/rules/         | As lessons come up               |
+| [`docs/options.md`](docs/options.md)                             | Strategic/deferred work tracks with stable IDs                                         | As tracks open/close             |
+| [GitHub issues](https://github.com/djbclark/stayturgid/issues)   | Discrete bugs, ops follow-ups, soak verifications                                      | As they arise                    |
+| [`docs/operations/sessions/`](docs/operations/sessions/)         | Session-by-session history and handoffs                                                | Every session                    |
+| [`docs/archive/`](docs/archive/)                                 | Superseded plans and old sessions — historical record only, never treat as current     | Append-only                      |
+| `~/ops/site-<name>` (sibling repo)                               | One operator's private-or-public site overlay — inventory, credentials-adjacent config | As the site changes              |
+| `~/ops/site-private` (sibling repo)                              | Not managed by this repo or a site-`<name>` repo — canonical policy lives there        | As generic notes come up         |
+
+See [multi-site-topology.md §4.10](docs/architecture/multi-site-topology.md#410-the-third-repo-opssite-private)
+for the full three-repo/memory policy.
 
 Do not put durable rules in STATUS.md, and do not put dated/volatile state in
 AGENTS.md or coding-rules.md — that's the split this table encodes.
