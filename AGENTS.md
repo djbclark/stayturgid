@@ -24,6 +24,12 @@ bugs/follow-ups) for what's actually available to pick up next.
 
 **Active blockers:**
 
+- **Memory/site-docs policy follow-up — PLANNED, not yet executed, highest
+  priority open item.** Full plan, survey, and one remaining open decision:
+  [operations/sessions/session-2026-07-23-memory-policy-followup-plan.md](operations/sessions/session-2026-07-23-memory-policy-followup-plan.md).
+  If you're an AI agent asked what to work on next in this repo (or in
+  `~/ops/site-private` / `~/ops/site-djbclark`), start here before anything
+  else below.
 - K1 native-agent cutover (2026-07-22) is **not fully verified** — only one
   device confirmed post-cutover. Tracked in
   [#43](https://github.com/djbclark/stayturgid/issues/43) and
@@ -34,10 +40,13 @@ bugs/follow-ups) for what's actually available to pick up next.
 
 **Operator-action queue (things only a human can do):**
 
-1. Set OpenObserve credentials for the Vector LaunchAgent and restart it ([#44](https://github.com/djbclark/stayturgid/issues/44)).
-2. Physically check offline fleet devices (Tailscale unreachable).
-3. Decide the F1 consent-surface phasing question ([#46](https://github.com/djbclark/stayturgid/issues/46)).
-4. Remove (or authorize removal of) a stray `~/stayturgid` file — the real repo is `~/ops/stayturgid`.
+1. Resolve the one open decision in the memory-policy follow-up plan (where
+   the canonical policy doc should live inside this repo) — or let the next
+   AI session proceed with its stated default.
+2. Set OpenObserve credentials for the Vector LaunchAgent and restart it ([#44](https://github.com/djbclark/stayturgid/issues/44)).
+3. Physically check offline fleet devices (Tailscale unreachable).
+4. Decide the F1 consent-surface phasing question ([#46](https://github.com/djbclark/stayturgid/issues/46)).
+5. Remove (or authorize removal of) a stray `~/stayturgid` file — the real repo is `~/ops/stayturgid`.
 
 If any of this looks stale, trust `docs/STATUS.md` and `git log` over this
 section — it's a snapshot, not updated every commit.
