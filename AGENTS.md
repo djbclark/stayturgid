@@ -1,10 +1,40 @@
 # stayturgid
 
+> **AI agents (any vendor):** this file is the entry point — the AGENTS.md
+> convention that coding agents from multiple vendors check first. Project
+> overview for humans: [README.md](README.md). Current dated
+> state — fleet health, active blockers, operator-action queue — lives in
+> [docs/STATUS.md](docs/STATUS.md); the most load-bearing parts are inlined
+> below so you have them even if you stop at this file. See "Where
+> documentation goes" further down for what belongs where.
+
 Keeps wireless ADB (port 5555), Shizuku, and SSH alive on unrooted Android phones
 across reboots. Generic example fleet hosts (`oneui-device`, `stock-android-device`,
 `fireos-device`) live in `ansible/inventory/hosts.yml.example`; live inventory
 belongs in a private site overlay (see
 [multi-site-topology.md](docs/architecture/multi-site-topology.md) §4).
+
+## Current state (condensed — full/current version: [docs/STATUS.md](docs/STATUS.md))
+
+**Active blockers:**
+
+- K1 native-agent cutover (2026-07-22) is **not fully verified** — only one
+  device confirmed post-cutover. Tracked in
+  [#43](https://github.com/djbclark/stayturgid/issues/43) and
+  [#45](https://github.com/djbclark/stayturgid/issues/45).
+- OpenObserve↔Vector auth is **broken, live** (401 Unauthorized) — blocks K1
+  soak evidence and T5 follow-ons. Tracked in
+  [#44](https://github.com/djbclark/stayturgid/issues/44).
+
+**Operator-action queue (things only a human can do):**
+
+1. Set OpenObserve credentials for the Vector LaunchAgent and restart it ([#44](https://github.com/djbclark/stayturgid/issues/44)).
+2. Physically check offline fleet devices (Tailscale unreachable).
+3. Decide the F1 consent-surface phasing question ([#46](https://github.com/djbclark/stayturgid/issues/46)).
+4. Remove (or authorize removal of) a stray `~/stayturgid` file — the real repo is `~/ops/stayturgid`.
+
+If any of this looks stale, trust `docs/STATUS.md` and `git log` over this
+section — it's a snapshot, not updated every commit.
 
 ## Quick start
 
@@ -98,13 +128,26 @@ per-site agents.
 - Follow multi-agent protocol at bottom of AGENTS.md (fetch-pull before edits).
 - See full policies at `docs/rules/*.md`
 
-## Handoff
+## Where documentation goes
 
-Current state: `docs/STATUS.md` (fleet/workstream snapshot, known gotchas, operator queue)
-Coding and completion rules: `docs/coding-rules.md`
-Open work: [GitHub issues](https://github.com/djbclark/stayturgid/issues) (discrete items) + `docs/options.md` (strategic/deferred tracks)
-Session history: `docs/operations/sessions/session-*.md`
-Superseded plans and old sessions: `docs/archive/`
+Canonical map — read this before creating a new doc or wondering where
+something lives. `README.md` and `docs/STATUS.md` both point back here rather
+than duplicating it.
+
+| Location                                                       | What goes here                                                                         | Update cadence                   |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------- |
+| [`README.md`](README.md)                                       | Human-facing project overview, module list, quick-start                                | Rare                             |
+| `AGENTS.md` (this file)                                        | Durable coding-agent entry point: conventions, commands, protocols, this doc map       | Rare                             |
+| [`docs/STATUS.md`](docs/STATUS.md)                             | Dated snapshot: fleet health, active workstreams, operator-action queue, known gotchas | Every session that changes state |
+| [`docs/coding-rules.md`](docs/coding-rules.md)                 | Durable implementation, safety, testing, Git, and completion rules                     | Rare                             |
+| [`docs/rules/`](docs/rules/)                                   | Always-on agent policies (self-heal, screen-control, GitHub-issues hygiene)            | Rare                             |
+| [`docs/options.md`](docs/options.md)                           | Strategic/deferred work tracks with stable IDs                                         | As tracks open/close             |
+| [GitHub issues](https://github.com/djbclark/stayturgid/issues) | Discrete bugs, ops follow-ups, soak verifications                                      | As they arise                    |
+| [`docs/operations/sessions/`](docs/operations/sessions/)       | Session-by-session history and handoffs                                                | Every session                    |
+| [`docs/archive/`](docs/archive/)                               | Superseded plans and old sessions — historical record only, never treat as current     | Append-only                      |
+
+Do not put durable rules in STATUS.md, and do not put dated/volatile state in
+AGENTS.md or coding-rules.md — that's the split this table encodes.
 
 ## Multi-Agent Protocol
 

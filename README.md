@@ -1,5 +1,9 @@
 # stayturgid
 
+> **AI coding agents:** start at [AGENTS.md](AGENTS.md) instead of this file —
+> it's the entry point with conventions, commands, and current state (also see
+> [docs/STATUS.md](docs/STATUS.md) for the dated fleet/workstream snapshot).
+
 Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android phones** across reboots, and makes them reachable over Tailscale via **ADB + SSH**. Each piece below is a **separate module** — use only what you need.
 
 ---
@@ -23,20 +27,20 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 
 ## Documentation
 
-| Document                                                                                     | Purpose                                                                                                                                  |
-| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| [docs/README.md](docs/README.md)                                                             | Documentation index                                                                                                                      |
-| [docs/research/experiments/](docs/research/experiments/)                                     | Parked side projects — do not implement unless revived ([tablet-control](docs/research/experiments/tablet-control-phone.md), Inferno, …) |
-| [docs/hacking.md](docs/hacking.md)                                                           | Developer setup, clean install, Obtainium, Termux swap                                                                                   |
-| [docs/handoff.md](docs/handoff.md)                                                           | Maintainer / AI handoff — includes mandatory Mac fleet-health triage                                                                     |
-| [docs/coding-rules.md](docs/coding-rules.md)                                                 | Durable coding, safety, testing, Git, and completion rules                                                                               |
-| [`docs/rules/`](docs/rules/)                                                                 | **AI agent policies** (always-on; read on every handoff) — self-heal, screen-control hold, …                                             |
-| [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md)                                             | Operator tasks (credentials, deploy approval) — human-only                                                                               |
-| [docs/options.md](docs/options.md)                                                           | Next-work menu — agents append + push when operator asks for options                                                                     |
-| [dashboard-framework research prompt](docs/research/prompts/dashboard-framework-research.md) | Self-contained brief for evaluating dashboard / ops frameworks                                                                           |
-| [Outstanding fix priorities](docs/archive/plans/outstanding-fix-priorities-2026-07-13.md)    | Ordered reliability work and copy-paste junior-agent resume prompt                                                                       |
-| [`just` migration plan](docs/archive/plans/just-migration-plan.md)                           | Staged command-runner migration after reliability work is stable                                                                         |
-| [version.json](version.json)                                                                 | Repo release version (Ansible / manual deploy)                                                                                           |
+| Document                                                                                     | Purpose                                                                                                                                    |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| [AGENTS.md](AGENTS.md)                                                                       | Start here (AI agents) - conventions, commands, condensed current state, full doc map                                                      |
+| [docs/STATUS.md](docs/STATUS.md)                                                             | Dated snapshot: fleet health, active workstreams, operator-action queue, known gotchas                                                     |
+| [docs/README.md](docs/README.md)                                                             | Full documentation index                                                                                                                   |
+| [docs/research/experiments/](docs/research/experiments/)                                     | Parked side projects - do not implement unless revived ([tablet-control](docs/research/experiments/tablet-control-phone.md), Inferno, ...) |
+| [docs/hacking.md](docs/hacking.md)                                                           | Developer setup, clean install, Obtainium, Termux swap                                                                                     |
+| [docs/coding-rules.md](docs/coding-rules.md)                                                 | Durable coding, safety, testing, Git, and completion rules                                                                                 |
+| [docs/rules/](docs/rules/)                                                                   | AI agent policies (always-on) - self-heal, screen-control hold, GitHub-issues hygiene                                                      |
+| [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md)                                             | Operator tasks (credentials, deploy approval) - human-only                                                                                 |
+| [docs/options.md](docs/options.md)                                                           | Strategic/deferred work menu with stable IDs (discrete bugs live in GitHub issues)                                                         |
+| [dashboard-framework research prompt](docs/research/prompts/dashboard-framework-research.md) | Self-contained brief for evaluating dashboard / ops frameworks                                                                             |
+| [docs/archive/](docs/archive/)                                                               | Superseded plans and old sessions - historical record only, not current work order                                                         |
+| [version.json](version.json)                                                                 | Repo release version (Ansible / manual deploy)                                                                                             |
 
 ---
 
@@ -65,11 +69,13 @@ only when `~/.stayturgid/bin/rish -c 'id -u'` returns UID 2000. See
 
 ### Maintainer resume order
 
-Before selecting new work, read [docs/options.md](docs/options.md) and follow the
-[ordered outstanding-fix plan](docs/archive/plans/outstanding-fix-priorities-2026-07-13.md).
-Current reliability work takes precedence over optional Galaxy publishing, LLM,
-FIRERPA MCP/WebRTC/MITM, and command-runner enhancements. The plan includes a
-[junior-agent resume prompt](docs/archive/plans/outstanding-fix-priorities-2026-07-13.md#junior-developer-resume-prompt).
+Before selecting new work, read [docs/STATUS.md](docs/STATUS.md) for current
+state, then check the highest-priority open
+[GitHub issue](https://github.com/djbclark/stayturgid/issues) or
+[docs/options.md](docs/options.md) entry unless the operator names a
+different item. Current reliability work takes precedence over optional
+Galaxy publishing, LLM, FIRERPA MCP/WebRTC/MITM, and command-runner
+enhancements.
 
 ---
 

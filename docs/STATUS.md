@@ -1,5 +1,10 @@
 # STATUS — stayturgid at a glance
 
+> Entry point for AI agents: [../AGENTS.md](../AGENTS.md) (conventions,
+> commands, and a condensed version of this file). Project overview:
+> [../README.md](../README.md). See AGENTS.md's "Where documentation goes"
+> table for what belongs in this file versus elsewhere.
+
 **Last verified:** 2026-07-23, ~12:20Z (fleet/health facts). Read this first;
 it links everywhere else. If a claim here looks stale, trust `git log`,
 `just health`, and the [GitHub issues](https://github.com/djbclark/stayturgid/issues)
