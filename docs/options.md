@@ -280,6 +280,26 @@ opt-in, `oneui-device`-first pilot for a strict device-local, non-secret policy 
 Ansible remains authoritative for bootstrap, credentials, apps, UI, and recovery. A
 new ADR is required after measured pilot results and before wider adoption.
 
+#### T5 — Observability/portal unification (Grafana+OpenObserve, dashboard-framework) · Risk: **Low** · Deferred
+
+Triggered by a pasted third-party proposal to unify metrics/logs/health into Grafana and
+replace the landing page with Homer/Glance. Evaluated against actual repo state rather than
+the proposal's assumptions.
+
+**Research complete (2026-07-23):** [Observability unification vs. portal unification
+evaluation](research/evaluations/observability-portal-unification-evaluation-2026-07-23.md).
+Recommendation: reject Homer/Glance as a portal replacement — it evaluates the wrong
+artifact (landing page, not the more capable Fleet Dashboard) and duplicates the
+already-scoped, still-unrun dashboard-framework research prompt
+(`research/prompts/dashboard-framework-research.md`). Two separable next steps instead: (1)
+finish wiring OpenObserve into Grafana as a Prometheus-compatible datasource — small, mostly
+unblocked, purely a metrics-unification task; (2) actually run the deferred
+dashboard-framework evaluation prompt rather than deciding the portal question informally.
+Both are blocked in the same place: OpenObserve auth for Vector is currently broken
+fleet-wide (401s, see the 2026-07-22 native-agent handoff) — fix that first. Flags a stale
+cross-reference in T2 (its body covers JS-runtime-supervision tooling, not the
+dashboard-framework prompt it links) as a separate loose end, not fixed here.
+
 ---
 
 ### Track G — Python migration & logging (completed)
