@@ -62,6 +62,15 @@ git status --short --branch
   item, record exact evidence in a GitHub issue (or `docs/options.md` for a
   strategic/deferred track), leave the item open, and proceed only to the next
   independent safe item.
+- If you encounter a clear, obvious fix while working on something else
+  (a bug, a typo, drift between docs and code), make it in the same pass
+  rather than deferring it — it's cheaper to fix while the context is
+  already loaded than to re-derive that context in a separate session.
+  Keep the fix scoped and obvious, and note it in the commit/report so it's
+  traceable. Reserve deferral for changes that are large, risky, ambiguous,
+  or genuinely need an operator decision. Still respect the multi-agent
+  protocol (never touch another agent's uncommitted work) and stage only
+  explicit paths.
 
 ## Language and architecture boundaries
 
