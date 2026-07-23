@@ -24,12 +24,11 @@ bugs/follow-ups) for what's actually available to pick up next.
 
 **Active blockers:**
 
-- **Memory/site-docs policy follow-up — PLANNED, not yet executed, highest
-  priority open item.** Full plan, survey, and one remaining open decision:
-  [operations/sessions/session-2026-07-23-memory-policy-followup-plan.md](operations/sessions/session-2026-07-23-memory-policy-followup-plan.md).
-  If you're an AI agent asked what to work on next in this repo (or in
-  `~/ops/site-private` / `~/ops/site-djbclark`), start here before anything
-  else below.
+- **Site discovery hardening — next on the stack.** Exclude `site-private`
+  from `site-*` overlay discovery, add `~/ops/.mysite` fallback, always print
+  which site dir a command uses, ensure `site-private` exists. Tracked in
+  [#48](https://github.com/djbclark/stayturgid/issues/48) (includes the full
+  list of docs to update when the code lands).
 - K1 native-agent cutover (2026-07-22) is **not fully verified** — only one
   device confirmed post-cutover. Tracked in
   [#43](https://github.com/djbclark/stayturgid/issues/43) and
@@ -40,13 +39,10 @@ bugs/follow-ups) for what's actually available to pick up next.
 
 **Operator-action queue (things only a human can do):**
 
-1. Resolve the one open decision in the memory-policy follow-up plan (where
-   the canonical policy doc should live inside this repo) — or let the next
-   AI session proceed with its stated default.
-2. Set OpenObserve credentials for the Vector LaunchAgent and restart it ([#44](https://github.com/djbclark/stayturgid/issues/44)).
-3. Physically check offline fleet devices (Tailscale unreachable).
-4. Decide the F1 consent-surface phasing question ([#46](https://github.com/djbclark/stayturgid/issues/46)).
-5. Remove (or authorize removal of) a stray `~/stayturgid` file — the real repo is `~/ops/stayturgid`.
+1. Set OpenObserve credentials for the Vector LaunchAgent and restart it ([#44](https://github.com/djbclark/stayturgid/issues/44)).
+2. Physically check offline fleet devices (Tailscale unreachable).
+3. Decide the F1 consent-surface phasing question ([#46](https://github.com/djbclark/stayturgid/issues/46)).
+4. Remove (or authorize removal of) a stray `~/stayturgid` file — the real repo is `~/ops/stayturgid`.
 
 If any of this looks stale, trust `docs/STATUS.md` and `git log` over this
 section — it's a snapshot, not updated every commit.
@@ -115,7 +111,7 @@ just health && just firerpa-health
 - **SSH CA:** `~/.ssh/stayturgid_ca` — `just ca-status`
 - **OpenCode web:** site-local service (see site overlay / landing); not a public fixed IP
 - **Secrets:** managed via `secretspec` (`brew install secretspec`). Spec at `secretspec.toml` (project root). All secrets defined there; run `just secretspec-check` before deploys.
-- **Site inventory:** resolved via `ANSIBLE_CONFIG`, `STAYTURGID_SITE_DIR`, or a single discovered `site-*` checkout under `OPS_ROOT` (default `~/ops`); see `control/lib/ansible_context.py`
+- **Site inventory:** today resolved via `ANSIBLE_CONFIG`, `STAYTURGID_SITE_DIR`, or a single discovered `site-*` checkout under `OPS_ROOT` (default `~/ops`); see `control/lib/ansible_context.py`. **Intended next** ([#48](https://github.com/djbclark/stayturgid/issues/48)): same env vars, then `OPS_ROOT/.mysite`, then `site-*` **excluding** `site-private`; commands should print which site dir they used; ensure `~/ops/site-private` exists.
 
 ## Example fleet (generic — not a live site)
 
@@ -143,29 +139,66 @@ per-site agents.
 - Follow multi-agent protocol at bottom of AGENTS.md (fetch-pull before edits).
 - See full policies at `docs/rules/*.md`
 
+## Memory & documentation policy (this repo's slice)
+
+There is **no single canonical policy copy**. Each of the three `~/ops`
+siblings owns the rules that apply to **it**, in that repo's `AGENTS.md`, and
+**must** point at the other two so a full picture requires all three. Cross-repo
+links use absolute
+`https://github.com/<owner>/<repo>/blob/master/...` URLs (GitHub's renderer
+cannot follow relative links across repos); also give the filesystem path
+(`~/ops/...`) for local use. Same-repo links stay relative.
+
+**This repo (stayturgid) owns:**
+
+- Durable facts, conventions, and gotchas about developing or operating
+  **stayturgid** (code, fleet, CI/review) → commit here under `docs/` (often
+  [`docs/notes/lessons-learned.md`](docs/notes/lessons-learned.md) or an
+  existing durable doc), **not** into tool-private stores under `~` (Claude
+  memory under `~/.claude/`, Cursor/Aider/Copilot caches, etc.).
+- **Never** commit passwords or secrets. IPs, hostnames, and machine names are
+  fine in public docs when the doc's audience needs them.
+
+**Optional additional rules (not required of every stayturgid user):**
+
+- Non-sensitive site practice others might still benefit from → that operator's
+  `~/ops/site-<name>` (example for this machine:
+  [`~/ops/site-djbclark/AGENTS.md`](https://github.com/djbclark/site-djbclark/blob/master/AGENTS.md)
+  — private repo; expect 404 if you are not the owner).
+- Private / Mac-wide / not-for-public extras →
+  [`~/ops/site-private/AGENTS.md`](https://github.com/djbclark/site-private/blob/master/AGENTS.md)
+  (always private; expect 404 for other readers).
+
+**Symlinks (filesystem) are reserved for** root-level `~` agent/vendor files
+(`~/AGENTS.md`, `~/CLAUDE.md`, and any other root-level vendor-specific agent
+instruction files), tool memory dirs under `~/.claude/.../memory`, and
+optionally `~/ops/.mysite` → `site-<name>` (local convenience; see [#48](https://github.com/djbclark/stayturgid/issues/48)).
+Do **not** use in-repo symlinks to reach sibling repos — use path + https links
+in prose instead.
+
+Topology background:
+[multi-site-topology.md §4.10](docs/architecture/multi-site-topology.md#410-the-third-repo-opssite-private).
+
 ## Where documentation goes
 
 Canonical map — read this before creating a new doc or wondering where
-something lives. `README.md` and `docs/STATUS.md` both point back here rather
-than duplicating it.
+something lives. [`README.md`](README.md) and [`docs/STATUS.md`](docs/STATUS.md)
+both point back here rather than duplicating it.
 
-| Location                                                         | What goes here                                                                         | Update cadence                   |
-| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------- |
-| [`README.md`](README.md)                                         | Human-facing project overview, module list, quick-start                                | Rare                             |
-| `AGENTS.md` (this file)                                          | Durable coding-agent entry point: conventions, commands, protocols, this doc map       | Rare                             |
-| [`docs/STATUS.md`](docs/STATUS.md)                               | Dated snapshot: fleet health, active workstreams, operator-action queue, known gotchas | Every session that changes state |
-| [`docs/coding-rules.md`](docs/coding-rules.md)                   | Durable implementation, safety, testing, Git, and completion rules                     | Rare                             |
-| [`docs/rules/`](docs/rules/)                                     | Always-on agent policies (self-heal, screen-control, GitHub-issues hygiene)            | Rare                             |
-| [`docs/notes/lessons-learned.md`](docs/notes/lessons-learned.md) | Session-learned gotchas/conventions, narrower than coding-rules.md/docs/rules/         | As lessons come up               |
-| [`docs/options.md`](docs/options.md)                             | Strategic/deferred work tracks with stable IDs                                         | As tracks open/close             |
-| [GitHub issues](https://github.com/djbclark/stayturgid/issues)   | Discrete bugs, ops follow-ups, soak verifications                                      | As they arise                    |
-| [`docs/operations/sessions/`](docs/operations/sessions/)         | Session-by-session history and handoffs                                                | Every session                    |
-| [`docs/archive/`](docs/archive/)                                 | Superseded plans and old sessions — historical record only, never treat as current     | Append-only                      |
-| `~/ops/site-<name>` (sibling repo)                               | One operator's private-or-public site overlay — inventory, credentials-adjacent config | As the site changes              |
-| `~/ops/site-private` (sibling repo)                              | Not managed by this repo or a site-`<name>` repo — canonical policy lives there        | As generic notes come up         |
-
-See [multi-site-topology.md §4.10](docs/architecture/multi-site-topology.md#410-the-third-repo-opssite-private)
-for the full three-repo/memory policy.
+| Location                                                         | What goes here                                                                                                                              | Update cadence                   |
+| ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| [`README.md`](README.md)                                         | Human-facing project overview, module list, quick-start                                                                                     | Rare                             |
+| `AGENTS.md` (this file)                                          | Durable coding-agent entry point: conventions, commands, protocols, this doc map, **this repo's slice of the three-way memory/docs policy** | Rare                             |
+| [`docs/STATUS.md`](docs/STATUS.md)                               | Dated snapshot: fleet health, active workstreams, operator-action queue, known gotchas                                                      | Every session that changes state |
+| [`docs/coding-rules.md`](docs/coding-rules.md)                   | Durable implementation, safety, testing, Git, and completion rules                                                                          | Rare                             |
+| [`docs/rules/`](docs/rules/)                                     | Always-on agent policies (self-heal, screen-control, GitHub-issues hygiene)                                                                 | Rare                             |
+| [`docs/notes/lessons-learned.md`](docs/notes/lessons-learned.md) | Session-learned gotchas/conventions, narrower than coding-rules.md/docs/rules/                                                              | As lessons come up               |
+| [`docs/options.md`](docs/options.md)                             | Strategic/deferred work tracks with stable IDs                                                                                              | As tracks open/close             |
+| [GitHub issues](https://github.com/djbclark/stayturgid/issues)   | Discrete bugs, ops follow-ups, soak verifications                                                                                           | As they arise                    |
+| [`docs/operations/sessions/`](docs/operations/sessions/)         | Session-by-session history and handoffs                                                                                                     | Every session                    |
+| [`docs/archive/`](docs/archive/)                                 | Superseded plans and old sessions — historical record only, never treat as current                                                          | Append-only                      |
+| `~/ops/site-<name>` (sibling repo)                               | One operator's site overlay — inventory, credentials-adjacent config, **that site's slice of memory/docs policy**                           | As the site changes              |
+| `~/ops/site-private` (sibling repo)                              | Private/generic companion — **its** slice of memory/docs policy + Claude generic memory                                                     | As generic notes come up         |
 
 Do not put durable rules in STATUS.md, and do not put dated/volatile state in
 AGENTS.md or coding-rules.md — that's the split this table encodes.

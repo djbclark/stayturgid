@@ -319,7 +319,9 @@ Stop defaulting `inventory = inventory/hosts.yml` to production data. Options:
 
 Product entry points (`deploy_fleet.py`, `deploy_termux.py`, `verify_drift.py`,
 `ansible_exec.py`, `validate_site_identity.py`) resolve their Ansible
-configuration via `control/lib/ansible_context.py` in this order:
+configuration via `control/lib/ansible_context.py`.
+
+**Today (until [#48](https://github.com/djbclark/stayturgid/issues/48) lands):**
 
 1. **`ANSIBLE_CONFIG`** — explicit, always wins. Errors it produces (missing
    file, missing inventory) are fatal; they never downgrade to a fallback.
@@ -330,6 +332,25 @@ configuration via `control/lib/ansible_context.py` in this order:
    multiple matches fail with instructions to set `STAYTURGID_SITE_DIR` or
    `ANSIBLE_CONFIG`. There is **no operator-specific default directory** —
    the public product never hardcodes a site checkout name.
+
+**Intended next ([#48](https://github.com/djbclark/stayturgid/issues/48)) — update
+this section to “current” when the code ships:**
+
+1. **`ANSIBLE_CONFIG`** — unchanged.
+2. **`STAYTURGID_SITE_DIR`** — unchanged.
+3. **`OPS_ROOT/.mysite`** — if present and resolves to a directory (symlink or
+   real dir), use it as the site overlay. Local convenience only; never put
+   `.mysite` in GitHub URLs (prose keeps the `site-<name>` placeholder).
+4. **Discovery** — same `site-*` + `ansible.cfg` scan, but **exclude the
+   literal directory name `site-private`** (that sibling is the private
+   companion repo, not a site overlay). Zero or multiple remaining matches
+   fail with instructions to set env vars or fix `.mysite`.
+
+Commands that resolve a site overlay should **print which directory they used
+and which precedence step won**. They should also **ensure `~/ops/site-private`
+exists** (bootstrap if missing). Making both the private-companion path and the
+site-overlay path configurable (instead of hardcoding `site-private` /
+discovery) is part of that issue’s longer-term design.
 
 Identity validation additionally falls back to the committed
 `hosts.yml.example` when resolution fails _without_ an explicit
@@ -372,21 +393,24 @@ Until Phase 1–2 ship, new operators still edit a forked `hosts.yml` in-tree:
 Every operator running this stack has **three** sibling checkouts under
 `~/ops/`, not two:
 
-| Repo                 | Visibility                         | Purpose                                                                               |
-| -------------------- | ---------------------------------- | ------------------------------------------------------------------------------------- |
-| `~/ops/stayturgid`   | Always public                      | This repo — code, fleet conventions, durable rules, session history                   |
-| `~/ops/site-<name>`  | Operator's choice (public/private) | One operator's live site overlay (§4 above)                                           |
-| `~/ops/site-private` | **Always private**                 | Anything not managed by either of the above — canonical name, same for every operator |
+| Repo                 | Visibility                         | Purpose                                                                                                                         |
+| -------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `~/ops/stayturgid`   | Always public                      | This repo — code, fleet conventions, durable rules, session history                                                             |
+| `~/ops/site-<name>`  | Operator's choice (public/private) | One operator's live site overlay (§4 above)                                                                                     |
+| `~/ops/site-private` | **Always private**                 | Private/generic companion — fixed name by default; not a site overlay ([#48](https://github.com/djbclark/stayturgid/issues/48)) |
 
-**`~/ops/site-private` is the canonical policy home** for what belongs where
-across all three repos, and for how Claude Code's cross-session memory system
-is backed on a given machine (its live memory directory symlinks into
-`site-private/memory/`). Read that repo's `README.md` for the full policy —
-it is not duplicated here. In short: durable stayturgid-specific lessons
-belong in this repo (see
-[docs/notes/lessons-learned.md](../notes/lessons-learned.md)); site-specific
-facts belong in `~/ops/site-<name>`; everything else belongs in
-`~/ops/site-private`.
+There is **no single canonical policy document**. Each repo's `AGENTS.md` owns
+**that repo's slice** and points at the other two (filesystem path + absolute
+GitHub URL). Start with this repo's
+[AGENTS.md — Memory & documentation policy](../../AGENTS.md#memory--documentation-policy-this-repos-slice);
+optional site practice lives in `site-<name>`'s `AGENTS.md`; private extras in
+`site-private`'s `AGENTS.md`. Links to a given operator's private repos will
+404 for other readers — expected.
+
+In short for stayturgid itself: durable product lessons belong here (see
+[docs/notes/lessons-learned.md](../notes/lessons-learned.md)), not in
+tool-private `~` stores. `site-private` must **not** be treated as
+`site-<name>` during overlay discovery (code: [#48](https://github.com/djbclark/stayturgid/issues/48)).
 
 ---
 
