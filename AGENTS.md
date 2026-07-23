@@ -96,13 +96,13 @@ per-site agents.
 - Every desired state gets a unique ID in `tests/healing_registry.json`. Pre-flight
   `just test` fails if a `must_cover` ID is missing from any healing mechanism.
 - Follow multi-agent protocol at bottom of AGENTS.md (fetch-pull before edits).
-- See full policies at `.cursor/rules/*.md`
+- See full policies at `docs/rules/*.md`
 
 ## Handoff
 
 Full details: `docs/handoff.md` (cold-start, architecture, known issues)
 Coding and completion rules: `docs/coding-rules.md`
-Ordered current work: `docs/operations/plans/outstanding-fix-priorities-2026-07-13.md`
+Ordered current work: `docs/archive/plans/outstanding-fix-priorities-2026-07-13.md`
 Open item status: `docs/options.md`
 Session history: `docs/operations/sessions/session-*.md`
 

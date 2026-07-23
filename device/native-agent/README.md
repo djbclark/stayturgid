@@ -6,7 +6,7 @@ that binds a **Shizuku UserService** (UID 2000) and injects silent input via
 
 **End-state:** full AutoJs6 retirement (G-C). **Now:** dual-run; AutoJs6 stays.
 
-Plan: [`docs/operations/plans/autojs6-to-native-apk-plan.md`](../../docs/operations/plans/autojs6-to-native-apk-plan.md)  
+Plan: [`docs/archive/plans/autojs6-to-native-apk-plan.md`](../../docs/archive/plans/autojs6-to-native-apk-plan.md)  
 Checkpoint: [`docs/operations/sessions/session-2026-07-22-native-agent.md`](../../docs/operations/sessions/session-2026-07-22-native-agent.md)
 
 ## Package
@@ -60,7 +60,7 @@ just agent-grant p7a
 just agent-start p7a
 ```
 
-Live fleet status: [docs/operations/plans/native-agent-status-2026-07-22.md](../../docs/operations/plans/native-agent-status-2026-07-22.md).
+Live fleet status: [docs/archive/plans/native-agent-status-2026-07-22.md](../../docs/archive/plans/native-agent-status-2026-07-22.md).
 
 ## Install / pilot
 

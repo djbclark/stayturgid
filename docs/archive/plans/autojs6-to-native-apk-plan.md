@@ -5,7 +5,7 @@
 **Status:** **Phases 1–3b implemented; dual-run rollout in progress** (2026-07-22).
 Live status + remaining steps:
 [native-agent-status-2026-07-22.md](native-agent-status-2026-07-22.md).
-Checkpoint: [session-2026-07-22-native-agent.md](../sessions/session-2026-07-22-native-agent.md).
+Checkpoint: [session-2026-07-22-native-agent.md](../../operations/sessions/session-2026-07-22-native-agent.md).
 
 **Audience:** Maintainers and implementation agents. Advisory prompt material
 (UserService + AIDL + `InputManager.injectInputEvent`) is incorporated as the

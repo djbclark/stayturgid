@@ -173,7 +173,7 @@ At minimum, items 1 and 2 should always be "yes". Item 3 is optional for non-cri
 
 This is now part of the project convention: when adding a fleet-affecting feature, add it to all three tiers, or document in the commit message which tiers are intentionally skipped and why.
 
-To enforce this, the reviewer checklist (`.cursor/rules/` or handoff doc) should include:
+To enforce this, the reviewer checklist (`docs/rules/` or STATUS doc) should include:
 
 > "Does this change affect device behavior? If yes: is it deployed by Ansible, healed by repair.py, and covered by the JS watchdog?"
 

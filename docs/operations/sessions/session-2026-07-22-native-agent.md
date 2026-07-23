@@ -2,7 +2,7 @@
 
 **Purpose:** Recoverable handoff if the implementing agent runs out of context.  
 **OPTIONS:** K1  
-**Plan:** [autojs6-to-native-apk-plan.md](../plans/autojs6-to-native-apk-plan.md)
+**Plan:** [autojs6-to-native-apk-plan.md](../../archive/plans/autojs6-to-native-apk-plan.md)
 
 ## Operator direction
 
@@ -148,7 +148,7 @@ Version: `0.3.1-heartbeat-heal` (versionCode 5).
 | hd8  | **APK+grant** — Shizuku server flaky, no UserService yet |
 | s24  | **offline** — not installed                              |
 
-Status doc: [native-agent-status-2026-07-22.md](../plans/native-agent-status-2026-07-22.md)
+Status doc: [native-agent-status-2026-07-22.md](../../archive/plans/native-agent-status-2026-07-22.md)
 Rollout tool: `control/tools/native-agent/rollout.py` / `just agent-rollout`
 
 ## Next agent priorities

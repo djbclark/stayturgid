@@ -156,8 +156,8 @@ Project rules and current state:
   <https://github.com/djbclark/stayturgid/blob/master/docs/README.md>
 - `~/stayturgid/docs/coding-rules.md`
   <https://github.com/djbclark/stayturgid/blob/master/docs/coding-rules.md>
-- `~/stayturgid/.cursor/rules/`
-  <https://github.com/djbclark/stayturgid/tree/master/.cursor/rules>
+- `~/ops/stayturgid/docs/rules/`
+  <https://github.com/djbclark/stayturgid/tree/master/docs/rules>
 - `~/stayturgid/docs/handoff.md`
   <https://github.com/djbclark/stayturgid/blob/master/docs/handoff.md>
 - `~/stayturgid/docs/options.md`
@@ -187,9 +187,9 @@ Related research and plans:
 - JavaScript/runtime-supervision research:
   <https://github.com/djbclark/stayturgid/blob/master/docs/research/javascript-runtime-supervision-2026-07-13.md>
 - Planned Make-to-`just` migration:
-  <https://github.com/djbclark/stayturgid/blob/master/docs/operations/plans/just-migration-plan.md>
+  <https://github.com/djbclark/stayturgid/blob/master/docs/archive/plans/just-migration-plan.md>
 - Ordered outstanding-fix plan:
-  <https://github.com/djbclark/stayturgid/blob/master/docs/operations/plans/outstanding-fix-priorities-2026-07-13.md>
+  <https://github.com/djbclark/stayturgid/blob/master/docs/archive/plans/outstanding-fix-priorities-2026-07-13.md>
 
 ## Candidates to investigate
 

@@ -179,7 +179,7 @@ Do **not** use `et --macserver` on Apple Silicon Homebrew (wrong
 **Agents — session start:** `just health` — if exit ≠ 0,
 surface host/`issues=` to the operator immediately (see HANDOFF § Mac fleet health).
 Any health fix must also update self-heal (Termux / AutoJs6 co-monitor / this
-monitor’s `maybe_heal_watchdog`) — see `.cursor/rules/fleet-health-self-heal.mdc`.
+monitor’s `maybe_heal_watchdog`) — see `docs/rules/fleet-health-self-heal.md`.
 
 UI automation playbook for other agents:
 [docs/research/mac-android-ui-automation.md](../../research/mac-android-ui-automation.md).

@@ -7,7 +7,7 @@
 **Source repo:** [firerpa/lamda](https://github.com/firerpa/lamda) v10.0 (MIT license, 7.9k stars, 128 commits, 6+ years)
 **Fork (stayturgid):** [djbclark/lamda](https://github.com/djbclark/lamda) — all binaries (APK + server) in one [release](https://github.com/djbclark/lamda/releases/tag/v10.0-binaries)
 **Local clone:** `~/src/firerpa-lamda/` (upstream), `~/src/firerpa-fork/` (fork)
-**Stayturgid prior art:** [firerpa-lamda-analysis-2026-07-10.md](firerpa-lamda-analysis-2026-07-10.md), [firerpa-nonroot-research-2026-07-10.md](firerpa-nonroot-research-2026-07-10.md), [firerpa-integration-plan.md](../../operations/plans/firerpa-integration-plan.md)
+**Stayturgid prior art:** [firerpa-lamda-analysis-2026-07-10.md](firerpa-lamda-analysis-2026-07-10.md), [firerpa-nonroot-research-2026-07-10.md](firerpa-nonroot-research-2026-07-10.md), [firerpa-integration-plan.md](../../archive/plans/firerpa-integration-plan.md)
 **Purpose:** Production-grade code audit — what the on-disk repo actually contains, what's real vs documented, what's missing for our use case.
 
 ---

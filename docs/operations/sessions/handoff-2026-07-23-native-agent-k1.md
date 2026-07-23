@@ -6,9 +6,9 @@
 **K1 cutover commit:** **`195c5c7`** — `feat(native-agent): complete K1 rollout, remove autojs6_watchdog, update trust model`  
 **Earlier foundation:** through **`9c7067b`** / **`27425a2`** (scaffold, dual-run, soft_health → Vector, 2026-07-22 handoff)  
 **Site overlay:** `site-djbclark` has Vector soft_health fragments (**`40655bd`** era; re-sync if drifted)  
-**Supersedes:** [handoff-2026-07-22-native-agent-k1.md](handoff-2026-07-22-native-agent-k1.md)  
-**Long status:** [native-agent-status-2026-07-22.md](../plans/native-agent-status-2026-07-22.md)  
-**Plan:** [autojs6-to-native-apk-plan.md](../plans/autojs6-to-native-apk-plan.md)  
+**Supersedes:** [handoff-2026-07-22-native-agent-k1.md](../../archive/sessions/handoff-2026-07-22-native-agent-k1.md)  
+**Long status:** [native-agent-status-2026-07-22.md](../../archive/plans/native-agent-status-2026-07-22.md)  
+**Plan:** [autojs6-to-native-apk-plan.md](../../archive/plans/autojs6-to-native-apk-plan.md)  
 **OPTIONS:** **K1 marked Phase 4 complete** (closed in `docs/options.md` as of `195c5c7`)
 
 ---

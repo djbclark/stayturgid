@@ -27,7 +27,7 @@
 > **Health fix → self-heal (mandatory):** when you clear a health issue, also
 > update Termux / AutoJs6 co-monitor / Mac launchd so that failure mode
 > recovers without a manual one-shot next time. Rule:
-> `.cursor/rules/fleet-health-self-heal.mdc`.
+> `docs/rules/fleet-health-self-heal.md`.
 >
 > Human-only tasks: [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md). Operator
 > answers: `human/RESPONSES.md` (gitignored). Session context: [docs/handoff.md](handoff.md).
@@ -68,7 +68,7 @@ config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
 **Suggested agent order:** Follow
-[Outstanding Fix Priorities](operations/plans/outstanding-fix-priorities-2026-07-13.md): H1/H3,
+[Outstanding Fix Priorities](archive/plans/outstanding-fix-priorities-2026-07-13.md): H1/H3,
 B63/B64, F4, then T1. Hardware-blocked items stay open
 while independent safe work may continue. H5/38, 43–45, 54, and F1–F3 remain lower
 priority or symptom-triggered.
@@ -188,7 +188,7 @@ reproduced freeze and USB adb recovery.
 Replaced the Rhino/AutoJs6 watchdog with a purpose-built Kotlin app that binds a
 Shizuku **UserService** (UID 2000) for privileged work without shell-spawn on the
 hot path. Plan:
-[AutoJs6 → native Kotlin APK migration plan](operations/plans/autojs6-to-native-apk-plan.md).
+[AutoJs6 → native Kotlin APK migration plan](archive/plans/autojs6-to-native-apk-plan.md).
 
 **Code:** `device/native-agent/` deployed on **s24 + p7a + hd8**.
 Phase 4 cutover complete: AutoJs6 uninstalled, fleet health uses `agent_stale`,
@@ -230,7 +230,7 @@ as compatibility wrappers for CI and operator muscle memory.
 
 Follow the staged plan, compatibility contract, live `oneui-device` gates, rollback rules, and
 completion criteria in
-[GNU Make to `just` Migration Plan](operations/plans/just-migration-plan.md). Task/Taskfile is the
+[GNU Make to `just` Migration Plan](archive/plans/just-migration-plan.md). Task/Taskfile is the
 closest direct alternative; `mise` may be evaluated separately for toolchain pinning,
 not as a prerequisite for T1.
 
@@ -454,7 +454,7 @@ unit coverage covers repeated and recovered classification.
 UI automation actions (clicks, taps, swipes) are gated by default unless `STAYTURGID_ALLOW_UI_AUTOMATION=1` is specified. Blocked scripts append warnings to `errors.log`, write state to `pending_ui.json`, and poll-wait for manual intervention. The web dashboard displays interactive warning cards showing elapsed duration, instructions, and an HTMX-powered "Done / Resume" button to signal completion. Gated scripts include Play Store autoupdates verification, HD8 vision checks, Neo/Aurora store audits, and AutoJs6 setup. Unit tests (`test_ui_guard.py`) verify the gating and override behavior.
 
 Execution order, gates, and junior-agent resume prompt:
-[Outstanding Fix Priorities](operations/plans/outstanding-fix-priorities-2026-07-13.md).
+[Outstanding Fix Priorities](archive/plans/outstanding-fix-priorities-2026-07-13.md).
 
 ### Track F — FIRERPA (gRPC backup channel — core shipped 2026-07-12)
 

@@ -305,7 +305,7 @@ def repair_shizuku():
 | stayturgid handoff doc               | `~/stayturgid/docs/handoff.md`                                                                 |
 | FIRERPA analysis (original)          | `~/stayturgid/docs/research/evaluations/firerpa-lamda-analysis-2026-07-10.md`                  |
 | FIRERPA non-root research (original) | `~/stayturgid/docs/research/evaluations/firerpa-nonroot-research-2026-07-10.md`                |
-| FIRERPA integration plan             | `~/stayturgid/docs/operations/plans/firerpa-integration-plan.md`                               |
+| FIRERPA integration plan             | `~/stayturgid/docs/archive/plans/firerpa-integration-plan.md`                                  |
 | FIRERPA code audit (DEEPSEEK-PRO)    | `~/stayturgid/docs/research/evaluations/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md`   |
 | FIRERPA redundancy (DEEPSEEK-PRO)    | `~/stayturgid/docs/research/evaluations/firerpa-nonroot-redundancy-deepseek-pro-2026-07-12.md` |
 | FIRERPA install map                  | `~/stayturgid/docs/research/evaluations/firerpa-install-map-2026-07-12.md`                     |

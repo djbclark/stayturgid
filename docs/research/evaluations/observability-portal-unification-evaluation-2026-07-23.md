@@ -81,7 +81,7 @@ pattern).
   either splitting T2 into two entries or re-titling/re-scoping it next time someone touches
   Track T.
 - **OpenObserve ↔ Vector auth is currently broken fleet-wide**, per the most recent handoff
-  (`docs/operations/handoffs/handoff-2026-07-22-native-agent-k1.md` §"Fix OpenObserve auth
+  (`docs/archive/sessions/handoff-2026-07-22-native-agent-k1.md` §"Fix OpenObserve auth
   for Vector"): Vector is running and reading `soft_health.jsonl` but every OpenObserve sink
   write gets `401 Unauthorized` because `OPENOBSERVE_ROOT_PASSWORD` is empty/wrong in the
   Vector LaunchAgent's environment. This blocks _any_ OpenObserve-side unification work

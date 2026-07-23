@@ -209,7 +209,7 @@ def main(argv: list[str] | None = None) -> int:
             fail += 1
 
     print(f"\nRollout summary: ok={ok} fail={fail} skip={skip} total={len(targets)}")
-    print("AutoJs6 left installed (dual-run). See docs/operations/plans/native-agent-status-2026-07-22.md")
+    print("AutoJs6 left installed (dual-run). See docs/archive/plans/native-agent-status-2026-07-22.md")
     return 0 if fail == 0 else 1
 
 

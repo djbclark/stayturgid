@@ -24,7 +24,7 @@ code, config, or running services were touched — this was documentation only.
   2. Actually run the dashboard-framework-research.md prompt as its own research task.
 - Both are blocked on the same thing: **OpenObserve auth for Vector is broken
   fleet-wide** (401s since at least 2026-07-22 — see
-  [handoff-2026-07-22-native-agent-k1.md](handoff-2026-07-22-native-agent-k1.md) §1,
+  [handoff-2026-07-22-native-agent-k1.md](../../archive/sessions/handoff-2026-07-22-native-agent-k1.md) §1,
   operator action required, `OPENOBSERVE_ROOT_PASSWORD` empty/wrong in the Vector
   LaunchAgent env). Check whether this has been fixed before starting either thread.
 

@@ -508,7 +508,7 @@ ssh -i ~/.ssh/termux_key -p 8022 localhost
 
 Maintainers and AI agents must first read [the coding rules](coding-rules.md),
 [the handoff](handoff.md), [the open-work menu](options.md), and the
-[ordered outstanding-fix plan](operations/plans/outstanding-fix-priorities-2026-07-13.md).
+[ordered outstanding-fix plan](archive/plans/outstanding-fix-priorities-2026-07-13.md).
 That plan contains the current execution order, acceptance gates, rollback rules,
 and a copy-paste junior-agent prompt. Reliability work takes precedence over optional
 Galaxy, LLM, FIRERPA MCP/WebRTC/MITM, and task-runner enhancements.
@@ -891,9 +891,9 @@ README.md                               — user-facing setup guide
 
 ## Current maintenance plans (2026-07-13)
 
-- [Outstanding Fix Priorities](operations/plans/outstanding-fix-priorities-2026-07-13.md) —
+- [Outstanding Fix Priorities](archive/plans/outstanding-fix-priorities-2026-07-13.md) —
   current ordered work, safety/completion gates, and junior-agent resume prompt.
-- [GNU Make to `just` Migration Plan](operations/plans/just-migration-plan.md) — staged tooling
+- [GNU Make to `just` Migration Plan](archive/plans/just-migration-plan.md) — staged tooling
   work after the reliability priorities are stable.
 
 Live completion/blocker status remains in [docs/options.md](options.md). Update it

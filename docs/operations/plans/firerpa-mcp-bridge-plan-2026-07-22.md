@@ -6,11 +6,11 @@
 ready to begin. One sub-point remains open for operator veto: the **consent /
 notification surface** for remote (Tailscale) callers (§4.1, flagged ⚑).
 
-**Priority:** [Priority 7 / F1](outstanding-fix-priorities-2026-07-13.md#priority-7--firerpa-native-mcp-bridge-f1)
+**Priority:** [Priority 7 / F1](../../archive/plans/outstanding-fix-priorities-2026-07-13.md#priority-7--firerpa-native-mcp-bridge-f1)
 
 **Audience:** Maintainers and junior implementation agents. Read
 [`AGENTS.md`](../../../AGENTS.md), [`docs/coding-rules.md`](../../coding-rules.md),
-every file in [`.cursor/rules/`](../../../.cursor/rules/), and
+every file in [`docs/rules/`](../../rules/), and
 [`docs/options.md`](../../options.md) before touching code. This plan does not
 override those documents.
 
@@ -232,8 +232,8 @@ connection/auth logic. Consent + notification are centralised in
 
 ## 8. Self-heal / deploy coverage (rule compliance)
 
-Per [`.cursor/rules/deploy-self-heal-catastrophic.mdc`](../../../.cursor/rules/deploy-self-heal-catastrophic.mdc)
-and [`fleet-health-self-heal.mdc`](../../../.cursor/rules/fleet-health-self-heal.mdc):
+Per [`docs/rules/deploy-self-heal-catastrophic.md`](../../../docs/rules/deploy-self-heal-catastrophic.md)
+and [`fleet-health-self-heal.mdc`](../../../docs/rules/fleet-health-self-heal.md):
 
 - The bridge introduces **no new device desired-state**, so it needs **no new
   `tests/healing_registry.json` entry**. It is a call surface over the existing

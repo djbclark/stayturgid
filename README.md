@@ -30,12 +30,12 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 | [docs/hacking.md](docs/hacking.md)                                                           | Developer setup, clean install, Obtainium, Termux swap                                                                                   |
 | [docs/handoff.md](docs/handoff.md)                                                           | Maintainer / AI handoff — includes mandatory Mac fleet-health triage                                                                     |
 | [docs/coding-rules.md](docs/coding-rules.md)                                                 | Durable coding, safety, testing, Git, and completion rules                                                                               |
-| [`.cursor/rules/`](.cursor/rules/)                                                           | **AI agent policies** (always-on; read on every handoff) — self-heal, screen-control hold, …                                             |
+| [`docs/rules/`](docs/rules/)                                                                 | **AI agent policies** (always-on; read on every handoff) — self-heal, screen-control hold, …                                             |
 | [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md)                                             | Operator tasks (credentials, deploy approval) — human-only                                                                               |
 | [docs/options.md](docs/options.md)                                                           | Next-work menu — agents append + push when operator asks for options                                                                     |
 | [dashboard-framework research prompt](docs/research/prompts/dashboard-framework-research.md) | Self-contained brief for evaluating dashboard / ops frameworks                                                                           |
-| [Outstanding fix priorities](docs/operations/plans/outstanding-fix-priorities-2026-07-13.md) | Ordered reliability work and copy-paste junior-agent resume prompt                                                                       |
-| [`just` migration plan](docs/operations/plans/just-migration-plan.md)                        | Staged command-runner migration after reliability work is stable                                                                         |
+| [Outstanding fix priorities](docs/archive/plans/outstanding-fix-priorities-2026-07-13.md)    | Ordered reliability work and copy-paste junior-agent resume prompt                                                                       |
+| [`just` migration plan](docs/archive/plans/just-migration-plan.md)                           | Staged command-runner migration after reliability work is stable                                                                         |
 | [version.json](version.json)                                                                 | Repo release version (Ansible / manual deploy)                                                                                           |
 
 ---
@@ -66,10 +66,10 @@ only when `~/.stayturgid/bin/rish -c 'id -u'` returns UID 2000. See
 ### Maintainer resume order
 
 Before selecting new work, read [docs/options.md](docs/options.md) and follow the
-[ordered outstanding-fix plan](docs/operations/plans/outstanding-fix-priorities-2026-07-13.md).
+[ordered outstanding-fix plan](docs/archive/plans/outstanding-fix-priorities-2026-07-13.md).
 Current reliability work takes precedence over optional Galaxy publishing, LLM,
 FIRERPA MCP/WebRTC/MITM, and command-runner enhancements. The plan includes a
-[junior-agent resume prompt](docs/operations/plans/outstanding-fix-priorities-2026-07-13.md#junior-developer-resume-prompt).
+[junior-agent resume prompt](docs/archive/plans/outstanding-fix-priorities-2026-07-13.md#junior-developer-resume-prompt).
 
 ---
 

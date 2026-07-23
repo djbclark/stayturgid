@@ -2,8 +2,8 @@
 
 This is the durable implementation checklist for developers and coding agents. It
 supplements, but does not replace, root [`AGENTS.md`](../AGENTS.md) and the always-on
-[`.cursor/rules/`](../.cursor/rules/). If instructions conflict, follow the latest
-operator instruction, then `AGENTS.md` and `.cursor/rules`, then this document, then
+[`docs/rules/`](rules/). If instructions conflict, follow the latest
+operator instruction, then `AGENTS.md` and `docs/rules`, then this document, then
 task-specific plans.
 
 ## Required reading order
@@ -11,10 +11,10 @@ task-specific plans.
 Before changing the project, read:
 
 1. [`AGENTS.md`](../AGENTS.md)
-2. Every file in [`.cursor/rules/`](../.cursor/rules/)
+2. Every file in [`docs/rules/`](rules/)
 3. [`docs/handoff.md`](handoff.md), especially Cold-start and Known issues
 4. [`docs/options.md`](options.md) for live open/closed status
-5. [Outstanding Fix Priorities](operations/plans/outstanding-fix-priorities-2026-07-13.md)
+5. [Outstanding Fix Priorities](archive/plans/outstanding-fix-priorities-2026-07-13.md)
 6. The relevant module, ADR, research, or task-plan documents
 
 The priority plan supplies work order and acceptance gates. OPTIONS supplies current
@@ -82,7 +82,7 @@ retries, state transitions, structured output, and error classification.
 - **Shell:** acceptable for a small, clearer wrapper or direct pipeline. Do not put
   complex control flow, parsing, retries, or duplicated Python behavior into shell.
 - **`just`:** command runners must remain thin entry points. Substantive behavior
-  belongs in Python or Ansible. Follow the [`just` migration plan](operations/plans/just-migration-plan.md).
+  belongs in Python or Ansible. Follow the [`just` migration plan](archive/plans/just-migration-plan.md).
 
 When touching an existing substantial shell implementation, consider migrating it to
 Python as part of the scoped task. Do not inflate a small fix into an unrelated rewrite.
@@ -162,7 +162,7 @@ without the one-shot intervention:
 
 Every new desired state must be represented in `tests/healing_registry.json` when the
 coverage policy requires it. Follow the deployment/self-heal/catastrophic-recovery rule
-in `.cursor/rules/`.
+in `docs/rules/`.
 
 ## Testing and validation
 

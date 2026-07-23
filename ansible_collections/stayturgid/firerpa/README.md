@@ -74,4 +74,4 @@ firerpa_webui_enabled: false
 - [FIRERPA Code Audit](../../../docs/research/evaluations/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md)
 - [FIRERPA Redundancy Analysis](../../../docs/research/evaluations/firerpa-nonroot-redundancy-deepseek-pro-2026-07-12.md)
 - [FIRERPA Install Map](../../../docs/research/evaluations/firerpa-install-map-2026-07-12.md)
-- [FIRERPA Integration Plan](../../../docs/operations/plans/firerpa-integration-plan.md)
+- [FIRERPA Integration Plan](../../../docs/archive/plans/firerpa-integration-plan.md)

@@ -512,7 +512,7 @@ footprints. No Docker, no JVM. Installed via Homebrew on macOS.
 ### 6.2 Why O-V-G-O (Not ONGAO, Not ELK)
 
 An earlier research document
-([ongao-rollout-plan.md](../operations/plans/ongao-rollout-plan.md)) proposed
+([ongao-rollout-plan.md](../archive/plans/ongao-rollout-plan.md)) proposed
 **Netdata** for metrics and **Aurora SRE** for AIOps. The O-V-G-O stack
 supersedes that plan for these reasons:
 
@@ -973,7 +973,7 @@ Partially supported. Works for fleet management; missing Mac-specific features:
 > and its relay baton. Mapping: Phase 3 → step D5 (**executed under site
 > ownership per [ADR 005](adr/005-two-repo-topology.md), not stayturgid
 > labels**); Phase 4 → step D8 (edge **OTel collector** per
-> `docs/operations/plans/logging/` Phase-3 design supersedes the "edge
+> `docs/archive/plans/logging/` Phase-3 design supersedes the "edge
 > Vector" wording below); Phase 5 → D7; Phase 6 → B3+B5 (exit: flip
 > `validate-identity` to hard-fail); Phase 7 → §11 decisions #4/#5.
 
@@ -1269,5 +1269,5 @@ Scan performed 2026-07-14 across the full repository. Production aliases
   — Original O-V-G-O synthesis (superseded by this document §6).
 - [`docs/research/ovgo-stack-architecture.md`](../research/ovgo-stack-architecture.md)
   — Original O-V-G-O stack design rationale.
-- [`docs/operations/plans/ongao-rollout-plan.md`](../operations/plans/ongao-rollout-plan.md)
+- [`docs/archive/plans/ongao-rollout-plan.md`](../archive/plans/ongao-rollout-plan.md)
   — Earlier ONGAO plan using Netdata + Aurora (superseded by §6).

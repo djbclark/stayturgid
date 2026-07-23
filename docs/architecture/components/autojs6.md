@@ -11,8 +11,8 @@ defers `RUN_COMMAND` invoke unless the repair log is stale.
 owns inject + co-monitor + shell catastrophic on rolled-out hosts; AutoJs6 remains
 for a11y UI last resort until Phase 4. **Do not rebuild AutoJs6** unless changing
 AutoJs6 itself. Status + remaining steps:
-[native-agent-status-2026-07-22.md](../../operations/plans/native-agent-status-2026-07-22.md).
-Plan: [autojs6-to-native-apk-plan.md](../../operations/plans/autojs6-to-native-apk-plan.md).
+[native-agent-status-2026-07-22.md](../../archive/plans/native-agent-status-2026-07-22.md).
+Plan: [autojs6-to-native-apk-plan.md](../../archive/plans/autojs6-to-native-apk-plan.md).
 
 ## What it does
 

@@ -3,7 +3,7 @@
 **Date:** 2026-07-22  
 **OPTIONS:** K1  
 **Plan:** [autojs6-to-native-apk-plan.md](autojs6-to-native-apk-plan.md)  
-**Checkpoint:** [session-2026-07-22-native-agent.md](../sessions/session-2026-07-22-native-agent.md)  
+**Checkpoint:** [session-2026-07-22-native-agent.md](../../operations/sessions/session-2026-07-22-native-agent.md)  
 **Code:** `device/native-agent/` — package `org.stayturgid.agent` (debug: `.debug`)  
 **Current version:** `0.3.1-heartbeat-heal` (versionCode 5)
 

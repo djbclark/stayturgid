@@ -1,7 +1,7 @@
 # Handoff — native-agent OPTIONS K1 (2026-07-22)
 
 > **Superseded for live ops by**
-> [handoff-2026-07-23-native-agent-k1.md](handoff-2026-07-23-native-agent-k1.md)
+> [../../operations/sessions/handoff-2026-07-23-native-agent-k1.md](../../operations/sessions/handoff-2026-07-23-native-agent-k1.md)
 > (K1 cutover landed in **`195c5c7`**; HEAD moved on). Keep this file as
 > historical dual-run / Phase 1–3b context.
 
