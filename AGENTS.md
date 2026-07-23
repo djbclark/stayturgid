@@ -16,6 +16,12 @@ belongs in a private site overlay (see
 
 ## Current state (condensed — full/current version: [docs/STATUS.md](docs/STATUS.md))
 
+**This section only lists active blockers and operator-gated items — it is
+not the full work menu.** Before selecting new work, check
+[docs/options.md](docs/options.md) (strategic/deferred tracks) and the
+[open GitHub issues](https://github.com/djbclark/stayturgid/issues) (discrete
+bugs/follow-ups) for what's actually available to pick up next.
+
 **Active blockers:**
 
 - K1 native-agent cutover (2026-07-22) is **not fully verified** — only one
