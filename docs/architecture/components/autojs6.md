@@ -1,16 +1,28 @@
-# stayturgid AutoJs6 watchdog
+# stayturgid AutoJs6 watchdog (retired fleet-wide 2026-07-22, reference only)
 
-Secondary layer: notifications, Tailscale probe, catastrophic Shizuku repair,
-and a **JS co-monitor** that re-probes the same health surface as Termux repair
-on **every host every cycle** (fleet parity — not Fire-only).
+**Status: retired.** The K1 native-agent cutover (2026-07-22, commit `195c5c7`)
+replaced this watchdog fleet-wide with the Kotlin APK `device/native-agent/`
+(OPTIONS **K1**), which now owns inject + co-monitor + shell catastrophic
+recovery. The `autojs6_watchdog` Ansible role was retired in the same commit.
+**Do not add new fleet-facing AutoJs6 automation** — this code is kept as
+reference only. See [docs/STATUS.md](../../STATUS.md) for the current,
+**not yet fully verified**, cutover state (AutoJs6 uninstall on some devices
+is unconfirmed) and
+[handoff-2026-07-23-native-agent-k1.md](../../operations/sessions/handoff-2026-07-23-native-agent-k1.md)
+for what remains.
 
-**Routine repair is Termux-primary** (`stayturgid-repair` every 5 min) — AutoJs6
-defers `RUN_COMMAND` invoke unless the repair log is stale.
+The rest of this document describes the retired runtime as it worked while
+live, kept for historical/debugging reference (e.g. the Rhino-engine gotchas
+below still apply to anything still executing under `device/autojs6/`).
 
-**Native replacement (dual-run):** Kotlin APK `device/native-agent/` (OPTIONS **K1**)
-owns inject + co-monitor + shell catastrophic on rolled-out hosts; AutoJs6 remains
-for a11y UI last resort until Phase 4. **Do not rebuild AutoJs6** unless changing
-AutoJs6 itself. Status + remaining steps:
+Secondary layer (historical): notifications, Tailscale probe, catastrophic
+Shizuku repair, and a **JS co-monitor** that re-probed the same health surface
+as Termux repair on every host every cycle (fleet parity — not Fire-only).
+
+**Routine repair was Termux-primary** (`stayturgid-repair` every 5 min) —
+AutoJs6 deferred `RUN_COMMAND` invoke unless the repair log was stale.
+
+Status + remaining steps (historical):
 [native-agent-status-2026-07-22.md](../../archive/plans/native-agent-status-2026-07-22.md).
 Plan: [autojs6-to-native-apk-plan.md](../../archive/plans/autojs6-to-native-apk-plan.md).
 

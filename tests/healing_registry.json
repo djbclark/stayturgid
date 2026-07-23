@@ -154,7 +154,7 @@
       "should_cover": []
     },
     "AGENT-FRESH": {
-      "description": "native-agent co-monitor STATUS fresh in agent.log (dual-run OPTIONS K1)",
+      "description": "native-agent co-monitor STATUS fresh in agent.log (OPTIONS K1, post-cutover)",
       "must_cover": ["fleet_health"],
       "should_cover": []
     },

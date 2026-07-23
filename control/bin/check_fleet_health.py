@@ -264,7 +264,7 @@ def main(argv: list[str] | None = None) -> int:
             print("  • %s" % h)
     if ok_hosts:
         print("ok: %s" % ", ".join(ok_hosts))
-    print("Next: prefer fixing AutoJs6/a11y/repair before OPTIONS 43–45; see docs/handoff.md § Mac fleet health.")
+    print("Next: prefer fixing native-agent/a11y/repair before OPTIONS 43-45; see docs/STATUS.md.")
     # Show grouped device errors.  The raw errors.log is deliberately left
     # untouched for forensic detail; health output should stay triage-sized.
     if ERROR_LOG.is_file():

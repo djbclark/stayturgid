@@ -7,11 +7,14 @@ reachable. Logs to ~/.config/stayturgid/logs/fleet-health.log and notifies
 after CONSECUTIVE_LIMIT consecutive soft failures (~10 min).
 
 When ``watchdog_stale`` / ``watchdog_missing`` persists, restarts AutoJs6
-``main.js`` via ``control/tools/autojs6/start_watchdog.py`` (rate-limited) so agents do
-not need a manual heal.
+``main.js`` via ``control/tools/autojs6/start_watchdog.py`` (rate-limited). This
+is a legacy fallback from before the K1 native-agent cutover (2026-07-22) and
+should not fire on hosts where AutoJs6 has actually been removed; kept until
+AutoJs6 removal is verified fleet-wide (see docs/STATUS.md).
 
-When ``agent_stale`` persists (native-agent dual-run, OPTIONS K1), restarts the
-Kotlin HostService via ``control/tools/native-agent/start_agent.py`` (rate-limited).
+When ``agent_stale`` persists (native agent, OPTIONS K1 — the current
+mechanism post-cutover), restarts the Kotlin HostService via
+``control/tools/native-agent/start_agent.py`` (rate-limited).
 
 Reachability-only outages stay in access_monitor.py (separate agent).
 Disable with STAYTURGID_SKIP_HEALTH=1; skip restarts with
@@ -163,7 +166,7 @@ def _touch_heal(name: str) -> None:
 
 
 def maybe_heal_agent(name: str, issues: list[str], fails: int, adb_serial: str | None = None) -> None:
-    """Restart native-agent HostService when agent_stale (dual-run OPTIONS K1).
+    """Restart native-agent HostService when agent_stale (OPTIONS K1, post-cutover).
 
     Does not fire on hosts without the APK (no agent_stale without prior agent.log).
     """
