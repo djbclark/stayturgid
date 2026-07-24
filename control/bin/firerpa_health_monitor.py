@@ -17,6 +17,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -65,6 +66,8 @@ LIFECYCLE = (
     / "firerpa_lifecycle.py"
 )
 RECOVERY_MODE_CONTROL_NODE_ADB = "control-node-adb"
+RECOVERY_READY_ATTEMPTS = 6
+RECOVERY_READY_INTERVAL_SECONDS = 2
 
 
 def _as_bool(value: object, default: bool) -> bool:
@@ -271,7 +274,12 @@ def main() -> int:
         if result.get("firerpa") == "unreachable" and target.recovery_mode == RECOVERY_MODE_CONTROL_NODE_ADB:
             recovered, recovery = recover_device(target)
             if recovered:
-                result = check_device(target.alias, target.ip, target.port)
+                for attempt in range(RECOVERY_READY_ATTEMPTS):
+                    result = check_device(target.alias, target.ip, target.port)
+                    if result.get("firerpa") != "unreachable":
+                        break
+                    if attempt + 1 < RECOVERY_READY_ATTEMPTS:
+                        time.sleep(RECOVERY_READY_INTERVAL_SECONDS)
         firerpa = result.get("firerpa", "unreachable")
         sshd = result.get("sshd", "unknown")
         shizuku = result.get("shizuku", "unknown")

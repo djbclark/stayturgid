@@ -72,6 +72,7 @@ def test_main_reports_known_incompatibility_and_recovers_opted_in_host(monkeypat
     monkeypatch.setattr(monitor, "Device", object())
     monkeypatch.setattr(monitor, "check_device", fake_check)
     monkeypatch.setattr(monitor, "recover_device", lambda _target: (True, "recovered"))
+    monkeypatch.setattr(monitor.time, "sleep", lambda _seconds: None)
     monkeypatch.setattr(monitor, "trim_log", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
         monitor,
