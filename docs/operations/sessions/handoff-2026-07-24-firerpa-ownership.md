@@ -95,11 +95,17 @@ Prompt these in this order:
    decisions.
 7. **Stale backlog:** triage H1/H3, B63/B64, T2/T4, and settings issues
    #41/#42/#16; several may be latent or superseded by K1.
+8. **Codex memory ownership:** the live `~/.codex` entries are now symlinks,
+   with durable memory/config in `site-private` and generated runtime state in
+   its ignored `.codex-runtime/`. Decide which historical project-specific
+   notes should be promoted into `stayturgid` or `site-djbclark` documents;
+   do not leave new durable product/site facts only in Codex memory.
 
 ## Next-session hygiene
 
 At start, inspect all four worktrees with `git status --short --branch`, verify
 the active remotes, and read this handoff plus `docs/STATUS.md`. Preserve the
-dirty Shizuku `api` submodule. Do not merge or publish anything until the
-operator has answered the applicable prompt above and the relevant checks are
-green.
+dirty Shizuku `api` submodule. Confirm the operator has seen every prompt above
+(including the Codex-memory ownership item) before starting new implementation;
+do not merge or publish anything until the applicable decision is answered and
+the relevant checks are green.
