@@ -66,8 +66,10 @@ LIFECYCLE = (
     / "firerpa_lifecycle.py"
 )
 RECOVERY_MODE_CONTROL_NODE_ADB = "control-node-adb"
-RECOVERY_READY_ATTEMPTS = 6
-RECOVERY_READY_INTERVAL_SECONDS = 2
+# Fire HD 8 startup can span a pre-login and post-login phase and occasionally
+# takes about five minutes before FIRERPA's gRPC endpoint is usable.
+RECOVERY_READY_ATTEMPTS = 30
+RECOVERY_READY_INTERVAL_SECONDS = 10
 
 
 def _as_bool(value: object, default: bool) -> bool:
