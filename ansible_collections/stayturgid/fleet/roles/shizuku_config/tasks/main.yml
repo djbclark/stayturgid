@@ -118,6 +118,8 @@
     device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
     connect: true
     action: moe.shizuku.privileged.api.HEADLESS_START
+    component: >-
+      moe.shizuku.privileged.api/moe.shizuku.manager.receiver.HeadlessStartStopReceiver
   changed_when: false
   failed_when: false
   delegate_to: localhost

@@ -188,3 +188,4 @@ def test_shizuku_role_reconciles_background_execution_policy():
     assert "android_app_privileges:" in task_file
     assert "package: moe.shizuku.privileged.api" in task_file
     assert "battery_unrestricted: true" in task_file
+    assert "moe.shizuku.manager.receiver.HeadlessStartStopReceiver" in task_file
