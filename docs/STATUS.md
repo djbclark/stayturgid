@@ -5,8 +5,8 @@
 > [../README.md](../README.md). See AGENTS.md's "Where documentation goes"
 > table for what belongs in this file versus elsewhere.
 
-**Last verified:** 2026-07-24 (site-discovery hardening completed; s24/hd8
-native-agent and Tailscale state verified). Read this first; it links
+**Last verified:** 2026-07-24 (FIRERPA/Fire OS recovery work and ownership
+audit merged; s24/hd8/p7a ADB state directly checked). Read this first; it links
 everywhere else. If a
 claim here looks stale, trust `git log`, `just health`, and the
 [GitHub issues](https://github.com/djbclark/stayturgid/issues) over this file,
@@ -28,22 +28,29 @@ and update this file in the same commit.
 
 ## Fleet workstreams (current)
 
+<!-- markdownlint-disable MD060 -->
+
 | Workstream                                                                                                                                       | State                                                        | Detail                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Site discovery hardening** ([#48](https://github.com/djbclark/stayturgid/issues/48))                                                           | **Completed 2026-07-24**                                     | Shared resolver excludes `site-private`, honors `OPS_ROOT/.mysite`, announces the selected path/source, and safely creates the configurable private-companion directory when absent.                                                                                                                                                                                                                                                                                                                                  |
 | **K1 — native agent** (AutoJs6 -> Kotlin/Shizuku UserService)                                                                                    | Cutover landed (195c5c7, 2026-07-22), **not fully verified** | hd8, p7a, and s24 are confirmed on v0.3.6 debug with one host and one Shizuku UserService each; the UI exposes copyable build/runtime diagnostics. [#43](https://github.com/djbclark/stayturgid/issues/43) still tracks AutoJs6 removal and the forced `CLOSED_NO_SHELL` soak; [#45](https://github.com/djbclark/stayturgid/issues/45) tracks release APK and official Shizuku packaging. See [operations/sessions/handoff-2026-07-23-native-agent-k1.md](operations/sessions/handoff-2026-07-23-native-agent-k1.md). |
 | **OpenObserve <-> Vector auth**                                                                                                                  | **Broken, live**                                             | 401 Unauthorized on both OO sinks (latest seen 2026-07-23T12:21Z). Blocks K1 soak evidence and both T5 follow-ons. Tracked in [#44](https://github.com/djbclark/stayturgid/issues/44). `soft_health.jsonl` on the Mac is the source of truth until this is fixed.                                                                                                                                                                                                                                                     |
 | **F1 — FIRERPA MCP bridge**                                                                                                                      | Planned, not implemented                                     | Decisions D1-D3 finalized ([operations/plans/firerpa-mcp-bridge-plan-2026-07-22.md](operations/plans/firerpa-mcp-bridge-plan-2026-07-22.md)). Tracked in [#46](https://github.com/djbclark/stayturgid/issues/46), including the open consent-surface question. `mcp` 1.28.1 installed in `~/.venv-stayturgid-firerpa` (that venv has **no pip binary** — verify with `python -c "import importlib.metadata; ..."`, not `pip show`).                                                                                   |
+| **FIRERPA / Fire OS recovery**                                                                                                                   | **Merged; transport limitation confirmed**                   | hd8 FIRERPA 10.0 works through control-node ADB; Fire OS clears classic TCP ADB and wireless-debugging state across reboot. The health monitor now allows a bounded five-minute hd8 settle window. p7a remains explicitly `pending-incompatible-runtime`; upstream rebuild request is [firerpa/lamda#147](https://github.com/firerpa/lamda/issues/147).                                                                                                                                                               |
+| **Ownership audit** ([#50](https://github.com/djbclark/stayturgid/issues/50))                                                                    | **Inventory complete; operator decisions open**              | The public issue records the inventory and seven ownership questions. Prompt the operator before opening migration issues.                                                                                                                                                                                                                                                                                                                                                                                            |
 | **T5 — observability/portal unification**                                                                                                        | Evaluated, not started                                       | Reject Homer/Glance ([research/evaluations/observability-portal-unification-evaluation-2026-07-23.md](research/evaluations/observability-portal-unification-evaluation-2026-07-23.md)). Follow-ons tracked in [#47](https://github.com/djbclark/stayturgid/issues/47), blocked on #44.                                                                                                                                                                                                                                |
 | **Settings-state corruption** ([#41](https://github.com/djbclark/stayturgid/issues/41), [#42](https://github.com/djbclark/stayturgid/issues/42)) | Investigation open                                           | Battery-percentage reset + portrait-lock flip on Android; hypothesis is settings-DB corruption around sleep/wake. [#16](https://github.com/djbclark/stayturgid/issues/16) describes an overlapping symptom and is now cross-linked.                                                                                                                                                                                                                                                                                   |
 
+<!-- markdownlint-enable MD060 -->
+
 ## Fleet health (as of last check)
 
-- **s24** — online, healthy, direct Tailscale connection.
-- **p7a** — offline (Tailscale unreachable). Check physically before assuming
-  a software fault.
-- **hd8** — offline (Tailscale unreachable). Also has a history of Shizuku
-  service failures independent of the offline state.
+- **s24** — online; FIRERPA and Shizuku directly verified healthy.
+- **p7a** — ADB and Shizuku reachable; FIRERPA intentionally down because the
+  current closed runtime rejects API 37 with `unsupported sdk`.
+- **hd8** — ADB, FIRERPA 10.0, FIRERPA SSH, and Shizuku directly verified
+  healthy. Startup may span pre-login and post-login and take about five
+  minutes to settle.
 
 Run `just health` for current state — do not trust the table above once it's
 more than a day or two old.
@@ -61,16 +68,24 @@ more than a day or two old.
   committing, or the commit will fail on style, not content.
 - `device/native-agent/agent-release.jks` (the release signing keystore) must
   never be tracked in git. Check `git status` before any broad `git add`.
+- `/Users/djbclark/src/Shizuku` has an intentionally dirty nested `api`
+  submodule from pre-existing user work. Preserve it; inspect `git diff -- api`
+  before any cleanup. Its fork `master` is ahead of upstream `origin/master`
+  by design.
 - The sibling private repo `~/ops/site-djbclark` may have its own uncommitted
   operator-authored files (e.g. `human/F2-BREW-SERVICES-DECISIONS.md`) — leave
   those alone unless the operator asks you to touch them.
 
 ## Operator-action queue (things only a human can do)
 
-1. Set OpenObserve credentials for the Vector LaunchAgent and restart it ([#44](https://github.com/djbclark/stayturgid/issues/44)).
-2. Physically check p7a and hd8 (Tailscale unreachable).
+1. Answer the seven ownership questions in the private #50 audit before any
+   repository moves.
+2. Set OpenObserve credentials for the Vector LaunchAgent and restart it
+   ([#44](https://github.com/djbclark/stayturgid/issues/44)).
 3. Decide the F1 consent-surface phasing question ([#46](https://github.com/djbclark/stayturgid/issues/46)).
-4. Remove (or authorize removal of) the stray `~/stayturgid` file.
+4. Decide whether to publish Shizuku release20 through the normal APK path.
+5. Retest p7a only after firerpa/lamda#147 publishes a compatible runtime.
+6. Remove (or authorize removal of) the stray `~/stayturgid` file.
 
 ## Where things are documented
 

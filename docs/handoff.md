@@ -3,6 +3,11 @@
 Start at **[docs/STATUS.md](STATUS.md)** — current fleet/workstream state,
 known gotchas, and the operator-action queue.
 
+The latest complete baton is
+[handoff-2026-07-24-firerpa-ownership.md](operations/sessions/handoff-2026-07-24-firerpa-ownership.md).
+It is public and self-contained; the next AI must prompt the operator with its
+loose ends before starting new implementation.
+
 Session-by-session history lives in
 [docs/operations/sessions/](operations/sessions/); completed or superseded
 plans and old sessions are archived in [docs/archive/](archive/).
