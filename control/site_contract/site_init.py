@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Literal, Sequence, TextIO
 
+from control.lib.site_discovery import DEFAULT_PRIVATE_COMPANION_NAME, private_companion_path
 from control.site_contract.site_map import SiteMap, SiteMapError, is_physically_within, load_site_map
 
 try:
@@ -99,6 +100,10 @@ def validate_site_name(site_name: str) -> str:
             f"sitename must be the bare name without the 'site-' prefix "
             f"(got {site_name!r}; use {name.removeprefix('site-')!r})"
         )
+    if f"site-{name}" == DEFAULT_PRIVATE_COMPANION_NAME:
+        raise SiteInitError(
+            f"sitename {name!r} is reserved for the private companion; choose a site overlay name other than 'private'"
+        )
     if "/" in name or "\\" in name or name in {".", ".."}:
         raise SiteInitError(f"sitename must not contain path separators: {site_name!r}")
     if not _SITE_NAME_RE.fullmatch(name):
@@ -129,6 +134,8 @@ def resolve_destination(
     else:
         destination = (_ops_root(env) / f"site-{name}").resolve()
 
+    if destination.name == DEFAULT_PRIVATE_COMPANION_NAME or destination == private_companion_path(env).resolve():
+        raise SiteInitError(f"destination {destination} is reserved for the private companion, not a site overlay")
     _reject_nested_in_product(destination, product)
     return destination
 

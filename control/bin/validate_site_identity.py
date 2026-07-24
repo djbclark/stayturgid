@@ -7,8 +7,9 @@ divergence between declared and hard-coded identity.
 Inventory resolution reuses ``control/lib/ansible_context.py``:
 
 * ``ANSIBLE_CONFIG`` wins when set
-* else ``STAYTURGID_SITE_DIR``, else a single discovered ``site-*`` overlay
-  under ``OPS_ROOT`` (default ``~/ops``)
+* else ``STAYTURGID_SITE_DIR``, then ``OPS_ROOT/.mysite``, then a single
+  discovered ``site-*`` overlay under ``OPS_ROOT`` (default ``~/ops``),
+  excluding ``site-private``
 * else the upstream generic/example inventory (identity checks only)
 
 When the active configuration's directory carries

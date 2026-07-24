@@ -7,7 +7,8 @@
     <string name="notification_text_idle">Waiting for screen-on / Shizuku</string>
     <string name="notification_text_bound">UserService bound — ping every %1$d min while screen on</string>
     <string name="notification_text_no_shizuku">Shizuku permission missing — open app</string>
-    <string name="main_status_heading">Phase 1 host</string>
+    <string name="main_status_heading">Runtime diagnostics</string>
+    <string name="main_copy_diagnostics">Copy diagnostics</string>
     <string name="main_start">Start host service</string>
     <string name="main_stop">Stop host service</string>
     <string name="main_request_shizuku">Request Shizuku permission</string>

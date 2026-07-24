@@ -13,6 +13,7 @@ import os
 import socket
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +22,14 @@ _LIB = _REPO / "control" / "lib"
 sys.path.insert(0, str(_REPO))
 
 from control.landing import state
+from control.lib.site_discovery import (
+    SiteDiscoveryError,
+    SiteSelection,
+    announce_site_selection,
+    ensure_private_companion,
+    reject_private_companion_overlay,
+    resolve_site_selection,
+)
 
 try:
     import yaml
@@ -83,16 +92,37 @@ KNOWN_SERVICES = state.load_catalog().get("services", KNOWN_SERVICES)
 _CATALOG_PUBLIC_HOST = "mac.example.ts.net"
 
 
-def _site_caddy_public_hostname() -> str | None:
+def _resolve_site(environ: Mapping[str, str]) -> SiteSelection:
+    """Resolve the landing command's site using the product-wide precedence."""
+
+    ensure_private_companion(environ)
+    explicit_config = environ.get("ANSIBLE_CONFIG", "").strip()
+    explicit_site = environ.get("STAYTURGID_SITE_DIR", "").strip()
+    if explicit_config:
+        config = Path(explicit_config).expanduser()
+        if not config.is_absolute():
+            config = (Path.cwd() / config).resolve()
+        if not config.is_file():
+            raise SiteDiscoveryError(f"ANSIBLE_CONFIG points to a missing file: {config}")
+        selection = SiteSelection(path=config.parent.resolve(), source="ANSIBLE_CONFIG")
+    elif explicit_site:
+        selection = SiteSelection(
+            path=Path(explicit_site).expanduser().resolve(),
+            source="STAYTURGID_SITE_DIR",
+        )
+    else:
+        selection = resolve_site_selection(environ)
+    reject_private_companion_overlay(selection.path, environ)
+    if not selection.path.is_dir():
+        raise SiteDiscoveryError(
+            f"Selected site directory does not exist or is not a directory ({selection.source}): {selection.path}"
+        )
+    return selection
+
+
+def _site_caddy_public_hostname(site_dir: Path) -> str | None:
     """Read caddy_public_hostname from site inventory group_vars if present."""
-    env_dir = os.environ.get("STAYTURGID_SITE_DIR", "").strip()
-    candidates: list[Path] = []
-    if env_dir:
-        candidates.append(Path(env_dir).expanduser() / "inventory" / "group_vars" / "all.yml")
-    ops_root = Path(os.environ.get("OPS_ROOT", Path.home() / "ops")).expanduser()
-    if ops_root.is_dir():
-        for site in sorted(p for p in ops_root.glob("site-*") if p.is_dir()):
-            candidates.append(site / "inventory" / "group_vars" / "all.yml")
+    candidates = [site_dir / "inventory" / "group_vars" / "all.yml"]
     for path in candidates:
         if not path.is_file():
             continue
@@ -125,9 +155,9 @@ def _site_caddy_public_hostname() -> str | None:
     return None
 
 
-def _known_services_for_site() -> list[dict]:
+def _known_services_for_site(site_dir: Path) -> list[dict]:
     """Catalog services with example.ts.net rewritten to the site front-door host."""
-    host = _site_caddy_public_hostname()
+    host = _site_caddy_public_hostname(site_dir)
     if not host:
         return list(KNOWN_SERVICES)
     out: list[dict] = []
@@ -163,26 +193,26 @@ def _tcp_probe(host: str, port: int, timeout: float = 2.0) -> bool:
         return False
 
 
-def _resolve_registry_ports_path() -> Path | None:
-    """Locate site registry/ports.yml (STAYTURGID_SITE_DIR or OPS_ROOT/site-*)."""
-    env_dir = os.environ.get("STAYTURGID_SITE_DIR", "").strip()
-    if env_dir:
-        candidate = Path(env_dir).expanduser() / "registry" / "ports.yml"
-        if candidate.is_file():
-            return candidate
-    ops_root = Path(os.environ.get("OPS_ROOT", Path.home() / "ops")).expanduser()
-    if ops_root.is_dir():
-        sites = sorted(p for p in ops_root.glob("site-*") if p.is_dir())
-        if len(sites) == 1:
-            candidate = sites[0] / "registry" / "ports.yml"
-            if candidate.is_file():
-                return candidate
-    return None
+def _resolve_registry_ports_path(site_dir: Path) -> Path | None:
+    """Locate ``registry/ports.yml`` under the selected site overlay."""
+
+    candidate = site_dir / "registry" / "ports.yml"
+    return candidate if candidate.is_file() else None
 
 
-def load_registered_ports(registry_path: Path | None = None) -> set[int]:
+def load_registered_ports(
+    registry_path: Path | None = None,
+    *,
+    site_dir: Path | None = None,
+) -> set[int]:
     """Return the set of ports declared in the site registry (any host)."""
-    path = registry_path if registry_path is not None else _resolve_registry_ports_path()
+    path = registry_path
+    if path is None:
+        if site_dir is None:
+            selection = _resolve_site(os.environ)
+            announce_site_selection(selection, command="landing-discover")
+            site_dir = selection.path
+        path = _resolve_registry_ports_path(site_dir)
     if path is None or not path.is_file() or yaml is None:
         return set()
     try:
@@ -263,8 +293,12 @@ def _scan_localhost(*, registered_ports: set[int] | None = None) -> list[dict]:
     return services
 
 
-def discover() -> dict:
+def discover(environ: Mapping[str, str] | None = None) -> dict:
     """Run a full discovery scan. Returns the updated catalog."""
+    env = os.environ if environ is None else environ
+    selection = _resolve_site(env)
+    announce_site_selection(selection, command="landing-discover")
+    site_dir = selection.path
     now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     existing: dict = state.load_state()
@@ -275,7 +309,7 @@ def discover() -> dict:
         known_urls[s["url"]] = s
 
     # Add/update known services (site MagicDNS substituted for catalog placeholder)
-    for s in _known_services_for_site():
+    for s in _known_services_for_site(site_dir):
         url = s["url"]
         if url in known_urls:
             known_urls[url].update({k: v for k, v in s.items() if k != "url"})
@@ -283,7 +317,7 @@ def discover() -> dict:
             known_urls[url] = dict(s)
 
     # Discover new http ports on localhost; badge registry drift (D4).
-    registered = load_registered_ports()
+    registered = load_registered_ports(site_dir=site_dir)
     for s in _scan_localhost(registered_ports=registered if registered else None):
         url = s["url"]
         if url not in known_urls:
@@ -333,7 +367,11 @@ def discover() -> dict:
 
 
 if __name__ == "__main__":
-    result = discover()
+    try:
+        result = discover()
+    except SiteDiscoveryError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        raise SystemExit(1) from exc
     reachable = sum(1 for s in result["services"] if s.get("reachable"))
     total = len(result["services"])
     unregistered = sum(1 for s in result["services"] if s.get("unregistered"))

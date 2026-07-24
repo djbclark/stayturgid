@@ -1,10 +1,15 @@
 # stayturgid-agent (native Kotlin)
 
-Phase 1 scaffold for OPTIONS **K1**: replace AutoJs6 with a purpose-built APK
+OPTIONS **K1** replaces AutoJs6 with a purpose-built APK
 that binds a **Shizuku UserService** (UID 2000) and injects silent input via
 `InputManager.injectInputEvent` — **no** shell spawn, **no** Accessibility.
 
-**End-state:** full AutoJs6 retirement (G-C). **Now:** dual-run; AutoJs6 stays.
+The agent also writes a 20-minute co-monitor heartbeat, repairs the Shizuku
+shell path, and requests a Tailscale reconnect when either the tunnel or
+remote Tailscale control-plane reachability is down. A repair is reported
+successful only after both are re-probed as healthy. It also restores the configured
+non-lockdown always-on VPN policy. Termux remains the primary sshd and routine
+repair owner.
 
 Plan: [`docs/archive/plans/autojs6-to-native-apk-plan.md`](../../docs/archive/plans/autojs6-to-native-apk-plan.md)  
 Checkpoint: [`docs/operations/sessions/session-2026-07-22-native-agent.md`](../../docs/operations/sessions/session-2026-07-22-native-agent.md)
@@ -79,25 +84,33 @@ adb -s <serial> shell am start -n org.stayturgid.agent.debug/.MainActivity
 adb logcat -s StayTurgidHost:I StayTurgidUS:I StayTurgidMain:I StayTurgidApp:I StayTurgidBoot:I
 ```
 
-## Architecture (Phase 1)
+## Architecture
 
 - `HostService` — FGS (`specialUse`), `SCREEN_ON`/`OFF`, coroutine timer
-- `ShizukuUserService` — AIDL stub, `destroy()=16777114`, `pingAwake()`
+- `ShizukuUserService` — AIDL stub for keep-awake, co-monitor, shell repair,
+  and Tailscale relaunch
+- `ComonitorProbes` — STATUS for port 5555, Shizuku, sshd, a11y, Wi-Fi, and
+  Tailscale; port probing falls back to `ss -ltn` on Fire OS when `/proc`
+  hides adbd
+- `CatastrophicRepair` — requests Tailscale reconnect through the app's
+  exported receiver, falls back to its activity, and fails honestly when an
+  app/runtime incompatibility still requires operator input
 - Composite build: `dev.rikka.shizuku:api` / `:provider` from local fork
 
-## What AutoJs6 is still for (and do you need to rebuild it?)
+The Termux twin in `device/termux/py/stayturgid_repair.py` runs every five
+minutes and enforces the same runtime and always-on policy checks.
 
-| AutoJs6 duty today                     | Need AutoJs6 rebuild to continue agent work?  |
-| -------------------------------------- | --------------------------------------------- |
-| Co-monitor STATUS → `watchdog.log`     | **No** — agent writes `agent.log` in parallel |
-| Catastrophic UI tap (a11y) last resort | **No** — agent does shell-first only          |
-| Termux bridge when repair log stale    | **No** for agent Phase 1–3                    |
-| Sticky a11y detect (fork APK)          | **No** unless you change AutoJs6 itself       |
+The launcher UI shows the version name/code, UTC build time, source revision,
+application ID, build type, Android/device identity, and live Shizuku state.
+The full diagnostic block is selectable and can be copied with one button.
 
-**Do not** build/push AutoJs6 just to continue native-agent work. Only rebuild
-AutoJs6 if you change `device/autojs6/**` or the AutoJs6 APK fork.
+## Retired AutoJs6 reference code
 
-## Non-goals still on AutoJs6 / Termux
+`device/autojs6/` remains for reference while fleet-state verification is
+incomplete. Do not build or deploy AutoJs6 to continue native-agent work.
 
-Termux primary repair loop, a11y UI catastrophic taps, Obtainium catalog for
-agent, removing AutoJs6 (Phase 4).
+## Non-goals
+
+The agent does not replace the Termux primary repair loop, restart Termux
+sshd, or enable Accessibility. AutoJs6 package removal and signed-release
+verification remain tracked operational work.

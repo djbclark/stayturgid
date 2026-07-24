@@ -3,6 +3,16 @@
 **Status:** Accepted (2026-07-11)  
 **Context:** After migrating to operator/Shizuku, operator/AutoJs6, and operator/Obtainium forks with headless APIs, many one-time setup steps were added to the Ansible deploy flow but not to the on-device self-heal loop — and vice versa.
 
+> **2026-07-24 K1 addendum:** The matrices below describe the accepted
+> pre-cutover design. AutoJs6 is now retired from deployment. The native agent
+> owns port-5555/Shizuku catastrophic repair and the 20-minute Tailscale
+> probe/reconnect request. Reconnect success requires a healthy re-probe; a
+> Fire OS/Tailscale WorkManager incompatibility may still require an unlocked
+> operator action. The Termux 5-minute loop provides the corresponding runtime
+> and always-on policy probe/repair tier. The agent does not own sshd restart or
+> Accessibility; those remain Termux/FIRERPA and operator-controlled
+> responsibilities respectively.
+
 ## 1. Coverage matrix
 
 ### Present in Ansible deploy (`make deploy` → `fleet/fleet.yml`)

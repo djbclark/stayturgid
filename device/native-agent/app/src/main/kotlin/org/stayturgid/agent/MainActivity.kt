@@ -1,6 +1,9 @@
 package org.stayturgid.agent
 
 import android.Manifest
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -44,6 +47,20 @@ class MainActivity : ComponentActivity() {
                 orientation = LinearLayout.VERTICAL
                 setPadding(48, 48, 48, 48)
             }
+        root.addView(
+            TextView(this).apply {
+                text = getString(R.string.app_name)
+                textSize = 24f
+            },
+        )
+        root.addView(
+            TextView(this).apply {
+                text = buildSummary()
+                textSize = 18f
+                setTextIsSelectable(true)
+                setPadding(0, 8, 0, 28)
+            },
+        )
         status =
             TextView(this).apply {
                 textSize = 15f
@@ -56,6 +73,17 @@ class MainActivity : ComponentActivity() {
             },
         )
         root.addView(status)
+        root.addView(
+            Button(this).apply {
+                text = getString(R.string.main_copy_diagnostics)
+                setOnClickListener {
+                    val diagnostics = buildSummary() + "\n" + status.text
+                    val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("stayturgid-agent diagnostics", diagnostics))
+                    Toast.makeText(this@MainActivity, "Diagnostics copied", Toast.LENGTH_SHORT).show()
+                }
+            },
+        )
         root.addView(
             TextView(this).apply {
                 text = getString(R.string.main_hint)
@@ -147,8 +175,15 @@ class MainActivity : ComponentActivity() {
     private fun refreshStatus() {
         val lines =
             buildList {
-                add("package=${packageName}")
-                add("version=${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+                add("applicationId=${BuildConfig.APPLICATION_ID}")
+                add("versionName=${BuildConfig.VERSION_NAME}")
+                add("versionCode=${BuildConfig.VERSION_CODE}")
+                add("buildType=${BuildConfig.BUILD_TYPE}")
+                add("buildTimeUtc=${BuildConfig.BUILD_TIME_UTC}")
+                add("revision=${BuildConfig.BUILD_REVISION}")
+                add("treeState=${BuildConfig.BUILD_TREE_STATE}")
+                add("android=${Build.VERSION.RELEASE} sdk=${Build.VERSION.SDK_INT}")
+                add("device=${Build.MANUFACTURER} ${Build.MODEL}")
                 add("shizukuBinder=${Shizuku.pingBinder()}")
                 if (Shizuku.pingBinder()) {
                     add("shizukuVersion=${runCatching { Shizuku.getVersion() }.getOrElse { -1 }}")
@@ -160,6 +195,11 @@ class MainActivity : ComponentActivity() {
             }
         status.text = lines.joinToString("\n")
     }
+
+    private fun buildSummary(): String =
+        "${BuildConfig.VERSION_NAME}\n" +
+            "build ${BuildConfig.VERSION_CODE} • ${BuildConfig.BUILD_TIME_UTC}\n" +
+            "revision ${BuildConfig.BUILD_REVISION} (${BuildConfig.BUILD_TREE_STATE})"
 
     private fun hasShizukuPermission(): Boolean {
         if (!Shizuku.pingBinder()) return false

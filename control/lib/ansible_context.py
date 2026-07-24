@@ -1,21 +1,33 @@
-"""Resolve the Ansible site overlay used by product-side entry points.
-
-The public checkout ships only a generic inventory example.  Real deployments
-therefore select a private site's ``ansible.cfg`` by explicit ``ANSIBLE_CONFIG``,
-by ``STAYTURGID_SITE_DIR``, or by discovering exactly one ``site-*`` overlay
-checkout under ``OPS_ROOT`` (default ``~/ops``).  There is no operator-specific
-default: ambiguous or absent discovery fails with instructions instead of
-silently selecting a site.
-"""
+"""Resolve the Ansible site overlay used by product-side entry points."""
 
 from __future__ import annotations
 
 import configparser
 import os
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Mapping
+from typing import Mapping, TextIO
+
+if __package__:
+    from .site_discovery import (
+        SiteDiscoveryError,
+        SiteSelection,
+        announce_site_selection,
+        ensure_private_companion,
+        reject_private_companion_overlay,
+        resolve_site_selection,
+    )
+else:  # direct import with control/lib on sys.path
+    from site_discovery import (  # type: ignore[no-redef]
+        SiteDiscoveryError,
+        SiteSelection,
+        announce_site_selection,
+        ensure_private_companion,
+        reject_private_companion_overlay,
+        resolve_site_selection,
+    )
 
 
 class AnsibleConfigError(RuntimeError):
@@ -30,6 +42,12 @@ class AnsibleContext:
     inventory: Path
     collections_path: Path
     source: str
+
+    @property
+    def site_dir(self) -> Path:
+        """Directory containing the selected site Ansible configuration."""
+
+        return self.config.parent
 
 
 def _expand_path(value: str, *, base: Path) -> Path:
@@ -47,56 +65,47 @@ def _config_value(config: Path, name: str) -> str:
     return parser.get("defaults", name, fallback="").strip()
 
 
-def _discover_site_config(env: Mapping[str, str]) -> Path:
-    """Return the single discovered ``site-*`` overlay ``ansible.cfg``.
-
-    Scans ``OPS_ROOT`` (default ``~/ops``) for sibling ``site-*`` checkouts
-    that carry an ``ansible.cfg``.  Exactly one match is unambiguous; zero or
-    multiple matches must be resolved by the operator — never by a hardcoded
-    site default.
-    """
-
-    ops_root = Path(env.get("OPS_ROOT", "~/ops")).expanduser()
-    candidates = sorted(p / "ansible.cfg" for p in ops_root.glob("site-*") if (p / "ansible.cfg").is_file())
-    if len(candidates) == 1:
-        return candidates[0]
-    if not candidates:
-        raise AnsibleConfigError(
-            f"No site overlay found: {ops_root} contains no site-* checkout with an "
-            "ansible.cfg. Set ANSIBLE_CONFIG or STAYTURGID_SITE_DIR to select a "
-            "configuration explicitly."
-        )
-    listing = ", ".join(str(c.parent) for c in candidates)
-    raise AnsibleConfigError(
-        f"Ambiguous site overlay: multiple site-* checkouts under {ops_root} "
-        f"({listing}). Set ANSIBLE_CONFIG or STAYTURGID_SITE_DIR to select one."
-    )
-
-
 def resolve_ansible_context(
     repo_root: Path,
     environ: Mapping[str, str] | None = None,
+    *,
+    announce: bool = True,
+    announcement_stream: TextIO | None = None,
 ) -> AnsibleContext:
     """Return the explicit, site-directory, or discovered-overlay Ansible context.
 
-    ``ANSIBLE_CONFIG`` always wins.  When it is absent, ``STAYTURGID_SITE_DIR``
-    selects the overlay directory explicitly; otherwise exactly one ``site-*``
-    checkout under ``OPS_ROOT`` (default ``~/ops``) is discovered.  Zero or
-    multiple discovery matches raise instead of silently picking a default.
+    Precedence is ``ANSIBLE_CONFIG``, ``STAYTURGID_SITE_DIR``,
+    ``OPS_ROOT/.mysite``, then exactly one qualifying ``site-*`` checkout.
     """
 
     env = os.environ if environ is None else environ
+    try:
+        ensure_private_companion(env)
+    except SiteDiscoveryError as exc:
+        raise AnsibleConfigError(str(exc)) from exc
     explicit = env.get("ANSIBLE_CONFIG", "").strip()
     site_dir_value = env.get("STAYTURGID_SITE_DIR", "").strip()
     if explicit:
         config = _expand_path(explicit, base=Path.cwd()).resolve()
         source = "ANSIBLE_CONFIG"
+        site_dir = config.parent
     elif site_dir_value:
-        config = (Path(site_dir_value).expanduser() / "ansible.cfg").resolve()
+        site_dir = Path(site_dir_value).expanduser().resolve()
+        config = (site_dir / "ansible.cfg").resolve()
         source = "STAYTURGID_SITE_DIR"
     else:
-        config = _discover_site_config(env).resolve()
-        source = "site overlay"
+        try:
+            selection = resolve_site_selection(env, require_ansible_config=True)
+        except SiteDiscoveryError as exc:
+            raise AnsibleConfigError(str(exc)) from exc
+        site_dir = selection.path
+        config = (site_dir / "ansible.cfg").resolve()
+        source = selection.source
+
+    try:
+        reject_private_companion_overlay(site_dir, env)
+    except SiteDiscoveryError as exc:
+        raise AnsibleConfigError(str(exc)) from exc
 
     if not config.is_file():
         if source == "ANSIBLE_CONFIG":
@@ -118,12 +127,18 @@ def resolve_ansible_context(
     else:
         collections_path = (repo_root / ".ansible" / "collections").resolve()
 
-    return AnsibleContext(
+    context = AnsibleContext(
         config=config,
         inventory=inventory,
         collections_path=collections_path,
         source=source,
     )
+    if announce:
+        announce_site_selection(
+            SiteSelection(path=context.site_dir, source=context.source),
+            stream=sys.stderr if announcement_stream is None else announcement_stream,
+        )
+    return context
 
 
 def resolved_env(repo_root: Path, environ: Mapping[str, str] | None = None) -> dict[str, str]:

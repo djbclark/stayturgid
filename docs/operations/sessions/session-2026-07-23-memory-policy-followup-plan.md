@@ -3,11 +3,10 @@
 **Status: COMPLETE (2026-07-23).** Executed with one intentional design change
 vs the original “move canonical policy into stayturgid” proposal: policy is
 **distributed** across the three siblings’ `AGENTS.md` files (each owns its
-slice and points at the other two). Site-discovery code (`.mysite`, exclude
-`site-private`, announce site dir, ensure `site-private` exists) is **not**
-in this change set — it is next on the stack as
-[stayturgid#48](https://github.com/djbclark/stayturgid/issues/48) (issue body
-lists every doc to update when that code lands).
+slice and points at the other two). The then-deferred site-discovery work was
+subsequently implemented under
+[stayturgid#48](https://github.com/djbclark/stayturgid/issues/48): `.mysite`,
+private-companion exclusion/bootstrap, and selected-path announcements.
 
 **Builds on:** `session-2026-07-23-memory-policy-migration.md` (this same
 directory).
@@ -20,9 +19,9 @@ directory).
    links in each repo.
 2. **Removed** the obsolete “pending move to stayturgid” banner from
    `site-private/README.md`; replaced with the distributed-policy overview.
-3. **Updated** `multi-site-topology.md` §4.8 / §4.10 to describe today’s
-   discovery vs intended next (#48), and to stop calling `site-private` the
-   sole canonical policy home.
+3. **Updated** `multi-site-topology.md` §4.8 / §4.10 to describe the discovery
+   change later completed by #48, and to stop calling `site-private` the sole
+   canonical policy home.
 4. **Reconciled** loose `~/ops/StayTurgid TODO.md` as a stale duplicate of
    `site-djbclark/docs/relay/NEXT-PROMPT.md` and removed it.
 5. **Independent project `~/src/ai`:** kept Claude memory symlink →

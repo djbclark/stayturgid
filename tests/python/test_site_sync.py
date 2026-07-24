@@ -527,6 +527,7 @@ def test_discovery_zero_sites_exits_1(tmp_path: Path) -> None:
     code, _, stderr = _run_api(dir_path=None, mode="dry-run", env={"OPS_ROOT": str(tmp_path)})
     assert code == ss.EXIT_PRECONDITION
     assert "no site" in stderr.lower() or "not exist" in stderr.lower() or "found" in stderr.lower()
+    assert (tmp_path / "site-private").is_dir()
 
 
 def test_discovery_multiple_sites_exits_1(tmp_path: Path) -> None:
@@ -546,6 +547,54 @@ def test_stayturgid_site_dir_resolution(tmp_path: Path) -> None:
     )
     assert code == ss.EXIT_OK, stderr
     assert "create" in stdout
+    assert f"site-sync: site directory {dest}" in stderr
+    assert "source: STAYTURGID_SITE_DIR" in stderr
+
+
+def test_discovery_excludes_site_private_and_announces_source(tmp_path: Path) -> None:
+    dest = _init_site(tmp_path)
+
+    code, stdout, stderr = _run_api(
+        dir_path=None,
+        mode="dry-run",
+        env={"OPS_ROOT": str(tmp_path)},
+    )
+
+    assert code == ss.EXIT_OK, stderr
+    assert "create" in stdout
+    assert f"site-sync: site directory {dest}" in stderr
+    assert "source: site-* discovery" in stderr
+    assert (tmp_path / "site-private").is_dir()
+
+
+def test_mysite_precedes_site_glob(tmp_path: Path) -> None:
+    selected = _init_site(tmp_path, "selected")
+    _init_site(tmp_path, "other")
+    (tmp_path / ".mysite").symlink_to(selected, target_is_directory=True)
+
+    code, _, stderr = _run_api(
+        dir_path=None,
+        mode="dry-run",
+        env={"OPS_ROOT": str(tmp_path)},
+    )
+
+    assert code == ss.EXIT_OK, stderr
+    assert f"site-sync: site directory {selected}" in stderr
+    assert "source: OPS_ROOT/.mysite" in stderr
+
+
+def test_explicit_private_companion_is_rejected(tmp_path: Path) -> None:
+    private = tmp_path / "site-private"
+    private.mkdir()
+
+    code, _, stderr = _run_api(
+        dir_path=str(private),
+        mode="dry-run",
+        env={"OPS_ROOT": str(tmp_path)},
+    )
+
+    assert code == ss.EXIT_PRECONDITION
+    assert "reserved for the private companion" in stderr
 
 
 def test_invalid_mode_exits_1(tmp_path: Path) -> None:

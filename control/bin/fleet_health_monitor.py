@@ -1,20 +1,18 @@
 #!/usr/bin/env python3
-# @heals: A11Y-AUTOJS6 WATCHDOG-FRESH AGENT-FRESH REPAIRLOG-FRESH ET-CONFIG HD8-DOZE-WHITELIST HD8-GSF-PINNED HD8-GMS-PINNED
+# @heals: A11Y-AUTOJS6 AGENT-FRESH REPAIRLOG-FRESH ET-CONFIG HD8-DOZE-WHITELIST HD8-GSF-PINNED HD8-GMS-PINNED
 """Dedicated Mac fleet soft-health monitor (launchd every 5 min).
 
 Scrapes watchdog/repair/a11y/sshd/bootloop/shell5555 when a device is
 reachable. Logs to ~/.config/stayturgid/logs/fleet-health.log and notifies
 after CONSECUTIVE_LIMIT consecutive soft failures (~10 min).
 
-When ``watchdog_stale`` / ``watchdog_missing`` persists, restarts AutoJs6
-``main.js`` via ``control/tools/autojs6/start_watchdog.py`` (rate-limited). This
-is a legacy fallback from before the K1 native-agent cutover (2026-07-22) and
-should not fire on hosts where AutoJs6 has actually been removed; kept until
-AutoJs6 removal is verified fleet-wide (see docs/STATUS.md).
-
 When ``agent_stale`` persists (native agent, OPTIONS K1 — the current
 mechanism post-cutover), restarts the Kotlin HostService via
 ``control/tools/native-agent/start_agent.py`` (rate-limited).
+
+Legacy watchdog and AutoJs6 accessibility fields remain in telemetry while
+fleet-state verification is incomplete, but they do not create health issues
+or trigger repair.
 
 Reachability-only outages stay in access_monitor.py (separate agent).
 Disable with STAYTURGID_SKIP_HEALTH=1; skip restarts with
@@ -54,14 +52,12 @@ from control.lib.site_logging import (
 ROOT = os.path.join(os.path.expanduser("~"), ".config", "stayturgid")
 CONF = os.environ.get("STAYTURGID_DEVICES_CONF", os.path.join(ROOT, "devices.conf"))
 STATE_DIR = os.path.join(ROOT, "state", "fleet-health")
-HEAL_STATE_DIR = os.path.join(ROOT, "state", "watchdog-heal")
 AGENT_HEAL_STATE_DIR = os.path.join(ROOT, "state", "agent-heal")
 GOOGLE_HEAL_STATE_DIR = os.path.join(ROOT, "state", "google-stack-heal")
 GOOGLE_VERIFY_STATE_DIR = os.path.join(ROOT, "state", "google-stack-verify")
 ERROR_LOG = os.path.join(ROOT, "logs", "errors.log")
 LOG_NAME = "fleet-health.log"
 CONSECUTIVE_LIMIT = 2
-# After this many soft fails with watchdog_stale/missing, restart main.js once.
 AGENT_HEAL_AFTER = 2
 AGENT_HEAL_COOLDOWN_SEC = 30 * 60
 GOOGLE_STACK_HEAL_COOLDOWN_SEC = 24 * 60 * 60
@@ -161,15 +157,8 @@ def _touch_heal_dir(name: str, state_dir: str) -> None:
         pass
 
 
-def _touch_heal(name: str) -> None:
-    _touch_heal_dir(name, HEAL_STATE_DIR)
-
-
 def maybe_heal_agent(name: str, issues: list[str], fails: int, adb_serial: str | None = None) -> None:
-    """Restart native-agent HostService when agent_stale (OPTIONS K1, post-cutover).
-
-    Does not fire on hosts without the APK (no agent_stale without prior agent.log).
-    """
+    """Restart native-agent HostService when agent_stale (OPTIONS K1, post-cutover)."""
     if SKIP_WATCHDOG_HEAL or SKIP_HEALTH:
         return
     if fails < AGENT_HEAL_AFTER:
@@ -516,6 +505,8 @@ def _record_soft_health_snapshot(
         repair_age=_age_field(report.get("repair_age")),
         port=report.get("port") or "unknown",
         shizuku=report.get("shizuku") or "unknown",
+        tailscale=report.get("tailscale") or "unknown",
+        tailscale_policy=report.get("tailscale_policy") or "unknown",
         a11y=report.get("a11y") or "unknown",
         autojs6_a11y=report.get("autojs6_a11y") or "unknown",
         sshd=report.get("sshd") or "unknown",

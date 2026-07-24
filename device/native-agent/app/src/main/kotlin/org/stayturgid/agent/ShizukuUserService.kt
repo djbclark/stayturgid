@@ -70,6 +70,18 @@ class ShizukuUserService : IStayTurgidService.Stub {
         }
     }
 
+    override fun repairTailscale(): String {
+        return try {
+            val r = CatastrophicRepair.repairTailscale()
+            Log.i(TAG, "repairTailscale ok=${r.ok} detail=${r.detail}")
+            runComonitor()
+            "ok=${r.ok} detail=${r.detail}"
+        } catch (t: Throwable) {
+            Log.e(TAG, "repairTailscale failed", t)
+            "ok=false detail=${t.message}"
+        }
+    }
+
     private fun injectSilentKey() {
         val inputManager = resolveInputManager()
         val inject = resolveInjectMethod(inputManager.javaClass)

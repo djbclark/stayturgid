@@ -34,8 +34,13 @@ START = REPO / "control" / "tools" / "native-agent" / "start_agent.py"
 PKG = "org.stayturgid.agent.debug"
 
 
-def _run(cmd: list[str], timeout: int = 120) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+def _run(
+    cmd: list[str],
+    timeout: int = 120,
+    *,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess:
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, env=env)
 
 
 def ensure_apk() -> Path:
@@ -52,7 +57,7 @@ def ensure_apk() -> Path:
             env["JAVA_HOME"] = cand
             env["PATH"] = f"{cand}/bin:" + env.get("PATH", "")
             break
-    r = _run(["just", "agent-assemble"], timeout=600)
+    r = _run(["just", "agent-assemble"], timeout=600, env=env)
     if r.returncode != 0 or not APK.is_file():
         sys.stderr.write((r.stdout or "") + (r.stderr or "") + "\n")
         raise SystemExit("assemble failed")
@@ -84,7 +89,38 @@ def device_online(serial: str) -> bool:
     return r.returncode == 0 and (r.stdout or "").strip() == "device"
 
 
-def rollout_one(label: str, serial: str) -> bool:
+def _pids(stdout: str | None) -> list[str]:
+    """Return only numeric process IDs from ``pidof`` output."""
+
+    return [token for token in (stdout or "").split() if token.isdigit()]
+
+
+def stop_stale_user_services(serial: str) -> list[str]:
+    """Stop package UserServices that can survive APK/Shizuku replacement."""
+
+    current = _run(
+        ["adb", "-s", serial, "shell", f"pidof {PKG}:userservice"],
+        timeout=10,
+    )
+    pids = _pids(current.stdout)
+    if pids:
+        _run(["adb", "-s", serial, "shell", "kill", *pids], timeout=10)
+        time.sleep(1)
+    return pids
+
+
+def agent_processes(serial: str) -> tuple[list[str], list[str]]:
+    """Return host and UserService process IDs for rollout verification."""
+
+    host = _run(["adb", "-s", serial, "shell", f"pidof {PKG}"], timeout=10)
+    user_service = _run(
+        ["adb", "-s", serial, "shell", f"pidof {PKG}:userservice"],
+        timeout=10,
+    )
+    return _pids(host.stdout), _pids(user_service.stdout)
+
+
+def _rollout_one(label: str, serial: str) -> bool:
     print(f"\n=== {label} ({serial}) ===")
     if not device_online(serial):
         print("  SKIP: adb not online")
@@ -118,6 +154,9 @@ def rollout_one(label: str, serial: str) -> bool:
     )
     if not (srv.stdout or "").strip():
         print("  WARN: shizuku_server not running after starter (UserService will not bind)")
+    stale = stop_stale_user_services(serial)
+    if stale:
+        print(f"  stopped stale UserService pid(s): {' '.join(stale)}")
     print("  start agent...")
     r = _run([sys.executable, str(START), serial], timeout=90)
     out = ((r.stdout or "") + (r.stderr or "")).strip()
@@ -125,6 +164,10 @@ def rollout_one(label: str, serial: str) -> bool:
         print("   ", line)
     if r.returncode != 0:
         print("  FAIL start")
+        return False
+    host_pids, user_service_pids = agent_processes(serial)
+    if len(host_pids) != 1 or len(user_service_pids) != 1:
+        print(f"  FAIL process verification: host={host_pids or ['none']} userservice={user_service_pids or ['none']}")
         return False
     # verify package version + recent STATUS
     ver = _run(
@@ -145,9 +188,27 @@ def rollout_one(label: str, serial: str) -> bool:
         for line in log.stdout.strip().splitlines()[-3:]:
             print("   ", line)
     else:
-        print("  WARN: no agent.log yet (Shizuku bind may still be settling)")
+        print("  FAIL: no agent.log after rollout")
+        return False
+    last_status = next(
+        (line for line in reversed(log.stdout.splitlines()) if "[agent] STATUS" in line),
+        "",
+    )
+    if "tailscale_policy=" not in last_status:
+        print("  FAIL: no current-format agent STATUS after rollout")
+        return False
     print("  OK")
     return True
+
+
+def rollout_one(label: str, serial: str) -> bool:
+    """Roll out one device while always closing its announced control session."""
+
+    print(f"🚨📱🚨 USING — {label} — deploy and verify native agent — ~2 min")
+    try:
+        return _rollout_one(label, serial)
+    finally:
+        print(f"🟢📱🟢 FREE — {label} — native-agent rollout interaction complete")
 
 
 def main(argv: list[str] | None = None) -> int:

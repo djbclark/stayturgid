@@ -62,8 +62,12 @@ just site-sync [dir=<path>] [mode=apply|dry-run|docs] [force-generated=1]
 python3 -m control.site_contract.site_sync [--dir <path>] [--mode apply|dry-run|docs] [--force-generated]
 ```
 
-- Destination: explicit `dir=`, else `STAYTURGID_SITE_DIR`, else exactly one
-  `site-*` under `$OPS_ROOT`. No hardcoded production-site fallback.
+- Destination: explicit `dir=`, else `STAYTURGID_SITE_DIR`, else
+  `$OPS_ROOT/.mysite`, else exactly one `site-*` under `$OPS_ROOT`, excluding
+  reserved `site-private`. The command prints the selected path and source.
+- Resolution creates a missing `STAYTURGID_PRIVATE_DIR` (default
+  `$OPS_ROOT/site-private`) as an owner-only empty directory; it never guesses
+  a Git remote or creates secrets.
 - Auto-discovers `<site-dir>/site-map.yml` and reads inventory/registry facts
   from mapped locations while keeping generated output under
   `generated/stayturgid/`.
