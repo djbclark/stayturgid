@@ -263,19 +263,19 @@ _firerpa_deploy_impl:
     {{ ansible_playbook }} ansible/playbooks/fleet/firerpa.yml {{ limit_flag }} -e firerpa_enabled=true
 
 firerpa-deploy-legacy:
-    @just _firerpa_deploy_impl
+    @hosts="{{ hosts }}" just _firerpa_deploy_impl
 
 firerpa-deploy:
-    @just _firerpa_deploy_impl
+    @hosts="{{ hosts }}" just _firerpa_deploy_impl
 
 _firerpa_remove_impl:
     {{ ansible_playbook }} ansible/playbooks/fleet/firerpa.yml {{ limit_flag }} -e firerpa_enabled=false
 
 firerpa-remove-legacy:
-    @just _firerpa_remove_impl
+    @hosts="{{ hosts }}" just _firerpa_remove_impl
 
 firerpa-remove:
-    @just _firerpa_remove_impl
+    @hosts="{{ hosts }}" just _firerpa_remove_impl
 
 _firerpa_heal_impl:
     #!/usr/bin/env bash
@@ -283,10 +283,10 @@ _firerpa_heal_impl:
     python3 control/bin/firerpa_heal.py {{ if hosts == "" { "--all" } else { "--host " + hosts } }}
 
 firerpa-heal-legacy:
-    @just _firerpa_heal_impl
+    @hosts="{{ hosts }}" just _firerpa_heal_impl
 
 firerpa-heal host="":
-    @just _firerpa_heal_impl {{ if host == "" { "--all" } else { "--host " + host } }}
+    @hosts="{{ host }}" just _firerpa_heal_impl
 
 _firerpa_health_impl:
     #!/usr/bin/env bash
