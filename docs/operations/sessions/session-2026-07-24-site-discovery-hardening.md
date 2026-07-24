@@ -79,8 +79,9 @@ repair:
   unit collections.
 - `just check`: PASS, including site-contract Entangled parity, all linters,
   generated-source checks, and public identity/secret drift checks.
-- Android debug APK: JDK 21 `:app:assembleDebug` PASS; v0.3.5
-  (`versionCode=9`) installed on all three fleet devices.
+- Android debug APK: JDK 21 `:app:assembleDebug` PASS; v0.3.6
+  (`versionCode=10`) installed on all three fleet devices. Its launcher shows
+  and can copy version/build/time/revision and runtime diagnostics.
 - hd8 (USB-backed): fresh status reported `port=open`, `shizuku=up`,
   `sshd=up`, `tailscale=up`, and `tailscale_policy=up`. A forced policy drift
   to no always-on app was restored to `com.tailscale.ipn` with lockdown off

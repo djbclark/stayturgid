@@ -100,6 +100,10 @@ adb logcat -s StayTurgidHost:I StayTurgidUS:I StayTurgidMain:I StayTurgidApp:I S
 The Termux twin in `device/termux/py/stayturgid_repair.py` runs every five
 minutes and enforces the same runtime and always-on policy checks.
 
+The launcher UI shows the version name/code, UTC build time, source revision,
+application ID, build type, Android/device identity, and live Shizuku state.
+The full diagnostic block is selectable and can be copied with one button.
+
 ## Retired AutoJs6 reference code
 
 `device/autojs6/` remains for reference while fleet-state verification is

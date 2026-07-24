@@ -1,3 +1,6 @@
+import java.time.Instant
+import java.time.temporal.ChronoUnit
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -11,8 +14,42 @@ android {
         applicationId = "org.stayturgid.agent"
         minSdk = 26
         targetSdk = 36
-        versionCode = 9
-        versionName = "0.3.5-controlplane-verified"
+        versionCode = 10
+        versionName = "0.3.6-diagnostics"
+        val buildTimeUtc =
+            System.getenv("SOURCE_DATE_EPOCH")
+                ?.toLongOrNull()
+                ?.let { Instant.ofEpochSecond(it) }
+                ?: Instant.now().truncatedTo(ChronoUnit.SECONDS)
+        val repoRoot = rootProject.projectDir.resolve("../..").canonicalPath
+        val revision =
+            providers
+                .exec {
+                    commandLine(
+                        "git",
+                        "-C",
+                        repoRoot,
+                        "rev-parse",
+                        "--short=12",
+                        "HEAD",
+                    )
+                    isIgnoreExitValue = true
+                }.standardOutput.asText
+                .get()
+                .trim()
+                .ifEmpty { "unknown" }
+        val treeState =
+            providers
+                .exec {
+                    commandLine("git", "-C", repoRoot, "status", "--porcelain", "--untracked-files=no")
+                    isIgnoreExitValue = true
+                }.standardOutput.asText
+                .get()
+                .trim()
+                .let { if (it.isEmpty()) "clean" else "dirty" }
+        buildConfigField("String", "BUILD_TIME_UTC", "\"$buildTimeUtc\"")
+        buildConfigField("String", "BUILD_REVISION", "\"$revision\"")
+        buildConfigField("String", "BUILD_TREE_STATE", "\"$treeState\"")
     }
 
     buildFeatures {
