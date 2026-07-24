@@ -226,5 +226,5 @@ def test_repo_env_fails_without_any_site_selection(monkeypatch, tmp_path):
 
     from control.lib.ansible_context import AnsibleConfigError
 
-    with pytest.raises(AnsibleConfigError, match="ANSIBLE_CONFIG or STAYTURGID_SITE_DIR"):
+    with pytest.raises(AnsibleConfigError, match="ANSIBLE_CONFIG, STAYTURGID_SITE_DIR, or OPS_ROOT/.mysite"):
         df.repo_env()

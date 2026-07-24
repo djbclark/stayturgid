@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit
 /**
  * Phase 3: catastrophic path when port 5555 is closed / shell dead.
  *
- * // @heals: PORT5555-OPEN SHIZUKU-HEADLESS
+ * // @heals: PORT5555-OPEN SHIZUKU-HEADLESS TAILSCALE-VPN TAILSCALE-ALWAYSON
  *
  * Mirrors AutoJs6 `lib/shizuku.ts` **shell-first** sequence (ADR 003):
  * 1. settings: development + adb + adb_wifi
@@ -19,6 +19,9 @@ import java.util.concurrent.TimeUnit
  */
 object CatastrophicRepair {
     private const val TAG = "StayTurgidCat"
+    private const val TAILSCALE_COMPONENT = "com.tailscale.ipn/com.tailscale.ipn.MainActivity"
+    private const val TAILSCALE_RECEIVER = "com.tailscale.ipn/com.tailscale.ipn.IPNReceiver"
+    private const val TAILSCALE_CONNECT_ACTION = "com.tailscale.ipn.CONNECT_VPN"
 
     data class Result(
         val ok: Boolean,
@@ -103,6 +106,73 @@ object CatastrophicRepair {
         shellOut(arrayOf("am", "broadcast", "-a", "moe.shizuku.privileged.api.HEADLESS_START"), 8)
         Thread.sleep(5000)
         return serverRunning()
+    }
+
+    fun repairTailscale(): Result {
+        ensureSetting("secure", "always_on_vpn_app", "com.tailscale.ipn")
+        ensureSetting("secure", "always_on_vpn_lockdown", "0")
+        val initial = ComonitorProbes.probe()
+        val policyOk = initial.tailscalePolicy == "up"
+        if (initial.tailscale != "down") {
+            val detail =
+                if (policyOk) {
+                    "tailscale up; always-on policy healthy"
+                } else {
+                    "tailscale up; always-on policy repair failed"
+                }
+            appendLog("[agent] $detail")
+            return Result(policyOk, detail)
+        }
+
+        // Prefer Tailscale's exported, documented receiver. Some Fire OS /
+        // WorkManager combinations reject its expedited StartVPNWorker, so
+        // never treat successful broadcast delivery as successful repair.
+        shellOut(
+            arrayOf(
+                "am",
+                "broadcast",
+                "--include-stopped-packages",
+                "-a",
+                TAILSCALE_CONNECT_ACTION,
+                "-n",
+                TAILSCALE_RECEIVER,
+            ),
+            8,
+        )
+        if (waitForTailscaleUp(attempts = 4)) {
+            val detail =
+                if (policyOk) {
+                    "tailscale restored via CONNECT_VPN"
+                } else {
+                    "tailscale restored via CONNECT_VPN; always-on policy repair failed"
+                }
+            appendLog("[agent] $detail")
+            return Result(policyOk, detail)
+        }
+
+        // Activity launch is a best-effort prompt/fallback. It may need an
+        // unlocked screen and operator input, so success is still determined
+        // only by a fresh tunnel + coordinator probe.
+        shellOut(arrayOf("am", "start", "-n", TAILSCALE_COMPONENT), 8)
+        val restored = waitForTailscaleUp(attempts = 3)
+        val detail =
+            if (restored && policyOk) {
+                "tailscale restored after activity fallback"
+            } else if (restored) {
+                "tailscale restored after activity fallback; always-on policy repair failed"
+            } else {
+                "tailscale still down after CONNECT_VPN and activity fallback"
+            }
+        appendLog("[agent] $detail")
+        return Result(restored && policyOk, detail)
+    }
+
+    private fun waitForTailscaleUp(attempts: Int): Boolean {
+        repeat(attempts) {
+            Thread.sleep(2000)
+            if (ComonitorProbes.probe().tailscale == "up") return true
+        }
+        return false
     }
 
     private fun ensureSetting(

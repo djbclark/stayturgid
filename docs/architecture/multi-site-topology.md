@@ -321,36 +321,27 @@ Product entry points (`deploy_fleet.py`, `deploy_termux.py`, `verify_drift.py`,
 `ansible_exec.py`, `validate_site_identity.py`) resolve their Ansible
 configuration via `control/lib/ansible_context.py`.
 
-**Today (until [#48](https://github.com/djbclark/stayturgid/issues/48) lands):**
+**Current precedence:**
 
 1. **`ANSIBLE_CONFIG`** — explicit, always wins. Errors it produces (missing
    file, missing inventory) are fatal; they never downgrade to a fallback.
 2. **`STAYTURGID_SITE_DIR`** — explicit overlay directory; its `ansible.cfg`
    must exist or resolution fails.
-3. **Discovery** — `OPS_ROOT` (default `~/ops`) is scanned for `site-*`
-   checkouts containing an `ansible.cfg`. Exactly one match is used; zero or
-   multiple matches fail with instructions to set `STAYTURGID_SITE_DIR` or
-   `ANSIBLE_CONFIG`. There is **no operator-specific default directory** —
-   the public product never hardcodes a site checkout name.
-
-**Intended next ([#48](https://github.com/djbclark/stayturgid/issues/48)) — update
-this section to “current” when the code ships:**
-
-1. **`ANSIBLE_CONFIG`** — unchanged.
-2. **`STAYTURGID_SITE_DIR`** — unchanged.
 3. **`OPS_ROOT/.mysite`** — if present and resolves to a directory (symlink or
    real dir), use it as the site overlay. Local convenience only; never put
    `.mysite` in GitHub URLs (prose keeps the `site-<name>` placeholder).
-4. **Discovery** — same `site-*` + `ansible.cfg` scan, but **exclude the
-   literal directory name `site-private`** (that sibling is the private
-   companion repo, not a site overlay). Zero or multiple remaining matches
-   fail with instructions to set env vars or fix `.mysite`.
+4. **Discovery** — `OPS_ROOT` (default `~/ops`) is scanned for `site-*`
+   checkouts containing an `ansible.cfg`, excluding both the literal
+   `site-private` name and the configured private-companion path. Exactly one
+   match is used; zero or multiple matches fail with instructions to set an
+   explicit selector or fix `.mysite`.
 
-Commands that resolve a site overlay should **print which directory they used
-and which precedence step won**. They should also **ensure `~/ops/site-private`
-exists** (bootstrap if missing). Making both the private-companion path and the
-site-overlay path configurable (instead of hardcoding `site-private` /
-discovery) is part of that issue’s longer-term design.
+Every command that resolves a site overlay prints the selected directory and
+precedence source. Resolution also ensures the private-companion directory
+exists. Its path is `STAYTURGID_PRIVATE_DIR`, resolved relative to `OPS_ROOT`
+when needed, and defaults to `OPS_ROOT/site-private`. A missing directory is
+created owner-only; stayturgid never guesses a private Git remote, initializes
+Git, or creates secrets.
 
 Identity validation additionally falls back to the committed
 `hosts.yml.example` when resolution fails _without_ an explicit
@@ -393,11 +384,11 @@ Until Phase 1–2 ship, new operators still edit a forked `hosts.yml` in-tree:
 Every operator running this stack has **three** sibling checkouts under
 `~/ops/`, not two:
 
-| Repo                 | Visibility                         | Purpose                                                                                                                         |
-| -------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `~/ops/stayturgid`   | Always public                      | This repo — code, fleet conventions, durable rules, session history                                                             |
-| `~/ops/site-<name>`  | Operator's choice (public/private) | One operator's live site overlay (§4 above)                                                                                     |
-| `~/ops/site-private` | **Always private**                 | Private/generic companion — fixed name by default; not a site overlay ([#48](https://github.com/djbclark/stayturgid/issues/48)) |
+| Repo                 | Visibility                         | Purpose                                                                                                    |
+| -------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `~/ops/stayturgid`   | Always public                      | This repo — code, fleet conventions, durable rules, session history                                        |
+| `~/ops/site-<name>`  | Operator's choice (public/private) | One operator's live site overlay (§4 above)                                                                |
+| `~/ops/site-private` | **Always private**                 | Private/generic companion — default path, configurable with `STAYTURGID_PRIVATE_DIR`; never a site overlay |
 
 There is **no single canonical policy document**. Each repo's `AGENTS.md` owns
 **that repo's slice** and points at the other two (filesystem path + absolute
@@ -410,7 +401,7 @@ optional site practice lives in `site-<name>`'s `AGENTS.md`; private extras in
 In short for stayturgid itself: durable product lessons belong here (see
 [docs/notes/lessons-learned.md](../notes/lessons-learned.md)), not in
 tool-private `~` stores. `site-private` must **not** be treated as
-`site-<name>` during overlay discovery (code: [#48](https://github.com/djbclark/stayturgid/issues/48)).
+`site-<name>` during overlay discovery.
 
 ---
 

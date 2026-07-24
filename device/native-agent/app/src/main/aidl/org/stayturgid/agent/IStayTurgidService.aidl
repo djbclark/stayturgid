@@ -24,4 +24,10 @@ interface IStayTurgidService {
      * Returns a short result string; does not use Accessibility.
      */
     String repairCatastrophic() = 3;
+
+    /**
+     * Restore the Tailscale runtime through its public receiver, with an
+     * activity fallback. Success means the tunnel was re-probed as healthy.
+     */
+    String repairTailscale() = 4;
 }

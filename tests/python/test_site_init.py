@@ -522,6 +522,21 @@ def test_default_destination_under_ops_root(tmp_path: Path) -> None:
     assert plan.destination == (tmp_path / "site-example").resolve()
 
 
+def test_private_site_name_is_reserved() -> None:
+    with pytest.raises(si.SiteInitError, match="reserved for the private companion"):
+        si.validate_site_name("private")
+
+
+def test_explicit_private_companion_destination_is_reserved(tmp_path: Path) -> None:
+    with pytest.raises(si.SiteInitError, match="reserved for the private companion"):
+        si.resolve_destination(
+            "example",
+            dir_path=str(tmp_path / "site-private"),
+            env={"OPS_ROOT": str(tmp_path)},
+            product_root=ROOT,
+        )
+
+
 # --- Acceptance test 6: docs mode ------------------------------------------
 
 

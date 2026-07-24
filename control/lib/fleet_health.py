@@ -20,7 +20,7 @@ _REPO = _HERE.parents[2]
 if str(_SHARED) not in sys.path:
     sys.path.insert(0, str(_SHARED))
 
-# Align with device_tier / AutoJs6 INTERVAL_MS (~20 min) + slack.
+# Align with the native-agent 20-minute heartbeat plus slack.
 WATCHDOG_FRESH_SEC = 1800  # 30 min
 REPAIR_FRESH_SEC = 2700  # 45 min
 SSH_PORT = 8022
@@ -88,8 +88,7 @@ _age() {
 }
 echo "repair_age=$(_age '\[repair\]')"
 echo "watchdog_age=$(_age '\[watchdog\]')"
-# Native agent (OPTIONS K1) dual-run: agent.log STATUS + age. Optional during
-# dual-run — missing agent is not a hard failure (see evaluate_health).
+# Native agent (OPTIONS K1): agent.log STATUS + age.
 _agent_age() {
   last=$(grep -h '\[agent\] STATUS' "$SD/logs/agent.log" /sdcard/stayturgid/logs/agent.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
   # agent lines are "[agent] STATUS ... ts=YYYY-MM-DD HH:MM:SS" — prefer ts=
@@ -159,18 +158,14 @@ def _int_age(raw: str | None) -> int | None:
 
 
 def _normalize_status_fields(report: dict[str, str]) -> None:
-    if "a11y" not in report and "status_line" in report:
-        m = re.search(r"a11y=([^\s]+)", report["status_line"])
-        if m:
-            report["a11y"] = m.group(1)
-    if "port" not in report and "status_line" in report:
-        m = re.search(r"port=([^\s]+)", report["status_line"])
-        if m:
-            report["port"] = m.group(1)
-    if "shizuku" not in report and "status_line" in report:
-        m = re.search(r"shizuku=([^\s]+)", report["status_line"])
-        if m:
-            report["shizuku"] = m.group(1)
+    if "status_line" not in report:
+        return
+    for field in ("a11y", "port", "shizuku", "tailscale", "tailscale_policy"):
+        if field in report:
+            continue
+        match = re.search(rf"{field}=([^\s]+)", report["status_line"])
+        if match:
+            report[field] = match.group(1)
 
 
 def a11y_profile_missing(alias: str, a11y_list: str | None) -> list[str]:
@@ -227,6 +222,11 @@ def evaluate_health(report: dict[str, str], *, alias: str | None = None) -> list
     if shizuku in ("down", "dead", "failed", "false", "0"):
         issues.append("shizuku_down")
 
+    if report.get("tailscale") == "down":
+        issues.append("tailscale_down")
+    if report.get("tailscale_policy") == "down":
+        issues.append("tailscale_policy_down")
+
     if alias:
         missing = a11y_profile_missing(alias, report.get("a11y_list"))
         if missing:
@@ -250,6 +250,8 @@ def summarize(report: dict[str, str], issues: list[str]) -> str:
         "repair_age=%s" % report.get("repair_age", "?"),
         "port=%s" % report.get("port", "?"),
         "shizuku=%s" % report.get("shizuku", "?"),
+        "tailscale=%s" % report.get("tailscale", "?"),
+        "tailscale_policy=%s" % report.get("tailscale_policy", "?"),
         "a11y=%s" % report.get("a11y", "?"),
         "autojs6_a11y=%s" % report.get("autojs6_a11y", "?"),
         "cfengine=%s" % report.get("cfengine", "?"),

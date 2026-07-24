@@ -329,6 +329,15 @@ class HostService : Service() {
                     Log.e(TAG, "repairCatastrophic IPC failed", e)
                 }
             }
+            if (line.contains("tailscale=down") || line.contains("tailscale_policy=down")) {
+                Log.w(TAG, "Tailscale runtime or always-on policy down — repairing")
+                try {
+                    val r = svc.repairTailscale()
+                    Log.i(TAG, "repairTailscale: $r")
+                } catch (e: RemoteException) {
+                    Log.e(TAG, "repairTailscale IPC failed", e)
+                }
+            }
         } catch (e: RemoteException) {
             Log.e(TAG, "runComonitor IPC failed", e)
             serviceRef.set(null)

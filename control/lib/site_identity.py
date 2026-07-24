@@ -344,8 +344,8 @@ def resolve_inventory_path(
     if example.is_file():
         return example
     raise FileNotFoundError(
-        "No inventory available: set ANSIBLE_CONFIG or STAYTURGID_SITE_DIR to a "
-        "site overlay, or ensure ansible/inventory/hosts.yml.example exists"
+        "No inventory available: set ANSIBLE_CONFIG or STAYTURGID_SITE_DIR, "
+        "configure OPS_ROOT/.mysite, or ensure ansible/inventory/hosts.yml.example exists"
     )
 
 

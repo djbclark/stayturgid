@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/python
-# @heals: SSHD-RUNNING PORT5555-OPEN SHIZUKU-HEADLESS A11Y-AUTOJS6 MIRROR-PINNED PATH-CLEAN ET-CONFIG OS-RELEASE PKG-UPGRADE AUTOJS6-PROFILE SHIZUKU-PROFILE DEVICE-JSON ENV-FILE
+# @heals: SSHD-RUNNING PORT5555-OPEN SHIZUKU-HEADLESS A11Y-AUTOJS6 MIRROR-PINNED PATH-CLEAN ET-CONFIG OS-RELEASE PKG-UPGRADE AUTOJS6-PROFILE SHIZUKU-PROFILE DEVICE-JSON ENV-FILE TAILSCALE-VPN TAILSCALE-ALWAYSON
 """stayturgid-repair.py — Termux-side self-heal (deployed as ~/stayturgid_repair.py,
 reached via the ~/stayturgid_repair.py compat shim).
 
@@ -76,6 +76,10 @@ SDCARD_WATCHDOG_LOG = "/sdcard/stayturgid/logs/watchdog.log"
 SDCARD_WATCHDOG_JSONL = "/sdcard/stayturgid/logs/watchdog.jsonl"
 STATE_JSON = os.path.join(STG, "run", "state.json")
 A11Y_SVC = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
+TAILSCALE_PACKAGE = "com.tailscale.ipn"
+TAILSCALE_COORD = "100.100.100.100"
+TAILSCALE_RECEIVER = "com.tailscale.ipn/com.tailscale.ipn.IPNReceiver"
+TAILSCALE_ACTIVITY = "com.tailscale.ipn/com.tailscale.ipn.MainActivity"
 
 
 def ts():
@@ -270,6 +274,103 @@ def privileged_shell_expected():
     return True
 
 
+def _device_command(args, have_sh=False, timeout=15):
+    """Run a fixed Android shell command, preferring localhost adbd."""
+    if have_sh:
+        return sh_adb(" ".join(args), timeout=timeout)
+    return run(args, timeout=timeout)
+
+
+def _tailscale_installed(have_sh=False):
+    rc, out = _device_command(["pm", "path", TAILSCALE_PACKAGE], have_sh)
+    return rc == 0 and "package:" in out
+
+
+def _tailscale_runtime_up():
+    """Require both a tunnel interface and the coordinator probe."""
+    tunnel = False
+    try:
+        with open("/proc/net/dev") as f:
+            for line in f:
+                iface = line.split(":", 1)[0].strip()
+                if iface in ("tun0", "tailscale0"):
+                    tunnel = True
+                    break
+    except OSError:
+        pass
+    return tunnel and run(["ping", "-c", "1", "-W", "2", TAILSCALE_COORD], timeout=4)[0] == 0
+
+
+def _tailscale_policy_up(have_sh=False):
+    app = _device_command(["settings", "get", "secure", "always_on_vpn_app"], have_sh)[1].strip()
+    lockdown = _device_command(["settings", "get", "secure", "always_on_vpn_lockdown"], have_sh)[1].strip()
+    return app == TAILSCALE_PACKAGE and lockdown == "0"
+
+
+def _wait_for_tailscale(attempts=3):
+    for _ in range(attempts):
+        time.sleep(2)
+        if _tailscale_runtime_up():
+            return True
+    return False
+
+
+def ensure_tailscale(have_sh=False):
+    """Restore always-on policy and request runtime reconnect when possible.
+
+    Tailscale's exported CONNECT_VPN receiver is the supported headless path.
+    Some Fire OS / WorkManager combinations reject its expedited worker; the
+    activity fallback may then require an unlocked operator action. Never
+    report repair unless both policy and runtime verify healthy.
+    """
+    if read_device_profile().get("tailscaleEnabled") is False:
+        return "skip"
+    if not _tailscale_installed(have_sh):
+        return "skip"
+
+    _device_command(
+        ["settings", "put", "secure", "always_on_vpn_app", TAILSCALE_PACKAGE],
+        have_sh,
+    )
+    _device_command(
+        ["settings", "put", "secure", "always_on_vpn_lockdown", "0"],
+        have_sh,
+    )
+    policy_ok = _tailscale_policy_up(have_sh)
+    if _tailscale_runtime_up():
+        if policy_ok:
+            return "up"
+        log("Tailscale runtime up but always-on policy repair FAILED", ERR)
+        return "FAILED"
+
+    _device_command(
+        [
+            "am",
+            "broadcast",
+            "--include-stopped-packages",
+            "-a",
+            "com.tailscale.ipn.CONNECT_VPN",
+            "-n",
+            TAILSCALE_RECEIVER,
+        ],
+        have_sh,
+    )
+    restored = _wait_for_tailscale()
+    if not restored:
+        _device_command(["am", "start", "-n", TAILSCALE_ACTIVITY], have_sh)
+        restored = _wait_for_tailscale(attempts=2)
+
+    if restored and policy_ok:
+        log("Tailscale runtime/policy restored", NOTICE)
+        return "repaired"
+    log(
+        "Tailscale repair FAILED (runtime=%s policy=%s); unlocked operator action may be required"
+        % ("up" if restored else "down", "up" if policy_ok else "down"),
+        ERR,
+    )
+    return "FAILED"
+
+
 def ensure_wireless_debugging():
     """Assess the localhost shell bridge and repair the toggle when possible.
 
@@ -349,8 +450,17 @@ def duplicate_branch():
             existing = ""
         et_cfg = "up" if "STAYTURGID-CONTROL-ET" in existing and "IdentityFile" in existing else "down"
     status = (
-        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s os_release=skip pkg_upgrade=skip auto_profile=skip shizuku_profile=skip device_profile=skip env=skip"
-        % (port, shizuku, sshd, a11y, "yes" if sh else "no", wifi, et_cfg)
+        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s tailscale=%s et_cfg=%s os_release=skip pkg_upgrade=skip auto_profile=skip shizuku_profile=skip device_profile=skip env=skip"
+        % (
+            port,
+            shizuku,
+            sshd,
+            a11y,
+            "yes" if sh else "no",
+            wifi,
+            "up" if _tailscale_runtime_up() else "unknown",
+            et_cfg,
+        )
     )
     log(status + " rc=0 (skipped-duplicate)")
     _write_status(status)
@@ -908,8 +1018,13 @@ def main():
     # --- 9. Env file presence (STAYTURGID_SD, NO_LOCAL_ADB, etc.) ---
     env_file = "present" if os.path.isfile(_ENV_FILE) else "MISSING"
 
+    # --- 10. Tailscale runtime and non-lockdown always-on policy ---
+    tailscale = ensure_tailscale(have_sh=have_sh)
+    if tailscale == "FAILED":
+        rc = 1
+
     status = (
-        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s et_cfg=%s os_release=%s pkg_upgrade=%s auto_profile=%s shizuku_profile=%s device_profile=%s env=%s"
+        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s tailscale=%s et_cfg=%s os_release=%s pkg_upgrade=%s auto_profile=%s shizuku_profile=%s device_profile=%s env=%s"
         % (
             port,
             shizuku,
@@ -917,6 +1032,7 @@ def main():
             a11y,
             "yes" if have_sh else "no",
             wifi,
+            tailscale,
             et_cfg,
             os_release,
             pkg_upgrade,

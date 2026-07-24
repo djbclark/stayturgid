@@ -21,6 +21,8 @@ object ComonitorProbes {
     private const val TAG = "StayTurgidComo"
     private const val LOG_PATH = "/sdcard/stayturgid/logs/agent.log"
     private const val A11Y_AUTOJS6 = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityService"
+    private const val TAILSCALE_PACKAGE = "com.tailscale.ipn"
+    private const val TAILSCALE_COORD = "100.100.100.100"
 
     data class Status(
         val port: String,
@@ -29,10 +31,12 @@ object ComonitorProbes {
         val a11y: String,
         val shell: String,
         val wifi: String,
+        val tailscale: String,
+        val tailscalePolicy: String,
         val reason: String,
     ) {
         fun line(ts: String): String =
-            "[agent] STATUS port=$port shizuku=$shizuku sshd=$sshd a11y=$a11y shell=$shell wifi=$wifi reason=$reason ts=$ts uid=${Process.myUid()}"
+            "[agent] STATUS port=$port shizuku=$shizuku sshd=$sshd a11y=$a11y shell=$shell wifi=$wifi tailscale=$tailscale tailscale_policy=$tailscalePolicy reason=$reason ts=$ts uid=${Process.myUid()}"
     }
 
     fun runAndLog(): String {
@@ -52,6 +56,8 @@ object ComonitorProbes {
         val port5555 = probePort5555()
         val shell = if (port5555 == "open") "yes" else "no"
         val wifi = probeWifi()
+        val tailscale = probeTailscale()
+        val tailscalePolicy = probeTailscalePolicy()
         val reason = "agent-comonitor"
         return Status(
             port = port5555,
@@ -60,8 +66,31 @@ object ComonitorProbes {
             a11y = a11y,
             shell = shell,
             wifi = wifi,
+            tailscale = tailscale,
+            tailscalePolicy = tailscalePolicy,
             reason = reason,
         )
+    }
+
+    private fun probeTailscale(): String {
+        val installed = shellOut(arrayOf("pm", "path", TAILSCALE_PACKAGE), 4)
+        if (installed.isNullOrBlank() || !installed.contains("package:")) return "skip"
+        val netDev = readText("/proc/net/dev").orEmpty()
+        val tunnelUp =
+            netDev.lineSequence().any { line ->
+                val iface = line.substringBefore(':').trim()
+                iface == "tun0" || iface == "tailscale0"
+            }
+        val coordinatorUp = commandOk(arrayOf("ping", "-c", "1", "-W", "2", TAILSCALE_COORD), 4)
+        return if (tunnelUp && coordinatorUp) "up" else "down"
+    }
+
+    private fun probeTailscalePolicy(): String {
+        val installed = shellOut(arrayOf("pm", "path", TAILSCALE_PACKAGE), 4)
+        if (installed.isNullOrBlank() || !installed.contains("package:")) return "skip"
+        val app = settingsGet("secure", "always_on_vpn_app")?.trim()
+        val lockdown = settingsGet("secure", "always_on_vpn_lockdown")?.trim()
+        return if (app == TAILSCALE_PACKAGE && lockdown == "0") "up" else "down"
     }
 
     private fun probeA11yListed(): String {
@@ -134,6 +163,14 @@ object ComonitorProbes {
                 return true
             }
         }
+        // Fire OS can hide adbd's socket from /proc even for UID 2000 while
+        // `ss -ltn` still reports the live listener. `ss` may emit a netlink
+        // permission warning first, so match only LISTEN table addresses.
+        val ss = shellOut(arrayOf("ss", "-ltn"), 4).orEmpty()
+        val portPattern = Regex("""(?:^|\s)(?:\*|[0-9A-Fa-f:.]+):$port(?:\s|$)""")
+        if (ss.lineSequence().any { it.contains("LISTEN") && portPattern.containsMatchIn(it) }) {
+            return true
+        }
         return false
     }
 
@@ -155,6 +192,28 @@ object ComonitorProbes {
         } catch (t: Throwable) {
             Log.w(TAG, "shellOut ${cmd.joinToString(" ")}: ${t.message}")
             null
+        }
+    }
+
+    private fun commandOk(
+        cmd: Array<String>,
+        timeoutSec: Long,
+    ): Boolean {
+        return try {
+            val p =
+                ProcessBuilder(*cmd)
+                    .redirectErrorStream(true)
+                    .start()
+            val finished = p.waitFor(timeoutSec, TimeUnit.SECONDS)
+            if (!finished) {
+                p.destroyForcibly()
+                false
+            } else {
+                p.exitValue() == 0
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "commandOk ${cmd.joinToString(" ")}: ${t.message}")
+            false
         }
     }
 

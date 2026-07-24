@@ -24,11 +24,6 @@ bugs/follow-ups) for what's actually available to pick up next.
 
 **Active blockers:**
 
-- **Site discovery hardening — next on the stack.** Exclude `site-private`
-  from `site-*` overlay discovery, add `~/ops/.mysite` fallback, always print
-  which site dir a command uses, ensure `site-private` exists. Tracked in
-  [#48](https://github.com/djbclark/stayturgid/issues/48) (includes the full
-  list of docs to update when the code lands).
 - K1 native-agent cutover (2026-07-22) is **not fully verified** — only one
   device confirmed post-cutover. Tracked in
   [#43](https://github.com/djbclark/stayturgid/issues/43) and
@@ -111,7 +106,7 @@ just health && just firerpa-health
 - **SSH CA:** `~/.ssh/stayturgid_ca` — `just ca-status`
 - **OpenCode web:** site-local service (see site overlay / landing); not a public fixed IP
 - **Secrets:** managed via `secretspec` (`brew install secretspec`). Spec at `secretspec.toml` (project root). All secrets defined there; run `just secretspec-check` before deploys.
-- **Site inventory:** today resolved via `ANSIBLE_CONFIG`, `STAYTURGID_SITE_DIR`, or a single discovered `site-*` checkout under `OPS_ROOT` (default `~/ops`); see `control/lib/ansible_context.py`. **Intended next** ([#48](https://github.com/djbclark/stayturgid/issues/48)): same env vars, then `OPS_ROOT/.mysite`, then `site-*` **excluding** `site-private`; commands should print which site dir they used; ensure `~/ops/site-private` exists.
+- **Site inventory:** resolved via `ANSIBLE_CONFIG`, `STAYTURGID_SITE_DIR`, `OPS_ROOT/.mysite`, or one discovered `site-*` checkout under `OPS_ROOT` (default `~/ops`), excluding `site-private`; see `control/lib/site_discovery.py` and `control/lib/ansible_context.py`. Commands print the selected path and precedence source. A missing private companion is created at `STAYTURGID_PRIVATE_DIR` (default `OPS_ROOT/site-private`) without Git or secret initialization.
 
 ## Example fleet (generic — not a live site)
 
@@ -172,7 +167,7 @@ cannot follow relative links across repos); also give the filesystem path
 **Symlinks (filesystem) are reserved for** root-level `~` agent/vendor files
 (`~/AGENTS.md`, `~/CLAUDE.md`, and any other root-level vendor-specific agent
 instruction files), tool memory dirs under `~/.claude/.../memory`, and
-optionally `~/ops/.mysite` → `site-<name>` (local convenience; see [#48](https://github.com/djbclark/stayturgid/issues/48)).
+optionally `~/ops/.mysite` → `site-<name>` (supported local convenience).
 Do **not** use in-repo symlinks to reach sibling repos — use path + https links
 in prose instead.
 

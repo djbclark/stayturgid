@@ -10,7 +10,7 @@
       ]
     },
     "native_agent": {
-      "description": "Native Kotlin agent (Phase 1-4) handling co-monitor + catastrophic Shizuku repair without a11y UI dependencies",
+      "description": "Native Kotlin agent handling co-monitor, Tailscale relaunch, and catastrophic Shizuku repair without a11y UI dependencies",
       "files": [
         "device/native-agent/app/src/main/kotlin/org/stayturgid/agent/HostService.kt",
         "device/native-agent/app/src/main/kotlin/org/stayturgid/agent/CatastrophicRepair.kt"
@@ -25,7 +25,7 @@
       "files": ["control/bin/firerpa_heal.py"]
     },
     "fleet_health": {
-      "description": "Mac launchd fleet-health auto-heals (a11y merge, watchdog restart, native-agent restart, HD8 stack, ET reconcile, repair restart)",
+      "description": "Mac launchd fleet-health observation and auto-heals (native-agent restart, HD8 stack, ET reconcile, repair restart)",
       "files": [
         "control/bin/fleet_health_monitor.py",
         "control/lib/fleet_health.py",
@@ -39,6 +39,7 @@
         "ansible_collections/stayturgid/termux/roles/termux_userland/tasks/control_et.yml",
         "ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ssh_keys.yml",
         "ansible_collections/stayturgid/fleet/roles/validate/tasks/main.yml",
+        "ansible_collections/stayturgid/android_common/roles/tailscale_vpn/tasks/main.yml",
         "ansible_collections/stayturgid/firerpa/roles/firerpa/tasks/configure.yml",
         "ansible_collections/stayturgid/firerpa/roles/firerpa/tasks/service.yml"
       ]
@@ -55,7 +56,7 @@
   "desired_states": {
     "SSHD-RUNNING": {
       "description": "sshd running on port 8022",
-      "must_cover": ["termux_repair", "cfengine", "firerpa", "native_agent"],
+      "must_cover": ["termux_repair", "cfengine", "firerpa"],
       "should_cover": ["ansible_deploy"]
     },
     "PORT5555-OPEN": {
@@ -70,7 +71,7 @@
     },
     "A11Y-AUTOJS6": {
       "description": "AutoJs6 accessibility service enabled (detection-only; user must enable manually)",
-      "must_cover": ["termux_repair", "fleet_health", "native_agent"],
+      "must_cover": ["termux_repair", "fleet_health"],
       "should_cover": ["cfengine", "ansible_deploy"]
     },
     "MIRROR-PINNED": {
@@ -95,12 +96,12 @@
     },
     "TAILSCALE-VPN": {
       "description": "Tailscale VPN tunnel running (tun0 up + ping)",
-      "must_cover": ["native_agent"],
+      "must_cover": ["termux_repair", "native_agent", "ansible_deploy"],
       "should_cover": []
     },
     "TAILSCALE-ALWAYSON": {
       "description": "Tailscale always-on VPN enabled in system settings",
-      "must_cover": ["ansible_deploy"],
+      "must_cover": ["termux_repair", "native_agent", "ansible_deploy"],
       "should_cover": []
     },
     "SSHD-PENALTIES": {
@@ -147,11 +148,6 @@
       "description": "Termux boot loop (start_adb.py managed by start-adb.sh shim) running",
       "must_cover": ["firerpa"],
       "should_cover": ["cfengine", "fleet_health"]
-    },
-    "WATCHDOG-FRESH": {
-      "description": "AutoJs6 watchdog alive and logging within 30 min",
-      "must_cover": ["fleet_health"],
-      "should_cover": []
     },
     "AGENT-FRESH": {
       "description": "native-agent co-monitor STATUS fresh in agent.log (OPTIONS K1, post-cutover)",

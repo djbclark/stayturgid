@@ -1,6 +1,7 @@
 ---
 # Always-on VPN for Tailscale — adb settings put on the Mac (Fire-safe).
 # Prerequisite: com.tailscale.ipn installed (Obtainium catalog).
+# @heals: TAILSCALE-VPN TAILSCALE-ALWAYSON
 
 - name: Resolve fleet alias to adb target (USB serial preferred)
   ansible.builtin.set_fact:

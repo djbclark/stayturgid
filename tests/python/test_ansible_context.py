@@ -1,9 +1,8 @@
 """Configuration precedence tests for the product/site Ansible boundary.
 
 Resolution rule (multi-site-topology.md §4.8): explicit ``ANSIBLE_CONFIG``
-wins; else explicit ``STAYTURGID_SITE_DIR``; else exactly one discovered
-``site-*`` checkout under ``OPS_ROOT`` (default ``~/ops``). Zero or multiple
-discovery matches fail — there is no operator-specific default directory.
+wins; else explicit ``STAYTURGID_SITE_DIR``; else ``OPS_ROOT/.mysite``; else
+exactly one discovered ``site-*`` checkout excluding ``site-private``.
 """
 
 from pathlib import Path
@@ -89,7 +88,7 @@ def test_single_site_checkout_is_discovered_under_ops_root(tmp_path):
 
     context = ac.resolve_ansible_context(repo, {"OPS_ROOT": str(tmp_path / "ops")})
 
-    assert context.source == "site overlay"
+    assert context.source == "site-* discovery"
     assert context.config == config
     ac.require_inventory(context)
 
@@ -100,8 +99,9 @@ def test_zero_discovered_sites_fails_with_instructions(tmp_path):
     (repo / "ansible").mkdir(parents=True)
     write_config(repo / "ansible")
 
-    with pytest.raises(ac.AnsibleConfigError, match="ANSIBLE_CONFIG or STAYTURGID_SITE_DIR"):
+    with pytest.raises(ac.AnsibleConfigError, match="ANSIBLE_CONFIG, STAYTURGID_SITE_DIR, or OPS_ROOT/.mysite"):
         ac.resolve_ansible_context(repo, {"OPS_ROOT": str(tmp_path / "ops")})
+    assert (tmp_path / "ops" / "site-private").is_dir()
 
 
 def test_multiple_discovered_sites_fail_with_instructions(tmp_path):
@@ -113,6 +113,22 @@ def test_multiple_discovered_sites_fail_with_instructions(tmp_path):
 
     with pytest.raises(ac.AnsibleConfigError, match="Ambiguous site overlay"):
         ac.resolve_ansible_context(repo, {"OPS_ROOT": str(tmp_path / "ops")})
+
+
+def test_explicit_private_companion_is_rejected(tmp_path):
+    repo = tmp_path / "repo"
+    site = tmp_path / "ops" / "site-private"
+    site.mkdir(parents=True)
+    write_config(site)
+
+    with pytest.raises(ac.AnsibleConfigError, match="reserved for the private companion"):
+        ac.resolve_ansible_context(
+            repo,
+            {
+                "OPS_ROOT": str(tmp_path / "ops"),
+                "STAYTURGID_SITE_DIR": str(site),
+            },
+        )
 
 
 def test_no_operator_specific_default_in_module_source():

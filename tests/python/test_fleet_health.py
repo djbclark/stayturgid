@@ -56,7 +56,7 @@ def test_evaluate_healthy():
     assert fh.evaluate_health(report) == []
 
 
-def test_evaluate_watchdog_stale():
+def test_evaluate_retired_watchdog_stale_is_telemetry_only():
     report = {
         "ssh_echo": "ok",
         "sshd": "ok",
@@ -66,12 +66,11 @@ def test_evaluate_watchdog_stale():
         "autojs6_a11y": "ok",
     }
     issues = fh.evaluate_health(report)
-    assert "watchdog_stale" in issues
-    # Settings lists AutoJs6 but watchdog quiet → sticky-a11y heuristic
-    assert "autojs6_a11y_stale" in issues
+    assert "watchdog_stale" not in issues
+    assert "autojs6_a11y_stale" not in issues
 
 
-def test_evaluate_autojs6_a11y_stale_missing_watchdog():
+def test_evaluate_retired_watchdog_missing_is_telemetry_only():
     report = {
         "ssh_echo": "ok",
         "sshd": "ok",
@@ -81,12 +80,11 @@ def test_evaluate_autojs6_a11y_stale_missing_watchdog():
         "autojs6_a11y": "ok",
     }
     issues = fh.evaluate_health(report)
-    assert "watchdog_missing" in issues
-    assert "autojs6_a11y_stale" in issues
+    assert "watchdog_missing" not in issues
+    assert "autojs6_a11y_stale" not in issues
 
 
-def test_evaluate_no_a11y_stale_when_autojs_missing():
-    """Missing from settings is autojs6_a11y_missing only, not sticky."""
+def test_evaluate_retired_autojs_a11y_is_telemetry_only():
     report = {
         "ssh_echo": "ok",
         "sshd": "ok",
@@ -96,7 +94,7 @@ def test_evaluate_no_a11y_stale_when_autojs_missing():
         "autojs6_a11y": "missing",
     }
     issues = fh.evaluate_health(report)
-    assert "autojs6_a11y_missing" in issues
+    assert "autojs6_a11y_missing" not in issues
     assert "autojs6_a11y_stale" not in issues
 
 
@@ -132,7 +130,7 @@ def test_evaluate_a11y_and_ssh_echo():
     issues = fh.evaluate_health(report)
     assert "ssh_echo" in issues
     assert "a11y_failed" in issues
-    assert "autojs6_a11y_missing" in issues
+    assert "autojs6_a11y_missing" not in issues
 
 
 def test_summarize_includes_issues():
@@ -146,8 +144,7 @@ def test_summarize_includes_agent_age():
     assert "agent_age=42" in s
 
 
-def test_evaluate_agent_missing_is_not_hard_fail():
-    """During dual-run, hosts without the APK must not fail fleet health."""
+def test_evaluate_agent_missing_is_hard_fail_after_cutover():
     report = {
         "ssh_echo": "ok",
         "sshd": "ok",
@@ -161,7 +158,7 @@ def test_evaluate_agent_missing_is_not_hard_fail():
         "port": "open",
         "shizuku": "up",
     }
-    assert fh.evaluate_health(report) == []
+    assert fh.evaluate_health(report) == ["agent_missing"]
 
 
 def test_evaluate_agent_stale():
@@ -183,9 +180,27 @@ def test_evaluate_agent_stale():
     assert "watchdog_stale" not in issues
 
 
+def test_evaluate_tailscale_down():
+    assert fh.evaluate_health({"tailscale": "down"}) == ["tailscale_down"]
+
+
+def test_evaluate_tailscale_policy_down():
+    assert fh.evaluate_health({"tailscale_policy": "down"}) == ["tailscale_policy_down"]
+
+
+def test_normalize_status_fields_includes_tailscale():
+    report = {
+        "status_line": (
+            "[agent] STATUS port=open shizuku=up a11y=down tailscale=up tailscale_policy=down reason=agent-comonitor"
+        )
+    }
+    fh._normalize_status_fields(report)
+    assert report["tailscale"] == "up"
+    assert report["tailscale_policy"] == "down"
+
+
 def test_monitor_notifies_after_debounce(tmp_path, monkeypatch):
     monkeypatch.setattr(fhm, "STATE_DIR", str(tmp_path))
-    monkeypatch.setattr(fhm, "HEAL_STATE_DIR", str(tmp_path / "heal"))
     monkeypatch.setattr(fhm, "SKIP_HEALTH", False)
     monkeypatch.setattr(fhm, "SKIP_WATCHDOG_HEAL", True)  # isolate notify test
     monkeypatch.setattr(
@@ -199,6 +214,7 @@ def test_monitor_notifies_after_debounce(tmp_path, monkeypatch):
                 "bootloop": "ok",
                 "shell5555": "ok",
                 "watchdog_age": "99999",
+                "agent_age": "99999",
                 "repair_age": "10",
                 "a11y": "ok",
                 "autojs6_a11y": "ok",
@@ -220,74 +236,18 @@ def test_monitor_notifies_after_debounce(tmp_path, monkeypatch):
 
     fhm.check_device("oneui-device", "100.1", "192.1")
     assert not notifs
-    assert any("watchdog_stale" in m for m in logs)
+    assert any("agent_stale" in m for m in logs)
     fhm.check_device("oneui-device", "100.1", "192.1")
-    assert len(notifs) == 1 and "watchdog_stale" in notifs[0][1]
+    assert len(notifs) == 1 and "agent_stale" in notifs[0][1]
 
 
-def test_monitor_heals_stale_watchdog(tmp_path, monkeypatch):
+def test_monitor_agent_heal_failure_skips_cooldown(tmp_path, monkeypatch):
     monkeypatch.setattr(fhm, "STATE_DIR", str(tmp_path))
-    monkeypatch.setattr(fhm, "HEAL_STATE_DIR", str(tmp_path / "heal"))
+    heal_dir = tmp_path / "agent-heal"
+    monkeypatch.setattr(fhm, "AGENT_HEAL_STATE_DIR", str(heal_dir))
     monkeypatch.setattr(fhm, "SKIP_HEALTH", False)
     monkeypatch.setattr(fhm, "SKIP_WATCHDOG_HEAL", False)
-    monkeypatch.setattr(fhm, "WATCHDOG_HEAL_AFTER", 2)
-    monkeypatch.setattr(
-        fhm.fh,
-        "probe_device",
-        lambda name, ts, lan: (
-            "adb:1.1.1.1:5555",
-            {
-                "ssh_echo": "ok",
-                "sshd": "ok",
-                "bootloop": "ok",
-                "shell5555": "ok",
-                "watchdog_age": "99999",
-                "repair_age": "10",
-                "a11y": "ok",
-                "autojs6_a11y": "ok",
-                "port": "open",
-                "shizuku": "up",
-            },
-        ),
-    )
-    calls = []
-
-    def fake_run(args, **kw):
-        calls.append(args)
-
-        class R:
-            returncode = 0
-            stdout = "Starting main.js\n"
-            stderr = ""
-
-        return R()
-
-    monkeypatch.setattr(fhm.subprocess, "run", fake_run)
-    monkeypatch.setattr(fhm, "notify", lambda *a, **k: None)
-    monkeypatch.setattr(fhm, "_fleet_log", lambda *_: None)
-    # Ensure script path exists check passes
-    script = tmp_path / "start_watchdog.py"
-    script.write_text("#!/usr/bin/env python3\n")
-    monkeypatch.setattr(fhm, "REPO", str(tmp_path))
-    # maybe_heal looks for control/tools/autojs6/start_watchdog.py under REPO
-    (tmp_path / "control" / "tools" / "autojs6").mkdir(parents=True)
-    (tmp_path / "control" / "tools" / "autojs6" / "start_watchdog.py").write_text("x")
-
-    fhm.check_device("oneui-device", "100.1", "192.1")
-    assert not any(any("start_watchdog.py" in str(part) for part in call) for call in calls)
-    fhm.check_device("oneui-device", "100.1", "192.1")
-    watchdog_calls = [call for call in calls if any("start_watchdog.py" in str(part) for part in call)]
-    assert len(watchdog_calls) == 1
-    assert watchdog_calls[0][2:] == ["oneui-device", "1.1.1.1:5555"]
-
-
-def test_monitor_heal_failure_skips_cooldown(tmp_path, monkeypatch):
-    monkeypatch.setattr(fhm, "STATE_DIR", str(tmp_path))
-    heal_dir = tmp_path / "heal"
-    monkeypatch.setattr(fhm, "HEAL_STATE_DIR", str(heal_dir))
-    monkeypatch.setattr(fhm, "SKIP_HEALTH", False)
-    monkeypatch.setattr(fhm, "SKIP_WATCHDOG_HEAL", False)
-    monkeypatch.setattr(fhm, "WATCHDOG_HEAL_AFTER", 1)
+    monkeypatch.setattr(fhm, "AGENT_HEAL_AFTER", 1)
     monkeypatch.setattr(
         fhm.fh,
         "probe_device",
@@ -296,6 +256,7 @@ def test_monitor_heal_failure_skips_cooldown(tmp_path, monkeypatch):
             {
                 "ssh_echo": "ok",
                 "watchdog_age": "99999",
+                "agent_age": "99999",
                 "repair_age": "10",
                 "sshd": "ok",
                 "bootloop": "ok",
@@ -320,8 +281,8 @@ def test_monitor_heal_failure_skips_cooldown(tmp_path, monkeypatch):
     monkeypatch.setattr(fhm, "notify", lambda *a, **k: None)
     monkeypatch.setattr(fhm, "_fleet_log", lambda *_: None)
     monkeypatch.setattr(fhm, "REPO", str(tmp_path))
-    (tmp_path / "control" / "tools" / "autojs6").mkdir(parents=True)
-    (tmp_path / "control" / "tools" / "autojs6" / "start_watchdog.py").write_text("x")
+    (tmp_path / "control" / "tools" / "native-agent").mkdir(parents=True)
+    (tmp_path / "control" / "tools" / "native-agent" / "start_agent.py").write_text("x")
 
     fhm.check_device("oneui-device", "100.1", "192.1")
     assert not (heal_dir / "oneui-device").exists()
@@ -385,7 +346,6 @@ def test_monitor_heals_stale_agent(tmp_path, monkeypatch):
     monkeypatch.setattr(fhm, "SKIP_HEALTH", False)
     monkeypatch.setattr(fhm, "SKIP_WATCHDOG_HEAL", False)
     monkeypatch.setattr(fhm, "AGENT_HEAL_AFTER", 2)
-    monkeypatch.setattr(fhm, "WATCHDOG_HEAL_AFTER", 99)  # isolate agent heal
     monkeypatch.setattr(
         fhm.fh,
         "probe_device",

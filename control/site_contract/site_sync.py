@@ -19,12 +19,19 @@ import os
 import shlex
 import subprocess
 import sys
-from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Literal, Sequence, TextIO
 
+from control.lib.site_discovery import (
+    SiteDiscoveryError,
+    SiteSelection,
+    announce_site_selection,
+    ensure_private_companion,
+    reject_private_companion_overlay,
+    resolve_site_selection,
+)
 from control.site_contract.site_map import SiteMap, SiteMapError, load_site_map
 
 try:
@@ -139,14 +146,6 @@ class SyncPlan:
         if self.lockfile_action != "skip":
             return True
         return any(item.action != "skip" for item in self.files)
-
-
-def _ops_root(env: Mapping[str, str] | None = None) -> Path:
-    environ = env if env is not None else os.environ
-    raw = environ.get("OPS_ROOT", "").strip()
-    if raw:
-        return Path(raw).expanduser().resolve()
-    return (Path.home() / "ops").resolve()
 
 
 def _reject_nested_in_product(destination: Path, product_root: Path) -> None:
@@ -268,10 +267,16 @@ def resolve_site_dir(
     dir_path: str | None = None,
     product_root: Path | None = None,
     env: dict[str, str] | None = None,
+    announcement_stream: TextIO | None = None,
 ) -> Path:
-    """Resolve the site directory (explicit dir, STAYTURGID_SITE_DIR, or discovery)."""
+    """Resolve and announce the site directory selected by the shared contract."""
     product = (product_root or REPO_ROOT).resolve()
     environ = env if env is not None else os.environ
+
+    try:
+        ensure_private_companion(environ)
+    except SiteDiscoveryError as exc:
+        raise SiteSyncError(str(exc)) from exc
 
     if dir_path and str(dir_path).strip():
         destination = Path(dir_path).expanduser()
@@ -286,9 +291,17 @@ def resolve_site_dir(
             destination = Path(site_env).expanduser().resolve()
             source = "STAYTURGID_SITE_DIR"
         else:
-            destination = _discover_single_site_dir(environ)
-            source = "site overlay discovery"
+            try:
+                selection = resolve_site_selection(environ)
+            except SiteDiscoveryError as exc:
+                raise SiteSyncError(str(exc)) from exc
+            destination = selection.path
+            source = selection.source
 
+    try:
+        reject_private_companion_overlay(destination, environ)
+    except SiteDiscoveryError as exc:
+        raise SiteSyncError(str(exc)) from exc
     _reject_nested_in_product(destination, product)
 
     if not destination.exists():
@@ -296,27 +309,12 @@ def resolve_site_dir(
     if not destination.is_dir():
         raise SiteSyncError(f"site path is not a directory ({source}): {destination}")
 
-    return destination
-
-
-def _discover_single_site_dir(environ: Mapping[str, str]) -> Path:
-    """Exactly one site-* checkout under OPS_ROOT; zero/multiple → exit 1."""
-    ops = _ops_root(environ)
-    if not ops.is_dir():
-        raise SiteSyncError(f"OPS_ROOT is not a directory: {ops}. Set dir= or STAYTURGID_SITE_DIR explicitly.")
-    candidates = sorted(p for p in ops.glob("site-*") if p.is_dir())
-    if len(candidates) == 1:
-        return candidates[0].resolve()
-    if not candidates:
-        raise SiteSyncError(
-            f"No site overlay found under {ops} (no site-* directory). "
-            "Set dir= or STAYTURGID_SITE_DIR to select a site directory."
-        )
-    listing = ", ".join(str(c) for c in candidates)
-    raise SiteSyncError(
-        f"Ambiguous site overlay: multiple site-* directories under {ops} ({listing}). "
-        "Set dir= or STAYTURGID_SITE_DIR to select one."
+    announce_site_selection(
+        SiteSelection(path=destination, source=source),
+        stream=announcement_stream,
+        command="site-sync",
     )
+    return destination
 
 
 def load_lockfile(site_dir: Path) -> dict[str, Any] | None:
@@ -626,10 +624,16 @@ def build_plan(
     product_version: str | None = None,
     product_commit: str | None = None,
     synced: str | None = None,
+    announcement_stream: TextIO | None = None,
 ) -> SyncPlan:
     """Compute the full sync plan without writing anything."""
     product = (product_root or REPO_ROOT).resolve()
-    destination = resolve_site_dir(dir_path=dir_path, product_root=product, env=env)
+    destination = resolve_site_dir(
+        dir_path=dir_path,
+        product_root=product,
+        env=env,
+        announcement_stream=announcement_stream,
+    )
     try:
         site_map = load_site_map(site_dir=destination, product_root=product)
     except SiteMapError as exc:
@@ -1018,7 +1022,9 @@ def _docs_markdown() -> str:
         f"1. Public product checkout available (example path: `{_DOCS_PRODUCT_ROOT}`).",
         f"2. Existing site directory (example: `{_DOCS_SITE_DIR}`) not nested inside the product tree (ADR 005).",
         "3. Destination resolution: explicit `dir=`, else `STAYTURGID_SITE_DIR`, else",
-        "   exactly one `site-*` under `$OPS_ROOT` (default `~/ops`). No hardcoded site name.",
+        "   `$OPS_ROOT/.mysite`, else exactly one `site-*` under `$OPS_ROOT` (default",
+        "   `~/ops`), excluding reserved `site-private`. The command prints the selected",
+        "   directory and precedence source.",
         "4. Product identity: `version.json` → `product_version`; `git rev-parse HEAD` → `product_commit`.",
         "5. Manifest: `control/site_contract/sync_manifest.yml` lists every managed path",
         f"   under `generated/{PRODUCT}/`.",
@@ -1140,6 +1146,7 @@ def run_site_sync(
             product_version=product_version,
             product_commit=product_commit,
             synced=synced,
+            announcement_stream=err,
         )
         action_list = format_action_list(plan)
         # Planned before any write so a foreign live config (exit 2) or bad

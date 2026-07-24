@@ -1955,11 +1955,17 @@ def build_plan(
     apps: Sequence[str] | None = None,
     force_generated: bool = False,
     home: Path | None = None,
+    announcement_stream: TextIO | None = None,
 ) -> ServerAppsPlan:
     """Compute the full serverapps plan without writing anything."""
     product = (product_root or REPO_ROOT).resolve()
     try:
-        destination = resolve_site_dir(dir_path=dir_path, product_root=product, env=env)
+        destination = resolve_site_dir(
+            dir_path=dir_path,
+            product_root=product,
+            env=env,
+            announcement_stream=announcement_stream,
+        )
     except SiteSyncError as exc:
         raise ServerAppsError(str(exc), exit_code=exc.exit_code) from exc
     try:
@@ -2580,6 +2586,7 @@ def run_site_serverapps(
             apps=app_list,
             force_generated=force,
             home=home,
+            announcement_stream=err,
         )
         text = format_plan(plan)
         print(text, end="", file=out)
