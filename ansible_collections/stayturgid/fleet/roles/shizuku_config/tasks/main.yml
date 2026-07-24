@@ -11,6 +11,15 @@
   delegate_to: localhost
   when: not (stayturgid_no_local_adb | default(false) | bool)
 
+- name: Reconcile Shizuku background execution policy
+  stayturgid.android_common.android_app_privileges:
+    device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+    profiles:
+      - package: moe.shizuku.privileged.api
+        battery_unrestricted: true
+        disable_unused_restrictions: true
+  delegate_to: localhost
+
 - name: Create temporary file for Shizuku fleet profile staging
   ansible.builtin.tempfile:
     state: file
@@ -109,6 +118,8 @@
     device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
     connect: true
     action: moe.shizuku.privileged.api.HEADLESS_START
+    component: >-
+      moe.shizuku.privileged.api/moe.shizuku.manager.receiver.HeadlessStartStopReceiver
   changed_when: false
   failed_when: false
   delegate_to: localhost

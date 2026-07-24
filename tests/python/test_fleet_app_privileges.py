@@ -2,6 +2,7 @@
 
 import os
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -166,3 +167,25 @@ def test_battery_optimized_removes_whitelist_and_denies_background():
     assert any("appops set com.aurora.store RUN_ANY_IN_BACKGROUND ignore" in c for c in calls)
     items = results[0]["items"]
     assert any(i.get("status") == "unwhitelisted" for i in items)
+
+
+def test_legacy_bootstrap_battery_unrestricted_allows_background_execution():
+    repo_root = Path(__file__).resolve().parents[2]
+    task_file = (
+        repo_root / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml"
+    ).read_text()
+
+    assert "RUN_ANY_IN_BACKGROUND allow" in task_file
+    assert "RUN_IN_BACKGROUND allow" in task_file
+    assert "RUN_ANY_IN_BACKGROUND ignore" not in task_file
+    assert "RUN_IN_BACKGROUND ignore" not in task_file
+
+
+def test_shizuku_role_reconciles_background_execution_policy():
+    repo_root = Path(__file__).resolve().parents[2]
+    task_file = (repo_root / "ansible_collections/stayturgid/fleet/roles/shizuku_config/tasks/main.yml").read_text()
+
+    assert "android_app_privileges:" in task_file
+    assert "package: moe.shizuku.privileged.api" in task_file
+    assert "battery_unrestricted: true" in task_file
+    assert "moe.shizuku.manager.receiver.HeadlessStartStopReceiver" in task_file

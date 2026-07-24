@@ -96,8 +96,8 @@
 - name: Whitelist package from device idle (battery optimization) — {{ _apk.id }}
   ansible.builtin.shell: |
     adb -s "{{ _bootstrap_adb }}" shell dumpsys deviceidle whitelist +{{ _apk.id }}
-    adb -s "{{ _bootstrap_adb }}" shell cmd appops set {{ _apk.id }} RUN_ANY_IN_BACKGROUND ignore || true
-    adb -s "{{ _bootstrap_adb }}" shell cmd appops set {{ _apk.id }} RUN_IN_BACKGROUND ignore || true
+    adb -s "{{ _bootstrap_adb }}" shell cmd appops set {{ _apk.id }} RUN_ANY_IN_BACKGROUND allow || true
+    adb -s "{{ _bootstrap_adb }}" shell cmd appops set {{ _apk.id }} RUN_IN_BACKGROUND allow || true
   changed_when: false
   failed_when: false
   delegate_to: localhost
