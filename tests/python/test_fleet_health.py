@@ -188,6 +188,13 @@ def test_evaluate_tailscale_policy_down():
     assert fh.evaluate_health({"tailscale_policy": "down"}) == ["tailscale_policy_down"]
 
 
+def test_evaluate_tailscale_failed_states():
+    assert fh.evaluate_health({"tailscale": "FAILED", "tailscale_policy": "FAILED"}) == [
+        "tailscale_down",
+        "tailscale_policy_down",
+    ]
+
+
 def test_normalize_status_fields_includes_tailscale():
     report = {
         "status_line": (

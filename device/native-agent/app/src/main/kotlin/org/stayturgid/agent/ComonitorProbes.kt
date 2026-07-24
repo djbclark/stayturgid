@@ -22,7 +22,7 @@ object ComonitorProbes {
     private const val LOG_PATH = "/sdcard/stayturgid/logs/agent.log"
     private const val A11Y_AUTOJS6 = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityService"
     private const val TAILSCALE_PACKAGE = "com.tailscale.ipn"
-    private const val TAILSCALE_COORD = "100.100.100.100"
+    private const val TAILSCALE_CONTROL_HOST = "controlplane.tailscale.com"
 
     data class Status(
         val port: String,
@@ -81,8 +81,8 @@ object ComonitorProbes {
                 val iface = line.substringBefore(':').trim()
                 iface == "tun0" || iface == "tailscale0"
             }
-        val coordinatorUp = commandOk(arrayOf("ping", "-c", "1", "-W", "2", TAILSCALE_COORD), 4)
-        return if (tunnelUp && coordinatorUp) "up" else "down"
+        val controlPlaneUp = commandOk(arrayOf("ping", "-c", "1", "-W", "2", TAILSCALE_CONTROL_HOST), 4)
+        return if (tunnelUp && controlPlaneUp) "up" else "down"
     }
 
     private fun probeTailscalePolicy(): String {

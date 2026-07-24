@@ -11,8 +11,8 @@ android {
         applicationId = "org.stayturgid.agent"
         minSdk = 26
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.3.4-tailscale-verified"
+        versionCode = 9
+        versionName = "0.3.5-controlplane-verified"
     }
 
     buildFeatures {

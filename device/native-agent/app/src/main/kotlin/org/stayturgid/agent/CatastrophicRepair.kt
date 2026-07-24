@@ -152,7 +152,7 @@ object CatastrophicRepair {
 
         // Activity launch is a best-effort prompt/fallback. It may need an
         // unlocked screen and operator input, so success is still determined
-        // only by a fresh tunnel + coordinator probe.
+        // only by a fresh tunnel + Tailscale control-plane probe.
         shellOut(arrayOf("am", "start", "-n", TAILSCALE_COMPONENT), 8)
         val restored = waitForTailscaleUp(attempts = 3)
         val detail =

@@ -74,6 +74,7 @@ class ShizukuUserService : IStayTurgidService.Stub {
         return try {
             val r = CatastrophicRepair.repairTailscale()
             Log.i(TAG, "repairTailscale ok=${r.ok} detail=${r.detail}")
+            runComonitor()
             "ok=${r.ok} detail=${r.detail}"
         } catch (t: Throwable) {
             Log.e(TAG, "repairTailscale failed", t)

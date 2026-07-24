@@ -74,22 +74,26 @@ repair:
 
 ## Verification
 
-- `just test`: PASS — 133 TAP unit checks, 561 pytest tests plus one skip, and
+- `just test`: PASS — 133 TAP unit checks, 567 pytest tests plus one skip, and
   all `android_common`, `termux`, `obtainium`, `fdroid`, and `play` Ansible
   unit collections.
 - `just check`: PASS, including site-contract Entangled parity, all linters,
   generated-source checks, and public identity/secret drift checks.
-- Android debug APK: JDK 21 `:app:assembleDebug` PASS; v0.3.4
-  (`versionCode=8`) installed on the two authorized pilots.
+- Android debug APK: JDK 21 `:app:assembleDebug` PASS; v0.3.5
+  (`versionCode=9`) installed on all three fleet devices.
 - hd8 (USB-backed): fresh status reported `port=open`, `shizuku=up`,
   `sshd=up`, `tailscale=up`, and `tailscale_policy=up`. A forced policy drift
   to no always-on app was restored to `com.tailscale.ipn` with lockdown off
-  while coordinator reachability stayed up.
+  while Tailscale control-plane reachability stayed up.
 - s24: rollout completed without stopping Tailscale; fresh status reported
   `port=open`, `shizuku=up`, `sshd=up`, `tailscale=up`, and
   `tailscale_policy=up`.
+- p7a: rollout found the Tailscale always-on policy unset, repaired it, and
+  wrote a fresh status reporting `port=open`, `shizuku=up`, `sshd=up`,
+  `tailscale=up`, and `tailscale_policy=up`.
 - `site-djbclark`: registry lint and focused Prettier check PASS.
   `site-private`: focused Prettier and diff checks PASS.
-- Pre-change rollback APKs were captured locally for both pilots. The
+- Pre-change rollback APKs were captured locally for the initial hd8 and s24
+  pilots. The
   operator-authored dirty site decision file remained untouched and is
   excluded from this change set.

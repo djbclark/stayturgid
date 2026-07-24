@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import io
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -119,3 +120,35 @@ def test_tailscale_failed_receiver_and_activity_report_failure(monkeypatch):
     assert repair.ensure_tailscale() == "FAILED"
     assert any(command[:2] == ["am", "broadcast"] for command, _have_sh in commands)
     assert any(command[:2] == ["am", "start"] for command, _have_sh in commands)
+
+
+def test_tailscale_status_normalizes_runtime_and_policy(monkeypatch):
+    _setup_tailscale(monkeypatch)
+    monkeypatch.setattr(repair, "_tailscale_runtime_up", lambda: False)
+    monkeypatch.setattr(repair, "_tailscale_policy_up", lambda _have_sh=False: False)
+
+    assert repair._tailscale_status(have_sh=True) == ("down", "down")
+
+
+def test_tailscale_status_skips_disabled_profile(monkeypatch):
+    monkeypatch.setattr(repair, "read_device_profile", lambda: {"tailscaleEnabled": False})
+
+    assert repair._tailscale_status() == ("skip", "skip")
+
+
+def test_tailscale_runtime_probes_remote_control_plane(monkeypatch):
+    commands = []
+    monkeypatch.setattr("builtins.open", lambda _path: io.StringIO("tun0: 0 0 0 0\n"))
+    monkeypatch.setattr(
+        repair,
+        "run",
+        lambda args, timeout=15: commands.append((args, timeout)) or (0, ""),
+    )
+
+    assert repair._tailscale_runtime_up() is True
+    assert commands == [
+        (
+            ["ping", "-c", "1", "-W", "2", "controlplane.tailscale.com"],
+            4,
+        )
+    ]

@@ -222,9 +222,9 @@ def evaluate_health(report: dict[str, str], *, alias: str | None = None) -> list
     if shizuku in ("down", "dead", "failed", "false", "0"):
         issues.append("shizuku_down")
 
-    if report.get("tailscale") == "down":
+    if (report.get("tailscale") or "").lower() in ("down", "failed"):
         issues.append("tailscale_down")
-    if report.get("tailscale_policy") == "down":
+    if (report.get("tailscale_policy") or "").lower() in ("down", "failed"):
         issues.append("tailscale_policy_down")
 
     if alias:

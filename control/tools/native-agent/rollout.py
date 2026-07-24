@@ -120,7 +120,7 @@ def agent_processes(serial: str) -> tuple[list[str], list[str]]:
     return _pids(host.stdout), _pids(user_service.stdout)
 
 
-def rollout_one(label: str, serial: str) -> bool:
+def _rollout_one(label: str, serial: str) -> bool:
     print(f"\n=== {label} ({serial}) ===")
     if not device_online(serial):
         print("  SKIP: adb not online")
@@ -199,6 +199,16 @@ def rollout_one(label: str, serial: str) -> bool:
         return False
     print("  OK")
     return True
+
+
+def rollout_one(label: str, serial: str) -> bool:
+    """Roll out one device while always closing its announced control session."""
+
+    print(f"🚨📱🚨 USING — {label} — deploy and verify native agent — ~2 min")
+    try:
+        return _rollout_one(label, serial)
+    finally:
+        print(f"🟢📱🟢 FREE — {label} — native-agent rollout interaction complete")
 
 
 def main(argv: list[str] | None = None) -> int:

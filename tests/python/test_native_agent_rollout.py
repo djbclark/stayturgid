@@ -6,6 +6,8 @@ import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 MODULE_PATH = ROOT / "control" / "tools" / "native-agent" / "rollout.py"
 SPEC = importlib.util.spec_from_file_location("native_agent_rollout", MODULE_PATH)
@@ -50,3 +52,17 @@ def test_ensure_apk_passes_jdk_environment_to_build(tmp_path, monkeypatch) -> No
     assert rollout.ensure_apk() == apk
     assert observed["cmd"] == ["just", "agent-assemble"]
     assert observed["env"] is not None
+
+
+def test_rollout_announces_using_and_free_on_failure(monkeypatch, capsys) -> None:
+    def fail(_label: str, _serial: str) -> bool:
+        raise RuntimeError("test failure")
+
+    monkeypatch.setattr(rollout, "_rollout_one", fail)
+
+    with pytest.raises(RuntimeError, match="test failure"):
+        rollout.rollout_one("hd8", "serial")
+
+    output = capsys.readouterr().out
+    assert output.count("🚨📱🚨 USING — hd8 — deploy and verify native agent — ~2 min") == 1
+    assert output.count("🟢📱🟢 FREE — hd8 — native-agent rollout interaction complete") == 1

@@ -134,7 +134,7 @@ def resolve_destination(
     else:
         destination = (_ops_root(env) / f"site-{name}").resolve()
 
-    if destination == private_companion_path(env).resolve():
+    if destination.name == DEFAULT_PRIVATE_COMPANION_NAME or destination == private_companion_path(env).resolve():
         raise SiteInitError(f"destination {destination} is reserved for the private companion, not a site overlay")
     _reject_nested_in_product(destination, product)
     return destination

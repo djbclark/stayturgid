@@ -77,7 +77,7 @@ SDCARD_WATCHDOG_JSONL = "/sdcard/stayturgid/logs/watchdog.jsonl"
 STATE_JSON = os.path.join(STG, "run", "state.json")
 A11Y_SVC = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityServiceUsher"
 TAILSCALE_PACKAGE = "com.tailscale.ipn"
-TAILSCALE_COORD = "100.100.100.100"
+TAILSCALE_CONTROL_HOST = "controlplane.tailscale.com"
 TAILSCALE_RECEIVER = "com.tailscale.ipn/com.tailscale.ipn.IPNReceiver"
 TAILSCALE_ACTIVITY = "com.tailscale.ipn/com.tailscale.ipn.MainActivity"
 
@@ -287,7 +287,7 @@ def _tailscale_installed(have_sh=False):
 
 
 def _tailscale_runtime_up():
-    """Require both a tunnel interface and the coordinator probe."""
+    """Require both a tunnel interface and Tailscale control-plane reachability."""
     tunnel = False
     try:
         with open("/proc/net/dev") as f:
@@ -298,13 +298,24 @@ def _tailscale_runtime_up():
                     break
     except OSError:
         pass
-    return tunnel and run(["ping", "-c", "1", "-W", "2", TAILSCALE_COORD], timeout=4)[0] == 0
+    return tunnel and run(["ping", "-c", "1", "-W", "2", TAILSCALE_CONTROL_HOST], timeout=4)[0] == 0
 
 
 def _tailscale_policy_up(have_sh=False):
     app = _device_command(["settings", "get", "secure", "always_on_vpn_app"], have_sh)[1].strip()
     lockdown = _device_command(["settings", "get", "secure", "always_on_vpn_lockdown"], have_sh)[1].strip()
     return app == TAILSCALE_PACKAGE and lockdown == "0"
+
+
+def _tailscale_status(have_sh=False):
+    """Return normalized runtime and always-on policy states."""
+    if read_device_profile().get("tailscaleEnabled") is False:
+        return "skip", "skip"
+    if not _tailscale_installed(have_sh):
+        return "skip", "skip"
+    runtime = "up" if _tailscale_runtime_up() else "down"
+    policy = "up" if _tailscale_policy_up(have_sh) else "down"
+    return runtime, policy
 
 
 def _wait_for_tailscale(attempts=3):
@@ -449,8 +460,9 @@ def duplicate_branch():
         except OSError:
             existing = ""
         et_cfg = "up" if "STAYTURGID-CONTROL-ET" in existing and "IdentityFile" in existing else "down"
+    tailscale, tailscale_policy = _tailscale_status(have_sh=sh)
     status = (
-        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s tailscale=%s et_cfg=%s os_release=skip pkg_upgrade=skip auto_profile=skip shizuku_profile=skip device_profile=skip env=skip"
+        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s tailscale=%s tailscale_policy=%s et_cfg=%s os_release=skip pkg_upgrade=skip auto_profile=skip shizuku_profile=skip device_profile=skip env=skip"
         % (
             port,
             shizuku,
@@ -458,7 +470,8 @@ def duplicate_branch():
             a11y,
             "yes" if sh else "no",
             wifi,
-            "up" if _tailscale_runtime_up() else "unknown",
+            tailscale,
+            tailscale_policy,
             et_cfg,
         )
     )
@@ -1019,12 +1032,13 @@ def main():
     env_file = "present" if os.path.isfile(_ENV_FILE) else "MISSING"
 
     # --- 10. Tailscale runtime and non-lockdown always-on policy ---
-    tailscale = ensure_tailscale(have_sh=have_sh)
-    if tailscale == "FAILED":
+    tailscale_repair = ensure_tailscale(have_sh=have_sh)
+    tailscale, tailscale_policy = _tailscale_status(have_sh=have_sh)
+    if tailscale_repair == "FAILED" or tailscale == "down" or tailscale_policy == "down":
         rc = 1
 
     status = (
-        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s tailscale=%s et_cfg=%s os_release=%s pkg_upgrade=%s auto_profile=%s shizuku_profile=%s device_profile=%s env=%s"
+        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s tailscale=%s tailscale_policy=%s et_cfg=%s os_release=%s pkg_upgrade=%s auto_profile=%s shizuku_profile=%s device_profile=%s env=%s"
         % (
             port,
             shizuku,
@@ -1033,6 +1047,7 @@ def main():
             "yes" if have_sh else "no",
             wifi,
             tailscale,
+            tailscale_policy,
             et_cfg,
             os_release,
             pkg_upgrade,

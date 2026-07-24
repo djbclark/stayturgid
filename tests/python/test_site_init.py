@@ -537,6 +537,19 @@ def test_explicit_private_companion_destination_is_reserved(tmp_path: Path) -> N
         )
 
 
+def test_literal_private_destination_is_reserved_with_custom_companion(tmp_path: Path) -> None:
+    with pytest.raises(si.SiteInitError, match="reserved for the private companion"):
+        si.resolve_destination(
+            "example",
+            dir_path=str(tmp_path / "site-private"),
+            env={
+                "OPS_ROOT": str(tmp_path),
+                "STAYTURGID_PRIVATE_DIR": str(tmp_path / "custom-private"),
+            },
+            product_root=ROOT,
+        )
+
+
 # --- Acceptance test 6: docs mode ------------------------------------------
 
 

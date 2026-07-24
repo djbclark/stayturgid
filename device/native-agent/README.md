@@ -5,10 +5,11 @@ that binds a **Shizuku UserService** (UID 2000) and injects silent input via
 `InputManager.injectInputEvent` — **no** shell spawn, **no** Accessibility.
 
 The agent also writes a 20-minute co-monitor heartbeat, repairs the Shizuku
-shell path, and requests a Tailscale reconnect when the tunnel and coordinator
-probe are both down. A repair is reported successful only after the tunnel is
-re-probed as healthy. It also restores the configured non-lockdown always-on
-VPN policy. Termux remains the primary sshd and routine repair owner.
+shell path, and requests a Tailscale reconnect when either the tunnel or
+remote Tailscale control-plane reachability is down. A repair is reported
+successful only after both are re-probed as healthy. It also restores the configured
+non-lockdown always-on VPN policy. Termux remains the primary sshd and routine
+repair owner.
 
 Plan: [`docs/archive/plans/autojs6-to-native-apk-plan.md`](../../docs/archive/plans/autojs6-to-native-apk-plan.md)  
 Checkpoint: [`docs/operations/sessions/session-2026-07-22-native-agent.md`](../../docs/operations/sessions/session-2026-07-22-native-agent.md)
