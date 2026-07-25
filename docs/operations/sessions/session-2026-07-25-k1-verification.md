@@ -459,3 +459,72 @@ actions (those still get normal per-action judgment).
    physical/USB recovery as the permanent fallback for that failure mode.
 5. Clean up the AutoJs6-specific self-heal/health-probe staleness (see
    section 2) — separate, smaller fix, not done this session.
+6. Root-cause hd8's `INSTALL_FAILED_VERSION_DOWNGRADE` on
+   `moe.shizuku.privileged.api` (see "Continued: fleet-deploy-pipeline
+   debugging" below) — not started.
+7. Implement the collection-wide adb-timeout fix scoped in
+   [#59](https://github.com/djbclark/stayturgid/issues/59) (web search for
+   prior art, then a second-opinion prompt, per that issue).
+
+## Continued: fleet-deploy-pipeline debugging (same day, same session)
+
+Picked back up after the K1 verification work above to chase a full clean
+fleet deploy. All four bugs below were found by actually re-running
+`just deploy` against real devices after each fix, not by inspection alone.
+
+1. **`stayturgid_repair_check` module silently failed every deploy.**
+   Root cause: this ansible-core version auto-fails any module result
+   containing a nonzero `rc` key unless `failed: False` is explicit
+   (`ansible._internal._task.UnifiedTaskResult.failed`,
+   `self._failed is None and self.rc is not None and self.rc != 0`). The
+   module's own contract (`fail_on_unhealthy=False` by default) intends
+   `rc` to be informational, mirroring the repair script's own exit code —
+   this ansible-core version silently broke that contract. Fixed by setting
+   `failed=False` explicitly in the module's `exit_json()` call.
+2. **Obtainium GitHub release lookup 404'd every run.** A literal
+   `operator/Obtainium` placeholder (never substituted) in
+   `obtainium_apps/tasks/main.yml` — fixed to the real fork,
+   `djbclark/Obtainium`.
+3. **Dead AutoJs6 post-UI task failed every deploy.** The
+   `enable_autojs6_drawer` task in `fleet/roles/post_ui/tasks/main.yml`
+   unconditionally tried to configure AutoJs6's Shizuku drawer — an app
+   that was uninstalled fleet-wide in this same session's earlier K1
+   verification work (section 1 above). Removed the task entirely.
+4. **`adb install` hung a deploy for 90+ minutes with zero error.**
+   `android_apk.py`'s install call went through `AnsibleModule.run_command()`,
+   which has no timeout parameter at all in this ansible-core version. A
+   stuck install (almost certainly an on-device confirmation dialog nobody
+   was present to tap) just blocked forever. Confirmed live: one SSH-tunneled
+   module invocation stayed open continuously for 90+ minutes with steadily
+   climbing CPU but no forward progress — looked identical to a hang until
+   killed and independently confirmed via `ps -o ppid` that it wasn't a
+   duplicate/orphaned process, just one very long-blocked call. Fixed by
+   wrapping both install call sites (primary + `work_profile` variant) in
+   the `timeout(1)` coreutils binary (180s default, `install_timeout` param,
+   `rc==124` fails loudly). The same unguarded-`run_command` pattern exists
+   throughout `android_common`'s other adb-invoking helpers — scoped for a
+   collection-wide fix in [#59](https://github.com/djbclark/stayturgid/issues/59)
+   rather than fixed piecemeal.
+
+**Result:** s24 and p7a both confirmed deploying clean end-to-end
+(`failed=0`) after all four fixes, re-verified via live re-deploys, not
+just unit tests. hd8 still fails, but on a different, pre-existing,
+unrelated issue: `INSTALL_FAILED_VERSION_DOWNGRADE` on
+`moe.shizuku.privileged.api` — hd8 already has a newer custom build
+(`13.7.0-thedjchi+stayturgid-release20`) installed than whatever the pinned
+bootstrap-APK role is trying to push. Not root-caused or fixed this
+session; open (next step 6 above).
+
+**Also filed this session**, not yet implemented: a deploy-speed analysis
+([#57](https://github.com/djbclark/stayturgid/issues/57) — redundant
+`ansible-playbook` process launches, unconditional `ansible-galaxy`
+reinstall, `linear` strategy serializing fast hosts behind slow ones,
+hardcoded `serial: 1` package-upgrade throttle) and a locking gap
+([#58](https://github.com/djbclark/stayturgid/issues/58) — no coordination
+between `deploy_fleet.py`, the nightly package-upgrade launchd job, and
+manual deploys, so concurrent runs against the same device are possible
+with zero guard).
+
+Commits: `0a4c55d` (pipeline fixes 1-3 plus the earlier watchdog
+base64/pgrep-self-match fixes from section 1), `5c7f023` (the adb-install
+timeout fix).
