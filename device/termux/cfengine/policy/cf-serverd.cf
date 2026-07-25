@@ -9,8 +9,15 @@
 # remove that line after initial key exchange.
 #
 # This file is both valid CFEngine policy (cf-promises/cfbs validate it as-is)
-# and an Ansible Jinja2 template: the {{ ... }} allowusers entry is rendered
-# from inventory at deploy time, so no operator username is tracked here.
+# and an Ansible Jinja2 template: the double-brace-templated allowusers entry
+# below is rendered from inventory at deploy time, so no operator username is
+# tracked here. (Do not write a literal double-brace placeholder in prose
+# anywhere in this file, even in a comment — Ansible's Jinja2 renderer scans
+# the whole file for template syntax regardless of surrounding # comments,
+# and a bare `...` inside double braces is not a valid expression. Confirmed
+# via `python3 -c "from jinja2 import Environment; Environment().parse(open(...).read())"`
+# after this exact line broke `just deploy` with "Syntax error in template:
+# unexpected '.'" — see docs/operations/sessions/session-2026-07-25-k1-verification.md.)
 
 body common control {
     bundlesequence => { "main" };

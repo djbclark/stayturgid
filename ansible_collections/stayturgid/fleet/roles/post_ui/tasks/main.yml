@@ -46,13 +46,9 @@
     - stayturgid_app_stores_enabled | default(false) | bool
   tags: [post-ui, aurora, play, full]
 
-- name: AutoJs6 Shizuku drawer enable
-  stayturgid.android_common.android_ui:
-    host: "{{ inventory_hostname }}"
-    task: enable_autojs6_drawer
-    repo_root: "{{ stayturgid_repo_root }}"
-    retries: "{{ stayturgid_post_ui_retries }}"
-    retry_delay: "{{ stayturgid_post_ui_retry_delay }}"
-  delegate_to: localhost
-  when: not ansible_check_mode
-  tags: [post-ui, autojs6, full]
+# AutoJs6 Shizuku drawer enable task removed: AutoJs6 was uninstalled
+# fleet-wide as part of the K1 native-agent cutover (2026-07-22, confirmed
+# live on all three devices 2026-07-25 — see
+# docs/operations/sessions/session-2026-07-25-k1-verification.md). This task
+# unconditionally failed every deploy trying to configure an app that no
+# longer exists on any device.

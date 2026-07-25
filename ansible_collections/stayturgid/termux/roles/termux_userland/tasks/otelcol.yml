@@ -22,7 +22,9 @@
 
 - name: Verify OpenObserve before edge collector deployment
   ansible.builtin.uri:
-    url: http://127.0.0.1:5080/healthz
+    # ZO_BASE_URI=/oo — see docs/operations/sessions/session-2026-07-25-k1-verification.md
+    # (OpenObserve #44 fix) for why the unprefixed path 404s.
+    url: http://127.0.0.1:5080/oo/healthz
     status_code: 200
   delegate_to: localhost
   run_once: true

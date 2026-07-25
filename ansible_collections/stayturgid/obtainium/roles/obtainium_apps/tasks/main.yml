@@ -4,7 +4,7 @@
 # reliably (compile-time URL, Android can't replace running app).
 - name: Get latest Obtainium fork release from GitHub API
   ansible.builtin.uri:
-    url: "https://api.github.com/repos/operator/Obtainium/releases/latest"
+    url: "https://api.github.com/repos/djbclark/Obtainium/releases/latest"
     return_content: true
     headers:
       Accept: "application/vnd.github.v3+json"

@@ -176,6 +176,12 @@ def main():
 
     result = dict(
         changed=False,
+        # Newer ansible-core infers failed=True for any non-explicit "failed"
+        # key when rc != 0 (see ansible._internal._task.UnifiedTaskResult.failed).
+        # rc here is the repair script's own exit code, returned as data per
+        # this module's fail_on_unhealthy contract — it must not implicitly
+        # fail the task.
+        failed=False,
         healthy=healthy,
         skipped=False,
         status_line=status_line,

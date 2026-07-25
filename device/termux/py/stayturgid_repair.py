@@ -11,6 +11,7 @@ privileged checks/repairs. Exit 0 = healthy after repair; 1 = a subsystem
 still down (needs AutoJs6 UI repair or reboot). Prints one STATUS line.
 """
 
+import base64
 import datetime
 import fcntl
 import json
@@ -249,16 +250,17 @@ def privileged_shell():
     return out.strip() == "2000"
 
 
-# Marker string embedded via a leading shell no-op (`: MARKER;`) so pgrep -f
-# can find this exact loop's argv, distinct from shizuku_server itself.
-_WATCHDOG_MARKER = "STAYTURGID_SHIZUKU_WATCHDOG"
+# Script path doubles as the pgrep -f marker (its argv contains the path,
+# not any text inside the script body) — distinct from shizuku_server itself.
+_WATCHDOG_SCRIPT_PATH = "/data/local/tmp/stayturgid_shizuku_watchdog.sh"
 _WATCHDOG_LOG = "/data/local/tmp/stayturgid_shizuku_watchdog.log"
-_WATCHDOG_CMD = (
-    "setsid sh -c '"
-    ': {marker}; while true; do pgrep -f "[s]hizuku_server" >/dev/null || '
-    "/data/local/tmp/shizuku_starter >/dev/null 2>&1; sleep 60; done"
-    "' > {log} 2>&1 &"
-).format(marker=_WATCHDOG_MARKER, log=_WATCHDOG_LOG)
+_WATCHDOG_SCRIPT_BODY = (
+    "#!/system/bin/sh\n"
+    "while true; do\n"
+    '  pgrep -f "[s]hizuku_server" >/dev/null || /data/local/tmp/shizuku_starter >/dev/null 2>&1\n'
+    "  sleep 60\n"
+    "done\n"
+)
 
 
 def ensure_shizuku_watchdog():
@@ -273,12 +275,33 @@ def ensure_shizuku_watchdog():
     for why the previous am-broadcast-based restart from Termux never worked
     (INTERACT_ACROSS_USERS_FULL, which Termux can never hold) and why this
     replaces it instead of trying to fix that broadcast path.
+
+    The loop body is pushed as a script FILE via base64 (not an inline
+    `setsid sh -c '...'` string) deliberately — an earlier version used
+    nested quoting through bash -> adb shell -> sh -c -> pgrep -f "...", and
+    the multi-layer escaping silently mangled the `while true` loop into
+    something that ran one pass and exited, which looked exactly like the OS
+    killing it. base64 has no shell-special characters, so there is nothing
+    left to mis-escape.
     """
-    rc, _ = sh_adb("pgrep -f " + _WATCHDOG_MARKER)
+    # Bracket-escape one character so this check's own `pgrep -f` invocation
+    # doesn't match its own argv (classic pgrep -f self-match footgun —
+    # confirmed live: the naive bare-path version always reported "already
+    # running" even with nothing actually running, since the pgrep command's
+    # own command line literally contains the search string). Same trick
+    # already used correctly elsewhere in this file for shizuku_server.
+    watchdog_pgrep_pattern = _WATCHDOG_SCRIPT_PATH.replace("/s", "/[s]", 1)
+    rc, _ = sh_adb("pgrep -f " + watchdog_pgrep_pattern)
     if rc == 0:
         return "already running"
-    rc, out = sh_adb(_WATCHDOG_CMD)
-    return "spawned" if rc == 0 else "spawn FAILED: " + out.strip()
+    encoded = base64.b64encode(_WATCHDOG_SCRIPT_BODY.encode("utf-8")).decode("ascii")
+    rc, out = sh_adb(
+        "echo {b64} | base64 -d > {path} && chmod 755 {path}".format(b64=encoded, path=_WATCHDOG_SCRIPT_PATH)
+    )
+    if rc != 0:
+        return "spawn FAILED (write): " + out.strip()
+    rc, out = sh_adb("setsid sh {path} > {log} 2>&1 &".format(path=_WATCHDOG_SCRIPT_PATH, log=_WATCHDOG_LOG))
+    return "spawned" if rc == 0 else "spawn FAILED (exec): " + out.strip()
 
 
 def read_device_profile():
@@ -887,8 +910,16 @@ def main():
         if "result=1" in shizuku_out:
             shizuku = "up"
         else:
-            rc, _ = sh_adb("pgrep -f '[s]hizuku_server'")
-            shizuku = "up" if rc == 0 else "down"
+            # NOTE: was previously `rc, _ = sh_adb(...)`, silently clobbering
+            # the overall health rc (e.g. erasing an earlier sshd-failure
+            # rc=1 if this check happened to pass) — fixed to a properly
+            # namespaced variable, matching the convention used everywhere
+            # else in this file (_rc / shizuku_rc).
+            shizuku_rc, _ = sh_adb("pgrep -f '[s]hizuku_server'")
+            shizuku = "up" if shizuku_rc == 0 else "down"
+        if shizuku == "down":
+            rc = 1
+            log("shizuku_server not running (adb shell still reachable)", WARNING)
         # Ensure the detached UID-2000 watchdog is running while we have
         # privileged shell — this is what actually restarts shizuku_server
         # if it dies later, independent of Shizuku's own app-level
@@ -897,6 +928,11 @@ def main():
         watchdog_status = ensure_shizuku_watchdog()
         if watchdog_status != "already running":
             log("shizuku watchdog: " + watchdog_status, INFO if watchdog_status == "spawned" else WARNING)
+        if watchdog_status.startswith("spawn FAILED"):
+            # The watchdog is a safeguard, not just a nice-to-have — if it
+            # can't even be spawned, that's a real problem worth surfacing
+            # as an unhealthy exit code, not just a log line nobody reads.
+            rc = 1
     elif expect_shell:
         # Port 5555 is down — can't use adb shell, so we're on Termux's own
         # unprivileged UID. Only pgrep-based liveness detection is possible;
