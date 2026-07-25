@@ -162,12 +162,18 @@ a Shizuku **UserService** (UID 2000). Plan:
 uses `agent_stale`/`agent_missing`, and the `autojs6_watchdog` Ansible role
 was retired (195c5c7).
 
-**Not yet verified — do not treat as done:** AutoJs6 uninstall on p7a/hd8 is
-unconfirmed (the uninstall task is `failed_when: false`, so it cannot report
-failure either way); the forced `CLOSED_NO_SHELL` soak and the 7-day
-OpenObserve soak that were meant to gate "complete" never ran; the fleet was
-last confirmed running the `.debug` APK, not a signed release. See
-[docs/STATUS.md](STATUS.md) and
+**2026-07-25 correction:** the "AutoJs6 uninstalled" claim above was false —
+live-checked all three devices and found AutoJs6 still installed on s24,
+p7a, and hd8 (the Ansible uninstall task's `failed_when: false` meant this
+went undetected). Uninstalled for real fleet-wide 2026-07-25; confirmed via
+`pm path` on all three, agent health unaffected. Also confirmed live: fleet
+runs `org.stayturgid.agent.debug` (`0.3.6-diagnostics-debug`), not a signed
+release.
+
+**Still not verified — do not treat as done:** the forced `CLOSED_NO_SHELL`
+soak and the 7-day OpenObserve soak that were meant to gate "complete" never
+ran — the soak is now more meaningful than before, since AutoJs6 is no
+longer a potential silent fallback. See [docs/STATUS.md](STATUS.md) and
 [operations/sessions/handoff-2026-07-23-native-agent-k1.md](operations/sessions/handoff-2026-07-23-native-agent-k1.md).
 Tracked as [#43](https://github.com/djbclark/stayturgid/issues/43) (fleet-state
 verification) and [#45](https://github.com/djbclark/stayturgid/issues/45)

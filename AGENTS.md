@@ -24,9 +24,10 @@ bugs/follow-ups) for what's actually available to pick up next.
 
 **Active blockers:**
 
-- K1 native-agent cutover (2026-07-22) is **not fully verified** — only one
-  device confirmed post-cutover. Tracked in
-  [#43](https://github.com/djbclark/stayturgid/issues/43) and
+- K1 native-agent cutover (2026-07-22) is **not fully verified** — AutoJs6
+  removal was live-checked 2026-07-25 (the cutover's claim was false; fixed
+  fleet-wide now) but the forced `CLOSED_NO_SHELL` soak still hasn't run.
+  Tracked in [#43](https://github.com/djbclark/stayturgid/issues/43) and
   [#45](https://github.com/djbclark/stayturgid/issues/45).
 - OpenObserve↔Vector auth **fixed 2026-07-25**, pending 24h clean-log
   verification before closing. Tracked in
