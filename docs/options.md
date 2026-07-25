@@ -166,17 +166,25 @@ was retired (195c5c7).
 live-checked all three devices and found AutoJs6 still installed on s24,
 p7a, and hd8. Uninstalled for real fleet-wide same day; confirmed via
 `pm path` on all three. Reboot-based `CLOSED_NO_SHELL` soak attempts found
-two distinct real bugs: (1) `HostService`'s first post-boot comonitor check
-races Shizuku's binder and silently loses on s24/p7a, then doesn't retry
-for 20 minutes — no `CLOSED_NO_SHELL` detection during that window. (2) On
-hd8 — the actual real-world `CLOSED_NO_SHELL` case — detection and repair
-both correctly triggered, but the repair technique itself doesn't work on
-this ROM (setting `service.adb.tcp.port` doesn't restart adbd without an
-explicit restart step the code doesn't perform), so **catastrophic repair
-currently cannot succeed on the one device it was most built for**. Both
-need code fixes + rebuild + redeploy; not done yet. hd8 restored manually
-via USB this session. The soak still hasn't genuinely succeeded — can't be
-trusted to mean anything until both are fixed. Full writeup:
+three real bugs, **all fixed, built, and deployed fleet-wide same day,
+verified via a second live reboot capture**: (1) `HostService`'s first
+post-boot comonitor check raced Shizuku's binder and silently lost, then
+didn't retry for 20 minutes — now retries every 2s for up to 20s. (2)
+`listeningOn()` reported false-positive `port=open` for loopback-only
+binds — now excludes them. (3) Added `ensureAdbBaseline()` to keep USB
+debugging proactively enabled every tick, so physical recovery never needs
+manual Developer Options digging.
+
+**Two items remain genuinely open, not fixed this session:** the Fire-OS
+adbd-restart gap (tested both plausible on-device levers directly —
+`ctl.restart adbd` is SELinux-denied, a full `adb_enabled` toggle cycle
+doesn't reopen the port either — confirmed no non-root, no-USB fix exists;
+physical/USB recovery is the accepted fallback, not a bug to keep chasing)
+and a broader, more significant finding: Shizuku (and once, Termux/sshd)
+died unexpectedly on **both** hd8 and s24 during this session, not just
+Fire OS — an existing restart mechanism in `stayturgid_repair.py` may not
+actually be scheduled anywhere. The soak still can't be fully trusted until
+that's understood. Full writeup:
 [operations/sessions/session-2026-07-25-k1-verification.md](operations/sessions/session-2026-07-25-k1-verification.md).
 See also [docs/STATUS.md](STATUS.md) and
 [operations/sessions/handoff-2026-07-23-native-agent-k1.md](operations/sessions/handoff-2026-07-23-native-agent-k1.md).

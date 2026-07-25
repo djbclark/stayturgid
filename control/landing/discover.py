@@ -156,6 +156,8 @@ def _known_services_for_site(site_dir: Path) -> list[dict]:
     host = _site_caddy_public_hostname(site_dir)
     if not host:
         return list(KNOWN_SERVICES)
+    # Derive the tailnet domain from the public host (e.g. "mac.greyhound-sidemirror.ts.net" → "greyhound-sidemirror.ts.net")
+    tailnet_domain = host.split(".", 1)[1] if "." in host else host
     out: list[dict] = []
     for entry in KNOWN_SERVICES:
         item = dict(entry)
@@ -163,6 +165,11 @@ def _known_services_for_site(site_dir: Path) -> list[dict]:
         label = str(item.get("label") or "")
         if _CATALOG_PUBLIC_HOST in url:
             item["url"] = url.replace(_CATALOG_PUBLIC_HOST, host)
+        elif ".example.ts.net" in url:
+            # Rewrite any <subdomain>.example.ts.net → <subdomain>.<tailnet_domain>
+            import re as _re
+
+            item["url"] = _re.sub(r"([a-z0-9_-]+)\.example\.ts\.net", lambda m: f"{m.group(1)}.{tailnet_domain}", url)
         elif "localhost" in url:
             item["url"] = url.replace("localhost", host)
             if "(localhost)" in label:

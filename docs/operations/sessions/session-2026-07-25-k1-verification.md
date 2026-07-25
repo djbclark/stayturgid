@@ -248,19 +248,130 @@ network access. Fleet health confirmed OK afterward on all three devices.
    mechanism was most built for, the catastrophic repair currently cannot
    succeed even when everything upstream works correctly.**
 
+## 6. Fixes implemented, built, and deployed fleet-wide (this session)
+
+Three of the four items below were fixed, verified, and shipped this
+session. The other two turned out to be structurally hard (not fixable by
+a small code change) or a much bigger, still-open reliability question —
+documented honestly rather than forced.
+
+### Fixed: boot-time Shizuku-binder race (`HostService.kt`)
+
+`startHeartbeatLoop()` now retries `ensureBound()` every
+`INITIAL_BIND_POLL_MS` (2s) for up to `INITIAL_BIND_RETRY_MS` (20s) before
+falling back to the steady-state 20-minute loop, instead of one fixed-delay
+attempt. **Verified live** with a second real reboot of s24 (patched build)
+captured via streaming logcat:
+
+```
+07:50:00.629 starting host for BOOT_COMPLETED
+07:50:00.659 Shizuku not running
+07:50:02.673 Shizuku not running       <- retry #1 (2s)
+07:50:04.683 Shizuku not running       <- retry #2 (4s)
+07:50:05.328 Shizuku binder received   <- succeeds within the retry window
+07:50:06.523 UserService connected
+07:50:07.917 STATUS port=open shizuku=up ...   <- full comonitor cycle completes
+```
+
+The stale, still-unpatched non-debug package (`org.stayturgid.agent`,
+0.3.1) on the same device, in the same boot, still shows the old
+single-attempt-then-skip behavior for direct contrast — confirms this is
+the code difference, not device variance.
+
+### Fixed: `listeningOn()` bind-address blind spot (`ComonitorProbes.kt`)
+
+Now excludes IPv4-loopback-only listeners (hex `0100007F`, verified against
+a live device's `/proc/net/tcp`) from all three detection paths
+(`/proc/net/tcp`, the `ss -ltn` fallback). A loopback-only bind is not
+externally reachable and was previously reported as false-positive
+`port=open`. IPv6 loopback is left unfiltered — no live example to verify
+the byte layout against, and this fleet's ADB path is IPv4-only in
+practice, so not worth guessing at.
+
+### Fixed: USB debugging kept proactively enabled (new `ensureAdbBaseline()`)
+
+Operator observation: even though `CatastrophicRepair` can't always reopen
+_wireless_ ADB in software (see below), it should still guarantee
+`adb_enabled`/`development_settings_enabled` stay on unconditionally, so a
+physical USB reconnect always works without digging into Developer
+Options. Added `IStayTurgidService.ensureAdbBaseline()`
+(`CatastrophicRepair.ensureAdbBaseline()`, idempotent `settings put`),
+called from `HostService.callComonitor()` on every tick, independent of
+port state.
+
+### Build + rollout
+
+```
+export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
+cd device/native-agent && ./gradlew :app:assembleDebug   # BUILD SUCCESSFUL
+just agent-install <target>   # s24 canary first, then hd8 + p7a
+just agent-start <target>
+```
+
+Deployed and confirmed running (fresh `lastUpdateTime`) on all three
+devices; `just health` and direct `id -u` checks confirmed clean/healthy
+fleet-wide afterward.
+
+### Not fixed: Fire-OS adbd-restart gap — confirmed structurally hard, not a quick patch
+
+Tested both plausible on-device (non-root, no-USB) levers directly against
+a live device before attempting any code change:
+
+- `setprop ctl.restart adbd` as shell (UID 2000, same privilege level as
+  `CatastrophicRepair`'s own process) — **SELinux-denied**
+  (`Failed to set property 'ctl.restart' to 'adbd'`).
+- Full `adb_enabled` 0→1 cycle (what the existing repair code already
+  does) — accepted by the OS but **did not reopen the port**; broke s24 in
+  the same way hd8 broke, requiring the same manual USB
+  (`adb tcpip 5555`) recovery.
+
+The only thing that worked all session was `adb tcpip 5555` run **from the
+Mac, over an already-open USB transport** — a mechanism the on-device
+Kotlin code structurally cannot invoke (it has no existing transport to
+send that request over, and no root to bypass the OS-level restart
+restriction). This matches an earlier, independent Fire OS 8 investigation's
+conclusion: no fully automatic, non-root fix exists for this on Fire OS.
+**Not attempting a code fix that can't be verified to work** — physical/USB
+recovery is the correct, accepted fallback for this specific failure mode,
+not a bug to keep chasing in software.
+
+### Not fixed: Shizuku (and observed once, Termux/sshd) don't reliably stay running
+
+New, broader finding beyond the original two bugs: while testing the fixes
+above, Shizuku died on **both** hd8 and s24 within ~20-30 seconds of being
+freshly bootstrapped, unprompted — not just an hd8/Fire-OS-specific
+problem. On s24, Termux itself (and therefore sshd) was also found dead at
+one point mid-session, with no unusual action taken against it directly.
+Both were restored manually (`shizuku_starter` re-run, `am start` on
+Termux) but died and were restored multiple times over the course of this
+session, suggesting an aggressive OEM background-process killer (Samsung
+One UI and Fire OS both showed this) rather than an isolated crash.
+
+`device/termux/py/stayturgid_repair.py` already has Shizuku-liveness
+detection and a `HEADLESS_START`-based restart path (section 3 of that
+script, `shizuku_server` pgrep + `am broadcast HEADLESS_START`) — the logic
+exists, but this session found **no evidence it's wired into an actual
+recurring schedule** (checked `crontab`, device-side `crond`, and Mac-side
+`launchd` — no matching persistent job found; `com.stayturgid.fleet-health`
+runs every 15 min but only manages the native-agent process, not Shizuku
+directly). Whether a tighter check interval would meaningfully help is
+also unclear given how short the observed alive-window was (~20-30s) —
+this needs dedicated investigation (extended monitoring, cross-referencing
+against Android's own OOM-killer/battery-management logs) rather than a
+speculative fix. Flagging clearly rather than guessing.
+
 ## Next steps
 
-1. **Fix the boot-time race** in `HostService.kt` (section 4) — needs a
-   code change, rebuild, and fleet redeploy; not done this session.
-2. **Fix the Fire-OS adbd-restart gap** in `CatastrophicRepair.kt`'s
-   `tryShellWirelessRepair()` (section 5) — needs either an explicit adbd
-   restart step (`ctl.stop adbd` / `ctl.start adbd` or equivalent) or a
-   Fire-OS-specific code path; not done this session.
-3. **Automate Shizuku bootstrap on hd8** — currently nothing restarts
-   `shizuku_starter` without a human running it via adb; this is a gap in
-   the "catastrophic" tier's own dependency chain, not just the repair
-   logic downstream of it.
-4. Re-run the `CLOSED_NO_SHELL` soak properly once (1) and (2) are fixed —
-   right now it can't be trusted to mean anything either way.
-5. Clean up the AutoJs6-specific self-heal/health-probe staleness (see
-   section 2) — separate, smaller fix.
+1. Investigate why Shizuku (and, once, Termux) die so quickly on real
+   devices, and whether `stayturgid_repair.py`'s existing restart logic is
+   actually scheduled anywhere — the biggest open question coming out of
+   this session, bigger in scope than the original two bugs.
+2. Re-run the `CLOSED_NO_SHELL` soak properly now that the boot-race fix is
+   deployed and verified — still gated on Shizuku/process persistence
+   above; a `CLOSED_NO_SHELL` state that gets detected correctly but then
+   can't be acted on because Shizuku died again isn't a clean pass.
+3. Decide whether to pursue a Fire-OS-specific adbd-restart code path
+   (likely needs root or a different mechanism entirely) or formally accept
+   physical/USB recovery as the permanent fallback for that failure mode.
+4. Clean up the AutoJs6-specific self-heal/health-probe staleness (see
+   section 2) — separate, smaller fix, not done this session.
