@@ -333,7 +333,11 @@ def load_registered_ports(
     return ports_map if return_map else ports_set
 
 
-def _scan_localhost(*, registered_ports: set[int] | dict[int, str] | None = None) -> list[dict]:
+def _scan_localhost(
+    *,
+    registered_ports: set[int] | dict[int, str] | None = None,
+    public_host: str | None = None,
+) -> list[dict]:
     """Scan the Mac's local ports for HTTP servers using lsof.
 
     When *registered_ports* is provided, listeners not listed in the site
@@ -358,6 +362,7 @@ def _scan_localhost(*, registered_ports: set[int] | dict[int, str] | None = None
     elif isinstance(registered_ports, set):
         reg_set = registered_ports
 
+    host_name = public_host if public_host else "localhost"
     scanned: set[int] = set()
     for line in r.stdout.splitlines():
         parts = line.split()
@@ -392,7 +397,7 @@ def _scan_localhost(*, registered_ports: set[int] | dict[int, str] | None = None
             if unregistered:
                 note += "; not in registry/ports.yml"
             entry: dict[str, Any] = {
-                "url": f"http://localhost:{port}",
+                "url": f"http://{host_name}:{port}",
                 "label": label,
                 "group": "mac",
                 "note": note,
@@ -425,6 +430,13 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
         for url_key in list(known_urls.keys()):
             if _CATALOG_PUBLIC_HOST in url_key or ".example.ts.net" in url_key:
                 del known_urls[url_key]
+            # Migrate legacy http://localhost:<port> to http://<public_host>:<port>
+            elif url_key.startswith("http://localhost:"):
+                port_part = url_key.rsplit(":", 1)[-1]
+                new_url = f"http://{public_host}:{port_part}"
+                entry = known_urls.pop(url_key)
+                entry["url"] = new_url
+                known_urls[new_url] = entry
 
     # Add/update known services (site MagicDNS substituted for catalog placeholder)
     for s in _known_services_for_site(site_dir):
@@ -436,7 +448,7 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
 
     # Discover new http ports on localhost; badge registry drift (D4).
     registered = load_registered_ports(site_dir=site_dir, return_map=True)
-    for s in _scan_localhost(registered_ports=registered if registered else None):
+    for s in _scan_localhost(registered_ports=registered if registered else None, public_host=public_host):
         url = s["url"]
         if url not in known_urls:
             known_urls[url] = s
