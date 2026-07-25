@@ -59,7 +59,6 @@ KNOWN_SERVICES: list[dict] = [
     {"url": "http://localhost:8428", "label": "VictoriaMetrics (localhost)", "group": "mac"},
     {"url": "http://localhost:8088", "label": "Network Landing (localhost)", "group": "mac"},
     {"url": "http://localhost:8080", "label": "Caddy Health", "group": "mac"},
-    {"url": "http://localhost:8081", "label": "VLM UI-TARS API", "group": "mac"},
     # mDNS (Bonjour, LAN-only) — use if macOS hostname differs
     # Devices — Tailscale IPs
     {"url": "http://100.0.0.11:65000", "label": "oneui-device FIRERPA", "group": "devices"},
@@ -200,12 +199,97 @@ def _resolve_registry_ports_path(site_dir: Path) -> Path | None:
     return candidate if candidate.is_file() else None
 
 
+PROCESS_SERVICE_NAMES: dict[str, str] = {
+    "ollama": "Ollama LLM API",
+    "opencode": "OpenCode Web",
+    "caddy": "Caddy Web Server",
+    "vector": "Vector Collector",
+    "openobserve": "OpenObserve",
+    "grafana": "Grafana",
+    "victoria-metrics": "VictoriaMetrics",
+    "OliveTin": "OliveTin",
+    "Dropbox": "Dropbox Helper",
+    "PhotoSync": "PhotoSync Companion",
+    "blackbox_exporter": "Blackbox Exporter",
+    "blackbox_": "Blackbox Exporter",
+    "adb": "ADB Server",
+    "agy": "Antigravity CLI (agy)",
+    "Raycast": "Raycast Helper",
+    "ARDAgent": "Apple Remote Desktop",
+    "logioption": "Logi Options+ Daemon",
+    "logioptio": "Logi Options+ Daemon",
+    "zed": "Zed Editor Helper",
+    "omlx": "omlx Local MLX Server",
+}
+
+
+def _format_service_label(name: str) -> str:
+    """Format kebab-case or snake_case registry service names into title-cased labels."""
+    replacements = {
+        "litellm-proxy": "LiteLLM Proxy",
+        "vector-otlp-grpc": "Vector OTLP gRPC",
+        "vector-otlp-http": "Vector OTLP HTTP",
+        "vector-api": "Vector API",
+        "ollama-llm-api": "Ollama LLM API",
+        "blackbox-exporter": "Blackbox Exporter",
+        "antigravity-agy-ipc": "Antigravity CLI (agy) IPC",
+        "antigravity-agy-sidecar": "Antigravity CLI (agy) Sidecar",
+        "caddy-http-redirect": "Caddy HTTP Redirect",
+        "caddy-https": "Caddy HTTPS Front Door",
+        "caddy-health": "Caddy Health",
+        "opencode-web": "OpenCode Web",
+        "fleet-dashboard": "Fleet Dashboard",
+        "adb-server": "ADB Server",
+        "openobserve-http": "OpenObserve HTTP",
+        "openobserve-grpc": "OpenObserve gRPC",
+        "victoriametrics": "VictoriaMetrics",
+        "olivetin": "OliveTin",
+        "dropbox-lansync": "Dropbox LAN Sync",
+        "dropbox-local-helper": "Dropbox Local Helper",
+        "dropbox-local-api": "Dropbox Local API",
+        "raycast-helper": "Raycast Helper",
+        "zed-editor-helper": "Zed Editor Helper",
+        "logi-options-daemon": "Logi Options+ Daemon",
+        "apple-remote-desktop": "Apple Remote Desktop",
+        "macos-screen-sharing": "macOS Screen Sharing",
+        "photosync": "PhotoSync Companion",
+        "omlx": "omlx Local MLX Server",
+    }
+    if name in replacements:
+        return replacements[name]
+    return name.replace("-", " ").replace("_", " ").title()
+
+
+def _parse_ports_yaml_fallback(path: Path) -> dict[int, str]:
+    res: dict[int, str] = {}
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return res
+    import re
+
+    port_re = re.compile(r"port:\s*(\d+)")
+    svc_re = re.compile(r"service:\s*([a-zA-Z0-9_-]+)")
+    for line in lines:
+        line = line.strip()
+        if line.startswith("#") or "port:" not in line:
+            continue
+        pm = port_re.search(line)
+        sm = svc_re.search(line)
+        if pm:
+            p = int(pm.group(1))
+            svc = sm.group(1) if sm else f"Port {p}"
+            res[p] = svc
+    return res
+
+
 def load_registered_ports(
     registry_path: Path | None = None,
     *,
     site_dir: Path | None = None,
-) -> set[int]:
-    """Return the set of ports declared in the site registry (any host)."""
+    return_map: bool = False,
+) -> set[int] | dict[int, str]:
+    """Return the set or dict (port -> service) of ports declared in the site registry (any host)."""
     path = registry_path
     if path is None:
         if site_dir is None:
@@ -213,20 +297,28 @@ def load_registered_ports(
             announce_site_selection(selection, command="landing-discover")
             site_dir = selection.path
         path = _resolve_registry_ports_path(site_dir)
-    if path is None or not path.is_file() or yaml is None:
-        return set()
+    if path is None or not path.is_file():
+        return {} if return_map else set()
+    if yaml is None:
+        fallback_map = _parse_ports_yaml_fallback(path)
+        return fallback_map if return_map else set(fallback_map.keys())
     try:
         doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError):
-        return set()
-    ports: set[int] = set()
+        return {} if return_map else set()
+
+    ports_set: set[int] = set()
+    ports_map: dict[int, str] = {}
 
     def _ingest(entries: object) -> None:
         if not isinstance(entries, list):
             return
         for entry in entries:
             if isinstance(entry, dict) and isinstance(entry.get("port"), int):
-                ports.add(entry["port"])
+                p = entry["port"]
+                svc = str(entry.get("service") or f"Port {p}")
+                ports_set.add(p)
+                ports_map[p] = svc
 
     hosts = doc.get("hosts") if isinstance(doc, dict) else None
     if isinstance(hosts, dict):
@@ -237,10 +329,11 @@ def load_registered_ports(
     if isinstance(product_defaults, dict):
         for group_entries in product_defaults.values():
             _ingest(group_entries)
-    return ports
+
+    return ports_map if return_map else ports_set
 
 
-def _scan_localhost(*, registered_ports: set[int] | None = None) -> list[dict]:
+def _scan_localhost(*, registered_ports: set[int] | dict[int, str] | None = None) -> list[dict]:
     """Scan the Mac's local ports for HTTP servers using lsof.
 
     When *registered_ports* is provided, listeners not listed in the site
@@ -257,11 +350,20 @@ def _scan_localhost(*, registered_ports: set[int] | None = None) -> list[dict]:
     except (OSError, subprocess.TimeoutExpired):
         return services
 
+    reg_set: set[int] = set()
+    reg_map: dict[int, str] = {}
+    if isinstance(registered_ports, dict):
+        reg_map = registered_ports
+        reg_set = set(registered_ports.keys())
+    elif isinstance(registered_ports, set):
+        reg_set = registered_ports
+
     scanned: set[int] = set()
     for line in r.stdout.splitlines():
         parts = line.split()
         if len(parts) < 9 or "LISTEN" not in line:
             continue
+        proc_cmd = parts[0]
         addr = parts[8]
         if ":" not in addr:
             continue
@@ -275,8 +377,17 @@ def _scan_localhost(*, registered_ports: set[int] | None = None) -> list[dict]:
 
         status = _http_probe(f"http://127.0.0.1:{port}", timeout=2.0)
         if status is not None:
-            unregistered = registered_ports is not None and port not in registered_ports
-            label = f"Port {port}" + (" [unregistered]" if unregistered else "")
+            unregistered = registered_ports is not None and port not in reg_set
+
+            # Resolve descriptive service label
+            if port in reg_map and reg_map[port] and not reg_map[port].startswith("TODO"):
+                base_label = _format_service_label(reg_map[port])
+            elif proc_cmd in PROCESS_SERVICE_NAMES:
+                base_label = PROCESS_SERVICE_NAMES[proc_cmd]
+            else:
+                base_label = f"Port {port}"
+
+            label = base_label + (" [unregistered]" if unregistered else "")
             note = f"HTTP {status}"
             if unregistered:
                 note += "; not in registry/ports.yml"
@@ -317,16 +428,18 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
             known_urls[url] = dict(s)
 
     # Discover new http ports on localhost; badge registry drift (D4).
-    registered = load_registered_ports(site_dir=site_dir)
+    registered = load_registered_ports(site_dir=site_dir, return_map=True)
     for s in _scan_localhost(registered_ports=registered if registered else None):
         url = s["url"]
         if url not in known_urls:
             known_urls[url] = s
-        elif s.get("unregistered"):
-            # Refresh badge on already-catalogued dynamic entries
-            known_urls[url]["unregistered"] = True
-            if "[unregistered]" not in known_urls[url].get("label", ""):
-                known_urls[url]["label"] = f"{known_urls[url].get('label', url)} [unregistered]"
+        else:
+            # Refresh label and unregistered badge status on existing entries
+            known_urls[url]["label"] = s["label"]
+            if s.get("unregistered"):
+                known_urls[url]["unregistered"] = True
+            elif "unregistered" in known_urls[url]:
+                del known_urls[url]["unregistered"]
 
     # Probe reachability
     hidden = set(existing.get("hidden", []))

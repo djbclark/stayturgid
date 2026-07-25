@@ -16,9 +16,8 @@ description:
   - >-
     Applies the fleet profile (TCP mode, start-on-boot, watchdog) after start,
     and reconciles it on every run (even when Shizuku is already up) so
-    preferences like C(watchdog) — which the app itself defaults to off,
-    and which can only be turned on via this profile — cannot silently drift
-    back to a non-self-healing configuration between cold starts.
+    preferences like C(watchdog) cannot silently drift back to a non-self-healing
+    configuration between cold starts.
   - Verifies the daemon is running and port 5555 is reachable.
   - Idempotent with respect to the Shizuku daemon itself: does not
     restart/relaunch it when already running with port 5555 open.
