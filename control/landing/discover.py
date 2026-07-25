@@ -49,15 +49,15 @@ KNOWN_SERVICES: list[dict] = [
     {"url": "https://mac.example.ts.net/opencode/", "label": "OpenCode Web (HTTPS)", "group": "mac"},
     {"url": "https://mac.example.ts.net/dashboard/", "label": "Fleet Dashboard (HTTPS)", "group": "mac"},
     {"url": "https://mac.example.ts.net/stats/", "label": "Fleet Stats (HTTPS)", "group": "mac"},
-    # Localhost (direct, for Mac-only access)
-    {"url": "http://localhost:4096", "label": "OpenCode (localhost)", "group": "mac"},
-    {"url": "http://localhost:4097", "label": "Dashboard (localhost)", "group": "mac"},
-    {"url": "http://localhost:4097/stats", "label": "Stats (localhost)", "group": "mac"},
-    {"url": "http://localhost:3000", "label": "Grafana (localhost)", "group": "mac"},
-    {"url": "http://localhost:5080/oo/", "label": "OpenObserve (localhost)", "group": "mac"},
-    {"url": "http://localhost:1337", "label": "OliveTin (localhost)", "group": "mac"},
-    {"url": "http://localhost:8428", "label": "VictoriaMetrics (localhost)", "group": "mac"},
-    {"url": "http://localhost:8088", "label": "Network Landing (localhost)", "group": "mac"},
+    # Direct HTTP endpoints
+    {"url": "http://localhost:4096", "label": "OpenCode (HTTP)", "group": "mac"},
+    {"url": "http://localhost:4097", "label": "Dashboard (HTTP)", "group": "mac"},
+    {"url": "http://localhost:4097/stats", "label": "Stats (HTTP)", "group": "mac"},
+    {"url": "http://localhost:3000", "label": "Grafana (HTTP)", "group": "mac"},
+    {"url": "http://localhost:5080/oo/", "label": "OpenObserve (HTTP)", "group": "mac"},
+    {"url": "http://localhost:1337", "label": "OliveTin (HTTP)", "group": "mac"},
+    {"url": "http://localhost:8428", "label": "VictoriaMetrics (HTTP)", "group": "mac"},
+    {"url": "http://localhost:8088", "label": "Network Landing (HTTP)", "group": "mac"},
     {"url": "http://localhost:8080", "label": "Caddy Health", "group": "mac"},
     # mDNS (Bonjour, LAN-only) — use if macOS hostname differs
     # Devices — Tailscale IPs
@@ -155,7 +155,7 @@ def _site_caddy_public_hostname(site_dir: Path) -> str | None:
 
 
 def _known_services_for_site(site_dir: Path) -> list[dict]:
-    """Catalog services with example.ts.net rewritten to the site front-door host."""
+    """Catalog services with example.ts.net and localhost rewritten to the site front-door host."""
     host = _site_caddy_public_hostname(site_dir)
     if not host:
         return list(KNOWN_SERVICES)
@@ -163,8 +163,13 @@ def _known_services_for_site(site_dir: Path) -> list[dict]:
     for entry in KNOWN_SERVICES:
         item = dict(entry)
         url = str(item.get("url") or "")
+        label = str(item.get("label") or "")
         if _CATALOG_PUBLIC_HOST in url:
             item["url"] = url.replace(_CATALOG_PUBLIC_HOST, host)
+        elif "localhost" in url:
+            item["url"] = url.replace("localhost", host)
+            if "(localhost)" in label:
+                item["label"] = label.replace("(localhost)", "(HTTP)")
         out.append(item)
     return out
 
@@ -424,19 +429,16 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
     for s in existing.get("services", []):
         known_urls[s["url"]] = s
 
-    # Purge un-rewritten catalog placeholder URLs (e.g., mac.example.ts.net) when a real site host exists
+    # Purge un-rewritten catalog placeholder URLs (e.g., mac.example.ts.net) and legacy http://localhost: entries when a real site host exists
     public_host = _site_caddy_public_hostname(site_dir)
     if public_host:
         for url_key in list(known_urls.keys()):
-            if _CATALOG_PUBLIC_HOST in url_key or ".example.ts.net" in url_key:
+            if (
+                _CATALOG_PUBLIC_HOST in url_key
+                or ".example.ts.net" in url_key
+                or url_key.startswith("http://localhost:")
+            ):
                 del known_urls[url_key]
-            # Migrate legacy http://localhost:<port> to http://<public_host>:<port>
-            elif url_key.startswith("http://localhost:"):
-                port_part = url_key.rsplit(":", 1)[-1]
-                new_url = f"http://{public_host}:{port_part}"
-                entry = known_urls.pop(url_key)
-                entry["url"] = new_url
-                known_urls[new_url] = entry
 
     # Add/update known services (site MagicDNS substituted for catalog placeholder)
     for s in _known_services_for_site(site_dir):

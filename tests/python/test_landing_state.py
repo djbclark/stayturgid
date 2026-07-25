@@ -121,6 +121,7 @@ def test_discover_prunes_unreachable_unregistered_ports(tmp_path, monkeypatch):
     # Probe fails for all ports
     monkeypatch.setattr(discover, "_http_probe", lambda _url, **_kwargs: None)
     monkeypatch.setattr(discover, "_tcp_probe", lambda _h, _p: False)
+    monkeypatch.setattr(discover, "_site_caddy_public_hostname", lambda _site_dir: None)
 
     res = discover.discover()
     urls = {s["url"] for s in res["services"]}
