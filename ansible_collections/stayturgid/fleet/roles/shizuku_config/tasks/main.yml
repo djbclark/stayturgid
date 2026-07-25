@@ -27,7 +27,6 @@
     suffix: .json
   register: _shizuku_fleet_tmp
   delegate_to: localhost
-  when: not (stayturgid_no_local_adb | default(false) | bool)
 
 - name: Push Shizuku fleet profile to Download
   ansible.builtin.copy:
@@ -36,7 +35,6 @@
       {"mode":"adb","start_on_boot":true,"tcp_mode":true,"tcp_port":5555,"watchdog":true}
     mode: "0644"
   delegate_to: localhost
-  when: not (stayturgid_no_local_adb | default(false) | bool)
 
 - name: Compute local Shizuku fleet profile checksum
   ansible.builtin.shell: |
