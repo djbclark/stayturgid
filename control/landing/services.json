@@ -11,6 +11,7 @@
     {"group": "mac", "label": "Fleet Stats (HTTPS)", "url": "https://mac.example.ts.net/stats/"},
     {"group": "mac", "label": "Ollama LLM API (HTTPS)", "url": "https://mac.example.ts.net/ollama/"},
     {"group": "mac", "label": "LiteLLM Proxy (HTTPS)", "url": "https://mac.example.ts.net/litellm/"},
+    {"group": "mac", "label": "OpenUsage Limits API", "url": "http://localhost:6736/v1/limits"},
     {"group": "mac", "label": "SSH Server (sshd)", "url": "ssh://mac.example.ts.net:22"},
     {"group": "mac", "label": "Eternal Terminal (etserver)", "url": "et://mac.example.ts.net:2022"},
     {"group": "mac", "label": "Apple Remote Desktop (ARD)", "url": "ard://mac.example.ts.net:3283"},

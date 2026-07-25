@@ -51,6 +51,7 @@ KNOWN_SERVICES: list[dict] = [
     {"url": "https://mac.example.ts.net/stats/", "label": "Fleet Stats (HTTPS)", "group": "mac"},
     {"url": "https://mac.example.ts.net/ollama/", "label": "Ollama LLM API (HTTPS)", "group": "mac"},
     {"url": "https://mac.example.ts.net/litellm/", "label": "LiteLLM Proxy (HTTPS)", "group": "mac"},
+    {"url": "http://localhost:6736/v1/limits", "label": "OpenUsage Limits API", "group": "mac"},
     {"url": "ssh://mac.example.ts.net:22", "label": "SSH Server (sshd)", "group": "mac"},
     {"url": "et://mac.example.ts.net:2022", "label": "Eternal Terminal (etserver)", "group": "mac"},
     {"url": "ard://mac.example.ts.net:3283", "label": "Apple Remote Desktop (ARD)", "group": "mac"},
@@ -252,6 +253,7 @@ PROCESS_SERVICE_NAMES: dict[str, str] = {
     "logioptio": "Logi Options+ Daemon",
     "zed": "Zed Editor Helper",
     "omlx": "omlx Local MLX Server",
+    "OpenUsage": "OpenUsage Limits API",
 }
 
 
@@ -286,6 +288,7 @@ def _format_service_label(name: str) -> str:
         "macos-screen-sharing": "macOS Screen Sharing",
         "photosync": "PhotoSync Companion",
         "omlx": "omlx Local MLX Server",
+        "openusage-limits": "OpenUsage Limits API",
     }
     if name in replacements:
         return replacements[name]
