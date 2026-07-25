@@ -95,3 +95,20 @@ def service_sort_key(s: dict[str, Any]) -> tuple:
         dev_name = _extract_device_name(s)
 
     return (cat_rank, natural_sort_key(dev_name), natural_sort_key(label))
+
+
+EXAMPLE_DEVICE_NAMES: set[str] = {"fireos-device", "oneui-device", "stock-android-device"}
+
+
+def filter_example_devices(services: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Filter out example Android device entries if any actual Android devices are present."""
+    device_services = [s for s in services if s.get("group") in ("devices", "android")]
+    actual_devices = {_extract_device_name(s) for s in device_services} - EXAMPLE_DEVICE_NAMES
+
+    if actual_devices:
+        return [
+            s
+            for s in services
+            if s.get("group") not in ("devices", "android") or _extract_device_name(s) not in EXAMPLE_DEVICE_NAMES
+        ]
+    return services

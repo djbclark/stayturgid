@@ -129,3 +129,27 @@ def test_discover_prunes_unreachable_unregistered_ports(tmp_path, monkeypatch):
     # Static service remains (with reachable=False), dead unregistered dynamic port is pruned
     assert "http://localhost:8088" in urls
     assert "http://localhost:52048" not in urls
+
+
+def test_filter_example_devices_suppressed_when_actual_devices_present() -> None:
+    services = [
+        {"group": "devices", "label": "oneui-device FIRERPA"},
+        {"group": "devices", "label": "stock-android-device FIRERPA"},
+        {"group": "devices", "label": "fireos-device FIRERPA"},
+        {"group": "devices", "label": "s24 FIRERPA"},
+        {"group": "devices", "label": "hd8 FIRERPA"},
+    ]
+    filtered = state.filter_example_devices(services)
+    labels = {s["label"] for s in filtered}
+    assert labels == {"s24 FIRERPA", "hd8 FIRERPA"}
+
+
+def test_filter_example_devices_kept_when_no_actual_devices() -> None:
+    services = [
+        {"group": "devices", "label": "oneui-device FIRERPA"},
+        {"group": "devices", "label": "stock-android-device FIRERPA"},
+        {"group": "devices", "label": "fireos-device FIRERPA"},
+    ]
+    filtered = state.filter_example_devices(services)
+    labels = {s["label"] for s in filtered}
+    assert labels == {"oneui-device FIRERPA", "stock-android-device FIRERPA", "fireos-device FIRERPA"}

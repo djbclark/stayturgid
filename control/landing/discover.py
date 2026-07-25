@@ -503,6 +503,7 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
             if url not in hidden:
                 services.append(s)
 
+    services = state.filter_example_devices(services)
     services.sort(key=state.service_sort_key)
     output = {
         "services": services,

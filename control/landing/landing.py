@@ -63,6 +63,7 @@ def index():
     last_scan = _load_last_scan()
     now = time.strftime("%Y-%m-%d %H:%M:%S")
 
+    services = state.filter_example_devices(services)
     services.sort(key=state.service_sort_key)
 
     mac_services = [s for s in services if s.get("group") == "mac"]
