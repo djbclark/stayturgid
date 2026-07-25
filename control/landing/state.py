@@ -51,3 +51,47 @@ def load_state() -> dict[str, Any]:
             pass
         return legacy
     return load_catalog()
+
+
+import re
+
+
+def natural_sort_key(s: str) -> list[int | str]:
+    """Return a sort key for natural (case-insensitive, numeric-aware) ordering."""
+    return [int(text) if text.isdigit() else text.lower() for text in re.split(r"(\d+)", str(s))]
+
+
+def _extract_device_name(service: dict[str, Any]) -> str:
+    label = str(service.get("label", ""))
+    device = str(service.get("device", ""))
+    if device:
+        return device
+    parts = label.split()
+    return parts[0] if parts else label
+
+
+def service_sort_key(s: dict[str, Any]) -> tuple:
+    """Sort key:
+    1. Dashboard host (Mac) first (rank 0)
+    2. Computers by name (rank 1)
+    3. Android devices by name (rank 2)
+    4. Other (rank 3)
+    Within each name, sort services by label (case-insensitive, natural numbers).
+    """
+    group = str(s.get("group", ""))
+    label = str(s.get("label", ""))
+
+    if group == "mac":
+        cat_rank = 0
+        dev_name = "mac"
+    elif group in ("computers", "computer"):
+        cat_rank = 1
+        dev_name = _extract_device_name(s)
+    elif group in ("devices", "android"):
+        cat_rank = 2
+        dev_name = _extract_device_name(s)
+    else:
+        cat_rank = 3
+        dev_name = _extract_device_name(s)
+
+    return (cat_rank, natural_sort_key(dev_name), natural_sort_key(label))

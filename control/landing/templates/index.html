@@ -212,12 +212,17 @@
     </div>
     {%- endmacro %} {% if mac_services %}
     <div class="section">
-      <div class="section-title">Mac</div>
+      <div class="section-title">Dashboard Host (Mac)</div>
       {% for s in mac_services %} {{ service_row(s) }} {% endfor %}
+    </div>
+    {% endif %} {% if computer_services %}
+    <div class="section">
+      <div class="section-title">Computers</div>
+      {% for s in computer_services %} {{ service_row(s) }} {% endfor %}
     </div>
     {% endif %} {% if device_services %}
     <div class="section">
-      <div class="section-title">Devices</div>
+      <div class="section-title">Android Devices</div>
       {% for s in device_services %} {{ service_row(s) }} {% endfor %}
     </div>
     {% endif %} {% if other_services %}
