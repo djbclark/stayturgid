@@ -28,16 +28,16 @@ bugs/follow-ups) for what's actually available to pick up next.
   device confirmed post-cutover. Tracked in
   [#43](https://github.com/djbclark/stayturgid/issues/43) and
   [#45](https://github.com/djbclark/stayturgid/issues/45).
-- OpenObserve↔Vector auth is **broken, live** (401 Unauthorized) — blocks K1
-  soak evidence and T5 follow-ons. Tracked in
-  [#44](https://github.com/djbclark/stayturgid/issues/44).
+- OpenObserve↔Vector auth **fixed 2026-07-25**, pending 24h clean-log
+  verification before closing. Tracked in
+  [#44](https://github.com/djbclark/stayturgid/issues/44) — see
+  [docs/STATUS.md](docs/STATUS.md) for the root cause.
 
 **Operator-action queue (things only a human can do):**
 
-1. Set OpenObserve credentials for the Vector LaunchAgent and restart it ([#44](https://github.com/djbclark/stayturgid/issues/44)).
-2. Physically check offline fleet devices (Tailscale unreachable).
-3. Decide the F1 consent-surface phasing question ([#46](https://github.com/djbclark/stayturgid/issues/46)).
-4. Remove (or authorize removal of) a stray `~/stayturgid` file — the real repo is `~/ops/stayturgid`.
+1. Physically check offline fleet devices (Tailscale unreachable).
+2. Decide the F1 consent-surface phasing question ([#46](https://github.com/djbclark/stayturgid/issues/46)).
+3. Remove (or authorize removal of) a stray `~/stayturgid` file — the real repo is `~/ops/stayturgid`.
 
 If any of this looks stale, trust `docs/STATUS.md` and `git log` over this
 section — it's a snapshot, not updated every commit.
