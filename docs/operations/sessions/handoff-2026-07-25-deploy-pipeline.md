@@ -6,8 +6,9 @@ This doc is the short version for picking work back up.
 
 ## State right now
 
-- **3 commits on `master`, not yet pushed to `origin`:** `0a4c55d`, `5c7f023`,
-  `ebf83a0`. Working tree clean. All 133 unit tests pass.
+- **4 commits on `master`, pushed to `origin`:** `0a4c55d`, `5c7f023`,
+  `ebf83a0`, `b7100e4` (`fab6889..b7100e4`). Working tree clean. All 133
+  unit tests pass.
 - **s24 and p7a deploy clean end-to-end** (`just deploy s24`, `just deploy p7a`
   — confirmed live, `failed=0` both times, re-verified after each fix).
 - **hd8 still fails**, but on a distinct, pre-existing, unrelated issue —
