@@ -419,6 +419,13 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
     for s in existing.get("services", []):
         known_urls[s["url"]] = s
 
+    # Purge un-rewritten catalog placeholder URLs (e.g., mac.example.ts.net) when a real site host exists
+    public_host = _site_caddy_public_hostname(site_dir)
+    if public_host:
+        for url_key in list(known_urls.keys()):
+            if _CATALOG_PUBLIC_HOST in url_key or ".example.ts.net" in url_key:
+                del known_urls[url_key]
+
     # Add/update known services (site MagicDNS substituted for catalog placeholder)
     for s in _known_services_for_site(site_dir):
         url = s["url"]
