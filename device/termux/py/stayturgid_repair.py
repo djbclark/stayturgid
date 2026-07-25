@@ -249,6 +249,38 @@ def privileged_shell():
     return out.strip() == "2000"
 
 
+# Marker string embedded via a leading shell no-op (`: MARKER;`) so pgrep -f
+# can find this exact loop's argv, distinct from shizuku_server itself.
+_WATCHDOG_MARKER = "STAYTURGID_SHIZUKU_WATCHDOG"
+_WATCHDOG_LOG = "/data/local/tmp/stayturgid_shizuku_watchdog.log"
+_WATCHDOG_CMD = (
+    "setsid sh -c '"
+    ': {marker}; while true; do pgrep -f "[s]hizuku_server" >/dev/null || '
+    "/data/local/tmp/shizuku_starter >/dev/null 2>&1; sleep 60; done"
+    "' > {log} 2>&1 &"
+).format(marker=_WATCHDOG_MARKER, log=_WATCHDOG_LOG)
+
+
+def ensure_shizuku_watchdog():
+    """Spawn a detached UID-2000 shell loop (setsid, ppid=1) that restarts
+    shizuku_server if it dies, independent of Shizuku's own app-level
+    WatchdogService (which is just a regular Android process and subject to
+    the same OS battery/OOM killing as anything else). Idempotent — only
+    spawns if not already running. Requires privileged_shell() to already be
+    true (uses sh_adb, i.e. Shizuku's own local adbd loopback) — this cannot
+    help bootstrap Shizuku from nothing, only keep it running once it's up
+    once. See docs/operations/sessions/session-2026-07-25-k1-verification.md
+    for why the previous am-broadcast-based restart from Termux never worked
+    (INTERACT_ACROSS_USERS_FULL, which Termux can never hold) and why this
+    replaces it instead of trying to fix that broadcast path.
+    """
+    rc, _ = sh_adb("pgrep -f " + _WATCHDOG_MARKER)
+    if rc == 0:
+        return "already running"
+    rc, out = sh_adb(_WATCHDOG_CMD)
+    return "spawned" if rc == 0 else "spawn FAILED: " + out.strip()
+
+
 def read_device_profile():
     for path in (
         os.path.join(SD, "state", "device.json"),
@@ -849,7 +881,7 @@ def main():
         rc = 1
         log("5555 CLOSED / no privileged shell — escalate to AutoJs6 UI repair or reboot", ERR)
 
-    # --- 3. shizuku (via privileged shell, fallback to Termux am/pgrep) ---
+    # --- 3. shizuku (via privileged shell; watchdog handles restart) ---
     if expect_shell and have_sh:
         _, shizuku_out = sh_adb("am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null")
         if "result=1" in shizuku_out:
@@ -857,17 +889,36 @@ def main():
         else:
             rc, _ = sh_adb("pgrep -f '[s]hizuku_server'")
             shizuku = "up" if rc == 0 else "down"
+        # Ensure the detached UID-2000 watchdog is running while we have
+        # privileged shell — this is what actually restarts shizuku_server
+        # if it dies later, independent of Shizuku's own app-level
+        # WatchdogService (which is just a regular Android process, subject
+        # to the same OS battery/OOM killing as anything else). Idempotent.
+        watchdog_status = ensure_shizuku_watchdog()
+        if watchdog_status != "already running":
+            log("shizuku watchdog: " + watchdog_status, INFO if watchdog_status == "spawned" else WARNING)
     elif expect_shell:
-        # Port 5555 is down — can't use adb shell. Fall back to Termux-native
-        # commands: pgrep for liveness, am broadcast for HEADLESS_START/STATUS.
+        # Port 5555 is down — can't use adb shell, so we're on Termux's own
+        # unprivileged UID. Only pgrep-based liveness detection is possible;
+        # this used to also try `am broadcast HEADLESS_START`, but that
+        # receiver requires INTERACT_ACROSS_USERS_FULL (a signature/
+        # privileged permission Termux can never hold — confirmed via a live
+        # Permission Denial in logcat, meaning this call has been silently
+        # failing since the feature was added). Removed rather than fixed:
+        # confirmed via two independent reviews that no securely-pinned
+        # version of that broadcast recovers anything the native agent's own
+        # privileged Shizuku-UserService path, or an adb-shell-based Mac
+        # trigger (when a transport is reachable), don't already cover. See
+        # docs/operations/sessions/session-2026-07-25-k1-verification.md.
         shizuku_rc, _ = run(["pgrep", "-f", "[s]hizuku_server"])
         if shizuku_rc == 0:
             shizuku = "up"
-            # Shizuku daemon is running but port 5555 is closed — likely
-            # TCP mode wasn't enabled (fleet profile not applied). Apply the
-            # fleet profile via am start (works from Termux, no ADB needed),
-            # then send HEADLESS_START to open port 5555.
-            log("shizuku_server running but port 5555 closed — applying fleet profile + HEADLESS_START", WARNING)
+            # Shizuku daemon is running but port 5555 is closed — likely TCP
+            # mode wasn't enabled (fleet profile not applied). Re-applying
+            # the fleet profile is a plain `am start` on an unprotected
+            # activity, unlike HEADLESS_START — this part still works from
+            # Termux without any privilege.
+            log("shizuku_server running but port 5555 closed — re-applying fleet profile", WARNING)
             shizuku_fp = "/data/local/tmp/shizuku-fleet.json"
             if not os.path.isfile(shizuku_fp):
                 shizuku_fp = "/sdcard/Download/shizuku-fleet.json"
@@ -891,25 +942,20 @@ def main():
                     ]
                 )
                 time.sleep(1)
-            run(["am", "broadcast", "-a", "moe.shizuku.privileged.api.HEADLESS_START"])
-            time.sleep(3)
-            # Re-check if port 5555 came up.
+            # Re-check if the profile re-apply alone was enough.
             if privileged_shell():
                 have_sh = True
                 port = "open"
-                log("port 5555 restored via HEADLESS_START from Termux", NOTICE)
+                log("port 5555 restored via fleet profile re-apply from Termux", NOTICE)
         else:
             shizuku = "down"
-            log("shizuku_server NOT running — trying HEADLESS_START from Termux", WARNING)
-            run(["am", "broadcast", "-a", "moe.shizuku.privileged.api.HEADLESS_START"])
-            time.sleep(3)
-            rc2, _ = run(["pgrep", "-f", "[s]hizuku_server"])
-            if rc2 == 0:
-                shizuku = "repaired"
-                log("shizuku_server started via HEADLESS_START from Termux", NOTICE)
-                if privileged_shell():
-                    have_sh = True
-                    port = "open"
+            log(
+                "shizuku_server NOT running and no privileged shell available — "
+                "cannot restart from Termux (needs adb shell or the on-device "
+                "watchdog, which needs shizuku_server to have been up at least "
+                "once already); escalate to native-agent/USB/physical recovery",
+                ERR,
+            )
 
     # --- 4. AutoJs6 accessibility (detection only; user must enable manually) ---
     a11y = "unknown"

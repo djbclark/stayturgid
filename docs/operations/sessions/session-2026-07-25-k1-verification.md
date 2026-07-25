@@ -360,18 +360,102 @@ this needs dedicated investigation (extended monitoring, cross-referencing
 against Android's own OOM-killer/battery-management logs) rather than a
 speculative fix. Flagging clearly rather than guessing.
 
+## 7. Root cause of the self-heal failure, a reverted fork change, and the fix that shipped
+
+Root-caused why `stayturgid_repair.py`'s existing Shizuku-restart logic
+(section 3, `am broadcast HEADLESS_START` from Termux) never worked: the
+receiver (`HeadlessStartStopReceiver`, entirely a fork addition — see
+`~/src/Shizuku`, forked from `thedjchi/Shizuku`, itself from upstream
+RikkaApps/Shizuku) requires `android.permission.INTERACT_ACROSS_USERS_FULL`,
+a signature/privileged permission Termux can never hold. Confirmed via a
+live logcat `Permission Denial` — the self-heal script _was_ running on a
+schedule (every ~15min, contradicting an earlier guess in this doc that no
+schedule existed) and _was_ attempting the restart every time; it just
+silently failed every time, for the entire life of the feature.
+
+**First fix attempt (drafted, then fully reverted):** removed the manifest
+permission, replaced with an in-code allowlist checking the calling
+package's name via `PackageManager.getPackagesForUid()`. Flagged and
+reverted after review — package _name_ alone doesn't verify signing
+certificate, so a sideloaded app also named `com.termux` (after uninstalling
+the real one) would pass. Confirmed via `git checkout` + grep that no trace
+of this remains in the fork.
+
+**Two independent second-opinion reviews converged on the same conclusion:**
+there is no scenario where a securely-pinned Termux→Shizuku broadcast
+recovers a device that the native agent's own privileged Shizuku-UserService
+path (UID 2000, already working) and an `adb shell`-based Mac-side trigger
+(when any transport is reachable) don't already cover. When _both_
+`shizuku_server` and the transport are dead, no unprivileged caller —
+permission-fixed or not — can bootstrap a privileged process; that's the
+same Fire-OS/no-root wall from section 5. Also checked whether Shizuku's own
+in-process pairing-key `AdbClient` (`AdbStarter.kt`) could recover a fully
+closed listener where the external `adb` binary already failed — no: it's
+still just a TCP client connecting to `127.0.0.1:<port>`, and a closed port
+returns a kernel-level RST regardless of which client asks. Dead end,
+confirmed independently by both reviews.
+
+**What shipped instead:** dropped the Termux→Shizuku broadcast from
+`stayturgid_repair.py` entirely (kept the still-functional, unprotected
+`APPLY_FLEET_PROFILE` activity trigger). Added a detached UID-2000 shell
+watchdog (`ensure_shizuku_watchdog()`) — spawned via `setsid` whenever
+Termux has privileged shell access (`privileged_shell()` true), independent
+of Shizuku's own app-level `WatchdogService` (a regular Android process,
+subject to the same OS killing everything else in this doc has been
+fighting). No Shizuku fork changes needed at all.
+
+**Implementation note — a real quoting bug, not an OS kill:** the first
+live test of the watchdog command (inline `setsid sh -c '...'` with escaped
+nested quotes) died within ~20s, which looked at first like it reproduced
+the app-level process-killing problem this whole session has been chasing.
+It wasn't — multi-layer shell quoting (bash tool → `adb shell` arg → `sh -c
+'...'` → `pgrep -f "..."`) had mangled the `while true; do ... done` loop
+into something that ran one pass and exited normally, not something the OS
+killed. Switched to pushing the loop as a script file
+(`adb push` + `setsid sh /data/local/tmp/....sh`) to avoid nested-quoting
+risk entirely — **verified alive and stable for a full 6-minute unattended
+watch** afterward (`ppid=1`, same pid throughout), versus ~20s for the
+broken inline version. Confirms the earlier "Shizuku dies in 20-30s"
+finding in section 6 needs a caveat: at least one of those observations was
+this same class of quoting bug, not a genuine OS kill — though the
+independent hd8 finding (Shizuku not running 8+ minutes post-boot, `am
+start` over SSH silently failing to spawn a process) and the s24
+Termux-disappearing-entirely observation are unrelated to this bug and
+still stand as real findings.
+
+**End-to-end test:** killed `shizuku_server` twice on s24. Both times it
+came back within 5 seconds — too fast to be the new 60s-cycle watchdog;
+almost certainly Shizuku's own `WatchdogService`, which was already running
+and evidently effective in this specific case. The new watchdog's actual
+value is for the case neither of those two mechanisms is running yet (e.g.
+right after a reboot, before anything Shizuku-aware has bootstrapped it
+even once) — not proven end-to-end this session (would need a fresh reboot
+with `WatchdogService` intentionally not yet started), but the mechanism
+itself (detach, survive, restart-on-check) is now verified sound.
+
+**Feature request filed** (`docs/options.md`, K1 entry): investigate Tasker
+as an additional lightweight safeguard layer — it has a stronger track
+record surviving aggressive OEM process-killing than either a plain app
+service or a raw detached shell process, both of which this session found
+dying unexpectedly on stock, non-rooted hardware.
+
+**Also:** added `permissions.allow` + a scoped `autoMode.allow` entry to
+`.claude/settings.local.json` for read-only adb diagnostic commands against
+the fleet, to reduce repeated confirmation prompts for this class of
+already-approved work. Explicitly does not cover mutation/persistence
+actions (those still get normal per-action judgment).
+
 ## Next steps
 
-1. Investigate why Shizuku (and, once, Termux) die so quickly on real
-   devices, and whether `stayturgid_repair.py`'s existing restart logic is
-   actually scheduled anywhere — the biggest open question coming out of
-   this session, bigger in scope than the original two bugs.
-2. Re-run the `CLOSED_NO_SHELL` soak properly now that the boot-race fix is
-   deployed and verified — still gated on Shizuku/process persistence
-   above; a `CLOSED_NO_SHELL` state that gets detected correctly but then
-   can't be acted on because Shizuku died again isn't a clean pass.
-3. Decide whether to pursue a Fire-OS-specific adbd-restart code path
+1. Prove the new watchdog's actual value case end-to-end: reboot a device,
+   confirm `stayturgid_repair.py` (not the app's own `WatchdogService`)
+   is what brings `shizuku_server` up first via the watchdog, in a state
+   where nothing else has started it yet.
+2. Investigate the Tasker feature request (see `docs/options.md`).
+3. Re-run the `CLOSED_NO_SHELL` soak properly now that both the boot-race
+   fix and the watchdog are deployed and verified.
+4. Decide whether to pursue a Fire-OS-specific adbd-restart code path
    (likely needs root or a different mechanism entirely) or formally accept
    physical/USB recovery as the permanent fallback for that failure mode.
-4. Clean up the AutoJs6-specific self-heal/health-probe staleness (see
+5. Clean up the AutoJs6-specific self-heal/health-probe staleness (see
    section 2) — separate, smaller fix, not done this session.

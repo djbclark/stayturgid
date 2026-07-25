@@ -184,7 +184,31 @@ and a broader, more significant finding: Shizuku (and once, Termux/sshd)
 died unexpectedly on **both** hd8 and s24 during this session, not just
 Fire OS — an existing restart mechanism in `stayturgid_repair.py` may not
 actually be scheduled anywhere. The soak still can't be fully trusted until
-that's understood. Full writeup:
+that's understood.
+
+**Fix in progress (same day):** a detached `setsid`-spawned UID-2000 shell
+watchdog (independent of Shizuku's own app-level `WatchdogService`, which is
+just a regular Android process subject to the same OS killing) that
+periodically checks and restarts `shizuku_server`. Dropped the
+Termux→Shizuku broadcast path entirely rather than trying to fix its
+permission problem — confirmed via two independent second-opinion reviews
+that no securely-pinned version of that broadcast would recover anything
+the native agent's own privileged path or an `adb shell`-based Mac trigger
+don't already cover.
+
+**Feature request (research, not yet started):** figure out the best way
+to use Tasker as an additional, very lightweight safeguard layer for this
+same self-heal problem. Tasker has a stronger track record surviving
+aggressive OEM background-process killing than either a plain Android app
+service or a raw detached shell process (both of which this session found
+dying unexpectedly on stock, non-rooted Samsung/Fire OS devices) — worth a
+scoped investigation into whether a minimal Tasker profile (e.g., triggered
+on a schedule or on Shizuku's own crash/stop) could add real redundancy
+without requiring `WRITE_SECURE_SETTINGS`-level privilege itself, just
+enough to nudge the existing privileged paths (native agent, watchdog) back
+alive.
+
+Full writeup:
 [operations/sessions/session-2026-07-25-k1-verification.md](operations/sessions/session-2026-07-25-k1-verification.md).
 See also [docs/STATUS.md](STATUS.md) and
 [operations/sessions/handoff-2026-07-23-native-agent-k1.md](operations/sessions/handoff-2026-07-23-native-agent-k1.md).
