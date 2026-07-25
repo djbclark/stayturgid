@@ -170,10 +170,24 @@ went undetected). Uninstalled for real fleet-wide 2026-07-25; confirmed via
 runs `org.stayturgid.agent.debug` (`0.3.6-diagnostics-debug`), not a signed
 release.
 
+**Correction to an earlier same-day report:** `a11y` briefly still read `up`
+right after the uninstall (stale settings-db entry) then correctly settled
+to `down` on all three — this does **not** mean the native agent has its own
+accessibility service; `ComonitorProbes.probeA11yListed()` only ever checked
+for AutoJs6's specific service string, so `a11y` will now read `down`
+fleet-wide permanently. Follow-up needed: `stayturgid_repair.py`'s self-heal
+loop and `fleet_health.py`'s `autojs6_a11y` probe are both still
+AutoJs6-specific and will keep logging/reporting stale
+`ACTION_REQUIRED`/`missing` signals now that AutoJs6 is gone for good — noise,
+not a functional break, but should be cleaned up.
+
 **Still not verified — do not treat as done:** the forced `CLOSED_NO_SHELL`
 soak and the 7-day OpenObserve soak that were meant to gate "complete" never
 ran — the soak is now more meaningful than before, since AutoJs6 is no
-longer a potential silent fallback. See [docs/STATUS.md](STATUS.md) and
+longer a potential silent fallback. A same-day attempt on s24 (Samsung/One
+UI) did not manage to actually close port 5555 — toggling `adb_wifi_enabled`
+and `adb usb` had no effect, this ROM appears to keep the network debugging
+listener alive independently of those levers. See [docs/STATUS.md](STATUS.md) and
 [operations/sessions/handoff-2026-07-23-native-agent-k1.md](operations/sessions/handoff-2026-07-23-native-agent-k1.md).
 Tracked as [#43](https://github.com/djbclark/stayturgid/issues/43) (fleet-state
 verification) and [#45](https://github.com/djbclark/stayturgid/issues/45)
