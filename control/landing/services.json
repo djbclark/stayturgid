@@ -11,6 +11,9 @@
     {"group": "mac", "label": "Fleet Stats (HTTPS)", "url": "https://mac.example.ts.net/stats/"},
     {"group": "mac", "label": "Ollama LLM API (HTTPS)", "url": "https://mac.example.ts.net/ollama/"},
     {"group": "mac", "label": "LiteLLM Proxy (HTTPS)", "url": "https://mac.example.ts.net/litellm/"},
+    {"group": "mac", "label": "SSH Server (sshd)", "url": "ssh://mac.example.ts.net:22"},
+    {"group": "mac", "label": "Eternal Terminal (etserver)", "url": "et://mac.example.ts.net:2022"},
+    {"group": "mac", "label": "Apple Remote Desktop (ARD)", "url": "ard://mac.example.ts.net:3283"},
     {"group": "mac", "label": "Caddy Health", "url": "http://localhost:8080"},
     {"group": "devices", "label": "oneui-device FIRERPA", "url": "http://100.0.0.11:65000"},
     {"group": "devices", "label": "stock-android-device FIRERPA", "url": "http://100.0.0.12:65000"},
@@ -20,6 +23,7 @@
     {"group": "devices", "label": "oneui-device FIRERPA (MagicDNS)", "url": "http://oneui-device.example.ts.net:65000"},
     {"group": "devices", "label": "stock-android-device FIRERPA (MagicDNS)", "url": "http://stock-android-device.example.ts.net:65000"},
     {"group": "devices", "label": "fireos-device FIRERPA (MagicDNS)", "url": "http://fireos-device.example.ts.net:65000"},
+    {"group": "computers", "label": "p7a-kvm Linux SSH", "url": "ssh://p7a-kvm.example.ts.net:22"},
     {"group": "mac", "label": "PHP-FPM / Dev Server", "url": "http://localhost:9000"}
   ]
 }

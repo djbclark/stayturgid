@@ -51,7 +51,11 @@ KNOWN_SERVICES: list[dict] = [
     {"url": "https://mac.example.ts.net/stats/", "label": "Fleet Stats (HTTPS)", "group": "mac"},
     {"url": "https://mac.example.ts.net/ollama/", "label": "Ollama LLM API (HTTPS)", "group": "mac"},
     {"url": "https://mac.example.ts.net/litellm/", "label": "LiteLLM Proxy (HTTPS)", "group": "mac"},
+    {"url": "ssh://mac.example.ts.net:22", "label": "SSH Server (sshd)", "group": "mac"},
+    {"url": "et://mac.example.ts.net:2022", "label": "Eternal Terminal (etserver)", "group": "mac"},
+    {"url": "ard://mac.example.ts.net:3283", "label": "Apple Remote Desktop (ARD)", "group": "mac"},
     {"url": "http://localhost:8080", "label": "Caddy Health", "group": "mac"},
+    {"url": "ssh://p7a-kvm.example.ts.net:22", "label": "p7a-kvm Linux SSH", "group": "computers"},
     # mDNS (Bonjour, LAN-only) — use if macOS hostname differs
     # Devices — Tailscale IPs
     {"url": "http://100.0.0.11:65000", "label": "oneui-device FIRERPA", "group": "devices"},
@@ -168,7 +172,22 @@ def _known_services_for_site(site_dir: Path) -> list[dict]:
 
 
 def _http_probe(url: str, timeout: float = 3.0, public_host: str | None = None, **_kwargs) -> int | None:
-    """Return HTTP status code or None if unreachable."""
+    """Return HTTP status code (or 200 for open TCP non-HTTP services) or None if unreachable."""
+    if url.startswith(("ssh://", "et://", "adb://", "ard://", "tcp://")):
+        parts = url.split("://", 1)[1].split("/")[0]
+        if ":" in parts:
+            h, p_str = parts.rsplit(":", 1)
+            try:
+                p = int(p_str)
+            except ValueError:
+                p = 22
+        else:
+            h, p = parts, 22
+
+        if public_host and public_host in h:
+            h = "127.0.0.1"
+        return 200 if _tcp_probe(h, p, timeout=timeout) else None
+
     probe_url = url
     if public_host and public_host in url and url.startswith("http://"):
         import re
@@ -461,8 +480,20 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
             known_urls[url]["label"] = s["label"]
             if s.get("unregistered"):
                 known_urls[url]["unregistered"] = True
-            elif "unregistered" in known_urls[url]:
-                del known_urls[url]["unregistered"]
+    # Discover non-HTTP services (Termux SSH, Wireless ADB) on detected Android devices
+    device_names = {
+        state._extract_device_name(s) for s in known_urls.values() if s.get("group") in ("devices", "android")
+    }
+    for dev_name in device_names:
+        if dev_name not in state.EXAMPLE_DEVICE_NAMES:
+            domain = public_host.split(".", 1)[1] if (public_host and "." in public_host) else "example.ts.net"
+            dev_fqdn = f"{dev_name}.{domain}"
+            ssh_url = f"ssh://{dev_fqdn}:8022"
+            adb_url = f"adb://{dev_fqdn}:5555"
+            if ssh_url not in known_urls:
+                known_urls[ssh_url] = {"url": ssh_url, "label": f"{dev_name} Termux SSH", "group": "devices"}
+            if adb_url not in known_urls:
+                known_urls[adb_url] = {"url": adb_url, "label": f"{dev_name} Wireless ADB", "group": "devices"}
 
     # Probe reachability
     hidden = set(existing.get("hidden", []))
