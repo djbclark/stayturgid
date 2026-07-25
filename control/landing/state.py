@@ -62,6 +62,10 @@ def natural_sort_key(s: str) -> list[int | str]:
 
 
 def _extract_device_name(service: dict[str, Any]) -> str:
+    # If the group is itself a known device name (e.g. group="p7a"), use it directly.
+    group = str(service.get("group", ""))
+    if group not in ("mac", "devices", "android", "computers", "computer", "linux", "other", ""):
+        return group
     label = str(service.get("label", ""))
     device = str(service.get("device", ""))
     if device:
@@ -98,18 +102,19 @@ def service_sort_key(s: dict[str, Any]) -> tuple:
 
 
 EXAMPLE_DEVICE_NAMES: set[str] = {"fireos-device", "oneui-device", "stock-android-device"}
+KNOWN_ANDROID_DEVICES: set[str] = {"hd8", "p7a", "s24"}
 
 
 def filter_example_devices(services: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Filter out example Android device entries if any actual Android devices are present."""
-    device_services = [s for s in services if s.get("group") in ("devices", "android")]
+    device_services = [s for s in services if get_os_category(s) == "Android"]
     actual_devices = {_extract_device_name(s) for s in device_services} - EXAMPLE_DEVICE_NAMES
 
     if actual_devices:
         return [
             s
             for s in services
-            if s.get("group") not in ("devices", "android") or _extract_device_name(s) not in EXAMPLE_DEVICE_NAMES
+            if get_os_category(s) != "Android" or _extract_device_name(s) not in EXAMPLE_DEVICE_NAMES
         ]
     return services
 
@@ -123,7 +128,7 @@ def get_os_category(s: dict[str, Any]) -> str:
         return "MacOS"
     elif group in ("linux", "computer", "computers"):
         return "Linux"
-    elif group in ("devices", "android"):
+    elif group in ("devices", "android") or group in KNOWN_ANDROID_DEVICES:
         return "Android"
     return "Other"
 

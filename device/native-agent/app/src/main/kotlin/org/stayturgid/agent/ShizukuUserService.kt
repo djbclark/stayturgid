@@ -82,6 +82,15 @@ class ShizukuUserService : IStayTurgidService.Stub {
         }
     }
 
+    override fun ensureAdbBaseline(): String {
+        return try {
+            CatastrophicRepair.ensureAdbBaseline()
+        } catch (t: Throwable) {
+            Log.e(TAG, "ensureAdbBaseline failed", t)
+            "error:${t.message}"
+        }
+    }
+
     private fun injectSilentKey() {
         val inputManager = resolveInputManager()
         val inject = resolveInjectMethod(inputManager.javaClass)

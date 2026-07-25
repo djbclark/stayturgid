@@ -55,7 +55,7 @@ KNOWN_SERVICES: list[dict] = [
     {"url": "et://mac.example.ts.net:2022", "label": "Eternal Terminal (etserver)", "group": "mac"},
     {"url": "ard://mac.example.ts.net:3283", "label": "Apple Remote Desktop (ARD)", "group": "mac"},
     {"url": "http://localhost:8080", "label": "Caddy Health", "group": "mac"},
-    {"url": "ssh://p7a-kvm.example.ts.net:22", "label": "p7a-kvm Linux SSH", "group": "computers"},
+    {"url": "ssh://p7a.example.ts.net:22", "label": "KVM Linux SSH (p7a-kvm)", "group": "p7a"},
     # mDNS (Bonjour, LAN-only) — use if macOS hostname differs
     # Devices — Tailscale IPs
     {"url": "http://100.0.0.11:65000", "label": "oneui-device FIRERPA", "group": "devices"},

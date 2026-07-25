@@ -273,9 +273,17 @@ class HostService : Service() {
         if (heartbeatJob?.isActive == true) return
         heartbeatJob =
             scope.launch {
-                ensureBound()
-                // Brief settle for first bind.
-                delay(2_000)
+                // Retry the initial bind for up to INITIAL_BIND_RETRY_MS instead of
+                // a single fixed-delay attempt — a lost race here previously meant
+                // no CLOSED_NO_SHELL detection for a full COMONTOR_INTERVAL_MS after
+                // every real reboot.
+                var waited = 0L
+                while (isActive && serviceRef.get() == null && waited < INITIAL_BIND_RETRY_MS) {
+                    ensureBound()
+                    if (serviceRef.get() != null) break
+                    delay(INITIAL_BIND_POLL_MS)
+                    waited += INITIAL_BIND_POLL_MS
+                }
                 callComonitor()
                 while (isActive) {
                     delay(COMONTOR_INTERVAL_MS)
@@ -318,6 +326,14 @@ class HostService : Service() {
         try {
             val line = svc.runComonitor()
             Log.i(TAG, "comonitor: $line")
+            // Keep USB debugging enabled unconditionally, independent of
+            // port state — physical USB recovery should never require
+            // manual Developer Options changes. Cheap/idempotent.
+            try {
+                svc.ensureAdbBaseline()
+            } catch (e: RemoteException) {
+                Log.e(TAG, "ensureAdbBaseline IPC failed", e)
+            }
             // Phase 3: if agent STATUS says CLOSED_NO_SHELL, try shell-first repair
             // (no a11y). AutoJs6 still owns UI fallback until cutover.
             if (line.contains("port=CLOSED_NO_SHELL") || line.contains("port=closed")) {
@@ -424,6 +440,22 @@ class HostService : Service() {
 
         /** Co-monitor cadence while screen on (Phase 2). */
         const val COMONTOR_INTERVAL_MS: Long = 20 * 60 * 1000L
+
+        /**
+         * Poll interval while retrying the initial post-boot Shizuku bind.
+         * Boot-time bind is async and can take longer than a single fixed
+         * delay under full-boot system load (observed 2.5s+ on real device
+         * boots — see docs/operations/sessions/session-2026-07-25-k1-verification.md).
+         */
+        const val INITIAL_BIND_POLL_MS: Long = 2_000L
+
+        /**
+         * Total time to keep retrying the initial bind before falling back
+         * to the steady-state [COMONTOR_INTERVAL_MS] loop. Without this, a
+         * lost race on the fixed 2s delay used to mean losing an entire
+         * comonitor cycle (20 minutes) with zero CLOSED_NO_SHELL detection.
+         */
+        const val INITIAL_BIND_RETRY_MS: Long = 20_000L
 
         const val ACTION_STOP = "org.stayturgid.agent.action.STOP"
         const val ACTION_PING_NOW = "org.stayturgid.agent.action.PING_NOW"

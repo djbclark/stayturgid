@@ -23,7 +23,7 @@
     {"group": "devices", "label": "oneui-device FIRERPA (MagicDNS)", "url": "http://oneui-device.example.ts.net:65000"},
     {"group": "devices", "label": "stock-android-device FIRERPA (MagicDNS)", "url": "http://stock-android-device.example.ts.net:65000"},
     {"group": "devices", "label": "fireos-device FIRERPA (MagicDNS)", "url": "http://fireos-device.example.ts.net:65000"},
-    {"group": "computers", "label": "p7a-kvm Linux SSH", "url": "ssh://p7a-kvm.example.ts.net:22"},
+    {"group": "p7a", "label": "KVM Linux SSH (p7a-kvm)", "url": "ssh://p7a.example.ts.net:22"},
     {"group": "mac", "label": "PHP-FPM / Dev Server", "url": "http://localhost:9000"}
   ]
 }

@@ -30,4 +30,14 @@ interface IStayTurgidService {
      * activity fallback. Success means the tunnel was re-probed as healthy.
      */
     String repairTailscale() = 4;
+
+    /**
+     * Idempotently ensure development_settings_enabled/adb_enabled stay on,
+     * independent of CLOSED_NO_SHELL. Wireless ADB can't always be forced
+     * back open in software on every ROM (see CatastrophicRepair docs), but
+     * keeping USB debugging enabled means a physical USB reconnect always
+     * works without needing to dig into Developer Options by hand. Cheap,
+     * called on every co-monitor tick.
+     */
+    String ensureAdbBaseline() = 5;
 }

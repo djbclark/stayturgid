@@ -139,20 +139,32 @@ object ComonitorProbes {
         return false
     }
 
+    // /proc/net/tcp local-address hex for 127.0.0.1 (little-endian 32-bit word).
+    // Verified empirically against a live device's /proc/net/tcp.
+    private const val LOOPBACK_V4_HEX = "0100007F"
+
     private fun listeningOn(port: Int): Boolean {
-        // Parse /proc/net/tcp for local port in hex
+        // Parse /proc/net/tcp for local port in hex. A loopback-only bind is
+        // NOT externally reachable — do not report it as "open". (Found via
+        // live testing: adbd can be left listening on 127.0.0.1 only after
+        // certain failure modes, which this probe previously treated as a
+        // false-positive "open" state. See
+        // docs/operations/sessions/session-2026-07-25-k1-verification.md.)
         val hex = "%04X".format(port)
         val tcp = readText("/proc/net/tcp") ?: return false
         for (line in tcp.lineSequence().drop(1)) {
             val parts = line.trim().split(Regex("\\s+"))
             if (parts.size < 4) continue
-            val local = parts[1] // ip:port
+            val local = parts[1] // ip:port, hex, e.g. 0100007F:15B3 (127.0.0.1) or 00000000:15B3 (any)
             val st = parts[3] // 0A = LISTEN
-            if (local.endsWith(":$hex", ignoreCase = true) && st.equals("0A", ignoreCase = true)) {
-                return true
-            }
+            if (!local.endsWith(":$hex", ignoreCase = true) || !st.equals("0A", ignoreCase = true)) continue
+            if (local.substringBefore(":").equals(LOOPBACK_V4_HEX, ignoreCase = true)) continue
+            return true
         }
-        // IPv6
+        // IPv6 — not loopback-filtered (this fleet's ADB path is IPv4-only via
+        // service.adb.tcp.port; a v6-loopback-only listener is not a case
+        // observed in practice, so left as before rather than guessing at the
+        // byte layout without a live example to verify against).
         val tcp6 = readText("/proc/net/tcp6") ?: return false
         for (line in tcp6.lineSequence().drop(1)) {
             val parts = line.trim().split(Regex("\\s+"))
@@ -166,9 +178,17 @@ object ComonitorProbes {
         // Fire OS can hide adbd's socket from /proc even for UID 2000 while
         // `ss -ltn` still reports the live listener. `ss` may emit a netlink
         // permission warning first, so match only LISTEN table addresses.
+        // Exclude an explicit loopback address the same way as above; `*`
+        // (any-interface) is fine and stays a match.
         val ss = shellOut(arrayOf("ss", "-ltn"), 4).orEmpty()
-        val portPattern = Regex("""(?:^|\s)(?:\*|[0-9A-Fa-f:.]+):$port(?:\s|$)""")
-        if (ss.lineSequence().any { it.contains("LISTEN") && portPattern.containsMatchIn(it) }) {
+        val portPattern = Regex("""(?:^|\s)(\*|[0-9A-Fa-f:.]+):$port(?:\s|$)""")
+        if (ss.lineSequence().any { line ->
+                if (!line.contains("LISTEN")) return@any false
+                val m = portPattern.find(line) ?: return@any false
+                val addr = m.groupValues[1]
+                addr != "127.0.0.1" && addr != "localhost"
+            }
+        ) {
             return true
         }
         return false

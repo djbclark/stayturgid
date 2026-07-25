@@ -80,6 +80,27 @@ object CatastrophicRepair {
         return false
     }
 
+    /**
+     * Idempotently keep USB debugging enabled, independent of whether
+     * wireless ADB is currently open. Some ROMs (confirmed: Fire OS) won't
+     * reopen the wireless TCP listener from a setprop alone without an
+     * actual adbd restart, which this shell-privileged process cannot force
+     * without root or an already-open transport — see [tryShellWirelessRepair]
+     * and docs/operations/sessions/session-2026-07-25-k1-verification.md.
+     * Keeping adb_enabled on means a physical USB reconnect always works
+     * immediately, with no manual Developer Options digging required.
+     */
+    fun ensureAdbBaseline(): String {
+        return try {
+            ensureSetting("global", "development_settings_enabled", "1")
+            ensureSetting("global", "adb_enabled", "1")
+            "ok"
+        } catch (t: Throwable) {
+            Log.w(TAG, "ensureAdbBaseline: ${t.message}")
+            "error:${t.message}"
+        }
+    }
+
     fun tryShellWirelessRepair(): Boolean {
         ensureSetting("global", "development_settings_enabled", "1")
         ensureSetting("global", "adb_enabled", "1")
