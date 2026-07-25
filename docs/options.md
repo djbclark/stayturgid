@@ -165,13 +165,18 @@ was retired (195c5c7).
 **2026-07-25 correction:** the "AutoJs6 uninstalled" claim above was false —
 live-checked all three devices and found AutoJs6 still installed on s24,
 p7a, and hd8. Uninstalled for real fleet-wide same day; confirmed via
-`pm path` on all three. Reboot-based `CLOSED_NO_SHELL` soak attempts on
-s24/p7a found a real bug instead: `HostService`'s first post-boot comonitor
-check races Shizuku's binder connection on a fixed 2s delay and silently
-loses (confirmed via live logcat), then doesn't retry for 20 minutes — a
-window with **no `CLOSED_NO_SHELL` detection at all**. Needs a code fix +
-rebuild + redeploy; not done yet. The soak itself still hasn't succeeded —
-can't be trusted to mean anything until this is fixed. Full writeup:
+`pm path` on all three. Reboot-based `CLOSED_NO_SHELL` soak attempts found
+two distinct real bugs: (1) `HostService`'s first post-boot comonitor check
+races Shizuku's binder and silently loses on s24/p7a, then doesn't retry
+for 20 minutes — no `CLOSED_NO_SHELL` detection during that window. (2) On
+hd8 — the actual real-world `CLOSED_NO_SHELL` case — detection and repair
+both correctly triggered, but the repair technique itself doesn't work on
+this ROM (setting `service.adb.tcp.port` doesn't restart adbd without an
+explicit restart step the code doesn't perform), so **catastrophic repair
+currently cannot succeed on the one device it was most built for**. Both
+need code fixes + rebuild + redeploy; not done yet. hd8 restored manually
+via USB this session. The soak still hasn't genuinely succeeded — can't be
+trusted to mean anything until both are fixed. Full writeup:
 [operations/sessions/session-2026-07-25-k1-verification.md](operations/sessions/session-2026-07-25-k1-verification.md).
 See also [docs/STATUS.md](STATUS.md) and
 [operations/sessions/handoff-2026-07-23-native-agent-k1.md](operations/sessions/handoff-2026-07-23-native-agent-k1.md).

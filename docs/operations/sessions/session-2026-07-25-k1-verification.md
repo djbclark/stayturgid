@@ -186,20 +186,81 @@ attempt. Not fixed in this session — flagged here and on #43 for a
 follow-up code change + rebuild/redeploy, which is a bigger scope change
 than this session's live diagnosis.
 
+## 5. hd8 — the real `CLOSED_NO_SHELL` case, and a second, distinct bug
+
+hd8 took much longer than p7a/s24 to come back after reboot — network
+(Tailscale) was reachable and SSH worked (OS fully booted, ~8min uptime),
+but adb's wireless port never opened on its own. This is **not** a slow
+boot, it's the real thing: `getprop service.adb.tcp.port` was completely
+empty and `adb_wifi_enabled=0` — genuine `CLOSED_NO_SHELL`, matching an
+earlier, separate Fire OS 8 wireless-debugging investigation's finding that
+this device resets both on every reboot. hd8 is the one fleet device this
+whole mechanism most needs to work on.
+
+**The native-agent process wasn't even running 8+ minutes post-boot**
+(`pidof` empty), and a manual `am start` over SSH (Termux, no adb) reported
+"Starting: Intent {...}" but never actually spawned the process — plausibly
+another background-activity-start restriction, this time blocking a launch
+triggered from a non-foreground SSH/Termux context. Operator plugged the
+device into USB, which gave a second, independent adb transport (bypassing
+the broken network port entirely) and also woke the screen — after which
+the process did start.
+
+**Confirmed hd8-specific compounding issue:** `pgrep -f shizuku_server`
+showed Shizuku itself wasn't running either. Manually bootstrapped it via
+USB (`/data/local/tmp/shizuku_starter`, the same mechanism
+`control/tools/native-agent/grant_shizuku.py` uses) — this matches the
+"chicken-and-egg" problem the earlier Fire OS investigation predicted:
+Shizuku's own startup needs a working adb/root shell, which was exactly
+what was broken. On this device, nothing in the current automation
+bootstraps Shizuku without a working adb session to run the starter
+against.
+
+**Once Shizuku was manually bootstrapped and the app force-restarted**
+(`start_agent.py`, bypassing the boot-race bug from section 4 since Shizuku
+was now already up), the agent's own comonitor **did** correctly detect and
+log `port=CLOSED_NO_SHELL`, and `CatastrophicRepair.repair()` **did** run
+(`HEADLESS_START sent; rechecking shell` in the log) — the detection and
+trigger logic worked correctly. `service.adb.tcp.port` was set to `5555` by
+the repair code. **But the network port never actually opened** —
+`adb connect` kept refusing. Confirms the second, earlier Fire OS research
+finding directly in the production code path: **setting
+`service.adb.tcp.port` alone doesn't cause adbd to start listening on Fire
+OS without an actual adbd process restart**, which `tryShellWirelessRepair()`
+(`CatastrophicRepair.kt`) doesn't perform — it only sets the property and
+tries a local loopback connect, which apparently doesn't trigger the
+restart on this build the way it does on stock AOSP/other devices tested
+this session.
+
+**Restored manually via USB:** `adb -s <serial> tcpip 5555` (which does
+force an adbd restart) immediately opened the port and restored full
+network access. Fleet health confirmed OK afterward on all three devices.
+
+**Net result: two distinct, real bugs found, not one.**
+
+1. The boot-time Shizuku-binder race (section 4) — affects all devices,
+   causes a ~20-minute detection blind spot after every reboot.
+2. The Fire-OS-specific adbd-restart gap in `tryShellWirelessRepair()`
+   (this section) — even once comonitor correctly detects
+   `CLOSED_NO_SHELL` and the repair function runs, on hd8 specifically the
+   repair technique itself doesn't actually work, because it's missing an
+   adbd restart step that this ROM needs. **On the one device this
+   mechanism was most built for, the catastrophic repair currently cannot
+   succeed even when everything upstream works correctly.**
+
 ## Next steps
 
-1. **Fix the boot-time race** in `HostService.kt` (see above) — needs a
+1. **Fix the boot-time race** in `HostService.kt` (section 4) — needs a
    code change, rebuild, and fleet redeploy; not done this session.
-2. Re-run the `CLOSED_NO_SHELL` soak properly once the race is fixed —
-   right now the soak can't be trusted even if it "passes," since the
-   agent might just be outside the 20-minute blind window rather than
-   genuinely repairing.
-3. Get hd8 reconnected and captured — was still booting/reconnecting very
-   slowly as of this session's end, consistent with hd8's documented
-   history of slow/unreliable post-reboot reachability (see the Fire OS 8
-   ADB wireless-debugging investigation from an earlier session — hd8 also
-   resets `adb_wifi_enabled` on every reboot per that research, making it
-   the device most likely to actually produce `CLOSED_NO_SHELL` for real,
-   but also the one most likely to need the longest wait or a manual check).
-4. Clean up the AutoJs6-specific self-heal/health-probe staleness (see
-   item 2 above) — separate, smaller fix.
+2. **Fix the Fire-OS adbd-restart gap** in `CatastrophicRepair.kt`'s
+   `tryShellWirelessRepair()` (section 5) — needs either an explicit adbd
+   restart step (`ctl.stop adbd` / `ctl.start adbd` or equivalent) or a
+   Fire-OS-specific code path; not done this session.
+3. **Automate Shizuku bootstrap on hd8** — currently nothing restarts
+   `shizuku_starter` without a human running it via adb; this is a gap in
+   the "catastrophic" tier's own dependency chain, not just the repair
+   logic downstream of it.
+4. Re-run the `CLOSED_NO_SHELL` soak properly once (1) and (2) are fixed —
+   right now it can't be trusted to mean anything either way.
+5. Clean up the AutoJs6-specific self-heal/health-probe staleness (see
+   section 2) — separate, smaller fix.

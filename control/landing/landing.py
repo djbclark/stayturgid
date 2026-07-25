@@ -63,22 +63,11 @@ def index():
     last_scan = _load_last_scan()
     now = time.strftime("%Y-%m-%d %H:%M:%S")
 
-    services = state.filter_example_devices(services)
-    services.sort(key=state.service_sort_key)
-
-    mac_services = [s for s in services if s.get("group") == "mac"]
-    computer_services = [s for s in services if s.get("group") in ("computers", "computer")]
-    device_services = [s for s in services if s.get("group") in ("devices", "android")]
-    other_services = [
-        s for s in services if s.get("group") not in ("mac", "devices", "android", "computers", "computer")
-    ]
+    os_groups = state.build_os_hierarchy(services)
 
     return _render(
         "index.html",
-        mac_services=mac_services,
-        computer_services=computer_services,
-        device_services=device_services,
-        other_services=other_services,
+        os_groups=os_groups,
         last_scan=last_scan,
         now=now,
     )

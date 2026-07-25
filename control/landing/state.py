@@ -112,3 +112,58 @@ def filter_example_devices(services: list[dict[str, Any]]) -> list[dict[str, Any
             if s.get("group") not in ("devices", "android") or _extract_device_name(s) not in EXAMPLE_DEVICE_NAMES
         ]
     return services
+
+
+OS_ORDER: list[str] = ["MacOS", "Linux", "Android", "Other"]
+
+
+def get_os_category(s: dict[str, Any]) -> str:
+    group = str(s.get("group", ""))
+    if group == "mac":
+        return "MacOS"
+    elif group in ("linux", "computer", "computers"):
+        return "Linux"
+    elif group in ("devices", "android"):
+        return "Android"
+    return "Other"
+
+
+def get_clean_display_label(s: dict[str, Any], dev_name: str) -> str:
+    lbl = str(s.get("label", ""))
+    if dev_name.lower() != "mac" and lbl.lower().startswith(dev_name.lower()):
+        cleaned = lbl[len(dev_name) :].strip()
+        return cleaned if cleaned else lbl
+    return lbl
+
+
+def build_os_hierarchy(services: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Group services into a 3-level hierarchy: OS -> Device -> Services list."""
+    filtered = filter_example_devices(services)
+    os_map: dict[str, dict[str, list[dict[str, Any]]]] = {}
+
+    for s in filtered:
+        os_cat = get_os_category(s)
+        dev_name = "mac" if os_cat == "MacOS" else _extract_device_name(s)
+
+        if os_cat not in os_map:
+            os_map[os_cat] = {}
+        if dev_name not in os_map[os_cat]:
+            os_map[os_cat][dev_name] = []
+
+        item = dict(s)
+        item["display_label"] = get_clean_display_label(s, dev_name)
+        os_map[os_cat][dev_name].append(item)
+
+    hierarchy: list[dict[str, Any]] = []
+    for os_cat in OS_ORDER:
+        if os_cat in os_map:
+            dev_list: list[dict[str, Any]] = []
+            for dev_name in sorted(os_map[os_cat].keys(), key=natural_sort_key):
+                svcs = sorted(
+                    os_map[os_cat][dev_name],
+                    key=lambda item: natural_sort_key(str(item.get("display_label", ""))),
+                )
+                dev_list.append({"name": dev_name, "services": svcs})
+            hierarchy.append({"os": os_cat, "devices": dev_list})
+
+    return hierarchy

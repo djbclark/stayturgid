@@ -89,6 +89,19 @@
         padding-bottom: 4px;
         border-bottom: 1px solid var(--card-border);
       }
+      .device-card {
+        margin-bottom: 12px;
+        background: rgba(26, 26, 46, 0.4);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius);
+        padding: 8px 10px;
+      }
+      .device-header {
+        font-size: 13px;
+        font-weight: 600;
+        color: #93c5fd;
+        margin-bottom: 6px;
+      }
       .service {
         display: flex;
         align-items: center;
@@ -194,7 +207,9 @@
         class="status-dot {% if svc.reachable %}ok{% else %}error{% endif %}"
         title="{{ 'reachable' if svc.reachable else 'unreachable' }}"
       ></span>
-      <span class="service-label">{{ svc.label }}</span>
+      <span class="service-label"
+        >{{ svc.display_label | default(svc.label) }}</span
+      >
       <a href="{{ svc.url }}" target="_blank" class="service-link"
         >{{ svc.url }}</a
       >
@@ -210,27 +225,19 @@
         ✕
       </button>
     </div>
-    {%- endmacro %} {% if mac_services %}
+    {%- endmacro %} {% for group in os_groups %}
     <div class="section">
-      <div class="section-title">Dashboard Host (Mac)</div>
-      {% for s in mac_services %} {{ service_row(s) }} {% endfor %}
+      <div class="section-title">{{ group.os }}</div>
+      {% for device in group.devices %}
+      <div class="device-card">
+        <div class="device-header">{{ device.name }}</div>
+        <div class="device-services">
+          {% for s in device.services %} {{ service_row(s) }} {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
     </div>
-    {% endif %} {% if computer_services %}
-    <div class="section">
-      <div class="section-title">Computers</div>
-      {% for s in computer_services %} {{ service_row(s) }} {% endfor %}
-    </div>
-    {% endif %} {% if device_services %}
-    <div class="section">
-      <div class="section-title">Android Devices</div>
-      {% for s in device_services %} {{ service_row(s) }} {% endfor %}
-    </div>
-    {% endif %} {% if other_services %}
-    <div class="section">
-      <div class="section-title">Other</div>
-      {% for s in other_services %} {{ service_row(s) }} {% endfor %}
-    </div>
-    {% endif %}
+    {% endfor %}
 
     <footer>network landing page :{{ port | default('8088') }}</footer>
   </body>
