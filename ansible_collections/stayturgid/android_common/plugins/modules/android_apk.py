@@ -79,6 +79,13 @@ options:
     description: Key alias in the keystore. Ignored unless I(resign=true).
     type: str
     default: androiddebugkey
+  install_timeout:
+    description: >-
+      Seconds before C(adb install) is killed. Without this, a stuck install
+      (e.g. an on-device confirmation dialog nobody is present to tap) hangs
+      forever — this ansible-core's C(run_command) has no timeout of its own.
+    type: int
+    default: 180
 """
 
 EXAMPLES = r"""
@@ -230,6 +237,7 @@ def main():
             keystore=dict(type="path"),
             keystore_pass=dict(type="str", default="android", no_log=True),
             key_alias=dict(type="str", default="androiddebugkey"),
+            install_timeout=dict(type="int", default=180),
         ),
         required_one_of=[["apk_path", "url", "gh_repo"]],
         mutually_exclusive=[["apk_path", "url", "gh_repo"]],
@@ -272,19 +280,43 @@ def main():
         resign_apk(module, apk)
 
     user = module.params.get("install_user", "0")
-    cmd = ["adb", "-s", device, "install", "-r", "--user", user]
+    # This ansible-core's AnsibleModule.run_command() has no timeout param at
+    # all, so `adb install` can hang indefinitely — confirmed live: a stuck
+    # install (likely an on-device confirmation dialog nobody was there to
+    # tap) blocked a deploy for 90+ minutes with no error. Wrap with the
+    # coreutils timeout(1) binary (same pattern used on-device in
+    # stayturgid_battery_alarm.py) so a stuck install fails loudly instead of
+    # hanging the whole fleet deploy.
+    timeout_bin = module.get_bin_path("timeout", required=True)
+    cmd = [timeout_bin, str(module.params["install_timeout"]), "adb", "-s", device, "install", "-r", "--user", user]
     if module.params["installer"]:
         cmd += ["-i", module.params["installer"]]
     cmd += module.params["extra_args"]
     cmd.append(apk)
 
     rc, out, err = module.run_command(cmd)
+    if rc == 124:
+        module.fail_json(
+            msg="adb install timed out after %ss (device may be showing an install confirmation dialog)"
+            % module.params["install_timeout"]
+        )
     ok, reason = parse_install_result(out + "\n" + err)
     if rc != 0 or not ok:
         module.fail_json(msg="adb install failed: %s" % reason)
 
     if module.params["work_profile"]:
-        wp_cmd = ["adb", "-s", device, "install", "-r", "--user", module.params["work_profile_user"], apk]
+        wp_cmd = [
+            timeout_bin,
+            str(module.params["install_timeout"]),
+            "adb",
+            "-s",
+            device,
+            "install",
+            "-r",
+            "--user",
+            module.params["work_profile_user"],
+            apk,
+        ]
         rc2, _out2, _err2 = module.run_command(wp_cmd)
         if rc2 == 0:
             reason += " (also installed for user %s)" % module.params["work_profile_user"]

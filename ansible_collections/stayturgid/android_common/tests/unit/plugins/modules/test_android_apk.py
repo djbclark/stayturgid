@@ -54,6 +54,9 @@ def run_module(mocker, args, cmd_results=None):
         captured.update(kw, failed=True)
         raise SystemExit(1)
 
+    mocker.patch(
+        "ansible.module_utils.basic.AnsibleModule.get_bin_path", lambda self, name, required=False: "/usr/bin/" + name
+    )
     mocker.patch("ansible.module_utils.basic.AnsibleModule.run_command", fake_run_command)
     mocker.patch("ansible.module_utils.basic.AnsibleModule.exit_json", fake_exit)
     mocker.patch("ansible.module_utils.basic.AnsibleModule.fail_json", fake_fail)
@@ -78,6 +81,59 @@ def test_android_apk_installs(mocker, tmp_path):
     assert out.get("failed") is not True, out
     assert out["changed"] is True
     assert out["reason"] == "Success"
+
+
+def test_android_apk_install_wrapped_in_timeout(mocker, tmp_path):
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    seen_cmds = []
+
+    def fake_run_command(self, cmd, *a, **kw):
+        seen_cmds.append(cmd)
+        joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
+        if "pm list packages" in joined:
+            return (0, "", "")
+        if "dumpsys package" in joined:
+            return (1, "", "")
+        if cmd[0].endswith("timeout"):
+            return (0, "Success\n", "")
+        return (0, "", "")
+
+    mocker.patch(
+        "ansible.module_utils.basic.AnsibleModule.get_bin_path", lambda self, name, required=False: "/usr/bin/" + name
+    )
+    mocker.patch("ansible.module_utils.basic.AnsibleModule.run_command", fake_run_command)
+    mocker.patch(
+        "ansible.module_utils.basic.AnsibleModule.exit_json", lambda self, **kw: (_ for _ in ()).throw(SystemExit(0))
+    )
+    mocker.patch(
+        "ansible.module_utils.basic.AnsibleModule.fail_json", lambda self, **kw: (_ for _ in ()).throw(SystemExit(1))
+    )
+
+    stdin = json.dumps(
+        {"ANSIBLE_MODULE_ARGS": dict(device="dev", package="com.example.app", apk_path=str(apk), connect=False)}
+    )
+    mocker.patch("ansible.module_utils.basic._ANSIBLE_ARGS", stdin.encode())
+    mocker.patch("ansible.module_utils.basic._ANSIBLE_PROFILE", "legacy", create=True)
+
+    with pytest.raises(SystemExit):
+        mod.main()
+
+    install_cmds = [c for c in seen_cmds if "install" in " ".join(c)]
+    assert len(install_cmds) == 1
+    assert install_cmds[0][:3] == ["/usr/bin/timeout", "180", "adb"], install_cmds[0]
+
+
+def test_android_apk_install_timeout_fails_loudly(mocker, tmp_path):
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    out = run_module(
+        mocker,
+        dict(device="dev", package="com.example.app", apk_path=str(apk), connect=False),
+        cmd_results=[(" install", (124, "", ""))],
+    )
+    assert out.get("failed") is True
+    assert "timed out" in out["msg"]
 
 
 def test_android_apk_skips_when_present(mocker, tmp_path):
