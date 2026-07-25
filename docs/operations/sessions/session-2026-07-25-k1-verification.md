@@ -111,41 +111,95 @@ Comparison: manually restarting the same app via
 `HostService created screenOn=true` → `UserService connected` →
 `pingAwake IPC ok` → a fresh comonitor STATUS line — all within **3 seconds**.
 
-Root cause not yet identified. Hypothesis to check next: `onCreate()`'s
-early registration of the dynamic `screenReceiver` for
-`ACTION_SCREEN_ON`/`ACTION_SCREEN_OFF` may behave differently when the
-process is cold-started directly by `BootReceiver` (no Activity, no
-already-on-screen context) versus started via `MainActivity` (screen
-already known-on). `startHeartbeatLoop()` is called unconditionally from
-`onCreate()` per the code and shouldn't depend on screen state at all —
-but the observed behavior says otherwise. Needs a live, filtered logcat
-capture **during** a real boot (this session's post-hoc `logcat -d --pid=<pid>`
-came up completely empty for the boot-triggered process, most likely
-because Android's logcat ring buffer had already rotated past those lines
-under the load of every other app's `BootReceiver` firing in the same
-window — not concluded to be a functional silence, just an evidence gap).
+### Root cause found (confirmed via live-streamed logcat through a second round of reboots)
 
-**Practical implication if this holds up:** if a fleet device reboots for
-real with nobody around, the catastrophic-repair path may never actually
-engage on its own, undermining the "catastrophic" tier's whole premise.
-This is now the top-priority open question for #43, ahead of finishing the
-`CLOSED_NO_SHELL` soak itself.
+Rebooted p7a, hd8, and s24 again with a background script that polled for
+Tailscale reachability and started continuous (not post-hoc) `adb logcat`
+capture the instant each device reconnected, to catch the actual boot-time
+sequence instead of relying on a buffer that rotates within a couple
+minutes under full-boot load. p7a and s24 reconnected and captured cleanly
+(both needed a physical unlock again — FBE holds Termux/Tailscale until
+first unlock); hd8 did not reconnect within the capture window, a separate,
+known Fire OS quirk (see the Fire OS 8 ADB investigation referenced below)
+possibly compounding the reboot delay — not resolved this session.
 
-## Next steps (not yet done this session)
+**s24's capture caught the exact mechanism, in the log:**
 
-1. Root-cause the boot-vs-manual-start gap with a live, streaming logcat
-   capture started **before** triggering a reboot, filtered by package name
-   from t=0 (not a post-hoc dump).
-2. Repeat the reboot test on hd8 and s24 to see whether the same gap
-   reproduces fleet-wide, and whether `CLOSED_NO_SHELL` can actually be
-   triggered on either of them (hd8 in particular: an earlier, separate
-   investigation into Fire OS 8 wireless-debugging persistence found that
-   Fire OS resets `adb_wifi_enabled` on every reboot — see the Claude
-   memory note from that session — so hd8 may be the device most likely to
-   actually produce `CLOSED_NO_SHELL` for real, but also the one with the
-   most documented history of `BOOT_COMPLETED` reliability problems on this
-   OS).
-3. Once/if the boot-start gap is understood, fix it and re-run the soak
-   properly.
-4. Clean up the AutoJs6-specific self-heal/health-probe staleness (item 2
-   above) — separate, smaller fix.
+```
+06:53:33.018 StayTurgidBoot: starting host for android.intent.action.BOOT_COMPLETED
+06:53:33.049 StayTurgidHost: Shizuku not running
+06:53:33.052 StayTurgidHost: HostService created screenOn=true
+06:53:35.081 StayTurgidHost: comonitor skipped — not bound          <- first (and only near-term) attempt
+06:53:37.610 StayTurgidHost: Shizuku binder received                 <- binder ready 2.5s AFTER the skip
+06:53:38.593 StayTurgidHost: pingAwake IPC ok
+```
+
+`HostService.callComonitor()`
+(`device/native-agent/app/src/main/kotlin/org/stayturgid/agent/HostService.kt:307-314`):
+
+```kotlin
+private fun callComonitor() {
+    var svc = serviceRef.get()
+    if (svc == null) {
+        ensureBound()
+        // Binder connect is async; skip this tick if not ready yet.
+        svc = serviceRef.get()
+        if (svc == null) {
+            Log.w(TAG, "comonitor skipped — not bound")
+            ...
+```
+
+And `startHeartbeatLoop()` (`HostService.kt:272-286`):
+
+```kotlin
+heartbeatJob = scope.launch {
+    ensureBound()
+    delay(2_000)       // <- fixed 2s gap, assumes Shizuku is bound by then
+    callComonitor()     // <- skipped if not, per above
+    while (isActive) {
+        delay(COMONTOR_INTERVAL_MS)   // 20 minutes
+        ensureBound()
+        callComonitor()
+    }
+}
+```
+
+The comment on `callComonitor()` ("Binder connect is async; skip this tick
+if not ready yet") shows the race was known about — but the consequence
+wasn't: since the retry only happens on the next 20-minute tick, **every
+real device boot loses its first comonitor cycle if Shizuku's binder takes
+longer than the fixed 2-second gap to come up**, which it did on both s24
+(2.5s late) and, by strong inference, p7a (5+ minutes of total silence on
+two separate reboots is consistent with losing the race and falling into
+the 20-minute gap; p7a's capture this round started a couple seconds after
+the initial burst and didn't catch the skip line directly, but the
+downstream symptom matches exactly).
+
+**Practical implication:** after every real, unattended device reboot,
+there's a ~20-minute window where the native agent has no fresh
+comonitor/health data and is **not checking for `CLOSED_NO_SHELL` at all**
+— directly undermining the "catastrophic" tier's premise for that whole
+window. This is a real, fixable bug, not a config or environment issue:
+either lengthen/retry the initial delay, or make `ensureBound()`
+synchronously await the binder connection before the first `callComonitor()`
+attempt. Not fixed in this session — flagged here and on #43 for a
+follow-up code change + rebuild/redeploy, which is a bigger scope change
+than this session's live diagnosis.
+
+## Next steps
+
+1. **Fix the boot-time race** in `HostService.kt` (see above) — needs a
+   code change, rebuild, and fleet redeploy; not done this session.
+2. Re-run the `CLOSED_NO_SHELL` soak properly once the race is fixed —
+   right now the soak can't be trusted even if it "passes," since the
+   agent might just be outside the 20-minute blind window rather than
+   genuinely repairing.
+3. Get hd8 reconnected and captured — was still booting/reconnecting very
+   slowly as of this session's end, consistent with hd8's documented
+   history of slow/unreliable post-reboot reachability (see the Fire OS 8
+   ADB wireless-debugging investigation from an earlier session — hd8 also
+   resets `adb_wifi_enabled` on every reboot per that research, making it
+   the device most likely to actually produce `CLOSED_NO_SHELL` for real,
+   but also the one most likely to need the longest wait or a manual check).
+4. Clean up the AutoJs6-specific self-heal/health-probe staleness (see
+   item 2 above) — separate, smaller fix.

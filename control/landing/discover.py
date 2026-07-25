@@ -49,15 +49,8 @@ KNOWN_SERVICES: list[dict] = [
     {"url": "https://mac.example.ts.net/opencode/", "label": "OpenCode Web (HTTPS)", "group": "mac"},
     {"url": "https://mac.example.ts.net/dashboard/", "label": "Fleet Dashboard (HTTPS)", "group": "mac"},
     {"url": "https://mac.example.ts.net/stats/", "label": "Fleet Stats (HTTPS)", "group": "mac"},
-    # Direct HTTP endpoints
-    {"url": "http://localhost:4096", "label": "OpenCode (HTTP)", "group": "mac"},
-    {"url": "http://localhost:4097", "label": "Dashboard (HTTP)", "group": "mac"},
-    {"url": "http://localhost:4097/stats", "label": "Stats (HTTP)", "group": "mac"},
-    {"url": "http://localhost:3000", "label": "Grafana (HTTP)", "group": "mac"},
-    {"url": "http://localhost:5080/oo/", "label": "OpenObserve (HTTP)", "group": "mac"},
-    {"url": "http://localhost:1337", "label": "OliveTin (HTTP)", "group": "mac"},
-    {"url": "http://localhost:8428", "label": "VictoriaMetrics (HTTP)", "group": "mac"},
-    {"url": "http://localhost:8088", "label": "Network Landing (HTTP)", "group": "mac"},
+    {"url": "https://mac.example.ts.net/ollama/", "label": "Ollama LLM API (HTTPS)", "group": "mac"},
+    {"url": "https://mac.example.ts.net/litellm/", "label": "LiteLLM Proxy (HTTPS)", "group": "mac"},
     {"url": "http://localhost:8080", "label": "Caddy Health", "group": "mac"},
     # mDNS (Bonjour, LAN-only) — use if macOS hostname differs
     # Devices — Tailscale IPs
@@ -174,11 +167,19 @@ def _known_services_for_site(site_dir: Path) -> list[dict]:
     return out
 
 
-def _http_probe(url: str, timeout: float = 3.0) -> int | None:
+def _http_probe(url: str, timeout: float = 3.0, public_host: str | None = None, **_kwargs) -> int | None:
     """Return HTTP status code or None if unreachable."""
+    probe_url = url
+    if public_host and public_host in url and url.startswith("http://"):
+        import re
+
+        m = re.match(r"http://" + re.escape(public_host) + r":(\d+)(.*)", url)
+        if m:
+            probe_url = f"http://127.0.0.1:{m.group(1)}{m.group(2)}"
+
     try:
         r = subprocess.run(
-            ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "--connect-timeout", str(int(timeout)), url],
+            ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "--connect-timeout", str(int(timeout)), probe_url],
             capture_output=True,
             text=True,
             timeout=timeout + 2,
@@ -367,6 +368,7 @@ def _scan_localhost(
     elif isinstance(registered_ports, set):
         reg_set = registered_ports
 
+    CADDY_PROXIED_PORTS: set[int] = {3000, 5080, 1337, 8428, 4096, 4097, 443, 80}
     host_name = public_host if public_host else "localhost"
     scanned: set[int] = set()
     for line in r.stdout.splitlines():
@@ -381,7 +383,7 @@ def _scan_localhost(
             port = int(addr.rsplit(":", 1)[-1])
         except ValueError:
             continue
-        if port in scanned or port < 1 or port > 65535:
+        if port in scanned or port < 1 or port > 65535 or port in CADDY_PROXIED_PORTS:
             continue
         scanned.add(port)
 
@@ -468,7 +470,7 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
     static_urls = {ks["url"] for ks in _known_services_for_site(site_dir)}
     for url, s in sorted(known_urls.items()):
         s["url"] = url
-        status = _http_probe(url)
+        status = _http_probe(url, public_host=public_host)
         if status is not None:
             s["reachable"] = True
             s["last_seen"] = now

@@ -11,16 +11,11 @@ module: shizuku_start
 short_description: Start Shizuku on a device via ADB and apply fleet profile
 description:
   - Starts the Shizuku daemon on an Android device over ADB.
-  - First tries C(HEADLESS_START) broadcast (works when Shizuku has been paired).
-  - Falls back to direct C(libshizuku.so) native launch (first-time, no pairing).
-  - >-
-    Applies the fleet profile (TCP mode, start-on-boot, watchdog) after start,
-    and reconciles it on every run (even when Shizuku is already up) so
-    preferences like C(watchdog) cannot silently drift back to a non-self-healing
-    configuration between cold starts.
+  - First tries HEADLESS_START broadcast.
+  - Falls back to direct libshizuku.so native launch.
+  - Applies the fleet profile after start and reconciles it on every run.
   - Verifies the daemon is running and port 5555 is reachable.
-  - Idempotent with respect to the Shizuku daemon itself: does not
-    restart/relaunch it when already running with port 5555 open.
+  - Idempotent with respect to the Shizuku daemon itself.
 options:
   device:
     description: ADB device serial.

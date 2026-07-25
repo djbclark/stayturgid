@@ -165,11 +165,13 @@ was retired (195c5c7).
 **2026-07-25 correction:** the "AutoJs6 uninstalled" claim above was false —
 live-checked all three devices and found AutoJs6 still installed on s24,
 p7a, and hd8. Uninstalled for real fleet-wide same day; confirmed via
-`pm path` on all three. A reboot-based `CLOSED_NO_SHELL` soak attempt on
-p7a surfaced a bigger open question — boot-triggered app startup may not
-reliably run the comonitor heartbeat loop the whole catastrophic-repair
-mechanism depends on — ahead of the soak test itself, which still hasn't
-succeeded. Full writeup:
+`pm path` on all three. Reboot-based `CLOSED_NO_SHELL` soak attempts on
+s24/p7a found a real bug instead: `HostService`'s first post-boot comonitor
+check races Shizuku's binder connection on a fixed 2s delay and silently
+loses (confirmed via live logcat), then doesn't retry for 20 minutes — a
+window with **no `CLOSED_NO_SHELL` detection at all**. Needs a code fix +
+rebuild + redeploy; not done yet. The soak itself still hasn't succeeded —
+can't be trusted to mean anything until this is fixed. Full writeup:
 [operations/sessions/session-2026-07-25-k1-verification.md](operations/sessions/session-2026-07-25-k1-verification.md).
 See also [docs/STATUS.md](STATUS.md) and
 [operations/sessions/handoff-2026-07-23-native-agent-k1.md](operations/sessions/handoff-2026-07-23-native-agent-k1.md).

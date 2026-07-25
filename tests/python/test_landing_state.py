@@ -40,7 +40,7 @@ def test_discovery_writes_runtime_state_not_catalog(tmp_path, monkeypatch):
     monkeypatch.setattr(state, "STATE_FILE", runtime)
     monkeypatch.setattr(discover, "KNOWN_SERVICES", state.load_catalog()["services"])
     monkeypatch.setattr(discover, "_scan_localhost", lambda **_kwargs: [])
-    monkeypatch.setattr(discover, "_http_probe", lambda _url: 200)
+    monkeypatch.setattr(discover, "_http_probe", lambda _url, **_kwargs: 200)
 
     before = catalog.read_text(encoding="utf-8")
     result = discover.discover()
