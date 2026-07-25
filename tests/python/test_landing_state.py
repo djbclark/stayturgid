@@ -85,3 +85,46 @@ def test_scan_localhost_badges_unregistered(monkeypatch) -> None:
     assert by_port["http://localhost:9999"].get("unregistered") is True
     assert "[unregistered]" in by_port["http://localhost:9999"]["label"]
     assert by_port["http://localhost:8088"].get("unregistered") is not True
+
+
+def test_discover_prunes_unreachable_unregistered_ports(tmp_path, monkeypatch):
+    catalog = tmp_path / "services.json"
+    runtime = tmp_path / "config" / "services.json"
+    catalog.write_text(
+        json.dumps({"hidden": [], "services": [{"url": "http://localhost:8088", "label": "Static", "group": "mac"}]}),
+        encoding="utf-8",
+    )
+    # Pre-populate state with a dead dynamic port (e.g. 52048) and a static port (8088)
+    runtime.parent.mkdir(parents=True, exist_ok=True)
+    runtime.write_text(
+        json.dumps(
+            {
+                "hidden": [],
+                "services": [
+                    {"url": "http://localhost:8088", "label": "Static", "group": "mac", "reachable": True},
+                    {
+                        "url": "http://localhost:52048",
+                        "label": "Port 52048 [unregistered]",
+                        "group": "mac",
+                        "unregistered": True,
+                        "reachable": False,
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(state, "CATALOG_FILE", catalog)
+    monkeypatch.setattr(state, "STATE_FILE", runtime)
+    monkeypatch.setattr(discover, "_scan_localhost", lambda **_kwargs: [])
+    # Probe fails for all ports
+    monkeypatch.setattr(discover, "_http_probe", lambda _url, **_kwargs: None)
+    monkeypatch.setattr(discover, "_tcp_probe", lambda _h, _p: False)
+
+    res = discover.discover()
+    urls = {s["url"] for s in res["services"]}
+
+    # Static service remains (with reachable=False), dead unregistered dynamic port is pruned
+    assert "http://localhost:8088" in urls
+    assert "http://localhost:52048" not in urls

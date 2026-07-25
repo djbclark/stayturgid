@@ -331,6 +331,7 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
     # Probe reachability
     hidden = set(existing.get("hidden", []))
     services: list[dict] = []
+    static_urls = {ks["url"] for ks in _known_services_for_site(site_dir)}
     for url, s in sorted(known_urls.items()):
         s["url"] = url
         status = _http_probe(url)
@@ -338,20 +339,33 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
             s["reachable"] = True
             s["last_seen"] = now
             s["status_code"] = status
+            if url not in hidden:
+                services.append(s)
         else:
             s["reachable"] = False
+            # Check if this is an auto-discovered unregistered port that is no longer reachable.
+            # Dynamic localhost entries (e.g., ephemeral ports) that are no longer listening are pruned.
+            try:
+                port = int(url.rsplit(":", 1)[-1]) if ":" in url else None
+            except ValueError:
+                port = None
+            is_registered_port = registered is not None and port is not None and port in registered
+            is_static = url in static_urls or is_registered_port
+
+            if not is_static and (s.get("unregistered") or url.startswith("http://localhost:")):
+                # Prune unreachable dynamic/ephemeral ports
+                continue
+
             if s.get("last_seen") is None:
                 # Might just be down temporarily; also try TCP
                 host = url.split("://")[1].split(":")[0]
-                try:
-                    port = int(url.rsplit(":", 1)[-1])
-                except ValueError:
+                if port is None:
                     port = 80
                 if _tcp_probe(host, port):
                     s["reachable"] = False
 
-        if url not in hidden:
-            services.append(s)
+            if url not in hidden:
+                services.append(s)
 
     output = {
         "services": services,
