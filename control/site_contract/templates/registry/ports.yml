@@ -61,12 +61,6 @@ product_defaults:
       service: caddy-health
       status: default-claim
       source: control/landing/services.json#Caddy Health
-    - port: 8081
-      bind: 127.0.0.1
-      owner: stayturgid
-      service: ui-tars-vlm
-      status: default-claim
-      source: ansible/roles/control_node/defaults/main.yml#ui_tars_port
     - port: 8088
       bind: 127.0.0.1
       owner: stayturgid

@@ -1,9 +1,6 @@
 ---
-# Control-node (Mac workstation) defaults — launchd agents, SSH fragment, optional VLM.
+# Control-node (Mac workstation) defaults — launchd agents, SSH fragment.
 stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"
-stayturgid_gui_audit_enabled: false
-# Set true (or pass -e) for VLM model download + launchd agent install tasks.
-stayturgid_vlm_enabled: false
 
 # Health monitor cycle interval in seconds (default 900 = 15 min).
 # Controls fleet-health, access-monitor, fire-help, firerpa-health, and the
@@ -15,13 +12,6 @@ stayturgid_interval_sec: 900
 stayturgid_termux_pkg_nightly_enabled: true
 stayturgid_termux_pkg_nightly_hour: 4
 stayturgid_termux_pkg_nightly_minute: 15
-
-# Weekly check of sibling-project VLM best practices (RevengeQuickSwitcher/VLM.md).
-# Weekday: 0=Sun … 6=Sat (launchd).
-stayturgid_vlm_upstream_check_enabled: true
-stayturgid_vlm_upstream_check_weekday: 0
-stayturgid_vlm_upstream_check_hour: 9
-stayturgid_vlm_upstream_check_minute: 20
 
 conf_dir: "{{ lookup('env', 'HOME') }}/.config/stayturgid"
 agents_dir: "{{ lookup('env', 'HOME') }}/Library/LaunchAgents"
@@ -67,29 +57,10 @@ stayturgid_mac_brew_packages_app_stores:
   - fdroidcl
   - apkeep
 
-stayturgid_mac_brew_packages_vlm:
-  - llama.cpp
-
 stayturgid_mac_uv_tools:
   - uiautomator2
   - mypy
   - bandit
-
-# UI-TARS vendor-neutral paths (see control/vlm/ui-tars/ui_tars_env.py).
-ui_tars_hf_base: https://huggingface.co/adriabama06/UI-TARS-1.5-7B-GGUF/resolve/main
-ui_tars_model_dir: "{{ lookup('env', 'HOME') }}/.local/share/ui-tars/models/1.5-7b"
-ui_tars_port: "{{ lookup('env', 'UI_TARS_PORT') | default(lookup('env', 'STAYTURGID_VLM_PORT') | default(8081, true), true) }}"
-ui_tars_log_file: "{{ lookup('env', 'HOME') }}/Library/Logs/ui-tars/server.log"
-ui_tars_working_dir: "{{ lookup('env', 'HOME') }}/.local/share/ui-tars/server"
-ui_tars_pid_file: "{{ lookup('env', 'HOME') }}/.local/share/ui-tars/server/server.pid"
-ui_tars_run_script: "{{ stayturgid_repo_root | realpath }}/control/vlm/ui-tars/ui_tars_server_run.sh"
-ui_tars_service_label: homebrew.mxcl.ui-tars
-ui_tars_service_plist: "{{ agents_dir }}/{{ ui_tars_service_label }}.plist"
-ui_tars_legacy_service_label: homebrew.mxcl.qss-ui-tars
-ui_tars_legacy_service_plist: "{{ agents_dir }}/{{ ui_tars_legacy_service_label }}.plist"
-ui_tars_models:
-  - ByteDance-Seed_UI-TARS-1.5-7B-Q4_K_M.gguf
-  - mmproj-ByteDance-Seed_UI-TARS-1.5-7B.gguf
 
 # ── Hermes Agent (control-node messaging gateway) ─────────────────────────
 # Desktop/CLI agent with OpenCode Zen API + optional Telegram remote.

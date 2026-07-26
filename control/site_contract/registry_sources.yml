@@ -10,13 +10,6 @@ ports:
     source:
       file: ansible/roles/control_node/defaults/main.yml
       yaml_path: stayturgid_control_et_port
-  - service: ui-tars-vlm
-    scope: control_node
-    bind: 127.0.0.1
-    source:
-      file: ansible/roles/control_node/defaults/main.yml
-      yaml_path: ui_tars_port
-      extract: jinja_default_integer
   - service: opencode-web
     scope: control_node
     bind: 127.0.0.1
@@ -146,14 +139,6 @@ paths:
   - source:
       file: ansible/roles/control_node/defaults/main.yml
       yaml_path: stayturgid_hermes_home
-    suffix: "/**"
-  - source:
-      file: ansible/roles/control_node/defaults/main.yml
-      yaml_path: ui_tars_model_dir
-    suffix: "/**"
-  - source:
-      file: ansible/roles/control_node/defaults/main.yml
-      yaml_path: ui_tars_working_dir
     suffix: "/**"
   - source:
       file: ansible/roles/serverapp_openobserve/defaults/main.yml

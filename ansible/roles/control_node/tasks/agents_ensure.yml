@@ -1,9 +1,4 @@
 ---
-- name: Stat UI-TARS launchd plist
-  ansible.builtin.stat:
-    path: "{{ ui_tars_service_plist }}"
-  register: _ui_tars_plist_stat
-
 - name: Stat Hermes gateway launchd plist
   ansible.builtin.stat:
     path: "{{ agents_dir }}/{{ stayturgid_hermes_gateway_label }}.plist"
@@ -31,10 +26,7 @@
       {{
         _core_launchd_agents
         + _adb_launchd_agents
-        + _gui_launchd_agents
         + _termux_pkg_nightly_agents
-        + _vlm_upstream_check_agents
-        + _ui_tars_launchd_agents
         + _hermes_gateway_agents
         + _opencode_web_agents
         + _dashboard_agents
@@ -97,35 +89,12 @@
           'plist': agents_dir ~ '/com.stayturgid.termux-pkg-nightly.plist'
         }] if (stayturgid_termux_pkg_nightly_enabled | default(true) | bool) else []
       }}
-    _vlm_upstream_check_agents: >-
-      {{
-        [{
-          'name': 'com.stayturgid.vlm-upstream-check',
-          'plist': agents_dir ~ '/com.stayturgid.vlm-upstream-check.plist'
-        }] if (stayturgid_vlm_upstream_check_enabled | default(true) | bool) else []
-      }}
     _adb_launchd_agents: "{{ _adb_launchd_agents_yaml | from_yaml | default([], true) }}"
     _adb_launchd_agents_yaml: |
       {% for h in groups.get('stayturgid', []) %}
       - name: com.stayturgid.adb-reconnect-{{ h }}
         plist: {{ agents_dir }}/com.stayturgid.adb-reconnect-{{ h }}.plist
       {% endfor %}
-    _gui_launchd_agents: >-
-      {{
-        [{
-          'name': 'com.stayturgid.gui-audit',
-          'plist': agents_dir ~ '/com.stayturgid.gui-audit.plist'
-        }] if (stayturgid_gui_audit_enabled | default(false) | bool) else []
-      }}
-
-    _ui_tars_launchd_agents: >-
-      {{
-        [{
-          'name': ui_tars_service_label,
-          'plist': ui_tars_service_plist,
-          'health_url': 'http://127.0.0.1:' ~ (ui_tars_port | string) ~ '/health'
-        }] if _ui_tars_plist_stat.stat.exists else []
-      }}
 
 - name: Ensure Mac launchd agents are loaded and healthy
   ansible.builtin.include_tasks: launchd_ensure.yml

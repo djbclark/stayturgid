@@ -5,7 +5,7 @@
   hosts: localhost
   connection: local
   gather_facts: true
-  tags: [mac, agents-ensure, vlm-ensure, always]
+  tags: [mac, agents-ensure, always]
   tasks:
     - name: Skip launchd ensure on non-macOS
       ansible.builtin.meta: end_host

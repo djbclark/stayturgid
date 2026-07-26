@@ -41,11 +41,6 @@ mac.greyhound-sidemirror.ts.net {
 		reverse_proxy localhost:4096
 	}
 
-	# VLM server (llama.cpp UI-TARS)
-	handle_path /vlm/* {
-		reverse_proxy localhost:8081
-	}
-
 	# Fleet stats
 	handle_path /stats/* {
 		reverse_proxy localhost:4097

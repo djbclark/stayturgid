@@ -351,11 +351,10 @@ def test_dry_run_writes_nothing(tmp_path: Path) -> None:
 def test_fragment_rendered_with_registry_ports(tmp_path: Path) -> None:
     dest = _init_and_sync(tmp_path)
     text = (dest / CADDY_FRAGMENT).read_text(encoding="utf-8")
-    # Product seed defaults: landing 8088, dashboard 4097, opencode 4096, vlm 8081
+    # Product seed defaults: landing 8088, dashboard 4097, opencode 4096
     assert "127.0.0.1:8088" in text
     assert "127.0.0.1:4097" in text
     assert "127.0.0.1:4096" in text
-    assert "127.0.0.1:8081" in text
     assert "DO NOT EDIT" in text
 
 

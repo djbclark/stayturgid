@@ -2,7 +2,7 @@
 galaxy_info:
   role_name: control_node
   author: stayturgid
-  description: Control-node workstation setup (Mac launchd agents, SSH fragment, optional VLM).
+  description: Control-node workstation setup (Mac launchd agents, SSH fragment).
   license: MIT
   min_ansible_version: "2.14"
   platforms:

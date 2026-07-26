@@ -12,7 +12,7 @@
 #
 # Path policy:
 # - handle_path (strip prefix): apps that assume they own / (dashboard, opencode,
-#   vlm, stats, olivetin, victoriametrics).
+#   stats, olivetin, victoriametrics).
 # - handle (preserve path): apps configured with a base/sub path (Grafana
 #   serve_from_sub_path + root_url=/grafana/; OpenObserve ZO_BASE_URI=/oo).
 #   Stripping would 301-loop Grafana (root_url → strip → root_url) and send
@@ -28,12 +28,6 @@ handle_path /opencode/* {
 	reverse_proxy 127.0.0.1:{{ ports['opencode-web'] }}
 }
 
-{% if 'ui-tars-vlm' in ports %}
-# VLM server (llama.cpp UI-TARS) — optional; omitted on sites that don't run it
-handle_path /vlm/* {
-	reverse_proxy 127.0.0.1:{{ ports['ui-tars-vlm'] }}
-}
-{% endif %}
 
 {% if 'ollama-llm-api' in ports %}
 # Ollama local LLM API (site-owned, optional — omitted on sites without it)

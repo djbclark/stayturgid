@@ -154,28 +154,6 @@
     mode: "0644"
   register: fire_help_plist
 
-- name: Render gui-audit launchd agent (Neo/Aurora — parked; optional)
-  ansible.builtin.template:
-    src: gui-audit.plist.j2
-    dest: "{{ agents_dir }}/com.stayturgid.gui-audit.plist"
-    mode: "0644"
-  when: stayturgid_gui_audit_enabled | bool
-  register: gui_audit_plist
-
-- name: Remove gui-audit launchd agent when parked
-  ansible.builtin.file:
-    path: "{{ agents_dir }}/com.stayturgid.gui-audit.plist"
-    state: absent
-  when: not (stayturgid_gui_audit_enabled | bool)
-  register: gui_audit_removed
-
-- name: Unload gui-audit launchd agent when parked
-  community.general.launchd:
-    name: com.stayturgid.gui-audit
-    state: unloaded
-  when: gui_audit_removed.changed
-  failed_when: false
-
 - name: Render nightly Termux pkg update/upgrade launchd agent
   ansible.builtin.template:
     src: termux-pkg-nightly.plist.j2
@@ -196,28 +174,6 @@
     name: com.stayturgid.termux-pkg-nightly
     state: unloaded
   when: termux_pkg_nightly_removed.changed
-  failed_when: false
-
-- name: Render weekly VLM upstream best-practice check launchd agent
-  ansible.builtin.template:
-    src: vlm-upstream-check.plist.j2
-    dest: "{{ agents_dir }}/com.stayturgid.vlm-upstream-check.plist"
-    mode: "0644"
-  when: stayturgid_vlm_upstream_check_enabled | bool
-  register: vlm_upstream_check_plist
-
-- name: Remove VLM upstream check launchd agent when disabled
-  ansible.builtin.file:
-    path: "{{ agents_dir }}/com.stayturgid.vlm-upstream-check.plist"
-    state: absent
-  when: not (stayturgid_vlm_upstream_check_enabled | bool)
-  register: vlm_upstream_check_removed
-
-- name: Unload VLM upstream check launchd agent when disabled
-  community.general.launchd:
-    name: com.stayturgid.vlm-upstream-check
-    state: unloaded
-  when: vlm_upstream_check_removed.changed
   failed_when: false
 
 - name: Fetch peer-help pubkeys from Fire hosts (for Mac ForceCommand)
@@ -375,14 +331,9 @@
         + (['com.stayturgid.access-monitor'] if monitor_plist.changed else [])
         + (['com.stayturgid.fleet-health'] if health_plist.changed else [])
         + (['com.stayturgid.fire-help'] if fire_help_plist.changed else [])
-        + (['com.stayturgid.gui-audit']
-           if (gui_audit_plist is defined and gui_audit_plist.changed) else [])
         + (['com.stayturgid.termux-pkg-nightly']
            if (termux_pkg_nightly_plist is defined
                and termux_pkg_nightly_plist.changed) else [])
-        + (['com.stayturgid.vlm-upstream-check']
-           if (vlm_upstream_check_plist is defined
-               and vlm_upstream_check_plist.changed) else [])
         + (
           [stayturgid_hermes_gateway_label]
           if (

@@ -981,7 +981,6 @@ def _docs_markdown() -> str:
         "landing": 8088,
         "fleet-dashboard": 4097,
         "opencode-web": 4096,
-        "ui-tars-vlm": 8081,
         "caddy-health": 8080,
         "vector-otlp-grpc": 4317,
         "vector-otlp-http": 4318,

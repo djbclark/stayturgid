@@ -11,8 +11,6 @@ prefixes:
     - ~/.ssh/config.d/stayturgid
     - ~/.ssh/authorized_keys
     - ~/.hermes/**
-    - ~/.local/share/ui-tars/models/1.5-7b/**
-    - ~/.local/share/ui-tars/server/**
     - ~/.local/share/openobserve/data/**
     - ~/.local/bin/openobserve
     - ~/.local/bin/blackbox_exporter
@@ -30,10 +28,6 @@ claim_sources:
     access: marked-block-only
   ~/.hermes/**:
     source: ansible/roles/control_node/defaults/main.yml#stayturgid_hermes_home
-  ~/.local/share/ui-tars/models/1.5-7b/**:
-    source: ansible/roles/control_node/defaults/main.yml#ui_tars_model_dir
-  ~/.local/share/ui-tars/server/**:
-    source: ansible/roles/control_node/defaults/main.yml#ui_tars_working_dir
   ~/.local/share/openobserve/data/**:
     source: ansible/roles/serverapp_openobserve/defaults/main.yml#serverapp_openobserve_data_dir
   ~/.local/bin/openobserve:
