@@ -57,6 +57,9 @@ class AdbClient(
     private val inputStream get() = if (useTls) tlsInputStream else plainInputStream
     private val outputStream get() = if (useTls) tlsOutputStream else plainOutputStream
 
+    /** Monotonic local stream id, one per [command] call. */
+    private var nextLocalId = 1
+
     fun connect() {
         // ADB transport is a plaintext framed protocol authenticated by RSA
         // (A_AUTH) and optionally upgraded to TLS (A_STLS) — the initial socket
@@ -130,14 +133,18 @@ class AdbClient(
         cmd: String,
         listener: ((ByteArray) -> Unit)? = null,
     ) {
-        val localId = 1
+        // Unique local stream id per command: a single connection multiplexes
+        // many streams, and reusing id 1 (as upstream did — it only ever ran one
+        // command per connection) collided with a prior stream's lingering
+        // frames and surfaced as "not A_WRTE or A_CLSE".
+        val localId = nextLocalId++
         write(A_OPEN, localId, 0, cmd)
 
-        var message = read()
+        var message = readForStream(localId)
         when (message.command) {
             A_OKAY -> {
                 while (true) {
-                    message = read()
+                    message = readForStream(localId)
                     val remoteId = message.arg0
                     if (message.command == A_WRTE) {
                         if (message.data_length > 0) {
@@ -180,6 +187,20 @@ class AdbClient(
         outputStream.write(message.toByteArray())
         outputStream.flush()
         Log.d(TAG, "write ${message.toStringShort()}")
+    }
+
+    /**
+     * Read the next frame addressed to [localId], skipping stray frames left
+     * over from an already-closed prior stream (all A_OKAY/A_WRTE/A_CLSE frames
+     * carry the recipient's local id in arg1). Prevents cross-stream confusion
+     * when one connection runs several commands in sequence.
+     */
+    private fun readForStream(localId: Int): AdbMessage {
+        while (true) {
+            val m = read()
+            if (m.arg1 == localId) return m
+            Log.d(TAG, "skip stray frame arg1=${m.arg1} (want $localId) ${m.toStringShort()}")
+        }
     }
 
     private fun read(): AdbMessage {
