@@ -134,8 +134,14 @@ cleaned both; prevention added (`323ab47`). Keeper is the **debug** build
 
 ## Open issues (GitHub)
 
-- **[#61](https://github.com/djbclark/stayturgid/issues/61)** peer-start — nearly
-  done; needs the v0.5.1 re-test above (green path) to close.
+- **[#61](https://github.com/djbclark/stayturgid/issues/61)** peer-start — green
+  path **proven** (see top); needs the `STARTED` E2E + p7a as 2nd peer to close.
+- **[#68](https://github.com/djbclark/stayturgid/issues/68)** `just test` fails
+  on a **pre-existing** healing-coverage gap (state `PLAY-AUTOUPDATE-OFF`
+  uncovered, likely orphaned by the prior session's VLM removal). **Not from
+  this session** — fails identically at `da2c2e0`. Needs a domain call: drop the
+  state or re-cover it non-VLM. Flagged so a red `just test` isn't mistaken for a
+  peer-start regression.
 - **[#62](https://github.com/djbclark/stayturgid/issues/62)** audit more
   functions to move into the agent APK.
 - **[#63](https://github.com/djbclark/stayturgid/issues/63)** CFEngine update.
