@@ -130,7 +130,9 @@ else
   tap_skip "shellcheck" "not installed (brew install shellcheck)"
 fi
 if command -v ansible-lint >/dev/null 2>&1; then
-  if bash -c \
+  if [ ! -d .ansible/collections ]; then
+    tap_skip "ansible-lint: clean" ".ansible/collections missing — run 'just worktree-setup'"
+  elif bash -c \
     'cd ansible && ANSIBLE_CONFIG="$PWD/ansible.cfg" ansible-lint -q playbooks/ ../ansible_collections/stayturgid/' \
     >/dev/null 2>&1; then
     tap_ok "ansible-lint: clean"
@@ -172,9 +174,11 @@ if command -v markdownlint >/dev/null 2>&1; then
 else
   tap_skip "markdownlint" "not installed (brew install markdownlint-cli)"
 fi
+# shellcheck disable=SC2046
 if command -v prettier >/dev/null 2>&1; then
-  # shellcheck disable=SC2046
-  if prettier --check $(git ls-files '*.md') >/dev/null 2>&1; then
+  if [ ! -d node_modules ]; then
+    tap_skip "prettier: markdown formatted" "node_modules missing — run 'just worktree-setup'"
+  elif prettier --check $(git ls-files '*.md') >/dev/null 2>&1; then
     tap_ok "prettier: markdown formatted"
   else
     tap_fail "prettier: markdown formatted" "run: just prettier"
@@ -205,15 +209,14 @@ fi
 
 # Python test collection — catches import/syntax breakage in the pytest layer
 # even when the full run happens via `just pytest`.
-PYTEST_BIN="$([ -x .venv-test/bin/pytest ] && echo .venv-test/bin/pytest || command -v pytest || true)"
-if [ -n "$PYTEST_BIN" ]; then
-  if "$PYTEST_BIN" --collect-only -q >/dev/null 2>&1; then
+if [ -x .venv-test/bin/pytest ]; then
+  if .venv-test/bin/pytest --collect-only -q >/dev/null 2>&1; then
     tap_ok "pytest: tests collect cleanly"
   else
     tap_fail "pytest: tests collect cleanly" "run: just pytest"
   fi
 else
-  tap_skip "pytest collect" "no pytest (run: just test-venv)"
+  tap_skip "pytest: tests collect cleanly" ".venv-test missing — run 'just worktree-setup'"
 fi
 
 tap_done

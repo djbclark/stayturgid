@@ -35,9 +35,23 @@ pytest:
       echo "### pytest — SKIP (run 'just test-venv' to set up .venv-test)"; \
     fi
 
+# Bootstrap per-worktree dependencies (.venv-test, node_modules, .ansible/collections).
+worktree-setup:
+    @just test-venv
+    @if command -v bun >/dev/null 2>&1; then \
+      echo "### bun install"; bun install; \
+    elif command -v npm >/dev/null 2>&1; then \
+      echo "### npm install"; PUPPETEER_SKIP_DOWNLOAD=1 npm install; \
+    else \
+      echo "neither bun nor npm installed — skipping node_modules setup"; \
+    fi
+    @if command -v ansible-galaxy >/dev/null 2>&1; then \
+      echo "### ansible-galaxy collections"; ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections --force; \
+    fi
+
 # Create .venv-test (once).
 test-venv:
-    uv venv {{ venv }}
+    @if [ ! -d "{{ venv }}" ]; then uv venv {{ venv }}; fi
     uv pip install --python {{ venv }}/bin/python -r tests/python/requirements.txt
 
 # ansible-test units for collections.
@@ -110,7 +124,9 @@ markdownlint:
 
 # prettier check (format — markdown, HTML, CSS).
 prettier:
-    @if command -v prettier >/dev/null; then \
+    @if [ ! -d node_modules ]; then \
+      echo "prettier — SKIP (node_modules missing — run 'just worktree-setup')"; \
+    elif command -v prettier >/dev/null; then \
       echo "### prettier --check"; prettier --check $(git ls-files '*.md' '*.md.example' '*.html' '*.css' '*.toml' '*.ini'); \
     else \
       echo "prettier not installed (brew install prettier) — skipped"; \
@@ -273,7 +289,9 @@ lint: _ensure-test-collections
     else
       echo "markdownlint not installed (brew install markdownlint-cli) — skipped"
     fi
-    if command -v prettier >/dev/null; then
+    if [ ! -d node_modules ]; then
+      echo "prettier — SKIP (node_modules missing — run 'just worktree-setup')"
+    elif command -v prettier >/dev/null; then
       prettier --check $(git ls-files '*.md' '*.md.example' '*.html' '*.css' '*.toml' '*.ini') || rc=1
     else
       echo "prettier not installed (brew install prettier) — skipped"
@@ -358,12 +376,12 @@ just-check:
 # Validate site identity: parse inventory; hard-fail on drift or secrets.
 validate-identity:
     @echo "### validate-identity"
-    @python3 control/bin/validate_site_identity.py --check-drift --check-secrets
+    @STAYTURGID_SITE_DIR="${STAYTURGID_SITE_DIR:-ansible}" python3 control/bin/validate_site_identity.py --check-drift --check-secrets
 
 # Alias kept for older docs/scripts; same as validate-identity.
 validate-identity-strict:
     @echo "### validate-identity-strict"
-    @python3 control/bin/validate_site_identity.py --check-drift --check-secrets
+    @STAYTURGID_SITE_DIR="${STAYTURGID_SITE_DIR:-ansible}" python3 control/bin/validate_site_identity.py --check-drift --check-secrets
 
 # ── Native agent (OPTIONS K1 Phase 1) ─────────────────────────────────────
 
