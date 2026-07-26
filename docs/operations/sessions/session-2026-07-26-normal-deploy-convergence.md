@@ -45,24 +45,31 @@ Do not create working states that the same deploy cannot reproduce.
   now tries its data-preserving in-place upgrade first, then automatically
   uninstalls and retries once for Android's package/signature/shared-user/
   version incompatibility errors. Matching versions never enter this fallback.
+- The retry then converged p7a from a stale release agent plus an installed
+  debug variant: removed the debug package, upgraded the release package to
+  `0.6.0-boot-stability`, reconciled peer config, started and verified
+  `HostService`, passed all seven APK locks, completed headless Obtainium
+  import, and finished final validation (`ok=319`, `failed=0`). The wrapper's
+  Mac phase also passed (`ok=59`, `failed=0`); terminal result:
+  `Fleet deploy complete`.
 - The retry canary reached the native-agent milestones successfully:
   exact agent version, reconciled peer config, headless start, running
   `HostService`, and post-convergence verification.
 
 ## Checkpoint state
 
-The retry canary passed every new APK/native-agent milestone, then failed in the
-unchanged remainder because the role explicitly supplied both Obtainium import
-parameters (`import_ui: false` still counts as supplied to Ansible's mutual
-exclusion validator). The follow-up removes the legacy UI parameter entirely,
-leaving headless import as the sole normal-deploy mode. p7a had just returned
-online and was reserved for a later second-device proof after the checkpoint.
-No p7a interaction had started.
+The earlier s24 retry identified mutually exclusive Obtainium import
+parameters; the follow-up leaves headless import as the sole role mode. The
+subsequent p7a proof is complete and green. Its log is intentionally outside
+the repository at `/tmp/deploy-convergence-p7a-retry.log`.
 
 ## Remaining before merge
 
-1. Re-run the normal canary through the corrected Obtainium task.
-2. Run the full repository and site quality gates.
-3. Exercise p7a through the same normal path at an appropriate canary point.
+1. Split the post-UI app-store pass so normal deploy does not run the entire
+   Termux/fleet role stack twice; remove the now-redundant Obtainium UI import
+   and require an unlocked screen only when a genuinely UI-driven app-store
+   task is enabled.
+2. Re-run the normal canary after that cleanup.
+3. Run the full repository and site quality gates.
 4. Inspect the final diffs, push both task branches, open paired PRs, and
    present verification for operator merge confirmation.
