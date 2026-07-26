@@ -54,14 +54,11 @@ ansible-playbook ansible/playbooks/control_node/site.yml --tags mac
 | `agents`        | `devices.conf`, SSH fragment, `com.stayturgid.*` launchd plists, Hermes gateway                                                                    |
 | `hermes`        | Hermes Agent brew formula, `~/.hermes` model/config, Telegram gateway launchd                                                                      |
 | `agents-ensure` | Load/heal all control-node launchd jobs (`community.general.launchd` + HTTP probes)                                                                |
-| `vlm-models`    | `llama.cpp` + UI-TARS weights (~6 GB); needs `-e stayturgid_vlm_enabled=true`                                                                      |
-| `vlm-service`   | `homebrew.mxcl.ui-tars` plist install; needs models + `stayturgid_vlm_enabled=true`                                                                |
-| `vlm-ensure`    | Alias for `agents-ensure` (UI-TARS `/health` heal included)                                                                                        |
 
 **Idempotency:** a second `control_node/site.yml` run on a healthy Mac should report
 `changed=0`. `agents-ensure` probes `launchctl list` before touching jobs — interval
 agents idle between `StartInterval` runs are left alone; plist reload runs only when
-templates changed; keepalive services (UI-TARS) restart only when stopped or `/health`
+templates changed; keepalive services restart only when stopped or `/health`
 fails. Verify: `ansible-playbook ansible/playbooks/control_node/site.yml` twice.
 
 `site.yml` imports `control_node/site.yml` at the end. `deploy_fleet.py` re-runs it on partial
@@ -135,7 +132,7 @@ ansible/
   inventory/hosts.yml
   roles/control_node/            — Mac control-node role (defaults, tasks, templates)
   playbooks/site.yml             — top-level orchestrator
-  playbooks/control_node/        — localhost: prereqs, agents, vlm, agents-ensure
+  playbooks/control_node/        — localhost: prereqs, agents, agents-ensure
   playbooks/fleet/               — device plays: preflight, fleet, termux-userland, …
 control/bin/deploy_termux.py       — Termux-only deploy wrapper
 ansible_collections/stayturgid/  — modules + roles (incl. fleet.autojs6_watchdog, post_ui, validate)

@@ -22,7 +22,6 @@ Target split: **~80% Ansible / ~20% scripts + on-device logic**.
 | Post-deploy checks                     | `stayturgid.fleet.validate` + `stayturgid_repair_check`                                                  |
 | Mac Homebrew prereqs                   | `control_node/prereqs.yml` (`community.general.homebrew`)                                                |
 | Mac launchd + conf                     | `control_node/agents.yml` + `control_node/site.yml` (localhost)                                          |
-| Mac VLM sidecar (optional)             | `control_node/vlm.yml` (brew `llama.cpp`, models, launchd install + `vlm-ensure` health)                 |
 
 ## Out of Ansible (by design)
 

@@ -25,7 +25,7 @@ The implementation-ready source-of-truth architecture and migration sequence are
 | ------------------------ | --------------- | ------------- | ------ | ----------------------------------------------------- |
 | **A — Termux only**      | Any OS with SSH | 1+            | Low    | Repair scripts, boot loop, sshd; no AutoJs6 fleet     |
 | **B — Ansible fleet**    | Linux or macOS  | 2+            | Medium | Full `site.yml` deploy; manual adb keepalive on Linux |
-| **C — Reference parity** | **macOS today** | 3+ incl. Fire | High   | launchd health, Handsets UI, VLM, Fire peer-help      |
+| **C — Reference parity** | **macOS today** | 3+ incl. Fire | High   | launchd health, Handsets UI, Fire peer-help           |
 
 Tier **A** is Linux-friendly today via `examples/consumer-termux-only/`. Tier **C** matches
 this repo’s production path (`docs/handoff.md`, `just health`, Handsets). Tier **B** is the
@@ -55,7 +55,7 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
    ```bash
    ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections
    ```
-8. **macOS only:** `just deploy-mac` (Homebrew bootstrap, adb, launchd agents, optional VLM).
+8. **macOS only:** `just deploy-mac` (Homebrew bootstrap, adb, launchd agents).
 9. **Linux:** set `export STAYTURGID_ADB=/usr/bin/adb` (or `which adb`) in shell profile;
    deploy with `just deploy` only after §5 blockers are addressed, or use
    `--skip-tags mac` until then.
@@ -79,12 +79,11 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 
 ### 2.3 Optional (reference site only)
 
-| Item                                       | When needed                                                        |
-| ------------------------------------------ | ------------------------------------------------------------------ |
-| Handsets `~/.handsets/{hs,hs.jar}`         | Mac Handsets post-UI, Fire peer bootstrap                          |
-| `just vlm-install` + `vlm-service-install` | Screenshot verification gates ([docs/architecture/vlm.md](vlm.md)) |
-| `play.env` + `obtain_play_aas.py`          | Google Play / Aurora downloads                                     |
-| `uv tool install uiautomator2`             | Mac debug (Ansible installs on `deploy-mac`)                       |
+| Item                               | When needed                                  |
+| ---------------------------------- | -------------------------------------------- |
+| Handsets `~/.handsets/{hs,hs.jar}` | Mac Handsets post-UI, Fire peer bootstrap    |
+| `play.env` + `obtain_play_aas.py`  | Google Play / Aurora downloads               |
+| `uv tool install uiautomator2`     | Mac debug (Ansible installs on `deploy-mac`) |
 
 ---
 
@@ -97,7 +96,6 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 | Ansible deploy        | Supported (`just deploy`, `control_node/site.yml`)                           |
 | Homebrew + adb        | `control_node/prereqs.yml` (`community.general.homebrew`)                    |
 | Background keepalive  | `community.general.launchd` agents (`com.stayturgid.*`)                      |
-| VLM sidecar           | `control_node/vlm.yml` (llama.cpp + launchd)                                 |
 | Handsets UI driver    | `~/.handsets/hs` (manual binary install)                                     |
 | Fire peer-help target | `stayturgid_mac_peer` + Remote Login + ForceCommand in `control_node/agents` |
 
@@ -114,7 +112,6 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 | `control_node/prereqs.yml`               | Skipped (`end_host` when not Darwin) | —                                                                                          |
 | `control_node/agents` launchd            | **Fails on Linux**                   | No equivalent shipped                                                                      |
 | `just health` / fleet monitors           | Broken default adb path              | Set `STAYTURGID_ADB`                                                                       |
-| VLM                                      | Skipped on Linux playbooks           | Manual `llama-server` possible (`vlm_gate.py`)                                             |
 | Handsets on control node                 | Mac binary                           | Use on-device post-UI over SSH, or peer-only path                                          |
 | Fire → control peer-help                 | Possible                             | Enable `openssh-server`, fix `help_cmd` path, run `control_node/agents` ForceCommand tasks |
 
@@ -428,13 +425,12 @@ Ordered by impact for “minimal effort” on Debian/Ubuntu.
 
 ### 5.3 P2 — Feature parity gaps
 
-| Task                       | Detail                                                                                                 |
-| -------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Handsets on Linux          | Investigate Linux build of `hs`, or document on-device-only UI path                                    |
-| VLM on Linux               | `apt`/manual `llama.cpp` + systemd unit (mirror `control_node/vlm.yml` with `ansible.builtin.service`) |
-| fdroidcl/apkeep PATH       | Extend `fdroidcl_install.py` PATH for `/usr/bin`                                                       |
-| Control-node sshd for Fire | Document `openssh-server` + firewall; `control_node/agents` ForceCommand is OS-neutral                 |
-| Consumer example           | `examples/consumer-linux-control/` with inventory + skip-mac playbook                                  |
+| Task                       | Detail                                                                                 |
+| -------------------------- | -------------------------------------------------------------------------------------- |
+| Handsets on Linux          | Investigate Linux build of `hs`, or document on-device-only UI path                    |
+| fdroidcl/apkeep PATH       | Extend `fdroidcl_install.py` PATH for `/usr/bin`                                       |
+| Control-node sshd for Fire | Document `openssh-server` + firewall; `control_node/agents` ForceCommand is OS-neutral |
+| Consumer example           | `examples/consumer-linux-control/` with inventory + skip-mac playbook                  |
 
 ### 5.4 P3 — Polish
 
@@ -595,7 +591,7 @@ stayturgid_operator_keys:
 - **Control:** Linux or macOS Tier B.
 - **Trust:** Phase 0 — separate `termux_key` per operator, Ansible `--limit` per device
   subset; accept full mesh until Phase 1 lands.
-- **Skip:** VLM, Handsets on control node if post-UI runs on-device over SSH.
+- **Skip:** Handsets on control node if post-UI runs on-device over SSH.
 
 ### Multi-tenant (bob + alice)
 

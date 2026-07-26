@@ -428,54 +428,6 @@ claude
 
 Verify it's using Pro/Max plan (not API billing): run `/status` inside Claude Code.
 
-### 2.7 UI-TARS vision gates (optional)
-
-UI-TARS is a **vendor-neutral Mac sidecar** (`llama-server` on `127.0.0.1:8081`). It is
-not stored under `~/.config/stayturgid/` — only fleet config (`devices.conf`, logs,
-artifacts) lives there. stayturgid scripts auto-start the server when needed: if launchd is not installed they
-run `just vlm-service-install` via Ansible (through `vlm_gate.ensure_server()`), otherwise kickstart
-the existing agent.
-
-**One-time setup** (Apple Silicon Mac, ~6 GB disk, 16 GB RAM recommended):
-
-```bash
-just configure          # reports llama-server + launchd status
-just vlm-install        # Ansible: brew llama.cpp + download GGUF weights
-just vlm-service-install   # Ansible: launchd agent homebrew.mxcl.ui-tars
-just vlm-check
-```
-
-Ansible playbooks: `ansible/playbooks/control_node/vlm.yml` (tags `vlm-models`, `vlm-service`).
-Requires `-e stayturgid_vlm_enabled=true` (set automatically by the recipe targets).
-
-| Scope                    | Path                                         |
-| ------------------------ | -------------------------------------------- |
-| UI-TARS home             | `~/.local/share/ui-tars/`                    |
-| Models                   | `~/.local/share/ui-tars/models/1.5-7b/`      |
-| Server log               | `~/Library/Logs/ui-tars/server.log`          |
-| LaunchAgent              | `homebrew.mxcl.ui-tars`                      |
-| stayturgid VLM artifacts | `~/.config/stayturgid/artifacts/vlm-verify/` |
-
-**Upgrading from old `~/.config/stayturgid/models/ui-tars-*` layout:**
-
-```bash
-python3 control/vlm/ui-tars/vlm_migrate_paths.py
-just vlm-service-install
-```
-
-**Day-to-day ops** (launchctl, not a dedicated terminal):
-
-```bash
-curl -sf http://127.0.0.1:8081/health
-just vlm-service-status
-launchctl kickstart -k "gui/$(id -u)/homebrew.mxcl.ui-tars"
-just vlm-service-stop
-```
-
-Full reference: [docs/architecture/vlm.md](architecture/vlm.md). Example gate: `just verify-fireos-device-google HOSTS=fireos-device`.
-
----
-
 ## Part 3 — Connecting to the device
 
 ### Wireless ADB

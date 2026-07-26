@@ -60,7 +60,6 @@ known_hosts
 !*.env.example
 **/gemini.env
 **/anthropic.env
-**/vlm-cloud.env
 **/play.env
 secrets/
 .secrets/

@@ -437,18 +437,16 @@ _declaration_ (what secrets exist, what they're for) from secret _storage_
 
 From [`secretspec.toml`](../../secretspec.toml):
 
-| Secret                   | Required | Provider                             | Purpose                   |
-| ------------------------ | -------- | ------------------------------------ | ------------------------- |
-| `TELEGRAM_BOT_TOKEN`     | ✅       | `~/.hermes/.env`                     | Hermes notifications      |
-| `TELEGRAM_ALLOWED_USERS` | ❌       | `~/.hermes/.env`                     | Telegram allowlist        |
-| `GEMINI_API_KEY`         | ❌       | `~/.config/stayturgid/gemini.env`    | VLM cloud checks          |
-| `ANTHROPIC_API_KEY`      | ❌       | `~/.config/stayturgid/anthropic.env` | VLM cloud checks          |
-| `FIRERPA_API_KEY`        | ❌       | `~/.config/stayturgid/firerpa.env`   | gRPC backup channel       |
-| `FIRERPA_CERTIFICATE`    | ❌       | `~/.config/stayturgid/firerpa.pem`   | gRPC/SSH certificate      |
-| `SSH_TERMUX_KEY`         | ❌       | `~/.ssh/termux_key`                  | Fleet SSH key             |
-| `SSH_CA_KEY`             | ❌       | `~/.ssh/stayturgid_ca`               | SSH Certificate Authority |
-| `FLEET_ADBKEY`           | ❌       | `~/.config/stayturgid/adbkey`        | Fleet ADB key             |
-| `GITHUB_TOKEN`           | ❌       | `gh auth login`                      | GitHub CLI                |
+| Secret                   | Required | Provider                           | Purpose                   |
+| ------------------------ | -------- | ---------------------------------- | ------------------------- |
+| `TELEGRAM_BOT_TOKEN`     | ✅       | `~/.hermes/.env`                   | Hermes notifications      |
+| `TELEGRAM_ALLOWED_USERS` | ❌       | `~/.hermes/.env`                   | Telegram allowlist        |
+| `FIRERPA_API_KEY`        | ❌       | `~/.config/stayturgid/firerpa.env` | gRPC backup channel       |
+| `FIRERPA_CERTIFICATE`    | ❌       | `~/.config/stayturgid/firerpa.pem` | gRPC/SSH certificate      |
+| `SSH_TERMUX_KEY`         | ❌       | `~/.ssh/termux_key`                | Fleet SSH key             |
+| `SSH_CA_KEY`             | ❌       | `~/.ssh/stayturgid_ca`             | SSH Certificate Authority |
+| `FLEET_ADBKEY`           | ❌       | `~/.config/stayturgid/adbkey`      | Fleet ADB key             |
+| `GITHUB_TOKEN`           | ❌       | `gh auth login`                    | GitHub CLI                |
 
 ### 5.3 Secrets Architecture Principles
 
@@ -695,11 +693,11 @@ same roles and playbooks, different inventory directories per site.
 New operators choose a tier based on their fleet size, control-node OS, and
 desired feature set:
 
-| Tier                     | Control Node   | Devices       | Effort | What You Get                                            |
-| ------------------------ | -------------- | ------------- | ------ | ------------------------------------------------------- |
-| **A — Termux only**      | Any OS w/ SSH  | 1+            | Low    | Repair scripts, boot loop, sshd keepalive; no AutoJs6   |
-| **B — Ansible fleet**    | Linux or macOS | 2+            | Medium | Full `site.yml` deploy; manual adb keepalive on Linux   |
-| **C — Reference parity** | macOS          | 3+ incl. Fire | High   | launchd health, O-V-G-O dashboards, VLM, Fire peer-help |
+| Tier                     | Control Node   | Devices       | Effort | What You Get                                          |
+| ------------------------ | -------------- | ------------- | ------ | ----------------------------------------------------- |
+| **A — Termux only**      | Any OS w/ SSH  | 1+            | Low    | Repair scripts, boot loop, sshd keepalive; no AutoJs6 |
+| **B — Ansible fleet**    | Linux or macOS | 2+            | Medium | Full `site.yml` deploy; manual adb keepalive on Linux |
+| **C — Reference parity** | macOS          | 3+ incl. Fire | High   | launchd health, O-V-G-O dashboards, Fire peer-help    |
 
 **Tier A** is available today via
 [`examples/consumer-termux-only/`](../../examples/consumer-termux-only/).
@@ -922,7 +920,6 @@ Fully supported. All features work:
 - Ansible deploy via `site.yml`
 - Homebrew for all tools (`adb`, `uv`, `just`, `biome`, etc.)
 - Background launchd agents for health monitoring
-- VLM sidecar for verification gates
 - Handsets UI driver for app-store automation
 - Fire peer-help target
 - O-V-G-O stack services (Homebrew installs)
@@ -941,7 +938,6 @@ Partially supported. Works for fleet management; missing Mac-specific features:
 | `just test` / CI     | ✅     | Tested in GitHub Actions               |
 | launchd agents       | ❌     | Use systemd user units instead         |
 | Handsets UI driver   | ❌     | macOS binary only                      |
-| VLM sidecar          | ⚠️     | Needs separate setup                   |
 
 ### 9.3 Linux Work Needed
 
@@ -960,7 +956,6 @@ Partially supported. Works for fleet management; missing Mac-specific features:
 **P2 — Feature Parity:**
 
 - Handsets on Linux (if upstream supports it).
-- VLM on Linux.
 - Linux consumer example in `examples/`.
 
 ---

@@ -70,7 +70,6 @@ just health && just firerpa-health
 | `just cf-run [HOSTS=oneui-device]`           | SSH-based CFEngine repair (replaces cf-runagent)                                                                                                      |
 | `just opencode-web-status`                   | OpenCode web UI status                                                                                                                                |
 | `just hermes-status`                         | Hermes worktree status                                                                                                                                |
-| `just vlm-check`                             | Check VLM server + cloud                                                                                                                              |
 | `just landing-status`                        | Network landing page status                                                                                                                           |
 | `just web-health`                            | Full web audit: html-validate + lychee + lighthouse + pa11y + puppeteer + vnu (requires :4097)                                                        |
 | `just pa11y`                                 | Accessibility audit on running dashboard                                                                                                              |

@@ -47,7 +47,6 @@ ANDROID_SERIAL="$(./control/lib/resolve_adb.py oneui-device)" fdroidcl install c
 | `screen_control.py`                                | Mac ScreenControlSession (inversion, presence, portrait lock) |
 | `device_screen_lease.py`                           | Cross-project glass lease (DSCL v1)                           |
 | `fleet_health.py`                                  | Soft-health scrape + issue tags for monitors                  |
-| `vlm_gate.py` / `vlm_cloud.py` / `vlm_helpers.py`  | Local UI-TARS + cloud VLM escalate                            |
 | `ui_driver.py` / `ui_clearance.py` / `ui_parse.py` | UI automation helpers                                         |
 | `hd8_google_stack.py`                              | Fire HD8 Play/GMS stack helpers                               |
 | `post_ui_remote.py`                                | Post-deploy UI remote steps                                   |
@@ -57,4 +56,4 @@ ANDROID_SERIAL="$(./control/lib/resolve_adb.py oneui-device)" fdroidcl install c
 | `stayturgid_root.py`                               | Repo-root discovery                                           |
 | `*.json` profiles                                  | a11y / fleet app / AutoJs6 drawer defaults                    |
 
-See [docs/architecture/components/control.md](../../docs/architecture/components/control.md), [docs/architecture/vlm.md](../../docs/architecture/vlm.md), and [docs/architecture/components/screen-control-lease.md](../../docs/architecture/components/screen-control-lease.md).
+See [docs/architecture/components/control.md](../../docs/architecture/components/control.md), and [docs/architecture/components/screen-control-lease.md](../../docs/architecture/components/screen-control-lease.md).

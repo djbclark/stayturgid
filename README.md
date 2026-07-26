@@ -110,7 +110,6 @@ stayturgid/
   control/
     bin/                    — operator scripts (deploy, monitors, verify)
     lib/                    — shared Python + fleet JSON profiles
-    vlm/                    — UI-TARS sidecar
     tools/                  — per-domain Mac helpers (autojs6, obtainium, …)
   device/
     termux/                 — on-device Termux runtime (boot, py, bin)

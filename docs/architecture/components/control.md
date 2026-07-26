@@ -6,34 +6,31 @@ Python scripts and Ansible-rendered launchd agents for the **Mac control node**.
 
 ## What this module does
 
-| File                                                     | Purpose                                                                                                                           |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `adb_reconnect.py`                                       | Reconnect `adb connect` when link drops; LAN → Tailscale fallback                                                                 |
-| `access_monitor.py`                                      | Dead-man's switch: notify after ~10 min total outage on all paths                                                                 |
-| `fleet_health_monitor.py`                                | Soft health scrape (watchdog/a11y/sshd/bootloop) → `fleet-health.log`; restarts stale AutoJs6 `main.js`                           |
-| `fire_help_monitor.py`                                   | Mac→Fire: resolve_adb (mDNS wireless-debug), keep `adb_wifi_enabled`, Shizuku/Handsets → `fire-help.log`                          |
-| `fire_peer_help.py`                                      | Peer ADB helper (Handsets/Shizuku) for Fire; SSH ForceCommand entry                                                               |
-| `check_fleet_health.py`                                  | **Session triage** — agents run at start; exit 1 ⇒ tell operator                                                                  |
-| `dashboard.py`                                           | Flask + HTMX fleet dashboard; human-action cards include the H8 Shizuku open/test action                                          |
-| `check_et_mac.py` / `ensure_et_mac.py`                   | Phone→Mac ET authorized_keys + health/probe                                                                                       |
-| `gui_audit.py`                                           | Neo/Aurora GUI audit — **parked**; manual only (`docs/architecture/components/fdroid.md`, `docs/architecture/components/play.md`) |
-| `verify_play_autoupdate.py`                              | Play Store auto-update VLM gate (optional; see [docs/architecture/vlm.md](../vlm.md))                                             |
-| `verify_hd8_google.py` / `fix_hd8_google_stack.py`       | Fire HD Play/GMS stack verify + optional reinstall                                                                                |
-| `vlm_check.py`                                           | Local UI-TARS client smoke test (`just vlm-check`)                                                                                |
-| `vlm_upstream_check.py`                                  | Weekly RQS VLM.md best-practice sync check                                                                                        |
-| `deploy_fleet.py`                                        | Full fleet deploy via `site.yml` + **always** re-runs `control_node` (device `--limit` skips localhost)                           |
-| `deploy_termux.py`                                       | Termux-only deploy wrapper                                                                                                        |
-| `bootstrap_ssh.py`                                       | First-time Termux SSH: adb + `run-as com.termux` or `--ansible` → `bootstrap.yml`                                                 |
-| `a11y_services.py`                                       | Backup/restore `enabled_accessibility_services` per host (`control/lib/a11y_profiles.json`)                                       |
-| `harden_fleet_apps.py`                                   | Ad-hoc battery/permissions hardening (fleet deploy uses `app_privileges` role)                                                    |
-| `termux_pkg_nightly.py`                                  | Nightly `pkg update/upgrade` orchestrator (launchd)                                                                               |
-| `h2_confirm_ui.py`                                       | One-off UI confirm helpers                                                                                                        |
-| `screen_lease.py`                                        | CLI: status/check/acquire/release screen leases (DSCL v1)                                                                         |
-| `control/lib/stayturgid_device.py`                       | Device resolution, `devices.conf` parse, Shizuku JSON, UI XML                                                                     |
-| `control/lib/fleet_health.py`                            | Read-only health probes used by `fleet_health_monitor.py`                                                                         |
-| `control/lib/device_screen_lease.py`                     | Cross-project screen-control lease (DSCL v1)                                                                                      |
-| `control/lib/et_mac.py` / `vlm_gate.py` / `vlm_cloud.py` | ET Mac helpers; local + cloud VLM gates                                                                                           |
-| Screen-control lease                                     | [docs/architecture/components/screen-control-lease.md](screen-control-lease.md) — interop with other Mac projects                 |
+| File                                               | Purpose                                                                                                                           |
+| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `adb_reconnect.py`                                 | Reconnect `adb connect` when link drops; LAN → Tailscale fallback                                                                 |
+| `access_monitor.py`                                | Dead-man's switch: notify after ~10 min total outage on all paths                                                                 |
+| `fleet_health_monitor.py`                          | Soft health scrape (watchdog/a11y/sshd/bootloop) → `fleet-health.log`; restarts stale AutoJs6 `main.js`                           |
+| `fire_help_monitor.py`                             | Mac→Fire: resolve_adb (mDNS wireless-debug), keep `adb_wifi_enabled`, Shizuku/Handsets → `fire-help.log`                          |
+| `fire_peer_help.py`                                | Peer ADB helper (Handsets/Shizuku) for Fire; SSH ForceCommand entry                                                               |
+| `check_fleet_health.py`                            | **Session triage** — agents run at start; exit 1 ⇒ tell operator                                                                  |
+| `dashboard.py`                                     | Flask + HTMX fleet dashboard; human-action cards include the H8 Shizuku open/test action                                          |
+| `check_et_mac.py` / `ensure_et_mac.py`             | Phone→Mac ET authorized_keys + health/probe                                                                                       |
+| `gui_audit.py`                                     | Neo/Aurora GUI audit — **parked**; manual only (`docs/architecture/components/fdroid.md`, `docs/architecture/components/play.md`) |
+| `verify_hd8_google.py` / `fix_hd8_google_stack.py` | Fire HD Play/GMS stack verify + optional reinstall                                                                                |
+| `deploy_fleet.py`                                  | Full fleet deploy via `site.yml` + **always** re-runs `control_node` (device `--limit` skips localhost)                           |
+| `deploy_termux.py`                                 | Termux-only deploy wrapper                                                                                                        |
+| `bootstrap_ssh.py`                                 | First-time Termux SSH: adb + `run-as com.termux` or `--ansible` → `bootstrap.yml`                                                 |
+| `a11y_services.py`                                 | Backup/restore `enabled_accessibility_services` per host (`control/lib/a11y_profiles.json`)                                       |
+| `harden_fleet_apps.py`                             | Ad-hoc battery/permissions hardening (fleet deploy uses `app_privileges` role)                                                    |
+| `termux_pkg_nightly.py`                            | Nightly `pkg update/upgrade` orchestrator (launchd)                                                                               |
+| `h2_confirm_ui.py`                                 | One-off UI confirm helpers                                                                                                        |
+| `screen_lease.py`                                  | CLI: status/check/acquire/release screen leases (DSCL v1)                                                                         |
+| `control/lib/stayturgid_device.py`                 | Device resolution, `devices.conf` parse, Shizuku JSON, UI XML                                                                     |
+| `control/lib/fleet_health.py`                      | Read-only health probes used by `fleet_health_monitor.py`                                                                         |
+| `control/lib/device_screen_lease.py`               | Cross-project screen-control lease (DSCL v1)                                                                                      |
+| `control/lib/et_mac.py`                            | ET Mac helpers                                                                                                                    |
+| Screen-control lease                               | [docs/architecture/components/screen-control-lease.md](screen-control-lease.md) — interop with other Mac projects                 |
 
 Launchd agents and `devices.conf` are rendered by `ansible/playbooks/control_node/site.yml`
 (`just deploy-mac` or automatically at end of `just deploy`).
@@ -89,15 +86,14 @@ Logs: `~/.config/stayturgid/logs/`. Device list: `~/.config/stayturgid/devices.c
 
 **Launchd agents** (`just deploy-mac` / `ansible/playbooks/control_node/site.yml`):
 
-| Agent                                 | Interval         | Log                                                          |
-| ------------------------------------- | ---------------- | ------------------------------------------------------------ |
-| `com.stayturgid.adb-reconnect-<host>` | 60 s             | `adb-reconnect.log`                                          |
-| `com.stayturgid.access-monitor`       | 300 s            | `access-monitor.log` (reachability)                          |
-| `com.stayturgid.fleet-health`         | 300 s            | `fleet-health.log` (soft health)                             |
-| `com.stayturgid.fire-help`            | 300 s            | `fire-help.log` (Fire Shizuku/Handsets)                      |
-| `com.stayturgid.termux-pkg-nightly`   | daily 04:15      | `termux-pkg-nightly.log` (`pkg update`/`upgrade` all hosts)  |
-| `com.stayturgid.vlm-upstream-check`   | weekly Sun 09:20 | Compare `~/src/RevengeQuickSwitcher/VLM.md` best practices   |
-| `com.stayturgid.hermes-gateway`       | KeepAlive        | Hermes Agent Telegram gateway → `~/.hermes/logs/gateway.log` |
+| Agent                                 | Interval    | Log                                                          |
+| ------------------------------------- | ----------- | ------------------------------------------------------------ |
+| `com.stayturgid.adb-reconnect-<host>` | 60 s        | `adb-reconnect.log`                                          |
+| `com.stayturgid.access-monitor`       | 300 s       | `access-monitor.log` (reachability)                          |
+| `com.stayturgid.fleet-health`         | 300 s       | `fleet-health.log` (soft health)                             |
+| `com.stayturgid.fire-help`            | 300 s       | `fire-help.log` (Fire Shizuku/Handsets)                      |
+| `com.stayturgid.termux-pkg-nightly`   | daily 04:15 | `termux-pkg-nightly.log` (`pkg update`/`upgrade` all hosts)  |
+| `com.stayturgid.hermes-gateway`       | KeepAlive   | Hermes Agent Telegram gateway → `~/.hermes/logs/gateway.log` |
 
 `com.stayturgid.gui-audit` is **not** installed while app stores are parked.
 
