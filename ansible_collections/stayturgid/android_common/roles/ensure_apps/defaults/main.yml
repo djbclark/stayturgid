@@ -13,12 +13,12 @@
 #     source: play
 #   - id: org.breezyweather
 #     source: fdroid
-#   - id: moe.shizuku.privileged.api
+#   - id: org.stayturgid.agent
 #     source: apk
-#     gh_repo: thedjchi/Shizuku
-#     gh_tag: v13.7.0
-#     gh_pattern: "*.apk"
-#     version_name: 13.7.0
+#     gh_repo: djbclark/stayturgid
+#     gh_tag: agent-v0.6.0
+#     gh_pattern: app-release.apk
+#     version_name: 0.6.0-boot-stability
 #     checksum: "sha256:..."
 
 stayturgid_ensure_apps: []

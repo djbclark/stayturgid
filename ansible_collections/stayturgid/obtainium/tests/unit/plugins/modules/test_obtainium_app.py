@@ -135,10 +135,16 @@ def test_headless_import_reapplies_even_when_rendered_file_is_unchanged(tmp_path
     }
     res, cmds, _w = run_module(mocker, args)
     assert res["import_launched"] is True
-    assert any("am start" in c and "confirm=true&headless=true" in c for c in cmds)
+    assert any(
+        "am start" in c and "-n dev.imranr.obtainium/.MainActivity" in c and "confirm=true&headless=true" in c
+        for c in cmds
+    )
     res, cmds, _w = run_module(mocker, args)
     assert res["import_launched"] is True
-    assert any("am start" in c and "confirm=true&headless=true" in c for c in cmds)
+    assert any(
+        "am start" in c and "-n dev.imranr.obtainium/.MainActivity" in c and "confirm=true&headless=true" in c
+        for c in cmds
+    )
 
 
 def test_installed_report_and_warning(tmp_path, mocker):

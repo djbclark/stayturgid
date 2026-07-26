@@ -32,7 +32,10 @@ REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "control" / "lib"))
 import adb_cli as adb  # noqa: E402
 
-PKG = os.environ.get("STAYTURGID_AGENT_PKG", "org.stayturgid.agent")
+DEFAULT_PKG = "org.stayturgid.agent"
+DEBUG_PKG = "org.stayturgid.agent.debug"
+PKG_OVERRIDE = os.environ.get("STAYTURGID_AGENT_PKG")
+PKG = PKG_OVERRIDE if PKG_OVERRIDE is not None else DEFAULT_PKG
 PEER_START_RECEIVER = "org.stayturgid.agent.PeerStartReceiver"
 PEER_START_ACTION = "org.stayturgid.agent.action.PEER_START_NOW"
 SHIZUKU_PKG = os.environ.get("STAYTURGID_SHIZUKU_PKG", "moe.shizuku.privileged.api")
@@ -41,7 +44,8 @@ FILE_NAME = "peer.json"
 
 
 def _resolve_pkg(serial: str) -> str | None:
-    for pkg in (PKG, "org.stayturgid.agent", "org.stayturgid.agent.debug"):
+    candidates = (PKG,) if PKG_OVERRIDE is not None else (DEFAULT_PKG, DEBUG_PKG)
+    for pkg in dict.fromkeys(candidates):
         if adb.package_installed(serial, pkg):
             return pkg
     return None

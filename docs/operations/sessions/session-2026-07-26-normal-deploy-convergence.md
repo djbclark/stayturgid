@@ -70,12 +70,17 @@ Do not create working states that the same deploy cannot reproduce.
   and final validation all passed. The UI unlock and Aurora tasks skipped.
   Recaps: device `ok=198`, `failed=0`; Mac `ok=59`, `failed=0`; terminal result
   `Fleet deploy complete`.
-- Full product `just test` passed with 133 shell/unit checks, 581 Python tests
+- Full product `just test` passed with 133 shell/unit checks, 585 Python tests
   passed and 1 skipped, and all six collection unit suites green.
 - Full product `just lint-offline` passed, including Ruff, mypy (234 source
   files), Biome, shell formatting, Markdown/Prettier, HTML, CSS, offline link
   checks, generic identity drift, and secret-shape validation.
 - The private site `just lint` passed its registry guard and all 19 unit tests.
+- PR review follow-up added asynchronous `HostService` verification retries,
+  explicit Obtainium intent routing, empty-lock rejection, safe checksum
+  normalization for managed Python 3.6+, visible/optional destructive APK
+  cleanup, quoted native-agent config paths, strict package override behavior,
+  stale Ansible collection detection, and the corresponding regressions.
 
 ## Final state
 
@@ -87,5 +92,6 @@ outside the repository at `/tmp/deploy-convergence-p7a-retry.log` and
 
 ## Remaining before merge
 
-Inspect the final diffs, push both task branches, open paired PRs, and present
-the verification above for operator merge confirmation.
+Product PR [#72](https://github.com/djbclark/stayturgid/pull/72) and paired
+private site PR #17 are open. Review findings are resolved and the local gates
+have been rerun; updated GitHub checks and operator merge confirmation remain.

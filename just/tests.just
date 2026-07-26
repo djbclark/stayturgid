@@ -52,10 +52,9 @@ ansible-test:
       echo "### ansible-test — SKIP (run 'just test-venv')"; \
     fi
 
-# Install the exact dependency lock into the worktree when it is absent.
+# Install the exact dependency lock when the cached manifests do not match it.
 _ensure-test-collections:
-    @if [ ! -f .ansible/collections/ansible_collections/ansible/posix/MANIFEST.json ] || \
-        [ ! -f .ansible/collections/ansible_collections/community/general/MANIFEST.json ]; then \
+    @if ! python3 -c 'import json, pathlib, re, sys; root = pathlib.Path(".ansible/collections/ansible_collections"); locks = dict(re.findall(r"- name: ([^ ]+)\n[ ]+version: \"([^\"]+)\"", pathlib.Path("ansible/requirements.yml").read_text())); actual = {name: json.loads((root.joinpath(*name.split(".")) / "MANIFEST.json").read_text())["collection_info"]["version"] for name in locks}; sys.exit(0 if locks and actual == locks else 1)' 2>/dev/null; then \
       ansible-galaxy collection install --force -r ansible/requirements.yml -p .ansible/collections; \
     fi
 

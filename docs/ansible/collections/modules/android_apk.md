@@ -27,15 +27,16 @@ Download and install an APK via adb with `INSTALL_FAILED_*` parsing.
 ```yaml
 - stayturgid.android_common.android_apk:
     device: "{{ adb_target }}"
-    package: moe.shizuku.privileged.api
-    gh_repo: thedjchi/Shizuku
-    gh_tag: v13.7.0
-    gh_pattern: "*.apk"
-    version_name: 13.7.0
+    package: org.stayturgid.agent
+    gh_repo: djbclark/stayturgid
+    gh_tag: agent-v0.6.0
+    gh_pattern: app-release.apk
+    version_name: 0.6.0-boot-stability
     checksum: "sha256:..."
   delegate_to: localhost
 ```
 
-Versioned fleet catalogs must supply `gh_tag`, `version_name`, and `checksum`;
-using GitHub's mutable repository-wide latest release is only supported for
-ad-hoc module callers outside the normal fleet deployment.
+Versioned fleet catalogs must supply `gh_tag`, an exact asset filename in
+`gh_pattern`, `version_name`, and `checksum`; using a wildcard asset or GitHub's
+mutable repository-wide latest release is only supported for ad-hoc module
+callers outside the normal fleet deployment.

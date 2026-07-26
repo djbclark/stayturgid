@@ -1,9 +1,12 @@
 ---
+# @heals: NORMAL-DEPLOY-SINGLE-PASS
 # Full stayturgid convergence — artifact bootstrap, fleet state, post-UI, validate.
 #
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml
 #   ansible-playbook ansible/playbooks/site.yml --limit oneui-device
 #   CHECK=1 ansible-playbook ansible/playbooks/site.yml --check --diff
+# Ensure intentionally precedes verify: a factory-reset device has no APKs to
+# verify until the normal deploy installs the immutable locks.
 - name: Import bootstrap APK ensure
   import_playbook: fleet/ensure-bootstrap-apks.yml
   tags: [bootstrap-apks]

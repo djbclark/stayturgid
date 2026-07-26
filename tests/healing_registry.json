@@ -42,8 +42,10 @@
         "ansible_collections/stayturgid/android_common/roles/tailscale_vpn/tasks/main.yml",
         "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml",
         "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/native_agent.yml",
+        "ansible_collections/stayturgid/obtainium/plugins/modules/obtainium_app.py",
         "ansible_collections/stayturgid/firerpa/roles/firerpa/tasks/configure.yml",
-        "ansible_collections/stayturgid/firerpa/roles/firerpa/tasks/service.yml"
+        "ansible_collections/stayturgid/firerpa/roles/firerpa/tasks/service.yml",
+        "ansible/playbooks/site.yml"
       ]
     },
     "mac_heal": {
@@ -208,6 +210,16 @@
     "NATIVE-AGENT-RUNNING": {
       "description": "Native-agent release package is the sole installed variant and HostService is running after deploy or upgrade",
       "must_cover": ["ansible_deploy", "fleet_health"],
+      "should_cover": []
+    },
+    "OBTAINIUM-OPS-LOCK": {
+      "description": "Obtainium receives the declarative fleet catalog headlessly and cannot background-update ops-locked applications",
+      "must_cover": ["ansible_deploy"],
+      "should_cover": []
+    },
+    "NORMAL-DEPLOY-SINGLE-PASS": {
+      "description": "The normal site deploy runs the authoritative fleet convergence role stack exactly once",
+      "must_cover": ["ansible_deploy"],
       "should_cover": []
     }
   }

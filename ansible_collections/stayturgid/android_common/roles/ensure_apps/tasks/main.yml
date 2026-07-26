@@ -64,6 +64,7 @@
     checksum: "{{ item.checksum | default(omit) }}"
     force: "{{ item.force | default(false) }}"
     clean: "{{ item.clean | default(false) }}"
+    clean_on_incompatible: "{{ item.clean_on_incompatible | default(omit) }}"
     resign: "{{ item.resign | default(false) }}"
     extra_args: "{{ item.extra_args | default([]) }}"
     installer: "{{ item.installer | default(omit) }}"

@@ -179,6 +179,15 @@ def test_missing_explicit_config_has_actionable_error(tmp_path):
         ac.resolve_ansible_context(tmp_path, {"ANSIBLE_CONFIG": str(tmp_path / "missing.cfg")})
 
 
+def test_inventory_containing_only_separators_has_actionable_error(tmp_path):
+    site = tmp_path / "site"
+    site.mkdir()
+    config = write_config(site, " , , ")
+
+    with pytest.raises(ac.AnsibleConfigError, match=r"no \[defaults\] inventory"):
+        ac.resolve_ansible_context(tmp_path, {"ANSIBLE_CONFIG": str(config)})
+
+
 # ---------------------------------------------------------------------------
 # Zero-host guard (H3)
 # ---------------------------------------------------------------------------

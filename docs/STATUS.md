@@ -21,7 +21,9 @@ and update this file in the same commit.
 
 ## Repo
 
-- `master` == `origin/master`. No open PRs, no long-lived branches.
+- `master` == `origin/master`. Normal-deploy convergence is open in
+  [#72](https://github.com/djbclark/stayturgid/pull/72), paired with private
+  site PR #17; no long-lived branches.
 - Coordinated ops releases use the same annotated `ops-vMAJOR.MINOR.PATCH`
   tag and `ops-release.json` version in all three repositories. Deploy
   checkouts advance only through the release gate owned by `site-djbclark`;

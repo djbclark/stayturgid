@@ -131,6 +131,8 @@ def resolve_ansible_context(
     if not inventory_value:
         raise AnsibleConfigError(f"Selected Ansible config has no [defaults] inventory: {config}")
     inventory_values = [item.strip() for item in inventory_value.split(",") if item.strip()]
+    if not inventory_values:
+        raise AnsibleConfigError(f"Selected Ansible config has no [defaults] inventory: {config}")
     inventories = tuple(_expand_path(item, base=config.parent).resolve() for item in inventory_values)
     # Compatibility for callers that need the site-owned host inventory rather
     # than the full precedence stack: Ansible applies later sources last.

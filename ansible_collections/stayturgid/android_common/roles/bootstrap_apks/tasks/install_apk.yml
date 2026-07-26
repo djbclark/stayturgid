@@ -124,6 +124,9 @@
   check_mode: false
   changed_when: false
   failed_when: _service_verify.rc != 0
+  retries: 6
+  delay: 5
+  until: _service_verify.rc == 0
   delegate_to: localhost
   when:
     - _apk.service_component | default('') | length > 0

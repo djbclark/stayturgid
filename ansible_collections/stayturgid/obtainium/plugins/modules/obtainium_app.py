@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# @heals: OBTAINIUM-OPS-LOCK
 # -*- coding: utf-8 -*-
 
 from __future__ import absolute_import, division, print_function
@@ -269,6 +270,8 @@ def main():
                 "0x10200000",
                 "-a",
                 "android.intent.action.VIEW",
+                "-n",
+                OBTAINIUM_PKG + "/.MainActivity",
                 "-d",
                 uri,
             ]

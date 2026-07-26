@@ -48,6 +48,7 @@ path:
 
 import json
 import os
+import shlex
 import tempfile
 
 from ansible.module_utils.basic import AnsibleModule
@@ -96,7 +97,8 @@ def install_config(module, device, package, content):
     rc, _out, err = adb_shell(
         module.run_command,
         device,
-        "mkdir -p %s && cp %s %s && rm -f %s" % (directory, staging, destination, staging),
+        "mkdir -p %s && cp %s %s && rm -f %s"
+        % tuple(shlex.quote(path) for path in (directory, staging, destination, staging)),
     )
     if rc != 0:
         module.fail_json(msg="native-agent config install failed at %s: %s" % (destination, normalize_adb_output(err)))
@@ -126,7 +128,7 @@ def main():
         module.fail_json(msg="%s is not installed on %s" % (package, device))
 
     wanted = desired_config(targets, module.params["shizuku_package"])
-    rc, out, _err = adb_shell(module.run_command, device, "cat %s" % destination)
+    rc, out, _err = adb_shell(module.run_command, device, "cat %s" % shlex.quote(destination))
     current = parse_config(normalize_adb_output(out)) if rc == 0 else None
     if current == wanted:
         module.exit_json(changed=False, path=destination)
@@ -136,7 +138,7 @@ def main():
     content = json.dumps(wanted, indent=2, sort_keys=True) + "\n"
     install_config(module, device, package, content)
 
-    rc, out, err = adb_shell(module.run_command, device, "cat %s" % destination)
+    rc, out, err = adb_shell(module.run_command, device, "cat %s" % shlex.quote(destination))
     actual = parse_config(normalize_adb_output(out)) if rc == 0 else None
     if actual != wanted:
         module.fail_json(

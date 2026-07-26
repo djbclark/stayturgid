@@ -207,7 +207,10 @@ def download_gh_release(module, repo, pattern, tag):
 def verify_sha256(module, apk_path, expected):
     if not expected:
         return
-    wanted = expected.removeprefix("sha256:").lower()
+    wanted = expected.strip()
+    if wanted.startswith("sha256:"):
+        wanted = wanted[len("sha256:") :]
+    wanted = wanted.lower()
     digest = hashlib.sha256()
     with open(apk_path, "rb") as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
@@ -374,6 +377,7 @@ def main():
         and (rc != 0 or not ok)
         and incompatible_install_failure(reason)
     ):
+        module.warn("clean fallback: uninstalling %s (application data will be lost) after %s" % (package, reason))
         uninstall_cmd = [
             timeout_bin,
             str(module.params["install_timeout"]),
