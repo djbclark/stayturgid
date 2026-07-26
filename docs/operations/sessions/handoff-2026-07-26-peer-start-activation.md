@@ -7,43 +7,38 @@ GUI-popping bug and a duplicate-agent problem, and found three more bugs — one
 fixed-but-not-live-verified, two filed. **Pick up at "Next agent: do this
 first."**
 
-## ⭐ Next agent: do this first (finish the #61 green path)
+## ✅ #61 green path PROVEN (2026-07-26, end of session)
 
-State: hd8's adbd now **trusts the agent's key** (operator ticked "Always allow"
-on hd8 this session). The last live peer-start got **past auth** but failed with
-`not A_WRTE or A_CLSE` — a real bug (multiple shell commands reused ADB stream
-id 1). **Fixed in commit `d5b2ff5` (v0.5.1), compiles, but NOT live-verified**
-because the s24 reinstall+retrigger was interrupted. So:
+hd8's adbd **trusts the agent's key** (operator ticked "Always allow"). The
+stream-id bug (`not A_WRTE or A_CLSE` from reusing ADB stream id 1 across the
+several shell commands per peer-start) was **fixed in `d5b2ff5` (v0.5.1) and
+live-verified**: s24 on v0.5.1 → `just agent-peer-start s24` returned
+**`ALREADY_UP` three times in a row**, hd8 Shizuku stayed up, **no dialog**. The
+peer's 20-min loop now keeps hd8's Shizuku monitored Mac-independently. The full
+pipeline (embedded ADB client → auth → multi-command shell exec → status) works.
 
-```bash
-# s24 still runs v0.5.0 (the buggy build). Put v0.5.1 on it:
-just agent-install 100.123.218.30:5555        # dedupe-safe; builds if needed
-just agent-start   100.123.218.30:5555
-# peer.json (targeting hd8) is already provisioned on s24. Trigger:
-just agent-peer-start s24
-sleep 12
-just agent-peer-show s24                        # EXPECT: outcome=ALREADY_UP
-```
+**What actually remains on #61:**
 
-- `ALREADY_UP` confirms the stream-id fix works and #61's happy path is proven
-  end-to-end (auth + shell exec over the embedded client, no Mac).
-- To prove the actual **start** path (`STARTED`, not just `ALREADY_UP`), do it
-  when hd8's Shizuku is down — but hd8's Shizuku only comes back via external
-  ADB, so only do that deliberately (don't reboot hd8 — recovery-bootloop
-  hazard; see the Hazards section below and the earlier handoff).
-- If `not A_WRTE or A_CLSE` still appears after v0.5.1: the single-connection
-  multiplexing is still racing; fall back to **reconnect-per-command** in
-  `PeerStarter` (one `AdbClient.connect()` per shell command). This re-auths per
-  command, which is fine now that the key is persisted (Always-allow), just
-  slightly more overhead.
+- The **`STARTED`** path (vs `ALREADY_UP`) — i.e. the agent actually running
+  `libshizuku.so` — is unobserved because hd8's Shizuku is up. It's the same
+  exec path with a different command, so high-confidence, but not seen. Prove it
+  only when hd8's Shizuku is genuinely down (do **not** down it artificially:
+  hd8's Shizuku only recovers via external ADB, and don't reboot hd8 —
+  recovery-bootloop hazard).
+- Provision **p7a as a second peer** when it's back.
+- Then close #61.
+
+Fallback if the stream-id issue ever recurs: reconnect-per-command in
+`PeerStarter` (one `AdbClient.connect()` per shell command) — fine now that the
+key is persisted (Always-allow), just more overhead.
 
 ## Current fleet state (verified this session)
 
-| Device  | adb                                                    | Agent                                                             | Notes                                                                                                                                                                                    |
-| ------- | ------------------------------------------------------ | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **hd8** | USB `GN43T503430603PS`; Tailscale `100.124.55.39:5555` | **v0.5.0-debug**, single build, **1** userservice, Shizuku **UP** | Key **authorized** (Always-allow tapped). No `peer.json` (it's the target). Reminder marker **not set** (Fire OS blocks it — see #66). Mac reaches it via **USB**, not its Tailscale IP. |
-| **s24** | `100.123.218.30:5555`                                  | **v0.5.0-debug**, single build                                    | Has `peer.json` → target `100.124.55.39:5555`. **Needs v0.5.1** to test the stream-id fix.                                                                                               |
-| **p7a** | OFFLINE (dead battery)                                 | old, likely duplicate builds                                      | When back: `just agent-dedupe p7a`, `just agent-rollout p7a` (→ v0.5.1), provision as a 2nd peer for hd8.                                                                                |
+| Device  | adb                                                    | Agent                                                             | Notes                                                                                                                                                                                                                                                                                                                                                    |
+| ------- | ------------------------------------------------------ | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **hd8** | USB `GN43T503430603PS`; Tailscale `100.124.55.39:5555` | **v0.5.0-debug**, single build, **1** userservice, Shizuku **UP** | Key **authorized** (Always-allow tapped). No `peer.json` (it's the target). Reminder marker **not set** (Fire OS blocks it — see #66). Mac reaches it via **USB**, not its Tailscale IP. Optional: update to v0.5.1 (cosmetic — a Fire target never uses the peer-side ADB client; use the safe `agent-install`+`agent-start`, **not** `agent-rollout`). |
+| **s24** | `100.123.218.30:5555`                                  | **v0.5.1-debug**, single build, peer role working                 | Has `peer.json` → target `100.124.55.39:5555`; peer-start returns `ALREADY_UP`. The active, verified peer for hd8.                                                                                                                                                                                                                                       |
+| **p7a** | OFFLINE (dead battery)                                 | old, likely duplicate builds                                      | When back: `just agent-dedupe p7a`, `just agent-rollout p7a` (→ v0.5.1), provision as a 2nd peer for hd8.                                                                                                                                                                                                                                                |
 
 Git: `master` = `d5b2ff5`, clean, pushed. Agent version **13 / 0.5.1-peerstart-ux**.
 
@@ -65,9 +60,9 @@ Git: `master` = `d5b2ff5`, clean, pushed. Agent version **13 / 0.5.1-peerstart-u
   `enforce_single_variant()` + `just agent-install` + `just agent-dedupe`
   force-stop and uninstall the _other_ build (debug vs release install
   side-by-side under different applicationIds, each running its own FGS).
-- `d5b2ff5` — **stream-id fix (this session's tail, NOT live-verified)**:
-  unique local stream id per `AdbClient.command()`; `readForStream()` skips
-  stray frames. v0.5.1.
+- `d5b2ff5` — **stream-id fix**: unique local stream id per
+  `AdbClient.command()`; `readForStream()` skips stray frames. v0.5.1.
+  **Live-verified** (s24→hd8 `ALREADY_UP` ×3, no dialog).
 
 ## Research & findings (all of it, for context)
 
