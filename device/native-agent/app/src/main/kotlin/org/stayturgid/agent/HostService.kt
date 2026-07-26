@@ -593,10 +593,10 @@ class HostService : Service() {
 
         /**
          * Total time to keep retrying the initial bind before falling back to the steady-state
-         * [COMONTOR_INTERVAL_MS] loop. Without this, a lost race on the fixed 2s delay used to mean
-         * losing an entire comonitor cycle (20 minutes) with zero CLOSED_NO_SHELL detection.
+         * [COMONTOR_INTERVAL_MS] loop. Increased to 5 minutes (300_000L) to cover the full
+         * exponential backoff window of Shizuku's BootRetryWorker (from PR 262).
          */
-        const val INITIAL_BIND_RETRY_MS: Long = 20_000L
+        const val INITIAL_BIND_RETRY_MS: Long = 300_000L
 
         /** Delay before the first peer-start attempt, letting Tailscale settle. */
         const val PEERSTART_INITIAL_DELAY_MS: Long = 30_000L

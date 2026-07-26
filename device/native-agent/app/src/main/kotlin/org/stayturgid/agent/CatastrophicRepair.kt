@@ -58,7 +58,13 @@ object CatastrophicRepair {
     fun serverRunning(): Boolean {
         val bc =
             shellOut(
-                arrayOf("am", "broadcast", "-a", "moe.shizuku.privileged.api.HEADLESS_STATUS"),
+                arrayOf(
+                    "am",
+                    "broadcast",
+                    "--include-stopped-packages",
+                    "-a",
+                    "moe.shizuku.privileged.api.HEADLESS_STATUS",
+                ),
                 6,
             )
         if (bc != null && bc.contains("result=1")) return true
@@ -121,7 +127,16 @@ object CatastrophicRepair {
     }
 
     fun headlessStart(): Boolean {
-        shellOut(arrayOf("am", "broadcast", "-a", "moe.shizuku.privileged.api.HEADLESS_START"), 8)
+        shellOut(
+            arrayOf(
+                "am",
+                "broadcast",
+                "--include-stopped-packages",
+                "-a",
+                "moe.shizuku.privileged.api.HEADLESS_START",
+            ),
+            8,
+        )
         Thread.sleep(5000)
         return serverRunning()
     }
