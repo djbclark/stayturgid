@@ -117,6 +117,7 @@ def test_discover_prunes_unreachable_unregistered_ports(tmp_path, monkeypatch):
 
     monkeypatch.setattr(state, "CATALOG_FILE", catalog)
     monkeypatch.setattr(state, "STATE_FILE", runtime)
+    monkeypatch.setattr(discover, "KNOWN_SERVICES", state.load_catalog()["services"])
     monkeypatch.setattr(discover, "_scan_localhost", lambda **_kwargs: [])
     # Probe fails for all ports
     monkeypatch.setattr(discover, "_http_probe", lambda _url, **_kwargs: None)
