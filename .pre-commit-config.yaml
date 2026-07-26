@@ -276,3 +276,48 @@ repos:
     rev: v8.18.4
     hooks:
       - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: kotlin-format
+        name: Kotlin format (Spotless + ktfmt)
+        entry: bash
+        args:
+          - -c
+          - |
+            cd device/native-agent || exit 0
+            if [ ! -f gradlew ]; then exit 0; fi
+            # Gradle 8.x needs JDK 17–21; fall back if default is newer.
+            for v in 21 17; do
+              jh="/opt/homebrew/opt/openjdk@$v/libexec/openjdk.jdk/Contents/Home"
+              [ -d "$jh" ] && export JAVA_HOME="$jh" && break
+            done
+            ./gradlew spotlessCheck --quiet 2>&1
+            rc=$?
+            if [ $rc -ne 0 ]; then
+              echo ""
+              echo "Kotlin formatting violations found."
+              echo "Run:  cd device/native-agent && ./gradlew spotlessApply"
+              exit 1
+            fi
+        language: system
+        files: '^device/native-agent/.*\.(kt|kts)$'
+        pass_filenames: false
+
+      - id: kotlin-detekt
+        name: Kotlin static analysis (detekt)
+        entry: bash
+        args:
+          - -c
+          - |
+            cd device/native-agent || exit 0
+            if [ ! -f gradlew ]; then exit 0; fi
+            # Gradle 8.x needs JDK 17–21; fall back if default is newer.
+            for v in 21 17; do
+              jh="/opt/homebrew/opt/openjdk@$v/libexec/openjdk.jdk/Contents/Home"
+              [ -d "$jh" ] && export JAVA_HOME="$jh" && break
+            done
+            ./gradlew detekt --quiet 2>&1
+        language: system
+        files: '^device/native-agent/.*\.kt$'
+        pass_filenames: false

@@ -56,6 +56,19 @@ warn_unreachable = true
 exclude = ['^\.venv/']        # or '.venv-test/' for stayturgid
 ```
 
+### Kotlin (Gradle, device/native-agent)
+
+| Tool | Version | Config | What it checks |
+|------|---------|--------|----------------|
+| **Spotless + ktfmt** | 7.0.4 / 0.54 | `build.gradle.kts [spotless]` | Deterministic Kotlin formatting (kotlinlangStyle) |
+| **detekt** | 1.23.8 | `config/detekt/detekt.yml` | Kotlin static analysis, complexity, code smells |
+| **Konsist** | 0.17.3 | `ArchitectureTest.kt` | Architectural rule enforcement as unit tests |
+| **JUnit 5 + Kotest** | 5.10.2 / 6.2.2 | `app/build.gradle.kts` | Test runner and fluent assertions |
+| **MockK + Turbine** | 1.14.11 / 1.2.1 | `app/build.gradle.kts` | Mocking and coroutine/Flow testing |
+| **Kover** | 0.9.9 | `build.gradle.kts [kover]` | Code coverage |
+
+Detekt runs with `buildUponDefaultConfig = true` and a `baseline.xml` for gradual adoption of existing issues.
+
 ### Node (package.json devDependencies, run via bunx)
 
 | Tool                     | Version | Config                    | What it checks             |
@@ -181,6 +194,12 @@ format:
     uv run --extra dev ruff check --fix .
     uv run --extra dev ruff format .
     bunx prettier --plugin=prettier-plugin-toml --write README.md pyproject.toml
+
+# Kotlin (if applicable)
+kt-check:
+    just kt-format-check
+    just kt-detekt
+    just kt-test
 ```
 
 ## Pre-commit Hook Standards
@@ -261,6 +280,7 @@ The above is the **core** toolchain. Projects add domain-specific hooks:
 | ------------------------- | ------------------------- | -------------------------- |
 | shellcheck + shfmt        | Shell scripts present     | device/termux scripts      |
 | biome                     | TypeScript / JS present   | device/autojs6, just/tools |
+| kotlin-format, -detekt    | Kotlin Android code       | device/native-agent        |
 | html-validate + stylelint | HTML / CSS present        | control/static             |
 | ansible-lint              | Ansible playbooks present | ansible/                   |
 | caddy-fmt                 | Caddyfile present         | control/caddy              |
@@ -323,5 +343,6 @@ When updating tool versions, change these in lockstep:
 | gitleaks               | `.pre-commit-config.yaml` rev                                                              |
 | prettier, markdownlint | `package.json` devDependencies                                                             |
 | semgrep                | system package manager (brew/pip) — pin in CI image                                        |
+| Kotlin Tools (detekt, spotless, etc.) | Update `build.gradle.kts` versions. Pre-commit hooks run `./gradlew` so they auto-sync with Gradle. |
 
 After bumping, run `just check && just lint` to verify nothing broke.

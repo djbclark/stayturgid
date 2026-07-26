@@ -1,12 +1,12 @@
 package org.stayturgid.agent.adb
 
-import org.junit.Assert.assertArrayEquals
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import org.junit.jupiter.api.Assertions.assertArrayEquals
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
 /** Pure wire-framing tests — no Android/socket dependencies. */
 class AdbMessageTest {
@@ -19,7 +19,8 @@ class AdbMessageTest {
 
     @Test
     fun headerRoundTripsLittleEndian() {
-        val m = AdbMessage(AdbProtocol.A_CNXN, AdbProtocol.A_VERSION, AdbProtocol.A_MAXDATA, "host::")
+        val m =
+            AdbMessage(AdbProtocol.A_CNXN, AdbProtocol.A_VERSION, AdbProtocol.A_MAXDATA, "host::")
         val bytes = m.toByteArray()
 
         val buf = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN)
@@ -50,7 +51,16 @@ class AdbMessageTest {
     @Test
     fun tamperedCrcFailsValidation() {
         val good = AdbMessage(AdbProtocol.A_WRTE, 1, 1, byteArrayOf(1, 2, 3))
-        val bad = AdbMessage(good.command, good.arg0, good.arg1, good.data_length, good.data_crc32 + 1, good.magic, good.data)
+        val bad =
+            AdbMessage(
+                good.command,
+                good.arg0,
+                good.arg1,
+                good.data_length,
+                good.data_crc32 + 1,
+                good.magic,
+                good.data,
+            )
         assertFalse(bad.validate())
     }
 

@@ -2,6 +2,15 @@ package org.stayturgid.agent.adb
 
 import android.os.Build
 import android.util.Log
+import java.io.Closeable
+import java.io.DataInputStream
+import java.io.DataOutputStream
+import java.net.InetSocketAddress
+import java.net.Socket
+import java.net.SocketTimeoutException
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import javax.net.ssl.SSLSocket
 import org.stayturgid.agent.adb.AdbProtocol.ADB_AUTH_RSAPUBLICKEY
 import org.stayturgid.agent.adb.AdbProtocol.ADB_AUTH_SIGNATURE
 import org.stayturgid.agent.adb.AdbProtocol.ADB_AUTH_TOKEN
@@ -15,25 +24,15 @@ import org.stayturgid.agent.adb.AdbProtocol.A_STLS
 import org.stayturgid.agent.adb.AdbProtocol.A_STLS_VERSION
 import org.stayturgid.agent.adb.AdbProtocol.A_VERSION
 import org.stayturgid.agent.adb.AdbProtocol.A_WRTE
-import java.io.Closeable
-import java.io.DataInputStream
-import java.io.DataOutputStream
-import java.net.InetSocketAddress
-import java.net.Socket
-import java.net.SocketTimeoutException
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
-import javax.net.ssl.SSLSocket
 
 /**
- * Minimal ADB client the agent uses to reach a remote device's `adbd` and run a
- * shell command (the Shizuku starter — see [org.stayturgid.agent.PeerStarter]).
+ * Minimal ADB client the agent uses to reach a remote device's `adbd` and run a shell command (the
+ * Shizuku starter — see [org.stayturgid.agent.PeerStarter]).
  *
- * Ported from the Shizuku fork's `moe.shizuku.manager.adb.AdbClient`. Adaptations
- * vs. upstream: package rename, `BuildUtils.atLeast29` → inline SDK check, the
- * debug `logd` import dropped, and a configurable [readTimeoutMs] so the one-time
- * "Always allow" authorization on a new target doesn't block a background thread
- * forever (upstream relied on the interactive UI to bound the wait).
+ * Ported from the Shizuku fork's `moe.shizuku.manager.adb.AdbClient`. Adaptations vs. upstream:
+ * package rename, `BuildUtils.atLeast29` → inline SDK check, the debug `logd` import dropped, and a
+ * configurable [readTimeoutMs] so the one-time "Always allow" authorization on a new target doesn't
+ * block a background thread forever (upstream relied on the interactive UI to bound the wait).
  */
 private const val TAG = "StayTurgidAdbClient"
 
@@ -54,15 +53,19 @@ class AdbClient(
     private lateinit var tlsInputStream: DataInputStream
     private lateinit var tlsOutputStream: DataOutputStream
 
-    private val inputStream get() = if (useTls) tlsInputStream else plainInputStream
-    private val outputStream get() = if (useTls) tlsOutputStream else plainOutputStream
+    private val inputStream
+        get() = if (useTls) tlsInputStream else plainInputStream
+
+    private val outputStream
+        get() = if (useTls) tlsOutputStream else plainOutputStream
 
     fun connect() {
         // ADB transport is a plaintext framed protocol authenticated by RSA
         // (A_AUTH) and optionally upgraded to TLS (A_STLS) — the initial socket
         // is necessarily unencrypted. This fleet only ever dials adbd over
         // Tailscale (WireGuard), so the link is encrypted at the network layer.
-        val socket = Socket() // nosemgrep: kotlin.lang.security.unencrypted-socket.unencrypted-socket
+        val socket =
+            Socket() // nosemgrep: kotlin.lang.security.unencrypted-socket.unencrypted-socket
         val address = InetSocketAddress(host, port)
         socket.connect(address, connectTimeoutMs)
 
@@ -86,7 +89,9 @@ class AdbClient(
                 connectHandshake { challenged = true }
             } catch (e: SocketTimeoutException) {
                 if (challenged) {
-                    throw AdbAuthPendingException("target reachable; awaiting one-time ADB approval")
+                    throw AdbAuthPendingException(
+                        "target reachable; awaiting one-time ADB approval"
+                    )
                 }
                 throw e
             }
@@ -114,7 +119,8 @@ class AdbClient(
             message = read()
         } else if (message.command == A_AUTH) {
             onChallenged()
-            if (message.command != A_AUTH && message.arg0 != ADB_AUTH_TOKEN) error("not A_AUTH ADB_AUTH_TOKEN")
+            if (message.command != A_AUTH && message.arg0 != ADB_AUTH_TOKEN)
+                error("not A_AUTH ADB_AUTH_TOKEN")
             write(A_AUTH, ADB_AUTH_SIGNATURE, 0, key.sign(message.data))
 
             message = read()
@@ -126,10 +132,7 @@ class AdbClient(
         return message
     }
 
-    fun command(
-        cmd: String,
-        listener: ((ByteArray) -> Unit)? = null,
-    ) {
+    fun command(cmd: String, listener: ((ByteArray) -> Unit)? = null) {
         val localId = 1
         write(A_OPEN, localId, 0, cmd)
 
@@ -162,19 +165,11 @@ class AdbClient(
         }
     }
 
-    private fun write(
-        command: Int,
-        arg0: Int,
-        arg1: Int,
-        data: ByteArray? = null,
-    ) = write(AdbMessage(command, arg0, arg1, data))
+    private fun write(command: Int, arg0: Int, arg1: Int, data: ByteArray? = null) =
+        write(AdbMessage(command, arg0, arg1, data))
 
-    private fun write(
-        command: Int,
-        arg0: Int,
-        arg1: Int,
-        data: String,
-    ) = write(AdbMessage(command, arg0, arg1, data))
+    private fun write(command: Int, arg0: Int, arg1: Int, data: String) =
+        write(AdbMessage(command, arg0, arg1, data))
 
     private fun write(message: AdbMessage) {
         outputStream.write(message.toByteArray())
@@ -209,30 +204,24 @@ class AdbClient(
     override fun close() {
         try {
             plainInputStream.close()
-        } catch (_: Throwable) {
-        }
+        } catch (_: Throwable) {}
         try {
             plainOutputStream.close()
-        } catch (_: Throwable) {
-        }
+        } catch (_: Throwable) {}
         try {
             socket.close()
-        } catch (_: Exception) {
-        }
+        } catch (_: Exception) {}
 
         if (useTls) {
             try {
                 tlsInputStream.close()
-            } catch (_: Throwable) {
-            }
+            } catch (_: Throwable) {}
             try {
                 tlsOutputStream.close()
-            } catch (_: Throwable) {
-            }
+            } catch (_: Throwable) {}
             try {
                 tlsSocket.close()
-            } catch (_: Exception) {
-            }
+            } catch (_: Exception) {}
         }
     }
 }

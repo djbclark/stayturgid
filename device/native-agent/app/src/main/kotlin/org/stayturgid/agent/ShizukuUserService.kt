@@ -14,8 +14,8 @@ import java.lang.reflect.Method
 /**
  * Runs as UID 2000 (shell) under Shizuku. No non-SDK restrictions.
  *
- * Phase 1 payload: [pingAwake] injects a silent key event via InputManager
- * reflection — never Runtime.exec / Shizuku.newProcess.
+ * Phase 1 payload: [pingAwake] injects a silent key event via InputManager reflection — never
+ * Runtime.exec / Shizuku.newProcess.
  */
 class ShizukuUserService : IStayTurgidService.Stub {
     private var appContext: Context? = null
@@ -25,8 +25,8 @@ class ShizukuUserService : IStayTurgidService.Stub {
     }
 
     /**
-     * Available from Shizuku API v13. Prefer this — Context.getSystemService works
-     * for InputManager on modern Android where getInstance() was removed.
+     * Available from Shizuku API v13. Prefer this — Context.getSystemService works for InputManager
+     * on modern Android where getInstance() was removed.
      */
     @Keep
     constructor(context: Context) {
@@ -158,12 +158,12 @@ class ShizukuUserService : IStayTurgidService.Stub {
         try {
             val sm = Class.forName("android.os.ServiceManager")
             val getService = sm.getMethod("getService", String::class.java)
-            val binder = getService.invoke(null, "input")
-                ?: error("ServiceManager.getService(input) null")
+            val binder =
+                getService.invoke(null, "input") ?: error("ServiceManager.getService(input) null")
             val stub = Class.forName("android.hardware.input.IInputManager\$Stub")
             val asInterface = stub.getMethod("asInterface", Class.forName("android.os.IBinder"))
-            val iim = asInterface.invoke(null, binder)
-                ?: error("IInputManager.Stub.asInterface null")
+            val iim =
+                asInterface.invoke(null, binder) ?: error("IInputManager.Stub.asInterface null")
             Log.i(TAG, "InputManager via IInputManager binder")
             return iim
         } catch (t: Throwable) {
@@ -190,7 +190,7 @@ class ShizukuUserService : IStayTurgidService.Stub {
                 ?: candidates.firstOrNull { it.parameterTypes.size == 2 }
                 ?: error(
                     "injectInputEvent not found on ${clazz.name}; methods=" +
-                        candidates.map { it.toGenericString() },
+                        candidates.map { it.toGenericString() }
                 )
         match.isAccessible = true
         return match

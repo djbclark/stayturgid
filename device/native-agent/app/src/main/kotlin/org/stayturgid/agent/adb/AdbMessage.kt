@@ -1,5 +1,7 @@
 package org.stayturgid.agent.adb
 
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import org.stayturgid.agent.adb.AdbProtocol.A_AUTH
 import org.stayturgid.agent.adb.AdbProtocol.A_CLSE
 import org.stayturgid.agent.adb.AdbProtocol.A_CNXN
@@ -8,14 +10,12 @@ import org.stayturgid.agent.adb.AdbProtocol.A_OPEN
 import org.stayturgid.agent.adb.AdbProtocol.A_STLS
 import org.stayturgid.agent.adb.AdbProtocol.A_SYNC
 import org.stayturgid.agent.adb.AdbProtocol.A_WRTE
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 
 /**
  * A single ADB protocol message (24-byte header + optional payload).
  *
- * Ported verbatim from the Shizuku fork's `moe.shizuku.manager.adb.AdbMessage`
- * (package changed only). Pure logic — unit-testable off-device.
+ * Ported verbatim from the Shizuku fork's `moe.shizuku.manager.adb.AdbMessage` (package changed
+ * only). Pure logic — unit-testable off-device.
  */
 class AdbMessage(
     val command: Int,
@@ -26,14 +26,19 @@ class AdbMessage(
     val magic: Int,
     val data: ByteArray?,
 ) {
-    constructor(command: Int, arg0: Int, arg1: Int, data: String) : this(
-        command,
-        arg0,
-        arg1,
-        "$data\u0000".toByteArray(),
-    )
+    constructor(
+        command: Int,
+        arg0: Int,
+        arg1: Int,
+        data: String,
+    ) : this(command, arg0, arg1, "$data\u0000".toByteArray())
 
-    constructor(command: Int, arg0: Int, arg1: Int, data: ByteArray?) : this(
+    constructor(
+        command: Int,
+        arg0: Int,
+        arg1: Int,
+        data: ByteArray?,
+    ) : this(
         command,
         arg0,
         arg1,
@@ -55,18 +60,20 @@ class AdbMessage(
 
     fun toByteArray(): ByteArray {
         val length = HEADER_LENGTH + (data?.size ?: 0)
-        return ByteBuffer.allocate(length).apply {
-            order(ByteOrder.LITTLE_ENDIAN)
-            putInt(command)
-            putInt(arg0)
-            putInt(arg1)
-            putInt(data_length)
-            putInt(data_crc32)
-            putInt(magic)
-            if (data != null) {
-                put(data)
+        return ByteBuffer.allocate(length)
+            .apply {
+                order(ByteOrder.LITTLE_ENDIAN)
+                putInt(command)
+                putInt(arg0)
+                putInt(arg1)
+                putInt(data_length)
+                putInt(data_crc32)
+                putInt(magic)
+                if (data != null) {
+                    put(data)
+                }
             }
-        }.array()
+            .array()
     }
 
     override fun equals(other: Any?): Boolean {

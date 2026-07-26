@@ -1,0 +1,110 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>ConstructorParameterNaming:AdbMessage.kt$AdbMessage$val data_crc32: Int</ID>
+    <ID>ConstructorParameterNaming:AdbMessage.kt$AdbMessage$val data_length: Int</ID>
+    <ID>CyclomaticComplexMethod:ComonitorProbes.kt$ComonitorProbes$private fun listeningOn(port: Int): Boolean</ID>
+    <ID>EmptyFunctionBlock:AdbKey.kt$AdbKey.&lt;no name provided&gt;${}</ID>
+    <ID>ImportOrdering:AdbClient.kt$import android.os.Build import android.util.Log import java.io.Closeable import java.io.DataInputStream import java.io.DataOutputStream import java.net.InetSocketAddress import java.net.Socket import java.net.SocketTimeoutException import java.nio.ByteBuffer import java.nio.ByteOrder import javax.net.ssl.SSLSocket import org.stayturgid.agent.adb.AdbProtocol.ADB_AUTH_RSAPUBLICKEY import org.stayturgid.agent.adb.AdbProtocol.ADB_AUTH_SIGNATURE import org.stayturgid.agent.adb.AdbProtocol.ADB_AUTH_TOKEN import org.stayturgid.agent.adb.AdbProtocol.A_AUTH import org.stayturgid.agent.adb.AdbProtocol.A_CLSE import org.stayturgid.agent.adb.AdbProtocol.A_CNXN import org.stayturgid.agent.adb.AdbProtocol.A_MAXDATA import org.stayturgid.agent.adb.AdbProtocol.A_OKAY import org.stayturgid.agent.adb.AdbProtocol.A_OPEN import org.stayturgid.agent.adb.AdbProtocol.A_STLS import org.stayturgid.agent.adb.AdbProtocol.A_STLS_VERSION import org.stayturgid.agent.adb.AdbProtocol.A_VERSION import org.stayturgid.agent.adb.AdbProtocol.A_WRTE</ID>
+    <ID>ImportOrdering:AdbKey.kt$import android.annotation.SuppressLint import android.content.SharedPreferences import android.os.Build import android.security.keystore.KeyGenParameterSpec import android.security.keystore.KeyProperties import android.util.Base64 import android.util.Log import androidx.annotation.RequiresApi import androidx.core.content.edit import java.io.ByteArrayInputStream import java.math.BigInteger import java.net.Socket import java.nio.ByteBuffer import java.nio.ByteOrder import java.security.Key import java.security.KeyFactory import java.security.KeyPairGenerator import java.security.KeyStore import java.security.Principal import java.security.PrivateKey import java.security.SecureRandom import java.security.cert.CertificateFactory import java.security.cert.X509Certificate import java.security.interfaces.RSAPrivateKey import java.security.interfaces.RSAPublicKey import java.security.spec.PKCS8EncodedKeySpec import java.security.spec.RSAKeyGenParameterSpec import java.security.spec.RSAPublicKeySpec import java.util.Date import java.util.Locale import javax.crypto.Cipher import javax.crypto.KeyGenerator import javax.crypto.spec.GCMParameterSpec import javax.net.ssl.SSLContext import javax.net.ssl.SSLEngine import javax.net.ssl.X509ExtendedKeyManager import javax.net.ssl.X509ExtendedTrustManager import org.bouncycastle.asn1.x500.X500Name import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo import org.bouncycastle.cert.X509v3CertificateBuilder import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder</ID>
+    <ID>ImportOrdering:AdbMessage.kt$import java.nio.ByteBuffer import java.nio.ByteOrder import org.stayturgid.agent.adb.AdbProtocol.A_AUTH import org.stayturgid.agent.adb.AdbProtocol.A_CLSE import org.stayturgid.agent.adb.AdbProtocol.A_CNXN import org.stayturgid.agent.adb.AdbProtocol.A_OKAY import org.stayturgid.agent.adb.AdbProtocol.A_OPEN import org.stayturgid.agent.adb.AdbProtocol.A_STLS import org.stayturgid.agent.adb.AdbProtocol.A_SYNC import org.stayturgid.agent.adb.AdbProtocol.A_WRTE</ID>
+    <ID>ImportOrdering:AdbMessageTest.kt$import java.nio.ByteBuffer import java.nio.ByteOrder import org.junit.Assert.assertArrayEquals import org.junit.Assert.assertEquals import org.junit.Assert.assertFalse import org.junit.Assert.assertTrue import org.junit.Test</ID>
+    <ID>ImportOrdering:HostService.kt$import android.app.Notification import android.app.NotificationChannel import android.app.NotificationManager import android.app.PendingIntent import android.app.Service import android.content.BroadcastReceiver import android.content.ComponentName import android.content.Context import android.content.Intent import android.content.IntentFilter import android.content.ServiceConnection import android.content.pm.ServiceInfo import android.os.Build import android.os.IBinder import android.os.PowerManager import android.os.RemoteException import android.util.Log import androidx.core.app.NotificationCompat import androidx.core.content.ContextCompat import java.util.concurrent.atomic.AtomicReference import kotlinx.coroutines.CoroutineScope import kotlinx.coroutines.Dispatchers import kotlinx.coroutines.Job import kotlinx.coroutines.SupervisorJob import kotlinx.coroutines.cancel import kotlinx.coroutines.delay import kotlinx.coroutines.isActive import kotlinx.coroutines.launch import kotlinx.coroutines.withContext import rikka.shizuku.Shizuku</ID>
+    <ID>ImportOrdering:PeerConfig.kt$import android.content.Context import android.util.Log import java.io.File import org.json.JSONObject</ID>
+    <ID>ImportOrdering:PeerStarter.kt$import android.content.Context import android.util.Log import java.io.File import java.text.SimpleDateFormat import java.util.Date import java.util.Locale import org.stayturgid.agent.adb.AdbAuthPendingException import org.stayturgid.agent.adb.AdbClient import org.stayturgid.agent.adb.AdbKey import org.stayturgid.agent.adb.PreferenceAdbKeyStore</ID>
+    <ID>Indentation:AdbKey.kt$AdbKey$ </ID>
+    <ID>Indentation:HostService.kt$HostService$ </ID>
+    <ID>Indentation:MainActivity.kt$MainActivity$ </ID>
+    <ID>LateinitUsage:AdbClient.kt$AdbClient$private lateinit var plainInputStream: DataInputStream</ID>
+    <ID>LateinitUsage:AdbClient.kt$AdbClient$private lateinit var plainOutputStream: DataOutputStream</ID>
+    <ID>LateinitUsage:AdbClient.kt$AdbClient$private lateinit var socket: Socket</ID>
+    <ID>LateinitUsage:AdbClient.kt$AdbClient$private lateinit var tlsInputStream: DataInputStream</ID>
+    <ID>LateinitUsage:AdbClient.kt$AdbClient$private lateinit var tlsOutputStream: DataOutputStream</ID>
+    <ID>LateinitUsage:AdbClient.kt$AdbClient$private lateinit var tlsSocket: SSLSocket</ID>
+    <ID>LateinitUsage:MainActivity.kt$MainActivity$private lateinit var actionBanner: TextView</ID>
+    <ID>LateinitUsage:MainActivity.kt$MainActivity$private lateinit var authorizeButton: Button</ID>
+    <ID>LateinitUsage:MainActivity.kt$MainActivity$private lateinit var status: TextView</ID>
+    <ID>LongMethod:MainActivity.kt$MainActivity$override fun onCreate(savedInstanceState: Bundle?)</ID>
+    <ID>LoopWithTooManyJumpStatements:ComonitorProbes.kt$ComonitorProbes$for</ID>
+    <ID>MagicNumber:AdbClient.kt$AdbClient$24</ID>
+    <ID>MagicNumber:AdbKey.kt$AdbKey$2048</ID>
+    <ID>MagicNumber:AdbMessage.kt$AdbMessage$0xFFFFFFFF</ID>
+    <ID>MagicNumber:AdbMessage.kt$AdbMessage.Companion$256</ID>
+    <ID>MagicNumber:CatastrophicRepair.kt$CatastrophicRepair$1000</ID>
+    <ID>MagicNumber:CatastrophicRepair.kt$CatastrophicRepair$1500</ID>
+    <ID>MagicNumber:CatastrophicRepair.kt$CatastrophicRepair$2000</ID>
+    <ID>MagicNumber:CatastrophicRepair.kt$CatastrophicRepair$3</ID>
+    <ID>MagicNumber:CatastrophicRepair.kt$CatastrophicRepair$4</ID>
+    <ID>MagicNumber:CatastrophicRepair.kt$CatastrophicRepair$5000</ID>
+    <ID>MagicNumber:CatastrophicRepair.kt$CatastrophicRepair$8</ID>
+    <ID>MagicNumber:ComonitorProbes.kt$ComonitorProbes$3</ID>
+    <ID>MagicNumber:ComonitorProbes.kt$ComonitorProbes$4</ID>
+    <ID>MagicNumber:ComonitorProbes.kt$ComonitorProbes$5555</ID>
+    <ID>MagicNumber:HostService.kt$HostService$10</ID>
+    <ID>MagicNumber:HostService.kt$HostService$34</ID>
+    <ID>MagicNumber:MainActivity.kt$MainActivity$13f</ID>
+    <ID>MagicNumber:MainActivity.kt$MainActivity$15f</ID>
+    <ID>MagicNumber:MainActivity.kt$MainActivity$16f</ID>
+    <ID>MagicNumber:MainActivity.kt$MainActivity$18f</ID>
+    <ID>MagicNumber:MainActivity.kt$MainActivity$20f</ID>
+    <ID>MagicNumber:MainActivity.kt$MainActivity$24</ID>
+    <ID>MagicNumber:MainActivity.kt$MainActivity$24f</ID>
+    <ID>MagicNumber:MainActivity.kt$MainActivity$28</ID>
+    <ID>MagicNumber:MainActivity.kt$MainActivity$33</ID>
+    <ID>MagicNumber:MainActivity.kt$MainActivity$8</ID>
+    <ID>MagicNumber:PeerStarter.kt$PeerStarter$200</ID>
+    <ID>MagicNumber:PeerStarter.kt$PeerStarter$300</ID>
+    <ID>MagicNumber:PeerStarter.kt$PeerStarter$400</ID>
+    <ID>MaxLineLength:ComonitorProbes.kt$ComonitorProbes.Status$"[agent] STATUS port=$port shizuku=$shizuku sshd=$sshd a11y=$a11y shell=$shell wifi=$wifi tailscale=$tailscale tailscale_policy=$tailscalePolicy reason=$reason ts=$ts uid=${Process.myUid()}"</ID>
+    <ID>MaximumLineLength:ComonitorProbes.kt$ComonitorProbes.Status$ </ID>
+    <ID>MultiLineIfElse:AdbClient.kt$AdbClient$error("not A_AUTH ADB_AUTH_TOKEN")</ID>
+    <ID>MultiLineIfElse:ComonitorProbes.kt$ComonitorProbes$"down"</ID>
+    <ID>MultiLineIfElse:ComonitorProbes.kt$ComonitorProbes$"up"</ID>
+    <ID>MultiLineIfElse:ComonitorProbes.kt$ComonitorProbes$continue</ID>
+    <ID>NestedBlockDepth:AdbClient.kt$AdbClient$fun command(cmd: String, listener: ((ByteArray) -&gt; Unit)? = null)</ID>
+    <ID>ReturnCount:CatastrophicRepair.kt$CatastrophicRepair$fun repair(): Result</ID>
+    <ID>ReturnCount:ComonitorProbes.kt$ComonitorProbes$private fun listeningOn(port: Int): Boolean</ID>
+    <ID>ReturnCount:PeerConfig.kt$PeerTarget.Companion$fun parseOrNull(raw: String): PeerTarget?</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:HostService.kt$HostService.Companion$/** 5 minutes; override later via config if needed. */</ID>
+    <ID>SpacingBetweenDeclarationsWithComments:PeerStarter.kt$PeerStarter.Outcome.AUTH_PENDING$/** * Target reachable + auth-challenged, but the one-time "Always allow" hasn't been granted * yet. */</ID>
+    <ID>SpreadOperator:CatastrophicRepair.kt$CatastrophicRepair$(*cmd)</ID>
+    <ID>SpreadOperator:ComonitorProbes.kt$ComonitorProbes$(*cmd)</ID>
+    <ID>SwallowedException:PeerStarter.kt$PeerStarter$t: AdbAuthPendingException</ID>
+    <ID>TooGenericExceptionCaught:AdbKey.kt$AdbKey$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:CatastrophicRepair.kt$CatastrophicRepair$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:ComonitorProbes.kt$ComonitorProbes$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:HostService.kt$HostService$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:MainActivity.kt$MainActivity$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:PeerConfig.kt$PeerConfig.Companion$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:PeerStarter.kt$PeerStarter$t: Throwable</ID>
+    <ID>TooGenericExceptionCaught:ShizukuUserService.kt$ShizukuUserService$t: Throwable</ID>
+    <ID>TooManyFunctions:ComonitorProbes.kt$ComonitorProbes</ID>
+    <ID>TooManyFunctions:HostService.kt$HostService : Service</ID>
+    <ID>TrailingCommaOnCallSite:AdbClient.kt$AdbClient$( "target reachable; awaiting one-time ADB approval" )</ID>
+    <ID>TrailingCommaOnCallSite:AuthorizeReminderTest.kt$AuthorizeReminderTest$( cmd.contains("/sdcard/Android/data/org.stayturgid.agent.debug/files/authorize_reminder") )</ID>
+    <ID>TrailingCommaOnCallSite:AuthorizeReminderTest.kt$AuthorizeReminderTest$( cmd.contains("/sdcard/Android/data/org.stayturgid.agent/files/authorize_reminder") )</ID>
+    <ID>TrailingCommaOnCallSite:HostService.kt$HostService$( NotificationCompat.BigTextStyle() .bigText( getString(R.string.notification_peer_auth_text, targets.joinToString(", ")) ) )</ID>
+    <ID>TrailingCommaOnCallSite:HostService.kt$HostService$( NotificationCompat.BigTextStyle() .bigText(getString(R.string.notification_target_reminder_text)) )</ID>
+    <ID>TrailingCommaOnCallSite:HostService.kt$HostService$( getString(R.string.notification_peer_auth_text, targets.joinToString(", ")) )</ID>
+    <ID>TrailingCommaOnCallSite:MainActivity.kt$MainActivity$( Button(this).apply { text = "Catastrophic repair now" setOnClickListener { HostService.repairNow(this@MainActivity) Toast.makeText( this@MainActivity, "Catastrophic repair requested", Toast.LENGTH_SHORT, ) .show() } } )</ID>
+    <ID>TrailingCommaOnCallSite:MainActivity.kt$MainActivity$( Button(this).apply { text = "Peer-start Shizuku now" setOnClickListener { HostService.peerStartNow(this@MainActivity) Toast.makeText( this@MainActivity, "Peer-start requested (see peerstart.log / logcat)", Toast.LENGTH_SHORT, ) .show() } } )</ID>
+    <ID>TrailingCommaOnCallSite:MainActivity.kt$MainActivity$( Button(this).apply { text = "Ping now" setOnClickListener { HostService.pingNow(this@MainActivity) Toast.makeText(this@MainActivity, "Ping requested", Toast.LENGTH_SHORT).show() } } )</ID>
+    <ID>TrailingCommaOnCallSite:MainActivity.kt$MainActivity$( Button(this).apply { text = "Run co-monitor now" setOnClickListener { HostService.pingNow(this@MainActivity) Toast.makeText( this@MainActivity, "Ping+comonitor requested (see agent.log)", Toast.LENGTH_SHORT, ) .show() } } )</ID>
+    <ID>TrailingCommaOnCallSite:MainActivity.kt$MainActivity$( Button(this).apply { text = getString(R.string.main_copy_diagnostics) setOnClickListener { val diagnostics = buildSummary() + "\n" + status.text val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager clipboard.setPrimaryClip( ClipData.newPlainText("stayturgid-agent diagnostics", diagnostics) ) Toast.makeText(this@MainActivity, "Diagnostics copied", Toast.LENGTH_SHORT) .show() } } )</ID>
+    <ID>TrailingCommaOnCallSite:MainActivity.kt$MainActivity$( Button(this).apply { text = getString(R.string.main_request_shizuku) setOnClickListener { requestShizuku() } } )</ID>
+    <ID>TrailingCommaOnCallSite:MainActivity.kt$MainActivity$( Button(this).apply { text = getString(R.string.main_start) setOnClickListener { if (!hasShizukuPermission()) { requestShizuku() } HostService.start(this@MainActivity) Toast.makeText(this@MainActivity, "Host starting", Toast.LENGTH_SHORT).show() refreshStatus() } } )</ID>
+    <ID>TrailingCommaOnCallSite:MainActivity.kt$MainActivity$( Button(this).apply { text = getString(R.string.main_stop) setOnClickListener { HostService.stop(this@MainActivity) Toast.makeText(this@MainActivity, "Host stop requested", Toast.LENGTH_SHORT) .show() refreshStatus() } } )</ID>
+    <ID>TrailingCommaOnCallSite:MainActivity.kt$MainActivity$( ClipData.newPlainText("stayturgid-agent diagnostics", diagnostics) )</ID>
+    <ID>TrailingCommaOnCallSite:MainActivity.kt$MainActivity$( TextView(this).apply { text = buildSummary() textSize = 18f setTextIsSelectable(true) setPadding(0, 8, 0, 28) } )</ID>
+    <ID>TrailingCommaOnCallSite:MainActivity.kt$MainActivity$( TextView(this).apply { text = getString(R.string.app_name) textSize = 24f } )</ID>
+    <ID>TrailingCommaOnCallSite:MainActivity.kt$MainActivity$( TextView(this).apply { text = getString(R.string.main_hint) textSize = 13f setPadding(0, 24, 0, 24) } )</ID>
+    <ID>TrailingCommaOnCallSite:MainActivity.kt$MainActivity$( TextView(this).apply { text = getString(R.string.main_status_heading) textSize = 20f } )</ID>
+    <ID>TrailingCommaOnCallSite:PeerStartCommandsTest.kt$PeerStartCommandsTest$( cmd.contains("sh /storage/emulated/0/Android/data/moe.shizuku.privileged.api/start.sh") )</ID>
+    <ID>TrailingCommaOnCallSite:PeerStarter.kt$PeerStarter$( exec(client, PeerStartCommands.pmPath(shizukuPkg)) )</ID>
+    <ID>TrailingCommaOnCallSite:ShizukuUserService.kt$ShizukuUserService$( "injectInputEvent not found on ${clazz.name}; methods=" + candidates.map { it.toGenericString() } )</ID>
+    <ID>TrailingCommaOnDeclarationSite:ComonitorProbes.kt$ComonitorProbes$null, "" -&gt; "skip"</ID>
+    <ID>TrailingCommaOnDeclarationSite:PeerStarter.kt$PeerStarter$Outcome</ID>
+    <ID>UseRequire:AdbMessage.kt$AdbMessage$throw IllegalArgumentException("bad message ${this.toStringShort()}")</ID>
+  </CurrentIssues>
+</SmellBaseline>

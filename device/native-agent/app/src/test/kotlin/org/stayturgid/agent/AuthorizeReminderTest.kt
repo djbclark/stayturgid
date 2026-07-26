@@ -1,8 +1,8 @@
 package org.stayturgid.agent
 
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
 /** Pure command-string + outcome tests (no Android runtime). */
 class AuthorizeReminderTest {
@@ -10,8 +10,12 @@ class AuthorizeReminderTest {
     fun clearCommandRemovesBothAgentBuildsMarkers() {
         val cmd = AuthorizeReminder.clearCommand()
         assertTrue(cmd.startsWith("rm -f "))
-        assertTrue(cmd.contains("/sdcard/Android/data/org.stayturgid.agent/files/authorize_reminder"))
-        assertTrue(cmd.contains("/sdcard/Android/data/org.stayturgid.agent.debug/files/authorize_reminder"))
+        assertTrue(
+            cmd.contains("/sdcard/Android/data/org.stayturgid.agent/files/authorize_reminder")
+        )
+        assertTrue(
+            cmd.contains("/sdcard/Android/data/org.stayturgid.agent.debug/files/authorize_reminder")
+        )
     }
 
     @Test

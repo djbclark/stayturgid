@@ -1,0 +1,36 @@
+# EditorConfig for stayturgid-agent Kotlin project
+# https://editorconfig.org
+#
+# Shared between IDE, ktfmt (via Spotless), and detekt-formatting.
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{kt,kts}]
+indent_size = 4
+max_line_length = 140
+
+# ktlint / detekt-formatting settings
+# (ktfmt handles the actual formatting; these inform detekt-formatting lints)
+ktlint_code_style = android_studio
+ktlint_standard_trailing-comma-on-call-site = enabled
+ktlint_standard_trailing-comma-on-declaration-site = enabled
+
+[*.xml]
+indent_size = 4
+
+[*.properties]
+charset = latin1
+
+[{gradlew,gradlew.bat}]
+indent_style = keep
+
+[*.md]
+trim_trailing_whitespace = false

@@ -19,6 +19,7 @@ import android.os.RemoteException
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import java.util.concurrent.atomic.AtomicReference
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -29,7 +30,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
-import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Lightweight FGS host: screen on/off → bind UserService → ping every [PING_INTERVAL_MS].
@@ -47,9 +47,7 @@ class HostService : Service() {
     private var screenOn = false
 
     private val userServiceArgs: Shizuku.UserServiceArgs by lazy {
-        Shizuku.UserServiceArgs(
-            ComponentName(packageName, ShizukuUserService::class.java.name),
-        )
+        Shizuku.UserServiceArgs(ComponentName(packageName, ShizukuUserService::class.java.name))
             .daemon(true)
             .processNameSuffix("userservice")
             .debuggable(BuildConfig.DEBUG)
@@ -59,10 +57,7 @@ class HostService : Service() {
 
     private val connection =
         object : ServiceConnection {
-            override fun onServiceConnected(
-                name: ComponentName?,
-                binder: IBinder?,
-            ) {
+            override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
                 if (binder != null && binder.pingBinder()) {
                     serviceRef.set(IStayTurgidService.Stub.asInterface(binder))
                     bound = true
@@ -87,10 +82,7 @@ class HostService : Service() {
 
     private val screenReceiver =
         object : BroadcastReceiver() {
-            override fun onReceive(
-                context: Context?,
-                intent: Intent?,
-            ) {
+            override fun onReceive(context: Context?, intent: Intent?) {
                 when (intent?.action) {
                     Intent.ACTION_SCREEN_ON -> onScreenOn()
                     Intent.ACTION_SCREEN_OFF -> onScreenOff()
@@ -153,11 +145,7 @@ class HostService : Service() {
         Log.i(TAG, "HostService created screenOn=$screenOn")
     }
 
-    override fun onStartCommand(
-        intent: Intent?,
-        flags: Int,
-        startId: Int,
-    ): Int {
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
                 stopSelf()
@@ -309,10 +297,10 @@ class HostService : Service() {
     }
 
     /**
-     * Peer-start loop (issue #61): periodically ensure Shizuku is up on any
-     * assigned Fire target over external ADB. Runs in the app process — no local
-     * Shizuku binder required — so it works even on a peer whose own Shizuku is
-     * down. A no-op (fast NO_TARGETS) on devices with no peer.json.
+     * Peer-start loop (issue #61): periodically ensure Shizuku is up on any assigned Fire target
+     * over external ADB. Runs in the app process — no local Shizuku binder required — so it works
+     * even on a peer whose own Shizuku is down. A no-op (fast NO_TARGETS) on devices with no
+     * peer.json.
      */
     private fun startPeerStartLoop() {
         if (peerStartJob?.isActive == true) return
@@ -350,11 +338,10 @@ class HostService : Service() {
     }
 
     /**
-     * Post/cancel the "action needed" notifications (issue #61 activation UX):
-     * on a **peer**, an authorization-pending nag while any assigned target
-     * awaits its one-time "Always allow"; on a **target**, a reminder to approve
-     * that dialog. Both re-alert each cycle so they keep surfacing until done,
-     * and auto-cancel once resolved.
+     * Post/cancel the "action needed" notifications (issue #61 activation UX): on a **peer**, an
+     * authorization-pending nag while any assigned target awaits its one-time "Always allow"; on a
+     * **target**, a reminder to approve that dialog. Both re-alert each cycle so they keep
+     * surfacing until done, and auto-cancel once resolved.
      */
     private fun updateActionNotifications() {
         val nm = getSystemService(NotificationManager::class.java) ?: return
@@ -381,10 +368,14 @@ class HostService : Service() {
             )
         return NotificationCompat.Builder(this, ACTION_CHANNEL_ID)
             .setContentTitle(getString(R.string.notification_peer_auth_title))
-            .setContentText(getString(R.string.notification_peer_auth_text, targets.joinToString(", ")))
+            .setContentText(
+                getString(R.string.notification_peer_auth_text, targets.joinToString(", "))
+            )
             .setStyle(
                 NotificationCompat.BigTextStyle()
-                    .bigText(getString(R.string.notification_peer_auth_text, targets.joinToString(", "))),
+                    .bigText(
+                        getString(R.string.notification_peer_auth_text, targets.joinToString(", "))
+                    )
             )
             .setSmallIcon(R.drawable.ic_launcher)
             .setContentIntent(retry)
@@ -407,7 +398,7 @@ class HostService : Service() {
             .setContentText(getString(R.string.notification_target_reminder_text))
             .setStyle(
                 NotificationCompat.BigTextStyle()
-                    .bigText(getString(R.string.notification_target_reminder_text)),
+                    .bigText(getString(R.string.notification_target_reminder_text))
             )
             .setSmallIcon(R.drawable.ic_launcher)
             .setContentIntent(open)
@@ -489,33 +480,32 @@ class HostService : Service() {
         val nm = getSystemService(NotificationManager::class.java) ?: return
         val channel =
             NotificationChannel(
-                CHANNEL_ID,
-                getString(R.string.notification_channel_name),
-                NotificationManager.IMPORTANCE_LOW,
-            ).apply {
-                description = getString(R.string.notification_channel_desc)
-                setShowBadge(false)
-            }
+                    CHANNEL_ID,
+                    getString(R.string.notification_channel_name),
+                    NotificationManager.IMPORTANCE_LOW,
+                )
+                .apply {
+                    description = getString(R.string.notification_channel_desc)
+                    setShowBadge(false)
+                }
         nm.createNotificationChannel(channel)
 
         // Higher-importance channel for the one-time peer-start authorization
         // prompts (issue #61) so they surface (heads-up) until acted on.
         val actionChannel =
             NotificationChannel(
-                ACTION_CHANNEL_ID,
-                getString(R.string.notification_action_channel_name),
-                NotificationManager.IMPORTANCE_HIGH,
-            ).apply {
-                description = getString(R.string.notification_action_channel_desc)
-                setShowBadge(true)
-            }
+                    ACTION_CHANNEL_ID,
+                    getString(R.string.notification_action_channel_name),
+                    NotificationManager.IMPORTANCE_HIGH,
+                )
+                .apply {
+                    description = getString(R.string.notification_action_channel_desc)
+                    setShowBadge(true)
+                }
         nm.createNotificationChannel(actionChannel)
     }
 
-    private fun startAsForeground(
-        bound: Boolean,
-        needPermission: Boolean = false,
-    ) {
+    private fun startAsForeground(bound: Boolean, needPermission: Boolean = false) {
         val notification = buildNotification(bound, needPermission)
         if (Build.VERSION.SDK_INT >= 34) {
             startForeground(
@@ -528,18 +518,12 @@ class HostService : Service() {
         }
     }
 
-    private fun updateNotification(
-        bound: Boolean,
-        needPermission: Boolean = false,
-    ) {
+    private fun updateNotification(bound: Boolean, needPermission: Boolean = false) {
         val nm = getSystemService(NotificationManager::class.java) ?: return
         nm.notify(NOTIFICATION_ID, buildNotification(bound, needPermission))
     }
 
-    private fun buildNotification(
-        bound: Boolean,
-        needPermission: Boolean,
-    ): Notification {
+    private fun buildNotification(bound: Boolean, needPermission: Boolean): Notification {
         val open =
             PendingIntent.getActivity(
                 this,
@@ -582,18 +566,17 @@ class HostService : Service() {
         const val COMONTOR_INTERVAL_MS: Long = 20 * 60 * 1000L
 
         /**
-         * Poll interval while retrying the initial post-boot Shizuku bind.
-         * Boot-time bind is async and can take longer than a single fixed
-         * delay under full-boot system load (observed 2.5s+ on real device
-         * boots — see docs/operations/sessions/session-2026-07-25-k1-verification.md).
+         * Poll interval while retrying the initial post-boot Shizuku bind. Boot-time bind is async
+         * and can take longer than a single fixed delay under full-boot system load (observed 2.5s+
+         * on real device boots — see
+         * docs/operations/sessions/session-2026-07-25-k1-verification.md).
          */
         const val INITIAL_BIND_POLL_MS: Long = 2_000L
 
         /**
-         * Total time to keep retrying the initial bind before falling back
-         * to the steady-state [COMONTOR_INTERVAL_MS] loop. Without this, a
-         * lost race on the fixed 2s delay used to mean losing an entire
-         * comonitor cycle (20 minutes) with zero CLOSED_NO_SHELL detection.
+         * Total time to keep retrying the initial bind before falling back to the steady-state
+         * [COMONTOR_INTERVAL_MS] loop. Without this, a lost race on the fixed 2s delay used to mean
+         * losing an entire comonitor cycle (20 minutes) with zero CLOSED_NO_SHELL detection.
          */
         const val INITIAL_BIND_RETRY_MS: Long = 20_000L
 
@@ -617,34 +600,24 @@ class HostService : Service() {
         }
 
         fun stop(context: Context) {
-            val intent =
-                Intent(context, HostService::class.java).apply {
-                    action = ACTION_STOP
-                }
+            val intent = Intent(context, HostService::class.java).apply { action = ACTION_STOP }
             context.startService(intent)
         }
 
         fun pingNow(context: Context) {
-            val intent =
-                Intent(context, HostService::class.java).apply {
-                    action = ACTION_PING_NOW
-                }
+            val intent = Intent(context, HostService::class.java).apply { action = ACTION_PING_NOW }
             ContextCompat.startForegroundService(context, intent)
         }
 
         fun repairNow(context: Context) {
             val intent =
-                Intent(context, HostService::class.java).apply {
-                    action = ACTION_REPAIR_NOW
-                }
+                Intent(context, HostService::class.java).apply { action = ACTION_REPAIR_NOW }
             ContextCompat.startForegroundService(context, intent)
         }
 
         fun peerStartNow(context: Context) {
             val intent =
-                Intent(context, HostService::class.java).apply {
-                    action = ACTION_PEER_START_NOW
-                }
+                Intent(context, HostService::class.java).apply { action = ACTION_PEER_START_NOW }
             ContextCompat.startForegroundService(context, intent)
         }
     }

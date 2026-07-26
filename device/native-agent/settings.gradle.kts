@@ -39,7 +39,7 @@ if (useCompositeShizuku) {
     if (!shizukuApiDir.isDirectory) {
         throw GradleException(
             "Shizuku API dir missing: $shizukuApiDir " +
-                "(set -Pshizuku.api.dir= or SHIZUKU_API_DIR, or -Pshizuku.composite=false for Maven)",
+                "(set -Pshizuku.api.dir= or SHIZUKU_API_DIR, or -Pshizuku.composite=false for Maven)"
         )
     }
     includeBuild(shizukuApiDir) {
@@ -54,4 +54,5 @@ if (useCompositeShizuku) {
 }
 
 rootProject.name = "stayturgid-agent"
+
 include(":app")
