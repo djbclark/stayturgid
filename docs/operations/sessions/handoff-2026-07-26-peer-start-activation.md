@@ -2,10 +2,9 @@
 
 Continuation of [handoff-2026-07-26-peer-start-61.md](handoff-2026-07-26-peer-start-61.md)
 (read that first for the initial build). This session: built the guided
-activation UX, authorized the agent key on hd8 **live**, fixed a Tailscale
-GUI-popping bug and a duplicate-agent problem, and found three more bugs — one
-fixed-but-not-live-verified, two filed. **Pick up at "Next agent: do this
-first."**
+activation UX, authorized the agent key on hd8 **live**, **proved the #61 green
+path** (`ALREADY_UP`), fixed a Tailscale GUI-popping bug, a duplicate-agent
+problem, and an ADB stream-id bug, and filed three follow-up bugs (#64–#66).
 
 ## ✅ #61 green path PROVEN (2026-07-26, end of session)
 
@@ -40,7 +39,7 @@ key is persisted (Always-allow), just more overhead.
 | **s24** | `100.123.218.30:5555`                                  | **v0.5.1-debug**, single build, peer role working                 | Has `peer.json` → target `100.124.55.39:5555`; peer-start returns `ALREADY_UP`. The active, verified peer for hd8.                                                                                                                                                                                                                                       |
 | **p7a** | OFFLINE (dead battery)                                 | old, likely duplicate builds                                      | When back: `just agent-dedupe p7a`, `just agent-rollout p7a` (→ v0.5.1), provision as a 2nd peer for hd8.                                                                                                                                                                                                                                                |
 
-Git: `master` = `d5b2ff5`, clean, pushed. Agent version **13 / 0.5.1-peerstart-ux**.
+Git: `master` clean + pushed. Agent version **13 / 0.5.1-peerstart-ux**.
 
 ## What shipped this session (commits)
 
