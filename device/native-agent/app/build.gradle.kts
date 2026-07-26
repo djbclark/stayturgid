@@ -14,8 +14,8 @@ android {
         applicationId = "org.stayturgid.agent"
         minSdk = 26
         targetSdk = 36
-        versionCode = 13
-        versionName = "0.5.1-peerstart-ux"
+        versionCode = 14
+        versionName = "0.5.2-peerstart-ux"
         val buildTimeUtc =
             System.getenv("SOURCE_DATE_EPOCH")
                 ?.toLongOrNull()

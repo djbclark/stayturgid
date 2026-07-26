@@ -300,6 +300,10 @@ class HostService : Service() {
                     waited += INITIAL_BIND_POLL_MS
                 }
                 callComonitor()
+                // One-time per-device phase stagger (ADR-006) so fleet devices
+                // don't all run co-monitor at the same instant. The first check
+                // above stays prompt; only the steady-state phase shifts.
+                delay(AgentSchedule.staggerMs(applicationContext, COMONTOR_INTERVAL_MS))
                 while (isActive) {
                     delay(COMONTOR_INTERVAL_MS)
                     ensureBound()
@@ -324,6 +328,7 @@ class HostService : Service() {
                 // Let the network / Tailscale settle after boot before the first
                 // attempt; the interval loop then keeps a dropped peer covered.
                 delay(PEERSTART_INITIAL_DELAY_MS)
+                var staggered = false
                 while (isActive) {
                     runPeerStart()
                     // While a one-time authorization is outstanding (this device is
@@ -332,7 +337,18 @@ class HostService : Service() {
                     val urgent =
                         PeerStartState.anyAuthPending(applicationContext) ||
                             AuthorizeReminder.isPresent(applicationContext)
-                    delay(if (urgent) PEERSTART_PENDING_INTERVAL_MS else PEERSTART_INTERVAL_MS)
+                    if (urgent) {
+                        delay(PEERSTART_PENDING_INTERVAL_MS)
+                    } else {
+                        // One-time per-device phase stagger (ADR-006), applied on
+                        // the first settled cycle — never delays urgent retries or
+                        // the first post-boot check.
+                        if (!staggered) {
+                            staggered = true
+                            delay(AgentSchedule.staggerMs(applicationContext, PEERSTART_INTERVAL_MS))
+                        }
+                        delay(PEERSTART_INTERVAL_MS)
+                    }
                 }
             }
     }
