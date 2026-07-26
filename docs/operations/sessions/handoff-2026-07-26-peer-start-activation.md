@@ -39,7 +39,11 @@ key is persisted (Always-allow), just more overhead.
 | **s24** | `100.123.218.30:5555`                                  | **v0.5.1-debug**, single build, peer role working                 | Has `peer.json` → target `100.124.55.39:5555`; peer-start returns `ALREADY_UP`. The active, verified peer for hd8.                                                                                                                                                                                                                                       |
 | **p7a** | OFFLINE (dead battery)                                 | old, likely duplicate builds                                      | When back: `just agent-dedupe p7a`, `just agent-rollout p7a` (→ v0.5.1), provision as a 2nd peer for hd8.                                                                                                                                                                                                                                                |
 
-Git: `master` clean + pushed. Agent version **13 / 0.5.1-peerstart-ux**.
+Git: `master` clean + pushed. Latest agent build **14 / 0.5.2-peerstart-ux**
+(adds the ADR-006 stagger) — **not yet deployed**; s24 runs the verified
+0.5.1, hd8 runs 0.5.0. The stagger is inert until devices are reinstalled
+(and only observable with 2+ peers), so no rush; it lands on the next
+`agent-install`/`rollout`.
 
 ## What shipped this session (commits)
 
@@ -62,6 +66,11 @@ Git: `master` clean + pushed. Agent version **13 / 0.5.1-peerstart-ux**.
 - `d5b2ff5` — **stream-id fix**: unique local stream id per
   `AdbClient.command()`; `readForStream()` skips stray frames. v0.5.1.
   **Live-verified** (s24→hd8 `ALREADY_UP` ×3, no dialog).
+- `7fc0a59` — **per-device phase stagger + ADR-006**: `AgentSchedule` offsets
+  each device's periodic-loop phase (from `ANDROID_ID`) once after the first
+  prompt check, so the fleet doesn't run coincidentally. Push-vs-pull decision
+  recorded in [ADR-006](../../architecture/adr/006-peer-start-coordination.md).
+  v0.5.2, not yet deployed.
 
 ## Research & findings (all of it, for context)
 
