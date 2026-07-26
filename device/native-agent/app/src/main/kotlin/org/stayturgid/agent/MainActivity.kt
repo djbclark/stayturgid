@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -23,6 +24,8 @@ import rikka.shizuku.Shizuku
  */
 class MainActivity : ComponentActivity() {
     private lateinit var status: TextView
+    private lateinit var actionBanner: TextView
+    private lateinit var authorizeButton: Button
 
     private val binderListener =
         Shizuku.OnBinderReceivedListener { refreshStatus() }
@@ -61,6 +64,28 @@ class MainActivity : ComponentActivity() {
                 setPadding(0, 8, 0, 28)
             },
         )
+
+        // Peer-start activation prompt (issue #61) — shown only when a one-time
+        // authorization is outstanding on this device (peer awaiting approval,
+        // or target awaiting the operator's Allow tap).
+        actionBanner =
+            TextView(this).apply {
+                textSize = 16f
+                setTextIsSelectable(true)
+                setPadding(0, 8, 0, 8)
+                visibility = View.GONE
+            }
+        root.addView(actionBanner)
+        authorizeButton =
+            Button(this).apply {
+                text = getString(R.string.main_authorize_peer)
+                visibility = View.GONE
+                setOnClickListener {
+                    HostService.peerStartNow(this@MainActivity)
+                    Toast.makeText(this@MainActivity, "Peer-start requested", Toast.LENGTH_SHORT).show()
+                }
+            }
+        root.addView(authorizeButton)
         status =
             TextView(this).apply {
                 textSize = 15f
@@ -174,8 +199,35 @@ class MainActivity : ComponentActivity() {
         Shizuku.addBinderDeadListener(binderDeadListener)
         Shizuku.addRequestPermissionResultListener(permissionListener)
         refreshStatus()
+        refreshActionState()
         // App-context FGS start (shell am start-foreground-service is denied on API 34+).
         HostService.start(this)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        refreshActionState()
+    }
+
+    /** Show the peer-start authorization prompt when one is outstanding (issue #61). */
+    private fun refreshActionState() {
+        val pending = PeerStartState.pendingTargets(this)
+        when {
+            pending.isNotEmpty() -> {
+                actionBanner.text = getString(R.string.main_peer_pending_banner, pending.joinToString(", "))
+                actionBanner.visibility = View.VISIBLE
+                authorizeButton.visibility = View.VISIBLE
+            }
+            AuthorizeReminder.isPresent(this) -> {
+                actionBanner.text = getString(R.string.main_target_reminder_banner)
+                actionBanner.visibility = View.VISIBLE
+                authorizeButton.visibility = View.GONE
+            }
+            else -> {
+                actionBanner.visibility = View.GONE
+                authorizeButton.visibility = View.GONE
+            }
+        }
     }
 
     override fun onDestroy() {

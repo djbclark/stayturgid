@@ -193,6 +193,10 @@ class HostService : Service() {
         heartbeatJob = null
         peerStartJob?.cancel()
         peerStartJob = null
+        getSystemService(NotificationManager::class.java)?.apply {
+            cancel(PEER_NAG_NOTIFICATION_ID)
+            cancel(TARGET_REMINDER_NOTIFICATION_ID)
+        }
         unbindUserService(remove = true)
         try {
             unregisterReceiver(screenReceiver)
@@ -314,12 +318,21 @@ class HostService : Service() {
         if (peerStartJob?.isActive == true) return
         peerStartJob =
             scope.launch {
+                // Show any target-side reminder immediately (a target device runs
+                // this loop too, with no peer.json of its own).
+                updateActionNotifications()
                 // Let the network / Tailscale settle after boot before the first
                 // attempt; the interval loop then keeps a dropped peer covered.
                 delay(PEERSTART_INITIAL_DELAY_MS)
                 while (isActive) {
                     runPeerStart()
-                    delay(PEERSTART_INTERVAL_MS)
+                    // While a one-time authorization is outstanding (this device is
+                    // a peer awaiting approval, or a target still showing its
+                    // reminder), retry fast so the operator can finish it quickly.
+                    val urgent =
+                        PeerStartState.anyAuthPending(applicationContext) ||
+                            AuthorizeReminder.isPresent(applicationContext)
+                    delay(if (urgent) PEERSTART_PENDING_INTERVAL_MS else PEERSTART_INTERVAL_MS)
                 }
             }
     }
@@ -333,6 +346,75 @@ class HostService : Service() {
         } catch (t: Throwable) {
             Log.e(TAG, "peerstart loop error", t)
         }
+        updateActionNotifications()
+    }
+
+    /**
+     * Post/cancel the "action needed" notifications (issue #61 activation UX):
+     * on a **peer**, an authorization-pending nag while any assigned target
+     * awaits its one-time "Always allow"; on a **target**, a reminder to approve
+     * that dialog. Both re-alert each cycle so they keep surfacing until done,
+     * and auto-cancel once resolved.
+     */
+    private fun updateActionNotifications() {
+        val nm = getSystemService(NotificationManager::class.java) ?: return
+        val pending = PeerStartState.pendingTargets(applicationContext)
+        if (pending.isNotEmpty()) {
+            nm.notify(PEER_NAG_NOTIFICATION_ID, buildPeerNagNotification(pending))
+        } else {
+            nm.cancel(PEER_NAG_NOTIFICATION_ID)
+        }
+        if (AuthorizeReminder.isPresent(applicationContext)) {
+            nm.notify(TARGET_REMINDER_NOTIFICATION_ID, buildTargetReminderNotification())
+        } else {
+            nm.cancel(TARGET_REMINDER_NOTIFICATION_ID)
+        }
+    }
+
+    private fun buildPeerNagNotification(targets: List<String>): Notification {
+        val retry =
+            PendingIntent.getBroadcast(
+                this,
+                1,
+                Intent(this, PeerStartReceiver::class.java).setAction(ACTION_PEER_START_NOW),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        return NotificationCompat.Builder(this, ACTION_CHANNEL_ID)
+            .setContentTitle(getString(R.string.notification_peer_auth_title))
+            .setContentText(getString(R.string.notification_peer_auth_text, targets.joinToString(", ")))
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText(getString(R.string.notification_peer_auth_text, targets.joinToString(", "))),
+            )
+            .setSmallIcon(R.drawable.ic_launcher)
+            .setContentIntent(retry)
+            .setOnlyAlertOnce(false)
+            .setAutoCancel(false)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+    }
+
+    private fun buildTargetReminderNotification(): Notification {
+        val open =
+            PendingIntent.getActivity(
+                this,
+                2,
+                Intent(this, MainActivity::class.java),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        return NotificationCompat.Builder(this, ACTION_CHANNEL_ID)
+            .setContentTitle(getString(R.string.notification_target_reminder_title))
+            .setContentText(getString(R.string.notification_target_reminder_text))
+            .setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText(getString(R.string.notification_target_reminder_text)),
+            )
+            .setSmallIcon(R.drawable.ic_launcher)
+            .setContentIntent(open)
+            .setOnlyAlertOnce(false)
+            .setAutoCancel(false)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
     }
 
     private fun callPingAwake() {
@@ -415,6 +497,19 @@ class HostService : Service() {
                 setShowBadge(false)
             }
         nm.createNotificationChannel(channel)
+
+        // Higher-importance channel for the one-time peer-start authorization
+        // prompts (issue #61) so they surface (heads-up) until acted on.
+        val actionChannel =
+            NotificationChannel(
+                ACTION_CHANNEL_ID,
+                getString(R.string.notification_action_channel_name),
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = getString(R.string.notification_action_channel_desc)
+                setShowBadge(true)
+            }
+        nm.createNotificationChannel(actionChannel)
     }
 
     private fun startAsForeground(
@@ -476,7 +571,10 @@ class HostService : Service() {
     companion object {
         private const val TAG = "StayTurgidHost"
         private const val CHANNEL_ID = "stayturgid_agent_host"
+        private const val ACTION_CHANNEL_ID = "stayturgid_agent_action"
         private const val NOTIFICATION_ID = 7101
+        private const val PEER_NAG_NOTIFICATION_ID = 7102
+        private const val TARGET_REMINDER_NOTIFICATION_ID = 7103
         /** 5 minutes; override later via config if needed. */
         const val PING_INTERVAL_MS: Long = 5 * 60 * 1000L
 
@@ -502,8 +600,11 @@ class HostService : Service() {
         /** Delay before the first peer-start attempt, letting Tailscale settle. */
         const val PEERSTART_INITIAL_DELAY_MS: Long = 30_000L
 
-        /** Peer-start re-check cadence (screen-independent). */
+        /** Peer-start re-check cadence (screen-independent) when all is settled. */
         const val PEERSTART_INTERVAL_MS: Long = 20 * 60 * 1000L
+
+        /** Faster cadence while a one-time authorization is still outstanding. */
+        const val PEERSTART_PENDING_INTERVAL_MS: Long = 3 * 60 * 1000L
 
         const val ACTION_STOP = "org.stayturgid.agent.action.STOP"
         const val ACTION_PING_NOW = "org.stayturgid.agent.action.PING_NOW"

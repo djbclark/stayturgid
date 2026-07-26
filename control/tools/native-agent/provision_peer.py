@@ -50,7 +50,7 @@ def _external_files_path(pkg: str) -> str:
     return f"/sdcard/Android/data/{pkg}/files/{FILE_NAME}"
 
 
-def provision(serial: str, targets: list[str]) -> int:
+def provision(serial: str, targets: list[str], remind: bool = True) -> int:
     pkg = _resolve_pkg(serial)
     if not pkg:
         sys.stderr.write(f"ERROR: native-agent not installed on {serial} ({PKG})\n")
@@ -97,7 +97,39 @@ def provision(serial: str, targets: list[str]) -> int:
         where.append(ext)
     print(f"peer.json provisioned on {serial} pkg={pkg} -> {', '.join(where)}")
     print(f"  targets={targets} shizuku_pkg={SHIZUKU_PKG}")
+    if remind:
+        for t in targets:
+            set_target_reminder(t)
     return 0
+
+
+# Agent ids whose external files dir the target reminder marker may live in.
+AGENT_PKGS = ("org.stayturgid.agent", "org.stayturgid.agent.debug")
+REMINDER_FILE = "authorize_reminder"
+
+
+def set_target_reminder(target: str) -> None:
+    """Best-effort: drop the 'approve the Allow dialog' marker on a target device
+    so its own agent nags the operator standing at it. The peer clears the marker
+    automatically over the authorized connection once peer-start succeeds.
+
+    Needs the Mac to be able to adb-reach the target (same host:port the peer
+    uses); silently skips if not reachable.
+    """
+    try:
+        adb.run([adb.adb_bin(), "connect", target], timeout=15)
+    except Exception:  # noqa: BLE001
+        pass
+    ok = False
+    for pkg in AGENT_PKGS:
+        d = f"/sdcard/Android/data/{pkg}/files"
+        r = adb.adb(target, "shell", f"mkdir -p {d} && : > {d}/{REMINDER_FILE} && echo OK")
+        if "OK" in (r.stdout or ""):
+            ok = True
+    if ok:
+        print(f"  target reminder set on {target} (agent there will prompt to approve)")
+    else:
+        print(f"  note: could not set target reminder on {target} (adb-unreachable?) — skipping")
 
 
 def trigger_start(serial: str) -> int:
@@ -148,6 +180,11 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("targets", nargs="*", help="Fire-OS target(s) as host:port (adbd, e.g. 100.x.x.x:5555)")
     p.add_argument("--start", action="store_true", help="trigger a peer-start immediately after provisioning")
     p.add_argument("--show", action="store_true", help="print current peer.json + peerstart.log, do nothing else")
+    p.add_argument(
+        "--no-remind",
+        action="store_true",
+        help="do not set the 'approve on target' reminder marker on the target device(s)",
+    )
     args = p.parse_args(argv)
 
     serial = adb.resolve_target(args.peer)
@@ -163,7 +200,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write("ERROR: need at least one target (host:port), or use --start / --show\n")
         return 2
 
-    rc = provision(serial, args.targets)
+    rc = provision(serial, args.targets, remind=not args.no_remind)
     if rc != 0:
         return rc
     if args.start:

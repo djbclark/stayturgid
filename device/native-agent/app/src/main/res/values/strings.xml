@@ -13,4 +13,15 @@
     <string name="main_stop">Stop host service</string>
     <string name="main_request_shizuku">Request Shizuku permission</string>
     <string name="main_hint">End-state: replace AutoJs6 (OPTIONS K1). Phase 1 is UserService + pingAwake only; AutoJs6 stays installed.</string>
+
+    <!-- Peer-start activation UX (issue #61) -->
+    <string name="notification_action_channel_name">Peer-start setup</string>
+    <string name="notification_action_channel_desc">One-time peer-start authorization prompts</string>
+    <string name="notification_peer_auth_title">Peer-start needs a one-time approval</string>
+    <string name="notification_peer_auth_text">Tap to retry starting Shizuku on %1$s, then approve the \"Allow USB debugging\" dialog on that device (tick \"Always allow\").</string>
+    <string name="notification_target_reminder_title">Approve peer-start on this device</string>
+    <string name="notification_target_reminder_text">When the \"Allow USB debugging\" dialog appears, tick \"Always allow from this computer\" and tap Allow. This authorizes a fleet peer to keep Shizuku running here.</string>
+    <string name="main_authorize_peer">Authorize peer-start now</string>
+    <string name="main_peer_pending_banner">⚠ Peer-start authorization pending for %1$s — tap the button, then approve on that device.</string>
+    <string name="main_target_reminder_banner">⚠ This device is awaiting peer-start approval — approve the \"Allow USB debugging\" dialog when it appears (tick \"Always allow\").</string>
 </resources>

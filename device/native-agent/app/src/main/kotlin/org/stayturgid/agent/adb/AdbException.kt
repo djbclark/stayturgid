@@ -16,3 +16,12 @@ open class AdbException : Exception {
 }
 
 class AdbKeyException(cause: Throwable) : AdbException(cause)
+
+/**
+ * Thrown when the target's `adbd` was reached and issued an auth challenge, but
+ * no approval arrived before the read timeout — i.e. the operator hasn't yet
+ * ticked "Always allow" on the target for this key. Distinct from a plain
+ * connection failure so callers can nag for the one-time authorization rather
+ * than treat the target as offline.
+ */
+class AdbAuthPendingException(message: String) : AdbException(message)

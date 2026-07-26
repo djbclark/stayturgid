@@ -20,6 +20,7 @@ import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.SocketTimeoutException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import javax.net.ssl.SSLSocket
@@ -76,6 +77,24 @@ class AdbClient(
 
         write(A_CNXN, A_VERSION, A_MAXDATA, "host::")
 
+        // Once the target has issued an auth challenge it is reachable and
+        // simply waiting on the operator's "Always allow" — surface a read
+        // timeout past this point as pending-approval, not offline.
+        var challenged = false
+        val message =
+            try {
+                connectHandshake { challenged = true }
+            } catch (e: SocketTimeoutException) {
+                if (challenged) {
+                    throw AdbAuthPendingException("target reachable; awaiting one-time ADB approval")
+                }
+                throw e
+            }
+
+        if (message.command != A_CNXN) error("not A_CNXN")
+    }
+
+    private inline fun connectHandshake(onChallenged: () -> Unit): AdbMessage {
         var message = read()
         if (message.command == A_STLS) {
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
@@ -94,6 +113,7 @@ class AdbClient(
 
             message = read()
         } else if (message.command == A_AUTH) {
+            onChallenged()
             if (message.command != A_AUTH && message.arg0 != ADB_AUTH_TOKEN) error("not A_AUTH ADB_AUTH_TOKEN")
             write(A_AUTH, ADB_AUTH_SIGNATURE, 0, key.sign(message.data))
 
@@ -103,8 +123,7 @@ class AdbClient(
                 message = read()
             }
         }
-
-        if (message.command != A_CNXN) error("not A_CNXN")
+        return message
     }
 
     fun command(

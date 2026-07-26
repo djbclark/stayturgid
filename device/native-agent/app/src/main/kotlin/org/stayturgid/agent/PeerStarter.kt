@@ -2,6 +2,7 @@ package org.stayturgid.agent
 
 import android.content.Context
 import android.util.Log
+import org.stayturgid.agent.adb.AdbAuthPendingException
 import org.stayturgid.agent.adb.AdbClient
 import org.stayturgid.agent.adb.AdbKey
 import org.stayturgid.agent.adb.PreferenceAdbKeyStore
@@ -40,7 +41,20 @@ object PeerStarter {
     /** Time for the just-launched daemon to register before we re-probe. */
     private const val START_SETTLE_MS = 1_800L
 
-    enum class Outcome { ALREADY_UP, STARTED, FAILED, UNREACHABLE, NOT_INSTALLED, NO_TARGETS }
+    enum class Outcome {
+        ALREADY_UP,
+        STARTED,
+        /** Target reachable + auth-challenged, but the one-time "Always allow" hasn't been granted yet. */
+        AUTH_PENDING,
+        FAILED,
+        UNREACHABLE,
+        NOT_INSTALLED,
+        NO_TARGETS,
+        ;
+
+        /** Shizuku confirmed running via an authorized connection. */
+        fun isSuccess(): Boolean = this == ALREADY_UP || this == STARTED
+    }
 
     data class Result(
         val target: String,
@@ -67,11 +81,14 @@ object PeerStarter {
                 record(context, r)
                 return listOf(r)
             }
-        return config.targets.map { target ->
-            val r = ensureShizuku(target, config.shizukuPkg, key)
-            record(context, r)
-            r
-        }
+        val results =
+            config.targets.map { target ->
+                val r = ensureShizuku(target, config.shizukuPkg, key)
+                record(context, r)
+                r
+            }
+        PeerStartState.update(context, results)
+        return results
     }
 
     private fun loadKey(context: Context): AdbKey {
@@ -89,6 +106,10 @@ object PeerStarter {
         return try {
             AdbClient(target.host, target.port, key).use { client ->
                 client.connect()
+
+                // Reaching here means the key is authorized — clear any stale
+                // "approve on the target" reminder we set on the target device.
+                clearTargetReminder(client)
 
                 if (isShizukuUp(client)) {
                     return@use Result(name, Outcome.ALREADY_UP)
@@ -110,11 +131,27 @@ object PeerStarter {
                     Result(name, Outcome.FAILED, out.trim().replace('\n', ' ').take(300))
                 }
             }
+        } catch (t: AdbAuthPendingException) {
+            Log.i(TAG, "peer-start $name pending one-time approval")
+            Result(name, Outcome.AUTH_PENDING, "awaiting Always-allow on target")
         } catch (t: Throwable) {
             Log.w(TAG, "peer-start $name failed", t)
             val msg = t.message ?: t.javaClass.simpleName
             val outcome = if (isUnreachable(t)) Outcome.UNREACHABLE else Outcome.FAILED
             Result(name, outcome, msg.take(200))
+        }
+    }
+
+    /**
+     * Best-effort removal of the "approve on the target" reminder marker on the
+     * target device, over the now-authorized connection. Package-independent
+     * (covers debug + release agent ids); failures are ignored.
+     */
+    private fun clearTargetReminder(client: AdbClient) {
+        try {
+            exec(client, AuthorizeReminder.clearCommand())
+        } catch (t: Throwable) {
+            Log.w(TAG, "clear target reminder failed: ${t.message}")
         }
     }
 
