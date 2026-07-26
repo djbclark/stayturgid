@@ -33,17 +33,18 @@ key is persisted (Always-allow), just more overhead.
 
 ## Current fleet state (verified this session)
 
-| Device  | adb                                                    | Agent                                                             | Notes                                                                                                                                                                                                                                                                                                                                                    |
-| ------- | ------------------------------------------------------ | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **hd8** | USB `GN43T503430603PS`; Tailscale `100.124.55.39:5555` | **v0.5.0-debug**, single build, **1** userservice, Shizuku **UP** | Key **authorized** (Always-allow tapped). No `peer.json` (it's the target). Reminder marker **not set** (Fire OS blocks it — see #66). Mac reaches it via **USB**, not its Tailscale IP. Optional: update to v0.5.1 (cosmetic — a Fire target never uses the peer-side ADB client; use the safe `agent-install`+`agent-start`, **not** `agent-rollout`). |
-| **s24** | `100.123.218.30:5555`                                  | **v0.5.1-debug**, single build, peer role working                 | Has `peer.json` → target `100.124.55.39:5555`; peer-start returns `ALREADY_UP`. The active, verified peer for hd8.                                                                                                                                                                                                                                       |
-| **p7a** | OFFLINE (dead battery)                                 | old, likely duplicate builds                                      | When back: `just agent-dedupe p7a`, `just agent-rollout p7a` (→ v0.5.1), provision as a 2nd peer for hd8.                                                                                                                                                                                                                                                |
+| Device  | adb                                                    | Agent                                                            | Notes                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ------- | ------------------------------------------------------ | ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **hd8** | USB `GN43T503430603PS`; Tailscale `100.124.55.39:5555` | **v0.5.0-debug**, single build, Shizuku **UP**                   | Key **authorized** (Always-allow tapped). No `peer.json` (it's the target). Reminder marker **not set** (Fire OS blocks it — see #66). Mac reaches it via **USB**, not its Tailscale IP. `:userservice` count actively re-leaks (cleaned to 1, back to 3 in ~30 min — **#65**). Optional cosmetic update to v0.5.2: use the safe `agent-install`+`agent-start`, **not** `agent-rollout` (which restarts Shizuku). |
+| **s24** | `100.123.218.30:5555`                                  | **v0.5.2-debug**, single build, 1 userservice, peer role working | Has `peer.json` → target `100.124.55.39:5555`; peer-start returns `ALREADY_UP` (verified on v0.5.2). The active, verified peer for hd8.                                                                                                                                                                                                                                                                           |
+| **p7a** | OFFLINE (dead battery)                                 | old, likely duplicate builds                                     | When back: `just agent-dedupe p7a`, `just agent-rollout p7a` (→ v0.5.2), provision as a 2nd peer for hd8.                                                                                                                                                                                                                                                                                                         |
 
 Git: `master` clean + pushed. Latest agent build **14 / 0.5.2-peerstart-ux**
-(adds the ADR-006 stagger) — **not yet deployed**; s24 runs the verified
-0.5.1, hd8 runs 0.5.0. The stagger is inert until devices are reinstalled
-(and only observable with 2+ peers), so no rush; it lands on the next
-`agent-install`/`rollout`.
+(adds the ADR-006 stagger). **s24 (the active peer) is on 0.5.2, verified
+`ALREADY_UP`.** hd8 is intentionally left on 0.5.0 (a Fire target never uses
+the peer-side client or the stagger; updating it is cosmetic and each
+Fire-OS touch risks the fragile Shizuku — the safe procedure is documented in
+the table). p7a gets 0.5.2 on its next rollout.
 
 ## What shipped this session (commits)
 
@@ -70,7 +71,7 @@ Git: `master` clean + pushed. Latest agent build **14 / 0.5.2-peerstart-ux**
   each device's periodic-loop phase (from `ANDROID_ID`) once after the first
   prompt check, so the fleet doesn't run coincidentally. Push-vs-pull decision
   recorded in [ADR-006](../../architecture/adr/006-peer-start-coordination.md).
-  v0.5.2, not yet deployed.
+  v0.5.2; deployed + re-verified (`ALREADY_UP`) on s24.
 
 ## Research & findings (all of it, for context)
 
