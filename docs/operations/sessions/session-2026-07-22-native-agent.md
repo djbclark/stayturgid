@@ -58,7 +58,7 @@ Version: `0.1.1-phase1` (versionCode 2).
 
 ```bash
 export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
-cd ~/ops/stayturgid
+cd ${OPS_ROOT:-~/ops}/stayturgid
 just agent-assemble
 # APK: device/native-agent/app/build/outputs/apk/debug/app-debug.apk
 ```

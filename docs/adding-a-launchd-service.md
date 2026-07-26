@@ -94,7 +94,7 @@ my-agent-status:
 ## Path B: site_agents (site overlay)
 
 Add to the site overlay's `roles/site_agents/`. File-by-file guide in that
-role's README (e.g. `~/ops/site-djbclark/roles/site_agents/README.md`).
+role's README (e.g. `${OPS_ROOT:-~/ops}/site-djbclark/roles/site_agents/README.md`).
 Quick summary:
 
 1. **`defaults/main.yml`** — define `site_agents_<name>_label`, plist path, log paths, config knobs

@@ -25,7 +25,7 @@ override current instructions.
 
 ## Session start
 
-From `~/ops/stayturgid`:
+From `${OPS_ROOT:-~/ops}/stayturgid`:
 
 ```bash
 git fetch origin --prune

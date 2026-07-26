@@ -22,7 +22,7 @@ directory).
 3. **Updated** `multi-site-topology.md` §4.8 / §4.10 to describe the discovery
    change later completed by #48, and to stop calling `site-private` the sole
    canonical policy home.
-4. **Reconciled** loose `~/ops/StayTurgid TODO.md` as a stale duplicate of
+4. **Reconciled** loose `${OPS_ROOT:-~/ops}/StayTurgid TODO.md` as a stale duplicate of
    `site-djbclark/docs/relay/NEXT-PROMPT.md` and removed it.
 5. **Independent project `~/src/ai`:** kept Claude memory symlink →
    `docs/memory/`; deduped duplicate memory essays into `AGENTS.md`; documented
@@ -43,14 +43,14 @@ Retained below for history. Do not re-derive; treat the **Status** line and
 After the migration session finished, the operator asked (verbatim, lightly
 compressed across several messages):
 
-1. Move the canonical memory/site-docs policy out of `~/ops/site-private`
-   (private) into `~/ops/stayturgid` (public) — later **superseded** by the
+1. Move the canonical memory/site-docs policy out of `${OPS_ROOT:-~/ops}/site-private`
+   (private) into `${OPS_ROOT:-~/ops}/stayturgid` (public) — later **superseded** by the
    distributed three-`AGENTS.md` model.
 2. Soften framing so `site-private` is not a forced convention for every
    reader — retained as optional private extras.
 3. Handle `site-<name>` being per-operator-variable — absolute GitHub URLs +
    placeholders; `.mysite` for local discovery (#48).
-4. Top-level `~` agent-config files and loose `~/ops` content — covered in
+4. Top-level `~` agent-config files and loose `${OPS_ROOT:-~/ops}` content — covered in
    policy text; `StayTurgid TODO.md` removed as stale duplicate.
 5. Cross-repo link format — absolute https URLs (done).
 6. `.mysite` research — deferred to code in #48; docs describe intent.
@@ -63,7 +63,7 @@ repos keeps its slice in `AGENTS.md`; §4.10 is a short pointer.
 
 ## Explicitly out of scope / do not touch (still true)
 
-- `~/ops/stayturgid-device-backups/` — secrets + binary, never goes in git.
+- `${OPS_ROOT:-~/ops}/stayturgid-device-backups/` — secrets + binary, never goes in git.
 - Tool runtime logs (`.aider.chat.history.md`, `~/.claude/history.jsonl`).
 - `human/F2-BREW-SERVICES-DECISIONS.md` in `site-djbclark` — leave uncommitted.
 - `~/.claude/projects/-Users-djbclark-upmon-handoff/memory` — no git repo yet.

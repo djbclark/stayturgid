@@ -143,8 +143,8 @@ Cron/systemd for `python3 control/bin/adb_reconnect.py <alias>` is manual until 
 
 > **Status update (2026-07-18):** the reference site overlay repo now exists —
 > private `site-djbclark` — and Phase 0 is effectively complete. The base-dir
-> convention is a plain `~/ops` directory holding sibling checkouts
-> (`~/ops/stayturgid`, `~/ops/site-<operator>`); a site repo must never be
+> convention is a plain `${OPS_ROOT:-~/ops}` directory holding sibling checkouts
+> (`${OPS_ROOT:-~/ops}/stayturgid`, `${OPS_ROOT:-~/ops}/site-<operator>`); a site repo must never be
 > nested inside a public working tree. Topology rationale and the serverapp
 > adapter model live in the site repo's step1 architecture doc and
 > [ADR 005](adr/005-two-repo-topology.md).
@@ -327,7 +327,7 @@ configuration via `control/lib/ansible_context.py`.
 3. **`OPS_ROOT/.mysite`** — if present and resolves to a directory (symlink or
    real dir), use it as the site overlay. Local convenience only; never put
    `.mysite` in GitHub URLs (prose keeps the `site-<name>` placeholder).
-4. **Discovery** — `OPS_ROOT` (default `~/ops`) is scanned for `site-*`
+4. **Discovery** — `OPS_ROOT` (default `${OPS_ROOT:-~/ops}`) is scanned for `site-*`
    checkouts containing an `ansible.cfg`, excluding both the literal
    `site-private` name and the configured private-companion path. Exactly one
    match is used; zero or multiple matches fail with instructions to set an
@@ -376,16 +376,16 @@ Until Phase 1–2 ship, new operators still edit a forked `hosts.yml` in-tree:
 **Generic (do not fork):** collections, taxonomy `group_vars`, Termux/AutoJs6 scripts,
 `site.yml` playbook graph.
 
-### 4.10 The third repo: `~/ops/site-private`
+### 4.10 The third repo: `${OPS_ROOT:-~/ops}/site-private`
 
 Every operator running this stack has **three** sibling checkouts under
-`~/ops/`, not two:
+`${OPS_ROOT:-~/ops}/`, not two:
 
 | Repo                 | Visibility                         | Purpose                                                                                                    |
 | -------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `~/ops/stayturgid`   | Always public                      | This repo — code, fleet conventions, durable rules, session history                                        |
-| `~/ops/site-<name>`  | Operator's choice (public/private) | One operator's live site overlay (§4 above)                                                                |
-| `~/ops/site-private` | **Always private**                 | Private/generic companion — default path, configurable with `STAYTURGID_PRIVATE_DIR`; never a site overlay |
+| `${OPS_ROOT:-~/ops}/stayturgid`   | Always public                      | This repo — code, fleet conventions, durable rules, session history                                        |
+| `${OPS_ROOT:-~/ops}/site-<name>`  | Operator's choice (public/private) | One operator's live site overlay (§4 above)                                                                |
+| `${OPS_ROOT:-~/ops}/site-private` | **Always private**                 | Private/generic companion — default path, configurable with `STAYTURGID_PRIVATE_DIR`; never a site overlay |
 
 There is **no single canonical policy document**. Each repo's `AGENTS.md` owns
 **that repo's slice** and points at the other two (filesystem path + absolute

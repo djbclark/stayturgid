@@ -82,7 +82,7 @@ didn't regress normal failure handling.
 ## Verification commands
 
 ```
-cd ~/ops/stayturgid
+cd ${OPS_ROOT:-~/ops}/stayturgid
 bash tests/test-unit.sh                                    # 133 tests
 .venv-test/bin/python -m pytest ansible_collections/stayturgid/android_common/tests/unit/plugins/modules/test_android_apk.py -q
 python3 control/bin/deploy_fleet.py s24 --scope full        # confirmed clean

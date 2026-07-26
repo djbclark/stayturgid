@@ -192,12 +192,12 @@ disk — so **commit + push at every logical milestone**, not just at the end,
 and record important decisions/TODOs before starting the work they describe,
 so plans survive an unfinished task.
 
-## Directory layout (~/ops convention)
+## Directory layout (${OPS_ROOT:-~/ops} convention)
 
-The permanent base dir is `~/ops`, with three sibling checkouts:
-`~/ops/stayturgid` (this repo, always public), `~/ops/site-<name>` (one
+The permanent base dir is `${OPS_ROOT:-~/ops}`, with three sibling checkouts:
+`${OPS_ROOT:-~/ops}/stayturgid` (this repo, always public), `${OPS_ROOT:-~/ops}/site-<name>` (one
 operator's private-or-public site overlay — inventory, credentials-adjacent
-config, per-site process), and `~/ops/site-private` (always private,
+config, per-site process), and `${OPS_ROOT:-~/ops}/site-private` (always private,
 statically named the same for every operator — anything not managed by
 either of the other two). See
 [multi-site-topology.md](../architecture/multi-site-topology.md) for the

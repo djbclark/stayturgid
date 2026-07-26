@@ -156,7 +156,7 @@ Project rules and current state:
   <https://github.com/djbclark/stayturgid/blob/master/docs/README.md>
 - `~/stayturgid/docs/coding-rules.md`
   <https://github.com/djbclark/stayturgid/blob/master/docs/coding-rules.md>
-- `~/ops/stayturgid/docs/rules/`
+- `${OPS_ROOT:-~/ops}/stayturgid/docs/rules/`
   <https://github.com/djbclark/stayturgid/tree/master/docs/rules>
 - `~/stayturgid/docs/handoff.md`
   <https://github.com/djbclark/stayturgid/blob/master/docs/handoff.md>

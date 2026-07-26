@@ -84,7 +84,7 @@
 3. Reingest:
 
    ```bash
-   cd ~/ops/stayturgid
+   cd ${OPS_ROOT:-~/ops}/stayturgid
    python3 control/tools/native-agent/reingest_soft_health.py --dry-run
    python3 control/tools/native-agent/reingest_soft_health.py
    ```
@@ -157,7 +157,7 @@ If AutoJs6 was **uninstalled** fleet-wide in `195c5c7` ops, verify on each devic
 ## Commands cheat sheet
 
 ```bash
-cd ~/ops/stayturgid && git pull --ff-only origin master
+cd ${OPS_ROOT:-~/ops}/stayturgid && git pull --ff-only origin master
 export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 
 just agent-assemble
@@ -169,7 +169,7 @@ tail -f ~/.config/stayturgid/logs/fleet-health.log
 python3 control/tools/native-agent/reingest_soft_health.py
 
 # after Vector template edits:
-just site-sync --dir ~/ops/site-djbclark --mode apply --force-generated=1
+just site-sync --dir ${OPS_ROOT:-~/ops}/site-djbclark --mode apply --force-generated=1
 # restart Vector launchd agent
 ```
 

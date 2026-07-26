@@ -62,7 +62,7 @@ more than a day or two old.
 ## Known gotchas (read before you hit these)
 
 - `~/stayturgid` is a stray, root-owned, 0-byte file — **not** the repo. The
-  repo is `~/ops/stayturgid`. Removing the stray file needs sudo; ask the
+  repo is `${OPS_ROOT:-~/ops}/stayturgid`. Removing the stray file needs sudo; ask the
   operator rather than working around it silently.
 - `just firerpa-health` exits 1 with **no stdout** by design
   (`also_print=False`). That is not a crash — read
@@ -76,7 +76,7 @@ more than a day or two old.
   submodule from pre-existing user work. Preserve it; inspect `git diff -- api`
   before any cleanup. Its fork `master` is ahead of upstream `origin/master`
   by design.
-- The sibling private repo `~/ops/site-djbclark` may have its own uncommitted
+- The sibling private repo `${OPS_ROOT:-~/ops}/site-djbclark` may have its own uncommitted
   operator-authored files (e.g. `human/F2-BREW-SERVICES-DECISIONS.md`) — leave
   those alone unless the operator asks you to touch them.
 

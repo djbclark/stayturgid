@@ -103,7 +103,7 @@ LaunchAgent env (`~/Library/LaunchAgents/com.djbclark.vector.plist`).
 3. Re-post any lines dropped during 401s (JSONL is still complete on disk):
 
    ```bash
-   cd ~/ops/stayturgid
+   cd ${OPS_ROOT:-~/ops}/stayturgid
    python3 control/tools/native-agent/reingest_soft_health.py --dry-run
    python3 control/tools/native-agent/reingest_soft_health.py
    ```
@@ -179,7 +179,7 @@ policy; stop AJ6 deploy/heal; uninstall AJ6 pilot → fleet; close OPTIONS K1.
 
 ```bash
 export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
-cd ~/ops/stayturgid
+cd ${OPS_ROOT:-~/ops}/stayturgid
 git pull --ff-only origin master
 
 just agent-assemble
@@ -193,7 +193,7 @@ tail -f ~/.config/stayturgid/logs/fleet-health.log
 python3 control/tools/native-agent/reingest_soft_health.py
 
 # after product Vector template change:
-just site-sync --dir ~/ops/site-djbclark --mode apply --force-generated=1
+just site-sync --dir ${OPS_ROOT:-~/ops}/site-djbclark --mode apply --force-generated=1
 # then restart Vector (see operator §1)
 ```
 

@@ -11,7 +11,7 @@ stable ID. Current fleet/workstream state lives in
 > **Sequencing note (2026-07-18):** the platform/segmentation workstream
 > (identity scrub, O-V-G-O completion, site contract, edge OTel) is sequenced
 > by the **site repo's relay**, not this list — see
-> `~/ops/site-djbclark/docs/relay/NEXT-PROMPT.md` there. This list remains the
+> `${OPS_ROOT:-~/ops}/site-djbclark/docs/relay/NEXT-PROMPT.md` there. This list remains the
 > menu for fleet-reliability work outside that workstream.
 >
 > **For agents:** When the operator asks for **options** or **next steps**, read this

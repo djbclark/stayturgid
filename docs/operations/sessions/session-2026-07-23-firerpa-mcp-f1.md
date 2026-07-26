@@ -81,7 +81,7 @@ Follow plan §7 (still gated on operator "go" for code):
 ## Gotchas
 
 - **Repo path:** `~/stayturgid` is a stray 0-byte root-owned file. The real repo is
-  **`~/ops/stayturgid`** (session-start doc paths resolve there).
+  **`${OPS_ROOT:-~/ops}/stayturgid`** (session-start doc paths resolve there).
 - **Prior dirty tree resolved:** K1 native-agent work landed as `195c5c7`; tree is
   clean. Verify `device/native-agent/agent-release.jks` (signing keystore) never gets
   tracked before any broad `git add`.
