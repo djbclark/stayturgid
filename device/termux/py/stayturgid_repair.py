@@ -353,7 +353,7 @@ def _tailscale_runtime_up():
                     break
     except OSError:
         pass
-    return tunnel and run(["ping", "-c", "1", "-W", "2", TAILSCALE_CONTROL_HOST], timeout=4)[0] == 0
+    return tunnel and run(["ping", "-c", "2", "-W", "3", TAILSCALE_CONTROL_HOST], timeout=8)[0] == 0
 
 
 def _tailscale_policy_up(have_sh=False):
@@ -381,6 +381,16 @@ def _wait_for_tailscale(attempts=3):
     return False
 
 
+def _previous_repair_field(key):
+    """Read a field from the previous cycle's repair status in state.json."""
+    try:
+        with open(STATE_JSON) as f:
+            data = json.load(f) or {}
+        return data.get("repair", {}).get(key)
+    except (OSError, ValueError):
+        return None
+
+
 def ensure_tailscale(have_sh=False):
     """Restore always-on policy and request runtime reconnect when possible.
 
@@ -388,6 +398,14 @@ def ensure_tailscale(have_sh=False):
     Some Fire OS / WorkManager combinations reject its expedited worker; the
     activity fallback may then require an unlocked operator action. Never
     report repair unless both policy and runtime verify healthy.
+
+    The activity fallback launches Tailscale's MainActivity into the
+    foreground, interrupting whatever the user is doing on-screen — only
+    worth that disruption for a sustained outage, not a single transient
+    ping/DNS blip. It only fires when the previous repair cycle *also* saw
+    the runtime down (~one extra cycle's delay, ~15 min), tracked via
+    state.json rather than in-process state since each cycle is a fresh
+    process invocation.
     """
     if read_device_profile().get("tailscaleEnabled") is False:
         return "skip"
@@ -423,8 +441,15 @@ def ensure_tailscale(have_sh=False):
     )
     restored = _wait_for_tailscale()
     if not restored:
-        _device_command(["am", "start", "-n", TAILSCALE_ACTIVITY], have_sh)
-        restored = _wait_for_tailscale(attempts=2)
+        if _previous_repair_field("tailscale") == "down":
+            _device_command(["am", "start", "-n", TAILSCALE_ACTIVITY], have_sh)
+            restored = _wait_for_tailscale(attempts=2)
+        else:
+            log(
+                "Tailscale still down after CONNECT_VPN broadcast; deferring "
+                "foreground activity fallback to next cycle",
+                NOTICE,
+            )
 
     if restored and policy_ok:
         log("Tailscale runtime/policy restored", NOTICE)
