@@ -402,10 +402,40 @@ agent-install target="":
     if [[ ! -f "$apk" ]]; then
       just agent-assemble
     fi
+    keep="org.stayturgid.agent.debug"
+    other="org.stayturgid.agent"
+    adbcmd=(adb)
     if [[ -n "{{ target }}" ]]; then
-      adb -s "{{ target }}" install -r "$apk"
+      adbcmd=(adb -s "{{ target }}")
+    fi
+    # One agent per device: the debug and release builds have different
+    # applicationIds and install side by side (each runs its own foreground
+    # service). Remove the other build + stop old processes before installing.
+    if "${adbcmd[@]}" shell pm path "$other" 2>/dev/null | grep -q package:; then
+      echo "removing conflicting agent build $other (force-stop + uninstall)"
+      "${adbcmd[@]}" shell am force-stop "$other" || true
+      "${adbcmd[@]}" shell pm uninstall "$other" || true
+    fi
+    "${adbcmd[@]}" shell am force-stop "$keep" || true
+    "${adbcmd[@]}" install -r "$apk"
+
+# Ensure only one agent build is installed (removes the release build if the
+# debug build is the keeper). Fixes/audits duplicate "UserService bound"
+# notifications. Example: just agent-dedupe s24   (omit target for default device)
+agent-dedupe target="":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    other="org.stayturgid.agent"
+    adbcmd=(adb)
+    if [[ -n "{{ target }}" ]]; then
+      adbcmd=(adb -s "{{ target }}")
+    fi
+    if "${adbcmd[@]}" shell pm path "$other" 2>/dev/null | grep -q package:; then
+      echo "removing conflicting agent build $other (force-stop + uninstall)"
+      "${adbcmd[@]}" shell am force-stop "$other" || true
+      "${adbcmd[@]}" shell pm uninstall "$other"
     else
-      adb install -r "$apk"
+      echo "OK: no conflicting agent build present (single agent)"
     fi
 
 # Grant Shizuku to debug agent package (pm + shizuku.json).

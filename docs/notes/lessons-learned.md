@@ -260,3 +260,21 @@ the device shell — `sh_adb(...)` / `adb -s localhost:5555 shell` (uid 2000) �
 Python's `open()` in the Termux process. The native agent (uid 2000 via Shizuku)
 can read them directly. Same class of bug as the `ss`/`/proc/net/tcp` fallbacks
 in the agent's `listeningOn()`.
+
+## One agent per device: debug and release builds install side-by-side
+
+The native agent's debug build uses `applicationIdSuffix ".debug"`, so
+`org.stayturgid.agent` (release) and `org.stayturgid.agent.debug` (debug) are
+**different package ids** and install concurrently — each runs its own
+`HostService` foreground service, giving two non-dismissable "UserService
+bound" notifications and two agents racing to bind Shizuku. `adb install -r`
+only ever replaces the _same_ package, so it never clears the other build.
+
+**How to apply:** installing the agent must enforce a single build per device —
+force-stop + `pm uninstall` the other variant, and force-stop the keeper's old
+processes, _before_ `adb install -r`. This lives in
+`control/tools/native-agent/rollout.py:enforce_single_variant()` and the
+`just agent-install` recipe; `just agent-dedupe [target]` audits/repairs a
+device on demand. The fleet keeps the **debug** build (provisioning's `run-as`
+needs a debuggable build). Found on hd8 and s24 (both had release 0.3.x left
+over under the newer debug build).

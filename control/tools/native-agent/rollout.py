@@ -32,6 +32,10 @@ APK = REPO / "device" / "native-agent" / "app" / "build" / "outputs" / "apk" / "
 GRANT = REPO / "control" / "tools" / "native-agent" / "grant_shizuku.py"
 START = REPO / "control" / "tools" / "native-agent" / "start_agent.py"
 PKG = "org.stayturgid.agent.debug"
+# Debug and release build under different applicationIds, so both can install
+# side by side and each runs its own foreground service ("duplicate agent").
+# There must only ever be one agent per device — see enforce_single_variant().
+PKG_VARIANTS = ("org.stayturgid.agent", "org.stayturgid.agent.debug")
 
 
 def _run(
@@ -95,6 +99,28 @@ def _pids(stdout: str | None) -> list[str]:
     return [token for token in (stdout or "").split() if token.isdigit()]
 
 
+def enforce_single_variant(serial: str, keep_pkg: str) -> None:
+    """Guarantee one agent per device: force-stop and uninstall every agent build
+    other than ``keep_pkg`` before installing.
+
+    Without this, installing the debug build leaves any previously-installed
+    release build (different applicationId) running its own HostService FGS —
+    two non-dismissable "UserService bound" notifications and two agents racing
+    to bind Shizuku. `adb install -r` only ever replaces the *same* package.
+    """
+    for pkg in PKG_VARIANTS:
+        if pkg == keep_pkg:
+            continue
+        installed = _run(["adb", "-s", serial, "shell", f"pm path {pkg}"], timeout=10)
+        if "package:" not in (installed.stdout or ""):
+            continue
+        print(f"  removing conflicting agent build {pkg} (force-stop + uninstall)...")
+        _run(["adb", "-s", serial, "shell", f"am force-stop {pkg}"], timeout=10)
+        u = _run(["adb", "-s", serial, "shell", f"pm uninstall {pkg}"], timeout=30)
+        if "Success" not in (u.stdout or ""):
+            print(f"  WARN: could not uninstall {pkg}: {(u.stderr or u.stdout or '').strip()[:200]}")
+
+
 def stop_stale_user_services(serial: str) -> list[str]:
     """Stop package UserServices that can survive APK/Shizuku replacement."""
 
@@ -126,6 +152,10 @@ def _rollout_one(label: str, serial: str) -> bool:
         print("  SKIP: adb not online")
         return False
     apk = ensure_apk()
+    # One agent per device: drop any other build, and stop the current build's
+    # old processes, before laying down the new APK.
+    enforce_single_variant(serial, PKG)
+    _run(["adb", "-s", serial, "shell", f"am force-stop {PKG}"], timeout=10)
     print(f"  install {apk.name}...")
     r = _run(["adb", "-s", serial, "install", "-r", str(apk)], timeout=180)
     if r.returncode != 0:
