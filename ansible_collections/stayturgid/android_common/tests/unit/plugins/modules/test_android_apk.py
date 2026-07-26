@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+from hashlib import sha256
 
 import pytest
 
@@ -26,14 +27,17 @@ def test_parse_install_result_failure():
     assert "INSTALL_FAILED" in reason
 
 
-def run_module(mocker, args, cmd_results=None):
+def run_module(mocker, args, cmd_results=None, command_fn=None):
     stdin = json.dumps({"ANSIBLE_MODULE_ARGS": dict(args)})
     mocker.patch("ansible.module_utils.basic._ANSIBLE_ARGS", stdin.encode())
     mocker.patch("ansible.module_utils.basic._ANSIBLE_PROFILE", "legacy", create=True)
 
     captured = {}
+    warnings = []
 
     def fake_run_command(self, cmd, *a, **kw):
+        if command_fn is not None:
+            return command_fn(cmd)
         joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
         for needle, result in cmd_results or []:
             if needle in joined:
@@ -60,9 +64,14 @@ def run_module(mocker, args, cmd_results=None):
     mocker.patch("ansible.module_utils.basic.AnsibleModule.run_command", fake_run_command)
     mocker.patch("ansible.module_utils.basic.AnsibleModule.exit_json", fake_exit)
     mocker.patch("ansible.module_utils.basic.AnsibleModule.fail_json", fake_fail)
+    mocker.patch(
+        "ansible.module_utils.basic.AnsibleModule.warn",
+        lambda self, msg: warnings.append(msg),
+    )
 
     with pytest.raises(SystemExit):
         mod.main()
+    captured["_warnings"] = warnings
     return captured
 
 
@@ -81,6 +90,40 @@ def test_android_apk_installs(mocker, tmp_path):
     assert out.get("failed") is not True, out
     assert out["changed"] is True
     assert out["reason"] == "Success"
+
+
+def test_android_apk_accepts_locked_checksum(mocker, tmp_path):
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    out = run_module(
+        mocker,
+        dict(
+            device="dev",
+            package="com.example.app",
+            apk_path=str(apk),
+            checksum="sha256:" + sha256(b"PK").hexdigest(),
+            connect=False,
+        ),
+    )
+    assert out.get("failed") is not True, out
+    assert out["changed"] is True
+
+
+def test_android_apk_rejects_wrong_checksum(mocker, tmp_path):
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    out = run_module(
+        mocker,
+        dict(
+            device="dev",
+            package="com.example.app",
+            apk_path=str(apk),
+            checksum="0" * 64,
+            connect=False,
+        ),
+    )
+    assert out.get("failed") is True
+    assert "checksum mismatch" in out["msg"]
 
 
 def test_android_apk_install_wrapped_in_timeout(mocker, tmp_path):
@@ -154,6 +197,27 @@ def test_android_apk_skips_when_present(mocker, tmp_path):
     assert out["changed"] is False
 
 
+def test_android_apk_reinstalls_when_locked_version_is_stale(mocker, tmp_path):
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    out = run_module(
+        mocker,
+        dict(
+            device="dev",
+            package="com.example.app",
+            apk_path=str(apk),
+            version_name="2.0.0",
+            connect=False,
+        ),
+        cmd_results=[
+            ("pm list packages", (0, "package:com.example.app\n", "")),
+            ("dumpsys package", (0, "versionName=1.0.0\n", "")),
+        ],
+    )
+    assert out["changed"] is True
+    assert out["reason"] == "Success"
+
+
 def _capture_commands(mocker, args):
     """Run the module recording every run_command invocation."""
     seen = []
@@ -213,3 +277,81 @@ def test_android_apk_clean_false_does_not_uninstall(mocker, tmp_path):
         dict(device="dev", package="com.example.app", apk_path=str(apk), connect=False, force=True),
     )
     assert not any("uninstall" in c for c in cmds), cmds
+
+
+def test_android_apk_incompatible_upgrade_clean_retries(mocker, tmp_path):
+    """A stale package from another signing lineage converges automatically."""
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    seen = []
+    install_attempt = 0
+
+    def fake_run_command(cmd):
+        nonlocal install_attempt
+        seen.append(cmd)
+        joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
+        if "pm list packages" in joined:
+            return (0, "package:com.example.app\n", "")
+        if "dumpsys package" in joined:
+            return (0, "versionName=1.0.0\n", "")
+        if " uninstall " in f" {joined} ":
+            return (0, "Success\n", "")
+        if " install " in f" {joined} ":
+            install_attempt += 1
+            if install_attempt == 1:
+                return (1, "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE]\n", "")
+            return (0, "Success\n", "")
+        return (0, "", "")
+
+    captured = run_module(
+        mocker,
+        dict(
+            device="dev",
+            package="com.example.app",
+            apk_path=str(apk),
+            version_name="2.0.0",
+            connect=False,
+        ),
+        command_fn=fake_run_command,
+    )
+
+    commands = [" ".join(command) for command in seen]
+    assert sum(" install " in f" {command} " for command in commands) == 2
+    assert sum(" uninstall " in f" {command} " for command in commands) == 1
+    assert "clean fallback" in captured["reason"]
+    assert any("application data will be lost" in warning for warning in captured["_warnings"])
+
+
+def test_android_apk_incompatible_upgrade_can_fail_without_data_loss(mocker, tmp_path):
+    """A caller can explicitly reject the destructive clean fallback."""
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    seen = []
+
+    def fake_run_command(cmd):
+        seen.append(cmd)
+        joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
+        if "pm list packages" in joined:
+            return (0, "package:com.example.app\n", "")
+        if "dumpsys package" in joined:
+            return (0, "versionName=1.0.0\n", "")
+        if " install " in f" {joined} ":
+            return (1, "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE]\n", "")
+        return (0, "", "")
+
+    captured = run_module(
+        mocker,
+        dict(
+            device="dev",
+            package="com.example.app",
+            apk_path=str(apk),
+            version_name="2.0.0",
+            clean_on_incompatible=False,
+            connect=False,
+        ),
+        command_fn=fake_run_command,
+    )
+
+    commands = [" ".join(command) for command in seen]
+    assert captured["failed"] is True
+    assert not any(" uninstall " in f" {command} " for command in commands)

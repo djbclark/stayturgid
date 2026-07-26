@@ -53,6 +53,43 @@ def test_explicit_ansible_config_wins_over_site_overlay(tmp_path):
     assert context.collections_path == explicit / "collections"
 
 
+def test_multiple_inventory_sources_preserve_precedence_and_validate(tmp_path):
+    site = tmp_path / "site"
+    site.mkdir()
+    config = write_config(site, "generated/inventory,inventory/hosts.yml")
+    (site / "generated" / "inventory").mkdir(parents=True)
+    (site / "inventory").mkdir()
+    (site / "inventory" / "hosts.yml").write_text("all: {}\n", encoding="utf-8")
+
+    context = ac.resolve_ansible_context(tmp_path, {"ANSIBLE_CONFIG": str(config)})
+
+    assert context.inventories == (
+        site / "generated" / "inventory",
+        site / "inventory" / "hosts.yml",
+    )
+    assert context.inventory == site / "inventory" / "hosts.yml"
+    assert context.inventory_args() == [
+        "-i",
+        str(site / "generated" / "inventory"),
+        "-i",
+        str(site / "inventory" / "hosts.yml"),
+    ]
+    ac.require_inventory(context)
+
+
+def test_multiple_inventory_sources_fail_when_any_source_is_missing(tmp_path):
+    site = tmp_path / "site"
+    site.mkdir()
+    config = write_config(site, "generated/inventory,inventory/hosts.yml")
+    (site / "inventory").mkdir()
+    (site / "inventory" / "hosts.yml").write_text("all: {}\n", encoding="utf-8")
+
+    context = ac.resolve_ansible_context(tmp_path, {"ANSIBLE_CONFIG": str(config)})
+
+    with pytest.raises(ac.AnsibleConfigError, match="generated/inventory"):
+        ac.require_inventory(context)
+
+
 def test_site_dir_is_selected_when_no_config_is_supplied(tmp_path):
     repo = tmp_path / "product"
     (repo / "ansible").mkdir(parents=True)
@@ -142,6 +179,15 @@ def test_missing_explicit_config_has_actionable_error(tmp_path):
         ac.resolve_ansible_context(tmp_path, {"ANSIBLE_CONFIG": str(tmp_path / "missing.cfg")})
 
 
+def test_inventory_containing_only_separators_has_actionable_error(tmp_path):
+    site = tmp_path / "site"
+    site.mkdir()
+    config = write_config(site, " , , ")
+
+    with pytest.raises(ac.AnsibleConfigError, match=r"no \[defaults\] inventory"):
+        ac.resolve_ansible_context(tmp_path, {"ANSIBLE_CONFIG": str(config)})
+
+
 # ---------------------------------------------------------------------------
 # Zero-host guard (H3)
 # ---------------------------------------------------------------------------
@@ -197,3 +243,26 @@ def test_resolved_env_pins_selected_config(tmp_path):
 
     assert env["ANSIBLE_CONFIG"] == str(config)
     assert env["STAYTURGID_ROOT"] == str(tmp_path)
+    assert env["ANSIBLE_ROLES_PATH"] == str(tmp_path / "ansible" / "roles")
+    assert env["ANSIBLE_COLLECTIONS_PATH"] == (f"{tmp_path / '.ansible' / 'collections'}:{tmp_path}")
+
+
+def test_resolved_env_preserves_additional_ansible_search_paths(tmp_path):
+    """Product paths are authoritative without hiding caller-owned extensions."""
+    site = tmp_path / "site"
+    site.mkdir()
+    config = write_config(site)
+    (site / "inventory").mkdir()
+    (site / "inventory" / "hosts.yml").write_text("all: {}\n", encoding="utf-8")
+
+    env = ac.resolved_env(
+        tmp_path,
+        {
+            "ANSIBLE_CONFIG": str(config),
+            "ANSIBLE_ROLES_PATH": "/site/roles",
+            "ANSIBLE_COLLECTIONS_PATH": "/site/collections",
+        },
+    )
+
+    assert env["ANSIBLE_ROLES_PATH"] == f"{tmp_path / 'ansible' / 'roles'}:/site/roles"
+    assert env["ANSIBLE_COLLECTIONS_PATH"] == (f"{tmp_path / '.ansible' / 'collections'}:{tmp_path}:/site/collections")

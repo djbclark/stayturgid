@@ -1,34 +1,7 @@
 ---
-# Check a single bootstrap APK: compare installed version against latest GitHub release.
+# Check one bootstrap APK against the immutable version lock.
 # Accumulates result into _vfy_results list for post-loop analysis.
 # Expected vars: _apk, _vfy_adb
-
-- name: Fetch latest GitHub release tag — {{ _apk.id }}
-  ansible.builtin.command:
-    argv:
-      - gh
-      - release
-      - view
-      - --repo
-      - "{{ _apk.gh_repo }}"
-      - --json
-      - tagName
-  register: _check_gh
-  # Version lookup is read-only but ansible.builtin.command otherwise skips it
-  # under --check, leaving an empty string for the JSON parser below.
-  check_mode: false
-  changed_when: false
-  failed_when: false
-  delegate_to: localhost
-
-- name: Parse latest version — {{ _apk.id }}
-  ansible.builtin.set_fact:
-    _check_latest: >-
-      {{ ((_check_gh.stdout | default('{}') | from_json).tagName
-          | default('unknown', true) | regex_replace('^v', ''))
-         if ((_check_gh.rc | default(1)) == 0 and (_check_gh.stdout | default('') | trim))
-         else 'unknown' }}
-    _check_gh_failed: "{{ (_check_gh.rc | default(1)) != 0 or not (_check_gh.stdout | default('') | trim) }}"
 
 - name: Query installed version on device — {{ _apk.id }}
   ansible.builtin.shell: >
@@ -49,10 +22,10 @@
         id=_apk.id,
         repo=_apk.gh_repo,
         installed=(_check_dev.stdout | default('') | regex_replace('.*versionName=', '')).strip(),
-        latest=_check_latest,
+        latest=_apk.version_name,
         missing=(_check_dev.stdout | default('') | trim) == '',
-        gh_failed=_check_gh_failed,
+        gh_failed=false,
         stale=(_check_dev.stdout | default('') | trim) != ''
-              and _check_latest != 'unknown'
-              and (_check_dev.stdout | default('') | regex_replace('.*versionName=', '')).strip() != _check_latest
+              and (_check_dev.stdout | default('') | regex_replace('.*versionName=', '')).strip()
+                  != _apk.version_name
       )] }}

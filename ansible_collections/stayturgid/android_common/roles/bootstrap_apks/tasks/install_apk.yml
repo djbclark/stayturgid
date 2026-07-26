@@ -1,38 +1,46 @@
 ---
-# Install a single bootstrap APK with version-aware idempotency.
-# Expected vars: _apk (dict with id, gh_repo, gh_pattern, resign?, monkey?), _bootstrap_adb
+# @heals: APK-RELEASE-LOCK NATIVE-AGENT-RUNNING
+# Install one immutable bootstrap APK lock and reconcile its post-install state.
+# Expected vars: _apk (dict validated by tasks/main.yml), _bootstrap_adb
 
-- name: Resolve latest GitHub release version — {{ _apk.id }}
+- name: Reconcile locked APK — {{ _apk.id }}
   delegate_to: localhost
   block:
-    - name: Fetch latest GitHub release tag — {{ _apk.id }}
+    - name: Query installed packages before variant cleanup — {{ _apk.id }}
       ansible.builtin.command:
         argv:
-          - gh
-          - release
-          - view
-          - --repo
-          - "{{ _apk.gh_repo }}"
-          - --json
-          - tagName
-        # gh release view hits GitHub API; quiet flag suppresses interactive prompts
-      register: _gh_release
-      # This lookup is read-only; preserve it in --check so later facts do not
-      # parse skipped-command output as JSON.
+          - adb
+          - -s
+          - "{{ _bootstrap_adb }}"
+          - shell
+          - pm
+          - list
+          - packages
+          - --user
+          - "0"
+      register: _installed_package_list
       check_mode: false
       changed_when: false
-      failed_when: false
+      when: _apk.remove_packages | default([]) | length > 0
 
-    - name: Read latest release tag — {{ _apk.id }}
-      ansible.builtin.set_fact:
-        _latest_release_tag: >-
-          {{ ((_gh_release.stdout | default('{}') | from_json).tagName | default(''))
-             if ((_gh_release.rc | default(1)) == 0 and (_gh_release.stdout | default('') | trim))
-             else '' }}
-
-    - name: Parse latest version from tag — {{ _apk.id }}
-      ansible.builtin.set_fact:
-        _latest_version: "{{ _latest_release_tag | regex_replace('^v', '') if _latest_release_tag else '' }}"
+    - name: Remove mutually exclusive package variants — {{ _apk.id }}
+      ansible.builtin.command:
+        argv:
+          - adb
+          - -s
+          - "{{ _bootstrap_adb }}"
+          - uninstall
+          - "{{ _conflicting_package }}"
+      loop: "{{ _apk.remove_packages | default([]) }}"
+      loop_control:
+        label: "{{ _conflicting_package }}"
+        loop_var: _conflicting_package
+      register: _removed_conflicting_packages
+      changed_when: "'Success' in (_removed_conflicting_packages.stdout | default(''))"
+      failed_when: _removed_conflicting_packages.rc != 0
+      when: >-
+        ('package:' ~ _conflicting_package)
+        in (_installed_package_list.stdout_lines | default([]))
 
     - name: Query installed version on device — {{ _apk.id }}
       ansible.builtin.shell: >
@@ -52,27 +60,77 @@
       ansible.builtin.set_fact:
         _version_current: >-
           {{ not stayturgid_bootstrap_apks_force
-             and _latest_version != ''
-             and _installed_version == _latest_version }}
-        _version_unknown: >-
-          {{ _latest_version == '' or _installed_version == '' }}
+             and _installed_version == _apk.version_name }}
+
+    - name: Report immutable APK comparison — {{ _apk.id }}
+      ansible.builtin.debug:
+        msg:
+          installed: "{{ _installed_version }}"
+          locked: "{{ _apk.version_name }}"
+          force: "{{ stayturgid_bootstrap_apks_force }}"
+          current: "{{ _version_current }}"
+        verbosity: 1
 
     - name: Install over ADB — {{ _apk.id }}
       stayturgid.android_common.android_apk:
         device: "{{ _bootstrap_adb }}"
         package: "{{ _apk.id }}"
         gh_repo: "{{ _apk.gh_repo }}"
+        gh_tag: "{{ _apk.gh_tag }}"
         gh_pattern: "{{ _apk.gh_pattern }}"
+        checksum: "{{ _apk.checksum }}"
         resign: "{{ _apk.resign | default(false) }}"
         clean: "{{ _apk.clean | default(false) }}"
-        force: "{{ (stayturgid_bootstrap_apks_force | default(false)) or _version_unknown }}"
-        version_name: "{{ _latest_version if _latest_version != '' else omit }}"
+        force: "{{ stayturgid_bootstrap_apks_force | default(false) }}"
+        version_name: "{{ _apk.version_name }}"
         apksigner_bin: "{{ stayturgid_apksigner_bin | default(omit) }}"
         keystore: "{{ stayturgid_debug_keystore | default(omit) }}"
         keystore_pass: "{{ stayturgid_debug_keystore_pass | default('android') }}"
         key_alias: "{{ stayturgid_debug_key_alias | default('androiddebugkey') }}"
       when: not _version_current | default(false)
       delegate_to: localhost
+
+- name: Trigger required application service headlessly — {{ _apk.id }}
+  ansible.builtin.command:
+    argv:
+      - adb
+      - -s
+      - "{{ _bootstrap_adb }}"
+      - shell
+      - am
+      - broadcast
+      - --include-stopped-packages
+      - -a
+      - "{{ _apk.start_broadcast_action }}"
+      - -n
+      - "{{ _apk.start_broadcast_component }}"
+  register: _service_start
+  changed_when: false
+  failed_when: >-
+    _service_start.rc != 0
+    or 'Error' in (_service_start.stdout | default(''))
+  delegate_to: localhost
+  when:
+    - not ansible_check_mode
+    - _apk.start_broadcast_action | default('') | length > 0
+    - _apk.start_broadcast_component | default('') | length > 0
+
+- name: Verify required foreground service — {{ _apk.id }}
+  ansible.builtin.shell: >
+    adb -s {{ _bootstrap_adb }} shell
+    "dumpsys activity services {{ _apk.id }} 2>/dev/null |
+    grep -F '{{ _apk.service_component }}'"
+  register: _service_verify
+  check_mode: false
+  changed_when: false
+  failed_when: _service_verify.rc != 0
+  retries: 6
+  delay: 5
+  until: _service_verify.rc == 0
+  delegate_to: localhost
+  when:
+    - _apk.service_component | default('') | length > 0
+    - not ansible_check_mode or _installed_version == _apk.version_name
 
 - name: Launch via monkey (un-stop package) — {{ _apk.id }}
   delegate_to: localhost

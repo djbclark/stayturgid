@@ -109,7 +109,7 @@ def inventory_hosts(group: str = "stayturgid") -> list[str]:
     context = resolve_ansible_context(REPO_ROOT)
     require_inventory(context)
     result = subprocess.run(
-        ["ansible-inventory", "-i", str(context.inventory), "--list"],
+        ["ansible-inventory", *context.inventory_args(), "--list"],
         capture_output=True,
         text=True,
         check=True,

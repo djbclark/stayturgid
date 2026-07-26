@@ -1,6 +1,7 @@
 ---
-# Preflight: verify all bootstrap APKs are installed at the latest version.
-# Fails early with clear list of missing APKs; warns about stale ones.
+# Post-convergence verification: every bootstrap APK must match the immutable
+# version lock. In check mode, missing/stale packages are reported without
+# failing because the preceding ensure pass intentionally made no changes.
 # Runs over ADB — no device SSH required.
 #
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
@@ -36,13 +37,13 @@
 
     - name: Fail if any APKs are missing
       ansible.builtin.assert:
-        that: _vfy_missing_list | length == 0
+        that: ansible_check_mode or _vfy_missing_list | length == 0
         fail_msg: >-
           MISSING BOOTSTRAP APKs on {{ inventory_hostname }}:
           {% for a in _vfy_missing_list %}- {{ a.id }} ({{ a.repo }})
           {% endfor %}
-          These must be installed before deploy can proceed.
-          Run: just deploy -- --limit {{ inventory_hostname }}
+          The preceding normal-deploy ensure pass should have installed these;
+          this is a convergence defect.
         success_msg: "All {{ stayturgid_bootstrap_apks | length }} bootstrap APKs present on {{ inventory_hostname }}"
         quiet: true
 
@@ -52,8 +53,18 @@
           STALE BOOTSTRAP APKs on {{ inventory_hostname }}:
           {% for a in _vfy_stale_list %}- {{ a.id }} (installed={{ a.installed }}, latest={{ a.latest }})
           {% endfor %}
-          Obtainium may not have been running. Versions will be updated during deploy.
+          A real normal deploy must reconcile these exact locked versions.
       when: _vfy_stale_list | length > 0
+
+    - name: Fail if any APK versions remain stale
+      ansible.builtin.assert:
+        that: ansible_check_mode or _vfy_stale_list | length == 0
+        fail_msg: >-
+          STALE BOOTSTRAP APKs remain after convergence on {{ inventory_hostname }}:
+          {% for a in _vfy_stale_list %}- {{ a.id }}
+          (installed={{ a.installed }}, desired={{ a.latest }})
+          {% endfor %}
+        quiet: true
 
     - name: Show all checked versions
       ansible.builtin.debug:

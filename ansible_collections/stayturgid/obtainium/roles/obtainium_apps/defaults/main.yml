@@ -3,7 +3,6 @@
 # expands them into Obtainium's verbose export format on-device).
 # AUTHORITATIVE list — catalogs/obtainium/stayturgid-apps.json is the adb-fallback
 # rendering; a pytest sync-guard keeps the two aligned.
-stayturgid_obtainium_import_ui: false   # true = pop Obtainium import UI on change
 stayturgid_obtainium_catalog: "{{ stayturgid_sd_root }}/import/stayturgid-obtainium-apps.json"
 
 # Debug signing for Obtainium APK deployment (fork produces unsigned debug APKs).
@@ -21,7 +20,7 @@ stayturgid_obtainium_apps:
     settings:
       includePrereleases: true
       fallbackToOlderReleases: true
-      apkFilterRegEx: stayturgid-agent.*universal
+      apkFilterRegEx: app-release\.apk
       autoApkFilterByArch: false
       about: stayturgid native agent
   - id: moe.shizuku.privileged.api

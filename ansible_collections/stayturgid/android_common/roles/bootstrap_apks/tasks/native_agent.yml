@@ -1,0 +1,31 @@
+---
+# @heals: NATIVE-AGENT-CONFIG NATIVE-AGENT-RUNNING
+
+- name: Reconcile native-agent peer targets
+  stayturgid.android_common.native_agent_config:
+    device: "{{ _bootstrap_adb }}"
+    package: "{{ stayturgid_native_agent_package }}"
+    targets: "{{ stayturgid_native_agent_peer_targets }}"
+    shizuku_package: "{{ stayturgid_native_agent_shizuku_package }}"
+  delegate_to: localhost
+  register: _native_agent_config
+
+- name: Trigger native-agent peer reconciliation
+  ansible.builtin.command:
+    argv:
+      - adb
+      - -s
+      - "{{ _bootstrap_adb }}"
+      - shell
+      - am
+      - broadcast
+      - --include-stopped-packages
+      - -a
+      - org.stayturgid.agent.action.PEER_START_NOW
+      - -n
+      - "{{ stayturgid_native_agent_package }}/org.stayturgid.agent.PeerStartReceiver"
+  changed_when: false
+  when:
+    - not ansible_check_mode
+    - stayturgid_native_agent_peer_targets | length > 0
+  delegate_to: localhost

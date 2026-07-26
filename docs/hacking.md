@@ -799,8 +799,10 @@ If port 5555 is not open after 60s:
 `stayturgid_app_stores_enabled: true` to re-enable. Apps may remain on devices;
 optional Obtainium catalog: `catalogs/obtainium/app-stores-optional.json`.
 
-When re-enabled: second `fleet.yml` pass (`post-ui-app-stores` tag) pushes F-Droid
-repos; `post-ui.yml` / `android_ui` task `configure_aurora` finishes Aurora first-run UI.
+When re-enabled, the single `fleet.yml` pass installs and configures the
+F-Droid/Play sources; `post-ui.yml` runs only the Aurora first-run UI. Obtainium
+catalog import is headless and belongs to the main fleet pass, so a normal
+deploy does not require an unlocked screen when app stores are parked.
 
 | Command                            | Scope                                | Mac tools                       |
 | ---------------------------------- | ------------------------------------ | ------------------------------- |

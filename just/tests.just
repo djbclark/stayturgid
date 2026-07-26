@@ -52,8 +52,14 @@ ansible-test:
       echo "### ansible-test — SKIP (run 'just test-venv')"; \
     fi
 
+# Install the exact dependency lock when the cached manifests do not match it.
+_ensure-test-collections:
+    @if ! python3 -c 'import json, pathlib, re, sys; root = pathlib.Path(".ansible/collections/ansible_collections"); locks = dict(re.findall(r"- name: ([^ ]+)\n[ ]+version: \"([^\"]+)\"", pathlib.Path("ansible/requirements.yml").read_text())); actual = {name: json.loads((root.joinpath(*name.split(".")) / "MANIFEST.json").read_text())["collection_info"]["version"] for name in locks}; sys.exit(0 if locks and actual == locks else 1)' 2>/dev/null; then \
+      ansible-galaxy collection install --force -r ansible/requirements.yml -p .ansible/collections; \
+    fi
+
 # Unit + pytest + ansible-test + ruff + typos + biome + shfmt + justfiles + markdown (CI default).
-unit-and-pytest:
+unit-and-pytest: _ensure-test-collections
     bash tests/run.sh local
     @just pytest
     @just ansible-test
@@ -206,10 +212,9 @@ lint-offline:
     STAYTURGID_LINT_OFFLINE=true just lint
 
 # shellcheck + ansible-lint + yamllint + ruff + typos + biome + shfmt + justfiles + markdown + html-validate.
-lint:
+lint: _ensure-test-collections
     #!/usr/bin/env bash
     set -euo pipefail
-    ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections >/dev/null 2>&1 || true
     rc=0
     if command -v shellcheck >/dev/null; then
       shellcheck -S warning $(git ls-files '*.sh') || rc=1

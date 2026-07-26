@@ -2,24 +2,35 @@
 # Bootstrap APK list — installed over ADB from the Mac before Termux SSH exists.
 # These are the minimum set needed for the stayturgid fleet to bootstrap itself.
 #
-# Version-aware: each deploy queries the latest GitHub release tag for every APK,
-# compares against the installed versionName, and reinstalls only when newer.
+# Release-locked: every APK names an immutable GitHub release tag, exact asset,
+# expected installed versionName, and SHA-256 digest. A coordinated ops release
+# therefore keeps deploying the same desired state even when a repository
+# publishes another release or has several independent release streams.
 # Set stayturgid_bootstrap_apks_force=true to skip version check and always reinstall.
 #
-# After initial install, Obtainium handles ongoing updates on-device. The
-# version check here is a safety net if Obtainium hasn't been running.
+# Obtainium may notify about newer versions, but a normal fleet deploy remains
+# authoritative and restores these locked versions.
 #
 # Each entry:
 #   id          — Android package name (required)
-#   gh_repo     — GitHub owner/repo for latest release download (required)
+#   gh_repo     — GitHub owner/repo (required)
+#   gh_tag      — exact immutable release tag (required)
 #   gh_pattern  — Asset glob for `gh release download --pattern` (required)
+#   version_name — exact Android versionName expected after install (required)
+#   checksum    — SHA-256 of the release asset before optional resigning (required)
 #   resign      — Resign with debug keystore before install (fork debug builds)
 #   monkey      — Launch app via monkey after install (Termux:Boot)
+#   start_broadcast_* — headless application-context trigger after install
+#   service_component — foreground service to verify after the trigger
+#   remove_packages — mutually exclusive package variants to remove
 #
-# Override via inventory group_vars to pin versions or adjust patterns:
+# Override via inventory group_vars only to replace the complete lock:
 #   stayturgid_bootstrap_apks
 
 stayturgid_bootstrap_apks_force: false
+stayturgid_native_agent_package: org.stayturgid.agent
+stayturgid_native_agent_peer_targets: null
+stayturgid_native_agent_shizuku_package: moe.shizuku.privileged.api
 
 # Debug signing defaults (shared with obtainium_apps role).
 stayturgid_apksigner_bin: "{{ lookup('env', 'HOME') }}/Library/Android/sdk/build-tools/36.0.0/apksigner"
@@ -30,17 +41,29 @@ stayturgid_debug_key_alias: "androiddebugkey"
 stayturgid_bootstrap_apks:
   - id: com.termux
     gh_repo: termux/termux-app
-    gh_pattern: "github-debug*arm64-v8a*"
+    gh_tag: v0.118.3
+    gh_pattern: "termux-app_v0.118.3+github-debug_arm64-v8a.apk"
+    version_name: 0.118.3
+    checksum: "sha256:72fdb596045116bf5ba1b5bdf5b26fddb9acc0bd074ad9f2da9eb0ae85e83a4e"
   - id: com.termux.boot
     gh_repo: termux/termux-boot
-    gh_pattern: "github*debug*"
+    gh_tag: v0.8.1
+    gh_pattern: "termux-boot-app_v0.8.1+github.debug.apk"
+    version_name: 0.8.1
+    checksum: "sha256:97e6d336f05b59f7cb25e8efa7173e0a6e665f3022b75c6d55a69b6399ecacc8"
     monkey: true
   - id: com.termux.api
     gh_repo: termux/termux-api
-    gh_pattern: "github*debug*"
+    gh_tag: v0.53.0
+    gh_pattern: "termux-api-app_v0.53.0+github.debug.apk"
+    version_name: 0.53.0
+    checksum: "sha256:ecf916ff80ae751e65c092f51c055cce4de417ebeea8e449cd0f294afdbde39a"
   - id: moe.shizuku.privileged.api
     gh_repo: djbclark/Shizuku
-    gh_pattern: "*universal*"
+    gh_tag: "v13.7.0-thedjchi+stayturgid-release23"
+    gh_pattern: "shizuku-v13.7.0-thedjchi+stayturgid-release23-universal.apk"
+    version_name: "13.7.0-thedjchi+stayturgid-release23"
+    checksum: "sha256:b6864f697c16038cba1d165d01439225d05279f32b431a27def8eca7e6e028bb"
     resign: true
     monkey: true
     battery_unrestricted: true
@@ -50,15 +73,28 @@ stayturgid_bootstrap_apks:
     clean: "{{ stayturgid_shizuku_clean_reinstall | default(false) }}"
   - id: org.stayturgid.agent
     gh_repo: djbclark/stayturgid
-    gh_pattern: "stayturgid-agent*universal*"
+    gh_tag: agent-v0.6.0
+    gh_pattern: app-release.apk
+    version_name: 0.6.0-boot-stability
+    checksum: "sha256:b99b3c9a7c28c53fc0a8b339dceeff5d394bb60507842dedd8bdbf18898d883d"
     resign: false
-    monkey: true
+    start_broadcast_action: org.stayturgid.agent.action.PEER_START_NOW
+    start_broadcast_component: org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver
+    service_component: org.stayturgid.agent/.HostService
+    remove_packages:
+      - org.stayturgid.agent.debug
     shizuku_grant: true
     battery_unrestricted: true
   - id: com.tailscale.ipn
     gh_repo: tailscale/tailscale-android
-    gh_pattern: "*universal*"
+    gh_tag: "1.98.8-t1241b225b-gbcbaf1889"
+    gh_pattern: tailscale-android-universal-1.98.8.apk
+    version_name: "1.98.8-t1241b225b-gbcbaf1889"
+    checksum: "sha256:f28edfd184d1db3060d764a79c9aa24da4530951052fb1cf75c92bbc0adfc4b2"
   - id: dev.imranr.obtainium
     gh_repo: djbclark/Obtainium
-    gh_pattern: "*universal*"
+    gh_tag: v1.6.6
+    gh_pattern: obtainium-v1.6.6-stayturgid-debug10-universal.apk
+    version_name: 1.6.6
+    checksum: "sha256:27e4a174f9f6a357808b2384ef5d90d36b0c3640f26d7a92adfe3634f0bbfcf6"
     resign: true

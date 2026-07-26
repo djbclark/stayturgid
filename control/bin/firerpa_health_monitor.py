@@ -85,7 +85,7 @@ def get_fleet() -> list[FirerpaTarget]:
     env = resolved_env(REPO_ROOT)
 
     result = subprocess.run(
-        ["ansible-inventory", "--list", "-i", str(context.inventory)],
+        ["ansible-inventory", "--list", *context.inventory_args()],
         env=env,
         capture_output=True,
         text=True,
