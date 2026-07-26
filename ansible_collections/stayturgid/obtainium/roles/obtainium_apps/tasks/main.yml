@@ -5,5 +5,4 @@
   stayturgid.obtainium.obtainium_app:
     apps: "{{ stayturgid_obtainium_apps }}"
     catalog_path: "{{ stayturgid_obtainium_catalog }}"
-    import_ui: "{{ stayturgid_obtainium_import_ui }}"
     headless_import: true

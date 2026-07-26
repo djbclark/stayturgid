@@ -47,14 +47,17 @@ Do not create working states that the same deploy cannot reproduce.
 
 ## Checkpoint state
 
-The retry canary was still completing the unchanged remainder of the normal
-fleet play when this checkpoint was written. p7a had just returned online and
-was reserved for a later second-device proof after the checkpoint. No p7a
-interaction had started.
+The retry canary passed every new APK/native-agent milestone, then failed in the
+unchanged remainder because the role explicitly supplied both Obtainium import
+parameters (`import_ui: false` still counts as supplied to Ansible's mutual
+exclusion validator). The follow-up removes the legacy UI parameter entirely,
+leaving headless import as the sole normal-deploy mode. p7a had just returned
+online and was reserved for a later second-device proof after the checkpoint.
+No p7a interaction had started.
 
 ## Remaining before merge
 
-1. Record the retry canary's terminal result and release s24.
+1. Re-run the normal canary through the corrected Obtainium task.
 2. Run the full repository and site quality gates.
 3. Exercise p7a through the same normal path at an appropriate canary point.
 4. Inspect the final diffs, push both task branches, open paired PRs, and
