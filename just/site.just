@@ -20,8 +20,11 @@ site-contract-check:
       py="${SITE_INIT_PYTHON}"
     elif [[ -x "{{ repo }}/.venv-test/bin/python" ]]; then
       py="{{ repo }}/.venv-test/bin/python"
-    else
+    elif command -v python3 >/dev/null 2>&1 && python3 -c "import entangled" 2>/dev/null; then
       py="python3"
+    else
+      echo "### site-contract-check — SKIP (.venv-test missing — run 'just worktree-setup')"
+      exit 0
     fi
     "$py" -m control.site_contract.check_entangled
     "$py" -m control.site_contract.generate_registry_seeds --check
