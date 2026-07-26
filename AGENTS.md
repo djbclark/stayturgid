@@ -46,9 +46,31 @@ section — it's a snapshot, not updated every commit.
 ## Quick start
 
 ```bash
-cd ${OPS_ROOT:-~/ops}/stayturgid && git fetch origin --prune && git pull --ff-only origin master
+cd ${OPS_ROOT:-~/ops}/site-djbclark && just ops-release-status
+cd ${OPS_ROOT:-~/ops}/stayturgid
 just health && just firerpa-health
 ```
+
+## Versioned deploy releases
+
+Development uses `master` in task worktrees under `~/src/ops-worktrees/`.
+The three `${OPS_ROOT:-~/ops}` deploy checkouts advance only to coordinated
+stable GitHub Releases tagged `ops-vMAJOR.MINOR.PATCH`; never deploy by pulling
+arbitrary `master` commits.
+
+Release preflight, deployment, status, and guarded `site-private/memory/`
+synchronization are owned by the paired site repo:
+
+```bash
+cd ${OPS_ROOT:-~/ops}/site-djbclark
+just ops-release-check 1.0.0
+just ops-release-deploy 1.0.0
+just ops-release-status
+```
+
+See `${OPS_ROOT:-~/ops}/site-djbclark/docs/OPS-RELEASES.md`.
+`version.json` remains the older on-device fleet-content notifier;
+`ops-release.json` is the coordinated deployment-suite version.
 
 ## Key commands
 
@@ -192,15 +214,16 @@ both point back here rather than duplicating it.
 | [GitHub issues](https://github.com/djbclark/stayturgid/issues)   | Discrete bugs, ops follow-ups, soak verifications                                                                                           | As they arise                    |
 | [`docs/operations/sessions/`](docs/operations/sessions/)         | Session-by-session history and handoffs                                                                                                     | Every session                    |
 | [`docs/archive/`](docs/archive/)                                 | Superseded plans and old sessions — historical record only, never treat as current                                                          | Append-only                      |
-| `${OPS_ROOT:-~/ops}/site-<name>` (sibling repo)                               | One operator's site overlay — inventory, credentials-adjacent config, **that site's slice of memory/docs policy**                           | As the site changes              |
-| `${OPS_ROOT:-~/ops}/site-private` (sibling repo)                              | Private/generic companion — **its** slice of memory/docs policy + Claude generic memory                                                     | As generic notes come up         |
+| `${OPS_ROOT:-~/ops}/site-<name>` (sibling repo)                  | One operator's site overlay — inventory, credentials-adjacent config, **that site's slice of memory/docs policy**                           | As the site changes              |
+| `${OPS_ROOT:-~/ops}/site-private` (sibling repo)                 | Private/generic companion — **its** slice of memory/docs policy + Claude generic memory                                                     | As generic notes come up         |
 
 Do not put durable rules in STATUS.md, and do not put dated/volatile state in
 AGENTS.md or coding-rules.md — that's the split this table encodes.
 
 ## Multi-Agent Protocol
 
-Before any edit: `git fetch origin --prune && git pull --ff-only origin master`.
+Before any edit in a source task worktree:
+`git fetch origin --prune && git pull --ff-only origin master`.
 Always commit and push when done. Leave no uncommitted changes.
 If `git pull` fails with a merge conflict, STOP and report it.
 Verify changes are yours before editing — if a file has unrelated modifications

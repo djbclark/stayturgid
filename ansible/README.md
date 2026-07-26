@@ -150,7 +150,8 @@ post-UI import (`post_ui` / `android_ui`), app privileges, and validate smoke.
 3. Open Termux:Boot once after fresh install
 4. Fire HD (`fireos-device`): USB/wireless adb for `autojs6_project_deploy` when not on USB
 
-**Routine updates** after `git pull`:
+**Routine updates** after deploying a coordinated version with the sibling
+`site-djbclark` `just ops-release-deploy` recipe:
 
 ```bash
 ./control/bin/deploy_fleet.py          # or ansible-playbook ansible/playbooks/site.yml

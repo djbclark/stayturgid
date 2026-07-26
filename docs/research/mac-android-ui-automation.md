@@ -14,9 +14,8 @@ Companion research: [ui-automation.md](ui-automation.md) (tool bake-off),
 1. Drive the app UI from the Mac (tap, swipe, type, assert).
 2. Leave a clear visual signal that an agent owns the glass (display inversion).
 3. Prefer hierarchy selectors over hardcoded coordinates.
-4. Optional **UI-TARS vision gates** on high-stakes screenshots (`STAYTURGID_VLM=1`, see [docs/architecture/vlm.md](../../docs/architecture/vlm.md)).
-5. Survive flaky wireless ADB, dialogs, and multi-device `adb devices` lists.
-6. Fail closed on input when the session is not properly armed.
+4. Survive flaky wireless ADB, dialogs, and multi-device `adb devices` lists.
+5. Fail closed on input when the session is not properly armed.
 
 ---
 
@@ -153,6 +152,7 @@ the user’s default IME on session exit.
 ```python
 #!/usr/bin/env python3
 """Minimal quiet screenshot + assert pattern."""
+
 import os
 import subprocess
 from pathlib import Path
@@ -161,13 +161,16 @@ os.environ["STAYTURGID_PRESENCE_QUIET"] = "1"  # no torch / sound / dialog
 
 # project imports: screen_control, ui_driver, stayturgid_device …
 
+
 def shot(serial: str, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     r = subprocess.run(
         ["adb", "-s", serial, "exec-out", "screencap", "-p"],
-        capture_output=True, timeout=40,
+        capture_output=True,
+        timeout=40,
     )
     path.write_bytes(r.stdout or b"")
+
 
 def audit(host: str, out: Path) -> list[str]:
     issues: list[str] = []

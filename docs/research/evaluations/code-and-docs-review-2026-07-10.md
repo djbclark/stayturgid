@@ -300,7 +300,8 @@ New-feature coverage matrix:
 - [handoff.md](../../handoff.md) agent session policy (modulo H2 contradictions)
 - [hacking.md](../../hacking.md) clean install walkthrough (modulo link depth)
 - Module docs: termux, autojs6, obtainium, fdroid/play parked, control (incl. Hermes/ET), screen-control-lease
-- [vlm.md](../../architecture/vlm.md) local + cloud gates
+- `docs/architecture/vlm.md` local + cloud gates (removed with VLM retirement
+  on 2026-07-26)
 - ADRs 001–002, incubator parking, `.cursor/rules/*.mdc`, `human/HANDOFF-HUMAN.md`
 
 ---

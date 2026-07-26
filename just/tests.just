@@ -43,10 +43,9 @@ test-venv:
 # ansible-test units for collections.
 ansible-test:
     @if [ -x "{{ repo }}/{{ venv }}/bin/ansible-test" ]; then \
-      PYV="$(python3 -c 'import sys;print(f"{sys.version_info.major}.{sys.version_info.minor}")')"; \
       for c in {{ collections }}; do \
         echo "### ansible-test units (stayturgid.$c)"; \
-        cd ansible_collections/stayturgid/$c && "{{ repo }}/{{ venv }}/bin/ansible-test" units --local --python $PYV || exit $?; \
+        cd ansible_collections/stayturgid/$c && "{{ repo }}/{{ venv }}/bin/ansible-test" units --local --python-interpreter "{{ repo }}/{{ venv }}/bin/python" || exit $?; \
         cd - >/dev/null; \
       done; \
     else \
@@ -479,4 +478,3 @@ agent-peer-start peer:
 # Example: just agent-peer-show s24
 agent-peer-show peer:
     python3 "{{ repo }}/control/tools/native-agent/provision_peer.py" "{{ peer }}" --show
-

@@ -189,10 +189,10 @@ class Device(object):
         self.server = "{0}:{1}".format(host, port)
         # gRPC channel with keepalive + retry config:
         options = [
-            ('grpc.keepalive_time_ms', 30000),
-            ('grpc.keepalive_timeout_ms', 10000),
-            ('grpc.keepalive_permit_without_calls', True),
-            ('grpc.http2.max_pings_without_data', 0),
+            ("grpc.keepalive_time_ms", 30000),
+            ("grpc.keepalive_timeout_ms", 10000),
+            ("grpc.keepalive_permit_without_calls", True),
+            ("grpc.http2.max_pings_without_data", 0),
         ]
         # TLS or insecure
         if certificate:
@@ -577,6 +577,7 @@ Dependencies installed: `grpcio 1.74.0`, `protobuf 6.33.6`, `cryptography 49.0.0
 
 ```python
 from lamda.client import Device
+
 d = Device("127.0.0.1", port=65000)
 d.device_info()  # raises _InactiveRpcError — expected, no server
 ```

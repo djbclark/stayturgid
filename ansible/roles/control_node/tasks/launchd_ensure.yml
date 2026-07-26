@@ -1,6 +1,6 @@
 ---
 # Ensure launchd jobs in mac_launchd_ensure_services are loaded; heal unknown state
-# and optional HTTP health_url failures (keepalive long-runners like UI-TARS).
+# and optional HTTP health_url failures for keepalive long-runners.
 #
 # Interval agents (StartInterval) are often "stopped" between runs — that is normal.
 # We only load when unloaded, reload when plist templates changed this run, and

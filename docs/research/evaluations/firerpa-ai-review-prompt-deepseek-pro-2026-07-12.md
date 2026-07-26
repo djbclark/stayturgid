@@ -123,19 +123,26 @@ class Device(object):
         self.certificate = certificate
         self.server = "{0}:{1}".format(host, port)
         # gRPC retry: 5 attempts, exponential backoff 0.5s → 1s → 2s → 4s → 8s
-        policy = {"maxAttempts": 5, "retryableStatusCodes": ["UNAVAILABLE"],
-                  "backoffMultiplier": 2, "initialBackoff": "0.5s", "maxBackoff": "15s"}
+        policy = {
+            "maxAttempts": 5,
+            "retryableStatusCodes": ["UNAVAILABLE"],
+            "backoffMultiplier": 2,
+            "initialBackoff": "0.5s",
+            "maxBackoff": "15s",
+        }
         # gRPC keepalive: 60s ping, 20s timeout, permit without calls
-        option = {"grpc.keepalive_time_ms": 60000, "grpc.keepalive_timeout_ms": 20000,
-                  "grpc.keepalive_permit_without_calls": True,
-                  "grpc.max_send_message_length": 67108864,
-                  "grpc.max_receive_message_length": 134217728}
+        option = {
+            "grpc.keepalive_time_ms": 60000,
+            "grpc.keepalive_timeout_ms": 20000,
+            "grpc.keepalive_permit_without_calls": True,
+            "grpc.max_send_message_length": 67108864,
+            "grpc.max_receive_message_length": 134217728,
+        }
         # TLS: PEM → key+crt+ca, ssl_target_name_override from cert CN
         if certificate is not None:
             with open(certificate, "rb") as fd:
                 key, crt, ca = self._parse_certdata(fd.read())
-            creds = grpc.ssl_channel_credentials(root_certificates=ca,
-                        certificate_chain=crt, private_key=key)
+            creds = grpc.ssl_channel_credentials(root_certificates=ca, certificate_chain=crt, private_key=key)
             self._chan = grpc.secure_channel(self.server, creds, options)
         else:
             self._chan = grpc.insecure_channel(self.server, options)
@@ -150,15 +157,15 @@ class Device(object):
 ```python
 # Device proxies to stubs:
 d = Device("100.123.218.30:65000")
-d.click(x=500, y=1000)                              # UiAutomatorStub
-d.start_activity("com.android.settings")             # ApplicationStub
-d.take_screenshot()                                  # UiAutomatorStub
-d.execute_script("ls -la")                           # ShellStub
-d.device_info()                                      # StatusStub
-d.start_android_debug_bridge()                       # DebugStub (ADB)
+d.click(x=500, y=1000)  # UiAutomatorStub
+d.start_activity("com.android.settings")  # ApplicationStub
+d.take_screenshot()  # UiAutomatorStub
+d.execute_script("ls -la")  # ShellStub
+d.device_info()  # StatusStub
+d.start_android_debug_bridge()  # DebugStub (ADB)
 # Context manager for exclusive lock:
 with d:
-    d.swipe(100,500, 900,500)  # locked session
+    d.swipe(100, 500, 900, 500)  # locked session
 ```
 
 3. **MCP extension pattern** (`extensions/firerpa.py:36-50`):
@@ -168,9 +175,9 @@ class FireRpaMcpExtension(BaseMcpExtension):
     route = "/firerpa/mcp/"
     name = "firerpa"
     version = "1.0"
+
     @mcp("tool", description="Perform a click at arbitrary coordinates.")
-    def click(self, ctx, pointX: Annotated[int, "X coordinate"],
-                               pointY: Annotated[int, "Y coordinate"]):
+    def click(self, ctx, pointX: Annotated[int, "X coordinate"], pointY: Annotated[int, "Y coordinate"]):
         result = self.device.click(Point(x=pointX, y=pointY))
         return str(result).lower()
 ```
@@ -230,18 +237,21 @@ Proto: `ServerInfoResponse.privileged` (bool) — false = shell, true = root
 # Runs on FIRERPA (not Termux). Repairs stayturgid when primary channels are down.
 def repair_sshd():
     down = "/data/data/com.termux/files/usr/var/service/sshd/down"
-    if file_exists(down): delete_file(down)
+    if file_exists(down):
+        delete_file(down)
     if not is_sshd_alive():
         execute_script("/data/data/com.termux/files/usr/bin/sshd")
 
+
 def repair_shizuku():
-    if is_port_5555_alive(): return
+    if is_port_5555_alive():
+        return
     execute_script("am broadcast -a moe.shizuku.privileged.api.HEADLESS_START")
     sleep(3)
     if not is_port_5555_alive():
         start_app("moe.shizuku.privileged.api")
         sleep(2)
-        d(text="Start").click()   # UI automation via FIRERPA's selector API
+        d(text="Start").click()  # UI automation via FIRERPA's selector API
 ```
 
 ---
@@ -352,6 +362,7 @@ def repair_shizuku():
 # ~/stayturgid/device/termux/py/stayturgid_repair.py
 SSHD_SERVICE_DIR = PREFIX + "/var/service/sshd"
 
+
 def ensure_sshd_down_file():
     down = os.path.join(SSHD_SERVICE_DIR, "down")
     if not os.path.isfile(down):
@@ -382,8 +393,8 @@ def ensure_wireless_debugging():
 **stayturgid repair — shell profile path fix:**
 
 ```python
-MAC_PATH_KEYWORDS = ("/Users/", "/opt/homebrew/", "/Library/Apple/",
-                     "/System/Cryptexes/")
+MAC_PATH_KEYWORDS = ("/Users/", "/opt/homebrew/", "/Library/Apple/", "/System/Cryptexes/")
+
 
 def ensure_shell_profile_path():
     for rel in [".profile", ".bashrc", ".bash_profile"]:

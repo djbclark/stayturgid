@@ -200,10 +200,10 @@ Termux, but Mac leases are authoritative for multi-project arbitration.
 from pathlib import Path
 import json, time, os, uuid, socket
 
-ROOT = Path(os.environ.get("DEVICE_SCREEN_CONTROL_DIR")
-            or Path.home() / ".local/state/device-screen-control")
+ROOT = Path(os.environ.get("DEVICE_SCREEN_CONTROL_DIR") or Path.home() / ".local/state/device-screen-control")
 LEASES = ROOT / "leases"
 PROJECT = os.environ.get("DEVICE_SCREEN_CONTROL_PROJECT", "my-project")
+
 
 def active_foreign(device_ids):
     LEASES.mkdir(parents=True, exist_ok=True)

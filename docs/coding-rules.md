@@ -29,7 +29,7 @@ From `${OPS_ROOT:-~/ops}/stayturgid`:
 
 ```bash
 git fetch origin --prune
-git pull --ff-only origin master
+git pull --ff-only origin master  # source task worktree only; never a deploy checkout
 just health
 just firerpa-health
 python3 control/bin/screen_lease.py status

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import importlib.util
-import io
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -153,7 +152,7 @@ def test_tailscale_status_skips_disabled_profile(monkeypatch):
 
 def test_tailscale_runtime_probes_remote_control_plane(monkeypatch):
     commands = []
-    monkeypatch.setattr("builtins.open", lambda _path: io.StringIO("tun0: 0 0 0 0\n"))
+    monkeypatch.setattr(repair, "sh_adb", lambda _command: (0, "tun0\n"))
     monkeypatch.setattr(
         repair,
         "run",

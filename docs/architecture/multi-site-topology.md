@@ -381,8 +381,8 @@ Until Phase 1–2 ship, new operators still edit a forked `hosts.yml` in-tree:
 Every operator running this stack has **three** sibling checkouts under
 `${OPS_ROOT:-~/ops}/`, not two:
 
-| Repo                 | Visibility                         | Purpose                                                                                                    |
-| -------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Repo                              | Visibility                         | Purpose                                                                                                    |
+| --------------------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `${OPS_ROOT:-~/ops}/stayturgid`   | Always public                      | This repo — code, fleet conventions, durable rules, session history                                        |
 | `${OPS_ROOT:-~/ops}/site-<name>`  | Operator's choice (public/private) | One operator's live site overlay (§4 above)                                                                |
 | `${OPS_ROOT:-~/ops}/site-private` | **Always private**                 | Private/generic companion — default path, configurable with `STAYTURGID_PRIVATE_DIR`; never a site overlay |

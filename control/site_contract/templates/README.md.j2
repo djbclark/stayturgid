@@ -25,7 +25,7 @@ otherwise.
 
 The wrapper `justfile` locates the public product at
 `$STAYTURGID_ROOT`, or `$OPS_ROOT/stayturgid`, or
-`~/ops/stayturgid` in that order. The site and product must remain sibling
+`${OPS_ROOT:-~/ops}/stayturgid` in that order. The site and product must remain sibling
 checkouts; never nest this private repository inside the public product tree.
 
 Review `{{ inventory_path }}` and the two registries before running a deployment.
