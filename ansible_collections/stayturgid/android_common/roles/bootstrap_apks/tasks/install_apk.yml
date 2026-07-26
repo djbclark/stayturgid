@@ -62,6 +62,15 @@
           {{ not stayturgid_bootstrap_apks_force
              and _installed_version == _apk.version_name }}
 
+    - name: Report immutable APK comparison — {{ _apk.id }}
+      ansible.builtin.debug:
+        msg:
+          installed: "{{ _installed_version }}"
+          locked: "{{ _apk.version_name }}"
+          force: "{{ stayturgid_bootstrap_apks_force }}"
+          current: "{{ _version_current }}"
+        verbosity: 1
+
     - name: Install over ADB — {{ _apk.id }}
       stayturgid.android_common.android_apk:
         device: "{{ _bootstrap_adb }}"

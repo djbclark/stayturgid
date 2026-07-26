@@ -63,6 +63,15 @@ options:
         loading librish.so) broken until a fresh install.
     type: bool
     default: false
+  clean_on_incompatible:
+    description:
+      - If an in-place upgrade fails with an Android package/signature/version
+        incompatibility, uninstall the stale package and retry once.
+      - This makes an immutable version lock convergent from packages installed
+        through a different signing lineage. The fallback removes application
+        data and runs only after the ordinary preserving upgrade has failed.
+    type: bool
+    default: true
   installer:
     description: Installer package to spoof (C(adb install -i), e.g. com.android.vending).
     type: str
@@ -244,6 +253,20 @@ def resign_apk(module, apk_path):
         module.fail_json(msg="apksigner sign failed: %s" % err.strip())
 
 
+def incompatible_install_failure(reason):
+    """Return whether a clean retry can resolve an installed-package conflict."""
+
+    return any(
+        marker in reason
+        for marker in (
+            "INSTALL_FAILED_DUPLICATE_PACKAGE",
+            "INSTALL_FAILED_SHARED_USER_INCOMPATIBLE",
+            "INSTALL_FAILED_UPDATE_INCOMPATIBLE",
+            "INSTALL_FAILED_VERSION_DOWNGRADE",
+        )
+    )
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -258,6 +281,7 @@ def main():
             checksum=dict(type="str"),
             force=dict(type="bool", default=False),
             clean=dict(type="bool", default=False),
+            clean_on_incompatible=dict(type="bool", default=True),
             installer=dict(type="str"),
             extra_args=dict(type="list", elements="str", default=[]),
             install_user=dict(type="str", default="0"),
@@ -342,12 +366,38 @@ def main():
     cmd.append(apk)
 
     rc, out, err = module.run_command(cmd)
+    ok, reason = parse_install_result(out + "\n" + err)
+    if (
+        present
+        and not module.params["clean"]
+        and module.params["clean_on_incompatible"]
+        and (rc != 0 or not ok)
+        and incompatible_install_failure(reason)
+    ):
+        uninstall_cmd = [
+            timeout_bin,
+            str(module.params["install_timeout"]),
+            "adb",
+            "-s",
+            device,
+            "uninstall",
+            package,
+        ]
+        uninstall_rc, uninstall_out, uninstall_err = module.run_command(uninstall_cmd)
+        if uninstall_rc != 0 or "Success" not in normalize_adb_output(uninstall_out):
+            module.fail_json(
+                msg="adb install failed (%s); clean fallback uninstall failed: %s"
+                % (reason, normalize_adb_output(uninstall_out + "\n" + uninstall_err))
+            )
+        rc, out, err = module.run_command(cmd)
+        ok, retry_reason = parse_install_result(out + "\n" + err)
+        reason = "%s (clean fallback after %s)" % (retry_reason, reason)
+
     if rc == 124:
         module.fail_json(
             msg="adb install timed out after %ss (device may be showing an install confirmation dialog)"
             % module.params["install_timeout"]
         )
-    ok, reason = parse_install_result(out + "\n" + err)
     if rc != 0 or not ok:
         module.fail_json(msg="adb install failed: %s" % reason)
 

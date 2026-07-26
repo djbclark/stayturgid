@@ -41,6 +41,10 @@ Do not create working states that the same deploy cannot reproduce.
   1. comma-separated inventory sources treated as one path;
   2. product role search path missing from direct wrapper invocation;
   3. Samsung's error when uninstalling an already-absent debug package.
+- The p7a canary exposed a stale-package signing-lineage case. The APK module
+  now tries its data-preserving in-place upgrade first, then automatically
+  uninstalls and retries once for Android's package/signature/shared-user/
+  version incompatibility errors. Matching versions never enter this fallback.
 - The retry canary reached the native-agent milestones successfully:
   exact agent version, reconciled peer config, headless start, running
   `HostService`, and post-convergence verification.
