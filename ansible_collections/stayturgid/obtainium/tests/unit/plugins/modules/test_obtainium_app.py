@@ -72,6 +72,7 @@ def test_renders_catalog(tmp_path, mocker):
     assert settings["apkFilterRegEx"] == "arm64-v8a"
     assert settings["about"] == "watchdog"
     assert settings["fallbackToOlderReleases"] is True, "baseline preserved"
+    assert settings["exemptFromBackgroundUpdates"] is True
     assert data["settings"] == {"groupByCategory": True}
 
 
@@ -122,6 +123,22 @@ def test_import_ui_only_on_change(tmp_path, mocker):
     res, cmds, _w = run_module(mocker, args)  # unchanged now
     assert res["import_launched"] is False
     assert not any("am start" in c for c in cmds)
+
+
+def test_headless_import_reapplies_even_when_rendered_file_is_unchanged(tmp_path, mocker):
+    path = str(tmp_path / "catalog.json")
+    args = {
+        "apps": [AUTOJS],
+        "catalog_path": path,
+        "check_installed": False,
+        "headless_import": True,
+    }
+    res, cmds, _w = run_module(mocker, args)
+    assert res["import_launched"] is True
+    assert any("am start" in c and "confirm=true&headless=true" in c for c in cmds)
+    res, cmds, _w = run_module(mocker, args)
+    assert res["import_launched"] is True
+    assert any("am start" in c and "confirm=true&headless=true" in c for c in cmds)
 
 
 def test_installed_report_and_warning(tmp_path, mocker):

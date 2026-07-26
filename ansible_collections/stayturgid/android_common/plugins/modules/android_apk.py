@@ -43,6 +43,11 @@ options:
   version_name:
     description: Expected versionName; install only when the device differs.
     type: str
+  checksum:
+    description:
+      - Expected SHA-256 digest of the APK before any optional resigning.
+      - Accepts either the bare hexadecimal digest or C(sha256:<digest>).
+    type: str
   force:
     description: Install even when the package is already present.
     type: bool
@@ -134,6 +139,7 @@ reason:
   type: str
 """
 
+import hashlib
 import os
 import tempfile
 
@@ -189,6 +195,19 @@ def download_gh_release(module, repo, pattern, tag):
     return os.path.join(destdir, apks[0])
 
 
+def verify_sha256(module, apk_path, expected):
+    if not expected:
+        return
+    wanted = expected.removeprefix("sha256:").lower()
+    digest = hashlib.sha256()
+    with open(apk_path, "rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    actual = digest.hexdigest()
+    if actual != wanted:
+        module.fail_json(msg="APK checksum mismatch: expected sha256:%s, got sha256:%s" % (wanted, actual))
+
+
 def resign_apk(module, apk_path):
     apksigner = module.params.get("apksigner_bin")
     if not apksigner:
@@ -236,6 +255,7 @@ def main():
             gh_pattern=dict(type="str"),
             gh_tag=dict(type="str"),
             version_name=dict(type="str"),
+            checksum=dict(type="str"),
             force=dict(type="bool", default=False),
             clean=dict(type="bool", default=False),
             installer=dict(type="str"),
@@ -287,6 +307,8 @@ def main():
             module.params["gh_pattern"],
             module.params["gh_tag"],
         )
+
+    verify_sha256(module, apk, module.params["checksum"])
 
     if module.params["resign"]:
         resign_apk(module, apk)

@@ -16,7 +16,10 @@
 #   - id: moe.shizuku.privileged.api
 #     source: apk
 #     gh_repo: thedjchi/Shizuku
+#     gh_tag: v13.7.0
 #     gh_pattern: "*.apk"
+#     version_name: 13.7.0
+#     checksum: "sha256:..."
 
 stayturgid_ensure_apps: []
 stayturgid_ensure_apps_device: "{{ target_device | default(inventory_hostname) }}"

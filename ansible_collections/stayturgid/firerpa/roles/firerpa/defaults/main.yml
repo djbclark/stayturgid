@@ -6,6 +6,7 @@ firerpa_version: "10.0"
 firerpa_port: 65000
 firerpa_install_dir: /data/local/tmp/firerpa
 firerpa_server_archive_arm64: "lamda-server-arm64-v8a.tar.gz"
+firerpa_server_archive_sha256_arm64: "3c78b109b557cdb1dce71d1a03cdf4012aad189f76feaa04ea652d6c8a28b531"
 firerpa_server_archive_url_arm64: >-
   https://github.com/djbclark/lamda/releases/download/v{{ firerpa_version }}-binaries/{{ firerpa_server_archive_arm64 }}
 firerpa_certificate_path: >-

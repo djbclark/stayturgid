@@ -42,12 +42,24 @@ class AnsibleContext:
     inventory: Path
     collections_path: Path
     source: str
+    inventories: tuple[Path, ...] = ()
 
     @property
     def site_dir(self) -> Path:
         """Directory containing the selected site Ansible configuration."""
 
         return self.config.parent
+
+    def inventory_args(self) -> list[str]:
+        """Return Ansible CLI arguments preserving all configured sources."""
+
+        return [arg for path in self.inventory_paths for arg in ("-i", str(path))]
+
+    @property
+    def inventory_paths(self) -> tuple[Path, ...]:
+        """Return every inventory source, including legacy single-source contexts."""
+
+        return self.inventories or (self.inventory,)
 
 
 def _expand_path(value: str, *, base: Path) -> Path:
@@ -118,7 +130,11 @@ def resolve_ansible_context(
     inventory_value = _config_value(config, "inventory")
     if not inventory_value:
         raise AnsibleConfigError(f"Selected Ansible config has no [defaults] inventory: {config}")
-    inventory = _expand_path(inventory_value, base=config.parent).resolve()
+    inventory_values = [item.strip() for item in inventory_value.split(",") if item.strip()]
+    inventories = tuple(_expand_path(item, base=config.parent).resolve() for item in inventory_values)
+    # Compatibility for callers that need the site-owned host inventory rather
+    # than the full precedence stack: Ansible applies later sources last.
+    inventory = inventories[-1]
 
     collections_value = _config_value(config, "collections_path")
     if collections_value:
@@ -130,6 +146,7 @@ def resolve_ansible_context(
     context = AnsibleContext(
         config=config,
         inventory=inventory,
+        inventories=inventories,
         collections_path=collections_path,
         source=source,
     )
@@ -152,6 +169,22 @@ def resolved_env(repo_root: Path, environ: Mapping[str, str] | None = None) -> d
     context = resolve_ansible_context(repo_root, env)
     env["ANSIBLE_CONFIG"] = str(context.config)
     env["STAYTURGID_ROOT"] = str(repo_root)
+    # Site configs intentionally contain no checkout-specific product paths.
+    # Make every product entry point self-contained instead of relying on a
+    # particular site justfile to have exported these search paths first.
+    product_roles = str((repo_root / "ansible" / "roles").resolve())
+    product_collections = (
+        str((repo_root / ".ansible" / "collections").resolve()),
+        str(repo_root.resolve()),
+    )
+    configured_roles = env.get("ANSIBLE_ROLES_PATH", "")
+    configured_collections = env.get("ANSIBLE_COLLECTIONS_PATH", "")
+    env["ANSIBLE_ROLES_PATH"] = os.pathsep.join(
+        dict.fromkeys(path for path in (product_roles, *configured_roles.split(os.pathsep)) if path)
+    )
+    env["ANSIBLE_COLLECTIONS_PATH"] = os.pathsep.join(
+        dict.fromkeys(path for path in (*product_collections, *configured_collections.split(os.pathsep)) if path)
+    )
     return env
 
 
@@ -165,7 +198,7 @@ def require_limit_hosts(context: AnsibleContext, limit: str) -> list[str]:
 
     require_inventory(context)
     result = subprocess.run(
-        ["ansible", "--list-hosts", "-i", str(context.inventory), limit or "all"],
+        ["ansible", "--list-hosts", *context.inventory_args(), limit or "all"],
         capture_output=True,
         text=True,
         check=False,
@@ -181,7 +214,8 @@ def require_limit_hosts(context: AnsibleContext, limit: str) -> list[str]:
     if not hosts:
         raise AnsibleConfigError(
             f"Limit '{limit}' matches zero hosts in the inventory selected by "
-            f"{context.source} config {context.config} (inventory {context.inventory}). "
+            f"{context.source} config {context.config} "
+            f"(inventories {', '.join(str(path) for path in context.inventory_paths)}). "
             "Check the host alias or point ANSIBLE_CONFIG/STAYTURGID_SITE_DIR at the "
             "intended site overlay."
         )
@@ -191,10 +225,11 @@ def require_limit_hosts(context: AnsibleContext, limit: str) -> list[str]:
 def require_inventory(context: AnsibleContext) -> None:
     """Fail before a real invocation when the selected inventory is absent."""
 
-    if context.inventory.exists():
+    missing = [path for path in context.inventory_paths if not path.exists()]
+    if not missing:
         return
     raise AnsibleConfigError(
         f"Selected {context.source} config {context.config} refers to missing inventory "
-        f"{context.inventory}. Live deploys require a site overlay; set ANSIBLE_CONFIG "
+        f"{', '.join(str(path) for path in missing)}. Live deploys require a site overlay; set ANSIBLE_CONFIG "
         "or STAYTURGID_SITE_DIR."
     )

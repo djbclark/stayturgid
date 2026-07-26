@@ -15,8 +15,9 @@ Usage:
   ./provision_peer.py --start <peer> <target:5555>     # provision then trigger
   ./provision_peer.py --show  <peer>                   # print current peer.json
 
-Default package is the debug build (org.stayturgid.agent.debug); pass
-STAYTURGID_AGENT_PKG=org.stayturgid.agent for release.
+Default package is the fleet release build (org.stayturgid.agent). This helper
+writes the same external peer.json that normal Ansible deploys reconcile;
+durable assignments still belong in site inventory.
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "control" / "lib"))
 import adb_cli as adb  # noqa: E402
 
-PKG = os.environ.get("STAYTURGID_AGENT_PKG", "org.stayturgid.agent.debug")
+PKG = os.environ.get("STAYTURGID_AGENT_PKG", "org.stayturgid.agent")
 PEER_START_RECEIVER = "org.stayturgid.agent.PeerStartReceiver"
 PEER_START_ACTION = "org.stayturgid.agent.action.PEER_START_NOW"
 SHIZUKU_PKG = os.environ.get("STAYTURGID_SHIZUKU_PKG", "moe.shizuku.privileged.api")
@@ -40,7 +41,7 @@ FILE_NAME = "peer.json"
 
 
 def _resolve_pkg(serial: str) -> str | None:
-    for pkg in (PKG, "org.stayturgid.agent.debug", "org.stayturgid.agent"):
+    for pkg in (PKG, "org.stayturgid.agent", "org.stayturgid.agent.debug"):
         if adb.package_installed(serial, pkg):
             return pkg
     return None

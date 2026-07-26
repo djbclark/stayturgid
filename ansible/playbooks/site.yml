@@ -1,16 +1,16 @@
 ---
-# Full stayturgid site deploy — bootstrap, fleet state, post-UI, validate.
+# Full stayturgid convergence — artifact bootstrap, fleet state, post-UI, validate.
 #
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml
 #   ansible-playbook ansible/playbooks/site.yml --limit oneui-device
 #   CHECK=1 ansible-playbook ansible/playbooks/site.yml --check --diff
-- name: Import bootstrap APK verify (fail early if missing)
-  import_playbook: fleet/verify-bootstrap-apks.yml
-  tags: [bootstrap-apks, verify-bootstrap-apks]
-
 - name: Import bootstrap APK ensure
   import_playbook: fleet/ensure-bootstrap-apks.yml
   tags: [bootstrap-apks]
+
+- name: Import bootstrap APK verify
+  import_playbook: fleet/verify-bootstrap-apks.yml
+  tags: [bootstrap-apks, verify-bootstrap-apks]
 
 - name: Import Shizuku start
   import_playbook: fleet/ensure-shizuku.yml

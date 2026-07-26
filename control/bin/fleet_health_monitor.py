@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-# @heals: A11Y-AUTOJS6 AGENT-FRESH REPAIRLOG-FRESH ET-CONFIG HD8-DOZE-WHITELIST HD8-GSF-PINNED HD8-GMS-PINNED
+# @heals: A11Y-AUTOJS6 AGENT-FRESH NATIVE-AGENT-RUNNING REPAIRLOG-FRESH ET-CONFIG
+# @heals: HD8-DOZE-WHITELIST HD8-GSF-PINNED HD8-GMS-PINNED
 """Dedicated Mac fleet soft-health monitor (launchd every 5 min).
 
 Scrapes watchdog/repair/a11y/sshd/bootloop/shell5555 when a device is

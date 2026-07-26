@@ -43,3 +43,9 @@ def test_same_apk_filters():
     role = {a["id"]: (a.get("settings") or {}).get("apkFilterRegEx", "") for a in load_role_specs()}
     fallback = {a["id"]: json.loads(a["additionalSettings"]).get("apkFilterRegEx", "") for a in load_fallback_apps()}
     assert role == fallback
+
+
+def test_background_updates_are_exempt_for_version_locked_apps():
+    for app in load_fallback_apps():
+        settings = json.loads(app["additionalSettings"])
+        assert settings["exemptFromBackgroundUpdates"] is True, app["id"]

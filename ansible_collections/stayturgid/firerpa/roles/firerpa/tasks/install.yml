@@ -32,6 +32,7 @@
     url: "{{ firerpa_server_archive_url_arm64 }}"
     dest: "{{ _firerpa_tmp.path }}/{{ firerpa_server_archive_arm64 }}"
     mode: "0644"
+    checksum: "sha256:{{ firerpa_server_archive_sha256_arm64 }}"
   delegate_to: localhost
   register: _firerpa_dl
 

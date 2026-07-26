@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+from hashlib import sha256
 
 import pytest
 
@@ -83,6 +84,40 @@ def test_android_apk_installs(mocker, tmp_path):
     assert out["reason"] == "Success"
 
 
+def test_android_apk_accepts_locked_checksum(mocker, tmp_path):
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    out = run_module(
+        mocker,
+        dict(
+            device="dev",
+            package="com.example.app",
+            apk_path=str(apk),
+            checksum="sha256:" + sha256(b"PK").hexdigest(),
+            connect=False,
+        ),
+    )
+    assert out.get("failed") is not True, out
+    assert out["changed"] is True
+
+
+def test_android_apk_rejects_wrong_checksum(mocker, tmp_path):
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    out = run_module(
+        mocker,
+        dict(
+            device="dev",
+            package="com.example.app",
+            apk_path=str(apk),
+            checksum="0" * 64,
+            connect=False,
+        ),
+    )
+    assert out.get("failed") is True
+    assert "checksum mismatch" in out["msg"]
+
+
 def test_android_apk_install_wrapped_in_timeout(mocker, tmp_path):
     apk = tmp_path / "app.apk"
     apk.write_bytes(b"PK")
@@ -152,6 +187,27 @@ def test_android_apk_skips_when_present(mocker, tmp_path):
         ],
     )
     assert out["changed"] is False
+
+
+def test_android_apk_reinstalls_when_locked_version_is_stale(mocker, tmp_path):
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    out = run_module(
+        mocker,
+        dict(
+            device="dev",
+            package="com.example.app",
+            apk_path=str(apk),
+            version_name="2.0.0",
+            connect=False,
+        ),
+        cmd_results=[
+            ("pm list packages", (0, "package:com.example.app\n", "")),
+            ("dumpsys package", (0, "versionName=1.0.0\n", "")),
+        ],
+    )
+    assert out["changed"] is True
+    assert out["reason"] == "Success"
 
 
 def _capture_commands(mocker, args):

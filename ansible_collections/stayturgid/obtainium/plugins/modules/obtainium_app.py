@@ -45,6 +45,13 @@ options:
         whatever is on screen; the user confirms the import in-app).
     type: bool
     default: false
+  headless_import:
+    description:
+      - Apply a changed catalog through the operator fork's confirmed headless
+        deep-link importer.
+      - Mutually exclusive with C(import_ui).
+    type: bool
+    default: false
   check_installed:
     description:
       - Report per-app installed state via the localhost:5555 privileged
@@ -85,6 +92,7 @@ import_launched:
 
 import json
 import os
+import urllib.parse
 
 from ansible.module_utils.basic import AnsibleModule
 
@@ -115,7 +123,9 @@ BASELINE_SETTINGS = {
     "appAuthor": "",
     "shizukuPretendToBeGooglePlay": False,
     "allowInsecure": False,
-    "exemptFromBackgroundUpdates": False,
+    # Versioned ops releases own installed APK versions. Obtainium remains a
+    # discovery/notification surface and must not silently advance them.
+    "exemptFromBackgroundUpdates": True,
     "skipUpdateNotifications": False,
     "about": "",
     "refreshBeforeDownload": False,
@@ -184,8 +194,10 @@ def main():
             catalog_path=dict(type="str", default="/sdcard/Download/stayturgid-obtainium-apps.json"),
             extra_settings=dict(type="dict", default={"groupByCategory": True}),
             import_ui=dict(type="bool", default=False),
+            headless_import=dict(type="bool", default=False),
             check_installed=dict(type="bool", default=True),
         ),
+        mutually_exclusive=[["import_ui", "headless_import"]],
         supports_check_mode=True,
     )
 
@@ -241,6 +253,29 @@ def main():
                 ]
             )
             result["import_launched"] = rc == 0
+
+    # Reapply headlessly on every normal deploy. The import is idempotent, and
+    # tying it only to the rendered-file change would make a transient failed
+    # import permanent: the next run would see the already-written file and
+    # skip the application step that actually owns Obtainium's live state.
+    if module.params["headless_import"] and not module.check_mode:
+        encoded = urllib.parse.quote(json.dumps(catalog["apps"], separators=(",", ":")))
+        uri = "obtainium://apps/%s?confirm=true&headless=true" % encoded
+        rc, _out, _err = module.run_command(
+            [
+                "am",
+                "start",
+                "-f",
+                "0x10200000",
+                "-a",
+                "android.intent.action.VIEW",
+                "-d",
+                uri,
+            ]
+        )
+        result["import_launched"] = rc == 0
+        if rc != 0:
+            module.fail_json(msg="Obtainium headless catalog import failed")
 
     module.exit_json(**result)
 

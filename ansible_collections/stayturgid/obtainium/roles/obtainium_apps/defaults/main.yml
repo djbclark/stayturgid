@@ -21,7 +21,7 @@ stayturgid_obtainium_apps:
     settings:
       includePrereleases: true
       fallbackToOlderReleases: true
-      apkFilterRegEx: stayturgid-agent.*universal
+      apkFilterRegEx: app-release\.apk
       autoApkFilterByArch: false
       about: stayturgid native agent
   - id: moe.shizuku.privileged.api
