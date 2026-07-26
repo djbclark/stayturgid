@@ -383,6 +383,40 @@ def _shell_quote(value: object) -> str:
     return shlex.quote(str(value))
 
 
+def _make_product_file_filter(product_root: str | None):
+    """Jinja filter emitting a product file verbatim, so a thin sync template
+    can re-publish a product-owned source (e.g. taxonomy group_vars) into the
+    site's generated tree without duplicating its content into the template.
+    The product file stays the single source of truth; the site copy is
+    generated + drift-checked like any other fragment. Path is confined to the
+    product root."""
+
+    def _resolve(base: Path, rel_path: str) -> Path:
+        target = (base / rel_path).resolve()
+        try:
+            target.relative_to(base.resolve())
+        except ValueError as exc:
+            raise SiteSyncError(f"product_file path escapes product root: {rel_path!r}") from exc
+        return target
+
+    def _product_file(rel_path: str) -> str:
+        # Prefer the product root being synced; fall back to the real product
+        # checkout that owns site-sync (REPO_ROOT). The fallback covers docs
+        # mode, which renders against a synthetic product_root (/srv/...) for
+        # path-determinism yet still needs the real source content.
+        candidates: list[Path] = []
+        if product_root:
+            candidates.append(_resolve(Path(product_root), rel_path))
+        candidates.append(_resolve(REPO_ROOT, rel_path))
+        for target in candidates:
+            if target.is_file():
+                return target.read_text(encoding="utf-8")
+        looked = ", ".join(str(c) for c in candidates)
+        raise SiteSyncError(f"product_file source missing: {rel_path!r} (looked in {looked})")
+
+    return _product_file
+
+
 def _render_template(template_path: Path, context: dict[str, Any]) -> bytes:
     environment = Environment(  # nosemgrep
         undefined=StrictUndefined,
@@ -391,6 +425,7 @@ def _render_template(template_path: Path, context: dict[str, Any]) -> bytes:
     )
     environment.filters["json_string_escape"] = _json_string_escape
     environment.filters["shell_quote"] = _shell_quote
+    environment.filters["product_file"] = _make_product_file_filter(context.get("product_root"))
     text = template_path.read_text(encoding="utf-8")
     try:
         rendered = environment.from_string(text).render(**context)

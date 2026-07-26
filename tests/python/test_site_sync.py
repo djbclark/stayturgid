@@ -35,6 +35,17 @@ MANAGED_PATHS = {
     "generated/stayturgid/fragments/grafana/dashboards/json/stayturgid-fleet.json",
     "generated/stayturgid/fragments/grafana/alerting/rules.yaml",
     "generated/stayturgid/fragments/olivetin/stayturgid_actions.yaml",
+    "generated/stayturgid/inventory/placeholder_inventory.yml",
+    "generated/stayturgid/inventory/group_vars/all.yml",
+    "generated/stayturgid/inventory/group_vars/android_11.yml",
+    "generated/stayturgid/inventory/group_vars/android_16.yml",
+    "generated/stayturgid/inventory/group_vars/model_galaxy_s24.yml",
+    "generated/stayturgid/inventory/group_vars/model_kindle_hd8.yml",
+    "generated/stayturgid/inventory/group_vars/model_pixel_7a.yml",
+    "generated/stayturgid/inventory/group_vars/oneui_7.yml",
+    "generated/stayturgid/inventory/group_vars/vendor_amazon.yml",
+    "generated/stayturgid/inventory/group_vars/vendor_google.yml",
+    "generated/stayturgid/inventory/group_vars/vendor_samsung.yml",
 }
 LOCKFILE = "generated/stayturgid/.lockfile.yml"
 
@@ -682,3 +693,31 @@ def test_product_overwrite_when_lock_matches(tmp_path: Path) -> None:
     lock = yaml.safe_load((dest / LOCKFILE).read_text(encoding="utf-8"))
     assert lock["product_version"] == "2.0.0"
     assert lock["product_commit"] == "cccccccccccccccccccccccccccccccccccccccc"
+
+
+def test_product_file_filter_emits_product_source_verbatim(tmp_path: Path) -> None:
+    """A sync template using the product_file filter re-publishes a product
+    file verbatim (single source of truth stays in the product)."""
+    product = tmp_path / "product"
+    (product / "sub").mkdir(parents=True)
+    src = product / "sub" / "data.yml"
+    src.write_text("---\nkey: value  # product-owned\n", encoding="utf-8")
+    tpl = tmp_path / "t.j2"
+    tpl.write_text("# header\n{{ 'sub/data.yml' | product_file }}", encoding="utf-8")
+
+    out = ss._render_template(tpl, {"product_root": str(product)}).decode("utf-8")
+    assert out == "# header\n---\nkey: value  # product-owned\n"
+
+
+def test_product_file_filter_rejects_path_escape(tmp_path: Path) -> None:
+    product = tmp_path / "product"
+    product.mkdir()
+    (tmp_path / "secret.yml").write_text("nope\n", encoding="utf-8")
+    tpl = tmp_path / "t.j2"
+    tpl.write_text("{{ '../secret.yml' | product_file }}", encoding="utf-8")
+    try:
+        ss._render_template(tpl, {"product_root": str(product)})
+    except ss.SiteSyncError as exc:
+        assert "escapes product root" in str(exc)
+    else:
+        raise AssertionError("expected SiteSyncError for path escape")

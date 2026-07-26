@@ -28,10 +28,12 @@ handle_path /opencode/* {
 	reverse_proxy 127.0.0.1:{{ ports['opencode-web'] }}
 }
 
-# VLM server (llama.cpp UI-TARS)
+{% if 'ui-tars-vlm' in ports %}
+# VLM server (llama.cpp UI-TARS) — optional; omitted on sites that don't run it
 handle_path /vlm/* {
 	reverse_proxy 127.0.0.1:{{ ports['ui-tars-vlm'] }}
 }
+{% endif %}
 
 {% if 'ollama-llm-api' in ports %}
 # Ollama local LLM API (site-owned, optional — omitted on sites without it)
