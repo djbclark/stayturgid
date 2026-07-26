@@ -45,3 +45,15 @@ def _host_env_guard() -> Iterator[None]:
     _restore_host_env()
     yield
     _restore_host_env()
+
+
+@pytest.fixture(autouse=True)
+def _fleet_lock_path(tmp_path, monkeypatch) -> None:
+    """Point the shared fleet-deploy flock at a per-test tmp path.
+
+    Without this, every test touching deploy_fleet.py/termux_pkg_nightly.py
+    would flock the developer's real ~/.config/stayturgid/locks/fleet-deploy.lock,
+    risking a spurious FleetLockHeld if a real deploy happens to be running,
+    and leaving test runs non-hermetic/non-parallel-safe.
+    """
+    monkeypatch.setenv("STAYTURGID_FLEET_LOCK_PATH", str(tmp_path / "fleet-deploy.lock"))

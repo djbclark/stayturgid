@@ -40,6 +40,7 @@ from control.lib.ansible_context import (
     resolve_ansible_context,
     resolved_env,
 )
+from control.lib.fleet_deploy_lock import FleetLockHeld, fleet_lock
 
 SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "site.yml"
 MAC_SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "control_node" / "site.yml"
@@ -227,23 +228,25 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0) -> 
     # preflight.yml owns SSH bootstrap; skip the redundant bootstrap.yml pass in
     # both normal deploys and dry runs.
     skip_bootstrap = "bootstrap"
-    rc = run_playbook(
-        SITE_PLAYBOOK,
-        limit=targets,
-        check=check,
-        tags=scope.ansible_tags,
-        skip_tags=skip_bootstrap,
-        verbose=verbose,
-    )
-    # A dry-run must not require local administrator credentials. The control-node
-    # agent role includes privileged /etc configuration, and its normal deploy is
-    # independent of the device host check below.
-    if check:
-        return rc
-    # Always refresh Mac control node on real deploys: deploy_fleet always passes a
-    # device --limit, so site.yml's control_node import never selects localhost.
-    mac_rc = deploy_mac(check=False, verbose=verbose)
-    return rc if rc != 0 else mac_rc
+    label = "deploy_fleet.py %s" % (",".join(targets) or "(whole fleet)")
+    with fleet_lock(label):
+        rc = run_playbook(
+            SITE_PLAYBOOK,
+            limit=targets,
+            check=check,
+            tags=scope.ansible_tags,
+            skip_tags=skip_bootstrap,
+            verbose=verbose,
+        )
+        # A dry-run must not require local administrator credentials. The control-node
+        # agent role includes privileged /etc configuration, and its normal deploy is
+        # independent of the device host check below.
+        if check:
+            return rc
+        # Always refresh Mac control node on real deploys: deploy_fleet always passes a
+        # device --limit, so site.yml's control_node import never selects localhost.
+        mac_rc = deploy_mac(check=False, verbose=verbose)
+        return rc if rc != 0 else mac_rc
 
 
 def print_footer(rc: int, scope: Scope) -> None:
@@ -284,7 +287,11 @@ def main(argv: list[str] | None = None) -> int:
         print("ERROR: fdroidcl not found (brew install fdroidcl)", file=sys.stderr)
         return 1
 
-    rc = deploy(scope, args.hosts, check=check_mode(args.check), verbose=verbose)
+    try:
+        rc = deploy(scope, args.hosts, check=check_mode(args.check), verbose=verbose)
+    except FleetLockHeld as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 3
     print_footer(rc, scope)
     return rc
 

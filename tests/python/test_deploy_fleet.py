@@ -4,6 +4,8 @@ import os
 import sys
 from typing import Any
 
+import pytest
+
 sys.path.insert(
     0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "bin")
 )
@@ -171,6 +173,26 @@ def test_deploy_check_skips_bootstrap(monkeypatch):
     assert calls == [
         ("playbook", "fdroid", True, "bootstrap"),
     ]
+
+
+def test_deploy_blocks_concurrent_run(monkeypatch):
+    """A deploy already holding the fleet lock must block a second one (#58)."""
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls)
+
+    with df.fleet_lock("deploy_fleet.py s24"):
+        with pytest.raises(df.FleetLockHeld):
+            df.deploy(df.Scope.FULL, ["oneui-device"], check=False)
+    assert calls == []
+
+
+def test_main_reports_lock_conflict_with_exit_code_3(monkeypatch):
+    def raise_held(*_args, **_kwargs):
+        raise df.FleetLockHeld("another fleet-touching script is already running: x (pid 1, started now)")
+
+    monkeypatch.setattr(df, "deploy", raise_held)
+    rc = df.main(["oneui-device"])
+    assert rc == 3
 
 
 def test_load_play_env_merges_missing_keys(tmp_path, monkeypatch):

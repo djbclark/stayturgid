@@ -28,6 +28,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from control.lib.ansible_context import AnsibleConfigError, require_inventory, resolve_ansible_context
+from control.lib.fleet_deploy_lock import FleetLockHeld, fleet_lock
 
 PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "fleet" / "termux-pkg-upgrade.yml"
 LOG_DIR = Path.home() / ".config" / "stayturgid" / "logs"
@@ -104,15 +105,20 @@ def main(argv: list[str] | None = None) -> int:
 
     log("start: config=%s (%s) inventory=%s" % (context.config, context.source, context.inventory))
     log("start: %s" % " ".join(cmd))
+    label = "termux_pkg_nightly.py %s" % (args.limit or "(whole fleet)")
     try:
-        r = subprocess.run(
-            cmd,
-            cwd=str(REPO_ROOT),
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=int(os.environ.get("STAYTURGID_TERMUX_PKG_TIMEOUT", "3600")),
-        )
+        with fleet_lock(label):
+            r = subprocess.run(
+                cmd,
+                cwd=str(REPO_ROOT),
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=int(os.environ.get("STAYTURGID_TERMUX_PKG_TIMEOUT", "3600")),
+            )
+    except FleetLockHeld as exc:
+        log("ERROR: %s" % exc)
+        return 3
     except FileNotFoundError:
         log("ERROR: ansible-playbook not found on PATH=%s" % env.get("PATH"))
         return 2
