@@ -192,7 +192,8 @@ def audit(host: str, out: Path) -> list[str]:
     return issues
 ```
 
-Stayturgid’s fleet job: `control/bin/gui_audit.py` (3:14am launchd, quiet presence).
+This is a manual, operator-initiated flow. There is no scheduled fleet GUI
+audit.
 
 ---
 
@@ -252,13 +253,9 @@ adb shell settings get secure enabled_accessibility_services
 
 ## Stayturgid wiring (this repo)
 
-| Piece                               | Role                                                               |
-| ----------------------------------- | ------------------------------------------------------------------ |
-| `control/lib/screen_control.py`     | Consent + inversion + gated `input`                                |
-| `control/lib/ui_driver.py`          | Handsets primary                                                   |
-| `control/bin/gui_audit.py`          | Neo/Aurora GUI audit — **parked**; manual only                     |
-| `control/bin/check_fleet_health.py` | Session triage (`make health`); fleet-health + access-monitor only |
-| `com.stayturgid.gui-audit`          | launchd **parked** (not installed while app stores disabled)       |
-
-Logs: `~/.config/stayturgid/logs/gui-audit.log`.
-Screenshots: `~/.config/stayturgid/artifacts/gui-audit/<date>/<host>/`.
+| Piece                               | Role                                                                |
+| ----------------------------------- | ------------------------------------------------------------------- |
+| `control/lib/screen_control.py`     | Consent + inversion + gated `input`                                 |
+| `control/lib/ui_driver.py`          | Handsets primary                                                    |
+| `control/bin/check_fleet_health.py` | Session triage (`just health`); fleet-health + access-monitor only  |
+| Manual sample above                 | Operator-initiated screenshot/assert flow; no scheduled launchd job |

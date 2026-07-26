@@ -63,4 +63,4 @@ if [ "${fail:-0}" = 1 ]; then
   rm -f "$out"
   exit 1
 fi
-echo "wrote $out — next: just --list | just test | just verify"
+echo "wrote $out — next: run 'just --list', then 'just test' and 'just verify'"

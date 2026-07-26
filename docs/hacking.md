@@ -361,14 +361,19 @@ import sys
 
 sys.path.insert(0, "/Users/operator/.local/share/uv/tools/uiautomator2/lib/python3.14/site-packages")
 import uiautomator2 as u2
+from control.lib.screen_control import ScreenControlSession
 
-d = u2.connect("EXAMPLE-SERIAL-STOCK")  # USB serial, or '<tailscale-ip>:5555' for wireless
-print(d.info)
+host = "stock-android-device"
+with ScreenControlSession(host, label=host):
+    d = u2.connect("EXAMPLE-SERIAL-STOCK")  # USB serial, or '<tailscale-ip>:5555' for wireless
+    print(d.info)
+    # Keep every UI read and input inside this held session.
 ```
 
 Common operations:
 
 ```python
+# Run only inside the active ScreenControlSession above.
 d(text="OK").click()  # click by visible text
 d(resourceId="com.foo:id/bar").exists  # check if element exists
 d.screenshot("/tmp/screen.png")  # take screenshot
@@ -569,8 +574,12 @@ import sys
 
 sys.path.insert(0, "/Users/operator/.local/share/uv/tools/uiautomator2/lib/python3.14/site-packages")
 import uiautomator2 as u2
+from control.lib.screen_control import ScreenControlSession
 
-d = u2.connect("EXAMPLE-SERIAL-STOCK")
+host = "stock-android-device"
+with ScreenControlSession(host, label=host):
+    d = u2.connect("EXAMPLE-SERIAL-STOCK")
+    # Perform every UI operation before leaving this block.
 ```
 
 Run the HTTP server on the device first if it's not running:

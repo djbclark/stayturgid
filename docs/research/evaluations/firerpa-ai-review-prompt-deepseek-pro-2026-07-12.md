@@ -131,7 +131,7 @@ class Device(object):
             "maxBackoff": "15s",
         }
         # gRPC keepalive: 60s ping, 20s timeout, permit without calls
-        option = {
+        options = {
             "grpc.keepalive_time_ms": 60000,
             "grpc.keepalive_timeout_ms": 20000,
             "grpc.keepalive_permit_without_calls": True,
@@ -249,9 +249,12 @@ def repair_shizuku():
     execute_script("am broadcast -a moe.shizuku.privileged.api.HEADLESS_START")
     sleep(3)
     if not is_port_5555_alive():
-        start_app("moe.shizuku.privileged.api")
-        sleep(2)
-        d(text="Start").click()  # UI automation via FIRERPA's selector API
+        # UI fallback is Mac-mediated so the mandatory cross-project lease,
+        # consent, inversion, and fail-closed input gate remain authoritative.
+        with ScreenControlSession("target-device", label="firerpa-repair"):
+            start_app("moe.shizuku.privileged.api")
+            sleep(2)
+            d(text="Start").click()
 ```
 
 ---

@@ -39,7 +39,7 @@ version; it is not the coordinated ops suite version.
 ## Verification
 
 - `just check`: pass.
-- `just test`: pass — 21 Tier-A checks, 133 shell/Node unit checks, 565 Python
+- `just test`: pass — 21 Tier-A checks, 133 shell/Node unit checks, 566 Python
   tests with one documented skip, and 109 Ansible collection tests.
 - `just lint-offline`: pass, including mypy and 855 offline link checks.
 - `just kt-check`: pass — Spotless, detekt, and debug/release unit tests.
