@@ -72,7 +72,7 @@ product_defaults:
       owner: stayturgid
       service: landing
       status: default-claim
-      source: control/landing/services.json#Network Landing (localhost)
+      source: ansible/roles/serverapp_landing/defaults/main.yml#serverapp_landing_port
     - port: 8428
       bind: 127.0.0.1
       owner: stayturgid

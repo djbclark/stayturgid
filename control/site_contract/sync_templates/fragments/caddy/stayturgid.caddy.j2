@@ -28,15 +28,24 @@ handle_path /opencode/* {
 	reverse_proxy 127.0.0.1:{{ ports['opencode-web'] }}
 }
 
-# Ollama local LLM API
+# VLM server (llama.cpp UI-TARS)
+handle_path /vlm/* {
+	reverse_proxy 127.0.0.1:{{ ports['ui-tars-vlm'] }}
+}
+
+{% if 'ollama-llm-api' in ports %}
+# Ollama local LLM API (site-owned, optional — omitted on sites without it)
 handle_path /ollama/* {
 	reverse_proxy 127.0.0.1:{{ ports['ollama-llm-api'] }}
 }
+{% endif %}
 
-# LiteLLM Proxy
+{% if 'litellm-proxy' in ports %}
+# LiteLLM Proxy (site-owned, optional — omitted on sites without it)
 handle_path /litellm/* {
 	reverse_proxy 127.0.0.1:{{ ports['litellm-proxy'] }}
 }
+{% endif %}
 
 # Fleet stats (same backend as dashboard)
 handle_path /stats/* {

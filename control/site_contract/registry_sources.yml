@@ -51,8 +51,8 @@ ports:
     scope: control_node
     bind: 127.0.0.1
     source:
-      file: control/landing/services.json
-      json_service_label: Network Landing (localhost)
+      file: ansible/roles/serverapp_landing/defaults/main.yml
+      yaml_path: serverapp_landing_port
   - service: grafana
     scope: control_node
     bind: 127.0.0.1
