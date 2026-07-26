@@ -58,14 +58,14 @@ exclude = ['^\.venv/']        # or '.venv-test/' for stayturgid
 
 ### Kotlin (Gradle, device/native-agent)
 
-| Tool | Version | Config | What it checks |
-|------|---------|--------|----------------|
-| **Spotless + ktfmt** | 7.0.4 / 0.54 | `build.gradle.kts [spotless]` | Deterministic Kotlin formatting (kotlinlangStyle) |
-| **detekt** | 1.23.8 | `config/detekt/detekt.yml` | Kotlin static analysis, complexity, code smells |
-| **Konsist** | 0.17.3 | `ArchitectureTest.kt` | Architectural rule enforcement as unit tests |
-| **JUnit 5 + Kotest** | 5.10.2 / 6.2.2 | `app/build.gradle.kts` | Test runner and fluent assertions |
-| **MockK + Turbine** | 1.14.11 / 1.2.1 | `app/build.gradle.kts` | Mocking and coroutine/Flow testing |
-| **Kover** | 0.9.9 | `build.gradle.kts [kover]` | Code coverage |
+| Tool                 | Version         | Config                        | What it checks                                    |
+| -------------------- | --------------- | ----------------------------- | ------------------------------------------------- |
+| **Spotless + ktfmt** | 7.0.4 / 0.54    | `build.gradle.kts [spotless]` | Deterministic Kotlin formatting (kotlinlangStyle) |
+| **detekt**           | 1.23.8          | `config/detekt/detekt.yml`    | Kotlin static analysis, complexity, code smells   |
+| **Konsist**          | 0.17.3          | `ArchitectureTest.kt`         | Architectural rule enforcement as unit tests      |
+| **JUnit 5 + Kotest** | 5.10.2 / 6.2.2  | `app/build.gradle.kts`        | Test runner and fluent assertions                 |
+| **MockK + Turbine**  | 1.14.11 / 1.2.1 | `app/build.gradle.kts`        | Mocking and coroutine/Flow testing                |
+| **Kover**            | 0.9.9           | `build.gradle.kts [kover]`    | Code coverage                                     |
 
 Detekt runs with `buildUponDefaultConfig = true` and a `baseline.xml` for gradual adoption of existing issues.
 
@@ -333,16 +333,16 @@ The fast checks run first so security tools don't waste time on broken code.
 
 When updating tool versions, change these in lockstep:
 
-| If bumping             | Update                                                                                     |
-| ---------------------- | ------------------------------------------------------------------------------------------ |
-| ruff                   | `.pre-commit-config.yaml` rev + `pyproject.toml` dev dep + `justfile` (if direct uvx call) |
-| mypy                   | `pyproject.toml` dev dep                                                                   |
-| typos                  | `.pre-commit-config.yaml` rev                                                              |
-| yamllint               | `.pre-commit-config.yaml` rev + `pyproject.toml` dev dep                                   |
-| bandit                 | `.pre-commit-config.yaml` rev + `pyproject.toml` dev dep                                   |
-| gitleaks               | `.pre-commit-config.yaml` rev                                                              |
-| prettier, markdownlint | `package.json` devDependencies                                                             |
-| semgrep                | system package manager (brew/pip) — pin in CI image                                        |
+| If bumping                            | Update                                                                                              |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| ruff                                  | `.pre-commit-config.yaml` rev + `pyproject.toml` dev dep + `justfile` (if direct uvx call)          |
+| mypy                                  | `pyproject.toml` dev dep                                                                            |
+| typos                                 | `.pre-commit-config.yaml` rev                                                                       |
+| yamllint                              | `.pre-commit-config.yaml` rev + `pyproject.toml` dev dep                                            |
+| bandit                                | `.pre-commit-config.yaml` rev + `pyproject.toml` dev dep                                            |
+| gitleaks                              | `.pre-commit-config.yaml` rev                                                                       |
+| prettier, markdownlint                | `package.json` devDependencies                                                                      |
+| semgrep                               | system package manager (brew/pip) — pin in CI image                                                 |
 | Kotlin Tools (detekt, spotless, etc.) | Update `build.gradle.kts` versions. Pre-commit hooks run `./gradlew` so they auto-sync with Gradle. |
 
 After bumping, run `just check && just lint` to verify nothing broke.

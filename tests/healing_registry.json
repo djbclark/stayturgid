@@ -158,11 +158,6 @@
       "must_cover": ["fleet_health"],
       "should_cover": []
     },
-    "PLAY-AUTOUPDATE-OFF": {
-      "description": "Play Store auto-update setting disabled",
-      "must_cover": ["mac_heal"],
-      "should_cover": []
-    },
     "HD8-DOZE-WHITELIST": {
       "description": "Fire HD8: GMS/GSF added to Doze whitelist (dumpsys deviceidle)",
       "must_cover": ["mac_heal"],

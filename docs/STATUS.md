@@ -5,8 +5,11 @@
 > [../README.md](../README.md). See AGENTS.md's "Where documentation goes"
 > table for what belongs in this file versus elsewhere.
 
-**Last verified:** 2026-07-26 (peer-start built into agent APK + guided
-activation UX, see #61 row; Tailscale-GUI-foreground false positive fixed,
+**Last verified:** 2026-07-26 (coordinated `ops-v1.0.0` release gate prepared;
+VLM/UI-TARS cleanup and the full quality gate repaired, see
+[release handoff](operations/sessions/handoff-2026-07-26-release-vlm-cleanup.md);
+peer-start built into agent APK + guided activation UX, see #61 row;
+Tailscale-GUI-foreground false positive fixed,
 [#64](https://github.com/djbclark/stayturgid/issues/64); OpenObserve<->Vector
 auth fixed 2026-07-25).
 Read this first; it links
@@ -18,6 +21,10 @@ and update this file in the same commit.
 ## Repo
 
 - `master` == `origin/master`. No open PRs, no long-lived branches.
+- Coordinated ops releases use the same annotated `ops-vMAJOR.MINOR.PATCH`
+  tag and `ops-release.json` version in all three repositories. Deploy
+  checkouts advance only through the release gate owned by `site-djbclark`;
+  the initial prepared release is `ops-v1.0.0`.
 - Session/handoff docs: [docs/operations/sessions/](operations/sessions/)
   (chronological, newest last-modified). Superseded plans and old sessions
   live in [docs/archive/](archive/) — read-only history, do not treat as

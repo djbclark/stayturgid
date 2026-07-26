@@ -18,6 +18,7 @@ Cross-module helpers used by more than one component. **Import these; do not dup
 ```python
 import sys
 from pathlib import Path
+
 REPO = Path(__file__).resolve().parents[3]  # control/tools/<domain>/script.py
 sys.path.insert(0, str(REPO / "control" / "lib"))
 import adb_cli as adb
@@ -52,7 +53,6 @@ ANDROID_SERIAL="$(./control/lib/resolve_adb.py oneui-device)" fdroidcl install c
 | `post_ui_remote.py`                                | Post-deploy UI remote steps                                   |
 | `a11y_services.py`                                 | Accessibility service merge/profiles                          |
 | `termux_api.py` / `termux_ssh_bootstrap.py`        | Termux API + SSH bootstrap                                    |
-| `play_store_autoupdate.py`                         | Play auto-update checks                                       |
 | `stayturgid_root.py`                               | Repo-root discovery                                           |
 | `*.json` profiles                                  | a11y / fleet app / AutoJs6 drawer defaults                    |
 

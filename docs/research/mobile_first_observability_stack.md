@@ -79,24 +79,25 @@ import socket
 import os
 import threading
 
-def add_process_info(logger, method_name, event_dict):
+
+def add_process_info(_logger, _method_name, event_dict):
     event_dict["hostname"] = socket.gethostname()
     event_dict["pid"] = os.getpid()
     event_dict["tid"] = threading.get_native_id()
-    event_dict["tag"] = logger.name or "root"
     return event_dict
+
 
 structlog.configure(
     processors=[
         structlog.stdlib.add_log_level,
         structlog.processors.TimeStamper(fmt="iso"),
         add_process_info,
-        structlog.processors.JSONRenderer()
+        structlog.processors.JSONRenderer(),
     ]
 )
-logger = structlog.get_logger("my_python_app")
-logger.info("Application initialized")
 
+logger = structlog.get_logger().bind(tag="my_python_app")
+logger.info("Application initialized")
 ```
 
 ### 2.3 Android Native Integration (OpenTelemetry SDK)

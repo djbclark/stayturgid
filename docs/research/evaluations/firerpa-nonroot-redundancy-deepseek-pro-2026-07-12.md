@@ -332,15 +332,18 @@ SSHD_DOWN = "/data/data/com.termux/files/usr/var/service/sshd/down"
 TERMUX_SSHD = "/data/data/com.termux/files/usr/bin/sshd"
 SHIZUKU_PKG = "moe.shizuku.privileged.api"
 
+
 def is_sshd_alive():
     """Check if stayturgid sshd is running on port 8022."""
     result = shell("ss -tlnp | grep ':8022 '")
     return ":8022" in (result or "")
 
+
 def is_port_5555_alive():
     """Check if Shizuku's adbd is running on port 5555."""
     result = shell("ss -tlnp | grep ':5555 '")
     return ":5555" in (result or "")
+
 
 def repair_sshd():
     """Repair stayturgid sshd via FIRERPA's shell access."""
@@ -360,10 +363,10 @@ def repair_sshd():
     boot_pid = read_file("/data/data/com.termux/files/home/.stayturgid/run/bootloop.pid")
     if boot_pid and not is_process_alive(int(boot_pid)):
         execute_script(
-            "setsid /data/data/com.termux/files/home/.termux/boot/start-adb.sh "
-            ">/dev/null 2>&1 < /dev/null &"
+            "setsid /data/data/com.termux/files/home/.termux/boot/start-adb.sh >/dev/null 2>&1 < /dev/null &"
         )
         log("boot loop restarted via FIRERPA")
+
 
 def repair_shizuku():
     """Repair Shizuku via FIRERPA's UI automation."""
@@ -389,6 +392,7 @@ def repair_shizuku():
 
     if is_port_5555_alive():
         log("Shizuku started via UI tap from FIRERPA")
+
 
 def main():
     log("FIRERPA heal cycle start")
@@ -418,14 +422,14 @@ FIRERPA's MCP server can be used as a **standardized interface** for self-heal. 
 from lamda.mcp import *
 from lamda.extensions import BaseMcpExtension
 
+
 class StayturgidHealExtension(BaseMcpExtension):
     route = "/stayturgid/heal/"
     name = "stayturgid-heal"
     version = "1.0"
 
     @mcp("tool", description="Run stayturgid self-heal on this device.")
-    def heal(self, ctx,
-             target: Annotated[str, "What to repair: sshd, shizuku, all"]):
+    def heal(self, ctx, target: Annotated[str, "What to repair: sshd, shizuku, all"]):
 
         results = []
         if target in ("sshd", "all"):

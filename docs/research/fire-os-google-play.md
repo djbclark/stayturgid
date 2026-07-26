@@ -44,24 +44,21 @@ Doze whitelist alone does **not** fix the broadcast permission crash.
 2. **Doze whitelist** GMS + GSF: `cmd deviceidle whitelist +com.google.android.gms`
 3. **Disable Play Store auto-updates** (UI): Play Store → Settings → Network
    preferences → Auto-update apps → **Don't auto-update apps**
-
-   Verify (optional, Mac UI-TARS): `make verify-hd8-google HOSTS=hd8` (full
-   close-out: versions + crash dialog + auto-update). Play-only:
-   `make verify-play-autoupdate HOSTS=hd8`
+   This remains a manual operator check; the retired vision stack is not a
+   reliable verifier for this setting.
 
 Fleet automation:
 
 ```bash
-./control/bin/fix_hd8_google_stack.py hd8
-# or: make fix-hd8-google
+just fix-fireos-device-google
 ```
 
 Downloads [Fire-Tools](https://github.com/mrhaydendp/Fire-Tools) GApps once to
 `~/.cache/stayturgid/fire-tools/`, reinstalls pinned splits, applies whitelist.
 
-Mac launchd (`fleet_health_monitor.py`) rate-limits the same repair when hd8 GMS
-`versionCode` exceeds **250000000** (26.x line), then runs VLM close-out when
-`llama-server` is healthy (6h cooldown). See [docs/architecture/vlm.md](../../docs/architecture/vlm.md).
+Mac launchd (`fleet_health_monitor.py`) rate-limits the same repair. By
+default it keeps the Doze whitelist and GSF 10-x state; the GMS/Play emergency
+pin remains opt-in.
 
 ## Policy (2026-07-10 update)
 

@@ -51,7 +51,8 @@ python3 control/tools/play/gplaycli.py --help
 
 Sideloaded Google Play on Fire OS can auto-update GMS past compatible builds.
 See [docs/research/fire-os-google-play.md](../../research/fire-os-google-play.md) and
-just fix-fireos-device-google / just verify-fireos-device-google.
+`just fix-fireos-device-google`. Play Store auto-update selection remains a
+manual operator check.
 
 ## Related
 

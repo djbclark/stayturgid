@@ -1,6 +1,6 @@
 #!/bin/sh
 # Minimal GNU-style configure: report tool availability and write .config.mk.
-# Nothing here is required — `make test` degrades gracefully — this just tells
+# Nothing here is required — `just test` degrades gracefully — this just tells
 # you up front what will run and what will be skipped.
 
 out=.config.mk
@@ -57,31 +57,10 @@ if have prettier; then
 else row "prettier" "missing — markdown format partial (brew install prettier)"; fi
 if have ssh; then row "ssh" "ok"; else row "ssh" "missing — device tier unavailable"; fi
 
-echo "optional (UI-TARS vision gates — vendor-neutral sidecar):"
-if have brew; then row "brew" "ok"; else row "brew" "missing — VLM install needs Homebrew"; fi
-if command -v llama-server >/dev/null 2>&1 ||
-  [ -x "$(brew --prefix llama.cpp 2>/dev/null)/bin/llama-server" ]; then
-  row "llama-server" "ok"
-  echo "HAVE_LLAMA_SERVER := 1" >>"$out"
-else
-  row "llama-server" "missing — make vlm-install"
-fi
-if [ -f "$HOME/Library/LaunchAgents/homebrew.mxcl.ui-tars.plist" ]; then
-  row "ui-tars launchd" "installed"
-  echo "HAVE_UI_TARS_SERVICE := 1" >>"$out"
-else
-  row "ui-tars launchd" "not installed — make vlm-service-install after vlm-install"
-fi
-if curl -sf http://127.0.0.1:8081/health >/dev/null 2>&1; then
-  row "ui-tars health" "ok"
-else
-  row "ui-tars health" "down (optional)"
-fi
-
 echo ""
 if [ "${fail:-0}" = 1 ]; then
   echo "configure: FAILED (missing required tools)"
   rm -f "$out"
   exit 1
 fi
-echo "wrote $out — next: make help | make test | make verify"
+echo "wrote $out — next: run 'just --list', then 'just test' and 'just verify'"

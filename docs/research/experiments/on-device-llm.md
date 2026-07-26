@@ -60,5 +60,6 @@ Reported mobile speeds (order of magnitude, CPU/Adreno): **1–1.5B ~30+ tok/s**
 - Always-on Ollama in Termux:Boot (battery + RAM)
 - LLM-driven Obtainium/Aurora/AutoJs6 drawer flows (deterministic on-device scripts own those)
 
-**Mac vision gates (UI-TARS)** are separate from on-device LLM: see [docs/architecture/vlm.md](../../architecture/vlm.md).
-Screenshot verification on the Mac; not a replacement for Handsets navigation.
+**Mac vision gates (UI-TARS)** were separate from on-device LLM and were
+[retired on 2026-07-26](../../operations/sessions/handoff-2026-07-26-release-vlm-cleanup.md).
+They are historical context here, not a supported path.

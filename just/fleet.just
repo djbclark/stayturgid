@@ -143,26 +143,6 @@ check-et-mac-legacy:
 check-et-mac:
     @just _check_et_mac_impl
 
-# ---------- Verify Play Autoupdate ----------
-_verify_play_autoupdate_impl:
-    STAYTURGID_VLM=1 python3 control/bin/verify_play_autoupdate.py {{ if hosts == "" { "fireos-device" } else { hosts } }}
-
-verify-play-autoupdate-legacy:
-    @just _verify_play_autoupdate_impl
-
-verify-play-autoupdate host="":
-    @just _verify_play_autoupdate_impl {{ if host == "" { "fireos-device" } else { host } }}
-
-# ---------- Verify fireos-device Google ----------
-_verify_hd8_google_impl:
-    STAYTURGID_VLM=1 python3 control/bin/verify_hd8_google.py {{ if hosts == "" { "fireos-device" } else { hosts } }}
-
-verify-fireos-device-google-legacy:
-    @just _verify_hd8_google_impl
-
-verify-fireos-device-google host="":
-    @just _verify_hd8_google_impl {{ if host == "" { "fireos-device" } else { host } }}
-
 # ---------- Collections ----------
 _collections_impl:
     ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections

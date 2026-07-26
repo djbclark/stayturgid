@@ -1,4 +1,4 @@
-# Services — Hermes, dashboard, landing, OpenCode, VLM.
+# Services — Hermes, dashboard, landing, OpenCode.
 
 # One-time, intentional system setup. Prompts once for the local sudo password
 # to write /etc/paths.d and the SSH daemon environment drop-in; normal deploys
@@ -10,47 +10,6 @@ system-homebrew-path-setup:
 # Read-only check of the two system Homebrew PATH files.
 system-homebrew-path-status:
     python3 control/bin/configure_system_homebrew_path.py --check
-
-# ── VLM (optional Mac UI-TARS gates — see docs/vlm.md) ────────────────────
-
-# Ansible: brew llama.cpp + download weights (~6GB).
-vlm-install:
-    {{ ansible_playbook }} {{ mac_site }} -e stayturgid_vlm_enabled=true --tags vlm-models
-
-# Manual foreground start (no launchd).
-vlm-server:
-    bash control/vlm/ui-tars/ui_tars_server.sh
-
-# Smoke-test server + client.
-vlm-check:
-    python3 control/bin/vlm_check.py
-
-# Ansible: launchd agent.
-vlm-service-install:
-    {{ ansible_playbook }} {{ mac_site }} -e stayturgid_vlm_enabled=true --tags vlm-service
-
-# Health + launchctl summary.
-vlm-service-status:
-    bash control/vlm/ui-tars/vlm_service.sh status
-
-# launchctl bootout + stop manual.
-vlm-service-stop:
-    bash control/vlm/ui-tars/vlm_service.sh stop
-
-# kickstart launchd agent.
-vlm-service-restart:
-    bash control/vlm/ui-tars/vlm_service.sh restart
-
-# Stop/start launchd QA cycle.
-vlm-smoke:
-    bash control/vlm/ui-tars/vlm_smoke.sh
-
-# Alias for vlm-service-stop.
-vlm-stop: vlm-service-stop
-
-# Diff RevengeQuickSwitcher/VLM.md best practices.
-vlm-upstream-check:
-    python3 control/bin/vlm_upstream_check.py --notify
 
 # ── Hermes Agent (Telegram gateway + OpenCode API) ─────────────────────────
 
