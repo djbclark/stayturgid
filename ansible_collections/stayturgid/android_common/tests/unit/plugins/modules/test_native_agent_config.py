@@ -8,8 +8,9 @@ import pytest
 
 MODULE_PATH = Path(__file__).resolve().parents[4] / "plugins" / "modules" / "native_agent_config.py"
 SPEC = importlib.util.spec_from_file_location("native_agent_config", MODULE_PATH)
-mod = importlib.util.module_from_spec(SPEC)
+assert SPEC is not None
 assert SPEC.loader is not None
+mod = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(mod)
 
 

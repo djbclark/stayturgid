@@ -18,20 +18,10 @@
   retries: "{{ stayturgid_post_ui_unlock_retries }}"
   delay: "{{ stayturgid_post_ui_unlock_retry_delay }}"
   delegate_to: localhost
-  when: not ansible_check_mode
-  tags: [post-ui, full]
-
-- name: Import Obtainium catalog
-  stayturgid.android_common.android_ui:
-    host: "{{ inventory_hostname }}"
-    task: import_obtainium_catalog
-    repo_root: "{{ stayturgid_repo_root }}"
-    catalog: "{{ stayturgid_obtainium_catalog_import }}"
-    retries: "{{ stayturgid_post_ui_retries }}"
-    retry_delay: "{{ stayturgid_post_ui_retry_delay }}"
-  delegate_to: localhost
-  when: not ansible_check_mode
-  tags: [post-ui, obtainium-import, full]
+  when:
+    - not ansible_check_mode
+    - stayturgid_app_stores_enabled | default(false) | bool
+  tags: [post-ui, app-stores, play, full]
 
 - name: Aurora first-run setup
   stayturgid.android_common.android_ui:
@@ -44,7 +34,7 @@
   when:
     - not ansible_check_mode
     - stayturgid_app_stores_enabled | default(false) | bool
-  tags: [post-ui, aurora, play, full]
+  tags: [post-ui, aurora, app-stores, play, full]
 
 # AutoJs6 Shizuku drawer enable task removed: AutoJs6 was uninstalled
 # fleet-wide as part of the K1 native-agent cutover (2026-07-22, confirmed

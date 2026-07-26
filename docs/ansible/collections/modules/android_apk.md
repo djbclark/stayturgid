@@ -18,7 +18,7 @@ Download and install an APK via adb with `INSTALL_FAILED_*` parsing.
 | `version_name`          | Install only when installed version differs  |
 | `checksum`              | Expected pre-resigning SHA-256               |
 | `force`                 | Reinstall even when present                  |
-| `clean_on_incompatible` | Clean retry for signature/version conflicts |
+| `clean_on_incompatible` | Clean retry for signature/version conflicts  |
 | `installer`             | Spoof installer package (`adb install -i`)   |
 | `extra_args`            | Extra adb install flags                      |
 

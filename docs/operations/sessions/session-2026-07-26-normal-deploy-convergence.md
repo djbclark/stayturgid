@@ -21,6 +21,13 @@ Do not create working states that the same deploy cannot reproduce.
 - Removed the duplicate mutable Obtainium `latest` installer, disabled
   Obtainium background updates for ops-locked applications, and made the
   headless catalog import part of every normal deploy.
+- Removed the second full fleet-role pass and the legacy UI-driven Obtainium
+  import. App-store UI work now remains in the post-UI play, while the normal
+  fleet role stack runs exactly once.
+- Made the post-UI unlock prompt conditional on an enabled UI-driven app-store
+  task, so a normal deploy with app stores parked remains fully headless.
+- Pinned the external Ansible collection dependencies exactly and made the
+  normal test/lint recipes provision those exact versions when absent.
 - Added an exact checksum to the FIRERPA binary install.
 - Taught the shared Ansible resolver to preserve multiple inventory sources and
   to supply product role/collection paths for every product entry point.
@@ -55,21 +62,30 @@ Do not create working states that the same deploy cannot reproduce.
 - The retry canary reached the native-agent milestones successfully:
   exact agent version, reconciled peer config, headless start, running
   `HostService`, and post-convergence verification.
+- The final p7a normal-wrapper canary after the single-pass cleanup completed
+  with exactly one `stayturgid fleet deploy` play. The already-current agent
+  install and absent debug-variant cleanup both skipped; the release agent
+  remained `0.6.0-boot-stability`; peer reconciliation, headless service
+  trigger, foreground-service verification, headless Obtainium catalog import,
+  and final validation all passed. The UI unlock and Aurora tasks skipped.
+  Recaps: device `ok=198`, `failed=0`; Mac `ok=59`, `failed=0`; terminal result
+  `Fleet deploy complete`.
+- Full product `just test` passed with 133 shell/unit checks, 581 Python tests
+  passed and 1 skipped, and all six collection unit suites green.
+- Full product `just lint-offline` passed, including Ruff, mypy (234 source
+  files), Biome, shell formatting, Markdown/Prettier, HTML, CSS, offline link
+  checks, generic identity drift, and secret-shape validation.
+- The private site `just lint` passed its registry guard and all 19 unit tests.
 
-## Checkpoint state
+## Final state
 
 The earlier s24 retry identified mutually exclusive Obtainium import
 parameters; the follow-up leaves headless import as the sole role mode. The
-subsequent p7a proof is complete and green. Its log is intentionally outside
-the repository at `/tmp/deploy-convergence-p7a-retry.log`.
+subsequent p7a proofs are complete and green. Their logs are intentionally
+outside the repository at `/tmp/deploy-convergence-p7a-retry.log` and
+`/tmp/deploy-convergence-p7a-single-pass.log`.
 
 ## Remaining before merge
 
-1. Split the post-UI app-store pass so normal deploy does not run the entire
-   Termux/fleet role stack twice; remove the now-redundant Obtainium UI import
-   and require an unlocked screen only when a genuinely UI-driven app-store
-   task is enabled.
-2. Re-run the normal canary after that cleanup.
-3. Run the full repository and site quality gates.
-4. Inspect the final diffs, push both task branches, open paired PRs, and
-   present verification for operator merge confirmation.
+Inspect the final diffs, push both task branches, open paired PRs, and present
+the verification above for operator merge confirmation.

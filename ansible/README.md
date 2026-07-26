@@ -75,8 +75,9 @@ ansible-playbook ansible/playbooks/site.yml --limit oneui-device   # direct
 ```
 
 `site.yml` chains: `fleet/preflight.yml` → `fleet/bootstrap.yml` (tagged; skipped by
-`deploy_fleet.py` on live deploy) → `fleet/fleet.yml` → `fleet/post-ui.yml` → app-stores
-re-pass → `fleet/validate.yml`. See [docs/architecture/adr/001-ansible-boundary.md](../docs/architecture/adr/001-ansible-boundary.md).
+`deploy_fleet.py` on live deploy) → one `fleet/fleet.yml` convergence pass →
+optional `fleet/post-ui.yml` → `fleet/validate.yml`. See
+[docs/architecture/adr/001-ansible-boundary.md](../docs/architecture/adr/001-ansible-boundary.md).
 
 ## Run (Termux only)
 
@@ -140,8 +141,8 @@ ansible_collections/stayturgid/  — modules + roles (incl. fleet.autojs6_watchd
 
 ## After playbook (first-time / edge cases)
 
-Full `site.yml` deploy covers Termux, AutoJs6 project, Obtainium catalog render,
-post-UI import (`post_ui` / `android_ui`), app privileges, and validate smoke.
+Full `site.yml` deploy covers Termux, the headless Obtainium catalog import,
+app privileges, optional app-store UI setup, and validate smoke.
 
 **First-time on a blank phone** may still need:
 

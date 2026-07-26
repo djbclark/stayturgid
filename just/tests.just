@@ -52,8 +52,15 @@ ansible-test:
       echo "### ansible-test — SKIP (run 'just test-venv')"; \
     fi
 
+# Install the exact dependency lock into the worktree when it is absent.
+_ensure-test-collections:
+    @if [ ! -f .ansible/collections/ansible_collections/ansible/posix/MANIFEST.json ] || \
+        [ ! -f .ansible/collections/ansible_collections/community/general/MANIFEST.json ]; then \
+      ansible-galaxy collection install --force -r ansible/requirements.yml -p .ansible/collections; \
+    fi
+
 # Unit + pytest + ansible-test + ruff + typos + biome + shfmt + justfiles + markdown (CI default).
-unit-and-pytest:
+unit-and-pytest: _ensure-test-collections
     bash tests/run.sh local
     @just pytest
     @just ansible-test
@@ -206,10 +213,9 @@ lint-offline:
     STAYTURGID_LINT_OFFLINE=true just lint
 
 # shellcheck + ansible-lint + yamllint + ruff + typos + biome + shfmt + justfiles + markdown + html-validate.
-lint:
+lint: _ensure-test-collections
     #!/usr/bin/env bash
     set -euo pipefail
-    ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections >/dev/null 2>&1 || true
     rc=0
     if command -v shellcheck >/dev/null; then
       shellcheck -S warning $(git ls-files '*.sh') || rc=1
