@@ -44,6 +44,10 @@ stayturgid_bootstrap_apks:
     resign: true
     monkey: true
     battery_unrestricted: true
+    # Fire OS 8 does not re-extract native libs on an in-place upgrade, which
+    # leaves shizuku_server unable to load librish.so. Clean-reinstall on
+    # devices that set stayturgid_shizuku_clean_reinstall (Fire OS group_vars).
+    clean: "{{ stayturgid_shizuku_clean_reinstall | default(false) }}"
   - id: org.stayturgid.agent
     gh_repo: djbclark/stayturgid
     gh_pattern: "stayturgid-agent*universal*"

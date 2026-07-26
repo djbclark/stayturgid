@@ -47,6 +47,17 @@ options:
     description: Install even when the package is already present.
     type: bool
     default: false
+  clean:
+    description:
+      - Uninstall the package before installing (only when an install is
+        actually happening; the already-installed idempotency check still
+        short-circuits first).
+      - Forces the installer to re-extract native libs. Needed on Fire OS 8,
+        which does not re-extract libs on an in-place C(adb install -r)
+        upgrade, leaving native-lib-dependent components (e.g. shizuku_server
+        loading librish.so) broken until a fresh install.
+    type: bool
+    default: false
   installer:
     description: Installer package to spoof (C(adb install -i), e.g. com.android.vending).
     type: str
@@ -226,6 +237,7 @@ def main():
             gh_tag=dict(type="str"),
             version_name=dict(type="str"),
             force=dict(type="bool", default=False),
+            clean=dict(type="bool", default=False),
             installer=dict(type="str"),
             extra_args=dict(type="list", elements="str", default=[]),
             install_user=dict(type="str", default="0"),
@@ -288,6 +300,19 @@ def main():
     # stayturgid_battery_alarm.py) so a stuck install fails loudly instead of
     # hanging the whole fleet deploy.
     timeout_bin = module.get_bin_path("timeout", required=True)
+
+    # Clean reinstall: uninstall before install so the installer re-extracts
+    # native libs. Fire OS 8 does not re-extract libs on an in-place upgrade
+    # (`adb install -r`), which leaves e.g. shizuku_server unable to load
+    # librish.so from the extracted lib dir; a fresh install always extracts.
+    # Only runs when we are actually installing (the already-installed
+    # idempotency check above has already returned), so steady-state deploys
+    # with an unchanged version never uninstall.
+    if module.params["clean"] and present:
+        module.run_command(
+            [timeout_bin, str(module.params["install_timeout"]), "adb", "-s", device, "uninstall", package]
+        )
+
     cmd = [timeout_bin, str(module.params["install_timeout"]), "adb", "-s", device, "install", "-r", "--user", user]
     if module.params["installer"]:
         cmd += ["-i", module.params["installer"]]

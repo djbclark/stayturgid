@@ -64,6 +64,7 @@
         gh_repo: "{{ _apk.gh_repo }}"
         gh_pattern: "{{ _apk.gh_pattern }}"
         resign: "{{ _apk.resign | default(false) }}"
+        clean: "{{ _apk.clean | default(false) }}"
         force: "{{ (stayturgid_bootstrap_apks_force | default(false)) or _version_unknown }}"
         version_name: "{{ _latest_version if _latest_version != '' else omit }}"
         apksigner_bin: "{{ stayturgid_apksigner_bin | default(omit) }}"

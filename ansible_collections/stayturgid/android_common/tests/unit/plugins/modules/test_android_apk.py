@@ -152,3 +152,64 @@ def test_android_apk_skips_when_present(mocker, tmp_path):
         ],
     )
     assert out["changed"] is False
+
+
+def _capture_commands(mocker, args):
+    """Run the module recording every run_command invocation."""
+    seen = []
+
+    def fake_run_command(self, cmd, *a, **kw):
+        seen.append(cmd)
+        joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
+        if "pm list packages" in joined:
+            return (0, "package:com.example.app\n", "")  # present
+        if "dumpsys package" in joined:
+            return (1, "", "")
+        if "uninstall" in joined:
+            return (0, "Success\n", "")
+        if cmd[0].endswith("timeout"):
+            return (0, "Success\n", "")
+        return (0, "", "")
+
+    stdin = json.dumps({"ANSIBLE_MODULE_ARGS": dict(args)})
+    mocker.patch("ansible.module_utils.basic._ANSIBLE_ARGS", stdin.encode())
+    mocker.patch("ansible.module_utils.basic._ANSIBLE_PROFILE", "legacy", create=True)
+    mocker.patch(
+        "ansible.module_utils.basic.AnsibleModule.get_bin_path", lambda self, name, required=False: "/usr/bin/" + name
+    )
+    mocker.patch("ansible.module_utils.basic.AnsibleModule.run_command", fake_run_command)
+    mocker.patch(
+        "ansible.module_utils.basic.AnsibleModule.exit_json", lambda self, **kw: (_ for _ in ()).throw(SystemExit(0))
+    )
+    mocker.patch(
+        "ansible.module_utils.basic.AnsibleModule.fail_json", lambda self, **kw: (_ for _ in ()).throw(SystemExit(1))
+    )
+    with pytest.raises(SystemExit):
+        mod.main()
+    return [" ".join(c) if isinstance(c, (list, tuple)) else str(c) for c in seen]
+
+
+def test_android_apk_clean_uninstalls_before_install(mocker, tmp_path):
+    """clean=true on a present package uninstalls before installing."""
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    cmds = _capture_commands(
+        mocker,
+        dict(device="dev", package="com.example.app", apk_path=str(apk), connect=False, clean=True, force=True),
+    )
+    uninstall_idx = next((i for i, c in enumerate(cmds) if "uninstall com.example.app" in c), None)
+    install_idx = next((i for i, c in enumerate(cmds) if " install -r" in c), None)
+    assert uninstall_idx is not None, cmds
+    assert install_idx is not None, cmds
+    assert uninstall_idx < install_idx, cmds
+
+
+def test_android_apk_clean_false_does_not_uninstall(mocker, tmp_path):
+    """clean defaults off: a forced reinstall must not uninstall first."""
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    cmds = _capture_commands(
+        mocker,
+        dict(device="dev", package="com.example.app", apk_path=str(apk), connect=False, force=True),
+    )
+    assert not any("uninstall" in c for c in cmds), cmds

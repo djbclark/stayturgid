@@ -9,6 +9,10 @@ stayturgid_sd_root: "{{ termux_home }}/.stayturgid/shared"
 # for privileged shell; Handsets uses peer bootstrap (see peers.json).
 stayturgid_privileged_shell_expected: false
 stayturgid_no_local_adb: true
+# Fire OS 8 skips native-lib re-extraction on in-place APK upgrades, so
+# shizuku_server can't load librish.so from the (empty) extracted lib dir.
+# Clean-reinstall Shizuku here so a fresh install always extracts the libs.
+stayturgid_shizuku_clean_reinstall: true
 # Match Mac ui_driver.py DEFAULT_PORTS["fireos-device"].
 stayturgid_handsets_port: 9012
 # AutoJs6 still reads scripts from /sdcard (deployed via adb push from Mac).
