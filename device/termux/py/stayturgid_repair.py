@@ -342,17 +342,18 @@ def _tailscale_installed(have_sh=False):
 
 
 def _tailscale_runtime_up():
-    """Require both a tunnel interface and Tailscale control-plane reachability."""
-    tunnel = False
-    try:
-        with open("/proc/net/dev") as f:
-            for line in f:
-                iface = line.split(":", 1)[0].strip()
-                if iface in ("tun0", "tailscale0"):
-                    tunnel = True
-                    break
-    except OSError:
-        pass
+    """Require both a tunnel interface and Tailscale control-plane reachability.
+
+    The tunnel-interface check must run under the device shell (uid 2000 via
+    localhost adbd), not this Termux process: the Termux app uid cannot read
+    ``/proc/net/dev`` on modern Android (SELinux restricts ``/proc/net``
+    per-uid), so the old direct read always failed with EACCES -> tunnel read as
+    absent -> runtime reported "down" every cycle -> the foreground activity
+    fallback fired ~every 15 min even with a perfectly healthy tunnel. The
+    native agent reads the same file fine precisely because it runs as uid 2000.
+    """
+    rc, out = sh_adb("grep -oE '(tun0|tailscale0)' /proc/net/dev 2>/dev/null | sort -u")
+    tunnel = rc == 0 and ("tun0" in out or "tailscale0" in out)
     return tunnel and run(["ping", "-c", "2", "-W", "3", TAILSCALE_CONTROL_HOST], timeout=8)[0] == 0
 
 
