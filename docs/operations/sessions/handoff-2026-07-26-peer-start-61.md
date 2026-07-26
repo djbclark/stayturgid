@@ -68,7 +68,7 @@ RSAPUBLICKEY` (718B, ending ASCII `stayturgid-agent\0`). hd8 then raised the
 ### To finish activation (≈2 min, needs a tap on hd8)
 
 ```bash
-# 1) assign hd8 to s24 (and/or p7a when it's back)
+# 1) assign hd8 to s24 (also sets the "approve on hd8" reminder on hd8)
 just agent-peer-provision s24 100.124.55.39:5555
 # 2) kick a peer-start (headless broadcast — does NOT foreground the UI)
 just agent-peer-start s24
@@ -80,6 +80,32 @@ just agent-peer-show s24      # expect PEERSTART … outcome=ALREADY_UP (hd8 Shi
 After the tap, hd8 trusts the agent's key permanently (survives reboot), and the
 20-min loop keeps hd8's Shizuku up Mac-independently. To exercise the _start_
 path (not just ALREADY_UP), do it when hd8's Shizuku is actually down.
+
+### Guided activation UX (v0.5.0-peerstart-ux — commit 10a346a)
+
+The authorization no longer relies on remembering commands. Once a peer is
+assigned:
+
+- **On the peer (s24/p7a):** while a target is `AUTH_PENDING` (reachable but not
+  yet approved), the agent posts a high-priority, re-alerting **"Peer-start needs
+  a one-time approval"** notification (tap = retry), shows a banner + **"Authorize
+  peer-start now"** button in its GUI, and **auto-retries every 3 min** (vs 20) so
+  the target's dialog is reliably up. All of this is **headless** — verified it
+  does **not** foreground the agent GUI (the earlier activity-trigger footgun is
+  gone; the trigger is now `PeerStartReceiver`, a broadcast).
+- **On the target (hd8):** its own agent shows a **"Approve peer-start on this
+  device"** reminder notification + banner (from a marker `provision_peer.py`
+  drops on it), telling the operator to tick "Always allow" + Allow when the
+  dialog appears. The peer **clears that marker automatically** over the
+  authorized ADB connection once peer-start succeeds. _Live-verified on s24_
+  (target-reminder notification posts on the high-importance channel and
+  auto-clears when the marker is removed, no GUI foregrounding).
+- The `AUTH_PENDING` state is distinct from `UNREACHABLE` (offline never nags),
+  and clears itself on the next successful `ALREADY_UP`/`STARTED`.
+
+**Deploy dependency:** the hd8-side reminder only shows once hd8's agent is
+updated to v0.5.0+. The peer-side nag works as soon as the peer runs v0.5.0
+(s24 is on it now).
 
 ## Gotchas found this session (also in lessons-learned)
 

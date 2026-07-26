@@ -241,3 +241,22 @@ Two gotchas from building the external-ADB Shizuku peer-starter into the
   it survives reboots. Don't try to automate it; do the tap. The full ADB
   handshake up to that gate (CNXN → AUTH token → signature → RSAPUBLICKEY) is
   exercisable and was validated live s24→hd8.
+
+## Termux (app uid) can't read /proc/net on modern Android — route device reads through uid 2000 (#64)
+
+On Android 10+ SELinux restricts `/proc/net/*` per-uid: the **Termux app uid
+cannot read `/proc/net/dev`** (EACCES), while the **shell uid (2000)** can. A
+device-state check that reads `/proc/net/*` directly in a Termux Python process
+silently fails and reads the state as absent. This bit `stayturgid_repair.py`'s
+`_tailscale_runtime_up()`: it read `/proc/net/dev` in-process to detect the
+tunnel interface, always got EACCES, concluded the tunnel was down every cycle,
+and (with the deferred foreground fallback) launched Tailscale's `MainActivity`
+into the foreground ~every 15 min despite a healthy tunnel. The native agent
+read the same file fine because it runs as uid 2000.
+
+**How to apply:** any device/network state a Termux-side script needs from
+`/proc/net/*` (tunnel ifaces, listening sockets, routes) must be read through
+the device shell — `sh_adb(...)` / `adb -s localhost:5555 shell` (uid 2000) — not
+Python's `open()` in the Termux process. The native agent (uid 2000 via Shizuku)
+can read them directly. Same class of bug as the `ss`/`/proc/net/tcp` fallbacks
+in the agent's `listeningOn()`.
