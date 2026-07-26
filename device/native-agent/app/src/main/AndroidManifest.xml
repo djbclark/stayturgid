@@ -6,6 +6,9 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Peer-start: the agent opens a TCP socket to a peer Fire device's adbd
+         (5555) over Tailscale to start Shizuku without the Mac (issue #61). -->
+    <uses-permission android:name="android.permission.INTERNET" />
 
     <application
         android:name=".AgentApplication"
@@ -44,6 +47,19 @@
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- nosemgrep: java.android.security.exported_receiver.exported_receiver -->
+        <!-- Headless peer-start trigger (issue #61). Exported so `adb shell am
+             broadcast` can kick it without foregrounding the UI; the action is
+             idempotent/benign (only attempts Shizuku start on assigned targets). -->
+        <receiver
+            android:name=".PeerStartReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="org.stayturgid.agent.action.PEER_START_NOW" />
             </intent-filter>
         </receiver>
 

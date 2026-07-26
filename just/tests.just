@@ -432,3 +432,21 @@ agent-rollout +hosts="":
       python3 "{{ repo }}/control/tools/native-agent/rollout.py" {{ hosts }}
     fi
 
+# Assign Fire-OS peer-start target(s) to a healthy peer (issue #61).
+# Example: just agent-peer-provision s24 100.124.55.39:5555
+agent-peer-provision peer +targets:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    # shellcheck disable=SC2086
+    python3 "{{ repo }}/control/tools/native-agent/provision_peer.py" "{{ peer }}" {{ targets }}
+
+# Trigger a peer-start now on a peer (watch the TARGET for the one-time Allow).
+# Example: just agent-peer-start s24
+agent-peer-start peer:
+    python3 "{{ repo }}/control/tools/native-agent/provision_peer.py" "{{ peer }}" --start
+
+# Show a peer's current peer.json + recent peerstart.log.
+# Example: just agent-peer-show s24
+agent-peer-show peer:
+    python3 "{{ repo }}/control/tools/native-agent/provision_peer.py" "{{ peer }}" --show
+

@@ -155,6 +155,19 @@ class MainActivity : ComponentActivity() {
                 }
             },
         )
+        root.addView(
+            Button(this).apply {
+                text = "Peer-start Shizuku now"
+                setOnClickListener {
+                    HostService.peerStartNow(this@MainActivity)
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Peer-start requested (see peerstart.log / logcat)",
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            },
+        )
         setContentView(ScrollView(this).apply { addView(root) })
 
         Shizuku.addBinderReceivedListenerSticky(binderListener)

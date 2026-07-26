@@ -215,3 +215,29 @@ VictoriaMetrics + Grafana + OliveTin) — not the earlier ONGAO plan
 [docs/architecture/platform-architecture.md §6.2](../architecture/platform-architecture.md#62-why-o-v-g-o-not-ongao-not-elk).
 `docs/archive/plans/ongao-rollout-plan.md` is superseded, historical only —
 follow the O-V-G-O docs for any observability work.
+
+## Agent peer-start: trigger via broadcast, and Fire-OS ADB auth is a human tap (#61)
+
+Two gotchas from building the external-ADB Shizuku peer-starter into the
+`stayturgid-agent` APK (issue #61):
+
+- **Trigger a background action with a broadcast, never an activity.** The first
+  manual-kick path launched `MainActivity` with an intent extra, which forced
+  the agent GUI to the foreground on every trigger — operator-visible and
+  disruptive. Use an exported `BroadcastReceiver` (`am broadcast -a … -n
+<pkg>/<receiver>`) that forwards to the already-running FGS; it never
+  foregrounds the UI. Steady-state peer-start is an in-process `HostService`
+  loop (also headless). The agent should only come to the foreground when a
+  human opens it.
+- **Authorizing a _new_ ADB key on Fire OS is a manual "Always allow" tap.**
+  `/data/misc/adb/adb_keys` is root-only; adbd writes it solely after the
+  `UsbDebuggingActivity` dialog is confirmed **with the "Always allow" checkbox
+  ticked**. `control/lib/adb_cli.dismiss_usb_debugging_dialog`'s
+  TAB/SPACE/ENTER keyevent heuristic does _not_ reliably tick that checkbox on
+  Fire OS 8 — it accepts allow-once, so the dialog reappears on the next
+  connect and the key never persists. This is the deliberate one-time cost of
+  the per-device key model (agent generates its own key, à la Shizuku's
+  `AdbKey`, rather than sharing the fleet key): one physical tap per peer, then
+  it survives reboots. Don't try to automate it; do the tap. The full ADB
+  handshake up to that gate (CNXN → AUTH token → signature → RSAPUBLICKEY) is
+  exercisable and was validated live s24→hd8.

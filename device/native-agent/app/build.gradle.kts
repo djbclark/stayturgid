@@ -14,8 +14,8 @@ android {
         applicationId = "org.stayturgid.agent"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "0.3.6-diagnostics"
+        versionCode = 11
+        versionName = "0.4.0-peerstart"
         val buildTimeUtc =
             System.getenv("SOURCE_DATE_EPOCH")
                 ?.toLongOrNull()
@@ -95,6 +95,10 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            // BouncyCastle (bcpkix/bcutil/bcprov) + jspecify ship duplicate
+            // multi-release metadata that the resource merger rejects.
+            excludes += "/META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+            excludes += "/META-INF/versions/**/module-info.class"
         }
     }
 }
@@ -108,4 +112,11 @@ dependencies {
     implementation("androidx.activity:activity-ktx:1.10.1")
     implementation("androidx.annotation:annotation:1.9.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
+
+    // Embedded ADB client (peer-start of Shizuku on Fire OS over external ADB —
+    // issue #61). BouncyCastle builds the X.509 client cert for the A_STLS path;
+    // matches the version used by the Shizuku fork's manager module.
+    implementation("org.bouncycastle:bcpkix-jdk18on:1.80")
+
+    testImplementation("junit:junit:4.13.2")
 }

@@ -27,6 +27,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import rikka.shizuku.Shizuku
 import java.util.concurrent.atomic.AtomicReference
 
@@ -40,6 +41,7 @@ class HostService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var pingJob: Job? = null
     private var heartbeatJob: Job? = null
+    private var peerStartJob: Job? = null
     private val serviceRef = AtomicReference<IStayTurgidService?>(null)
     private var bound = false
     private var screenOn = false
@@ -144,6 +146,9 @@ class HostService : Service() {
         screenOn = pm?.isInteractive == true
         // Co-monitor always (screen-independent); inject only while interactive.
         startHeartbeatLoop()
+        // Peer-start (issue #61): screen-independent, app-process (no local
+        // Shizuku needed). No-op unless this device has assigned Fire targets.
+        startPeerStartLoop()
         if (screenOn) onScreenOn() else ensureBound()
         Log.i(TAG, "HostService created screenOn=$screenOn")
     }
@@ -167,6 +172,10 @@ class HostService : Service() {
             ACTION_REPAIR_NOW -> {
                 scope.launch { callRepairCatastrophic() }
             }
+            ACTION_PEER_START_NOW -> {
+                startAsForeground(bound = bound)
+                scope.launch { runPeerStart() }
+            }
             else -> {
                 // ensure FGS + bind path
                 startAsForeground(bound = bound)
@@ -182,6 +191,8 @@ class HostService : Service() {
         stopPingLoop()
         heartbeatJob?.cancel()
         heartbeatJob = null
+        peerStartJob?.cancel()
+        peerStartJob = null
         unbindUserService(remove = true)
         try {
             unregisterReceiver(screenReceiver)
@@ -291,6 +302,37 @@ class HostService : Service() {
                     callComonitor()
                 }
             }
+    }
+
+    /**
+     * Peer-start loop (issue #61): periodically ensure Shizuku is up on any
+     * assigned Fire target over external ADB. Runs in the app process — no local
+     * Shizuku binder required — so it works even on a peer whose own Shizuku is
+     * down. A no-op (fast NO_TARGETS) on devices with no peer.json.
+     */
+    private fun startPeerStartLoop() {
+        if (peerStartJob?.isActive == true) return
+        peerStartJob =
+            scope.launch {
+                // Let the network / Tailscale settle after boot before the first
+                // attempt; the interval loop then keeps a dropped peer covered.
+                delay(PEERSTART_INITIAL_DELAY_MS)
+                while (isActive) {
+                    runPeerStart()
+                    delay(PEERSTART_INTERVAL_MS)
+                }
+            }
+    }
+
+    private suspend fun runPeerStart() {
+        try {
+            val results = withContext(Dispatchers.IO) { PeerStarter.startAll(applicationContext) }
+            for (r in results) {
+                Log.i(TAG, "peerstart ${r.target} -> ${r.outcome} ${r.detail}")
+            }
+        } catch (t: Throwable) {
+            Log.e(TAG, "peerstart loop error", t)
+        }
     }
 
     private fun callPingAwake() {
@@ -457,9 +499,16 @@ class HostService : Service() {
          */
         const val INITIAL_BIND_RETRY_MS: Long = 20_000L
 
+        /** Delay before the first peer-start attempt, letting Tailscale settle. */
+        const val PEERSTART_INITIAL_DELAY_MS: Long = 30_000L
+
+        /** Peer-start re-check cadence (screen-independent). */
+        const val PEERSTART_INTERVAL_MS: Long = 20 * 60 * 1000L
+
         const val ACTION_STOP = "org.stayturgid.agent.action.STOP"
         const val ACTION_PING_NOW = "org.stayturgid.agent.action.PING_NOW"
         const val ACTION_REPAIR_NOW = "org.stayturgid.agent.action.REPAIR_NOW"
+        const val ACTION_PEER_START_NOW = "org.stayturgid.agent.action.PEER_START_NOW"
 
         fun start(context: Context) {
             val intent = Intent(context, HostService::class.java)
@@ -486,6 +535,14 @@ class HostService : Service() {
             val intent =
                 Intent(context, HostService::class.java).apply {
                     action = ACTION_REPAIR_NOW
+                }
+            ContextCompat.startForegroundService(context, intent)
+        }
+
+        fun peerStartNow(context: Context) {
+            val intent =
+                Intent(context, HostService::class.java).apply {
+                    action = ACTION_PEER_START_NOW
                 }
             ContextCompat.startForegroundService(context, intent)
         }
