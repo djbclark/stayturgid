@@ -190,7 +190,7 @@ Published coordinates `dev.rikka.shizuku:api` and `dev.rikka.shizuku:provider`
 are produced by the **API** Gradle project (`groupIdBase = "dev.rikka.shizuku"`),
 not by the manager/server monorepo root alone. Composite-include that tree:
 
-Relative from `~/ops/stayturgid` → `../../src/Shizuku/api`.
+Relative from `${OPS_ROOT:-~/ops}/stayturgid` → `../../src/Shizuku/api`.
 
 ### `settings.gradle.kts` (sketch)
 

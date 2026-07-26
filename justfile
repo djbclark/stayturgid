@@ -28,6 +28,7 @@ venv := ".venv-test"
 collections := "android_common termux obtainium fdroid play"
 
 import "just/fleet.just"
+import "just/kotlin.just"
 import "just/services.just"
 import "just/tests.just"
 import "just/cfengine.just"

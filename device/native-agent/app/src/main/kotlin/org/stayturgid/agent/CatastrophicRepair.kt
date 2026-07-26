@@ -14,8 +14,8 @@ import java.util.concurrent.TimeUnit
  * 3. adb connect 127.0.0.1:5555 + verify uid 2000
  * 4. HEADLESS_START broadcast (thedjchi / stayturgid Shizuku fork)
  *
- * No Accessibility UI taps here — that remains AutoJs6-only until a fork
- * intent path is proven on all fleet ROMs.
+ * No Accessibility UI taps here — that remains AutoJs6-only until a fork intent path is proven on
+ * all fleet ROMs.
  */
 object CatastrophicRepair {
     private const val TAG = "StayTurgidCat"
@@ -23,10 +23,7 @@ object CatastrophicRepair {
     private const val TAILSCALE_RECEIVER = "com.tailscale.ipn/com.tailscale.ipn.IPNReceiver"
     private const val TAILSCALE_CONNECT_ACTION = "com.tailscale.ipn.CONNECT_VPN"
 
-    data class Result(
-        val ok: Boolean,
-        val detail: String,
-    )
+    data class Result(val ok: Boolean, val detail: String)
 
     fun repair(): Result {
         val steps = mutableListOf<String>()
@@ -59,7 +56,11 @@ object CatastrophicRepair {
     }
 
     fun serverRunning(): Boolean {
-        val bc = shellOut(arrayOf("am", "broadcast", "-a", "moe.shizuku.privileged.api.HEADLESS_STATUS"), 6)
+        val bc =
+            shellOut(
+                arrayOf("am", "broadcast", "-a", "moe.shizuku.privileged.api.HEADLESS_STATUS"),
+                6,
+            )
         if (bc != null && bc.contains("result=1")) return true
         return ComonitorProbes.probe().shizuku == "up" && pgrepShizuku()
     }
@@ -67,7 +68,8 @@ object CatastrophicRepair {
     private fun pgrepShizuku(): Boolean {
         // Same /proc scan style as ComonitorProbes
         val proc = java.io.File("/proc")
-        val dirs = proc.listFiles { f -> f.isDirectory && f.name.all { it.isDigit() } } ?: return false
+        val dirs =
+            proc.listFiles { f -> f.isDirectory && f.name.all { it.isDigit() } } ?: return false
         for (d in dirs) {
             val cmdline =
                 try {
@@ -81,14 +83,13 @@ object CatastrophicRepair {
     }
 
     /**
-     * Idempotently keep USB debugging enabled, independent of whether
-     * wireless ADB is currently open. Some ROMs (confirmed: Fire OS) won't
-     * reopen the wireless TCP listener from a setprop alone without an
-     * actual adbd restart, which this shell-privileged process cannot force
-     * without root or an already-open transport — see [tryShellWirelessRepair]
-     * and docs/operations/sessions/session-2026-07-25-k1-verification.md.
-     * Keeping adb_enabled on means a physical USB reconnect always works
-     * immediately, with no manual Developer Options digging required.
+     * Idempotently keep USB debugging enabled, independent of whether wireless ADB is currently
+     * open. Some ROMs (confirmed: Fire OS) won't reopen the wireless TCP listener from a setprop
+     * alone without an actual adbd restart, which this shell-privileged process cannot force
+     * without root or an already-open transport — see [tryShellWirelessRepair] and
+     * docs/operations/sessions/session-2026-07-25-k1-verification.md. Keeping adb_enabled on means
+     * a physical USB reconnect always works immediately, with no manual Developer Options digging
+     * required.
      */
     fun ensureAdbBaseline(): String {
         return try {
@@ -113,11 +114,7 @@ object CatastrophicRepair {
         Thread.sleep(1500)
         shellOut(arrayOf("adb", "connect", "127.0.0.1:5555"), 8)
         Thread.sleep(1000)
-        val uid =
-            shellOut(
-                arrayOf("adb", "-s", "localhost:5555", "shell", "id", "-u"),
-                8,
-            )?.trim()
+        val uid = shellOut(arrayOf("adb", "-s", "localhost:5555", "shell", "id", "-u"), 8)?.trim()
         val ok = uid == "2000"
         Log.i(TAG, "tryShellWirelessRepair uid=$uid ok=$ok")
         return ok
@@ -196,26 +193,16 @@ object CatastrophicRepair {
         return false
     }
 
-    private fun ensureSetting(
-        namespace: String,
-        key: String,
-        want: String,
-    ) {
+    private fun ensureSetting(namespace: String, key: String, want: String) {
         val cur = shellOut(arrayOf("settings", "get", namespace, key), 4)?.trim()
         if (cur != want) {
             shellOut(arrayOf("settings", "put", namespace, key, want), 4)
         }
     }
 
-    private fun shellOut(
-        cmd: Array<String>,
-        timeoutSec: Long,
-    ): String? {
+    private fun shellOut(cmd: Array<String>, timeoutSec: Long): String? {
         return try {
-            val p =
-                ProcessBuilder(*cmd)
-                    .redirectErrorStream(true)
-                    .start()
+            val p = ProcessBuilder(*cmd).redirectErrorStream(true).start()
             val ok = p.waitFor(timeoutSec, TimeUnit.SECONDS)
             if (!ok) {
                 p.destroyForcibly()
@@ -233,7 +220,8 @@ object CatastrophicRepair {
             val f = java.io.File("/sdcard/stayturgid/logs/agent.log")
             f.parentFile?.mkdirs()
             val ts =
-                java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
+                java.text
+                    .SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US)
                     .format(java.util.Date())
             f.appendText("$ts $line\n")
         } catch (t: Throwable) {

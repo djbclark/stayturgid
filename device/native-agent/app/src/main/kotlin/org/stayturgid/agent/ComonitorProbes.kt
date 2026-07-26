@@ -11,16 +11,17 @@ import java.util.concurrent.TimeUnit
 /**
  * Co-monitor probes run inside the UserService process (UID 2000).
  *
- * Prefer direct /proc and settings reads; shell is a last resort and must not
- * be used for the [ShizukuUserService.pingAwake] path.
+ * Prefer direct /proc and settings reads; shell is a last resort and must not be used for the
+ * [ShizukuUserService.pingAwake] path.
  *
- * STATUS shape mirrors AutoJs6 comonitor so fleet scrapers can dual-read during
- * dual-run (Phase 2). Detection-only for a11y — never settings put.
+ * STATUS shape mirrors AutoJs6 comonitor so fleet scrapers can dual-read during dual-run (Phase 2).
+ * Detection-only for a11y — never settings put.
  */
 object ComonitorProbes {
     private const val TAG = "StayTurgidComo"
     private const val LOG_PATH = "/sdcard/stayturgid/logs/agent.log"
-    private const val A11Y_AUTOJS6 = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityService"
+    private const val A11Y_AUTOJS6 =
+        "org.autojs.autojs6/org.autojs.autojs.core.accessibility.AccessibilityService"
     private const val TAILSCALE_PACKAGE = "com.tailscale.ipn"
     private const val TAILSCALE_CONTROL_HOST = "controlplane.tailscale.com"
 
@@ -81,7 +82,8 @@ object ComonitorProbes {
                 val iface = line.substringBefore(':').trim()
                 iface == "tun0" || iface == "tailscale0"
             }
-        val controlPlaneUp = commandOk(arrayOf("ping", "-c", "1", "-W", "2", TAILSCALE_CONTROL_HOST), 4)
+        val controlPlaneUp =
+            commandOk(arrayOf("ping", "-c", "1", "-W", "2", TAILSCALE_CONTROL_HOST), 4)
         return if (tunnelUp && controlPlaneUp) "up" else "down"
     }
 
@@ -96,7 +98,8 @@ object ComonitorProbes {
     private fun probeA11yListed(): String {
         val list = settingsGet("secure", "enabled_accessibility_services")
         if (list.isNullOrBlank() || list == "null") return "down"
-        return if (list.contains(A11Y_AUTOJS6) || list.contains("org.autojs.autojs6")) "up" else "down"
+        return if (list.contains(A11Y_AUTOJS6) || list.contains("org.autojs.autojs6")) "up"
+        else "down"
     }
 
     private fun probePort5555(): String {
@@ -113,15 +116,13 @@ object ComonitorProbes {
         val oper = readText("/sys/class/net/wlan0/operstate")?.trim()
         return when (oper) {
             "up" -> "up"
-            null, "" -> "skip"
+            null,
+            "" -> "skip"
             else -> "FAILED"
         }
     }
 
-    private fun settingsGet(
-        namespace: String,
-        key: String,
-    ): String? {
+    private fun settingsGet(namespace: String, key: String): String? {
         // settings binary is fine under shell UID for co-monitor (not inject path).
         return shellOut(arrayOf("settings", "get", namespace, key), 4)
     }
@@ -131,7 +132,8 @@ object ComonitorProbes {
     private fun pgrepMatch(name: String): Boolean {
         // Avoid pgrep binary portability; scan /proc.
         val proc = File("/proc")
-        val dirs = proc.listFiles { f -> f.isDirectory && f.name.all { it.isDigit() } } ?: return false
+        val dirs =
+            proc.listFiles { f -> f.isDirectory && f.name.all { it.isDigit() } } ?: return false
         for (d in dirs) {
             val cmdline = readText(File(d, "cmdline").path)?.replace('\u0000', ' ') ?: continue
             if (cmdline.contains(name)) return true
@@ -155,9 +157,11 @@ object ComonitorProbes {
         for (line in tcp.lineSequence().drop(1)) {
             val parts = line.trim().split(Regex("\\s+"))
             if (parts.size < 4) continue
-            val local = parts[1] // ip:port, hex, e.g. 0100007F:15B3 (127.0.0.1) or 00000000:15B3 (any)
+            val local =
+                parts[1] // ip:port, hex, e.g. 0100007F:15B3 (127.0.0.1) or 00000000:15B3 (any)
             val st = parts[3] // 0A = LISTEN
-            if (!local.endsWith(":$hex", ignoreCase = true) || !st.equals("0A", ignoreCase = true)) continue
+            if (!local.endsWith(":$hex", ignoreCase = true) || !st.equals("0A", ignoreCase = true))
+                continue
             if (local.substringBefore(":").equals(LOOPBACK_V4_HEX, ignoreCase = true)) continue
             return true
         }
@@ -182,7 +186,8 @@ object ComonitorProbes {
         // (any-interface) is fine and stays a match.
         val ss = shellOut(arrayOf("ss", "-ltn"), 4).orEmpty()
         val portPattern = Regex("""(?:^|\s)(\*|[0-9A-Fa-f:.]+):$port(?:\s|$)""")
-        if (ss.lineSequence().any { line ->
+        if (
+            ss.lineSequence().any { line ->
                 if (!line.contains("LISTEN")) return@any false
                 val m = portPattern.find(line) ?: return@any false
                 val addr = m.groupValues[1]
@@ -194,15 +199,9 @@ object ComonitorProbes {
         return false
     }
 
-    private fun shellOut(
-        cmd: Array<String>,
-        timeoutSec: Long,
-    ): String? {
+    private fun shellOut(cmd: Array<String>, timeoutSec: Long): String? {
         return try {
-            val p =
-                ProcessBuilder(*cmd)
-                    .redirectErrorStream(true)
-                    .start()
+            val p = ProcessBuilder(*cmd).redirectErrorStream(true).start()
             val ok = p.waitFor(timeoutSec, TimeUnit.SECONDS)
             if (!ok) {
                 p.destroyForcibly()
@@ -215,15 +214,9 @@ object ComonitorProbes {
         }
     }
 
-    private fun commandOk(
-        cmd: Array<String>,
-        timeoutSec: Long,
-    ): Boolean {
+    private fun commandOk(cmd: Array<String>, timeoutSec: Long): Boolean {
         return try {
-            val p =
-                ProcessBuilder(*cmd)
-                    .redirectErrorStream(true)
-                    .start()
+            val p = ProcessBuilder(*cmd).redirectErrorStream(true).start()
             val finished = p.waitFor(timeoutSec, TimeUnit.SECONDS)
             if (!finished) {
                 p.destroyForcibly()

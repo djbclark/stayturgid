@@ -3,10 +3,9 @@ package org.stayturgid.agent.adb
 /**
  * ADB wire protocol constants.
  *
- * Ported verbatim from the Shizuku fork's `moe.shizuku.manager.adb.AdbProtocol`
- * (only the package changed). The agent embeds a minimal ADB client so a healthy
- * peer (s24/p7a) can start Shizuku on a Fire-OS device over external ADB without
- * the Mac — see docs/architecture and issue #61.
+ * Ported verbatim from the Shizuku fork's `moe.shizuku.manager.adb.AdbProtocol` (only the package
+ * changed). The agent embeds a minimal ADB client so a healthy peer (s24/p7a) can start Shizuku on
+ * a Fire-OS device over external ADB without the Mac — see docs/architecture and issue #61.
  */
 object AdbProtocol {
     const val A_SYNC = 0x434e5953

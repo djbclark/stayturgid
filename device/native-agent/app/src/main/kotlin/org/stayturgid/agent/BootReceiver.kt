@@ -6,19 +6,13 @@ import android.content.Intent
 import android.util.Log
 
 /**
- * Starts [HostService] after boot / package replace.
- * Shizuku may not be up yet; HostService rebinds when the binder appears.
+ * Starts [HostService] after boot / package replace. Shizuku may not be up yet; HostService rebinds
+ * when the binder appears.
  */
 class BootReceiver : BroadcastReceiver() {
-    override fun onReceive(
-        context: Context,
-        intent: Intent?,
-    ) {
+    override fun onReceive(context: Context, intent: Intent?) {
         val action = intent?.action ?: return
-        if (
-            action == Intent.ACTION_BOOT_COMPLETED ||
-            action == Intent.ACTION_MY_PACKAGE_REPLACED
-        ) {
+        if (action == Intent.ACTION_BOOT_COMPLETED || action == Intent.ACTION_MY_PACKAGE_REPLACED) {
             Log.i(TAG, "starting host for $action")
             HostService.start(context.applicationContext)
         }

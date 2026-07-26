@@ -9,10 +9,6 @@ import android.util.Base64
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.content.edit
-import org.bouncycastle.asn1.x500.X500Name
-import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo
-import org.bouncycastle.cert.X509v3CertificateBuilder
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
 import java.io.ByteArrayInputStream
 import java.math.BigInteger
 import java.net.Socket
@@ -41,19 +37,22 @@ import javax.net.ssl.SSLContext
 import javax.net.ssl.SSLEngine
 import javax.net.ssl.X509ExtendedKeyManager
 import javax.net.ssl.X509ExtendedTrustManager
+import org.bouncycastle.asn1.x500.X500Name
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo
+import org.bouncycastle.cert.X509v3CertificateBuilder
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
 
 /**
- * RSA keypair the agent presents to a remote device's `adbd` (A_AUTH) and, on
- * API 30+, the TLS client identity for A_STLS.
+ * RSA keypair the agent presents to a remote device's `adbd` (A_AUTH) and, on API 30+, the TLS
+ * client identity for A_STLS.
  *
- * Ported from the Shizuku fork's `moe.shizuku.manager.adb.AdbKey` (best-practice
- * choice recorded in issue #61): the key is **generated on-device** and never
- * exported — the private key is wrapped with an AES/GCM key held in the hardware
- * AndroidKeyStore and only the ciphertext is persisted (via [AdbKeyStore]). The
- * agent's public key is authorized once per peer on the Fire device's adbd
- * ("Always allow"), giving per-device credentials + revocation rather than a
- * shared fleet secret. Adaptations vs. upstream: package rename, `unsafeLazy` →
- * `lazy(NONE)`, and the removal of the debug `logd` helper.
+ * Ported from the Shizuku fork's `moe.shizuku.manager.adb.AdbKey` (best-practice choice recorded in
+ * issue #61): the key is **generated on-device** and never exported — the private key is wrapped
+ * with an AES/GCM key held in the hardware AndroidKeyStore and only the ciphertext is persisted
+ * (via [AdbKeyStore]). The agent's public key is authorized once per peer on the Fire device's adbd
+ * ("Always allow"), giving per-device credentials + revocation rather than a shared fleet secret.
+ * Adaptations vs. upstream: package rename, `unsafeLazy` → `lazy(NONE)`, and the removal of the
+ * debug `logd` helper.
  */
 private const val TAG = "StayTurgidAdbKey"
 
@@ -68,25 +67,242 @@ class AdbKey(private val adbKeyStore: AdbKeyStore, name: String) {
 
         private val PADDING =
             byteArrayOf(
-                0x00, 0x01, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-                -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 0x00,
-                0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e, 0x03, 0x02, 0x1a, 0x05, 0x00,
-                0x04, 0x14,
+                0x00,
+                0x01,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                -1,
+                0x00,
+                0x30,
+                0x21,
+                0x30,
+                0x09,
+                0x06,
+                0x05,
+                0x2b,
+                0x0e,
+                0x03,
+                0x02,
+                0x1a,
+                0x05,
+                0x00,
+                0x04,
+                0x14,
             )
     }
 
@@ -98,59 +314,60 @@ class AdbKey(private val adbKeyStore: AdbKeyStore, name: String) {
 
     init {
         this.encryptionKey =
-            getOrCreateEncryptionKey() ?: error("Failed to generate encryption key with AndroidKeyManager.")
+            getOrCreateEncryptionKey()
+                ?: error("Failed to generate encryption key with AndroidKeyManager.")
 
         this.privateKey = getOrCreatePrivateKey()
         this.publicKey =
             KeyFactory.getInstance("RSA")
-                .generatePublic(RSAPublicKeySpec(privateKey.modulus, RSAKeyGenParameterSpec.F4)) as RSAPublicKey
+                .generatePublic(RSAPublicKeySpec(privateKey.modulus, RSAKeyGenParameterSpec.F4))
+                as RSAPublicKey
 
         val signer = JcaContentSignerBuilder("SHA256withRSA").build(privateKey)
         val x509Certificate =
             X509v3CertificateBuilder(
-                X500Name("CN=00"),
-                BigInteger.ONE,
-                Date(0),
-                Date(2461449600 * 1000),
-                Locale.ROOT,
-                X500Name("CN=00"),
-                SubjectPublicKeyInfo.getInstance(publicKey.encoded),
-            ).build(signer)
+                    X500Name("CN=00"),
+                    BigInteger.ONE,
+                    Date(0),
+                    Date(2461449600 * 1000),
+                    Locale.ROOT,
+                    X500Name("CN=00"),
+                    SubjectPublicKeyInfo.getInstance(publicKey.encoded),
+                )
+                .build(signer)
         this.certificate =
             CertificateFactory.getInstance("X.509")
-                .generateCertificate(ByteArrayInputStream(x509Certificate.encoded)) as X509Certificate
+                .generateCertificate(ByteArrayInputStream(x509Certificate.encoded))
+                as X509Certificate
 
         Log.d(TAG, privateKey.toString())
     }
 
-    val adbPublicKey: ByteArray by lazy(LazyThreadSafetyMode.NONE) {
-        publicKey.adbEncoded(name)
-    }
+    val adbPublicKey: ByteArray by lazy(LazyThreadSafetyMode.NONE) { publicKey.adbEncoded(name) }
 
     private fun getOrCreateEncryptionKey(): Key? {
         val keyStore = KeyStore.getInstance(ANDROID_KEYSTORE)
         keyStore.load(null)
 
-        return keyStore.getKey(ENCRYPTION_KEY_ALIAS, null) ?: run {
-            val parameterSpec =
-                KeyGenParameterSpec.Builder(
-                    ENCRYPTION_KEY_ALIAS,
-                    KeyProperties.PURPOSE_DECRYPT or KeyProperties.PURPOSE_ENCRYPT,
-                )
-                    .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                    .setKeySize(256)
-                    .build()
-            val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
-            keyGenerator.init(parameterSpec)
-            keyGenerator.generateKey()
-        }
+        return keyStore.getKey(ENCRYPTION_KEY_ALIAS, null)
+            ?: run {
+                val parameterSpec =
+                    KeyGenParameterSpec.Builder(
+                            ENCRYPTION_KEY_ALIAS,
+                            KeyProperties.PURPOSE_DECRYPT or KeyProperties.PURPOSE_ENCRYPT,
+                        )
+                        .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                        .setKeySize(256)
+                        .build()
+                val keyGenerator =
+                    KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
+                keyGenerator.init(parameterSpec)
+                keyGenerator.generateKey()
+            }
     }
 
-    private fun encrypt(
-        plaintext: ByteArray,
-        aad: ByteArray?,
-    ): ByteArray? {
+    private fun encrypt(plaintext: ByteArray, aad: ByteArray?): ByteArray? {
         if (plaintext.size > Int.MAX_VALUE - IV_SIZE_IN_BYTES - TAG_SIZE_IN_BYTES) {
             return null
         }
@@ -163,10 +380,7 @@ class AdbKey(private val adbKeyStore: AdbKeyStore, name: String) {
         return ciphertext
     }
 
-    private fun decrypt(
-        ciphertext: ByteArray,
-        aad: ByteArray?,
-    ): ByteArray? {
+    private fun decrypt(ciphertext: ByteArray, aad: ByteArray?): ByteArray? {
         if (ciphertext.size < IV_SIZE_IN_BYTES + TAG_SIZE_IN_BYTES) {
             return null
         }
@@ -193,7 +407,8 @@ class AdbKey(private val adbKeyStore: AdbKeyStore, name: String) {
                 val plaintext = decrypt(ciphertext, aad)
 
                 val keyFactory = KeyFactory.getInstance("RSA")
-                privateKey = keyFactory.generatePrivate(PKCS8EncodedKeySpec(plaintext)) as RSAPrivateKey
+                privateKey =
+                    keyFactory.generatePrivate(PKCS8EncodedKeySpec(plaintext)) as RSAPrivateKey
             } catch (e: Exception) {
                 Log.w(TAG, "reload existing adb key failed, regenerating", e)
             }
@@ -271,56 +486,51 @@ class AdbKey(private val adbKeyStore: AdbKeyStore, name: String) {
                     chain: Array<out X509Certificate>?,
                     authType: String?,
                     socket: Socket?,
-                ) {
-                }
+                ) {}
 
                 @SuppressLint("TrustAllX509TrustManager")
                 override fun checkClientTrusted(
                     chain: Array<out X509Certificate>?,
                     authType: String?,
                     engine: SSLEngine?,
-                ) {
-                }
+                ) {}
 
                 @SuppressLint("TrustAllX509TrustManager")
                 override fun checkClientTrusted(
                     chain: Array<out X509Certificate>?,
                     authType: String?,
-                ) {
-                }
+                ) {}
 
                 @SuppressLint("TrustAllX509TrustManager")
                 override fun checkServerTrusted(
                     chain: Array<out X509Certificate>?,
                     authType: String?,
                     socket: Socket?,
-                ) {
-                }
+                ) {}
 
                 @SuppressLint("TrustAllX509TrustManager")
                 override fun checkServerTrusted(
                     chain: Array<out X509Certificate>?,
                     authType: String?,
                     engine: SSLEngine?,
-                ) {
-                }
+                ) {}
 
                 @SuppressLint("TrustAllX509TrustManager")
                 override fun checkServerTrusted(
                     chain: Array<out X509Certificate>?,
                     authType: String?,
-                ) {
-                }
+                ) {}
 
                 override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
             }
 
     @delegate:RequiresApi(Build.VERSION_CODES.R)
-    val sslContext: SSLContext by lazy(LazyThreadSafetyMode.NONE) {
-        val sslContext = SSLContext.getInstance("TLSv1.3")
-        sslContext.init(arrayOf(keyManager), arrayOf(trustManager), SecureRandom())
-        sslContext
-    }
+    val sslContext: SSLContext by
+        lazy(LazyThreadSafetyMode.NONE) {
+            val sslContext = SSLContext.getInstance("TLSv1.3")
+            sslContext.init(arrayOf(keyManager), arrayOf(trustManager), SecureRandom())
+            sslContext
+        }
 }
 
 interface AdbKeyStore {
@@ -362,7 +572,11 @@ private fun BigInteger.toAdbEncoded(): IntArray {
 
 private fun RSAPublicKey.adbEncoded(name: String): ByteArray {
     // https://cs.android.com/android/platform/superproject/+/android-10.0.0_r30:system/core/libcrypto_utils/android_pubkey.c
-    val n0inv = modulus.remainder(BigInteger.ZERO.setBit(32)).modInverse(BigInteger.ZERO.setBit(32)).negate()
+    val n0inv =
+        modulus
+            .remainder(BigInteger.ZERO.setBit(32))
+            .modInverse(BigInteger.ZERO.setBit(32))
+            .negate()
     val r = BigInteger.ZERO.setBit(ANDROID_PUBKEY_MODULUS_SIZE * 8)
     val rr = r.modPow(BigInteger.valueOf(2), modulus)
 

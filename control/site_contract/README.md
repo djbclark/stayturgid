@@ -37,7 +37,7 @@ just site-init sitename=<name> [dir=<path>] [map=<site-map.yml>] [mode=apply|dry
 python3 -m control.site_contract.site_init --sitename <name> [--dir <path>] [--mode apply|dry-run|docs]
 ```
 
-- Default destination: `$OPS_ROOT/site-<name>` (`OPS_ROOT` defaults to `~/ops`).
+- Default destination: `$OPS_ROOT/site-<name>` (`OPS_ROOT` defaults to `${OPS_ROOT:-~/ops}`).
 - `mode=apply` (default): create the §3 scaffold; never overwrite differing
   user-owned files (exit 2); identical re-apply is a no-op.
 - `mode=dry-run`: print per-file `create` / `skip` / `overwrite` actions; no writes.

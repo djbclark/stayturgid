@@ -4,6 +4,8 @@ import java.time.temporal.ChronoUnit
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    id("io.gitlab.arturbosch.detekt")
+    id("org.jetbrains.kotlinx.kover")
 }
 
 android {
@@ -17,33 +19,35 @@ android {
         versionCode = 14
         versionName = "0.5.2-peerstart-ux"
         val buildTimeUtc =
-            System.getenv("SOURCE_DATE_EPOCH")
-                ?.toLongOrNull()
-                ?.let { Instant.ofEpochSecond(it) }
+            System.getenv("SOURCE_DATE_EPOCH")?.toLongOrNull()?.let { Instant.ofEpochSecond(it) }
                 ?: Instant.now().truncatedTo(ChronoUnit.SECONDS)
         val repoRoot = rootProject.projectDir.resolve("../..").canonicalPath
         val revision =
             providers
                 .exec {
-                    commandLine(
-                        "git",
-                        "-C",
-                        repoRoot,
-                        "rev-parse",
-                        "--short=12",
-                        "HEAD",
-                    )
+                    commandLine("git", "-C", repoRoot, "rev-parse", "--short=12", "HEAD")
                     isIgnoreExitValue = true
-                }.standardOutput.asText
+                }
+                .standardOutput
+                .asText
                 .get()
                 .trim()
                 .ifEmpty { "unknown" }
         val treeState =
             providers
                 .exec {
-                    commandLine("git", "-C", repoRoot, "status", "--porcelain", "--untracked-files=no")
+                    commandLine(
+                        "git",
+                        "-C",
+                        repoRoot,
+                        "status",
+                        "--porcelain",
+                        "--untracked-files=no",
+                    )
                     isIgnoreExitValue = true
-                }.standardOutput.asText
+                }
+                .standardOutput
+                .asText
                 .get()
                 .trim()
                 .let { if (it.isEmpty()) "clean" else "dirty" }
@@ -62,9 +66,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
+    kotlinOptions { jvmTarget = "17" }
+
+    testOptions { unitTests.all { it.useJUnitPlatform() } }
 
     signingConfigs {
         create("release") {
@@ -103,6 +107,16 @@ android {
     }
 }
 
+// ── detekt (static analysis) ───────────────────────────────────────────
+// Run:  ./gradlew detekt          (analysis with type resolution)
+//       ./gradlew detektBaseline  (snapshot existing issues for gradual adoption)
+detekt {
+    buildUponDefaultConfig = true
+    allRules = false
+    config.setFrom(files("$rootDir/config/detekt/detekt.yml"))
+    baseline = file("$rootDir/config/detekt/baseline.xml")
+}
+
 dependencies {
     // Coordinates substituted to ~/src/Shizuku/api when composite build is on.
     implementation("dev.rikka.shizuku:api:13.1.5")
@@ -118,5 +132,18 @@ dependencies {
     // matches the version used by the Shizuku fork's manager module.
     implementation("org.bouncycastle:bcpkix-jdk18on:1.80")
 
-    testImplementation("junit:junit:4.13.2")
+    // detekt formatting rules (wraps ktlint for analysis-only checks beyond
+    // what ktfmt handles — import ordering, trailing commas, etc.).
+    detektPlugins("io.gitlab.arturbosch.detekt:detekt-formatting:1.23.8")
+
+    // Modern Kotlin unit testing stack (2026)
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testImplementation("io.kotest:kotest-assertions-core:6.2.2")
+    testImplementation("io.mockk:mockk-android:1.14.11")
+    testImplementation("app.cash.turbine:turbine:1.2.1")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0")
+
+    // Konsist: architectural consistency as unit tests.
+    // Write tests like "all classes ending with 'Receiver' must extend BroadcastReceiver".
+    testImplementation("com.lemonappdev:konsist:0.17.3")
 }

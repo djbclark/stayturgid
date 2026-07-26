@@ -105,7 +105,7 @@ Use this as the source for STATUS.md; every claim was verified this session.
 - **Settings-state corruption:** issues #41/#42 open, human investigation
   pending; #16 overlaps #41.
 - **Known gotchas:** stray root-owned 0-byte file at `~/stayturgid` (real repo
-  is `~/ops/stayturgid`; removal needs sudo — operator); `just firerpa-health`
+  is `${OPS_ROOT:-~/ops}/stayturgid`; removal needs sudo — operator); `just firerpa-health`
   exits 1 silently by design (read ~/.config/stayturgid/logs/firerpa-health.log);
   pre-commit hook chain is strict (prettier/markdownlint MD060 table
   alignment — run `prettier --write` on touched .md before committing);

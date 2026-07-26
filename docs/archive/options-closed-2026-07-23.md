@@ -53,7 +53,7 @@ compatibility wrappers for CI and operator muscle memory. Plan:
 
 ### T3 — Consolidate host identity into one source of truth · Shipped 2026-07-18 (relay step B5)
 
-Remaining gaps tracked in `~/ops/site-djbclark/docs/relay/reviews/` (Phase B
+Remaining gaps tracked in `${OPS_ROOT:-~/ops}/site-djbclark/docs/relay/reviews/` (Phase B
 review findings), not here. Research:
 [site-identity-source-of-truth-2026-07-14.md](../research/site-identity-source-of-truth-2026-07-14.md).
 

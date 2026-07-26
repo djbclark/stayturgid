@@ -2,37 +2,35 @@ package org.stayturgid.agent
 
 import android.content.Context
 import android.util.Log
-import org.stayturgid.agent.adb.AdbAuthPendingException
-import org.stayturgid.agent.adb.AdbClient
-import org.stayturgid.agent.adb.AdbKey
-import org.stayturgid.agent.adb.PreferenceAdbKeyStore
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import org.stayturgid.agent.adb.AdbAuthPendingException
+import org.stayturgid.agent.adb.AdbClient
+import org.stayturgid.agent.adb.AdbKey
+import org.stayturgid.agent.adb.PreferenceAdbKeyStore
 
 /**
- * Peer-start: bring Shizuku up on a Fire-OS device from a healthy peer over
- * external ADB, with no dependency on the Mac (issue #61).
+ * Peer-start: bring Shizuku up on a Fire-OS device from a healthy peer over external ADB, with no
+ * dependency on the Mac (issue #61).
  *
- * Fire OS `adbd` drops device-local (loopback) connections, so Shizuku can't
- * self-start there; a connection from *another host* is accepted (proven in
- * #60). This runs entirely in the agent's app process — the peer does **not**
- * need Shizuku itself, only the embedded [AdbClient] + its own on-device
- * [AdbKey] (authorized once on the target's adbd via "Always allow").
+ * Fire OS `adbd` drops device-local (loopback) connections, so Shizuku can't self-start there; a
+ * connection from *another host* is accepted (proven in #60). This runs entirely in the agent's app
+ * process — the peer does **not** need Shizuku itself, only the embedded [AdbClient] + its own
+ * on-device [AdbKey] (authorized once on the target's adbd via "Always allow").
  *
- * The wire steps mirror `control/bin/fire_peer_help.py` (`shizuku-start`), which
- * proved the path this session: `pm path` → `<apkdir>/lib/arm64/libshizuku.so`
- * under `LD_LIBRARY_PATH`, falling back to the app's `start.sh`.
+ * The wire steps mirror `control/bin/fire_peer_help.py` (`shizuku-start`), which proved the path
+ * this session: `pm path` → `<apkdir>/lib/arm64/libshizuku.so` under `LD_LIBRARY_PATH`, falling
+ * back to the app's `start.sh`.
  */
 object PeerStarter {
     private const val TAG = "StayTurgidPeer"
 
     /**
-     * Peer-start runs in the **app** process (no local Shizuku), which under
-     * scoped storage cannot write the shared UID-2000 `agent.log`. Durable
-     * results go to the app-writable external files dir instead; every result is
-     * also emitted to logcat.
+     * Peer-start runs in the **app** process (no local Shizuku), which under scoped storage cannot
+     * write the shared UID-2000 `agent.log`. Durable results go to the app-writable external files
+     * dir instead; every result is also emitted to logcat.
      */
     private const val LOG_FILE_NAME = "peerstart.log"
     private const val ADB_KEY_PREFS = "stayturgid_adb_key"
@@ -44,24 +42,23 @@ object PeerStarter {
     enum class Outcome {
         ALREADY_UP,
         STARTED,
-        /** Target reachable + auth-challenged, but the one-time "Always allow" hasn't been granted yet. */
+        /**
+         * Target reachable + auth-challenged, but the one-time "Always allow" hasn't been granted
+         * yet.
+         */
         AUTH_PENDING,
         FAILED,
         UNREACHABLE,
         NOT_INSTALLED,
-        NO_TARGETS,
-        ;
+        NO_TARGETS;
 
         /** Shizuku confirmed running via an authorized connection. */
         fun isSuccess(): Boolean = this == ALREADY_UP || this == STARTED
     }
 
-    data class Result(
-        val target: String,
-        val outcome: Outcome,
-        val detail: String = "",
-    ) {
-        fun line(ts: String): String = "[agent] PEERSTART target=$target outcome=$outcome detail=$detail ts=$ts"
+    data class Result(val target: String, val outcome: Outcome, val detail: String = "") {
+        fun line(ts: String): String =
+            "[agent] PEERSTART target=$target outcome=$outcome detail=$detail ts=$ts"
     }
 
     /** Load config and ensure Shizuku on every assigned target. */
@@ -97,11 +94,7 @@ object PeerStarter {
     }
 
     /** Connect to [target]'s adbd; start Shizuku only if it is not already up. */
-    fun ensureShizuku(
-        target: PeerTarget,
-        shizukuPkg: String,
-        key: AdbKey,
-    ): Result {
+    fun ensureShizuku(target: PeerTarget, shizukuPkg: String, key: AdbKey): Result {
         val name = target.toString()
         return try {
             AdbClient(target.host, target.port, key).use { client ->
@@ -115,7 +108,10 @@ object PeerStarter {
                     return@use Result(name, Outcome.ALREADY_UP)
                 }
 
-                val apkPath = PeerStartCommands.parseApkPath(exec(client, PeerStartCommands.pmPath(shizukuPkg)))
+                val apkPath =
+                    PeerStartCommands.parseApkPath(
+                        exec(client, PeerStartCommands.pmPath(shizukuPkg))
+                    )
                 if (apkPath == null) {
                     return@use Result(name, Outcome.NOT_INSTALLED, "pkg=$shizukuPkg")
                 }
@@ -143,9 +139,9 @@ object PeerStarter {
     }
 
     /**
-     * Best-effort removal of the "approve on the target" reminder marker on the
-     * target device, over the now-authorized connection. Package-independent
-     * (covers debug + release agent ids); failures are ignored.
+     * Best-effort removal of the "approve on the target" reminder marker on the target device, over
+     * the now-authorized connection. Package-independent (covers debug + release agent ids);
+     * failures are ignored.
      */
     private fun clearTargetReminder(client: AdbClient) {
         try {
@@ -155,7 +151,8 @@ object PeerStarter {
         }
     }
 
-    private fun isShizukuUp(client: AdbClient): Boolean = exec(client, PeerStartCommands.SHIZUKU_RUNNING_CHECK).contains("up")
+    private fun isShizukuUp(client: AdbClient): Boolean =
+        exec(client, PeerStartCommands.SHIZUKU_RUNNING_CHECK).contains("up")
 
     private fun isUnreachable(t: Throwable): Boolean {
         val m = (t.message ?: "").lowercase()
@@ -168,19 +165,13 @@ object PeerStarter {
     }
 
     /** Run one `shell:` command to completion and return its aggregated stdout. */
-    private fun exec(
-        client: AdbClient,
-        shellCmd: String,
-    ): String {
+    private fun exec(client: AdbClient, shellCmd: String): String {
         val sb = StringBuilder()
         client.command("shell:$shellCmd") { sb.append(String(it)) }
         return sb.toString()
     }
 
-    private fun record(
-        context: Context,
-        result: Result,
-    ) {
+    private fun record(context: Context, result: Result) {
         val ts = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
         val line = result.line(ts)
         Log.i(TAG, line)
@@ -194,16 +185,17 @@ object PeerStarter {
 }
 
 /**
- * Pure shell-command builders for the peer-start wire steps — no Android or
- * socket dependencies, so they are unit-testable off-device. Kept faithful to
+ * Pure shell-command builders for the peer-start wire steps — no Android or socket dependencies, so
+ * they are unit-testable off-device. Kept faithful to
  * `control/bin/fire_peer_help.py:cmd_shizuku_start`.
  */
 object PeerStartCommands {
     /**
-     * `[s]hizuku_server` (bracket trick) so the pgrep pattern never matches its
-     * own process. Emits `up`/`down` so the reader is unambiguous.
+     * `[s]hizuku_server` (bracket trick) so the pgrep pattern never matches its own process. Emits
+     * `up`/`down` so the reader is unambiguous.
      */
-    const val SHIZUKU_RUNNING_CHECK = "pgrep -f '[s]hizuku_server' >/dev/null 2>&1 && echo up || echo down"
+    const val SHIZUKU_RUNNING_CHECK =
+        "pgrep -f '[s]hizuku_server' >/dev/null 2>&1 && echo up || echo down"
 
     fun pmPath(pkg: String): String = "pm path $pkg"
 
@@ -223,14 +215,11 @@ object PeerStartCommands {
     fun libDirFor(apkPath: String): String = apkPath.substringBeforeLast('/') + "/lib/arm64"
 
     /**
-     * Run the extracted `libshizuku.so` under `LD_LIBRARY_PATH`, falling back to
-     * the app's bundled `start.sh`. Paths single-quoted — install dirs contain
-     * `~~`/`==` (Android randomized app dirs) that must stay literal.
+     * Run the extracted `libshizuku.so` under `LD_LIBRARY_PATH`, falling back to the app's bundled
+     * `start.sh`. Paths single-quoted — install dirs contain `~~`/`==` (Android randomized app
+     * dirs) that must stay literal.
      */
-    fun starterCommand(
-        libDir: String,
-        shizukuPkg: String,
-    ): String =
+    fun starterCommand(libDir: String, shizukuPkg: String): String =
         "test -x '$libDir/libshizuku.so' && " +
             "LD_LIBRARY_PATH='$libDir' '$libDir/libshizuku.so' || " +
             "sh /storage/emulated/0/Android/data/$shizukuPkg/start.sh"

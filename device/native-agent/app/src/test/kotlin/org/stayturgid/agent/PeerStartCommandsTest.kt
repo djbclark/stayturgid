@@ -1,9 +1,9 @@
 package org.stayturgid.agent
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNull
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 
 /** Pure shell-command-builder tests — kept faithful to fire_peer_help.py. */
 class PeerStartCommandsTest {
@@ -19,8 +19,7 @@ class PeerStartCommandsTest {
     @Test
     fun parseApkPathTakesFirstPackageLine() {
         val out =
-            "package:/data/app/A/base.apk\n" +
-                "package:/data/app/A/split_config.arm64_v8a.apk\n"
+            "package:/data/app/A/base.apk\n" + "package:/data/app/A/split_config.arm64_v8a.apk\n"
         assertEquals("/data/app/A/base.apk", PeerStartCommands.parseApkPath(out))
     }
 
@@ -44,7 +43,9 @@ class PeerStartCommandsTest {
         val cmd = PeerStartCommands.starterCommand(libDir, "moe.shizuku.privileged.api")
         assertTrue(cmd.contains("LD_LIBRARY_PATH='$libDir' '$libDir/libshizuku.so'"))
         assertTrue(cmd.contains("test -x '$libDir/libshizuku.so'"))
-        assertTrue(cmd.contains("sh /storage/emulated/0/Android/data/moe.shizuku.privileged.api/start.sh"))
+        assertTrue(
+            cmd.contains("sh /storage/emulated/0/Android/data/moe.shizuku.privileged.api/start.sh")
+        )
     }
 
     @Test

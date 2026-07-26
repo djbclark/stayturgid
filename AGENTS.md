@@ -38,7 +38,7 @@ bugs/follow-ups) for what's actually available to pick up next.
 
 1. Physically check offline fleet devices (Tailscale unreachable).
 2. Decide the F1 consent-surface phasing question ([#46](https://github.com/djbclark/stayturgid/issues/46)).
-3. Remove (or authorize removal of) a stray `~/stayturgid` file — the real repo is `~/ops/stayturgid`.
+3. Remove (or authorize removal of) a stray `~/stayturgid` file — the real repo is `${OPS_ROOT:-~/ops}/stayturgid`.
 
 If any of this looks stale, trust `docs/STATUS.md` and `git log` over this
 section — it's a snapshot, not updated every commit.
@@ -46,7 +46,7 @@ section — it's a snapshot, not updated every commit.
 ## Quick start
 
 ```bash
-cd ~/ops/stayturgid && git fetch origin --prune && git pull --ff-only origin master
+cd ${OPS_ROOT:-~/ops}/stayturgid && git fetch origin --prune && git pull --ff-only origin master
 just health && just firerpa-health
 ```
 
@@ -106,7 +106,7 @@ just health && just firerpa-health
 - **SSH CA:** `~/.ssh/stayturgid_ca` — `just ca-status`
 - **OpenCode web:** site-local service (see site overlay / landing); not a public fixed IP
 - **Secrets:** managed via `secretspec` (`brew install secretspec`). Spec at `secretspec.toml` (project root). All secrets defined there; run `just secretspec-check` before deploys.
-- **Site inventory:** resolved via `ANSIBLE_CONFIG`, `STAYTURGID_SITE_DIR`, `OPS_ROOT/.mysite`, or one discovered `site-*` checkout under `OPS_ROOT` (default `~/ops`), excluding `site-private`; see `control/lib/site_discovery.py` and `control/lib/ansible_context.py`. Commands print the selected path and precedence source. A missing private companion is created at `STAYTURGID_PRIVATE_DIR` (default `OPS_ROOT/site-private`) without Git or secret initialization.
+- **Site inventory:** resolved via `ANSIBLE_CONFIG`, `STAYTURGID_SITE_DIR`, `OPS_ROOT/.mysite`, or one discovered `site-*` checkout under `OPS_ROOT` (default `${OPS_ROOT:-~/ops}`), excluding `site-private`; see `control/lib/site_discovery.py` and `control/lib/ansible_context.py`. Commands print the selected path and precedence source. A missing private companion is created at `STAYTURGID_PRIVATE_DIR` (default `OPS_ROOT/site-private`) without Git or secret initialization.
 
 ## Example fleet (generic — not a live site)
 
@@ -136,13 +136,13 @@ per-site agents.
 
 ## Memory & documentation policy (this repo's slice)
 
-There is **no single canonical policy copy**. Each of the three `~/ops`
+There is **no single canonical policy copy**. Each of the three `${OPS_ROOT:-~/ops}`
 siblings owns the rules that apply to **it**, in that repo's `AGENTS.md`, and
 **must** point at the other two so a full picture requires all three. Cross-repo
 links use absolute
 `https://github.com/<owner>/<repo>/blob/master/...` URLs (GitHub's renderer
 cannot follow relative links across repos); also give the filesystem path
-(`~/ops/...`) for local use. Same-repo links stay relative.
+(`${OPS_ROOT:-~/ops}/...`) for local use. Same-repo links stay relative.
 
 **This repo (stayturgid) owns:**
 
@@ -157,17 +157,17 @@ cannot follow relative links across repos); also give the filesystem path
 **Optional additional rules (not required of every stayturgid user):**
 
 - Non-sensitive site practice others might still benefit from → that operator's
-  `~/ops/site-<name>` (example for this machine:
-  [`~/ops/site-djbclark/AGENTS.md`](https://github.com/djbclark/site-djbclark/blob/master/AGENTS.md)
+  `${OPS_ROOT:-~/ops}/site-<name>` (example for this machine:
+  [`${OPS_ROOT:-~/ops}/site-djbclark/AGENTS.md`](https://github.com/djbclark/site-djbclark/blob/master/AGENTS.md)
   — private repo; expect 404 if you are not the owner).
 - Private / Mac-wide / not-for-public extras →
-  [`~/ops/site-private/AGENTS.md`](https://github.com/djbclark/site-private/blob/master/AGENTS.md)
+  [`${OPS_ROOT:-~/ops}/site-private/AGENTS.md`](https://github.com/djbclark/site-private/blob/master/AGENTS.md)
   (always private; expect 404 for other readers).
 
 **Symlinks (filesystem) are reserved for** root-level `~` agent/vendor files
 (`~/AGENTS.md`, `~/CLAUDE.md`, and any other root-level vendor-specific agent
 instruction files), tool memory dirs under `~/.claude/.../memory`, and
-optionally `~/ops/.mysite` → `site-<name>` (supported local convenience).
+optionally `${OPS_ROOT:-~/ops}/.mysite` → `site-<name>` (supported local convenience).
 Do **not** use in-repo symlinks to reach sibling repos — use path + https links
 in prose instead.
 
@@ -192,8 +192,8 @@ both point back here rather than duplicating it.
 | [GitHub issues](https://github.com/djbclark/stayturgid/issues)   | Discrete bugs, ops follow-ups, soak verifications                                                                                           | As they arise                    |
 | [`docs/operations/sessions/`](docs/operations/sessions/)         | Session-by-session history and handoffs                                                                                                     | Every session                    |
 | [`docs/archive/`](docs/archive/)                                 | Superseded plans and old sessions — historical record only, never treat as current                                                          | Append-only                      |
-| `~/ops/site-<name>` (sibling repo)                               | One operator's site overlay — inventory, credentials-adjacent config, **that site's slice of memory/docs policy**                           | As the site changes              |
-| `~/ops/site-private` (sibling repo)                              | Private/generic companion — **its** slice of memory/docs policy + Claude generic memory                                                     | As generic notes come up         |
+| `${OPS_ROOT:-~/ops}/site-<name>` (sibling repo)                               | One operator's site overlay — inventory, credentials-adjacent config, **that site's slice of memory/docs policy**                           | As the site changes              |
+| `${OPS_ROOT:-~/ops}/site-private` (sibling repo)                              | Private/generic companion — **its** slice of memory/docs policy + Claude generic memory                                                     | As generic notes come up         |
 
 Do not put durable rules in STATUS.md, and do not put dated/volatile state in
 AGENTS.md or coding-rules.md — that's the split this table encodes.

@@ -19,19 +19,15 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import rikka.shizuku.Shizuku
 
-/**
- * Permission + control UI only. Host work lives in [HostService].
- */
+/** Permission + control UI only. Host work lives in [HostService]. */
 class MainActivity : ComponentActivity() {
     private lateinit var status: TextView
     private lateinit var actionBanner: TextView
     private lateinit var authorizeButton: Button
 
-    private val binderListener =
-        Shizuku.OnBinderReceivedListener { refreshStatus() }
+    private val binderListener = Shizuku.OnBinderReceivedListener { refreshStatus() }
 
-    private val binderDeadListener =
-        Shizuku.OnBinderDeadListener { refreshStatus() }
+    private val binderDeadListener = Shizuku.OnBinderDeadListener { refreshStatus() }
 
     private val permissionListener =
         Shizuku.OnRequestPermissionResultListener { _, _ ->
@@ -54,7 +50,7 @@ class MainActivity : ComponentActivity() {
             TextView(this).apply {
                 text = getString(R.string.app_name)
                 textSize = 24f
-            },
+            }
         )
         root.addView(
             TextView(this).apply {
@@ -62,7 +58,7 @@ class MainActivity : ComponentActivity() {
                 textSize = 18f
                 setTextIsSelectable(true)
                 setPadding(0, 8, 0, 28)
-            },
+            }
         )
 
         // Peer-start activation prompt (issue #61) — shown only when a one-time
@@ -82,7 +78,8 @@ class MainActivity : ComponentActivity() {
                 visibility = View.GONE
                 setOnClickListener {
                     HostService.peerStartNow(this@MainActivity)
-                    Toast.makeText(this@MainActivity, "Peer-start requested", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, "Peer-start requested", Toast.LENGTH_SHORT)
+                        .show()
                 }
             }
         root.addView(authorizeButton)
@@ -95,7 +92,7 @@ class MainActivity : ComponentActivity() {
             TextView(this).apply {
                 text = getString(R.string.main_status_heading)
                 textSize = 20f
-            },
+            }
         )
         root.addView(status)
         root.addView(
@@ -104,23 +101,26 @@ class MainActivity : ComponentActivity() {
                 setOnClickListener {
                     val diagnostics = buildSummary() + "\n" + status.text
                     val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("stayturgid-agent diagnostics", diagnostics))
-                    Toast.makeText(this@MainActivity, "Diagnostics copied", Toast.LENGTH_SHORT).show()
+                    clipboard.setPrimaryClip(
+                        ClipData.newPlainText("stayturgid-agent diagnostics", diagnostics)
+                    )
+                    Toast.makeText(this@MainActivity, "Diagnostics copied", Toast.LENGTH_SHORT)
+                        .show()
                 }
-            },
+            }
         )
         root.addView(
             TextView(this).apply {
                 text = getString(R.string.main_hint)
                 textSize = 13f
                 setPadding(0, 24, 0, 24)
-            },
+            }
         )
         root.addView(
             Button(this).apply {
                 text = getString(R.string.main_request_shizuku)
                 setOnClickListener { requestShizuku() }
-            },
+            }
         )
         root.addView(
             Button(this).apply {
@@ -133,17 +133,18 @@ class MainActivity : ComponentActivity() {
                     Toast.makeText(this@MainActivity, "Host starting", Toast.LENGTH_SHORT).show()
                     refreshStatus()
                 }
-            },
+            }
         )
         root.addView(
             Button(this).apply {
                 text = getString(R.string.main_stop)
                 setOnClickListener {
                     HostService.stop(this@MainActivity)
-                    Toast.makeText(this@MainActivity, "Host stop requested", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@MainActivity, "Host stop requested", Toast.LENGTH_SHORT)
+                        .show()
                     refreshStatus()
                 }
-            },
+            }
         )
         root.addView(
             Button(this).apply {
@@ -152,7 +153,7 @@ class MainActivity : ComponentActivity() {
                     HostService.pingNow(this@MainActivity)
                     Toast.makeText(this@MainActivity, "Ping requested", Toast.LENGTH_SHORT).show()
                 }
-            },
+            }
         )
         root.addView(
             Button(this).apply {
@@ -160,12 +161,13 @@ class MainActivity : ComponentActivity() {
                 setOnClickListener {
                     HostService.pingNow(this@MainActivity)
                     Toast.makeText(
-                        this@MainActivity,
-                        "Ping+comonitor requested (see agent.log)",
-                        Toast.LENGTH_SHORT,
-                    ).show()
+                            this@MainActivity,
+                            "Ping+comonitor requested (see agent.log)",
+                            Toast.LENGTH_SHORT,
+                        )
+                        .show()
                 }
-            },
+            }
         )
         root.addView(
             Button(this).apply {
@@ -173,12 +175,13 @@ class MainActivity : ComponentActivity() {
                 setOnClickListener {
                     HostService.repairNow(this@MainActivity)
                     Toast.makeText(
-                        this@MainActivity,
-                        "Catastrophic repair requested",
-                        Toast.LENGTH_SHORT,
-                    ).show()
+                            this@MainActivity,
+                            "Catastrophic repair requested",
+                            Toast.LENGTH_SHORT,
+                        )
+                        .show()
                 }
-            },
+            }
         )
         root.addView(
             Button(this).apply {
@@ -186,12 +189,13 @@ class MainActivity : ComponentActivity() {
                 setOnClickListener {
                     HostService.peerStartNow(this@MainActivity)
                     Toast.makeText(
-                        this@MainActivity,
-                        "Peer-start requested (see peerstart.log / logcat)",
-                        Toast.LENGTH_SHORT,
-                    ).show()
+                            this@MainActivity,
+                            "Peer-start requested (see peerstart.log / logcat)",
+                            Toast.LENGTH_SHORT,
+                        )
+                        .show()
                 }
-            },
+            }
         )
         setContentView(ScrollView(this).apply { addView(root) })
 
@@ -214,7 +218,8 @@ class MainActivity : ComponentActivity() {
         val pending = PeerStartState.pendingTargets(this)
         when {
             pending.isNotEmpty() -> {
-                actionBanner.text = getString(R.string.main_peer_pending_banner, pending.joinToString(", "))
+                actionBanner.text =
+                    getString(R.string.main_peer_pending_banner, pending.joinToString(", "))
                 actionBanner.visibility = View.VISIBLE
                 authorizeButton.visibility = View.VISIBLE
             }
@@ -238,26 +243,25 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun refreshStatus() {
-        val lines =
-            buildList {
-                add("applicationId=${BuildConfig.APPLICATION_ID}")
-                add("versionName=${BuildConfig.VERSION_NAME}")
-                add("versionCode=${BuildConfig.VERSION_CODE}")
-                add("buildType=${BuildConfig.BUILD_TYPE}")
-                add("buildTimeUtc=${BuildConfig.BUILD_TIME_UTC}")
-                add("revision=${BuildConfig.BUILD_REVISION}")
-                add("treeState=${BuildConfig.BUILD_TREE_STATE}")
-                add("android=${Build.VERSION.RELEASE} sdk=${Build.VERSION.SDK_INT}")
-                add("device=${Build.MANUFACTURER} ${Build.MODEL}")
-                add("shizukuBinder=${Shizuku.pingBinder()}")
-                if (Shizuku.pingBinder()) {
-                    add("shizukuVersion=${runCatching { Shizuku.getVersion() }.getOrElse { -1 }}")
-                    add("shizukuUid=${runCatching { Shizuku.getUid() }.getOrElse { -1 }}")
-                }
-                add("shizukuPermission=${hasShizukuPermission()}")
-                add("postNotifications=${hasPostNotifications()}")
-                add("intervalMs=${HostService.PING_INTERVAL_MS}")
+        val lines = buildList {
+            add("applicationId=${BuildConfig.APPLICATION_ID}")
+            add("versionName=${BuildConfig.VERSION_NAME}")
+            add("versionCode=${BuildConfig.VERSION_CODE}")
+            add("buildType=${BuildConfig.BUILD_TYPE}")
+            add("buildTimeUtc=${BuildConfig.BUILD_TIME_UTC}")
+            add("revision=${BuildConfig.BUILD_REVISION}")
+            add("treeState=${BuildConfig.BUILD_TREE_STATE}")
+            add("android=${Build.VERSION.RELEASE} sdk=${Build.VERSION.SDK_INT}")
+            add("device=${Build.MANUFACTURER} ${Build.MODEL}")
+            add("shizukuBinder=${Shizuku.pingBinder()}")
+            if (Shizuku.pingBinder()) {
+                add("shizukuVersion=${runCatching { Shizuku.getVersion() }.getOrElse { -1 }}")
+                add("shizukuUid=${runCatching { Shizuku.getUid() }.getOrElse { -1 }}")
             }
+            add("shizukuPermission=${hasShizukuPermission()}")
+            add("postNotifications=${hasPostNotifications()}")
+            add("intervalMs=${HostService.PING_INTERVAL_MS}")
+        }
         status.text = lines.joinToString("\n")
     }
 
@@ -302,10 +306,8 @@ class MainActivity : ComponentActivity() {
 
     private fun hasPostNotifications(): Boolean {
         if (Build.VERSION.SDK_INT < 33) return true
-        return ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.POST_NOTIFICATIONS,
-        ) == PackageManager.PERMISSION_GRANTED
+        return ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
     }
 
     private fun maybeRequestPostNotifications() {

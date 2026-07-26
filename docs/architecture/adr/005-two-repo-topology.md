@@ -25,7 +25,7 @@ There is **no third "glue" repo**: composition logic ships product-side
 The full contract specification (CLI surface, lockfile semantics, adapter
 interface, acceptance tests) is [site-contract.md](../site-contract.md).
 
-Layout convention: a plain base directory (default `~/ops`, override
+Layout convention: a plain base directory (default `${OPS_ROOT:-~/ops}`, override
 `OPS_ROOT`) holding sibling checkouts. **A private site repo must never be
 nested inside a public repo's working tree** (allowlist-.gitignore schemes are
 rejected: `git add -f`, allowlist drift, or `git clean -ffdx` could expose or

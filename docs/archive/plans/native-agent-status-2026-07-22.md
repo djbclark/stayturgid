@@ -274,7 +274,7 @@ Avoid logging every dumpsys every 5 min (noise + cost). Prefer: high-cadence **a
 ## Quick recovery for another agent
 
 ```bash
-cd ~/ops/stayturgid && git pull --ff-only origin master
+cd ${OPS_ROOT:-~/ops}/stayturgid && git pull --ff-only origin master
 # status doc: docs/operations/plans/native-agent-status-2026-07-22.md
 export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home
 just agent-assemble

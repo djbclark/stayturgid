@@ -43,7 +43,7 @@ just site-sync [dir=<path>] [mode=apply|dry-run|docs] [force-generated=1]
   user content (`site-init`) or generated-area drift (`site-sync`).
 
 Default destination for `site-init` is `$OPS_ROOT/site-<name>` (`OPS_ROOT`
-defaults to `~/ops`). The destination must **never** nest inside the product
+defaults to `${OPS_ROOT:-~/ops}`). The destination must **never** nest inside the product
 working tree (ADR 005). Bare sitename matches `^[a-z][a-z0-9-]*$` (no `site-`
 prefix).
 
@@ -191,7 +191,7 @@ otherwise.
 
 The wrapper `justfile` locates the public product at
 `$STAYTURGID_ROOT`, or `$OPS_ROOT/stayturgid`, or
-`~/ops/stayturgid` in that order. The site and product must remain sibling
+`${OPS_ROOT:-~/ops}/stayturgid` in that order. The site and product must remain sibling
 checkouts; never nest this private repository inside the public product tree.
 
 Review `{{ inventory_path }}` and the two registries before running a deployment.
