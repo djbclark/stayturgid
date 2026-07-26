@@ -22,7 +22,6 @@ sys.path.insert(0, str(REPO / "control" / "lib"))
 import screen_control as sc
 import stayturgid_device as dev
 import ui_driver as uid
-import vlm_helpers as vh
 
 OUT = REPO / "artifacts" / "h2-confirm"
 NEO = "com.machiav3lli.fdroid"
@@ -56,24 +55,6 @@ def launch(serial: str, component: str) -> None:
     time.sleep(2.5)
 
 
-def _vlm_report(host: str, shot: Path, check: str, label: str) -> None:
-    if not shot.is_file() or not vh.auto_verify_enabled():
-        return
-    ok, detail = vh.verify_shot(shot, check)
-    if detail.get("skipped"):
-        return
-    status = "PASS" if ok else "FAIL"
-    print(
-        "  VLM %s %s %s (%.1fs)"
-        % (
-            status,
-            label,
-            detail.get("parsed", {}).get("notes", "")[:80],
-            detail.get("elapsed_s", 0),
-        )
-    )
-
-
 def confirm_neo(host: str, session, hs, out: Path) -> None:
     serial = session.serial
     print("[%s] Neo Store" % host)
@@ -100,7 +81,6 @@ def confirm_neo(host: str, session, hs, out: Path) -> None:
         hs.tap_text("Installer", timeout_ms=2500) or hs.tap_text("Installation", timeout_ms=2000)
         time.sleep(1.2)
     shot(serial, out / "03_neo_installer.png")
-    _vlm_report(host, out / "03_neo_installer.png", "neo_shizuku_installer", "neo_shizuku")
     # scroll for auto-update row
     session.shell("input", "swipe", "540", "1600", "540", "800")
     time.sleep(1)
@@ -126,7 +106,6 @@ def confirm_aurora(host: str, session, hs, out: Path) -> None:
         hs.tap_text("Installation method", timeout_ms=2500)
         time.sleep(1.2)
     shot(serial, out / "12_aurora_installer.png")
-    _vlm_report(host, out / "12_aurora_installer.png", "aurora_shizuku_installer", "aurora_shizuku")
     # back to settings root
     for _ in range(3):
         session.shell("input", "keyevent", "KEYCODE_BACK")
@@ -146,7 +125,6 @@ def confirm_aurora(host: str, session, hs, out: Path) -> None:
         hs.tap_text("Automatic updates", timeout_ms=2500)
         time.sleep(1)
     shot(serial, out / "14_aurora_auto_updates.png")
-    _vlm_report(host, out / "14_aurora_auto_updates.png", "aurora_autoupdate_dont", "aurora_autoupdate")
     session.shell("input", "keyevent", "KEYCODE_BACK")
     time.sleep(0.8)
     shot(serial, out / "15_aurora_updates_filters.png")

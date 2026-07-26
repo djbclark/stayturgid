@@ -35,7 +35,6 @@ for _p in (_LIB, _REPO):
 import fleet_health as fh
 import hd8_google_stack as hgs
 import stayturgid_device as dev
-import vlm_helpers as vh
 
 import control.lib.stats as stats
 from control.lib.site_logging import (
@@ -54,14 +53,12 @@ CONF = os.environ.get("STAYTURGID_DEVICES_CONF", os.path.join(ROOT, "devices.con
 STATE_DIR = os.path.join(ROOT, "state", "fleet-health")
 AGENT_HEAL_STATE_DIR = os.path.join(ROOT, "state", "agent-heal")
 GOOGLE_HEAL_STATE_DIR = os.path.join(ROOT, "state", "google-stack-heal")
-GOOGLE_VERIFY_STATE_DIR = os.path.join(ROOT, "state", "google-stack-verify")
 ERROR_LOG = os.path.join(ROOT, "logs", "errors.log")
 LOG_NAME = "fleet-health.log"
 CONSECUTIVE_LIMIT = 2
 AGENT_HEAL_AFTER = 2
 AGENT_HEAL_COOLDOWN_SEC = 30 * 60
 GOOGLE_STACK_HEAL_COOLDOWN_SEC = 24 * 60 * 60
-GOOGLE_VERIFY_COOLDOWN_SEC = 6 * 60 * 60
 SKIP_HEALTH = os.environ.get("STAYTURGID_SKIP_HEALTH") == "1"
 SKIP_WATCHDOG_HEAL = os.environ.get("STAYTURGID_SKIP_WATCHDOG_HEAL") == "1"
 SKIP_GOOGLE_STACK_HEAL = os.environ.get("STAYTURGID_SKIP_GOOGLE_STACK_HEAL") == "1"
@@ -299,42 +296,8 @@ def maybe_heal_hd8_google_stack(name: str) -> None:
                 "stayturgid heal",
                 "%s Google Play Services pinned (%s)" % (name, new_ver),
             )
-            maybe_verify_hd8_google_closeout(name)
     except Exception as e:
         _fleet_log(INFO, "%s google-stack heal skipped: %s" % (name, e))
-
-
-def maybe_verify_hd8_google_closeout(name: str) -> None:
-    """Rate-limited VLM verify after stack heal (auto-update + crash dialog)."""
-    if SKIP_HEALTH or name != "fireos-device" or not vh.auto_verify_enabled():
-        return
-    if not _heal_cooldown_ok_dir(name, GOOGLE_VERIFY_STATE_DIR, GOOGLE_VERIFY_COOLDOWN_SEC):
-        return
-    script = os.path.join(REPO, "control", "bin", "verify_hd8_google.py")
-    if not os.path.isfile(script):
-        return
-    _fleet_log(INFO, "%s google-stack VLM close-out (verify_hd8_google)" % name)
-    env = os.environ.copy()
-    env.setdefault("STAYTURGID_VLM", "1")
-    try:
-        r = subprocess.run(
-            [sys.executable, script, name],
-            capture_output=True,
-            text=True,
-            timeout=600,
-            env=env,
-        )
-        detail = ((r.stdout or "") + (r.stderr or "")).strip().replace("\n", " | ")
-        _fleet_log(INFO, "%s google-stack VLM verify rc=%s %s" % (name, r.returncode, detail[:400]))
-        _touch_heal_dir(name, GOOGLE_VERIFY_STATE_DIR)
-        if r.returncode != 0:
-            notify(
-                "stayturgid heal",
-                "%s Google stack VLM check failed — see fleet-health.log" % name,
-                sound="Basso",
-            )
-    except (OSError, subprocess.TimeoutExpired) as e:
-        _fleet_log(INFO, "%s google-stack VLM verify error: %s" % (name, e))
 
 
 # Only count catastrophic/headless failures inside this window. Counting the

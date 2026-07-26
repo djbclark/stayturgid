@@ -2,7 +2,7 @@
 
 Play Store account-drawer navigation is brittle under display inversion; callers
 that only need a verification screenshot should use this module without
-``ScreenControlSession``. See docs/vlm.md.
+``ScreenControlSession``.
 """
 
 from __future__ import annotations

@@ -45,11 +45,10 @@
       ]
     },
     "mac_heal": {
-      "description": "Mac-side manual and VLM-verified fix scripts",
+      "description": "Mac-side manual fix scripts",
       "files": [
         "control/bin/fix_hd8_google_stack.py",
-        "control/lib/hd8_google_stack.py",
-        "control/bin/verify_play_autoupdate.py"
+        "control/lib/hd8_google_stack.py"
       ]
     }
   },
