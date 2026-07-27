@@ -2,6 +2,7 @@ package org.stayturgid.agent
 
 import android.content.Context
 import android.hardware.input.InputManager
+import android.os.Process
 import android.os.SystemClock
 import android.util.Log
 import android.view.InputDevice
@@ -10,6 +11,7 @@ import android.view.KeyCharacterMap
 import android.view.KeyEvent
 import androidx.annotation.Keep
 import java.lang.reflect.Method
+import java.util.concurrent.TimeUnit
 
 /**
  * Runs as UID 2000 (shell) under Shizuku. No non-SDK restrictions.
@@ -22,6 +24,7 @@ class ShizukuUserService : IStayTurgidService.Stub {
 
     constructor() {
         Log.i(TAG, "constructor")
+        reapStaleUserServices()
     }
 
     /**
@@ -32,6 +35,7 @@ class ShizukuUserService : IStayTurgidService.Stub {
     constructor(context: Context) {
         appContext = context.applicationContext ?: context
         Log.i(TAG, "constructor with Context: $context")
+        reapStaleUserServices()
     }
 
     override fun destroy() {
@@ -194,6 +198,26 @@ class ShizukuUserService : IStayTurgidService.Stub {
                 )
         match.isAccessible = true
         return match
+    }
+
+    private fun reapStaleUserServices() {
+        val myPid = Process.myPid()
+        val pkgs = arrayOf("org.stayturgid.agent", "org.stayturgid.agent.debug")
+        for (pkg in pkgs) {
+            try {
+                val p = ProcessBuilder("pidof", "$pkg:userservice").redirectErrorStream(true).start()
+                if (p.waitFor(2, TimeUnit.SECONDS)) {
+                    val out = p.inputStream.bufferedReader().readText().trim()
+                    val pids = out.split(Regex("\\s+")).mapNotNull { it.toIntOrNull() }.filter { it != myPid }
+                    if (pids.isNotEmpty()) {
+                        Log.i(TAG, "Reaping ${pids.size} stale UserService pid(s): $pids (my pid: $myPid)")
+                        ProcessBuilder("kill", *pids.map { it.toString() }.toTypedArray()).start()
+                    }
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "reapStaleUserServices failed for $pkg: ${t.message}")
+            }
+        }
     }
 
     companion object {

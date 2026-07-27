@@ -44,6 +44,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Starting native-agent on {serial} ({component})...")
     # Force-stop first so FGS + UserService restart cleanly after freezes.
     adb.adb(serial, "shell", f"am force-stop {pkg}")
+    # Stop any stale UserService processes (which run as UID 2000 under Shizuku and survive force-stop)
+    for p in (PKG_DEBUG, PKG_RELEASE):
+        stale = adb.adb(serial, "shell", f"pidof {p}:userservice").stdout or ""
+        pids = [pid for pid in stale.strip().split() if pid.isdigit()]
+        if pids:
+            adb.adb(serial, "shell", f"kill {' '.join(pids)}")
     time.sleep(1)
     r = adb.adb(serial, "shell", f"am start -n {component}")
     if r.returncode != 0:
