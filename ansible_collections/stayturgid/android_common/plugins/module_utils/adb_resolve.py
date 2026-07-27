@@ -41,13 +41,31 @@ def device_row(alias, conf_path=None):
     return None
 
 
+try:
+    from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_timeout import (
+        DEFAULT_FAST_TIMEOUT,
+        run_command_with_timeout,
+    )
+except ImportError:
+    import os
+    import sys
+
+    _mod_dir = os.path.dirname(os.path.abspath(__file__))
+    if _mod_dir not in sys.path:
+        sys.path.insert(0, _mod_dir)
+    from adb_timeout import (
+        DEFAULT_FAST_TIMEOUT,
+        run_command_with_timeout,
+    )
+
+
 def normalize_adb_output(text):
     return (text or "").replace("\r", "").strip()
 
 
-def adb_devices_output(run_command):
+def adb_devices_output(run_command, timeout=DEFAULT_FAST_TIMEOUT):
     """Return adb devices text; run_command is module.run_command or similar."""
-    rc, out, _err = run_command(["adb", "devices"])
+    rc, out, _err = run_command_with_timeout(run_command, ["adb", "devices"], timeout=timeout)
     return (out or "") if rc == 0 else ""
 
 
@@ -82,7 +100,7 @@ def tcp_reachable(endpoint, timeout=CONNECT_PROBE_TIMEOUT):
         return False
 
 
-def connect_wireless(run_command, endpoint, *, require_probe=True):
+def connect_wireless(run_command, endpoint, *, require_probe=True, timeout=DEFAULT_FAST_TIMEOUT):
     """``adb connect`` to host:port. TCP probe is optional (mDNS wireless-debug
     often fails a plain socket probe but still accepts ``adb connect``).
     """
@@ -90,8 +108,8 @@ def connect_wireless(run_command, endpoint, *, require_probe=True):
         return False
     if require_probe and not tcp_reachable(endpoint):
         return False
-    run_command(["adb", "connect", endpoint])
-    return adb_online(adb_devices_output(run_command), endpoint)
+    run_command_with_timeout(run_command, ["adb", "connect", endpoint], timeout=timeout)
+    return adb_online(adb_devices_output(run_command, timeout=timeout), endpoint)
 
 
 def adb_device_id(line):
@@ -113,7 +131,7 @@ def transport_rank(candidate):
     return 2
 
 
-def match_usb_serial(run_command, usb_serial, devices):
+def match_usb_serial(run_command, usb_serial, devices, timeout=DEFAULT_FAST_TIMEOUT):
     """Return connected adb target matching USB serial (direct or ro.serialno)."""
     if not usb_serial or usb_serial == "-":
         return None
@@ -125,7 +143,11 @@ def match_usb_serial(run_command, usb_serial, devices):
         if candidate == usb_serial:
             matches.append(candidate)
             continue
-        rc, out, _err = run_command(["adb", "-s", candidate, "shell", "getprop", "ro.serialno"])
+        rc, out, _err = run_command_with_timeout(
+            run_command,
+            ["adb", "-s", candidate, "shell", "getprop", "ro.serialno"],
+            timeout=timeout,
+        )
         if rc == 0 and normalize_adb_output(out) == usb_serial:
             matches.append(candidate)
     if not matches:
@@ -150,7 +172,7 @@ def static_fallback(row, alias):
     return alias
 
 
-def discover_mdns_endpoint(run_command, usb_serial):
+def discover_mdns_endpoint(run_command, usb_serial, timeout=DEFAULT_FAST_TIMEOUT):
     """Wireless-debugging mDNS ``host:port`` for a USB serial (Fire / modern ADB).
 
     ``adb mdns services`` lines look like::
@@ -161,7 +183,7 @@ def discover_mdns_endpoint(run_command, usb_serial):
     """
     if not usb_serial or usb_serial == "-":
         return None
-    rc, out, _err = run_command(["adb", "mdns", "services"])
+    rc, out, _err = run_command_with_timeout(run_command, ["adb", "mdns", "services"], timeout=timeout)
     if rc != 0:
         return None
     needle = "adb-%s" % usb_serial

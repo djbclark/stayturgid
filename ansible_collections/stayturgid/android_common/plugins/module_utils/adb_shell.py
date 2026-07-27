@@ -6,19 +6,37 @@ from __future__ import absolute_import, division, print_function
 __metaclass__ = type
 
 
+try:
+    from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_timeout import (
+        DEFAULT_FAST_TIMEOUT,
+        run_command_with_timeout,
+    )
+except ImportError:
+    import os
+    import sys
+
+    _mod_dir = os.path.dirname(os.path.abspath(__file__))
+    if _mod_dir not in sys.path:
+        sys.path.insert(0, _mod_dir)
+    from adb_timeout import (
+        DEFAULT_FAST_TIMEOUT,
+        run_command_with_timeout,
+    )
+
+
 def normalize_adb_output(text):
     return (text or "").replace("\r", "").strip()
 
 
-def adb_connect(run_command, device):
+def adb_connect(run_command, device, timeout=DEFAULT_FAST_TIMEOUT):
     """Best-effort adb connect; ignored for USB serials."""
     if ":" not in device:
         return 0, "", ""
-    return run_command(["adb", "connect", device])
+    return run_command_with_timeout(run_command, ["adb", "connect", device], timeout=timeout)
 
 
-def adb_shell(run_command, device, shell_cmd):
-    return run_command(["adb", "-s", device, "shell", shell_cmd])
+def adb_shell(run_command, device, shell_cmd, timeout=DEFAULT_FAST_TIMEOUT):
+    return run_command_with_timeout(run_command, ["adb", "-s", device, "shell", shell_cmd], timeout=timeout)
 
 
 def package_installed(run_command, device, package):

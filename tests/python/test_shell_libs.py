@@ -38,10 +38,13 @@ def test_resolve_adb_cli_usb_tailscale_and_dash_ts(tmp_path):
     adb = stubs / "adb"
     adb.write_text('#!/usr/bin/env bash\nif [ "$1" = "devices" ]; then printf "RFCX\\tdevice\\n"; fi\nexit 0\n')
     adb.chmod(0o755)
-    env = {
-        "PATH": f"{stubs}:{os.environ.get('PATH', '')}",
-        "STAYTURGID_DEVICES_CONF": str(conf),
-    }
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": f"{stubs}:{os.environ.get('PATH', '')}",
+            "STAYTURGID_DEVICES_CONF": str(conf),
+        }
+    )
     cli = REPO / "control/lib/resolve_adb.py"
 
     r = subprocess.run([str(cli), "oneui-device"], capture_output=True, text=True, env=env, check=False)

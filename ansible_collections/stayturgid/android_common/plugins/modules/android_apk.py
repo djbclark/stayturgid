@@ -188,6 +188,24 @@ def download_url(module, url):
     return tmp.name
 
 
+try:
+    from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_timeout import (
+        DEFAULT_SLOW_TIMEOUT,
+        run_command_with_timeout,
+    )
+except ImportError:
+    import os
+    import sys
+
+    _mod_utils = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "module_utils")
+    if _mod_utils not in sys.path:
+        sys.path.insert(0, _mod_utils)
+    from adb_timeout import (
+        DEFAULT_SLOW_TIMEOUT,
+        run_command_with_timeout,
+    )
+
+
 def download_gh_release(module, repo, pattern, tag):
     gh = module.get_bin_path("gh", required=True)
     destdir = tempfile.mkdtemp(dir=module.tmpdir)
@@ -195,7 +213,12 @@ def download_gh_release(module, repo, pattern, tag):
     if tag:
         cmd.append(tag)
     cmd += ["--repo", repo, "--pattern", pattern or "*.apk", "--dir", destdir]
-    rc, _out, err = module.run_command(cmd)
+    rc, _out, err = run_command_with_timeout(
+        module.run_command,
+        cmd,
+        timeout=DEFAULT_SLOW_TIMEOUT,
+        get_bin_path_fn=module.get_bin_path,
+    )
     if rc != 0:
         module.fail_json(msg="gh release download failed: %s" % err.strip())
     apks = sorted(f for f in os.listdir(destdir) if f.lower().endswith(".apk"))
@@ -251,7 +274,12 @@ def resign_apk(module, apk_path):
         key_alias,
         apk_path,
     ]
-    rc, _out, err = module.run_command(cmd)
+    rc, _out, err = run_command_with_timeout(
+        module.run_command,
+        cmd,
+        timeout=DEFAULT_SLOW_TIMEOUT,
+        get_bin_path_fn=module.get_bin_path,
+    )
     if rc != 0:
         module.fail_json(msg="apksigner sign failed: %s" % err.strip())
 

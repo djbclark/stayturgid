@@ -11,6 +11,23 @@ import tempfile
 
 from ansible_collections.stayturgid.android_common.plugins.module_utils import adb_shell
 
+try:
+    from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_timeout import (
+        DEFAULT_SLOW_TIMEOUT,
+        run_command_with_timeout,
+    )
+except ImportError:
+    import os
+    import sys
+
+    _mod_dir = os.path.dirname(os.path.abspath(__file__))
+    if _mod_dir not in sys.path:
+        sys.path.insert(0, _mod_dir)
+    from adb_timeout import (
+        DEFAULT_SLOW_TIMEOUT,
+        run_command_with_timeout,
+    )
+
 DEFAULT_TARGET = "/sdcard/stayturgid/autojs6"
 DEFAULT_DEVICE_JSON_DEST = "/sdcard/stayturgid/state/device.json"
 
@@ -52,8 +69,8 @@ def verify_deploy(run_command, device, target):
     )
 
 
-def adb_push(run_command, device, local, remote):
-    return run_command(["adb", "-s", device, "push", str(local), remote])
+def adb_push(run_command, device, local, remote, timeout=DEFAULT_SLOW_TIMEOUT):
+    return run_command_with_timeout(run_command, ["adb", "-s", device, "push", str(local), remote], timeout=timeout)
 
 
 def _staged_dir_without_ts_sources(local_dir):
