@@ -342,6 +342,7 @@
             and (
               (hermes_gateway_plist is defined and hermes_gateway_plist.changed)
               or (_hermes_brew_install is defined and _hermes_brew_install.changed)
+              or (_hermes_tg_pip is defined and _hermes_tg_pip.changed)
             )
           ) else []
         )
