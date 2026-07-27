@@ -7,9 +7,9 @@
 body common control {
     bundlesequence => { "main" };
     # Pin the wire protocol to "2" (TLS) for a deterministic handshake. Set here
-    # (not on argv): cf-runagent has no --protocol-version flag. NOTE: this does
-    # NOT resolve the "Unspecified server refusal" — that persists with both ends
-    # on CFEngine 3.27.1 and has a separate, still-open cause (stayturgid#84).
+    # (not on argv): cf-runagent has no --protocol-version flag. Kept as hygiene;
+    # it was NOT what fixed the "Unspecified server refusal" (that was the
+    # cf-serverd resource_type/cfruncommand grants — stayturgid#84, resolved).
     protocol_version => "2";
 }
 
