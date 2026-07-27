@@ -87,16 +87,22 @@ that does not depend on ADB or SSH.
 
 ## Known issues
 
-1. **cf-runagent protocol version mismatch** (Mac 3.28.0 vs Termux 3.27.1):
-   The newer Mac cf-runagent otherwise negotiates a version the older Termux
-   cf-serverd refuses ("Unspecified server refusal"). Fixed by pinning
-   `protocol_version => "2"` in `body common control` of the rendered
-   `cf-runagent.cf` (template: `cf-runagent.cf.j2`). Note there is **no**
-   `--protocol-version` command-line flag on cf-runagent — it exits rc=1 on an
-   unknown option, so the pin must live in the config body. Targeting is per
-   host via `-H <ip>`: a bare trailing arg is parsed as an input FILE and would
-   override `-f`. `_try_cf_runagent_repair()` in `fleet_health_monitor.py` is
-   the Tier 3a fallback.
+1. **cf-runagent "Unspecified server refusal" — root cause is a missing `roles`
+   promise, not a protocol mismatch.** Live-fleet testing (stayturgid#84) showed
+   the refusal persists with **both ends on CFEngine 3.27.1** and after TLS +
+   key trust + `allowusers` all pass. The server debug log is explicit:
+   `No promise type roles in bundle access_rules` — cf-serverd requires a
+   `roles` promise authorizing which remote users may trigger `cfruncommand`
+   execution. Fixed by adding a `roles: ".*" authorize => { root, <operator> }`
+   promise to `cf-serverd.cf`. Version hygiene, applied alongside: the Mac
+   control node is pinned to CFEngine **3.27.1** to match the fleet
+   (`packaging/homebrew/cfengine@3.27.1.rb`, `just cfengine-pin`), and
+   `protocol_version => "2"` is set in the rendered `cf-runagent.cf` body (there
+   is **no** `--protocol-version` CLI flag — cf-runagent exits rc=1 on it).
+   Targeting is per host via `-H <ip>` (a bare trailing arg is parsed as an input
+   FILE, overriding `-f`). `_try_cf_runagent_repair()` in
+   `fleet_health_monitor.py` is the Tier 3a fallback. The roles fix is in the
+   policy source pending a device deploy + final end-to-end verification.
 
 2. **Android seccomp blocks fork**: cf-serverd must be started with `-F` (foreground)
    flag. No fork is attempted. `nohup ... &` + PID file monitoring in boot loop
