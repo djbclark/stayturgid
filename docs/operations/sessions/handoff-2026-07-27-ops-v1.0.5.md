@@ -29,18 +29,22 @@ All three `~/ops` checkouts (`stayturgid`, `site-djbclark`, `site-private`) are 
 ## 2. Completed Work & Merged Pull Requests
 
 ### Native Agent & Android Stability Fixes (stayturgid #77)
+
 - **Tailscale GUI Foregrounding Fix ([#64](https://github.com/djbclark/stayturgid/issues/64))**: Added `isTailscaleTunnelUp()` in `ComonitorProbes.kt` and gated `CatastrophicRepair.kt`'s `am start` on `!isTailscaleTunnelUp()`, suppressing unexpected GUI popups on transient ping timeouts.
 - **Shizuku UserService Leak Fix ([#65](https://github.com/djbclark/stayturgid/issues/65))**: Pinned `userServiceArgs.version(1)` in `HostService.kt` to maintain a stable Shizuku key across APK updates. Added `reapStaleUserServices()` in `ShizukuUserService.kt` and `start_agent.py`.
 - **Fire OS Reminder Marker Unification ([#66](https://github.com/djbclark/stayturgid/issues/66))**: Standardized `AuthorizeReminder.kt` on internal `filesDir` (app-private) with `run-as` execution across Fire OS and stock Android.
 
 ### Local LLM Operational Visibility (site-djbclark #19)
+
 - Added OliveTin user actions for **LiteLLM**, **omlx**, and **Ollama** status and restart (`user_litellm_status`, `user_litellm_restart`, `user_omlx_status`, `user_omlx_restart`, `user_ollama_status`) in `olivetin/user-actions.yaml` ([#12](https://github.com/djbclark/site-djbclark/issues/12)).
 
 ### Coordinated Release ops-v1.0.4
+
 - Advanced `ops-release.json` across all three repos to `1.0.4` via version bump PRs (`stayturgid#78`, `site-djbclark#20`, `site-private#9`).
 - Published annotated tags and GitHub Releases titled "djbclark ops 1.0.4". Deployed to `~/ops`.
 
 ### Systemic ADB Command Timeouts (stayturgid #79)
+
 - **Central Timeout Helper ([#59](https://github.com/djbclark/stayturgid/issues/59))**: Created `adb_timeout.py` in `stayturgid.android_common`. Standardized on two operational tiers:
   - **Fast Queries (30s)**: `adb devices`, `adb connect`, `adb shell getprop`, `pm list`, `settings get`, `adb mdns services`.
   - **Slow Transfers/Installs (180s)**: `adb push`, `adb install`, `gh release download`, `apksigner sign`.
@@ -48,6 +52,7 @@ All three `~/ops` checkouts (`stayturgid`, `site-djbclark`, `site-private`) are 
 - **Unit Tests**: Added `test_adb_timeout.py` covering timeout resolution, command prefixing, and double-wrap prevention.
 
 ### Coordinated Release ops-v1.0.5
+
 - Advanced `ops-release.json` across all three repos to `1.0.5` via version bump PRs (`stayturgid#80`, `site-djbclark#21`, `site-private#10`).
 - Published annotated tags and GitHub Releases titled "djbclark ops 1.0.5". Deployed to `~/ops`.
 

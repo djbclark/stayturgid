@@ -57,28 +57,7 @@ bundle server access_rules() {
       resource_type => "query",
       admit         => { "100.64.0.0/10" };
 
-    # Individual check bundles for targeted diagnostics.
     "check_sshd"
-      resource_type => "query",
-      admit         => { "100.64.0.0/10" };
-
-    "check_shizuku"
-      resource_type => "query",
-      admit         => { "100.64.0.0/10" };
-
-    "check_shell5555"
-      resource_type => "query",
-      admit         => { "100.64.0.0/10" };
-
-    "check_a11y"
-      resource_type => "query",
-      admit         => { "100.64.0.0/10" };
-
-    "check_mirror"
-      resource_type => "query",
-      admit         => { "100.64.0.0/10" };
-
-    "check_profile"
       resource_type => "query",
       admit         => { "100.64.0.0/10" };
 
@@ -89,17 +68,16 @@ bundle server access_rules() {
     "check_bootloop_repair"
       resource_type => "query",
       admit         => { "100.64.0.0/10" };
+
+    "check_stayturgid_agent"
+      resource_type => "query",
+      admit         => { "100.64.0.0/10" };
 }
 
-# Aggregate repair bundle — runs all auto-repair bundles.
-bundle agent stayturgid_heal {
-  methods:
-    "sshd"     usebundle => check_sshd;
-    "mirror"   usebundle => check_mirror;
-    "profile"  usebundle => check_profile;
-    "bootloop" usebundle => check_bootloop_repair;
-
-  reports:
-    cfengine::
-      "stayturgid_heal: repair run completed";
-}
+# NOTE: the actual `stayturgid_heal` agent bundle (and every check_* bundle it
+# runs) lives in stayturgid.cf, which cf-agent loads via cf-runagent-wrapper.sh
+# when the Mac hails us. cf-serverd only evaluates `main` (see bundlesequence
+# above); its job here is the access ACL, not policy execution. We deliberately
+# do NOT redefine stayturgid_heal in this file — a second copy inevitably drifts
+# from the real one (it did, before this cleanup) and would reference check_*
+# bundles that are not defined in this policy set.

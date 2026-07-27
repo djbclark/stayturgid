@@ -65,26 +65,26 @@
     "PORT5555-OPEN": {
       "description": "Privileged shell on localhost:5555 (wireless debug enabled, uid 2000)",
       "must_cover": ["termux_repair", "native_agent"],
-      "should_cover": ["cfengine", "firerpa"]
+      "should_cover": ["firerpa"]
     },
     "SHIZUKU-HEADLESS": {
       "description": "Shizuku headless server running (HEADLESS_STATUS + pgrep)",
       "must_cover": ["termux_repair", "firerpa", "native_agent"],
-      "should_cover": ["cfengine"]
+      "should_cover": []
     },
     "A11Y-AUTOJS6": {
       "description": "AutoJs6 accessibility service enabled (detection-only; user must enable manually)",
       "must_cover": ["termux_repair", "fleet_health"],
-      "should_cover": ["cfengine", "ansible_deploy"]
+      "should_cover": ["ansible_deploy"]
     },
     "MIRROR-PINNED": {
       "description": "Termux main mirror pinned to packages-cf.termux.dev (deterministic pkg)",
-      "must_cover": ["termux_repair", "cfengine", "ansible_deploy"],
+      "must_cover": ["termux_repair", "ansible_deploy"],
       "should_cover": []
     },
     "PATH-CLEAN": {
       "description": "No leaked Mac-style PATH entries in Termux shell profiles",
-      "must_cover": ["termux_repair", "cfengine", "ansible_deploy"],
+      "must_cover": ["termux_repair", "ansible_deploy"],
       "should_cover": []
     },
     "ET-CONFIG": {
@@ -210,7 +210,7 @@
     "NATIVE-AGENT-RUNNING": {
       "description": "Native-agent release package is the sole installed variant and HostService is running after deploy or upgrade",
       "must_cover": ["ansible_deploy", "fleet_health"],
-      "should_cover": []
+      "should_cover": ["cfengine"]
     },
     "OBTAINIUM-OPS-LOCK": {
       "description": "Obtainium receives the declarative fleet catalog headlessly and cannot background-update ops-locked applications",

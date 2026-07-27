@@ -22,16 +22,16 @@ that does not depend on ADB or SSH.
 
 | File                                                   | Purpose                                                                                                                                                                                                                      |
 | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `device/termux/cfengine/policy/cf-serverd.cf`          | Server policy: IP ACL (Tailscale 100.64.0.0/10), access rules for 9 repair bundles, auto-trust on first connection. Specifies `cfruncommand` (wrapper script).                                                               |
+| `device/termux/cfengine/policy/cf-serverd.cf`          | Server policy: IP ACL (Tailscale 100.64.0.0/10), access rules for recovery bundles, auto-trust on first connection. Specifies `cfruncommand` (wrapper script).                                                               |
 | `device/termux/cfengine/policy/cf-runagent-wrapper.sh` | Shell wrapper that sets Termux PATH/LD_LIBRARY_PATH before invoking `cf-agent -f stayturgid.cf`. Needed because cf-serverd inherits minimal env.                                                                             |
 | `device/termux/py/start_adb.py`                        | `startup_cfserverd()`: starts cf-serverd after sshd, before FIRERPA. `_monitor_cfserverd()`: monitors cf-serverd liveness in boot loop, restarts if dead. Uses `-F` flag (no fork — Android seccomp blocks fork for Termux). |
 
 ### Mac control-node side
 
-| File                                                                                                          | Purpose                                                                                                                                                                                                                                                                                     |
-| ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `~/.config/stayturgid/cfengine/cf-runagent.cf` (rendered; example: `control/cfengine/cf-runagent.cf.example`) | Runagent policy: hosts list (all fleet devices on port 5308), background children, auto-trust. Rendered from `ansible/roles/control_node/templates/cf-runagent.cf.j2` by `just deploy-mac`; never tracked. Mac invokes via `cf-runagent -f <this-file> --remote-bundles <name> -D <class>`. |
-| `~/.cfagent/ppkeys/`                                                                                          | CFEngine key store. Contains Mac private key (`localhost.priv`), Mac public key (`localhost.pub`), and trusted device keys (`root-MD5=<hash>.pub`). Keys established via `cf-key --trust-key <ip>:<keyfile>`.                                                                               |
+| File                                                                                                          | Purpose                                                                                                                                                                                                                                                                                                                       |
+| ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `~/.config/stayturgid/cfengine/cf-runagent.cf` (rendered; example: `control/cfengine/cf-runagent.cf.example`) | Runagent policy: hosts list (all fleet devices on port 5308), background children, auto-trust. Rendered from `ansible/roles/control_node/templates/cf-runagent.cf.j2` by `just deploy-mac`; never tracked. Mac invokes via `cf-runagent -f <this-file> -H <ip> --remote-bundles <name>` (protocol pinned in the config body). |
+| `~/.cfagent/ppkeys/`                                                                                          | CFEngine key store. Contains Mac private key (`localhost.priv`), Mac public key (`localhost.pub`), and trusted device keys (`root-MD5=<hash>.pub`). Keys established via `cf-key --trust-key <ip>:<keyfile>`.                                                                                                                 |
 
 ### Ansible deploy
 
@@ -42,10 +42,10 @@ that does not depend on ADB or SSH.
 
 ### Fleet health integration
 
-| File                                  | Change                                                                                                                                                                                  |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `control/lib/fleet_health.py`         | Lines 109-116: `HEALTH_GATHER` scrapes `repair-cfengine.log`, reports `cfengine=ok                                                                                                      | down`. Lines 226-227: flags `cfengine_down`as a non-critical issue. Lines 244: includes`cfengine=` in summary. |
-| `control/bin/fleet_health_monitor.py` | Lines 359-381: `_try_firerpa_heal_fallback()` probes port 65000 and triggers FIRERPA heal when ADB+SSH are both down. CFEngine cf-runagent trigger planned as Tier 3a (before FIRERPA). |
+| File                                  | Change                                                                                                                                                                                                                                                                                                    |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `control/lib/fleet_health.py`         | Lines 109-116: `HEALTH_GATHER` scrapes `repair-cfengine.log`, reports `cfengine=ok \| down`. Lines 226-227: flags `cfengine_down`as a non-critical issue. Lines 244: includes`cfengine=` in summary.                                                                                                      |
+| `control/bin/fleet_health_monitor.py` | Tier 3a fallback implemented: `_try_cf_runagent_repair()` hails the down device with `cf-runagent -H <ip> --remote-bundles stayturgid_heal` when ADB+SSH are both down (protocol pinned in the config body, not on argv — see Known issues). `_try_firerpa_heal_fallback()` probes port 65000 as Tier 3b. |
 
 ### Documentation
 
@@ -68,7 +68,7 @@ that does not depend on ADB or SSH.
 
 ### New health indicators to show
 
-1. **cf-serverd status** — already reported as `cfengine=ok|down` in fleet-health.log. The existing `just health` output includes it. The dashboard should display a badge or indicator for each device showing CFEngine server status.
+1. **cf-serverd status** — already reported as `cfengine=ok \| down` in fleet-health.log. The existing `just health` output includes it. The dashboard should display a badge or indicator for each device showing CFEngine server status.
 
 2. **Port 5308 reachability** — can be checked via `tcp_open(ts_ip, 5308)` in `fleet_health.py`. Currently not scraped but the probe function exists. Add to `HEALTH_GATHER` or as a separate Mac-side probe.
 
@@ -88,10 +88,15 @@ that does not depend on ADB or SSH.
 ## Known issues
 
 1. **cf-runagent protocol version mismatch** (Mac 3.28.0 vs Termux 3.27.1):
-   Returns "Unspecified server refusal" on bundle execution. TLS layer + key trust
-   proven working. Fix: align versions or use `--protocol-version 2` flag.
-   Once resolved, add `_try_cf_runagent_repair()` to `fleet_health_monitor.py`
-   as Tier 3a fallback.
+   The newer Mac cf-runagent otherwise negotiates a version the older Termux
+   cf-serverd refuses ("Unspecified server refusal"). Fixed by pinning
+   `protocol_version => "2"` in `body common control` of the rendered
+   `cf-runagent.cf` (template: `cf-runagent.cf.j2`). Note there is **no**
+   `--protocol-version` command-line flag on cf-runagent — it exits rc=1 on an
+   unknown option, so the pin must live in the config body. Targeting is per
+   host via `-H <ip>`: a bare trailing arg is parsed as an input FILE and would
+   override `-f`. `_try_cf_runagent_repair()` in `fleet_health_monitor.py` is
+   the Tier 3a fallback.
 
 2. **Android seccomp blocks fork**: cf-serverd must be started with `-F` (foreground)
    flag. No fork is attempted. `nohup ... &` + PID file monitoring in boot loop
