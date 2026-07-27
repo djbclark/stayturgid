@@ -58,3 +58,41 @@ groups:
           # {% endraw %}
         labels:
           severity: warning
+
+  - orgId: 1
+    name: stayturgid-system
+    folder: stayturgid
+    interval: 10m
+    rules:
+      - uid: stayturgid-software-update-available
+        title: "Software update available"
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: stayturgid-victoriametrics
+            model:
+              refId: A
+              expr: software_update_available > 0
+              instant: true
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        annotations:
+          # {% raw %}
+          summary: "Update available for {{ $labels.package }} ({{ $labels.type }}): {{ $labels.current }} -> {{ $labels.latest }}"
+          # {% endraw %}
+        labels:
+          severity: warning
