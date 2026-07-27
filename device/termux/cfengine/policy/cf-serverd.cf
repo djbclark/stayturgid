@@ -44,6 +44,17 @@ body server control {
 }
 
 bundle server access_rules() {
+  # Authorize which remote users may trigger cfruncommand execution. WITHOUT a
+  # roles promise, cf-serverd logs "No promise type roles in bundle
+  # access_rules" and answers every cf-runagent exec with "Unspecified server
+  # refusal" — even after TLS + key trust + allowusers all pass. Verified on the
+  # live fleet: this, not a protocol-version mismatch, is why Tier 3a hails were
+  # refused (both ends on CFEngine 3.27.1). The control node connects as root or
+  # the operator SSH user. See stayturgid#84.
+  roles:
+    ".*"
+      authorize => { "root", "{{ stayturgid_control_ssh_user | default(stayturgid_mac_peer.user | default(ansible_user)) }}" };
+
   access:
     # Allow remote execution of the cf-agent binary (the cfruncommand).
     # Without this, cf-runagent connections get "EXEC denied due to ACL".
