@@ -57,28 +57,7 @@ bundle server access_rules() {
       resource_type => "query",
       admit         => { "100.64.0.0/10" };
 
-    # Individual check bundles for targeted diagnostics.
     "check_sshd"
-      resource_type => "query",
-      admit         => { "100.64.0.0/10" };
-
-    "check_shizuku"
-      resource_type => "query",
-      admit         => { "100.64.0.0/10" };
-
-    "check_shell5555"
-      resource_type => "query",
-      admit         => { "100.64.0.0/10" };
-
-    "check_a11y"
-      resource_type => "query",
-      admit         => { "100.64.0.0/10" };
-
-    "check_mirror"
-      resource_type => "query",
-      admit         => { "100.64.0.0/10" };
-
-    "check_profile"
       resource_type => "query",
       admit         => { "100.64.0.0/10" };
 
@@ -89,15 +68,18 @@ bundle server access_rules() {
     "check_bootloop_repair"
       resource_type => "query",
       admit         => { "100.64.0.0/10" };
+
+    "check_stayturgid_agent"
+      resource_type => "query",
+      admit         => { "100.64.0.0/10" };
 }
 
 # Aggregate repair bundle — runs all auto-repair bundles.
 bundle agent stayturgid_heal {
   methods:
     "sshd"     usebundle => check_sshd;
-    "mirror"   usebundle => check_mirror;
-    "profile"  usebundle => check_profile;
     "bootloop" usebundle => check_bootloop_repair;
+    "agent"    usebundle => check_stayturgid_agent;
 
   reports:
     cfengine::

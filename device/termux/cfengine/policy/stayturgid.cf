@@ -17,11 +17,7 @@ bundle agent stayturgid_heal {
   methods:
     "heal" usebundle => check_sshd("$(prefix)");
     "heal" usebundle => check_bootloop("$(stg)");
-    "heal" usebundle => check_mirror("$(prefix)");
-    "heal" usebundle => check_shell5555("$(prefix)");
-    "heal" usebundle => check_shizuku("$(prefix)");
-    "heal" usebundle => check_a11y("$(prefix)");
-    "heal" usebundle => check_profile("$(prefix)", "$(home)");
+    "heal" usebundle => check_stayturgid_agent("$(prefix)");
     "heal" usebundle => check_bootloop_repair("$(prefix)", "$(home)");
 
   reports:
@@ -59,104 +55,20 @@ bundle agent check_bootloop(s) {
       "bootloop: pidfile MISSING";
 }
 
-bundle agent check_mirror(p) {
+bundle agent check_stayturgid_agent(p) {
   classes:
-    "mirror_ok" expression => returnszero("$(p)/bin/grep -q packages-cf.termux.dev $(p)/etc/apt/sources.list", "useshell");
+    "agent_alive" expression => returnszero("$(p)/bin/adb -s localhost:5555 shell dumpsys activity services org.stayturgid.agent/.HostService 2>/dev/null | grep -q 'app=ProcessRecord'", "useshell");
 
   reports:
-    mirror_ok::
-      "mirror: pinned";
-    !mirror_ok::
-      "mirror: REPINNING";
+    agent_alive::
+      "stayturgid_agent: running";
+    !agent_alive::
+      "stayturgid_agent: NOT RUNNING — attempting restart";
 
   commands:
-    !mirror_ok::
-      "$(p)/bin/bash"
-        args => "-c 'echo deb https://packages-cf.termux.dev/apt/termux-main stable main > $(p)/etc/apt/sources.list && $(p)/bin/apt-get update -y'",
-        contain => silent_bg;
-}
-
-bundle agent check_shell5555(p) {
-  classes:
-    "shell_ok" expression => returnszero("$(p)/bin/adb connect localhost:5555 >/dev/null 2>&1 && $(p)/bin/adb -s localhost:5555 shell id -u 2>/dev/null | grep -q 2000", "useshell");
-
-  reports:
-    shell_ok::
-      "shell5555: privileged shell working";
-    !shell_ok::
-      "shell5555: NOT available";
-
-  commands:
-    !shell_ok::
+    !agent_alive::
       "$(p)/bin/adb"
-        args => "tcpip 5555 2>/dev/null; true",
-        contain => silent_bg;
-}
-
-bundle agent check_autojs6(p, h) {
-  classes:
-    "autojs6_alive" expression => returnszero("$(p)/bin/pgrep -f org.autojs.autojs6 >/dev/null 2>&1", "useshell");
-
-  reports:
-    autojs6_alive::
-      "autojs6: running";
-    !autojs6_alive::
-      "autojs6: NOT RUNNING — attempting restart";
-
-  commands:
-    !autojs6_alive::
-      "$(p)/bin/am"
-        args => "start -a android.intent.action.VIEW -d file://$(h)/.stayturgid/cfengine/../../../../sdcard/stayturgid/autojs6/scripts/boot-launcher.js -t text/javascript -n org.autojs.autojs6/org.autojs.autojs.external.open.RunIntentActivity",
-        contain => silent_bg;
-}
-
-bundle agent check_shizuku(p) {
-  classes:
-    "shizuku_headless" expression => returnszero("$(p)/bin/adb -s localhost:5555 shell am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null | grep -q result=1", "useshell");
-    "shizuku_pgrep"    expression => returnszero("$(p)/bin/adb -s localhost:5555 shell pgrep -f '[s]hizuku_server' >/dev/null 2>&1", "useshell");
-    "shizuku_ok" or => { "shizuku_headless", "shizuku_pgrep" };
-
-  reports:
-    shizuku_ok::
-      "shizuku: up";
-    !shizuku_ok::
-      "shizuku: DOWN — attempting HEADLESS_START from Termux";
-
-  commands:
-    !shizuku_ok::
-      "$(p)/bin/am"
-        args => "broadcast -a moe.shizuku.privileged.api.HEADLESS_START",
-        contain => silent_bg;
-}
-
-bundle agent check_a11y(p) {
-  classes:
-    "a11y_ok" expression => returnszero("$(p)/bin/adb -s localhost:5555 shell 'settings get secure enabled_accessibility_services' 2>/dev/null | grep -q org.autojs.autojs6", "useshell");
-    # Fall back to Termux-native settings when ADB is down.
-    "a11y_ok_local" expression => returnszero("$(p)/bin/settings get secure enabled_accessibility_services 2>/dev/null | grep -q org.autojs.autojs6", "useshell");
-    "a11y_ok" or => { "a11y_ok_local" };
-
-  reports:
-    a11y_ok::
-      "a11y: AutoJs6 enabled";
-    !a11y_ok::
-      "a11y: AutoJs6 MISSING — use repair.py merge";
-}
-
-bundle agent check_profile(p, h) {
-  classes:
-    "profile_clean" expression => returnszero("! $(p)/bin/grep -qE '^(export )?PATH=.*(/Users/|/opt/homebrew/|/Library/Apple/|/System/Cryptexes/)' $(h)/.profile $(h)/.bashrc 2>/dev/null", "useshell");
-
-  reports:
-    profile_clean::
-      "profile: clean";
-    !profile_clean::
-      "profile: MAC PATH LEAK — fixing";
-
-  commands:
-    !profile_clean::
-      "$(p)/bin/sed"
-        args => "-i.bak 's|^export PATH=.*/Users/.*|export PATH=\"\\$$HOME/bin:$(p)/bin:$(p)/sbin:\\$$PATH\"|' $(h)/.profile $(h)/.bashrc 2>/dev/null; true",
+        args => "-s localhost:5555 shell am start -n org.stayturgid.agent/.MainActivity",
         contain => silent_bg;
 }
 

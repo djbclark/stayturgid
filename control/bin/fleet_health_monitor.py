@@ -379,6 +379,7 @@ def _scrape_device_errors(name: str, ts_ip: str) -> None:
         "grep -h -i -E 'FAILED|CLOSED_NO_SHELL|Error|Exception|Traceback|"
         "cannot find|crash|permission|catastrophic|headless' "
         "~/.stayturgid/logs/repair.log "
+        "~/.stayturgid/logs/repair-cfengine.log "
         "/sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -50"
     )
     try:
@@ -502,6 +503,7 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     path, report = fh.probe_device(name, ts_ip, lan_ip)
     if not path:
         _fleet_log(INFO, "%s unreachable — skip soft health (see access-monitor)" % name)
+        _try_cf_runagent_repair(name, ts_ip)
         # FIRERPA gRPC (port 65000) is an independent transport — try it as
         # a last-resort repair channel when both ADB and SSH are down.
         _try_firerpa_heal_fallback(name, ts_ip)
@@ -557,6 +559,58 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
 ET_MAC_HEAL_STATE = os.path.join(ROOT, "state", "et-mac-ensure")
 ET_MAC_HEAL_COOLDOWN_SEC = 30 * 60  # re-sync fleet keys on Mac at most 2×/hour
 FIRERPA_HEAL_COOLDOWN_SEC = 30 * 60  # try FIRERPA heal at most 2×/hour per host
+CFENGINE_HEAL_COOLDOWN_SEC = 30 * 60  # try CFEngine heal at most 2×/hour per host
+
+
+def _try_cf_runagent_repair(name: str, ts_ip: str) -> None:
+    """Attempt CFEngine remote bundle execution when both ADB and SSH are down."""
+    if not ts_ip:
+        return
+    # Check if CFEngine cf-serverd port is reachable via TCP before attempting heal.
+    import socket
+
+    try:
+        s = socket.create_connection((ts_ip, 5308), timeout=5)
+        s.close()
+    except (OSError, socket.timeout):
+        return
+    
+    state_file = os.path.join(ROOT, "state", f"cfengine-heal-fallback-{name}")
+    try:
+        mtime = os.path.getmtime(state_file)
+        if time.time() - mtime < CFENGINE_HEAL_COOLDOWN_SEC:
+            return
+    except OSError:
+        pass
+
+    _fleet_log(INFO, "trigger %s cfengine-heal fallback (ADB+SSH down, 5308 reachable)" % name)
+    
+    cf_runagent = "/opt/homebrew/bin/cf-runagent"
+    if not os.path.isfile(cf_runagent):
+        cf_runagent = "cf-runagent"
+        
+    cf_config = os.path.join(ROOT, "cfengine", "cf-runagent.cf")
+    if not os.path.isfile(cf_config):
+        _fleet_log(INFO, f"cf-runagent missing config {cf_config}")
+        return
+
+    cmd = [
+        cf_runagent,
+        "-f", cf_config,
+        "--remote-bundles", "stayturgid_heal",
+        "--protocol-version", "2",
+        ts_ip
+    ]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
+        if r.returncode == 0:
+            _fleet_log(INFO, f"cf-runagent {name} success: {r.stdout.strip()[:100]}")
+        else:
+            _fleet_log(INFO, f"cf-runagent {name} failed (rc={r.returncode}): {r.stderr.strip()[:100]}")
+    except Exception as e:
+        _fleet_log(INFO, f"cf-runagent {name} error: {e}")
+        
+    write_state(state_file, int(time.time()))
 
 
 def _try_firerpa_heal_fallback(name: str, ts_ip: str) -> None:

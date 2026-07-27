@@ -22,7 +22,7 @@ that does not depend on ADB or SSH.
 
 | File                                                   | Purpose                                                                                                                                                                                                                      |
 | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `device/termux/cfengine/policy/cf-serverd.cf`          | Server policy: IP ACL (Tailscale 100.64.0.0/10), access rules for 9 repair bundles, auto-trust on first connection. Specifies `cfruncommand` (wrapper script).                                                               |
+| `device/termux/cfengine/policy/cf-serverd.cf`          | Server policy: IP ACL (Tailscale 100.64.0.0/10), access rules for recovery bundles, auto-trust on first connection. Specifies `cfruncommand` (wrapper script).                                                               |
 | `device/termux/cfengine/policy/cf-runagent-wrapper.sh` | Shell wrapper that sets Termux PATH/LD_LIBRARY_PATH before invoking `cf-agent -f stayturgid.cf`. Needed because cf-serverd inherits minimal env.                                                                             |
 | `device/termux/py/start_adb.py`                        | `startup_cfserverd()`: starts cf-serverd after sshd, before FIRERPA. `_monitor_cfserverd()`: monitors cf-serverd liveness in boot loop, restarts if dead. Uses `-F` flag (no fork — Android seccomp blocks fork for Termux). |
 
@@ -44,8 +44,8 @@ that does not depend on ADB or SSH.
 
 | File                                  | Change                                                                                                                                                                                  |
 | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `control/lib/fleet_health.py`         | Lines 109-116: `HEALTH_GATHER` scrapes `repair-cfengine.log`, reports `cfengine=ok                                                                                                      | down`. Lines 226-227: flags `cfengine_down`as a non-critical issue. Lines 244: includes`cfengine=` in summary. |
-| `control/bin/fleet_health_monitor.py` | Lines 359-381: `_try_firerpa_heal_fallback()` probes port 65000 and triggers FIRERPA heal when ADB+SSH are both down. CFEngine cf-runagent trigger planned as Tier 3a (before FIRERPA). |
+| `control/lib/fleet_health.py`         | Lines 109-116: `HEALTH_GATHER` scrapes `repair-cfengine.log`, reports `cfengine=ok | down`. Lines 226-227: flags `cfengine_down`as a non-critical issue. Lines 244: includes`cfengine=` in summary. |
+| `control/bin/fleet_health_monitor.py` | Tier 3a fallback implemented: `_try_cf_runagent_repair()` triggers CFEngine repair via `--protocol-version 2` when ADB+SSH are both down. Lines 359-381: `_try_firerpa_heal_fallback()` probes port 65000 as Tier 3b. |
 
 ### Documentation
 
@@ -88,10 +88,9 @@ that does not depend on ADB or SSH.
 ## Known issues
 
 1. **cf-runagent protocol version mismatch** (Mac 3.28.0 vs Termux 3.27.1):
-   Returns "Unspecified server refusal" on bundle execution. TLS layer + key trust
-   proven working. Fix: align versions or use `--protocol-version 2` flag.
-   Once resolved, add `_try_cf_runagent_repair()` to `fleet_health_monitor.py`
-   as Tier 3a fallback.
+   Fixed by using the `--protocol-version 2` flag when connecting from the Mac.
+   `_try_cf_runagent_repair()` is now implemented in `fleet_health_monitor.py`
+   as the Tier 3a fallback.
 
 2. **Android seccomp blocks fork**: cf-serverd must be started with `-F` (foreground)
    flag. No fork is attempted. `nohup ... &` + PID file monitoring in boot loop
