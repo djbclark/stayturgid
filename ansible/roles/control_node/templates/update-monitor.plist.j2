@@ -19,9 +19,22 @@
         <key>HOMEBREW_NO_AUTO_UPDATE</key>
         <string>1</string>
     </dict>
-    <!-- Run every 12 hours (43200 seconds) to avoid GitHub rate limits -->
-    <key>StartInterval</key>
-    <integer>43200</integer>
+    <!-- Run twice a day. If asleep during these times, launchd will run it immediately upon waking. -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Hour</key>
+            <integer>10</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Hour</key>
+            <integer>22</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+    </array>
     <key>RunAtLoad</key>
     <true/>
     <key>StandardOutPath</key>
