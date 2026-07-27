@@ -1,7 +1,14 @@
-# @heals: SSHD-RUNNING MIRROR-PINNED PATH-CLEAN
+# @heals: SSHD-RUNNING BOOTLOOP-ALIVE NATIVE-AGENT-RUNNING
 # stayturgid.cf — Standalone self-heal policy for CFEngine on Termux
 # Deploy to: ~/.stayturgid/cfengine/stayturgid.cf
 # Run: cf-agent -f ~/.stayturgid/cfengine/stayturgid.cf
+#
+# Tier 3a "hail-mary" recovery ONLY — reached from the Mac via cf-runagent when
+# both ADB and SSH are down. Deliberately minimal: it does NOT own declarative
+# state (mirror pin, PATH hygiene, Shizuku/a11y, wireless-debug) — those moved
+# to the Termux repair loop and the Kotlin native agent. It only re-arms the
+# transports needed to get a real repair channel back: sshd, the boot loop, and
+# the native agent process.
 
 bundle agent main {
   methods:
@@ -55,6 +62,17 @@ bundle agent check_bootloop(s) {
       "bootloop: pidfile MISSING";
 }
 
+# Liveness + restart of the Kotlin native agent (org.stayturgid.agent).
+# Depends on the device-local adb loopback (localhost:5555). We no longer
+# re-arm 5555 here (check_shell5555 was removed with the scope reduction):
+# start_adb.py owns `adb tcpip 5555` / `adb connect localhost:5555`, and
+# check_bootloop_repair (below) restarts start_adb.py when it is dead — so the
+# heal ordering re-establishes 5555 before this bundle can use it. Restart is
+# via `am start` of the exported launcher MainActivity (not start-foreground-
+# service, which shell is denied on API 34+); MainActivity.onCreate() starts
+# HostService. Detect via `dumpsys activity services`: a live started FGS shows
+# an `app=ProcessRecord{...}` line (dead/registered-only shows app=null or no
+# record).
 bundle agent check_stayturgid_agent(p) {
   classes:
     "agent_alive" expression => returnszero("$(p)/bin/adb -s localhost:5555 shell dumpsys activity services org.stayturgid.agent/.HostService 2>/dev/null | grep -q 'app=ProcessRecord'", "useshell");

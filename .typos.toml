@@ -1,3 +1,8 @@
+[default]
+# Ignore git SHA-like hex tokens (e.g. release/handoff docs reference commits
+# such as "9ba37de"); a 7+ hex-char identifier is never an English typo.
+extend-ignore-identifiers-re = ["\\b[0-9a-f]{7,40}\\b"]
+
 [default.extend-words]
 AAS = "AAS"
 WRTE = "WRTE"

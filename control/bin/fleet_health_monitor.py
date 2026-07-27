@@ -562,6 +562,27 @@ FIRERPA_HEAL_COOLDOWN_SEC = 30 * 60  # try FIRERPA heal at most 2×/hour per hos
 CFENGINE_HEAL_COOLDOWN_SEC = 30 * 60  # try CFEngine heal at most 2×/hour per host
 
 
+def _cf_runagent_cmd(cf_runagent: str, cf_config: str, ts_ip: str) -> list:
+    """Build the cf-runagent argv to hail one host and run the heal bundle.
+
+    Notes on flags (verified against cf-runagent CFEngine Core 3.28.0):
+      * -H/--hail targets exactly this host; a bare trailing arg is instead
+        parsed as an input FILE and would override -f, so it must NOT be used.
+      * The wire protocol version is pinned in the config body
+        (protocol_version in body common control of cf-runagent.cf), NOT on the
+        command line — cf-runagent has no --protocol-version option.
+    """
+    return [
+        cf_runagent,
+        "-f",
+        cf_config,
+        "-H",
+        ts_ip,
+        "--remote-bundles",
+        "stayturgid_heal",
+    ]
+
+
 def _try_cf_runagent_repair(name: str, ts_ip: str) -> None:
     """Attempt CFEngine remote bundle execution when both ADB and SSH are down."""
     if not ts_ip:
@@ -574,43 +595,39 @@ def _try_cf_runagent_repair(name: str, ts_ip: str) -> None:
         s.close()
     except (OSError, socket.timeout):
         return
-    
-    state_file = os.path.join(ROOT, "state", f"cfengine-heal-fallback-{name}")
+
+    # Rate-limit — don't spam CFEngine heals on a device with flaky Tailscale.
+    state_file = os.path.join(ROOT, "state", "cfengine-heal-fallback-%s" % name)
     try:
         mtime = os.path.getmtime(state_file)
         if time.time() - mtime < CFENGINE_HEAL_COOLDOWN_SEC:
             return
     except OSError:
         pass
+    # Stamp now so every early-return below (missing config, etc.) is also
+    # rate-limited and does not re-probe port 5308 each health cycle.
+    write_state(state_file, int(time.time()))
 
     _fleet_log(INFO, "trigger %s cfengine-heal fallback (ADB+SSH down, 5308 reachable)" % name)
-    
+
     cf_runagent = "/opt/homebrew/bin/cf-runagent"
     if not os.path.isfile(cf_runagent):
         cf_runagent = "cf-runagent"
-        
+
     cf_config = os.path.join(ROOT, "cfengine", "cf-runagent.cf")
     if not os.path.isfile(cf_config):
-        _fleet_log(INFO, f"cf-runagent missing config {cf_config}")
+        _fleet_log(INFO, "cf-runagent missing config %s" % cf_config)
         return
 
-    cmd = [
-        cf_runagent,
-        "-f", cf_config,
-        "--remote-bundles", "stayturgid_heal",
-        "--protocol-version", "2",
-        ts_ip
-    ]
+    cmd = _cf_runagent_cmd(cf_runagent, cf_config, ts_ip)
     try:
         r = subprocess.run(cmd, capture_output=True, text=True, timeout=15)
         if r.returncode == 0:
-            _fleet_log(INFO, f"cf-runagent {name} success: {r.stdout.strip()[:100]}")
+            _fleet_log(INFO, "cf-runagent %s success: %s" % (name, r.stdout.strip()[:100]))
         else:
-            _fleet_log(INFO, f"cf-runagent {name} failed (rc={r.returncode}): {r.stderr.strip()[:100]}")
+            _fleet_log(INFO, "cf-runagent %s failed (rc=%s): %s" % (name, r.returncode, r.stderr.strip()[:100]))
     except Exception as e:
-        _fleet_log(INFO, f"cf-runagent {name} error: {e}")
-        
-    write_state(state_file, int(time.time()))
+        _fleet_log(INFO, "cf-runagent %s error: %s" % (name, e))
 
 
 def _try_firerpa_heal_fallback(name: str, ts_ip: str) -> None:

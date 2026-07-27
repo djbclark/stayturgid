@@ -14,12 +14,12 @@ Pure on-device Ansible orchestration is an architectural anti-pattern for Androi
 
 The useful division of responsibility is:
 
-| Layer                 | Responsibility                                                                                                         | Remains authoritative? |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------- |
-| Mac push Ansible      | Bootstrap, credentials, APKs, ADB/SSH transport, UI-assisted setup, and fleet coordination                             | Yes (Primary)          |
-| Kotlin Agent          | Native health checks, fast reachability, Shizuku bindings, and gating/scheduling for on-device Ansible                 | Yes (Primary)          |
-| Device `ansible-pull` | A small allowlisted set of non-secret declarative tasks, executed infrequently via local connection                    | Hybrid Pilot           |
-| Python repair loop    | Deprecated in favor of the Kotlin agent for on-device repair                                                           | No                     |
+| Layer                 | Responsibility                                                                                         | Remains authoritative? |
+| --------------------- | ------------------------------------------------------------------------------------------------------ | ---------------------- |
+| Mac push Ansible      | Bootstrap, credentials, APKs, ADB/SSH transport, UI-assisted setup, and fleet coordination             | Yes (Primary)          |
+| Kotlin Agent          | Native health checks, fast reachability, Shizuku bindings, and gating/scheduling for on-device Ansible | Yes (Primary)          |
+| Device `ansible-pull` | A small allowlisted set of non-secret declarative tasks, executed infrequently via local connection    | Hybrid Pilot           |
+| Python repair loop    | Deprecated in favor of the Kotlin agent for on-device repair                                           | No                     |
 
 ## Technical Feasibility & Constraints
 
@@ -32,6 +32,7 @@ Our research into Android 12+ process management and Shizuku (`rish`) privilege 
 Ansible relies on writing temporary compiled Python modules to the local filesystem (e.g., inside Termux at `~/.ansible/tmp/`) and then executing them with elevated privileges. Because Termux runs as an isolated app user (e.g., `u0_a100`) and UID 2000 is heavily restricted by Android's strict SELinux MAC (Mandatory Access Control) policies, `rish` cannot read or execute files within Termux's private data directory. Attempting this results in SELinux "Permission denied" errors.
 
 **Mitigation:** We must use `connection: local` exclusively. Playbooks run as the unprivileged Termux user. For the few tasks requiring privileges, we must explicitly wrap them using the `shell` or `command` modules:
+
 ```yaml
 - name: Set a secure setting
   shell: rish -c "settings put secure some_key some_value"
@@ -43,7 +44,8 @@ Starting in Android 12, and persisting through Android 16 and 17, the OS aggress
 
 Ansible relies heavily on `fork()` to spawn worker processes. Running an `ansible-playbook` locally is exactly the type of workload the Phantom Process Killer targets, especially on lower-end devices like the Fire HD 8.
 
-**Mitigation:** 
+**Mitigation:**
+
 1. **Disable Child Process Restrictions:** Android 14+ (including Android 16 and 17) includes a "Disable child process restrictions" toggle in Developer Options. Push Ansible must enable this during initial provisioning, or the Kotlin agent must enforce this setting via Shizuku (`device_config put activity_manager max_phantom_processes 2147483647` or equivalent native secure settings).
 2. **Strict Gating:** Runs must only occur when the device is charging, idle (screen off), and battery is >50%.
 3. **Kotlin Agent Wrapper:** The `stayturgid-agent` must hold a WakeLock during the run.
@@ -53,7 +55,8 @@ Ansible relies heavily on `fork()` to spawn worker processes. Running an `ansibl
 
 Ansible is not designed for battery-powered execution. Furthermore, using `ansible-pull` requires playbooks and inventory variables to exist on the local filesystem.
 
-**Mitigation:** 
+**Mitigation:**
+
 - Keep secrets off-device. No long-lived Vault passwords should be stored on the phone.
 - Use `ansible-pull` to fetch the playbook, run it, and exit. Do not run a long-lived `ansible-playbook` daemon.
 

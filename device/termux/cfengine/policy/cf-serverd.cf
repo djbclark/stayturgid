@@ -74,14 +74,10 @@ bundle server access_rules() {
       admit         => { "100.64.0.0/10" };
 }
 
-# Aggregate repair bundle — runs all auto-repair bundles.
-bundle agent stayturgid_heal {
-  methods:
-    "sshd"     usebundle => check_sshd;
-    "bootloop" usebundle => check_bootloop_repair;
-    "agent"    usebundle => check_stayturgid_agent;
-
-  reports:
-    cfengine::
-      "stayturgid_heal: repair run completed";
-}
+# NOTE: the actual `stayturgid_heal` agent bundle (and every check_* bundle it
+# runs) lives in stayturgid.cf, which cf-agent loads via cf-runagent-wrapper.sh
+# when the Mac hails us. cf-serverd only evaluates `main` (see bundlesequence
+# above); its job here is the access ACL, not policy execution. We deliberately
+# do NOT redefine stayturgid_heal in this file — a second copy inevitably drifts
+# from the real one (it did, before this cleanup) and would reference check_*
+# bundles that are not defined in this policy set.
