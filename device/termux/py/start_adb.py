@@ -39,6 +39,29 @@ BOOTLOOP_PID_FILE = os.path.join(STG, "run", "bootloop.pid")
 CFENGINE_CF = os.path.join(STG, "cfengine", "stayturgid.cf")
 CF_SERVERD_CF = os.path.join(STG, "cfengine", "cf-serverd.cf")
 CF_SERVERD_PID = os.path.join(STG, "run", "cf-serverd.pid")
+
+
+def _cfserverd_argv() -> list[str]:
+    """cf-serverd argv, with optional verbosity for investigation.
+
+    cf-serverd only survives on Termux as a child of this persistent boot loop;
+    an SSH-launched instance dies on session close, so verbose logging cannot be
+    obtained ad hoc. Set STAYTURGID_CFSERVERD_VERBOSE to make the boot-loop
+    instance log the reason for e.g. cf-runagent "Unspecified server refusal"
+    (stayturgid#84): "1" -> -v, "2"/"debug" -> -d, or an explicit "-<flag>".
+    Unset/"0" keeps the quiet default.
+    """
+    argv = [os.path.join(PREFIX, "bin", "cf-serverd"), "-Ff", CF_SERVERD_CF]
+    v = os.environ.get("STAYTURGID_CFSERVERD_VERBOSE", "").strip()
+    if v in ("1", "v"):
+        argv.append("-v")
+    elif v in ("2", "d", "debug"):
+        argv.append("-d")
+    elif v.startswith("-"):
+        argv.append(v)
+    return argv
+
+
 VERSION_CHECK_STAMP = os.path.join(STG, "state", "last_version_check")
 OTELCOL_START = os.path.join(HOME, ".termux", "boot", "start-otelcol.sh")
 
@@ -191,7 +214,7 @@ def startup_cfserverd() -> None:
     if _pid_alive(CF_SERVERD_PID):
         return
     pid = _run_bg(
-        [os.path.join(PREFIX, "bin", "cf-serverd"), "-Ff", CF_SERVERD_CF],
+        _cfserverd_argv(),
         log_path=os.path.join(STG, "logs", "cf-serverd.log"),
     )
     if pid > 0:
@@ -442,7 +465,7 @@ def _monitor_cfserverd() -> None:
     if not os.access(cf_bin, os.X_OK) or not os.path.isfile(CF_SERVERD_CF):
         return
     pid = _run_bg(
-        [cf_bin, "-Ff", CF_SERVERD_CF],
+        _cfserverd_argv(),
         log_path=os.path.join(STG, "logs", "cf-serverd.log"),
     )
     if pid > 0:

@@ -6,11 +6,10 @@
 
 body common control {
     bundlesequence => { "main" };
-    # Pin the wire protocol so the Mac's newer cf-runagent negotiates a version
-    # the fleet's older Termux cf-serverd accepts. Without this, a 3.28 (Mac) ->
-    # 3.27 (Termux) hail fails with "Unspecified server refusal". "2" is the TLS
-    # protocol both sides share. Set here (not on argv): cf-runagent has no
-    # --protocol-version flag.
+    # Pin the wire protocol to "2" (TLS) for a deterministic handshake. Set here
+    # (not on argv): cf-runagent has no --protocol-version flag. NOTE: this does
+    # NOT resolve the "Unspecified server refusal" — that persists with both ends
+    # on CFEngine 3.27.1 and has a separate, still-open cause (stayturgid#84).
     protocol_version => "2";
 }
 

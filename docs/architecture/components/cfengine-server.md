@@ -87,22 +87,31 @@ that does not depend on ADB or SSH.
 
 ## Known issues
 
-1. **cf-runagent "Unspecified server refusal" — root cause is a missing `roles`
-   promise, not a protocol mismatch.** Live-fleet testing (stayturgid#84) showed
-   the refusal persists with **both ends on CFEngine 3.27.1** and after TLS +
-   key trust + `allowusers` all pass. The server debug log is explicit:
-   `No promise type roles in bundle access_rules` — cf-serverd requires a
-   `roles` promise authorizing which remote users may trigger `cfruncommand`
-   execution. Fixed by adding a `roles: ".*" authorize => { root, <operator> }`
-   promise to `cf-serverd.cf`. Version hygiene, applied alongside: the Mac
-   control node is pinned to CFEngine **3.27.1** to match the fleet
-   (`packaging/homebrew/cfengine@3.27.1.rb`, `just cfengine-pin`), and
-   `protocol_version => "2"` is set in the rendered `cf-runagent.cf` body (there
-   is **no** `--protocol-version` CLI flag — cf-runagent exits rc=1 on it).
-   Targeting is per host via `-H <ip>` (a bare trailing arg is parsed as an input
-   FILE, overriding `-f`). `_try_cf_runagent_repair()` in
-   `fleet_health_monitor.py` is the Tier 3a fallback. The roles fix is in the
-   policy source pending a device deploy + final end-to-end verification.
+1. **cf-runagent "Unspecified server refusal" — UNRESOLVED (root cause still
+   open).** Live-fleet testing (stayturgid#84) ruled out the protocol version:
+   the refusal persists with **both ends on CFEngine 3.27.1**, after TLS + key
+   trust + `allowusers` + the `cf_agent_exec_access` ACL all pass. Two candidate
+   changes were tried and **neither fixed it** (both kept as harmless, valid
+   hygiene, not verified fixes):
+   - a `roles: ".*" authorize => { root, <operator> }` promise in
+     `cf-serverd.cf` — cf-serverd logs `No promise type roles in bundle
+access_rules` without one, but the refusal **persisted with it deployed
+     and loaded** on the live device (that debug line is likely incidental);
+   - `protocol_version => "2"` in the rendered `cf-runagent.cf` body (there is
+     **no** `--protocol-version` CLI flag — cf-runagent exits rc=1 on it).
+
+   The refusal fires at the EXEC/`cfruncommand` authorization stage; its
+   server-side reason with `roles` loaded has not been captured because
+   cf-serverd only survives on Termux under the boot-loop daemon (SSH-launched
+   instances die on session close). **Next step:** set
+   `STAYTURGID_CFSERVERD_VERBOSE=1` (or `=debug`) so the boot-loop cf-serverd
+   logs the refusal reason, then reproduce a hail. Confirmed-correct pieces:
+   Mac control node pinned to CFEngine **3.27.1**
+   (`packaging/homebrew/cfengine@3.27.1.rb`, `just cfengine-pin`); per-host
+   targeting via `-H <ip>` (a bare trailing arg is parsed as an input FILE,
+   overriding `-f`); `_try_cf_runagent_repair()` in `fleet_health_monitor.py`
+   builds a valid argv. The working repair path today is SSH-based
+   (`just cf-run`); cf-runagent is only needed when SSH is also down.
 
 2. **Android seccomp blocks fork**: cf-serverd must be started with `-F` (foreground)
    flag. No fork is attempted. `nohup ... &` + PID file monitoring in boot loop

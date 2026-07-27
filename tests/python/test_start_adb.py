@@ -11,6 +11,23 @@ sys.path.insert(0, str(REPO / "device" / "termux" / "py"))
 import start_adb
 
 
+def test_cfserverd_argv_quiet_by_default(monkeypatch):
+    monkeypatch.delenv("STAYTURGID_CFSERVERD_VERBOSE", raising=False)
+    argv = start_adb._cfserverd_argv()
+    assert argv[-2:] == ["-Ff", start_adb.CF_SERVERD_CF]
+    assert "-v" not in argv and "-d" not in argv
+
+
+def test_cfserverd_argv_verbose_toggle(monkeypatch):
+    for val, flag in [("1", "-v"), ("v", "-v"), ("2", "-d"), ("debug", "-d")]:
+        monkeypatch.setenv("STAYTURGID_CFSERVERD_VERBOSE", val)
+        assert start_adb._cfserverd_argv()[-1] == flag, val
+    monkeypatch.setenv("STAYTURGID_CFSERVERD_VERBOSE", "0")
+    assert start_adb._cfserverd_argv()[-1] == start_adb.CF_SERVERD_CF
+    monkeypatch.setenv("STAYTURGID_CFSERVERD_VERBOSE", "--log-level=verbose")
+    assert start_adb._cfserverd_argv()[-1] == "--log-level=verbose"
+
+
 def test_shell_transport_prefers_localhost_adb(monkeypatch):
     monkeypatch.setattr(start_adb, "_run", lambda *args, **kwargs: 0)
     monkeypatch.setattr(start_adb, "_capture", lambda *args, **kwargs: (0, "2000\n"))
