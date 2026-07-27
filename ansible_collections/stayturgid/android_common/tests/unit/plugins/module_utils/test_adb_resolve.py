@@ -13,6 +13,8 @@ def _listing(*lines):
     """Fake run_command: 'adb devices' returns lines; connect/shell succeed."""
 
     def run(cmd):
+        if len(cmd) >= 2 and cmd[0].endswith("timeout"):
+            cmd = cmd[2:]
         if cmd[:2] == ["adb", "devices"]:
             return 0, ("\n".join(lines) + "\n") if lines else "", ""
         if cmd[:2] == ["adb", "connect"]:
@@ -72,6 +74,8 @@ def test_match_usb_serial_mdns_id_with_spaces(tmp_path):
     listing = "adb-EXAMPLE-SERIAL-STOCK-JIE0Dg (2)._adb-tls-connect._tcp\tdevice\n100.0.0.12:5555\tdevice\n"
 
     def run(cmd):
+        if len(cmd) >= 2 and cmd[0].endswith("timeout"):
+            cmd = cmd[2:]
         if cmd[:2] == ["adb", "devices"]:
             return 0, listing, ""
         if len(cmd) >= 5 and cmd[:2] == ["adb", "-s"] and cmd[3] == "shell":
@@ -106,8 +110,9 @@ def test_connect_wireless_connects_when_reachable(monkeypatch):
     calls = []
 
     def run(cmd):
-        calls.append(cmd)
-        if cmd[:2] == ["adb", "devices"]:
+        raw_cmd = cmd[2:] if len(cmd) >= 2 and cmd[0].endswith("timeout") else cmd
+        calls.append(raw_cmd)
+        if raw_cmd[:2] == ["adb", "devices"]:
             return 0, "192.0.2.9:5555\tdevice\n", ""
         return 0, "", ""
 
@@ -121,8 +126,9 @@ def test_resolve_gates_connect_behind_probe(tmp_path, monkeypatch):
     seen = []
 
     def run(cmd):
-        seen.append(cmd)
-        if cmd[:2] == ["adb", "devices"]:
+        raw_cmd = cmd[2:] if len(cmd) >= 2 and cmd[0].endswith("timeout") else cmd
+        seen.append(raw_cmd)
+        if raw_cmd[:2] == ["adb", "devices"]:
             if any(c[:2] == ["adb", "connect"] for c in seen):
                 return 0, "100.0.0.12:5555\tdevice\n", ""
             return 0, "", ""

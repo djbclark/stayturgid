@@ -73,6 +73,23 @@ from ansible_collections.stayturgid.android_common.plugins.module_utils.shizuku 
     patch_shizuku_json,
 )
 
+try:
+    from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_timeout import (
+        DEFAULT_SLOW_TIMEOUT,
+        run_command_with_timeout,
+    )
+except ImportError:
+    import os
+    import sys
+
+    _mod_utils = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "module_utils")
+    if _mod_utils not in sys.path:
+        sys.path.insert(0, _mod_utils)
+    from adb_timeout import (
+        DEFAULT_SLOW_TIMEOUT,
+        run_command_with_timeout,
+    )
+
 
 def read_shizuku_json(run_command, device, path):
     """(text, ok). Missing file is ok (fresh config); unreadable is not."""
@@ -91,7 +108,12 @@ def push_shizuku_json(module, device, content, staging, path):
     try:
         tmp.write(content)
         tmp.close()
-        rc, _out, err = module.run_command(["adb", "-s", device, "push", tmp.name, staging])
+        rc, _out, err = run_command_with_timeout(
+            module.run_command,
+            ["adb", "-s", device, "push", tmp.name, staging],
+            timeout=DEFAULT_SLOW_TIMEOUT,
+            get_bin_path_fn=module.get_bin_path,
+        )
         if rc != 0:
             return False, "adb push failed: %s" % normalize_adb_output(err)
     finally:

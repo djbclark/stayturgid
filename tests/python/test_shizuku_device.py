@@ -144,6 +144,8 @@ def test_resolve_adb_and_ssh_host(tmp_path, monkeypatch):
     conf.write_text("oneui-device RFCX 100.0.0.11 192.0.2.55\n")
 
     def fake_run(cmd, **kw):
+        if len(cmd) >= 2 and cmd[0].endswith("timeout"):
+            cmd = cmd[2:]
         if cmd[:2] == ["adb", "devices"]:
             return type("R", (), {"returncode": 0, "stdout": "RFCX\tdevice\n", "stderr": ""})()
         return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
@@ -152,6 +154,8 @@ def test_resolve_adb_and_ssh_host(tmp_path, monkeypatch):
     assert dev.resolve_adb("oneui-device", str(conf)) == "RFCX"
 
     def offline(cmd, **kw):
+        if len(cmd) >= 2 and cmd[0].endswith("timeout"):
+            cmd = cmd[2:]
         if cmd[:2] == ["adb", "devices"]:
             return type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
         if cmd[:2] == ["adb", "connect"]:

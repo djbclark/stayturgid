@@ -84,6 +84,8 @@ def test_deploy_excludes_ts_source_files(monkeypatch, tmp_path):
     staged_dir_contents: dict[str, list[str]] = {}
 
     def fake_run_command(cmd):
+        if len(cmd) >= 2 and cmd[0].endswith("timeout"):
+            cmd = cmd[2:]
         if len(cmd) >= 5 and cmd[3] == "push":
             local = Path(cmd[4])
             if local.is_dir():

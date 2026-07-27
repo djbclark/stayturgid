@@ -19,6 +19,8 @@ import stayturgid_device as dev
 
 def _devices_listing(*lines):
     def run(cmd):
+        if len(cmd) >= 2 and cmd[0].endswith("timeout"):
+            cmd = cmd[2:]
         if cmd[:2] == ["adb", "devices"]:
             return 0, "\n".join(lines) + "\n", ""
         if cmd[:2] == ["adb", "connect"]:
@@ -61,12 +63,13 @@ def test_resolve_adb_connects_wireless_when_needed(tmp_path, monkeypatch):
     seen = []
 
     def run(cmd):
-        seen.append(cmd)
-        if cmd[:2] == ["adb", "devices"]:
+        raw_cmd = cmd[2:] if len(cmd) >= 2 and cmd[0].endswith("timeout") else cmd
+        seen.append(raw_cmd)
+        if raw_cmd[:2] == ["adb", "devices"]:
             if any(c[:2] == ["adb", "connect"] for c in seen):
                 return 0, "100.0.0.12:5555\tdevice\n", ""
             return 0, "", ""
-        if cmd[:2] == ["adb", "connect"]:
+        if raw_cmd[:2] == ["adb", "connect"]:
             return 0, "connected", ""
         return 0, "", ""
 
@@ -106,18 +109,19 @@ def test_resolve_adb_prefers_mdns_wireless_debug(tmp_path, monkeypatch):
     seen = []
 
     def run(cmd):
-        seen.append(cmd)
-        if cmd[:2] == ["adb", "devices"]:
+        raw_cmd = cmd[2:] if len(cmd) >= 2 and cmd[0].endswith("timeout") else cmd
+        seen.append(raw_cmd)
+        if raw_cmd[:2] == ["adb", "devices"]:
             if any(c[:2] == ["adb", "connect"] for c in seen):
                 return 0, "192.0.2.68:39081\tdevice\n", ""
             return 0, "", ""
-        if cmd[:3] == ["adb", "mdns", "services"]:
+        if raw_cmd[:3] == ["adb", "mdns", "services"]:
             return (
                 0,
                 "adb-EXAMPLE-SERIAL-FIRE-Av5cQl_adb-tls-connect._tcp192.0.2.68:39081\n",
                 "",
             )
-        if cmd[:2] == ["adb", "connect"]:
+        if raw_cmd[:2] == ["adb", "connect"]:
             return 0, "connected", ""
         return 0, "", ""
 
