@@ -21,20 +21,24 @@ object AuthorizeReminder {
 
     /** True if this device has been asked to prompt for peer-start approval. */
     fun isPresent(context: Context): Boolean {
-        val dir = context.getExternalFilesDir(null) ?: return false
-        return File(dir, FILE_NAME).exists()
+        if (File(context.filesDir, FILE_NAME).exists()) return true
+        val extDir = context.getExternalFilesDir(null) ?: return false
+        return File(extDir, FILE_NAME).exists()
     }
 
     fun clear(context: Context) {
-        val dir = context.getExternalFilesDir(null) ?: return
-        runCatching { File(dir, FILE_NAME).delete() }
+        runCatching { File(context.filesDir, FILE_NAME).delete() }
+        val extDir = context.getExternalFilesDir(null) ?: return
+        runCatching { File(extDir, FILE_NAME).delete() }
     }
 
     /**
      * A shell command a peer runs on the target (over ADB, uid 2000) to remove the marker for
-     * whichever agent build is installed. Package-independent and idempotent.
+     * whichever agent build is installed. Uses run-as for internal storage (Fire OS compatible)
+     * with external storage fallback. Package-independent and idempotent.
      */
     fun clearCommand(): String =
-        AGENT_PACKAGES.joinToString(" ") { "/sdcard/Android/data/$it/files/$FILE_NAME" }
-            .let { "rm -f $it" }
+        AGENT_PACKAGES.joinToString("; ") { pkg ->
+            "run-as $pkg rm -f files/$FILE_NAME 2>/dev/null; rm -f /sdcard/Android/data/$pkg/files/$FILE_NAME 2>/dev/null"
+        }
 }

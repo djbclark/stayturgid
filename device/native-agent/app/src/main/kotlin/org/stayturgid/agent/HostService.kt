@@ -51,7 +51,8 @@ class HostService : Service() {
             .daemon(true)
             .processNameSuffix("userservice")
             .debuggable(BuildConfig.DEBUG)
-            .version(BuildConfig.VERSION_CODE)
+            // Pin version to 1 so Shizuku dedupes the daemon service across app upgrades (#65)
+            .version(1)
             .tag("stayturgid-agent")
     }
 

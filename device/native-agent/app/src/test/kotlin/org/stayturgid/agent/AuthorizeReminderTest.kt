@@ -9,7 +9,8 @@ class AuthorizeReminderTest {
     @Test
     fun clearCommandRemovesBothAgentBuildsMarkers() {
         val cmd = AuthorizeReminder.clearCommand()
-        assertTrue(cmd.startsWith("rm -f "))
+        assertTrue(cmd.contains("run-as org.stayturgid.agent rm -f files/authorize_reminder"))
+        assertTrue(cmd.contains("run-as org.stayturgid.agent.debug rm -f files/authorize_reminder"))
         assertTrue(
             cmd.contains("/sdcard/Android/data/org.stayturgid.agent/files/authorize_reminder")
         )

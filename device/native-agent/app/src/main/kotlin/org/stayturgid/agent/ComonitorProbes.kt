@@ -73,15 +73,18 @@ object ComonitorProbes {
         )
     }
 
+    fun isTailscaleTunnelUp(): Boolean {
+        val netDev = readText("/proc/net/dev").orEmpty()
+        return netDev.lineSequence().any { line ->
+            val iface = line.substringBefore(':').trim()
+            iface == "tun0" || iface == "tailscale0"
+        }
+    }
+
     private fun probeTailscale(): String {
         val installed = shellOut(arrayOf("pm", "path", TAILSCALE_PACKAGE), 4)
         if (installed.isNullOrBlank() || !installed.contains("package:")) return "skip"
-        val netDev = readText("/proc/net/dev").orEmpty()
-        val tunnelUp =
-            netDev.lineSequence().any { line ->
-                val iface = line.substringBefore(':').trim()
-                iface == "tun0" || iface == "tailscale0"
-            }
+        val tunnelUp = isTailscaleTunnelUp()
         val controlPlaneUp =
             commandOk(arrayOf("ping", "-c", "1", "-W", "2", TAILSCALE_CONTROL_HOST), 4)
         return if (tunnelUp && controlPlaneUp) "up" else "down"

@@ -117,24 +117,26 @@ def set_target_reminder(target: str) -> None:
     """Best-effort: drop the 'approve the Allow dialog' marker on a target device
     so its own agent nags the operator standing at it. The peer clears the marker
     automatically over the authorized connection once peer-start succeeds.
-
-    Needs the Mac to be able to adb-reach the target (same host:port the peer
-    uses); silently skips if not reachable.
     """
+    resolved_target = adb.resolve_target(target) if target else target
     try:
-        adb.run([adb.adb_bin(), "connect", target], timeout=15)
+        adb.run([adb.adb_bin(), "connect", resolved_target], timeout=15)
     except Exception:  # noqa: BLE001
         pass
     ok = False
     for pkg in AGENT_PKGS:
-        d = f"/sdcard/Android/data/{pkg}/files"
-        r = adb.adb(target, "shell", f"mkdir -p {d} && : > {d}/{REMINDER_FILE} && echo OK")
+        r = adb.adb(
+            resolved_target,
+            "shell",
+            f"run-as {pkg} touch files/{REMINDER_FILE} 2>/dev/null || "
+            f"(d=/sdcard/Android/data/{pkg}/files && mkdir -p $d && : > $d/{REMINDER_FILE}) && echo OK",
+        )
         if "OK" in (r.stdout or ""):
             ok = True
     if ok:
-        print(f"  target reminder set on {target} (agent there will prompt to approve)")
+        print(f"  target reminder set on {resolved_target} (agent there will prompt to approve)")
     else:
-        print(f"  note: could not set target reminder on {target} (adb-unreachable?) — skipping")
+        print(f"  note: could not set target reminder on {resolved_target} (adb-unreachable?) — skipping")
 
 
 def trigger_start(serial: str) -> int:

@@ -183,9 +183,15 @@ object CatastrophicRepair {
             return Result(policyOk, detail)
         }
 
-        // Activity launch is a best-effort prompt/fallback. It may need an
-        // unlocked screen and operator input, so success is still determined
-        // only by a fresh tunnel + Tailscale control-plane probe.
+        // Activity launch is a best-effort prompt/fallback. It requires an
+        // unlocked screen and operator input. Never foreground the GUI if the
+        // VPN tunnel interface is actually up (e.g. transient control-plane ping failure).
+        if (ComonitorProbes.isTailscaleTunnelUp()) {
+            val detail = "tailscale tunnel up; control-plane probe flaky (GUI launch suppressed)"
+            appendLog("[agent] $detail")
+            return Result(policyOk, detail)
+        }
+
         shellOut(arrayOf("am", "start", "-n", TAILSCALE_COMPONENT), 8)
         val restored = waitForTailscaleUp(attempts = 3)
         val detail =
