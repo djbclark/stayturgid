@@ -54,7 +54,7 @@ groups:
           # {% raw %}{{ $labels.* }}{% endraw %} below is Grafana's own Go-template
           # annotation syntax, evaluated by Grafana at alert-fire time — not Jinja.
           # {% raw %}
-          summary: "{{ $labels.instance }} ({{ $labels.job }}) has failed its blackbox probe for 5+ minutes"
+          summary: "{{ if $labels.machine_name }}{{ $labels.machine_name }} ({{ $labels.instance }}){{ else }}{{ $labels.instance }}{{ end }} ({{ $labels.job }}) has failed its blackbox probe for 5+ minutes"
           # {% endraw %}
         labels:
           severity: warning

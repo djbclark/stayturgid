@@ -20,6 +20,12 @@
     state: present
   when: _vector_brew_list.rc != 0
 
+- name: Pin vector formula in Homebrew to prevent drift
+  ansible.builtin.command:
+    cmd: brew pin vector
+  register: _vector_pin
+  changed_when: "'already pinned' not in (_vector_pin.stderr | default(''))"
+
 - name: Resolve vector binary after install
   ansible.builtin.command:
     cmd: brew --prefix vector

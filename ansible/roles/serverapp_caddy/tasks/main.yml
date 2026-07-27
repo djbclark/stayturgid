@@ -19,6 +19,12 @@
     state: present
   when: _caddy_brew_list.rc != 0
 
+- name: Pin caddy formula in Homebrew to prevent drift
+  ansible.builtin.command:
+    cmd: brew pin caddy
+  register: _caddy_pin
+  changed_when: "'already pinned' not in (_caddy_pin.stderr | default(''))"
+
 - name: Resolve caddy binary after install
   ansible.builtin.command:
     cmd: brew --prefix caddy

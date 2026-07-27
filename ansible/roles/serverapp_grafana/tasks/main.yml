@@ -17,6 +17,12 @@
     state: present
   when: _gf_brew_list.rc != 0
 
+- name: Pin grafana formula in Homebrew to prevent drift
+  ansible.builtin.command:
+    cmd: brew pin grafana
+  register: _gf_pin
+  changed_when: "'already pinned' not in (_gf_pin.stderr | default(''))"
+
 - name: Resolve grafana binary after install
   ansible.builtin.command:
     cmd: brew --prefix grafana
