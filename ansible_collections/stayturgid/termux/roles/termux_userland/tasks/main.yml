@@ -132,6 +132,9 @@
     src: "{{ stayturgid_repo_root }}/device/termux/cfengine/out/masterfiles/cf-serverd.cf"
     dest: "{{ termux_home }}/.stayturgid/cfengine/cf-serverd.cf"
     mode: "0644"
+  # cf-serverd only reads its policy at startup — replacing the file is not
+  # enough for a new roles/ACL to take effect. Restart it (see handler).
+  notify: restart cf-serverd
   when: "'cfengine' in stayturgid_termux_packages"
 
 - name: Detect Termux account owning termux_home

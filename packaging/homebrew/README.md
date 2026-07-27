@@ -16,7 +16,12 @@ To keep both ends on the **same** version we pin the Mac to CFEngine Core
 (includes the `libntech` submodule — the GitHub git-archive tarball does not, so
 a naive `@3.27` source build fails at `make install`).
 
-### Install / re-pin (manual, until deploy-mac is fixed — see stayturgid#85)
+### Install / re-pin
+
+The control-node deploy applies this automatically: the `control_node` role's
+`prereqs.yml` installs + pins `cfengine@3.27.1` (idempotent, macOS-only). That
+runs via `just deploy-mac`, which is currently blocked by stayturgid#85 — until
+that is fixed, apply it manually:
 
 ```bash
 just cfengine-pin            # tap + install cfengine@3.27.1 + brew pin + drop plain cfengine
