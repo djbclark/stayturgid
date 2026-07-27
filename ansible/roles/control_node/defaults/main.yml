@@ -61,6 +61,9 @@ stayturgid_mac_uv_tools:
   - uiautomator2
   - mypy
   - bandit
+  # Builds the device CFEngine policy artifact (cfbs build) during a fleet
+  # deploy — the termux_userland role delegates the build to the control node.
+  - cfbs
 
 # ── Hermes Agent (control-node messaging gateway) ─────────────────────────
 # Desktop/CLI agent with OpenCode Zen API + optional Telegram remote.

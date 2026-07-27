@@ -18,6 +18,31 @@
     name: "{{ stayturgid_mac_brew_packages_base }}"
     state: present
 
+# CFEngine is intentionally NOT in the base list: we want the version pinned to
+# the Termux fleet (3.27.1), not homebrew-core's latest. Install the vendored
+# formula, drop the plain formula, and pin so `brew upgrade` won't bump it.
+# Mirrors `just cfengine-pin`; see packaging/homebrew/README.md.
+- name: Pin control-node CFEngine to the fleet version (3.27.1)
+  ansible.builtin.shell: |
+    set -uo pipefail
+    if cf-runagent --version 2>/dev/null | grep -q "3\.27\.1" \
+       && brew list --pinned 2>/dev/null | grep -qx "cfengine@3.27.1"; then
+      echo "ALREADY_PINNED"; exit 0
+    fi
+    tap="cfengine-local/cfengine"
+    brew tap-new "$tap" >/dev/null 2>&1 || true
+    cp "{{ stayturgid_repo_root }}/packaging/homebrew/cfengine@3.27.1.rb" \
+       "$(brew --repo "$tap")/Formula/"
+    brew list --versions cfengine@3.27.1 >/dev/null 2>&1 \
+       || brew install "$tap/cfengine@3.27.1"
+    brew uninstall --ignore-dependencies cfengine >/dev/null 2>&1 || true
+    brew link --overwrite cfengine@3.27.1 >/dev/null 2>&1 || true
+    brew pin cfengine@3.27.1
+    echo "PINNED"
+  register: _cfengine_pin
+  changed_when: "'PINNED' in _cfengine_pin.stdout"
+  failed_when: _cfengine_pin.rc != 0 and 'ALREADY_PINNED' not in _cfengine_pin.stdout
+  when: ansible_facts['os_family'] == 'Darwin'
 
 - name: Install app-store Homebrew formulae when enabled
   community.general.homebrew:

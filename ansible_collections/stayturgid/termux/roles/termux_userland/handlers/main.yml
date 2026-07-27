@@ -5,6 +5,22 @@
   ansible.builtin.command: "{{ termux_prefix }}/bin/termux-reload-settings"
   changed_when: true
 
+# Restart cf-serverd so a redeployed policy (roles/ACL) takes effect. We only
+# KILL it here (by PIDFILE): the boot loop's _monitor_cfserverd restarts it
+# properly daemonized within its cycle, and a co-notified "restart boot loop"
+# (defined below, so it runs after this) restarts it immediately via
+# startup_cfserverd since it is now dead. cf-serverd launched directly from an
+# SSH/handler shell does not survive session close, so we never start it here.
+- name: restart cf-serverd
+  ansible.builtin.shell: |
+    pidf="$HOME/.stayturgid/run/cf-serverd.pid"
+    old="$(cat "$pidf" 2>/dev/null || true)"
+    [ -n "$old" ] && kill "$old" 2>/dev/null || true
+    true
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  changed_when: true
+
 # Restart the Termux self-heal loop by PIDFILE, never `pkill -f start-adb.sh`:
 # Ansible runs this handler via `bash -c '<script>'`, so the script text (which
 # names the path) is in the handler's OWN cmdline — `pkill -f` matched and
