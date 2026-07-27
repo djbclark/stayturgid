@@ -339,8 +339,10 @@
           if (
             stayturgid_hermes_enabled | default(true) | bool
             and stayturgid_hermes_gateway_enabled | default(true) | bool
-            and hermes_gateway_plist is defined
-            and hermes_gateway_plist.changed
+            and (
+              (hermes_gateway_plist is defined and hermes_gateway_plist.changed)
+              or (_hermes_brew_install is defined and _hermes_brew_install.changed)
+            )
           ) else []
         )
         + (

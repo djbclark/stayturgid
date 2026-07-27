@@ -10,6 +10,7 @@
     name: hermes-agent
     state: present
   when: stayturgid_hermes_enabled | default(true) | bool
+  register: _hermes_brew_install
 
 - name: Resolve Hermes libexec python (for optional Telegram deps)
   ansible.builtin.shell: |
