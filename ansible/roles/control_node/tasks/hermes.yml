@@ -12,6 +12,13 @@
   when: stayturgid_hermes_enabled | default(true) | bool
   register: _hermes_brew_install
 
+- name: Pin hermes-agent formula in Homebrew to prevent drift
+  ansible.builtin.command:
+    cmd: brew pin hermes-agent
+  register: _hermes_pin
+  changed_when: "'already pinned' not in (_hermes_pin.stderr | default(''))"
+  when: stayturgid_hermes_enabled | default(true) | bool
+
 - name: Resolve Hermes libexec python (for optional Telegram deps)
   ansible.builtin.shell: |
     set -euo pipefail
