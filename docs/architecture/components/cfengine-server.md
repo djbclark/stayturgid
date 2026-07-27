@@ -9,12 +9,12 @@ that does not depend on ADB or SSH.
 
 ## Connection fallback chain (4 tiers)
 
-| Tier | Transport    | Port  | Protocol | Auth                     | Status                         |
-| ---- | ------------ | ----- | -------- | ------------------------ | ------------------------------ |
-| 1    | ADB          | 5555  | ADB      | RSA keypair              | ✅                             |
-| 2    | SSH          | 8022  | SSH      | stayturgid CA cert + key | ✅                             |
-| 3a   | CFEngine     | 5308  | TLS      | Peer-to-peer key trust   | ✅ TLS proven, bundle exec WIP |
-| 3b   | FIRERPA gRPC | 65000 | gRPC/TLS | gRPC auth                | ✅                             |
+| Tier | Transport    | Port  | Protocol | Auth                     | Status                       |
+| ---- | ------------ | ----- | -------- | ------------------------ | ---------------------------- |
+| 1    | ADB          | 5555  | ADB      | RSA keypair              | ✅                           |
+| 2    | SSH          | 8022  | SSH      | stayturgid CA cert + key | ✅                           |
+| 3a   | CFEngine     | 5308  | TLS      | Peer-to-peer key trust   | ✅ bundle exec working (#84) |
+| 3b   | FIRERPA gRPC | 65000 | gRPC/TLS | gRPC auth                | ✅                           |
 
 ## New files
 
@@ -87,31 +87,35 @@ that does not depend on ADB or SSH.
 
 ## Known issues
 
-1. **cf-runagent "Unspecified server refusal" — UNRESOLVED (root cause still
-   open).** Live-fleet testing (stayturgid#84) ruled out the protocol version:
-   the refusal persists with **both ends on CFEngine 3.27.1**, after TLS + key
-   trust + `allowusers` + the `cf_agent_exec_access` ACL all pass. Two candidate
-   changes were tried and **neither fixed it** (both kept as harmless, valid
-   hygiene, not verified fixes):
-   - a `roles: ".*" authorize => { root, <operator> }` promise in
-     `cf-serverd.cf` — cf-serverd logs `No promise type roles in bundle
-access_rules` without one, but the refusal **persisted with it deployed
-     and loaded** on the live device (that debug line is likely incidental);
-   - `protocol_version => "2"` in the rendered `cf-runagent.cf` body (there is
-     **no** `--protocol-version` CLI flag — cf-runagent exits rc=1 on it).
+1. **cf-runagent "Unspecified server refusal" — RESOLVED (stayturgid#84).**
+   Captured the server-side reason with `STAYTURGID_CFSERVERD_VERBOSE` and fixed
+   it end-to-end on the live fleet (Mac 3.27.1 → p7a: `cf-serverd executing
+cfruncommand … --bundlesequence stayturgid_heal`, `R: … stayturgid heal on
+termux`, exit 0). The refusal was **three wrong `cf-serverd.cf` grants**, each
+   revealed as the previous one was fixed — not a protocol or `roles` problem
+   (both were red herrings; the `protocol_version` pin and Mac 3.27.1 pin are
+   kept only as hygiene):
+   - the cfruncommand grant used `resource_type => "literal"`, so the _path_ ACL
+     stayed empty → `EXEC denied due to ACL for file: <cfruncommand>`. Fix:
+     `resource_type => "path"`.
+   - each bundle grant used `resource_type => "query"` (that is for `-s`
+     reporting), so `-b` activation was refused → `Access denied to: <bundle> /
+EXEC denied bundle activation`. Fix: `resource_type => "bundle"`. No
+     `roles` promise is needed — bundle activation is authorized by the access
+     `admit` alone.
+   - `cfruncommand` was bare `cf-agent`, which loads the default (empty) inputs
+     → failsafe → `Bundle 'stayturgid_heal' … was not found`. Fix: point it (and
+     the exec ACL) at `cf-runagent-wrapper.sh`, which runs
+     `cf-agent -f stayturgid.cf "$@"` with the Termux env.
 
-   The refusal fires at the EXEC/`cfruncommand` authorization stage; its
-   server-side reason with `roles` loaded has not been captured because
-   cf-serverd only survives on Termux under the boot-loop daemon (SSH-launched
-   instances die on session close). **Next step:** set
-   `STAYTURGID_CFSERVERD_VERBOSE=1` (or `=debug`) so the boot-loop cf-serverd
-   logs the refusal reason, then reproduce a hail. Confirmed-correct pieces:
-   Mac control node pinned to CFEngine **3.27.1**
+   Also confirmed correct along the way: Mac pinned to CFEngine **3.27.1**
    (`packaging/homebrew/cfengine@3.27.1.rb`, `just cfengine-pin`); per-host
    targeting via `-H <ip>` (a bare trailing arg is parsed as an input FILE,
-   overriding `-f`); `_try_cf_runagent_repair()` in `fleet_health_monitor.py`
-   builds a valid argv. The working repair path today is SSH-based
-   (`just cf-run`); cf-runagent is only needed when SSH is also down.
+   overriding `-f`); `_try_cf_runagent_repair()` builds a valid argv. Note the
+   heal bundle's individual _actions_ can still fail per device (e.g. Shizuku
+   restart) — that is repair logic, independent of this transport. On-device,
+   `STAYTURGID_CFSERVERD_VERBOSE` (in `~/.stayturgid/env`; `1`→`-v`, `debug`→`-d`)
+   makes the boot-loop cf-serverd log EXEC decisions for future debugging.
 
 2. **Android seccomp blocks fork**: cf-serverd must be started with `-F` (foreground)
    flag. No fork is attempted. `nohup ... &` + PID file monitoring in boot loop

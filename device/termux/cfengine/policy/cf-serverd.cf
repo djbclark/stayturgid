@@ -34,55 +34,56 @@ body server control {
     trustkeysfrom => { "100.64.0.0/10" };
     allowusers    => { "root", "{{ stayturgid_control_ssh_user | default(stayturgid_mac_peer.user | default(ansible_user)) }}" };
 
-    # Direct cf-agent — no arguments needed. Policy data is sent inline
-    # by cf-runagent and cf-agent reads it from stdin.
-    cfruncommand  => "/data/data/com.termux/files/usr/bin/cf-agent";
+    # Run cf-agent via the wrapper so it loads OUR policy (stayturgid.cf, where
+    # stayturgid_heal + the check_* bundles live) with the Termux env. A bare
+    # cf-agent loads the default inputs (no promises.cf) -> failsafe -> "Bundle
+    # 'stayturgid_heal' … was not found". cf-serverd appends --bundlesequence
+    # <name> from cf-runagent --remote-bundles. See stayturgid#84.
+    cfruncommand  => "/data/data/com.termux/files/home/.stayturgid/cfengine/cf-runagent-wrapper.sh";
 
     port          => "5308";
     maxconnections => "5";
     denybadclocks  => "false";
 }
 
+# cf-runagent remote execution needs TWO access grants, each with the CORRECT
+# resource_type (verified end-to-end on the live fleet, stayturgid#84 — earlier
+# guesses of roles/protocol_version were red herrings):
+#   1. the cfruncommand executable, as resource_type "path" (NOT "literal") —
+#      a literal grant leaves the path ACL empty and cf-serverd answers
+#      "EXEC denied due to ACL for file: <cfruncommand>";
+#   2. each activatable bundle name, as resource_type "bundle" (NOT "query";
+#      query is for cf-runagent -s style reporting) — otherwise cf-serverd
+#      answers "Access denied to: <bundle> / EXEC denied bundle activation".
+# No `roles` promise is required; bundle activation is authorized purely by the
+# access admit (IP/host/key) here.
 bundle server access_rules() {
-  # Authorize which remote users may trigger cfruncommand execution. Kept as a
-  # CANDIDATE for the cf-runagent "Unspecified server refusal" (stayturgid#84):
-  # cf-serverd logs "No promise type roles in bundle access_rules" when it is
-  # absent. UNVERIFIED — a live e2e test with this promise deployed (both ends
-  # CFEngine 3.27.1, after TLS + key trust + allowusers all pass) STILL got the
-  # refusal, so this is necessary-at-most, not the fix. Root cause is still open;
-  # see #84 for the -v capture plan. The control node connects as root or the
-  # operator SSH user.
-  roles:
-    ".*"
-      authorize => { "root", "{{ stayturgid_control_ssh_user | default(stayturgid_mac_peer.user | default(ansible_user)) }}" };
-
   access:
-    # Allow remote execution of the cf-agent binary (the cfruncommand).
-    # Without this, cf-runagent connections get "EXEC denied due to ACL".
-    "/data/data/com.termux/files/usr/bin/cf-agent"
+    # Allow remote execution of the cfruncommand (the wrapper).
+    "/data/data/com.termux/files/home/.stayturgid/cfengine/cf-runagent-wrapper.sh"
       handle        => "cf_agent_exec_access",
-      resource_type => "literal",
+      resource_type => "path",
       admit         => { "100.64.0.0/10" };
 
     # Mac can trigger stayturgid_heal bundle for full repair.
     "stayturgid_heal"
-      resource_type => "query",
+      resource_type => "bundle",
       admit         => { "100.64.0.0/10" };
 
     "check_sshd"
-      resource_type => "query",
+      resource_type => "bundle",
       admit         => { "100.64.0.0/10" };
 
     "check_bootloop"
-      resource_type => "query",
+      resource_type => "bundle",
       admit         => { "100.64.0.0/10" };
 
     "check_bootloop_repair"
-      resource_type => "query",
+      resource_type => "bundle",
       admit         => { "100.64.0.0/10" };
 
     "check_stayturgid_agent"
-      resource_type => "query",
+      resource_type => "bundle",
       admit         => { "100.64.0.0/10" };
 }
 
