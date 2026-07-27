@@ -26,6 +26,10 @@
     prefix: "shizuku-fleet-{{ inventory_hostname }}-"
     suffix: .json
   register: _shizuku_fleet_tmp
+  # Run in check mode too, so downstream tasks can resolve `.path` — otherwise
+  # `just deploy-check` fails with "dict has no attribute 'path'". Creating a
+  # temp file is harmless in a dry-run.
+  check_mode: false
   delegate_to: localhost
 
 - name: Push Shizuku fleet profile to Download

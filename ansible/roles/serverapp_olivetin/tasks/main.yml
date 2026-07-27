@@ -57,6 +57,8 @@
     state: directory
     prefix: olivetin-
   register: _ot_tmp
+  # Run in check mode too, so downstream `.path` resolves during a dry-run.
+  check_mode: false
   when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
 
 - name: Download, extract, and install OliveTin binary/webui when missing

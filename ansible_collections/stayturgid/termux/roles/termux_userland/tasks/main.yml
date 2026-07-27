@@ -111,6 +111,10 @@
   delegate_to: localhost
   run_once: true
   changed_when: false
+  # Build even in check mode: the downstream copy/template tasks read from the
+  # (gitignored) out/masterfiles/ artifact, so `just deploy-check` fails to find
+  # it otherwise. Building is a harmless local no-op in a dry-run.
+  check_mode: false
   when: "'cfengine' in stayturgid_termux_packages"
 
 - name: Deploy CFEngine Build artifact to device

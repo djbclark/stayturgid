@@ -25,6 +25,8 @@
     state: directory
     prefix: firerpa-
   register: _firerpa_tmp
+  # Run in check mode too, so downstream `.path` resolves during a dry-run.
+  check_mode: false
   delegate_to: localhost
 
 - name: Download FIRERPA server archive on Mac

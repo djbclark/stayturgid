@@ -51,6 +51,8 @@
     state: directory
     prefix: openobserve-
   register: _oo_tmp
+  # Run in check mode too, so downstream `.path` resolves during a dry-run.
+  check_mode: false
   when: not (_oo_bin_stat.stat.exists | default(false))
 
 - name: Download, extract, and install OpenObserve binary when missing

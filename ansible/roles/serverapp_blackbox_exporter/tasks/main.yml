@@ -51,6 +51,8 @@
     state: directory
     prefix: blackbox_exporter-
   register: _bbe_tmp
+  # Run in check mode too, so downstream `.path` resolves during a dry-run.
+  check_mode: false
   when: not (_bbe_bin_stat.stat.exists | default(false))
 
 - name: Download, extract, and install blackbox_exporter binary when missing
