@@ -201,37 +201,51 @@ class ShizukuUserService : IStayTurgidService.Stub {
     }
 
     private fun reapStaleUserServices() {
+        // Scope to BuildConfig.APPLICATION_ID only (this process's own build variant), not both
+        // "org.stayturgid.agent" and "org.stayturgid.agent.debug" — debug builds use
+        // applicationIdSuffix ".debug", so if both variants are ever installed at once, reaping
+        // both packages would kill the OTHER variant's legitimate, live UserService as "stale."
+        // BuildConfig is compiled per-variant, so this is always the correct package for
+        // whichever variant this class was actually built into.
+        val pkg = BuildConfig.APPLICATION_ID
         val myPid = Process.myPid()
-        for (pkg in USERSERVICE_PACKAGES) {
-            try {
-                val stale = stalePidsToReap(runPidof(pkg), myPid)
-                if (stale.isNotEmpty()) {
-                    Log.i(
-                        TAG,
-                        "Reaping ${stale.size} stale UserService pid(s): $stale (my pid: $myPid)",
-                    )
-                    killPids(stale)
-                }
-            } catch (t: Throwable) {
-                Log.w(TAG, "reapStaleUserServices failed for $pkg: ${t.message}")
+        try {
+            val stale = stalePidsToReap(runPidof(pkg), myPid)
+            if (stale.isNotEmpty()) {
+                Log.i(
+                    TAG,
+                    "Reaping ${stale.size} stale UserService pid(s): $stale (my pid: $myPid)",
+                )
+                killPids(stale)
             }
+        } catch (t: Throwable) {
+            Log.w(TAG, "reapStaleUserServices failed for $pkg: ${t.message}")
         }
     }
 
     private fun runPidof(pkg: String): String {
         val p = ProcessBuilder("pidof", "$pkg:userservice").redirectErrorStream(true).start()
-        if (!p.waitFor(2, TimeUnit.SECONDS)) return ""
-        return p.inputStream.bufferedReader().readText().trim()
+        if (!p.waitFor(2, TimeUnit.SECONDS)) {
+            p.destroyForcibly()
+            return ""
+        }
+        return p.inputStream.bufferedReader().use { it.readText().trim() }
     }
 
     private fun killPids(pids: List<Int>) {
-        ProcessBuilder(listOf("kill") + pids.map { it.toString() }).start()
+        val p = ProcessBuilder(listOf("kill") + pids.map { it.toString() }).start()
+        if (!p.waitFor(2, TimeUnit.SECONDS)) {
+            p.destroyForcibly()
+            Log.w(TAG, "kill did not exit within timeout for pids=$pids")
+            return
+        }
+        if (p.exitValue() != 0) {
+            Log.w(TAG, "kill exited ${p.exitValue()} for pids=$pids")
+        }
     }
 
     companion object {
         private const val TAG = "StayTurgidUS"
-        private val USERSERVICE_PACKAGES =
-            arrayOf("org.stayturgid.agent", "org.stayturgid.agent.debug")
 
         /** Pure: pidof output -> pids that are stale (not this process) and should be reaped. */
         internal fun stalePidsToReap(pidofOutput: String, myPid: Int): List<Int> =

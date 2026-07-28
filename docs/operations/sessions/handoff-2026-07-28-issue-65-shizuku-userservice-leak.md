@@ -37,6 +37,9 @@ $pkg:userservice`, exclude this process's own pid, `kill` whatever's left.
 
 ### 1. Live-verified the fix is actually working on hd8
 
+`🚨📱🚨 USING — hd8 — verify #65 UserService reap fix (screen-cycle +
+pidof checks) — ~2 min` / `🟢📱🟢 FREE — hd8 — verification complete`.
+
 Confirmed I have live fleet access from this environment (same `adb`/
 `devices.conf` prior agents in this chain used). hd8
 (`GN43T503430603PS`) currently runs `org.stayturgid.agent.debug`
@@ -67,8 +70,19 @@ different from what a normal fleet deploy will do soon anyway once this
 ships in a release). **Flagging for the operator**: if you want the
 version-bump path itself spot-checked before considering `#65` fully closed
 in practice (not just in code), that's the one thing this session didn't
-attempt — everything else (dedup-on-rebind, reap-on-bind logic, kill-path
-correctness) is verified either live or by unit test below.
+attempt.
+
+**What's actually verified vs. not, precisely:** the live screen-cycle test
+above exercised dedup-on-rebind (Shizuku reusing the same daemon) — it never
+produced a second pid, so it never exercised the _reap/kill_ path at all.
+`ShizukuUserServiceTest.kt`'s 5 tests cover only the pure
+`stalePidsToReap()` filtering logic (given fake pidof-output strings, which
+pids should be considered stale) — none of them, nor the live test, actually
+exercise `runPidof()`/`killPids()` (the real `ProcessBuilder`/`pidof`/`kill`
+IO) end-to-end against a genuine multi-pid scenario. **The kill path itself
+remains unverified** — this would need either an `androidTest`-level
+integration test or a live scenario with a real stale pid to kill, neither
+of which this unit attempted.
 
 ### 2. Fixed a real, pre-existing `kt-detekt`/`kt-format-check` failure the shipped fix left behind
 
@@ -113,17 +127,52 @@ not `#65`'s. Left alone since Agent 8's row in the orchestration plan
 covers `#66`/`#64` and will likely be touching this exact file — flagging
 here rather than fixing opportunistically outside my scope.
 
-## Verification
+### 3. Two real correctness findings from CodeRabbit, fixed
+
+Both real bugs I carried forward from the already-shipped `81baa49` (not
+introduced by my refactor, but mine to fix since I was already touching
+this exact function):
+
+1. **Major — cross-variant kill risk.** `reapStaleUserServices()` iterated
+   _both_ `org.stayturgid.agent` and `org.stayturgid.agent.debug`
+   regardless of which variant was actually running. Debug builds use
+   `applicationIdSuffix = ".debug"` (confirmed in
+   `app/build.gradle.kts`), so if both variants were ever installed on the
+   same device at once, each variant's reap-on-bind would kill the
+   _other_ variant's live, legitimate UserService as "stale." Fixed by
+   scoping to `BuildConfig.APPLICATION_ID` only — compiled per-variant, so
+   it's always the correct single package for whichever build this class
+   actually ships in. Verified both debug and release variants still
+   compile clean (`just kt-test` builds and tests both).
+2. **Minor — unmanaged child processes.** `runPidof()` left the spawned
+   `pidof` process running (never `destroy()`'d) if it timed out;
+   `killPids()` never waited for `kill` to exit or checked its exit code,
+   so a failed kill would fail silently. Fixed: `runPidof` now
+   `destroyForcibly()`s on timeout and reads its output through `.use{}`;
+   `killPids` waits (with its own timeout + `destroyForcibly()` fallback)
+   and logs a non-zero exit code instead of dropping it.
+
+(A third `ast-grep` annotation on these same lines flagging "command
+injection" is a static-analysis false positive on internal-only
+`ProcessBuilder` argument construction — no shell re-parsing occurs, and
+neither the package id (`BuildConfig.APPLICATION_ID`, compile-time
+constant) nor the pids (parsed via `toIntOrNull()`, non-numeric tokens
+already filtered) are attacker-controlled. Not fixed, since there's
+nothing to fix.)
+
+## Verification (final, after the CodeRabbit round in §3)
 
 - `just kt-format-check` — clean
-- `just kt-test` — 154 tasks, `BUILD SUCCESSFUL`; new
-  `ShizukuUserServiceTest` confirmed via
+- `just kt-test` — 154 tasks, `BUILD SUCCESSFUL` (both debug and release
+  variants compile and test clean, confirming `BuildConfig.APPLICATION_ID`
+  resolves correctly in both); `ShizukuUserServiceTest` re-confirmed via
   `build/test-results/testDebugUnitTest/TEST-org.stayturgid.agent.ShizukuUserServiceTest.xml`
   — `tests="5" skipped="0" failures="0" errors="0"` (verified the count
   directly, not just trusting a green build)
 - `just kt-detekt` — 1 pre-existing, out-of-scope finding remains (see
-  above); the 3 findings actually in `#65`'s code are all fixed
-- Live device verification on hd8 — see §1 above
+  above); the findings actually in `#65`'s code are all fixed
+- Live device verification on hd8 — see §1 above (with the caveat added in
+  §1's precision note — dedup-on-rebind verified live, kill path not)
 
 ## Files changed
 
