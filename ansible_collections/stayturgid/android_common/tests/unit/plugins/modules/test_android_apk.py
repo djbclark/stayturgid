@@ -179,6 +179,36 @@ def test_android_apk_install_timeout_fails_loudly(mocker, tmp_path):
     assert "timed out" in out["msg"]
 
 
+def test_android_apk_work_profile_install_wrapped_in_timeout(mocker, tmp_path):
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    out = run_module(
+        mocker,
+        dict(device="dev", package="com.example.app", apk_path=str(apk), work_profile=True, connect=False),
+    )
+    assert out.get("failed") is not True, out
+    assert "also installed for user 10" in out["reason"]
+
+
+def test_android_apk_work_profile_timeout_warns_with_dialog_hint(mocker, tmp_path):
+    """Regression test for #59: a wedged work-profile install must warn with
+    the same "confirmation dialog" hint as the primary install path, not just
+    a bare rc number, and must not fail the whole task (best-effort)."""
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    out = run_module(
+        mocker,
+        dict(device="dev", package="com.example.app", apk_path=str(apk), work_profile=True, connect=False),
+        cmd_results=[
+            ("--user 10", (124, "", "")),
+            (" install", (0, "Success\n", "")),
+        ],
+    )
+    assert out.get("failed") is not True, out
+    assert "also installed for user 10" not in out["reason"]
+    assert any("timed out" in w and "confirmation dialog" in w for w in out["_warnings"]), out["_warnings"]
+
+
 def test_android_apk_skips_when_present(mocker, tmp_path):
     apk = tmp_path / "app.apk"
     apk.write_bytes(b"PK")
@@ -266,6 +296,49 @@ def test_android_apk_clean_uninstalls_before_install(mocker, tmp_path):
     assert uninstall_idx is not None, cmds
     assert install_idx is not None, cmds
     assert uninstall_idx < install_idx, cmds
+
+
+@pytest.mark.parametrize(
+    "uninstall_rc,uninstall_err",
+    [
+        (1, "Failure [DELETE_FAILED_INTERNAL_ERROR]"),
+        (124, ""),
+    ],
+    ids=["failure", "timeout"],
+)
+def test_android_apk_clean_uninstall_failure_fails_before_install(mocker, tmp_path, uninstall_rc, uninstall_err):
+    """A failed or timed-out clean uninstall must not silently proceed to installing.
+
+    Regression test: run_command_with_timeout()'s clean-uninstall result was
+    previously discarded entirely, so a failed/timed-out uninstall silently
+    fell through into an in-place `adb install -r`, defeating the native-lib
+    re-extraction the `clean` flag exists for (see the module's history with
+    #60). Covers both an ordinary adb failure and an rc==124 timeout, since
+    run_command_with_timeout() surfaces both the same way (nonzero rc)."""
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    seen = []
+
+    def fake_run_command(cmd):
+        seen.append(cmd)
+        joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
+        if "pm list packages" in joined:
+            return (0, "package:com.example.app\n", "")
+        if "dumpsys package" in joined:
+            return (1, "", "")
+        if "uninstall" in joined:
+            return (uninstall_rc, "", uninstall_err)
+        return (0, "", "")
+
+    out = run_module(
+        mocker,
+        dict(device="dev", package="com.example.app", apk_path=str(apk), connect=False, clean=True, force=True),
+        command_fn=fake_run_command,
+    )
+
+    assert out.get("failed") is True
+    assert "clean reinstall" in out["msg"], out
+    assert not any(" install -r" in " ".join(c) for c in seen), seen
 
 
 def test_android_apk_clean_false_does_not_uninstall(mocker, tmp_path):

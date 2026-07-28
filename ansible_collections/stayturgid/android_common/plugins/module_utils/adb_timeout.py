@@ -15,23 +15,34 @@ _CACHED_TIMEOUT_BIN = None
 
 
 def resolve_timeout_bin(get_bin_path_fn=None):
-    """Find local coreutils `timeout` binary path or return None if missing."""
-    global _CACHED_TIMEOUT_BIN
-    if _CACHED_TIMEOUT_BIN is not None:
-        return _CACHED_TIMEOUT_BIN
+    """Find local coreutils `timeout` binary path or return None if missing.
 
-    bin_path = None
+    A caller-provided ``get_bin_path_fn`` (e.g. ``module.get_bin_path``) is
+    authoritative and consulted fresh on every call — it is never cached,
+    since different callers (or the same call site under test) may resolve
+    it differently. Only the hardcoded-path filesystem scan used when no
+    ``get_bin_path_fn`` is available gets memoized process-wide, since that
+    represents a real, call-independent system fact worth avoiding repeated
+    stat() calls for.
+    """
+    global _CACHED_TIMEOUT_BIN
+
     if get_bin_path_fn is not None:
         try:
             bin_path = get_bin_path_fn("timeout")
         except Exception:
             bin_path = None
+        if bin_path:
+            return bin_path
 
-    if not bin_path:
-        for candidate in ("/opt/homebrew/bin/timeout", "/usr/bin/timeout", "/bin/timeout"):
-            if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
-                bin_path = candidate
-                break
+    if _CACHED_TIMEOUT_BIN is not None:
+        return _CACHED_TIMEOUT_BIN
+
+    bin_path = None
+    for candidate in ("/opt/homebrew/bin/timeout", "/usr/bin/timeout", "/bin/timeout"):
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            bin_path = candidate
+            break
 
     if bin_path:
         _CACHED_TIMEOUT_BIN = bin_path
