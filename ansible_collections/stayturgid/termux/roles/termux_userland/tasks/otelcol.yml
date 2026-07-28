@@ -164,9 +164,41 @@
   args:
     executable: "{{ termux_prefix }}/bin/bash"
   changed_when: false
+  failed_when: false
+  register: _otelcol_verify
   when:
     - stayturgid_otelcol_enabled | bool
     - not ansible_check_mode
+
+# Self-heal (#103): Android can kill a backgrounded Termux process between an
+# earlier task in this role and this verify, independent of whether the boot
+# script template itself changed this run (so the "restart otelcol" handler
+# above may never have fired). Retry once via the same start/stop path the
+# handler uses before treating this as a hard failure.
+- name: Restart otelcol-contrib when not found running
+  ansible.builtin.shell: |
+    {{ stayturgid_otelcol_boot_script | quote }} stop >/dev/null 2>&1 || true
+    {{ stayturgid_otelcol_boot_script | quote }}
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  changed_when: true
+  when:
+    - stayturgid_otelcol_enabled | bool
+    - not ansible_check_mode
+    - _otelcol_verify.rc | default(0) != 0
+
+- name: Re-verify otelcol-contrib is running after self-heal restart
+  ansible.builtin.shell: |
+    pid="$(cat {{ stayturgid_otelcol_pid_file | quote }} 2>/dev/null || true)"
+    [ -n "$pid" ] && [ -d "/proc/$pid" ] &&
+      tr '\0' ' ' <"/proc/$pid/cmdline" | grep -Fq -- {{ stayturgid_otelcol_binary | quote }}
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  changed_when: false
+  when:
+    - stayturgid_otelcol_enabled | bool
+    - not ansible_check_mode
+    - _otelcol_verify.rc | default(0) != 0
 
 - name: Remove otelcol-contrib boot integration when disabled
   ansible.builtin.file:

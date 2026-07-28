@@ -237,6 +237,23 @@ def test_role_orders_mac_prerequisites_before_device_and_integrates_supervision(
     assert "_monitor_otelcol()" in supervisor
 
 
+def test_otelcol_verify_self_heals_once_before_hard_failing() -> None:
+    """#103: a self-heal retry must run between the first verify and any hard
+    failure, using the same start/stop path as the "restart otelcol" handler,
+    and the retry itself must be skippable when the first verify already
+    passed (never fires on the happy path)."""
+    tasks = (ROLE / "tasks/otelcol.yml").read_text()
+    assert tasks.index("Verify otelcol-contrib is running") < tasks.index(
+        "Restart otelcol-contrib when not found running"
+    )
+    assert tasks.index("Restart otelcol-contrib when not found running") < tasks.index(
+        "Re-verify otelcol-contrib is running after self-heal restart"
+    )
+    assert "failed_when: false" in tasks
+    assert "_otelcol_verify.rc | default(0) != 0" in tasks
+    assert "stayturgid_otelcol_boot_script | quote }} stop" in tasks
+
+
 def test_vector_reloads_launchd_job_when_credential_plist_changes() -> None:
     tasks = (REPO / "ansible/roles/serverapp_vector/tasks/main.yml").read_text()
     assert "Boot out site-namespace vector when its launchd plist changed" in tasks
