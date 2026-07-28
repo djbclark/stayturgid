@@ -56,7 +56,7 @@ call as a red herring.
 ### 1. Fixed the residual `#66` gap
 
 - **`control/lib/stayturgid_device.py`**: added `alias_for_host(host,
-  conf_path=None)` — reverse-lookup a `devices.conf` alias by its
+conf_path=None)` — reverse-lookup a `devices.conf` alias by its
   `tailscale_ip` or `lan_ip` (the existing `device_row`/`iter_devices_conf`
   only look up forward, by alias name).
 - **`control/lib/adb_cli.py`**: forwarded it as `alias_for_host()`, matching
@@ -107,8 +107,7 @@ shellOut(arrayOf("am", "start", "-n", TAILSCALE_COMPONENT), 8)
 ```
 
 `isTailscaleTunnelUp()` reads `/proc/net/dev` directly inside
-`ComonitorProbes`, which runs in the Shizuku `UserService` process (UID
-2000) — the class's own doc comment confirms this, and it's the same
+`ComonitorProbes`, which runs in the Shizuku `UserService` process (UID 2000) — the class's own doc comment confirms this, and it's the same
 context the co-monitor already uses correctly (per the issue's own
 observation that the native agent "reads the tunnel interface correctly,"
 unlike Termux's app-uid read). No `EACCES` risk here, so the gate itself is
@@ -160,9 +159,9 @@ trusting that stale note:
 
 - `~/.local/bin/pytest` (project `.venv-test`, via `just test-venv` then
   `just pytest`): **612 passed, 1 skipped** (pre-existing skip, unrelated).
-- `just check`: clean (ruff, biome, shfmt, markdownlint, prettier* — *node
-  modules not installed in this worktree, pre-existing skip unrelated to
-  this change, same as other agents in this chain have seen).
+- `just check`: clean (ruff, biome, shfmt, markdownlint, prettier,
+  html-validate, stylelint, validate-identity — ran `bun install` in this
+  worktree first since node_modules wasn't present).
 - `just kt-format-check`: clean.
 - `just kt-test`: `BUILD SUCCESSFUL`, 154 tasks.
 - `just kt-detekt`: clean (0 findings — includes fixing the one
