@@ -202,17 +202,15 @@ class ShizukuUserService : IStayTurgidService.Stub {
 
     private fun reapStaleUserServices() {
         val myPid = Process.myPid()
-        val pkgs = arrayOf("org.stayturgid.agent", "org.stayturgid.agent.debug")
-        for (pkg in pkgs) {
+        for (pkg in USERSERVICE_PACKAGES) {
             try {
-                val p = ProcessBuilder("pidof", "$pkg:userservice").redirectErrorStream(true).start()
-                if (p.waitFor(2, TimeUnit.SECONDS)) {
-                    val out = p.inputStream.bufferedReader().readText().trim()
-                    val pids = out.split(Regex("\\s+")).mapNotNull { it.toIntOrNull() }.filter { it != myPid }
-                    if (pids.isNotEmpty()) {
-                        Log.i(TAG, "Reaping ${pids.size} stale UserService pid(s): $pids (my pid: $myPid)")
-                        ProcessBuilder("kill", *pids.map { it.toString() }.toTypedArray()).start()
-                    }
+                val stale = stalePidsToReap(runPidof(pkg), myPid)
+                if (stale.isNotEmpty()) {
+                    Log.i(
+                        TAG,
+                        "Reaping ${stale.size} stale UserService pid(s): $stale (my pid: $myPid)",
+                    )
+                    killPids(stale)
                 }
             } catch (t: Throwable) {
                 Log.w(TAG, "reapStaleUserServices failed for $pkg: ${t.message}")
@@ -220,7 +218,23 @@ class ShizukuUserService : IStayTurgidService.Stub {
         }
     }
 
+    private fun runPidof(pkg: String): String {
+        val p = ProcessBuilder("pidof", "$pkg:userservice").redirectErrorStream(true).start()
+        if (!p.waitFor(2, TimeUnit.SECONDS)) return ""
+        return p.inputStream.bufferedReader().readText().trim()
+    }
+
+    private fun killPids(pids: List<Int>) {
+        ProcessBuilder(listOf("kill") + pids.map { it.toString() }).start()
+    }
+
     companion object {
         private const val TAG = "StayTurgidUS"
+        private val USERSERVICE_PACKAGES =
+            arrayOf("org.stayturgid.agent", "org.stayturgid.agent.debug")
+
+        /** Pure: pidof output -> pids that are stale (not this process) and should be reaped. */
+        internal fun stalePidsToReap(pidofOutput: String, myPid: Int): List<Int> =
+            pidofOutput.split(Regex("\\s+")).mapNotNull { it.toIntOrNull() }.filter { it != myPid }
     }
 }

@@ -123,9 +123,7 @@ def test_load_own_mode_secrets_env_parses_key_value_lines(tmp_path: Path) -> Non
     }
 
 
-def test_load_own_mode_secrets_env_does_not_override_existing_env(
-    tmp_path: Path, monkeypatch
-) -> None:
+def test_load_own_mode_secrets_env_does_not_override_existing_env(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("OPENOBSERVE_ROOT_EMAIL", "already-set@example.com")
     env_file = tmp_path / "observability.env"
     env_file.write_text("OPENOBSERVE_ROOT_EMAIL=from-file@example.com\n", encoding="utf-8")
