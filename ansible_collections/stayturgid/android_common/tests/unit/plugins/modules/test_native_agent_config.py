@@ -106,6 +106,37 @@ def test_check_mode_reports_change_without_writing(mocker):
     assert not any(" push " in f" {' '.join(cmd)} " for cmd in commands)
 
 
+def test_push_command_wrapped_in_timeout(mocker):
+    """Regression test for #59: the staging `adb push` must go through the
+    shared run_command_with_timeout() helper, not a bare module.run_command()
+    that can hang forever on a wedged shell/adbd."""
+    seen_cmds = []
+
+    def command(cmd):
+        seen_cmds.append(cmd)
+        joined = " ".join(cmd)
+        if "pm list packages" in joined:
+            return (0, "package:org.stayturgid.agent\n", "")
+        if "cat " in joined:
+            return (1, "", "missing")
+        if cmd[0].endswith("timeout") and "push" in joined:
+            return (0, "", "")
+        return (0, "", "")
+
+    mocker.patch(
+        "ansible.module_utils.basic.AnsibleModule.get_bin_path", lambda self, name, required=False: "/usr/bin/" + name
+    )
+    run_module(
+        mocker,
+        {"device": "dev", "targets": ["100.0.0.3:5555"], "connect": False},
+        command,
+    )
+
+    push_cmds = [c for c in seen_cmds if "push" in " ".join(c)]
+    assert len(push_cmds) == 1
+    assert push_cmds[0][:2] == ["/usr/bin/timeout", "180"], push_cmds[0]
+
+
 def test_staging_failure_fails_closed(mocker):
     def command(cmd):
         joined = " ".join(cmd)

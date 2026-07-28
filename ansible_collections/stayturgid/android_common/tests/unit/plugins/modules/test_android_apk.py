@@ -179,6 +179,36 @@ def test_android_apk_install_timeout_fails_loudly(mocker, tmp_path):
     assert "timed out" in out["msg"]
 
 
+def test_android_apk_work_profile_install_wrapped_in_timeout(mocker, tmp_path):
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    out = run_module(
+        mocker,
+        dict(device="dev", package="com.example.app", apk_path=str(apk), work_profile=True, connect=False),
+    )
+    assert out.get("failed") is not True, out
+    assert "also installed for user 10" in out["reason"]
+
+
+def test_android_apk_work_profile_timeout_warns_with_dialog_hint(mocker, tmp_path):
+    """Regression test for #59: a wedged work-profile install must warn with
+    the same "confirmation dialog" hint as the primary install path, not just
+    a bare rc number, and must not fail the whole task (best-effort)."""
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    out = run_module(
+        mocker,
+        dict(device="dev", package="com.example.app", apk_path=str(apk), work_profile=True, connect=False),
+        cmd_results=[
+            ("--user 10", (124, "", "")),
+            (" install", (0, "Success\n", "")),
+        ],
+    )
+    assert out.get("failed") is not True, out
+    assert "also installed for user 10" not in out["reason"]
+    assert any("timed out" in w and "confirmation dialog" in w for w in out["_warnings"]), out["_warnings"]
+
+
 def test_android_apk_skips_when_present(mocker, tmp_path):
     apk = tmp_path / "app.apk"
     apk.write_bytes(b"PK")
