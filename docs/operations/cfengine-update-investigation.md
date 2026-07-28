@@ -5,8 +5,8 @@
 - **Control node (Mac):** CFEngine Core **3.27.1**, installed via a
   vendored, versioned Homebrew formula
   (`packaging/homebrew/cfengine@3.27.1.rb`, tapped as
-  `cfengine-local/cfengine`) and `brew pin`ned so `brew upgrade` can't
-  bump it — see `ansible/roles/control_node/tasks/prereqs.yml`. The pin's
+  `cfengine-local/cfengine`) and pinned via `brew pin` so `brew upgrade`
+  can't bump it — see `ansible/roles/control_node/tasks/prereqs.yml`. The pin's
   own comment is explicit about why: _"we want the version pinned to the
   Termux fleet (3.27.1), not homebrew-core's latest."_
 - **Fleet (Termux/Android):** CFEngine Core **3.27.1** (`1:3.27.1` per
@@ -55,7 +55,7 @@ Given that, bumping **only** the control node's pinned Homebrew formula to
 3.28.0 while the fleet stays capped at 3.27.1 would:
 
 - Do nothing for the fleet (the whole reason the issue exists — `just
-  cf-run` doesn't touch the control node's binary at all in normal
+cf-run` doesn't touch the control node's binary at all in normal
   operation).
 - Actively reintroduce the exact policy-syntax-drift risk the pin was
   created to prevent, for zero fleet-side benefit.
