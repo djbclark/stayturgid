@@ -34,16 +34,16 @@ resolved once and cached (`resolve_timeout_bin`, checks `module.get_bin_path`
 then falls back to `/opt/homebrew/bin/timeout` / `/usr/bin/timeout` /
 `/bin/timeout`). It was then wired into every call site the issue lists:
 
-| Issue's call site | Status |
-|---|---|
-| `adb_shell.py:17,21` (`adb_connect`, `adb_shell`) | ✅ routed through `run_command_with_timeout`, `DEFAULT_FAST_TIMEOUT` |
-| `adb_resolve.py:50,93,128,164` (`adb devices`, `adb connect`, `-s ... getprop`, `adb mdns services`) | ✅ all four routed, `DEFAULT_FAST_TIMEOUT` |
-| `autojs6_deploy_util.py:56` (`adb push`) | ✅ routed, `DEFAULT_SLOW_TIMEOUT` |
-| `shizuku_start.py:155` (`adb push` fleet profile) | ✅ routed, `DEFAULT_SLOW_TIMEOUT` |
-| `shizuku_grant.py:94` (`adb push`) | ✅ routed, `DEFAULT_SLOW_TIMEOUT` |
-| `android_apk.py:172,212` (`package_installed`/`installed_version` via `adb_shell.py`) | ✅ covered transitively (shared helper) |
-| `download_gh_release()` (`gh release download`) | ✅ routed, `DEFAULT_SLOW_TIMEOUT` |
-| `resign_apk()` (`apksigner sign`) | ✅ routed, `DEFAULT_SLOW_TIMEOUT` |
+| Issue's call site                                                                                    | Status                                                               |
+| ---------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `adb_shell.py:17,21` (`adb_connect`, `adb_shell`)                                                    | ✅ routed through `run_command_with_timeout`, `DEFAULT_FAST_TIMEOUT` |
+| `adb_resolve.py:50,93,128,164` (`adb devices`, `adb connect`, `-s ... getprop`, `adb mdns services`) | ✅ all four routed, `DEFAULT_FAST_TIMEOUT`                           |
+| `autojs6_deploy_util.py:56` (`adb push`)                                                             | ✅ routed, `DEFAULT_SLOW_TIMEOUT`                                    |
+| `shizuku_start.py:155` (`adb push` fleet profile)                                                    | ✅ routed, `DEFAULT_SLOW_TIMEOUT`                                    |
+| `shizuku_grant.py:94` (`adb push`)                                                                   | ✅ routed, `DEFAULT_SLOW_TIMEOUT`                                    |
+| `android_apk.py:172,212` (`package_installed`/`installed_version` via `adb_shell.py`)                | ✅ covered transitively (shared helper)                              |
+| `download_gh_release()` (`gh release download`)                                                      | ✅ routed, `DEFAULT_SLOW_TIMEOUT`                                    |
+| `resign_apk()` (`apksigner sign`)                                                                    | ✅ routed, `DEFAULT_SLOW_TIMEOUT`                                    |
 
 Tests were added/updated in the same commit: `test_adb_timeout.py` (new, 5
 cases: bin resolution, prefixing, `rc==124` handling, double-wrap prevention,
@@ -57,7 +57,7 @@ needed to make them pass.
 I also confirmed the open-questions the issue explicitly flagged:
 
 - **`gh release download` / `apksigner sign` treatment** — the commit put them
-  through the *same* mechanism (`DEFAULT_SLOW_TIMEOUT`, same helper), not a
+  through the _same_ mechanism (`DEFAULT_SLOW_TIMEOUT`, same helper), not a
   separate one. Reasonable: both are simple "spawn a process, wait, check rc"
   shell-outs with no signal/streaming needs, so a second bespoke mechanism
   would just be duplication.
@@ -124,7 +124,7 @@ rc, _out, err = run_command_with_timeout(
 )
 ```
 
-*(Update: this edit was made in Phase 2 — see the handoff doc.)*
+_(Update: this edit was made in Phase 2 — see the handoff doc.)_
 
 ## Minor inconsistency (not a functional gap): dual timeout mechanisms in `android_apk.py`
 
@@ -178,7 +178,7 @@ whether the `android_apk.py` dual-mechanism unification is worth doing now or
 left alone** — then a trivial PR for the `native_agent_config.py` fix (plus
 unification if greenlit) closes out #59 for real.
 
-*(Update: the operator reviewed this and confirmed go-ahead on both — see the
+_(Update: the operator reviewed this and confirmed go-ahead on both — see the
 handoff doc for the second gap the review found (the lookup-plugin claim,
 investigated and found to already be covered — not a live gap) and what
-Phase 2 actually shipped.)*
+Phase 2 actually shipped.)_

@@ -7,7 +7,7 @@
 ## Context
 
 Phase 1 (see `design-2026-07-28-issue-59-adb-timeouts.md`) found that issue
-#59's "systemic timeout" migration had already shipped directly to `master`
+`#59`'s "systemic timeout" migration had already shipped directly to `master`
 on 2026-07-26 (commit `db2a852`, before this orchestration chain existed and
 before the issue was ever closed), and that it was correct and complete
 except for one missed call site. The operator reviewed that design doc,
@@ -30,7 +30,7 @@ Traced the call chain for all three and confirmed none of them ever invoke
 that callback directly — every actual command execution inside
 `adb_resolve.py` and `adb_packages.py` (via `adb_shell.py`) already routes
 through `run_command_with_timeout()` first, which prefixes the argv with
-`timeout <N>` *before* handing it to the callback. So `_run_command` only
+`timeout <N>` _before_ handing it to the callback. So `_run_command` only
 ever receives an already-wrapped command like `["/opt/homebrew/bin/timeout",
 "30", "adb", "devices"]` and just executes it — the external `timeout(1)`
 binary self-bounds the run regardless of whether `subprocess.run` itself has
@@ -90,7 +90,7 @@ Adding `android_apk.py`'s install path as a new `get_bin_path_fn`-passing
 caller exposed a pre-existing bug in `resolve_timeout_bin()`:
 `_CACHED_TIMEOUT_BIN` is a **process-global** cache populated by whichever
 call resolves first, and every subsequent call — even ones passing a
-different `get_bin_path_fn` — got the *first* cached value regardless. In
+different `get_bin_path_fn` — got the _first_ cached value regardless. In
 the test suite this manifested as `test_android_apk_install_wrapped_in_timeout`
 failing: `test_adb_timeout.py::test_resolve_timeout_bin` (which sorts first —
 `module_utils` < `modules`) calls the real unmocked resolver, caching the
