@@ -24,6 +24,29 @@ mod = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(mod)
 
 
+def test_target_from_cmd_extracts_serial_and_endpoint():
+    assert mod._target_from_cmd(["adb", "-s", "SERIAL123", "shell", "getprop"]) == "SERIAL123"
+    assert mod._target_from_cmd(["adb", "connect", "192.0.2.9:5555"]) == "192.0.2.9:5555"
+    assert mod._target_from_cmd(["adb", "devices"]) == "control-node adb"
+    assert mod._target_from_cmd(["adb", "mdns", "services"]) == "control-node adb"
+    # timeout-prefixed variants must resolve the same way
+    assert mod._target_from_cmd(["/usr/bin/timeout", "30", "adb", "-s", "SERIAL123", "shell", "x"]) == "SERIAL123"
+
+
+def test_raw_run_command_announces_before_and_after(monkeypatch, capsys):
+    monkeypatch.setattr(
+        mod.subprocess,
+        "run",
+        lambda cmd, capture_output, text, check: SimpleNamespace(returncode=0, stdout="", stderr=""),
+    )
+
+    mod._raw_run_command(["adb", "-s", "SERIAL123", "shell", "getprop"])
+
+    err = capsys.readouterr().err
+    assert "USING — SERIAL123" in err
+    assert "FREE — SERIAL123" in err
+
+
 def test_run_command_wraps_with_timeout(monkeypatch):
     seen = []
     monkeypatch.setattr(mod, "_raw_run_command", lambda cmd: seen.append(cmd) or (0, "", ""))

@@ -223,17 +223,53 @@ green) surfaced two real findings against the code, not the docs:
    before device interaction" — stderr is written immediately, at the point
    of interaction.
 
-Re-verified full suite after both fixes: `android_common` unit tests (88
-passed, up from 87 — one new regression test), `tests/python` (592 passed),
-`just check` (clean), `just ansible-test` (all five collections green, 118
-tests). Pushed as a follow-up commit on the same branch/PR; CI's `test`
-check confirmed green again afterward.
+Re-verified the full suite after both fixes and pushed as a follow-up
+commit; CI's `test` check confirmed green again afterward. (This was an
+intermediate checkpoint — later commits on this branch/PR changed the
+totals again. **The `## Verification` section below has the final,
+as-merged numbers** — treat any counts mentioned inline elsewhere in this
+doc as a snapshot of that round only, not the final state.)
 
-## Verification
+## Addendum 2: two more CodeRabbit findings, same PR
+
+Another CodeRabbit pass found:
+
+1. **MAJOR — the three lookup plugins were also missing the
+   device-interaction announcement.** Same `AGENTS.md` convention as
+   `android_apk.py`/`native_agent_config.py` above, just not yet applied to
+   `_raw_run_command()` in `adb_device.py`/`android_packages.py`/
+   `fdroid_client.py`. Added it there too, wrapping the actual
+   `subprocess.run()` call (the one true device-interaction point regardless
+   of which lookup-level function invoked it) rather than the `_run_command`
+   timeout-wrapping layer above it. Since `_raw_run_command(cmd)` only
+   receives an argv list (no separate `device` parameter — lookup plugins
+   don't thread one through the way the two Ansible modules do), added a
+   small `_target_from_cmd(cmd)` helper per file that best-effort extracts a
+   `-s <serial>` or `adb connect <endpoint>` target from the (possibly
+   already timeout-prefixed) argv, falling back to a generic
+   `"control-node adb"` label for target-less queries (`adb devices`,
+   `adb mdns services`). Used `~30s default` instead of `~3 min` for the
+   duration, matching these files' `DEFAULT_FAST_TIMEOUT` (they're
+   query-class, not transfer-class). Added `test_target_from_cmd_*` and
+   `test_raw_run_command_announces_before_and_after` (using `capsys` to
+   assert on the actual stderr output) to each of the three lookup-plugin
+   test files.
+2. **Minor — inconsistent verification-count reporting.** This doc had
+   accumulated test-count numbers from three separate verification rounds
+   (87/592/118 → 88/592/118 → 87/599/137) reported inline at each round
+   without saying which was final, since each addendum was written
+   immediately after that round's fix rather than going back to update
+   earlier numbers. Fixed by making the `## Verification` section below the
+   single labeled source of truth (final numbers only) and pointing back to
+   it from the earlier inline mentions instead of leaving stale figures
+   presented as current.
+
+## Verification (final, as of the last commit on this branch)
 
 - `ansible_collections/stayturgid/android_common/tests/unit` — 87 passed
-- `tests/python` (top-level Termux-script-twin suite) — 599 passed, 1 skipped
-  (592 + 7 new lookup-plugin tests)
+- `tests/python` (top-level Termux-script-twin suite, via `just pytest`) —
+  605 passed, 1 skipped (592 baseline + 7 lookup-plugin tests from Addendum
+  1 + 6 announcement/`_target_from_cmd` tests from Addendum 2)
 - `just check` — clean, all 21 tier-a checks including `pytest: tests
 collect cleanly` (ruff check+format, biome, shfmt, markdownlint, prettier,
   html-validate, stylelint, site-contract, identity/drift/secrets checks
@@ -262,15 +298,18 @@ running in production deploys since 2026-07-26 with no reported regressions.
 - `plugins/lookup/adb_device.py`, `plugins/lookup/android_packages.py`,
   `plugins/lookup/fdroid_client.py` — timeout-wrap `_run_command` as
   defense in depth (see §1 above for why `get_bin_path_fn` is deliberately
-  left at its default rather than `shutil.which`)
+  left at its default rather than `shutil.which`); device-interaction
+  announcement around the actual `subprocess.run()` in `_raw_run_command`
+  plus a `_target_from_cmd()` helper to label it (Addendum 2)
 - `tests/unit/plugins/modules/test_native_agent_config.py` — new test
 - `tests/unit/plugins/modules/test_android_apk.py` — three new tests (one
-  parametrized over failure/timeout)
+  parametrized over failure/timeout, so four test cases total)
 - `tests/unit/plugins/module_utils/test_adb_timeout.py` — new regression test
 - `tests/python/test_adb_device_lookup.py`,
   `tests/python/test_android_packages_lookup.py`,
   `tests/python/test_fdroid_client_lookup.py` — new (script-twin location;
-  see §1 above for why not under the collection's own `tests/unit/`)
+  see §1 above for why not under the collection's own `tests/unit/`);
+  `_target_from_cmd`/announcement tests added in Addendum 2
 - `docs/operations/sessions/design-2026-07-28-issue-59-adb-timeouts.md` —
   status annotations pointing at this doc
 - `docs/operations/sessions/handoff-2026-07-28-issue-59-adb-timeouts.md` —

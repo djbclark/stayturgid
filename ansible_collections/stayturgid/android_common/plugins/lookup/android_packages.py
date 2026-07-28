@@ -26,6 +26,7 @@ EXAMPLES = r"""
 """
 
 import subprocess
+import sys
 
 from ansible.errors import AnsibleError
 from ansible.plugins.lookup import LookupBase
@@ -49,12 +50,28 @@ except ImportError:
     from adb_timeout import DEFAULT_FAST_TIMEOUT, run_command_with_timeout
 
 
+def _target_from_cmd(cmd):
+    """Best-effort device/endpoint label for the device-interaction announcement."""
+    args = cmd[2:] if len(cmd) >= 2 and cmd[0].endswith("timeout") else cmd
+    if "-s" in args:
+        idx = args.index("-s")
+        if idx + 1 < len(args):
+            return args[idx + 1]
+    if len(args) >= 3 and args[1] == "connect":
+        return args[2]
+    return "control-node adb"
+
+
 def _raw_run_command(cmd):
+    target = _target_from_cmd(cmd)
+    sys.stderr.write("🚨📱🚨 USING — %s — control-node adb query (android_packages lookup) — ~30s default\n" % target)
     try:
         proc = subprocess.run(cmd, capture_output=True, text=True, check=False)
         return proc.returncode, proc.stdout, proc.stderr
     except OSError as exc:
         raise AnsibleError("android_packages lookup failed to run %s: %s" % (cmd, exc))
+    finally:
+        sys.stderr.write("🟢📱🟢 FREE — %s — control-node adb query complete\n" % target)
 
 
 def _run_command(cmd):
