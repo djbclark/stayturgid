@@ -100,11 +100,11 @@ clear it.
 
 ## Current fleet peer-start state (verified this session)
 
-| Device | Role | Key status | Last verified outcome |
-| --- | --- | --- | --- |
-| **s24** | peer (only) | trusted on hd8, long-standing | `ALREADY_UP` (periodic loop, continuous) + `STARTED` (this session, deliberate test) |
-| **p7a** | peer (only) | **newly trusted on hd8, this session** | `STARTED` → `ALREADY_UP` (this session) |
-| **hd8** | target (only) | trusts both s24 and p7a's keys | Shizuku up, pid stable, both peers independently confirmed reachable |
+| Device  | Role          | Key status                             | Last verified outcome                                                                |
+| ------- | ------------- | -------------------------------------- | ------------------------------------------------------------------------------------ |
+| **s24** | peer (only)   | trusted on hd8, long-standing          | `ALREADY_UP` (periodic loop, continuous) + `STARTED` (this session, deliberate test) |
+| **p7a** | peer (only)   | **newly trusted on hd8, this session** | `STARTED` → `ALREADY_UP` (this session)                                              |
+| **hd8** | target (only) | trusts both s24 and p7a's keys         | Shizuku up, pid stable, both peers independently confirmed reachable                 |
 
 hd8's Shizuku is up and stable at end of session (confirmed via `ps -A`,
 pid 14182). Neither peer's key was disturbed by the other's authorization
@@ -147,4 +147,4 @@ flow or by the `adbd` toggle.
 - The USB-debugging-toggle fix in this session is a Developer Options
   action, not a factory-reset-adjacent one — confirmed it does not revoke
   existing trusted keys. "Revoke USB debugging authorizations" (the harder
-  reset) was *not* used and would have required re-authorizing every peer.
+  reset) was _not_ used and would have required re-authorizing every peer.
