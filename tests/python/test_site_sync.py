@@ -705,7 +705,7 @@ def test_product_file_filter_emits_product_source_verbatim(tmp_path: Path) -> No
     tpl = tmp_path / "t.j2"
     tpl.write_text("# header\n{{ 'sub/data.yml' | product_file }}", encoding="utf-8")
 
-    out = ss._render_template(tpl, {"product_root": str(product)}).decode("utf-8")
+    out = ss._render_template(tpl, {"product_root": str(product)}, product_root_path=product).decode("utf-8")
     assert out == "# header\n---\nkey: value  # product-owned\n"
 
 
@@ -716,7 +716,7 @@ def test_product_file_filter_rejects_path_escape(tmp_path: Path) -> None:
     tpl = tmp_path / "t.j2"
     tpl.write_text("{{ '../secret.yml' | product_file }}", encoding="utf-8")
     try:
-        ss._render_template(tpl, {"product_root": str(product)})
+        ss._render_template(tpl, {"product_root": str(product)}, product_root_path=product)
     except ss.SiteSyncError as exc:
         assert "escapes product root" in str(exc)
     else:
