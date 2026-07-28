@@ -25,9 +25,9 @@ The commit implements **both** fix ideas the issue proposed, not just one:
 2. **Active reap-on-bind** — `ShizukuUserService`'s constructor (both
    overloads) now calls a new `reapStaleUserServices()`: for each of the two
    possible package ids (`org.stayturgid.agent`, `.debug`), `pidof
-   $pkg:userservice`, exclude this process's own pid, `kill` whatever's left.
+$pkg:userservice`, exclude this process's own pid, `kill` whatever's left.
    This is genuine defense-in-depth beyond the version-pin — it also cleans
-   up any stragglers left over from *before* this fix was installed (old
+   up any stragglers left over from _before_ this fix was installed (old
    version-coded UserServices that predate the stable tag).
 3. `start_agent.py` also got an inline stale-`:userservice`-pid kill before
    `am start`, covering the direct-start path (not just full rollouts, which
@@ -45,7 +45,7 @@ versionCode 15 (`0.6.0-boot-stability-debug`), which already includes commit
 
 - Baseline: exactly **one** `:userservice` pid (`19465`).
 - Triggered **4 explicit screen-off/screen-on cycles** via `adb shell input
-  keyevent KEYCODE_POWER` (each cycle exercises `HostService`'s
+keyevent KEYCODE_POWER` (each cycle exercises `HostService`'s
   `onScreenOff`/`onScreenOn` → `ensureBound()` path — the exact rebind
   trigger the operator's comment identified as the leak source).
 - After every cycle: `pidof org.stayturgid.agent.debug:userservice` still
@@ -54,7 +54,7 @@ versionCode 15 (`0.6.0-boot-stability-debug`), which already includes commit
   round-trip against that same daemon, so this wasn't a no-op check — the
   service was genuinely being used each cycle, just not respawned.
 
-This is a real, positive live signal, but it's not the *same* trigger the
+This is a real, positive live signal, but it's not the _same_ trigger the
 original bug needed (an actual app **version bump**, which is what produced
 the 22-process blowup in the issue's original symptom) — a stable-tag
 UserService naturally survives ordinary rebinds even without the fix, since
@@ -72,8 +72,8 @@ correctness) is verified either live or by unit test below.
 
 ### 2. Fixed a real, pre-existing `kt-detekt`/`kt-format-check` failure the shipped fix left behind
 
-`just kt-check` on a clean rebase of current `master` failed *before I
-touched anything*:
+`just kt-check` on a clean rebase of current `master` failed _before I
+touched anything_:
 
 - `kt-format-check` (spotless): `ShizukuUserService.kt`'s new
   `reapStaleUserServices()` wasn't spotless-formatted.
@@ -88,14 +88,14 @@ than leaving it broken for whoever runs `just kt-check` next:
 
 - Extracted the pure "which pids are stale" decision into a small
   `internal` companion function, `stalePidsToReap(pidofOutput: String,
-  myPid: Int): List<Int>` — flattens the nesting (fixes
+myPid: Int): List<Int>` — flattens the nesting (fixes
   `NestedBlockDepth`) and is now directly unit-testable without mocking
   `ProcessBuilder`.
 - Split the two `ProcessBuilder` calls into `runPidof(pkg)` /
   `killPids(pids)` helpers. `killPids` now builds its `ProcessBuilder` via
-  the `List<String>` constructor overload (`ProcessBuilder(listOf("kill")
-  + pids.map { it.toString() })`) instead of the vararg
-  `ProcessBuilder(vararg cmd)` + spread-operator form — fixes
+  the `List<String>` constructor overload — `listOf("kill")` concatenated
+  with the mapped pid strings — instead of the vararg
+  `ProcessBuilder(vararg cmd)` plus spread-operator form. Fixes
   `SpreadOperator` by construction rather than suppressing it.
 - Added `ShizukuUserServiceTest.kt` (new file, 5 tests) covering
   `stalePidsToReap`'s actual logic: excludes own pid among several,
