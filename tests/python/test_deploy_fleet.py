@@ -156,6 +156,48 @@ def test_install_collections_reruns_when_collections_dir_missing(monkeypatch, tm
     assert len(calls) == 1
 
 
+def test_resolve_hosts_explicit_offline_not_filtered(monkeypatch):
+    """Naming an offline host explicitly is an intentional override (#104)."""
+
+    def fail_inventory_list(*_args, **_kwargs):
+        raise AssertionError("inventory_list must not be called when hosts is non-empty")
+
+    monkeypatch.setattr(df, "inventory_list", fail_inventory_list)
+    assert df.resolve_hosts(["p7a"]) == ["p7a"]
+
+
+def test_offline_hosts_filters_by_fleet_status_var():
+    data = {
+        "_meta": {
+            "hostvars": {
+                "s24": {},
+                "p7a": {"stayturgid_fleet_status": "offline"},
+                "hd8": {"stayturgid_fleet_status": "online"},
+            }
+        }
+    }
+    assert df.offline_hosts(data, ["s24", "p7a", "hd8"]) == ["p7a"]
+
+
+def test_resolve_hosts_default_skips_offline(monkeypatch, capsys):
+    data = {
+        "stayturgid": {"hosts": {"s24": {}, "p7a": {}, "hd8": {}}},
+        "_meta": {"hostvars": {"p7a": {"stayturgid_fleet_status": "offline"}}},
+    }
+    monkeypatch.setattr(df, "inventory_list", lambda group="stayturgid": data)
+    assert df.resolve_hosts([]) == ["s24", "hd8"]
+    assert "skipping offline host(s) p7a" in capsys.readouterr().err
+
+
+def test_resolve_hosts_all_offline_returns_empty(monkeypatch):
+    data = {
+        "stayturgid": {"hosts": {"p7a": {}}},
+        "_meta": {"hostvars": {"p7a": {"stayturgid_fleet_status": "offline"}}},
+    }
+    monkeypatch.setattr(df, "inventory_list", lambda group="stayturgid": data)
+    assert df.resolve_hosts([]) == []
+
+
 def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0):
     monkeypatch.setattr(df, "require_ansible", lambda: None)
     monkeypatch.setattr(df, "warn_prerequisites", lambda scope: None)
@@ -243,6 +285,50 @@ def test_deploy_check_skips_bootstrap(monkeypatch):
     assert calls == [
         ("playbook", "fdroid", True, "bootstrap"),
     ]
+
+
+def test_deploy_all_hosts_offline_refuses_not_all_fallback(monkeypatch, capsys):
+    """An empty limit string falls back to 'all' in require_limit_hosts — must
+    never reach there when every host is offline (#104)."""
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls)
+
+    def fail_require_limit_hosts(*_args, **_kwargs):
+        raise AssertionError("require_limit_hosts must not be called with zero targets")
+
+    monkeypatch.setattr(df, "require_limit_hosts", fail_require_limit_hosts)
+    monkeypatch.setattr(df, "resolve_hosts", lambda hosts: [])
+    rc = df.deploy(df.Scope.FULL, [], check=False)
+    assert rc == 1
+    assert calls == []
+    assert "every fleet host is marked offline" in capsys.readouterr().err
+
+
+def test_run_playbook_timeout_returns_124(monkeypatch):
+    import subprocess as sp
+
+    def fake_run(cmd, **kwargs):
+        raise sp.TimeoutExpired(cmd, kwargs.get("timeout"))
+
+    monkeypatch.setattr(df.subprocess, "run", fake_run)
+    rc = df.run_playbook(df.SITE_PLAYBOOK, limit=["oneui-device"], check=False, tags=None)
+    assert rc == 124
+
+
+def test_run_playbook_passes_configured_timeout(monkeypatch):
+    seen_kwargs = {}
+
+    def fake_run(cmd, **kwargs):
+        seen_kwargs.update(kwargs)
+
+        class R:
+            returncode = 0
+
+        return R()
+
+    monkeypatch.setattr(df.subprocess, "run", fake_run)
+    df.run_playbook(df.SITE_PLAYBOOK, limit=["oneui-device"], check=False, tags=None)
+    assert seen_kwargs["timeout"] == df.DEPLOY_TIMEOUT_SECONDS
 
 
 def test_deploy_blocks_concurrent_run(monkeypatch):
