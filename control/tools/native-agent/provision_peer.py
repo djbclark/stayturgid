@@ -117,12 +117,24 @@ def set_target_reminder(target: str) -> None:
     """Best-effort: drop the 'approve the Allow dialog' marker on a target device
     so its own agent nags the operator standing at it. The peer clears the marker
     automatically over the authorized connection once peer-start succeeds.
+
+    ``target`` is the Tailscale ``host:port`` the *peer* device uses to reach it
+    (matches the on-device ``PeerConfig.targets`` schema) — the Mac itself is
+    frequently only USB-serial-reachable to that same physical device. Reverse-
+    lookup the devices.conf alias for this host so we resolve via whatever adb
+    transport the Mac actually has (USB when online, else LAN/Tailscale),
+    instead of assuming the peer's Tailscale endpoint is Mac-adb-reachable too.
     """
-    resolved_target = adb.resolve_target(target) if target else target
-    try:
-        adb.run([adb.adb_bin(), "connect", resolved_target], timeout=15)
-    except Exception:  # noqa: BLE001
-        pass
+    host = target.split(":", 1)[0] if target else target
+    alias = adb.alias_for_host(host) if host else None
+    resolved_target = adb.resolve_target(alias) if alias else target
+    if resolved_target and ":" in resolved_target:
+        # Only a network endpoint needs an explicit `adb connect`; a resolved
+        # USB serial is already a live adb transport.
+        try:
+            adb.run([adb.adb_bin(), "connect", resolved_target], timeout=15)
+        except Exception:  # noqa: BLE001
+            pass
     ok = False
     for pkg in AGENT_PKGS:
         r = adb.adb(
