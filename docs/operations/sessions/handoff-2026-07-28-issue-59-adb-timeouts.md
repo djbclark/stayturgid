@@ -18,7 +18,7 @@ everything confirmed real plus the `android_apk.py` dual-mechanism cleanup.
 
 ## What I did
 
-### 1. Verified the lookup-plugin claim — not a real gap
+### 1. The lookup plugins: initially found not-a-gap, then wrapped anyway on request
 
 `plugins/lookup/{adb_device,android_packages,fdroid_client}.py` each define a
 local `_run_command(cmd)` using bare `subprocess.run(cmd, capture_output=True,
@@ -31,18 +31,76 @@ that callback directly — every actual command execution inside
 `adb_resolve.py` and `adb_packages.py` (via `adb_shell.py`) already routes
 through `run_command_with_timeout()` first, which prefixes the argv with
 `timeout <N>` _before_ handing it to the callback. So `_run_command` only
-ever receives an already-wrapped command like `["/opt/homebrew/bin/timeout",
-"30", "adb", "devices"]` and just executes it — the external `timeout(1)`
+ever received an already-wrapped command like `["/opt/homebrew/bin/timeout",
+"30", "adb", "devices"]` and just executed it — the external `timeout(1)`
 binary self-bounds the run regardless of whether `subprocess.run` itself has
 its own `timeout=` kwarg. `tests/unit/plugins/module_utils/test_adb_resolve.py`
 already exercises this (its fake `run()` functions explicitly strip the
 `timeout` prefix before matching — `cmd[0].endswith("timeout")`). Also
 confirmed `/opt/homebrew/bin/timeout` actually resolves on this control node,
-so the fallback path isn't silently degrading here either.
+so the fallback path isn't silently degrading here either. That analysis
+still stands — it was never a live hang risk.
 
-**No changes made to the three lookup plugins** — there was nothing to fix.
-Recorded this reasoning here so it's checkable independently rather than
-just asserted.
+The operator asked for these three to be wrapped anyway, as defense in depth
+against a hypothetical future caller that invokes `_run_command` (or
+whatever these get refactored into) directly, bypassing `resolve_adb()`/
+`packages_matching()`. Implemented that, but **not** with the originally
+suggested `shutil.which`-based `get_bin_path_fn` — tracing the double-layer
+call pattern (this new inner wrap, invoked as the callback of the outer wrap
+`adb_resolve.py`/`adb_shell.py` already apply) showed that would create a
+real double-wrapping bug: `shutil.which` searches `$PATH` while the outer,
+unannotated `run_command_with_timeout()` calls upstream (`get_bin_path_fn`
+never passed, so it defaults to `None`) resolve via a fixed 3-path candidate
+scan plus a process-global cache. On a machine where those two mechanisms
+disagree about the binary's absolute path, the double-wrap guard's simple
+`exec_cmd[0] != timeout_bin` check would fail to recognize an
+already-wrapped incoming cmd and prefix `timeout` a second time. Used
+`get_bin_path_fn=None` (i.e. don't override it) in the new inner wrap
+instead, so it shares the exact same resolution/cache as the outer layer —
+correct no-op in the current call pattern, real protection if ever called
+standalone. Each lookup plugin's docstring on `_run_command` explains this
+in place.
+
+Added `tests/python/test_{adb_device,android_packages,fdroid_client}_lookup.py`
+(one file per plugin, script-twin convention — see below for why they don't
+live under the collection's `tests/unit/`) with: an isolated `_run_command`
+wrapping test, an end-to-end `LookupModule.run()` test confirming the real
+public entry point still funnels through the wrapped callback, and (for
+`adb_device.py`) an explicit double-wrap-guard regression test. These
+required giving `adb_packages.py` (imported by two of the three lookup
+plugins) the same try/except-ImportError sys.path-fallback resilience every
+other `module_utils` file already has — it previously had a hard,
+non-fallback import of `adb_shell`, which only resolved inside
+`ansible-test`'s collection-namespace setup and would have made the new
+tests uncollectable under plain `pytest` (which `just check`'s
+`pytest --collect-only` step
+also requires to succeed).
+
+**Why `tests/python/`, not `tests/unit/plugins/lookup/`:** first tried
+putting these under the collection's own `tests/unit/plugins/lookup/`
+(which didn't exist before this — module_utils/modules were the only two
+categories with tests). That triggered a real, pre-existing `ansible-test`
+harness bug: `ansible-test units` categorizes unit tests into `module`,
+`module_utils`, and (everything else, including `lookup`) `controller`
+buckets, and this repo's `--local` invocation mis-builds
+`ANSIBLE_COLLECTIONS_PATH` as a malformed colon-joined multi-path string
+specifically for the `controller` bucket — `ansible_pytest_collections.py`'s
+`collection_resolve_package_path()` then fails every controller-category
+test file with `File "..." not found in collection path "..."`. Confirmed
+this is unrelated to my code (the module_utils/modules buckets, which this
+repo already used, work fine) and is simply never-before-triggered since no
+`lookup`/`filter`/other controller-side plugin ever had a unit test in this
+collection. Rather than debug vendored `ansible-test` internals for a
+tangential infra gap, followed this repo's own established pattern instead:
+`tests/python/` already holds plain-pytest "script-twin" tests for several
+`module_utils` files (e.g. `test_adb_resolve.py` exists both there and under
+the collection) specifically because `ansible-test`'s collection-scoped scan
+(`cd ansible_collections/stayturgid/$c && ansible-test units`) never sees
+anything under the repo-root `tests/python/` tree at all — sidesteps the bug
+entirely, still fully covered by `just pytest`/`just check`'s
+`pytest --collect-only` gate. If someone wants controller-category
+`ansible-test` coverage for lookup plugins later, that's a separate,
+pre-existing infra fix, not in scope here.
 
 ### 2. Fixed the real gap: `native_agent_config.py:90`
 
@@ -141,8 +199,14 @@ green) surfaced two real findings against the code, not the docs:
    uninstall, primary install, incompatible-upgrade fallback
    uninstall+reinstall, and work-profile install in `android_apk.py`, and
    the staging `adb push` in `native_agent_config.py`. `~3 min` matches
-   `DEFAULT_SLOW_TIMEOUT`/`install_timeout`'s 180s ceiling — the actual
-   worst-case bound, not a guess.
+   `DEFAULT_SLOW_TIMEOUT`/`install_timeout`'s 180s **default** — a
+   reasonable worst-case estimate for the common case, not a made-up
+   number. It's a static string, not dynamically derived from the actual
+   configured value: `install_timeout` is a playbook-settable module
+   param, so a caller that overrides it to something other than 180s will
+   see a slightly inaccurate estimate in the announcement text (harmless —
+   it's advisory, not the actual enforced bound, which still comes from
+   `install_timeout` itself).
 
    **Mechanism note:** the existing convention's only prior implementation
    (`control/tools/native-agent/rollout.py`) uses plain `print()`, but that's
@@ -168,13 +232,15 @@ check confirmed green again afterward.
 ## Verification
 
 - `ansible_collections/stayturgid/android_common/tests/unit` — 87 passed
-- `tests/python` (top-level Termux-script-twin suite) — 592 passed
-- `just check` — clean (ruff check+format, biome, shfmt, markdownlint,
-  prettier, html-validate, stylelint, site-contract, identity/drift/secrets
-  checks all pass)
+- `tests/python` (top-level Termux-script-twin suite) — 599 passed, 1 skipped
+  (592 + 7 new lookup-plugin tests)
+- `just check` — clean, all 21 tier-a checks including `pytest: tests
+collect cleanly` (ruff check+format, biome, shfmt, markdownlint, prettier,
+  html-validate, stylelint, site-contract, identity/drift/secrets checks
+  all pass)
 - `just ansible-test` — all five collections (`android_common`, `termux`,
-  `obtainium`, `fdroid`, `play`) green, 118 total ansible-test-harness unit
-  tests passed
+  `obtainium`, `fdroid`, `play`) green, 137 total ansible-test-harness unit
+  tests passed (70+17+20+8+15+7, no controller-category errors)
 
 No manual on-device verification was done or needed — this is a pure
 control-node argv-wrapping change with unit coverage; the existing db2a852
@@ -183,13 +249,28 @@ running in production deploys since 2026-07-26 with no reported regressions.
 
 ## Files changed
 
-- `plugins/modules/native_agent_config.py` — timeout-wrap the staging push
+- `plugins/modules/native_agent_config.py` — timeout-wrap the staging push;
+  device-interaction announcement
 - `plugins/modules/android_apk.py` — unify install/uninstall/work_profile
-  onto the shared helper; fold in work_profile rc==124 handling
+  onto the shared helper; fold in work_profile rc==124 handling; fix the
+  discarded clean-uninstall result; device-interaction announcements
 - `plugins/module_utils/adb_timeout.py` — fix cross-call cache staleness
+- `plugins/module_utils/adb_packages.py` — add the same
+  try/except-ImportError sys.path-fallback resilience every other
+  module_utils file already has (needed so the lookup plugins below are
+  testable outside `ansible-test`'s collection namespace)
+- `plugins/lookup/adb_device.py`, `plugins/lookup/android_packages.py`,
+  `plugins/lookup/fdroid_client.py` — timeout-wrap `_run_command` as
+  defense in depth (see §1 above for why `get_bin_path_fn` is deliberately
+  left at its default rather than `shutil.which`)
 - `tests/unit/plugins/modules/test_native_agent_config.py` — new test
-- `tests/unit/plugins/modules/test_android_apk.py` — two new tests
+- `tests/unit/plugins/modules/test_android_apk.py` — three new tests (one
+  parametrized over failure/timeout)
 - `tests/unit/plugins/module_utils/test_adb_timeout.py` — new regression test
+- `tests/python/test_adb_device_lookup.py`,
+  `tests/python/test_android_packages_lookup.py`,
+  `tests/python/test_fdroid_client_lookup.py` — new (script-twin location;
+  see §1 above for why not under the collection's own `tests/unit/`)
 - `docs/operations/sessions/design-2026-07-28-issue-59-adb-timeouts.md` —
   status annotations pointing at this doc
 - `docs/operations/sessions/handoff-2026-07-28-issue-59-adb-timeouts.md` —

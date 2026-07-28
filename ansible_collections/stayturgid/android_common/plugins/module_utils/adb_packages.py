@@ -7,11 +7,24 @@ __metaclass__ = type
 
 import re
 
-from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_shell import (
-    adb_connect,
-    adb_shell,
-    normalize_adb_output,
-)
+try:
+    from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_shell import (
+        adb_connect,
+        adb_shell,
+        normalize_adb_output,
+    )
+except ImportError:
+    import os
+    import sys
+
+    _mod_dir = os.path.dirname(os.path.abspath(__file__))
+    if _mod_dir not in sys.path:
+        sys.path.insert(0, _mod_dir)
+    from adb_shell import (
+        adb_connect,
+        adb_shell,
+        normalize_adb_output,
+    )
 
 # Preference order for fdroidrepos:// handler resolution.
 FDROID_CLIENTS = (

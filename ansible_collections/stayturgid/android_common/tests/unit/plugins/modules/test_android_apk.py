@@ -298,14 +298,23 @@ def test_android_apk_clean_uninstalls_before_install(mocker, tmp_path):
     assert uninstall_idx < install_idx, cmds
 
 
-def test_android_apk_clean_uninstall_failure_fails_before_install(mocker, tmp_path):
-    """A failed clean uninstall must not silently proceed to installing.
+@pytest.mark.parametrize(
+    "uninstall_rc,uninstall_err",
+    [
+        (1, "Failure [DELETE_FAILED_INTERNAL_ERROR]"),
+        (124, ""),
+    ],
+    ids=["failure", "timeout"],
+)
+def test_android_apk_clean_uninstall_failure_fails_before_install(mocker, tmp_path, uninstall_rc, uninstall_err):
+    """A failed or timed-out clean uninstall must not silently proceed to installing.
 
     Regression test: run_command_with_timeout()'s clean-uninstall result was
     previously discarded entirely, so a failed/timed-out uninstall silently
     fell through into an in-place `adb install -r`, defeating the native-lib
     re-extraction the `clean` flag exists for (see the module's history with
-    #60)."""
+    #60). Covers both an ordinary adb failure and an rc==124 timeout, since
+    run_command_with_timeout() surfaces both the same way (nonzero rc)."""
     apk = tmp_path / "app.apk"
     apk.write_bytes(b"PK")
     seen = []
@@ -318,7 +327,7 @@ def test_android_apk_clean_uninstall_failure_fails_before_install(mocker, tmp_pa
         if "dumpsys package" in joined:
             return (1, "", "")
         if "uninstall" in joined:
-            return (1, "", "Failure [DELETE_FAILED_INTERNAL_ERROR]")
+            return (uninstall_rc, "", uninstall_err)
         return (0, "", "")
 
     out = run_module(
