@@ -22,7 +22,7 @@ show-stoppers, all are follow-up work.
   **ops-v1.0.13**, tagged, released (stable, non-draft, non-prerelease), and
   deployed — `just ops-release-status` clean. Release claim held during the
   cut/deploy, ended cleanly after deploy (`ops-release-claim-end --version
-  1.0.13` succeeded; claim was already past its 2h stale threshold by the time
+1.0.13` succeeded; claim was already past its 2h stale threshold by the time
   I closed it out, having held it the whole session — harmless, no other agent
   was waiting on it).
 - **s24, hd8:** confirmed on ops-v1.0.13, `failed=0` across every fleet-deploy
@@ -48,13 +48,13 @@ must-fix list (see PR for full text). All items addressed and pushed to
 
 - **`control/bin/update_monitor.py`**
   - Fixed `IndexError` on empty `installed_versions` (`(item.get(...) or
-    [""])[0]` instead of a default that only covers key-absence).
+[""])[0]` instead of a default that only covers key-absence).
   - Replaced the inverted "heartbeat only when `not metrics`" hack with an
     **unconditional** `software_update_monitor_last_success_timestamp <epoch>`
     gauge, emitted every run.
   - Made the homebrew `software_update_available` series **resettable**: now
     iterates the known Tier-1 set (`caddy grafana vector victoriametrics
-    hermes-agent`) and emits explicit `0`/`1` every run, instead of only ever
+hermes-agent`) and emits explicit `0`/`1` every run, instead of only ever
     pushing `1` for currently-outdated formulae (which left stale `1` samples
     after an upgrade).
   - Escaped Prometheus label values (backslash/quote/newline).
