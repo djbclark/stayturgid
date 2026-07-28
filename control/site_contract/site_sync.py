@@ -407,7 +407,8 @@ def _make_product_file_filter(product_root_path: Path | None):
         candidates: list[Path] = []
         if product_root_path:
             candidates.append(_resolve(product_root_path, rel_path))
-        candidates.append(_resolve(REPO_ROOT, rel_path))
+        else:
+            candidates.append(_resolve(REPO_ROOT, rel_path))
         for target in candidates:
             if target.is_file():
                 return target.read_text(encoding="utf-8")
