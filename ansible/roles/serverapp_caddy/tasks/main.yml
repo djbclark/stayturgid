@@ -24,6 +24,13 @@
     cmd: brew pin caddy
   register: _caddy_pin
   changed_when: "'already pinned' not in (_caddy_pin.stderr | default(''))"
+  # Degrade gracefully if the formula is somehow absent (e.g. a failed install)
+  # instead of aborting the play; only a genuine unexpected error fails.
+  failed_when:
+    - _caddy_pin.rc != 0
+    - "'already pinned' not in (_caddy_pin.stderr | default(''))"
+    - "'not installed' not in (_caddy_pin.stderr | default(''))"
+    - "'No available formula' not in (_caddy_pin.stderr | default(''))"
 
 - name: Resolve caddy binary after install
   ansible.builtin.command:

@@ -30,8 +30,12 @@
         <key>Minute</key>
         <integer>{{ stayturgid_termux_pkg_nightly_minute | int }}</integer>
     </dict>
+    <!-- RunAtLoad is false: a full `pkg update && pkg upgrade` must not fire on
+         every load (boot/deploy/wake), and a mid-deploy plist rewrite could
+         upgrade deps under a running deploy. StartCalendarInterval already
+         catches up a missed scheduled run on wake. -->
     <key>RunAtLoad</key>
-    <true/>
+    <false/>
     <key>StandardOutPath</key>
     <string>{{ conf_dir }}/logs/termux-pkg-nightly.launchd.out.log</string>
     <key>StandardErrorPath</key>

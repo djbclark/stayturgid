@@ -73,7 +73,12 @@ groups:
         data:
           - refId: A
             relativeTimeRange:
-              from: 600
+              # 24h lookback (2x the 12h update-monitor push cadence at 10:00/22:00)
+              # so a single fresh sample latches across a full push cycle. A narrow
+              # 10-min window (as on the blackbox probe) would see data only ~10 min
+              # per cycle and silently resolve to OK the rest of the time, missing
+              # notifications. Pairs with the resettable series + last-success gauge.
+              from: 86400
               to: 0
             datasourceUid: stayturgid-victoriametrics
             model:
