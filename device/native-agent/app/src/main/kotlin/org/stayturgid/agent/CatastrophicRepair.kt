@@ -31,7 +31,14 @@ object CatastrophicRepair {
             if (ComonitorProbes.probe().port == "open") {
                 return Result(true, "already open")
             }
-            steps += "shell_wireless"
+            // Fire OS adbd drops this step's loopback connect (#60); labeled distinctly
+            // from a real failure so agent.log doesn't read as a mystery repeated failure.
+            steps +=
+                if (DeviceProfile.isPrivilegedShellExpected()) {
+                    "shell_wireless"
+                } else {
+                    "shell_wireless_skip"
+                }
             if (tryShellWirelessRepair()) {
                 appendLog("[agent] catastrophic shell wireless OK")
                 return Result(true, steps.joinToString("+") + ":ok")
@@ -109,6 +116,13 @@ object CatastrophicRepair {
     }
 
     fun tryShellWirelessRepair(): Boolean {
+        if (!DeviceProfile.isPrivilegedShellExpected()) {
+            // Fire OS adbd drops this exact loopback connect (#60) — same gate Termux
+            // already applies via `privilegedShellExpected` in device.json. Skip the
+            // doomed attempt rather than eat the connect timeout every cycle.
+            Log.i(TAG, "tryShellWirelessRepair skipped — privilegedShellExpected=false")
+            return false
+        }
         ensureSetting("global", "development_settings_enabled", "1")
         ensureSetting("global", "adb_enabled", "1")
         ensureSetting("global", "adb_wifi_enabled", "1")
