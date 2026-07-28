@@ -264,6 +264,32 @@ Another CodeRabbit pass found:
    it from the earlier inline mentions instead of leaving stale figures
    presented as current.
 
+## Addendum 3: two more CodeRabbit findings on the Addendum 2 tests
+
+1. **MAJOR — the announcement tests only checked presence, not ordering.**
+   `test_raw_run_command_announces_before_and_after` in each lookup-plugin
+   test file asserted `"USING" in err` and `"FREE" in err` against the
+   _combined_ captured stderr — true even if, say, both lines were written
+   in the wrong order, or `USING` were accidentally duplicated and `FREE`
+   never fired at all as long as some other test polluted the buffer.
+   Rewrote as `test_raw_run_command_announces_using_before_run_and_free_after`
+   in all three files: the mocked `subprocess.run` now reads stderr
+   mid-call (via `capsys.readouterr()`, which drains the buffer) and
+   asserts `USING` is already present and `FREE` is not — proving `USING`
+   is written strictly before the actual device interaction. After
+   `_raw_run_command` returns, a second read must show `FREE` present and
+   `USING` absent (already drained by the first read) — proving `FREE` is
+   written strictly after. CodeRabbit named `test_adb_device_lookup.py` and
+   `test_android_packages_lookup.py`; applied the identical fix to
+   `test_fdroid_client_lookup.py` too since it had the exact same
+   presence-only pattern and wasn't named only because CodeRabbit didn't
+   flag it that round, not because it was fine.
+2. **Minor — `android_packages.py`'s own `_target_from_cmd()` test was
+   missing a timeout-prefixed case.** `adb_device.py`'s test already
+   covered `["/usr/bin/timeout", "30", "adb", "-s", ...]` correctly
+   resolving through the prefix; `android_packages.py`'s (and, same gap,
+   `fdroid_client.py`'s) didn't. Added the same case to both.
+
 ## Verification (final, as of the last commit on this branch)
 
 - `ansible_collections/stayturgid/android_common/tests/unit` — 87 passed
@@ -309,7 +335,9 @@ running in production deploys since 2026-07-26 with no reported regressions.
   `tests/python/test_android_packages_lookup.py`,
   `tests/python/test_fdroid_client_lookup.py` — new (script-twin location;
   see §1 above for why not under the collection's own `tests/unit/`);
-  `_target_from_cmd`/announcement tests added in Addendum 2
+  `_target_from_cmd`/announcement tests added in Addendum 2, strengthened
+  to assert ordering (not just presence) plus a timeout-prefixed
+  `_target_from_cmd` case in Addendum 3
 - `docs/operations/sessions/design-2026-07-28-issue-59-adb-timeouts.md` —
   status annotations pointing at this doc
 - `docs/operations/sessions/handoff-2026-07-28-issue-59-adb-timeouts.md` —

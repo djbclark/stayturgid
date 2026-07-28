@@ -33,18 +33,24 @@ def test_target_from_cmd_extracts_serial_and_endpoint():
     assert mod._target_from_cmd(["/usr/bin/timeout", "30", "adb", "-s", "SERIAL123", "shell", "x"]) == "SERIAL123"
 
 
-def test_raw_run_command_announces_before_and_after(monkeypatch, capsys):
-    monkeypatch.setattr(
-        mod.subprocess,
-        "run",
-        lambda cmd, capture_output, text, check: SimpleNamespace(returncode=0, stdout="", stderr=""),
-    )
+def test_raw_run_command_announces_using_before_run_and_free_after(monkeypatch, capsys):
+    """Assert strict ordering, not just presence: USING must already be on
+    stderr by the time the actual subprocess call happens, and FREE must
+    not appear until after it returns."""
+
+    def fake_run(cmd, capture_output, text, check):
+        mid_call_err = capsys.readouterr().err
+        assert "USING — SERIAL123" in mid_call_err, mid_call_err
+        assert "FREE — SERIAL123" not in mid_call_err, mid_call_err
+        return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(mod.subprocess, "run", fake_run)
 
     mod._raw_run_command(["adb", "-s", "SERIAL123", "shell", "getprop"])
 
-    err = capsys.readouterr().err
-    assert "USING — SERIAL123" in err
-    assert "FREE — SERIAL123" in err
+    after_call_err = capsys.readouterr().err
+    assert "USING — SERIAL123" not in after_call_err, after_call_err
+    assert "FREE — SERIAL123" in after_call_err, after_call_err
 
 
 def test_run_command_wraps_with_timeout(monkeypatch):
