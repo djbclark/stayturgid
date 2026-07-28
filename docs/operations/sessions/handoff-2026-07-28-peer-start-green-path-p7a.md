@@ -86,10 +86,15 @@ the peer's side. **Fix:** toggling hd8's Developer Options → USB debugging
 off then back on restarted `adbd`'s auth state; the very next attempt raised
 a fresh dialog, was tapped, and completed. `persist.adb.tcp.port=5555`
 survived the toggle (Tailscale listener came back with no further action),
-and — important — **existing trusted keys were not revoked** (verified: `adb
-devices` still showed both the Mac's key and s24's peer key trusted
-afterward, and s24's periodic loop kept logging `ALREADY_UP` unaffected
-throughout). This is a much lighter fix than "Revoke USB debugging
+and — important — **existing trusted keys were not revoked**. `adb devices`
+only shows generic connection/auth state, not proof a _specific_ key is
+still trusted, so the real evidence is stronger than that: s24's periodic
+loop kept logging `ALREADY_UP` unaffected straight through the toggle (only
+possible if adbd still trusted s24's own specific key), and the Mac's own
+subsequent `adb shell` commands against hd8 (used throughout the rest of
+this session, e.g. the `ps -A`/logcat/screenshot checks below) kept working
+with no new auth prompt (only possible if the Mac's specific key stayed
+trusted too). This is a much lighter fix than "Revoke USB debugging
 authorizations," which would have wiped the whole trust list.
 
 **Anyone authorizing a new peer key on a Fire OS target in the future should
