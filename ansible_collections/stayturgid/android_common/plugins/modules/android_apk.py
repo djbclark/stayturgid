@@ -150,6 +150,7 @@ reason:
 
 import hashlib
 import os
+import sys
 import tempfile
 
 from ansible.module_utils.basic import AnsibleModule
@@ -390,12 +391,19 @@ def main():
     # idempotency check above has already returned), so steady-state deploys
     # with an unchanged version never uninstall.
     if module.params["clean"] and present:
-        run_command_with_timeout(
+        sys.stderr.write("🚨📱🚨 USING — %s — clean uninstall before reinstall — ~3 min\n" % device)
+        clean_uninstall_rc, clean_uninstall_out, clean_uninstall_err = run_command_with_timeout(
             module.run_command,
             ["adb", "-s", device, "uninstall", package],
             timeout=install_timeout,
             get_bin_path_fn=module.get_bin_path,
         )
+        sys.stderr.write("🟢📱🟢 FREE — %s — clean uninstall complete\n" % device)
+        if clean_uninstall_rc != 0 or "Success" not in normalize_adb_output(clean_uninstall_out):
+            module.fail_json(
+                msg="adb uninstall failed during clean reinstall: %s"
+                % normalize_adb_output(clean_uninstall_out + "\n" + clean_uninstall_err)
+            )
 
     cmd = ["adb", "-s", device, "install", "-r", "--user", user]
     if module.params["installer"]:
@@ -403,9 +411,11 @@ def main():
     cmd += module.params["extra_args"]
     cmd.append(apk)
 
+    sys.stderr.write("🚨📱🚨 USING — %s — install %s — ~3 min\n" % (device, package))
     rc, out, err = run_command_with_timeout(
         module.run_command, cmd, timeout=install_timeout, get_bin_path_fn=module.get_bin_path
     )
+    sys.stderr.write("🟢📱🟢 FREE — %s — install complete\n" % device)
     ok, reason = parse_install_result(out + "\n" + err)
     if (
         present
@@ -415,6 +425,7 @@ def main():
         and incompatible_install_failure(reason)
     ):
         module.warn("clean fallback: uninstalling %s (application data will be lost) after %s" % (package, reason))
+        sys.stderr.write("🚨📱🚨 USING — %s — clean fallback uninstall+reinstall — ~3 min\n" % device)
         uninstall_rc, uninstall_out, uninstall_err = run_command_with_timeout(
             module.run_command,
             ["adb", "-s", device, "uninstall", package],
@@ -422,6 +433,7 @@ def main():
             get_bin_path_fn=module.get_bin_path,
         )
         if uninstall_rc != 0 or "Success" not in normalize_adb_output(uninstall_out):
+            sys.stderr.write("🟢📱🟢 FREE — %s — clean fallback uninstall+reinstall complete\n" % device)
             module.fail_json(
                 msg="adb install failed (%s); clean fallback uninstall failed: %s"
                 % (reason, normalize_adb_output(uninstall_out + "\n" + uninstall_err))
@@ -429,6 +441,7 @@ def main():
         rc, out, err = run_command_with_timeout(
             module.run_command, cmd, timeout=install_timeout, get_bin_path_fn=module.get_bin_path
         )
+        sys.stderr.write("🟢📱🟢 FREE — %s — clean fallback uninstall+reinstall complete\n" % device)
         ok, retry_reason = parse_install_result(out + "\n" + err)
         reason = "%s (clean fallback after %s)" % (retry_reason, reason)
 
@@ -451,9 +464,11 @@ def main():
             module.params["work_profile_user"],
             apk,
         ]
+        sys.stderr.write("🚨📱🚨 USING — %s — work profile install %s — ~3 min\n" % (device, package))
         rc2, _out2, _err2 = run_command_with_timeout(
             module.run_command, wp_cmd, timeout=install_timeout, get_bin_path_fn=module.get_bin_path
         )
+        sys.stderr.write("🟢📱🟢 FREE — %s — work profile install complete\n" % device)
         if rc2 == 0:
             reason += " (also installed for user %s)" % module.params["work_profile_user"]
         elif rc2 == 124:

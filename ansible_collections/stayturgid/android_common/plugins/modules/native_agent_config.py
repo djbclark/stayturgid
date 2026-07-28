@@ -49,6 +49,7 @@ path:
 import json
 import os
 import shlex
+import sys
 import tempfile
 
 from ansible.module_utils.basic import AnsibleModule
@@ -104,12 +105,14 @@ def install_config(module, device, package, content):
     try:
         tmp.write(content)
         tmp.close()
+        sys.stderr.write("🚨📱🚨 USING — %s — push native-agent peer config — ~3 min\n" % device)
         rc, _out, err = run_command_with_timeout(
             module.run_command,
             ["adb", "-s", device, "push", tmp.name, staging],
             timeout=DEFAULT_SLOW_TIMEOUT,
             get_bin_path_fn=module.get_bin_path,
         )
+        sys.stderr.write("🟢📱🟢 FREE — %s — push native-agent peer config complete\n" % device)
         if rc != 0:
             module.fail_json(msg="native-agent config staging failed: %s" % normalize_adb_output(err))
     finally:

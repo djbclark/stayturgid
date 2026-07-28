@@ -110,6 +110,61 @@ avoiding repeated `stat()` calls for. Added
 regression test (pre-poisons the cache, then asserts a fresh
 `get_bin_path_fn` still wins).
 
+## Addendum: two CodeRabbit findings on PR #117, fixed post-CI-green
+
+CodeRabbit's async review (still pending when CI's `test` check first went
+green) surfaced two real findings against the code, not the docs:
+
+1. **MAJOR — clean-uninstall result was discarded.** In `android_apk.py`,
+   the `clean` flag's uninstall-before-install call
+   (`run_command_with_timeout(module.run_command, ["adb", "-s", device,
+"uninstall", package], ...)`) had its return value thrown away entirely —
+   no variable assignment. A failed or timed-out uninstall silently fell
+   through to the in-place `adb install -r` anyway, so the module could
+   report success without ever performing the clean reinstall the `clean`
+   flag exists for (defeating the native-lib re-extraction behavior tied to
+   this module's `#60` history). This bug predates this PR (the original
+   hand-rolled `module.run_command(...)` call had the same discard-the-result
+   shape) but this PR touched the line, so fixed it here rather than filing
+   a separate issue. Now captures `rc`/`out`/`err` and `fail_json`s on
+   nonzero rc or non-"Success" output, mirroring the existing pattern
+   immediately below it (the incompatible-upgrade clean fallback). Added
+   `test_android_apk_clean_uninstall_failure_fails_before_install` —
+   asserts the task fails and that `adb install -r` is never reached when
+   the uninstall fails.
+2. **Minor — missing device-interaction announcements.** Per
+   `AGENTS.md`'s documented convention ("Announce before device interaction:
+   🚨📱🚨 USING — host — why — ~N min"), added paired
+   `🚨📱🚨 USING — {device} — {why} — ~3 min` /
+   `🟢📱🟢 FREE — {device} — {what} complete` announcements around every
+   remaining device-mutating `adb` call these two modules make: the clean
+   uninstall, primary install, incompatible-upgrade fallback
+   uninstall+reinstall, and work-profile install in `android_apk.py`, and
+   the staging `adb push` in `native_agent_config.py`. `~3 min` matches
+   `DEFAULT_SLOW_TIMEOUT`/`install_timeout`'s 180s ceiling — the actual
+   worst-case bound, not a guess.
+
+   **Mechanism note:** the existing convention's only prior implementation
+   (`control/tools/native-agent/rollout.py`) uses plain `print()`, but that's
+   a standalone control-node script, not an `AnsibleModule`. Ansible modules
+   communicate their result to the controller via a single JSON blob printed
+   to **stdout** at `exit_json`/`fail_json` time; anything else written to
+   stdout first would corrupt that parse and crash the module with a
+   "not valid JSON" error. Used `sys.stderr.write(...)` instead, matching
+   the repo's own existing precedent for this exact situation
+   (`control/lib/ui_guard.py`'s `🚨📱🚨 MANUAL ACTION REQUIRED` warning also
+   writes to `sys.stderr`, not stdout, for the same reason). `module.warn()`
+   was the other candidate but is buffered until task-end by Ansible's
+   result protocol, which doesn't satisfy the "before" part of "announce
+   before device interaction" — stderr is written immediately, at the point
+   of interaction.
+
+Re-verified full suite after both fixes: `android_common` unit tests (88
+passed, up from 87 — one new regression test), `tests/python` (592 passed),
+`just check` (clean), `just ansible-test` (all five collections green, 118
+tests). Pushed as a follow-up commit on the same branch/PR; CI's `test`
+check confirmed green again afterward.
+
 ## Verification
 
 - `ansible_collections/stayturgid/android_common/tests/unit` — 87 passed

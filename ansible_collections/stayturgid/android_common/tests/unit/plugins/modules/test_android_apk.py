@@ -298,6 +298,40 @@ def test_android_apk_clean_uninstalls_before_install(mocker, tmp_path):
     assert uninstall_idx < install_idx, cmds
 
 
+def test_android_apk_clean_uninstall_failure_fails_before_install(mocker, tmp_path):
+    """A failed clean uninstall must not silently proceed to installing.
+
+    Regression test: run_command_with_timeout()'s clean-uninstall result was
+    previously discarded entirely, so a failed/timed-out uninstall silently
+    fell through into an in-place `adb install -r`, defeating the native-lib
+    re-extraction the `clean` flag exists for (see the module's history with
+    #60)."""
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    seen = []
+
+    def fake_run_command(cmd):
+        seen.append(cmd)
+        joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
+        if "pm list packages" in joined:
+            return (0, "package:com.example.app\n", "")
+        if "dumpsys package" in joined:
+            return (1, "", "")
+        if "uninstall" in joined:
+            return (1, "", "Failure [DELETE_FAILED_INTERNAL_ERROR]")
+        return (0, "", "")
+
+    out = run_module(
+        mocker,
+        dict(device="dev", package="com.example.app", apk_path=str(apk), connect=False, clean=True, force=True),
+        command_fn=fake_run_command,
+    )
+
+    assert out.get("failed") is True
+    assert "clean reinstall" in out["msg"], out
+    assert not any(" install -r" in " ".join(c) for c in seen), seen
+
+
 def test_android_apk_clean_false_does_not_uninstall(mocker, tmp_path):
     """clean defaults off: a forced reinstall must not uninstall first."""
     apk = tmp_path / "app.apk"
