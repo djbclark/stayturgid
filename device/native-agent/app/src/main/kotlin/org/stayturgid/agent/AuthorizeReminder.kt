@@ -39,6 +39,7 @@ object AuthorizeReminder {
      */
     fun clearCommand(): String =
         AGENT_PACKAGES.joinToString("; ") { pkg ->
-            "run-as $pkg rm -f files/$FILE_NAME 2>/dev/null; rm -f /sdcard/Android/data/$pkg/files/$FILE_NAME 2>/dev/null"
+            val external = "/sdcard/Android/data/$pkg/files/$FILE_NAME"
+            "run-as $pkg rm -f files/$FILE_NAME 2>/dev/null; rm -f $external 2>/dev/null"
         }
 }

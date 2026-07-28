@@ -120,6 +120,22 @@ def device_row(alias, conf_path=None):
     return None
 
 
+def alias_for_host(host, conf_path=None):
+    """Reverse-lookup: the devices.conf alias whose tailscale_ip or lan_ip is ``host``.
+
+    Some callers only have a device's network address in hand (e.g. a Fire-OS
+    peer-start target's Tailscale IP, which is what the *peer* device uses to
+    reach it) and need the alias to find the Mac's own preferred adb transport
+    for that same physical device via [resolve_adb] — usually USB, since the
+    Mac is frequently not Tailscale-reachable to the target even when a peer
+    is. Returns None for hosts not in devices.conf (unknown target).
+    """
+    for name, _usb, ts_ip, lan, *_label in iter_devices_conf(conf_path):
+        if host in (ts_ip, lan):
+            return name
+    return None
+
+
 def resolve_adb(alias, conf_path=None):
     """USB when online, else first reachable wireless endpoint (LAN then Tailscale).
 

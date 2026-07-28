@@ -45,6 +45,10 @@ def resolve_target(alias: str) -> str:
     return dev.resolve_adb(alias)
 
 
+def alias_for_host(host: str) -> str | None:
+    return dev.alias_for_host(host)
+
+
 def resolve_ssh(alias: str) -> str:
     return dev.resolve_ssh_host(alias)
 

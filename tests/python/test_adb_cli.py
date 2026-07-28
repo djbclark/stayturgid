@@ -50,3 +50,15 @@ def test_sync_catalog_paths_exist():
     for which, (json_path, dest_name) in sync.CATALOGS.items():
         assert json_path.is_file(), which
         assert dest_name.startswith("stayturgid-obtainium-")
+
+
+def test_alias_for_host_forwards_to_stayturgid_device(monkeypatch):
+    seen = {}
+
+    def fake_alias_for_host(host):
+        seen["host"] = host
+        return "hd8"
+
+    monkeypatch.setattr(ac.dev, "alias_for_host", fake_alias_for_host)
+    assert ac.alias_for_host("100.124.55.39") == "hd8"
+    assert seen["host"] == "100.124.55.39"
