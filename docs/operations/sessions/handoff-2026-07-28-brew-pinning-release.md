@@ -262,7 +262,8 @@ None of these blocked tonight's ship. All are real, scoped follow-up work.
 With Agent 1's unit done, ops-v1.0.13 shipped, and the handoff above already
 committed, the operator asked me to keep working on well-scoped, low-risk
 follow-up rather than idle until 5am — implement but do **not** merge, leave
-for morning review. Four PRs opened, all `just check`-clean and CI-green,
+for morning review. Six PRs opened across the two repos (four in stayturgid,
+two in site-djbclark), all `just check`-clean and CI-green,
 none merged:
 
 | PR                                                                                                                              | Repo          | What                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Notes                                                                                                                            |
