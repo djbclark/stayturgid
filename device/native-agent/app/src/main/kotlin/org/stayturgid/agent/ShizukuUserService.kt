@@ -227,9 +227,17 @@ class ShizukuUserService : IStayTurgidService.Stub {
         val p = ProcessBuilder("pidof", "$pkg:userservice").redirectErrorStream(true).start()
         if (!p.waitFor(2, TimeUnit.SECONDS)) {
             p.destroyForcibly()
+            Log.w(TAG, "pidof timed out for $pkg")
             return ""
         }
-        return p.inputStream.bufferedReader().use { it.readText().trim() }
+        val out = p.inputStream.bufferedReader().use { it.readText().trim() }
+        // Android/toybox pidof exits 0 (match found) or 1 (no match) as routine,
+        // expected outcomes. Anything else is a real failure worth logging so a
+        // broken pidof doesn't silently skip stale-service cleanup.
+        if (p.exitValue() != 0 && p.exitValue() != 1) {
+            Log.w(TAG, "pidof exited ${p.exitValue()} for $pkg: $out")
+        }
+        return out
     }
 
     private fun killPids(pids: List<Int>) {
