@@ -48,6 +48,7 @@ def test_evaluate_healthy():
         "shell5555": "ok",
         "watchdog_age": "100",
         "repair_age": "200",
+        "agent_heartbeat_age": "60",
         "a11y": "ok",
         "autojs6_a11y": "ok",
         "port": "open",
@@ -195,15 +196,18 @@ def test_evaluate_agent_age_alone_no_longer_drives_staleness():
 
 
 def test_evaluate_tailscale_down():
-    assert fh.evaluate_health({"tailscale": "down"}) == ["tailscale_down"]
+    report = {"tailscale": "down", "agent_heartbeat_age": "60"}
+    assert fh.evaluate_health(report) == ["tailscale_down"]
 
 
 def test_evaluate_tailscale_policy_down():
-    assert fh.evaluate_health({"tailscale_policy": "down"}) == ["tailscale_policy_down"]
+    report = {"tailscale_policy": "down", "agent_heartbeat_age": "60"}
+    assert fh.evaluate_health(report) == ["tailscale_policy_down"]
 
 
 def test_evaluate_tailscale_failed_states():
-    assert fh.evaluate_health({"tailscale": "FAILED", "tailscale_policy": "FAILED"}) == [
+    report = {"tailscale": "FAILED", "tailscale_policy": "FAILED", "agent_heartbeat_age": "60"}
+    assert fh.evaluate_health(report) == [
         "tailscale_down",
         "tailscale_policy_down",
     ]
@@ -348,6 +352,7 @@ def test_soft_health_snapshot_recorded(tmp_path, monkeypatch):
                 "watchdog_age": "100",
                 "repair_age": "50",
                 "agent_age": "42",
+                "agent_heartbeat_age": "42",
                 "a11y": "up",
                 "autojs6_a11y": "ok",
                 "port": "open",

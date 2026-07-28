@@ -230,9 +230,9 @@ def evaluate_health(report: dict[str, str], *, alias: str | None = None) -> list
     # above for its own diagnostic value — it reflects the Shizuku-bound
     # co-monitor specifically, and stays coupled to Shizuku on purpose).
     hbage = _int_age(report.get("agent_heartbeat_age"))
-    if report.get("agent_heartbeat_age") == "missing":
+    if hbage is None:
         issues.append("agent_missing")
-    elif hbage is not None and hbage >= AGENT_HEARTBEAT_FRESH_SEC:
+    elif hbage >= AGENT_HEARTBEAT_FRESH_SEC:
         issues.append("agent_stale")
 
     if report.get("agent_reboot_candidate") == "yes":

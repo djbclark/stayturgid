@@ -19,7 +19,7 @@ reports alive — i.e. reproduced the original bug and confirmed the fix.
 Also found and fixed a real, previously-unknown CFEngine parsing quirk along
 the way (§4) — worth reading if you touch `.cf` policy next.
 
-PR: https://github.com/djbclark/stayturgid/pull/113 (open, not yet reviewed/merged).
+PR: #113 (open, not yet reviewed/merged).
 
 ---
 
@@ -201,10 +201,10 @@ this PR does not do that.
 ## 7. Status / next steps
 
 - All code committed and pushed on `feature/agent-liveness-86`, PR open at
-  https://github.com/djbclark/stayturgid/pull/113.
+  #113.
 - Not expected to cut a release for this unit (per brief) — PR should land
   reviewed-ready; merge/release is a separate step.
-- Six PRs from Agent 1's overnight work (stayturgid #107-#111, site-djbclark
+- Seven PRs from Agent 1's overnight work (stayturgid #107-#111, site-djbclark
   #32/#33) and two from Agent 2 (stayturgid #112, site-djbclark #34) were open
   and unmerged when this session started; none touch native-agent/CFEngine/
   fleet_health, so no conflict, but this PR's baseline (branched from master
