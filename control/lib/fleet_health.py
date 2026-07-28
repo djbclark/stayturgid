@@ -25,6 +25,17 @@ WATCHDOG_FRESH_SEC = 1800  # 30 min
 REPAIR_FRESH_SEC = 2700  # 45 min
 SSH_PORT = 8022
 
+# Durable, Shizuku-independent native-agent heartbeat (#86). 3x the 120s
+# HostService heartbeat interval (see HeartbeatWriter.HEARTBEAT_INTERVAL_MS in
+# device/native-agent/.../Heartbeat.kt) + 60s jitter margin. MUST match
+# FRESHNESS_SEC in device/termux/cfengine/policy/stayturgid.cf — both read the
+# same /sdcard/Download/stayturgid-agent.heartbeat.txt file (the .txt is
+# MediaStore's own doing — see HeartbeatWriter.FILE_NAME's comment) with the
+# same threshold so the on-device and Mac-side liveness checks cannot disagree
+# (unify rule, #86). This — not the old agent_age below, which stays
+# Shizuku-coupled — is what drives agent_missing/agent_stale.
+AGENT_HEARTBEAT_FRESH_SEC = 420  # 7 min
+
 
 # Resolved at import via stayturgid_device when available; absolute path for launchd.
 def _adb_bin() -> str:
@@ -100,6 +111,22 @@ _agent_age() {
     + r"""
 }
 echo "agent_age=$(_agent_age)"
+# Native agent durable heartbeat (#86): Shizuku/loopback-independent, written
+# by HostService.kt's dedicated heartbeat thread regardless of whether the
+# Shizuku-bound co-monitor (agent_age, above) is able to run at all. This is
+# the authoritative liveness signal — see AGENT_HEARTBEAT_FRESH_SEC.
+_agent_heartbeat_age() {
+  hb="/sdcard/Download/stayturgid-agent.heartbeat.txt"
+  ts=$(grep -oE 'ts_sec=[0-9]+' "$hb" 2>/dev/null | head -1 | cut -d= -f2)
+  if [ -z "$ts" ]; then echo missing; return; fi
+  echo $(($(date +%s) - ts))
+}
+echo "agent_heartbeat_age=$(_agent_heartbeat_age)"
+if [ -f ~/.stayturgid/state/agent_reboot_candidate ]; then
+  echo "agent_reboot_candidate=yes"
+else
+  echo "agent_reboot_candidate=no"
+fi
 # Prefer freshest STATUS among watchdog, repair, and native agent.
 status=$( {
   grep -h 'STATUS port=' "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log ~/.stayturgid/logs/repair.log 2>/dev/null
@@ -198,11 +225,18 @@ def evaluate_health(report: dict[str, str], *, alias: str | None = None) -> list
     if report.get("shell5555") == "down":
         issues.append("shell5555_down")
 
-    aage = _int_age(report.get("agent_age"))
-    if report.get("agent_age") == "missing":
+    # agent_missing/agent_stale gate on the durable heartbeat (#86,
+    # Shizuku/loopback-independent), not the older agent_age (still reported
+    # above for its own diagnostic value — it reflects the Shizuku-bound
+    # co-monitor specifically, and stays coupled to Shizuku on purpose).
+    hbage = _int_age(report.get("agent_heartbeat_age"))
+    if report.get("agent_heartbeat_age") == "missing":
         issues.append("agent_missing")
-    elif aage is not None and aage >= WATCHDOG_FRESH_SEC:
+    elif hbage is not None and hbage >= AGENT_HEARTBEAT_FRESH_SEC:
         issues.append("agent_stale")
+
+    if report.get("agent_reboot_candidate") == "yes":
+        issues.append("agent_reboot_candidate")
 
     rage = _int_age(report.get("repair_age"))
     if report.get("repair_age") == "missing":
@@ -247,6 +281,7 @@ def summarize(report: dict[str, str], issues: list[str]) -> str:
         "shell5555=%s" % report.get("shell5555", "?"),
         "watchdog_age=%s" % report.get("watchdog_age", "?"),
         "agent_age=%s" % report.get("agent_age", "?"),
+        "agent_heartbeat_age=%s" % report.get("agent_heartbeat_age", "?"),
         "repair_age=%s" % report.get("repair_age", "?"),
         "port=%s" % report.get("port", "?"),
         "shizuku=%s" % report.get("shizuku", "?"),
@@ -342,6 +377,17 @@ print("unknown")
   echo "agent_age=$age"
 else
   echo "agent_age=missing"
+fi
+hb_ts=$(grep -oE 'ts_sec=[0-9]+' /sdcard/Download/stayturgid-agent.heartbeat.txt 2>/dev/null | head -1 | cut -d= -f2)
+if [ -n "$hb_ts" ]; then
+  echo "agent_heartbeat_age=$(($(date +%s) - hb_ts))"
+else
+  echo "agent_heartbeat_age=missing"
+fi
+if [ -f /data/data/com.termux/files/home/.stayturgid/state/agent_reboot_candidate ]; then
+  echo "agent_reboot_candidate=yes"
+else
+  echo "agent_reboot_candidate=no"
 fi
 list=$(settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r')
 echo "a11y_list=$list"

@@ -145,6 +145,8 @@ def test_summarize_includes_agent_age():
 
 
 def test_evaluate_agent_missing_is_hard_fail_after_cutover():
+    # agent_missing/agent_stale gate on agent_heartbeat_age (#86, Shizuku/loopback-independent),
+    # not the older agent_age — see AGENT_HEARTBEAT_FRESH_SEC's comment.
     report = {
         "ssh_echo": "ok",
         "sshd": "ok",
@@ -152,7 +154,7 @@ def test_evaluate_agent_missing_is_hard_fail_after_cutover():
         "shell5555": "ok",
         "watchdog_age": "100",
         "repair_age": "200",
-        "agent_age": "missing",
+        "agent_heartbeat_age": "missing",
         "a11y": "ok",
         "autojs6_a11y": "ok",
         "port": "open",
@@ -169,7 +171,7 @@ def test_evaluate_agent_stale():
         "shell5555": "ok",
         "watchdog_age": "100",
         "repair_age": "200",
-        "agent_age": str(fh.WATCHDOG_FRESH_SEC + 50),
+        "agent_heartbeat_age": str(fh.AGENT_HEARTBEAT_FRESH_SEC + 50),
         "a11y": "ok",
         "autojs6_a11y": "ok",
         "port": "open",
@@ -178,6 +180,18 @@ def test_evaluate_agent_stale():
     issues = fh.evaluate_health(report)
     assert "agent_stale" in issues
     assert "watchdog_stale" not in issues
+
+
+def test_evaluate_agent_reboot_candidate():
+    report = {"agent_heartbeat_age": "10", "agent_reboot_candidate": "yes"}
+    assert fh.evaluate_health(report) == ["agent_reboot_candidate"]
+
+
+def test_evaluate_agent_age_alone_no_longer_drives_staleness():
+    # The Shizuku-bound comonitor signal (agent_age) is retained as telemetry only — it must not,
+    # by itself, produce agent_stale/agent_missing now that agent_heartbeat_age is authoritative.
+    report = {"agent_age": "missing", "agent_heartbeat_age": "5"}
+    assert fh.evaluate_health(report) == []
 
 
 def test_evaluate_tailscale_down():
@@ -222,6 +236,7 @@ def test_monitor_notifies_after_debounce(tmp_path, monkeypatch):
                 "shell5555": "ok",
                 "watchdog_age": "99999",
                 "agent_age": "99999",
+                "agent_heartbeat_age": "99999",
                 "repair_age": "10",
                 "a11y": "ok",
                 "autojs6_a11y": "ok",
@@ -264,6 +279,7 @@ def test_monitor_agent_heal_failure_skips_cooldown(tmp_path, monkeypatch):
                 "ssh_echo": "ok",
                 "watchdog_age": "99999",
                 "agent_age": "99999",
+                "agent_heartbeat_age": "99999",
                 "repair_age": "10",
                 "sshd": "ok",
                 "bootloop": "ok",
@@ -366,6 +382,7 @@ def test_monitor_heals_stale_agent(tmp_path, monkeypatch):
                 "watchdog_age": "10",
                 "repair_age": "10",
                 "agent_age": "99999",
+                "agent_heartbeat_age": "99999",
                 "a11y": "ok",
                 "autojs6_a11y": "ok",
                 "port": "open",
