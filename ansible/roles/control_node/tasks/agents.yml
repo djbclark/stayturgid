@@ -154,6 +154,13 @@
     mode: "0644"
   register: fire_help_plist
 
+- name: Render update-monitor launchd agent
+  ansible.builtin.template:
+    src: update-monitor.plist.j2
+    dest: "{{ agents_dir }}/com.stayturgid.update-monitor.plist"
+    mode: "0644"
+  register: update_monitor_plist
+
 - name: Render nightly Termux pkg update/upgrade launchd agent
   ansible.builtin.template:
     src: termux-pkg-nightly.plist.j2
@@ -331,6 +338,7 @@
         + (['com.stayturgid.access-monitor'] if monitor_plist.changed else [])
         + (['com.stayturgid.fleet-health'] if health_plist.changed else [])
         + (['com.stayturgid.fire-help'] if fire_help_plist.changed else [])
+        + (['com.stayturgid.update-monitor'] if update_monitor_plist is defined and update_monitor_plist.changed else [])
         + (['com.stayturgid.termux-pkg-nightly']
            if (termux_pkg_nightly_plist is defined
                and termux_pkg_nightly_plist.changed) else [])

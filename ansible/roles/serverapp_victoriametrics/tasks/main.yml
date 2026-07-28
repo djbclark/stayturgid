@@ -16,6 +16,19 @@
     state: present
   when: _vm_brew_list.rc != 0
 
+- name: Pin victoriametrics formula in Homebrew to prevent drift
+  ansible.builtin.command:
+    cmd: brew pin victoriametrics
+  register: _vm_pin
+  changed_when: "'already pinned' not in (_vm_pin.stderr | default(''))"
+  # Degrade gracefully if the formula is somehow absent (e.g. a failed install)
+  # instead of aborting the play; only a genuine unexpected error fails.
+  failed_when:
+    - _vm_pin.rc != 0
+    - "'already pinned' not in (_vm_pin.stderr | default(''))"
+    - "'not installed' not in (_vm_pin.stderr | default(''))"
+    - "'No available formula' not in (_vm_pin.stderr | default(''))"
+
 - name: Resolve victoria-metrics binary after install
   ansible.builtin.command:
     cmd: brew --prefix victoriametrics

@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.stayturgid.update-monitor</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>python3</string>
+        <string>{{ stayturgid_repo_root | realpath }}/control/bin/update_monitor.py</string>
+        <string>--repo-root</string>
+        <string>{{ stayturgid_repo_root | realpath }}</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOMEBREW_NO_AUTO_UPDATE</key>
+        <string>1</string>
+    </dict>
+    <!-- Run twice a day. If asleep during these times, launchd will run it immediately upon waking. -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Hour</key>
+            <integer>10</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Hour</key>
+            <integer>22</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>{{ conf_dir }}/logs/update_monitor.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ conf_dir }}/logs/update_monitor.err</string>
+</dict>
+</plist>

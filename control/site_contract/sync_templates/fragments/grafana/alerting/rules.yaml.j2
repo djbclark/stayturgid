@@ -54,7 +54,50 @@ groups:
           # {% raw %}{{ $labels.* }}{% endraw %} below is Grafana's own Go-template
           # annotation syntax, evaluated by Grafana at alert-fire time — not Jinja.
           # {% raw %}
-          summary: "{{ $labels.instance }} ({{ $labels.job }}) has failed its blackbox probe for 5+ minutes"
+          summary: "{{ if $labels.machine_name }}{{ $labels.machine_name }} ({{ $labels.instance }}){{ else }}{{ $labels.instance }}{{ end }} ({{ $labels.job }}) has failed its blackbox probe for 5+ minutes"
+          # {% endraw %}
+        labels:
+          severity: warning
+
+  - orgId: 1
+    name: stayturgid-system
+    folder: stayturgid
+    interval: 10m
+    rules:
+      - uid: stayturgid-software-update-available
+        title: "Software update available"
+        condition: C
+        for: 5m
+        noDataState: OK
+        execErrState: Error
+        data:
+          - refId: A
+            relativeTimeRange:
+              # 24h lookback (2x the 12h update-monitor push cadence at 10:00/22:00)
+              # so a single fresh sample latches across a full push cycle. A narrow
+              # 10-min window (as on the blackbox probe) would see data only ~10 min
+              # per cycle and silently resolve to OK the rest of the time, missing
+              # notifications. Pairs with the resettable series + last-success gauge.
+              from: 86400
+              to: 0
+            datasourceUid: stayturgid-victoriametrics
+            model:
+              refId: A
+              expr: software_update_available > 0
+              instant: true
+          - refId: C
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator:
+                    type: gt
+                    params: [0]
+        annotations:
+          # {% raw %}
+          summary: "Update available for {{ $labels.package }} ({{ $labels.type }}): {{ $labels.current }} -> {{ $labels.latest }}"
           # {% endraw %}
         labels:
           severity: warning

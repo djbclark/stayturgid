@@ -20,6 +20,19 @@
     state: present
   when: _vector_brew_list.rc != 0
 
+- name: Pin vector formula in Homebrew to prevent drift
+  ansible.builtin.command:
+    cmd: brew pin vector
+  register: _vector_pin
+  changed_when: "'already pinned' not in (_vector_pin.stderr | default(''))"
+  # Degrade gracefully if the formula is somehow absent (e.g. a failed install)
+  # instead of aborting the play; only a genuine unexpected error fails.
+  failed_when:
+    - _vector_pin.rc != 0
+    - "'already pinned' not in (_vector_pin.stderr | default(''))"
+    - "'not installed' not in (_vector_pin.stderr | default(''))"
+    - "'No available formula' not in (_vector_pin.stderr | default(''))"
+
 - name: Resolve vector binary after install
   ansible.builtin.command:
     cmd: brew --prefix vector
