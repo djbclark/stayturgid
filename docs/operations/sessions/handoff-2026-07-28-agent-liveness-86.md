@@ -19,8 +19,7 @@ reports alive — i.e. reproduced the original bug and confirmed the fix.
 Also found and fixed a real, previously-unknown CFEngine parsing quirk along
 the way (§4) — worth reading if you touch `.cf` policy next.
 
-PR not yet opened as of writing this section — see §7 for status/link once
-pushed.
+PR: https://github.com/djbclark/stayturgid/pull/113 (open, not yet reviewed/merged).
 
 ---
 
@@ -201,8 +200,8 @@ this PR does not do that.
 
 ## 7. Status / next steps
 
-- All code committed on `feature/agent-liveness-86` in
-  `~/src/ops-worktrees/agent-liveness-86/stayturgid`.
+- All code committed and pushed on `feature/agent-liveness-86`, PR open at
+  https://github.com/djbclark/stayturgid/pull/113.
 - Not expected to cut a release for this unit (per brief) — PR should land
   reviewed-ready; merge/release is a separate step.
 - Six PRs from Agent 1's overnight work (stayturgid #107-#111, site-djbclark
