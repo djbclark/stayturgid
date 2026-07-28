@@ -99,6 +99,40 @@ def _write_site_map(dest: Path, body: str) -> None:
     (dest / "site-map.yml").write_text(body, encoding="utf-8")
 
 
+# --- own-mode secrets env loader --------------------------------------------
+
+
+def test_load_own_mode_secrets_env_missing_file_returns_empty(tmp_path: Path) -> None:
+    assert sa._load_own_mode_secrets_env(tmp_path / "nope.env") == {}
+
+
+def test_load_own_mode_secrets_env_parses_key_value_lines(tmp_path: Path) -> None:
+    env_file = tmp_path / "observability.env"
+    env_file.write_text(
+        "# comment\n"
+        "\n"
+        "OPENOBSERVE_ROOT_EMAIL=someone@example.com\n"
+        'OPENOBSERVE_ROOT_PASSWORD="quoted-value"\n'
+        "not-a-valid-line\n",
+        encoding="utf-8",
+    )
+    loaded = sa._load_own_mode_secrets_env(env_file)
+    assert loaded == {
+        "OPENOBSERVE_ROOT_EMAIL": "someone@example.com",
+        "OPENOBSERVE_ROOT_PASSWORD": "quoted-value",
+    }
+
+
+def test_load_own_mode_secrets_env_does_not_override_existing_env(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("OPENOBSERVE_ROOT_EMAIL", "already-set@example.com")
+    env_file = tmp_path / "observability.env"
+    env_file.write_text("OPENOBSERVE_ROOT_EMAIL=from-file@example.com\n", encoding="utf-8")
+    loaded = sa._load_own_mode_secrets_env(env_file)
+    assert "OPENOBSERVE_ROOT_EMAIL" not in loaded
+
+
 # --- mode resolution -------------------------------------------------------
 
 
