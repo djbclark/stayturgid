@@ -383,7 +383,7 @@ def _shell_quote(value: object) -> str:
     return shlex.quote(str(value))
 
 
-def _make_product_file_filter(product_root: str | None):
+def _make_product_file_filter(product_root_path: Path | None):
     """Jinja filter emitting a product file verbatim, so a thin sync template
     can re-publish a product-owned source (e.g. taxonomy group_vars) into the
     site's generated tree without duplicating its content into the template.
@@ -405,8 +405,8 @@ def _make_product_file_filter(product_root: str | None):
         # mode, which renders against a synthetic product_root (/srv/...) for
         # path-determinism yet still needs the real source content.
         candidates: list[Path] = []
-        if product_root:
-            candidates.append(_resolve(Path(product_root), rel_path))
+        if product_root_path:
+            candidates.append(_resolve(product_root_path, rel_path))
         candidates.append(_resolve(REPO_ROOT, rel_path))
         for target in candidates:
             if target.is_file():
@@ -417,7 +417,7 @@ def _make_product_file_filter(product_root: str | None):
     return _product_file
 
 
-def _render_template(template_path: Path, context: dict[str, Any]) -> bytes:
+def _render_template(template_path: Path, context: dict[str, Any], product_root_path: Path | None = None) -> bytes:
     environment = Environment(  # nosemgrep
         undefined=StrictUndefined,
         keep_trailing_newline=True,
@@ -425,7 +425,7 @@ def _render_template(template_path: Path, context: dict[str, Any]) -> bytes:
     )
     environment.filters["json_string_escape"] = _json_string_escape
     environment.filters["shell_quote"] = _shell_quote
-    environment.filters["product_file"] = _make_product_file_filter(context.get("product_root"))
+    environment.filters["product_file"] = _make_product_file_filter(product_root_path)
     text = template_path.read_text(encoding="utf-8")
     try:
         rendered = environment.from_string(text).render(**context)
@@ -545,9 +545,9 @@ def _site_render_context(
     """
     context: dict[str, Any] = {
         "product": PRODUCT,
-        "product_root": str(product_root.resolve()),
-        "stayturgid_root": str(product_root.resolve()),
-        "site_dir": str(site_dir.resolve()),
+        "product_root": f"${{OPS_ROOT:-/Users/djbclark/ops}}/{product_root.name}",
+        "stayturgid_root": f"${{OPS_ROOT:-/Users/djbclark/ops}}/{product_root.name}",
+        "site_dir": f"${{OPS_ROOT:-/Users/djbclark/ops}}/{site_dir.name}",
         "product_version": product_version,
         "product_commit": product_commit,
         "source_template": source_template,
@@ -707,7 +707,7 @@ def build_plan(
             source_template=source_template,
             site_map=site_map,
         )
-        content = _render_template(template_path, context)
+        content = _render_template(template_path, context, product_root_path=product)
         _assert_rendered_content_parses(entry.path, content)
         digest = _sha256_bytes(content)
         new_hashes.append((entry.path, digest))
@@ -1010,7 +1010,7 @@ def _docs_markdown() -> str:
             "inventory_hosts": [{"name": "example-host", "ansible_host": "192.0.2.10"}],
             "openobserve_http_prefix": "",
         }
-        _render_template(template_path, context)
+        _render_template(template_path, context, product_root_path=None)
 
     example_hashes = [
         (
