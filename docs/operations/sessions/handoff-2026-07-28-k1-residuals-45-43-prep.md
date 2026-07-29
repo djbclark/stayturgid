@@ -33,7 +33,7 @@ AutoJs6 might still be present. Since AutoJs6 is fully uninstalled fleet-wide
 perpetual, misleading signals:
 
 - `stayturgid_repair.py` logged `NOTICE: ACTION_REQUIRED: AutoJs6
-  accessibility disabled` every ~15 min cycle — **caught live on s24's own
+accessibility disabled` every ~15 min cycle — **caught live on s24's own
   `repair.log` during this session** (`21:06:32`), confirming the bug was
   actively firing, not theoretical.
 - `fleet_health.py` reported `autojs6_a11y=missing` forever in dashboard/health
@@ -79,12 +79,12 @@ Categorized findings below.
    `stayturgid_retired_boot_scripts` (an already-established convention in
    this file — next deploy removes them from `~/.termux/boot/` on every
    device). Underlying script files and `stayturgid_bridges.py --mode
-   autojs6` left in place, now unreachable in production — flagged below for
+autojs6` left in place, now unreachable in production — flagged below for
    a follow-up decision, not deleted here.
 5. **`stayturgid_automation_mode: autojs6`** stale default, found in three
    places: `SITE-CONTRACT.md` (source of truth — this repo uses Entangled
    literate programming; `control/site_contract/templates/inventory/hosts.yml`
-   is *tangled from* SITE-CONTRACT.md, not hand-editable — learned this the
+   is _tangled from_ SITE-CONTRACT.md, not hand-editable — learned this the
    hard way when a direct edit broke `just site-contract-check`'s parity
    check; fixed correctly by editing the source doc and re-tangling with the
    pinned `.venv-test/bin/entangled` 2.4.0, not the system's 2.4.3, which has
@@ -96,10 +96,10 @@ Categorized findings below.
    `device/autojs6/scripts/switch-to-autojs6.{ts,js}` — itself part of the
    retired AutoJs6 project. Changed the default to `""` (falls through to
    `site_identity.py`'s existing `"none"` fallback) with an explanatory
-   comment. **Note:** the *live* production inventory value for hd8/p7a/s24
+   comment. **Note:** the _live_ production inventory value for hd8/p7a/s24
    lives in `site-djbclark`'s own inventory (different repo, out of this
    unit's scope/worktree) — this fix only corrects the template/example
-   defaults used when scaffolding *new* sites or devices.
+   defaults used when scaffolding _new_ sites or devices.
 6. **`tests/lib.sh` + `tests/test-unit.sh`** — my repair.py fix broke 3
    existing shell-suite tests that assumed AutoJs6 was always "installed"
    (`repair[py]: healthy STATUS line` expected `a11y=up`; two tests expected
@@ -113,7 +113,7 @@ Categorized findings below.
 #### Confirmed real bugs, deliberately deferred (need a Kotlin build/verify cycle)
 
 7. **`device/native-agent/app/src/main/kotlin/org/stayturgid/agent/ComonitorProbes.kt:23-24,104`**
-   — the native agent's *own* accessibility probe (`A11Y_AUTOJS6` constant +
+   — the native agent's _own_ accessibility probe (`A11Y_AUTOJS6` constant +
    list-contains check) is hardcoded to AutoJs6's accessibility-service
    string. This is exactly the same bug pattern as items 1-2, just in
    Kotlin — the native agent's own STATUS/`agent.log` `a11y=` field will read
@@ -163,7 +163,7 @@ Categorized findings below.
     `stayturgid_grant_shizuku.py`, `control/lib/adb_cli.py` (AutoJs6
     script-launch helper library), `ansible_collections/stayturgid/android_common/plugins/modules/autojs6_project_deploy.py`
     and its `module_utils/autojs6_deploy_util.py`. (`android_a11y_services.py`
-    and `a11y_services_util.py` are *not* in this bucket — they're now also
+    and `a11y_services_util.py` are _not_ in this bucket — they're now also
     used generically by fix #3 above, kept.)
 13. **`control/bin/dashboard.py`**'s `HUMAN_ACTIONS["autojs6_a11y_missing"]`
     / `["autojs6_a11y_stale"]` entries — already-dead before this session
@@ -206,7 +206,7 @@ places — the real mechanism is neither.
 **None of this is crontab or launchd** — it's a self-perpetuating on-device
 Python daemon loop, kept alive by CFEngine, that's been present since commit
 `fab6889` ("K1 (#43): fix Termux self-heal permission bug, add Shizuku
-watchdog", 2026-07-25 08:57 EDT — same day as, and evidently *before*, the #43
+watchdog", 2026-07-25 08:57 EDT — same day as, and evidently _before_, the #43
 comment describing this as unscheduled). That commit's own message
 explains the earlier "~20-30s death" observation was root-caused as a
 multi-layer shell-quoting bug in an earlier watchdog implementation attempt
@@ -227,11 +227,11 @@ the live findings below).
   direct `ps -ef` over the Mac's USB adb (uid 2000 shell, no loopback needed).
   `repair.log` shows fresh STATUS lines every ~15 min with `shizuku=up`.
 - **hd8**: **no** `shizuku_server` process and **no** watchdog process
-  running via the Termux-side loopback path — but this is *expected*, not
+  running via the Termux-side loopback path — but this is _expected_, not
   broken: hd8's `repair.log` shows `port=skip shizuku=skip shell=no` (Termux
   correctly declines to even attempt the loopback, per `device.json`'s
   `privilegedShellExpected: false` flag for Fire OS — the same gate Agent 5's
-  #60 work confirmed is correctly wired). The native agent's *own*, separate
+  #60 work confirmed is correctly wired). The native agent's _own_, separate
   Shizuku UserService connection (Kotlin, doesn't go through Termux's
   loopback at all) is independently healthy: `agent.log` STATUS lines show
   `shizuku=up` continuously through the last cycle at 20:24, and
@@ -280,7 +280,7 @@ step.
   AutoJs6 uninstall claim was.
 - **s24 is already running this exact release build right now**: live
   `dumpsys package org.stayturgid.agent` shows `versionCode=15
-  versionName=0.6.0-boot-stability`, matching current `master`'s
+versionName=0.6.0-boot-stability`, matching current `master`'s
   `build.gradle.kts` exactly, and it's the actively-running foreground
   process (confirmed via `ps -ef`), not just installed-and-dormant.
 - The Ansible install path's idempotency concern is also already
@@ -296,7 +296,7 @@ step.
 pipeline"):**
 
 - **hd8 and p7a do not have the release variant installed at all** (`pm path
-  org.stayturgid.agent` returns nothing on either; both run
+org.stayturgid.agent` returns nothing on either; both run
   `org.stayturgid.agent.debug` only) — live-confirmed this session via USB
   (hd8) and Tailscale (p7a, reachable at `100.65.230.108:5555` despite not
   being on USB).
@@ -332,14 +332,14 @@ throughout.
 Live-checked all three reachable devices this session (`dumpsys package
 moe.shizuku.privileged.api`):
 
-| Device | versionName | versionCode |
-| --- | --- | --- |
-| s24 | `13.7.0-thedjchi+stayturgid-release23` | 51384 |
-| hd8 | `13.7.0-thedjchi+stayturgid-release23` | 51384 |
-| p7a | `13.7.0-thedjchi+stayturgid-release23` | 51384 |
+| Device | versionName                            | versionCode |
+| ------ | -------------------------------------- | ----------- |
+| s24    | `13.7.0-thedjchi+stayturgid-release23` | 51384       |
+| hd8    | `13.7.0-thedjchi+stayturgid-release23` | 51384       |
+| p7a    | `13.7.0-thedjchi+stayturgid-release23` | 51384       |
 
 All three fleet-wide on the **same** official release build —
-`release23`, which is *newer* than the `release21` #45's own comment thread
+`release23`, which is _newer_ than the `release21` #45's own comment thread
 references (that comment predates further Shizuku fork iteration this
 session). No debug-repackaged workaround remains anywhere in the fleet. This
 item is genuinely done; recommend closing this specific sub-item of #45 once
