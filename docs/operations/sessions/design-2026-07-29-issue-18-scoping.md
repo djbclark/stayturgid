@@ -127,6 +127,36 @@ Ordered by dependency, not by priority — §3.1 gates several others.
    native-agent-writable path), plus log levels. **No other sub-item below
    should ship its "enhanced logging" pieces before this lands** — there's
    nowhere for that data to go yet.
+
+   **Cross-process handoff contract (the specific path/permission question
+   a future implementer must resolve first):** native-agent (its own Android
+   UID) and Termux's `otelcol-contrib` (a different UID) can't share
+   internal `filesDir` — that's exactly why `watchdog.jsonl` (written by the
+   now-retired AutoJs6, a third, different UID) was readable by Termux at
+   all: it went through `stayturgid_sd_root` (default `/sdcard/stayturgid`,
+   shared external storage, no app-scoped permission boundary). Two options
+   for native-agent's JSONL emitter, in order of precedent-fit:
+   - **Preferred:** write to native-agent's own external-files-dir
+     (`/sdcard/Android/data/<pkg>/files/logs/agent.jsonl`) — the same
+     external/internal-fallback pattern `AuthorizeReminder.kt` already uses
+     (PR #125) and that this repo's Termux-side tooling already knows how to
+     read cross-UID (`run-as`/direct external-dir reads, same precedent).
+     Needs a new `filelog/agent` receiver entry in `otel-config.yaml.j2`
+     pointed at that exact path — no new Android permission grant beyond
+     what native-agent already holds.
+   - **Alternative:** write directly to `stayturgid_sd_root`
+     (`/sdcard/stayturgid/logs/agent.jsonl`), matching AutoJs6's old
+     mechanism exactly — but this needs broader external-storage write
+     access than native-agent's app-scoped dir currently requires, which
+     modern Android gates behind `MANAGE_EXTERNAL_STORAGE` or a
+     Storage-Access-Framework grant. Only worth it if something else
+     already needs that broader permission; don't request it solely for
+     this.
+
+   Whichever path is chosen, it must be nailed down as a concrete decision
+   (not left open) before implementation starts — this is the one piece of
+   this sub-item that blocks everything downstream of it.
+
 2. **Efficiency-mode formalization** (Small). Mostly already implemented:
    `AgentSchedule`'s per-device stagger + screen-on-gated ping loop already
    _are_ efficiency behavior. This is closer to naming/documenting the
