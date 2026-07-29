@@ -1,12 +1,17 @@
 import json
 import subprocess
-import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 from control.lib.ansible_context import resolve_ansible_context, resolved_env
+from control.lib.site_logging import WARNING, log
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+LOG_NAME = "firerpa-fleet.log"
+
+
+def _log(level: int, msg: str) -> None:
+    log(LOG_NAME, level, msg, also_print=True)
 
 
 @dataclass(frozen=True)
@@ -45,17 +50,20 @@ def get_fleet() -> list[FirerpaTarget]:
             timeout=30,
         )
     except subprocess.TimeoutExpired:
-        print("Failed to resolve inventory: ansible-inventory timed out after 30s", file=sys.stderr)
+        _log(WARNING, "Failed to resolve inventory: ansible-inventory timed out after 30s")
+        return []
+    except OSError as e:
+        _log(WARNING, f"Failed to resolve inventory: {e}")
         return []
 
     if result.returncode != 0:
-        print("Failed to resolve inventory: " + result.stderr, file=sys.stderr)
+        _log(WARNING, "Failed to resolve inventory: " + result.stderr)
         return []
 
     try:
         inv = json.loads(result.stdout)
     except json.JSONDecodeError as e:
-        print(f"Failed to decode inventory JSON: {e}", file=sys.stderr)
+        _log(WARNING, f"Failed to decode inventory JSON: {e}")
         return []
     hosts = inv.get("stayturgid", {}).get("hosts", [])
     if not hosts:

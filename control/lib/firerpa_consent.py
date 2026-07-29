@@ -6,7 +6,14 @@ from typing import Any
 from mcp.server.fastmcp import Context
 from pydantic import BaseModel, Field
 
+from control.lib.site_logging import WARNING, log
+
 FIRERPA_HEAL_COUNTDOWN_SEC = 10
+LOG_NAME = "firerpa-consent.log"
+
+
+def _log(level: int, msg: str) -> None:
+    log(LOG_NAME, level, msg, also_print=True)
 
 
 class ConsentSchema(BaseModel):
@@ -37,14 +44,14 @@ class HealSession:
         cmd = f"termux-notification --id stayturgid-firerpa-heal --title 'FIRERPA Heal' --content '{msg}'"
         try:
             self.device.execute_script(cmd, timeout=5)
-        except Exception:
-            pass
+        except Exception as e:
+            _log(WARNING, f"Failed to update device notification for {self.alias}: {e}")
 
     def close(self) -> None:
         try:
             self.device.execute_script("termux-notification-remove stayturgid-firerpa-heal", timeout=5)
-        except Exception:
-            pass
+        except Exception as e:
+            _log(WARNING, f"Failed to remove device notification for {self.alias}: {e}")
 
         if self.actions:
             mac_msg = f"healed {self.alias}: {', '.join(self.actions)} ({len(self.actions)} actions)"
@@ -73,10 +80,8 @@ async def check_consent(action_summary: str, context: Context | None = None) -> 
                     return res.data.consent.lower() != "refuse"
                 return False
         except Exception as e:
-            from control.lib.site_logging import WARNING, log
-
-            log(WARNING, f"MCP Elicitation failed or unsupported: {e}")
-            pass  # Fall back to osascript on error
+            _log(WARNING, f"MCP Elicitation failed or unsupported: {e}")
+            # Fall through to osascript below.
 
     # Fallback to osascript
     action_summary_escaped = _escape_applescript(action_summary)

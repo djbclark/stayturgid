@@ -21,6 +21,13 @@ from control.lib.firerpa_consent import HealSession, check_consent
 from control.lib.firerpa_fleet import get_fleet
 from control.lib.site_logging import WARNING, log
 
+LOG_NAME = "firerpa-mcp.log"
+
+
+def _log(level: int, msg: str) -> None:
+    log(LOG_NAME, level, msg, also_print=True)
+
+
 try:
     from lamda.client import Device
 except ImportError:
@@ -245,8 +252,7 @@ def main():
         if token:
             app.add_middleware(TokenAuthMiddleware, token=token)
         else:
-            print("WARNING: Starting HTTP transport without token authentication. This is insecure!", file=sys.stderr)
-            log(WARNING, "Starting HTTP transport without token authentication.")
+            _log(WARNING, "Starting HTTP transport without token authentication. This is insecure!")
 
         host = args.host or get_tailscale_ip()
         uvicorn.run(app, host=host, port=args.port)
