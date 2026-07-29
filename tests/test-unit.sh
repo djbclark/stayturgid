@@ -102,14 +102,14 @@ battery_suite device/termux/py/stayturgid_battery_alarm.py py
 # Same suite runs against the shell implementation and its Python twin.
 repair_suite() {
   local RSCRIPT="$1" T="$2"
-  unset PGREP_RC FLOCK_RC ADB_A11Y ADB_SHELL_UID 2>/dev/null || true
+  unset PGREP_RC FLOCK_RC ADB_A11Y ADB_SHELL_UID ADB_AUTOJS6_INSTALLED 2>/dev/null || true
   # healthy path
   reset_sandbox
   export PGREP_RC=0
   run_sandboxed "$RSCRIPT"
   tap_is "$RC" 0 "repair[$T]: healthy => exit 0"
   _RSTATUS="$(cat "$SANDBOX/home/.stayturgid/run/repair.status" 2>/dev/null || echo "$OUT")"
-  tap_like "$_RSTATUS" "STATUS port=open shizuku=up sshd=up a11y=up shell=yes wifi=up" "repair[$T]: healthy STATUS line"
+  tap_like "$_RSTATUS" "STATUS port=open shizuku=up sshd=up a11y=retired shell=yes wifi=up" "repair[$T]: healthy STATUS line"
 
   # Android 16 can report cosmetic toggle=0 while the UID-2000 shell is live.
   reset_sandbox
@@ -121,21 +121,36 @@ repair_suite() {
   tap_unlike "$(cat "$STUB_LOG")" "settings put global adb_wifi_enabled" \
     "repair[$T]: live shell avoids an ineffective Android 16 toggle write"
 
-  # a11y: detection-only — no longer auto-repairs, reports status
+  # a11y: detection-only — no longer auto-repairs, reports status.
+  # AutoJs6 is retired fleet-wide, so this legacy detection path only fires
+  # when AutoJs6 is (still/again) actually installed — mock that explicitly.
   reset_sandbox
-  export PGREP_RC=0 ADB_A11Y="com.other.app/.TheirService"
+  export PGREP_RC=0 ADB_A11Y="com.other.app/.TheirService" ADB_AUTOJS6_INSTALLED=1
   run_sandboxed "$RSCRIPT"
+  unset ADB_AUTOJS6_INSTALLED
   _RSTATUS="$(cat "$SANDBOX/home/.stayturgid/run/repair.status" 2>/dev/null || echo "$OUT")"
-  tap_like "$_RSTATUS" "a11y=down" "repair[$T]: disabled accessibility => down (detection only)"
+  tap_like "$_RSTATUS" "a11y=down" "repair[$T]: disabled accessibility => down (detection only, AutoJs6 installed)"
   # Check the repair log for the ACTION_REQUIRED message (not stdout)
   tap_like "$(cat "$SANDBOX/home/.stayturgid/logs/repair.log" 2>/dev/null)" \
-    "ACTION_REQUIRED" "repair[$T]: logs ACTION_REQUIRED when a11y disabled"
+    "ACTION_REQUIRED" "repair[$T]: logs ACTION_REQUIRED when a11y disabled (AutoJs6 installed)"
   # a11y list is NOT modified — detection-only, no settings put
   if [ -f "$SANDBOX/a11y_state" ]; then
     tap_fail "repair[$T]: a11y list should NOT be modified (detection-only)"
   else
     tap_ok "repair[$T]: a11y list preserved (no auto-write)"
   fi
+
+  # AutoJs6 NOT installed (the real fleet-wide default post-K1-cutover):
+  # a11y reports the retired, non-alarming state and does NOT log
+  # ACTION_REQUIRED noise, even with the same disabled-looking a11y list.
+  reset_sandbox
+  export PGREP_RC=0 ADB_A11Y="com.other.app/.TheirService"
+  run_sandboxed "$RSCRIPT"
+  _RSTATUS="$(cat "$SANDBOX/home/.stayturgid/run/repair.status" 2>/dev/null || echo "$OUT")"
+  tap_like "$_RSTATUS" "a11y=retired" "repair[$T]: AutoJs6 not installed => a11y=retired, not down"
+  tap_unlike "$(cat "$SANDBOX/home/.stayturgid/logs/repair.log" 2>/dev/null)" \
+    "ACTION_REQUIRED" "repair[$T]: AutoJs6 not installed => no ACTION_REQUIRED noise"
+  tap_like "$_RSTATUS" "auto_profile=retired" "repair[$T]: AutoJs6 not installed => auto_profile=retired"
 
   # sshd down => restarted via sshd stub
   reset_sandbox
