@@ -42,9 +42,11 @@ Per the issue's `deploy_fleet.py:245` citation: `--limit <device>` never
 matches `localhost`, so `deploy()` always launched a second
 `ansible-playbook` process for `control_node/site.yml` even on a
 single-device run. `--devices-only` skips that second launch. Exposed via
-`just deploy devices_only=1 hosts=s24` too (env-var-style, matching the
-existing `hosts=`/`scope=` convention in the top-level `justfile` +
-`just/fleet.just`). `deploy-check` untouched — check mode already returns
+`just --set devices_only 1 --set hosts s24 deploy` too (`just`'s variable
+overrides go before the recipe name, not after — matching the existing
+`hosts=`/`scope=` convention in the top-level `justfile` + `just/fleet.just`,
+which are shell/`just`-level variables read via `env_var_or_default`, not
+recipe parameters). `deploy-check` untouched — check mode already returns
 before the Mac pass runs, so the flag would be a no-op there.
 
 ### 3. `ansible-galaxy collection install` caching (`control/bin/deploy_fleet.py`)
