@@ -120,11 +120,23 @@ if [ -z "$a11y_list" ] || [ "$a11y_list" = "null" ]; then
   a11y_list=$(settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r')
 fi
 echo "a11y_list=$a11y_list"
-case "$a11y_list" in
-  *org.autojs.autojs6/*) echo "autojs6_a11y=ok" ;;
-  ""|null) echo "autojs6_a11y=unknown" ;;
-  *) echo "autojs6_a11y=missing" ;;
-esac
+# AutoJs6 was fully uninstalled fleet-wide during the K1 native-agent cutover
+# (2026-07-25, issue #43) and is not expected to return — check live install
+# state first so its absence reads as the retired, healthy state instead of
+# perpetual "missing" noise.
+autojs6_installed=$(adb -s localhost:5555 shell pm path org.autojs.autojs6 2>/dev/null </dev/null | tr -d '\r')
+if [ -z "$autojs6_installed" ]; then
+  autojs6_installed=$(pm path org.autojs.autojs6 2>/dev/null | tr -d '\r')
+fi
+if [ -z "$autojs6_installed" ]; then
+  echo "autojs6_a11y=retired"
+else
+  case "$a11y_list" in
+    *org.autojs.autojs6/*) echo "autojs6_a11y=ok" ;;
+    ""|null) echo "autojs6_a11y=unknown" ;;
+    *) echo "autojs6_a11y=missing" ;;
+  esac
+fi
 # CFEngine self-heal: scrape last line of its repair log for visibility.
 cf_line=$(tail -1 "$HOME/.stayturgid/logs/repair-cfengine.log" 2>/dev/null)
 if [ -n "$cf_line" ]; then
@@ -345,11 +357,19 @@ else
 fi
 list=$(settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r')
 echo "a11y_list=$list"
-case "$list" in
-  *org.autojs.autojs6/*) echo "autojs6_a11y=ok" ;;
-  ""|null) echo "autojs6_a11y=unknown" ;;
-  *) echo "autojs6_a11y=missing" ;;
-esac
+# AutoJs6 was fully uninstalled fleet-wide during the K1 native-agent cutover
+# (2026-07-25, issue #43) and is not expected to return — check live install
+# state first so its absence reads as the retired, healthy state instead of
+# perpetual "missing" noise.
+if [ -z "$(pm path org.autojs.autojs6 2>/dev/null)" ]; then
+  echo "autojs6_a11y=retired"
+else
+  case "$list" in
+    *org.autojs.autojs6/*) echo "autojs6_a11y=ok" ;;
+    ""|null) echo "autojs6_a11y=unknown" ;;
+    *) echo "autojs6_a11y=missing" ;;
+  esac
+fi
 st=$(grep -h 'STATUS port=' $LOGS 2>/dev/null | tail -1)
 echo "status_line=$st"
 echo "$st" | grep -oE 'port=[^ ]+' || echo "port=unknown"

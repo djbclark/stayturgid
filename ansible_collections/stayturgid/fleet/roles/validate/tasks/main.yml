@@ -57,6 +57,17 @@
     - _repair.a11y is defined
     - _repair.a11y | default('') not in ['', 'skip']
 
+- name: Check whether AutoJs6 is still installed (retired fleet-wide, K1 cutover)
+  ansible.builtin.set_fact:
+    _autojs6_installed: >-
+      {{ 'org.autojs.autojs6' in lookup(
+        'stayturgid.android_common.android_packages',
+        lookup('stayturgid.android_common.adb_device', inventory_hostname)
+      ) }}
+  when:
+    - not ansible_check_mode
+    - stayturgid_validate_a11y_profile | default(true) | bool
+
 - name: Probe accessibility state (detection only)
   stayturgid.android_common.android_a11y_services:
     device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
@@ -65,6 +76,7 @@
   when:
     - not ansible_check_mode
     - stayturgid_validate_a11y_profile | default(true) | bool
+    - _autojs6_installed | default(false)
 
 - name: Warn when AutoJs6 accessibility is not enabled
   ansible.builtin.debug:
@@ -74,6 +86,7 @@
   when:
     - not ansible_check_mode
     - stayturgid_validate_a11y_profile | default(true) | bool
+    - _autojs6_installed | default(false)
     - not (_a11y_probe.autojs6_present | default(false) | bool)
 
 - name: SSH echo probe

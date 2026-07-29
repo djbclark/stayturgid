@@ -53,12 +53,20 @@ stayturgid_otelcol_endpoint: "http://{{ stayturgid_control_tailscale_ip }}:4318"
 stayturgid_boot_scripts:
   - start-adb.sh
   - start-repair-bridge.sh
-  - start-autojs6-bridge.sh
-  - start-autojs6-watchdog.sh
 
 # Boot scripts removed from the deploy list — deleted from devices on next deploy.
 # When you remove a script from stayturgid_boot_scripts, add it here.
-stayturgid_retired_boot_scripts: []
+stayturgid_retired_boot_scripts:
+  # AutoJs6 was fully uninstalled fleet-wide during the K1 native-agent
+  # cutover verification (2026-07-25, issue #43) and is not expected to
+  # return. These two boot scripts only ever launch/restart AutoJs6's own
+  # boot-launcher.js — deploying them was a no-op `am start` against an
+  # uninstalled package plus a wasted 45s boot-sequence sleep, every boot,
+  # fleet-wide. The underlying scripts (device/termux/boot/start-autojs6-*.sh)
+  # and stayturgid_bridges.py --mode autojs6 are left in place as retired,
+  # unreached code rather than deleted in this pass — see issue #43.
+  - start-autojs6-bridge.sh
+  - start-autojs6-watchdog.sh
 
 # Override examples (Termux-only, no AutoJs6):
 # stayturgid_boot_scripts: [start-adb.sh]

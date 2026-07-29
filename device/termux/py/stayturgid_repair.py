@@ -8,7 +8,8 @@ shim keeps AutoJs6 RUN_COMMAND / boot-loop / repair-bridge callers unchanged.
 
 Uses Shizuku's shell-privileged adbd on localhost:5555 (uid 2000) for
 privileged checks/repairs. Exit 0 = healthy after repair; 1 = a subsystem
-still down (needs AutoJs6 UI repair or reboot). Prints one STATUS line.
+still down (needs native-agent catastrophic repair, or physical/USB
+recovery). Prints one STATUS line.
 """
 
 import base64
@@ -928,7 +929,7 @@ def main():
         port = "CLOSED_NO_SHELL"
         wifi = "unknown"
         rc = 1
-        log("5555 CLOSED / no privileged shell — escalate to AutoJs6 UI repair or reboot", ERR)
+        log("5555 CLOSED / no privileged shell — escalate to native-agent catastrophic repair or reboot", ERR)
 
     # --- 3. shizuku (via privileged shell; watchdog handles restart) ---
     if expect_shell and have_sh:
@@ -1019,47 +1020,60 @@ def main():
                 ERR,
             )
 
+    # AutoJs6 was fully uninstalled fleet-wide during the K1 native-agent
+    # cutover verification (2026-07-25, issue #43) and is not expected to
+    # return. Gate the two legacy AutoJs6-specific self-heal checks below on
+    # live install state so its absence reads as the retired, healthy state
+    # instead of perpetual ACTION_REQUIRED noise (was: always "missing").
+    autojs6_present = False
+    if expect_shell and have_sh:
+        _rc, _autojs6_out = sh_adb("pm path org.autojs.autojs6 2>/dev/null")
+        autojs6_present = _rc == 0 and "package:" in _autojs6_out
+
     # --- 4. AutoJs6 accessibility (detection only; user must enable manually) ---
     a11y = "unknown"
     if expect_shell:
         if have_sh:
-            raw = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
-            if A11Y_SVC in raw:
-                a11y = "up"
-                # Settings-list alone cannot detect sticky ON (enabled but not bound).
-                # If the AutoJs6 watchdog has gone quiet while we remain listed, nudge
-                # the operator — OFF→ON rebind is the human fix (policy G3: no settings put).
-                try:
-                    wd = os.path.join(SD, "logs", "watchdog.log")
-                    if os.path.isfile(wd):
-                        age = time.time() - os.path.getmtime(wd)
-                        if age >= 1800:  # 30 min — matches fleet WATCHDOG_FRESH_SEC band
-                            log(
-                                "AutoJs6 a11y listed ON but watchdog quiet %.0fs — "
-                                "if Task is empty, toggle Accessibility OFF then ON "
-                                "and re-run main.js" % age,
-                                WARNING,
-                            )
-                            log(
-                                "ACTION_REQUIRED: AutoJs6 accessibility may be sticky "
-                                "(Settings ON, service not bound) on %s — toggle OFF then ON"
-                                % (os.uname().nodename if hasattr(os, "uname") else "device"),
-                                NOTICE,
-                            )
-                except OSError:
-                    pass
+            if not autojs6_present:
+                a11y = "retired"
             else:
-                a11y = "down"
-                log(
-                    "AutoJs6 accessibility is OFF — re-enable in Settings > Accessibility > "
-                    "AutoJs6 (if already ON, turn OFF then ON again)",
-                    WARNING,
-                )
-                log(
-                    "ACTION_REQUIRED: AutoJs6 accessibility disabled on %s"
-                    % (os.uname().nodename if hasattr(os, "uname") else "device"),
-                    NOTICE,
-                )
+                raw = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
+                if A11Y_SVC in raw:
+                    a11y = "up"
+                    # Settings-list alone cannot detect sticky ON (enabled but not bound).
+                    # If the AutoJs6 watchdog has gone quiet while we remain listed, nudge
+                    # the operator — OFF→ON rebind is the human fix (policy G3: no settings put).
+                    try:
+                        wd = os.path.join(SD, "logs", "watchdog.log")
+                        if os.path.isfile(wd):
+                            age = time.time() - os.path.getmtime(wd)
+                            if age >= 1800:  # 30 min — matches fleet WATCHDOG_FRESH_SEC band
+                                log(
+                                    "AutoJs6 a11y listed ON but watchdog quiet %.0fs — "
+                                    "if Task is empty, toggle Accessibility OFF then ON "
+                                    "and re-run main.js" % age,
+                                    WARNING,
+                                )
+                                log(
+                                    "ACTION_REQUIRED: AutoJs6 accessibility may be sticky "
+                                    "(Settings ON, service not bound) on %s — toggle OFF then ON"
+                                    % (os.uname().nodename if hasattr(os, "uname") else "device"),
+                                    NOTICE,
+                                )
+                    except OSError:
+                        pass
+                else:
+                    a11y = "down"
+                    log(
+                        "AutoJs6 accessibility is OFF — re-enable in Settings > Accessibility > "
+                        "AutoJs6 (if already ON, turn OFF then ON again)",
+                        WARNING,
+                    )
+                    log(
+                        "ACTION_REQUIRED: AutoJs6 accessibility disabled on %s"
+                        % (os.uname().nodename if hasattr(os, "uname") else "device"),
+                        NOTICE,
+                    )
 
     # --- 5. Shell profile PATH (remove leaked Mac PATH that breaks pkg/apt) ---
     ensure_shell_profile_path()
@@ -1084,29 +1098,32 @@ def main():
     auto_profile = "skip"
     device_profile = "present"
     if expect_shell and have_sh:
-        # AutoJs6: only re-apply if the process is dead (cleared data or crash).
-        auto_running = False
-        rc_auto, _ = sh_adb("pgrep -f org.autojs.autojs6 2>/dev/null")
-        if rc_auto == 0:
-            auto_running = True
-        _, afp_out = sh_adb("[ -f /sdcard/Download/autojs6-fleet.json ] && echo ok || echo missing")
-        if "ok" in afp_out:
-            if not auto_running:
-                profile = "/sdcard/Download/autojs6-fleet.json"
-                sh_adb(
-                    "if [ -f %s ]; then am start --user 0 "
-                    "-a org.autojs.autojs6.action.APPLY_FLEET_PROFILE "
-                    "-e profile_path %s -e silent true "
-                    "-n org.autojs.autojs6/org.autojs.autojs.core.pref.fleet.FleetProfileActivity; fi"
-                    % (profile, profile)
-                )
-                time.sleep(0.5)
-                auto_profile = "applied"
-            else:
-                auto_profile = "up"
+        if not autojs6_present:
+            auto_profile = "retired"
         else:
-            auto_profile = "MISSING"
-            log("autojs6-fleet.json is MISSING from /sdcard/Download/ — re-deploy required")
+            # AutoJs6: only re-apply if the process is dead (cleared data or crash).
+            auto_running = False
+            rc_auto, _ = sh_adb("pgrep -f org.autojs.autojs6 2>/dev/null")
+            if rc_auto == 0:
+                auto_running = True
+            _, afp_out = sh_adb("[ -f /sdcard/Download/autojs6-fleet.json ] && echo ok || echo missing")
+            if "ok" in afp_out:
+                if not auto_running:
+                    profile = "/sdcard/Download/autojs6-fleet.json"
+                    sh_adb(
+                        "if [ -f %s ]; then am start --user 0 "
+                        "-a org.autojs.autojs6.action.APPLY_FLEET_PROFILE "
+                        "-e profile_path %s -e silent true "
+                        "-n org.autojs.autojs6/org.autojs.autojs.core.pref.fleet.FleetProfileActivity; fi"
+                        % (profile, profile)
+                    )
+                    time.sleep(0.5)
+                    auto_profile = "applied"
+                else:
+                    auto_profile = "up"
+            else:
+                auto_profile = "MISSING"
+                log("autojs6-fleet.json is MISSING from /sdcard/Download/ — re-deploy required")
         # Shizuku: only re-apply when Shizuku is down.
         _, sf_out = sh_adb("[ -f /data/local/tmp/shizuku-fleet.json ] && echo ok || echo missing")
         profile = "/data/local/tmp/shizuku-fleet.json"

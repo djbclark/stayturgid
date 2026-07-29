@@ -95,6 +95,11 @@ case "$*" in
       printf 'mWakefulness=%s\nmStayOn=%s\n' "${ADB_WAKE:-Awake}" "${ADB_MSTAYON:-false}"
       [ -n "${ADB_WAKELOCK:-}" ] && printf "  SCREEN_BRIGHT_WAKE_LOCK (tag='%s' uid=10123)\n" "$ADB_WAKELOCK"
       exit 0 ;;
+  *"pm path org.autojs.autojs6"*)
+      # AutoJs6 is retired fleet-wide; default sandbox state is "not
+      # installed" (empty output) unless a test opts into the legacy path.
+      [ -n "${ADB_AUTOJS6_INSTALLED:-}" ] && printf 'package:/data/app/org.autojs.autojs6-1/base.apk\n'
+      exit 0 ;;
 esac
 exit 0
 STUB
