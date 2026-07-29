@@ -125,10 +125,10 @@ aggregate time, not a per-host breakdown), ran three separate real
 mutating deploy):
 
 | Host | Real time (full device play, solo) |
-|------|-------------------------------------|
-| s24  | 318.58s (~5m19s) |
-| p7a  | 421.64s (~7m02s) |
-| hd8  | 492.38s (~8m12s) |
+| ---- | ---------------------------------- |
+| s24  | 318.58s (~5m19s)                   |
+| p7a  | 421.64s (~7m02s)                   |
+| hd8  | 492.38s (~8m12s)                   |
 
 Confirms the issue's suspicion — hd8 (Fire OS) is the slowest device — but
 also shows **p7a is meaningfully slower than s24 too** (32% slower), not
@@ -226,6 +226,7 @@ just test             # clean (all pytest/ansible-test/shell-unit suites)
 ```
 
 Live (real devices, not a dry run):
+
 ```
 python3 control/bin/deploy_fleet.py                    # full fleet, confirmed failed=0 on s24/hd8/p7a
 python3 control/bin/deploy_fleet.py --devices-only s24  # confirmed no second control_node/site.yml launch
