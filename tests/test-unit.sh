@@ -102,7 +102,7 @@ battery_suite device/termux/py/stayturgid_battery_alarm.py py
 # Same suite runs against the shell implementation and its Python twin.
 repair_suite() {
   local RSCRIPT="$1" T="$2"
-  unset PGREP_RC FLOCK_RC ADB_A11Y ADB_SHELL_UID 2>/dev/null || true
+  unset PGREP_RC FLOCK_RC ADB_A11Y ADB_SHELL_UID ADB_AUTOJS6_INSTALLED 2>/dev/null || true
   # healthy path
   reset_sandbox
   export PGREP_RC=0

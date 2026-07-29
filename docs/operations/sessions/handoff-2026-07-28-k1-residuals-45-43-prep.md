@@ -18,7 +18,8 @@ per the brief's explicit instruction, since "operator standing by" at unit
 start doesn't mean still available now. Worktree:
 `~/src/ops-worktrees/k1-residuals-45-43/stayturgid`, branch
 `feature/k1-residuals-45-verify-43`. `just check` and `just test` both clean
-(592 pytest + 133 shell unit tests + 5 ansible-test collections, all green).
+(592 pytest + 136 shell unit tests + 6 ansible-test collection suites, all
+green — see §6 for the itemized breakdown).
 
 ---
 
@@ -373,7 +374,7 @@ false-positive) hold on a third attempt, and (b) attempt the initial
 
 - `just check` — clean (`RESULT: PASS (code)`).
 - `just test` — clean: 592 pytest tests + 1 skipped, 136 shell unit tests (was
-  133; +3 from this fix), 5 ansible-test collection suites (65+16+20+8+15+7
+  133; +3 from this fix), 6 ansible-test collection suites (65+16+20+8+15+7
   passed), `just site-contract-check` clean (Entangled parity restored after
   the SITE-CONTRACT.md / template edit).
 - `ansible-lint -q playbooks/ ../ansible_collections/stayturgid/` — 0
