@@ -44,3 +44,4 @@ serverapp_grafana_telegram_chat_id: ""
 
 serverapp_grafana_openobserve_email: "{{ lookup('env', 'OPENOBSERVE_ROOT_EMAIL') | default('', true) }}"
 serverapp_grafana_openobserve_password: "{{ lookup('env', 'OPENOBSERVE_ROOT_PASSWORD') | default('', true) }}"
+serverapp_grafana_openobserve_base_uri: "{{ lookup('env', 'OPENOBSERVE_BASE_URI') | default('', true) }}"

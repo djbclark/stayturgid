@@ -26,7 +26,7 @@ serverapp_openobserve_grpc_address: "127.0.0.1"
 serverapp_openobserve_health_url: "http://127.0.0.1:5080/healthz"
 # Choice E (D7-ROUTES-E): empty = OO owns / (loopback). serverapps.py sets
 # /oo + https://<host>/oo when caddy_public_hostname is present.
-serverapp_openobserve_base_uri: ""
+serverapp_openobserve_base_uri: "{{ lookup('env', 'OPENOBSERVE_BASE_URI') | default('', true) }}"
 serverapp_openobserve_web_url: ""
 # No default for serverapp_openobserve_uid — always supplied as an extra-var by
 # control/site_contract/serverapps.py (os.getuid()); fail closed otherwise.

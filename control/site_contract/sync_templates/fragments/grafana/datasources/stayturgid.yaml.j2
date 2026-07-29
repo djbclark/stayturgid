@@ -25,7 +25,7 @@ datasources:
     type: prometheus
     uid: stayturgid-openobserve
     access: proxy
-    url: http://127.0.0.1:{{ ports['openobserve-http'] }}/api/default/prometheus
+    url: http://127.0.0.1:{{ ports['openobserve-http'] }}${OPENOBSERVE_BASE_URI}/api/default/prometheus
     isDefault: false
     editable: false
     basicAuth: true
