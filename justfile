@@ -3,6 +3,7 @@
 # Variables (optional on most recipes):
 #   hosts=oneui-device       Limit to one or more inventory hosts: just deploy hosts=oneui-device fireos-device
 #   scope=full      Deploy scope: full | fdroid | play | app-stores
+#   devices_only=1  Skip the Mac control_node pass (#57) — for iterating on one device
 #
 # Quick start:
 #   just help           → show this listing
@@ -18,9 +19,11 @@ ansible_playbook := "python3 control/bin/ansible_exec.py ansible-playbook"
 
 hosts := env_var_or_default("hosts", "")
 scope := env_var_or_default("scope", "full")
+devices_only := env_var_or_default("devices_only", "")
 
 deploy_args := env_var_or_default("deploy_args", if hosts == "" { "" } else { hosts })
 deploy_scope_arg := env_var_or_default("deploy_scope_arg", if scope == "full" { "" } else { "--scope " + scope })
+deploy_devices_only_arg := env_var_or_default("deploy_devices_only_arg", if devices_only == "" { "" } else { "--devices-only" })
 limit_flag := env_var_or_default("limit_flag", if hosts == "" { "" } else { "-l " + hosts })
 
 mac_site := "ansible/playbooks/control_node/site.yml"

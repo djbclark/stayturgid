@@ -5,7 +5,7 @@
 
 # ---------- Deploy ----------
 _deploy_impl:
-    python3 control/bin/deploy_fleet.py {{ deploy_args }} {{ deploy_scope_arg }}
+    python3 control/bin/deploy_fleet.py {{ deploy_args }} {{ deploy_scope_arg }} {{ deploy_devices_only_arg }}
 
 deploy-legacy:
     @just _deploy_impl
