@@ -20,3 +20,18 @@ datasources:
     jsonData:
       timeInterval: 15s
       httpMethod: POST
+
+  - name: OpenObserve
+    type: prometheus
+    uid: stayturgid-openobserve
+    access: proxy
+    url: http://127.0.0.1:{{ ports['openobserve-http'] }}${OPENOBSERVE_BASE_URI}/api/default/prometheus
+    isDefault: false
+    editable: false
+    basicAuth: true
+    basicAuthUser: ${OPENOBSERVE_ROOT_EMAIL}
+    secureJsonData:
+      basicAuthPassword: ${OPENOBSERVE_ROOT_PASSWORD}
+    jsonData:
+      timeInterval: 15s
+      httpMethod: POST

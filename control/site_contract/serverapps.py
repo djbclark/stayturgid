@@ -1149,12 +1149,11 @@ def plan_openobserve(
     public_host = load_caddy_public_hostname(site_dir, site_map)
     # Choice E (D7-ROUTES-E): ZO_BASE_URI remaps *all* HTTP routes (UI + API +
     # healthz) under the prefix. Vector sink + health_url must match.
+    oo_base_uri = os.environ.get("OPENOBSERVE_BASE_URI", "")
     if public_host:
-        oo_base_uri = "/oo"
         oo_web_url = f"https://{public_host}/oo"
         health_url = f"http://127.0.0.1:5080{oo_base_uri}/healthz"
     else:
-        oo_base_uri = ""
         oo_web_url = ""
 
     plan.ansible_extra = {
@@ -1168,7 +1167,6 @@ def plan_openobserve(
         "serverapp_openobserve_plist_path": str(plist),
         "serverapp_openobserve_health_url": health_url,
         "serverapp_openobserve_uid": str(os.getuid()),
-        "serverapp_openobserve_base_uri": oo_base_uri,
         "serverapp_openobserve_web_url": oo_web_url,
     }
 
@@ -2007,6 +2005,9 @@ def build_plan(
     unknown = [a for a in selected if a not in KNOWN_APPS]
     if unknown:
         raise ServerAppsError(f"unknown serverapp(s): {', '.join(unknown)}; known: {', '.join(KNOWN_APPS)}")
+
+    public_host = load_caddy_public_hostname(destination, site_map)
+    os.environ["OPENOBSERVE_BASE_URI"] = "/oo" if public_host else ""
 
     # Own-mode base-config template headers (§1.7); best-effort, cosmetic only.
     try:

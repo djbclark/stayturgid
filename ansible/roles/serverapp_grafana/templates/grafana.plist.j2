@@ -31,6 +31,12 @@
         <string>{{ serverapp_grafana_home }}</string>
         <key>GF_PATHS_PROVISIONING</key>
         <string>{{ serverapp_grafana_provisioning_dir }}</string>
+        <key>OPENOBSERVE_ROOT_EMAIL</key>
+        <string>{{ serverapp_grafana_openobserve_email | default('', true) }}</string>
+        <key>OPENOBSERVE_ROOT_PASSWORD</key>
+        <string>{{ serverapp_grafana_openobserve_password | default('', true) }}</string>
+        <key>OPENOBSERVE_BASE_URI</key>
+        <string>{{ serverapp_grafana_openobserve_base_uri }}</string>
     </dict>
 </dict>
 </plist>
