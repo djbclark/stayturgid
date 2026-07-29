@@ -119,19 +119,26 @@ def set_inversion(serial, enabled):
     return rc == 0 and inversion_enabled(serial) == enabled
 
 
+class SettingsReadError(Exception):
+    pass
+
+
 def _get_system_setting(serial, key):
     rc, out = mac_adb_shell(serial, "settings", "get", "system", key)
     if rc != 0:
-        return None
+        raise SettingsReadError(f"settings get {key} failed with rc={rc}")
     val = out.strip()
     if not val or val == "null":
-        return None
+        return "null"
     return val
 
 
 def read_rotation_settings(serial):
     """Current system rotation prefs (accelerometer_rotation, user_rotation)."""
-    return {k: _get_system_setting(serial, k) for k in _ROTATION_KEYS}
+    try:
+        return {k: _get_system_setting(serial, k) for k in _ROTATION_KEYS}
+    except SettingsReadError:
+        return None
 
 
 def apply_portrait_lock(serial):
@@ -162,6 +169,9 @@ def apply_portrait_lock(serial):
 def lock_portrait_orientation(serial):
     """Save rotation prefs, then lock portrait for the session."""
     saved = read_rotation_settings(serial)
+    if saved is None:
+        sys.stderr.write("WARN: failed to read rotation settings, aborting portrait lock on %s\n" % serial)
+        return None
     if not apply_portrait_lock(serial):
         sys.stderr.write("WARN: failed to lock portrait orientation on %s\n" % serial)
     return saved
@@ -185,7 +195,10 @@ def restore_rotation_settings(serial, saved):
         val = saved.get(key)
         if val is None:
             continue
-        rc, _out = mac_adb_shell(serial, "settings", "put", "system", key, val, timeout=10)
+        if val == "null":
+            mac_adb_shell(serial, "settings", "delete", "system", key, timeout=10)
+        else:
+            mac_adb_shell(serial, "settings", "put", "system", key, val, timeout=10)
         ok = ok and rc == 0
     if not ok:
         sys.stderr.write("WARN: failed to restore rotation settings on %s\n" % serial)

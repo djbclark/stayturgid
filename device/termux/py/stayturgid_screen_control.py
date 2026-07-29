@@ -74,18 +74,25 @@ def set_inversion(_serial, enabled):
     return rc == 0 and inversion_enabled() == enabled
 
 
+class SettingsReadError(Exception):
+    pass
+
+
 def _get_system_setting(key):
     rc, out = sh.shell("settings", "get", "system", key)
     if rc != 0:
-        return None
+        raise SettingsReadError("settings get %s failed with rc=%s" % (key, rc))
     val = out.strip()
     if not val or val == "null":
-        return None
+        return "null"
     return val
 
 
 def read_rotation_settings(_serial=None):
-    return {k: _get_system_setting(k) for k in _ROTATION_KEYS}
+    try:
+        return {k: _get_system_setting(k) for k in _ROTATION_KEYS}
+    except SettingsReadError:
+        return None
 
 
 def apply_portrait_lock(_serial=None):
@@ -110,6 +117,9 @@ def apply_portrait_lock(_serial=None):
 
 def lock_portrait_orientation(_serial=None):
     saved = read_rotation_settings()
+    if saved is None:
+        sys.stderr.write("WARN: failed to read rotation settings, aborting portrait lock\n")
+        return None
     if not apply_portrait_lock():
         sys.stderr.write("WARN: failed to lock portrait orientation\n")
     return saved
@@ -131,7 +141,10 @@ def restore_rotation_settings(_serial, saved):
         val = saved.get(key)
         if val is None:
             continue
-        rc, _ = sh.shell("settings", "put", "system", key, val)
+        if val == "null":
+            rc, _ = sh.shell("settings", "delete", "system", key)
+        else:
+            rc, _ = sh.shell("settings", "put", "system", key, val)
         ok = ok and rc == 0
     if not ok:
         sys.stderr.write("WARN: failed to restore rotation settings\n")
