@@ -80,7 +80,7 @@ cutover state.
 | **E — On-device LLM**  | shell-gpt escalation; incubator note               | 54             | Medium (mis-scope risk)       |
 | **F — FIRERPA**        | gRPC backup channel enhancements                   | F1, F3         | Medium (future, core is done) |
 | **H — Post-migration** | fireos-device deploy, foreground-screen cleanup    | H1, H3, H9     | Low–Medium                    |
-| **T — Tooling**        | Deferred evaluations                               | T2, T4, T5     | Low–Medium                    |
+| **T — Tooling**        | Deferred evaluations                               | T2, T4, T5, T6 | Low–Medium                    |
 
 Parked (not a track): Inferno/Styx → [docs/research/experiments/inferno-styx/](research/experiments/inferno-styx).
 
@@ -272,12 +272,14 @@ apps, UI, and recovery. A new ADR is required after measured pilot results.
 
 **Research complete (2026-07-23):** [Observability unification vs. portal unification
 evaluation](research/evaluations/observability-portal-unification-evaluation-2026-07-23.md).
-Recommendation: reject Homer/Glance as a portal replacement. Two separable
-next steps: (1) wire OpenObserve into Grafana as a Prometheus-compatible
-datasource; (2) actually run the dashboard-framework evaluation prompt.
-Tracked as [#47](https://github.com/djbclark/stayturgid/issues/47), blocked on
-the OpenObserve↔Vector 401 auth break tracked in
-[#44](https://github.com/djbclark/stayturgid/issues/44).
+**Implemented (2026-07-29):** OpenObserve successfully wired into Grafana as a Prometheus-compatible datasource, resolving the first half of [#47](https://github.com/djbclark/stayturgid/issues/47) following the fix for [#44](https://github.com/djbclark/stayturgid/issues/44).
+The dashboard-framework evaluation prompt was also completed, resulting in the adoption of a hybrid approach (see T6 below). [#47](https://github.com/djbclark/stayturgid/issues/47) is now closed.
+
+#### T6 — Dashboard Framework Migration (Semaphore UI) · Risk: **Medium** · Planned
+
+**Research complete (2026-07-29):** [Dashboard Framework Evaluation](research/dashboard-framework-evaluation-2026-07-29.md).
+Recommendation: Retain the current Flask+HTMX device-centric UI and synchronous action workflows, but adopt Semaphore UI to assume responsibility for asynchronous Ansible job execution, history, and scheduling.
+Next steps: Deploy Semaphore UI behind Caddy on the control node and migrate one low-risk scheduled job as a PoC.
 
 ---
 

@@ -41,3 +41,6 @@ serverapp_grafana_admin_password: admin
 serverapp_grafana_telegram_chat_id: ""
 # No default for serverapp_grafana_uid — always supplied as an extra-var by
 # control/site_contract/serverapps.py (os.getuid()); fail closed otherwise.
+
+serverapp_grafana_openobserve_email: "{{ lookup('env', 'OPENOBSERVE_ROOT_EMAIL') | default('', true) }}"
+serverapp_grafana_openobserve_password: "{{ lookup('env', 'OPENOBSERVE_ROOT_PASSWORD') | default('', true) }}"
