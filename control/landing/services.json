@@ -9,7 +9,6 @@
     {"group": "mac", "label": "OpenCode Web (HTTPS)", "url": "https://mac.example.ts.net/opencode/"},
     {"group": "mac", "label": "Fleet Dashboard (HTTPS)", "url": "https://mac.example.ts.net/dashboard/"},
     {"group": "mac", "label": "Fleet Stats (HTTPS)", "url": "https://mac.example.ts.net/stats/"},
-    {"group": "mac", "label": "Ollama LLM API (HTTPS)", "url": "https://mac.example.ts.net/ollama/"},
     {"group": "mac", "label": "LiteLLM Proxy (HTTPS)", "url": "https://mac.example.ts.net/litellm/"},
     {"group": "mac", "label": "OpenUsage Limits API", "url": "http://localhost:6736/v1/limits"},
     {"group": "mac", "label": "SSH Server (sshd)", "url": "ssh://mac.example.ts.net:22"},

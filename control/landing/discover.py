@@ -49,7 +49,6 @@ KNOWN_SERVICES: list[dict] = [
     {"url": "https://mac.example.ts.net/opencode/", "label": "OpenCode Web (HTTPS)", "group": "mac"},
     {"url": "https://mac.example.ts.net/dashboard/", "label": "Fleet Dashboard (HTTPS)", "group": "mac"},
     {"url": "https://mac.example.ts.net/stats/", "label": "Fleet Stats (HTTPS)", "group": "mac"},
-    {"url": "https://mac.example.ts.net/ollama/", "label": "Ollama LLM API (HTTPS)", "group": "mac"},
     {"url": "https://mac.example.ts.net/litellm/", "label": "LiteLLM Proxy (HTTPS)", "group": "mac"},
     {"url": "http://localhost:6736/v1/limits", "label": "OpenUsage Limits API", "group": "mac"},
     {"url": "ssh://mac.example.ts.net:22", "label": "SSH Server (sshd)", "group": "mac"},
