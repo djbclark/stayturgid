@@ -78,7 +78,7 @@ cutover state.
 | **B — Ansible-native** | Bootstrap APK automation follow-ups                | B63, B64       | Low–Medium                    |
 | **D — Reliability**    | Symptom-driven hardening (needs post-K1 re-scope)  | 43, 44, 45     | Latent until triggered        |
 | **E — On-device LLM**  | shell-gpt escalation; incubator note               | 54             | Medium (mis-scope risk)       |
-| **F — FIRERPA**        | gRPC backup channel enhancements                   | F1, F3         | Medium (future, core is done) |
+| **F — FIRERPA**        | gRPC backup channel enhancements                   | F3             | Medium (future, core is done) |
 | **H — Post-migration** | fireos-device deploy, foreground-screen cleanup    | H1, H3, H9     | Low–Medium                    |
 | **T — Tooling**        | Deferred evaluations                               | T2, T4, T5, T6 | Low–Medium                    |
 
@@ -344,16 +344,7 @@ remains unsupported. Architecture docs:
 `docs/research/evaluations/firerpa-nonroot-redundancy-deepseek-pro-2026-07-12.md`,
 `docs/research/evaluations/firerpa-install-map-2026-07-12.md`.
 
-**Closed:** F2, F4 — see [archive](archive/options-closed-2026-07-23.md#track-f--firerpa-closed-items).
-
-#### F1 — MCP bridge extension (agent) · Risk: **Medium** · Core: gRPC heal works without it
-
-Build a lamda MCP extension that exposes stayturgid repair primitives through
-the gRPC channel. Core gRPC heal (`firerpa_heal.py`) works today; MCP just
-provides agent-native tool calling. **Plan finalized:**
-[operations/plans/firerpa-mcp-bridge-plan-2026-07-22.md](operations/plans/firerpa-mcp-bridge-plan-2026-07-22.md)
-(decisions D1–D3 resolved; implementation gated on operator go). Tracked as
-[#46](https://github.com/djbclark/stayturgid/issues/46).
+**Closed:** F1, F2, F4 — see [archive](archive/options-closed-2026-07-23.md#track-f--firerpa-closed-items).
 
 #### F3 — MITM-on-demand playbook (agent) · Risk: **Medium**
 

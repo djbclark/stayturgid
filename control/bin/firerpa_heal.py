@@ -183,24 +183,27 @@ def heal_device(host: str, port: int = 65000) -> dict[str, str]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Repair stayturgid via FIRERPA gRPC API.")
-    parser.add_argument("--host", help="Target host alias (oneui-device, stock-android-device, fireos-device)")
+    parser.add_argument("--host", help="Target host alias (e.g., s24, p7a, hd8)")
     parser.add_argument("--all", action="store_true", help="Heal all fleet devices")
     parser.add_argument("--port", type=int, default=65000)
     args = parser.parse_args(argv)
 
-    fleet = {
-        "oneui-device": "100.0.0.11",
-        "stock-android-device": "100.0.0.12",
-        "fireos-device": "100.0.0.13",
-    }
+    from control.lib.firerpa_fleet import get_fleet
 
+    fleet = get_fleet()
+    if not fleet:
+        print("No active devices found in inventory.", file=sys.stderr)
+        return 1
+
+    targets = {}
     if args.host:
-        if args.host not in fleet:
-            print(f"Unknown host: {args.host}. Known: {sorted(fleet)}", file=sys.stderr)
+        target = next((t for t in fleet if t.alias == args.host), None)
+        if not target:
+            print(f"Unknown host: {args.host}. Known: {[t.alias for t in fleet]}", file=sys.stderr)
             return 1
-        targets = {args.host: fleet[args.host]}
+        targets[target.alias] = target.ip
     elif args.all:
-        targets = fleet
+        targets = {t.alias: t.ip for t in fleet if t.enabled}
     else:
         print("Specify --host <alias> or --all", file=sys.stderr)
         return 1
@@ -211,7 +214,7 @@ def main(argv: list[str] | None = None) -> int:
         try:
             results = heal_device(ip, args.port)
             if results.get("firerpa") == "unreachable":
-                if alias == "fireos-device":
+                if alias == "hd8":
                     _log(INFO, "%s: FIRERPA not running (expected)" % alias)
                 rc = 1
         except Exception as e:

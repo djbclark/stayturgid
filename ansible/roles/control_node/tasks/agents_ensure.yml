@@ -14,6 +14,11 @@
     path: "{{ agents_dir }}/com.stayturgid.firerpa-health.plist"
   register: _firerpa_health_plist_stat
 
+- name: Stat FIRERPA MCP launchd plist
+  ansible.builtin.stat:
+    path: "{{ agents_dir }}/com.stayturgid.firerpa-mcp.plist"
+  register: _firerpa_mcp_plist_stat
+
 - name: Stat fleet dashboard launchd plist
   ansible.builtin.stat:
     path: "{{ agents_dir }}/{{ stayturgid_dashboard_label }}.plist"
@@ -31,6 +36,7 @@
         + _opencode_web_agents
         + _dashboard_agents
         + _firerpa_health_agents
+        + _firerpa_mcp_agents
       }}
   vars:
     _core_launchd_agents:
@@ -80,6 +86,16 @@
           'plist': agents_dir ~ '/com.stayturgid.firerpa-health.plist'
         }] if (
           (stayturgid_firerpa_health_enabled | default(true) | bool)
+        ) else []
+      }}
+    _firerpa_mcp_agents: >-
+      {{
+        [{
+          'name': 'com.stayturgid.firerpa-mcp',
+          'plist': agents_dir ~ '/com.stayturgid.firerpa-mcp.plist'
+        }] if (
+          (stayturgid_firerpa_mcp_enabled | default(true) | bool)
+          and (_firerpa_mcp_plist_stat.stat.exists | default(false))
         ) else []
       }}
     _termux_pkg_nightly_agents: >-

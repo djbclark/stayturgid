@@ -160,3 +160,13 @@ landing-discover:
       py=python3
     fi
     "$py" control/landing/discover.py
+
+# ── FIRERPA MCP Bridge ─────────────────────────────────────────────────────
+
+# Start the Tailscale-reachable streamable-HTTP service.
+firerpa-mcp:
+    {{ env_var("HOME") }}/.venv-stayturgid-firerpa/bin/python control/bin/firerpa_mcp.py --transport streamable-http
+
+# Run the local stdio MCP server.
+firerpa-mcp-stdio:
+    {{ env_var("HOME") }}/.venv-stayturgid-firerpa/bin/python control/bin/firerpa_mcp.py --transport stdio

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "firerpa": {
+      "command": "/Users/djbclark/.venv-stayturgid-firerpa/bin/python",
+      "args": [
+        "control/bin/firerpa_mcp.py",
+        "--transport",
+        "stdio"
+      ]
+    }
+  }
+}
