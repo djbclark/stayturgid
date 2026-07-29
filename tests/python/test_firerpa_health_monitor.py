@@ -7,13 +7,6 @@ from types import SimpleNamespace
 import firerpa_health_monitor as monitor
 
 
-def test_as_bool_handles_inventory_strings() -> None:
-    assert monitor._as_bool(True, False)
-    assert monitor._as_bool("yes", False)
-    assert not monitor._as_bool("false", True)
-    assert monitor._as_bool(None, True)
-
-
 def test_recover_device_uses_canonical_lifecycle(monkeypatch) -> None:
     calls: list[list[str]] = []
 

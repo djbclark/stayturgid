@@ -290,6 +290,14 @@
   when: stayturgid_firerpa_health_enabled | default(true) | bool
   register: firerpa_health_plist
 
+- name: Render FIRERPA MCP bridge launchd agent
+  ansible.builtin.template:
+    src: firerpa-mcp.plist.j2
+    dest: "{{ agents_dir }}/com.stayturgid.firerpa-mcp.plist"
+    mode: "0644"
+  when: stayturgid_firerpa_mcp_enabled | default(true) | bool
+  register: firerpa_mcp_plist
+
 - name: Remove FIRERPA health launchd agent when disabled
   ansible.builtin.file:
     path: "{{ agents_dir }}/com.stayturgid.firerpa-health.plist"
@@ -302,6 +310,20 @@
     name: com.stayturgid.firerpa-health
     state: unloaded
   when: firerpa_health_removed.changed
+  failed_when: false
+
+- name: Remove FIRERPA MCP bridge launchd agent when disabled
+  ansible.builtin.file:
+    path: "{{ agents_dir }}/com.stayturgid.firerpa-mcp.plist"
+    state: absent
+  when: not (stayturgid_firerpa_mcp_enabled | default(true) | bool)
+  register: firerpa_mcp_removed
+
+- name: Unload FIRERPA MCP bridge when disabled
+  community.general.launchd:
+    name: com.stayturgid.firerpa-mcp
+    state: unloaded
+  when: firerpa_mcp_removed.changed
   failed_when: false
 
 - name: Render fleet dashboard launchd agent
@@ -368,6 +390,14 @@
             stayturgid_firerpa_health_enabled | default(true) | bool
             and firerpa_health_plist is defined
             and firerpa_health_plist.changed
+          ) else []
+        )
+        + (
+          ['com.stayturgid.firerpa-mcp']
+          if (
+            stayturgid_firerpa_mcp_enabled | default(true) | bool
+            and firerpa_mcp_plist is defined
+            and firerpa_mcp_plist.changed
           ) else []
         )
         + (
