@@ -269,6 +269,8 @@ FIRERPA_CERTIFICATE = { description = "Path to the FIRERPA service certificate a
 GITHUB_TOKEN = { description = "GitHub personal access token for gh CLI auth", required = false }
 ANSIBLE_GALAXY_TOKEN = { description = "Ansible Galaxy API token", required = false }
 OPENCODE_ZEN_API_KEY = { description = "OpenCode Zen API key for the Hermes provider", required = false }
+DEEPSEEK_API_KEY = { description = "DeepSeek API key for the Hermes native DeepSeek provider", required = false }
+OPENROUTER_API_KEY = { description = "OpenRouter API key for the Hermes OpenRouter provider", required = false }
 SSH_TERMUX_KEY = { description = "Path to the Termux SSH private key", required = false, default = "~/.ssh/termux_key" }
 SSH_CA_KEY = { description = "Path to the SSH CA private key", required = false, default = "~/.ssh/stayturgid_ca" }
 FLEET_ADBKEY = { description = "Path to the fleet ADB private key", required = false, default = "~/.config/stayturgid/adbkey" }
