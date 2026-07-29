@@ -1,7 +1,14 @@
 import json
 from unittest import mock
 
-from control.lib.firerpa_fleet import get_fleet
+from control.lib.firerpa_fleet import _as_bool, get_fleet
+
+
+def test_as_bool_handles_inventory_strings() -> None:
+    assert _as_bool(True, False)
+    assert _as_bool("yes", False)
+    assert not _as_bool("false", True)
+    assert _as_bool(None, True)
 
 
 def test_get_fleet_success():
