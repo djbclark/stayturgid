@@ -12,18 +12,11 @@
   when: stayturgid_hermes_enabled | default(true) | bool
   register: _hermes_brew_install
 
-- name: Pin hermes-agent formula in Homebrew to prevent drift
+- name: Ensure hermes-agent formula is not pinned
   ansible.builtin.command:
-    cmd: brew pin hermes-agent
-  register: _hermes_pin
-  changed_when: "'already pinned' not in (_hermes_pin.stderr | default(''))"
-  # Degrade gracefully if the formula is somehow absent (e.g. a failed install)
-  # instead of aborting the play; only a genuine unexpected error fails.
-  failed_when:
-    - _hermes_pin.rc != 0
-    - "'already pinned' not in (_hermes_pin.stderr | default(''))"
-    - "'not installed' not in (_hermes_pin.stderr | default(''))"
-    - "'No available formula' not in (_hermes_pin.stderr | default(''))"
+    cmd: brew unpin hermes-agent
+  register: _hermes_unpin
+  changed_when: "'Unpinned' in (_hermes_unpin.stdout | default(''))"
   when: stayturgid_hermes_enabled | default(true) | bool
 
 - name: Resolve Hermes libexec python (for optional Telegram deps)
