@@ -10,9 +10,9 @@ and break the issue into sub-items a future unit can actually pick up.
 native-agent (Kotlin) side, which is where most of the jobs #18 cares about
 actually live.**
 
-Issue #18 §6 says: *"This feature depends on the completion of the new
+Issue #18 §6 says: _"This feature depends on the completion of the new
 logging system... Implement this feature after the logging system overhaul is
-complete."* Two overhauls are plausible candidates; both were checked.
+complete."_ Two overhauls are plausible candidates; both were checked.
 
 ### 1a. The OTel/Vector/OpenObserve pipeline (docs/archive/plans/logging)
 
@@ -53,15 +53,15 @@ every periodic job #18 is about — has **zero structured logging**:
   `device/native-agent/app`.
 - No `otlphttp`/OTel exporter, no log-level switch, no retention/export path.
 
-So: the *infrastructure* half of the overhaul (transport, ingest, storage,
-query) is done and verified working. The *on-device emitter* half is done for
+So: the _infrastructure_ half of the overhaul (transport, ingest, storage,
+query) is done and verified working. The _on-device emitter_ half is done for
 Termux/Python, retired-along-with-AutoJs6 for the JS side, and **was never
 built for native-agent** — which didn't exist yet when the logging plan was
 written. Issue #18's own acceptance criteria (§6: "dynamic log level
 switching," "structured logging format," "performant... high-frequency Debug
 mode logging," "log persistence and export") describe exactly the missing
 native-agent piece. Read literally against the code that would actually carry
-#18's periodic jobs, **the dependency is not met**.
+this issue's periodic jobs, **the dependency is not met**.
 
 ## 2. Periodic job inventory (Android side, as #18 asks for)
 
@@ -74,11 +74,11 @@ not three independent Android scheduler APIs.
 
 ### native-agent (Kotlin, `HostService.kt`) — current, in production
 
-| Job | Interval | Notes |
-|---|---|---|
-| Ping loop (`startPingLoop`) | 5 min (`PING_INTERVAL_MS`) | Screen-on only; keeps the Shizuku binder awake (`callPingAwake`). Stops on screen-off. |
-| Co-monitor / heartbeat loop (`startHeartbeatLoop`) | 20 min (`COMONTOR_INTERVAL_MS`) | Screen-independent. Already has a one-time **per-device phase stagger** (`AgentSchedule.staggerMs`, keyed off `ANDROID_ID` hash) so fleet devices don't all wake at once — this is effectively a primitive, undocumented-as-such "Efficiency mode" behavior already shipped. |
-| Peer-start loop (`startPeerStartLoop`) | 20 min steady-state, 3 min (`PEERSTART_PENDING_INTERVAL_MS`) while an authorization is pending | Also staggered (same `AgentSchedule` mechanism), staggering skipped while "urgent" (pending auth). |
+| Job                                                | Interval                                                                                       | Notes                                                                                                                                                                                                                                                                        |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Ping loop (`startPingLoop`)                        | 5 min (`PING_INTERVAL_MS`)                                                                     | Screen-on only; keeps the Shizuku binder awake (`callPingAwake`). Stops on screen-off.                                                                                                                                                                                       |
+| Co-monitor / heartbeat loop (`startHeartbeatLoop`) | 20 min (`COMONTOR_INTERVAL_MS`)                                                                | Screen-independent. Already has a one-time **per-device phase stagger** (`AgentSchedule.staggerMs`, keyed off `ANDROID_ID` hash) so fleet devices don't all wake at once — this is effectively a primitive, undocumented-as-such "Efficiency mode" behavior already shipped. |
+| Peer-start loop (`startPeerStartLoop`)             | 20 min steady-state, 3 min (`PEERSTART_PENDING_INTERVAL_MS`) while an authorization is pending | Also staggered (same `AgentSchedule` mechanism), staggering skipped while "urgent" (pending auth).                                                                                                                                                                           |
 
 `AgentSchedule.kt` (the stagger utility) is already a real, tested precedent
 for "site-wide behavior with a per-device deterministic offset" — exactly the
@@ -99,11 +99,11 @@ is genuinely net-new.
 
 ### Termux (Python) — current, in production
 
-| Job | Interval | Notes |
-|---|---|---|
+| Job                                                       | Interval                                             | Notes                                                                                                                                                         |
+| --------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `stayturgid_repair.py` (via `start_adb.py`'s daemon loop) | 300s default, `STAYTURGID_INTERVAL_SEC` env override | Already has a basic per-device override mechanism (env var) — no site-wide/per-device precedence system, just whatever `.stayturgid/env` sets on that device. |
-| `stayturgid_bridges.py` (`--mode repair`) | 2s poll (`POLL_SEC`) | Local IPC/socket bridge, not a background "job" in the WorkManager sense — continuous fast poll, out of scope for clock-minute scheduling. |
-| `otelcol-contrib` | continuous tail, `batch` processor flushes every 30s | Infra process, not a "job." |
+| `stayturgid_bridges.py` (`--mode repair`)                 | 2s poll (`POLL_SEC`)                                 | Local IPC/socket bridge, not a background "job" in the WorkManager sense — continuous fast poll, out of scope for clock-minute scheduling.                    |
+| `otelcol-contrib`                                         | continuous tail, `batch` processor flushes every 30s | Infra process, not a "job."                                                                                                                                   |
 
 `stayturgid_bridges.py --mode autojs6` and both `start-autojs6-*.sh` boot
 scripts are retired (removed from `stayturgid_boot_scripts`, deleted from
@@ -129,7 +129,7 @@ Ordered by dependency, not by priority — §3.1 gates several others.
    nowhere for that data to go yet.
 2. **Efficiency-mode formalization** (Small). Mostly already implemented:
    `AgentSchedule`'s per-device stagger + screen-on-gated ping loop already
-   *are* efficiency behavior. This is closer to naming/documenting the
+   _are_ efficiency behavior. This is closer to naming/documenting the
    existing behavior as "Efficiency mode (default)" than new engineering —
    good first PR, low risk, no dependency on #1.
 3. **Mode config storage + site-wide/per-device precedence** (Small-Medium).
@@ -167,7 +167,7 @@ Ordered by dependency, not by priority — §3.1 gates several others.
 
 **Ship #3.1 (native-agent structured logging) as its own issue/unit first.**
 It's the literal blocking dependency #18 names, it's independently useful
-(native-agent currently has *no* durable log trail beyond ephemeral logcat —
+(native-agent currently has _no_ durable log trail beyond ephemeral logcat —
 a real gap for debugging #86/#60/#65-style issues this session kept finding),
 and it unblocks §3.7 (enhanced logging/export) for later.
 
