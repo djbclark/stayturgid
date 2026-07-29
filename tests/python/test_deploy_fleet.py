@@ -107,6 +107,55 @@ def test_resolve_hosts_explicit():
     assert df.resolve_hosts(["oneui-device"]) == ["oneui-device"]
 
 
+class _FakeContext:
+    def __init__(self, collections_path):
+        self.collections_path = collections_path
+
+
+def _stub_install_collections_context(monkeypatch, tmp_path):
+    monkeypatch.setattr(df, "resolve_ansible_context", lambda root: _FakeContext(tmp_path))
+
+
+def test_install_collections_runs_when_no_stamp(monkeypatch, tmp_path):
+    calls = []
+    _stub_install_collections_context(monkeypatch, tmp_path)
+    monkeypatch.setattr(df.subprocess, "run", lambda *a, **k: calls.append(a))
+    df.install_collections()
+    assert len(calls) == 1
+    assert (tmp_path / ".requirements-hash").read_text().strip() == df._requirements_hash()
+
+
+def test_install_collections_skips_when_hash_matches_and_installed(monkeypatch, tmp_path):
+    calls = []
+    _stub_install_collections_context(monkeypatch, tmp_path)
+    monkeypatch.setattr(df.subprocess, "run", lambda *a, **k: calls.append(a))
+    (tmp_path / "ansible_collections").mkdir()
+    (tmp_path / ".requirements-hash").write_text(df._requirements_hash())
+    df.install_collections()
+    assert calls == []
+
+
+def test_install_collections_reruns_when_hash_stale(monkeypatch, tmp_path):
+    calls = []
+    _stub_install_collections_context(monkeypatch, tmp_path)
+    monkeypatch.setattr(df.subprocess, "run", lambda *a, **k: calls.append(a))
+    (tmp_path / "ansible_collections").mkdir()
+    (tmp_path / ".requirements-hash").write_text("stale-hash")
+    df.install_collections()
+    assert len(calls) == 1
+    assert (tmp_path / ".requirements-hash").read_text().strip() == df._requirements_hash()
+
+
+def test_install_collections_reruns_when_collections_dir_missing(monkeypatch, tmp_path):
+    """Hash matching a stamp doesn't matter if the collections were removed."""
+    calls = []
+    _stub_install_collections_context(monkeypatch, tmp_path)
+    monkeypatch.setattr(df.subprocess, "run", lambda *a, **k: calls.append(a))
+    (tmp_path / ".requirements-hash").write_text(df._requirements_hash())
+    df.install_collections()
+    assert len(calls) == 1
+
+
 def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0):
     monkeypatch.setattr(df, "require_ansible", lambda: None)
     monkeypatch.setattr(df, "warn_prerequisites", lambda scope: None)
@@ -142,6 +191,27 @@ def test_deploy_always_runs_mac_even_without_host_limit(monkeypatch):
     assert rc == 0
     assert ("playbook", "mac", False, None) in calls
     assert calls[-1] == ("playbook", "mac", False, None)
+
+
+def test_deploy_devices_only_skips_mac_pass(monkeypatch):
+    """#57: --devices-only must not launch the second control_node/site.yml pass."""
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls)
+    rc = df.deploy(df.Scope.FULL, ["oneui-device"], check=False, devices_only=True)
+    assert rc == 0
+    assert calls == [
+        ("playbook", None, False, "bootstrap"),
+    ]
+
+
+def test_deploy_devices_only_still_reports_device_playbook_failure(monkeypatch):
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls, playbook_rc=2)
+    rc = df.deploy(df.Scope.FULL, ["oneui-device"], check=False, devices_only=True)
+    assert rc == 2
+    assert calls == [
+        ("playbook", None, False, "bootstrap"),
+    ]
 
 
 def test_deploy_check_skips_mutating_bootstrap_tag(monkeypatch):
@@ -184,6 +254,32 @@ def test_deploy_blocks_concurrent_run(monkeypatch):
         with pytest.raises(df.FleetLockHeld):
             df.deploy(df.Scope.FULL, ["oneui-device"], check=False)
     assert calls == []
+
+
+def test_main_passes_devices_only_flag(monkeypatch):
+    seen = {}
+
+    def fake_deploy(scope, hosts, *, check, verbose=0, devices_only=False):
+        seen["devices_only"] = devices_only
+        return 0
+
+    monkeypatch.setattr(df, "deploy", fake_deploy)
+    rc = df.main(["--devices-only", "oneui-device"])
+    assert rc == 0
+    assert seen["devices_only"] is True
+
+
+def test_main_defaults_devices_only_false(monkeypatch):
+    seen = {}
+
+    def fake_deploy(scope, hosts, *, check, verbose=0, devices_only=False):
+        seen["devices_only"] = devices_only
+        return 0
+
+    monkeypatch.setattr(df, "deploy", fake_deploy)
+    rc = df.main(["oneui-device"])
+    assert rc == 0
+    assert seen["devices_only"] is False
 
 
 def test_main_reports_lock_conflict_with_exit_code_3(monkeypatch):

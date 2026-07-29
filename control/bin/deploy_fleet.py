@@ -5,14 +5,16 @@ Canonical entry (from repo root)::
 
   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml
 
-This wrapper installs collections and **always** re-runs control_node/site.yml after
+This wrapper installs collections and, by default, re-runs control_node/site.yml after
 the fleet site playbook. Ansible ``--limit`` is device hosts only, so localhost
 (control node) would otherwise be skipped — Mac agents/launchd must still refresh.
+Pass ``--devices-only`` (#57) to skip that second pass when iterating on one device.
 
 Usage:
   deploy_fleet.py [host ...]              # full site deploy
   deploy_fleet.py --scope fdroid oneui-device      # F-Droid roles only
   deploy_fleet.py --scope play oneui-device        # Play roles + Aurora UI
+  deploy_fleet.py --devices-only oneui-device      # skip the redundant Mac control_node pass
   CHECK=1 deploy_fleet.py oneui-device             # ansible --check --diff (no post-UI / validate asserts)
 
 Scopes map to ansible-playbook --tags on site.yml (see site.yml header).
@@ -21,6 +23,7 @@ Scopes map to ansible-playbook --tags on site.yml (see site.yml header).
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -129,8 +132,28 @@ def require_ansible() -> None:
         sys.exit(1)
 
 
+def _requirements_hash() -> str:
+    return hashlib.sha256(REQUIREMENTS.read_bytes()).hexdigest()
+
+
+def _collections_up_to_date(collections_path: Path, stamp: Path, current_hash: str) -> bool:
+    if not (collections_path / "ansible_collections").is_dir():
+        return False
+    try:
+        return stamp.read_text().strip() == current_hash
+    except OSError:
+        return False
+
+
 def install_collections() -> None:
     context = resolve_ansible_context(REPO_ROOT)
+    current_hash = _requirements_hash()
+    stamp = context.collections_path / ".requirements-hash"
+    # #57: ansible-galaxy pays real dependency-resolution/filesystem-check cost
+    # on every invocation — skip it when requirements.yml hasn't changed since
+    # the last successful install.
+    if _collections_up_to_date(context.collections_path, stamp, current_hash):
+        return
     subprocess.run(
         [
             "ansible-galaxy",
@@ -145,6 +168,8 @@ def install_collections() -> None:
         stdout=subprocess.DEVNULL,
         cwd=REPO_ROOT,
     )
+    stamp.parent.mkdir(parents=True, exist_ok=True)
+    stamp.write_text(current_hash)
 
 
 def warn_prerequisites(scope: Scope) -> None:
@@ -214,7 +239,7 @@ def deploy_mac(*, check: bool, tags: str = "mac", verbose: int = 0) -> int:
     )
 
 
-def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0) -> int:
+def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0, devices_only: bool = False) -> int:
     require_ansible()
     context = resolve_ansible_context(REPO_ROOT)
     require_inventory(context)
@@ -242,6 +267,10 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0) -> 
         # agent role includes privileged /etc configuration, and its normal deploy is
         # independent of the device host check below.
         if check:
+            return rc
+        if devices_only:
+            # #57: the caller only wants the device playbook (e.g. iterating on
+            # one device) — skip the second ansible-playbook launch entirely.
             return rc
         # Always refresh Mac control node on real deploys: deploy_fleet always passes a
         # device --limit, so site.yml's control_node import never selects localhost.
@@ -273,6 +302,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument("--check", action="store_true", help="Ansible dry run (--check --diff); also honors CHECK=1")
     parser.add_argument(
+        "--devices-only",
+        action="store_true",
+        help="Skip the control_node/site.yml Mac pass (#57) — for iterating on one device only",
+    )
+    parser.add_argument(
         "-v",
         "--verbose",
         action="count",
@@ -288,7 +322,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     try:
-        rc = deploy(scope, args.hosts, check=check_mode(args.check), verbose=verbose)
+        rc = deploy(scope, args.hosts, check=check_mode(args.check), verbose=verbose, devices_only=args.devices_only)
     except FleetLockHeld as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 3

@@ -187,6 +187,12 @@ def resolved_env(repo_root: Path, environ: Mapping[str, str] | None = None) -> d
     env["ANSIBLE_COLLECTIONS_PATH"] = os.pathsep.join(
         dict.fromkeys(path for path in (*product_collections, *configured_collections.split(os.pathsep)) if path)
     )
+    # Real per-task timing (#57) regardless of which site's ansible.cfg is
+    # selected — ansible.posix is already a required collection dependency.
+    configured_callbacks = env.get("ANSIBLE_CALLBACKS_ENABLED", "")
+    env["ANSIBLE_CALLBACKS_ENABLED"] = ",".join(
+        dict.fromkeys(name for name in ("ansible.posix.profile_tasks", *configured_callbacks.split(",")) if name)
+    )
     return env
 
 

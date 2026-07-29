@@ -27,7 +27,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from control.lib.ansible_context import AnsibleConfigError, require_inventory, resolve_ansible_context
+from control.lib.ansible_context import AnsibleConfigError, require_inventory, resolve_ansible_context, resolved_env
 from control.lib.fleet_deploy_lock import FleetLockHeld, fleet_lock
 
 PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "fleet" / "termux-pkg-upgrade.yml"
@@ -96,9 +96,9 @@ def main(argv: list[str] | None = None) -> int:
     if check:
         cmd.extend(["--check", "--diff"])
 
-    env = os.environ.copy()
-    env["ANSIBLE_CONFIG"] = str(context.config)
-    env["STAYTURGID_ROOT"] = str(REPO_ROOT)
+    # resolved_env() also supplies ANSIBLE_ROLES_PATH/ANSIBLE_COLLECTIONS_PATH —
+    # without them ansible-playbook can't resolve stayturgid.termux.termux_pkg.
+    env = resolved_env(REPO_ROOT)
     # launchd has a minimal PATH; prefer Homebrew ansible.
     homebrew = "/opt/homebrew/bin:/usr/local/bin"
     env["PATH"] = homebrew + ":" + env.get("PATH", "/usr/bin:/bin")

@@ -14,6 +14,11 @@ def test_nightly_runner_uses_resolved_site_config(monkeypatch, tmp_path):
     seen = {}
 
     monkeypatch.setattr(nightly, "resolve_ansible_context", lambda repo: context)
+    monkeypatch.setattr(
+        nightly,
+        "resolved_env",
+        lambda repo: {"ANSIBLE_CONFIG": str(context.config), "STAYTURGID_ROOT": str(repo), "PATH": "/usr/bin:/bin"},
+    )
     monkeypatch.setattr(nightly, "require_inventory", lambda selected: None)
     monkeypatch.setattr(nightly, "LOG_DIR", tmp_path / "logs")
     monkeypatch.setattr(nightly, "LOG", tmp_path / "logs" / "nightly.log")

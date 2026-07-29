@@ -266,3 +266,48 @@ def test_resolved_env_preserves_additional_ansible_search_paths(tmp_path):
 
     assert env["ANSIBLE_ROLES_PATH"] == f"{tmp_path / 'ansible' / 'roles'}:/site/roles"
     assert env["ANSIBLE_COLLECTIONS_PATH"] == (f"{tmp_path / '.ansible' / 'collections'}:{tmp_path}:/site/collections")
+
+
+def test_resolved_env_enables_profile_tasks_callback(tmp_path):
+    """#57: real per-task timing must be on regardless of the selected site config."""
+    site = tmp_path / "site"
+    site.mkdir()
+    config = write_config(site)
+    (site / "inventory").mkdir()
+    (site / "inventory" / "hosts.yml").write_text("all: {}\n", encoding="utf-8")
+
+    env = ac.resolved_env(tmp_path, {"ANSIBLE_CONFIG": str(config)})
+
+    assert env["ANSIBLE_CALLBACKS_ENABLED"] == "ansible.posix.profile_tasks"
+
+
+def test_resolved_env_preserves_additional_callbacks(tmp_path):
+    """A caller-configured callback list keeps its entries alongside profile_tasks."""
+    site = tmp_path / "site"
+    site.mkdir()
+    config = write_config(site)
+    (site / "inventory").mkdir()
+    (site / "inventory" / "hosts.yml").write_text("all: {}\n", encoding="utf-8")
+
+    env = ac.resolved_env(
+        tmp_path,
+        {"ANSIBLE_CONFIG": str(config), "ANSIBLE_CALLBACKS_ENABLED": "community.general.diy"},
+    )
+
+    assert env["ANSIBLE_CALLBACKS_ENABLED"] == "ansible.posix.profile_tasks,community.general.diy"
+
+
+def test_resolved_env_does_not_duplicate_profile_tasks(tmp_path):
+    """If a site already enables profile_tasks explicitly, don't list it twice."""
+    site = tmp_path / "site"
+    site.mkdir()
+    config = write_config(site)
+    (site / "inventory").mkdir()
+    (site / "inventory" / "hosts.yml").write_text("all: {}\n", encoding="utf-8")
+
+    env = ac.resolved_env(
+        tmp_path,
+        {"ANSIBLE_CONFIG": str(config), "ANSIBLE_CALLBACKS_ENABLED": "ansible.posix.profile_tasks"},
+    )
+
+    assert env["ANSIBLE_CALLBACKS_ENABLED"] == "ansible.posix.profile_tasks"
