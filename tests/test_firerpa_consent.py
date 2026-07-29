@@ -58,10 +58,10 @@ async def test_check_consent_osascript_refuse():
 @pytest.mark.asyncio
 async def test_check_consent_elicitation():
     mock_context = mock.AsyncMock()
-    mock_context.request_context.session.client_capabilities.elicitation = True
 
     mock_result = mock.Mock()
-    mock_result.consent = "proceed"
+    mock_result.action = "accept"
+    mock_result.data.consent = "proceed"
     mock_context.elicit.return_value = mock_result
 
     with mock.patch.dict(os.environ, clear=True):
@@ -71,10 +71,27 @@ async def test_check_consent_elicitation():
 @pytest.mark.asyncio
 async def test_check_consent_elicitation_refuse():
     mock_context = mock.AsyncMock()
-    mock_context.request_context.session.client_capabilities.elicitation = True
 
+    # Test accept with refuse data
     mock_result = mock.Mock()
-    mock_result.consent = "refuse"
+    mock_result.action = "accept"
+    mock_result.data.consent = "refuse"
+    mock_context.elicit.return_value = mock_result
+
+    with mock.patch.dict(os.environ, clear=True):
+        assert await check_consent("test", mock_context) is False
+
+    # Test decline action
+    mock_result = mock.Mock()
+    mock_result.action = "decline"
+    mock_context.elicit.return_value = mock_result
+
+    with mock.patch.dict(os.environ, clear=True):
+        assert await check_consent("test", mock_context) is False
+
+    # Test cancel action
+    mock_result = mock.Mock()
+    mock_result.action = "cancel"
     mock_context.elicit.return_value = mock_result
 
     with mock.patch.dict(os.environ, clear=True):

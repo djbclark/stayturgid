@@ -35,18 +35,28 @@ def get_fleet() -> list[FirerpaTarget]:
     context = resolve_ansible_context(REPO_ROOT)
     env = resolved_env(REPO_ROOT)
 
-    result = subprocess.run(
-        ["ansible-inventory", "--list", *context.inventory_args()],
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            ["ansible-inventory", "--list", *context.inventory_args()],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired:
+        print("Failed to resolve inventory: ansible-inventory timed out after 30s", file=sys.stderr)
+        return []
+
     if result.returncode != 0:
         print("Failed to resolve inventory: " + result.stderr, file=sys.stderr)
         return []
 
-    inv = json.loads(result.stdout)
+    try:
+        inv = json.loads(result.stdout)
+    except json.JSONDecodeError as e:
+        print(f"Failed to decode inventory JSON: {e}", file=sys.stderr)
+        return []
     hosts = inv.get("stayturgid", {}).get("hosts", [])
     if not hosts:
         # Fallback to children of stayturgid if it's a group of groups

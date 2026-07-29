@@ -12,8 +12,12 @@ FIRERPA_HEAL_COUNTDOWN_SEC = 10
 class ConsentSchema(BaseModel):
     consent: str = Field(
         description="Action consent: type 'proceed' to allow, 'refuse' to abort.",
-        default="proceed",
+        default="refuse",
     )
+
+
+def _escape_applescript(s: str) -> str:
+    return s.replace("\\", "\\\\").replace('"', '\\"')
 
 
 class HealSession:
@@ -64,16 +68,21 @@ async def check_consent(action_summary: str, context: Context | None = None) -> 
                 f"A mutating heal tool has been requested: {action_summary}. Type 'proceed' or 'refuse'.",
                 ConsentSchema,
             )
-            if isinstance(res, dict):
-                return res.get("consent", "proceed").lower() != "refuse"
-            return res.consent.lower() != "refuse"
-        except Exception:
+            if hasattr(res, "action"):
+                if res.action == "accept":
+                    return res.data.consent.lower() != "refuse"
+                return False
+        except Exception as e:
+            from control.lib.site_logging import WARNING, log
+
+            log(WARNING, f"MCP Elicitation failed or unsupported: {e}")
             pass  # Fall back to osascript on error
 
     # Fallback to osascript
+    action_summary_escaped = _escape_applescript(action_summary)
     script = f"""
     try
-        display dialog "A mutating heal tool has been requested: {action_summary}." buttons {{"Refuse", "Proceed now"}} default button "Proceed now" giving up after {FIRERPA_HEAL_COUNTDOWN_SEC}
+        display dialog "A mutating heal tool has been requested: {action_summary_escaped}." buttons {{"Refuse", "Proceed now"}} default button "Proceed now" giving up after {FIRERPA_HEAL_COUNTDOWN_SEC}
         set res to button returned of result
         if res is "Refuse" then
             return "refuse"

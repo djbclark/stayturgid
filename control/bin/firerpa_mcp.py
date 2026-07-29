@@ -8,6 +8,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 if str(REPO_ROOT) not in sys.path:
     sys.path.append(str(REPO_ROOT))
 
+import hmac
+
 import uvicorn
 from mcp.server.fastmcp import Context, FastMCP
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -17,6 +19,7 @@ import control.bin.firerpa_heal as heal
 from control.lib.firerpa_auth import certificate_path
 from control.lib.firerpa_consent import HealSession, check_consent
 from control.lib.firerpa_fleet import get_fleet
+from control.lib.site_logging import WARNING, log
 
 try:
     from lamda.client import Device
@@ -63,7 +66,7 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
         if not auth_header or not auth_header.startswith("Bearer "):
             return JSONResponse({"error": "Unauthorized"}, status_code=401)
         token = auth_header.split(" ")[1]
-        if token != self.token:
+        if not hmac.compare_digest(token, self.token):
             return JSONResponse({"error": "Unauthorized"}, status_code=401)
         return await call_next(request)
 
@@ -114,88 +117,115 @@ def device_status(host: str) -> dict:
 
 @mcp.tool()
 async def heal_device(host: str, ctx: Context) -> dict:
+    try:
+        _resolve_host(host)
+    except Exception as e:
+        return {"error": str(e)}
+
     if not await check_consent(f"heal_device on {host}", ctx):
         return {"status": "refused"}
     try:
         d = _connect(host)
         session = HealSession(d, host)
+        try:
+            results = {}
+            sshd_alive = heal.is_sshd_alive(d)
+            port5555_alive = heal.is_port_5555_alive(d)
+            bootloop_alive = heal.is_bootloop_alive(d)
 
-        results = {}
-        sshd_alive = heal.is_sshd_alive(d)
-        port5555_alive = heal.is_port_5555_alive(d)
-        bootloop_alive = heal.is_bootloop_alive(d)
+            results["sshd"] = "up" if sshd_alive else "down"
+            results["shizuku"] = "up" if port5555_alive else "down"
+            results["bootloop"] = "up" if bootloop_alive else "down"
 
-        results["sshd"] = "up" if sshd_alive else "down"
-        results["shizuku"] = "up" if port5555_alive else "down"
-        results["bootloop"] = "up" if bootloop_alive else "down"
+            if not sshd_alive:
+                session.add_action("remove_sshd_down")
+                results["sshd_down_file"] = heal.remove_sshd_down(d)
+                if not heal.is_sshd_alive(d):
+                    session.add_action("restart_sshd")
+                    results["sshd_restart"] = heal.restart_sshd(d)
 
-        if not sshd_alive:
-            session.add_action("remove_sshd_down")
-            results["sshd_down_file"] = heal.remove_sshd_down(d)
-            if not heal.is_sshd_alive(d):
-                session.add_action("restart_sshd")
-                results["sshd_restart"] = heal.restart_sshd(d)
+            if not port5555_alive:
+                session.add_action("restart_shizuku")
+                results["shizuku_restart"] = heal.restart_shizuku(d)
 
-        if not port5555_alive:
-            session.add_action("restart_shizuku")
-            results["shizuku_restart"] = heal.restart_shizuku(d)
+            if not bootloop_alive:
+                session.add_action("restart_bootloop")
+                results["bootloop_restart"] = heal.restart_bootloop(d)
 
-        if not bootloop_alive:
-            session.add_action("restart_bootloop")
-            results["bootloop_restart"] = heal.restart_bootloop(d)
+            results["sshd_final"] = "up" if heal.is_sshd_alive(d) else "down"
+            results["shizuku_final"] = "up" if heal.is_port_5555_alive(d) else "down"
 
-        results["sshd_final"] = "up" if heal.is_sshd_alive(d) else "down"
-        results["shizuku_final"] = "up" if heal.is_port_5555_alive(d) else "down"
-
-        session.close()
-        return results
+            return results
+        finally:
+            session.close()
     except Exception as e:
         return {"error": str(e)}
 
 
 @mcp.tool()
 async def restart_sshd(host: str, ctx: Context) -> dict:
+    try:
+        _resolve_host(host)
+    except Exception as e:
+        return {"error": str(e)}
+
     if not await check_consent(f"restart_sshd on {host}", ctx):
         return {"status": "refused"}
     try:
         d = _connect(host)
         session = HealSession(d, host)
-        session.add_action("remove_sshd_down")
-        heal.remove_sshd_down(d)
-        session.add_action("restart_sshd")
-        res = heal.restart_sshd(d)
-        session.close()
-        return {"status": res, "consent": "proceeded"}
+        try:
+            session.add_action("remove_sshd_down")
+            heal.remove_sshd_down(d)
+            session.add_action("restart_sshd")
+            res = heal.restart_sshd(d)
+            return {"status": res, "consent": "proceeded"}
+        finally:
+            session.close()
     except Exception as e:
         return {"error": str(e)}
 
 
 @mcp.tool()
 async def restart_shizuku(host: str, ctx: Context) -> dict:
+    try:
+        _resolve_host(host)
+    except Exception as e:
+        return {"error": str(e)}
+
     if not await check_consent(f"restart_shizuku on {host}", ctx):
         return {"status": "refused"}
     try:
         d = _connect(host)
         session = HealSession(d, host)
-        session.add_action("restart_shizuku")
-        res = heal.restart_shizuku(d)
-        session.close()
-        return {"status": res}
+        try:
+            session.add_action("restart_shizuku")
+            res = heal.restart_shizuku(d)
+            return {"status": res}
+        finally:
+            session.close()
     except Exception as e:
         return {"error": str(e)}
 
 
 @mcp.tool()
 async def restart_bootloop(host: str, ctx: Context) -> dict:
+    try:
+        _resolve_host(host)
+    except Exception as e:
+        return {"error": str(e)}
+
     if not await check_consent(f"restart_bootloop on {host}", ctx):
         return {"status": "refused"}
     try:
         d = _connect(host)
         session = HealSession(d, host)
-        session.add_action("restart_bootloop")
-        res = heal.restart_bootloop(d)
-        session.close()
-        return {"status": res}
+        try:
+            session.add_action("restart_bootloop")
+            res = heal.restart_bootloop(d)
+            return {"status": res}
+        finally:
+            session.close()
     except Exception as e:
         return {"error": str(e)}
 
@@ -214,6 +244,9 @@ def main():
         token = get_bearer_token()
         if token:
             app.add_middleware(TokenAuthMiddleware, token=token)
+        else:
+            print("WARNING: Starting HTTP transport without token authentication. This is insecure!", file=sys.stderr)
+            log(WARNING, "Starting HTTP transport without token authentication.")
 
         host = args.host or get_tailscale_ip()
         uvicorn.run(app, host=host, port=args.port)
