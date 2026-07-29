@@ -1,4 +1,4 @@
-# Handoff 2026-07-28 — K1 residuals (#45/#43): non-physical prep complete, physical step gated
+# Handoff 2026-07-28 — K1 residuals (#45/#43): prep + physical step both complete
 
 ## Executive summary
 
@@ -12,10 +12,11 @@ fleet state).
 and tested (AutoJs6 self-heal noise, expanded into a full repo-wide sweep per
 operator request mid-session), three investigated to a concrete, evidence-backed
 conclusion (Shizuku watchdog scheduling, release-APK path, Shizuku packaging).
-The gated physical step (hd8 `CLOSED_NO_SHELL` soak trigger + re-verifying the
-two already-fixed bugs) has **not** been attempted — stopping here to check in
-per the brief's explicit instruction, since "operator standing by" at unit
-start doesn't mean still available now. Worktree:
+The gated physical step ran in a follow-up continuation of this session once
+the operator confirmed availability: s24's binder-race/loopback fixes held on
+a third verification, and hd8's `CLOSED_NO_SHELL` trigger reproduced the
+condition but surfaced a **more fundamental gap** than the soak was scoped to
+find — see §5b. Both devices were left healthy. Worktree:
 `~/src/ops-worktrees/k1-residuals-45-43/stayturgid`, branch
 `feature/k1-residuals-45-verify-43`. `just check` and `just test` both clean
 (592 pytest + 136 shell unit tests + 6 ansible-test collection suites, all
@@ -363,10 +364,129 @@ were left in their original, healthy states — nothing was rebooted, reset,
 or otherwise mutated on either device this session; all changes are
 control-node-only, in this git worktree.
 
-**Not done, needs the operator's live go-ahead through the orchestrator**:
-(a) re-verify the two already-fixed bugs (binder-race retry, loopback
-false-positive) hold on a third attempt, and (b) attempt the initial
-`CLOSED_NO_SHELL` trigger on hd8.
+**Update — operator confirmed available and the physical step was completed
+in a follow-up continuation of this session; full results in §5b.**
+
+---
+
+## 5b. Physical step — completed
+
+### s24: third verification of the binder-race and loopback fixes — holds
+
+Full reboot (`adb reboot`), live logcat captured via `logcat -d` dump
+immediately after reconnect (a `logcat -v` background stream started
+pre-reboot dies when the USB transport drops on reboot — the OS's own
+logcat ring buffer survives the reboot and a post-hoc `-d` dump against it
+works fine; no need for a fragile live stream). USB re-enumeration took
+~6.5 minutes this time (longer than prior sessions, no explanation found,
+not investigated further — not a regression in anything this unit touched).
+
+```
+07:25:23.707 W Shizuku not running        <- retry #1
+07:25:23.714 I HostService created screenOn=true
+07:25:23.717 W Shizuku not running        <- retry #2
+07:25:25.712 W Shizuku not running        <- retry #3
+07:25:27.716 W Shizuku not running        <- retry #4
+07:25:28.166 I Shizuku binder received    <- succeeds within ~4.5s
+07:25:28.174 I bindUserService requested
+07:25:28.632 I UserService connected
+07:25:28.654 I pingAwake IPC ok
+07:25:30.635 I comonitor: [agent] STATUS port=open shizuku=up sshd=down ...
+```
+
+Full comonitor cycle completed 7s after `HostService` creation — well
+within the documented 2s-poll/20s-window retry design. Confirmed the
+reported `port=open` was a **true** positive, not a repeat of the loopback
+false-positive bug: connected to s24's Tailscale IP
+(`100.123.218.30:5555`) directly from the Mac and got a genuine external
+connection, not just a same-device loopback echo. Device left healthy:
+Shizuku up, agent running, watchdog script alive.
+
+### hd8: `CLOSED_NO_SHELL` initial trigger — a more fundamental finding
+
+**The `CLOSED_NO_SHELL` condition triggered genuinely.** `adb reboot`;
+`service.adb.tcp.port` stayed empty (wireless ADB never came back) for the
+first ~68 minutes post-boot, confirmed via repeated direct `getprop`
+polling, not inferred.
+
+**But the native agent's own detection/repair pipeline never got that
+far.** `BootReceiver` itself was slow to fire — no third-party evidence of
+our package in `dumpsys activity broadcasts history`, no app-level log
+line, and no process at all until **uptime ≈232s** (~3.9 min post-boot) —
+even though other third-party apps (Tailscale) had already started by
+then. This reproduces the exact "boot-vs-manual-start gap" the
+2026-07-25 session flagged but never root-caused. Once `HostService` did
+start, its bind-retry loop correctly began polling — but the retry window
+is **`INITIAL_BIND_RETRY_MS = 300_000L` (5 minutes)**, not the ~20s figure
+an earlier summary implied (that number was probably from an early draft
+of the fix; the shipped constant is far more generous, seemingly
+deliberately sized for exactly this slow-Fire-OS-boot case). Even across
+the full 5-minute window, `Shizuku.pingBinder()` never returned true —
+`shizuku_server` itself never started — and the loop fell through to
+`comonitor skipped — not bound`. **Net: `CLOSED_NO_SHELL` was never
+actually logged by the agent's own STATUS line, and `CatastrophicRepair`
+was never dispatched at all**, because the whole comonitor path requires a
+bound Shizuku UserService to run over, and Shizuku itself never came up
+unattended. This is a strictly earlier-stage failure than the
+already-documented "detects it correctly but the port never reopens" gap.
+
+**Root cause, confirmed live:** the same Fire-OS loopback-EOF problem
+issue #60 and a 2026-07-26 handoff doc already identified — Fire OS's
+`adbd` drops connections whose peer is device-local, so Shizuku's own
+self-start (whether triggered by `stayturgid_repair.py`'s watchdog, an
+app-level restart, or a raw `shizuku_starter` invocation over _any_
+transport including USB) can't bootstrap on its own once the wireless port
+is fully closed, because that self-start's internal pairing check is
+inherently a loopback connection from hd8 to itself.
+
+**Recovery attempted and found to need two separate, non-obvious steps —
+neither sufficient alone:**
+
+1. First tried the already-documented "safe" external-ADB peer-start
+   (`just agent-peer-start s24`, targeting hd8's provisioned
+   `100.124.55.39:5555`). **This alone did not work** — it failed with a
+   fast `ECONNREFUSED` (not a timeout), because peer-start's own external
+   connection _also_ needs the target's wireless ADB port already
+   listening, which it wasn't. This is a genuinely new finding: the
+   external-ADB peer-start mechanism (issue #61/#65's `PeerStarter`) is
+   not sufficient to bootstrap Shizuku from a fully-cold, wireless-off
+   `CLOSED_NO_SHELL` state — only to _reconnect_ Shizuku once the port is
+   already open by some other means.
+2. Reopened the port from the Mac via a **plain `adb tcpip 5555` client
+   command over the already-authenticated USB transport** (not `adb
+shell` — this issues a low-level protocol command that makes the
+   existing `adbd` instance restart in TCP-listening mode, rather than a
+   shell-level property/settings toggle that a previous session found
+   _doesn't_ reliably force a real restart). Confirmed genuinely external
+   (not loopback-only) by connecting to hd8's Tailscale IP directly from
+   the Mac afterward.
+3. **Then** `just agent-peer-start s24` succeeded: `shizuku_server`
+   started on hd8 within ~1s of the peer-start dispatch, `HostService`
+   picked up the bound Shizuku within 2 more seconds (`Shizuku binder
+received` → `UserService connected` → `pingAwake IPC ok`), all
+   confirmed via direct `ps -ef`/`dumpsys` checks, not just log lines.
+
+**Net for #45/#43:** the accepted, documented Fire-OS limitation ("physical
+recovery is the accepted fallback, not a bug to keep chasing in software")
+needs a more precise restatement — it's not just "plug in a USB cable and
+retry the same self-start," it's specifically **a Mac-issued `adb tcpip`
+client command (USB-transport-level, not a device-shell command) followed
+by an external peer-start** (not a same-device restart). The existing
+peer-start mechanism, on its own, cannot recover from a fully-cold boot
+where wireless ADB never came back at all — only from a live-but-Shizuku-
+died state. `docs/options.md`'s K1 section and the peer-start
+docs/`PeerStarter.kt` docstring don't currently document this two-step
+requirement or the cold-boot gap; worth a follow-up doc update (not done
+in this pass — device-recovery work took priority over documentation
+during a live session).
+
+**Devices left in a healthy state:** confirmed via direct process checks
+on both (`shizuku_server`, `UserService`, agent process all running;
+`service.adb.tcp.port=5555` on hd8, both USB and externally reachable via
+Tailscale). No natural comonitor STATUS line had logged on hd8 by the time
+this write-up was finished (steady-state interval is 20 minutes,
+component-level checks already confirm health) — expected to self-resolve
+on its own schedule, not blocking anything.
 
 ---
 
