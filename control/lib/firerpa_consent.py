@@ -13,7 +13,10 @@ LOG_NAME = "firerpa-consent.log"
 
 
 def _log(level: int, msg: str) -> None:
-    log(LOG_NAME, level, msg, also_print=True)
+    # This module runs inside the MCP server's stdio transport, where
+    # stdout is the JSON-RPC protocol channel — never print diagnostics
+    # there, the log file is the only sink.
+    log(LOG_NAME, level, msg)
 
 
 class ConsentSchema(BaseModel):

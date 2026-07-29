@@ -11,7 +11,10 @@ LOG_NAME = "firerpa-fleet.log"
 
 
 def _log(level: int, msg: str) -> None:
-    log(LOG_NAME, level, msg, also_print=True)
+    # get_fleet() can run inside the MCP server's stdio transport, where
+    # stdout is the JSON-RPC protocol channel — never print diagnostics
+    # there, the log file is the only sink.
+    log(LOG_NAME, level, msg)
 
 
 @dataclass(frozen=True)

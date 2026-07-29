@@ -25,7 +25,10 @@ LOG_NAME = "firerpa-mcp.log"
 
 
 def _log(level: int, msg: str) -> None:
-    log(LOG_NAME, level, msg, also_print=True)
+    # stdout is the MCP stdio transport's JSON-RPC protocol channel when
+    # this server runs with --transport stdio — never print diagnostics
+    # there, the log file is the only sink.
+    log(LOG_NAME, level, msg)
 
 
 try:
