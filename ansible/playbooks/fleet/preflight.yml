@@ -34,12 +34,48 @@
   vars:
     stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
   tasks:
+    # Best-effort (#103): a fully backgrounded/killed Termux can leave `pkg`
+    # and other userland commands unusable via plain `run-as` until the app's
+    # own activity has run at least once since it was last killed — matching
+    # control/bin/firerpa_heal.py's restart_sshd() technique. Foreground it
+    # before the real bootstrap attempt below; ignore failures here, since
+    # the bootstrap task's own re-probe/assert is still the source of truth.
+    - name: Wake a possibly-backgrounded Termux before SSH bootstrap
+      ansible.builtin.command:
+        argv:
+          - adb
+          - -s
+          - "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+          - shell
+          - am
+          - start
+          - -n
+          - com.termux/.app.TermuxActivity
+      delegate_to: localhost
+      changed_when: false
+      failed_when: false
+      when:
+        - not ansible_check_mode
+        - not (_ssh_preflight_ok | default(false) | bool)
+
+    - name: Pause for Termux to come to foreground
+      ansible.builtin.pause:
+        seconds: 3
+      when:
+        - not ansible_check_mode
+        - not (_ssh_preflight_ok | default(false) | bool)
+
     - name: Bootstrap Termux authorized_keys and sshd over adb
       stayturgid.termux.termux_ssh_bootstrap:
         device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
         keys_dir: "{{ stayturgid_ssh_keys_dir }}"
         public_key_files: "{{ stayturgid_ssh_public_key_files | default([]) }}"
       delegate_to: localhost
+      # A module failure here (#103: e.g. `pkg: inaccessible` on a Termux that
+      # was fully backgrounded) must not end the play with that raw error —
+      # "Re-probe"/"Assert" below are the real source of truth and already
+      # have a clearer fail_msg pointing at bootstrap_ssh.py.
+      ignore_errors: true
       when:
         - not ansible_check_mode
         - not (_ssh_preflight_ok | default(false) | bool)
