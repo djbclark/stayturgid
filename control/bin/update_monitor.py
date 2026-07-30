@@ -31,6 +31,30 @@ def escape_label_value(value: str) -> str:
     return str(value).replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
+def versions_differ(current: str, latest: str) -> bool:
+    """True if `current`/`latest` represent different versions.
+
+    Compares dotted-integer segments numerically so "1.2" and "1.2.0" (or a
+    CalVer tag like "2026.7.20") compare equal/ordered correctly instead of
+    the raw strings just happening to differ. Avoids a hard dependency (this
+    script intentionally has none — see get_ansible_version's regex parsing)
+    by falling back to plain string inequality for anything that doesn't
+    parse as dotted integers.
+    """
+
+    def parse(v: str):
+        parts = v.split(".")
+        if parts and all(p.isdigit() for p in parts):
+            return tuple(int(p) for p in parts)
+        return None
+
+    a, b = parse(current), parse(latest)
+    if a is None or b is None:
+        return current != latest
+    length = max(len(a), len(b))
+    return a + (0,) * (length - len(a)) != b + (0,) * (length - len(b))
+
+
 def fetch_github_latest_release(repo: str) -> Optional[str]:
     """Fetches the latest stable release tag from GitHub."""
     url = f"https://api.github.com/repos/{repo}/releases/latest"
@@ -161,7 +185,7 @@ def main():
         clean_current = current_version.lstrip("v")
         clean_latest = latest_version.lstrip("v")
 
-        has_update = 1 if clean_current != clean_latest else 0
+        has_update = 1 if versions_differ(clean_current, clean_latest) else 0
         metrics.append(
             f'software_update_available{{package="{escape_label_value(app["name"])}", '
             f'type="github", current="{escape_label_value(clean_current)}", '
