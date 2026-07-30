@@ -61,13 +61,6 @@ an ID is ambiguous.
 config change, recoverable · **High** = fleet-wide or credential/publish blast
 radius · **Latent** = only act if a symptom returns.
 
-**Post-K1 note (2026-07-22):** the AutoJs6 watchdog/co-monitor runtime was
-retired fleet-wide by the native-agent cutover. Entries below that presuppose
-a live AutoJs6 runtime (43, 44, T2's device-test seam) need re-scoping against
-the native agent before any work starts — see
-[docs/STATUS.md](STATUS.md) for the current, **not yet fully verified**,
-cutover state.
-
 ---
 
 ## Pick a track
@@ -76,7 +69,7 @@ cutover state.
 | ---------------------- | -------------------------------------------------- | -------------- | ----------------------------- |
 | **A — Operational**    | Live deploy, human unblockers, current reliability | H1, H3, H5, 38 | Low–High                      |
 | **B — Ansible-native** | Bootstrap APK automation follow-ups                | B63, B64       | Low–Medium                    |
-| **D — Reliability**    | Symptom-driven hardening (needs post-K1 re-scope)  | 43, 44, 45     | Latent until triggered        |
+| **D — Reliability**    | Symptom-driven hardening                           | 44, 45         | Latent until triggered        |
 | **E — On-device LLM**  | shell-gpt escalation; incubator note               | 54             | Medium (mis-scope risk)       |
 | **F — FIRERPA**        | gRPC backup channel enhancements                   | F3             | Medium (future, core is done) |
 | **H — Post-migration** | fireos-device deploy, foreground-screen cleanup    | H1, H3, H9     | Low–Medium                    |
@@ -134,17 +127,9 @@ Mac soft health: launchd `com.stayturgid.fleet-health` →
 
 **Merged:** A11 — see [archive](archive/options-closed-2026-07-23.md#track-d--reliability).
 
-#### 43 — AutoJs6 WorkManager (agent) · Risk: **Latent** · Needs re-scope
+#### 44 — Tasker kicker for native agent/Shizuku recovery (agent) · Risk: **Latent**
 
-Presupposes a live AutoJs6 runtime, which the K1 cutover retired fleet-wide
-(2026-07-22). Likely moot; re-scope against the native agent's own scheduling
-model before picking this up, or close as superseded.
-
-#### 44 — Tasker kicker on stock-android-device (agent) · Risk: **Latent** · Needs re-scope
-
-Same caveat as 43 — was scoped against AutoJs6/watchdog stalls, which no
-longer exist post-K1. Re-scope against native-agent stalls if the symptom
-recurs, otherwise close as superseded.
+Investigate a minimal Tasker profile (e.g., triggered on a schedule or Shizuku stop) as an additional safeguard layer for the native Kotlin agent. Tasker has a strong track record surviving OEM background-process killing.
 
 #### 45 — Termux `sshd -D` if freeze returns (agent) · Risk: **Latent / Medium** · Trigger: sshd freeze
 
