@@ -31,19 +31,27 @@ object CatastrophicRepair {
             if (ComonitorProbes.probe().port == "open") {
                 return Result(true, "already open")
             }
-            steps += "shell_wireless"
-            if (tryShellWirelessRepair()) {
+            // Fire OS adbd drops this step's loopback connect (#60). Snapshot the flag once
+            // so the recorded step label and the actual attempt can't disagree if the
+            // profile changes mid-repair, and so a downstream "shell status unknown" outcome
+            // can distinguish an intentional skip from a genuine unknown/failure.
+            val shellExpected = DeviceProfile.isPrivilegedShellExpected()
+            steps += if (shellExpected) "shell_wireless" else "shell_wireless_skip"
+            if (tryShellWirelessRepair(shellExpected)) {
                 appendLog("[agent] catastrophic shell wireless OK")
                 return Result(true, steps.joinToString("+") + ":ok")
             }
             steps += "headless_start"
             if (headlessStart()) {
                 appendLog("[agent] catastrophic HEADLESS_START sent; rechecking shell")
-                if (tryShellWirelessRepair()) {
+                if (tryShellWirelessRepair(shellExpected)) {
                     return Result(true, steps.joinToString("+") + ":ok")
                 }
                 if (serverRunning()) {
-                    return Result(true, steps.joinToString("+") + ":server_up_shell_unknown")
+                    return Result(
+                        true,
+                        steps.joinToString("+") + ":" + serverUpDetail(shellExpected),
+                    )
                 }
             }
             appendLog("[agent] catastrophic FAILED steps=${steps.joinToString("+")}")
@@ -54,6 +62,13 @@ object CatastrophicRepair {
             return Result(false, "error:${t.message}")
         }
     }
+
+    /**
+     * Distinguishes an intentional Fire-OS skip (shell status was never expected to be known) from
+     * a genuine unknown after a real wireless-repair attempt.
+     */
+    private fun serverUpDetail(shellExpected: Boolean): String =
+        if (shellExpected) "server_up_shell_unknown" else "server_up_shell_skip"
 
     fun serverRunning(): Boolean {
         val bc =
@@ -108,7 +123,17 @@ object CatastrophicRepair {
         }
     }
 
-    fun tryShellWirelessRepair(): Boolean {
+    fun tryShellWirelessRepair(): Boolean =
+        tryShellWirelessRepair(DeviceProfile.isPrivilegedShellExpected())
+
+    fun tryShellWirelessRepair(shellExpected: Boolean): Boolean {
+        if (!shellExpected) {
+            // Fire OS adbd drops this exact loopback connect (#60) — same gate Termux
+            // already applies via `privilegedShellExpected` in device.json. Skip the
+            // doomed attempt rather than eat the connect timeout every cycle.
+            Log.i(TAG, "tryShellWirelessRepair skipped — privilegedShellExpected=false")
+            return false
+        }
         ensureSetting("global", "development_settings_enabled", "1")
         ensureSetting("global", "adb_enabled", "1")
         ensureSetting("global", "adb_wifi_enabled", "1")
