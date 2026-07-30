@@ -64,8 +64,7 @@ def test_skip_presence_still_enables_inversion(monkeypatch, tmp_path):
     monkeypatch.setattr(sc.ScreenControlSession, "_stop_keepalive_thread", lambda self: None)
     monkeypatch.setattr(sc.dev, "device_row", lambda *a, **k: None)
     monkeypatch.setattr(sc.dev, "resolve_adb", lambda h, *a, **k: "serial-oneui-device")
-    monkeypatch.setattr(sc, "lock_portrait_orientation", lambda _s: {})
-    monkeypatch.setattr(sc, "restore_rotation_settings", lambda *a, **k: True)
+    monkeypatch.setattr(sc, "lock_portrait_orientation", lambda _s: None)
     session.__enter__()
     assert session.active is True
     assert ("inv", True) in calls
@@ -145,8 +144,7 @@ def test_session_does_not_save_or_restore_foreground(monkeypatch, tmp_path):
     monkeypatch.setattr(sc, "get_default_ime", lambda _s: "com.example/.Ime")
     monkeypatch.setattr(sc, "set_inversion", lambda _s, en: True)
     monkeypatch.setattr(sc, "restore_default_ime", lambda *a, **k: True)
-    monkeypatch.setattr(sc, "lock_portrait_orientation", lambda _s: {"user_rotation": "1"})
-    monkeypatch.setattr(sc, "restore_rotation_settings", lambda *a, **k: True)
+    monkeypatch.setattr(sc, "lock_portrait_orientation", lambda _s: None)
     monkeypatch.setattr(
         sc,
         "restore_foreground",
@@ -252,28 +250,9 @@ def test_apply_portrait_lock_sets_system_settings(monkeypatch):
     )
 
 
-def test_restore_rotation_settings_restores_saved(monkeypatch):
-    calls = []
-
-    def fake_shell(serial, *args, **kw):
-        calls.append((serial, args))
-        return 0, ""
-
-    monkeypatch.setattr(sc, "mac_adb_shell", fake_shell)
-    saved = {"accelerometer_rotation": "1", "user_rotation": "3"}
-    assert sc.restore_rotation_settings("serial-1", saved) is True
-    assert (
-        "serial-1",
-        ("settings", "put", "system", "accelerometer_rotation", "1"),
-    ) in calls
-    assert (
-        "serial-1",
-        ("settings", "put", "system", "user_rotation", "3"),
-    ) in calls
-    assert any(c[1][:1] == ("cmd",) or c[1][:1] == ("wm",) for c in calls)
-
-
-def test_session_locks_portrait_on_enter_and_restores_on_exit(monkeypatch, tmp_path):
+def test_session_locks_portrait_on_enter_and_does_not_restore_on_exit(monkeypatch, tmp_path):
+    """Portrait lock is a standing baseline — exit must never touch rotation
+    settings, even though a prior manual lock may have happened mid-session."""
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_DIR", str(tmp_path / "dsc"))
     monkeypatch.setenv("DEVICE_SCREEN_CONTROL_PROJECT", "stayturgid")
     rotation_calls = []
@@ -294,58 +273,15 @@ def test_session_locks_portrait_on_enter_and_restores_on_exit(monkeypatch, tmp_p
     monkeypatch.setattr(
         sc,
         "lock_portrait_orientation",
-        lambda s: rotation_calls.append(("lock", s)) or {"accelerometer_rotation": "1", "user_rotation": "2"},
-    )
-    monkeypatch.setattr(
-        sc,
-        "restore_rotation_settings",
-        lambda s, saved: rotation_calls.append(("restore", s, saved)) or True,
+        lambda s: rotation_calls.append(("lock", s)),
     )
     monkeypatch.setattr(sc.ScreenControlSession, "_start_keepalive", lambda self: None)
     monkeypatch.setattr(sc.ScreenControlSession, "_stop_keepalive_thread", lambda self: None)
     session.__enter__()
     assert session.serial == "serial-oneui-device"
-    assert session._saved_rotation == {"accelerometer_rotation": "1", "user_rotation": "2"}
     assert ("lock", "serial-oneui-device") in rotation_calls
     monkeypatch.setattr(sc, "restore_default_ime", lambda *a, **k: True)
     monkeypatch.setattr(sc, "restore_foreground", lambda *a, **k: True)
     session.__exit__(None, None, None)
-    assert (
-        "restore",
-        "serial-oneui-device",
-        {"accelerometer_rotation": "1", "user_rotation": "2"},
-    ) in rotation_calls
-
-
-def test_get_system_setting_raises_on_error(monkeypatch):
-    monkeypatch.setattr(sc, "mac_adb_shell", lambda *a, **k: (1, "error\n"))
-    with pytest.raises(sc.SettingsReadError):
-        sc._get_system_setting("serial-1", "some_key")
-
-
-def test_read_rotation_settings_returns_none_on_error(monkeypatch):
-    def fake_shell(*args, **kw):
-        return 1, "error\n"
-
-    monkeypatch.setattr(sc, "mac_adb_shell", fake_shell)
-    assert sc.read_rotation_settings("serial-1") is None
-
-
-def test_restore_rotation_settings_deletes_null(monkeypatch):
-    calls = []
-
-    def fake_shell(serial, *args, **kw):
-        calls.append((serial, args))
-        return 0, ""
-
-    monkeypatch.setattr(sc, "mac_adb_shell", fake_shell)
-    saved = {"accelerometer_rotation": "null", "user_rotation": "3"}
-    assert sc.restore_rotation_settings("serial-1", saved) is True
-    assert (
-        "serial-1",
-        ("settings", "delete", "system", "accelerometer_rotation"),
-    ) in calls
-    assert (
-        "serial-1",
-        ("settings", "put", "system", "user_rotation", "3"),
-    ) in calls
+    assert not hasattr(session, "_saved_rotation")
+    assert [c for c in rotation_calls if c[0] == "restore"] == []
