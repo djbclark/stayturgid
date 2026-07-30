@@ -49,6 +49,17 @@ SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "site.yml"
 MAC_SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "control_node" / "site.yml"
 REQUIREMENTS = REPO_ROOT / "ansible" / "requirements.yml"
 
+# Wall-clock cap per ansible-playbook invocation. Historical full-fleet runs
+# take ~13-15 minutes; this gives a ~2x margin for one genuine retry without
+# letting a hung or endlessly-retrying rollout run indefinitely (see #104).
+# Override with STAYTURGID_DEPLOY_TIMEOUT_SECONDS for unusually large fleets.
+DEPLOY_TIMEOUT_SECONDS = int(os.environ.get("STAYTURGID_DEPLOY_TIMEOUT_SECONDS", "1800"))
+
+# Inventory field marking a fleet device excluded from deploys by default
+# (see #104). Distinct from site_litellm's site_host_status, which is that
+# group's own unrelated scheme.
+FLEET_STATUS_VAR = "stayturgid_fleet_status"
+
 
 class Scope(str, Enum):
     FULL = "full"
@@ -108,7 +119,7 @@ def parse_inventory_hosts(data: dict, group: str = "stayturgid") -> list[str]:
     return list(hosts.keys())
 
 
-def inventory_hosts(group: str = "stayturgid") -> list[str]:
+def inventory_list(group: str = "stayturgid") -> dict:
     context = resolve_ansible_context(REPO_ROOT)
     require_inventory(context)
     result = subprocess.run(
@@ -119,11 +130,34 @@ def inventory_hosts(group: str = "stayturgid") -> list[str]:
         env=repo_env(),
         cwd=REPO_ROOT,
     )
-    return parse_inventory_hosts(json.loads(result.stdout), group)
+    return json.loads(result.stdout)
+
+
+def inventory_hosts(group: str = "stayturgid") -> list[str]:
+    return parse_inventory_hosts(inventory_list(group), group)
+
+
+def offline_hosts(data: dict, hosts: list[str]) -> list[str]:
+    """Hosts among `hosts` whose FLEET_STATUS_VAR is 'offline'."""
+    hostvars = data.get("_meta", {}).get("hostvars", {})
+    return [h for h in hosts if hostvars.get(h, {}).get(FLEET_STATUS_VAR) == "offline"]
 
 
 def resolve_hosts(hosts: list[str]) -> list[str]:
-    return hosts if hosts else inventory_hosts()
+    if hosts:
+        # Explicit hosts on the command line are an intentional override —
+        # never filtered, even if marked offline.
+        return hosts
+    data = inventory_list()
+    all_hosts = parse_inventory_hosts(data)
+    skipped = offline_hosts(data, all_hosts)
+    if skipped:
+        print(
+            f"deploy_fleet.py: skipping offline host(s) {', '.join(skipped)} "
+            f"({FLEET_STATUS_VAR}: offline) — pass explicitly to override",
+            file=sys.stderr,
+        )
+    return [h for h in all_hosts if h not in skipped]
 
 
 def require_ansible() -> None:
@@ -226,7 +260,15 @@ def run_playbook(
         cmd.extend(extra_vars)
     if verbose:
         cmd.append("-" + "v" * min(verbose, 4))
-    return subprocess.run(cmd, env=repo_env(), cwd=REPO_ROOT).returncode
+    try:
+        return subprocess.run(cmd, env=repo_env(), cwd=REPO_ROOT, timeout=DEPLOY_TIMEOUT_SECONDS).returncode
+    except subprocess.TimeoutExpired:
+        print(
+            f"ERROR: {playbook.name} exceeded {DEPLOY_TIMEOUT_SECONDS}s wall-clock cap — aborted. "
+            f"Override with STAYTURGID_DEPLOY_TIMEOUT_SECONDS if this fleet genuinely needs longer.",
+            file=sys.stderr,
+        )
+        return 124
 
 
 def deploy_mac(*, check: bool, tags: str = "mac", verbose: int = 0) -> int:
@@ -247,6 +289,15 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0, dev
     install_collections()
 
     targets = resolve_hosts(hosts)
+    if not targets:
+        # An empty limit string falls back to "all" in require_limit_hosts,
+        # which would silently deploy to every host — the opposite of
+        # intended when every host happens to be marked offline.
+        print(
+            "ERROR: every fleet host is marked offline and none were passed explicitly — nothing to deploy",
+            file=sys.stderr,
+        )
+        return 1
     # A limit that matches no inventory hosts must fail loudly instead of
     # letting an empty play report a green deploy.
     require_limit_hosts(context, ",".join(targets))
