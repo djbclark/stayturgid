@@ -95,12 +95,10 @@ more than a day or two old.
 
 1. Answer the seven ownership questions in the private #50 audit before any
    repository moves.
-2. Set OpenObserve credentials for the Vector LaunchAgent and restart it
-   ([#44](https://github.com/djbclark/stayturgid/issues/44)).
-3. Decide the F1 consent-surface phasing question ([#46](https://github.com/djbclark/stayturgid/issues/46)).
-4. Decide whether to publish Shizuku release20 through the normal APK path.
-5. Retest p7a only after firerpa/lamda#147 publishes a compatible runtime.
-6. Remove (or authorize removal of) the stray `~/stayturgid` file.
+2. Decide the F1 consent-surface phasing question ([#46](https://github.com/djbclark/stayturgid/issues/46)).
+3. Decide whether to publish Shizuku release20 through the normal APK path.
+4. Retest p7a only after firerpa/lamda#147 publishes a compatible runtime.
+5. Remove (or authorize removal of) the stray `~/stayturgid` file.
 
 ## Where things are documented
 

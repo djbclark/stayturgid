@@ -147,6 +147,8 @@ per-site agents.
 ## Conventions
 
 - Use bash (not zsh). Termux has no zsh by default.
+- **Modern CLI tools:** use modern Rust rewrites on the Mac control node when available (`rg` instead of `grep`, `fd` instead of `find`, `bat`, `sd`, `eza`, `hck`, `delta`, `jq`).
+- **File counting/listing:** use `git ls-files '*.md'` instead of `find . -name '*.md'` to avoid traversing gitignored bloat (node_modules, caches).
 - Announce before device interaction: 🚨📱🚨 USING — host — why — ~N min
 - Screen control requires `ScreenControlSession` (fail-closed).
 - Accessibility is detection-only. Never `settings put` accessibility services automatically.

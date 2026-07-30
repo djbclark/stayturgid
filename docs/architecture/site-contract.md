@@ -1,6 +1,6 @@
 # Site Contract v1 (specification)
 
-**Status:** Accepted spec, unimplemented (Phase C of the segmentation plan)
+**Status:** Shipped (Phase C+D). See the root `SITE-CONTRACT.md` for the living literate contract. This document serves as the historical architecture specification.
 **Authored:** 2026-07-18 by a senior model so junior implementers do not have
 to make design decisions. Implementers: follow this spec; deviations require
 operator approval. Companion: [ADR 005](adr/005-two-repo-topology.md), the

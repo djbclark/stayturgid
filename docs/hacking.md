@@ -8,9 +8,9 @@ This document gets a developer from a clean Android + macOS install to a fully w
 
 | Layer                   | Role                                                                |
 | ----------------------- | ------------------------------------------------------------------- |
-| Android device          | Runs AutoJs6, Shizuku, Termux — the managed stack                   |
+| Android device          | Runs stayturgid-agent, Shizuku, Termux — the managed stack          |
 | macOS (Mac)             | Development workstation; runs ADB, Ansible, AI coding agent         |
-| AutoJs6                 | Watchdog automation on the device (accessibility + Termux bridge)   |
+| stayturgid-agent        | Native Android agent (Kotlin/Shizuku UserService)                   |
 | Shizuku (thedjchi fork) | Shell-privileged adbd on port 5555 via Wireless Debugging (no root) |
 | Termux                  | Linux environment on Android — runs sshd, adb, the boot script      |
 
@@ -23,7 +23,7 @@ This document gets a developer from a clean Android + macOS install to a fully w
 | App                     | Package                      | Version                    | Source             |
 | ----------------------- | ---------------------------- | -------------------------- | ------------------ |
 | Android                 | —                            | 16 (SDK 36)                | —                  |
-| AutoJs6                 | `org.autojs.autojs6`         | 6.7.0                      | GitHub (see below) |
+| stayturgid-agent        | `com.stayturgid.agent`       | current                    | Built from source  |
 | Shizuku (thedjchi fork) | `moe.shizuku.privileged.api` | 13.6.0.r1349-thedjchi-beta | GitHub (see below) |
 | Termux                  | `com.termux`                 | 0.118.3                    | GitHub             |
 | Termux:Boot             | `com.termux.boot`            | 0.8.1                      | F-Droid / GitHub   |
@@ -42,17 +42,17 @@ This document gets a developer from a clean Android + macOS install to a fully w
 
 ### macOS development tools
 
-| Tool                        | Version                  | Install                                                  |
-| --------------------------- | ------------------------ | -------------------------------------------------------- |
-| macOS                       | Sequoia 15.x+            | —                                                        |
-| Homebrew                    | current                  | https://brew.sh                                          |
-| ADB (platform-tools)        | 1.0.41 / 37.0.0-14910828 | `brew install android-platform-tools`                    |
-| Python                      | 3.14.6                   | `brew install python`                                    |
-| uv                          | 0.x                      | `brew install uv`                                        |
-| Handsets (`~/.handsets/hs`) | 0.1.x                    | Mac primary UI driver — see `control/lib/ui_driver.py`   |
-| uiautomator2 (Python)       | 3.7.0                    | Optional Mac debug only (`uv tool install uiautomator2`) |
-| Claude Code (AI agent)      | current                  | `npm install -g @anthropic-ai/claude-code`               |
-| git                         | current                  | `brew install git`                                       |
+| Tool                              | Version                  | Install                                                  |
+| --------------------------------- | ------------------------ | -------------------------------------------------------- |
+| macOS                             | macOS 26.5.2             | —                                                        |
+| Homebrew                          | current                  | https://brew.sh                                          |
+| ADB (platform-tools)              | 1.0.41 / 37.0.0-14910828 | `brew install android-platform-tools`                    |
+| Python                            | 3.12+                    | `brew install python`                                    |
+| uv                                | 0.x                      | `brew install uv`                                        |
+| Handsets (`~/.handsets/hs`)       | 0.1.x                    | Mac primary UI driver — see `control/lib/ui_driver.py`   |
+| uiautomator2 (Python)             | 3.7.0                    | Optional Mac debug only (`uv tool install uiautomator2`) |
+| AI Agents (Hermes, Codex, Cursor) | current                  | Varies by agent                                          |
+| git                               | current                  | `brew install git`                                       |
 
 ---
 
@@ -109,16 +109,6 @@ https://github.com/termux/termux-api
 ```
 
 Or F-Droid: search "Termux:API".
-
-#### AutoJs6 (stayturgid watchdog)
-
-JavaScript automation engine — runs the stayturgid watchdog (accessibility UI repair + Termux bridge). See [docs/architecture/components/autojs6.md](architecture/components/autojs6.md).
-
-**Source:** https://github.com/djbclark/AutoJs6/releases (fleet-profile-553 build with non-UI configuration)
-
-**Source:** https://github.com/djbclark/AutoJs6/releases
-
-APK filter: `arm64-v8a` (or enable auto-filter-by-arch). Grant **Run commands in Termux environment** after install.
 
 #### Tailscale
 
@@ -234,22 +224,6 @@ termux-battery-status
 ```
 
 If the command hangs or errors, make sure the Termux:API app is installed (section 1.2) and that you've granted it the necessary permissions when prompted.
-
----
-
-### 1.5 Install and configure the AutoJs6 watchdog
-
-All of this is scripted from the Mac (device connected via USB or wireless ADB):
-
-```bash
-./control/tools/autojs6/setup_autojs6.py stock-android-device     # install/verify AutoJs6, grant permissions, deploy project
-./control/tools/autojs6/set_automation_mode.py stock-android-device
-./control/tools/autojs6/start_watchdog.py stock-android-device
-```
-
-On-device setup is automated: `enable_autojs6_shizuku.py` enables the accessibility service and Shizuku drawer; `setup_autojs6.py` / fleet harden grant storage, `RUN_COMMAND`, and battery settings. Termux `allow-external-apps=true` is set by the Ansible deploy (or manually in `~/.termux/termux.properties`).
-
-See [docs/architecture/components/autojs6.md](architecture/components/autojs6.md) for details.
 
 ---
 

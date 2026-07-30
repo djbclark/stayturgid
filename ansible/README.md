@@ -117,7 +117,7 @@ ansible_python_interpreter: /data/data/com.termux/files/usr/bin/python
 
 Reusable modules live in domain collections under `ansible_collections/stayturgid/`
 (`termux`, `obtainium`, `fdroid`, `play`, `android_common`). See
-[../ansible_collections/README.md](../control/lib/README.md) for install
+[../ansible_collections/README.md](../ansible_collections/README.md) for install
 and adoption docs. In development, `ansible.cfg` discovers collections from
 `../ansible_collections` — no separate `ansible-galaxy install` for stayturgid
 modules beyond `ansible.posix`.
