@@ -8,8 +8,6 @@ on only what they need:
 | Collection                                                                 | Module                                                             | Use when                         |
 | -------------------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------- |
 | [stayturgid.termux](../../../docs/architecture/components/termux.md)       | `termux_pkg`                                                       | Termux `pkg` over SSH            |
-| [stayturgid.obtainium](../../../docs/architecture/components/obtainium.md) | `obtainium_app`                                                    | Obtainium catalog JSON on device |
-| [stayturgid.fdroid](../../../docs/architecture/components/fdroid.md)       | `fdroid_repos`                                                     | `fdroidcl` repos on Mac          |
 | [stayturgid.play](../../../docs/architecture/components/play.md)           | `play_apps`                                                        | apkeep/gplaycli + adb install    |
 | [stayturgid.android_common](../android_common/README.md)                   | `android_ui`, `android_a11y_services`, `autojs6_project_deploy`, … | ADB + UI tasks (ADR 002)         |
 
@@ -32,7 +30,7 @@ ansible-test units --local
 ## Site playbooks
 
 Fleet-specific roles and inventory remain in the repo `ansible/` tree
-(`termux_userland` via collection, `obtainium_apps`, `fdroid_repos`, `play_store`,
+(`termux_userland` via collection, `play_store`,
 `post_ui`, `validate`, `autojs6_watchdog`).
 
 See [../docs/adoption.md](../../../docs/ansible/collections/adoption.md), [../docs/roles/validate.md](../../../docs/ansible/collections/roles/validate.md),

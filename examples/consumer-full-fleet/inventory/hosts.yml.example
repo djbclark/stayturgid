@@ -14,7 +14,7 @@ stayturgid:
       device_usb_serial: R5CX12345678
       device_phone_number: "+15550100011"
   vars:
-    # Neo / Aurora parked by default — match production fleet (see docs/modules/fdroid.md).
+    # Aurora parked by default — match production fleet.
     stayturgid_app_stores_enabled: false
     stayturgid_ensure_neo_store: false
     stayturgid_ensure_aurora_store: false
@@ -23,4 +23,4 @@ stayturgid:
     # Example:
     # stayturgid_ensure_apps:
     #   - id: org.breezyweather
-    #     source: fdroid
+    #     source: play
