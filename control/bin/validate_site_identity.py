@@ -102,6 +102,8 @@ def is_generic_fixture(value: str) -> bool:
         return True
     if value.startswith("EXAMPLE-") or value.startswith("example-"):
         return True
+    if value.startswith("+1555"):
+        return True
     try:
         addr = ipaddress.ip_address(value)
     except ValueError:
