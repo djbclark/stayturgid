@@ -28,7 +28,7 @@ limit_flag := env_var_or_default("limit_flag", if hosts == "" { "" } else { "-l 
 
 mac_site := "ansible/playbooks/control_node/site.yml"
 venv := ".venv-test"
-collections := "android_common termux obtainium fdroid play"
+collections := "android_common termux play"
 
 import "just/fleet.just"
 import "just/kotlin.just"

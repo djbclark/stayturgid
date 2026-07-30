@@ -50,13 +50,3 @@ def test_optional_github_apks_require_the_same_lock_fields():
     )
     for field in ("gh_tag", "version_name", "checksum"):
         assert f"item.{field} is defined" in tasks
-
-
-def test_obtainium_role_does_not_reinstall_from_mutable_latest():
-    tasks = (ROOT / "ansible_collections/stayturgid/obtainium/roles/obtainium_apps/tasks/main.yml").read_text(
-        encoding="utf-8"
-    )
-    assert "releases/latest" not in tasks
-    assert "latest.apk" not in tasks
-    assert "Install Obtainium APK" not in tasks
-    assert "headless_import: true" in tasks

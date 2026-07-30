@@ -1,16 +1,10 @@
 ---
 # Backward-compatible FQCN redirects. Prefer domain collections for new playbooks:
 #   stayturgid.termux.termux_pkg
-#   stayturgid.obtainium.obtainium_app
-#   stayturgid.fdroid.fdroid_repos
 #   stayturgid.play.play_apps
 plugin_routing:
   modules:
     termux_pkg:
       redirect: stayturgid.termux.termux_pkg
-    obtainium_app:
-      redirect: stayturgid.obtainium.obtainium_app
-    fdroid_repos:
-      redirect: stayturgid.fdroid.fdroid_repos
     play_apps:
       redirect: stayturgid.play.play_apps

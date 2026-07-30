@@ -9,8 +9,6 @@ you need — each domain is a separate collection on the `stayturgid` namespace.
 | ----------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------- |
 | **stayturgid.android_common** | ADB helpers + VPN + Shizuku + APK | `android_appops`, `android_settings`, `shizuku_grant`, `android_apk`, `adb_device` lookup | `tailscale_vpn`                           |
 | **stayturgid.termux**         | Termux over SSH                   | `termux_pkg`, `termux_sshd`, `termux_ssh_bootstrap`                                       | `termux_userland`                         |
-| **stayturgid.obtainium**      | Obtainium catalogs                | `obtainium_app`                                                                           | `obtainium_apps`                          |
-| **stayturgid.fdroid**         | F-Droid / Neo Store               | `fdroid_repos`                                                                            | `fdroid_repos`                            |
 | **stayturgid.play**           | Play APK sideload                 | `play_apps`                                                                               | `play_store`                              |
 | **stayturgid.fleet**          | Meta / fleet roles                | _(redirects to above)_                                                                    | `post_ui`, `validate`, `autojs6_watchdog` |
 
@@ -46,8 +44,6 @@ ansible_collections/stayturgid/
   docs/                     ← shared documentation
   android_common/           ← adb helpers, appops/settings modules, tailscale_vpn role
   termux/                   ← termux_pkg + termux_userland role
-  obtainium/                ← obtainium_app + obtainium_apps role
-  fdroid/                   ← fdroid_repos module + role
   play/                     ← play_apps + play_store role
   fleet/                    ← meta-collection + post_ui, validate, autojs6_watchdog roles
 ansible/                    ← site inventory + composed playbooks (site.yml, preflight, …)

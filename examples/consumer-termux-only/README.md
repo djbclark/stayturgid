@@ -31,7 +31,7 @@ ansible-playbook playbook.yml
 
 `stayturgid.termux.termux_userland` — packages, scripts, boot hooks, sshd keys.
 
-Obtainium / AutoJs6 / F-Droid are out of scope; add collections from
+AutoJs6 is out of scope; add collections from
 `requirements.yml` when needed.
 
 ## Pinning a release

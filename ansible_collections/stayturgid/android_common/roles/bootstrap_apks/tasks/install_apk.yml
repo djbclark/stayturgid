@@ -87,6 +87,7 @@
         keystore: "{{ stayturgid_debug_keystore | default(omit) }}"
         keystore_pass: "{{ stayturgid_debug_keystore_pass | default('android') }}"
         key_alias: "{{ stayturgid_debug_key_alias | default('androiddebugkey') }}"
+        installer: "{{ 'org.stayturgid.agent' if _apk.id != 'org.stayturgid.agent' else omit }}"
       when: not _version_current | default(false)
       delegate_to: localhost
 

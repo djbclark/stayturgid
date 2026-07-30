@@ -10,8 +10,6 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 | Ansible                           | [ansible/README.md](../ansible/README.md)                                                               | Idempotent Termux deploy over SSH                                                    |
 | Control node                      | [docs/architecture/components/control.md](architecture/components/control.md)                           | ADB reconnect, fleet health, **Hermes gateway**, **phone→Mac ET** (`et_mac`), deploy |
 | AutoJs6 (retired, reference only) | [docs/architecture/components/autojs6.md](architecture/components/autojs6.md)                           | Legacy JS watchdog, replaced fleet-wide by the native agent (K1, 2026-07-22)         |
-| Obtainium                         | [docs/architecture/components/obtainium.md](architecture/components/obtainium.md)                       | GitHub APK catalog and updates                                                       |
-| F-Droid / Neo Store               | [docs/architecture/components/fdroid.md](architecture/components/fdroid.md)                             | F-Droid repos + Neo Store (**parked** by default)                                    |
 | Play / Aurora Store               | [docs/architecture/components/play.md](architecture/components/play.md)                                 | Aurora + apkeep/gplaycli (**parked** by default)                                     |
 | Shared libraries                  | [control/lib/README.md](../control/lib/README.md)                                                       | `resolve-adb`, repo-root discovery, UI parse                                         |
 | Screen-control lease              | [docs/architecture/components/screen-control-lease.md](architecture/components/screen-control-lease.md) | Cross-project glass lock (DSCL v1; interop prompt)                                   |
@@ -21,7 +19,7 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 | Doc                                                                                                              | Audience                                                                                                                            |
 | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
 | [README.md](../README.md)                                                                                        | Everyone — hub + full-stack quick path                                                                                              |
-| [docs/hacking.md](hacking.md)                                                                                    | Developers — clean install, Obtainium, Termux swap                                                                                  |
+| [docs/hacking.md](hacking.md)                                                                                    | Developers — clean install, Termux swap                                                                                             |
 | [docs/STATUS.md](STATUS.md)                                                                                      | **Start here** — current fleet/workstream state, known gotchas, operator queue                                                      |
 | [docs/handoff.md](handoff.md)                                                                                    | Thin pointer to STATUS.md + sessions + the private site overlay contract                                                            |
 | [docs/coding-rules.md](coding-rules.md)                                                                          | Durable implementation, device-safety, test, Git, and done rules                                                                    |
@@ -81,6 +79,5 @@ Speculative / alternate architectures. Index:
 
 - **Termux only:** `device/termux/` + manual Shizuku
 - **Termux + Ansible:** `ansible/` + SSH keys
-- **Full stack:** `device/termux/` + `device/autojs6/` + `catalogs/obtainium/` + `control/bin/` + `just deploy`
-  (Neo/Aurora app stores **parked** unless `stayturgid_app_stores_enabled: true`)
-- **Obtainium only:** `catalogs/obtainium/` — APK updates without stayturgid watchdog
+- **Full stack:** `device/termux/` + `device/autojs6/` + `control/bin/` + `just deploy`
+  (Aurora Store **parked** unless `stayturgid_app_stores_enabled: true`)

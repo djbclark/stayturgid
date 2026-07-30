@@ -39,6 +39,20 @@ stayturgid_debug_keystore_pass: "android"
 stayturgid_debug_key_alias: "androiddebugkey"
 
 stayturgid_bootstrap_apks:
+  - id: org.stayturgid.agent
+    gh_repo: djbclark/stayturgid
+    gh_tag: agent-v0.6.0
+    gh_pattern: app-release.apk
+    version_name: 0.6.0-boot-stability
+    checksum: "sha256:b99b3c9a7c28c53fc0a8b339dceeff5d394bb60507842dedd8bdbf18898d883d"
+    resign: false
+    start_broadcast_action: org.stayturgid.agent.action.PEER_START_NOW
+    start_broadcast_component: org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver
+    service_component: org.stayturgid.agent/.HostService
+    remove_packages:
+      - org.stayturgid.agent.debug
+    shizuku_grant: true
+    battery_unrestricted: true
   - id: com.termux
     gh_repo: termux/termux-app
     gh_tag: v0.118.3
@@ -71,30 +85,10 @@ stayturgid_bootstrap_apks:
     # leaves shizuku_server unable to load librish.so. Clean-reinstall on
     # devices that set stayturgid_shizuku_clean_reinstall (Fire OS group_vars).
     clean: "{{ stayturgid_shizuku_clean_reinstall | default(false) }}"
-  - id: org.stayturgid.agent
-    gh_repo: djbclark/stayturgid
-    gh_tag: agent-v0.6.0
-    gh_pattern: app-release.apk
-    version_name: 0.6.0-boot-stability
-    checksum: "sha256:b99b3c9a7c28c53fc0a8b339dceeff5d394bb60507842dedd8bdbf18898d883d"
-    resign: false
-    start_broadcast_action: org.stayturgid.agent.action.PEER_START_NOW
-    start_broadcast_component: org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver
-    service_component: org.stayturgid.agent/.HostService
-    remove_packages:
-      - org.stayturgid.agent.debug
-    shizuku_grant: true
-    battery_unrestricted: true
+
   - id: com.tailscale.ipn
     gh_repo: tailscale/tailscale-android
     gh_tag: "1.98.8-t1241b225b-gbcbaf1889"
     gh_pattern: tailscale-android-universal-1.98.8.apk
     version_name: "1.98.8-t1241b225b-gbcbaf1889"
     checksum: "sha256:f28edfd184d1db3060d764a79c9aa24da4530951052fb1cf75c92bbc0adfc4b2"
-  - id: dev.imranr.obtainium
-    gh_repo: djbclark/Obtainium
-    gh_tag: v1.6.6
-    gh_pattern: obtainium-v1.6.6-stayturgid-debug10-universal.apk
-    version_name: 1.6.6
-    checksum: "sha256:27e4a174f9f6a357808b2384ef5d90d36b0c3640f26d7a92adfe3634f0bbfcf6"
-    resign: true

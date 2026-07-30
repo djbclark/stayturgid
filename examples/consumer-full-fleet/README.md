@@ -29,11 +29,11 @@ stayturgid_ensure_neo_store: true
 stayturgid_ensure_aurora_store: true
 ```
 
-See [docs/architecture/components/fdroid.md](../../docs/architecture/components/fdroid.md) and [docs/architecture/components/play.md](../../docs/architecture/components/play.md).
+See [docs/architecture/components/play.md](../../docs/architecture/components/play.md).
 
 ## Optional unified app ensure
 
-Set `stayturgid_ensure_apps` in group_vars to dispatch play/fdroid/apk/obtainium
+Set `stayturgid_ensure_apps` in group_vars to dispatch play/apk
 sources via `stayturgid.android_common.ensure_apps`.
 
 ## Validate / post-UI

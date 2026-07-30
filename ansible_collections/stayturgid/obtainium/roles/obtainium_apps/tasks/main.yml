@@ -1,8 +1,0 @@
----
-# Obtainium itself is installed only by the immutable bootstrap APK lock.
-# This role owns its declarative catalog, not a second mutable installer.
-- name: Render Obtainium catalog from fleet app specs
-  stayturgid.obtainium.obtainium_app:
-    apps: "{{ stayturgid_obtainium_apps }}"
-    catalog_path: "{{ stayturgid_obtainium_catalog }}"
-    headless_import: true

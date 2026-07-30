@@ -1,5 +1,10 @@
 # Changelog — stayturgid.fleet
 
+## 1.6.1 (2026-07-30)
+
+- Removed dependencies on `stayturgid.obtainium` and `stayturgid.fdroid`.
+- Removed legacy FQCN redirects for `obtainium_app` and `fdroid_repos`.
+
 ## 1.6.0 (2026-07-07)
 
 - F-Droid (`fdroid_repos`) and Play (`play_store`) roles integrated into fleet playbook.

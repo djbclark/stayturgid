@@ -12,6 +12,10 @@
 > and always-on policy probe/repair tier. The agent does not own sshd restart or
 > Accessibility; those remain Termux/FIRERPA and operator-controlled
 > responsibilities respectively.
+>
+> **2026-07-30 K1 addendum:** Obtainium is retired as a fleet dependency;
+> Termux/agent APKs are directly fetched from GitHub releases. F-Droid, Neo
+> Store, Aurora, and Droid-ify are fully removed from the fleet.
 
 ## 1. Coverage matrix
 

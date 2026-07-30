@@ -212,11 +212,7 @@
       "must_cover": ["ansible_deploy", "fleet_health"],
       "should_cover": ["cfengine"]
     },
-    "OBTAINIUM-OPS-LOCK": {
-      "description": "Obtainium receives the declarative fleet catalog headlessly and cannot background-update ops-locked applications",
-      "must_cover": ["ansible_deploy"],
-      "should_cover": []
-    },
+
     "NORMAL-DEPLOY-SINGLE-PASS": {
       "description": "The normal site deploy runs the authoritative fleet convergence role stack exactly once",
       "must_cover": ["ansible_deploy"],

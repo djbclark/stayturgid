@@ -57,5 +57,5 @@ manual operator check.
 ## Related
 
 - [ansible_collections/modules/play_apps.md](../../ansible/collections/modules/play_apps.md)
-- [fdroid.md](fdroid.md) — F-Droid / Neo (parked)
-- [obtainium.md](obtainium.md) — default update path
+- [fdroid.md](../../archive/architecture/components/fdroid.md) — F-Droid / Neo Store (removed, archived for history)
+- [obtainium.md](../../archive/architecture/components/obtainium.md) — GitHub APK catalog updates (removed, archived for history)
