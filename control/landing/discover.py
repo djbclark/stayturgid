@@ -371,6 +371,7 @@ def _scan_localhost(
     *,
     registered_ports: set[int] | dict[int, str] | None = None,
     public_host: str | None = None,
+    skip_ports: set[int] | None = None,
 ) -> list[dict]:
     """Scan the Mac's local ports for HTTP servers using lsof.
 
@@ -412,6 +413,8 @@ def _scan_localhost(
         except ValueError:
             continue
         if port in scanned or port < 1 or port > 65535 or port in CADDY_PROXIED_PORTS:
+            continue
+        if skip_ports and port in skip_ports:
             continue
         scanned.add(port)
 
@@ -480,7 +483,54 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
 
     # Discover new http ports on localhost; badge registry drift (D4).
     registered = load_registered_ports(site_dir=site_dir, return_map=True)
-    for s in _scan_localhost(registered_ports=registered if registered else None, public_host=public_host):
+
+    path_ports: set[int] = set()
+    for url in known_urls:
+        try:
+            if url.startswith("http"):
+                base = url.split("://", 1)[1]
+                if "/" in base:
+                    host_port, path = base.split("/", 1)
+                    if ":" in host_port:
+                        port = int(host_port.split(":")[-1])
+                        if path and path != "":
+                            path_ports.add(port)
+        except ValueError:
+            pass
+
+    for url in list(known_urls.keys()):
+        try:
+            if url.startswith("http"):
+                base = url.split("://", 1)[1]
+                if "/" in base:
+                    host_port, path = base.split("/", 1)
+                    if (not path or path == "") and ":" in host_port:
+                        port = int(host_port.split(":")[-1])
+                        if port in path_ports:
+                            del known_urls[url]
+                else:
+                    if ":" in base:
+                        port = int(base.split(":")[-1])
+                        if port in path_ports:
+                            del known_urls[url]
+        except ValueError:
+            pass
+
+    if registered:
+        for port, svc_name in registered.items():
+            if port not in path_ports:
+                host_name = public_host if public_host else "localhost"
+                url = f"http://{host_name}:{port}"
+                if url not in known_urls:
+                    known_urls[url] = {
+                        "url": url,
+                        "label": _format_service_label(svc_name),
+                        "group": "mac",
+                    }
+
+    for s in _scan_localhost(
+        registered_ports=registered if registered else None, public_host=public_host, skip_ports=path_ports
+    ):
         url = s["url"]
         if url not in known_urls:
             known_urls[url] = s
@@ -489,6 +539,8 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
             known_urls[url]["label"] = s["label"]
             if s.get("unregistered"):
                 known_urls[url]["unregistered"] = True
+            else:
+                known_urls[url].pop("unregistered", None)
     # Discover non-HTTP services (Termux SSH, Wireless ADB) on detected Android devices
     device_names = {
         state._extract_device_name(s) for s in known_urls.values() if s.get("group") in ("devices", "android")
@@ -564,12 +616,51 @@ if __name__ == "__main__":
     except SiteDiscoveryError as exc:
         print(f"error: {exc}", file=sys.stderr)
         raise SystemExit(1) from exc
-    reachable = sum(1 for s in result["services"] if s.get("reachable"))
+
+    import os
+
+    selection = _resolve_site(os.environ)
+    registered = load_registered_ports(site_dir=selection.path)
+    static_urls = {ks["url"] for ks in _known_services_for_site(selection.path)}
+
+    reachable = 0
     total = len(result["services"])
-    unregistered = sum(1 for s in result["services"] if s.get("unregistered"))
+    unregistered_up = 0
+    registered_down = 0
+    catalog_unreachable = 0
+
+    for s in result["services"]:
+        is_up = s.get("reachable", False)
+        if is_up:
+            reachable += 1
+
+        url = s["url"]
+        port = None
+        try:
+            if "://" in url:
+                part = url.split("://", 1)[1].split("/", 1)[0]
+                if ":" in part:
+                    port = int(part.split(":")[-1])
+        except ValueError:
+            pass
+
+        is_reg = (port in registered) if port else False
+        is_cat = url in static_urls
+
+        if is_cat and not is_up:
+            catalog_unreachable += 1
+        elif is_reg and not is_up:
+            registered_down += 1
+
+        if s.get("unregistered") and is_up:
+            unregistered_up += 1
+
     print(f"Discovery complete: {reachable}/{total} services reachable")
-    if unregistered:
-        print(f"Registry drift: {unregistered} unregistered listener(s) (not in registry/ports.yml)")
+    print(
+        f"Summary: {registered_down} registered-down, {unregistered_up} unregistered-up, {catalog_unreachable} catalog-unreachable"
+    )
+    if unregistered_up:
+        print(f"Registry drift: {unregistered_up} unregistered listener(s) (not in registry/ports.yml)")
     for s in result["services"]:
         status = "✓" if s.get("reachable") else "✗"
         badge = " [unregistered]" if s.get("unregistered") else ""

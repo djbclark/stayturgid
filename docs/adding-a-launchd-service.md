@@ -131,6 +131,18 @@ tail ~/Library/Logs/my-agent.log
 
 ---
 
+## Dashboard / Discovery Retention
+
+When a new service is added, it typically appears on the Fleet Dashboard. The discovery scanner (`discover.py`) categorizes and retains services based on the following policy:
+
+- **Registered services (kept when down):** If the service's port or path is listed in `registry/ports.yml` or `registry/paths.yml`, it is considered a permanent part of the infrastructure. If the service crashes or is stopped, it will remain visible on the dashboard in a "down" (`reachable: false`) state to alert the operator.
+- **Catalog services (kept when down):** Services hardcoded in the static `control/landing/services.json` catalog are also permanently retained and will show as down if unreachable.
+- **Ephemeral / Unregistered services (pruned when down):** If a service is discovered running (e.g., via a local port scan) but is not in the registry or the static catalog, it will appear on the dashboard while it is active (as `unregistered-up`). However, once it stops listening, it is immediately **pruned** from the state and disappears from the dashboard.
+
+To ensure your new launchd service remains visible when down for monitoring and healing, always claim its port or path in the registry.
+
+---
+
 ## Common patterns
 
 ### KeepAlive server (long-running daemon)
