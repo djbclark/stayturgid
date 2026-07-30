@@ -255,6 +255,10 @@ Do not treat a free lease as “consent granted.”
 
 While a screen-control session is held, stayturgid also applies a **natural-portrait**
 rotation preference (`user_rotation=0`, accelerometer rotation off) so multi-step UI
-automation does not flip landscape mid-batch. Restored when the session ends. See
-`control/lib/screen_control.py` (`apply_portrait_lock`) and the on-device twin in
+automation does not flip landscape mid-batch. This is a **standing baseline, not
+restored** when the session ends — a session-scoped save/restore previously raced with
+manual rotation-lock changes made while a session was active, silently reverting an
+operator's own lock. To go back to auto-rotate, unlock the device manually; no
+automation session restores a prior preference. See `control/lib/screen_control.py`
+(`apply_portrait_lock`) and the on-device twin in
 `device/termux/py/stayturgid_screen_control.py`.

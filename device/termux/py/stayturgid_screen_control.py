@@ -3,7 +3,9 @@
 
 Same policy as control/lib/screen_control.py, but presence is a local
 subprocess and adb is always localhost:5555. Fail closed when presence
-script is missing (rc 127).
+script is missing (rc 127). Portrait lock is a standing baseline, not
+restored on session exit — see the docstring in control/lib/screen_control.py
+for why.
 """
 
 from __future__ import annotations
@@ -74,27 +76,6 @@ def set_inversion(_serial, enabled):
     return rc == 0 and inversion_enabled() == enabled
 
 
-class SettingsReadError(Exception):
-    pass
-
-
-def _get_system_setting(key):
-    rc, out = sh.shell("settings", "get", "system", key)
-    if rc != 0:
-        raise SettingsReadError("settings get %s failed with rc=%s" % (key, rc))
-    val = out.strip()
-    if not val or val == "null":
-        return "null"
-    return val
-
-
-def read_rotation_settings(_serial=None):
-    try:
-        return {k: _get_system_setting(k) for k in _ROTATION_KEYS}
-    except SettingsReadError:
-        return None
-
-
 def apply_portrait_lock(_serial=None):
     """Disable auto-rotate and pin natural portrait (user_rotation=0)."""
     ok = True
@@ -116,39 +97,8 @@ def apply_portrait_lock(_serial=None):
 
 
 def lock_portrait_orientation(_serial=None):
-    saved = read_rotation_settings()
-    if saved is None:
-        sys.stderr.write("WARN: failed to read rotation settings, aborting portrait lock\n")
-        return None
     if not apply_portrait_lock():
         sys.stderr.write("WARN: failed to lock portrait orientation\n")
-    return saved
-
-
-def restore_rotation_settings(_serial, saved):
-    if not saved:
-        return True
-    ok = True
-    for args in (
-        ("cmd", "window", "set-user-rotation", "free"),
-        ("wm", "set-user-rotation", "free"),
-        ("wm", "user-rotation", "free"),
-    ):
-        rc, _ = sh.shell(*args)
-        if rc == 0:
-            break
-    for key in _ROTATION_KEYS:
-        val = saved.get(key)
-        if val is None:
-            continue
-        if val == "null":
-            rc, _ = sh.shell("settings", "delete", "system", key)
-        else:
-            rc, _ = sh.shell("settings", "put", "system", key, val)
-        ok = ok and rc == 0
-    if not ok:
-        sys.stderr.write("WARN: failed to restore rotation settings\n")
-    return ok
 
 
 def get_default_ime(_serial=None):
@@ -282,7 +232,6 @@ class ScreenControlSession(object):
         self._skip = os.environ.get("STAYTURGID_SKIP_PRESENCE") == "1"
         self._saved_ime = None
         self._saved_component = None
-        self._saved_rotation = None
         self._stop_keepalive = threading.Event()
         self._keepalive_thread = None
 
@@ -327,7 +276,7 @@ class ScreenControlSession(object):
         # different launchers and Android versions. May add back via FIRERPA
         # OCR/screen-control when more robust.
         # self._saved_component = get_foreground_component()
-        self._saved_rotation = lock_portrait_orientation()
+        lock_portrait_orientation()
         cleared = uc.clear_ui_obstructions(self.serial, sh.shell_fn)
         if cleared:
             print("Cleared UI obstructions: %s" % ", ".join(cleared))
@@ -383,7 +332,6 @@ class ScreenControlSession(object):
             sys.stderr.write("WARN: failed to disable display inversion\n")
         if not restore_default_ime(None, self._saved_ime):
             sys.stderr.write("WARN: failed to restore keyboard IME\n")
-        restore_rotation_settings(None, self._saved_rotation)
         self.active = False
         return False
 
