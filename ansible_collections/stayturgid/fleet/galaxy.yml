@@ -1,13 +1,13 @@
 namespace: stayturgid
 name: fleet
-version: 1.6.0
+version: 1.6.1
 readme: README.md
 authors:
   - djbclark
 description: >-
-  stayturgid fleet meta-collection. Domain modules live in stayturgid.termux,
-  stayturgid.firerpa, and stayturgid.play; this collection
-  provides backward-compatible FQCN redirects (stayturgid.fleet.*).
+  stayturgid fleet meta-collection. Domain modules live in stayturgid.termux
+  and stayturgid.play; this collection provides backward-compatible FQCN
+  redirects (stayturgid.fleet.*).
 license:
   - MIT
 tags:
