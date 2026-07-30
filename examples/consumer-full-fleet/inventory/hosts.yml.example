@@ -12,6 +12,7 @@ stayturgid:
       stayturgid_sd_root: /sdcard/stayturgid
       stayturgid_device_id: oneui-device
       device_usb_serial: R5CX12345678
+      device_phone_number: "+15550100011"
   vars:
     # Neo / Aurora parked by default — match production fleet (see docs/modules/fdroid.md).
     stayturgid_app_stores_enabled: false

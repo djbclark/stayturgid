@@ -316,6 +316,7 @@ def test_session_locks_portrait_on_enter_and_restores_on_exit(monkeypatch, tmp_p
         {"accelerometer_rotation": "1", "user_rotation": "2"},
     ) in rotation_calls
 
+
 def test_get_system_setting_raises_on_error(monkeypatch):
     monkeypatch.setattr(sc, "mac_adb_shell", lambda *a, **k: (1, "error\n"))
     with pytest.raises(sc.SettingsReadError):

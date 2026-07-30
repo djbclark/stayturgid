@@ -32,6 +32,7 @@ _GOOD_INVENTORY = {
                 "ansible_user": "termux",
                 "device_usb_serial": "EXAMPLE-SERIAL-ONEUI",
                 "device_lan_ip": "192.0.2.11",
+                "device_phone_number": "+15550100011",
                 "device_label": "Example One UI phone",
                 "stayturgid_automation_mode": "full",
                 "stayturgid_mac_peer": {
@@ -49,6 +50,7 @@ _GOOD_INVENTORY = {
                 "ansible_user": "termux",
                 "device_usb_serial": "EXAMPLE-SERIAL-STOCK",
                 "device_lan_ip": "192.0.2.12",
+                "device_phone_number": "+15550100012",
                 "device_label": "Example stock Android phone",
                 "stayturgid_automation_mode": "full",
                 "stayturgid_mac_peer": {
@@ -125,6 +127,7 @@ def test_device_fields_correct(fake_inventory: Path) -> None:
     assert oneui.ansible_host == "100.0.0.11"
     assert oneui.device_usb_serial == "EXAMPLE-SERIAL-ONEUI"
     assert oneui.device_lan_ip == "192.0.2.11"
+    assert oneui.device_phone_number == "+15550100011"
     assert oneui.ansible_port == 8022
     assert oneui.ansible_user == "termux"
     assert oneui.stayturgid_automation_mode == "full"
@@ -178,6 +181,18 @@ def test_optional_lan_ip_dash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr(si, "_CACHE_DIR", tmp_path)
     site = si.load_site_identity(inventory_path=hosts_yml)
     assert site.devices["fireos-device"].device_lan_ip == "-"
+
+
+def test_optional_phone_number_dash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """device_phone_number missing → stored as '-'."""
+    data = json.loads(json.dumps(_GOOD_INVENTORY))
+    hosts_yml = tmp_path / "hosts.yml"
+    hosts_yml.write_text("# dummy\n", encoding="utf-8")
+    monkeypatch.setattr(subprocess, "run", lambda *_a, **_kw: _make_run_result(data))
+    monkeypatch.setattr(si, "_CACHE_FILE", tmp_path / ".identity_cache.json")
+    monkeypatch.setattr(si, "_CACHE_DIR", tmp_path)
+    site = si.load_site_identity(inventory_path=hosts_yml)
+    assert site.devices["fireos-device"].device_phone_number == "-"
 
 
 # ---------------------------------------------------------------------------

@@ -61,6 +61,9 @@ class Device:
     ansible_port: int
     ansible_user: str
     stayturgid_automation_mode: str
+    # Appended after existing fields with a default so any positional
+    # Device(...) construction elsewhere keeps binding unchanged (#82).
+    device_phone_number: str = "-"
 
 
 @dataclass(frozen=True)
@@ -186,6 +189,16 @@ def _parse_inventory(data: dict) -> Site:
                 raise ValueError(f"Duplicate device_lan_ip '{lan_ip}' on host '{host}'")
             lan_ips_seen.add(lan_ip)
 
+        # device_phone_number (optional — '-' means none)
+        raw_phone = hvars.get("device_phone_number", "-")
+        if not isinstance(raw_phone, str):
+            raise ValueError(f"Host '{host}' has non-string 'device_phone_number' value: '{raw_phone}'")
+        phone_number: str = raw_phone or "-"
+        if phone_number != "-" and not re.fullmatch(r"\+[1-9]\d{1,14}", phone_number):
+            raise ValueError(
+                f"Host '{host}' has invalid 'device_phone_number' value: '{phone_number}' (must be E.164 format)"
+            )
+
         device_label = str(_require(host, "device_label", hvars))
 
         try:
@@ -201,6 +214,7 @@ def _parse_inventory(data: dict) -> Site:
             ansible_host=ansible_host,
             device_usb_serial=usb_serial,
             device_lan_ip=lan_ip,
+            device_phone_number=phone_number,
             device_label=device_label,
             ansible_port=port,
             ansible_user=ansible_user,

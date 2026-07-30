@@ -102,6 +102,8 @@ def is_generic_fixture(value: str) -> bool:
         return True
     if value.startswith("EXAMPLE-") or value.startswith("example-"):
         return True
+    if value.startswith("+1555"):
+        return True
     try:
         addr = ipaddress.ip_address(value)
     except ValueError:
@@ -238,6 +240,14 @@ def _build_drift_patterns(site) -> list[tuple[str, str]]:
         if dev.device_lan_ip and dev.device_lan_ip != "-" and not is_generic_fixture(dev.device_lan_ip):
             ip_esc = re.escape(dev.device_lan_ip)
             patterns.append((ip_esc, f"LAN IP '{dev.device_lan_ip}' ({alias})"))
+
+        # Phone number
+        if (
+            dev.device_phone_number
+            and dev.device_phone_number != "-"
+            and not is_generic_fixture(dev.device_phone_number)
+        ):
+            patterns.append((re.escape(dev.device_phone_number), f"phone number '{dev.device_phone_number}' ({alias})"))
 
     # Control node
     cn = site.control_node
@@ -378,6 +388,7 @@ def _print_site_summary(site, host_filter: str | None) -> None:
         print(f"    device_label          : {dev.device_label}")
         print(f"    device_usb_serial     : {dev.device_usb_serial}")
         print(f"    device_lan_ip         : {dev.device_lan_ip}")
+        print(f"    device_phone_number   : {dev.device_phone_number}")
         print(f"    automation_mode       : {dev.stayturgid_automation_mode}")
     cn = site.control_node
     print("\n  control_node")

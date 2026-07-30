@@ -295,6 +295,7 @@ all:
           ansible_host: 100.0.0.11
           device_usb_serial: EXAMPLE-SERIAL-ONEUI
           device_lan_ip: 192.0.2.11
+          device_phone_number: "+15550100011"
           device_label: Example One UI phone
           stayturgid_native_agent_peer_targets:
             - "100.0.0.13:5555"
@@ -302,6 +303,7 @@ all:
           ansible_host: 100.0.0.12
           device_usb_serial: EXAMPLE-SERIAL-STOCK
           device_lan_ip: 192.0.2.12
+          device_phone_number: "+15550100012"
           device_label: Example stock Android phone
           stayturgid_native_agent_peer_targets:
             - "100.0.0.13:5555"
@@ -309,6 +311,7 @@ all:
           ansible_host: 100.0.0.13
           device_usb_serial: EXAMPLE-SERIAL-FIRE
           device_lan_ip: 192.0.2.13
+          device_phone_number: "-"
           device_label: Example Fire OS tablet
       vars:
         ansible_port: 8022
