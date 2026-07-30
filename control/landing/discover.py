@@ -180,8 +180,25 @@ def _known_services_for_site(site_dir: Path) -> list[dict]:
 
 def _http_probe(url: str, timeout: float = 3.0, public_host: str | None = None, **_kwargs) -> int | None:
     """Return HTTP status code (or 200 for open TCP non-HTTP services) or None if unreachable."""
-    if url.startswith(("ssh://", "et://", "adb://", "ard://", "tcp://")):
+    if url.startswith(("ssh://", "et://", "adb://", "ard://", "tcp://", "launchd://")):
         parts = url.split("://", 1)[1].split("/")[0]
+        if url.startswith("launchd://"):
+            try:
+                import os
+
+                uid = os.getuid()
+                r = subprocess.run(
+                    ["launchctl", "print", f"gui/{uid}/{parts}"],
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout,
+                )
+                if r.returncode == 0 and "state = running" in r.stdout:
+                    return 200
+                return None
+            except (OSError, subprocess.TimeoutExpired):
+                return None
+
         if ":" in parts:
             h, p_str = parts.rsplit(":", 1)
             try:
@@ -222,6 +239,42 @@ def _tcp_probe(host: str, port: int, timeout: float = 2.0) -> bool:
             return True
     except OSError:
         return False
+
+
+def _resolve_registry_paths_path(site_dir: Path) -> Path | None:
+    candidate = site_dir / "registry" / "paths.yml"
+    return candidate if candidate.is_file() else None
+
+
+def load_dashboard_brew_services(
+    registry_path: Path | None = None,
+    *,
+    site_dir: Path | None = None,
+) -> dict[str, str]:
+    path = registry_path
+    if path is None:
+        if site_dir is None:
+            selection = _resolve_site(os.environ)
+            site_dir = selection.path
+        path = _resolve_registry_paths_path(site_dir)
+    if path is None or not path.is_file():
+        return {}
+    if yaml is None:
+        return {}
+    try:
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return {}
+
+    services_map: dict[str, str] = {}
+    brew_services = doc.get("brew_services") if isinstance(doc, dict) else None
+    if isinstance(brew_services, list):
+        for entry in brew_services:
+            if isinstance(entry, dict) and entry.get("dashboard") is True:
+                label = entry.get("label")
+                if isinstance(label, str):
+                    services_map[label] = _format_service_label(label.replace("homebrew.mxcl.", ""))
+    return services_map
 
 
 def _resolve_registry_ports_path(site_dir: Path) -> Path | None:
@@ -528,6 +581,16 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
                         "group": "mac",
                     }
 
+    dashboard_services = load_dashboard_brew_services(site_dir=site_dir)
+    for label, formatted_label in dashboard_services.items():
+        url = f"launchd://{label}"
+        if url not in known_urls:
+            known_urls[url] = {
+                "url": url,
+                "label": formatted_label,
+                "group": "mac",
+            }
+
     for s in _scan_localhost(
         registered_ports=registered if registered else None, public_host=public_host, skip_ports=path_ports
     ):
@@ -610,19 +673,13 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
     return output
 
 
-if __name__ == "__main__":
-    try:
-        result = discover()
-    except SiteDiscoveryError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        raise SystemExit(1) from exc
-
-    import os
-
-    selection = _resolve_site(os.environ)
-    registered = load_registered_ports(site_dir=selection.path)
-    static_urls = {ks["url"] for ks in _known_services_for_site(selection.path)}
-
+def get_summary_counts(
+    result: dict,
+    registered: set[int] | dict[int, str],
+    static_urls: set[str],
+    dashboard_urls: set[str] | None = None,
+) -> dict[str, int]:
+    dashboard_urls = dashboard_urls or set()
     reachable = 0
     total = len(result["services"])
     unregistered_up = 0
@@ -644,7 +701,7 @@ if __name__ == "__main__":
         except ValueError:
             pass
 
-        is_reg = (port in registered) if port else False
+        is_reg = (port is not None and port in registered) or url in dashboard_urls
         is_cat = url in static_urls
 
         if is_cat and not is_up:
@@ -654,6 +711,46 @@ if __name__ == "__main__":
 
         if s.get("unregistered") and is_up:
             unregistered_up += 1
+
+    return {
+        "reachable": reachable,
+        "total": total,
+        "unregistered_up": unregistered_up,
+        "registered_down": registered_down,
+        "catalog_unreachable": catalog_unreachable,
+    }
+
+
+def main(argv=None):
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--health-check", action="store_true", help="Run discovery and exit non-zero if registered services are down"
+    )
+    args = parser.parse_args(argv)
+
+    try:
+        result = discover()
+    except SiteDiscoveryError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    import os
+
+    selection = _resolve_site(os.environ)
+    registered = load_registered_ports(site_dir=selection.path)
+    static_urls = {ks["url"] for ks in _known_services_for_site(selection.path)}
+    dashboard_services = load_dashboard_brew_services(site_dir=selection.path)
+    dashboard_urls = {f"launchd://{label}" for label in dashboard_services}
+
+    summary = get_summary_counts(result, registered, static_urls, dashboard_urls)
+
+    reachable = summary["reachable"]
+    total = summary["total"]
+    registered_down = summary["registered_down"]
+    unregistered_up = summary["unregistered_up"]
+    catalog_unreachable = summary["catalog_unreachable"]
 
     print(f"Discovery complete: {reachable}/{total} services reachable")
     print(
@@ -665,3 +762,11 @@ if __name__ == "__main__":
         status = "✓" if s.get("reachable") else "✗"
         badge = " [unregistered]" if s.get("unregistered") else ""
         print(f"  {status} {s['url']:50s} — {s['label']}{badge if badge not in s.get('label', '') else ''}")
+
+    if args.health_check and registered_down > 0:
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
