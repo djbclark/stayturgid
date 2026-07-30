@@ -41,10 +41,6 @@ stayturgid_debug_key_alias: "androiddebugkey"
 stayturgid_bootstrap_apks:
   - id: org.stayturgid.agent
     gh_repo: djbclark/stayturgid
-    # PLACEHOLDER — agent-v0.7.0 has not been published yet as of this commit.
-    # This tag name is the intended release name; do not deploy until a real
-    # `agent-v0.7.0` GitHub Release with app-release.apk (matching the
-    # checksum below) has actually been published.
     gh_tag: agent-v0.7.0
     gh_pattern: app-release.apk
     version_name: 0.7.0-liveness-hardening
