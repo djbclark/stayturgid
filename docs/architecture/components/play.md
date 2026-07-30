@@ -1,14 +1,14 @@
-# Play / Aurora Store — **parked** by default
+# Play — **parked** by default
 
 **Collection:** `stayturgid.play`  
 **Role:** `stayturgid.play.play_store`  
 **Module:** `stayturgid.play.play_apps`  
 **Playbook:** `ansible/playbooks/fleet/play_store.yml`  
-**Mac tools:** `control/tools/play/` (`gplaycli.py`, `configure_aurora.py`, …)
+**Mac tools:** `control/tools/play/` (`gplaycli.py`, …)
 
 ## Status
 
-Aurora Store / Play download automation **are not** part of the default fleet
+Play download automation **is not** part of the default fleet
 deploy (`stayturgid_app_stores_enabled: false`). Re-enable only when you need
 Play-sourced APKs and accept credential / UI blast radius.
 

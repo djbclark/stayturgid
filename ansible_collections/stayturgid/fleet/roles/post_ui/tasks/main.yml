@@ -23,18 +23,6 @@
     - stayturgid_app_stores_enabled | default(false) | bool
   tags: [post-ui, app-stores, play, full]
 
-- name: Aurora first-run setup
-  stayturgid.android_common.android_ui:
-    host: "{{ inventory_hostname }}"
-    task: configure_aurora
-    repo_root: "{{ stayturgid_repo_root }}"
-    retries: "{{ stayturgid_post_ui_retries }}"
-    retry_delay: "{{ stayturgid_post_ui_retry_delay }}"
-  delegate_to: localhost
-  when:
-    - not ansible_check_mode
-    - stayturgid_app_stores_enabled | default(false) | bool
-  tags: [post-ui, aurora, app-stores, play, full]
 
 # AutoJs6 Shizuku drawer enable task removed: AutoJs6 was uninstalled
 # fleet-wide as part of the K1 native-agent cutover (2026-07-22, confirmed

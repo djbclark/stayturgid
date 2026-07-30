@@ -24,8 +24,6 @@ options:
     type: str
     required: true
     choices:
-      - import_obtainium_catalog
-      - configure_aurora
       - enable_autojs6_drawer
   repo_root:
     description: stayturgid repository root on the control node.
@@ -49,14 +47,6 @@ options:
 """
 
 EXAMPLES = r"""
-- name: Import Obtainium fleet catalog
-  stayturgid.android_common.android_ui:
-    host: oneui-device
-    task: import_obtainium_catalog
-    repo_root: "{{ stayturgid_repo_root }}"
-    catalog: all
-  delegate_to: localhost
-
 - name: Enable AutoJs6 fleet drawer
   stayturgid.android_common.android_ui:
     host: stock-android-device
@@ -92,8 +82,6 @@ import time
 from ansible.module_utils.basic import AnsibleModule
 
 TASK_SCRIPTS = {
-    "import_obtainium_catalog": ("control/tools/obtainium/import_catalog.py", True),
-    "configure_aurora": ("control/tools/play/configure_aurora.py", False),
     "enable_autojs6_drawer": ("control/tools/autojs6/enable_autojs6_shizuku.py", False),
 }
 

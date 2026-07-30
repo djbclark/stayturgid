@@ -1,12 +1,10 @@
-# play_store (Aurora Store / Play)
+# play_store (Play)
 
-Ensures Aurora Store (FOSS Google Play client) with Shizuku + optional app sideload.
+Ensures optional app sideload via Play backend.
 
 ## Prerequisites
 
-- Aurora Store in Obtainium catalog and/or `stayturgid_install_aurora_store: true`
-- Fleet deploy runs `stayturgid.fleet.post_ui` / `android_ui` task `configure_aurora`
-  for first-run UI when `stayturgid_app_stores_enabled: true`
+- Mac: `apkeep` for APK downloads
 - Mac: `apkeep` for APK downloads
 
 ## Deploy

@@ -35,14 +35,14 @@ def run_module(mocker, args):
 
 
 def test_android_ui_skips_check_mode(mocker, tmp_path):
-    script = tmp_path / "obtainium" / "mac"
+    script = tmp_path / "control" / "tools" / "autojs6"
     script.mkdir(parents=True)
-    (script / "import_catalog.py").write_text("# stub\n")
+    (script / "enable_autojs6_shizuku.py").write_text("# stub\n")
     out = run_module(
         mocker,
         dict(
             host="oneui-device",
-            task="import_obtainium_catalog",
+            task="enable_autojs6_drawer",
             repo_root=str(tmp_path),
             _ansible_check_mode=True,
         ),
