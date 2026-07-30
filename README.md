@@ -10,16 +10,16 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 
 ## Modules
 
-| Module                        | Path                                                                       | Standalone?                                        | README                                                                                                                     |
-| ----------------------------- | -------------------------------------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| **Termux runtime**            | `device/termux/`                                                           | Yes — repair, boot loop, presence                  | [docs/architecture/components/termux.md](docs/architecture/components/termux.md)                                           |
-| **Ansible deploy**            | `ansible/`                                                                 | Yes — Termux over SSH only                         | [ansible/README.md](ansible/README.md)                                                                                     |
-| **Control node**              | `control/bin/`                                                             | Yes — launchd reconnect + outage alert             | [docs/architecture/components/control.md](docs/architecture/components/control.md)                                         |
-| **AutoJs6 watchdog**          | `device/autojs6/`                                                          | Yes — needs Termux repair scripts                  | [docs/architecture/components/autojs6.md](docs/architecture/components/autojs6.md)                                         |
-| **FIRERPA failsafe**          | `ansible_collections/stayturgid/firerpa/`                                  | Yes — optional gRPC backup channel                 | [docs/research/evaluations/firerpa-install-map-2026-07-12.md](docs/research/evaluations/firerpa-install-map-2026-07-12.md) |
-| **SSH Certificate Authority** | `ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ca.yml` | Yes — fleet host-key trust                         | [docs/handoff.md § Major changes](docs/handoff.md)                                                                         |
-| **Play / Aurora Store**                | `stayturgid.play` collection                                               | Parked — manual / `--scope play` when re-enabled   | [docs/architecture/components/play.md](docs/architecture/components/play.md)                                               |
-| **Shared libraries**          | `control/lib/`                                                             | Yes — `resolve-adb`, UI parse, fleet health        | [control/lib/README.md](control/lib/README.md)                                                                             |
+| Module                        | Path                                                                       | Standalone?                                      | README                                                                                                                     |
+| ----------------------------- | -------------------------------------------------------------------------- | ------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| **Termux runtime**            | `device/termux/`                                                           | Yes — repair, boot loop, presence                | [docs/architecture/components/termux.md](docs/architecture/components/termux.md)                                           |
+| **Ansible deploy**            | `ansible/`                                                                 | Yes — Termux over SSH only                       | [ansible/README.md](ansible/README.md)                                                                                     |
+| **Control node**              | `control/bin/`                                                             | Yes — launchd reconnect + outage alert           | [docs/architecture/components/control.md](docs/architecture/components/control.md)                                         |
+| **AutoJs6 watchdog**          | `device/autojs6/`                                                          | Yes — needs Termux repair scripts                | [docs/architecture/components/autojs6.md](docs/architecture/components/autojs6.md)                                         |
+| **FIRERPA failsafe**          | `ansible_collections/stayturgid/firerpa/`                                  | Yes — optional gRPC backup channel               | [docs/research/evaluations/firerpa-install-map-2026-07-12.md](docs/research/evaluations/firerpa-install-map-2026-07-12.md) |
+| **SSH Certificate Authority** | `ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ca.yml` | Yes — fleet host-key trust                       | [docs/handoff.md § Major changes](docs/handoff.md)                                                                         |
+| **Play / Aurora Store**       | `stayturgid.play` collection                                               | Parked — manual / `--scope play` when re-enabled | [docs/architecture/components/play.md](docs/architecture/components/play.md)                                               |
+| **Shared libraries**          | `control/lib/`                                                             | Yes — `resolve-adb`, UI parse, fleet health      | [control/lib/README.md](control/lib/README.md)                                                                             |
 
 ---
 
@@ -53,7 +53,7 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 
 (`./control/bin/deploy_fleet.py` is the same; `just --list` lists all targets.)
 
-Play Store is **parked** (not in active deploy); see [docs/architecture/components/play.md](docs/architecture/components/play.md) to re-enable.
+Play / Aurora Store is **parked** (not in active deploy); see [docs/architecture/components/play.md](docs/architecture/components/play.md) to re-enable.
 
 **Partial re-runs:** `./control/bin/deploy_fleet.py --scope play [host]` (no-op while app stores are parked)
 
