@@ -10,7 +10,7 @@ Central map of all docs. **Start at the [project README](../README.md)** for ove
 | Ansible                           | [ansible/README.md](../ansible/README.md)                                                               | Idempotent Termux deploy over SSH                                                    |
 | Control node                      | [docs/architecture/components/control.md](architecture/components/control.md)                           | ADB reconnect, fleet health, **Hermes gateway**, **phone→Mac ET** (`et_mac`), deploy |
 | AutoJs6 (retired, reference only) | [docs/architecture/components/autojs6.md](architecture/components/autojs6.md)                           | Legacy JS watchdog, replaced fleet-wide by the native agent (K1, 2026-07-22)         |
-| Play / Aurora Store               | [docs/architecture/components/play.md](architecture/components/play.md)                                 | Aurora + apkeep/gplaycli (**parked** by default)                                     |
+| Play                              | [docs/architecture/components/play.md](architecture/components/play.md)                                 | apkeep/gplaycli direct Play installs (**parked** by default)                         |
 | Shared libraries                  | [control/lib/README.md](../control/lib/README.md)                                                       | `resolve-adb`, repo-root discovery, UI parse                                         |
 | Screen-control lease              | [docs/architecture/components/screen-control-lease.md](architecture/components/screen-control-lease.md) | Cross-project glass lock (DSCL v1; interop prompt)                                   |
 
@@ -80,4 +80,4 @@ Speculative / alternate architectures. Index:
 - **Termux only:** `device/termux/` + manual Shizuku
 - **Termux + Ansible:** `ansible/` + SSH keys
 - **Full stack:** `device/termux/` + `device/autojs6/` + `control/bin/` + `just deploy`
-  (Aurora Store **parked** unless `stayturgid_app_stores_enabled: true`)
+  (Play download automation **parked** unless `stayturgid_app_stores_enabled: true`)

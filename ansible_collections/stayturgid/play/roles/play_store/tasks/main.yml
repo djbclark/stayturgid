@@ -1,60 +1,11 @@
 ---
 # play_store role
-# Ensures Aurora Store (FOSS Google Play client) with Shizuku.
-# Battery optimization + update filters are applied by stayturgid.android_common.app_privileges
-# (or ad-hoc harden_fleet_apps.py) and configure_aurora when stores are enabled.
+# Installs apps directly from the Play Store via apkeep or gplaycli.
+# Applies no client configuration.
 
 - name: Resolve fleet alias to adb target (USB serial preferred)
   ansible.builtin.set_fact:
     _play_target_device: "{{ lookup('stayturgid.android_common.adb_device', target_device | default(inventory_hostname)) }}"
-
-- name: Detect Aurora Store on device
-  ansible.builtin.set_fact:
-    _aurora_installed: "{{ aurora_store_package in lookup('stayturgid.android_common.android_packages', _play_target_device) }}"
-  delegate_to: localhost
-
-- name: Warn when Aurora Store is missing but required
-  ansible.builtin.debug:
-    msg: >-
-      Aurora Store ({{ aurora_store_package }}) not installed on {{ _play_target_device }}.
-      Run ./control/bin/deploy_fleet.py (or set stayturgid_install_aurora_store: true) to install Aurora via apkeep before this role grants Shizuku.
-  when:
-    - stayturgid_ensure_aurora_store | bool
-    - not (stayturgid_install_aurora_store | default(false) | bool)
-    - not _aurora_installed
-
-- name: Install Aurora Store via apkeep f-droid (when missing)
-  when:
-    - stayturgid_install_aurora_store | default(false) | bool
-    - not _aurora_installed
-  stayturgid.play.play_apps:
-    device: "{{ _play_target_device }}"
-    apps:
-      - id: "{{ aurora_store_package }}"
-    download_backend: apkeep
-    apkeep_source: f-droid
-    apkeep_options: ""
-    spoof_play_installer: false
-    # Explicit /tmp override removed — inherits play_apps' own default
-    # (~/.cache/stayturgid/play-apps), a properly namespaced persistent
-    # cache rather than raw /tmp (see tmpfile security audit, 2026-07-21).
-  delegate_to: localhost
-
-- name: Refresh Aurora install fact after optional install
-  ansible.builtin.set_fact:
-    _aurora_installed: "{{ aurora_store_package in lookup('stayturgid.android_common.android_packages', _play_target_device) }}"
-  delegate_to: localhost
-  when: stayturgid_install_aurora_store | default(false) | bool
-
-- name: Grant Shizuku to Aurora Store
-  when:
-    - stayturgid_ensure_aurora_store | bool
-    - _aurora_installed
-  stayturgid.android_common.shizuku_grant:
-    device: "{{ _play_target_device }}"
-    package: "{{ aurora_store_package }}"
-  delegate_to: localhost
-  register: aurora_grant
 
 - name: Ensure Play apps (apkeep/gplaycli + adb install)
   when: stayturgid_play_apps | length > 0
@@ -68,18 +19,3 @@
     spoof_play_installer: "{{ stayturgid_play_spoof_installer | bool }}"
     repo_root: "{{ stayturgid_repo_root | default(ansible_config_file | dirname | dirname, true) }}"
   delegate_to: localhost
-
-- name: Open Aurora Store details for Play apps (manual fallback)
-  when:
-    - stayturgid_play_open_aurora | bool
-    - stayturgid_play_apps | length > 0
-    - _aurora_installed
-  stayturgid.android_common.android_intent:
-    device: "{{ _play_target_device }}"
-    data: "market://details?id={{ item.id }}"
-    component: "{{ aurora_store_package }}/.MainActivity"
-  loop: "{{ stayturgid_play_apps }}"
-  loop_control:
-    label: "{{ item.id }}"
-  delegate_to: localhost
-  changed_when: false

@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
-"""Open an app's Play/Aurora details page on device (manual install fallback).
+"""Open an app's Play details page on device (manual install fallback).
 
 Usage: ./open_play_app.py <stock-android-device|oneui-device|fireos-device|serial> <package.id>
 """
 
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
 import adb_cli as adb
-
-AURORA = os.environ.get("AURORA_PKG", "com.aurora.store")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -24,7 +21,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     serial = adb.resolve_target(argv[0])
     pkg = argv[1]
-    primary = adb.adb(
+    adb.adb(
         serial,
         "shell",
         "am",
@@ -33,21 +30,8 @@ def main(argv: list[str] | None = None) -> int:
         "android.intent.action.VIEW",
         "-d",
         f"market://details?id={pkg}",
-        "-n",
-        f"{AURORA}/.MainActivity",
     )
-    if primary.returncode != 0:
-        adb.adb(
-            serial,
-            "shell",
-            "am",
-            "start",
-            "-a",
-            "android.intent.action.VIEW",
-            "-d",
-            f"market://details?id={pkg}",
-        )
-    print(f"Opened market://details?id={pkg} on {serial} (confirm in Aurora Store)")
+    print(f"Opened market://details?id={pkg} on {serial}")
     return 0
 
 

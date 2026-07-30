@@ -13,7 +13,7 @@ Pass ``--devices-only`` (#57) to skip that second pass when iterating on one dev
 Usage:
   deploy_fleet.py [host ...]              # full site deploy
   deploy_fleet.py --scope fdroid oneui-device      # F-Droid roles only
-  deploy_fleet.py --scope play oneui-device        # Play roles + Aurora UI
+  deploy_fleet.py --scope play oneui-device        # Play roles
   deploy_fleet.py --devices-only oneui-device      # skip the redundant Mac control_node pass
   CHECK=1 deploy_fleet.py oneui-device             # ansible --check --diff (no post-UI / validate asserts)
 

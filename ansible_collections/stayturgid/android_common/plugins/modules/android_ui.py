@@ -10,9 +10,9 @@ DOCUMENTATION = r"""
 module: android_ui
 short_description: Run a named screen-control UI task via repo Python scripts
 description:
-  - Orchestrates existing Mac/on-device UI automation scripts (Obtainium import,
-    AutoJs6 drawer, Aurora configure). Implementation stays in Python per
-    ADR 002 — this module is not check-mode-idempotent over UI state.
+  - Orchestrates existing Mac/on-device UI automation scripts (AutoJs6
+    drawer). Implementation stays in Python per ADR 002 — this module is
+    not check-mode-idempotent over UI state.
   - UI tasks do not run in check mode (C(skipped=true)).
 options:
   host:
@@ -24,17 +24,11 @@ options:
     type: str
     required: true
     choices:
-      - import_obtainium_catalog
-      - configure_aurora
       - enable_autojs6_drawer
   repo_root:
     description: stayturgid repository root on the control node.
     type: path
     required: true
-  catalog:
-    description: Obtainium catalog key or path (for C(import_obtainium_catalog) only).
-    type: str
-    default: all
   retries:
     description: Retry count when the script exits non-zero.
     type: int
@@ -49,14 +43,6 @@ options:
 """
 
 EXAMPLES = r"""
-- name: Import Obtainium fleet catalog
-  stayturgid.android_common.android_ui:
-    host: oneui-device
-    task: import_obtainium_catalog
-    repo_root: "{{ stayturgid_repo_root }}"
-    catalog: all
-  delegate_to: localhost
-
 - name: Enable AutoJs6 fleet drawer
   stayturgid.android_common.android_ui:
     host: stock-android-device
@@ -92,21 +78,16 @@ import time
 from ansible.module_utils.basic import AnsibleModule
 
 TASK_SCRIPTS = {
-    "import_obtainium_catalog": ("control/tools/obtainium/import_catalog.py", True),
-    "configure_aurora": ("control/tools/play/configure_aurora.py", False),
-    "enable_autojs6_drawer": ("control/tools/autojs6/enable_autojs6_shizuku.py", False),
+    "enable_autojs6_drawer": "control/tools/autojs6/enable_autojs6_shizuku.py",
 }
 
 
-def build_argv(python, repo_root, task, host, catalog):
-    rel, uses_catalog = TASK_SCRIPTS[task]
+def build_argv(python, repo_root, task, host):
+    rel = TASK_SCRIPTS[task]
     script = os.path.join(repo_root, rel)
     if not os.path.isfile(script):
         raise ValueError("script not found: %s" % script)
-    argv = [python, script, host]
-    if uses_catalog:
-        argv.append(catalog or "all")
-    return argv
+    return [python, script, host]
 
 
 def run_script(argv, retries, retry_delay):
@@ -134,7 +115,6 @@ def main():
                 choices=sorted(TASK_SCRIPTS.keys()),
             ),
             repo_root=dict(type="path", required=True),
-            catalog=dict(type="str", default="all"),
             retries=dict(type="int", default=0),
             retry_delay=dict(type="int", default=3),
             python=dict(type="path", default=sys.executable),
@@ -158,7 +138,6 @@ def main():
             repo_root,
             task,
             module.params["host"],
-            module.params["catalog"],
         )
     except ValueError as exc:
         module.fail_json(msg=str(exc), task=task)

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""H2 eyeball helper: capture Neo Store + Aurora settings screenshots.
+"""H2 eyeball helper: capture Neo Store settings screenshots.
 
 PARKED — not run by fleet. Manual use only when re-enabling app stores.
 
@@ -25,7 +25,6 @@ import ui_driver as uid
 
 OUT = REPO / "artifacts" / "h2-confirm"
 NEO = "com.machiav3lli.fdroid"
-AURORA = "com.aurora.store"
 
 
 def adb(serial: str, *args: str, timeout: int = 30) -> subprocess.CompletedProcess:
@@ -85,76 +84,6 @@ def confirm_neo(host: str, session, hs, out: Path) -> None:
     session.shell("input", "swipe", "540", "1600", "540", "800")
     time.sleep(1)
     shot(serial, out / "04_neo_settings_scrolled.png")
-    # Next step launches Aurora; session exit restores prior screen.
-
-
-def confirm_aurora(host: str, session, hs, out: Path) -> None:
-    serial = session.serial
-    print("[%s] Aurora Store" % host)
-    launch(serial, "%s/.MainActivity" % AURORA)
-    time.sleep(1)
-    shot(serial, out / "10_aurora_home.png")
-    if hs is not None:
-        hs.tap_id("%s:id/menu_more" % AURORA, timeout_ms=2500) or hs.tap_desc("More", timeout_ms=2000)
-        time.sleep(1)
-        hs.tap_text("Settings", timeout_ms=2500)
-        time.sleep(1.5)
-    shot(serial, out / "11_aurora_settings.png")
-    if hs is not None:
-        hs.tap_text("Installation", timeout_ms=2500)
-        time.sleep(1)
-        hs.tap_text("Installation method", timeout_ms=2500)
-        time.sleep(1.2)
-    shot(serial, out / "12_aurora_installer.png")
-    # back to settings root
-    for _ in range(3):
-        session.shell("input", "keyevent", "KEYCODE_BACK")
-        time.sleep(0.6)
-    if hs is not None:
-        # re-open settings if needed
-        ui = hs.ui()
-        if "Updates" not in ui and "Installation" not in ui:
-            hs.tap_id("%s:id/menu_more" % AURORA, timeout_ms=2000)
-            time.sleep(0.8)
-            hs.tap_text("Settings", timeout_ms=2000)
-            time.sleep(1)
-        hs.tap_text("Updates", timeout_ms=2500)
-        time.sleep(1.2)
-    shot(serial, out / "13_aurora_updates.png")
-    if hs is not None:
-        hs.tap_text("Automatic updates", timeout_ms=2500)
-        time.sleep(1)
-    shot(serial, out / "14_aurora_auto_updates.png")
-    session.shell("input", "keyevent", "KEYCODE_BACK")
-    time.sleep(0.8)
-    shot(serial, out / "15_aurora_updates_filters.png")
-    # App battery via system settings
-    adb(
-        serial,
-        "am",
-        "start",
-        "-a",
-        "android.settings.APPLICATION_DETAILS_SETTINGS",
-        "-d",
-        "package:%s" % AURORA,
-    )
-    time.sleep(2)
-    shot(serial, out / "20_aurora_app_info.png")
-    if hs is not None:
-        # Pixel / Samsung / Fire labels for battery
-        for lab in ("App battery usage", "Battery", "Battery usage", "Power usage"):
-            if hs.tap_text(lab, timeout_ms=1800):
-                time.sleep(1.2)
-                break
-        else:
-            session.shell("input", "swipe", "540", "1600", "540", "900")
-            time.sleep(0.8)
-            for lab in ("App battery usage", "Battery", "Battery usage"):
-                if hs.tap_text(lab, timeout_ms=1500):
-                    time.sleep(1.2)
-                    break
-    shot(serial, out / "21_aurora_battery.png")
-    # Prior screen restored by ScreenControlSession.__exit__.
 
 
 def confirm_host(host: str) -> Path:
@@ -169,13 +98,12 @@ def confirm_host(host: str) -> Path:
     ui_guard.check_ui_guard(
         host=host,
         action_type="H2-CONFIRM-UI",
-        message="Please manually perform the Neo Store and Aurora Store UI verification.",
+        message="Please manually perform the Neo Store UI verification.",
     )
 
     with sc.ScreenControlSession(host, label=host) as session:
         with uid.try_handsets(serial, host) as hs:
             confirm_neo(host, session, hs, out)
-            confirm_aurora(host, session, hs, out)
     print("[%s] done → %s" % (host, out))
     return out
 

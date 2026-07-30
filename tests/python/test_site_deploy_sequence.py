@@ -23,7 +23,6 @@ def test_post_ui_unlock_is_gated_by_enabled_app_stores():
         "not ansible_check_mode",
         "stayturgid_app_stores_enabled | default(false) | bool",
     ]
-    assert tasks[1]["when"] == tasks[0]["when"]
 
 
 def test_ensure_apps_can_disable_destructive_incompatible_upgrade_cleanup():

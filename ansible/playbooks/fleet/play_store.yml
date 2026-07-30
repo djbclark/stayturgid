@@ -1,14 +1,12 @@
 ---
-# Aurora Store / Play — subset of fleet.yml (play tag).
+# Play — subset of fleet.yml (play tag).
 # Prefer: ./control/bin/deploy_fleet.py or ./control/bin/deploy_fleet.py --scope play
 #
-# Prerequisite: Aurora Store installed on device (Obtainium catalog + import,
-# or stayturgid_install_aurora_store: true in group_vars).
 #
 # Usage (from repo root):
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet/play_store.yml
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet/play_store.yml --limit oneui-device
-- name: stayturgid play store (Aurora Store + Shizuku grant)
+- name: stayturgid play store
   hosts: stayturgid
   gather_facts: false
   roles:
