@@ -18,9 +18,7 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 | **AutoJs6 watchdog**          | `device/autojs6/`                                                          | Yes — needs Termux repair scripts                  | [docs/architecture/components/autojs6.md](docs/architecture/components/autojs6.md)                                         |
 | **FIRERPA failsafe**          | `ansible_collections/stayturgid/firerpa/`                                  | Yes — optional gRPC backup channel                 | [docs/research/evaluations/firerpa-install-map-2026-07-12.md](docs/research/evaluations/firerpa-install-map-2026-07-12.md) |
 | **SSH Certificate Authority** | `ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ca.yml` | Yes — fleet host-key trust                         | [docs/handoff.md § Major changes](docs/handoff.md)                                                                         |
-| **Obtainium catalogs**        | `catalogs/obtainium/`                                                      | Yes — any Obtainium user                           | [docs/architecture/components/obtainium.md](docs/architecture/components/obtainium.md)                                     |
-| **F-Droid / Neo Store**       | `stayturgid.fdroid` collection                                             | Parked — manual / `--scope fdroid` when re-enabled | [docs/architecture/components/fdroid.md](docs/architecture/components/fdroid.md)                                           |
-| **Play / Aurora Store**       | `stayturgid.play` collection                                               | Parked — manual / `--scope play` when re-enabled   | [docs/architecture/components/play.md](docs/architecture/components/play.md)                                               |
+| **Play / Aurora Store**                | `stayturgid.play` collection                                               | Parked — manual / `--scope play` when re-enabled   | [docs/architecture/components/play.md](docs/architecture/components/play.md)                                               |
 | **Shared libraries**          | `control/lib/`                                                             | Yes — `resolve-adb`, UI parse, fleet health        | [control/lib/README.md](control/lib/README.md)                                                                             |
 
 ---
@@ -33,7 +31,7 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 | [docs/STATUS.md](docs/STATUS.md)                                                             | Dated snapshot: fleet health, active workstreams, operator-action queue, known gotchas                                                     |
 | [docs/README.md](docs/README.md)                                                             | Full documentation index                                                                                                                   |
 | [docs/research/experiments/](docs/research/experiments/)                                     | Parked side projects - do not implement unless revived ([tablet-control](docs/research/experiments/tablet-control-phone.md), Inferno, ...) |
-| [docs/hacking.md](docs/hacking.md)                                                           | Developer setup, clean install, Obtainium, Termux swap                                                                                     |
+| [docs/hacking.md](docs/hacking.md)                                                           | Developer setup, clean install, Termux swap                                                                                                |
 | [docs/coding-rules.md](docs/coding-rules.md)                                                 | Durable coding, safety, testing, Git, and completion rules                                                                                 |
 | [docs/rules/](docs/rules/)                                                                   | AI agent policies (always-on) - normal-deploy convergence, self-heal, screen-control hold, GitHub-issues hygiene                           |
 | [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md)                                             | Operator tasks (credentials, deploy approval) - human-only                                                                                 |
@@ -49,16 +47,15 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 1. Shizuku (thedjchi fork) — TCP mode, wireless debugging
 2. Termux + Termux:Boot + Termux:API — [docs/architecture/components/termux.md](docs/architecture/components/termux.md) or `./control/bin/deploy_termux.py <host>`
 3. AutoJs6 watchdog — [docs/architecture/components/autojs6.md](docs/architecture/components/autojs6.md) (`control/tools/autojs6/setup_autojs6.py`, etc.)
-4. Obtainium catalog — [docs/architecture/components/obtainium.md](docs/architecture/components/obtainium.md)
-5. Control node — [docs/architecture/components/control.md](docs/architecture/components/control.md) (ADB reconnect + access monitor)
+4. Control node — [docs/architecture/components/control.md](docs/architecture/components/control.md) (ADB reconnect + access monitor)
 
-**One command (fleet):** `just deploy` — Termux, AutoJs6, Obtainium, Tailscale, optional ensure_apps.
+**One command (fleet):** `just deploy` — Termux, AutoJs6, Tailscale, optional ensure_apps.
 
 (`./control/bin/deploy_fleet.py` is the same; `just --list` lists all targets.)
 
-Neo Store / Aurora Store are **parked** (not in active deploy); see [docs/architecture/components/fdroid.md](docs/architecture/components/fdroid.md) and [docs/architecture/components/play.md](docs/architecture/components/play.md) to re-enable.
+Play Store is **parked** (not in active deploy); see [docs/architecture/components/play.md](docs/architecture/components/play.md) to re-enable.
 
-**Partial re-runs:** `./control/bin/deploy_fleet.py --scope fdroid [host]` · `./control/bin/deploy_fleet.py --scope play [host]` (no-op while app stores are parked)
+**Partial re-runs:** `./control/bin/deploy_fleet.py --scope play [host]` (no-op while app stores are parked)
 
 The fleet dashboard is available on the control node at `http://127.0.0.1:4097/`
 (normally reached through the configured HTTPS proxy). A device card with a
@@ -110,11 +107,10 @@ stayturgid/
   control/
     bin/                    — operator scripts (deploy, monitors, verify)
     lib/                    — shared Python + fleet JSON profiles
-    tools/                  — per-domain Mac helpers (autojs6, obtainium, …)
+    tools/                  — per-domain Mac helpers (autojs6, play, fdroid, …)
   device/
     termux/                 — on-device Termux runtime (boot, py, bin)
     autojs6/                — AutoJs6 project (main.js, lib, scripts)
-  catalogs/obtainium/       — Obtainium JSON catalogs
   ansible/                  — site playbooks, inventory, control_node role
   ansible_collections/      — stayturgid.* Galaxy collections
   examples/  tests/  human/
