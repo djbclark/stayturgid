@@ -90,7 +90,7 @@ def test_main_skips_own_release_and_notifies_on_mismatch(monkeypatch: pytest.Mon
 
     monkeypatch.setattr(cau, "latest_tag_for", fake_latest_tag_for)
 
-    sent = {}
+    sent: dict[str, list[str]] = {}
     monkeypatch.setattr(cau.subprocess, "run", lambda args, **kw: sent.setdefault("args", args))
 
     cau.main()

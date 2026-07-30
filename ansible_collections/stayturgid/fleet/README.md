@@ -5,11 +5,11 @@
 Domain modules were split into installable collections so other sites can depend
 on only what they need:
 
-| Collection                                                                 | Module                                                             | Use when                         |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------- |
-| [stayturgid.termux](../../../docs/architecture/components/termux.md)       | `termux_pkg`                                                       | Termux `pkg` over SSH            |
-| [stayturgid.play](../../../docs/architecture/components/play.md)           | `play_apps`                                                        | apkeep/gplaycli + adb install    |
-| [stayturgid.android_common](../android_common/README.md)                   | `android_ui`, `android_a11y_services`, `autojs6_project_deploy`, … | ADB + UI tasks (ADR 002)         |
+| Collection                                                           | Module                                                             | Use when                      |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------ | ----------------------------- |
+| [stayturgid.termux](../../../docs/architecture/components/termux.md) | `termux_pkg`                                                       | Termux `pkg` over SSH         |
+| [stayturgid.play](../../../docs/architecture/components/play.md)     | `play_apps`                                                        | apkeep/gplaycli + adb install |
+| [stayturgid.android_common](../android_common/README.md)             | `android_ui`, `android_a11y_services`, `autojs6_project_deploy`, … | ADB + UI tasks (ADR 002)      |
 
 **Fleet roles:** `stayturgid.fleet.post_ui` (post-deploy screen-control);
 `stayturgid.fleet.validate` (repair/sshd/a11y smoke + optional a11y drift merge).

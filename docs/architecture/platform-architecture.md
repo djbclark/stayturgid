@@ -1251,8 +1251,6 @@ Scan performed 2026-07-14 across the full repository. Production aliases
   Minimal Tier A deployment.
 - [`examples/consumer-full-fleet/`](../../examples/consumer-full-fleet/) —
   Full Tier C deployment.
-- [`examples/consumer-fdroid-only/`](../../examples/consumer-fdroid-only/) —
-  F-Droid-only deployment.
 - [`docs/ansible/collections/adoption.md`](../ansible/collections/adoption.md)
   — How to consume collections at another site.
 

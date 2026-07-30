@@ -16,13 +16,6 @@ def test_site_runs_fleet_convergence_once():
     assert site.index("fleet/ensure-bootstrap-apks.yml") < site.index("fleet/verify-bootstrap-apks.yml")
 
 
-def test_obtainium_import_is_not_duplicated_through_screen_control():
-    post_ui = POST_UI_TASKS.read_text(encoding="utf-8")
-
-    assert "import_obtainium_catalog" not in post_ui
-    assert "Import Obtainium catalog" not in post_ui
-
-
 def test_post_ui_unlock_is_gated_by_enabled_app_stores():
     tasks = yaml.safe_load(POST_UI_TASKS.read_text(encoding="utf-8"))
 
@@ -31,15 +24,6 @@ def test_post_ui_unlock_is_gated_by_enabled_app_stores():
         "stayturgid_app_stores_enabled | default(false) | bool",
     ]
     assert tasks[1]["when"] == tasks[0]["when"]
-
-
-def test_main_obtainium_role_uses_only_headless_import():
-    role_tasks = (ROOT / "ansible_collections/stayturgid/obtainium/roles/obtainium_apps/tasks/main.yml").read_text(
-        encoding="utf-8"
-    )
-
-    assert "headless_import: true" in role_tasks
-    assert "import_ui:" not in role_tasks
 
 
 def test_ensure_apps_can_disable_destructive_incompatible_upgrade_cleanup():

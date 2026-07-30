@@ -20,14 +20,14 @@ This document gets a developer from a clean Android + macOS install to a fully w
 
 ### Android device
 
-| App                     | Package                      | Version                    | Source                 |
-| ----------------------- | ---------------------------- | -------------------------- | ---------------------- |
-| Android                 | —                            | 16 (SDK 36)                | —                      |
-| AutoJs6                 | `org.autojs.autojs6`         | 6.7.0                      | GitHub (see below)     |
-| Shizuku (thedjchi fork) | `moe.shizuku.privileged.api` | 13.6.0.r1349-thedjchi-beta | GitHub (see below)     |
-| Termux                  | `com.termux`                 | 0.118.3                    | GitHub                 |
-| Termux:Boot             | `com.termux.boot`            | 0.8.1                      | F-Droid / GitHub       |
-| Termux:API (app)        | `com.termux.api`             | 0.53.0                     | F-Droid / GitHub       |
+| App                     | Package                      | Version                    | Source             |
+| ----------------------- | ---------------------------- | -------------------------- | ------------------ |
+| Android                 | —                            | 16 (SDK 36)                | —                  |
+| AutoJs6                 | `org.autojs.autojs6`         | 6.7.0                      | GitHub (see below) |
+| Shizuku (thedjchi fork) | `moe.shizuku.privileged.api` | 13.6.0.r1349-thedjchi-beta | GitHub (see below) |
+| Termux                  | `com.termux`                 | 0.118.3                    | GitHub             |
+| Termux:Boot             | `com.termux.boot`            | 0.8.1                      | F-Droid / GitHub   |
+| Termux:API (app)        | `com.termux.api`             | 0.53.0                     | F-Droid / GitHub   |
 
 ### Termux packages (installed inside Termux via `pkg`)
 
@@ -788,9 +788,9 @@ deploy does not require an unlocked screen when app stores are parked.
 
 **Default repos** (`ansible_collections/stayturgid/fdroid/roles/fdroid_repos/defaults/main.yml`):
 
-| Name             | URL                                        | SHA-256 fingerprint                                                |
-| ---------------- | ------------------------------------------ | ------------------------------------------------------------------ |
-| IzzyOnDroid      | `https://apt.izzysoft.de/fdroid/repo`      | `3BF0D6ABFEAE2F401707B6D966BE743BF0EEE49C2561B9BA39073711F628937A` |
+| Name        | URL                                   | SHA-256 fingerprint                                                |
+| ----------- | ------------------------------------- | ------------------------------------------------------------------ |
+| IzzyOnDroid | `https://apt.izzysoft.de/fdroid/repo` | `3BF0D6ABFEAE2F401707B6D966BE743BF0EEE49C2561B9BA39073711F628937A` |
 
 ---
 
