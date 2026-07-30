@@ -705,7 +705,7 @@ def test_product_file_filter_emits_product_source_verbatim(tmp_path: Path) -> No
     tpl = tmp_path / "t.j2"
     tpl.write_text("# header\n{{ 'sub/data.yml' | product_file }}", encoding="utf-8")
 
-    out = ss._render_template(tpl, {"product_root": str(product)}).decode("utf-8")
+    out = ss._render_template(tpl, {"product_root": str(product)}, product_root_path=product).decode("utf-8")
     assert out == "# header\n---\nkey: value  # product-owned\n"
 
 
@@ -716,8 +716,22 @@ def test_product_file_filter_rejects_path_escape(tmp_path: Path) -> None:
     tpl = tmp_path / "t.j2"
     tpl.write_text("{{ '../secret.yml' | product_file }}", encoding="utf-8")
     try:
-        ss._render_template(tpl, {"product_root": str(product)})
+        ss._render_template(tpl, {"product_root": str(product)}, product_root_path=product)
     except ss.SiteSyncError as exc:
         assert "escapes product root" in str(exc)
     else:
         raise AssertionError("expected SiteSyncError for path escape")
+
+
+def test_product_file_filter_no_silent_fallback_when_explicit_root_given(tmp_path: Path) -> None:
+    product = tmp_path / "product"
+    product.mkdir()
+    tpl = tmp_path / "t.j2"
+    tpl.write_text("{{ 'missing.yml' | product_file }}", encoding="utf-8")
+    try:
+        ss._render_template(tpl, {"product_root": str(product)}, product_root_path=product)
+    except ss.SiteSyncError as exc:
+        assert "product_file source missing" in str(exc)
+        assert str(product) in str(exc)
+    else:
+        raise AssertionError("expected SiteSyncError for missing explicit product file")
