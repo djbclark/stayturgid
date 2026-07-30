@@ -267,7 +267,8 @@ def load_dashboard_brew_services(
         return {}
 
     services_map: dict[str, str] = {}
-    brew_services = doc.get("brew_services") if isinstance(doc, dict) else None
+    prefixes = doc.get("prefixes") if isinstance(doc, dict) else None
+    brew_services = prefixes.get("brew_services") if isinstance(prefixes, dict) else None
     if isinstance(brew_services, list):
         for entry in brew_services:
             if isinstance(entry, dict) and entry.get("dashboard") is True:

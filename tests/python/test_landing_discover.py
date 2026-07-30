@@ -166,10 +166,14 @@ def test_load_dashboard_brew_services(mock_env, monkeypatch):
             return True
 
         def read_text(self, encoding):
+            # brew_services lives nested under `prefixes`, matching the real
+            # registry/paths.yml shape — a flat top-level key here would
+            # silently hide the bug this test exists to catch.
             return """
-brew_services:
-  - {label: homebrew.mxcl.herdr, dashboard: true}
-  - {label: homebrew.mxcl.et, dashboard: false}
+prefixes:
+  brew_services:
+    - {label: homebrew.mxcl.herdr, dashboard: true}
+    - {label: homebrew.mxcl.et, dashboard: false}
 """
 
     monkeypatch.setattr(discover, "_resolve_registry_paths_path", lambda site_dir: MockPath())
