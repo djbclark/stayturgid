@@ -141,3 +141,85 @@ def test_gap2_dual_row_ambiguity(mock_env, monkeypatch):
     urls = [s["url"] for s in services]
     assert "http://localhost:6736/v1/limits" in urls
     assert "http://localhost:6736" not in urls
+
+
+def test_probe_launchd(monkeypatch):
+    import subprocess
+
+    def mock_run(*args, **kwargs):
+        cmd = args[0]
+        if "herdr" in cmd[2]:
+            return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="state = running")
+        return subprocess.CompletedProcess(args=cmd, returncode=0, stdout="state = stopped")
+
+    monkeypatch.setattr(subprocess, "run", mock_run)
+
+    # test herdr is running
+    assert discover._http_probe("launchd://homebrew.mxcl.herdr") == 200
+    # test other is not
+    assert discover._http_probe("launchd://homebrew.mxcl.other") is None
+
+
+def test_load_dashboard_brew_services(mock_env, monkeypatch):
+    class MockPath:
+        def is_file(self):
+            return True
+
+        def read_text(self, encoding):
+            # brew_services lives nested under `prefixes`, matching the real
+            # registry/paths.yml shape — a flat top-level key here would
+            # silently hide the bug this test exists to catch.
+            return """
+prefixes:
+  brew_services:
+    - {label: homebrew.mxcl.herdr, dashboard: true}
+    - {label: homebrew.mxcl.et, dashboard: false}
+"""
+
+    monkeypatch.setattr(discover, "_resolve_registry_paths_path", lambda site_dir: MockPath())
+    services = discover.load_dashboard_brew_services(site_dir=mock_env)
+    assert "homebrew.mxcl.herdr" in services
+    assert services["homebrew.mxcl.herdr"] == "Herdr"
+    assert "homebrew.mxcl.et" not in services
+
+
+def test_get_summary_counts():
+    result = {
+        "services": [
+            {"url": "http://localhost:8080", "reachable": True, "unregistered": True},
+            {"url": "http://localhost:9090", "reachable": False},
+            {"url": "http://localhost:9091", "reachable": False},
+            {"url": "launchd://homebrew.mxcl.herdr", "reachable": False},
+        ]
+    }
+    registered = {9090: "Service 9090"}
+    static_urls = {"http://localhost:9091"}
+    dashboard_urls = {"launchd://homebrew.mxcl.herdr"}
+
+    summary = discover.get_summary_counts(result, registered, static_urls, dashboard_urls)
+    assert summary["reachable"] == 1
+    assert summary["total"] == 4
+    assert summary["unregistered_up"] == 1
+    assert summary["registered_down"] == 2  # 9090 and herdr
+    assert summary["catalog_unreachable"] == 1  # 9091
+
+
+def test_main_health_check(mock_env, monkeypatch):
+    monkeypatch.setattr(discover, "discover", lambda: {"services": []})
+    monkeypatch.setattr(discover, "load_registered_ports", lambda site_dir: {})
+    monkeypatch.setattr(discover, "_known_services_for_site", lambda site_dir: [])
+    monkeypatch.setattr(discover, "load_dashboard_brew_services", lambda site_dir: {})
+
+    def mock_summary(*args):
+        return {"reachable": 0, "total": 0, "registered_down": 1, "unregistered_up": 0, "catalog_unreachable": 0}
+
+    monkeypatch.setattr(discover, "get_summary_counts", mock_summary)
+
+    assert discover.main(["--health-check"]) == 1
+
+    def mock_summary_healthy(*args):
+        return {"reachable": 0, "total": 0, "registered_down": 0, "unregistered_up": 0, "catalog_unreachable": 0}
+
+    monkeypatch.setattr(discover, "get_summary_counts", mock_summary_healthy)
+    assert discover.main(["--health-check"]) == 0
+    assert discover.main([]) == 0
