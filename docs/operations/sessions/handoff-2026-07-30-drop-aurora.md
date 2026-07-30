@@ -5,9 +5,11 @@
 **PR:** #145
 
 ## Summary
+
 Removed all client automation code related to the Aurora Store (`configure_aurora.py`, `stayturgid_configure_aurora.py`, tests). The generic Play Store installation path (`stayturgid.play.play_apps`) was preserved.
 
 ## Actions Taken
+
 - Deleted `control/tools/play/configure_aurora.py`, `device/termux/py/stayturgid_configure_aurora.py`, and `tests/python/test_configure_aurora.py`.
 - Removed Aurora configuration dispatch from `android_ui.py`.
 - Removed dangling `import_obtainium_catalog` reference in `android_ui.py`.
@@ -16,5 +18,6 @@ Removed all client automation code related to the Aurora Store (`configure_auror
 - Passed all verification checks: `just check`, `just test`, and `lychee --offline --exclude-path 'node_modules|\.html$' --root-dir . .`.
 
 ## Next Steps
-PR #145 is open and ready for orchestrator review and merge. 
+
+PR #145 is open and ready for orchestrator review and merge.
 The next phase (Release signing restoration) is ready for Agent 24.
