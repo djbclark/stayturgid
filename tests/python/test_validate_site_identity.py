@@ -34,6 +34,7 @@ class _Dev:
     ansible_host: str
     device_usb_serial: str
     device_lan_ip: str
+    device_phone_number: str = "-"
     device_label: str = "label"
     ansible_port: int = 8022
     ansible_user: str = "termux"
@@ -76,6 +77,7 @@ def test_build_drift_patterns_skips_generic_identity() -> None:
                 "100.0.0.11",
                 "EXAMPLE-SERIAL-ONEUI",
                 "192.0.2.11",
+                "+15550100011",
             )
         },
         control_node=_Ctrl(),
@@ -94,6 +96,7 @@ def test_build_drift_patterns_includes_production_identity() -> None:
                 "198.18.0.50",
                 "REALSERIAL001",
                 "10.0.0.50",
+                "+15550100050",
             )
         },
         control_node=_Ctrl(lan_ip="10.0.0.1", tailscale_ip="198.18.0.1"),
@@ -104,6 +107,7 @@ def test_build_drift_patterns_includes_production_identity() -> None:
     assert any("ansible_host IP" in d for d in descs)
     assert any("USB serial" in d for d in descs)
     assert any("LAN IP" in d for d in descs)
+    assert any("phone number" in d for d in descs)
     assert any("control node LAN IP" in d for d in descs)
     assert any("control node Tailscale IP" in d for d in descs)
 
@@ -118,6 +122,7 @@ def test_check_drift_finds_hardcoded_alias(tmp_path: Path, monkeypatch: pytest.M
                 "198.18.0.50",
                 "REALSERIAL001",
                 "10.0.0.50",
+                "+15550100050",
             )
         },
         control_node=_Ctrl(lan_ip="10.0.0.1", tailscale_ip="198.18.0.1"),
@@ -150,6 +155,7 @@ def test_check_drift_clean_when_no_matches(tmp_path: Path, monkeypatch: pytest.M
                 "198.18.0.50",
                 "REALSERIAL001",
                 "10.0.0.50",
+                "+15550100050",
             )
         },
         control_node=_Ctrl(lan_ip="10.0.0.1", tailscale_ip="198.18.0.1"),
@@ -182,6 +188,7 @@ def _prod_site() -> "_Site":
                 "198.18.0.50",
                 "REALSERIAL001",
                 "10.0.0.50",
+                "+15550100050",
             )
         },
         control_node=_Ctrl(lan_ip="10.0.0.1", tailscale_ip="198.18.0.1"),

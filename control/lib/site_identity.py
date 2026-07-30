@@ -57,6 +57,7 @@ class Device:
     ansible_host: str
     device_usb_serial: str
     device_lan_ip: str
+    device_phone_number: str
     device_label: str
     ansible_port: int
     ansible_user: str
@@ -186,6 +187,13 @@ def _parse_inventory(data: dict) -> Site:
                 raise ValueError(f"Duplicate device_lan_ip '{lan_ip}' on host '{host}'")
             lan_ips_seen.add(lan_ip)
 
+        # device_phone_number (optional — '-' means none)
+        phone_number: str = hvars.get("device_phone_number", "-") or "-"
+        if phone_number != "-" and not re.fullmatch(r"\+\d+", phone_number):
+            raise ValueError(
+                f"Host '{host}' has invalid 'device_phone_number' value: '{phone_number}' (must be E.164 format)"
+            )
+
         device_label = str(_require(host, "device_label", hvars))
 
         try:
@@ -201,6 +209,7 @@ def _parse_inventory(data: dict) -> Site:
             ansible_host=ansible_host,
             device_usb_serial=usb_serial,
             device_lan_ip=lan_ip,
+            device_phone_number=phone_number,
             device_label=device_label,
             ansible_port=port,
             ansible_user=ansible_user,

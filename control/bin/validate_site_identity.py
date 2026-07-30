@@ -239,6 +239,14 @@ def _build_drift_patterns(site) -> list[tuple[str, str]]:
             ip_esc = re.escape(dev.device_lan_ip)
             patterns.append((ip_esc, f"LAN IP '{dev.device_lan_ip}' ({alias})"))
 
+        # Phone number
+        if (
+            dev.device_phone_number
+            and dev.device_phone_number != "-"
+            and not is_generic_fixture(dev.device_phone_number)
+        ):
+            patterns.append((re.escape(dev.device_phone_number), f"phone number '{dev.device_phone_number}' ({alias})"))
+
     # Control node
     cn = site.control_node
     if cn.lan_ip and not is_generic_fixture(cn.lan_ip):
@@ -378,6 +386,7 @@ def _print_site_summary(site, host_filter: str | None) -> None:
         print(f"    device_label          : {dev.device_label}")
         print(f"    device_usb_serial     : {dev.device_usb_serial}")
         print(f"    device_lan_ip         : {dev.device_lan_ip}")
+        print(f"    device_phone_number   : {dev.device_phone_number}")
         print(f"    automation_mode       : {dev.stayturgid_automation_mode}")
     cn = site.control_node
     print("\n  control_node")
