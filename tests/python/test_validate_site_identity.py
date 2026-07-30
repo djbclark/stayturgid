@@ -96,7 +96,7 @@ def test_build_drift_patterns_includes_production_identity() -> None:
                 "198.18.0.50",
                 "REALSERIAL001",
                 "10.0.0.50",
-                "+15550100050",
+                "+14155551234",
             )
         },
         control_node=_Ctrl(lan_ip="10.0.0.1", tailscale_ip="198.18.0.1"),
@@ -122,7 +122,7 @@ def test_check_drift_finds_hardcoded_alias(tmp_path: Path, monkeypatch: pytest.M
                 "198.18.0.50",
                 "REALSERIAL001",
                 "10.0.0.50",
-                "+15550100050",
+                "+14155551234",
             )
         },
         control_node=_Ctrl(lan_ip="10.0.0.1", tailscale_ip="198.18.0.1"),
@@ -155,7 +155,7 @@ def test_check_drift_clean_when_no_matches(tmp_path: Path, monkeypatch: pytest.M
                 "198.18.0.50",
                 "REALSERIAL001",
                 "10.0.0.50",
-                "+15550100050",
+                "+14155551234",
             )
         },
         control_node=_Ctrl(lan_ip="10.0.0.1", tailscale_ip="198.18.0.1"),
@@ -188,7 +188,7 @@ def _prod_site() -> "_Site":
                 "198.18.0.50",
                 "REALSERIAL001",
                 "10.0.0.50",
-                "+15550100050",
+                "+14155551234",
             )
         },
         control_node=_Ctrl(lan_ip="10.0.0.1", tailscale_ip="198.18.0.1"),
