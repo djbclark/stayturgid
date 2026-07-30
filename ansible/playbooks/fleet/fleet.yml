@@ -1,13 +1,13 @@
 ---
-# Full fleet deploy: Termux, AutoJs6, Obtainium, Tailscale, optional ensure_apps.
-# F-Droid / Play roles are gated by stayturgid_app_stores_enabled (default false).
+# Full fleet deploy: Termux, Tailscale, optional ensure_apps.
+# Play roles are gated by stayturgid_app_stores_enabled (default false).
 # Boot-loop restart happens via handler only when boot scripts change.
 #
 # Usage (from repo root, or via ./control/bin/deploy_fleet.py / site.yml):
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
 #     ansible/playbooks/fleet/fleet.yml [--limit oneui-device]
 #
-# Tags: app-stores (fdroid + play), fdroid, play, app-privileges, ensure_apps
+# Tags: app-stores (play), play, app-privileges, ensure_apps
 #
 # Per-host failures don't stop other hosts (Ansible default behavior).
 - name: stayturgid fleet deploy
@@ -16,13 +16,7 @@
   roles:
     - role: stayturgid.termux.termux_userland
     - role: stayturgid.fleet.shizuku_config
-    - role: stayturgid.obtainium.obtainium_apps
     - role: stayturgid.android_common.tailscale_vpn
-    - role: stayturgid.fdroid.fdroid_repos
-      tags: [app-stores, fdroid]
-      when: stayturgid_app_stores_enabled | default(false) | bool
-      vars:
-        target_device: "{{ inventory_hostname }}"
     - role: stayturgid.play.play_store
       tags: [app-stores, play]
       when: stayturgid_app_stores_enabled | default(false) | bool

@@ -25,7 +25,7 @@ This document gets a developer from a clean Android + macOS install to a fully w
 | Android                 | —                            | 16 (SDK 36)                | —                      |
 | AutoJs6                 | `org.autojs.autojs6`         | 6.7.0                      | GitHub (see below)     |
 | Shizuku (thedjchi fork) | `moe.shizuku.privileged.api` | 13.6.0.r1349-thedjchi-beta | GitHub (see below)     |
-| Termux                  | `com.termux`                 | 0.118.3                    | GitHub (via Obtainium) |
+| Termux                  | `com.termux`                 | 0.118.3                    | GitHub                 |
 | Termux:Boot             | `com.termux.boot`            | 0.8.1                      | F-Droid / GitHub       |
 | Termux:API (app)        | `com.termux.api`             | 0.53.0                     | F-Droid / GitHub       |
 
@@ -76,13 +76,9 @@ The standard Shizuku from Play Store **does not have TCP mode**. You need thedjc
 
 **Source:** https://github.com/thedjchi/Shizuku/releases
 
-**Obtainium URL** (add this in Obtainium → Add App):
+**Source:** https://github.com/thedjchi/Shizuku/releases
 
-```
-https://github.com/thedjchi/Shizuku
-```
-
-Select: "GitHub Releases" → filter for `.apk`.
+Select: "GitHub Releases" -> filter for `.apk`.
 
 Install the latest `app-release.apk` from the releases page. Current version: **13.6.0.r1349-thedjchi-beta**.
 
@@ -120,11 +116,7 @@ JavaScript automation engine — runs the stayturgid watchdog (accessibility UI 
 
 **Source:** https://github.com/djbclark/AutoJs6/releases (fleet-profile-553 build with non-UI configuration)
 
-**Obtainium URL** (add this in Obtainium → Add App, or import `catalogs/obtainium/autojs6-only.json` via `control/tools/obtainium/sync_to_device.py`):
-
-```
-https://github.com/djbclark/AutoJs6
-```
+**Source:** https://github.com/djbclark/AutoJs6/releases
 
 APK filter: `arm64-v8a` (or enable auto-filter-by-arch). Grant **Run commands in Termux environment** after install.
 
@@ -132,26 +124,11 @@ APK filter: `arm64-v8a` (or enable auto-filter-by-arch). Grant **Run commands in
 
 Gives the device a stable `100.x.y.z` IP that survives DHCP lease changes and network switches — so `adb connect <tailscale-ip>:5555` and SSH keep working without hunting for the current WiFi IP. (The S24's LAN IP changed mid-session once and broke every hardcoded `adb connect`; Tailscale eliminates that failure mode.)
 
-**Obtainium URL** (add this in Obtainium → Add App):
-
-```
-https://github.com/tailscale/tailscale-android
-```
+**Source:** https://github.com/tailscale/tailscale-android/releases
 
 Select: "GitHub Releases" → filter for `.apk`.
 
 After install: sign in, and in Tailscale settings consider enabling **VPN On-Demand / Always-on VPN** so the tunnel survives reboots.
-
-#### Obtainium — quieter installs via Shizuku
-
-After Shizuku is running and Obtainium is in the manager's authorized-app list:
-
-```bash
-chmod +x control/tools/obtainium/enable_shizuku_installer.py
-./control/tools/obtainium/enable_shizuku_installer.py oneui-device   # phone unlocked
-```
-
-This grants `moe.shizuku.manager.permission.API_V23`, merges Obtainium into `/data/local/tmp/shizuku/shizuku.json`, and toggles **Use Dhizuku, Shizuku or Sui to install** in Obtainium settings (approves the Shizuku permission dialog if shown). Bulk updates: `./control/tools/obtainium/apply_updates.py oneui-device`.
 
 ---
 
@@ -289,7 +266,7 @@ just deploy-mac          # Homebrew bootstrap (if missing) + adb, python, uv, gi
 
 The playbook runs the standard Homebrew install script when `brew` is not on PATH, then
 uses `community.general.homebrew` for formulae. When app stores are re-enabled
-(`stayturgid_app_stores_enabled: true`), `fdroidcl` and `apkeep` are included too.
+(`stayturgid_app_stores_enabled: true`), `apkeep` is included too.
 `uiautomator2` is installed via `uv tool install`.
 
 Still manual: Handsets, SSH key generation (`termux_key`, `adbkey`), `play.env`,
@@ -548,8 +525,7 @@ stdin pipe), never bare `ssh host '<commands>'` through the login shell.
 - **Tier b (unit, no device):** shell TAP harness (`tests/test-unit.sh`, runs
   the `battery_suite` against BOTH the shell and Python twins), plain **pytest**
   for the Python script twins (`tests/python/`), and the standard
-  **`ansible-test units`** for domain collections (`stayturgid.termux`, `obtainium`,
-  `fdroid`, `play` under `ansible_collections/stayturgid/`). `just test` runs all
+  **`ansible-test units`** for domain collections (`stayturgid.termux`, `play` under `ansible_collections/stayturgid/`). `just test` runs all
   three.
 - **Tier c (device, read-only):** `just verify` / `tests/run.sh device`.
 - **Drift detection:** `just verify-drift [HOSTS=oneui-device]` — Ansible-based declarative state verification (complements TAP verify). `just verify-heal [HOSTS=oneui-device]` runs verify + auto-heal.
@@ -733,7 +709,7 @@ On Samsung Android 16, `adb shell am start -d content://com.android.externalstor
 
 ### Termux packages: must match signing source
 
-When Termux main app is installed from GitHub releases (via Obtainium), all add-ons must also come from GitHub — not F-Droid. Mixing sources causes `INSTALL_FAILED_SHARED_USER_INCOMPATIBLE`.
+When Termux main app is installed from GitHub releases, all add-ons must also come from GitHub — not F-Droid. Mixing sources causes `INSTALL_FAILED_SHARED_USER_INCOMPATIBLE`.
 
 GitHub release pages:
 
@@ -815,19 +791,6 @@ deploy does not require an unlocked screen when app stores are parked.
 | Name             | URL                                        | SHA-256 fingerprint                                                |
 | ---------------- | ------------------------------------------ | ------------------------------------------------------------------ |
 | IzzyOnDroid      | `https://apt.izzysoft.de/fdroid/repo`      | `3BF0D6ABFEAE2F401707B6D966BE743BF0EEE49C2561B9BA39073711F628937A` |
-| Guardian Project | `https://guardianproject.info/fdroid/repo` | `B7C2EEFD8DAC7806AF67DFCD92EB18126BC08312A7F2D6F3862E46013C7A6135` |
-
-**Install from Mac after fleet deploy:**
-
-```bash
-ANDROID_SERIAL="$(resolve_adb oneui-device)" fdroidcl install com.example.app
-```
-
-**Shizuku grants** (privileged adb): `stayturgid.android_common.shizuku_grant` Ansible module, or `ansible-playbook` via fdroid/play roles.
-
-**Historical E2E (2026-07-07, pre-park):** fdroidcl install smoke test on oneui-device/stock-android-device/fireos-device; uninstalled after verify.
-
-See [modules/fdroid.md](architecture/components/fdroid.md), [modules/obtainium.md](architecture/components/obtainium.md), [modules/play.md](architecture/components/play.md).
 
 ---
 
@@ -844,9 +807,8 @@ device/termux/
   py/stayturgid_screen_control.py       — on-device consent / inversion / portrait
 ansible/                                — idempotent Termux userland deploy
 control/bin/                            — adb_reconnect.py, access_monitor.py (launchd via control_node/agents)
-catalogs/obtainium/                     — APK tracking catalogs
 control/lib/                            — resolve_adb.py, stayturgid_device.py, adb_cli.py
-ansible/playbooks/fleet/fleet.yml       — full fleet (includes fdroid + play roles)
+ansible/playbooks/fleet/fleet.yml       — full fleet
 ansible/playbooks/site.yml              — full fleet (preflight → … → validate)
 docs/hacking.md                         — this file
 docs/handoff.md                         — AI session handoff prompt

@@ -135,10 +135,6 @@ stayturgid_deploy_fleet_adbkey: true
 
 # Data files for on-device post-UI automation.
 stayturgid_ui_data_files:
-  - src: catalogs/obtainium/stayturgid-apps.json
-    dest: catalog/stayturgid-apps.json
-  - src: catalogs/obtainium/autojs6-only.json
-    dest: catalog/autojs6-only.json
   - src: device/autojs6/fleet_profile.json
     dest: autojs6/fleet_profile.json
   - src: control/lib/a11y_profiles.json
@@ -208,7 +204,6 @@ stayturgid_termux_mirror: https://packages-cf.termux.dev/apt/termux-main
 stayturgid_termux_overlay_packages:
   - com.termux
   - com.termux.api
-  - com.termux.window
 
 # ── SSH Certificate Authority (host cert signing) ──────────────────────────
 # Enabled by default: sign every device host key with the Mac CA key so that

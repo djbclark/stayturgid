@@ -9,16 +9,8 @@
   ansible.builtin.set_fact:
     _ensure_play: "{{ stayturgid_ensure_apps | selectattr('source', 'equalto', 'play') | list }}"
     _ensure_apk: "{{ stayturgid_ensure_apps | selectattr('source', 'equalto', 'apk') | list }}"
-    _ensure_fdroid: "{{ stayturgid_ensure_apps | selectattr('source', 'equalto', 'fdroid') | list }}"
-    _ensure_obtainium: "{{ stayturgid_ensure_apps | selectattr('source', 'equalto', 'obtainium') | list }}"
   when: stayturgid_ensure_apps | length > 0
 
-- name: Ensure Obtainium catalog entries (on-device over SSH)
-  when: _ensure_obtainium | default([]) | length > 0
-  stayturgid.obtainium.obtainium_app:
-    apps: "{{ _ensure_obtainium }}"
-    catalog_path: "{{ stayturgid_obtainium_catalog | default(stayturgid_sd_root ~ '/import/stayturgid-obtainium-apps.json') }}"
-    import_ui: false
 
 - name: Ensure Play apps (apkeep/gplaycli + adb)
   when: _ensure_play | default([]) | length > 0
@@ -73,13 +65,3 @@
     label: "{{ item.id }}"
   delegate_to: localhost
 
-- name: Ensure F-Droid apps via fdroidcl
-  when: _ensure_fdroid | default([]) | length > 0
-  stayturgid.fdroid.fdroid_install:
-    device: "{{ _ensure_apps_adb }}"
-    package: "{{ item.id }}"
-    force: "{{ item.force | default(false) }}"
-  loop: "{{ _ensure_fdroid | default([]) }}"
-  loop_control:
-    label: "{{ item.id }}"
-  delegate_to: localhost
