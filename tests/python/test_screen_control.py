@@ -315,3 +315,36 @@ def test_session_locks_portrait_on_enter_and_restores_on_exit(monkeypatch, tmp_p
         "serial-oneui-device",
         {"accelerometer_rotation": "1", "user_rotation": "2"},
     ) in rotation_calls
+
+def test_get_system_setting_raises_on_error(monkeypatch):
+    monkeypatch.setattr(sc, "mac_adb_shell", lambda *a, **k: (1, "error\n"))
+    with pytest.raises(sc.SettingsReadError):
+        sc._get_system_setting("serial-1", "some_key")
+
+
+def test_read_rotation_settings_returns_none_on_error(monkeypatch):
+    def fake_shell(*args, **kw):
+        return 1, "error\n"
+
+    monkeypatch.setattr(sc, "mac_adb_shell", fake_shell)
+    assert sc.read_rotation_settings("serial-1") is None
+
+
+def test_restore_rotation_settings_deletes_null(monkeypatch):
+    calls = []
+
+    def fake_shell(serial, *args, **kw):
+        calls.append((serial, args))
+        return 0, ""
+
+    monkeypatch.setattr(sc, "mac_adb_shell", fake_shell)
+    saved = {"accelerometer_rotation": "null", "user_rotation": "3"}
+    assert sc.restore_rotation_settings("serial-1", saved) is True
+    assert (
+        "serial-1",
+        ("settings", "delete", "system", "accelerometer_rotation"),
+    ) in calls
+    assert (
+        "serial-1",
+        ("settings", "put", "system", "user_rotation", "3"),
+    ) in calls
