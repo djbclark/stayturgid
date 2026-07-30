@@ -46,6 +46,8 @@
         plist: "{{ agents_dir }}/com.stayturgid.fleet-health.plist"
       - name: com.stayturgid.fire-help
         plist: "{{ agents_dir }}/com.stayturgid.fire-help.plist"
+      - name: com.stayturgid.update-monitor
+        plist: "{{ agents_dir }}/com.stayturgid.update-monitor.plist"
     _hermes_gateway_agents: >-
       {{
         [{
