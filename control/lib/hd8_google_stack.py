@@ -214,11 +214,6 @@ def reinstall_gsf(run_command, device: str, zip_path: Path, work_dir: Path) -> d
     }
 
 
-def stop_aurora_churn(run_command, device: str) -> None:
-    """Aurora Store (parked) triggers GMS BadAuthentication on uncertified Fire."""
-    adb_shell(run_command, device, "am", "force-stop", "com.aurora.store")
-
-
 def _install_splits(run_command, device: str, apks: list[Path]) -> tuple[int, str]:
     if not apks:
         return 1, "no APK splits"
@@ -275,7 +270,6 @@ def repair_if_needed(
     *,
     force: bool = False,
     cache_dir: Path | None = None,
-    stop_aurora: bool = True,
 ) -> dict:
     """Whitelist always; reinstall GSF 10 if missing; pin GMS/Play only if force/opt-in.
 
@@ -286,8 +280,6 @@ def repair_if_needed(
     play_ver = package_version_code(run_command, device, PLAY_PKG)
     gsf_ver = package_version_name(run_command, device, GSF_PKG)
     whitelist = ensure_doze_whitelist(run_command, device)
-    if stop_aurora:
-        stop_aurora_churn(run_command, device)
     # Full stack pin only when explicitly forced or pin policy enabled + drift.
     pin_stack = force or (pin_gms_enabled() and (needs_gms_downgrade(gms_ver) or needs_play_downgrade(play_ver)))
     out: dict[str, Any] = {

@@ -3,8 +3,7 @@
 
 Grants runtime permissions, disables unused-app restrictions, and applies
 per-package battery policy from control/lib/fleet_app_profiles.json (most fleet
-apps are Doze-whitelisted; Aurora Store stays battery-optimized). Mirrors
-android_common.app_privileges Ansible role.
+apps are Doze-whitelisted). Mirrors android_common.app_privileges Ansible role.
 
 Usage: ./harden_fleet_apps.py <oneui-device|stock-android-device|fireos-device|serial>
 """

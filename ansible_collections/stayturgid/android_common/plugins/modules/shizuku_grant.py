@@ -23,7 +23,7 @@ options:
     type: str
     required: true
   package:
-    description: App package to authorize (e.g. Neo Store, Aurora Store).
+    description: App package to authorize (e.g. org.stayturgid.agent, com.termux).
     type: str
     required: true
   connect:
