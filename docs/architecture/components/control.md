@@ -104,16 +104,16 @@ and kept up by `just deploy-mac` / `control_node` agents:
 | Path                                                         | Purpose                                                                         |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------- |
 | `ansible/roles/control_node/tasks/hermes.yml`                | Install, model config, `.env` allowlist, launchd plist                          |
-| `~/.hermes/config.yaml`                                      | Default model (e.g. `deepseek-chat`)                                            |
+| `~/.hermes/config.yaml`                                      | Default model + fallback chain (e.g. routed via DeepSeek/OpenRouter)            |
 | `~/.hermes/.env`                                             | **Secrets** — `TELEGRAM_BOT_TOKEN`, optional allowlist (mode `0600`, never git) |
-| `~/.hermes/auth.json`                                        | API keys after `hermes auth add deepseek-api`                                   |
+| `~/.hermes/auth.json`                                        | API keys after `hermes auth add deepseek`                                       |
 | `~/Library/LaunchAgents/com.stayturgid.hermes-gateway.plist` | KeepAlive gateway                                                               |
 
 **First-time (human):**
 
 ```bash
-# DeepSeek API (requires key)
-hermes auth add deepseek-api --type api-key
+# DeepSeek API (requires key) — provider id is "deepseek", not "deepseek-api"
+hermes auth add deepseek --type api-key
 
 # Bot token from @BotFather → ~/.hermes/.env
 # TELEGRAM_BOT_TOKEN=123:AA…
