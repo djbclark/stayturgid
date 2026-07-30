@@ -12,7 +12,6 @@ short_description: Ensure Play apps are installed via apkeep/gplaycli + adb
 description:
   - Downloads APKs on the control node (C(apkeep) or C(gplaycli)) and installs
     on a device with C(adb). Optionally spoofs C(com.android.vending) as installer.
-  - Does not install Aurora Store — use the C(play_store) role / Obtainium first.
   - Google Play downloads require credentials on the control node (env vars or
     gplaycli.conf); see C(docs/modules/play.md).
 options:

@@ -217,7 +217,7 @@ def warn_prerequisites(scope: Scope) -> None:
             print("WARNING: " + msg + " — F-Droid repo sync will fail", file=sys.stderr)
     if needs_apkeep and not shutil.which("apkeep"):
         print(
-            "WARNING: apkeep not found (brew install apkeep) — Aurora auto-install will fail",
+            "WARNING: apkeep not found (brew install apkeep) — Play app installs will fail",
             file=sys.stderr,
         )
     env = repo_env()
