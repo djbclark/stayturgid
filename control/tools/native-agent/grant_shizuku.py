@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Grant Shizuku API access to stayturgid-agent (native Kotlin APK).
 
-Same mechanism as control/tools/autojs6/grant_shizuku.py: pm grant + patch
-/data/local/tmp/shizuku/shizuku.json. Restart Shizuku after if the app still
-sees permission denied:
-
-  adb -s <serial> shell /data/local/tmp/shizuku_starter
+`pm grant`, then a conditional Shizuku server restart (only if one is already
+running) so the grant takes effect immediately. ShizukuConfigManager's
+in-memory authorization state -- and shizuku.json's cached flags -- are only
+ever reconciled from the real `pm grant`/`pm revoke` state at server
+*startup*; hand-patching shizuku.json (the old approach here) has no live
+effect on an already-running server, so this no longer touches that file.
 
 Usage:
   ./grant_shizuku.py <host-or-serial> [package]
@@ -25,8 +26,6 @@ import stayturgid_device as dev  # noqa: E402
 
 DEFAULT_PKG = "org.stayturgid.agent.debug"
 SHIZUKU_PERM = "moe.shizuku.manager.permission.API_V23"
-SHIZUKU_JSON = "/data/local/tmp/shizuku/shizuku.json"
-STAGING = "/sdcard/Download/shizuku.json"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -43,20 +42,22 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.write(f"ERROR: could not resolve uid for {pkg}\n")
         return 1
 
-    shell.sh(f"pm grant {pkg} {SHIZUKU_PERM}")
+    if shell.is_permission_granted(pkg, SHIZUKU_PERM):
+        print(f"Shizuku: {pkg} (uid={uid}) already granted on {shell.target}")
+        return 0
 
-    current, ok = shell.read_shizuku_json(SHIZUKU_JSON)
-    if not ok:
-        sys.stderr.write(f"ERROR: no privileged shell or unreadable {SHIZUKU_JSON} — aborting\n")
+    rc, out = shell.sh(f"pm grant {pkg} {SHIZUKU_PERM}")
+    if rc != 0:
+        sys.stderr.write(f"ERROR: pm grant {pkg} {SHIZUKU_PERM} failed: {out}\n")
         return 1
 
-    patched = dev.patch_shizuku_json(current, uid, pkg)
-    if not shell.install_shizuku_json(patched, STAGING, SHIZUKU_JSON):
-        sys.stderr.write("ERROR: failed to install patched shizuku.json\n")
+    attempted, restart_ok = shell.restart_shizuku_if_running()
+    if attempted and not restart_ok:
+        print(f"WARN: granted {pkg} (uid={uid}) but the Shizuku server restart failed")
+        print("      grant will only take effect on the next natural restart")
         return 1
 
-    print(f"Shizuku: allowed {pkg} (uid={uid}) on {shell.target}")
-    print("If the app still reports denied, restart Shizuku (shizuku_starter).")
+    print(f"Shizuku: allowed {pkg} (uid={uid}) on {shell.target}" + (" (restarted server)" if attempted else ""))
     return 0
 
 

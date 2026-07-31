@@ -3,9 +3,8 @@
 
 Steps per host (when adb-reachable):
   1. adb install -r debug APK
-  2. grant_shizuku.py (pm + shizuku.json)
-  3. restart Shizuku via /data/local/tmp/shizuku_starter (if present)
-  4. start_agent.py (MainActivity → HostService)
+  2. grant_shizuku.py (pm grant + conditional Shizuku server restart)
+  3. start_agent.py (MainActivity → HostService)
 
 Does **not** remove AutoJs6. Dual-run only (OPTIONS K1).
 
@@ -168,22 +167,13 @@ def _rollout_one(label: str, serial: str) -> bool:
     )
     if r.returncode != 0:
         print("  WARN grant failed — continue start attempt")
-    # Restart Shizuku so json grant is live (starter may no-op if missing)
-    print("  restart Shizuku server...")
-    st = _run(
-        ["adb", "-s", serial, "shell", "/data/local/tmp/shizuku_starter"],
-        timeout=30,
-    )
-    if st.stdout:
-        for line in st.stdout.strip().splitlines()[-4:]:
-            print("   ", line)
     time.sleep(4)
     srv = _run(
         ["adb", "-s", serial, "shell", "pgrep -f shizuku_server"],
         timeout=10,
     )
     if not (srv.stdout or "").strip():
-        print("  WARN: shizuku_server not running after starter (UserService will not bind)")
+        print("  WARN: shizuku_server not running after grant (UserService will not bind)")
     stale = stop_stale_user_services(serial)
     if stale:
         print(f"  stopped stale UserService pid(s): {' '.join(stale)}")

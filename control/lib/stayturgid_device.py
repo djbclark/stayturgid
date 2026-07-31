@@ -201,6 +201,41 @@ from ui_parse import (  # noqa: F401
     parse_text_center,
 )
 
+_ADB_SHELL_MOD = None
+
+
+def _adb_shell_module():
+    """Lazily load the collection's adb_shell.py for its dumpsys parser.
+
+    Same dynamic-load pattern as [resolve_adb] -- reuses the collection's
+    already-tested text parsing (multi-user-profile ``--`` sections) instead
+    of duplicating it here.
+    """
+    global _ADB_SHELL_MOD
+    if _ADB_SHELL_MOD is not None:
+        return _ADB_SHELL_MOD
+    import importlib.util
+
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    mod_path = os.path.join(
+        repo_root,
+        "ansible_collections",
+        "stayturgid",
+        "android_common",
+        "plugins",
+        "module_utils",
+        "adb_shell.py",
+    )
+    spec = importlib.util.spec_from_file_location("_adb_shell", mod_path)
+    _mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(_mod)
+    _ADB_SHELL_MOD = _mod
+    return _ADB_SHELL_MOD
+
+
+def _parse_permission_granted(dumpsys_output, permission):
+    return _adb_shell_module().parse_permission_granted(dumpsys_output, permission)
+
 
 # --------------------------------------------------------------------------
 # I/O
@@ -276,3 +311,68 @@ class PrivShell:
         finally:
             os.unlink(tmp.name)
         return self.sh("cp %s %s && chmod 666 %s" % (staging, path, path))[0] == 0
+
+    # ----------------------------------------------------------------------
+    # Shizuku process lifecycle
+    #
+    # ShizukuConfigManager only reconciles its in-memory authorization state
+    # (and shizuku.json's cached flags) from the real `pm grant`/`pm revoke`
+    # state at server *startup*. A `pm grant` alone has no effect on an
+    # already-running server -- only a restart (or the very first start)
+    # makes a new grant/revoke actually take effect. Mirrors
+    # ansible_collections/.../module_utils/shizuku_lifecycle.py.
+    # ----------------------------------------------------------------------
+    SHIZUKU_PKG = "moe.shizuku.privileged.api"
+    HEADLESS_STATUS = "moe.shizuku.privileged.api.HEADLESS_STATUS"
+
+    def shizuku_running(self):
+        """True if the Shizuku server process is currently alive on device."""
+        rc, out = self.sh("am broadcast -a %s 2>/dev/null" % self.HEADLESS_STATUS)
+        if rc == 0 and "result=1" in out:
+            return True
+        rc, out = self.sh("pgrep -f '[s]hizuku_server' >/dev/null && echo up")
+        return rc == 0 and "up" in out
+
+    def resolve_shizuku_libdir(self, pkg=None):
+        """Resolve the installed Shizuku APK's native lib dir via `pm path`."""
+        pkg = pkg or self.SHIZUKU_PKG
+        rc, out = self.sh("pm path %s" % pkg)
+        if rc != 0:
+            return None
+        for line in out.splitlines():
+            line = line.strip()
+            if line.startswith("package:"):
+                apk = line.split(":", 1)[1]
+                return apk.rsplit("/", 1)[0] + "/lib/arm64"
+        return None
+
+    def restart_shizuku_if_running(self, pkg=None):
+        """Force a Shizuku server restart, but only if one is already running.
+
+        Returns (attempted, ok). A permission change made while Shizuku isn't
+        running needs no action -- the next natural start already reconciles
+        from the real `pm grant` state.
+        """
+        pkg = pkg or self.SHIZUKU_PKG
+        if not self.shizuku_running():
+            return False, True
+        libdir = self.resolve_shizuku_libdir(pkg)
+        if not libdir:
+            return True, False
+        rc, _out = self.sh(
+            "test -x %s/libshizuku.so && LD_LIBRARY_PATH=%s %s/libshizuku.so" % (libdir, libdir, libdir),
+            timeout=30,
+        )
+        return True, rc == 0
+
+    def is_permission_granted(self, pkg, permission):
+        """True if `permission` shows granted=true in `pkg`'s runtime permissions.
+
+        Reuses the collection's own dumpsys-section parser (handles the
+        multi-user-profile ``--`` separated sections correctly) rather than
+        re-implementing text parsing here.
+        """
+        rc, out = self.sh("dumpsys package %s" % pkg)
+        if rc != 0:
+            return False
+        return _parse_permission_granted(out, permission)
