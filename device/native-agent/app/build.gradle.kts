@@ -16,8 +16,8 @@ android {
         applicationId = "org.stayturgid.agent"
         minSdk = 26
         targetSdk = 36
-        versionCode = 16
-        versionName = "0.7.0-liveness-hardening"
+        versionCode = 17
+        versionName = "0.8.0-handsets-shizuku-notify"
         val buildTimeUtc =
             System.getenv("SOURCE_DATE_EPOCH")?.toLongOrNull()?.let { Instant.ofEpochSecond(it) }
                 ?: Instant.now().truncatedTo(ChronoUnit.SECONDS)
