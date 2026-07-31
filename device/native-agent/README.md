@@ -96,9 +96,17 @@ adb logcat -s StayTurgidHost:I StayTurgidUS:I StayTurgidMain:I StayTurgidApp:I S
   exported receiver, falls back to its activity, and fails honestly when an
   app/runtime incompatibility still requires operator input
 - Composite build: `dev.rikka.shizuku:api` / `:provider` from local fork
+- `HandsetsStarter`/`HandsetsStartCommands` — peer-start the Handsets UI
+  daemon on a Fire-OS device over external ADB (issue #121), the same
+  no-Mac-dependency shape as `PeerStarter`'s Shizuku peer-start (issue #61)
 
 The Termux twin in `device/termux/py/stayturgid_repair.py` runs every five
 minutes and enforces the same runtime and always-on policy checks.
+
+`app/src/main/assets/hs.jar` bundles the Handsets daemon (MIT-licensed,
+Elliot Gao) so the agent can push it without the Mac having a copy; the
+required license/copyright notice ships alongside it as the companion asset
+`app/src/main/assets/hs.jar.LICENSE.txt`.
 
 The launcher UI shows the version name/code, UTC build time, source revision,
 application ID, build type, Android/device identity, and live Shizuku state.
