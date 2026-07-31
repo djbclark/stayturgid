@@ -10,13 +10,20 @@ DOCUMENTATION = r"""
 module: shizuku_grant
 short_description: Grant Shizuku API access to an app via the privileged adb shell
 description:
-  - Grants C(moe.shizuku.manager.permission.API_V23) with C(pm grant) and adds the
-    app's uid to Shizuku's C(shizuku.json) authorization file, preserving all
-    other entries.
+  - Grants C(moe.shizuku.manager.permission.API_V23) with C(pm grant), then forces
+    a Shizuku server restart (only if one is already running) so the grant takes
+    effect immediately.
   - Runs on the control node against an adb target with a privileged shell
     (Shizuku adbd, uid 2000).
-  - Fails rather than clobbering C(shizuku.json) when the file exists but cannot
-    be read.
+  - >-
+    Historically this module also hand-patched Shizuku's C(shizuku.json)
+    authorization file directly. That file's per-app C(flags) are only ever a
+    cache reconciled from the real C(pm grant)/C(pm revoke) state at Shizuku
+    server *startup* (see C(ShizukuConfigManager)'s constructor upstream) --
+    editing it directly, or restarting without first fixing the underlying
+    C(pm) grant, has no effect on an already-running server. This module no
+    longer touches that file at all; C(pm grant) plus a conditional restart is
+    both simpler and is the mechanism actually verified to work end-to-end.
 options:
   device:
     description: ADB device serial or C(host:5555) target with privileged shell.
@@ -30,14 +37,6 @@ options:
     description: Run C(adb connect) before other operations (for wireless targets).
     type: bool
     default: true
-  shizuku_json:
-    description: Path to Shizuku's authorization file on the device.
-    type: str
-    default: /data/local/tmp/shizuku/shizuku.json
-  staging_path:
-    description: Shared-storage staging path used when pushing the patched file.
-    type: str
-    default: /sdcard/Download/shizuku-grant.json
 """
 
 EXAMPLES = r"""
@@ -50,82 +49,30 @@ EXAMPLES = r"""
 
 RETURN = r"""
 changed:
-  description: True when shizuku.json was updated.
+  description: True when the permission was not already granted (a grant + restart happened).
   type: bool
 uid:
   description: Resolved app uid.
   type: str
+restarted:
+  description: True when a Shizuku server restart was attempted as part of this run.
+  type: bool
 """
-
-import os
-import tempfile
 
 from ansible.module_utils.basic import AnsibleModule
 
 from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_shell import (
     adb_connect,
     adb_shell,
-    normalize_adb_output,
+    permission_granted,
 )
 from ansible_collections.stayturgid.android_common.plugins.module_utils.shizuku import (
     SHIZUKU_PERMISSION,
     parse_uid,
-    patch_shizuku_json,
 )
-
-try:
-    from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_timeout import (
-        DEFAULT_SLOW_TIMEOUT,
-        run_command_with_timeout,
-    )
-except ImportError:
-    import os
-    import sys
-
-    _mod_utils = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "module_utils")
-    if _mod_utils not in sys.path:
-        sys.path.insert(0, _mod_utils)
-    from adb_timeout import (
-        DEFAULT_SLOW_TIMEOUT,
-        run_command_with_timeout,
-    )
-
-
-def read_shizuku_json(run_command, device, path):
-    """(text, ok). Missing file is ok (fresh config); unreadable is not."""
-    rc, _out, _err = adb_shell(run_command, device, "test -f %s" % path)
-    if rc != 0:
-        return "", True
-    rc, out, _err = adb_shell(run_command, device, "cat %s" % path)
-    text = normalize_adb_output(out)
-    if rc != 0 or not text:
-        return "", False
-    return text, True
-
-
-def push_shizuku_json(module, device, content, staging, path):
-    tmp = tempfile.NamedTemporaryFile("w", dir=module.tmpdir, delete=False)
-    try:
-        tmp.write(content)
-        tmp.close()
-        rc, _out, err = run_command_with_timeout(
-            module.run_command,
-            ["adb", "-s", device, "push", tmp.name, staging],
-            timeout=DEFAULT_SLOW_TIMEOUT,
-            get_bin_path_fn=module.get_bin_path,
-        )
-        if rc != 0:
-            return False, "adb push failed: %s" % normalize_adb_output(err)
-    finally:
-        os.unlink(tmp.name)
-    rc, _out, err = adb_shell(
-        module.run_command,
-        device,
-        "cp %s %s && chmod 666 %s" % (staging, path, path),
-    )
-    if rc != 0:
-        return False, "install into %s failed: %s" % (path, normalize_adb_output(err))
-    return True, "installed"
+from ansible_collections.stayturgid.android_common.plugins.module_utils.shizuku_lifecycle import (
+    restart_shizuku_if_running,
+)
 
 
 def main():
@@ -134,15 +81,12 @@ def main():
             device=dict(type="str", required=True),
             package=dict(type="str", required=True),
             connect=dict(type="bool", default=True),
-            shizuku_json=dict(type="str", default="/data/local/tmp/shizuku/shizuku.json"),
-            staging_path=dict(type="str", default="/sdcard/Download/shizuku-grant.json"),
         ),
         supports_check_mode=True,
     )
 
     device = module.params["device"]
     pkg = module.params["package"]
-    json_path = module.params["shizuku_json"]
 
     if module.params["connect"] and not module.check_mode:
         adb_connect(module.run_command, device)
@@ -156,25 +100,26 @@ def main():
     if not uid:
         module.fail_json(msg="%s not installed on %s" % (pkg, device))
 
-    current, ok = read_shizuku_json(module.run_command, device, json_path)
-    if not ok:
-        module.fail_json(msg="unreadable %s — aborting to avoid clobbering existing grants" % json_path)
-
-    patched = patch_shizuku_json(current, uid, pkg)
-    json_changed = patched.strip() != (current or "").strip()
+    already_granted = permission_granted(module.run_command, device, pkg, SHIZUKU_PERMISSION)
 
     if module.check_mode:
-        module.exit_json(changed=json_changed, uid=uid)
+        module.exit_json(changed=not already_granted, uid=uid, restarted=False)
 
-    # pm grant is idempotent and cheap; always ensure it.
-    adb_shell(module.run_command, device, "pm grant %s %s" % (pkg, SHIZUKU_PERMISSION))
+    if already_granted:
+        module.exit_json(changed=False, uid=uid, restarted=False)
 
-    if json_changed:
-        pushed, msg = push_shizuku_json(module, device, patched, module.params["staging_path"], json_path)
-        if not pushed:
-            module.fail_json(msg=msg)
+    rc, _out, err = adb_shell(module.run_command, device, "pm grant %s %s" % (pkg, SHIZUKU_PERMISSION))
+    if rc != 0:
+        module.fail_json(msg="pm grant %s %s failed: %s" % (pkg, SHIZUKU_PERMISSION, err))
 
-    module.exit_json(changed=json_changed, uid=uid)
+    attempted, restart_ok = restart_shizuku_if_running(module.run_command, device)
+    if attempted and not restart_ok:
+        module.warn(
+            "granted %s but the Shizuku server restart failed — the grant "
+            "will only take effect on the next natural restart" % pkg
+        )
+
+    module.exit_json(changed=True, uid=uid, restarted=attempted)
 
 
 if __name__ == "__main__":

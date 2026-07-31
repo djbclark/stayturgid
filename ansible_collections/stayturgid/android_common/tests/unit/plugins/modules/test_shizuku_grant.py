@@ -10,23 +10,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..",
 sys.path.insert(0, os.path.join(ROOT, "plugins", "modules"))
 sys.path.insert(0, os.path.join(ROOT, "plugins", "module_utils"))
 
-import shizuku as shizuku_utils
-import shizuku_grant as mod
-
-
-def test_patch_shizuku_json_adds_entry():
-    current = '{"version":2,"packages":[{"uid":10001,"flags":2,"packages":["com.other"]}]}'
-    patched = shizuku_utils.patch_shizuku_json(current, 10002, "com.machiav3lli.fdroid")
-    data = json.loads(patched)
-    uids = [e["uid"] for e in data["packages"]]
-    assert 10001 in uids
-    assert 10002 in uids
-
-
-def test_patch_shizuku_json_idempotent():
-    current = '{"version":2,"packages":[{"uid":10002,"flags":2,"packages":["com.machiav3lli.fdroid"]}]}'
-    patched = shizuku_utils.patch_shizuku_json(current, 10002, "com.machiav3lli.fdroid")
-    assert patched.strip() == current.strip()
+import shizuku_grant as mod  # noqa: E402
 
 
 def run_module(mocker, args, cmd_results=None, expect_fail=False):
@@ -45,16 +29,15 @@ def run_module(mocker, args, cmd_results=None, expect_fail=False):
             return (0, "", "")
         if "pm list packages -U" in joined:
             return (0, "package:com.machiav3lli.fdroid uid:10002", "")
-        if "test -f" in joined:
-            return (0, "", "")
-        if "cat /data/local/tmp/shizuku/shizuku.json" in joined:
-            return (0, '{"version":2,"packages":[]}', "")
+        if "dumpsys package" in joined:
+            # Not yet granted by default; tests override via cmd_results.
+            return (0, "moe.shizuku.manager.permission.API_V23:\n  granted=false", "")
         if "pm grant" in joined:
             return (0, "", "")
-        if "adb push" in joined:
+        if "HEADLESS_STATUS" in joined:
             return (0, "", "")
-        if "cp /sdcard" in joined:
-            return (0, "", "")
+        if "pgrep" in joined:
+            return (1, "", "")
         return (0, "", "")
 
     def fake_exit(self, **kw):
@@ -77,7 +60,7 @@ def run_module(mocker, args, cmd_results=None, expect_fail=False):
     return captured
 
 
-def test_shizuku_grant_changes_json(mocker):
+def test_shizuku_grant_grants_and_skips_restart_when_not_running(mocker):
     out = run_module(
         mocker,
         dict(
@@ -88,9 +71,11 @@ def test_shizuku_grant_changes_json(mocker):
     )
     assert out["changed"] is True
     assert out["uid"] == "10002"
+    # Shizuku wasn't running (HEADLESS_STATUS empty, pgrep rc=1) -> no restart needed.
+    assert out["restarted"] is False
 
 
-def test_shizuku_grant_unreadable_json(mocker):
+def test_shizuku_grant_already_granted_is_noop(mocker):
     out = run_module(
         mocker,
         dict(
@@ -99,24 +84,69 @@ def test_shizuku_grant_unreadable_json(mocker):
             connect=False,
         ),
         cmd_results=[
-            ("cat /data/local/tmp/shizuku/shizuku.json", (1, "", "read error")),
-        ],
-        expect_fail=True,
-    )
-    assert "unreadable" in out.get("msg", "")
-
-
-def test_shizuku_grant_already_granted(mocker):
-    existing = shizuku_utils.patch_shizuku_json("", 10002, "com.machiav3lli.fdroid")
-    out = run_module(
-        mocker,
-        dict(
-            device="localhost:5555",
-            package="com.machiav3lli.fdroid",
-            connect=False,
-        ),
-        cmd_results=[
-            ("cat /data/local/tmp/shizuku/shizuku.json", (0, existing, "")),
+            ("dumpsys package", (0, "moe.shizuku.manager.permission.API_V23:\n  granted=true", "")),
         ],
     )
     assert out["changed"] is False
+    assert out["restarted"] is False
+
+
+def test_shizuku_grant_restarts_when_shizuku_running(mocker):
+    out = run_module(
+        mocker,
+        dict(
+            device="localhost:5555",
+            package="com.machiav3lli.fdroid",
+            connect=False,
+        ),
+        cmd_results=[
+            ("am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS", (0, "result=1", "")),
+            (
+                "pm path moe.shizuku.privileged.api",
+                (0, "package:/data/app/~~x/moe.shizuku.privileged.api/base.apk", ""),
+            ),
+            ("libshizuku.so", (0, "", "")),
+        ],
+    )
+    assert out["changed"] is True
+    assert out["restarted"] is True
+
+
+def test_shizuku_grant_warns_when_restart_attempted_but_fails(mocker):
+    out = run_module(
+        mocker,
+        dict(
+            device="localhost:5555",
+            package="com.machiav3lli.fdroid",
+            connect=False,
+        ),
+        cmd_results=[
+            ("am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS", (0, "result=1", "")),
+            (
+                "pm path moe.shizuku.privileged.api",
+                (0, "package:/data/app/~~x/moe.shizuku.privileged.api/base.apk", ""),
+            ),
+            ("libshizuku.so", (1, "", "start failed")),
+        ],
+    )
+    # The grant itself still succeeded -- only the restart attempt failed --
+    # so changed/restarted both reflect that a restart was tried, and main()
+    # surfaces the failure via module.warn() rather than fail_json().
+    assert out["changed"] is True
+    assert out["restarted"] is True
+
+
+def test_shizuku_grant_fails_when_pm_grant_fails(mocker):
+    out = run_module(
+        mocker,
+        dict(
+            device="localhost:5555",
+            package="com.machiav3lli.fdroid",
+            connect=False,
+        ),
+        cmd_results=[
+            ("pm grant", (1, "", "Package moe.shizuku.manager.permission.API_V23 has not been requested")),
+        ],
+        expect_fail=True,
+    )
+    assert "pm grant" in out.get("msg", "")
