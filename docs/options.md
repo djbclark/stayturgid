@@ -201,6 +201,23 @@ Tracked as [#43](https://github.com/djbclark/stayturgid/issues/43) (fleet-state
 verification) and [#45](https://github.com/djbclark/stayturgid/issues/45)
 (release APK, forced soak, official Shizuku packaging).
 
+**2026-07-31 update (most of #43 now verified live):** AutoJs6 confirmed
+absent via `pm list packages` on all three fleet devices (s24, hd8, p7a).
+Release build confirmed fleet-wide (`buildType=release`, versionCode 16,
+`0.7.0-liveness-hardening`) via each device's own runtime-diagnostics
+screen. hd8's Shizuku UserService binding — the one with a history of
+prior binder failures — was re-verified working end-to-end (permission
+granted, `bindUserService requested` → `UserService connected` in
+logcat). **New finding, not previously known:** Shizuku's own per-app
+authorization state is fragile — it was found reset (`shizukuPermission=
+false`, "Authorized 0 applications" in the Shizuku app) twice in one
+session on hd8, including once triggered simply by restarting
+`shizuku_server` locally, with no OS reboot or app reinstall involved.
+Tracked as its own issue, [#158](https://github.com/djbclark/stayturgid/issues/158)
+(patch the `djbclark/Shizuku` fork to make `org.stayturgid.agent`'s grant
+permanent). **Still open**: the forced `CLOSED_NO_SHELL` soak test has not
+run.
+
 ---
 
 ### Track E — On-device LLM (future; only if deliberately picked)
