@@ -1,0 +1,8 @@
+---
+# Own-mode blackbox_exporter adapter entry point. Invoked by control/site_contract/serverapps.py.
+- name: Activate stayturgid blackbox_exporter serverapp (own mode)
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - role: serverapp_blackbox_exporter

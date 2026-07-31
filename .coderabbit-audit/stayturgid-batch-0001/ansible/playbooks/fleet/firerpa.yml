@@ -1,0 +1,9 @@
+---
+# Deploy FIRERPA/lamda server to fleet devices.
+# Default: disabled.  Opt-in per host via firerpa_enabled: true.
+# Run: ansible-playbook ansible/playbooks/fleet/firerpa.yml -l oneui-device
+- name: Deploy FIRERPA failsafe daemon
+  hosts: "{{ target | default('stayturgid') }}"
+  gather_facts: false
+  roles:
+    - role: stayturgid.firerpa.firerpa

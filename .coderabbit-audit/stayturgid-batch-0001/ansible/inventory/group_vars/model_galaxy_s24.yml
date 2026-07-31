@@ -1,0 +1,6 @@
+---
+# Galaxy S24 (SM-S921U1), 1080x2340.
+# Screen-control automation disabled for now (no UI tapping). Shizuku "Start"
+# tap target (default font/DPI), commented out until/unless re-enabled:
+# stayturgid_shizuku_start_coords: { x: 227, y: 1977 }
+stayturgid_handsets_port: 9013

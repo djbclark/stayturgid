@@ -1,0 +1,15 @@
+---
+# Play — subset of fleet.yml (play tag).
+# Prefer: ./control/bin/deploy_fleet.py or ./control/bin/deploy_fleet.py --scope play
+#
+#
+# Usage (from repo root):
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet/play_store.yml
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet/play_store.yml --limit oneui-device
+- name: stayturgid play store
+  hosts: stayturgid
+  gather_facts: false
+  roles:
+    - role: stayturgid.play.play_store
+      vars:
+        target_device: "{{ inventory_hostname }}"

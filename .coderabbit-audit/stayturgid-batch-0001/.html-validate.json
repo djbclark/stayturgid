@@ -1,0 +1,8 @@
+{
+  "root": true,
+  "rules": {
+    "doctype-style": "off",
+    "void-style": "off",
+    "no-inline-style": "off"
+  }
+}

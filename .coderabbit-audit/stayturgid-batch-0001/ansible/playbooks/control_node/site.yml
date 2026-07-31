@@ -1,0 +1,16 @@
+---
+# Control-node workstation setup: prerequisites, fleet agents.
+#
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/control_node/site.yml
+#   --tags prereqs          Homebrew + Galaxy collections only
+#   --tags agents           devices.conf + com.stayturgid.* launchd plists
+#   --tags hermes           Hermes Agent + Telegram gateway (subset of agents)
+#   --tags agents-ensure    load/heal all control-node launchd (every deploy)
+- name: Import control-node prereqs play
+  import_playbook: prereqs.yml
+
+- name: Import control-node agents play
+  import_playbook: agents.yml
+
+- name: Import control-node agents-ensure play
+  import_playbook: agents-ensure.yml

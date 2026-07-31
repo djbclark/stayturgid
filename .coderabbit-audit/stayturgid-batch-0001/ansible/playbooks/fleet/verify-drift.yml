@@ -1,0 +1,34 @@
+---
+# stayturgid verify + drift detection playbook.
+# Runs stayturgid_verify module on each host and reports drift.
+# Usage:
+#   ansible-playbook ansible/playbooks/fleet/verify-drift.yml -l oneui-device
+#   just verify-drift hosts=oneui-device
+
+- name: Verify stayturgid device state + drift detection
+  hosts: "{{ target | default('stayturgid') }}"
+  gather_facts: false
+  vars:
+    verify_checks: ""
+
+  tasks:
+    - name: Run stayturgid device verification
+      stayturgid.fleet.stayturgid_verify:
+        checks: "{{ verify_checks.split(',') | reject('eq', '') | list if verify_checks | length > 0 else [] }}"
+      register: _verify_result
+
+    - name: Report verification results
+      ansible.builtin.debug:
+        msg: |
+          {{ inventory_hostname }}: {{ 'HEALTHY' if _verify_result.healthy else 'ISSUES' }} ({{ _verify_result.passed }}/{{ _verify_result.total }} passed)
+          {% for name, check in _verify_result.results.items() %}
+            {{ '  OK  ' if check.ok else '  FAIL' }} {{ name }}: {{ check.detail }}
+          {% endfor %}
+      when: _verify_result.results is defined
+
+    - name: Fail on unhealthy when strict
+      ansible.builtin.fail:
+        msg: "{{ inventory_hostname }}: {{ _verify_result.failed }} check(s) failed"
+      when:
+        - not (_verify_result.healthy | default(true))
+        - verify_strict | default(false) | bool

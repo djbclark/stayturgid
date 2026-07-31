@@ -1,0 +1,9 @@
+---
+# Post-deploy UI automation (screen control). See ADR 002.
+- name: stayturgid post-deploy UI (control node)
+  hosts: stayturgid
+  gather_facts: false
+  vars:
+    stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"
+  roles:
+    - role: stayturgid.fleet.post_ui

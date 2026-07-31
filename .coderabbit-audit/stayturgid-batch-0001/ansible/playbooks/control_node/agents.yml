@@ -1,0 +1,17 @@
+---
+# Control-node setup: devices.conf, SSH fragment, launchd agents for ADB keepalive + alerting.
+#   ansible-playbook ansible/playbooks/control_node/agents.yml
+- name: stayturgid control-node agents
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  tags: [mac, agents, always]
+  tasks:
+    - name: Skip control-node agent setup on non-macOS
+      ansible.builtin.meta: end_host
+      when: ansible_facts['os_family'] != 'Darwin'
+
+    - name: Configure control-node agents
+      ansible.builtin.import_role:
+        name: control_node
+        tasks_from: agents

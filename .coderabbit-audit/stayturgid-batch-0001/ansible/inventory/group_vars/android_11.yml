@@ -1,0 +1,3 @@
+---
+# Android 11 / Fire OS layer (API 30). Wireless debugging exists but UI
+# differs from Android 16; Shizuku TCP mode (thedjchi fork) still pins 5555.

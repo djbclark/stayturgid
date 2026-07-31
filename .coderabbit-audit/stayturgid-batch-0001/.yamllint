@@ -1,0 +1,17 @@
+---
+extends: default
+rules:
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: false
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
+  braces:
+    max-spaces-inside: 1
+  line-length:
+    max: 160
+  truthy:
+    allowed-values: ["true", "false"]
+ignore: |
+  tests/
