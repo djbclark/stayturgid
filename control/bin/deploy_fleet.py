@@ -15,6 +15,10 @@ Usage:
   deploy_fleet.py --scope fdroid oneui-device      # F-Droid roles only
   deploy_fleet.py --scope play oneui-device        # Play roles
   deploy_fleet.py --devices-only oneui-device      # skip the redundant Mac control_node pass
+  deploy_fleet.py --scope bootstrap-apks --devices-only oneui-device
+                                                    # APK ensure/verify/Shizuku-start only (#166) --
+                                                    # skips termux_userland/post-ui/validate/control_node
+                                                    # entirely; use for a pure app version bump
   CHECK=1 deploy_fleet.py oneui-device             # ansible --check --diff (no post-UI / validate asserts)
 
 Scopes map to ansible-playbook --tags on site.yml (see site.yml header).
@@ -66,6 +70,7 @@ class Scope(str, Enum):
     FDROID = "fdroid"
     PLAY = "play"
     APP_STORES = "app-stores"
+    BOOTSTRAP_APKS = "bootstrap-apks"
 
     @property
     def ansible_tags(self) -> str | None:

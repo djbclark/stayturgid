@@ -13,6 +13,14 @@ deploy-legacy:
 deploy host="":
     @just _deploy_impl {{ host }}
 
+# ---------- Deploy (bootstrap-apks scope only — pure APK version bump, #166) ----------
+# Skips termux_userland/post-ui/validate/control_node entirely; ~4x faster
+# than a full deploy when the only thing that changed is an app's locked
+# version (checksum/gh_tag/version_name in bootstrap_apks defaults).
+# Usage: hosts=s24 just deploy-apks
+deploy-apks:
+    python3 control/bin/deploy_fleet.py {{ deploy_args }} --scope bootstrap-apks --devices-only
+
 # ---------- Deploy Check (dry‑run) ----------
 _deploy_check_impl:
     CHECK=1 python3 control/bin/deploy_fleet.py {{ deploy_args }} {{ deploy_scope_arg }}
