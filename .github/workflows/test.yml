@@ -28,6 +28,15 @@ jobs:
           curl -sSLO https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_linux_amd64
           chmod +x shfmt_v3.13.1_linux_amd64
           sudo mv shfmt_v3.13.1_linux_amd64 /usr/local/bin/shfmt
+      - name: Install shellcheck
+        # Pinned to match local dev exactly (brew) -- previously relied on
+        # whatever version ubuntu-latest's image happened to bundle, which
+        # drifts independently of local dev and isn't guaranteed to match.
+        run: |
+          curl -sSL -o shellcheck.tar.xz https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.linux.x86_64.tar.xz
+          tar -xJf shellcheck.tar.xz
+          sudo mv shellcheck-v0.11.0/shellcheck /usr/local/bin/shellcheck
+          rm -rf shellcheck.tar.xz shellcheck-v0.11.0
       - name: Install markdownlint
         run: npm install -g markdownlint-cli
       - name: Install prettier
