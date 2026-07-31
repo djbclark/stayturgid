@@ -169,6 +169,18 @@ class HostService : Service() {
                 startAsForeground(bound = bound)
                 scope.launch { runPeerStart() }
             }
+            ACTION_HANDSETS_START_NOW -> {
+                startAsForeground(bound = bound)
+                val host = intent.getStringExtra(EXTRA_TARGET_HOST)
+                val adbPort = intent.getIntExtra(EXTRA_TARGET_ADB_PORT, PeerTarget.DEFAULT_ADB_PORT)
+                val handsetsPort =
+                    intent.getIntExtra(EXTRA_HANDSETS_PORT, HandsetsStartCommands.DEFAULT_PORT)
+                if (host.isNullOrBlank()) {
+                    Log.w(TAG, "handsets-start broadcast missing $EXTRA_TARGET_HOST")
+                } else {
+                    scope.launch { runHandsetsStart(host, adbPort, handsetsPort) }
+                }
+            }
             else -> {
                 // ensure FGS + bind path
                 startAsForeground(bound = bound)
@@ -359,6 +371,25 @@ class HostService : Service() {
             Log.e(TAG, "peerstart loop error", t)
         }
         updateActionNotifications()
+    }
+
+    /** One-off handsets-start against an explicit target (issue #121's manual-trigger path). */
+    private suspend fun runHandsetsStart(host: String, adbPort: Int, handsetsPort: Int) {
+        try {
+            val result =
+                withContext(Dispatchers.IO) {
+                    val key = PeerStarter.loadKey(applicationContext)
+                    HandsetsStarter.ensureHandsets(
+                        applicationContext,
+                        PeerTarget(host, adbPort),
+                        key,
+                        handsetsPort,
+                    )
+                }
+            Log.i(TAG, "handsetsstart ${result.target} -> ${result.outcome} ${result.detail}")
+        } catch (t: Throwable) {
+            Log.e(TAG, "handsetsstart error", t)
+        }
     }
 
     /**
@@ -617,6 +648,22 @@ class HostService : Service() {
         const val ACTION_PING_NOW = "org.stayturgid.agent.action.PING_NOW"
         const val ACTION_REPAIR_NOW = "org.stayturgid.agent.action.REPAIR_NOW"
         const val ACTION_PEER_START_NOW = "org.stayturgid.agent.action.PEER_START_NOW"
+        const val ACTION_HANDSETS_START_NOW = "org.stayturgid.agent.action.HANDSETS_START_NOW"
+        const val EXTRA_TARGET_HOST = "target_host"
+
+        /**
+         * The target device's **ADB** port (what [AdbClient] connects to) — not the daemon's own
+         * listen port below. Defaults to [PeerTarget.DEFAULT_ADB_PORT] (5555), matching every other
+         * [PeerTarget] in this codebase.
+         */
+        const val EXTRA_TARGET_ADB_PORT = "target_adb_port"
+
+        /**
+         * The port the Handsets daemon itself listens on once launched (`hs.jar`'s own port arg) —
+         * distinct from [EXTRA_TARGET_ADB_PORT] above. Defaults to
+         * [HandsetsStartCommands.DEFAULT_PORT] (9012).
+         */
+        const val EXTRA_HANDSETS_PORT = "handsets_port"
 
         fun start(context: Context) {
             val intent = Intent(context, HostService::class.java)
@@ -642,6 +689,30 @@ class HostService : Service() {
         fun peerStartNow(context: Context) {
             val intent =
                 Intent(context, HostService::class.java).apply { action = ACTION_PEER_START_NOW }
+            ContextCompat.startForegroundService(context, intent)
+        }
+
+        /**
+         * Headless trigger for a one-off handsets-start (issue #121) against an explicit
+         * [targetHost] — [targetAdbPort] is the device's **ADB** port ([AdbClient] connects there),
+         * [handsetsPort] is the port the daemon itself listens on once launched; these are
+         * distinct. Unlike peer-start, this has no fleet-wide config to iterate, mirroring the
+         * manual, single-target semantics of the original `fire_peer_help.py handsets-start
+         * --target ... --port ...` CLI verb.
+         */
+        fun handsetsStartNow(
+            context: Context,
+            targetHost: String,
+            targetAdbPort: Int = PeerTarget.DEFAULT_ADB_PORT,
+            handsetsPort: Int = HandsetsStartCommands.DEFAULT_PORT,
+        ) {
+            val intent =
+                Intent(context, HostService::class.java).apply {
+                    action = ACTION_HANDSETS_START_NOW
+                    putExtra(EXTRA_TARGET_HOST, targetHost)
+                    putExtra(EXTRA_TARGET_ADB_PORT, targetAdbPort)
+                    putExtra(EXTRA_HANDSETS_PORT, handsetsPort)
+                }
             ContextCompat.startForegroundService(context, intent)
         }
     }

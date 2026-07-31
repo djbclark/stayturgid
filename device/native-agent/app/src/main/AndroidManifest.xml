@@ -63,6 +63,20 @@
             </intent-filter>
         </receiver>
 
+        <!-- nosemgrep: java.android.security.exported_receiver.exported_receiver -->
+        <!-- Headless handsets-start trigger (issue #121). Exported so `adb shell am
+             broadcast` can kick it without foregrounding the UI; the action is a
+             single explicit-target, idempotent/benign push+launch, same risk profile
+             as PeerStartReceiver above. -->
+        <receiver
+            android:name=".HandsetsStartReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="org.stayturgid.agent.action.HANDSETS_START_NOW" />
+            </intent-filter>
+        </receiver>
+
         <!-- Required for Shizuku (not Sui-only). -->
         <provider
             android:name="rikka.shizuku.ShizukuProvider"

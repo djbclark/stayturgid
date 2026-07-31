@@ -88,7 +88,10 @@ object PeerStarter {
         return results
     }
 
-    private fun loadKey(context: Context): AdbKey {
+    /**
+     * Visible to [HostService] so [HandsetsStarter]'s manual trigger can reuse the same identity.
+     */
+    internal fun loadKey(context: Context): AdbKey {
         val prefs = context.getSharedPreferences(ADB_KEY_PREFS, Context.MODE_PRIVATE)
         return AdbKey(PreferenceAdbKeyStore(prefs), ADB_KEY_NAME)
     }
