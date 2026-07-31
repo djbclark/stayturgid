@@ -94,7 +94,6 @@ REPO_SCRIPTS = {
     "stayturgid_repair.py": os.path.join(STG_BIN, "stayturgid_repair.py"),
     "stayturgid_agent_presence.py": os.path.join(STG_BIN, "stayturgid_agent_presence.py"),
     "stayturgid_battery_alarm.py": os.path.join(STG_BIN, "stayturgid_battery_alarm.py"),
-    "stayturgid_autojs6_guard.py": os.path.join(STG_BIN, "stayturgid_autojs6_guard.py"),
     "start-adb.sh": os.path.join(TERMUX_HOME, ".termux", "boot", "start-adb.sh"),
 }
 

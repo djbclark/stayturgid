@@ -38,7 +38,6 @@ TRACKED_SCRIPTS = {
     "stayturgid_check_repo_version.py": "device/termux/py/stayturgid_check_repo_version.py",
     "stayturgid_screen_awake_guard.py": "device/termux/py/stayturgid_screen_awake_guard.py",
     "stayturgid_battery_alarm.py": "device/termux/py/stayturgid_battery_alarm.py",
-    "stayturgid_autojs6_guard.py": "device/termux/py/stayturgid_autojs6_guard.py",
 }
 
 # Runs on the device (Termux bash — consistent there). Emits key=value lines.
@@ -133,7 +132,7 @@ else
     echo "vpn_always_on=MISSING"
   fi
 fi
-for f in stayturgid_repair.py stayturgid_bridges.py stayturgid_agent_presence.py stayturgid_check_repo_version.py stayturgid_screen_awake_guard.py stayturgid_battery_alarm.py stayturgid_autojs6_guard.py; do
+for f in stayturgid_repair.py stayturgid_bridges.py stayturgid_agent_presence.py stayturgid_check_repo_version.py stayturgid_screen_awake_guard.py stayturgid_battery_alarm.py; do
     printf 'md5 %s %s\n' "$f" "$(md5sum "$HOME/.stayturgid/bin/$f" 2>/dev/null | cut -d' ' -f1)"
 done
 """
