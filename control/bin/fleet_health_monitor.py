@@ -505,6 +505,7 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
             import adb_cli
 
             if adb_cli.debugging_dialog_present(target):
+                _fleet_log(INFO, "%s: USB/wireless debugging dialog detected" % name)
                 if _heal_cooldown_ok_dir(name, DEBUGGING_DIALOG_STATE_DIR, DEBUGGING_DIALOG_NOTIFY_COOLDOWN_SEC):
                     notify(
                         "stayturgid: action needed",
@@ -513,8 +514,8 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
                     )
                     _touch_heal_dir(name, DEBUGGING_DIALOG_STATE_DIR)
             adb_cli.dismiss_app_compatibility_dialog(target)
-        except Exception:
-            pass
+        except Exception as e:
+            _fleet_log(WARNING, "%s: debugging-dialog check failed: %s" % (name, e))
     path, report = fh.probe_device(name, ts_ip, lan_ip)
     if not path:
         _fleet_log(INFO, "%s unreachable — skip soft health (see access-monitor)" % name)

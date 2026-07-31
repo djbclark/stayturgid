@@ -101,6 +101,11 @@ def scp(local: Path, host: str, remote: str) -> None:
     run(["scp", "-q", str(local), f"{host}:{remote}"], check=True)
 
 
+def _dump_activities(serial: str) -> str:
+    result = adb(serial, "shell", "dumpsys", "activity", "activities", check=False)
+    return (result.stdout or "") + (result.stderr or "")
+
+
 def debugging_dialog_present(serial: str) -> bool:
     """Detect (never interact with) the 'Allow USB/wireless debugging?' dialog.
 
@@ -117,11 +122,7 @@ def debugging_dialog_present(serial: str) -> bool:
     Returns True if the dialog is currently showing, so the caller can
     notify a human to go tap it themselves instead.
     """
-    result = run(
-        ["adb", "-s", serial, "shell", "dumpsys", "activity", "activities"],
-        check=False,
-    )
-    text = (result.stdout or "") + (result.stderr or "")
+    text = _dump_activities(serial)
     return "UsbDebuggingActivity" in text or "WifiDebuggingActivity" in text
 
 
@@ -132,11 +133,7 @@ def dismiss_app_compatibility_dialog(serial: str) -> bool:
     The dialog has [OK] and [Don't Show Again] buttons. Returns True if found
     and dismissed.
     """
-    result = run(
-        ["adb", "-s", serial, "shell", "dumpsys", "activity", "activities"],
-        check=False,
-    )
-    text = (result.stdout or "") + (result.stderr or "")
+    text = _dump_activities(serial)
     if "AppCompatibility" not in text and "16 KB" not in text:
         return False
 
