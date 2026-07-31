@@ -86,27 +86,27 @@ def test_inject_header_empty_file() -> None:
 
 
 def test_find_js_files_scopes_to_known_dirs_and_excludes_node_modules(tmp_path: Path) -> None:
-    (tmp_path / "device" / "autojs6" / "lib").mkdir(parents=True)
-    (tmp_path / "device" / "autojs6" / "lib" / "a.js").write_text("a")
-    (tmp_path / "device" / "autojs6" / "node_modules" / "pkg").mkdir(parents=True)
-    (tmp_path / "device" / "autojs6" / "node_modules" / "pkg" / "b.js").write_text("b")
-    (tmp_path / "tests" / "js").mkdir(parents=True)
-    (tmp_path / "tests" / "js" / "c.js").write_text("c")
+    (tmp_path / "just" / "tools").mkdir(parents=True)
+    (tmp_path / "just" / "tools" / "a.js").write_text("a")
+    (tmp_path / "just" / "tools" / "node_modules" / "pkg").mkdir(parents=True)
+    (tmp_path / "just" / "tools" / "node_modules" / "pkg" / "b.js").write_text("b")
+    (tmp_path / "docs" / "research").mkdir(parents=True)
+    (tmp_path / "docs" / "research" / "c.js").write_text("c")
     (tmp_path / "control" / "bin").mkdir(parents=True)
     (tmp_path / "control" / "bin" / "unrelated.js").write_text("d")
 
     found = agh.find_js_files(tmp_path)
     rel = sorted(str(p.relative_to(tmp_path)) for p in found)
-    assert rel == ["device/autojs6/lib/a.js", "tests/js/c.js"]
+    assert rel == ["docs/research/c.js", "just/tools/a.js"]
 
 
 # --- main() end-to-end (inject + --check) ------------------------------------
 
 
 def _write_fixture_tree(root: Path) -> None:
-    lib = root / "device" / "autojs6" / "lib"
-    lib.mkdir(parents=True)
-    (lib / "plain.js").write_text('"use strict";\nconsole.log(1);\n')
+    research = root / "docs" / "research"
+    research.mkdir(parents=True)
+    (research / "plain.js").write_text('"use strict";\nconsole.log(1);\n')
     tools = root / "just" / "tools"
     tools.mkdir(parents=True)
     (tools / "with_shebang.js").write_text("#!/usr/bin/env node\nconsole.log(1);\n")
@@ -119,7 +119,7 @@ def test_main_inject_mode_adds_headers(tmp_path: Path, monkeypatch) -> None:
     code = agh.main([])
     assert code == 0
 
-    plain = (tmp_path / "device" / "autojs6" / "lib" / "plain.js").read_text()
+    plain = (tmp_path / "docs" / "research" / "plain.js").read_text()
     assert plain.startswith("// @generated\n")
     shebang_file = (tmp_path / "just" / "tools" / "with_shebang.js").read_text()
     lines = shebang_file.splitlines()
@@ -132,9 +132,9 @@ def test_main_inject_mode_is_idempotent(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr(agh, "__file__", str(tmp_path / "just" / "tools" / "add_generated_header.py"))
 
     agh.main([])
-    first_pass = (tmp_path / "device" / "autojs6" / "lib" / "plain.js").read_text()
+    first_pass = (tmp_path / "docs" / "research" / "plain.js").read_text()
     agh.main([])
-    second_pass = (tmp_path / "device" / "autojs6" / "lib" / "plain.js").read_text()
+    second_pass = (tmp_path / "docs" / "research" / "plain.js").read_text()
     assert first_pass == second_pass
 
 

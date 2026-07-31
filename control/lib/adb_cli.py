@@ -14,17 +14,8 @@ if str(REPO_ROOT / "control" / "lib") not in sys.path:
 
 import stayturgid_device as dev
 
-AUTOJS_PKG = "org.autojs.autojs6"
-AUTOJS_RUN = "org.autojs.autojs.external.open.RunIntentActivity"
-AUTOJS_PROJECT_BASE = "/sdcard/stayturgid/autojs6"
 SSH_OPTS = ["-o", "BatchMode=yes", "-o", "LogLevel=ERROR"]
 
-# AutoJs6 normalizes /sdcard paths to Environment.getExternalStorageDirectory()
-# when the file doesn't exist at the given path (v6.7.0-fleet-profile+).
-# Hardcoded /sdcard/ paths work on all devices because:
-#  - Standard Android: /sdcard -> /storage/emulated/0 symlink works natively
-#  - Fire OS: /sdcard is the actual physical path (no symlink), deployed by adb
-#  - AutoJs6 checks File(path).exists() before normalizing, so valid paths pass through
 _SDCARD_DEFAULT = "/sdcard"
 
 
@@ -88,42 +79,6 @@ def adb(serial: str, *args: str, **kwargs) -> subprocess.CompletedProcess:
 def package_installed(serial: str, package: str) -> bool:
     result = adb(serial, "shell", "pm", "path", package)
     return result.returncode == 0 and "package:" in (result.stdout or "")
-
-
-def start_autojs_file(serial: str, remote_path: str, *, force_stop: bool = False) -> None:
-    """Start an AutoJs6 script via RunIntentActivity only (never termux-open).
-
-    Bare ``file://`` VIEW without the AutoJs6 component can surface Termux's
-    "Save file in ~/downloads/" dialog (seen on Fire when heal used the wrong
-    open path).  Explicit ``-n`` + ``--user 0`` keeps the intent on AutoJs6.
-
-    ``force_stop=True`` adds ``-S`` (force-stop before start) — needed on
-    Fire OS where AutoJs6 can get stuck and ``am start`` delivers the intent
-    to the zombie without running the script.
-
-    Path handling: AutoJs6 v6.7.0-fleet-profile+ normalizes /sdcard/ to the
-    device's Environment.getExternalStorageDirectory() when the file doesn't
-    exist at the given path.  Hardcoded /sdcard/ paths work on all platforms
-    because AutoJs6 checks File(path).exists() first (a no-op when valid).
-    """
-    # Prefer content URI under external storage when path is under /sdcard.
-    data = f"file://{remote_path}"
-    cmd = ["shell", "am", "start", "--user", "0"]
-    if force_stop:
-        cmd.append("-S")
-    cmd.extend(
-        [
-            "-a",
-            "android.intent.action.VIEW",
-            "-d",
-            data,
-            "-t",
-            "application/x-javascript",
-            "-n",
-            f"{AUTOJS_PKG}/{AUTOJS_RUN}",
-        ]
-    )
-    adb(serial, *cmd, check=False)
 
 
 def ssh_ok(host: str, *, timeout: int = 5) -> bool:

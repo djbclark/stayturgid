@@ -1,17 +1,12 @@
 #!/data/data/com.termux/files/usr/bin/python3
-"""Fast repair + AutoJs6 restart bridge daemon (consolidated).
+"""Fast repair bridge daemon.
 
-Replaces repair-bridge.sh + autojs6-bridge.sh. Polls trigger files every 2s;
-when a trigger is found, deletes it and runs the corresponding action.
-
-Modes:
-  --mode repair   Poll repair_now -> run stayturgid_repair.py (no cooldown)
-  --mode autojs6  Poll start_autojs6_now -> am start boot-launcher.js
-                  (30-min cooldown to prevent spam restarts)
+Polls a trigger file every 2s; when found, deletes it and runs
+stayturgid_repair.py.
 
 Deploy to ~/.stayturgid/bin/bridges.py. Started at boot by:
-  ~/.termux/boot/start-repair-bridge.sh or start-autojs6-bridge.sh.
-  Shell scripts are now minimal one-liners (pidfile guard lives here).
+  ~/.termux/boot/start-repair-bridge.sh.
+  Shell script is a minimal one-liner (pidfile guard lives here).
 """
 
 import argparse
@@ -34,9 +29,6 @@ if os.path.isfile(_ENV_FILE):
 
 SD = os.environ.get("STAYTURGID_SD", "/sdcard/stayturgid")
 
-AUTOJS_PKG = "org.autojs.autojs6"
-AUTOJS_RUN = "org.autojs.autojs.external.open.RunIntentActivity"
-COOLDOWN_SEC = 1800
 POLL_SEC = 2
 
 
@@ -120,90 +112,21 @@ def run_repair_mode() -> None:
         time.sleep(POLL_SEC)
 
 
-def run_autojs6_mode() -> None:
-    name = "autojs6"
-    _write_pidfile(STG, "autojs6-bridge.pid")
-
-    trigger1 = os.path.join(SD, "run", "start_autojs6_now")
-    trigger2 = os.path.join("/sdcard/stayturgid/run", "start_autojs6_now")
-    cooldown_stamp = os.path.join(STG, "state", "last_autojs6_bridge_start")
-    _ensure_dir(os.path.dirname(cooldown_stamp))
-
-    boot_script = os.path.join("/sdcard/stayturgid/autojs6/scripts/boot-launcher.js")
-    if not os.path.isfile(boot_script):
-        boot_script = os.path.join(SD, "autojs6", "scripts", "boot-launcher.js")
-
-    def cooldown_ok() -> bool:
-        if not os.path.isfile(cooldown_stamp):
-            return True
-        try:
-            with open(cooldown_stamp) as f:
-                last = int(f.read().strip() or 0)
-        except (OSError, ValueError):
-            return True
-        return int(time.time()) - last >= COOLDOWN_SEC
-
-    def start_launcher() -> bool:
-        if not os.path.isfile(boot_script):
-            _log(STG, name, f"missing {boot_script}")
-            return False
-        try:
-            subprocess.run(
-                [
-                    "am",
-                    "start",
-                    "-a",
-                    "android.intent.action.VIEW",
-                    "-d",
-                    f"file://{boot_script}",
-                    "-t",
-                    "text/javascript",
-                    "-n",
-                    f"{AUTOJS_PKG}/{AUTOJS_RUN}",
-                ],
-                capture_output=True,
-                timeout=30,
-            )
-            with open(cooldown_stamp, "w") as f:
-                f.write(str(int(time.time())))
-            _log(STG, name, "am start boot-launcher.js")
-            return True
-        except Exception as e:
-            _log(STG, name, f"am start error: {e}")
-            return False
-
-    while True:
-        if _is_file(trigger1) or _is_file(trigger2):
-            _rm(trigger1)
-            _rm(trigger2)
-            _log(STG, name, "trigger seen")
-
-            if cooldown_ok():
-                start_launcher()
-            else:
-                _log(STG, name, "skipped (cooldown)")
-
-        time.sleep(POLL_SEC)
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Stayturgid bridge daemon")
     parser.add_argument(
         "--mode",
         required=True,
-        choices=["repair", "autojs6"],
-        help="Bridge mode: repair (stayturgid_repair.py) or autojs6 (boot-launcher.js)",
+        choices=["repair"],
+        help="Bridge mode: repair (stayturgid_repair.py)",
     )
     args = parser.parse_args()
 
-    pidfile = os.path.join(STG, "run", "bridges.pid" if args.mode == "repair" else "autojs6-bridge.pid")
+    pidfile = os.path.join(STG, "run", "bridges.pid")
     if _pidfile_alive(pidfile):
         return 0
 
-    if args.mode == "repair":
-        run_repair_mode()
-    else:
-        run_autojs6_mode()
+    run_repair_mode()
 
     return 0
 

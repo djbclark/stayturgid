@@ -45,7 +45,7 @@
 | SSH config restore       | ✅ `ensure_control_et_ssh_config()` | ✅ `termux_userland` role      | OK                     |
 | Battery alarm            | ✅ `stayturgid_battery_alarm.py`    | ❌ (not deploy-time)           | Runtime-only, correct  |
 
-### Present in AutoJs6 watchdog (`device/autojs6/lib/`)
+### Present in AutoJs6 watchdog (`device/autojs6/lib/` — deleted entirely in #162, 2026-07-31; table below is historical)
 
 | Capability             | In watchdog?                            | In self-heal?           | In Ansible? |
 | ---------------------- | --------------------------------------- | ----------------------- | ----------- |

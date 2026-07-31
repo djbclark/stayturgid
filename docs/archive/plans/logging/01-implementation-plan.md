@@ -42,7 +42,7 @@ We will install and configure Vector and OpenObserve natively on the Mac control
 
 We will transition all logging to structured JSON.
 
-#### [MODIFY] [log.js](../../../../device/autojs6/lib/log.js)
+#### [MODIFY] `device/autojs6/lib/log.js` (deleted in #162 — AutoJs6 code removed entirely)
 
 - Roll a custom JSON formatter inside AutoJs6.
 - Format logs conforming to the payload schema and write synchronously to `/sdcard/stayturgid/logs/watchdog.jsonl` (or Fire OS equivalent).
@@ -53,7 +53,7 @@ We will transition all logging to structured JSON.
 - Refactor the Python logging utilities (`log`) to format entries as JSON lines when writing to `repair.jsonl`.
 - Maintain backwards compatibility in `scrape_errors` to parse both JSON and legacy text logs.
 
-#### [NEW] [state.json](../../../../device/autojs6/run/state.json)
+#### [NEW] `device/autojs6/run/state.json` (deleted in #162 — AutoJs6 code removed entirely)
 
 - Introduce a structured state file (Single Source of Truth) shared between Termux and AutoJs6 to avoid regex parsing of log files.
 

@@ -252,12 +252,11 @@ Kuma, Pulumi, Jest, `zx`, Shipit, Flightplan) is
 cross-reference, flagged by T5 below and fixed here). A useful candidate must
 reduce host-side glue or add meaningful job, approval, or audit support;
 generic uptime widgets do not count. Option A is the host-only Biome
-lint/format pilot (ESLint replaced by Biome; AutoJs6 sources completed a full
-TypeScript migration 2026-07-21). Options B, C, D remain deferred. Note: the
-"AutoJs6 runtime dependency" framing predates K1 — AutoJs6 is retired
-fleet-wide, so this evaluation now concerns any residual JS tooling in
-`device/autojs6/` (kept as reference code) plus `just/tools`, not a live
-watchdog.
+lint/format pilot (ESLint replaced by Biome). Options B, C, D remain
+deferred. Note: the "AutoJs6 runtime dependency" framing predates K1 —
+AutoJs6 is retired fleet-wide and its code deleted entirely (#162), so this
+evaluation now concerns only `just/tools`' small JS/TS build tooling, not
+any on-device runtime.
 
 #### T4 — Evaluate `ansible-pull` for fleet policy delivery · Risk: **Medium** · Deferred
 

@@ -112,10 +112,13 @@ The launcher UI shows the version name/code, UTC build time, source revision,
 application ID, build type, Android/device identity, and live Shizuku state.
 The full diagnostic block is selectable and can be copied with one button.
 
-## Retired AutoJs6 reference code
+## Retired AutoJs6 code
 
-`device/autojs6/` remains for reference while fleet-state verification is
-incomplete. Do not build or deploy AutoJs6 to continue native-agent work.
+AutoJs6 was retired fleet-wide in the K1 cutover (2026-07-22) and its code
+(`device/autojs6/`, `control/tools/autojs6/`) was deleted entirely in #162
+(2026-07-31) — see
+[docs/architecture/components/autojs6.md](../../docs/architecture/components/autojs6.md)
+for historical reference only.
 
 ## Non-goals
 

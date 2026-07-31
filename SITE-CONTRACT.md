@@ -320,9 +320,8 @@ all:
         ansible_ssh_private_key_file: "{{ lookup('env', 'HOME') }}/.ssh/termux_key"
         stayturgid_device_id: "{{ inventory_hostname }}"
         # AutoJs6 is retired fleet-wide as of the K1 native-agent cutover
-        # (2026-07-22/25, issue #43) — leave unset (native-agent devices need
-        # no automation_mode) unless you're deliberately running the legacy
-        # AutoJs6 automation stack under device/autojs6/.
+        # (2026-07-22/25, issue #43) and its code deleted entirely (#162) —
+        # leave this unset; native-agent devices need no automation_mode.
         stayturgid_automation_mode: ""
         stayturgid_control_ssh_user: operator
         stayturgid_mac_peer:

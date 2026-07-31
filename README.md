@@ -15,7 +15,7 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 | **Termux runtime**            | `device/termux/`                                                           | Yes — repair, boot loop, presence                | [docs/architecture/components/termux.md](docs/architecture/components/termux.md)                                           |
 | **Ansible deploy**            | `ansible/`                                                                 | Yes — Termux over SSH only                       | [ansible/README.md](ansible/README.md)                                                                                     |
 | **Control node**              | `control/bin/`                                                             | Yes — launchd reconnect + outage alert           | [docs/architecture/components/control.md](docs/architecture/components/control.md)                                         |
-| **AutoJs6 watchdog**          | `device/autojs6/`                                                          | Yes — needs Termux repair scripts                | [docs/architecture/components/autojs6.md](docs/architecture/components/autojs6.md)                                         |
+| **Native agent**              | `device/native-agent/`                                                     | Yes — Kotlin APK, Shizuku-gated                  | [docs/architecture/components/autojs6.md](docs/architecture/components/autojs6.md) (K1 cutover context)                    |
 | **FIRERPA failsafe**          | `ansible_collections/stayturgid/firerpa/`                                  | Yes — optional gRPC backup channel               | [docs/research/evaluations/firerpa-install-map-2026-07-12.md](docs/research/evaluations/firerpa-install-map-2026-07-12.md) |
 | **SSH Certificate Authority** | `ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ca.yml` | Yes — fleet host-key trust                       | [docs/handoff.md § Major changes](docs/handoff.md)                                                                         |
 | **Play**                      | `stayturgid.play` collection                                               | Parked — manual / `--scope play` when re-enabled | [docs/architecture/components/play.md](docs/architecture/components/play.md)                                               |
@@ -46,10 +46,10 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 
 1. Shizuku (thedjchi fork) — TCP mode, wireless debugging
 2. Termux + Termux:Boot + Termux:API — [docs/architecture/components/termux.md](docs/architecture/components/termux.md) or `./control/bin/deploy_termux.py <host>`
-3. AutoJs6 watchdog — [docs/architecture/components/autojs6.md](docs/architecture/components/autojs6.md) (`control/tools/autojs6/setup_autojs6.py`, etc.)
+3. Native agent — `just agent-rollout <host>` (`device/native-agent/`, Kotlin APK)
 4. Control node — [docs/architecture/components/control.md](docs/architecture/components/control.md) (ADB reconnect + access monitor)
 
-**One command (fleet):** `just deploy` — Termux, AutoJs6, Tailscale, optional ensure_apps.
+**One command (fleet):** `just deploy` — Termux, native-agent Shizuku grant, Tailscale, optional ensure_apps.
 
 (`./control/bin/deploy_fleet.py` is the same; `just --list` lists all targets.)
 
@@ -84,7 +84,9 @@ After each cold reboot and PIN unlock:
 2. **Termux:Boot** runs the compatibility entrypoint
    `~/.termux/boot/start-adb.sh`, which immediately delegates to Python
    `start_adb.py` → `sshd` + 5-min self-heal + repair loop.
-3. **AutoJs6** `main.js` (20 min + boot via `boot-launcher.js`) → `stayturgid_repair.py`, notifications, Shizuku UI repair if needed.
+3. **Native agent** (`org.stayturgid.agent`, `device/native-agent/`) runs as a
+   foreground service, launched/kept alive via Shizuku, doing its own
+   liveness + catastrophic-repair loop independent of Termux.
 
 ---
 
@@ -107,10 +109,10 @@ stayturgid/
   control/
     bin/                    — operator scripts (deploy, monitors, verify)
     lib/                    — shared Python + fleet JSON profiles
-    tools/                  — per-domain Mac helpers (autojs6, play, fdroid, …)
+    tools/                  — per-domain Mac helpers (native-agent, play, fdroid, …)
   device/
     termux/                 — on-device Termux runtime (boot, py, bin)
-    autojs6/                — AutoJs6 project (main.js, lib, scripts)
+    native-agent/           — native Kotlin agent APK (K1)
   ansible/                  — site playbooks, inventory, control_node role
   ansible_collections/      — stayturgid.* Galaxy collections
   examples/  tests/  human/
@@ -123,4 +125,4 @@ stayturgid/
 
 - Google Pixel 7a, Samsung Galaxy S24 (SM-S921U1), Android 16
 - Amazon Kindle Fire HD 8 (Fire OS 11) — see [docs/handoff.md](docs/handoff.md) for fireos-device quirks
-- Shizuku thedjchi fork · AutoJs6 6.7.0 · Termux GitHub-debug stack
+- Shizuku thedjchi fork (djbclark fork) · native-agent (Kotlin) · Termux GitHub-debug stack

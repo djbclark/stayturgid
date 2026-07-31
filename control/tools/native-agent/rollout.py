@@ -6,7 +6,8 @@ Steps per host (when adb-reachable):
   2. grant_shizuku.py (pm grant + conditional Shizuku server restart)
   3. start_agent.py (MainActivity → HostService)
 
-Does **not** remove AutoJs6. Dual-run only (OPTIONS K1).
+AutoJs6 was already removed fleet-wide before this script's introduction
+(OPTIONS K1); this only handles the native-agent APK itself.
 
 Usage:
   ./rollout.py                     # all hosts from devices.conf
@@ -290,7 +291,6 @@ def main(argv: list[str] | None = None) -> int:
             fail += 1
 
     print(f"\nRollout summary: ok={ok} fail={fail} skip={skip} total={len(targets)}")
-    print("AutoJs6 left installed (dual-run). See docs/archive/plans/native-agent-status-2026-07-22.md")
     return 0 if fail == 0 else 1
 
 

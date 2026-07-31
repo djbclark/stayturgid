@@ -7,7 +7,7 @@ stayturgid is organized around **where code runs**, not around Ansible alone.
 | Tree                                | Runs on          | Purpose                                                  |
 | ----------------------------------- | ---------------- | -------------------------------------------------------- |
 | `control/`                          | Mac control node | Operator scripts, shared Python, per-domain deploy tools |
-| `device/`                           | Android phones   | Termux runtime + AutoJs6 watchdog project                |
+| `device/`                           | Android phones   | Termux runtime + native-agent Kotlin APK                 |
 | `catalogs/`                         | Repo data        | Obtainium JSON catalogs (no executable code)             |
 | `ansible/` + `ansible_collections/` | Mac (deploy)     | Idempotent fleet provisioning via Galaxy collections     |
 | `docs/`                             | —                | Narrative docs, ADRs, module guides                      |
@@ -17,23 +17,21 @@ stayturgid is organized around **where code runs**, not around Ansible alone.
 
 - **`bin/`** — Long-running monitors, fleet deploy entrypoints, health checks (`deploy_fleet.py`, `check_fleet_health.py`, launchd-backed monitors).
 - **`lib/`** — Shared Python imported by both `bin/` and `tools/` (adb resolution, screen control, a11y helpers, fleet profiles). Prefer `stayturgid_device.adb_bin()` for Mac adb (launchd-safe absolute path).
-- **`tools/<domain>/`** — Focused Mac helpers (AutoJs6 deploy, Obtainium import, Play/Aurora, F-Droid) invoked by Ansible modules or operators.
+- **`tools/<domain>/`** — Focused Mac helpers (native-agent rollout/grant, Play, F-Droid) invoked by Ansible modules or operators.
 
 ## `device/`
 
 - **`termux/`** — Boot scripts, repair loop, on-device Python (repo: `device/termux/`) deployed to `~/.stayturgid/`.
-- **`autojs6/`** — Watchdog JavaScript project (repo: `device/autojs6/`) pushed to `/sdcard/stayturgid/autojs6/`.
+- **`native-agent/`** — Kotlin foreground-service APK (`org.stayturgid.agent`), Shizuku-gated (OPTIONS K1).
 
 ## Runtime roots (single-root per filesystem)
 
 | Filesystem            | Root                    | Notes                                          |
 | --------------------- | ----------------------- | ---------------------------------------------- |
-| Device shared storage | `/sdcard/stayturgid/`   | Default: `autojs6/`, `state/`, `logs/`, `run/` |
+| Device shared storage | `/sdcard/stayturgid/`   | Default: `state/`, `logs/`, `run/`             |
 | Fire OS Termux shared | `~/.stayturgid/shared`  | Set via `STAYTURGID_SD` in `~/.stayturgid/env` |
 | Termux private        | `~/.stayturgid/`        | `bin/`, `logs/`, `run/`, `state/`              |
 | Mac control node      | `~/.config/stayturgid/` | `devices.conf`, `logs/`, `state/`              |
-
-On-device AutoJs6 project path is always **`/sdcard/stayturgid/autojs6/`** (not `…/device/autojs6/`).
 
 ## Deploy flow
 
@@ -42,7 +40,7 @@ On-device AutoJs6 project path is always **`/sdcard/stayturgid/autojs6/`** (not 
   → ansible/playbooks/site.yml
     → fleet/preflight.yml
     → fleet/bootstrap.yml (if needed)
-    → fleet/fleet.yml (termux_userland, autojs6, obtainium, …)
+    → fleet/fleet.yml (termux_userland, shizuku_config, tailscale_vpn, play_store, app_privileges, ensure_apps)
     → fleet/post-ui.yml
     → fleet/validate.yml
     → control_node/site.yml (launchd agents on Mac)
@@ -70,13 +68,13 @@ If all 4 tiers are unreachable, `access-monitor` fires a Mac notification. FIRER
 
 ## On-device self-heal layers
 
-| Layer                                         | Cycle                   | Repair scope                                                               |
-| --------------------------------------------- | ----------------------- | -------------------------------------------------------------------------- |
-| Termux boot loop (`stayturgid_repair.py`)     | 15 min                  | sshd, 5555, Shizuku, a11y, mirror, PATH, fleet profiles, daily pkg upgrade |
-| AutoJs6 watchdog (`main.js` + `comonitor.js`) | 20 min + boot           | Catastrophic Shizuku repair, sshd, a11y                                    |
-| CFEngine (`cf-agent stayturgid.cf`)           | 15 min (in boot loop)   | sshd, mirror, PATH — 3 of 7 bundles auto-repair                            |
-| CFEngine server (`cf-serverd :5308`)          | On-demand (cf-runagent) | Remote trigger of any repair bundle                                        |
-| Repair bridge (`repair_now` trigger)          | 15 min poll             | Full repair via file write by any transport                                |
+| Layer                                          | Cycle                         | Repair scope                                                               |
+| ---------------------------------------------- | ----------------------------- | -------------------------------------------------------------------------- |
+| Termux boot loop (`stayturgid_repair.py`)      | 15 min                        | sshd, 5555, Shizuku, a11y, mirror, PATH, fleet profiles, daily pkg upgrade |
+| Native agent liveness (`device/native-agent/`) | Continuous foreground service | Loopback/Shizuku-independent liveness + restart, catastrophic repair       |
+| CFEngine (`cf-agent stayturgid.cf`)            | 15 min (in boot loop)         | sshd, mirror, PATH — 3 of 7 bundles auto-repair                            |
+| CFEngine server (`cf-serverd :5308`)           | On-demand (cf-runagent)       | Remote trigger of any repair bundle                                        |
+| Repair bridge (`repair_now` trigger)           | 15 min poll                   | Full repair via file write by any transport                                |
 
 CFEngine runs alongside the repair script in the same boot loop cycle — two separate tools, two separate policies, checking the same things independently.
 

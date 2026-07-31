@@ -21,11 +21,11 @@ The implementation-ready source-of-truth architecture and migration sequence are
 
 ## 1. Adoption tiers (pick one)
 
-| Tier                     | Control node    | Devices       | Effort | What you get                                          |
-| ------------------------ | --------------- | ------------- | ------ | ----------------------------------------------------- |
-| **A — Termux only**      | Any OS with SSH | 1+            | Low    | Repair scripts, boot loop, sshd; no AutoJs6 fleet     |
-| **B — Ansible fleet**    | Linux or macOS  | 2+            | Medium | Full `site.yml` deploy; manual adb keepalive on Linux |
-| **C — Reference parity** | **macOS today** | 3+ incl. Fire | High   | launchd health, Handsets UI, Fire peer-help           |
+| Tier                     | Control node    | Devices       | Effort | What you get                                           |
+| ------------------------ | --------------- | ------------- | ------ | ------------------------------------------------------ |
+| **A — Termux only**      | Any OS with SSH | 1+            | Low    | Repair scripts, boot loop, sshd; no native-agent fleet |
+| **B — Ansible fleet**    | Linux or macOS  | 2+            | Medium | Full `site.yml` deploy; manual adb keepalive on Linux  |
+| **C — Reference parity** | **macOS today** | 3+ incl. Fire | High   | launchd health, Handsets UI, Fire peer-help            |
 
 Tier **A** is Linux-friendly today via `examples/consumer-termux-only/`. Tier **C** matches
 this repo’s production path (`docs/handoff.md`, `just health`, Handsets). Tier **B** is the
@@ -63,7 +63,7 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 ### 2.2 Each new Android device
 
 1. **Hardware / OS prep** — Termux debug build, Termux:Boot, Shizuku (thedjchi fork),
-   AutoJs6, Tailscale (recommended), wireless debugging — [docs/hacking.md](../hacking.md) Part 1.
+   Tailscale (recommended), wireless debugging — [docs/hacking.md](../hacking.md) Part 1.
 2. **Add host** to your site repo’s `inventory/hosts.yml` + taxonomy groups.
 3. **First SSH** (USB or wireless adb required once):
    ```bash
@@ -74,8 +74,7 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
    ```bash
    just deploy hosts=<alias>
    ```
-5. **One-time UI** on device if prompted: Shizuku start, AutoJs6 accessibility, Obtainium
-   catalog import (post-ui playbooks).
+5. **One-time UI** on device if prompted: Shizuku start (post-ui playbooks).
 
 ### 2.3 Optional (reference site only)
 
@@ -196,14 +195,14 @@ they describe hardware/OS families, not site ownership.
 
 ### 4.3 What stays in upstream (generic)
 
-| Artifact                                                                          | Notes                                                                            |
-| --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| `ansible/inventory/hosts.yml.example`                                             | Three example hosts (`oneui-device`, …) with RFC 5737 IPs                        |
-| `ansible/inventory/group_vars/*.yml` except site peer                             | Taxonomy quirks (Fire, One UI, Pixel)                                            |
-| `ansible_collections/`, `ansible/playbooks/`, `device/termux/`, `device/autojs6/` | Product code                                                                     |
-| Unit tests                                                                        | Use example hostnames + `192.0.2.0/24` / `100.0.0.0/24` fixtures                 |
-| `docs/hacking.md`                                                                 | Generic setup; link to docs/architecture/multi-site-topology.md for site overlay |
-| `examples/consumer-*`                                                             | Already partially generic; align hostnames with §4.1                             |
+| Artifact                                                                               | Notes                                                                            |
+| -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| `ansible/inventory/hosts.yml.example`                                                  | Three example hosts (`oneui-device`, …) with RFC 5737 IPs                        |
+| `ansible/inventory/group_vars/*.yml` except site peer                                  | Taxonomy quirks (Fire, One UI, Pixel)                                            |
+| `ansible_collections/`, `ansible/playbooks/`, `device/termux/`, `device/native-agent/` | Product code                                                                     |
+| Unit tests                                                                             | Use example hostnames + `192.0.2.0/24` / `100.0.0.0/24` fixtures                 |
+| `docs/hacking.md`                                                                      | Generic setup; link to docs/architecture/multi-site-topology.md for site overlay |
+| `examples/consumer-*`                                                                  | Already partially generic; align hostnames with §4.1                             |
 
 ### 4.4 Example upstream inventory (after split)
 
@@ -234,7 +233,6 @@ all:
         ansible_python_interpreter: /data/data/com.termux/files/usr/bin/python
         ansible_ssh_private_key_file: "{{ lookup('env', 'HOME') }}/.ssh/termux_key"
         stayturgid_device_id: "{{ inventory_hostname }}"
-        stayturgid_automation_mode: autojs6
     android_16:
       hosts: { oneui-device: {}, stock-android-device: {} }
     android_11:
@@ -373,8 +371,8 @@ Until Phase 1–2 ship, new operators still edit a forked `hosts.yml` in-tree:
 | `control/bin/*.py` adb path                     | Default `/opt/homebrew/bin/adb` — use `STAYTURGID_ADB` |
 | `control/tools/play/obtain_play_aas.py`         | Default operator email                                 |
 
-**Generic (do not fork):** collections, taxonomy `group_vars`, Termux/AutoJs6 scripts,
-`site.yml` playbook graph.
+**Generic (do not fork):** collections, taxonomy `group_vars`, Termux/native-agent
+scripts, `site.yml` playbook graph.
 
 ### 4.10 The third repo: `${OPS_ROOT:-~/ops}/site-private`
 

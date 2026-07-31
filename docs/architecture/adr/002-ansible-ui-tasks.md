@@ -1,6 +1,10 @@
 # ADR 002: Ansible UI tasks vs declarative modules
 
-**Status:** Accepted (2026-07-09)  
+**Status:** Accepted (2026-07-09). The `android_ui` module this decision
+centers on was deleted in #162 (2026-07-31) — its only remaining dispatch
+entry (`enable_autojs6_drawer`) was already dead (AutoJs6 retired in K1,
+2026-07-22), and `import_obtainium_catalog` had no live caller either. The
+architectural reasoning below still applies to any future UI-task module.  
 **Supersedes:** nothing (extends [001-ansible-boundary.md](001-ansible-boundary.md))  
 **Context:** Operator review — push Ansible integration further without pretending
 UI automation is idempotent configuration.

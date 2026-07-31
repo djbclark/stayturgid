@@ -82,10 +82,10 @@ optional `fleet/post-ui.yml` → `fleet/validate.yml`. See
 ## Run (Termux only)
 
 ```bash
-# oneui-device (AutoJs6 production)
+# oneui-device
 ./control/bin/deploy_termux.py oneui-device
 
-# stock-android-device (AutoJs6)
+# stock-android-device
 ./control/bin/deploy_termux.py stock-android-device
 ```
 
@@ -97,11 +97,11 @@ STATUS port=open shizuku=up sshd=up shell=yes
 
 ## Inventory
 
-| Host                   | SSH               | Mode      | Notes                                         |
-| ---------------------- | ----------------- | --------- | --------------------------------------------- |
-| `oneui-device`         | `100.0.0.11:8022` | `autojs6` | Galaxy S24                                    |
-| `stock-android-device` | `100.0.0.12:8022` | `autojs6` | Pixel 7a                                      |
-| `fireos-device`        | `100.0.0.13:8022` | `autojs6` | Kindle Fire HD 8 (Mac adb for AutoJs6 deploy) |
+| Host                   | SSH               | Notes                                       |
+| ---------------------- | ----------------- | ------------------------------------------- |
+| `oneui-device`         | `100.0.0.11:8022` | Galaxy S24                                  |
+| `stock-android-device` | `100.0.0.12:8022` | Pixel 7a                                    |
+| `fireos-device`        | `100.0.0.13:8022` | Kindle Fire HD 8 (Mac adb for native-agent) |
 
 Both hosts are defined in `inventory/hosts.yml`.
 
@@ -136,7 +136,7 @@ ansible/
   playbooks/control_node/        — localhost: prereqs, agents, agents-ensure
   playbooks/fleet/               — device plays: preflight, fleet, termux-userland, …
 control/bin/deploy_termux.py       — Termux-only deploy wrapper
-ansible_collections/stayturgid/  — modules + roles (incl. fleet.autojs6_watchdog, post_ui, validate)
+ansible_collections/stayturgid/  — modules + roles (incl. fleet.post_ui, validate)
 ```
 
 ## After playbook (first-time / edge cases)
@@ -146,10 +146,10 @@ app privileges, optional app-store UI setup, and validate smoke.
 
 **First-time on a blank phone** may still need:
 
-1. Termux + Obtainium + AutoJs6 APKs (Obtainium catalog or `setup_autojs6.py`)
+1. Termux APKs, native-agent APK (`just agent-rollout <host>`)
 2. Shizuku pairing (see docs/hacking.md)
 3. Open Termux:Boot once after fresh install
-4. Fire HD (`fireos-device`): USB/wireless adb for `autojs6_project_deploy` when not on USB
+4. Fire HD (`fireos-device`): USB/wireless adb for native-agent rollout when not on USB
 
 **Routine updates** after deploying a coordinated version with the sibling
 `site-djbclark` `just ops-release-deploy` recipe:
@@ -159,4 +159,4 @@ app privileges, optional app-store UI setup, and validate smoke.
 just verify                    # deep TAP (optional)
 ```
 
-Manual recovery scripts remain under `control/tools/autojs6/` and `control/bin/bootstrap_ssh.py`.
+Manual recovery scripts remain under `control/tools/native-agent/` and `control/bin/bootstrap_ssh.py`.

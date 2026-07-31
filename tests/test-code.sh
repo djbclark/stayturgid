@@ -24,29 +24,6 @@ else
   tap_fail "py_compile: all Python sources"
 fi
 
-# --- javascript ------------------------------------------------------------
-if command -v node >/dev/null 2>&1; then
-  bad=""
-  for f in $(git ls-files 'device/autojs6/*.js' 'device/autojs6/**/*.js'); do
-    node --check "$f" 2>/dev/null || bad="$bad $f"
-  done
-  [ -z "$bad" ] && tap_ok "node --check: all AutoJs6 sources parse" ||
-    tap_fail "node --check: all AutoJs6 sources parse" "failed:$bad"
-else
-  tap_skip "node --check: all AutoJs6 sources parse" "node not installed"
-fi
-
-# --- host-side AutoJs6 quality tooling (Biome) ----------------------------
-if command -v biome >/dev/null 2>&1; then
-  if biome check device/autojs6 >/dev/null 2>&1; then
-    tap_ok "biome: AutoJs6 sources clean"
-  else
-    tap_fail "biome: AutoJs6 sources clean" "run: npm run lint:autojs6"
-  fi
-else
-  tap_skip "biome: AutoJs6 sources clean" "biome not installed (brew install biome)"
-fi
-
 # --- shell script formatting (shfmt) --------------------------------------
 if command -v shfmt >/dev/null 2>&1; then
   shell_files=()
@@ -185,26 +162,6 @@ if command -v prettier >/dev/null 2>&1; then
   fi
 else
   tap_skip "prettier: markdown formatted" "not installed (brew install prettier)"
-fi
-
-# --- vendored submodules ----------------------------------------------------
-# Network-free check: the checked-out commit in vendor/<name> must match what
-# git recorded when the submodule pointer was last committed. Catches the
-# common mistake of bumping the pointer (or cloning fresh) without running
-# `git submodule update` — NOT a check against upstream's latest (that's
-# `just vendor-check-autojs6-typescript`, deliberately kept out of this
-# no-network tier since it needs a fetch).
-if command -v git >/dev/null 2>&1 && [ -d vendor/autojs6-typescript/.git ] || [ -f vendor/autojs6-typescript/.git ]; then
-  recorded_rev="$(git ls-tree HEAD vendor/autojs6-typescript 2>/dev/null | awk '{print $3}')"
-  checked_out_rev="$(git -C vendor/autojs6-typescript rev-parse HEAD 2>/dev/null || true)"
-  if [ -n "$recorded_rev" ] && [ "$recorded_rev" = "$checked_out_rev" ]; then
-    tap_ok "vendor/autojs6-typescript: checked out at the commit git recorded"
-  else
-    tap_fail "vendor/autojs6-typescript: checked out at the commit git recorded" \
-      "recorded=$recorded_rev checked_out=$checked_out_rev — run: git submodule update --init"
-  fi
-else
-  tap_skip "vendor/autojs6-typescript: submodule consistency" "not initialized (run: git submodule update --init)"
 fi
 
 # Python test collection — catches import/syntax breakage in the pytest layer

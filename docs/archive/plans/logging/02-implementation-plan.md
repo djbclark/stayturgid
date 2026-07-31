@@ -29,7 +29,7 @@ Transitioning `stayturgid` on-device logging to structured JSON lines (JSONL) an
 
 We will update the AutoJs6 client side to emit JSON lines, support `state.json`, and handle private/shared storage paths.
 
-#### [MODIFY] [log.js](../../../../device/autojs6/lib/log.js)
+#### [MODIFY] `device/autojs6/lib/log.js` (deleted in #162 — AutoJs6 code removed entirely)
 
 - Modify `append(line)` to dual-write logs:
   - Text format to `watchdog.log` (calls `trimLogIfNeeded` to rotate at 1000 lines).
@@ -41,7 +41,7 @@ We will update the AutoJs6 client side to emit JSON lines, support `state.json`,
 
 ### Component 2: AutoJs6 Accessibility Watchdog & Co-Monitor (JS)
 
-#### [MODIFY] [comonitor.js](../../../../device/autojs6/lib/comonitor.js)
+#### [MODIFY] `device/autojs6/lib/comonitor.js` (deleted in #162 — AutoJs6 code removed entirely)
 
 - At the end of `run()`, call `log.writeState("comonitor", statusObj)` to save AutoJs6-probed statuses to the shared state file.
 
@@ -77,11 +77,11 @@ We will adapt the error scraper to scan both JSON lines and legacy log formats d
 
 We will update tests to cover the new structured configurations and state properties.
 
-#### [MODIFY] [log.test.js](../../../../tests/js/log.test.js)
+#### [MODIFY] `tests/js/log.test.js` (deleted in #162 — AutoJs6 code removed entirely)
 
 - Add unit test cases to verify JSON log line parsing and `writeState()` file operations.
 
-#### [MODIFY] [comonitor.test.js](../../../../tests/js/comonitor.test.js)
+#### [MODIFY] `tests/js/comonitor.test.js` (deleted in #162 — AutoJs6 code removed entirely)
 
 - Update mock `files` object to simulate `state.json` read/write capabilities.
 

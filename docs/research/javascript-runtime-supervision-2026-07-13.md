@@ -6,7 +6,9 @@
 ## Scope and current architecture
 
 The operational JavaScript is the AutoJs6 project in
-[`device/autojs6/`](../../device/autojs6/). It runs `main.js` inside an Android
+`device/autojs6/` (deleted in #162, 2026-07-31 — AutoJs6 was retired
+fleet-wide and its code removed entirely; this research remains historical).
+It ran `main.js` inside an Android
 application process and uses Android accessibility, Shizuku, `shell()`,
 `app.startService()`, shared-storage APIs, and AutoJs6 timers. Termux is the primary
 repair/supervisor layer; AutoJs6 is the redundant co-monitor and catastrophic

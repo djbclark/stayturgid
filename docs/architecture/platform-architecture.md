@@ -49,8 +49,8 @@
 unrooted Android phones across reboots. A Mac control node orchestrates a
 fleet of Android devices over Tailscale using Ansible, with four independent
 connection tiers (ADB, SSH, CFEngine, FIRERPA gRPC) and multiple on-device
-self-heal layers (Termux boot loop, AutoJs6 watchdog, CFEngine agent, repair
-bridge).
+self-heal layers (Termux boot loop, native-agent liveness, CFEngine agent,
+repair bridge).
 
 This document defines three interlocking concerns:
 
@@ -162,25 +162,17 @@ files will be addressed during the upstream scrub (§7.4).
 
 The following active files contain hardcoded production literals (`oneui-device`, `stock-android-device`, `fireos-device`, or their respective Tailscale IPs and USB serials), which must be refactored to read from the site inventory projection or structured variables:
 
-| File Path                                         | Gaps Identified                                                                       | Classification / Action Required                                   |
-| :------------------------------------------------ | :------------------------------------------------------------------------------------ | :----------------------------------------------------------------- |
-| `control/cfengine/cf-runagent.cf.example`         | Resolved: generic fixtures only; live render is untracked                             | `resolved` — Jinja2 template renders to runtime config home        |
-| `control/landing/services.json`                   | Hardcoded hostnames, Tailscale IPs, LAN IPs                                           | `violation` — Separate static catalog from dynamic discovery state |
-| `control/landing/discover.py`                     | Reference to production aliases and IPs                                               | `violation` — Read from inventory projections                      |
-| `control/bin/cf-run.sh`                           | Embedded `oneui-device`, `stock-android-device`, `fireos-device` aliases              | `violation` — Require explicit target host argument                |
-| `control/bin/firerpa_heal.py`                     | Reference to production aliases and IPs                                               | `violation` — Resolve addresses dynamically using `resolve_adb`    |
-| `control/bin/firerpa_health_monitor.py`           | Reference to production aliases and IPs                                               | `violation` — Resolve addresses dynamically                        |
-| `control/tools/autojs6/deploy.py`                 | Default arguments and aliases `oneui-device`, `stock-android-device`, `fireos-device` | `violation` — Make targets required CLI arguments                  |
-| `control/tools/autojs6/enable_autojs6_shizuku.py` | Reference to production aliases                                                       | `violation` — Pass as arguments                                    |
-| `control/tools/autojs6/grant_shizuku.py`          | Reference to production aliases                                                       | `violation` — Pass as arguments                                    |
-| `control/tools/autojs6/run_test.py`               | Default targets `oneui-device`, `stock-android-device`, `fireos-device`               | `violation` — Make targets required CLI arguments                  |
-| `control/tools/autojs6/set_automation_mode.py`    | Reference to production aliases                                                       | `violation` — Pass as arguments                                    |
-| `control/tools/autojs6/setup_autojs6.py`          | Reference to production aliases                                                       | `violation` — Pass as arguments                                    |
-| `control/tools/autojs6/start_watchdog.py`         | Reference to production aliases                                                       | `violation` — Pass as arguments                                    |
-| `control/tools/autojs6/test_tailscale_down.py`    | Default targets and serials                                                           | `violation` — Parametrize with arguments                           |
-| `control/tools/obtainium/*.py`                    | Reference to production aliases                                                       | `violation` — Require CLI arguments                                |
-| `control/tools/play/*.py`                         | Reference to production aliases                                                       | `violation` — Require CLI arguments                                |
-| `device/termux/py/stayturgid_peer_help.py`        | References to sibling hostnames                                                       | `violation` — Read peers list from `peers.json` projection         |
+| File Path                                  | Gaps Identified                                                          | Classification / Action Required                                   |
+| :----------------------------------------- | :----------------------------------------------------------------------- | :----------------------------------------------------------------- |
+| `control/cfengine/cf-runagent.cf.example`  | Resolved: generic fixtures only; live render is untracked                | `resolved` — Jinja2 template renders to runtime config home        |
+| `control/landing/services.json`            | Hardcoded hostnames, Tailscale IPs, LAN IPs                              | `violation` — Separate static catalog from dynamic discovery state |
+| `control/landing/discover.py`              | Reference to production aliases and IPs                                  | `violation` — Read from inventory projections                      |
+| `control/bin/cf-run.sh`                    | Embedded `oneui-device`, `stock-android-device`, `fireos-device` aliases | `violation` — Require explicit target host argument                |
+| `control/bin/firerpa_heal.py`              | Reference to production aliases and IPs                                  | `violation` — Resolve addresses dynamically using `resolve_adb`    |
+| `control/bin/firerpa_health_monitor.py`    | Reference to production aliases and IPs                                  | `violation` — Resolve addresses dynamically                        |
+| `control/tools/obtainium/*.py`             | Reference to production aliases                                          | `violation` — Require CLI arguments                                |
+| `control/tools/play/*.py`                  | Reference to production aliases                                          | `violation` — Require CLI arguments                                |
+| `device/termux/py/stayturgid_peer_help.py` | References to sibling hostnames                                          | `violation` — Read peers list from `peers.json` projection         |
 
 ---
 
@@ -212,7 +204,7 @@ site identity. The file is
 | `ansible_python_interpreter`   | path    | —       | Termux Python path                                 |
 | `ansible_ssh_private_key_file` | path    | —       | Path to Termux SSH key                             |
 | `stayturgid_device_id`         | string  | —       | `{{ inventory_hostname }}`                         |
-| `stayturgid_automation_mode`   | string  | —       | `autojs6` or `none`                                |
+| `stayturgid_automation_mode`   | string  | —       | Leave unset/`none` — AutoJs6 is retired fleet-wide |
 
 **Taxonomy groups** describe device characteristics. Group membership controls
 which `group_vars/` quirk files apply. The variable precedence hierarchy
@@ -693,11 +685,11 @@ same roles and playbooks, different inventory directories per site.
 New operators choose a tier based on their fleet size, control-node OS, and
 desired feature set:
 
-| Tier                     | Control Node   | Devices       | Effort | What You Get                                          |
-| ------------------------ | -------------- | ------------- | ------ | ----------------------------------------------------- |
-| **A — Termux only**      | Any OS w/ SSH  | 1+            | Low    | Repair scripts, boot loop, sshd keepalive; no AutoJs6 |
-| **B — Ansible fleet**    | Linux or macOS | 2+            | Medium | Full `site.yml` deploy; manual adb keepalive on Linux |
-| **C — Reference parity** | macOS          | 3+ incl. Fire | High   | launchd health, O-V-G-O dashboards, Fire peer-help    |
+| Tier                     | Control Node   | Devices       | Effort | What You Get                                               |
+| ------------------------ | -------------- | ------------- | ------ | ---------------------------------------------------------- |
+| **A — Termux only**      | Any OS w/ SSH  | 1+            | Low    | Repair scripts, boot loop, sshd keepalive; no native agent |
+| **B — Ansible fleet**    | Linux or macOS | 2+            | Medium | Full `site.yml` deploy; manual adb keepalive on Linux      |
+| **C — Reference parity** | macOS          | 3+ incl. Fire | High   | launchd health, O-V-G-O dashboards, Fire peer-help         |
 
 **Tier A** is available today via
 [`examples/consumer-termux-only/`](../../examples/consumer-termux-only/).
@@ -752,7 +744,6 @@ desired feature set:
            ansible_python_interpreter: /data/data/com.termux/files/usr/bin/python
            ansible_ssh_private_key_file: "{{ lookup('env', 'HOME') }}/.ssh/termux_key"
            stayturgid_device_id: "{{ inventory_hostname }}"
-           stayturgid_automation_mode: autojs6
    ```
 
 7. **Wire the overlay to upstream** via `ansible.cfg`:

@@ -1,6 +1,6 @@
 ---
 # Consumer entry — delegates to the canonical stayturgid site playbook.
-# Requires a full repo checkout (scripts, device/autojs6/, device/termux/ live under stayturgid_repo_root).
+# Requires a full repo checkout (scripts, device/native-agent/, device/termux/ live under stayturgid_repo_root).
 #
 #   export ANSIBLE_CONFIG=ansible.cfg
 #   ansible-playbook playbook.yml [--limit oneui-device]

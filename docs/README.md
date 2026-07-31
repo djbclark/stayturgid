@@ -79,5 +79,5 @@ Speculative / alternate architectures. Index:
 
 - **Termux only:** `device/termux/` + manual Shizuku
 - **Termux + Ansible:** `ansible/` + SSH keys
-- **Full stack:** `device/termux/` + `device/autojs6/` + `control/bin/` + `just deploy`
+- **Full stack:** `device/termux/` + `device/native-agent/` + `control/bin/` + `just deploy`
   (Play download automation **parked** unless `stayturgid_app_stores_enabled: true`)

@@ -276,16 +276,16 @@ repos:
 
 The above is the **core** toolchain. Projects add domain-specific hooks:
 
-| Hook                      | Used when                 | stayturgid example         |
-| ------------------------- | ------------------------- | -------------------------- |
-| shellcheck + shfmt        | Shell scripts present     | device/termux scripts      |
-| biome                     | TypeScript / JS present   | device/autojs6, just/tools |
-| kotlin-format, -detekt    | Kotlin Android code       | device/native-agent        |
-| html-validate + stylelint | HTML / CSS present        | control/static             |
-| ansible-lint              | Ansible playbooks present | ansible/                   |
-| caddy-fmt                 | Caddyfile present         | control/caddy              |
-| dotenv-linter             | .env files present        | .env.example               |
-| pyinilint                 | .ini files present        | device termux configs      |
+| Hook                      | Used when                 | stayturgid example    |
+| ------------------------- | ------------------------- | --------------------- |
+| shellcheck + shfmt        | Shell scripts present     | device/termux scripts |
+| biome                     | TypeScript / JS present   | just/tools            |
+| kotlin-format, -detekt    | Kotlin Android code       | device/native-agent   |
+| html-validate + stylelint | HTML / CSS present        | control/static        |
+| ansible-lint              | Ansible playbooks present | ansible/              |
+| caddy-fmt                 | Caddyfile present         | control/caddy         |
+| dotenv-linter             | .env files present        | .env.example          |
+| pyinilint                 | .ini files present        | device termux configs |
 
 ## Exporting to a New Project
 
