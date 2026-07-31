@@ -101,53 +101,29 @@ def scp(local: Path, host: str, remote: str) -> None:
     run(["scp", "-q", str(local), f"{host}:{remote}"], check=True)
 
 
-def dismiss_usb_debugging_dialog(serial: str) -> bool:
-    """Dismiss the 'Allow USB debugging?' dialog.
+def _dump_activities(serial: str) -> str:
+    result = adb(serial, "shell", "dumpsys", "activity", "activities", check=False)
+    return (result.stdout or "") + (result.stderr or "")
 
-    On Android 11+, /data/misc/adb/adb_keys is not directly writable by
-    the shell uid — only adbd can write it after the user confirms the
-    dialog. This function checks for the dialog and accepts it via
-    keyevents (check 'Always allow' + tap 'Allow').
 
-    Returns True if the dialog was found and dismissed.
+def debugging_dialog_present(serial: str) -> bool:
+    """Detect (never interact with) the 'Allow USB/wireless debugging?' dialog.
+
+    This is a per-network/per-key human consent gate — Android does not let
+    it be granted programmatically, and it only needs a human's own tap
+    once per network. A prior version of this function tried to accept it
+    via blind keyevent sequences (checkbox + Allow), guessing at dialog
+    layout across OEM variants. That automation raced with an actual human
+    trying to tap the real dialog: fleet_health_monitor.py calls this check
+    unconditionally on every health-check pass, and a keyevent-based retry
+    firing mid-tap reset the dialog and cancelled the human's in-progress
+    interaction (confirmed live on hd8, 2026-07-31 — see issue #43).
+
+    Returns True if the dialog is currently showing, so the caller can
+    notify a human to go tap it themselves instead.
     """
-    result = run(
-        ["adb", "-s", serial, "shell", "dumpsys", "activity", "activities"],
-        check=False,
-    )
-    text = (result.stdout or "") + (result.stderr or "")
-    if "UsbDebuggingActivity" not in text and "WifiDebuggingActivity" not in text:
-        return False
-
-    # Try multiple focus sequences — the dialog layout varies across Android
-    # versions and OEMs (standard, Samsung bottom-sheet, etc.).
-    sequences = [
-        # Standard: checkbox (1 TAB) → Allow (1 TAB)
-        [["KEYCODE_TAB"], ["KEYCODE_SPACE"], ["KEYCODE_TAB"], ["KEYCODE_ENTER"]],
-        # Samsung: checkbox (2 TABs) → Allow (1 TAB)
-        [["KEYCODE_TAB"], ["KEYCODE_TAB"], ["KEYCODE_SPACE"], ["KEYCODE_TAB"], ["KEYCODE_ENTER"]],
-        # Samsung bottom sheet: Cancel(1) → checkbox(2) → Allow(1)
-        [["KEYCODE_TAB"], ["KEYCODE_TAB"], ["KEYCODE_TAB"], ["KEYCODE_SPACE"], ["KEYCODE_TAB"], ["KEYCODE_ENTER"]],
-    ]
-    for seq in sequences:
-        for key in seq:
-            run(["adb", "-s", serial, "shell", "input", "keyevent", key[0]], check=False)
-            time.sleep(0.15)
-        time.sleep(0.5)
-        # Check if dialog is gone
-        check = run(
-            ["adb", "-s", serial, "shell", "dumpsys", "activity", "activities"],
-            check=False,
-        )
-        text = (check.stdout or "") + (check.stderr or "")
-        if "UsbDebuggingActivity" not in text and "WifiDebuggingActivity" not in text:
-            print("Dismissed 'Allow USB debugging?' dialog on %s." % serial)
-            return True
-        # Reset focus: HOME then re-open the dialog... actually just BACK
-        run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_BACK"], check=False)
-        time.sleep(0.5)
-    print("WARN: could not dismiss USB debugging dialog on %s — try manual." % serial)
-    return False
+    text = _dump_activities(serial)
+    return "UsbDebuggingActivity" in text or "WifiDebuggingActivity" in text
 
 
 def dismiss_app_compatibility_dialog(serial: str) -> bool:
@@ -157,11 +133,7 @@ def dismiss_app_compatibility_dialog(serial: str) -> bool:
     The dialog has [OK] and [Don't Show Again] buttons. Returns True if found
     and dismissed.
     """
-    result = run(
-        ["adb", "-s", serial, "shell", "dumpsys", "activity", "activities"],
-        check=False,
-    )
-    text = (result.stdout or "") + (result.stderr or "")
+    text = _dump_activities(serial)
     if "AppCompatibility" not in text and "16 KB" not in text:
         return False
 
