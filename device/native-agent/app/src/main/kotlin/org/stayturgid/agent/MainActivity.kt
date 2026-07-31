@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -206,11 +207,29 @@ class MainActivity : ComponentActivity() {
         refreshActionState()
         // App-context FGS start (shell am start-foreground-service is denied on API 34+).
         HostService.start(this)
+        maybeAutoRequestShizuku(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        maybeAutoRequestShizuku(intent)
     }
 
     override fun onResume() {
         super.onResume()
         refreshActionState()
+    }
+
+    /**
+     * Tapping the "Shizuku permission missing" notification ([HostService.buildNotification])
+     * carries [EXTRA_AUTO_REQUEST_SHIZUKU] so the request fires immediately — no manual button tap
+     * needed once the operator has already tapped the notification to get here.
+     */
+    private fun maybeAutoRequestShizuku(intent: Intent?) {
+        if (intent?.getBooleanExtra(EXTRA_AUTO_REQUEST_SHIZUKU, false) != true) return
+        intent.removeExtra(EXTRA_AUTO_REQUEST_SHIZUKU)
+        requestShizuku()
     }
 
     /** Show the peer-start authorization prompt when one is outstanding (issue #61). */
@@ -324,5 +343,12 @@ class MainActivity : ComponentActivity() {
         private const val TAG = "StayTurgidMain"
         private const val REQUEST_SHIZUKU = 9001
         private const val REQUEST_NOTIF = 9002
+
+        /**
+         * Set by [HostService.buildNotification] on the "Shizuku permission missing" notification's
+         * PendingIntent so tapping it fires [requestShizuku] immediately, no manual button tap
+         * needed.
+         */
+        const val EXTRA_AUTO_REQUEST_SHIZUKU = "auto_request_shizuku"
     }
 }

@@ -579,11 +579,19 @@ class HostService : Service() {
     }
 
     private fun buildNotification(bound: Boolean, needPermission: Boolean): Notification {
+        val openIntent =
+            Intent(this, MainActivity::class.java).apply {
+                // Tapping the notification while permission is missing should fire the
+                // Shizuku request immediately — no manual button hunt required.
+                if (needPermission) {
+                    putExtra(MainActivity.EXTRA_AUTO_REQUEST_SHIZUKU, true)
+                }
+            }
         val open =
             PendingIntent.getActivity(
                 this,
                 0,
-                Intent(this, MainActivity::class.java),
+                openIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
         val text =
