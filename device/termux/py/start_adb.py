@@ -378,7 +378,6 @@ def daemon_loop() -> None:
             _run_guard("stayturgid_agent_presence.py", extra_args=["guard"])
 
             _version_check()
-            _run_guard("stayturgid_autojs6_guard.py", extra_args=["check"])
 
             if (
                 os.environ.get("STAYTURGID_NO_LOCAL_ADB", "0") == "1"

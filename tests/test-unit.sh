@@ -597,24 +597,11 @@ ENV
 : >"$SANDBOX/home/.stayturgid/state/last_version_check"
 touch "$SANDBOX/home/.stayturgid/bin/stayturgid_check_repo_version.py"
 chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_check_repo_version.py"
-cat >"$SANDBOX/home/.stayturgid/bin/stayturgid_autojs6_guard.py" <<'PY'
-#!/usr/bin/env python3
-import sys
-print("guard", sys.argv[1:])
-sys.exit(0)
-PY
-chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_autojs6_guard.py"
 run_sandboxed "$START_ADB"
 wait_stub_like "stayturgid_check_repo_version.py" || true
-wait_stub_like "stayturgid_autojs6_guard.py" || true
 kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bootloop.pid"
 tap_like "$(grep python3 "$STUB_LOG")" "stayturgid_check_repo_version.py" \
   "start-adb: empty version stamp treated as 0 (arithmetic safe)"
-if grep -qF "stayturgid_autojs6_guard.py check" "$STUB_LOG" 2>/dev/null; then
-  tap_ok "start-adb: runs autojs6 guard without RunIntentActivity"
-else
-  tap_fail "start-adb: runs autojs6 guard without RunIntentActivity"
-fi
 if grep -qF "boot-launcher.js" "$STUB_LOG" 2>/dev/null; then
   tap_fail "start-adb: does not am start boot-launcher from boot loop"
 else

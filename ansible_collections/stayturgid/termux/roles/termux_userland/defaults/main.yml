@@ -85,7 +85,6 @@ stayturgid_py_scripts:
   - stayturgid_repair.py
   - stayturgid_bridges.py
   - start_adb.py
-  - stayturgid_autojs6_guard.py
   - stayturgid_shell.py
   - stayturgid_screen_control.py
   - stayturgid_handsets.py
@@ -100,6 +99,11 @@ stayturgid_retired_py_scripts:
   # chain was itself already fully dead (see the issue for the trace).
   - stayturgid_grant_shizuku.py
   - stayturgid_enable_autojs6.py
+  # AutoJs6 deprecation follow-up: the guard was still invoked every boot
+  # loop, but had been a permanent no-op since AutoJs6's uninstall (its own
+  # first check -- a stale "[watchdog] cycle start" log line -- can never
+  # be satisfied since AutoJs6 no longer writes that log at all).
+  - stayturgid_autojs6_guard.py
 
 
 # Restricted SSH ForceCommand wrapper (helpers only; see ssh_keys.yml F5).
