@@ -112,6 +112,30 @@ def test_shizuku_grant_restarts_when_shizuku_running(mocker):
     assert out["restarted"] is True
 
 
+def test_shizuku_grant_warns_when_restart_attempted_but_fails(mocker):
+    out = run_module(
+        mocker,
+        dict(
+            device="localhost:5555",
+            package="com.machiav3lli.fdroid",
+            connect=False,
+        ),
+        cmd_results=[
+            ("am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS", (0, "result=1", "")),
+            (
+                "pm path moe.shizuku.privileged.api",
+                (0, "package:/data/app/~~x/moe.shizuku.privileged.api/base.apk", ""),
+            ),
+            ("libshizuku.so", (1, "", "start failed")),
+        ],
+    )
+    # The grant itself still succeeded -- only the restart attempt failed --
+    # so changed/restarted both reflect that a restart was tried, and main()
+    # surfaces the failure via module.warn() rather than fail_json().
+    assert out["changed"] is True
+    assert out["restarted"] is True
+
+
 def test_shizuku_grant_fails_when_pm_grant_fails(mocker):
     out = run_module(
         mocker,
