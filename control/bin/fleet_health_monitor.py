@@ -68,6 +68,8 @@ REPO = _REPO
 REPAIR_HEAL_STATE_DIR = os.path.join(ROOT, "state", "repair-heal")
 REPAIR_HEAL_COOLDOWN_SEC = 30 * 60
 REPAIR_HEAL_AFTER = 2
+DEBUGGING_DIALOG_STATE_DIR = os.path.join(ROOT, "state", "debugging-dialog-notify")
+DEBUGGING_DIALOG_NOTIFY_COOLDOWN_SEC = 30 * 60
 
 
 def _stats_event(event_type: str, device: str, **details: str | int | float) -> None:
@@ -490,13 +492,26 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
         write_state(state_file, 0)
         return
 
-    # Dismiss system dialogs that appear on debuggable-app devices and block the screen.
+    # The USB/wireless debugging consent dialog is a per-network human
+    # authorization gate — Android does not allow granting it
+    # programmatically, and a human only needs to tap it once per network.
+    # This used to try to auto-accept it via blind keyevent sequences, which
+    # raced with an actual human tapping the real dialog and cancelled their
+    # in-progress interaction (confirmed live on hd8, 2026-07-31 — issue
+    # #43). Detect and notify instead of touching it.
     target = dev.resolve_adb(name) if dev else None
     if target:
         try:
             import adb_cli
 
-            adb_cli.dismiss_usb_debugging_dialog(target)
+            if adb_cli.debugging_dialog_present(target):
+                if _heal_cooldown_ok_dir(name, DEBUGGING_DIALOG_STATE_DIR, DEBUGGING_DIALOG_NOTIFY_COOLDOWN_SEC):
+                    notify(
+                        "stayturgid: action needed",
+                        "%s: USB/wireless debugging dialog is waiting for a human tap (Allow + Always allow)." % name,
+                        sound="Basso",
+                    )
+                    _touch_heal_dir(name, DEBUGGING_DIALOG_STATE_DIR)
             adb_cli.dismiss_app_compatibility_dialog(target)
         except Exception:
             pass
