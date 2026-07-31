@@ -235,13 +235,17 @@ class ShizukuUserService : IStayTurgidService.Stub {
     // again is a cheap no-op, so this runs unconditionally on every UserService (re)start rather
     // than tracking a "did we already do this" flag.
     private fun ensureLogBufferSize() {
+        // Fully qualified: android.os.Process (imported above for Process.myPid()/myUid()) would
+        // otherwise shadow java.lang.Process here.
+        var p: java.lang.Process? = null
         try {
-            val p =
+            p =
                 ProcessBuilder("logcat", "-b", "all", "-G", LOG_BUFFER_SIZE)
                     .redirectErrorStream(true)
                     .start()
             if (!p.waitFor(LOG_BUFFER_RESIZE_TIMEOUT_SEC, TimeUnit.SECONDS)) {
                 p.destroyForcibly()
+                p.waitFor()
                 Log.w(TAG, "logcat -G timed out")
                 return
             }
@@ -251,6 +255,13 @@ class ShizukuUserService : IStayTurgidService.Stub {
             }
         } catch (t: Throwable) {
             Log.w(TAG, "ensureLogBufferSize failed: ${t.message}")
+        } finally {
+            // Explicit close rather than try-with-resources: destroyForcibly() above already
+            // tears the process down on the timeout path, but its streams (stdin/stdout, merged
+            // stderr) still need closing on every path — success, non-zero exit, or timeout — to
+            // avoid leaking file descriptors from an unread/unclosed stream.
+            p?.inputStream?.close()
+            p?.outputStream?.close()
         }
     }
 

@@ -23,9 +23,9 @@ def test_every_github_apk_is_immutably_locked():
 
 def test_native_agent_uses_its_release_stream_and_real_asset_name():
     agent = next(apk for apk in _catalog() if apk["id"] == "org.stayturgid.agent")
-    assert agent["gh_tag"] == "agent-v0.9.1"
+    assert agent["gh_tag"] == "agent-v0.9.2"
     assert agent["gh_pattern"] == "app-release.apk"
-    assert agent["version_name"] == "0.9.1-logbuffer"
+    assert agent["version_name"] == "0.9.2-logbuffer"
     assert agent["remove_packages"] == ["org.stayturgid.agent.debug"]
     assert agent["service_component"] == "org.stayturgid.agent/.HostService"
     assert agent["start_broadcast_action"] == "org.stayturgid.agent.action.PEER_START_NOW"
