@@ -27,7 +27,7 @@ import sys
 from pathlib import Path
 
 HEADER = "// @generated"
-SCAN_DIRS = ("device/autojs6", "tests/js", "just/tools", "docs/research")
+SCAN_DIRS = ("just/tools", "docs/research")
 EXCLUDE_DIR_NAMES = frozenset({"node_modules", ".git"})
 
 

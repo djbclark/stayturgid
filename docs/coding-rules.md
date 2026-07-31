@@ -89,11 +89,12 @@ retries, state transitions, structured output, and error classification.
 ### Exceptions require a concrete reason
 
 - **AutoJs6 JavaScript:** the AutoJs6 watchdog runtime was retired fleet-wide
-  by the K1 native-agent cutover (2026-07-22 — see `docs/STATUS.md`).
-  `device/autojs6/` is kept as reference code; do not add new fleet-facing
-  AutoJs6 automation. Code executed inside AutoJs6 for other purposes should
-  still keep platform calls narrow and cover portable logic with
-  Node-compatible tests where possible.
+  by the K1 native-agent cutover (2026-07-22 — see `docs/STATUS.md`) and its
+  code deleted entirely (#162, 2026-07-31; see
+  `docs/architecture/components/autojs6.md` for historical reference). Do not
+  add new fleet-facing AutoJs6 automation. Any future JS-based automation for
+  other purposes should still keep platform calls narrow and cover portable
+  logic with Node-compatible tests where possible.
 - **Ansible:** use for declared fleet/control-node desired state and idempotent
   deployment within the boundaries in [ADR 001](architecture/adr/001-ansible-boundary.md).
 - **Shell:** acceptable for a small, clearer wrapper or direct pipeline. Do not put
@@ -125,20 +126,15 @@ but raw diagnostic detail must remain available.
 - **On-device filesystem paths must be ASCII-only** (English letters, digits, `/`,
   `_`, `-`, `.`). No CJK or other non-ASCII code points in path segments we create
   or deploy to.
-- Canonical AutoJs6 project path: **`/sdcard/stayturgid/autojs6`** (also reachable
-  as `/storage/emulated/0/stayturgid/autojs6`). Do **not** install or leave a
-  project under AutoJs6’s locale sample folders:
-  - English: `/sdcard/Scripts/stayturgid`
-  - Chinese UI: `/sdcard/脚本/stayturgid` (U+811A U+672C “Scripts”)
-- AutoJs6 Chinese builds open **脚本** as the default sample directory. A stale
-  copy there was the p7a `SyntaxError: Invalid quantifier` failure when running
-  an old `main.js` under a non-ASCII path (2026-07-19). Always open/run
-  `file:///sdcard/stayturgid/autojs6/main.js`.
-- Repo-relative paths and identifiers used as paths in code (`device/autojs6/…`,
-  inventory targets, deploy destinations) must also stay ASCII. Prose docs may
-  use Unicode punctuation (em dash, etc.); path **literals** must not.
-- After AutoJs6 project deploy, remove known stale mirrors (see
-  `STALE_PROJECT_MIRRORS` in `autojs6_deploy_util.py`).
+- Historical (AutoJs6, retired and deleted in #162): its canonical project
+  path was `/sdcard/stayturgid/autojs6`, and it defaulted to a non-ASCII
+  locale sample directory on Chinese builds (`/sdcard/脚本/stayturgid`,
+  U+811A U+672C "Scripts") — a stale copy there caused the p7a
+  `SyntaxError: Invalid quantifier` failure (2026-07-19), the origin of the
+  ASCII-only rule below.
+- Repo-relative paths and identifiers used as paths in code (inventory
+  targets, deploy destinations) must also stay ASCII. Prose docs may use
+  Unicode punctuation (em dash, etc.); path **literals** must not.
 
 ## Device safety
 

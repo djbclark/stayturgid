@@ -98,10 +98,10 @@ ruff:
       echo "ruff not installed (brew install ruff) — skipped"; \
     fi
 
-# biome check + format (JavaScript/AutoJs6 + CSS).
+# biome check + format (JavaScript research tooling + CSS).
 biome:
     @if command -v biome >/dev/null; then \
-      echo "### biome check"; biome check device/autojs6/ control/static/; \
+      echo "### biome check"; biome check control/static/; \
     else \
       echo "biome not installed (brew install biome) — skipped"; \
     fi
@@ -269,7 +269,7 @@ lint: _ensure-test-collections
       echo "typos not installed (brew install typos-cli) — skipped"
     fi
     if command -v biome >/dev/null; then
-      biome ci device/autojs6/ control/static/ || rc=1
+      biome ci control/static/ || rc=1
     else
       echo "biome not installed (brew install biome) — skipped"
     fi

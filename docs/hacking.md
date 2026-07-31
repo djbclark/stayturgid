@@ -423,7 +423,7 @@ and a copy-paste junior-agent prompt. Reliability work takes precedence over opt
 Galaxy, LLM, FIRERPA MCP/WebRTC/MITM, and task-runner enhancements.
 
 Prefer Python for substantial orchestration, parsing, retries, and validation. Keep
-shell wrappers small. AutoJs6 runtime code is a justified JavaScript exception.
+shell wrappers small. Kotlin is the on-device runtime (`device/native-agent/`).
 
 At session start, run `just health` and distinguish active failures from recovered
 history. Preserve unrelated worktree changes. Landing discovery writes runtime
@@ -445,31 +445,16 @@ ssh oneui-device '~/.stayturgid/bin/rish -c "id -u"'
 If the device has no Termux SSH path, the dashboard must report that limitation;
 do not interpret opening the Shizuku app alone as authorization.
 
-### Making watchdog changes
+### Making native-agent changes
 
-1. Edit the TypeScript in `device/autojs6/` on the Mac — each `.js` has a
-   co-located `.ts` source; the `.js` is generated (`// @generated` header)
-   and must never be hand-edited.
-2. Compile and verify: `just build-ts` (runs `tsc` + Biome format + header
-   injection) then `just check-ts` (1:1 `.ts`/`.js` mapping + header check).
-   Commit both the `.ts` and its regenerated `.js` sibling.
-3. Deploy to the device and restart the watchdog:
-   ```bash
-   ./control/tools/autojs6/deploy.py oneui-device
-   ./control/tools/autojs6/start_watchdog.py oneui-device
-   ```
-4. Check the log: `adb shell cat /sdcard/stayturgid/logs/watchdog.log` (or the AutoJs6 console).
-5. Commit and push.
-
-Before deploying, install the host-only JS/TS quality tools once with
-`bun install`. `just check` then runs `biome check device/autojs6` (lint +
-format) and `just build-ts`/`just check-ts` (TypeScript compile). These
-tools and their lockfile are never copied to Android. All `.ts` files are
-`strict: true` with no `any`; ambient Rhino/AutoJs6 globals (`files`,
-`shell`, `app`, `engines`, `shizuku`, Java interop, etc.) are declared in
-`device/autojs6/types/globals.d.ts` — extend it there rather than casting to
-`any` or re-declaring a global locally. Do not silence a type or lint
-finding merely to make the gate pass.
+The AutoJs6 JS watchdog (`device/autojs6/`, `control/tools/autojs6/*`) was
+retired fleet-wide during the K1 cutover (2026-07-22) and its code deleted
+entirely in the #162 cleanup — see
+[docs/architecture/components/autojs6.md](architecture/components/autojs6.md)
+for historical reference only. Current on-device automation is the Kotlin
+`device/native-agent/` APK — see that directory's own README and
+`just agent-assemble` / `just agent-rollout <host>` for the build/deploy
+loop, and `just kt-test` for its unit tests.
 
 ### Testing shell scripts off-device (added 2026-07-06)
 
@@ -512,7 +497,7 @@ yamllint. Deploy the fleet with `./control/bin/deploy_fleet.py` (Ansible;
 
 Cheap pre-commit gates (if not running the full `just test`): `bash -n` each
 script, `git ls-files '*.sh' | xargs shellcheck -S warning`,
-`node --check device/autojs6/**/*.js`, `python3 -m py_compile` the Python sources, and
+`python3 -m py_compile` the Python sources, and
 `ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet/fleet.yml --syntax-check`.
 
 ### Using uiautomator2 for device automation
@@ -553,7 +538,7 @@ termux-sensor -s "Accelerometer" -n 1
 
 GitHub `master` is the source of truth; updates are pushed to devices from the Mac.
 
-1. Make changes and test them on a device (`./control/tools/autojs6/deploy.py`, `./control/bin/deploy_termux.py`).
+1. Make changes and test them on a device (`just agent-rollout <host>`, `./control/bin/deploy_termux.py`).
 2. Bump `version.json` (`version` + `changelog`) at the repo root.
 3. Commit and push.
 4. Deploy to the fleet:
@@ -561,7 +546,7 @@ GitHub `master` is the source of truth; updates are pushed to devices from the M
    just deploy                    # full site.yml (recommended)
    just verify HOSTS=oneui-device          # optional TAP after deploy
    ```
-   Granular: `just deploy-termux`, `control/tools/autojs6/deploy.py <host>` (USB recovery on Fire).
+   Granular: `just deploy-termux`, `just deploy-apks` (bootstrap-apks scope only, #166), `just agent-rollout <host>` (USB recovery on Fire).
 
 Devices can optionally run `stayturgid_check_repo_version.py` (deployed as `~/stayturgid_check_repo_version.py`; max once/24 h from the boot loop) to get a notification when GitHub's `version.json` is newer than the last deployed version:
 
@@ -592,7 +577,7 @@ adb shell settings get secure enabled_accessibility_services | tr ':' '\n'
 ./control/bin/a11y_services.py show oneui-device
 ```
 
-If AutoJs6 or another required service is missing, stop the dependent automation and
+If a required accessibility service is missing, stop the dependent automation and
 ask the user to enable it manually in **Android Settings → Accessibility**. Verify the
 result read-only afterward. `control/lib/a11y_profiles.json` and historical backups
 are diagnostic references, not authorization for an automatic restore.
@@ -771,9 +756,8 @@ deploy does not require an unlocked screen when app stores are parked.
 ## Repo structure
 
 ```
-device/autojs6/
-  main.js  lib/  devices/  scripts/     — AutoJs6 watchdog project
-control/tools/autojs6/                    — deploy.py, setup_autojs6.py, grant_shizuku.py, start_watchdog.py
+device/native-agent/
+  app/                                   — Kotlin foreground-service APK (K1)
 device/termux/
   boot/start-adb.sh                     — deploy to ~/.termux/boot/ on device
   py/stayturgid_repair.py               — Termux-side self-heal

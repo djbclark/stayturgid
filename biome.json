@@ -17,10 +17,6 @@
       }
     },
     "includes": [
-      "device/autojs6/**/*.js",
-      "device/autojs6/**/*.ts",
-      "tests/js/**/*.js",
-      "tests/js/**/*.ts",
       "just/tools/**/*.js",
       "just/tools/**/*.ts",
       "docs/research/**/*.js",
@@ -34,10 +30,6 @@
     "indentWidth": 2,
     "lineWidth": 120,
     "includes": [
-      "device/autojs6/**/*.js",
-      "device/autojs6/**/*.ts",
-      "tests/js/**/*.js",
-      "tests/js/**/*.ts",
       "just/tools/**/*.js",
       "just/tools/**/*.ts",
       "docs/research/**/*.js",

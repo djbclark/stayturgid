@@ -36,7 +36,6 @@ import "just/services.just"
 import "just/tests.just"
 import "just/cfengine.just"
 import "just/site.just"
-import "just/vendor.just"
 
 # Show available recipes (default).
 help:
@@ -65,24 +64,22 @@ agent-review:
 
 # Build TypeScript files into JavaScript and add generated header
 build-ts:
-    bunx tsc -p device/autojs6/tsconfig.json
     bunx tsc -p docs/research/autojs6-hd8-project/tsconfig.json
-    bunx tsc -p tests/js/tsconfig.json
     bunx tsc -p just/tools/tsconfig.json
-    bunx biome format --write device/autojs6 tests/js just/tools docs/research
+    bunx biome format --write just/tools docs/research
     python3 just/tools/add_generated_header.py
 
 # Verify TS/JS migration and mappings
 check-ts:
     @echo "Verifying 1-to-1 mapping..."
-    @for f in $(find device/autojs6 tests/js just/tools docs/research -name "*.ts" -not -name "*.d.ts" -not -path "*/node_modules/*" 2>/dev/null); do \
+    @for f in $(find just/tools docs/research -name "*.ts" -not -name "*.d.ts" -not -path "*/node_modules/*" 2>/dev/null); do \
       js_file="${f%.ts}.js"; \
       if [ ! -f "$js_file" ]; then \
         echo "Error: Missing corresponding JS file for $f (run 'just build-ts')"; exit 1; \
       fi \
     done
     @echo "Verifying no stray JS files..."
-    @for f in $(find device/autojs6 tests/js just/tools docs/research -name "*.js" -not -path "*/node_modules/*" 2>/dev/null); do \
+    @for f in $(find just/tools docs/research -name "*.js" -not -path "*/node_modules/*" 2>/dev/null); do \
       ts_file="${f%.js}.ts"; \
       if [ ! -f "$ts_file" ]; then \
         echo "Error: Stray JS file with no corresponding TS source: $f"; exit 1; \

@@ -24,7 +24,7 @@ sys.path.insert(0, str(REPO / "control" / "lib"))
 import adb_cli as adb
 
 serial = adb.resolve_target("oneui-device")
-adb.start_autojs_file(serial, "/sdcard/stayturgid/autojs6/main.js")
+adb.package_installed(serial, "org.stayturgid.agent")
 ```
 
 ### CLI (shell scripts, Make, ad-hoc)
@@ -54,6 +54,6 @@ ANDROID_SERIAL="$(./control/lib/resolve_adb.py oneui-device)" fdroidcl install c
 | `a11y_services.py`                                 | Accessibility service merge/profiles                          |
 | `termux_api.py` / `termux_ssh_bootstrap.py`        | Termux API + SSH bootstrap                                    |
 | `stayturgid_root.py`                               | Repo-root discovery                                           |
-| `*.json` profiles                                  | a11y / fleet app / AutoJs6 drawer defaults                    |
+| `*.json` profiles                                  | a11y / fleet app profile defaults                             |
 
 See [docs/architecture/components/control.md](../../docs/architecture/components/control.md), and [docs/architecture/components/screen-control-lease.md](../../docs/architecture/components/screen-control-lease.md).

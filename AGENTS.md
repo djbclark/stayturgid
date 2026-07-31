@@ -108,7 +108,7 @@ See `${OPS_ROOT:-~/ops}/site-djbclark/docs/OPS-RELEASES.md`.
 | `just lint`                                  | All linters (shellcheck, ansible-lint, yamllint, ruff, typos, biome, shfmt, markdownlint, prettier, …)                                                |
 | `just lint-offline`                          | Same as lint but skip dashboard-dependent checks (lychee, vnu, pa11y, puppeteer)                                                                      |
 | `just check`                                 | Syntax/import checks + TS/JS mapping (`check-ts`) + ruff + typos + biome + shfmt + justfile fmt + markdownlint + prettier + html-validate + stylelint |
-| `just build-ts`                              | Compile `device/autojs6`/`tests/js`/`just/tools`/`docs/research` `.ts` → `.js` (tsc + Biome format + `// @generated` header)                          |
+| `just build-ts`                              | Compile `just/tools`/`docs/research` `.ts` → `.js` (tsc + Biome format + `// @generated` header)                                                      |
 | `just validate-identity`                     | Hard-fail if production identity leaks outside the active inventory                                                                                   |
 
 ## Environment

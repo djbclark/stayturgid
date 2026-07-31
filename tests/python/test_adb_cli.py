@@ -9,11 +9,6 @@ sys.path.insert(
 import adb_cli as ac
 
 
-def test_autojs_constants():
-    assert ac.AUTOJS_PKG == "org.autojs.autojs6"
-    assert ac.AUTOJS_PROJECT_BASE.endswith("/autojs6")
-
-
 def test_adb_builds_serial_scoped_argv(monkeypatch):
     seen = {}
 
@@ -26,16 +21,6 @@ def test_adb_builds_serial_scoped_argv(monkeypatch):
     ac.adb("192.0.2.12:5555", "shell", "true", check=False)
     assert seen["cmd"] == ["adb", "-s", "192.0.2.12:5555", "shell", "true"]
     assert seen["kwargs"]["check"] is False
-
-
-def test_start_autojs_file_targets_run_activity(monkeypatch):
-    seen = {}
-    monkeypatch.setattr(ac, "adb", lambda serial, *args, **kw: seen.update(serial=serial, args=args))
-    ac.start_autojs_file("s24serial", "/sdcard/stayturgid/autojs6/scripts/x.js")
-    args = seen["args"]
-    assert "am" in args and "start" in args
-    assert "file:///sdcard/stayturgid/autojs6/scripts/x.js" in args
-    assert f"{ac.AUTOJS_PKG}/{ac.AUTOJS_RUN}" in args
 
 
 def test_alias_for_host_forwards_to_stayturgid_device(monkeypatch):

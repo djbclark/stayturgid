@@ -58,13 +58,12 @@ stayturgid_boot_scripts:
 # When you remove a script from stayturgid_boot_scripts, add it here.
 stayturgid_retired_boot_scripts:
   # AutoJs6 was fully uninstalled fleet-wide during the K1 native-agent
-  # cutover verification (2026-07-25, issue #43) and is not expected to
-  # return. These two boot scripts only ever launch/restart AutoJs6's own
-  # boot-launcher.js — deploying them was a no-op `am start` against an
-  # uninstalled package plus a wasted 45s boot-sequence sleep, every boot,
-  # fleet-wide. The underlying scripts (device/termux/boot/start-autojs6-*.sh)
-  # and stayturgid_bridges.py --mode autojs6 are left in place as retired,
-  # unreached code rather than deleted in this pass — see issue #43.
+  # cutover verification (2026-07-25, issue #43). These two boot scripts only
+  # ever launched/restarted AutoJs6's own boot-launcher.js — the source files
+  # (device/termux/boot/start-autojs6-*.sh) and stayturgid_bridges.py's
+  # autojs6 mode were removed for good in the #162 cleanup; kept in this list
+  # so any device that hasn't deployed since retains its cleanup on the next
+  # run.
   - start-autojs6-bridge.sh
   - start-autojs6-watchdog.sh
 
@@ -89,8 +88,6 @@ stayturgid_py_scripts:
   - stayturgid_autojs6_guard.py
   - stayturgid_shell.py
   - stayturgid_screen_control.py
-  - stayturgid_grant_shizuku.py
-  - stayturgid_enable_autojs6.py
   - stayturgid_handsets.py
   - stayturgid_rish.py
   - stayturgid_peer_help.py
@@ -99,6 +96,10 @@ stayturgid_py_scripts:
 
 stayturgid_retired_py_scripts:
   - bridges.py
+  # AutoJs6 remnants cleanup (#162) -- both scripts' only reachable caller
+  # chain was itself already fully dead (see the issue for the trace).
+  - stayturgid_grant_shizuku.py
+  - stayturgid_enable_autojs6.py
 
 
 # Restricted SSH ForceCommand wrapper (helpers only; see ssh_keys.yml F5).
@@ -135,8 +136,6 @@ stayturgid_deploy_fleet_adbkey: true
 
 # Data files for on-device post-UI automation.
 stayturgid_ui_data_files:
-  - src: device/autojs6/fleet_profile.json
-    dest: autojs6/fleet_profile.json
   - src: control/lib/a11y_profiles.json
     dest: a11y_profiles.json
 

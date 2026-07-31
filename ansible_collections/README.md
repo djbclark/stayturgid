@@ -5,12 +5,12 @@ you need — each domain is a separate collection on the `stayturgid` namespace.
 
 ## Collections
 
-| Collection                    | Install for…                      | Module(s)                                                                                 | Role(s)                                   |
-| ----------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------- |
-| **stayturgid.android_common** | ADB helpers + VPN + Shizuku + APK | `android_appops`, `android_settings`, `shizuku_grant`, `android_apk`, `adb_device` lookup | `tailscale_vpn`                           |
-| **stayturgid.termux**         | Termux over SSH                   | `termux_pkg`, `termux_sshd`, `termux_ssh_bootstrap`                                       | `termux_userland`                         |
-| **stayturgid.play**           | Play APK sideload                 | `play_apps`                                                                               | `play_store`                              |
-| **stayturgid.fleet**          | Meta / fleet roles                | _(redirects to above)_                                                                    | `post_ui`, `validate`, `autojs6_watchdog` |
+| Collection                    | Install for…                      | Module(s)                                                                                 | Role(s)                                 |
+| ----------------------------- | --------------------------------- | ----------------------------------------------------------------------------------------- | --------------------------------------- |
+| **stayturgid.android_common** | ADB helpers + VPN + Shizuku + APK | `android_appops`, `android_settings`, `shizuku_grant`, `android_apk`, `adb_device` lookup | `tailscale_vpn`                         |
+| **stayturgid.termux**         | Termux over SSH                   | `termux_pkg`, `termux_sshd`, `termux_ssh_bootstrap`                                       | `termux_userland`                       |
+| **stayturgid.play**           | Play APK sideload                 | `play_apps`                                                                               | `play_store`                            |
+| **stayturgid.fleet**          | Meta / fleet roles                | _(redirects to above)_                                                                    | `post_ui`, `validate`, `shizuku_config` |
 
 ## Quick install
 
@@ -45,9 +45,9 @@ ansible_collections/stayturgid/
   android_common/           ← adb helpers, appops/settings modules, tailscale_vpn role
   termux/                   ← termux_pkg + termux_userland role
   play/                     ← play_apps + play_store role
-  fleet/                    ← meta-collection + post_ui, validate, autojs6_watchdog roles
+  fleet/                    ← meta-collection + post_ui, validate, shizuku_config roles
 ansible/                    ← site inventory + composed playbooks (site.yml, preflight, …)
 ```
 
-Fleet-specific roles (`autojs6_watchdog`, `post_ui`, `validate`) live in
+Fleet-specific roles (`shizuku_config`, `post_ui`, `validate`) live in
 `stayturgid.fleet` and reference inventory taxonomy via `device.json.j2`.

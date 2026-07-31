@@ -70,22 +70,25 @@ or `stayturgid.play` (declared in `galaxy.yml` dependencies).
 
 Companion roles ship in each collection:
 
-| Collection role FQCN                      | Purpose                                                       |
-| ----------------------------------------- | ------------------------------------------------------------- |
-| `stayturgid.termux.termux_userland`       | Termux bootstrap over SSH                                     |
-| `stayturgid.obtainium.obtainium_apps`     | Render Obtainium catalog on device                            |
-| `stayturgid.fdroid.fdroid_repos`          | fdroidcl + Neo Store repo push                                |
-| `stayturgid.play.play_store`              | Aurora Shizuku grant + `play_apps`                            |
-| `stayturgid.android_common.tailscale_vpn` | Always-on VPN secure settings                                 |
-| `stayturgid.fleet.post_ui`                | Post-deploy UI tasks (`android_ui` module)                    |
-| `stayturgid.fleet.validate`               | Post-deploy repair/a11y smoke (role; wired by `validate.yml`) |
+| Collection role FQCN                      | Purpose                                                                                                                                                                                                             |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stayturgid.termux.termux_userland`       | Termux bootstrap over SSH                                                                                                                                                                                           |
+| `stayturgid.obtainium.obtainium_apps`     | Render Obtainium catalog on device                                                                                                                                                                                  |
+| `stayturgid.fdroid.fdroid_repos`          | fdroidcl + Neo Store repo push                                                                                                                                                                                      |
+| `stayturgid.play.play_store`              | Aurora Shizuku grant + `play_apps`                                                                                                                                                                                  |
+| `stayturgid.android_common.tailscale_vpn` | Always-on VPN secure settings                                                                                                                                                                                       |
+| `stayturgid.fleet.post_ui`                | Post-deploy UI tasks (screen-unlock gate for app-stores; the `android_ui` module it used to call was deleted in #162 — its only dispatch entry, the AutoJs6 Shizuku drawer task, was already removed independently) |
+| `stayturgid.fleet.validate`               | Post-deploy repair/a11y smoke (role; wired by `validate.yml`)                                                                                                                                                       |
 
 ## Obtainium (on-device over SSH)
 
 `stayturgid.obtainium.obtainium_app` renders JSON on the device via Termux SSH.
-Catalog **import** in Obtainium runs via `stayturgid.fleet.post_ui` /
-`android_ui` task `import_obtainium_catalog` (screen control). Legacy Mac-only
-path: `control/tools/obtainium/import_catalog.py`.
+Catalog import previously ran via an `android_ui` screen-control task
+(`import_obtainium_catalog`); that module was deleted in #162 (its only
+remaining dispatch entry was the unrelated, already-dead AutoJs6 Shizuku
+drawer task — this Obtainium entry point may need its own separate
+follow-up if catalog import is still needed). Legacy Mac-only path:
+`control/tools/obtainium/import_catalog.py`.
 
 ## Backward-compatible FQCNs
 

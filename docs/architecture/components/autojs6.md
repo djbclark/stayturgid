@@ -11,9 +11,14 @@ is unconfirmed) and
 [handoff-2026-07-23-native-agent-k1.md](../../operations/sessions/handoff-2026-07-23-native-agent-k1.md)
 for what remains.
 
+**2026-07-31 update:** the code this document describes has been deleted
+entirely (issue #162) — `device/autojs6/`, `control/tools/autojs6/`,
+`tests/js/*`, and the vendored `vendor/autojs6-typescript` submodule are no
+longer present in this repo. Everything below is now pure historical/design
+reference, not a description of anything currently checked in.
+
 The rest of this document describes the retired runtime as it worked while
-live, kept for historical/debugging reference (e.g. the Rhino-engine gotchas
-below still apply to anything still executing under `device/autojs6/`).
+live, kept for historical/debugging reference.
 
 Secondary layer (historical): notifications, Tailscale probe, catastrophic
 Shizuku repair, and a **JS co-monitor** that re-probed the same health surface
@@ -125,26 +130,18 @@ the compiled output executes on a real device.
 
 The full writeup — four such gotchas found in one session debugging
 stayturgid#34, each with a runnable broken-example reproduction and a
-verified fix — now lives in the standalone, fork-agnostic
+verified fix — lives in the standalone, fork-agnostic
 [`autojs6-typescript`](https://github.com/djbclark/autojs6-typescript)
-toolkit, vendored here as `vendor/autojs6-typescript/` (git submodule; run
-`git submodule update --init` if it's empty). Read
-`vendor/autojs6-typescript/docs/RHINO_GOTCHAS.md` before editing anything
-under `device/autojs6/**/*.ts`.
+toolkit (its own separate repo; no longer vendored here as of #162). Read
+its `docs/RHINO_GOTCHAS.md` before touching any future JS-based automation
+against AutoJs6's Rhino engine.
 
-This repo consumes that toolkit directly rather than maintaining its own
-copy of the checks:
-
-- `tests/test-unit.sh`'s Rhino checks call
-  `vendor/autojs6-typescript/tools/check_require_bindings.py` (static: for...of
-  syntax + duplicate `require()` binding names) and
-  `vendor/autojs6-typescript/tools/rhino_check.py` (a real parse against
-  AutoJs6 fork's actual bundled Rhino jar, when one is findable locally)
-  against `device/autojs6/main.js` + `device/autojs6/lib/*.js`.
-- To update your own local Rhino jar pin or investigate a new gotcha, work
-  in the `autojs6-typescript` repo directly and update the submodule
-  pointer here (`git -C vendor/autojs6-typescript pull && git add
-vendor/autojs6-typescript`) rather than duplicating fixes in both places.
+This repo previously consumed that toolkit directly (`vendor/autojs6-typescript`
+git submodule) for two `tests/test-unit.sh` checks:
+`check_require_bindings.py` (static: for...of syntax + duplicate `require()`
+binding names) and `rhino_check.py` (a real parse against AutoJs6's actual
+bundled Rhino jar). Both were removed along with `device/autojs6/` in #162
+— nothing in this repo runs them anymore.
 
 Gotcha #1 (the redeclaration crash) has a confirmed root cause: AutoJs6's
 vendored `jvm-npm.js` dropped upstream jvm-npm's per-module Function-wrapper

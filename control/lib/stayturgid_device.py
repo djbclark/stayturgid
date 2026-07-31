@@ -4,10 +4,10 @@ from __future__ import annotations
 """Shared Mac-side device helpers (Python).
 
 Pure, unit-tested logic (JSON patching, uid/UI-XML parsing, device resolution)
-plus a small privileged-shell runner. Imported by control/tools/autojs6/grant_shizuku.py
-and control/tools/obtainium/enable_shizuku_installer.py — replaces the fragile
-python-in-bash heredocs and `tr '>' '\n' | grep | sed` UI parsing that were
-easy to get wrong under macOS bash/zsh.
+plus a small privileged-shell runner. Imported across control/bin and
+control/tools scripts — replaces the fragile python-in-bash heredocs and
+`tr '>' '\n' | grep | sed` UI parsing that were easy to get wrong under
+macOS bash/zsh.
 """
 import json
 import os

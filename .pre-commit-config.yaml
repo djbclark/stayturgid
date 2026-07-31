@@ -56,8 +56,8 @@ repos:
             # which is the normal, correct state right before committing.
             dirty=$(
               {
-                git diff --name-only -- device/autojs6 tests/js just/tools docs/research
-                git status --porcelain --untracked-files=normal -- device/autojs6 tests/js just/tools docs/research | grep '^??' | cut -c4-
+                git diff --name-only -- just/tools docs/research
+                git status --porcelain --untracked-files=normal -- just/tools docs/research | grep '^??' | cut -c4-
               } | sort -u | grep -E '\.(js|ts)$' || true
             )
             if [ -n "$dirty" ]; then
@@ -77,7 +77,7 @@ repos:
         entry: biome
         args: [check, --no-errors-on-unmatched]
         language: system
-        files: '^(device/autojs6/.*\.(js|ts)|tests/js/.*\.(js|ts)|just/tools/.*\.(js|ts)|docs/research/.*\.(js|ts)|control/static/.*\.css)$'
+        files: '^(just/tools/.*\.(js|ts)|docs/research/.*\.(js|ts)|control/static/.*\.css)$'
 
   - repo: local
     hooks:

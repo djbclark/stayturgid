@@ -1,6 +1,9 @@
 # ADR 003: Shizuku catastrophic recovery architecture
 
-**Status:** Accepted (2026-07-11)  
+**Status:** Accepted (2026-07-11); the AutoJs6 watchdog this describes was
+retired fleet-wide in the K1 cutover (2026-07-22) and its code deleted
+entirely (#162, 2026-07-31) — kept as historical design rationale only, not
+a description of anything currently in the repo.  
 **Context:** AutoJs6 watchdog Shizuku recovery when port 5555 is down
 
 ## Decision

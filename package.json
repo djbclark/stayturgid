@@ -2,10 +2,6 @@
   "name": "stayturgid-host-quality",
   "private": true,
   "description": "Host-side quality checks for stayturgid JavaScript",
-  "scripts": {
-    "lint:autojs6": "biome check device/autojs6",
-    "format:autojs6": "biome format --write device/autojs6"
-  },
   "devDependencies": {
     "@alibaba-group/open-code-review": "^1.7.13",
     "@types/node": "^26.1.1",
