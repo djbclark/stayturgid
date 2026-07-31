@@ -79,14 +79,14 @@ repos:
         language: system
         files: '^(just/tools/.*\.(js|ts)|docs/research/.*\.(js|ts)|control/static/.*\.css)$'
 
-  - repo: local
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.13.1-1
     hooks:
       - id: shfmt
-        name: shfmt
-        entry: shfmt
+        # Pinned to the same v3.13.1 used in CI and (via brew) local dev --
+        # auto-installed by pre-commit itself, so contributors no longer
+        # need `brew install shfmt` and can't drift to a different version.
         args: ["-d", "-i", "2", "-ci"]
-        language: system
-        types: [shell]
         # Upstream Gradle wrapper scripts; do not reformat.
         exclude: '(^|/)gradlew$'
 
