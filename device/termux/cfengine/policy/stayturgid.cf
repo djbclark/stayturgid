@@ -1,4 +1,4 @@
-# @heals: SSHD-RUNNING BOOTLOOP-ALIVE NATIVE-AGENT-RUNNING
+# @heals: SSHD-RUNNING BOOTLOOP-ALIVE NATIVE-AGENT-RUNNING OTELCOL-RUNNING
 # stayturgid.cf — Standalone self-heal policy for CFEngine on Termux
 # Deploy to: ~/.stayturgid/cfengine/stayturgid.cf
 # Run: cf-agent -f ~/.stayturgid/cfengine/stayturgid.cf
@@ -23,6 +23,7 @@ bundle agent stayturgid_heal {
 
   methods:
     "heal" usebundle => check_sshd("$(prefix)");
+    "heal" usebundle => check_otelcol("$(prefix)", "$(home)");
     "heal" usebundle => check_bootloop("$(stg)");
     "heal" usebundle => check_stayturgid_agent("$(prefix)", "$(stg)");
     "heal" usebundle => check_bootloop_repair("$(prefix)", "$(home)");
@@ -35,19 +36,38 @@ bundle agent stayturgid_heal {
 # ── Individual check bundles ──────────────────────────────────────────────
 
 bundle agent check_sshd(p) {
-  classes:
-    "sshd_running" expression => returnszero("$(p)/bin/pgrep -x sshd >/dev/null 2>&1 || $(p)/bin/pgrep -f '[s]shd' >/dev/null 2>&1", "useshell");
+  processes:
+    ".*bin/sshd.*"
+      restart_class => "restart_sshd";
 
   reports:
-    sshd_running::
+    !restart_sshd::
       "sshd: running";
-    !sshd_running::
+    restart_sshd::
       "sshd: RESTARTING";
 
   commands:
-    !sshd_running::
+    restart_sshd::
       "$(p)/bin/bash"
         args => "-c 'rm -f $(p)/var/service/sshd/down 2>/dev/null; $(p)/bin/sshd'",
+        contain => silent_bg;
+}
+
+bundle agent check_otelcol(p, home) {
+  processes:
+    ".*otelcol-contrib.*"
+      restart_class => "restart_otelcol";
+
+  reports:
+    !restart_otelcol::
+      "otelcol: running";
+    restart_otelcol::
+      "otelcol: RESTARTING";
+
+  commands:
+    restart_otelcol::
+      "$(p)/bin/bash"
+        args => "-c '$(home)/.termux/boot/start-otelcol.sh stop >/dev/null 2>&1 || true; $(home)/.termux/boot/start-otelcol.sh'",
         contain => silent_bg;
 }
 

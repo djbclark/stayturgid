@@ -194,7 +194,7 @@
     },
     "OTELCOL-RUNNING": {
       "description": "Edge otelcol-contrib is installed, boot-integrated, and restarted by the Termux supervisor",
-      "must_cover": ["termux_repair", "ansible_deploy"],
+      "must_cover": ["termux_repair", "ansible_deploy", "cfengine"],
       "should_cover": []
     },
     "APK-RELEASE-LOCK": {
