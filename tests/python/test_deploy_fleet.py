@@ -101,6 +101,7 @@ def test_scope_ansible_tags():
     assert df.Scope.FDROID.ansible_tags == "fdroid"
     assert df.Scope.PLAY.ansible_tags == "play,post-ui"
     assert df.Scope.APP_STORES.ansible_tags == "app-stores"
+    assert df.Scope.BOOTSTRAP_APKS.ansible_tags == "bootstrap-apks"
 
 
 def test_resolve_hosts_explicit():

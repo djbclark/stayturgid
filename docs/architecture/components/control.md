@@ -44,6 +44,9 @@ Launchd agents and `devices.conf` are rendered by `ansible/playbooks/control_nod
 CHECK=1 ./control/bin/deploy_fleet.py oneui-device      # same as just deploy-check
 ./control/bin/deploy_fleet.py --scope fdroid oneui-device # F-Droid (parked until app stores re-enabled)
 ./control/bin/deploy_fleet.py --scope play oneui-device   # Play / Aurora (parked)
+./control/bin/deploy_fleet.py --scope bootstrap-apks --devices-only oneui-device
+                                                          # pure app version bump — skips
+                                                          # termux_userland/post-ui/validate/control_node (#166)
 ```
 
 Verify: `just verify` or `just verify-heal` or `bash tests/run.sh device --heal [host]`
