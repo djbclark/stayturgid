@@ -286,8 +286,10 @@ class ShizukuUserService : IStayTurgidService.Stub {
     companion object {
         private const val TAG = "StayTurgidUS"
 
-        // 8 MiB per buffer (main/system/crash/kernel) — comfortably outlasts a boot+repair
-        // sequence even under hd8's heavy avc-audit log volume; well under logd's device-wide cap.
+        // Requested size per buffer (main/system/crash/kernel) — comfortably outlasts a
+        // boot+repair sequence even under hd8's heavy avc-audit log volume. logd enforces its own
+        // device-specific hard cap and silently clamps down to it (verified live: hd8 accepts the
+        // full 8M, s24's cap is only 5M) — that's a benign, expected outcome, not a failure.
         private const val LOG_BUFFER_SIZE = "8M"
         private const val LOG_BUFFER_RESIZE_TIMEOUT_SEC = 5L
 
