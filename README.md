@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/logo.png" alt="stayturgid logo" width="200">
+</p>
+
 # stayturgid
 
 > **AI coding agents:** start at [AGENTS.md](AGENTS.md) instead of this file —
