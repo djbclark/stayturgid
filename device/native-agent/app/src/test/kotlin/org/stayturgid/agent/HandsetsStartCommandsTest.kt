@@ -4,6 +4,7 @@ import java.util.Base64
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import org.stayturgid.agent.adb.AdbProtocol.A_MAXDATA
 
 /** Pure shell-command-builder tests — kept faithful to fire_peer_help.py's cmd_handsets_start. */
 class HandsetsStartCommandsTest {
@@ -59,6 +60,27 @@ class HandsetsStartCommandsTest {
         } catch (_: IllegalArgumentException) {
             // expected
         }
+    }
+
+    @Test
+    fun defaultChunkSizeLeavesRealMarginAgainstAdbMaxData() {
+        // AdbClient.command() sends the whole "shell:<cmd>" string as one unchunked A_OPEN
+        // payload, and AdbMessage appends a trailing NUL byte — so the worst-case full command
+        // (max-size chunk, "append" redirect, which is one char longer than the first chunk's)
+        // must leave a comfortable margin against A_MAXDATA, not just be smaller than it. This
+        // pins that invariant against the real protocol constant so a future change to
+        // PUSH_CHUNK_BYTES or REMOTE_JAR_PATH can't silently shrink the margin back to nothing.
+        val maxChunk = ByteArray(HandsetsStartCommands.PUSH_CHUNK_BYTES) { 0xFF.toByte() }
+        val encoded = Base64.getEncoder().encodeToString(maxChunk)
+        val cmd = HandsetsStartCommands.writeChunkCommand(encoded, append = true)
+        val fullShellPayloadBytes =
+            ("shell:$cmd").toByteArray(Charsets.UTF_8).size + 1 // NUL terminator
+        val margin = A_MAXDATA - fullShellPayloadBytes
+        assertTrue(
+            margin >= 1_000,
+            "push-chunk command only has $margin bytes of margin against A_MAXDATA " +
+                "($A_MAXDATA) — was $fullShellPayloadBytes bytes; shrink PUSH_CHUNK_BYTES",
+        )
     }
 
     @Test

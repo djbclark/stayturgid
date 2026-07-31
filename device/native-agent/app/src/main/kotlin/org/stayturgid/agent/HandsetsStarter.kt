@@ -153,11 +153,18 @@ object HandsetsStartCommands {
 
     /**
      * Raw bytes per push chunk. The embedded [AdbClient] has no `sync:` (file-transfer) support, so
-     * `hs.jar` is written via `base64 -d` shell commands instead; kept small (well under the wire
-     * protocol's [org.stayturgid.agent.adb.AdbProtocol.A_MAXDATA]) since a single command's data
-     * isn't chunked the way stream I/O is.
+     * `hs.jar` is written via `base64 -d` shell commands instead, and [AdbClient.command] sends the
+     * whole shell string as a single unchunked `A_OPEN` payload (see its implementation) — so this
+     * has to leave real margin against the wire protocol's
+     * [org.stayturgid.agent.adb.AdbProtocol.A_MAXDATA] (4096), not just be "smaller than it". 3000
+     * raw bytes base64-encodes to exactly 4000 chars, and with the surrounding `printf '%s' '...' |
+     * base64 -d >> '<path>'` wrapper plus [AdbMessage]'s trailing NUL terminator, the actual
+     * command was only ~35 bytes under the 4096 cap — a single-character change to
+     * [REMOTE_JAR_PATH] could have silently broken this. 2000 raw bytes leaves >1300 bytes of real
+     * margin; see [HandsetsStartCommandsTest] for a test that pins this invariant against the
+     * actual protocol constant so it can't silently drift back to a razor's edge.
      */
-    const val PUSH_CHUNK_BYTES = 3000
+    const val PUSH_CHUNK_BYTES = 2000
 
     fun niceName(port: Int): String = "hsd$port"
 
