@@ -41,10 +41,10 @@ stayturgid_debug_key_alias: "androiddebugkey"
 stayturgid_bootstrap_apks:
   - id: org.stayturgid.agent
     gh_repo: djbclark/stayturgid
-    gh_tag: agent-v0.9.0
+    gh_tag: agent-v0.9.1
     gh_pattern: app-release.apk
-    version_name: 0.9.0-new-icon
-    checksum: "sha256:ef1639ca449bc8510be370ce38df36f0185d79966f1b7117ee96beec03e5a19b"
+    version_name: 0.9.1-logbuffer
+    checksum: "sha256:d9bab219b2870a3348927d4e9535849f745bf96ed2540fe48ca179a7b29c7e7f"
     resign: false
     start_broadcast_action: org.stayturgid.agent.action.PEER_START_NOW
     start_broadcast_component: org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver
