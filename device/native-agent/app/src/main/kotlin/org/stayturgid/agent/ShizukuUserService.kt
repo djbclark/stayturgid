@@ -25,6 +25,7 @@ class ShizukuUserService : IStayTurgidService.Stub {
     constructor() {
         Log.i(TAG, "constructor")
         reapStaleUserServices()
+        ensureLogBufferSize()
     }
 
     /**
@@ -36,6 +37,7 @@ class ShizukuUserService : IStayTurgidService.Stub {
         appContext = context.applicationContext ?: context
         Log.i(TAG, "constructor with Context: $context")
         reapStaleUserServices()
+        ensureLogBufferSize()
     }
 
     override fun destroy() {
@@ -223,6 +225,35 @@ class ShizukuUserService : IStayTurgidService.Stub {
         }
     }
 
+    // logcat's ring buffers default to 256 KiB, which rotates out in seconds under normal
+    // SELinux avc-audit volume (each subprocess spawn logs several "granted" lines) — too small
+    // to catch the sequence around a boot/repair event by the time a human or a Mac-side script
+    // goes looking. `logcat -G` needs shell/root (a plain app UID cannot resize logd's buffers),
+    // so this can only run here, inside the Shizuku-bound UserService — and since Shizuku itself
+    // has to be up before this constructor runs, this is the earliest point in the boot sequence
+    // this process can reach with the privilege to do it. Idempotent: resizing to the same size
+    // again is a cheap no-op, so this runs unconditionally on every UserService (re)start rather
+    // than tracking a "did we already do this" flag.
+    private fun ensureLogBufferSize() {
+        try {
+            val p =
+                ProcessBuilder("logcat", "-b", "all", "-G", LOG_BUFFER_SIZE)
+                    .redirectErrorStream(true)
+                    .start()
+            if (!p.waitFor(LOG_BUFFER_RESIZE_TIMEOUT_SEC, TimeUnit.SECONDS)) {
+                p.destroyForcibly()
+                Log.w(TAG, "logcat -G timed out")
+                return
+            }
+            if (p.exitValue() != 0) {
+                val out = p.inputStream.bufferedReader().use { it.readText().trim() }
+                Log.w(TAG, "logcat -G exited ${p.exitValue()}: $out")
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "ensureLogBufferSize failed: ${t.message}")
+        }
+    }
+
     private fun runPidof(pkg: String): String {
         val p = ProcessBuilder("pidof", "$pkg:userservice").redirectErrorStream(true).start()
         if (!p.waitFor(2, TimeUnit.SECONDS)) {
@@ -254,6 +285,11 @@ class ShizukuUserService : IStayTurgidService.Stub {
 
     companion object {
         private const val TAG = "StayTurgidUS"
+
+        // 8 MiB per buffer (main/system/crash/kernel) — comfortably outlasts a boot+repair
+        // sequence even under hd8's heavy avc-audit log volume; well under logd's device-wide cap.
+        private const val LOG_BUFFER_SIZE = "8M"
+        private const val LOG_BUFFER_RESIZE_TIMEOUT_SEC = 5L
 
         /** Pure: pidof output -> pids that are stale (not this process) and should be reaped. */
         internal fun stalePidsToReap(pidofOutput: String, myPid: Int): List<Int> =
