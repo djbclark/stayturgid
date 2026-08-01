@@ -23,3 +23,15 @@ stayturgid_tailscale_ip: "{{ ansible_host if ansible_host is match('^100\\.') el
 # Push Android always-on VPN for Tailscale on fleet deploy (lockdown off = LAN ADB safe).
 stayturgid_always_on_vpn: true
 stayturgid_always_on_vpn_lockdown: false
+
+# GNU rsync (Homebrew) for the local side of termux_userland's
+# ansible.posix.synchronize tasks, preferred over macOS's ancient system
+# rsync (2.6.9 / protocol 29 at /usr/bin/rsync) so both ends of the Termux
+# SSH transport speak the same modern protocol (Termux ships rsync 3.x).
+# `lookup('pipe', ...)` always runs on the control node itself regardless of
+# which inventory host this play's facts belong to (fleet plays gather facts
+# for the Android device, not the Mac) — ansible_facts-based arch detection
+# would be wrong here. Fails loudly (not silently to system rsync) if the
+# `rsync` control_node brew package (ansible/roles/control_node/defaults)
+# isn't actually installed, matching this project's fail-closed conventions.
+stayturgid_local_rsync_path: "{{ lookup('pipe', 'brew --prefix rsync') }}/bin/rsync"

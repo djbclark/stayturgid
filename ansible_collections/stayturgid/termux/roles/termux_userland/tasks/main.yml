@@ -261,6 +261,7 @@
     dest: "{{ termux_home }}/.stayturgid/bin/"
     perms: true
     checksum: true
+    _local_rsync_path: "{{ stayturgid_local_rsync_path }}"
     rsync_opts: >-
       {{
         (stayturgid_py_scripts | default([]) | map('regex_replace', '^(.*)$', '--include=/\1') | list)
@@ -331,6 +332,7 @@
     dest: "{{ termux_home }}/.stayturgid/lib/"
     perms: true
     checksum: true
+    _local_rsync_path: "{{ stayturgid_local_rsync_path }}"
     rsync_opts: >-
       {{
         (stayturgid_lib_files | default([]) | map(attribute='dest') | map('regex_replace', '^(.*)$', '--include=/\1') | list)
@@ -384,6 +386,7 @@
     dest: "{{ termux_home }}/.stayturgid/battery-colors/"
     perms: true
     checksum: true
+    _local_rsync_path: "{{ stayturgid_local_rsync_path }}"
     rsync_opts: >-
       {{
         (stayturgid_battery_color_assets | default([]) | map('regex_replace', '^(.*)$', '--include=/\1') | list)
@@ -407,6 +410,7 @@
     dest: "{{ termux_home }}/.termux/boot/"
     perms: true
     checksum: true
+    _local_rsync_path: "{{ stayturgid_local_rsync_path }}"
     rsync_opts: >-
       {{
         (stayturgid_boot_scripts | default([]) | map('regex_replace', '^(.*)$', '--include=/\1') | list)
