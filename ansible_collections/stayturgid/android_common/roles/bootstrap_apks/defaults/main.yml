@@ -72,6 +72,24 @@ stayturgid_bootstrap_apks:
     gh_pattern: "termux-api-app_v0.53.0+github.debug.apk"
     version_name: 0.53.0
     checksum: "sha256:ecf916ff80ae751e65c092f51c055cce4de417ebeea8e449cd0f294afdbde39a"
+  - id: com.termux.tasker
+    gh_repo: termux/termux-tasker
+    gh_tag: v0.9.0
+    gh_pattern: "termux-tasker-app_v0.9.0+github.debug.apk"
+    version_name: 0.9.0
+    checksum: "sha256:4dd14de5f18791b3594256a9ead6bfddafa0434f11e0d39c3b551dda53db2fff"
+  - id: com.termux.styling
+    gh_repo: termux/termux-styling
+    gh_tag: v0.32.1
+    gh_pattern: "termux-styling-app_v0.32.1+github.debug.apk"
+    version_name: 0.32.1
+    checksum: "sha256:df607437476581c40d94ce6a222ca900e35163fdb0ac7dde3e2eb8cdcda18e08"
+  - id: com.termux.widget
+    gh_repo: termux/termux-widget
+    gh_tag: v0.15.0
+    gh_pattern: "termux-widget-app_v0.15.0+github.debug.apk"
+    version_name: 0.15.0
+    checksum: "sha256:780ae459be479bedef2146eb00f7bc79f2a4f89dba2bffa7b55c470165bc66ed"
   - id: moe.shizuku.privileged.api
     gh_repo: djbclark/Shizuku
     gh_tag: "v13.7.0-thedjchi+stayturgid-release25"
