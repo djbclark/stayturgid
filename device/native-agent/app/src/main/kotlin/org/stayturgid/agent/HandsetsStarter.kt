@@ -50,29 +50,32 @@ object HandsetsStarter {
         key: AdbKey,
         port: Int = HandsetsStartCommands.DEFAULT_PORT,
     ): PeerStarter.Result {
-        val jarBytes = loadJar(context) ?: return assetFailure(target)
         return try {
             AdbClient(target.host, target.port, key).use { client ->
                 client.connect()
-                ensureHandsets(target, client, jarBytes, port)
+                ensureHandsets(context, target, client, port)
             }
         } catch (t: AdbAuthPendingException) {
             authPending(target, t)
         } catch (t: java.io.IOException) {
             failed(target, t)
+        } catch (t: IllegalStateException) {
+            failed(target, t)
         }
     }
 
-    /** Reuse [PeerStarter]'s already-connected periodic-loop client. */
+    /**
+     * Reuse [PeerStarter]'s already-connected periodic-loop client. Delegates straight to the
+     * shared implementation with a lazy jar loader, so the liveness poll runs exactly once and the
+     * asset is only ever read on the confirmed not-up path — a healthy daemon must never pay for a
+     * jar read, and a transient asset-read failure must never mark a healthy daemon FAILED.
+     */
     internal fun ensureHandsets(
         context: Context,
         target: PeerTarget,
         client: AdbClient,
         port: Int = HandsetsStartCommands.DEFAULT_PORT,
-    ): PeerStarter.Result {
-        val jarBytes = loadJar(context) ?: return assetFailure(target)
-        return ensureHandsets(target, client, jarBytes, port)
-    }
+    ): PeerStarter.Result = ensureHandsets(target, client, port) { loadJar(context) }
 
     /** Same as the [Context] overload, but with the jar bytes already loaded (unit-test seam). */
     @Suppress("TooGenericExceptionCaught")
@@ -86,30 +89,33 @@ object HandsetsStarter {
         return try {
             AdbClient(target.host, target.port, key).use { client ->
                 client.connect()
-                ensureHandsets(target, client, jarBytes, port)
+                ensureHandsets(target, client, port) { jarBytes }
             }
         } catch (t: AdbAuthPendingException) {
             authPending(target, t)
         } catch (t: java.io.IOException) {
+            failed(target, t)
+        } catch (t: IllegalStateException) {
             failed(target, t)
         }
     }
 
     /**
      * Reuse an already-authorized peer connection from [PeerStarter]'s periodic loop. The port poll
-     * is deliberately before any jar write or process kill: a healthy daemon is ALREADY_UP, never
-     * restarted on each loop iteration.
+     * is deliberately before [jarBytesProvider] runs: a healthy daemon is ALREADY_UP, never
+     * restarted on each loop iteration, and never pays for a jar read/asset-read failure.
      */
     internal fun ensureHandsets(
         target: PeerTarget,
         client: AdbClient,
-        jarBytes: ByteArray,
         port: Int = HandsetsStartCommands.DEFAULT_PORT,
+        jarBytesProvider: () -> ByteArray?,
     ): PeerStarter.Result {
         val name = target.toString()
         if (HandsetsStartCommands.isUp(exec(client, HandsetsStartCommands.pollCommand(port)))) {
             return PeerStarter.Result(name, PeerStarter.Outcome.ALREADY_UP)
         }
+        val jarBytes = jarBytesProvider() ?: return assetFailure(target)
         pushJarIfNeeded(client, jarBytes)
         exec(client, HandsetsStartCommands.killCommand(port))
         Thread.sleep(KILL_SETTLE_MS)
