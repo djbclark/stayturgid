@@ -4,7 +4,7 @@
 improved multi-agent orchestration system — and won't be returning to this
 specific thread of routine `~/ops` maintenance work for a while. This
 document captures exactly where things stand so nothing gets silently
-dropped or re-discovered from scratch. Tracked by issue #209.
+dropped or re-discovered from scratch. Tracked by issue #210.
 
 **Scope:** this covers the fleet (stayturgid/site-djbclark/site-private)
 deploy state, currently open PRs across those three repos, and one explicit
