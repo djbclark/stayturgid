@@ -19,6 +19,7 @@
 #   gh_pattern  — Asset glob for `gh release download --pattern` (required)
 #   version_name — exact Android versionName expected after install (required)
 #   checksum    — SHA-256 of the release asset before optional resigning (required)
+#   mutable_tag_snapshot — Explicitly approved mutable-tag checksum snapshot
 #   resign      — Resign with debug keystore before install (fork debug builds)
 #   monkey      — Launch app via monkey after install (Termux:Boot)
 #   start_broadcast_* — headless application-context trigger after install
@@ -82,6 +83,7 @@ stayturgid_bootstrap_apks:
     gh_pattern: termux-x11-universal-debug.apk
     version_name: 1.03.01-aa482f4-31.07.26
     checksum: "sha256:d5235ee5ed03431a76f4b3d79d02d139e76887e1fe717cfcdc6581f7ee0eb777"
+    mutable_tag_snapshot: true
   - id: moe.shizuku.privileged.api
     gh_repo: djbclark/Shizuku
     gh_tag: "v13.7.0-thedjchi+stayturgid-release25"

@@ -10,6 +10,10 @@ permissions:
   contents: read
   issues: write
 
+concurrency:
+  group: termux-x11-stable-release-check
+  cancel-in-progress: false
+
 jobs:
   check-for-stable-release:
     runs-on: ubuntu-latest
@@ -30,20 +34,23 @@ jobs:
             exit 0
           fi
 
-          title="Termux:X11 stable release available: consider upgrading from pinned nightly"
-          existing_count="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$title in:title" --json number --jq 'length')"
+          tag="$(jq -r '.tag_name' <<<"$stable_release")"
+          marker="termux-x11-stable-release:$tag"
+          title="Termux:X11 stable release available: $tag — consider upgrading from pinned nightly"
+          existing_count="$(gh issue list --repo "$GITHUB_REPOSITORY" --state all --search "$marker in:body" --json number --jq 'length')"
           if [[ "$existing_count" -gt 0 ]]; then
-            echo "An open stable-release decision issue already exists; not creating a duplicate."
+            echo "A stable-release decision issue for $tag already exists; not creating a duplicate."
             exit 0
           fi
 
-          tag="$(jq -r '.tag_name' <<<"$stable_release")"
           name="$(jq -r '.name // "(unnamed release)"' <<<"$stable_release")"
           published_at="$(jq -r '.published_at // "(not published)"' <<<"$stable_release")"
           release_url="$(jq -r '.html_url' <<<"$stable_release")"
 
           gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body-file - <<EOF
           Termux:X11 has published a non-nightly stable release.
+
+          <!-- $marker -->
 
           - Tag: \`$tag\`
           - Name: $name

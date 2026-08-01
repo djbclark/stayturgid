@@ -20,6 +20,10 @@
       - _locked_apk.gh_repo | length > 0
       - _locked_apk.gh_tag is string
       - _locked_apk.gh_tag | length > 0
+      - >-
+        _locked_apk.gh_tag not in ['latest', 'nightly'] or
+        (_locked_apk.id == 'com.termux.x11' and
+         (_locked_apk.mutable_tag_snapshot | default(false) | bool))
       - _locked_apk.gh_pattern is string
       - _locked_apk.gh_pattern | length > 0
       - _locked_apk.version_name is string
@@ -28,7 +32,8 @@
     fail_msg: >-
       Bootstrap APK {{ _locked_apk.id | default('(missing id)') }} is not
       release-locked. Every entry requires id, gh_repo, gh_tag, gh_pattern,
-      version_name, and sha256 checksum.
+      version_name, and sha256 checksum; mutable release aliases are forbidden
+      except for the explicitly approved com.termux.x11 snapshot.
     quiet: true
   loop: "{{ stayturgid_bootstrap_apks }}"
   loop_control:

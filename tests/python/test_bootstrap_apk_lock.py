@@ -21,6 +21,15 @@ def test_every_github_apk_is_immutably_locked():
         assert re.fullmatch(r"sha256:[0-9a-f]{64}", apk["checksum"])
 
 
+def test_only_x11_has_the_explicit_mutable_tag_snapshot_exception():
+    mutable_aliases = {"latest", "nightly"}
+    snapshots = [apk for apk in _catalog() if apk["gh_tag"] in mutable_aliases]
+    assert snapshots == [
+        next(apk for apk in _catalog() if apk["id"] == "com.termux.x11")
+    ]
+    assert snapshots[0]["mutable_tag_snapshot"] is True
+
+
 def test_native_agent_uses_its_release_stream_and_real_asset_name():
     agent = next(apk for apk in _catalog() if apk["id"] == "org.stayturgid.agent")
     assert agent["gh_tag"] == "agent-v0.9.4"
