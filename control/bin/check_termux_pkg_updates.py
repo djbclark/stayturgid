@@ -158,7 +158,7 @@ def write_state(
     errors: list[str],
     hosts_checked: list[str],
 ) -> None:
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    """Write state atomically; failures are non-fatal so notify can still run."""
     payload = {
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "hosts_checked": hosts_checked,
@@ -166,9 +166,19 @@ def write_state(
         "by_host": {h: [dict(p) for p in pkgs] for h, pkgs in by_host.items()},
         "errors": errors,
     }
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2)
-        f.write("\n")
+    tmp = f"{path}.tmp"
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
+            f.write("\n")
+        os.replace(tmp, path)
+    except OSError as exc:
+        print(f"WARN: could not write state {path}: {exc}", file=sys.stderr)
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
 
 
 def hermes_notify(message: str) -> None:

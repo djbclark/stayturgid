@@ -143,6 +143,19 @@ def test_ssh_upgradable_returns_error_on_nonzero(monkeypatch: pytest.MonkeyPatch
     assert "s24" in err
 
 
+def test_ssh_upgradable_returns_error_on_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    def fake_run(*a, **k):
+        raise ctu.subprocess.TimeoutExpired(cmd=a[0] if a else "ssh", timeout=180)
+
+    monkeypatch.setattr(ctu.subprocess, "run", fake_run)
+    monkeypatch.setattr(ctu.dev, "resolve_ssh_host", lambda h, conf_path=None: h)
+    pkgs, err = ctu.ssh_upgradable("s24")
+    assert pkgs == []
+    assert err is not None
+    assert "timed out" in err
+    assert "s24" in err
+
+
 def test_main_notifies_on_updates(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     state_path = tmp_path / "termux-pkg-updates.json"
     monkeypatch.setattr(ctu, "STATE_PATH", str(state_path))
