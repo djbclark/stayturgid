@@ -218,6 +218,19 @@ Tracked as its own issue, [#158](https://github.com/djbclark/stayturgid/issues/1
 permanent). **Still open**: the forced `CLOSED_NO_SHELL` soak test has not
 run.
 
+**2026-08-01 release25 soak:** hd8 was rebooted with Shizuku
+`13.7.0-thedjchi+stayturgid-release25` installed and AutoJs6 absent, then
+observed only through its existing USB ADB transport. The agent started at
+about four minutes, repeatedly reported that Shizuku was not running, and
+exhausted its five-minute bind-retry window at uptime 531 seconds with
+`comonitor skipped — not bound`; `shizuku_server` and wireless ADB port 5555
+never appeared. No manual recovery was issued. Thus the soak was run but did
+**not** verify the catastrophic-repair acceptance item: Shizuku must start
+before the agent can classify or repair `CLOSED_NO_SHELL`. The remaining four
+acceptance items remain verified; issue
+[#43](https://github.com/djbclark/stayturgid/issues/43) stays open for this
+Fire-OS boot-path failure.
+
 ---
 
 ### Track E — On-device LLM (future; only if deliberately picked)
