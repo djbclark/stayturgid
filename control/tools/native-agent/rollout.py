@@ -4,7 +4,7 @@
 Steps per host (when adb-reachable):
   1. adb install -r debug APK
   2. grant_shizuku.py (pm grant + conditional Shizuku server restart)
-  3. start_agent.py (MainActivity → HostService)
+  3. start_agent.py (headless PeerStartReceiver → HostService)
 
 AutoJs6 was already removed fleet-wide before this script's introduction
 (OPTIONS K1); this only handles the native-agent APK itself.

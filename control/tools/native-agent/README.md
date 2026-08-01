@@ -3,7 +3,7 @@
 | Script             | Purpose                                       |
 | ------------------ | --------------------------------------------- |
 | `grant_shizuku.py` | pm grant + patch `shizuku.json`               |
-| `start_agent.py`   | force-stop + MainActivity → HostService       |
+| `start_agent.py`   | headless PeerStartReceiver → HostService      |
 | `rollout.py`       | install APK + grant + Shizuku restart + start |
 
 ```bash

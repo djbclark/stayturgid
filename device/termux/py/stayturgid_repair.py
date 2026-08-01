@@ -81,7 +81,6 @@ A11Y_SVC = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.Accessibilit
 TAILSCALE_PACKAGE = "com.tailscale.ipn"
 TAILSCALE_CONTROL_HOST = "controlplane.tailscale.com"
 TAILSCALE_RECEIVER = "com.tailscale.ipn/com.tailscale.ipn.IPNReceiver"
-TAILSCALE_ACTIVITY = "com.tailscale.ipn/com.tailscale.ipn.MainActivity"
 
 
 def ts():
@@ -429,17 +428,9 @@ def ensure_tailscale(have_sh=False):
     """Restore always-on policy and request runtime reconnect when possible.
 
     Tailscale's exported CONNECT_VPN receiver is the supported headless path.
-    Some Fire OS / WorkManager combinations reject its expedited worker; the
-    activity fallback may then require an unlocked operator action. Never
+    If it cannot restore the tunnel, report the failure for an operator rather
+    than launching MainActivity over the current foreground app (#199). Never
     report repair unless both policy and runtime verify healthy.
-
-    The activity fallback launches Tailscale's MainActivity into the
-    foreground, interrupting whatever the user is doing on-screen — only
-    worth that disruption for a sustained outage, not a single transient
-    ping/DNS blip. It only fires when the previous repair cycle *also* saw
-    the runtime down (~one extra cycle's delay, ~15 min), tracked via
-    state.json rather than in-process state since each cycle is a fresh
-    process invocation.
 
     Every check and repair action below requires a privileged (uid 2000)
     shell — the settings get/put calls throw SecurityException without one,
@@ -449,9 +440,8 @@ def ensure_tailscale(have_sh=False):
     localhost:5555), every one of those calls is guaranteed to fail — not
     because Tailscale is down, but because this process cannot see it.
     Returns "unknown" and does nothing in that case, rather than reporting a
-    false "FAILED" and forcing Tailscale's MainActivity into the foreground
-    against a tunnel that may be perfectly healthy (confirmed live on hd8,
-    2026-07-31: see ``_tailscale_runtime_up``).
+    false "FAILED" against a tunnel that may be perfectly healthy (confirmed
+    live on hd8, 2026-07-31: see ``_tailscale_runtime_up``).
     """
     if read_device_profile().get("tailscaleEnabled") is False:
         return "skip"
@@ -489,15 +479,11 @@ def ensure_tailscale(have_sh=False):
     )
     restored = _wait_for_tailscale(have_sh=have_sh)
     if not restored:
-        if _previous_repair_field("tailscale") == "down":
-            _device_command(["am", "start", "-n", TAILSCALE_ACTIVITY], have_sh)
-            restored = _wait_for_tailscale(attempts=2, have_sh=have_sh)
-        else:
-            log(
-                "Tailscale still down after CONNECT_VPN broadcast; deferring "
-                "foreground activity fallback to next cycle",
-                NOTICE,
-            )
+        log(
+            "Tailscale still down after CONNECT_VPN broadcast; leaving the "
+            "foreground app untouched",
+            NOTICE,
+        )
 
     if restored and policy_ok:
         log("Tailscale runtime/policy restored", NOTICE)
@@ -1135,34 +1121,13 @@ def main():
         shizuku_rc, _ = run(["pgrep", "-f", "[s]hizuku_server"])
         if shizuku_rc == 0:
             shizuku = "up"
-            # Shizuku daemon is running but port 5555 is closed — likely TCP
-            # mode wasn't enabled (fleet profile not applied). Re-applying
-            # the fleet profile is a plain `am start` on an unprotected
-            # activity, unlike HEADLESS_START — this part still works from
-            # Termux without any privilege.
-            log("shizuku_server running but port 5555 closed — re-applying fleet profile", WARNING)
-            shizuku_fp = "/data/local/tmp/shizuku-fleet.json"
-            if not os.path.isfile(shizuku_fp):
-                shizuku_fp = "/sdcard/Download/shizuku-fleet.json"
-            if os.path.isfile(shizuku_fp):
-                run(
-                    [
-                        "am",
-                        "start",
-                        "--user",
-                        "0",
-                        "-a",
-                        "moe.shizuku.privileged.api.APPLY_FLEET_PROFILE",
-                        "-e",
-                        "profile_path",
-                        shizuku_fp,
-                        "-e",
-                        "silent",
-                        "true",
-                        "-n",
-                        "moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity",
-                    ]
-                )
+            # Shizuku is up, so its installed rish client can restore TCP
+            # adbd headlessly. Never launch FleetProfileActivity here: that
+            # foregrounds Shizuku over the operator's current app (#199).
+            rish = os.path.join(STG, "bin", "rish")
+            if os.access(rish, os.X_OK):
+                log("shizuku_server running but port 5555 closed — restoring via rish", WARNING)
+                run([rish, "-c", "setprop service.adb.tcp.port 5555; setprop ctl.restart adbd"])
                 time.sleep(1)
             # Re-check if the profile re-apply alone was enough.
             if privileged_shell():
@@ -1249,40 +1214,14 @@ def main():
     # --- 7c. Daily pkg upgrade (once/24h, 3-5am; retries if phone was off) ---
     pkg_upgrade = ensure_pkg_upgrade_daily()
 
-    # --- 8. Re-apply fleet profiles (AutoJs6 + Shizuku) in case app data was cleared.
-    # Gate each independently: AutoJs6 only re-applies when its process is dead
-    # (likely after data clear); Shizuku only when HEADLESS_STATUS/pgrep says down.
-    # Avoids waking healthy apps and suppresses toasts every cycle.
+    # --- 8. Re-apply the Shizuku profile in case app data was cleared.
+    # AutoJs6 is retired; Shizuku uses its headless receiver when needed so
+    # unattended repair never opens an app over the operator's foreground task.
     shizuku_profile = "skip"
     auto_profile = "skip"
     device_profile = "present"
     if expect_shell and have_sh:
-        if not autojs6_present:
-            auto_profile = "retired"
-        else:
-            # AutoJs6: only re-apply if the process is dead (cleared data or crash).
-            auto_running = False
-            rc_auto, _ = sh_adb("pgrep -f org.autojs.autojs6 2>/dev/null")
-            if rc_auto == 0:
-                auto_running = True
-            _, afp_out = sh_adb("[ -f /sdcard/Download/autojs6-fleet.json ] && echo ok || echo missing")
-            if "ok" in afp_out:
-                if not auto_running:
-                    profile = "/sdcard/Download/autojs6-fleet.json"
-                    sh_adb(
-                        "if [ -f %s ]; then am start --user 0 "
-                        "-a org.autojs.autojs6.action.APPLY_FLEET_PROFILE "
-                        "-e profile_path %s -e silent true "
-                        "-n org.autojs.autojs6/org.autojs.autojs.core.pref.fleet.FleetProfileActivity; fi"
-                        % (profile, profile)
-                    )
-                    time.sleep(0.5)
-                    auto_profile = "applied"
-                else:
-                    auto_profile = "up"
-            else:
-                auto_profile = "MISSING"
-                log("autojs6-fleet.json is MISSING from /sdcard/Download/ — re-deploy required")
+        auto_profile = "retired"
         # Shizuku: only re-apply when Shizuku is down.
         _, sf_out = sh_adb("[ -f /data/local/tmp/shizuku-fleet.json ] && echo ok || echo missing")
         profile = "/data/local/tmp/shizuku-fleet.json"
@@ -1295,13 +1234,14 @@ def main():
         if "ok" in sf_out:
             shizuku_profile = "present"
             if shizuku != "up":
+                # A shell-UID ADB session can use Shizuku's exported headless
+                # receiver. FleetProfileActivity is UI-only and must not be
+                # launched from unattended repair (#199).
                 sh_adb(
-                    "if [ -f %s ]; then am start "
-                    "-a moe.shizuku.privileged.api.APPLY_FLEET_PROFILE "
-                    "-e profile_path %s -e silent true "
-                    "-n moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity; fi"
-                    % (profile, profile)
+                    "am broadcast -a moe.shizuku.privileged.api.HEADLESS_START "
+                    "-n moe.shizuku.privileged.api/moe.shizuku.manager.receiver.HeadlessStartStopReceiver"
                 )
+                sh_adb("settings put global adb_wifi_enabled 1")
                 time.sleep(0.5)
                 shizuku_profile = "applied"
                 sh_adb("dumpsys deviceidle whitelist +moe.shizuku.privileged.api")
