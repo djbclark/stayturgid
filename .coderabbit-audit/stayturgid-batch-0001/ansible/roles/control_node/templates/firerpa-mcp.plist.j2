@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.stayturgid.firerpa-mcp</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{ ansible_env.HOME }}/.venv-stayturgid-firerpa/bin/python</string>
+        <string>{{ stayturgid_repo_root | realpath }}/control/bin/firerpa_mcp.py</string>
+        <string>--transport</string>
+        <string>streamable-http</string>
+    </array>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>{{ stayturgid_homebrew_prefix }}/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>WorkingDirectory</key>
+    <string>{{ stayturgid_repo_root | realpath }}</string>
+    <key>StandardOutPath</key>
+    <string>{{ conf_dir }}/logs/firerpa-mcp.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ conf_dir }}/logs/firerpa-mcp.error.log</string>
+</dict>
+</plist>

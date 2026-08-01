@@ -1,0 +1,266 @@
+---
+# Own-mode olivetin lifecycle: binary if absent (never upgrade) → dirs →
+# config.yaml bootstrap (only when absent — site-sync's projection is the
+# single writer of the live file, design §2) → plist → bootstrap → health.
+# New installs skip legacy cutover.
+
+- name: Ensure olivetin config, install, and log directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ serverapp_olivetin_config_dir }}"
+    - "{{ serverapp_olivetin_install_dir }}"
+    - "{{ serverapp_olivetin_logs_dir }}"
+    - "{{ serverapp_olivetin_home }}/Library/LaunchAgents"
+
+- name: Check whether OliveTin binary is installed
+  ansible.builtin.stat:
+    path: "{{ serverapp_olivetin_bin_path }}"
+  register: _ot_bin_stat
+
+- name: Check whether OliveTin webui directory is present
+  ansible.builtin.stat:
+    path: "{{ serverapp_olivetin_webui_dir }}"
+  register: _ot_webui_stat
+
+- name: Detect machine architecture for OliveTin download
+  ansible.builtin.command:
+    cmd: uname -m
+  register: _ot_uname
+  changed_when: false
+  when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
+
+- name: Set OliveTin download architecture fact
+  ansible.builtin.set_fact:
+    _ot_arch: "{{ 'darwin-arm64' if (_ot_uname.stdout | default('') | trim) in ['arm64', 'aarch64'] else 'darwin-amd64' }}"
+  when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
+
+# M1-F MF-5: fail closed rather than install an unverified binary.
+- name: Fail closed when no pinned checksum exists for this OliveTin download arch
+  ansible.builtin.assert:
+    that:
+      - (serverapp_olivetin_archive_sha256[_ot_arch] | default('', true) | length) > 0
+    fail_msg: >-
+      No pinned sha256 for OliveTin {{ serverapp_olivetin_version }} ({{ _ot_arch }}) in
+      serverapp_olivetin_archive_sha256 — refusing to download an unverified binary.
+  when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
+
+# Canonical Ansible equivalent of Python's tempfile.mkdtemp / shell mktemp -d
+# (unpredictable name under the system temp dir, not a fixed
+# /tmp/OliveTin-<version>-<arch> path) — see tmpfile security audit,
+# 2026-07-21. Cleanup lives in `always:` below so it runs even if
+# download/extract/install fails partway through.
+- name: Create temporary directory for OliveTin download/extract
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: olivetin-
+  register: _ot_tmp
+  # Run in check mode too, so downstream `.path` resolves during a dry-run.
+  check_mode: false
+  when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
+
+- name: Download, extract, and install OliveTin binary/webui when missing
+  when: not (_ot_bin_stat.stat.exists | default(false)) or not (_ot_webui_stat.stat.isdir | default(false))
+  block:
+    - name: Download OliveTin archive when binary or webui missing
+      vars:
+        _ot_base: "https://github.com/OliveTin/OliveTin/releases/download"
+        _ot_archive: "OliveTin-{{ _ot_arch }}.tar.gz"
+      ansible.builtin.get_url:
+        url: "{{ _ot_base }}/{{ serverapp_olivetin_version }}/{{ _ot_archive }}"
+        dest: "{{ _ot_tmp.path }}/OliveTin.tar.gz"
+        mode: "0644"
+        force: true
+        checksum: "sha256:{{ serverapp_olivetin_archive_sha256[_ot_arch] }}"
+
+    # ansible.builtin.unarchive requires GNU tar for .tar.gz; macOS ships
+    # only BSD tar by default. `brew install gnu-tar` provides it as `gtar`;
+    # prepend its gnubin shim to PATH for just this task (matches
+    # serverapp_blackbox_exporter's fix — same underlying issue).
+    - name: Extract OliveTin archive when missing
+      ansible.builtin.unarchive:
+        src: "{{ _ot_tmp.path }}/OliveTin.tar.gz"
+        dest: "{{ _ot_tmp.path }}"
+        remote_src: true
+      environment:
+        PATH: "/opt/homebrew/opt/gnu-tar/libexec/gnubin:{{ lookup('env', 'PATH') }}"
+
+    - name: Install OliveTin binary to install dir when missing
+      ansible.builtin.copy:
+        src: "{{ _ot_tmp.path }}/OliveTin-{{ _ot_arch }}/OliveTin"
+        dest: "{{ serverapp_olivetin_bin_path }}"
+        mode: "0755"
+        remote_src: true
+      when: not (_ot_bin_stat.stat.exists | default(false))
+
+    - name: Install OliveTin webui directory when missing
+      ansible.builtin.copy:
+        src: "{{ _ot_tmp.path }}/OliveTin-{{ _ot_arch }}/webui/"
+        dest: "{{ serverapp_olivetin_webui_dir }}/"
+        remote_src: true
+        mode: preserve
+      when: not (_ot_webui_stat.stat.isdir | default(false))
+
+    - name: Clear quarantine on OliveTin install tree (macOS Gatekeeper)
+      ansible.builtin.command:
+        cmd: xattr -dr com.apple.quarantine {{ serverapp_olivetin_install_dir }}
+      changed_when: false
+      failed_when: false
+  always:
+    - name: Clean up temporary OliveTin directory
+      ansible.builtin.file:
+        path: "{{ _ot_tmp.path }}"
+        state: absent
+      when: _ot_tmp.path is defined
+
+- name: Assert OliveTin binary is present
+  ansible.builtin.stat:
+    path: "{{ serverapp_olivetin_bin_path }}"
+  register: _ot_bin_final
+  failed_when: not (_ot_bin_final.stat.exists | default(false))
+
+- name: Assert OliveTin webui directory is present
+  ansible.builtin.stat:
+    path: "{{ serverapp_olivetin_webui_dir }}"
+  register: _ot_webui_final
+  failed_when: not (_ot_webui_final.stat.isdir | default(false))
+
+# D6 single-writer rule (design §2): site-sync's olivetin projection is the
+# only writer of the live config.yaml. The role only BOOTSTRAPS it when
+# absent (first install); it must never re-render an existing file.
+- name: Check whether live OliveTin config already exists (single-writer projection)
+  ansible.builtin.stat:
+    path: "{{ serverapp_olivetin_config_path }}"
+  register: _ot_config_stat
+
+- name: Bootstrap minimal own-mode OliveTin config.yaml only when absent
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ serverapp_olivetin_config_path }}"
+    mode: "0644"
+  when: not (_ot_config_stat.stat.exists | default(false))
+  register: _ot_config
+
+- name: Render olivetin launchd plist under site namespace
+  ansible.builtin.template:
+    src: olivetin.plist.j2
+    dest: "{{ serverapp_olivetin_plist_path }}"
+    mode: "0644"
+  register: _ot_plist
+
+- name: Probe whether site-namespace olivetin label is loaded
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_olivetin_uid }}/{{ serverapp_olivetin_label }}" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _ot_launch_state
+  changed_when: false
+
+- name: Probe legacy product-namespace olivetin label
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_olivetin_uid }}/com.stayturgid.olivetin" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _ot_legacy_state
+  changed_when: false
+
+- name: Pre-health-check before legacy cutover (old daemon must be healthy)
+  ansible.builtin.uri:
+    url: "{{ serverapp_olivetin_health_url }}"
+    status_code: 200
+  when:
+    - _ot_legacy_state.stdout | trim == 'loaded'
+    - _ot_launch_state.stdout | trim == 'unloaded'
+  register: _ot_pre_health
+
+- name: Boot out legacy com.stayturgid.olivetin (plist retained on disk)
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_olivetin_uid }}/com.stayturgid.olivetin
+  when:
+    - _ot_legacy_state.stdout | trim == 'loaded'
+    - _ot_launch_state.stdout | trim == 'unloaded'
+  register: _ot_legacy_bootout
+
+# Rollback (if legacy ever existed):
+#   launchctl bootout gui/<uid>/com.<site_ns>.olivetin \
+#     && launchctl enable gui/<uid>/com.stayturgid.olivetin \
+#     && launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/com.stayturgid.olivetin.plist
+- name: Check whether legacy olivetin plist remains on disk
+  ansible.builtin.stat:
+    path: "{{ serverapp_olivetin_home }}/Library/LaunchAgents/com.stayturgid.olivetin.plist"
+  register: _ot_legacy_plist
+
+- name: Probe whether legacy olivetin label is persistently disabled
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print-disabled "gui/{{ serverapp_olivetin_uid }}" 2>/dev/null \
+      | grep -Eq '"com\.stayturgid\.olivetin" => (true|disabled)'; then
+      echo disabled
+    else
+      echo enabled
+    fi
+  args:
+    executable: /bin/bash
+  register: _ot_legacy_disabled
+  changed_when: false
+  when: _ot_legacy_plist.stat.exists
+
+- name: Persistently disable legacy olivetin label (survives login; plist retained)
+  ansible.builtin.command:
+    cmd: launchctl disable gui/{{ serverapp_olivetin_uid }}/com.stayturgid.olivetin
+  when:
+    - _ot_legacy_plist.stat.exists
+    - (_ot_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
+  register: _ot_legacy_disable
+
+- name: Boot out site-namespace olivetin when its launchd plist changed
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_olivetin_uid }}/{{ serverapp_olivetin_label }}
+  when:
+    - _ot_launch_state.stdout | trim == 'loaded'
+    - _ot_plist.changed | default(false)
+  register: _ot_plist_reload_bootout
+
+- name: Bootstrap site-namespace olivetin when unloaded or its plist changed
+  ansible.builtin.command:
+    cmd: >-
+      launchctl bootstrap gui/{{ serverapp_olivetin_uid }}
+      {{ serverapp_olivetin_plist_path }}
+  when: >-
+    (_ot_launch_state.stdout | trim == 'unloaded')
+    or (_ot_plist_reload_bootout.changed | default(false))
+  register: _ot_bootstrap
+  until: _ot_bootstrap.rc == 0
+  retries: 5
+  delay: 1
+
+- name: Kickstart site-namespace olivetin after config-only change
+  ansible.builtin.command:
+    cmd: >-
+      launchctl kickstart -k gui/{{ serverapp_olivetin_uid }}/{{ serverapp_olivetin_label }}
+  when:
+    - _ot_launch_state.stdout | trim == 'loaded'
+    - _ot_config.changed | default(false)
+    - not (_ot_plist.changed | default(false))
+  register: _ot_kickstart
+
+- name: Wait for OliveTin HTTP frontend
+  ansible.builtin.uri:
+    url: "{{ serverapp_olivetin_health_url }}"
+    status_code: 200
+  register: _ot_health
+  until: _ot_health.status == 200
+  retries: 30
+  delay: 1

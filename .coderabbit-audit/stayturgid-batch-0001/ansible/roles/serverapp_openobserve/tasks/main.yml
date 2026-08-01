@@ -1,0 +1,219 @@
+---
+# Own-mode openobserve lifecycle: dirs → binary if absent (never upgrade) →
+# plist → bootstrap → health. Data dir path is fixed (no re-home). Does not
+# delete legacy com.stayturgid.openobserve (retirement is D7).
+
+- name: Ensure openobserve data, cache, bin parent, and log directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ serverapp_openobserve_data_dir }}"
+    - "{{ serverapp_openobserve_data_dir }}/cache"
+    - "{{ serverapp_openobserve_bin_path | dirname }}"
+    - "{{ serverapp_openobserve_logs_dir }}"
+    - "{{ serverapp_openobserve_home }}/Library/LaunchAgents"
+
+- name: Check whether openobserve binary is installed
+  ansible.builtin.stat:
+    path: "{{ serverapp_openobserve_bin_path }}"
+  register: _oo_bin_stat
+
+- name: Detect machine architecture for openobserve download
+  ansible.builtin.command:
+    cmd: uname -m
+  register: _oo_uname
+  changed_when: false
+  when: not (_oo_bin_stat.stat.exists | default(false))
+
+- name: Set openobserve download architecture fact
+  ansible.builtin.set_fact:
+    _oo_arch: "{{ 'darwin-arm64' if (_oo_uname.stdout | default('') | trim) in ['arm64', 'aarch64'] else 'darwin-amd64' }}"
+  when: not (_oo_bin_stat.stat.exists | default(false))
+
+# M1-F MF-5: fail closed rather than install an unverified binary.
+- name: Fail closed when no pinned checksum exists for this OpenObserve download arch
+  ansible.builtin.assert:
+    that:
+      - (serverapp_openobserve_archive_sha256[_oo_arch] | default('', true) | length) > 0
+    fail_msg: >-
+      No pinned sha256 for OpenObserve {{ serverapp_openobserve_version }} ({{ _oo_arch }}) in
+      serverapp_openobserve_archive_sha256 — refusing to download an unverified binary.
+  when: not (_oo_bin_stat.stat.exists | default(false))
+
+# Canonical Ansible equivalent of Python's tempfile.mkdtemp / shell mktemp -d
+# (unpredictable name under the system temp dir, not a fixed /tmp/openobserve*
+# path) — see tmpfile security audit, 2026-07-21. Cleanup lives in `always:`
+# below so it runs even if download/extract/install fails partway through.
+- name: Create temporary directory for OpenObserve download/extract
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: openobserve-
+  register: _oo_tmp
+  # Run in check mode too, so downstream `.path` resolves during a dry-run.
+  check_mode: false
+  when: not (_oo_bin_stat.stat.exists | default(false))
+
+- name: Download, extract, and install OpenObserve binary when missing
+  when: not (_oo_bin_stat.stat.exists | default(false))
+  block:
+    - name: Download OpenObserve archive when binary missing
+      vars:
+        _oo_base: "https://downloads.openobserve.ai/releases/o2-enterprise"
+        _oo_archive: "openobserve-ee-v{{ serverapp_openobserve_version }}-{{ _oo_arch }}.tar.gz"
+      ansible.builtin.get_url:
+        url: "{{ _oo_base }}/v{{ serverapp_openobserve_version }}/{{ _oo_archive }}"
+        dest: "{{ _oo_tmp.path }}/openobserve.tar.gz"
+        mode: "0644"
+        checksum: "sha256:{{ serverapp_openobserve_archive_sha256[_oo_arch] }}"
+
+    - name: Extract OpenObserve binary when missing
+      ansible.builtin.unarchive:
+        src: "{{ _oo_tmp.path }}/openobserve.tar.gz"
+        dest: "{{ _oo_tmp.path }}"
+        remote_src: true
+
+    - name: Install OpenObserve binary to destination when missing
+      ansible.builtin.copy:
+        src: "{{ _oo_tmp.path }}/openobserve"
+        dest: "{{ serverapp_openobserve_bin_path }}"
+        mode: "0755"
+        remote_src: true
+  always:
+    - name: Clean up temporary OpenObserve directory
+      ansible.builtin.file:
+        path: "{{ _oo_tmp.path }}"
+        state: absent
+      when: _oo_tmp.path is defined
+
+- name: Load site group_vars for openobserve email when present
+  ansible.builtin.include_vars:
+    file: "{{ site_dir }}/inventory/group_vars/all.yml"
+    name: _site_all_vars
+  failed_when: false
+
+- name: Apply openobserve email from site inventory when defined
+  ansible.builtin.set_fact:
+    serverapp_openobserve_root_email: >-
+      {{
+        serverapp_openobserve_root_email
+        if (serverapp_openobserve_root_email | default('', true) | length) > 0
+        else (_site_all_vars.openobserve_root_email | default('', true))
+      }}
+  when: _site_all_vars is defined
+
+- name: Render openobserve launchd plist under site namespace
+  ansible.builtin.template:
+    src: openobserve.plist.j2
+    dest: "{{ serverapp_openobserve_plist_path }}"
+    mode: "0600"
+  register: _oo_plist
+  no_log: true
+
+- name: Probe whether site-namespace openobserve label is loaded
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_openobserve_uid }}/{{ serverapp_openobserve_label }}" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _oo_launch_state
+  changed_when: false
+
+# Phase D migration (design §1.9): old and new cannot share 5080/5081.
+- name: Probe legacy product-namespace openobserve label
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_openobserve_uid }}/com.stayturgid.openobserve" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _oo_legacy_state
+  changed_when: false
+
+- name: Pre-health-check before legacy cutover (old daemon must be healthy)
+  ansible.builtin.uri:
+    url: "{{ serverapp_openobserve_health_url }}"
+    status_code: 200
+  when:
+    - _oo_legacy_state.stdout | trim == 'loaded'
+    - _oo_launch_state.stdout | trim == 'unloaded'
+  register: _oo_pre_health
+
+- name: Boot out legacy com.stayturgid.openobserve (plist retained on disk)
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_openobserve_uid }}/com.stayturgid.openobserve
+  when:
+    - _oo_legacy_state.stdout | trim == 'loaded'
+    - _oo_launch_state.stdout | trim == 'unloaded'
+  register: _oo_legacy_bootout
+
+# R1 MF-1: bootout is session-scoped — persistently disable legacy label.
+# Rollback:
+#   launchctl bootout gui/<uid>/com.<site_ns>.openobserve \
+#     && launchctl enable gui/<uid>/com.stayturgid.openobserve \
+#     && launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/com.stayturgid.openobserve.plist
+- name: Check whether legacy openobserve plist remains on disk
+  ansible.builtin.stat:
+    path: "{{ serverapp_openobserve_home }}/Library/LaunchAgents/com.stayturgid.openobserve.plist"
+  register: _oo_legacy_plist
+
+- name: Probe whether legacy openobserve label is persistently disabled
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print-disabled "gui/{{ serverapp_openobserve_uid }}" 2>/dev/null \
+      | grep -Eq '"com\.stayturgid\.openobserve" => (true|disabled)'; then
+      echo disabled
+    else
+      echo enabled
+    fi
+  args:
+    executable: /bin/bash
+  register: _oo_legacy_disabled
+  changed_when: false
+  when: _oo_legacy_plist.stat.exists
+
+- name: Persistently disable legacy openobserve label (survives login; plist retained)
+  ansible.builtin.command:
+    cmd: launchctl disable gui/{{ serverapp_openobserve_uid }}/com.stayturgid.openobserve
+  when:
+    - _oo_legacy_plist.stat.exists
+    - (_oo_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
+  register: _oo_legacy_disable
+
+- name: Boot out site-namespace openobserve when its launchd plist changed
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_openobserve_uid }}/{{ serverapp_openobserve_label }}
+  when:
+    - _oo_launch_state.stdout | trim == 'loaded'
+    - _oo_plist.changed | default(false)
+  register: _oo_plist_reload_bootout
+
+- name: Bootstrap site-namespace openobserve when unloaded or its plist changed
+  ansible.builtin.command:
+    cmd: >-
+      launchctl bootstrap gui/{{ serverapp_openobserve_uid }}
+      {{ serverapp_openobserve_plist_path }}
+  when: >-
+    (_oo_launch_state.stdout | trim == 'unloaded')
+    or (_oo_plist_reload_bootout.changed | default(false))
+  register: _oo_bootstrap
+  until: _oo_bootstrap.rc == 0
+  retries: 5
+  delay: 1
+
+- name: Wait for openobserve health endpoint
+  ansible.builtin.uri:
+    url: "{{ serverapp_openobserve_health_url }}"
+    status_code: 200
+  register: _oo_health
+  until: _oo_health.status == 200
+  retries: 30
+  delay: 1

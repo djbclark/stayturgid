@@ -1,0 +1,258 @@
+---
+# Mac-side tasks intentionally precede every device task in this file. D8's
+# one-device-first rollout invokes the role with an explicit single-host limit.
+- name: Verify Vector API before edge collector deployment
+  ansible.builtin.uri:
+    url: http://127.0.0.1:8686/health
+    status_code: 200
+  delegate_to: localhost
+  run_once: true
+  check_mode: false
+  changed_when: false
+
+- name: Verify Vector OTLP HTTP listener before edge collector deployment
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 4318
+    timeout: 5
+  delegate_to: localhost
+  run_once: true
+  check_mode: false
+  changed_when: false
+
+- name: Verify OpenObserve before edge collector deployment
+  ansible.builtin.uri:
+    # ZO_BASE_URI=/oo — see docs/operations/sessions/session-2026-07-25-k1-verification.md
+    # (OpenObserve #44 fix) for why the unprefixed path 404s.
+    url: http://127.0.0.1:5080/oo/healthz
+    status_code: 200
+  delegate_to: localhost
+  run_once: true
+  check_mode: false
+  changed_when: false
+
+- name: Cache and verify pinned otelcol-contrib archive on Mac
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ stayturgid_repo_root }}/control/bin/cache_otelcol.py"
+      - --url
+      - "{{ stayturgid_otelcol_archive_url }}"
+      - --sha256
+      - "{{ stayturgid_otelcol_archive_sha256 }}"
+      - --cache-dir
+      - "{{ stayturgid_otelcol_cache_dir }}"
+      - --architecture
+      - "{{ stayturgid_otelcol_archive_arch }}"
+  register: _otelcol_cache
+  delegate_to: localhost
+  run_once: true
+  check_mode: false
+  changed_when: >-
+    (
+      _otelcol_cache.stdout
+      | default('{}', true)
+      | from_json
+    ).get('changed', false) | bool
+  when: stayturgid_otelcol_enabled | bool
+
+- name: Detect device architecture for otelcol-contrib
+  ansible.builtin.command: uname -m
+  register: _otelcol_uname
+  check_mode: false
+  changed_when: false
+  when: stayturgid_otelcol_enabled | bool
+
+- name: Reject unsupported otelcol-contrib device architecture
+  ansible.builtin.assert:
+    that:
+      - (_otelcol_uname.stdout | trim | lower) in stayturgid_otelcol_supported_uname_arches
+    fail_msg: >-
+      otelcol-contrib {{ stayturgid_otelcol_archive_arch }} requires aarch64/arm64;
+      {{ inventory_hostname }} reported {{ _otelcol_uname.stdout | default('unknown') | trim }}.
+  when: stayturgid_otelcol_enabled | bool
+
+- name: Ensure otelcol-contrib runtime directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ termux_home }}/.stayturgid/bin"
+    - "{{ termux_home }}/.stayturgid/logs"
+    - "{{ termux_home }}/.stayturgid/run"
+    - "{{ stayturgid_otelcol_state_dir }}"
+    - "{{ termux_home }}/.termux/boot"
+  when: stayturgid_otelcol_enabled | bool
+
+- name: Install cached otelcol-contrib binary
+  ansible.builtin.copy:
+    src: "{{ stayturgid_otelcol_cached_binary }}"
+    dest: "{{ stayturgid_otelcol_binary }}"
+    mode: "0755"
+  notify: restart otelcol
+  when: stayturgid_otelcol_enabled | bool
+
+- name: Probe installed otelcol-contrib runtime compatibility
+  ansible.builtin.command:
+    argv:
+      - "{{ stayturgid_otelcol_binary }}"
+      - --version
+  register: _otelcol_runtime_probe
+  check_mode: false
+  changed_when: false
+  failed_when: false
+  when:
+    - stayturgid_otelcol_enabled | bool
+    - not ansible_check_mode
+
+- name: Remove otelcol-contrib boot integration after runtime incompatibility
+  ansible.builtin.file:
+    path: "{{ stayturgid_otelcol_boot_script }}"
+    state: absent
+  when:
+    - stayturgid_otelcol_enabled | bool
+    - not ansible_check_mode
+    - _otelcol_runtime_probe.rc != 0
+
+- name: Reject incompatible otelcol-contrib runtime
+  ansible.builtin.assert:
+    that:
+      - _otelcol_runtime_probe.rc == 0
+    fail_msg: >-
+      otelcol-contrib {{ stayturgid_otelcol_version }} cannot run on
+      {{ inventory_hostname }} (rc={{ _otelcol_runtime_probe.rc }}); boot
+      integration was removed. error={{
+        _otelcol_runtime_probe.stderr_lines | default([]) | first | default('no stderr')
+      }}
+  when:
+    - stayturgid_otelcol_enabled | bool
+    - not ansible_check_mode
+
+- name: Render otelcol-contrib configuration
+  ansible.builtin.template:
+    src: otel-config.yaml.j2
+    dest: "{{ stayturgid_otelcol_config }}"
+    mode: "0644"
+  notify: restart otelcol
+  when: stayturgid_otelcol_enabled | bool
+
+- name: Deploy otelcol-contrib Termux supervisor integration
+  ansible.builtin.copy:
+    src: "{{ stayturgid_repo_root }}/device/termux/py/start_adb.py"
+    dest: "{{ termux_home }}/.stayturgid/bin/start_adb.py"
+    mode: "0755"
+  notify: restart boot loop
+  when: stayturgid_otelcol_enabled | bool
+
+- name: Install otelcol-contrib Termux boot integration
+  ansible.builtin.template:
+    src: start-otelcol.sh.j2
+    dest: "{{ stayturgid_otelcol_boot_script }}"
+    mode: "0755"
+  notify: restart otelcol
+  when: stayturgid_otelcol_enabled | bool
+
+- name: Apply pending otelcol-contrib restart
+  ansible.builtin.meta: flush_handlers
+
+- name: Verify otelcol-contrib is running
+  ansible.builtin.shell: |
+    pid="$(cat {{ stayturgid_otelcol_pid_file | quote }} 2>/dev/null || true)"
+    [ -n "$pid" ] && [ -d "/proc/$pid" ] &&
+      tr '\0' ' ' <"/proc/$pid/cmdline" | grep -Fq -- {{ stayturgid_otelcol_binary | quote }}
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  changed_when: false
+  failed_when: false
+  register: _otelcol_verify
+  when:
+    - stayturgid_otelcol_enabled | bool
+    - not ansible_check_mode
+
+# Self-heal (#103): Android can kill a backgrounded Termux process between an
+# earlier task in this role and this verify, independent of whether the boot
+# script template itself changed this run (so the "restart otelcol" handler
+# above may never have fired). Retry once via the same start/stop path the
+# handler uses before treating this as a hard failure.
+- name: Restart otelcol-contrib when not found running
+  ansible.builtin.shell: |
+    {{ stayturgid_otelcol_boot_script | quote }} stop >/dev/null 2>&1 || true
+    {{ stayturgid_otelcol_boot_script | quote }}
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  changed_when: true
+  when:
+    - stayturgid_otelcol_enabled | bool
+    - not ansible_check_mode
+    - _otelcol_verify.rc | default(0) != 0
+
+- name: Re-verify otelcol-contrib is running after self-heal restart
+  ansible.builtin.shell: |
+    pid="$(cat {{ stayturgid_otelcol_pid_file | quote }} 2>/dev/null || true)"
+    [ -n "$pid" ] && [ -d "/proc/$pid" ] &&
+      tr '\0' ' ' <"/proc/$pid/cmdline" | grep -Fq -- {{ stayturgid_otelcol_binary | quote }}
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  changed_when: false
+  when:
+    - stayturgid_otelcol_enabled | bool
+    - not ansible_check_mode
+    - _otelcol_verify.rc | default(0) != 0
+
+- name: Remove otelcol-contrib boot integration when disabled
+  ansible.builtin.file:
+    path: "{{ stayturgid_otelcol_boot_script }}"
+    state: absent
+  when: not (stayturgid_otelcol_enabled | bool)
+
+- name: Stop otelcol-contrib when disabled
+  ansible.builtin.shell: |
+    changed=0
+    pid="$(cat {{ stayturgid_otelcol_pid_file | quote }} 2>/dev/null || true)"
+    if [ -n "$pid" ] && [ -d "/proc/$pid" ] &&
+      tr '\0' ' ' <"/proc/$pid/cmdline" | grep -Fq -- {{ stayturgid_otelcol_binary | quote }}; then
+      if kill "$pid" 2>/dev/null; then
+        changed=1
+      fi
+    fi
+    # The boot supervisor may have restarted the collector just before its
+    # integration was removed, leaving a stale pidfile. Match the full binary
+    # and config paths through /proc rather than using broad pkill patterns.
+    for proc in /proc/[0-9]*; do
+      [ -r "$proc/cmdline" ] || continue
+      cmdline="$(tr '\0' ' ' <"$proc/cmdline")"
+      case "$cmdline" in
+        {{ stayturgid_otelcol_binary | quote }}\ --config\ {{ stayturgid_otelcol_config | quote }}*)
+          kill "${proc##*/}" 2>/dev/null || true
+          changed=1
+          ;;
+      esac
+    done
+    rm -f {{ stayturgid_otelcol_pid_file | quote }}
+    for attempt in 1 2 3 4 5; do
+      running=0
+      for proc in /proc/[0-9]*; do
+        [ -r "$proc/cmdline" ] || continue
+        cmdline="$(tr '\0' ' ' <"$proc/cmdline")"
+        case "$cmdline" in
+          {{ stayturgid_otelcol_binary | quote }}\ --config\ {{ stayturgid_otelcol_config | quote }}*)
+            running=1
+            ;;
+        esac
+      done
+      if [ "$running" -eq 0 ]; then
+        break
+      fi
+      if [ "$attempt" -eq 5 ]; then
+        echo "collector still running after disable" >&2
+        exit 1
+      fi
+      sleep 1
+    done
+    echo "changed=$changed"
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  register: _otelcol_stop
+  changed_when: "'changed=1' in _otelcol_stop.stdout"
+  when: not (stayturgid_otelcol_enabled | bool)

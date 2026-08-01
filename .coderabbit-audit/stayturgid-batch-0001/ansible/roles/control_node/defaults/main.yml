@@ -1,0 +1,95 @@
+---
+# Control-node (Mac workstation) defaults — launchd agents, SSH fragment.
+stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"
+
+# Health monitor cycle interval in seconds (default 900 = 15 min).
+# Controls fleet-health, access-monitor, fire-help, firerpa-health, and the
+# Termux boot-heal loop. ADB reconnect stays at 60s independently.
+stayturgid_interval_sec: 900
+
+# Nightly Termux pkg update/upgrade on all fleet hosts (Mac launchd → Ansible SSH).
+# Uses stayturgid.termux.termux_pkg (same as deploy). Local time on the Mac.
+stayturgid_termux_pkg_nightly_enabled: true
+stayturgid_termux_pkg_nightly_hour: 4
+stayturgid_termux_pkg_nightly_minute: 15
+
+conf_dir: "{{ lookup('env', 'HOME') }}/.config/stayturgid"
+agents_dir: "{{ lookup('env', 'HOME') }}/Library/LaunchAgents"
+stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
+ssh_config_dir: "{{ lookup('env', 'HOME') }}/.ssh"
+ssh_config_fragment: "{{ lookup('env', 'HOME') }}/.ssh/config.d/stayturgid"
+stayturgid_firerpa_certificate_path: >-
+  {{
+    lookup('env', 'FIRERPA_CERTIFICATE')
+    | default(lookup('env', 'HOME') ~ '/.config/stayturgid/firerpa.pem', true)
+  }}
+
+# Phone → Mac Eternal Terminal: fleet keys in ~/.ssh/authorized_keys (marked block).
+stayturgid_control_et_enabled: true
+stayturgid_control_et_port: 2022
+# Optional overrides (empty = ensure_et_mac.py auto-detects Tailscale/LAN).
+stayturgid_control_tailscale_ip: ""
+stayturgid_control_lan_ip: ""
+stayturgid_control_et_user: "{{ lookup('env', 'USER') }}"
+
+# Homebrew install path (Apple Silicon default; Intel uses /usr/local).
+stayturgid_homebrew_prefix: >-
+  {{
+    '/opt/homebrew'
+    if ansible_facts.get('architecture', 'arm64') in ['arm64', 'aarch64']
+    else '/usr/local'
+  }}
+
+# Project Homebrew formulae.
+stayturgid_mac_brew_packages_base:
+  - android-platform-tools
+  - python
+  - uv
+  - git
+  - ansible
+  - scrcpy
+  - semgrep
+  - gitleaks
+  # Hermes Agent (Telegram gateway + Grok OAuth CLI); see tasks/hermes.yml
+  - hermes-agent
+
+stayturgid_mac_brew_packages_app_stores:
+  - fdroidcl
+  - apkeep
+
+stayturgid_mac_uv_tools:
+  - uiautomator2
+  - mypy
+  - bandit
+  # Builds the device CFEngine policy artifact (cfbs build) during a fleet
+  # deploy — the termux_userland role delegates the build to the control node.
+  - cfbs
+
+# ── Hermes Agent (control-node messaging gateway) ─────────────────────────
+# Desktop/CLI agent with OpenCode Zen API + optional Telegram remote.
+# Secrets never in git: TELEGRAM_BOT_TOKEN and API keys live under ~/.hermes/.
+stayturgid_hermes_enabled: true
+stayturgid_hermes_gateway_enabled: true
+stayturgid_hermes_home: "{{ lookup('env', 'HOME') }}/.hermes"
+stayturgid_hermes_model: big-pickle
+stayturgid_hermes_provider: opencode-zen
+stayturgid_hermes_gateway_label: com.stayturgid.hermes-gateway
+# Site-specific Telegram allowlist (numeric user ids, comma-separated).
+# Empty = leave existing ~/.hermes/.env values alone (pairing still works).
+stayturgid_hermes_telegram_allowed_users: ""
+stayturgid_hermes_telegram_home_channel: ""
+# Optional one-shot seed from the environment when running the playbook:
+#   TELEGRAM_BOT_TOKEN=… ansible-playbook … --tags hermes
+# Prefer writing the token once into ~/.hermes/.env by hand.
+stayturgid_hermes_telegram_bot_token: ""
+
+# ── OpenCode web (control-node web UI reachable from fleet devices) ─────────
+stayturgid_opencode_web_enabled: true
+stayturgid_opencode_web_port: 4096
+stayturgid_opencode_path: "{{ lookup('env', 'HOME') }}/.local/bin/opencode"
+stayturgid_opencode_web_label: com.stayturgid.opencode-web
+
+# ── Fleet dashboard (Flask + HTMX web UI, port 4097) ──────────────────────
+stayturgid_dashboard_enabled: true
+stayturgid_dashboard_port: 4097
+stayturgid_dashboard_label: com.stayturgid.dashboard

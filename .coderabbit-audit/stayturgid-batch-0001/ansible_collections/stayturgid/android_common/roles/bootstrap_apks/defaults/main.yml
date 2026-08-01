@@ -1,0 +1,107 @@
+---
+# Bootstrap APK list — installed over ADB from the Mac before Termux SSH exists.
+# These are the minimum set needed for the stayturgid fleet to bootstrap itself.
+#
+# Release-locked: every APK names an immutable GitHub release tag (except the
+# explicitly documented Termux:X11 nightly snapshot below), exact asset,
+# expected installed versionName, and SHA-256 digest. A coordinated ops release
+# therefore keeps deploying the same desired state even when a repository
+# publishes another release or has several independent release streams.
+# Set stayturgid_bootstrap_apks_force=true to skip version check and always reinstall.
+#
+# Obtainium may notify about newer versions, but a normal fleet deploy remains
+# authoritative and restores these locked versions.
+#
+# Each entry:
+#   id          — Android package name (required)
+#   gh_repo     — GitHub owner/repo (required)
+#   gh_tag      — exact immutable release tag (required)
+#   gh_pattern  — Asset glob for `gh release download --pattern` (required)
+#   version_name — exact Android versionName expected after install (required)
+#   checksum    — SHA-256 of the release asset before optional resigning (required)
+#   mutable_tag_snapshot — Explicitly approved mutable-tag checksum snapshot
+#   resign      — Resign with debug keystore before install (fork debug builds)
+#   monkey      — Launch app via monkey after install (Termux:Boot)
+#   start_broadcast_* — headless application-context trigger after install
+#   service_component — foreground service to verify after the trigger
+#   remove_packages — mutually exclusive package variants to remove
+#
+# Override via inventory group_vars only to replace the complete lock:
+#   stayturgid_bootstrap_apks
+
+stayturgid_bootstrap_apks_force: false
+stayturgid_native_agent_package: org.stayturgid.agent
+stayturgid_native_agent_peer_targets: null
+stayturgid_native_agent_shizuku_package: moe.shizuku.privileged.api
+
+# Debug signing defaults (shared with obtainium_apps role).
+stayturgid_apksigner_bin: "{{ lookup('env', 'HOME') }}/Library/Android/sdk/build-tools/36.0.0/apksigner"
+stayturgid_debug_keystore: "{{ lookup('env', 'HOME') }}/.android/debug.keystore"
+stayturgid_debug_keystore_pass: "android"
+stayturgid_debug_key_alias: "androiddebugkey"
+
+stayturgid_bootstrap_apks:
+  - id: org.stayturgid.agent
+    gh_repo: djbclark/stayturgid
+    gh_tag: agent-v0.9.4
+    gh_pattern: app-release.apk
+    version_name: 0.9.4-guided-setup
+    checksum: "sha256:594cbc189771d64afd03aef05d7786cb4345383dcf0bb61970e8070d4a677a3a"
+    resign: false
+    start_broadcast_action: org.stayturgid.agent.action.PEER_START_NOW
+    start_broadcast_component: org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver
+    service_component: org.stayturgid.agent/.HostService
+    remove_packages:
+      - org.stayturgid.agent.debug
+    shizuku_grant: true
+    battery_unrestricted: true
+  - id: com.termux
+    gh_repo: termux/termux-app
+    gh_tag: v0.118.3
+    gh_pattern: "termux-app_v0.118.3+github-debug_arm64-v8a.apk"
+    version_name: 0.118.3
+    checksum: "sha256:72fdb596045116bf5ba1b5bdf5b26fddb9acc0bd074ad9f2da9eb0ae85e83a4e"
+  - id: com.termux.boot
+    gh_repo: termux/termux-boot
+    gh_tag: v0.8.1
+    gh_pattern: "termux-boot-app_v0.8.1+github.debug.apk"
+    version_name: 0.8.1
+    checksum: "sha256:97e6d336f05b59f7cb25e8efa7173e0a6e665f3022b75c6d55a69b6399ecacc8"
+    monkey: true
+  - id: com.termux.api
+    gh_repo: termux/termux-api
+    gh_tag: v0.53.0
+    gh_pattern: "termux-api-app_v0.53.0+github.debug.apk"
+    version_name: 0.53.0
+    checksum: "sha256:ecf916ff80ae751e65c092f51c055cce4de417ebeea8e449cd0f294afdbde39a"
+  # Intentional point-in-time snapshot pin against the mutable nightly tag.
+  # A future nightly fails checksum verification safely rather than auto-updating;
+  # re-pin only by deliberately re-fetching the asset and updating this checksum
+  # and version_name.
+  - id: com.termux.x11
+    gh_repo: termux/termux-x11
+    gh_tag: nightly
+    gh_pattern: termux-x11-universal-debug.apk
+    version_name: 1.03.01-aa482f4-31.07.26
+    checksum: "sha256:d5235ee5ed03431a76f4b3d79d02d139e76887e1fe717cfcdc6581f7ee0eb777"
+    mutable_tag_snapshot: true
+  - id: moe.shizuku.privileged.api
+    gh_repo: djbclark/Shizuku
+    gh_tag: "v13.7.0-thedjchi+stayturgid-release25"
+    gh_pattern: "shizuku-v13.7.0-thedjchi+stayturgid-release25-universal.apk"
+    version_name: "13.7.0-thedjchi+stayturgid-release25"
+    checksum: "sha256:0d7a313c75eb4b14dfec71a1034a3f014e8a33848c18a1cdda7c07d6821af049"
+    resign: true
+    monkey: true
+    battery_unrestricted: true
+    # Fire OS 8 does not re-extract native libs on an in-place upgrade, which
+    # leaves shizuku_server unable to load librish.so. Clean-reinstall on
+    # devices that set stayturgid_shizuku_clean_reinstall (Fire OS group_vars).
+    clean: "{{ stayturgid_shizuku_clean_reinstall | default(false) }}"
+
+  - id: com.tailscale.ipn
+    gh_repo: tailscale/tailscale-android
+    gh_tag: "1.98.8-t1241b225b-gbcbaf1889"
+    gh_pattern: tailscale-android-universal-1.98.8.apk
+    version_name: "1.98.8-t1241b225b-gbcbaf1889"
+    checksum: "sha256:f28edfd184d1db3060d764a79c9aa24da4530951052fb1cf75c92bbc0adfc4b2"

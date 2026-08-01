@@ -1,0 +1,5 @@
+---
+collections:
+  - ansible.posix
+  - stayturgid.android_common
+  - stayturgid.termux

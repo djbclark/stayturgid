@@ -1,0 +1,21 @@
+---
+# play_store role
+# Installs apps directly from the Play Store via apkeep or gplaycli.
+# Applies no client configuration.
+
+- name: Resolve fleet alias to adb target (USB serial preferred)
+  ansible.builtin.set_fact:
+    _play_target_device: "{{ lookup('stayturgid.android_common.adb_device', target_device | default(inventory_hostname)) }}"
+
+- name: Ensure Play apps (apkeep/gplaycli + adb install)
+  when: stayturgid_play_apps | length > 0
+  stayturgid.play.play_apps:
+    apps: "{{ stayturgid_play_apps }}"
+    device: "{{ _play_target_device }}"
+    download_backend: "{{ stayturgid_play_download_backend }}"
+    apkeep_source: "{{ stayturgid_play_apkeep_source }}"
+    apkeep_options: "{{ stayturgid_play_apkeep_options }}"
+    apkeep_accept_tos: "{{ stayturgid_play_apkeep_accept_tos | default(false) | bool }}"
+    spoof_play_installer: "{{ stayturgid_play_spoof_installer | bool }}"
+    repo_root: "{{ stayturgid_repo_root | default(ansible_config_file | dirname | dirname, true) }}"
+  delegate_to: localhost

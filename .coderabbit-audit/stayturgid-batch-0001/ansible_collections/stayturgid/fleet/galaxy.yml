@@ -1,0 +1,21 @@
+namespace: stayturgid
+name: fleet
+version: 1.6.1
+readme: README.md
+authors:
+  - djbclark
+description: >-
+  stayturgid fleet meta-collection. Domain modules live in stayturgid.termux
+  and stayturgid.play; this collection provides backward-compatible FQCN
+  redirects (stayturgid.fleet.*).
+license:
+  - MIT
+tags:
+  - android
+  - termux
+repository: https://github.com/djbclark/stayturgid
+dependencies:
+  ansible.posix: ">=1.5.0"
+  stayturgid.android_common: ">=1.4.0"
+  stayturgid.termux: ">=1.4.0"
+  stayturgid.play: ">=1.4.0"

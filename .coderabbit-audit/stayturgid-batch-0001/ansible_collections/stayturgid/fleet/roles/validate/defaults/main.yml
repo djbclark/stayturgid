@@ -1,0 +1,4 @@
+---
+stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"
+# Probe accessibility state and warn if AutoJs6 is not enabled (detection only).
+stayturgid_validate_a11y_profile: true

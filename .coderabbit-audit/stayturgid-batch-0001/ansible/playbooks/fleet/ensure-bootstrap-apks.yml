@@ -1,0 +1,17 @@
+---
+# Pre-SSH desired APK convergence over ADB.
+# This is both the factory-reset bootstrap path and the ordinary upgrade path:
+# the normal fleet deploy always runs it before SSH-dependent configuration.
+#
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
+#     ansible/playbooks/fleet/ensure-bootstrap-apks.yml --limit oneui-device
+#
+# All tasks delegate to localhost — no device SSH required.
+# Idempotent by exact locked version; set stayturgid_bootstrap_apks_force=true
+# to reinstall the same locked asset.
+- name: stayturgid desired APK convergence
+  hosts: stayturgid
+  gather_facts: false
+  tags: [bootstrap-apks]
+  roles:
+    - role: stayturgid.android_common.bootstrap_apks

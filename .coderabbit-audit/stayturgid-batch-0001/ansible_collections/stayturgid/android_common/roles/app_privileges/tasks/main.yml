@@ -1,0 +1,19 @@
+---
+# Battery-unrestricted + unused-app restrictions off + runtime grants for fleet apps.
+# Runs over adb from the control node after packages are installed.
+
+- name: Resolve fleet alias to adb target (USB serial preferred)
+  ansible.builtin.set_fact:
+    _privileges_adb_target: "{{ lookup('stayturgid.android_common.adb_device', target_device | default(inventory_hostname)) }}"
+
+- name: Harden stayturgid fleet apps (permissions, battery, unused restrictions)
+  stayturgid.android_common.android_app_privileges:
+    device: "{{ _privileges_adb_target }}"
+    profiles: "{{ stayturgid_fleet_app_profiles }}"
+  delegate_to: localhost
+  register: fleet_app_privileges
+
+- name: Show fleet app privilege changes (verbose)
+  ansible.builtin.debug:
+    var: fleet_app_privileges
+    verbosity: 1

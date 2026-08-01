@@ -1,0 +1,96 @@
+---
+# SSH Certificate Authority: sign each device host key with the stayturgid CA
+# so that any CA-trusting known_hosts accepts the host without a warning.
+# The CA private key lives exclusively on the Mac; certs are distributed to devices.
+- name: Slurp sshd host pubkey for CA signing
+  ansible.builtin.slurp:
+    src: "{{ termux_prefix }}/etc/ssh/ssh_host_ed25519_key.pub"
+  register: _stg_hostkey_slurp
+  when: _termux_home_stat.stat.exists
+
+- name: Ensure CA temp directory on control node
+  ansible.builtin.file:
+    path: "{{ stayturgid_ca_tmpdir }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  when: _termux_home_stat.stat.exists
+
+- name: Write host pubkey to temp file on control node
+  ansible.builtin.copy:
+    content: "{{ _stg_hostkey_slurp.content | b64decode }}"
+    dest: "{{ stayturgid_ca_tmpdir }}/{{ inventory_hostname }}_host_key.pub"
+    mode: "0644"
+  delegate_to: localhost
+  when:
+    - _termux_home_stat.stat.exists
+    - not (_stg_hostkey_slurp.skipped | default(false))
+    - (_stg_hostkey_slurp.content | default('') | length) > 0
+
+- name: Ensure CA key pair exists on control node
+  ansible.builtin.command:
+    cmd: >-
+      ssh-keygen -t ed25519
+      -f {{ stayturgid_ca_key_path | default(lookup('env', 'HOME') ~ '/.ssh/stayturgid_ca') }}
+      -C stayturgid-ca -N ''
+    creates: "{{ stayturgid_ca_key_path | default(lookup('env', 'HOME') ~ '/.ssh/stayturgid_ca') }}"
+  delegate_to: localhost
+  when: _termux_home_stat.stat.exists
+  register: _stg_ca_key
+
+- name: Build host cert principals from inventory facts
+  ansible.builtin.set_fact:
+    _stg_cert_principals_str: >-
+      {{ ([inventory_hostname, ansible_host]
+          + ([device_lan_ip] if device_lan_ip is defined
+             and (device_lan_ip | string | trim | length) > 0 else []))
+         | join(',') }}
+  when: _termux_home_stat.stat.exists
+
+- name: Sign host key with CA (delegated to control node)
+  ansible.builtin.command:
+    cmd: >-
+      ssh-keygen -s {{ stayturgid_ca_key_path | default(lookup('env', 'HOME') ~ '/.ssh/stayturgid_ca') }}
+      -I {{ inventory_hostname }} -h -n {{ _stg_cert_principals_str }}
+      {{ stayturgid_ca_tmpdir }}/{{ inventory_hostname }}_host_key.pub
+    creates: "{{ stayturgid_ca_tmpdir }}/{{ inventory_hostname }}_host_key-cert.pub"
+  delegate_to: localhost
+  when:
+    - _termux_home_stat.stat.exists
+    - (_stg_cert_principals_str | default('') | length) > 0
+
+- name: Read signed host certificate from control node
+  ansible.builtin.slurp:
+    src: "{{ stayturgid_ca_tmpdir }}/{{ inventory_hostname }}_host_key-cert.pub"
+  register: _stg_hostcert_slurp
+  delegate_to: localhost
+  when: _termux_home_stat.stat.exists
+
+- name: Deploy signed host certificate to device
+  ansible.builtin.copy:
+    content: "{{ _stg_hostcert_slurp.content | b64decode }}"
+    dest: "{{ termux_prefix }}/etc/ssh/ssh_host_ed25519_key-cert.pub"
+    mode: "0644"
+  when:
+    - _termux_home_stat.stat.exists
+    - not (_stg_hostcert_slurp.skipped | default(false))
+
+- name: Ensure HostCertificate line in sshd_config
+  ansible.builtin.lineinfile:
+    path: "{{ termux_prefix }}/etc/ssh/sshd_config"
+    regexp: '^HostCertificate '
+    line: "HostCertificate {{ termux_prefix }}/etc/ssh/ssh_host_ed25519_key-cert.pub"
+    mode: "0644"
+  when: _termux_home_stat.stat.exists
+  notify: reload sshd
+
+- name: Add @cert-authority to device known_hosts
+  ansible.builtin.lineinfile:
+    path: "{{ termux_home }}/.ssh/known_hosts"
+    create: true
+    regexp: '@cert-authority \* .*stayturgid-ca'
+    line: "@cert-authority * {{ lookup('file', stayturgid_ca_key_path | default(lookup('env', 'HOME') ~ '/.ssh/stayturgid_ca') ~ '.pub') }}"
+    mode: "0644"
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ca_enabled | default(true) | bool

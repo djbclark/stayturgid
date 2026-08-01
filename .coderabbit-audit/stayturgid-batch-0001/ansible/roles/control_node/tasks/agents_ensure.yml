@@ -1,0 +1,121 @@
+---
+- name: Stat Hermes gateway launchd plist
+  ansible.builtin.stat:
+    path: "{{ agents_dir }}/{{ stayturgid_hermes_gateway_label }}.plist"
+  register: _hermes_gateway_plist_stat
+
+- name: Stat OpenCode web launchd plist
+  ansible.builtin.stat:
+    path: "{{ agents_dir }}/{{ stayturgid_opencode_web_label }}.plist"
+  register: _opencode_web_plist_stat
+
+- name: Stat FIRERPA health launchd plist
+  ansible.builtin.stat:
+    path: "{{ agents_dir }}/com.stayturgid.firerpa-health.plist"
+  register: _firerpa_health_plist_stat
+
+- name: Stat FIRERPA MCP launchd plist
+  ansible.builtin.stat:
+    path: "{{ agents_dir }}/com.stayturgid.firerpa-mcp.plist"
+  register: _firerpa_mcp_plist_stat
+
+- name: Stat fleet dashboard launchd plist
+  ansible.builtin.stat:
+    path: "{{ agents_dir }}/{{ stayturgid_dashboard_label }}.plist"
+  register: _dashboard_plist_stat
+
+- name: Build launchd ensure service list
+  ansible.builtin.set_fact:
+
+    _mac_launchd_ensure_services: >-
+      {{
+        _core_launchd_agents
+        + _adb_launchd_agents
+        + _termux_pkg_nightly_agents
+        + _hermes_gateway_agents
+        + _opencode_web_agents
+        + _dashboard_agents
+        + _firerpa_health_agents
+        + _firerpa_mcp_agents
+      }}
+  vars:
+    _core_launchd_agents:
+      - name: com.stayturgid.access-monitor
+        plist: "{{ agents_dir }}/com.stayturgid.access-monitor.plist"
+      - name: com.stayturgid.fleet-health
+        plist: "{{ agents_dir }}/com.stayturgid.fleet-health.plist"
+      - name: com.stayturgid.fire-help
+        plist: "{{ agents_dir }}/com.stayturgid.fire-help.plist"
+      - name: com.stayturgid.update-monitor
+        plist: "{{ agents_dir }}/com.stayturgid.update-monitor.plist"
+    _hermes_gateway_agents: >-
+      {{
+        [{
+          'name': stayturgid_hermes_gateway_label,
+          'plist': agents_dir ~ '/' ~ stayturgid_hermes_gateway_label ~ '.plist'
+        }] if (
+          (stayturgid_hermes_enabled | default(true) | bool)
+          and (stayturgid_hermes_gateway_enabled | default(true) | bool)
+          and (_hermes_gateway_plist_stat.stat.exists | default(false))
+        ) else []
+      }}
+    _opencode_web_agents: >-
+      {{
+        [{
+          'name': stayturgid_opencode_web_label,
+          'plist': agents_dir ~ '/' ~ stayturgid_opencode_web_label ~ '.plist',
+          'health_url': 'http://127.0.0.1:' ~ (stayturgid_opencode_web_port | string) ~ '/'
+        }] if (
+          (stayturgid_opencode_web_enabled | default(true) | bool)
+          and (_opencode_web_plist_stat.stat.exists | default(false))
+        ) else []
+      }}
+    _dashboard_agents: >-
+      {{
+        [{
+          'name': stayturgid_dashboard_label,
+          'plist': agents_dir ~ '/' ~ stayturgid_dashboard_label ~ '.plist',
+          'health_url': 'http://127.0.0.1:' ~ (stayturgid_dashboard_port | string) ~ '/health'
+        }] if (
+          (stayturgid_dashboard_enabled | default(true) | bool)
+          and (_dashboard_plist_stat.stat.exists | default(false))
+        ) else []
+      }}
+    _firerpa_health_agents: >-
+      {{
+        [{
+          'name': 'com.stayturgid.firerpa-health',
+          'plist': agents_dir ~ '/com.stayturgid.firerpa-health.plist'
+        }] if (
+          (stayturgid_firerpa_health_enabled | default(true) | bool)
+        ) else []
+      }}
+    _firerpa_mcp_agents: >-
+      {{
+        [{
+          'name': 'com.stayturgid.firerpa-mcp',
+          'plist': agents_dir ~ '/com.stayturgid.firerpa-mcp.plist'
+        }] if (
+          (stayturgid_firerpa_mcp_enabled | default(true) | bool)
+          and (_firerpa_mcp_plist_stat.stat.exists | default(false))
+        ) else []
+      }}
+    _termux_pkg_nightly_agents: >-
+      {{
+        [{
+          'name': 'com.stayturgid.termux-pkg-nightly',
+          'plist': agents_dir ~ '/com.stayturgid.termux-pkg-nightly.plist'
+        }] if (stayturgid_termux_pkg_nightly_enabled | default(true) | bool) else []
+      }}
+    _adb_launchd_agents: "{{ _adb_launchd_agents_yaml | from_yaml | default([], true) }}"
+    _adb_launchd_agents_yaml: |
+      {% for h in groups.get('stayturgid', []) %}
+      - name: com.stayturgid.adb-reconnect-{{ h }}
+        plist: {{ agents_dir }}/com.stayturgid.adb-reconnect-{{ h }}.plist
+      {% endfor %}
+
+- name: Ensure Mac launchd agents are loaded and healthy
+  ansible.builtin.include_tasks: launchd_ensure.yml
+  vars:
+    mac_launchd_ensure_services: "{{ _mac_launchd_ensure_services }}"
+    mac_launchd_reload_labels: "{{ _mac_launchd_reload_labels | default([]) }}"

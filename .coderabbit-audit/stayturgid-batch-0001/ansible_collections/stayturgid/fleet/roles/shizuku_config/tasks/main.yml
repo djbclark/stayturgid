@@ -1,0 +1,137 @@
+---
+# Shizuku headless configuration (operator fork)
+
+- name: Whitelist Shizuku from device idle / battery optimization
+  ansible.builtin.shell: |
+    {{ stayturgid_adb_bin | default('adb') }} -s \
+      "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}" \
+      shell dumpsys deviceidle whitelist +moe.shizuku.privileged.api
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+  when: not (stayturgid_no_local_adb | default(false) | bool)
+
+- name: Reconcile Shizuku background execution policy
+  stayturgid.android_common.android_app_privileges:
+    device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+    profiles:
+      - package: moe.shizuku.privileged.api
+        battery_unrestricted: true
+        disable_unused_restrictions: true
+  delegate_to: localhost
+
+- name: Create temporary file for Shizuku fleet profile staging
+  ansible.builtin.tempfile:
+    state: file
+    prefix: "shizuku-fleet-{{ inventory_hostname }}-"
+    suffix: .json
+  register: _shizuku_fleet_tmp
+  # Run in check mode too, so downstream tasks can resolve `.path` — otherwise
+  # `just deploy-check` fails with "dict has no attribute 'path'". Creating a
+  # temp file is harmless in a dry-run.
+  check_mode: false
+  delegate_to: localhost
+
+- name: Push Shizuku fleet profile to Download
+  ansible.builtin.copy:
+    dest: "{{ _shizuku_fleet_tmp.path }}"
+    content: |
+      {"mode":"adb","start_on_boot":true,"tcp_mode":true,"tcp_port":5555,"watchdog":true}
+    mode: "0644"
+  delegate_to: localhost
+
+- name: Compute local Shizuku fleet profile checksum
+  ansible.builtin.shell: |
+    md5 -q "{{ _shizuku_fleet_tmp.path }}" 2>/dev/null || md5sum "{{ _shizuku_fleet_tmp.path }}" | cut -d' ' -f1
+  register: _shizuku_fp_local
+  changed_when: false
+  delegate_to: localhost
+  when: not (stayturgid_no_local_adb | default(false) | bool)
+
+- name: Compute remote Shizuku fleet profile checksum
+  ansible.builtin.shell: |
+    {{ stayturgid_adb_bin | default('adb') }} -s \
+      "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}" \
+      shell "md5sum /data/local/tmp/shizuku-fleet.json 2>/dev/null | cut -d' ' -f1 || echo MISSING"
+  register: _shizuku_fp_remote
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+  when: not (stayturgid_no_local_adb | default(false) | bool)
+
+- name: Push Shizuku fleet profile to device
+  ansible.builtin.shell: |
+    {{ stayturgid_adb_bin | default('adb') }} -s \
+      "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}" \
+      push "{{ _shizuku_fleet_tmp.path }}" /data/local/tmp/shizuku-fleet.json
+  when:
+    - not (stayturgid_no_local_adb | default(false) | bool)
+    - >-
+      _shizuku_fp_remote.stdout is not defined
+      or 'MISSING' in (_shizuku_fp_remote.stdout | default(''))
+      or _shizuku_fp_remote.stdout.strip() != (_shizuku_fp_local.stdout | default('')).strip()
+  changed_when: true
+  delegate_to: localhost
+
+- name: Push Shizuku fleet profile to Download (Fire OS adb)
+  ansible.builtin.shell: |
+    {{ stayturgid_adb_bin | default('adb') }} -s \
+      "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}" \
+      push "{{ _shizuku_fleet_tmp.path }}" /sdcard/Download/shizuku-fleet.json
+  when: stayturgid_no_local_adb | default(false) | bool
+  changed_when: true
+  delegate_to: localhost
+
+- name: Clean up temporary Shizuku fleet profile file
+  ansible.builtin.file:
+    path: "{{ _shizuku_fleet_tmp.path }}"
+    state: absent
+  delegate_to: localhost
+  when: _shizuku_fleet_tmp.path is defined
+
+- name: Apply Shizuku fleet profile via intent
+  stayturgid.android_common.android_intent:
+    device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+    connect: true
+    action: moe.shizuku.privileged.api.APPLY_FLEET_PROFILE
+    component: moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity
+    extras:
+      profile_path: /data/local/tmp/shizuku-fleet.json
+      silent: "true"
+  changed_when: false
+  delegate_to: localhost
+  when: not (stayturgid_no_local_adb | default(false) | bool)
+
+- name: Apply Shizuku fleet profile via intent (Fire OS adb)
+  stayturgid.android_common.android_intent:
+    device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+    connect: true
+    action: moe.shizuku.privileged.api.APPLY_FLEET_PROFILE
+    component: moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity
+    extras:
+      profile_path: /sdcard/Download/shizuku-fleet.json
+      silent: "true"
+  changed_when: false
+  delegate_to: localhost
+  when: stayturgid_no_local_adb | default(false) | bool
+
+- name: Send HEADLESS_START to Shizuku
+  stayturgid.android_common.android_intent:
+    device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+    connect: true
+    action: moe.shizuku.privileged.api.HEADLESS_START
+    component: >-
+      moe.shizuku.privileged.api/moe.shizuku.manager.receiver.HeadlessStartStopReceiver
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+  when: not (stayturgid_no_local_adb | default(false) | bool)
+
+- name: Uninstall retired AutoJs6 (Phase 4 Cutover)
+  ansible.builtin.shell: |
+    {{ stayturgid_adb_bin | default('adb') }} -s \
+      "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}" \
+      shell pm uninstall org.autojs.autojs6
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost

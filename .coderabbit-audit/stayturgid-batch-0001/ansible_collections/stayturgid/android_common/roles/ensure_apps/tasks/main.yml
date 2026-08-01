@@ -1,0 +1,66 @@
+---
+# Unified app ensure — dispatches each spec to the right collection module.
+
+- name: Resolve adb target for control-node sources
+  ansible.builtin.set_fact:
+    _ensure_apps_adb: "{{ lookup('stayturgid.android_common.adb_device', stayturgid_ensure_apps_device) }}"
+
+- name: Partition ensure_apps specs by source
+  ansible.builtin.set_fact:
+    _ensure_play: "{{ stayturgid_ensure_apps | selectattr('source', 'equalto', 'play') | list }}"
+    _ensure_apk: "{{ stayturgid_ensure_apps | selectattr('source', 'equalto', 'apk') | list }}"
+  when: stayturgid_ensure_apps | length > 0
+
+
+- name: Ensure Play apps (apkeep/gplaycli + adb)
+  when: _ensure_play | default([]) | length > 0
+  stayturgid.play.play_apps:
+    apps: "{{ _ensure_play }}"
+    device: "{{ _ensure_apps_adb }}"
+    download_backend: "{{ stayturgid_play_download_backend | default('apkeep') }}"
+    apkeep_source: "{{ stayturgid_play_apkeep_source | default('apk-pure') }}"
+    apkeep_options: "{{ stayturgid_play_apkeep_options | default('') }}"
+    apkeep_accept_tos: "{{ stayturgid_play_apkeep_accept_tos | default(false) }}"
+    spoof_play_installer: "{{ stayturgid_play_spoof_installer | default(true) }}"
+    repo_root: "{{ stayturgid_repo_root }}"
+  delegate_to: localhost
+
+- name: Validate immutable GitHub APK specs
+  ansible.builtin.assert:
+    that:
+      - item.gh_tag is defined
+      - item.version_name is defined
+      - item.checksum is defined
+      - item.checksum is match('^sha256:[0-9a-f]{64}$')
+    fail_msg: >-
+      ensure_apps GitHub APK {{ item.id }} requires gh_tag, version_name, and
+      sha256 checksum; mutable latest releases are not allowed in normal deploy.
+    quiet: true
+  loop: "{{ _ensure_apk | default([]) }}"
+  loop_control:
+    label: "{{ item.id }}"
+  when: item.gh_repo is defined
+  delegate_to: localhost
+
+- name: Ensure APK apps (local / url / gh release)
+  when: _ensure_apk | default([]) | length > 0
+  stayturgid.android_common.android_apk:
+    device: "{{ _ensure_apps_adb }}"
+    package: "{{ item.id }}"
+    apk_path: "{{ item.apk_path | default(omit) }}"
+    url: "{{ item.url | default(omit) }}"
+    gh_repo: "{{ item.gh_repo | default(omit) }}"
+    gh_pattern: "{{ item.gh_pattern | default(omit) }}"
+    gh_tag: "{{ item.gh_tag | default(omit) }}"
+    version_name: "{{ item.version_name | default(omit) }}"
+    checksum: "{{ item.checksum | default(omit) }}"
+    force: "{{ item.force | default(false) }}"
+    clean: "{{ item.clean | default(false) }}"
+    clean_on_incompatible: "{{ item.clean_on_incompatible | default(omit) }}"
+    resign: "{{ item.resign | default(false) }}"
+    extra_args: "{{ item.extra_args | default([]) }}"
+    installer: "{{ item.installer | default(omit) }}"
+  loop: "{{ _ensure_apk | default([]) }}"
+  loop_control:
+    label: "{{ item.id }}"
+  delegate_to: localhost

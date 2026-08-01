@@ -1,0 +1,231 @@
+---
+# Own-mode landing lifecycle: dirs → both plists → bootout+disable legacy
+# labels → bootstrap → health. Retains legacy plists until D7.
+
+- name: Ensure landing log and LaunchAgents directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ serverapp_landing_logs_dir }}"
+    - "{{ serverapp_landing_home }}/Library/LaunchAgents"
+
+- name: Check landing.py exists in product checkout
+  ansible.builtin.stat:
+    path: "{{ serverapp_landing_repo_root }}/control/landing/landing.py"
+  register: _landing_script
+
+- name: Fail when landing.py is missing
+  ansible.builtin.fail:
+    msg: >-
+      landing.py not found at
+      {{ serverapp_landing_repo_root }}/control/landing/landing.py
+      (pass serverapp_landing_repo_root= to the product checkout)
+  when: not (_landing_script.stat.exists | default(false))
+
+- name: Resolve python interpreter when brew python exists
+  ansible.builtin.stat:
+    path: /opt/homebrew/bin/python3
+  register: _landing_brew_python
+
+- name: Prefer Homebrew python3 when present
+  ansible.builtin.set_fact:
+    serverapp_landing_python: /opt/homebrew/bin/python3
+  when: _landing_brew_python.stat.exists | default(false)
+
+- name: Render landing launchd plist under site namespace
+  ansible.builtin.template:
+    src: landing.plist.j2
+    dest: "{{ serverapp_landing_plist_path }}"
+    mode: "0644"
+  register: _landing_plist
+
+- name: Render landing-discover launchd plist under site namespace
+  ansible.builtin.template:
+    src: landing-discover.plist.j2
+    dest: "{{ serverapp_landing_discover_plist_path }}"
+    mode: "0644"
+  register: _landing_discover_plist
+
+- name: Probe whether site-namespace landing label is loaded
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_landing_uid }}/{{ serverapp_landing_label }}" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _landing_launch_state
+  changed_when: false
+
+- name: Probe whether site-namespace landing-discover label is loaded
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_landing_uid }}/{{ serverapp_landing_discover_label }}" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _landing_discover_launch_state
+  changed_when: false
+
+- name: Probe legacy product-namespace landing label
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_landing_uid }}/com.stayturgid.landing" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _landing_legacy_state
+  changed_when: false
+
+- name: Probe legacy product-namespace landing-discover label
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_landing_uid }}/com.stayturgid.landing-discover" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _landing_discover_legacy_state
+  changed_when: false
+
+- name: Pre-health-check before legacy landing cutover
+  ansible.builtin.uri:
+    url: "{{ serverapp_landing_health_url }}"
+    status_code: 200
+  when:
+    - _landing_legacy_state.stdout | trim == 'loaded'
+    - _landing_launch_state.stdout | trim == 'unloaded'
+  register: _landing_pre_health
+
+- name: Boot out legacy com.stayturgid.landing (plist retained)
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_landing_uid }}/com.stayturgid.landing
+  when:
+    - _landing_legacy_state.stdout | trim == 'loaded'
+    - _landing_launch_state.stdout | trim == 'unloaded'
+  register: _landing_legacy_bootout
+
+- name: Boot out legacy com.stayturgid.landing-discover (plist retained)
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_landing_uid }}/com.stayturgid.landing-discover
+  when:
+    - _landing_discover_legacy_state.stdout | trim == 'loaded'
+    - _landing_discover_launch_state.stdout | trim == 'unloaded'
+  register: _landing_discover_legacy_bootout
+
+# R1 MF-1: persistently disable legacy labels (both agents).
+# Rollback (landing):
+#   launchctl bootout gui/<uid>/com.<site_ns>.landing \
+#     && launchctl enable gui/<uid>/com.stayturgid.landing \
+#     && launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/com.stayturgid.landing.plist
+# Rollback (discover): same with landing-discover labels/plists.
+- name: Check whether legacy landing plist remains on disk
+  ansible.builtin.stat:
+    path: "{{ serverapp_landing_home }}/Library/LaunchAgents/com.stayturgid.landing.plist"
+  register: _landing_legacy_plist
+
+- name: Probe whether legacy landing label is persistently disabled
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print-disabled "gui/{{ serverapp_landing_uid }}" 2>/dev/null \
+      | grep -Eq '"com\.stayturgid\.landing" => (true|disabled)'; then
+      echo disabled
+    else
+      echo enabled
+    fi
+  args:
+    executable: /bin/bash
+  register: _landing_legacy_disabled
+  changed_when: false
+  when: _landing_legacy_plist.stat.exists
+
+- name: Persistently disable legacy landing label
+  ansible.builtin.command:
+    cmd: launchctl disable gui/{{ serverapp_landing_uid }}/com.stayturgid.landing
+  when:
+    - _landing_legacy_plist.stat.exists
+    - (_landing_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
+  register: _landing_legacy_disable
+
+- name: Check whether legacy landing-discover plist remains on disk
+  ansible.builtin.stat:
+    path: "{{ serverapp_landing_home }}/Library/LaunchAgents/com.stayturgid.landing-discover.plist"
+  register: _landing_discover_legacy_plist
+
+- name: Probe whether legacy landing-discover label is persistently disabled
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print-disabled "gui/{{ serverapp_landing_uid }}" 2>/dev/null \
+      | grep -Eq '"com\.stayturgid\.landing-discover" => (true|disabled)'; then
+      echo disabled
+    else
+      echo enabled
+    fi
+  args:
+    executable: /bin/bash
+  register: _landing_discover_legacy_disabled
+  changed_when: false
+  when: _landing_discover_legacy_plist.stat.exists
+
+- name: Persistently disable legacy landing-discover label
+  ansible.builtin.command:
+    cmd: launchctl disable gui/{{ serverapp_landing_uid }}/com.stayturgid.landing-discover
+  when:
+    - _landing_discover_legacy_plist.stat.exists
+    - (_landing_discover_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
+  register: _landing_discover_legacy_disable
+
+- name: Bootstrap site-namespace landing when unloaded
+  ansible.builtin.command:
+    cmd: >-
+      launchctl bootstrap gui/{{ serverapp_landing_uid }}
+      {{ serverapp_landing_plist_path }}
+  when: _landing_launch_state.stdout | trim == 'unloaded'
+  register: _landing_bootstrap
+
+- name: Bootstrap site-namespace landing-discover when unloaded
+  ansible.builtin.command:
+    cmd: >-
+      launchctl bootstrap gui/{{ serverapp_landing_uid }}
+      {{ serverapp_landing_discover_plist_path }}
+  when: _landing_discover_launch_state.stdout | trim == 'unloaded'
+  register: _landing_discover_bootstrap
+
+- name: Kickstart site-namespace landing after plist change
+  ansible.builtin.command:
+    cmd: >-
+      launchctl kickstart -k gui/{{ serverapp_landing_uid }}/{{ serverapp_landing_label }}
+  when:
+    - _landing_launch_state.stdout | trim == 'loaded'
+    - _landing_plist.changed | default(false)
+  register: _landing_kickstart
+
+- name: Kickstart site-namespace landing-discover after plist change
+  ansible.builtin.command:
+    cmd: >-
+      launchctl kickstart -k gui/{{ serverapp_landing_uid }}/{{ serverapp_landing_discover_label }}
+  when:
+    - _landing_discover_launch_state.stdout | trim == 'loaded'
+    - _landing_discover_plist.changed | default(false)
+  register: _landing_discover_kickstart
+
+- name: Wait for landing health endpoint
+  ansible.builtin.uri:
+    url: "{{ serverapp_landing_health_url }}"
+    status_code: 200
+  register: _landing_health
+  until: _landing_health.status == 200
+  retries: 30
+  delay: 1

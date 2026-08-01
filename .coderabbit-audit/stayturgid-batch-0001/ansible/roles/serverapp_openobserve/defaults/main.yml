@@ -1,0 +1,35 @@
+---
+# serverapp_openobserve — own-mode OpenObserve adapter (Site Contract v1 §5 / Phase D).
+# Callers pass site_ns and site_dir as extra-vars. Never hard-code site_ns.
+# Data dir stays under ~/.local/share/openobserve (unchanged across migrate).
+
+# Keep the live data path so parquet is not re-homed (D3 requirement).
+serverapp_openobserve_home: "{{ lookup('env', 'HOME') }}"
+serverapp_openobserve_data_dir: "{{ lookup('env', 'HOME') }}/.local/share/openobserve/data"
+serverapp_openobserve_bin_path: "{{ lookup('env', 'HOME') }}/.local/bin/openobserve"
+serverapp_openobserve_logs_dir: "{{ serverapp_openobserve_home }}/.config/{{ site_ns }}/logs"
+serverapp_openobserve_label: "com.{{ site_ns }}.openobserve"
+serverapp_openobserve_plist_path: "{{ serverapp_openobserve_home }}/Library/LaunchAgents/{{ serverapp_openobserve_label }}.plist"
+serverapp_openobserve_version: "0.91.1"
+# M1-F MF-5: pinned sha256 of the enterprise archive, per download arch. No
+# vendor checksum sidecar exists (CDN has no directory listing); obtained by
+# downloading over HTTPS and hashing directly (2026-07-19, recorded in the
+# M1-F PR). darwin-amd64 has no published archive for this version (CDN
+# returns AccessDenied) — left empty; the role fails closed rather than
+# installing an unverified binary if that arch is ever needed.
+serverapp_openobserve_archive_sha256:
+  darwin-arm64: "d1e01cfd91e67efb46539deab3601081ae29e6852b50ef323167b557ce66e665"
+  darwin-amd64: ""
+serverapp_openobserve_http_port: "5080"
+serverapp_openobserve_http_address: "127.0.0.1"
+serverapp_openobserve_grpc_address: "127.0.0.1"
+serverapp_openobserve_health_url: "http://127.0.0.1:5080/healthz"
+# Choice E (D7-ROUTES-E): empty = OO owns / (loopback). serverapps.py sets
+# /oo + https://<host>/oo when caddy_public_hostname is present.
+serverapp_openobserve_base_uri: "{{ lookup('env', 'OPENOBSERVE_BASE_URI') | default('', true) }}"
+serverapp_openobserve_web_url: ""
+# No default for serverapp_openobserve_uid — always supplied as an extra-var by
+# control/site_contract/serverapps.py (os.getuid()); fail closed otherwise.
+# Credentials — never commit; env / secretspec / site inventory email only.
+serverapp_openobserve_root_email: "{{ lookup('env', 'OPENOBSERVE_ROOT_EMAIL') | default('', true) }}"
+serverapp_openobserve_root_password: "{{ lookup('env', 'OPENOBSERVE_ROOT_PASSWORD') | default('', true) }}"

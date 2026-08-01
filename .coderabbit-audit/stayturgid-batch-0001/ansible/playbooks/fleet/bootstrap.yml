@@ -1,0 +1,22 @@
+---
+# Pre-SSH bootstrap: install control-node pubkeys + start sshd over adb.
+# No Ansible SSH connection to the device is required.
+#
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet/bootstrap.yml
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet/bootstrap.yml --limit oneui-device
+#
+# Normally invoked automatically from control/bin/deploy_termux.py or control/bin/bootstrap_ssh.py.
+- name: stayturgid Termux SSH bootstrap (adb)
+  hosts: stayturgid
+  gather_facts: false
+  tags: [bootstrap]
+  vars:
+    stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
+  tasks:
+    - name: Bootstrap Termux authorized_keys and sshd
+      stayturgid.termux.termux_ssh_bootstrap:
+        device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+        keys_dir: "{{ stayturgid_ssh_keys_dir }}"
+        public_key_files: "{{ stayturgid_ssh_public_key_files | default([]) }}"
+      delegate_to: localhost
+      when: not (_ssh_preflight_ok | default(false) | bool)

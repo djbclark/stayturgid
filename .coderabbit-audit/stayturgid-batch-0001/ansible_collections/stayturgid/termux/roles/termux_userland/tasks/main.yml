@@ -1,0 +1,477 @@
+---
+# @heals: MIRROR-PINNED OS-RELEASE PATH-CLEAN ENV-FILE SSHD-PENALTIES TERMUX-WRITESETTINGS TERMUX-OVERLAY BOOTLOOP-AUTOSTART PKG-UPGRADE OTELCOL-RUNNING
+- name: Configure edge otelcol-contrib
+  ansible.builtin.include_tasks:
+    file: otelcol.yml
+    apply:
+      tags: [otelcol]
+  tags: [otelcol]
+
+# Pin the mirror BEFORE any pkg operation so update/upgrade is deterministic.
+- name: Pin Termux main mirror (deterministic pkg update)
+  ansible.builtin.copy:
+    dest: "{{ termux_prefix }}/etc/apt/sources.list"
+    content: "deb {{ stayturgid_termux_mirror }} stable main\n"
+    mode: "0644"
+
+- name: Check when pkg was last upgraded on device
+  ansible.builtin.shell: |
+    cat {{ termux_home }}/.stayturgid/state/pkg-upgrade.stamp 2>/dev/null || echo "never"
+  register: _pkg_upgrade_stamp
+  changed_when: false
+  failed_when: false
+
+- name: Get current epoch for pkg upgrade gate
+  ansible.builtin.command: date +%s
+  register: _now_epoch
+  changed_when: false
+  delegate_to: localhost
+
+- name: Parse previous pkg upgrade epoch
+  ansible.builtin.set_fact:
+    _pkg_upgrade_epoch: >-
+      {{
+        (
+          _pkg_upgrade_stamp.stdout
+          | default('')
+          | regex_findall('^ok ([0-9]+(?:\.[0-9]+)?)')
+          | first
+          | default('0', true)
+        ) | float
+      }}
+
+- name: Update and upgrade all Termux packages (if >24h since last)
+  stayturgid.termux.termux_pkg:
+    name: []
+    state: present
+    update_cache: true
+    upgrade: true
+    force_confold: true
+    _termux_prefix: "{{ termux_prefix }}"
+  register: pkg_upgrade
+  when: >-
+    ((_now_epoch.stdout | trim | float) - (_pkg_upgrade_epoch | float)) > 86400
+
+- name: Ensure Termux packages are installed
+  stayturgid.termux.termux_pkg:
+    name: "{{ stayturgid_termux_packages }}"
+    state: present
+    update_cache: false
+    upgrade: false
+    force_confold: true
+    _termux_prefix: "{{ termux_prefix }}"
+  register: pkg_install
+
+# pkg update selects a random mirror and rewrites sources.list — re-pin after
+# every update/upgrade so verify and later pkg runs stay deterministic.
+- name: Re-pin Termux main mirror after pkg operations
+  ansible.builtin.copy:
+    dest: "{{ termux_prefix }}/etc/apt/sources.list"
+    content: "deb {{ stayturgid_termux_mirror }} stable main\n"
+    mode: "0644"
+
+- name: Create os-release for CFEngine platform detection
+  ansible.builtin.copy:
+    dest: "{{ termux_prefix }}/etc/os-release"
+    mode: "0644"
+    content: |
+      NAME="Termux"
+      ID=termux
+      ID_LIKE=android
+      PRETTY_NAME="Termux (Android)"
+      VERSION_ID="1"
+      HOME_URL="https://termux.dev/"
+
+- name: Ensure CFEngine policy directory exists
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.stayturgid/cfengine"
+    state: directory
+    mode: "0755"
+  when: "'cfengine' in stayturgid_termux_packages"
+
+- name: Validate CFEngine Build project on control node
+  ansible.builtin.command:
+    argv:
+      - cfbs
+      - validate
+  args:
+    chdir: "{{ stayturgid_repo_root }}/device/termux/cfengine"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  when: "'cfengine' in stayturgid_termux_packages"
+
+- name: Build CFEngine policy artifact on control node
+  ansible.builtin.command:
+    argv:
+      - cfbs
+      - build
+  args:
+    chdir: "{{ stayturgid_repo_root }}/device/termux/cfengine"
+  delegate_to: localhost
+  run_once: true
+  changed_when: false
+  # Build even in check mode: the downstream copy/template tasks read from the
+  # (gitignored) out/masterfiles/ artifact, so `just deploy-check` fails to find
+  # it otherwise. Building is a harmless local no-op in a dry-run.
+  check_mode: false
+  when: "'cfengine' in stayturgid_termux_packages"
+
+- name: Deploy CFEngine Build artifact to device
+  ansible.builtin.copy:
+    src: "{{ stayturgid_repo_root }}/device/termux/cfengine/out/masterfiles/{{ item.name }}"
+    dest: "{{ termux_home }}/.stayturgid/cfengine/{{ item.name }}"
+    mode: "{{ item.mode }}"
+  loop:
+    - name: stayturgid.cf
+      mode: "0644"
+    - name: cf-runagent-wrapper.sh
+      mode: "0755"
+  when: "'cfengine' in stayturgid_termux_packages"
+
+# cf-serverd.cf is rendered, not copied: the tracked policy source keeps a
+# Jinja2 allowusers entry so no operator username lives in the public repo.
+- name: Render CFEngine server policy to device (allowusers from inventory)
+  ansible.builtin.template:
+    src: "{{ stayturgid_repo_root }}/device/termux/cfengine/out/masterfiles/cf-serverd.cf"
+    dest: "{{ termux_home }}/.stayturgid/cfengine/cf-serverd.cf"
+    mode: "0644"
+  # cf-serverd only reads its policy at startup — replacing the file is not
+  # enough for a new roles/ACL to take effect. Restart it (see handler).
+  notify: restart cf-serverd
+  when: "'cfengine' in stayturgid_termux_packages"
+
+- name: Detect Termux account owning termux_home
+  ansible.builtin.stat:
+    path: "{{ termux_home }}"
+  register: _termux_home_stat
+
+- name: Configure fleet SSH keys and sshd
+  ansible.builtin.include_tasks: ssh_keys.yml
+  when: _termux_home_stat.stat.exists
+
+- name: Configure phone→Mac Eternal Terminal SSH (control ET)
+  ansible.builtin.include_tasks: control_et.yml
+  when: _termux_home_stat.stat.exists
+
+# Single-root layout: all stayturgid files live under ~/.stayturgid (private)
+# and /sdcard/stayturgid (shared). Create the tree up front; every runtime
+# writer also mkdir -p's on demand so a user-deleted dir self-heals.
+- name: Ensure stayturgid home directory tree
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ termux_home }}/.stayturgid/bin"
+    - "{{ termux_home }}/.stayturgid/logs"
+    - "{{ termux_home }}/.stayturgid/run"
+    - "{{ termux_home }}/.stayturgid/state"
+    - "{{ termux_home }}/.stayturgid/battery-colors"
+
+# Fire OS / some Termux builds: the file module cannot mkdir under /sdcard
+# (symlink + permission quirks). mkdir -p via shell matches runtime self-heal.
+- name: Ensure shared-storage stayturgid directory tree  # noqa: command-instead-of-shell
+  ansible.builtin.shell: >-
+    mkdir -p {{ stayturgid_sd_root }}/state {{ stayturgid_sd_root }}/logs
+    {{ stayturgid_sd_root }}/run {{ stayturgid_sd_root }}/tmp {{ stayturgid_sd_root }}/autojs6
+  changed_when: false
+
+- name: Build Termux overlay appops grant list
+  ansible.builtin.set_fact:
+    _termux_appops_grants: "{{ _termux_appops_base + _termux_appops_overlay }}"
+  vars:
+    _termux_appops_base:
+      - package: com.termux.api
+        op: WRITE_SETTINGS
+        mode: allow
+    _termux_appops_overlay: >-
+      {{
+        stayturgid_termux_overlay_packages
+        | map('regex_replace', '^(.*)$', '{"package":"\1","op":"SYSTEM_ALERT_WINDOW","mode":"allow"}')
+        | map('from_json')
+        | list
+      }}
+
+# Termux:API WRITE_SETTINGS, overlay ops, and POST_NOTIFICATIONS require the
+# privileged adb shell (uid 2000) on localhost:5555 — Termux cannot self-grant.
+- name: Grant Termux permissions via privileged shell
+  stayturgid.android_common.android_appops:
+    device: localhost:5555
+    connect: true
+    appops: "{{ _termux_appops_grants }}"
+    permissions:
+      - package: com.termux
+        permission: android.permission.POST_NOTIFICATIONS
+      - package: com.termux.api
+        permission: android.permission.POST_NOTIFICATIONS
+  register: termux_perm_grant
+  when: not (stayturgid_no_local_adb | default(false) | bool)
+
+- name: Render stayturgid environment (STAYTURGID_SD for boot/repair scripts)
+  ansible.builtin.copy:
+    dest: "{{ termux_home }}/.stayturgid/env"
+    mode: "0644"
+    content: |
+      # Generated by Ansible — do not hand-edit.
+      export STAYTURGID_SD="{{ stayturgid_sd_root }}"
+      {% if stayturgid_no_local_adb | default(false) | bool -%}
+      export STAYTURGID_NO_LOCAL_ADB=1
+      {% endif %}
+      export STAYTURGID_HANDSETS_PORT="{{ stayturgid_handsets_port | default(9012) }}"
+      export STAYTURGID_INTERVAL_SEC="{{ stayturgid_interval_sec | default(900) }}"
+
+- name: Render fleet peers list for peer Handsets/Shizuku bootstrap
+  ansible.builtin.template:
+    src: peers.json.j2
+    dest: "{{ termux_home }}/.stayturgid/peers"
+    mode: "0644"
+  when: _termux_home_stat.stat.exists
+
+- name: Deploy shared fleet ADB key
+  ansible.builtin.include_tasks: fleet_adbkey.yml
+  when:
+    - stayturgid_deploy_fleet_adbkey | default(true) | bool
+    - _termux_home_stat.stat.exists
+
+- name: Deploy shell scripts / shims to ~/.stayturgid/bin
+  ansible.builtin.copy:
+    src: "{{ stayturgid_repo_root }}/device/termux/{{ item }}"
+    dest: "{{ termux_home }}/.stayturgid/bin/{{ item }}"
+    mode: "0755"
+  loop: "{{ stayturgid_home_scripts }}"
+
+# One rsync connection (delta-checksums) instead of one ADB/SSH round-trip
+# per file (#166 item 1). Explicit --include/--exclude keeps the sync scoped
+# to exactly the files in stayturgid_py_scripts (so an unrelated stray file
+# under device/termux/py/, or __pycache__/, never lands on-device) -- same
+# scoping guarantee the old per-item copy loop gave us for free.
+#
+# No --chmod: the Mac control node's /usr/bin/rsync is Apple's openrsync
+# (BSD), not GNU rsync -- verified live that its --chmod (both symbolic
+# Fu=rwx and numeric 755 forms) silently fails to change the resulting mode
+# here, despite the flag being accepted. Instead this relies on `perms: true`
+# (rsync -p, preserve-from-source) plus the source files themselves being
+# correctly marked +x in git (100755) -- verified this actually lands 0755
+# on-device with plain openrsync. If a script is added to
+# stayturgid_py_scripts without `chmod +x` + `git add`, it will land 0644.
+- name: Deploy Python runtime scripts to ~/.stayturgid/bin
+  ansible.posix.synchronize:
+    src: "{{ stayturgid_repo_root }}/device/termux/py/"
+    dest: "{{ termux_home }}/.stayturgid/bin/"
+    perms: true
+    checksum: true
+    rsync_opts: >-
+      {{
+        (stayturgid_py_scripts | default([]) | map('regex_replace', '^(.*)$', '--include=/\1') | list)
+        + ['--exclude=*']
+      }}
+  # ansible.posix.synchronize shells out to a real rsync process and does not
+  # honor --check (a known upstream limitation) -- skip it in check mode like
+  # the other real-effect tasks in this role (see otelcol.yml, preflight.yml)
+  # rather than let a "dry run" actually push files to the device.
+  when:
+    - (stayturgid_py_scripts | default([])) | length > 0
+    - not ansible_check_mode
+  notify: restart boot loop
+
+- name: Deploy peer-help ForceCommand wrapper
+  ansible.builtin.copy:
+    src: "{{ stayturgid_repo_root }}/device/termux/bin/{{ stayturgid_peer_help_force_script }}"
+    dest: "{{ termux_home }}/.stayturgid/bin/{{ stayturgid_peer_help_force_script }}"
+    mode: "0755"
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ssh_peerhelp_force_command | default(true) | bool
+    - not (stayturgid_no_local_adb | default(false) | bool)
+
+- name: Ensure on-device lib directory exists
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.stayturgid/lib"
+    state: directory
+    mode: "0755"
+
+- name: Ensure on-device catalog directory exists
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.stayturgid/catalog"
+    state: directory
+    mode: "0755"
+
+- name: Ensure on-device autojs6 directory exists
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.stayturgid/autojs6"
+    state: directory
+    mode: "0755"
+
+# stayturgid_lib_files entries all live in control/lib/ alongside a lot of
+# control-node-only Python (fleet_deploy_lock.py, site_identity.py, etc) that
+# must never land on-device. A directory-level sync only stays safe as long
+# as every entry keeps dest == basename(src) -- assert it so a future entry
+# that renames on copy fails loudly here instead of silently shipping under
+# the wrong name (or, worse, silently shipping the whole directory).
+- name: Assert on-device lib files are a flat 1:1 basename mapping (synchronize safety)
+  ansible.builtin.assert:
+    that:
+      - item.dest == (item.src | basename)
+    fail_msg: >-
+      stayturgid_lib_files entry {{ item }} renames on copy (dest != basename(src)) --
+      the ansible.posix.synchronize-based bulk sync below cannot express a rename;
+      either keep dest == basename(src) or revert this entry to a per-file copy task.
+  loop: "{{ stayturgid_lib_files | default([]) }}"
+
+# One rsync connection instead of one round-trip per lib file (#166 item 1).
+# --include/--exclude scopes the sync to exactly these filenames so nothing
+# else in control/lib/ (a shared dir with control-node-only modules) leaks
+# onto the device. No --chmod: see the note on the Python runtime scripts
+# sync above -- relies on the source files' git-tracked mode (100644, no +x
+# needed here) via `perms: true`.
+- name: Deploy shared libs to ~/.stayturgid/lib
+  ansible.posix.synchronize:
+    src: "{{ stayturgid_repo_root }}/control/lib/"
+    dest: "{{ termux_home }}/.stayturgid/lib/"
+    perms: true
+    checksum: true
+    rsync_opts: >-
+      {{
+        (stayturgid_lib_files | default([]) | map(attribute='dest') | map('regex_replace', '^(.*)$', '--include=/\1') | list)
+        + ['--exclude=*']
+      }}
+  # See the check-mode note on the Python runtime scripts sync above.
+  when:
+    - (stayturgid_lib_files | default([])) | length > 0
+    - not ansible_check_mode
+
+- name: Deploy Handsets hs.jar for on-device wire client
+  ansible.builtin.copy:
+    src: "{{ stayturgid_handsets_jar_src }}"
+    dest: "{{ termux_home }}/.stayturgid/lib/hs.jar"
+    mode: "0644"
+  when:
+    - stayturgid_handsets_jar_src is defined
+    - stayturgid_handsets_jar_src | length > 0
+    - (query('fileglob', stayturgid_handsets_jar_src) | length) > 0
+
+- name: Install rish into Termux
+  ansible.builtin.include_tasks: rish.yml
+  when: stayturgid_install_rish | default(true) | bool
+
+- name: Deploy on-device UI data files
+  ansible.builtin.copy:
+    src: "{{ stayturgid_repo_root }}/{{ item.src }}"
+    dest: "{{ termux_home }}/.stayturgid/{{ item.dest }}"
+    mode: "0644"
+  loop: "{{ stayturgid_ui_data_files | default([]) }}"
+
+- name: Remove retired scripts from the old home-root location
+  ansible.builtin.file:
+    path: "{{ termux_home }}/{{ item }}"
+    state: absent
+  loop: "{{ stayturgid_retired_scripts | default([]) }}"
+
+- name: Remove retired Python scripts from device
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.stayturgid/bin/{{ item }}"
+    state: absent
+  loop: "{{ stayturgid_retired_py_scripts | default([]) }}"
+  when: stayturgid_retired_py_scripts | default([]) | length > 0
+
+# One rsync connection instead of one round-trip per PNG (#166 item 1). No
+# --chmod: see the note on the Python runtime scripts sync above -- relies
+# on the source PNGs' git-tracked mode (100644, no +x needed) via `perms: true`.
+- name: Deploy battery color assets
+  ansible.posix.synchronize:
+    src: "{{ stayturgid_repo_root }}/device/termux/assets/battery-colors/"
+    dest: "{{ termux_home }}/.stayturgid/battery-colors/"
+    perms: true
+    checksum: true
+    rsync_opts: >-
+      {{
+        (stayturgid_battery_color_assets | default([]) | map('regex_replace', '^(.*)$', '--include=/\1') | list)
+        + ['--exclude=*']
+      }}
+  when: (stayturgid_battery_color_assets | default([])) | length > 0
+
+- name: Ensure Termux boot directory exists
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.termux/boot"
+    state: directory
+    mode: "0755"
+
+# One rsync connection instead of one round-trip per boot script (#166 item 1).
+# No --chmod: see the note on the Python runtime scripts sync above -- relies
+# on the source scripts' git-tracked mode (100755, already correct) via
+# `perms: true`.
+- name: Deploy boot scripts
+  ansible.posix.synchronize:
+    src: "{{ stayturgid_repo_root }}/device/termux/boot/"
+    dest: "{{ termux_home }}/.termux/boot/"
+    perms: true
+    checksum: true
+    rsync_opts: >-
+      {{
+        (stayturgid_boot_scripts | default([]) | map('regex_replace', '^(.*)$', '--include=/\1') | list)
+        + ['--exclude=*']
+      }}
+  when: (stayturgid_boot_scripts | default([])) | length > 0
+  notify: restart boot loop
+
+- name: Remove retired boot scripts from device
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.termux/boot/{{ item }}"
+    state: absent
+  loop: "{{ stayturgid_retired_boot_scripts | default([]) }}"
+  when: stayturgid_retired_boot_scripts | default([]) | length > 0
+
+# lineinfile, not a template: templating would clobber unrelated user
+# properties (extra-keys etc.) in termux.properties.
+- name: Configure allow-external-apps for RUN_COMMAND bridge
+  ansible.builtin.lineinfile:
+    path: "{{ termux_home }}/.termux/termux.properties"
+    create: true
+    regexp: '^#?\s*allow-external-apps\s*='
+    line: "allow-external-apps={{ 'true' if stayturgid_allow_external_apps else 'false' }}"
+    mode: "0644"
+  notify: reload termux settings
+
+- name: Sanitize Mac-style PATH from Termux shell profiles
+  ansible.builtin.lineinfile:
+    path: "{{ termux_home }}/{{ item }}"
+    regexp: '^(export )?PATH=.*(/Users/|/opt/homebrew/|/Library/Apple/|/System/Cryptexes/).*'
+    state: absent
+  loop:
+    - .profile
+    - .bashrc
+    - .bash_profile
+  failed_when: false
+
+- name: Ensure correct PATH in Termux shell profiles
+  ansible.builtin.lineinfile:
+    path: "{{ termux_home }}/{{ item }}"
+    create: true
+    regexp: '^export PATH=.*termux/files/usr'
+    line: 'export PATH="$HOME/bin:{{ termux_prefix }}/bin:{{ termux_prefix }}/sbin:$PATH"'
+    insertbefore: BOF
+    mode: "0644"
+  loop:
+    - .profile
+    - .bashrc
+    - .bash_profile
+  when: item is not none
+
+- name: Write automation mode file when configured
+  ansible.builtin.copy:
+    dest: "{{ stayturgid_sd_root }}/state/automation_mode.txt"
+    content: "{{ stayturgid_automation_mode }}\n"
+    mode: "0644"
+  when: stayturgid_automation_mode is defined and stayturgid_automation_mode | length > 0
+
+- name: Verify the repair script runs
+  stayturgid.termux.stayturgid_repair_check:
+    repair_script: "{{ termux_home }}/.stayturgid/bin/stayturgid_repair.py"
+    termux_prefix: "{{ termux_prefix }}"
+  register: repair_check
+
+- name: Show repair STATUS line
+  ansible.builtin.debug:
+    msg: "{{ repair_check.status_line }}"
+  when: repair_check.status_line is defined and repair_check.status_line | length > 0

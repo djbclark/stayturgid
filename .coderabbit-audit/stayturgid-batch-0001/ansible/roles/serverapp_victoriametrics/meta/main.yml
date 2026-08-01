@@ -1,0 +1,14 @@
+---
+galaxy_info:
+  role_name: serverapp_victoriametrics
+  author: stayturgid
+  description: >-
+    Site Contract v1 victoriametrics adapter (own mode) — brew if absent,
+    launchd site namespace.
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: macOS
+      versions:
+        - all
+dependencies: []

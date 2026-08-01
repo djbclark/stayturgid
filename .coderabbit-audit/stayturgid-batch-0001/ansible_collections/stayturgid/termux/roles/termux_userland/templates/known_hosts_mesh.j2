@@ -1,0 +1,23 @@
+{# Build known_hosts entries: every alias for every peer in the mesh group.
+   ansible.builtin.known_hosts requires key in known_hosts format:
+   "<name> <keytype> <base64>" — name must match the name parameter. #}
+{% set entries = [] %}
+{% for peer in groups[stayturgid_ssh_mesh_group] %}
+{%   if peer != inventory_hostname and hostvars[peer].stayturgid_sshd_host_pubkey is defined and hostvars[peer].stayturgid_sshd_host_pubkey | trim | length > 0 %}
+{%     set aliases = hostvars[peer].stayturgid_ssh_known_host_aliases | default([hostvars[peer].inventory_hostname, hostvars[peer].ansible_host]) %}
+{%     set pub_parts = hostvars[peer].stayturgid_sshd_host_pubkey | trim | split %}
+{%     if pub_parts | length >= 2 %}
+{%       set key_body = pub_parts[0] ~ ' ' ~ pub_parts[1] %}
+{%       for alias in aliases %}
+{%         if alias is defined and alias | string | trim | length > 0 %}
+{%           set hostport = '[' ~ alias ~ ']:' ~ (hostvars[peer].ansible_port | default(8022) | string) %}
+{%           set _ = entries.append({
+                'name': hostport,
+                'key': hostport ~ ' ' ~ key_body
+              }) %}
+{%         endif %}
+{%       endfor %}
+{%     endif %}
+{%   endif %}
+{% endfor %}
+{{ entries | to_json }}

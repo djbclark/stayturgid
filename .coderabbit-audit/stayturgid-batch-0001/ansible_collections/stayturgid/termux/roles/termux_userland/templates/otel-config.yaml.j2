@@ -1,0 +1,97 @@
+---
+extensions:
+  file_storage:
+    directory: "{{ stayturgid_otelcol_state_dir }}"
+    create_directory: true
+    fsync: true
+    compaction:
+      on_start: true
+      directory: "{{ stayturgid_otelcol_state_dir }}/compaction"
+
+receivers:
+  filelog/repair:
+    include:
+      - "{{ termux_home }}/.stayturgid/logs/repair.jsonl"
+    start_at: end
+    storage: file_storage
+    include_file_name: false
+    resource:
+      service.name: stayturgid
+      host.name: "{{ inventory_hostname }}"
+      stayturgid.log.source: repair
+    operators:
+      - type: json_parser
+        parse_from: body
+        # drop (not drop_quiet): malformed lines are still dropped (never
+        # forwarded), but the collector logs a warning to its own log
+        # (~/.stayturgid/logs/otelcol.log) so parse-failure data loss isn't
+        # silent (M1-Q S-10).
+        on_error: drop
+        timestamp:
+          parse_from: attributes.timestamp
+          layout_type: gotime
+          layout: "2006-01-02T15:04:05.000Z"
+        severity:
+          parse_from: attributes.level
+      - type: move
+        from: attributes.message
+        to: body
+  filelog/watchdog:
+    include:
+      - "{{ stayturgid_sd_root }}/logs/watchdog.jsonl"
+    start_at: end
+    storage: file_storage
+    include_file_name: false
+    resource:
+      service.name: stayturgid
+      host.name: "{{ inventory_hostname }}"
+      stayturgid.log.source: watchdog
+    operators:
+      - type: json_parser
+        parse_from: body
+        # drop (not drop_quiet): malformed lines are still dropped (never
+        # forwarded), but the collector logs a warning to its own log
+        # (~/.stayturgid/logs/otelcol.log) so parse-failure data loss isn't
+        # silent (M1-Q S-10).
+        on_error: drop
+        timestamp:
+          parse_from: attributes.timestamp
+          layout_type: gotime
+          layout: "2006-01-02T15:04:05.000Z"
+        severity:
+          parse_from: attributes.level
+      - type: move
+        from: attributes.message
+        to: body
+
+processors:
+  memory_limiter:
+    check_interval: 1s
+    limit_mib: 100
+    spike_limit_mib: 20
+  batch:
+    timeout: 30s
+
+exporters:
+  otlphttp/vector:
+    endpoint: "{{ stayturgid_otelcol_endpoint }}"
+    timeout: 10s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 0s
+    sending_queue:
+      enabled: true
+      storage: file_storage
+      num_consumers: 1
+      queue_size: 1000
+      block_on_overflow: true
+
+service:
+  extensions: [file_storage]
+  pipelines:
+    logs:
+      receivers: [filelog/repair, filelog/watchdog]
+      processors: [memory_limiter, batch]
+      exporters: [otlphttp/vector]

@@ -1,0 +1,207 @@
+---
+# Hermes Agent (control node): brew install, model/config, Telegram gateway keep-alive.
+# Secrets (TELEGRAM_BOT_TOKEN, API keys) stay on the machine only — never in git.
+# First-time auth: hermes auth add opencode-zen --type api-key
+# First-time bot token: set TELEGRAM_BOT_TOKEN in ~/.hermes/.env (or env when running playbook).
+#
+# All tasks gated by stayturgid_hermes_enabled so include from agents.yml never end_host.
+- name: Install Hermes Agent Homebrew formula
+  community.general.homebrew:
+    name: hermes-agent
+    state: present
+  when: stayturgid_hermes_enabled | default(true) | bool
+  register: _hermes_brew_install
+
+- name: Ensure hermes-agent formula is not pinned
+  ansible.builtin.command:
+    cmd: brew unpin hermes-agent
+  register: _hermes_unpin
+  changed_when: "'Unpinned' in (_hermes_unpin.stdout | default(''))"
+  when: stayturgid_hermes_enabled | default(true) | bool
+
+- name: Resolve Hermes libexec python (for optional Telegram deps)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    brew --prefix hermes-agent 2>/dev/null | head -1
+  args:
+    executable: /bin/bash
+  register: _hermes_brew_prefix
+  changed_when: false
+  failed_when: false
+  when: stayturgid_hermes_enabled | default(true) | bool
+
+- name: Ensure python-telegram-bot in Hermes venv (Telegram gateway)
+  ansible.builtin.command:
+    cmd: >-
+      uv pip install --python {{ _hermes_brew_prefix.stdout | trim }}/libexec/bin/python
+      --quiet 'python-telegram-bot>=21' 'qrcode[pil]'
+  when:
+    - stayturgid_hermes_enabled | default(true) | bool
+    - stayturgid_hermes_gateway_enabled | default(true) | bool
+    - (_hermes_brew_prefix.stdout | default('') | trim | length) > 0
+  register: _hermes_tg_pip
+  changed_when: >-
+    'Successfully installed' in (_hermes_tg_pip.stdout | default(''))
+    or 'Successfully installed' in (_hermes_tg_pip.stderr | default(''))
+  failed_when: false
+
+- name: Ensure Hermes home directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0700"
+  loop:
+    - "{{ stayturgid_hermes_home }}"
+    - "{{ stayturgid_hermes_home }}/logs"
+    - "{{ stayturgid_hermes_home }}/sessions"
+    - "{{ stayturgid_hermes_home }}/platforms"
+    - "{{ stayturgid_hermes_home }}/platforms/pairing"
+  when: stayturgid_hermes_enabled | default(true) | bool
+
+- name: Ensure Hermes config.yaml has default model
+  ansible.builtin.copy:
+    dest: "{{ stayturgid_hermes_home }}/config.yaml"
+    mode: "0600"
+    force: false
+    content: |
+      model: {{ stayturgid_hermes_model }}
+      _config_version: 32
+  when: stayturgid_hermes_enabled | default(true) | bool
+
+- name: Set Hermes default model (idempotent)
+  ansible.builtin.command:
+    cmd: >-
+      {{ stayturgid_homebrew_prefix }}/bin/hermes config set model
+      {{ stayturgid_hermes_model }}
+  environment:
+    HERMES_HOME: "{{ stayturgid_hermes_home }}"
+    PATH: "{{ stayturgid_homebrew_prefix }}/bin:/usr/bin:/bin"
+  register: _hermes_model_set
+  changed_when: >-
+    'Set model' in (_hermes_model_set.stdout | default(''))
+  failed_when: false
+  when: stayturgid_hermes_enabled | default(true) | bool
+
+- name: Set active Hermes provider in auth.json (idempotent)
+  ansible.builtin.shell: |
+    set -euo pipefail
+    AUTH="{{ stayturgid_hermes_home }}/auth.json"
+    if [ ! -f "$AUTH" ]; then
+      echo '{"version":1,"providers":{},"active_provider":"{{ stayturgid_hermes_provider }}","credential_pool":{}}' > "$AUTH"
+      echo "Created auth.json with provider={{ stayturgid_hermes_provider }}"
+    else
+      python3 -c "
+    import json, sys
+    with open('$AUTH') as f:
+        data = json.load(f)
+    old = data.get('active_provider', '')
+    data['active_provider'] = '{{ stayturgid_hermes_provider }}'
+    with open('$AUTH', 'w') as f:
+        json.dump(data, f, indent=2)
+    print(f'active_provider: {old} -> {{ stayturgid_hermes_provider }}')
+    "
+    fi
+  args:
+    executable: /bin/bash
+  environment:
+    HERMES_HOME: "{{ stayturgid_hermes_home }}"
+  register: _hermes_provider_set
+  changed_when: "'->' in _hermes_provider_set.stdout | default('')"
+  failed_when: false
+  when: stayturgid_hermes_enabled | default(true) | bool
+
+- name: Ensure Hermes .env exists (secrets local only)
+  ansible.builtin.file:
+    path: "{{ stayturgid_hermes_home }}/.env"
+    state: touch
+    mode: "0600"
+    modification_time: preserve
+    access_time: preserve
+  when: stayturgid_hermes_enabled | default(true) | bool
+
+- name: Resolve Telegram bot token from environment (optional, never from git)
+  ansible.builtin.set_fact:
+    _hermes_telegram_bot_token: >-
+      {{
+        lookup('env', 'TELEGRAM_BOT_TOKEN')
+        | default(stayturgid_hermes_telegram_bot_token | default(''), true)
+        | trim
+      }}
+  when: stayturgid_hermes_enabled | default(true) | bool
+
+- name: Write TELEGRAM_BOT_TOKEN into Hermes .env when provided
+  ansible.builtin.lineinfile:
+    path: "{{ stayturgid_hermes_home }}/.env"
+    regexp: '^TELEGRAM_BOT_TOKEN='
+    line: "TELEGRAM_BOT_TOKEN={{ _hermes_telegram_bot_token }}"
+    mode: "0600"
+  when:
+    - stayturgid_hermes_enabled | default(true) | bool
+    - stayturgid_hermes_gateway_enabled | default(true) | bool
+    - (_hermes_telegram_bot_token | default('') | length) > 0
+  no_log: true
+
+- name: Write TELEGRAM_ALLOWED_USERS into Hermes .env when configured
+  ansible.builtin.lineinfile:
+    path: "{{ stayturgid_hermes_home }}/.env"
+    regexp: '^TELEGRAM_ALLOWED_USERS='
+    line: "TELEGRAM_ALLOWED_USERS={{ stayturgid_hermes_telegram_allowed_users }}"
+    mode: "0600"
+  when:
+    - stayturgid_hermes_enabled | default(true) | bool
+    - stayturgid_hermes_gateway_enabled | default(true) | bool
+    - (stayturgid_hermes_telegram_allowed_users | default('') | string | trim | length) > 0
+
+- name: Write TELEGRAM_HOME_CHANNEL into Hermes .env when configured
+  ansible.builtin.lineinfile:
+    path: "{{ stayturgid_hermes_home }}/.env"
+    regexp: '^TELEGRAM_HOME_CHANNEL='
+    line: "TELEGRAM_HOME_CHANNEL={{ stayturgid_hermes_telegram_home_channel }}"
+    mode: "0600"
+  when:
+    - stayturgid_hermes_enabled | default(true) | bool
+    - stayturgid_hermes_gateway_enabled | default(true) | bool
+    - (stayturgid_hermes_telegram_home_channel | default('') | string | trim | length) > 0
+
+- name: Render stayturgid-managed Hermes gateway launchd plist
+  ansible.builtin.template:
+    src: hermes-gateway.plist.j2
+    dest: "{{ agents_dir }}/{{ stayturgid_hermes_gateway_label }}.plist"
+    mode: "0644"
+  when:
+    - stayturgid_hermes_enabled | default(true) | bool
+    - stayturgid_hermes_gateway_enabled | default(true) | bool
+  register: hermes_gateway_plist
+
+- name: Unload upstream Hermes gateway label if present (avoid dual polling)
+  community.general.launchd:
+    name: ai.hermes.gateway
+    state: unloaded
+  when:
+    - stayturgid_hermes_enabled | default(true) | bool
+    - stayturgid_hermes_gateway_enabled | default(true) | bool
+  failed_when: false
+
+- name: Remove upstream Hermes gateway plist when we manage our own
+  ansible.builtin.file:
+    path: "{{ agents_dir }}/ai.hermes.gateway.plist"
+    state: absent
+  when:
+    - stayturgid_hermes_enabled | default(true) | bool
+    - stayturgid_hermes_gateway_enabled | default(true) | bool
+
+- name: Remove Hermes gateway launchd agent when disabled
+  ansible.builtin.file:
+    path: "{{ agents_dir }}/{{ stayturgid_hermes_gateway_label }}.plist"
+    state: absent
+  when: >-
+    not (stayturgid_hermes_enabled | default(true) | bool)
+    or not (stayturgid_hermes_gateway_enabled | default(true) | bool)
+  register: hermes_gateway_removed
+
+- name: Unload Hermes gateway when disabled
+  community.general.launchd:
+    name: "{{ stayturgid_hermes_gateway_label }}"
+    state: unloaded
+  when: hermes_gateway_removed is defined and hermes_gateway_removed.changed
+  failed_when: false

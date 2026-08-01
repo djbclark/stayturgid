@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: serverapp_blackbox_exporter
+  author: stayturgid
+  description: Site Contract v1 blackbox_exporter adapter (own mode) — binary if absent, launchd site namespace.
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: macOS
+      versions:
+        - all
+dependencies: []

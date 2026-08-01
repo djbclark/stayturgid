@@ -1,0 +1,66 @@
+---
+# @heals: FIRERPA-SECURE-RUNNING
+- name: Check FIRERPA service certificate on control node
+  ansible.builtin.stat:
+    path: "{{ firerpa_certificate_path }}"
+  delegate_to: localhost
+  register: _firerpa_certificate
+
+- name: Require a private FIRERPA service certificate
+  ansible.builtin.assert:
+    that:
+      - _firerpa_certificate.stat.exists
+      - _firerpa_certificate.stat.isreg
+    fail_msg: >-
+      FIRERPA certificate missing at {{ firerpa_certificate_path }}.
+      Generate one with upstream tools/cert.py or set FIRERPA_CERTIFICATE.
+  when: firerpa_certificate_required | bool
+
+- name: Install FIRERPA service certificate via adb
+  ansible.builtin.shell: |
+    adb -s {{ _firerpa_adb_target }} push \
+      {{ firerpa_certificate_path | quote }} \
+      {{ firerpa_certificate_device_path | quote }}
+    adb -s {{ _firerpa_adb_target }} shell \
+      "chmod 600 {{ firerpa_certificate_device_path }}"
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  when: _firerpa_certificate.stat.exists
+
+- name: Write properties.local via adb
+  ansible.builtin.shell: |
+    set -euo pipefail
+    # mktemp + trap, not a fixed /tmp/__firerpa_props name — the file briefly
+    # holds sshd/adb/cron enable flags, and the old fixed name was both
+    # predictable and only cleaned up on the happy path (no guard against a
+    # failed push leaving it behind). See tmpfile security audit, 2026-07-21.
+    tmp=$(mktemp)
+    trap 'rm -f -- "$tmp"' EXIT
+    cat > "$tmp" << 'ENDOFPROPERTIES'
+    port={{ firerpa_port }}
+    [sshd]
+    sshd.enable={{ 'true' if firerpa_sshd_enabled else 'false' }}
+    [adb]
+    adb.enable={{ 'true' if firerpa_adb_enabled else 'false' }}
+    [cron]
+    cron.enable={{ 'true' if firerpa_cron_enabled else 'false' }}
+    [fwd]
+    fwd.enable=false
+    [tunnel2]
+    tunnel2.enable=false
+    [mdns]
+    mdns.enable=false
+    {% if not firerpa_webui_enabled %}
+    [webui]
+    webui.darkmode=off
+    webui.audio=off
+    webui.webrtc=off
+    webui.video.h264=off
+    webui.share-clipboard=off
+    {% endif %}
+    ENDOFPROPERTIES
+    adb -s {{ _firerpa_adb_target }} push "$tmp" {{ firerpa_install_dir }}/server/properties.local
+  args:
+    executable: /bin/bash
+  delegate_to: localhost

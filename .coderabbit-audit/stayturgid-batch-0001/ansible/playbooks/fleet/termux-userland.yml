@@ -1,0 +1,17 @@
+---
+# Idempotent Termux userland deploy for stayturgid.
+# Scope: scripts, boot hooks, packages — NOT Shizuku/AutoJs6/Obtainium/OS settings.
+#
+# Usage (from repo root):
+#   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/fleet/termux-userland.yml --limit oneui-device
+#
+# Requires: SSH to Termux on port 8022 (Tailscale or USB forward).
+- name: stayturgid Termux userland
+  hosts: stayturgid
+  gather_facts: false
+  roles:
+    - role: stayturgid.termux.termux_userland
+
+# F5: helpers get ForceCommand keys after Fire published peerhelp pubs.
+- name: Import peer-help ForceCommand install
+  import_playbook: peerhelp-force.yml

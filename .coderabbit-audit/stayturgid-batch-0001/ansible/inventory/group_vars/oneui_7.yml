@@ -1,0 +1,5 @@
+---
+# One UI 7 layer (on top of vendor_samsung).
+# Secure-settings writes CANNOT enable the wireless-debugging service on
+# One UI — the Settings-UI toggle is the only rootless path (docs/hacking.md 5b).
+stayturgid_wireless_debug_ui_fallback: true

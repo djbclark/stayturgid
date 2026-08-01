@@ -1,0 +1,53 @@
+---
+# Installs bootstrap APKs over ADB before Termux SSH exists.
+# All tasks delegate to localhost (the Mac) since the device has no SSH yet.
+# Version-aware idempotency: queries latest GitHub release tag for each APK
+# and compares against the installed version before deciding to reinstall.
+#
+# Set stayturgid_bootstrap_apks_force=true to skip version check and always reinstall.
+
+- name: Resolve ADB target for bootstrap
+  ansible.builtin.set_fact:
+    _bootstrap_adb: "{{ target_device | default(lookup('stayturgid.android_common.adb_device', inventory_hostname)) }}"
+  delegate_to: localhost
+
+- name: Validate immutable bootstrap APK lock
+  ansible.builtin.assert:
+    that:
+      - _locked_apk.id is string
+      - _locked_apk.id | length > 0
+      - _locked_apk.gh_repo is string
+      - _locked_apk.gh_repo | length > 0
+      - _locked_apk.gh_tag is string
+      - _locked_apk.gh_tag | length > 0
+      - >-
+        _locked_apk.gh_tag not in ['latest', 'nightly'] or
+        (_locked_apk.id == 'com.termux.x11' and _locked_apk.gh_tag == 'nightly' and
+         (_locked_apk.mutable_tag_snapshot | default(false) | bool))
+      - _locked_apk.gh_pattern is string
+      - _locked_apk.gh_pattern | length > 0
+      - _locked_apk.version_name is string
+      - _locked_apk.version_name | length > 0
+      - _locked_apk.checksum is match('^sha256:[0-9a-f]{64}$')
+    fail_msg: >-
+      Bootstrap APK {{ _locked_apk.id | default('(missing id)') }} is not
+      release-locked. Every entry requires id, gh_repo, gh_tag, gh_pattern,
+      version_name, and sha256 checksum; mutable release aliases are forbidden
+      except for the explicitly approved com.termux.x11 snapshot.
+    quiet: true
+  loop: "{{ stayturgid_bootstrap_apks }}"
+  loop_control:
+    label: "{{ _locked_apk.id | default('(missing id)') }}"
+    loop_var: _locked_apk
+  delegate_to: localhost
+
+- name: Install each bootstrap APK with version check
+  ansible.builtin.include_tasks: install_apk.yml
+  loop: "{{ stayturgid_bootstrap_apks }}"
+  loop_control:
+    label: "{{ _apk.id }}"
+    loop_var: _apk
+
+- name: Reconcile native-agent site configuration
+  ansible.builtin.include_tasks: native_agent.yml
+  when: stayturgid_native_agent_peer_targets is not none

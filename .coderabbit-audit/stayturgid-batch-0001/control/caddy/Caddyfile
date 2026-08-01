@@ -1,0 +1,56 @@
+# Caddyfile — stayturgid HTTPS reverse proxy
+# Deployed by: ansible/roles/control_node (caddy tasks)
+# Config path: ~/.config/stayturgid/Caddyfile
+#
+# TLS: uses Tailscale's native Let's Encrypt integration. Caddy auto-fetches
+# certs from the local tailscaled daemon. Zero maintenance — auto-renewed.
+# Requires "HTTPS Certificates" enabled in Tailscale admin console → DNS.
+{
+	auto_https disable_redirects
+	admin off
+}
+
+# Health check on separate HTTP port (launchd keepalive probe)
+http://127.0.0.1:8080 {
+	respond /health "OK" 200
+}
+
+# ── HTTP → HTTPS redirect for short MagicDNS name ──────────────────────────
+http://mac.greyhound-sidemirror.ts.net {
+	redir https://mac.greyhound-sidemirror.ts.net{uri} 301
+}
+
+# ── Main HTTPS entrypoint — all stayturgid services under one domain ────────
+mac.greyhound-sidemirror.ts.net {
+	tls {
+		get_certificate tailscale
+	}
+
+	# Network landing page (service directory) — root
+	handle {
+		reverse_proxy localhost:8088
+	}
+
+	# Fleet dashboard
+	handle_path /dashboard/* {
+		reverse_proxy localhost:4097
+	}
+
+	# OpenCode web UI
+	handle_path /opencode/* {
+		reverse_proxy localhost:4096
+	}
+
+	# Fleet stats
+	handle_path /stats/* {
+		reverse_proxy localhost:4097
+	}
+}
+
+# Also serve on short MagicDNS name (mac)
+mac {
+	tls {
+		get_certificate tailscale
+	}
+	redir https://mac.greyhound-sidemirror.ts.net{uri} 301
+}

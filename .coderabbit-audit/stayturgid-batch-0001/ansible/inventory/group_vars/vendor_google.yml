@@ -1,0 +1,5 @@
+---
+# Pixel / stock-Android layer.
+# Launcher package (agent-presence idle detection already covers it generically):
+#   com.google.android.apps.nexuslauncher
+# `settings put global adb_wifi_enabled 1` works to enable wireless debugging.

@@ -1,0 +1,25 @@
+# Changelog — stayturgid.android_common
+
+## 1.5.0 (2026-07-09)
+
+- Add `autojs6_project_deploy` module + `autojs6_deploy_util` (Fire OS adb path;
+  shared with `control/tools/autojs6/deploy.py`).
+
+## 1.4.1 (2026-07-08)
+
+- `adb_resolve`: parse mDNS wireless-debugging device ids (spaces in serial).
+
+## 1.4.0 (2026-07-07)
+
+- Add `android_packages` and `fdroid_client` lookup plugins.
+- Add `ensure_apps` role (unified play/fdroid/apk/obtainium dispatch).
+- `android_intent` module (1.3.0).
+
+## 1.3.0 (2026-07-07)
+
+- Add `android_appops`, `android_settings`, `shizuku_grant`, `android_apk` modules.
+- Add `tailscale_vpn` role.
+
+## 1.0.0
+
+- Initial `adb_device` lookup and `adb_resolve` module_utils.

@@ -1,0 +1,38 @@
+---
+# FIRERPA/lamda server role — optional on-device failsafe daemon.
+# Deployed via Ansible; no APK required.  Default: disabled.
+firerpa_enabled: false
+firerpa_version: "10.0"
+firerpa_port: 65000
+firerpa_install_dir: /data/local/tmp/firerpa
+firerpa_server_archive_arm64: "lamda-server-arm64-v8a.tar.gz"
+firerpa_server_archive_sha256_arm64: "3c78b109b557cdb1dce71d1a03cdf4012aad189f76feaa04ea652d6c8a28b531"
+firerpa_server_archive_url_arm64: >-
+  https://github.com/djbclark/lamda/releases/download/v{{ firerpa_version }}-binaries/{{ firerpa_server_archive_arm64 }}
+firerpa_certificate_path: >-
+  {{
+    lookup('env', 'FIRERPA_CERTIFICATE')
+    | default(lookup('env', 'HOME') ~ '/.config/stayturgid/firerpa.pem', true)
+  }}
+firerpa_certificate_device_path: "{{ firerpa_install_dir }}/server/lamda.pem"
+firerpa_certificate_required: true
+
+# Minimal failsafe config — only sshd + gRPC.  All other services off by default.
+# Enable additional services per-device via host_vars.
+firerpa_sshd_enabled: true
+firerpa_adb_enabled: false
+firerpa_cron_enabled: false
+firerpa_webui_enabled: false
+firerpa_webrtc_enabled: false
+firerpa_h264_enabled: false
+firerpa_fwd_enabled: false
+firerpa_tunnel2_enabled: false
+firerpa_mdns_enabled: false
+
+# The service certificate supplies both gRPC mutual TLS credentials and the
+# SSH authorized key. Non-root devices authenticate as Android user "shell".
+firerpa_ssh_user: shell
+
+# Paths (must match termux_userland role)
+termux_home: /data/data/com.termux/files/home
+_firerpa_adb_target: "{{ ansible_host }}:5555"

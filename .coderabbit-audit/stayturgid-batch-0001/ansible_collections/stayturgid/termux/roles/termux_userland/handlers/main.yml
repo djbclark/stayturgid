@@ -1,0 +1,51 @@
+---
+# termux.properties changes (allow-external-apps) only take effect after a
+# settings reload or app restart.
+- name: reload termux settings
+  ansible.builtin.command: "{{ termux_prefix }}/bin/termux-reload-settings"
+  changed_when: true
+
+# Restart cf-serverd so a redeployed policy (roles/ACL) takes effect. We only
+# KILL it here (by PIDFILE): the boot loop's _monitor_cfserverd restarts it
+# properly daemonized within its cycle, and a co-notified "restart boot loop"
+# (defined below, so it runs after this) restarts it immediately via
+# startup_cfserverd since it is now dead. cf-serverd launched directly from an
+# SSH/handler shell does not survive session close, so we never start it here.
+- name: restart cf-serverd
+  ansible.builtin.shell: |
+    pidf="$HOME/.stayturgid/run/cf-serverd.pid"
+    old="$(cat "$pidf" 2>/dev/null || true)"
+    [ -n "$old" ] && kill "$old" 2>/dev/null || true
+    true
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  changed_when: true
+
+# Restart the Termux self-heal loop by PIDFILE, never `pkill -f start-adb.sh`:
+# Ansible runs this handler via `bash -c '<script>'`, so the script text (which
+# names the path) is in the handler's OWN cmdline — `pkill -f` matched and
+# SIGTERM'd the handler itself (rc=-15), and even the [.] regex matched the
+# literal path. setsid (not `nohup &`) so the loop survives the SSH close.
+- name: restart boot loop
+  ansible.builtin.shell: |
+    pidf="$HOME/.stayturgid/run/bootloop.pid"
+    old="$(cat "$pidf" 2>/dev/null || true)"
+    [ -n "$old" ] && kill "$old" 2>/dev/null || true
+    sleep 2
+    setsid "$HOME/.termux/boot/start-adb.sh" >/dev/null 2>&1 < /dev/null &
+    sleep 3
+    new="$(cat "$pidf" 2>/dev/null || true)"
+    [ -n "$new" ] && [ -d "/proc/$new" ]
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+
+- name: restart otelcol
+  ansible.builtin.shell: |
+    {{ stayturgid_otelcol_boot_script | quote }} stop >/dev/null 2>&1 || true
+    {{ stayturgid_otelcol_boot_script | quote }}
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+
+- name: reload sshd
+  ansible.builtin.command: pkill -HUP sshd
+  changed_when: true

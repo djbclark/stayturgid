@@ -1,0 +1,16 @@
+namespace: stayturgid
+name: android_common
+version: 1.5.0
+readme: README.md
+authors:
+  - djbclark
+description: >-
+  Shared Android/ADB helpers for stayturgid Ansible collections: adb_device
+  lookup, android_appops, android_settings modules, tailscale_vpn role.
+license:
+  - MIT
+tags:
+  - android
+  - adb
+repository: https://github.com/djbclark/stayturgid
+dependencies: {}

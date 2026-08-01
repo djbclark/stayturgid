@@ -1,0 +1,160 @@
+---
+# FIRERPA install: all operations delegate to localhost (Mac → adb).
+
+- name: Check adb reachable for FIRERPA deploy
+  ansible.builtin.command: "adb -s {{ _firerpa_adb_target }} shell echo ok"
+  delegate_to: localhost
+  changed_when: false
+  register: _firerpa_adb_check
+  failed_when: false
+
+- name: Fall back to USB serial if Tailscale ADB unreachable
+  ansible.builtin.set_fact:
+    _firerpa_adb_target: "{{ device_usb_serial }}"
+  when:
+    - device_usb_serial is defined
+    - _firerpa_adb_check.rc | default(0) != 0
+
+# Canonical Ansible equivalent of Python's tempfile.mkdtemp / shell mktemp -d
+# (unpredictable name under the system temp dir, not fixed /tmp paths) — see
+# tmpfile security audit, 2026-07-21. Nothing previously cleaned these up on
+# the Mac side (only the on-device /data/local/tmp copy was ever removed, in
+# uninstall.yml) — cleanup task added at the end of this file.
+- name: Create temporary directory for FIRERPA archive download/patch
+  ansible.builtin.tempfile:
+    state: directory
+    prefix: firerpa-
+  register: _firerpa_tmp
+  # Run in check mode too, so downstream `.path` resolves during a dry-run.
+  check_mode: false
+  delegate_to: localhost
+
+- name: Download FIRERPA server archive on Mac
+  ansible.builtin.get_url:
+    url: "{{ firerpa_server_archive_url_arm64 }}"
+    dest: "{{ _firerpa_tmp.path }}/{{ firerpa_server_archive_arm64 }}"
+    mode: "0644"
+    checksum: "sha256:{{ firerpa_server_archive_sha256_arm64 }}"
+  delegate_to: localhost
+  register: _firerpa_dl
+
+- name: Patch FIRERPA driver for accessibility service coexistence
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ role_path }}/files/firerpa_service_patch.py"
+      - --archive
+      - "{{ _firerpa_tmp.path }}/{{ firerpa_server_archive_arm64 }}"
+      - --output
+      - "{{ _firerpa_tmp.path }}/firerpa-service-patched.jar"
+  delegate_to: localhost
+  changed_when: "'patched FIRERPA' in _firerpa_driver_patch.stdout"
+  register: _firerpa_driver_patch
+
+- name: Push server archive to device via adb
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ _firerpa_adb_target }}
+      push {{ _firerpa_tmp.path }}/{{ firerpa_server_archive_arm64 }} /data/local/tmp/firerpa-server.tar.gz
+  delegate_to: localhost
+
+- name: Stop existing FIRERPA process tree before replacing files
+  ansible.builtin.shell: |
+    adb -s {{ _firerpa_adb_target }} shell '
+      pkill -9 -x lamda 2>/dev/null || true
+      for proc in /proc/[0-9]*; do
+        exe=$(readlink "$proc/exe" 2>/dev/null) || continue
+        case "$exe" in
+          {{ firerpa_install_dir }}/server/*)
+            kill -9 "${proc##*/}" 2>/dev/null || true
+            ;;
+        esac
+      done
+    '
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  changed_when: true
+
+- name: Extract server via adb shell
+  ansible.builtin.shell: |
+    adb -s {{ _firerpa_adb_target }} shell "
+      rm -rf {{ firerpa_install_dir }}/server /data/local/tmp/usr 2>/dev/null
+      mkdir -p {{ firerpa_install_dir }}
+      cd /data/local/tmp && tar xzf firerpa-server.tar.gz -C {{ firerpa_install_dir }}/
+      echo EXTRACT_OK
+    "
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  register: _firerpa_extract
+
+- name: Prepare FIRERPA driver override directory
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ _firerpa_adb_target }} shell
+      mkdir -p {{ firerpa_install_dir }}/overrides
+  delegate_to: localhost
+  changed_when: true
+
+- name: Preserve signed FIRERPA driver for integrity validation
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ _firerpa_adb_target }} shell cp
+      {{ firerpa_install_dir }}/server/lib/python3.9/site-packages/lamda/service.jar
+      {{ firerpa_install_dir }}/overrides/service.jar.signed
+  delegate_to: localhost
+  changed_when: true
+
+- name: Install accessibility-compatible FIRERPA driver override
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ _firerpa_adb_target }} push
+      {{ _firerpa_tmp.path }}/firerpa-service-patched.jar
+      {{ firerpa_install_dir }}/overrides/service.jar.patched
+  delegate_to: localhost
+  changed_when: true
+
+- name: Install Python FIRERPA lifecycle wrapper
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ _firerpa_adb_target }} push
+      {{ role_path }}/files/firerpa_lifecycle.py
+      {{ firerpa_install_dir }}/firerpa_lifecycle.py
+  delegate_to: localhost
+  changed_when: true
+
+- name: Make Python FIRERPA lifecycle wrapper executable
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ _firerpa_adb_target }} shell chmod 0755
+      {{ firerpa_install_dir }}/firerpa_lifecycle.py
+  delegate_to: localhost
+  changed_when: true
+
+- name: Verify FIRERPA server binary exists after extract
+  ansible.builtin.command:
+    cmd: >-
+      adb -s {{ _firerpa_adb_target }}
+      shell test -x {{ firerpa_install_dir }}/server/bin/python3.9 && echo OK || echo MISSING
+  delegate_to: localhost
+  changed_when: false
+  register: _firerpa_verify
+
+- name: Fail if FIRERPA binary missing after extract
+  ansible.builtin.fail:
+    msg: "FIRERPA server binary not found at {{ firerpa_install_dir }}/server/bin/python3.9 on {{ inventory_hostname }}"
+  when: "'OK' not in (_firerpa_verify.stdout | default(''))"
+
+# Covers the happy path only — this file isn't wrapped in a block/always
+# (unlike serverapp_openobserve/blackbox_exporter/olivetin) because doing so
+# would mean restructuring a long chain of adb push/shell steps I can't
+# fully exercise against a live device from here; a failure partway through
+# will still leave the temp dir behind. Better than the previous "never
+# cleaned up at all," not as strong a guarantee as the serverapp_* roles.
+- name: Clean up temporary FIRERPA directory
+  ansible.builtin.file:
+    path: "{{ _firerpa_tmp.path }}"
+    state: absent
+  delegate_to: localhost
+  when: _firerpa_tmp.path is defined

@@ -1,0 +1,10 @@
+---
+# Post-deploy validation over SSH (complements just verify / device_tier TAP).
+- name: stayturgid fleet validate
+  hosts: stayturgid
+  gather_facts: false
+  tags: [validate]
+  vars:
+    stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"
+  roles:
+    - role: stayturgid.fleet.validate

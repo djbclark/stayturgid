@@ -1,0 +1,411 @@
+---
+- name: Ensure config + LaunchAgents directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ conf_dir }}"
+    - "{{ conf_dir }}/logs"
+    - "{{ conf_dir }}/state"
+    - "{{ conf_dir }}/artifacts"
+    - "{{ conf_dir }}/cfengine"
+    - "{{ agents_dir }}"
+
+- name: Check system Homebrew PATH configuration (report-only)
+  ansible.builtin.shell: >-
+    printf '%s\n%s\n' '{{ stayturgid_homebrew_prefix }}/bin'
+    '{{ stayturgid_homebrew_prefix }}/sbin' | cmp -s - /etc/paths.d/homebrew &&
+    grep -Fxq
+    "SetEnv PATH={{ stayturgid_homebrew_prefix }}/bin:{{ stayturgid_homebrew_prefix }}/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    /etc/ssh/sshd_config.d/50-stayturgid-homebrew-path.conf
+  register: _system_homebrew_path_check
+  changed_when: false
+  failed_when: false
+  tags: [system-homebrew-path]
+
+- name: Warn when system Homebrew PATH configuration needs operator setup
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: system Homebrew PATH configuration is absent or drifted; it is
+      report-only during normal deploys. Run `just system-homebrew-path-setup`
+      once interactively to repair it.
+  when:
+    - _system_homebrew_path_check.rc | default(1) != 0
+  tags: [system-homebrew-path]
+
+- name: Get current stayturgid git commit SHA
+  ansible.builtin.command: git rev-parse --short HEAD
+  args:
+    chdir: "{{ stayturgid_repo_root }}"
+  register: _git_commit_sha
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+  run_once: true
+
+- name: Set stayturgid git commit SHA fact
+  ansible.builtin.set_fact:
+    stayturgid_git_commit_sha: "{{ _git_commit_sha.stdout | default('unknown') | trim }}"
+  run_once: true
+
+- name: Render devices.conf from inventory (alias usb_serial tailscale_ip lan_ip)
+  ansible.builtin.template:
+    src: devices.conf.j2
+    dest: "{{ conf_dir }}/devices.conf"
+    mode: "0644"
+
+# Rendered outside the checkout: the artifact carries live site identity and a
+# tracked destination would dirty the public working tree on every deploy.
+- name: Render cf-runagent.cf from inventory template
+  ansible.builtin.template:
+    src: cf-runagent.cf.j2
+    dest: "{{ conf_dir }}/cfengine/cf-runagent.cf"
+    mode: "0644"
+
+- name: Resolve Mac SSH identity files from control-node keyring
+  ansible.builtin.set_fact:
+    stayturgid_ssh_identity_files: >-
+      {{
+        (
+          query('fileglob', stayturgid_ssh_keys_dir ~ '/id_*')
+          | reject('search', '\\.pub$')
+          | list
+          + query('fileglob', stayturgid_ssh_keys_dir ~ '/termux_key')
+          | list
+        ) | unique | sort
+      }}
+
+- name: Ensure ssh config.d directory exists
+  ansible.builtin.file:
+    path: "{{ ssh_config_dir }}/config.d"
+    state: directory
+    mode: "0700"
+
+- name: Render fleet SSH config fragment (all identities, all hosts)
+  ansible.builtin.template:
+    src: ssh_config_stayturgid.j2
+    dest: "{{ ssh_config_fragment }}"
+    mode: "0600"
+
+- name: Ensure main ssh config includes stayturgid fragment
+  ansible.builtin.lineinfile:
+    path: "{{ ssh_config_dir }}/config"
+    create: true
+    mode: "0600"
+    line: "Include ~/.ssh/config.d/stayturgid"
+    insertbefore: BOF
+    regexp: '^Include ~/.ssh/config\.d/stayturgid\s*$'
+
+- name: Scan fleet SSH host keys from Mac
+  ansible.builtin.command:
+    cmd: >-
+      ssh-keyscan -p {{ hostvars[item].ansible_port | default(8022) }}
+      -t ed25519 {{ hostvars[item].ansible_host }}
+  loop: "{{ groups['stayturgid'] }}"
+  register: _fleet_host_keyscan
+  changed_when: false
+  failed_when: false
+
+- name: Trust fleet SSH host keys on Mac (ansible.builtin.known_hosts)
+  ansible.builtin.known_hosts:
+    path: "{{ ssh_config_dir }}/known_hosts"
+    name: "[{{ hostvars[item.item].ansible_host }}]:{{ hostvars[item.item].ansible_port | default(8022) }}"
+    key: "{{ item.stdout_lines | select('match', '^\\[') | first | trim }}"
+    state: present
+  loop: "{{ _fleet_host_keyscan.results }}"
+  when: item.stdout_lines | select('match', '^\\[') | list | length > 0
+
+- name: Add @cert-authority for stayturgid CA to Mac known_hosts
+  ansible.builtin.lineinfile:
+    path: "{{ ssh_config_dir }}/known_hosts"
+    create: true
+    regexp: '@cert-authority \* .*stayturgid-ca'
+    line: "@cert-authority * {{ lookup('file', stayturgid_ca_key_path | default(lookup('env', 'HOME') ~ '/.ssh/stayturgid_ca') ~ '.pub') }}"
+    mode: "0644"
+  when: stayturgid_ca_enabled | default(true) | bool
+
+- name: Render adb-reconnect launchd agent per device
+  ansible.builtin.template:
+    src: adb-reconnect.plist.j2
+    dest: "{{ agents_dir }}/com.stayturgid.adb-reconnect-{{ item }}.plist"
+    mode: "0644"
+  loop: "{{ groups['stayturgid'] }}"
+  register: reconnect_plists
+
+- name: Render access-monitor launchd agent
+  ansible.builtin.template:
+    src: access-monitor.plist.j2
+    dest: "{{ agents_dir }}/com.stayturgid.access-monitor.plist"
+    mode: "0644"
+  register: monitor_plist
+
+- name: Render fleet-health launchd agent
+  ansible.builtin.template:
+    src: fleet-health.plist.j2
+    dest: "{{ agents_dir }}/com.stayturgid.fleet-health.plist"
+    mode: "0644"
+  register: health_plist
+
+- name: Render fire-help launchd agent
+  ansible.builtin.template:
+    src: fire-help.plist.j2
+    dest: "{{ agents_dir }}/com.stayturgid.fire-help.plist"
+    mode: "0644"
+  register: fire_help_plist
+
+- name: Render update-monitor launchd agent
+  ansible.builtin.template:
+    src: update-monitor.plist.j2
+    dest: "{{ agents_dir }}/com.stayturgid.update-monitor.plist"
+    mode: "0644"
+  register: update_monitor_plist
+
+- name: Render nightly Termux pkg update/upgrade launchd agent
+  ansible.builtin.template:
+    src: termux-pkg-nightly.plist.j2
+    dest: "{{ agents_dir }}/com.stayturgid.termux-pkg-nightly.plist"
+    mode: "0644"
+  when: stayturgid_termux_pkg_nightly_enabled | bool
+  register: termux_pkg_nightly_plist
+
+- name: Remove nightly Termux pkg launchd agent when disabled
+  ansible.builtin.file:
+    path: "{{ agents_dir }}/com.stayturgid.termux-pkg-nightly.plist"
+    state: absent
+  when: not (stayturgid_termux_pkg_nightly_enabled | bool)
+  register: termux_pkg_nightly_removed
+
+- name: Unload nightly Termux pkg launchd agent when disabled
+  community.general.launchd:
+    name: com.stayturgid.termux-pkg-nightly
+    state: unloaded
+  when: termux_pkg_nightly_removed.changed
+  failed_when: false
+
+- name: Fetch peer-help pubkeys from Fire hosts (for Mac ForceCommand)
+  ansible.builtin.command:
+    cmd: >-
+      ssh -o BatchMode=yes -o ConnectTimeout=8 {{ item }}
+      cat /data/data/com.termux/files/home/.ssh/id_ed25519_peerhelp.pub
+  loop: "{{ groups['stayturgid'] }}"
+  register: _mac_peerhelp_pubs
+  changed_when: false
+  failed_when: false
+  when: hostvars[item].stayturgid_no_local_adb | default(false) | bool
+
+- name: Install Fire peer-help keys on Mac with ForceCommand
+  vars:
+    _fire_peer_help: >-
+      /usr/bin/env python3 {{ stayturgid_repo_root | realpath
+      }}/control/bin/fire_peer_help.py
+  ansible.posix.authorized_key:
+    user: "{{ lookup('env', 'USER') }}"
+    path: "{{ lookup('env', 'HOME') }}/.ssh/authorized_keys"
+    manage_dir: false
+    key: "{{ item.stdout | trim }}"
+    key_options: >-
+      command="{{ _fire_peer_help }}",no-port-forwarding,no-X11-forwarding,no-agent-forwarding
+    state: present
+    exclusive: false
+  loop: "{{ _mac_peerhelp_pubs.results | default([]) }}"
+  when:
+    - item.stdout is defined
+    - (item.stdout | trim | length) > 0
+    - not (item.failed | default(false))
+
+# Phone → Mac Eternal Terminal: unrestricted fleet keys in marked AK block.
+# Does not touch peer-help ForceCommand lines (separate from STAYTURGID-ET-MAC).
+- name: Ensure phone→Mac ET fleet keys on Mac authorized_keys
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_python_interpreter | default('python3') }}"
+      - "{{ stayturgid_repo_root | realpath }}/control/bin/ensure_et_mac.py"
+      - "--user"
+      - "{{ stayturgid_control_et_user | default(lookup('env', 'USER')) }}"
+      - "--et-port"
+      - "{{ stayturgid_control_et_port | default(2022) | string }}"
+  environment:
+    PATH: "/opt/homebrew/bin:/usr/local/bin:{{ lookup('env', 'PATH') }}"
+    STAYTURGID_CONTROL_ET_USER: "{{ stayturgid_control_et_user | default(lookup('env', 'USER')) }}"
+    STAYTURGID_CONTROL_ET_PORT: "{{ stayturgid_control_et_port | default(2022) | string }}"
+    STAYTURGID_CONTROL_TAILSCALE_IP: >-
+      {{
+        stayturgid_control_tailscale_ip
+        | default(hostvars[groups['stayturgid'][0]].stayturgid_control_tailscale_ip
+                  | default(hostvars[groups['stayturgid'][0]].stayturgid_mac_peer.tailscale
+                            | default('')), true)
+      }}
+    STAYTURGID_CONTROL_LAN_IP: >-
+      {{
+        stayturgid_control_lan_ip
+        | default(hostvars[groups['stayturgid'][0]].stayturgid_control_lan_ip
+                  | default(hostvars[groups['stayturgid'][0]].stayturgid_mac_peer.lan
+                            | default('')), true)
+      }}
+  register: _ensure_et_mac
+  changed_when: >-
+    'authorized_keys updated' in (_ensure_et_mac.stdout | default(''))
+  failed_when: false
+  when: stayturgid_control_et_enabled | default(true) | bool
+
+- name: Show ensure_et_mac result
+  ansible.builtin.debug:
+    msg: "{{ _ensure_et_mac.stdout_lines | default([]) }}"
+  when:
+    - stayturgid_control_et_enabled | default(true) | bool
+    - _ensure_et_mac is defined
+
+- name: Configure Hermes Agent + Telegram gateway
+  ansible.builtin.include_tasks: hermes.yml
+  tags: [mac, agents, hermes]
+
+- name: Render OpenCode web launchd agent
+  ansible.builtin.template:
+    src: opencode-web.plist.j2
+    dest: "{{ agents_dir }}/{{ stayturgid_opencode_web_label }}.plist"
+    mode: "0644"
+  when: stayturgid_opencode_web_enabled | bool
+  register: opencode_web_plist
+
+- name: Remove OpenCode web launchd agent when disabled
+  ansible.builtin.file:
+    path: "{{ agents_dir }}/{{ stayturgid_opencode_web_label }}.plist"
+    state: absent
+  when: not (stayturgid_opencode_web_enabled | bool)
+  register: opencode_web_removed
+
+- name: Unload OpenCode web when disabled
+  community.general.launchd:
+    name: "{{ stayturgid_opencode_web_label }}"
+    state: unloaded
+  when: opencode_web_removed.changed
+  failed_when: false
+
+- name: Render FIRERPA health launchd agent
+  ansible.builtin.template:
+    src: firerpa-health.plist.j2
+    dest: "{{ agents_dir }}/com.stayturgid.firerpa-health.plist"
+    mode: "0644"
+  when: stayturgid_firerpa_health_enabled | default(true) | bool
+  register: firerpa_health_plist
+
+- name: Render FIRERPA MCP bridge launchd agent
+  ansible.builtin.template:
+    src: firerpa-mcp.plist.j2
+    dest: "{{ agents_dir }}/com.stayturgid.firerpa-mcp.plist"
+    mode: "0644"
+  when: stayturgid_firerpa_mcp_enabled | default(true) | bool
+  register: firerpa_mcp_plist
+
+- name: Remove FIRERPA health launchd agent when disabled
+  ansible.builtin.file:
+    path: "{{ agents_dir }}/com.stayturgid.firerpa-health.plist"
+    state: absent
+  when: not (stayturgid_firerpa_health_enabled | default(true) | bool)
+  register: firerpa_health_removed
+
+- name: Unload FIRERPA health when disabled
+  community.general.launchd:
+    name: com.stayturgid.firerpa-health
+    state: unloaded
+  when: firerpa_health_removed.changed
+  failed_when: false
+
+- name: Remove FIRERPA MCP bridge launchd agent when disabled
+  ansible.builtin.file:
+    path: "{{ agents_dir }}/com.stayturgid.firerpa-mcp.plist"
+    state: absent
+  when: not (stayturgid_firerpa_mcp_enabled | default(true) | bool)
+  register: firerpa_mcp_removed
+
+- name: Unload FIRERPA MCP bridge when disabled
+  community.general.launchd:
+    name: com.stayturgid.firerpa-mcp
+    state: unloaded
+  when: firerpa_mcp_removed.changed
+  failed_when: false
+
+- name: Render fleet dashboard launchd agent
+  ansible.builtin.template:
+    src: dashboard.plist.j2
+    dest: "{{ agents_dir }}/{{ stayturgid_dashboard_label }}.plist"
+    mode: "0644"
+  when: stayturgid_dashboard_enabled | bool
+  register: dashboard_plist
+
+- name: Remove fleet dashboard launchd agent when disabled
+  ansible.builtin.file:
+    path: "{{ agents_dir }}/{{ stayturgid_dashboard_label }}.plist"
+    state: absent
+  when: not (stayturgid_dashboard_enabled | bool)
+  register: dashboard_removed
+
+- name: Unload fleet dashboard when disabled
+  community.general.launchd:
+    name: "{{ stayturgid_dashboard_label }}"
+    state: unloaded
+  when: dashboard_removed.changed
+  failed_when: false
+
+- name: Record launchd labels needing reload after plist template changes
+  ansible.builtin.set_fact:
+    _mac_launchd_reload_labels: >-
+      {{
+        (reconnect_plists.results
+         | selectattr('changed')
+         | map(attribute='item')
+         | map('regex_replace', '^(.*)$', 'com.stayturgid.adb-reconnect-\\1')
+         | list)
+        + (['com.stayturgid.access-monitor'] if monitor_plist.changed else [])
+        + (['com.stayturgid.fleet-health'] if health_plist.changed else [])
+        + (['com.stayturgid.fire-help'] if fire_help_plist.changed else [])
+        + (['com.stayturgid.update-monitor'] if update_monitor_plist is defined and update_monitor_plist.changed else [])
+        + (['com.stayturgid.termux-pkg-nightly']
+           if (termux_pkg_nightly_plist is defined
+               and termux_pkg_nightly_plist.changed) else [])
+        + (
+          [stayturgid_hermes_gateway_label]
+          if (
+            stayturgid_hermes_enabled | default(true) | bool
+            and stayturgid_hermes_gateway_enabled | default(true) | bool
+            and (
+              (hermes_gateway_plist is defined and hermes_gateway_plist.changed)
+              or (_hermes_brew_install is defined and _hermes_brew_install.changed)
+              or (_hermes_tg_pip is defined and _hermes_tg_pip.changed)
+            )
+          ) else []
+        )
+        + (
+          [stayturgid_opencode_web_label]
+          if (
+            stayturgid_opencode_web_enabled | default(true) | bool
+            and opencode_web_plist is defined
+            and opencode_web_plist.changed
+          ) else []
+        )
+        + (
+          ['com.stayturgid.firerpa-health']
+          if (
+            stayturgid_firerpa_health_enabled | default(true) | bool
+            and firerpa_health_plist is defined
+            and firerpa_health_plist.changed
+          ) else []
+        )
+        + (
+          ['com.stayturgid.firerpa-mcp']
+          if (
+            stayturgid_firerpa_mcp_enabled | default(true) | bool
+            and firerpa_mcp_plist is defined
+            and firerpa_mcp_plist.changed
+          ) else []
+        )
+        + (
+          [stayturgid_dashboard_label]
+          if (
+            stayturgid_dashboard_enabled | default(true) | bool
+            and dashboard_plist is defined
+            and dashboard_plist.changed
+          ) else []
+        )
+      }}

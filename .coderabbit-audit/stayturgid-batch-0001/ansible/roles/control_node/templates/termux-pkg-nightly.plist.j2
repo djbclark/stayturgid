@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.stayturgid.termux-pkg-nightly</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/env</string>
+        <string>python3</string>
+        <string>{{ stayturgid_repo_root | realpath }}/control/bin/termux_pkg_nightly.py</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>{{ stayturgid_repo_root | realpath }}</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>{{ stayturgid_homebrew_prefix }}/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>{{ lookup('env', 'HOME') }}</string>
+        <key>ANSIBLE_CONFIG</key>
+        <string>{{ ansible_config_file | realpath }}</string>
+        <key>STAYTURGID_ROOT</key>
+        <string>{{ stayturgid_repo_root | realpath }}</string>
+    </dict>
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>{{ stayturgid_termux_pkg_nightly_hour | int }}</integer>
+        <key>Minute</key>
+        <integer>{{ stayturgid_termux_pkg_nightly_minute | int }}</integer>
+    </dict>
+    <!-- RunAtLoad is false: a full `pkg update && pkg upgrade` must not fire on
+         every load (boot/deploy/wake), and a mid-deploy plist rewrite could
+         upgrade deps under a running deploy. StartCalendarInterval already
+         catches up a missed scheduled run on wake. -->
+    <key>RunAtLoad</key>
+    <false/>
+    <key>StandardOutPath</key>
+    <string>{{ conf_dir }}/logs/termux-pkg-nightly.launchd.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ conf_dir }}/logs/termux-pkg-nightly.launchd.err.log</string>
+</dict>
+</plist>

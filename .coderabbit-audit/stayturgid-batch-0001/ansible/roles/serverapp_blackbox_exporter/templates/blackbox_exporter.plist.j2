@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{{ serverapp_blackbox_exporter_label }}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{ serverapp_blackbox_exporter_bin_path }}</string>
+        <string>--config.file={{ serverapp_blackbox_exporter_config_path }}</string>
+        <string>--web.listen-address={{ serverapp_blackbox_exporter_http_address }}:{{ serverapp_blackbox_exporter_http_port }}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>WorkingDirectory</key>
+    <string>{{ serverapp_blackbox_exporter_config_dir }}</string>
+    <key>StandardOutPath</key>
+    <string>{{ serverapp_blackbox_exporter_logs_dir }}/blackbox_exporter.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ serverapp_blackbox_exporter_logs_dir }}/blackbox_exporter.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>{{ serverapp_blackbox_exporter_home }}</string>
+    </dict>
+</dict>
+</plist>

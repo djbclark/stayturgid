@@ -1,0 +1,16 @@
+---
+# FIRERPA service: start/stop via adb from Mac control node.
+
+# @heals: FIRERPA-SECURE-RUNNING
+- name: Start FIRERPA server via adb
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ role_path }}/files/firerpa_lifecycle.py"
+      - start
+      - --adb-target
+      - "{{ _firerpa_adb_target }}"
+      - "--port={{ firerpa_port }}"
+      - "--certificate={{ firerpa_certificate_device_path }}"
+  delegate_to: localhost
+  register: _firerpa_start

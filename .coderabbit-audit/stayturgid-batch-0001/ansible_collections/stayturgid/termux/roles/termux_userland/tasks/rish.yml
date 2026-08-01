@@ -1,0 +1,32 @@
+---
+# Install Shizuku rish into ~/.stayturgid (default on every fleet device).
+- name: Install rish from Shizuku APK into Termux
+  ansible.builtin.command:
+    cmd: "{{ termux_prefix }}/bin/python {{ termux_home }}/.stayturgid/bin/stayturgid_rish.py install"
+  register: _rish_install
+  changed_when: "'installed' in (_rish_install.stdout | default(''))"
+  when: stayturgid_install_rish | default(true) | bool
+
+- name: Verify rish installed correctly
+  ansible.builtin.stat:
+    path: "{{ termux_home }}/.stayturgid/bin/rish"
+  register: _rish_stat
+  when:
+    - stayturgid_install_rish | default(true) | bool
+    - _rish_install is defined
+    - not _rish_install.failed | default(false)
+
+- name: Show rish install result
+  ansible.builtin.debug:
+    msg: "{{ _rish_install.stdout | default(_rish_install.stderr) | default('skipped') }}"
+  when:
+    - stayturgid_install_rish | default(true) | bool
+    - _rish_install is defined
+
+- name: Warn if rish binary missing
+  ansible.builtin.debug:
+    msg: "WARNING: rish binary not found at ~/.stayturgid/bin/rish after install"
+  when:
+    - stayturgid_install_rish | default(true) | bool
+    - _rish_stat.stat is defined
+    - not (_rish_stat.stat.exists | default(false))

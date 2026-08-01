@@ -1,0 +1,6 @@
+---
+# Android 16 layer. Known behaviors (documentation as much as configuration):
+# - Wireless debugging port randomizes each toggle; Shizuku TCP mode pins 5555.
+# - `adb shell` binary output is safe (shell protocol v2), but exec-out is
+#   still preferred for images (see stayturgid-battery-alarm.sh).
+# No overrides needed yet — placeholder for version-specific quirks.

@@ -1,0 +1,29 @@
+---
+# serverapp_olivetin — own-mode OliveTin adapter (Site Contract v1 §5 / Phase D).
+# Config is a projection (§5.3 / design §2): D5 boots a minimal live config;
+# D6 owns inventory→actions purity. Formula not in homebrew-core — install
+# pinned GitHub release binary if absent (never upgrade).
+
+serverapp_olivetin_home: "{{ lookup('env', 'HOME') }}"
+serverapp_olivetin_config_dir: "{{ serverapp_olivetin_home }}/.config/{{ site_ns }}/olivetin"
+serverapp_olivetin_config_path: "{{ serverapp_olivetin_config_dir }}/config.yaml"
+serverapp_olivetin_logs_dir: "{{ serverapp_olivetin_home }}/.config/{{ site_ns }}/logs"
+# Release tree keeps binary + webui together (OliveTin 3k serves static webui).
+serverapp_olivetin_install_dir: "{{ serverapp_olivetin_home }}/.local/share/olivetin"
+serverapp_olivetin_bin_path: "{{ serverapp_olivetin_install_dir }}/OliveTin"
+serverapp_olivetin_webui_dir: "{{ serverapp_olivetin_install_dir }}/webui"
+serverapp_olivetin_label: "com.{{ site_ns }}.olivetin"
+serverapp_olivetin_plist_path: "{{ serverapp_olivetin_home }}/Library/LaunchAgents/{{ serverapp_olivetin_label }}.plist"
+# Pin version for install-if-absent (never upgrade an existing binary).
+serverapp_olivetin_version: "3000.17.1"
+# M1-F MF-5: pinned sha256 of the GitHub release archive, per download arch —
+# from the vendor's published checksums.txt for this release (verified
+# 2026-07-19, recorded in the M1-F PR).
+serverapp_olivetin_archive_sha256:
+  darwin-arm64: "4cf4e784746f7c60520c21f30329277bc5026795cd25ca12c3f34773cdec65b6"
+  darwin-amd64: "5fd5180500db19d307f999c531702d3f4062b473f78952bef709bce72cad4270"
+serverapp_olivetin_http_port: 1337
+serverapp_olivetin_listen: "127.0.0.1:{{ serverapp_olivetin_http_port }}"
+serverapp_olivetin_health_url: "http://127.0.0.1:{{ serverapp_olivetin_http_port }}/"
+# No default for serverapp_olivetin_uid — always supplied as an extra-var by
+# control/site_contract/serverapps.py (os.getuid()); fail closed otherwise.

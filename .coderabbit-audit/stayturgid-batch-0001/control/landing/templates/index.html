@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Network Services</title>
+    <script
+      src="https://unpkg.com/htmx.org@2.0.4"
+      integrity="sha384-HGfztofotfshcF7+8n44JQL2oJmowVChPTg48S+jvZoztPfvwD79OC/LTtG6dMp+"
+      crossorigin="anonymous"
+    ></script>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --bg: #0f0f1a;
+        --card-bg: #1a1a2e;
+        --card-border: #2a2a4a;
+        --text: #c8c8d4;
+        --text-dim: #6b7280;
+        --ok: #22c55e;
+        --error: #ef4444;
+        --link: #60a5fa;
+        --radius: 8px;
+        --font: system-ui, -apple-system, sans-serif;
+      }
+      html {
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.5 var(--font);
+      }
+      body {
+        max-width: 700px;
+        margin: 0 auto;
+        padding: 16px;
+      }
+
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding-bottom: 12px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid var(--card-border);
+      }
+      header h1 {
+        font-size: 18px;
+        color: #fff;
+      }
+      .header-sub {
+        color: var(--text-dim);
+        font-size: 11px;
+      }
+      .header-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .btn {
+        background: var(--card-bg);
+        color: var(--link);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius);
+        padding: 4px 12px;
+        cursor: pointer;
+        font: 11px var(--font);
+        text-decoration: none;
+      }
+      .btn:hover {
+        border-color: var(--link);
+      }
+
+      .section {
+        margin-bottom: 20px;
+      }
+      .section-title {
+        font-size: 11px;
+        color: var(--text-dim);
+        text-transform: uppercase;
+        margin-bottom: 8px;
+        padding-bottom: 4px;
+        border-bottom: 1px solid var(--card-border);
+      }
+      .device-card {
+        margin-bottom: 12px;
+        background: rgba(26, 26, 46, 0.4);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius);
+        padding: 8px 10px;
+      }
+      .device-header {
+        font-size: 13px;
+        font-weight: 600;
+        color: #93c5fd;
+        margin-bottom: 6px;
+      }
+      .service {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        margin-bottom: 4px;
+        background: var(--card-bg);
+        border: 1px solid var(--card-border);
+        border-radius: var(--radius);
+      }
+      .service.unreachable {
+        opacity: 0.5;
+      }
+      .service-link {
+        color: var(--link);
+        text-decoration: none;
+        font-size: 13px;
+        flex: 1;
+        word-break: break-all;
+      }
+      .service-link:hover {
+        text-decoration: underline;
+      }
+      .service-label {
+        font-size: 12px;
+        color: var(--text-dim);
+        min-width: 120px;
+      }
+      .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .status-dot.ok {
+        background: var(--ok);
+      }
+      .status-dot.error {
+        background: var(--error);
+      }
+      .hide-btn {
+        background: none;
+        border: none;
+        color: var(--text-dim);
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0 4px;
+        opacity: 0.4;
+      }
+      .hide-btn:hover {
+        opacity: 1;
+        color: var(--error);
+      }
+
+      footer {
+        margin-top: 24px;
+        padding-top: 8px;
+        border-top: 1px solid var(--card-border);
+        font-size: 10px;
+        color: var(--text-dim);
+      }
+      .htmx-indicator {
+        opacity: 0;
+        transition: opacity 0.2s;
+      }
+      .htmx-request .htmx-indicator {
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div>
+        <h1>Network Services</h1>
+        <span class="header-sub"
+          >{{ now }} | last scan: {{ last_scan[:16] or 'never' }}</span
+        >
+      </div>
+      <div class="header-actions">
+        <button
+          class="btn"
+          hx-post="/rescan"
+          hx-trigger="click"
+          hx-indicator="#scan-indicator"
+        >
+          rescan
+        </button>
+        <button class="btn" onclick="location.reload()">refresh</button>
+      </div>
+    </header>
+
+    <div
+      id="scan-indicator"
+      class="htmx-indicator"
+      style="text-align: center; color: var(--text-dim); margin-bottom: 12px"
+    >
+      scanning&hellip;
+    </div>
+
+    {% macro service_row(svc) %}
+    <div class="service {% if not svc.reachable %}unreachable{% endif %}">
+      <span
+        class="status-dot {% if svc.reachable %}ok{% else %}error{% endif %}"
+        title="{{ 'reachable' if svc.reachable else 'unreachable' }}"
+      ></span>
+      <span class="service-label"
+        >{{ svc.display_label | default(svc.label) }}</span
+      >
+      <a href="{{ svc.url }}" target="_blank" class="service-link"
+        >{{ svc.url }}</a
+      >
+      <button
+        class="hide-btn"
+        hx-post="/hide"
+        hx-vals='{"url":"{{ svc.url }}"}'
+        hx-swap="outerHTML"
+        hx-target="closest .service"
+        title="remove from this page"
+        onclick="this.closest('.service').remove()"
+      >
+        ✕
+      </button>
+    </div>
+    {%- endmacro %} {% for group in os_groups %}
+    <div class="section">
+      <div class="section-title">{{ group.os }}</div>
+      {% for device in group.devices %}
+      <div class="device-card">
+        <div class="device-header">{{ device.name }}</div>
+        <div class="device-services">
+          {% for s in device.services %} {{ service_row(s) }} {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+
+    <footer>network landing page :{{ port | default('8088') }}</footer>
+  </body>
+</html>

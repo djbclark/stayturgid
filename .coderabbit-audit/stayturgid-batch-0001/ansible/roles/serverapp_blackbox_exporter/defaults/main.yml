@@ -1,0 +1,44 @@
+---
+# serverapp_blackbox_exporter — own-mode blackbox_exporter adapter (Site Contract v1 §5 / Phase D).
+# Callers pass site_ns and site_dir as extra-vars. Never hard-code site_ns.
+
+serverapp_blackbox_exporter_home: "{{ lookup('env', 'HOME') }}"
+# Registry-seed generator (control/site_contract/generate_registry_seeds.py)
+# only substitutes the literal {{ lookup('env', 'HOME') }} pattern, not
+# nested var references — repeat it per-var here to match serverapp_openobserve's
+# convention, since config_dir/bin_path are declared in registry_sources.yml.
+serverapp_blackbox_exporter_config_dir: "{{ lookup('env', 'HOME') }}/.config/{{ site_ns }}/blackbox_exporter"
+serverapp_blackbox_exporter_config_path: "{{ lookup('env', 'HOME') }}/.config/{{ site_ns }}/blackbox_exporter/blackbox.yml"
+serverapp_blackbox_exporter_bin_path: "{{ lookup('env', 'HOME') }}/.local/bin/blackbox_exporter"
+serverapp_blackbox_exporter_logs_dir: "{{ lookup('env', 'HOME') }}/.config/{{ site_ns }}/logs"
+serverapp_blackbox_exporter_label: "com.{{ site_ns }}.blackbox_exporter"
+serverapp_blackbox_exporter_plist_path: "{{ lookup('env', 'HOME') }}/Library/LaunchAgents/{{ serverapp_blackbox_exporter_label }}.plist"
+serverapp_blackbox_exporter_version: "0.28.0"
+# M1-F-style MF-5: pinned sha256 of the release archive, per download arch.
+# Obtained from the upstream sha256sums.txt published alongside the release
+# (2026-07-21, recorded when this role was added). No Linux entries yet —
+# this role is macOS-only for now (no Linux host in inventory); add
+# linux-amd64/linux-arm64 hashes here when a systemd variant is built.
+serverapp_blackbox_exporter_archive_sha256:
+  darwin-arm64: "ec6c70ccca92e209dd22be76a4fa244f4bd31afdae3ddb2bb082144100ec52bb"
+  darwin-amd64: "12d7a3010235862d073bbb111b997870a50070bcda3b912bca8f0095cfda23c6"
+serverapp_blackbox_exporter_http_port: 9115
+serverapp_blackbox_exporter_http_address: "127.0.0.1"
+# Caddy's TLS cert is a real, publicly-trusted Let's Encrypt cert obtained
+# via Tailscale's cert integration (`tls { get_certificate tailscale }` in
+# serverapp_caddy's Caddyfile.j2, CN=<tailnet MagicDNS hostname>) — confirmed
+# live with `curl -v` (issuer "Let's Encrypt", verify ok). Not self-signed,
+# nothing to add to a trust store, and skipping verification would hide the
+# exact failure (cert expiry/revocation) this probe exists to catch. Probe
+# the real hostname (https://<caddy_public_hostname>), not 127.0.0.1 — the
+# cert's CN won't match 127.0.0.1 even though the cert itself is valid.
+serverapp_blackbox_exporter_http_tls_insecure_skip_verify: false
+serverapp_blackbox_exporter_health_url: "http://127.0.0.1:{{ serverapp_blackbox_exporter_http_port }}/probe?target=127.0.0.1&module=http_2xx"
+# Best-effort: verified per-deploy by the role (macOS unprivileged ICMP via
+# Go's x/net/icmp datagram-socket path is not guaranteed under every launchd
+# gui/<uid> context). The role drops the icmp scrape wiring and logs a
+# warning if this probe fails, rather than shipping a silently-broken check.
+serverapp_blackbox_exporter_icmp_probe_url: "http://127.0.0.1:{{ serverapp_blackbox_exporter_http_port }}/probe?target=127.0.0.1&module=icmp"
+# No default for serverapp_blackbox_exporter_uid — always supplied as an
+# extra-var by control/site_contract/serverapps.py (os.getuid()); fail
+# closed otherwise.

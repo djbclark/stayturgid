@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: serverapp_vector
+  author: stayturgid
+  description: Site Contract v1 vector adapter (own mode) — brew, base config, multi --config fragments, launchd.
+  license: MIT
+  min_ansible_version: "2.14"
+  platforms:
+    - name: macOS
+      versions:
+        - all
+dependencies: []

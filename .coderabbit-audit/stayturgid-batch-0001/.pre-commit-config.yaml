@@ -1,0 +1,323 @@
+---
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.21
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: mypy
+        args: [control/, device/termux/py/, ansible_collections/, tests/, just/tools/]
+        language: system
+        pass_filenames: false
+        files: '\.py$'
+
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.48.0
+    hooks:
+      - id: typos
+
+  - repo: local
+    hooks:
+      - id: shellcheck
+        name: shellcheck
+        entry: shellcheck
+        args: ["-S", "warning"]
+        language: system
+        types: [shell]
+
+  - repo: local
+    hooks:
+      - id: ts-compile
+        name: TypeScript Compile
+        entry: bash
+        args:
+          - -c
+          - |
+            set -euo pipefail
+            just build-ts
+            just check-ts
+            # Rebuilding can touch .js files beyond what this commit staged
+            # (e.g. an unrelated local edit sitting in the working tree, or a
+            # brand-new generated file that's untracked so `git diff` alone
+            # wouldn't see it). Fail and name them rather than silently
+            # `git add`-ing whatever changed — the developer reviews and
+            # stages, same as ruff --fix.
+            #
+            # Only flag what's NOT reflected in the index: unstaged edits to
+            # tracked files (git diff) plus brand-new untracked files (status
+            # `??`). Deliberately NOT `git status --porcelain` wholesale —
+            # that also matches files already staged for *this* commit,
+            # which is the normal, correct state right before committing.
+            dirty=$(
+              {
+                git diff --name-only -- just/tools docs/research
+                git status --porcelain --untracked-files=normal -- just/tools docs/research | grep '^??' | cut -c4-
+              } | sort -u | grep -E '\.(js|ts)$' || true
+            )
+            if [ -n "$dirty" ]; then
+              echo "error: TypeScript build produced unstaged changes:"
+              echo "$dirty" | sed 's/^/  /'
+              echo "Review these files, 'git add' them, then commit again."
+              exit 1
+            fi
+        language: system
+        files: '\.ts$'
+        pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: biome-check
+        name: biome check
+        entry: biome
+        args: [check, --no-errors-on-unmatched]
+        language: system
+        files: '^(just/tools/.*\.(js|ts)|docs/research/.*\.(js|ts)|control/static/.*\.css)$'
+
+  - repo: https://github.com/scop/pre-commit-shfmt
+    rev: v3.13.1-1
+    hooks:
+      - id: shfmt
+        # Pinned to the same v3.13.1 used in CI and (via brew) local dev --
+        # auto-installed by pre-commit itself, so contributors no longer
+        # need `brew install shfmt` and can't drift to a different version.
+        args: ["-d", "-i", "2", "-ci"]
+        # Upstream Gradle wrapper scripts; do not reformat.
+        exclude: '(^|/)gradlew$'
+
+  - repo: local
+    hooks:
+      - id: just-fmt
+        name: justfile format
+        entry: bash
+        args: ["-c", "just --fmt --check"]
+        language: system
+        files: '^(justfile|just/.*\.just|examples/.*/justfile)$'
+
+  - repo: local
+    hooks:
+      - id: prettier
+        name: prettier
+        entry: prettier
+        args: ["--check"]
+        language: system
+        files: '\.(md(\.example)?|html|css|toml|ini)$'
+
+  - repo: local
+    hooks:
+      - id: markdownlint
+        name: markdownlint
+        entry: markdownlint
+        args: ["--config", ".markdownlint.json"]
+        language: system
+        files: '\.md(\.example)?$'
+
+  - repo: local
+    hooks:
+      - id: site-contract-check
+        name: site-contract Entangled + registry seeds
+        entry: bash
+        args:
+          - -c
+          - |
+            if [[ -x .venv-test/bin/python ]]; then
+              py=.venv-test/bin/python
+            else
+              py=python3
+            fi
+            "$py" -m control.site_contract.check_entangled &&
+              "$py" -m control.site_contract.generate_registry_seeds --check
+        language: system
+        pass_filenames: false
+        files: '^(SITE-CONTRACT\.md|entangled\.toml|control/site_contract/)'
+
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        args: [-c, .yamllint]
+
+  - repo: local
+    hooks:
+      - id: caddy-fmt
+        name: caddy fmt
+        entry: bash
+        args:
+          - -c
+          - |
+            if ! command -v caddy >/dev/null; then
+              echo 'caddy not installed — skipping'; exit 0
+            fi
+            if caddy fmt --diff control/caddy/Caddyfile | grep -q '^[+-]'; then
+              echo 'Caddyfile needs formatting — run caddy fmt --overwrite control/caddy/Caddyfile'
+              exit 1
+            fi
+        language: system
+        files: '^control/caddy/Caddyfile$'
+
+  - repo: local
+    hooks:
+      - id: yamllint-examples
+        name: yamllint (examples)
+        entry: bash
+        args: ["-c", "PATH=\"$HOME/.local/bin:$PATH\"; yamllint -c .yamllint \"$@\"", "--"]
+        language: system
+        files: '\.yml\.example$'
+
+  - repo: local
+    hooks:
+      - id: dotenv-linter
+        name: dotenv-linter
+        entry: dotenv-linter
+        args: ["check"]
+        language: system
+        files: '\.env(\.example)?$'
+
+  - repo: local
+    hooks:
+      - id: pyinilint
+        name: pyinilint
+        entry: bash
+        args: ["-c", "PATH=\"$HOME/.local/bin:$PATH\"; pyinilint \"$@\"", "--"]
+        language: system
+        files: '\.ini$'
+
+  - repo: local
+    hooks:
+      - id: ansible-lint-examples
+        name: ansible-lint (examples)
+        entry: bash
+        args:
+          - -c
+          - |
+            for d in examples/consumer-*/; do
+              (cd "$d" && ansible-lint --exclude ../../ playbook.yml) || exit 1
+            done
+        language: python
+        additional_dependencies: [ansible-lint]
+        pass_filenames: false
+        files: '^examples/consumer-.*/(ansible\.cfg|playbook\.yml|requirements\.yml|inventory/.*)$'
+
+  - repo: local
+    hooks:
+      - id: ansible-lint-project
+        name: ansible-lint
+        entry: >-
+          bash -c 'ansible-galaxy collection install -r ansible/requirements.yml
+          -p .ansible/collections >/dev/null 2>&1 || true; cd ansible &&
+          ansible-lint playbooks/ ../ansible_collections/stayturgid/'
+        language: python
+        additional_dependencies: [ansible-lint]
+        pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: html-validate
+        name: html-validate
+        entry: bash
+        args:
+          - -c
+          - |
+            if [ ! -d node_modules ]; then
+              echo 'html-validate not available (run bun install) — skipping'; exit 0
+            fi
+            for f in "$@"; do
+              cleaned="$(mktemp -t htmlvld.XXXXXX)"
+              python3 just/tools/html_strip_jinja.py "$f" > "$cleaned" 2>/dev/null
+              if ! bunx html-validate --config .html-validate.json "$cleaned" >/dev/null 2>&1; then
+                errors=$(bunx html-validate --config .html-validate.json "$cleaned" 2>&1 | grep -c 'error' || true)
+                if [ "$errors" -gt 0 ]; then
+                  echo "FAIL: $f ($errors errors)"
+                  rm -f "$cleaned"
+                  exit 1
+                fi
+              fi
+              rm -f "$cleaned"
+            done
+        language: system
+        files: '\.html$'
+
+  - repo: local
+    hooks:
+      - id: stylelint
+        name: stylelint
+        entry: bunx
+        args:
+          - stylelint
+          - --fix
+          - --config
+          - .stylelintrc.json
+        language: system
+        files: '\.css$'
+
+
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.9
+    hooks:
+      - id: bandit
+        args: ["-ll"]
+        exclude: "^tests/"
+
+  - repo: local
+    hooks:
+      - id: semgrep
+        name: semgrep
+        # exported_activity: false positive for required LAUNCHER activities (native-agent).
+        entry: semgrep scan --config auto --quiet --error --exclude .github --exclude-rule java.android.security.exported_activity.exported_activity
+        language: system
+        pass_filenames: false
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: kotlin-format
+        name: Kotlin format (Spotless + ktfmt)
+        entry: bash
+        args:
+          - -c
+          - |
+            cd device/native-agent || exit 0
+            if [ ! -f gradlew ]; then exit 0; fi
+            # Gradle 8.x needs JDK 17–21; fall back if default is newer.
+            for v in 21 17; do
+              jh="/opt/homebrew/opt/openjdk@$v/libexec/openjdk.jdk/Contents/Home"
+              [ -d "$jh" ] && export JAVA_HOME="$jh" && break
+            done
+            ./gradlew spotlessCheck --quiet 2>&1
+            rc=$?
+            if [ $rc -ne 0 ]; then
+              echo ""
+              echo "Kotlin formatting violations found."
+              echo "Run:  cd device/native-agent && ./gradlew spotlessApply"
+              exit 1
+            fi
+        language: system
+        files: '^device/native-agent/.*\.(kt|kts)$'
+        pass_filenames: false
+
+      - id: kotlin-detekt
+        name: Kotlin static analysis (detekt)
+        entry: bash
+        args:
+          - -c
+          - |
+            cd device/native-agent || exit 0
+            if [ ! -f gradlew ]; then exit 0; fi
+            # Gradle 8.x needs JDK 17–21; fall back if default is newer.
+            for v in 21 17; do
+              jh="/opt/homebrew/opt/openjdk@$v/libexec/openjdk.jdk/Contents/Home"
+              [ -d "$jh" ] && export JAVA_HOME="$jh" && break
+            done
+            ./gradlew detekt --quiet 2>&1
+        language: system
+        files: '^device/native-agent/.*\.kt$'
+        pass_filenames: false

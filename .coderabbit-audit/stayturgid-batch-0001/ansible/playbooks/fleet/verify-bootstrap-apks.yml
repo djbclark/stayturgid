@@ -1,0 +1,74 @@
+---
+# Post-convergence verification: every bootstrap APK must match the immutable
+# version lock. In check mode, missing/stale packages are reported without
+# failing because the preceding ensure pass intentionally made no changes.
+# Runs over ADB — no device SSH required.
+#
+#   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
+#     ansible/playbooks/fleet/verify-bootstrap-apks.yml --limit oneui-device
+- name: stayturgid verify bootstrap APK versions
+  hosts: stayturgid
+  gather_facts: false
+  tags: [bootstrap-apks, verify-bootstrap-apks]
+  tasks:
+    - name: Resolve ADB target
+      ansible.builtin.set_fact:
+        _vfy_adb: "{{ target_device | default(lookup('stayturgid.android_common.adb_device', inventory_hostname)) }}"
+      delegate_to: localhost
+
+    - name: Load bootstrap APK defaults
+      ansible.builtin.include_vars:
+        file: ../../../ansible_collections/stayturgid/android_common/roles/bootstrap_apks/defaults/main.yml
+
+    - name: Check each bootstrap APK version
+      ansible.builtin.include_tasks: ../../../ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/check_apk.yml
+      loop: "{{ stayturgid_bootstrap_apks }}"
+      loop_control:
+        label: "{{ _apk.id }}"
+        loop_var: _apk
+
+    - name: Extract missing APK list
+      ansible.builtin.set_fact:
+        _vfy_missing_list: "{{ _vfy_results | selectattr('missing', 'true') | list }}"
+
+    - name: Extract stale APK list
+      ansible.builtin.set_fact:
+        _vfy_stale_list: "{{ _vfy_results | selectattr('stale', 'true') | list }}"
+
+    - name: Fail if any APKs are missing
+      ansible.builtin.assert:
+        that: ansible_check_mode or _vfy_missing_list | length == 0
+        fail_msg: >-
+          MISSING BOOTSTRAP APKs on {{ inventory_hostname }}:
+          {% for a in _vfy_missing_list %}- {{ a.id }} ({{ a.repo }})
+          {% endfor %}
+          The preceding normal-deploy ensure pass should have installed these;
+          this is a convergence defect.
+        success_msg: "All {{ stayturgid_bootstrap_apks | length }} bootstrap APKs present on {{ inventory_hostname }}"
+        quiet: true
+
+    - name: Warn about stale APK versions
+      ansible.builtin.debug:
+        msg: >-
+          STALE BOOTSTRAP APKs on {{ inventory_hostname }}:
+          {% for a in _vfy_stale_list %}- {{ a.id }} (installed={{ a.installed }}, latest={{ a.latest }})
+          {% endfor %}
+          A real normal deploy must reconcile these exact locked versions.
+      when: _vfy_stale_list | length > 0
+
+    - name: Fail if any APK versions remain stale
+      ansible.builtin.assert:
+        that: ansible_check_mode or _vfy_stale_list | length == 0
+        fail_msg: >-
+          STALE BOOTSTRAP APKs remain after convergence on {{ inventory_hostname }}:
+          {% for a in _vfy_stale_list %}- {{ a.id }}
+          (installed={{ a.installed }}, desired={{ a.latest }})
+          {% endfor %}
+        quiet: true
+
+    - name: Show all checked versions
+      ansible.builtin.debug:
+        msg: >-
+          {% for a in _vfy_results %}
+          {{ a.id }}: installed={{ a.installed if a.installed else 'MISSING' }} latest={{ a.latest }}
+          {% endfor %}

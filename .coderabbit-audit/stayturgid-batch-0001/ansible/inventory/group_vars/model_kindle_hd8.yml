@@ -1,0 +1,12 @@
+---
+# Kindle Fire HD 8 (KFRASWI / raspite), 800x1280.
+# Screen-control automation disabled for now (no UI tapping): Shizuku is
+# started via external-ADB starter, not by tapping the in-app Start button.
+# Shizuku Start tap coordinate (approximate wireless-debug section) — kept for
+# reference, commented out until/unless screen control is re-enabled:
+# stayturgid_shizuku_start_coords: { x: 400, y: 1100 }
+
+# The official otelcol contrib binary SIGSYSes under Fire OS seccomp (cilium/ebpf
+# memcg probe) — a hardware/OS property of this model, not site-specific.
+# Recovery would be a minimal OCB build (see M1-R review §D8).
+stayturgid_otelcol_enabled: false

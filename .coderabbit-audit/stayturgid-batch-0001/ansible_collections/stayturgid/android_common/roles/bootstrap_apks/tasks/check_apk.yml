@@ -1,0 +1,31 @@
+---
+# Check one bootstrap APK against the immutable version lock.
+# Accumulates result into _vfy_results list for post-loop analysis.
+# Expected vars: _apk, _vfy_adb
+
+- name: Query installed version on device — {{ _apk.id }}
+  ansible.builtin.shell: >
+    adb -s {{ _vfy_adb }} shell
+    "dumpsys package {{ _apk.id }} 2>/dev/null | grep versionName | head -1"
+  register: _check_dev
+  # dumpsys is read-only; retain it during --check so deploy-check reports the
+  # device's actual installed versions instead of treating all APKs as missing.
+  check_mode: false
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+
+- name: Accumulate result — {{ _apk.id }}
+  ansible.builtin.set_fact:
+    _vfy_results: >-
+      {{ _vfy_results | default([]) + [dict(
+        id=_apk.id,
+        repo=_apk.gh_repo,
+        installed=(_check_dev.stdout | default('') | regex_replace('.*versionName=', '')).strip(),
+        latest=_apk.version_name,
+        missing=(_check_dev.stdout | default('') | trim) == '',
+        gh_failed=false,
+        stale=(_check_dev.stdout | default('') | trim) != ''
+              and (_check_dev.stdout | default('') | regex_replace('.*versionName=', '')).strip()
+                  != _apk.version_name
+      )] }}

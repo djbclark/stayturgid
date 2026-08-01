@@ -1,0 +1,275 @@
+---
+# Own-mode vector lifecycle: brew (never upgrade) → dirs → base config →
+# validate (base + fragment --config files) → plist → bootstrap → health.
+# Does not delete legacy com.stayturgid.vector (retirement is D7).
+
+- name: Resolve vector binary path
+  ansible.builtin.set_fact:
+    serverapp_vector_bin: "{{ serverapp_vector_bin }}"
+
+- name: Check whether vector formula is installed
+  ansible.builtin.command:
+    cmd: brew list --formula vector
+  register: _vector_brew_list
+  changed_when: false
+  failed_when: false
+
+- name: Install vector via Homebrew when absent (never upgrade)
+  community.general.homebrew:
+    name: vectordotdev/brew/vector
+    state: present
+  when: _vector_brew_list.rc != 0
+
+- name: Pin vector formula in Homebrew to prevent drift
+  ansible.builtin.command:
+    cmd: brew pin vector
+  register: _vector_pin
+  changed_when: "'already pinned' not in (_vector_pin.stderr | default(''))"
+  # Degrade gracefully if the formula is somehow absent (e.g. a failed install)
+  # instead of aborting the play; only a genuine unexpected error fails.
+  failed_when:
+    - _vector_pin.rc != 0
+    - "'already pinned' not in (_vector_pin.stderr | default(''))"
+    - "'not installed' not in (_vector_pin.stderr | default(''))"
+    - "'No available formula' not in (_vector_pin.stderr | default(''))"
+
+- name: Resolve vector binary after install
+  ansible.builtin.command:
+    cmd: brew --prefix vector
+  register: _vector_prefix
+  changed_when: false
+  failed_when: false
+
+- name: Set vector binary from brew prefix when available
+  ansible.builtin.set_fact:
+    serverapp_vector_bin: "{{ _vector_prefix.stdout.strip() }}/bin/vector"
+  when:
+    - _vector_prefix.rc == 0
+    - _vector_prefix.stdout is defined
+    - (_vector_prefix.stdout | trim | length) > 0
+
+- name: Ensure vector config, data, and log directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "{{ '0700' if item == serverapp_vector_config_dir else '0755' }}"
+  loop:
+    - "{{ serverapp_vector_config_dir }}"
+    - "{{ serverapp_vector_data_dir }}"
+    - "{{ serverapp_vector_logs_dir }}"
+    - "{{ serverapp_vector_home }}/Library/LaunchAgents"
+
+- name: Load site group_vars for openobserve email when present
+  ansible.builtin.include_vars:
+    file: "{{ site_dir }}/inventory/group_vars/all.yml"
+    name: _site_all_vars
+  failed_when: false
+
+- name: Apply openobserve email from site inventory when defined
+  ansible.builtin.set_fact:
+    serverapp_vector_openobserve_email: >-
+      {{
+        serverapp_vector_openobserve_email
+        if (serverapp_vector_openobserve_email | default('', true) | length) > 0
+        else (_site_all_vars.openobserve_root_email | default('', true))
+      }}
+  when: _site_all_vars is defined
+
+- name: Render own-mode base vector.yaml
+  ansible.builtin.template:
+    src: vector.yaml.j2
+    dest: "{{ serverapp_vector_config_path }}"
+    mode: "0600"
+  register: _vector_config
+
+- name: Build vector validate argument list (base + fragments)
+  ansible.builtin.set_fact:
+    # Keep as a Jinja list (YAML >- would stringify). Fragments are comma-separated.
+    _vector_validate_args: >-
+      {{
+        [serverapp_vector_config_path]
+        + (
+          (serverapp_vector_fragment_configs | default('', true) | string)
+          .split(',') | map('trim') | reject('equalto', '') | list
+        )
+      }}
+
+- name: Validate vector configs before activate
+  ansible.builtin.command:
+    argv: >-
+      {{
+        [
+          serverapp_vector_bin,
+          'validate',
+          '--dangerously-allow-env-var-interpolation',
+          '--skip-healthchecks'
+        ] + _vector_validate_args
+      }}
+  environment:
+    OPENOBSERVE_ROOT_EMAIL: "{{ serverapp_vector_openobserve_email }}"
+    OPENOBSERVE_ROOT_PASSWORD: "{{ serverapp_vector_openobserve_password }}"
+  no_log: true
+  register: _vector_validate
+  changed_when: false
+  # --skip-healthchecks: sink→openobserve health is runtime; config shape only here.
+
+# MF-4: vector reads its fragment --config files at start (no-copy, design
+# §1.3) — a site-sync fragment rewrite changes on-disk content the launch
+# args do not track. Compare a combined checksum of the fragment configs
+# against a recorded state file so a fragment-only edit still reloads.
+- name: Reload vector on fragment-content change
+  ansible.builtin.shell:
+    cmd: |
+      {% raw %}
+      set -eu
+      IFS=',' read -ra files <<< "$FRAGMENT_CONFIGS"
+      if [ ${#files[@]} -eq 0 ]; then
+        new="no-fragments"
+      else
+        new=$(shasum -a 256 -- "${files[@]}" | sort | shasum -a 256 | awk '{print $1}')
+      fi
+      old=""
+      [ -f "$STATE_FILE" ] && old=$(cat "$STATE_FILE")
+      if [ "$new" != "$old" ]; then
+        echo "$new" >"$STATE_FILE"
+        echo changed
+      else
+        echo unchanged
+      fi
+      {% endraw %}
+    executable: /bin/bash
+  environment:
+    FRAGMENT_CONFIGS: "{{ serverapp_vector_fragment_configs }}"
+    STATE_FILE: "{{ serverapp_vector_config_dir }}/.fragments.sha256"
+  register: _vector_fragments_reload
+  changed_when: _vector_fragments_reload.stdout | trim == 'changed'
+
+- name: Render vector launchd plist under site namespace
+  ansible.builtin.template:
+    src: vector.plist.j2
+    dest: "{{ serverapp_vector_plist_path }}"
+    mode: "0600"
+  register: _vector_plist
+  no_log: true
+
+- name: Probe whether site-namespace vector label is loaded
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_vector_uid }}/{{ serverapp_vector_label }}" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _vector_launch_state
+  changed_when: false
+
+# Phase D migration (design §1.9): old and new cannot share 4317/4318. Boot out
+# the legacy product-namespace label when present; leave its plist on disk
+# (retirement is D7). Skip when already unloaded.
+- name: Probe legacy product-namespace vector label
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ serverapp_vector_uid }}/com.stayturgid.vector" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _vector_legacy_state
+  changed_when: false
+
+- name: Pre-health-check before legacy cutover (old daemon must be listening)
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: 4318
+    timeout: 5
+  when:
+    - _vector_legacy_state.stdout | trim == 'loaded'
+    - _vector_launch_state.stdout | trim == 'unloaded'
+  register: _vector_pre_health
+
+- name: Boot out legacy com.stayturgid.vector (plist retained on disk)
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_vector_uid }}/com.stayturgid.vector
+  when:
+    - _vector_legacy_state.stdout | trim == 'loaded'
+    - _vector_launch_state.stdout | trim == 'unloaded'
+  register: _vector_legacy_bootout
+
+# R1 must-fix (MF-1): bootout is session-scoped — the retained legacy
+# plist (RunAtLoad + KeepAlive) would re-bootstrap at next login and fight the
+# site label for 4317/4318. Persistently disable the label; keep the plist for
+# rollback/D7. Rollback:
+#   launchctl bootout gui/<uid>/com.<site_ns>.vector \
+#     && launchctl enable gui/<uid>/com.stayturgid.vector \
+#     && launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/com.stayturgid.vector.plist
+- name: Check whether legacy vector plist remains on disk
+  ansible.builtin.stat:
+    path: "{{ serverapp_vector_home }}/Library/LaunchAgents/com.stayturgid.vector.plist"
+  register: _vector_legacy_plist
+
+- name: Probe whether legacy vector label is persistently disabled
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print-disabled "gui/{{ serverapp_vector_uid }}" 2>/dev/null \
+      | grep -Eq '"com\.stayturgid\.vector" => (true|disabled)'; then
+      echo disabled
+    else
+      echo enabled
+    fi
+  args:
+    executable: /bin/bash
+  register: _vector_legacy_disabled
+  changed_when: false
+  when: _vector_legacy_plist.stat.exists
+
+- name: Persistently disable legacy vector label (survives login; plist retained)
+  ansible.builtin.command:
+    cmd: launchctl disable gui/{{ serverapp_vector_uid }}/com.stayturgid.vector
+  when:
+    - _vector_legacy_plist.stat.exists
+    - (_vector_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
+  register: _vector_legacy_disable
+
+- name: Boot out site-namespace vector when its launchd plist changed
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_vector_uid }}/{{ serverapp_vector_label }}
+  when:
+    - _vector_launch_state.stdout | trim == 'loaded'
+    - _vector_plist.changed | default(false)
+  register: _vector_plist_reload_bootout
+
+- name: Bootstrap site-namespace vector when unloaded or its plist changed
+  ansible.builtin.command:
+    cmd: >-
+      launchctl bootstrap gui/{{ serverapp_vector_uid }}
+      {{ serverapp_vector_plist_path }}
+  when: >-
+    (_vector_launch_state.stdout | trim == 'unloaded')
+    or (_vector_plist_reload_bootout.changed | default(false))
+  register: _vector_bootstrap
+  until: _vector_bootstrap.rc == 0
+  retries: 5
+  delay: 1
+
+- name: Kickstart site-namespace vector after base config-only change
+  ansible.builtin.command:
+    cmd: >-
+      launchctl kickstart -k gui/{{ serverapp_vector_uid }}/{{ serverapp_vector_label }}
+  when:
+    - _vector_launch_state.stdout | trim == 'loaded'
+    - (_vector_config.changed | default(false)) or (_vector_fragments_reload.changed | default(false))
+    - not (_vector_plist.changed | default(false))
+  register: _vector_kickstart
+
+- name: Wait for vector health endpoint
+  ansible.builtin.uri:
+    url: "{{ serverapp_vector_health_url }}"
+    status_code: 200
+  register: _vector_health
+  until: _vector_health.status == 200
+  retries: 30
+  delay: 1

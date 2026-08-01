@@ -1,0 +1,10 @@
+---
+# Backward-compatible FQCN redirects. Prefer domain collections for new playbooks:
+#   stayturgid.termux.termux_pkg
+#   stayturgid.play.play_apps
+plugin_routing:
+  modules:
+    termux_pkg:
+      redirect: stayturgid.termux.termux_pkg
+    play_apps:
+      redirect: stayturgid.play.play_apps

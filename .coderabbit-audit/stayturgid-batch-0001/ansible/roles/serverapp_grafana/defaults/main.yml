@@ -1,0 +1,47 @@
+---
+# serverapp_grafana — own-mode Grafana adapter (Site Contract v1 §5 / Phase D).
+# Callers pass site_ns and site_dir as extra-vars. Never hard-code site_ns.
+# Product fragments live under site_dir/generated/stayturgid/fragments/grafana/.
+
+serverapp_grafana_home: "{{ lookup('env', 'HOME') }}"
+serverapp_grafana_config_dir: "{{ serverapp_grafana_home }}/.config/{{ site_ns }}/grafana"
+serverapp_grafana_ini_path: "{{ serverapp_grafana_config_dir }}/grafana.ini"
+serverapp_grafana_data_dir: "{{ serverapp_grafana_config_dir }}/data"
+serverapp_grafana_logs_dir: "{{ serverapp_grafana_home }}/.config/{{ site_ns }}/logs"
+serverapp_grafana_plugins_dir: "{{ serverapp_grafana_config_dir }}/plugins"
+# Provisioning root = committed product fragments (no copy step; §1.3).
+serverapp_grafana_provisioning_dir: "{{ site_dir }}/generated/stayturgid/fragments/grafana"
+serverapp_grafana_label: "com.{{ site_ns }}.grafana"
+serverapp_grafana_plist_path: "{{ serverapp_grafana_home }}/Library/LaunchAgents/{{ serverapp_grafana_label }}.plist"
+serverapp_grafana_bin: /opt/homebrew/bin/grafana
+serverapp_grafana_homepath: /opt/homebrew/opt/grafana/share/grafana
+serverapp_grafana_http_addr: "127.0.0.1"
+serverapp_grafana_http_port: 3000
+serverapp_grafana_health_url: "http://127.0.0.1:{{ serverapp_grafana_http_port }}/api/health"
+# Choice E (D7-ROUTES-E): front-door subpath. Callers pass public hostname
+# via serverapps extra-vars when Caddy serves /grafana/; defaults stay
+# loopback-only for sites without a public front door.
+serverapp_grafana_domain: "localhost"
+serverapp_grafana_root_url: "http://127.0.0.1:{{ serverapp_grafana_http_port }}/"
+serverapp_grafana_serve_from_sub_path: false
+# Referenced by both grafana.ini.j2 and this role's Alerting API task (single
+# source, not duplicated) — brew default; operator should change if exposed.
+serverapp_grafana_admin_user: admin
+serverapp_grafana_admin_password: admin
+# Telegram contact point for blackbox_exporter alert rules (see
+# sync_templates/fragments/grafana/alerting/rules.yaml.j2 — deliberately NOT
+# file-provisioned; Grafana hard-fails startup if a file-provisioned
+# contact-point's settings are empty, so this must be applied via the
+# Alerting HTTP API after Grafana is already running). Bot token reuses the
+# same TELEGRAM_BOT_TOKEN env var as the Hermes gateway
+# (ansible/roles/control_node/tasks/hermes.yml) — never committed. Chat id
+# defaults to the site's stayturgid_hermes_telegram_home_channel when unset
+# here (loaded from site inventory in tasks/main.yml); override this var to
+# use a distinct bot/chat instead of reusing Hermes's.
+serverapp_grafana_telegram_chat_id: ""
+# No default for serverapp_grafana_uid — always supplied as an extra-var by
+# control/site_contract/serverapps.py (os.getuid()); fail closed otherwise.
+
+serverapp_grafana_openobserve_email: "{{ lookup('env', 'OPENOBSERVE_ROOT_EMAIL') | default('', true) }}"
+serverapp_grafana_openobserve_password: "{{ lookup('env', 'OPENOBSERVE_ROOT_PASSWORD') | default('', true) }}"
+serverapp_grafana_openobserve_base_uri: "{{ lookup('env', 'OPENOBSERVE_BASE_URI') | default('', true) }}"

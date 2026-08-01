@@ -1,0 +1,54 @@
+---
+# Nightly / on-demand Termux package update + full upgrade (all fleet hosts).
+#
+# Uses the same stayturgid.termux.termux_pkg path as termux_userland deploy:
+#   pkg update → apt-get full-upgrade (or pkg upgrade -y) → re-pin mirror.
+#
+#   ANSIBLE_CONFIG=ansible/ansible.cfg \
+#     ansible-playbook ansible/playbooks/fleet/termux-pkg-upgrade.yml
+#   just termux-pkg-upgrade [HOSTS=oneui-device]
+#   python3 control/bin/termux_pkg_nightly.py
+#
+# Scheduled via Mac launchd com.stayturgid.termux-pkg-nightly (see control_node).
+- name: stayturgid Termux package update/upgrade
+  hosts: stayturgid
+  gather_facts: false
+  serial: "{{ stayturgid_termux_pkg_upgrade_serial | default(1) }}"
+  tasks:
+    - name: Skip when nightly Termux pkg upgrade disabled on host
+      ansible.builtin.meta: end_host
+      when: not (stayturgid_termux_pkg_upgrade_enabled | default(true) | bool)
+
+    - name: Resolve Termux package mirror URL
+      ansible.builtin.set_fact:
+        _st_termux_mirror: >-
+          {{ stayturgid_termux_mirror
+             | default('https://packages-cf.termux.dev/apt/termux-main') }}
+
+    - name: Pin Termux main mirror before pkg operations
+      ansible.builtin.copy:
+        dest: "{{ termux_prefix }}/etc/apt/sources.list"
+        content: "deb {{ _st_termux_mirror }} stable main\n"
+        mode: "0644"
+
+    - name: Update package indexes and full-upgrade Termux packages
+      stayturgid.termux.termux_pkg:
+        name: []
+        state: present
+        update_cache: true
+        upgrade: true
+        force_confold: true
+        _termux_prefix: "{{ termux_prefix }}"
+      register: stayturgid_termux_pkg_nightly
+
+    - name: Re-pin Termux main mirror after pkg operations
+      ansible.builtin.copy:
+        dest: "{{ termux_prefix }}/etc/apt/sources.list"
+        content: "deb {{ _st_termux_mirror }} stable main\n"
+        mode: "0644"
+
+    - name: Report nightly Termux pkg result
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}: changed={{ stayturgid_termux_pkg_nightly.changed }}
+          {{ stayturgid_termux_pkg_nightly.msg | default('') }}

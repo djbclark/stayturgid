@@ -1,0 +1,11 @@
+---
+# Galaxy collections required by stayturgid playbooks.
+# Domain collections (stayturgid.termux, etc.) are discovered from ansible_collections/
+# via collections_path in ansible/ansible.cfg — no separate install needed in dev.
+#
+# Install: ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections
+collections:
+  - name: ansible.posix
+    version: "2.2.2"
+  - name: community.general
+    version: "13.2.0"

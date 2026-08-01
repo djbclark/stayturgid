@@ -1,0 +1,22 @@
+---
+# Unified app ensure specs — each entry picks a source backend.
+#
+# Supported sources (control-node, delegate_to: localhost):
+#   play — stayturgid.play.play_apps (apkeep/gplaycli + adb)
+#   apk  — stayturgid.android_common.android_apk (local/url/gh)
+#
+# Example:
+# stayturgid_ensure_apps:
+#   - id: com.google.android.apps.authenticator2
+#     source: play
+#   - id: org.stayturgid.agent
+#     source: apk
+#     gh_repo: djbclark/stayturgid
+#     gh_tag: agent-v0.6.0
+#     gh_pattern: app-release.apk
+#     version_name: 0.6.0-boot-stability
+#     checksum: "sha256:..."
+
+stayturgid_ensure_apps: []
+stayturgid_ensure_apps_device: "{{ target_device | default(inventory_hostname) }}"
+stayturgid_repo_root: "{{ ansible_config_file | dirname | dirname }}"

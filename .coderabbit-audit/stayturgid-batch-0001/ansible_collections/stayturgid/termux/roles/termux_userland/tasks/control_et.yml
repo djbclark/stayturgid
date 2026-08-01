@@ -1,0 +1,80 @@
+---
+# @heals: ET-CONFIG
+# Phone → Mac Eternal Terminal: SSH config + package + self-heal share copy.
+# Requires inventory stayturgid_control_tailscale_ip or stayturgid_mac_peer.tailscale.
+- name: Resolve control-node Tailscale IP for ET SSH config
+  ansible.builtin.set_fact:
+    _control_et_ts_ip: >-
+      {{
+        stayturgid_control_tailscale_ip
+        | default(stayturgid_mac_peer.tailscale | default(''), true)
+      }}
+    _control_et_enabled: >-
+      {{
+        stayturgid_control_et_enabled | default(true) | bool
+      }}
+
+- name: Skip control-ET when no Tailscale IP configured
+  ansible.builtin.debug:
+    msg: >-
+      stayturgid_control_et skipped: set stayturgid_control_tailscale_ip
+      or stayturgid_mac_peer.tailscale in inventory/group_vars.
+  when:
+    - _control_et_enabled | bool
+    - not (_control_et_ts_ip | length > 0)
+
+- name: Ensure Eternal Terminal client package (et)
+  stayturgid.termux.termux_pkg:
+    name: [et]
+    state: present
+    update_cache: false
+    upgrade: false
+    force_confold: true
+    _termux_prefix: "{{ termux_prefix }}"
+  when:
+    - _termux_home_stat.stat.exists
+    - _control_et_enabled | bool
+    - _control_et_ts_ip | length > 0
+    - stayturgid_control_et_install_pkg | default(true) | bool
+
+- name: Ensure stayturgid share directory for ET self-heal
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.stayturgid/share"
+    state: directory
+    mode: "0755"
+  when:
+    - _termux_home_stat.stat.exists
+    - _control_et_enabled | bool
+    - _control_et_ts_ip | length > 0
+
+- name: Render control-ET SSH config fragment to share (self-heal source)
+  ansible.builtin.template:
+    src: ssh_config_control_et.j2
+    dest: "{{ termux_home }}/.stayturgid/share/ssh-config-control-et"
+    mode: "0644"
+  when:
+    - _termux_home_stat.stat.exists
+    - _control_et_enabled | bool
+    - _control_et_ts_ip | length > 0
+
+- name: Remove legacy unmarked Mac SSH config block
+  ansible.builtin.replace:
+    path: "{{ termux_home }}/.ssh/config"
+    regexp: '(?ms)^# MacBook Air via Tailscale.*?^    IdentitiesOnly yes[ \t]*\n?'
+    replace: ''
+  when:
+    - _termux_home_stat.stat.exists
+    - _control_et_enabled | bool
+    - _control_et_ts_ip | length > 0
+
+- name: Install control-ET SSH config marked block into ~/.ssh/config
+  ansible.builtin.blockinfile:
+    path: "{{ termux_home }}/.ssh/config"
+    create: true
+    mode: "0600"
+    marker: "# {mark} STAYTURGID-CONTROL-ET"
+    block: "{{ lookup('template', 'ssh_config_control_et.j2') }}"
+  when:
+    - _termux_home_stat.stat.exists
+    - _control_et_enabled | bool
+    - _control_et_ts_ip | length > 0

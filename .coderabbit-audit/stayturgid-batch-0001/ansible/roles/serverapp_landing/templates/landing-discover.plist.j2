@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{{ serverapp_landing_discover_label }}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{ serverapp_landing_python }}</string>
+        <string>{{ serverapp_landing_repo_root }}/control/landing/discover.py</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>{{ serverapp_landing_discover_interval | int }}</integer>
+    <key>WorkingDirectory</key>
+    <string>{{ serverapp_landing_repo_root }}</string>
+    <key>StandardOutPath</key>
+    <string>{{ serverapp_landing_logs_dir }}/landing-discover.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ serverapp_landing_logs_dir }}/landing-discover.error.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>{{ serverapp_landing_home }}</string>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>STAYTURGID_SITE_DIR</key>
+        <string>{{ site_dir }}</string>
+    </dict>
+</dict>
+</plist>

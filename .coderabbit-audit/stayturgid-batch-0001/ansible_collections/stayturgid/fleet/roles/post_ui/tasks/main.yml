@@ -1,0 +1,32 @@
+---
+# Post-deploy screen-control UI tasks (ADR 002). Scripts stay Python; Ansible orchestrates.
+
+- name: "ACTION REQUIRED: unlock screen before post-deploy UI"
+  ansible.builtin.command:
+    argv:
+      - adb
+      - -s
+      - "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+      - shell
+      - dumpsys trust; dumpsys window policy
+  register: _post_ui_lock_state
+  changed_when: false
+  until: >-
+    _post_ui_lock_state.rc == 0
+    and (_post_ui_lock_state.stdout | default('')) is search('deviceLocked=0')
+    and (_post_ui_lock_state.stdout | default('')) is search('screenState=SCREEN_STATE_ON')
+  retries: "{{ stayturgid_post_ui_unlock_retries }}"
+  delay: "{{ stayturgid_post_ui_unlock_retry_delay }}"
+  delegate_to: localhost
+  when:
+    - not ansible_check_mode
+    - stayturgid_app_stores_enabled | default(false) | bool
+  tags: [post-ui, app-stores, play, full]
+
+
+# AutoJs6 Shizuku drawer enable task removed: AutoJs6 was uninstalled
+# fleet-wide as part of the K1 native-agent cutover (2026-07-22, confirmed
+# live on all three devices 2026-07-25 — see
+# docs/operations/sessions/session-2026-07-25-k1-verification.md). This task
+# unconditionally failed every deploy trying to configure an app that no
+# longer exists on any device.

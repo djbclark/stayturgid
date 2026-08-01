@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{{ serverapp_vector_label }}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{ serverapp_vector_bin }}</string>
+        <string>--dangerously-allow-env-var-interpolation</string>
+        <string>--config</string>
+        <string>{{ serverapp_vector_config_path }}</string>
+{% for frag in (serverapp_vector_fragment_configs | default('', true) | string).split(',') if frag | trim | length > 0 %}
+        <string>--config</string>
+        <string>{{ frag | trim }}</string>
+{% endfor %}
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>{{ serverapp_vector_logs_dir }}/vector.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ serverapp_vector_logs_dir }}/vector.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>{{ serverapp_vector_home }}</string>
+        <key>OPENOBSERVE_ROOT_EMAIL</key>
+        <string>{{ serverapp_vector_openobserve_email | default('', true) }}</string>
+        <key>OPENOBSERVE_ROOT_PASSWORD</key>
+        <string>{{ serverapp_vector_openobserve_password | default('', true) }}</string>
+    </dict>
+</dict>
+</plist>

@@ -1,0 +1,10 @@
+---
+# ansible-lint config (standard Ansible project practice).
+profile: moderate
+exclude_paths:
+  - tests/
+skip_list:
+  - name[casing]          # handler names are lowercase by convention here
+  # stayturgid_ is the deliberate shared prefix across roles + site file;
+  # per-role prefixes would fragment the variable vocabulary.
+  - var-naming[no-role-prefix]

@@ -1,0 +1,219 @@
+---
+# Resolve from the explicit site-wrapper override when present; otherwise the
+# collection role path is authoritative even when ANSIBLE_CONFIG belongs to a
+# sibling private site checkout.
+stayturgid_repo_root: >-
+  {{
+    lookup('env', 'STAYTURGID_ROOT')
+    | default(role_path | dirname | dirname | dirname | dirname | dirname, true)
+  }}
+
+# How often (in seconds) the Termux boot-heal loop and fleet health monitors
+# run. Change this single value to adjust all periodic timers. 900 = 15 min.
+stayturgid_interval_sec: 900
+
+stayturgid_termux_packages:
+  - openssh
+  - android-tools
+  - abseil-cpp
+  - libprotobuf
+  - protobuf
+  - wget
+  - git
+  - python
+  - curl
+  - termux-api
+  - runit
+  - cfengine
+  # ansible.posix.synchronize (#166 item 1) needs rsync on both ends of the
+  # Termux SSH transport -- installed before the sync tasks further down.
+  - rsync
+
+# Edge OpenTelemetry Collector. The official contrib archive is downloaded
+# once to the Mac controller, checksum/ELF-architecture verified, then copied
+# to each supported Termux device. Bump version, URL, and SHA-256 together.
+stayturgid_otelcol_enabled: true
+stayturgid_otelcol_version: "0.156.0"
+stayturgid_otelcol_archive_arch: linux_arm64
+stayturgid_otelcol_archive_name: >-
+  otelcol-contrib_{{ stayturgid_otelcol_version }}_{{ stayturgid_otelcol_archive_arch }}.tar.gz
+stayturgid_otelcol_archive_url: >-
+  https://github.com/open-telemetry/opentelemetry-collector-releases/releases/download/v{{ stayturgid_otelcol_version }}/{{ stayturgid_otelcol_archive_name }}
+stayturgid_otelcol_archive_sha256: 1f9afe1d245b4babbb4bcb7d6b57ba2836b3b23c5f61b38abc00ab461f049288
+stayturgid_otelcol_cache_dir: >-
+  {{ lookup('env', 'HOME') }}/.cache/stayturgid/otelcol-contrib/{{ stayturgid_otelcol_version }}
+stayturgid_otelcol_cached_binary: "{{ stayturgid_otelcol_cache_dir }}/otelcol-contrib"
+stayturgid_otelcol_supported_uname_arches:
+  - aarch64
+  - arm64
+stayturgid_otelcol_binary: "{{ termux_home }}/.stayturgid/bin/otelcol-contrib"
+stayturgid_otelcol_config: "{{ termux_home }}/.stayturgid/otel-config.yaml"
+stayturgid_otelcol_state_dir: "{{ termux_home }}/.stayturgid/state/otelcol"
+stayturgid_otelcol_pid_file: "{{ termux_home }}/.stayturgid/run/otelcol.pid"
+stayturgid_otelcol_boot_script: "{{ termux_home }}/.termux/boot/start-otelcol.sh"
+stayturgid_otelcol_endpoint: "http://{{ stayturgid_control_tailscale_ip }}:4318"
+
+stayturgid_boot_scripts:
+  - start-adb.sh
+  - start-repair-bridge.sh
+
+# Boot scripts removed from the deploy list — deleted from devices on next deploy.
+# When you remove a script from stayturgid_boot_scripts, add it here.
+stayturgid_retired_boot_scripts:
+  # AutoJs6 was fully uninstalled fleet-wide during the K1 native-agent
+  # cutover verification (2026-07-25, issue #43). These two boot scripts only
+  # ever launched/restarted AutoJs6's own boot-launcher.js — the source files
+  # (device/termux/boot/start-autojs6-*.sh) and stayturgid_bridges.py's
+  # autojs6 mode were removed for good in the #162 cleanup; kept in this list
+  # so any device that hasn't deployed since retains its cleanup on the next
+  # run.
+  - start-autojs6-bridge.sh
+  - start-autojs6-watchdog.sh
+
+# Override examples (Termux-only, no AutoJs6):
+# stayturgid_boot_scripts: [start-adb.sh]
+
+# Real shell only (boot wrappers). Logic entrypoints are stayturgid_py_scripts.
+stayturgid_home_scripts: []
+
+# Python runtime scripts (twins that have finished their parity soak and now
+# ship as the deployed implementation). Copied flat from device/termux/py/ to ~/.
+# As each shell script is retired, it moves out of stayturgid_home_scripts and
+# its .py joins this list; the old ~/<name>.sh is removed via retired below.
+stayturgid_py_scripts:
+  - stayturgid_check_repo_version.py
+  - stayturgid_screen_awake_guard.py
+  - stayturgid_agent_presence.py
+  - stayturgid_battery_alarm.py
+  - stayturgid_repair.py
+  - stayturgid_bridges.py
+  - start_adb.py
+  - stayturgid_shell.py
+  - stayturgid_screen_control.py
+  - stayturgid_handsets.py
+  - stayturgid_rish.py
+  - stayturgid_peer_help.py
+  - stayturgid_peer_bootstrap.py
+  - stayturgid_peer_keepalive.py
+
+stayturgid_retired_py_scripts:
+  - bridges.py
+  # AutoJs6 remnants cleanup (#162) -- both scripts' only reachable caller
+  # chain was itself already fully dead (see the issue for the trace).
+  - stayturgid_grant_shizuku.py
+  - stayturgid_enable_autojs6.py
+  # AutoJs6 deprecation follow-up: the guard was still invoked every boot
+  # loop, but had been a permanent no-op since AutoJs6's uninstall (its own
+  # first check -- a stale "[watchdog] cycle start" log line -- can never
+  # be satisfied since AutoJs6 no longer writes that log at all).
+  - stayturgid_autojs6_guard.py
+
+
+# Restricted SSH ForceCommand wrapper (helpers only; see ssh_keys.yml F5).
+stayturgid_peer_help_force_script: stayturgid-peer-help-force.sh
+stayturgid_ssh_peerhelp_identity_key: id_ed25519_peerhelp
+stayturgid_ssh_peerhelp_force_command: true
+
+# Shared libs copied to ~/.stayturgid/lib/ (imported by on-device UI scripts).
+stayturgid_lib_files:
+  - src: control/lib/ui_parse.py
+    dest: ui_parse.py
+  - src: control/lib/ui_clearance.py
+    dest: ui_clearance.py
+  - src: control/lib/a11y_services.py
+    dest: a11y_services.py
+  - src: control/lib/termux_api.py
+    dest: termux_api.py
+  - src: control/lib/ui_guard.py
+    dest: ui_guard.py
+
+# Handsets daemon jar (Mac ~/.handsets/hs.jar → on-device lib; shell loads via
+# adb push to /data/local/tmp). Skip when missing on the control node.
+stayturgid_handsets_jar_src: "{{ lookup('env', 'HOME') }}/.handsets/hs.jar"
+# Default Handsets wire port for this host (peers.json + Fire peer bootstrap).
+stayturgid_handsets_port: 9012
+
+# Install Shizuku rish into Termux on every deploy (default).
+stayturgid_install_rish: true
+
+# Shared fleet ADB key (control node). One "Always allow" on a target covers
+# every helper that receives this keypair.
+stayturgid_fleet_adbkey_src: "{{ lookup('env', 'HOME') }}/.config/stayturgid/adbkey"
+stayturgid_deploy_fleet_adbkey: true
+
+# Data files for on-device post-UI automation.
+stayturgid_ui_data_files:
+  - src: control/lib/a11y_profiles.json
+    dest: a11y_profiles.json
+
+# Deployed shell scripts to remove from devices (migrated to Python).
+# Paths relative to termux_home (see termux_userland tasks).
+stayturgid_retired_scripts:
+  - check-repo-version.sh
+  - screen-awake-guard.sh
+  - stayturgid-battery-alarm.sh
+  - stayturgid-repair.sh
+  - agent-presence.sh
+  - claude-presence.sh
+  - repair-bridge.sh
+  - autojs6-bridge.sh
+  - .stayturgid/bin/stayturgid-repair.sh
+  - .stayturgid/bin/agent-presence.sh
+  - .stayturgid/bin/claude-presence.sh
+
+stayturgid_battery_color_assets:
+  - purple.png
+  - blue.png
+  - green.png
+  - yellow.png
+  - orange.png
+  - red.png
+  - black.png
+
+stayturgid_allow_external_apps: true
+
+# Fleet SSH keyring on the Ansible control node (never commit keys to git).
+# By default every *.pub under this directory is installed on every device via
+# ansible.posix.authorized_key; matching private keys (id_* without .pub,
+# termux_key) are copied to each device's ~/.ssh/ for device-to-device SSH.
+stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
+# Non-empty list overrides auto-discovery (paths on the control node).
+stayturgid_ssh_public_key_files: []
+stayturgid_ssh_distribute_private_keys: true
+
+# Fleet SSH mesh: per-device ed25519 identity + full known_hosts across the
+# stayturgid inventory group (authorized_key via ansible.posix; known_hosts
+# via ansible.builtin — there is no ansible.posix.known_hosts module).
+stayturgid_ssh_mesh_group: stayturgid
+stayturgid_ssh_mesh_device_identity: true
+stayturgid_ssh_device_identity_key: id_ed25519_fleet
+stayturgid_ssh_mesh_known_hosts: true
+
+# Phone → Mac Eternal Terminal (et). SSH config + optional et package.
+# IPs/user from inventory: stayturgid_control_* or stayturgid_mac_peer.
+stayturgid_control_et_enabled: true
+stayturgid_control_et_install_pkg: true
+stayturgid_control_et_port: 2022
+stayturgid_control_ssh_identity: "{{ stayturgid_ssh_device_identity_key }}"
+stayturgid_control_ssh_aliases:
+  - mac
+  - macbook
+# stayturgid_control_tailscale_ip / stayturgid_control_lan_ip / stayturgid_control_ssh_user
+# are site inventory vars (see ansible/inventory/group_vars/stayturgid.yml).
+
+# Pin a single reliable mirror instead of Termux's random per-run rotation:
+# deterministic + avoids the intermittent "Mirror sync in progress" failures.
+# packages-cf.termux.dev is the official Cloudflare CDN (highest default weight).
+stayturgid_termux_mirror: https://packages-cf.termux.dev/apt/termux-main
+
+# SYSTEM_ALERT_WINDOW for termux-toast/dialog and Termux:Float (com.termux.window).
+stayturgid_termux_overlay_packages:
+  - com.termux
+  - com.termux.api
+
+# ── SSH Certificate Authority (host cert signing) ──────────────────────────
+# Enabled by default: sign every device host key with the Mac CA key so that
+# @cert-authority * in known_hosts eliminates host-key warnings fleet-wide.
+stayturgid_ca_enabled: true
+stayturgid_ca_key_path: "{{ lookup('env', 'HOME') }}/.ssh/stayturgid_ca"
+stayturgid_ca_tmpdir: "{{ lookup('env', 'HOME') }}/.ssh/host-certs"

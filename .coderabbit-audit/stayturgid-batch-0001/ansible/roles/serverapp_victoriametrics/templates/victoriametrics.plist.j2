@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>{{ serverapp_victoriametrics_label }}</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>{{ serverapp_victoriametrics_bin }}</string>
+        <string>-httpListenAddr={{ serverapp_victoriametrics_http_listen }}</string>
+        <string>-promscrape.config={{ serverapp_victoriametrics_scrape_path }}</string>
+        <string>-storageDataPath={{ serverapp_victoriametrics_data_dir }}</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>WorkingDirectory</key>
+    <string>{{ serverapp_victoriametrics_data_dir }}</string>
+    <key>StandardOutPath</key>
+    <string>{{ serverapp_victoriametrics_logs_dir }}/victoriametrics.log</string>
+    <key>StandardErrorPath</key>
+    <string>{{ serverapp_victoriametrics_logs_dir }}/victoriametrics.log</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>HOME</key>
+        <string>{{ serverapp_victoriametrics_home }}</string>
+    </dict>
+</dict>
+</plist>

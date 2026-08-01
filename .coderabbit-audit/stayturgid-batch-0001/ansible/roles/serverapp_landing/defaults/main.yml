@@ -1,0 +1,18 @@
+---
+# serverapp_landing — own-mode landing + landing-discover (Site Contract §5 / Phase D).
+# Manages both LaunchAgents that were hand-managed under com.stayturgid.*.
+
+serverapp_landing_home: "{{ lookup('env', 'HOME') }}"
+serverapp_landing_logs_dir: "{{ serverapp_landing_home }}/.config/{{ site_ns }}/logs"
+serverapp_landing_label: "com.{{ site_ns }}.landing"
+serverapp_landing_discover_label: "com.{{ site_ns }}.landing-discover"
+serverapp_landing_plist_path: "{{ serverapp_landing_home }}/Library/LaunchAgents/{{ serverapp_landing_label }}.plist"
+serverapp_landing_discover_plist_path: "{{ serverapp_landing_home }}/Library/LaunchAgents/{{ serverapp_landing_discover_label }}.plist"
+# Product checkout (scripts live here). Passed by serverapps.py as product root.
+serverapp_landing_repo_root: "{{ site_dir }}/../stayturgid"
+serverapp_landing_python: /opt/homebrew/bin/python3
+serverapp_landing_port: "8088"
+serverapp_landing_health_url: "http://127.0.0.1:8088/health"
+# No default for serverapp_landing_uid — always supplied as an extra-var by
+# control/site_contract/serverapps.py (os.getuid()); fail closed otherwise.
+serverapp_landing_discover_interval: "3600"
