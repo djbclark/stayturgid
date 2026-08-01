@@ -5,6 +5,33 @@ Covers the two deployment paths: the **control_node** Ansible role (global
 agents under `com.stayturgid.*`) and the **site_agents** Ansible role
 (per-site agents under `com.<site_ns>.*`).
 
+## Before adding any scheduled/periodic job: pick the right tier
+
+The Mac control node is a laptop and is often off or asleep. Never assume
+it's always on when choosing where a scheduled job runs. Decide in this
+order:
+
+1. **GitHub Actions `schedule:` (cron syntax), if the job doesn't need this
+   machine.** Runs on GitHub's own infrastructure regardless of whether this
+   Mac is on — the correct default for anything that only needs `gh`/GitHub
+   API access, or reads/writes to a repo (e.g. the periodic
+   `.github/workflows/*.yml` `schedule:` jobs already in this repo and in
+   site-djbclark).
+2. **launchd (this doc) or Jobber, only when the job genuinely needs this
+   machine** — local ADB/Tailscale/network access to fleet devices, local
+   filesystem/git-worktree state, or anything else that can't run on a
+   GitHub-hosted runner. Both launchd (`StartCalendarInterval`) and Jobber
+   tolerate the Mac being asleep/off at the scheduled time and catch up on
+   next wake — unlike raw Unix cron, which silently misses a run entirely if
+   the machine isn't up at that exact moment.
+3. **Never use raw Unix `cron`/`crontab` for anything in this project.** It
+   has no wake-catchup semantics at all, so a job scheduled while this Mac is
+   off just doesn't run, silently, with no signal that it was skipped.
+
+If you're unsure whether a job needs local machine access, default to GitHub
+Actions and only move it to launchd/Jobber if you hit a concrete reason it
+can't run there.
+
 ## Which path to use
 
 | If the service is...                                  | Use                                    |
