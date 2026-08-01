@@ -92,6 +92,7 @@
         installer: "{{ 'org.stayturgid.agent' if _apk.id != 'org.stayturgid.agent' else omit }}"
       when: not _version_current | default(false)
       delegate_to: localhost
+      register: _apk_install
 
 - name: Trigger required application service headlessly — {{ _apk.id }}
   ansible.builtin.command:
@@ -146,7 +147,12 @@
       - monkey -p {{ _apk.id }} -c android.intent.category.LAUNCHER 1 2>/dev/null
   changed_when: false
   failed_when: false
-  when: _apk.monkey | default(false)
+  # A launcher intent visibly foregrounds the app. It is only needed directly
+  # after an install to clear Android's stopped-package state; never do it on
+  # a routine desired-state convergence (#199).
+  when:
+    - _apk.monkey | default(false)
+    - _apk_install.changed | default(false)
 
 - name: Grant Shizuku permission — {{ _apk.id }}
   delegate_to: localhost

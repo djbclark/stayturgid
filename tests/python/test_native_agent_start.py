@@ -14,7 +14,7 @@ start_agent = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(start_agent)
 
 
-def test_start_agent_kills_stale_user_services(monkeypatch) -> None:
+def test_start_agent_uses_headless_receiver_without_stopping_app(monkeypatch) -> None:
     calls: list[list[str]] = []
 
     def fake_adb(serial, *args):
@@ -22,10 +22,6 @@ def test_start_agent_kills_stale_user_services(monkeypatch) -> None:
         calls.append(cmd)
         if "pm path" in " ".join(args):
             return SimpleNamespace(returncode=0, stdout="package:org.stayturgid.agent.debug\n", stderr="")
-        if "pidof org.stayturgid.agent.debug:userservice" in " ".join(args):
-            return SimpleNamespace(returncode=0, stdout="301 302\n", stderr="")
-        if "pidof org.stayturgid.agent:userservice" in " ".join(args):
-            return SimpleNamespace(returncode=0, stdout="\n", stderr="")
         if "pidof org.stayturgid.agent.debug" in " ".join(args):
             return SimpleNamespace(returncode=0, stdout="101\n", stderr="")
         return SimpleNamespace(returncode=0, stdout="OK\n", stderr="")
@@ -36,6 +32,10 @@ def test_start_agent_kills_stale_user_services(monkeypatch) -> None:
 
     exit_code = start_agent.main(["s24"])
     assert exit_code == 0
-    kill_calls = [call for call in calls if any("kill" in part for part in call)]
-    assert len(kill_calls) == 1
-    assert kill_calls[0] == ["adb", "-s", "s24", "shell", "kill 301 302"]
+    shell_commands = [call[-1] for call in calls if len(call) >= 5 and call[-2] == "shell"]
+    assert (
+        "am broadcast --include-stopped-packages "
+        "-a org.stayturgid.agent.action.PEER_START_NOW "
+        "-n org.stayturgid.agent.debug/org.stayturgid.agent.PeerStartReceiver"
+    ) in shell_commands
+    assert not any("am start" in command or "force-stop" in command or "kill " in command for command in shell_commands)

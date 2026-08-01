@@ -62,6 +62,20 @@ def test_normal_deploy_ensures_before_it_verifies():
     assert site.index("Import bootstrap APK ensure") < site.index("Import bootstrap APK verify")
 
 
+def test_monkey_launch_is_limited_to_a_real_install():
+    tasks = yaml.safe_load(
+        (
+            ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml"
+        ).read_text(encoding="utf-8")
+    )
+    reconcile = next(task for task in tasks if task["name"].startswith("Reconcile locked APK"))
+    install = next(task for task in reconcile["block"] if task["name"].startswith("Install over ADB"))
+    monkey = next(task for task in tasks if task["name"].startswith("Launch via monkey"))
+
+    assert install["register"] == "_apk_install"
+    assert "_apk_install.changed | default(false)" in monkey["when"]
+
+
 def test_locked_version_check_has_no_mutable_latest_lookup():
     tasks = ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks"
     combined = "\n".join(path.read_text(encoding="utf-8") for path in tasks.glob("*.yml"))

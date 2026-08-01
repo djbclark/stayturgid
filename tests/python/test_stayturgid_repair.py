@@ -111,30 +111,14 @@ def test_tailscale_reconnect_receiver_is_verified(monkeypatch):
     assert not any(command[:2] == ["am", "start"] for command, _have_sh in commands)
 
 
-def test_tailscale_first_failure_defers_activity_fallback(monkeypatch):
-    """A single down reading shouldn't yank the app into the foreground —
-    only a second consecutive cycle (tracked via state.json) escalates."""
+def test_tailscale_failure_never_foregrounds_the_app(monkeypatch):
     commands = _setup_tailscale(monkeypatch)
     monkeypatch.setattr(repair, "_tailscale_policy_up", lambda _have_sh=False: True)
     monkeypatch.setattr(repair, "_tailscale_runtime_up", lambda _have_sh=False: False)
     monkeypatch.setattr(repair, "_wait_for_tailscale", lambda attempts=3, have_sh=False: False)
-    monkeypatch.setattr(repair, "_previous_repair_field", lambda _key: "up")
-
     assert repair.ensure_tailscale(have_sh=True) == "FAILED"
     assert any(command[:2] == ["am", "broadcast"] for command, _have_sh in commands)
     assert not any(command[:2] == ["am", "start"] for command, _have_sh in commands)
-
-
-def test_tailscale_failed_receiver_and_activity_report_failure(monkeypatch):
-    commands = _setup_tailscale(monkeypatch)
-    monkeypatch.setattr(repair, "_tailscale_policy_up", lambda _have_sh=False: True)
-    monkeypatch.setattr(repair, "_tailscale_runtime_up", lambda _have_sh=False: False)
-    monkeypatch.setattr(repair, "_wait_for_tailscale", lambda attempts=3, have_sh=False: False)
-    monkeypatch.setattr(repair, "_previous_repair_field", lambda _key: "down")
-
-    assert repair.ensure_tailscale(have_sh=True) == "FAILED"
-    assert any(command[:2] == ["am", "broadcast"] for command, _have_sh in commands)
-    assert any(command[:2] == ["am", "start"] for command, _have_sh in commands)
 
 
 def test_tailscale_no_shell_reports_unknown_without_side_effects(monkeypatch):

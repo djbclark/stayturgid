@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Start stayturgid native-agent HostService on a device.
+"""Headlessly nudge stayturgid native-agent HostService on a device.
 
-FGS cannot be started from adb shell on API 34+; launch MainActivity which
-auto-starts HostService in app context.
+The exported PeerStartReceiver starts the foreground service from app context.
+Never use MainActivity for unattended recovery: it interrupts the operator's
+foreground task (#199).
 
 Usage: ./start_agent.py <host-or-serial> [adb_serial]
 """
@@ -19,7 +20,8 @@ import adb_cli as adb  # noqa: E402
 
 PKG_DEBUG = "org.stayturgid.agent.debug"
 PKG_RELEASE = "org.stayturgid.agent"
-ACTIVITY = "org.stayturgid.agent.MainActivity"
+PEER_START_RECEIVER = "org.stayturgid.agent.PeerStartReceiver"
+PEER_START_ACTION = "org.stayturgid.agent.action.PEER_START_NOW"
 
 
 def _resolve_pkg(serial: str) -> str | None:
@@ -40,20 +42,15 @@ def main(argv: list[str] | None = None) -> int:
     if not pkg:
         sys.stderr.write(f"ERROR: neither {PKG_DEBUG} nor {PKG_RELEASE} installed on {serial}\n")
         return 1
-    component = f"{pkg}/{ACTIVITY}"
-    print(f"Starting native-agent on {serial} ({component})...")
-    # Force-stop first so FGS + UserService restart cleanly after freezes.
-    adb.adb(serial, "shell", f"am force-stop {pkg}")
-    # Stop any stale UserService processes (which run as UID 2000 under Shizuku and survive force-stop)
-    for p in (PKG_DEBUG, PKG_RELEASE):
-        stale = adb.adb(serial, "shell", f"pidof {p}:userservice").stdout or ""
-        pids = [pid for pid in stale.strip().split() if pid.isdigit()]
-        if pids:
-            adb.adb(serial, "shell", f"kill {' '.join(pids)}")
-    time.sleep(1)
-    r = adb.adb(serial, "shell", f"am start -n {component}")
+    component = f"{pkg}/{PEER_START_RECEIVER}"
+    print(f"Headlessly starting native-agent on {serial} ({component})...")
+    r = adb.adb(
+        serial,
+        "shell",
+        f"am broadcast --include-stopped-packages -a {PEER_START_ACTION} -n {component}",
+    )
     if r.returncode != 0:
-        sys.stderr.write((r.stderr or r.stdout or "am start failed").strip() + "\n")
+        sys.stderr.write((r.stderr or r.stdout or "peer-start broadcast failed").strip() + "\n")
         return 1
     time.sleep(4)
     pid = adb.adb(serial, "shell", f"pidof {pkg}").stdout or ""

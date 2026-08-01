@@ -116,14 +116,11 @@ bundle agent check_bootloop(s) {
 # Mac-hailed cf-runagent run (Tier 3a) can catch it sooner since it runs this
 # bundle on demand.
 #
-# Restart: Termux's own `am start` of the exported launcher (MainActivity,
-# whose onCreate() starts HostService) is tried first — no loopback needed —
-# but it is best-effort only: Android 10+ background-activity-launch
-# restrictions frequently block a background Termux process from starting an
-# activity, worse after Termux has been idle/backgrounded a while and worse
-# still on Fire OS, and it fails *silently* (exit 0, nothing launches). The
-# old adb-loopback `am start` is kept as a fallback — it may still succeed
-# even though it is no longer the liveness signal.
+# Restart: trigger the agent's exported peer-start receiver with a broadcast,
+# never its launcher activity. `am start` makes MainActivity foreground itself
+# over whatever the operator is using (observed live on p7a, #199). The
+# receiver starts HostService headlessly and works both from Termux directly
+# and through an already-authorized loopback ADB shell.
 #
 # Reboot escalation is alert-only, on purpose: this bundle never executes a
 # reboot itself. After REBOOT_AFTER=3 consecutive checks (~15 min at the
@@ -174,16 +171,16 @@ bundle agent check_stayturgid_agent(p, s) {
         args => "-c 'mkdir -p $(s)/state; rm -f $(fail_state) $(reboot_marker)'",
         contain => silent_bg;
 
-    # Not alive: try Termux's own am first (no loopback dependency; see file
-    # header for its best-effort caveat), then the adb-loopback fallback,
-    # then record the outcome and escalate if it crosses $(reboot_after).
+    # Not alive: try Termux's own headless broadcast first (no loopback
+    # dependency), then the adb-loopback fallback, then record the outcome
+    # and escalate if it crosses $(reboot_after).
     !agent_alive::
       "$(p)/bin/am"
-        args => "start -n org.stayturgid.agent/.MainActivity",
+        args => "broadcast --include-stopped-packages -a org.stayturgid.agent.action.PEER_START_NOW -n org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver",
         contain => silent_bg;
 
       "$(p)/bin/adb"
-        args => "-s localhost:5555 shell am start -n org.stayturgid.agent/.MainActivity",
+        args => "-s localhost:5555 shell am broadcast --include-stopped-packages -a org.stayturgid.agent.action.PEER_START_NOW -n org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver",
         contain => silent_bg;
 
       "$(p)/bin/bash"
