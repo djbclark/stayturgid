@@ -342,7 +342,7 @@ def _tailscale_installed(have_sh=False):
     return rc == 0 and "package:" in out
 
 
-def _tailscale_runtime_up():
+def _tailscale_runtime_up(have_sh=False):
     """Require both a tunnel interface and Tailscale control-plane reachability.
 
     The tunnel-interface check must run under the device shell (uid 2000 via
@@ -352,33 +352,65 @@ def _tailscale_runtime_up():
     absent -> runtime reported "down" every cycle -> the foreground activity
     fallback fired ~every 15 min even with a perfectly healthy tunnel. The
     native agent reads the same file fine precisely because it runs as uid 2000.
+
+    Without a privileged shell (``have_sh=False`` — Fire OS/split-storage
+    hosts where ``STAYTURGID_NO_LOCAL_ADB=1`` and localhost:5555 is not the
+    privileged-shell mechanism at all, or any host that has momentarily lost
+    port 5555), ``sh_adb`` has no uid-2000 shell to reach and would always
+    fail — the exact same false-"down" failure mode described above, just via
+    an unreachable path instead of an EACCES read. Returns ``None`` ("cannot
+    verify") instead of ``False`` in that case, so callers don't mistake
+    "couldn't check" for "confirmed down" and fire disruptive repairs
+    (foregrounding Tailscale's UI) against a tunnel that is actually healthy.
+    Confirmed live on hd8 (2026-07-31): the Shizuku-privileged on-device
+    comonitor probe reported tailscale up at the same moment this check, run
+    without a shell, could only ever read "down" — a guaranteed false
+    negative, not a real outage.
     """
+    if not have_sh:
+        return None
     rc, out = sh_adb("grep -oE '(tun0|tailscale0)' /proc/net/dev 2>/dev/null | sort -u")
     tunnel = rc == 0 and ("tun0" in out or "tailscale0" in out)
     return tunnel and run(["ping", "-c", "2", "-W", "3", TAILSCALE_CONTROL_HOST], timeout=8)[0] == 0
 
 
 def _tailscale_policy_up(have_sh=False):
+    """Returns ``None`` ("cannot verify") instead of ``False`` when
+    ``have_sh`` is false: Android's ``settings get/put secure ...`` requires
+    shell-level privilege to resolve the current user
+    (``INTERACT_ACROSS_USERS``); an unprivileged Termux process always throws
+    a SecurityException there, which would otherwise look indistinguishable
+    from a genuinely misconfigured policy. See ``_tailscale_runtime_up``.
+    """
+    if not have_sh:
+        return None
     app = _device_command(["settings", "get", "secure", "always_on_vpn_app"], have_sh)[1].strip()
     lockdown = _device_command(["settings", "get", "secure", "always_on_vpn_lockdown"], have_sh)[1].strip()
     return app == TAILSCALE_PACKAGE and lockdown == "0"
 
 
 def _tailscale_status(have_sh=False):
-    """Return normalized runtime and always-on policy states."""
+    """Return normalized runtime and always-on policy states.
+
+    Reports "unknown" (not "down") when ``have_sh`` is false — neither check
+    can be verified from an unprivileged Termux process, so treating that as
+    "down" would be a false negative, not a real finding.
+    """
     if read_device_profile().get("tailscaleEnabled") is False:
         return "skip", "skip"
     if not _tailscale_installed(have_sh):
         return "skip", "skip"
-    runtime = "up" if _tailscale_runtime_up() else "down"
-    policy = "up" if _tailscale_policy_up(have_sh) else "down"
+    runtime_up = _tailscale_runtime_up(have_sh)
+    policy_up = _tailscale_policy_up(have_sh)
+    runtime = "unknown" if runtime_up is None else ("up" if runtime_up else "down")
+    policy = "unknown" if policy_up is None else ("up" if policy_up else "down")
     return runtime, policy
 
 
-def _wait_for_tailscale(attempts=3):
+def _wait_for_tailscale(attempts=3, have_sh=False):
     for _ in range(attempts):
         time.sleep(2)
-        if _tailscale_runtime_up():
+        if _tailscale_runtime_up(have_sh):
             return True
     return False
 
@@ -408,11 +440,25 @@ def ensure_tailscale(have_sh=False):
     the runtime down (~one extra cycle's delay, ~15 min), tracked via
     state.json rather than in-process state since each cycle is a fresh
     process invocation.
+
+    Every check and repair action below requires a privileged (uid 2000)
+    shell — the settings get/put calls throw SecurityException without one,
+    and the tunnel-interface read needs uid 2000 to see ``/proc/net/dev``.
+    Without one (``have_sh=False``: Fire OS/split-storage hosts with
+    ``STAYTURGID_NO_LOCAL_ADB=1``, or a host that's momentarily lost
+    localhost:5555), every one of those calls is guaranteed to fail — not
+    because Tailscale is down, but because this process cannot see it.
+    Returns "unknown" and does nothing in that case, rather than reporting a
+    false "FAILED" and forcing Tailscale's MainActivity into the foreground
+    against a tunnel that may be perfectly healthy (confirmed live on hd8,
+    2026-07-31: see ``_tailscale_runtime_up``).
     """
     if read_device_profile().get("tailscaleEnabled") is False:
         return "skip"
     if not _tailscale_installed(have_sh):
         return "skip"
+    if not have_sh:
+        return "unknown"
 
     _device_command(
         ["settings", "put", "secure", "always_on_vpn_app", TAILSCALE_PACKAGE],
@@ -423,7 +469,7 @@ def ensure_tailscale(have_sh=False):
         have_sh,
     )
     policy_ok = _tailscale_policy_up(have_sh)
-    if _tailscale_runtime_up():
+    if _tailscale_runtime_up(have_sh):
         if policy_ok:
             return "up"
         log("Tailscale runtime up but always-on policy repair FAILED", ERR)
@@ -441,11 +487,11 @@ def ensure_tailscale(have_sh=False):
         ],
         have_sh,
     )
-    restored = _wait_for_tailscale()
+    restored = _wait_for_tailscale(have_sh=have_sh)
     if not restored:
         if _previous_repair_field("tailscale") == "down":
             _device_command(["am", "start", "-n", TAILSCALE_ACTIVITY], have_sh)
-            restored = _wait_for_tailscale(attempts=2)
+            restored = _wait_for_tailscale(attempts=2, have_sh=have_sh)
         else:
             log(
                 "Tailscale still down after CONNECT_VPN broadcast; deferring "
