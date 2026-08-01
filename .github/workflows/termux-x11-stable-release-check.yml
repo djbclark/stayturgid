@@ -1,0 +1,55 @@
+---
+name: Termux X11 stable-release check
+
+on:
+  schedule:
+    - cron: "17 3 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check-for-stable-release:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - name: File one issue when Termux:X11 publishes a stable release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          stable_release="$({
+            gh api --paginate repos/termux/termux-x11/releases |
+              jq -c '[.[] | select(.tag_name != "nightly" and (.draft | not) and (.prerelease | not))] | first // empty'
+          })"
+
+          if [[ -z "$stable_release" ]]; then
+            exit 0
+          fi
+
+          title="Termux:X11 stable release available: consider upgrading from pinned nightly"
+          existing_count="$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$title in:title" --json number --jq 'length')"
+          if [[ "$existing_count" -gt 0 ]]; then
+            echo "An open stable-release decision issue already exists; not creating a duplicate."
+            exit 0
+          fi
+
+          tag="$(jq -r '.tag_name' <<<"$stable_release")"
+          name="$(jq -r '.name // "(unnamed release)"' <<<"$stable_release")"
+          published_at="$(jq -r '.published_at // "(not published)"' <<<"$stable_release")"
+          release_url="$(jq -r '.html_url' <<<"$stable_release")"
+
+          gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body-file - <<EOF
+          Termux:X11 has published a non-nightly stable release.
+
+          - Tag: \`$tag\`
+          - Name: $name
+          - Published: $published_at
+          - Release: $release_url
+
+          The fleet is deliberately pinned to a checksum-verified nightly snapshot.
+          Please make an explicit operator decision before changing that lock.
+          EOF

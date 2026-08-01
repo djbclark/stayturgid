@@ -2,7 +2,8 @@
 # Bootstrap APK list — installed over ADB from the Mac before Termux SSH exists.
 # These are the minimum set needed for the stayturgid fleet to bootstrap itself.
 #
-# Release-locked: every APK names an immutable GitHub release tag, exact asset,
+# Release-locked: every APK names an immutable GitHub release tag (except the
+# explicitly documented Termux:X11 nightly snapshot below), exact asset,
 # expected installed versionName, and SHA-256 digest. A coordinated ops release
 # therefore keeps deploying the same desired state even when a repository
 # publishes another release or has several independent release streams.
@@ -72,24 +73,15 @@ stayturgid_bootstrap_apks:
     gh_pattern: "termux-api-app_v0.53.0+github.debug.apk"
     version_name: 0.53.0
     checksum: "sha256:ecf916ff80ae751e65c092f51c055cce4de417ebeea8e449cd0f294afdbde39a"
-  - id: com.termux.tasker
-    gh_repo: termux/termux-tasker
-    gh_tag: v0.9.0
-    gh_pattern: "termux-tasker-app_v0.9.0+github.debug.apk"
-    version_name: 0.9.0
-    checksum: "sha256:4dd14de5f18791b3594256a9ead6bfddafa0434f11e0d39c3b551dda53db2fff"
-  - id: com.termux.styling
-    gh_repo: termux/termux-styling
-    gh_tag: v0.32.1
-    gh_pattern: "termux-styling-app_v0.32.1+github.debug.apk"
-    version_name: 0.32.1
-    checksum: "sha256:df607437476581c40d94ce6a222ca900e35163fdb0ac7dde3e2eb8cdcda18e08"
-  - id: com.termux.widget
-    gh_repo: termux/termux-widget
-    gh_tag: v0.15.0
-    gh_pattern: "termux-widget-app_v0.15.0+github.debug.apk"
-    version_name: 0.15.0
-    checksum: "sha256:780ae459be479bedef2146eb00f7bc79f2a4f89dba2bffa7b55c470165bc66ed"
+  # Intentional point-in-time snapshot pin against the mutable nightly tag.
+  # A future nightly fails checksum verification safely rather than auto-updating;
+  # re-pin only by deliberately re-fetching the asset and updating this checksum.
+  - id: com.termux.x11
+    gh_repo: termux/termux-x11
+    gh_tag: nightly
+    gh_pattern: termux-x11-universal-debug.apk
+    version_name: 1.03.01-aa482f4-31.07.26
+    checksum: "sha256:d5235ee5ed03431a76f4b3d79d02d139e76887e1fe717cfcdc6581f7ee0eb777"
   - id: moe.shizuku.privileged.api
     gh_repo: djbclark/Shizuku
     gh_tag: "v13.7.0-thedjchi+stayturgid-release25"
