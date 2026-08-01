@@ -176,11 +176,11 @@ bundle agent check_stayturgid_agent(p, s) {
     # and escalate if it crosses $(reboot_after).
     !agent_alive::
       "$(p)/bin/am"
-        args => "broadcast -a org.stayturgid.agent.action.PEER_START_NOW -n org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver",
+        args => "broadcast --include-stopped-packages -a org.stayturgid.agent.action.PEER_START_NOW -n org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver",
         contain => silent_bg;
 
       "$(p)/bin/adb"
-        args => "-s localhost:5555 shell am broadcast -a org.stayturgid.agent.action.PEER_START_NOW -n org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver",
+        args => "-s localhost:5555 shell am broadcast --include-stopped-packages -a org.stayturgid.agent.action.PEER_START_NOW -n org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver",
         contain => silent_bg;
 
       "$(p)/bin/bash"

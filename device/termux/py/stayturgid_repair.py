@@ -1129,6 +1129,8 @@ def main():
                 log("shizuku_server running but port 5555 closed — restoring via rish", WARNING)
                 run([rish, "-c", "setprop service.adb.tcp.port 5555; setprop ctl.restart adbd"])
                 time.sleep(1)
+            else:
+                log("shizuku_server running but port 5555 closed and rish is unavailable — cannot restore", WARNING)
             # Re-check if the profile re-apply alone was enough.
             if privileged_shell():
                 have_sh = True
