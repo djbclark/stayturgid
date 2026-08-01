@@ -241,12 +241,38 @@
     mode: "0755"
   loop: "{{ stayturgid_home_scripts }}"
 
+# One rsync connection (delta-checksums) instead of one ADB/SSH round-trip
+# per file (#166 item 1). Explicit --include/--exclude keeps the sync scoped
+# to exactly the files in stayturgid_py_scripts (so an unrelated stray file
+# under device/termux/py/, or __pycache__/, never lands on-device) -- same
+# scoping guarantee the old per-item copy loop gave us for free.
+#
+# No --chmod: the Mac control node's /usr/bin/rsync is Apple's openrsync
+# (BSD), not GNU rsync -- verified live that its --chmod (both symbolic
+# Fu=rwx and numeric 755 forms) silently fails to change the resulting mode
+# here, despite the flag being accepted. Instead this relies on `perms: true`
+# (rsync -p, preserve-from-source) plus the source files themselves being
+# correctly marked +x in git (100755) -- verified this actually lands 0755
+# on-device with plain openrsync. If a script is added to
+# stayturgid_py_scripts without `chmod +x` + `git add`, it will land 0644.
 - name: Deploy Python runtime scripts to ~/.stayturgid/bin
-  ansible.builtin.copy:
-    src: "{{ stayturgid_repo_root }}/device/termux/py/{{ item }}"
-    dest: "{{ termux_home }}/.stayturgid/bin/{{ item }}"
-    mode: "0755"
-  loop: "{{ stayturgid_py_scripts | default([]) }}"
+  ansible.posix.synchronize:
+    src: "{{ stayturgid_repo_root }}/device/termux/py/"
+    dest: "{{ termux_home }}/.stayturgid/bin/"
+    perms: true
+    checksum: true
+    rsync_opts: >-
+      {{
+        (stayturgid_py_scripts | default([]) | map('regex_replace', '^(.*)$', '--include=/\1') | list)
+        + ['--exclude=*']
+      }}
+  # ansible.posix.synchronize shells out to a real rsync process and does not
+  # honor --check (a known upstream limitation) -- skip it in check mode like
+  # the other real-effect tasks in this role (see otelcol.yml, preflight.yml)
+  # rather than let a "dry run" actually push files to the device.
+  when:
+    - (stayturgid_py_scripts | default([])) | length > 0
+    - not ansible_check_mode
   notify: restart boot loop
 
 - name: Deploy peer-help ForceCommand wrapper
@@ -277,12 +303,43 @@
     state: directory
     mode: "0755"
 
-- name: Deploy shared libs to ~/.stayturgid/lib
-  ansible.builtin.copy:
-    src: "{{ stayturgid_repo_root }}/{{ item.src }}"
-    dest: "{{ termux_home }}/.stayturgid/lib/{{ item.dest }}"
-    mode: "0644"
+# stayturgid_lib_files entries all live in control/lib/ alongside a lot of
+# control-node-only Python (fleet_deploy_lock.py, site_identity.py, etc) that
+# must never land on-device. A directory-level sync only stays safe as long
+# as every entry keeps dest == basename(src) -- assert it so a future entry
+# that renames on copy fails loudly here instead of silently shipping under
+# the wrong name (or, worse, silently shipping the whole directory).
+- name: Assert on-device lib files are a flat 1:1 basename mapping (synchronize safety)
+  ansible.builtin.assert:
+    that:
+      - item.dest == (item.src | basename)
+    fail_msg: >-
+      stayturgid_lib_files entry {{ item }} renames on copy (dest != basename(src)) --
+      the ansible.posix.synchronize-based bulk sync below cannot express a rename;
+      either keep dest == basename(src) or revert this entry to a per-file copy task.
   loop: "{{ stayturgid_lib_files | default([]) }}"
+
+# One rsync connection instead of one round-trip per lib file (#166 item 1).
+# --include/--exclude scopes the sync to exactly these filenames so nothing
+# else in control/lib/ (a shared dir with control-node-only modules) leaks
+# onto the device. No --chmod: see the note on the Python runtime scripts
+# sync above -- relies on the source files' git-tracked mode (100644, no +x
+# needed here) via `perms: true`.
+- name: Deploy shared libs to ~/.stayturgid/lib
+  ansible.posix.synchronize:
+    src: "{{ stayturgid_repo_root }}/control/lib/"
+    dest: "{{ termux_home }}/.stayturgid/lib/"
+    perms: true
+    checksum: true
+    rsync_opts: >-
+      {{
+        (stayturgid_lib_files | default([]) | map(attribute='dest') | map('regex_replace', '^(.*)$', '--include=/\1') | list)
+        + ['--exclude=*']
+      }}
+  # See the check-mode note on the Python runtime scripts sync above.
+  when:
+    - (stayturgid_lib_files | default([])) | length > 0
+    - not ansible_check_mode
 
 - name: Deploy Handsets hs.jar for on-device wire client
   ansible.builtin.copy:
@@ -318,12 +375,21 @@
   loop: "{{ stayturgid_retired_py_scripts | default([]) }}"
   when: stayturgid_retired_py_scripts | default([]) | length > 0
 
+# One rsync connection instead of one round-trip per PNG (#166 item 1). No
+# --chmod: see the note on the Python runtime scripts sync above -- relies
+# on the source PNGs' git-tracked mode (100644, no +x needed) via `perms: true`.
 - name: Deploy battery color assets
-  ansible.builtin.copy:
-    src: "{{ stayturgid_repo_root }}/device/termux/assets/battery-colors/{{ item }}"
-    dest: "{{ termux_home }}/.stayturgid/battery-colors/{{ item }}"
-    mode: "0644"
-  loop: "{{ stayturgid_battery_color_assets }}"
+  ansible.posix.synchronize:
+    src: "{{ stayturgid_repo_root }}/device/termux/assets/battery-colors/"
+    dest: "{{ termux_home }}/.stayturgid/battery-colors/"
+    perms: true
+    checksum: true
+    rsync_opts: >-
+      {{
+        (stayturgid_battery_color_assets | default([]) | map('regex_replace', '^(.*)$', '--include=/\1') | list)
+        + ['--exclude=*']
+      }}
+  when: (stayturgid_battery_color_assets | default([])) | length > 0
 
 - name: Ensure Termux boot directory exists
   ansible.builtin.file:
@@ -331,12 +397,22 @@
     state: directory
     mode: "0755"
 
+# One rsync connection instead of one round-trip per boot script (#166 item 1).
+# No --chmod: see the note on the Python runtime scripts sync above -- relies
+# on the source scripts' git-tracked mode (100755, already correct) via
+# `perms: true`.
 - name: Deploy boot scripts
-  ansible.builtin.copy:
-    src: "{{ stayturgid_repo_root }}/device/termux/boot/{{ item }}"
-    dest: "{{ termux_home }}/.termux/boot/{{ item }}"
-    mode: "0755"
-  loop: "{{ stayturgid_boot_scripts }}"
+  ansible.posix.synchronize:
+    src: "{{ stayturgid_repo_root }}/device/termux/boot/"
+    dest: "{{ termux_home }}/.termux/boot/"
+    perms: true
+    checksum: true
+    rsync_opts: >-
+      {{
+        (stayturgid_boot_scripts | default([]) | map('regex_replace', '^(.*)$', '--include=/\1') | list)
+        + ['--exclude=*']
+      }}
+  when: (stayturgid_boot_scripts | default([])) | length > 0
   notify: restart boot loop
 
 - name: Remove retired boot scripts from device
