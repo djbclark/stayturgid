@@ -60,6 +60,7 @@
       ansible.builtin.set_fact:
         _version_current: >-
           {{ not stayturgid_bootstrap_apks_force
+             and not (_apk.mutable_tag_snapshot | default(false) | bool)
              and _installed_version == _apk.version_name }}
 
     - name: Report immutable APK comparison — {{ _apk.id }}
@@ -82,6 +83,7 @@
         resign: "{{ _apk.resign | default(false) }}"
         clean: "{{ _apk.clean | default(false) }}"
         force: "{{ stayturgid_bootstrap_apks_force | default(false) }}"
+        verify_on_current: "{{ _apk.mutable_tag_snapshot | default(false) }}"
         version_name: "{{ _apk.version_name }}"
         apksigner_bin: "{{ stayturgid_apksigner_bin | default(omit) }}"
         keystore: "{{ stayturgid_debug_keystore | default(omit) }}"
