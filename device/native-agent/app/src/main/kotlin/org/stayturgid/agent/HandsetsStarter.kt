@@ -50,18 +50,28 @@ object HandsetsStarter {
         key: AdbKey,
         port: Int = HandsetsStartCommands.DEFAULT_PORT,
     ): PeerStarter.Result {
-        val jarBytes =
-            try {
-                context.assets.open(ASSET_NAME).use { it.readBytes() }
-            } catch (t: Throwable) {
-                Log.e(TAG, "hs.jar asset read failed", t)
-                return PeerStarter.Result(
-                    target.toString(),
-                    PeerStarter.Outcome.FAILED,
-                    "asset:${t.message}",
-                )
+        val jarBytes = loadJar(context) ?: return assetFailure(target)
+        return try {
+            AdbClient(target.host, target.port, key).use { client ->
+                client.connect()
+                ensureHandsets(target, client, jarBytes, port)
             }
-        return ensureHandsets(target, key, jarBytes, port)
+        } catch (t: AdbAuthPendingException) {
+            authPending(target, t)
+        } catch (t: java.io.IOException) {
+            failed(target, t)
+        }
+    }
+
+    /** Reuse [PeerStarter]'s already-connected periodic-loop client. */
+    internal fun ensureHandsets(
+        context: Context,
+        target: PeerTarget,
+        client: AdbClient,
+        port: Int = HandsetsStartCommands.DEFAULT_PORT,
+    ): PeerStarter.Result {
+        val jarBytes = loadJar(context) ?: return assetFailure(target)
+        return ensureHandsets(target, client, jarBytes, port)
     }
 
     /** Same as the [Context] overload, but with the jar bytes already loaded (unit-test seam). */
@@ -76,40 +86,77 @@ object HandsetsStarter {
         return try {
             AdbClient(target.host, target.port, key).use { client ->
                 client.connect()
-                pushJarIfNeeded(client, jarBytes)
-                exec(client, HandsetsStartCommands.killCommand(port))
-                Thread.sleep(KILL_SETTLE_MS)
-                val startOut = exec(client, HandsetsStartCommands.startCommand(port))
-                Log.i(
-                    TAG,
-                    "handsets-start output for $name: ${startOut.trim().take(START_OUTPUT_LOG_CHARS)}",
-                )
-                if (pollUntilUp(client, port)) {
-                    PeerStarter.Result(name, PeerStarter.Outcome.STARTED)
-                } else {
-                    val log = exec(client, HandsetsStartCommands.tailLogCommand(port))
-                    PeerStarter.Result(
-                        name,
-                        PeerStarter.Outcome.FAILED,
-                        log.trim().replace('\n', ' ').take(FAILURE_DETAIL_CHARS),
-                    )
-                }
+                ensureHandsets(target, client, jarBytes, port)
             }
         } catch (t: AdbAuthPendingException) {
-            Log.i(TAG, "handsets-start $name pending one-time approval: ${t.message}")
-            PeerStarter.Result(
-                name,
-                PeerStarter.Outcome.AUTH_PENDING,
-                "awaiting Always-allow on target",
-            )
-        } catch (t: Throwable) {
-            Log.w(TAG, "handsets-start $name failed", t)
+            authPending(target, t)
+        } catch (t: java.io.IOException) {
+            failed(target, t)
+        }
+    }
+
+    /**
+     * Reuse an already-authorized peer connection from [PeerStarter]'s periodic loop. The port poll
+     * is deliberately before any jar write or process kill: a healthy daemon is ALREADY_UP, never
+     * restarted on each loop iteration.
+     */
+    internal fun ensureHandsets(
+        target: PeerTarget,
+        client: AdbClient,
+        jarBytes: ByteArray,
+        port: Int = HandsetsStartCommands.DEFAULT_PORT,
+    ): PeerStarter.Result {
+        val name = target.toString()
+        if (HandsetsStartCommands.isUp(exec(client, HandsetsStartCommands.pollCommand(port)))) {
+            return PeerStarter.Result(name, PeerStarter.Outcome.ALREADY_UP)
+        }
+        pushJarIfNeeded(client, jarBytes)
+        exec(client, HandsetsStartCommands.killCommand(port))
+        Thread.sleep(KILL_SETTLE_MS)
+        val startOut = exec(client, HandsetsStartCommands.startCommand(port))
+        Log.i(
+            TAG,
+            "handsets-start output for $name: ${startOut.trim().take(START_OUTPUT_LOG_CHARS)}",
+        )
+        return if (pollUntilUp(client, port)) {
+            PeerStarter.Result(name, PeerStarter.Outcome.STARTED)
+        } else {
+            val log = exec(client, HandsetsStartCommands.tailLogCommand(port))
             PeerStarter.Result(
                 name,
                 PeerStarter.Outcome.FAILED,
-                (t.message ?: t.javaClass.simpleName).take(ERROR_MESSAGE_CHARS),
+                log.trim().replace('\n', ' ').take(FAILURE_DETAIL_CHARS),
             )
         }
+    }
+
+    private fun authPending(target: PeerTarget, t: Throwable): PeerStarter.Result {
+        Log.i(TAG, "handsets-start $target pending one-time approval: ${t.message}")
+        return PeerStarter.Result(
+            target.toString(),
+            PeerStarter.Outcome.AUTH_PENDING,
+            "awaiting Always-allow on target",
+        )
+    }
+
+    private fun loadJar(context: Context): ByteArray? =
+        try {
+            context.assets.open(ASSET_NAME).use { it.readBytes() }
+        } catch (t: java.io.IOException) {
+            Log.e(TAG, "hs.jar asset read failed", t)
+            null
+        }
+
+    private fun assetFailure(target: PeerTarget): PeerStarter.Result =
+        PeerStarter.Result(target.toString(), PeerStarter.Outcome.FAILED, "asset:read failed")
+
+    private fun failed(target: PeerTarget, t: Throwable): PeerStarter.Result {
+        Log.w(TAG, "handsets-start $target failed", t)
+        return PeerStarter.Result(
+            target.toString(),
+            PeerStarter.Outcome.FAILED,
+            (t.message ?: t.javaClass.simpleName).take(ERROR_MESSAGE_CHARS),
+        )
     }
 
     private fun pushJarIfNeeded(client: AdbClient, jarBytes: ByteArray) {

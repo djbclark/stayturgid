@@ -80,12 +80,15 @@ object PeerStarter {
             }
         val results =
             config.targets.map { target ->
-                val r = ensureShizuku(target, config.shizukuPkg, key)
-                record(context, r)
-                r
+                ensurePeerServices(context, target, config.shizukuPkg, key)
             }
-        PeerStartState.update(context, results)
-        return results
+        results.forEach { result ->
+            record(context, result.shizuku)
+            record(context, result.handsets)
+        }
+        val shizukuResults = results.map { it.shizuku }
+        PeerStartState.update(context, shizukuResults)
+        return shizukuResults
     }
 
     /**
@@ -107,28 +110,7 @@ object PeerStarter {
                 // "approve on the target" reminder we set on the target device.
                 clearTargetReminder(client)
 
-                if (isShizukuUp(client)) {
-                    return@use Result(name, Outcome.ALREADY_UP)
-                }
-
-                val apkPath =
-                    PeerStartCommands.parseApkPath(
-                        exec(client, PeerStartCommands.pmPath(shizukuPkg))
-                    )
-                if (apkPath == null) {
-                    return@use Result(name, Outcome.NOT_INSTALLED, "pkg=$shizukuPkg")
-                }
-
-                val libDir = PeerStartCommands.libDirFor(apkPath)
-                val out = exec(client, PeerStartCommands.starterCommand(libDir, shizukuPkg))
-                Log.i(TAG, "starter output for $name: ${out.trim().take(400)}")
-
-                Thread.sleep(START_SETTLE_MS)
-                if (isShizukuUp(client)) {
-                    Result(name, Outcome.STARTED)
-                } else {
-                    Result(name, Outcome.FAILED, out.trim().replace('\n', ' ').take(300))
-                }
+                ensureShizuku(target, shizukuPkg, client)
             }
         } catch (t: AdbAuthPendingException) {
             Log.i(TAG, "peer-start $name pending one-time approval")
@@ -138,6 +120,59 @@ object PeerStarter {
             val msg = t.message ?: t.javaClass.simpleName
             val outcome = if (isUnreachable(t)) Outcome.UNREACHABLE else Outcome.FAILED
             Result(name, outcome, msg.take(200))
+        }
+    }
+
+    private data class PeerServicesResult(val shizuku: Result, val handsets: Result)
+
+    /** One external-ADB connection per target and periodic iteration. */
+    private fun ensurePeerServices(
+        context: Context,
+        target: PeerTarget,
+        shizukuPkg: String,
+        key: AdbKey,
+    ): PeerServicesResult {
+        return try {
+            AdbClient(target.host, target.port, key).use { client ->
+                client.connect()
+                // This only preserves the toggle when adbd is already reachable and authorized;
+                // it cannot restore adbd or port 5555 after they are fully dead.
+                exec(client, PeerStartCommands.ADB_WIFI_ENABLED_REASSERT)
+                clearTargetReminder(client)
+                val shizuku = ensureShizuku(target, shizukuPkg, client)
+                val handsets = HandsetsStarter.ensureHandsets(context, target, client)
+                PeerServicesResult(shizuku, handsets)
+            }
+        } catch (t: AdbAuthPendingException) {
+            val pending =
+                Result(target.toString(), Outcome.AUTH_PENDING, "awaiting Always-allow on target")
+            PeerServicesResult(pending, pending)
+        } catch (t: Throwable) {
+            Log.w(TAG, "peer services $target failed", t)
+            val detail = (t.message ?: t.javaClass.simpleName).take(200)
+            val outcome = if (isUnreachable(t)) Outcome.UNREACHABLE else Outcome.FAILED
+            val failed = Result(target.toString(), outcome, detail)
+            PeerServicesResult(failed, failed)
+        }
+    }
+
+    private fun ensureShizuku(target: PeerTarget, shizukuPkg: String, client: AdbClient): Result {
+        val name = target.toString()
+        if (isShizukuUp(client)) return Result(name, Outcome.ALREADY_UP)
+        val apkPath =
+            PeerStartCommands.parseApkPath(exec(client, PeerStartCommands.pmPath(shizukuPkg)))
+                ?: return Result(name, Outcome.NOT_INSTALLED, "pkg=$shizukuPkg")
+        val out =
+            exec(
+                client,
+                PeerStartCommands.starterCommand(PeerStartCommands.libDirFor(apkPath), shizukuPkg),
+            )
+        Log.i(TAG, "starter output for $name: ${out.trim().take(400)}")
+        Thread.sleep(START_SETTLE_MS)
+        return if (isShizukuUp(client)) {
+            Result(name, Outcome.STARTED)
+        } else {
+            Result(name, Outcome.FAILED, out.trim().replace('\n', ' ').take(300))
         }
     }
 
@@ -193,6 +228,9 @@ object PeerStarter {
  * `control/bin/fire_peer_help.py:cmd_shizuku_start`.
  */
 object PeerStartCommands {
+    /** Preserve wireless debugging over an already-authorized peer ADB session. */
+    const val ADB_WIFI_ENABLED_REASSERT = "settings put global adb_wifi_enabled 1"
+
     /**
      * `[s]hizuku_server` (bracket trick) so the pgrep pattern never matches its own process. Emits
      * `up`/`down` so the reader is unambiguous.
