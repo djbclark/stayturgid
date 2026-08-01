@@ -50,8 +50,9 @@ stayturgid_mac_brew_packages_base:
   - scrcpy
   - semgrep
   - gitleaks
-  # Hermes Agent (Telegram gateway + Grok OAuth CLI); see tasks/hermes.yml
-  - hermes-agent
+  # Hermes Agent: installed via canonical git+uv method (see tasks/hermes.yml)
+  # The brew formula is unsupported by upstream and pins Python 3.14 which breaks
+  # DaemonThreadPoolExecutor (upstream requires-python caps at <3.14).
   # GNU rsync (3.x, protocol 32) — macOS ships an ancient 2.6.9/protocol-29
   # build at /usr/bin/rsync. Termux devices run modern rsync too, so both
   # ends of the termux_userland synchronize tasks should speak the same
