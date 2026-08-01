@@ -344,6 +344,12 @@ class MainActivity : ComponentActivity() {
     private fun maybeRequestPostNotifications() {
         if (Build.VERSION.SDK_INT < 33) return
         if (hasPostNotifications()) return
+        // Recorded in SetupActivity's own shared prefs (not just requested here) so its
+        // notificationsPermanentlyDenied() check sees this request too — otherwise it can
+        // never detect "already asked" once Android permanently suppresses the rationale from
+        // this call alone, and its "Enable notifications" button silently no-ops instead of
+        // falling back to Settings (caught in PR #177 review).
+        SetupActivity.markPostNotificationsRequested(this)
         ActivityCompat.requestPermissions(
             this,
             arrayOf(Manifest.permission.POST_NOTIFICATIONS),

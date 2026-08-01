@@ -2,6 +2,7 @@ package org.stayturgid.agent
 
 import android.Manifest
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.graphics.Typeface
@@ -278,6 +279,21 @@ class SetupActivity : ComponentActivity() {
         private const val REQUEST_NOTIF = 9102
         private const val PREFS_NAME = "setup_state"
         private const val PREF_NOTIF_REQUESTED = "post_notifications_requested"
+
+        /**
+         * MainActivity's own pre-existing POST_NOTIFICATIONS request (fired on every launch, before
+         * the operator ever reaches this screen) must record the same flag this screen checks —
+         * otherwise [notificationsPermanentlyDenied] never sees `alreadyAsked = true` even after
+         * Android has already permanently suppressed the rationale, and the "Enable notifications"
+         * button silently no-ops instead of falling back to Settings (caught in PR #177 review).
+         */
+        fun markPostNotificationsRequested(context: Context) {
+            context
+                .getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit()
+                .putBoolean(PREF_NOTIF_REQUESTED, true)
+                .apply()
+        }
 
         private const val PENDING_GLYPH = "○"
 
