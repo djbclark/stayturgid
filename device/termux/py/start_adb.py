@@ -40,6 +40,12 @@ CFENGINE_CF = os.path.join(STG, "cfengine", "stayturgid.cf")
 CF_SERVERD_CF = os.path.join(STG, "cfengine", "cf-serverd.cf")
 CF_SERVERD_PID = os.path.join(STG, "run", "cf-serverd.pid")
 
+sys.path.insert(0, os.path.join(STG, "lib"))
+try:
+    import termux_api as tapi
+except ImportError:
+    tapi = None
+
 
 def _cfserverd_argv() -> list[str]:
     """cf-serverd argv, with optional verbosity for investigation.
@@ -349,13 +355,14 @@ def daemon_loop() -> None:
             elif _run(["pgrep", "sshd"], capture_output=True) != 0:
                 _run_bg(["sshd"])
 
-            if _cmd_exists("termux-battery-status"):
-                r = subprocess.run(
-                    ["timeout", "8", "termux-battery-status"],
-                    capture_output=True,
-                    timeout=15,
-                )
-                if r.returncode != 0:
+            if _cmd_exists("termux-battery-status") and tapi is not None:
+                # tapi.run() never signals a hung termux-api client on timeout
+                # (orphans it instead) — a plain `timeout 8 ...` wrapper here
+                # previously SIGTERM'd it mid-socket-write, producing a loud
+                # "Error in ResultReturner" toast when com.termux.api was slow
+                # to cold-start at boot (#38).
+                r = tapi.run(["termux-battery-status"], timeout=8)
+                if r is None or r.returncode != 0:
                     _run(
                         [
                             "adb",
@@ -368,10 +375,10 @@ def daemon_loop() -> None:
                         ]
                     )
                     time.sleep(2)
-                    _run(["termux-api-start"])
+                    tapi.run_ff(["termux-api-start"])
                     time.sleep(2)
                 else:
-                    _run(["termux-api-start"])
+                    tapi.run_ff(["termux-api-start"])
 
             _run_guard("stayturgid_battery_alarm.py")
             _run_guard("stayturgid_screen_awake_guard.py", extra_args=["check"])
@@ -495,11 +502,16 @@ def _monitor_otelcol() -> None:
 
 
 def main() -> int:
-    # Hold wakelock for Doze resistance
-    try:
-        subprocess.run(["termux-wake-lock"], capture_output=True, timeout=5)
-    except OSError:
-        pass
+    # Hold wakelock for Doze resistance. tapi.run_ff also catches the
+    # TimeoutExpired the bare subprocess.run below did not (only OSError was
+    # handled), which would otherwise crash boot if termux-wake-lock hangs.
+    if tapi is not None:
+        tapi.run_ff(["termux-wake-lock"])
+    else:
+        try:
+            subprocess.run(["termux-wake-lock"], capture_output=True, timeout=5)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
 
     startup_sshd()
     startup_cfserverd()
