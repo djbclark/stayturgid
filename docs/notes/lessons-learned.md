@@ -216,10 +216,11 @@ VictoriaMetrics + Grafana + OliveTin) — not the earlier ONGAO plan
 `docs/archive/plans/ongao-rollout-plan.md` is superseded, historical only —
 follow the O-V-G-O docs for any observability work.
 
-## Agent peer-start: trigger via broadcast, and Fire-OS ADB auth is a human tap (#61)
+## Agent peer-start: trigger via broadcast, and Fire-OS ADB auth is a human tap (#61, #114)
 
-Two gotchas from building the external-ADB Shizuku peer-starter into the
-`stayturgid-agent` APK (issue #61):
+Gotchas from building and operating the external-ADB Shizuku peer-starter in the
+`stayturgid-agent` APK (issue #61) and authorizing new peer keys on Fire OS
+(issue #114):
 
 - **Trigger a background action with a broadcast, never an activity.** The first
   manual-kick path launched `MainActivity` with an intent extra, which forced
@@ -241,6 +242,33 @@ Two gotchas from building the external-ADB Shizuku peer-starter into the
   it survives reboots. Don't try to automate it; do the tap. The full ADB
   handshake up to that gate (CNXN → AUTH token → signature → RSAPUBLICKEY) is
   exercisable and was validated live s24→hd8.
+- **If repeated peer-start retries never show an Always-allow dialog on the
+  target, adbd's internal prompt-pending flag may be stuck** (observed on Fire
+  OS 8 / hd8 when authorizing a second peer; see
+  [#114](https://github.com/djbclark/stayturgid/issues/114)). Symptom: the peer
+  keeps logging `AUTH_PENDING`, the target's guided-setup "Approve peer-start on
+  this device" reminder is present, but no system dialog appears (not even a
+  flash) across several 3-minute retries. On the target, `adbd` logcat shows
+  stock AOSP `adbd_auth` messages:
+
+  ```text
+  adbd: prompting user to authorize key
+  adbd: adbd_auth: sending prompt with id …
+  adbd: adbd_auth: prompt currently pending, skipping
+  ```
+
+  **Why:** AOSP's `adbd_auth` library serializes prompts with a single
+  `dispatched_prompt_` flag
+  ([`frameworks/native/libs/adbd_auth/adbd_auth.cpp`](https://android.googlesource.com/platform/frameworks/native/+/refs/heads/main/libs/adbd_auth/adbd_auth.cpp)).
+  Once set, every later prompt is skipped until the framework replies OK/NO or
+  the framework socket is replaced. There is no client-visible timeout and no
+  ADB-visible signal distinguishing "stuck pending" from "operator hasn't tapped
+  yet" — so nothing in stayturgid can detect or clear it. **Fix:** on the
+  **target** device, toggle **Settings → Developer options → USB debugging** off
+  then back on. That restarts adbd's auth state without revoking already-trusted
+  keys (lighter than "Revoke USB debugging authorizations"). Then re-trigger
+  peer-start; a fresh dialog should appear. Full session trace:
+  [handoff-2026-07-28-peer-start-green-path-p7a.md](../operations/sessions/handoff-2026-07-28-peer-start-green-path-p7a.md).
 
 ## Termux (app uid) can't read /proc/net on modern Android — route device reads through uid 2000 (#64)
 
