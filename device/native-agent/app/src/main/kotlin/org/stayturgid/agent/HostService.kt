@@ -579,13 +579,15 @@ class HostService : Service() {
     }
 
     private fun buildNotification(bound: Boolean, needPermission: Boolean): Notification {
+        // The "Shizuku permission missing" case opens the guided SetupActivity directly: it
+        // detects state itself and walks the operator through starting Shizuku / granting the
+        // permission, instead of MainActivity's old auto-request flow which just showed a
+        // dead-end "Start Shizuku first" toast when the binder wasn't alive yet.
         val openIntent =
-            Intent(this, MainActivity::class.java).apply {
-                // Tapping the notification while permission is missing should fire the
-                // Shizuku request immediately — no manual button hunt required.
-                if (needPermission) {
-                    putExtra(MainActivity.EXTRA_AUTO_REQUEST_SHIZUKU, true)
-                }
+            if (needPermission) {
+                Intent(this, SetupActivity::class.java)
+            } else {
+                Intent(this, MainActivity::class.java)
             }
         val open =
             PendingIntent.getActivity(

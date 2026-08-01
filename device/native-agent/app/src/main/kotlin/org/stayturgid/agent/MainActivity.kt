@@ -117,6 +117,7 @@ class MainActivity : ComponentActivity() {
                 setPadding(0, 24, 0, 24)
             }
         )
+        root.addView(buildGuidedSetupButton())
         root.addView(
             Button(this).apply {
                 text = getString(R.string.main_request_shizuku)
@@ -207,13 +208,12 @@ class MainActivity : ComponentActivity() {
         refreshActionState()
         // App-context FGS start (shell am start-foreground-service is denied on API 34+).
         HostService.start(this)
-        maybeAutoRequestShizuku(intent)
+        maybeAutoLaunchGuidedSetup()
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        maybeAutoRequestShizuku(intent)
     }
 
     override fun onResume() {
@@ -221,15 +221,27 @@ class MainActivity : ComponentActivity() {
         refreshActionState()
     }
 
+    private fun buildGuidedSetupButton(): Button =
+        Button(this).apply {
+            text = getString(R.string.main_guided_setup)
+            setOnClickListener {
+                startActivity(Intent(this@MainActivity, SetupActivity::class.java))
+            }
+        }
+
     /**
-     * Tapping the "Shizuku permission missing" notification ([HostService.buildNotification])
-     * carries [EXTRA_AUTO_REQUEST_SHIZUKU] so the request fires immediately — no manual button tap
-     * needed once the operator has already tapped the notification to get here.
+     * Auto-opens [SetupActivity] on a fresh launch (not [onNewIntent] reuse of an already-open
+     * MainActivity) when Shizuku itself still needs setup — the exact gap this screen closes: after
+     * a reboot, Shizuku isn't running and the old flow's only reaction was a dead-end "Start
+     * Shizuku first" toast. [SetupStep.ENABLE_NOTIFICATIONS] is excluded since
+     * [maybeRequestPostNotifications] above already prompts for it inline; auto-launching a new
+     * activity at the same time would just race that system dialog.
      */
-    private fun maybeAutoRequestShizuku(intent: Intent?) {
-        if (intent?.getBooleanExtra(EXTRA_AUTO_REQUEST_SHIZUKU, false) != true) return
-        intent.removeExtra(EXTRA_AUTO_REQUEST_SHIZUKU)
-        requestShizuku()
+    private fun maybeAutoLaunchGuidedSetup() {
+        val steps = outstandingSetupSteps(SetupSignals.capture(this))
+        if (steps.any { it != SetupStep.ENABLE_NOTIFICATIONS }) {
+            startActivity(Intent(this, SetupActivity::class.java))
+        }
     }
 
     /** Show the peer-start authorization prompt when one is outstanding (issue #61). */
@@ -332,6 +344,12 @@ class MainActivity : ComponentActivity() {
     private fun maybeRequestPostNotifications() {
         if (Build.VERSION.SDK_INT < 33) return
         if (hasPostNotifications()) return
+        // Recorded in SetupActivity's own shared prefs (not just requested here) so its
+        // notificationsPermanentlyDenied() check sees this request too — otherwise it can
+        // never detect "already asked" once Android permanently suppresses the rationale from
+        // this call alone, and its "Enable notifications" button silently no-ops instead of
+        // falling back to Settings (caught in PR #177 review).
+        SetupActivity.markPostNotificationsRequested(this)
         ActivityCompat.requestPermissions(
             this,
             arrayOf(Manifest.permission.POST_NOTIFICATIONS),
@@ -343,12 +361,5 @@ class MainActivity : ComponentActivity() {
         private const val TAG = "StayTurgidMain"
         private const val REQUEST_SHIZUKU = 9001
         private const val REQUEST_NOTIF = 9002
-
-        /**
-         * Set by [HostService.buildNotification] on the "Shizuku permission missing" notification's
-         * PendingIntent so tapping it fires [requestShizuku] immediately, no manual button tap
-         * needed.
-         */
-        const val EXTRA_AUTO_REQUEST_SHIZUKU = "auto_request_shizuku"
     }
 }

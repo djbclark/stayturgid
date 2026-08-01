@@ -10,6 +10,13 @@
          (5555) over Tailscale to start Shizuku without the Mac (issue #61). -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!-- Package-visibility (API 30+): SetupActivity's "Open Shizuku" guided-setup step launches
+         Shizuku directly via getLaunchIntentForPackage(), which returns null for an installed
+         but not-visible package without this declaration. -->
+    <queries>
+        <package android:name="moe.shizuku.privileged.api" />
+    </queries>
+
     <application
         android:name=".AgentApplication"
         android:allowBackup="false"
@@ -31,6 +38,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".SetupActivity"
+            android:exported="false"
+            android:launchMode="singleTop" />
 
         <service
             android:name=".HostService"
