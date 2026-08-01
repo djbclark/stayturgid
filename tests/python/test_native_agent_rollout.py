@@ -66,3 +66,10 @@ def test_rollout_announces_using_and_free_on_failure(monkeypatch, capsys) -> Non
     output = capsys.readouterr().out
     assert output.count("🚨📱🚨 USING — hd8 — deploy and verify native agent — ~2 min") == 1
     assert output.count("🟢📱🟢 FREE — hd8 — native-agent rollout interaction complete") == 1
+
+
+def test_default_dry_run_uses_shared_eligible_targets(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(rollout, "resolve_hosts", lambda hosts, **_kwargs: ["s24", "hd8"])
+
+    assert rollout.main(["--dry-run"]) == 0
+    assert capsys.readouterr().out.strip() == "rollout.py targets: s24, hd8"
