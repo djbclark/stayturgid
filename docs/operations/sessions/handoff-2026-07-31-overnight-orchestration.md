@@ -36,6 +36,7 @@ session/instance, first check `just ops-release-claim-status` from
 `~/ops/site-djbclark` to see if the claim is still held or has gone stale.**
 
 State as of this writing:
+
 - 3 task worktrees created, each on branch `release-1.2.0`:
   `~/src/ops-worktrees/release-1.2.0-{stayturgid,site-djbclark,site-private}`.
 - Each repo's `ops-release.json` bumped `1.1.0` → `1.2.0`, committed, pushed.
@@ -46,6 +47,7 @@ State as of this writing:
 
 **Remaining steps (from `docs/OPS-RELEASES.md`, "Cutting a release" section)
 once those 3 PRs are green:**
+
 ```
 gh pr merge 180 --repo djbclark/stayturgid --squash --delete-branch
 gh pr merge 55  --repo djbclark/site-djbclark --squash --delete-branch
@@ -59,8 +61,10 @@ just ops-release-deploy 1.2.0     # fast-forward only, refuses non-FF
 just ops-release-status
 just ops-release-claim-end --version 1.2.0
 ```
+
 **After that**, the release is only in the deploy checkouts — still need to
 apply it to the running stack:
+
 - `just deploy` — Android fleet, fleet-wide including p7a (pre-authorized).
 - `just deploy-mac` — Mac control node/launchd (needed: central-logging PR
   #178 touched Mac-side `control/bin/fleet_health_monitor.py`).
@@ -75,9 +79,9 @@ exhaustion cleanup (#34, no code fix needed), Shizuku `BootRetryWorker`
 permanent-give-up bug — root cause of issue #43's whole soak (Shizuku PR #7),
 native-agent logcat buffer resize + resource leak (PR #174, v0.9.1→v0.9.2),
 stale `automation_mode=autojs6` (site-djbclark PR #53), Shizuku `.gitignore`
-gap (Shizuku PR #8), Termux ResultReturner-toast root cause (stayturgid PR
-#176), Shizuku Build-App workflow re-tag idempotency (Shizuku PR #9), guided
-setup screen + 2 real bugs found in review (stayturgid PR #177, v0.9.3→0.9.4),
+gap (Shizuku PR #8), Termux ResultReturner-toast root cause (stayturgid
+PR #176), Shizuku Build-App workflow re-tag idempotency (Shizuku PR #9),
+guided setup screen + 2 real bugs found in review (stayturgid PR #177, v0.9.3→0.9.4),
 central-logging pipeline for device failure signals (stayturgid PR #178),
 hd8's Tailscale false-negative repair failures (stayturgid PR #179).
 
