@@ -49,7 +49,7 @@ pkg update && pkg upgrade -y && pkg install -y openssh android-tools termux-api 
 sshd
 ```
 
-Open **Termux:Boot** once after install. `start-adb.sh` runs repair every 5 min; for watchdog notifications and Shizuku UI repair, add [AutoJs6](autojs6.md).
+Open **Termux:Boot** once after install. `start-adb.sh` runs repair every 5 min; watchdog notifications and Shizuku UI repair are handled by the native agent (`device/native-agent/`) — AutoJs6, which previously owned this, was retired fleet-wide (see [autojs6.md](autojs6.md)).
 
 **Phone → Mac Eternal Terminal:** fleet deploy installs `Host mac` SSH config
 (passphrase-less `id_ed25519_fleet`) and the `et` package. From Termux:
@@ -60,7 +60,7 @@ Open **Termux:Boot** once after install. `start-adb.sh` runs repair every 5 min;
 
 **Repo version check:** `stayturgid_check_repo_version.py` runs at most once per day from the boot loop (notify only; deploy from Mac).
 
-**Callers:** [AutoJs6](autojs6.md) (`RUN_COMMAND` → `stayturgid_repair.py`), [Ansible](../../../control/lib/README.md) over SSH.
+**Callers:** `device/termux/py/start_adb.py`'s boot daemon loop (invokes `stayturgid_repair.py` directly every 5 min — AutoJs6's `RUN_COMMAND` path that used to call this was retired, see [autojs6.md](autojs6.md)), [Ansible](../../../control/lib/README.md) over SSH.
 
 ## Deploy with Ansible (recommended)
 
