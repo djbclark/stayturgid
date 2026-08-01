@@ -142,7 +142,10 @@ See `${OPS_ROOT:-~/ops}/site-djbclark/docs/OPS-RELEASES.md`.
 
 See [docs/adding-a-launchd-service.md](docs/adding-a-launchd-service.md) — two
 paths: `control_node` role for fleet-wide agents, `site_agents` role for
-per-site agents.
+per-site agents. **Before scheduling anything periodic**, read that doc's
+"Before adding any scheduled/periodic job" section first — the Mac control
+node is a laptop, often off, so GitHub Actions `schedule:` is the default
+unless the job genuinely needs local machine access; never raw `cron`.
 
 ## Conventions
 
