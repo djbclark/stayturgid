@@ -96,6 +96,30 @@ def test_check_mode_env(monkeypatch):
     assert df.check_mode(True) is True
 
 
+def test_print_footer_check_mode_success(capsys):
+    """#184: dry-run footer must not claim the fleet converged."""
+    df.print_footer(0, df.Scope.FULL, check=True)
+    out = capsys.readouterr().out
+    assert "DRY RUN" in out
+    assert "no changes were applied" in out
+    assert "just deploy" in out
+    assert "Fleet deploy complete." not in out
+
+
+def test_print_footer_check_mode_error(capsys):
+    df.print_footer(2, df.Scope.FULL, check=True)
+    err = capsys.readouterr().err
+    assert "DRY RUN" in err
+    assert "No changes were applied" in err
+
+
+def test_print_footer_real_deploy_success(capsys):
+    df.print_footer(0, df.Scope.FULL, check=False)
+    out = capsys.readouterr().out
+    assert "Fleet deploy complete." in out
+    assert "DRY RUN" not in out
+
+
 def test_scope_ansible_tags():
     assert df.Scope.FULL.ansible_tags is None
     assert df.Scope.FDROID.ansible_tags == "fdroid"

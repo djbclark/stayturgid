@@ -310,6 +310,16 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0, dev
     # both normal deploys and dry runs.
     skip_bootstrap = "bootstrap"
     label = "deploy_fleet.py %s" % (",".join(targets) or "(whole fleet)")
+    if check:
+        # #184: dry-run recaps look like real deploys (ok/changed/failed=0) and
+        # were misread as "fleet is current" after ops-v1.2.0. Banner both ends.
+        print(
+            "NOTE: CHECK MODE (ansible --check --diff) — no APK installs, no "
+            "device writes, no Mac control_node apply. A green recap here does "
+            "NOT mean the fleet converged; run `just deploy` (without "
+            "deploy-check) to apply.",
+            file=sys.stderr,
+        )
     with fleet_lock(label):
         rc = run_playbook(
             SITE_PLAYBOOK,
@@ -334,8 +344,22 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0, dev
         return rc if rc != 0 else mac_rc
 
 
-def print_footer(rc: int, scope: Scope) -> None:
+def print_footer(rc: int, scope: Scope, *, check: bool = False) -> None:
     print()
+    if check:
+        if rc != 0:
+            print(
+                f"Fleet deploy-check (DRY RUN) finished with errors (exit {rc}). No changes were applied.",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                "Fleet deploy-check (DRY RUN) complete — no changes were applied "
+                "to devices or the Mac. A green Ansible recap in check mode only "
+                "means the plan was valid, not that APKs/config converged. "
+                "Apply with: just deploy"
+            )
+        return
     if rc != 0:
         print(f"Fleet deploy finished with errors (exit {rc}). Failed hosts are listed above.", file=sys.stderr)
     elif scope is Scope.FDROID:
@@ -377,12 +401,13 @@ def main(argv: list[str] | None = None) -> int:
         print("ERROR: fdroidcl not found (brew install fdroidcl)", file=sys.stderr)
         return 1
 
+    check = check_mode(args.check)
     try:
-        rc = deploy(scope, args.hosts, check=check_mode(args.check), verbose=verbose, devices_only=args.devices_only)
+        rc = deploy(scope, args.hosts, check=check, verbose=verbose, devices_only=args.devices_only)
     except FleetLockHeld as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 3
-    print_footer(rc, scope)
+    print_footer(rc, scope, check=check)
     return rc
 
 

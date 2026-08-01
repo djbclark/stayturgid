@@ -22,7 +22,10 @@ deploy-apks:
     python3 control/bin/deploy_fleet.py {{ deploy_args }} --scope bootstrap-apks --devices-only
 
 # ---------- Deploy Check (dry‑run) ----------
+# Ansible --check only: no APK installs, no device writes. A green recap is
+# NOT fleet convergence (#184). Apply with `just deploy`.
 _deploy_check_impl:
+    @echo "NOTE: just deploy-check is a DRY RUN (CHECK=1 / ansible --check). Nothing will be applied." >&2
     CHECK=1 python3 control/bin/deploy_fleet.py {{ deploy_args }} {{ deploy_scope_arg }}
 
 deploy-check-legacy:
