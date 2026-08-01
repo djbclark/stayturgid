@@ -31,6 +31,7 @@ from control.lib.ansible_context import AnsibleConfigError, require_inventory, r
 from control.lib.fleet_deploy_lock import FleetLockHeld, fleet_lock
 
 PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "fleet" / "termux-pkg-upgrade.yml"
+CHECK_UPDATES = REPO_ROOT / "control" / "bin" / "check_termux_pkg_updates.py"
 LOG_DIR = Path.home() / ".config" / "stayturgid" / "logs"
 LOG = LOG_DIR / "termux-pkg-nightly.log"
 MAX_LOG_LINES = 4000
@@ -106,6 +107,32 @@ def main(argv: list[str] | None = None) -> int:
     log("start: config=%s (%s) inventory=%s" % (context.config, context.source, context.inventory))
     log("start: %s" % " ".join(cmd))
     label = "termux_pkg_nightly.py %s" % (args.limit or "(whole fleet)")
+
+    # Pre-upgrade visibility (#152): hermes-notify which packages are about to
+    # be upgraded. Skip in ansible --check mode so dry-runs stay silent.
+    # Failures here must not block the upgrade itself.
+    if not check and CHECK_UPDATES.is_file():
+        pre_cmd = [sys.executable, str(CHECK_UPDATES)]
+        if args.limit:
+            pre_cmd.extend(["--limit", args.limit])
+        log("pre-check: %s" % " ".join(pre_cmd))
+        try:
+            pre = subprocess.run(
+                pre_cmd,
+                cwd=str(REPO_ROOT),
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=int(os.environ.get("STAYTURGID_TERMUX_PKG_CHECK_TIMEOUT", "600")),
+            )
+            pre_out = ((pre.stdout or "") + (pre.stderr or "")).strip()
+            if pre_out:
+                for line in pre_out.splitlines()[-40:]:
+                    log("  | %s" % line)
+            log("pre-check rc=%s" % pre.returncode)
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            log("WARN: pre-check failed (continuing upgrade): %s" % exc)
+
     try:
         with fleet_lock(label):
             r = subprocess.run(
