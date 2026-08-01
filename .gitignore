@@ -68,3 +68,7 @@ node_modules/
 /pnpm-lock.yaml
 *.apk
 *.jks
+
+# Ralph TUI project config is machine-local (absolute path to the
+# shared ops-djbclark control plane) — not shared repo content.
+.ralph-tui/
