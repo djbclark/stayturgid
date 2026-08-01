@@ -74,10 +74,10 @@ stayturgid_bootstrap_apks:
     checksum: "sha256:ecf916ff80ae751e65c092f51c055cce4de417ebeea8e449cd0f294afdbde39a"
   - id: moe.shizuku.privileged.api
     gh_repo: djbclark/Shizuku
-    gh_tag: "v13.7.0-thedjchi+stayturgid-release23"
-    gh_pattern: "shizuku-v13.7.0-thedjchi+stayturgid-release23-universal.apk"
-    version_name: "13.7.0-thedjchi+stayturgid-release23"
-    checksum: "sha256:b6864f697c16038cba1d165d01439225d05279f32b431a27def8eca7e6e028bb"
+    gh_tag: "v13.7.0-thedjchi+stayturgid-release25"
+    gh_pattern: "shizuku-v13.7.0-thedjchi+stayturgid-release25-universal.apk"
+    version_name: "13.7.0-thedjchi+stayturgid-release25"
+    checksum: "sha256:0d7a313c75eb4b14dfec71a1034a3f014e8a33848c18a1cdda7c07d6821af049"
     resign: true
     monkey: true
     battery_unrestricted: true
