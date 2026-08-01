@@ -25,6 +25,9 @@ stayturgid_termux_packages:
   - termux-api
   - runit
   - cfengine
+  # ansible.posix.synchronize (#166 item 1) needs rsync on both ends of the
+  # Termux SSH transport -- installed before the sync tasks further down.
+  - rsync
 
 # Edge OpenTelemetry Collector. The official contrib archive is downloaded
 # once to the Mac controller, checksum/ELF-architecture verified, then copied
