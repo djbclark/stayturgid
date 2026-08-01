@@ -70,6 +70,32 @@ print("unknown")
   echo "$age"
 """
 
+# Central-logging gap (found live-debugging hd8, 2026-07-31): Termux-side
+# repair failures and native-agent catastrophic-repair outcomes previously
+# only existed in on-device log files, never reaching the Mac. Tail both
+# during the SSH probe that's already happening (no second connection) and
+# emit each candidate line as a "DEVLOG_<SRC>|<line>" marker so the Mac side
+# (extract_devlog_lines) can split it out *before* parse_kv ever sees it — a
+# raw log line can itself contain "=" (e.g. "runtime=down policy=down") and
+# would otherwise be mis-split into a bogus top-level report field.
+#
+# watchdog.log: stayturgid_repair.py's log() writes an explicit syslog-style
+# severity token — "TS [repair] ERR: msg" / "TS [repair] WARNING: msg" (see
+# device/termux/py/stayturgid_repair.py's _SEV_LABEL) — so we can grep on
+# that token directly.
+#
+# agent.log: CatastrophicRepair/ComonitorProbes (Kotlin) have no severity
+# token, just free-text appendLog() calls. Classify by content instead:
+# "FAILED"/"error=" catches the catastrophic-repair failure paths, and
+# "still down" catches repairTailscale's post-fallback failure line (which
+# says "tailscale still down after ..." without the word FAILED). STATUS
+# lines are excluded — that telemetry already flows through the normal
+# soft_health snapshot and would otherwise be double-counted as noise.
+_DEVLOG_TAIL_BODY = r"""
+grep -h -E '\[repair\] (ERR|WARNING):' "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -20 | while IFS= read -r l; do echo "DEVLOG_WATCHDOG|$l"; done
+grep -h '\[agent\]' "$SD/logs/agent.log" /sdcard/stayturgid/logs/agent.log 2>/dev/null | grep -v ' STATUS ' | grep -iE 'FAILED|error=|still down' | tail -20 | while IFS= read -r l; do echo "DEVLOG_AGENT|$l"; done
+"""
+
 HEALTH_GATHER = (
     r"""
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
@@ -173,6 +199,7 @@ else
   echo "cfengine=down"
 fi
 """
+    + _DEVLOG_TAIL_BODY
 )
 
 
@@ -187,6 +214,35 @@ def parse_kv(text: str) -> dict[str, str]:
     return out
 
 
+# Marker prefixes _DEVLOG_TAIL_BODY emits -> the report["source"] we file them under.
+_DEVLOG_MARKERS = {
+    "DEVLOG_WATCHDOG": "watchdog.log",
+    "DEVLOG_AGENT": "agent.log",
+}
+
+
+def extract_devlog_lines(text: str) -> tuple[str, list[dict[str, str]]]:
+    """Split _DEVLOG_TAIL_BODY's ``DEVLOG_<SRC>|<line>`` markers out of *text*.
+
+    Must run before parse_kv: a raw device log line can itself contain "="
+    (e.g. "runtime=down policy=down"), which parse_kv's naive split would
+    otherwise turn into a bogus top-level report field.
+
+    Returns (remaining_text_for_parse_kv, [{"source": ..., "line": ...}, ...]),
+    in the order the on-device tail emitted them (oldest matched line first).
+    """
+    kept: list[str] = []
+    found: list[dict[str, str]] = []
+    for line in text.splitlines():
+        marker, sep, rest = line.partition("|")
+        source = _DEVLOG_MARKERS.get(marker) if sep else None
+        if source:
+            found.append({"source": source, "line": rest})
+        else:
+            kept.append(line)
+    return "\n".join(kept), found
+
+
 def _int_age(raw: str | None) -> int | None:
     if raw is None or raw in ("missing", "unknown", ""):
         return None
@@ -196,7 +252,7 @@ def _int_age(raw: str | None) -> int | None:
         return None
 
 
-def _normalize_status_fields(report: dict[str, str]) -> None:
+def _normalize_status_fields(report: dict[str, Any]) -> None:
     if "status_line" not in report:
         return
     for field in ("a11y", "port", "shizuku", "tailscale", "tailscale_policy"):
@@ -222,7 +278,7 @@ def a11y_profile_missing(alias: str, a11y_list: str | None) -> list[str]:
     return [s for s in expected if s not in live]
 
 
-def evaluate_health(report: dict[str, str], *, alias: str | None = None) -> list[str]:
+def evaluate_health(report: dict[str, Any], *, alias: str | None = None) -> list[str]:
     """Return sorted issue tags (empty = healthy / inconclusive-ok)."""
     issues: list[str] = []
     # Structured probe failures (Mac adb missing/timeout) — not device soft state.
@@ -286,7 +342,7 @@ def evaluate_health(report: dict[str, str], *, alias: str | None = None) -> list
     return sorted(set(issues))
 
 
-def summarize(report: dict[str, str], issues: list[str]) -> str:
+def summarize(report: dict[str, Any], issues: list[str]) -> str:
     bits = [
         "sshd=%s" % report.get("sshd", "?"),
         "bootloop=%s" % report.get("bootloop", "?"),
@@ -312,7 +368,7 @@ def summarize(report: dict[str, str], issues: list[str]) -> str:
     return " ".join(bits)
 
 
-def ssh_health(host: str, *, timeout: int = 30) -> dict[str, str]:
+def ssh_health(host: str, *, timeout: int = 30) -> dict[str, Any]:
     """Run HEALTH_GATHER over SSH. On failure return ssh_echo=fail."""
     try:
         r = subprocess.run(
@@ -341,16 +397,19 @@ def ssh_health(host: str, *, timeout: int = 30) -> dict[str, str]:
         return {"ssh_echo": "fail"}
     if r.returncode != 0:
         return {"ssh_echo": "fail"}
-    report = parse_kv(r.stdout or "")
+    text, devlog = extract_devlog_lines(r.stdout or "")
+    report: dict[str, Any] = parse_kv(text)
+    if devlog:
+        report["_devlog"] = devlog
     if "ssh_echo" not in report:
         report["ssh_echo"] = "ok"
     _normalize_status_fields(report)
     return report
 
 
-def adb_health(serial: str, *, timeout: int = 30) -> dict[str, str]:
+def adb_health(serial: str, *, timeout: int = 30) -> dict[str, Any]:
     """Best-effort Mac-side scrape when SSH is down but adb works (e.g. Fire)."""
-    report: dict[str, str] = {"ssh_echo": "skip", "sshd": "unknown", "bootloop": "unknown"}
+    report: dict[str, Any] = {"ssh_echo": "skip", "sshd": "unknown", "bootloop": "unknown"}
     script = (
         r"""
 now=$(date +%s)
@@ -423,6 +482,12 @@ echo "$st" | grep -oE 'shizuku=[^ ]+' || echo "shizuku=unknown"
 echo "$st" | grep -oE 'a11y=[^ ]+' || echo "a11y=unknown"
 echo "shell5555=skip"
 echo "bootloop=unknown"
+# Same DEVLOG_<SRC>|<line> markers as HEALTH_GATHER's _DEVLOG_TAIL_BODY (see
+# its comment for the ERR/WARNING and FAILED/error=/still-down rationale) —
+# this fallback path uses this script's own hardcoded $LOGS paths instead of
+# $SD since that variable isn't defined here.
+grep -h -E '\[repair\] (ERR|WARNING):' $LOGS 2>/dev/null | tail -20 | while IFS= read -r l; do echo "DEVLOG_WATCHDOG|$l"; done
+grep -h '\[agent\]' /sdcard/stayturgid/logs/agent.log 2>/dev/null | grep -v ' STATUS ' | grep -iE 'FAILED|error=|still down' | tail -20 | while IFS= read -r l; do echo "DEVLOG_AGENT|$l"; done
 """
     )
     try:
@@ -432,7 +497,10 @@ echo "bootloop=unknown"
             text=True,
             timeout=timeout,
         )
-        report.update(parse_kv(r.stdout or ""))
+        text, devlog = extract_devlog_lines(r.stdout or "")
+        report.update(parse_kv(text))
+        if devlog:
+            report["_devlog"] = devlog
         _normalize_status_fields(report)
     except FileNotFoundError:
         report["probe"] = "adb_missing"

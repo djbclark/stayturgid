@@ -33,6 +33,69 @@ def test_health_gather_reads_native_agent_log():
     assert r"\[agent\] STATUS" in fh.HEALTH_GATHER
 
 
+def test_health_gather_tails_devlog_failures():
+    """Central-logging gap (2026-07-31): the same probe now also tails
+    watchdog.log ERR/WARNING lines and agent.log failure lines."""
+    assert "DEVLOG_WATCHDOG|" in fh.HEALTH_GATHER
+    assert "DEVLOG_AGENT|" in fh.HEALTH_GATHER
+    assert r"\[repair\] (ERR|WARNING):" in fh.HEALTH_GATHER
+
+
+def test_extract_devlog_lines_splits_markers_and_keeps_rest():
+    text = (
+        "sshd=ok\n"
+        "DEVLOG_WATCHDOG|2026-07-31 17:42:21 [repair] ERR: Tailscale repair FAILED "
+        "(runtime=down policy=down); unlocked operator action may be required\n"
+        "watchdog_age=10\n"
+        "DEVLOG_AGENT|2026-07-31 17:43:00 [agent] catastrophic FAILED steps=shell_wireless\n"
+    )
+    remaining, devlog = fh.extract_devlog_lines(text)
+    kv = fh.parse_kv(remaining)
+    assert kv == {"sshd": "ok", "watchdog_age": "10"}
+    assert devlog == [
+        {
+            "source": "watchdog.log",
+            "line": (
+                "2026-07-31 17:42:21 [repair] ERR: Tailscale repair FAILED "
+                "(runtime=down policy=down); unlocked operator action may be required"
+            ),
+        },
+        {
+            "source": "agent.log",
+            "line": "2026-07-31 17:43:00 [agent] catastrophic FAILED steps=shell_wireless",
+        },
+    ]
+
+
+def test_extract_devlog_lines_no_markers_is_passthrough():
+    text = "sshd=ok\nwatchdog_age=10\n"
+    remaining, devlog = fh.extract_devlog_lines(text)
+    assert remaining == "sshd=ok\nwatchdog_age=10"
+    assert devlog == []
+
+
+def test_ssh_health_surfaces_devlog_without_corrupting_report(monkeypatch):
+    class MockResult:
+        returncode = 0
+        stdout = (
+            "sshd=ok\n"
+            "DEVLOG_WATCHDOG|2026-07-31 17:42:21 [repair] ERR: Tailscale repair FAILED "
+            "(runtime=down policy=down)\n"
+        )
+        stderr = ""
+
+    monkeypatch.setattr(fh.subprocess, "run", lambda *a, **k: MockResult())
+    report = fh.ssh_health("oneui-device")
+    assert report["sshd"] == "ok"
+    assert "runtime" not in report  # the raw '=' inside the log line must not leak in
+    assert report["_devlog"] == [
+        {
+            "source": "watchdog.log",
+            "line": "2026-07-31 17:42:21 [repair] ERR: Tailscale repair FAILED (runtime=down policy=down)",
+        }
+    ]
+
+
 def test_device_log_epoch():
     parsed = fhm._device_log_epoch("2026-07-13 12:38:56 [watchdog] example failure")
     expected = datetime.datetime(2026, 7, 13, 12, 38, 56).timestamp()
@@ -419,3 +482,133 @@ def test_monitor_heals_stale_agent(tmp_path, monkeypatch):
     fhm.check_device("oneui-device", "100.1", "192.1")
     agent_calls = [call for call in calls if any("start_agent.py" in str(part) for part in call)]
     assert len(agent_calls) == 1
+
+
+# ── device_log_failure (central-logging gap, 2026-07-31) ───────────────────
+
+
+def test_devlog_severity_watchdog_reads_explicit_token():
+    assert (
+        fhm._devlog_severity(
+            "watchdog.log",
+            "2026-07-31 17:42:21 [repair] ERR: Tailscale repair FAILED (runtime=down policy=down)",
+        )
+        == "ERR"
+    )
+    assert (
+        fhm._devlog_severity(
+            "watchdog.log",
+            "2026-07-31 17:42:21 [repair] WARNING: wireless debugging re-enable FAILED",
+        )
+        == "WARNING"
+    )
+    assert fhm._devlog_severity("watchdog.log", "2026-07-31 17:42:21 [repair] NOTICE: Tailscale restored") is None
+
+
+def test_devlog_severity_agent_log_is_always_err():
+    # agent.log lines only reach us after HEALTH_GATHER's FAILED/error=/still-down
+    # grep already filtered out anything that isn't a failure.
+    assert fhm._devlog_severity("agent.log", "2026-07-31 [agent] catastrophic FAILED steps=x") == "ERR"
+
+
+def test_report_device_log_failures_dedups_by_epoch(tmp_path, monkeypatch):
+    monkeypatch.setattr(fhm, "DEVLOG_STATE_DIR", str(tmp_path / "device-log-failure"))
+    events = []
+    monkeypatch.setattr(fhm, "_stats_event", lambda etype, device, **d: events.append((etype, device, d)))
+
+    report = {
+        "_devlog": [
+            {
+                "source": "watchdog.log",
+                "line": "2026-07-31 17:42:21 [repair] ERR: Tailscale repair FAILED (runtime=down policy=down)",
+            },
+        ]
+    }
+    fhm._report_device_log_failures("hd8", report)
+    assert len(events) == 1
+    assert events[0][0] == "device_log_failure"
+    assert events[0][1] == "hd8"
+    assert events[0][2]["source"] == "watchdog.log"
+    assert events[0][2]["severity"] == "ERR"
+    assert "Tailscale repair FAILED" in events[0][2]["message"]
+
+    # Same line again (e.g. still within HEALTH_GATHER's tail -20 window on the
+    # next cycle) must NOT be re-reported — epoch dedup.
+    fhm._report_device_log_failures("hd8", report)
+    assert len(events) == 1
+
+    # A genuinely NEW, later timestamped line for the same persistent failure
+    # (stayturgid_repair.py re-logs a fresh ERR every cycle it's still down)
+    # must be reported — this is the "re-notify while unresolved" path.
+    report2 = {
+        "_devlog": [
+            {
+                "source": "watchdog.log",
+                "line": "2026-07-31 17:47:21 [repair] ERR: Tailscale repair FAILED (runtime=down policy=down)",
+            },
+        ]
+    }
+    fhm._report_device_log_failures("hd8", report2)
+    assert len(events) == 2
+
+
+def test_report_device_log_failures_ignores_non_failure_lines(tmp_path, monkeypatch):
+    monkeypatch.setattr(fhm, "DEVLOG_STATE_DIR", str(tmp_path / "device-log-failure"))
+    events = []
+    monkeypatch.setattr(fhm, "_stats_event", lambda etype, device, **d: events.append((etype, device, d)))
+    report = {
+        "_devlog": [
+            {"source": "watchdog.log", "line": "2026-07-31 17:42:21 [repair] NOTICE: Tailscale restored"},
+        ]
+    }
+    fhm._report_device_log_failures("hd8", report)
+    assert events == []
+
+
+def test_report_device_log_failures_noop_without_devlog():
+    # No "_devlog" key at all (e.g. a healthy probe with nothing to report) —
+    # must not raise or touch state.
+    fhm._report_device_log_failures("hd8", {})
+
+
+def test_check_device_forwards_devlog_to_stats(tmp_path, monkeypatch):
+    monkeypatch.setattr(fhm, "STATE_DIR", str(tmp_path))
+    monkeypatch.setattr(fhm, "DEVLOG_STATE_DIR", str(tmp_path / "device-log-failure"))
+    monkeypatch.setattr(fhm, "SKIP_HEALTH", False)
+    monkeypatch.setattr(fhm, "SKIP_WATCHDOG_HEAL", True)
+    monkeypatch.setattr(fhm, "_scrape_device_errors", lambda *a, **k: None)
+    monkeypatch.setattr(fhm, "notify", lambda *a, **k: None)
+    monkeypatch.setattr(fhm, "_fleet_log", lambda *_: None)
+    events = []
+    monkeypatch.setattr(fhm, "_stats_event", lambda etype, device, **d: events.append((etype, device, d)))
+    monkeypatch.setattr(
+        fhm.fh,
+        "probe_device",
+        lambda name, ts, lan: (
+            "adb:1.1.1.1:5555",
+            {
+                "ssh_echo": "ok",
+                "sshd": "ok",
+                "bootloop": "ok",
+                "shell5555": "ok",
+                "watchdog_age": "10",
+                "repair_age": "10",
+                "agent_heartbeat_age": "10",
+                "a11y": "ok",
+                "autojs6_a11y": "ok",
+                "port": "open",
+                "shizuku": "up",
+                "_devlog": [
+                    {
+                        "source": "watchdog.log",
+                        "line": "2026-07-31 17:42:21 [repair] ERR: Tailscale repair FAILED (runtime=down)",
+                    }
+                ],
+            },
+        ),
+    )
+    fhm.check_device("p7a", "100.1", "192.1")
+    devlog_events = [e for e in events if e[0] == "device_log_failure"]
+    assert len(devlog_events) == 1
+    assert devlog_events[0][1] == "p7a"
+    assert devlog_events[0][2]["severity"] == "ERR"

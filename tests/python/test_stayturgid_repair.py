@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -166,3 +167,96 @@ def test_tailscale_runtime_probes_remote_control_plane(monkeypatch):
             8,
         )
     ]
+
+
+# ── On-device fallback anomaly detection (issue: central-logging gap, 2026-07-31) ──
+
+
+def _write_watchdog_log(path, lines):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _ts(seconds_ago, now=None):
+    """Format a 'YYYY-MM-DD HH:MM:SS' watchdog-log timestamp N seconds before now."""
+    import datetime as _dt
+
+    now = now if now is not None else time.time()
+    return _dt.datetime.fromtimestamp(now - seconds_ago).strftime("%Y-%m-%d %H:%M:%S")
+
+
+def test_count_recent_watchdog_errors_only_counts_err_within_window(tmp_path):
+    log = tmp_path / "watchdog.log"
+    _write_watchdog_log(
+        log,
+        [
+            # 3 ERR lines inside the 1h window (10, 30, 50 min ago).
+            "%s [repair] ERR: Tailscale repair FAILED (runtime=down policy=down)" % _ts(10 * 60),
+            "%s [repair] ERR: Tailscale repair FAILED (runtime=down policy=down)" % _ts(30 * 60),
+            "%s [repair] ERR: Tailscale repair FAILED (runtime=down policy=down)" % _ts(50 * 60),
+            # Outside the window (2h ago) — must not count.
+            "%s [repair] ERR: Tailscale repair FAILED (runtime=down policy=down)" % _ts(2 * 3600),
+            # WARNING/NOTICE lines must not count as ERR.
+            "%s [repair] WARNING: wireless debugging re-enable FAILED" % _ts(5 * 60),
+            "%s [repair] NOTICE: Tailscale restored" % _ts(4 * 60),
+        ],
+    )
+    assert repair.count_recent_watchdog_errors(path=str(log)) == 3
+
+
+def test_count_recent_watchdog_errors_missing_file_is_zero(tmp_path):
+    assert repair.count_recent_watchdog_errors(path=str(tmp_path / "missing.log"), now=time.time()) == 0
+
+
+class _FakeTapi:
+    def __init__(self):
+        self.calls = []
+
+    def notify(self, args, **kwargs):
+        self.calls.append(args)
+
+
+def test_maybe_notify_error_rate_below_threshold_is_noop(tmp_path, monkeypatch):
+    monkeypatch.setattr(repair, "SDLOG", str(tmp_path / "watchdog.log"))
+    monkeypatch.setattr(repair, "ERROR_RATE_NOTIFY_STAMP", str(tmp_path / "state" / "notify-stamp"))
+    monkeypatch.setattr(repair, "log", lambda *_a, **_k: None)
+    _write_watchdog_log(
+        tmp_path / "watchdog.log",
+        ["%s [repair] ERR: Tailscale repair FAILED (runtime=down policy=down)" % _ts(60)],
+    )
+    tapi = _FakeTapi()
+    assert repair.maybe_notify_error_rate(tapi_module=tapi) == "ok"
+    assert tapi.calls == []
+
+
+def test_maybe_notify_error_rate_notifies_via_termux_api_wrapper_only(tmp_path, monkeypatch):
+    """Must go through the safe termux_api wrapper (notify()), never a bare
+    subprocess call to termux-notification — a bare timeout+kill on a
+    termux-api client causes a loud ResultReturner-error toast (the exact bug
+    already fixed once this session, in start_adb.py)."""
+    monkeypatch.setattr(repair, "SDLOG", str(tmp_path / "watchdog.log"))
+    monkeypatch.setattr(repair, "ERROR_RATE_NOTIFY_STAMP", str(tmp_path / "state" / "notify-stamp"))
+    monkeypatch.setattr(repair, "log", lambda *_a, **_k: None)
+    _write_watchdog_log(
+        tmp_path / "watchdog.log",
+        [
+            "%s [repair] ERR: Tailscale repair FAILED (runtime=down policy=down)" % _ts(20 * 60),
+            "%s [repair] ERR: Tailscale repair FAILED (runtime=down policy=down)" % _ts(10 * 60),
+            "%s [repair] ERR: Tailscale repair FAILED (runtime=down policy=down)" % _ts(60),
+        ],
+    )
+
+    def _no_subprocess_run(*_a, **_k):
+        raise AssertionError("must not call subprocess.run directly for termux-notification")
+
+    monkeypatch.setattr(repair.subprocess, "run", _no_subprocess_run)
+
+    tapi = _FakeTapi()
+    assert repair.maybe_notify_error_rate(tapi_module=tapi) == "notified"
+    assert len(tapi.calls) == 1
+    assert tapi.calls[0][0] == "termux-notification"
+    assert (tmp_path / "state" / "notify-stamp").is_file()
+
+    # A second call right away must respect the re-notify cooldown.
+    assert repair.maybe_notify_error_rate(tapi_module=tapi) == "cooldown"
+    assert len(tapi.calls) == 1

@@ -1,16 +1,28 @@
 """Long-term statistics — JSONL events kept forever (no 30-day rotation).
 
 All stayturgid monitors and heal scripts should call record_event() for:
-  - connection_path:  which transport was used for a probe
-  - heal_triggered:   which self-heal fired
-  - device_status:    online / offline transitions
-  - issue_detected:   per-issue occurrence
-  - soft_health:      full dual-run probe snapshot (agent_age, watchdog_age, port, …)
+  - connection_path:   which transport was used for a probe
+  - heal_triggered:     which self-heal fired
+  - device_status:      online / offline transitions
+  - issue_detected:     per-issue occurrence
+  - soft_health:        full dual-run probe snapshot (agent_age, watchdog_age, port, …)
+  - device_log_failure: an ERR/WARNING-severity line freshly seen in an
+    on-device log (Termux ``watchdog.log`` or native-agent ``agent.log``)
+    during a fleet-health SSH probe — fields: ``source`` (watchdog.log /
+    agent.log), ``severity`` (ERR / WARNING), ``message`` (the raw log
+    line, truncated). See ``control/lib/fleet_health.py``'s
+    ``extract_devlog_lines()`` and
+    ``control/bin/fleet_health_monitor.py``'s
+    ``_report_device_log_failures()``.
 
 Primary durable files under ``~/.config/stayturgid/stats/``:
 
   - ``events.jsonl`` — all event types (local query_events)
-  - ``soft_health.jsonl`` — soft_health only, for Vector → OpenObserve
+  - ``soft_health.jsonl`` — soft_health + device_log_failure, for Vector →
+    OpenObserve (device_log_failure rides the same file/stream deliberately —
+    Vector's file source only tails soft_health.jsonl, so dual-writing here
+    reaches OpenObserve with zero Vector config changes; query by the
+    ``type`` field to distinguish rows)
 
 Writers use whole-line append + flush + fsync so a crash mid-write at worst
 leaves one corrupt last line (Vector drops parse errors). Vector tails
@@ -106,7 +118,9 @@ def record_event(event_type: str, device: str, **details: object) -> None:
 
     # Dedicated file for Vector micro-batch → OpenObserve stream soft_health.
     # Keeps OO ingest independent of other event types and easy to re-tail.
-    if event_type == "soft_health":
+    # device_log_failure rides the same file (see module docstring) so it
+    # reaches OpenObserve through the existing pipe with no new Vector config.
+    if event_type in ("soft_health", "device_log_failure"):
         _append_jsonl_line(soft_health_path(), event)
 
 

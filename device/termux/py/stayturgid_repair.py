@@ -869,6 +869,119 @@ def ensure_pkg_upgrade_daily():
         return "FAILED"
 
 
+# --- On-device fallback anomaly detection (issue: central-logging gap, 2026-07-31) ---
+#
+# fleet_health_monitor.py now ships new ERR/WARNING watchdog.log lines to
+# stats/OpenObserve every SSH probe cycle — but that whole path (Mac reachable
+# over SSH/Tailscale, OpenObserve up) can be down at exactly the moment a
+# device is unhealthy. This is the fallback that doesn't depend on any of it:
+# count our own recent ERR lines and, past a threshold, poke the operator
+# directly via termux-notification. Deliberately simple — a counter + a
+# threshold, not a general anomaly detector.
+ERROR_RATE_WINDOW_SEC = 3600  # rolling window: last hour
+# ensure_tailscale (and other checks) log a fresh ERR every repair cycle
+# (~STAYTURGID_INTERVAL_SEC=300s in start_adb.py) they still see the same
+# failure, so a *sustained* problem produces ~12 ERR lines/hour. Threshold=3
+# (~15 min of consecutive failing cycles) is high enough that one or two
+# transient blips don't page a human, low enough to catch a real outage well
+# before the old "nobody happened to SSH in today" discovery path.
+ERROR_RATE_THRESHOLD = 3
+ERROR_RATE_NOTIFY_COOLDOWN_SEC = 3600  # re-notify at most once/hour while still bad
+ERROR_RATE_NOTIFY_STAMP = os.path.join(STG, "state", "watchdog-error-rate-notify")
+
+
+def _parse_watchdog_line_epoch(line):
+    """Return epoch seconds for a 'YYYY-MM-DD HH:MM:SS [repair] ...' line, or None."""
+    try:
+        return datetime.datetime.strptime(line[:19], "%Y-%m-%d %H:%M:%S").timestamp()
+    except ValueError:
+        return None
+
+
+def count_recent_watchdog_errors(path=None, now=None, window_sec=ERROR_RATE_WINDOW_SEC):
+    """Count '[repair] ERR:' lines within window_sec of now in watchdog.log.
+
+    path/now are injectable for tests; production calls use SDLOG/real time.
+    """
+    path = path or SDLOG
+    now = now if now is not None else time.time()
+    count = 0
+    try:
+        with open(path) as f:
+            lines = f.readlines()
+    except OSError:
+        return 0
+    for line in lines:
+        if "[repair] ERR:" not in line:
+            continue
+        epoch = _parse_watchdog_line_epoch(line)
+        if epoch is None:
+            continue
+        if 0 <= now - epoch <= window_sec:
+            count += 1
+    return count
+
+
+def maybe_notify_error_rate(tapi_module=None):
+    """termux-notification fallback for when the Mac pipe might be unreachable too.
+
+    Uses ONLY the safe termux_api wrapper (control/lib/termux_api.py, deployed
+    to ~/.stayturgid/lib) — never a bare subprocess call to termux-notification.
+    A bare timeout+kill on a termux-api client causes a loud "Error in
+    ResultReturner" toast (the exact bug already fixed once this session, in
+    start_adb.py) — termux_api.notify()/run_ff() orphan instead of killing so
+    the socket can still complete.
+
+    Returns "ok" (below threshold), "cooldown" (already notified recently),
+    or "notified".
+    """
+    count = count_recent_watchdog_errors()
+    if count < ERROR_RATE_THRESHOLD:
+        return "ok"
+    last = 0.0
+    try:
+        with open(ERROR_RATE_NOTIFY_STAMP) as f:
+            last = float(f.read().strip() or 0)
+    except (OSError, ValueError):
+        last = 0.0
+    now = time.time()
+    if now - last < ERROR_RATE_NOTIFY_COOLDOWN_SEC:
+        return "cooldown"
+
+    tapi = tapi_module
+    if tapi is None:
+        try:
+            import stayturgid_shell as _sh
+
+            _sh.ensure_lib_path()
+            import termux_api as tapi
+        except ImportError:
+            tapi = None
+    if tapi is not None:
+        tapi.notify(
+            [
+                "termux-notification",
+                "--id",
+                "stayturgid-error-rate",
+                "--title",
+                "stayturgid: repeated errors",
+                "--content",
+                "%d repair ERR lines in the last hour - check watchdog.log" % count,
+            ]
+        )
+    log(
+        "watchdog error-rate fallback: %d ERR lines in last %ds — notified operator (Mac pipe may be down too)"
+        % (count, ERROR_RATE_WINDOW_SEC),
+        WARNING,
+    )
+    try:
+        with open(ensure_parent(ERROR_RATE_NOTIFY_STAMP), "w") as f:
+            f.write(str(int(now)))
+    except OSError:
+        pass
+    return "notified"
+
+
 def main():
     try:
         os.makedirs(TMPDIR, exist_ok=True)
@@ -1161,6 +1274,11 @@ def main():
     tailscale, tailscale_policy = _tailscale_status(have_sh=have_sh)
     if tailscale_repair == "FAILED" or tailscale == "down" or tailscale_policy == "down":
         rc = 1
+
+    # --- 11. Fallback anomaly detection: notify a human directly if this
+    # cycle (or a recent one) is part of a sustained error spike, independent
+    # of whether the Mac control node / OpenObserve is reachable at all.
+    maybe_notify_error_rate()
 
     status = (
         "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s tailscale=%s tailscale_policy=%s et_cfg=%s os_release=%s pkg_upgrade=%s auto_profile=%s shizuku_profile=%s device_profile=%s env=%s"

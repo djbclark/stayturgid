@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import datetime
 import os
+import re
 import subprocess
 import sys
 import time
@@ -70,6 +71,7 @@ REPAIR_HEAL_COOLDOWN_SEC = 30 * 60
 REPAIR_HEAL_AFTER = 2
 DEBUGGING_DIALOG_STATE_DIR = os.path.join(ROOT, "state", "debugging-dialog-notify")
 DEBUGGING_DIALOG_NOTIFY_COOLDOWN_SEC = 30 * 60
+DEVLOG_STATE_DIR = os.path.join(ROOT, "state", "device-log-failure")
 
 
 def _stats_event(event_type: str, device: str, **details: str | int | float) -> None:
@@ -484,6 +486,93 @@ def _record_soft_health_snapshot(
     )
 
 
+# stayturgid_repair.py's log() severity token — "TS [repair] ERR: msg" /
+# "TS [repair] WARNING: msg" (see device/termux/py/stayturgid_repair.py's
+# _SEV_LABEL). agent.log has no such token; fleet_health.py's
+# _DEVLOG_TAIL_BODY already filtered agent.log lines down to FAILED/error=/
+# still-down content before they ever reach us, so anything tagged
+# source="agent.log" here is a failure by construction — treat it as ERR.
+_WATCHDOG_SEVERITY_RE = re.compile(r"\[repair\] (ERR|WARNING):")
+
+
+def _devlog_severity(source: str, line: str) -> str | None:
+    if source == "watchdog.log":
+        m = _WATCHDOG_SEVERITY_RE.search(line)
+        return m.group(1) if m else None
+    if source == "agent.log":
+        return "ERR"
+    return None
+
+
+def _devlog_state_path(name: str, source: str) -> str:
+    return os.path.join(DEVLOG_STATE_DIR, "%s__%s" % (name, source.replace("/", "_")))
+
+
+def _report_device_log_failures(name: str, report: dict) -> None:
+    """Forward NEW Termux/native-agent failure lines to stats (central-logging
+    gap found live-debugging hd8, 2026-07-31 — these only ever existed in
+    on-device log files nobody happened to SSH in and grep).
+
+    fleet_health.py's SSH/adb probe already tails watchdog.log/agent.log for
+    ERR/WARNING-ish lines every cycle (see extract_devlog_lines /
+    _DEVLOG_TAIL_BODY) and hands them back on report["_devlog"]. This is
+    purely the Mac-side dedup + stats.record_event step.
+
+    Dedup design: one last-reported-epoch state file per (device, source),
+    alongside the other fleet-health state dirs. A line is reported only if
+    its embedded timestamp is strictly newer than the last one reported for
+    that device+source — so a long-lived historical backlog (the exact
+    failure mode _audit_scraped_errors below already had to guard against
+    once, 2026-07-19: 55 old lines alerting forever) gets reported once and
+    never again.
+
+    This intentionally has no *separate* re-notify cooldown on top of that.
+    A persistent, still-unresolved failure keeps producing genuinely NEW
+    timestamped lines on its own — stayturgid_repair.py re-logs a fresh ERR
+    every cycle it still sees the condition (e.g. ensure_tailscale's
+    "Tailscale repair FAILED" line), and CatastrophicRepair does the same in
+    agent.log — so the epoch dedup naturally lets each new occurrence back
+    through without a manual timer, while a one-off resolved blip stays
+    quiet. If a source ever went quiet while still broken (no fresh line),
+    this would miss it — not a concern for any log covered here today.
+    """
+    devlog = report.get("_devlog") or []
+    if not devlog:
+        return
+    os.makedirs(DEVLOG_STATE_DIR, exist_ok=True)
+    by_source: dict[str, list[str]] = {}
+    for entry in devlog:
+        by_source.setdefault(entry.get("source", "unknown"), []).append(entry.get("line", ""))
+
+    for source, lines in by_source.items():
+        state_path = _devlog_state_path(name, source)
+        last = read_state(state_path)
+        newest = last
+        for line in lines:
+            severity = _devlog_severity(source, line)
+            if severity is None:
+                continue
+            epoch = _device_log_epoch(line)
+            if epoch is None:
+                # Can't age it — same rule _audit_scraped_errors uses: never
+                # let an unparseable timestamp inflate/duplicate reporting.
+                continue
+            epoch_i = int(epoch)
+            if epoch_i <= last:
+                continue
+            _stats_event(
+                "device_log_failure",
+                name,
+                source=source,
+                severity=severity,
+                message=line.strip()[:500],
+            )
+            if epoch_i > newest:
+                newest = epoch_i
+        if newest > last:
+            write_state(state_path, newest)
+
+
 def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     state_file = os.path.join(STATE_DIR, name)
     maintenance_file = os.path.join(STATE_DIR, f"{name}.maintenance")
@@ -549,6 +638,9 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
         _stats_event("issue_detected", name, issue=issue)
     # Long-term dual-run / pre-cutover telemetry (JSONL forever under stats/).
     _record_soft_health_snapshot(name, path, report, issues)
+    # New ERR/WARNING lines the same probe already tailed from watchdog.log /
+    # agent.log (central-logging gap, 2026-07-31) -> stats -> OpenObserve.
+    _report_device_log_failures(name, report)
 
     _scrape_device_errors(name, ts_ip)
 
