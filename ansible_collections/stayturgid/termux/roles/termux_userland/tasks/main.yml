@@ -1,4 +1,13 @@
 ---
+# ansible.posix.synchronize's action plugin reads task_vars.get('ansible_rsync_path')
+# with no templating call, so a plain `key: "{{ expr }}"` var (task-level or
+# group_vars — both tested, both fail identically) stays an unevaluated
+# template reference and gets passed to rsync as literal "{{ ... }}" text.
+# set_fact resolves eagerly into a concrete string, sidestepping this.
+- name: Resolve local rsync path for termux_userland synchronize tasks
+  ansible.builtin.set_fact:
+    ansible_rsync_path: "{{ stayturgid_local_rsync_path }}"
+
 # @heals: MIRROR-PINNED OS-RELEASE PATH-CLEAN ENV-FILE SSHD-PENALTIES TERMUX-WRITESETTINGS TERMUX-OVERLAY BOOTLOOP-AUTOSTART PKG-UPGRADE OTELCOL-RUNNING
 - name: Configure edge otelcol-contrib
   ansible.builtin.include_tasks:
@@ -261,7 +270,6 @@
     dest: "{{ termux_home }}/.stayturgid/bin/"
     perms: true
     checksum: true
-    _local_rsync_path: "{{ stayturgid_local_rsync_path }}"
     rsync_opts: >-
       {{
         (stayturgid_py_scripts | default([]) | map('regex_replace', '^(.*)$', '--include=/\1') | list)
@@ -332,7 +340,6 @@
     dest: "{{ termux_home }}/.stayturgid/lib/"
     perms: true
     checksum: true
-    _local_rsync_path: "{{ stayturgid_local_rsync_path }}"
     rsync_opts: >-
       {{
         (stayturgid_lib_files | default([]) | map(attribute='dest') | map('regex_replace', '^(.*)$', '--include=/\1') | list)
@@ -386,7 +393,6 @@
     dest: "{{ termux_home }}/.stayturgid/battery-colors/"
     perms: true
     checksum: true
-    _local_rsync_path: "{{ stayturgid_local_rsync_path }}"
     rsync_opts: >-
       {{
         (stayturgid_battery_color_assets | default([]) | map('regex_replace', '^(.*)$', '--include=/\1') | list)
@@ -410,7 +416,6 @@
     dest: "{{ termux_home }}/.termux/boot/"
     perms: true
     checksum: true
-    _local_rsync_path: "{{ stayturgid_local_rsync_path }}"
     rsync_opts: >-
       {{
         (stayturgid_boot_scripts | default([]) | map('regex_replace', '^(.*)$', '--include=/\1') | list)
