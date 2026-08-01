@@ -50,11 +50,13 @@ All three devices reachable and current:
 ## Open PRs across the three repos
 
 ### Ready to merge, no action needed
+
 - **`djbclark/site-djbclark` #59** — `feat: declare DISCORD_* secrets in
-  secretspec manifest`. Zero CodeRabbit findings, CI green. Just merge
+secretspec manifest`. Zero CodeRabbit findings, CI green. Just merge
   whenever convenient.
 
 ### Fixed, but CodeRabbit hasn't actually re-reviewed the fix yet — read this before merging
+
 - **`djbclark/stayturgid` #208** + **`djbclark/site-djbclark` #62** — a
   paired PR making the Mac control node use Homebrew's GNU rsync (3.4.4)
   instead of macOS's ancient system rsync (2.6.9) for `termux_userland`'s
@@ -78,9 +80,9 @@ All three devices reachable and current:
      internal representation until something explicitly requests templated
      evaluation, which this code path never does. Real device run failed
      with a literal `Failed to find required executable "{{
-     stayturgid_local_rsync_path }}"` error.
+stayturgid_local_rsync_path }}"` error.
   3. **Working fix**: `ansible.builtin.set_fact: ansible_rsync_path: "{{
-     stayturgid_local_rsync_path }}"` as the very first task in
+stayturgid_local_rsync_path }}"` as the very first task in
      `termux_userland`'s `tasks/main.yml`. `set_fact` evaluates eagerly and
      stores a concrete resolved string (no residual Jinja markup) as a
      hostvar, which the action plugin's raw `task_vars.get()` then reads
@@ -91,9 +93,9 @@ All three devices reachable and current:
      also have produced) — proof this is the mechanism working, not
      environmental coincidence.
   4. Also fixed per CodeRabbit on the site-djbclark side: `brew --prefix
-     rsync` returns a path even for a formula that **isn't installed**
+rsync` returns a path even for a formula that **isn't installed**
      (just where it would go); switched to `brew --prefix --installed
-     rsync`, which fails loudly instead. Verified both the success and
+rsync`, which fails loudly instead. Verified both the success and
      failure cases directly in a shell.
 
   **What's NOT done**: `@coderabbitai review` was re-triggered on both PRs
@@ -122,8 +124,9 @@ All three devices reachable and current:
   before merge).
 
 ### Needs an explicit decision — not started
+
 - **`djbclark/stayturgid` #206** — `fix: gateway uses git-install venv
-  (Python 3.14 breakage)`. **This PR is not this session's own work** — it
+(Python 3.14 breakage)`. **This PR is not this session's own work** — it
   came from an unrelated Hermes-gateway-repair conversation that happened
   to run in a herdr pane earlier the same day. CodeRabbit found a real gap:
   `stayturgid_hermes_bin` (in `ansible/roles/control_node/defaults/main.yml`)
@@ -142,8 +145,9 @@ All three devices reachable and current:
   configurable override in the first place.
 
 ### Self-managing, no action needed
+
 - **`djbclark/stayturgid` #203** — `chore: coderabbit audit —
-  stayturgid-batch-0001`. Part of the `~/.config/coderabbit-feeder`
+stayturgid-batch-0001`. Part of the `~/.config/coderabbit-feeder`
   pipeline's own review-queue-draining mechanism — its own description says
   it'll close itself once CodeRabbit's review lands (currently rate-limited,
   same shared-budget issue as above). Nothing to do here; it's designed to
@@ -158,7 +162,7 @@ All three devices reachable and current:
   (already merged as `site-djbclark` #61), not a deploy. No evidence of an
   actual concurrent deploy was found anywhere this session looked. If this
   comes up again, the deploy tooling's own defenses are documented in
-  `docs/OPS-RELEASES.md` (exclusive flock + version claim for *release*
+  `docs/OPS-RELEASES.md` (exclusive flock + version claim for _release_
   operations specifically — ordinary `just deploy` fleet pushes aren't
   release-flock-gated, so if two agents really did run `just deploy`
   concurrently against the same device, Ansible/SSH-level connection
