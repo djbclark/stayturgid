@@ -10,8 +10,8 @@ AutoJs6 was already removed fleet-wide before this script's introduction
 (OPTIONS K1); this only handles the native-agent APK itself.
 
 Usage:
-  ./rollout.py                     # all hosts from devices.conf
-  ./rollout.py device1 device2     # named aliases
+  ./rollout.py                     # all eligible inventory hosts
+  ./rollout.py device1 device2     # explicit aliases (offline override)
   ./rollout.py --serial 100.x:5555 # raw serial only
 """
 
@@ -25,8 +25,10 @@ import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "control" / "lib"))
 import stayturgid_device as dev  # noqa: E402
+from control.lib.fleet_targets import resolve_hosts  # noqa: E402
 
 APK = REPO / "device" / "native-agent" / "app" / "build" / "outputs" / "apk" / "debug" / "app-debug.apk"
 GRANT = REPO / "control" / "tools" / "native-agent" / "grant_shizuku.py"
@@ -234,39 +236,35 @@ def rollout_one(label: str, serial: str) -> bool:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("hosts", nargs="*", help="device aliases from devices.conf")
+    p.add_argument("hosts", nargs="*", help="inventory SSH aliases; explicit hosts override offline status")
     p.add_argument("--serial", action="append", default=[], help="raw adb serial(s)")
+    p.add_argument("--dry-run", action="store_true", help="print selected targets without ADB interaction")
     args = p.parse_args(argv)
 
     targets: list[tuple[str, str]] = []
     for s in args.serial:
-        serial = resolve_serial(s) or s
-        targets.append((s, serial))
+        targets.append((s, s))
     for h in args.hosts:
-        serial = resolve_serial(h)
+        targets.append((h, h))
+    if not args.serial and not args.hosts:
+        targets = [(host, host) for host in resolve_hosts([], repo_root=REPO, command_name="rollout.py")]
+
+    if not targets:
+        print("No reachable targets.")
+        return 1
+
+    if args.dry_run:
+        print("rollout.py targets: " + ", ".join(label for label, _serial in targets))
+        return 0
+
+    resolved_targets: list[tuple[str, str]] = []
+    for label, target in targets:
+        serial = resolve_serial(target)
         if serial:
-            targets.append((h, serial))
+            resolved_targets.append((label, serial))
         else:
-            print(f"=== {h} ===\n  SKIP: could not resolve adb serial")
-    if not targets and not args.serial and not args.hosts:
-        conf = os.environ.get(
-            "STAYTURGID_DEVICES_CONF",
-            os.path.join(os.path.expanduser("~"), ".config", "stayturgid", "devices.conf"),
-        )
-        for name, ts_ip, _lan in dev.iter_monitor_hosts(conf):
-            # Prefer ts:5555 then resolve_adb
-            serial = None
-            if ts_ip and ts_ip != "-":
-                cand = f"{ts_ip}:5555"
-                _run(["adb", "connect", cand], timeout=15)
-                if device_online(cand):
-                    serial = cand
-            if not serial:
-                serial = resolve_serial(name)
-            if serial:
-                targets.append((name, serial))
-            else:
-                print(f"=== {name} ===\n  SKIP: unreachable / no adb")
+            print(f"=== {label} ===\n  SKIP: unreachable / no adb")
+    targets = resolved_targets
 
     if not targets:
         print("No reachable targets.")

@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import json
 import os
 import shutil
 import subprocess
@@ -48,6 +47,8 @@ from control.lib.ansible_context import (
     resolved_env,
 )
 from control.lib.fleet_deploy_lock import FleetLockHeld, fleet_lock
+from control.lib.fleet_targets import FLEET_STATUS_VAR, inventory_list as _inventory_list
+from control.lib.fleet_targets import offline_hosts, parse_inventory_hosts
 
 SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "site.yml"
 MAC_SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "control_node" / "site.yml"
@@ -58,12 +59,6 @@ REQUIREMENTS = REPO_ROOT / "ansible" / "requirements.yml"
 # letting a hung or endlessly-retrying rollout run indefinitely (see #104).
 # Override with STAYTURGID_DEPLOY_TIMEOUT_SECONDS for unusually large fleets.
 DEPLOY_TIMEOUT_SECONDS = int(os.environ.get("STAYTURGID_DEPLOY_TIMEOUT_SECONDS", "1800"))
-
-# Inventory field marking a fleet device excluded from deploys by default
-# (see #104). Distinct from site_litellm's site_host_status, which is that
-# group's own unrelated scheme.
-FLEET_STATUS_VAR = "stayturgid_fleet_status"
-
 
 class Scope(str, Enum):
     FULL = "full"
@@ -117,35 +112,14 @@ def check_mode(cli_check: bool) -> bool:
     return cli_check or os.environ.get("CHECK", "0") == "1"
 
 
-def parse_inventory_hosts(data: dict, group: str = "stayturgid") -> list[str]:
-    hosts = data[group]["hosts"]
-    if isinstance(hosts, list):
-        return list(hosts)
-    return list(hosts.keys())
-
-
 def inventory_list(group: str = "stayturgid") -> dict:
-    context = resolve_ansible_context(REPO_ROOT)
-    require_inventory(context)
-    result = subprocess.run(
-        ["ansible-inventory", *context.inventory_args(), "--list"],
-        capture_output=True,
-        text=True,
-        check=True,
-        env=repo_env(),
-        cwd=REPO_ROOT,
-    )
-    return json.loads(result.stdout)
+    """Compatibility wrapper for callers and tests of this entry point."""
+
+    return _inventory_list(REPO_ROOT, group)
 
 
 def inventory_hosts(group: str = "stayturgid") -> list[str]:
     return parse_inventory_hosts(inventory_list(group), group)
-
-
-def offline_hosts(data: dict, hosts: list[str]) -> list[str]:
-    """Hosts among `hosts` whose FLEET_STATUS_VAR is 'offline'."""
-    hostvars = data.get("_meta", {}).get("hostvars", {})
-    return [h for h in hosts if hostvars.get(h, {}).get(FLEET_STATUS_VAR) == "offline"]
 
 
 def resolve_hosts(hosts: list[str]) -> list[str]:
