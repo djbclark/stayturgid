@@ -22,12 +22,29 @@ def test_every_github_apk_is_immutably_locked():
 
 
 def test_only_x11_has_the_explicit_mutable_tag_snapshot_exception():
-    mutable_aliases = {"latest", "nightly"}
+    mutable_aliases = {"nightly"}
     snapshots = [apk for apk in _catalog() if apk["gh_tag"] in mutable_aliases]
     assert snapshots == [
         next(apk for apk in _catalog() if apk["id"] == "com.termux.x11")
     ]
     assert snapshots[0]["mutable_tag_snapshot"] is True
+
+
+def test_x11_snapshot_policy_is_limited_and_verified_on_every_deploy():
+    role_tasks = (
+        ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/main.yml"
+    ).read_text(encoding="utf-8")
+    install_tasks = (
+        ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml"
+    ).read_text(encoding="utf-8")
+    module = (
+        ROOT / "ansible_collections/stayturgid/android_common/plugins/modules/android_apk.py"
+    ).read_text(encoding="utf-8")
+
+    assert "_locked_apk.id == 'com.termux.x11' and _locked_apk.gh_tag == 'nightly'" in role_tasks
+    assert 'verify_on_current: "{{ _apk.mutable_tag_snapshot | default(false) }}"' in install_tasks
+    assert 'verify_on_current=dict(type="bool", default=False)' in module
+    assert 'reason="version %s and checksum verified" % current' in module
 
 
 def test_native_agent_uses_its_release_stream_and_real_asset_name():

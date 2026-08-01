@@ -22,7 +22,7 @@
       - _locked_apk.gh_tag | length > 0
       - >-
         _locked_apk.gh_tag not in ['latest', 'nightly'] or
-        (_locked_apk.id == 'com.termux.x11' and
+        (_locked_apk.id == 'com.termux.x11' and _locked_apk.gh_tag == 'nightly' and
          (_locked_apk.mutable_tag_snapshot | default(false) | bool))
       - _locked_apk.gh_pattern is string
       - _locked_apk.gh_pattern | length > 0

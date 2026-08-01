@@ -52,6 +52,14 @@ options:
     description: Install even when the package is already present.
     type: bool
     default: false
+  verify_on_current:
+    description:
+      - Download and verify the configured artifact even when C(version_name)
+        already matches, without reinstalling it.
+      - This makes a checksum-pinned mutable release alias fail closed if its
+        upstream asset is replaced.
+    type: bool
+    default: false
   clean:
     description:
       - Uninstall the package before installing (only when an install is
@@ -312,6 +320,7 @@ def main():
             version_name=dict(type="str"),
             checksum=dict(type="str"),
             force=dict(type="bool", default=False),
+            verify_on_current=dict(type="bool", default=False),
             clean=dict(type="bool", default=False),
             clean_on_incompatible=dict(type="bool", default=True),
             installer=dict(type="str"),
@@ -339,11 +348,14 @@ def main():
         adb_connect(module.run_command, device)
 
     present = package_installed(module.run_command, device, package)
+    verify_current = False
     if present and not module.params["force"]:
         if module.params["version_name"]:
             current = installed_version(module.run_command, device, package)
             if current == module.params["version_name"]:
-                module.exit_json(changed=False, reason="version %s already installed" % current)
+                if not module.params["verify_on_current"]:
+                    module.exit_json(changed=False, reason="version %s already installed" % current)
+                verify_current = True
         else:
             module.exit_json(changed=False, reason="already installed")
 
@@ -365,6 +377,9 @@ def main():
         )
 
     verify_sha256(module, apk, module.params["checksum"])
+
+    if verify_current:
+        module.exit_json(changed=False, reason="version %s and checksum verified" % current)
 
     if module.params["resign"]:
         resign_apk(module, apk)

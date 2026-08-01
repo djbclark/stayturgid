@@ -76,7 +76,8 @@ stayturgid_bootstrap_apks:
     checksum: "sha256:ecf916ff80ae751e65c092f51c055cce4de417ebeea8e449cd0f294afdbde39a"
   # Intentional point-in-time snapshot pin against the mutable nightly tag.
   # A future nightly fails checksum verification safely rather than auto-updating;
-  # re-pin only by deliberately re-fetching the asset and updating this checksum.
+  # re-pin only by deliberately re-fetching the asset and updating this checksum
+  # and version_name.
   - id: com.termux.x11
     gh_repo: termux/termux-x11
     gh_tag: nightly
