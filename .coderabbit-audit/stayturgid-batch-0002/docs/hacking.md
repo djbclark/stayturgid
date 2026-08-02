@@ -1,0 +1,823 @@
+# HACKING — stayturgid Development Environment
+
+This document gets a developer from a clean Android + macOS install to a fully working development environment for stayturgid. Follow the sections in order — Android setup first, then Mac, then verification.
+
+---
+
+## What you're setting up
+
+| Layer                   | Role                                                                |
+| ----------------------- | ------------------------------------------------------------------- |
+| Android device          | Runs stayturgid-agent, Shizuku, Termux — the managed stack          |
+| macOS (Mac)             | Development workstation; runs ADB, Ansible, AI coding agent         |
+| stayturgid-agent        | Native Android agent (Kotlin/Shizuku UserService)                   |
+| Shizuku (thedjchi fork) | Shell-privileged adbd on port 5555 via Wireless Debugging (no root) |
+| Termux                  | Linux environment on Android — runs sshd, adb, the boot script      |
+
+---
+
+## Tested versions
+
+### Android device
+
+| App                     | Package                      | Version                    | Source             |
+| ----------------------- | ---------------------------- | -------------------------- | ------------------ |
+| Android                 | —                            | 16 (SDK 36)                | —                  |
+| stayturgid-agent        | `com.stayturgid.agent`       | current                    | Built from source  |
+| Shizuku (thedjchi fork) | `moe.shizuku.privileged.api` | 13.6.0.r1349-thedjchi-beta | GitHub (see below) |
+| Termux                  | `com.termux`                 | 0.118.3                    | GitHub             |
+| Termux:Boot             | `com.termux.boot`            | 0.8.1                      | F-Droid / GitHub   |
+| Termux:API (app)        | `com.termux.api`             | 0.53.0                     | F-Droid / GitHub   |
+
+### Termux packages (installed inside Termux via `pkg`)
+
+| Package             | Version   |
+| ------------------- | --------- |
+| openssh             | 10.3p1-1  |
+| termux-api (CLI)    | 0.59.1    |
+| android-tools (adb) | 35.0.2-7  |
+| python              | 3.13.13-1 |
+| curl                | 8.21.0    |
+| wget                | 1.25.0-1  |
+
+### macOS development tools
+
+| Tool                              | Version                  | Install                                                  |
+| --------------------------------- | ------------------------ | -------------------------------------------------------- |
+| macOS                             | macOS 26.5.2             | —                                                        |
+| Homebrew                          | current                  | https://brew.sh                                          |
+| ADB (platform-tools)              | 1.0.41 / 37.0.0-14910828 | `brew install android-platform-tools`                    |
+| Python                            | 3.12+                    | `brew install python`                                    |
+| uv                                | 0.x                      | `brew install uv`                                        |
+| Handsets (`~/.handsets/hs`)       | 0.1.x                    | Mac primary UI driver — see `control/lib/ui_driver.py`   |
+| uiautomator2 (Python)             | 3.7.0                    | Optional Mac debug only (`uv tool install uiautomator2`) |
+| AI Agents (Hermes, Codex, Cursor) | current                  | Varies by agent                                          |
+| git                               | current                  | `brew install git`                                       |
+
+---
+
+## Part 1 — Android setup
+
+### 1.1 Enable Developer Options and Wireless Debugging
+
+1. **Settings → About phone → Build number**: tap 7 times to enable Developer Options.
+2. **Settings → System → Developer options**:
+   - Enable **USB debugging**
+   - Enable **Wireless debugging**
+3. Open **Wireless debugging** and note the IP address and port shown (you'll need this for pairing, but ADB on the Mac will handle it automatically once you connect via USB).
+
+### 1.2 Install Android apps
+
+Install the following apps.
+
+#### Shizuku — thedjchi fork (CRITICAL: must be this fork)
+
+The standard Shizuku from Play Store **does not have TCP mode**. You need thedjchi's fork which adds automatic boot-time TCP (port 5555) support via Wireless Debugging.
+
+**Source:** https://github.com/thedjchi/Shizuku/releases
+
+**Source:** https://github.com/thedjchi/Shizuku/releases
+
+Select: "GitHub Releases" -> filter for `.apk`.
+
+Install the latest `app-release.apk` from the releases page. Current version: **13.6.0.r1349-thedjchi-beta**.
+
+#### Termux (install from F-Droid or Google Play)
+
+```
+https://github.com/termux/termux-app
+```
+
+Or F-Droid: search "Termux" by Termux Dev Team.
+
+> Note: F-Droid and Google Play builds are signed differently and **cannot coexist**. Pick one source and stick with it. Google Play version may lag behind F-Droid.
+
+#### Termux:Boot
+
+```
+https://github.com/termux/termux-boot
+```
+
+Or F-Droid: search "Termux:Boot".
+
+**Must match the signing source of Termux** (F-Droid with F-Droid, Play with Play).
+
+#### Termux:API (app)
+
+```
+https://github.com/termux/termux-api
+```
+
+Or F-Droid: search "Termux:API".
+
+#### Tailscale
+
+Gives the device a stable `100.x.y.z` IP that survives DHCP lease changes and network switches — so `adb connect <tailscale-ip>:5555` and SSH keep working without hunting for the current WiFi IP. (The S24's LAN IP changed mid-session once and broke every hardcoded `adb connect`; Tailscale eliminates that failure mode.)
+
+**Source:** https://github.com/tailscale/tailscale-android/releases
+
+Select: "GitHub Releases" → filter for `.apk`.
+
+After install: sign in, and in Tailscale settings consider enabling **VPN On-Demand / Always-on VPN** so the tunnel survives reboots.
+
+---
+
+### 1.3 Configure Shizuku (thedjchi fork)
+
+Open Shizuku → **Settings (gear icon)**. Set:
+
+| Setting                     | Value          | Why                                                                      |
+| --------------------------- | -------------- | ------------------------------------------------------------------------ |
+| Start on boot               | ON             | Auto-starts via Wireless Debugging on every reboot                       |
+| Watchdog (restart if crash) | ON             | Auto-restarts Shizuku if it crashes                                      |
+| TCP mode                    | ON             | Calls `adb tcpip 5555` after starting — this opens port 5555 without USB |
+| TCP port                    | 5555 (default) | Standard wireless ADB port                                               |
+| Auto-disable USB debugging  | OFF            | Leave USB debugging active                                               |
+
+Then tap **Start via Wireless debugging → Start**. Once it's running you should see the Shizuku notification. Subsequent reboots are automatic.
+
+---
+
+### 1.4 Configure Termux
+
+**Package policy:** at the start of any Termux setup or maintenance session, refresh the package index and upgrade everything already installed. Before installing any new package, run `pkg update && pkg upgrade -y` again (even if you just ran it).
+
+Open Termux and install the required packages:
+
+```bash
+pkg update && pkg upgrade -y
+pkg update && pkg upgrade -y && pkg install openssh android-tools termux-api python wget curl -y
+```
+
+**Set up the SSH server and your public key:**
+
+```bash
+# Generate a key on the Mac first (if you don't have one):
+# ssh-keygen -t ed25519 -f ~/.ssh/termux_key
+
+# One-time bootstrap (when Ansible cannot SSH yet):
+./control/bin/bootstrap_ssh.py oneui-device
+# Or: adb push + run-as com.termux (automated by bootstrap_ssh.py on debug Termux)
+# Manual fallback:
+# ssh-copy-id -i ~/.ssh/termux_key.pub -p 8022 USER@DEVICE_IP
+# Or manually on device:
+# mkdir -p ~/.ssh && chmod 700 ~/.ssh
+# echo "YOUR_PUBLIC_KEY" >> ~/.ssh/authorized_keys && chmod 600 ~/.ssh/authorized_keys
+```
+
+After bootstrap, `ansible/playbooks/site.yml` (via `just deploy` / `deploy_fleet.py`)
+keeps fleet SSH keys in sync. **`./control/bin/bootstrap_ssh.py`** (also auto-run from
+`control/bin/deploy_termux.py` via `fleet/bootstrap.yml` when SSH fails) installs
+control-node `*.pub` keys via adb + `run-as com.termux`, starts `sshd`, and
+verifies over USB forward (`adb forward tcp:8022 tcp:8022`) or Tailscale SSH
+alias. Live fleet deploy uses **`preflight.yml`** (start of `site.yml`) for
+conditional bootstrap instead of the full `bootstrap` tag.
+
+- **Public keys:** every `*.pub` under `stayturgid_ssh_keys_dir` (default
+  `~/.ssh` on the Mac) is installed on every device via
+  `ansible.posix.authorized_key`.
+- **Device mesh:** each device gets a per-host `id_ed25519_fleet` keypair; every
+  fleet member's pubkey is installed on every other device via
+  `ansible.posix.authorized_key`. Every device also gets every peer's sshd host
+  key in `~/.ssh/known_hosts` via `ansible.builtin.known_hosts` (aliases:
+  inventory name, Tailscale IP, LAN IP).
+- **Private keys:** matching `id_*` (without `.pub`) and `termux_key` are copied
+  from the Mac to each device's `~/.ssh/`. Keys are never committed to git.
+- **Mac client:** `ansible/playbooks/control_node/agents.yml` renders `~/.ssh/config.d/stayturgid`
+  and trusts each fleet host's sshd key in `~/.ssh/known_hosts`.
+
+Override discovery with `stayturgid_ssh_public_key_files` or
+`stayturgid_ssh_keys_dir` in inventory `group_vars`. Disable mesh pieces with
+`stayturgid_ssh_mesh_device_identity` / `stayturgid_ssh_mesh_known_hosts`.
+
+**Start sshd and test it (from Mac):**
+
+```bash
+# On device in Termux:
+sshd
+
+# On Mac (device connected via USB):
+adb -s EXAMPLE-SERIAL-STOCK forward tcp:8022 tcp:8022
+ssh -i ~/.ssh/termux_key -p 8022 localhost
+```
+
+**Deploy the Termux:Boot script:**
+
+```bash
+# From Mac (with repo cloned to ~/stayturgid/):
+adb push ~/stayturgid/device/termux/boot/start-adb.sh /sdcard/start-adb.sh
+
+# In Termux on device:
+mkdir -p ~/.termux/boot
+cp /sdcard/start-adb.sh ~/.termux/boot/start-adb.sh
+chmod +x ~/.termux/boot/start-adb.sh
+```
+
+Open the **Termux:Boot app** once to register its `BOOT_COMPLETED` receiver — it won't fire on boot until you do this.
+
+**Verify Termux:API is working:**
+
+```bash
+# In Termux (or via SSH):
+termux-battery-status
+# Should return JSON like: {"health":"GOOD","percentage":85,...}
+```
+
+If the command hangs or errors, make sure the Termux:API app is installed (section 1.2) and that you've granted it the necessary permissions when prompted.
+
+---
+
+## Part 2 — macOS setup
+
+### 2.1 Install Homebrew and core tools
+
+Homebrew itself and project formulae are installed by Ansible (`control_node/prereqs.yml`) on
+`just deploy-mac` or `just deploy`:
+
+```bash
+just deploy-mac          # Homebrew bootstrap (if missing) + adb, python, uv, git, ansible, scrcpy
+```
+
+The playbook runs the standard Homebrew install script when `brew` is not on PATH, then
+uses `community.general.homebrew` for formulae. When app stores are re-enabled
+(`stayturgid_app_stores_enabled: true`), `apkeep` is included too.
+`uiautomator2` is installed via `uv tool install`.
+
+Still manual: Handsets, SSH key generation (`termux_key`, `adbkey`), `play.env`,
+Claude Code, Node.
+
+### 2.2 Install Handsets (primary Mac UI driver)
+
+Fleet Mac post-UI uses Handsets via `control/lib/ui_driver.py` (not stock
+`hs use` with `ip:5555`). Install into `~/.handsets/{hs,hs.jar}` and invoke
+as `~/.handsets/hs` (PATH `hs` may be a herdr alias — do not overwrite).
+
+Ports: oneui-device **9013**, fireos-device **9012**, stock-android-device **9014**. Do **not** run alongside
+uiautomator2. Research + bench: `docs/research/ui-automation.md`,
+`docs/research/handsets-vs-u2-bench.md`,
+`docs/research/handsets-under-termux.md`.
+
+**Fire OS (fireos-device):** Termux cannot `adb connect localhost:5555`. On-device
+Handsets starts via **peer bootstrap** — fireos-device SSHs to oneui-device/stock-android-device, which run
+`stayturgid_peer_help.py` over ADB. See
+`docs/research/fire-os-local-adb.md`.
+
+**Shared fleet ADB key** (one Allow covers every phone helper):
+
+```bash
+mkdir -p ~/.config/stayturgid
+adb keygen ~/.config/stayturgid/adbkey   # once on the Mac; never commit
+```
+
+Ansible deploys that keypair to each device as `~/.stayturgid/adbkey-fleet`
+(does **not** overwrite `~/.android/adbkey`, which stays device-native for
+localhost:5555). First helper connect to a Fire still needs one
+**Always allow** tap on the target.
+
+**rish** installs by default into `~/.stayturgid/bin/rish` (from the Shizuku
+APK). Useful on stock Android; on Fire the Termux↔Shizuku binder often times
+out — peer ADB is the Handsets starter there.
+
+### 2.3 Install uiautomator2 (optional Mac debug)
+
+uiautomator2 is optional for one-off Mac debugging. Prefer Handsets for fleet
+scripts. Never run u2 while a Handsets daemon holds UiAutomation.
+
+Installed by Ansible (`uv tool install`) on `just deploy-mac`. Manual:
+
+```bash
+uv tool install uiautomator2
+```
+
+Verify:
+
+```bash
+/Users/$(whoami)/.local/bin/uiautomator2 --version
+# Should print: 3.7.0 (or newer)
+```
+
+**First-time device initialization** (do this once after each factory reset, or if `u2.jar` is missing from the device):
+
+```bash
+# Device must be connected via USB or wireless ADB first
+/Users/$(whoami)/.local/bin/uiautomator2 init
+```
+
+**Using uiautomator2 in Python scripts:**
+
+The uv-installed package is in its own venv. Add it to sys.path:
+
+```python
+import sys
+
+sys.path.insert(0, "/Users/operator/.local/share/uv/tools/uiautomator2/lib/python3.14/site-packages")
+import uiautomator2 as u2
+from control.lib.screen_control import ScreenControlSession
+
+host = "stock-android-device"
+with ScreenControlSession(host, label=host):
+    d = u2.connect("EXAMPLE-SERIAL-STOCK")  # USB serial, or '<tailscale-ip>:5555' for wireless
+    print(d.info)
+    # Keep every UI read and input inside this held session.
+```
+
+Common operations:
+
+```python
+# Run only inside the active ScreenControlSession above.
+d(text="OK").click()  # click by visible text
+d(resourceId="com.foo:id/bar").exists  # check if element exists
+d.screenshot("/tmp/screen.png")  # take screenshot
+```
+
+> **Gotcha:** If `d(text='SomeButton').exists` returns False when the button is visible, another app may have a dismissable popup covering the UI. Click `d(text='OK').click()` to dismiss it first.
+
+### 2.4 SSH key for Termux
+
+```bash
+ssh-keygen -t ed25519 -f ~/.ssh/termux_key
+# Copy ~/.ssh/termux_key.pub to Termux ~/.ssh/authorized_keys (see Part 1.4)
+```
+
+Add to `~/.ssh/config` for convenience:
+
+```
+Host termux
+  HostName localhost
+  Port 8022
+  IdentityFile ~/.ssh/termux_key
+  User u0_a<UID>
+  StrictHostKeyChecking no
+```
+
+Connect:
+
+```bash
+adb -s EXAMPLE-SERIAL-STOCK forward tcp:8022 tcp:8022
+ssh termux
+```
+
+### 2.5 Install the Mac-side launchd keepalive
+
+This runs `adb connect` every 60 seconds, handles DHCP IP changes, and sends a macOS notification on reconnect or failure.
+
+**Current (Ansible-generated):** `just deploy` / `site.yml` ends with `control_node/site.yml`
+(Homebrew prereqs, `devices.conf`, `com.stayturgid.*` launchd agents). Partial deploys
+(`just deploy HOSTS=oneui-device`) also refresh Mac config via `deploy_fleet.py`. Agents launch
+`control/bin/adb_reconnect.py` + `control/bin/access_monitor.py`. Logs + state live under
+`~/.config/stayturgid/{logs,state}/`.
+
+> The legacy manual path (`cp control/bin/com.operator.stayturgid.adb-reconnect.plist …`) is
+> superseded by `ansible/playbooks/control_node/agents.yml`; the old `com.operator.*` agents were retired.
+
+### 2.6 Install Claude Code (AI development agent)
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+The AI agent session runs from `~/stayturgid-hermes` (the Hermes worktree). Start a session:
+
+```bash
+cd ~/stayturgid-hermes
+claude
+```
+
+Verify it's using Pro/Max plan (not API billing): run `/status` inside Claude Code.
+
+## Part 3 — Connecting to the device
+
+### Wireless ADB
+
+The device's IP can change across reboots (DHCP). The mac-side script auto-discovers it via USB. To discover manually:
+
+```bash
+# Via USB:
+adb -s EXAMPLE-SERIAL-STOCK shell "ip addr show wlan0 | grep 'inet '"
+# Then connect wirelessly:
+adb connect <discovered-ip>:5555
+```
+
+Default/cached IP: `100.x.x.x:5555` (Tailscale, stable) or `192.168.x.x:5555` (LAN, DHCP — do not hardcode).
+
+### SSH to Termux
+
+Direct WiFi SSH is blocked by Android's firewall. Use ADB port-forward:
+
+```bash
+adb -s EXAMPLE-SERIAL-STOCK forward tcp:8022 tcp:8022
+ssh -i ~/.ssh/termux_key -p 8022 localhost
+```
+
+---
+
+## Part 4 — Development workflow
+
+### Resume current work before choosing a task
+
+Maintainers and AI agents must first read [the coding rules](coding-rules.md),
+[the handoff](handoff.md), [the open-work menu](options.md), and the
+[ordered outstanding-fix plan](archive/plans/outstanding-fix-priorities-2026-07-13.md).
+That plan contains the current execution order, acceptance gates, rollback rules,
+and a copy-paste junior-agent prompt. Reliability work takes precedence over optional
+Galaxy, LLM, FIRERPA MCP/WebRTC/MITM, and task-runner enhancements.
+
+Prefer Python for substantial orchestration, parsing, retries, and validation. Keep
+shell wrappers small. Kotlin is the on-device runtime (`device/native-agent/`).
+
+At session start, run `just health` and distinguish active failures from recovered
+history. Preserve unrelated worktree changes. Landing discovery writes runtime
+observations under `~/.config/stayturgid/landing/services.json`; the tracked
+`control/landing/services.json` is static configuration and should stay clean.
+
+### Dashboard human-action checks
+
+The Flask dashboard is normally served on `127.0.0.1:4097` and exposed through
+the control-node proxy. For a `shizuku_down` card, use **open Shizuku and test
+rish**. The action only launches the Shizuku app and runs the verification probe;
+it cannot press Android's consent button. Select **Allow all the time** on the
+phone and retry until this returns `2000`:
+
+```bash
+ssh oneui-device '~/.stayturgid/bin/rish -c "id -u"'
+```
+
+If the device has no Termux SSH path, the dashboard must report that limitation;
+do not interpret opening the Shizuku app alone as authorization.
+
+### Making native-agent changes
+
+The AutoJs6 JS watchdog (`device/autojs6/`, `control/tools/autojs6/*`) was
+retired fleet-wide during the K1 cutover (2026-07-22) and its code deleted
+entirely in the #162 cleanup — see
+[docs/architecture/components/autojs6.md](architecture/components/autojs6.md)
+for historical reference only. Current on-device automation is the Kotlin
+`device/native-agent/` APK — see that directory's own README and
+`just agent-assemble` / `just agent-rollout <host>` for the build/deploy
+loop, and `just kt-test` for its unit tests.
+
+### Testing shell scripts off-device (added 2026-07-06)
+
+`device/termux/*.sh` can be exercised on the Mac without a phone: point `HOME` at a
+scratch dir and prepend a stub `bin/` (fake `termux-*`, `adb`, `sleep`) to
+`PATH`, then assert against the call log the stubs write. The 2026-07-06 code
+review validated the battery-alarm tier logic this way.
+
+**pgrep gotcha (bit us in H2 of CODE-REVIEW.md):** on Termux (procps/Linux),
+`pgrep -f PATTERN` matches the _caller's own cmdline_ — a guard like
+`pgrep -f bridges` inside `start-repair-bridge.sh` (or inside an ssh
+command string containing the pattern) always self-matches. macOS/BSD pgrep
+does **not** do this, so Mac-side dry-runs pass while the on-device guard is
+broken. Use pidfiles (`~/.stayturgid/run/repair-bridge.pid` + `/proc/$pid/cmdline`
+check) for liveness, and test process guards on the device itself.
+
+**Shell convention:** never assume the user's default shell — macOS defaults
+to zsh, Termux users can switch shells, and zsh isn't installed on Termux by
+default (`pkg install zsh` if a script genuinely needs it). Declare bash in
+every shebang and run remote commands via `ssh host 'bash -s'` (heredoc or
+stdin pipe), never bare `ssh host '<commands>'` through the login shell.
+
+### Test suite (three tiers, three idiomatic entry points)
+
+- **Tier a (code):** syntax/lint under local interpreters — `just check` /
+  `tests/run.sh code`.
+- **Tier b (unit, no device):** shell TAP harness (`tests/test-unit.sh`, runs
+  the `battery_suite` against BOTH the shell and Python twins), plain **pytest**
+  for the Python script twins (`tests/python/`), and the standard
+  **`ansible-test units`** for domain collections (`stayturgid.termux`, `play` under `ansible_collections/stayturgid/`). `just test` runs all
+  three.
+- **Tier c (device, read-only):** `just verify` / `tests/run.sh device`.
+- **Drift detection:** `just verify-drift [HOSTS=oneui-device]` — Ansible-based declarative state verification (complements TAP verify). `just verify-heal [HOSTS=oneui-device]` runs verify + auto-heal.
+
+Setup once: `just test-venv` (builds `.venv-test` with ansible-core + pytest +
+pytest-mock + pytest-ansible). CI runs `just test` on every push
+(`.github/workflows/test.yml`). `just lint` = shellcheck + ansible-lint +
+yamllint. Deploy the fleet with `./control/bin/deploy_fleet.py` (Ansible;
+`CHECK=1` for a dry run).
+
+Cheap pre-commit gates (if not running the full `just test`): `bash -n` each
+script, `git ls-files '*.sh' | xargs shellcheck -S warning`,
+`python3 -m py_compile` the Python sources, and
+`ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/fleet/fleet.yml --syntax-check`.
+
+### Using uiautomator2 for device automation
+
+Use for: tapping buttons in app UIs, reading screen state, automating setup steps.
+
+```python
+import sys
+
+sys.path.insert(0, "/Users/operator/.local/share/uv/tools/uiautomator2/lib/python3.14/site-packages")
+import uiautomator2 as u2
+from control.lib.screen_control import ScreenControlSession
+
+host = "stock-android-device"
+with ScreenControlSession(host, label=host):
+    d = u2.connect("EXAMPLE-SERIAL-STOCK")
+    # Perform every UI operation before leaving this block.
+```
+
+Run the HTTP server on the device first if it's not running:
+
+```bash
+/Users/operator/.local/bin/uiautomator2 init
+```
+
+### Using Termux:API for device state
+
+Use for: reading battery, clipboard, notifications, sensors — anything that's OS-level rather than UI-level.
+
+```bash
+# Via SSH to Termux:
+termux-battery-status
+termux-clipboard-get
+termux-sensor -s "Accelerometer" -n 1
+```
+
+### Publishing an update
+
+GitHub `master` is the source of truth; updates are pushed to devices from the Mac.
+
+1. Make changes and test them on a device (`just agent-rollout <host>`, `./control/bin/deploy_termux.py`).
+2. Bump `version.json` (`version` + `changelog`) at the repo root.
+3. Commit and push.
+4. Deploy to the fleet:
+   ```bash
+   just deploy                    # full site.yml (recommended)
+   just verify HOSTS=oneui-device          # optional TAP after deploy
+   ```
+   Granular: `just deploy-termux`, `just deploy-apks` (bootstrap-apks scope only, #166), `just agent-rollout <host>` (USB recovery on Fire).
+
+Devices can optionally run `stayturgid_check_repo_version.py` (deployed as `~/stayturgid_check_repo_version.py`; max once/24 h from the boot loop) to get a notification when GitHub's `version.json` is newer than the last deployed version:
+
+```bash
+curl -sS https://raw.githubusercontent.com/operator/stayturgid/master/version.json
+```
+
+---
+
+## Part 5 — Cross-device testing safety rules (discovered 2026-07-01)
+
+### Accessibility is detection-only — never write the enabled-service list
+
+`settings put secure enabled_accessibility_services <value>` replaces the entire
+colon-separated list. An incomplete value silently disables other accessibility
+services such as screen readers, automation tools, Wispr Flow, or BuzzKill.
+
+Stayturgid therefore treats accessibility state as **detection-only**. Automated
+work must not run `settings put` for `enabled_accessibility_services`, append to the
+list, restore a stored list, or use an app toggle that rewrites the list. This rule
+also applies to other consent-sensitive colon-separated settings unless a specific
+policy says otherwise.
+
+Read-only verification is allowed:
+
+```bash
+adb shell settings get secure enabled_accessibility_services | tr ':' '\n'
+./control/bin/a11y_services.py show oneui-device
+```
+
+If a required accessibility service is missing, stop the dependent automation and
+ask the user to enable it manually in **Android Settings → Accessibility**. Verify the
+result read-only afterward. `control/lib/a11y_profiles.json` and historical backups
+are diagnostic references, not authorization for an automatic restore.
+
+If a service list was accidentally wiped, report the incident immediately. Have the
+user restore services through Android Settings; do not guess or push a remembered
+whole-list value from another date or device.
+
+### At the start of every session: snapshot device state
+
+Before touching any device settings, record:
+
+```bash
+adb shell settings get secure enabled_accessibility_services
+adb shell settings get secure default_input_method
+adb shell settings get global package_verifier_enable
+```
+
+At the end, compare the snapshots. Report unexpected drift. Restore only a setting
+that the approved task deliberately changed and whose restoration method is permitted;
+accessibility remains a human Settings action.
+
+---
+
+## Part 5b — Samsung Galaxy S24 specific setup (discovered 2026-07-01)
+
+### Shizuku: "Start via Wireless debugging" fails on Samsung
+
+Samsung's SSL implementation throws `javax.net.ssl.SSLProtocolException: SSLV3_ALERT_CERTIFICATE_UNKNOWN` when Shizuku tries to connect to the Wireless Debugging service on port ~38279. **Do not use "Start via Wireless debugging" on Samsung.**
+
+Use **"Start by connecting to a computer"** instead:
+
+1. Connect device via USB ADB
+2. In Shizuku → Settings → "Start by connecting to a computer"
+3. Tap "View command" to get the actual path (it changes per install), then run it from Mac:
+   ```bash
+   adb -s EXAMPLE-SERIAL-ONEUI shell /data/app/~~.../moe.shizuku.privileged.api-...=/lib/arm64/libshizuku.so
+   ```
+4. After Shizuku starts via ADB method, port 5555 does NOT auto-open. Manually trigger:
+   ```bash
+   adb -s EXAMPLE-SERIAL-ONEUI tcpip 5555
+   ```
+
+### Battery optimization blocks Shizuku toggles on Samsung
+
+Before Shizuku's "Start on boot" and "Watchdog" toggles will respond:
+
+```bash
+adb shell dumpsys deviceidle whitelist +moe.shizuku.privileged.api
+```
+
+Then the toggles work.
+
+### Termux: sshd requires explicit environment when started from runit or run-as
+
+On Samsung (tested Android 16), sshd fails silently when started via runit (which uses minimal env). The `runsv sshd` process runs but sshd never actually starts.
+
+**Root cause:** PATH does not include Termux's bin dir, so sshd's wrapper script can't find its deps.
+
+**Fix for runit service** (`$PREFIX/var/service/sshd/run`):
+
+```bash
+#!/data/data/com.termux/files/usr/bin/bash
+export PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/sbin:$PATH
+export HOME=/data/data/com.termux/files/home
+export PREFIX=/data/data/com.termux/files/usr
+export TMPDIR=/data/data/com.termux/files/usr/tmp
+export LD_LIBRARY_PATH=/data/data/com.termux/files/usr/lib
+exec sshd -D -e 2>&1
+```
+
+**run-as with Termux:** Must provide full path to Termux bash AND set env:
+
+```bash
+adb -s EXAMPLE-SERIAL-ONEUI shell "run-as com.termux /data/data/com.termux/files/usr/bin/bash -c '
+  export PATH=/data/data/com.termux/files/usr/bin:/data/data/com.termux/files/usr/sbin:\$PATH
+  export HOME=/data/data/com.termux/files/home
+  export PREFIX=/data/data/com.termux/files/usr
+  sshd
+'"
+```
+
+**Termux:Boot script** (already includes env vars — see `device/termux/boot/start-adb.sh`).
+
+### `am start -d content://` fails from shell on Samsung/Android 16
+
+On Samsung Android 16, `adb shell am start -d content://com.android.externalstorage...` fails because UID 2000 (shell) cannot grant URI permissions for ExternalStorageProvider. The `--grant-read-uri-permission` flag doesn't help — apps needing file input must use their own file pickers.
+
+### Termux packages: must match signing source
+
+When Termux main app is installed from GitHub releases, all add-ons must also come from GitHub — not F-Droid. Mixing sources causes `INSTALL_FAILED_SHARED_USER_INCOMPATIBLE`.
+
+GitHub release pages:
+
+- Termux:Boot — `github.com/termux/termux-boot/releases`
+- Termux:API — `github.com/termux/termux-api/releases`
+
+If Play Protect blocks the install: `adb shell settings put global package_verifier_enable 0` before installing, re-enable after.
+
+### S24 Termux SSH access (for future sessions)
+
+```bash
+adb -s EXAMPLE-SERIAL-ONEUI shell "run-as com.termux /data/data/com.termux/files/usr/bin/bash -c '
+  export PATH=/data/data/com.termux/files/usr/bin:\$PATH
+  export HOME=/data/data/com.termux/files/home
+  pkill sshd 2>/dev/null; sshd
+'"
+adb -s EXAMPLE-SERIAL-ONEUI forward tcp:8022 tcp:8022
+ssh -i ~/.ssh/termux_key -p 8022 -o StrictHostKeyChecking=no localhost
+```
+
+After SSH is up, all further setup can be done cleanly without dealing with terminal background noise.
+
+---
+
+## Part 6 — Verification checklist
+
+After a cold reboot and PIN unlock, wait ~60 seconds, then run from the Mac:
+
+```bash
+# 1. Check port 5555 is open (Shizuku TCP mode did its job)
+adb -s EXAMPLE-SERIAL-STOCK shell "ss -tln 2>/dev/null | grep ':5555'"
+# Expected: LISTEN line for :5555
+
+# 2. Connect wirelessly
+adb connect <tailscale-ip>:5555
+# Expected: "connected to <tailscale-ip>:5555"
+
+# 3. Check sshd is running (Termux:Boot did its job)
+adb shell "ss -tln 2>/dev/null | grep ':8022'"
+# Expected: LISTEN line for :8022
+
+# 4. Check Shizuku process
+adb shell "pgrep -f shizuku && echo SHIZUKU_OK"
+# Expected: SHIZUKU_OK
+
+# 5. SSH into Termux
+adb -s EXAMPLE-SERIAL-STOCK forward tcp:8022 tcp:8022
+ssh -i ~/.ssh/termux_key -p 8022 localhost "echo SSH_OK"
+# Expected: SSH_OK
+```
+
+If port 5555 is not open after 60s:
+
+- Check Shizuku is running: `adb shell pgrep -f shizuku`
+- Check TCP mode is ON in Shizuku Settings
+- Manually trigger: `adb shell "run-as com.termux sh -c 'adb tcpip 5555'"`
+
+---
+
+## Part 6b — F-Droid / Neo Store + Play / Aurora (parked)
+
+**Not** part of active `./control/bin/deploy_fleet.py` (2026-07-09). Set
+`stayturgid_app_stores_enabled: true` to re-enable. Apps may remain on devices;
+optional Obtainium catalog: `catalogs/obtainium/app-stores-optional.json`.
+
+When re-enabled, the single `fleet.yml` pass installs and configures the
+F-Droid/Play sources; `post-ui.yml` runs only the Aurora first-run UI. Obtainium
+catalog import is headless and belongs to the main fleet pass, so a normal
+deploy does not require an unlocked screen when app stores are parked.
+
+| Command                            | Scope                                | Mac tools                       |
+| ---------------------------------- | ------------------------------------ | ------------------------------- |
+| `just deploy [HOSTS=…]`            | Full `site.yml` (includes preflight) | fdroidcl, apkeep when stores on |
+| `just deploy SCOPE=fdroid HOSTS=…` | F-Droid tags only                    | fdroidcl                        |
+| `just deploy SCOPE=play HOSTS=…`   | Play + post-ui Aurora                | apkeep                          |
+
+**Default repos** (`ansible_collections/stayturgid/fdroid/roles/fdroid_repos/defaults/main.yml`):
+
+| Name        | URL                                   | SHA-256 fingerprint                                                |
+| ----------- | ------------------------------------- | ------------------------------------------------------------------ |
+| IzzyOnDroid | `https://apt.izzysoft.de/fdroid/repo` | `3BF0D6ABFEAE2F401707B6D966BE743BF0EEE49C2561B9BA39073711F628937A` |
+
+---
+
+## Repo structure
+
+```
+device/native-agent/
+  app/                                   — Kotlin foreground-service APK (K1)
+device/termux/
+  boot/start-adb.sh                     — deploy to ~/.termux/boot/ on device
+  py/stayturgid_repair.py               — Termux-side self-heal
+  py/stayturgid_check_repo_version.py   — optional update notifier (Python)
+  py/stayturgid_screen_control.py       — on-device consent / inversion / portrait
+ansible/                                — idempotent Termux userland deploy
+control/bin/                            — adb_reconnect.py, access_monitor.py (launchd via control_node/agents)
+control/lib/                            — resolve_adb.py, stayturgid_device.py, adb_cli.py
+ansible/playbooks/fleet/fleet.yml       — full fleet
+ansible/playbooks/site.yml              — full fleet (preflight → … → validate)
+docs/hacking.md                         — this file
+docs/handoff.md                         — AI session handoff prompt
+docs/options.md                         — live open-work menu
+docs/operations/plans/                             — accepted execution and migration plans
+README.md                               — user-facing setup guide
+```
+
+## Current maintenance plans (2026-07-13)
+
+- [Outstanding Fix Priorities](archive/plans/outstanding-fix-priorities-2026-07-13.md) —
+  current ordered work, safety/completion gates, and junior-agent resume prompt.
+- [GNU Make to `just` Migration Plan](archive/plans/just-migration-plan.md) — staged tooling
+  work after the reliability priorities are stable.
+
+Live completion/blocker status remains in [docs/options.md](options.md). Update it
+with evidence whenever an item is completed or blocked.
+
+## Recent additions (2026-07-12)
+
+**FIRERPA/lamda failsafe daemon:** Optional gRPC backup control channel on port 65000.
+
+```bash
+# Ensure lamda-client is installed (Python 3.12 venv)
+# Not /tmp: this venv is meant to persist across sessions, and a fixed
+# world-writable /tmp path sourced by a script is a local privilege-escalation
+# vector on any shared host (see tmpfile security audit, 2026-07-21).
+uv venv --python 3.12 ~/.venv-stayturgid-firerpa
+source ~/.venv-stayturgid-firerpa/bin/activate
+uv pip install ~/src/firerpa-binaries/lamda-client-py-10.0.tar.gz
+
+# Start FIRERPA on oneui-device (one-time via adb):
+adb -s 100.0.0.11:5555 shell \
+  'cd /data/local/tmp/firerpa/server && nohup sh bin/launch.sh --port=65000 &'
+
+# Check fleet health via FIRERPA:
+just firerpa-health
+just firerpa-heal --host oneui-device
+```
+
+See [docs/research/evaluations/firerpa-install-map-2026-07-12.md](research/evaluations/firerpa-install-map-2026-07-12.md) for full details.
+
+**SSH Certificate Authority:** No more host-key warnings.
+
+```bash
+just ca-status    # check CA fingerprint + cert status
+# Host certs are auto-signed on every deploy-termux
+```
+
+**OpenCode web:** Fleet-reachable web UI at http://<ts-ip>:4096
+
+```bash
+just opencode-web-status
+```

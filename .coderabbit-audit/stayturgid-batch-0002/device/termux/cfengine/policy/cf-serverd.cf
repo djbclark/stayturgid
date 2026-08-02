@@ -1,0 +1,96 @@
+# CFEngine server policy — stayturgid remote repair daemon.
+#
+# cf-serverd listens on port 5308 (TLS). The Mac control node connects via
+# cf-runagent to trigger cf-agent repair bundles immediately, bypassing
+# the 15-min boot-loop poll when SSH/ADB are down.
+#
+# Architecture: Mac (cf-runagent) → Device (cf-serverd) → cf-agent.
+# Key trust is peer-to-peer (not CA). First deploy uses trustkeysfrom;
+# remove that line after initial key exchange.
+#
+# This file is both valid CFEngine policy (cf-promises/cfbs validate it as-is)
+# and an Ansible Jinja2 template: the double-brace-templated allowusers entry
+# below is rendered from inventory at deploy time, so no operator username is
+# tracked here. (Do not write a literal double-brace placeholder in prose
+# anywhere in this file, even in a comment — Ansible's Jinja2 renderer scans
+# the whole file for template syntax regardless of surrounding # comments,
+# and a bare `...` inside double braces is not a valid expression. Confirmed
+# via `python3 -c "from jinja2 import Environment; Environment().parse(open(...).read())"`
+# after this exact line broke `just deploy` with "Syntax error in template:
+# unexpected '.'" — see docs/operations/sessions/session-2026-07-25-k1-verification.md.)
+
+body common control {
+    bundlesequence => { "main" };
+}
+
+bundle agent main {
+  reports:
+      "cf-serverd policy loaded successfully";
+}
+
+body server control {
+    # Only the Mac's Tailscale IP can connect.
+    allowconnects  => { "100.64.0.0/10" };
+    trustkeysfrom => { "100.64.0.0/10" };
+    allowusers    => { "root", "{{ stayturgid_control_ssh_user | default(stayturgid_mac_peer.user | default(ansible_user)) }}" };
+
+    # Run cf-agent via the wrapper so it loads OUR policy (stayturgid.cf, where
+    # stayturgid_heal + the check_* bundles live) with the Termux env. A bare
+    # cf-agent loads the default inputs (no promises.cf) -> failsafe -> "Bundle
+    # 'stayturgid_heal' … was not found". cf-serverd appends --bundlesequence
+    # <name> from cf-runagent --remote-bundles. See stayturgid#84.
+    cfruncommand  => "/data/data/com.termux/files/home/.stayturgid/cfengine/cf-runagent-wrapper.sh";
+
+    port          => "5308";
+    maxconnections => "5";
+    denybadclocks  => "false";
+}
+
+# cf-runagent remote execution needs TWO access grants, each with the CORRECT
+# resource_type (verified end-to-end on the live fleet, stayturgid#84 — earlier
+# guesses of roles/protocol_version were red herrings):
+#   1. the cfruncommand executable, as resource_type "path" (NOT "literal") —
+#      a literal grant leaves the path ACL empty and cf-serverd answers
+#      "EXEC denied due to ACL for file: <cfruncommand>";
+#   2. each activatable bundle name, as resource_type "bundle" (NOT "query";
+#      query is for cf-runagent -s style reporting) — otherwise cf-serverd
+#      answers "Access denied to: <bundle> / EXEC denied bundle activation".
+# No `roles` promise is required; bundle activation is authorized purely by the
+# access admit (IP/host/key) here.
+bundle server access_rules() {
+  access:
+    # Allow remote execution of the cfruncommand (the wrapper).
+    "/data/data/com.termux/files/home/.stayturgid/cfengine/cf-runagent-wrapper.sh"
+      handle        => "cf_agent_exec_access",
+      resource_type => "path",
+      admit         => { "100.64.0.0/10" };
+
+    # Mac can trigger stayturgid_heal bundle for full repair.
+    "stayturgid_heal"
+      resource_type => "bundle",
+      admit         => { "100.64.0.0/10" };
+
+    "check_sshd"
+      resource_type => "bundle",
+      admit         => { "100.64.0.0/10" };
+
+    "check_bootloop"
+      resource_type => "bundle",
+      admit         => { "100.64.0.0/10" };
+
+    "check_bootloop_repair"
+      resource_type => "bundle",
+      admit         => { "100.64.0.0/10" };
+
+    "check_stayturgid_agent"
+      resource_type => "bundle",
+      admit         => { "100.64.0.0/10" };
+}
+
+# NOTE: the actual `stayturgid_heal` agent bundle (and every check_* bundle it
+# runs) lives in stayturgid.cf, which cf-agent loads via cf-runagent-wrapper.sh
+# when the Mac hails us. cf-serverd only evaluates `main` (see bundlesequence
+# above); its job here is the access ACL, not policy execution. We deliberately
+# do NOT redefine stayturgid_heal in this file — a second copy inevitably drifts
+# from the real one (it did, before this cleanup) and would reference check_*
+# bundles that are not defined in this policy set.

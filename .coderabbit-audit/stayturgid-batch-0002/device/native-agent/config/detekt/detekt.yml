@@ -1,0 +1,135 @@
+# detekt configuration for stayturgid-agent
+# ──────────────────────────────────────────────────────────────────────
+# This file only overrides the defaults; buildUponDefaultConfig = true
+# in build.gradle.kts merges these with detekt's internal rule set.
+#
+# Generate the full defaults for reference:
+#   ./gradlew detektGenerateConfig
+#
+# Gradual adoption: snapshot all existing issues into baseline.xml:
+#   ./gradlew detektBaseline
+
+build:
+  maxIssues: 0
+  weights:
+    complexity: 2
+    LongParameterList: 1
+
+# ── Complexity ──────────────────────────────────────────────────────────
+complexity:
+  TooManyFunctions:
+    active: true
+    thresholdInFiles: 25
+    thresholdInClasses: 20
+    thresholdInInterfaces: 12
+    thresholdInObjects: 15   # PeerStarter & PeerStartCommands are large objects
+    thresholdInEnums: 8
+  LongMethod:
+    active: true
+    threshold: 80            # generous for the ADB wire protocol methods
+  CyclomaticComplexMethod:
+    active: true
+    threshold: 20
+  LongParameterList:
+    active: true
+    functionThreshold: 6
+    constructorThreshold: 8
+    ignoreDefaultParameters: true
+    ignoreDataClasses: true
+    ignoreAnnotatedParameter: []
+
+# ── Naming ──────────────────────────────────────────────────────────────
+naming:
+  FunctionNaming:
+    active: true
+    functionPattern: '[a-z][a-zA-Z0-9]*'
+    excludeClassPattern: '$^'
+  TopLevelPropertyNaming:
+    active: true
+    constantPattern: '[A-Z][A-Za-z0-9_]*'
+  VariableNaming:
+    active: true
+    variablePattern: '[a-z][A-Za-z0-9]*'
+    privateVariablePattern: '(_)?[a-z][A-Za-z0-9]*'
+
+# ── Style ───────────────────────────────────────────────────────────────
+style:
+  MagicNumber:
+    active: true
+    ignoreNumbers:
+      - '-1'
+      - '0'
+      - '1'
+      - '2'
+    ignorePropertyDeclaration: true
+    ignoreLocalVariableDeclaration: true
+    ignoreAnnotation: true
+    ignoreEnums: true
+    ignoreRanges: true
+    ignoreConstantDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+    ignoreNamedArgument: true
+  UnusedPrivateMember:
+    active: true
+    allowedNames: '(_|ignored|expected|serialVersionUID)'
+  MaxLineLength:
+    active: true
+    maxLineLength: 140       # ktfmt's google style wraps at ~100, but some
+                              # log strings and shell commands are longer
+    excludePackageStatements: true
+    excludeImportStatements: true
+    excludeCommentStatements: true
+  ReturnCount:
+    active: true
+    max: 4
+    excludeReturnFromLambda: true
+    excludeGuardClauses: true
+  WildcardImport:
+    active: true
+    excludeImports:
+      - 'java.util.*'
+
+# ── Potential bugs ──────────────────────────────────────────────────────
+potential-bugs:
+  UnsafeCast:
+    active: true
+  LateinitUsage:
+    active: true
+    ignoreAnnotated:
+      - 'Inject'
+  HasPlatformType:
+    active: true
+
+# ── Coroutines ──────────────────────────────────────────────────────────
+coroutines:
+  GlobalCoroutineUsage:
+    active: true
+  RedundantSuspendModifier:
+    active: true
+  SuspendFunWithFlowReturnType:
+    active: true
+
+# ── Formatting (via detekt-formatting / ktlint wrapper) ─────────────────
+# These complement ktfmt (Spotless) for analysis-only checks that ktfmt
+# doesn't cover: import ordering, trailing commas, annotation spacing.
+formatting:
+  active: true
+  android: true
+  autoCorrect: false         # Spotless handles auto-correction; detekt only reports
+  TrailingCommaOnCallSite:
+    active: true
+    autoCorrect: false
+  TrailingCommaOnDeclarationSite:
+    active: true
+    autoCorrect: false
+  ImportOrdering:
+    active: true
+    autoCorrect: false
+    layout: '*,java.**,javax.**,kotlin.**,^'
+  NoWildcardImports:
+    active: true
+    autoCorrect: false
+  AnnotationOnSeparateLine:
+    active: true
+    autoCorrect: false
+    indentSize: 4

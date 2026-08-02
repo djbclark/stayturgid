@@ -1,0 +1,32 @@
+# site-{{ site_name }}
+
+This is a private site overlay for the **stayturgid** product. It holds site
+inventory, allocation registries, secret declarations, and operator notes;
+secret values live in a provider and never in this repository.
+
+This README is generated once by `site-init`. After creation it is user-owned:
+product syncs never replace or modify it. Everything outside
+`generated/stayturgid/` is likewise user-owned unless a file explicitly says
+otherwise.
+
+## Layout
+
+- `{{ inventory_path }}` starts from the product's generic example. Replace all
+  RFC 5737 addresses, example aliases, and placeholder serials before deploy.
+- `{{ registry_ports_path }}` and `{{ registry_paths_path }}` contain product defaults to
+  reconcile with this site's actual allocations.
+- `secretspec.toml` declares the stayturgid secret profile without storing any
+  values.
+- `generated/stayturgid/` is committed, reviewable output owned by
+  `site-sync`; never hand-edit it.
+- `docs/` is available for operator-owned notes.
+
+## Product checkout
+
+The wrapper `justfile` locates the public product at
+`$STAYTURGID_ROOT`, or `$OPS_ROOT/stayturgid`, or
+`${OPS_ROOT:-~/ops}/stayturgid` in that order. The site and product must remain sibling
+checkouts; never nest this private repository inside the public product tree.
+
+Review `{{ inventory_path }}` and the two registries before running a deployment.
+Then use `just inventory-check`, `just deploy-check`, and `just deploy`.

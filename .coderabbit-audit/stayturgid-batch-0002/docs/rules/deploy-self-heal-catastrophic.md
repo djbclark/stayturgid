@@ -1,0 +1,34 @@
+# Deploy → self-heal → catastrophic coverage (always-on rule)
+
+Every new capability must be covered by deploy, self-heal, and (if critical)
+catastrophic recovery. This rule is mandatory for all agents and applies to
+every change that affects device behavior.
+
+Before adding any feature that affects device behavior, verify all three tiers:
+
+| Tier             | Mechanism                                                  | When                                  | Example                                 |
+| ---------------- | ---------------------------------------------------------- | ------------------------------------- | --------------------------------------- |
+| **Deploy**       | `just deploy` (Ansible role)                               | On push + operator command            | Fleet profile applied                   |
+| **Self-heal**    | `stayturgid_repair.py`                                     | Every ~5 min                          | sshd restart, a11y merge                |
+| **Catastrophic** | Native agent (`device/native-agent/`, Shizuku UserService) | Heartbeat + `CLOSED_NO_SHELL` trigger | `CatastrophicRepair` restores port 5555 |
+
+## Minimum bar
+
+- **Deploy:** ✅ Always — Ansible task or role.
+- **Self-heal:** ✅ Always — the 5-min loop must restore this if lost.
+- **Catastrophic:** ✅ for ADB/SSH reachability; optional for non-critical prefs.
+
+If a tier is intentionally skipped, document why in the commit message.
+
+## Anti-pattern
+
+- Adding a deploy-only capability that the self-heal loop doesn't restore
+  (fleet profiles before ADR 004).
+- Adding a self-heal fix without a corresponding Ansible deploy task.
+- Adding a native-agent probe that has no Python twin in
+  `device/termux/py/stayturgid_repair.py` (and vice versa).
+
+## See also
+
+- [ADR 004](../architecture/adr/004-self-heal-vs-ansible-coverage.md)
+- [Self-heal rule](fleet-health-self-heal.md)

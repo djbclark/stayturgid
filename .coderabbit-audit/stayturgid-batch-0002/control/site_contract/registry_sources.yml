@@ -1,0 +1,160 @@
+---
+# Source map for the site registry seed generator.
+#
+# Keep allocation values out of this file. Each port/path is extracted from the
+# named product source so registry templates cannot become a second authority.
+ports:
+  - service: eternal-terminal
+    scope: control_node
+    bind: "*"
+    source:
+      file: ansible/roles/control_node/defaults/main.yml
+      yaml_path: stayturgid_control_et_port
+  - service: opencode-web
+    scope: control_node
+    bind: 127.0.0.1
+    source:
+      file: ansible/roles/control_node/defaults/main.yml
+      yaml_path: stayturgid_opencode_web_port
+  - service: fleet-dashboard
+    scope: control_node
+    bind: 127.0.0.1
+    source:
+      file: ansible/roles/control_node/defaults/main.yml
+      yaml_path: stayturgid_dashboard_port
+  - service: openobserve-http
+    scope: control_node
+    bind: 127.0.0.1
+    source:
+      file: ansible/roles/serverapp_openobserve/defaults/main.yml
+      yaml_path: serverapp_openobserve_http_port
+  - service: vector-otlp-http
+    scope: control_node
+    bind: 0.0.0.0
+    source:
+      file: ansible/roles/serverapp_vector/defaults/main.yml
+      yaml_path: serverapp_vector_otlp_http_port
+  - service: vector-otlp-grpc
+    scope: control_node
+    bind: 127.0.0.1
+    source:
+      file: ansible/roles/serverapp_vector/defaults/main.yml
+      yaml_path: serverapp_vector_otlp_grpc_port
+  - service: landing
+    scope: control_node
+    bind: 127.0.0.1
+    source:
+      file: ansible/roles/serverapp_landing/defaults/main.yml
+      yaml_path: serverapp_landing_port
+  - service: grafana
+    scope: control_node
+    bind: 127.0.0.1
+    source:
+      file: ansible/roles/serverapp_grafana/defaults/main.yml
+      yaml_path: serverapp_grafana_http_port
+  - service: victoriametrics
+    scope: control_node
+    bind: 127.0.0.1
+    source:
+      file: ansible/roles/serverapp_victoriametrics/defaults/main.yml
+      yaml_path: serverapp_victoriametrics_http_port
+  - service: blackbox-exporter
+    scope: control_node
+    bind: 127.0.0.1
+    source:
+      file: ansible/roles/serverapp_blackbox_exporter/defaults/main.yml
+      yaml_path: serverapp_blackbox_exporter_http_port
+  - service: olivetin
+    scope: control_node
+    bind: 127.0.0.1
+    source:
+      file: ansible/roles/serverapp_olivetin/defaults/main.yml
+      yaml_path: serverapp_olivetin_http_port
+  - service: vector-api
+    scope: control_node
+    bind: 127.0.0.1
+    source:
+      file: ansible/roles/serverapp_vector/defaults/main.yml
+      yaml_path: serverapp_vector_api_port
+  - service: caddy-health
+    scope: control_node
+    bind: 127.0.0.1
+    source:
+      file: control/landing/services.json
+      json_service_label: Caddy Health
+  - service: termux-sshd
+    scope: fleet_device
+    bind: "*"
+    source:
+      file: ansible/inventory/hosts.yml.example
+      yaml_path: all.children.stayturgid.vars.ansible_port
+  - service: adb-wireless
+    scope: fleet_device
+    bind: "*"
+    source:
+      file: README.md
+      regex: 'wireless ADB \(port (\d+)\)'
+  - service: firerpa
+    scope: fleet_device
+    bind: "*"
+    source:
+      file: ansible_collections/stayturgid/firerpa/roles/firerpa/defaults/main.yml
+      yaml_path: firerpa_port
+  - service: handsets-fireos
+    scope: fleet_device
+    bind: "*"
+    source:
+      file: ansible_collections/stayturgid/termux/roles/termux_userland/defaults/main.yml
+      yaml_path: stayturgid_handsets_port
+  - service: handsets-oneui
+    scope: fleet_device
+    bind: "*"
+    source:
+      file: ansible/inventory/group_vars/model_galaxy_s24.yml
+      yaml_path: stayturgid_handsets_port
+  - service: handsets-stock-android
+    scope: fleet_device
+    bind: "*"
+    source:
+      file: ansible/inventory/group_vars/model_pixel_7a.yml
+      yaml_path: stayturgid_handsets_port
+
+paths:
+  - source:
+      file: ansible/roles/control_node/defaults/main.yml
+      yaml_path: conf_dir
+    suffix: "/**"
+  - source:
+      file: ansible/roles/control_node/defaults/main.yml
+      yaml_path: agents_dir
+    suffix: /com.stayturgid.*
+  - source:
+      file: ansible/roles/control_node/defaults/main.yml
+      yaml_path: ssh_config_fragment
+  - access: marked-block-only
+    source:
+      file: ansible/roles/control_node/defaults/main.yml
+      yaml_path: ssh_config_dir
+    suffix: /authorized_keys
+  - source:
+      file: ansible/roles/control_node/defaults/main.yml
+      yaml_path: stayturgid_hermes_home
+    suffix: "/**"
+  - source:
+      file: ansible/roles/serverapp_openobserve/defaults/main.yml
+      yaml_path: serverapp_openobserve_data_dir
+    suffix: "/**"
+  - source:
+      file: ansible/roles/serverapp_openobserve/defaults/main.yml
+      yaml_path: serverapp_openobserve_bin_path
+  - source:
+      file: ansible/roles/serverapp_blackbox_exporter/defaults/main.yml
+      yaml_path: serverapp_blackbox_exporter_bin_path
+  - source:
+      file: ansible_collections/stayturgid/firerpa/roles/firerpa/defaults/main.yml
+      yaml_path: firerpa_install_dir
+    suffix: "/**"
+  - source:
+      file: ansible/inventory/group_vars/all.yml
+      yaml_path: stayturgid_sd_root
+    suffix: "/**"

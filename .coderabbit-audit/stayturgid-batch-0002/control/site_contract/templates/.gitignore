@@ -1,0 +1,15 @@
+# Secret values and local credentials. Declarations remain committed.
+*.env
+*.pem
+*.key
+*.crt
+id_*
+
+# Local caches and editor state.
+.DS_Store
+.ansible/
+.claude/
+.pytest_cache/
+__pycache__/
+
+# generated/ is intentionally not ignored: site-sync output is reviewable and committed.

@@ -1,0 +1,237 @@
+<div class="card {% if not device.health %}offline{% endif %}">
+  <div class="card-header">
+    <div class="card-title">
+      <span class="hostname">{{ device.name }}</span>
+      <span class="label">{{ device.label }}</span>
+      {% if device.health %}
+      <span class="badge ok">online</span>
+      <span class="badge dim">{{ device.health_age }} ago</span>
+      {% else %}
+      <span class="badge error">offline</span>
+      {% endif %} {% if device.probe_live %}
+      <span class="badge live">live</span>
+      {% endif %}
+    </div>
+    <button
+      class="probe-btn"
+      hx-post="/api/probe/{{ device.name }}"
+      hx-swap="outerHTML"
+      hx-target="closest .card"
+      hx-indicator="#probe-spinner-{{ device.name }}"
+      title="Live probe via SSH/ADB"
+    >
+      &#10227;
+    </button>
+  </div>
+
+  <div
+    id="probe-spinner-{{ device.name }}"
+    class="htmx-indicator probe-spinning"
+    style="display: none"
+  >
+    probing&hellip;
+  </div>
+
+  {% if device.probe_error %}
+  <div class="probe-error">probe timed out or device unreachable</div>
+  {% endif %}
+
+  <div class="data-section">
+    {% if device.ts_ip %}
+    <div class="row">
+      <span class="row-label">Tailscale</span
+      ><span class="row-value"><code>{{ device.ts_ip }}</code></span>
+    </div>
+    {% endif %} {% if device.lan_ip %}
+    <div class="row">
+      <span class="row-label">LAN</span
+      ><span class="row-value"><code>{{ device.lan_ip }}</code></span>
+    </div>
+    {% else %}
+    <div class="row">
+      <span class="row-label">LAN</span><span class="row-value na">N/A</span>
+    </div>
+    {% endif %} {% if device.usb_serial %}
+    <div class="row">
+      <span class="row-label">USB</span
+      ><span class="row-value"><code>{{ device.usb_serial }}</code></span>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if device.health %}
+  <div class="data-section">
+    {% for svc in device.services %}
+    <div class="row">
+      <span class="row-label">{{ svc.label }}</span>
+      <span class="row-value">
+        <span class="badge {{ svc.cls }}">{{ svc.value }}</span>
+      </span>
+    </div>
+    {% endfor %}
+
+    <div class="row">
+      <span class="row-label">agent</span>
+      <span class="row-value">{{ device.agent_badge }}</span>
+    </div>
+    <div class="row">
+      <span class="row-label">watchdog</span>
+      <span class="row-value">{{ device.watchdog_badge }}</span>
+    </div>
+    <div class="row">
+      <span class="row-label">repair</span>
+      <span class="row-value">{{ device.repair_badge }}</span>
+    </div>
+
+    <div class="row">
+      <span class="row-label">via</span>
+      <span class="row-value"><code>{{ device.via_display }}</code></span>
+    </div>
+    <div class="row">
+      <span class="row-label">consecutive</span>
+      <span class="row-value"
+        ><span
+          class="badge {% if device.fleet_consec >= 2 %}error{% else %}ok{% endif %}"
+          >{{ device.fleet_consec }}/2</span
+        ></span
+      >
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="data-section">
+    <div class="row">
+      <span class="row-label">FIRERPA</span>
+      <span class="row-value">
+        {% if device.firerpa %} {{ device.firerpa_badge }}
+        <span style="margin-left: 4px"
+          >{{ device.firerpa_sshd_badge }}{{ device.firerpa_shizuku_badge
+          }}</span
+        >
+        <span class="badge dim">{{ device.firerpa_age }} ago</span>
+        {% else %}
+        <span class="na">not installed</span>
+        {% endif %}
+      </span>
+    </div>
+  </div>
+
+  {% if device.issues %}
+  <div class="row">
+    <span class="row-label">issues</span>
+    <span class="row-value">{{ device.issue_tags }}</span>
+  </div>
+  {% endif %} {% if device.pending_ui %}
+  <div
+    class="human-actions"
+    style="
+      border: 2px solid #e06c75;
+      background: #2d2627;
+      border-radius: 4px;
+      padding: 8px;
+      margin-top: 8px;
+    "
+  >
+    <div class="human-item">
+      <span
+        class="badge error"
+        style="
+          background-color: #e06c75;
+          color: #1e1e24;
+          font-weight: bold;
+          padding: 2px 6px;
+          border-radius: 3px;
+        "
+        >🚨 pending ui action</span
+      >
+      <span class="badge dim" style="margin-left: 6px"
+        >waiting: {{ device.pending_ui.elapsed_s }}s</span
+      >
+      <p
+        class="human-msg"
+        style="
+          margin: 8px 0;
+          font-weight: bold;
+          color: #e06c75;
+          white-space: pre-line;
+        "
+      >
+        {{ device.pending_ui.message }}
+      </p>
+      <button
+        class="probe-btn"
+        hx-post="/api/pending_ui/done/{{ device.name }}"
+        hx-target="#pending-ui-result-{{ device.name }}"
+        hx-swap="innerHTML"
+        style="
+          background: #98c379;
+          color: #282c34;
+          border: none;
+          font-weight: bold;
+          padding: 6px 12px;
+          border-radius: 4px;
+          cursor: pointer;
+        "
+      >
+        I'm Done / Resume
+      </button>
+      <div
+        id="pending-ui-result-{{ device.name }}"
+        class="shizuku-result"
+        style="margin-top: 6px"
+      ></div>
+    </div>
+  </div>
+  {% endif %} {% if device.human_actions %}
+  <div class="human-actions">
+    <details class="human-details">
+      <summary class="human-summary">
+        <span class="badge warn">&#9888; human action needed</span>
+      </summary>
+      {% for action in device.human_actions %}
+      <div class="human-item">
+        <span class="tag error">{{ action.issue }}</span>
+        <p class="human-msg">{{ action.message }}</p>
+        {% if action.shizuku_action %}
+        <button
+          class="link-btn"
+          hx-post="/api/shizuku/{{ device.name }}"
+          hx-target="#shizuku-result-{{ device.name }}"
+          hx-swap="innerHTML"
+        >
+          open Shizuku and test rish
+        </button>
+        <div id="shizuku-result-{{ device.name }}" class="shizuku-result"></div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </details>
+  </div>
+  {% endif %}
+
+  <div class="links">
+    {% if device.ts_ip %}
+    <a href="ssh://{{ device.name }}" class="link-btn"
+      >ssh://{{ device.name }}</a
+    >
+    <a href="cfengine://{{ device.name }}:5308" class="link-btn"
+      >cfengine :5308</a
+    >
+    <a href="https://{{ device.ts_ip }}:65000" target="_blank" class="link-btn"
+      >firerpa :65000</a
+    >
+    <a
+      href="https://{{ device.magicdns }}:65000"
+      target="_blank"
+      class="link-btn"
+      >firerpa proxy</a
+    >
+    {% endif %} {% if device.lan_ip %}
+    <a href="https://{{ device.lan_ip }}:65000" target="_blank" class="link-btn"
+      >firerpa LAN</a
+    >
+    {% endif %} {% if device.usb_serial %}
+    <span class="link-btn dim">adb:{{ device.usb_serial }}</span>
+    {% endif %}
+  </div>
+</div>

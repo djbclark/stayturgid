@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Peer-start: the agent opens a TCP socket to a peer Fire device's adbd
+         (5555) over Tailscale to start Shizuku without the Mac (issue #61). -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Package-visibility (API 30+): SetupActivity's "Open Shizuku" guided-setup step launches
+         Shizuku directly via getLaunchIntentForPackage(), which returns null for an installed
+         but not-visible package without this declaration. -->
+    <queries>
+        <package android:name="moe.shizuku.privileged.api" />
+    </queries>
+
+    <application
+        android:name=".AgentApplication"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.StayTurgidAgent"
+        tools:ignore="GoogleAppIndexingWarning">
+
+        <!-- nosemgrep: java.android.security.exported_activity.exported_activity -->
+        <!-- Launcher activity must be exported; no privileged control surface. -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".SetupActivity"
+            android:exported="false"
+            android:launchMode="singleTop" />
+
+        <service
+            android:name=".HostService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="fleet_watchdog_shizuku_user_service" />
+        </service>
+
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- nosemgrep: java.android.security.exported_receiver.exported_receiver -->
+        <!-- Headless peer-start trigger (issue #61). Exported so `adb shell am
+             broadcast` can kick it without foregrounding the UI; the action is
+             idempotent/benign (only attempts Shizuku start on assigned targets). -->
+        <receiver
+            android:name=".PeerStartReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="org.stayturgid.agent.action.PEER_START_NOW" />
+            </intent-filter>
+        </receiver>
+
+        <!-- nosemgrep: java.android.security.exported_receiver.exported_receiver -->
+        <!-- Headless handsets-start trigger (issue #121). Exported so `adb shell am
+             broadcast` can kick it without foregrounding the UI; the action is a
+             single explicit-target, idempotent/benign push+launch, same risk profile
+             as PeerStartReceiver above. -->
+        <receiver
+            android:name=".HandsetsStartReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="org.stayturgid.agent.action.HANDSETS_START_NOW" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Required for Shizuku (not Sui-only). -->
+        <provider
+            android:name="rikka.shizuku.ShizukuProvider"
+            android:authorities="${applicationId}.shizuku"
+            android:enabled="true"
+            android:exported="true"
+            android:multiprocess="false"
+            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
+    </application>
+</manifest>

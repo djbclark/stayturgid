@@ -1,0 +1,216 @@
+# @heals: SSHD-RUNNING BOOTLOOP-ALIVE NATIVE-AGENT-RUNNING OTELCOL-RUNNING
+# stayturgid.cf — Standalone self-heal policy for CFEngine on Termux
+# Deploy to: ~/.stayturgid/cfengine/stayturgid.cf
+# Run: cf-agent -f ~/.stayturgid/cfengine/stayturgid.cf
+#
+# Tier 3a "hail-mary" recovery ONLY — reached from the Mac via cf-runagent when
+# both ADB and SSH are down. Deliberately minimal: it does NOT own declarative
+# state (mirror pin, PATH hygiene, Shizuku/a11y, wireless-debug) — those moved
+# to the Termux repair loop and the Kotlin native agent. It only re-arms the
+# transports needed to get a real repair channel back: sshd, the boot loop, and
+# the native agent process.
+
+bundle agent main {
+  methods:
+    "heal" usebundle => stayturgid_heal;
+}
+
+bundle agent stayturgid_heal {
+  vars:
+    "prefix" string => "/data/data/com.termux/files/usr";
+    "home"   string => "/data/data/com.termux/files/home";
+    "stg"    string => "$(home)/.stayturgid";
+
+  methods:
+    "heal" usebundle => check_sshd("$(prefix)");
+    "heal" usebundle => check_otelcol("$(prefix)", "$(home)");
+    "heal" usebundle => check_bootloop("$(stg)");
+    "heal" usebundle => check_stayturgid_agent("$(prefix)", "$(stg)");
+    "heal" usebundle => check_bootloop_repair("$(prefix)", "$(home)");
+
+  reports:
+    cfengine::
+      "CFEngine $(sys.version) stayturgid heal on $(sys.flavor) $(sys.arch)";
+}
+
+# ── Individual check bundles ──────────────────────────────────────────────
+
+bundle agent check_sshd(p) {
+  processes:
+    ".*bin/sshd.*"
+      restart_class => "restart_sshd";
+
+  reports:
+    !restart_sshd::
+      "sshd: running";
+    restart_sshd::
+      "sshd: RESTARTING";
+
+  commands:
+    restart_sshd::
+      "$(p)/bin/bash"
+        args => "-c 'rm -f $(p)/var/service/sshd/down 2>/dev/null; $(p)/bin/sshd'",
+        contain => silent_bg;
+}
+
+bundle agent check_otelcol(p, home) {
+  processes:
+    ".*otelcol-contrib.*"
+      restart_class => "restart_otelcol";
+
+  reports:
+    !restart_otelcol::
+      "otelcol: running";
+    restart_otelcol::
+      "otelcol: RESTARTING";
+
+  commands:
+    restart_otelcol::
+      "$(p)/bin/bash"
+        args => "-c '$(home)/.termux/boot/start-otelcol.sh stop >/dev/null 2>&1 || true; $(home)/.termux/boot/start-otelcol.sh'",
+        contain => silent_bg;
+}
+
+bundle agent check_bootloop(s) {
+  classes:
+    "pidfile_exists" expression => fileexists("$(s)/run/bootloop.pid");
+
+  reports:
+    pidfile_exists::
+      "bootloop: pidfile present";
+    !pidfile_exists::
+      "bootloop: pidfile MISSING";
+}
+
+# Liveness + restart of the Kotlin native agent (org.stayturgid.agent) — #86:
+# loopback/Shizuku-independent detection and restart. Previously this bundle
+# both detected and restarted the agent through the device-local adb loopback
+# (localhost:5555), which is flaky on Pixel and dead on Fire OS — a live
+# cf-runagent hail on p7a this session saw the loopback transiently down,
+# false-negativing "NOT RUNNING" while the agent was actually up. Detection no
+# longer depends on it at all.
+#
+# Liveness signal: a durable heartbeat that HostService.kt (Heartbeat.kt,
+# HeartbeatWriter) writes every 120s from a dedicated single-thread executor —
+# never the coroutine scope used for Shizuku/UserService work, so a hung
+# Shizuku binder call can never delay or block a tick. The write lands in the
+# MediaStore Downloads collection (/sdcard/Download/stayturgid-agent.heartbeat.txt
+# — the .txt is MediaStore's own doing, it enforces MIME_TYPE<->extension
+# agreement; "ts_sec=<epoch> seq=<n>"), which Termux reads as a plain file — no adb, no
+# dumpsys, no Shizuku, and no storage permission grant needed by the app
+# (MediaStore.Downloads insert() needs none on API 29+). A ContentProvider
+# (the plan's first-choice transport) was tried and dropped: Termux on the
+# real fleet has no `content` binary (only am/pm/settings — confirmed live via
+# SSH on hd8), so a `content query` probe is not reachable from this bundle;
+# MediaStore is the plan's own documented fallback and needs no new on-device
+# package.
+#
+# Freshness threshold (FRESHNESS_SEC = 420s = 7 min): 3x the 120s heartbeat
+# interval (360s, the generous end of "2-3x") + 60s margin for scheduler/Doze
+# jitter (Fire OS is the aggressive case). MUST match
+# AGENT_HEARTBEAT_FRESH_SEC in control/lib/fleet_health.py — both read the
+# same file with the same threshold so the on-device and Mac-side checks
+# cannot disagree (unify rule, #86). Worst-case detection latency for a
+# genuinely dead agent is FRESHNESS_SEC (420s) + one local boot-loop cycle
+# (<=300s, STAYTURGID_INTERVAL_SEC in start_adb.py) =~ 12 minutes; a
+# Mac-hailed cf-runagent run (Tier 3a) can catch it sooner since it runs this
+# bundle on demand.
+#
+# Restart: trigger the agent's exported peer-start receiver with a broadcast,
+# never its launcher activity. `am start` makes MainActivity foreground itself
+# over whatever the operator is using (observed live on p7a, #199). The
+# receiver starts HostService headlessly and works both from Termux directly
+# and through an already-authorized loopback ADB shell.
+#
+# Reboot escalation is alert-only, on purpose: this bundle never executes a
+# reboot itself. After REBOOT_AFTER=3 consecutive checks (~15 min at the
+# 5-minute local boot-loop cadence) still find the agent not alive despite
+# both restart attempts, it writes a state file
+# ($(s)/state/agent_reboot_candidate) and nothing more.
+# control/lib/fleet_health.py surfaces that as an `agent_reboot_candidate`
+# issue, which flows into the existing human-notification path in
+# fleet_health_monitor.py — a human decides, not an unattended `adb reboot`.
+# hd8 specifically has a documented recovery-bootloop hazard on reboot
+# (docs/operations/sessions/handoff-2026-07-26-peer-start-activation.md), and
+# any device reboot generally needs a human to re-enter the PIN afterward
+# (docs/notes/lessons-learned.md) — an automatic reboot here could leave a
+# device down *harder* than the failure it was meant to fix.
+bundle agent check_stayturgid_agent(p, s) {
+  vars:
+    "heartbeat_file" string => "/sdcard/Download/stayturgid-agent.heartbeat.txt";
+    "freshness_sec"  string => "420";
+    "fail_state"     string => "$(s)/state/agent_restart_failures";
+    "reboot_marker"  string => "$(s)/state/agent_reboot_candidate";
+    "reboot_after"   string => "3";
+
+  classes:
+    # NOTE on shell syntax: CFEngine's own $(...)/${...} variable-interpolation
+    # scanner also fires inside returnszero()'s string on *shell* $(...),
+    # ${...}, and $((...)) constructs, even when their content isn't a valid
+    # CFEngine variable name — verified live on hd8 (cf-promises accepts it,
+    # but cf-agent silently never runs the shell command: no file, no error,
+    # no class set). Backticks + `expr` sidestep CFEngine's scanner entirely
+    # and were verified end-to-end on-device (alive -> stale -> counter ->
+    # reboot-candidate -> recovery). Do not "clean this up" to $(...)/$((...))
+    # without re-verifying on a real device.
+    "agent_alive" expression => returnszero(
+      "hb=$(heartbeat_file); ts=`$(p)/bin/grep -oE 'ts_sec=[0-9]+' $hb 2>/dev/null | head -1 | cut -d= -f2`; [ -z $ts ] && ts=0; now=`date +%s`; age=`expr $now - $ts`; [ $age -lt $(freshness_sec) ]",
+      "useshell");
+
+  reports:
+    agent_alive::
+      "stayturgid_agent: running (heartbeat fresh, threshold $(freshness_sec)s)";
+    !agent_alive::
+      "stayturgid_agent: NOT RUNNING (heartbeat stale or missing) — attempting restart";
+
+  commands:
+    # Alive again: clear the consecutive-failure counter and any
+    # reboot-candidate marker so a past bad patch doesn't linger.
+    agent_alive::
+      "$(p)/bin/bash"
+        args => "-c 'mkdir -p $(s)/state; rm -f $(fail_state) $(reboot_marker)'",
+        contain => silent_bg;
+
+    # Not alive: try Termux's own headless broadcast first (no loopback
+    # dependency), then the adb-loopback fallback, then record the outcome
+    # and escalate if it crosses $(reboot_after).
+    !agent_alive::
+      "$(p)/bin/am"
+        args => "broadcast --include-stopped-packages -a org.stayturgid.agent.action.PEER_START_NOW -n org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver",
+        contain => silent_bg;
+
+      "$(p)/bin/adb"
+        args => "-s localhost:5555 shell am broadcast --include-stopped-packages -a org.stayturgid.agent.action.PEER_START_NOW -n org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver",
+        contain => silent_bg;
+
+      "$(p)/bin/bash"
+        args => "-c 'mkdir -p $(s)/state; f=$(fail_state); m=$(reboot_marker); prev=`cat $f 2>/dev/null`; [ -z $prev ] && prev=0; n=`expr $prev + 1`; echo $n > $f; if [ $n -ge $(reboot_after) ]; then date +%s > $m; fi'",
+        contain => silent_bg;
+}
+
+bundle agent check_bootloop_repair(p, s) {
+  classes:
+    "boot_running" expression => returnszero("$(p)/bin/pgrep -f start_adb.py >/dev/null 2>&1", "useshell");
+    "repair_recent" expression => returnszero("[ -f $(s)/logs/repair.log ] && [ $(stat -c %%Y $(s)/logs/repair.log 2>/dev/null || echo 0) -ge $(($(date +%%s) - 3600)) ]", "useshell");
+
+  reports:
+    boot_running.repair_recent::
+      "bootloop_repair: running and recent";
+    boot_running.!repair_recent::
+      "bootloop_repair: running but repair stale over 1h — RESTARTING";
+    !boot_running::
+      "bootloop_repair: not running — STARTING";
+
+  commands:
+    (boot_running.!repair_recent)|(!boot_running)::
+      "$(p)/bin/bash"
+        args => "-c 'pkill -f stayturgid_repair 2>/dev/null; pkill -f start_adb 2>/dev/null; sleep 2; nohup $(p)/bin/python3 $(s)/bin/start_adb.py >/dev/null 2>&1 &'",
+        contain => silent_bg;
+}
+
+# ── Utility bodies ────────────────────────────────────────────────────────
+
+body contain silent_bg {
+    useshell => "true";
+    no_output => "true";
+}

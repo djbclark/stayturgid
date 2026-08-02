@@ -1,0 +1,57 @@
+# Product sync manifest (Site Contract v1).
+# Single source of truth for files site-sync maintains under generated/<product>/.
+# Paths are relative to the site dir root. site-sync never writes outside that tree
+# in Phase C3 (no serverapp inject-mode writes — Phase D).
+#
+# contract_version must match the site contract major version.
+# template paths are relative to control/site_contract/sync_templates/.
+
+contract_version: 1
+product: stayturgid
+files:
+  - path: generated/stayturgid/README.md
+    template: README.md.j2
+  - path: generated/stayturgid/fragments/.keep
+    template: fragments/.keep.j2
+  - path: generated/stayturgid/fragments/caddy/stayturgid.caddy
+    template: fragments/caddy/stayturgid.caddy.j2
+  - path: generated/stayturgid/fragments/vector/stayturgid_sources.yaml
+    template: fragments/vector/stayturgid_sources.yaml.j2
+  - path: generated/stayturgid/fragments/vector/stayturgid_sinks.yaml
+    template: fragments/vector/stayturgid_sinks.yaml.j2
+  - path: generated/stayturgid/fragments/grafana/datasources/stayturgid.yaml
+    template: fragments/grafana/datasources/stayturgid.yaml.j2
+  - path: generated/stayturgid/fragments/grafana/dashboards/provider.yaml
+    template: fragments/grafana/dashboards/provider.yaml.j2
+  - path: generated/stayturgid/fragments/grafana/dashboards/json/stayturgid-fleet.json
+    template: fragments/grafana/dashboards/json/stayturgid-fleet.json.j2
+  - path: generated/stayturgid/fragments/grafana/alerting/rules.yaml
+    template: fragments/grafana/alerting/rules.yaml.j2
+  - path: generated/stayturgid/fragments/olivetin/stayturgid_actions.yaml
+    template: fragments/olivetin/stayturgid_actions.yaml.j2
+  # Product-owned taxonomy group_vars (single source of truth = the product's
+  # ansible/inventory/group_vars/). Generated into the site so it is never
+  # hand-copied; the site's ansible.cfg loads this dir as a lower-precedence
+  # inventory source and the site's own inventory/group_vars/ overrides it.
+  - path: generated/stayturgid/inventory/placeholder_inventory.yml
+    template: inventory/placeholder_inventory.yml.j2
+  - path: generated/stayturgid/inventory/group_vars/all.yml
+    template: inventory/group_vars/all.yml.j2
+  - path: generated/stayturgid/inventory/group_vars/android_11.yml
+    template: inventory/group_vars/android_11.yml.j2
+  - path: generated/stayturgid/inventory/group_vars/android_16.yml
+    template: inventory/group_vars/android_16.yml.j2
+  - path: generated/stayturgid/inventory/group_vars/model_galaxy_s24.yml
+    template: inventory/group_vars/model_galaxy_s24.yml.j2
+  - path: generated/stayturgid/inventory/group_vars/model_kindle_hd8.yml
+    template: inventory/group_vars/model_kindle_hd8.yml.j2
+  - path: generated/stayturgid/inventory/group_vars/model_pixel_7a.yml
+    template: inventory/group_vars/model_pixel_7a.yml.j2
+  - path: generated/stayturgid/inventory/group_vars/oneui_7.yml
+    template: inventory/group_vars/oneui_7.yml.j2
+  - path: generated/stayturgid/inventory/group_vars/vendor_amazon.yml
+    template: inventory/group_vars/vendor_amazon.yml.j2
+  - path: generated/stayturgid/inventory/group_vars/vendor_google.yml
+    template: inventory/group_vars/vendor_google.yml.j2
+  - path: generated/stayturgid/inventory/group_vars/vendor_samsung.yml
+    template: inventory/group_vars/vendor_samsung.yml.j2

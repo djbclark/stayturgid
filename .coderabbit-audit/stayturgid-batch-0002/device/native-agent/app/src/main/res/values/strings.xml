@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">stayturgid-agent</string>
+    <string name="notification_channel_name">Agent host</string>
+    <string name="notification_channel_desc">Keeps the stayturgid Shizuku host alive</string>
+    <string name="notification_title">stayturgid-agent</string>
+    <string name="notification_text_idle">Waiting for screen-on / Shizuku</string>
+    <string name="notification_text_bound">UserService bound — ping every %1$d min while screen on</string>
+    <string name="notification_text_no_shizuku">Shizuku permission missing — open app</string>
+    <string name="main_status_heading">Runtime diagnostics</string>
+    <string name="main_copy_diagnostics">Copy diagnostics</string>
+    <string name="main_start">Start host service</string>
+    <string name="main_stop">Stop host service</string>
+    <string name="main_request_shizuku">Request Shizuku permission</string>
+    <string name="main_hint">End-state: replace AutoJs6 (OPTIONS K1). Phase 1 is UserService + pingAwake only; AutoJs6 stays installed.</string>
+
+    <!-- Peer-start activation UX (issue #61) -->
+    <string name="notification_action_channel_name">Peer-start setup</string>
+    <string name="notification_action_channel_desc">One-time peer-start authorization prompts</string>
+    <string name="notification_peer_auth_title">Peer-start needs a one-time approval</string>
+    <string name="notification_peer_auth_text">Tap to retry starting Shizuku on %1$s, then approve the \"Allow USB debugging\" dialog on that device (tick \"Always allow\").</string>
+    <string name="notification_target_reminder_title">Approve peer-start on this device</string>
+    <string name="notification_target_reminder_text">When the \"Allow USB debugging\" dialog appears, tick \"Always allow from this computer\" and tap Allow. This authorizes a fleet peer to keep Shizuku running here.</string>
+    <string name="main_authorize_peer">Authorize peer-start now</string>
+    <string name="main_peer_pending_banner">⚠ Peer-start authorization pending for %1$s — tap the button, then approve on that device.</string>
+    <string name="main_target_reminder_banner">⚠ This device is awaiting peer-start approval — approve the \"Allow USB debugging\" dialog when it appears (tick \"Always allow\").</string>
+    <string name="main_guided_setup">Guided setup</string>
+
+    <!-- Guided one-time setup screen (SetupActivity) -->
+    <string name="setup_title">Guided setup</string>
+    <string name="setup_intro">These steps need one-time attention on this device. Completed steps disappear from this list automatically.</string>
+    <string name="setup_return_to_main">Back to main screen</string>
+    <string name="setup_shizuku_not_installed">Shizuku isn\'t installed on this device</string>
+    <string name="setup_shizuku_prev11">Shizuku pre-v11 not supported</string>
+    <string name="setup_shizuku_rationale">Grant stayturgid-agent in the Shizuku app</string>
+
+    <string name="setup_step_shizuku_title">Start Shizuku</string>
+    <string name="setup_step_shizuku_body">Shizuku\'s background service isn\'t running. Tap below to open the Shizuku app, then follow its on-screen instructions to start it (e.g. via wireless debugging, or wait for a peer device\'s automatic peer-start if this fleet has one assigned).</string>
+    <string name="setup_step_shizuku_action">Open Shizuku</string>
+
+    <string name="setup_step_permission_title">Grant Shizuku permission</string>
+    <string name="setup_step_permission_body">stayturgid-agent needs Shizuku\'s permission to control this device (start/stop the host service, run diagnostics). Tap below to request it, then approve the prompt in Shizuku.</string>
+    <string name="setup_step_permission_action">Grant permission</string>
+
+    <string name="setup_step_notifications_title">Enable notifications</string>
+    <string name="setup_step_notifications_body">Without notifications you won\'t see alerts when Shizuku\'s permission is lost, or when a peer device needs approval. Tap below to allow them.</string>
+    <string name="setup_step_notifications_action_request">Enable notifications</string>
+    <string name="setup_step_notifications_action_settings">Open notification settings</string>
+
+    <string name="setup_step_wireless_title">Enable wireless debugging</string>
+    <string name="setup_step_wireless_body">This device is waiting on a peer to start Shizuku over ADB-over-WiFi, which needs wireless debugging on. There\'s no reliable direct shortcut to the toggle itself — tap below to open Developer options, then tap \"Wireless debugging\" and enable it.</string>
+    <string name="setup_step_wireless_action">Open Developer options</string>
+
+    <string name="setup_all_set_title">✓ All set</string>
+    <string name="setup_all_set_body">stayturgid-agent has everything it needs on this device.</string>
+    <string name="setup_notification_settings_unavailable">Notification settings not available on this device</string>
+    <string name="setup_dev_options_unavailable">Developer options not available on this device</string>
+</resources>
