@@ -264,10 +264,21 @@ def require_fresh_checkout(repo_root: Path, environ: Mapping[str, str] | None = 
     use — staleness can't be verified without network, but that's a
     different, lower-stakes failure mode than a checkout silently going
     stale for weeks with the operator none the wiser.
+
+    Skipped entirely under CI (``CI`` env var truthy, the standard convention
+    set by GitHub Actions and effectively every other CI provider): a CI
+    checkout is always exactly the PR's own content, freshly cloned for this
+    run — "N commits behind origin/master" there just means master moved on
+    since the PR branched, which is normal and not the failure mode this
+    guards against. Confirmed real: this check initially broke CI's own
+    `--syntax-check` runs, which route through the same ansible_exec.py
+    chokepoint as genuine live-applies.
     """
 
     env = os.environ if environ is None else environ
     if env.get("STAYTURGID_SKIP_FRESHNESS_CHECK", "").strip() == "1":
+        return
+    if env.get("CI", "").strip().lower() in ("1", "true"):
         return
 
     def _git(*args: str) -> subprocess.CompletedProcess[str]:

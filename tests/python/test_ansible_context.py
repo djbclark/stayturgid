@@ -380,6 +380,17 @@ def test_require_fresh_checkout_skip_env_var_bypasses(tmp_path):
     ac.require_fresh_checkout(clone, {"STAYTURGID_SKIP_FRESHNESS_CHECK": "1"})  # must not raise
 
 
+def test_require_fresh_checkout_skips_under_ci(tmp_path):
+    """A CI checkout is always exactly the PR's own content -- 'behind
+    origin/master' there is normal (master moved on since branching), not
+    the stale-reference-checkout failure mode this guards against. Real
+    regression: this check initially broke CI's own --syntax-check runs."""
+    clone = _init_repo_with_origin(tmp_path)
+    (clone / "README.md").write_text("uncommitted local edit\n", encoding="utf-8")
+
+    ac.require_fresh_checkout(clone, {"CI": "true"})  # must not raise
+
+
 def test_require_fresh_checkout_warns_but_does_not_raise_when_fetch_fails(tmp_path, capsys):
     clone = _init_repo_with_origin(tmp_path)
     _git("remote", "set-url", "origin", "/nonexistent/path/that/does/not/exist.git", cwd=clone)
