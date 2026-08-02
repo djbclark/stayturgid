@@ -1,0 +1,326 @@
+# Standalone FIRERPA v10.0 deployment for an unrooted Android device.
+#
+# Quick start:
+#   cp .env.example .env
+#   $EDITOR .env
+#   just install
+#   just ssh-id
+#   just grpc
+#
+# `just --list` is the short operator guide. README.md explains every step,
+# security implication, manual equivalent, and recovery path.
+
+set dotenv-load
+set shell := ["bash", "-uc"]
+
+FIRERPA_VERSION := env_var_or_default("FIRERPA_VERSION", "10.0")
+FIRERPA_ARCH := env_var_or_default("FIRERPA_ARCH", "arm64-v8a")
+FIRERPA_PORT := env_var_or_default("FIRERPA_PORT", "65000")
+FIRERPA_ROOT := env_var_or_default("FIRERPA_ROOT", "/data/local/tmp/firerpa")
+FIRERPA_PYTHON := env_var_or_default("FIRERPA_PYTHON", "python3.12")
+ADB_TARGET := env_var_or_default("ADB_TARGET", "")
+FIRERPA_HOST := env_var_or_default("FIRERPA_HOST", "")
+CONFIRM := env_var_or_default("CONFIRM", "NO")
+
+BASE := justfile_directory()
+WORKDIR := env_var_or_default("WORKDIR", BASE + "/.work")
+CERT_DIR := env_var_or_default("CERT_DIR", BASE + "/certs")
+VENV := WORKDIR + "/venv"
+ARCHIVE_NAME := "lamda-server-" + FIRERPA_ARCH + ".tar.gz"
+ARCHIVE := WORKDIR + "/" + ARCHIVE_NAME
+CLIENT_ARCHIVE := WORKDIR + "/lamda-client-py-" + FIRERPA_VERSION + ".tar.gz"
+PATCH_SCRIPT := WORKDIR + "/firerpa_service_patch.py"
+LIFECYCLE_SCRIPT := WORKDIR + "/firerpa_lifecycle.py"
+PATCHED_JAR := WORKDIR + "/service.jar.patched"
+DEFAULT_CERTIFICATE := CERT_DIR + "/lamda.pem"
+CERTIFICATE := env_var_or_default("FIRERPA_CERTIFICATE", DEFAULT_CERTIFICATE)
+DEVICE_CERTIFICATE := FIRERPA_ROOT + "/server/lamda.pem"
+
+# The GitHub release is versioned; source helpers are pinned to immutable commits.
+UPSTREAM_RELEASE := "https://github.com/firerpa/lamda/releases/download/v" + FIRERPA_VERSION
+UPSTREAM_SOURCE_REF := env_var_or_default("UPSTREAM_SOURCE_REF", "9a4736f327aa89be687ee7c411fee59730081a5e")
+STAYTURGID_REF := env_var_or_default("STAYTURGID_REF", "145ab25")
+STAYTURGID_RAW := "https://raw.githubusercontent.com/operator/stayturgid/" + STAYTURGID_REF
+
+# Update these only after auditing the corresponding immutable source revisions.
+CLIENT_SHA256 := env_var_or_default("CLIENT_SHA256", "c2db70e0f40eb2ae0c60555891c209aefb762546099bc369d82e830d96d3ca16")
+CERT_TOOL_SHA256 := env_var_or_default("CERT_TOOL_SHA256", "ae063140681ac6d2644f2010817ed9d7e4ba7adab8d45d08f975b4fd4fb01eb9")
+PATCH_SCRIPT_SHA256 := env_var_or_default("PATCH_SCRIPT_SHA256", "8185493e8d3cff7c25ada9dfa687f4673916eee0654091bc6b969c095aa1683a")
+LIFECYCLE_SCRIPT_SHA256 := env_var_or_default("LIFECYCLE_SCRIPT_SHA256", "3086aae7545bccfea810e89788a371f2438706e14a2565c9ac29476ed1b9df4b")
+
+# Show available operations.
+default:
+    @just --justfile "{{ BASE }}/justfile" --list
+
+# Show the effective non-secret configuration.
+config:
+    @printf '%s\n' \
+      "ADB_TARGET={{ ADB_TARGET }}" \
+      "FIRERPA_HOST={{ FIRERPA_HOST }}" \
+      "FIRERPA_VERSION={{ FIRERPA_VERSION }}" \
+      "FIRERPA_ARCH={{ FIRERPA_ARCH }}" \
+      "FIRERPA_PORT={{ FIRERPA_PORT }}" \
+      "FIRERPA_ROOT={{ FIRERPA_ROOT }}" \
+      "FIRERPA_PYTHON={{ FIRERPA_PYTHON }}" \
+      "WORKDIR={{ WORKDIR }}" \
+      "CERTIFICATE={{ CERTIFICATE }}"
+
+# Verify host tools, ADB reachability, architecture, and Android shell UID.
+doctor: _require-adb-target
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for tool in adb curl ssh; do
+      command -v "$tool" >/dev/null || { echo "ERROR: missing host tool: $tool" >&2; exit 1; }
+    done
+    command -v "{{ FIRERPA_PYTHON }}" >/dev/null || {
+      echo "ERROR: missing {{ FIRERPA_PYTHON }}; lamda-client currently needs Python 3.13 or older" >&2
+      exit 1
+    }
+    "{{ FIRERPA_PYTHON }}" -c 'import sys; assert (3, 6) <= sys.version_info[:2] <= (3, 13), "lamda-client requires Python 3.6–3.13; use FIRERPA_PYTHON=python3.12"'
+    case "{{ FIRERPA_ARCH }}" in
+      arm64-v8a|armeabi-v7a|x86|x86_64) ;;
+      *) echo "ERROR: unsupported FIRERPA_ARCH={{ FIRERPA_ARCH }}" >&2; exit 1 ;;
+    esac
+    case "{{ FIRERPA_ROOT }}" in
+      /*) ;;
+      *) echo "ERROR: FIRERPA_ROOT must be an absolute Android path" >&2; exit 1 ;;
+    esac
+    adb -s "{{ ADB_TARGET }}" get-state | grep -qx device
+    uid="$(adb -s "{{ ADB_TARGET }}" shell id -u | tr -d '\r')"
+    test "$uid" = 2000 || {
+      echo "ERROR: adb shell UID is $uid; this guide expects Android shell UID 2000" >&2
+      exit 1
+    }
+    abi="$(adb -s "{{ ADB_TARGET }}" shell getprop ro.product.cpu.abi | tr -d '\r')"
+    test "$abi" = "{{ FIRERPA_ARCH }}" || {
+      echo "ERROR: device ABI is $abi but FIRERPA_ARCH={{ FIRERPA_ARCH }}" >&2
+      exit 1
+    }
+    echo "OK: {{ ADB_TARGET }} is reachable as shell UID 2000 ($abi)"
+
+# Download v10.0 server/client artifacts and pinned setup helpers; verify SHA-256.
+fetch:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "{{ WORKDIR }}"
+    fetch() { curl --fail --location --retry 3 --silent --show-error --output "$2" "$1"; }
+    digest() { "{{ FIRERPA_PYTHON }}" -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"; }
+    require_digest() {
+      actual="$(digest "$1")"
+      test "$actual" = "$2" || {
+        echo "ERROR: SHA-256 mismatch for $1: $actual (expected $2)" >&2
+        exit 1
+      }
+    }
+
+    fetch "{{ UPSTREAM_RELEASE }}/{{ ARCHIVE_NAME }}.sha256sum" "{{ ARCHIVE }}.sha256sum"
+    expected_archive="$(awk 'NR == 1 {print $1}' "{{ ARCHIVE }}.sha256sum")"
+    if test ! -f "{{ ARCHIVE }}" || test "$(digest "{{ ARCHIVE }}")" != "$expected_archive"; then
+      fetch "{{ UPSTREAM_RELEASE }}/{{ ARCHIVE_NAME }}" "{{ ARCHIVE }}"
+    fi
+    require_digest "{{ ARCHIVE }}" "$expected_archive"
+
+    if test ! -f "{{ CLIENT_ARCHIVE }}" || test "$(digest "{{ CLIENT_ARCHIVE }}")" != "{{ CLIENT_SHA256 }}"; then
+      fetch "{{ UPSTREAM_RELEASE }}/lamda-client-py-{{ FIRERPA_VERSION }}.tar.gz" "{{ CLIENT_ARCHIVE }}"
+    fi
+    require_digest "{{ CLIENT_ARCHIVE }}" "{{ CLIENT_SHA256 }}"
+
+    if test ! -f "{{ WORKDIR }}/cert.py" || test "$(digest "{{ WORKDIR }}/cert.py")" != "{{ CERT_TOOL_SHA256 }}"; then
+      fetch "https://raw.githubusercontent.com/firerpa/lamda/{{ UPSTREAM_SOURCE_REF }}/tools/cert.py" "{{ WORKDIR }}/cert.py"
+    fi
+    require_digest "{{ WORKDIR }}/cert.py" "{{ CERT_TOOL_SHA256 }}"
+
+    if test ! -f "{{ PATCH_SCRIPT }}" || test "$(digest "{{ PATCH_SCRIPT }}")" != "{{ PATCH_SCRIPT_SHA256 }}"; then
+      fetch "{{ STAYTURGID_RAW }}/ansible_collections/stayturgid/firerpa/roles/firerpa/files/firerpa_service_patch.py" "{{ PATCH_SCRIPT }}"
+    fi
+    require_digest "{{ PATCH_SCRIPT }}" "{{ PATCH_SCRIPT_SHA256 }}"
+    if test ! -f "{{ LIFECYCLE_SCRIPT }}" || test "$(digest "{{ LIFECYCLE_SCRIPT }}")" != "{{ LIFECYCLE_SCRIPT_SHA256 }}"; then
+      fetch "{{ STAYTURGID_RAW }}/ansible_collections/stayturgid/firerpa/roles/firerpa/files/firerpa_lifecycle.py" "{{ LIFECYCLE_SCRIPT }}"
+    fi
+    require_digest "{{ LIFECYCLE_SCRIPT }}" "{{ LIFECYCLE_SCRIPT_SHA256 }}"
+    chmod 0755 "{{ PATCH_SCRIPT }}" "{{ LIFECYCLE_SCRIPT }}"
+    echo "OK: upstream artifacts and pinned helpers verified"
+
+# Create an isolated Python environment with cert generation and gRPC client support.
+venv: fetch
+    #!/usr/bin/env bash
+    set -euo pipefail
+    stamp="{{ VENV }}/.firerpa-{{ FIRERPA_VERSION }}-{{ CLIENT_SHA256 }}"
+    if test -x "{{ VENV }}/bin/python" && test -f "$stamp" && \
+       "{{ VENV }}/bin/python" -c 'import cryptography; from lamda.client import Device'; then
+      echo "OK: preserving ready Python environment at {{ VENV }}"
+      exit 0
+    fi
+    rm -rf "{{ VENV }}"
+    uv venv "{{ VENV }}"
+    uv pip install --python "{{ VENV }}/bin/python" --quiet cryptography "{{ CLIENT_ARCHIVE }}"
+    touch "$stamp"
+    echo "OK: Python environment ready at {{ VENV }}"
+
+# Generate certs/lamda.pem once; it is the TLS credential and SSH private identity.
+certificate: venv
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "{{ CERT_DIR }}"
+    chmod 0700 "{{ CERT_DIR }}"
+    if test -f "{{ CERTIFICATE }}"; then
+      echo "OK: preserving existing {{ CERTIFICATE }}"
+      exit 0
+    fi
+    test "{{ CERTIFICATE }}" = "{{ DEFAULT_CERTIFICATE }}" || {
+      echo "ERROR: FIRERPA_CERTIFICATE does not exist: {{ CERTIFICATE }}" >&2
+      exit 1
+    }
+    cp "{{ WORKDIR }}/cert.py" "{{ CERT_DIR }}/cert.py"
+    (cd "{{ CERT_DIR }}" && PYTHONWARNINGS=ignore::DeprecationWarning "{{ VENV }}/bin/python" cert.py lamda)
+    chmod 0600 "{{ CERTIFICATE }}" "{{ CERT_DIR }}/root.key"
+    echo "OK: generated {{ CERTIFICATE }}; back it up securely and never commit it"
+
+# Build the hash-pinned service.jar that preserves ordinary accessibility services.
+patch: fetch
+    "{{ FIRERPA_PYTHON }}" "{{ PATCH_SCRIPT }}" --archive "{{ ARCHIVE }}" --output "{{ PATCHED_JAR }}"
+    @echo "OK: accessibility-coexistence driver ready at {{ PATCHED_JAR }}"
+
+# Prepare all host-side artifacts without changing the Android device.
+prepare: venv certificate patch
+    @echo "OK: host-side FIRERPA materials are ready"
+
+# Install the server, certificate, signed/patched JARs, properties, and lifecycle helper.
+deploy: doctor prepare
+    #!/usr/bin/env bash
+    set -euo pipefail
+    adb=(adb -s "{{ ADB_TARGET }}")
+    root="{{ FIRERPA_ROOT }}"
+    remote_archive=/data/local/tmp/firerpa-server.tar.gz
+    active="$root/server/lib/python3.9/site-packages/lamda/service.jar"
+
+    "${adb[@]}" push "{{ ARCHIVE }}" "$remote_archive"
+    "${adb[@]}" shell '
+      pkill -9 -x lamda 2>/dev/null || true
+      for proc in /proc/[0-9]*; do
+        exe=$(readlink "$proc/exe" 2>/dev/null) || continue
+        case "$exe" in
+          '"$root"'/server/*) kill -9 "${proc##*/}" 2>/dev/null || true ;;
+        esac
+      done
+      rm -rf '"$root"'/server /data/local/tmp/usr
+      mkdir -p '"$root"'
+      tar xzf '"$remote_archive"' -C '"$root"'
+      mkdir -p '"$root"'/overrides
+      cp '"$active"' '"$root"'/overrides/service.jar.signed
+      chmod 0644 '"$root"'/overrides/service.jar.signed
+    '
+    "${adb[@]}" push "{{ PATCHED_JAR }}" "$root/overrides/service.jar.patched"
+    "${adb[@]}" push "{{ LIFECYCLE_SCRIPT }}" "$root/firerpa_lifecycle.py"
+    "${adb[@]}" push "{{ CERTIFICATE }}" "{{ DEVICE_CERTIFICATE }}"
+
+    properties="{{ WORKDIR }}/properties.local"
+    printf '%s\n' \
+      'port={{ FIRERPA_PORT }}' \
+      '[sshd]' 'sshd.enable=true' \
+      '[adb]' 'adb.enable=false' \
+      '[cron]' 'cron.enable=false' \
+      '[fwd]' 'fwd.enable=false' \
+      '[tunnel2]' 'tunnel2.enable=false' \
+      '[mdns]' 'mdns.enable=false' \
+      '[webui]' 'webui.darkmode=off' 'webui.audio=off' 'webui.webrtc=off' \
+      'webui.video.h264=off' 'webui.share-clipboard=off' > "$properties"
+    "${adb[@]}" push "$properties" "$root/server/properties.local"
+    "${adb[@]}" shell "chmod 0600 '{{ DEVICE_CERTIFICATE }}'; chmod 0644 '$root/overrides/service.jar.patched' '$root/server/properties.local'; chmod 0755 '$root/firerpa_lifecycle.py'"
+    echo "OK: FIRERPA deployed but not yet started"
+
+# Start idempotently via the signed-start/patched-swap lifecycle controller.
+start: doctor prepare
+    "{{ VENV }}/bin/python" "{{ LIFECYCLE_SCRIPT }}" start \
+      --adb-target "{{ ADB_TARGET }}" \
+      --root "{{ FIRERPA_ROOT }}" \
+      --port "{{ FIRERPA_PORT }}" \
+      --certificate "{{ DEVICE_CERTIFICATE }}"
+
+# Deploy, start, and show device-side status.
+install: deploy start status
+    @echo "OK: standalone FIRERPA installation complete"
+
+# Show listener, process ownership, active driver hash, and expected patched hash.
+status: _require-adb-target
+    #!/usr/bin/env bash
+    set -euo pipefail
+    adb -s "{{ ADB_TARGET }}" shell '
+      echo "uid=$(id -u)"
+      echo "listener:"
+      ss -ltn 2>/dev/null | grep ":{{ FIRERPA_PORT }} " || {
+        echo "ERROR: FIRERPA is not listening on {{ FIRERPA_PORT }}" >&2
+        exit 1
+      }
+      echo "lamda processes:"
+      ps -A -o USER,PID,NAME,ARGS 2>/dev/null | grep "[l]amda" || true
+      echo "active service.jar:"
+      actual=$(sha256sum "{{ FIRERPA_ROOT }}/server/lib/python3.9/site-packages/lamda/service.jar" | awk "{print \$1}")
+      echo "$actual  {{ FIRERPA_ROOT }}/server/lib/python3.9/site-packages/lamda/service.jar"
+      expected=805e39de934d39ebaabe221b4db1464f835cc8ad7753bf3f34f4313569f8f1e1
+      test "$actual" = "$expected" || {
+        echo "ERROR: active service.jar is not the expected accessibility patch" >&2
+        exit 1
+      }
+      echo "OK: listener and accessibility-coexistence driver are active"
+    '
+
+# Open interactive FIRERPA SSH as Android's non-root shell user.
+ssh: _require-host certificate
+    ssh -o IdentitiesOnly=yes -i "{{ CERTIFICATE }}" -p "{{ FIRERPA_PORT }}" "shell@{{ FIRERPA_HOST }}"
+
+# Prove SSH authentication and print Android UID (must be 2000).
+ssh-id: _require-host certificate
+    ssh -o BatchMode=yes -o IdentitiesOnly=yes -i "{{ CERTIFICATE }}" -p "{{ FIRERPA_PORT }}" "shell@{{ FIRERPA_HOST }}" id
+
+# Prove certificate-authenticated gRPC and print FIRERPA version/uptime.
+grpc: _require-host venv certificate
+    "{{ VENV }}/bin/python" -c 'from lamda.client import Device; import sys; d=Device(sys.argv[1], port=int(sys.argv[2]), certificate=sys.argv[3]); i=d.server_info(); print(f"FIRERPA v{i.version} uptime={i.uptime}s")' "{{ FIRERPA_HOST }}" "{{ FIRERPA_PORT }}" "{{ CERTIFICATE }}"
+
+# Stop FIRERPA and its embedded helper processes without removing files.
+stop: _require-adb-target
+    #!/usr/bin/env bash
+    set -euo pipefail
+    adb -s "{{ ADB_TARGET }}" shell '
+      pkill -9 -x lamda 2>/dev/null || true
+      for proc in /proc/[0-9]*; do
+        exe=$(readlink "$proc/exe" 2>/dev/null) || continue
+        case "$exe" in
+          {{ FIRERPA_ROOT }}/server/*) kill -9 "${proc##*/}" 2>/dev/null || true ;;
+        esac
+      done
+    '
+    @echo "OK: FIRERPA stopped"
+
+# Remove the device installation. Requires: just CONFIRM=YES uninstall
+uninstall: _require-adb-target
+    #!/usr/bin/env bash
+    set -euo pipefail
+    test "{{ CONFIRM }}" = YES || {
+      echo "Refusing destructive uninstall. Run: just CONFIRM=YES uninstall" >&2
+      exit 2
+    }
+    adb -s "{{ ADB_TARGET }}" shell '
+      pkill -9 -x lamda 2>/dev/null || true
+      for proc in /proc/[0-9]*; do
+        exe=$(readlink "$proc/exe" 2>/dev/null) || continue
+        case "$exe" in
+          {{ FIRERPA_ROOT }}/server/*) kill -9 "${proc##*/}" 2>/dev/null || true ;;
+        esac
+      done
+    '
+    adb -s "{{ ADB_TARGET }}" shell rm -rf "{{ FIRERPA_ROOT }}" /data/local/tmp/firerpa-server.tar.gz /data/local/tmp/usr
+    echo "OK: device installation removed; host certificate was preserved"
+
+# Delete downloaded/build artifacts but preserve certs/ and its private keys.
+clean:
+    rm -rf "{{ WORKDIR }}"
+    @echo "OK: removed {{ WORKDIR }}; preserved {{ CERT_DIR }}"
+
+[private]
+_require-adb-target:
+    @test -n "{{ ADB_TARGET }}" || { echo "ERROR: set ADB_TARGET in .env or on the command line" >&2; exit 2; }
+
+[private]
+_require-host:
+    @test -n "{{ FIRERPA_HOST }}" || { echo "ERROR: set FIRERPA_HOST in .env or on the command line" >&2; exit 2; }

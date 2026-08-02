@@ -1,0 +1,7 @@
+---
+collections:
+  - name: stayturgid.fleet
+    source: git+https://github.com/djbclark/stayturgid.git,ansible_collections/stayturgid/fleet
+    version: stayturgid.fleet-1.5.0
+  - name: ansible.posix
+    version: ">=1.5.0"

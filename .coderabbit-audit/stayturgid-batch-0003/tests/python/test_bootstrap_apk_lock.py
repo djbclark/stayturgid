@@ -1,0 +1,92 @@
+"""Regression guards for normal-deploy APK convergence."""
+
+import re
+from pathlib import Path
+
+import yaml
+
+ROOT = Path(__file__).resolve().parents[2]
+DEFAULTS = ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/defaults/main.yml"
+
+
+def _catalog():
+    return yaml.safe_load(DEFAULTS.read_text(encoding="utf-8"))["stayturgid_bootstrap_apks"]
+
+
+def test_every_github_apk_is_immutably_locked():
+    required = {"id", "gh_repo", "gh_tag", "gh_pattern", "version_name", "checksum"}
+    for apk in _catalog():
+        assert required <= apk.keys(), apk["id"]
+        assert apk["gh_tag"] not in {"latest", ""}
+        assert re.fullmatch(r"sha256:[0-9a-f]{64}", apk["checksum"])
+
+
+def test_only_x11_has_the_explicit_mutable_tag_snapshot_exception():
+    mutable_aliases = {"nightly"}
+    snapshots = [apk for apk in _catalog() if apk["gh_tag"] in mutable_aliases]
+    assert snapshots == [
+        next(apk for apk in _catalog() if apk["id"] == "com.termux.x11")
+    ]
+    assert snapshots[0]["mutable_tag_snapshot"] is True
+
+
+def test_x11_snapshot_policy_is_limited_and_verified_on_every_deploy():
+    role_tasks = (
+        ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/main.yml"
+    ).read_text(encoding="utf-8")
+    install_tasks = (
+        ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml"
+    ).read_text(encoding="utf-8")
+    module = (
+        ROOT / "ansible_collections/stayturgid/android_common/plugins/modules/android_apk.py"
+    ).read_text(encoding="utf-8")
+
+    assert "_locked_apk.id == 'com.termux.x11' and _locked_apk.gh_tag == 'nightly'" in role_tasks
+    assert 'verify_on_current: "{{ _apk.mutable_tag_snapshot | default(false) }}"' in install_tasks
+    assert 'verify_on_current=dict(type="bool", default=False)' in module
+    assert 'reason="version %s and checksum verified" % current' in module
+
+
+def test_native_agent_uses_its_release_stream_and_real_asset_name():
+    agent = next(apk for apk in _catalog() if apk["id"] == "org.stayturgid.agent")
+    assert agent["gh_tag"] == "agent-v0.9.4"
+    assert agent["gh_pattern"] == "app-release.apk"
+    assert agent["version_name"] == "0.9.4-guided-setup"
+    assert agent["remove_packages"] == ["org.stayturgid.agent.debug"]
+    assert agent["service_component"] == "org.stayturgid.agent/.HostService"
+    assert agent["start_broadcast_action"] == "org.stayturgid.agent.action.PEER_START_NOW"
+
+
+def test_normal_deploy_ensures_before_it_verifies():
+    site = (ROOT / "ansible/playbooks/site.yml").read_text(encoding="utf-8")
+    assert site.index("Import bootstrap APK ensure") < site.index("Import bootstrap APK verify")
+
+
+def test_monkey_launch_is_limited_to_a_real_install():
+    tasks = yaml.safe_load(
+        (
+            ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml"
+        ).read_text(encoding="utf-8")
+    )
+    reconcile = next(task for task in tasks if task["name"].startswith("Reconcile locked APK"))
+    install = next(task for task in reconcile["block"] if task["name"].startswith("Install over ADB"))
+    monkey = next(task for task in tasks if task["name"].startswith("Launch via monkey"))
+
+    assert install["register"] == "_apk_install"
+    assert "_apk_install.changed | default(false)" in monkey["when"]
+
+
+def test_locked_version_check_has_no_mutable_latest_lookup():
+    tasks = ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks"
+    combined = "\n".join(path.read_text(encoding="utf-8") for path in tasks.glob("*.yml"))
+    assert "gh release view" not in combined
+    assert "_apk.gh_tag" in combined
+    assert "_apk.version_name" in combined
+
+
+def test_optional_github_apks_require_the_same_lock_fields():
+    tasks = (ROOT / "ansible_collections/stayturgid/android_common/roles/ensure_apps/tasks/main.yml").read_text(
+        encoding="utf-8"
+    )
+    for field in ("gh_tag", "version_name", "checksum"):
+        assert f"item.{field} is defined" in tasks

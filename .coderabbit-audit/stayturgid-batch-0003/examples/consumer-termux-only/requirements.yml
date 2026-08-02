@@ -1,0 +1,7 @@
+---
+# Install stayturgid.termux from a version tag (see repo tags stayturgid.termux-*)
+# or omit version to track master.
+collections:
+  - name: stayturgid.termux
+    source: git+https://github.com/djbclark/stayturgid.git,ansible_collections/stayturgid/termux
+    version: stayturgid.termux-1.8.0

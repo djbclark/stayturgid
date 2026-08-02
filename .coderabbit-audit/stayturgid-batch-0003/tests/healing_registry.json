@@ -1,0 +1,222 @@
+{
+  "_schema": 1,
+  "_doc": "SSOT registry of every desired state and bug fix with unique IDs. Pre-flight checker (check_healing_coverage.py) cross-references annotations in healing source files against this registry. Adding a new fix: (1) add ID here, (2) add annotation to each mechanism source that implements it, (3) make test gates it.",
+  "mechanisms": {
+    "termux_repair": {
+      "description": "Primary on-device Python self-healer (stayturgid_repair.py)",
+      "files": [
+        "device/termux/py/stayturgid_repair.py",
+        "device/termux/py/start_adb.py"
+      ]
+    },
+    "native_agent": {
+      "description": "Native Kotlin agent handling co-monitor, Tailscale relaunch, and catastrophic Shizuku repair without a11y UI dependencies",
+      "files": [
+        "device/native-agent/app/src/main/kotlin/org/stayturgid/agent/HostService.kt",
+        "device/native-agent/app/src/main/kotlin/org/stayturgid/agent/CatastrophicRepair.kt"
+      ]
+    },
+    "cfengine": {
+      "description": "CFEngine self-heal policy (stayturgid.cf)",
+      "files": ["device/termux/cfengine/policy/stayturgid.cf"]
+    },
+    "firerpa": {
+      "description": "FIRERPA gRPC heal (out-of-band, independent transport)",
+      "files": ["control/bin/firerpa_heal.py"]
+    },
+    "fleet_health": {
+      "description": "Mac launchd fleet-health observation and auto-heals (native-agent restart, HD8 stack, ET reconcile, repair restart)",
+      "files": [
+        "control/bin/fleet_health_monitor.py",
+        "control/lib/fleet_health.py",
+        "control/tools/native-agent/start_agent.py"
+      ]
+    },
+    "ansible_deploy": {
+      "description": "Ansible roles/playbooks that enforce desired state idempotently",
+      "files": [
+        "ansible_collections/stayturgid/termux/roles/termux_userland/tasks/main.yml",
+        "ansible_collections/stayturgid/termux/roles/termux_userland/tasks/control_et.yml",
+        "ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ssh_keys.yml",
+        "ansible_collections/stayturgid/fleet/roles/validate/tasks/main.yml",
+        "ansible_collections/stayturgid/android_common/roles/tailscale_vpn/tasks/main.yml",
+        "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml",
+        "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/native_agent.yml",
+        "ansible_collections/stayturgid/obtainium/plugins/modules/obtainium_app.py",
+        "ansible_collections/stayturgid/firerpa/roles/firerpa/tasks/configure.yml",
+        "ansible_collections/stayturgid/firerpa/roles/firerpa/tasks/service.yml",
+        "ansible/playbooks/site.yml"
+      ]
+    },
+    "mac_heal": {
+      "description": "Mac-side manual fix scripts",
+      "files": [
+        "control/bin/fix_hd8_google_stack.py",
+        "control/lib/hd8_google_stack.py"
+      ]
+    }
+  },
+  "desired_states": {
+    "SSHD-RUNNING": {
+      "description": "sshd running on port 8022",
+      "must_cover": ["termux_repair", "cfengine", "firerpa"],
+      "should_cover": ["ansible_deploy"]
+    },
+    "PORT5555-OPEN": {
+      "description": "Privileged shell on localhost:5555 (wireless debug enabled, uid 2000)",
+      "must_cover": ["termux_repair", "native_agent"],
+      "should_cover": ["firerpa"]
+    },
+    "SHIZUKU-HEADLESS": {
+      "description": "Shizuku headless server running (HEADLESS_STATUS + pgrep)",
+      "must_cover": ["termux_repair", "firerpa", "native_agent"],
+      "should_cover": []
+    },
+    "A11Y-AUTOJS6": {
+      "description": "AutoJs6 accessibility service enabled (detection-only; user must enable manually)",
+      "must_cover": ["termux_repair", "fleet_health"],
+      "should_cover": ["ansible_deploy"]
+    },
+    "MIRROR-PINNED": {
+      "description": "Termux main mirror pinned to packages-cf.termux.dev (deterministic pkg)",
+      "must_cover": ["termux_repair", "ansible_deploy"],
+      "should_cover": []
+    },
+    "PATH-CLEAN": {
+      "description": "No leaked Mac-style PATH entries in Termux shell profiles",
+      "must_cover": ["termux_repair", "ansible_deploy"],
+      "should_cover": []
+    },
+    "ET-CONFIG": {
+      "description": "Phone-to-Mac Eternal Terminal SSH config block deployed",
+      "must_cover": ["termux_repair", "ansible_deploy"],
+      "should_cover": ["fleet_health"]
+    },
+    "OS-RELEASE": {
+      "description": "/etc/os-release exists for CFEngine platform detection",
+      "must_cover": ["termux_repair", "ansible_deploy"],
+      "should_cover": []
+    },
+    "TAILSCALE-VPN": {
+      "description": "Tailscale VPN tunnel running (tun0 up + ping)",
+      "must_cover": ["termux_repair", "native_agent", "ansible_deploy"],
+      "should_cover": []
+    },
+    "TAILSCALE-ALWAYSON": {
+      "description": "Tailscale always-on VPN enabled in system settings",
+      "must_cover": ["termux_repair", "native_agent", "ansible_deploy"],
+      "should_cover": []
+    },
+    "SSHD-PENALTIES": {
+      "description": "Termux sshd_config PerSourcePenalties disabled (prevents lockout)",
+      "must_cover": ["ansible_deploy"],
+      "should_cover": []
+    },
+    "TERMUX-WRITESETTINGS": {
+      "description": "Termux:API WRITE_SETTINGS permission granted via appops",
+      "must_cover": ["ansible_deploy"],
+      "should_cover": []
+    },
+    "TERMUX-OVERLAY": {
+      "description": "Termux SYSTEM_ALERT_WINDOW overlay permission granted via appops",
+      "must_cover": ["ansible_deploy"],
+      "should_cover": []
+    },
+    "PKG-UPGRADE": {
+      "description": "Daily Termux pkg update + full-upgrade (3-5am window, once/24h)",
+      "must_cover": ["termux_repair"],
+      "should_cover": ["ansible_deploy"]
+    },
+    "AUTOJS6-PROFILE": {
+      "description": "AutoJs6 fleet profile applied when process is dead (data clear/crash recovery)",
+      "must_cover": ["termux_repair"],
+      "should_cover": []
+    },
+    "SHIZUKU-PROFILE": {
+      "description": "Shizuku fleet profile applied when Shizuku is down",
+      "must_cover": ["termux_repair"],
+      "should_cover": []
+    },
+    "DEVICE-JSON": {
+      "description": "device.json profile present in stayturgid catalog",
+      "must_cover": ["termux_repair"],
+      "should_cover": ["ansible_deploy"]
+    },
+    "ENV-FILE": {
+      "description": "~/.stayturgid/env file present with STAYTURGID_SD and runtime vars",
+      "must_cover": ["termux_repair", "ansible_deploy"],
+      "should_cover": []
+    },
+    "BOOTLOOP-ALIVE": {
+      "description": "Termux boot loop (start_adb.py managed by start-adb.sh shim) running",
+      "must_cover": ["firerpa"],
+      "should_cover": ["cfengine", "fleet_health"]
+    },
+    "AGENT-FRESH": {
+      "description": "native-agent co-monitor STATUS fresh in agent.log (OPTIONS K1, post-cutover)",
+      "must_cover": ["fleet_health"],
+      "should_cover": []
+    },
+    "REPAIRLOG-FRESH": {
+      "description": "Termux repair log fresh within 45 min",
+      "must_cover": ["fleet_health"],
+      "should_cover": []
+    },
+    "HD8-DOZE-WHITELIST": {
+      "description": "Fire HD8: GMS/GSF added to Doze whitelist (dumpsys deviceidle)",
+      "must_cover": ["mac_heal"],
+      "should_cover": ["fleet_health"]
+    },
+    "HD8-GSF-PINNED": {
+      "description": "Fire HD8: Google Services Framework pinned to 10-x release",
+      "must_cover": ["mac_heal"],
+      "should_cover": ["fleet_health"]
+    },
+    "HD8-GMS-PINNED": {
+      "description": "Fire HD8: GMS/Play Store version not too new (opt-in pin)",
+      "must_cover": ["mac_heal"],
+      "should_cover": ["fleet_health"]
+    },
+    "BOOTLOOP-AUTOSTART": {
+      "description": "Termux:Boot autostart scripts deployed and enabled",
+      "must_cover": ["ansible_deploy"],
+      "should_cover": []
+    },
+    "FIRERPA-SECURE-RUNNING": {
+      "description": "FIRERPA runs as Android shell with its private service certificate, providing mutual-TLS gRPC and SSH on port 65000",
+      "must_cover": ["termux_repair", "ansible_deploy"],
+      "should_cover": ["fleet_health"]
+    },
+    "A11Y-PROFILE-MATCH": {
+      "description": "Post-deploy accessibility profile matches fleet standard",
+      "must_cover": ["ansible_deploy"],
+      "should_cover": []
+    },
+    "OTELCOL-RUNNING": {
+      "description": "Edge otelcol-contrib is installed, boot-integrated, and restarted by the Termux supervisor",
+      "must_cover": ["termux_repair", "ansible_deploy", "cfengine"],
+      "should_cover": []
+    },
+    "APK-RELEASE-LOCK": {
+      "description": "Factory-reset and routine deploys install the exact APK release tag, asset, versionName, and checksum owned by the coordinated ops release",
+      "must_cover": ["ansible_deploy"],
+      "should_cover": []
+    },
+    "NATIVE-AGENT-CONFIG": {
+      "description": "Native-agent peer target assignment matches site inventory",
+      "must_cover": ["ansible_deploy"],
+      "should_cover": []
+    },
+    "NATIVE-AGENT-RUNNING": {
+      "description": "Native-agent release package is the sole installed variant and HostService is running after deploy or upgrade",
+      "must_cover": ["ansible_deploy", "fleet_health"],
+      "should_cover": ["cfengine"]
+    },
+
+    "NORMAL-DEPLOY-SINGLE-PASS": {
+      "description": "The normal site deploy runs the authoritative fleet convergence role stack exactly once",
+      "must_cover": ["ansible_deploy"],
+      "should_cover": []
+    }
+  }
+}
