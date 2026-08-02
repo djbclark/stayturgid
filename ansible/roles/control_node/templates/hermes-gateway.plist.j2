@@ -6,7 +6,7 @@
     <string>{{ stayturgid_hermes_gateway_label }}</string>
     <key>ProgramArguments</key>
     <array>
-        <string>{{ stayturgid_homebrew_prefix }}/bin/hermes</string>
+        <string>{{ stayturgid_hermes_bin }}</string>
         <string>gateway</string>
         <string>run</string>
         <string>--replace</string>
@@ -16,7 +16,7 @@
         <key>HERMES_HOME</key>
         <string>{{ stayturgid_hermes_home }}</string>
         <key>PATH</key>
-        <string>{{ stayturgid_homebrew_prefix }}/bin:{{ stayturgid_homebrew_prefix }}/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <string>{{ lookup('env', 'HOME') }}/.local/bin:{{ stayturgid_homebrew_prefix }}/bin:{{ stayturgid_homebrew_prefix }}/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
 {% if (stayturgid_hermes_telegram_allowed_users | default('') | string | trim | length) > 0 %}
         <key>TELEGRAM_ALLOWED_USERS</key>
         <string>{{ stayturgid_hermes_telegram_allowed_users | string | trim }}</string>

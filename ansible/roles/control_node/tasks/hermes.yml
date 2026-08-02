@@ -1,44 +1,41 @@
 ---
-# Hermes Agent (control node): brew install, model/config, Telegram gateway keep-alive.
+# Hermes Agent (control node): git-install + uv venv (canonical method).
+# The brew formula is unsupported by upstream and pins Python 3.14 which
+# breaks DaemonThreadPoolExecutor (upstream requires-python caps at <3.14).
+#
+# Canonical install: curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+# This creates ~/.hermes/hermes-agent with uv venv (Python 3.11), wrapper at ~/.local/bin/hermes.
+#
 # Secrets (TELEGRAM_BOT_TOKEN, API keys) stay on the machine only — never in git.
 # First-time auth: hermes auth add opencode-zen --type api-key
 # First-time bot token: set TELEGRAM_BOT_TOKEN in ~/.hermes/.env (or env when running playbook).
 #
 # All tasks gated by stayturgid_hermes_enabled so include from agents.yml never end_host.
-- name: Install Hermes Agent Homebrew formula
-  community.general.homebrew:
-    name: hermes-agent
-    state: present
-  when: stayturgid_hermes_enabled | default(true) | bool
-  register: _hermes_brew_install
-
-- name: Ensure hermes-agent formula is not pinned
-  ansible.builtin.command:
-    cmd: brew unpin hermes-agent
-  register: _hermes_unpin
-  changed_when: "'Unpinned' in (_hermes_unpin.stdout | default(''))"
+- name: Verify Hermes Agent canonical install exists
+  ansible.builtin.stat:
+    path: "{{ stayturgid_hermes_bin }}"
+  register: _hermes_bin_stat
   when: stayturgid_hermes_enabled | default(true) | bool
 
-- name: Resolve Hermes libexec python (for optional Telegram deps)
-  ansible.builtin.shell: |
-    set -euo pipefail
-    brew --prefix hermes-agent 2>/dev/null | head -1
-  args:
-    executable: /bin/bash
-  register: _hermes_brew_prefix
-  changed_when: false
-  failed_when: false
-  when: stayturgid_hermes_enabled | default(true) | bool
+- name: Fail if Hermes Agent canonical install is missing
+  ansible.builtin.fail:
+    msg: >-
+      Hermes Agent not found at {{ stayturgid_hermes_bin }}.
+      Install via: curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+      The brew formula is unsupported by upstream.
+  when:
+    - stayturgid_hermes_enabled | default(true) | bool
+    - not (_hermes_bin_stat.stat.exists | default(false))
 
 - name: Ensure python-telegram-bot in Hermes venv (Telegram gateway)
   ansible.builtin.command:
     cmd: >-
-      uv pip install --python {{ _hermes_brew_prefix.stdout | trim }}/libexec/bin/python
+      uv pip install --python {{ stayturgid_hermes_home }}/hermes-agent/venv/bin/python
       --quiet 'python-telegram-bot>=21' 'qrcode[pil]'
   when:
     - stayturgid_hermes_enabled | default(true) | bool
     - stayturgid_hermes_gateway_enabled | default(true) | bool
-    - (_hermes_brew_prefix.stdout | default('') | trim | length) > 0
+    - (_hermes_bin_stat.stat.exists | default(false))
   register: _hermes_tg_pip
   changed_when: >-
     'Successfully installed' in (_hermes_tg_pip.stdout | default(''))
@@ -71,11 +68,11 @@
 - name: Set Hermes default model (idempotent)
   ansible.builtin.command:
     cmd: >-
-      {{ stayturgid_homebrew_prefix }}/bin/hermes config set model
+      {{ stayturgid_hermes_bin }} config set model
       {{ stayturgid_hermes_model }}
   environment:
     HERMES_HOME: "{{ stayturgid_hermes_home }}"
-    PATH: "{{ stayturgid_homebrew_prefix }}/bin:/usr/bin:/bin"
+    PATH: "{{ stayturgid_hermes_bin | dirname }}:{{ stayturgid_homebrew_prefix }}/bin:/usr/bin:/bin"
   register: _hermes_model_set
   changed_when: >-
     'Set model' in (_hermes_model_set.stdout | default(''))

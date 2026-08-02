@@ -50,8 +50,9 @@ stayturgid_mac_brew_packages_base:
   - scrcpy
   - semgrep
   - gitleaks
-  # Hermes Agent (Telegram gateway + Grok OAuth CLI); see tasks/hermes.yml
-  - hermes-agent
+  # Hermes Agent: installed via canonical git+uv method (see tasks/hermes.yml)
+  # The brew formula is unsupported by upstream and pins Python 3.14 which breaks
+  # DaemonThreadPoolExecutor (upstream requires-python caps at <3.14).
   # GNU rsync (3.x, protocol 32) — macOS ships an ancient 2.6.9/protocol-29
   # build at /usr/bin/rsync. Termux devices run modern rsync too, so both
   # ends of the termux_userland synchronize tasks should speak the same
@@ -79,6 +80,11 @@ stayturgid_hermes_home: "{{ lookup('env', 'HOME') }}/.hermes"
 stayturgid_hermes_model: big-pickle
 stayturgid_hermes_provider: opencode-zen
 stayturgid_hermes_gateway_label: com.stayturgid.hermes-gateway
+# Binary path for the gateway. Default: git-install venv wrapper (Python
+# version pinned by upstream's requires-python, not the system/homebrew
+# default). Override to stayturgid_homebrew_prefix + /bin/hermes if you
+# want the brew formula instead.
+stayturgid_hermes_bin: "{{ lookup('env', 'HOME') }}/.local/bin/hermes"
 # Site-specific Telegram allowlist (numeric user ids, comma-separated).
 # Empty = leave existing ~/.hermes/.env values alone (pairing still works).
 stayturgid_hermes_telegram_allowed_users: ""
