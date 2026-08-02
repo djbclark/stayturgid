@@ -33,6 +33,19 @@ import org.stayturgid.agent.adb.AdbProtocol.A_WRTE
  * package rename, `BuildUtils.atLeast29` → inline SDK check, the debug `logd` import dropped, and a
  * configurable [readTimeoutMs] so the one-time "Always allow" authorization on a new target doesn't
  * block a background thread forever (upstream relied on the interactive UI to bound the wait).
+ *
+ * [readTimeoutMs]'s original 60s default was too short for this app's actual first-pairing
+ * workflow: the outer peer-start loop deliberately retries every ~3 minutes while a target is
+ * AUTH_PENDING (HostService.PEERSTART_PENDING_INTERVAL_MS, "retry fast so the operator can finish
+ * it quickly"), but a human being pinged to go tap "Always allow" realistically takes longer than
+ * 60s to notice, walk over, and respond. Once this attempt's socket times out, there's no live
+ * connection left for adbd to send its response through even though the dialog is still visibly
+ * rendered — so a "late" tap silently does nothing, and the next retry a few minutes later presents
+ * a brand-new, visually-identical dialog. Confirmed live 2026-08-02: 28 consecutive "Always allow"
+ * taps on hd8 all failed to stick this way. Bumped to 4 minutes — comfortably past realistic human
+ * response time (especially for a Telegram-ping-driven workflow, which adds its own latency before
+ * the human even looks at the device) while still bounded, not "forever". Has no effect on the
+ * already-authorized happy path, which returns near-instantly regardless of this value.
  */
 private const val TAG = "StayTurgidAdbClient"
 
@@ -41,7 +54,7 @@ class AdbClient(
     private val port: Int,
     private val key: AdbKey,
     private val connectTimeoutMs: Int = 5000,
-    private val readTimeoutMs: Int = 60_000,
+    private val readTimeoutMs: Int = 4 * 60 * 1000,
 ) : Closeable {
     private lateinit var socket: Socket
     private lateinit var plainInputStream: DataInputStream
