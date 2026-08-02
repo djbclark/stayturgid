@@ -16,8 +16,8 @@ android {
         applicationId = "org.stayturgid.agent"
         minSdk = 26
         targetSdk = 36
-        versionCode = 23
-        versionName = "0.9.5-handsets-adb-peer-loop"
+        versionCode = 24
+        versionName = "0.9.6-adb-auth-timeout"
         val buildTimeUtc =
             System.getenv("SOURCE_DATE_EPOCH")?.toLongOrNull()?.let { Instant.ofEpochSecond(it) }
                 ?: Instant.now().truncatedTo(ChronoUnit.SECONDS)
