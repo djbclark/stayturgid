@@ -1,6 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
+{#- Fire OS hosts this Mac should peer-help: any stayturgid inventory member
+    with stayturgid_no_local_adb set (matches fire_help_monitor.py's own
+    docstring intent and the existing filter pattern used elsewhere in this
+    role, e.g. the peer-help pubkey fetch task). -#}
+{%- set fire_help_hosts = [] -%}
+{%- for h in groups['stayturgid'] -%}
+{%- if hostvars[h].stayturgid_no_local_adb | default(false) | bool -%}
+{%- set _ = fire_help_hosts.append(h) -%}
+{%- endif -%}
+{%- endfor -%}
 <dict>
     <key>Label</key>
     <string>com.stayturgid.fire-help</string>
@@ -16,6 +26,8 @@
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
         <key>STAYTURGID_ADB</key>
         <string>/opt/homebrew/bin/adb</string>
+        <key>STAYTURGID_FIRE_HELP_HOSTS</key>
+        <string>{{ fire_help_hosts | join(',') }}</string>
     </dict>
     <key>StartInterval</key>
     <integer>{{ stayturgid_interval_sec | default(900) }}</integer>
