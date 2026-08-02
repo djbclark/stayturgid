@@ -52,6 +52,11 @@ stayturgid_mac_brew_packages_base:
   - gitleaks
   # Hermes Agent (Telegram gateway + Grok OAuth CLI); see tasks/hermes.yml
   - hermes-agent
+  # GNU rsync (3.x, protocol 32) — macOS ships an ancient 2.6.9/protocol-29
+  # build at /usr/bin/rsync. Termux devices run modern rsync too, so both
+  # ends of the termux_userland synchronize tasks should speak the same
+  # protocol. See stayturgid_local_rsync_path below.
+  - rsync
 
 stayturgid_mac_brew_packages_app_stores:
   - fdroidcl
