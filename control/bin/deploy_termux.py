@@ -22,6 +22,7 @@ import adb_cli as ac
 import termux_ssh_bootstrap as boot
 from ansible_context import (
     AnsibleConfigError,
+    require_fresh_checkout,
     require_limit_hosts,
     resolve_ansible_context,
     resolved_env,
@@ -52,6 +53,7 @@ def main(argv: list[str] | None = None) -> int:
 
     context = resolve_ansible_context(REPO_ROOT)
     require_limit_hosts(context, args.host)
+    require_fresh_checkout(REPO_ROOT)
 
     target = ssh_target(args.host)
     print(f"Checking SSH to {target}...")

@@ -229,6 +229,7 @@ def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0):
     monkeypatch.setattr(df, "install_collections", lambda: None)
     monkeypatch.setattr(df, "resolve_ansible_context", lambda root, environ=None: object())
     monkeypatch.setattr(df, "require_inventory", lambda context: None)
+    monkeypatch.setattr(df, "require_fresh_checkout", lambda root, environ=None: None)
     monkeypatch.setattr(df, "require_limit_hosts", lambda context, limit: limit.split(","))
 
     def run_playbook(playbook, *, limit=None, check, tags, skip_tags=None, extra_vars=None, verbose=0):

@@ -18,6 +18,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from control.lib.ansible_context import (
     AnsibleConfigError,
+    require_fresh_checkout,
     require_inventory,
     resolve_ansible_context,
     resolved_env,
@@ -39,6 +40,7 @@ def main(argv: list[str] | None = None) -> int:
         # "role 'control_node' was not found". Matches deploy_fleet.py.
         context = resolve_ansible_context(REPO_ROOT, announce=False)
         require_inventory(context)
+        require_fresh_checkout(REPO_ROOT)
         env = resolved_env(REPO_ROOT)
     except AnsibleConfigError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

@@ -41,6 +41,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from control.lib.ansible_context import (
     AnsibleConfigError,
+    require_fresh_checkout,
     require_inventory,
     require_limit_hosts,
     resolve_ansible_context,
@@ -264,6 +265,7 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0, dev
     require_ansible()
     context = resolve_ansible_context(REPO_ROOT)
     require_inventory(context)
+    require_fresh_checkout(REPO_ROOT)
     warn_prerequisites(scope)
     install_collections()
 
