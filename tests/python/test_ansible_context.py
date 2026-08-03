@@ -345,7 +345,7 @@ def _init_repo_with_origin(tmp_path: Path) -> Path:
 
 def test_require_fresh_checkout_passes_when_up_to_date(tmp_path):
     clone = _init_repo_with_origin(tmp_path)
-    ac.require_fresh_checkout(clone)  # must not raise
+    ac.require_fresh_checkout(clone, {})  # must not raise
 
 
 def test_require_fresh_checkout_fails_when_behind(tmp_path):
@@ -362,7 +362,7 @@ def test_require_fresh_checkout_fails_when_behind(tmp_path):
     _git("push", "--quiet", "origin", "master", cwd=other)
 
     with pytest.raises(ac.AnsibleConfigError, match="1 commit"):
-        ac.require_fresh_checkout(clone)
+        ac.require_fresh_checkout(clone, {})
 
 
 def test_require_fresh_checkout_fails_when_dirty(tmp_path):
@@ -370,7 +370,7 @@ def test_require_fresh_checkout_fails_when_dirty(tmp_path):
     (clone / "README.md").write_text("uncommitted local edit\n", encoding="utf-8")
 
     with pytest.raises(ac.AnsibleConfigError, match="uncommitted"):
-        ac.require_fresh_checkout(clone)
+        ac.require_fresh_checkout(clone, {})
 
 
 def test_require_fresh_checkout_skip_env_var_bypasses(tmp_path):
@@ -395,7 +395,7 @@ def test_require_fresh_checkout_warns_but_does_not_raise_when_fetch_fails(tmp_pa
     clone = _init_repo_with_origin(tmp_path)
     _git("remote", "set-url", "origin", "/nonexistent/path/that/does/not/exist.git", cwd=clone)
 
-    ac.require_fresh_checkout(clone)  # must not raise
+    ac.require_fresh_checkout(clone, {})  # must not raise
 
     assert "WARNING" in capsys.readouterr().err
 
@@ -404,4 +404,4 @@ def test_require_fresh_checkout_skips_non_git_directory(tmp_path):
     plain = tmp_path / "not-a-repo"
     plain.mkdir()
 
-    ac.require_fresh_checkout(plain)  # must not raise
+    ac.require_fresh_checkout(plain, {})  # must not raise
