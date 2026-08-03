@@ -143,6 +143,49 @@ def test_gap2_dual_row_ambiguity(mock_env, monkeypatch):
     assert "http://localhost:6736" not in urls
 
 
+def test_stale_registered_entry_label_and_note_are_refreshed(mock_env, mock_known_services, monkeypatch):
+    """A raw-port entry carried over from a prior state.json must not stay
+    stuck with a stale label/note forever once its port becomes registered
+    and Caddy-skipped in the same deploy (_scan_localhost stops revisiting
+    it, so nothing else would ever refresh it) -- confirmed real 2026-08-03:
+    Open WebUI's raw :8085 entry stayed badged "not in registry/ports.yml"
+    after tonight's caddy_path fix made discover.py skip re-scanning it."""
+    monkeypatch.setattr(
+        discover,
+        "load_registered_ports",
+        lambda site_dir, return_map=False: {8085: "open-webui"} if return_map else {8085},
+    )
+    monkeypatch.setattr(
+        state,
+        "load_state",
+        lambda: {
+            "services": [
+                {
+                    "url": "http://localhost:8085",
+                    "label": "Open Webui",
+                    "group": "mac",
+                    "note": "HTTP 200; not in registry/ports.yml",
+                    "unregistered": True,
+                    "reachable": True,
+                    "last_seen": "2026-01-01T00:00:00Z",
+                }
+            ],
+            "hidden": [],
+        },
+    )
+    monkeypatch.setattr(discover, "_scan_localhost", lambda **kwargs: [])
+    monkeypatch.setattr(discover, "_http_probe", lambda url, **kwargs: 200)
+    monkeypatch.setattr(discover, "_tcp_probe", lambda host, port, **kwargs: True)
+
+    result = discover.discover({})
+
+    by_url = {s["url"]: s for s in result["services"]}
+    entry = by_url["http://localhost:8085"]
+    assert entry["label"] == "Open Webui"
+    assert "unregistered" not in entry
+    assert "not in registry" not in (entry.get("note") or "")
+
+
 def test_probe_launchd(monkeypatch):
     import subprocess
 

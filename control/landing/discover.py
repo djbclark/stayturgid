@@ -657,12 +657,36 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
             if port not in path_ports:
                 host_name = public_host if public_host else "localhost"
                 url = f"http://{host_name}:{port}"
+                fresh_label = _format_service_label(svc_name)
                 if url not in known_urls:
                     known_urls[url] = {
                         "url": url,
-                        "label": _format_service_label(svc_name),
+                        "label": fresh_label,
                         "group": "mac",
                     }
+                else:
+                    # A raw-port entry carried over from a prior state.json
+                    # can get stuck with a stale label/note forever once its
+                    # port becomes Caddy-proxied (load_caddy_proxied_ports)
+                    # and _scan_localhost stops revisiting it -- nothing else
+                    # ever refreshes this entry again. Confirmed real
+                    # 2026-08-03: Open WebUI's raw :8085 entry stayed badged
+                    # "not in registry/ports.yml" after it became both
+                    # registered and caddy-skipped in the same deploy.
+                    entry = known_urls[url]
+                    entry["label"] = fresh_label
+                    entry.pop("unregistered", None)
+                    note = entry.get("note")
+                    if isinstance(note, str) and "not in registry/ports.yml" in note:
+                        cleaned = (
+                            note.replace("; not in registry/ports.yml", "")
+                            .replace("not in registry/ports.yml", "")
+                            .strip("; ")
+                        )
+                        if cleaned:
+                            entry["note"] = cleaned
+                        else:
+                            entry.pop("note", None)
 
     dashboard_services = load_dashboard_brew_services(site_dir=site_dir)
     for label, formatted_label in dashboard_services.items():
