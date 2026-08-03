@@ -600,6 +600,57 @@ hosts:
     assert "http://127.0.0.1:9999" not in urls
 
 
+def test_discover_purges_stale_catalog_entry_after_catalog_url_change(mock_env, monkeypatch):
+    """A static catalog service (services.json) whose URL simply changed
+    between deploys -- e.g. Open WebUI moving from a Caddy /chat/* subpath
+    to a dedicated tailscale-serve port -- must not leave its old URL
+    sitting in known_urls forever alongside the new one. Nothing else
+    prunes this: the old URL isn't a registered-port skip-list match,
+    isn't flagged unregistered, and doesn't start with http://localhost:,
+    so it survives every existing prune path even once genuinely
+    unreachable. Confirmed real 2026-08-03: still showing the pre-fix
+    /chat/ URL alongside the new :8086/ URL on the live dashboard after
+    this exact catalog change was deployed."""
+    monkeypatch.setattr(
+        discover,
+        "_known_services_for_site",
+        lambda site_dir: [
+            {
+                "url": "https://mac.greyhound-sidemirror.ts.net:8086/",
+                "label": "Open WebUI (HTTPS)",
+                "group": "mac",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        state,
+        "load_state",
+        lambda: {
+            "services": [
+                {
+                    "url": "https://mac.greyhound-sidemirror.ts.net/chat/",
+                    "label": "Open WebUI (HTTPS)",
+                    "group": "mac",
+                    "reachable": True,
+                    "last_seen": "2026-01-01T00:00:00Z",
+                }
+            ],
+            "hidden": [],
+        },
+    )
+    monkeypatch.setattr(discover, "_site_caddy_public_hostname", lambda _site_dir: "mac.greyhound-sidemirror.ts.net")
+    monkeypatch.setattr(discover, "_scan_localhost", lambda **kwargs: [])
+    monkeypatch.setattr(discover, "_http_probe", lambda url, **kwargs: 200)
+    monkeypatch.setattr(discover, "_tcp_probe", lambda host, port, **kwargs: False)
+
+    result = discover.discover({})
+
+    urls = {s["url"] for s in result["services"]}
+    assert "https://mac.greyhound-sidemirror.ts.net:8086/" in urls
+    assert "https://mac.greyhound-sidemirror.ts.net/chat/" not in urls
+    assert len([s for s in result["services"] if s.get("label") == "Open WebUI (HTTPS)"]) == 1
+
+
 def test_parse_ports_yaml_fallback_entries_handles_multiline_flow_mapping(tmp_path):
     """The crude PyYAML-unavailable fallback parser must survive the real
     registry file's actual formatting: entries wrap across 2-3 physical
