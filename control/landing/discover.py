@@ -421,6 +421,67 @@ def load_registered_ports(
     return ports_map if return_map else ports_set
 
 
+# lsof binds and registry `bind` values that mean "loopback only, never
+# reachable via the public Tailscale hostname" -- shared by _scan_localhost's
+# lsof-based detection and load_loopback_only_registered_ports' registry-based
+# detection below, so the two can't drift apart on what counts as loopback.
+LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
+
+
+def load_loopback_only_registered_ports(
+    registry_path: Path | None = None,
+    *,
+    site_dir: Path | None = None,
+) -> set[int]:
+    """Return registered ports whose registry entry declares a loopback ``bind``.
+
+    discover()'s "registered ports" seeding loop (below) creates a raw-port
+    dashboard entry for every registered port using the public Tailscale
+    hostname unconditionally -- it has no bind-awareness at all, unlike
+    _scan_localhost's lsof-based detection. That's fine for a port that's
+    genuinely reachable off-box, but wrong (and misleading -- a live,
+    clickable dead link) for one that's registered with ``bind: "127.0.0.1"``
+    and only reachable via Caddy/tailscale-serve/etc. Confirmed real
+    2026-08-03: Open WebUI's raw registered-port entry advertised the public
+    hostname on a loopback-only port. Consumer: discover()'s registered-ports
+    loop uses this to pick 127.0.0.1 instead of the public host and apply the
+    same [loopback-only] badge _scan_localhost already applies.
+    """
+    path = registry_path
+    if path is None:
+        if site_dir is None:
+            selection = _resolve_site(os.environ)
+            site_dir = selection.path
+        path = _resolve_registry_ports_path(site_dir)
+    if path is None or not path.is_file() or yaml is None:
+        return set()
+    try:
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return set()
+
+    ports: set[int] = set()
+
+    def _ingest(entries: object) -> None:
+        if not isinstance(entries, list):
+            return
+        for entry in entries:
+            if (
+                isinstance(entry, dict)
+                and isinstance(entry.get("port"), int)
+                and str(entry.get("bind") or "").strip() in LOOPBACK_HOSTS
+            ):
+                ports.add(entry["port"])
+
+    hosts = doc.get("hosts") if isinstance(doc, dict) else None
+    if isinstance(hosts, dict):
+        for host_data in hosts.values():
+            if isinstance(host_data, dict):
+                _ingest(host_data.get("ports"))
+
+    return ports
+
+
 def load_caddy_proxied_ports(
     registry_path: Path | None = None,
     *,
@@ -455,6 +516,52 @@ def load_caddy_proxied_ports(
             return
         for entry in entries:
             if isinstance(entry, dict) and isinstance(entry.get("port"), int) and entry.get("caddy_path"):
+                ports.add(entry["port"])
+
+    hosts = doc.get("hosts") if isinstance(doc, dict) else None
+    if isinstance(hosts, dict):
+        for host_data in hosts.values():
+            if isinstance(host_data, dict):
+                _ingest(host_data.get("ports"))
+
+    return ports
+
+
+def load_tailscale_serve_ports(
+    registry_path: Path | None = None,
+    *,
+    site_dir: Path | None = None,
+) -> set[int]:
+    """Return ports whose registry entry declares a ``tailscale_serve_port``.
+
+    Same skip-list purpose as ``load_caddy_proxied_ports`` (avoid a
+    redundant raw-port scan duplicate once a backend's real external route
+    is already shown), but for a backend exposed via ``tailscale serve
+    --https=<port>`` directly instead of a Caddy subpath -- e.g. open-webui,
+    which has no reverse-proxy-subpath support at all. Kept as a separate
+    function rather than folded into load_caddy_proxied_ports so neither
+    one's name/behavior changes for existing callers.
+    """
+    path = registry_path
+    if path is None:
+        if site_dir is None:
+            selection = _resolve_site(os.environ)
+            site_dir = selection.path
+        path = _resolve_registry_ports_path(site_dir)
+    if path is None or not path.is_file() or yaml is None:
+        return set()
+    try:
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return set()
+
+    ports: set[int] = set()
+
+    def _ingest(entries: object) -> None:
+        if not isinstance(entries, list):
+            return
+        for entry in entries:
+            if isinstance(entry, dict) and isinstance(entry.get("port"), int) and entry.get("tailscale_serve_port"):
                 ports.add(entry["port"])
 
     hosts = doc.get("hosts") if isinstance(doc, dict) else None
@@ -514,7 +621,6 @@ def _scan_localhost(
     # while every external client got connection refused, and the dashboard
     # had no way to tell the difference because it only ever probed loopback
     # in the first place, then advertised the public hostname anyway.
-    LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
     host_name = public_host if public_host else "localhost"
     scanned: set[int] = set()
     for line in r.stdout.splitlines():
@@ -653,17 +759,33 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
             pass
 
     if registered:
+        loopback_only_registered = load_loopback_only_registered_ports(site_dir=site_dir)
         for port, svc_name in registered.items():
             if port not in path_ports:
-                host_name = public_host if public_host else "localhost"
+                loopback_only = port in loopback_only_registered
+                # A registered port with bind:127.0.0.1 can never be reached
+                # via the public Tailscale hostname, no matter what this
+                # loop advertises -- match _scan_localhost's own bind-aware
+                # URL choice and [loopback-only] badge instead of always
+                # using the public host. Confirmed real 2026-08-03: this
+                # loop advertised Open WebUI's registered raw port via the
+                # public hostname even though it was loopback-only, a live
+                # dead link on the dashboard.
+                host_name = "127.0.0.1" if loopback_only else (public_host if public_host else "localhost")
                 url = f"http://{host_name}:{port}"
                 fresh_label = _format_service_label(svc_name)
+                if loopback_only:
+                    fresh_label += " [loopback-only]"
                 if url not in known_urls:
-                    known_urls[url] = {
+                    entry: dict[str, Any] = {
                         "url": url,
                         "label": fresh_label,
                         "group": "mac",
                     }
+                    if loopback_only:
+                        entry["loopback_only"] = True
+                        entry["note"] = "loopback-only -- not reachable via Tailscale/LAN"
+                    known_urls[url] = entry
                 else:
                     # A raw-port entry carried over from a prior state.json
                     # can get stuck with a stale label/note forever once its
@@ -699,10 +821,12 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
             }
 
     caddy_proxied_ports = load_caddy_proxied_ports(site_dir=site_dir)
+    tailscale_serve_ports = load_tailscale_serve_ports(site_dir=site_dir)
+    externally_routed_ports = path_ports | caddy_proxied_ports | tailscale_serve_ports | CADDY_FRONT_DOOR_PORTS
     for s in _scan_localhost(
         registered_ports=registered if registered else None,
         public_host=public_host,
-        skip_ports=path_ports | caddy_proxied_ports | CADDY_FRONT_DOOR_PORTS,
+        skip_ports=externally_routed_ports,
     ):
         url = s["url"]
         if url not in known_urls:

@@ -387,6 +387,84 @@ hosts:
     assert result["services"] == []
 
 
+def test_load_tailscale_serve_ports(tmp_path):
+    """tailscale_serve_port is the analogous field to caddy_path for a
+    backend exposed via `tailscale serve --https=<port>` directly instead
+    of a Caddy subpath -- confirmed real 2026-08-03: Open WebUI has no
+    reverse-proxy-subpath support at all, so it moved from caddy_path to
+    this field entirely."""
+    registry = tmp_path / "ports.yml"
+    registry.write_text(
+        """
+hosts:
+  mac:
+    ports:
+      - {port: 8085, bind: "127.0.0.1", owner: site, service: open-webui, status: active, tailscale_serve_port: 8086}
+      - {port: 6736, bind: "127.0.0.1", owner: site, service: openusage-limits, status: active}
+"""
+    )
+
+    ports = discover.load_tailscale_serve_ports(registry_path=registry)
+
+    assert ports == {8085}
+
+
+def test_load_loopback_only_registered_ports(tmp_path):
+    """Registry entries with bind:127.0.0.1 (or ::1/localhost) are the
+    ports discover()'s registered-ports seeding loop must not advertise via
+    the public Tailscale hostname -- confirmed real 2026-08-03: it did so
+    unconditionally before this fix, producing a live dead link on the
+    dashboard for Open WebUI's raw registered port."""
+    registry = tmp_path / "ports.yml"
+    registry.write_text(
+        """
+hosts:
+  mac:
+    ports:
+      - {port: 8085, bind: "127.0.0.1", owner: site, service: open-webui, status: active}
+      - {port: 443, bind: "*", owner: site, service: caddy-https, status: active}
+      - {port: 4318, bind: "0.0.0.0", owner: site, service: vector-otlp-http, status: active}
+"""
+    )
+
+    ports = discover.load_loopback_only_registered_ports(registry_path=registry)
+
+    assert ports == {8085}
+
+
+def test_discover_registered_loopback_port_advertises_127001_not_public_host(
+    mock_env, mock_known_services, monkeypatch
+):
+    """End-to-end reproduction of the real 2026-08-03 bug: a registered port
+    with bind:127.0.0.1 that ISN'T Caddy/tailscale-serve-skipped must get a
+    127.0.0.1 URL and the [loopback-only] badge from the registered-ports
+    seeding loop, not the public Tailscale hostname."""
+    site_dir = mock_env
+    registry_dir = site_dir / "registry"
+    registry_dir.mkdir()
+    (registry_dir / "ports.yml").write_text(
+        """
+hosts:
+  mac:
+    ports:
+      - {port: 9999, bind: "127.0.0.1", owner: site, service: loopback-only-app, status: active}
+"""
+    )
+    monkeypatch.setattr(state, "load_state", lambda: {"services": [], "hidden": []})
+    monkeypatch.setattr(discover, "_scan_localhost", lambda **kwargs: [])
+    monkeypatch.setattr(discover, "_http_probe", lambda url, **kwargs: None)
+    monkeypatch.setattr(discover, "_tcp_probe", lambda host, port, **kwargs: False)
+
+    result = discover.discover({})
+
+    by_url = {s["url"]: s for s in result["services"]}
+    assert "http://127.0.0.1:9999" in by_url
+    assert "http://localhost:9999" not in by_url
+    entry = by_url["http://127.0.0.1:9999"]
+    assert entry.get("loopback_only") is True
+    assert "[loopback-only]" in entry["label"]
+
+
 def test_scan_localhost_advertises_public_url_for_wildcard_bind(monkeypatch):
     lsof_out = "python3.1 1234 djbclark 12u IPv4 0xbeef 0t0 TCP *:9091 (LISTEN)\n"
     monkeypatch.setattr(discover.subprocess, "run", _fake_run_factory(lsof_out))
