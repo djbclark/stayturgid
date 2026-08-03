@@ -27,8 +27,14 @@ def parse_inventory_hosts(data: dict, group: str = "stayturgid") -> list[str]:
     return list(hosts.keys())
 
 
-def inventory_list(repo_root: Path, group: str = "stayturgid") -> dict:
-    """Load the selected site's evaluated Ansible inventory."""
+def inventory_list(repo_root: Path, group: str = "stayturgid", *, timeout: float | None = None) -> dict:
+    """Load the selected site's evaluated Ansible inventory.
+
+    *timeout* is unbounded by default, matching every existing caller's
+    established behavior (a slow dynamic inventory source can legitimately
+    take a while). Pass an explicit bound for a caller on a request path
+    that must not hang -- e.g. a web request handler.
+    """
 
     context = resolve_ansible_context(repo_root)
     require_inventory(context)
@@ -39,6 +45,7 @@ def inventory_list(repo_root: Path, group: str = "stayturgid") -> dict:
         check=True,
         env=resolved_env(repo_root),
         cwd=repo_root,
+        timeout=timeout,
     )
     return json.loads(result.stdout)
 

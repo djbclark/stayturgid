@@ -160,3 +160,61 @@ def test_filter_example_devices_kept_when_no_actual_devices() -> None:
     filtered = state.filter_example_devices(services)
     labels = {s["label"] for s in filtered}
     assert labels == {"oneui-device FIRERPA", "stock-android-device FIRERPA", "fireos-device FIRERPA"}
+
+
+# ---------------------------------------------------------------------------
+# _known_android_devices() -- registry-driven replacement for the previously
+# hardcoded KNOWN_ANDROID_DEVICES = {"hd8", "p7a", "s24"} literal (2026-08-03
+# cleanup: that hardcoded fleet-alias set is this operator's own device
+# names, not portable to a different site/operator using this same shared
+# dashboard code).
+# ---------------------------------------------------------------------------
+
+
+def test_known_android_devices_derives_from_inventory(monkeypatch) -> None:
+    state._known_android_devices.cache_clear()
+    monkeypatch.setattr("control.lib.fleet_targets.inventory_list", lambda repo_root, timeout=None: {"fake": "data"})
+    monkeypatch.setattr(
+        "control.lib.fleet_targets.parse_inventory_hosts", lambda data, group="stayturgid": ["alpha", "beta"]
+    )
+
+    assert state._known_android_devices() == frozenset({"alpha", "beta"})
+    state._known_android_devices.cache_clear()
+
+
+def test_known_android_devices_falls_back_on_inventory_error(monkeypatch) -> None:
+    from control.lib.ansible_context import AnsibleConfigError
+
+    state._known_android_devices.cache_clear()
+
+    def raise_error(repo_root, timeout=None):
+        raise AnsibleConfigError("no site configured")
+
+    monkeypatch.setattr("control.lib.fleet_targets.inventory_list", raise_error)
+
+    assert state._known_android_devices() == state._KNOWN_ANDROID_DEVICES_FALLBACK
+    state._known_android_devices.cache_clear()
+
+
+def test_known_android_devices_falls_back_on_empty_inventory(monkeypatch) -> None:
+    state._known_android_devices.cache_clear()
+    monkeypatch.setattr("control.lib.fleet_targets.inventory_list", lambda repo_root, timeout=None: {"fake": "data"})
+    monkeypatch.setattr("control.lib.fleet_targets.parse_inventory_hosts", lambda data, group="stayturgid": [])
+
+    assert state._known_android_devices() == state._KNOWN_ANDROID_DEVICES_FALLBACK
+    state._known_android_devices.cache_clear()
+
+
+def test_get_os_category_matches_inventory_derived_alias(monkeypatch) -> None:
+    """A service with group set directly to a real inventory device alias
+    (a per-device dashboard entry) is classified Android -- driven by live
+    inventory, not a hardcoded literal."""
+    state._known_android_devices.cache_clear()
+    monkeypatch.setattr("control.lib.fleet_targets.inventory_list", lambda repo_root, timeout=None: {"fake": "data"})
+    monkeypatch.setattr(
+        "control.lib.fleet_targets.parse_inventory_hosts", lambda data, group="stayturgid": ["some-new-device"]
+    )
+
+    assert state.get_os_category({"group": "some-new-device"}) == "Android"
+    assert state.get_os_category({"group": "unrelated-alias"}) == "Other"
+    state._known_android_devices.cache_clear()

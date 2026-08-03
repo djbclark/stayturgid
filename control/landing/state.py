@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import os
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -102,7 +104,46 @@ def service_sort_key(s: dict[str, Any]) -> tuple:
 
 
 EXAMPLE_DEVICE_NAMES: set[str] = {"fireos-device", "oneui-device", "stock-android-device"}
-KNOWN_ANDROID_DEVICES: set[str] = {"hd8", "p7a", "s24"}
+
+# Last-resort fallback only -- used when the live Ansible inventory can't be
+# resolved (tests, no site configured). _known_android_devices() below is the
+# real source of truth; this operator's own fleet aliases are not portable to
+# a different site/operator, which is exactly why they shouldn't be the
+# primary source in shared dashboard code.
+_KNOWN_ANDROID_DEVICES_FALLBACK: frozenset[str] = frozenset({"hd8", "p7a", "s24"})
+
+
+@functools.lru_cache(maxsize=1)
+def _known_android_devices() -> frozenset[str]:
+    """Real fleet device aliases from the active Ansible inventory.
+
+    A service whose ``group`` is set directly to a device alias (rather than
+    the generic ``"devices"``/``"android"`` group) is classified Android by
+    matching against this set -- e.g. a per-device dashboard entry. Cached
+    for the process lifetime: landing.py calls this per dashboard request,
+    and an inventory shell-out per request would be a real cost.
+    """
+    from control.lib.ansible_context import AnsibleConfigError
+    from control.lib.fleet_targets import inventory_list, parse_inventory_hosts
+
+    repo_root = Path(__file__).resolve().parents[2]
+    try:
+        # Bounded: this runs on a Flask request path (landing.py calls it per
+        # dashboard request, though lru_cache means only the first request
+        # actually pays for it) and must not hang the response indefinitely
+        # if ansible-inventory's dynamic source is slow or wedged.
+        data = inventory_list(repo_root, timeout=30)
+        hosts = parse_inventory_hosts(data)
+    except (
+        AnsibleConfigError,
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        OSError,
+        ValueError,
+        KeyError,
+    ):
+        return _KNOWN_ANDROID_DEVICES_FALLBACK
+    return frozenset(hosts) if hosts else _KNOWN_ANDROID_DEVICES_FALLBACK
 
 
 def filter_example_devices(services: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -128,7 +169,7 @@ def get_os_category(s: dict[str, Any]) -> str:
         return "MacOS"
     elif group in ("linux", "computer", "computers"):
         return "Linux"
-    elif group in ("devices", "android") or group in KNOWN_ANDROID_DEVICES:
+    elif group in ("devices", "android") or group in _known_android_devices():
         return "Android"
     return "Other"
 
