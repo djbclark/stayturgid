@@ -128,9 +128,20 @@ def _known_android_devices() -> frozenset[str]:
 
     repo_root = Path(__file__).resolve().parents[2]
     try:
-        data = inventory_list(repo_root)
+        # Bounded: this runs on a Flask request path (landing.py calls it per
+        # dashboard request, though lru_cache means only the first request
+        # actually pays for it) and must not hang the response indefinitely
+        # if ansible-inventory's dynamic source is slow or wedged.
+        data = inventory_list(repo_root, timeout=30)
         hosts = parse_inventory_hosts(data)
-    except (AnsibleConfigError, subprocess.CalledProcessError, OSError, ValueError):
+    except (
+        AnsibleConfigError,
+        subprocess.CalledProcessError,
+        subprocess.TimeoutExpired,
+        OSError,
+        ValueError,
+        KeyError,
+    ):
         return _KNOWN_ANDROID_DEVICES_FALLBACK
     return frozenset(hosts) if hosts else _KNOWN_ANDROID_DEVICES_FALLBACK
 

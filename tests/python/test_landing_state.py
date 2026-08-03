@@ -167,7 +167,7 @@ def test_filter_example_devices_kept_when_no_actual_devices() -> None:
 
 def test_known_android_devices_derives_from_inventory(monkeypatch) -> None:
     state._known_android_devices.cache_clear()
-    monkeypatch.setattr("control.lib.fleet_targets.inventory_list", lambda repo_root: {"fake": "data"})
+    monkeypatch.setattr("control.lib.fleet_targets.inventory_list", lambda repo_root, timeout=None: {"fake": "data"})
     monkeypatch.setattr(
         "control.lib.fleet_targets.parse_inventory_hosts", lambda data, group="stayturgid": ["alpha", "beta"]
     )
@@ -181,7 +181,7 @@ def test_known_android_devices_falls_back_on_inventory_error(monkeypatch) -> Non
 
     state._known_android_devices.cache_clear()
 
-    def raise_error(repo_root):
+    def raise_error(repo_root, timeout=None):
         raise AnsibleConfigError("no site configured")
 
     monkeypatch.setattr("control.lib.fleet_targets.inventory_list", raise_error)
@@ -192,7 +192,7 @@ def test_known_android_devices_falls_back_on_inventory_error(monkeypatch) -> Non
 
 def test_known_android_devices_falls_back_on_empty_inventory(monkeypatch) -> None:
     state._known_android_devices.cache_clear()
-    monkeypatch.setattr("control.lib.fleet_targets.inventory_list", lambda repo_root: {"fake": "data"})
+    monkeypatch.setattr("control.lib.fleet_targets.inventory_list", lambda repo_root, timeout=None: {"fake": "data"})
     monkeypatch.setattr("control.lib.fleet_targets.parse_inventory_hosts", lambda data, group="stayturgid": [])
 
     assert state._known_android_devices() == state._KNOWN_ANDROID_DEVICES_FALLBACK
@@ -204,7 +204,7 @@ def test_get_os_category_matches_inventory_derived_alias(monkeypatch) -> None:
     (a per-device dashboard entry) is classified Android -- driven by live
     inventory, not a hardcoded literal."""
     state._known_android_devices.cache_clear()
-    monkeypatch.setattr("control.lib.fleet_targets.inventory_list", lambda repo_root: {"fake": "data"})
+    monkeypatch.setattr("control.lib.fleet_targets.inventory_list", lambda repo_root, timeout=None: {"fake": "data"})
     monkeypatch.setattr(
         "control.lib.fleet_targets.parse_inventory_hosts", lambda data, group="stayturgid": ["some-new-device"]
     )

@@ -3,8 +3,14 @@ import types
 
 # firerpa_heal.py hard-requires the real lamda-client hardware SDK at import
 # time (sys.exit(1) on ImportError) -- not installed in CI/dev. Stub it so
-# main()'s pure alias-resolution logic can be exercised without the package.
-if "lamda" not in sys.modules:
+# main()'s pure alias-resolution logic can be exercised without the package,
+# then remove the stub again once the import completes: firerpa_heal.py only
+# needs `lamda.client.Device` at its own import time (it caches what it needs
+# into its own module namespace), and leaving a fake `lamda` package sitting
+# in sys.modules for the rest of the pytest process could shadow a real
+# import elsewhere.
+_injected_lamda = "lamda" not in sys.modules
+if _injected_lamda:
     _lamda_pkg = types.ModuleType("lamda")
     _lamda_client = types.ModuleType("lamda.client")
     _lamda_client.Device = object
@@ -12,7 +18,13 @@ if "lamda" not in sys.modules:
     sys.modules["lamda"] = _lamda_pkg
     sys.modules["lamda.client"] = _lamda_client
 
-from control.bin import firerpa_heal  # noqa: E402
+try:
+    from control.bin import firerpa_heal  # noqa: E402
+finally:
+    if _injected_lamda:
+        sys.modules.pop("lamda", None)
+        sys.modules.pop("lamda.client", None)
+
 from control.lib.firerpa_fleet import FirerpaTarget  # noqa: E402
 
 
