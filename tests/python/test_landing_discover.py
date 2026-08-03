@@ -387,6 +387,284 @@ hosts:
     assert result["services"] == []
 
 
+def test_load_tailscale_serve_ports(tmp_path):
+    """tailscale_serve_port is the analogous field to caddy_path for a
+    backend exposed via `tailscale serve --https=<port>` directly instead
+    of a Caddy subpath -- confirmed real 2026-08-03: Open WebUI has no
+    reverse-proxy-subpath support at all, so it moved from caddy_path to
+    this field entirely."""
+    registry = tmp_path / "ports.yml"
+    registry.write_text(
+        """
+hosts:
+  mac:
+    ports:
+      - {port: 8085, bind: "127.0.0.1", owner: site, service: open-webui, status: active, tailscale_serve_port: 8086}
+      - {port: 6736, bind: "127.0.0.1", owner: site, service: openusage-limits, status: active}
+"""
+    )
+
+    ports = discover.load_tailscale_serve_ports(registry_path=registry)
+
+    assert ports == {8085}
+
+
+def test_discover_skips_tailscale_serve_backend_via_registry(mock_env, mock_known_services, monkeypatch):
+    """End-to-end: a tailscale_serve_port entry suppresses the raw-port scan
+    duplicate exactly like caddy_path does (test_discover_skips_caddy_proxied_backend_via_registry
+    above) -- confirmed real 2026-08-03, Open WebUI moved to this exposure
+    mechanism entirely since it has no reverse-proxy-subpath support."""
+    site_dir = mock_env
+    registry_dir = site_dir / "registry"
+    registry_dir.mkdir()
+    (registry_dir / "ports.yml").write_text(
+        """
+hosts:
+  mac:
+    ports:
+      - {port: 8085, bind: "127.0.0.1", owner: site, service: open-webui, status: active, tailscale_serve_port: 8086}
+"""
+    )
+
+    monkeypatch.setattr(
+        discover, "load_registered_ports", lambda site_dir, return_map=False: {} if return_map else set()
+    )
+    monkeypatch.setattr(state, "load_state", lambda: {"services": [], "hidden": []})
+
+    lsof_out = "python3.1 1 djbclark 1u IPv4 0x1 0t0 TCP 127.0.0.1:8085 (LISTEN)\n"
+    monkeypatch.setattr(discover.subprocess, "run", _fake_run_factory(lsof_out))
+
+    result = discover.discover({})
+
+    assert result["services"] == []
+
+
+def test_load_loopback_only_registered_ports(tmp_path):
+    """Registry entries with bind:127.0.0.1 (or ::1/localhost) are the
+    ports discover()'s registered-ports seeding loop must not advertise via
+    the public Tailscale hostname -- confirmed real 2026-08-03: it did so
+    unconditionally before this fix, producing a live dead link on the
+    dashboard for Open WebUI's raw registered port. Covers all three
+    loopback bind spellings the field accepts, not just 127.0.0.1."""
+    registry = tmp_path / "ports.yml"
+    registry.write_text(
+        """
+hosts:
+  mac:
+    ports:
+      - {port: 8085, bind: "127.0.0.1", owner: site, service: open-webui, status: active}
+      - {port: 8086, bind: "::1", owner: site, service: ipv6-loopback-app, status: active}
+      - {port: 8087, bind: "localhost", owner: site, service: localhost-app, status: active}
+      - {port: 443, bind: "*", owner: site, service: caddy-https, status: active}
+      - {port: 4318, bind: "0.0.0.0", owner: site, service: vector-otlp-http, status: active}
+"""
+    )
+
+    ports = discover.load_loopback_only_registered_ports(registry_path=registry)
+
+    assert ports == {8085, 8086, 8087}
+
+
+def test_discover_registered_loopback_port_advertises_127001_not_public_host(
+    mock_env, mock_known_services, monkeypatch
+):
+    """End-to-end reproduction of the real 2026-08-03 bug: a registered port
+    with bind:127.0.0.1 that ISN'T Caddy/tailscale-serve-skipped must get a
+    127.0.0.1 URL and the [loopback-only] badge from the registered-ports
+    seeding loop, not the public Tailscale hostname."""
+    site_dir = mock_env
+    registry_dir = site_dir / "registry"
+    registry_dir.mkdir()
+    (registry_dir / "ports.yml").write_text(
+        """
+hosts:
+  mac:
+    ports:
+      - {port: 9999, bind: "127.0.0.1", owner: site, service: loopback-only-app, status: active}
+"""
+    )
+    monkeypatch.setattr(state, "load_state", lambda: {"services": [], "hidden": []})
+    monkeypatch.setattr(discover, "_scan_localhost", lambda **kwargs: [])
+    monkeypatch.setattr(discover, "_http_probe", lambda url, **kwargs: None)
+    monkeypatch.setattr(discover, "_tcp_probe", lambda host, port, **kwargs: False)
+
+    result = discover.discover({})
+
+    by_url = {s["url"]: s for s in result["services"]}
+    assert "http://127.0.0.1:9999" in by_url
+    assert "http://localhost:9999" not in by_url
+    entry = by_url["http://127.0.0.1:9999"]
+    assert entry.get("loopback_only") is True
+    assert "[loopback-only]" in entry["label"]
+
+
+def test_discover_removes_stale_public_host_entry_when_port_becomes_loopback_only(
+    mock_env, mock_known_services, monkeypatch
+):
+    """A prior run's raw-port entry under the OLD (public-hostname) URL for
+    a port that has since become registered with bind:127.0.0.1 must be
+    removed, not left sitting alongside the new correct 127.0.0.1 entry --
+    otherwise the dashboard shows two rows (one a stale dead link) for the
+    same port. Found by CodeRabbit review on the fix for this same class of
+    bug (2026-08-03)."""
+    site_dir = mock_env
+    registry_dir = site_dir / "registry"
+    registry_dir.mkdir()
+    (registry_dir / "ports.yml").write_text(
+        """
+hosts:
+  mac:
+    ports:
+      - {port: 9999, bind: "127.0.0.1", owner: site, service: loopback-only-app, status: active}
+"""
+    )
+    # A real (non-placeholder) public hostname -- discover() has a separate,
+    # unrelated purge step for un-rewritten mac.example.ts.net/.example.ts.net
+    # catalog placeholders that would otherwise delete a placeholder-hostname
+    # stale entry for the wrong reason and mask whether this test is
+    # actually exercising the new cleanup code.
+    monkeypatch.setattr(
+        state,
+        "load_state",
+        lambda: {
+            "services": [
+                {
+                    "url": "http://mac.greyhound-sidemirror.ts.net:9999",
+                    "label": "Loopback Only App",
+                    "group": "mac",
+                    "reachable": True,
+                    "last_seen": "2026-01-01T00:00:00Z",
+                }
+            ],
+            "hidden": [],
+        },
+    )
+    monkeypatch.setattr(discover, "_site_caddy_public_hostname", lambda _site_dir: "mac.greyhound-sidemirror.ts.net")
+    monkeypatch.setattr(discover, "_scan_localhost", lambda **kwargs: [])
+    monkeypatch.setattr(discover, "_http_probe", lambda url, **kwargs: None)
+    monkeypatch.setattr(discover, "_tcp_probe", lambda host, port, **kwargs: False)
+
+    result = discover.discover({})
+
+    urls = {s["url"] for s in result["services"]}
+    assert "http://127.0.0.1:9999" in urls
+    assert "http://mac.greyhound-sidemirror.ts.net:9999" not in urls
+
+
+def test_discover_removes_stale_loopback_entry_when_port_becomes_non_loopback(
+    mock_env, mock_known_services, monkeypatch
+):
+    """Mirror image of test_discover_removes_stale_public_host_entry_when_port_becomes_loopback_only:
+    a port that USED to be loopback-only (bind widened, or the registry
+    entry changed) must not leave its old 127.0.0.1 raw-port entry sitting
+    alongside the new public-host entry -- that's a stale duplicate row on
+    the dashboard, not a dead link, but still wrong. Found by CodeRabbit
+    review on the forward-direction fix (2026-08-03)."""
+    site_dir = mock_env
+    registry_dir = site_dir / "registry"
+    registry_dir.mkdir()
+    (registry_dir / "ports.yml").write_text(
+        """
+hosts:
+  mac:
+    ports:
+      - {port: 9999, bind: "0.0.0.0", owner: site, service: now-public-app, status: active}
+"""
+    )
+    monkeypatch.setattr(
+        state,
+        "load_state",
+        lambda: {
+            "services": [
+                {
+                    "url": "http://127.0.0.1:9999",
+                    "label": "Now Public App [loopback-only]",
+                    "group": "mac",
+                    "loopback_only": True,
+                    "reachable": True,
+                    "last_seen": "2026-01-01T00:00:00Z",
+                }
+            ],
+            "hidden": [],
+        },
+    )
+    monkeypatch.setattr(discover, "_site_caddy_public_hostname", lambda _site_dir: "mac.greyhound-sidemirror.ts.net")
+    monkeypatch.setattr(discover, "_scan_localhost", lambda **kwargs: [])
+    monkeypatch.setattr(discover, "_http_probe", lambda url, **kwargs: None)
+    monkeypatch.setattr(discover, "_tcp_probe", lambda host, port, **kwargs: False)
+
+    result = discover.discover({})
+
+    urls = {s["url"] for s in result["services"]}
+    assert "http://mac.greyhound-sidemirror.ts.net:9999" in urls
+    assert "http://127.0.0.1:9999" not in urls
+
+
+def test_parse_ports_yaml_fallback_entries_handles_multiline_flow_mapping(tmp_path):
+    """The crude PyYAML-unavailable fallback parser must survive the real
+    registry file's actual formatting: entries wrap across 2-3 physical
+    lines (a long note, a list-valued caddy_path) rather than always
+    landing on the same line as `port:`. A naive same-line regex silently
+    dropped bind/caddy_path/tailscale_serve_port whenever they landed on a
+    continuation line -- found by CodeRabbit review (2026-08-03), matches
+    the real ~/site-djbclark/registry/ports.yml wrapping style verbatim."""
+    registry = tmp_path / "ports.yml"
+    registry.write_text(
+        """
+hosts:
+  mac:
+    ports:
+      - {port: 4097,  bind: "127.0.0.1", owner: stayturgid, service: fleet-dashboard,     status: active,
+         caddy_path: ["/dashboard/*", "/stats/*"],
+         note: "long explanation that wraps onto its own line"}
+      - {port: 8085,  bind: "127.0.0.1", owner: site, service: open-webui, status: active,
+         tailscale_serve_port: 8086}
+      - {port: 443,   bind: "*",         owner: site, service: caddy-https,         status: active}
+"""
+    )
+
+    entries = discover._parse_ports_yaml_fallback_entries(registry)
+
+    assert entries[4097]["service"] == "fleet-dashboard"
+    assert entries[4097]["bind"] == "127.0.0.1"
+    assert entries[4097].get("caddy_path")
+    assert entries[8085]["service"] == "open-webui"
+    assert entries[8085].get("tailscale_serve_port") == "8086"
+    assert entries[443]["bind"] == "*"
+    assert "caddy_path" not in entries[443]
+    assert "tailscale_serve_port" not in entries[443]
+
+
+def test_registry_loaders_fall_back_correctly_without_pyyaml(tmp_path, monkeypatch):
+    """If PyYAML is unavailable, load_loopback_only_registered_ports/
+    load_caddy_proxied_ports/load_tailscale_serve_ports must not silently
+    return an empty set (that would resurrect the exact bug this module
+    fixes: a loopback-only or Caddy/tailscale-serve-skipped port
+    re-advertised as an unregistered raw dead link). Found by CodeRabbit
+    review (2026-08-03): load_registered_ports already had a real fallback
+    parser, but the three newer skip-list loaders didn't share it."""
+    registry = tmp_path / "ports.yml"
+    registry.write_text(
+        """
+hosts:
+  mac:
+    ports:
+      - {port: 4097,  bind: "127.0.0.1", owner: stayturgid, service: fleet-dashboard,     status: active,
+         caddy_path: ["/dashboard/*", "/stats/*"],
+         note: "long explanation that wraps onto its own line"}
+      - {port: 8085,  bind: "127.0.0.1", owner: site, service: open-webui, status: active,
+         tailscale_serve_port: 8086}
+      - {port: 9999,  bind: "127.0.0.1", owner: site, service: plain-loopback, status: active}
+"""
+    )
+
+    monkeypatch.setattr(discover, "yaml", None)
+
+    assert discover.load_caddy_proxied_ports(registry_path=registry) == {4097}
+    assert discover.load_tailscale_serve_ports(registry_path=registry) == {8085}
+    assert discover.load_loopback_only_registered_ports(registry_path=registry) == {4097, 8085, 9999}
+
+
 def test_scan_localhost_advertises_public_url_for_wildcard_bind(monkeypatch):
     lsof_out = "python3.1 1234 djbclark 12u IPv4 0xbeef 0t0 TCP *:9091 (LISTEN)\n"
     monkeypatch.setattr(discover.subprocess, "run", _fake_run_factory(lsof_out))
