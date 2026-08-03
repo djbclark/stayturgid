@@ -452,6 +452,17 @@ def _scan_localhost(
         reg_set = registered_ports
 
     CADDY_PROXIED_PORTS: set[int] = {3000, 5080, 1337, 8428, 4096, 4097, 443, 80}
+    # lsof -n prints the literal bind address, not just the port -- "127.0.0.1:N"
+    # for loopback-only, "*:N" (macOS convention for INADDR_ANY) or a real
+    # external/Tailscale IP for anything actually reachable off-box. A service
+    # bound to loopback can NEVER be reached via the public Tailscale hostname
+    # no matter what the health probe says, because nothing is listening on
+    # the interface that hostname resolves to -- confirmed real 2026-08-02:
+    # Open WebUI bound to 127.0.0.1:8085 probed "up" (loopback answers fine)
+    # while every external client got connection refused, and the dashboard
+    # had no way to tell the difference because it only ever probed loopback
+    # in the first place, then advertised the public hostname anyway.
+    LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
     host_name = public_host if public_host else "localhost"
     scanned: set[int] = set()
     for line in r.stdout.splitlines():
@@ -462,8 +473,10 @@ def _scan_localhost(
         addr = parts[8]
         if ":" not in addr:
             continue
+        bind_host, _, port_str = addr.rpartition(":")
+        bind_host = bind_host.strip("[]")  # lsof brackets IPv6, e.g. "[::1]:port"
         try:
-            port = int(addr.rsplit(":", 1)[-1])
+            port = int(port_str)
         except ValueError:
             continue
         if port in scanned or port < 1 or port > 65535 or port in CADDY_PROXIED_PORTS:
@@ -475,6 +488,7 @@ def _scan_localhost(
         status = _http_probe(f"http://127.0.0.1:{port}", timeout=2.0)
         if status is not None:
             unregistered = registered_ports is not None and port not in reg_set
+            loopback_only = bind_host in LOOPBACK_HOSTS
 
             # Resolve descriptive service label
             if port in reg_map and reg_map[port] and not reg_map[port].startswith("TODO"):
@@ -484,16 +498,32 @@ def _scan_localhost(
             else:
                 base_label = f"Port {port}"
 
-            label = base_label + (" [unregistered]" if unregistered else "")
+            label = base_label
+            if loopback_only:
+                # Visible on the dashboard itself, not just in `note` -- the
+                # template only ever renders label/url/reachable, so a
+                # loopback-only service that looked identical to a real
+                # externally-reachable one is exactly how this went unnoticed
+                # the first time.
+                label += " [loopback-only]"
+            if unregistered:
+                label += " [unregistered]"
             note = f"HTTP {status}"
+            if loopback_only:
+                note += " (loopback-only -- not reachable via Tailscale/LAN)"
             if unregistered:
                 note += "; not in registry/ports.yml"
             entry: dict[str, Any] = {
-                "url": f"http://{host_name}:{port}",
+                # Advertise the URL that's actually true: a loopback-only
+                # service is only ever reachable at 127.0.0.1, so linking the
+                # public hostname would be a live, clickable dead end.
+                "url": f"http://127.0.0.1:{port}" if loopback_only else f"http://{host_name}:{port}",
                 "label": label,
                 "group": "mac",
                 "note": note,
             }
+            if loopback_only:
+                entry["loopback_only"] = True
             if unregistered:
                 entry["unregistered"] = True
             services.append(entry)

@@ -82,9 +82,15 @@ def test_scan_localhost_badges_unregistered(monkeypatch) -> None:
     monkeypatch.setattr(discover, "_http_probe", lambda _url, timeout=2.0: 200)
     found = discover._scan_localhost(registered_ports={8088})
     by_port = {s["url"]: s for s in found}
-    assert by_port["http://localhost:9999"].get("unregistered") is True
-    assert "[unregistered]" in by_port["http://localhost:9999"]["label"]
-    assert by_port["http://localhost:8088"].get("unregistered") is not True
+    # Both mocked listeners bind 127.0.0.1, so both correctly get the real
+    # loopback URL (not the old "localhost" public-host fallback) -- see
+    # test_landing_discover.py's loopback-detection tests for the behavior
+    # this exercises.
+    assert by_port["http://127.0.0.1:9999"].get("unregistered") is True
+    assert by_port["http://127.0.0.1:9999"].get("loopback_only") is True
+    assert "[unregistered]" in by_port["http://127.0.0.1:9999"]["label"]
+    assert by_port["http://127.0.0.1:8088"].get("unregistered") is not True
+    assert by_port["http://127.0.0.1:8088"].get("loopback_only") is True
 
 
 def test_discover_prunes_unreachable_unregistered_ports(tmp_path, monkeypatch):

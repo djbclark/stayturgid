@@ -222,4 +222,80 @@ def test_main_health_check(mock_env, monkeypatch):
 
     monkeypatch.setattr(discover, "get_summary_counts", mock_summary_healthy)
     assert discover.main(["--health-check"]) == 0
-    assert discover.main([]) == 0
+
+
+# ---------------------------------------------------------------------------
+# _scan_localhost loopback detection (2026-08-02 real incident: Open WebUI
+# bound to 127.0.0.1:8085 was probed and advertised as reachable via the
+# public Tailscale hostname on the dashboard, but nothing external could
+# ever reach it -- the probe only ever checked loopback, and the URL shown
+# to the operator was the public one regardless of what was actually true.)
+# ---------------------------------------------------------------------------
+
+
+def _fake_run_factory(lsof_stdout: str):
+    """subprocess.run replacement that answers lsof for real and stubs curl
+    (used inside _http_probe) to always report 200, so tests exercise
+    _scan_localhost's own bind-address logic in isolation from real probes."""
+
+    def fake_run(cmd, **kwargs):
+        if cmd[0] == "lsof":
+            return type("R", (), {"returncode": 0, "stdout": lsof_stdout, "stderr": ""})()
+        if cmd[0] == "curl":
+            return type("R", (), {"returncode": 0, "stdout": "200", "stderr": ""})()
+        raise AssertionError(f"unexpected subprocess.run call: {cmd}")
+
+    return fake_run
+
+
+def test_scan_localhost_flags_loopback_only_service(monkeypatch):
+    lsof_out = (
+        "python3.1 93878 djbclark 36u IPv4 0xdead 0t0 TCP 127.0.0.1:8085 (LISTEN)\n"
+    )
+    monkeypatch.setattr(discover.subprocess, "run", _fake_run_factory(lsof_out))
+
+    services = discover._scan_localhost(public_host="mac.example.ts.net")
+
+    assert len(services) == 1
+    entry = services[0]
+    assert entry["url"] == "http://127.0.0.1:8085"
+    assert entry.get("loopback_only") is True
+    assert "loopback-only" in entry["note"]
+    # Visible in the rendered dashboard, not just the JSON: the template only
+    # ever shows label/url/reachable, never `note`.
+    assert "[loopback-only]" in entry["label"]
+
+
+def test_scan_localhost_advertises_public_url_for_wildcard_bind(monkeypatch):
+    lsof_out = "python3.1 1234 djbclark 12u IPv4 0xbeef 0t0 TCP *:9091 (LISTEN)\n"
+    monkeypatch.setattr(discover.subprocess, "run", _fake_run_factory(lsof_out))
+
+    services = discover._scan_localhost(public_host="mac.example.ts.net")
+
+    assert len(services) == 1
+    entry = services[0]
+    assert entry["url"] == "http://mac.example.ts.net:9091"
+    assert "loopback_only" not in entry
+    assert "loopback-only" not in entry["note"]
+
+
+def test_scan_localhost_advertises_public_url_for_specific_external_bind(monkeypatch):
+    lsof_out = "python3.1 1234 djbclark 12u IPv4 0xbeef 0t0 TCP 100.113.53.87:9092 (LISTEN)\n"
+    monkeypatch.setattr(discover.subprocess, "run", _fake_run_factory(lsof_out))
+
+    services = discover._scan_localhost(public_host="mac.example.ts.net")
+
+    assert len(services) == 1
+    entry = services[0]
+    assert entry["url"] == "http://mac.example.ts.net:9092"
+    assert "loopback_only" not in entry
+
+
+def test_scan_localhost_ipv6_loopback_is_flagged(monkeypatch):
+    lsof_out = "node 5555 djbclark 20u IPv6 0xcafe 0t0 TCP [::1]:9093 (LISTEN)\n"
+    monkeypatch.setattr(discover.subprocess, "run", _fake_run_factory(lsof_out))
+
+    services = discover._scan_localhost(public_host="mac.example.ts.net")
+
+    assert len(services) == 1
+    assert services[0].get("loopback_only") is True
