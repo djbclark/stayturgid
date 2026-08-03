@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import datetime
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -348,27 +349,68 @@ def _format_service_label(name: str) -> str:
     return name.replace("-", " ").replace("_", " ").title()
 
 
-def _parse_ports_yaml_fallback(path: Path) -> dict[int, str]:
-    res: dict[int, str] = {}
+def _parse_ports_yaml_fallback_entries(path: Path) -> dict[int, dict[str, object]]:
+    """Crude parser used only when PyYAML is unavailable.
+
+    Real registry entries are flow-mapping style (`- {port: N, bind: "X",
+    ...}`) but routinely wrap across 2-3 physical lines (a long note, a
+    list-valued caddy_path) -- so this accumulates each entry's full
+    `{...}` block (by brace depth) before matching fields, rather than
+    assuming one entry = one line, which would silently miss bind/
+    caddy_path/tailscale_serve_port whenever they landed on a continuation
+    line rather than the same line as `port:`.
+    """
+    res: dict[int, dict[str, object]] = {}
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        text = path.read_text(encoding="utf-8")
     except OSError:
         return res
-    import re
 
     port_re = re.compile(r"port:\s*(\d+)")
     svc_re = re.compile(r"service:\s*([a-zA-Z0-9_-]+)")
-    for line in lines:
-        line = line.strip()
-        if line.startswith("#") or "port:" not in line:
+    bind_re = re.compile(r'bind:\s*"([^"]*)"')
+    caddy_path_re = re.compile(r"caddy_path:\s*(\[[^\]]*\]|\"[^\"]*\")")
+    tsp_re = re.compile(r"tailscale_serve_port:\s*(\d+)")
+
+    block: list[str] = []
+    depth = 0
+    for raw_line in text.splitlines():
+        line = raw_line.strip()
+        if depth == 0:
+            if line.startswith("#") or "{" not in line:
+                continue
+            block = []
+        block.append(line)
+        depth += line.count("{") - line.count("}")
+        if depth > 0:
             continue
-        pm = port_re.search(line)
-        sm = svc_re.search(line)
-        if pm:
-            p = int(pm.group(1))
-            svc = sm.group(1) if sm else f"Port {p}"
-            res[p] = svc
+        blob = " ".join(block)
+        block = []
+        pm = port_re.search(blob)
+        if not pm:
+            continue
+        p = int(pm.group(1))
+        sm = svc_re.search(blob)
+        bm = bind_re.search(blob)
+        cm = caddy_path_re.search(blob)
+        tm = tsp_re.search(blob)
+        entry: dict[str, object] = {"service": sm.group(1) if sm else f"Port {p}"}
+        if bm:
+            entry["bind"] = bm.group(1)
+        if cm:
+            # Only truthiness is ever checked on this field -- the raw
+            # matched text (a quoted string or a bracketed list literal) is
+            # fine as-is, no need to actually parse the list.
+            entry["caddy_path"] = cm.group(1)
+        if tm:
+            entry["tailscale_serve_port"] = tm.group(1)
+        res[p] = entry
     return res
+
+
+def _parse_ports_yaml_fallback(path: Path) -> dict[int, str]:
+    entries = _parse_ports_yaml_fallback_entries(path)
+    return {p: str(e.get("service", f"Port {p}")) for p, e in entries.items()}
 
 
 def load_registered_ports(
@@ -460,15 +502,28 @@ def _ports_matching(doc: object, predicate: Callable[[dict], bool]) -> set[int]:
 
 
 def _load_registry_doc(registry_path: Path | None, site_dir: Path | None) -> object | None:
-    """Resolve and parse the registry file, or None if unavailable/unparseable."""
+    """Resolve and parse the registry file, or None if unavailable/unparseable.
+
+    When PyYAML is unavailable, falls back to the same crude line-based
+    parser load_registered_ports uses, wrapped into the same hosts/ports doc
+    shape _ports_matching already knows how to scan -- so the bind/
+    caddy_path/tailscale_serve_port skip-list functions don't silently
+    regress to "nothing registered" just because yaml is missing. That
+    would resurrect the exact bug this module fixes: a loopback-only port
+    re-advertised via the public hostname, or a Caddy/tailscale-serve
+    backend's raw port re-appearing as an unregistered dead link.
+    """
     path = registry_path
     if path is None:
         if site_dir is None:
             selection = _resolve_site(os.environ)
             site_dir = selection.path
         path = _resolve_registry_ports_path(site_dir)
-    if path is None or not path.is_file() or yaml is None:
+    if path is None or not path.is_file():
         return None
+    if yaml is None:
+        entries = _parse_ports_yaml_fallback_entries(path)
+        return {"hosts": {"_fallback": {"ports": [{"port": p, **e} for p, e in entries.items()]}}}
     try:
         return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError):
@@ -768,6 +823,19 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
                         stale_url = f"http://{other_host}:{port}"
                         if stale_url != url and stale_url not in catalog_urls:
                             known_urls.pop(stale_url, None)
+                else:
+                    # Symmetric cleanup for the reverse transition: a port
+                    # that used to be loopback-only (bind widened to 0.0.0.0
+                    # or the registry entry removed) can leave behind a
+                    # stale 127.0.0.1 raw-port entry from a prior run,
+                    # duplicating the service on the dashboard under a wrong,
+                    # now-mislabeled [loopback-only] row alongside the new
+                    # public-host entry. 127.0.0.1 still answers after the
+                    # bind widens, so this isn't a dead link like the
+                    # forward direction -- just a stale duplicate.
+                    stale_url = f"http://127.0.0.1:{port}"
+                    if stale_url != url and stale_url not in catalog_urls:
+                        known_urls.pop(stale_url, None)
                 if url not in known_urls:
                     entry: dict[str, Any] = {
                         "url": url,
