@@ -13,7 +13,7 @@ import os
 import socket
 import subprocess
 import sys
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Any
 
@@ -428,6 +428,53 @@ def load_registered_ports(
 LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
 
 
+def _ports_matching(doc: object, predicate: Callable[[dict], bool]) -> set[int]:
+    """Return ports from a parsed registry doc whose entry satisfies *predicate*.
+
+    Scans both ``hosts.*.ports`` and ``product_defaults.*`` -- the same two
+    sources load_registered_ports itself ingests -- so a skip-list function
+    can't silently diverge from what counts as "registered" just because a
+    matching field happened to live under product_defaults instead of a
+    concrete host entry.
+    """
+    ports: set[int] = set()
+
+    def _ingest(entries: object) -> None:
+        if not isinstance(entries, list):
+            return
+        for entry in entries:
+            if isinstance(entry, dict) and isinstance(entry.get("port"), int) and predicate(entry):
+                ports.add(entry["port"])
+
+    hosts = doc.get("hosts") if isinstance(doc, dict) else None
+    if isinstance(hosts, dict):
+        for host_data in hosts.values():
+            if isinstance(host_data, dict):
+                _ingest(host_data.get("ports"))
+    product_defaults = doc.get("product_defaults") if isinstance(doc, dict) else None
+    if isinstance(product_defaults, dict):
+        for group_entries in product_defaults.values():
+            _ingest(group_entries)
+
+    return ports
+
+
+def _load_registry_doc(registry_path: Path | None, site_dir: Path | None) -> object | None:
+    """Resolve and parse the registry file, or None if unavailable/unparseable."""
+    path = registry_path
+    if path is None:
+        if site_dir is None:
+            selection = _resolve_site(os.environ)
+            site_dir = selection.path
+        path = _resolve_registry_ports_path(site_dir)
+    if path is None or not path.is_file() or yaml is None:
+        return None
+    try:
+        return yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return None
+
+
 def load_loopback_only_registered_ports(
     registry_path: Path | None = None,
     *,
@@ -447,39 +494,10 @@ def load_loopback_only_registered_ports(
     loop uses this to pick 127.0.0.1 instead of the public host and apply the
     same [loopback-only] badge _scan_localhost already applies.
     """
-    path = registry_path
-    if path is None:
-        if site_dir is None:
-            selection = _resolve_site(os.environ)
-            site_dir = selection.path
-        path = _resolve_registry_ports_path(site_dir)
-    if path is None or not path.is_file() or yaml is None:
+    doc = _load_registry_doc(registry_path, site_dir)
+    if doc is None:
         return set()
-    try:
-        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError):
-        return set()
-
-    ports: set[int] = set()
-
-    def _ingest(entries: object) -> None:
-        if not isinstance(entries, list):
-            return
-        for entry in entries:
-            if (
-                isinstance(entry, dict)
-                and isinstance(entry.get("port"), int)
-                and str(entry.get("bind") or "").strip() in LOOPBACK_HOSTS
-            ):
-                ports.add(entry["port"])
-
-    hosts = doc.get("hosts") if isinstance(doc, dict) else None
-    if isinstance(hosts, dict):
-        for host_data in hosts.values():
-            if isinstance(host_data, dict):
-                _ingest(host_data.get("ports"))
-
-    return ports
+    return _ports_matching(doc, lambda entry: str(entry.get("bind") or "").strip() in LOOPBACK_HOSTS)
 
 
 def load_caddy_proxied_ports(
@@ -496,35 +514,10 @@ def load_caddy_proxied_ports(
     additive registry field (see registry/ports.yml's header comment in
     site-djbclark) -- a registry with no such field simply yields no skips.
     """
-    path = registry_path
-    if path is None:
-        if site_dir is None:
-            selection = _resolve_site(os.environ)
-            site_dir = selection.path
-        path = _resolve_registry_ports_path(site_dir)
-    if path is None or not path.is_file() or yaml is None:
+    doc = _load_registry_doc(registry_path, site_dir)
+    if doc is None:
         return set()
-    try:
-        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError):
-        return set()
-
-    ports: set[int] = set()
-
-    def _ingest(entries: object) -> None:
-        if not isinstance(entries, list):
-            return
-        for entry in entries:
-            if isinstance(entry, dict) and isinstance(entry.get("port"), int) and entry.get("caddy_path"):
-                ports.add(entry["port"])
-
-    hosts = doc.get("hosts") if isinstance(doc, dict) else None
-    if isinstance(hosts, dict):
-        for host_data in hosts.values():
-            if isinstance(host_data, dict):
-                _ingest(host_data.get("ports"))
-
-    return ports
+    return _ports_matching(doc, lambda entry: bool(entry.get("caddy_path")))
 
 
 def load_tailscale_serve_ports(
@@ -542,35 +535,10 @@ def load_tailscale_serve_ports(
     function rather than folded into load_caddy_proxied_ports so neither
     one's name/behavior changes for existing callers.
     """
-    path = registry_path
-    if path is None:
-        if site_dir is None:
-            selection = _resolve_site(os.environ)
-            site_dir = selection.path
-        path = _resolve_registry_ports_path(site_dir)
-    if path is None or not path.is_file() or yaml is None:
+    doc = _load_registry_doc(registry_path, site_dir)
+    if doc is None:
         return set()
-    try:
-        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError):
-        return set()
-
-    ports: set[int] = set()
-
-    def _ingest(entries: object) -> None:
-        if not isinstance(entries, list):
-            return
-        for entry in entries:
-            if isinstance(entry, dict) and isinstance(entry.get("port"), int) and entry.get("tailscale_serve_port"):
-                ports.add(entry["port"])
-
-    hosts = doc.get("hosts") if isinstance(doc, dict) else None
-    if isinstance(hosts, dict):
-        for host_data in hosts.values():
-            if isinstance(host_data, dict):
-                _ingest(host_data.get("ports"))
-
-    return ports
+    return _ports_matching(doc, lambda entry: bool(entry.get("tailscale_serve_port")))
 
 
 # Caddy's own front-door listeners -- not a proxied backend (no caddy_path
@@ -716,8 +684,10 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
                 del known_urls[url_key]
 
     # Add/update known services (site MagicDNS substituted for catalog placeholder)
+    catalog_urls: set[str] = set()
     for s in _known_services_for_site(site_dir):
         url = s["url"]
+        catalog_urls.add(url)
         if url in known_urls:
             known_urls[url].update({k: v for k, v in s.items() if k != "url"})
         else:
@@ -776,6 +746,28 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
                 fresh_label = _format_service_label(svc_name)
                 if loopback_only:
                     fresh_label += " [loopback-only]"
+                    # A raw (no-path) entry for this exact port can persist
+                    # under a different, now-wrong host key forever
+                    # otherwise -- e.g. the public-hostname URL a prior run
+                    # created before this port was known to be
+                    # loopback-only. Clean those up so the dashboard doesn't
+                    # show a stale broken-link row alongside the correct
+                    # one. Never touches a different, legitimately distinct
+                    # path-routed entry for the same port (those have a
+                    # path component, so the bare f"http://{host}:{port}"
+                    # key never matches them), nor a catalog-declared static
+                    # entry that happens to share this port number -- only a
+                    # prior run's own leftover raw-port entry is fair game.
+                    # Confirmed real 2026-08-03: an unguarded version of this
+                    # cleanup deleted a legitimate static catalog entry whose
+                    # port collided with an unrelated newly-loopback-only
+                    # registered port.
+                    for other_host in ("127.0.0.1", "localhost", public_host):
+                        if not other_host:
+                            continue
+                        stale_url = f"http://{other_host}:{port}"
+                        if stale_url != url and stale_url not in catalog_urls:
+                            known_urls.pop(stale_url, None)
                 if url not in known_urls:
                     entry: dict[str, Any] = {
                         "url": url,

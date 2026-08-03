@@ -409,12 +409,43 @@ hosts:
     assert ports == {8085}
 
 
+def test_discover_skips_tailscale_serve_backend_via_registry(mock_env, mock_known_services, monkeypatch):
+    """End-to-end: a tailscale_serve_port entry suppresses the raw-port scan
+    duplicate exactly like caddy_path does (test_discover_skips_caddy_proxied_backend_via_registry
+    above) -- confirmed real 2026-08-03, Open WebUI moved to this exposure
+    mechanism entirely since it has no reverse-proxy-subpath support."""
+    site_dir = mock_env
+    registry_dir = site_dir / "registry"
+    registry_dir.mkdir()
+    (registry_dir / "ports.yml").write_text(
+        """
+hosts:
+  mac:
+    ports:
+      - {port: 8085, bind: "127.0.0.1", owner: site, service: open-webui, status: active, tailscale_serve_port: 8086}
+"""
+    )
+
+    monkeypatch.setattr(
+        discover, "load_registered_ports", lambda site_dir, return_map=False: {} if return_map else set()
+    )
+    monkeypatch.setattr(state, "load_state", lambda: {"services": [], "hidden": []})
+
+    lsof_out = "python3.1 1 djbclark 1u IPv4 0x1 0t0 TCP 127.0.0.1:8085 (LISTEN)\n"
+    monkeypatch.setattr(discover.subprocess, "run", _fake_run_factory(lsof_out))
+
+    result = discover.discover({})
+
+    assert result["services"] == []
+
+
 def test_load_loopback_only_registered_ports(tmp_path):
     """Registry entries with bind:127.0.0.1 (or ::1/localhost) are the
     ports discover()'s registered-ports seeding loop must not advertise via
     the public Tailscale hostname -- confirmed real 2026-08-03: it did so
     unconditionally before this fix, producing a live dead link on the
-    dashboard for Open WebUI's raw registered port."""
+    dashboard for Open WebUI's raw registered port. Covers all three
+    loopback bind spellings the field accepts, not just 127.0.0.1."""
     registry = tmp_path / "ports.yml"
     registry.write_text(
         """
@@ -422,6 +453,8 @@ hosts:
   mac:
     ports:
       - {port: 8085, bind: "127.0.0.1", owner: site, service: open-webui, status: active}
+      - {port: 8086, bind: "::1", owner: site, service: ipv6-loopback-app, status: active}
+      - {port: 8087, bind: "localhost", owner: site, service: localhost-app, status: active}
       - {port: 443, bind: "*", owner: site, service: caddy-https, status: active}
       - {port: 4318, bind: "0.0.0.0", owner: site, service: vector-otlp-http, status: active}
 """
@@ -429,7 +462,7 @@ hosts:
 
     ports = discover.load_loopback_only_registered_ports(registry_path=registry)
 
-    assert ports == {8085}
+    assert ports == {8085, 8086, 8087}
 
 
 def test_discover_registered_loopback_port_advertises_127001_not_public_host(
@@ -463,6 +496,59 @@ hosts:
     entry = by_url["http://127.0.0.1:9999"]
     assert entry.get("loopback_only") is True
     assert "[loopback-only]" in entry["label"]
+
+
+def test_discover_removes_stale_public_host_entry_when_port_becomes_loopback_only(
+    mock_env, mock_known_services, monkeypatch
+):
+    """A prior run's raw-port entry under the OLD (public-hostname) URL for
+    a port that has since become registered with bind:127.0.0.1 must be
+    removed, not left sitting alongside the new correct 127.0.0.1 entry --
+    otherwise the dashboard shows two rows (one a stale dead link) for the
+    same port. Found by CodeRabbit review on the fix for this same class of
+    bug (2026-08-03)."""
+    site_dir = mock_env
+    registry_dir = site_dir / "registry"
+    registry_dir.mkdir()
+    (registry_dir / "ports.yml").write_text(
+        """
+hosts:
+  mac:
+    ports:
+      - {port: 9999, bind: "127.0.0.1", owner: site, service: loopback-only-app, status: active}
+"""
+    )
+    # A real (non-placeholder) public hostname -- discover() has a separate,
+    # unrelated purge step for un-rewritten mac.example.ts.net/.example.ts.net
+    # catalog placeholders that would otherwise delete a placeholder-hostname
+    # stale entry for the wrong reason and mask whether this test is
+    # actually exercising the new cleanup code.
+    monkeypatch.setattr(
+        state,
+        "load_state",
+        lambda: {
+            "services": [
+                {
+                    "url": "http://mac.greyhound-sidemirror.ts.net:9999",
+                    "label": "Loopback Only App",
+                    "group": "mac",
+                    "reachable": True,
+                    "last_seen": "2026-01-01T00:00:00Z",
+                }
+            ],
+            "hidden": [],
+        },
+    )
+    monkeypatch.setattr(discover, "_site_caddy_public_hostname", lambda _site_dir: "mac.greyhound-sidemirror.ts.net")
+    monkeypatch.setattr(discover, "_scan_localhost", lambda **kwargs: [])
+    monkeypatch.setattr(discover, "_http_probe", lambda url, **kwargs: None)
+    monkeypatch.setattr(discover, "_tcp_probe", lambda host, port, **kwargs: False)
+
+    result = discover.discover({})
+
+    urls = {s["url"] for s in result["services"]}
+    assert "http://127.0.0.1:9999" in urls
+    assert "http://mac.greyhound-sidemirror.ts.net:9999" not in urls
 
 
 def test_scan_localhost_advertises_public_url_for_wildcard_bind(monkeypatch):
