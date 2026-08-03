@@ -201,24 +201,30 @@ def main(argv: list[str] | None = None) -> int:
         if not target:
             print(f"Unknown host: {args.host}. Known: {[t.alias for t in fleet]}", file=sys.stderr)
             return 1
-        targets[target.alias] = target.ip
+        targets[target.alias] = target
     elif args.all:
-        targets = {t.alias: t.ip for t in fleet if t.enabled}
+        targets = {t.alias: t for t in fleet if t.enabled}
     else:
         print("Specify --host <alias> or --all", file=sys.stderr)
         return 1
 
     trim_log(os.path.join(LOG_ROOT, "logs", LOG_NAME), max_age_days=30, max_lines=2000)
     rc = 0
-    for alias, ip in targets.items():
+    for alias, target in targets.items():
         try:
-            results = heal_device(ip, args.port)
+            results = heal_device(target.ip, args.port)
             if results.get("firerpa") == "unreachable":
-                if alias == "hd8":
-                    _log(INFO, "%s: FIRERPA not running (expected)" % alias)
+                # firerpa_recovery_mode is inventory-declared (Ansible hostvars,
+                # not a hardcoded alias) -- e.g. "control-node-adb" means Fire
+                # OS prevents Termux from executing shell_data_file content, so
+                # a Mac-ADB-supplied UID 2000 is the expected/permanent state,
+                # not a real outage. See site-djbclark inventory/hosts.yml for
+                # which hosts declare this and why.
+                if target.recovery_mode == "control-node-adb":
+                    _log(INFO, "%s: FIRERPA not running (expected, recovery_mode=%s)" % (alias, target.recovery_mode))
                 rc = 1
         except Exception as e:
-            _log(ERR, "%s (%s): heal error: %s" % (alias, ip, e))
+            _log(ERR, "%s (%s): heal error: %s" % (alias, target.ip, e))
             rc = 1
 
     return rc
