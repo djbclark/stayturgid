@@ -421,6 +421,59 @@ def load_registered_ports(
     return ports_map if return_map else ports_set
 
 
+def load_caddy_proxied_ports(
+    registry_path: Path | None = None,
+    *,
+    site_dir: Path | None = None,
+) -> set[int]:
+    """Return ports whose registry entry declares a ``caddy_path``.
+
+    A backend with ``caddy_path`` set is already reverse_proxy'd by Caddy and
+    shown on the dashboard under its real HTTPS route (KNOWN_SERVICES /
+    services.json), so ``_scan_localhost`` skips it to avoid a redundant
+    raw-port ``[loopback-only]`` duplicate. ``caddy_path`` is an optional,
+    additive registry field (see registry/ports.yml's header comment in
+    site-djbclark) -- a registry with no such field simply yields no skips.
+    """
+    path = registry_path
+    if path is None:
+        if site_dir is None:
+            selection = _resolve_site(os.environ)
+            site_dir = selection.path
+        path = _resolve_registry_ports_path(site_dir)
+    if path is None or not path.is_file() or yaml is None:
+        return set()
+    try:
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return set()
+
+    ports: set[int] = set()
+
+    def _ingest(entries: object) -> None:
+        if not isinstance(entries, list):
+            return
+        for entry in entries:
+            if isinstance(entry, dict) and isinstance(entry.get("port"), int) and entry.get("caddy_path"):
+                ports.add(entry["port"])
+
+    hosts = doc.get("hosts") if isinstance(doc, dict) else None
+    if isinstance(hosts, dict):
+        for host_data in hosts.values():
+            if isinstance(host_data, dict):
+                _ingest(host_data.get("ports"))
+
+    return ports
+
+
+# Caddy's own front-door listeners -- not a proxied backend (no caddy_path
+# entry makes sense for these), but still worth skipping in the raw-port scan
+# since they're already shown via their registry entries (caddy-http-redirect,
+# caddy-https) with a better label than the generic PROCESS_SERVICE_NAMES
+# "Caddy Web Server" fallback the scan would otherwise apply.
+CADDY_FRONT_DOOR_PORTS: set[int] = {80, 443}
+
+
 def _scan_localhost(
     *,
     registered_ports: set[int] | dict[int, str] | None = None,
@@ -451,7 +504,17 @@ def _scan_localhost(
     elif isinstance(registered_ports, set):
         reg_set = registered_ports
 
-    CADDY_PROXIED_PORTS: set[int] = {3000, 5080, 1337, 8428, 4096, 4097, 443, 80}
+    # lsof -n prints the literal bind address, not just the port -- "127.0.0.1:N"
+    # for loopback-only, "*:N" (macOS convention for INADDR_ANY) or a real
+    # external/Tailscale IP for anything actually reachable off-box. A service
+    # bound to loopback can NEVER be reached via the public Tailscale hostname
+    # no matter what the health probe says, because nothing is listening on
+    # the interface that hostname resolves to -- confirmed real 2026-08-02:
+    # Open WebUI bound to 127.0.0.1:8085 probed "up" (loopback answers fine)
+    # while every external client got connection refused, and the dashboard
+    # had no way to tell the difference because it only ever probed loopback
+    # in the first place, then advertised the public hostname anyway.
+    LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
     host_name = public_host if public_host else "localhost"
     scanned: set[int] = set()
     for line in r.stdout.splitlines():
@@ -462,11 +525,13 @@ def _scan_localhost(
         addr = parts[8]
         if ":" not in addr:
             continue
+        bind_host, _, port_str = addr.rpartition(":")
+        bind_host = bind_host.strip("[]")  # lsof brackets IPv6, e.g. "[::1]:port"
         try:
-            port = int(addr.rsplit(":", 1)[-1])
+            port = int(port_str)
         except ValueError:
             continue
-        if port in scanned or port < 1 or port > 65535 or port in CADDY_PROXIED_PORTS:
+        if port in scanned or port < 1 or port > 65535:
             continue
         if skip_ports and port in skip_ports:
             continue
@@ -475,6 +540,7 @@ def _scan_localhost(
         status = _http_probe(f"http://127.0.0.1:{port}", timeout=2.0)
         if status is not None:
             unregistered = registered_ports is not None and port not in reg_set
+            loopback_only = bind_host in LOOPBACK_HOSTS
 
             # Resolve descriptive service label
             if port in reg_map and reg_map[port] and not reg_map[port].startswith("TODO"):
@@ -484,16 +550,32 @@ def _scan_localhost(
             else:
                 base_label = f"Port {port}"
 
-            label = base_label + (" [unregistered]" if unregistered else "")
+            label = base_label
+            if loopback_only:
+                # Visible on the dashboard itself, not just in `note` -- the
+                # template only ever renders label/url/reachable, so a
+                # loopback-only service that looked identical to a real
+                # externally-reachable one is exactly how this went unnoticed
+                # the first time.
+                label += " [loopback-only]"
+            if unregistered:
+                label += " [unregistered]"
             note = f"HTTP {status}"
+            if loopback_only:
+                note += " (loopback-only -- not reachable via Tailscale/LAN)"
             if unregistered:
                 note += "; not in registry/ports.yml"
             entry: dict[str, Any] = {
-                "url": f"http://{host_name}:{port}",
+                # Advertise the URL that's actually true: a loopback-only
+                # service is only ever reachable at 127.0.0.1, so linking the
+                # public hostname would be a live, clickable dead end.
+                "url": f"http://127.0.0.1:{port}" if loopback_only else f"http://{host_name}:{port}",
                 "label": label,
                 "group": "mac",
                 "note": note,
             }
+            if loopback_only:
+                entry["loopback_only"] = True
             if unregistered:
                 entry["unregistered"] = True
             services.append(entry)
@@ -592,8 +674,11 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
                 "group": "mac",
             }
 
+    caddy_proxied_ports = load_caddy_proxied_ports(site_dir=site_dir)
     for s in _scan_localhost(
-        registered_ports=registered if registered else None, public_host=public_host, skip_ports=path_ports
+        registered_ports=registered if registered else None,
+        public_host=public_host,
+        skip_ports=path_ports | caddy_proxied_ports | CADDY_FRONT_DOOR_PORTS,
     ):
         url = s["url"]
         if url not in known_urls:

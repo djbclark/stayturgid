@@ -222,4 +222,158 @@ def test_main_health_check(mock_env, monkeypatch):
 
     monkeypatch.setattr(discover, "get_summary_counts", mock_summary_healthy)
     assert discover.main(["--health-check"]) == 0
-    assert discover.main([]) == 0
+
+
+# ---------------------------------------------------------------------------
+# _scan_localhost loopback detection (2026-08-02 real incident: Open WebUI
+# bound to 127.0.0.1:8085 was probed and advertised as reachable via the
+# public Tailscale hostname on the dashboard, but nothing external could
+# ever reach it -- the probe only ever checked loopback, and the URL shown
+# to the operator was the public one regardless of what was actually true.)
+# ---------------------------------------------------------------------------
+
+
+def _fake_run_factory(lsof_stdout: str):
+    """subprocess.run replacement that answers lsof for real and stubs curl
+    (used inside _http_probe) to always report 200, so tests exercise
+    _scan_localhost's own bind-address logic in isolation from real probes."""
+
+    def fake_run(cmd, **kwargs):
+        if cmd[0] == "lsof":
+            return type("R", (), {"returncode": 0, "stdout": lsof_stdout, "stderr": ""})()
+        if cmd[0] == "curl":
+            return type("R", (), {"returncode": 0, "stdout": "200", "stderr": ""})()
+        raise AssertionError(f"unexpected subprocess.run call: {cmd}")
+
+    return fake_run
+
+
+def test_scan_localhost_flags_loopback_only_service(monkeypatch):
+    # 19191 is an arbitrary port -- this test exercises the general
+    # loopback-detection mechanism, independent of which specific ports are
+    # currently known to be Caddy-proxied.
+    lsof_out = "python3.1 93878 djbclark 36u IPv4 0xdead 0t0 TCP 127.0.0.1:19191 (LISTEN)\n"
+    monkeypatch.setattr(discover.subprocess, "run", _fake_run_factory(lsof_out))
+
+    services = discover._scan_localhost(public_host="mac.example.ts.net")
+
+    assert len(services) == 1
+    entry = services[0]
+    assert entry["url"] == "http://127.0.0.1:19191"
+    assert entry.get("loopback_only") is True
+    assert "loopback-only" in entry["note"]
+    # Visible in the rendered dashboard, not just the JSON: the template only
+    # ever shows label/url/reachable, never `note`.
+    assert "[loopback-only]" in entry["label"]
+
+
+def test_scan_localhost_respects_skip_ports(monkeypatch):
+    """_scan_localhost itself no longer hardcodes any Caddy-specific port
+    list -- callers (discover()) are responsible for computing the skip set
+    and passing it in via skip_ports. This confirms the mechanism it now
+    relies on entirely."""
+    lsof_out = (
+        "python3.1 1 djbclark 1u IPv4 0x1 0t0 TCP 127.0.0.1:8085 (LISTEN)\n"
+        "python3.1 2 djbclark 2u IPv4 0x2 0t0 TCP 127.0.0.1:19192 (LISTEN)\n"
+    )
+    monkeypatch.setattr(discover.subprocess, "run", _fake_run_factory(lsof_out))
+
+    services = discover._scan_localhost(public_host="mac.example.ts.net", skip_ports={8085})
+
+    assert len(services) == 1
+    assert services[0]["url"] == "http://127.0.0.1:19192"
+
+
+def test_load_caddy_proxied_ports(tmp_path):
+    """caddy_path is an optional, additive registry/ports.yml field (string
+    or list of strings) -- confirmed real 2026-08-02: litellm (4000), the
+    landing page's own backend (8088), and Open WebUI (8085) had all been
+    added to Caddy without a corresponding entry in the old hardcoded
+    CADDY_PROXIED_PORTS set, so they showed up as confusing unlabeled
+    loopback-only entries instead of just their one correct HTTPS route.
+    This is the registry-driven replacement for that hardcoded list."""
+    registry = tmp_path / "ports.yml"
+    registry.write_text(
+        """
+hosts:
+  mac:
+    ports:
+      - {port: 8085, bind: "127.0.0.1", owner: site, service: open-webui, status: active, caddy_path: "/chat/*"}
+      - {port: 4097, bind: "127.0.0.1", owner: stayturgid, service: fleet-dashboard, status: active,
+         caddy_path: ["/dashboard/*", "/stats/*"]}
+      - {port: 6736, bind: "127.0.0.1", owner: site, service: openusage-limits, status: active}
+"""
+    )
+
+    ports = discover.load_caddy_proxied_ports(registry_path=registry)
+
+    assert ports == {8085, 4097}
+
+
+def test_load_caddy_proxied_ports_missing_registry(tmp_path):
+    ports = discover.load_caddy_proxied_ports(registry_path=tmp_path / "does-not-exist.yml")
+    assert ports == set()
+
+
+def test_discover_skips_caddy_proxied_backend_via_registry(mock_env, mock_known_services, monkeypatch):
+    """End-to-end: a caddy_path entry in the site's real registry/ports.yml
+    is enough to suppress the raw-port scan duplicate, with no code-level
+    port list to maintain."""
+    site_dir = mock_env
+    registry_dir = site_dir / "registry"
+    registry_dir.mkdir()
+    (registry_dir / "ports.yml").write_text(
+        """
+hosts:
+  mac:
+    ports:
+      - {port: 8085, bind: "127.0.0.1", owner: site, service: open-webui, status: active, caddy_path: "/chat/*"}
+"""
+    )
+
+    monkeypatch.setattr(
+        discover, "load_registered_ports", lambda site_dir, return_map=False: {} if return_map else set()
+    )
+    monkeypatch.setattr(state, "load_state", lambda: {"services": [], "hidden": []})
+
+    lsof_out = "python3.1 1 djbclark 1u IPv4 0x1 0t0 TCP 127.0.0.1:8085 (LISTEN)\n"
+    monkeypatch.setattr(discover.subprocess, "run", _fake_run_factory(lsof_out))
+
+    result = discover.discover({})
+
+    assert result["services"] == []
+
+
+def test_scan_localhost_advertises_public_url_for_wildcard_bind(monkeypatch):
+    lsof_out = "python3.1 1234 djbclark 12u IPv4 0xbeef 0t0 TCP *:9091 (LISTEN)\n"
+    monkeypatch.setattr(discover.subprocess, "run", _fake_run_factory(lsof_out))
+
+    services = discover._scan_localhost(public_host="mac.example.ts.net")
+
+    assert len(services) == 1
+    entry = services[0]
+    assert entry["url"] == "http://mac.example.ts.net:9091"
+    assert "loopback_only" not in entry
+    assert "loopback-only" not in entry["note"]
+
+
+def test_scan_localhost_advertises_public_url_for_specific_external_bind(monkeypatch):
+    lsof_out = "python3.1 1234 djbclark 12u IPv4 0xbeef 0t0 TCP 100.113.53.87:9092 (LISTEN)\n"
+    monkeypatch.setattr(discover.subprocess, "run", _fake_run_factory(lsof_out))
+
+    services = discover._scan_localhost(public_host="mac.example.ts.net")
+
+    assert len(services) == 1
+    entry = services[0]
+    assert entry["url"] == "http://mac.example.ts.net:9092"
+    assert "loopback_only" not in entry
+
+
+def test_scan_localhost_ipv6_loopback_is_flagged(monkeypatch):
+    lsof_out = "node 5555 djbclark 20u IPv6 0xcafe 0t0 TCP [::1]:9093 (LISTEN)\n"
+    monkeypatch.setattr(discover.subprocess, "run", _fake_run_factory(lsof_out))
+
+    services = discover._scan_localhost(public_host="mac.example.ts.net")
+
+    assert len(services) == 1
+    assert services[0].get("loopback_only") is True

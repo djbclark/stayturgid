@@ -168,6 +168,32 @@ When a new service is added, it typically appears on the Fleet Dashboard. The di
 
 To ensure your new launchd service remains visible when down for monitoring and healing, always claim its port or path in the registry.
 
+### If your service is reverse_proxy'd by Caddy
+
+If your service binds to loopback (`127.0.0.1`) and is fronted by Caddy under
+an HTTPS path (the normal pattern for anything reachable off-box), set
+`caddy_path` on its `registry/ports.yml` entry in `site-djbclark`, e.g.:
+
+```yaml
+- {
+    port: 9100,
+    bind: "127.0.0.1",
+    owner: site,
+    service: my-service,
+    status: active,
+    caddy_path: "/my-service/*",
+  }
+```
+
+Use a list of strings (`caddy_path: ["/a/*", "/b/*"]`) if one backend serves
+more than one route (see `fleet-dashboard`'s entry for a real example). This
+tells `control/landing/discover.py`'s `load_caddy_proxied_ports()` to skip the
+raw-port scan entry for this backend once its real HTTPS route is already
+shown on the dashboard — otherwise you'll get a confusing duplicate
+`[loopback-only]` entry alongside the correct one. `caddy_path` is optional
+and purely additive: omitting it just means "not Caddy-proxied," and adding
+it later never requires a registry schema/contract_version bump.
+
 ---
 
 ## Common patterns
