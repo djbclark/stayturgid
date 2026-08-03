@@ -740,13 +740,32 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
 
     # Add/update known services (site MagicDNS substituted for catalog placeholder)
     catalog_urls: set[str] = set()
+    catalog_urls_by_identity: dict[tuple[str | None, str | None], set[str]] = {}
     for s in _known_services_for_site(site_dir):
         url = s["url"]
         catalog_urls.add(url)
+        catalog_urls_by_identity.setdefault((s.get("label"), s.get("group")), set()).add(url)
         if url in known_urls:
             known_urls[url].update({k: v for k, v in s.items() if k != "url"})
         else:
             known_urls[url] = dict(s)
+
+    # Purge a stale entry for a catalog-tracked service whose URL simply
+    # changed between deploys -- e.g. Open WebUI moving from a Caddy
+    # /chat/* subpath to a dedicated tailscale-serve port. Nothing else
+    # ever cleans this up: the old URL isn't a "registered port" skip-list
+    # match, isn't flagged unregistered, and doesn't start with
+    # http://localhost:, so it survives every existing prune path forever
+    # (even once genuinely unreachable) and shows a duplicate dashboard
+    # row for the same logical service. Identity is (label, group) since
+    # that's what stays stable across a catalog URL edit. Confirmed real
+    # 2026-08-03: this was still showing the pre-fix /chat/ URL alongside
+    # the new :8086/ URL after this exact class of catalog change deployed.
+    for url in list(known_urls.keys()):
+        entry = known_urls[url]
+        valid_urls = catalog_urls_by_identity.get((entry.get("label"), entry.get("group")))
+        if valid_urls and url not in valid_urls:
+            del known_urls[url]
 
     # Discover new http ports on localhost; badge registry drift (D4).
     registered = load_registered_ports(site_dir=site_dir, return_map=True)
