@@ -27,6 +27,7 @@ def test_ansible_exec_delegates_env_to_resolved_env(monkeypatch, tmp_path):
 
     monkeypatch.setattr(ae, "resolve_ansible_context", lambda repo, *a, **k: context)
     monkeypatch.setattr(ae, "require_inventory", lambda selected: None)
+    monkeypatch.setattr(ae, "require_fresh_checkout", lambda repo, *a, **k: None)
     monkeypatch.setattr(ae, "resolved_env", lambda repo: dict(fake_env))
 
     def fake_run(command, **kwargs):

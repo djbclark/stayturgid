@@ -120,6 +120,7 @@ def test_deploy_termux_uses_resolved_context(tmp_path, monkeypatch) -> None:
     config = _write_site(tmp_path)
     monkeypatch.setenv("ANSIBLE_CONFIG", str(config))
     monkeypatch.setattr(dt, "require_limit_hosts", lambda ctx, limit: ["oneui-device"])
+    monkeypatch.setattr(dt, "require_fresh_checkout", lambda root, *a, **k: None)
     monkeypatch.setattr(dt.shutil, "which", lambda _name: "/usr/bin/ansible-playbook")
     monkeypatch.setattr(dt, "ssh_target", lambda h: h)
     monkeypatch.setattr(dt, "verify_ssh", lambda _t: True)

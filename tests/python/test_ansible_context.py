@@ -5,6 +5,7 @@ wins; else explicit ``STAYTURGID_SITE_DIR``; else ``OPS_ROOT/.mysite``; else
 exactly one discovered ``site-*`` checkout excluding ``site-private``.
 """
 
+import subprocess
 from pathlib import Path
 
 import ansible_context as ac
@@ -311,3 +312,96 @@ def test_resolved_env_does_not_duplicate_profile_tasks(tmp_path):
     )
 
     assert env["ANSIBLE_CALLBACKS_ENABLED"] == "ansible.posix.profile_tasks"
+
+
+# ---------------------------------------------------------------------------
+# require_fresh_checkout — guards against a `main/<repo>` reference checkout
+# silently going stale or dirty (2026-08-02 incident: two merged fixes looked
+# deployed but weren't, because the checkout used to apply them was 10
+# commits behind origin/master and nothing noticed).
+# ---------------------------------------------------------------------------
+
+
+def _git(*args, cwd):
+    subprocess.run(["git", *args], cwd=cwd, check=True, capture_output=True, text=True)
+
+
+def _init_repo_with_origin(tmp_path: Path) -> Path:
+    """A bare 'origin' plus a real clone, both under git identity for commits."""
+    origin = tmp_path / "origin.git"
+    origin.mkdir()
+    _git("init", "--quiet", "--bare", "--initial-branch=master", cwd=origin)
+
+    clone = tmp_path / "clone"
+    _git("clone", "--quiet", str(origin), str(clone), cwd=tmp_path)
+    _git("config", "user.email", "test@example.com", cwd=clone)
+    _git("config", "user.name", "Test", cwd=clone)
+    (clone / "README.md").write_text("initial\n", encoding="utf-8")
+    _git("add", "README.md", cwd=clone)
+    _git("commit", "--quiet", "-m", "initial", cwd=clone)
+    _git("push", "--quiet", "origin", "master", cwd=clone)
+    return clone
+
+
+def test_require_fresh_checkout_passes_when_up_to_date(tmp_path):
+    clone = _init_repo_with_origin(tmp_path)
+    ac.require_fresh_checkout(clone, {})  # must not raise
+
+
+def test_require_fresh_checkout_fails_when_behind(tmp_path):
+    clone = _init_repo_with_origin(tmp_path)
+    origin = tmp_path / "origin.git"
+
+    # A second clone pushes a new commit the first clone never fetches.
+    other = tmp_path / "other-clone"
+    _git("clone", "--quiet", str(origin), str(other), cwd=tmp_path)
+    _git("config", "user.email", "test@example.com", cwd=other)
+    _git("config", "user.name", "Test", cwd=other)
+    (other / "README.md").write_text("updated\n", encoding="utf-8")
+    _git("commit", "--quiet", "-am", "update", cwd=other)
+    _git("push", "--quiet", "origin", "master", cwd=other)
+
+    with pytest.raises(ac.AnsibleConfigError, match="1 commit"):
+        ac.require_fresh_checkout(clone, {})
+
+
+def test_require_fresh_checkout_fails_when_dirty(tmp_path):
+    clone = _init_repo_with_origin(tmp_path)
+    (clone / "README.md").write_text("uncommitted local edit\n", encoding="utf-8")
+
+    with pytest.raises(ac.AnsibleConfigError, match="uncommitted"):
+        ac.require_fresh_checkout(clone, {})
+
+
+def test_require_fresh_checkout_skip_env_var_bypasses(tmp_path):
+    clone = _init_repo_with_origin(tmp_path)
+    (clone / "README.md").write_text("uncommitted local edit\n", encoding="utf-8")
+
+    ac.require_fresh_checkout(clone, {"STAYTURGID_SKIP_FRESHNESS_CHECK": "1"})  # must not raise
+
+
+def test_require_fresh_checkout_skips_under_ci(tmp_path):
+    """A CI checkout is always exactly the PR's own content -- 'behind
+    origin/master' there is normal (master moved on since branching), not
+    the stale-reference-checkout failure mode this guards against. Real
+    regression: this check initially broke CI's own --syntax-check runs."""
+    clone = _init_repo_with_origin(tmp_path)
+    (clone / "README.md").write_text("uncommitted local edit\n", encoding="utf-8")
+
+    ac.require_fresh_checkout(clone, {"CI": "true"})  # must not raise
+
+
+def test_require_fresh_checkout_warns_but_does_not_raise_when_fetch_fails(tmp_path, capsys):
+    clone = _init_repo_with_origin(tmp_path)
+    _git("remote", "set-url", "origin", "/nonexistent/path/that/does/not/exist.git", cwd=clone)
+
+    ac.require_fresh_checkout(clone, {})  # must not raise
+
+    assert "WARNING" in capsys.readouterr().err
+
+
+def test_require_fresh_checkout_skips_non_git_directory(tmp_path):
+    plain = tmp_path / "not-a-repo"
+    plain.mkdir()
+
+    ac.require_fresh_checkout(plain, {})  # must not raise
