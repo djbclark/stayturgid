@@ -421,6 +421,59 @@ def load_registered_ports(
     return ports_map if return_map else ports_set
 
 
+def load_caddy_proxied_ports(
+    registry_path: Path | None = None,
+    *,
+    site_dir: Path | None = None,
+) -> set[int]:
+    """Return ports whose registry entry declares a ``caddy_path``.
+
+    A backend with ``caddy_path`` set is already reverse_proxy'd by Caddy and
+    shown on the dashboard under its real HTTPS route (KNOWN_SERVICES /
+    services.json), so ``_scan_localhost`` skips it to avoid a redundant
+    raw-port ``[loopback-only]`` duplicate. ``caddy_path`` is an optional,
+    additive registry field (see registry/ports.yml's header comment in
+    site-djbclark) -- a registry with no such field simply yields no skips.
+    """
+    path = registry_path
+    if path is None:
+        if site_dir is None:
+            selection = _resolve_site(os.environ)
+            site_dir = selection.path
+        path = _resolve_registry_ports_path(site_dir)
+    if path is None or not path.is_file() or yaml is None:
+        return set()
+    try:
+        doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return set()
+
+    ports: set[int] = set()
+
+    def _ingest(entries: object) -> None:
+        if not isinstance(entries, list):
+            return
+        for entry in entries:
+            if isinstance(entry, dict) and isinstance(entry.get("port"), int) and entry.get("caddy_path"):
+                ports.add(entry["port"])
+
+    hosts = doc.get("hosts") if isinstance(doc, dict) else None
+    if isinstance(hosts, dict):
+        for host_data in hosts.values():
+            if isinstance(host_data, dict):
+                _ingest(host_data.get("ports"))
+
+    return ports
+
+
+# Caddy's own front-door listeners -- not a proxied backend (no caddy_path
+# entry makes sense for these), but still worth skipping in the raw-port scan
+# since they're already shown via their registry entries (caddy-http-redirect,
+# caddy-https) with a better label than the generic PROCESS_SERVICE_NAMES
+# "Caddy Web Server" fallback the scan would otherwise apply.
+CADDY_FRONT_DOOR_PORTS: set[int] = {80, 443}
+
+
 def _scan_localhost(
     *,
     registered_ports: set[int] | dict[int, str] | None = None,
@@ -451,7 +504,6 @@ def _scan_localhost(
     elif isinstance(registered_ports, set):
         reg_set = registered_ports
 
-    CADDY_PROXIED_PORTS: set[int] = {3000, 5080, 1337, 8428, 4096, 4097, 443, 80}
     # lsof -n prints the literal bind address, not just the port -- "127.0.0.1:N"
     # for loopback-only, "*:N" (macOS convention for INADDR_ANY) or a real
     # external/Tailscale IP for anything actually reachable off-box. A service
@@ -479,7 +531,7 @@ def _scan_localhost(
             port = int(port_str)
         except ValueError:
             continue
-        if port in scanned or port < 1 or port > 65535 or port in CADDY_PROXIED_PORTS:
+        if port in scanned or port < 1 or port > 65535:
             continue
         if skip_ports and port in skip_ports:
             continue
@@ -622,8 +674,11 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
                 "group": "mac",
             }
 
+    caddy_proxied_ports = load_caddy_proxied_ports(site_dir=site_dir)
     for s in _scan_localhost(
-        registered_ports=registered if registered else None, public_host=public_host, skip_ports=path_ports
+        registered_ports=registered if registered else None,
+        public_host=public_host,
+        skip_ports=path_ports | caddy_proxied_ports | CADDY_FRONT_DOOR_PORTS,
     ):
         url = s["url"]
         if url not in known_urls:

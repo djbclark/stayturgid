@@ -73,14 +73,14 @@ def test_scan_localhost_badges_unregistered(monkeypatch) -> None:
             stdout = (
                 "COMMAND PID USER FD TYPE DEVICE SIZE/OFF NODE NAME\n"
                 "Python  1 user 3u IPv4 0x1 0t0 TCP 127.0.0.1:9999 (LISTEN)\n"
-                "Python  2 user 3u IPv4 0x2 0t0 TCP 127.0.0.1:8088 (LISTEN)\n"
+                "Python  2 user 3u IPv4 0x2 0t0 TCP 127.0.0.1:8089 (LISTEN)\n"
             )
 
         return R()
 
     monkeypatch.setattr(discover.subprocess, "run", fake_lsof)
     monkeypatch.setattr(discover, "_http_probe", lambda _url, timeout=2.0: 200)
-    found = discover._scan_localhost(registered_ports={8088})
+    found = discover._scan_localhost(registered_ports={8089})
     by_port = {s["url"]: s for s in found}
     # Both mocked listeners bind 127.0.0.1, so both correctly get the real
     # loopback URL (not the old "localhost" public-host fallback) -- see
@@ -89,8 +89,8 @@ def test_scan_localhost_badges_unregistered(monkeypatch) -> None:
     assert by_port["http://127.0.0.1:9999"].get("unregistered") is True
     assert by_port["http://127.0.0.1:9999"].get("loopback_only") is True
     assert "[unregistered]" in by_port["http://127.0.0.1:9999"]["label"]
-    assert by_port["http://127.0.0.1:8088"].get("unregistered") is not True
-    assert by_port["http://127.0.0.1:8088"].get("loopback_only") is True
+    assert by_port["http://127.0.0.1:8089"].get("unregistered") is not True
+    assert by_port["http://127.0.0.1:8089"].get("loopback_only") is True
 
 
 def test_discover_prunes_unreachable_unregistered_ports(tmp_path, monkeypatch):
