@@ -97,7 +97,13 @@ stayturgid_hermes_telegram_bot_token: ""
 # ── OpenCode web (control-node web UI reachable from fleet devices) ─────────
 stayturgid_opencode_web_enabled: true
 stayturgid_opencode_web_port: 4096
-stayturgid_opencode_path: "{{ lookup('env', 'HOME') }}/.local/bin/opencode"
+# opencode's own installer/self-update relocated its binary from
+# ~/.local/bin/opencode to ~/.opencode/bin/opencode at some point -- this
+# default silently pointed at the old, now-missing path, so the
+# com.stayturgid.opencode-web LaunchAgent exec'd nothing (EX_CONFIG,
+# perpetual restart loop, port 4096 never listening). Confirmed real
+# 2026-08-03.
+stayturgid_opencode_path: "{{ lookup('env', 'HOME') }}/.opencode/bin/opencode"
 stayturgid_opencode_web_label: com.stayturgid.opencode-web
 
 # ── Fleet dashboard (Flask + HTMX web UI, port 4097) ──────────────────────
