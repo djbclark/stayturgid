@@ -164,7 +164,7 @@ lychee:
 lychee-docs:
     @if command -v lychee >/dev/null; then \
       echo "### lychee-docs"; \
-      lychee --offline --exclude-path 'node_modules|\.html$|^secretspec\.toml$' --root-dir . .; \
+      lychee --offline --exclude-path 'node_modules|\.html$' --exclude 'secretspec\.toml$' --root-dir . .; \
     else \
       echo "lychee not installed (brew install lychee) — skipped"; \
     fi
@@ -328,7 +328,7 @@ lint: _ensure-test-collections
     fi
     if command -v lychee >/dev/null; then
       echo "### lychee-docs"
-      lychee --offline --exclude-path 'node_modules|\.html$|^secretspec\.toml$' --root-dir . . || rc=1
+      lychee --offline --exclude-path 'node_modules|\.html$' --exclude 'secretspec\.toml$' --root-dir . . || rc=1
     else
       echo "lychee not installed (brew install lychee) — skipped"
     fi
