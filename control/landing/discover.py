@@ -89,6 +89,7 @@ KNOWN_SERVICES: list[dict] = [
 # The committed catalog is the source of truth; the fallback list keeps older
 # checkouts importable until their catalog has been migrated.
 KNOWN_SERVICES = state.load_catalog().get("services", KNOWN_SERVICES)
+SERVICE_HEALTH_OVERRIDES = state.load_catalog().get("health_overrides", {})
 
 # Generic catalog host in services.json / KNOWN_SERVICES (RFC-style example).
 _CATALOG_PUBLIC_HOST = "mac.example.ts.net"
@@ -289,6 +290,15 @@ def _is_success_status(status: int, service: Mapping[str, Any]) -> bool:
     """Accept 2xx responses by default plus a catalogued status allowlist."""
     allowed = service.get("accepted_status_codes", [])
     return 200 <= status < 300 or (isinstance(allowed, list) and status in allowed)
+
+
+def _service_health_config(service: Mapping[str, Any]) -> dict[str, Any]:
+    """Apply catalogued health settings to both static and discovered services."""
+    configured = dict(service)
+    override = SERVICE_HEALTH_OVERRIDES.get(str(service.get("label", "")))
+    if isinstance(override, Mapping):
+        configured.update(override)
+    return configured
 
 
 def _validate_html_content(
@@ -1065,6 +1075,7 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
         s["url"] = url
         for field in ("content_ok", "health_problems"):
             s.pop(field, None)
+        s.update(_service_health_config(s))
         health = _service_health(url, s, public_host=public_host)
         s.update(health)
         if health["health"] != "unreachable":

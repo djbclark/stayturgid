@@ -1,4 +1,15 @@
 {
+  "health_overrides": {
+    "Grafana (HTTPS)": {
+      "accepted_status_codes": [302]
+    },
+    "Grafana [loopback-only]": {
+      "accepted_status_codes": [301]
+    },
+    "OpenObserve (HTTP)": {
+      "accepted_status_codes": [308]
+    }
+  },
   "hidden": [],
   "services": [
     {

@@ -211,6 +211,15 @@ def test_success_status_is_2xx_unless_catalog_allows_a_redirect():
     assert not discover._is_success_status(500, {"accepted_status_codes": [308]})
 
 
+def test_catalog_health_override_applies_to_a_discovered_service(monkeypatch):
+    monkeypatch.setattr(
+        discover, "SERVICE_HEALTH_OVERRIDES", {"Grafana [loopback-only]": {"accepted_status_codes": [301]}}
+    )
+    configured = discover._service_health_config({"label": "Grafana [loopback-only]", "url": "http://127.0.0.1:3000"})
+    assert configured["accepted_status_codes"] == [301]
+    assert discover._is_success_status(301, configured)
+
+
 def test_public_host_http_port_is_probed_via_its_local_listener():
     assert (
         discover._probe_url("http://mac.example.ts.net:8088/path", "mac.example.ts.net") == "http://127.0.0.1:8088/path"
