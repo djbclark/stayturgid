@@ -127,7 +127,7 @@ prettier:
     @if [ ! -d node_modules ]; then \
       echo "prettier — SKIP (node_modules missing — run 'just worktree-setup')"; \
     elif command -v prettier >/dev/null; then \
-      echo "### prettier --check"; prettier --check $(git ls-files '*.md' '*.md.example' '*.html' '*.css' '*.toml' '*.ini'); \
+      echo "### prettier --check"; prettier --check $(git ls-files '*.md' '*.md.example' '*.html' '*.css' '*.toml' '*.ini' | while read -r f; do [ -L "$f" ] || printf '%s\n' "$f"; done); \
     else \
       echo "prettier not installed (brew install prettier) — skipped"; \
     fi
@@ -164,7 +164,7 @@ lychee:
 lychee-docs:
     @if command -v lychee >/dev/null; then \
       echo "### lychee-docs"; \
-      lychee --offline --exclude-path 'node_modules|\.html$' --root-dir . .; \
+      lychee --offline --exclude-path 'node_modules|\.html$' --exclude 'secretspec\.toml$' --root-dir . .; \
     else \
       echo "lychee not installed (brew install lychee) — skipped"; \
     fi
@@ -292,7 +292,7 @@ lint: _ensure-test-collections
     if [ ! -d node_modules ]; then
       echo "prettier — SKIP (node_modules missing — run 'just worktree-setup')"
     elif command -v prettier >/dev/null; then
-      prettier --check $(git ls-files '*.md' '*.md.example' '*.html' '*.css' '*.toml' '*.ini') || rc=1
+      prettier --check $(git ls-files '*.md' '*.md.example' '*.html' '*.css' '*.toml' '*.ini' | while read -r f; do [ -L "$f" ] || printf '%s\n' "$f"; done) || rc=1
     else
       echo "prettier not installed (brew install prettier) — skipped"
     fi
@@ -328,7 +328,7 @@ lint: _ensure-test-collections
     fi
     if command -v lychee >/dev/null; then
       echo "### lychee-docs"
-      lychee --offline --exclude-path 'node_modules|\.html$' --root-dir . . || rc=1
+      lychee --offline --exclude-path 'node_modules|\.html$' --exclude 'secretspec\.toml$' --root-dir . . || rc=1
     else
       echo "lychee not installed (brew install lychee) — skipped"
     fi
