@@ -37,6 +37,7 @@
         >
           <select name="range" class="range-select">
             {% for val, label in select_options %}
+            <!-- prettier-ignore -->
             <option value="{{ val }}" {%- if val == range_str %} selected{% endif -%}>
               {{ label }}
             </option>
