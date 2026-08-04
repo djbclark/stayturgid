@@ -22,7 +22,7 @@
           >stats</a
         >
         <a
-          href="/errors"
+          href="errors"
           style="color: var(--link); text-decoration: none; font-size: 11px"
           >errors</a
         >
@@ -43,7 +43,7 @@
     <main>
       <div
         id="device-grid"
-        hx-get="/api/devices"
+        hx-get="api/devices"
         hx-trigger="every 60s, load"
         hx-swap="innerHTML"
         hx-indicator="#spinner"
