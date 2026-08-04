@@ -533,9 +533,14 @@ def _render_template(name: str, **ctx) -> str:
 def index():
     devices = build_device_data()
     now = time.strftime("%Y-%m-%d %H:%M:%S")
-    cards = "\n".join(
-        _render_template("_device_card.html", device=d, oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
-        for d in devices
+    # Each card is already-rendered HTML; wrap in Markup before interpolating
+    # into dashboard.html's {{ cards }} or Jinja re-escapes it (matches the
+    # _svc_badge() convention used elsewhere in this file).
+    cards = Markup(
+        "\n".join(
+            _render_template("_device_card.html", device=d, oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
+            for d in devices
+        )
     )
     return _render_template("dashboard.html", cards=cards, oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
 
@@ -795,7 +800,7 @@ def errors_page():
     )
 
 
-@app.route("/stats")
+@app.route("/stats", strict_slashes=False)
 def stats_page():
     range_str = request.args.get("range", "1w")
     delta = _parse_timeframe(range_str)

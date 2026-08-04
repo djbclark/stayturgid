@@ -11,12 +11,34 @@
 # (Caddy sorts unmatched handle last as catch-all).
 #
 # Path policy:
-# - handle_path (strip prefix): apps that assume they own / (dashboard, opencode,
-#   stats, olivetin, victoriametrics).
+# - handle_path (strip prefix): apps that assume they own / (dashboard,
+#   opencode, olivetin, victoriametrics) plus LiteLLM, whose own FastAPI
+#   routes (e.g. the Swagger asset mount) are always registered at bare
+#   paths — the proxy must keep stripping the prefix; LiteLLM is instead
+#   told its external prefix via SERVER_ROOT_PATH (site-djbclark
+#   roles/litellm) purely so it *generates* correct absolute links
+#   (Swagger JS/CSS URLs, OpenAPI "servers", /ui redirects). Verified by
+#   reading litellm/proxy/proxy_server.py directly — root_path passed to
+#   FastAPI() only affects link generation, not routing.
 # - handle (preserve path): apps configured with a base/sub path (Grafana
-#   serve_from_sub_path + root_url=/grafana/; OpenObserve ZO_BASE_URI=/oo).
+#   serve_from_sub_path + root_url=/grafana/; OpenObserve ZO_BASE_URI=/oo)
+#   or apps whose backend route needs to see the literal path segment
+#   (stayturgid /stats — the dashboard backend's own /stats route, as
+#   opposed to /dashboard/* which lands on its bare "/" route).
 #   Stripping would 301-loop Grafana (root_url → strip → root_url) and send
 #   OO's /web/ redirect off the /oo/ prefix.
+#
+# OliveTin (still handle_path, unresolved): the pinned OliveTin 3000.17.1
+# webUI ships a static, pre-built index.html with a hardcoded
+# `<base href="/" />` and root-absolute /assets/*.js references baked in at
+# build time (verified in ~/.local/share/olivetin/webui/index.html — no
+# server-side templating). OliveTin's own docs (reverse-proxies/caddy.html)
+# document `externalRestAddress` for the API base under a subpath, but that
+# does not touch the static asset URLs, and there is no config key (checked
+# the binary's full koanf tag list) to rewrite the baked-in base href.
+# Neither handle nor handle_path fixes this without a replace_response-style
+# HTML rewrite, which was explicitly ruled out — escalating as a finding
+# rather than working around it (see djbclark/site-djbclark#84).
 
 # Fleet dashboard (legacy Flask; retained until full D7)
 handle_path /dashboard/* {
@@ -43,8 +65,15 @@ handle_path /litellm/* {
 }
 {% endif %}
 
-# Fleet stats (same backend as dashboard)
-handle_path /stats/* {
+# Fleet stats (same backend as dashboard; unlike /dashboard/* this must
+# preserve the "stats" segment — the backend's own /stats route needs it,
+# handle_path stripped it down to "/" and landed on the dashboard's route
+# instead (djbclark/stayturgid#234 / djbclark/site-djbclark#84). Named matcher
+# (not `handle /stats /stats/*`, which Caddy rejects — handle takes a single
+# path argument) covers both the bare path and anything under it (backend
+# route is strict_slashes=False).
+@stats path /stats /stats/*
+handle @stats {
 	reverse_proxy 127.0.0.1:{{ ports['fleet-dashboard'] }}
 }
 
