@@ -1,30 +1,140 @@
 {
+  "health_overrides": {
+    "Grafana (HTTPS)": {
+      "accepted_status_codes": [302]
+    },
+    "Grafana [loopback-only]": {
+      "accepted_status_codes": [301]
+    },
+    "OpenObserve (HTTP)": {
+      "accepted_status_codes": [308]
+    }
+  },
   "hidden": [],
   "services": [
-    {"group": "mac", "label": "Network Landing (root)", "url": "https://mac.example.ts.net"},
-    {"group": "mac", "label": "Grafana (HTTPS)", "url": "https://mac.example.ts.net/grafana/"},
-    {"group": "mac", "label": "OpenObserve (HTTPS)", "url": "https://mac.example.ts.net/oo/"},
-    {"group": "mac", "label": "OliveTin (HTTPS)", "url": "https://mac.example.ts.net/olivetin/"},
-    {"group": "mac", "label": "VictoriaMetrics (HTTPS)", "url": "https://mac.example.ts.net/vm/"},
-    {"group": "mac", "label": "OpenCode Web (HTTPS)", "url": "https://mac.example.ts.net/opencode/"},
-    {"group": "mac", "label": "Fleet Dashboard (HTTPS)", "url": "https://mac.example.ts.net/dashboard/"},
-    {"group": "mac", "label": "Fleet Stats (HTTPS)", "url": "https://mac.example.ts.net/stats/"},
-    {"group": "mac", "label": "LiteLLM Proxy (HTTPS)", "url": "https://mac.example.ts.net/litellm/"},
-    {"group": "mac", "label": "Open WebUI (HTTPS)", "url": "https://mac.example.ts.net:8086/"},
-    {"group": "mac", "label": "OpenUsage Limits API", "url": "http://localhost:6736/v1/limits"},
-    {"group": "mac", "label": "SSH Server (sshd)", "url": "ssh://mac.example.ts.net:22"},
-    {"group": "mac", "label": "Eternal Terminal (etserver)", "url": "et://mac.example.ts.net:2022"},
-    {"group": "mac", "label": "Apple Remote Desktop (ARD)", "url": "ard://mac.example.ts.net:3283"},
-    {"group": "mac", "label": "Caddy Health", "url": "http://localhost:8080"},
-    {"group": "devices", "label": "oneui-device FIRERPA", "url": "http://100.0.0.11:65000"},
-    {"group": "devices", "label": "stock-android-device FIRERPA", "url": "http://100.0.0.12:65000"},
-    {"group": "devices", "label": "fireos-device FIRERPA", "url": "http://100.0.0.13:65000"},
-    {"group": "devices", "label": "oneui-device FIRERPA (LAN)", "url": "http://192.0.2.11:65000"},
-    {"group": "devices", "label": "stock-android-device FIRERPA (LAN)", "url": "http://192.0.2.12:65000"},
-    {"group": "devices", "label": "oneui-device FIRERPA (MagicDNS)", "url": "http://oneui-device.example.ts.net:65000"},
-    {"group": "devices", "label": "stock-android-device FIRERPA (MagicDNS)", "url": "http://stock-android-device.example.ts.net:65000"},
-    {"group": "devices", "label": "fireos-device FIRERPA (MagicDNS)", "url": "http://fireos-device.example.ts.net:65000"},
-    {"group": "p7a", "label": "KVM Linux SSH (p7a-kvm)", "url": "ssh://p7a.example.ts.net:22"},
-    {"group": "mac", "label": "PHP-FPM / Dev Server", "url": "http://localhost:9000"}
+    {
+      "group": "mac",
+      "label": "Network Landing (root)",
+      "url": "https://mac.example.ts.net"
+    },
+    {
+      "group": "mac",
+      "label": "Grafana (HTTPS)",
+      "url": "https://mac.example.ts.net/grafana/"
+    },
+    {
+      "accepted_status_codes": [308],
+      "group": "mac",
+      "label": "OpenObserve (HTTPS)",
+      "url": "https://mac.example.ts.net/oo/"
+    },
+    {
+      "group": "mac",
+      "label": "OliveTin (HTTPS)",
+      "url": "https://mac.example.ts.net/olivetin/"
+    },
+    {
+      "group": "mac",
+      "label": "VictoriaMetrics (HTTPS)",
+      "url": "https://mac.example.ts.net/vm/"
+    },
+    {
+      "group": "mac",
+      "label": "OpenCode Web (HTTPS)",
+      "url": "https://mac.example.ts.net/opencode/"
+    },
+    {
+      "group": "mac",
+      "label": "Fleet Dashboard (HTTPS)",
+      "must_contain": "stayturgid fleet",
+      "url": "https://mac.example.ts.net/dashboard/"
+    },
+    {
+      "group": "mac",
+      "label": "Fleet Stats (HTTPS)",
+      "must_contain": "stayturgid stats",
+      "url": "https://mac.example.ts.net/stats/"
+    },
+    {
+      "group": "mac",
+      "label": "LiteLLM Proxy (HTTPS)",
+      "url": "https://mac.example.ts.net/litellm/"
+    },
+    {
+      "group": "mac",
+      "label": "Open WebUI (HTTPS)",
+      "url": "https://mac.example.ts.net:8086/"
+    },
+    {
+      "group": "mac",
+      "label": "OpenUsage Limits API",
+      "url": "http://localhost:6736/v1/limits"
+    },
+    {
+      "group": "mac",
+      "label": "SSH Server (sshd)",
+      "url": "ssh://mac.example.ts.net:22"
+    },
+    {
+      "group": "mac",
+      "label": "Eternal Terminal (etserver)",
+      "url": "et://mac.example.ts.net:2022"
+    },
+    {
+      "group": "mac",
+      "label": "Apple Remote Desktop (ARD)",
+      "url": "ard://mac.example.ts.net:3283"
+    },
+    { "group": "mac", "label": "Caddy Health", "url": "http://localhost:8080" },
+    {
+      "group": "devices",
+      "label": "oneui-device FIRERPA",
+      "url": "http://100.0.0.11:65000"
+    },
+    {
+      "group": "devices",
+      "label": "stock-android-device FIRERPA",
+      "url": "http://100.0.0.12:65000"
+    },
+    {
+      "group": "devices",
+      "label": "fireos-device FIRERPA",
+      "url": "http://100.0.0.13:65000"
+    },
+    {
+      "group": "devices",
+      "label": "oneui-device FIRERPA (LAN)",
+      "url": "http://192.0.2.11:65000"
+    },
+    {
+      "group": "devices",
+      "label": "stock-android-device FIRERPA (LAN)",
+      "url": "http://192.0.2.12:65000"
+    },
+    {
+      "group": "devices",
+      "label": "oneui-device FIRERPA (MagicDNS)",
+      "url": "http://oneui-device.example.ts.net:65000"
+    },
+    {
+      "group": "devices",
+      "label": "stock-android-device FIRERPA (MagicDNS)",
+      "url": "http://stock-android-device.example.ts.net:65000"
+    },
+    {
+      "group": "devices",
+      "label": "fireos-device FIRERPA (MagicDNS)",
+      "url": "http://fireos-device.example.ts.net:65000"
+    },
+    {
+      "group": "p7a",
+      "label": "KVM Linux SSH (p7a-kvm)",
+      "url": "ssh://p7a.example.ts.net:22"
+    },
+    {
+      "group": "mac",
+      "label": "PHP-FPM / Dev Server",
+      "url": "http://localhost:9000"
+    }
   ]
 }

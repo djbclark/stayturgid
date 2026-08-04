@@ -15,6 +15,7 @@ def mock_env(monkeypatch, tmp_path):
     monkeypatch.setattr(discover, "_resolve_site", mock_resolve)
     monkeypatch.setattr(discover, "announce_site_selection", lambda s, command: None)
     monkeypatch.setattr(state, "write_state", lambda d: None)
+    monkeypatch.setattr(discover, "_http_response", lambda _url, **_kwargs: (200, "application/json", "{}"))
     return site_dir
 
 
@@ -201,6 +202,71 @@ def test_probe_launchd(monkeypatch):
     assert discover._http_probe("launchd://homebrew.mxcl.herdr") == 200
     # test other is not
     assert discover._http_probe("launchd://homebrew.mxcl.other") is None
+
+
+def test_success_status_is_2xx_unless_catalog_allows_a_redirect():
+    assert discover._is_success_status(200, {})
+    assert not discover._is_success_status(308, {})
+    assert discover._is_success_status(308, {"accepted_status_codes": [308]})
+    assert not discover._is_success_status(500, {"accepted_status_codes": [308]})
+
+
+def test_catalog_health_override_applies_to_a_discovered_service(monkeypatch):
+    monkeypatch.setattr(
+        discover, "SERVICE_HEALTH_OVERRIDES", {"Grafana [loopback-only]": {"accepted_status_codes": [301]}}
+    )
+    configured = discover._service_health_config({"label": "Grafana [loopback-only]", "url": "http://127.0.0.1:3000"})
+    assert configured["accepted_status_codes"] == [301]
+    assert discover._is_success_status(301, configured)
+
+
+def test_public_host_http_port_is_probed_via_its_local_listener():
+    assert (
+        discover._probe_url("http://mac.example.ts.net:8088/path", "mac.example.ts.net") == "http://127.0.0.1:8088/path"
+    )
+    assert (
+        discover._probe_url("https://mac.example.ts.net/path", "mac.example.ts.net")
+        == "https://mac.example.ts.net/path"
+    )
+
+
+def test_html_validation_detects_escaped_markup_missing_marker_and_dead_assets(monkeypatch):
+    responses = {
+        "https://example.test/static/app.js": (200, "application/javascript", ""),
+        "https://example.test/static/site.css": (404, "text/plain", "missing"),
+    }
+    monkeypatch.setattr(discover, "_http_response", lambda url, **_kwargs: responses.get(url))
+
+    problems = discover._validate_html_content(
+        "https://example.test/dashboard/",
+        '<html><head><script src="/static/app.js"></script><link href="/static/site.css" rel="stylesheet"></head>&lt;div&gt;oops</html>',
+        {"must_contain": "expected dashboard marker"},
+    )
+
+    assert "response contains escaped HTML markup" in problems
+    assert "response missing required marker: expected dashboard marker" in problems
+    assert any("static/site.css returned HTTP 404" in problem for problem in problems)
+
+
+def test_service_health_distinguishes_http_failure_content_failure_and_unreachable(monkeypatch):
+    monkeypatch.setattr(discover, "_http_probe", lambda _url, **_kwargs: 500)
+    failed = discover._service_health("https://example.test/", {})
+    assert failed == {
+        "reachable": False,
+        "status_code": 500,
+        "health": "degraded",
+        "health_problems": ["HTTP 500 is not an accepted success status"],
+    }
+
+    monkeypatch.setattr(discover, "_http_probe", lambda _url, **_kwargs: 200)
+    monkeypatch.setattr(discover, "_http_response", lambda _url, **_kwargs: (200, "text/html", "&lt;div&gt;broken"))
+    content_broken = discover._service_health("https://example.test/", {})
+    assert content_broken["reachable"] is True
+    assert content_broken["health"] == "degraded"
+    assert content_broken["content_ok"] is False
+
+    monkeypatch.setattr(discover, "_http_probe", lambda _url, **_kwargs: None)
+    assert discover._service_health("https://example.test/", {}) == {"reachable": False, "health": "unreachable"}
 
 
 def test_load_dashboard_brew_services(mock_env, monkeypatch):
