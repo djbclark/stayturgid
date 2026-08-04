@@ -25,6 +25,7 @@
         --text: #c8c8d4;
         --text-dim: #6b7280;
         --ok: #22c55e;
+        --warn: #f59e0b;
         --error: #ef4444;
         --link: #60a5fa;
         --radius: 8px;
@@ -115,6 +116,9 @@
       .service.unreachable {
         opacity: 0.5;
       }
+      .service.degraded {
+        border-color: var(--warn);
+      }
       .service-link {
         color: var(--link);
         text-decoration: none;
@@ -141,6 +145,9 @@
       }
       .status-dot.error {
         background: var(--error);
+      }
+      .status-dot.warning {
+        background: var(--warn);
       }
       .hide-btn {
         background: none;
@@ -202,10 +209,12 @@
     </div>
 
     {% macro service_row(svc) %}
-    <div class="service {% if not svc.reachable %}unreachable{% endif %}">
+    <div
+      class="service {{ svc.health | default('healthy' if svc.reachable else 'unreachable') }}"
+    >
       <span
-        class="status-dot {% if svc.reachable %}ok{% else %}error{% endif %}"
-        title="{{ 'reachable' if svc.reachable else 'unreachable' }}"
+        class="status-dot {% if svc.health | default('healthy' if svc.reachable else 'unreachable') == 'healthy' %}ok{% elif svc.health | default('healthy' if svc.reachable else 'unreachable') == 'degraded' %}warning{% else %}error{% endif %}"
+        title="{% if svc.health | default('healthy' if svc.reachable else 'unreachable') == 'healthy' %}healthy{% elif svc.health | default('healthy' if svc.reachable else 'unreachable') == 'degraded' %}reachable but unhealthy: {{ svc.health_problems | default([]) | join('; ') }}{% else %}unreachable{% endif %}"
       ></span>
       <span class="service-label"
         >{{ svc.display_label | default(svc.label) }}</span

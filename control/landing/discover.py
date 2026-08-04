@@ -15,8 +15,13 @@ import socket
 import subprocess
 import sys
 from collections.abc import Callable, Mapping
+from html.parser import HTMLParser
+from http.client import HTTPException
 from pathlib import Path
 from typing import Any
+from urllib.error import HTTPError, URLError
+from urllib.parse import urljoin
+from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 _REPO = Path(__file__).resolve().parents[2]
 _LIB = _REPO / "control" / "lib"
@@ -87,6 +92,31 @@ KNOWN_SERVICES = state.load_catalog().get("services", KNOWN_SERVICES)
 
 # Generic catalog host in services.json / KNOWN_SERVICES (RFC-style example).
 _CATALOG_PUBLIC_HOST = "mac.example.ts.net"
+_ESCAPED_TAG_RE = re.compile(
+    r"&lt;/?(?:html|head|body|div|script|link|main|section|article|p|h[1-6])(?:[\s&gt;])", re.I
+)
+
+
+class _StaticAssetParser(HTMLParser):
+    """Collect fetchable stylesheet and script URLs without executing page code."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.urls: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        values = dict(attrs)
+        if tag == "script" and values.get("src"):
+            self.urls.append(str(values["src"]))
+        elif tag == "link" and values.get("href"):
+            self.urls.append(str(values["href"]))
+
+
+class _NoRedirect(HTTPRedirectHandler):
+    """Keep expected redirects observable instead of silently following them."""
+
+    def redirect_request(self, req: Request, fp: Any, code: int, msg: str, headers: Any, newurl: str) -> None:
+        return None
 
 
 def _resolve_site(environ: Mapping[str, str]) -> SiteSelection:
@@ -179,6 +209,14 @@ def _known_services_for_site(site_dir: Path) -> list[dict]:
     return out
 
 
+def _probe_url(url: str, public_host: str | None) -> str:
+    """Use loopback for a local HTTP listener advertised through the site host."""
+    if not public_host or public_host not in url or not url.startswith("http://"):
+        return url
+    m = re.match(r"http://" + re.escape(public_host) + r":(\d+)(.*)", url)
+    return f"http://127.0.0.1:{m.group(1)}{m.group(2)}" if m else url
+
+
 def _http_probe(url: str, timeout: float = 3.0, public_host: str | None = None, **_kwargs) -> int | None:
     """Return HTTP status code (or 200 for open TCP non-HTTP services) or None if unreachable."""
     if url.startswith(("ssh://", "et://", "adb://", "ard://", "tcp://", "launchd://")):
@@ -213,13 +251,7 @@ def _http_probe(url: str, timeout: float = 3.0, public_host: str | None = None, 
             h = "127.0.0.1"
         return 200 if _tcp_probe(h, p, timeout=timeout) else None
 
-    probe_url = url
-    if public_host and public_host in url and url.startswith("http://"):
-        import re
-
-        m = re.match(r"http://" + re.escape(public_host) + r":(\d+)(.*)", url)
-        if m:
-            probe_url = f"http://127.0.0.1:{m.group(1)}{m.group(2)}"
+    probe_url = _probe_url(url, public_host)
 
     try:
         r = subprocess.run(
@@ -232,6 +264,99 @@ def _http_probe(url: str, timeout: float = 3.0, public_host: str | None = None, 
         return int(code) if code.isdigit() and code != "000" else None
     except (OSError, subprocess.TimeoutExpired, ValueError):
         return None
+
+
+def _http_response(url: str, timeout: float = 3.0, public_host: str | None = None) -> tuple[int, str, str] | None:
+    """Fetch one HTTP response without following redirects.
+
+    This deliberately uses only the standard library and never executes page
+    JavaScript.  A response body is capped because discovery runs frequently.
+    """
+    request = Request(_probe_url(url, public_host), headers={"User-Agent": "stayturgid-landing-discover"})
+    opener = build_opener(_NoRedirect())
+    try:
+        with opener.open(request, timeout=timeout) as response:
+            body = response.read(1_048_576).decode("utf-8", errors="replace")
+            return response.status, response.headers.get_content_type(), body
+    except HTTPError as error:
+        body = error.read(1_048_576).decode("utf-8", errors="replace")
+        return error.code, error.headers.get_content_type(), body
+    except (HTTPException, OSError, URLError, ValueError):
+        return None
+
+
+def _is_success_status(status: int, service: Mapping[str, Any]) -> bool:
+    """Accept 2xx responses by default plus a catalogued status allowlist."""
+    allowed = service.get("accepted_status_codes", [])
+    return 200 <= status < 300 or (isinstance(allowed, list) and status in allowed)
+
+
+def _validate_html_content(
+    url: str, body: str, service: Mapping[str, Any], timeout: float = 3.0, public_host: str | None = None
+) -> list[str]:
+    """Return static HTML problems: escaped markup, missing marker, or assets."""
+    problems: list[str] = []
+    if _ESCAPED_TAG_RE.search(body):
+        problems.append("response contains escaped HTML markup")
+
+    marker = service.get("must_contain")
+    if isinstance(marker, str) and marker and marker not in body:
+        problems.append(f"response missing required marker: {marker}")
+
+    parser = _StaticAssetParser()
+    try:
+        parser.feed(body)
+    except (ValueError, AssertionError):
+        problems.append("response HTML could not be parsed")
+        return problems
+
+    for asset in dict.fromkeys(parser.urls):
+        asset_url = urljoin(url, asset)
+        if asset_url.startswith(("data:", "javascript:", "mailto:", "tel:")):
+            continue
+        result = _http_response(asset_url, timeout=timeout, public_host=public_host)
+        if result is None or result[0] != 200:
+            status = "unreachable" if result is None else f"HTTP {result[0]}"
+            problems.append(f"asset {asset_url} returned {status}")
+    return problems
+
+
+def _service_health(url: str, service: Mapping[str, Any], *, public_host: str | None = None) -> dict[str, Any]:
+    """Classify a service as healthy, degraded, or unreachable.
+
+    ``reachable`` remains a strict successful-response value.  ``health`` is
+    separate so a server that answers with HTTP 500 is visibly distinct from
+    a host that cannot be reached at all.
+    """
+    status = _http_probe(url, public_host=public_host)
+    if status is None:
+        return {"reachable": False, "health": "unreachable"}
+
+    result: dict[str, Any] = {"reachable": _is_success_status(status, service), "status_code": status}
+    if not result["reachable"]:
+        result.update({"health": "degraded", "health_problems": [f"HTTP {status} is not an accepted success status"]})
+        return result
+
+    if not url.startswith(("http://", "https://")):
+        result["health"] = "healthy"
+        return result
+
+    response = _http_response(url, public_host=public_host)
+    if response is None:
+        # The inexpensive status probe succeeded. Do not turn a transient
+        # body-fetch failure into a green result, and make it diagnosable.
+        result.update({"health": "degraded", "health_problems": ["response body could not be fetched"]})
+        return result
+    _body_status, content_type, body = response
+    if content_type != "text/html":
+        result["health"] = "healthy"
+        return result
+
+    problems = _validate_html_content(url, body, service, public_host=public_host)
+    result.update({"health": "healthy" if not problems else "degraded", "content_ok": not problems})
+    if problems:
+        result["health_problems"] = problems
+    return result
 
 
 def _tcp_probe(host: str, port: int, timeout: float = 2.0) -> bool:
@@ -938,15 +1063,15 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
     static_urls = {ks["url"] for ks in _known_services_for_site(site_dir)}
     for url, s in sorted(known_urls.items()):
         s["url"] = url
-        status = _http_probe(url, public_host=public_host)
-        if status is not None:
-            s["reachable"] = True
+        for field in ("content_ok", "health_problems"):
+            s.pop(field, None)
+        health = _service_health(url, s, public_host=public_host)
+        s.update(health)
+        if health["health"] != "unreachable":
             s["last_seen"] = now
-            s["status_code"] = status
             if url not in hidden:
                 services.append(s)
         else:
-            s["reachable"] = False
             # Check if this is an auto-discovered unregistered port that is no longer reachable.
             # Dynamic localhost entries (e.g., ephemeral ports) that are no longer listening are pruned.
             try:

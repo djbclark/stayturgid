@@ -41,6 +41,7 @@ def test_discovery_writes_runtime_state_not_catalog(tmp_path, monkeypatch):
     monkeypatch.setattr(discover, "KNOWN_SERVICES", state.load_catalog()["services"])
     monkeypatch.setattr(discover, "_scan_localhost", lambda **_kwargs: [])
     monkeypatch.setattr(discover, "_http_probe", lambda _url, **_kwargs: 200)
+    monkeypatch.setattr(discover, "_http_response", lambda _url, **_kwargs: (200, "application/json", "{}"))
 
     before = catalog.read_text(encoding="utf-8")
     result = discover.discover()
@@ -48,6 +49,13 @@ def test_discovery_writes_runtime_state_not_catalog(tmp_path, monkeypatch):
     assert result["services"][0]["status_code"] == 200
     assert catalog.read_text(encoding="utf-8") == before
     assert runtime.is_file()
+
+
+def test_landing_template_has_healthy_degraded_and_unreachable_badges():
+    template = (ROOT / "control" / "landing" / "templates" / "index.html").read_text(encoding="utf-8")
+    assert "status-dot" in template
+    assert "warning" in template
+    assert "reachable but unhealthy" in template
 
 
 def test_load_registered_ports_from_registry(tmp_path: Path) -> None:
