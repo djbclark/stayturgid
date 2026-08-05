@@ -12,6 +12,7 @@ jobs:
     env:
       ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
       SECRETSPEC_FILE: ${{ github.workspace }}/.github/ci-secretspec.toml
+      SECRETSPEC_PROVIDER: dotenv
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
