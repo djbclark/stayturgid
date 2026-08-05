@@ -46,8 +46,8 @@ jobs:
         run: |
           curl -fsSLO https://github.com/cachix/secretspec/releases/download/v0.18.0/secretspec-x86_64-unknown-linux-gnu.tar.xz
           tar -xJf secretspec-x86_64-unknown-linux-gnu.tar.xz
-          sudo mv secretspec /usr/local/bin/
-          rm secretspec-x86_64-unknown-linux-gnu.tar.xz
+          sudo mv secretspec-x86_64-unknown-linux-gnu/secretspec /usr/local/bin/
+          rm -rf secretspec-x86_64-unknown-linux-gnu.tar.xz secretspec-x86_64-unknown-linux-gnu
       - name: Install lychee (link checker)
         run: |
           curl -fsSLO https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-x86_64-unknown-linux-gnu.tar.gz
