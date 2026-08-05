@@ -48,8 +48,8 @@ from control.lib.ansible_context import (
     resolved_env,
 )
 from control.lib.fleet_deploy_lock import FleetLockHeld, fleet_lock
-from control.lib.fleet_targets import FLEET_STATUS_VAR, inventory_list as _inventory_list
-from control.lib.fleet_targets import offline_hosts, parse_inventory_hosts
+from control.lib.fleet_targets import FLEET_STATUS_VAR, offline_hosts, parse_inventory_hosts
+from control.lib.fleet_targets import inventory_list as _inventory_list
 
 SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "site.yml"
 MAC_SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "control_node" / "site.yml"
@@ -60,6 +60,7 @@ REQUIREMENTS = REPO_ROOT / "ansible" / "requirements.yml"
 # letting a hung or endlessly-retrying rollout run indefinitely (see #104).
 # Override with STAYTURGID_DEPLOY_TIMEOUT_SECONDS for unusually large fleets.
 DEPLOY_TIMEOUT_SECONDS = int(os.environ.get("STAYTURGID_DEPLOY_TIMEOUT_SECONDS", "1800"))
+
 
 class Scope(str, Enum):
     FULL = "full"
@@ -144,6 +145,9 @@ def require_ansible() -> None:
     if not shutil.which("ansible-playbook"):
         print("ERROR: ansible-playbook not found (brew install ansible)", file=sys.stderr)
         sys.exit(1)
+    if not shutil.which("secretspec"):
+        print("ERROR: secretspec not found (brew install secretspec)", file=sys.stderr)
+        sys.exit(1)
 
 
 def _requirements_hash() -> str:
@@ -223,6 +227,9 @@ def run_playbook(
     # belong to this checkout. Passing the latter explicitly prevents roles
     # from inferring the product root from an overlay's ansible.cfg path.
     cmd = [
+        "secretspec",
+        "run",
+        "--",
         "ansible-playbook",
         str(playbook),
         "-e",

@@ -120,7 +120,7 @@ def main() -> int:
         choices=["repair"],
         help="Bridge mode: repair (stayturgid_repair.py)",
     )
-    args = parser.parse_args()
+    _ = parser.parse_args()
 
     pidfile = os.path.join(STG, "run", "bridges.pid")
     if _pidfile_alive(pidfile):

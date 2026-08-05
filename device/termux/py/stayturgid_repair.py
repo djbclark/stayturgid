@@ -480,8 +480,7 @@ def ensure_tailscale(have_sh=False):
     restored = _wait_for_tailscale(have_sh=have_sh)
     if not restored:
         log(
-            "Tailscale still down after CONNECT_VPN broadcast; leaving the "
-            "foreground app untouched",
+            "Tailscale still down after CONNECT_VPN broadcast; leaving the foreground app untouched",
             NOTICE,
         )
 
@@ -1226,12 +1225,10 @@ def main():
         auto_profile = "retired"
         # Shizuku: only re-apply when Shizuku is down.
         _, sf_out = sh_adb("[ -f /data/local/tmp/shizuku-fleet.json ] && echo ok || echo missing")
-        profile = "/data/local/tmp/shizuku-fleet.json"
         if "missing" in sf_out:
             _, sf_out2 = sh_adb("[ -f /sdcard/Download/shizuku-fleet.json ] && echo ok || echo missing")
             if "ok" in sf_out2:
                 sf_out = sf_out2
-                profile = "/sdcard/Download/shizuku-fleet.json"
 
         if "ok" in sf_out:
             shizuku_profile = "present"

@@ -49,9 +49,7 @@ SSH_TIMEOUT_SEC = int(os.environ.get("STAYTURGID_TERMUX_PKG_CHECK_TIMEOUT", "180
 # apt list --upgradable line, e.g.:
 #   curl/stable 8.12.1 aarch64 [upgradable from: 8.11.0]
 #   libandroid-support/stable 29-1 aarch64 [upgradable from: 28-3]
-_UPGRADABLE_RE = re.compile(
-    r"^([^/\s]+)/\S+\s+(\S+)\s+\S+\s+\[upgradable from:\s*([^\]]+)\]\s*$"
-)
+_UPGRADABLE_RE = re.compile(r"^([^/\s]+)/\S+\s+(\S+)\s+\S+\s+\[upgradable from:\s*([^\]]+)\]\s*$")
 
 
 def parse_apt_upgradable(text: str) -> list[dict[str, str]]:
@@ -225,10 +223,7 @@ def main(argv: list[str] | None = None) -> int:
         if not args.dry_run:
             hermes_notify(message)
     else:
-        print(
-            "No Termux package updates available on %s"
-            % (", ".join(hosts) if hosts else "(none)")
-        )
+        print("No Termux package updates available on %s" % (", ".join(hosts) if hosts else "(none)"))
 
     # Errors contacting hosts are non-fatal for the "updates available" path
     # (same spirit as check_apk_updates treating one bad GitHub repo as skip),

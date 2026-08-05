@@ -43,6 +43,9 @@ def test_nightly_runner_uses_resolved_site_config(monkeypatch, tmp_path):
     # --check skips the #152 pre-check so subprocess.run is only ansible-playbook.
     assert nightly.main(["--check", "--limit", "oneui-device"]) == 0
     assert seen["command"] == [
+        "secretspec",
+        "run",
+        "--",
         "ansible-playbook",
         str(nightly.PLAYBOOK),
         "-e",
@@ -128,10 +131,10 @@ def test_nightly_runs_precheck_before_upgrade(monkeypatch, tmp_path):
     assert nightly.main(["--limit", "s24"]) == 0
     assert len(calls) >= 2
     assert any("check_termux_pkg_updates.py" in str(c) for c in calls)
-    assert any(c and c[0] == "ansible-playbook" for c in calls)
+    assert any(c and "ansible-playbook" in c for c in calls)
     # Pre-check before ansible.
     pre_idx = next(i for i, c in enumerate(calls) if "check_termux_pkg_updates.py" in str(c))
-    ap_idx = next(i for i, c in enumerate(calls) if c and c[0] == "ansible-playbook")
+    ap_idx = next(i for i, c in enumerate(calls) if c and "ansible-playbook" in c)
     assert pre_idx < ap_idx
     assert "--limit" in calls[pre_idx]
     assert "s24" in calls[pre_idx]
@@ -172,5 +175,5 @@ def test_nightly_continues_when_precheck_times_out(monkeypatch, tmp_path):
     monkeypatch.setattr(nightly.subprocess, "run", fake_run)
 
     assert nightly.main(["--limit", "s24"]) == 0
-    assert any(c and c[0] == "ansible-playbook" for c in calls)
+    assert any(c and "ansible-playbook" in c for c in calls)
     assert any("pre-check failed" in msg for msg in logged)

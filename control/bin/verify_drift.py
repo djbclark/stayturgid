@@ -49,7 +49,7 @@ def main(argv: list[str] | None = None) -> int:
     env["ANSIBLE_STDOUT_CALLBACK"] = "default"
 
     proc = subprocess.run(
-        ["ansible-playbook", str(PLAYBOOK), "-l", hosts],
+        ["secretspec", "run", "--", "ansible-playbook", str(PLAYBOOK), "-l", hosts],
         env=env,
         timeout=120,
     )

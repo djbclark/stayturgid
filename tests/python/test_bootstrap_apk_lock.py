@@ -24,22 +24,20 @@ def test_every_github_apk_is_immutably_locked():
 def test_only_x11_has_the_explicit_mutable_tag_snapshot_exception():
     mutable_aliases = {"nightly"}
     snapshots = [apk for apk in _catalog() if apk["gh_tag"] in mutable_aliases]
-    assert snapshots == [
-        next(apk for apk in _catalog() if apk["id"] == "com.termux.x11")
-    ]
+    assert snapshots == [next(apk for apk in _catalog() if apk["id"] == "com.termux.x11")]
     assert snapshots[0]["mutable_tag_snapshot"] is True
 
 
 def test_x11_snapshot_policy_is_limited_and_verified_on_every_deploy():
-    role_tasks = (
-        ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/main.yml"
-    ).read_text(encoding="utf-8")
+    role_tasks = (ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/main.yml").read_text(
+        encoding="utf-8"
+    )
     install_tasks = (
         ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml"
     ).read_text(encoding="utf-8")
-    module = (
-        ROOT / "ansible_collections/stayturgid/android_common/plugins/modules/android_apk.py"
-    ).read_text(encoding="utf-8")
+    module = (ROOT / "ansible_collections/stayturgid/android_common/plugins/modules/android_apk.py").read_text(
+        encoding="utf-8"
+    )
 
     assert "_locked_apk.id == 'com.termux.x11' and _locked_apk.gh_tag == 'nightly'" in role_tasks
     assert 'verify_on_current: "{{ _apk.mutable_tag_snapshot | default(false) }}"' in install_tasks
@@ -64,9 +62,9 @@ def test_normal_deploy_ensures_before_it_verifies():
 
 def test_monkey_launch_is_limited_to_a_real_install():
     tasks = yaml.safe_load(
-        (
-            ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml"
-        ).read_text(encoding="utf-8")
+        (ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml").read_text(
+            encoding="utf-8"
+        )
     )
     reconcile = next(task for task in tasks if task["name"].startswith("Reconcile locked APK"))
     install = next(task for task in reconcile["block"] if task["name"].startswith("Install over ADB"))

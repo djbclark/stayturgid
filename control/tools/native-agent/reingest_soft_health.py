@@ -10,10 +10,9 @@ Never deletes or truncates the JSONL. Skips corrupt lines. Batches POSTs with
 retries on 5xx / connection errors (not on permanent 4xx except 429).
 
 Usage:
-  ./reingest_soft_health.py
-  ./reingest_soft_health.py --since 2026-07-20T00:00:00Z
-  ./reingest_soft_health.py --dry-run
-  OPENOBSERVE_ROOT_EMAIL=… OPENOBSERVE_ROOT_PASSWORD=… ./reingest_soft_health.py
+  secretspec run -- ./reingest_soft_health.py
+  secretspec run -- ./reingest_soft_health.py --since 2026-07-20T00:00:00Z
+  secretspec run -- ./reingest_soft_health.py --dry-run
 """
 
 from __future__ import annotations
@@ -34,28 +33,6 @@ import stats  # noqa: E402
 DEFAULT_URI = "http://127.0.0.1:5080/oo/api/default/soft_health/_json"
 BATCH = 50
 MAX_ATTEMPTS = 12
-
-
-def _load_env_files() -> None:
-    for rel in (
-        Path.home() / ".config" / "djbclark" / "observability.env",
-        Path.home() / ".config" / "stayturgid" / "observability.env",
-    ):
-        if not rel.is_file():
-            continue
-        try:
-            for line in rel.read_text(encoding="utf-8", errors="replace").splitlines():
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                if line.startswith("export "):
-                    line = line[len("export ") :]
-                k, _, v = line.partition("=")
-                k, v = k.strip(), v.strip().strip('"').strip("'")
-                if k and k not in os.environ:
-                    os.environ[k] = v
-        except OSError:
-            pass
 
 
 def _post_batch(uri: str, user: str, password: str, rows: list[dict]) -> None:
@@ -87,8 +64,8 @@ def _post_batch(uri: str, user: str, password: str, rows: list[dict]) -> None:
             if e.code in (401, 403):
                 raise SystemExit(
                     f"OpenObserve auth failed HTTP {e.code}. "
-                    "Set OPENOBSERVE_ROOT_EMAIL / OPENOBSERVE_ROOT_PASSWORD "
-                    "(and Vector launchd EnvironmentVariables)."
+                    "Run via `secretspec run -- ./reingest_soft_health.py` "
+                    "(and update Vector launchd EnvironmentVariables)."
                 ) from e
             if e.code == 429 or e.code >= 500:
                 time.sleep(min(60, 2**attempt))
@@ -101,7 +78,6 @@ def _post_batch(uri: str, user: str, password: str, rows: list[dict]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    _load_env_files()
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--uri", default=os.environ.get("SOFT_HEALTH_OO_URI", DEFAULT_URI))
     p.add_argument("--since", default=None, help="ISO ts inclusive, e.g. 2026-07-20T00:00:00Z")

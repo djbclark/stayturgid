@@ -132,7 +132,7 @@ def test_deploy_termux_uses_resolved_context(tmp_path, monkeypatch) -> None:
 
     monkeypatch.setattr(dt.subprocess, "run", fake_run)
     assert dt.main(["oneui-device"]) == 0
-    playbook_calls = [(c, k) for c, k in seen if c and c[0] == "ansible-playbook"]
+    playbook_calls = [(c, k) for c, k in seen if c and "ansible-playbook" in c]
     assert playbook_calls, "ansible-playbook was not invoked"
     _, kwargs = playbook_calls[0]
     assert kwargs["env"]["ANSIBLE_CONFIG"] == str(config)

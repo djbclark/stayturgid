@@ -64,35 +64,6 @@ KNOWN_APPS = (
 )
 OUR_CONFIG_PREFIXES = (Path.home() / ".config" / "stayturgid",)
 
-# Own-mode secrets that ansible roles read via lookup('env', ...) (e.g.
-# serverapp_openobserve, serverapp_vector). Not committed, not in secretspec —
-# self-healed here so a fresh shell/agent session doesn't need to remember to
-# `source` it before running site-serverapps.
-OWN_MODE_SECRETS_ENV_FILE = Path.home() / ".config" / "stayturgid" / "observability.env"
-
-
-def _load_own_mode_secrets_env(path: Path = OWN_MODE_SECRETS_ENV_FILE) -> dict[str, str]:
-    """Parse simple KEY=VALUE lines from an own-mode secrets file.
-
-    Never overrides a variable already present in the environment, so an
-    operator who did explicitly export something (e.g. for a one-off
-    override) still wins. Missing file is not an error — own-mode apps that
-    don't need these vars run fine without it.
-    """
-    if not path.is_file():
-        return {}
-    loaded: dict[str, str] = {}
-    for raw_line in path.read_text().splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        if key and key not in os.environ:
-            loaded[key] = value
-    return loaded
-
 
 class ServerAppsError(Exception):
     """Precondition, execution, or user-content refusal for site-serverapps."""
@@ -2077,6 +2048,9 @@ def _run_ansible_role(plan: ServerAppsPlan, app: AppPlan, *, dry_run: bool) -> N
         return
 
     cmd = [
+        "secretspec",
+        "run",
+        "--",
         "ansible-playbook",
         "-i",
         "localhost,",
@@ -2096,7 +2070,6 @@ def _run_ansible_role(plan: ServerAppsPlan, app: AppPlan, *, dry_run: bool) -> N
             text=True,
             env={
                 **os.environ,
-                **_load_own_mode_secrets_env(),
                 "ANSIBLE_ROLES_PATH": str(plan.product_root / "ansible" / "roles"),
             },
         )
