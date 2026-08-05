@@ -50,6 +50,9 @@ def main(argv: list[str] | None = None) -> int:
     if not shutil.which("ansible-playbook"):
         print("ERROR: ansible-playbook not found (brew install ansible)", file=sys.stderr)
         return 1
+    if not shutil.which("secretspec"):
+        print("ERROR: secretspec not found (brew install secretspec)", file=sys.stderr)
+        return 1
 
     context = resolve_ansible_context(REPO_ROOT)
     require_limit_hosts(context, args.host)
@@ -87,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     rc = subprocess.run(
-        ["ansible-playbook", str(PLAYBOOK), "--limit", args.host],
+        ["secretspec", "run", "--", "ansible-playbook", str(PLAYBOOK), "--limit", args.host],
         env=resolved_env(REPO_ROOT),
         cwd=REPO_ROOT,
     ).returncode

@@ -87,6 +87,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     cmd = [
+        "secretspec",
+        "run",
+        "--",
         "ansible-playbook",
         str(PLAYBOOK),
         "-e",
@@ -147,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
         log("ERROR: %s" % exc)
         return 3
     except FileNotFoundError:
-        log("ERROR: ansible-playbook not found on PATH=%s" % env.get("PATH"))
+        log("ERROR: secretspec or ansible-playbook not found on PATH=%s" % env.get("PATH"))
         return 2
     except subprocess.TimeoutExpired:
         log("ERROR: ansible-playbook timed out")

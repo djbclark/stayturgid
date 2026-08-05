@@ -164,7 +164,7 @@ def run_bootstrap_playbook(
         stdout=subprocess.DEVNULL,
         cwd=repo_root,
     )
-    cmd = ["ansible-playbook", str(playbook)]
+    cmd = ["secretspec", "run", "--", "ansible-playbook", str(playbook)]
     if hosts:
         cmd.extend(["--limit", ",".join(hosts)])
     return subprocess.run(cmd, env=env, cwd=repo_root).returncode

@@ -36,6 +36,9 @@ def test_run_playbook_argv_full(monkeypatch):
     monkeypatch.setattr(df.subprocess, "run", fake_run)
     df.run_playbook(df.SITE_PLAYBOOK, limit=["oneui-device", "fireos-device"], check=False, tags=None)
     assert seen[0] == [
+        "secretspec",
+        "run",
+        "--",
         "ansible-playbook",
         str(df.SITE_PLAYBOOK),
         "-e",
@@ -75,6 +78,9 @@ def test_run_playbook_argv_check_and_tags(monkeypatch):
     monkeypatch.setattr(df.subprocess, "run", fake_run)
     df.run_playbook(df.SITE_PLAYBOOK, limit=["oneui-device"], check=True, tags="app-stores")
     assert seen[0] == [
+        "secretspec",
+        "run",
+        "--",
         "ansible-playbook",
         str(df.SITE_PLAYBOOK),
         "-e",

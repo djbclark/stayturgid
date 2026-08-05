@@ -36,28 +36,6 @@ BATCH = 50
 MAX_ATTEMPTS = 12
 
 
-def _load_env_files() -> None:
-    for rel in (
-        Path.home() / ".config" / "djbclark" / "observability.env",
-        Path.home() / ".config" / "stayturgid" / "observability.env",
-    ):
-        if not rel.is_file():
-            continue
-        try:
-            for line in rel.read_text(encoding="utf-8", errors="replace").splitlines():
-                line = line.strip()
-                if not line or line.startswith("#") or "=" not in line:
-                    continue
-                if line.startswith("export "):
-                    line = line[len("export ") :]
-                k, _, v = line.partition("=")
-                k, v = k.strip(), v.strip().strip('"').strip("'")
-                if k and k not in os.environ:
-                    os.environ[k] = v
-        except OSError:
-            pass
-
-
 def _post_batch(uri: str, user: str, password: str, rows: list[dict]) -> None:
     body = json.dumps(rows).encode("utf-8")
     req = urllib.request.Request(
@@ -101,7 +79,6 @@ def _post_batch(uri: str, user: str, password: str, rows: list[dict]) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    _load_env_files()
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--uri", default=os.environ.get("SOFT_HEALTH_OO_URI", DEFAULT_URI))
     p.add_argument("--since", default=None, help="ISO ts inclusive, e.g. 2026-07-20T00:00:00Z")

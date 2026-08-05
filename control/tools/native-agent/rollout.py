@@ -28,6 +28,7 @@ REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "control" / "lib"))
 import stayturgid_device as dev  # noqa: E402
+
 from control.lib.fleet_targets import resolve_hosts  # noqa: E402
 
 APK = REPO / "device" / "native-agent" / "app" / "build" / "outputs" / "apk" / "debug" / "app-debug.apk"
