@@ -10,10 +10,9 @@ Never deletes or truncates the JSONL. Skips corrupt lines. Batches POSTs with
 retries on 5xx / connection errors (not on permanent 4xx except 429).
 
 Usage:
-  ./reingest_soft_health.py
-  ./reingest_soft_health.py --since 2026-07-20T00:00:00Z
-  ./reingest_soft_health.py --dry-run
-  OPENOBSERVE_ROOT_EMAIL=… OPENOBSERVE_ROOT_PASSWORD=… ./reingest_soft_health.py
+  secretspec run -- ./reingest_soft_health.py
+  secretspec run -- ./reingest_soft_health.py --since 2026-07-20T00:00:00Z
+  secretspec run -- ./reingest_soft_health.py --dry-run
 """
 
 from __future__ import annotations
@@ -65,8 +64,8 @@ def _post_batch(uri: str, user: str, password: str, rows: list[dict]) -> None:
             if e.code in (401, 403):
                 raise SystemExit(
                     f"OpenObserve auth failed HTTP {e.code}. "
-                    "Set OPENOBSERVE_ROOT_EMAIL / OPENOBSERVE_ROOT_PASSWORD "
-                    "(and Vector launchd EnvironmentVariables)."
+                    "Run via `secretspec run -- ./reingest_soft_health.py` "
+                    "(and update Vector launchd EnvironmentVariables)."
                 ) from e
             if e.code == 429 or e.code >= 500:
                 time.sleep(min(60, 2**attempt))
