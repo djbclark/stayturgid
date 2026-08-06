@@ -38,20 +38,15 @@ except ImportError:
 
 
 def get_bearer_token() -> str | None:
-    path = os.path.expanduser("~/.config/stayturgid/secretspec.toml")
-    if not os.path.exists(path):
-        return None
     try:
-        import tomllib
-    except ImportError:
-        try:
-            import tomli as tomllib
-        except ImportError:
-            return None
-    try:
-        with open(path, "rb") as f:
-            data = tomllib.load(f)
-        return data.get("firerpa_mcp_token")
+        res = subprocess.run(
+            ["sudo", "-n", "-u", "_secretspec", "secretspec", "-f", "/var/db/stayturgid-secrets/secretspec.toml", "get", "firerpa_mcp_token"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        token = res.stdout.strip()
+        return token if token else None
     except Exception:
         return None
 

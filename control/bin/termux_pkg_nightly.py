@@ -87,7 +87,13 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     cmd = [
+        "sudo",
+        "-n",
+        "-u",
+        "_secretspec",
         "secretspec",
+        "-f",
+        "/var/db/stayturgid-secrets/secretspec.toml",
         "run",
         "--",
         "ansible-playbook",

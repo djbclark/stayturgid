@@ -227,7 +227,13 @@ def run_playbook(
     # belong to this checkout. Passing the latter explicitly prevents roles
     # from inferring the product root from an overlay's ansible.cfg path.
     cmd = [
+        "sudo",
+        "-n",
+        "-u",
+        "_secretspec",
         "secretspec",
+        "-f",
+        "/var/db/stayturgid-secrets/secretspec.toml",
         "run",
         "--",
         "ansible-playbook",

@@ -164,7 +164,7 @@ def run_bootstrap_playbook(
         stdout=subprocess.DEVNULL,
         cwd=repo_root,
     )
-    cmd = ["secretspec", "run", "--", "ansible-playbook", str(playbook)]
+    cmd = ["sudo", "-n", "-u", "_secretspec", "secretspec", "-f", "/var/db/stayturgid-secrets/secretspec.toml", "run", "--", "ansible-playbook", str(playbook)]
     if hosts:
         cmd.extend(["--limit", ",".join(hosts)])
     return subprocess.run(cmd, env=env, cwd=repo_root).returncode
