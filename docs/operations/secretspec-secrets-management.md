@@ -4,9 +4,10 @@ This document outlines the `secretspec` enforcement architecture for the `staytu
 
 ## 1. Rationale & Problem Statement
 
-Historically, `secretspec.toml` was merely documentation for the `stayturgid` repository. Real code (like `site_contract/serverapps.py` or `reingest_soft_health.py`) bypassed it completely, manually parsing a legacy file located at `~/.config/stayturgid/observability.env`. 
+Historically, `secretspec.toml` was merely documentation for the `stayturgid` repository. Real code (like `site_contract/serverapps.py` or `reingest_soft_health.py`) bypassed it completely, manually parsing a legacy file located at `~/.config/stayturgid/observability.env`.
 
 This caused several issues:
+
 - **Silently Empty Secrets:** Nothing automatically exported `secretspec` values into the ambient shell environment. If the legacy file went missing or was malformed, commands like `site-serverapps apply` could silently render and deploy empty passwords.
 - **Architectural Drift:** Scripts directly accessed the file instead of honoring the `secretspec` contract, making secret rotation and auditing impossible.
 - **Lack of Access Control:** The legacy `.env` file was accessible to any process running as the `operator` user. A rogue script or accidental command could easily read and exfiltrate the raw secrets file.
@@ -85,7 +86,8 @@ bash control/bin/publish_secrets.sh
 ## 5. Usage & Verification
 
 ### The Python Automation & Bash Alias
-All Python automation scripts (like `ansible_exec.py`, `deploy_fleet.py`) have been updated to use the wrapper. 
+
+All Python automation scripts (like `ansible_exec.py`, `deploy_fleet.py`) have been updated to use the wrapper.
 
 For manual CLI usage, your `~/.bashrc` includes an alias so you can simply type:
 ```bash
@@ -97,6 +99,7 @@ sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh run -
 ```
 
 ### Functional Check
+
 To manually verify the pipeline is working (without printing any secret values to your terminal), run this check to count the resolved environment variables:
 ```bash
 sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh run -- env | grep -c "="
@@ -104,6 +107,7 @@ sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh run -
 It should return a number (e.g., `58`) indicating successful secret resolution.
 
 ### Negative Test
+
 To ensure the isolation is working, verify that you (as a normal user) cannot read the vault:
 ```bash
 ls -la /var/db/stayturgid-secrets
@@ -112,24 +116,26 @@ cat /var/db/stayturgid-secrets/secretspec.toml
 Both commands should instantly fail with `Permission denied`.
 
 ### Updating Secrets
+
 Whenever you modify your local `site-private/.env` or `secretspec.toml`, you must run `bash control/bin/publish_secrets.sh` to sync the changes into the locked `/var/db/` vault.
 
 ## 6. Two Coexisting Patterns
 
 > [!NOTE]
-> This locked-down `_secretspec` boundary is specific to the `stayturgid` fleet automation. 
-> 
+> This locked-down `_secretspec` boundary is specific to the `stayturgid` fleet automation.
+>
 > A simpler pattern (direct `secretspec run --` executed as the operator) is used elsewhere on this machine (e.g., the `hermes` gateway). This is **not** wrong—it just operates in a different, lower-stakes context that doesn't require strict privilege separation. There is no requirement for every service on the machine to migrate to the `_secretspec` pattern.
 
 ## 7. Known Gotchas (Lessons Learned)
 
 During the build process, a few critical lessons emerged:
+
 - **`$HOME` overrides during `sudo -u`:** By default, `sudo -u _secretspec` leaves the `$HOME` environment variable pointing to the calling user's home directory (e.g., `/Users/operator`). Since the `_secretspec` user has a synthetic home (`/var/empty`), this broke `secretspec`'s attempt to look up its global config or write audit logs. The wrapper script explicitly exports `HOME=/var/db/stayturgid-secrets` to fix this.
 - **Sudoers scoping with `env`:** You cannot scope a sudoers rule to a script if the invocation starts with `env` (e.g., `sudo -u _secretspec env ...`). `sudo` evaluates the command as `/usr/bin/env` rather than the target script, causing a permission denial. This is exactly why the wrapper script exists—it bakes the necessary environment variables internally so the caller doesn't have to use `env`.
 
 ## 8. Continuous Integration Note
 
 > [!WARNING]
-> Real GitHub Actions CI was unavailable during the entire build of this feature (due to an account-wide billing/spending-limit block resetting 2026-08-31). 
-> 
+> Real GitHub Actions CI was unavailable during the entire build of this feature (due to an account-wide billing/spending-limit block resetting 2026-08-31).
+>
 > As a result, PRs #245-#247 were merged based strictly on thorough local `just test` verification. While robust, there is no clean CI-verified trail in GitHub for this specific work. If you are reading this and CI is back online, keep this in mind when diagnosing any edge cases or regressions related to secret resolution.
