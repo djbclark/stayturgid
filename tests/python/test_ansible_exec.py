@@ -44,7 +44,13 @@ def test_ansible_exec_delegates_env_to_resolved_env(monkeypatch, tmp_path):
 
     assert ae.main(["ansible-playbook", "ansible/playbooks/site.yml", "--syntax-check"]) == 0
     assert seen["command"] == [
+        "sudo",
+        "-n",
+        "-u",
+        "_secretspec",
         "secretspec",
+        "-f",
+        "/var/db/stayturgid-secrets/secretspec.toml",
         "run",
         "--",
         "ansible-playbook",

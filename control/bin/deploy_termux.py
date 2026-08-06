@@ -90,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     rc = subprocess.run(
-        ["secretspec", "run", "--", "ansible-playbook", str(PLAYBOOK), "--limit", args.host],
+        ["sudo", "-n", "-u", "_secretspec", "secretspec", "-f", "/var/db/stayturgid-secrets/secretspec.toml", "run", "--", "ansible-playbook", str(PLAYBOOK), "--limit", args.host],
         env=resolved_env(REPO_ROOT),
         cwd=REPO_ROOT,
     ).returncode

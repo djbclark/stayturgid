@@ -2048,7 +2048,13 @@ def _run_ansible_role(plan: ServerAppsPlan, app: AppPlan, *, dry_run: bool) -> N
         return
 
     cmd = [
+        "sudo",
+        "-n",
+        "-u",
+        "_secretspec",
         "secretspec",
+        "-f",
+        "/var/db/stayturgid-secrets/secretspec.toml",
         "run",
         "--",
         "ansible-playbook",

@@ -46,7 +46,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
-    command = ["secretspec", "run", "--", "ansible-playbook", "-e", f"stayturgid_repo_root={REPO_ROOT}", *args[1:]]
+    command = [
+        "sudo", "-n", "-u", "_secretspec", "secretspec", "-f", "/var/db/stayturgid-secrets/secretspec.toml", "run", "--",
+        "ansible-playbook", "-e", f"stayturgid_repo_root={REPO_ROOT}", *args[1:]
+    ]
     try:
         return subprocess.run(command, cwd=REPO_ROOT, env=env).returncode
     except FileNotFoundError:
