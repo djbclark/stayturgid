@@ -38,8 +38,11 @@ If you are setting this up fresh on a new machine, follow this exact sequence:
 
 **1. Create the `_secretspec` user and vault directory:**
 ```bash
-sudo sysadminctl -addUser _secretspec -UID 503 -shell /usr/bin/false -home /var/empty
-sudo defaults write /Library/Preferences/com.apple.loginwindow HiddenUsersList -array-add _secretspec
+# Create the service account (auto-assigned uid 503, verify with `id _secretspec`)
+sudo sysadminctl -addUser _secretspec -fullName "Secretspec Service Account" -home /var/empty -shell /usr/bin/false
+sudo dscl . -create /Users/_secretspec IsHidden 1
+
+# Setup the secure vault directory
 sudo mkdir -p /var/db/stayturgid-secrets
 sudo chown _secretspec /var/db/stayturgid-secrets
 sudo chmod 0700 /var/db/stayturgid-secrets
