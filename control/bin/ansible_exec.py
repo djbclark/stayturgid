@@ -47,8 +47,22 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     command = [
-        "sudo", "-n", "-u", "_secretspec", "secretspec", "-f", "/var/db/stayturgid-secrets/secretspec.toml", "run", "--",
-        "ansible-playbook", "-e", f"stayturgid_repo_root={REPO_ROOT}", *args[1:]
+        "sudo",
+        "-n",
+        "-u",
+        "_secretspec",
+        "env",
+        "HOME=/var/db/stayturgid-secrets",
+        "SECRETSPEC_PROVIDER=dotenv",
+        "secretspec",
+        "-f",
+        "/var/db/stayturgid-secrets/secretspec.toml",
+        "run",
+        "--",
+        "ansible-playbook",
+        "-e",
+        f"stayturgid_repo_root={REPO_ROOT}",
+        *args[1:],
     ]
     try:
         return subprocess.run(command, cwd=REPO_ROOT, env=env).returncode
