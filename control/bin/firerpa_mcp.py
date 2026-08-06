@@ -1,5 +1,4 @@
 import argparse
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -40,10 +39,23 @@ except ImportError:
 def get_bearer_token() -> str | None:
     try:
         res = subprocess.run(
-            ["sudo", "-n", "-u", "_secretspec", "secretspec", "-f", "/var/db/stayturgid-secrets/secretspec.toml", "get", "firerpa_mcp_token"],
+            [
+                "sudo",
+                "-n",
+                "-u",
+                "_secretspec",
+                "env",
+                "HOME=/var/db/stayturgid-secrets",
+                "SECRETSPEC_PROVIDER=dotenv",
+                "secretspec",
+                "-f",
+                "/var/db/stayturgid-secrets/secretspec.toml",
+                "get",
+                "firerpa_mcp_token",
+            ],
             capture_output=True,
             text=True,
-            check=True
+            check=True,
         )
         token = res.stdout.strip()
         return token if token else None
