@@ -10,9 +10,9 @@ Never deletes or truncates the JSONL. Skips corrupt lines. Batches POSTs with
 retries on 5xx / connection errors (not on permanent 4xx except 429).
 
 Usage:
-  sudo -u _secretspec env HOME=/var/db/stayturgid-secrets SECRETSPEC_PROVIDER=dotenv secretspec -f /var/db/stayturgid-secrets/secretspec.toml run -- ./reingest_soft_health.py
-  sudo -u _secretspec env HOME=/var/db/stayturgid-secrets SECRETSPEC_PROVIDER=dotenv secretspec -f /var/db/stayturgid-secrets/secretspec.toml run -- ./reingest_soft_health.py --since 2026-07-20T00:00:00Z
-  sudo -u _secretspec env HOME=/var/db/stayturgid-secrets SECRETSPEC_PROVIDER=dotenv secretspec -f /var/db/stayturgid-secrets/secretspec.toml run -- ./reingest_soft_health.py --dry-run
+  sudo -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh run -- ./reingest_soft_health.py
+  sudo -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh run -- ./reingest_soft_health.py --since 2026-07-20T00:00:00Z
+  sudo -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh run -- ./reingest_soft_health.py --dry-run
 """
 
 from __future__ import annotations
