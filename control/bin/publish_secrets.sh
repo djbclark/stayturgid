@@ -32,4 +32,6 @@ sudo chmod 0700 "$TARGET_DIR"
 sudo install -o _secretspec -g staff -m 0600 "$PRIVATE_SITE_DIR/.env" "$TARGET_DIR/.env"
 sudo install -o _secretspec -g staff -m 0600 "$PRIVATE_SITE_DIR/secretspec.toml" "$TARGET_DIR/secretspec.toml"
 
-python3 "$VERIFY_SCRIPT" "$PRIVATE_SITE_DIR" "$TARGET_DIR"
+# The vault is intentionally unreadable to the operator; verify both sides as
+# root without printing secret values.
+sudo -n python3 "$VERIFY_SCRIPT" "$PRIVATE_SITE_DIR" "$TARGET_DIR"
