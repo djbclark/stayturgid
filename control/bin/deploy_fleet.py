@@ -48,9 +48,9 @@ from control.lib.ansible_context import (
     resolved_env,
 )
 from control.lib.fleet_deploy_lock import FleetLockHeld, fleet_lock
-from control.lib.secretspec_exec import secretspec_run
 from control.lib.fleet_targets import FLEET_STATUS_VAR, offline_hosts, parse_inventory_hosts
 from control.lib.fleet_targets import inventory_list as _inventory_list
+from control.lib.secretspec_exec import secretspec_run
 
 SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "site.yml"
 MAC_SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "control_node" / "site.yml"

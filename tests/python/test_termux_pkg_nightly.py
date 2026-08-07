@@ -43,13 +43,10 @@ def test_nightly_runner_uses_resolved_site_config(monkeypatch, tmp_path):
     # --check skips the #152 pre-check so subprocess.run is only ansible-playbook.
     assert nightly.main(["--check", "--limit", "oneui-device"]) == 0
     assert seen["command"] == [
-        "sudo",
-        "-n",
-        "-u",
-        "_secretspec",
-        "/usr/local/libexec/stayturgid-secretspec-wrapper.sh",
-        "run",
-        "--",
+        "/bin/bash",
+        "-c",
+        'set -e; _sec_out=$(sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh export --format shell); eval "$_sec_out"; exec "$@"',
+        "secretspec_wrapper",
         "ansible-playbook",
         str(nightly.PLAYBOOK),
         "-e",
