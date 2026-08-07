@@ -57,3 +57,28 @@ def _fleet_lock_path(tmp_path, monkeypatch) -> None:
     and leaving test runs non-hermetic/non-parallel-safe.
     """
     monkeypatch.setenv("STAYTURGID_FLEET_LOCK_PATH", str(tmp_path / "fleet-deploy.lock"))
+
+
+@pytest.fixture(autouse=True)
+def _secretspec_wrapper_present(monkeypatch) -> Iterator[None]:
+    """Pin secretspec_exec to the privilege-separated wrapper path.
+
+    Call sites build their argv via control/lib/secretspec_exec.py, which picks
+    the wrapper form only when the `_secretspec` user and wrapper script exist.
+    That is true on the control node and false on a CI runner, so tests
+    asserting an exact argv would otherwise pass locally and fail in CI --
+    precisely the local/CI divergence this module was added to fix.
+
+    Tests that specifically exercise the fallback re-patch `wrapper_available`
+    themselves; the later monkeypatch wins over this autouse one.
+    """
+    import secretspec_exec
+
+    # Hold the real (lru_cached) function: after monkeypatch replaces the module
+    # attribute, `secretspec_exec.wrapper_available` no longer carries
+    # .cache_clear(), and this fixture's teardown runs before monkeypatch's undo.
+    real = secretspec_exec.wrapper_available
+    real.cache_clear()
+    monkeypatch.setattr(secretspec_exec, "wrapper_available", lambda: True)
+    yield
+    real.cache_clear()

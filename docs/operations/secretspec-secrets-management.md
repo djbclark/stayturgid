@@ -12,7 +12,7 @@ This caused several issues:
 - **Architectural Drift:** Scripts directly accessed the file instead of honoring the `secretspec` contract, making secret rotation and auditing impossible.
 - **Accidental Reads & Lack of Auditing:** The legacy `.env` file was readable by any ordinary process running as the `operator` user with zero friction and zero logging.
 
-**Important Threat Model Note:** This design does *not* protect against a compromised or malicious `djbclark` (operator) session. The operator already has full `ALL` sudo access on this machine and could easily `sudo cat /var/db/stayturgid-secrets/secretspec.toml` directly, bypassing this entire mechanism. Furthermore, the wrapper forwards all arguments (`"$@"`), so anyone capable of invoking the wrapper can run *any* `secretspec` subcommand.
+**Important Threat Model Note:** This design does _not_ protect against a compromised or malicious `djbclark` (operator) session. The operator already has full `ALL` sudo access on this machine and could easily `sudo cat /var/db/stayturgid-secrets/secretspec.toml` directly, bypassing this entire mechanism. Furthermore, the wrapper forwards all arguments (`"$@"`), so anyone capable of invoking the wrapper can run _any_ `secretspec` subcommand.
 
 What this architecture actually achieves is:
 
@@ -26,7 +26,7 @@ When designing this boundary, we evaluated several approaches. The core constrai
 
 - **1Password Service Account / Vault (Rejected):** While highly secure, moving to a 1Password Service Account replaces the `.env` file with a Service Account token on disk. This just moves the "confused deputy" problem rather than solving it. Additionally, it injects network latency and relies on 1Password uptime, which breaks local testing during network partitions.
 - **SETENV Sudoers Rule (Rejected):** We considered allowing `operator` to run `secretspec` via `sudo` with the `SETENV` privilege to inject necessary variables. This was rejected because it allows the caller to inject arbitrary, potentially dangerous environment variables into the privileged `secretspec` process.
-- **Whitelisting `env` in Sudoers (Rejected):** Whitelisting the bare `/usr/bin/env` binary in `sudoers` to run as `_secretspec` would allow the caller to execute *any* binary as `_secretspec`, entirely defeating the restriction boundary.
+- **Whitelisting `env` in Sudoers (Rejected):** Whitelisting the bare `/usr/bin/env` binary in `sudoers` to run as `_secretspec` would allow the caller to execute _any_ binary as `_secretspec`, entirely defeating the restriction boundary.
 - **Dedicated System User + Sudo Wrapper (Chosen):** We created a dedicated, locked-down system user (`_secretspec`) that owns the synced secrets. The `operator` user is permitted via a strictly scoped `sudoers` rule to run exactly one wrapper script, which securely bakes in the required environment variables.
 
 ## 3. Architecture as Built
@@ -36,8 +36,8 @@ The architecture relies on strict UNIX file permissions and a rigid privilege bo
 1. **The `_secretspec` System User:** A dedicated macOS daemon user (UID 503, no login shell, hidden from the login screen) that acts as the vault guardian.
 2. **The Secure Vault (`/var/db/stayturgid-secrets/`):** A directory owned by `_secretspec` with `0700` permissions. It contains the locked-down, synced copies of `secretspec.toml` and `.env`.
 3. **The Root-Owned Wrapper (`/usr/local/libexec/stayturgid-secretspec-wrapper.sh`):** A `0755` script owned by `root:wheel` (so it cannot be modified by the operator). It securely sets `HOME` and `SECRETSPEC_PROVIDER` before executing the real `secretspec` binary.
-   *(Note: While the wrapper script itself is root-owned and untamperable, the `/opt/homebrew/bin/secretspec` binary it executes resides in a `djbclark`-owned Homebrew tree and is not tamper-proof. This is consistent with our threat model, as operator-level tampering is not in scope).*
-4. **The Sudoers Rule (`/etc/sudoers.d/secretspec`):** A narrowly scoped rule that allows the `djbclark` (or `operator`) user to run *only* the wrapper script as `_secretspec` without a password.
+   _(Note: While the wrapper script itself is root-owned and untamperable, the `/opt/homebrew/bin/secretspec` binary it executes resides in a `djbclark`-owned Homebrew tree and is not tamper-proof. This is consistent with our threat model, as operator-level tampering is not in scope)._
+4. **The Sudoers Rule (`/etc/sudoers.d/secretspec`):** A narrowly scoped rule that allows the `djbclark` (or `operator`) user to run _only_ the wrapper script as `_secretspec` without a password.
 5. **The Sync Mechanism (`publish_secrets.sh`):** A script that safely copies the operator's readable `~/ops/site-private/{.env,secretspec.toml}` into the locked `/var/db/` directory, adjusting ownership and performing hash-validation.
 
 ## 4. Install & Setup Instructions
@@ -48,6 +48,7 @@ The architecture relies on strict UNIX file permissions and a rigid privilege bo
 If you are setting this up fresh on a new machine, follow this exact sequence:
 
 **1. Create the `_secretspec` user and vault directory:**
+
 ```bash
 # Create the service account (auto-assigned uid 503, verify with `id _secretspec`)
 sudo sysadminctl -addUser _secretspec -fullName "Secretspec Service Account" -home /var/empty -shell /usr/bin/false
@@ -60,6 +61,7 @@ sudo chmod 0700 /var/db/stayturgid-secrets
 ```
 
 **2. Create the Root-Owned Wrapper Script:**
+
 ```bash
 sudo mkdir -p /usr/local/libexec
 sudo tee /usr/local/libexec/stayturgid-secretspec-wrapper.sh > /dev/null << 'EOF'
@@ -74,6 +76,7 @@ sudo chown root:wheel /usr/local/libexec/stayturgid-secretspec-wrapper.sh
 ```
 
 **3. Validate and Install the Sudoers Rule:**
+
 > [!WARNING]
 > You **must** validate your sudoers file with `visudo -c` before installing it. A syntax error in `/etc/sudoers.d/` can completely lock you out of `sudo` machine-wide.
 
@@ -87,6 +90,7 @@ rm "$TMPFILE"
 ```
 
 **4. Publish the Secrets:**
+
 ```bash
 # This syncs your local site-private secrets into the vault
 bash control/bin/publish_secrets.sh
@@ -99,10 +103,13 @@ bash control/bin/publish_secrets.sh
 All Python automation scripts (like `ansible_exec.py`, `deploy_fleet.py`) have been updated to use the wrapper.
 
 For manual CLI usage, your `~/.bashrc` includes an alias so you can simply type:
+
 ```bash
 secretspec run -- <command>
 ```
+
 Under the hood, this expands to:
+
 ```bash
 sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh run -- <command>
 ```
@@ -110,19 +117,23 @@ sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh run -
 ### Functional Check
 
 To manually verify the pipeline is working (without printing any secret values to your terminal), run this check to count the resolved environment variables:
+
 ```bash
 sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh run -- env | grep -c "="
 ```
+
 It should return a number (e.g., `58`) indicating successful secret resolution.
 
 ### Negative Test
 
 To verify that discretionary filesystem permission enforcement is working for a regular non-sudo process, run the following:
+
 ```bash
 ls -la /var/db/stayturgid-secrets
 cat /var/db/stayturgid-secrets/secretspec.toml
 ```
-Both commands should instantly fail with `Permission denied`. *(Note: This demonstrates discretionary permission enforcement for ordinary processes; it is not a comprehensive security guarantee against a root-capable user).*
+
+Both commands should instantly fail with `Permission denied`. _(Note: This demonstrates discretionary permission enforcement for ordinary processes; it is not a comprehensive security guarantee against a root-capable user)._
 
 ### Updating Secrets
 

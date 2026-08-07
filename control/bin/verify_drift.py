@@ -17,6 +17,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "fleet" / "verify-drift.yml"
 
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
+from secretspec_exec import secretspec_run
 from ansible_context import (
     AnsibleConfigError,
     require_limit_hosts,
@@ -49,19 +50,12 @@ def main(argv: list[str] | None = None) -> int:
     env["ANSIBLE_STDOUT_CALLBACK"] = "default"
 
     proc = subprocess.run(
-        [
-            "sudo",
-            "-n",
-            "-u",
-            "_secretspec",
-            "/usr/local/libexec/stayturgid-secretspec-wrapper.sh",
-            "run",
-            "--",
+        secretspec_run(
             "ansible-playbook",
             str(PLAYBOOK),
             "-l",
             hosts,
-        ],
+        ),
         env=env,
         timeout=120,
     )

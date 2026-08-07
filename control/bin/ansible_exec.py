@@ -23,6 +23,7 @@ from control.lib.ansible_context import (
     resolve_ansible_context,
     resolved_env,
 )
+from control.lib.secretspec_exec import secretspec_run
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -46,19 +47,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
 
-    command = [
-        "sudo",
-        "-n",
-        "-u",
-        "_secretspec",
-        "/usr/local/libexec/stayturgid-secretspec-wrapper.sh",
-        "run",
-        "--",
+    command = secretspec_run(
         "ansible-playbook",
         "-e",
         f"stayturgid_repo_root={REPO_ROOT}",
         *args[1:],
-    ]
+    )
     try:
         return subprocess.run(command, cwd=REPO_ROOT, env=env).returncode
     except FileNotFoundError:

@@ -29,6 +29,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from control.lib.ansible_context import AnsibleConfigError, require_inventory, resolve_ansible_context, resolved_env
 from control.lib.fleet_deploy_lock import FleetLockHeld, fleet_lock
+from control.lib.secretspec_exec import secretspec_run
 
 PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "fleet" / "termux-pkg-upgrade.yml"
 CHECK_UPDATES = REPO_ROOT / "control" / "bin" / "check_termux_pkg_updates.py"
@@ -86,19 +87,12 @@ def main(argv: list[str] | None = None) -> int:
         log("ERROR: %s" % exc)
         return 2
 
-    cmd = [
-        "sudo",
-        "-n",
-        "-u",
-        "_secretspec",
-        "/usr/local/libexec/stayturgid-secretspec-wrapper.sh",
-        "run",
-        "--",
+    cmd = secretspec_run(
         "ansible-playbook",
         str(PLAYBOOK),
         "-e",
         "stayturgid_repo_root=%s" % REPO_ROOT,
-    ]
+    )
     if args.limit:
         cmd.extend(["--limit", args.limit])
     if check:

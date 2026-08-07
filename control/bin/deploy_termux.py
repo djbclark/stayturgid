@@ -20,6 +20,7 @@ SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "LogLevel=ERR
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
 import adb_cli as ac
 import termux_ssh_bootstrap as boot
+from secretspec_exec import secretspec_run
 from ansible_context import (
     AnsibleConfigError,
     require_fresh_checkout,
@@ -90,19 +91,12 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     rc = subprocess.run(
-        [
-            "sudo",
-            "-n",
-            "-u",
-            "_secretspec",
-            "/usr/local/libexec/stayturgid-secretspec-wrapper.sh",
-            "run",
-            "--",
+        secretspec_run(
             "ansible-playbook",
             str(PLAYBOOK),
             "--limit",
             args.host,
-        ],
+        ),
         env=resolved_env(REPO_ROOT),
         cwd=REPO_ROOT,
     ).returncode
