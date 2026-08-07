@@ -44,13 +44,10 @@ def test_ansible_exec_delegates_env_to_resolved_env(monkeypatch, tmp_path):
 
     assert ae.main(["ansible-playbook", "ansible/playbooks/site.yml", "--syntax-check"]) == 0
     assert seen["command"] == [
-        "sudo",
-        "-n",
-        "-u",
-        "_secretspec",
-        "/usr/local/libexec/stayturgid-secretspec-wrapper.sh",
-        "run",
-        "--",
+        "/bin/bash",
+        "-c",
+        'set -e; _sec_out=$(sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh export --format shell); eval "$_sec_out"; exec "$@"',
+        "secretspec_wrapper",
         "ansible-playbook",
         "-e",
         f"stayturgid_repo_root={ae.REPO_ROOT}",

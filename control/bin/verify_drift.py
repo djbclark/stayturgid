@@ -17,13 +17,13 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "fleet" / "verify-drift.yml"
 
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
-from secretspec_exec import secretspec_run
 from ansible_context import (
     AnsibleConfigError,
     require_limit_hosts,
     resolve_ansible_context,
     resolved_env,
 )
+from secretspec_exec import secretspec_run
 
 
 def main(argv: list[str] | None = None) -> int:

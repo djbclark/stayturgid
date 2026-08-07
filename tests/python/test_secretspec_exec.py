@@ -9,8 +9,8 @@ died with `sudo: unknown user _secretspec` and master stayed red from
 
 from __future__ import annotations
 
-import secretspec_exec
 import pytest
+import secretspec_exec
 
 # Captured at import (collection time), before conftest's autouse
 # _secretspec_wrapper_present fixture swaps the module attribute for a lambda --
@@ -33,13 +33,12 @@ def force_direct(monkeypatch):
     monkeypatch.setattr(secretspec_exec, "wrapper_available", lambda: False)
 
 
-def test_wrapper_argv_is_byte_identical_to_the_pre_247_hardcoded_form():
-    # The control node must see no behaviour change whatsoever from the
-    # refactor -- this is the exact list every call site used to inline.
+def test_wrapper_argv_evaluates_secrets_in_bash():
     assert secretspec_exec.secretspec_run("ansible-playbook", "site.yml") == [
-        *WRAPPER_ARGV,
-        "run",
-        "--",
+        "/bin/bash",
+        "-c",
+        'set -e; _sec_out=$(sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh export --format shell); eval "$_sec_out"; exec "$@"',
+        "secretspec_wrapper",
         "ansible-playbook",
         "site.yml",
     ]

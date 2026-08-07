@@ -20,7 +20,6 @@ SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "LogLevel=ERR
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
 import adb_cli as ac
 import termux_ssh_bootstrap as boot
-from secretspec_exec import secretspec_run
 from ansible_context import (
     AnsibleConfigError,
     require_fresh_checkout,
@@ -28,6 +27,7 @@ from ansible_context import (
     resolve_ansible_context,
     resolved_env,
 )
+from secretspec_exec import secretspec_run
 
 
 def ssh_target(host: str) -> str:

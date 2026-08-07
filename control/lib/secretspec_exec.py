@@ -97,19 +97,17 @@ def secretspec_command(*args: str) -> list[str]:
             dash_idx = args.index("--")
             if run_idx < dash_idx:
                 import shlex
+
                 secretspec_args = list(args[:dash_idx])
                 secretspec_args.remove("run")
-                target_cmd = list(args[dash_idx + 1:])
-                
+                target_cmd = list(args[dash_idx + 1 :])
+
                 secretspec_args_str = " ".join(shlex.quote(a) for a in secretspec_args)
-                export_cmd = f"sudo -n -u {SERVICE_USER} {WRAPPER_PATH} export --format shell {secretspec_args_str}".strip()
-                
-                script = (
-                    "set -e; "
-                    f"_sec_out=$({export_cmd}); "
-                    'eval "$_sec_out"; '
-                    'exec "$@"'
+                export_cmd = (
+                    f"sudo -n -u {SERVICE_USER} {WRAPPER_PATH} export --format shell {secretspec_args_str}".strip()
                 )
+
+                script = f'set -e; _sec_out=$({export_cmd}); eval "$_sec_out"; exec "$@"'
                 return [
                     "/bin/bash",
                     "-c",

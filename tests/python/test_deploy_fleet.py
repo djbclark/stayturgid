@@ -36,13 +36,10 @@ def test_run_playbook_argv_full(monkeypatch):
     monkeypatch.setattr(df.subprocess, "run", fake_run)
     df.run_playbook(df.SITE_PLAYBOOK, limit=["oneui-device", "fireos-device"], check=False, tags=None)
     assert seen[0] == [
-        "sudo",
-        "-n",
-        "-u",
-        "_secretspec",
-        "/usr/local/libexec/stayturgid-secretspec-wrapper.sh",
-        "run",
-        "--",
+        "/bin/bash",
+        "-c",
+        'set -e; _sec_out=$(sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh export --format shell); eval "$_sec_out"; exec "$@"',
+        "secretspec_wrapper",
         "ansible-playbook",
         str(df.SITE_PLAYBOOK),
         "-e",
@@ -82,13 +79,10 @@ def test_run_playbook_argv_check_and_tags(monkeypatch):
     monkeypatch.setattr(df.subprocess, "run", fake_run)
     df.run_playbook(df.SITE_PLAYBOOK, limit=["oneui-device"], check=True, tags="app-stores")
     assert seen[0] == [
-        "sudo",
-        "-n",
-        "-u",
-        "_secretspec",
-        "/usr/local/libexec/stayturgid-secretspec-wrapper.sh",
-        "run",
-        "--",
+        "/bin/bash",
+        "-c",
+        'set -e; _sec_out=$(sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh export --format shell); eval "$_sec_out"; exec "$@"',
+        "secretspec_wrapper",
         "ansible-playbook",
         str(df.SITE_PLAYBOOK),
         "-e",
