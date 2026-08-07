@@ -18,6 +18,8 @@ if str(_COLLECTION_UTILS) not in sys.path:
 
 import termux_run_as as tr
 
+from secretspec_exec import secretspec_run
+
 SSH_OPTS = ["-o", "BatchMode=yes", "-o", "LogLevel=ERROR"]
 
 # Re-export discovery helpers for tests and callers.
@@ -164,17 +166,7 @@ def run_bootstrap_playbook(
         stdout=subprocess.DEVNULL,
         cwd=repo_root,
     )
-    cmd = [
-        "sudo",
-        "-n",
-        "-u",
-        "_secretspec",
-        "/usr/local/libexec/stayturgid-secretspec-wrapper.sh",
-        "run",
-        "--",
-        "ansible-playbook",
-        str(playbook),
-    ]
+    cmd = secretspec_run("ansible-playbook", str(playbook))
     if hosts:
         cmd.extend(["--limit", ",".join(hosts)])
     return subprocess.run(cmd, env=env, cwd=repo_root).returncode

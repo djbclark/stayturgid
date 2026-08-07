@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Sequence, TextIO
 
+from control.lib.secretspec_exec import secretspec_run
 from control.site_contract.site_map import SiteMap, SiteMapError, load_site_map
 from control.site_contract.site_sync import (
     EXIT_OK,
@@ -2047,21 +2048,14 @@ def _run_ansible_role(plan: ServerAppsPlan, app: AppPlan, *, dry_run: bool) -> N
     if dry_run:
         return
 
-    cmd = [
-        "sudo",
-        "-n",
-        "-u",
-        "_secretspec",
-        "/usr/local/libexec/stayturgid-secretspec-wrapper.sh",
-        "run",
-        "--",
+    cmd = secretspec_run(
         "ansible-playbook",
         "-i",
         "localhost,",
         "-c",
         "local",
         str(playbook),
-    ]
+    )
     for key, value in app.ansible_extra.items():
         cmd.extend(["-e", f"{key}={value}"])
 

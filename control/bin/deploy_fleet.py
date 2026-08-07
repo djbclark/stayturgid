@@ -48,6 +48,7 @@ from control.lib.ansible_context import (
     resolved_env,
 )
 from control.lib.fleet_deploy_lock import FleetLockHeld, fleet_lock
+from control.lib.secretspec_exec import secretspec_run
 from control.lib.fleet_targets import FLEET_STATUS_VAR, offline_hosts, parse_inventory_hosts
 from control.lib.fleet_targets import inventory_list as _inventory_list
 
@@ -226,19 +227,12 @@ def run_playbook(
     # Inventory belongs to the active site config, while product files always
     # belong to this checkout. Passing the latter explicitly prevents roles
     # from inferring the product root from an overlay's ansible.cfg path.
-    cmd = [
-        "sudo",
-        "-n",
-        "-u",
-        "_secretspec",
-        "/usr/local/libexec/stayturgid-secretspec-wrapper.sh",
-        "run",
-        "--",
+    cmd = secretspec_run(
         "ansible-playbook",
         str(playbook),
         "-e",
         f"stayturgid_repo_root={REPO_ROOT}",
-    ]
+    )
     if limit:
         cmd.extend(["--limit", ",".join(limit)])
     if check:
