@@ -92,6 +92,34 @@ def secretspec_command(*args: str) -> list[str]:
     and get identical semantics either way.
     """
     if wrapper_available():
+        try:
+            run_idx = args.index("run")
+            dash_idx = args.index("--")
+            if run_idx < dash_idx:
+                import shlex
+                secretspec_args = list(args[:dash_idx])
+                secretspec_args.remove("run")
+                target_cmd = list(args[dash_idx + 1:])
+                
+                secretspec_args_str = " ".join(shlex.quote(a) for a in secretspec_args)
+                export_cmd = f"sudo -n -u {SERVICE_USER} {WRAPPER_PATH} export --format shell {secretspec_args_str}".strip()
+                
+                script = (
+                    "set -e; "
+                    f"_sec_out=$({export_cmd}); "
+                    'eval "$_sec_out"; '
+                    'exec "$@"'
+                )
+                return [
+                    "/bin/bash",
+                    "-c",
+                    script,
+                    "secretspec_wrapper",
+                    *target_cmd,
+                ]
+        except ValueError:
+            pass
+
         return ["sudo", "-n", "-u", SERVICE_USER, WRAPPER_PATH, *args]
     return ["secretspec", *args]
 
