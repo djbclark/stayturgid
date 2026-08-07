@@ -12,13 +12,14 @@ This caused several issues:
 - **Architectural Drift:** Scripts directly accessed the file instead of honoring the `secretspec` contract, making secret rotation and auditing impossible.
 - **Accidental Reads & Lack of Auditing:** The legacy `.env` file was readable by any ordinary process running as the `operator` user with zero friction and zero logging.
 
-**Important Threat Model Note:** This design does _not_ protect against a compromised or malicious `djbclark` (operator) session. The operator already has full `ALL` sudo access on this machine and could easily `sudo cat /var/db/stayturgid-secrets/secretspec.toml` directly, bypassing this entire mechanism. Furthermore, the wrapper forwards all arguments (`"$@"`), so anyone capable of invoking the wrapper can run _any_ `secretspec` subcommand.
+**Important Threat Model Note:** This design does _not_ protect against a compromised or malicious `djbclark` session. A same-UID process can invoke any operation granted to that UID, and the operator can use broader administrative access outside this boundary. The enforceable guarantee is narrower: the passwordless wrapper is not a general SecretSpec CLI proxy. It accepts only the fixed `automation-env` and `firerpa-mcp-token` operations; caller-selected `get`, `export`, profiles, scopes, providers, environment variables, shell interpreters, and arbitrary commands are rejected. Fleet automation resolves secrets as `_secretspec`, then executes the approved Ansible target as `djbclark` with the normal writable HOME.
 
 What this architecture actually achieves is:
 
 1. Preventing **accidental** or routine direct reads by ordinary, non-sudo processes.
-2. Creating a strict architectural boundary that forces code to use the `secretspec` API.
-3. Establishing an audit trail via `secretspec`'s own audit logging for every deliberate access.
+2. Enforcing a narrow operation boundary for the passwordless wrapper rather than forwarding arbitrary SecretSpec arguments.
+3. Creating an audit trail via `secretspec`'s own audit logging for deliberate access.
+4. Keeping the residual same-UID limitation explicit instead of claiming process-level isolation that UNIX credentials cannot provide.
 
 ## 2. Design Alternatives Considered
 
@@ -35,10 +36,10 @@ The architecture relies on strict UNIX file permissions and a rigid privilege bo
 
 1. **The `_secretspec` System User:** A dedicated macOS daemon user (UID 503, no login shell, hidden from the login screen) that acts as the vault guardian.
 2. **The Secure Vault (`/var/db/stayturgid-secrets/`):** A directory owned by `_secretspec` with `0700` permissions. It contains the locked-down, synced copies of `secretspec.toml` and `.env`.
-3. **The Root-Owned Wrapper (`/usr/local/libexec/stayturgid-secretspec-wrapper.sh`):** A `0755` script owned by `root:wheel` (so it cannot be modified by the operator). It securely sets `HOME` and `SECRETSPEC_PROVIDER` before executing the real `secretspec` binary.
-   _(Note: While the wrapper script itself is root-owned and untamperable, the `/opt/homebrew/bin/secretspec` binary it executes resides in a `djbclark`-owned Homebrew tree and is not tamper-proof. This is consistent with our threat model, as operator-level tampering is not in scope)._
-4. **The Sudoers Rule (`/etc/sudoers.d/secretspec`):** A narrowly scoped rule that allows the `djbclark` (or `operator`) user to run _only_ the wrapper script as `_secretspec` without a password.
-5. **The Sync Mechanism (`publish_secrets.sh`):** A script that safely copies the operator's readable `~/ops/site-private/{.env,secretspec.toml}` into the locked `/var/db/` directory, adjusting ownership and performing hash-validation.
+3. **The Root-Owned Wrapper (`/usr/local/libexec/stayturgid-secretspec-wrapper.sh`):** A `0755` script owned by `root:wheel` (so it cannot be modified by the operator). It sets fixed `HOME`, provider, and manifest paths, rejects all caller-controlled SecretSpec selectors, and exposes only `automation-env` and `firerpa-mcp-token`. It never forwards `"$@"` to SecretSpec.
+   _(Note: While the wrapper script itself is root-owned and untamperable, the `/opt/homebrew/bin/secretspec` binary it executes resides in a `djbclark`-owned Homebrew tree and is not tamper-proof. This is a residual same-admin limitation, not a claim of full operator isolation.)_
+4. **The Sudoers Rule (`/etc/sudoers.d/secretspec`):** A narrowly scoped rule that allows the `djbclark` user to run _only_ the wrapper script as `_secretspec` without a password. The same-UID limitation is documented above.
+5. **The Sync Mechanism (`publish_secrets.sh`):** A script that copies the operator's `~/ops/site-private/{.env,secretspec.toml}` into the locked `/var/db/` directory and verifies hashes, ownership, modes, and regular-file status.
 
 ## 4. Install & Setup Instructions
 
@@ -67,9 +68,16 @@ sudo mkdir -p /usr/local/libexec
 sudo tee /usr/local/libexec/stayturgid-secretspec-wrapper.sh > /dev/null << 'EOF'
 #!/bin/bash
 set -euo pipefail
+if [ "$#" -ne 1 ]; then exit 2; fi
 export HOME=/var/db/stayturgid-secrets
 export SECRETSPEC_PROVIDER=dotenv
-exec /opt/homebrew/bin/secretspec -f /var/db/stayturgid-secrets/secretspec.toml "$@"
+export SECRETSPEC_FILE=/var/db/stayturgid-secrets/secretspec.toml
+unset SECRETSPEC_PROFILE SECRETSPEC_SCOPE SECRETSPEC_REASON DYLD_LIBRARY_PATH DYLD_INSERT_LIBRARIES
+case "$1" in
+  automation-env) exec /opt/homebrew/bin/secretspec -f "$SECRETSPEC_FILE" export --format json ;;
+  firerpa-mcp-token) exec /opt/homebrew/bin/secretspec -f "$SECRETSPEC_FILE" get firerpa_mcp_token ;;
+  *) exit 2 ;;
+esac
 EOF
 sudo chmod 0755 /usr/local/libexec/stayturgid-secretspec-wrapper.sh
 sudo chown root:wheel /usr/local/libexec/stayturgid-secretspec-wrapper.sh
@@ -108,21 +116,32 @@ For manual CLI usage, your `~/.bashrc` includes an alias so you can simply type:
 secretspec run -- <command>
 ```
 
-Under the hood, this expands to:
+Under the hood, the root-owned wrapper is called with exactly one of its two operation names:
 
 ```bash
-sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh run -- <command>
+sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh automation-env
+sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh firerpa-mcp-token
 ```
+
+The first returns JSON to the checked-in `control/lib/secretspec_env_exec.py`,
+which validates it and `exec`s the Ansible target as `djbclark`; it does not use
+shell `eval`. Direct wrapper calls with `get`, `export`, `run`, extra arguments,
+profiles, scopes, or another command fail closed.
 
 ### Functional Check
 
-To manually verify the pipeline is working (without printing any secret values to your terminal), run this check to count the resolved environment variables:
+To manually verify the pipeline without printing secret values, run the
+non-secret drift check first:
 
 ```bash
-sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh run -- env | grep -c "="
+python3 control/bin/verify_secretspec_sync.py \
+  "${OPS_ROOT:-$HOME/ops}/site-private" /var/db/stayturgid-secrets
 ```
 
-It should return a number (e.g., `58`) indicating successful secret resolution.
+A source/vault hash mismatch, symlink, missing file, wrong mode, or wrong vault
+permissions exits nonzero. `publish_secrets.sh` performs the same check after
+publishing and must be run after every source change. Do not bypass this check
+or add secret values to logs.
 
 ### Negative Test
 

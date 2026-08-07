@@ -1,6 +1,7 @@
 """Tests for direct just-recipe Ansible execution through the site resolver."""
 
 import ansible_exec as ae
+import secretspec_exec
 from ansible_context import AnsibleContext
 
 
@@ -44,10 +45,8 @@ def test_ansible_exec_delegates_env_to_resolved_env(monkeypatch, tmp_path):
 
     assert ae.main(["ansible-playbook", "ansible/playbooks/site.yml", "--syntax-check"]) == 0
     assert seen["command"] == [
-        "/bin/bash",
-        "-c",
-        'set -e; _sec_out=$(sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh export --format shell); eval "$_sec_out"; exec "$@"',
-        "secretspec_wrapper",
+        secretspec_exec.sys.executable,
+        secretspec_exec.HELPER_PATH,
         "ansible-playbook",
         "-e",
         f"stayturgid_repo_root={ae.REPO_ROOT}",

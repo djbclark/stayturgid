@@ -10,6 +10,7 @@ sys.path.insert(
     0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "control", "bin")
 )
 import deploy_fleet as df
+import secretspec_exec
 
 INVENTORY_JSON: dict[str, Any] = {
     "stayturgid": {
@@ -36,10 +37,8 @@ def test_run_playbook_argv_full(monkeypatch):
     monkeypatch.setattr(df.subprocess, "run", fake_run)
     df.run_playbook(df.SITE_PLAYBOOK, limit=["oneui-device", "fireos-device"], check=False, tags=None)
     assert seen[0] == [
-        "/bin/bash",
-        "-c",
-        'set -e; _sec_out=$(sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh export --format shell); eval "$_sec_out"; exec "$@"',
-        "secretspec_wrapper",
+        secretspec_exec.sys.executable,
+        secretspec_exec.HELPER_PATH,
         "ansible-playbook",
         str(df.SITE_PLAYBOOK),
         "-e",
@@ -79,10 +78,8 @@ def test_run_playbook_argv_check_and_tags(monkeypatch):
     monkeypatch.setattr(df.subprocess, "run", fake_run)
     df.run_playbook(df.SITE_PLAYBOOK, limit=["oneui-device"], check=True, tags="app-stores")
     assert seen[0] == [
-        "/bin/bash",
-        "-c",
-        'set -e; _sec_out=$(sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh export --format shell); eval "$_sec_out"; exec "$@"',
-        "secretspec_wrapper",
+        secretspec_exec.sys.executable,
+        secretspec_exec.HELPER_PATH,
         "ansible-playbook",
         str(df.SITE_PLAYBOOK),
         "-e",
