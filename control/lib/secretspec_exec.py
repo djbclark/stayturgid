@@ -1,32 +1,21 @@
 #!/usr/bin/env python3
-"""Build the argv that runs a command with fleet secrets in its environment.
+"""Build safe commands for the control-node SecretSpec boundary.
 
-On the control node, secrets live in a ``0700`` vault owned by a dedicated
-``_secretspec`` service account and are reachable only through one narrowly
-scoped sudoers rule — see ``docs/operations/secretspec-secrets-management.md``
-for the full design and why the wrapper script exists at all.
+The passwordless sudo rule is intentionally *not* a general SecretSpec CLI
+proxy.  The root-owned wrapper exposes only two fixed operations:
+``automation-env`` (JSON environment for the approved Ansible automation) and
+``firerpa-mcp-token`` (one named token).  This module keeps the caller-side
+interface equally narrow and executes approved automation as the invoking user.
 
-Anywhere that boundary does not exist — CI runners above all — there is no
-``_secretspec`` user and no wrapper, so ``sudo -n -u _secretspec ...`` fails
-with ``sudo: unknown user _secretspec``. That is what turned stayturgid's
-``test`` workflow red on master from #247 onward. Callers therefore go through
-:func:`secretspec_command`, which uses the privilege-separated path when it is
-actually present and otherwise invokes ``secretspec`` directly, letting
-``SECRETSPEC_FILE`` / ``SECRETSPEC_PROVIDER`` from the environment point it at
-the right spec (exactly what ``.github/workflows`` already exports).
+A same-UID caller can still invoke an approved operation when the sudoers rule
+is granted to that UID; UNIX credentials cannot distinguish two processes with
+the same UID.  The enforceable boundary here is that malformed arguments,
+caller-selected SecretSpec subcommands, environment injection, and arbitrary
+commands are rejected by the wrapper and by this selector.
 
-The fallback is deliberately *not* silent when it looks like a broken control
-node: if the vault directory exists but the wrapper or the service account does
-not, that is a half-installed boundary rather than a machine that never had one,
-and :func:`secretspec_command` warns on stderr before falling back.
-
-Note for test authors: callers reach this module by *both* spellings --
-``import secretspec_exec`` (control/lib on sys.path) and
-``from control.lib.secretspec_exec import ...`` -- matching how
-``ansible_context`` is already imported repo-wide. Those are two distinct module
-objects with independent :func:`wrapper_available` caches, so anything
-monkeypatching the selector must patch both; see the
-``_secretspec_wrapper_present`` fixture in tests/python/conftest.py.
+CI and other machines without the service account use direct ``secretspec``
+with their normal provider configuration.  Set ``STAYTURGID_SECRETSPEC_DIRECT=1``
+to exercise that path deliberately.
 """
 
 from __future__ import annotations
@@ -35,14 +24,14 @@ import os
 import pwd
 import sys
 from functools import lru_cache
+from pathlib import Path
 
 WRAPPER_PATH = "/usr/local/libexec/stayturgid-secretspec-wrapper.sh"
 SERVICE_USER = "_secretspec"
 VAULT_DIR = "/var/db/stayturgid-secrets"
-
-#: Set to "1" to force the direct path even on a fully provisioned control node.
-#: Intended for local debugging, not for automation.
 FORCE_DIRECT_ENV = "STAYTURGID_SECRETSPEC_DIRECT"
+HELPER_PATH = str(Path(__file__).with_name("secretspec_env_exec.py"))
+APPROVED_EXECUTABLE = "ansible-playbook"
 
 
 def _service_user_exists() -> bool:
@@ -55,19 +44,13 @@ def _service_user_exists() -> bool:
 
 @lru_cache(maxsize=1)
 def wrapper_available() -> bool:
-    """True when the privilege-separated secretspec path is usable here.
-
-    Cached: every input is machine-level state that cannot change within a
-    single process run, and some callers build commands in a loop.
-    """
+    """True when the privilege-separated SecretSpec path is usable here."""
     if os.environ.get(FORCE_DIRECT_ENV) == "1":
         return False
-
     has_wrapper = os.path.isfile(WRAPPER_PATH) and os.access(WRAPPER_PATH, os.X_OK)
     has_user = _service_user_exists()
     if has_wrapper and has_user:
         return True
-
     if os.path.isdir(VAULT_DIR):
         missing = []
         if not has_wrapper:
@@ -83,45 +66,43 @@ def wrapper_available() -> bool:
     return False
 
 
-def secretspec_command(*args: str) -> list[str]:
-    """Return the argv that runs ``secretspec <args>`` for this machine.
+def _approved_automation(command: tuple[str, ...]) -> bool:
+    """Reject shell interpreters and non- Ansible automation at this seam."""
+    return bool(command) and command[0] == APPROVED_EXECUTABLE
 
-    Arguments map 1:1 onto ``secretspec``'s own CLI in both modes — the wrapper
-    script ``exec``s ``secretspec ... "$@"`` — so callers pass e.g.
-    ``("run", "--", "ansible-playbook", ...)`` or ``("get", "some_token")``
-    and get identical semantics either way.
-    """
+
+def secretspec_token_command(name: str) -> list[str]:
+    """Return the fixed FIRERPA token operation; no caller-selected ``get``."""
+    if name != "firerpa_mcp_token":
+        raise ValueError("only firerpa_mcp_token is available through the wrapper")
     if wrapper_available():
-        try:
-            run_idx = args.index("run")
-            dash_idx = args.index("--")
-            if run_idx < dash_idx:
-                import shlex
+        return ["sudo", "-n", "-u", SERVICE_USER, WRAPPER_PATH, "firerpa-mcp-token"]
+    return ["secretspec", "get", name]
 
-                secretspec_args = list(args[:dash_idx])
-                secretspec_args.remove("run")
-                target_cmd = list(args[dash_idx + 1 :])
 
-                secretspec_args_str = " ".join(shlex.quote(a) for a in secretspec_args)
-                export_cmd = (
-                    f"sudo -n -u {SERVICE_USER} {WRAPPER_PATH} export --format shell {secretspec_args_str}".strip()
-                )
+def secretspec_command(*args: str) -> list[str]:
+    """Return an approved SecretSpec command for this machine.
 
-                script = f'set -e; _sec_out=$({export_cmd}); eval "$_sec_out"; exec "$@"'
-                return [
-                    "/bin/bash",
-                    "-c",
-                    script,
-                    "secretspec_wrapper",
-                    *target_cmd,
-                ]
-        except ValueError:
-            pass
+    Only ``run -- ansible-playbook ...`` is accepted on the wrapped path.  The
+    helper obtains JSON from the fixed wrapper operation and overlays it onto
+    the invoking user's environment before ``execvpe``-ing Ansible, so the
+    target remains ``djbclark`` with a writable HOME and no shell evaluation.
+    """
+    if not args:
+        raise ValueError("SecretSpec command cannot be empty")
+    if args[:2] != ("run", "--"):
+        if wrapper_available():
+            raise ValueError("arbitrary SecretSpec subcommands are unavailable through the wrapper")
+        return ["secretspec", *args]
 
-        return ["sudo", "-n", "-u", SERVICE_USER, WRAPPER_PATH, *args]
+    command = tuple(args[2:])
+    if wrapper_available() and not _approved_automation(command):
+        raise ValueError("only ansible-playbook is approved through the wrapper")
+    if wrapper_available():
+        return [sys.executable, HELPER_PATH, *command]
     return ["secretspec", *args]
 
 
 def secretspec_run(*command: str) -> list[str]:
-    """Convenience wrapper for the overwhelmingly common ``run --`` form."""
+    """Convenience wrapper for the approved ``run -- ansible-playbook`` form."""
     return secretspec_command("run", "--", *command)

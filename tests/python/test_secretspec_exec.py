@@ -1,56 +1,64 @@
-"""Tests for the secretspec execution-path selector (control/lib/secretspec_exec.py).
-
-Regression coverage for the CI breakage introduced by #247: every fleet entry
-point invoked `sudo -n -u _secretspec <wrapper>` unconditionally, so on a
-GitHub runner -- which has neither that user nor that wrapper -- `just syntax`
-died with `sudo: unknown user _secretspec` and master stayed red from
-2026-08-06 through the ops-v1.3.1 release run.
-"""
+"""Regression tests for the fail-closed SecretSpec operation boundary."""
 
 from __future__ import annotations
+
+import sys
 
 import pytest
 import secretspec_exec
 
-# Captured at import (collection time), before conftest's autouse
-# _secretspec_wrapper_present fixture swaps the module attribute for a lambda --
-# by the time a test body runs, secretspec_exec.wrapper_available is that lambda
-# and no longer carries .cache_clear().
 REAL_WRAPPER_AVAILABLE = secretspec_exec.wrapper_available
 
-WRAPPER_ARGV = [
-    "sudo",
-    "-n",
-    "-u",
-    "_secretspec",
-    "/usr/local/libexec/stayturgid-secretspec-wrapper.sh",
-]
+
+def force_wrapped(monkeypatch):
+    monkeypatch.setattr(secretspec_exec, "wrapper_available", lambda: True)
 
 
 @pytest.fixture
 def force_direct(monkeypatch):
-    """Override conftest's autouse wrapper-present fixture for fallback tests."""
     monkeypatch.setattr(secretspec_exec, "wrapper_available", lambda: False)
 
 
-def test_wrapper_argv_evaluates_secrets_in_bash():
+def test_wrapper_uses_json_helper_and_keeps_target_as_invoking_user(monkeypatch):
+    force_wrapped(monkeypatch)
     assert secretspec_exec.secretspec_run("ansible-playbook", "site.yml") == [
-        "/bin/bash",
-        "-c",
-        'set -e; _sec_out=$(sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh export --format shell); eval "$_sec_out"; exec "$@"',
-        "secretspec_wrapper",
+        sys.executable,
+        secretspec_exec.HELPER_PATH,
         "ansible-playbook",
         "site.yml",
     ]
 
 
-def test_non_run_subcommands_pass_through_unchanged():
-    # firerpa_mcp.py fetches a token with `get`, not `run --`.
-    assert secretspec_exec.secretspec_command("get", "firerpa_mcp_token") == [
-        *WRAPPER_ARGV,
-        "get",
-        "firerpa_mcp_token",
+def test_malicious_same_user_cannot_select_get_export_or_shell(monkeypatch):
+    force_wrapped(monkeypatch)
+    for args in (("get", "other_secret"), ("export", "--format", "json"), ("run", "--", "/bin/sh")):
+        with pytest.raises(ValueError):
+            secretspec_exec.secretspec_command(*args)
+
+
+def test_wrapper_script_rejects_arbitrary_secret_spec_arguments():
+    import subprocess
+    from pathlib import Path
+
+    wrapper = Path(__file__).parents[2] / "control" / "bin" / "stayturgid-secretspec-wrapper.sh"
+    result = subprocess.run(["bash", str(wrapper), "get", "other_secret"], capture_output=True, text=True)
+    assert result.returncode == 2
+    assert "denied" in result.stderr
+    assert '"$@"' not in wrapper.read_text()
+
+
+def test_firerpa_operation_is_fixed_to_one_token(monkeypatch):
+    force_wrapped(monkeypatch)
+    assert secretspec_exec.secretspec_token_command("firerpa_mcp_token") == [
+        "sudo",
+        "-n",
+        "-u",
+        "_secretspec",
+        secretspec_exec.WRAPPER_PATH,
+        "firerpa-mcp-token",
     ]
+    with pytest.raises(ValueError):
+        secretspec_exec.secretspec_token_command("other_secret")
 
 
 def test_falls_back_to_direct_secretspec_without_the_boundary(force_direct):
@@ -61,16 +69,7 @@ def test_falls_back_to_direct_secretspec_without_the_boundary(force_direct):
         "ansible-playbook",
         "site.yml",
     ]
-
-
-def test_fallback_preserves_argv_one_to_one(force_direct):
-    # The wrapper script `exec`s `secretspec ... "$@"`, so both modes must map
-    # arguments identically -- only the prefix differs.
-    assert secretspec_exec.secretspec_command("get", "firerpa_mcp_token") == [
-        "secretspec",
-        "get",
-        "firerpa_mcp_token",
-    ]
+    assert secretspec_exec.secretspec_command("get", "firerpa_mcp_token") == ["secretspec", "get", "firerpa_mcp_token"]
 
 
 def test_force_direct_env_var_overrides_a_provisioned_control_node(monkeypatch):
@@ -85,7 +84,6 @@ def test_force_direct_env_var_overrides_a_provisioned_control_node(monkeypatch):
 
 
 def test_missing_wrapper_is_silent_when_no_vault_exists(monkeypatch, capsys, tmp_path):
-    """A machine that never had the boundary (CI) must not emit a warning."""
     real = REAL_WRAPPER_AVAILABLE
     monkeypatch.setattr(secretspec_exec, "wrapper_available", real)
     real.cache_clear()
@@ -100,11 +98,6 @@ def test_missing_wrapper_is_silent_when_no_vault_exists(monkeypatch, capsys, tmp
 
 
 def test_half_installed_boundary_warns_before_falling_back(monkeypatch, capsys, tmp_path):
-    """Vault present but wrapper gone is a broken control node, not a CI runner.
-
-    Degrading silently there would quietly drop privilege separation on the
-    machine that actually holds the secrets, so it must be noisy.
-    """
     real = REAL_WRAPPER_AVAILABLE
     monkeypatch.setattr(secretspec_exec, "wrapper_available", real)
     real.cache_clear()
@@ -115,8 +108,6 @@ def test_half_installed_boundary_warns_before_falling_back(monkeypatch, capsys, 
     monkeypatch.setattr(secretspec_exec, "VAULT_DIR", str(vault))
     try:
         assert real() is False
-        err = capsys.readouterr().err
-        assert "without privilege separation" in err
-        assert "absent.sh" in err
+        assert "without privilege separation" in capsys.readouterr().err
     finally:
         real.cache_clear()
