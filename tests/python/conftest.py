@@ -71,14 +71,28 @@ def _secretspec_wrapper_present(monkeypatch) -> Iterator[None]:
 
     Tests that specifically exercise the fallback re-patch `wrapper_available`
     themselves; the later monkeypatch wins over this autouse one.
-    """
-    import secretspec_exec
 
-    # Hold the real (lru_cached) function: after monkeypatch replaces the module
-    # attribute, `secretspec_exec.wrapper_available` no longer carries
-    # .cache_clear(), and this fixture's teardown runs before monkeypatch's undo.
-    real = secretspec_exec.wrapper_available
-    real.cache_clear()
-    monkeypatch.setattr(secretspec_exec, "wrapper_available", lambda: True)
+    Both spellings must be patched. conftest puts `control/lib` *and* the repo
+    root on sys.path, so `import secretspec_exec` and
+    `from control.lib.secretspec_exec import ...` produce two independent module
+    objects, each with its own `wrapper_available` and its own lru_cache — and
+    the call sites are split across both conventions (matching how
+    ansible_context is already imported repo-wide). Patching only one leaves the
+    other live, which passes on a control node (where the real function returns
+    True anyway) and fails in CI.
+    """
+    import importlib
+
+    reals = []
+    for name in ("secretspec_exec", "control.lib.secretspec_exec"):
+        module = importlib.import_module(name)
+        # Hold the real (lru_cached) function: once monkeypatch replaces the
+        # attribute it no longer carries .cache_clear(), and this fixture's
+        # teardown runs before monkeypatch's undo.
+        real = module.wrapper_available
+        real.cache_clear()
+        monkeypatch.setattr(module, "wrapper_available", lambda: True)
+        reals.append(real)
     yield
-    real.cache_clear()
+    for real in reals:
+        real.cache_clear()

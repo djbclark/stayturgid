@@ -19,6 +19,14 @@ The fallback is deliberately *not* silent when it looks like a broken control
 node: if the vault directory exists but the wrapper or the service account does
 not, that is a half-installed boundary rather than a machine that never had one,
 and :func:`secretspec_command` warns on stderr before falling back.
+
+Note for test authors: callers reach this module by *both* spellings --
+``import secretspec_exec`` (control/lib on sys.path) and
+``from control.lib.secretspec_exec import ...`` -- matching how
+``ansible_context`` is already imported repo-wide. Those are two distinct module
+objects with independent :func:`wrapper_available` caches, so anything
+monkeypatching the selector must patch both; see the
+``_secretspec_wrapper_present`` fixture in tests/python/conftest.py.
 """
 
 from __future__ import annotations
