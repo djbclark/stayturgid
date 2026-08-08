@@ -15,11 +15,23 @@ if [ "${1:-}" = "verify-sync" ]; then
     exit 2
   fi
   for path in "$SECRETSPEC_FILE" "$HOME/.env"; do
-    [ -f "$path" ] || { printf 'denied: missing vault file\n' >&2; exit 1; }
-    [ "$(stat -f '%Mp%Lp' "$path")" = "600" ] || { printf 'denied: vault file mode\n' >&2; exit 1; }
+    [ -f "$path" ] || {
+      printf 'denied: missing vault file\n' >&2
+      exit 1
+    }
+    [ "$(stat -f '%Mp%Lp' "$path")" = "600" ] || {
+      printf 'denied: vault file mode\n' >&2
+      exit 1
+    }
   done
-  [ "$(shasum -a 256 "$HOME/.env" | cut -d ' ' -f 1)" = "$2" ] || { printf 'denied: .env hash mismatch\n' >&2; exit 1; }
-  [ "$(shasum -a 256 "$SECRETSPEC_FILE" | cut -d ' ' -f 1)" = "$3" ] || { printf 'denied: manifest hash mismatch\n' >&2; exit 1; }
+  [ "$(shasum -a 256 "$HOME/.env" | cut -d ' ' -f 1)" = "$2" ] || {
+    printf 'denied: .env hash mismatch\n' >&2
+    exit 1
+  }
+  [ "$(shasum -a 256 "$SECRETSPEC_FILE" | cut -d ' ' -f 1)" = "$3" ] || {
+    printf 'denied: manifest hash mismatch\n' >&2
+    exit 1
+  }
   printf '%s\n' 'SecretSpec source/vault hashes and permissions match.'
   exit 0
 fi
