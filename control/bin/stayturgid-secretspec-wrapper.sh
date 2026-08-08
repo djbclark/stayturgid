@@ -19,7 +19,7 @@ if [ "${1:-}" = "verify-sync" ]; then
       printf 'denied: missing vault file\n' >&2
       exit 1
     }
-    [ "$(stat -f '%Mp%Lp' "$path")" = "600" ] || {
+    [ "$(stat -f '%Mp%Lp' "$path")" = "0600" ] || {
       printf 'denied: vault file mode\n' >&2
       exit 1
     }
