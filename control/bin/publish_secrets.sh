@@ -7,7 +7,6 @@ set -euo pipefail
 TARGET_DIR="/var/db/stayturgid-secrets"
 OPS_ROOT="${OPS_ROOT:-$HOME/ops}"
 PRIVATE_SITE_DIR="$OPS_ROOT/site-private"
-VERIFY_SCRIPT="$(cd "$(dirname "$0")" && pwd)/verify_secretspec_sync.py"
 
 if [ ! -d "$PRIVATE_SITE_DIR" ] || [ -L "$PRIVATE_SITE_DIR" ]; then
   echo "Error: private site directory is missing or a symlink." >&2
@@ -32,6 +31,9 @@ sudo chmod 0700 "$TARGET_DIR"
 sudo install -o _secretspec -g staff -m 0600 "$PRIVATE_SITE_DIR/.env" "$TARGET_DIR/.env"
 sudo install -o _secretspec -g staff -m 0600 "$PRIVATE_SITE_DIR/secretspec.toml" "$TARGET_DIR/secretspec.toml"
 
-# The vault is intentionally unreadable to the operator; verify both sides as
-# root without printing secret values.
-sudo -n python3 "$VERIFY_SCRIPT" "$PRIVATE_SITE_DIR" "$TARGET_DIR"
+# The operator hashes the source files; the protected service user compares
+# those digests against the vault without exposing either file or requiring a
+# broad root sudo permission.
+SRC_ENV_HASH=$(shasum -a 256 "$PRIVATE_SITE_DIR/.env" | awk '{print $1}')
+SRC_TOML_HASH=$(shasum -a 256 "$PRIVATE_SITE_DIR/secretspec.toml" | awk '{print $1}')
+sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh verify-sync "$SRC_ENV_HASH" "$SRC_TOML_HASH"
