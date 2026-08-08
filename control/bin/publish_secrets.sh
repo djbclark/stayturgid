@@ -24,8 +24,7 @@ done
 chmod 0600 "$PRIVATE_SITE_DIR/.env" "$PRIVATE_SITE_DIR/secretspec.toml"
 
 sudo mkdir -p "$TARGET_DIR"
-sudo chown _secretspec "$TARGET_DIR"
-sudo chmod 0700 "$TARGET_DIR"
+sudo /usr/sbin/chown _secretspec:staff "$TARGET_DIR"
 # install writes the named destination with the requested mode and does not
 # copy source metadata or follow a source symlink (which was rejected above).
 sudo install -o _secretspec -g staff -m 0600 "$PRIVATE_SITE_DIR/.env" "$TARGET_DIR/.env"
