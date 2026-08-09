@@ -478,9 +478,8 @@ minisign, a Git tag, a CA-signed builder, or a future roadmap label.
   `/Users/djbclark/ops/site-djbclark/registry/` — ground truth for the
   existence of privileged secret handles, Android peers, planned host roles,
   and service/network ownership. No secret values were read or recorded.
-- [/Users/djbclark/src/ops-worktrees/README.md](/Users/djbclark/src/ops-worktrees/README.md)
-  — cross-agent provenance rules and the documented 2026-08-06 double-merge
-  incident.
+- `/Users/djbclark/src/ops-worktrees/README.md` — cross-agent provenance
+  rules and the documented 2026-08-06 double-merge incident.
 - [The Update Framework specification](https://theupdateframework.github.io/specification/latest/),
   [Nix custom binary-cache guidance](https://nix.dev/guides/recipes/add-binary-cache.html),
   [Nix remote-build requirements](https://nix.dev/manual/nix/latest/advanced-topics/distributed-builds.html),
