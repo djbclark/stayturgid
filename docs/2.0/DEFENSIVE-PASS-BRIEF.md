@@ -4,8 +4,8 @@
 
 The trust/deploy/consent layer has been **attacked once and defended zero
 times**. `docs/2.0/redteam-trust-layer-openai-v1.md` (OpenAI/GPT-5) returned
-nine findings — three Critical — and the verdict: *"do not ship v1 pull
-deployment or consent on the proposed one-key/one-manifest design."* Nobody
+nine findings — three Critical — and the verdict: _"do not ship v1 pull
+deployment or consent on the proposed one-key/one-manifest design."_ Nobody
 has answered it. That asymmetry is the single biggest weakness in the corpus:
 the most security-critical part of the architecture is also the least
 reviewed-in-both-directions.
@@ -27,9 +27,11 @@ launch prompt).
 ## Required contents
 
 ### 1. Disposition of every red-team finding
+
 Table covering RT-01…RT-09 plus each systemic gap. For each:
 `ID | agree/partially/disagree (justify disagreement) | disposition`
 where disposition is one of:
+
 - **FIX-IN-V1** — build it now; you must then specify it in §2
 - **CLOSE-BY-SCOPE** — the vulnerable surface is not built in v1; state the
   exact scope cut and the gate that must be passed before it opens
@@ -37,6 +39,7 @@ where disposition is one of:
 - **DEFER-WITH-TRIGGER** — the named condition that forces it
 
 ### 2. The hardened v1 design (this is the core deliverable)
+
 Concrete, buildable specifications — not principles. At minimum:
 
 - **Key/root model:** answer RT-01. What is the minimum viable threshold-root
@@ -63,17 +66,20 @@ Concrete, buildable specifications — not principles. At minimum:
   failover in v1; if so, say exactly what replaces it.
 
 ### 3. Scope-cut proposal (be aggressive here)
+
 The operator is **one person** with a laptop, three Android devices, and a
 VPS that does not exist yet. Propose the smallest v1 that is genuinely safe.
-Explicitly evaluate: *"v1 is push-only from operator hosts; no autonomous
-pull; no consented devices; no autonomous role failover"* — how many blockers
+Explicitly evaluate: _"v1 is push-only from operator hosts; no autonomous
+pull; no consented devices; no autonomous role failover"_ — how many blockers
 does that close for free? What is the minimum useful thing that still ships?
 
 ### 4. Revised phase gates
+
 Rewrite the final architecture's Phase 4/5/6 gates with the security
 prerequisites embedded as entry criteria, with rollback for each.
 
 ### 5. Build order and effort
+
 Rough effort per item (days/weeks for one operator with AI agents), and what
 to build first. Flag anything that is a multi-week project masquerading as a
 bullet point.

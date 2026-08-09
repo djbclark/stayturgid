@@ -52,13 +52,13 @@ family independently, which is strong evidence the requirements force it:
 
 1. **Role mesh, not control node** (R2). Roles
    (`host-os, android-peer, obs-main/backup, ai-proxy, apk-build, release,
-   agent-orch, builder, cache, deploy-origin, pull-converge, …`) are
+agent-orch, builder, cache, deploy-origin, pull-converge, …`) are
    inventory data; any host holds zero or more; "control node" dissolves
    into role assignments. First movements: obs-main to the VPS when it
    exists, because the M1 Air is a laptop that sleeps.
 2. **Source-of-truth placement** (R2/R5/R10): site facts only in
    `site-*/inventory` + `registry/*`; product behavior in public
-   stayturgid; secret *declarations* only in secretspec (values in
+   stayturgid; secret _declarations_ only in secretspec (values in
    providers, never git); host substrate in a small flake; coordinated
    deploy version in the preserved `ops-v` train. No monorepo flake that
    swallows the product.
@@ -89,7 +89,7 @@ family independently, which is strong evidence the requirements force it:
    fetching signed `ops-v` tags. CFEngine unchanged beneath both.
 8. **Free Sysadmin** (R10): generic layer written fact-free from day one;
    published under copyleft (GPL-3.0-or-later code, CC-BY-SA-4.0 docs;
-   permissive/CC0 for interop *schemas* — Grok's refinement, adopted);
+   permissive/CC0 for interop _schemas_ — Grok's refinement, adopted);
    identity-scrub CI before anything ships. Feature-bundle model
    (OpenAI §8): a published bundle declares capabilities, ports/paths,
    privileges, rollback, SBOM/provenance — it cannot self-register
@@ -99,17 +99,17 @@ family independently, which is strong evidence the requirements force it:
 
 ## 3. Contested decisions, resolved
 
-### D1 — Who owns production launchd/systemd? **RESOLVED: Ansible remains the production service owner; Nix owns the substrate.** *(Claude's original position amended by the panel.)*
+### D1 — Who owns production launchd/systemd? **RESOLVED: Ansible remains the production service owner; Nix owns the substrate.** _(Claude's original position amended by the panel.)_
 
 The fork Grok named precisely: are `com.stayturgid.*`/`com.djbclark.*`
-services a *Nix generation* problem (Claude v1: migrate all to
+services a _Nix generation_ problem (Claude v1: migrate all to
 home-manager, "Ansible manages no launchd on the Mac" as Phase 3 exit
-criterion) or an *Ansible role* problem on a Nix-managed host (OpenAI +
+criterion) or an _Ansible role_ problem on a Nix-managed host (OpenAI +
 Grok)? The panel's arguments carry:
 
 - These services are **fleet-coupled** (inventory peers, secretspec
   injection, registry ports); rendering them from Nix still requires the
-  Site Model *plus* a second apply path — complexity moved, not deleted.
+  Site Model _plus_ a second apply path — complexity moved, not deleted.
 - The **R5 exit** must re-render the same services without generations
   anyway; making Nix the only production renderer weakens the exit.
 - **R10 consumers** must be able to adopt the Android+Ansible product
@@ -120,19 +120,19 @@ Grok)? The panel's arguments carry:
 **Final ownership matrix** (merging Grok §3.2 + OpenAI §2 + Claude's
 `managed_by` fact):
 
-| State | Sole writer | Namespace |
-| --- | --- | --- |
-| Production fleet/site services (all platforms) | **Ansible adapters** | `com.stayturgid.*`, `com.djbclark.*` |
-| Nix daemon, macOS defaults, Touch ID sudo, GC | nix-darwin | `org.nixos.*` / system |
-| Cross-platform user packages, dotfiles, shell | home-manager | HM-managed paths |
-| Language runtimes, per-project tools | mise | shims, `.mise.toml` |
-| Optional personal utility agents | mise bootstrap | `dev.mise.*` **only** |
-| Homebrew formula services / GUI apps | brew (existing site mechanism) | `homebrew.mxcl.*`, casks |
+| State                                          | Sole writer                    | Namespace                            |
+| ---------------------------------------------- | ------------------------------ | ------------------------------------ |
+| Production fleet/site services (all platforms) | **Ansible adapters**           | `com.stayturgid.*`, `com.djbclark.*` |
+| Nix daemon, macOS defaults, Touch ID sudo, GC  | nix-darwin                     | `org.nixos.*` / system               |
+| Cross-platform user packages, dotfiles, shell  | home-manager                   | HM-managed paths                     |
+| Language runtimes, per-project tools           | mise                           | shims, `.mise.toml`                  |
+| Optional personal utility agents               | mise bootstrap                 | `dev.mise.*` **only**                |
+| Homebrew formula services / GUI apps           | brew (existing site mechanism) | `homebrew.mxcl.*`, casks             |
 
 Enforced by a new `registry/launchd-writers.yml` + lint from **day one**
 (Grok), independent of Site Model maturity: one writer per label prefix,
 CI-failed on violation. `services.yml` keeps a `managed_by` field
-(Claude) so *individual low-coupling utilities* may flip to HM by ADR —
+(Claude) so _individual low-coupling utilities_ may flip to HM by ADR —
 but "no Ansible launchd" is **not** a success criterion, and no
 production label moves before a live launchd census prices each flip
 (Grok). What Nix's generations still protect: the substrate (packages,
@@ -143,7 +143,7 @@ env, defaults) — which is where macOS-upgrade breakage actually lands.
 Adopt Claude's `roles.yml` + `services.yml` schemas in Phase 0 as the
 **inventory of intent** (they are what R5's exit generator, R7's plans,
 and R10's bundles all consume) — but transcription is descriptive first:
-no live plist must be *generated* from the model before its family
+no live plist must be _generated_ from the model before its family
 migrates deliberately. Grok's `host_roles:` inventory extension and
 writer lint land first, cheapest. (Grok critique #2, OpenAI Phase 0,
 Claude §4 — merged.)
@@ -188,12 +188,12 @@ Require a short decision record before any new literate source (OpenAI).
 Dropping nix-darwin/NixOS entirely forfeits: atomic generations on the
 substrate (the recovery story for OS-upgrade breakage), verifiable
 closure diffs (the strongest possible "what will change" artifact for
-R7 consent — a diff you can *prove*, not narrate), and hermetic builds
+R7 consent — a diff you can _prove_, not narrate), and hermetic builds
 for the artifact/firmware lanes. Its honest accounting of the rollback
 trade-off is retained as the exit path's documented cost (git-revert +
 re-apply + CFEngine + filesystem snapshots), and its source-map idea
 lands in D5. Its deeper value was as pressure-test: the final design's
-Nix surface is *thinner* than Claude v1 because Gemini and Grok pushed
+Nix surface is _thinner_ than Claude v1 because Gemini and Grok pushed
 on it.
 
 ## 4. Final architecture (amended Claude v1)
@@ -234,17 +234,17 @@ live-device verification; publish evidence + gaps in STATUS docs per
 phase). Do not interleave with the outstanding Fire OS soak or
 OpenObserve clean-log acceptance (OpenAI).
 
-| Phase | Contents | Rollback |
-| --- | --- | --- |
-| **0 — Map & fence** (days) | Site Model schemas (`roles.yml`, `services.yml` descriptive, `host_roles` in inventory); `launchd-writers.yml` + lint; live launchd census; ownership matrix in docs. No runtime change. | delete files |
-| **1 — Toolchains & flake skeleton** (days) | mise pins as toolchain SSOT (`mise doctor` clean, `just test` green); flake with `darwinConfigurations.m1-air` that **builds** (no switch) on the existing Determinate install. | ignore flake; brew unchanged |
-| **2 — Mac substrate switch** | nix-darwin/HM own packages, shell, dotfiles, defaults. **Services untouched.** Brew: per-package single-owner decision recorded in registry (no bulk nix-homebrew migration — OpenAI). | `darwin-rebuild --rollback` |
-| **3 — Role parameterization** (pre-Linux) | Kill "the Mac" assumptions: peer lists, systemd twins/`darwin_only` marks, `just deploy-host`. Dry-run against a mock `vps-primary`. | `legacy_single_control: true` flag |
-| **4 — First NixOS host** | Hetzner `vps-primary` (ARM) via nixos-anywhere: thin NixOS base; services via the same Ansible adapters → systemd; backup roles first; obs-main migrates after a 7-day clean soak (Mac sleep must not drop fleet telemetry — Grok). Build-on-target; exit-drill CI turns on. | NixOS generations; or destroy VPS, roles fall back |
-| **5 — Release/plan v1** | Manifest + ChangePlan schemas, signing ceremony, preflight verification; converge (pull) agent on operator hosts; deploy telemetry events; one device verifies a no-op signed plan end-to-end, fail-closed tests (bad sig/expiry/target/digest). | feature flag off; push-only |
-| **6 — Consent v1** | stayturgid-agent consent surface + local receipts on one opted-in fleet device; then one bounded peer-help op with proven rollback. | revoke feature; recorded rollback |
-| **7 — Exit drill** | Throwaway Ubuntu host; run the §D3 runbook; written proof R5 holds. Mandatory gate before any deeper Nix investment (Grok). | n/a (drill) |
-| **8 — Builder/cache + freeops extraction** (demand-driven) | On second Linux box or first non-substitutable artifact: `builder`+`cache` roles (harmonia first), CA-bound trust, Android artifact lane. freeops extraction when two consumers exist. | remove roles/substituter |
+| Phase                                                      | Contents                                                                                                                                                                                                                                                                     | Rollback                                           |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| **0 — Map & fence** (days)                                 | Site Model schemas (`roles.yml`, `services.yml` descriptive, `host_roles` in inventory); `launchd-writers.yml` + lint; live launchd census; ownership matrix in docs. No runtime change.                                                                                     | delete files                                       |
+| **1 — Toolchains & flake skeleton** (days)                 | mise pins as toolchain SSOT (`mise doctor` clean, `just test` green); flake with `darwinConfigurations.m1-air` that **builds** (no switch) on the existing Determinate install.                                                                                              | ignore flake; brew unchanged                       |
+| **2 — Mac substrate switch**                               | nix-darwin/HM own packages, shell, dotfiles, defaults. **Services untouched.** Brew: per-package single-owner decision recorded in registry (no bulk nix-homebrew migration — OpenAI).                                                                                       | `darwin-rebuild --rollback`                        |
+| **3 — Role parameterization** (pre-Linux)                  | Kill "the Mac" assumptions: peer lists, systemd twins/`darwin_only` marks, `just deploy-host`. Dry-run against a mock `vps-primary`.                                                                                                                                         | `legacy_single_control: true` flag                 |
+| **4 — First NixOS host**                                   | Hetzner `vps-primary` (ARM) via nixos-anywhere: thin NixOS base; services via the same Ansible adapters → systemd; backup roles first; obs-main migrates after a 7-day clean soak (Mac sleep must not drop fleet telemetry — Grok). Build-on-target; exit-drill CI turns on. | NixOS generations; or destroy VPS, roles fall back |
+| **5 — Release/plan v1**                                    | Manifest + ChangePlan schemas, signing ceremony, preflight verification; converge (pull) agent on operator hosts; deploy telemetry events; one device verifies a no-op signed plan end-to-end, fail-closed tests (bad sig/expiry/target/digest).                             | feature flag off; push-only                        |
+| **6 — Consent v1**                                         | stayturgid-agent consent surface + local receipts on one opted-in fleet device; then one bounded peer-help op with proven rollback.                                                                                                                                          | revoke feature; recorded rollback                  |
+| **7 — Exit drill**                                         | Throwaway Ubuntu host; run the §D3 runbook; written proof R5 holds. Mandatory gate before any deeper Nix investment (Grok).                                                                                                                                                  | n/a (drill)                                        |
+| **8 — Builder/cache + freeops extraction** (demand-driven) | On second Linux box or first non-substitutable artifact: `builder`+`cache` roles (harmonia first), CA-bound trust, Android artifact lane. freeops extraction when two consumers exist.                                                                                       | remove roles/substituter                           |
 
 Explicit non-goals for the first 90 days (Grok, panel-endorsed):
 wholesale Ansible→Nix service rewrite; nix-on-droid; replacing CFEngine;
@@ -253,15 +253,15 @@ consent marketplace.
 
 ## 6. Decision Register — operator sign-off
 
-| # | Decision | Resolution | Revisit trigger |
-| --- | --- | --- | --- |
-| D1 | Production service owner | Ansible permanent; Nix = substrate; per-label ADR flips only | An ADR shows a concrete win for a specific label family |
-| D2 | Site Model formality | Schemas Phase 0, generation gradual, writer lint day one | — |
-| D3 | Exit renderer | mise = host baseline; Ansible adapters = services | Exit drill (Phase 7) findings |
-| D4 | freeops timing | In-tree until two consumers | Second consumer appears |
-| D5 | Literate scope | Narrow + scaffold/tutorial gate + Claude mechanics | Free Sysadmin tutorial work begins |
-| D6 | Gemini no-Nix thesis | Rejected; snapshot-fallback + source-maps retained | Exit drill proves Nix layer net-negative (unlikely) |
-| D7 | Third-vendor gap | DeepSeek seat dropped (quota); panel = OpenAI/Gemini/Grok | Operator may commission a DeepSeek pass later |
+| #   | Decision                 | Resolution                                                   | Revisit trigger                                         |
+| --- | ------------------------ | ------------------------------------------------------------ | ------------------------------------------------------- |
+| D1  | Production service owner | Ansible permanent; Nix = substrate; per-label ADR flips only | An ADR shows a concrete win for a specific label family |
+| D2  | Site Model formality     | Schemas Phase 0, generation gradual, writer lint day one     | —                                                       |
+| D3  | Exit renderer            | mise = host baseline; Ansible adapters = services            | Exit drill (Phase 7) findings                           |
+| D4  | freeops timing           | In-tree until two consumers                                  | Second consumer appears                                 |
+| D5  | Literate scope           | Narrow + scaffold/tutorial gate + Claude mechanics           | Free Sysadmin tutorial work begins                      |
+| D6  | Gemini no-Nix thesis     | Rejected; snapshot-fallback + source-maps retained           | Exit drill proves Nix layer net-negative (unlikely)     |
+| D7  | Third-vendor gap         | DeepSeek seat dropped (quota); panel = OpenAI/Gemini/Grok    | Operator may commission a DeepSeek pass later           |
 
 Silence = consent to proceed with Phase 0; objections amend this
 register, not the archived proposals.
@@ -286,6 +286,6 @@ register, not the archived proposals.
   mechanics; Free Sysadmin publishing architecture — all surviving,
   with the D1 end-state conceded to the panel.
 
-*Filed under djbclark/stayturgid#272. The four source proposals are
+_Filed under djbclark/stayturgid#272. The four source proposals are
 archival records of independent positions — do not edit them; amend via
-this document's Decision Register.*
+this document's Decision Register._

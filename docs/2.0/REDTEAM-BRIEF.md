@@ -11,6 +11,7 @@ polite; do not propose the architecture's virtues. Find the holes.
 Write ONE file: `docs/2.0/redteam-trust-layer-openai-v1.md`.
 
 Structure it as a threat report:
+
 1. **Assets & trust boundaries** — what must not be violated, and where the
    boundaries actually are (correct the docs if they draw them wrong).
 2. **Attacker models** — enumerate concrete adversaries (compromised

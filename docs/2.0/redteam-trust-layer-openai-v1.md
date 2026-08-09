@@ -24,7 +24,7 @@ release artifact. A roadmap is not an enforcement point.
    Android agent, or Shizuku-capable component to execute code or a privileged
    operation.
 2. **Release integrity and freshness:** a host must apply the exact release
-   authorized for *that host and channel*, once, in the intended order; it must
+   authorized for _that host and channel_, once, in the intended order; it must
    not be frozen, replayed, mixed with another release, or silently downgraded.
 3. **Consent authority:** a person’s approval must bind one comprehensible,
    bounded operation to their device, and a refusal must remain effective.
@@ -40,15 +40,15 @@ release artifact. A roadmap is not an enforcement point.
 
 ### Boundaries as designed versus as they actually work
 
-| Claimed boundary | What it actually proves | What it does **not** prove |
-| --- | --- | --- |
-| Minisign/Ed25519 manifest signature | A holder of the pinned private key signed the exact input bytes. Minisign is deliberately a small file-signing tool built on Ed25519. [Minisign README](https://github.com/jedisct1/minisign#overview) | That the signer was the operator, that the release is current, that the plan is safe, that the source was reviewed, or that a target may perform the operation. |
-| `nix store diff-closures` plan | A package/closure delta for the selected Nix generations. | Effects of activation scripts, runtime services, Ansible tasks, fetched data, mutable state, or an APK’s behavior. It is evidence, not an execution sandbox. |
-| Ansible `--check --diff` plan | A best-effort prediction by modules that support check mode under current facts. | That every task is represented, that runtime facts will match, or that normal execution cannot perform additional effects. |
-| SSH CA and Tailscale | SSH peer authentication and encrypted network transport. Tailscale says tailnet connections are end-to-end encrypted, but application authorization remains separate. [Tailscale encryption](https://tailscale.com/docs/concepts/tailscale-encryption) | Builder provenance, cache-output correctness, application authorization, release freshness, or protection from an authorized hostile peer. |
-| Harmonia/Attic cache signature | A configured cache key vouched for a NAR/store object. Nix explicitly warns that a configured cache private key can substitute arbitrary files, including elevated executables. [Nix cache guide](https://nix.dev/guides/recipes/add-binary-cache.html) | That the output was produced by the intended derivation, reviewed source, or an uncompromised builder. |
-| `trust_tier: consented` | At most, a classification in the Site Model; the proposal also excludes direct site-secret references for that tier. | An OS-level security boundary unless every executor and resolver independently enforces it. It does not turn a hostile handset into a truthful consent witness. |
-| Local append-only receipt and future transparency log | A local statement that an agent claims a decision occurred. Rekor-style logs can make append-only history auditable only when inclusion/consistency proofs and monitors are actually verified. [Rekor overview](https://docs.sigstore.dev/logging/overview/) | A durable receipt today, prevention of device-local deletion, or detection of split views before T1 exists. |
+| Claimed boundary                                      | What it actually proves                                                                                                                                                                                                                                      | What it does **not** prove                                                                                                                                      |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Minisign/Ed25519 manifest signature                   | A holder of the pinned private key signed the exact input bytes. Minisign is deliberately a small file-signing tool built on Ed25519. [Minisign README](https://github.com/jedisct1/minisign#overview)                                                       | That the signer was the operator, that the release is current, that the plan is safe, that the source was reviewed, or that a target may perform the operation. |
+| `nix store diff-closures` plan                        | A package/closure delta for the selected Nix generations.                                                                                                                                                                                                    | Effects of activation scripts, runtime services, Ansible tasks, fetched data, mutable state, or an APK’s behavior. It is evidence, not an execution sandbox.    |
+| Ansible `--check --diff` plan                         | A best-effort prediction by modules that support check mode under current facts.                                                                                                                                                                             | That every task is represented, that runtime facts will match, or that normal execution cannot perform additional effects.                                      |
+| SSH CA and Tailscale                                  | SSH peer authentication and encrypted network transport. Tailscale says tailnet connections are end-to-end encrypted, but application authorization remains separate. [Tailscale encryption](https://tailscale.com/docs/concepts/tailscale-encryption)       | Builder provenance, cache-output correctness, application authorization, release freshness, or protection from an authorized hostile peer.                      |
+| Harmonia/Attic cache signature                        | A configured cache key vouched for a NAR/store object. Nix explicitly warns that a configured cache private key can substitute arbitrary files, including elevated executables. [Nix cache guide](https://nix.dev/guides/recipes/add-binary-cache.html)      | That the output was produced by the intended derivation, reviewed source, or an uncompromised builder.                                                          |
+| `trust_tier: consented`                               | At most, a classification in the Site Model; the proposal also excludes direct site-secret references for that tier.                                                                                                                                         | An OS-level security boundary unless every executor and resolver independently enforces it. It does not turn a hostile handset into a truthful consent witness. |
+| Local append-only receipt and future transparency log | A local statement that an agent claims a decision occurred. Rekor-style logs can make append-only history auditable only when inclusion/consistency proofs and monitors are actually verified. [Rekor overview](https://docs.sigstore.dev/logging/overview/) | A durable receipt today, prevention of device-local deletion, or detection of split views before T1 exists.                                                     |
 
 The decisive boundaries are therefore: the source-to-signing pipeline, the
 release-key policy, the client’s persisted update state, the executor’s
@@ -65,18 +65,18 @@ receive it.
 
 ## 2. Attacker models
 
-| Adversary | Capability assumed | Primary findings |
-| --- | --- | --- |
-| Compromised release signer / stolen release key | Signs arbitrary manifests, plans, and artifacts; may retain an old valid key. | RT-01, RT-02, RT-03 |
-| Malicious or compromised AI coding agent with worktree write access | Alters source, release tooling, plan renderer, lock files, or policy before a legitimate signing ceremony. | RT-03, RT-09 |
-| Insider with legitimate release or site access | Uses valid authority outside intended scope, or exfiltrates a signing/cache/secret key. | RT-01, RT-05, RT-06 |
-| Compromised builder or cache | Builds a malicious closure, signs a NAR, uses its trusted SSH identity, or serves selective outputs. | RT-05 |
-| Malicious feature-bundle author | Hides a privileged effect behind a broad declared capability or a plan representation that the executor does not constrain. | RT-04, RT-06 |
-| Hostile or compromised consented device | Forges/deletes local receipts, prompts repeatedly, replays acceptance, exports metadata, or attacks peers over allowed paths. | RT-02, RT-04, RT-07 |
-| Active network attacker or malicious mirror on/near the tailnet | Blocks, delays, reorders, replays, or selectively serves already valid artifacts. A network-only attacker cannot forge Tailscale traffic or a signature. | RT-02, RT-07 |
-| Nixpkgs/input/cache supply-chain attacker | Causes a locked input, builder, or configured cache key to yield an unwanted executable closure. | RT-03, RT-05 |
-| Compromised upstream Shizuku or Android dependency | Delivers a validly signed-but-malicious privileged APK/dependency through the normal release path. | RT-08 |
-| Local-fix/upstream-heal attacker | Gets a local emergency patch or purported upstream replacement accepted as the healing path. | RT-09 |
+| Adversary                                                           | Capability assumed                                                                                                                                       | Primary findings    |
+| ------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| Compromised release signer / stolen release key                     | Signs arbitrary manifests, plans, and artifacts; may retain an old valid key.                                                                            | RT-01, RT-02, RT-03 |
+| Malicious or compromised AI coding agent with worktree write access | Alters source, release tooling, plan renderer, lock files, or policy before a legitimate signing ceremony.                                               | RT-03, RT-09        |
+| Insider with legitimate release or site access                      | Uses valid authority outside intended scope, or exfiltrates a signing/cache/secret key.                                                                  | RT-01, RT-05, RT-06 |
+| Compromised builder or cache                                        | Builds a malicious closure, signs a NAR, uses its trusted SSH identity, or serves selective outputs.                                                     | RT-05               |
+| Malicious feature-bundle author                                     | Hides a privileged effect behind a broad declared capability or a plan representation that the executor does not constrain.                              | RT-04, RT-06        |
+| Hostile or compromised consented device                             | Forges/deletes local receipts, prompts repeatedly, replays acceptance, exports metadata, or attacks peers over allowed paths.                            | RT-02, RT-04, RT-07 |
+| Active network attacker or malicious mirror on/near the tailnet     | Blocks, delays, reorders, replays, or selectively serves already valid artifacts. A network-only attacker cannot forge Tailscale traffic or a signature. | RT-02, RT-07        |
+| Nixpkgs/input/cache supply-chain attacker                           | Causes a locked input, builder, or configured cache key to yield an unwanted executable closure.                                                         | RT-03, RT-05        |
+| Compromised upstream Shizuku or Android dependency                  | Delivers a validly signed-but-malicious privileged APK/dependency through the normal release path.                                                       | RT-08               |
+| Local-fix/upstream-heal attacker                                    | Gets a local emergency patch or purported upstream replacement accepted as the healing path.                                                             | RT-09               |
 
 ## 3. Findings
 
@@ -277,13 +277,13 @@ receive it.
   4. The attacker moves from a service-level change to signing, remote access,
      fleet ADB, or cloud control.
 - **What breaks:** The promise that no secret appears in a Nix store is much
-  narrower than the security property needed. Secret *delivery* is an
+  narrower than the security property needed. Secret _delivery_ is an
   authorization problem. The consented-device “no direct reference” lint does
   not protect operator/managed hosts, transitive service dependencies, or an
   already-compromised resolver.
 - **Concrete mitigation:** Make the resolver a deny-by-default reference
   monitor. A signed policy must map `(service identity, host key/role, exact
-  capability, release sequence)` to an allowlisted secret handle; the resolver
+capability, release sequence)` to an allowlisted secret handle; the resolver
   must reject all other requests and write non-secret audit events. Stage
   credentials as per-service, non-inherited runtime files/credentials with
   minimal OS permissions, not ambient environment variables; scrub logs and
@@ -312,7 +312,7 @@ receive it.
      the agent alive can amplify this into a restart loop rather than preserve
      availability.
 - **What breaks:** Single-writer safety, secret rotation, release lineage, and
-  host availability. An operator-signed *plan* is not a distributed lease. A
+  host availability. An operator-signed _plan_ is not a distributed lease. A
   no-control-node mesh cannot get split-brain safety merely by putting ordered
   roles in YAML. Tailscale ACLs/grants can restrict network reachability, but
   application-level authorization is implemented by the application itself. [Tailscale grants limitations](https://tailscale.com/docs/features/access-control/grants#limitations-and-considerations)
@@ -391,19 +391,19 @@ receive it.
 These are absent or only gestured at; none should be represented as provided by
 minisign, a Git tag, a CA-signed builder, or a future roadmap label.
 
-| Gap | Why the current design does not cover it | Required disposition |
-| --- | --- | --- |
-| **Revocation and compromised-key recovery** | Key id recording has no signed revocation object, root policy, distribution channel, threshold, or out-of-band recovery. | **Before v1 pull.** |
-| **Key rotation** | There is no old/new key overlap rule, versioned root metadata, device update ordering, or lost-device process. | **Before v1 pull.** |
-| **Rollback/downgrade** | Nix rollback is operational recovery, not a secure update downgrade protocol. No release counter/high-water mark is defined. | **Before v1 pull.** |
-| **Time, replay, and freeze** | No expiry, timestamp, trusted-time strategy, persisted metadata version, or mirror consistency rule exists. | **Before v1 pull.** |
-| **Metadata privacy** | Release/plan/consent telemetry includes host/device and feature data, while consented-device pseudonymization, retention, access, and opt-out are undefined. A future public transparency log can make this permanent. | **Before consent pilot.** |
-| **Quorum and split brain** | “Primary/backup/peer ordering,” timeout, and recorded handoff are requirements, not a lease/fencing protocol. | **Before autonomous role failover.** |
-| **Converge-agent denial of service** | The small size of the agent does not limit download, parsing, evaluation, disk, CPU, timer, or restart abuse. | **Before enabling timers.** |
-| **Trust bootstrap / TOFU** | No trusted initial root distribution, device replacement procedure, or protection against first-contact mirror substitution is defined. TUF explicitly treats bootstrapping separately from normal update security. [TUF scope](https://theupdateframework.github.io/specification/latest/#14-non-goals) | **Before first non-operator client enrollment.** |
-| **Source and approval provenance** | The documented double-merge incident proves repository/process provenance is an active boundary. A valid tag or green CI cannot establish it. | **Before signing ceremony.** |
-| **`local-fix` injection** | The T4 preference rule does not establish identity, equivalence, expiry, or approval semantics. | **Do not automate; gate any prototype.** |
-| **Transparency-log equivocation** | T1 says append-only but not who operates witnesses, how clients verify inclusion/consistency, or how offline clients reconcile a split view. | **Before relying on log evidence for authorization.** |
+| Gap                                         | Why the current design does not cover it                                                                                                                                                                                                                                                                 | Required disposition                                  |
+| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| **Revocation and compromised-key recovery** | Key id recording has no signed revocation object, root policy, distribution channel, threshold, or out-of-band recovery.                                                                                                                                                                                 | **Before v1 pull.**                                   |
+| **Key rotation**                            | There is no old/new key overlap rule, versioned root metadata, device update ordering, or lost-device process.                                                                                                                                                                                           | **Before v1 pull.**                                   |
+| **Rollback/downgrade**                      | Nix rollback is operational recovery, not a secure update downgrade protocol. No release counter/high-water mark is defined.                                                                                                                                                                             | **Before v1 pull.**                                   |
+| **Time, replay, and freeze**                | No expiry, timestamp, trusted-time strategy, persisted metadata version, or mirror consistency rule exists.                                                                                                                                                                                              | **Before v1 pull.**                                   |
+| **Metadata privacy**                        | Release/plan/consent telemetry includes host/device and feature data, while consented-device pseudonymization, retention, access, and opt-out are undefined. A future public transparency log can make this permanent.                                                                                   | **Before consent pilot.**                             |
+| **Quorum and split brain**                  | “Primary/backup/peer ordering,” timeout, and recorded handoff are requirements, not a lease/fencing protocol.                                                                                                                                                                                            | **Before autonomous role failover.**                  |
+| **Converge-agent denial of service**        | The small size of the agent does not limit download, parsing, evaluation, disk, CPU, timer, or restart abuse.                                                                                                                                                                                            | **Before enabling timers.**                           |
+| **Trust bootstrap / TOFU**                  | No trusted initial root distribution, device replacement procedure, or protection against first-contact mirror substitution is defined. TUF explicitly treats bootstrapping separately from normal update security. [TUF scope](https://theupdateframework.github.io/specification/latest/#14-non-goals) | **Before first non-operator client enrollment.**      |
+| **Source and approval provenance**          | The documented double-merge incident proves repository/process provenance is an active boundary. A valid tag or green CI cannot establish it.                                                                                                                                                            | **Before signing ceremony.**                          |
+| **`local-fix` injection**                   | The T4 preference rule does not establish identity, equivalence, expiry, or approval semantics.                                                                                                                                                                                                          | **Do not automate; gate any prototype.**              |
+| **Transparency-log equivocation**           | T1 says append-only but not who operates witnesses, how clients verify inclusion/consistency, or how offline clients reconcile a split view.                                                                                                                                                             | **Before relying on log evidence for authorization.** |
 
 ## 5. Prioritized fix list
 

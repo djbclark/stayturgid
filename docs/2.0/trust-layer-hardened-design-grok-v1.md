@@ -19,7 +19,7 @@ ship pull deployment or consent on the proposed one-key / one-manifest
 design.** The fix is not “more roadmap labels.” It is:
 
 1. **Aggressive scope cuts** that close Critical/High findings for free.
-2. A **buildable TUF subset** + typed operation IR for what *does* ship.
+2. A **buildable TUF subset** + typed operation IR for what _does_ ship.
 3. Explicit gates so Phase 5/6 cannot open until entry criteria hold.
 
 ---
@@ -28,50 +28,50 @@ design.** The fix is not “more roadmap labels.” It is:
 
 Disposition vocabulary:
 
-| Code | Meaning |
-| --- | --- |
-| **FIX-IN-V1** | Specify and build now (§2). |
-| **CLOSE-BY-SCOPE** | Vulnerable surface not built in v1; gate named. |
-| **ACCEPT-RISK** | Explicit blast radius + detection. |
-| **DEFER-WITH-TRIGGER** | Named condition forces the work. |
+| Code                   | Meaning                                         |
+| ---------------------- | ----------------------------------------------- |
+| **FIX-IN-V1**          | Specify and build now (§2).                     |
+| **CLOSE-BY-SCOPE**     | Vulnerable surface not built in v1; gate named. |
+| **ACCEPT-RISK**        | Explicit blast radius + detection.              |
+| **DEFER-WITH-TRIGGER** | Named condition forces the work.                |
 
 ### 1.1 Findings RT-01 … RT-09
 
-| ID | Agree? | Disposition | Notes |
-| --- | --- | --- | --- |
-| **RT-01** One release key is fleet-root; no recovery | **Agree** | **FIX-IN-V1** (root metadata + recovery runbook for *any* signed release path); **CLOSE-BY-SCOPE** for multi-role online timestamp if push-only | Solo 2-of-3 offline root (§2.1). Not full org-grade HSM mesh. |
-| **RT-02** Replay / freeze / mix-and-match | **Agree** | **FIX-IN-V1** for client protocol on anything that *pulls or verifies updates*; **CLOSE-BY-SCOPE** for fleet-wide pull until protocol is live | §2.2 client algorithm. Push-only v1 still needs high-water state on *targets that apply*. |
-| **RT-03** Signed plans do not constrain execution | **Agree** | **FIX-IN-V1** | Typed ChangePlan IR + executor allowlist (§2.3). Highest-value artifact. |
-| **RT-04** `offer()` is consent theater | **Agree** | **CLOSE-BY-SCOPE** for consent pilot; **FIX-IN-V1** interface spec so Phase 6 cannot regress | Spec in §2.4; **no consented device ships until** gate G6. |
-| **RT-05** Builder/cache confused deputy | **Agree** | **CLOSE-BY-SCOPE** for private cache/builder roles; **FIX-IN-V1** policy for public cache + optional later | No harmonia/attic in first 90 days. When built: separated authorities (§2.5). |
-| **RT-06** SecretSpec handle injection | **Agree** | **FIX-IN-V1** (minimal reference monitor) | Deny-by-default map for services that already resolve secrets on operator hosts (§2.6). |
-| **RT-07** Role mesh lease/fencing + converger DoS | **Agree** | **CLOSE-BY-SCOPE** autonomous failover; **FIX-IN-V1** single-writer = operator + flock; converger quotas only when pull exists | §2.7. |
-| **RT-08** Android provenance gap | **Agree** | **CLOSE-BY-SCOPE** consent; **DEFER-WITH-TRIGGER** full SLSA-ish APK path; **FIX-IN-V1** digest + cert pin for *operator-pushed* APKs | Consent never for opaque Shizuku APKs. |
-| **RT-09** local-fix → upstream-heal injection | **Agree** | **CLOSE-BY-SCOPE** — do not automate | Advisory-only; human threshold for any override. T4 stays roadmap, never auto-auth. |
+| ID                                                   | Agree?    | Disposition                                                                                                                                     | Notes                                                                                     |
+| ---------------------------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **RT-01** One release key is fleet-root; no recovery | **Agree** | **FIX-IN-V1** (root metadata + recovery runbook for _any_ signed release path); **CLOSE-BY-SCOPE** for multi-role online timestamp if push-only | Solo 2-of-3 offline root (§2.1). Not full org-grade HSM mesh.                             |
+| **RT-02** Replay / freeze / mix-and-match            | **Agree** | **FIX-IN-V1** for client protocol on anything that _pulls or verifies updates_; **CLOSE-BY-SCOPE** for fleet-wide pull until protocol is live   | §2.2 client algorithm. Push-only v1 still needs high-water state on _targets that apply_. |
+| **RT-03** Signed plans do not constrain execution    | **Agree** | **FIX-IN-V1**                                                                                                                                   | Typed ChangePlan IR + executor allowlist (§2.3). Highest-value artifact.                  |
+| **RT-04** `offer()` is consent theater               | **Agree** | **CLOSE-BY-SCOPE** for consent pilot; **FIX-IN-V1** interface spec so Phase 6 cannot regress                                                    | Spec in §2.4; **no consented device ships until** gate G6.                                |
+| **RT-05** Builder/cache confused deputy              | **Agree** | **CLOSE-BY-SCOPE** for private cache/builder roles; **FIX-IN-V1** policy for public cache + optional later                                      | No harmonia/attic in first 90 days. When built: separated authorities (§2.5).             |
+| **RT-06** SecretSpec handle injection                | **Agree** | **FIX-IN-V1** (minimal reference monitor)                                                                                                       | Deny-by-default map for services that already resolve secrets on operator hosts (§2.6).   |
+| **RT-07** Role mesh lease/fencing + converger DoS    | **Agree** | **CLOSE-BY-SCOPE** autonomous failover; **FIX-IN-V1** single-writer = operator + flock; converger quotas only when pull exists                  | §2.7.                                                                                     |
+| **RT-08** Android provenance gap                     | **Agree** | **CLOSE-BY-SCOPE** consent; **DEFER-WITH-TRIGGER** full SLSA-ish APK path; **FIX-IN-V1** digest + cert pin for _operator-pushed_ APKs           | Consent never for opaque Shizuku APKs.                                                    |
+| **RT-09** local-fix → upstream-heal injection        | **Agree** | **CLOSE-BY-SCOPE** — do not automate                                                                                                            | Advisory-only; human threshold for any override. T4 stays roadmap, never auto-auth.       |
 
 ### 1.2 Systemic gaps (red-team §4)
 
-| Gap | Disposition | Gate |
-| --- | --- | --- |
-| Revocation / compromised-key recovery | **FIX-IN-V1** | Required before any non-interactive apply of signed artifacts (including push that consumes signed manifests). |
-| Key rotation | **FIX-IN-V1** | Root version N→N+1 dual-threshold (§2.1). |
-| Rollback / downgrade protection | **FIX-IN-V1** | High-water marks (§2.2). |
-| Time, replay, freeze | **FIX-IN-V1** for pull; **partial FIX** for push (expiry + channel on every signed plan) | Pull blocked until full algorithm. |
-| Metadata privacy | **CLOSE-BY-SCOPE** until consent pilot | Before Phase 6: local-first receipts; no public Rekor of device IDs without opt-in. |
-| Quorum / split brain | **CLOSE-BY-SCOPE** | No autonomous role failover in v1. |
-| Converge-agent DoS | **CLOSE-BY-SCOPE** until timers; **FIX-IN-V1** when pull agent exists | Resource limits mandatory with first timer. |
-| Trust bootstrap / TOFU | **FIX-IN-V1** (operator install path) | Root shipped out-of-band with OS/agent image; no first-contact mirror trust. |
-| Source & approval provenance | **FIX-IN-V1** (process + clean signing checkout) | Signing forbidden from task worktrees; provenance script from 2026-08-06 incident. |
-| `local-fix` injection | **CLOSE-BY-SCOPE** | Do not automate. |
-| Transparency-log equivocation | **DEFER-WITH-TRIGGER** | T1 only after clients can verify inclusion/consistency *and* have a monitor; log never authorizes. |
+| Gap                                   | Disposition                                                                              | Gate                                                                                                           |
+| ------------------------------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| Revocation / compromised-key recovery | **FIX-IN-V1**                                                                            | Required before any non-interactive apply of signed artifacts (including push that consumes signed manifests). |
+| Key rotation                          | **FIX-IN-V1**                                                                            | Root version N→N+1 dual-threshold (§2.1).                                                                      |
+| Rollback / downgrade protection       | **FIX-IN-V1**                                                                            | High-water marks (§2.2).                                                                                       |
+| Time, replay, freeze                  | **FIX-IN-V1** for pull; **partial FIX** for push (expiry + channel on every signed plan) | Pull blocked until full algorithm.                                                                             |
+| Metadata privacy                      | **CLOSE-BY-SCOPE** until consent pilot                                                   | Before Phase 6: local-first receipts; no public Rekor of device IDs without opt-in.                            |
+| Quorum / split brain                  | **CLOSE-BY-SCOPE**                                                                       | No autonomous role failover in v1.                                                                             |
+| Converge-agent DoS                    | **CLOSE-BY-SCOPE** until timers; **FIX-IN-V1** when pull agent exists                    | Resource limits mandatory with first timer.                                                                    |
+| Trust bootstrap / TOFU                | **FIX-IN-V1** (operator install path)                                                    | Root shipped out-of-band with OS/agent image; no first-contact mirror trust.                                   |
+| Source & approval provenance          | **FIX-IN-V1** (process + clean signing checkout)                                         | Signing forbidden from task worktrees; provenance script from 2026-08-06 incident.                             |
+| `local-fix` injection                 | **CLOSE-BY-SCOPE**                                                                       | Do not automate.                                                                                               |
+| Transparency-log equivocation         | **DEFER-WITH-TRIGGER**                                                                   | T1 only after clients can verify inclusion/consistency _and_ have a monitor; log never authorizes.             |
 
 ### 1.3 Disagreements with the red-team (narrow)
 
-| Claim | Position |
-| --- | --- |
-| “2-of-3 with hardware tokens is required for v1” | **Partial.** For a *solo* operator, 2-of-3 **software-encrypted shares on physically separate devices** (laptop sealed keyfile + phone sealed keyfile + paper/USB cold share) is the MV threshold. YubiKey/HSM is **recommended** for the root ceremony later; requiring three hardware tokens before *any* signed push would stall the suite indefinitely. Threshold still required for root/policy; release signing can be 1-of-N *targets* key under a threshold-rooted policy. |
-| “Full TUF client before any progress” | **Disagree as sequencing.** Ship a **TUF subset** (root, targets-as-release, snapshot binding, expiry, high-water) first; online timestamp role can wait if update discovery is operator-initiated (push). Full timestamp/mirrors roles when pull timers exist. |
-| “Independent rebuild of every privileged APK before any fleet APK deploy” | **Partial.** Required before **consent**; for **operator push** of stayturgid-agent, SHA-256 + Android signing-cert pin + dependency lock is enough v1; independent rebuild is the Phase-6 entry bar. |
+| Claim                                                                     | Position                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| “2-of-3 with hardware tokens is required for v1”                          | **Partial.** For a _solo_ operator, 2-of-3 **software-encrypted shares on physically separate devices** (laptop sealed keyfile + phone sealed keyfile + paper/USB cold share) is the MV threshold. YubiKey/HSM is **recommended** for the root ceremony later; requiring three hardware tokens before _any_ signed push would stall the suite indefinitely. Threshold still required for root/policy; release signing can be 1-of-N _targets_ key under a threshold-rooted policy. |
+| “Full TUF client before any progress”                                     | **Disagree as sequencing.** Ship a **TUF subset** (root, targets-as-release, snapshot binding, expiry, high-water) first; online timestamp role can wait if update discovery is operator-initiated (push). Full timestamp/mirrors roles when pull timers exist.                                                                                                                                                                                                                    |
+| “Independent rebuild of every privileged APK before any fleet APK deploy” | **Partial.** Required before **consent**; for **operator push** of stayturgid-agent, SHA-256 + Android signing-cert pin + dependency lock is enough v1; independent rebuild is the Phase-6 entry bar.                                                                                                                                                                                                                                                                              |
 
 No Critical finding is rejected.
 
@@ -97,14 +97,14 @@ subset below is not.
 
 #### 2.1.2 Roles (TUF subset — what we take / leave)
 
-| Role | Threshold (solo v1) | Online? | Purpose |
-| --- | --- | --- | --- |
-| **root** | **2-of-3** root keys | Offline | Keys for all other roles; revocation; root version bumps |
-| **targets** (release) | **1-of-1** *or* 1-of-2 release keys listed in root | Offline (laptop ceremony) | Signs release manifests + ChangePlans for a channel |
-| **snapshot** | Same key as targets *or* separate 1-of-1 | Offline with release | Binds exact set of metadata digests/versions (anti mix-and-match) |
-| **timestamp** | **Deferred** if push-only | Would be online | Freshness under pull; see §2.2 |
-| **emergency** | **2-of-3** root (or dedicated 2-of-3 emergency set) | Offline | Security downgrade, key wipe, “do not apply releases signed by K” |
-| **cache-sign** | Separate key; **not** root | Isolated later | Only when private cache exists (§2.5) |
+| Role                  | Threshold (solo v1)                                 | Online?                   | Purpose                                                           |
+| --------------------- | --------------------------------------------------- | ------------------------- | ----------------------------------------------------------------- |
+| **root**              | **2-of-3** root keys                                | Offline                   | Keys for all other roles; revocation; root version bumps          |
+| **targets** (release) | **1-of-1** _or_ 1-of-2 release keys listed in root  | Offline (laptop ceremony) | Signs release manifests + ChangePlans for a channel               |
+| **snapshot**          | Same key as targets _or_ separate 1-of-1            | Offline with release      | Binds exact set of metadata digests/versions (anti mix-and-match) |
+| **timestamp**         | **Deferred** if push-only                           | Would be online           | Freshness under pull; see §2.2                                    |
+| **emergency**         | **2-of-3** root (or dedicated 2-of-3 emergency set) | Offline                   | Security downgrade, key wipe, “do not apply releases signed by K” |
+| **cache-sign**        | Separate key; **not** root                          | Isolated later            | Only when private cache exists (§2.5)                             |
 
 **Not in v1:** multi-level target delegations, mirrors role, path-hash
 delegations, online automated snapshot.
@@ -114,11 +114,11 @@ delegations, online automated snapshot.
 Generate three Ed25519 root keys (`root-a`, `root-b`, `root-c`). Root
 metadata requires any **two** signatures.
 
-| Share | Location | Protection |
-| --- | --- | --- |
-| **A** | Operator laptop, path *outside* git/worktrees (e.g. `~/.config/stayturgid/trust/root-a.key`) | minisign/age password; file mode 600; never in agent-writable dirs |
-| **B** | Phone (Termux or password manager attachment) *or* second machine when online | Separate password; not backed up to the same cloud as A |
-| **C** | Paper backup (minisign secret printed / metal) **or** USB in a drawer | Physical; never photographed into the same Photos library as daily driver |
+| Share | Location                                                                                     | Protection                                                                |
+| ----- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| **A** | Operator laptop, path _outside_ git/worktrees (e.g. `~/.config/stayturgid/trust/root-a.key`) | minisign/age password; file mode 600; never in agent-writable dirs        |
+| **B** | Phone (Termux or password manager attachment) _or_ second machine when online                | Separate password; not backed up to the same cloud as A                   |
+| **C** | Paper backup (minisign secret printed / metal) **or** USB in a drawer                        | Physical; never photographed into the same Photos library as daily driver |
 
 **Release (targets) key:** one daily-driver key on the laptop, passworded,
 listed in root. Optional second release key on the phone for travel
@@ -145,16 +145,32 @@ with a **pinned** copy from out-of-band bootstrap.
   "expires": "2027-08-08T00:00:00Z",
   "consistent_snapshot": true,
   "keys": {
-    "root-a": { "keytype": "ed25519", "scheme": "ed25519", "keyval": { "public": "…" } },
-    "root-b": { "keytype": "ed25519", "scheme": "ed25519", "keyval": { "public": "…" } },
-    "root-c": { "keytype": "ed25519", "scheme": "ed25519", "keyval": { "public": "…" } },
-    "release-1": { "keytype": "ed25519", "scheme": "ed25519", "keyval": { "public": "…" } }
+    "root-a": {
+      "keytype": "ed25519",
+      "scheme": "ed25519",
+      "keyval": { "public": "…" }
+    },
+    "root-b": {
+      "keytype": "ed25519",
+      "scheme": "ed25519",
+      "keyval": { "public": "…" }
+    },
+    "root-c": {
+      "keytype": "ed25519",
+      "scheme": "ed25519",
+      "keyval": { "public": "…" }
+    },
+    "release-1": {
+      "keytype": "ed25519",
+      "scheme": "ed25519",
+      "keyval": { "public": "…" }
+    }
   },
   "roles": {
-    "root":     { "keyids": ["root-a", "root-b", "root-c"], "threshold": 2 },
-    "targets":  { "keyids": ["release-1"], "threshold": 1 },
+    "root": { "keyids": ["root-a", "root-b", "root-c"], "threshold": 2 },
+    "targets": { "keyids": ["release-1"], "threshold": 1 },
     "snapshot": { "keyids": ["release-1"], "threshold": 1 },
-    "emergency":{ "keyids": ["root-a", "root-b", "root-c"], "threshold": 2 }
+    "emergency": { "keyids": ["root-a", "root-b", "root-c"], "threshold": 2 }
   }
 }
 ```
@@ -208,13 +224,13 @@ v1 — client still enforces threshold count of distinct keyids.
 
 #### 2.1.6 What full TUF we deliberately skip
 
-| Full TUF piece | Why skip in solo v1 |
-| --- | --- |
-| Online timestamp role | No always-on signer; push-initiated freshness |
-| Deep target delegations | One release authority is enough |
-| Mirrors metadata role | Fixed mirror list (GitHub Releases + optional R2) in client config |
-| Multi-repo roots | Single suite root |
-| Consistent snapshot file naming at scale | Optional until multi-artifact races matter |
+| Full TUF piece                           | Why skip in solo v1                                                |
+| ---------------------------------------- | ------------------------------------------------------------------ |
+| Online timestamp role                    | No always-on signer; push-initiated freshness                      |
+| Deep target delegations                  | One release authority is enough                                    |
+| Mirrors metadata role                    | Fixed mirror list (GitHub Releases + optional R2) in client config |
+| Multi-repo roots                         | Single suite root                                                  |
+| Consistent snapshot file naming at scale | Optional until multi-artifact races matter                         |
 
 We **keep** from TUF: threshold root, version monotonicity, expiry,
 snapshot binding of metadata digests, exact length+hash of targets,
@@ -228,13 +244,13 @@ persisted high-water, root rotation with dual-threshold, rollback rejection.
 
 Published under `ops-vMAJOR.MINOR.PATCH` (existing train) **plus**:
 
-| File | Signed by | Contents |
-| --- | --- | --- |
-| `root.json` (+ sigs) | root threshold | Only when root changes |
-| `snapshot.json` | snapshot role | Digests/versions of targets metadata + release id |
-| `targets.json` / `manifest.json` | targets/release | Channel, seq, per-host plans, artifact inventory |
-| `plan/<host>.json` | targets (or covered by manifest digest) | Typed ChangePlan IR (§2.3) |
-| Artifacts (APKs, tarballs, NAR lists) | content-addressed; digests in targets | Exact length + sha256 |
+| File                                  | Signed by                               | Contents                                          |
+| ------------------------------------- | --------------------------------------- | ------------------------------------------------- |
+| `root.json` (+ sigs)                  | root threshold                          | Only when root changes                            |
+| `snapshot.json`                       | snapshot role                           | Digests/versions of targets metadata + release id |
+| `targets.json` / `manifest.json`      | targets/release                         | Channel, seq, per-host plans, artifact inventory  |
+| `plan/<host>.json`                    | targets (or covered by manifest digest) | Typed ChangePlan IR (§2.3)                        |
+| Artifacts (APKs, tarballs, NAR lists) | content-addressed; digests in targets   | Exact length + sha256                             |
 
 Channels: `stable` (default), `emergency` (requires emergency role or
 root-threshold). Clients pin channel in local config.
@@ -312,12 +328,12 @@ Atomic write (temp + rename). Corrupt state → fail closed, require operator
 
 #### 2.2.4 Clock strategy
 
-| Check | Rule |
-| --- | --- |
-| Expiry | Compare metadata `expires` to **update-start wall clock**; if clock is before `last_success_wall - 1d`, **abort** (clock rollback suspicion) unless emergency channel with root-threshold. |
-| Freeze | If pull mode: if no newer timestamp/sequence for > `max_stale` (default 14d) while network OK, alert; do not silently keep applying old. |
-| Monotonic | Always prefer `sequence` and metadata `version` over wall clock for rollback decisions. |
-| Android | If automatic time disabled / skew > 6h vs last success, fail closed to operator. |
+| Check     | Rule                                                                                                                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Expiry    | Compare metadata `expires` to **update-start wall clock**; if clock is before `last_success_wall - 1d`, **abort** (clock rollback suspicion) unless emergency channel with root-threshold. |
+| Freeze    | If pull mode: if no newer timestamp/sequence for > `max_stale` (default 14d) while network OK, alert; do not silently keep applying old.                                                   |
+| Monotonic | Always prefer `sequence` and metadata `version` over wall clock for rollback decisions.                                                                                                    |
+| Android   | If automatic time disabled / skew > 6h vs last success, fail closed to operator.                                                                                                           |
 
 #### 2.2.5 Client verification algorithm (ordered, testable)
 
@@ -478,21 +494,21 @@ authorization.
 
 **Capability vocabulary (v1 closed set — unknown capability = reject plan):**
 
-| Capability | Meaning |
-| --- | --- |
-| `nix.profile.write` | Activate listed Nix profile / generation |
-| `nix.gc.root` | Add/remove gc roots listed only |
-| `fs.write.prefix` | Write only under `allowed_path_prefixes` |
-| `fs.read.prefix` | Read only under listed prefixes |
-| `service.restart` | Restart/reload `allowed_services` only |
-| `service.install_unit` | Install unit files under allowed prefixes + names |
-| `pkg.install` | Install packages from allowlisted names/versions |
-| `android.apk.install` | Install APK with matching cert + package |
-| `android.shizuku.call` | Only listed Shizuku binder methods |
-| `secret.use` | Request handles in `secrets.handles_allowed` |
-| `net.bind` | Bind listed ports |
-| `peer.help` | One bounded peer-help action (consent pilot) |
-| `exec.argv` | Run only exact argv digests (rare; prefer higher-level ops) |
+| Capability             | Meaning                                                     |
+| ---------------------- | ----------------------------------------------------------- |
+| `nix.profile.write`    | Activate listed Nix profile / generation                    |
+| `nix.gc.root`          | Add/remove gc roots listed only                             |
+| `fs.write.prefix`      | Write only under `allowed_path_prefixes`                    |
+| `fs.read.prefix`       | Read only under listed prefixes                             |
+| `service.restart`      | Restart/reload `allowed_services` only                      |
+| `service.install_unit` | Install unit files under allowed prefixes + names           |
+| `pkg.install`          | Install packages from allowlisted names/versions            |
+| `android.apk.install`  | Install APK with matching cert + package                    |
+| `android.shizuku.call` | Only listed Shizuku binder methods                          |
+| `secret.use`           | Request handles in `secrets.handles_allowed`                |
+| `net.bind`             | Bind listed ports                                           |
+| `peer.help`            | One bounded peer-help action (consent pilot)                |
+| `exec.argv`            | Run only exact argv digests (rare; prefer higher-level ops) |
 
 No capability ⇒ no effect. Plans may not include `exec.shell` or
 `ansible.unrestricted` in v1 — those types are **forbidden**.
@@ -638,16 +654,16 @@ offer(Offer) → Decision
 
 **Rules:**
 
-| Rule | Behavior |
-| --- | --- |
-| Device binding | Plan `target.host_pubkey_fpr` must match this device’s install key |
-| Nonce | Single-use; stored in integrity-protected grant DB |
-| Expiry | Wall-clock; fail closed |
-| Timeout / UI crash | **deny** |
-| Accept | Writes grant: exact capability_vector + plan_sha256 + nonce spent |
-| Executor | Every op must be ⊆ grant; grant does not include “run any future plan” |
-| Reject | Persist reject for (plan_id, sequence) to suppress re-prompt loops for 24h |
-| Receipt | Device-signed: `{decision, plan_sha256, sequence, ts, device_fpr}` exportable; **no** site secrets; **no** automatic public log |
+| Rule               | Behavior                                                                                                                        |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| Device binding     | Plan `target.host_pubkey_fpr` must match this device’s install key                                                              |
+| Nonce              | Single-use; stored in integrity-protected grant DB                                                                              |
+| Expiry             | Wall-clock; fail closed                                                                                                         |
+| Timeout / UI crash | **deny**                                                                                                                        |
+| Accept             | Writes grant: exact capability_vector + plan_sha256 + nonce spent                                                               |
+| Executor           | Every op must be ⊆ grant; grant does not include “run any future plan”                                                          |
+| Reject             | Persist reject for (plan_id, sequence) to suppress re-prompt loops for 24h                                                      |
+| Receipt            | Device-signed: `{decision, plan_sha256, sequence, ts, device_fpr}` exportable; **no** site secrets; **no** automatic public log |
 
 **v1 pilot operation only:** `peer.help` with proven rollback (uninstall or
 revert agent version). No generic feature bundles. No Shizuku-capable APK
@@ -672,13 +688,13 @@ consent without RT-08 gate.
 
 Separate authorities (none alone deploys):
 
-| Authority | Key / identity | May do | Must not do |
-| --- | --- | --- | --- |
-| Builder SSH | SSH CA host cert, tag `builder` | Compile | Sign releases; own cache signing key |
-| Cache upload | Short-lived credential | Upload NARs for paths it built | Sign root/release; configure clients |
-| Cache signing | Offline or HSM-isolated key | Sign NAR info | Held on builder SSH account |
-| Release | release key under root | Authorize deploy of **digests** | Trust “came from builder” without inventory |
-| Client | verifies release NAR inventory | Activate only listed paths | Trust cache sig alone for privileged closures |
+| Authority     | Key / identity                  | May do                          | Must not do                                   |
+| ------------- | ------------------------------- | ------------------------------- | --------------------------------------------- |
+| Builder SSH   | SSH CA host cert, tag `builder` | Compile                         | Sign releases; own cache signing key          |
+| Cache upload  | Short-lived credential          | Upload NARs for paths it built  | Sign root/release; configure clients          |
+| Cache signing | Offline or HSM-isolated key     | Sign NAR info                   | Held on builder SSH account                   |
+| Release       | release key under root          | Authorize deploy of **digests** | Trust “came from builder” without inventory   |
+| Client        | verifies release NAR inventory  | Activate only listed paths      | Trust cache sig alone for privileged closures |
 
 **Mandatory before any client trusts a private cache key:**
 
@@ -756,13 +772,13 @@ resolver double-denies if agent ever calls with `trust_tier=consented`.
 
 **v1 rule: no autonomous failover.**
 
-| Singleton | v1 authority | Failover |
-| --- | --- | --- |
-| Release publish | Operator laptop + flock/`ops-release.lock` | Manual only |
-| Secret rotation | Operator ceremony | Manual only |
-| obs-main | Designated host in inventory | Manual inventory edit + signed plan |
-| deploy-origin | Operator hosts only | n/a |
-| pull-converge | **Disabled** until G5 | — |
+| Singleton       | v1 authority                               | Failover                            |
+| --------------- | ------------------------------------------ | ----------------------------------- |
+| Release publish | Operator laptop + flock/`ops-release.lock` | Manual only                         |
+| Secret rotation | Operator ceremony                          | Manual only                         |
+| obs-main        | Designated host in inventory               | Manual inventory edit + signed plan |
+| deploy-origin   | Operator hosts only                        | n/a                                 |
+| pull-converge   | **Disabled** until G5                      | —                                   |
 
 Replace “lease/fencing semantics” rhetoric with:
 
@@ -782,21 +798,21 @@ circuit breaker after N failures, local kill switch file
 
 ### 3.1 Evaluating the suggested cut
 
-> *“v1 is push-only from operator hosts; no autonomous pull; no consented
-> devices; no autonomous role failover.”*
+> _“v1 is push-only from operator hosts; no autonomous pull; no consented
+> devices; no autonomous role failover.”_
 
-| Finding / gap | Closed for free? |
-| --- | --- |
-| RT-02 fleet-scale freeze via pull mirrors | **Mostly yes** (still need anti-rollback on push targets) |
-| RT-04 consent theater | **Yes** |
-| RT-07 mesh split-brain + converger DoS | **Yes** (failover); DoS deferred with pull |
-| RT-08 consent without provenance | **Yes** |
-| Systemic: quorum, privacy, TOFU for strangers | **Yes** / reduced |
-| RT-01 key theft | **No** — push still signs; still need root/threshold |
-| RT-03 execution laundering | **No** — push still executes |
-| RT-05 cache | **Yes** if we also skip private cache |
-| RT-06 secrets | **No** — already resolves secrets today |
-| RT-09 local-fix auto | **Yes** if we refuse to build it |
+| Finding / gap                                 | Closed for free?                                          |
+| --------------------------------------------- | --------------------------------------------------------- |
+| RT-02 fleet-scale freeze via pull mirrors     | **Mostly yes** (still need anti-rollback on push targets) |
+| RT-04 consent theater                         | **Yes**                                                   |
+| RT-07 mesh split-brain + converger DoS        | **Yes** (failover); DoS deferred with pull                |
+| RT-08 consent without provenance              | **Yes**                                                   |
+| Systemic: quorum, privacy, TOFU for strangers | **Yes** / reduced                                         |
+| RT-01 key theft                               | **No** — push still signs; still need root/threshold      |
+| RT-03 execution laundering                    | **No** — push still executes                              |
+| RT-05 cache                                   | **Yes** if we also skip private cache                     |
+| RT-06 secrets                                 | **No** — already resolves secrets today                   |
+| RT-09 local-fix auto                          | **Yes** if we refuse to build it                          |
 
 **Score:** this cut closes or defers **~half the Critical/High surface**
 and almost all mesh/consent complexity, while leaving the **real** work as
@@ -817,15 +833,15 @@ Ship:
 
 Explicitly **do not ship:**
 
-| Surface | Opens when |
-| --- | --- |
-| Timer-driven pull | G5 |
-| Consent UI live | G6 |
-| Private Nix cache trust | G8 |
-| Autonomous role failover | Never without fencing design + partition tests |
-| local-fix auto-merge | Never as authorization |
-| OpenHands / LLM as gate | Never (advisor only) |
-| T4 advisor-cleared upstream prefer | Never as authorization |
+| Surface                            | Opens when                                     |
+| ---------------------------------- | ---------------------------------------------- |
+| Timer-driven pull                  | G5                                             |
+| Consent UI live                    | G6                                             |
+| Private Nix cache trust            | G8                                             |
+| Autonomous role failover           | Never without fencing design + partition tests |
+| local-fix auto-merge               | Never as authorization                         |
+| OpenHands / LLM as gate            | Never (advisor only)                           |
+| T4 advisor-cleared upstream prefer | Never as authorization                         |
 
 **Minimum useful thing:** “Operator pushes a release that devices/hosts
 **refuse** if signature, sequence, target binding, or IR capabilities fail”
@@ -841,13 +857,13 @@ roadmap footnotes.
 
 ### Phase 4 — First NixOS host
 
-| | |
-| --- | --- |
-| **Entry** | Phase 3 done; inventory has `vps-primary`; **no** requirement for pull/consent. SSH CA + Tailscale as today. |
-| **Contents** | nixos-anywhere bootstrap; Ansible→systemd adapters; deploy-rs for Nix profile with magic rollback; **push-only**. Do **not** add private cache keys. |
-| **Security must-haves** | Host identity in inventory; deploy path does not grant cache signing; secrets for VPS via secretspec policy if any. |
-| **Exit evidence** | Host recovers via Nix generation; services re-render via Ansible; STATUS note. |
-| **Rollback** | Destroy VPS; roles fall back to Mac. |
+|                         |                                                                                                                                                      |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Entry**               | Phase 3 done; inventory has `vps-primary`; **no** requirement for pull/consent. SSH CA + Tailscale as today.                                         |
+| **Contents**            | nixos-anywhere bootstrap; Ansible→systemd adapters; deploy-rs for Nix profile with magic rollback; **push-only**. Do **not** add private cache keys. |
+| **Security must-haves** | Host identity in inventory; deploy path does not grant cache signing; secrets for VPS via secretspec policy if any.                                  |
+| **Exit evidence**       | Host recovers via Nix generation; services re-render via Ansible; STATUS note.                                                                       |
+| **Rollback**            | Destroy VPS; roles fall back to Mac.                                                                                                                 |
 
 ### Phase 5 — Release / plan v1 (**hardened**)
 
@@ -855,33 +871,33 @@ Split into **5a** (push signed IR) and **5b** (pull).
 
 #### 5a — Signed push (default “Phase 5” for solo)
 
-| | |
-| --- | --- |
-| **Entry** | Root 2-of-3 generated and fingerprints recorded offline; clean-signing checkout script green; ChangePlan schema + at least one executor wrapper (Ansible **or** Android verify); secrets policy v0 for one real service; fail-closed unit tests for RT-02 cases that apply to push. |
-| **Contents** | Manifest + IR; minisign release key under root; `just deploy-host` verifies before apply; one device no-op plan; deploy telemetry events. |
-| **Exit evidence** | Bad sig / bad sequence / bad host fpr / undeclared capability all denied on a real host; recovery runbook dry-run documented. |
-| **Rollback** | Feature flag: ignore manifests, classic Ansible push (document as degraded). |
+|                   |                                                                                                                                                                                                                                                                                     |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Entry**         | Root 2-of-3 generated and fingerprints recorded offline; clean-signing checkout script green; ChangePlan schema + at least one executor wrapper (Ansible **or** Android verify); secrets policy v0 for one real service; fail-closed unit tests for RT-02 cases that apply to push. |
+| **Contents**      | Manifest + IR; minisign release key under root; `just deploy-host` verifies before apply; one device no-op plan; deploy telemetry events.                                                                                                                                           |
+| **Exit evidence** | Bad sig / bad sequence / bad host fpr / undeclared capability all denied on a real host; recovery runbook dry-run documented.                                                                                                                                                       |
+| **Rollback**      | Feature flag: ignore manifests, classic Ansible push (document as degraded).                                                                                                                                                                                                        |
 
 #### 5b — Pull converge (optional, later)
 
-| | |
-| --- | --- |
-| **Entry** | 5a soak ≥ 14 days; full client algorithm §2.2.5 implemented; resource limits + kill switch; snapshot binding + expiry short enough; **no** autonomous multi-host role changes. |
-| **Contents** | Timer agent on **operator-tier hosts only** (Mac, later VPS) — **not** on consented/untrusted devices. |
-| **Exit evidence** | Hostile-mirror tests: freeze, rollback, mix-and-match, oversize. |
-| **Rollback** | `PULL_DISABLED`; remove timer; push-only. |
+|                   |                                                                                                                                                                                |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Entry**         | 5a soak ≥ 14 days; full client algorithm §2.2.5 implemented; resource limits + kill switch; snapshot binding + expiry short enough; **no** autonomous multi-host role changes. |
+| **Contents**      | Timer agent on **operator-tier hosts only** (Mac, later VPS) — **not** on consented/untrusted devices.                                                                         |
+| **Exit evidence** | Hostile-mirror tests: freeze, rollback, mix-and-match, oversize.                                                                                                               |
+| **Rollback**      | `PULL_DISABLED`; remove timer; push-only.                                                                                                                                      |
 
 **Architecture-final Phase 5 text is amended:** pull is **not** the default
 exit criterion; 5a is.
 
 ### Phase 6 — Consent v1 (**hardened**)
 
-| | |
-| --- | --- |
-| **Entry (G6)** | 5a complete; Android provenance minimum: dependency locks, APK cert pin, permission/export/Shizuku/network **diff artifact** in release; offer() with nonce/expiry/device bind/timeout=deny; executor enforces capability_vector; privacy: local receipts only; Tailscale tags/grants so consented ↛ builder/SSH-CA paths; single pilot op `peer.help` with rollback drill. |
-| **Contents** | stayturgid-agent prompt + grant store + device-signed receipts on **one** opted-in device. |
-| **Exit evidence** | Replay accept fails; timeout denies; summary/IR mismatch tests; revoke feature works. |
-| **Rollback** | Feature flag off; wipe grants; recorded rollback of pilot op. |
+|                   |                                                                                                                                                                                                                                                                                                                                                                             |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Entry (G6)**    | 5a complete; Android provenance minimum: dependency locks, APK cert pin, permission/export/Shizuku/network **diff artifact** in release; offer() with nonce/expiry/device bind/timeout=deny; executor enforces capability_vector; privacy: local receipts only; Tailscale tags/grants so consented ↛ builder/SSH-CA paths; single pilot op `peer.help` with rollback drill. |
+| **Contents**      | stayturgid-agent prompt + grant store + device-signed receipts on **one** opted-in device.                                                                                                                                                                                                                                                                                  |
+| **Exit evidence** | Replay accept fails; timeout denies; summary/IR mismatch tests; revoke feature works.                                                                                                                                                                                                                                                                                       |
+| **Rollback**      | Feature flag off; wipe grants; recorded rollback of pilot op.                                                                                                                                                                                                                                                                                                               |
 
 ### Phase 7–8 (unchanged intent, security delta)
 
@@ -895,22 +911,22 @@ exit criterion; 5a is.
 Estimates: **one operator + AI agents**, calendar time (not pure coding hours).
 Flag multi-week impostors.
 
-| Order | Item | Effort | Notes |
-| --- | --- | --- | --- |
-| 1 | ChangePlan schema + JSON Schema + golden fixtures | **2–4 days** | Highest leverage; do first |
-| 2 | Ansible executor wrapper (module/path allowlist) for **one** play family | **1–2 weeks** | Easy to underestimate — per-role migration is the multi-week trap; start with **one** LaunchAgent role |
-| 3 | Root ceremony tooling + `root.json` verify CLI (Mac + Termux) | **3–5 days** | Includes recovery doc dry-run |
-| 4 | Manifest/snapshot sign + verify in `just ops-release-*` path | **3–5 days** | Wire to existing ops-v train |
-| 5 | Client state + sequence high-water on push target | **2–4 days** | |
-| 6 | SecretSpec resolver policy for 2–3 real services | **3–5 days** | Expand allowlist gradually |
-| 7 | Provenance gate script + deny agent signing | **1–2 days** | Cheap, do early parallel with 1 |
-| 8 | Android no-op plan verify in agent | **3–5 days** | |
-| 9 | Fail-closed test suite (RT-02/03 cases) | **3–5 days** | |
-| 10 | 5a soak on Mac + one phone | **1–2 weeks** elapsed | Mostly calendar |
-| 11 | Pull agent + quotas (**5b**) | **1–2 weeks** | **Do not start before 10** |
-| 12 | Consent offer/grant/receipt (**6**) | **2–3 weeks** | Multi-week; includes UI + adversarial tests |
-| 13 | Android provenance pack for consent | **2–4 weeks** | Multi-week impostor if “reproducible APK” means bit-identical; take cert pin + SBOM + diff first |
-| 14 | Private cache containment | **2–4 weeks** when demanded | Multi-week; easy to hand-wave |
+| Order | Item                                                                     | Effort                      | Notes                                                                                                  |
+| ----- | ------------------------------------------------------------------------ | --------------------------- | ------------------------------------------------------------------------------------------------------ |
+| 1     | ChangePlan schema + JSON Schema + golden fixtures                        | **2–4 days**                | Highest leverage; do first                                                                             |
+| 2     | Ansible executor wrapper (module/path allowlist) for **one** play family | **1–2 weeks**               | Easy to underestimate — per-role migration is the multi-week trap; start with **one** LaunchAgent role |
+| 3     | Root ceremony tooling + `root.json` verify CLI (Mac + Termux)            | **3–5 days**                | Includes recovery doc dry-run                                                                          |
+| 4     | Manifest/snapshot sign + verify in `just ops-release-*` path             | **3–5 days**                | Wire to existing ops-v train                                                                           |
+| 5     | Client state + sequence high-water on push target                        | **2–4 days**                |                                                                                                        |
+| 6     | SecretSpec resolver policy for 2–3 real services                         | **3–5 days**                | Expand allowlist gradually                                                                             |
+| 7     | Provenance gate script + deny agent signing                              | **1–2 days**                | Cheap, do early parallel with 1                                                                        |
+| 8     | Android no-op plan verify in agent                                       | **3–5 days**                |                                                                                                        |
+| 9     | Fail-closed test suite (RT-02/03 cases)                                  | **3–5 days**                |                                                                                                        |
+| 10    | 5a soak on Mac + one phone                                               | **1–2 weeks** elapsed       | Mostly calendar                                                                                        |
+| 11    | Pull agent + quotas (**5b**)                                             | **1–2 weeks**               | **Do not start before 10**                                                                             |
+| 12    | Consent offer/grant/receipt (**6**)                                      | **2–3 weeks**               | Multi-week; includes UI + adversarial tests                                                            |
+| 13    | Android provenance pack for consent                                      | **2–4 weeks**               | Multi-week impostor if “reproducible APK” means bit-identical; take cert pin + SBOM + diff first       |
+| 14    | Private cache containment                                                | **2–4 weeks** when demanded | Multi-week; easy to hand-wave                                                                          |
 
 ### What to build first (this week)
 
@@ -1004,5 +1020,5 @@ not authorization to ship the weak design the red-team killed.
 
 ---
 
-*End of hardened design. File is advisory to the Decision Register; it does
-not modify `architecture-final-v1.md` without operator approval.*
+_End of hardened design. File is advisory to the Decision Register; it does
+not modify `architecture-final-v1.md` without operator approval._

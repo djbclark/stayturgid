@@ -15,7 +15,7 @@ engineering manager who has watched ambitious migrations die.
 
 - **One operator.** Not a team. With AI coding agents (Claude Code, Codex,
   Ralph controllers, Herdr) doing much of the implementation.
-- **Live fleet today:** one M1 MacBook Air (a *laptop*, which sleeps, and is
+- **Live fleet today:** one M1 MacBook Air (a _laptop_, which sleeps, and is
   currently the sole control node running the entire observability stack),
   three Android devices (Galaxy S24, Pixel 7a, Kindle Fire HD8) over
   Tailscale. `vps-primary` and the Intel mini are `offline_unprovisioned` —
@@ -39,11 +39,12 @@ launch prompt).
 ## Required contents
 
 ### 1. Pre-mortem
+
 Assume it is 2027-02 and the migration is dead, abandoned, or worse — a
 half-migrated mess that is harder to operate than what it replaced. Write the
 autopsy. Be specific and concrete, not generic ("scope creep" is not a
-finding; *"Phase 3 stalled with 6 of 14 services flipped and two writers
-fighting over the vector plist"* is). Rank causes by probability.
+finding; _"Phase 3 stalled with 6 of 14 services flipped and two writers
+fighting over the vector plist"_ is). Rank causes by probability.
 
 Cover at minimum: half-migrated states and their operational cost; the
 laptop-is-the-control-node problem during migration; the never-provisioned
@@ -51,30 +52,34 @@ VPS blocking three phases; the exit drill that never actually gets run; the
 trust layer eating months and delivering nothing user-visible; AI agents
 producing plausible-but-wrong infra changes at scale; the operator losing
 interest once the interesting design work is done; a macOS upgrade breaking
-nix-darwin mid-migration; a security incident *caused by* the new machinery.
+nix-darwin mid-migration; a security incident _caused by_ the new machinery.
 
 ### 2. Effort reality check
+
 Go phase by phase (final doc §5) and the trust-layer work, and give honest
-ranges in operator-days/weeks *with* AI assistance. Call out anything that is
+ranges in operator-days/weeks _with_ AI assistance. Call out anything that is
 a multi-week project written as a bullet point. Flag anything that cannot be
 meaningfully delegated to an AI agent and therefore consumes scarce human
 attention.
 
 ### 3. What to cut
+
 The aggressive version: **what is the smallest subset that delivers most of
 the value?** Be specific about what to drop or defer indefinitely. Consider
 seriously: is the whole Nix layer worth it for a fleet of this size? Is the
-role mesh solving a problem the operator actually has *today*? Should the
+role mesh solving a problem the operator actually has _today_? Should the
 trust/consent layer simply not be built until there is a real second user?
 Argue your answers; do not just ask the questions.
 
 ### 4. Sequencing for motivation and reversibility
+
 Reorder the work so that (a) each step delivers standalone value even if
 everything after it is abandoned, and (b) nothing leaves the system worse
-than it started if the operator stops mid-way. Name the specific *stopping
-points* where the system is in a coherent state.
+than it started if the operator stops mid-way. Name the specific _stopping
+points_ where the system is in a coherent state.
 
 ### 5. Kill criteria and leading indicators
+
 What observable conditions should make the operator stop, roll back, or
 re-scope? What early signals predict failure (e.g. "Phase 0 schemas not
 written within N weeks means the data-model spine won't happen")? What

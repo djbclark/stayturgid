@@ -26,12 +26,12 @@
 
 **Verdict on the four evaluated options:** none of them is the spine.
 
-| Option | Category | Verdict |
-| --- | --- | --- |
-| `bgub/nix-macos-starter` | Single-host macOS starter (nix-darwin + home-manager + mise + brew) | **Pattern donor only.** Validates the mise-inside-home-manager and declarative-Homebrew patterns. No Linux, no fleet, no multi-host story. |
-| `mrkuz/macos-config` | Personal modular nix-darwin flake | **Structure donor.** Steal the host/user/module decomposition with declared options, and the remote-Linux-builder posture. Not a framework; his NixOS side is unmaintained. |
-| Devbox (Jetify) | Per-project dev environments (JSON over Nix) | **Rejected for the spine; optional per-repo tool.** Answers "what is in this project's shell," not "what state should this machine converge to." |
-| Devenv.sh | Per-project dev environments (Nix language, processes, hooks) | **Adopted narrowly**: candidate replacement for per-repo toolchain/services setup inside `~/src` repos where useful. Never a system layer. |
+| Option                   | Category                                                            | Verdict                                                                                                                                                                     |
+| ------------------------ | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bgub/nix-macos-starter` | Single-host macOS starter (nix-darwin + home-manager + mise + brew) | **Pattern donor only.** Validates the mise-inside-home-manager and declarative-Homebrew patterns. No Linux, no fleet, no multi-host story.                                  |
+| `mrkuz/macos-config`     | Personal modular nix-darwin flake                                   | **Structure donor.** Steal the host/user/module decomposition with declared options, and the remote-Linux-builder posture. Not a framework; his NixOS side is unmaintained. |
+| Devbox (Jetify)          | Per-project dev environments (JSON over Nix)                        | **Rejected for the spine; optional per-repo tool.** Answers "what is in this project's shell," not "what state should this machine converge to."                            |
+| Devenv.sh                | Per-project dev environments (Nix language, processes, hooks)       | **Adopted narrowly**: candidate replacement for per-repo toolchain/services setup inside `~/src` repos where useful. Never a system layer.                                  |
 
 **The recommended architecture** is a fifth thing the option list implied
 but did not contain — and it is shaped by three operator constraints that
@@ -123,6 +123,7 @@ Normative inputs from the dialogue. R-numbers are referenced throughout.
 ## 3. Evaluation detail
 
 ### 3.1 bgub/nix-macos-starter
+
 A clean, current expression of nix-darwin + home-manager + declarative
 Homebrew (`nix-homebrew`) + mise-for-runtimes on one Mac. Its value here:
 (a) confirms mise and home-manager coexist without fighting when mise owns
@@ -132,6 +133,7 @@ host, one OS, no services story beyond defaults, no secrets, no fleet.
 **Use as reference, adopt nothing wholesale.**
 
 ### 3.2 mrkuz/macos-config
+
 The most architecturally instructive of the four: hosts and VMs as
 expressions, per-user Home Manager trees, feature modules with declared
 options, pragmatic install-source policy (App Store via `mas` for Apple
@@ -143,6 +145,7 @@ hardware, §6 — not his VM tooling, per R3). **Ignore:** the VM/QEMU
 machinery, single-person hardcoding.
 
 ### 3.3 Devbox
+
 JSON-config Nix wrapper, per-project shells and services, exports to CI.
 Good tool, wrong layer: nothing in it addresses system convergence, hosts,
 or fleets, and its abstraction (hide the Nix language) removes exactly the
@@ -150,6 +153,7 @@ expressive power the adapters need. **No role in the architecture.**
 Individual `~/src` repos may still use it privately if convenient.
 
 ### 3.4 Devenv.sh
+
 Real Nix, per-project processes/services/git-hooks, container export.
 Same category limit as Devbox, but because it is plain Nix it composes
 with the suite flake. **Optional per-repo adoption** where a repo wants
@@ -158,6 +162,7 @@ required, never system-level. Note: devenv's maintainer also builds
 `secretspec` — the ecosystems already interoperate deliberately.
 
 ### 3.5 Alternatives scanned and not chosen as spine
+
 - `dustinlyons/nixos-config`, `nixologist/macnix-config`: better
   dual-OS starters than the two evaluated, still single-operator
   workstation configs, not fleet spines. Reference material for
@@ -173,13 +178,14 @@ required, never system-level. Note: devenv's maintainer also builds
 
 ## 4. The Site Model (the spine)
 
-**Principle:** *facts and intent in data; behavior in generic, publishable
-code; adapters translate.* This is R2, R5, and R10 satisfied by one
+**Principle:** _facts and intent in data; behavior in generic, publishable
+code; adapters translate._ This is R2, R5, and R10 satisfied by one
 mechanism — role assignment is data (so "who is main for feature X" is an
 edit, not a re-architecture), exit from NixOS is an adapter swap, and the
 generic layer is publishable because it contains nobody's facts.
 
 ### 4.1 Contents
+
 Extends what already exists rather than inventing a parallel scheme:
 
 - **`inventory/`** (exists) — hosts + taxonomy groups. Gains non-Android
@@ -192,7 +198,7 @@ Extends what already exists rather than inventing a parallel scheme:
   them (a NixOS service declaring a port not in the registry fails the
   build — the registry lint becomes unskippable).
 - **`registry/services.yml`** (new) — service definitions: name, runs-as,
-  command, env (secretspec key *names* only), platform notes, role
+  command, env (secretspec key _names_ only), platform notes, role
   binding. The current launchd plists / systemd units / mise agents are
   all renderings of one such record.
 - **`registry/roles.yml`** (new) — feature roles (`litellm`, `hermes`,
@@ -206,6 +212,7 @@ Extends what already exists rather than inventing a parallel scheme:
   existing `registry_lint.py` pattern in CI and pre-commit.
 
 ### 4.2 Placement
+
 Site Model lives in **`site-djbclark`** (it is site data; that repo is
 already the allocation authority). Generic adapter code starts under a
 quarantined `freeops/` subtree there (or in stayturgid where
@@ -214,10 +221,11 @@ hostnames, no secrets — extraction to a standalone public repo is then
 `git filter-repo`, not surgery (§11).
 
 ### 4.3 Consumption
+
 Nix reads it natively (`builtins.fromJSON` / `fromTOML`; YAML via a
 committed generated JSON twin, produced by the same lint step, to keep
 eval pure). Ansible reads it as vars files it already understands. mise
-bootstrap TOML for an exit-hatch host is *generated* from
+bootstrap TOML for an exit-hatch host is _generated_ from
 `services.yml` + `roles.yml` by a small script — the exit is mechanical.
 
 ---
@@ -225,37 +233,39 @@ bootstrap TOML for an exit-hatch host is *generated* from
 ## 5. Platform adapters
 
 ### 5.1 macOS (Apple Silicon) — nix-darwin + home-manager
+
 - **Flake** at `site-djbclark/flake.nix` exposes
   `darwinConfigurations.<host>` (and the NixOS outputs of §5.2), importing
   generic modules from `freeops/` and instantiating them with Site Model
   data.
 - **Layer ownership (the decision the dialogue left to me):**
-  1. *Packages, shell, dotfiles, macOS defaults, declarative Homebrew:*
+  1. _Packages, shell, dotfiles, macOS defaults, declarative Homebrew:_
      **nix-darwin + home-manager**, replacing ad-hoc brew state. mrkuz's
      install-source policy applies (mas for Apple, brew for
      proprietary/DMG, Nix otherwise).
-  2. *User services (launchd agents):* **end state is home-manager**
+  2. _User services (launchd agents):_ **end state is home-manager**
      (generated from `services.yml`), because generations + rollback of
      the whole service layer is the strongest recovery story and closure
      diffs feed §7's change plans. **Transitional state is Ansible**, which
      owns them today. Migration is per-service behind a single boolean in
      `services.yml` (`managed_by: ansible | nix`), and the Ansible role
-     learns to *remove* its plist when a service flips — the two-writers
+     learns to _remove_ its plist when a service flips — the two-writers
      hazard is resolved by making ownership a Site Model fact, never a
      race.
-  3. *mise:* retained for per-project runtimes in `~/src` (unchanged), and
+  3. _mise:_ retained for per-project runtimes in `~/src` (unchanged), and
      its **bootstrap surface is deliberately kept warm as the exit
      adapter** (§5.3) — we do not use `[bootstrap.macos.launchd.agents]`
      on the Mac while nix-darwin is in play (three writers is worse than
      two), but the generator that emits mise TOML from `services.yml` is
      built and CI-tested against a throwaway host entry, so the exit path
      is continuously proven, not aspirational.
-  4. *Dev toolchains inside repos:* mise (status quo) or devenv per repo
+  4. _Dev toolchains inside repos:_ mise (status quo) or devenv per repo
      preference; invisible to the system layer.
 - **Never moved to Nix:** anything Apple-signed/entitlement-bound (per
   install-source policy), and the live agent stack's runtime state.
 
 ### 5.2 Linux (greenfield VPSs + any future physical boxes) — NixOS
+
 - `nixosConfigurations.<host>` from the same flake; same generic modules;
   host facts from the Site Model. First target: `vps-primary` (Hetzner;
   aarch64 recommended for price/perf — an x86_64 sibling follows when a
@@ -263,7 +273,7 @@ bootstrap TOML for an exit-hatch host is *generated* from
   builder role).
 - **Exit design (R5), concretely:** (a) all service semantics live in
   `services.yml`, so the NixOS module layer contains no knowledge that
-  isn't regenerable; (b) no NixOS-only primitives in service *contracts* —
+  isn't regenerable; (b) no NixOS-only primitives in service _contracts_ —
   services are plain systemd units + files + packages, the three things
   every distro has; (c) the mise-adapter generator (§5.3) is the tested
   translation; (d) an "exit drill" is a standing CI job: render
@@ -274,9 +284,10 @@ bootstrap TOML for an exit-hatch host is *generated* from
 - **State discipline:** declarative config never contains state; app state
   lives under registered paths (`registry/paths.yml`) with restic/borg
   backup as a `services.yml` entry — this is what makes both NixOS
-  rebuilds *and* the exit cheap.
+  rebuilds _and_ the exit cheap.
 
 ### 5.3 Exit adapter — mise bootstrap (certified, dormant)
+
 mise's bootstrap surface (declarative packages across brew/apt/dnf,
 dotfiles, `[bootstrap.linux.systemd.units]`,
 `[bootstrap.macos.launchd.agents]`, `dev.mise.*`-prefixed ownership
@@ -289,6 +300,7 @@ with git-revert + re-apply + CFEngine as its recovery story. A
 future "guest" machines too small or too foreign for Nix.
 
 ### 5.4 Android — unchanged stack, new lanes
+
 - **Unchanged (R4):** Termux runtime, Ansible collections, Shizuku fork,
   stayturgid-agent, CFEngine self-heal + remote fallback, FIRERPA backup
   channel, SSH CA, Tailscale.
@@ -300,7 +312,7 @@ future "guest" machines too small or too foreign for Nix.
   repos lack. Never a `pkg` replacement.
 - **New lane 2 — APK orchestration (R6):** Gradle builds stay as-is,
   invoked by `just` targets the suite flake wraps (`nix run
-  .#build-agent` → same Gradle, pinned JDK from Nix on the invoking host
+.#build-agent` → same Gradle, pinned JDK from Nix on the invoking host
   only). Outputs are hashed, recorded in the release manifest, deployed by
   the existing `just agent-rollout` path. Reproducible-APK work is
   roadmap (§12), valuable for R7's trust story, not required now.
@@ -311,6 +323,7 @@ future "guest" machines too small or too foreign for Nix.
   fork of the architecture).
 
 ### 5.5 Future device classes (extension points, no build-out now)
+
 - **Routers:** NixOS-on-router where hardware allows; otherwise OpenWrt
   with uci config rendered from the Site Model (same adapter contract).
 - **iPhone / smartglasses / smartwatches:** never converge-managed;
@@ -326,8 +339,8 @@ future "guest" machines too small or too foreign for Nix.
 ## 6. Build & distribution topology (no VMs — R3)
 
 - **Darwin closures:** built on the Mac (native).
-- **Linux closures, phase 1 (now → first VPS):** *build-on-target with
-  public-cache substitution.* `nixos-rebuild switch --flake` on the box
+- **Linux closures, phase 1 (now → first VPS):** _build-on-target with
+  public-cache substitution._ `nixos-rebuild switch --flake` on the box
   (or `deploy-rs` with `remoteBuild = true`); ≳95% of paths substitute
   from cache.nixos.org; the box evaluates and links. Cost ≈ zero; works
   from any deploy origin including the Mac.
@@ -345,7 +358,7 @@ future "guest" machines too small or too foreign for Nix.
   `nix-builder` principal), and cache paths are signature-checked.
   Compromise of a builder is compromise of its consumers; therefore
   builders are `trust_tier: operator` hosts only, forever.
-- **Failure mode:** offline/degraded ⇒ no *fresh* Linux builds; cached
+- **Failure mode:** offline/degraded ⇒ no _fresh_ Linux builds; cached
   closures still deploy; CFEngine still heals. Accepted (R3 over
   availability of a local VM builder).
 - **Explicitly rejected:** `nix.linux-builder` VM on the Mac; Docker as a
@@ -357,12 +370,14 @@ future "guest" machines too small or too foreign for Nix.
 ## 7. Deployment, releases, and the consent seed
 
 ### 7.1 Release train (unchanged contract, extended payload)
+
 `ops-vMAJOR.MINOR.PATCH` coordinated releases remain the only way code
 reaches deploy checkouts (`just ops-release-*`; `ops-memory-sync` stays
 the sole data exception). New: a release additionally publishes a
 **release manifest**.
 
 ### 7.2 Release manifest + change plan (the R7 seed, R8-scoped)
+
 Per release, per host, two artifacts, both signed:
 
 - **`manifest.json`** — release id; per-host adapter + closure hash (Nix
@@ -372,7 +387,7 @@ Per release, per host, two artifacts, both signed:
   metadata is the roadmap upgrade path, not reinvented today.
 - **`plan/<host>.txt|json`** — the machine-readable "what will change":
   Nix hosts: `nix store diff-closures` between current and proposed
-  system (package/version/size deltas — *verifiable*, not narrated);
+  system (package/version/size deltas — _verifiable_, not narrated);
   Android: `ansible-playbook --check --diff` output + artifact hash
   deltas; mise hosts: `mise bootstrap status --missing` + dry-run.
 - These artifacts are **consumed identically by push and pull**, and they
@@ -381,6 +396,7 @@ Per release, per host, two artifacts, both signed:
   format later — only adding evaluators of it.
 
 ### 7.3 Push and pull (both first-class — R7)
+
 - **Push:** `just deploy-host <host>` / `just deploy-fleet` from any host
   holding role `deploy-origin` (plural holders; R2). Implementation:
   `deploy-rs` for Nix hosts (rollback-on-failure, `--build-on-target`
@@ -400,13 +416,15 @@ Per release, per host, two artifacts, both signed:
   verify the converge agent itself is alive.
 
 ### 7.4 Consent surface (interface specified now, minimal impl)
+
 stayturgid-agent 2.0 exposes, for `trust_tier: consented` devices:
 `offer(manifest, plan) → {accept | reject | timeout(policy_default)}`,
 rendered as an on-device prompt showing the human-readable plan; decision
-+ manifest hash appended to an append-only local log, mirrored to the
-suite's transparency log (§12). v1 implementation: the prompt, a
-yes/no, the log. Advisor hooks, feature-set opt-in catalogs, and WoT
-evaluation attach to this same interface later (R8).
+
+- manifest hash appended to an append-only local log, mirrored to the
+  suite's transparency log (§12). v1 implementation: the prompt, a
+  yes/no, the log. Advisor hooks, feature-set opt-in catalogs, and WoT
+  evaluation attach to this same interface later (R8).
 
 ---
 
@@ -417,10 +435,10 @@ evaluation attach to this same interface later (R8).
   and why. The trio-symlink consolidation and value-migration work in
   flight (site-private#37) proceeds unchanged.
 - **Nix rule:** no secret values at eval time; nothing secret in any
-  store. Units/agents get secrets at *activation/runtime* via
+  store. Units/agents get secrets at _activation/runtime_ via
   `secretspec`-wrapped ExecStart / launchd wrappers (pattern already in
   use for LaunchAgent env injection — it generalizes).
-- **agenix/sops-nix:** *not* adopted for the general case (a second
+- **agenix/sops-nix:** _not_ adopted for the general case (a second
   authority violates the single-source rule). One narrow permitted use:
   host-bootstrap material that must exist before secretspec can run
   (machine SSH host keys for CA signing, the Nix cache signing key),
@@ -433,7 +451,7 @@ evaluation attach to this same interface later (R8).
 ## 9. Observability
 
 Stack unchanged (Vector, OpenObserve, VictoriaMetrics, otelcol-contrib;
-R11); its *placement* becomes `roles.yml` data (`observability-sink`
+R11); its _placement_ becomes `roles.yml` data (`observability-sink`
 main/backup — today the Mac, movable to a VPS by data edit, per R2) and
 its units become `services.yml` entries rendered by adapters (the current
 hand-tended vector plist becomes generated). Additions: the converge
@@ -446,13 +464,13 @@ can't advise).
 ## 10. Literate programming policy (R9)
 
 Grounded in the current research (agent context files measurably help and
-agents follow them; comment *removal* improved long-context benchmark
+agents follow them; comment _removal_ improved long-context benchmark
 performance for most models; agents spend ~⅔–¾ of tokens reading files;
 selective commenting beats blanket commenting):
 
-1. **Two prose classes, mechanically separated.** *Rationale* (intent,
+1. **Two prose classes, mechanically separated.** _Rationale_ (intent,
    invariants, interdependencies) lives adjacent to code and IS agent
-   context. *Narrative* (humor, history, essayistic asides — wanted for
+   context. _Narrative_ (humor, history, essayistic asides — wanted for
    humans and for Free Sysadmin publishing) lives in marked blocks that
    the agent-facing tangle **strips** and the human-facing weave keeps.
    Full Knuthian richness for readers; zero per-agent-run token tax.
@@ -460,7 +478,7 @@ selective commenting beats blanket commenting):
    high-explanation-value glue only: CFEngine failsafe policies, consent
    machinery, SSH CA flows, the Site Model schema itself, the converge
    agent. Ordinary config stays plain with terse comments.
-3. **`stitch` is the cost-control mechanism.** Agents edit *tangled* plain
+3. **`stitch` is the cost-control mechanism.** Agents edit _tangled_ plain
    files with normal tooling and cheap targeted reads; entangle stitches
    changes back into the literate doc. Full-document context is paid only
    for intent-level work.
@@ -473,7 +491,7 @@ selective commenting beats blanket commenting):
    says tokens buy the most correctness, and it is already house style.
 6. **Tool commitment:** entangle-the-tool is used but not load-bearing —
    rule 4's CI gate means any tangle-compatible tool could replace it;
-   the *practice* is the requirement.
+   the _practice_ is the requirement.
 
 ## 11. Free Sysadmin publishing (R10)
 
@@ -492,7 +510,7 @@ selective commenting beats blanket commenting):
   Operator + FSF may of course decide otherwise; the architecture is
   license-neutral.
 - **The FSF story this enables:** an org publishes its `freeops`-style
-  generic layer + Site Model *schema* while its filled-in Site Model and
+  generic layer + Site Model _schema_ while its filled-in Site Model and
   secrets stay private; reproducible builds + signed manifests +
   transparency log let outsiders verify that published glue is what
   actually runs. "Free Configuration Management" = publishable glue +
@@ -500,15 +518,15 @@ selective commenting beats blanket commenting):
 
 ## 12. Roadmap: trust / consent / WoT (R8 — interfaces now, machinery later)
 
-| Phase | Deliverable | Builds on |
-| --- | --- | --- |
-| T0 (in §7) | Signed manifests, change plans, consent surface v1, deploy telemetry | Release train |
-| T1 | Transparency log: append-only (Rekor-style; sigstore tooling evaluated first, blockchain explicitly not required) recording releases, consent decisions, attestations | T0 |
-| T2 | Advisor API: `advise(manifest, plan, history) → risk assessment`, pluggable model, runs device-side or on a user-chosen host | T0, T1 |
-| T3 | Feature-set catalog: opt-in roles for consented devices ("config app store"); opted-in features persist in the device's Site Model overlay and ride future releases | consent v1 |
-| T4 | Local-fix / upstream-heal loop: local patch branch + auto-filed issue; converge agent prefers upstream once a release containing the fix is signed and advisor-cleared | T1, T2 |
-| T5 | Web of trust: TUF-style role/threshold metadata; graded trust policies ("anyone trusted by 2 members of set S at level X, with safeguards Y") evaluated against T1's attestation log — including human-ritual attestations (the phone-call vouch) as first-class log entries | T1, T2 |
-| T6 | Reproducible APK + artifact provenance (SLSA-style) so consented devices can verify, not just trust | T0 |
+| Phase      | Deliverable                                                                                                                                                                                                                                                                  | Builds on     |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| T0 (in §7) | Signed manifests, change plans, consent surface v1, deploy telemetry                                                                                                                                                                                                         | Release train |
+| T1         | Transparency log: append-only (Rekor-style; sigstore tooling evaluated first, blockchain explicitly not required) recording releases, consent decisions, attestations                                                                                                        | T0            |
+| T2         | Advisor API: `advise(manifest, plan, history) → risk assessment`, pluggable model, runs device-side or on a user-chosen host                                                                                                                                                 | T0, T1        |
+| T3         | Feature-set catalog: opt-in roles for consented devices ("config app store"); opted-in features persist in the device's Site Model overlay and ride future releases                                                                                                          | consent v1    |
+| T4         | Local-fix / upstream-heal loop: local patch branch + auto-filed issue; converge agent prefers upstream once a release containing the fix is signed and advisor-cleared                                                                                                       | T1, T2        |
+| T5         | Web of trust: TUF-style role/threshold metadata; graded trust policies ("anyone trusted by 2 members of set S at level X, with safeguards Y") evaluated against T1's attestation log — including human-ritual attestations (the phone-call vouch) as first-class log entries | T1, T2        |
+| T6         | Reproducible APK + artifact provenance (SLSA-style) so consented devices can verify, not just trust                                                                                                                                                                          | T0            |
 
 ## 13. Migration plan
 
@@ -516,22 +534,22 @@ Each phase ends at a working system and a rollback point; the suite stays
 deployable throughout. Phases ride the normal `ops-v` train.
 
 - **Phase 0 — Foundations (no behavior change).** Site Model schema +
-  lint; `services.yml`/`roles.yml` populated by *transcribing* current
+  lint; `services.yml`/`roles.yml` populated by _transcribing_ current
   reality (Ansible stays the executor); registries gain the schema.
-  CI: lint + schema + (later phases') adapters build. *Rollback: delete
-  files.* Exit criterion: every currently-running service and role
+  CI: lint + schema + (later phases') adapters build. _Rollback: delete
+  files._ Exit criterion: every currently-running service and role
   assignment is represented and lint-clean.
 - **Phase 1 — Mac under nix-darwin (packages/env only).** Flake +
   `darwinConfigurations.m1-air`; nix-darwin owns packages, shell,
   dotfiles, defaults, declarative Homebrew; **services untouched
   (Ansible)**. Brew state reconciled into `homebrew.nix` before first
-  switch. *Rollback: `darwin-rebuild --rollback`; brew unaffected.*
+  switch. _Rollback: `darwin-rebuild --rollback`; brew unaffected._
 - **Phase 2 — First NixOS host.** Provision `vps-primary` (Hetzner ARM)
   via nixos-anywhere; roles per `roles.yml` (start: `litellm` backup +
   `observability-sink` backup); deploy-rs wired; build-on-target;
   exit-drill CI job (render + dry-run mise/Ubuntu twin) turns on.
-  *Rollback: NixOS generations; or destroy VPS (roles fall back to
-  main).* This phase also proves R2: flip one role's main to the VPS and
+  _Rollback: NixOS generations; or destroy VPS (roles fall back to
+  main)._ This phase also proves R2: flip one role's main to the VPS and
   back as an acceptance test.
 - **Phase 3 — Service migration on the Mac.** Per-service
   `managed_by: ansible → nix` flips, low-risk first (vector → litellm →

@@ -3,7 +3,7 @@
 > **🔒 PROTECTED DOCUMENT — AI agents: DO NOT MODIFY without explicit,
 > specific human (operator) approval for a named change.** Blanket
 > instructions ("fix docs", "update stale refs", "reconcile with the
-> latest") do NOT authorize edits here. Propose changes as a *new* review
+> latest") do NOT authorize edits here. Propose changes as a _new_ review
 > doc or a comment on djbclark/stayturgid#272. This binds every agent —
 > Claude Code, Codex, Hermes, Ralph controllers, `agy`, and whatever comes
 > next. If you are an AI reading this to do implementation work: this file
@@ -38,7 +38,7 @@ you touch anything:
 
 2. **The reference target is Ubuntu Server on bare metal — this is a hard
    constraint, not a preference.** The operator will NOT run bare-metal Nix.
-   The reason is *adoptability*: a stranger who wants to try this project
+   The reason is _adoptability_: a stranger who wants to try this project
    should start from what they already have (a normal Linux box), and asking
    them to install duplicate packages is fine while asking them to replace
    their OS is not. Every design decision inherits this. Nix is still used
@@ -49,7 +49,7 @@ you touch anything:
    **user sovereignty**: any user — the operator's family, friends, or a
    stranger on the internet — should be able to understand a proposed config
    change in plain language, refuse it, and maintain their own divergent
-   branch *without knowing what a branch is*, by telling their own AI agent
+   branch _without knowing what a branch is_, by telling their own AI agent
    what they want. Build it carefully (the security gates in §8 are real),
    but build it.
 
@@ -131,12 +131,12 @@ final round.
 - **R5 → HARD FACT:** **The operator will not run bare-metal Nix. Ubuntu
   Server is the reference Linux target.** Rationale is adoptability, not exit
   cost: the reference deployment must resemble what a stranger already runs.
-  Nix lives at every level *except* the installed base OS.
+  Nix lives at every level _except_ the installed base OS.
 - **R6** Gradle stays for APKs; the suite orchestrates build + deploy; APK
   build does not drive architecture.
 - **R7** Push AND pull. Pull evolves into **user-sovereignty**: plain-English
   understanding, refusal, and personal-branch maintenance driven by the
-  *user's own* AI agent — for family, friends, and strangers, none of whom
+  _user's own_ AI agent — for family, friends, and strangers, none of whom
   need to know the underlying terms.
 - **R8** Trust layer = specified interfaces + minimal safe implementations
   now; heavy machinery gated (§8), never deferred on "no user yet" grounds —
@@ -190,7 +190,7 @@ edit small data files, not a sprawling config tree — cheap to read).
 - **`registry/ports.yml`, `paths.yml`** — unchanged allocation authorities;
   adapters gain eval-time asserts against them.
 - **`registry/services.yml`** (new) — one record per service: name, runs-as,
-  command, `env` (secretspec key *names* only), platform notes, role binding,
+  command, `env` (secretspec key _names_ only), platform notes, role binding,
   `managed_by`. Every launchd plist / systemd unit / mise agent is a
   rendering of one such record.
 - **`registry/roles.yml`** (new) — feature roles + assignment
@@ -203,10 +203,11 @@ edit small data files, not a sprawling config tree — cheap to read).
   `registry_lint.py` pattern in CI and pre-commit.
 
 ### 4.2 Placement & consumption
+
 Site Model lives in `site-<n>` (site data). Generic code lives fact-free
 under `freeops/` (§11). Ubuntu/mise reads the model via a small generator;
 Ansible reads it as vars it already understands; Nix (for builds only) reads
-it via `builtins.fromJSON`. A stranger adopting the project fills in *their*
+it via `builtins.fromJSON`. A stranger adopting the project fills in _their_
 Site Model and runs the same generic code — that is the whole portability
 story.
 
@@ -215,6 +216,7 @@ story.
 ## 5. Platform layers (Nix everywhere except bare metal)
 
 ### 5.1 Linux — Ubuntu Server is the reference (R5 hard fact)
+
 - **Base OS:** Ubuntu Server LTS, installed normally. No NixOS, no
   nixos-anywhere, no bare-metal Nix. A stranger clones the project onto their
   existing Ubuntu box and it works.
@@ -222,21 +224,22 @@ story.
   units for services): **mise `bootstrap` + Ansible adapters.** mise renders
   packages and host baseline from the Site Model; Ansible adapters render
   services (Vector/Caddy/etc.) — the already-debugged path. This was the
-  "exit adapter" in v1; it is now the *main* adapter. `comin` stays rejected
+  "exit adapter" in v1; it is now the _main_ adapter. `comin` stays rejected
   (generic git-pull activation with no signed-update protocol — the trust
   layer §7 replaces it properly).
-- **Nix on these boxes** is optional and *additive*: install multi-user Nix
+- **Nix on these boxes** is optional and _additive_: install multi-user Nix
   if you want it for building artifacts or dev shells, exactly as a stranger
   might `apt install` a tool. Never required for the runtime.
 
 ### 5.2 macOS (Apple Silicon) — the operator's own machine, a different case
+
 The Mac is not a stranger's machine, so the adoptability constraint doesn't
 bind it. **nix-darwin + home-manager MAY own the Mac substrate** (packages,
 shell, dotfiles, defaults, declarative Homebrew) because generations and
 rollback genuinely help on the one machine you can't easily reimage, and
 because it's interesting. **[NEEDS FABLE-5 / MULTI-AI — see §14.1]:** whether
 to go nix-darwin on the Mac at all, given that keeping the Mac on the same
-mise+Ansible path as Ubuntu maximizes code sharing and keeps *one* mental
+mise+Ansible path as Ubuntu maximizes code sharing and keeps _one_ mental
 model. This is a real fork — the fun answer (nix-darwin, learn the tech) and
 the coherence answer (mise everywhere) diverge, and the operator said go the
 interesting route, so the default is **nix-darwin on the Mac** unless a
@@ -244,18 +247,21 @@ review pass shows it fractures the Site Model. Services on the Mac stay
 Ansible-owned regardless (§6).
 
 ### 5.3 Services — Ansible owns them, everywhere, permanently (D1, upheld)
+
 Production services (`com.stayturgid.*`, `com.djbclark.*` and their systemd
 twins) are rendered by Ansible adapters from `services.yml`, on every
 platform. This is the panel's D1 decision and it survives the Ubuntu pivot
-*more* strongly: with Ubuntu as reference, services must render on a
+_more_ strongly: with Ubuntu as reference, services must render on a
 vanilla-distro path anyway, so Ansible-owns-services is now the only
 sensible answer, not a compromise. nix-darwin (if adopted) owns Mac
-*substrate*, never services. The `launchd-writers.yml` lint enforces the
+_substrate_, never services. The `launchd-writers.yml` lint enforces the
 boundary.
 
 ### 5.4 Android — unchanged stack, plus the artifact lane (R4/R6)
+
 Termux, Shizuku fork, stayturgid-agent, CFEngine, FIRERPA, SSH CA, Tailscale
 — all unchanged. Two additions:
+
 - **Artifact lane:** Nix cross-builds static aarch64/Termux-target binaries
   on a builder; they deploy as ordinary files via Ansible, content-addressed,
   hash recorded in the manifest. Zero on-device Nix. Use selectively (pin a
@@ -267,6 +273,7 @@ Termux, Shizuku fork, stayturgid-agent, CFEngine, FIRERPA, SSH CA, Tailscale
   as data).
 
 ### 5.5 Future device classes (extension points, no build-out)
+
 Routers → OpenWrt uci rendered from the Site Model (same adapter contract; no
 bare-metal Nix there either, consistent with R5's spirit). iPhone / wearables
 / glasses → `trust_tier: consented` endpoints; consume services + artifacts,
@@ -279,8 +286,8 @@ architecture.
 ## 6. Build & distribution topology (no VMs — R3)
 
 - **Ubuntu closures/artifacts:** built natively on a Linux box, or
-  substituted. Since the base OS is Ubuntu (not NixOS), there is *no system
-  closure to build* — Nix only builds the artifacts and dev shells you opt
+  substituted. Since the base OS is Ubuntu (not NixOS), there is _no system
+  closure to build_ — Nix only builds the artifacts and dev shells you opt
   into, which mostly substitute from cache.nixos.org. This makes R3 almost
   free: the resource-heavy "build a whole system closure" problem the v1
   design worried about **no longer exists** on the reference path.
@@ -309,18 +316,20 @@ red-team + defensive passes. The full buildable spec lives in
 and the decisions.
 
 ### 7.1 The release train (unchanged contract, richer payload)
+
 `ops-vMAJOR.MINOR.PATCH` stays the only path to deploy checkouts. Each release
 additionally publishes a **signed manifest + per-host typed ChangePlan**.
 
-### 7.2 Signing: a TUF *subset* sized for a solo operator (answers RT-01/02)
+### 7.2 Signing: a TUF _subset_ sized for a solo operator (answers RT-01/02)
+
 Do **not** ship one minisign key as fleet-root. Minisign stays the Ed25519
-*signature primitive* (offline-verifiable on Termux); it is not the update
+_signature primitive_ (offline-verifiable on Termux); it is not the update
 system. Take this TUF subset, leave the rest:
 
 - **root** — 2-of-3, offline. Three Ed25519 keys; two signatures change root
   or any other role. Shares on physically separate devices (laptop keyfile /
   phone or second machine / cold USB or paper), each password-sealed, not
-  co-backed-up. Survives theft of the laptop *or* any one share.
+  co-backed-up. Survives theft of the laptop _or_ any one share.
 - **targets (release)** — 1-of-1 or 1-of-2, offline laptop ceremony (~15 min).
 - **snapshot** — binds the exact metadata set (anti mix-and-match).
 - **emergency** — 2-of-3, offline: security downgrade, key revocation,
@@ -329,14 +338,15 @@ system. Take this TUF subset, leave the rest:
 - **Leave out:** delegations, mirrors role, online snapshot, path-hash
   delegation.
 
-Every client that *applies* a signed artifact (push targets included) keeps a
+Every client that _applies_ a signed artifact (push targets included) keeps a
 durable **high-water mark** (monotonic version + hash) and rejects
 regressions, expired metadata, wrong channel, or wrong target — closing
 replay/freeze/downgrade (RT-02). Root ships **out-of-band with the OS/agent
 image** (no first-contact mirror trust — TOFU handled at install).
 
 ### 7.3 The typed ChangePlan operation IR (answers RT-03/04 — highest-value artifact)
-A signed plan must *constrain execution*, not merely describe it. This is the
+
+A signed plan must _constrain execution_, not merely describe it. This is the
 single most important thing to build correctly, and the one place a cheap
 model must not improvise. **[NEEDS FABLE-5 / MULTI-AI — §14.2].**
 
@@ -345,6 +355,7 @@ The plan is a list of **typed operations**, each declaring: `capability`
 may touch — checked against the registries), `target` (bound to the host's
 public key), `rollback`, `expiry`, `nonce`. The **executor on each platform
 mechanically refuses any effect outside the declared set**:
+
 - **Ansible/Ubuntu+macOS:** a wrapper that maps declared capabilities to an
   allowlist of modules/paths; a task touching an undeclared port/path/unit
   fails closed. (Not "run the playbook because its hash is signed" — that is
@@ -363,12 +374,13 @@ user and their advisor AI; it never authorizes — only the verifiable layer,
 checked by the executor, authorizes.
 
 ### 7.4 Push and pull (both first-class)
+
 - **Push:** from any host holding a `deploy-origin` role (plural — R2), via
   Ansible entry points and (on any Nix-artifact steps) content-addressed
   fetch. This is the **v1 path** and it is safe with §7.2–7.3 alone.
 - **Pull:** a small converge agent (systemd/launchd timer) — **CLOSE-BY-SCOPE
   until the full §7.2 client protocol + resource quotas exist** (red-team
-  RT-07 DoS). A fleet where every host pulls and none pushes *is* the
+  RT-07 DoS). A fleet where every host pulls and none pushes _is_ the
   no-control-node end state, reached by editing `roles.yml`. Build it, gated.
 - **CFEngine** stays beneath both. **But its remote-exec channel is both the
   recovery path and an attack surface** (tooling review): authenticate,
@@ -383,16 +395,17 @@ These are correctness constraints, not budget or effort ones. They are the
 distilled "blockers" from the red-team, dispositioned by the defensive pass.
 Do not open a capability before its gate.
 
-| Capability | Gate (all must hold) |
-| --- | --- |
-| **Signed push to operator hosts** (v1 baseline) | TUF-subset root + targets/snapshot + high-water marks + typed ChangePlan executor enforcing on Ansible + source-to-signing hygiene (§8.1) |
-| **Autonomous pull (timers)** | above + timestamp role + converge resource quotas/backoff/kill-switch + hostile-mirror tests |
-| **Consented devices** | above + device-key-bound, single-use, expiring consent grants + capability-enforcing agent executor + **Android artifact provenance** (dep locks, SBOM, signing-cert pin; independent rebuild for privileged APKs) |
-| **Private cache / builder scale-out** | separated build/upload/serve/release authorities + NAR-digest verification before activation + revocable-without-fleet-reinstall |
-| **Autonomous role failover** | a real lease/fencing/quorum design + partition tests. **Until then: single designated owner + operator-signed plan for every single-writer mutation.** No YAML-ordering pseudo-HA. |
-| **local-fix → upstream-heal** | **never automated.** Advisory only; human (threshold) approval for any override; deterministic patch-equivalence, never "version claims to contain fix" (RT-09). |
+| Capability                                      | Gate (all must hold)                                                                                                                                                                                               |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Signed push to operator hosts** (v1 baseline) | TUF-subset root + targets/snapshot + high-water marks + typed ChangePlan executor enforcing on Ansible + source-to-signing hygiene (§8.1)                                                                          |
+| **Autonomous pull (timers)**                    | above + timestamp role + converge resource quotas/backoff/kill-switch + hostile-mirror tests                                                                                                                       |
+| **Consented devices**                           | above + device-key-bound, single-use, expiring consent grants + capability-enforcing agent executor + **Android artifact provenance** (dep locks, SBOM, signing-cert pin; independent rebuild for privileged APKs) |
+| **Private cache / builder scale-out**           | separated build/upload/serve/release authorities + NAR-digest verification before activation + revocable-without-fleet-reinstall                                                                                   |
+| **Autonomous role failover**                    | a real lease/fencing/quorum design + partition tests. **Until then: single designated owner + operator-signed plan for every single-writer mutation.** No YAML-ordering pseudo-HA.                                 |
+| **local-fix → upstream-heal**                   | **never automated.** Advisory only; human (threshold) approval for any override; deterministic patch-equivalence, never "version claims to contain fix" (RT-09).                                                   |
 
 ### 8.1 Source-to-signing hygiene (answers RT-03 precondition + the 2026-08-06 incident)
+
 The 2026-08-06 double-merge (an agent committed into another's worktree,
 another merged 231 unreviewed lines) is **in-scope threat evidence**, not
 trivia. Therefore, from day one: signing happens only from a clean, isolated,
@@ -402,20 +415,23 @@ ownership/provenance rules become **automated deterministic checks** (a
 is also the correct home for the **OpenHands technique** (§8.2).
 
 ### 8.2 OpenHands security — adopt the technique for agents, never as the fleet gate
+
 Two surfaces, two verdicts (both reviewers concurred):
+
 - **Surface A — the AI coding agents that build/deploy the fleet:** adopt the
-  *deterministic-analyzer pattern* (Pattern + PolicyRail + Ensemble
+  _deterministic-analyzer pattern_ (Pattern + PolicyRail + Ensemble
   max-severity), **vendored, not the SDK** — wired into shell/`git`/`gh`
   wrappers and Ralph step gates, because it doesn't depend on possibly-
   manipulated model judgment. This directly mitigates RT-03 and the
   double-merge class. Do not embed the full OpenHands `Conversation` harness.
-- **Surface B — the fleet trust layer:** OpenHands analyzers *classify,
-  don't hard-deny*, and `execute_tool()` bypasses them. They have **no role
+- **Surface B — the fleet trust layer:** OpenHands analyzers _classify,
+  don't hard-deny_, and `execute_tool()` bypasses them. They have **no role
   as an authorization gate** (that's the typed executor, §7.3). At most a
   future non-authorizing advisor input (§9), layered above the deterministic
   gate, never able to approve and never required to deny.
 
 ### 8.3 SecretSpec reference monitor (answers RT-06)
+
 secretspec stays the sole declaration authority (R11). Add a deny-by-default
 resolver: a signed policy maps `(service identity, host role, capability)` →
 allowed handle; everything else is refused with a non-secret audit event.
@@ -427,13 +443,13 @@ not mixed with normal site secrets.
 
 ## 9. User sovereignty — the freedom feature (R7/R10, the interesting part)
 
-This is what the trust layer is *for*, and it is where this project is
+This is what the trust layer is _for_, and it is where this project is
 genuinely novel. Frame everything here as giving a person control over their
 own computer, not as protecting the fleet from them.
 
 **The interaction the whole design serves:** a user — the operator's parent,
 a friend, a stranger who cloned the repo — receives a proposed config change.
-Their *own* AI agent reads the semantic layer of the ChangePlan (§7.3) and
+Their _own_ AI agent reads the semantic layer of the ChangePlan (§7.3) and
 explains, in plain language, what it does and why they might or might not want
 it. If they don't want it, they say so in plain English; their agent
 maintains a **personal branch** that diverges from upstream — and they never
@@ -442,21 +458,22 @@ again, their agent re-evaluates against their stated preferences and keeps
 their divergence coherent.
 
 Concretely, staged:
+
 - **Consent surface v1 (agent 2.0):** `offer(manifest, plan) → accept |
-  reject | timeout(deny)`; device-key-bound, single-use nonce, expiring;
-  protected local receipt. Gated per §8. The *interface* is specified now so
+reject | timeout(deny)`; device-key-bound, single-use nonce, expiring;
+  protected local receipt. Gated per §8. The _interface_ is specified now so
   later phases can't regress it.
 - **Advisor (T2):** the user's chosen model reads the semantic layer and
   advises. Never authorizes (RT-09). **The two-agent pattern (ideas dump,
-  adopted as a first-class control):** the *proposing* side and the
-  *consenting* side run different models; disagreement escalates to the
+  adopted as a first-class control):** the _proposing_ side and the
+  _consenting_ side run different models; disagreement escalates to the
   human. This is vendor-diversity-as-a-safety-mechanism — exactly what this
   whole review process did by hand, formalized into the product.
 - **Personal branch maintenance (T4, reframed):** the red-team correctly
-  called "local-fix auto-merge" an injection vector *under the fleet-safety
-  framing*. Under the sovereignty framing it is the product — but the
-  security requirement is unchanged: the user's branch is *theirs*, applied
-  under *their* consent; it never auto-merges into anyone else's trust domain,
+  called "local-fix auto-merge" an injection vector _under the fleet-safety
+  framing_. Under the sovereignty framing it is the product — but the
+  security requirement is unchanged: the user's branch is _theirs_, applied
+  under _their_ consent; it never auto-merges into anyone else's trust domain,
   and upstream-heal is a suggestion their agent evaluates, never an automatic
   authority. **[NEEDS FABLE-5 / MULTI-AI — §14.3]:** the branch-maintenance +
   advisor loop is the subtlest and most novel machinery in the project and
@@ -484,8 +501,8 @@ everything where the explanation is genuinely part of the artifact —
 especially the freedom-relevant glue that Free Sysadmin will publish:
 
 1. **Two prose classes, mechanically separated** (unchanged, load-bearing):
-   *rationale* (intent/invariants/interdependencies) sits with code and is
-   agent-visible; *narrative* (the deep explanations, humor, historical
+   _rationale_ (intent/invariants/interdependencies) sits with code and is
+   agent-visible; _narrative_ (the deep explanations, humor, historical
    asides the operator wants) lives in blocks the agent-facing tangle strips
    and the human/publish weave keeps. Full richness for people; agents don't
    pay for it.
@@ -501,7 +518,7 @@ especially the freedom-relevant glue that Free Sysadmin will publish:
    parity gate, plus source-map comments in generated output (Gemini's idea)
    so errors trace to the literate source.
 5. The remaining constraint is only agent-edit-accuracy: if a literate file
-   measurably degrades agent edits, narrow *that file*. Otherwise, go rich.
+   measurably degrades agent edits, narrow _that file_. Otherwise, go rich.
 
 ---
 
@@ -510,12 +527,12 @@ especially the freedom-relevant glue that Free Sysadmin will publish:
 - **Quarantine from day one:** everything under `freeops/` is written fact-
   free, reviewed as if public. Site facts enter only via Site Model
   instantiation. Because the reference target is plain Ubuntu (R5), the
-  published artifact is *directly runnable by a stranger* — the adoptability
+  published artifact is _directly runnable by a stranger_ — the adoptability
   constraint and the publishing goal are the same constraint. Extraction to a
   standalone public repo when it has real consumers (in-tree until then).
 - **Licensing:** generic code **GPL-3.0-or-later** (copyleft is the point —
   the freedom being extended is the glue itself); literate docs
-  **CC-BY-SA-4.0**; interop *schemas* (ChangePlan, registry JSON-Schema)
+  **CC-BY-SA-4.0**; interop _schemas_ (ChangePlan, registry JSON-Schema)
   permissive/**CC0** so the sovereignty ecosystem can interoperate; networked
   trust services **AGPL-3.0**. Audit current LICENSE files before any change
   — direction, never silent relicense.
@@ -531,8 +548,8 @@ especially the freedom-relevant glue that Free Sysadmin will publish:
 ## 12. Build order (coherent state at every boundary)
 
 Ordered so each step delivers standalone value and leaves the system
-describable. Not a schedule (effort/time are not costs here) — a *dependency
-and coherence* order. The one correction kept from the pre-mortem on purely
+describable. Not a schedule (effort/time are not costs here) — a _dependency
+and coherence_ order. The one correction kept from the pre-mortem on purely
 logical grounds: **prove the Ubuntu path before investing in Mac Nix**,
 because it de-risks the reference target that everything else depends on.
 
@@ -540,8 +557,8 @@ because it de-risks the reference target that everything else depends on.
   for `services.yml`/`roles.yml`/`launchd-writers.yml`; transcribe current
   reality; lint in CI + pre-commit; automate the worktree provenance gate
   (§8.1). Coherent stop: same system, now with a truthful data spine and a
-  provenance gate. *Also the cheapest possible agent work — good first task
-  under the budget.*
+  provenance gate. _Also the cheapest possible agent work — good first task
+  under the budget._
 - **Step 1 — Ubuntu reference path.** mise `bootstrap` + Ansible adapters
   render a real Ubuntu host from the Site Model. This is the adoptability
   keystone; do it early even before you own a VPS, by rendering + dry-running
@@ -560,7 +577,7 @@ because it de-risks the reference target that everything else depends on.
 - **Step 4 — Mac substrate (the interesting, optional Nix step).** If §14.1
   resolves toward nix-darwin: bring the Mac substrate under nix-darwin +
   home-manager, services still Ansible. Fully reversible (`darwin-rebuild
-  --rollback`). Coherent stop: Mac substrate is declarative; nothing depends
+--rollback`). Coherent stop: Mac substrate is declarative; nothing depends
   on it that couldn't run on the mise path.
 - **Step 5 — Pull convergence.** Converge agent with the full §7.2 client
   protocol + §8 quotas. Any host with the role self-updates. Coherent stop:
@@ -635,17 +652,17 @@ unresolved, it should write a question doc and stop, not improvise.
 
 ## 15. Decision register (operator sign-off)
 
-| # | Decision | Resolution |
-| --- | --- | --- |
-| D1 | Production service owner | **Ansible, permanently, all platforms.** Strengthened by R5. |
-| D2 | Site Model formality | Schemas at Step 0; generation gradual; writer-lint immediate. |
-| D3 | Ubuntu reference path | **mise baseline + Ansible services is the PRIMARY Linux path** (promoted from "exit"). |
-| D5 | Literate scope | **Widened** (§10); token cost no longer the limiter. |
-| D6 | Nix on bare metal | **NO — hard fact.** Nix for builds/dev-shells/Mac-substrate only. |
-| D8 (new) | Trust layer disposition | **Build it, gated (§8).** The "defer indefinitely" option is rejected — sovereignty is the point. |
-| D9 (new) | OpenHands | Vendor the analyzer *technique* for coding agents (§8.2 Surface A); no role as fleet gate (Surface B). |
-| D10 (new) | Task runner | **Keep `just`** as the human verb surface; start using its dependency support; mise stays scoped to toolchains/baseline. Both reviewers concurred; a real DAG need is the only trigger to revisit. |
-| D11 (new) | Trust-layer scope cuts | Per the defensive pass: FIX-IN-V1 the root/executor/high-water/secret-monitor; CLOSE-BY-SCOPE consent/cache/failover/APK-provenance behind §8 gates; never automate local-fix. |
+| #         | Decision                 | Resolution                                                                                                                                                                                         |
+| --------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1        | Production service owner | **Ansible, permanently, all platforms.** Strengthened by R5.                                                                                                                                       |
+| D2        | Site Model formality     | Schemas at Step 0; generation gradual; writer-lint immediate.                                                                                                                                      |
+| D3        | Ubuntu reference path    | **mise baseline + Ansible services is the PRIMARY Linux path** (promoted from "exit").                                                                                                             |
+| D5        | Literate scope           | **Widened** (§10); token cost no longer the limiter.                                                                                                                                               |
+| D6        | Nix on bare metal        | **NO — hard fact.** Nix for builds/dev-shells/Mac-substrate only.                                                                                                                                  |
+| D8 (new)  | Trust layer disposition  | **Build it, gated (§8).** The "defer indefinitely" option is rejected — sovereignty is the point.                                                                                                  |
+| D9 (new)  | OpenHands                | Vendor the analyzer _technique_ for coding agents (§8.2 Surface A); no role as fleet gate (Surface B).                                                                                             |
+| D10 (new) | Task runner              | **Keep `just`** as the human verb surface; start using its dependency support; mise stays scoped to toolchains/baseline. Both reviewers concurred; a real DAG need is the only trigger to revisit. |
+| D11 (new) | Trust-layer scope cuts   | Per the defensive pass: FIX-IN-V1 the root/executor/high-water/secret-monitor; CLOSE-BY-SCOPE consent/cache/failover/APK-provenance behind §8 gates; never automate local-fix.                     |
 
 Silence = proceed from Step 0. Objections amend this register, not the
 archived documents.
@@ -662,17 +679,17 @@ archived documents.
   archival positions, do not edit.
 - `redteam-trust-layer-openai-v1.md` — the nine findings; §8 here is their
   disposition.
-- `trust-layer-hardened-design-grok-v1.md` — the *buildable* trust-layer
+- `trust-layer-hardened-design-grok-v1.md` — the _buildable_ trust-layer
   spec; §7–8 here summarize and decide, that doc implements.
 - `tooling-assumptions-review-{openai,grok}-v1.md` — per-tool verdicts;
   source for D9/D10 and the CFEngine/Tailscale-ACL hardening notes.
 - `premortem-scope-realism-openai-v1.md` — read with the correction in mind:
   its effort estimates assume a commercial objective function that does not
-  apply; its *logical* points (exit-before-Mac-Nix, coherent stops, two-
+  apply; its _logical_ points (exit-before-Mac-Nix, coherent stops, two-
   writers, no-consent-UI-before-executor) are kept and live in §8/§12.
 - `ideas-dump-claude.md` — unprotected; the two-agent-consent control, the
   semantic/verifiable plan split, the role-mesh-is-consensus flag, and the
   model/vendor notes all graduated into this document.
 
-*Filed under djbclark/stayturgid#272. Amend via this register; treat the
-archived reviews as immutable record.*
+_Filed under djbclark/stayturgid#272. Amend via this register; treat the
+archived reviews as immutable record._

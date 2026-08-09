@@ -37,9 +37,10 @@ side-by-side with proposals from other AIs.
 
 Evaluate these approaches for the core macOS/Linux stack and critically
 pick/design the best:
-1. `bgub/nix-macos-starter`  2. `mrkuz/macos-config`
-3. Devbox (Jetify)  4. Devenv.sh
-5. …or a custom stack (e.g. nix-darwin + home-manager + mise) or other
+
+1. `bgub/nix-macos-starter` 2. `mrkuz/macos-config`
+2. Devbox (Jetify) 4. Devenv.sh
+3. …or a custom stack (e.g. nix-darwin + home-manager + mise) or other
    full-stack options they missed.
 
 ## Operator-stated requirements (normative — from live dialogue)

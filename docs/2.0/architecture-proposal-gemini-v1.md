@@ -5,21 +5,23 @@
 After evaluating the four specified options and custom alternatives against the normative requirements, the recommendation is a **Custom Stack: `mise` (Declarative Bootstrap) + Ansible + Nix (as a pure artifact builder)**.
 
 ### Verdict on the Candidates
-1. **`bgub/nix-macos-starter` & `mrkuz/macos-config` (Pure Nix/nix-darwin):** 
-   *Verdict: Rejected for Host Provisioning.* While Nix offers unmatched atomic rollbacks via closure-diffs and hermetic reproducibility, adopting it for full system configuration violates **R5** (cheap exit to Ubuntu). It heavily couples the architecture to Nix modules, forcing a massive rewrite of existing macOS `launchd` and Linux `systemd` configurations into Nix language abstractions.
+
+1. **`bgub/nix-macos-starter` & `mrkuz/macos-config` (Pure Nix/nix-darwin):**
+   _Verdict: Rejected for Host Provisioning._ While Nix offers unmatched atomic rollbacks via closure-diffs and hermetic reproducibility, adopting it for full system configuration violates **R5** (cheap exit to Ubuntu). It heavily couples the architecture to Nix modules, forcing a massive rewrite of existing macOS `launchd` and Linux `systemd` configurations into Nix language abstractions.
 2. **Devbox (Jetify) & Devenv.sh:**
-   *Verdict: Rejected for System Architecture.* These are excellent for project-bound developer environments but lack native, robust integration with background system daemons (macOS `launchd` `gui/501` and Linux `systemd` user units) that start on boot.
+   _Verdict: Rejected for System Architecture._ These are excellent for project-bound developer environments but lack native, robust integration with background system daemons (macOS `launchd` `gui/501` and Linux `systemd` user units) that start on boot.
 3. **The Custom Stack (`mise` + Ansible + Nix builder):**
-   *Verdict: Selected.* `mise`'s new declarative `bootstrap` features natively manage `launchd` and `systemd` without abstraction leaks. Ansible orchestrates multi-node operations. Nix is relegated strictly to an artifact builder for zero-footprint deployment, satisfying **R3** and **R4**.
+   _Verdict: Selected._ `mise`'s new declarative `bootstrap` features natively manage `launchd` and `systemd` without abstraction leaks. Ansible orchestrates multi-node operations. Nix is relegated strictly to an artifact builder for zero-footprint deployment, satisfying **R3** and **R4**.
 
 ### The NixOS Rollback Trade-off
+
 Choosing `mise` + Ansible over NixOS/nix-darwin means forfeiting native atomic rollbacks. A NixOS closure allows instant reversion to a previous system state if a deploy fails. With `mise`/Ansible, mid-flight failures leave the system in an intermediate state. We accept this trade-off to preserve the **R5** exit mechanism and **R10** (Free Sysadmin), relying instead on APFS/Btrfs/ZFS snapshots for state rollbacks and strict Git Ops-V versioning.
 
 ---
 
 ## 2. Architecture & Source of Truth
 
-The definitive Source of Truth remains `~/src` and the `ops-worktrees` layout (**R11**). 
+The definitive Source of Truth remains `~/src` and the `ops-worktrees` layout (**R11**).
 
 **Satisfying R2 (Switchable Control Node):**
 Any macOS or Linux peer can assume the control node role. The orchestration layer (Just + Ansible) requires only standard POSIX tools and `mise`. Because configuration is declarative and pulled from Git, any node can bootstrap itself into a control node by checking out the repository and running `just bootstrap`.
@@ -30,7 +32,7 @@ Any macOS or Linux peer can assume the control node role. The orchestration laye
 
 The architecture explicitly divides ownership to prevent the Two-Writers Hazard (where two systems fight over the same `.plist` or config file).
 
-- **`mise bootstrap` Owns:** User-space toolchains, Homebrew packages, and user-level `launchd` agents (`~/Library/LaunchAgents/com.djbclark.*.plist`). 
+- **`mise bootstrap` Owns:** User-space toolchains, Homebrew packages, and user-level `launchd` agents (`~/Library/LaunchAgents/com.djbclark.*.plist`).
 - **Ansible Owns:** System-level configuration (macOS `defaults write`), multi-node orchestration, and the installation of the `mise` binary itself.
 - **Hazard Mitigation:** Strict namespacing. Ansible is strictly forbidden from writing to `~/Library/LaunchAgents`. If a legacy Ansible role manages a service, it must be fully migrated to `mise.toml` before `mise` is allowed to touch it.
 
@@ -48,8 +50,8 @@ For greenfield Linux deployments (e.g., Hetzner VPS), the system base is provisi
 
 To satisfy **R3** (minimal VMs, no fat containers), we rely on native binaries.
 
-- **Topology:** The macOS control node (or a remote Linux builder) utilizes Nix *strictly as a build tool*. Nix evaluates the derivation and builds the closures.
-- **Deployment:** The resulting binaries/closures are copied to the target Linux nodes or Android devices (via `rsync` or Tailscale). 
+- **Topology:** The macOS control node (or a remote Linux builder) utilizes Nix _strictly as a build tool_. Nix evaluates the derivation and builds the closures.
+- **Deployment:** The resulting binaries/closures are copied to the target Linux nodes or Android devices (via `rsync` or Tailscale).
 - **Footprint:** The target nodes do not need the Nix package manager installed, preserving storage and memory.
 
 ---
@@ -66,6 +68,7 @@ Android devices remain a first-class target without relying on `nix-on-droid` (r
 ## 7. Deploy & Release Design (R7 & R8)
 
 **Ops-V Release Train & Push/Pull Mechanics:**
+
 - **Push:** The control node uses `just deploy <target>` to push configurations via Ansible/SSH.
 - **Pull:** Edge nodes run a lightweight cron/systemd timer that polls the Git repository for signed tags matching the `ops-vX.Y.Z` train.
 - **Signed Manifests:** Every release is accompanied by a cryptographically signed manifest detailing the expected state hash. Nodes verify the signature before pulling.
@@ -85,6 +88,7 @@ For untrusted Android devices, deploys are consent-driven. The pull agent downlo
 ## 9. Observability
 
 The existing stack (Vector, OpenObserve, VictoriaMetrics, otelcol-contrib) is preserved (**R11**).
+
 - **Management:** Observability daemons are managed as `launchd` / `systemd` user units via `mise.toml`.
 - **Telemetry:** Daemons ship logs and metrics over Tailscale to the central OpenObserve/VictoriaMetrics instances.
 
@@ -93,7 +97,7 @@ The existing stack (Vector, OpenObserve, VictoriaMetrics, otelcol-contrib) is pr
 ## 10. Literate Programming Policy (R9)
 
 - **Policy:** Documentation and configuration are entangled using literate programming techniques, but tightly constrained to ensure AI parsing efficiency.
-- **Evidence/Implementation:** LLMs (like Sonnet-3.5 and DeepSeek-v4) excel at generating and modifying fenced Markdown code blocks. Rich narrative human text exists outside the blocks. A deterministic tangling script (`just tangle`) extracts the fenced blocks into the final `mise.toml` or Ansible playbooks. This allows agents to understand the *why* (narrative) without hallucinating syntax, while the *how* (code) remains strictly structured.
+- **Evidence/Implementation:** LLMs (like Sonnet-3.5 and DeepSeek-v4) excel at generating and modifying fenced Markdown code blocks. Rich narrative human text exists outside the blocks. A deterministic tangling script (`just tangle`) extracts the fenced blocks into the final `mise.toml` or Ansible playbooks. This allows agents to understand the _why_ (narrative) without hallucinating syntax, while the _how_ (code) remains strictly structured.
 
 ---
 
@@ -115,6 +119,6 @@ The existing stack (Vector, OpenObserve, VictoriaMetrics, otelcol-contrib) is pr
 
 ## 13. Risks & Mitigations
 
-1. **`mise` Maturity:** `mise bootstrap` is relatively new. *Mitigation:* Fall back to Ansible for complex services if `mise` lacks necessary features (e.g., complex `launchd` KeepAlive configurations).
-2. **Lack of Atomic Rollbacks:** As discussed, `mise` cannot atomically rollback state like NixOS. *Mitigation:* Leverage APFS/ZFS snapshots prior to deployment, and rely on Git reverts for configuration rollbacks.
-3. **Literate Programming Complexity:** Tangling adds a build step, potentially obscuring line numbers in error logs. *Mitigation:* The tangling script must inject source-map comments into the generated config files to trace errors back to the Markdown source.
+1. **`mise` Maturity:** `mise bootstrap` is relatively new. _Mitigation:_ Fall back to Ansible for complex services if `mise` lacks necessary features (e.g., complex `launchd` KeepAlive configurations).
+2. **Lack of Atomic Rollbacks:** As discussed, `mise` cannot atomically rollback state like NixOS. _Mitigation:_ Leverage APFS/ZFS snapshots prior to deployment, and rely on Git reverts for configuration rollbacks.
+3. **Literate Programming Complexity:** Tangling adds a build step, potentially obscuring line numbers in error logs. _Mitigation:_ The tangling script must inject source-map comments into the generated config files to trace errors back to the Markdown source.

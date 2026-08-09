@@ -11,8 +11,8 @@
 
 - **`just` is an unexamined keep.** Every proposal preserved it as the command
   surface without asking whether it should change. The one real question: once
-  the Site Model is the source of truth, should justfiles be *generated from
-  it* (new role → its `just` targets appear automatically, guaranteed
+  the Site Model is the source of truth, should justfiles be _generated from
+  it_ (new role → its `just` targets appear automatically, guaranteed
   consistent across hosts) or stay hand-written (readable, greppable, no
   build step)? Leaning generated-for-role-boilerplate + hand-written-for-
   everything-else, but it's genuinely unclear and nobody looked. Also: `just`
@@ -21,7 +21,7 @@
 - **direnv** never came up but probably should exist in the mise/devenv story
   for per-repo env activation; low stakes, just noting the gap.
 - **Beads/Ralph/Herdr** were treated as untouchable R11 furniture. Fine, but
-  the *release manifest + change plan* artifact (§7) and Beads tasks are
+  the _release manifest + change plan_ artifact (§7) and Beads tasks are
   conceptually the same shape (a signed, described unit of intended change).
   Someday the deploy plan and the task graph might want to share a schema.
   Not now.
@@ -39,7 +39,7 @@
   peers can both believe they're `main` for a single-writer role — a
   distributed-consensus problem. The final doc's lease/fencing language
   papers over it. If the mesh ever does automatic failover for a
-  *stateful* single-writer role (not just healing), you will need real
+  _stateful_ single-writer role (not just healing), you will need real
   leader election (Raft-lite, or lean on an existing store's lease: e.g. a
   Tailscale-reachable etcd/consul, or even a Postgres advisory lock on the
   obs DB). Don't build this until a role actually needs it, but know the
@@ -51,7 +51,7 @@
   "upstream wins, overlay is additive and non-conflicting" it's trivial; the
   moment overlays can conflict with upstream you'll want CRDT-ish merge
   semantics or a defined conflict-resolution order. Design the overlay to be
-  *structurally* non-conflicting (additive-only, namespaced) to avoid this
+  _structurally_ non-conflicting (additive-only, namespaced) to avoid this
   entirely — cheaper than solving it.
 - **Content-addressed everything.** Nix already gives you this for closures;
   the artifact lane (APKs, cross-built binaries, firmware) should adopt the
@@ -76,18 +76,18 @@
   start**, not just machine-parseable. `nix store diff-closures` output is
   precise but not semantically rich; an advisor AI wants "this bumps openssl
   across a CVE boundary and restarts your public-facing proxy," not a package
-  delta. Consider a plan format with a *semantic* layer (generated, cached)
-  over the *verifiable* layer (the closure diff). The verifiable layer is
+  delta. Consider a plan format with a _semantic_ layer (generated, cached)
+  over the _verifiable_ layer (the closure diff). The verifiable layer is
   ground truth; the semantic layer is the advisor's briefing.
 - **Two-agent consent is the safety pattern.** Your vision has a user-side AI
-  advisor evaluating a plan. The robust version: the *proposing* side and the
-  *consenting* side run different models (different vendors ideally), and
+  advisor evaluating a plan. The robust version: the _proposing_ side and the
+  _consenting_ side run different models (different vendors ideally), and
   disagreement between them is a signal to escalate to the human. This is
   exactly what we just did manually with the multi-vendor panel — formalize
   it into the consent loop. Vendor diversity as a security control.
 - **The cross-agent worktree incident (2026-08-06) is a preview of the trust
   layer's hardest problem.** Two agents with no shared view of each other
-  clobbered a branch. That's the *same* problem as two consented devices, or
+  clobbered a branch. That's the _same_ problem as two consented devices, or
   two peers claiming a role, or an upstream fix racing a local patch. Whatever
   solves the worktree-ownership problem (explicit ownership, provenance gates,
   procedural-not-interactive checks) is a prototype of the fleet trust model.
@@ -109,13 +109,13 @@
   Google's real capability, use Antigravity agent-mode or Deep Think, not
   `gemini --print`. Don't judge Gemini 3 on the thin doc it produced here.
 - **DeepSeek v4 Pro: couldn't test (quota/billing).** It's one of your two
-  planned *implementation* workhorses, so its ability to read+critique these
+  planned _implementation_ workhorses, so its ability to read+critique these
   docs is a capability probe worth doing later via direct API. $3.91 direct
   balance may cover a review pass.
 - **For architecture specifically**, the pattern that worked: one model does
   the interactive requirements dialogue + first proposal (needs to hold a lot
   of context and ask good questions — that's the expensive seat), then
-  independent one-shot proposals from *different vendors* with a shared
+  independent one-shot proposals from _different vendors_ with a shared
   written brief, then synthesis by the dialogue-holder. The independence rule
   (don't read others' docs until yours is done) mattered — it's why the
   convergence is meaningful evidence rather than herding.
@@ -127,7 +127,7 @@
   the Free Sysadmin/licensing angle. None tested — just where I'd spend the
   next $5 of curiosity.
 - **Diversity > raw capability for review passes.** The value of the panel was
-  that OpenAI and Grok *independently* landed on the Ansible-permanence
+  that OpenAI and Grok _independently_ landed on the Ansible-permanence
   argument against my position — two different models agreeing is worth more
   than one stronger model. For future reviews, optimize for training-distro
   diversity, not leaderboard rank.
@@ -139,8 +139,8 @@
   not a darwin host.
 - **minisign vs signify vs sigstore:** the offline-verification requirement
   (handset verifies with no network) rules out naive sigstore/Rekor as the
-  *only* path (it wants a transparency-log lookup). Keep offline Ed25519 as
-  the floor; sigstore is an *additional* attestation, not the base. The
+  _only_ path (it wants a transparency-log lookup). Keep offline Ed25519 as
+  the floor; sigstore is an _additional_ attestation, not the base. The
   red-team is checking this.
 - **Nix cache trust is binary and total** — any substituter you trust can
   give you any path. The `builder = fully trusted` note in the proposal is
@@ -172,5 +172,5 @@
 - If you commission the DeepSeek pass and/or a real Gemini-3 agent pass later,
   the interesting question isn't "do they agree" — it's "do they find a
   seventh contested decision the panel missed." Four models found six forks
-  and converged on the rest; a fifth/sixth finding *nothing new* is itself
+  and converged on the rest; a fifth/sixth finding _nothing new_ is itself
   evidence the design is stable.

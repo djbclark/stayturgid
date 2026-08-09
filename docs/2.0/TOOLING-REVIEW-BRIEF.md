@@ -3,14 +3,14 @@
 ## Why this exists
 
 The 2026-08-08 architecture panel (4 AI proposals + 1 red-team, all in
-`docs/2.0/`) evaluated the *config management* layer thoroughly but treated a
+`docs/2.0/`) evaluated the _config management_ layer thoroughly but treated a
 large set of other tools as **unexamined keeps** — preserved under requirement
 R11 ("preserve existing invariants") without anyone asking whether they are
 still the right choice for the 2.0 architecture. The operator has explicitly
 asked for that gap to be closed.
 
 Your job: **systematically challenge every load-bearing tool in this stack.**
-Not to churn — most will survive — but so that each one is a *reasoned keep*
+Not to churn — most will survive — but so that each one is a _reasoned keep_
 rather than an inherited assumption, and so genuine mismatches surface now
 rather than in Phase 4.
 
@@ -45,7 +45,7 @@ requirement, not a preference. Analyze:
   - parameterized recipes with defaults (`deploy host=""`, `ocr *args`)
   - `set shell := ["bash", "-uc"]`, `justfile_directory()`
   - **only ~9 recipes use dependencies at all** (`kt-check: kt-format-check
-    kt-detekt kt-test`, `test: unit-and-pytest`,
+kt-detekt kt-test`, `test: unit-and-pytest`,
     `unit-and-pytest: _ensure-test-collections`, `cfbs-build: cfbs-validate`,
     `dryrun: deploy-check-legacy`, `lint: _ensure-test-collections`, …)
 - Whether **mise's task runner** (`[tasks]` in mise.toml + file tasks) covers
@@ -93,15 +93,15 @@ Assess adoption for TWO distinct surfaces — they are different problems:
   `~/src/ops-worktrees/README.md`. Would adopting the OpenHands SDK (or
   reimplementing its deterministic analyzer pattern) meaningfully mitigate a
   compromised/mistaken agent? What is the integration cost given the existing
-  Herdr/Ralph/Beads orchestration? Is vendoring the *technique* better than
-  adopting the *SDK*?
+  Herdr/Ralph/Beads orchestration? Is vendoring the _technique_ better than
+  adopting the _SDK_?
 - **Surface B — the fleet trust layer** (signed manifests, consent, pull
   converge). Note that OpenHands analyzers **classify risk; they do not
   hard-deny**, and their docs say `execute_tool()` bypasses them. Red-team
   RT-04/RT-09 require a capability-enforcing executor and state that an AI
   advisor must never be an authorization oracle. Give a clear verdict on
   whether OpenHands has any legitimate role here (e.g. as a T2 advisor input
-  layered *above* a deterministic gate) or none.
+  layered _above_ a deterministic gate) or none.
 
 ## THE FULL TOOL LIST TO REVIEW
 
@@ -127,7 +127,7 @@ harmonia/attic · nixos-anywhere · comin (rejected — was that right?)
 For each, ask: does the 2.0 architecture (role mesh, Site Model, signed
 manifests, consent layer, Free Sysadmin publishing, cheap-exit constraint)
 change the calculus that originally justified this tool? Flag any tool whose
-*failure or compromise* is under-considered (the red-team noted CFEngine's
+_failure or compromise_ is under-considered (the red-team noted CFEngine's
 remote-exec channel is both the recovery path and an attack surface).
 
 ## Rules
