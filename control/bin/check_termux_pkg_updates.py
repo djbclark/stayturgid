@@ -40,7 +40,7 @@ for _p in (str(_LIB), str(_REPO)):
 
 import stayturgid_device as dev  # noqa: E402
 
-HERMES_TARGET = "telegram:838808636:22082"
+HERMES_TARGET = "telegram:838808636:22158"
 STATE_PATH = os.path.expanduser("~/.local/state/stayturgid/termux-pkg-updates.json")
 
 TERMUX_PREFIX = "/data/data/com.termux/files/usr"

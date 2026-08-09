@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 
 import yaml
 
-HERMES_TARGET = "telegram:838808636:22082"
+HERMES_TARGET = "telegram:838808636:22158"
 STATE_PATH = os.path.expanduser("~/.local/state/stayturgid/apk-updates.json")
 
 # This project's own release is tracked separately (native-agent release
