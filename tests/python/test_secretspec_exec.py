@@ -36,15 +36,36 @@ def test_malicious_same_user_cannot_select_get_export_or_shell(monkeypatch):
             secretspec_exec.secretspec_command(*args)
 
 
-def test_wrapper_script_rejects_arbitrary_secret_spec_arguments():
+def test_wrapper_rejects_arbitrary_secret_spec_arguments():
     import subprocess
     from pathlib import Path
 
     wrapper = Path(__file__).parents[2] / "control" / "bin" / "stayturgid-secretspec-wrapper.sh"
-    result = subprocess.run(["bash", str(wrapper), "get", "other_secret"], capture_output=True, text=True)
-    assert result.returncode == 2
-    assert "denied" in result.stderr
-    assert '"$@"' not in wrapper.read_text()
+    for args in (("get", "other_secret"), ("run", "--", "/bin/sh"), ("source-set", "BAD-NAME")):
+        result = subprocess.run(["bash", str(wrapper), *args], capture_output=True, text=True)
+        assert result.returncode == 2
+        assert "denied" in result.stderr
+    text = wrapper.read_text()
+    assert 'exec "$@"' not in text
+    assert "SOURCE_DIR=/Users/djbclark/ops/site-private" in text
+    assert 'SOURCE_MANIFEST="$SOURCE_DIR/secretspec.toml"' in text
+
+
+def test_wrapper_documents_tracked_lifecycle_operations():
+    from pathlib import Path
+
+    wrapper = Path(__file__).parents[2] / "control" / "bin" / "stayturgid-secretspec-wrapper.sh"
+    text = wrapper.read_text()
+    for operation in (
+        "source-add",
+        "source-set",
+        "source-delete",
+        "source-get",
+        "source-check",
+        "source-export",
+        "source-publish",
+    ):
+        assert operation in text
 
 
 def test_firerpa_operation_is_fixed_to_one_token(monkeypatch):

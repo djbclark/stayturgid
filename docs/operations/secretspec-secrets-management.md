@@ -12,7 +12,7 @@ This caused several issues:
 - **Architectural Drift:** Scripts directly accessed the file instead of honoring the `secretspec` contract, making secret rotation and auditing impossible.
 - **Accidental Reads & Lack of Auditing:** The legacy `.env` file was readable by any ordinary process running as the `operator` user with zero friction and zero logging.
 
-**Important Threat Model Note:** This design does _not_ protect against a compromised or malicious `djbclark` session. A same-UID process can invoke any operation granted to that UID, and the operator can use broader administrative access outside this boundary. The enforceable guarantee is narrower: the passwordless wrapper is not a general SecretSpec CLI proxy. It accepts only the fixed `automation-env` and `firerpa-mcp-token` operations; caller-selected `get`, `export`, profiles, scopes, providers, environment variables, shell interpreters, and arbitrary commands are rejected. Fleet automation resolves secrets as `_secretspec`, then executes the approved Ansible target as `djbclark` with the normal writable HOME.
+**Important Threat Model Note:** This design does _not_ protect against a compromised or malicious `djbclark` session. A same-UID process can invoke any operation granted to that UID, and the operator can use broader administrative access outside this boundary. The enforceable guarantee is that the passwordless wrapper is a fixed, audited SecretSpec lifecycle API rather than a general CLI passthrough. It validates names and descriptions, fixes all paths/providers, rejects arbitrary commands and caller-selected selectors, and separates root lifecycle operations from `_secretspec` consumer operations.
 
 What this architecture actually achieves is:
 
@@ -36,10 +36,10 @@ The architecture relies on strict UNIX file permissions and a rigid privilege bo
 
 1. **The `_secretspec` System User:** A dedicated macOS daemon user (UID 503, no login shell, hidden from the login screen) that acts as the vault guardian.
 2. **The Secure Vault (`/var/db/stayturgid-secrets/`):** A directory owned by `_secretspec` with `0700` permissions. It contains the locked-down, synced copies of `secretspec.toml` and `.env`.
-3. **The Root-Owned Wrapper (`/usr/local/libexec/stayturgid-secretspec-wrapper.sh`):** A `0755` script owned by `root:wheel` (so it cannot be modified by the operator). It sets fixed `HOME`, provider, and manifest paths, rejects all caller-controlled SecretSpec selectors, and exposes only `automation-env` and `firerpa-mcp-token`. It never forwards `"$@"` to SecretSpec.
+3. **The Root-Owned Wrapper (`/usr/local/libexec/stayturgid-secretspec-wrapper.sh`):** A `0755` script owned by `root:wheel` (so it cannot be modified by the operator). Root-target calls expose the validated `source-add`, `source-set`, `source-delete`, `source-get`, `source-check`, `source-export`, and `source-publish` lifecycle operations. `_secretspec` calls expose only `automation-env`, `firerpa-mcp-token`, and `verify-sync`. It never forwards arbitrary `"$@"` to SecretSpec.
    _(Note: While the wrapper script itself is root-owned and untamperable, the `/opt/homebrew/bin/secretspec` binary it executes resides in a `djbclark`-owned Homebrew tree and is not tamper-proof. This is a residual same-admin limitation, not a claim of full operator isolation.)_
-4. **The Sudoers Rule (`/etc/sudoers.d/secretspec`):** A narrowly scoped rule that allows the `djbclark` user to run _only_ the wrapper script as `_secretspec` without a password. The same-UID limitation is documented above.
-5. **The Sync Mechanism (`publish_secrets.sh`):** A script that copies the operator's `~/ops/site-private/{.env,secretspec.toml}` into the locked `/var/db/` directory and verifies hashes, ownership, modes, and regular-file status.
+4. **The Sudoers Rule (`/etc/sudoers.d/secretspec`):** Two exact wrapper entries permit the `djbclark` user to invoke the same root-owned script as either `root` for lifecycle operations or `_secretspec` for consumer operations. The wrapper validates the operation and arguments; sudoers does not permit arbitrary commands.
+5. **The Sync Mechanism:** Wrapper mutations copy the fixed source manifest and `.env` into the locked `/var/db/` vault with owner-only modes, while `verify-sync` checks hashes and permissions.
 
 ## 4. Install & Setup Instructions
 
@@ -106,17 +106,28 @@ bash control/bin/publish_secrets.sh
 
 ## 5. Usage & Verification
 
-### The Python Automation & Bash Alias
+### Lifecycle CLI and Python Automation
 
-All Python automation scripts (like `ansible_exec.py`, `deploy_fleet.py`) have been updated to use the wrapper.
-
-For manual CLI usage, your `~/.bashrc` includes an alias so you can simply type:
+The interactive `secretspec` function routes lifecycle requests through the
+root-owned wrapper:
 
 ```bash
-secretspec run -- <command>
+secretspec add RESEND_API_KEY --description "Resend API key for outbound email"
+secretspec set RESEND_API_KEY       # prompts without echoing the value
+secretspec get RESEND_API_KEY
+secretspec delete RESEND_API_KEY
+secretspec check
+secretspec export
+secretspec publish
 ```
 
-Under the hood, the root-owned wrapper is called with exactly one of its two operation names:
+Declarations and provider values are changed through the wrapper. `source-add`
+validates the declaration name and description; `source-set` and
+`source-delete` validate that the name is declared. Direct caller-selected
+files, providers, profiles, arbitrary commands, and shell interpreters are not
+accepted.
+
+Fleet automation still uses the two `_secretspec` consumer operations:
 
 ```bash
 sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh automation-env
@@ -125,8 +136,7 @@ sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh firer
 
 The first returns JSON to the checked-in `control/lib/secretspec_env_exec.py`,
 which validates it and `exec`s the Ansible target as `djbclark`; it does not use
-shell `eval`. Direct wrapper calls with `get`, `export`, `run`, extra arguments,
-profiles, scopes, or another command fail closed.
+shell `eval`.
 
 ### Functional Check
 
