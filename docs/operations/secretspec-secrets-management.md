@@ -35,11 +35,11 @@ When designing this boundary, we evaluated several approaches. The core constrai
 The architecture relies on strict UNIX file permissions and a rigid privilege boundary:
 
 1. **The `_secretspec` System User:** A dedicated macOS daemon user (UID 503, no login shell, hidden from the login screen) that acts as the vault guardian.
-2. **The Secure Vault (`/var/db/stayturgid-secrets/`):** A directory owned by `_secretspec` with `0700` permissions. It contains the locked-down, synced copies of `secretspec.toml` and `.env`.
-3. **The Root-Owned Wrapper (`/usr/local/libexec/stayturgid-secretspec-wrapper.sh`):** A `0755` script owned by `root:wheel` (so it cannot be modified by the operator). Root-target calls expose the validated `source-add`, `source-set`, `source-delete`, `source-get`, `source-check`, `source-export`, and `source-publish` lifecycle operations. `_secretspec` calls expose only `automation-env`, `firerpa-mcp-token`, and `verify-sync`. It never forwards arbitrary `"$@"` to SecretSpec.
+2. **The Canonical Store (`/var/db/stayturgid-secrets/`):** A directory owned by `_secretspec` with `0700` permissions. It is the sole live store for `secretspec.toml` and `.env`; Git tracks only `site-private/secretspec.toml.example`.
+3. **The Root-Owned Wrapper (`/usr/local/libexec/stayturgid-secretspec-wrapper.sh`):** A `0755` script owned by `root:wheel` (so it cannot be modified by the operator). Root-target calls expose the validated `source-add`, `source-set`, `source-delete`, `source-get`, `source-check`, `source-export`, `source-template-check`, and compatibility `source-publish` lifecycle operations directly against the canonical store. `_secretspec` calls expose only `automation-env`, `firerpa-mcp-token`, and `verify-sync`. It never forwards arbitrary `"$@"` to SecretSpec.
    _(Note: While the wrapper script itself is root-owned and untamperable, the `/opt/homebrew/bin/secretspec` binary it executes resides in a `djbclark`-owned Homebrew tree and is not tamper-proof. This is a residual same-admin limitation, not a claim of full operator isolation.)_
 4. **The Sudoers Rule (`/etc/sudoers.d/secretspec`):** Two exact wrapper entries permit the `djbclark` user to invoke the same root-owned script as either `root` for lifecycle operations or `_secretspec` for consumer operations. The wrapper validates the operation and arguments; sudoers does not permit arbitrary commands.
-5. **The Sync Mechanism:** Wrapper mutations copy the fixed source manifest and `.env` into the locked `/var/db/` vault with owner-only modes, while `verify-sync` checks hashes and permissions.
+5. **Tracked Schema:** `site-private/secretspec.toml.example` contains declarations only and is reviewed through Git. `source-template-check` compares it with the canonical runtime manifest without printing either file.
 
 ## 4. Install & Setup Instructions
 
@@ -97,12 +97,16 @@ sudo install -o root -g wheel -m 0440 "$TMPFILE" /etc/sudoers.d/secretspec
 rm "$TMPFILE"
 ```
 
-**4. Publish the Secrets:**
+**4. Verify the Canonical Store:**
 
 ```bash
-# This syncs your local site-private secrets into the vault
+# The wrapper repairs owner-only modes and checks the tracked schema.
 bash control/bin/publish_secrets.sh
 ```
+
+The one-time migration from the former checkout source must be performed before
+installing this wrapper; after cutover, no live manifest or `.env` remains in a
+Git checkout.
 
 ## 5. Usage & Verification
 
@@ -140,18 +144,15 @@ shell `eval`.
 
 ### Functional Check
 
-To manually verify the pipeline without printing secret values, run the
-non-secret drift check first:
+To manually verify the pipeline without printing secret values, run:
 
 ```bash
-python3 control/bin/verify_secretspec_sync.py \
-  "${OPS_ROOT:-$HOME/ops}/site-private" /var/db/stayturgid-secrets
+bash control/bin/publish_secrets.sh
 ```
 
-A source/vault hash mismatch, symlink, missing file, wrong mode, or wrong vault
-permissions exits nonzero. `publish_secrets.sh` performs the same check after
-publishing and must be run after every source change. Do not bypass this check
-or add secret values to logs.
+A missing/symlinked canonical file, wrong ownership/mode, SecretSpec validation
+failure, or runtime/tracked-schema mismatch exits nonzero. No secret value is
+printed by the verifier.
 
 ### Negative Test
 
@@ -166,7 +167,10 @@ Both commands should instantly fail with `Permission denied`. _(Note: This demon
 
 ### Updating Secrets
 
-Whenever you modify your local `site-private/.env` or `secretspec.toml`, you must run `bash control/bin/publish_secrets.sh` to sync the changes into the locked `/var/db/` vault.
+Whenever declarations or provider values change through the wrapper, the
+canonical `/var/db/` store is updated directly. Mirror declaration-only changes
+into `site-private/secretspec.toml.example` through a worktree PR and release,
+then run `secretspec publish` (or `publish_secrets.sh`) to verify schema parity.
 
 ## 6. Two Coexisting Patterns
 

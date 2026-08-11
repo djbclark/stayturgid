@@ -16,15 +16,22 @@ source-delete NAME
 source-get NAME
 source-check
 source-export
+source-template-check
 source-publish
 ```
 
-`source-add` changes the declared schema and creates no secret value. `source-set`
-prompts for the value without placing it in chat. `source-delete` removes the
-provider value while retaining the declaration. `source-get` and
-`source-export` are explicit audited reads. Mutations synchronize the
-operator-owned source store into `/var/db/stayturgid-secrets` using fixed paths
-and owner-only modes.
+`source-add` changes the canonical runtime schema and creates no secret value. It
+also prints the required follow-up: mirror the declaration into the tracked
+`site-private/secretspec.toml.example` from a task worktree, then release it.
+The only live manifest and dotenv provider are under
+`/var/db/stayturgid-secrets`; no runtime secret file remains in a Git checkout.
+`source-template-check` reports only whether the runtime manifest and tracked
+example are byte-identical; it never prints either file. `source-set` prompts
+for the value without placing it in chat. `source-delete` removes the provider
+value while retaining the declaration. `source-get` and `source-export` are
+explicit audited reads. `source-publish` is retained as a compatibility
+operation that repairs canonical-store ownership/modes; it no longer copies
+between stores.
 
 The wrapper also retains the `_secretspec`-only consumer operations:
 
@@ -48,7 +55,7 @@ explicit source-to-vault synchronization.
 
 Declarations and values are therefore changed through the wrapper rather than
 by editing `secretspec.toml` or `.env` directly. The wrapper remains the policy
-boundary; the source and protected vault are synchronized after mutations.
+boundary, and `/var/db/stayturgid-secrets` is the single canonical live store.
 
 ## Applying safely
 
