@@ -50,8 +50,8 @@ configured audit facility receives a fixed operation reason.
 
 The interactive `secretspec` function must call the root-owned wrapper for
 lifecycle operations. `secretspec-vault` is reserved for the narrow
-`_secretspec` consumer interface, and `secretspec-publish` is a convenience for
-explicit source-to-vault synchronization.
+`_secretspec` consumer interface, and `secretspec-publish` is a compatibility
+alias that validates the canonical store and declaration template.
 
 Declarations and values are therefore changed through the wrapper rather than
 by editing `secretspec.toml` or `.env` directly. The wrapper remains the policy
