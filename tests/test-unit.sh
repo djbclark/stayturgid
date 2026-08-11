@@ -632,6 +632,10 @@ if [ -f "$SANDBOX/home/.stayturgid/run/bridge.pid" ]; then
 else
   tap_fail "bridges: writes bridge.pid on start (repair mode)"
 fi
+# The alarm exits after signaling the bridge, but its PID file can outlive the
+# process briefly. Remove it before the next sandbox case so PID reuse cannot
+# make start-repair-bridge.sh misclassify an unrelated process as the bridge.
+kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bridge.pid"
 
 # start-repair-bridge.sh: calls nohup python3 stayturgid_bridges.py when bridge not running
 reset_sandbox
