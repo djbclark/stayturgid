@@ -47,8 +47,8 @@ def test_wrapper_rejects_arbitrary_secret_spec_arguments():
         assert "denied" in result.stderr
     text = wrapper.read_text()
     assert 'exec "$@"' not in text
-    assert "SOURCE_DIR=/Users/djbclark/ops/site-private" in text
-    assert 'SOURCE_MANIFEST="$SOURCE_DIR/secretspec.toml"' in text
+    assert 'SOURCE_DIR="$VAULT_DIR"' in text
+    assert 'SOURCE_MANIFEST="$VAULT_MANIFEST"' in text
 
 
 def test_wrapper_documents_tracked_lifecycle_operations():
@@ -63,9 +63,38 @@ def test_wrapper_documents_tracked_lifecycle_operations():
         "source-get",
         "source-check",
         "source-export",
+        "source-template-check",
         "source-publish",
     ):
         assert operation in text
+
+
+def test_wrapper_keeps_runtime_manifest_out_of_git_workflow():
+    from pathlib import Path
+
+    root = Path(__file__).parents[2]
+    wrapper = root / "control" / "bin" / "stayturgid-secretspec-wrapper.sh"
+    text = wrapper.read_text()
+    assert (root / "secretspec.toml").readlink() == Path("../site-private/secretspec.toml.example")
+    assert "SOURCE_EXAMPLE=/Users/djbclark/ops/site-private/secretspec.toml.example" in text
+    assert 'cmp -s "$SOURCE_MANIFEST" "$SOURCE_EXAMPLE"' in text
+    assert "mirror %s in %s through a worktree PR" in text
+    assert 'cat "$SOURCE_MANIFEST"' not in text
+
+
+def test_single_store_wrapper_and_publisher_have_no_checkout_source():
+    from pathlib import Path
+
+    root = Path(__file__).parents[2]
+    wrapper = (root / "control/bin/stayturgid-secretspec-wrapper.sh").read_text()
+    publisher = (root / "control/bin/publish_secrets.sh").read_text()
+    assert 'SOURCE_DIR="$VAULT_DIR"' in wrapper
+    assert 'SOURCE_MANIFEST="$VAULT_MANIFEST"' in wrapper
+    assert "/ops/site-private/.env" not in wrapper + publisher
+    assert '/ops/site-private/secretspec.toml"' not in wrapper + publisher
+    assert 'sudo -n "$WRAPPER" source-publish' in publisher
+    assert 'sudo -n "$WRAPPER" source-check' in publisher
+    assert 'sudo -n "$WRAPPER" source-template-check' in publisher
 
 
 def test_firerpa_operation_is_fixed_to_one_token(monkeypatch):

@@ -9,9 +9,10 @@ SECRETSPEC_BIN=/opt/homebrew/bin/secretspec
 VAULT_DIR=/var/db/stayturgid-secrets
 VAULT_HOME="$VAULT_DIR"
 VAULT_MANIFEST="$VAULT_DIR/secretspec.toml"
-SOURCE_DIR=/Users/djbclark/ops/site-private
-SOURCE_MANIFEST="$SOURCE_DIR/secretspec.toml"
-SOURCE_ENV="$SOURCE_DIR/.env"
+SOURCE_DIR="$VAULT_DIR"
+SOURCE_MANIFEST="$VAULT_MANIFEST"
+SOURCE_ENV="$VAULT_DIR/.env"
+SOURCE_EXAMPLE=/Users/djbclark/ops/site-private/secretspec.toml.example
 
 fail() {
   printf 'denied: %s\n' "$1" >&2
@@ -34,13 +35,12 @@ valid_description() {
 }
 
 sync_source() {
-  [[ -f "$SOURCE_MANIFEST" && ! -L "$SOURCE_MANIFEST" ]] || fail 'source manifest missing or symlinked'
-  [[ -f "$SOURCE_ENV" && ! -L "$SOURCE_ENV" ]] || fail 'source dotenv file missing or symlinked'
+  [[ -d "$VAULT_DIR" && ! -L "$VAULT_DIR" ]] || fail 'vault directory missing or symlinked'
+  [[ -f "$SOURCE_MANIFEST" && ! -L "$SOURCE_MANIFEST" ]] || fail 'manifest missing or symlinked'
+  [[ -f "$SOURCE_ENV" && ! -L "$SOURCE_ENV" ]] || fail 'dotenv file missing or symlinked'
+  chown _secretspec:staff "$VAULT_DIR" "$SOURCE_MANIFEST" "$SOURCE_ENV"
+  chmod 0700 "$VAULT_DIR"
   chmod 0600 "$SOURCE_MANIFEST" "$SOURCE_ENV"
-  mkdir -p "$VAULT_DIR"
-  chown _secretspec:staff "$VAULT_DIR"
-  install -o _secretspec -g staff -m 0600 "$SOURCE_MANIFEST" "$VAULT_MANIFEST"
-  install -o _secretspec -g staff -m 0600 "$SOURCE_ENV" "$VAULT_DIR/.env"
 }
 
 run_source() {
@@ -100,6 +100,7 @@ case "$operation" in
     grep -Eq "^${2}[[:space:]]*=" "$SOURCE_MANIFEST" && fail 'secret is already declared'
     run_source 'wrapper source-add' add "$2" --description "$3"
     sync_source
+    printf 'declaration added to runtime; mirror %s in %s through a worktree PR\n' "$2" "$SOURCE_EXAMPLE"
     ;;
   source-set)
     [[ "$(id -u)" -eq 0 && $# -eq 2 ]] || fail 'source-set requires root and one declared secret name'
@@ -125,6 +126,12 @@ case "$operation" in
   source-export)
     [[ "$(id -u)" -eq 0 && $# -eq 1 ]] || fail 'source-export requires root'
     run_source 'wrapper source-export' export --format json
+    ;;
+  source-template-check)
+    [[ "$(id -u)" -eq 0 && $# -eq 1 ]] || fail 'source-template-check requires root'
+    [[ -f "$SOURCE_EXAMPLE" && ! -L "$SOURCE_EXAMPLE" ]] || fail 'tracked declaration example missing or symlinked'
+    cmp -s "$SOURCE_MANIFEST" "$SOURCE_EXAMPLE" || fail 'runtime manifest differs from tracked declaration example'
+    printf 'runtime manifest matches tracked declaration example\n'
     ;;
   source-publish)
     [[ "$(id -u)" -eq 0 && $# -eq 1 ]] || fail 'source-publish requires root'

@@ -1,7 +1,9 @@
 # Python test dependencies. Managed via pyproject.toml (project root).
 # Install: uv venv .venv-test && uv pip install -r tests/python/requirements.txt
 # Or:     uv sync
-ansible-core>=2.16
+# ansible-core 2.21.x's installed ansible-test removes/loses its own
+# ansible_test._util.target package after a run; cap at the last stable minor.
+ansible-core>=2.16,<2.21
 jinja2>=3.1
 pytest>=7
 pytest-mock>=3
