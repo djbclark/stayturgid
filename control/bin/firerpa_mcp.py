@@ -11,6 +11,7 @@ import hmac
 
 import uvicorn
 from mcp.server.fastmcp import Context, FastMCP
+from mcp.server.transport_security import TransportSecuritySettings
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
@@ -18,8 +19,9 @@ import control.bin.firerpa_heal as heal
 from control.lib.firerpa_auth import certificate_path
 from control.lib.firerpa_consent import HealSession, check_consent
 from control.lib.firerpa_fleet import get_fleet
+from control.lib import secretspec_exec
 from control.lib.secretspec_exec import APPROVED_SECRET, secretspec_token_command
-from control.lib.site_logging import WARNING, log
+from control.lib.site_logging import ERROR, log
 
 LOG_NAME = "firerpa-mcp.log"
 
@@ -245,16 +247,36 @@ def main():
     if args.transport == "stdio":
         mcp.run("stdio")
     elif args.transport == "streamable-http":
-        app = mcp.streamable_http_app()
+        # Fail closed. This used to log a warning and serve anyway, which meant
+        # a missing token silently downgraded a tailnet-exposed MCP server to
+        # no authentication at all -- and because the log line is a WARNING on
+        # an otherwise healthy service, nothing surfaced it. It ran that way
+        # from 2026-08-01 to 2026-08-15.
         token = get_bearer_token()
-        if token:
-            app.add_middleware(TokenAuthMiddleware, token=token)
-        else:
-            _log(WARNING, "Starting HTTP transport without token authentication. This is insecure!")
+        if not token:
+            _log(
+                ERROR,
+                f"Refusing to start HTTP transport: {secretspec_exec.APPROVED_SECRET} "
+                "did not resolve. Declare it in site-private/secretspec.toml.example "
+                "and set it with `sudo-secretspec set` before starting this service.",
+            )
+            return 78  # EX_CONFIG
 
         host = args.host or get_tailscale_ip()
+        # The MCP SDK enables DNS-rebinding protection by default with an empty
+        # allowlist, which rejects EVERY Host header. That is why this service
+        # answered `421 Invalid Host header` to every request and never served
+        # a single successful session. Bind-address and port must be allowed
+        # explicitly.
+        mcp.settings.transport_security = TransportSecuritySettings(
+            allowed_hosts=[host, f"{host}:{args.port}"],
+            allowed_origins=[f"http://{host}:{args.port}"],
+        )
+
+        app = mcp.streamable_http_app()
+        app.add_middleware(TokenAuthMiddleware, token=token)
         uvicorn.run(app, host=host, port=args.port)
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
