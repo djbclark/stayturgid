@@ -10,9 +10,13 @@ Never deletes or truncates the JSONL. Skips corrupt lines. Batches POSTs with
 retries on 5xx / connection errors (not on permanent 4xx except 429).
 
 Usage:
-  sudo -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh run -- ./reingest_soft_health.py
-  sudo -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh run -- ./reingest_soft_health.py --since 2026-07-20T00:00:00Z
-  sudo -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh run -- ./reingest_soft_health.py --dry-run
+  sudo-secretspec run --reason 'soft health reingest' -- python3 reingest_soft_health.py
+  sudo-secretspec run --reason 'soft health reingest' -- python3 reingest_soft_health.py --since 2026-07-20T00:00:00Z
+  sudo-secretspec run --reason 'soft health reingest' -- python3 reingest_soft_health.py --dry-run
+
+The target is passed as `python3 <script>` rather than `./<script>`: the broker
+audits the command by basename and refuses an argument containing a path
+separator.
 """
 
 from __future__ import annotations
@@ -64,7 +68,7 @@ def _post_batch(uri: str, user: str, password: str, rows: list[dict]) -> None:
             if e.code in (401, 403):
                 raise SystemExit(
                     f"OpenObserve auth failed HTTP {e.code}. "
-                    "Run via `sudo -u _secretspec env HOME=/var/db/stayturgid-secrets SECRETSPEC_PROVIDER=dotenv secretspec -f /var/db/stayturgid-secrets/secretspec.toml run -- ./reingest_soft_health.py` "
+                    "Run via `sudo-secretspec run --reason 'soft health reingest' -- python3 reingest_soft_health.py` "
                     "(and update Vector launchd EnvironmentVariables)."
                 ) from e
             if e.code == 429 or e.code >= 500:

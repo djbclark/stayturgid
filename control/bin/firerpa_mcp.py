@@ -18,7 +18,7 @@ import control.bin.firerpa_heal as heal
 from control.lib.firerpa_auth import certificate_path
 from control.lib.firerpa_consent import HealSession, check_consent
 from control.lib.firerpa_fleet import get_fleet
-from control.lib.secretspec_exec import secretspec_token_command
+from control.lib.secretspec_exec import APPROVED_SECRET, secretspec_token_command
 from control.lib.site_logging import WARNING, log
 
 LOG_NAME = "firerpa-mcp.log"
@@ -40,7 +40,7 @@ except ImportError:
 def get_bearer_token() -> str | None:
     try:
         res = subprocess.run(
-            secretspec_token_command("firerpa_mcp_token"),
+            secretspec_token_command(APPROVED_SECRET),
             capture_output=True,
             text=True,
             check=True,

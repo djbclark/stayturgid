@@ -45,8 +45,11 @@ def test_ansible_exec_delegates_env_to_resolved_env(monkeypatch, tmp_path):
 
     assert ae.main(["ansible-playbook", "ansible/playbooks/site.yml", "--syntax-check"]) == 0
     assert seen["command"] == [
-        secretspec_exec.sys.executable,
-        secretspec_exec.HELPER_PATH,
+        secretspec_exec.BOUNDARY_BIN,
+        "run",
+        "--reason",
+        secretspec_exec.RUN_REASON,
+        "--",
         "ansible-playbook",
         "-e",
         f"stayturgid_repo_root={ae.REPO_ROOT}",
