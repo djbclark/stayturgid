@@ -214,7 +214,7 @@ false`, "Authorized 0 applications" in the Shizuku app) twice in one
 session on hd8, including once triggered simply by restarting
 `shizuku_server` locally, with no OS reboot or app reinstall involved.
 Tracked as its own issue, [#158](https://github.com/djbclark/stayturgid/issues/158)
-(patch the `djbclark/Shizuku` fork to make `org.stayturgid.agent`'s grant
+(patch the `frdminc/Shizuku` fork to make `org.stayturgid.agent`'s grant
 permanent). **Still open**: the forced `CLOSED_NO_SHELL` soak test has not
 run.
 

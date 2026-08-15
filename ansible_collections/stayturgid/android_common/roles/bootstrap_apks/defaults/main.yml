@@ -86,7 +86,7 @@ stayturgid_bootstrap_apks:
     checksum: "sha256:d5235ee5ed03431a76f4b3d79d02d139e76887e1fe717cfcdc6581f7ee0eb777"
     mutable_tag_snapshot: true
   - id: moe.shizuku.privileged.api
-    gh_repo: djbclark/Shizuku
+    gh_repo: frdminc/Shizuku
     gh_tag: "v13.7.0-thedjchi+stayturgid-release25"
     gh_pattern: "shizuku-v13.7.0-thedjchi+stayturgid-release25-universal.apk"
     version_name: "13.7.0-thedjchi+stayturgid-release25"

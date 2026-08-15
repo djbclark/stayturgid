@@ -352,7 +352,7 @@ def repair_shizuku():
 | FIRERPA issue #138 (Android 16/Pixel 7a) | https://github.com/firerpa/lamda/issues/138                                                        |
 | scrcpy (alternative remote desktop)      | https://github.com/Genymobile/scrcpy                                                               |
 | AutoJs6 (stayturgid watchdog)            | https://github.com/djbclark/AutoJs6                                                                |
-| Shizuku (fork used by stayturgid)        | https://github.com/djbclark/Shizuku                                                                |
+| Shizuku (fork used by stayturgid)        | https://github.com/frdminc/Shizuku                                                                |
 | Obtainium (app catalog)                  | https://github.com/djbclark/Obtainium                                                              |
 | Hermes Agent (control-node gateway)      | https://github.com/anomalyco/hermes-agent                                                          |
 | OpenCode (AI coding agent)               | https://github.com/anomalyco/opencode                                                              |

@@ -31,7 +31,7 @@ Also report this worktree warning immediately:
   five-minute FIRERPA readiness window for slow Fire HD 8 startup.
 - site-djbclark PR [#2](https://github.com/djbclark/site-djbclark/pull/2):
   p7a incompatible-runtime policy and hd8 recovery mode.
-- Shizuku PR [#1](https://github.com/djbclark/Shizuku/pull/1): Fire OS
+- Shizuku PR [#1](https://github.com/frdminc/Shizuku/pull/1): Fire OS
   notification-resource and native-library packaging fixes.
 - The ownership inventory is summarized publicly in issue
   [#50](https://github.com/djbclark/stayturgid/issues/50); its seven operator
