@@ -59,7 +59,7 @@ The architecture relies on strict UNIX file permissions and a rigid privilege bo
 **1. Install the companion:**
 
 ```bash
-brew install djbclark/sudo-secretspec/sudo-secretspec
+brew install frdminc/sudo-secretspec/sudo-secretspec
 ```
 
 **2. Install the boundary, from a real TTY:**

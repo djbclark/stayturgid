@@ -68,7 +68,7 @@ still admits only `run -- ansible-playbook ...` and one named token fetch.
 
 ## Applying safely
 
-1. Install the companion: `brew install djbclark/sudo-secretspec/sudo-secretspec`.
+1. Install the companion: `brew install frdminc/sudo-secretspec/sudo-secretspec`.
 2. Install the boundary from a real TTY:
    `sudo-secretspec install --declarations <path>`. It authenticates every time
    (`timestamp_timeout=0`) and cannot prompt from a backgrounded process.
