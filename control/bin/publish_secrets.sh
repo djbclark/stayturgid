@@ -2,11 +2,19 @@
 set -euo pipefail
 
 # Compatibility verifier for the single canonical SecretSpec store.
-# Lifecycle operations now mutate /var/db/stayturgid-secrets directly through
-# the root-owned wrapper; there is no checkout source to copy or hash.
-WRAPPER=/usr/local/libexec/stayturgid-secretspec-wrapper.sh
+# Secrets live in /var/db/sudo-secretspec and are reached only through the
+# sudo-secretspec broker; there is no checkout source to copy or hash.
+#
+# `doctor` verifies the boundary itself (vault ownership and mode, sudoers
+# policy, installed-artifact hashes). `check` verifies that every declared
+# secret resolves. Both elevate through the NOPASSWD broker path internally,
+# so neither is wrapped in sudo here.
+#
+# `check` is NOT read-only: with a missing secret it drops into the engine's
+# interactive value-entry prompt. `< /dev/null` keeps it from blocking when
+# this script runs unattended.
 
-sudo -n "$WRAPPER" source-publish
-sudo -n "$WRAPPER" source-check
-sudo -n "$WRAPPER" source-template-check
-printf '%s\n' 'SecretSpec canonical store permissions, values, and tracked schema match.'
+sudo-secretspec doctor
+sudo-secretspec check --reason 'publish_secrets verification' </dev/null
+sudo-secretspec template-check --reason 'publish_secrets verification'
+printf '%s\n' 'SecretSpec boundary, canonical store permissions, declared values, and tracked schema all verify.'

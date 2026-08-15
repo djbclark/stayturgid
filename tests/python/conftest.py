@@ -60,22 +60,22 @@ def _fleet_lock_path(tmp_path, monkeypatch) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _secretspec_wrapper_present(monkeypatch) -> Iterator[None]:
-    """Pin secretspec_exec to the privilege-separated wrapper path.
+def _secretspec_boundary_present(monkeypatch) -> Iterator[None]:
+    """Pin secretspec_exec to the privilege-separated boundary path.
 
     Call sites build their argv via control/lib/secretspec_exec.py, which picks
-    the wrapper form only when the `_secretspec` user and wrapper script exist.
+    the brokered form only when the `sudo-secretspec` companion is on PATH.
     That is true on the control node and false on a CI runner, so tests
     asserting an exact argv would otherwise pass locally and fail in CI --
     precisely the local/CI divergence this module was added to fix.
 
-    Tests that specifically exercise the fallback re-patch `wrapper_available`
+    Tests that specifically exercise the fallback re-patch `boundary_available`
     themselves; the later monkeypatch wins over this autouse one.
 
     Both spellings must be patched. conftest puts `control/lib` *and* the repo
     root on sys.path, so `import secretspec_exec` and
     `from control.lib.secretspec_exec import ...` produce two independent module
-    objects, each with its own `wrapper_available` and its own lru_cache — and
+    objects, each with its own `boundary_available` and its own lru_cache — and
     the call sites are split across both conventions (matching how
     ansible_context is already imported repo-wide). Patching only one leaves the
     other live, which passes on a control node (where the real function returns
@@ -89,9 +89,9 @@ def _secretspec_wrapper_present(monkeypatch) -> Iterator[None]:
         # Hold the real (lru_cached) function: once monkeypatch replaces the
         # attribute it no longer carries .cache_clear(), and this fixture's
         # teardown runs before monkeypatch's undo.
-        real = module.wrapper_available
+        real = module.boundary_available
         real.cache_clear()
-        monkeypatch.setattr(module, "wrapper_available", lambda: True)
+        monkeypatch.setattr(module, "boundary_available", lambda: True)
         reals.append(real)
     yield
     for real in reals:

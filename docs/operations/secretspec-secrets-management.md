@@ -2,6 +2,16 @@
 
 This document outlines the `secretspec` enforcement architecture for the `stayturgid` fleet automation. Built across PRs [#244](https://github.com/djbclark/stayturgid/pull/244), [#245](https://github.com/djbclark/stayturgid/pull/245), [#246](https://github.com/djbclark/stayturgid/pull/246), and [#247](https://github.com/djbclark/stayturgid/pull/247), this system ensures that automation scripts and background tasks access secrets reliably and strictly through the `secretspec` API boundary.
 
+> [!IMPORTANT]
+> **The `_secretspec` wrapper described in sections 1-2 and 7 was retired on
+> 2026-08-15.** Its role is now filled by the `sudo-secretspec` companion
+> against the canonical vault at `/var/db/sudo-secretspec`. Sections 3-5 have
+> been updated to the current architecture; sections 1-2 and 7 are kept as the
+> historical design record and describe a boundary that no longer exists.
+>
+> For day-to-day operation see
+> [`secretspec-boundary-lifecycle.md`](secretspec-boundary-lifecycle.md).
+
 ## 1. Rationale & Problem Statement
 
 Historically, `secretspec.toml` was merely documentation for the `stayturgid` repository. Real code (like `site_contract/serverapps.py` or `reingest_soft_health.py`) bypassed it completely, manually parsing a legacy file located at `~/.config/stayturgid/observability.env`.
@@ -34,113 +44,85 @@ When designing this boundary, we evaluated several approaches. The core constrai
 
 The architecture relies on strict UNIX file permissions and a rigid privilege boundary:
 
-1. **The `_secretspec` System User:** A dedicated macOS daemon user (UID 503, no login shell, hidden from the login screen) that acts as the vault guardian.
-2. **The Canonical Store (`/var/db/stayturgid-secrets/`):** A directory owned by `_secretspec` with `0700` permissions. It is the sole live store for `secretspec.toml` and `.env`; Git tracks only `site-private/secretspec.toml.example`.
-3. **The Root-Owned Wrapper (`/usr/local/libexec/stayturgid-secretspec-wrapper.sh`):** A `0755` script owned by `root:wheel` (so it cannot be modified by the operator). Root-target calls expose the validated `source-add`, `source-set`, `source-delete`, `source-get`, `source-check`, `source-export`, `source-template-check`, and compatibility `source-publish` lifecycle operations directly against the canonical store. `_secretspec` calls expose only `automation-env`, `firerpa-mcp-token`, and `verify-sync`. It never forwards arbitrary `"$@"` to SecretSpec.
-   _(Note: While the wrapper script itself is root-owned and untamperable, the `/opt/homebrew/bin/secretspec` binary it executes resides in a `djbclark`-owned Homebrew tree and is not tamper-proof. This is a residual same-admin limitation, not a claim of full operator isolation.)_
-4. **The Sudoers Rule (`/etc/sudoers.d/secretspec`):** Two exact wrapper entries permit the `djbclark` user to invoke the same root-owned script as either `root` for lifecycle operations or `_secretspec` for consumer operations. The wrapper validates the operation and arguments; sudoers does not permit arbitrary commands.
-5. **Tracked Schema:** `site-private/secretspec.toml.example` contains declarations only and is reviewed through Git. `source-template-check` compares it with the canonical runtime manifest without printing either file.
+1. **The `_sudo_secretspec` System User:** A dedicated macOS daemon user (UID 499, no login shell) that owns the vault and under whose identity the privileged broker reads it.
+2. **The Canonical Store (`/var/db/sudo-secretspec/`):** A directory owned by `_sudo_secretspec` with `0700` permissions. It is the sole live store for `secretspec.toml` and `.env`; Git tracks only `site-private/secretspec.toml.example`.
+3. **The Root-Owned Broker (`/usr/local/libexec/sudo-secretspec`):** Owned by `root:wheel` so it cannot be modified by the operator. It exposes a fixed set of audited operations against the canonical store and never forwards arbitrary arguments to SecretSpec. Every operation carries a caller-supplied reason; the hash-chained audit ledger records only its SHA-256 digest.
+4. **The Public Client (`sudo-secretspec`):** Elevates itself to the broker through the NOPASSWD sudoers path, so callers never wrap it in `sudo`. For `run`, it fetches the environment from the broker and then `exec`s the target as the _invoking_ user, purging every `SECRETSPEC_*` variable first.
+5. **The Sudoers Rule (`/etc/sudoers.d/sudo-secretspec`):** Permits `djbclark` to invoke only this project's broker, and only for its allowlisted operations. It does not permit arbitrary commands.
+6. **Tracked Schema:** `site-private/secretspec.toml.example` contains declarations only and is reviewed through Git. `sudo-secretspec template-check` compares it with the canonical runtime manifest without printing either file.
 
 ## 4. Install & Setup Instructions
 
 > [!IMPORTANT]
 > **Prerequisites:** The commands below assume you are running them from the `stayturgid` checkout root and that your private site data is checked out at `~/ops/site-private`.
 
-If you are setting this up fresh on a new machine, follow this exact sequence:
-
-**1. Create the `_secretspec` user and vault directory:**
+**1. Install the companion:**
 
 ```bash
-# Create the service account (auto-assigned uid 503, verify with `id _secretspec`)
-sudo sysadminctl -addUser _secretspec -fullName "Secretspec Service Account" -home /var/empty -shell /usr/bin/false
-sudo dscl . -create /Users/_secretspec IsHidden 1
-
-# Setup the secure vault directory
-sudo mkdir -p /var/db/stayturgid-secrets
-sudo chown _secretspec /var/db/stayturgid-secrets
-sudo chmod 0700 /var/db/stayturgid-secrets
+brew install frdminc/sudo-secretspec/sudo-secretspec
 ```
 
-**2. Create the Root-Owned Wrapper Script:**
+**2. Install the boundary, from a real TTY:**
 
 ```bash
-sudo mkdir -p /usr/local/libexec
-sudo tee /usr/local/libexec/stayturgid-secretspec-wrapper.sh > /dev/null << 'EOF'
-#!/bin/bash
-set -euo pipefail
-if [ "$#" -ne 1 ]; then exit 2; fi
-export HOME=/var/db/stayturgid-secrets
-export SECRETSPEC_PROVIDER=dotenv
-export SECRETSPEC_FILE=/var/db/stayturgid-secrets/secretspec.toml
-unset SECRETSPEC_PROFILE SECRETSPEC_SCOPE SECRETSPEC_REASON DYLD_LIBRARY_PATH DYLD_INSERT_LIBRARIES
-case "$1" in
-  automation-env) exec /opt/homebrew/bin/secretspec -f "$SECRETSPEC_FILE" export --format json ;;
-  firerpa-mcp-token) exec /opt/homebrew/bin/secretspec -f "$SECRETSPEC_FILE" get firerpa_mcp_token ;;
-  *) exit 2 ;;
-esac
-EOF
-sudo chmod 0755 /usr/local/libexec/stayturgid-secretspec-wrapper.sh
-sudo chown root:wheel /usr/local/libexec/stayturgid-secretspec-wrapper.sh
+sudo-secretspec install --declarations ~/ops/site-private/secretspec.toml.example
 ```
 
-**3. Validate and Install the Sudoers Rule:**
+It creates the service identity and the vault, writes the root-owned config and
+sudoers drop-in, and records a manifest of everything it installed. Add
+`--adopt-existing` to take over an existing vault instead of creating one.
 
 > [!WARNING]
-> You **must** validate your sudoers file with `visudo -c` before installing it. A syntax error in `/etc/sudoers.d/` can completely lock you out of `sudo` machine-wide.
+> Without `--adopt-existing`, `install` truncates `<vault>/.env`. Against a vault
+> holding real secrets that is total loss. Pass the flag whenever a vault
+> already exists.
+
+It authenticates every time (`timestamp_timeout=0`) and cannot prompt from a
+backgrounded process, so it must not be run from a script or an agent session.
+
+**3. Verify the boundary and the canonical store:**
 
 ```bash
-TMPFILE=$(mktemp)
-echo 'djbclark ALL=(_secretspec) NOPASSWD: /usr/local/libexec/stayturgid-secretspec-wrapper.sh' > "$TMPFILE"
-sudo visudo -c -f "$TMPFILE"
-# Ensure the output says "parsed OK" before continuing!
-sudo install -o root -g wheel -m 0440 "$TMPFILE" /etc/sudoers.d/secretspec
-rm "$TMPFILE"
-```
-
-**4. Verify the Canonical Store:**
-
-```bash
-# The wrapper repairs owner-only modes and checks the tracked schema.
+sudo-secretspec doctor          # expect exit 0, no findings
 bash control/bin/publish_secrets.sh
 ```
-
-The one-time migration from the former checkout source must be performed before
-installing this wrapper; after cutover, no live manifest or `.env` remains in a
-Git checkout.
 
 ## 5. Usage & Verification
 
 ### Lifecycle CLI and Python Automation
 
-The interactive `secretspec` function routes lifecycle requests through the
-root-owned wrapper:
-
 ```bash
-secretspec add RESEND_API_KEY --description "Resend API key for outbound email"
-secretspec set RESEND_API_KEY       # prompts without echoing the value
-secretspec get RESEND_API_KEY
-secretspec delete RESEND_API_KEY
-secretspec check
-secretspec export
-secretspec publish
+sudo-secretspec add RESEND_API_KEY --reason 'declare outbound email key'
+sudo-secretspec set RESEND_API_KEY --reason 'rotate outbound email key'   # prompts, no echo
+sudo-secretspec get RESEND_API_KEY --reason 'debug outbound email'
+sudo-secretspec delete RESEND_API_KEY --reason 'retire outbound email key'
+sudo-secretspec check --reason 'routine verification' </dev/null
+sudo-secretspec export --reason 'routine verification'
+sudo-secretspec template-check --reason 'routine verification'
 ```
 
-Declarations and provider values are changed through the wrapper. `source-add`
-validates the declaration name and description; `source-set` and
-`source-delete` validate that the name is declared. Direct caller-selected
-files, providers, profiles, arbitrary commands, and shell interpreters are not
-accepted.
+Declarations and provider values are changed through the broker. `add` validates
+the declaration name and description; `set` and `delete` validate that the name
+is declared. Caller-selected files, providers, profiles, arbitrary commands, and
+shell interpreters are not accepted.
 
-Fleet automation still uses the two `_secretspec` consumer operations:
+> [!WARNING]
+> `check` is **not** read-only. With a missing secret it drops into the engine's
+> interactive value-entry prompt; with stdout redirected that prompt is
+> invisible and the command simply hangs. Always redirect stdin from
+> `/dev/null` when scripting it.
+
+Fleet automation builds its argv through `control/lib/secretspec_exec.py`, which
+admits only the approved Ansible form and one named token fetch:
 
 ```bash
-sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh automation-env
-sudo -n -u _secretspec /usr/local/libexec/stayturgid-secretspec-wrapper.sh firerpa-mcp-token
+sudo-secretspec run --reason 'stayturgid approved ansible automation' -- ansible-playbook ...
+sudo-secretspec get FIRERPA_MCP_TOKEN --reason 'stayturgid firerpa mcp bearer token'
 ```
 
-The first returns JSON to the checked-in `control/lib/secretspec_env_exec.py`,
-which validates it and `exec`s the Ansible target as `djbclark`; it does not use
-shell `eval`.
+`run` `exec`s the Ansible target as `djbclark` with a writable HOME; it does not
+use shell `eval`. Targets are audited by basename, so pass a bare executable
+name rather than a path.
 
 ### Functional Check
 
@@ -150,27 +132,26 @@ To manually verify the pipeline without printing secret values, run:
 bash control/bin/publish_secrets.sh
 ```
 
-A missing/symlinked canonical file, wrong ownership/mode, SecretSpec validation
-failure, or runtime/tracked-schema mismatch exits nonzero. No secret value is
-printed by the verifier.
+A boundary defect, a SecretSpec validation failure, or a runtime/tracked-schema
+mismatch exits nonzero. No secret value is printed by the verifier.
 
 ### Negative Test
 
 To verify that discretionary filesystem permission enforcement is working for a regular non-sudo process, run the following:
 
 ```bash
-ls -la /var/db/stayturgid-secrets
-cat /var/db/stayturgid-secrets/secretspec.toml
+ls -la /var/db/sudo-secretspec
+cat /var/db/sudo-secretspec/secretspec.toml
 ```
 
 Both commands should instantly fail with `Permission denied`. _(Note: This demonstrates discretionary permission enforcement for ordinary processes; it is not a comprehensive security guarantee against a root-capable user)._
 
 ### Updating Secrets
 
-Whenever declarations or provider values change through the wrapper, the
-canonical `/var/db/` store is updated directly. Mirror declaration-only changes
-into `site-private/secretspec.toml.example` through a worktree PR and release,
-then run `secretspec publish` (or `publish_secrets.sh`) to verify schema parity.
+Whenever declarations or provider values change through the broker, the
+canonical `/var/db/sudo-secretspec` store is updated directly. Mirror
+declaration-only changes into `site-private/secretspec.toml.example` through a
+worktree PR and release, then run `publish_secrets.sh` to verify schema parity.
 
 ## 6. Two Coexisting Patterns
 
@@ -180,6 +161,13 @@ then run `secretspec publish` (or `publish_secrets.sh`) to verify schema parity.
 > A simpler pattern (direct `secretspec run --` executed as the operator) is used elsewhere on this machine (e.g., the `hermes` gateway). This is **not** wrong—it just operates in a different, lower-stakes context that doesn't require strict privilege separation. There is no requirement for every service on the machine to migrate to the `_secretspec` pattern.
 
 ## 7. Known Gotchas (Lessons Learned)
+
+> [!NOTE]
+> Historical. Both gotchas below are properties of the retired `_secretspec`
+> wrapper and no longer apply: the `sudo-secretspec` client is never invoked
+> through `sudo -u`, so neither the `$HOME` override nor the `env` scoping
+> problem can arise. Kept because they explain why the wrapper looked the way
+> it did.
 
 During the build process, a few critical lessons emerged:
 

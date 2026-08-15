@@ -1,64 +1,68 @@
 #!/usr/bin/env python3
 """Build safe commands for the control-node SecretSpec boundary.
 
-The passwordless sudo rule is intentionally *not* a general SecretSpec CLI
-proxy.  The root-owned wrapper exposes only two fixed operations:
-``automation-env`` (JSON environment for the approved Ansible automation) and
-``firerpa-mcp-token`` (one named token).  This module keeps the caller-side
-interface equally narrow and executes approved automation as the invoking user.
+Secrets live in the canonical vault at ``/var/db/sudo-secretspec`` and are
+reached through the ``sudo-secretspec`` companion, which brokers every
+operation through a root-owned, allowlisted binary and records it in a
+hash-chained audit ledger.  This module keeps the caller-side interface narrow:
+only ``run -- ansible-playbook ...`` is approved here.
+
+The companion elevates itself -- it invokes the NOPASSWD broker path
+internally -- so call sites must NOT wrap it in ``sudo``.  It fetches the
+environment from the broker and then ``exec``s the target as the *invoking*
+user, so Ansible still runs as ``djbclark`` with a writable HOME and no shell
+evaluation.  It also purges every ``SECRETSPEC_*`` variable from the inherited
+environment before the exec.
 
 A same-UID caller can still invoke an approved operation when the sudoers rule
 is granted to that UID; UNIX credentials cannot distinguish two processes with
 the same UID.  The enforceable boundary here is that malformed arguments,
 caller-selected SecretSpec subcommands, environment injection, and arbitrary
-commands are rejected by the wrapper and by this selector.
+commands are rejected by the broker and by this selector.
 
-CI and other machines without the service account use direct ``secretspec``
-with their normal provider configuration.  Set ``STAYTURGID_SECRETSPEC_DIRECT=1``
-to exercise that path deliberately.
+CI and other machines without the boundary use direct ``secretspec`` with their
+normal provider configuration.  Set ``STAYTURGID_SECRETSPEC_DIRECT=1`` to
+exercise that path deliberately.
+
+Replaced the ``stayturgid-secretspec-wrapper.sh`` boundary, retired 2026-08-15
+when the vault moved to ``/var/db/sudo-secretspec``.  The wrapper ran as the
+separate ``_secretspec`` service account, which cannot read the canonical
+vault, and its ``sync_source`` would have chowned that vault away from
+``_sudo_secretspec``.
 """
 
 from __future__ import annotations
 
 import os
-import pwd
+import shutil
 import sys
 from functools import lru_cache
-from pathlib import Path
 
-WRAPPER_PATH = "/usr/local/libexec/stayturgid-secretspec-wrapper.sh"
-SERVICE_USER = "_secretspec"
-VAULT_DIR = "/var/db/stayturgid-secrets"
+BOUNDARY_BIN = "sudo-secretspec"
+VAULT_DIR = "/var/db/sudo-secretspec"
 FORCE_DIRECT_ENV = "STAYTURGID_SECRETSPEC_DIRECT"
-HELPER_PATH = str(Path(__file__).with_name("secretspec_env_exec.py"))
 APPROVED_EXECUTABLE = "ansible-playbook"
 
+# The single secret this module will fetch by name. The boundary itself accepts
+# any declared name; keeping the caller-side list to one keeps a compromised
+# call site from turning this seam into a general `get`.
+APPROVED_SECRET = "FIRERPA_MCP_TOKEN"
 
-def _service_user_exists() -> bool:
-    try:
-        pwd.getpwnam(SERVICE_USER)
-    except KeyError:
-        return False
-    return True
+# Recorded verbatim in the broker's audit ledger for every approved operation.
+RUN_REASON = "stayturgid approved ansible automation"
+TOKEN_REASON = "stayturgid firerpa mcp bearer token"
 
 
 @lru_cache(maxsize=1)
-def wrapper_available() -> bool:
+def boundary_available() -> bool:
     """True when the privilege-separated SecretSpec path is usable here."""
     if os.environ.get(FORCE_DIRECT_ENV) == "1":
         return False
-    has_wrapper = os.path.isfile(WRAPPER_PATH) and os.access(WRAPPER_PATH, os.X_OK)
-    has_user = _service_user_exists()
-    if has_wrapper and has_user:
+    if shutil.which(BOUNDARY_BIN) is not None:
         return True
     if os.path.isdir(VAULT_DIR):
-        missing = []
-        if not has_wrapper:
-            missing.append(f"wrapper {WRAPPER_PATH}")
-        if not has_user:
-            missing.append(f"user {SERVICE_USER}")
         print(
-            f"WARNING: {VAULT_DIR} exists but {' and '.join(missing)} missing — "
+            f"WARNING: {VAULT_DIR} exists but {BOUNDARY_BIN} is not on PATH — "
             "falling back to direct secretspec, without privilege separation. "
             "See docs/operations/secretspec-secrets-management.md to repair.",
             file=sys.stderr,
@@ -67,42 +71,52 @@ def wrapper_available() -> bool:
 
 
 def _approved_automation(command: tuple[str, ...]) -> bool:
-    """Reject shell interpreters and non- Ansible automation at this seam."""
+    """Reject shell interpreters and non-Ansible automation at this seam."""
     return bool(command) and command[0] == APPROVED_EXECUTABLE
-
-
-def secretspec_token_command(name: str) -> list[str]:
-    """Return the fixed FIRERPA token operation; no caller-selected ``get``."""
-    if name != "firerpa_mcp_token":
-        raise ValueError("only firerpa_mcp_token is available through the wrapper")
-    if wrapper_available():
-        return ["sudo", "-n", "-u", SERVICE_USER, WRAPPER_PATH, "firerpa-mcp-token"]
-    return ["secretspec", "get", name]
 
 
 def secretspec_command(*args: str) -> list[str]:
     """Return an approved SecretSpec command for this machine.
 
-    Only ``run -- ansible-playbook ...`` is accepted on the wrapped path.  The
-    helper obtains JSON from the fixed wrapper operation and overlays it onto
-    the invoking user's environment before ``execvpe``-ing Ansible, so the
-    target remains ``djbclark`` with a writable HOME and no shell evaluation.
+    Only ``run -- ansible-playbook ...`` is accepted on the brokered path.
     """
     if not args:
         raise ValueError("SecretSpec command cannot be empty")
     if args[:2] != ("run", "--"):
-        if wrapper_available():
-            raise ValueError("arbitrary SecretSpec subcommands are unavailable through the wrapper")
+        if boundary_available():
+            raise ValueError("arbitrary SecretSpec subcommands are unavailable through the boundary")
         return ["secretspec", *args]
 
     command = tuple(args[2:])
-    if wrapper_available() and not _approved_automation(command):
-        raise ValueError("only ansible-playbook is approved through the wrapper")
-    if wrapper_available():
-        return [sys.executable, HELPER_PATH, *command]
+    if boundary_available():
+        if not _approved_automation(command):
+            raise ValueError("only ansible-playbook is approved through the boundary")
+        # The broker audits the target by basename and refuses anything
+        # containing a path separator, so a caller must not pass an absolute
+        # path. Fail here with a clear message rather than at the broker.
+        if os.sep in command[0]:
+            raise ValueError("the approved executable must be a bare name, not a path")
+        return [BOUNDARY_BIN, "run", "--reason", RUN_REASON, "--", *command]
     return ["secretspec", *args]
 
 
 def secretspec_run(*command: str) -> list[str]:
     """Convenience wrapper for the approved ``run -- ansible-playbook`` form."""
     return secretspec_command("run", "--", *command)
+
+
+def secretspec_token_command(name: str) -> list[str]:
+    """Return the fixed FIRERPA token fetch; no caller-selected ``get``.
+
+    NOTE: ``FIRERPA_MCP_TOKEN`` is not declared in the tracked manifest, so this
+    resolves to nothing on the control node today and
+    ``control/bin/firerpa_mcp.py`` falls back to starting its HTTP transport
+    unauthenticated. That predates this module's rewrite -- the retired wrapper
+    asked for a lowercase ``firerpa_mcp_token`` that was equally undeclared --
+    and declaring the secret is what fixes it, not a change here.
+    """
+    if name != APPROVED_SECRET:
+        raise ValueError(f"only {APPROVED_SECRET} is available through the boundary")
+    if boundary_available():
+        return [BOUNDARY_BIN, "get", APPROVED_SECRET, "--reason", TOKEN_REASON]
+    return ["secretspec", "get", name]

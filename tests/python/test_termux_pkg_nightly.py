@@ -44,8 +44,11 @@ def test_nightly_runner_uses_resolved_site_config(monkeypatch, tmp_path):
     # --check skips the #152 pre-check so subprocess.run is only ansible-playbook.
     assert nightly.main(["--check", "--limit", "oneui-device"]) == 0
     assert seen["command"] == [
-        secretspec_exec.sys.executable,
-        secretspec_exec.HELPER_PATH,
+        secretspec_exec.BOUNDARY_BIN,
+        "run",
+        "--reason",
+        secretspec_exec.RUN_REASON,
+        "--",
         "ansible-playbook",
         str(nightly.PLAYBOOK),
         "-e",
