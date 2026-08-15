@@ -92,7 +92,7 @@ pre-existing Shizuku PRs (#2 Fire OS notification/native lib fix, #3
 HANDOFF.md/OPTIONS.md docs, #4 signing-cert trust allowlist, #5 CI signing
 secrets — #4/#5 look related to open issue `stayturgid#158` "Patch
 djbclark/Shizuku fork to permanently grant org.stayturgid.agent"). Check
-`gh pr list --repo djbclark/Shizuku --state all` for the outcome if this
+`gh pr list --repo frdminc/Shizuku --state all` for the outcome if this
 wasn't yet reported back.
 
 ## CodeRabbit feeder (self-pacing background automation)
