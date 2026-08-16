@@ -75,9 +75,8 @@ This document defines three interlocking concerns:
 - **Fail closed, heal open.** Self-heal mechanisms on the device run
   independently of the control plane. The control plane observes and assists;
   the device is self-sufficient.
-- **No secrets in version control.** Secret _declarations_ live in
-  [`secretspec.toml`](../../secretspec.toml); actual values live in provider
-  backends (macOS Keychain, dotenv files outside git, CI environment).
+- **No secrets in version control.** Declarations and values alike live only
+  in the `sudo-secretspec` broker's vault (§5); nothing is committed to git.
 
 ---
 
@@ -133,7 +132,7 @@ The project is approximately 60% of the way to a clean single source of truth:
 | `ansible/inventory/group_vars/`                   | ✅ Authoritative                | Taxonomy quirks by vendor/model/OS version                          |
 | `ansible/roles/control_node/tasks/agents.yml`     | ✅ Generates from inventory     | Renders `devices.conf`, SSH fragment, launchd agents from templates |
 | `control/lib/stayturgid_device.py`                | ✅ Reads projection             | Parses `devices.conf` for device resolution                         |
-| `secretspec.toml`                                 | ✅ Declares secret names        | All secret metadata; values in providers                            |
+| `sudo-secretspec` vault                           | ✅ Declares secret names        | All secret metadata and values; not tracked in git                  |
 | `control/cfengine/cf-runagent.cf.example`         | ✅ Generic example              | Live policy renders to `~/.config/stayturgid/cfengine/` (untracked) |
 | `AGENTS.md`, `docs/hacking.md`, `docs/handoff.md` | ❌ Duplicated identity          | Fleet table duplicates IPs and serials from inventory               |
 | Several FIRERPA tools, tests, and plan documents  | ❌ Scattered literals           | Production addresses and serials appear in active code              |
@@ -406,53 +405,37 @@ must never edit Git-tracked files.
 
 ## 5. Secrets Management
 
-### 5.1 SecretSpec
+### 5.1 sudo-secretspec
 
-[SecretSpec](https://secretspec.dev) is a declarative secrets management tool
-by [Cachix](https://github.com/cachix/secretspec). It separates secret
-_declaration_ (what secrets exist, what they're for) from secret _storage_
-(where the actual values live).
+Secrets are managed exclusively through `sudo-secretspec`, a privilege-
+separated companion in front of [SecretSpec](https://secretspec.dev). There
+is no tracked declarations file and no manifest path for any caller to know
+or specify — the broker resolves everything automatically from its own vault
+at `/var/db/sudo-secretspec`. See
+[`docs/operations/secretspec-secrets-management.md`](../operations/secretspec-secrets-management.md)
+for the full architecture and command reference.
 
 **How it works in `stayturgid`:**
 
-1. [`secretspec.toml`](../../secretspec.toml) declares every secret the
-   project needs — name, description, whether it's required, and default
-   paths. This file is safely committed to Git.
-2. Actual secret values live in **provider backends** (macOS Keychain, dotenv
-   files outside Git, CI environment variables). They are never committed.
-3. `just secretspec-check` (or `secretspec check`) validates that all
+1. `sudo-secretspec add NAME --description "..." --reason "..."` declares a
+   secret directly in the runtime manifest. `sudo-secretspec set` supplies its
+   value. Neither ever touches Git.
+2. `just secretspec-check` (wraps `sudo-secretspec check`) validates that all
    required secrets are available before a deploy.
-4. `secretspec run -- <command>` injects secrets into a subprocess's
-   environment at runtime.
+3. Fleet automation injects secrets into Ansible via
+   `control/lib/secretspec_exec.py`, which builds
+   `sudo-secretspec run -- ansible-playbook ...`.
 
-### 5.2 Current Secret Declarations
+### 5.2 Secrets Architecture Principles
 
-From [`secretspec.toml`](../../secretspec.toml):
-
-| Secret                   | Required | Provider                           | Purpose                   |
-| ------------------------ | -------- | ---------------------------------- | ------------------------- |
-| `TELEGRAM_BOT_TOKEN`     | ✅       | `~/.hermes/.env`                   | Hermes notifications      |
-| `TELEGRAM_ALLOWED_USERS` | ❌       | `~/.hermes/.env`                   | Telegram allowlist        |
-| `FIRERPA_API_KEY`        | ❌       | `~/.config/stayturgid/firerpa.env` | gRPC backup channel       |
-| `FIRERPA_CERTIFICATE`    | ❌       | `~/.config/stayturgid/firerpa.pem` | gRPC/SSH certificate      |
-| `SSH_TERMUX_KEY`         | ❌       | `~/.ssh/termux_key`                | Fleet SSH key             |
-| `SSH_CA_KEY`             | ❌       | `~/.ssh/stayturgid_ca`             | SSH Certificate Authority |
-| `FLEET_ADBKEY`           | ❌       | `~/.config/stayturgid/adbkey`      | Fleet ADB key             |
-| `GITHUB_TOKEN`           | ❌       | `gh auth login`                    | GitHub CLI                |
-
-### 5.3 Secrets Architecture Principles
-
-1. **`secretspec.toml` is the declaration layer.** It says _what_ secrets exist
-   and _where_ programs expect to find them. It contains no actual values.
-2. **Provider backends store values.** Currently dotenv files (mode `0600`) and
-   file paths. Future migration target: macOS Keychain for workstation
-   secrets (see §11).
-3. **Ansible Vault is not used.** The project uses SecretSpec instead of
+1. **The broker's vault is the only declaration layer.** Nothing is committed
+   to Git; `sudo-secretspec check`/`schema` are how you inspect what's
+   declared.
+2. **Ansible Vault is not used.** The project uses sudo-secretspec instead of
    [ansible-vault](https://docs.ansible.com/ansible/latest/vault_guide/)
    because vault-encrypted files produce opaque Git diffs and require vault
-   passwords at every playbook run. SecretSpec's declaration-only model
-   keeps Git diffs clean.
-4. **No secret-shaped values in inventory.** The Telegram user ID in
+   passwords at every playbook run.
+3. **No secret-shaped values in inventory.** The Telegram user ID in
    `hosts.yml` (`stayturgid_hermes_telegram_allowed_users`) is a site fact,
    not a secret, but it should move to the site overlay (§7) because it is
    operator-specific.
@@ -1191,8 +1174,8 @@ Scan performed 2026-07-14 across the full repository. Production aliases
   — Generic example inventory with RFC 5737 addresses.
 - [`ansible/inventory/group_vars/`](../../ansible/inventory/group_vars/) —
   Taxonomy quirk variables by group.
-- [`secretspec.toml`](../../secretspec.toml) — Secret declarations
-  (names, descriptions, defaults).
+- [`docs/operations/secretspec-secrets-management.md`](../operations/secretspec-secrets-management.md)
+  — Secret declarations, managed via `sudo-secretspec` (no tracked file).
 
 ### Projection Templates
 

@@ -95,14 +95,8 @@ ensure-shizuku:
     @just _ensure_shizuku_impl
 
 # ---------- Secretspec Check ----------
-_secretspec_check_impl:
-    secretspec check --no-prompt --explain --provider dotenv --reason "just secretspec-check"
-
-secretspec-check-legacy:
-    @just _secretspec_check_impl
-
 secretspec-check:
-    @just _secretspec_check_impl
+    sudo-secretspec check --reason "just secretspec-check"
 
 # ---------- Health ----------
 _health_impl:

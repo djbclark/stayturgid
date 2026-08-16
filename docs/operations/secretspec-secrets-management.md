@@ -45,11 +45,27 @@ When designing this boundary, we evaluated several approaches. The core constrai
 The architecture relies on strict UNIX file permissions and a rigid privilege boundary:
 
 1. **The `_sudo_secretspec` System User:** A dedicated macOS daemon user (UID 499, no login shell) that owns the vault and under whose identity the privileged broker reads it.
-2. **The Canonical Store (`/var/db/sudo-secretspec/`):** A directory owned by `_sudo_secretspec` with `0700` permissions. It is the sole live store for `secretspec.toml` and `.env`; Git tracks only `site-private/secretspec.toml.example`.
+2. **The Canonical Store (`/var/db/sudo-secretspec/`):** A directory owned by `_sudo_secretspec` with `0700` permissions. It is the sole store for `secretspec.toml` and `.env` — declarations and values alike. Nothing is tracked in Git; the broker is the single source of truth and resolves everything from this store automatically, with no manifest path for any caller to know or specify.
 3. **The Root-Owned Broker (`/usr/local/libexec/sudo-secretspec`):** Owned by `root:wheel` so it cannot be modified by the operator. It exposes a fixed set of audited operations against the canonical store and never forwards arbitrary arguments to SecretSpec. Every operation carries a caller-supplied reason; the hash-chained audit ledger records only its SHA-256 digest.
 4. **The Public Client (`sudo-secretspec`):** Elevates itself to the broker through the NOPASSWD sudoers path, so callers never wrap it in `sudo`. For `run`, it fetches the environment from the broker and then `exec`s the target as the _invoking_ user, purging every `SECRETSPEC_*` variable first.
 5. **The Sudoers Rule (`/etc/sudoers.d/sudo-secretspec`):** Permits `djbclark` to invoke only this project's broker, and only for its allowlisted operations. It does not permit arbitrary commands.
-6. **Tracked Schema:** `site-private/secretspec.toml.example` contains declarations only and is reviewed through Git. `sudo-secretspec template-check` compares it with the canonical runtime manifest without printing either file.
+6. **No tracked schema.** An earlier design mirrored declarations into a Git-tracked `site-private/secretspec.toml.example` for review, with `sudo-secretspec template-check` diffing it against the runtime manifest. That file (and the `stayturgid`/`site-djbclark` symlinks to it) were retired 2026-08-16 — `add`/`set`/`check`/`schema` against the runtime manifest are now the only record, and `template-check` is no longer part of the routine flow.
+
+### 3.1 Notable declarations
+
+Most secrets are self-explanatory from their name. Two aren't, and their
+rationale would otherwise have lived only in the deleted tracked file:
+
+- **`ATLASSIAN_CFENGINE_API_TOKEN`** — Atlassian API token for
+  `northerntech.atlassian.net` (CFEngine's public Jira, project CFE); used to
+  file and update tickets for the upstream CFEngine/libntech contributions.
+  The account is a Google SSO login with no password, so a token is the only
+  way to authenticate. Basic auth pairs it with the account's email address.
+- **`FIRERPA_MCP_TOKEN`** — bearer token authenticating clients of the
+  FIRERPA MCP server (`com.stayturgid.firerpa-mcp`) on the tailnet. Required:
+  `firerpa_mcp.py` refuses to start its HTTP transport without it, after
+  running with no authentication at all from 2026-08-01 to 2026-08-15 because
+  the token was never declared anywhere.
 
 ## 4. Install & Setup Instructions
 
@@ -65,12 +81,15 @@ brew install frdminc/sudo-secretspec/sudo-secretspec
 **2. Install the boundary, from a real TTY:**
 
 ```bash
-sudo-secretspec install --declarations ~/ops/site-private/secretspec.toml.example
+sudo-secretspec install
 ```
 
-It creates the service identity and the vault, writes the root-owned config and
-sudoers drop-in, and records a manifest of everything it installed. Add
-`--adopt-existing` to take over an existing vault instead of creating one.
+`--declarations` is optional — omit it and the installer auto-detects or
+prompts. There is no tracked declarations file to point it at; the vault is
+the only source of truth. It creates the service identity and the vault,
+writes the root-owned config and sudoers drop-in, and records a manifest of
+everything it installed. Add `--adopt-existing` to take over an existing
+vault instead of creating one.
 
 > [!WARNING]
 > Without `--adopt-existing`, `install` truncates `<vault>/.env`. Against a vault
@@ -92,13 +111,12 @@ bash control/bin/publish_secrets.sh
 ### Lifecycle CLI and Python Automation
 
 ```bash
-sudo-secretspec add RESEND_API_KEY --reason 'declare outbound email key'
+sudo-secretspec add RESEND_API_KEY --description 'what it is' --reason 'declare outbound email key'
 sudo-secretspec set RESEND_API_KEY --reason 'rotate outbound email key'   # prompts, no echo
 sudo-secretspec get RESEND_API_KEY --reason 'debug outbound email'
 sudo-secretspec delete RESEND_API_KEY --reason 'retire outbound email key'
 sudo-secretspec check --reason 'routine verification' </dev/null
 sudo-secretspec export --reason 'routine verification'
-sudo-secretspec template-check --reason 'routine verification'
 ```
 
 Declarations and provider values are changed through the broker. `add` validates
@@ -132,8 +150,8 @@ To manually verify the pipeline without printing secret values, run:
 bash control/bin/publish_secrets.sh
 ```
 
-A boundary defect, a SecretSpec validation failure, or a runtime/tracked-schema
-mismatch exits nonzero. No secret value is printed by the verifier.
+A boundary defect or a SecretSpec validation failure exits nonzero. No secret
+value is printed by the verifier.
 
 ### Negative Test
 
@@ -148,17 +166,18 @@ Both commands should instantly fail with `Permission denied`. _(Note: This demon
 
 ### Updating Secrets
 
-Whenever declarations or provider values change through the broker, the
-canonical `/var/db/sudo-secretspec` store is updated directly. Mirror
-declaration-only changes into `site-private/secretspec.toml.example` through a
-worktree PR and release, then run `publish_secrets.sh` to verify schema parity.
+Whenever declarations or provider values change, they go through the broker
+directly (`sudo-secretspec add`/`set`/`delete`) and land in the canonical
+`/var/db/sudo-secretspec` store immediately — there is no tracked file to
+mirror the change into and no release step required. Run `publish_secrets.sh`
+afterward as a sanity check that the boundary is still healthy.
 
-## 6. Two Coexisting Patterns
+## 6. One Pattern, No Exceptions
 
-> [!NOTE]
-> This locked-down `_secretspec` boundary is specific to the `stayturgid` fleet automation.
->
-> A simpler pattern (direct `secretspec run --` executed as the operator) is used elsewhere on this machine (e.g., the `hermes` gateway). This is **not** wrong—it just operates in a different, lower-stakes context that doesn't require strict privilege separation. There is no requirement for every service on the machine to migrate to the `_secretspec` pattern.
+Every consumer on this machine goes through `sudo-secretspec`. An earlier
+design permitted plain `secretspec run --` for lower-stakes, non-privilege-
+separated consumers (e.g. the `hermes` gateway); that exception was retired
+2026-08-16 along with the tracked-declarations file it also depended on.
 
 ## 7. Known Gotchas (Lessons Learned)
 

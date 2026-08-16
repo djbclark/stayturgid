@@ -110,18 +110,18 @@ def test_retired_wrapper_leaves_no_callers_behind():
     assert offenders == [], f"stale references to the retired wrapper: {offenders}"
 
 
-def test_publisher_verifies_boundary_values_and_schema():
+def test_publisher_verifies_boundary_and_values():
     from pathlib import Path
 
     root = Path(__file__).parents[2]
     publisher = (root / "control/bin/publish_secrets.sh").read_text()
-    assert (root / "secretspec.toml").readlink() == Path("../site-private/secretspec.toml.example")
-    # doctor covers the boundary, check covers the values, template-check covers
-    # drift between the runtime manifest and the tracked declarations. Dropping
-    # any one of the three loses a verification the retired wrapper performed.
+    assert not (root / "secretspec.toml").exists()
+    # doctor covers the boundary, check covers the values. There is no
+    # tracked declarations file anymore, so there is nothing for
+    # template-check to diff against.
     assert "sudo-secretspec doctor" in publisher
     assert "sudo-secretspec check --reason" in publisher
-    assert "sudo-secretspec template-check --reason" in publisher
+    assert "sudo-secretspec template-check" not in publisher
     # `check` falls into the engine's interactive prompt when a secret is
     # missing, which blocks invisibly when this script runs unattended.
     assert "</dev/null" in publisher
