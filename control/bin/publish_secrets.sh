@@ -16,5 +16,4 @@ set -euo pipefail
 
 sudo-secretspec doctor
 sudo-secretspec check --reason 'publish_secrets verification' </dev/null
-sudo-secretspec template-check --reason 'publish_secrets verification'
-printf '%s\n' 'SecretSpec boundary, canonical store permissions, declared values, and tracked schema all verify.'
+printf '%s\n' 'SecretSpec boundary, canonical store permissions, and declared values all verify.'

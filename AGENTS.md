@@ -127,7 +127,7 @@ See `${OPS_ROOT:-~/ops}/site-djbclark/docs/OPS-RELEASES.md`.
 - **Git tooling:** `pre-commit` (hooks) + `typos` (spell check) — `brew install pre-commit typos-cli`; run `pre-commit install`
 - **SSH CA:** `~/.ssh/stayturgid_ca` — `just ca-status`
 - **OpenCode web:** site-local service (see site overlay / landing); not a public fixed IP
-- **Secrets:** managed via `secretspec` (`brew install secretspec`). Spec at `secretspec.toml` (project root). All secrets defined there; run `just secretspec-check` before deploys.
+- **Secrets:** managed via the privilege-separated `sudo-secretspec` client (`brew install sudo-secretspec`) — never the plain `secretspec` CLI. No manifest path to know or specify; the broker resolves everything from its own vault. Run `just secretspec-check` (wraps `sudo-secretspec check`) before deploys. See the `sudo-secretspec` skill for the full command surface.
 - **Site inventory:** resolved via `ANSIBLE_CONFIG`, `STAYTURGID_SITE_DIR`, `OPS_ROOT/.mysite`, or one discovered `site-*` checkout under `OPS_ROOT` (default `${OPS_ROOT:-~/ops}`), excluding `site-private`; see `control/lib/site_discovery.py` and `control/lib/ansible_context.py`. Commands print the selected path and precedence source. A missing private companion is created at `STAYTURGID_PRIVATE_DIR` (default `OPS_ROOT/site-private`) without Git or secret initialization.
 
 ## Example fleet (generic — not a live site)
