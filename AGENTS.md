@@ -53,10 +53,15 @@ just health && just firerpa-health
 
 ## Versioned deploy releases
 
-Development uses `master` in task worktrees under `~/src/ops-worktrees/`.
-The three `${OPS_ROOT:-~/ops}` deploy checkouts advance only to coordinated
-stable GitHub Releases tagged `ops-vMAJOR.MINOR.PATCH`; never deploy by pulling
-arbitrary `master` commits.
+**Retired 2026-08-23 by operator decision.** Development now happens directly
+in `${OPS_ROOT:-~/ops}` with ordinary git — edit in place, commit to `master`,
+push at opportune moments. Task worktrees and coordinated
+`ops-vMAJOR.MINOR.PATCH` releases remain available as tools when you want
+them, but neither is required to advance code or deploy. See the "Where work
+happens" section of `~/CLAUDE.md` for the rationale and the tradeoff accepted
+(`~/ops` is live, so commits land without a release gate in front of them).
+
+The release commands below still work for marking a known-good point.
 
 Release preflight, deployment, status, and guarded `site-private/memory/`
 synchronization are owned by the paired site repo:
