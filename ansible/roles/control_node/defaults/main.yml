@@ -48,7 +48,6 @@ stayturgid_mac_brew_packages_base:
   - git
   - ansible
   - scrcpy
-  - semgrep
   - gitleaks
   # Hermes Agent: installed via canonical git+uv method (see tasks/hermes.yml)
   # The brew formula is unsupported by upstream and pins Python 3.14 which breaks

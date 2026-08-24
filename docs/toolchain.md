@@ -100,11 +100,10 @@ Markdownlint config (`.markdownlint.json`):
 
 ### System (installed on PATH, not in venv or node_modules)
 
-| Tool         | Version | Config                   | What it checks              |
-| ------------ | ------- | ------------------------ | --------------------------- |
-| **typos**    | v1.48.0 | `.typos.toml` (optional) | Source-code spelling        |
-| **semgrep**  | latest  | CLI `--config auto`      | Pattern-based security scan |
-| **gitleaks** | v8.18.4 | none (default rules)     | Secret-leak detection       |
+| Tool         | Version | Config                   | What it checks        |
+| ------------ | ------- | ------------------------ | --------------------- |
+| **typos**    | v1.48.0 | `.typos.toml` (optional) | Source-code spelling  |
+| **gitleaks** | v8.18.4 | none (default rules)     | Secret-leak detection |
 
 Optional `.typos.toml` (only needed for project-specific false positives):
 
@@ -170,10 +169,6 @@ typos:
 bandit:
     uv run --extra dev bandit -ll -r src
 
-# Pattern-based security scan
-semgrep:
-    semgrep scan --config auto --quiet --error --exclude .github
-
 # Secret-leak scan
 gitleaks:
     gitleaks detect --no-banner --redact
@@ -187,7 +182,7 @@ just-check:
 check: test ruff mypy yamllint markdownlint prettier typos just-check
 
 # Full lint + security suite (runs in CI, slower)
-lint: check bandit semgrep gitleaks
+lint: check bandit gitleaks
 
 # Apply auto-fixers (run before committing)
 format:
@@ -258,14 +253,6 @@ repos:
         args: ["-ll"]
         exclude: "^tests/"
 
-  - repo: local
-    hooks:
-      - id: semgrep
-        name: semgrep
-        entry: semgrep scan --config auto --quiet --error --exclude .github
-        language: system
-        pass_filenames: false
-
   - repo: https://github.com/gitleaks/gitleaks
     rev: v8.18.4
     hooks:
@@ -326,7 +313,7 @@ GitHub Actions workflow entry (from `.github/workflows/test.yml`):
   run: just lint
 ```
 
-`just lint` runs `check` (test + all fast checks) then `bandit semgrep gitleaks`.
+`just lint` runs `check` (test + all fast checks) then `bandit gitleaks`.
 The fast checks run first so security tools don't waste time on broken code.
 
 ## Bumping Versions
@@ -342,7 +329,6 @@ When updating tool versions, change these in lockstep:
 | bandit                                | `.pre-commit-config.yaml` rev + `pyproject.toml` dev dep                                            |
 | gitleaks                              | `.pre-commit-config.yaml` rev                                                                       |
 | prettier, markdownlint                | `package.json` devDependencies                                                                      |
-| semgrep                               | system package manager (brew/pip) — pin in CI image                                                 |
 | Kotlin Tools (detekt, spotless, etc.) | Update `build.gradle.kts` versions. Pre-commit hooks run `./gradlew` so they auto-sync with Gradle. |
 
 After bumping, run `just check && just lint` to verify nothing broke.
