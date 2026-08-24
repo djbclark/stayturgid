@@ -51,70 +51,27 @@ cd ${OPS_ROOT:-~/ops}/stayturgid
 just health && just firerpa-health
 ```
 
-## Versioned deploy releases
+## Versioned deploy releases — retired
 
-**Retired 2026-08-23 by operator decision.** Development now happens directly
-in `${OPS_ROOT:-~/ops}` with ordinary git — edit in place, commit to `master`,
-push at opportune moments. Task worktrees and coordinated
-`ops-vMAJOR.MINOR.PATCH` releases remain available as tools when you want
-them, but neither is required to advance code or deploy. See the "Where work
-happens" section of `~/CLAUDE.md` for the rationale and the tradeoff accepted
-(`~/ops` is live, so commits land without a release gate in front of them).
-
-The release commands below still work for marking a known-good point.
-
-Release preflight, deployment, status, and guarded `site-private/memory/`
-synchronization are owned by the paired site repo:
-
-```bash
-cd ${OPS_ROOT:-~/ops}/site-djbclark
-just ops-release-check 1.0.0
-just ops-release-deploy 1.0.0
-just ops-release-status
-```
-
-See `${OPS_ROOT:-~/ops}/site-djbclark/docs/OPS-RELEASES.md`.
-`version.json` remains the older on-device fleet-content notifier;
-`ops-release.json` is the coordinated deployment-suite version.
+**Retired 2026-08-23.** Work directly in `${OPS_ROOT:-~/ops}` with ordinary
+git: edit, commit to `master`, push. Worktrees and `ops-vMAJOR.MINOR.PATCH`
+releases still work but are optional; `~/ops` is live, so commits land with no
+release gate in front of them. Rationale: "Where work happens" in
+`~/CLAUDE.md`. Commands and full procedure:
+`${OPS_ROOT:-~/ops}/site-djbclark/docs/OPS-RELEASES.md`.
 
 ## Key commands
 
-| Command                                      | Purpose                                                                                                                                               |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `just dotenv-lint`                           | .env file lint check (dotenv-linter)                                                                                                                  |
-| `just --set hosts oneui-device deploy`       | Full fleet deploy                                                                                                                                     |
-| `just --set hosts oneui-device deploy-check` | Dry-run deploy                                                                                                                                        |
-| `just --set hosts oneui-device verify`       | Device tier checks                                                                                                                                    |
-| `just --set hosts oneui-device verify-drift` | Ansible-based drift detect                                                                                                                            |
-| `just --set hosts oneui-device verify-heal`  | Verify + auto-heal                                                                                                                                    |
-| `just health`                                | Fleet health summary + device error log                                                                                                               |
-| `just errors`                                | Show recent device errors (7 days)                                                                                                                    |
-| `just firerpa-health`                        | FIRERPA fleet health                                                                                                                                  |
-| `just --set hosts oneui-device firerpa-heal` | Repair via FIRERPA gRPC                                                                                                                               |
-| `just test`                                  | Code-only tests (includes healing coverage check)                                                                                                     |
-| `just deploy-mac`                            | Mac workstation (brew, launchd)                                                                                                                       |
-| `just ca-status`                             | SSH CA status/fingerprints                                                                                                                            |
-| `just cf-run [HOSTS=oneui-device]`           | SSH-based CFEngine repair (replaces cf-runagent)                                                                                                      |
-| `just opencode-web-status`                   | OpenCode web UI status                                                                                                                                |
-| `just hermes-status`                         | Hermes worktree status                                                                                                                                |
-| `just landing-status`                        | Network landing page status                                                                                                                           |
-| `just web-health`                            | Full web audit: html-validate + lychee + lighthouse + pa11y + puppeteer + vnu (requires :4097)                                                        |
-| `just pa11y`                                 | Accessibility audit on running dashboard                                                                                                              |
-| `just puppeteer`                             | Rendered-DOM check (visible HTML-as-text, missing JS) on running dashboard                                                                            |
-| `just vnu`                                   | W3C Nu HTML Checker on rendered pages (requires :4097)                                                                                                |
-| `just lighthouse`                            | Full-page Lighthouse audit (requires Chrome/Chromium on PATH)                                                                                         |
-| `just secretspec-check`                      | Verify all required secrets are set                                                                                                                   |
-| `just ruff`                                  | Python lint + format check (ruff)                                                                                                                     |
-| `just biome`                                 | JavaScript/CSS lint + format check (Biome)                                                                                                            |
-| `just shfmt`                                 | Shell script format check (shfmt)                                                                                                                     |
-| `just markdownlint`                          | Markdown lint check                                                                                                                                   |
-| `just prettier`                              | Markdown/HTML/CSS/TOML/INI format check (prettier)                                                                                                    |
-| `just typos`                                 | Source-code spelling check                                                                                                                            |
-| `just lint`                                  | All linters (shellcheck, ansible-lint, yamllint, ruff, typos, biome, shfmt, markdownlint, prettier, …)                                                |
-| `just lint-offline`                          | Same as lint but skip dashboard-dependent checks (lychee, vnu, pa11y, puppeteer)                                                                      |
-| `just check`                                 | Syntax/import checks + TS/JS mapping (`check-ts`) + ruff + typos + biome + shfmt + justfile fmt + markdownlint + prettier + html-validate + stylelint |
-| `just build-ts`                              | Compile `just/tools`/`docs/research` `.ts` → `.js` (tsc + Biome format + `// @generated` header)                                                      |
-| `just validate-identity`                     | Hard-fail if production identity leaks outside the active inventory                                                                                   |
+The full command table lives in **[docs/commands.md](docs/commands.md)** —
+moved there 2026-08-24 because it is reference material and this file is
+loaded into context every session.
+
+> **If you cannot read `docs/commands.md`, say so in your reply rather than
+> guessing at commands.** It is a normal file in this repository; being unable
+> to open it means something is wrong with your checkout or your file access,
+> and the operator wants to know.
+
+Day to day: `just health`, `just errors`, `just firerpa-health`, `just test`.
 
 ## Environment
 
