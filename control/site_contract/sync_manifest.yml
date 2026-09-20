@@ -47,6 +47,8 @@ files:
     template: inventory/group_vars/model_kindle_hd8.yml.j2
   - path: generated/stayturgid/inventory/group_vars/model_pixel_7a.yml
     template: inventory/group_vars/model_pixel_7a.yml.j2
+  - path: generated/stayturgid/inventory/group_vars/model_titan_2.yml
+    template: inventory/group_vars/model_titan_2.yml.j2
   - path: generated/stayturgid/inventory/group_vars/oneui_7.yml
     template: inventory/group_vars/oneui_7.yml.j2
   - path: generated/stayturgid/inventory/group_vars/vendor_amazon.yml
