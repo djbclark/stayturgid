@@ -1,0 +1,10 @@
+---
+# Unihertz Titan 2 (Titan_2), Android 16 / API 36, arm64, 4K pages.
+#
+# The official otelcol-contrib static binary fails the runtime probe on this
+# model: the exec path reports `has unexpected e_type: 2` (bionic linker
+# refusing the non-PIE ET_EXEC build), while the identical binary runs fine
+# on s24 (also Android 16/API 36). A vendor-build exec-policy property of
+# this model, not site-specific. Recovery would be a PIE rebuild or a
+# minimal OCB build (same track as model_kindle_hd8's SIGSYS case).
+stayturgid_otelcol_enabled: false
