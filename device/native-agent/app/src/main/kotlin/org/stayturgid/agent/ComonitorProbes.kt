@@ -73,13 +73,21 @@ object ComonitorProbes {
         )
     }
 
-    fun isTailscaleTunnelUp(): Boolean {
-        val netDev = readText("/proc/net/dev").orEmpty()
-        return netDev.lineSequence().any { line ->
+    // Android assigns whatever TUN index is free when a VpnService connects —
+    // not always tun0. Observed tun1 on both s24 and t2e (kernel/OEM already
+    // holds tun0 for something else), which made this check a false negative
+    // for the whole fleet. Match any tunN, but not the always-present, never-up
+    // tunl0 (IP-IP tunnel kernel module) — \d+ excludes the letter "l".
+    private val TUN_IFACE_RE = Regex("^tun\\d+$")
+
+    /** Pure parse of /proc/net/dev content — split out for unit testing. */
+    fun hasTunnelInterface(netDevText: String): Boolean =
+        netDevText.lineSequence().any { line ->
             val iface = line.substringBefore(':').trim()
-            iface == "tun0" || iface == "tailscale0"
+            iface == "tailscale0" || TUN_IFACE_RE.matches(iface)
         }
-    }
+
+    fun isTailscaleTunnelUp(): Boolean = hasTunnelInterface(readText("/proc/net/dev").orEmpty())
 
     private fun probeTailscale(): String {
         val installed = shellOut(arrayOf("pm", "path", TAILSCALE_PACKAGE), 4)
