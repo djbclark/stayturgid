@@ -1,7 +1,13 @@
 [default]
 # Ignore git SHA-like hex tokens (e.g. release/handoff docs reference commits
 # such as "9ba37de"); a 7+ hex-char identifier is never an English typo.
-extend-ignore-identifiers-re = ["\\b[0-9a-f]{7,40}\\b"]
+extend-ignore-identifiers-re = [
+  "\\b[0-9a-f]{7,40}\\b",
+  # Tailscale Android version strings embed t/g-prefixed commit hashes
+  # (e.g. 1.102.4-t3caf7d9e7-g8fbef364a) whose hex tail typos would
+  # otherwise "correct" (caf -> calf).
+  "\\b[tg][0-9a-f]{7,40}\\b",
+]
 
 [default.extend-words]
 AAS = "AAS"

@@ -43,10 +43,10 @@ stayturgid_debug_key_alias: "androiddebugkey"
 stayturgid_bootstrap_apks:
   - id: org.stayturgid.agent
     gh_repo: djbclark/stayturgid
-    gh_tag: agent-v0.9.4
+    gh_tag: agent-v0.9.6
     gh_pattern: app-release.apk
-    version_name: 0.9.4-guided-setup
-    checksum: "sha256:594cbc189771d64afd03aef05d7786cb4345383dcf0bb61970e8070d4a677a3a"
+    version_name: 0.9.6-adb-auth-timeout
+    checksum: "sha256:1cf6d63dfefb238387e41a1d3b169fe07acf3108845dabd2b176bd9d6bd09059"
     resign: false
     start_broadcast_action: org.stayturgid.agent.action.PEER_START_NOW
     start_broadcast_component: org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver
@@ -82,15 +82,15 @@ stayturgid_bootstrap_apks:
     gh_repo: termux/termux-x11
     gh_tag: nightly
     gh_pattern: termux-x11-universal-debug.apk
-    version_name: 1.03.01-aa482f4-31.07.26
-    checksum: "sha256:d5235ee5ed03431a76f4b3d79d02d139e76887e1fe717cfcdc6581f7ee0eb777"
+    version_name: 1.03.01-bd1cfad-18.09.26
+    checksum: "sha256:063a36c40b17dedd3279d57e3898fec9798651ce2c4d159523277456cf2bc2af"
     mutable_tag_snapshot: true
   - id: moe.shizuku.privileged.api
     gh_repo: frdminc/Shizuku
-    gh_tag: "v13.7.0-thedjchi+stayturgid-release25"
-    gh_pattern: "shizuku-v13.7.0-thedjchi+stayturgid-release25-universal.apk"
-    version_name: "13.7.0-thedjchi+stayturgid-release25"
-    checksum: "sha256:0d7a313c75eb4b14dfec71a1034a3f014e8a33848c18a1cdda7c07d6821af049"
+    gh_tag: "v13.7.0-thedjchi+stayturgid-release46"
+    gh_pattern: "shizuku-v13.7.0-thedjchi+stayturgid-release46-universal.apk"
+    version_name: "13.7.0-thedjchi+stayturgid-release46"
+    checksum: "sha256:f42013dc8bc9ec85a5f61a99ea2f4b84bd397f52d2f5542d5532142ee3668da1"
     resign: true
     monkey: true
     battery_unrestricted: true
@@ -101,7 +101,9 @@ stayturgid_bootstrap_apks:
 
   - id: com.tailscale.ipn
     gh_repo: tailscale/tailscale-android
-    gh_tag: "1.98.8-t1241b225b-gbcbaf1889"
-    gh_pattern: tailscale-android-universal-1.98.8.apk
-    version_name: "1.98.8-t1241b225b-gbcbaf1889"
-    checksum: "sha256:f28edfd184d1db3060d764a79c9aa24da4530951052fb1cf75c92bbc0adfc4b2"
+    gh_tag: "1.102.4-t3caf7d9e7-g8fbef364a"
+    gh_pattern: tailscale-android-universal-1.102.4.apk
+    # Installed versionName's trailing g-commit differs from the release tag
+    # (build vs tag commit) — version_name below is what aapt/dumpsys report.
+    version_name: "1.102.4-t3caf7d9e7-g1b32d3caa"
+    checksum: "sha256:7ecfb863e08f5fbd1ecd70235d8c34ba135a4124bdd8e166b9d6fb962782e0b5"
