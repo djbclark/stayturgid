@@ -47,9 +47,9 @@ def test_x11_snapshot_policy_is_limited_and_verified_on_every_deploy():
 
 def test_native_agent_uses_its_release_stream_and_real_asset_name():
     agent = next(apk for apk in _catalog() if apk["id"] == "org.stayturgid.agent")
-    assert agent["gh_tag"] == "agent-v0.9.6"
+    assert agent["gh_tag"] == "agent-v0.9.7"
     assert agent["gh_pattern"] == "app-release.apk"
-    assert agent["version_name"] == "0.9.6-adb-auth-timeout"
+    assert agent["version_name"] == "0.9.7-tailscale-tun-detect"
     assert agent["remove_packages"] == ["org.stayturgid.agent.debug"]
     assert agent["service_component"] == "org.stayturgid.agent/.HostService"
     assert agent["start_broadcast_action"] == "org.stayturgid.agent.action.PEER_START_NOW"
