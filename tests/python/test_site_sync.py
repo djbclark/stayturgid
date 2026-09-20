@@ -42,6 +42,7 @@ MANAGED_PATHS = {
     "generated/stayturgid/inventory/group_vars/model_galaxy_s24.yml",
     "generated/stayturgid/inventory/group_vars/model_kindle_hd8.yml",
     "generated/stayturgid/inventory/group_vars/model_pixel_7a.yml",
+    "generated/stayturgid/inventory/group_vars/model_titan_2.yml",
     "generated/stayturgid/inventory/group_vars/oneui_7.yml",
     "generated/stayturgid/inventory/group_vars/vendor_amazon.yml",
     "generated/stayturgid/inventory/group_vars/vendor_google.yml",

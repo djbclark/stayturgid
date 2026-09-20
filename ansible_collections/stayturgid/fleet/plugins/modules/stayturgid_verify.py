@@ -298,8 +298,15 @@ def check_tailscale_vpn():
     rc2, out2, _ = _shell("pgrep -f tailscale 2>/dev/null", timeout=5)
     if rc2 == 0:
         return True, "Tailscale running"
-    # Check if tun0/tailscale0 interface exists
-    rc3, out3, _ = _shell("ls /sys/class/net/tailscale0 2>/dev/null", timeout=5)
+    # Check if a tunnel interface exists. Android assigns whatever TUN index
+    # is free when Tailscale's VpnService connects, not always tun0 — match
+    # any tunN, not just tailscale0 (see ComonitorProbes.kt / stayturgid_repair.py
+    # for the same fix; this is the last-resort fallback here, behind two
+    # pgrep checks that don't depend on interface naming).
+    rc3, out3, _ = _shell(
+        "ls /sys/class/net/tailscale0 2>/dev/null || ls -d /sys/class/net/tun[0-9]* 2>/dev/null",
+        timeout=5,
+    )
     if rc3 == 0:
         return True, "Tailscale interface present"
     return False, "Tailscale not detected"

@@ -368,8 +368,13 @@ def _tailscale_runtime_up(have_sh=False):
     """
     if not have_sh:
         return None
-    rc, out = sh_adb("grep -oE '(tun0|tailscale0)' /proc/net/dev 2>/dev/null | sort -u")
-    tunnel = rc == 0 and ("tun0" in out or "tailscale0" in out)
+    # Android assigns whatever TUN index is free when Tailscale's VpnService
+    # connects, not always tun0 — s24 and t2e both allocate tun1. Match any
+    # tunN (busybox/toybox grep -E supports ERE character classes), not just
+    # tun0; excludes tunl0 (IP-IP tunnel kernel module, never a VPN) since a
+    # letter follows "tun" there instead of a digit.
+    rc, out = sh_adb("grep -oE '(tailscale0|tun[0-9]+)' /proc/net/dev 2>/dev/null | sort -u")
+    tunnel = rc == 0 and bool(out.strip())
     return tunnel and run(["ping", "-c", "2", "-W", "3", TAILSCALE_CONTROL_HOST], timeout=8)[0] == 0
 
 

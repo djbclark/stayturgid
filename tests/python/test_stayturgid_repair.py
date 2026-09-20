@@ -201,6 +201,29 @@ def test_tailscale_runtime_probes_remote_control_plane(monkeypatch):
     ]
 
 
+def test_tailscale_runtime_up_recognizes_tun1(monkeypatch):
+    """Regression: s24 and t2e both allocate tun1 (not tun0) for Tailscale's
+    VpnService — Android assigns whatever TUN index is free, not always 0.
+    A hardcoded 'tun0' match previously false-negatived here, which fired
+    the disruptive foreground-activity repair fallback against a tunnel
+    that was actually healthy (observed: s24, 100+ consecutive cycles)."""
+    monkeypatch.setattr(repair, "sh_adb", lambda _command: (0, "tun1\n"))
+    monkeypatch.setattr(repair, "run", lambda args, timeout=15: (0, ""))
+
+    assert repair._tailscale_runtime_up(have_sh=True) is True
+
+
+def test_tailscale_runtime_up_ignores_tunl0(monkeypatch):
+    """tunl0 (IP-IP tunnel kernel module) is always present and never a VPN
+    tunnel — must not be mistaken for a live Tailscale interface."""
+    monkeypatch.setattr(repair, "sh_adb", lambda _command: (0, ""))
+    monkeypatch.setattr(
+        repair, "run", lambda args, timeout=15: (_ for _ in ()).throw(AssertionError("ping should not run"))
+    )
+
+    assert repair._tailscale_runtime_up(have_sh=True) is False
+
+
 # ── On-device fallback anomaly detection (issue: central-logging gap, 2026-07-31) ──
 
 
