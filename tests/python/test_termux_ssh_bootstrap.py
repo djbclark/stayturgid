@@ -40,10 +40,12 @@ def test_read_pubkey_lines_skips_comments(tmp_path):
 
 
 def test_install_keys_shell_merges_without_clobber():
-    script = tr.install_keys_shell("/sdcard/stayturgid/tmp/bootstrap_keys.pub")
+    script = tr.install_keys_shell(["ssh-ed25519 AAA a@b"])
     assert "grep -qF" in script
     assert "authorized_keys" in script
     assert tr.TERMUX_HOME in script
+    assert "ssh-ed25519 AAA a@b" in script
+    assert "/sdcard" not in script
 
 
 def test_run_as_available(monkeypatch):
@@ -56,25 +58,34 @@ def test_run_as_available(monkeypatch):
     assert tr.run_as_available(lambda c: fake_run(c), "serial") is True
 
 
-def test_push_authorized_keys_stages_and_runs(monkeypatch, tmp_path):
-    calls = {"push": [], "run_as": []}
-
-    def fake_adb(run_command, device, *args):
-        if args and args[0] == "push":
-            calls["push"].append(args[2])
-        return 0, "", ""
-
-    def fake_run_as(run_command, device, script):
-        calls["run_as"].append(script)
-        return 0, "", ""
-
-    monkeypatch.setattr(tr, "adb_cmd", fake_adb)
-    monkeypatch.setattr(tr, "run_as_termux", fake_run_as)
+def test_push_authorized_keys_runs_inline_script(monkeypatch):
+    scripts = []
+    monkeypatch.setattr(tr, "run_as_termux", lambda rc, dev, script: scripts.append(script) or (0, "", ""))
     monkeypatch.setattr(tr, "read_authorized_keys", lambda *_a, **_k: ([], ""))
     assert tr.push_authorized_keys(lambda c: (0, "", ""), "RFCX", ["ssh-ed25519 AAA stayturgid@test"]) is True
-    assert tr.STAGING_KEYS in calls["push"]
-    assert tr.STAGING_SCRIPT in calls["push"]
-    assert calls["run_as"]
+    assert len(scripts) == 1 and "ssh-ed25519 AAA stayturgid@test" in scripts[0]
+
+
+def test_run_as_termux_quotes_script_as_single_word():
+    seen = []
+    tr.run_as_termux(lambda c: seen.append(c) or (0, "", ""), "S", "a\nb 'c'")
+    cmd = seen[0]
+    assert cmd[-3:-1] == [tr.TERMUX_BASH, "-c"]
+    assert cmd[-1] == "'a\nb '\"'\"'c'\"'\"''"
+
+
+def test_ensure_sshd_leaves_app_context_sshd_alone(monkeypatch):
+    monkeypatch.setattr(tr, "sshd_domain", lambda *_a: "u:r:untrusted_app_27:s0:c1")
+    assert tr.ensure_sshd(lambda c: (0, "", ""), "S") is False
+
+
+def test_ensure_sshd_replaces_runas_sshd(monkeypatch):
+    domains = iter(["u:r:runas_app:s0:c1", "u:r:untrusted_app_27:s0:c1"])
+    monkeypatch.setattr(tr, "sshd_domain", lambda *_a: next(domains))
+    monkeypatch.setattr(tr, "start_sshd_from_app", lambda *_a, **_k: True)
+    monkeypatch.setattr(tr, "run_as_termux", lambda *_a, **_k: (0, "", ""))
+    monkeypatch.setattr(tr.time, "sleep", lambda _s: None)
+    assert tr.ensure_sshd(lambda c: (0, "", ""), "S") is True
 
 
 def test_bootstrap_device_requires_run_as(monkeypatch):

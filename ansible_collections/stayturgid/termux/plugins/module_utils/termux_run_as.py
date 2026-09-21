@@ -8,16 +8,14 @@ __metaclass__ = type
 import glob
 import os
 import shlex
-import tempfile
+import time
 
 TERMUX_PKG = "com.termux"
 TERMUX_HOME = "/data/data/com.termux/files/home"
 TERMUX_PREFIX = "/data/data/com.termux/files/usr"
 TERMUX_BASH = TERMUX_PREFIX + "/bin/bash"
 TERMUX_SSHD = TERMUX_PREFIX + "/bin/sshd"
-SD_TMP = "/sdcard/stayturgid/tmp"
-STAGING_KEYS = SD_TMP + "/bootstrap_keys.pub"
-STAGING_SCRIPT = SD_TMP + "/bootstrap_ssh.sh"
+TERMUX_ACTIVITY = TERMUX_PKG + "/.app.TermuxActivity"
 
 TERMUX_ENV = (
     "export PATH=%s/bin:%s/sbin:$PATH\n"
@@ -56,8 +54,13 @@ def normalize_pubkey_lines(lines):
     return [line.strip() for line in (lines or []) if line.strip() and not line.strip().startswith("#")]
 
 
-def install_keys_shell(keys_file):
-    quoted = shlex.quote(keys_file)
+def install_keys_shell(pubkey_lines):
+    """Script that merges ``pubkey_lines`` into authorized_keys without clobbering.
+
+    Keys are embedded (public material only) rather than staged on /sdcard:
+    the run-as context cannot read /sdcard on some devices (#306).
+    """
+    keys = "\n".join(normalize_pubkey_lines(pubkey_lines))
     return (
         TERMUX_ENV
         + "set -e\n"
@@ -71,7 +74,9 @@ def install_keys_shell(keys_file):
         + '  if ! grep -qF "$line" "$HOME/.ssh/authorized_keys" 2>/dev/null; then\n'
         + '    printf \'%s\\n\' "$line" >> "$HOME/.ssh/authorized_keys"\n'
         + "  fi\n"
-        + "done < %s\n" % quoted
+        + "done <<'STAYTURGID_KEYS_EOF'\n"
+        + keys
+        + "\nSTAYTURGID_KEYS_EOF\n"
     )
 
 
@@ -130,7 +135,9 @@ def termux_installed(run_command, device, termux_pkg=TERMUX_PKG):
 
 
 def run_as_termux(run_command, device, script, termux_pkg=TERMUX_PKG, termux_bash=TERMUX_BASH):
-    return adb_cmd(run_command, device, "shell", "run-as", termux_pkg, termux_bash, "-c", script)
+    # adb joins shell args with spaces and the device shell re-parses them, so a
+    # multi-line script must be quoted as a single word (#306).
+    return adb_cmd(run_command, device, "shell", "run-as", termux_pkg, termux_bash, "-c", shlex.quote(script))
 
 
 def read_authorized_keys(run_command, device):
@@ -149,7 +156,7 @@ def keys_need_install(existing, wanted):
     return any(line not in existing_set for line in wanted)
 
 
-def push_authorized_keys(run_command, device, pubkey_lines, sd_tmp=SD_TMP, check_mode=False):
+def push_authorized_keys(run_command, device, pubkey_lines, check_mode=False):
     lines = normalize_pubkey_lines(pubkey_lines)
     if not lines:
         raise ValueError("no SSH public keys to install")
@@ -161,28 +168,9 @@ def push_authorized_keys(run_command, device, pubkey_lines, sd_tmp=SD_TMP, check
     if check_mode:
         return True
 
-    adb_cmd(run_command, device, "shell", "mkdir", "-p", sd_tmp)
-    keys_tmp = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False)
-    script_tmp = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False)
-    try:
-        keys_tmp.write("\n".join(lines) + "\n")
-        keys_tmp.close()
-        script_tmp.write(install_keys_shell(STAGING_KEYS) + "\n")
-        script_tmp.close()
-
-        rc, out, err = adb_cmd(run_command, device, "push", keys_tmp.name, STAGING_KEYS)
-        if rc != 0:
-            raise RuntimeError("adb push keys failed: %s" % (err or out).strip())
-        rc, out, err = adb_cmd(run_command, device, "push", script_tmp.name, STAGING_SCRIPT)
-        if rc != 0:
-            raise RuntimeError("adb push script failed: %s" % (err or out).strip())
-
-        rc, out, err = run_as_termux(run_command, device, "bash " + shlex.quote(STAGING_SCRIPT))
-        if rc != 0:
-            raise RuntimeError((err or out).strip() or "run-as install failed")
-    finally:
-        os.unlink(keys_tmp.name)
-        os.unlink(script_tmp.name)
+    rc, out, err = run_as_termux(run_command, device, install_keys_shell(lines))
+    if rc != 0:
+        raise RuntimeError((err or out).strip() or "run-as install failed")
     return True
 
 
@@ -198,15 +186,50 @@ def ensure_openssh(run_command, device, check_mode=False, termux_sshd=TERMUX_SSH
     return True
 
 
+def sshd_domain(run_command, device):
+    """SELinux domain of the running sshd ('' if none / unknown)."""
+    rc, out, _err = adb_cmd(run_command, device, "shell", "ps", "-A", "-Z")
+    if rc != 0:
+        return ""
+    for line in (out or "").splitlines():
+        parts = line.split()
+        if parts and parts[-1] == "sshd" and len(parts) > 1:
+            return parts[0]
+    return ""
+
+
+def start_sshd_from_app(run_command, device, termux_pkg=TERMUX_PKG, attempts=10):
+    """Start sshd inside the Termux app process (untrusted_app domain).
+
+    sshd started via run-as lives in runas_app, which has no /sdcard mount, so
+    every SSH session through it fails on shared storage (#306). Type ``sshd``
+    into the app's own terminal instead. Needs an unlocked screen.
+    """
+    adb_cmd(run_command, device, "shell", "am", "start", "-n", TERMUX_ACTIVITY)
+    time.sleep(2)
+    adb_cmd(run_command, device, "shell", "input", "text", "sshd")
+    adb_cmd(run_command, device, "shell", "input", "keyevent", "66")
+    for _ in range(attempts):
+        time.sleep(1)
+        if sshd_domain(run_command, device):
+            return True
+    return False
+
+
 def ensure_sshd(run_command, device, check_mode=False):
-    rc, _out, _err = run_as_termux(run_command, device, sshd_running_shell())
-    if rc == 0:
+    domain = sshd_domain(run_command, device)
+    if domain and "runas_app" not in domain:
         return False
     if check_mode:
         return True
-    rc, out, err = run_as_termux(run_command, device, start_sshd_shell())
-    if rc != 0:
-        raise RuntimeError((err or out).strip() or "sshd start failed")
+    if domain:
+        # Wrong-domain sshd (adb shell cannot kill it; run-as can).
+        run_as_termux(run_command, device, TERMUX_ENV + "pkill -x sshd || true\n")
+        time.sleep(1)
+    if not start_sshd_from_app(run_command, device):
+        raise RuntimeError("sshd did not start from the Termux app; unlock the device and retry")
+    if "runas_app" in sshd_domain(run_command, device):
+        raise RuntimeError("sshd is running in the run-as SELinux domain (no /sdcard access)")
     return True
 
 
