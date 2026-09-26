@@ -18,8 +18,11 @@
         <key>STAYTURGID_ADB</key>
         <string>/opt/homebrew/bin/adb</string>
     </dict>
+    <!-- 60 -> 300 on 2026-09-26: four of these jobs fired every minute (5,760 spawns/day)
+         on a 16 GB laptop already at load ~70 and 11 GB swap. adb sessions over Tailscale
+         survive minutes of gap; a 5-minute reconnect is the right trade. -->
     <key>StartInterval</key>
-    <integer>60</integer>
+    <integer>300</integer>
     <key>RunAtLoad</key>
     <true/>
     <key>StandardOutPath</key>
