@@ -148,6 +148,30 @@ def build_update_lines(by_host: dict[str, list[dict[str, str]]]) -> list[str]:
     return lines
 
 
+def previous_notified_updates(path: str) -> list[str] | None:
+    """Return last notified update lines, or None if no usable state exists."""
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(data, dict):
+        return None
+    raw = data.get("last_notified")
+    if raw is None:
+        raw = data.get("updates")
+    if not isinstance(raw, list):
+        return None
+    return [str(x) for x in raw]
+
+
+def should_notify(path: str, updates: list[str]) -> bool:
+    """Telegram only when the pending-update set changes."""
+    prev = previous_notified_updates(path)
+    if prev is None:
+        return bool(updates)
+    return sorted(updates) != sorted(prev)
+
+
 def write_state(
     path: str,
     *,
@@ -155,12 +179,14 @@ def write_state(
     by_host: dict[str, list[dict[str, str]]],
     errors: list[str],
     hosts_checked: list[str],
+    last_notified: list[str] | None = None,
 ) -> None:
     """Write state atomically; failures are non-fatal so notify can still run."""
     payload = {
         "checked_at": datetime.now(timezone.utc).isoformat(),
         "hosts_checked": hosts_checked,
         "updates": updates,
+        "last_notified": last_notified if last_notified is not None else updates,
         "by_host": {h: [dict(p) for p in pkgs] for h, pkgs in by_host.items()},
         "errors": errors,
     }
@@ -209,19 +235,24 @@ def main(argv: list[str] | None = None) -> int:
 
     by_host, errors = collect_updates(hosts, refresh=not args.no_refresh)
     updates = build_update_lines(by_host)
+    notify = should_notify(STATE_PATH, updates)
+    last_notified = updates if notify else (previous_notified_updates(STATE_PATH) or [])
     write_state(
         STATE_PATH,
         updates=updates,
         by_host=by_host,
         errors=errors,
         hosts_checked=hosts,
+        last_notified=last_notified,
     )
 
     if updates:
         message = "Stayturgid Termux package updates available:\n" + "\n".join(updates)
         print(message)
-        if not args.dry_run:
+        if notify and not args.dry_run:
             hermes_notify(message)
+        elif not notify:
+            print("(unchanged since last notify; Telegram skipped)")
     else:
         print("No Termux package updates available on %s" % (", ".join(hosts) if hosts else "(none)"))
 

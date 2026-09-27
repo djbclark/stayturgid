@@ -228,3 +228,39 @@ def test_main_all_hosts_failed_exits_1(monkeypatch: pytest.MonkeyPatch, tmp_path
     )
     monkeypatch.setattr(ctu, "hermes_notify", lambda msg: None)
     assert ctu.main([]) == 1
+
+
+def test_should_notify_first_seen_and_unchanged(tmp_path: Path) -> None:
+    path = str(tmp_path / "st.json")
+    updates = ["s24: runit: 2.1 -> 2.3"]
+    assert ctu.should_notify(path, updates) is True
+    ctu.write_state(
+        path,
+        updates=updates,
+        by_host={},
+        errors=[],
+        hosts_checked=["s24"],
+        last_notified=updates,
+    )
+    assert ctu.should_notify(path, updates) is False
+    assert ctu.should_notify(path, ["s24: runit: 2.1 -> 2.4"]) is True
+
+
+def test_main_skips_repeat_telegram(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    state_path = tmp_path / "termux-pkg-updates.json"
+    monkeypatch.setattr(ctu, "STATE_PATH", str(state_path))
+    monkeypatch.setattr(ctu, "list_hosts", lambda limit=None: ["s24"])
+    monkeypatch.setattr(
+        ctu,
+        "collect_updates",
+        lambda hosts, *, refresh=True: (
+            {"s24": [{"name": "git", "current": "a", "latest": "b"}]},
+            [],
+        ),
+    )
+    called: list[str] = []
+    monkeypatch.setattr(ctu, "hermes_notify", lambda msg: called.append(msg))
+    assert ctu.main([]) == 0
+    assert len(called) == 1
+    assert ctu.main([]) == 0
+    assert len(called) == 1
