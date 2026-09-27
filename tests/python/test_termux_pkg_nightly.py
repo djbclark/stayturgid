@@ -180,3 +180,14 @@ def test_nightly_continues_when_precheck_times_out(monkeypatch, tmp_path):
     assert nightly.main(["--limit", "s24"]) == 0
     assert any(c and "ansible-playbook" in c for c in calls)
     assert any("pre-check failed" in msg for msg in logged)
+
+
+def test_upgrade_playbook_continues_past_unreachable_hosts() -> None:
+    """serial=1 + default max_fail_percentage=0 aborted remaining hosts when
+    p7a timed out (2026-09-26 recap never reached t2e/hd8)."""
+    import yaml
+
+    plays = yaml.safe_load(nightly.PLAYBOOK.read_text(encoding="utf-8"))
+    play = plays[0]
+    assert play.get("ignore_unreachable") is True
+    assert play.get("max_fail_percentage") == 100
