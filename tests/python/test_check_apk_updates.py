@@ -117,3 +117,127 @@ def test_main_does_not_notify_when_everything_current(monkeypatch: pytest.Monkey
     assert called == []
     state = json.loads(state_path.read_text())
     assert state["updates"] == []
+
+
+# --- change detection (no re-nag for an unchanged pending set) -----------------
+
+
+def _patch_notifier(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[list[str], Path]:
+    """Point the checker at a tmp state file; record hermes_notify calls."""
+    state_path = tmp_path / "apk-updates.json"
+    monkeypatch.setattr(cau, "STATE_PATH", str(state_path))
+    sent: list[str] = []
+    monkeypatch.setattr(cau, "hermes_notify", lambda msg: sent.append(msg))
+    return sent, state_path
+
+
+def test_normalize_updates_sorts_and_dedups() -> None:
+    assert cau.normalize_updates(["b: 1 -> 2", "a: 1 -> 2", "b: 1 -> 2"]) == ["a: 1 -> 2", "b: 1 -> 2"]
+
+
+def test_load_last_updates_tolerates_missing_corrupt_and_unsorted(tmp_path: Path) -> None:
+    assert cau.load_last_updates(str(tmp_path / "missing.json")) == []
+
+    corrupt = tmp_path / "corrupt.json"
+    corrupt.write_text("{not json")
+    assert cau.load_last_updates(str(corrupt)) == []
+
+    odd = tmp_path / "odd.json"
+    odd.write_text(json.dumps({"updates": ["b: 1 -> 2", 3, "a: 1 -> 2", "b: 1 -> 2"]}))
+    assert cau.load_last_updates(str(odd)) == ["a: 1 -> 2", "b: 1 -> 2"]
+
+
+def test_main_sends_on_first_detection(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    sent, state_path = _patch_notifier(monkeypatch, tmp_path)
+    monkeypatch.setattr(cau, "latest_tag_for", lambda gh_repo: "v2.0.0")
+
+    cau.main()
+
+    assert len(sent) == 1
+    assert "Stayturgid pinned APK updates available" in sent[0]
+    assert "-> v2.0.0" in sent[0]
+    state = json.loads(state_path.read_text())
+    assert state["updates"]
+
+
+def test_main_no_resend_when_pending_set_unchanged(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    sent, state_path = _patch_notifier(monkeypatch, tmp_path)
+    monkeypatch.setattr(cau, "latest_tag_for", lambda gh_repo: "v2.0.0")
+
+    cau.main()
+    assert len(sent) == 1
+
+    cau.main()
+
+    assert len(sent) == 1, "unchanged pending set must not re-notify"
+    # The pending set is still printed to stdout for the Jobber log.
+    out = capsys.readouterr().out
+    assert "Stayturgid pinned APK updates available" in out
+    assert "-> v2.0.0" in out
+    state = json.loads(state_path.read_text())
+    assert state["updates"]
+
+
+def test_main_resends_when_latest_tag_changes(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    sent, _state_path = _patch_notifier(monkeypatch, tmp_path)
+    latest = {"tag": "v2.0.0"}
+    monkeypatch.setattr(cau, "latest_tag_for", lambda gh_repo: latest["tag"])
+
+    cau.main()
+    assert len(sent) == 1
+    assert "-> v2.0.0" in sent[0]
+
+    latest["tag"] = "v3.0.0"
+    cau.main()
+
+    assert len(sent) == 2
+    assert "-> v3.0.0" in sent[1]
+    assert "v2.0.0" not in sent[1]
+
+
+def test_main_no_send_when_empty_on_first_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    sent, state_path = _patch_notifier(monkeypatch, tmp_path)
+    monkeypatch.setattr(cau, "latest_tag_for", lambda gh_repo: None)
+
+    cau.main()
+
+    assert sent == []
+    state = json.loads(state_path.read_text())
+    assert state["updates"] == []
+
+
+def test_main_notifies_once_when_updates_clear_then_stays_quiet(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    sent, state_path = _patch_notifier(monkeypatch, tmp_path)
+    latest: dict[str, str | None] = {"tag": "v2.0.0"}
+    monkeypatch.setattr(cau, "latest_tag_for", lambda gh_repo: latest["tag"])
+
+    cau.main()
+    assert len(sent) == 1 and "available" in sent[0]
+
+    # Pins caught up / GitHub unreachable: nothing pending any more.
+    latest["tag"] = None
+    cau.main()
+
+    assert len(sent) == 2
+    assert "cleared" in sent[1]
+    state = json.loads(state_path.read_text())
+    assert state["updates"] == []
+
+    cau.main()
+    assert len(sent) == 2, "empty -> empty is not a change"
+
+
+def test_main_corrupt_state_treated_as_first_run(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    sent, state_path = _patch_notifier(monkeypatch, tmp_path)
+    monkeypatch.setattr(cau, "latest_tag_for", lambda gh_repo: "v2.0.0")
+    state_path.write_text("{not json")
+
+    cau.main()
+
+    assert len(sent) == 1
+    state = json.loads(state_path.read_text())
+    assert state["updates"]
