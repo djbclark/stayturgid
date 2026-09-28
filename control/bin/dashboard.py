@@ -263,7 +263,7 @@ HUMAN_ACTIONS = {
     ),
     "sshd_down": (
         "SSH daemon is not running on the device. The repair loop should auto-restart it. "
-        "If persistent, run: just deploy-termux HOSTS=<host>"
+        "If persistent, run: just deploy-termux <host>"
     ),
     "repair_stale": (
         "The Termux repair loop has not cycled in over 45 minutes. "
@@ -271,7 +271,7 @@ HUMAN_ACTIONS = {
         "If persistent, run: just verify-heal HOSTS=<host>"
     ),
     "repair_missing": (
-        "No repair log found. The Termux boot loop may not be running. Run: just deploy-termux HOSTS=<host>"
+        "No repair log found. The Termux boot loop may not be running. Run: just deploy-termux <host>"
     ),
     "shizuku_down": (
         "Shizuku is not running. The repair loop should auto-restart it. "
@@ -291,7 +291,7 @@ HUMAN_ACTIONS = {
     "bootloop_down": (
         "The Termux boot loop (start-adb.sh) was not detected at probe time. "
         "This is often a false positive (probe timing gap). If persistent, "
-        "run: just deploy-termux HOSTS=<host>"
+        "run: just deploy-termux <host>"
     ),
     "shell5555_down": (
         "Termux cannot reach ADB on localhost:5555. Wireless debugging "
@@ -309,7 +309,7 @@ HUMAN_ACTIONS = {
     ),
     "cfengine_down": (
         "CFEngine repair log not found on device. The CFEngine self-heal "
-        "policy may not be running. Run: just deploy-termux HOSTS=<host> "
+        "policy may not be running. Run: just deploy-termux <host> "
         "to redeploy."
     ),
 }

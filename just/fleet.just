@@ -4,8 +4,12 @@
 # Positional wrappers use `host=""` (optional positional host argument) and rely on environment variables for configuration.
 
 # ---------- Deploy ----------
-_deploy_impl:
-    python3 control/bin/deploy_fleet.py {{ deploy_args }} {{ deploy_scope_arg }} {{ deploy_devices_only_arg }}
+# Inner recipes declare `host=""` because nested `just` calls only forward
+# arguments to recipes with matching parameters (an extra bare token is
+# parsed as another recipe name and fails with "justfile does not contain
+# recipe `<host>`"); the underlying scripts all take positional hosts.
+_deploy_impl host="":
+    python3 control/bin/deploy_fleet.py {{ deploy_args }} {{ host }} {{ deploy_scope_arg }} {{ deploy_devices_only_arg }}
 
 deploy-legacy:
     @just _deploy_impl
@@ -24,9 +28,9 @@ deploy-apks:
 # ---------- Deploy Check (dry‑run) ----------
 # Ansible --check only: no APK installs, no device writes. A green recap is
 # NOT fleet convergence (#184). Apply with `just deploy`.
-_deploy_check_impl:
+_deploy_check_impl host="":
     @echo "NOTE: just deploy-check is a DRY RUN (CHECK=1 / ansible --check). Nothing will be applied." >&2
-    CHECK=1 python3 control/bin/deploy_fleet.py {{ deploy_args }} {{ deploy_scope_arg }}
+    CHECK=1 python3 control/bin/deploy_fleet.py {{ deploy_args }} {{ host }} {{ deploy_scope_arg }} {{ deploy_devices_only_arg }}
 
 deploy-check-legacy:
     @just _deploy_check_impl
@@ -45,24 +49,26 @@ deploy-mac:
     @just _deploy_mac_impl
 
 # ---------- Termux Layer ----------
-_deploy_termux_impl:
-    python3 control/bin/deploy_termux.py {{ deploy_args }}
+_deploy_termux_impl host="":
+    python3 control/bin/deploy_termux.py {{ deploy_args }} {{ host }}
 
 deploy-termux-legacy:
     @just _deploy_termux_impl
 
-deploy-termux host="":
-    @just _deploy_termux_impl {{ if host == "" { "" } else { "--limit " + host } }}
+# deploy_termux.py takes the inventory host as a positional argument and
+# enforces single-host deploys itself (no --limit flag exists to forward).
+deploy-termux host:
+    @just _deploy_termux_impl {{ host }}
 
 # ---------- Bootstrap SSH ----------
-_bootstrap_ssh_impl:
-    python3 control/bin/bootstrap_ssh.py {{ deploy_args }}
+_bootstrap_ssh_impl host="":
+    python3 control/bin/bootstrap_ssh.py {{ deploy_args }} {{ host }}
 
 bootstrap-ssh-legacy:
     @just _bootstrap_ssh_impl
 
 bootstrap-ssh host="":
-    @just _bootstrap_ssh_impl {{ if host == "" { "" } else { "--limit " + host } }}
+    @just _bootstrap_ssh_impl {{ host }}
 
 # ---------- Bootstrap APKs ----------
 _bootstrap_apks_impl:
@@ -75,14 +81,14 @@ bootstrap-apks:
     @just _bootstrap_apks_impl
 
 # ---------- Verify Bootstrap APKs ----------
-_verify_bootstrap_apks_impl:
-    {{ ansible_playbook }} ansible/playbooks/fleet/verify-bootstrap-apks.yml {{ limit_flag }}
+_verify_bootstrap_apks_impl host="":
+    {{ ansible_playbook }} ansible/playbooks/fleet/verify-bootstrap-apks.yml {{ if host == "" { limit_flag } else { "-l " + host } }}
 
 verify-bootstrap-apks-legacy:
     @just _verify_bootstrap_apks_impl
 
 verify-bootstrap-apks host="":
-    @just _verify_bootstrap_apks_impl {{ if host == "" { "" } else { "-l " + host } }}
+    @just _verify_bootstrap_apks_impl {{ host }}
 
 # ---------- Ensure Shizuku ----------
 _ensure_shizuku_impl:
@@ -171,14 +177,14 @@ syntax:
     @just _syntax_impl
 
 # ---------- Termux PKG Upgrade ----------
-_termux_pkg_upgrade_impl:
-    python3 control/bin/termux_pkg_nightly.py {{ if hosts == "" { "" } else { "--limit " + replace(hosts, " ", ",") } }}
+_termux_pkg_upgrade_impl host="":
+    python3 control/bin/termux_pkg_nightly.py {{ if host == "" { if hosts == "" { "" } else { "--limit " + replace(hosts, " ", ",") } } else { "--limit " + host } }}
 
 termux-pkg-upgrade-legacy:
     @just _termux_pkg_upgrade_impl
 
 termux-pkg-upgrade host="":
-    @just _termux_pkg_upgrade_impl {{ if host == "" { "" } else { "--limit " + host } }}
+    @just _termux_pkg_upgrade_impl {{ host }}
 
 # ---------- Verify Device ----------
 _verify_device_impl:
@@ -285,11 +291,11 @@ firerpa-health:
     @just _firerpa_health_impl
 
 # ---------- Verify Drift ----------
-_verify_drift_impl:
-    python3 control/bin/verify_drift.py {{ if hosts == "" { "--all" } else { "--host " + hosts } }}
+_verify_drift_impl host="":
+    python3 control/bin/verify_drift.py {{ if host == "" { if hosts == "" { "--all" } else { "--host " + hosts } } else { "--host " + host } }}
 
 verify-drift-legacy:
     @just _verify_drift_impl
 
 verify-drift host="":
-    @just _verify_drift_impl {{ if host == "" { "--all" } else { "--host " + host } }}
+    @just _verify_drift_impl {{ host }}
