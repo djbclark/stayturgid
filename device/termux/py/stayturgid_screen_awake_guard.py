@@ -6,9 +6,17 @@ or a very long screen_off_timeout), keep a notification up offering one tap to
 restore normal screen lock. Called with `check` every 5 min from the boot loop;
 `restore [ms]` applies a timeout. Migrated from screen-awake-guard.sh;
 unit-tested via tests/test-unit.sh (guard_suite).
+
+A SCREEN_BRIGHT/DIM wakelock tagged 'WindowManager[/displayId:N]' is the
+system holding the screen for a visible FLAG_KEEP_SCREEN_ON window (video,
+camera, navigation, a kiosk/dashboard view): while it can be attributed to
+the foreground app it is intended behavior, so it is not nagged about and
+`restore` just sleeps the screen instead of blaming an un-actionable
+system tag.
 """
 
 import os
+import re
 import subprocess
 import sys
 
@@ -37,6 +45,7 @@ except ImportError:
     tapi = None
 
 NID = "stayturgid-screenlock"
+PKG_RE = re.compile(r"^[A-Za-z0-9_]+(\.[A-Za-z0-9_]+)+$")
 BASELINE_FILE = os.path.join(STG, "state", "screen_timeout_baseline")
 MAX_OK_MS = 600000  # timeouts above 10 min count as "held awake"
 SELF = os.path.join(STG, "bin", "stayturgid_screen_awake_guard.py")  # notif button target
@@ -98,6 +107,22 @@ def wakelock_holder():
     return ""
 
 
+def is_keep_screen_on_holder(tag):
+    # WindowManager holds SCREEN_BRIGHT/DIM for uid 1000 while any visible
+    # window has FLAG_KEEP_SCREEN_ON; Android reports the tag as
+    # 'WindowManager' or 'WindowManager/displayId:N', not the owning app.
+    return tag == "WindowManager" or tag.startswith("WindowManager/")
+
+
+def foreground_app():
+    for line in adb_shell("dumpsys", "window").splitlines():
+        if "mCurrentFocus" in line:
+            for field in re.split(r"[ /}]", line):
+                if PKG_RE.match(field):
+                    return field
+    return ""
+
+
 def forced_awake_reason():
     """Return a human reason string when the screen is forced awake, else None."""
     stay = get_stay_on()
@@ -105,6 +130,13 @@ def forced_awake_reason():
         return "stay-awake-while-plugged setting is on"
     holder = wakelock_holder()
     if holder:
+        if is_keep_screen_on_holder(holder) and foreground_app():
+            # The foreground app's window has FLAG_KEEP_SCREEN_ON — it clears
+            # the moment that window goes away, so there is nothing stuck to
+            # restore and nothing actionable to nag about.
+            return None
+        if is_keep_screen_on_holder(holder):
+            return "keep-screen-on window in the foreground app"
         return "app wakelock: " + holder
     timeout = get_timeout()
     if timeout.isdigit() and int(timeout) > MAX_OK_MS:
@@ -248,7 +280,27 @@ def do_restore(ms):
 
     holder = wakelock_holder()
     run(["termux-notification-remove", NID])
-    if holder:
+    if holder and is_keep_screen_on_holder(holder):
+        # Not an app wakelock to switch off: the foreground app's window sets
+        # FLAG_KEEP_SCREEN_ON, which ignores the timeout. Sleep now (power-
+        # button semantics override keep-screen-on) and say which app it was.
+        app = foreground_app() or "the foreground app"
+        run(
+            [
+                "termux-notification",
+                "--id",
+                NID,
+                "--priority",
+                "high",
+                "--title",
+                "Screen lock restored (%s)" % fmt_ms(ms),
+                "--content",
+                "Screen is off now. %s keeps the screen on while it's open — leave or close it to stop that." % app,
+            ]
+        )
+        adb_shell("input", "keyevent", "KEYCODE_SLEEP")
+        print("restored timeout=%sms; keep-screen-on window in %s; screen off" % (ms, app))
+    elif holder:
         run(
             [
                 "termux-notification",

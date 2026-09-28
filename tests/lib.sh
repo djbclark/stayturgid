@@ -90,7 +90,9 @@ case "$*" in
   *"settings put global adb_wifi_enabled"*)
       echo "1" > "$SANDBOX/adb_wifi_state"
       exit 0 ;;
-  *"dumpsys window"*) printf 'mCurrentFocus=Window{1a2 u0 %s/.Main}\n' "${ADB_FG_PKG:-com.sec.android.app.launcher}"; exit 0 ;;
+  *"dumpsys window"*)
+      if [ "${ADB_FG_PKG:-}" = "null" ]; then printf 'mCurrentFocus=null\n'; exit 0; fi
+      printf 'mCurrentFocus=Window{1a2 u0 %s/.Main}\n' "${ADB_FG_PKG:-com.sec.android.app.launcher}"; exit 0 ;;
   *"dumpsys power"*)
       printf 'mWakefulness=%s\nmStayOn=%s\n' "${ADB_WAKE:-Awake}" "${ADB_MSTAYON:-false}"
       [ -n "${ADB_WAKELOCK:-}" ] && printf "  SCREEN_BRIGHT_WAKE_LOCK (tag='%s' uid=10123)\n" "$ADB_WAKELOCK"

@@ -427,6 +427,32 @@ guard_suite() {
   tap_unlike "$(cat "$STUB_LOG")" "KEYCODE_SLEEP" \
     "guard[$T]: restore doesn't force screen off while a wakelock persists"
   unset ADB_WAKELOCK ADB_TIMEOUT
+
+  # WindowManager/displayId:N holder (FLAG_KEEP_SCREEN_ON window in the
+  # foreground app): normal usage — no nag, and restore explains + sleeps.
+  : >"$STUB_LOG"
+  export ADB_WAKELOCK="WindowManager/displayId:0" ADB_TIMEOUT=60000 ADB_FG_PKG=com.android.chrome
+  run_sandboxed "$GUARD" check
+  tap_is "$(stub_calls 'termux-notification ')" 0 \
+    "guard[$T]: keep-screen-on window in a known foreground app => no notification"
+  tap_like "$(cat "$STUB_LOG")" "termux-notification-remove stayturgid-screenlock" \
+    "guard[$T]: stale notification removed for attributable keep-screen-on"
+  : >"$STUB_LOG"
+  run_sandboxed "$GUARD" restore 60000
+  tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "com.android.chrome" \
+    "guard[$T]: restore names the foreground app holding the keep-screen-on window"
+  tap_like "$(cat "$STUB_LOG")" "KEYCODE_SLEEP" \
+    "guard[$T]: restore sleeps past a keep-screen-on window"
+  tap_unlike "$(cat "$STUB_LOG")" "still holds a wakelock" \
+    "guard[$T]: restore doesn't blame a system WindowManager tag"
+
+  # same holder but foreground unknown: honest fallback notification
+  : >"$STUB_LOG"
+  export ADB_FG_PKG=null
+  run_sandboxed "$GUARD" check
+  tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "keep-screen-on window" \
+    "guard[$T]: unattributable WindowManager holder still surfaces with real reason"
+  unset ADB_WAKELOCK ADB_TIMEOUT ADB_FG_PKG
   unset ADB_TIMEOUT ADB_WAKE DIALOG_CHOICE ADB_WAKELOCK 2>/dev/null || true
 }
 
