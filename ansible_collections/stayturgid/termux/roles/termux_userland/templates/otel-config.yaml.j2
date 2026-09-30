@@ -89,6 +89,12 @@ exporters:
       block_on_overflow: true
 
 service:
+  # No self-metrics listener: nothing scrapes it (fleet health checks the
+  # pidfile), and its default localhost:8888 collides with apps on the phone
+  # (AirSync holds *:8888 on t2e, so the collector exited at startup).
+  telemetry:
+    metrics:
+      level: none
   extensions: [file_storage]
   pipelines:
     logs:
