@@ -26,7 +26,7 @@ bundle agent stayturgid_heal {
     "heal" usebundle => check_otelcol("$(prefix)", "$(home)");
     "heal" usebundle => check_bootloop("$(stg)");
     "heal" usebundle => check_stayturgid_agent("$(prefix)", "$(stg)");
-    "heal" usebundle => check_bootloop_repair("$(prefix)", "$(home)");
+    "heal" usebundle => check_bootloop_repair("$(prefix)", "$(home)", "$(stg)");
 
   reports:
     cfengine::
@@ -35,10 +35,14 @@ bundle agent stayturgid_heal {
 
 # ── Individual check bundles ──────────────────────────────────────────────
 
+# pgrep -x on the process name: the OpenSSH 10 listener shows in ps as a bare
+# "sshd" (no path), so the old ".*bin/sshd.*" process promise never matched and
+# this reported RESTARTING on every run (seen 2026-09-30 on s24). -x also keeps
+# sshd-session children from counting as a live listener.
 bundle agent check_sshd(p) {
-  processes:
-    ".*bin/sshd.*"
-      restart_class => "restart_sshd";
+  classes:
+    "sshd_up" expression => returnszero("$(p)/bin/pgrep -x sshd >/dev/null 2>&1", "useshell");
+    "restart_sshd" not => "sshd_up";
 
   reports:
     !restart_sshd::
@@ -195,10 +199,22 @@ bundle agent check_stayturgid_agent(p, s) {
         contain => silent_bg;
 }
 
-bundle agent check_bootloop_repair(p, s) {
+# Boot loop (start_adb.py, which also runs this policy every cycle) alive and
+# its repair log fresh. Mirrors fleet_health_monitor.py's REPAIR_HEAL_REMOTE_CMD
+# so the on-device and Mac-side restarts do the same thing.
+#
+# Three traps, all of which this bundle used to fall into (found 2026-09-30):
+# 1. A pgrep/pkill -f pattern that appears literally in the shell's own command
+#    line matches that shell, so pgrep always "finds" the loop and pkill kills
+#    its own shell before the restart runs. The [.] bracket stops the pattern
+#    matching its own text.
+# 2. Shell $(...)/$((...)) inside returnszero() is eaten by CFEngine's
+#    interpolation scanner (see check_stayturgid_agent) — use find -mmin.
+# 3. s must be the .stayturgid dir, not $HOME (logs/ and run/ live under it).
+bundle agent check_bootloop_repair(p, home, s) {
   classes:
-    "boot_running" expression => returnszero("$(p)/bin/pgrep -f start_adb.py >/dev/null 2>&1", "useshell");
-    "repair_recent" expression => returnszero("[ -f $(s)/logs/repair.log ] && [ $(stat -c %%Y $(s)/logs/repair.log 2>/dev/null || echo 0) -ge $(($(date +%%s) - 3600)) ]", "useshell");
+    "boot_running" expression => returnszero("$(p)/bin/pgrep -f start_adb[.]py >/dev/null 2>&1", "useshell");
+    "repair_recent" expression => returnszero("$(p)/bin/find $(s)/logs/repair.log -mmin -60 2>/dev/null | $(p)/bin/grep -q .", "useshell");
 
   reports:
     boot_running.repair_recent::
@@ -211,7 +227,7 @@ bundle agent check_bootloop_repair(p, s) {
   commands:
     (boot_running.!repair_recent)|(!boot_running)::
       "$(p)/bin/bash"
-        args => "-c 'pkill -f stayturgid_repair 2>/dev/null; pkill -f start_adb 2>/dev/null; sleep 2; nohup $(p)/bin/python3 $(s)/bin/start_adb.py >/dev/null 2>&1 &'",
+        args => "-c 'kill `cat $(s)/run/bootloop.pid 2>/dev/null` 2>/dev/null; pkill -f stayturgid_repair[.]py 2>/dev/null; sleep 2; cd $(home) || exit 1; for f in $(home)/.termux/boot/*; do [ -f $f ] && setsid nohup bash $f >/dev/null 2>&1 </dev/null & done'",
         contain => silent_bg;
 }
 
