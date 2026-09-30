@@ -326,11 +326,11 @@ error anywhere.
    suppresses every later match. p7a's repair age froze at 2026-09-15.
    **How to apply:** `grep -a` on every device log read. Toybox grep (adb
    shell) is unaffected, which is why the two probe paths disagreed.
-3. **`pgrep`/`pkill -f` match their own shell.** In `bash -c '… pkill -f
-start_adb …'` or CFEngine `returnszero(…, "useshell")`, the pattern is in
-   the shell's own command line: `pgrep` always "finds" it and `pkill` kills
-   the shell running it. **How to apply:** write the pattern so it can't
-   match its own text (`start_adb[.]py`), or match on the process name with
+3. **`pgrep`/`pkill -f` match their own shell.** When the pattern appears in
+   a `bash -c` string or a CFEngine `useshell` command, it is also in that
+   shell's own command line: `pgrep` always "finds" it and `pkill` kills the
+   shell running it. **How to apply:** write the pattern so it can't match
+   its own text (`start_adb[.]py`), or match the process name with
    `pgrep -x`.
 4. **CFEngine eats shell `$(...)` inside `returnszero()`** (already noted on
    `check_stayturgid_agent` in `stayturgid.cf`): the command silently never
