@@ -34,3 +34,14 @@ def test_ensure_apps_can_disable_destructive_incompatible_upgrade_cleanup():
         ensure_apks["stayturgid.android_common.android_apk"]["clean_on_incompatible"]
         == "{{ item.clean_on_incompatible | default(omit) }}"
     )
+
+
+def test_fleet_installs_apps_before_hardening_them():
+    # #288: every installer must precede app_privileges, or newly installed apps
+    # go a whole deploy cycle without battery/permission hardening.
+    play = yaml.safe_load((ROOT / "ansible/playbooks/fleet/fleet.yml").read_text(encoding="utf-8"))[0]
+    roles = [r["role"] for r in play["roles"]]
+    hardening = roles.index("stayturgid.android_common.app_privileges")
+
+    for installer in ("stayturgid.play.play_store", "stayturgid.android_common.ensure_apps"):
+        assert roles.index(installer) < hardening
