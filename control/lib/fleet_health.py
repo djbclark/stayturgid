@@ -92,8 +92,8 @@ print("unknown")
 # lines are excluded — that telemetry already flows through the normal
 # soft_health snapshot and would otherwise be double-counted as noise.
 _DEVLOG_TAIL_BODY = r"""
-grep -h -E '\[repair\] (ERR|WARNING):' "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -20 | while IFS= read -r l; do echo "DEVLOG_WATCHDOG|$l"; done
-grep -h '\[agent\]' "$SD/logs/agent.log" /sdcard/stayturgid/logs/agent.log 2>/dev/null | grep -v ' STATUS ' | grep -iE 'FAILED|error=|still down' | tail -20 | while IFS= read -r l; do echo "DEVLOG_AGENT|$l"; done
+grep -ah -E '\[repair\] (ERR|WARNING):' "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -20 | while IFS= read -r l; do echo "DEVLOG_WATCHDOG|$l"; done
+grep -ah '\[agent\]' "$SD/logs/agent.log" /sdcard/stayturgid/logs/agent.log 2>/dev/null | grep -v ' STATUS ' | grep -iE 'FAILED|error=|still down' | tail -20 | while IFS= read -r l; do echo "DEVLOG_AGENT|$l"; done
 """
 
 HEALTH_GATHER = (
@@ -115,9 +115,12 @@ else
   [ "$uid" = "2000" ] && echo "shell5555=ok" || echo "shell5555=down"
 fi
 now=$(date +%s)
+# grep -a on every log read: one NUL byte (a write torn by a crash or reboot)
+# makes GNU grep treat the file as binary and suppress every later match —
+# p7a's repair_age froze at 2026-09-15 for two weeks that way.
 _age() {
   marker="$1"
-  last=$(grep -h "$marker" "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
+  last=$(grep -ah "$marker" "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
   if [ -z "$last" ]; then echo missing; return; fi
 """
     + _PORTABLE_AGE_BODY
@@ -127,9 +130,9 @@ echo "repair_age=$(_age '\[repair\]')"
 echo "watchdog_age=$(_age '\[watchdog\]')"
 # Native agent (OPTIONS K1): agent.log STATUS + age.
 _agent_age() {
-  last=$(grep -h '\[agent\] STATUS' "$SD/logs/agent.log" /sdcard/stayturgid/logs/agent.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
+  last=$(grep -ah '\[agent\] STATUS' "$SD/logs/agent.log" /sdcard/stayturgid/logs/agent.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
   # agent lines are "[agent] STATUS ... ts=YYYY-MM-DD HH:MM:SS" — prefer ts=
-  ts=$(grep -h '\[agent\] STATUS' "$SD/logs/agent.log" /sdcard/stayturgid/logs/agent.log 2>/dev/null | tail -1 | sed -n 's/.*ts=\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]\).*/\1/p')
+  ts=$(grep -ah '\[agent\] STATUS' "$SD/logs/agent.log" /sdcard/stayturgid/logs/agent.log 2>/dev/null | tail -1 | sed -n 's/.*ts=\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]\).*/\1/p')
   if [ -n "$ts" ]; then last="$ts"; fi
   if [ -z "$last" ]; then echo missing; return; fi
 """
@@ -157,8 +160,8 @@ else
 fi
 # Prefer freshest STATUS among watchdog, repair, and native agent.
 status=$( {
-  grep -h 'STATUS port=' "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log ~/.stayturgid/logs/repair.log 2>/dev/null
-  grep -h 'STATUS port=' "$SD/logs/agent.log" /sdcard/stayturgid/logs/agent.log 2>/dev/null
+  grep -ah 'STATUS port=' "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log ~/.stayturgid/logs/repair.log 2>/dev/null
+  grep -ah 'STATUS port=' "$SD/logs/agent.log" /sdcard/stayturgid/logs/agent.log 2>/dev/null
 } | tail -1 )
 if [ -n "$status" ]; then
   echo "status_line=$status"
@@ -418,7 +421,7 @@ now=$(date +%s)
 LOGS="/sdcard/stayturgid/logs/watchdog.log /data/data/com.termux/files/home/.stayturgid/shared/logs/watchdog.log /sdcard/stayturgid/logs/agent.log"
 age_of() {
   m="$1"
-  last=$(grep -hF "$m" $LOGS 2>/dev/null | tail -1 | cut -d" " -f1,2)
+  last=$(grep -ahF "$m" $LOGS 2>/dev/null | tail -1 | cut -d" " -f1,2)
   if [ -z "$last" ]; then echo missing; return; fi
 """
         + _PORTABLE_AGE_BODY
@@ -427,7 +430,7 @@ age_of() {
 echo "repair_age=$(age_of '[repair]')"
 echo "watchdog_age=$(age_of '[watchdog]')"
 # agent.ts= prefer explicit ts= field on [agent] STATUS lines
-agent_last=$(grep -h '\[agent\] STATUS' /sdcard/stayturgid/logs/agent.log 2>/dev/null | tail -1)
+agent_last=$(grep -ah '\[agent\] STATUS' /sdcard/stayturgid/logs/agent.log 2>/dev/null | tail -1)
 agent_ts=$(echo "$agent_last" | sed -n 's/.*ts=\([0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]:[0-9][0-9]\).*/\1/p')
 if [ -n "$agent_ts" ]; then
   last="$agent_ts"
@@ -477,7 +480,7 @@ else
     *) echo "autojs6_a11y=missing" ;;
   esac
 fi
-st=$(grep -h 'STATUS port=' $LOGS 2>/dev/null | tail -1)
+st=$(grep -ah 'STATUS port=' $LOGS 2>/dev/null | tail -1)
 echo "status_line=$st"
 echo "$st" | grep -oE 'port=[^ ]+' || echo "port=unknown"
 echo "$st" | grep -oE 'shizuku=[^ ]+' || echo "shizuku=unknown"
@@ -488,8 +491,8 @@ echo "bootloop=unknown"
 # its comment for the ERR/WARNING and FAILED/error=/still-down rationale) —
 # this fallback path uses this script's own hardcoded $LOGS paths instead of
 # $SD since that variable isn't defined here.
-grep -h -E '\[repair\] (ERR|WARNING):' $LOGS 2>/dev/null | tail -20 | while IFS= read -r l; do echo "DEVLOG_WATCHDOG|$l"; done
-grep -h '\[agent\]' /sdcard/stayturgid/logs/agent.log 2>/dev/null | grep -v ' STATUS ' | grep -iE 'FAILED|error=|still down' | tail -20 | while IFS= read -r l; do echo "DEVLOG_AGENT|$l"; done
+grep -ah -E '\[repair\] (ERR|WARNING):' $LOGS 2>/dev/null | tail -20 | while IFS= read -r l; do echo "DEVLOG_WATCHDOG|$l"; done
+grep -ah '\[agent\]' /sdcard/stayturgid/logs/agent.log 2>/dev/null | grep -v ' STATUS ' | grep -iE 'FAILED|error=|still down' | tail -20 | while IFS= read -r l; do echo "DEVLOG_AGENT|$l"; done
 """
     )
     try:
