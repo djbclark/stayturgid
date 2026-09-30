@@ -206,7 +206,43 @@ def _touch_heal_repair(name: str) -> None:
     _touch_heal_dir(name, REPAIR_HEAL_STATE_DIR)
 
 
-def maybe_heal_repair_stale(name: str, issues: list[str], fails: int) -> None:
+# Stop the recorded (possibly hung) boot loop, then re-run every Termux:Boot script (start-adb.sh -> start_adb.py boot loop, the
+# repair bridge, ...) exactly as Termux:Boot would, detached so they outlive the
+# ssh session. The pkill pattern is bracketed so it cannot match this remote
+# shell's own command line: a bare `pkill -f stayturgid_repair` killed the ssh
+# session itself (rc=255) before nohup ran, so t2e's loop stayed dead for 2.5
+# days while every heal "succeeded" (2026-09-27..29).
+REPAIR_HEAL_REMOTE_CMD = (
+    "kill $(cat ~/.stayturgid/run/bootloop.pid 2>/dev/null) 2>/dev/null; "
+    "pkill -f 'stayturgid_repair[.]py' 2>/dev/null; sleep 2; cd ~ || exit 1; "
+    'for f in ~/.termux/boot/*; do [ -f "$f" ] || continue; '
+    'setsid nohup bash "$f" >/dev/null 2>&1 </dev/null & done; '
+    "echo boot-scripts-started"
+)
+
+
+def _unstop_termux_boot(adb_serial: str | None) -> None:
+    """Clear Termux:Boot's stopped-package state so the next reboot runs it.
+
+    A package in the stopped state receives no BOOT_COMPLETED, which is how
+    t2e's boot loop died after a 2026-09-27 reboot. `cmd package unstop`
+    (Android 15+) clears it without launching any UI; older builds lack the
+    subcommand and this is a harmless no-op there.
+    """
+    if not adb_serial:
+        return
+    try:
+        subprocess.run(
+            [os.environ.get("STAYTURGID_ADB", "adb"), "-s", adb_serial, "shell", "cmd package unstop com.termux.boot"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+
+
+def maybe_heal_repair_stale(name: str, issues: list[str], fails: int, adb_serial: str | None = None) -> None:
     if SKIP_WATCHDOG_HEAL or SKIP_HEALTH:
         return
     if fails < REPAIR_HEAL_AFTER:
@@ -218,6 +254,7 @@ def maybe_heal_repair_stale(name: str, issues: list[str], fails: int) -> None:
         return
 
     _fleet_log(INFO, "%s repair heal: restarting boot loop via SSH" % name)
+    _unstop_termux_boot(adb_serial)
     try:
         r = subprocess.run(
             [
@@ -229,14 +266,13 @@ def maybe_heal_repair_stale(name: str, issues: list[str], fails: int) -> None:
                 "-o",
                 "LogLevel=ERROR",
                 name,
-                "pkill -f stayturgid_repair 2>/dev/null; "
-                "nohup python3 ~/.stayturgid/bin/start_adb.py >/dev/null 2>&1 &",
+                REPAIR_HEAL_REMOTE_CMD,
             ],
             capture_output=True,
             text=True,
             timeout=30,
         )
-        if r.returncode == 0 or r.returncode == 255:
+        if r.returncode == 0 and "boot-scripts-started" in (r.stdout or ""):
             _touch_heal_repair(name)
             _fleet_log(INFO, "%s repair heal: boot loop restarted (rc=%s)" % (name, r.returncode))
             notify("stayturgid heal", "%s repair loop restarted" % name)
@@ -655,7 +691,7 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     fails += 1
     write_state(state_file, fails)
     adb_serial = path.split(":", 1)[1] if path and path.startswith("adb:") else None
-    maybe_heal_repair_stale(name, issues, fails)
+    maybe_heal_repair_stale(name, issues, fails, adb_serial=adb_serial)
     maybe_heal_agent(name, issues, fails, adb_serial=adb_serial)
     if fails == CONSECUTIVE_LIMIT:
         detail = ",".join(issues)

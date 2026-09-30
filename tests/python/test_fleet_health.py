@@ -612,3 +612,40 @@ def test_check_device_forwards_devlog_to_stats(tmp_path, monkeypatch):
     assert len(devlog_events) == 1
     assert devlog_events[0][1] == "p7a"
     assert devlog_events[0][2]["severity"] == "ERR"
+
+
+def test_repair_heal_pkill_cannot_match_its_own_remote_shell():
+    # `pkill -f stayturgid_repair` inside `ssh host "<cmd>"` matched the remote
+    # shell's own command line and killed the session (rc=255) before nohup
+    # ran — t2e's boot loop stayed dead 2026-09-27..29.
+    import re
+
+    cmd = fhm.REPAIR_HEAL_REMOTE_CMD
+    for pattern in re.findall(r"pkill -f '([^']+)'", cmd):
+        assert re.search(pattern, cmd) is None, pattern
+    assert "pkill -f stayturgid_repair " not in cmd
+    assert "setsid nohup" in cmd and "~/.termux/boot/" in cmd
+
+
+def test_repair_heal_rc255_is_not_success(tmp_path, monkeypatch):
+    monkeypatch.setattr(fhm, "SKIP_HEALTH", False)
+    monkeypatch.setattr(fhm, "SKIP_WATCHDOG_HEAL", False)
+    monkeypatch.setattr(fhm, "REPAIR_HEAL_STATE_DIR", str(tmp_path / "repair-heal"))
+    monkeypatch.setattr(fhm, "notify", lambda *a, **k: None)
+    monkeypatch.setattr(fhm, "_fleet_log", lambda *a, **k: None)
+    calls = []
+
+    class Result:
+        returncode = 255
+        stdout = ""
+        stderr = "Connection closed"
+
+    def fake_run(argv, **kw):
+        calls.append(argv)
+        return Result()
+
+    monkeypatch.setattr(fhm.subprocess, "run", fake_run)
+    fhm.maybe_heal_repair_stale("t2e", ["repair_stale"], fhm.REPAIR_HEAL_AFTER, adb_serial="100.73.253.10:5555")
+    assert any("cmd package unstop com.termux.boot" in " ".join(c) for c in calls)
+    # Failure must not start the cooldown, so the next run retries.
+    assert fhm._heal_repair_cooldown_ok("t2e")
