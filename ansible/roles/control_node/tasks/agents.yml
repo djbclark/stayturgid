@@ -49,6 +49,28 @@
     stayturgid_git_commit_sha: "{{ _git_commit_sha.stdout | default('unknown') | trim }}"
   run_once: true
 
+# device_lan_ip in the inventory is only a fallback: DHCP moves the phones
+# (every LAN IP had drifted by 2026-09-29). Discover live addresses first;
+# fleet-health keeps them current between deploys (control/lib/lan_ips.py).
+- name: Discover live device LAN IPs (adb wlan0, then Tailscale endpoint)
+  ansible.builtin.command:
+    argv:
+      - /usr/bin/env
+      - python3
+      - "{{ stayturgid_repo_root | realpath }}/control/lib/lan_ips.py"
+  environment:
+    STAYTURGID_DEVICES_CONF: "{{ conf_dir }}/devices.conf"
+  register: _lan_ip_refresh
+  changed_when: (_lan_ip_refresh.stdout | default('')) | length > 0
+  failed_when: false
+  run_once: true
+
+- name: Load live device LAN IPs
+  ansible.builtin.set_fact:
+    stayturgid_live_lan_ips: >-
+      {{ (lookup('ansible.builtin.file', conf_dir ~ '/state/lan_ips.json', errors='ignore') or '{}') | from_json }}
+  run_once: true
+
 - name: Render devices.conf from inventory (alias usb_serial tailscale_ip lan_ip)
   ansible.builtin.template:
     src: devices.conf.j2

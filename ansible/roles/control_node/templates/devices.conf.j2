@@ -4,5 +4,5 @@
 # Regenerate: just deploy-mac
 # alias usb_serial tailscale_ip lan_ip device_label phone_number
 {% for h in groups['stayturgid'] %}
-{{ h }} {{ hostvars[h].device_usb_serial | default('-') }} {{ hostvars[h].ansible_host }} {{ hostvars[h].device_lan_ip | default('-') }} {{ hostvars[h].device_label | default(h) }} {{ hostvars[h].device_phone_number | default('-') }}
+{{ h }} {{ hostvars[h].device_usb_serial | default('-') }} {{ hostvars[h].ansible_host }} {{ ((stayturgid_live_lan_ips | default({})).get(h) or {}).get('ip') or hostvars[h].device_lan_ip | default('-') }} {{ hostvars[h].device_label | default(h) }} {{ hostvars[h].device_phone_number | default('-') }}
 {% endfor %}

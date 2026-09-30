@@ -14,9 +14,14 @@ Host {{ h }}
 {%   for key in stayturgid_ssh_identity_files %}
   IdentityFile {{ key }}
 {%   endfor %}
-{%   if hostvars[h].device_lan_ip is defined and hostvars[h].device_lan_ip | length > 0 %}
+{%   set lan_ip = ((stayturgid_live_lan_ips | default({})).get(h) or {}).get('ip') or hostvars[h].device_lan_ip | default('') %}
+{%   if lan_ip | length > 0 %}
 Host {{ h }}-lan
-  HostName {{ hostvars[h].device_lan_ip }}
+  # Live DHCP address (control/lib/lan_ips.py); fleet-health rewrites it when
+  # it changes. HostKeyAlias makes the CA host cert (principal: {{ h }}) valid
+  # whatever the current IP is.
+  HostName {{ lan_ip }}
+  HostKeyAlias {{ h }}
   Port {{ hostvars[h].ansible_port | default(8022) }}
   User {{ hostvars[h].ansible_user | default(inventory_hostname) }}
   IdentityAgent none

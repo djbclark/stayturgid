@@ -847,6 +847,18 @@ def maybe_ensure_et_mac() -> None:
         _fleet_log(INFO, "et-mac ensure error: %s" % e)
 
 
+def refresh_lan_ips() -> None:
+    """Follow DHCP: rewrite `<dev>-lan` ssh aliases + devices.conf to live LAN IPs."""
+    try:
+        import lan_ips
+
+        devices = [(name, ts_ip) for name, ts_ip, _lan in read_devices(CONF)]
+        for name, (old, new) in lan_ips.refresh(devices).items():
+            _fleet_log(INFO, "%s LAN IP %s -> %s (ssh -lan alias + devices.conf updated)" % (name, old or "-", new))
+    except Exception as e:  # never let discovery break health checks
+        _fleet_log(WARNING, "LAN IP refresh failed: %s" % e)
+
+
 def main() -> int:
     if SKIP_HEALTH:
         return 0
@@ -856,6 +868,7 @@ def main() -> int:
     trim_log(os.path.join(ROOT, "logs", LOG_NAME), max_age_days=30, max_lines=4000)
     trim_log(os.path.join(ROOT, "logs", "errors.log"), max_age_days=30, max_lines=2000)
     maybe_ensure_et_mac()
+    refresh_lan_ips()
     for name, ts_ip, lan_ip in read_devices(CONF):
         try:
             check_device(name, ts_ip, lan_ip)
