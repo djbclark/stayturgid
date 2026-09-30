@@ -386,9 +386,9 @@ validate-identity-strict:
 # ── Native agent (OPTIONS K1 Phase 1) ─────────────────────────────────────
 
 # Assemble stayturgid-agent debug APK (device/native-agent).
-# composite=false uses Maven Central instead of ~/src/Shizuku/api.
+# composite=true builds against ~/src/Shizuku/api instead of Maven Central.
 # Prefers Homebrew OpenJDK 21 if present (AGP rejects JDK 25+).
-agent-assemble composite="true":
+agent-assemble composite="false":
     #!/usr/bin/env bash
     set -euo pipefail
     cd "{{ repo }}/device/native-agent"
@@ -409,8 +409,8 @@ agent-assemble composite="true":
       fi
     fi
     props=()
-    if [[ "{{ composite }}" == "false" ]]; then
-      props+=(-Pshizuku.composite=false)
+    if [[ "{{ composite }}" == "true" ]]; then
+      props+=(-Pshizuku.composite=true)
     fi
     ./gradlew --no-daemon "${props[@]}" :app:assembleDebug
     echo "APK: {{ repo }}/device/native-agent/app/build/outputs/apk/debug/app-debug.apk"

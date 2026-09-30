@@ -32,7 +32,11 @@ val useCompositeShizuku: Boolean =
     when (compositeProp) {
         "false" -> false
         "true" -> true
-        else -> shizukuApiDir.isDirectory
+        // Opt-in only (-Pshizuku.composite=true). Auto-enabling whenever
+        // ~/src/Shizuku/api existed broke every release build and the Kotlin
+        // pre-commit hooks once that checkout moved to AGP 9.2.1 / Gradle 9.4.1
+        // (2026-09-29); the app pins dev.rikka.shizuku:api from Maven anyway.
+        else -> false
     }
 
 if (useCompositeShizuku) {

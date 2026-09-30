@@ -44,13 +44,27 @@ kt-detekt-generate-config:
     @echo "(Your custom overrides are merged via buildUponDefaultConfig = true)"
 
 # Run native-agent unit tests.
-kt-test:
+kt-test: _kt-sdk
     cd {{_agent_dir}} && JAVA_HOME={{_java_home}} ./gradlew test
 
+# Install the compileSdk platform into the SDK local.properties points at, if
+# missing (a disk cleanup removed it 2026-09-29 and every build failed).
+_kt-sdk:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "{{_agent_dir}}"
+    sdk="$(sed -n 's/^sdk.dir=//p' local.properties 2>/dev/null)"
+    sdk="${sdk:-${ANDROID_HOME:-$HOME/Library/Android/sdk}}"
+    api="$(sed -n 's/^ *compileSdk = \([0-9]*\).*/\1/p' app/build.gradle.kts)"
+    if [[ -n "$api" && ! -d "$sdk/platforms/android-$api" ]]; then
+      echo "Installing platforms;android-$api into $sdk"
+      yes | sdkmanager --sdk_root="$sdk" "platforms;android-$api" >/dev/null
+    fi
+
 # Assemble debug APK.
-kt-build-debug:
+kt-build-debug: _kt-sdk
     cd {{_agent_dir}} && JAVA_HOME={{_java_home}} ./gradlew assembleDebug
 
 # Assemble release APK (signed).
-kt-build-release:
+kt-build-release: _kt-sdk
     cd {{_agent_dir}} && JAVA_HOME={{_java_home}} ./gradlew assembleRelease

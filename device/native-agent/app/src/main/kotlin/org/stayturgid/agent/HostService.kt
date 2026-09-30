@@ -16,6 +16,7 @@ import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import android.os.RemoteException
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -41,9 +42,13 @@ class HostService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var pingJob: Job? = null
     private var heartbeatJob: Job? = null
+    private var bindWatchdogJob: Job? = null
     private var peerStartJob: Job? = null
     private val serviceRef = AtomicReference<IStayTurgidService?>(null)
     private var bound = false
+
+    /** elapsedRealtime of the outstanding bindUserService request, 0 when none is pending. */
+    @Volatile private var bindRequestedAtMs = 0L
     private var screenOn = false
 
     private val userServiceArgs: Shizuku.UserServiceArgs by lazy {
@@ -65,6 +70,7 @@ class HostService : Service() {
                 if (binder != null && binder.pingBinder()) {
                     serviceRef.set(IStayTurgidService.Stub.asInterface(binder))
                     bound = true
+                    bindRequestedAtMs = 0L
                     Log.i(TAG, "UserService connected")
                     updateNotification(bound = true)
                     if (screenOn) startPingLoop()
@@ -81,6 +87,14 @@ class HostService : Service() {
                 bound = false
                 stopPingLoop()
                 updateNotification(bound = false)
+                // A replacement UserService reaping the old one lands here and Shizuku
+                // drops the replacement's connect callback, so ask again shortly: it
+                // is already running, so this connects instead of spawning another.
+                bindRequestedAtMs = 0L
+                scope.launch {
+                    delay(REBIND_AFTER_DISCONNECT_MS)
+                    if (serviceRef.get() == null) ensureBound()
+                }
             }
         }
 
@@ -97,7 +111,8 @@ class HostService : Service() {
     private val binderReceivedListener =
         Shizuku.OnBinderReceivedListener {
             Log.i(TAG, "Shizuku binder received")
-            if (screenOn) ensureBound()
+            // Any screen state: co-monitor needs it and a new server orphans the old one.
+            ensureBound()
         }
 
     private val binderDeadListener =
@@ -105,6 +120,7 @@ class HostService : Service() {
             Log.w(TAG, "Shizuku binder dead")
             serviceRef.set(null)
             bound = false
+            bindRequestedAtMs = 0L
             stopPingLoop()
             updateNotification(bound = false)
         }
@@ -200,6 +216,8 @@ class HostService : Service() {
         HeartbeatWriter.stop()
         heartbeatJob?.cancel()
         heartbeatJob = null
+        bindWatchdogJob?.cancel()
+        bindWatchdogJob = null
         peerStartJob?.cancel()
         peerStartJob = null
         getSystemService(NotificationManager::class.java)?.apply {
@@ -253,7 +271,20 @@ class HostService : Service() {
                 Log.e(TAG, "Shizuku API ${Shizuku.getVersion()} < 10")
                 return
             }
+            val now = SystemClock.elapsedRealtime()
+            val pendingMs = now - bindRequestedAtMs
+            if (bindRequestedAtMs != 0L && pendingMs < BIND_PENDING_GRACE_MS) {
+                // Bind in flight; re-requesting replaces Shizuku's pending record and
+                // the starting process is rejected ("unable to find token", p7a).
+                return
+            }
+            if (bindRequestedAtMs != 0L) {
+                // Stuck (stale record after a Shizuku restart/reinstall): start fresh.
+                Log.w(TAG, "bind pending ${pendingMs}ms without connecting; resetting UserService")
+                unbindUserService(remove = true)
+            }
             Shizuku.bindUserService(userServiceArgs, connection)
+            bindRequestedAtMs = now
             Log.i(TAG, "bindUserService requested")
         } catch (t: Throwable) {
             Log.e(TAG, "bindUserService failed", t)
@@ -292,8 +323,21 @@ class HostService : Service() {
         pingJob = null
     }
 
+    /** Rebind whenever unbound, so a Shizuku restart can't blind the agent for a whole interval. */
+    private fun startBindWatchdog() {
+        if (bindWatchdogJob?.isActive == true) return
+        bindWatchdogJob =
+            scope.launch {
+                while (isActive) {
+                    delay(UNBOUND_RETRY_MS)
+                    if (serviceRef.get() == null) ensureBound()
+                }
+            }
+    }
+
     /** Screen-independent co-monitor + catastrophic shell path. */
     private fun startHeartbeatLoop() {
+        startBindWatchdog()
         if (heartbeatJob?.isActive == true) return
         heartbeatJob =
             scope.launch {
@@ -640,6 +684,9 @@ class HostService : Service() {
          * docs/operations/sessions/session-2026-07-25-k1-verification.md).
          */
         const val INITIAL_BIND_POLL_MS: Long = 2_000L
+        const val BIND_PENDING_GRACE_MS: Long = 20_000L
+        const val UNBOUND_RETRY_MS: Long = 30_000L
+        const val REBIND_AFTER_DISCONNECT_MS: Long = 2_000L
 
         /**
          * Total time to keep retrying the initial bind before falling back to the steady-state

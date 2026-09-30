@@ -38,14 +38,13 @@ cd device/native-agent
 ./gradlew :app:assembleDebug
 ```
 
-Default build uses a **Gradle composite** against `$HOME/src/Shizuku/api`.
-Fork fixes applied for composite (outside this repo): demo `proguardFiles`
-varargs, `demo-hidden-api-stub` `namespace`.
-
-Disable composite and use Maven Central if the fork is unavailable:
+Default build uses `dev.rikka.shizuku:api` from Maven Central. A **Gradle
+composite** against `$HOME/src/Shizuku/api` is opt-in (it was the default
+until 2026-09-29, when that checkout's move to AGP 9.2.1 / Gradle 9.4.1 broke
+every build on this wrapper):
 
 ```bash
-./gradlew :app:assembleDebug -Pshizuku.composite=false
+./gradlew :app:assembleDebug -Pshizuku.composite=true
 ```
 
 APK path:
