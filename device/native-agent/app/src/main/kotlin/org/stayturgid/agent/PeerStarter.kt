@@ -140,17 +140,7 @@ object PeerStarter {
                 exec(client, PeerStartCommands.ADB_WIFI_ENABLED_REASSERT)
                 clearTargetReminder(client)
                 val shizuku = ensureShizuku(target, shizukuPkg, client)
-                // Isolated so a Handsets-only failure can't clobber an already-successful shizuku
-                // result with the shared outer catch's single Result (see below).
-                val handsets =
-                    try {
-                        HandsetsStarter.ensureHandsets(context, target, client)
-                    } catch (t: Throwable) {
-                        Log.w(TAG, "handsets ensure $target failed", t)
-                        val detail = (t.message ?: t.javaClass.simpleName).take(200)
-                        val outcome = if (isUnreachable(t)) Outcome.UNREACHABLE else Outcome.FAILED
-                        Result(target.toString(), outcome, detail)
-                    }
+                val handsets = ensureHandsetsIsolated(context, target, client)
                 PeerServicesResult(shizuku, handsets)
             }
         } catch (t: AdbAuthPendingException) {
@@ -163,6 +153,25 @@ object PeerStarter {
             val outcome = if (isUnreachable(t)) Outcome.UNREACHABLE else Outcome.FAILED
             val failed = Result(target.toString(), outcome, detail)
             PeerServicesResult(failed, failed)
+        }
+    }
+
+    /**
+     * Isolated so a Handsets-only failure can't clobber an already-successful shizuku result with
+     * [ensurePeerServices]' shared outer catch's single Result.
+     */
+    private fun ensureHandsetsIsolated(
+        context: Context,
+        target: PeerTarget,
+        client: AdbClient,
+    ): Result {
+        return try {
+            HandsetsStarter.ensureHandsets(context, target, client)
+        } catch (t: Throwable) {
+            Log.w(TAG, "handsets ensure $target failed", t)
+            val detail = (t.message ?: t.javaClass.simpleName).take(200)
+            val outcome = if (isUnreachable(t)) Outcome.UNREACHABLE else Outcome.FAILED
+            Result(target.toString(), outcome, detail)
         }
     }
 

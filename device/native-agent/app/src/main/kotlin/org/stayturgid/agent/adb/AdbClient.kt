@@ -49,12 +49,15 @@ import org.stayturgid.agent.adb.AdbProtocol.A_WRTE
  */
 private const val TAG = "StayTurgidAdbClient"
 
+/** 4 minutes (upstream: 60s); see the readTimeoutMs rationale in the doc comment above. */
+private const val DEFAULT_READ_TIMEOUT_MS = 4 * 60 * 1000
+
 class AdbClient(
     private val host: String,
     private val port: Int,
     private val key: AdbKey,
     private val connectTimeoutMs: Int = 5000,
-    private val readTimeoutMs: Int = 4 * 60 * 1000,
+    private val readTimeoutMs: Int = DEFAULT_READ_TIMEOUT_MS,
 ) : Closeable {
     private lateinit var socket: Socket
     private lateinit var plainInputStream: DataInputStream
