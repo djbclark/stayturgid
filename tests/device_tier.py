@@ -52,11 +52,13 @@ echo "ssh=ok"
 (pgrep -x sshd || pgrep -f "[s]shd") >/dev/null 2>&1 && echo "sshd=ok" || echo "sshd=down"
 pgrep -f 'start_adb\.py' >/dev/null 2>&1 && echo "bootloop=ok" || echo "bootloop=down"
 pid=$(cat ~/.stayturgid/run/bridge.pid 2>/dev/null)
-if [ -n "$pid" ] && [ -d "/proc/$pid" ] && grep -q repair-bridge "/proc/$pid/cmdline" 2>/dev/null; then
+if [ -n "$pid" ] && [ -d "/proc/$pid" ] && grep -qE "stayturgid_bridges|repair-bridge" "/proc/$pid/cmdline" 2>/dev/null; then
     echo "bridge=ok"
 else
     echo "bridge=down"
 fi
+# AutoJs6 was removed fleet-wide in the K1 cutover (2026-07-25, #43).
+pm path org.autojs.autojs6 >/dev/null 2>&1 && echo "autojs6=installed" || echo "autojs6=absent"
 if [ "$FIRE" = 1 ]; then
     echo "shell5555=down"
 else
@@ -235,7 +237,9 @@ def evaluate(host, report, repo_dir=REPO):
 
     # AutoJs6 secondary watchdog liveness (writes every ~20 min).
     wd = report.get("watchdog", "")
-    if report.get("localhost_shell") == "skip":
+    if report.get("autojs6") == "absent":
+        ok_note("%s: AutoJs6 watchdog" % host, "retired — AutoJs6 not installed (K1 cutover, #43)")
+    elif report.get("localhost_shell") == "skip":
         if wd == "fresh":
             ok("%s: AutoJs6 watchdog alive (<30 min)" % host)
         else:
