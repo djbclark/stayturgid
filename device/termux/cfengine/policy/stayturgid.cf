@@ -173,13 +173,22 @@ bundle agent check_stayturgid_agent(p, s) {
       "stayturgid_agent: NOT RUNNING (heartbeat stale or missing) — attempting restart";
 
   commands:
+    # Every run, alive or not: drop heartbeat files a day old — earlier
+    # installs' rows the agent can't see or delete itself. Not gated on
+    # agent_alive: once "(1)".."(31)" exist MediaStore refuses the insert
+    # ("Failed to build unique file"), so the agent can't write a heartbeat
+    # until they're gone (p7a had none for 61 days, 2026-08..09). A live
+    # agent's file is minutes old and never matches.
+    any::
+      "$(p)/bin/find"
+        args => "/sdcard/Download -maxdepth 1 -name 'stayturgid-agent.heartbeat*.txt' -mmin +1440 -delete",
+        contain => silent_bg;
+
     # Alive again: clear the consecutive-failure counter and any
-    # reboot-candidate marker so a past bad patch doesn't linger. Also drop
-    # heartbeat files a day old: earlier installs' rows the agent can't see or
-    # delete itself. The live file is <freshness_sec old here, so it never matches.
+    # reboot-candidate marker so a past bad patch doesn't linger.
     agent_alive::
       "$(p)/bin/bash"
-        args => "-c 'mkdir -p $(s)/state; rm -f $(fail_state) $(reboot_marker); $(p)/bin/find /sdcard/Download -maxdepth 1 -name stayturgid-agent.heartbeat\*.txt -mmin +1440 -delete'",
+        args => "-c 'mkdir -p $(s)/state; rm -f $(fail_state) $(reboot_marker)'",
         contain => silent_bg;
 
     # Not alive: try Termux's own headless broadcast first (no loopback
