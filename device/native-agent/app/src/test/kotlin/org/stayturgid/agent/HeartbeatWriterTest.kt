@@ -26,6 +26,16 @@ class HeartbeatWriterTest {
     }
 
     @Test
+    fun fileNameLikeMatchesMediaStoreRenamedDuplicates() {
+        // SQL LIKE -> regex: '%' is the only wildcard used; everything else is literal.
+        val regex =
+            Regex(HeartbeatWriter.FILE_NAME_LIKE.split("%").joinToString(".*") { Regex.escape(it) })
+        assertEquals(true, regex.matches(HeartbeatWriter.FILE_NAME))
+        assertEquals(true, regex.matches("stayturgid-agent.heartbeat (16).txt"))
+        assertEquals(false, regex.matches("other.heartbeat.txt"))
+    }
+
+    @Test
     fun heartbeatIntervalIsWellUnderTheDocumentedFreshnessThreshold() {
         // Freshness threshold (stayturgid.cf FRESHNESS_SEC / fleet_health.py
         // AGENT_HEARTBEAT_FRESH_SEC) is documented as ~3x this interval + jitter margin — guard the

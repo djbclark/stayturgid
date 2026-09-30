@@ -29,7 +29,7 @@ SSH_PORT = 8022
 # HostService heartbeat interval (see HeartbeatWriter.HEARTBEAT_INTERVAL_MS in
 # device/native-agent/.../Heartbeat.kt) + 60s jitter margin. MUST match
 # FRESHNESS_SEC in device/termux/cfengine/policy/stayturgid.cf — both read the
-# same /sdcard/Download/stayturgid-agent.heartbeat.txt file (the .txt is
+# same /sdcard/Download/stayturgid-agent.heartbeat*.txt files (the .txt is
 # MediaStore's own doing — see HeartbeatWriter.FILE_NAME's comment) with the
 # same threshold so the on-device and Mac-side liveness checks cannot disagree
 # (unify rule, #86). This — not the old agent_age below, which stays
@@ -141,9 +141,11 @@ echo "agent_age=$(_agent_age)"
 # by HostService.kt's dedicated heartbeat thread regardless of whether the
 # Shizuku-bound co-monitor (agent_age, above) is able to run at all. This is
 # the authoritative liveness signal — see AGENT_HEARTBEAT_FRESH_SEC.
+# Newest ts_sec across every heartbeat*.txt: MediaStore renames a new row to
+# "stayturgid-agent.heartbeat (N).txt" when a row it can't see (a previous
+# install's) already holds the name, so the live file isn't always the base one.
 _agent_heartbeat_age() {
-  hb="/sdcard/Download/stayturgid-agent.heartbeat.txt"
-  ts=$(grep -oE 'ts_sec=[0-9]+' "$hb" 2>/dev/null | head -1 | cut -d= -f2)
+  ts=$(grep -hoE 'ts_sec=[0-9]+' /sdcard/Download/stayturgid-agent.heartbeat*.txt 2>/dev/null | cut -d= -f2 | sort -n | tail -1)
   if [ -z "$ts" ]; then echo missing; return; fi
   echo $(($(date +%s) - ts))
 }
@@ -449,7 +451,7 @@ print("unknown")
 else
   echo "agent_age=missing"
 fi
-hb_ts=$(grep -oE 'ts_sec=[0-9]+' /sdcard/Download/stayturgid-agent.heartbeat.txt 2>/dev/null | head -1 | cut -d= -f2)
+hb_ts=$(grep -hoE 'ts_sec=[0-9]+' /sdcard/Download/stayturgid-agent.heartbeat*.txt 2>/dev/null | cut -d= -f2 | sort -n | tail -1)
 if [ -n "$hb_ts" ]; then
   echo "agent_heartbeat_age=$(($(date +%s) - hb_ts))"
 else

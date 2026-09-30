@@ -105,6 +105,11 @@ bundle agent check_bootloop(s) {
 # MediaStore is the plan's own documented fallback and needs no new on-device
 # package.
 #
+# Newest-of-glob, not the one fixed name: when a row the agent can't see (a
+# previous install's) already holds the name, MediaStore saves the new row as
+# "stayturgid-agent.heartbeat (N).txt". Reading only the base name reported a
+# healthy s24 agent stale for 9 days (2026-09-20..30).
+#
 # Freshness threshold (FRESHNESS_SEC = 420s = 7 min): 3x the 120s heartbeat
 # interval (360s, the generous end of "2-3x") + 60s margin for scheduler/Doze
 # jitter (Fire OS is the aggressive case). MUST match
@@ -137,7 +142,7 @@ bundle agent check_bootloop(s) {
 # device down *harder* than the failure it was meant to fix.
 bundle agent check_stayturgid_agent(p, s) {
   vars:
-    "heartbeat_file" string => "/sdcard/Download/stayturgid-agent.heartbeat.txt";
+    "heartbeat_file" string => "/sdcard/Download/stayturgid-agent.heartbeat*.txt";
     "freshness_sec"  string => "420";
     "fail_state"     string => "$(s)/state/agent_restart_failures";
     "reboot_marker"  string => "$(s)/state/agent_reboot_candidate";
@@ -154,7 +159,7 @@ bundle agent check_stayturgid_agent(p, s) {
     # reboot-candidate -> recovery). Do not "clean this up" to $(...)/$((...))
     # without re-verifying on a real device.
     "agent_alive" expression => returnszero(
-      "hb=$(heartbeat_file); ts=`$(p)/bin/grep -oE 'ts_sec=[0-9]+' $hb 2>/dev/null | head -1 | cut -d= -f2`; [ -z $ts ] && ts=0; now=`date +%s`; age=`expr $now - $ts`; [ $age -lt $(freshness_sec) ]",
+      "hb=$(heartbeat_file); ts=`$(p)/bin/grep -hoE 'ts_sec=[0-9]+' $hb 2>/dev/null | cut -d= -f2 | sort -n | tail -1`; [ -z $ts ] && ts=0; now=`date +%s`; age=`expr $now - $ts`; [ $age -lt $(freshness_sec) ]",
       "useshell");
 
   reports:
@@ -165,10 +170,12 @@ bundle agent check_stayturgid_agent(p, s) {
 
   commands:
     # Alive again: clear the consecutive-failure counter and any
-    # reboot-candidate marker so a past bad patch doesn't linger.
+    # reboot-candidate marker so a past bad patch doesn't linger. Also drop
+    # heartbeat files a day old: earlier installs' rows the agent can't see or
+    # delete itself. The live file is <freshness_sec old here, so it never matches.
     agent_alive::
       "$(p)/bin/bash"
-        args => "-c 'mkdir -p $(s)/state; rm -f $(fail_state) $(reboot_marker)'",
+        args => "-c 'mkdir -p $(s)/state; rm -f $(fail_state) $(reboot_marker); $(p)/bin/find /sdcard/Download -maxdepth 1 -name stayturgid-agent.heartbeat\*.txt -mmin +1440 -delete'",
         contain => silent_bg;
 
     # Not alive: try Termux's own headless broadcast first (no loopback

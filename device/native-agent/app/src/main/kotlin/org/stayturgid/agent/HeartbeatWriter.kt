@@ -1,5 +1,6 @@
 package org.stayturgid.agent
 
+import android.content.ContentResolver
 import android.content.ContentUris
 import android.content.ContentValues
 import android.content.Context
@@ -48,6 +49,13 @@ object HeartbeatWriter {
     // Naming it explicitly here keeps the constant truthful instead of fighting that behavior.
     const val FILE_NAME = "stayturgid-agent.heartbeat.txt"
     private const val MIME_TYPE = "text/plain"
+
+    // When a row this install can't see (a previous install's) already holds FILE_NAME, MediaStore
+    // saves our insert as "stayturgid-agent.heartbeat (N).txt". An exact-name lookup then never
+    // finds our own row again, so every process start inserted another one — s24 reached (16)
+    // between 2026-09-20 and 2026-09-30. Match the whole family instead; the readers take the
+    // newest ts_sec across it.
+    const val FILE_NAME_LIKE = "stayturgid-agent.heartbeat%.txt"
 
     /**
      * Tick cadence. Must stay well under the freshness threshold on the reader side (420s in
@@ -141,21 +149,14 @@ object HeartbeatWriter {
         val resolver = context.contentResolver
         val collection = MediaStore.Downloads.EXTERNAL_CONTENT_URI
         val relativePath = Environment.DIRECTORY_DOWNLOADS + "/"
-        val projection = arrayOf(MediaStore.MediaColumns._ID)
-        val selection =
-            "${MediaStore.MediaColumns.DISPLAY_NAME} = ? AND " +
-                "${MediaStore.MediaColumns.RELATIVE_PATH} = ?"
-        try {
-            resolver
-                .query(collection, projection, selection, arrayOf(FILE_NAME, relativePath), null)
-                ?.use { c ->
-                    if (c.moveToFirst()) {
-                        val id = c.getLong(c.getColumnIndexOrThrow(MediaStore.MediaColumns._ID))
-                        return ContentUris.withAppendedId(collection, id)
-                    }
-                }
-        } catch (t: Throwable) {
-            Log.w(TAG, "heartbeat query failed: ${t.message}")
+        val ids = ownRowIdsNewestFirst(resolver, collection, relativePath)
+        if (ids.isNotEmpty()) {
+            // The query only returns rows we own, so everything past the newest is our own
+            // duplicate and safe to delete.
+            ids.drop(1).forEach {
+                deleteQuietly(resolver, ContentUris.withAppendedId(collection, it))
+            }
+            return ContentUris.withAppendedId(collection, ids.first())
         }
         val values =
             ContentValues().apply {
@@ -168,6 +169,44 @@ object HeartbeatWriter {
         } catch (t: Throwable) {
             Log.w(TAG, "heartbeat insert failed: ${t.message}")
             null
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun ownRowIdsNewestFirst(
+        resolver: ContentResolver,
+        collection: Uri,
+        relativePath: String,
+    ): List<Long> {
+        val selection =
+            "${MediaStore.MediaColumns.DISPLAY_NAME} LIKE ? AND " +
+                "${MediaStore.MediaColumns.RELATIVE_PATH} = ?"
+        val ids = mutableListOf<Long>()
+        try {
+            resolver
+                .query(
+                    collection,
+                    arrayOf(MediaStore.MediaColumns._ID),
+                    selection,
+                    arrayOf(FILE_NAME_LIKE, relativePath),
+                    "${MediaStore.MediaColumns.DATE_MODIFIED} DESC",
+                )
+                ?.use { c ->
+                    val col = c.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
+                    while (c.moveToNext()) ids.add(c.getLong(col))
+                }
+        } catch (t: Throwable) {
+            Log.w(TAG, "heartbeat query failed: ${t.message}")
+        }
+        return ids
+    }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun deleteQuietly(resolver: ContentResolver, uri: Uri) {
+        try {
+            resolver.delete(uri, null, null)
+        } catch (t: Throwable) {
+            Log.w(TAG, "heartbeat duplicate delete failed: ${t.message}")
         }
     }
 }
