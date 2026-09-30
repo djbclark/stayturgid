@@ -25,7 +25,10 @@
     "battery_unrestricted": true,
     "disable_unused_restrictions": true,
     "grant_all_runtime": true,
-    "package": "org.stayturgid.agent"
+    "package": "org.stayturgid.agent",
+    "permissions": [
+      "android.permission.POST_NOTIFICATIONS"
+    ]
   },
   {
     "battery_unrestricted": true,
