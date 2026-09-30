@@ -46,10 +46,14 @@ class SetupActivity : ComponentActivity() {
 
     private fun render() {
         val steps = outstandingSetupSteps(SetupSignals.capture(this))
-        setContentView(ScrollView(this).apply { addView(buildRoot(steps)) })
+        val root = buildRoot(steps)
+        SystemBarInsets.addBottomSpacer(root)
+        val scroll = ScrollView(this).apply { addView(root) }
+        SystemBarInsets.applyTo(scroll)
+        setContentView(scroll)
     }
 
-    private fun buildRoot(steps: List<SetupStep>): View =
+    private fun buildRoot(steps: List<SetupStep>): LinearLayout =
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(ROOT_PADDING, ROOT_PADDING, ROOT_PADDING, ROOT_PADDING)

@@ -6,6 +6,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Typeface
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
@@ -25,6 +26,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var status: TextView
     private lateinit var actionBanner: TextView
     private lateinit var authorizeButton: Button
+
+    private var updateView: TextView? = null
 
     private val binderListener = Shizuku.OnBinderReceivedListener { refreshStatus() }
 
@@ -53,6 +56,7 @@ class MainActivity : ComponentActivity() {
                 textSize = 24f
             }
         )
+        root.addView(buildUpdateView())
         root.addView(
             TextView(this).apply {
                 text = buildSummary()
@@ -199,7 +203,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         )
-        setContentView(ScrollView(this).apply { addView(root) })
+        SystemBarInsets.addBottomSpacer(root)
+        val scroll = ScrollView(this).apply { addView(root) }
+        SystemBarInsets.applyTo(scroll)
+        setContentView(scroll)
 
         Shizuku.addBinderReceivedListenerSticky(binderListener)
         Shizuku.addBinderDeadListener(binderDeadListener)
@@ -219,6 +226,40 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         refreshActionState()
+        refreshUpdateStatus()
+    }
+
+    private fun buildUpdateView(): TextView =
+        TextView(this).apply { setPadding(0, 8, 0, 8) }.also { updateView = it }
+
+    /** Cached update state now, then a fresh network check off the main thread. */
+    private fun refreshUpdateStatus() {
+        showUpdateStatus(UpdateCheck.cached(this))
+        Thread {
+                val status = UpdateCheck.checkNow(applicationContext)
+                runOnUiThread { if (!isDestroyed) showUpdateStatus(status) }
+            }
+            .start()
+    }
+
+    private fun showUpdateStatus(status: UpdateCheck.Status) {
+        val view = updateView ?: return
+        val latest = status.latest
+        view.text =
+            when {
+                latest == null -> getString(R.string.update_banner_unknown)
+                status.updateAvailable ->
+                    getString(R.string.update_banner_available, latest.version, status.installed)
+                else -> getString(R.string.update_banner_current, latest.version)
+            }
+        view.setTypeface(null, if (status.updateAvailable) Typeface.BOLD else Typeface.NORMAL)
+        val open =
+            if (latest != null && status.updateAvailable) {
+                View.OnClickListener { startActivity(UpdateCheck.openReleaseIntent(latest)) }
+            } else {
+                null
+            }
+        view.setOnClickListener(open)
     }
 
     private fun buildGuidedSetupButton(): Button =

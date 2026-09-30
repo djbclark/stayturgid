@@ -55,4 +55,11 @@
     <string name="setup_all_set_body">stayturgid-agent has everything it needs on this device.</string>
     <string name="setup_notification_settings_unavailable">Notification settings not available on this device</string>
     <string name="setup_dev_options_unavailable">Developer options not available on this device</string>
+    <string name="update_channel_name">Agent updates</string>
+    <string name="update_channel_desc">A newer stayturgid-agent release is available</string>
+    <string name="update_title">stayturgid-agent %1$s is available</string>
+    <string name="update_text">Installed: %1$s. Tap to open the release.</string>
+    <string name="update_banner_available">Update available: %1$s (installed %2$s). Tap to open the release.</string>
+    <string name="update_banner_current">Up to date (latest release %1$s)</string>
+    <string name="update_banner_unknown">Checking for updates…</string>
 </resources>

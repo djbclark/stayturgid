@@ -160,6 +160,7 @@ class HostService : Service() {
         // before anything Shizuku-related so it never depends on — or can be
         // blocked by — the co-monitor bind/IPC below.
         HeartbeatWriter.start(applicationContext)
+        UpdateCheck.start(applicationContext)
         // Co-monitor always (screen-independent); inject only while interactive.
         startHeartbeatLoop()
         // Peer-start (issue #61): screen-independent, app-process (no local
@@ -214,6 +215,7 @@ class HostService : Service() {
     override fun onDestroy() {
         stopPingLoop()
         HeartbeatWriter.stop()
+        UpdateCheck.stop()
         heartbeatJob?.cancel()
         heartbeatJob = null
         bindWatchdogJob?.cancel()
