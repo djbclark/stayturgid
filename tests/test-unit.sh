@@ -446,6 +446,16 @@ guard_suite() {
   tap_unlike "$(cat "$STUB_LOG")" "still holds a wakelock" \
     "guard[$T]: restore doesn't blame a system WindowManager tag"
 
+  # notification shade open over the keep-screen-on app: mCurrentFocus is a
+  # system window with no package; the app is still attributable via
+  # mFocusedApp, so still no nag (s24, 2026-09-29).
+  : >"$STUB_LOG"
+  export ADB_FOCUSED_APP=com.instagram.android
+  run_sandboxed "$GUARD" check
+  tap_is "$(stub_calls 'termux-notification ')" 0 \
+    "guard[$T]: keep-screen-on app under the notification shade => no notification"
+  unset ADB_FOCUSED_APP
+
   # same holder but foreground unknown: honest fallback notification
   : >"$STUB_LOG"
   export ADB_FG_PKG=null

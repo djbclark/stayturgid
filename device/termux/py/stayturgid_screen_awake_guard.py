@@ -115,11 +115,16 @@ def is_keep_screen_on_holder(tag):
 
 
 def foreground_app():
-    for line in adb_shell("dumpsys", "window").splitlines():
-        if "mCurrentFocus" in line:
-            for field in re.split(r"[ /}]", line):
-                if PKG_RE.match(field):
-                    return field
+    # mCurrentFocus is the input-focused window; when that is a system window
+    # (NotificationShade, StatusBar, lock screen) it carries no package, so
+    # fall back to mFocusedApp — the activity still on screen underneath.
+    lines = adb_shell("dumpsys", "window").splitlines()
+    for key in ("mCurrentFocus", "mFocusedApp"):
+        for line in lines:
+            if key in line:
+                for field in re.split(r"[ /}]", line):
+                    if PKG_RE.match(field):
+                        return field
     return ""
 
 

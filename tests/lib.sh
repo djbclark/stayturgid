@@ -92,6 +92,12 @@ case "$*" in
       exit 0 ;;
   *"dumpsys window"*)
       if [ "${ADB_FG_PKG:-}" = "null" ]; then printf 'mCurrentFocus=null\n'; exit 0; fi
+      if [ -n "${ADB_FOCUSED_APP:-}" ]; then
+        # System window (notification shade, lock screen) has input focus;
+        # the app underneath is only in mFocusedApp.
+        printf 'mCurrentFocus=Window{c5a u0 NotificationShade}\n'
+        printf 'mFocusedApp=ActivityRecord{203 u0 %s/.Main t1}\n' "$ADB_FOCUSED_APP"; exit 0
+      fi
       printf 'mCurrentFocus=Window{1a2 u0 %s/.Main}\n' "${ADB_FG_PKG:-com.sec.android.app.launcher}"; exit 0 ;;
   *"dumpsys power"*)
       printf 'mWakefulness=%s\nmStayOn=%s\n' "${ADB_WAKE:-Awake}" "${ADB_MSTAYON:-false}"
