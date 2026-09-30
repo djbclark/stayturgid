@@ -51,8 +51,11 @@ class HostService : Service() {
             .daemon(true)
             .processNameSuffix("userservice")
             .debuggable(BuildConfig.DEBUG)
-            // Pin version to 1 so Shizuku dedupes the daemon service across app upgrades (#65)
-            .version(1)
+            // Key by version code so an upgrade starts a UserService running the new code; the
+            // pinned .version(1) from #65 kept the old daemon (and its old code) alive until
+            // reboot. The leak #65 guarded against is handled by reapStaleUserServices() in the
+            // new service's constructor, which kills the superseded :userservice pids.
+            .version(BuildConfig.VERSION_CODE)
             .tag("stayturgid-agent")
     }
 

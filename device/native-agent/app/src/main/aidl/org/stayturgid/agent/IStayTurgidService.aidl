@@ -10,7 +10,7 @@ interface IStayTurgidService {
 
     void destroy() = 16777114;
 
-    /** Inject a silent input event to reset app-level idle timers (Phase 1). */
+    /** IPC liveness check; injects nothing (key injection removed 2026-09-29). */
     void pingAwake() = 1;
 
     /**

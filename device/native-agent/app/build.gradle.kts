@@ -16,8 +16,8 @@ android {
         applicationId = "org.stayturgid.agent"
         minSdk = 26
         targetSdk = 36
-        versionCode = 25
-        versionName = "0.9.7-tailscale-tun-detect"
+        versionCode = 26
+        versionName = "0.9.8-no-input-injection"
         val buildTimeUtc =
             System.getenv("SOURCE_DATE_EPOCH")?.toLongOrNull()?.let { Instant.ofEpochSecond(it) }
                 ?: Instant.now().truncatedTo(ChronoUnit.SECONDS)

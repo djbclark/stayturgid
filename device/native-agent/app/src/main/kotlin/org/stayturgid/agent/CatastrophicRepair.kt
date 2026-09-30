@@ -19,7 +19,6 @@ import java.util.concurrent.TimeUnit
  */
 object CatastrophicRepair {
     private const val TAG = "StayTurgidCat"
-    private const val TAILSCALE_COMPONENT = "com.tailscale.ipn/com.tailscale.ipn.MainActivity"
     private const val TAILSCALE_RECEIVER = "com.tailscale.ipn/com.tailscale.ipn.IPNReceiver"
     private const val TAILSCALE_CONNECT_ACTION = "com.tailscale.ipn.CONNECT_VPN"
 
@@ -208,27 +207,18 @@ object CatastrophicRepair {
             return Result(policyOk, detail)
         }
 
-        // Activity launch is a best-effort prompt/fallback. It requires an
-        // unlocked screen and operator input. Never foreground the GUI if the
-        // VPN tunnel interface is actually up (e.g. transient control-plane ping failure).
+        // Never launch Tailscale's MainActivity: it foregrounds over whatever the user is doing,
+        // and a stale/flaky probe (e.g. the tun0-only bug fixed in 0.9.7) turned that into a
+        // pop-up every heartbeat. Same policy as the Termux repair path (#199): report and leave
+        // the foreground app alone; an unlocked human can reconnect from the notification.
         if (ComonitorProbes.isTailscaleTunnelUp()) {
-            val detail = "tailscale tunnel up; control-plane probe flaky (GUI launch suppressed)"
+            val detail = "tailscale tunnel up; control-plane probe flaky"
             appendLog("[agent] $detail")
             return Result(policyOk, detail)
         }
-
-        shellOut(arrayOf("am", "start", "-n", TAILSCALE_COMPONENT), 8)
-        val restored = waitForTailscaleUp(attempts = 3)
-        val detail =
-            if (restored && policyOk) {
-                "tailscale restored after activity fallback"
-            } else if (restored) {
-                "tailscale restored after activity fallback; always-on policy repair failed"
-            } else {
-                "tailscale still down after CONNECT_VPN and activity fallback"
-            }
+        val detail = "tailscale still down after CONNECT_VPN; operator action may be required"
         appendLog("[agent] $detail")
-        return Result(restored && policyOk, detail)
+        return Result(false, detail)
     }
 
     private fun waitForTailscaleUp(attempts: Int): Boolean {
