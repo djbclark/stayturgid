@@ -208,7 +208,9 @@ repos:
       - id: ansible-lint-project
         name: ansible-lint
         entry: >-
-          bash -c 'ansible-galaxy collection install -r ansible/requirements.yml
+          bash -c 'ANSIBLE_COLLECTIONS_SCAN_SYS_PATH=False
+          ANSIBLE_COLLECTIONS_PATH=.ansible/collections
+          ansible-galaxy collection install -r ansible/requirements.yml
           -p .ansible/collections >/dev/null 2>&1 || true; cd ansible &&
           ansible-lint playbooks/ ../ansible_collections/stayturgid/'
         language: python
