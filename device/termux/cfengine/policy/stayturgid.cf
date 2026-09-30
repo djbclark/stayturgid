@@ -57,13 +57,22 @@ bundle agent check_sshd(p) {
         contain => silent_bg;
 }
 
+# Only where the deploy installed the boot script: stayturgid_otelcol_enabled
+# is false on some models (t2e's binary fails the runtime probe), and calling
+# the missing script failed with 127 on every run there.
 bundle agent check_otelcol(p, home) {
+  classes:
+    "otelcol_enabled" expression => fileexists("$(home)/.termux/boot/start-otelcol.sh");
+
   processes:
-    ".*otelcol-contrib.*"
-      restart_class => "restart_otelcol";
+    otelcol_enabled::
+      ".*otelcol-contrib.*"
+        restart_class => "restart_otelcol";
 
   reports:
-    !restart_otelcol::
+    !otelcol_enabled::
+      "otelcol: disabled on this device";
+    otelcol_enabled.!restart_otelcol::
       "otelcol: running";
     restart_otelcol::
       "otelcol: RESTARTING";
