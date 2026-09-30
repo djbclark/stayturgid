@@ -154,6 +154,9 @@ object UpdateCheck {
             }
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             if (prefs.getString(KEY_NOTIFIED, null) == latest.version) return
+            // Blocked notifications are dropped silently; don't record this version as
+            // announced, so it still gets announced once they are allowed.
+            if (!nm.areNotificationsEnabled()) return
             ensureChannel(context, nm)
             nm.notify(NOTIFICATION_ID, buildNotification(context, status.installed, latest))
             prefs.edit().putString(KEY_NOTIFIED, latest.version).apply()
