@@ -270,9 +270,7 @@ HUMAN_ACTIONS = {
         "The self-heal monitor will attempt to restart it. "
         "If persistent, run: just verify-heal HOSTS=<host>"
     ),
-    "repair_missing": (
-        "No repair log found. The Termux boot loop may not be running. Run: just deploy-termux <host>"
-    ),
+    "repair_missing": "No repair log found. The Termux boot loop may not be running. Run: just deploy-termux <host>",
     "shizuku_down": (
         "Shizuku is not running. The repair loop should auto-restart it. "
         "If persistent, open the Shizuku app and tap Start."

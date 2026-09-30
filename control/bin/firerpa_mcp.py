@@ -16,10 +16,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
 import control.bin.firerpa_heal as heal
+from control.lib import secretspec_exec
 from control.lib.firerpa_auth import certificate_path
 from control.lib.firerpa_consent import HealSession, check_consent
 from control.lib.firerpa_fleet import get_fleet
-from control.lib import secretspec_exec
 from control.lib.secretspec_exec import APPROVED_SECRET, secretspec_token_command
 from control.lib.site_logging import ERROR, log
 
