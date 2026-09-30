@@ -64,7 +64,7 @@ else
     uid=$(adb -s localhost:5555 shell id -u 2>/dev/null </dev/null | tr -d "\r")
     [ "$uid" = "2000" ] && echo "shell5555=ok" || echo "shell5555=down"
 fi
-last=$(grep -h "\[repair\]" "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
+last=$(grep -ah "\[repair\]" "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
 if [ -n "$last" ]; then
     age=$(( $(date +%s) - $(date -d "$last" +%s 2>/dev/null || echo 0) ))
     [ "$age" -ge 0 ] && [ "$age" -lt 2700 ] && echo "repairlog=fresh" || echo "repairlog=stale"
@@ -74,7 +74,7 @@ fi
 # AutoJs6 secondary watchdog liveness: it writes a [watchdog] line every ~20
 # min (INTERVAL_MS). A gap > ~30 min means the engine stalled (Doze, a11y
 # block, crash) — the layer we can't see from the repair log alone.
-wlast=$(grep -h "\[watchdog\]" "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
+wlast=$(grep -ah "\[watchdog\]" "$SD/logs/watchdog.log" /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | cut -d" " -f1,2)
 if [ -n "$wlast" ]; then
     wage=$(( $(date +%s) - $(date -d "$wlast" +%s 2>/dev/null || echo 0) ))
     [ "$wage" -ge 0 ] && [ "$wage" -lt 1800 ] && echo "watchdog=fresh" || echo "watchdog=stale:${wage}s"
@@ -472,7 +472,13 @@ def check_host(host, tap, heal=False, ansible_check=False):
         tap.emit({"kind": "fail", "desc": "%s: Mac adb path reachable" % host, "detail": "serial=%s" % serial})
 
     if heal:
-        out = ssh_gather(host, '"$HOME/.stayturgid/bin/stayturgid_repair.py"\n', timeout=30)
+        # STATUS goes to run/repair.status, never stdout (109adba: it popped up in the
+        # user's Termux window every cycle).
+        out = ssh_gather(
+            host,
+            '"$HOME/.stayturgid/bin/stayturgid_repair.py" >/dev/null 2>&1; cat "$HOME/.stayturgid/run/repair.status"\n',
+            timeout=30,
+        )
         last = out.strip().splitlines()[-1] if out.strip() else ""
         tap.emit(parse_heal(last))
 
