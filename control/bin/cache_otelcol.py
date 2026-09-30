@@ -56,7 +56,12 @@ def validate_linux_arm64_elf(path: Path) -> None:
 def _download(url: str, destination: Path) -> None:
     request = urllib.request.Request(url, headers={"User-Agent": "stayturgid-otelcol-cache/1"})
     try:
-        with urllib.request.urlopen(request, timeout=120) as response, destination.open("wb") as out:  # nosemgrep
+        # bandit B310 (urlopen scheme audit) is a false positive: the URL is the pinned artifact
+        # URL and the download is sha256-verified before use.
+        with (
+            urllib.request.urlopen(request, timeout=120) as response,  # nosemgrep  # nosec B310
+            destination.open("wb") as out,
+        ):
             shutil.copyfileobj(response, out)
     except (OSError, urllib.error.URLError) as exc:
         raise ArtifactError(f"download failed for {url}: {exc}") from exc

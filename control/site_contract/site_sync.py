@@ -422,7 +422,7 @@ def _render_template(template_path: Path, context: dict[str, Any], product_root_
     environment = Environment(  # nosemgrep
         undefined=StrictUndefined,
         keep_trailing_newline=True,
-        autoescape=False,
+        autoescape=False,  # nosec B701  # renders YAML/JSON/Caddy/config, not HTML; escaping would corrupt them
     )
     environment.filters["json_string_escape"] = _json_string_escape
     environment.filters["shell_quote"] = _shell_quote

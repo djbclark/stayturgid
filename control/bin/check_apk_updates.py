@@ -46,7 +46,7 @@ def latest_tag_for(gh_repo):
     req.add_header("User-Agent", "stayturgid-updater")
 
     try:
-        with urllib.request.urlopen(req) as response:  # nosec B310 — fixed-scheme https URL, ansible-pinned repos
+        with urllib.request.urlopen(req) as response:  # nosec B310  # fixed-scheme https URL, ansible-pinned repos
             release_data = json.loads(response.read().decode())
             return release_data.get("tag_name")
     except urllib.error.HTTPError as e:
@@ -58,7 +58,7 @@ def latest_tag_for(gh_repo):
         req = urllib.request.Request(url)
         req.add_header("User-Agent", "stayturgid-updater")
         try:
-            with urllib.request.urlopen(req) as response:  # nosec B310 — same fixed-scheme GitHub API URL
+            with urllib.request.urlopen(req) as response:  # nosec B310  # same fixed-scheme GitHub API URL
                 tags_data = json.loads(response.read().decode())
                 return tags_data[0].get("name") if tags_data else None
         except Exception as ex:

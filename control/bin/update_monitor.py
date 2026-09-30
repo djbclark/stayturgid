@@ -65,7 +65,7 @@ def fetch_github_latest_release(repo: str) -> Optional[str]:
         headers["Authorization"] = f"Bearer {token}"
     req = urllib.request.Request(url, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=10) as response:  # nosec B310  # fixed https GitHub API URL
             data = json.loads(response.read().decode("utf-8"))
             tag = data.get("tag_name", "")
             return tag.lstrip("v")
@@ -139,7 +139,7 @@ def push_to_victoriametrics(metrics: List[str], vm_url: str = "http://127.0.0.1:
         vm_url, data=payload.encode("utf-8"), headers={"Content-Type": "text/plain"}, method="POST"
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as response:
+        with urllib.request.urlopen(req, timeout=10) as response:  # nosec B310  # local VictoriaMetrics http URL
             if response.status not in (200, 204):
                 logging.error(f"VictoriaMetrics returned {response.status}: {response.read()}")
             else:

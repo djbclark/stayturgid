@@ -95,7 +95,7 @@ def ssh_upgradable(host: str, *, refresh: bool = True) -> tuple[list[dict[str, s
     refresh_cmd = "pkg update -y >/dev/null 2>&1 || true\n" if refresh else ""
     remote = (
         f"export PATH={TERMUX_PREFIX}/bin:$PATH\n"
-        f"export TMPDIR={TERMUX_PREFIX}/tmp\n"
+        f"export TMPDIR={TERMUX_PREFIX}/tmp\n"  # nosec B108  # remote Termux app-private tmp, not a host /tmp
         "export DEBIAN_FRONTEND=noninteractive\n"
         f"{refresh_cmd}"
         "apt list --upgradable 2>/dev/null\n"

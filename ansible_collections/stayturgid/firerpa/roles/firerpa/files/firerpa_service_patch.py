@@ -47,7 +47,9 @@ def _repair_dex_header(dex: bytearray) -> None:
     """Recalculate the DEX SHA-1 signature and Adler-32 checksum in place."""
     if len(dex) < 32 or not dex.startswith(b"dex\n"):
         raise PatchError("classes.dex has an invalid DEX header")
-    dex[12:32] = hashlib.sha1(dex[32:]).digest()  # nosemgrep
+    # SHA-1 here is the DEX header signature field mandated by the file format, not a security
+    # control; usedforsecurity=False (Python 3.9+) says so and yields the identical digest.
+    dex[12:32] = hashlib.sha1(dex[32:], usedforsecurity=False).digest()  # nosemgrep
     checksum = zlib.adler32(dex[12:]) & 0xFFFFFFFF
     dex[8:12] = checksum.to_bytes(4, "little")
 

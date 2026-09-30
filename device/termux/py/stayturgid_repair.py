@@ -37,7 +37,7 @@ _SEV_LABEL = {
 
 PREFIX = os.environ.get("PREFIX", "/data/data/com.termux/files/usr")
 HOME = os.environ.get("HOME", "/data/data/com.termux/files/home")
-TMPDIR = os.environ.get("TMPDIR", PREFIX + "/tmp")
+TMPDIR = os.environ.get("TMPDIR", PREFIX + "/tmp")  # nosec B108  # Termux app-private $PREFIX/tmp, not /tmp
 os.environ["PATH"] = PREFIX + "/bin:" + PREFIX + "/sbin:" + os.environ.get("PATH", "")
 os.environ["LC_ALL"] = "C"
 

@@ -200,7 +200,7 @@ def _render_template(template_path: Path, context: dict[str, str]) -> bytes:
     environment = Environment(  # nosemgrep
         undefined=StrictUndefined,
         keep_trailing_newline=True,
-        autoescape=False,
+        autoescape=False,  # nosec B701  # renders YAML/TOML/justfile/config, not HTML; escaping would corrupt them
     )
     text = template_path.read_text(encoding="utf-8")
     rendered = environment.from_string(text).render(**context)

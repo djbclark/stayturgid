@@ -218,7 +218,7 @@ def main(argv: list[str] | None = None) -> int:
                 "-t",
                 aas,
                 "--list-versions",
-                "/tmp",
+                "/tmp",  # nosec B108  # apkeep's required OUTPUT arg; --list-versions writes nothing
             ],
             capture_output=True,
             text=True,

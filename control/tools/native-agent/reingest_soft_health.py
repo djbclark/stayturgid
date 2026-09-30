@@ -58,7 +58,7 @@ def _post_batch(uri: str, user: str, password: str, rows: list[dict]) -> None:
         try:
             # URI is default localhost OO or operator --uri; not untrusted web input.
             # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-            with urllib.request.urlopen(req, timeout=60) as resp:
+            with urllib.request.urlopen(req, timeout=60) as resp:  # nosec B310  # see comment above
                 if 200 <= resp.status < 300:
                     return
                 raise RuntimeError(f"HTTP {resp.status}")
