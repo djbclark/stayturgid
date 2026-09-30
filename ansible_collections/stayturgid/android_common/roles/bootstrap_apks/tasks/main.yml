@@ -11,6 +11,32 @@
     _bootstrap_adb: "{{ target_device | default(lookup('stayturgid.android_common.adb_device', inventory_hostname)) }}"
   delegate_to: localhost
 
+# Resigned APKs (Shizuku fork) need apksigner from the Mac's Android SDK. A
+# disk cleanup that removed build-tools aborted a p7a deploy mid-play
+# (2026-09-29), so reinstall the exact build-tools the path names if missing.
+- name: Check apksigner for resigned bootstrap APKs
+  ansible.builtin.stat:
+    path: "{{ stayturgid_apksigner_bin }}"
+  register: _apksigner_stat
+  delegate_to: localhost
+  run_once: true
+  when: stayturgid_bootstrap_apks | selectattr('resign', 'defined') | selectattr('resign') | list | length > 0
+
+- name: Install Android build-tools providing apksigner
+  ansible.builtin.shell: >-
+    set -o pipefail;
+    yes | sdkmanager --sdk_root={{ (stayturgid_apksigner_bin | dirname | dirname | dirname) | quote }}
+    {{ ('build-tools;' ~ (stayturgid_apksigner_bin | dirname | basename)) | quote }} >/dev/null
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  run_once: true
+  changed_when: true
+  when:
+    - _apksigner_stat.stat is defined
+    - not (_apksigner_stat.stat.exists | default(true))
+    - not ansible_check_mode
+
 - name: Validate immutable bootstrap APK lock
   ansible.builtin.assert:
     that:

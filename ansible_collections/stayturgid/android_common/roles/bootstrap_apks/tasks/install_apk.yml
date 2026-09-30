@@ -136,6 +136,28 @@
     - _apk.service_component | default('') | length > 0
     - not ansible_check_mode or _installed_version == _apk.version_name
 
+# A package in Android's stopped state gets no BOOT_COMPLETED, so a stopped
+# Termux:Boot silently skips every boot script after the next reboot (t2e,
+# 2026-09-27: boot loop dead 2.5 days). `cmd package unstop` (Android 15+)
+# clears the state with no UI, so it runs on every convergence, not only
+# after an install.
+- name: Clear stopped-package state without UI — {{ _apk.id }}
+  delegate_to: localhost
+  ansible.builtin.command:
+    argv:
+      - adb
+      - -s
+      - "{{ _bootstrap_adb }}"
+      - shell
+      - cmd package unstop {{ _apk.id }}
+  register: _apk_unstop
+  # Output is identical whether or not it was stopped, so it can't report change.
+  changed_when: false
+  failed_when: false
+  when:
+    - _apk.monkey | default(false)
+    - not ansible_check_mode
+
 - name: Launch via monkey (un-stop package) — {{ _apk.id }}
   delegate_to: localhost
   ansible.builtin.command:
@@ -147,12 +169,14 @@
       - monkey -p {{ _apk.id }} -c android.intent.category.LAUNCHER 1 2>/dev/null
   changed_when: false
   failed_when: false
-  # A launcher intent visibly foregrounds the app. It is only needed directly
-  # after an install to clear Android's stopped-package state; never do it on
-  # a routine desired-state convergence (#199).
+  # A launcher intent visibly foregrounds the app. It is only a fallback for
+  # builds without `cmd package unstop`, directly after an install; never do
+  # it on a routine desired-state convergence (#199).
   when:
     - _apk.monkey | default(false)
     - _apk_install.changed | default(false)
+    # Only where `cmd package unstop` is unavailable (pre-Android 15, Fire OS).
+    - (_apk_unstop.rc | default(1)) != 0 or 'Unknown command' in (_apk_unstop.stdout | default(''))
 
 - name: Grant Shizuku permission — {{ _apk.id }}
   delegate_to: localhost
