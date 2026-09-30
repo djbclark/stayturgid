@@ -62,9 +62,11 @@ agent-review:
     @git diff HEAD
     @echo '```'
 
+# docs/research/autojs6-hd8-project is a frozen reference snapshot: its main.ts
+# imports device/autojs6/, deleted in #168, so it can no longer be compiled.
+# Its checked-in main.js stays as-is (still covered by check-ts and biome).
 # Build TypeScript files into JavaScript and add generated header
 build-ts:
-    bunx tsc -p docs/research/autojs6-hd8-project/tsconfig.json
     bunx tsc -p just/tools/tsconfig.json
     bunx biome format --write just/tools docs/research
     python3 just/tools/add_generated_header.py
