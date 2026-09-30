@@ -32,6 +32,26 @@ def test_parse_ungranted_runtime_permissions():
     assert "android.permission.POST_NOTIFICATIONS" not in perms
 
 
+INLINE_DUMPSYS = """
+    install permissions:
+      android.permission.INTERNET: granted=true
+    User 0: ceDataInode=238115 installed=true stopped=false
+      gids=[3003]
+      runtime permissions:
+        android.permission.POST_NOTIFICATIONS: granted=false, flags=[ USER_SENSITIVE_WHEN_GRANTED|USER_SENSITIVE_WHEN_DENIED]
+        moe.shizuku.manager.permission.API_V23: granted=true
+    User 150: ceDataInode=0 installed=false stopped=true
+      runtime permissions:
+        android.permission.CAMERA: granted=false, flags=[]
+"""
+
+
+def test_parse_ungranted_runtime_permissions_inline_format_user0_only():
+    # Current Android layout (s24, Android 16, 2026-09-30): one line per
+    # permission, per-user blocks; only user 0's runtime section counts.
+    assert adb_shell.parse_ungranted_runtime_permissions(INLINE_DUMPSYS) == ["android.permission.POST_NOTIFICATIONS"]
+
+
 def test_parse_permission_granted_supports_android_dump_formats():
     assert adb_shell.parse_permission_granted(SAMPLE_DUMPSYS, "android.permission.POST_NOTIFICATIONS")
     assert not adb_shell.parse_permission_granted(SAMPLE_DUMPSYS, "android.permission.CAMERA")

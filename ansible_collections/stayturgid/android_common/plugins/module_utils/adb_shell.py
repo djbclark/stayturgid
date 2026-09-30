@@ -195,10 +195,12 @@ def dumpsys_package(run_command, device, package):
 def parse_ungranted_runtime_permissions(dumpsys_output):
     """Return permission names still granted=false in dumpsys package output.
 
-    Android ``dumpsys package`` may contain permission entries for multiple
-    users (user 0 + work profiles).  We only care about user 0 (the first
-    section) since that is where fleet apps run.  Sections are separated by
-    lines containing only ``--``.
+    Only user 0 counts (fleet apps run there; work profiles and private spaces
+    follow as later ``User N:`` blocks or ``--``-separated sections). Two
+    layouts exist: the older one puts ``name:`` and ``granted=...`` on separate
+    lines; current Android prints ``name: granted=false, flags=[...]`` on one
+    line under ``runtime permissions:``. Reading only the older layout made
+    grant_all_runtime a silent no-op on every current device (2026-09-30).
     """
     import re
 
@@ -206,13 +208,27 @@ def parse_ungranted_runtime_permissions(dumpsys_output):
     perms = []
     current = None
     in_user0 = True  # first section is user 0
+    in_runtime = False
     for line in text.splitlines():
         stripped = line.strip()
         # Section separator between user profiles
         if stripped == "--":
             in_user0 = False
             continue
+        user = re.match(r"^User (\d+):", stripped)
+        if user:
+            in_user0 = user.group(1) == "0"
+            in_runtime = False
+            continue
         if not in_user0:
+            continue
+        if stripped.endswith("permissions:"):
+            in_runtime = stripped == "runtime permissions:"
+            continue
+        inline = re.match(r"^(\w+(?:\.\w+)+): granted=(true|false)\b", stripped)
+        if inline:
+            if in_runtime and inline.group(2) == "false":
+                perms.append(inline.group(1))
             continue
         name = re.match(r"^((?:android|com)\.[\w.]+):$", stripped)
         if name:
