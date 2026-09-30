@@ -53,7 +53,9 @@ except ImportError:
     _mod_dir = os.path.dirname(os.path.abspath(__file__))
     if _mod_dir not in sys.path:
         sys.path.insert(0, _mod_dir)
-    from adb_timeout import (
+    # Same names as the collection import above (non-collection load path); mypy
+    # would flag the rebinding as no-redef.
+    from adb_timeout import (  # type: ignore[no-redef]
         DEFAULT_FAST_TIMEOUT,
         run_command_with_timeout,
     )

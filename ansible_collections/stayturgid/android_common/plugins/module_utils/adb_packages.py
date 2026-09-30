@@ -20,7 +20,9 @@ except ImportError:
     _mod_dir = os.path.dirname(os.path.abspath(__file__))
     if _mod_dir not in sys.path:
         sys.path.insert(0, _mod_dir)
-    from adb_shell import (
+    # Same names as the collection import above (non-collection load path); mypy
+    # would flag the rebinding as no-redef.
+    from adb_shell import (  # type: ignore[no-redef]
         adb_connect,
         adb_shell,
         normalize_adb_output,

@@ -13,8 +13,9 @@ _injected_lamda = "lamda" not in sys.modules
 if _injected_lamda:
     _lamda_pkg = types.ModuleType("lamda")
     _lamda_client = types.ModuleType("lamda.client")
-    _lamda_client.Device = object
-    _lamda_pkg.client = _lamda_client
+    # setattr: ModuleType has no declared Device/client attributes for mypy.
+    setattr(_lamda_client, "Device", object)
+    setattr(_lamda_pkg, "client", _lamda_client)
     sys.modules["lamda"] = _lamda_pkg
     sys.modules["lamda.client"] = _lamda_client
 

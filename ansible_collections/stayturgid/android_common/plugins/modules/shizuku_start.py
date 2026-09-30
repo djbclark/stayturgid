@@ -154,7 +154,9 @@ except ImportError:
     _mod_utils = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "module_utils")
     if _mod_utils not in sys.path:
         sys.path.insert(0, _mod_utils)
-    from adb_timeout import (
+    # Same names as the collection import above (non-collection load path); mypy
+    # would flag the rebinding as no-redef.
+    from adb_timeout import (  # type: ignore[no-redef]
         DEFAULT_SLOW_TIMEOUT,
         run_command_with_timeout,
     )

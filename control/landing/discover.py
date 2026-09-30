@@ -18,7 +18,7 @@ from collections.abc import Callable, Mapping
 from html.parser import HTMLParser
 from http.client import HTTPException
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, overload
 from urllib.error import HTTPError, URLError
 from urllib.parse import urljoin
 from urllib.request import HTTPRedirectHandler, Request, build_opener
@@ -548,6 +548,24 @@ def _parse_ports_yaml_fallback(path: Path) -> dict[int, str]:
     return {p: str(e.get("service", f"Port {p}")) for p, e in entries.items()}
 
 
+@overload
+def load_registered_ports(
+    registry_path: Path | None = None,
+    *,
+    site_dir: Path | None = None,
+    return_map: Literal[False] = False,
+) -> set[int]: ...
+
+
+@overload
+def load_registered_ports(
+    registry_path: Path | None = None,
+    *,
+    site_dir: Path | None = None,
+    return_map: Literal[True],
+) -> dict[int, str]: ...
+
+
 def load_registered_ports(
     registry_path: Path | None = None,
     *,
@@ -991,7 +1009,7 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
                     if stale_url != url and stale_url not in catalog_urls:
                         known_urls.pop(stale_url, None)
                 if url not in known_urls:
-                    entry: dict[str, Any] = {
+                    entry = {
                         "url": url,
                         "label": fresh_label,
                         "group": "mac",
@@ -1085,11 +1103,12 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
         else:
             # Check if this is an auto-discovered unregistered port that is no longer reachable.
             # Dynamic localhost entries (e.g., ephemeral ports) that are no longer listening are pruned.
+            url_port: int | None
             try:
-                port = int(url.rsplit(":", 1)[-1]) if ":" in url else None
+                url_port = int(url.rsplit(":", 1)[-1]) if ":" in url else None
             except ValueError:
-                port = None
-            is_registered_port = registered is not None and port is not None and port in registered
+                url_port = None
+            is_registered_port = registered is not None and url_port is not None and url_port in registered
             is_static = url in static_urls or is_registered_port
 
             if not is_static and (s.get("unregistered") or url.startswith("http://localhost:")):
@@ -1099,9 +1118,9 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
             if s.get("last_seen") is None:
                 # Might just be down temporarily; also try TCP
                 host = url.split("://")[1].split(":")[0]
-                if port is None:
-                    port = 80
-                if _tcp_probe(host, port):
+                if url_port is None:
+                    url_port = 80
+                if _tcp_probe(host, url_port):
                     s["reachable"] = False
 
             if url not in hidden:
