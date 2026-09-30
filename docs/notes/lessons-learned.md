@@ -306,3 +306,33 @@ processes, _before_ `adb install -r`. This lives in
 device on demand. The fleet keeps the **debug** build (provisioning's `run-as`
 needs a debuggable build). Found on hd8 and s24 (both had release 0.3.x left
 over under the newer debug build).
+
+## Silent-failure traps in device probes (found 2026-09-30)
+
+Each of these made a check report the wrong thing for days or weeks with no
+error anywhere.
+
+1. **MediaStore renames instead of overwriting.** An app can only see its own
+   rows in `MediaStore.Downloads`. After a reinstall, the old install's row
+   still holds the name, so an insert lands as `name (N).txt`, and an
+   exact-name lookup never finds that row again. At `(31)` MediaStore refuses
+   the insert outright ("Failed to build unique file"). s24's heartbeat read 9
+   days stale while the agent was healthy; p7a had no heartbeat for 61 days.
+   **How to apply:** readers take the newest of the whole `name*.txt` family;
+   the writer matches its own rows by `LIKE` prefix; stale family members are
+   deleted from outside the app (Termux can).
+2. **One NUL byte blinds GNU grep.** A log with a write torn by a crash or
+   reboot is treated as binary: grep prints "binary file matches" and
+   suppresses every later match. p7a's repair age froze at 2026-09-15.
+   **How to apply:** `grep -a` on every device log read. Toybox grep (adb
+   shell) is unaffected, which is why the two probe paths disagreed.
+3. **`pgrep`/`pkill -f` match their own shell.** In `bash -c '… pkill -f
+start_adb …'` or CFEngine `returnszero(…, "useshell")`, the pattern is in
+   the shell's own command line: `pgrep` always "finds" it and `pkill` kills
+   the shell running it. **How to apply:** write the pattern so it can't
+   match its own text (`start_adb[.]py`), or match on the process name with
+   `pgrep -x`.
+4. **CFEngine eats shell `$(...)` inside `returnszero()`** (already noted on
+   `check_stayturgid_agent` in `stayturgid.cf`): the command silently never
+   runs and the class is never set. **How to apply:** backticks, `expr`,
+   `find -mmin` — no `$(`/`${`/`$((` in shell strings CFEngine will scan.
