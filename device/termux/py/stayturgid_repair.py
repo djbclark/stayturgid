@@ -521,10 +521,17 @@ def ensure_wireless_debugging():
     if wifi in ("null", ""):
         log("wireless debugging: cannot reach shell (adb_wifi_enabled=%s)" % wifi, ERR)
         return "NO_SHELL"
-    # Port is open and shell works — wireless debugging is functionally up.
-    # On both Samsung (cosmetic toggle=0) and Pixel (settings put blocked on
-    # Android 16), the toggle value is irrelevant when 5555 responds.
+    # Shell works, so adb is functionally up whatever the toggle says. Still
+    # re-assert it: Android itself turns Wireless debugging off on every Wi-Fi
+    # disconnect and BSSID roam ("Detected wifi network change. Disabling
+    # adbwifi."), and a uid-2000 write brings it back on t2e (Android 16,
+    # verified 2026-09-29). Where the write is blocked (some Pixel builds) it
+    # is a harmless no-op and the live shell still counts as up.
     if _rc == 0:
+        sh_adb("settings put global adb_wifi_enabled 1")
+        if sh_adb("settings get global adb_wifi_enabled")[1].strip() in ("1", "true"):
+            log("wireless debugging was off -> re-enabled adb_wifi_enabled")
+            return "repaired"
         return "up"
     # Toggle reads 0 but shell responded — cosmetic false on Samsung/
     # some OneUI where adb_wifi_enabled is disconnected from the actual

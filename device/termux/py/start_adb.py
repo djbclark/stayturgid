@@ -128,6 +128,28 @@ def _boot_log(msg: str) -> None:
         pass
 
 
+def _running_bootloop_pid() -> int:
+    """PID of a live start_adb.py loop recorded in the pidfile, else 0."""
+    try:
+        with open(BOOTLOOP_PID_FILE) as f:
+            pid = int(f.read().strip() or 0)
+    except (OSError, ValueError):
+        return 0
+    if pid <= 0:
+        return 0
+    try:
+        with open("/proc/%d/cmdline" % pid, "rb") as f:
+            cmdline = f.read().decode(errors="replace")
+    except OSError:
+        # No /proc (unit tests on macOS) or the pid is gone.
+        try:
+            r = subprocess.run(["ps", "-p", str(pid), "-o", "command="], capture_output=True, text=True, timeout=5)
+            cmdline = r.stdout
+        except (OSError, subprocess.TimeoutExpired):
+            return 0
+    return pid if "start_adb" in cmdline else 0
+
+
 def _pid_alive(pidfile: str) -> bool:
     try:
         with open(pidfile) as f:
@@ -515,6 +537,14 @@ def main() -> int:
 
     startup_sshd()
     startup_cfserverd()
+
+    # One loop per device. Termux:Boot, the deploy handler (which kills the
+    # recorded loop first), and the Mac fleet-health heal can all land here;
+    # without this a second start ran two loops side by side (t2e 2026-09-29).
+    running = _running_bootloop_pid()
+    if running:
+        _boot_log(f"bootloop already running (pid {running}); not starting another")
+        return 0
 
     pid = os.fork()
     if pid == 0:

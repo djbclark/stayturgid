@@ -117,9 +117,9 @@ repair_suite() {
   run_sandboxed "$RSCRIPT"
   unset ADB_WIFI
   _RSTATUS="$(cat "$SANDBOX/home/.stayturgid/run/repair.status" 2>/dev/null || echo "$OUT")"
-  tap_like "$_RSTATUS" "wifi=up" "repair[$T]: cosmetic wifi=0 with live shell => healthy"
-  tap_unlike "$(cat "$STUB_LOG")" "settings put global adb_wifi_enabled" \
-    "repair[$T]: live shell avoids an ineffective Android 16 toggle write"
+  tap_like "$_RSTATUS" "wifi=repaired" "repair[$T]: toggle=0 with live shell => re-asserted, healthy"
+  tap_like "$(cat "$STUB_LOG")" "settings put global adb_wifi_enabled" \
+    "repair[$T]: live shell still re-asserts the toggle Android drops on Wi-Fi changes"
 
   # a11y: detection-only — no longer auto-repairs, reports status.
   # AutoJs6 is retired fleet-wide, so this legacy detection path only fires
@@ -602,6 +602,12 @@ fi
 # The parent intentionally records the child before startup_firerpa() runs.
 # Observe the asynchronous launch before terminating the sandbox daemon.
 wait_stub_like "firerpa_lifecycle.py start" || true
+FIRST_LOOP="$(cat "$SANDBOX/home/.stayturgid/run/bootloop.pid" 2>/dev/null)"
+run_sandboxed "$START_ADB"
+tap_is "$(cat "$SANDBOX/home/.stayturgid/run/bootloop.pid" 2>/dev/null)" "$FIRST_LOOP" \
+  "start-adb: second start leaves the running loop's pidfile alone"
+tap_like "$(cat "$SANDBOX/home/.stayturgid/logs/boot.log" 2>/dev/null)" "already running" \
+  "start-adb: second start refuses to launch a duplicate loop"
 kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bootloop.pid"
 tap_is "$RC" 0 "start-adb: exits 0 after launching boot loop"
 
