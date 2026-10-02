@@ -86,8 +86,11 @@ def test_termux_ssh_bootstrap_idempotent_when_present(mocker, tmp_path):
     pub = tmp_path / "k.pub"
     pub.write_text("ssh-ed25519 EXISTING key\n", encoding="utf-8")
 
+    calls = []
+
     def fake_run_command(self, cmd, *a, **kw):
         joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
+        calls.append(joined)
         if "run-as com.termux true" in joined:
             return (0, "", "")
         if "pm path" in joined:
@@ -96,8 +99,12 @@ def test_termux_ssh_bootstrap_idempotent_when_present(mocker, tmp_path):
             return (0, "ssh-ed25519 EXISTING key\n", "")
         if "test -x" in joined and "sshd" in joined:
             return (0, "", "")
-        if "pgrep -x sshd" in joined:
-            return (0, "", "")
+        # Liveness is sshd's SELinux domain, not a bare pgrep: sshd started via
+        # run-as lands in runas_app, which has no /sdcard mount (#306). Report
+        # one already running in untrusted_app — the "already present" case this
+        # test is named for. `ps -A -Z` puts the context first, the name last.
+        if "ps -A -Z" in joined:
+            return (0, "u:r:untrusted_app:s0:c123,c256,c512,c768 u0_a601 4321 1 sshd\n", "")
         return (0, "", "")
 
     mocker.patch("ansible.module_utils.basic.AnsibleModule.run_command", fake_run_command)
@@ -128,3 +135,7 @@ def test_termux_ssh_bootstrap_idempotent_when_present(mocker, tmp_path):
     with pytest.raises(SystemExit):
         mod.main()
     assert captured["changed"] is False
+    # Idempotent means it left the running sshd alone: no restart typed into
+    # the Termux app's terminal, and no pkill of the existing one.
+    assert not [c for c in calls if "input text sshd" in c]
+    assert not [c for c in calls if "pkill -x sshd" in c]
