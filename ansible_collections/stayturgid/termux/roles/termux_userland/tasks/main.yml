@@ -239,6 +239,11 @@
          own default and control/lib/firerpa_fleet.py, so only a host
          explicitly marked false changes behaviour. -#}
       export STAYTURGID_FIRERPA_ENABLED="{{ 1 if (firerpa_enabled | default(true) | bool) else 0 }}"
+  # start_adb.py reads this file once, at import. Without the notify a changed
+  # interval or FIRERPA flag sat on disk doing nothing until some unrelated
+  # script sync happened to restart the loop — p7a kept relaunching FIRERPA for
+  # 20 minutes after the deploy that disabled it.
+  notify: restart boot loop
 
 - name: Render fleet peers list for peer Handsets/Shizuku bootstrap
   ansible.builtin.template:
