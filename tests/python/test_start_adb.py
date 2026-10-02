@@ -78,3 +78,48 @@ def test_launch_uses_accessibility_coexistence_lifecycle(monkeypatch):
     assert "--adb-target" in commands[0]
     assert "launch.sh" not in commands[0]
     assert any("accessibility coexistence" in message for message in messages)
+
+
+def test_rotate_logs_caps_oversized_files(monkeypatch, tmp_path):
+    """Oversized logs rotate to .1; small ones and the newest .1 are preserved."""
+    stg_logs = tmp_path / "home" / ".stayturgid" / "logs"
+    sd_logs = tmp_path / "sd" / "logs"
+    stg_logs.mkdir(parents=True)
+    sd_logs.mkdir(parents=True)
+    monkeypatch.setattr(start_adb, "STG", str(stg_logs.parent))
+    monkeypatch.setattr(start_adb, "SD", str(sd_logs.parent))
+    monkeypatch.setenv("STAYTURGID_LOG_MAX_BYTES", "100")
+
+    big = stg_logs / "repair-cfengine.log"
+    small = stg_logs / "boot.log"
+    mirrored = sd_logs / "watchdog.jsonl"
+    big.write_text("x" * 500)
+    small.write_text("y" * 10)
+    mirrored.write_text("z" * 500)
+
+    start_adb._rotate_logs()
+
+    assert not big.exists()
+    assert (stg_logs / "repair-cfengine.log.1").read_text() == "x" * 500
+    assert small.read_text() == "y" * 10
+    assert (sd_logs / "watchdog.jsonl.1").read_text() == "z" * 500
+
+    # One generation only: a second rotation replaces .1 rather than making .1.1.
+    big.write_text("n" * 500)
+    start_adb._rotate_logs()
+    assert (stg_logs / "repair-cfengine.log.1").read_text() == "n" * 500
+    assert not (stg_logs / "repair-cfengine.log.1.1").exists()
+
+
+def test_rotate_logs_disabled_by_zero_cap(monkeypatch, tmp_path):
+    stg_logs = tmp_path / "home" / ".stayturgid" / "logs"
+    stg_logs.mkdir(parents=True)
+    monkeypatch.setattr(start_adb, "STG", str(stg_logs.parent))
+    monkeypatch.setattr(start_adb, "SD", str(tmp_path / "missing"))
+    monkeypatch.setenv("STAYTURGID_LOG_MAX_BYTES", "0")
+
+    big = stg_logs / "repair.log"
+    big.write_text("x" * 500)
+    start_adb._rotate_logs()
+
+    assert big.read_text() == "x" * 500

@@ -120,6 +120,45 @@ def _ensure_dirs() -> None:
             pass
 
 
+def _rotate_logs() -> None:
+    """Keep ~/.stayturgid/logs (and the /sdcard mirror) from growing forever.
+
+    Nothing on the device rotated these. By 2026-10-02 repair-cfengine.log was
+    29 MB on p7a and 16 MB on s24 (mostly CFEngine's ps-parse error spam, fixed
+    separately), and every other log here grows without bound too.
+
+    Rename-to-.1 rather than truncate-in-place, because otelcol-contrib tails
+    repair.jsonl: a rename leaves its open fd valid so it drains the rotated
+    file, and the fresh empty file is picked up as a new one. Truncating under
+    it would make the fileconsumer re-read from the start and re-ship every
+    line. Every writer here opens in append mode per line, so none of them hold
+    a stale fd across the rename.
+    """
+    try:
+        limit = int(os.environ.get("STAYTURGID_LOG_MAX_BYTES", str(2 * 1024 * 1024)))
+    except ValueError:
+        limit = 2 * 1024 * 1024
+    if limit <= 0:
+        return
+    for d in (os.path.join(STG, "logs"), os.path.join(SD, "logs")):
+        try:
+            names = os.listdir(d)
+        except OSError:
+            continue
+        for name in names:
+            if name.endswith(".1"):
+                continue
+            path = os.path.join(d, name)
+            try:
+                if not os.path.isfile(path) or os.path.getsize(path) <= limit:
+                    continue
+                os.replace(path, path + ".1")
+            except OSError:
+                # /sdcard is FUSE-backed and can refuse a rename; never let log
+                # housekeeping break the only on-device supervisor.
+                pass
+
+
 def _boot_log(msg: str) -> None:
     try:
         with open(BOOTLOG, "a") as f:
@@ -370,6 +409,7 @@ def daemon_loop() -> None:
     while True:
         try:
             _ensure_dirs()
+            _rotate_logs()
 
             repair = os.path.join(BIN, "stayturgid_repair.py")
             if os.access(repair, os.X_OK):
