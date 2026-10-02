@@ -170,6 +170,29 @@ MediaProvider from the top of the CPU list. Before adding any new receiver to a
 device collector, check its poll/tick interval against how often the source
 actually changes.
 
+### Config the device reads but nothing converges
+
+Two variants of the same gap, both found 2026-10-02, both silent for weeks:
+
+1. **Read but never written.** `read_device_profile()` has been reading
+   `{{ stayturgid_sd_root }}/state/device.json` since the AutoJs6 cutover, but
+   the thing that wrote a profile was the retired AutoJs6 flow, templating a
+   _different, older_ path (`/sdcard/stayturgid_device.json`). s24 and p7a only
+   had a file left over from then; t2e, onboarded after the retirement, never
+   got one and reported `device_profile=MISSING` on every cycle.
+2. **Written but never applied.** `~/.stayturgid/env` is read once, at
+   `start_adb.py` import. The render task carried no `notify`, so a changed
+   `STAYTURGID_INTERVAL_SEC` or `STAYTURGID_FIRERPA_ENABLED` sat correct on
+   disk while the running loop kept the old value — p7a went on relaunching a
+   FIRERPA it had just been told to stop for 20 minutes after the deploy.
+
+**How to apply:** when a device-side script reads a path, grep that the
+playbook actually renders _that_ path — a retired writer leaves working
+devices behind and only new ones show the gap. And if the consumer reads the
+file once at startup rather than per use, the render task needs `notify:
+restart boot loop`, or convergence is a no-op until something unrelated
+happens to restart the loop.
+
 ### CodeRabbit sometimes misapplies AGENTS.md conventions
 
 CodeRabbit's review on stayturgid PRs has flagged Python/TypeScript library
