@@ -26,6 +26,12 @@
 # names the path) is in the handler's OWN cmdline — `pkill -f` matched and
 # SIGTERM'd the handler itself (rc=-15), and even the [.] regex matched the
 # literal path. setsid (not `nohup &`) so the loop survives the SSH close.
+# Poll for the new pid rather than sleeping a fixed 3s: start_adb.py runs
+# startup_sshd and startup_cfserverd before it forks and the parent writes the
+# pidfile, which took ~2.7s on p7a (2026-10-02) and failed the whole play on a
+# loop that had in fact started fine. Requiring new != old also closes a false
+# pass: within the old window the pidfile could still hold the previous pid,
+# whose /proc entry had not yet disappeared.
 - name: restart boot loop
   ansible.builtin.shell: |
     pidf="$HOME/.stayturgid/run/bootloop.pid"
@@ -33,9 +39,17 @@
     [ -n "$old" ] && kill "$old" 2>/dev/null || true
     sleep 2
     setsid "$HOME/.termux/boot/start-adb.sh" >/dev/null 2>&1 < /dev/null &
-    sleep 3
-    new="$(cat "$pidf" 2>/dev/null || true)"
-    [ -n "$new" ] && [ -d "/proc/$new" ]
+    n=0
+    while [ "$n" -lt 20 ]; do
+      new="$(cat "$pidf" 2>/dev/null || true)"
+      if [ -n "$new" ] && [ "$new" != "$old" ] && [ -d "/proc/$new" ]; then
+        exit 0
+      fi
+      sleep 1
+      n=$((n + 1))
+    done
+    echo "boot loop did not report a new live pid within 20s (pidfile=${new:-empty}, previous=${old:-none})" >&2
+    exit 1
   args:
     executable: "{{ termux_prefix }}/bin/bash"
 

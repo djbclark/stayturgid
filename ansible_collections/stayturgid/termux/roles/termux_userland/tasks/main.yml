@@ -229,6 +229,16 @@
       {% endif %}
       export STAYTURGID_HANDSETS_PORT="{{ stayturgid_handsets_port | default(9012) }}"
       export STAYTURGID_INTERVAL_SEC="{{ stayturgid_interval_sec | default(900) }}"
+      {# firerpa_enabled used to govern only the Ansible role and the Mac-side
+         health view; the device boot loop read STAYTURGID_FIRERPA_ENABLED,
+         which nothing rendered, so it defaulted to on everywhere. p7a is
+         marked firerpa_runtime_status: pending-incompatible-runtime (v10 exits
+         before listening on API 37) and was still paying a full launch attempt
+         every cycle: an adb probe, a 75s-timeout lifecycle call and a 20s
+         confirm poll, always failing. Default true to match the boot loop's
+         own default and control/lib/firerpa_fleet.py, so only a host
+         explicitly marked false changes behaviour. -#}
+      export STAYTURGID_FIRERPA_ENABLED="{{ 1 if (firerpa_enabled | default(true) | bool) else 0 }}"
 
 - name: Render fleet peers list for peer Handsets/Shizuku bootstrap
   ansible.builtin.template:
