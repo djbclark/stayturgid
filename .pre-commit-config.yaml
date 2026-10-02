@@ -259,7 +259,7 @@ repos:
 
 
   - repo: https://github.com/PyCQA/bandit
-    rev: 1.7.9
+    rev: 1.9.4
     hooks:
       - id: bandit
         args: ["-ll"]

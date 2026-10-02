@@ -216,23 +216,29 @@ def _svc_badge(key: str, value: str | None, ok_values: frozenset[str] | None = N
     else:
         cls = _svc_cls(value)
     # cls is one of _svc_cls's fixed literal returns; value is explicitly escaped below.
-    return Markup(f'<span class="badge {cls}" title="{key}">{escape(value)}</span>')  # nosemgrep
+    return Markup(f'<span class="badge {cls}" title="{key}">{escape(value)}</span>')  # nosemgrep  # nosec B704
 
 
+# B704 is suppressed on the Markup() calls below rather than worked around:
+# _age_str() formats an int into a fixed shape like "5m", so nothing
+# untrusted reaches the markup.
 def _age_badge(sec: int | None) -> Markup:
     if sec is None:
         return Markup('<span class="badge unknown">N/A</span>')
     if sec >= _AGE_CRIT:
-        return Markup(f'<span class="badge error">{_age_str(sec)}</span>')  # nosemgrep
+        return Markup(f'<span class="badge error">{_age_str(sec)}</span>')  # nosemgrep  # nosec B704
     if sec >= _AGE_WARN:
-        return Markup(f'<span class="badge warn">{_age_str(sec)}</span>')  # nosemgrep
-    return Markup(f'<span class="badge ok">{_age_str(sec)}</span>')  # nosemgrep
+        return Markup(f'<span class="badge warn">{_age_str(sec)}</span>')  # nosemgrep  # nosec B704
+    return Markup(f'<span class="badge ok">{_age_str(sec)}</span>')  # nosemgrep  # nosec B704
 
 
+# B704 is suppressed on the Markup() call below rather than worked around:
+# issues comes from evaluate_health(), which only ever appends hardcoded
+# issue codes ("sshd_down", "agent_stale", ...) — never device-reported text.
 def _issue_tags(issues: list[str]) -> Markup:
     if not issues:
         return Markup("")
-    return Markup(" ".join(f'<span class="tag error">{i}</span>' for i in issues))  # nosemgrep
+    return Markup(" ".join(f'<span class="tag error">{i}</span>' for i in issues))  # nosemgrep  # nosec B704
 
 
 HUMAN_ACTIONS = {
@@ -533,8 +539,9 @@ def index():
     now = time.strftime("%Y-%m-%d %H:%M:%S")
     # Each card is already-rendered HTML; wrap in Markup before interpolating
     # into dashboard.html's {{ cards }} or Jinja re-escapes it (matches the
-    # _svc_badge() convention used elsewhere in this file).
-    cards = Markup(
+    # _svc_badge() convention used elsewhere in this file). Jinja has already
+    # escaped it, which is why B704 is suppressed on the next line.
+    cards = Markup(  # nosec B704
         "\n".join(
             _render_template("_device_card.html", device=d, oc_web_url=OC_WEB_URL, network_url=NETWORK_URL, now=now)
             for d in devices
