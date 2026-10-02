@@ -797,6 +797,25 @@ with evidence whenever an item is completed or blocked.
 uv venv --python 3.12 ~/.venv-stayturgid-firerpa
 source ~/.venv-stayturgid-firerpa/bin/activate
 uv pip install ~/src/firerpa-binaries/lamda-client-py-10.0.tar.gz
+```
+
+Two ceilings in this venv are load-bearing — both verified 2026-10-02, and
+neither is enforced by a tracked requirements file, because the venv is created
+by hand:
+
+- **`mcp>=1.28,<2`.** `control/bin/firerpa_mcp.py` does
+  `from mcp.server.fastmcp import Context, FastMCP`. In mcp 2.x that module
+  exists only to raise `ModuleNotFoundError` (`FastMCP` was renamed
+  `MCPServer`), so bumping it breaks the live `com.stayturgid.firerpa-mcp`
+  launchd service. Do not take mcp 2.x without porting that import first.
+- **`grpcio<=1.82.0`**, from lamda's own `setup.py`. A newer grpcio makes
+  `lamda` unresolvable, and 1.82.0 itself is yanked from PyPI
+  (grpc/grpc#42906), so the practical ceiling is whatever is already
+  installed. protobuf 7 is likewise unreachable: `grpcio-tools 1.74.0`
+  requires `protobuf<7.0.0`, and lamda imports fine on 6.33.6, so the bump
+  buys nothing.
+
+```bash
 
 # Start FIRERPA on oneui-device (one-time via adb):
 adb -s 100.0.0.11:5555 shell \
