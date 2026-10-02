@@ -134,166 +134,18 @@
     mode: "0644"
   register: _caddy_plist
 
-- name: Probe whether site-namespace caddy label is loaded
-  ansible.builtin.shell: |
-    set -eu
-    if launchctl print "gui/{{ serverapp_caddy_uid }}/{{ serverapp_caddy_label }}" >/dev/null 2>&1; then
-      echo loaded
-    else
-      echo unloaded
-    fi
-  args:
-    executable: /bin/bash
-  register: _caddy_launch_state
-  changed_when: false
-
-# Phase D migration (design §1.9): old and new cannot share 80/443. Boot out
-# the legacy product-namespace label when present; leave its plist on disk
-# (retirement is D7). Skip when already unloaded.
-#
-# R2 A-5 (generic-product note, M1-Q): the bootout below is gated on the new
-# site label being unloaded (_caddy_launch_state == unloaded). If a mid-apply
-# failure leaves both labels loaded at once, this gate skips the bootout and
-# the dual-loaded state persists until a manual bootout. On this site that's
-# superseded in practice by D7 (legacy plists archived+removed once a site
-# reaches that stage) — but the product code path above still runs for any
-# site that hasn't gotten there yet.
-- name: Probe legacy product-namespace caddy label
-  ansible.builtin.shell: |
-    set -eu
-    if launchctl print "gui/{{ serverapp_caddy_uid }}/com.stayturgid.caddy" >/dev/null 2>&1; then
-      echo loaded
-    else
-      echo unloaded
-    fi
-  args:
-    executable: /bin/bash
-  register: _caddy_legacy_state
-  changed_when: false
-
-- name: Pre-health-check before legacy cutover (old daemon must be healthy)
-  ansible.builtin.uri:
-    url: "{{ serverapp_caddy_health_url }}"
-    status_code: 200
-  when:
-    - _caddy_legacy_state.stdout | trim == 'loaded'
-    - _caddy_launch_state.stdout | trim == 'unloaded'
-  register: _caddy_pre_health
-
-- name: Boot out legacy com.stayturgid.caddy (plist retained on disk)
-  ansible.builtin.command:
-    cmd: launchctl bootout gui/{{ serverapp_caddy_uid }}/com.stayturgid.caddy
-  when:
-    - _caddy_legacy_state.stdout | trim == 'loaded'
-    - _caddy_launch_state.stdout | trim == 'unloaded'
-  register: _caddy_legacy_bootout
-
-# R1 must-fix (2026-07-19): bootout is session-scoped — the retained legacy
-# plist (RunAtLoad + KeepAlive) would re-bootstrap at next login and fight the
-# site label for 80/443. Persistently disable the label instead of deleting
-# the plist (rollback/D7 still need the file). Rollback becomes:
-#   launchctl bootout gui/<uid>/com.<site_ns>.caddy \
-#     && launchctl enable gui/<uid>/com.stayturgid.caddy \
-#     && launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/com.stayturgid.caddy.plist
-- name: Check whether legacy caddy plist remains on disk
-  ansible.builtin.stat:
-    path: "{{ serverapp_caddy_home }}/Library/LaunchAgents/com.stayturgid.caddy.plist"
-  register: _caddy_legacy_plist
-
-- name: Probe whether legacy caddy label is persistently disabled
-  ansible.builtin.shell: |
-    set -eu
-    if launchctl print-disabled "gui/{{ serverapp_caddy_uid }}" 2>/dev/null \
-      | grep -Eq '"com\.stayturgid\.caddy" => (true|disabled)'; then
-      echo disabled
-    else
-      echo enabled
-    fi
-  args:
-    executable: /bin/bash
-  register: _caddy_legacy_disabled
-  changed_when: false
-  when: _caddy_legacy_plist.stat.exists
-
-- name: Persistently disable legacy caddy label (survives login; plist retained)
-  ansible.builtin.command:
-    cmd: launchctl disable gui/{{ serverapp_caddy_uid }}/com.stayturgid.caddy
-  when:
-    - _caddy_legacy_plist.stat.exists
-    - (_caddy_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
-  register: _caddy_legacy_disable
-
-- name: Boot out site-namespace caddy when its launchd plist changed
-  ansible.builtin.command:
-    cmd: launchctl bootout gui/{{ serverapp_caddy_uid }}/{{ serverapp_caddy_label }}
-  when:
-    - _caddy_launch_state.stdout | trim == 'loaded'
-    - _caddy_plist.changed | default(false)
-  register: _caddy_plist_reload_bootout
-
-- name: Bootstrap site-namespace caddy when unloaded or its plist changed
-  ansible.builtin.command:
-    cmd: >-
-      launchctl bootstrap gui/{{ serverapp_caddy_uid }}
-      {{ serverapp_caddy_plist_path }}
-  when: >-
-    (_caddy_launch_state.stdout | trim == 'unloaded')
-    or (_caddy_plist_reload_bootout.changed | default(false))
-  register: _caddy_bootstrap
-  until: _caddy_bootstrap.rc == 0
-  retries: 5
-  delay: 1
-
-# A `brew upgrade` repoints /opt/homebrew/opt/caddy at a new Cellar dir but
-# touches neither the plist nor any rendered config, so none of the triggers
-# above fire and the service keeps running the binary it already holds open.
-- name: Detect whether running caddy is on a stale binary
-  ansible.builtin.command:
-    cmd: >-
-      {{ role_path }}/../../files/serverapp_binary_state.sh
-      {{ serverapp_caddy_uid }} {{ serverapp_caddy_label }} {{ serverapp_caddy_bin }}
-  register: _caddy_binary_state
-  changed_when: false
-  failed_when: false
-
-- name: Kickstart site-namespace caddy after config or binary change
-  ansible.builtin.command:
-    cmd: >-
-      launchctl kickstart -k gui/{{ serverapp_caddy_uid }}/{{ serverapp_caddy_label }}
-  when:
-    - _caddy_launch_state.stdout | trim == 'loaded'
-    - >-
-      (_caddy_config.changed | default(false))
-      or (_caddy_fragments_reload.changed | default(false))
-      or ((_caddy_binary_state.stdout | default('') | trim) == 'stale')
-    - not (_caddy_plist.changed | default(false))
-  register: _caddy_kickstart
-
-- name: Wait for caddy health endpoint
-  ansible.builtin.uri:
-    url: "{{ serverapp_caddy_health_url }}"
-    status_code: 200
-  register: _caddy_health
-  until: _caddy_health.status == 200
-  retries: 30
-  delay: 1
-
-# The health endpoint answers happily from a stale binary — that is exactly
-# how a missed restart stayed invisible. Re-probe and fail loudly instead.
-- name: Re-check caddy binary after activation
-  ansible.builtin.command:
-    cmd: >-
-      {{ role_path }}/../../files/serverapp_binary_state.sh
-      {{ serverapp_caddy_uid }} {{ serverapp_caddy_label }} {{ serverapp_caddy_bin }}
-  register: _caddy_binary_verify
-  changed_when: false
-  failed_when: false
-
-- name: Assert caddy is running the currently-linked binary
-  ansible.builtin.assert:
-    that:
-      - (_caddy_binary_verify.stdout | default('') | trim) != 'stale'
-    fail_msg: >-
-      caddy is still running a binary other than the current target of
-      {{ serverapp_caddy_bin }}. A restart did not take effect, so the
-      health check above passed from the old binary.
+- name: Activate caddy launchd service (shared lifecycle)
+  ansible.builtin.include_role:
+    name: serverapp_launchd
+  vars:
+    sl_app: caddy
+    sl_uid: "{{ serverapp_caddy_uid }}"
+    sl_label: "{{ serverapp_caddy_label }}"
+    sl_plist_path: "{{ serverapp_caddy_plist_path }}"
+    sl_bin: "{{ serverapp_caddy_bin }}"
+    sl_home: "{{ serverapp_caddy_home }}"
+    sl_health_url: "{{ serverapp_caddy_health_url }}"
+    sl_plist_changed: "{{ _caddy_plist.changed | default(false) }}"
+    sl_config_changed: "{{ (_caddy_config.changed | default(false)) or (_caddy_fragments_reload.changed | default(false)) }}"
+    sl_health_retries: 30
+    sl_health_delay: 1

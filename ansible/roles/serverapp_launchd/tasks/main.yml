@@ -1,0 +1,198 @@
+---
+# Shared launchd lifecycle for serverapp_* roles: probe → legacy cutover →
+# bootout/bootstrap → stale-binary detection → kickstart → health → verify.
+#
+# Extracted 2026-10-02 from four near-identical copies in serverapp_caddy,
+# serverapp_grafana, serverapp_vector and serverapp_victoriametrics. The
+# duplication had already drifted: victoriametrics bootstrapped only when
+# unloaded and kickstarted on a plist change, which does not work — launchctl
+# kickstart restarts the job but launchd keeps the plist definition it already
+# loaded, so a changed plist needs bootout + bootstrap to take effect. This
+# file is the single corrected copy.
+#
+# Callers pass (no defaults — a missing one should fail loudly, not silently
+# act on the wrong service):
+#   sl_app              app name, also the legacy label com.stayturgid.<app>
+#   sl_uid              launchd gui/<uid> domain
+#   sl_label            site-namespace label, e.g. com.djbclark.caddy
+#   sl_plist_path       path to the rendered site-namespace plist
+#   sl_bin              resolved binary path (realpath'd for staleness)
+#   sl_home             home dir holding Library/LaunchAgents
+#   sl_health_url       URL that must return 200 once active
+#   sl_plist_changed    did the plist template report changed this run
+#   sl_config_changed   did any rendered config/fragment report changed
+# Optional:
+#   sl_health_retries / sl_health_delay   health poll shape (default 30 / 1)
+#   sl_prehealth_kind                     "uri" (default) or "port"
+#   sl_prehealth_port                     required when kind is "port"
+
+- name: "Probe whether the site-namespace label is loaded for {{ sl_app }}"
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ sl_uid }}/{{ sl_label }}" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _sl_launch_state
+  changed_when: false
+
+# Phase D migration (design §1.9): old and new cannot share the same ports.
+# Boot out the legacy product-namespace label when present; leave its plist on
+# disk (retirement is D7). Gated on the new site label being unloaded — if a
+# mid-apply failure leaves both loaded at once, this gate skips the bootout and
+# the dual-loaded state persists until a manual bootout.
+- name: "Probe the legacy product-namespace label for {{ sl_app }}"
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print "gui/{{ sl_uid }}/com.stayturgid.{{ sl_app }}" >/dev/null 2>&1; then
+      echo loaded
+    else
+      echo unloaded
+    fi
+  args:
+    executable: /bin/bash
+  register: _sl_legacy_state
+  changed_when: false
+
+- name: "Pre-health-check before legacy cutover, old daemon must be healthy: {{ sl_app }}"
+  ansible.builtin.uri:
+    url: "{{ sl_health_url }}"
+    status_code: 200
+  when:
+    - (sl_prehealth_kind | default('uri')) == 'uri'
+    - _sl_legacy_state.stdout | trim == 'loaded'
+    - _sl_launch_state.stdout | trim == 'unloaded'
+  register: _sl_pre_health
+
+- name: "Pre-health-check before legacy cutover, old daemon must be listening: {{ sl_app }}"
+  ansible.builtin.wait_for:
+    host: 127.0.0.1
+    port: "{{ sl_prehealth_port }}"
+    timeout: 5
+  when:
+    - (sl_prehealth_kind | default('uri')) == 'port'
+    - _sl_legacy_state.stdout | trim == 'loaded'
+    - _sl_launch_state.stdout | trim == 'unloaded'
+  register: _sl_pre_health_port
+
+- name: "Boot out the legacy product-namespace label, plist retained on disk: {{ sl_app }}"
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ sl_uid }}/com.stayturgid.{{ sl_app }}
+  when:
+    - _sl_legacy_state.stdout | trim == 'loaded'
+    - _sl_launch_state.stdout | trim == 'unloaded'
+  register: _sl_legacy_bootout
+
+# bootout is session-scoped — the retained legacy plist (RunAtLoad +
+# KeepAlive) would re-bootstrap at next login and fight the site label for the
+# port. Persistently disable the label instead of deleting the plist
+# (rollback/D7 still need the file). Rollback becomes:
+#   launchctl bootout gui/<uid>/<sl_label> \
+#     && launchctl enable gui/<uid>/com.stayturgid.<app> \
+#     && launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/com.stayturgid.<app>.plist
+- name: "Check whether the legacy plist remains on disk for {{ sl_app }}"
+  ansible.builtin.stat:
+    path: "{{ sl_home }}/Library/LaunchAgents/com.stayturgid.{{ sl_app }}.plist"
+  register: _sl_legacy_plist
+
+- name: "Probe whether the legacy label is persistently disabled for {{ sl_app }}"
+  ansible.builtin.shell: |
+    set -eu
+    if launchctl print-disabled "gui/{{ sl_uid }}" 2>/dev/null \
+      | grep -Eq '"com\.stayturgid\.{{ sl_app }}" => (true|disabled)'; then
+      echo disabled
+    else
+      echo enabled
+    fi
+  args:
+    executable: /bin/bash
+  register: _sl_legacy_disabled
+  changed_when: false
+  when: _sl_legacy_plist.stat.exists
+
+- name: "Persistently disable the legacy label, survives login and retains plist: {{ sl_app }}"
+  ansible.builtin.command:
+    cmd: launchctl disable gui/{{ sl_uid }}/com.stayturgid.{{ sl_app }}
+  when:
+    - _sl_legacy_plist.stat.exists
+    - (_sl_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
+  register: _sl_legacy_disable
+
+- name: "Boot out the site-namespace service when its launchd plist changed: {{ sl_app }}"
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ sl_uid }}/{{ sl_label }}
+  when:
+    - _sl_launch_state.stdout | trim == 'loaded'
+    # `| bool` is load-bearing: a bool passed into an included role can arrive
+    # as the string "False", which is truthy in Jinja.
+    - sl_plist_changed | default(false) | bool
+  register: _sl_plist_reload_bootout
+
+- name: "Bootstrap the site-namespace service when unloaded or its plist changed: {{ sl_app }}"
+  ansible.builtin.command:
+    cmd: >-
+      launchctl bootstrap gui/{{ sl_uid }}
+      {{ sl_plist_path }}
+  when: >-
+    (_sl_launch_state.stdout | trim == 'unloaded')
+    or (_sl_plist_reload_bootout.changed | default(false))
+  register: _sl_bootstrap
+  until: _sl_bootstrap.rc == 0
+  retries: 5
+  delay: 1
+
+# A `brew upgrade` repoints /opt/homebrew/opt/<app> at a new Cellar dir but
+# touches neither the plist nor any rendered config, so none of the triggers
+# above fire and the service keeps running the binary it already holds open.
+- name: "Detect whether the running service is on a stale binary: {{ sl_app }}"
+  ansible.builtin.command:
+    cmd: >-
+      {{ role_path }}/../../files/serverapp_binary_state.sh
+      {{ sl_uid }} {{ sl_label }} {{ sl_bin }}
+  register: _sl_binary_state
+  changed_when: false
+  failed_when: false
+
+- name: "Kickstart the site-namespace service after a config or binary change: {{ sl_app }}"
+  ansible.builtin.command:
+    cmd: >-
+      launchctl kickstart -k gui/{{ sl_uid }}/{{ sl_label }}
+  when:
+    - _sl_launch_state.stdout | trim == 'loaded'
+    - >-
+      (sl_config_changed | default(false) | bool)
+      or ((_sl_binary_state.stdout | default('') | trim) == 'stale')
+    - not (sl_plist_changed | default(false) | bool)
+  register: _sl_kickstart
+
+- name: "Wait for the health endpoint of {{ sl_app }}"
+  ansible.builtin.uri:
+    url: "{{ sl_health_url }}"
+    status_code: 200
+  register: _sl_health
+  until: _sl_health.status == 200
+  retries: "{{ sl_health_retries | default(30) | int }}"
+  delay: "{{ sl_health_delay | default(1) | int }}"
+
+# The health endpoint answers happily from a stale binary — that is exactly
+# how a missed restart stayed invisible. Re-probe and fail loudly instead.
+- name: "Re-check the binary after activation for {{ sl_app }}"
+  ansible.builtin.command:
+    cmd: >-
+      {{ role_path }}/../../files/serverapp_binary_state.sh
+      {{ sl_uid }} {{ sl_label }} {{ sl_bin }}
+  register: _sl_binary_verify
+  changed_when: false
+  failed_when: false
+
+- name: "Assert the service is running the currently-linked binary: {{ sl_app }}"
+  ansible.builtin.assert:
+    that:
+      - (_sl_binary_verify.stdout | default('') | trim) != 'stale'
+    fail_msg: >-
+      {{ sl_app }} is still running a binary other than the current target of
+      {{ sl_bin }}. A restart did not take effect, so the health check above
+      passed from the old binary.

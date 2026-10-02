@@ -79,155 +79,21 @@
     mode: "0644"
   register: _gf_plist
 
-- name: Probe whether site-namespace grafana label is loaded
-  ansible.builtin.shell: |
-    set -eu
-    if launchctl print "gui/{{ serverapp_grafana_uid }}/{{ serverapp_grafana_label }}" >/dev/null 2>&1; then
-      echo loaded
-    else
-      echo unloaded
-    fi
-  args:
-    executable: /bin/bash
-  register: _gf_launch_state
-  changed_when: false
-
-- name: Probe legacy product-namespace grafana label
-  ansible.builtin.shell: |
-    set -eu
-    if launchctl print "gui/{{ serverapp_grafana_uid }}/com.stayturgid.grafana" >/dev/null 2>&1; then
-      echo loaded
-    else
-      echo unloaded
-    fi
-  args:
-    executable: /bin/bash
-  register: _gf_legacy_state
-  changed_when: false
-
-- name: Pre-health-check before legacy cutover (old daemon must be healthy)
-  ansible.builtin.uri:
-    url: "{{ serverapp_grafana_health_url }}"
-    status_code: 200
-  when:
-    - _gf_legacy_state.stdout | trim == 'loaded'
-    - _gf_launch_state.stdout | trim == 'unloaded'
-  register: _gf_pre_health
-
-- name: Boot out legacy com.stayturgid.grafana (plist retained on disk)
-  ansible.builtin.command:
-    cmd: launchctl bootout gui/{{ serverapp_grafana_uid }}/com.stayturgid.grafana
-  when:
-    - _gf_legacy_state.stdout | trim == 'loaded'
-    - _gf_launch_state.stdout | trim == 'unloaded'
-  register: _gf_legacy_bootout
-
-# Rollback (if legacy ever existed):
-#   launchctl bootout gui/<uid>/com.<site_ns>.grafana \
-#     && launchctl enable gui/<uid>/com.stayturgid.grafana \
-#     && launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/com.stayturgid.grafana.plist
-- name: Check whether legacy grafana plist remains on disk
-  ansible.builtin.stat:
-    path: "{{ serverapp_grafana_home }}/Library/LaunchAgents/com.stayturgid.grafana.plist"
-  register: _gf_legacy_plist
-
-- name: Probe whether legacy grafana label is persistently disabled
-  ansible.builtin.shell: |
-    set -eu
-    if launchctl print-disabled "gui/{{ serverapp_grafana_uid }}" 2>/dev/null \
-      | grep -Eq '"com\.stayturgid\.grafana" => (true|disabled)'; then
-      echo disabled
-    else
-      echo enabled
-    fi
-  args:
-    executable: /bin/bash
-  register: _gf_legacy_disabled
-  changed_when: false
-  when: _gf_legacy_plist.stat.exists
-
-- name: Persistently disable legacy grafana label (survives login; plist retained)
-  ansible.builtin.command:
-    cmd: launchctl disable gui/{{ serverapp_grafana_uid }}/com.stayturgid.grafana
-  when:
-    - _gf_legacy_plist.stat.exists
-    - (_gf_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
-  register: _gf_legacy_disable
-
-- name: Boot out site-namespace grafana when its launchd plist changed
-  ansible.builtin.command:
-    cmd: launchctl bootout gui/{{ serverapp_grafana_uid }}/{{ serverapp_grafana_label }}
-  when:
-    - _gf_launch_state.stdout | trim == 'loaded'
-    - _gf_plist.changed | default(false)
-  register: _gf_plist_reload_bootout
-
-- name: Bootstrap site-namespace grafana when unloaded or its plist changed
-  ansible.builtin.command:
-    cmd: >-
-      launchctl bootstrap gui/{{ serverapp_grafana_uid }}
-      {{ serverapp_grafana_plist_path }}
-  when: >-
-    (_gf_launch_state.stdout | trim == 'unloaded')
-    or (_gf_plist_reload_bootout.changed | default(false))
-  register: _gf_bootstrap
-  until: _gf_bootstrap.rc == 0
-  retries: 5
-  delay: 1
-
-# A `brew upgrade` repoints /opt/homebrew/opt/grafana at a new Cellar dir but
-# touches neither the plist nor grafana.ini, so none of the triggers above
-# fire and the service keeps running the binary it already holds open.
-- name: Detect whether running grafana is on a stale binary
-  ansible.builtin.command:
-    cmd: >-
-      {{ role_path }}/../../files/serverapp_binary_state.sh
-      {{ serverapp_grafana_uid }} {{ serverapp_grafana_label }} {{ serverapp_grafana_bin }}
-  register: _gf_binary_state
-  changed_when: false
-  failed_when: false
-
-- name: Kickstart site-namespace grafana after config or binary change
-  ansible.builtin.command:
-    cmd: >-
-      launchctl kickstart -k gui/{{ serverapp_grafana_uid }}/{{ serverapp_grafana_label }}
-  when:
-    - _gf_launch_state.stdout | trim == 'loaded'
-    - >-
-      (_gf_ini.changed | default(false))
-      or ((_gf_binary_state.stdout | default('') | trim) == 'stale')
-    - not (_gf_plist.changed | default(false))
-  register: _gf_kickstart
-
-- name: Wait for grafana health endpoint
-  ansible.builtin.uri:
-    url: "{{ serverapp_grafana_health_url }}"
-    status_code: 200
-  register: _gf_health
-  until: _gf_health.status == 200
-  retries: 60
-  delay: 2
-
-# The health endpoint answers happily from a stale binary — /api/health
-# reported the old version for a full upgrade cycle before this check
-# existed. Re-probe and fail loudly instead.
-- name: Re-check grafana binary after activation
-  ansible.builtin.command:
-    cmd: >-
-      {{ role_path }}/../../files/serverapp_binary_state.sh
-      {{ serverapp_grafana_uid }} {{ serverapp_grafana_label }} {{ serverapp_grafana_bin }}
-  register: _gf_binary_verify
-  changed_when: false
-  failed_when: false
-
-- name: Assert grafana is running the currently-linked binary
-  ansible.builtin.assert:
-    that:
-      - (_gf_binary_verify.stdout | default('') | trim) != 'stale'
-    fail_msg: >-
-      grafana is still running a binary other than the current target of
-      {{ serverapp_grafana_bin }}. A restart did not take effect, so the
-      health check above passed from the old binary.
+- name: Activate grafana launchd service (shared lifecycle)
+  ansible.builtin.include_role:
+    name: serverapp_launchd
+  vars:
+    sl_app: grafana
+    sl_uid: "{{ serverapp_grafana_uid }}"
+    sl_label: "{{ serverapp_grafana_label }}"
+    sl_plist_path: "{{ serverapp_grafana_plist_path }}"
+    sl_bin: "{{ serverapp_grafana_bin }}"
+    sl_home: "{{ serverapp_grafana_home }}"
+    sl_health_url: "{{ serverapp_grafana_health_url }}"
+    sl_plist_changed: "{{ _gf_plist.changed | default(false) }}"
+    sl_config_changed: "{{ _gf_ini.changed | default(false) }}"
+    sl_health_retries: 60
+    sl_health_delay: 2
 
 # Telegram contact point for blackbox_exporter alert rules — applied via the
 # Alerting HTTP API, not file provisioning (see rules.yaml.j2 header comment

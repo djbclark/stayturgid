@@ -85,144 +85,18 @@
     mode: "0644"
   register: _vm_plist
 
-- name: Probe whether site-namespace victoriametrics label is loaded
-  ansible.builtin.shell: |
-    set -eu
-    if launchctl print "gui/{{ serverapp_victoriametrics_uid }}/{{ serverapp_victoriametrics_label }}" >/dev/null 2>&1; then
-      echo loaded
-    else
-      echo unloaded
-    fi
-  args:
-    executable: /bin/bash
-  register: _vm_launch_state
-  changed_when: false
-
-# R1 MF-1 pattern: if a legacy product label exists, bootout + persistent disable.
-# New installs typically have no com.stayturgid.victoriametrics — tasks no-op.
-- name: Probe legacy product-namespace victoriametrics label
-  ansible.builtin.shell: |
-    set -eu
-    if launchctl print "gui/{{ serverapp_victoriametrics_uid }}/com.stayturgid.victoriametrics" >/dev/null 2>&1; then
-      echo loaded
-    else
-      echo unloaded
-    fi
-  args:
-    executable: /bin/bash
-  register: _vm_legacy_state
-  changed_when: false
-
-- name: Pre-health-check before legacy cutover (old daemon must be healthy)
-  ansible.builtin.uri:
-    url: "{{ serverapp_victoriametrics_health_url }}"
-    status_code: 200
-  when:
-    - _vm_legacy_state.stdout | trim == 'loaded'
-    - _vm_launch_state.stdout | trim == 'unloaded'
-  register: _vm_pre_health
-
-- name: Boot out legacy com.stayturgid.victoriametrics (plist retained on disk)
-  ansible.builtin.command:
-    cmd: launchctl bootout gui/{{ serverapp_victoriametrics_uid }}/com.stayturgid.victoriametrics
-  when:
-    - _vm_legacy_state.stdout | trim == 'loaded'
-    - _vm_launch_state.stdout | trim == 'unloaded'
-  register: _vm_legacy_bootout
-
-# Rollback (if legacy ever existed):
-#   launchctl bootout gui/<uid>/com.<site_ns>.victoriametrics \
-#     && launchctl enable gui/<uid>/com.stayturgid.victoriametrics \
-#     && launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/com.stayturgid.victoriametrics.plist
-- name: Check whether legacy victoriametrics plist remains on disk
-  ansible.builtin.stat:
-    path: "{{ serverapp_victoriametrics_home }}/Library/LaunchAgents/com.stayturgid.victoriametrics.plist"
-  register: _vm_legacy_plist
-
-- name: Probe whether legacy victoriametrics label is persistently disabled
-  ansible.builtin.shell: |
-    set -eu
-    if launchctl print-disabled "gui/{{ serverapp_victoriametrics_uid }}" 2>/dev/null \
-      | grep -Eq '"com\.stayturgid\.victoriametrics" => (true|disabled)'; then
-      echo disabled
-    else
-      echo enabled
-    fi
-  args:
-    executable: /bin/bash
-  register: _vm_legacy_disabled
-  changed_when: false
-  when: _vm_legacy_plist.stat.exists
-
-- name: Persistently disable legacy victoriametrics label (survives login; plist retained)
-  ansible.builtin.command:
-    cmd: launchctl disable gui/{{ serverapp_victoriametrics_uid }}/com.stayturgid.victoriametrics
-  when:
-    - _vm_legacy_plist.stat.exists
-    - (_vm_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
-  register: _vm_legacy_disable
-
-- name: Bootstrap site-namespace victoriametrics when unloaded
-  ansible.builtin.command:
-    cmd: >-
-      launchctl bootstrap gui/{{ serverapp_victoriametrics_uid }}
-      {{ serverapp_victoriametrics_plist_path }}
-  when: _vm_launch_state.stdout | trim == 'unloaded'
-  register: _vm_bootstrap
-
-# A `brew upgrade` repoints /opt/homebrew/opt/victoriametrics at a new Cellar
-# dir but touches neither the plist nor scrape.yml, so none of the triggers
-# above fire and the service keeps running the binary it already holds open.
-- name: Detect whether running victoriametrics is on a stale binary
-  ansible.builtin.command:
-    cmd: >-
-      {{ role_path }}/../../files/serverapp_binary_state.sh
-      {{ serverapp_victoriametrics_uid }} {{ serverapp_victoriametrics_label }}
-      {{ serverapp_victoriametrics_bin }}
-  register: _vm_binary_state
-  changed_when: false
-  failed_when: false
-
-- name: Kickstart site-namespace victoriametrics after config/plist or binary change
-  ansible.builtin.command:
-    cmd: >-
-      launchctl kickstart -k gui/{{ serverapp_victoriametrics_uid }}/{{ serverapp_victoriametrics_label }}
-  when:
-    - _vm_launch_state.stdout | trim == 'loaded'
-    - >-
-      (_vm_plist.changed | default(false))
-      or (_vm_scrape.changed | default(false))
-      or ((_vm_binary_state.stdout | default('') | trim) == 'stale')
-  register: _vm_kickstart
-
-- name: Wait for victoriametrics health endpoint
-  ansible.builtin.uri:
-    url: "{{ serverapp_victoriametrics_health_url }}"
-    status_code: 200
-  register: _vm_health
-  until: _vm_health.status == 200
-  retries: 30
-  delay: 1
-
-# The health endpoint answers happily from a stale binary — that is exactly
-# how a missed restart stayed invisible. Re-probe and fail loudly instead.
-# (Note /api/v1/status/buildinfo reports an API-schema version, not the
-# release version, so it cannot serve as this check.)
-- name: Re-check victoriametrics binary after activation
-  ansible.builtin.command:
-    cmd: >-
-      {{ role_path }}/../../files/serverapp_binary_state.sh
-      {{ serverapp_victoriametrics_uid }} {{ serverapp_victoriametrics_label }}
-      {{ serverapp_victoriametrics_bin }}
-  register: _vm_binary_verify
-  changed_when: false
-  failed_when: false
-
-- name: Assert victoriametrics is running the currently-linked binary
-  ansible.builtin.assert:
-    that:
-      - (_vm_binary_verify.stdout | default('') | trim) != 'stale'
-    fail_msg: >-
-      victoriametrics is still running a binary other than the current target
-      of {{ serverapp_victoriametrics_bin }}. A restart did not take effect,
-      so the health check above passed from the old binary.
+- name: Activate victoriametrics launchd service (shared lifecycle)
+  ansible.builtin.include_role:
+    name: serverapp_launchd
+  vars:
+    sl_app: victoriametrics
+    sl_uid: "{{ serverapp_victoriametrics_uid }}"
+    sl_label: "{{ serverapp_victoriametrics_label }}"
+    sl_plist_path: "{{ serverapp_victoriametrics_plist_path }}"
+    sl_bin: "{{ serverapp_victoriametrics_bin }}"
+    sl_home: "{{ serverapp_victoriametrics_home }}"
+    sl_health_url: "{{ serverapp_victoriametrics_health_url }}"
+    sl_plist_changed: "{{ _vm_plist.changed | default(false) }}"
+    sl_config_changed: "{{ _vm_scrape.changed | default(false) }}"
+    sl_health_retries: 30
+    sl_health_delay: 1

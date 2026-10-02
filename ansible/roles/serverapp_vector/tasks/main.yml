@@ -152,159 +152,20 @@
   register: _vector_plist
   no_log: true
 
-- name: Probe whether site-namespace vector label is loaded
-  ansible.builtin.shell: |
-    set -eu
-    if launchctl print "gui/{{ serverapp_vector_uid }}/{{ serverapp_vector_label }}" >/dev/null 2>&1; then
-      echo loaded
-    else
-      echo unloaded
-    fi
-  args:
-    executable: /bin/bash
-  register: _vector_launch_state
-  changed_when: false
-
-# Phase D migration (design §1.9): old and new cannot share 4317/4318. Boot out
-# the legacy product-namespace label when present; leave its plist on disk
-# (retirement is D7). Skip when already unloaded.
-- name: Probe legacy product-namespace vector label
-  ansible.builtin.shell: |
-    set -eu
-    if launchctl print "gui/{{ serverapp_vector_uid }}/com.stayturgid.vector" >/dev/null 2>&1; then
-      echo loaded
-    else
-      echo unloaded
-    fi
-  args:
-    executable: /bin/bash
-  register: _vector_legacy_state
-  changed_when: false
-
-- name: Pre-health-check before legacy cutover (old daemon must be listening)
-  ansible.builtin.wait_for:
-    host: 127.0.0.1
-    port: 4318
-    timeout: 5
-  when:
-    - _vector_legacy_state.stdout | trim == 'loaded'
-    - _vector_launch_state.stdout | trim == 'unloaded'
-  register: _vector_pre_health
-
-- name: Boot out legacy com.stayturgid.vector (plist retained on disk)
-  ansible.builtin.command:
-    cmd: launchctl bootout gui/{{ serverapp_vector_uid }}/com.stayturgid.vector
-  when:
-    - _vector_legacy_state.stdout | trim == 'loaded'
-    - _vector_launch_state.stdout | trim == 'unloaded'
-  register: _vector_legacy_bootout
-
-# R1 must-fix (MF-1): bootout is session-scoped — the retained legacy
-# plist (RunAtLoad + KeepAlive) would re-bootstrap at next login and fight the
-# site label for 4317/4318. Persistently disable the label; keep the plist for
-# rollback/D7. Rollback:
-#   launchctl bootout gui/<uid>/com.<site_ns>.vector \
-#     && launchctl enable gui/<uid>/com.stayturgid.vector \
-#     && launchctl bootstrap gui/<uid> ~/Library/LaunchAgents/com.stayturgid.vector.plist
-- name: Check whether legacy vector plist remains on disk
-  ansible.builtin.stat:
-    path: "{{ serverapp_vector_home }}/Library/LaunchAgents/com.stayturgid.vector.plist"
-  register: _vector_legacy_plist
-
-- name: Probe whether legacy vector label is persistently disabled
-  ansible.builtin.shell: |
-    set -eu
-    if launchctl print-disabled "gui/{{ serverapp_vector_uid }}" 2>/dev/null \
-      | grep -Eq '"com\.stayturgid\.vector" => (true|disabled)'; then
-      echo disabled
-    else
-      echo enabled
-    fi
-  args:
-    executable: /bin/bash
-  register: _vector_legacy_disabled
-  changed_when: false
-  when: _vector_legacy_plist.stat.exists
-
-- name: Persistently disable legacy vector label (survives login; plist retained)
-  ansible.builtin.command:
-    cmd: launchctl disable gui/{{ serverapp_vector_uid }}/com.stayturgid.vector
-  when:
-    - _vector_legacy_plist.stat.exists
-    - (_vector_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
-  register: _vector_legacy_disable
-
-- name: Boot out site-namespace vector when its launchd plist changed
-  ansible.builtin.command:
-    cmd: launchctl bootout gui/{{ serverapp_vector_uid }}/{{ serverapp_vector_label }}
-  when:
-    - _vector_launch_state.stdout | trim == 'loaded'
-    - _vector_plist.changed | default(false)
-  register: _vector_plist_reload_bootout
-
-- name: Bootstrap site-namespace vector when unloaded or its plist changed
-  ansible.builtin.command:
-    cmd: >-
-      launchctl bootstrap gui/{{ serverapp_vector_uid }}
-      {{ serverapp_vector_plist_path }}
-  when: >-
-    (_vector_launch_state.stdout | trim == 'unloaded')
-    or (_vector_plist_reload_bootout.changed | default(false))
-  register: _vector_bootstrap
-  until: _vector_bootstrap.rc == 0
-  retries: 5
-  delay: 1
-
-# A `brew upgrade` repoints /opt/homebrew/opt/vector at a new Cellar dir but
-# touches neither the plist nor any rendered config, so none of the triggers
-# above fire and the service keeps running the binary it already holds open.
-- name: Detect whether running vector is on a stale binary
-  ansible.builtin.command:
-    cmd: >-
-      {{ role_path }}/../../files/serverapp_binary_state.sh
-      {{ serverapp_vector_uid }} {{ serverapp_vector_label }} {{ serverapp_vector_bin }}
-  register: _vector_binary_state
-  changed_when: false
-  failed_when: false
-
-- name: Kickstart site-namespace vector after config or binary change
-  ansible.builtin.command:
-    cmd: >-
-      launchctl kickstart -k gui/{{ serverapp_vector_uid }}/{{ serverapp_vector_label }}
-  when:
-    - _vector_launch_state.stdout | trim == 'loaded'
-    - >-
-      (_vector_config.changed | default(false))
-      or (_vector_fragments_reload.changed | default(false))
-      or ((_vector_binary_state.stdout | default('') | trim) == 'stale')
-    - not (_vector_plist.changed | default(false))
-  register: _vector_kickstart
-
-- name: Wait for vector health endpoint
-  ansible.builtin.uri:
-    url: "{{ serverapp_vector_health_url }}"
-    status_code: 200
-  register: _vector_health
-  until: _vector_health.status == 200
-  retries: 30
-  delay: 1
-
-# The health endpoint answers happily from a stale binary — that is exactly
-# how a missed restart stayed invisible. Re-probe and fail loudly instead.
-- name: Re-check vector binary after activation
-  ansible.builtin.command:
-    cmd: >-
-      {{ role_path }}/../../files/serverapp_binary_state.sh
-      {{ serverapp_vector_uid }} {{ serverapp_vector_label }} {{ serverapp_vector_bin }}
-  register: _vector_binary_verify
-  changed_when: false
-  failed_when: false
-
-- name: Assert vector is running the currently-linked binary
-  ansible.builtin.assert:
-    that:
-      - (_vector_binary_verify.stdout | default('') | trim) != 'stale'
-    fail_msg: >-
-      vector is still running a binary other than the current target of
-      {{ serverapp_vector_bin }}. A restart did not take effect, so the
-      health check above passed from the old binary.
+- name: Activate vector launchd service (shared lifecycle)
+  ansible.builtin.include_role:
+    name: serverapp_launchd
+  vars:
+    sl_app: vector
+    sl_uid: "{{ serverapp_vector_uid }}"
+    sl_label: "{{ serverapp_vector_label }}"
+    sl_plist_path: "{{ serverapp_vector_plist_path }}"
+    sl_bin: "{{ serverapp_vector_bin }}"
+    sl_home: "{{ serverapp_vector_home }}"
+    sl_health_url: "{{ serverapp_vector_health_url }}"
+    sl_plist_changed: "{{ _vector_plist.changed | default(false) }}"
+    sl_config_changed: "{{ (_vector_config.changed | default(false)) or (_vector_fragments_reload.changed | default(false)) }}"
+    sl_health_retries: 30
+    sl_health_delay: 1
+    sl_prehealth_kind: port
+    sl_prehealth_port: 4318
