@@ -244,13 +244,28 @@
   retries: 5
   delay: 1
 
-- name: Kickstart site-namespace caddy after config-only change
+# A `brew upgrade` repoints /opt/homebrew/opt/caddy at a new Cellar dir but
+# touches neither the plist nor any rendered config, so none of the triggers
+# above fire and the service keeps running the binary it already holds open.
+- name: Detect whether running caddy is on a stale binary
+  ansible.builtin.command:
+    cmd: >-
+      {{ role_path }}/../../files/serverapp_binary_state.sh
+      {{ serverapp_caddy_uid }} {{ serverapp_caddy_label }} {{ serverapp_caddy_bin }}
+  register: _caddy_binary_state
+  changed_when: false
+  failed_when: false
+
+- name: Kickstart site-namespace caddy after config or binary change
   ansible.builtin.command:
     cmd: >-
       launchctl kickstart -k gui/{{ serverapp_caddy_uid }}/{{ serverapp_caddy_label }}
   when:
     - _caddy_launch_state.stdout | trim == 'loaded'
-    - (_caddy_config.changed | default(false)) or (_caddy_fragments_reload.changed | default(false))
+    - >-
+      (_caddy_config.changed | default(false))
+      or (_caddy_fragments_reload.changed | default(false))
+      or ((_caddy_binary_state.stdout | default('') | trim) == 'stale')
     - not (_caddy_plist.changed | default(false))
   register: _caddy_kickstart
 
@@ -262,3 +277,23 @@
   until: _caddy_health.status == 200
   retries: 30
   delay: 1
+
+# The health endpoint answers happily from a stale binary — that is exactly
+# how a missed restart stayed invisible. Re-probe and fail loudly instead.
+- name: Re-check caddy binary after activation
+  ansible.builtin.command:
+    cmd: >-
+      {{ role_path }}/../../files/serverapp_binary_state.sh
+      {{ serverapp_caddy_uid }} {{ serverapp_caddy_label }} {{ serverapp_caddy_bin }}
+  register: _caddy_binary_verify
+  changed_when: false
+  failed_when: false
+
+- name: Assert caddy is running the currently-linked binary
+  ansible.builtin.assert:
+    that:
+      - (_caddy_binary_verify.stdout | default('') | trim) != 'stale'
+    fail_msg: >-
+      caddy is still running a binary other than the current target of
+      {{ serverapp_caddy_bin }}. A restart did not take effect, so the
+      health check above passed from the old binary.
