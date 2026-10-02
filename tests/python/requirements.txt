@@ -1,9 +1,15 @@
 # Python test dependencies. Managed via pyproject.toml (project root).
 # Install: uv venv .venv-test && uv pip install -r tests/python/requirements.txt
 # Or:     uv sync
-# ansible-core 2.21.x's installed ansible-test removes/loses its own
-# ansible_test._util.target package after a run; cap at the last stable minor.
-ansible-core>=2.16,<2.21
+# The old <2.21 cap claimed 2.21.x's installed ansible-test removes/loses its
+# own ansible_test._util.target package after a run. Tested and refuted
+# 2026-10-02 on 2.21.2/2.21.3/2.21.4 (and 3.12 for CI parity): across two
+# consecutive runs in a fresh venv, zero files are removed from that package
+# and it stays importable — 2.20.9 behaves identically, so nothing observed
+# was 2.21-specific. No matching upstream issue or changelog entry exists.
+# Cap kept at the next minor rather than removed, so a future 2.22 is a
+# deliberate decision and not a silent one.
+ansible-core>=2.16,<2.22
 jinja2>=3.1
 pytest>=7
 pytest-mock>=3
