@@ -9,7 +9,7 @@ extensions:
       directory: "{{ stayturgid_otelcol_state_dir }}/compaction"
 
 receivers:
-  filelog/repair:
+  file_log/repair:
     include:
       - "{{ termux_home }}/.stayturgid/logs/repair.jsonl"
     start_at: end
@@ -40,7 +40,7 @@ receivers:
       - type: move
         from: attributes.message
         to: body
-  filelog/watchdog:
+  file_log/watchdog:
     include:
       - "{{ stayturgid_sd_root }}/logs/watchdog.jsonl"
     start_at: end
@@ -81,7 +81,7 @@ processors:
     timeout: 30s
 
 exporters:
-  otlphttp/vector:
+  otlp_http/vector:
     endpoint: "{{ stayturgid_otelcol_endpoint }}"
     timeout: 10s
     retry_on_failure:
@@ -106,6 +106,6 @@ service:
   extensions: [file_storage]
   pipelines:
     logs:
-      receivers: [filelog/repair, filelog/watchdog]
+      receivers: [file_log/repair, file_log/watchdog]
       processors: [memory_limiter, batch]
-      exporters: [otlphttp/vector]
+      exporters: [otlp_http/vector]

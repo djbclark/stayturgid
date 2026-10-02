@@ -151,14 +151,14 @@ def test_config_has_required_pipeline_and_persistent_storage() -> None:
     assert storage["compaction"]["directory"].endswith("/.stayturgid/state/otelcol/compaction")
     assert config["processors"]["memory_limiter"]["limit_mib"] == 100
     assert config["processors"]["batch"]["timeout"] == "30s"
-    assert config["exporters"]["otlphttp/vector"]["endpoint"] == "http://100.64.0.1:4318"
-    assert config["exporters"]["otlphttp/vector"]["sending_queue"]["storage"] == "file_storage"
-    assert config["exporters"]["otlphttp/vector"]["retry_on_failure"]["max_elapsed_time"] == "0s"
+    assert config["exporters"]["otlp_http/vector"]["endpoint"] == "http://100.64.0.1:4318"
+    assert config["exporters"]["otlp_http/vector"]["sending_queue"]["storage"] == "file_storage"
+    assert config["exporters"]["otlp_http/vector"]["retry_on_failure"]["max_elapsed_time"] == "0s"
     assert config["service"]["extensions"] == ["file_storage"]
     assert config["service"]["pipelines"]["logs"]["processors"] == ["memory_limiter", "batch"]
 
-    repair = config["receivers"]["filelog/repair"]
-    watchdog = config["receivers"]["filelog/watchdog"]
+    repair = config["receivers"]["file_log/repair"]
+    watchdog = config["receivers"]["file_log/watchdog"]
     assert repair["include"] == ["/data/data/com.termux/files/home/.stayturgid/logs/repair.jsonl"]
     assert watchdog["include"] == ["/sdcard/stayturgid/logs/watchdog.jsonl"]
     assert repair["storage"] == watchdog["storage"] == "file_storage"
