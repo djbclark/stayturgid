@@ -13,6 +13,6 @@ def test_ansible_collection_dependencies_are_exactly_versioned():
     versions = {item["name"]: item["version"] for item in requirements["collections"]}
     assert versions == {
         "ansible.posix": "2.2.2",
-        "community.general": "13.2.0",
+        "community.general": "13.4.0",
     }
     assert all(not any(operator in version for operator in "<>=~") for version in versions.values())
