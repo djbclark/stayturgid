@@ -187,39 +187,54 @@
     - (_landing_discover_legacy_disabled.stdout | default('disabled') | trim) == 'enabled'
   register: _landing_discover_legacy_disable
 
-- name: Bootstrap site-namespace landing when unloaded
+# launchd keeps the plist definition it already loaded, so `kickstart -k` on a
+# changed plist restarts the job with the *old* definition. Both agents here
+# used to do exactly that (and bootstrapped only when unloaded), which is the
+# same drift 919ace1 corrected in serverapp_victoriametrics. A changed plist
+# needs bootout + bootstrap. landing renders no own-mode config separately from
+# its plists, so — like serverapp_openobserve — there is no config-only change
+# left for a kickstart to serve, and it has no kickstart task at all.
+- name: Boot out site-namespace landing when its launchd plist changed
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_landing_uid }}/{{ serverapp_landing_label }}
+  when:
+    - _landing_launch_state.stdout | trim == 'loaded'
+    - _landing_plist.changed | default(false)
+  register: _landing_plist_reload_bootout
+
+- name: Boot out site-namespace landing-discover when its launchd plist changed
+  ansible.builtin.command:
+    cmd: launchctl bootout gui/{{ serverapp_landing_uid }}/{{ serverapp_landing_discover_label }}
+  when:
+    - _landing_discover_launch_state.stdout | trim == 'loaded'
+    - _landing_discover_plist.changed | default(false)
+  register: _landing_discover_plist_reload_bootout
+
+- name: Bootstrap site-namespace landing when unloaded or its plist changed
   ansible.builtin.command:
     cmd: >-
       launchctl bootstrap gui/{{ serverapp_landing_uid }}
       {{ serverapp_landing_plist_path }}
-  when: _landing_launch_state.stdout | trim == 'unloaded'
+  when: >-
+    (_landing_launch_state.stdout | trim == 'unloaded')
+    or (_landing_plist_reload_bootout.changed | default(false))
   register: _landing_bootstrap
+  until: _landing_bootstrap.rc == 0
+  retries: 5
+  delay: 1
 
-- name: Bootstrap site-namespace landing-discover when unloaded
+- name: Bootstrap site-namespace landing-discover when unloaded or its plist changed
   ansible.builtin.command:
     cmd: >-
       launchctl bootstrap gui/{{ serverapp_landing_uid }}
       {{ serverapp_landing_discover_plist_path }}
-  when: _landing_discover_launch_state.stdout | trim == 'unloaded'
+  when: >-
+    (_landing_discover_launch_state.stdout | trim == 'unloaded')
+    or (_landing_discover_plist_reload_bootout.changed | default(false))
   register: _landing_discover_bootstrap
-
-- name: Kickstart site-namespace landing after plist change
-  ansible.builtin.command:
-    cmd: >-
-      launchctl kickstart -k gui/{{ serverapp_landing_uid }}/{{ serverapp_landing_label }}
-  when:
-    - _landing_launch_state.stdout | trim == 'loaded'
-    - _landing_plist.changed | default(false)
-  register: _landing_kickstart
-
-- name: Kickstart site-namespace landing-discover after plist change
-  ansible.builtin.command:
-    cmd: >-
-      launchctl kickstart -k gui/{{ serverapp_landing_uid }}/{{ serverapp_landing_discover_label }}
-  when:
-    - _landing_discover_launch_state.stdout | trim == 'loaded'
-    - _landing_discover_plist.changed | default(false)
-  register: _landing_discover_kickstart
+  until: _landing_discover_bootstrap.rc == 0
+  retries: 5
+  delay: 1
 
 - name: Wait for landing health endpoint
   ansible.builtin.uri:

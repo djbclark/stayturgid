@@ -255,12 +255,18 @@ def test_otelcol_verify_self_heals_once_before_hard_failing() -> None:
 
 
 def test_vector_reloads_launchd_job_when_credential_plist_changes() -> None:
+    """vector's launchd lifecycle moved into the shared serverapp_launchd role.
+
+    The reload semantics themselves are asserted in
+    test_launchd_reload_semantics.py; what matters here is that vector still
+    feeds its own plist-change signal into that shared lifecycle rather than
+    quietly dropping it (the plist is where the credential interpolation flag
+    lives, so a stale definition keeps the old credentials).
+    """
     tasks = (REPO / "ansible/roles/serverapp_vector/tasks/main.yml").read_text()
-    assert "Boot out site-namespace vector when its launchd plist changed" in tasks
     assert "--dangerously-allow-env-var-interpolation" in tasks
-    assert "_vector_plist_reload_bootout.changed | default(false)" in tasks
-    assert "until: _vector_bootstrap.rc == 0" in tasks
-    assert "not (_vector_plist.changed | default(false))" in tasks
+    assert "name: serverapp_launchd" in tasks
+    assert 'sl_plist_changed: "{{ _vector_plist.changed | default(false) }}"' in tasks
 
 
 def test_openobserve_uses_loopback_node_addresses_and_reloads_plist() -> None:
