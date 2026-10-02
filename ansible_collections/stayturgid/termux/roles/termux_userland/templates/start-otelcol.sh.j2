@@ -12,6 +12,9 @@ OTELCOL_CONFIG="${OTELCOL_CONFIG:-{{ stayturgid_otelcol_config }}}"
 OTELCOL_PID_FILE="${OTELCOL_PID_FILE:-{{ stayturgid_otelcol_pid_file }}}"
 OTELCOL_LOG="${OTELCOL_LOG:-$STG/logs/otelcol.log}"
 export GOMEMLIMIT="${OTELCOL_GOMEMLIMIT:-80MiB}"
+# Cap the Go scheduler. NumCPU is 8 on these phones, so the runtime starts
+# eight Ps plus their background work for a two-receiver logs-only pipeline.
+export GOMAXPROCS="${OTELCOL_GOMAXPROCS:-{{ stayturgid_otelcol_gomaxprocs | default(2) }}}"
 
 otelcol_alive() {
   pid="$(cat "$OTELCOL_PID_FILE" 2>/dev/null || true)"

@@ -52,6 +52,30 @@ stayturgid_otelcol_state_dir: "{{ termux_home }}/.stayturgid/state/otelcol"
 stayturgid_otelcol_pid_file: "{{ termux_home }}/.stayturgid/run/otelcol.pid"
 stayturgid_otelcol_boot_script: "{{ termux_home }}/.termux/boot/start-otelcol.sh"
 stayturgid_otelcol_endpoint: "http://{{ stayturgid_control_tailscale_ip }}:4318"
+# Idle-CPU budget on the phone. The collector is the single largest CPU
+# consumer on a quiet device: measured 2026-10-02 on t2e it burned ~5 CPU
+# seconds per 90s wall (≈5.5% of a core, ~80 min/day) with the upstream
+# defaults, more than system_server. Two defaults cause it:
+#
+#   * fileconsumer polls every 200ms. filelog/watchdog reads a path under
+#     /sdcard, so each poll is a FUSE round trip through MediaProvider —
+#     com.google.android.providers.media.module was the #2 CPU consumer on
+#     the device purely from serving those stats.
+#   * memory_limiter's check_interval ticks a ReadMemStats every second.
+#
+# Both log files get one line per repair cycle (~15 min), so a 30s poll costs
+# at most 30s of extra ingest latency. Dropping these took the collector to
+# ~1s/90s and removed MediaProvider from the top of the CPU list entirely.
+stayturgid_otelcol_poll_interval: 30s
+stayturgid_otelcol_memory_check_interval: 30s
+# fsync on every persistent-queue write buys durability we do not need: the
+# queue only replays logs, and losing a few on a hard kill is cheaper than
+# the constant flash writes.
+stayturgid_otelcol_storage_fsync: "false"
+# The Go runtime sizes its scheduler to NumCPU (8 here) and runs sysmon plus
+# per-P background work accordingly. Two Ps is ample for a two-receiver
+# logs-only pipeline.
+stayturgid_otelcol_gomaxprocs: 2
 
 stayturgid_boot_scripts:
   - start-adb.sh

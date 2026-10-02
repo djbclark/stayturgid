@@ -126,6 +126,50 @@ LD_LIBRARY_PATH=$PREFIX/lib; sshd`. Recovery is painful — competing boot
 
 ## Repo / PR review notes
 
+### CFEngine `processes:` promises do not work on Android
+
+CFEngine cannot parse toybox `ps` output. Every `cf-agent` run on a Termux
+device logs a wall of `Last field of ps output '...' is not CMD/COMMAND`
+errors, builds an **empty** process table, and therefore treats every
+`processes:` promise as "not found". Any `restart_class` hanging off one fires
+on every single run.
+
+On t2e this had `check_otelcol` stop and restart a healthy collector on every
+boot-loop cycle — 627 spurious restarts against 50 honest "running" reports,
+each paying Go startup plus a three-directory `file_storage` compaction, and
+each dumping the ps error block into `repair-cfengine.log` (4.8 MB by
+2026-10-02).
+
+**How to apply:** express liveness as a class from `returnszero("... pgrep
+...", "useshell")`, never a `processes:` promise — `check_sshd`,
+`check_bootloop_repair` and now `check_otelcol` in
+[`device/termux/cfengine/policy/stayturgid.cf`](../../device/termux/cfengine/policy/stayturgid.cf)
+all do. Bracket one character of the pattern (`otelcol[-]contrib`) so it
+cannot match the shell that carries it, and prefer `-f` over `-x`: `pgrep -x
+otelcol-contrib` does not match on Termux's procps-ng 4.0.7 even though
+`/proc/<pid>/comm` is exactly `otelcol-contrib`.
+
+### otelcol-contrib idle CPU is a battery item, not a rounding error
+
+Measured on t2e 2026-10-02: with upstream defaults the collector burned ~5 CPU
+seconds per 90 s wall — ~5.5% of a core around the clock, **more than
+`system_server`**, and the largest single consumer on an otherwise idle phone.
+Two defaults did it: `fileconsumer` polls every 200 ms (and
+`filelog/watchdog` reads a path under `/sdcard`, so every poll is a FUSE round
+trip — `com.google.android.providers.media.module` was the #2 consumer purely
+from serving them), and `memory_limiter`'s `check_interval: 1s` ticks a
+`ReadMemStats` every second.
+
+**How to apply:** the edge collector's cadence knobs are
+`stayturgid_otelcol_poll_interval`, `stayturgid_otelcol_memory_check_interval`,
+`stayturgid_otelcol_storage_fsync` and `stayturgid_otelcol_gomaxprocs` in
+`ansible_collections/stayturgid/termux/roles/termux_userland/defaults/main.yml`.
+Both log files gain a line per repair cycle (~15 min), so a 30 s poll costs at
+most 30 s of ingest latency; it took the collector to ~1s/90s and removed
+MediaProvider from the top of the CPU list. Before adding any new receiver to a
+device collector, check its poll/tick interval against how often the source
+actually changes.
+
 ### CodeRabbit sometimes misapplies AGENTS.md conventions
 
 CodeRabbit's review on stayturgid PRs has flagged Python/TypeScript library

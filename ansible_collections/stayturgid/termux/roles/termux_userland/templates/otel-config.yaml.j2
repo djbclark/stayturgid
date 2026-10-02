@@ -3,7 +3,7 @@ extensions:
   file_storage:
     directory: "{{ stayturgid_otelcol_state_dir }}"
     create_directory: true
-    fsync: true
+    fsync: {{ stayturgid_otelcol_storage_fsync | default("false") }}
     compaction:
       on_start: true
       directory: "{{ stayturgid_otelcol_state_dir }}/compaction"
@@ -13,6 +13,10 @@ receivers:
     include:
       - "{{ termux_home }}/.stayturgid/logs/repair.jsonl"
     start_at: end
+    # 200ms (the upstream default) is far too hot for a file that gains a
+    # line every ~15 min — see stayturgid_otelcol_poll_interval in
+    # roles/termux_userland/defaults/main.yml.
+    poll_interval: {{ stayturgid_otelcol_poll_interval | default("30s") }}
     storage: file_storage
     include_file_name: false
     resource:
@@ -40,6 +44,10 @@ receivers:
     include:
       - "{{ stayturgid_sd_root }}/logs/watchdog.jsonl"
     start_at: end
+    # 200ms (the upstream default) is far too hot for a file that gains a
+    # line every ~15 min — see stayturgid_otelcol_poll_interval in
+    # roles/termux_userland/defaults/main.yml.
+    poll_interval: {{ stayturgid_otelcol_poll_interval | default("30s") }}
     storage: file_storage
     include_file_name: false
     resource:
@@ -66,7 +74,7 @@ receivers:
 
 processors:
   memory_limiter:
-    check_interval: 1s
+    check_interval: {{ stayturgid_otelcol_memory_check_interval | default("30s") }}
     limit_mib: 100
     spike_limit_mib: 20
   batch:

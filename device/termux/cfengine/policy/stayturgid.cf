@@ -60,14 +60,27 @@ bundle agent check_sshd(p) {
 # Only where the deploy installed the boot script: stayturgid_otelcol_enabled
 # is false on some models (t2e's binary fails the runtime probe), and calling
 # the missing script failed with 127 on every run there.
+#
+# Liveness is pgrep, not a `processes:` promise, for the same reason check_sshd
+# gave up on one — and here the failure was worse than a bad regex. CFEngine
+# cannot parse Android/toybox `ps` output at all: every run logged a wall of
+# "Last field of ps output '...' is not CMD/COMMAND" errors, found no processes
+# whatsoever, and therefore fired restart_class unconditionally. On t2e that
+# stopped and restarted a perfectly healthy collector on every boot-loop cycle
+# — 627 spurious restarts against 50 honest "running" reports, each one paying
+# Go startup plus a three-directory file_storage compaction, and dumping the ps
+# error block into repair-cfengine.log (4.8 MB by 2026-10-02). Do not restore
+# the `processes:` form on Android.
+#
+# The [-] bracket is the same self-match guard check_bootloop_repair uses: a
+# plain -f pattern also matches the shell whose own command line contains the
+# pattern text (verified live on t2e). `pgrep -x otelcol-contrib` does not
+# work here despite comm being exactly "otelcol-contrib" (procps-ng 4.0.7).
 bundle agent check_otelcol(p, home) {
   classes:
     "otelcol_enabled" expression => fileexists("$(home)/.termux/boot/start-otelcol.sh");
-
-  processes:
-    otelcol_enabled::
-      ".*otelcol-contrib.*"
-        restart_class => "restart_otelcol";
+    "otelcol_up" expression => returnszero("$(p)/bin/pgrep -f otelcol[-]contrib >/dev/null 2>&1", "useshell");
+    "restart_otelcol" expression => "otelcol_enabled.!otelcol_up";
 
   reports:
     !otelcol_enabled::
