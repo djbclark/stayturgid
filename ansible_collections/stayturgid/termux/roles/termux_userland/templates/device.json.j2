@@ -1,0 +1,26 @@
+{# Per-device profile read by stayturgid_repair.py and stayturgid_shell.py
+   (read_device_profile). Only id, label/alias, privilegedShellExpected and
+   tailscaleEnabled are consumed by code today; the rest is descriptive and
+   kept so the file stays self-explaining on the phone.
+
+   shizukuStartCoords is emitted only when a model sets it. The values are
+   currently commented out in group_vars (they were the AutoJs6 tap
+   coordinates, retired with K1), so this normally renders without the key —
+   which is why it must stay optional rather than becoming a null. #}
+{
+  "id": "{{ inventory_hostname }}",
+  "label": "{{ device_label | default(inventory_hostname) }}",
+  "sdRoot": "{{ stayturgid_sd_root }}",
+  "notifyTag": "({{ device_label | default(inventory_hostname) }})",
+  "shizukuPackage": "{{ shizuku_package }}",
+  "shizukuActivity": "{{ shizuku_activity }}",
+{% if stayturgid_shizuku_start_coords %}
+  "shizukuStartCoords": {"x": {{ stayturgid_shizuku_start_coords.x }}, "y": {{ stayturgid_shizuku_start_coords.y }}},
+{% endif %}
+  "tailscaleEnabled": {{ stayturgid_tailscale_enabled | bool | lower }},
+  "tailscaleIp": {{ ('"' ~ stayturgid_tailscale_ip ~ '"') if stayturgid_tailscale_ip else 'null' }},
+  "tailscalePackage": "{{ tailscale_package }}",
+  "tailscaleActivity": "{{ tailscale_activity }}",
+  "wirelessDebugUiFallback": {{ stayturgid_wireless_debug_ui_fallback | bool | lower }},
+  "privilegedShellExpected": {{ (not (stayturgid_no_local_adb | default(false) | bool)) | lower }}
+}

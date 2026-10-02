@@ -82,8 +82,17 @@ stayturgid_bootstrap_apks:
     gh_repo: termux/termux-x11
     gh_tag: nightly
     gh_pattern: termux-x11-universal-debug.apk
-    version_name: 1.03.01-29f57c0-29.09.26
-    checksum: "sha256:7aaf50be6a2de883f32278cea89abe1be2f02e693eff9e3411271c7736b30976"
+    # Re-pinned 2026-10-02 from 1.03.01-29f57c0-29.09.26 / sha256:7aaf50be...
+    # Upstream republished the nightly tag on 2026-10-01, so the old digest
+    # failed deploys fleet-wide. Checked before accepting: the only commit
+    # between 29f57c0 and 0e1ebb4 is "build(deps): bump gradle/actions from
+    # 6.3.0 to 6.4.0" (CI only, no application change), and the signing
+    # certificate is byte-identical to the APK installed on the fleet
+    # (SHA-256 b6da01480eefd5fbf2cd3771b8d1021ec791304bdd6c4bf41d3faabad48ee5e1,
+    # CN=APK Signer, OU=Earth, O=Earth), compared against the base.apk pulled
+    # off t2e.
+    version_name: 1.03.01-0e1ebb4-01.10.26
+    checksum: "sha256:97e1c5d471cbb6af84267d7d2d3c475f3862ad2cc2aecebfe98ed0097a0164c0"
     mutable_tag_snapshot: true
   - id: moe.shizuku.privileged.api
     gh_repo: frdminc/Shizuku
