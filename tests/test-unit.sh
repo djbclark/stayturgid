@@ -10,6 +10,22 @@ cd "$(dirname "$0")/.." || exit 2
 . tests/lib.sh
 REPO="$PWD"
 
+# Both call sites below assert on output a *backgrounded* (nohup'd) stub writes,
+# so a flat `sleep` is a race: under load the file is still empty when the
+# assertion runs and the failure reads "missing '<pattern>' in: " with nothing
+# after the colon. Poll for the content instead, with the old flat sleep as the
+# timeout. Same bug class as the restart-boot-loop handler's flat `sleep 3`
+# (docs/notes/lessons-learned.md).
+wait_for_match() {
+  file=$1 pattern=$2 timeout=${3:-5}
+  deadline=$(($(date +%s) + timeout))
+  while [ "$(date +%s)" -lt "$deadline" ]; do
+    grep -q -- "$pattern" "$file" 2>/dev/null && return 0
+    sleep 0.1
+  done
+  return 1
+}
+
 make_sandbox
 trap 'kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bootloop.pid" 2>/dev/null || true
       kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bridge.pid" 2>/dev/null || true
@@ -308,7 +324,7 @@ presence_suite() {
   else
     tap_fail "presence[$T]: off clears the stop flag"
   fi
-  sleep 1 # the release dialog is backgrounded via nohup
+  wait_for_match "$STUB_LOG" "has released" 5 || true
   tap_like "$(grep 'termux-dialog' "$STUB_LOG")" "has released" \
     "presence[$T]: off pops modal release dialog after a stop"
   unset ADB_FG_PKG ADB_WAKE DIALOG_CHOICE 2>/dev/null || true
@@ -685,8 +701,8 @@ mkdir -p "$SANDBOX/home/.stayturgid/bin" "$SANDBOX/home/.stayturgid/logs" "$SAND
 cp "$BRIDGES_PY" "$SANDBOX/home/.stayturgid/bin/stayturgid_bridges.py"
 chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_bridges.py"
 run_sandboxed "$START_BRIDGE"
-# nohup stub writes to STUB_LOG asynchronously; wait briefly
-sleep 0.5
+# nohup stub writes to STUB_LOG asynchronously; poll rather than guess a delay
+wait_for_match "$STUB_LOG" "nohup" 5 || true
 tap_like "$(cat "$STUB_LOG")" "nohup" "start-repair-bridge: calls nohup to launch bridge when idle"
 
 # Skips when pidfile shows running bridge
