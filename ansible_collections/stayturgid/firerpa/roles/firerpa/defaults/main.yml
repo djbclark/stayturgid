@@ -12,10 +12,16 @@ firerpa_server_archive_arm64: "lamda-server-arm64-v8a.tar.gz"
 firerpa_server_archive_sha256_arm64: "88957c04f6cae2e2cc56aaece92cec4074ad72092bc05f1e26e4095de7dedeca"
 firerpa_server_archive_url_arm64: >-
   https://github.com/djbclark/lamda/releases/download/v{{ firerpa_version }}-binaries/{{ firerpa_server_archive_arm64 }}
+# expanduser is load-bearing: the tracked secretspec default for
+# FIRERPA_CERTIFICATE is a literal "~/..." path. ansible.builtin.stat expands a
+# tilde, but `adb push` does not, so the certificate has to be absolute before it
+# reaches a command task or the push fails with "cannot stat '~/...'".
 firerpa_certificate_path: >-
   {{
-    lookup('env', 'FIRERPA_CERTIFICATE')
-    | default(lookup('env', 'HOME') ~ '/.config/stayturgid/firerpa.pem', true)
+    (
+      lookup('env', 'FIRERPA_CERTIFICATE')
+      | default(lookup('env', 'HOME') ~ '/.config/stayturgid/firerpa.pem', true)
+    ) | expanduser
   }}
 firerpa_certificate_device_path: "{{ firerpa_install_dir }}/server/lamda.pem"
 firerpa_certificate_required: true

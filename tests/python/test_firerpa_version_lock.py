@@ -141,3 +141,12 @@ def test_driver_hashes_are_distinct_and_well_formed():
     for digest in digests:
         assert re.fullmatch(r"[0-9a-f]{64}", digest), digest
     assert len(set(digests)) == len(digests), "a driver/DEX hash pin was copy-pasted"
+
+
+def test_certificate_path_is_absolute_before_it_reaches_adb():
+    """`adb push` cannot stat a literal "~/..." path, and the tracked secretspec
+    default for FIRERPA_CERTIFICATE is exactly that, so the role must expanduser it."""
+    defaults = DEFAULTS.read_text(encoding="utf-8")
+    assert "expanduser" in defaults
+    expression = defaults.split("firerpa_certificate_path:", 1)[1].split("firerpa_certificate_device_path:", 1)[0]
+    assert "| expanduser" in expression, "firerpa_certificate_path must be expanduser'd"
