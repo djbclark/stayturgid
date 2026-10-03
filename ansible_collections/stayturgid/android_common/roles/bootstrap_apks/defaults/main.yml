@@ -74,6 +74,16 @@ stayturgid_bootstrap_apks:
     gh_pattern: "termux-api-app_v0.53.0+github.debug.apk"
     version_name: 0.53.0
     checksum: "sha256:ecf916ff80ae751e65c092f51c055cce4de417ebeea8e449cd0f294afdbde39a"
+  # Tasker plugin: lets Tasker run commands under Termux's UID (sshd recovery
+  # trigger that works behind a locked keyguard, where no Termux GUI session
+  # can spawn). GitHub-debug build, same signing lineage as the sideloaded
+  # copy verified byte-identical on the fleet 2026-10-03.
+  - id: com.termux.tasker
+    gh_repo: termux/termux-tasker
+    gh_tag: v0.9.0
+    gh_pattern: "termux-tasker-app_v0.9.0+github.debug.apk"
+    version_name: 0.9.0
+    checksum: "sha256:4dd14de5f18791b3594256a9ead6bfddafa0434f11e0d39c3b551dda53db2fff"
   # Intentional point-in-time snapshot pin against the mutable nightly tag.
   # A future nightly fails checksum verification safely rather than auto-updating;
   # re-pin only by deliberately re-fetching the asset and updating this checksum

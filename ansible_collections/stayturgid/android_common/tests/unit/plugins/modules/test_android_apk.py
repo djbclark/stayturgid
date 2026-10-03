@@ -92,6 +92,77 @@ def test_android_apk_installs(mocker, tmp_path):
     assert out["reason"] == "Success"
 
 
+def test_android_apk_disables_play_protect_verifier_around_install(mocker, tmp_path):
+    """The install is wrapped in a verifier off/restore pair (unsafe-app dialog)."""
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    seen = []
+
+    def command_fn(cmd):
+        joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
+        seen.append(joined)
+        if "pm list packages" in joined:
+            return (0, "", "")
+        if "settings get global verifier_verify_adb_installs" in joined:
+            return (0, "1\n", "")
+        if "settings get global package_verifier_enable" in joined:
+            return (0, "null\n", "")
+        if " install" in joined:
+            return (0, "Success\n", "")
+        return (0, "", "")
+
+    out = run_module(
+        mocker,
+        dict(
+            device="dev",
+            package="com.example.app",
+            apk_path=str(apk),
+            connect=False,
+        ),
+        command_fn=command_fn,
+    )
+    assert out.get("failed") is not True, out
+    install_idx = next(i for i, c in enumerate(seen) if " install" in c)
+    disables = [i for i, c in enumerate(seen) if "settings put global" in c and " 0" in c]
+    assert len(disables) == 2 and all(i < install_idx for i in disables), seen
+    restore_put = [i for i, c in enumerate(seen) if "settings put global verifier_verify_adb_installs 1" in c]
+    restore_delete = [i for i, c in enumerate(seen) if "settings delete global package_verifier_enable" in c]
+    assert restore_put and restore_put[0] > install_idx, seen
+    assert restore_delete and restore_delete[0] > install_idx, seen
+
+
+def test_android_apk_restores_verifier_on_install_failure(mocker, tmp_path):
+    """A failed install must still restore the Play Protect settings."""
+    apk = tmp_path / "app.apk"
+    apk.write_bytes(b"PK")
+    seen = []
+
+    def command_fn(cmd):
+        joined = " ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd)
+        seen.append(joined)
+        if "pm list packages" in joined:
+            return (0, "", "")
+        if "settings get global" in joined:
+            return (0, "1\n", "")
+        if " install" in joined:
+            return (1, "Failure [INSTALL_FAILED_INVALID_APK]", "")
+        return (0, "", "")
+
+    out = run_module(
+        mocker,
+        dict(
+            device="dev",
+            package="com.example.app",
+            apk_path=str(apk),
+            connect=False,
+        ),
+        command_fn=command_fn,
+    )
+    assert out.get("failed") is True
+    restores = [c for c in seen if "settings put global" in c and c.rstrip().endswith(" 1")]
+    assert len(restores) == 2, seen
+
+
 def test_android_apk_accepts_locked_checksum(mocker, tmp_path):
     apk = tmp_path / "app.apk"
     apk.write_bytes(b"PK")
@@ -162,7 +233,10 @@ def test_android_apk_install_wrapped_in_timeout(mocker, tmp_path):
     with pytest.raises(SystemExit):
         mod.main()
 
-    install_cmds = [c for c in seen_cmds if "install" in " ".join(c)]
+    # Match the adb install subcommand as a standalone argv element — a plain
+    # substring check also matches the Play Protect verifier settings commands
+    # (verifier_verify_adb_installs).
+    install_cmds = [c for c in seen_cmds if isinstance(c, (list, tuple)) and "install" in c]
     assert len(install_cmds) == 1
     assert install_cmds[0][:3] == ["/usr/bin/timeout", "180", "adb"], install_cmds[0]
 

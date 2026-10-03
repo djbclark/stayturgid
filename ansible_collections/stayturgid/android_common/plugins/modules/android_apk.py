@@ -174,6 +174,34 @@ from ansible_collections.stayturgid.android_common.plugins.module_utils.apk_inst
     parse_install_result,
 )
 
+# Google Play Protect intercepts adb installs with an on-device "unsafe app
+# blocked" dialog that nobody is there to tap (observed live 2026-10-03 on
+# s24 installing com.termux.tasker: the install hung until timeout). These
+# two global settings gate that scan for adb installs; both default to 1.
+ADB_INSTALL_VERIFIER_KEYS = ("verifier_verify_adb_installs", "package_verifier_enable")
+
+
+def read_verifier_settings(run_command, device):
+    """Read the Play Protect adb-install verifier settings, keyed by name.
+
+    An unset setting reads back as the literal string "null"; keep it so the
+    restore can distinguish "was unset" from "was 0"/"was 1".
+    """
+
+    values = {}
+    for key in ADB_INSTALL_VERIFIER_KEYS:
+        rc, out, _err = adb_shell(run_command, device, "settings get global %s" % key)
+        values[key] = out.strip() if rc == 0 else "null"
+    return values
+
+
+def write_verifier_settings(run_command, device, values):
+    for key, value in values.items():
+        if value == "null":
+            adb_shell(run_command, device, "settings delete global %s" % key)
+        else:
+            adb_shell(run_command, device, "settings put global %s %s" % (key, value))
+
 
 def installed_version(run_command, device, package):
     rc, out, _err = adb_shell(run_command, device, "dumpsys package %s | grep versionName" % package)
@@ -428,39 +456,48 @@ def main():
     cmd += module.params["extra_args"]
     cmd.append(apk)
 
-    sys.stderr.write("🚨📱🚨 USING — %s — install %s — ~3 min\n" % (device, package))
-    rc, out, err = run_command_with_timeout(
-        module.run_command, cmd, timeout=install_timeout, get_bin_path_fn=module.get_bin_path
-    )
-    sys.stderr.write("🟢📱🟢 FREE — %s — install complete\n" % device)
-    ok, reason = parse_install_result(out + "\n" + err)
-    if (
-        present
-        and not module.params["clean"]
-        and module.params["clean_on_incompatible"]
-        and (rc != 0 or not ok)
-        and incompatible_install_failure(reason)
-    ):
-        module.warn("clean fallback: uninstalling %s (application data will be lost) after %s" % (package, reason))
-        sys.stderr.write("🚨📱🚨 USING — %s — clean fallback uninstall+reinstall — ~3 min\n" % device)
-        uninstall_rc, uninstall_out, uninstall_err = run_command_with_timeout(
-            module.run_command,
-            ["adb", "-s", device, "uninstall", package],
-            timeout=install_timeout,
-            get_bin_path_fn=module.get_bin_path,
-        )
-        if uninstall_rc != 0 or "Success" not in normalize_adb_output(uninstall_out):
-            sys.stderr.write("🟢📱🟢 FREE — %s — clean fallback uninstall+reinstall complete\n" % device)
-            module.fail_json(
-                msg="adb install failed (%s); clean fallback uninstall failed: %s"
-                % (reason, normalize_adb_output(uninstall_out + "\n" + uninstall_err))
-            )
+    # Disable the Play Protect adb-install scan for the duration of the
+    # install (it otherwise blocks sideloads with an on-device dialog), and
+    # restore whatever was set before — including on failure. fail_json
+    # raises SystemExit, so the finally block covers every exit path.
+    verifier_before = read_verifier_settings(module.run_command, device)
+    write_verifier_settings(module.run_command, device, {key: "0" for key in verifier_before})
+    try:
+        sys.stderr.write("🚨📱🚨 USING — %s — install %s — ~3 min\n" % (device, package))
         rc, out, err = run_command_with_timeout(
             module.run_command, cmd, timeout=install_timeout, get_bin_path_fn=module.get_bin_path
         )
-        sys.stderr.write("🟢📱🟢 FREE — %s — clean fallback uninstall+reinstall complete\n" % device)
-        ok, retry_reason = parse_install_result(out + "\n" + err)
-        reason = "%s (clean fallback after %s)" % (retry_reason, reason)
+        sys.stderr.write("🟢📱🟢 FREE — %s — install complete\n" % device)
+        ok, reason = parse_install_result(out + "\n" + err)
+        if (
+            present
+            and not module.params["clean"]
+            and module.params["clean_on_incompatible"]
+            and (rc != 0 or not ok)
+            and incompatible_install_failure(reason)
+        ):
+            module.warn("clean fallback: uninstalling %s (application data will be lost) after %s" % (package, reason))
+            sys.stderr.write("🚨📱🚨 USING — %s — clean fallback uninstall+reinstall — ~3 min\n" % device)
+            uninstall_rc, uninstall_out, uninstall_err = run_command_with_timeout(
+                module.run_command,
+                ["adb", "-s", device, "uninstall", package],
+                timeout=install_timeout,
+                get_bin_path_fn=module.get_bin_path,
+            )
+            if uninstall_rc != 0 or "Success" not in normalize_adb_output(uninstall_out):
+                sys.stderr.write("🟢📱🟢 FREE — %s — clean fallback uninstall+reinstall complete\n" % device)
+                module.fail_json(
+                    msg="adb install failed (%s); clean fallback uninstall failed: %s"
+                    % (reason, normalize_adb_output(uninstall_out + "\n" + uninstall_err))
+                )
+            rc, out, err = run_command_with_timeout(
+                module.run_command, cmd, timeout=install_timeout, get_bin_path_fn=module.get_bin_path
+            )
+            sys.stderr.write("🟢📱🟢 FREE — %s — clean fallback uninstall+reinstall complete\n" % device)
+            ok, retry_reason = parse_install_result(out + "\n" + err)
+            reason = "%s (clean fallback after %s)" % (retry_reason, reason)
+    finally:
+        write_verifier_settings(module.run_command, device, verifier_before)
 
     if rc == 124:
         module.fail_json(
