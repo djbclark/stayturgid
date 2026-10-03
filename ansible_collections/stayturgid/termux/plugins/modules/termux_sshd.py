@@ -140,8 +140,18 @@ def main():
 
     if config_changed and module.params["restart_on_change"] and not module.check_mode:
         # Detached: an inline restart would kill the SSH session Ansible uses.
+        # Prefer `sv restart` when runsv supervises sshd (runit owns the
+        # process; a bare pkill+sshd would race its automatic restart for
+        # port 8022), falling back to the historical pkill+start.
         bash = os.path.join(prefix, "bin", "bash")
-        module.run_command([bash, "-c", "nohup bash -c 'sleep 5; pkill -x sshd; sleep 1; sshd' >/dev/null 2>&1 &"])
+        svdir = os.path.join(prefix, "var", "service")
+        restart = (
+            "sleep 5; "
+            "if [ -x %(prefix)s/bin/sv ] && SVDIR=%(svdir)s %(prefix)s/bin/sv status sshd >/dev/null 2>&1; "
+            "then SVDIR=%(svdir)s %(prefix)s/bin/sv restart sshd; "
+            "else pkill -x sshd; sleep 1; sshd; fi"
+        ) % {"prefix": prefix, "svdir": svdir}
+        module.run_command([bash, "-c", "nohup bash -c '%s' >/dev/null 2>&1 &" % restart])
 
     module.exit_json(
         changed=config_changed or down_removed,

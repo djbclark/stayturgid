@@ -131,6 +131,18 @@ Mac soft health: launchd `com.stayturgid.fleet-health` →
 
 Investigate a minimal Tasker profile (e.g., triggered on a schedule or Shizuku stop) as an additional safeguard layer for the native Kotlin agent. Tasker has a strong track record surviving OEM background-process killing.
 
+**Partially landed 2026-10-03 (sshd leg):** `com.termux.tasker` is in the
+bootstrap APK lock, `~/.termux/tasker/sshd-recover.sh` is deployed fleet-wide
+(starts runsvdir if dead, then `sv up sshd`), and Tasker holds
+`com.termux.permission.RUN_COMMAND` on all three phones. Still manual: the
+one-time Tasker profile per phone (Event → Intent Received, e.g.
+`com.stayturgid.SSHD_RECOVER` → Send Intent `com.termux.RUN_COMMAND` to
+`com.termux.app.RunCommandService` with `RUN_COMMAND_PATH` pointing at the
+script and `RUN_COMMAND_BACKGROUND:true`, target Service), after which
+`adb shell am broadcast -a com.stayturgid.SSHD_RECOVER` recovers sshd with the
+keyguard locked. The native-agent leg (agent sends RUN_COMMAND itself when
+ComonitorProbes sees `sshd=down`) remains open.
+
 #### 45 — Termux `sshd -D` if freeze returns (agent) · Risk: **Latent / Medium** · Trigger: sshd freeze
 
 If sshd freezes again (TCP up but `ssh_echo` fails in health log), try

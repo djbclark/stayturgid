@@ -315,3 +315,35 @@ def test_maybe_notify_error_rate_notifies_via_termux_api_wrapper_only(tmp_path, 
     # A second call right away must respect the re-notify cooldown.
     assert repair.maybe_notify_error_rate(tapi_module=tapi) == "cooldown"
     assert len(tapi.calls) == 1
+
+
+def test_sv_up_sshd_false_without_sv(monkeypatch, tmp_path):
+    monkeypatch.setattr(repair, "PREFIX", str(tmp_path))
+    assert repair.sv_up_sshd() is False
+
+
+def test_sv_up_sshd_uses_runit_and_restores_svdir(monkeypatch, tmp_path):
+    prefix = tmp_path
+    (prefix / "bin").mkdir()
+    sv = prefix / "bin" / "sv"
+    sv.write_text("#!/bin/sh\n")
+    sv.chmod(0o755)
+    (prefix / "var" / "service" / "sshd").mkdir(parents=True)
+    monkeypatch.setattr(repair, "PREFIX", str(prefix))
+    monkeypatch.delenv("SVDIR", raising=False)
+
+    calls = []
+
+    def fake_run(args, timeout=15):
+        calls.append(list(args))
+        if args[:2] == ["pgrep", "-x"]:
+            return (1, "")  # runsvdir not running
+        return (0, "")
+
+    monkeypatch.setattr(repair, "run", fake_run)
+    monkeypatch.setattr(repair.time, "sleep", lambda s: None)
+
+    assert repair.sv_up_sshd() is True
+    assert any(c[0] == "sh" and "runsvdir" in c[2] for c in calls)
+    assert [str(sv), "up", "sshd"] in calls
+    assert "SVDIR" not in repair.os.environ

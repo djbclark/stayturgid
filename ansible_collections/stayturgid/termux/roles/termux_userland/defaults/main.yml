@@ -24,6 +24,10 @@ stayturgid_termux_packages:
   - curl
   - termux-api
   - runit
+  # termux-services layers service dirs + sv-enable/sv-disable over runit;
+  # sshd runs supervised under it (sv up sshd) so every recovery trigger
+  # converges on one runsv-owned instance instead of racing bare listeners.
+  - termux-services
   - cfengine
   # ansible.posix.synchronize (#166 item 1) needs rsync on both ends of the
   # Termux SSH transport -- installed before the sync tasks further down.
@@ -78,6 +82,9 @@ stayturgid_otelcol_storage_fsync: "false"
 stayturgid_otelcol_gomaxprocs: 2
 
 stayturgid_boot_scripts:
+  # Name order is run order under Termux:Boot — 00-start-services.sh must
+  # start runsvdir before start-adb.sh's startup_sshd() checks for sshd.
+  - 00-start-services.sh
   - start-adb.sh
   - start-repair-bridge.sh
 

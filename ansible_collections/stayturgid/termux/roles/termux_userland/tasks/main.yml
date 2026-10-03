@@ -459,6 +459,32 @@
   loop: "{{ stayturgid_retired_boot_scripts | default([]) }}"
   when: stayturgid_retired_boot_scripts | default([]) | length > 0
 
+# Recovery entrypoints runnable without a GUI session: ~/.termux/tasker/ is
+# where the Termux:Tasker plugin looks up scripts by name, and the same path
+# is what a Tasker Send-Intent RUN_COMMAND task or any shell invokes. See
+# sshd-recover.sh for why this survives a GID-kill behind a locked keyguard.
+- name: Ensure Termux tasker script directory exists
+  ansible.builtin.file:
+    path: "{{ termux_home }}/.termux/tasker"
+    state: directory
+    mode: "0700"
+
+- name: Deploy tasker recovery scripts
+  ansible.posix.synchronize:
+    src: "{{ stayturgid_repo_root }}/device/termux/tasker/"
+    dest: "{{ termux_home }}/.termux/tasker/"
+    perms: true
+    checksum: true
+
+# sv-enable equivalent: a runit service with no down file auto-starts when
+# runsvdir does. The repair/boot scripts also delete a stale down file, but
+# converging it at deploy time keeps a freshly provisioned device correct
+# before the first repair cycle.
+- name: Ensure the sshd runit service is enabled (no down file)
+  ansible.builtin.file:
+    path: /data/data/com.termux/files/usr/var/service/sshd/down
+    state: absent
+
 # lineinfile, not a template: templating would clobber unrelated user
 # properties (extra-keys etc.) in termux.properties.
 - name: Configure allow-external-apps for RUN_COMMAND bridge

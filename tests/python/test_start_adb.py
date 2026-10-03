@@ -123,3 +123,62 @@ def test_rotate_logs_disabled_by_zero_cap(monkeypatch, tmp_path):
     start_adb._rotate_logs()
 
     assert big.read_text() == "x" * 500
+
+
+def test_try_sv_up_sshd_requires_sv_and_service_dir(monkeypatch, tmp_path):
+    """No sv binary or no sshd service dir → False, caller starts sshd bare."""
+    monkeypatch.setattr(start_adb, "PREFIX", str(tmp_path))
+    assert start_adb.try_sv_up_sshd() is False
+
+
+def test_try_sv_up_sshd_starts_runsvdir_then_sv_up(monkeypatch, tmp_path):
+    prefix = tmp_path
+    (prefix / "bin").mkdir()
+    sv = prefix / "bin" / "sv"
+    sv.write_text("#!/bin/sh\n")
+    sv.chmod(0o755)
+    (prefix / "var" / "service" / "sshd").mkdir(parents=True)
+    monkeypatch.setattr(start_adb, "PREFIX", str(prefix))
+
+    calls = []
+
+    class _Result:
+        def __init__(self, rc):
+            self.returncode = rc
+
+    def fake_run(cmd, **kwargs):
+        calls.append(("run", cmd, kwargs.get("env")))
+        if cmd[:2] == ["pgrep", "-x"]:
+            return _Result(1)  # runsvdir not running yet
+        return _Result(0)
+
+    bg = []
+    monkeypatch.setattr(start_adb.subprocess, "run", fake_run)
+    monkeypatch.setattr(start_adb, "_run_bg", lambda cmd, log_path=None: bg.append(cmd) or 0)
+    monkeypatch.setattr(start_adb.time, "sleep", lambda s: None)
+
+    assert start_adb.try_sv_up_sshd() is True
+    assert bg == [["runsvdir", str(prefix / "var" / "service")]]
+    sv_calls = [c for c in calls if c[1][0] == str(sv)]
+    assert sv_calls and sv_calls[0][1][1:] == ["up", "sshd"]
+    assert sv_calls[0][2]["SVDIR"] == str(prefix / "var" / "service")
+
+
+def test_startup_sshd_prefers_sv_over_bare_start(monkeypatch, tmp_path):
+    monkeypatch.setattr(start_adb, "PREFIX", str(tmp_path))
+
+    class _Result:
+        def __init__(self, rc):
+            self.returncode = rc
+
+    monkeypatch.setattr(start_adb.subprocess, "run", lambda cmd, **kw: _Result(1))
+    sv_used = []
+    monkeypatch.setattr(start_adb, "try_sv_up_sshd", lambda: sv_used.append(True) or True)
+    bare = []
+    monkeypatch.setattr(start_adb, "_run_bg", lambda cmd, log_path=None: bare.append(cmd) or 0)
+    monkeypatch.setattr(start_adb, "_boot_log", lambda msg: None)
+
+    start_adb.startup_sshd()
+
+    assert sv_used == [True]
+    assert bare == []

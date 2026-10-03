@@ -52,8 +52,12 @@ bundle agent check_sshd(p) {
 
   commands:
     restart_sshd::
+      # Prefer runit supervision (sv up) so this converges on the same
+      # runsv-owned sshd as every other recovery trigger; fall back to a
+      # bare sshd where the service dir or sv is unavailable. Mirrors
+      # start_adb.try_sv_up_sshd / stayturgid_repair.sv_up_sshd.
       "$(p)/bin/bash"
-        args => "-c 'rm -f $(p)/var/service/sshd/down 2>/dev/null; $(p)/bin/sshd'",
+        args => "-c 'rm -f $(p)/var/service/sshd/down 2>/dev/null; if [ -x $(p)/bin/sv ] && [ -d $(p)/var/service/sshd ]; then if ! pgrep -x runsvdir >/dev/null 2>&1; then setsid $(p)/bin/runsvdir $(p)/var/service >/dev/null 2>&1 & sleep 2; fi; SVDIR=$(p)/var/service $(p)/bin/sv up sshd && exit 0; fi; $(p)/bin/sshd'",
         contain => silent_bg;
 }
 

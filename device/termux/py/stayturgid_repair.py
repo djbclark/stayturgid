@@ -242,6 +242,32 @@ def sshd_up():
     return sshd_listening()
 
 
+def sv_up_sshd():
+    """Bring sshd up under runit (sv up sshd); False → caller starts it bare.
+
+    Matches start_adb.try_sv_up_sshd: one supervised instance owned by
+    runsv, shared with every other recovery trigger, instead of a bare
+    listener racing it for port 8022.
+    """
+    sv = os.path.join(PREFIX, "bin", "sv")
+    svdir = os.path.join(PREFIX, "var", "service")
+    if not (os.access(sv, os.X_OK) and os.path.isdir(os.path.join(svdir, "sshd"))):
+        return False
+    if run(["pgrep", "-x", "runsvdir"])[0] != 0:
+        run(["sh", "-c", "setsid runsvdir %s >/dev/null 2>&1 &" % svdir])
+        time.sleep(2)
+    env_svdir = os.environ.get("SVDIR")
+    os.environ["SVDIR"] = svdir
+    try:
+        rc, _out = run([sv, "up", "sshd"])
+    finally:
+        if env_svdir is None:
+            os.environ.pop("SVDIR", None)
+        else:
+            os.environ["SVDIR"] = env_svdir
+    return rc == 0
+
+
 def privileged_shell():
     """Return True if localhost:5555 gives a uid-2000 shell."""
     if run(["adb", "connect", "localhost:5555"])[0] != 0:
@@ -1047,7 +1073,8 @@ def main():
         sshd = "up"
     else:
         if not sshd_listening():
-            run(["sshd"])
+            if not sv_up_sshd():
+                run(["sshd"])
         time.sleep(2)
         if sshd_up():
             sshd = "restarted"

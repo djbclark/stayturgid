@@ -253,6 +253,31 @@ def _run_bg(cmd: list[str], log_path: str | None = None) -> int:
 # ── One-time startup ────────────────────────────────────────────────────────
 
 
+def try_sv_up_sshd() -> bool:
+    """Bring sshd up under runit supervision (sv up sshd).
+
+    Preferred over a bare `sshd`: runsv then restarts sshd if it ever dies
+    on its own, and the same `sv up` path is what every other recovery
+    trigger (Tasker RUN_COMMAND, login-shell start-services, cf-agent) uses,
+    so there is exactly one supervised instance instead of a bare listener
+    racing runsv for port 8022. Returns False when there is no usable sv
+    path — caller falls back to the historical bare start.
+    """
+    sv = os.path.join(PREFIX, "bin", "sv")
+    svdir = os.path.join(PREFIX, "var", "service")
+    if not (os.access(sv, os.X_OK) and os.path.isdir(os.path.join(svdir, "sshd"))):
+        return False
+    env = dict(os.environ, SVDIR=svdir)
+    try:
+        if subprocess.run(["pgrep", "-x", "runsvdir"], capture_output=True, timeout=5).returncode != 0:
+            _run_bg(["runsvdir", svdir], log_path=None)
+            time.sleep(2)
+        r = subprocess.run([sv, "up", "sshd"], capture_output=True, timeout=10, env=env)
+        return r.returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def startup_sshd() -> None:
     """Start sshd, removing a stale runsv/down file that silently blocks it."""
     down = os.path.join(PREFIX, "var", "service", "sshd", "down")
@@ -267,8 +292,11 @@ def startup_sshd() -> None:
             timeout=5,
         )
         if r.returncode != 0:
-            _run_bg(["sshd"], log_path=None)
-            _boot_log("sshd started")
+            if try_sv_up_sshd():
+                _boot_log("sshd started under runit (sv up sshd)")
+            else:
+                _run_bg(["sshd"], log_path=None)
+                _boot_log("sshd started")
     except (OSError, subprocess.TimeoutExpired):
         pass
 
@@ -415,7 +443,8 @@ def daemon_loop() -> None:
             if os.access(repair, os.X_OK):
                 subprocess.run(["python3", repair], capture_output=True, timeout=300)
             elif _run(["pgrep", "sshd"], capture_output=True) != 0:
-                _run_bg(["sshd"])
+                if not try_sv_up_sshd():
+                    _run_bg(["sshd"])
 
             if _cmd_exists("termux-battery-status") and tapi is not None:
                 # tapi.run() never signals a hung termux-api client on timeout
