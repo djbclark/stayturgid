@@ -49,6 +49,7 @@ ROOT = Path(os.path.expanduser("~")) / ".config" / "stayturgid"
 STATS_DIR = ROOT / "stats"
 EVENTS_JSONL = "events.jsonl"
 SOFT_HEALTH_JSONL = "soft_health.jsonl"
+TERMUX_PKG_JSONL = "termux_pkg.jsonl"
 
 
 def _ensure_dir() -> None:
@@ -68,6 +69,43 @@ def soft_health_path() -> Path:
     except OSError:
         pass
     return path
+
+
+def termux_pkg_path() -> Path:
+    """Path Vector tails for nightly Termux pkg errors. Same contract as
+    soft_health_path(): create the file empty so the `file` source can attach
+    before the first failure ever happens."""
+    _ensure_dir()
+    path = STATS_DIR / TERMUX_PKG_JSONL
+    try:
+        if not path.is_file():
+            path.touch()
+    except OSError:
+        pass
+    return path
+
+
+def record_termux_pkg_error(
+    phase: str, error: str, *, host: str = "", package: str = "", rc: int | None = None
+) -> None:
+    """Record one nightly-pkg failure for OpenObserve.
+
+    The nightly job's errors previously reached only a local log file, so a
+    silent run of failures was invisible off-host (stayturgid#310). Never
+    raises: telemetry must not be able to break the upgrade job itself, which
+    is the same contract _append_jsonl_line already honours.
+    """
+    event: dict[str, object] = {
+        "ts": ts(),
+        "type": "termux_pkg_error",
+        "phase": phase,
+        "host": host,
+        "package": package,
+        "error": error,
+    }
+    if rc is not None:
+        event["rc"] = rc
+    _append_jsonl_line(termux_pkg_path(), event)
 
 
 def ts() -> str:

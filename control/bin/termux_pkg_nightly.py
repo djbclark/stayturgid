@@ -30,6 +30,7 @@ if str(REPO_ROOT) not in sys.path:
 from control.lib.ansible_context import AnsibleConfigError, require_inventory, resolve_ansible_context, resolved_env
 from control.lib.fleet_deploy_lock import FleetLockHeld, fleet_lock
 from control.lib.secretspec_exec import secretspec_run
+from control.lib.stats import record_termux_pkg_error
 
 PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "fleet" / "termux-pkg-upgrade.yml"
 CHECK_UPDATES = REPO_ROOT / "control" / "bin" / "check_termux_pkg_updates.py"
@@ -79,12 +80,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if not PLAYBOOK.is_file():
         log("ERROR: missing playbook %s" % PLAYBOOK)
+        record_termux_pkg_error("preflight", "missing playbook %s" % PLAYBOOK, rc=2)
         return 2
     try:
         context = resolve_ansible_context(REPO_ROOT)
         require_inventory(context)
     except AnsibleConfigError as exc:
         log("ERROR: %s" % exc)
+        record_termux_pkg_error("preflight", str(exc), rc=2)
         return 2
 
     cmd = secretspec_run(
@@ -146,12 +149,15 @@ def main(argv: list[str] | None = None) -> int:
             )
     except FleetLockHeld as exc:
         log("ERROR: %s" % exc)
+        record_termux_pkg_error("lock", str(exc), rc=3)
         return 3
     except FileNotFoundError:
         log("ERROR: secretspec or ansible-playbook not found on PATH=%s" % env.get("PATH"))
+        record_termux_pkg_error("preflight", "secretspec or ansible-playbook not found on PATH", rc=2)
         return 2
     except subprocess.TimeoutExpired:
         log("ERROR: ansible-playbook timed out")
+        record_termux_pkg_error("upgrade", "ansible-playbook timed out", rc=2)
         return 2
 
     out = ((r.stdout or "") + (r.stderr or "")).strip()
@@ -159,6 +165,11 @@ def main(argv: list[str] | None = None) -> int:
         for line in out.splitlines()[-80:]:
             log("  | %s" % line)
     log("done rc=%s" % r.returncode)
+    if r.returncode != 0:
+        # Last 20 lines carry the ansible failure summary; the full run stays
+        # in the human log. Keep the record small enough for one JSON line.
+        tail = "\n".join(out.splitlines()[-20:]) if out else "ansible-playbook rc=%s" % r.returncode
+        record_termux_pkg_error("upgrade", tail, rc=r.returncode)
     trim_log()
     return 0 if r.returncode == 0 else 1
 

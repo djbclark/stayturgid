@@ -9,6 +9,11 @@
 # soft_health: crash-safe file tail. Writers append whole JSON lines + fsync
 # (~/.config/stayturgid/stats/soft_health.jsonl). Vector checkpoints offsets in
 # data_dir; sink uses disk buffer + e2e acks so OpenObserve can be down for days.
+#
+# termux_pkg: nightly Termux pkg upgrade errors (termux_pkg_nightly.py →
+# termux-pkg-upgrade.yml). Writers append JSON lines + fsync to
+# ~/.config/stayturgid/stats/termux_pkg.jsonl (human log stays at
+# ~/.config/stayturgid/logs/termux-pkg-nightly.log).
 
 sources:
   stayturgid_otlp_source:
@@ -24,6 +29,19 @@ sources:
     type: "file"
     include:
       - "${HOME}/.config/stayturgid/stats/soft_health.jsonl"
+    read_from: "beginning"
+    ignore_not_found: true
+    ignore_checkpoints: false
+    oldest_first: true
+    max_line_bytes: 65536
+    fingerprint:
+      strategy: "device_and_inode"
+
+  # Nightly Termux pkg upgrade failures (one JSON object per host/error).
+  stayturgid_termux_pkg_file:
+    type: "file"
+    include:
+      - "${HOME}/.config/stayturgid/stats/termux_pkg.jsonl"
     read_from: "beginning"
     ignore_not_found: true
     ignore_checkpoints: false
@@ -75,3 +93,53 @@ transforms:
       }
       .service = "stayturgid-soft-health"
       .stream_name = "soft_health"
+
+  stayturgid_termux_pkg_parse:
+    type: "remap"
+    inputs: ["stayturgid_termux_pkg_file"]
+    drop_on_error: true
+    drop_on_abort: true
+    source: |-
+      raw, err = to_string(.message)
+      if err != null {
+        abort
+      }
+      raw = strip_whitespace(raw)
+      if raw == "" {
+        abort
+      }
+      parsed, err = parse_json(raw)
+      if err != null {
+        abort
+      }
+      if !is_object(parsed) {
+        abort
+      }
+      . = parsed
+      if exists(.ts) && is_string(.ts) {
+        ts_parsed, err = parse_timestamp(.ts, format: "%+")
+        if err == null {
+          .timestamp = ts_parsed
+        } else {
+          ts_parsed2, err2 = parse_timestamp(.ts, format: "%Y-%m-%dT%H:%M:%SZ")
+          if err2 == null {
+            .timestamp = ts_parsed2
+          } else {
+            .timestamp = now()
+          }
+        }
+      } else {
+        .timestamp = now()
+      }
+      # Normalize queryable aliases (writers may use host/device or package/pkg).
+      if !exists(.host) && exists(.device) {
+        .host = .device
+      }
+      if !exists(.package) && exists(.pkg) {
+        .package = .pkg
+      }
+      if !exists(.error) && exists(.msg) {
+        .error = .msg
+      }
+      .service = "stayturgid-termux-pkg"
+      .stream_name = "termux_pkg"
