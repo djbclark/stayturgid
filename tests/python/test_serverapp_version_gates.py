@@ -380,3 +380,24 @@ def test_the_stamp_write_is_check_mode_and_decision_gated():
     when = " ".join(str(c) for c in task["when"])
     assert "not ansible_check_mode" in when, "a dry run must not record a stamp it did not earn"
     assert "_oo_install_required" in when
+
+
+def test_openobserve_health_url_tracks_the_base_uri():
+    """ZO_BASE_URI remaps every HTTP route including healthz, so a hardcoded
+    health URL is a gate that can never pass against a prefixed service."""
+    defaults = yaml.safe_load((ROLES / OO / "defaults/main.yml").read_text(encoding="utf-8"))
+    expr = defaults["serverapp_openobserve_health_url"]
+
+    assert "serverapp_openobserve_base_uri" in expr, "health URL ignores base_uri"
+    # And it must not re-hardcode what the address/port vars already say.
+    assert "127.0.0.1" not in expr, "address is duplicated instead of referenced"
+    assert "5080" not in expr, "port is duplicated instead of referenced"
+
+    env = _env()
+    for base_uri, expected in (("", "http://127.0.0.1:5080/healthz"), ("/oo", "http://127.0.0.1:5080/oo/healthz")):
+        rendered = env.from_string(expr).render(
+            serverapp_openobserve_http_address="127.0.0.1",
+            serverapp_openobserve_http_port="5080",
+            serverapp_openobserve_base_uri=base_uri,
+        )
+        assert " ".join(rendered.split()) == expected, f"base_uri={base_uri!r} -> {rendered!r}"

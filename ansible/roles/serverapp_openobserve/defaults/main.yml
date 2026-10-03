@@ -33,7 +33,21 @@ serverapp_openobserve_archive_sha256:
 serverapp_openobserve_http_port: "5080"
 serverapp_openobserve_http_address: "127.0.0.1"
 serverapp_openobserve_grpc_address: "127.0.0.1"
-serverapp_openobserve_health_url: "http://127.0.0.1:5080/healthz"
+# Derived, not hardcoded. ZO_BASE_URI remaps *every* HTTP route under the prefix
+# -- UI, API and healthz alike (Choice E / D7-ROUTES-E) -- so a base_uri that the
+# health URL does not track yields a 404 health gate that can never pass. This
+# previously hardcoded http://127.0.0.1:5080/healthz, duplicating the address and
+# port vars below and silently ignoring base_uri.
+#
+# In a real run control/site_contract/serverapps.py:1982 exports
+# OPENOBSERVE_BASE_URI ("/oo" when a Caddy public host exists) before computing
+# its own health_url, and passes that in, so these agree. Invoking
+# ansible/playbooks/serverapps/openobserve.yml DIRECTLY bypasses that, so export
+# OPENOBSERVE_BASE_URI to match the running service or the health check will 404
+# against a service serving under a prefix.
+serverapp_openobserve_health_url: >-
+  http://{{ serverapp_openobserve_http_address }}:{{ serverapp_openobserve_http_port
+  }}{{ serverapp_openobserve_base_uri }}/healthz
 # Choice E (D7-ROUTES-E): empty = OO owns / (loopback). serverapps.py sets
 # /oo + https://<host>/oo when caddy_public_hostname is present.
 serverapp_openobserve_base_uri: "{{ lookup('env', 'OPENOBSERVE_BASE_URI') | default('', true) }}"
