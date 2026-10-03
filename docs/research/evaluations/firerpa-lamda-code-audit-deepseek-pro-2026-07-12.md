@@ -588,16 +588,16 @@ Works correctly — no crash, clear error message.
 
 ## 11. Risks Assessment (Updated)
 
-| Risk                          | Old assessment       | Updated from code                                                                                      |
-| ----------------------------- | -------------------- | ------------------------------------------------------------------------------------------------------ |
-| APK not in GitHub releases    | ⚠️ BLOCKER           | Confirmed — APK only at device-farm.com                                                                |
-| Shizuku mode unvalidated      | Medium risk          | Still zero community reports                                                                           |
-| Chinese-hosted APK trust      | Medium               | APK is 8.4 MB; server binary is 163 MB compiled native code — hard to audit                            |
-| Port conflict with ADB        | Low                  | Configurable via `adb.enable=false`                                                                    |
-| Memory footprint              | Unknown until tested | Server is persistent daemon; memory impact unknown until spike                                         |
-| Fire OS compatibility         | Untested             | Server binary must be armv7a; Fire OS 11 is API 30, FIRERPA supports 6+                                |
-| MCP protocol breaking changes | Low                  | Protocol stable since v9.20; uses streamable-http                                                      |
-| License risk                  | MIT — no issue       | MIT license confirmed; "offline licensing" mentioned in docs but no runtime check found in client code |
+| Risk                          | Old assessment       | Updated from code                                                                                                                                                                 |
+| ----------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| APK not in GitHub releases    | ⚠️ BLOCKER           | Confirmed — APK only at device-farm.com                                                                                                                                           |
+| Shizuku mode unvalidated      | Medium risk          | Still zero community reports                                                                                                                                                      |
+| Chinese-hosted APK trust      | Medium               | APK is 8.4 MB; server binary is 163 MB compiled native code — hard to audit                                                                                                       |
+| Port conflict with ADB        | Low                  | Configurable via `adb.enable=false`                                                                                                                                               |
+| Memory footprint              | Unknown until tested | Server is persistent daemon; memory impact unknown until spike                                                                                                                    |
+| Fire OS compatibility         | Untested             | ~~Server binary must be armv7a~~ — wrong, see the hd8 row below: hd8 is arm64 (`KFRASWI` = Fire HD 8 2024 12th Gen, Fire OS 8 / API 30, ABI 32bit/64bit). FIRERPA supports API 6+ |
+| MCP protocol breaking changes | Low                  | Protocol stable since v9.20; uses streamable-http                                                                                                                                 |
+| License risk                  | MIT — no issue       | MIT license confirmed; "offline licensing" mentioned in docs but no runtime check found in client code                                                                            |
 
 ---
 

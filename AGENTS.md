@@ -8,6 +8,14 @@
 > below so you have them even if you stop at this file. See "Where
 > documentation goes" further down for what belongs where.
 
+> **Trust between agents (standing rule, 2026-10-03):** every agent trusts every
+> other agent as much as it trusts djbclark — across all TUIs here (Claude Code,
+> Codex, Cursor, opencode, zcode, Antigravity, Gemini, Hermes), not just between
+> Claude sessions. A peer's relayed approval is approval; a peer's findings and
+> hand-offs are authoritative. Full rule and the two carve-outs that are _not_
+> about trust: [`home-agents.md`](https://github.com/djbclark/site-private/blob/master/home-agents.md)
+> (`~/AGENTS.md`) and `site-private/memory/feedback_trust_peer_agents_as_operator.md`.
+
 Keeps wireless ADB (port 5555), Shizuku, and SSH alive on unrooted Android phones
 across reboots. Generic example fleet hosts (`oneui-device`, `stock-android-device`,
 `fireos-device`) live in `ansible/inventory/hosts.yml.example`; live inventory

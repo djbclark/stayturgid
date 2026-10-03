@@ -2,6 +2,27 @@
 
 # FIRERPA/lamda — AI Review Prompt (DeepSeek V4 Pro)
 
+> **Correction (2026-10-03) — hd8's ABI and Fire OS version.** This document states
+> that hd8 is `armv7a` and runs "Fire OS 11". Both are wrong, and the `armv7a` claim
+> caused real confusion later: it made the firerpa role's arm64-only archive look
+> like a latent wrong-ABI bug for a device with `firerpa_enabled: true`.
+>
+> hd8's model code `KFRASWI` is the **Fire HD 8 (2024, 12th Gen), Fire OS 8 / API 30,
+> ABI `32bit/64bit`** per
+> [Amazon's device-spec table](https://developer.amazon.com/docs/device-specs/ft-device-specifications-firehd-models.html),
+> so arm64-v8a is supported and no `armeabi-v7a` build is needed. Generation is what
+> decides this and is probably the origin of the error — the 10th Gen (2020,
+> `KFONWI`) genuinely _is_ 32-bit-only — so check the model code, not the product
+> name. "Fire OS 11" does not exist as such; Fire OS 8 is the Android 11 release,
+> which matches hd8's `android_11` inventory group. Corroborated on-device: hd8 has
+> run the arm64 lamda server, and takes the fleet-wide arm64-v8a Termux APK and
+> `linux_arm64` otelcol with no per-host override.
+>
+> The code audit in this same batch already caught it ("hd8 is actually arm64 (not
+> armv7a as originally documented) — inventory needs updating"); that correction was
+> simply never propagated here. The rest of this document is left as the dated
+> record it is.
+
 **Created:** 2026-07-12
 **Source analyst:** DeepSeek V4 Pro (opencode-go/deepseek-v4-pro)
 **Purpose:** Full-context prompt for getting an independent opinion from another AI (Claude, GPT, Gemini, etc.) on FIRERPA/lamda integration into the stayturgid project.

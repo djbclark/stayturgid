@@ -125,3 +125,15 @@ def test_both_fixes_can_be_disabled_without_editing_tasks():
     defaults = _defaults()
     assert defaults["stayturgid_firerpa_venv_managed"] is True
     assert defaults["stayturgid_ops_memory_link_managed"] is True
+
+
+def test_the_cfengine_pin_is_idempotent_not_changed_every_run():
+    """The token PINNED is a substring of ALREADY_PINNED, so a bare `in` test on
+    the no-op path reported changed on every deploy. Both conditions are required."""
+    tasks = yaml.safe_load(PREREQS.read_text(encoding="utf-8"))
+    pin = next(t for t in tasks if "CFEngine" in t["name"])
+    changed = pin["changed_when"]
+    assert isinstance(changed, list), "a single substring test matches ALREADY_PINNED too"
+    joined = " ".join(changed)
+    assert "'PINNED' in" in joined
+    assert "'ALREADY_PINNED' not in" in joined

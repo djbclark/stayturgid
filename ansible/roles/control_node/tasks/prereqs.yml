@@ -40,7 +40,13 @@
     brew pin cfengine@3.27.1
     echo "PINNED"
   register: _cfengine_pin
-  changed_when: "'PINNED' in _cfengine_pin.stdout"
+  # Both conditions matter: "PINNED" is a SUBSTRING of "ALREADY_PINNED", so the
+  # bare `'PINNED' in stdout` test matched the no-op path too and this task
+  # reported changed on every single deploy. failed_when below already treated the
+  # two tokens as distinct, so only changed_when was wrong.
+  changed_when:
+    - "'PINNED' in _cfengine_pin.stdout"
+    - "'ALREADY_PINNED' not in _cfengine_pin.stdout"
   failed_when: _cfengine_pin.rc != 0 and 'ALREADY_PINNED' not in _cfengine_pin.stdout
   when: ansible_facts['os_family'] == 'Darwin'
 
