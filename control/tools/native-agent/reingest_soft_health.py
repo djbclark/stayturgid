@@ -34,7 +34,13 @@ REPO = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO / "control" / "lib"))
 import stats  # noqa: E402
 
-DEFAULT_URI = "http://127.0.0.1:5080/oo/api/default/soft_health/_json"
+# The /oo prefix is NOT universal: ZO_BASE_URI remaps every OpenObserve HTTP
+# route under it, and serverapps.py sets it to "/oo" only when a Caddy public
+# host exists, "" otherwise (Choice E / D7-ROUTES-E). Hardcoding "/oo" sends this
+# tool to a 404 on a host serving at the root. Read the same env var the Ansible
+# roles and the Vector sink read, so all four agree by construction.
+_OO_BASE_URI = os.environ.get("OPENOBSERVE_BASE_URI", "")
+DEFAULT_URI = f"http://127.0.0.1:5080{_OO_BASE_URI}/api/default/soft_health/_json"
 BATCH = 50
 MAX_ATTEMPTS = 12
 

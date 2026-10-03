@@ -139,3 +139,28 @@ def test_the_nightly_job_records_every_failure_path(tmp_path):
     )
     for phase in ('"preflight"', '"lock"', '"upgrade"'):
         assert f"record_termux_pkg_error({phase}" in src
+
+
+def test_reingest_tool_uri_derives_from_the_openobserve_base_uri(monkeypatch):
+    """ZO_BASE_URI remaps every OpenObserve route, and serverapps.py sets it to
+    "/oo" only when a Caddy public host exists. A hardcoded prefix sends the
+    recovery tool to a 404 on a host serving at the root -- the same bug class as
+    the role's health URL (fixed in b58fdee)."""
+    import importlib.util
+
+    path = REPO / "control/tools/native-agent/reingest_soft_health.py"
+    src = path.read_text(encoding="utf-8")
+    assert '"/oo/api' not in src, "the /oo prefix is hardcoded again"
+    assert "OPENOBSERVE_BASE_URI" in src, "URI does not read the base-uri env var"
+
+    def _load():
+        spec = importlib.util.spec_from_file_location("_reingest_probe", path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    monkeypatch.setenv("OPENOBSERVE_BASE_URI", "")
+    assert _load().DEFAULT_URI == "http://127.0.0.1:5080/api/default/soft_health/_json"
+
+    monkeypatch.setenv("OPENOBSERVE_BASE_URI", "/oo")
+    assert _load().DEFAULT_URI == "http://127.0.0.1:5080/oo/api/default/soft_health/_json"
