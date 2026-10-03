@@ -21,17 +21,49 @@
 # deliberately strict AND fails open: anything other than an exact match -- a
 # missing or stale stamp, a missing interpreter, a missing override -- yields
 # STALE and does the full install, so this can never silently under-converge.
+#
+# Two halves, answering different questions (2026-10-03):
+#   disk_ok       -- is the pinned build on disk and intact? (stamp + checksum)
+#   running_stale -- is anything still EXECUTING the build we replaced?
+# The second half exists because a disk-only gate reports false success: the
+# verify reads the new file while the service holds the old one open. See
+# site-private memory/reference_disk_only_version_gate_reports_false_success.md.
 - name: Detect whether the device already has the pinned FIRERPA build
   ansible.builtin.shell: |
     adb -s {{ _firerpa_adb_target }} shell '
-      stamp=$(cat {{ firerpa_install_dir }}/.stayturgid-firerpa-version 2>/dev/null)
+      D={{ firerpa_install_dir }}
+      stamp=$(cat $D/.stayturgid-firerpa-version 2>/dev/null)
+
+      # The disk half: is the pinned build laid down and intact?
+      disk_ok=0
       if [ "$stamp" = "{{ firerpa_version_stamp }}" ] \
-        && [ -x {{ firerpa_install_dir }}/server/bin/python3.12 ] \
-        && [ -f {{ firerpa_install_dir }}/overrides/aab.zip.signed ] \
-        && [ -f {{ firerpa_install_dir }}/overrides/aab.zip.patched ]; then
+        && [ -x $D/server/bin/python3.12 ] \
+        && [ -f $D/overrides/aab.zip.signed ] \
+        && [ -f $D/overrides/aab.zip.patched ]; then
+        disk_ok=1
+      fi
+
+      # The running half: is anything still executing the build we replaced?
+      # Unix keeps a replaced file alive for whoever holds it open, so a failed
+      # kill followed by rm -rf + re-extract leaves a process on the OLD driver
+      # while the disk looks perfect. Those mappings read back as "(deleted)".
+      #
+      # Scoped to $D deliberately. An unscoped "(deleted)" test is a false
+      # positive: a healthy device had 4 lamda processes with deleted mappings
+      # (/dev/ashmem/bitmap, /memfd:jit-cache), which would force a 204 MiB
+      # reinstall on every single deploy.
+      running_stale=0
+      for pid in $(pidof lamda 2>/dev/null); do
+        n=$(grep -F "$D" /proc/$pid/maps 2>/dev/null | grep -c "(deleted)")
+        [ "${n:-0}" -gt 0 ] && running_stale=$((running_stale+1))
+        exe=$(readlink /proc/$pid/exe 2>/dev/null)
+        case "$exe" in "$D"*"(deleted)") running_stale=$((running_stale+1));; esac
+      done
+
+      if [ "$disk_ok" = "1" ] && [ "$running_stale" = "0" ]; then
         echo CONVERGED
       else
-        echo STALE
+        echo "STALE disk_ok=$disk_ok running_stale=$running_stale"
       fi
     '
   args:
