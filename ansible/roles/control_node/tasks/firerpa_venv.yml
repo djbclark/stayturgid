@@ -1,0 +1,62 @@
+---
+# Converge ~/.venv-stayturgid-firerpa from control/requirements-firerpa-venv.txt.
+#
+# Why this exists: the venv was created by hand and nothing in the repo converged
+# it, while com.stayturgid.firerpa-mcp (whose plist points straight at its
+# interpreter) and control/bin/firerpa_health_monitor.py both depend on it. A
+# `just deploy` could not rebuild it, repair it, or correct a drifted lamda
+# version. It also has no `pip`, so versions are read with importlib.metadata.
+- name: Stat the FIRERPA control-node venv interpreter
+  ansible.builtin.stat:
+    path: "{{ stayturgid_firerpa_venv }}/bin/python"
+  register: _firerpa_venv_python
+  when: stayturgid_firerpa_venv_managed | default(true) | bool
+
+- name: Create the FIRERPA control-node venv when absent
+  ansible.builtin.command:
+    cmd: >-
+      {{ stayturgid_homebrew_prefix }}/bin/uv venv
+      --python {{ stayturgid_firerpa_venv_python_version }}
+      {{ stayturgid_firerpa_venv }}
+  when:
+    - stayturgid_firerpa_venv_managed | default(true) | bool
+    - not (_firerpa_venv_python.stat.exists | default(false))
+  changed_when: true
+
+# uv is idempotent here: it reports "Audited N packages" when the environment
+# already satisfies the file and installs only on drift, so this is safe on every
+# deploy. --no-deps is NOT used: the pins below are exact, so uv resolves the
+# whole set against them and a fresh venv gets its transitive dependencies.
+- name: Converge the FIRERPA control-node venv against its pinned requirements
+  ansible.builtin.command:
+    cmd: >-
+      {{ stayturgid_homebrew_prefix }}/bin/uv pip install
+      --python {{ stayturgid_firerpa_venv }}/bin/python
+      --requirement {{ stayturgid_firerpa_venv_requirements }}
+  register: _firerpa_venv_sync
+  when: stayturgid_firerpa_venv_managed | default(true) | bool
+  changed_when: >-
+    'Installed' in (_firerpa_venv_sync.stdout | default(''))
+    or 'Installed' in (_firerpa_venv_sync.stderr | default(''))
+
+# Assert rather than trust the installer: a silent no-op here would leave the live
+# MCP service on a stale client, which is exactly the drift this file prevents.
+- name: Read back the converged FIRERPA client version
+  ansible.builtin.command:
+    cmd: >-
+      {{ stayturgid_firerpa_venv }}/bin/python -c
+      "import importlib.metadata as m; print(m.version('lamda'))"
+  register: _firerpa_venv_lamda
+  when: stayturgid_firerpa_venv_managed | default(true) | bool
+  changed_when: false
+
+- name: Assert the FIRERPA client matches the pinned server version
+  ansible.builtin.assert:
+    that:
+      - (_firerpa_venv_lamda.stdout | default('') | trim) == stayturgid_firerpa_client_version
+    fail_msg: >-
+      ~/.venv-stayturgid-firerpa has lamda
+      {{ _firerpa_venv_lamda.stdout | default('<unknown>') | trim }}, expected
+      {{ stayturgid_firerpa_client_version }}. Check
+      {{ stayturgid_firerpa_venv_requirements }}.
+  when: stayturgid_firerpa_venv_managed | default(true) | bool

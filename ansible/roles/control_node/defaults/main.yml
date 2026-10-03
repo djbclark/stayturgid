@@ -18,6 +18,24 @@ agents_dir: "{{ lookup('env', 'HOME') }}/Library/LaunchAgents"
 stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
 ssh_config_dir: "{{ lookup('env', 'HOME') }}/.ssh"
 ssh_config_fragment: "{{ lookup('env', 'HOME') }}/.ssh/config.d/stayturgid"
+# The hand-made venv behind com.stayturgid.firerpa-mcp and
+# control/bin/firerpa_health_monitor.py. Managed from
+# control/requirements-firerpa-venv.txt so a plain deploy can rebuild or repair it;
+# set stayturgid_firerpa_venv_managed: false to leave it strictly alone.
+# Keep the ~/ops Claude memory path a symlink into the tracked memory tree.
+stayturgid_ops_memory_link_managed: true
+stayturgid_ops_memory_link: >-
+  {{ lookup('env', 'HOME') }}/.claude/projects/-Users-djbclark-ops/memory
+stayturgid_ops_memory_target: "{{ lookup('env', 'HOME') }}/ops/site-private/memory"
+
+stayturgid_firerpa_venv_managed: true
+stayturgid_firerpa_venv: "{{ lookup('env', 'HOME') }}/.venv-stayturgid-firerpa"
+stayturgid_firerpa_venv_python_version: "3.12"
+stayturgid_firerpa_venv_requirements: >-
+  {{ stayturgid_repo_root | realpath }}/control/requirements-firerpa-venv.txt
+# Must track the firerpa role's firerpa_version, so the client and server match.
+stayturgid_firerpa_client_version: "10.9"
+
 stayturgid_firerpa_certificate_path: >-
   {{
     lookup('env', 'FIRERPA_CERTIFICATE')

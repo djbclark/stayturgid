@@ -1,0 +1,31 @@
+# Pins for ~/.venv-stayturgid-firerpa, the hand-made venv behind the live
+# com.stayturgid.firerpa-mcp launchd service and control/bin/firerpa_health_monitor.py.
+#
+# This file exists because the venv previously had NO tracked requirements at all:
+# nothing in the repo recorded what belonged in it, and nothing converged it, so a
+# `just deploy` could not rebuild or repair it. ansible/roles/control_node/tasks/
+# firerpa_venv.yml now converges the venv from this file.
+#
+# Every pin here is a ceiling that is load-bearing, not a preference. The reasons
+# are in docs/hacking.md near the venv creation block; in short:
+#
+#   lamda 10.9    matches the firerpa role's pinned server. Fetched from the fork
+#                 mirror, not upstream: upstream ships the sdist as
+#                 lamda-client-py-10.9.tar.gz while its metadata name is `lamda`,
+#                 and uv rejects that mismatch outright.
+#   mcp 1.28.1    control/bin/firerpa_mcp.py does
+#                 `from mcp.server.fastmcp import Context, FastMCP`. In mcp 2.x
+#                 that module exists only to raise ModuleNotFoundError (FastMCP
+#                 was renamed MCPServer), which would break the live service.
+#   grpcio        lamda's setup.py caps it at <=1.82.0, and 1.82.0 itself is YANKED
+#                 from PyPI (grpc/grpc#42906). 1.74.0 is the proven-working version.
+#   protobuf      grpcio-tools 1.74.0 requires protobuf<7, and lamda imports fine
+#                 on 6.33.6, so protobuf 7 buys nothing.
+#
+# Exact pins rather than ranges on purpose: this venv backs a running service, and
+# a resolver free to move inside a range is how it would silently drift.
+lamda @ https://github.com/djbclark/lamda/releases/download/v10.9-binaries/lamda-10.9.tar.gz
+mcp==1.28.1
+grpcio==1.74.0
+grpcio-tools==1.74.0
+protobuf==6.33.6

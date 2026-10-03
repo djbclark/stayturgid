@@ -1,0 +1,62 @@
+---
+# ~/.claude/projects/-Users-djbclark-ops/memory must be a symlink into
+# site-private/memory, like its sibling project directories already are.
+#
+# Why it matters: per-session agent instructions name that exact path as "a
+# persistent file-based memory", so a session running from ~/ops that follows them
+# literally writes memory files there. When it is a real directory those files are
+# untracked and invisible to every other agent and to git -- which is precisely the
+# three-way memory policy this repo relies on. It was found as a real empty
+# directory on 2026-10-03 while every sibling was correctly linked.
+- name: Classify the ~/ops Claude memory path
+  ansible.builtin.shell: |
+    set -u
+    target={{ stayturgid_ops_memory_link | quote }}
+    if [ -L "$target" ]; then
+      echo LINK
+    elif [ ! -e "$target" ]; then
+      echo ABSENT
+    elif [ -d "$target" ] && [ -z "$(ls -A "$target" 2>/dev/null)" ]; then
+      echo EMPTYDIR
+    else
+      echo OCCUPIED
+    fi
+  args:
+    executable: /bin/bash
+  register: _ops_memory_state
+  changed_when: false
+  # Run in check mode too, so a dry run reports the real decision.
+  check_mode: false
+  when: stayturgid_ops_memory_link_managed | default(true) | bool
+
+# Deliberately NOT `force: yes` on the link task below. Replacing a populated
+# directory with a symlink would destroy memory files that are not in git -- the
+# exact loss this task exists to prevent -- so an occupied path is reported and
+# left alone for a human to move.
+- name: Warn when the ~/ops Claude memory path holds unexpected files
+  ansible.builtin.debug:
+    msg: >-
+      {{ stayturgid_ops_memory_link }} is a non-empty directory, so it was left
+      untouched. Move its contents into
+      {{ stayturgid_ops_memory_target }} and commit them, then re-run; they are
+      currently untracked and invisible to other agents.
+  when:
+    - stayturgid_ops_memory_link_managed | default(true) | bool
+    - (_ops_memory_state.stdout | default('') | trim) == 'OCCUPIED'
+
+- name: Remove the empty placeholder directory
+  ansible.builtin.file:
+    path: "{{ stayturgid_ops_memory_link }}"
+    state: absent
+  when:
+    - stayturgid_ops_memory_link_managed | default(true) | bool
+    - (_ops_memory_state.stdout | default('') | trim) == 'EMPTYDIR'
+
+- name: Link the ~/ops Claude memory path into site-private
+  ansible.builtin.file:
+    src: "{{ stayturgid_ops_memory_target }}"
+    dest: "{{ stayturgid_ops_memory_link }}"
+    state: link
+  when:
+    - stayturgid_ops_memory_link_managed | default(true) | bool
+    - (_ops_memory_state.stdout | default('') | trim) in ['ABSENT', 'EMPTYDIR', 'LINK']

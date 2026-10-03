@@ -312,6 +312,12 @@
   when: stayturgid_firerpa_health_enabled | default(true) | bool
   register: firerpa_health_plist
 
+# Before the plist that points at this venv's interpreter, so a fresh machine
+# cannot end up with a launchd service aimed at a Python that does not exist.
+- name: Converge the FIRERPA control-node venv
+  ansible.builtin.include_tasks: firerpa_venv.yml
+  tags: [mac, agents, firerpa]
+
 - name: Render FIRERPA MCP bridge launchd agent
   ansible.builtin.template:
     src: firerpa-mcp.plist.j2

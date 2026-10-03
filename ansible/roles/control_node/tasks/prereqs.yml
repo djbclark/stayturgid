@@ -66,3 +66,7 @@
   changed_when: >-
     'Installing' in (_galaxy_install.stdout | default(''))
     or 'upgrade' in (_galaxy_install.stdout | default(''))
+
+- name: Keep the ~/ops Claude memory path linked into the tracked memory tree
+  ansible.builtin.include_tasks: ops_memory_link.yml
+  tags: [mac, prereqs, ops-memory]
