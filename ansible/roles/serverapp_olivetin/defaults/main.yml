@@ -2,7 +2,8 @@
 # serverapp_olivetin — own-mode OliveTin adapter (Site Contract v1 §5 / Phase D).
 # Config is a projection (§5.3 / design §2): D5 boots a minimal live config;
 # D6 owns inventory→actions purity. Formula not in homebrew-core — install
-# pinned GitHub release binary if absent (never upgrade).
+# pinned GitHub release binary (installed when absent or when its reported
+# version differs from the pin).
 
 serverapp_olivetin_home: "{{ lookup('env', 'HOME') }}"
 serverapp_olivetin_config_dir: "{{ serverapp_olivetin_home }}/.config/{{ site_ns }}/olivetin"
@@ -14,7 +15,8 @@ serverapp_olivetin_bin_path: "{{ serverapp_olivetin_install_dir }}/OliveTin"
 serverapp_olivetin_webui_dir: "{{ serverapp_olivetin_install_dir }}/webui"
 serverapp_olivetin_label: "com.{{ site_ns }}.olivetin"
 serverapp_olivetin_plist_path: "{{ serverapp_olivetin_home }}/Library/LaunchAgents/{{ serverapp_olivetin_label }}.plist"
-# Pin version for install-if-absent (never upgrade an existing binary).
+# Pinned version: tasks/main.yml reinstalls binary + webui when the installed
+# binary reports anything else.
 serverapp_olivetin_version: "3000.20.0"
 # M1-F MF-5: pinned sha256 of the GitHub release archive, per download arch —
 # from the vendor's published checksums.txt for this release (3000.20.0

@@ -21,13 +21,9 @@ serverapp_openobserve_version: "1.0.4"
 # openobserve-ee-v1.0.4-darwin-arm64.tar.gz (143,830,322 bytes) and verified
 # by extracting it and running `openobserve --version` before installing.
 #
-# WARNING — bumping this version alone does NOT upgrade anything. tasks/main.yml
-# installs the binary only "if absent (never upgrade)", the same inert-pin shape
-# as serverapp_olivetin. The live upgrade to 1.0.4 was done by hand (bootout →
-# replace ~/.local/bin/openobserve → bootstrap → verify) on 2026-10-03; this pin
-# records the version that is actually running so the repo is not lying. Giving
-# the role a real version-aware upgrade path is the open decision in the
-# OliveTin inert-pin item.
+# Bumping this version (and the sha256 below) upgrades the binary on the next
+# deploy: tasks/main.yml compares `openobserve --version` to it. It does NOT
+# restart the running service; see the role's tasks.
 serverapp_openobserve_archive_sha256:
   darwin-arm64: "7acc59cc63c8fd6afd5765bb34471e8d5eec9d6ccf8485c941aa13df6500fff6"
   darwin-amd64: ""

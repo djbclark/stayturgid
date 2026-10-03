@@ -1,6 +1,6 @@
 ---
-# Own-mode openobserve lifecycle: dirs → binary if absent (never upgrade) →
-# plist → bootstrap → health. Data dir path is fixed (no re-home). Does not
+# Own-mode openobserve lifecycle: dirs → binary (installed when absent or when
+# its reported version differs from the pin) → plist → bootstrap → health. Data dir path is fixed (no re-home). Does not
 # delete legacy com.stayturgid.openobserve (retirement is D7).
 
 - name: Ensure openobserve data, cache, bin parent, and log directories exist
@@ -20,17 +20,60 @@
     path: "{{ serverapp_openobserve_bin_path }}"
   register: _oo_bin_stat
 
+# The pin used to be consulted only when the binary was absent, so bumping it
+# never upgraded anything. Ask the installed binary what it is
+# (`openobserve v1.0.4`) and compare. Fails open: a version string we cannot
+# parse never blocks a deploy and never triggers a reinstall, it leaves the
+# binary exactly as the old install-if-absent behaviour did.
+- name: Probe the installed openobserve version
+  ansible.builtin.shell: |
+    if [ -x "{{ serverapp_openobserve_bin_path }}" ]; then
+      "{{ serverapp_openobserve_bin_path }}" --version 2>/dev/null || true
+    fi
+  args:
+    executable: /bin/bash
+  changed_when: false
+  failed_when: false
+  # Run in check mode too, so a dry run reports what a real run would do.
+  check_mode: false
+  register: _oo_version_probe
+
+- name: Record whether openobserve needs installing
+  ansible.builtin.set_fact:
+    _oo_installed_version: >-
+      {{ (_oo_version_probe.stdout | default('')) | regex_findall('[0-9]+(?:[.][0-9]+)+') | first | default('', true) }}
+    _oo_install_required: >-
+      {{
+        not (_oo_bin_stat.stat.exists | default(false))
+        or (
+          ((_oo_version_probe.stdout | default('')) | regex_findall('[0-9]+(?:[.][0-9]+)+') | first | default('', true) | length) > 0
+          and ((_oo_version_probe.stdout | default('')) | regex_findall('[0-9]+(?:[.][0-9]+)+') | first | default('', true)) != serverapp_openobserve_version
+        )
+      }}
+
+- name: Note an unparseable openobserve version (binary left as is)
+  ansible.builtin.debug:
+    msg: >-
+      Could not parse a version from `{{ serverapp_openobserve_bin_path }} --version`
+      ({{ _oo_version_probe.stdout | default('') | trim }}); not reinstalling.
+  when:
+    - _oo_bin_stat.stat.exists | default(false)
+    - _oo_installed_version | trim | length == 0
+
 - name: Detect machine architecture for openobserve download
   ansible.builtin.command:
     cmd: uname -m
   register: _oo_uname
   changed_when: false
-  when: not (_oo_bin_stat.stat.exists | default(false))
+  # Read-only; run in check mode too, or the arch fact (and the checksum
+  # assert keyed on it) is computed from a skipped task.
+  check_mode: false
+  when: _oo_install_required | bool
 
 - name: Set openobserve download architecture fact
   ansible.builtin.set_fact:
     _oo_arch: "{{ 'darwin-arm64' if (_oo_uname.stdout | default('') | trim) in ['arm64', 'aarch64'] else 'darwin-amd64' }}"
-  when: not (_oo_bin_stat.stat.exists | default(false))
+  when: _oo_install_required | bool
 
 # M1-F MF-5: fail closed rather than install an unverified binary.
 - name: Fail closed when no pinned checksum exists for this OpenObserve download arch
@@ -40,7 +83,7 @@
     fail_msg: >-
       No pinned sha256 for OpenObserve {{ serverapp_openobserve_version }} ({{ _oo_arch }}) in
       serverapp_openobserve_archive_sha256 — refusing to download an unverified binary.
-  when: not (_oo_bin_stat.stat.exists | default(false))
+  when: _oo_install_required | bool
 
 # Canonical Ansible equivalent of Python's tempfile.mkdtemp / shell mktemp -d
 # (unpredictable name under the system temp dir, not a fixed /tmp/openobserve*
@@ -53,10 +96,25 @@
   register: _oo_tmp
   # Run in check mode too, so downstream `.path` resolves during a dry-run.
   check_mode: false
-  when: not (_oo_bin_stat.stat.exists | default(false))
+  when:
+    - _oo_install_required | bool
+    - not ansible_check_mode
 
-- name: Download, extract, and install OpenObserve binary when missing
-  when: not (_oo_bin_stat.stat.exists | default(false))
+# In check mode nothing is downloaded, so the extract/copy tasks below would
+# fail on a missing source; report the pending change instead of running them.
+- name: Report pending OpenObserve install (check mode only)
+  ansible.builtin.debug:
+    msg: >-
+      Would install OpenObserve {{ serverapp_openobserve_version }} (installed:
+      {{ _oo_installed_version | default('', true) | trim or 'none' }}).
+  when:
+    - ansible_check_mode
+    - _oo_install_required | bool
+
+- name: Download, extract, and install OpenObserve binary when missing or not at the pinned version
+  when:
+    - _oo_install_required | bool
+    - not ansible_check_mode
   block:
     - name: Download OpenObserve archive when binary missing
       vars:
@@ -86,6 +144,35 @@
         path: "{{ _oo_tmp.path }}"
         state: absent
       when: _oo_tmp.path is defined
+
+# The binary itself is the stamp (its --version), and the copy above is the last
+# step of the install, so a partial install leaves the old version and the next
+# run redoes it. Verify what actually landed. Skipped in check mode (the install
+# tasks did not run) and when nothing was installed; fails open when the new
+# binary reports a version we cannot parse.
+- name: Probe the openobserve version after install
+  ansible.builtin.shell: |
+    "{{ serverapp_openobserve_bin_path }}" --version 2>/dev/null || true
+  args:
+    executable: /bin/bash
+  changed_when: false
+  failed_when: false
+  register: _oo_version_verify
+  when:
+    - not ansible_check_mode
+    - _oo_install_required | bool
+
+- name: Fail if openobserve is not at the pinned version after install
+  ansible.builtin.fail:
+    msg: >-
+      OpenObserve at {{ serverapp_openobserve_bin_path }} reports
+      {{ _oo_version_verify.stdout | default('') | trim }} after install; expected
+      {{ serverapp_openobserve_version }}.
+  when:
+    - not ansible_check_mode
+    - _oo_install_required | bool
+    - (_oo_version_verify.stdout | default('') | regex_findall('[0-9]+(?:[.][0-9]+)+') | first | default('', true) | length) > 0
+    - (_oo_version_verify.stdout | default('') | regex_findall('[0-9]+(?:[.][0-9]+)+') | first | default('', true)) != serverapp_openobserve_version
 
 - name: Load site group_vars for openobserve email when present
   ansible.builtin.include_vars:
