@@ -4,7 +4,11 @@ version = "0.1.0"
 description = "Keeps wireless ADB, Shizuku, and SSH alive on unrooted Android phones"
 requires-python = ">=3.12"
 dependencies = [
-  "ansible-core>=2.16",
+  # Keep this bound in step with tests/python/requirements.txt, which carries
+  # the reasoning: 2.22.0b1+ require Python >=3.13 while CI runs 3.12. Without
+  # it here, `uv sync` silently bypasses the pin that `uv pip install -r
+  # tests/python/requirements.txt` honours.
+  "ansible-core>=2.16,<2.22",
   "pytest>=7",
   "pytest-mock>=3",
   "pytest-ansible>=2",
