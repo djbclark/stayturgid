@@ -9,6 +9,9 @@ serverapp_openobserve_data_dir: "{{ lookup('env', 'HOME') }}/.local/share/openob
 serverapp_openobserve_bin_path: "{{ lookup('env', 'HOME') }}/.local/bin/openobserve"
 serverapp_openobserve_logs_dir: "{{ serverapp_openobserve_home }}/.config/{{ site_ns }}/logs"
 serverapp_openobserve_label: "com.{{ site_ns }}.openobserve"
+# Records the build that installed AND verified cleanly: "<version> <sha256>".
+# Our namespace, not OpenObserve's data dir, so nothing it scans is polluted.
+serverapp_openobserve_stamp_path: "{{ serverapp_openobserve_home }}/.config/{{ site_ns }}/.openobserve-version"
 serverapp_openobserve_plist_path: "{{ serverapp_openobserve_home }}/Library/LaunchAgents/{{ serverapp_openobserve_label }}.plist"
 serverapp_openobserve_version: "1.0.4"
 # M1-F MF-5: pinned sha256 of the enterprise archive, per download arch. No

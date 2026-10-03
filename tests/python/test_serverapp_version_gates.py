@@ -130,13 +130,21 @@ def test_the_probe_runs_in_check_mode_so_dry_runs_are_honest(role):
 def test_the_expensive_install_steps_are_all_gated(role):
     tag = CASES[role][0]
     gate = f"_{tag}_install_required"
+    # The genuinely expensive work: a download, an extract, a copy, and the
+    # tempdir they need. These must never run on a converged host.
     names = [
-        "Detect machine architecture",
-        "Set ",
         "Fail closed when no pinned checksum",
         "Create temporary directory",
         "Download, extract, and install",
     ]
+    # The arch probe is `uname -m` -- free and read-only -- and openobserve
+    # deliberately runs it UNGATED, because its install decision reads a stamp
+    # whose expected value contains the arch-specific checksum. Gating the probe
+    # on the decision that depends on it is circular. olivetin has no stamp, so
+    # its arch probe stays gated; test_arch_detection_is_not_gated_on_the_install_decision
+    # asserts the openobserve side on purpose.
+    if role != "serverapp_openobserve":
+        names = ["Detect machine architecture", "Set "] + names
     for prefix in names:
         task = (
             _by_name(role, prefix)
@@ -295,3 +303,80 @@ def test_the_restart_happens_after_the_binary_is_installed(role):
     installs = [i for i, n in enumerate(names) if n.startswith("Install ")]
     assert installs, "expected at least one install task"
     assert detect > max(installs), "stale detection must follow every install"
+
+
+# ---------------------------------------------------------------------------
+# The stamp (operator decision 2026-10-03: harden rather than accept the limit).
+#
+# A version gate whose only evidence is "the binary copy happened" trusts a
+# half-finished install. The stamp is written strictly AFTER the post-install
+# verify passes, so a partial install leaves the old stamp (or none) and the next
+# run redoes everything. Its content is version + archive checksum, because a
+# re-pinned checksum at the SAME version must also reinstall.
+# ---------------------------------------------------------------------------
+
+OO = "serverapp_openobserve"
+
+
+def _oo_install_required(stamp_recorded, stamp_expected, *, bin_exists=True, probe="openobserve v1.0.4"):
+    task = _by_name(OO, "Record whether")
+    expr = task["ansible.builtin.set_fact"]["_oo_install_required"]
+    ctx = {
+        "_oo_bin_stat": {"stat": {"exists": bin_exists}},
+        "_oo_version_probe": {"stdout": probe},
+        "_oo_stamp_recorded": stamp_recorded,
+        "_oo_stamp_expected": stamp_expected,
+        "serverapp_openobserve_version": "1.0.4",
+    }
+    return _env().from_string(expr).render(**ctx).strip()
+
+
+def test_a_matching_stamp_converges():
+    assert _oo_install_required("1.0.4 abc123", "1.0.4 abc123") == "False"
+
+
+def test_a_missing_stamp_installs():
+    """Fail open in the safe direction: no evidence means do the work."""
+    assert _oo_install_required("", "1.0.4 abc123") == "True"
+
+
+def test_a_repinned_checksum_at_the_same_version_still_installs():
+    """The reason the stamp is not version-only. Both report 1.0.4."""
+    assert _oo_install_required("1.0.4 OLDSHA", "1.0.4 NEWSHA") == "True"
+
+
+def test_the_stamp_is_version_plus_checksum_not_version_alone():
+    task = _by_name(OO, "Compute the expected and recorded openobserve stamps")
+    expr = task["ansible.builtin.set_fact"]["_oo_stamp_expected"]
+    assert "serverapp_openobserve_version" in expr
+    assert "serverapp_openobserve_archive_sha256" in expr, "checksum missing from the stamp"
+    assert "_oo_arch" in expr, "checksum must be the one for the detected arch"
+
+
+def test_arch_detection_is_not_gated_on_the_install_decision():
+    """Circular otherwise: the decision reads the stamp, the stamp needs the
+    checksum, the checksum needs the arch."""
+    for name in ("Detect machine architecture", "Set openobserve download architecture"):
+        task = _by_name(OO, name)
+        when = task.get("when")
+        assert when is None or "_oo_install_required" not in str(when), (
+            f"{name!r} must not depend on _oo_install_required"
+        )
+
+
+def test_the_stamp_is_written_strictly_after_the_verify():
+    """The ordering IS the property. A 'stamp exists' test passes an ordering bug."""
+    names = [str(t.get("name", "")) for t in _walk(_tasks(OO))]
+    verify = names.index("Fail if openobserve is not at the pinned version after install")
+    write = names.index("Record the installed openobserve build")
+    assert write > verify, "stamp must be recorded only after the version verify passes"
+    # And after every install step, for the same reason.
+    installs = [i for i, n in enumerate(names) if n.startswith("Download, extract, and install")]
+    assert installs and write > max(installs)
+
+
+def test_the_stamp_write_is_check_mode_and_decision_gated():
+    task = _by_name(OO, "Record the installed openobserve build")
+    when = " ".join(str(c) for c in task["when"])
+    assert "not ansible_check_mode" in when, "a dry run must not record a stamp it did not earn"
+    assert "_oo_install_required" in when

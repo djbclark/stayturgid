@@ -38,6 +38,38 @@
   check_mode: false
   register: _oo_version_probe
 
+# Arch is needed to pick the pinned checksum, which is half the version stamp,
+# which the install decision below reads -- so this must run BEFORE that decision
+# and must not be gated on it. `uname -m` is free and read-only.
+- name: Detect machine architecture for openobserve download
+  ansible.builtin.command:
+    cmd: uname -m
+  register: _oo_uname
+  changed_when: false
+  check_mode: false
+
+- name: Set openobserve download architecture fact
+  ansible.builtin.set_fact:
+    _oo_arch: "{{ 'darwin-arm64' if (_oo_uname.stdout | default('') | trim) in ['arm64', 'aarch64'] else 'darwin-amd64' }}"
+
+# The stamp is written only after a verified install, so a partial install leaves
+# the OLD stamp (or none) and the next run redoes everything rather than trusting
+# a half-finished tree. Version alone is not enough: a re-pinned checksum at the
+# same version must also reinstall, so the checksum is part of the stamp.
+- name: Read the recorded openobserve build stamp
+  ansible.builtin.slurp:
+    src: "{{ serverapp_openobserve_stamp_path }}"
+  register: _oo_stamp_raw
+  failed_when: false
+  check_mode: false
+
+- name: Compute the expected and recorded openobserve stamps
+  ansible.builtin.set_fact:
+    _oo_stamp_expected: >-
+      {{ serverapp_openobserve_version }} {{ serverapp_openobserve_archive_sha256[_oo_arch] | default('') }}
+    _oo_stamp_recorded: >-
+      {{ (_oo_stamp_raw.content | default('') | b64decode | trim) if (_oo_stamp_raw.content is defined) else '' }}
+
 - name: Record whether openobserve needs installing
   ansible.builtin.set_fact:
     _oo_installed_version: >-
@@ -45,6 +77,7 @@
     _oo_install_required: >-
       {{
         not (_oo_bin_stat.stat.exists | default(false))
+        or (_oo_stamp_recorded | trim) != (_oo_stamp_expected | trim)
         or (
           ((_oo_version_probe.stdout | default('')) | regex_findall('[0-9]+(?:[.][0-9]+)+') | first | default('', true) | length) > 0
           and ((_oo_version_probe.stdout | default('')) | regex_findall('[0-9]+(?:[.][0-9]+)+') | first | default('', true)) != serverapp_openobserve_version
@@ -59,21 +92,6 @@
   when:
     - _oo_bin_stat.stat.exists | default(false)
     - _oo_installed_version | trim | length == 0
-
-- name: Detect machine architecture for openobserve download
-  ansible.builtin.command:
-    cmd: uname -m
-  register: _oo_uname
-  changed_when: false
-  # Read-only; run in check mode too, or the arch fact (and the checksum
-  # assert keyed on it) is computed from a skipped task.
-  check_mode: false
-  when: _oo_install_required | bool
-
-- name: Set openobserve download architecture fact
-  ansible.builtin.set_fact:
-    _oo_arch: "{{ 'darwin-arm64' if (_oo_uname.stdout | default('') | trim) in ['arm64', 'aarch64'] else 'darwin-amd64' }}"
-  when: _oo_install_required | bool
 
 # M1-F MF-5: fail closed rather than install an unverified binary.
 - name: Fail closed when no pinned checksum exists for this OpenObserve download arch
@@ -173,6 +191,18 @@
     - _oo_install_required | bool
     - (_oo_version_verify.stdout | default('') | regex_findall('[0-9]+(?:[.][0-9]+)+') | first | default('', true) | length) > 0
     - (_oo_version_verify.stdout | default('') | regex_findall('[0-9]+(?:[.][0-9]+)+') | first | default('', true)) != serverapp_openobserve_version
+
+# Strictly after the verify above: this records a build that installed AND
+# reported the pinned version. Writing it earlier (or as a side effect of the
+# binary copy) would let a half-finished install look converged forever.
+- name: Record the installed openobserve build
+  ansible.builtin.copy:
+    content: "{{ _oo_stamp_expected | trim }}\n"
+    dest: "{{ serverapp_openobserve_stamp_path }}"
+    mode: "0644"
+  when:
+    - not ansible_check_mode
+    - _oo_install_required | bool
 
 - name: Load site group_vars for openobserve email when present
   ansible.builtin.include_vars:
