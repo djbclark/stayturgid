@@ -10,15 +10,26 @@ serverapp_openobserve_bin_path: "{{ lookup('env', 'HOME') }}/.local/bin/openobse
 serverapp_openobserve_logs_dir: "{{ serverapp_openobserve_home }}/.config/{{ site_ns }}/logs"
 serverapp_openobserve_label: "com.{{ site_ns }}.openobserve"
 serverapp_openobserve_plist_path: "{{ serverapp_openobserve_home }}/Library/LaunchAgents/{{ serverapp_openobserve_label }}.plist"
-serverapp_openobserve_version: "0.91.1"
+serverapp_openobserve_version: "1.0.4"
 # M1-F MF-5: pinned sha256 of the enterprise archive, per download arch. No
 # vendor checksum sidecar exists (CDN has no directory listing); obtained by
-# downloading over HTTPS and hashing directly (2026-07-19, recorded in the
-# M1-F PR). darwin-amd64 has no published archive for this version (CDN
-# returns AccessDenied) — left empty; the role fails closed rather than
-# installing an unverified binary if that arch is ever needed.
+# downloading over HTTPS and hashing directly. darwin-amd64 has no published
+# archive (CDN returns AccessDenied) — left empty; the role fails closed
+# rather than installing an unverified binary if that arch is ever needed.
+#
+# 1.0.4 hash hand-computed 2026-10-03 from
+# openobserve-ee-v1.0.4-darwin-arm64.tar.gz (143,830,322 bytes) and verified
+# by extracting it and running `openobserve --version` before installing.
+#
+# WARNING — bumping this version alone does NOT upgrade anything. tasks/main.yml
+# installs the binary only "if absent (never upgrade)", the same inert-pin shape
+# as serverapp_olivetin. The live upgrade to 1.0.4 was done by hand (bootout →
+# replace ~/.local/bin/openobserve → bootstrap → verify) on 2026-10-03; this pin
+# records the version that is actually running so the repo is not lying. Giving
+# the role a real version-aware upgrade path is the open decision in the
+# OliveTin inert-pin item.
 serverapp_openobserve_archive_sha256:
-  darwin-arm64: "d1e01cfd91e67efb46539deab3601081ae29e6852b50ef323167b557ce66e665"
+  darwin-arm64: "7acc59cc63c8fd6afd5765bb34471e8d5eec9d6ccf8485c941aa13df6500fff6"
   darwin-amd64: ""
 serverapp_openobserve_http_port: "5080"
 serverapp_openobserve_http_address: "127.0.0.1"

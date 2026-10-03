@@ -29,6 +29,16 @@
 - name: Import fleet deploy play
   import_playbook: fleet/fleet.yml
 
+# #311: FIRERPA was reachable only via `just firerpa-deploy`, so a plain
+# `just deploy` left a returning device (hd8, 21d offline) on its old pinned
+# version while still printing a green recap (#184). The playbook is safe to
+# run fleet-wide: it is opt-in per host via `firerpa_enabled`, so hosts that
+# do not set it no-op. Placed after fleet.yml because the role needs the
+# Termux userland and adb reachability that preflight/fleet establish.
+- name: Import FIRERPA deploy
+  import_playbook: fleet/firerpa.yml
+  tags: [firerpa]
+
 - name: Import post-UI automation play
   import_playbook: fleet/post-ui.yml
 
