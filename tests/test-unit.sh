@@ -46,6 +46,31 @@ wait_for_absent() {
   return 1
 }
 
+# Prove a NEGATIVE safely.
+#
+# "This log line never appeared" is only meaningful once the work that would
+# have produced it has demonstrably run. Polling alone can only ever show the
+# forbidden pattern has not appeared *yet*, so a loaded machine turns the
+# assertion into a vacuous pass -- and a test that cannot fail when it should is
+# worse than a flaky one, because nothing draws attention to it.
+#
+# So: require a positive settle marker proving the relevant code path executed,
+# and FAIL if it never arrives rather than silently asserting absence against a
+# log nothing has written to.
+tap_unlike_settled() {
+  _file=$1 _settle=$2 _bad=$3 _name=$4 _timeout=${5:-10}
+  if ! wait_for_match "$_file" "$_settle" "$_timeout"; then
+    tap_fail "$_name" \
+      "settle marker '$_settle' never appeared within ${_timeout}s, so absence of '$_bad' is unproven"
+    return 1
+  fi
+  if grep -qF -- "$_bad" "$_file" 2>/dev/null; then
+    tap_fail "$_name" "unexpectedly found '$_bad'"
+  else
+    tap_ok "$_name"
+  fi
+}
+
 make_sandbox
 trap 'kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bootloop.pid" 2>/dev/null || true
       kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bridge.pid" 2>/dev/null || true
@@ -663,7 +688,10 @@ tap_like "$(cat "$STUB_LOG")" \
 tap_like "$(cat "$STUB_LOG")" \
   "firerpa_lifecycle.py start" \
   "start-adb: FIRERPA launch uses the accessibility coexistence lifecycle"
-tap_unlike "$(cat "$STUB_LOG")" \
+# Settles on the lifecycle launch: if the direct invocation were going to
+# happen, it would be in the log by the time that line is.
+tap_unlike_settled "$STUB_LOG" \
+  "firerpa_lifecycle.py start" \
   "/data/local/tmp/firerpa/server/bin/python3.12 -u -m lamda" \
   "start-adb: never launches FIRERPA directly as the Termux app UID"
 
@@ -687,11 +715,12 @@ wait_for_match "$STUB_LOG" "stayturgid_check_repo_version.py" 10 || true
 kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bootloop.pid"
 tap_like "$(grep python3 "$STUB_LOG")" "stayturgid_check_repo_version.py" \
   "start-adb: empty version stamp treated as 0 (arithmetic safe)"
-if grep -qF "boot-launcher.js" "$STUB_LOG" 2>/dev/null; then
-  tap_fail "start-adb: does not am start boot-launcher from boot loop"
-else
-  tap_ok "start-adb: does not am start boot-launcher from boot loop"
-fi
+# Settles on the version check, which the same forked daemon loop runs: once
+# that is logged, the loop has executed and a stray boot-launcher would show.
+tap_unlike_settled "$STUB_LOG" \
+  "stayturgid_check_repo_version.py" \
+  "boot-launcher.js" \
+  "start-adb: does not am start boot-launcher from boot loop"
 
 # bridges.py --mode repair: trigger file => repair within one loop (~2s stubbed)
 reset_sandbox
