@@ -148,9 +148,16 @@ battery_suite() {
   echo '{"percentage": 12, "status": "DISCHARGING"}' >"$SANDBOX/batt.json"
   run_sandboxed "$BATT"
   unset ADB_ZEN
+  # termux_api.run_ff is fire-and-forget (Popen + start_new_session, "wait
+  # briefly, then orphan"), and stayturgid_battery_alarm.py falls back to it when
+  # a synchronous call hits TimeoutExpired. Under load that fallback fires, so the
+  # notification can still be unwritten here. Settle on the positive marker FIRST:
+  # the two counts below are negatives, and reading them early makes them pass
+  # merely because nothing has run yet.
+  wait_for_match "$STUB_LOG" "quiet hours" 10 || true
+  tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "quiet hours" "battery[$T]: DND posts silent notification"
   tap_is "$(stub_calls 'termux-toast')" 0 "battery[$T]: DND fires no toast"
   tap_is "$(stub_calls 'termux-vibrate')" 0 "battery[$T]: DND fires no vibrate"
-  tap_like "$(grep 'termux-notification ' "$STUB_LOG")" "quiet hours" "battery[$T]: DND posts silent notification"
   tap_is "$(stub_calls 'termux-torch on')" 1 "battery[$T]: DND single quick torch flash (tier<=15)"
 }
 
