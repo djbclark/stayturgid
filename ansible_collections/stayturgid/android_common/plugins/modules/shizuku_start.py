@@ -116,7 +116,9 @@ def port5555_open(run_command, device):
 
 
 def send_headless_start(run_command, device):
-    rc, out, _err = adb_shell(run_command, device, "am broadcast -a %s" % HEADLESS_START)
+    # Since API 26 an implicit broadcast to a manifest receiver is dropped;
+    # the TendCF receiver requires the package to be named (-p).
+    rc, out, _err = adb_shell(run_command, device, "am broadcast -a %s -p %s" % (HEADLESS_START, SHIZUKU_PKG))
     normalize_adb_output(out)
     return rc == 0
 

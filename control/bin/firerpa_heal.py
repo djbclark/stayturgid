@@ -123,7 +123,10 @@ def restart_shizuku(device: Device) -> str:
     try:
         if is_shizuku_alive(device):
             return "up"
-        device.execute_script("am broadcast -a moe.shizuku.privileged.api.HEADLESS_START", timeout=5)
+        device.execute_script(
+            "am broadcast -a moe.shizuku.privileged.api.HEADLESS_START -p moe.shizuku.privileged.api",
+            timeout=5,
+        )
         time.sleep(3)
         if is_shizuku_alive(device):
             _log(NOTICE, "Shizuku started via HEADLESS_START")

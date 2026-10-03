@@ -78,6 +78,9 @@ object CatastrophicRepair {
                     "--include-stopped-packages",
                     "-a",
                     "moe.shizuku.privileged.api.HEADLESS_STATUS",
+                    // ShizukuTendCF's receiver requires an explicit target package.
+                    "-p",
+                    "moe.shizuku.privileged.api",
                 ),
                 6,
             )
@@ -158,6 +161,8 @@ object CatastrophicRepair {
                 "--include-stopped-packages",
                 "-a",
                 "moe.shizuku.privileged.api.HEADLESS_START",
+                "-p",
+                "moe.shizuku.privileged.api",
             ),
             8,
         )
