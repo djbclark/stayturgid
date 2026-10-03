@@ -141,10 +141,18 @@
   changed_when: false
   register: _firerpa_verify
 
+# not ansible_check_mode: this asserts the result of the extract above, and in a
+# dry run that extract never ran -- every adb step here is a command/shell task,
+# which Ansible skips under --check. The verify task therefore registers no
+# stdout, `'OK' not in ''` is true, and ansible.builtin.fail DOES execute in
+# check mode, so without this guard `just deploy-check` fails on every host that
+# opts into FIRERPA (#311 put this role in the plain-deploy path).
 - name: Fail if FIRERPA binary missing after extract
   ansible.builtin.fail:
     msg: "FIRERPA server binary not found at {{ firerpa_install_dir }}/server/bin/python3.12 on {{ inventory_hostname }}"
-  when: "'OK' not in (_firerpa_verify.stdout | default(''))"
+  when:
+    - not ansible_check_mode
+    - "'OK' not in (_firerpa_verify.stdout | default(''))"
 
 # Covers the happy path only — this file isn't wrapped in a block/always
 # (unlike serverapp_openobserve/blackbox_exporter/olivetin) because doing so

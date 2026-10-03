@@ -796,7 +796,25 @@ with evidence whenever an item is completed or blocked.
 # vector on any shared host (see tmpfile security audit, 2026-07-21).
 uv venv --python 3.12 ~/.venv-stayturgid-firerpa
 source ~/.venv-stayturgid-firerpa/bin/activate
-uv pip install ~/src/firerpa-binaries/lamda-client-py-10.0.tar.gz
+# --no-deps is deliberate: lamda 10.9 needs the same dependency set as 10.0 and
+# only widens its grpcio ceiling, so a plain install would be free to pull
+# grpcio up to the yanked 1.82.0 for no benefit. See the ceilings below.
+uv pip install --no-deps \
+  https://github.com/djbclark/lamda/releases/download/v10.9-binaries/lamda-10.9.tar.gz
+```
+
+The client is installed from the fork mirror rather than upstream because
+upstream's sdist is published as `lamda-client-py-10.9.tar.gz` while its metadata
+name is `lamda`; uv rejects that mismatch outright ("Package metadata name
+`lamda` does not match given name `lamda-client-py`"). The fork re-publishes the
+identical bytes under the correct `lamda-10.9.tar.gz` name — sha256
+3a1fa9bceace4638173e15446cb49697b38f6419a14343a8c5aa057039354406.
+
+Verify versions with `importlib.metadata`, not `pip` — this venv has no `pip`:
+
+```bash
+~/.venv-stayturgid-firerpa/bin/python -c \
+  "import importlib.metadata as m; print(m.version('lamda'), m.version('grpcio'))"
 ```
 
 Two ceilings in this venv are load-bearing — both verified 2026-10-02, and

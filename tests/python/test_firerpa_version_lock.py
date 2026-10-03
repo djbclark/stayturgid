@@ -150,3 +150,17 @@ def test_certificate_path_is_absolute_before_it_reaches_adb():
     assert "expanduser" in defaults
     expression = defaults.split("firerpa_certificate_path:", 1)[1].split("firerpa_certificate_device_path:", 1)[0]
     assert "| expanduser" in expression, "firerpa_certificate_path must be expanduser'd"
+
+
+def test_post_extract_guard_does_not_fire_in_check_mode():
+    """#311 put this role in the plain-deploy path, so `just deploy-check` runs it.
+
+    Every adb step is a command/shell task, which --check skips, so the verify
+    task registers no stdout and `'OK' not in ''` is true. ansible.builtin.fail
+    *does* run in check mode, so without the ansible_check_mode guard a dry run
+    fails on every host that opts into FIRERPA.
+    """
+    install = INSTALL.read_text(encoding="utf-8")
+    guard = install.split("- name: Fail if FIRERPA binary missing after extract", 1)[1]
+    guard = guard.split("\n- name:", 1)[0]
+    assert "not ansible_check_mode" in guard
