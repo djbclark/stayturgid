@@ -60,13 +60,26 @@ and update this file in the same commit.
 
 ## Fleet health (as of last check)
 
-- **s24** — online; FIRERPA and Shizuku directly verified healthy.
+- **s24** — online; FIRERPA 10.9 and Shizuku directly verified healthy. Until
+  2026-10-03 its FIRERPA was listening but unreachable over gRPC from the Mac
+  (`UNAVAILABLE ... FD shutdown`) and running the _signed_ driver rather than the
+  patched one, so the accessibility coexistence swap had never completed; the
+  v10.9 deploy fixed both. (Its AutoInput accessibility service is still unbound,
+  but that is the package being disabled at the OS level, not FIRERPA
+  suppression.)
 - **p7a** — ADB, Shizuku and FIRERPA 10.9 reachable. v10.9 resolved the API 37
   incompatibility that made v10.0 exit with `unsupported sdk` before listening
   ([firerpa/lamda#147](https://github.com/firerpa/lamda/issues/147)); verified
   2026-10-03 listening on :65000 with the accessibility coexistence driver
   active and five ordinary accessibility services still bound.
-- **hd8** — ADB, FIRERPA 10.0, FIRERPA SSH, and Shizuku directly verified
+- **t2e** — online; FIRERPA 10.9 and Shizuku directly verified healthy. Before
+  2026-10-03 it had no service certificate on device at all, so FIRERPA had never
+  actually been deployed there despite `firerpa_enabled: true`; the v10.9 deploy
+  installed it and all six of its accessibility services stayed bound.
+- **hd8** — Tailscale-unreachable, so still on FIRERPA 10.0 and
+  the only reason `just firerpa-health` exits non-zero. It converges on its next
+  deploy: FIRERPA is now reachable from a plain `just deploy` (#311). Previously
+  ADB, FIRERPA, FIRERPA SSH, and Shizuku were directly verified
   healthy. Startup may span pre-login and post-login and take about five
   minutes to settle.
 
