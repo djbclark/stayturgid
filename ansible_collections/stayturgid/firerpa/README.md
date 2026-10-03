@@ -69,6 +69,10 @@ firerpa_webui_enabled: false
   it and all Mac gRPC clients fail closed when it is missing.
 - **ADB built-in:** Requires root on v10.9 non-root devices. Use Shizuku's
   adbd on port 5555 as the primary ADB channel.
+- **ABI:** arm64-v8a only, which covers the whole fleet — s24, p7a, t2e **and hd8**.
+  hd8 is worth calling out because an early evaluation doc labelled it `armv7a`;
+  that was wrong, the code audit in the same batch corrected it, and hd8 has since
+  run this role's arm64 server. No `armeabi-v7a` archive is mirrored or needed.
 - **Server binary:** 204 MiB (arm64) closed-source native runtime with an embedded
   Python 3.12. Pinned to v10.9 from stayturgid's fork at
   https://github.com/djbclark/lamda — upstream deletes releases (both v10.0 and v10.2
