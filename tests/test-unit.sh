@@ -26,6 +26,26 @@ wait_for_match() {
   return 1
 }
 
+wait_for_file() {
+  file=$1 timeout=${2:-5}
+  deadline=$(($(date +%s) + timeout))
+  while [ "$(date +%s)" -lt "$deadline" ]; do
+    [ -f "$file" ] && return 0
+    sleep 0.1
+  done
+  return 1
+}
+
+wait_for_absent() {
+  file=$1 timeout=${2:-5}
+  deadline=$(($(date +%s) + timeout))
+  while [ "$(date +%s)" -lt "$deadline" ]; do
+    [ ! -f "$file" ] && return 0
+    sleep 0.1
+  done
+  return 1
+}
+
 make_sandbox
 trap 'kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bootloop.pid" 2>/dev/null || true
       kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bridge.pid" 2>/dev/null || true
@@ -610,14 +630,14 @@ touch "$SANDBOX/home/.stayturgid/bin/stayturgid_repair.py"
 chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_repair.py" \
   "$SANDBOX/home/.stayturgid/bin/firerpa_lifecycle.py"
 run_sandboxed "$START_ADB"
-if [ -f "$SANDBOX/home/.stayturgid/run/bootloop.pid" ]; then
+# Parent writes bootloop.pid before returning, but schedule it under load.
+if wait_for_file "$SANDBOX/home/.stayturgid/run/bootloop.pid" 5; then
   tap_ok "start-adb: writes bootloop.pid immediately (before 30s settle)"
 else
   tap_fail "start-adb: writes bootloop.pid immediately (before 30s settle)"
 fi
-# The parent intentionally records the child before startup_firerpa() runs.
-# Observe the asynchronous launch before terminating the sandbox daemon.
-wait_stub_like "firerpa_lifecycle.py start" || true
+# Child startup_firerpa() and _run_bg(sshd) write STUB_LOG asynchronously.
+wait_for_match "$STUB_LOG" "firerpa_lifecycle.py start" 10 || true
 FIRST_LOOP="$(cat "$SANDBOX/home/.stayturgid/run/bootloop.pid" 2>/dev/null)"
 run_sandboxed "$START_ADB"
 tap_is "$(cat "$SANDBOX/home/.stayturgid/run/bootloop.pid" 2>/dev/null)" "$FIRST_LOOP" \
@@ -627,6 +647,12 @@ tap_like "$(cat "$SANDBOX/home/.stayturgid/logs/boot.log" 2>/dev/null)" "already
 kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bootloop.pid"
 tap_is "$RC" 0 "start-adb: exits 0 after launching boot loop"
 
+# sshd is _run_bg(Popen) in the parent; FIRERPA adb/lifecycle calls run in the forked child.
+wait_for_match "$STUB_LOG" "sshd" 10 || true
+wait_for_match "$STUB_LOG" "termux-wake-lock" 10 || true
+wait_for_match "$STUB_LOG" "adb -s localhost:5555 shell" 10 || true
+wait_for_match "$STUB_LOG" "--certificate=/data/local/tmp/firerpa/server/lamda.pem" 10 || true
+wait_for_match "$STUB_LOG" "firerpa_lifecycle.py start" 10 || true
 tap_like "$(cat "$STUB_LOG")" "sshd" "start-adb: starts sshd"
 tap_like "$(cat "$STUB_LOG")" "termux-wake-lock" "start-adb: requests wakelock"
 tap_like "$(cat "$STUB_LOG")" "adb -s localhost:5555 shell" \
@@ -656,7 +682,8 @@ ENV
 touch "$SANDBOX/home/.stayturgid/bin/stayturgid_check_repo_version.py"
 chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_check_repo_version.py"
 run_sandboxed "$START_ADB"
-wait_stub_like "stayturgid_check_repo_version.py" || true
+# Version check runs in the forked daemon loop, not the exiting parent.
+wait_for_match "$STUB_LOG" "stayturgid_check_repo_version.py" 10 || true
 kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bootloop.pid"
 tap_like "$(grep python3 "$STUB_LOG")" "stayturgid_check_repo_version.py" \
   "start-adb: empty version stamp treated as 0 (arithmetic safe)"
@@ -678,6 +705,11 @@ chmod +x "$SANDBOX/home/.stayturgid/bin/stayturgid_repair.py"
 touch "$SANDBOX/sd/run/repair_now"
 run_sandboxed_alarm 3 "$BRIDGES_PY" --mode repair
 BRIDGE_LOG="$SANDBOX/home/.stayturgid/logs/repair-bridge.log"
+# Alarm may return before the first 2s poll cycle finishes under load — poll outcomes.
+wait_for_file "$SANDBOX/home/.stayturgid/run/bridge.pid" 5 || true
+wait_for_absent "$SANDBOX/sd/run/repair_now" 5 || true
+wait_for_match "$BRIDGE_LOG" "trigger seen" 5 || true
+wait_for_match "$BRIDGE_LOG" "repair complete" 5 || true
 if [ ! -f "$SANDBOX/sd/run/repair_now" ]; then
   tap_ok "bridges: trigger file removed after handling (repair mode)"
 else
@@ -685,7 +717,7 @@ else
 fi
 tap_like "$(cat "$BRIDGE_LOG" 2>/dev/null)" "trigger seen" "bridges: logs trigger (repair mode)"
 tap_like "$(cat "$BRIDGE_LOG" 2>/dev/null)" "repair complete" "bridges: invokes stayturgid_repair.py"
-if [ -f "$SANDBOX/home/.stayturgid/run/bridge.pid" ]; then
+if wait_for_file "$SANDBOX/home/.stayturgid/run/bridge.pid" 1; then
   tap_ok "bridges: writes bridge.pid on start (repair mode)"
 else
   tap_fail "bridges: writes bridge.pid on start (repair mode)"
