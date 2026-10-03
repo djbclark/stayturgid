@@ -327,7 +327,7 @@ class PrivShell:
 
     def shizuku_running(self):
         """True if the Shizuku server process is currently alive on device."""
-        rc, out = self.sh("am broadcast -a %s 2>/dev/null" % self.HEADLESS_STATUS)
+        rc, out = self.sh("am broadcast -a %s -p moe.shizuku.privileged.api 2>/dev/null" % self.HEADLESS_STATUS)
         if rc == 0 and "result=1" in out:
             return True
         rc, out = self.sh("pgrep -f '[s]hizuku_server' >/dev/null && echo up")

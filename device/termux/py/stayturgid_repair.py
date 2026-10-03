@@ -582,7 +582,9 @@ def duplicate_branch():
         port, sh, shizuku, a11y, wifi = "skip", False, "skip", "skip", "skip"
     elif privileged_shell():
         port, sh = "open", True
-        _, shizuku_out = sh_adb("am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null")
+        _, shizuku_out = sh_adb(
+            "am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS -p moe.shizuku.privileged.api 2>/dev/null"
+        )
         if "result=1" in shizuku_out:
             shizuku = "up"
         else:
@@ -1116,7 +1118,9 @@ def main():
 
     # --- 3. shizuku (via privileged shell; watchdog handles restart) ---
     if expect_shell and have_sh:
-        _, shizuku_out = sh_adb("am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null")
+        _, shizuku_out = sh_adb(
+            "am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS -p moe.shizuku.privileged.api 2>/dev/null"
+        )
         if "result=1" in shizuku_out:
             shizuku = "up"
         else:
@@ -1277,7 +1281,7 @@ def main():
                 # launched from unattended repair (#199).
                 sh_adb(
                     "am broadcast -a moe.shizuku.privileged.api.HEADLESS_START "
-                    "-n moe.shizuku.privileged.api/moe.shizuku.manager.receiver.HeadlessStartStopReceiver"
+                    "-n moe.shizuku.privileged.api/af.shizuku.manager.receiver.HeadlessStartStopReceiver"
                 )
                 sh_adb("settings put global adb_wifi_enabled 1")
                 time.sleep(0.5)

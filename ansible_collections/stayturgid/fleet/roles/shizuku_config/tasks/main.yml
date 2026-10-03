@@ -94,7 +94,7 @@
     device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
     connect: true
     action: moe.shizuku.privileged.api.APPLY_FLEET_PROFILE
-    component: moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity
+    component: moe.shizuku.privileged.api/af.shizuku.manager.fleet.FleetProfileActivity
     extras:
       profile_path: /data/local/tmp/shizuku-fleet.json
       silent: "true"
@@ -107,7 +107,7 @@
     device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
     connect: true
     action: moe.shizuku.privileged.api.APPLY_FLEET_PROFILE
-    component: moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity
+    component: moe.shizuku.privileged.api/af.shizuku.manager.fleet.FleetProfileActivity
     extras:
       profile_path: /sdcard/Download/shizuku-fleet.json
       silent: "true"
@@ -121,7 +121,7 @@
     connect: true
     action: moe.shizuku.privileged.api.HEADLESS_START
     component: >-
-      moe.shizuku.privileged.api/moe.shizuku.manager.receiver.HeadlessStartStopReceiver
+      moe.shizuku.privileged.api/af.shizuku.manager.receiver.HeadlessStartStopReceiver
   changed_when: false
   failed_when: false
   delegate_to: localhost

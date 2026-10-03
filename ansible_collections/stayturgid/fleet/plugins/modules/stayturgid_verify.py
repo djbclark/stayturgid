@@ -177,7 +177,7 @@ def check_shell5555():
 def check_shizuku():
     # HEADLESS_STATUS broadcast
     rc, out, _ = _shell(
-        "adb -s localhost:5555 shell am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS 2>/dev/null",
+        "adb -s localhost:5555 shell am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS -p moe.shizuku.privileged.api 2>/dev/null",
         timeout=8,
     )
     if rc == 0 and "result=1" in out:

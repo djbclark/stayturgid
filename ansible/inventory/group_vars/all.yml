@@ -6,7 +6,7 @@ termux_prefix: /data/data/com.termux/files/usr
 
 # AutoJs6 device profile defaults (templated to /sdcard/stayturgid_device.json)
 shizuku_package: moe.shizuku.privileged.api
-shizuku_activity: moe.shizuku.manager.MainActivity
+shizuku_activity: af.shizuku.manager.MainActivity
 tailscale_package: com.tailscale.ipn
 tailscale_activity: com.tailscale.ipn.MainActivity
 # Coordinates for the Shizuku "Start" tap when text search fails; models set

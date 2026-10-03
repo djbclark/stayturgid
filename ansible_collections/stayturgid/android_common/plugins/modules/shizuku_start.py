@@ -82,7 +82,7 @@ SHIZUKU_PKG = "moe.shizuku.privileged.api"
 HEADLESS_START = "moe.shizuku.privileged.api.HEADLESS_START"
 HEADLESS_STATUS = "moe.shizuku.privileged.api.HEADLESS_STATUS"
 APPLY_FLEET = "moe.shizuku.privileged.api.APPLY_FLEET_PROFILE"
-FLEET_ACTIVITY = "moe.shizuku.privileged.api/moe.shizuku.manager.fleet.FleetProfileActivity"
+FLEET_ACTIVITY = "moe.shizuku.privileged.api/af.shizuku.manager.fleet.FleetProfileActivity"
 FLEET_PROFILE_PATH = "/data/local/tmp/shizuku-fleet.json"
 
 DEFAULT_FLEET_PROFILE = {
