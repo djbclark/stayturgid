@@ -296,6 +296,65 @@
   retries: 5
   delay: 1
 
+# Installing a new binary does not replace the running process: launchd keeps
+# the old executable held open, so a version bump would land on disk while the
+# service carried on serving the previous build -- and the on-disk `--version`
+# probe above would still report the new one, so the assert would pass green.
+# The four brew-managed serverapps get this from serverapp_launchd; this role
+# bootstraps launchd itself, so it reuses the same script and the same kickstart.
+- name: Detect whether the running openobserve is on a stale binary
+  ansible.builtin.command:
+    cmd: >-
+      {{ role_path }}/../../files/serverapp_binary_state.sh
+      {{ serverapp_openobserve_uid }}
+      {{ serverapp_openobserve_label }}
+      {{ serverapp_openobserve_bin_path }}
+  changed_when: false
+  # Must run under --check too, or a dry run cannot report a pending restart.
+  check_mode: false
+  register: _oo_binary_state
+
+- name: Restart openobserve when it is running a stale binary
+  ansible.builtin.command:
+    cmd: launchctl kickstart -k gui/{{ serverapp_openobserve_uid }}/{{ serverapp_openobserve_label }}
+  when:
+    - not ansible_check_mode
+    - (_oo_binary_state.stdout | default('') | trim) == 'stale'
+  register: _oo_kickstart
+
+- name: Report a pending openobserve restart under --check
+  ansible.builtin.debug:
+    msg: >-
+      openobserve is running a stale binary; a real run would
+      `launchctl kickstart -k` {{ serverapp_openobserve_label }}.
+  when:
+    - ansible_check_mode
+    - (_oo_binary_state.stdout | default('') | trim) == 'stale'
+
+- name: Re-check openobserve binary state after the restart
+  ansible.builtin.command:
+    cmd: >-
+      {{ role_path }}/../../files/serverapp_binary_state.sh
+      {{ serverapp_openobserve_uid }}
+      {{ serverapp_openobserve_label }}
+      {{ serverapp_openobserve_bin_path }}
+  changed_when: false
+  when: _oo_kickstart.changed | default(false)
+  register: _oo_binary_verify
+
+# The health endpoint answers happily from a stale binary, which is why this
+# asserts on the held-open executable rather than on health. `unknown` is
+# tolerated: it means the state could not be determined, not that it is wrong.
+- name: Fail if openobserve is still on a stale binary after the restart
+  ansible.builtin.fail:
+    msg: >-
+      openobserve is still running a stale binary after
+      `launchctl kickstart -k {{ serverapp_openobserve_label }}`.
+  when:
+    - not ansible_check_mode
+    - _oo_kickstart.changed | default(false)
+    - (_oo_binary_verify.stdout | default('') | trim) == 'stale'
+
 - name: Wait for openobserve health endpoint
   ansible.builtin.uri:
     url: "{{ serverapp_openobserve_health_url }}"

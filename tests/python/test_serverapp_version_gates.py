@@ -182,7 +182,11 @@ def test_check_mode_does_not_reach_tasks_that_need_a_download(role):
 def test_post_install_verification_guard_is_check_mode_and_skip_safe(role):
     """ansible.builtin.fail runs in check mode; and a skipped probe has no stdout."""
     tag = CASES[role][0]
-    guard = _by_name(role, "Fail if")
+    # Prefix must stay specific: a second "Fail if ... stale binary" guard was
+    # added later for the restart path, and a bare "Fail if" matches both.
+    guard = next(
+        t for t in _walk(_tasks(role)) if str(t.get("name", "")).endswith("is not at the pinned version after install")
+    )
     when = guard["when"]
     assert "not ansible_check_mode" in when
     assert f"_{tag}_install_required | bool" in when
@@ -224,3 +228,70 @@ def test_the_pins_are_unchanged(role):
     defaults = yaml.safe_load((ROLES / role / "defaults/main.yml").read_text(encoding="utf-8"))
     key = CASES[role][1]
     assert defaults[key] == {"serverapp_openobserve": "1.0.4", "serverapp_olivetin": "3000.20.0"}[role]
+
+
+# ---------------------------------------------------------------------------
+# Installing a binary is not the same as running it. launchd keeps the old
+# executable held open, so without a restart a version bump lands on disk while
+# the service keeps serving the previous build -- and the post-install
+# `--version` probe reads the on-disk binary, so the assert passes green on a
+# stale process. The four brew-managed serverapps get this from
+# serverapp_launchd; these two bootstrap launchd themselves, so they must do it.
+# ---------------------------------------------------------------------------
+
+STALE_DETECT = {
+    "serverapp_openobserve": "Detect whether the running openobserve is on a stale binary",
+    "serverapp_olivetin": "Detect whether the running OliveTin is on a stale binary",
+}
+KICKSTART = {
+    "serverapp_openobserve": "Restart openobserve when it is running a stale binary",
+    "serverapp_olivetin": "Kickstart site-namespace olivetin after a config-only or binary change",
+}
+STALE_FAIL = {
+    "serverapp_openobserve": "Fail if openobserve is still on a stale binary after the restart",
+    "serverapp_olivetin": "Fail if OliveTin is still on a stale binary after the restart",
+}
+
+
+@pytest.mark.parametrize("role", CASES)
+def test_a_stale_running_binary_is_detected(role):
+    """The gate is pointless if the new binary never gets run."""
+    task = _by_name(role, STALE_DETECT[role])
+    cmd = task["ansible.builtin.command"]["cmd"]
+    assert "serverapp_binary_state.sh" in cmd, "must reuse the shared state script"
+    # It compares the held-open executable, so it needs uid, label and binary.
+    for var in ("_uid", "_label", "_bin_path"):
+        assert var in cmd, f"{var} missing from the probe invocation"
+    assert task.get("changed_when") is False
+    # Without this a dry run cannot report a pending restart.
+    assert task.get("check_mode") is False
+
+
+@pytest.mark.parametrize("role", CASES)
+def test_the_restart_fires_on_a_stale_binary(role):
+    task = _by_name(role, KICKSTART[role])
+    assert "kickstart -k" in task["ansible.builtin.command"]["cmd"]
+    when = " ".join(str(c) for c in task["when"])
+    assert "stale" in when, "the restart must key on the stale-binary probe"
+
+
+@pytest.mark.parametrize("role", CASES)
+def test_the_stale_restart_is_verified_and_check_mode_safe(role):
+    """`ansible.builtin.fail` runs in check mode, so it must be gated."""
+    task = _by_name(role, STALE_FAIL[role])
+    when = " ".join(str(c) for c in task["when"])
+    assert "not ansible_check_mode" in when
+    # Only assert after we actually restarted something.
+    assert "_kickstart" in when
+    # Reading a skipped register must not explode.
+    assert "default(" in when
+
+
+@pytest.mark.parametrize("role", CASES)
+def test_the_restart_happens_after_the_binary_is_installed(role):
+    """Restarting before the copy would just re-run the old binary."""
+    names = [str(t.get("name", "")) for t in _walk(_tasks(role))]
+    detect = names.index(STALE_DETECT[role])
+    installs = [i for i, n in enumerate(names) if n.startswith("Install ")]
+    assert installs, "expected at least one install task"
+    assert detect > max(installs), "stale detection must follow every install"
