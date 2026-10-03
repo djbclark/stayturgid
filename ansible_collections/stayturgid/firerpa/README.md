@@ -70,9 +70,12 @@ firerpa_webui_enabled: false
 - **ADB built-in:** Requires root on v10.9 non-root devices. Use Shizuku's
   adbd on port 5555 as the primary ADB channel.
 - **ABI:** arm64-v8a only, which covers the whole fleet — s24, p7a, t2e **and hd8**.
-  hd8 is worth calling out because an early evaluation doc labelled it `armv7a`;
-  that was wrong, the code audit in the same batch corrected it, and hd8 has since
-  run this role's arm64 server. No `armeabi-v7a` archive is mirrored or needed.
+  hd8 is worth calling out because an early evaluation doc labelled it `armv7a`.
+  That was wrong: its model code `KFRASWI` is the
+  [Fire HD 8 (2024, 12th Gen)](https://developer.amazon.com/docs/device-specs/ft-device-specifications-firehd-models.html),
+  Fire OS 8 / API 30, ABI `32bit/64bit`. Generation is what decides this — the
+  10th Gen (2020, `KFONWI`) genuinely is 32-bit-only — so check the model code
+  rather than the product name. No `armeabi-v7a` archive is mirrored or needed.
 - **Server binary:** 204 MiB (arm64) closed-source native runtime with an embedded
   Python 3.12. Pinned to v10.9 from stayturgid's fork at
   https://github.com/djbclark/lamda — upstream deletes releases (both v10.0 and v10.2

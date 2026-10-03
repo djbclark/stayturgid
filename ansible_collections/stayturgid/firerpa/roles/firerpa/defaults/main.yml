@@ -9,13 +9,23 @@ firerpa_version: "10.9"
 firerpa_port: 65000
 firerpa_install_dir: /data/local/tmp/firerpa
 # arm64 is the ONLY ABI this role fetches, and that is correct for the whole
-# fleet: s24, p7a, t2e and hd8 are all arm64-v8a. hd8 is the one worth stating,
+# fleet: s24, p7a, t2e and hd8 all run arm64-v8a. hd8 is the one worth stating,
 # because docs/research/evaluations/firerpa-install-map-2026-07-12.md calls it
-# "armv7a" -- that was wrong and the code audit in the same batch corrected it
-# ("hd8 is actually arm64 (not armv7a as originally documented)"). Corroborated
-# by hd8 already running this role's arm64 server at v10.0, plus the fleet-wide
-# arm64-v8a Termux APK and linux_arm64 otelcol it also runs. Adding a second ABI
-# would need a second archive, checksum and patched-driver hash pair.
+# "armv7a" -- that was wrong, and the code audit in the same batch corrected it
+# ("hd8 is actually arm64 (not armv7a as originally documented)").
+#
+# Confirmed against Amazon's own device-spec table, not inferred: hd8's model code
+# KFRASWI is the Fire HD 8 (2024, 12th Gen), Fire OS 8 / API 30, ABI "32bit/64bit".
+# https://developer.amazon.com/docs/device-specs/ft-device-specifications-firehd-models.html
+# The generation matters -- the 10th Gen (2020, KFONWI) really is 32-bit-only, which
+# is probably where the armv7a claim came from -- so check the model code, not the
+# product name, before assuming. API 30 also matches hd8's android_11 inventory
+# group. (The same doc's "Fire OS 11" is wrong too; Fire OS 8 is the Android 11 one.)
+# Corroborated on-device: hd8 has run this role's arm64 server at v10.0, and takes
+# the fleet-wide arm64-v8a Termux APK and linux_arm64 otelcol with no override.
+#
+# Adding a second ABI would need a second archive, checksum and patched-driver hash
+# pair, since the DEX patch pins the exact bytes it edits.
 firerpa_server_archive_arm64: "lamda-server-arm64-v8a.tar.gz"
 firerpa_server_archive_sha256_arm64: "88957c04f6cae2e2cc56aaece92cec4074ad72092bc05f1e26e4095de7dedeca"
 firerpa_server_archive_url_arm64: >-
