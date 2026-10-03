@@ -100,12 +100,26 @@ def remove_sshd_down(device: Device) -> str:
 
 
 def restart_sshd(device: Device) -> str:
+    # Opening TermuxActivity is the #103 wake: a fully-backgrounded Termux can
+    # leave run-as unusable until its activity has run since last killed. It no
+    # longer starts sshd on its own (sshd is now runit-supervised, with no
+    # shell-init start), so it is only the wake. The actual recovery is run-as
+    # com.termux invoking the deployed entrypoint (start runsvdir if dead, then
+    # sv up sshd) — Termux's UID, no GUI session, no keyguard unlock needed on
+    # the fleet's debug-build Termux.
     _exec_stdout(device, "am start -n com.termux/.app.TermuxActivity 2>/dev/null")
+    time.sleep(1)
+    recover = (
+        "run-as com.termux sh -c "
+        "'export PREFIX=/data/data/com.termux/files/usr HOME=/data/data/com.termux/files/home; "
+        '"$PREFIX/bin/sh" "$HOME/.termux/tasker/sshd-recover.sh"\' 2>/dev/null'
+    )
+    _exec_stdout(device, recover)
     time.sleep(3)
     if is_sshd_alive(device):
-        _log(NOTICE, "sshd alive after activity trigger")
+        _log(NOTICE, "sshd alive after run-as recovery")
         return "up"
-    _log(WARNING, "sshd restart via TermuxActivity FAILED")
+    _log(WARNING, "sshd restart via run-as sshd-recover FAILED")
     return "FAILED"
 
 
