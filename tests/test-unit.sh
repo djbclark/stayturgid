@@ -638,7 +638,7 @@ tap_like "$(cat "$STUB_LOG")" \
   "firerpa_lifecycle.py start" \
   "start-adb: FIRERPA launch uses the accessibility coexistence lifecycle"
 tap_unlike "$(cat "$STUB_LOG")" \
-  "/data/local/tmp/firerpa/server/bin/python3.9 -u -m lamda" \
+  "/data/local/tmp/firerpa/server/bin/python3.12 -u -m lamda" \
   "start-adb: never launches FIRERPA directly as the Termux app UID"
 
 # start-adb: empty version stamp must not break daily check arithmetic

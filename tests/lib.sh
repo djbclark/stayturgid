@@ -60,7 +60,7 @@ echo "adb $*" >> "$STUB_LOG"
 case "$*" in
   connect*) exit "${ADB_CONNECT_RC:-0}" ;;
   *"grep -q ':65000 '"*) exit "${ADB_FIRERPA_RC:-1}" ;;
-  *"test -x /data/local/tmp/firerpa/server/bin/python3.9"*)
+  *"test -x /data/local/tmp/firerpa/server/bin/python3.12"*)
       exit "${ADB_FIRERPA_FILES_RC:-0}" ;;
   *"exec-out cmd wallpaper get-image"*)
       [ -n "${ADB_WALLPAPER_FILE:-}" ] && cat "$ADB_WALLPAPER_FILE"

@@ -59,7 +59,7 @@ def test_main_reports_known_incompatibility_and_recovers_opted_in_host(monkeypat
             checks[alias] += 1
             if checks[alias] == 1:
                 return {"firerpa": "unreachable"}
-        return {"firerpa": "10.0", "sshd": "up", "shizuku": "up"}
+        return {"firerpa": "10.9", "sshd": "up", "shizuku": "up"}
 
     monkeypatch.setattr(monitor, "get_fleet", lambda: targets)
     monkeypatch.setattr(monitor, "Device", object())

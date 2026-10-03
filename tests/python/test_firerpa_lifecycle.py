@@ -37,28 +37,28 @@ def _lifecycle(tmp_path: Path, transport=None):
     )
 
 
-def test_service_jar_pids_parses_remote_process_list(tmp_path):
+def test_driver_pids_parses_remote_process_list(tmp_path):
     transport = FakeTransport([(0, "101\nnot-a-pid\n202\n")])
     lifecycle = _lifecycle(tmp_path, transport)
 
-    assert lifecycle.service_jar_pids() == {101, 202}
+    assert lifecycle.driver_pids() == {101, 202}
     assert "pidof lamda" in transport.commands[0][0]
-    assert lifecycle_module.SERVICE_JAR_FRAGMENT in transport.commands[0][0]
+    assert lifecycle_module.DRIVER_ARCHIVE_FRAGMENT in transport.commands[0][0]
 
 
 def test_remote_sha256_ignores_rish_banner(tmp_path):
-    digest = lifecycle_module.SIGNED_JAR_SHA256
-    transport = FakeTransport([(0, f"Entering shell...\n{digest}  /remote/service.jar\n")])
+    digest = lifecycle_module.SIGNED_DRIVER_SHA256
+    transport = FakeTransport([(0, f"Entering shell...\n{digest}  /remote/aab.zip\n")])
     lifecycle = _lifecycle(tmp_path, transport)
 
-    assert lifecycle._remote_sha256(Path("/remote/service.jar")) == digest
+    assert lifecycle._remote_sha256(Path("/remote/aab.zip")) == digest
 
 
 def test_remote_sha256_fails_closed_without_digest(tmp_path):
     lifecycle = _lifecycle(tmp_path, FakeTransport([(0, "Entering shell...\n")]))
 
     with pytest.raises(lifecycle_module.LifecycleError, match="could not read"):
-        lifecycle._remote_sha256(Path("/remote/service.jar"))
+        lifecycle._remote_sha256(Path("/remote/aab.zip"))
 
 
 def test_start_is_idempotent_when_patched_driver_is_active(tmp_path, monkeypatch, capsys):
@@ -67,10 +67,10 @@ def test_start_is_idempotent_when_patched_driver_is_active(tmp_path, monkeypatch
     monkeypatch.setattr(
         lifecycle,
         "_remote_sha256",
-        lambda _path: lifecycle_module.PATCHED_JAR_SHA256,
+        lambda _path: lifecycle_module.PATCHED_DRIVER_SHA256,
     )
     monkeypatch.setattr(lifecycle, "_port_open", lambda: True)
-    monkeypatch.setattr(lifecycle, "service_jar_pids", lambda: {101})
+    monkeypatch.setattr(lifecycle, "driver_pids", lambda: {101})
 
     lifecycle.start()
 
@@ -84,7 +84,7 @@ def test_start_launches_signed_server_then_activates_patch(tmp_path, monkeypatch
     monkeypatch.setattr(
         lifecycle,
         "_remote_sha256",
-        lambda _path: lifecycle_module.SIGNED_JAR_SHA256,
+        lambda _path: lifecycle_module.SIGNED_DRIVER_SHA256,
     )
     monkeypatch.setattr(lifecycle, "_port_open", lambda: False)
     monkeypatch.setattr(lifecycle, "_launch_signed_server", lambda: calls.append("launch"))
@@ -120,10 +120,10 @@ def test_copy_atomic_uses_remote_temporary_and_replace(tmp_path):
     transport = FakeTransport()
     lifecycle = _lifecycle(tmp_path, transport)
 
-    lifecycle._copy_atomic(Path("/signed.jar"), Path("/active.jar"))
+    lifecycle._copy_atomic(Path("/signed.zip"), Path("/active.zip"))
 
     command = transport.commands[0][0]
-    assert command.startswith("cp /signed.jar /.active.jar.stayturgid.tmp")
+    assert command.startswith("cp /signed.zip /.active.zip.stayturgid.tmp")
     assert "chmod 0644" in command
     assert "mv -f" in command
 

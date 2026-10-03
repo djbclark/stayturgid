@@ -344,7 +344,7 @@ always-on Ollama in Termux:Boot; **any Inferno/`emu`/Styx work** (parked under
 install/configure/service/uninstall; playbook (`fleet/firerpa.yml`); Python heal script
 (`firerpa_heal.py`); launchd health monitor (`firerpa_health_monitor.py` every 10 min);
 Termux boot integration in Python `start_adb.py`. Deployed on oneui-device +
-stock-android-device (v10.0 :65000). fireos-device blocked by Fire OS SELinux
+stock-android-device (v10.9 :65000). fireos-device blocked by Fire OS SELinux
 (peer-bootstrap covers it; no plan to fix).
 
 **Known limitations (by design, not open work):** FIRERPA inbound SSH is

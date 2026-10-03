@@ -1,6 +1,6 @@
-# Standalone FIRERPA v10.0 on unrooted Android
+# Standalone FIRERPA v10.9 on unrooted Android
 
-This directory installs FIRERPA/lamda v10.0 directly from the upstream server
+This directory installs FIRERPA/lamda v10.9 directly from the upstream server
 tarball on an unrooted Android device. It does not require stayturgid, Ansible,
 Termux, Magisk, or FIRERPA's APK. The deployment does require a working ADB shell
 transport during installation and whenever the server must be started after reboot.
@@ -8,7 +8,7 @@ transport during installation and whenever the server must be started after rebo
 The `justfile` is executable documentation: `just --list` shows its operations,
 `just prepare` performs every host-only step, and `just install` performs the full
 device deployment. Every downloaded binary or helper is SHA-256 verified and the
-v10.0 accessibility patch fails closed if its exact expected DEX is not present.
+v10.9 accessibility patch fails closed if its exact expected DEX is not present.
 
 ## What the maintainer's guidance resolved
 
@@ -26,7 +26,8 @@ Merely placing `lamda.pem` beside `properties.local` did not select it in the ma
 tarball deployment. The explicit launch option matters. PKCS#1-to-PKCS#8 conversion is
 not necessary.
 
-For the v10.0 artifact tested on 2026-07-13, the default server authorized-key
+For the v10.0 artifact tested on 2026-07-13 (not re-verified for v10.9), the default
+server authorized-key
 fingerprint matched the private key embedded by upstream `tools/ssh.sh`; a separate
 checked-out `tools/test.pem` did not match. A private custom certificate avoids any
 default-key ambiguity and prevents the public upstream default identity from logging in.
@@ -126,11 +127,11 @@ just ADB_TARGET=SERIAL FIRERPA_HOST=HOST FIRERPA_ARCH=armeabi-v7a install
 ## What `just install` actually does
 
 1. Verifies ADB reaches the expected device as UID 2000 and confirms its ABI.
-2. Downloads upstream v10.0 server and Python-client tarballs.
+2. Downloads upstream v10.9 server and Python-client tarballs.
 3. Verifies the release checksum and pinned client/helper SHA-256 values.
 4. Creates `.work/venv`, installs `cryptography` and the matching lamda client.
 5. Runs upstream `cert.py` once in `certs/`, producing `certs/lamda.pem`.
-6. Creates a hash-pinned accessibility-compatible `service.jar`.
+6. Creates a hash-pinned accessibility-compatible `aab.zip`.
 7. Stops the old FIRERPA process tree, extracts the signed server under
    `/data/local/tmp/firerpa/server`, and saves the signed JAR as an override.
 8. Pushes the patched JAR, lifecycle helper, certificate, and conservative
@@ -139,7 +140,7 @@ just ADB_TARGET=SERIAL FIRERPA_HOST=HOST FIRERPA_ARCH=armeabi-v7a install
    patched JAR atomically, and restarts only FIRERPA's UIAutomation helper processes.
 10. Prints the listener, process ownership, and active driver hash.
 
-The install is intentionally pinned to v10.0. If an upstream release changes the DEX,
+The install is intentionally pinned to v10.9. If an upstream release changes the DEX,
 the patcher stops with `unsupported FIRERPA classes.dex SHA-256` instead of guessing.
 Audit the new release and update the patch before changing `FIRERPA_VERSION`.
 
@@ -164,9 +165,9 @@ Download and verify the upstream arm64 server:
 
 ```bash
 curl -fL -o "$WORK/lamda-server-arm64-v8a.tar.gz" \
-  https://github.com/firerpa/lamda/releases/download/v10.0/lamda-server-arm64-v8a.tar.gz
+  https://github.com/firerpa/lamda/releases/download/v10.9/lamda-server-arm64-v8a.tar.gz
 curl -fL -o "$WORK/lamda-server-arm64-v8a.tar.gz.sha256sum" \
-  https://github.com/firerpa/lamda/releases/download/v10.0/lamda-server-arm64-v8a.tar.gz.sha256sum
+  https://github.com/firerpa/lamda/releases/download/v10.9/lamda-server-arm64-v8a.tar.gz.sha256sum
 expected=$(awk 'NR == 1 {print $1}' "$WORK/lamda-server-arm64-v8a.tar.gz.sha256sum")
 actual=$($PYTHON -c 'import hashlib,sys; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' \
   "$WORK/lamda-server-arm64-v8a.tar.gz")
@@ -198,7 +199,7 @@ curl -fL -o "$WORK/firerpa_service_patch.py" "$base/firerpa_service_patch.py"
 curl -fL -o "$WORK/firerpa_lifecycle.py" "$base/firerpa_lifecycle.py"
 $PYTHON "$WORK/firerpa_service_patch.py" \
   --archive "$WORK/lamda-server-arm64-v8a.tar.gz" \
-  --output "$WORK/service.jar.patched"
+  --output "$WORK/aab.zip.patched"
 ```
 
 Deploy the signed archive and keep both JAR variants:
@@ -211,11 +212,11 @@ adb -s "$SERIAL" shell "
   rm -rf '$ROOT/server' /data/local/tmp/usr
   mkdir -p '$ROOT/overrides'
   tar xzf /data/local/tmp/firerpa-server.tar.gz -C '$ROOT'
-  cp '$ROOT/server/lib/python3.9/site-packages/lamda/service.jar' \
-     '$ROOT/overrides/service.jar.signed'
+  cp '$ROOT/server/lib/python3.12/site-packages/lamda/aab.zip' \
+     '$ROOT/overrides/aab.zip.signed'
 "
-adb -s "$SERIAL" push "$WORK/service.jar.patched" \
-  "$ROOT/overrides/service.jar.patched"
+adb -s "$SERIAL" push "$WORK/aab.zip.patched" \
+  "$ROOT/overrides/aab.zip.patched"
 adb -s "$SERIAL" push "$WORK/firerpa_lifecycle.py" \
   "$ROOT/firerpa_lifecycle.py"
 adb -s "$SERIAL" push "$CERT" "$ROOT/server/lamda.pem"
@@ -265,9 +266,9 @@ ssh -o IdentitiesOnly=yes -i "$CERT" -p "$PORT" "shell@$HOST" id
 Install and test the gRPC client:
 
 ```bash
-curl -fL -o "$WORK/lamda-client-py-10.0.tar.gz" \
-  https://github.com/firerpa/lamda/releases/download/v10.0/lamda-client-py-10.0.tar.gz
-uv pip install --python "$WORK/venv/bin/python" "$WORK/lamda-client-py-10.0.tar.gz"
+curl -fL -o "$WORK/lamda-client-py-10.9.tar.gz" \
+  https://github.com/firerpa/lamda/releases/download/v10.9/lamda-client-py-10.9.tar.gz
+uv pip install --python "$WORK/venv/bin/python" "$WORK/lamda-client-py-10.9.tar.gz"
 "$WORK/venv/bin/python" - "$HOST" "$PORT" "$CERT" <<'PY'
 from lamda.client import Device
 import sys
@@ -278,16 +279,18 @@ print(f"FIRERPA v{info.version} uptime={info.uptime}s")
 PY
 ```
 
-## Why the accessibility JAR lifecycle exists
+## Why the accessibility driver lifecycle exists
 
-FIRERPA v10.0's bundled driver calls Android `getUiAutomation()` with flags `0`.
-Android then suppresses normal accessibility services, which disconnects automation
-tools such as AutoJs6, AutoInput, or screen readers. Android exposes
-`FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES` (value `1`) to preserve them.
+FIRERPA v10.9 bundles an `Instrumentation` subclass whose no-argument
+`getUiAutomation()` override connects with flags `0`. Android then suppresses normal
+accessibility services, which disconnects automation tools such as AutoJs6, AutoInput,
+or screen readers. Android exposes `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`
+(value `1`) to preserve them.
 
-The patch changes one hash-pinned Dalvik instruction to call `getUiAutomation(1)` and
-repairs the DEX signature/checksum. FIRERPA also validates the signed `service.jar` at
-startup, so leaving the patched JAR active before launch fails integrity validation.
+The patch rewrites that override's hash-pinned 12-byte prologue so it delegates to the
+flag-aware `getUiAutomation(1)` overload, then repairs the DEX signature/checksum. That
+single chokepoint covers every call site. FIRERPA also validates the signed `aab.zip` at
+startup, so leaving the patched archive active before launch fails integrity validation.
 The lifecycle controller therefore:
 
 1. restores the signed original;
@@ -349,13 +352,13 @@ JAR SHA-256 `805e39de934d39ebaabe221b4db1464f835cc8ad7753bf3f34f4313569f8f1e1`.
 
 ### FIRERPA reports an integrity error
 
-The patched JAR was active too early. Restore
-`overrides/service.jar.signed` to the active `lamda/service.jar`, start the server, and
+The patched archive was active too early. Restore
+`overrides/aab.zip.signed` to the active `lamda/aab.zip`, start the server, and
 let the lifecycle controller perform the swap after validation.
 
 ### `unsupported FIRERPA classes.dex SHA-256`
 
-Do not bypass it. The release differs from the audited v10.0 driver. Use the exact v10.0
+Do not bypass it. The release differs from the audited v10.9 driver. Use the exact v10.9
 archive or audit and produce a new pinned patch for the new release.
 
 ### Server launched through `rish` vanishes immediately

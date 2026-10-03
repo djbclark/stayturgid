@@ -1,12 +1,15 @@
 ---
 # FIRERPA/lamda server role — optional on-device failsafe daemon.
+# v10.9 is the first obtainable build supporting Android 17 / API 37 and a
+# 16KB page size (firerpa/lamda#147); it also moved the embedded runtime to
+# Python 3.12 and replaced the driver JAR of earlier releases with lamda/aab.zip.
 # Deployed via Ansible; no APK required.  Default: disabled.
 firerpa_enabled: false
-firerpa_version: "10.0"
+firerpa_version: "10.9"
 firerpa_port: 65000
 firerpa_install_dir: /data/local/tmp/firerpa
 firerpa_server_archive_arm64: "lamda-server-arm64-v8a.tar.gz"
-firerpa_server_archive_sha256_arm64: "3c78b109b557cdb1dce71d1a03cdf4012aad189f76feaa04ea652d6c8a28b531"
+firerpa_server_archive_sha256_arm64: "88957c04f6cae2e2cc56aaece92cec4074ad72092bc05f1e26e4095de7dedeca"
 firerpa_server_archive_url_arm64: >-
   https://github.com/djbclark/lamda/releases/download/v{{ firerpa_version }}-binaries/{{ firerpa_server_archive_arm64 }}
 firerpa_certificate_path: >-

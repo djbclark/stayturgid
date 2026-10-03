@@ -337,7 +337,7 @@ def _firerpa_alive() -> bool:
 def _launch_firerpa_via_shell(reason: str) -> bool:
     """Launch FIRERPA as Android uid 2000 through local ADB or rish."""
     test_cmd = (
-        f"test -x {shlex.quote(os.path.join(FIRERPA_DIR, 'bin', 'python3.9'))} "
+        f"test -x {shlex.quote(os.path.join(FIRERPA_DIR, 'bin', 'python3.12'))} "
         f"&& test -r {shlex.quote(FIRERPA_CERTIFICATE)} "
         f"&& test -r {shlex.quote(FIRERPA_LIFECYCLE)}"
     )

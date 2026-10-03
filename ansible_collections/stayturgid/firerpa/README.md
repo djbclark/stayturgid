@@ -1,6 +1,6 @@
 # stayturgid.firerpa — FIRERPA/lamda Failsafe Daemon
 
-Deploy [FIRERPA/lamda](https://github.com/firerpa/lamda) v10.0 as an optional
+Deploy [FIRERPA/lamda](https://github.com/firerpa/lamda) v10.9 as an optional
 on-device failsafe daemon on stayturgid-managed Android devices.
 
 ## What it does
@@ -53,20 +53,26 @@ firerpa_webui_enabled: false
   die with their binder session. If neither privileged bridge is usable, USB/wireless
   recovery must restore one before FIRERPA can start. `oneui-device` and `stock-android-device` are validated after
   granting Termux **Allow all the time** in Shizuku.
-- **Accessibility coexistence:** Upstream v10.0 calls `getUiAutomation(0)`, suppressing
-  ordinary accessibility services. The role hash-guards and patches the bundled DEX to
-  use `FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`, but starts with the signed original
-  JAR so FIRERPA's integrity check still passes. It then swaps the patched JAR and
-  restarts only the UI helpers. The pinned signed and patched SHA-256 values are
-  `b1ac32d902227b7413ff6c867aa42c1630df1de57141e2efbefa0eca8169a67a` and
-  `805e39de934d39ebaabe221b4db1464f835cc8ad7753bf3f34f4313569f8f1e1`.
+- **Accessibility coexistence:** Upstream v10.9 bundles an `Instrumentation` subclass
+  whose no-argument `getUiAutomation()` override connects with flags `0`, suppressing
+  ordinary accessibility services. The role hash-guards and patches the bundled DEX so
+  that override delegates to `getUiAutomation(1)`
+  (`FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES`) — one chokepoint covering all four call
+  sites, and consistent with upstream's own `Configurator.uiAutomationFlags = 1`. It
+  starts with the signed original archive so FIRERPA's integrity check still passes, then
+  swaps the patched archive and restarts only the UI helpers. The pinned signed and
+  patched `aab.zip` SHA-256 values are
+  `74d2f1493025acdb92905d8cf5b5fa75a3978508b440049f81a1dd0eab2c7465` and
+  `3be26ac64d6532d1c8635737d4c186c976ea5c1c02e71c17b7207ab0cfbcb510`.
 - **SSH auth:** Inbound SSH works as user `shell` on port 65000. The private
   custom service certificate supplies both TLS and SSH trust; the role requires
   it and all Mac gRPC clients fail closed when it is missing.
-- **ADB built-in:** Requires root on v10.0 non-root devices. Use Shizuku's
+- **ADB built-in:** Requires root on v10.9 non-root devices. Use Shizuku's
   adbd on port 5555 as the primary ADB channel.
-- **Server binary:** 163 MB (arm64) closed-source native runtime. Pinned to
-  v10.0 from stayturgid's fork at https://github.com/djbclark/lamda.
+- **Server binary:** 204 MiB (arm64) closed-source native runtime with an embedded
+  Python 3.12. Pinned to v10.9 from stayturgid's fork at
+  https://github.com/djbclark/lamda — upstream deletes releases (both v10.0 and v10.2
+  are gone), so the fork mirror is the dependable source and the rollback target.
 
 ## Related docs
 

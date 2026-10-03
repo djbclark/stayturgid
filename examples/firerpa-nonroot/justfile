@@ -1,4 +1,4 @@
-# Standalone FIRERPA v10.0 deployment for an unrooted Android device.
+# Standalone FIRERPA v10.9 deployment for an unrooted Android device.
 #
 # Quick start:
 #   cp .env.example .env
@@ -13,7 +13,7 @@
 set dotenv-load
 set shell := ["bash", "-uc"]
 
-FIRERPA_VERSION := env_var_or_default("FIRERPA_VERSION", "10.0")
+FIRERPA_VERSION := env_var_or_default("FIRERPA_VERSION", "10.9")
 FIRERPA_ARCH := env_var_or_default("FIRERPA_ARCH", "arm64-v8a")
 FIRERPA_PORT := env_var_or_default("FIRERPA_PORT", "65000")
 FIRERPA_ROOT := env_var_or_default("FIRERPA_ROOT", "/data/local/tmp/firerpa")
@@ -31,7 +31,7 @@ ARCHIVE := WORKDIR + "/" + ARCHIVE_NAME
 CLIENT_ARCHIVE := WORKDIR + "/lamda-client-py-" + FIRERPA_VERSION + ".tar.gz"
 PATCH_SCRIPT := WORKDIR + "/firerpa_service_patch.py"
 LIFECYCLE_SCRIPT := WORKDIR + "/firerpa_lifecycle.py"
-PATCHED_JAR := WORKDIR + "/service.jar.patched"
+PATCHED_DRIVER := WORKDIR + "/aab.zip.patched"
 DEFAULT_CERTIFICATE := CERT_DIR + "/lamda.pem"
 CERTIFICATE := env_var_or_default("FIRERPA_CERTIFICATE", DEFAULT_CERTIFICATE)
 DEVICE_CERTIFICATE := FIRERPA_ROOT + "/server/lamda.pem"
@@ -43,10 +43,10 @@ STAYTURGID_REF := env_var_or_default("STAYTURGID_REF", "145ab25")
 STAYTURGID_RAW := "https://raw.githubusercontent.com/operator/stayturgid/" + STAYTURGID_REF
 
 # Update these only after auditing the corresponding immutable source revisions.
-CLIENT_SHA256 := env_var_or_default("CLIENT_SHA256", "c2db70e0f40eb2ae0c60555891c209aefb762546099bc369d82e830d96d3ca16")
+CLIENT_SHA256 := env_var_or_default("CLIENT_SHA256", "3a1fa9bceace4638173e15446cb49697b38f6419a14343a8c5aa057039354406")
 CERT_TOOL_SHA256 := env_var_or_default("CERT_TOOL_SHA256", "ae063140681ac6d2644f2010817ed9d7e4ba7adab8d45d08f975b4fd4fb01eb9")
-PATCH_SCRIPT_SHA256 := env_var_or_default("PATCH_SCRIPT_SHA256", "8185493e8d3cff7c25ada9dfa687f4673916eee0654091bc6b969c095aa1683a")
-LIFECYCLE_SCRIPT_SHA256 := env_var_or_default("LIFECYCLE_SCRIPT_SHA256", "3086aae7545bccfea810e89788a371f2438706e14a2565c9ac29476ed1b9df4b")
+PATCH_SCRIPT_SHA256 := env_var_or_default("PATCH_SCRIPT_SHA256", "fff67ca115d4d92bd9a2e1abdfde47646e4de7e3474713a87f8df0a00a7b7eb9")
+LIFECYCLE_SCRIPT_SHA256 := env_var_or_default("LIFECYCLE_SCRIPT_SHA256", "59cdf10114b48c8c0276459e85f40234ac1ca768bba7370e63e433a90751526b")
 
 # Show available operations.
 default:
@@ -98,7 +98,7 @@ doctor: _require-adb-target
     }
     echo "OK: {{ ADB_TARGET }} is reachable as shell UID 2000 ($abi)"
 
-# Download v10.0 server/client artifacts and pinned setup helpers; verify SHA-256.
+# Download v10.9 server/client artifacts and pinned setup helpers; verify SHA-256.
 fetch:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -176,10 +176,10 @@ certificate: venv
     chmod 0600 "{{ CERTIFICATE }}" "{{ CERT_DIR }}/root.key"
     echo "OK: generated {{ CERTIFICATE }}; back it up securely and never commit it"
 
-# Build the hash-pinned service.jar that preserves ordinary accessibility services.
+# Build the hash-pinned aab.zip that preserves ordinary accessibility services.
 patch: fetch
-    "{{ FIRERPA_PYTHON }}" "{{ PATCH_SCRIPT }}" --archive "{{ ARCHIVE }}" --output "{{ PATCHED_JAR }}"
-    @echo "OK: accessibility-coexistence driver ready at {{ PATCHED_JAR }}"
+    "{{ FIRERPA_PYTHON }}" "{{ PATCH_SCRIPT }}" --archive "{{ ARCHIVE }}" --output "{{ PATCHED_DRIVER }}"
+    @echo "OK: accessibility-coexistence driver ready at {{ PATCHED_DRIVER }}"
 
 # Prepare all host-side artifacts without changing the Android device.
 prepare: venv certificate patch
@@ -192,7 +192,7 @@ deploy: doctor prepare
     adb=(adb -s "{{ ADB_TARGET }}")
     root="{{ FIRERPA_ROOT }}"
     remote_archive=/data/local/tmp/firerpa-server.tar.gz
-    active="$root/server/lib/python3.9/site-packages/lamda/service.jar"
+    active="$root/server/lib/python3.12/site-packages/lamda/aab.zip"
 
     "${adb[@]}" push "{{ ARCHIVE }}" "$remote_archive"
     "${adb[@]}" shell '
@@ -207,10 +207,10 @@ deploy: doctor prepare
       mkdir -p '"$root"'
       tar xzf '"$remote_archive"' -C '"$root"'
       mkdir -p '"$root"'/overrides
-      cp '"$active"' '"$root"'/overrides/service.jar.signed
-      chmod 0644 '"$root"'/overrides/service.jar.signed
+      cp '"$active"' '"$root"'/overrides/aab.zip.signed
+      chmod 0644 '"$root"'/overrides/aab.zip.signed
     '
-    "${adb[@]}" push "{{ PATCHED_JAR }}" "$root/overrides/service.jar.patched"
+    "${adb[@]}" push "{{ PATCHED_DRIVER }}" "$root/overrides/aab.zip.patched"
     "${adb[@]}" push "{{ LIFECYCLE_SCRIPT }}" "$root/firerpa_lifecycle.py"
     "${adb[@]}" push "{{ CERTIFICATE }}" "{{ DEVICE_CERTIFICATE }}"
 
@@ -226,7 +226,7 @@ deploy: doctor prepare
       '[webui]' 'webui.darkmode=off' 'webui.audio=off' 'webui.webrtc=off' \
       'webui.video.h264=off' 'webui.share-clipboard=off' > "$properties"
     "${adb[@]}" push "$properties" "$root/server/properties.local"
-    "${adb[@]}" shell "chmod 0600 '{{ DEVICE_CERTIFICATE }}'; chmod 0644 '$root/overrides/service.jar.patched' '$root/server/properties.local'; chmod 0755 '$root/firerpa_lifecycle.py'"
+    "${adb[@]}" shell "chmod 0600 '{{ DEVICE_CERTIFICATE }}'; chmod 0644 '$root/overrides/aab.zip.patched' '$root/server/properties.local'; chmod 0755 '$root/firerpa_lifecycle.py'"
     echo "OK: FIRERPA deployed but not yet started"
 
 # Start idempotently via the signed-start/patched-swap lifecycle controller.
@@ -254,12 +254,12 @@ status: _require-adb-target
       }
       echo "lamda processes:"
       ps -A -o USER,PID,NAME,ARGS 2>/dev/null | grep "[l]amda" || true
-      echo "active service.jar:"
-      actual=$(sha256sum "{{ FIRERPA_ROOT }}/server/lib/python3.9/site-packages/lamda/service.jar" | awk "{print \$1}")
-      echo "$actual  {{ FIRERPA_ROOT }}/server/lib/python3.9/site-packages/lamda/service.jar"
-      expected=805e39de934d39ebaabe221b4db1464f835cc8ad7753bf3f34f4313569f8f1e1
+      echo "active aab.zip:"
+      actual=$(sha256sum "{{ FIRERPA_ROOT }}/server/lib/python3.12/site-packages/lamda/aab.zip" | awk "{print \$1}")
+      echo "$actual  {{ FIRERPA_ROOT }}/server/lib/python3.12/site-packages/lamda/aab.zip"
+      expected=3be26ac64d6532d1c8635737d4c186c976ea5c1c02e71c17b7207ab0cfbcb510
       test "$actual" = "$expected" || {
-        echo "ERROR: active service.jar is not the expected accessibility patch" >&2
+        echo "ERROR: active aab.zip is not the expected accessibility patch" >&2
         exit 1
       }
       echo "OK: listener and accessibility-coexistence driver are active"

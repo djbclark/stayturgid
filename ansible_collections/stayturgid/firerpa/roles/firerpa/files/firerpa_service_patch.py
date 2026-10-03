@@ -1,16 +1,36 @@
 #!/usr/bin/env python3
-"""Patch FIRERPA v10's UIAutomation driver to preserve accessibility services.
+"""Patch FIRERPA v10.9's UIAutomation driver to preserve accessibility services.
 
-FIRERPA's bundled driver initializes ``UiAutomation`` with the no-argument
-``Instrumentation.getUiAutomation()`` overload.  Android therefore registers
-the test automation service with flags 0 and suppresses AutoJs6 and every other
-accessibility service.  The driver already prepares flag 1 in the adjacent
-register; this patch changes the single invoke instruction to call
-``getUiAutomation(1)`` instead.
+FIRERPA bundles an ``Instrumentation`` subclass (obfuscated to ``Ld/r;``) that
+overrides both ``getUiAutomation()`` and ``getUiAutomation(int)``.  The no-argument
+override constructs a ``UiAutomation`` by reflection and then calls its hidden
+``connect()`` with no arguments, which is equivalent to ``connect(0)``: Android
+registers the test automation service with flags 0 and suppresses AutoJs6 and
+every other accessibility service.  The ``getUiAutomation(int)`` override is the
+flag-aware path that handles ``isDestroyed``/``getFlags`` and reconnects.
 
-The patch is deliberately pinned to the known v10 DEX hashes and byte pattern.
-It fails closed on any upstream binary change so an upgrade cannot silently
-receive a potentially invalid DEX edit.
+This patch rewrites the no-argument override's prologue so it simply delegates::
+
+    const/4             v0, 1              # FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES
+    invoke-virtual      {v5, v0}, Ld/r;->getUiAutomation(I)Landroid/app/UiAutomation;
+    move-result-object  v0
+    return-object       v0
+
+That is 12 bytes replacing the override's first 12 bytes (six 16-bit code units),
+landing exactly on an instruction boundary, so the method's remaining units become
+unreachable and no branch target, ``try`` range or offset shifts.  The method has
+``tries_size`` 0 and ``outs_size`` 3, so the two-argument invoke needs no header
+change and the DEX keeps its original length.
+
+Patching this single override is deliberate: v10.9 calls the no-argument overload
+from four separate sites, and this is the one chokepoint all four pass through.  It
+also agrees with upstream's own intent — FIRERPA's driver already sets
+``Configurator.uiAutomationFlags = 1`` before it starts, and ``UiDevice``'s helper
+honours that on API 24+; only this private override ignored it.
+
+The patch is pinned to the known v10.9 DEX hashes and byte sequence.  It fails
+closed on any upstream binary change so an upgrade cannot silently receive a
+potentially invalid DEX edit.
 """
 
 from __future__ import annotations
@@ -25,14 +45,17 @@ import zipfile
 import zlib
 from pathlib import Path
 
-ORIGINAL_DEX_SHA256 = "69b52ebca5a0751b78f22c2f5a964b673e433be2e76e5b37f491813e472ec7c8"
-PATCHED_DEX_SHA256 = "7801c9e77f675f25c2fbc2fe2d254ed3750f00f82fa7d925d0904690b0ca70c5"
+ORIGINAL_DEX_SHA256 = "ddac4b5bfc7787b90a97b5bf7d70478d70ac8a5563334107c0bbfd8390782eb0"
+PATCHED_DEX_SHA256 = "175454bce2efb19f147b14c860bd917794f0e3f9ff967d9b2a579a6179079a70"
 
-# Dalvik invoke-virtual, changed from {v0}, method@056a to
-# {v0, v1}, method@056b.  v1 is flag 1 on the supported Android versions.
-ORIGINAL_INSTRUCTION = bytes.fromhex("6e106a050000")
-PATCHED_INSTRUCTION = bytes.fromhex("6e206b051000")
-SERVICE_JAR_SUFFIX = "/lib/python3.9/site-packages/lamda/service.jar"
+# The first six code units of Ld/r;->getUiAutomation(), which cache-check
+# ``this.b`` and return it when already connected:
+#     const/4 v0, 0; iget-object v1, v5, Ld/r;->b; if-eqz v1, +3; return-object v1
+ORIGINAL_PROLOGUE = bytes.fromhex("120054519505380103001101")
+# Replaced by an unconditional delegation to the flag-aware overload
+# (method@0cf4 = Ld/r;->getUiAutomation(I)); v5 is ``this``.
+PATCHED_PROLOGUE = bytes.fromhex("12106e20f40c05000c001100")
+DRIVER_ARCHIVE_SUFFIX = "/lib/python3.12/site-packages/lamda/aab.zip"
 
 
 class PatchError(RuntimeError):
@@ -59,8 +82,8 @@ def patch_dex(
     *,
     original_sha256: str = ORIGINAL_DEX_SHA256,
     patched_sha256: str = PATCHED_DEX_SHA256,
-    original_instruction: bytes = ORIGINAL_INSTRUCTION,
-    patched_instruction: bytes = PATCHED_INSTRUCTION,
+    original_prologue: bytes = ORIGINAL_PROLOGUE,
+    patched_prologue: bytes = PATCHED_PROLOGUE,
 ) -> tuple[bytes, bool]:
     """Return a coexistence-patched DEX and whether it changed."""
     digest = _sha256(data)
@@ -68,14 +91,14 @@ def patch_dex(
         return data, False
     if digest != original_sha256:
         raise PatchError(f"unsupported FIRERPA classes.dex SHA-256 {digest}; expected {original_sha256}")
-    if data.count(original_instruction) != 1:
-        raise PatchError("expected exactly one UIAutomation invoke instruction")
-    if patched_instruction in data:
-        raise PatchError("patched UIAutomation instruction already appears unexpectedly")
+    if data.count(original_prologue) != 1:
+        raise PatchError("expected exactly one getUiAutomation() override prologue")
+    if patched_prologue in data:
+        raise PatchError("patched getUiAutomation() prologue already appears unexpectedly")
 
     dex = bytearray(data)
-    offset = dex.index(original_instruction)
-    dex[offset : offset + len(original_instruction)] = patched_instruction
+    offset = dex.index(original_prologue)
+    dex[offset : offset + len(original_prologue)] = patched_prologue
     _repair_dex_header(dex)
     result = bytes(dex)
     result_digest = _sha256(result)
@@ -84,15 +107,15 @@ def patch_dex(
     return result, True
 
 
-def patch_service_jar(
+def patch_driver_archive(
     data: bytes,
     *,
     original_sha256: str = ORIGINAL_DEX_SHA256,
     patched_sha256: str = PATCHED_DEX_SHA256,
-    original_instruction: bytes = ORIGINAL_INSTRUCTION,
-    patched_instruction: bytes = PATCHED_INSTRUCTION,
+    original_prologue: bytes = ORIGINAL_PROLOGUE,
+    patched_prologue: bytes = PATCHED_PROLOGUE,
 ) -> tuple[bytes, bool]:
-    """Patch ``classes.dex`` inside a FIRERPA service JAR."""
+    """Patch ``classes.dex`` inside FIRERPA's driver archive (``aab.zip``)."""
     source = io.BytesIO(data)
     output = io.BytesIO()
     changed = False
@@ -100,7 +123,7 @@ def patch_service_jar(
         with zipfile.ZipFile(source, "r") as zin, zipfile.ZipFile(output, "w") as zout:
             names = zin.namelist()
             if names.count("classes.dex") != 1:
-                raise PatchError("service.jar must contain exactly one classes.dex")
+                raise PatchError("aab.zip must contain exactly one classes.dex")
             for info in zin.infolist():
                 member = zin.read(info.filename)
                 if info.filename == "classes.dex":
@@ -108,27 +131,27 @@ def patch_service_jar(
                         member,
                         original_sha256=original_sha256,
                         patched_sha256=patched_sha256,
-                        original_instruction=original_instruction,
-                        patched_instruction=patched_instruction,
+                        original_prologue=original_prologue,
+                        patched_prologue=patched_prologue,
                     )
                 zout.writestr(info, member)
     except zipfile.BadZipFile as exc:
-        raise PatchError("service.jar is not a valid ZIP archive") from exc
+        raise PatchError("aab.zip is not a valid ZIP archive") from exc
     return output.getvalue(), changed
 
 
-def service_jar_from_archive(archive: Path) -> bytes:
-    """Read the single FIRERPA service JAR from a server tar archive."""
+def driver_archive_from_server_archive(archive: Path) -> bytes:
+    """Read the single FIRERPA driver archive from a server tar archive."""
     try:
         with tarfile.open(archive, "r:gz") as tar:
             matches = [
-                member for member in tar.getmembers() if member.isfile() and member.name.endswith(SERVICE_JAR_SUFFIX)
+                member for member in tar.getmembers() if member.isfile() and member.name.endswith(DRIVER_ARCHIVE_SUFFIX)
             ]
             if len(matches) != 1:
-                raise PatchError("FIRERPA archive must contain exactly one lamda/service.jar")
+                raise PatchError("FIRERPA archive must contain exactly one lamda/aab.zip")
             extracted = tar.extractfile(matches[0])
             if extracted is None:
-                raise PatchError("could not read lamda/service.jar from archive")
+                raise PatchError("could not read lamda/aab.zip from archive")
             return extracted.read()
     except (tarfile.TarError, OSError) as exc:
         raise PatchError(f"could not read FIRERPA archive {archive}: {exc}") from exc
@@ -153,16 +176,16 @@ def write_atomic(path: Path, data: bytes) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Patch FIRERPA v10 service.jar for accessibility coexistence.")
+    parser = argparse.ArgumentParser(description="Patch FIRERPA v10.9 aab.zip for accessibility coexistence.")
     parser.add_argument("--archive", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     args = parser.parse_args(argv)
 
-    jar = service_jar_from_archive(args.archive)
-    patched, changed = patch_service_jar(jar)
+    driver = driver_archive_from_server_archive(args.archive)
+    patched, changed = patch_driver_archive(driver)
     write_atomic(args.output, patched)
     state = "patched" if changed else "already-patched"
-    print(f"{state} FIRERPA service.jar -> {args.output}")
+    print(f"{state} FIRERPA aab.zip -> {args.output}")
     return 0
 
 

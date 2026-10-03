@@ -46,7 +46,7 @@
       - --archive
       - "{{ _firerpa_tmp.path }}/{{ firerpa_server_archive_arm64 }}"
       - --output
-      - "{{ _firerpa_tmp.path }}/firerpa-service-patched.jar"
+      - "{{ _firerpa_tmp.path }}/firerpa-driver-patched.zip"
   delegate_to: localhost
   changed_when: "'patched FIRERPA' in _firerpa_driver_patch.stdout"
   register: _firerpa_driver_patch
@@ -101,8 +101,8 @@
   ansible.builtin.command:
     cmd: >-
       adb -s {{ _firerpa_adb_target }} shell cp
-      {{ firerpa_install_dir }}/server/lib/python3.9/site-packages/lamda/service.jar
-      {{ firerpa_install_dir }}/overrides/service.jar.signed
+      {{ firerpa_install_dir }}/server/lib/python3.12/site-packages/lamda/aab.zip
+      {{ firerpa_install_dir }}/overrides/aab.zip.signed
   delegate_to: localhost
   changed_when: true
 
@@ -110,8 +110,8 @@
   ansible.builtin.command:
     cmd: >-
       adb -s {{ _firerpa_adb_target }} push
-      {{ _firerpa_tmp.path }}/firerpa-service-patched.jar
-      {{ firerpa_install_dir }}/overrides/service.jar.patched
+      {{ _firerpa_tmp.path }}/firerpa-driver-patched.zip
+      {{ firerpa_install_dir }}/overrides/aab.zip.patched
   delegate_to: localhost
   changed_when: true
 
@@ -136,14 +136,14 @@
   ansible.builtin.command:
     cmd: >-
       adb -s {{ _firerpa_adb_target }}
-      shell test -x {{ firerpa_install_dir }}/server/bin/python3.9 && echo OK || echo MISSING
+      shell test -x {{ firerpa_install_dir }}/server/bin/python3.12 && echo OK || echo MISSING
   delegate_to: localhost
   changed_when: false
   register: _firerpa_verify
 
 - name: Fail if FIRERPA binary missing after extract
   ansible.builtin.fail:
-    msg: "FIRERPA server binary not found at {{ firerpa_install_dir }}/server/bin/python3.9 on {{ inventory_hostname }}"
+    msg: "FIRERPA server binary not found at {{ firerpa_install_dir }}/server/bin/python3.12 on {{ inventory_hostname }}"
   when: "'OK' not in (_firerpa_verify.stdout | default(''))"
 
 # Covers the happy path only — this file isn't wrapped in a block/always
