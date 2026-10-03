@@ -16,6 +16,13 @@ firerpa_server_archive_url_arm64: >-
 # FIRERPA_CERTIFICATE is a literal "~/..." path. ansible.builtin.stat expands a
 # tilde, but `adb push` does not, so the certificate has to be absolute before it
 # reaches a command task or the push fails with "cannot stat '~/...'".
+# Identifies the exact build installed on a device. install.yml writes this to
+# {{ firerpa_install_dir }}/.stayturgid-firerpa-version after a successful install
+# and compares it on the next run, so an already-converged device skips a ~204 MiB
+# download, push and extract. Version alone is not enough: the archive checksum is
+# what actually pins the bytes.
+firerpa_version_stamp: "{{ firerpa_version }} {{ firerpa_server_archive_sha256_arm64 }}"
+
 firerpa_certificate_path: >-
   {{
     (

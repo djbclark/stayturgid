@@ -15,6 +15,37 @@
     - device_usb_serial is defined
     - _firerpa_adb_check.rc | default(0) != 0
 
+# A plain `just deploy` now reaches this role on every opted-in host (#311), and
+# the install below unconditionally re-downloaded and re-pushed ~204 MiB each
+# time. Probe first so a converged device is a genuine no-op. The probe is
+# deliberately strict AND fails open: anything other than an exact match -- a
+# missing or stale stamp, a missing interpreter, a missing override -- yields
+# STALE and does the full install, so this can never silently under-converge.
+- name: Detect whether the device already has the pinned FIRERPA build
+  ansible.builtin.shell: |
+    adb -s {{ _firerpa_adb_target }} shell '
+      stamp=$(cat {{ firerpa_install_dir }}/.stayturgid-firerpa-version 2>/dev/null)
+      if [ "$stamp" = "{{ firerpa_version_stamp }}" ] \
+        && [ -x {{ firerpa_install_dir }}/server/bin/python3.12 ] \
+        && [ -f {{ firerpa_install_dir }}/overrides/aab.zip.signed ] \
+        && [ -f {{ firerpa_install_dir }}/overrides/aab.zip.patched ]; then
+        echo CONVERGED
+      else
+        echo STALE
+      fi
+    '
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  changed_when: false
+  # Run in check mode too, so a dry run reports what a real run would actually do.
+  check_mode: false
+  register: _firerpa_installed_probe
+
+- name: Record whether the pinned FIRERPA build needs installing
+  ansible.builtin.set_fact:
+    _firerpa_install_required: "{{ 'CONVERGED' not in (_firerpa_installed_probe.stdout | default('')) }}"
+
 # Canonical Ansible equivalent of Python's tempfile.mkdtemp / shell mktemp -d
 # (unpredictable name under the system temp dir, not fixed /tmp paths) — see
 # tmpfile security audit, 2026-07-21. Nothing previously cleaned these up on
@@ -28,6 +59,7 @@
   # Run in check mode too, so downstream `.path` resolves during a dry-run.
   check_mode: false
   delegate_to: localhost
+  when: _firerpa_install_required | bool
 
 - name: Download FIRERPA server archive on Mac
   ansible.builtin.get_url:
@@ -37,6 +69,7 @@
     checksum: "sha256:{{ firerpa_server_archive_sha256_arm64 }}"
   delegate_to: localhost
   register: _firerpa_dl
+  when: _firerpa_install_required | bool
 
 - name: Patch FIRERPA driver for accessibility service coexistence
   ansible.builtin.command:
@@ -50,6 +83,7 @@
   delegate_to: localhost
   changed_when: "'patched FIRERPA' in _firerpa_driver_patch.stdout"
   register: _firerpa_driver_patch
+  when: _firerpa_install_required | bool
 
 - name: Push server archive to device via adb
   ansible.builtin.command:
@@ -57,6 +91,7 @@
       adb -s {{ _firerpa_adb_target }}
       push {{ _firerpa_tmp.path }}/{{ firerpa_server_archive_arm64 }} /data/local/tmp/firerpa-server.tar.gz
   delegate_to: localhost
+  when: _firerpa_install_required | bool
 
 - name: Stop existing FIRERPA process tree before replacing files
   ansible.builtin.shell: |
@@ -75,6 +110,7 @@
     executable: /bin/bash
   delegate_to: localhost
   changed_when: true
+  when: _firerpa_install_required | bool
 
 - name: Extract server via adb shell
   ansible.builtin.shell: |
@@ -88,14 +124,23 @@
     executable: /bin/bash
   delegate_to: localhost
   register: _firerpa_extract
+  when: _firerpa_install_required | bool
 
+# The rm is a migration, and this task is the only place the pre-v10.9 artifact
+# name is allowed to appear in this role -- tests/python/test_firerpa_version_lock.py
+# pins that exception to exactly this task. A device upgraded from v10.0 otherwise
+# keeps the old signed/patched override pair next to the aab.zip pair forever: read
+# by nothing, but a genuine trap for anyone hashing "the driver" to see which is live.
 - name: Prepare FIRERPA driver override directory
   ansible.builtin.command:
     cmd: >-
       adb -s {{ _firerpa_adb_target }} shell
-      mkdir -p {{ firerpa_install_dir }}/overrides
+      mkdir -p {{ firerpa_install_dir }}/overrides '&&'
+      rm -f {{ firerpa_install_dir }}/overrides/service.jar.signed
+      {{ firerpa_install_dir }}/overrides/service.jar.patched
   delegate_to: localhost
   changed_when: true
+  when: _firerpa_install_required | bool
 
 - name: Preserve signed FIRERPA driver for integrity validation
   ansible.builtin.command:
@@ -105,6 +150,7 @@
       {{ firerpa_install_dir }}/overrides/aab.zip.signed
   delegate_to: localhost
   changed_when: true
+  when: _firerpa_install_required | bool
 
 - name: Install accessibility-compatible FIRERPA driver override
   ansible.builtin.command:
@@ -114,6 +160,7 @@
       {{ firerpa_install_dir }}/overrides/aab.zip.patched
   delegate_to: localhost
   changed_when: true
+  when: _firerpa_install_required | bool
 
 - name: Install Python FIRERPA lifecycle wrapper
   ansible.builtin.command:
@@ -140,19 +187,36 @@
   delegate_to: localhost
   changed_when: false
   register: _firerpa_verify
+  when: _firerpa_install_required | bool
 
-# not ansible_check_mode: this asserts the result of the extract above, and in a
-# dry run that extract never ran -- every adb step here is a command/shell task,
-# which Ansible skips under --check. The verify task therefore registers no
-# stdout, `'OK' not in ''` is true, and ansible.builtin.fail DOES execute in
-# check mode, so without this guard `just deploy-check` fails on every host that
-# opts into FIRERPA (#311 put this role in the plain-deploy path).
+# Two conditions, both about not asserting on something that did not run:
+#   not ansible_check_mode -- every adb step here is a command/shell task, which
+#     Ansible skips under --check, so the verify task registers no stdout and
+#     `'OK' not in ''` is true. ansible.builtin.fail DOES execute in check mode,
+#     so without this a dry run fails on every host that opts into FIRERPA
+#     (#311 put this role in the plain-deploy path).
+#   _firerpa_install_required -- when the device is already converged the extract
+#     and its verify are both skipped, for the same reason.
 - name: Fail if FIRERPA binary missing after extract
   ansible.builtin.fail:
     msg: "FIRERPA server binary not found at {{ firerpa_install_dir }}/server/bin/python3.12 on {{ inventory_hostname }}"
   when:
     - not ansible_check_mode
+    - _firerpa_install_required | bool
     - "'OK' not in (_firerpa_verify.stdout | default(''))"
+
+# Written last, so it only ever records a build that installed and verified
+# cleanly. A partial install leaves the old stamp (or none), which means the next
+# run redoes the whole thing rather than trusting a half-finished tree.
+- name: Record the installed FIRERPA build on the device
+  ansible.builtin.shell: |
+    adb -s {{ _firerpa_adb_target }} shell 'printf "%s\n" "{{ firerpa_version_stamp }}" \
+      > {{ firerpa_install_dir }}/.stayturgid-firerpa-version'
+  args:
+    executable: /bin/bash
+  delegate_to: localhost
+  changed_when: true
+  when: _firerpa_install_required | bool
 
 # Covers the happy path only — this file isn't wrapped in a block/always
 # (unlike serverapp_openobserve/blackbox_exporter/olivetin) because doing so

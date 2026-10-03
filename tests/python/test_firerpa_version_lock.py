@@ -71,6 +71,29 @@ def _scanned_text_files() -> list[Path]:
     return found
 
 
+# The one sanctioned appearance of a stale literal: the task that REMOVES the
+# pre-v10.9 overrides from a device upgraded in place. Scoped to that single task
+# so the guard stays absolute everywhere else.
+MIGRATION_TASK = "Prepare FIRERPA driver override directory"
+
+
+def _without_migration_task(text: str) -> str:
+    if f"- name: {MIGRATION_TASK}" not in text:
+        return text
+    head, rest = text.split(f"- name: {MIGRATION_TASK}", 1)
+    _dropped, tail = rest.split("\n- name: ", 1)
+    return head + "\n- name: " + tail
+
+
+def test_the_migration_cleanup_still_removes_the_pre_v10_9_overrides():
+    """Guarded separately, so the sanctioned exception cannot quietly disappear."""
+    install = INSTALL.read_text(encoding="utf-8")
+    task = install.split(f"- name: {MIGRATION_TASK}", 1)[1].split("\n- name: ", 1)[0]
+    assert "rm -f" in task
+    assert "overrides/service.jar.signed" in task
+    assert "overrides/service.jar.patched" in task
+
+
 def test_no_stale_v10_0_literals_where_firerpa_is_driven():
     offenders: list[str] = []
     scanned = 0
@@ -79,6 +102,8 @@ def test_no_stale_v10_0_literals_where_firerpa_is_driven():
             text = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, ValueError):
             continue
+        if path == INSTALL:
+            text = _without_migration_task(text)
         scanned += 1
         for literal in STALE_LITERALS:
             if literal in text:
@@ -164,3 +189,67 @@ def test_post_extract_guard_does_not_fire_in_check_mode():
     guard = install.split("- name: Fail if FIRERPA binary missing after extract", 1)[1]
     guard = guard.split("\n- name:", 1)[0]
     assert "not ansible_check_mode" in guard
+
+
+# --- #311 follow-up: a converged device must be a no-op -----------------------
+
+GATE = "_firerpa_install_required"
+
+
+def test_install_is_gated_on_a_version_and_checksum_stamp():
+    """#311 put this role in the plain-deploy path, so an unconditional ~204 MiB
+    download + push ran on every opted-in host on every deploy."""
+    defaults = _defaults()
+    stamp = defaults["firerpa_version_stamp"]
+    # Version alone would let a re-pinned checksum install silently.
+    assert "{{ firerpa_version }}" in stamp
+    assert "{{ firerpa_server_archive_sha256_arm64 }}" in stamp
+
+
+def test_the_expensive_install_steps_are_all_gated():
+    import yaml as _yaml
+
+    tasks = _yaml.safe_load(INSTALL.read_text(encoding="utf-8"))
+    by_name = {task["name"]: task for task in tasks}
+    expensive = [
+        "Download FIRERPA server archive on Mac",
+        "Patch FIRERPA driver for accessibility service coexistence",
+        "Push server archive to device via adb",
+        "Stop existing FIRERPA process tree before replacing files",
+        "Extract server via adb shell",
+        "Preserve signed FIRERPA driver for integrity validation",
+        "Install accessibility-compatible FIRERPA driver override",
+    ]
+    for name in expensive:
+        assert name in by_name, name
+        when = by_name[name].get("when")
+        assert when is not None, f"{name} is not gated"
+        assert GATE in str(when), f"{name} is not gated on {GATE}"
+
+
+def test_the_probe_runs_in_check_mode_so_dry_runs_are_honest():
+    import yaml as _yaml
+
+    tasks = _yaml.safe_load(INSTALL.read_text(encoding="utf-8"))
+    probe = next(t for t in tasks if t["name"].startswith("Detect whether the device already"))
+    assert probe.get("check_mode") is False
+    assert probe.get("changed_when") is False
+
+
+def test_the_stamp_is_written_only_after_a_verified_install():
+    """A partial install must leave the old stamp, so the next run redoes the work."""
+    install = INSTALL.read_text(encoding="utf-8")
+    stamp_at = install.index("Record the installed FIRERPA build on the device")
+    verify_at = install.index("Verify FIRERPA server binary exists after extract")
+    fail_at = install.index("Fail if FIRERPA binary missing after extract")
+    assert verify_at < fail_at < stamp_at, "the stamp must be written last"
+
+
+def test_the_lifecycle_wrapper_is_pushed_even_on_a_converged_device():
+    """The wrapper is a repo file, so a converged device must still get its changes."""
+    import yaml as _yaml
+
+    tasks = _yaml.safe_load(INSTALL.read_text(encoding="utf-8"))
+    by_name = {task["name"]: task for task in tasks}
+    wrapper = by_name["Install Python FIRERPA lifecycle wrapper"]
+    assert "when" not in wrapper, "the lifecycle wrapper push must not be gated"
