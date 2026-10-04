@@ -74,6 +74,10 @@ tap_unlike_settled() {
 make_sandbox
 trap 'kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bootloop.pid" 2>/dev/null || true
       kill_sandbox_pid "$SANDBOX/home/.stayturgid/run/bridge.pid" 2>/dev/null || true
+      # Daemons the sandboxed scripts really start (the nohup stub execs its
+      # command) outlive the run: start-repair-bridge.sh left one bridge per
+      # run, and 186 of them had piled up on the Mac by 2026-10-04.
+      pkill -f "$SANDBOX/" 2>/dev/null || true
       rm -rf "$SANDBOX"' EXIT
 
 # ===========================================================================
