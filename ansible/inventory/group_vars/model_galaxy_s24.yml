@@ -4,3 +4,10 @@
 # tap target (default font/DPI), commented out until/unless re-enabled:
 # stayturgid_shizuku_start_coords: { x: 227, y: 1977 }
 stayturgid_handsets_port: 9013
+
+# The official otelcol-contrib 0.162.0 binary does not execute here: the
+# runtime probe fails with 'has unexpected e_type: 2' (the linker rejects it as
+# a non-PIE executable), and the role then fails the whole deploy, skipping
+# every later step (observed 2026-10-03, Android 16 / SDK 36). p7a and t2e run
+# the same binary. Off until a build that runs on this model exists.
+stayturgid_otelcol_enabled: false
