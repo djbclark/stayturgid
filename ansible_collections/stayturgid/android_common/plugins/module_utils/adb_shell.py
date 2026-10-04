@@ -53,6 +53,13 @@ def package_installed(run_command, device, package):
     return needle in normalize_adb_output(out)
 
 
+MONKEY_LAUNCH_KEEPING_ROTATION = (
+    "r=$(settings get system accelerometer_rotation 2>/dev/null); "
+    "monkey -p %s -c android.intent.category.LAUNCHER 1 2>/dev/null; rc=$?; "
+    'case "$r" in 0|1) settings put system accelerometer_rotation "$r" ;; esac; exit $rc'
+)
+
+
 def monkey_launch(run_command, device, package):
     """Force-start an app via monkey so its permission controller initializes.
 
@@ -61,12 +68,12 @@ def monkey_launch(run_command, device, package):
     Without this, ``pm grant`` returns 0 (success) but the permission
     stays ``granted=false`` in dumpsys.  Calling monkey with the LAUNCHER
     category is the lightest way to un-stop the package.
+
+    monkey releases the rotation lock when it exits (thawRotation), which
+    turned auto-rotate back on at every deploy; the setting is read first and
+    put back afterwards.
     """
-    return adb_shell(
-        run_command,
-        device,
-        "monkey -p %s -c android.intent.category.LAUNCHER 1 2>/dev/null" % package,
-    )
+    return adb_shell(run_command, device, MONKEY_LAUNCH_KEEPING_ROTATION % package)
 
 
 def pm_grant(run_command, device, package, permission):

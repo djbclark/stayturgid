@@ -166,7 +166,12 @@
       - -s
       - "{{ _bootstrap_adb }}"
       - shell
-      - monkey -p {{ _apk.id }} -c android.intent.category.LAUNCHER 1 2>/dev/null
+      # monkey releases the rotation lock on exit (auto-rotate came back on at
+      # every deploy), so read the setting first and put it back afterwards.
+      - >-
+        r=$(settings get system accelerometer_rotation 2>/dev/null);
+        monkey -p {{ _apk.id }} -c android.intent.category.LAUNCHER 1 2>/dev/null;
+        case "$r" in 0|1) settings put system accelerometer_rotation "$r" ;; esac
   changed_when: false
   failed_when: false
   # A launcher intent visibly foregrounds the app. It is only a fallback for
