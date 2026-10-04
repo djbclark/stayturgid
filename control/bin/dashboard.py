@@ -36,7 +36,7 @@ if str(_REPO) not in sys.path:
 
 from check_fleet_health import read_consecutive as read_fleet_consecutive
 from flask import Flask, render_template_string, request
-from fleet_health import evaluate_health
+from fleet_health import ISSUE_HINTS, evaluate_health
 from fleet_health import probe_device as live_probe
 from markupsafe import Markup, escape
 from stayturgid_device import SSH_OPTS, PrivShell, adb_bin, iter_devices_conf, resolve_ssh_host
@@ -281,6 +281,7 @@ HUMAN_ACTIONS = {
         "Shizuku is not running. The repair loop should auto-restart it. "
         "If persistent, open the Shizuku app and tap Start."
     ),
+    "shizuku_auth_unanswered": ISSUE_HINTS["shizuku_auth_unanswered"] + ".",
     "watchdog_stale": (
         "AutoJs6 watchdog has not cycled in over 30 minutes. "
         "The self-heal monitor attempts to restart it via ADB. "

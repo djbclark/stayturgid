@@ -90,8 +90,36 @@ def ensure_shizuku() -> bool:
     # Cheap local check via pgrep if we somehow have shell — usually skip on Fire.
     ok, detail = peer.bootstrap_shizuku()
     _touch("shizuku")
+    withheld = detail.startswith(peer.WITHHELD_PREFIX)
+    _note_shizuku_auth(withheld, peer.SHIZUKU_START_WITHHELD_MSG)
+    if withheld:
+        # Waiting on the operator, not a failed start: logged once above.
+        return True
     _log(("OK" if ok else "FAIL") + " shizuku: " + detail)
     return ok
+
+
+def _note_shizuku_auth(unanswered: bool, message: str) -> None:
+    """Log the withheld-start warning once per state change, not every cycle."""
+    path = os.path.join(STATE, "peer_keepalive_shizuku_auth")
+    state = "unanswered" if unanswered else "ok"
+    try:
+        with open(path) as f:
+            previous = f.read().strip() or "ok"
+    except OSError:
+        previous = "ok"
+    if state == previous:
+        return
+    os.makedirs(STATE, exist_ok=True)
+    try:
+        with open(path, "w") as f:
+            f.write(state)
+    except OSError:
+        pass
+    if unanswered:
+        _log("WARNING: " + message)
+    else:
+        _log("Shizuku ADB authorisation no longer unanswered; peer starts resume")
 
 
 def ensure_handsets() -> bool:

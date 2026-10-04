@@ -2,6 +2,9 @@
 # Start Shizuku and apply fleet profile over ADB — runs before SSH bootstrap.
 # Uses HEADLESS_START broadcast + native libshizuku.so launch as fallback.
 # Idempotent: skips when Shizuku is already running with port 5555 open.
+# Withholds every start (no fallback) while Shizuku reports its ADB
+# authorisation dialog unanswered; the play warns and carries on. Set
+# shizuku_fail_on_auth_unanswered=true to fail the host instead.
 #
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
 #     ansible/playbooks/fleet/ensure-shizuku.yml --limit oneui-device
@@ -13,4 +16,26 @@
     - name: Start Shizuku and apply fleet profile
       stayturgid.android_common.shizuku_start:
         device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+        fail_on_auth_unanswered: "{{ shizuku_fail_on_auth_unanswered | default(false) | bool }}"
       delegate_to: localhost
+      register: shizuku_start_result
+
+    - name: Warn that the Shizuku start was withheld
+      ansible.builtin.debug:
+        msg: >-
+          WARNING {{ inventory_hostname }}: shizuku start withheld: ADB
+          authorisation dialog unanswered; operator: tap Attempt now on the phone
+      when: shizuku_start_result.auth_unanswered | default(false)
+
+    # deploy_fleet.py repeats these hosts after the recap.
+    - name: Record the withheld host for the deploy summary
+      ansible.builtin.lineinfile:
+        path: "{{ stayturgid_shizuku_withheld_file }}"
+        line: "{{ inventory_hostname }}"
+        create: true
+        mode: "0600"
+      delegate_to: localhost
+      throttle: 1
+      when:
+        - shizuku_start_result.auth_unanswered | default(false)
+        - stayturgid_shizuku_withheld_file | default('') | length > 0

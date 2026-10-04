@@ -228,3 +228,31 @@ def test_read_shizuku_json_cat_failure_aborts():
     shell.sh = fake_sh
     text, ok = shell.read_shizuku_json("/data/shizuku.json")
     assert ok is False
+
+
+def _priv_shell(status):
+    shell = dev.PrivShell.__new__(dev.PrivShell)
+    calls = []
+
+    def fake_sh(cmd, timeout=None):
+        calls.append(cmd)
+        if "HEADLESS_STATUS" in cmd:
+            return 0, status
+        if cmd.startswith("pm path"):
+            return 0, "package:/data/app/~~x/moe.shizuku.privileged.api/base.apk\n"
+        return 0, ""
+
+    shell.sh = fake_sh
+    return shell, calls
+
+
+def test_restart_shizuku_withheld_while_auth_unanswered():
+    shell, calls = _priv_shell('Broadcast completed: result=1, data="RUNNING AUTH_UNANSWERED"')
+    assert shell.restart_shizuku_if_running() == (False, dev.PrivShell.RESTART_WITHHELD)
+    assert not any("libshizuku" in c for c in calls)
+
+
+def test_restart_shizuku_unchanged_without_marker():
+    shell, calls = _priv_shell("Broadcast completed: result=1")
+    assert shell.restart_shizuku_if_running() == (True, True)
+    assert any("libshizuku" in c for c in calls)

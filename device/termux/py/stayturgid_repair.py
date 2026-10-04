@@ -315,17 +315,41 @@ def privileged_shell():
 # not any text inside the script body) — distinct from shizuku_server itself.
 _WATCHDOG_SCRIPT_PATH = "/data/local/tmp/stayturgid_shizuku_watchdog.sh"
 _WATCHDOG_LOG = "/data/local/tmp/stayturgid_shizuku_watchdog.log"
+# ShizukuTendCF keeps a durable marker once its own "Allow USB debugging?"
+# dialog goes unanswered. While it is set a plain HEADLESS_START is withheld
+# (result 4, data AUTH_UNANSWERED) and HEADLESS_STATUS ends with
+# " AUTH_UNANSWERED". Only `--ez force true` clears it, and that is for an
+# operator at the phone: nothing here may send it. Older builds never report
+# either, which reads as "answered".
+SHIZUKU_AUTH_UNANSWERED = "AUTH_UNANSWERED"
+SHIZUKU_START_WITHHELD_MSG = (
+    "shizuku start withheld: ADB authorisation dialog unanswered; operator: tap Attempt now on the phone"
+)
 _WATCHDOG_SCRIPT_BODY = (
     "#!/system/bin/sh\n"
+    "withheld=0\n"
     "while true; do\n"
     "  status=$(am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS "
     "-n moe.shizuku.privileged.api/af.shizuku.manager.receiver.HeadlessStartStopReceiver 2>/dev/null)\n"
-    '  if ! pgrep -f "[s]hizuku_(plus_)?server" >/dev/null; then\n'
+    '  case "$status" in\n'
+    "    *AUTH_UNANSWERED*) unanswered=1 ;;\n"
+    "    *) unanswered=0 ;;\n"
+    "  esac\n"
+    '  if [ "$unanswered" = 0 ] && ! pgrep -f "[s]hizuku_(plus_)?server" >/dev/null; then\n'
     '    case "$status" in\n'
     '      *"result=0"*) ;;\n'
-    "      *) am broadcast -a moe.shizuku.privileged.api.HEADLESS_START "
-    "-n moe.shizuku.privileged.api/af.shizuku.manager.receiver.HeadlessStartStopReceiver >/dev/null 2>&1 ;;\n"
+    "      *) reply=$(am broadcast -a moe.shizuku.privileged.api.HEADLESS_START "
+    "-n moe.shizuku.privileged.api/af.shizuku.manager.receiver.HeadlessStartStopReceiver 2>&1)\n"
+    '         case "$reply" in *AUTH_UNANSWERED*|*"result=4"*) unanswered=1 ;; esac ;;\n'
     "    esac\n"
+    "  fi\n"
+    '  if [ "$unanswered" != "$withheld" ]; then\n'
+    '    if [ "$unanswered" = 1 ]; then\n'
+    '      echo "$(date "+%Y-%m-%d %H:%M:%S") [shizuku-watchdog] WARNING: ' + SHIZUKU_START_WITHHELD_MSG + '"\n'
+    "    else\n"
+    '      echo "$(date "+%Y-%m-%d %H:%M:%S") [shizuku-watchdog] NOTICE: ADB authorisation answered; starts resume"\n'
+    "    fi\n"
+    "    withheld=$unanswered\n"
     "  fi\n"
     "  sleep 60\n"
     "done\n"
@@ -462,21 +486,67 @@ def _shizuku_state(status_out=None):
     return "starting" if "result=0" in status_out else "down"
 
 
+def shizuku_auth_unanswered(status_out):
+    """True when a HEADLESS_STATUS reply carries the unanswered-dialog marker."""
+    return SHIZUKU_AUTH_UNANSWERED in (status_out or "")
+
+
+def shizuku_start_withheld(start_out):
+    """True when a HEADLESS_START reply says the start was withheld (result 4)."""
+    out = start_out or ""
+    return SHIZUKU_AUTH_UNANSWERED in out or re.search(r"\bresult=4\b", out) is not None
+
+
 def _send_headless_start():
-    sh_adb("am broadcast -a %s.HEADLESS_START -n %s" % (SHIZUKU_PKG, _SHIZUKU_RECEIVER))
+    """Plain HEADLESS_START (never `--ez force true`): "sent" or "withheld"."""
+    _rc, out = sh_adb("am broadcast -a %s.HEADLESS_START -n %s" % (SHIZUKU_PKG, _SHIZUKU_RECEIVER))
+    return "withheld" if shizuku_start_withheld(out) else "sent"
+
+
+def note_shizuku_auth(auth):
+    """Log a change of the unanswered-dialog state once, not every pass."""
+    path = os.path.join(STG, "state", "shizuku-auth")
+    try:
+        with open(path) as f:
+            previous = f.read().strip() or "ok"
+    except OSError:
+        previous = "ok"
+    if auth == previous:
+        return
+    try:
+        with open(ensure_parent(path), "w") as f:
+            f.write(auth + "\n")
+    except OSError:
+        pass
+    if auth == "unanswered":
+        log(SHIZUKU_START_WITHHELD_MSG, WARNING)
+    else:
+        log("Shizuku ADB authorisation dialog no longer unanswered; unattended starts resume", NOTICE)
 
 
 def repair_shizuku(status_out):
-    """Restart stale Shizuku or send one cold start when it is fully down."""
+    """Restart stale Shizuku or send one cold start when it is fully down.
+
+    Returns (state, start_sent, auth); auth is "unanswered" when Shizuku's
+    authorisation dialog went unanswered, which no unattended path may retry
+    or work around.
+    """
+    unanswered = shizuku_auth_unanswered(status_out)
     state = _shizuku_state(status_out)
     restart_failed = False
-    if state == "up" and restart_stale_shizuku() == "FAILED":
-        state = _shizuku_state()
-        restart_failed = True
-    if state == "down" and not restart_failed:
-        _send_headless_start()
-        return state, True
-    return state, False
+    if state == "up":
+        restarted = restart_stale_shizuku(auth_unanswered=unanswered)
+        if restarted == "FAILED":
+            state = _shizuku_state()
+            restart_failed = True
+        elif restarted == "withheld":
+            unanswered = True
+            state = _shizuku_state()
+    if state == "down" and not restart_failed and not unanswered:
+        if _send_headless_start() == "withheld":
+            return state, False, "unanswered"
+        return state, True, "ok"
+    return state, False, "unanswered" if unanswered else "ok"
 
 
 def _wait_shizuku(running, timeout):
@@ -492,7 +562,7 @@ def _fmt_epoch(epoch):
     return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(epoch)) if epoch else "unknown"
 
 
-def restart_stale_shizuku():
+def restart_stale_shizuku(auth_unanswered=False):
     """Restart a Shizuku server that started before its APK was last updated.
 
     `adb install -r` kills the app's processes but not the uid-shell server,
@@ -500,11 +570,16 @@ def restart_stale_shizuku():
     under an r2787 APK for hours). Only an explicit "yes" from the probe acts;
     unknown never restarts. Requires the privileged shell.
 
-    Returns "current", "unknown", "cooldown", "restarted" or "FAILED".
+    A stale server is left running while Shizuku's authorisation dialog is
+    unanswered: the start half of the restart would be withheld.
+
+    Returns "current", "unknown", "cooldown", "restarted", "withheld" or "FAILED".
     """
     stale, started, updated = shizuku_staleness()
     if stale != "yes":
         return "current" if stale == "no" else "unknown"
+    if auth_unanswered:
+        return "withheld"
     detail = "server started %s, package updated %s" % (_fmt_epoch(started), _fmt_epoch(updated))
     now = time.time()
     try:
@@ -529,7 +604,8 @@ def restart_stale_shizuku():
         if not _wait_shizuku(False, SHIZUKU_STOP_TIMEOUT):
             log("stale Shizuku server did not stop (HEADLESS_STOP, then SIGTERM) (%s)" % detail, ERR)
             return "FAILED"
-    _send_headless_start()
+    if _send_headless_start() == "withheld":
+        return "withheld"
     if not _wait_shizuku(True, SHIZUKU_START_TIMEOUT):
         log("stale Shizuku server stopped but did not come back after HEADLESS_START (%s)" % detail, ERR)
         return "FAILED"
@@ -787,13 +863,16 @@ def duplicate_branch():
     Output goes only to log — never stdout, even when quiet mode is off."""
     sshd = "up" if (sshd_up() or sshd_listening()) else "unknown"
     # Match main() STATUS schema (a11y=, et_cfg=) so parsers stay consistent.
+    shizuku_auth = "unknown"
     if not privileged_shell_expected():
         port, sh, shizuku, a11y, wifi = "skip", False, "skip", "skip", "skip"
+        shizuku_auth = "skip"
     elif privileged_shell():
         port, sh = "open", True
         _, shizuku_out = sh_adb(
             "am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS -p moe.shizuku.privileged.api 2>/dev/null"
         )
+        shizuku_auth = "unanswered" if shizuku_auth_unanswered(shizuku_out) else "ok"
         if "result=1" in shizuku_out:
             shizuku = "up"
         else:
@@ -824,7 +903,7 @@ def duplicate_branch():
         et_cfg = "up" if "STAYTURGID-CONTROL-ET" in existing and "IdentityFile" in existing else "down"
     tailscale, tailscale_policy = _tailscale_status(have_sh=sh)
     status = (
-        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s tailscale=%s tailscale_policy=%s et_cfg=%s os_release=skip pkg_upgrade=skip auto_profile=skip shizuku_profile=skip device_profile=skip env=skip"
+        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s tailscale=%s tailscale_policy=%s et_cfg=%s os_release=skip pkg_upgrade=skip auto_profile=skip shizuku_profile=skip device_profile=skip env=skip shizuku_auth=%s"
         % (
             port,
             shizuku,
@@ -835,6 +914,7 @@ def duplicate_branch():
             tailscale,
             tailscale_policy,
             et_cfg,
+            shizuku_auth,
         )
     )
     log(status + " rc=0 (skipped-duplicate)")
@@ -1202,6 +1282,13 @@ def count_recent_watchdog_errors(path=None, now=None, window_sec=ERROR_RATE_WIND
     return count
 
 
+def _home_relative(path):
+    """``~/...`` form of a path under HOME, as the operator would type it in Termux."""
+    if path == HOME or path.startswith(HOME.rstrip("/") + "/"):
+        return "~" + path[len(HOME.rstrip("/")) :]
+    return path
+
+
 def maybe_notify_error_rate(tapi_module=None):
     """termux-notification fallback for when the Mac pipe might be unreachable too.
 
@@ -1246,7 +1333,7 @@ def maybe_notify_error_rate(tapi_module=None):
                 "--title",
                 "stayturgid: repeated errors",
                 "--content",
-                "%d repair ERR lines in the last hour - check watchdog.log" % count,
+                "%d repair ERR lines in the last hour - check %s" % (count, _home_relative(LOG)),
             ]
         )
     log(
@@ -1332,14 +1419,18 @@ def main():
             log("5555 CLOSED / no privileged shell — escalate to native-agent catastrophic repair or reboot", ERR)
 
     shizuku_start_sent = False
+    shizuku_auth = "skip" if not expect_shell else "unknown"
     # --- 3. shizuku (via privileged shell; watchdog handles restart) ---
     if expect_shell and have_sh:
         _, shizuku_out = sh_adb(
             "am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS "
             "-n moe.shizuku.privileged.api/af.shizuku.manager.receiver.HeadlessStartStopReceiver 2>/dev/null"
         )
-        shizuku, shizuku_start_sent = repair_shizuku(shizuku_out)
-        if shizuku == "down":
+        shizuku, shizuku_start_sent, shizuku_auth = repair_shizuku(shizuku_out)
+        note_shizuku_auth(shizuku_auth)
+        # Withheld for the operator is not a repair failure: no rc, no ERR line
+        # for the error-rate notification to count.
+        if shizuku == "down" and shizuku_auth != "unanswered":
             rc = 1
             log("shizuku_server not running (adb shell still reachable)", WARNING)
     elif expect_shell:
@@ -1512,7 +1603,7 @@ def main():
     maybe_notify_error_rate()
 
     status = (
-        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s tailscale=%s tailscale_policy=%s et_cfg=%s os_release=%s pkg_upgrade=%s auto_profile=%s shizuku_profile=%s device_profile=%s env=%s"
+        "STATUS port=%s shizuku=%s sshd=%s a11y=%s shell=%s wifi=%s tailscale=%s tailscale_policy=%s et_cfg=%s os_release=%s pkg_upgrade=%s auto_profile=%s shizuku_profile=%s device_profile=%s env=%s shizuku_auth=%s"
         % (
             port,
             shizuku,
@@ -1529,6 +1620,7 @@ def main():
             shizuku_profile,
             device_profile,
             env_file,
+            shizuku_auth,
         )
     )
     log(status + " rc=%d" % rc)

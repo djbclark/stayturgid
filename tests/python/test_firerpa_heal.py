@@ -81,3 +81,39 @@ def test_main_does_not_suppress_for_normal_unreachable(monkeypatch):
 
     assert rc == 1
     assert calls == []
+
+
+def test_restart_shizuku_withheld_reply_is_not_a_failure(monkeypatch):
+    sent = []
+    logs = []
+    monkeypatch.setattr(firerpa_heal, "is_shizuku_alive", lambda _d: False)
+    monkeypatch.setattr(firerpa_heal, "_log", lambda level, msg: logs.append((level, msg)))
+    monkeypatch.setattr(firerpa_heal.time, "sleep", lambda _s: None)
+
+    def exec_stdout(_d, cmd, timeout=5):
+        sent.append(cmd)
+        return 'Broadcast completed: result=4, data="AUTH_UNANSWERED"'
+
+    monkeypatch.setattr(firerpa_heal, "_exec_stdout", exec_stdout)
+    assert firerpa_heal.restart_shizuku(object()) == "withheld"
+    assert len(sent) == 1 and "force" not in sent[0]
+    assert logs == []
+
+
+def test_shizuku_start_withheld_detection():
+    assert firerpa_heal.shizuku_start_withheld("Broadcast completed: result=4")
+    assert firerpa_heal.shizuku_start_withheld('Broadcast completed: result=0, data="AUTH_UNANSWERED"')
+    assert not firerpa_heal.shizuku_start_withheld("Broadcast completed: result=0")
+    assert not firerpa_heal.shizuku_start_withheld("Broadcast completed: result=40")
+
+
+def test_note_shizuku_auth_logs_once_per_change(monkeypatch, tmp_path):
+    logs = []
+    monkeypatch.setattr(firerpa_heal, "LOG_ROOT", str(tmp_path))
+    monkeypatch.setattr(firerpa_heal, "_log", lambda level, msg: logs.append((level, msg)))
+    firerpa_heal.note_shizuku_auth("fireos-device", False)
+    firerpa_heal.note_shizuku_auth("fireos-device", True)
+    firerpa_heal.note_shizuku_auth("fireos-device", True)
+    assert logs == [(firerpa_heal.WARNING, "fireos-device: " + firerpa_heal.SHIZUKU_START_WITHHELD_MSG)]
+    firerpa_heal.note_shizuku_auth("fireos-device", False)
+    assert len(logs) == 2 and logs[1][0] == firerpa_heal.NOTICE

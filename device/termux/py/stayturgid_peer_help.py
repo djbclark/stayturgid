@@ -29,6 +29,14 @@ STG = os.path.join(HOME, ".stayturgid")
 DEFAULT_JAR = os.path.join(STG, "lib", "hs.jar")
 REMOTE_JAR = "/data/local/tmp/hs.jar"
 SHIZUKU_PKG = "moe.shizuku.privileged.api"
+HEADLESS_STATUS = SHIZUKU_PKG + ".HEADLESS_STATUS"
+HEADLESS_RECEIVER = SHIZUKU_PKG + "/af.shizuku.manager.receiver.HeadlessStartStopReceiver"
+AUTH_UNANSWERED = "AUTH_UNANSWERED"
+SHIZUKU_START_WITHHELD_MSG = (
+    "shizuku start withheld: ADB authorisation dialog unanswered; operator: tap Attempt now on the phone"
+)
+# Distinct from a failed start (1): callers must not retry or escalate it.
+EXIT_AUTH_UNANSWERED = 3
 # Shared fleet identity — do NOT overwrite ~/.android/adbkey (breaks localhost:5555).
 FLEET_ADBKEY = os.environ.get("STAYTURGID_FLEET_ADBKEY", os.path.join(STG, "adbkey-fleet"))
 
@@ -160,8 +168,22 @@ def cmd_handsets_start(target: str, port: int) -> int:
     return 1
 
 
+def shizuku_auth_unanswered(target: str) -> bool:
+    """True when the target's Shizuku says its authorisation dialog went unanswered.
+
+    A direct starter launch never goes through HEADLESS_START, so it would
+    ignore that marker; ask first. Builds that predate the marker never report
+    it, and keep today's behaviour.
+    """
+    r = _shell(target, "am broadcast -a %s -n %s 2>/dev/null" % (HEADLESS_STATUS, HEADLESS_RECEIVER), timeout=15)
+    return AUTH_UNANSWERED in (r.stdout or "")
+
+
 def cmd_shizuku_start(target: str) -> int:
     _ensure_connected(target)
+    if shizuku_auth_unanswered(target):
+        print("WITHHELD target=%s: %s" % (target, SHIZUKU_START_WITHHELD_MSG))
+        return EXIT_AUTH_UNANSWERED
     # Resolve libshizuku.so next to the APK (arm64).
     r = _shell(target, "pm path %s" % SHIZUKU_PKG, timeout=15)
     apk = ""

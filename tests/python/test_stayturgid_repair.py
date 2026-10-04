@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import importlib.util
+import os
+import shlex
+import subprocess
 import time
 from pathlib import Path
 
@@ -650,12 +653,14 @@ def test_staleness_probe_matches_the_collection_copy():
 class _FakeShizukuShell:
     """sh_adb fake with a live/dead server that HEADLESS_STOP/pkill/HEADLESS_START act on."""
 
-    def __init__(self, probe_out, stop_works=True, kill_works=True, start_works=True):
+    def __init__(self, probe_out, stop_works=True, kill_works=True, start_works=True, unanswered=False):
         self.probe_out = probe_out
         self.alive = True
         self.stop_works = stop_works
         self.kill_works = kill_works
         self.start_works = start_works
+        # ShizukuTendCF's unanswered-dialog marker: STATUS says so, START is withheld.
+        self.unanswered = unanswered
         self.calls = []
 
     def __call__(self, cmd, timeout=15):
@@ -663,7 +668,8 @@ class _FakeShizukuShell:
         if cmd == repair.SHIZUKU_STALENESS_PROBE:
             return 0, self.probe_out
         if "HEADLESS_STATUS" in cmd:
-            return 0, "Broadcast completed: result=%d\n" % (1 if self.alive else 3)
+            data = ', data="%s AUTH_UNANSWERED"' % ("RUNNING" if self.alive else "STOPPED") if self.unanswered else ""
+            return 0, "Broadcast completed: result=%d%s\n" % (1 if self.alive else 3, data)
         if cmd.startswith("pgrep -f '[s]hizuku_(plus_)?server'"):
             return (0, "4242\n") if self.alive else (1, "")
         if "HEADLESS_STOP" in cmd:
@@ -671,6 +677,8 @@ class _FakeShizukuShell:
         elif cmd.startswith("pkill -f '[s]hizuku_(plus_)?server'"):
             self.alive = self.alive and not self.kill_works
         elif "HEADLESS_START" in cmd:
+            if self.unanswered:
+                return 0, 'Broadcast completed: result=4, data="AUTH_UNANSWERED"\n'
             self.alive = self.alive or self.start_works
         return 0, ""
 
@@ -791,12 +799,12 @@ def test_failed_stale_restart_is_retried_cold_on_next_pass(monkeypatch, tmp_path
     shell = _FakeShizukuShell(STALE_OUT, start_works=False)
     _setup_stale(monkeypatch, tmp_path, shell)
 
-    assert repair.repair_shizuku("Broadcast completed: result=1\n") == ("down", False)
+    assert repair.repair_shizuku("Broadcast completed: result=1\n") == ("down", False, "ok")
     assert sum("HEADLESS_START" in call for call in shell.calls) == 1
     assert not shell.alive
 
     shell.start_works = True
-    assert repair.repair_shizuku("Broadcast completed: result=4\n") == ("down", True)
+    assert repair.repair_shizuku("Broadcast completed: result=4\n") == ("down", True, "ok")
     assert sum("HEADLESS_START" in call for call in shell.calls) == 2
     assert shell.alive
 
@@ -809,7 +817,7 @@ def test_stale_restart_cooldown_does_not_block_cold_retry(monkeypatch, tmp_path)
     stamp.parent.mkdir(parents=True)
     stamp.write_text(str(int(time.time())))
 
-    assert repair.repair_shizuku("Broadcast completed: result=4\n") == ("down", True)
+    assert repair.repair_shizuku("Broadcast completed: result=4\n") == ("down", True, "ok")
     assert shell.alive
     assert not any(call == repair.SHIZUKU_STALENESS_PROBE for call in shell.calls)
 
@@ -818,5 +826,170 @@ def test_starting_state_does_not_send_another_headless_start(monkeypatch):
     shell = _FakeShizukuShell("", start_works=True)
     shell.alive = False
     monkeypatch.setattr(repair, "sh_adb", shell)
-    assert repair.repair_shizuku("Broadcast completed: result=0\n") == ("starting", False)
+    assert repair.repair_shizuku("Broadcast completed: result=0\n") == ("starting", False, "ok")
     assert not any("HEADLESS_START" in call for call in shell.calls)
+
+
+# --- unanswered ADB authorisation dialog (ShizukuTendCF AUTH_UNANSWERED) ---
+
+STATUS_UNANSWERED = 'Broadcast completed: result=3, data="STOPPED AUTH_UNANSWERED"\n'
+
+
+def _starts(shell):
+    return [
+        c for c in shell.calls if "HEADLESS_START" in c or "HEADLESS_STOP" in c or "libshizuku" in c or "pkill" in c
+    ]
+
+
+def test_status_marker_detection_ignores_crashed_result_code():
+    assert repair.shizuku_auth_unanswered(STATUS_UNANSWERED) is True
+    # HEADLESS_STATUS result codes are state ordinals: 4 is CRASHED, not the marker.
+    assert repair.shizuku_auth_unanswered("Broadcast completed: result=4\n") is False
+    assert repair.shizuku_auth_unanswered("") is False
+    assert repair.shizuku_start_withheld('Broadcast completed: result=4, data="AUTH_UNANSWERED"') is True
+    assert repair.shizuku_start_withheld("Broadcast completed: result=4") is True
+    assert repair.shizuku_start_withheld("Broadcast completed: result=40") is False
+    assert repair.shizuku_start_withheld("Broadcast completed: result=0") is False
+
+
+def test_down_with_marker_sends_no_start(monkeypatch, tmp_path):
+    shell = _FakeShizukuShell("", unanswered=True)
+    shell.alive = False
+    _setup_stale(monkeypatch, tmp_path, shell)
+    assert repair.repair_shizuku(STATUS_UNANSWERED) == ("down", False, "unanswered")
+    assert _starts(shell) == []
+
+
+def test_withheld_start_reply_is_not_retried(monkeypatch, tmp_path):
+    # An older STATUS reply without the marker, then START says withheld.
+    shell = _FakeShizukuShell("", unanswered=True)
+    shell.alive = False
+    _setup_stale(monkeypatch, tmp_path, shell)
+    assert repair.repair_shizuku("Broadcast completed: result=3\n") == ("down", False, "unanswered")
+    starts = [c for c in shell.calls if "HEADLESS_START" in c]
+    assert len(starts) == 1
+    assert "force" not in starts[0]
+    assert not any("libshizuku" in c or "settings put" in c for c in shell.calls)
+
+
+def test_stale_server_is_left_running_while_auth_unanswered(monkeypatch, tmp_path):
+    shell = _FakeShizukuShell(STALE_OUT, unanswered=True)
+    logs = _setup_stale(monkeypatch, tmp_path, shell)
+    status = 'Broadcast completed: result=1, data="RUNNING AUTH_UNANSWERED"\n'
+    assert repair.repair_shizuku(status) == ("up", False, "unanswered")
+    assert _starts(shell) == []
+    assert shell.alive
+    assert logs == []
+    assert not (tmp_path / "state" / "shizuku-stale-restart").exists()
+
+
+def test_stale_restart_start_half_withheld(monkeypatch, tmp_path):
+    shell = _FakeShizukuShell(STALE_OUT)
+    logs = _setup_stale(monkeypatch, tmp_path, shell)
+    real = shell.__call__
+
+    def withhold_start(cmd, timeout=15):
+        if "HEADLESS_START" in cmd:
+            shell.calls.append(cmd)
+            return 0, 'Broadcast completed: result=4, data="AUTH_UNANSWERED"\n'
+        return real(cmd, timeout)
+
+    monkeypatch.setattr(repair, "sh_adb", withhold_start)
+    assert repair.restart_stale_shizuku() == "withheld"
+    assert sum("HEADLESS_START" in c for c in shell.calls) == 1
+    assert not any(level == repair.ERR for _msg, level in logs)
+
+
+def test_old_build_without_marker_keeps_cold_start(monkeypatch, tmp_path):
+    shell = _FakeShizukuShell("")
+    shell.alive = False
+    _setup_stale(monkeypatch, tmp_path, shell)
+    assert repair.repair_shizuku("Broadcast completed: result=3\n") == ("down", True, "ok")
+    assert shell.alive
+
+
+def test_note_shizuku_auth_logs_once_per_change(monkeypatch, tmp_path):
+    logs = []
+    monkeypatch.setattr(repair, "STG", str(tmp_path))
+    monkeypatch.setattr(repair, "log", lambda msg, level=repair.INFO: logs.append((msg, level)))
+    repair.note_shizuku_auth("ok")
+    assert logs == []
+    repair.note_shizuku_auth("unanswered")
+    repair.note_shizuku_auth("unanswered")
+    assert logs == [
+        (
+            "shizuku start withheld: ADB authorisation dialog unanswered; operator: tap Attempt now on the phone",
+            repair.WARNING,
+        )
+    ]
+    repair.note_shizuku_auth("ok")
+    repair.note_shizuku_auth("ok")
+    assert len(logs) == 2 and logs[1][1] == repair.NOTICE
+
+
+def test_watchdog_loop_stands_down_on_unanswered_marker():
+    body = repair._WATCHDOG_SCRIPT_BODY
+    assert "*AUTH_UNANSWERED*) unanswered=1" in body
+    assert '*AUTH_UNANSWERED*|*"result=4"*) unanswered=1' in body
+    assert "WARNING: " + repair.SHIZUKU_START_WITHHELD_MSG in body
+    assert "force" not in body
+    assert "libshizuku" not in body
+
+
+def _run_watchdog_once(tmp_path, status, start_reply, running=False):
+    """Run one loop pass under sh with am/pgrep/sleep stubbed; return (am calls, output)."""
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    calls = tmp_path / "am-calls"
+    (bindir / "am").write_text(
+        "#!/bin/sh\n"
+        'echo "$*" >> %s\n'
+        'case "$*" in *HEADLESS_STATUS*) printf %%s %s ;; *HEADLESS_START*) printf %%s %s ;; esac\n'
+        % (calls, shlex.quote(status), shlex.quote(start_reply))
+    )
+    (bindir / "pgrep").write_text("#!/bin/sh\nexit %d\n" % (0 if running else 1))
+    # Two passes, then stop the loop.
+    (bindir / "sleep").write_text(
+        "#!/bin/sh\nn=$(cat %s/n 2>/dev/null || echo 0); n=$((n+1)); echo $n > %s/n; [ $n -ge 2 ] && kill $PPID\n"
+        % (tmp_path, tmp_path)
+    )
+    for f in bindir.iterdir():
+        f.chmod(0o755)
+    script = tmp_path / "loop.sh"
+    script.write_text(repair._WATCHDOG_SCRIPT_BODY)
+    env = dict(os.environ, PATH="%s:%s" % (bindir, os.environ["PATH"]))
+    r = subprocess.run(["sh", str(script)], capture_output=True, text=True, env=env, timeout=20)
+    am = calls.read_text().splitlines() if calls.exists() else []
+    return am, r.stdout
+
+
+def test_watchdog_loop_does_not_start_while_status_reports_unanswered(tmp_path):
+    am, out = _run_watchdog_once(tmp_path, STATUS_UNANSWERED.strip(), "")
+    assert not any("HEADLESS_START" in c for c in am)
+    assert out.count("WARNING: " + repair.SHIZUKU_START_WITHHELD_MSG) == 1
+
+
+def test_watchdog_loop_logs_withheld_start_once_and_never_forces(tmp_path):
+    am, out = _run_watchdog_once(
+        tmp_path, "Broadcast completed: result=3", 'Broadcast completed: result=4, data="AUTH_UNANSWERED"'
+    )
+    starts = [c for c in am if "HEADLESS_START" in c]
+    assert starts and all("force" not in c for c in starts)
+    assert out.count("WARNING: " + repair.SHIZUKU_START_WITHHELD_MSG) == 1
+
+
+def test_error_rate_notification_names_the_real_log(tmp_path, monkeypatch):
+    monkeypatch.setattr(repair, "SDLOG", str(tmp_path / "watchdog.log"))
+    monkeypatch.setattr(repair, "ERROR_RATE_NOTIFY_STAMP", str(tmp_path / "state" / "notify-stamp"))
+    monkeypatch.setattr(repair, "log", lambda *_a, **_k: None)
+    monkeypatch.setattr(repair, "HOME", "/data/data/com.termux/files/home")
+    monkeypatch.setattr(repair, "LOG", "/data/data/com.termux/files/home/.stayturgid/logs/repair.log")
+    _write_watchdog_log(
+        tmp_path / "watchdog.log",
+        ["%s [repair] ERR: Tailscale repair FAILED (runtime=down policy=down)" % _ts(n * 60) for n in (1, 2, 3)],
+    )
+    tapi = _FakeTapi()
+    assert repair.maybe_notify_error_rate(tapi_module=tapi) == "notified"
+    text = " ".join(str(a) for a in tapi.calls[0])
+    assert "check ~/.stayturgid/logs/repair.log" in text
+    assert "check watchdog.log" not in text

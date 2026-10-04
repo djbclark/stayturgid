@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -51,6 +52,10 @@ BOOTLAUNCH = (
 )
 LOG_ROOT = os.path.expanduser("~/.config/stayturgid")
 LOG_NAME = "firerpa-heal.log"
+AUTH_UNANSWERED = "AUTH_UNANSWERED"
+SHIZUKU_START_WITHHELD_MSG = (
+    "shizuku start withheld: ADB authorisation dialog unanswered; operator: tap Attempt now on the phone"
+)
 
 
 def _log(level: int, msg: str) -> None:
@@ -134,14 +139,46 @@ def restart_bootloop(device: Device) -> str:
     return "FAILED"
 
 
+def shizuku_start_withheld(reply: str) -> bool:
+    """A plain HEADLESS_START withheld because Shizuku's own dialog went unanswered."""
+    return AUTH_UNANSWERED in reply or re.search(r"\bresult=4\b", reply) is not None
+
+
+def note_shizuku_auth(host: str, unanswered: bool) -> None:
+    """Log the withheld-start warning once per state change, not every run."""
+    path = os.path.join(LOG_ROOT, "state", "firerpa-heal", host + ".shizuku-auth")
+    state = "unanswered" if unanswered else "ok"
+    try:
+        with open(path) as f:
+            previous = f.read().strip() or "ok"
+    except OSError:
+        previous = "ok"
+    if state == previous:
+        return
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            f.write(state)
+    except OSError:
+        pass
+    if unanswered:
+        _log(WARNING, "%s: %s" % (host, SHIZUKU_START_WITHHELD_MSG))
+    else:
+        _log(NOTICE, "%s: Shizuku ADB authorisation no longer unanswered; starts resume" % host)
+
+
 def restart_shizuku(device: Device) -> str:
+    """Never sends `--ez force true`: that is for an operator at the phone."""
     try:
         if is_shizuku_alive(device):
             return "up"
-        device.execute_script(
+        reply = _exec_stdout(
+            device,
             "am broadcast -a moe.shizuku.privileged.api.HEADLESS_START -p moe.shizuku.privileged.api",
             timeout=5,
         )
+        if shizuku_start_withheld(reply):
+            return "withheld"
         time.sleep(3)
         if is_shizuku_alive(device):
             _log(NOTICE, "Shizuku started via HEADLESS_START")
@@ -186,6 +223,8 @@ def heal_device(host: str, port: int = 65000) -> dict[str, str]:
     if not port5555_alive:
         r = restart_shizuku(d)
         results["shizuku_restart"] = r
+        if r != "up":
+            note_shizuku_auth(host, r == "withheld")
 
     if not bootloop_alive:
         r = restart_bootloop(d)

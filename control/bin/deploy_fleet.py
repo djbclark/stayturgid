@@ -38,6 +38,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 from enum import Enum
 from pathlib import Path
 
@@ -70,6 +71,10 @@ REQUIREMENTS = REPO_ROOT / "ansible" / "requirements.yml"
 # letting a hung or endlessly-retrying rollout run indefinitely (see #104).
 # Override with STAYTURGID_DEPLOY_TIMEOUT_SECONDS for unusually large fleets.
 DEPLOY_TIMEOUT_SECONDS = int(os.environ.get("STAYTURGID_DEPLOY_TIMEOUT_SECONDS", "1800"))
+
+SHIZUKU_START_WITHHELD_MSG = (
+    "shizuku start withheld: ADB authorisation dialog unanswered; operator: tap Attempt now on the phone"
+)
 
 
 class Scope(str, Enum):
@@ -265,6 +270,20 @@ def run_playbook(
         return 124
 
 
+def read_withheld_hosts(path: Path) -> list[str]:
+    """Hosts ensure-shizuku.yml recorded as withheld (unanswered ADB authorisation dialog)."""
+    try:
+        lines = path.read_text().splitlines()
+    except OSError:
+        return []
+    return sorted({line.strip() for line in lines if line.strip()})
+
+
+def warn_shizuku_withheld(hosts: list[str]) -> None:
+    for host in hosts:
+        print(f"WARNING {host}: {SHIZUKU_START_WITHHELD_MSG}", file=sys.stderr)
+
+
 def deploy_mac(*, check: bool, tags: str = "mac", verbose: int = 0) -> int:
     """Mac localhost playbooks are not affected by device --limit."""
     return run_playbook(
@@ -321,27 +340,35 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0, dev
             )
         else:
             apply_site_preflight(context.site_dir, REPO_ROOT, resolved_env(REPO_ROOT), activate_vector=not devices_only)
-        rc = run_playbook(
-            SITE_PLAYBOOK,
-            limit=targets,
-            check=check,
-            tags=scope.ansible_tags,
-            skip_tags=skip_bootstrap,
-            verbose=verbose,
-        )
-        # A dry-run must not require local administrator credentials. The control-node
-        # agent role includes privileged /etc configuration, and its normal deploy is
-        # independent of the device host check below.
-        if check:
-            return rc if rc != 0 else preflight_rc
-        if devices_only:
-            # #57: the caller only wants the device playbook (e.g. iterating on
-            # one device) — skip the second ansible-playbook launch entirely.
-            return rc
-        # Always refresh Mac control node on real deploys: deploy_fleet always passes a
-        # device --limit, so site.yml's control_node import never selects localhost.
-        mac_rc = deploy_mac(check=False, verbose=verbose)
-        return rc if rc != 0 else mac_rc
+        with tempfile.TemporaryDirectory(prefix="stayturgid-deploy-") as tmp:
+            withheld_file = Path(tmp) / "shizuku-withheld"
+            rc = run_playbook(
+                SITE_PLAYBOOK,
+                limit=targets,
+                check=check,
+                tags=scope.ansible_tags,
+                skip_tags=skip_bootstrap,
+                extra_vars=["-e", f"stayturgid_shizuku_withheld_file={withheld_file}"],
+                verbose=verbose,
+            )
+            withheld_hosts = read_withheld_hosts(withheld_file)
+        try:
+            # A dry-run must not require local administrator credentials. The control-node
+            # agent role includes privileged /etc configuration, and its normal deploy is
+            # independent of the device host check below.
+            if check:
+                return rc if rc != 0 else preflight_rc
+            if devices_only:
+                # #57: the caller only wants the device playbook (e.g. iterating on
+                # one device) — skip the second ansible-playbook launch entirely.
+                return rc
+            # Always refresh Mac control node on real deploys: deploy_fleet always passes a
+            # device --limit, so site.yml's control_node import never selects localhost.
+            mac_rc = deploy_mac(check=False, verbose=verbose)
+            return rc if rc != 0 else mac_rc
+        finally:
+            # After the Mac pass, so the warning sits next to the footer, not mid-scroll.
+            warn_shizuku_withheld(withheld_hosts)
 
 
 def print_footer(rc: int, scope: Scope, *, check: bool = False) -> None:

@@ -156,6 +156,26 @@ def write_state(state_file: str, n: int) -> None:
         pass
 
 
+def log_issue_hints(name: str, issues: list[str], state_file: str) -> None:
+    """One WARNING line per hinted issue when it appears, one NOTICE when it clears."""
+    try:
+        with open(state_file) as f:
+            before = set(f.read().split())
+    except OSError:
+        before = set()
+    now = {issue for issue in issues if issue in fh.ISSUE_HINTS}
+    for issue in sorted(now - before):
+        _fleet_log(WARNING, "%s %s: %s" % (name, issue, fh.ISSUE_HINTS[issue]))
+    for issue in sorted(before - now):
+        _fleet_log(NOTICE, "%s %s cleared" % (name, issue))
+    if now != before:
+        try:
+            with open(state_file, "w") as f:
+                f.write("\n".join(sorted(now)))
+        except OSError:
+            pass
+
+
 def _heal_cooldown_ok_dir(name: str, state_dir: str, cooldown_sec: int) -> bool:
     path = os.path.join(state_dir, name)
     try:
@@ -535,6 +555,7 @@ def _record_soft_health_snapshot(
         fleet_profile=report.get("fleet_profile") or "unknown",
         fleet_profile_age=_age_field(report.get("fleet_profile_age")),
         shizuku_server_stale=report.get("shizuku_server_stale") or "unknown",
+        shizuku_auth=report.get("shizuku_auth") or "unknown",
         issues=",".join(issues) if issues else "none",
         issue_count=len(issues),
     )
@@ -819,6 +840,7 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     issues = fh.evaluate_health(report, alias=name)
     summary = fh.summarize(report, issues)
     _fleet_log(INFO, "%s via %s: %s" % (name, path, summary))
+    log_issue_hints(name, issues, state_file + ".hints")
 
     _stats_event("connection_path", name, via=path)
     for issue in issues:

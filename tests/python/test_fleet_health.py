@@ -1235,3 +1235,62 @@ def test_soft_health_snapshot_carries_fleet_profile(monkeypatch):
     # The adb fallback probe never gathers it: unknown, not missing.
     assert events[1][2]["fleet_profile"] == "unknown"
     assert events[1][2]["fleet_profile_age"] == "unknown"
+
+
+# --- unanswered Shizuku ADB authorisation dialog ---
+
+_HEALTHY = {
+    "ssh_echo": "ok",
+    "sshd": "ok",
+    "bootloop": "ok",
+    "shell5555": "ok",
+    "repair_age": "200",
+    "agent_heartbeat_age": "60",
+    "a11y": "ok",
+    "port": "open",
+    "shizuku": "up",
+}
+
+
+def test_shizuku_auth_unanswered_is_a_finding_with_a_hint():
+    issues = fh.evaluate_health(dict(_HEALTHY, shizuku_auth="unanswered"))
+    assert issues == ["shizuku_auth_unanswered"]
+    hint = fh.ISSUE_HINTS["shizuku_auth_unanswered"]
+    assert "\n" not in hint and "Attempt now" in hint
+
+
+@pytest.mark.parametrize("value", ["ok", "unknown", "skip"])
+def test_shizuku_auth_other_values_are_not_findings(value):
+    assert fh.evaluate_health(dict(_HEALTHY, shizuku_auth=value)) == []
+
+
+def test_shizuku_auth_absent_is_backward_compatible():
+    assert fh.evaluate_health(dict(_HEALTHY)) == []
+    assert "shizuku_auth=?" in fh.summarize(dict(_HEALTHY), [])
+
+
+def test_status_line_shizuku_auth_is_normalized():
+    report = {"status_line": "[repair] STATUS port=open shizuku=down env=ok shizuku_auth=unanswered"}
+    fh._normalize_status_fields(report)
+    assert report["shizuku_auth"] == "unanswered"
+    old = {"status_line": "[repair] STATUS port=open shizuku=up env=ok"}
+    fh._normalize_status_fields(old)
+    assert "shizuku_auth" not in old
+
+
+def test_health_gather_reads_shizuku_auth_from_repair_status():
+    assert "shizuku_auth=" in fh.HEALTH_GATHER
+    assert "shizuku_auth=unknown" in fh.HEALTH_GATHER
+
+
+def test_monitor_logs_issue_hint_once_per_change(tmp_path, monkeypatch):
+    logs = []
+    monkeypatch.setattr(fhm, "_fleet_log", lambda level, message: logs.append((level, message)))
+    state = str(tmp_path / "host.hints")
+    fhm.log_issue_hints("p7a", ["shizuku_auth_unanswered", "shizuku_down"], state)
+    fhm.log_issue_hints("p7a", ["shizuku_auth_unanswered"], state)
+    assert logs == [(fhm.WARNING, "p7a shizuku_auth_unanswered: " + fh.ISSUE_HINTS["shizuku_auth_unanswered"])]
+    fhm.log_issue_hints("p7a", [], state)
+    assert logs[-1] == (fhm.NOTICE, "p7a shizuku_auth_unanswered cleared")
+    fhm.log_issue_hints("p7a", [], state)
+    assert len(logs) == 2

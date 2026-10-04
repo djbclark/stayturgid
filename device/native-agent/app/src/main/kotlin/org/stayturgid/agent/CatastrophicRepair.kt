@@ -12,7 +12,8 @@ import java.util.concurrent.TimeUnit
  * 1. settings: development + adb + adb_wifi
  * 2. setprop service.adb.tcp.port 5555
  * 3. adb connect 127.0.0.1:5555 + verify uid 2000
- * 4. HEADLESS_START broadcast (thedjchi / stayturgid Shizuku fork)
+ * 4. HEADLESS_START broadcast (thedjchi / stayturgid Shizuku fork); a result-4 `AUTH_UNANSWERED`
+ *    reply ends the repair as `auth_unanswered` with no retry ([ShizukuAuth])
  *
  * No Accessibility UI taps here — that remains AutoJs6-only until a fork intent path is proven on
  * all fleet ROMs.
@@ -41,7 +42,13 @@ object CatastrophicRepair {
                 return Result(true, steps.joinToString("+") + ":ok")
             }
             steps += "headless_start"
-            if (headlessStart()) {
+            val start = headlessStart()
+            noteAuth(start == StartResult.WITHHELD)
+            if (start == StartResult.WITHHELD) {
+                // Not a repair failure to escalate: only the operator can answer the dialog.
+                return Result(false, steps.joinToString("+") + ":auth_unanswered")
+            }
+            if (start == StartResult.UP) {
                 appendLog("[agent] catastrophic HEADLESS_START sent; rechecking shell")
                 if (tryShellWirelessRepair(shellExpected)) {
                     return Result(true, steps.joinToString("+") + ":ok")
@@ -156,21 +163,39 @@ object CatastrophicRepair {
         return ok
     }
 
-    fun headlessStart(): Boolean {
-        shellOut(
-            arrayOf(
-                "am",
-                "broadcast",
-                "--include-stopped-packages",
-                "-a",
-                "moe.shizuku.privileged.api.HEADLESS_START",
-                "-p",
-                "moe.shizuku.privileged.api",
-            ),
-            8,
-        )
+    enum class StartResult {
+        UP,
+        DOWN,
+
+        /** Shizuku withheld the start: its ADB authorisation dialog went unanswered. */
+        WITHHELD,
+    }
+
+    private val authTracker = ShizukuAuth.ChangeTracker()
+
+    @Synchronized
+    private fun noteAuth(unanswered: Boolean) {
+        authTracker.observe(unanswered)?.let { appendLog("[agent] $it") }
+    }
+
+    /** Plain HEADLESS_START, never `--ez force true`. */
+    fun headlessStart(): StartResult {
+        val out =
+            shellOut(
+                arrayOf(
+                    "am",
+                    "broadcast",
+                    "--include-stopped-packages",
+                    "-a",
+                    "moe.shizuku.privileged.api.HEADLESS_START",
+                    "-p",
+                    "moe.shizuku.privileged.api",
+                ),
+                8,
+            )
+        if (ShizukuAuth.startWithheld(out)) return StartResult.WITHHELD
         Thread.sleep(5000)
-        return serverRunning()
+        return if (serverRunning()) StartResult.UP else StartResult.DOWN
     }
 
     fun repairTailscale(): Result {

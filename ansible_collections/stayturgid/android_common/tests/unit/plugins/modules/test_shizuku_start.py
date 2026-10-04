@@ -140,8 +140,29 @@ def test_send_headless_start():
         calls.append(" ".join(cmd))
         return (0, "Broadcast completed: result=0\n", "")
 
-    assert mod.send_headless_start(run, "dev") is True
+    assert mod.send_headless_start(run, "dev") == "sent"
     assert "-n %s" % mod.HEADLESS_RECEIVER in calls[-1]
+    assert "force" not in calls[-1]
+
+
+@pytest.mark.parametrize(
+    "out",
+    ['Broadcast completed: result=4, data="AUTH_UNANSWERED"\n', "Broadcast completed: result=4\n"],
+)
+def test_send_headless_start_reports_withheld(out):
+    assert mod.send_headless_start(fake_run([("HEADLESS_START", (0, out, ""))]), "dev") == mod.START_WITHHELD
+
+
+def test_send_headless_start_failed():
+    assert mod.send_headless_start(fake_run([("HEADLESS_START", (1, "", "err"))]), "dev") == "failed"
+
+
+def test_shizuku_state_ignores_auth_marker_for_state():
+    status = 'Broadcast completed: result=3, data="STOPPED AUTH_UNANSWERED"'
+    assert mod.shizuku_state(fake_run([("pgrep", (1, "", ""))]), "dev", status) == "down"
+    assert mod.status_auth_unanswered(status) is True
+    # STATUS result=4 is CRASHED, not the marker.
+    assert mod.status_auth_unanswered('Broadcast completed: result=4, data="CRASHED"') is False
 
 
 def test_headless_status_uses_explicit_receiver():
@@ -782,3 +803,151 @@ def test_module_check_mode_reports_stale_without_restarting(mocker):
     assert out["start_method"] == "would_restart_stale"
     assert out["server_stale"] == "yes"
     assert not any("HEADLESS_STOP" in c or "HEADLESS_START" in c or "pkill" in c for c in calls)
+
+
+# --- unanswered ADB authorisation dialog (ShizukuTendCF AUTH_UNANSWERED) ---
+
+STATUS_UNANSWERED = 'Broadcast completed: result=3, data="STOPPED AUTH_UNANSWERED"\n'
+START_WITHHELD_REPLY = 'Broadcast completed: result=4, data="AUTH_UNANSWERED"\n'
+
+
+def _capture_warnings(mocker):
+    warnings = []
+    mocker.patch("ansible.module_utils.basic.AnsibleModule.warn", lambda self, msg: warnings.append(msg))
+    return warnings
+
+
+def _starts_anything(calls):
+    return any("HEADLESS_START" in c or "libshizuku.so" in c or "HEADLESS_STOP" in c or "pkill" in c for c in calls)
+
+
+def test_module_withholds_cold_start_when_status_reports_unanswered(mocker):
+    _no_sleep(mocker)
+    warnings = _capture_warnings(mocker)
+    calls = []
+    out = run_module(
+        mocker,
+        dict(device="dev", connect=False, start_timeout=1),
+        cmd_results=[
+            ("HEADLESS_STATUS", (0, STATUS_UNANSWERED, "")),
+            ("pgrep -f '[s]hizuku_(plus_)?server'", (1, "", "")),
+        ],
+        calls=calls,
+    )
+    assert out.get("failed") is not True, out
+    assert out["changed"] is False
+    assert out["auth_unanswered"] is True
+    assert out["shizuku"] == "down"
+    assert out["start_method"] == "withheld"
+    assert not _starts_anything(calls)
+    assert warnings == ["dev: " + mod.SHIZUKU_START_WITHHELD_MSG]
+    assert "operator: tap Attempt now on the phone" in warnings[0]
+
+
+def test_module_fails_on_unanswered_only_when_asked(mocker):
+    _no_sleep(mocker)
+    _capture_warnings(mocker)
+    calls = []
+    out = run_module(
+        mocker,
+        dict(device="dev", connect=False, start_timeout=1, fail_on_auth_unanswered=True),
+        cmd_results=[
+            ("HEADLESS_STATUS", (0, STATUS_UNANSWERED, "")),
+            ("pgrep -f '[s]hizuku_(plus_)?server'", (1, "", "")),
+        ],
+        calls=calls,
+    )
+    assert out.get("failed") is True
+    assert out["auth_unanswered"] is True
+    assert mod.SHIZUKU_START_WITHHELD_MSG in out["msg"]
+    assert not _starts_anything(calls)
+
+
+def test_module_start_withheld_reply_skips_native_fallback(mocker):
+    _no_sleep(mocker)
+    _capture_warnings(mocker)
+    calls = []
+    out = run_module(
+        mocker,
+        dict(device="dev", connect=False, start_timeout=1),
+        cmd_results=[
+            ("HEADLESS_STATUS", (0, "Broadcast completed: result=3\n", "")),
+            ("pgrep -f '[s]hizuku_(plus_)?server'", (1, "", "")),
+            ("HEADLESS_START", (0, START_WITHHELD_REPLY, "")),
+            ("libshizuku.so", (0, "", "")),
+        ],
+        calls=calls,
+    )
+    assert out.get("failed") is not True, out
+    assert out["auth_unanswered"] is True
+    assert sum("HEADLESS_START" in c for c in calls) == 1
+    assert not any("libshizuku.so" in c or "pm path" in c and "nativeLibraryDir" in c for c in calls)
+    assert not any("--ez force" in c or "force true" in c for c in calls)
+
+
+def test_module_status_marker_after_headless_start_skips_native_fallback(mocker):
+    _no_sleep(mocker)
+    _capture_warnings(mocker)
+    calls = []
+    out = run_module(
+        mocker,
+        dict(device="dev", connect=False, start_timeout=1),
+        cmd_results=[
+            (
+                "HEADLESS_STATUS",
+                [(0, "Broadcast completed: result=3\n", ""), (0, STATUS_UNANSWERED, "")],
+            ),
+            ("pgrep -f '[s]hizuku_(plus_)?server'", (1, "", "")),
+            ("HEADLESS_START", (0, "Broadcast completed: result=0\n", "")),
+            ("libshizuku.so", (0, "", "")),
+        ],
+        calls=calls,
+    )
+    assert out.get("failed") is not True, out
+    assert out["auth_unanswered"] is True
+    assert not any("libshizuku.so" in c for c in calls)
+
+
+def test_module_keeps_stale_server_when_auth_unanswered(mocker):
+    _no_sleep(mocker)
+    warnings = _capture_warnings(mocker)
+    calls = []
+    out = run_module(
+        mocker,
+        dict(device="dev", connect=False, start_timeout=1),
+        cmd_results=[
+            ("lastUpdateTime", (0, STALE_PROBE_OUT, "")),
+            ("HEADLESS_STATUS", (0, 'Broadcast completed: result=1, data="RUNNING AUTH_UNANSWERED"\n', "")),
+            ("/proc/net/tcp", (0, "open\n", "")),
+        ],
+        calls=calls,
+    )
+    assert out.get("failed") is not True, out
+    assert out["changed"] is False
+    assert out["shizuku"] == "already_up"
+    assert out["auth_unanswered"] is True
+    assert out["server_stale"] == "yes"
+    assert not _starts_anything(calls)
+    assert warnings[0] == "dev: " + mod.SHIZUKU_START_WITHHELD_MSG
+
+
+def test_module_check_mode_would_withhold(mocker):
+    _capture_warnings(mocker)
+    calls = []
+    out = run_module(
+        mocker,
+        dict(device="dev", connect=False, _ansible_check_mode=True),
+        cmd_results=[
+            ("HEADLESS_STATUS", (0, STATUS_UNANSWERED, "")),
+            ("pgrep -f '[s]hizuku_(plus_)?server'", (1, "", "")),
+        ],
+        calls=calls,
+    )
+    assert out["changed"] is False
+    assert out["start_method"] == "would_withhold"
+    assert out["auth_unanswered"] is True
+
+
+def test_module_reports_auth_answered_on_normal_runs(mocker):
+    out = run_module(mocker, dict(device="dev", connect=False), cmd_results=ALREADY_UP)
+    assert out["auth_unanswered"] is False

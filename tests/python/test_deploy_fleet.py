@@ -548,3 +548,40 @@ def test_repo_env_fails_without_any_site_selection(monkeypatch, tmp_path):
 
     with pytest.raises(AnsibleConfigError, match="ANSIBLE_CONFIG, STAYTURGID_SITE_DIR, or OPS_ROOT/.mysite"):
         df.repo_env()
+
+
+def test_deploy_warns_for_hosts_with_withheld_shizuku_start(monkeypatch, capsys):
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls)
+    seen_vars = []
+
+    def run_playbook(playbook, *, limit=None, check, tags, skip_tags=None, extra_vars=None, verbose=0):
+        calls.append(("playbook", tags, check, skip_tags))
+        if extra_vars:
+            seen_vars.extend(extra_vars)
+            path = Path(extra_vars[1].split("=", 1)[1])
+            path.write_text("fireos-device\noneui-device\nfireos-device\n")
+        return 0
+
+    monkeypatch.setattr(df, "run_playbook", run_playbook)
+    rc = df.deploy(df.Scope.FULL, ["oneui-device", "fireos-device"], check=False)
+    assert rc == 0
+    assert seen_vars[0] == "-e"
+    assert seen_vars[1].startswith("stayturgid_shizuku_withheld_file=")
+    err = capsys.readouterr().err.splitlines()
+    assert err == [
+        "WARNING fireos-device: " + df.SHIZUKU_START_WITHHELD_MSG,
+        "WARNING oneui-device: " + df.SHIZUKU_START_WITHHELD_MSG,
+    ]
+    assert not Path(seen_vars[1].split("=", 1)[1]).exists()
+
+
+def test_deploy_without_withheld_hosts_prints_no_warning(monkeypatch, capsys):
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls)
+    assert df.deploy(df.Scope.FULL, ["oneui-device"], check=False) == 0
+    assert "withheld" not in capsys.readouterr().err
+
+
+def test_read_withheld_hosts_missing_file(tmp_path):
+    assert df.read_withheld_hosts(tmp_path / "absent") == []

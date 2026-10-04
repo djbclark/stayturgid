@@ -306,6 +306,9 @@ else
   echo "port=unknown"
   echo "shizuku=unknown"
 fi
+# Only the Termux repair pass writes shizuku_auth; the native agent's STATUS lacks it.
+auth=$(grep -ah 'STATUS port=.*shizuku_auth=' ~/.stayturgid/logs/repair.log 2>/dev/null | tail -1 | grep -oE 'shizuku_auth=[^ ]+')
+echo "${auth:-shizuku_auth=unknown}"
 a11y_list=$(adb -s localhost:5555 shell settings get secure enabled_accessibility_services 2>/dev/null </dev/null | tr -d '\r')
 if [ -z "$a11y_list" ] || [ "$a11y_list" = "null" ]; then
   a11y_list=$(settings get secure enabled_accessibility_services 2>/dev/null | tr -d '\r')
@@ -398,7 +401,7 @@ def _int_age(raw: str | None) -> int | None:
 def _normalize_status_fields(report: dict[str, Any]) -> None:
     if "status_line" not in report:
         return
-    for field in ("a11y", "port", "shizuku", "tailscale", "tailscale_policy"):
+    for field in ("a11y", "port", "shizuku", "tailscale", "tailscale_policy", "shizuku_auth"):
         if field in report:
             continue
         match = re.search(rf"{field}=([^\s]+)", report["status_line"])
@@ -419,6 +422,14 @@ def a11y_profile_missing(alias: str, a11y_list: str | None) -> list[str]:
         return []
     live = set(a11y.parse_services(a11y_list))
     return [s for s in expected if s not in live]
+
+
+ISSUE_HINTS = {
+    "shizuku_auth_unanswered": (
+        "Shizuku's ADB authorisation dialog went unanswered, so every unattended start is withheld; "
+        "on the phone open Shizuku and tap Attempt now"
+    ),
+}
 
 
 def evaluate_health(report: dict[str, Any], *, alias: str | None = None) -> list[str]:
@@ -485,6 +496,9 @@ def evaluate_health(report: dict[str, Any], *, alias: str | None = None) -> list
     if report.get("shizuku_server_stale") == "yes":
         issues.append("shizuku_server_stale")
 
+    if report.get("shizuku_auth") == "unanswered":
+        issues.append("shizuku_auth_unanswered")
+
     # CFEngine is complementary (not critical). Report down but don't alert.
     if report.get("cfengine") == "down":
         issues.append("cfengine_down")
@@ -543,6 +557,7 @@ def summarize(report: dict[str, Any], issues: list[str]) -> str:
         "fleet_profile=%s" % report.get("fleet_profile", "?"),
         "fleet_profile_age=%s" % report.get("fleet_profile_age", "?"),
         "shizuku_server_stale=%s" % report.get("shizuku_server_stale", "?"),
+        "shizuku_auth=%s" % report.get("shizuku_auth", "?"),
         "cfengine=%s" % report.get("cfengine", "?"),
     ]
     if report.get("a11y_missing_n"):
@@ -666,6 +681,8 @@ echo "status_line=$st"
 echo "$st" | grep -oE 'port=[^ ]+' || echo "port=unknown"
 echo "$st" | grep -oE 'shizuku=[^ ]+' || echo "shizuku=unknown"
 echo "$st" | grep -oE 'a11y=[^ ]+' || echo "a11y=unknown"
+auth=$(grep -ah 'STATUS port=.*shizuku_auth=' /sdcard/stayturgid/logs/watchdog.log 2>/dev/null | tail -1 | grep -oE 'shizuku_auth=[^ ]+')
+echo "${auth:-shizuku_auth=unknown}"
 echo "shell5555=skip"
 echo "bootloop=unknown"
 # Same DEVLOG_<SRC>|<line> markers as HEALTH_GATHER's _DEVLOG_TAIL_BODY (see

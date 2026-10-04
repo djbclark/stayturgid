@@ -137,3 +137,56 @@ def test_bootstrap_ssh_user_arg(monkeypatch):
     monkeypatch.setattr(pb, "DEFAULT_SSH_USER", "original-user")
     pb.main(["--ssh-user", "custom-user", "--port", "9012"])
     assert pb.DEFAULT_SSH_USER == "custom-user"
+
+
+def _one_peer(tmp_path, monkeypatch):
+    peers = {
+        "self": {"lan": "1.2.3.4", "tailscale": "100.0.0.11"},
+        "handsets_port": 9012,
+        "peers": [
+            {"name": "peer-a", "lan": "9.9.9.9", "tailscale": "100.9.9.9"},
+            {"name": "peer-b", "lan": "8.8.8.8", "tailscale": "100.8.8.8"},
+        ],
+    }
+    path = tmp_path / "peers"
+    path.write_text(json.dumps(peers))
+    monkeypatch.setattr(pb, "FLEET_KEY", str(tmp_path / "key"))
+    monkeypatch.setattr(pb, "PEERHELP_KEY", str(tmp_path / "missing-peerhelp"))
+    (tmp_path / "key").write_text("x")
+    monkeypatch.setattr(pb, "enabled", lambda: True)
+    monkeypatch.setattr(pb, "_tcp_open", lambda *a, **k: True)
+    return path
+
+
+def test_bootstrap_shizuku_stops_at_first_withheld(monkeypatch, tmp_path):
+    import subprocess
+
+    path = _one_peer(tmp_path, monkeypatch)
+    calls = []
+
+    def ssh_help(host, *, verb, target, port, peer):
+        calls.append((host, target))
+        return subprocess.CompletedProcess([], pb.EXIT_AUTH_UNANSWERED, "WITHHELD", "")
+
+    monkeypatch.setattr(pb, "_ssh_help", ssh_help)
+    ok, detail = pb.bootstrap_shizuku(peers_path=str(path))
+    assert ok is False
+    assert detail == pb.WITHHELD_PREFIX + "via peer-a"
+    # No other peer, address, or target is tried as a workaround.
+    assert calls == [("9.9.9.9", "1.2.3.4:5555")]
+
+
+def test_bootstrap_shizuku_failure_still_tries_other_peers(monkeypatch, tmp_path):
+    import subprocess
+
+    path = _one_peer(tmp_path, monkeypatch)
+    calls = []
+
+    def ssh_help(host, *, verb, target, port, peer):
+        calls.append(host)
+        return subprocess.CompletedProcess([], 1, "", "FAIL")
+
+    monkeypatch.setattr(pb, "_ssh_help", ssh_help)
+    ok, detail = pb.bootstrap_shizuku(peers_path=str(path))
+    assert ok is False and detail == "all peers failed"
+    assert len(calls) == 8
