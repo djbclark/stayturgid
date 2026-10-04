@@ -423,3 +423,18 @@ from before gets one `adb kill-server` per boot from `adb_connect()`. An
 `emulator-5554` dialog stands down the localhost connect just as a
 `localhost:5555` one does; the reset waits until no dialog is up, or until the
 same retry window that re-raises a localhost dialog has passed.
+
+## A revoke kills the uid-2000 watchdog loop along with Shizuku
+
+The detached Shizuku watchdog loop runs under one of adbd's shell sessions, so
+"Revoke USB debugging authorisations" kills it together with the server. The
+repair pass that then finds Termux's key unauthorised can only stand down, and
+nothing restarts Shizuku until the next pass (s24, 2026-10-04: down 15 minutes
+after the operator had accepted Termux's dialog within one).
+
+**How to apply:** the boot loop's sleep between passes watches the shared
+`~/.stayturgid/state/adb-auth-wait` marker. While it exists, `adb devices` is
+read every 10 s (never `adb connect`); when `localhost:5555` is `device` again
+the gate clears the marker and one ordinary repair pass runs, stamped in
+`~/.stayturgid/state/adb-reauth-repair` so the same wait never triggers twice.
+Without a marker the sleep only stats the file once a minute.

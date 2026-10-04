@@ -487,10 +487,7 @@ def daemon_loop() -> None:
             _ensure_dirs()
             _rotate_logs()
 
-            repair = os.path.join(BIN, "stayturgid_repair.py")
-            if os.access(repair, os.X_OK):
-                subprocess.run(["python3", repair], capture_output=True, timeout=300)
-            elif _run(["pgrep", "sshd"], capture_output=True) != 0:
+            if _run_repair_pass() is None and _run(["pgrep", "sshd"], capture_output=True) != 0:
                 if not try_sv_up_sshd():
                     _run_bg(["sshd"])
 
@@ -540,7 +537,104 @@ def daemon_loop() -> None:
             # the only on-device supervisor.
             _boot_log(f"bootloop iteration failed: {type(exc).__name__}: {exc}")
 
-        time.sleep(interval)
+        _sleep_watching_adb_auth(interval)
+
+
+def _run_repair_pass() -> int | None:
+    """One ordinary stayturgid_repair.py run (rc), or None when it is not installed.
+
+    The script's own non-blocking lock turns a run that lands on another pass
+    (cf-agent's bootloop restart, the Mac's ssh heal) into its duplicate branch.
+    """
+    repair = os.path.join(BIN, "stayturgid_repair.py")
+    if not os.access(repair, os.X_OK):
+        return None
+    return subprocess.run(["python3", repair], capture_output=True, timeout=300).returncode
+
+
+# Revoking USB debugging authorisations kills everything under adbd's sessions:
+# the Shizuku server and the uid-2000 watchdog loop that would restart it. The
+# repair pass that finds Termux's key unauthorised can only stand down, and the
+# next one is a full interval away (Shizuku down 15 min after the operator had
+# already accepted the dialog, s24 2026-10-04). While the shared auth-wait marker
+# exists, this loop's sleep reads `adb devices` (no connect, so no dialog) and
+# runs one repair pass as soon as the row is "device" again.
+ADB_REAUTH_POLL_SEC = 10.0
+# With no marker the sleep only stats the file, so a wait that another caller
+# (cf-agent, the Mac's ssh health gather) starts mid-sleep is still noticed.
+ADB_REAUTH_IDLE_SEC = 60.0
+# Rate cap on top of one-pass-per-marker, should the transport flap.
+ADB_REAUTH_MIN_GAP_SEC = 60.0
+ADB_REAUTH_STAMP = os.path.join(STG, "state", "adb-reauth-repair")
+
+
+def _adb_auth_marker_text() -> str | None:
+    """The shared auth-wait marker's content, or None when there is no marker."""
+    if _sh is None:
+        return None
+    try:
+        with open(_sh.adb_auth_marker()) as f:
+            return f.read().strip()
+    except OSError:
+        return None
+
+
+def _reauth_stamp() -> tuple[float, str]:
+    """(when, marker text) of the last pass this loop triggered."""
+    try:
+        with open(ADB_REAUTH_STAMP) as f:
+            when, _, marker = f.read().strip().partition(" ")
+        return float(when), marker
+    except (OSError, ValueError):
+        return 0.0, ""
+
+
+def _repair_on_reauth(marker: str, now: float) -> bool:
+    """Run one repair pass if Termux's key was accepted while *marker* stood.
+
+    The gate confirms "device" and clears the marker (an authorised row costs it
+    one `adb devices`, no connect). The stamp is written before the pass, so a
+    pass that fails or hangs is not retried here; the timer owns recovery.
+    """
+    last, consumed = _reauth_stamp()
+    if marker == consumed or 0 <= now - last < ADB_REAUTH_MIN_GAP_SEC:
+        return False
+    if _sh.adb_devices_state(timeout=5) != "device":
+        return False
+    if _sh.adb_connect(timeout=5) != "device":
+        return False
+    try:
+        os.makedirs(os.path.dirname(ADB_REAUTH_STAMP), exist_ok=True)
+        with open(ADB_REAUTH_STAMP, "w") as f:
+            f.write(f"{int(now)} {marker}\n")
+    except OSError:
+        # Without the stamp nothing bounds a retry of this event.
+        return False
+    _boot_log("adb authorised again: running the repair pass now, not at the next interval")
+    try:
+        outcome = f"rc={_run_repair_pass()}"
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        outcome = type(exc).__name__
+    _boot_log(f"repair pass after adb re-authorisation finished: {outcome}")
+    return True
+
+
+def _sleep_watching_adb_auth(interval: float) -> None:
+    """Sleep *interval*, cutting it short only for one repair pass on re-authorisation."""
+    deadline = time.monotonic() + interval
+    while True:
+        left = deadline - time.monotonic()
+        if left <= 0:
+            return
+        step = ADB_REAUTH_IDLE_SEC
+        marker = _adb_auth_marker_text()
+        if marker is not None:
+            step = ADB_REAUTH_POLL_SEC
+            try:
+                _repair_on_reauth(marker, time.time())
+            except Exception as exc:
+                _boot_log(f"adb re-authorisation check failed: {type(exc).__name__}: {exc}")
+        time.sleep(min(left, step))
 
 
 def _cmd_exists(name: str) -> bool:

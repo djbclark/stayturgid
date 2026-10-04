@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -228,6 +230,162 @@ def test_shell_transport_offline_after_restart_still_recovers_via_rish(monkeypat
     assert (command, name) == (["adb", "-s", "localhost:5555", "shell"], "localhost-adb-rish-recovered")
     assert phone.restarts == 1
     assert not os.path.exists(stayturgid_shell.adb_auth_marker())
+
+
+class _ReauthPhone:
+    """Termux's adb server around a revoke, on a virtual clock. ``rows`` is a
+    timeline of (from_time, localhost:5555 state); ``repair_pass`` stands in
+    for stayturgid_repair.py and records when it ran."""
+
+    def __init__(self, gate):
+        self.gate = gate
+        self.clock = 1_000_000.0
+        self.rows = [(0.0, "device")]
+        self.adb_calls = []
+        self.passes = []
+        self.pass_rc = 0
+        self.log = []
+
+    def state(self):
+        return [row for start, row in self.rows if start <= self.clock][-1]
+
+    def at(self, offset, row):
+        self.rows.append((self.clock + offset, row))
+
+    def sleep(self, seconds):
+        assert seconds > 0
+        self.clock += seconds
+
+    def adb(self, args, timeout=60, input_text=None):
+        self.adb_calls.append((self.clock, args[1]))
+        if args[1] == "devices":
+            out = "List of devices attached\nlocalhost:5555\t%s\n" % self.state()
+            return subprocess.CompletedProcess(args, 0, out, "")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    def revoke(self):
+        """The operator revokes; the repair pass that runs next stands down."""
+        self.rows.append((self.clock, "unauthorized"))
+        assert self.gate.adb_connect(now=self.clock) == "waiting"
+
+    def repair_pass(self):
+        self.passes.append(self.clock)
+        return self.pass_rc
+
+    def connects(self):
+        return [call for call in self.adb_calls if call[1] == "connect"]
+
+
+@pytest.fixture
+def reauth(monkeypatch, tmp_path):
+    import stayturgid_shell
+
+    stg = tmp_path / ".stayturgid"
+    phone = _ReauthPhone(stayturgid_shell)
+    monkeypatch.setattr(stayturgid_shell, "STG", str(stg))
+    monkeypatch.setattr(stayturgid_shell, "_boot_epoch", lambda: None)
+    monkeypatch.setattr(stayturgid_shell, "run", phone.adb)
+    monkeypatch.setattr(start_adb, "_sh", stayturgid_shell)
+    monkeypatch.setattr(start_adb, "ADB_REAUTH_STAMP", str(stg / "state" / "adb-reauth-repair"))
+    monkeypatch.setattr(
+        start_adb, "time", SimpleNamespace(monotonic=lambda: phone.clock, time=lambda: phone.clock, sleep=phone.sleep)
+    )
+    monkeypatch.setattr(start_adb, "_boot_log", phone.log.append)
+    monkeypatch.setattr(start_adb, "_run_repair_pass", phone.repair_pass)
+    return phone
+
+
+def test_reauth_sleep_without_a_marker_does_nothing(reauth):
+    start = reauth.clock
+
+    start_adb._sleep_watching_adb_auth(900)
+
+    assert reauth.clock == start + 900
+    assert reauth.adb_calls == []
+    assert reauth.passes == []
+    assert not os.path.exists(start_adb.ADB_REAUTH_STAMP)
+
+
+def test_reauth_sleep_runs_no_pass_while_the_key_is_still_unauthorised(reauth):
+    reauth.revoke()
+    marker = reauth.gate.adb_auth_marker()
+    reauth.adb_calls.clear()
+    start = reauth.clock
+
+    start_adb._sleep_watching_adb_auth(900)
+
+    assert reauth.clock == start + 900
+    assert reauth.passes == []
+    assert os.path.exists(marker)
+    assert not os.path.exists(start_adb.ADB_REAUTH_STAMP)
+    # Read-only polling at the short cadence: no connect, so no new dialog.
+    assert reauth.connects() == []
+    assert len(reauth.adb_calls) == 900 / start_adb.ADB_REAUTH_POLL_SEC
+
+
+def test_reauth_sleep_runs_one_pass_once_the_key_is_accepted(reauth):
+    reauth.revoke()
+    with open(reauth.gate.adb_auth_marker()) as f:
+        marker_text = f.read().strip()
+    reauth.at(65, "device")
+    start = reauth.clock
+
+    start_adb._sleep_watching_adb_auth(900)
+
+    assert reauth.passes == [start + 70]
+    assert reauth.clock == start + 900
+    assert not os.path.exists(reauth.gate.adb_auth_marker())
+    with open(start_adb.ADB_REAUTH_STAMP) as f:
+        assert f.read().split(None, 1) == [str(int(start + 70)), marker_text + "\n"]
+    assert reauth.connects() == []
+    # The marker is gone, so the rest of the sleep reads nothing from adb.
+    assert [when for when, _ in reauth.adb_calls if when > start + 70] == []
+
+
+def test_reauth_second_event_gets_one_more_pass(reauth):
+    reauth.revoke()
+    reauth.at(30, "device")
+    start_adb._sleep_watching_adb_auth(900)
+    assert len(reauth.passes) == 1
+
+    reauth.revoke()
+    reauth.at(125, "device")
+    second = reauth.clock
+    start_adb._sleep_watching_adb_auth(900)
+
+    assert reauth.passes[1:] == [second + 130]
+    assert len(reauth.passes) == 2
+    assert not os.path.exists(reauth.gate.adb_auth_marker())
+
+
+def test_reauth_failed_pass_is_left_to_the_timer(reauth, monkeypatch):
+    """A marker that survives a failed pass must not retrigger it every 10 s."""
+    reauth.revoke()
+    reauth.at(10, "device")
+    reauth.pass_rc = 1
+    monkeypatch.setattr(reauth.gate, "_clear_adb_auth_marker", lambda: None)
+
+    start_adb._sleep_watching_adb_auth(900)
+
+    assert len(reauth.passes) == 1
+    assert os.path.exists(reauth.gate.adb_auth_marker())
+    assert any("rc=1" in line for line in reauth.log)
+
+
+def test_run_repair_pass_is_the_ordinary_entry(monkeypatch, tmp_path):
+    monkeypatch.setattr(start_adb, "BIN", str(tmp_path))
+    assert start_adb._run_repair_pass() is None
+
+    script = tmp_path / "stayturgid_repair.py"
+    script.write_text("")
+    script.chmod(0o755)
+    ran = []
+    monkeypatch.setattr(
+        start_adb.subprocess, "run", lambda cmd, **kwargs: ran.append(cmd) or subprocess.CompletedProcess(cmd, 3)
+    )
+
+    assert start_adb._run_repair_pass() == 3
+    assert ran == [["python3", str(script)]]
 
 
 def test_launch_accepts_listener_after_client_timeout(monkeypatch):
