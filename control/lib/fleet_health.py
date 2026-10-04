@@ -209,9 +209,10 @@ echo "tasker_monitor=$(_tasker_monitor)"
 # authorisations"). A bare `adb connect` from here then queued one more
 # "Allow USB debugging?" dialog each time. Go through the device's shared gate
 # (stayturgid_shell.py adb-connect), which stands down while a dialog is
-# outstanding. A deploy whose stayturgid_shell.py predates the gate prints
-# nothing, so the same rule runs inline: never reconnect a transport that is
-# waiting on the user. offline/connecting are not that; they get the connect.
+# outstanding. When that helper prints nothing (missing, or a deploy that
+# predates the gate) the gather only reads the localhost:5555 row and never
+# connects: the boot loop owns reconnecting, and an inline connect would skip
+# the helper's emulator-5554 rule and offer Termux's key beside its dialog.
 _ADB_GATE_BODY = r"""
 adb_auth=$(python3 ~/.stayturgid/bin/stayturgid_shell.py adb-connect 2>/dev/null </dev/null)
 case "$adb_auth" in
@@ -221,7 +222,7 @@ case "$adb_auth" in
     case "$(printf '%s' "$_row" | cut -d' ' -f2)" in
       device) adb_auth=device ;;
       unauthorized|authorizing) adb_auth=waiting ;;
-      *) adb connect localhost:5555 >/dev/null 2>&1 </dev/null; adb_auth=unknown ;;
+      *) adb_auth=unknown ;;
     esac ;;
 esac
 echo "adb_auth=$adb_auth"

@@ -116,6 +116,13 @@ def test_adb_connect_uses_shared_gate(monkeypatch):
     assert calls == [{"timeout": 5}]
 
 
+def test_adb_connect_without_the_gate_module_never_connects_bare(monkeypatch):
+    monkeypatch.setattr(start_adb, "_sh", None)
+    monkeypatch.setattr(start_adb, "_run", lambda *args, **kwargs: pytest.fail("bare adb connect bypassed the gate"))
+
+    assert start_adb._adb_connect() == "down"
+
+
 class _StopLoop(BaseException):
     pass
 

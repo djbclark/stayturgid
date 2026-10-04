@@ -286,6 +286,14 @@ def _shell_lib():
     return stayturgid_shell
 
 
+# The import pins the no-emulator-scan setting before this script's first adb
+# call, which can be the one that starts Termux's adb server.
+try:
+    _shell_lib()
+except ImportError:
+    pass
+
+
 def adb_connect():
     """Gated ``adb connect localhost:5555`` → "device", "waiting" or "down".
 

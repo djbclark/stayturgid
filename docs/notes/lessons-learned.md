@@ -403,3 +403,23 @@ error anywhere.
    `check_stayturgid_agent` in `stayturgid.cf`): the command silently never
    runs and the class is never set. **How to apply:** backticks, `expr`,
    `find -mmin` — no `$(`/`${`/`$((` in shell strings CFEngine will scan.
+
+## Termux's adb server connects to the phone's own adbd twice
+
+An adb server scans local odd ports 5555 to 5585 for emulators when it starts.
+On a phone that finds its own adbd on 5555 and holds it as `emulator-5554`,
+beside the `localhost:5555` the fleet connects. Each transport offers Termux's
+key separately, so after "Revoke USB debugging authorisations" the operator
+gets a dialog per transport (s24, 2026-10-04: `adb devices` in Termux listed
+both rows for the same adbd).
+
+**How to apply:** start Termux's adb server with
+`ADB_LOCAL_TRANSPORT_MAX_PORT=5553` (android-tools 37.0.0 honours it; below 5555
+it scans nothing). The variable only matters to the process that starts the
+server, so it is pinned at every possible first caller: importing
+`stayturgid_shell` sets it, and `~/.stayturgid/env` plus the shell profiles
+carry it (`stayturgid_adb_local_transport_max_port`). A server already running
+from before gets one `adb kill-server` per boot from `adb_connect()`. An
+`emulator-5554` dialog stands down the localhost connect just as a
+`localhost:5555` one does; the reset waits until no dialog is up, or until the
+same retry window that re-raises a localhost dialog has passed.

@@ -12,6 +12,12 @@ stayturgid_repo_root: >-
 # run. Change this single value to adjust all periodic timers. 900 = 15 min.
 stayturgid_interval_sec: 900
 
+# Termux's adb server, when it starts, scans local ports 5555 up to this one
+# for emulators and finds the phone's own adbd: a second transport
+# (emulator-5554) beside localhost:5555 that offers Termux's key separately.
+# Below 5555 it scans nothing. Must match ADB_SERVER_ENV in stayturgid_shell.py.
+stayturgid_adb_local_transport_max_port: 5553
+
 stayturgid_termux_packages:
   - openssh
   - android-tools

@@ -42,6 +42,25 @@ ADB_AUTH_RETRY_SEC = min(max(ADB_AUTH_RETRY_SEC, 60), 3600)
 # second transport and re-dials it on its own, so a revoke raised a dialog for
 # each serial.
 LOOPBACK_ALIAS = "127.0.0.1:5555"
+# An adb server scans local odd ports 5555..ADB_LOCAL_TRANSPORT_MAX_PORT for
+# emulators when it starts. On the phone that finds its own adbd and holds it
+# as emulator-5554, a second transport beside localhost:5555 that offers
+# Termux's key on its own (two dialogs after a revoke, s24 2026-10-04). A max
+# below 5555 scans nothing. The variable is read only when a server starts, so
+# every adb client that could be the first one carries it: importing this
+# module pins it for the process and its children, and ~/.stayturgid/env plus
+# the shell profiles carry the same value (stayturgid_adb_local_transport_max_port).
+ADB_SERVER_ENV = {"ADB_LOCAL_TRANSPORT_MAX_PORT": "5553"}
+EMULATOR_ALIAS = "emulator-5554"
+LOCAL_ADBD_SERIALS = (SERIAL, LOOPBACK_ALIAS, EMULATOR_ALIAS)
+
+
+def pin_adb_server_env(environ=None):
+    """Make any adb server started from *environ* (default os.environ) skip the emulator scan."""
+    (os.environ if environ is None else environ).update(ADB_SERVER_ENV)
+
+
+pin_adb_server_env()
 
 
 def _ensure_env():
@@ -192,6 +211,55 @@ def _connect_says_unauthorised(r):
     return "authenticate" in text or "unauthorized" in text
 
 
+BOOT_ID_PATH = "/proc/sys/kernel/random/boot_id"
+
+
+def adb_scan_reset_stamp():
+    return os.path.join(STG, "state", "adb-scan-reset")
+
+
+def _boot_id():
+    try:
+        with open(BOOT_ID_PATH) as f:
+            return f.read().strip() or None
+    except OSError:
+        return None
+
+
+def _scan_reset_done_this_boot():
+    try:
+        with open(adb_scan_reset_stamp()) as f:
+            parts = f.read().split()
+        stamp = float(parts[0])
+    except (OSError, ValueError, IndexError):
+        return False
+    boot_id = _boot_id()
+    if boot_id is not None and len(parts) > 1 and parts[1] != "-":
+        return parts[1] == boot_id
+    boot = _boot_epoch()
+    return boot is None or stamp >= boot
+
+
+def _reset_scanning_server(rows, timeout, now):
+    """``adb kill-server`` at most once per boot, so the next adb call starts a
+    server without the emulator scan. False (nothing done) while any row on
+    another device is waiting on a dialog, after this boot's reset, or when
+    the stamp that bounds it cannot be written."""
+    if any(state in ADB_AUTH_PENDING for s, state in rows.items() if s not in LOCAL_ADBD_SERIALS):
+        return False
+    if _scan_reset_done_this_boot():
+        return False
+    path = adb_scan_reset_stamp()
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w") as f:
+            f.write("%d %s\n" % (int(now), _boot_id() or "-"))
+    except OSError:
+        return False
+    run(["adb", "kill-server"], timeout=timeout)
+    return True
+
+
 def adb_connect(serial=SERIAL, timeout=15, now=None):
     """Connect *serial* unless a dialog for Termux's key is already outstanding.
 
@@ -205,40 +273,64 @@ def adb_connect(serial=SERIAL, timeout=15, now=None):
     ``ADB_AUTH_RETRY_SEC`` across all processes, so a dismissed dialog is
     raised again eventually rather than never or at every caller's cadence.
     Never touches adb_keys or answers a dialog.
+
+    For localhost:5555 every serial of this phone's adbd counts as one: a
+    dialog showing on the server's emulator-5554 or 127.0.0.1:5555 transport
+    stands down the localhost connect too. An emulator-5554 row with no dialog
+    up gets one ``adb kill-server`` per boot, so the server comes back without
+    the scan and holds localhost:5555 alone.
     """
     probe = min(timeout, 10)
     rows = adb_devices_rows(probe)
     if rows is None:
         return "down"
-    if serial == SERIAL and LOOPBACK_ALIAS in rows:
+    local = serial == SERIAL
+    if local and LOOPBACK_ALIAS in rows:
         run(["adb", "disconnect", LOOPBACK_ALIAS], timeout=timeout)
-    state = rows.get(serial, "")
-    if state == "device":
+    if rows.get(serial, "") == "device" and not (local and EMULATOR_ALIAS in rows):
         _clear_adb_auth_marker()
         return "device"
     lock, busy = _take_adb_auth_lock(timeout)
     try:
-        state = adb_devices_state(serial, probe)
-        if state is None:
+        rows = adb_devices_rows(probe)
+        if rows is None:
             return "down"
+        now = time.time() if now is None else now
+        emulator = local and EMULATOR_ALIAS in rows
+        pending = [s for s in (LOCAL_ADBD_SERIALS if local else (serial,)) if rows.get(s) in ADB_AUTH_PENDING]
+        if emulator and not pending and not busy and _reset_scanning_server(rows, timeout, now):
+            rows = adb_devices_rows(probe)
+            if rows is None:
+                return "down"
+        state = rows.get(serial, "")
         if state == "device":
             _clear_adb_auth_marker()
             return "device"
-        now = time.time() if now is None else now
-        if state in ADB_AUTH_PENDING:
+        if pending:
             if busy:
                 # The holder owns the attempt and the dialog is already up.
                 return "waiting"
             age = _adb_auth_marker_age(now)
             if age is not None and age < ADB_AUTH_RETRY_SEC:
                 return "waiting"
-            if age is None and _write_adb_auth_marker(now, state):
+            if age is None and _write_adb_auth_marker(now, rows[pending[0]]):
                 return "waiting"
-            if age is not None:
+            if age is not None and emulator:
+                # The emulator transport cannot be disconnected and adb
+                # re-dials it, so the re-raise is this boot's one server
+                # reset; once that is spent, keep standing down.
+                if not _reset_scanning_server(rows, timeout, now):
+                    _write_adb_auth_marker(now, rows[pending[0]])
+                    return "waiting"
+            elif age is not None:
                 # `adb connect` on a listed transport only answers "already
                 # connected"; dropping it is the one way to put a dismissed
                 # dialog back in front of the user.
                 run(["adb", "disconnect", serial], timeout=timeout)
+            elif emulator:
+                # No marker to bound a stand-down, and a localhost connect
+                # would stack a second dialog on the emulator's.
+                return "down"
         r = run(["adb", "connect", serial], timeout=timeout)
         after = adb_devices_state(serial, probe)
         if after == "device":

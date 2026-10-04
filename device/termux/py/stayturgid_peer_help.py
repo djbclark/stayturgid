@@ -24,6 +24,11 @@ import subprocess
 import sys
 import time
 
+try:
+    import stayturgid_shell
+except ImportError:
+    stayturgid_shell = None
+
 HOME = os.environ.get("HOME", "/data/data/com.termux/files/home")
 STG = os.path.join(HOME, ".stayturgid")
 DEFAULT_JAR = os.path.join(STG, "lib", "hs.jar")
@@ -35,6 +40,9 @@ FLEET_ADBKEY = os.environ.get("STAYTURGID_FLEET_ADBKEY", os.path.join(STG, "adbk
 
 def _adb_env() -> dict[str, str]:
     env = os.environ.copy()
+    if stayturgid_shell is not None:
+        # This adb is Termux's own server; a peer connect can be what starts it.
+        stayturgid_shell.pin_adb_server_env(env)
     if os.path.isfile(FLEET_ADBKEY):
         # Prefer fleet key for peer connections; keep device key as fallback.
         existing = env.get("ADB_VENDOR_KEYS", "")

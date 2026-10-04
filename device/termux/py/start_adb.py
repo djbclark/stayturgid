@@ -45,6 +45,12 @@ try:
     import termux_api as tapi
 except ImportError:
     tapi = None
+# Deployed beside this script by the same copy loop. Importing it pins the
+# no-emulator-scan setting for every adb server this loop or its children start.
+try:
+    import stayturgid_shell as _sh
+except ImportError:
+    _sh = None
 
 
 def _cfserverd_argv() -> list[str]:
@@ -330,11 +336,9 @@ def _adb_connect() -> str:
     (stayturgid_shell.adb_connect), so an unauthorised Termux key gets one
     "Allow USB debugging?" dialog rather than one per caller per cycle.
     """
-    try:
-        import stayturgid_shell as sh
-    except ImportError:
-        return "device" if _run(["adb", "connect", "localhost:5555"], timeout=5) == 0 else "down"
-    return sh.adb_connect(timeout=5)
+    if _sh is None:
+        return "down"
+    return _sh.adb_connect(timeout=5)
 
 
 def _localhost_adb_state() -> str:

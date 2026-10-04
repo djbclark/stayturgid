@@ -101,9 +101,7 @@ def _run_gate(env):
 
 def test_health_gather_connects_only_through_the_gate():
     assert fh._ADB_GATE_BODY in fh.HEALTH_GATHER
-    # The one remaining bare connect is the pre-gate fallback, behind its
-    # own "not listed" check.
-    assert fh.HEALTH_GATHER.count("adb connect localhost:5555") == 1
+    assert "adb connect" not in fh.HEALTH_GATHER
 
 
 def test_health_gather_gate_unauthorised_never_reconnects(tmp_path):
@@ -132,27 +130,27 @@ def test_health_gather_gate_authorised_is_unchanged(tmp_path):
     assert calls == ["devices"]
 
 
-@pytest.mark.parametrize("helper", [True, False])
-def test_health_gather_gate_offline_still_connects(tmp_path, helper):
-    """offline is a closed 5555 or an adbd restart, not a dialog: the gather
+def test_health_gather_gate_offline_still_connects(tmp_path):
+    """offline is a closed 5555 or an adbd restart, not a dialog: the gate
     keeps master's connect, and no back-off marker is written."""
-    env = _gate_sandbox(tmp_path, "offline", helper=helper, after_connect="device")
+    env = _gate_sandbox(tmp_path, "offline", after_connect="device")
     state, calls = _run_gate(env)
-    assert state == ("device" if helper else "unknown")
+    assert state == "device"
     assert "connect localhost:5555" in calls
     assert not (tmp_path / "home" / ".stayturgid" / "state" / "adb-auth-wait").exists()
 
 
-def test_health_gather_gate_fallback_for_pre_gate_deploy(tmp_path):
-    env = _gate_sandbox(tmp_path, "unauthorized", helper=False)
+@pytest.mark.parametrize(
+    ("row", "expected"),
+    [("unauthorized", "waiting"), ("device", "device"), ("offline", "unknown"), ("", "unknown")],
+)
+def test_health_gather_gate_fallback_without_helper_never_connects(tmp_path, row, expected):
+    """Without stayturgid_shell.py the gather reads the row and leaves the
+    connect to the boot loop, whose gate knows about emulator-5554."""
+    env = _gate_sandbox(tmp_path, row, helper=False, after_connect="device")
     state, calls = _run_gate(env)
-    assert state == "waiting"
+    assert state == expected
     assert calls == ["devices"]
-
-    env = _gate_sandbox(tmp_path / "absent", "", helper=False, after_connect="device")
-    state, calls = _run_gate(env)
-    assert state == "unknown"
-    assert calls == ["devices", "connect localhost:5555"]
 
 
 def test_extract_devlog_lines_splits_markers_and_keeps_rest():
