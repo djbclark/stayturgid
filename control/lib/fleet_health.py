@@ -102,6 +102,31 @@ grep -ah -E '\[repair\] (ERR|WARNING):' "$SD/logs/watchdog.log" /sdcard/stayturg
 grep -ah '\[agent\]' "$SD/logs/agent.log" /sdcard/stayturgid/logs/agent.log 2>/dev/null | grep -v ' STATUS ' | grep -iE 'FAILED|error=|still down' | tail -20 | while IFS= read -r l; do echo "DEVLOG_AGENT|$l"; done
 """
 
+# ShizukuTendCF's record of its last fleet-profile apply, written after every
+# attempt (FleetApplyReport.kt; shizuku_start reads the same file at deploy).
+# `am start` exits 0 whatever the apply did, so this is the only place a failed
+# apply shows up. Read through adb shell: Termux cannot read another app's
+# external files dir on Android 11+. "missing" covers app builds that predate
+# the file, so only an explicit "success":false becomes an issue. org.json
+# escapes quotes inside strings, so profile text echoed into "errors" cannot
+# fake either key.
+_FLEET_PROFILE_BODY = r"""
+_fp=$(adb -s localhost:5555 shell 'cat /sdcard/Android/data/moe.shizuku.privileged.api/files/fleet/last-apply.json 2>/dev/null' 2>/dev/null </dev/null | tr -d '\r')
+if printf '%s' "$_fp" | grep -qE '"success": *true'; then
+  echo "fleet_profile=ok"
+elif printf '%s' "$_fp" | grep -qE '"success": *false'; then
+  echo "fleet_profile=failed"
+else
+  echo "fleet_profile=missing"
+fi
+_fp_ts=$(printf '%s' "$_fp" | sed -n 's/.*"ts": *\([0-9][0-9]*\).*/\1/p')
+if [ -n "$_fp_ts" ]; then
+  echo "fleet_profile_age=$(($(date +%s) - _fp_ts))"
+else
+  echo "fleet_profile_age=missing"
+fi
+"""
+
 HEALTH_GATHER = (
     r"""
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
@@ -215,6 +240,9 @@ _tasker_recover_age() {
   echo $(($(date +%s) - ts))
 }
 echo "tasker_recover_age=$(_tasker_recover_age)"
+"""
+    + _FLEET_PROFILE_BODY
+    + r"""
 # CFEngine self-heal: scrape last line of its repair log for visibility.
 cf_line=$(tail -1 "$HOME/.stayturgid/logs/repair-cfengine.log" 2>/dev/null)
 if [ -n "$cf_line" ]; then
@@ -360,6 +388,10 @@ def evaluate_health(report: dict[str, Any], *, alias: str | None = None) -> list
             issues.append("a11y_profile_drift")
             report["a11y_missing_n"] = str(len(missing))
 
+    # Only an explicit failure: "missing" is an app build that predates the file.
+    if report.get("fleet_profile") == "failed":
+        issues.append("fleet_profile_failed")
+
     # CFEngine is complementary (not critical). Report down but don't alert.
     if report.get("cfengine") == "down":
         issues.append("cfengine_down")
@@ -396,6 +428,8 @@ def summarize(report: dict[str, Any], issues: list[str]) -> str:
         "a11y=%s" % report.get("a11y", "?"),
         "autojs6_a11y=%s" % report.get("autojs6_a11y", "?"),
         "tasker_recover_age=%s" % report.get("tasker_recover_age", "?"),
+        "fleet_profile=%s" % report.get("fleet_profile", "?"),
+        "fleet_profile_age=%s" % report.get("fleet_profile_age", "?"),
         "cfengine=%s" % report.get("cfengine", "?"),
     ]
     if report.get("a11y_missing_n"):

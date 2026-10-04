@@ -101,6 +101,20 @@
   changed_when: false
   delegate_to: localhost
 
+# am start exits 0 whatever the apply did and the silent apply shows nothing,
+# so the app's own result file (files/fleet/last-apply.json, written after
+# every attempt) is the only record. The phone's clock, not the Mac's, decides
+# which record belongs to this apply.
+- name: Note the device clock before applying the Shizuku fleet profile
+  ansible.builtin.shell: |
+    {{ stayturgid_adb_bin | default('adb') }} -s \
+      "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}" \
+      shell date +%s
+  register: _shizuku_fp_before
+  changed_when: false
+  failed_when: false
+  delegate_to: localhost
+
 - name: Apply Shizuku fleet profile via intent
   stayturgid.android_common.android_intent:
     device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
@@ -126,6 +140,45 @@
   changed_when: false
   delegate_to: localhost
   when: stayturgid_no_local_adb | default(false) | bool
+
+# Prints the record once its ts reaches the pre-apply clock, else "unreported"
+# (an app build that predates the file): that must not fail the play.
+- name: Read the Shizuku fleet profile apply result
+  ansible.builtin.shell: |
+    before={{ _shizuku_fp_before.stdout | default('') | regex_replace('[^0-9]', '') | default('0', true) }}
+    for _ in 1 2 3 4 5 6 7 8 9 10; do
+      out=$({{ stayturgid_adb_bin | default('adb') }} -s \
+        "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}" \
+        shell 'cat /sdcard/Android/data/moe.shizuku.privileged.api/files/fleet/last-apply.json 2>/dev/null' | tr -d '\r')
+      ts=$(printf '%s' "$out" | sed -n 's/.*"ts": *\([0-9][0-9]*\).*/\1/p')
+      if [ -n "$ts" ] && [ "$ts" -ge "$before" ]; then
+        printf '%s\n' "$out"
+        exit 0
+      fi
+      sleep 1
+    done
+    echo unreported
+  register: _shizuku_fp_result
+  changed_when: false
+  delegate_to: localhost
+
+- name: Record the Shizuku fleet profile apply result
+  ansible.builtin.set_fact:
+    shizuku_fleet_profile_result: >-
+      {{ 'unreported'
+         if (_shizuku_fp_result.stdout | default('unreported') | trim) == 'unreported'
+         else (_shizuku_fp_result.stdout | from_json) }}
+
+- name: Fail when the app reports the Shizuku fleet profile apply failed
+  ansible.builtin.assert:
+    that:
+      - shizuku_fleet_profile_result is string or (shizuku_fleet_profile_result.success | default(true) | bool)
+    fail_msg: >-
+      Shizuku fleet profile apply failed on {{ inventory_hostname }}:
+      {{ shizuku_fleet_profile_result.message | default('?') }}
+    success_msg: >-
+      Shizuku fleet profile: {{ shizuku_fleet_profile_result if shizuku_fleet_profile_result is string
+      else shizuku_fleet_profile_result.message | default('applied') }}
 
 - name: Send HEADLESS_START to Shizuku
   stayturgid.android_common.android_intent:

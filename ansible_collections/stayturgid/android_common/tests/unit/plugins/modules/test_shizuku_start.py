@@ -12,6 +12,31 @@ sys.path.insert(0, os.path.join(ROOT, "plugins", "module_utils"))
 
 import shizuku_start as mod
 
+
+@pytest.fixture(autouse=True)
+def _no_result_wait(monkeypatch):
+    # Most fakes return "" for the result file; without this every apply
+    # would poll the full FLEET_RESULT_TIMEOUT before reporting "unreported".
+    monkeypatch.setattr(mod, "FLEET_RESULT_TIMEOUT", 0)
+
+
+def result_json(ts, success=True, message="Applied 5 preferences, skipped 0"):
+    return json.dumps(
+        {
+            "schema": 1,
+            "ts": ts,
+            "success": success,
+            "applied": 5 if success else 0,
+            "skipped": 0,
+            "errors": [] if success else ["Path not allowed"],
+            "message": message,
+            "profile_sha256": "ab" * 32,
+            "source": "path",
+            "app_version": "13.6.0",
+        }
+    )
+
+
 # --- pure-function unit tests ---
 
 
@@ -103,6 +128,53 @@ def test_send_headless_start():
     assert mod.send_headless_start(run, "dev") is True
 
 
+def test_device_epoch():
+    assert mod.device_epoch(fake_run([("date +%s", (0, "1759500000\r\n", ""))]), "dev") == 1759500000
+    assert mod.device_epoch(fake_run([("date +%s", (0, "", ""))]), "dev") is None
+    assert mod.device_epoch(fake_run([("date +%s", (1, "1759500000", ""))]), "dev") is None
+
+
+def test_read_fleet_result_parses_the_app_record():
+    run = fake_run([("last-apply.json", (0, result_json(100) + "\r\n", ""))])
+    result = mod.read_fleet_result(run, "dev")
+    assert result["ts"] == 100
+    assert result["success"] is True
+
+
+@pytest.mark.parametrize("out", ["", "not json", "[1, 2]", '{"success": true}', '{"ts": "100"}'])
+def test_read_fleet_result_rejects_absent_or_malformed(out):
+    assert mod.read_fleet_result(fake_run([("last-apply.json", (0, out, ""))]), "dev") is None
+
+
+def test_fleet_result_baseline_prefers_the_device_clock():
+    run = fake_run([("date +%s", (0, "500\n", "")), ("last-apply.json", (0, result_json(100), ""))])
+    assert mod.fleet_result_baseline(run, "dev") == 500
+
+
+def test_fleet_result_baseline_without_clock_needs_a_newer_record():
+    run = fake_run([("date +%s", (0, "", "")), ("last-apply.json", (0, result_json(100), ""))])
+    assert mod.fleet_result_baseline(run, "dev") == 101
+    assert mod.fleet_result_baseline(fake_run([("date +%s", (0, "", ""))]), "dev") == 0
+
+
+def test_wait_fleet_result_accepts_same_second():
+    run = fake_run([("last-apply.json", (0, result_json(500), ""))])
+    assert mod.wait_fleet_result(run, "dev", since=500)["ts"] == 500
+
+
+def test_wait_fleet_result_stale_or_missing_is_unreported():
+    stale = fake_run([("last-apply.json", (0, result_json(499), ""))])
+    assert mod.wait_fleet_result(stale, "dev", since=500, timeout=0) == "unreported"
+    assert mod.wait_fleet_result(fake_run(), "dev", since=500, timeout=0) == "unreported"
+
+
+def test_fleet_result_failed_only_on_explicit_false():
+    assert mod.fleet_result_failed(json.loads(result_json(1, success=False))) is True
+    assert mod.fleet_result_failed(json.loads(result_json(1))) is False
+    assert mod.fleet_result_failed("unreported") is False
+    assert mod.fleet_result_failed({"ts": 1}) is False
+
+
 # --- module integration tests ---
 
 
@@ -177,6 +249,56 @@ def test_module_skips_when_already_up(mocker):
     # stayturgid#34: watchdog defaults to off in the app and is only ever
     # set by this profile.
     assert out["fleet_profile_reconciled"] is True
+    # The fake has no result file: an app build that predates it never fails the task.
+    assert out["fleet_profile_result"] == "unreported"
+
+
+ALREADY_UP = [
+    ("pm path", (0, "package:/data/app/.../base.apk\n", "")),
+    ("HEADLESS_STATUS", (0, "Broadcast completed: result=1\n", "")),
+    ("/proc/net/tcp", (0, "open\n", "")),
+    ("date +%s", (0, "1000\n", "")),
+]
+
+
+def test_module_reports_successful_apply_result(mocker):
+    out = run_module(
+        mocker,
+        dict(device="dev", connect=False),
+        cmd_results=ALREADY_UP + [("last-apply.json", (0, result_json(1001), ""))],
+    )
+    assert out.get("failed") is not True, out
+    assert out["fleet_profile_reconciled"] is True
+    assert out["fleet_profile_result"]["success"] is True
+    assert out["fleet_profile_result"]["applied"] == 5
+
+
+def test_module_fails_when_app_reports_failed_apply(mocker):
+    # 2026-10-03: every apply failed for hours with "Profile must be under ..."
+    # while am start exited 0 and the silent apply showed nothing.
+    out = run_module(
+        mocker,
+        dict(device="dev", connect=False),
+        cmd_results=ALREADY_UP
+        + [("last-apply.json", (0, result_json(1000, success=False, message="Profile must be under /x"), ""))],
+    )
+    assert out.get("failed") is True
+    assert "Profile must be under /x" in out["msg"]
+    assert out["fleet_profile_reconciled"] is False
+    assert out["fleet_profile_result"]["success"] is False
+    assert out["shizuku"] == "already_up"
+
+
+def test_module_ignores_stale_failed_result(mocker):
+    # A failure recorded before this run's apply is not this run's outcome.
+    out = run_module(
+        mocker,
+        dict(device="dev", connect=False),
+        cmd_results=ALREADY_UP + [("last-apply.json", (0, result_json(999, success=False), ""))],
+    )
+    assert out.get("failed") is not True, out
+    assert out["fleet_profile_result"] == "unreported"
+    assert out["fleet_profile_reconciled"] is True
 
 
 def test_module_reconciles_profile_when_already_up_no_port(mocker):
@@ -216,6 +338,7 @@ def test_module_reports_reconcile_failure_when_already_up(mocker):
     assert out["changed"] is False
     assert out["shizuku"] == "already_up"
     assert out["fleet_profile_reconciled"] is False
+    assert out["fleet_profile_result"] == "unreported"
 
 
 def test_module_fails_when_not_installed(mocker):
@@ -303,6 +426,32 @@ def test_module_starts_with_headless(mocker):
     assert out["changed"] is True
     assert out["shizuku"] == "up"
     assert out["port5555"] == "open"
+
+
+def test_module_cold_start_still_fails_on_failed_apply(mocker):
+    out = run_module(
+        mocker,
+        dict(device="dev", connect=False, start_timeout=1),
+        cmd_results=[
+            ("pm path", (0, "package:/data/app/.../base.apk\n", "")),
+            (
+                "HEADLESS_STATUS",
+                [
+                    (0, "Broadcast completed: result=0\n", ""),
+                    (0, "Broadcast completed: result=1\n", ""),
+                ],
+            ),
+            ("pgrep -f '[s]hizuku_(plus_)?server'", (1, "", "")),
+            ("/proc/net/tcp", (0, "open\n", "")),
+            ("date +%s", (0, "1000\n", "")),
+            ("last-apply.json", (0, result_json(1000, success=False, message="Invalid JSON"), "")),
+        ],
+    )
+    assert out.get("failed") is True
+    # Shizuku itself did start; only the profile failed.
+    assert out["changed"] is True
+    assert out["shizuku"] == "up"
+    assert "Invalid JSON" in out["msg"]
 
 
 def test_module_native_fallback(mocker):

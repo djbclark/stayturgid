@@ -521,6 +521,8 @@ def _record_soft_health_snapshot(
         sshd=report.get("sshd") or "unknown",
         shell5555=report.get("shell5555") or "unknown",
         bootloop=report.get("bootloop") or "unknown",
+        fleet_profile=report.get("fleet_profile") or "unknown",
+        fleet_profile_age=_age_field(report.get("fleet_profile_age")),
         issues=",".join(issues) if issues else "none",
         issue_count=len(issues),
     )

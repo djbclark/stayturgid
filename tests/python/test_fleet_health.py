@@ -703,3 +703,93 @@ def test_evaluate_tasker_recover_is_advisory_only():
 def test_summarize_includes_tasker_recover_age():
     s = fh.summarize({"tasker_recover_age": "missing"}, [])
     assert "tasker_recover_age=missing" in s
+
+
+def _run_fleet_profile_body(tmp_path, adb_stdout: str) -> dict[str, str]:
+    """Run _FLEET_PROFILE_BODY under bash with a fake adb that prints *adb_stdout*."""
+    import subprocess
+
+    (tmp_path / "out.txt").write_text(adb_stdout)
+    # A shell function, not a PATH shim: a BASH_ENV that rebuilds PATH would
+    # otherwise put the real adb first and reach for a device.
+    script = "adb() { cat '%s'; }\n%s" % (tmp_path / "out.txt", fh._FLEET_PROFILE_BODY)
+    env = {k: v for k, v in os.environ.items() if k != "BASH_ENV"}
+    r = subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=env, timeout=10)
+    assert r.returncode == 0, r.stderr
+    return fh.parse_kv(r.stdout)
+
+
+def _apply_record(ts: int, success: bool, errors: str = "[]") -> str:
+    return (
+        '{"schema":1,"ts":%d,"success":%s,"applied":5,"skipped":0,"errors":%s,'
+        '"message":"Applied 5 preferences, skipped 0","profile_sha256":null,'
+        '"source":"path","app_version":"13.6.0"}\r\n' % (ts, "true" if success else "false", errors)
+    )
+
+
+def test_health_gather_includes_fleet_profile_probe():
+    assert fh._FLEET_PROFILE_BODY in fh.HEALTH_GATHER
+    assert "files/fleet/last-apply.json" in fh.HEALTH_GATHER
+    assert "adb -s localhost:5555 shell" in fh._FLEET_PROFILE_BODY
+
+
+def test_fleet_profile_body_ok(tmp_path):
+    ts = int(datetime.datetime.now().timestamp()) - 120
+    out = _run_fleet_profile_body(tmp_path, _apply_record(ts, True))
+    assert out["fleet_profile"] == "ok"
+    assert 115 <= int(out["fleet_profile_age"]) <= 180
+
+
+def test_fleet_profile_body_failed(tmp_path):
+    out = _run_fleet_profile_body(tmp_path, _apply_record(1, False, '["Path not allowed"]'))
+    assert out["fleet_profile"] == "failed"
+    assert int(out["fleet_profile_age"]) > 0
+
+
+def test_fleet_profile_body_missing(tmp_path):
+    out = _run_fleet_profile_body(tmp_path, "")
+    assert out == {"fleet_profile": "missing", "fleet_profile_age": "missing"}
+
+
+def test_fleet_profile_body_escaped_error_text_cannot_flip_the_verdict(tmp_path):
+    # An unknown profile key is echoed into errors; org.json escapes its quotes.
+    errors = r'["Unknown key: \"success\":true,\"ts\":9"]'
+    out = _run_fleet_profile_body(tmp_path, _apply_record(5, False, errors))
+    assert out["fleet_profile"] == "failed"
+    assert int(out["fleet_profile_age"]) > 1_000_000
+
+
+def test_evaluate_fleet_profile_failed_is_an_issue():
+    report = {
+        "ssh_echo": "ok",
+        "sshd": "ok",
+        "repair_age": "200",
+        "agent_heartbeat_age": "60",
+        "a11y": "ok",
+        "port": "open",
+        "shizuku": "up",
+    }
+    assert fh.evaluate_health(dict(report, fleet_profile="failed")) == ["fleet_profile_failed"]
+    # Older app builds write no record: missing must never be an issue.
+    for value in ("ok", "missing", None):
+        r = dict(report) if value is None else dict(report, fleet_profile=value, fleet_profile_age="missing")
+        assert fh.evaluate_health(r) == []
+
+
+def test_summarize_includes_fleet_profile():
+    s = fh.summarize({"fleet_profile": "failed", "fleet_profile_age": "42"}, ["fleet_profile_failed"])
+    assert "fleet_profile=failed" in s
+    assert "fleet_profile_age=42" in s
+    assert "issues=fleet_profile_failed" in s
+
+
+def test_soft_health_snapshot_carries_fleet_profile(monkeypatch):
+    events = []
+    monkeypatch.setattr(fhm, "_stats_event", lambda etype, device, **d: events.append((etype, device, d)))
+    fhm._record_soft_health_snapshot("p7a", "ssh", {"fleet_profile": "ok", "fleet_profile_age": "300"}, [])
+    fhm._record_soft_health_snapshot("p7a", "adb:x", {}, [])
+    assert events[0][2]["fleet_profile"] == "ok"
+    assert events[0][2]["fleet_profile_age"] == 300
+    # The adb fallback probe never gathers it: unknown, not missing.
+    assert events[1][2]["fleet_profile"] == "unknown"
+    assert events[1][2]["fleet_profile_age"] == "unknown"

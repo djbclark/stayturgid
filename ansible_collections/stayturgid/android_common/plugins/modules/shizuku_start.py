@@ -66,8 +66,18 @@ fleet_profile_reconciled:
     (not just on a cold start) keeps a device from silently drifting out of
     its self-healing configuration.
   type: bool
+fleet_profile_result:
+  description: >-
+    The app's own record of this run's apply, read back from
+    C(files/fleet/last-apply.json) (schema, ts, success, applied, skipped,
+    errors, message, profile_sha256, source, app_version). The string
+    C(unreported) when no result newer than the apply appeared (an app build
+    that predates the file, or the apply never ran). The task fails when the
+    record says C(success=false).
+  type: raw
 """
 
+import json
 import time
 
 from ansible.module_utils.basic import AnsibleModule
@@ -89,6 +99,12 @@ FLEET_PROFILE_PATH = "/data/local/tmp/shizuku-fleet.json"
 # here before the apply. adb shell can write this dir; other apps cannot.
 FLEET_APPLY_DIR = "/sdcard/Android/data/%s/files" % SHIZUKU_PKG
 FLEET_APPLY_PATH = FLEET_APPLY_DIR + "/shizuku-fleet.json"
+# `am start` exits 0 whatever the apply did and the silent apply shows nothing,
+# so the app's result file (FleetApplyReport.kt) is the only record of the
+# outcome. Same file fleet_health.HEALTH_GATHER reads.
+FLEET_RESULT_PATH = FLEET_APPLY_DIR + "/fleet/last-apply.json"
+FLEET_RESULT_TIMEOUT = 10
+FLEET_RESULT_UNREPORTED = "unreported"
 
 DEFAULT_FLEET_PROFILE = {
     "mode": "adb",
@@ -172,7 +188,6 @@ except ImportError:
 
 
 def push_fleet_profile(module, device, profile):
-    import json
     import os
     import tempfile
 
@@ -216,6 +231,59 @@ def apply_fleet_profile(run_command, device):
     return rc == 0
 
 
+def device_epoch(run_command, device):
+    rc, out, _err = adb_shell(run_command, device, "date +%s")
+    text = normalize_adb_output(out)
+    if rc != 0 or not text.isdigit():
+        return None
+    return int(text)
+
+
+def read_fleet_result(run_command, device):
+    """The app's last apply record as a dict, or None if absent/unparseable."""
+    rc, out, _err = adb_shell(run_command, device, "cat %s 2>/dev/null" % FLEET_RESULT_PATH)
+    if rc != 0:
+        return None
+    try:
+        data = json.loads(normalize_adb_output(out))
+    except ValueError:
+        return None
+    if not isinstance(data, dict) or not isinstance(data.get("ts"), int):
+        return None
+    return data
+
+
+def fleet_result_baseline(run_command, device):
+    """The earliest ``ts`` that can belong to an apply started now.
+
+    Taken from the phone's own clock, so Mac/phone skew cannot make a fresh
+    result look stale. Inclusive because ``ts`` is whole seconds. Without a
+    readable clock, anything newer than the record already there will do.
+    """
+    now = device_epoch(run_command, device)
+    if now is not None:
+        return now
+    prior = read_fleet_result(run_command, device)
+    return prior["ts"] + 1 if prior else 0
+
+
+def wait_fleet_result(run_command, device, since, timeout=None):
+    """Poll for a result with ``ts >= since``; FLEET_RESULT_UNREPORTED if none."""
+    deadline = time.time() + (FLEET_RESULT_TIMEOUT if timeout is None else timeout)
+    while True:
+        result = read_fleet_result(run_command, device)
+        if result is not None and result["ts"] >= since:
+            return result
+        if time.time() >= deadline:
+            return FLEET_RESULT_UNREPORTED
+        time.sleep(1)
+
+
+def fleet_result_failed(result):
+    # Only an explicit false fails: "unreported" is an older app build.
+    return isinstance(result, dict) and result.get("success") is False
+
+
 def reconcile_fleet_profile(module, device, profile):
     """Push + apply the fleet profile regardless of whether Shizuku was just
     started or was already running.
@@ -228,15 +296,33 @@ def reconcile_fleet_profile(module, device, profile):
     never gets reconciled as long as Shizuku happens to stay up — silently
     disarming the binder-death auto-restart chain the profile is meant to
     arm. See stayturgid#34.
+
+    Returns ``(reconciled, result)``: ``result`` is the app's apply record
+    (see read_fleet_result) or FLEET_RESULT_UNREPORTED.
     """
     ok, msg = push_fleet_profile(module, device, profile)
     if not ok:
         module.warn("fleet profile reconciliation: %s" % msg)
-        return False
+        return False, FLEET_RESULT_UNREPORTED
+    since = fleet_result_baseline(module.run_command, device)
     if not apply_fleet_profile(module.run_command, device):
         module.warn("fleet profile reconciliation: apply_fleet_profile failed")
-        return False
-    return True
+        return False, FLEET_RESULT_UNREPORTED
+    result = wait_fleet_result(module.run_command, device, since)
+    if result == FLEET_RESULT_UNREPORTED:
+        module.warn(
+            "fleet profile apply sent but the app reported no result in %ds "
+            "(app build predates %s?)" % (FLEET_RESULT_TIMEOUT, FLEET_RESULT_PATH)
+        )
+    return not fleet_result_failed(result), result
+
+
+def finish(module, fleet_result, **result):
+    """exit_json, or fail_json when the app recorded a failed apply."""
+    result["fleet_profile_result"] = fleet_result
+    if fleet_result_failed(fleet_result):
+        module.fail_json(msg="fleet profile apply failed on the device: %s" % fleet_result.get("message"), **result)
+    module.exit_json(**result)
 
 
 def main():
@@ -272,8 +358,10 @@ def main():
     port_open = port5555_open(module.run_command, device) if running else False
 
     if running and port_open:
-        reconciled = reconcile_fleet_profile(module, device, profile)
-        module.exit_json(
+        reconciled, fleet_result = reconcile_fleet_profile(module, device, profile)
+        finish(
+            module,
+            fleet_result,
             changed=False,
             shizuku="already_up",
             start_method="already_up",
@@ -282,8 +370,10 @@ def main():
         )
 
     if running and not port_open:
-        reconciled = reconcile_fleet_profile(module, device, profile)
-        module.exit_json(
+        reconciled, fleet_result = reconcile_fleet_profile(module, device, profile)
+        finish(
+            module,
+            fleet_result,
             changed=False,
             shizuku="up_no_port",
             start_method="already_up",
@@ -307,7 +397,7 @@ def main():
             else:
                 module.fail_json(msg="Shizuku failed to start via both HEADLESS_START and native launch")
 
-    reconciled = reconcile_fleet_profile(module, device, profile)
+    reconciled, fleet_result = reconcile_fleet_profile(module, device, profile)
     time.sleep(1)
     send_headless_start(module.run_command, device)
 
@@ -321,7 +411,9 @@ def main():
     final_port = "open" if port5555_open(module.run_command, device) else "closed"
 
     if final_running and final_port == "open":
-        module.exit_json(
+        finish(
+            module,
+            fleet_result,
             changed=True,
             shizuku="up",
             start_method=start_method,
@@ -330,7 +422,9 @@ def main():
         )
     elif final_running:
         module.warn("Shizuku is running but port 5555 is closed — fleet profile may need a second apply")
-        module.exit_json(
+        finish(
+            module,
+            fleet_result,
             changed=True,
             shizuku="up_no_port",
             start_method=start_method,
@@ -338,7 +432,10 @@ def main():
             fleet_profile_reconciled=reconciled,
         )
     else:
-        module.fail_json(msg="Shizuku failed to come up within %ds timeout" % module.params["start_timeout"])
+        module.fail_json(
+            msg="Shizuku failed to come up within %ds timeout" % module.params["start_timeout"],
+            fleet_profile_result=fleet_result,
+        )
 
 
 if __name__ == "__main__":
