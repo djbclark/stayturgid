@@ -104,13 +104,21 @@ stayturgid_bootstrap_apks:
     version_name: 1.03.01-0e1ebb4-01.10.26
     checksum: "sha256:97e1c5d471cbb6af84267d7d2d3c475f3862ad2cc2aecebfe98ed0097a0164c0"
     mutable_tag_snapshot: true
+  # ShizukuTendCF Drop-In flavor: package id stays moe.shizuku.privileged.api
+  # (a true drop-in for stock Shizuku), manager namespace is af.shizuku.manager.
+  # resign is FALSE here, unlike every other fork entry: the release is signed
+  # with the project's own release key (SHA-256 18a40a45…1ce431), which is the
+  # key the fleet's installed r2772 already carries, so this is an in-place
+  # upgrade that preserves Shizuku's per-app authorizations. Resigning with the
+  # Mac debug key would force a signature-mismatch clean reinstall and lose
+  # every grant. Asset name + checksum from the release's SHA256SUMS.
   - id: moe.shizuku.privileged.api
-    gh_repo: frdminc/Shizuku
-    gh_tag: "v13.7.0-thedjchi+stayturgid-release46"
-    gh_pattern: "shizuku-v13.7.0-thedjchi+stayturgid-release46-universal.apk"
-    version_name: "13.7.0-thedjchi+stayturgid-release46"
-    checksum: "sha256:f42013dc8bc9ec85a5f61a99ea2f4b84bd397f52d2f5542d5532142ee3668da1"
-    resign: true
+    gh_repo: frdminc/ShizukuTendCF
+    gh_tag: "13.7.0.r2781"
+    gh_pattern: "ShizukuTendCF-Drop-In-13.7.0.r2781.apk"
+    version_name: "ShizukuTendCF 13.7.0.r2781"
+    checksum: "sha256:6498e21584b7e2511af5888e86315a40524b0b951708a1cb6d1ae86642409fa6"
+    resign: false
     monkey: true
     battery_unrestricted: true
     # Fire OS 8 does not re-extract native libs on an in-place upgrade, which
