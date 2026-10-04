@@ -104,6 +104,53 @@ Requires SSH keys on the Mac control node (`~/.ssh/*.pub` auto-synced to every d
 
 ---
 
+## Keyguard-proof sshd recovery (Tasker)
+
+When Android kills every Termux process and the keyguard is locked, the only
+recovery that needs no unlock is a broadcast from the Mac:
+`adb shell am broadcast -a com.stayturgid.SSHD_RECOVER` → Tasker profile →
+Termux `RunCommandService` → `~/.termux/tasker/sshd-recover-tasker.sh` →
+`sshd-recover.sh` (starts `runsvdir` if dead, then `sv up sshd`). Tasker is in
+the middle because the adb shell UID lacks `com.termux.permission.RUN_COMMAND`;
+Tasker holds it. Background: [docs/options.md](docs/options.md) item 44.
+
+`just deploy` installs Termux:Tasker, the `~/.termux/tasker/` scripts and
+`allow-external-apps=true`, and grants Tasker the `RUN_COMMAND` permission
+(`control/lib/fleet_app_profiles.json`). The profile is manual, once per phone,
+in the Tasker app:
+
+1. **Profile:** Event → System → Intent Received, Action `com.stayturgid.SSHD_RECOVER`.
+2. **Task:** System → Send Intent with
+   - Action: `com.termux.RUN_COMMAND`
+   - Package: `com.termux`
+   - Class: `com.termux.app.RunCommandService`
+   - Extra: `com.termux.RUN_COMMAND_PATH:/data/data/com.termux/files/home/.termux/tasker/sshd-recover-tasker.sh`
+   - Extra: `com.termux.RUN_COMMAND_BACKGROUND:true`
+   - Target: Service
+
+Point it at the wrapper `sshd-recover-tasker.sh`, not `sshd-recover.sh`: the
+wrapper stamps `~/.stayturgid/state/tasker-sshd-recover.ts` first, which is how
+the Mac knows the Tasker path specifically works.
+
+**Test:** `adb -s <serial> shell am broadcast -a com.stayturgid.SSHD_RECOVER`,
+then on the phone `cat ~/.stayturgid/state/tasker-sshd-recover.ts` shows a fresh
+epoch and `~/.stayturgid/logs/sshd-selfheal.log` gains a line.
+
+**Nag:** `control/bin/fleet_health_monitor.py` (every 5 min) reports the stamp's
+age as `tasker_recover_age`. If it is missing or older than 7 days on a phone
+with Tasker installed, the monitor fires the broadcast itself (at most hourly);
+if the stamp is still stale on a later pass, it posts a macOS notification
+"stayturgid: action needed" and a WARNING in
+`~/.config/stayturgid/logs/fleet-health.log`, at most daily, until the profile
+works. Advisory only: it does not count as a health issue.
+
+The native agent (0.9.12+) has its own leg that needs no Tasker profile: when
+its co-monitor sees `sshd=down` on two consecutive probes it sends the same
+`RUN_COMMAND` itself, at most every 5 minutes, and logs `[agent] sshd-recover`
+to `agent.log`.
+
+---
+
 ## Repo layout
 
 ```

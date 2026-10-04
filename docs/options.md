@@ -135,13 +135,20 @@ Investigate a minimal Tasker profile (e.g., triggered on a schedule or Shizuku s
 bootstrap APK lock, `~/.termux/tasker/sshd-recover.sh` is deployed fleet-wide
 (starts runsvdir if dead, then `sv up sshd`), and Tasker holds
 `com.termux.permission.RUN_COMMAND` on all three phones. Still manual: the
-one-time Tasker profile per phone (Event → Intent Received, e.g.
+one-time Tasker profile per phone (Event → Intent Received
 `com.stayturgid.SSHD_RECOVER` → Send Intent `com.termux.RUN_COMMAND` to
 `com.termux.app.RunCommandService` with `RUN_COMMAND_PATH` pointing at the
-script and `RUN_COMMAND_BACKGROUND:true`, target Service), after which
-`adb shell am broadcast -a com.stayturgid.SSHD_RECOVER` recovers sshd with the
-keyguard locked. The native-agent leg (agent sends RUN_COMMAND itself when
-ComonitorProbes sees `sshd=down`) remains open.
+wrapper `~/.termux/tasker/sshd-recover-tasker.sh`, which stamps
+`~/.stayturgid/state/tasker-sshd-recover.ts` and then runs `sshd-recover.sh`;
+steps in [README § Keyguard-proof sshd recovery (Tasker)](../README.md#keyguard-proof-sshd-recovery-tasker)),
+after which `adb shell am broadcast -a com.stayturgid.SSHD_RECOVER` recovers
+sshd with the keyguard locked. A phone without a working profile is now nagged:
+fleet-health self-tests the broadcast when that stamp is missing or older than
+7 days, then posts an advisory "stayturgid: action needed" notification at most
+daily until it works. The native-agent leg is coded in agent 0.9.12
+(`SshdRecover.kt`: on two consecutive `sshd=down` co-monitor probes the agent
+sends RUN_COMMAND itself, 5-minute cooldown; the deploy grants it the
+permission) but that APK is not yet built, released or verified on a phone.
 
 #### 45 — Termux `sshd -D` if freeze returns (agent) · Risk: **Latent / Medium** · Trigger: sshd freeze
 

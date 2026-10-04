@@ -27,7 +27,16 @@
     "grant_all_runtime": true,
     "package": "org.stayturgid.agent",
     "permissions": [
-      "android.permission.POST_NOTIFICATIONS"
+      "android.permission.POST_NOTIFICATIONS",
+      "com.termux.permission.RUN_COMMAND"
+    ]
+  },
+  {
+    "battery_unrestricted": true,
+    "disable_unused_restrictions": true,
+    "package": "net.dinglisch.android.taskerm",
+    "permissions": [
+      "com.termux.permission.RUN_COMMAND"
     ]
   },
   {

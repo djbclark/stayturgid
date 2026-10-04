@@ -36,6 +36,12 @@ SSH_PORT = 8022
 # Shizuku-coupled — is what drives agent_missing/agent_stale.
 AGENT_HEARTBEAT_FRESH_SEC = 420  # 7 min
 
+# The Tasker SSHD_RECOVER marker only moves when something fires the
+# broadcast, which in normal operation nothing does. fleet_health_monitor
+# self-tests a phone once the marker is older than this, so a working profile
+# is re-proven weekly and a broken one is noticed within a week.
+TASKER_RECOVER_FRESH_SEC = 7 * 24 * 3600
+
 
 # Resolved at import via stayturgid_device when available; absolute path for launchd.
 def _adb_bin() -> str:
@@ -195,6 +201,20 @@ else
     *) echo "autojs6_a11y=missing" ;;
   esac
 fi
+# Keyguard-proof sshd recovery: only sshd-recover-tasker.sh (the target of the
+# Tasker SSHD_RECOVER profile) writes this marker, so its age proves the
+# Tasker path ran. See TASKER_RECOVER_FRESH_SEC.
+_tasker_recover_age() {
+  tasker=$(adb -s localhost:5555 shell pm path net.dinglisch.android.taskerm 2>/dev/null </dev/null | tr -d '\r')
+  if [ -z "$tasker" ]; then
+    tasker=$(pm path net.dinglisch.android.taskerm 2>/dev/null | tr -d '\r')
+  fi
+  case "$tasker" in *package:*) ;; *) echo notasker; return ;; esac
+  ts=$(head -n 1 ~/.stayturgid/state/tasker-sshd-recover.ts 2>/dev/null | tr -d '[:space:]')
+  case "$ts" in ""|*[!0-9]*) echo missing; return ;; esac
+  echo $(($(date +%s) - ts))
+}
+echo "tasker_recover_age=$(_tasker_recover_age)"
 # CFEngine self-heal: scrape last line of its repair log for visibility.
 cf_line=$(tail -1 "$HOME/.stayturgid/logs/repair-cfengine.log" 2>/dev/null)
 if [ -n "$cf_line" ]; then
@@ -347,6 +367,19 @@ def evaluate_health(report: dict[str, Any], *, alias: str | None = None) -> list
     return sorted(set(issues))
 
 
+def tasker_recover_stale(report: dict[str, Any]) -> bool:
+    """True when the Tasker SSHD_RECOVER path is unproven on this phone.
+
+    Advisory only, never an evaluate_health issue. "notasker", an absent field
+    (adb probe path) and unparseable values are unknown, and unknown must never nag.
+    """
+    raw = report.get("tasker_recover_age")
+    if raw == "missing":
+        return True
+    age = _int_age(raw)
+    return age is not None and age > TASKER_RECOVER_FRESH_SEC
+
+
 def summarize(report: dict[str, Any], issues: list[str]) -> str:
     bits = [
         "sshd=%s" % report.get("sshd", "?"),
@@ -362,6 +395,7 @@ def summarize(report: dict[str, Any], issues: list[str]) -> str:
         "tailscale_policy=%s" % report.get("tailscale_policy", "?"),
         "a11y=%s" % report.get("a11y", "?"),
         "autojs6_a11y=%s" % report.get("autojs6_a11y", "?"),
+        "tasker_recover_age=%s" % report.get("tasker_recover_age", "?"),
         "cfengine=%s" % report.get("cfengine", "?"),
     ]
     if report.get("a11y_missing_n"):

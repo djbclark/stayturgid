@@ -72,6 +72,10 @@ REPAIR_HEAL_AFTER = 2
 DEBUGGING_DIALOG_STATE_DIR = os.path.join(ROOT, "state", "debugging-dialog-notify")
 DEBUGGING_DIALOG_NOTIFY_COOLDOWN_SEC = 30 * 60
 DEVLOG_STATE_DIR = os.path.join(ROOT, "state", "device-log-failure")
+TASKER_RECOVER_PROBE_STATE_DIR = os.path.join(ROOT, "state", "tasker-recover-probe")
+TASKER_RECOVER_PROBE_COOLDOWN_SEC = 60 * 60
+TASKER_RECOVER_NAG_STATE_DIR = os.path.join(ROOT, "state", "tasker-recover-nag")
+TASKER_RECOVER_NAG_COOLDOWN_SEC = 24 * 60 * 60
 
 
 def _stats_event(event_type: str, device: str, **details: str | int | float) -> None:
@@ -609,6 +613,68 @@ def _report_device_log_failures(name: str, report: dict) -> None:
             write_state(state_path, newest)
 
 
+def maybe_nag_tasker_recover(name: str, report: dict, target: str | None) -> None:
+    """Keep complaining until the Tasker SSHD_RECOVER path is proven on *name*.
+
+    A stale or missing marker first gets a self-test broadcast; a phone with a
+    working profile refreshes the marker and the next pass sees it fresh. Only
+    a broadcast from an earlier pass that is still unanswered notifies the
+    operator (at most daily). Advisory: never an issue, never raises.
+    """
+    try:
+        if not fh.tasker_recover_stale(report):
+            return
+        probe_path = os.path.join(TASKER_RECOVER_PROBE_STATE_DIR, name)
+        try:
+            prior_probe_age: float | None = time.time() - os.path.getmtime(probe_path)
+        except OSError:
+            prior_probe_age = None
+
+        # The broadcast runs sshd-recover.sh (idempotent `sv up sshd`), so it is
+        # a phone-side action and honours the same opt-out as the heals.
+        if (
+            target
+            and not SKIP_WATCHDOG_HEAL
+            and _heal_cooldown_ok_dir(name, TASKER_RECOVER_PROBE_STATE_DIR, TASKER_RECOVER_PROBE_COOLDOWN_SEC)
+        ):
+            try:
+                import adb_cli
+
+                r = adb_cli.adb(target, "shell", "am", "broadcast", "-a", "com.stayturgid.SSHD_RECOVER", timeout=15)
+                if r.returncode == 0:
+                    _touch_heal_dir(name, TASKER_RECOVER_PROBE_STATE_DIR)
+                    _fleet_log(INFO, "%s: tasker SSHD_RECOVER self-test broadcast sent" % name)
+                else:
+                    # Not stamped: an undelivered broadcast proves nothing about
+                    # the profile and must not lead to a nag.
+                    detail = ((r.stdout or "") + (r.stderr or "")).strip().replace("\n", " | ")
+                    _fleet_log(INFO, "%s: tasker SSHD_RECOVER broadcast rc=%s %s" % (name, r.returncode, detail[:200]))
+            except Exception as e:
+                _fleet_log(INFO, "%s: tasker SSHD_RECOVER broadcast error: %s" % (name, e))
+
+        # A probe older than the freshness window is the last successful weekly
+        # self-test, not an unanswered one: had it worked recently, the marker
+        # would be younger than the probe and therefore fresh.
+        if prior_probe_age is None or prior_probe_age >= fh.TASKER_RECOVER_FRESH_SEC:
+            return
+        if not _heal_cooldown_ok_dir(name, TASKER_RECOVER_NAG_STATE_DIR, TASKER_RECOVER_NAG_COOLDOWN_SEC):
+            return
+        _fleet_log(
+            WARNING,
+            "%s: Tasker SSHD_RECOVER profile not set up or not working (tasker_recover_age=%s, self-test %ds ago)"
+            % (name, report.get("tasker_recover_age"), int(prior_probe_age)),
+        )
+        notify(
+            "stayturgid: action needed",
+            '%s: Tasker SSHD_RECOVER profile is not set up or not working. See README "Keyguard-proof sshd recovery".'
+            % name,
+            sound="Basso",
+        )
+        _touch_heal_dir(name, TASKER_RECOVER_NAG_STATE_DIR)
+    except Exception as e:
+        _fleet_log(WARNING, "%s: tasker SSHD_RECOVER check failed: %s" % (name, e))
+
+
 def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     state_file = os.path.join(STATE_DIR, name)
     maintenance_file = os.path.join(STATE_DIR, f"{name}.maintenance")
@@ -679,6 +745,7 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
     _report_device_log_failures(name, report)
 
     _scrape_device_errors(name, ts_ip)
+    maybe_nag_tasker_recover(name, report, target)
 
     fails = read_state(state_file)
     if not issues:

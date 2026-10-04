@@ -649,3 +649,57 @@ def test_repair_heal_rc255_is_not_success(tmp_path, monkeypatch):
     assert any("cmd package unstop com.termux.boot" in " ".join(c) for c in calls)
     # Failure must not start the cooldown, so the next run retries.
     assert fhm._heal_repair_cooldown_ok("t2e")
+
+
+def test_health_gather_emits_tasker_recover_age():
+    import inspect
+
+    assert "tasker_recover_age=" in fh.HEALTH_GATHER
+    assert "net.dinglisch.android.taskerm" in fh.HEALTH_GATHER
+    assert "tasker-sshd-recover.ts" in fh.HEALTH_GATHER
+    # adb shell cannot read Termux's home: an absent field must mean unknown.
+    assert "tasker_recover_age" not in inspect.getsource(fh.adb_health)
+
+
+def test_tasker_recover_stale_missing():
+    assert fh.tasker_recover_stale({"tasker_recover_age": "missing"}) is True
+
+
+def test_tasker_recover_stale_fresh():
+    assert fh.tasker_recover_stale({"tasker_recover_age": "60"}) is False
+    assert fh.tasker_recover_stale({"tasker_recover_age": str(fh.TASKER_RECOVER_FRESH_SEC)}) is False
+
+
+def test_tasker_recover_stale_stale():
+    assert fh.tasker_recover_stale({"tasker_recover_age": str(fh.TASKER_RECOVER_FRESH_SEC + 1)}) is True
+
+
+def test_tasker_recover_stale_unknown_never_nags():
+    assert fh.tasker_recover_stale({"tasker_recover_age": "notasker"}) is False
+    assert fh.tasker_recover_stale({}) is False
+    assert fh.tasker_recover_stale({"tasker_recover_age": ""}) is False
+    assert fh.tasker_recover_stale({"tasker_recover_age": "unknown"}) is False
+    assert fh.tasker_recover_stale({"tasker_recover_age": "garbage"}) is False
+
+
+def test_evaluate_tasker_recover_is_advisory_only():
+    base = {
+        "ssh_echo": "ok",
+        "sshd": "ok",
+        "bootloop": "ok",
+        "shell5555": "ok",
+        "repair_age": "200",
+        "agent_heartbeat_age": "60",
+        "a11y": "ok",
+        "port": "open",
+        "shizuku": "up",
+    }
+    for value in ("missing", str(fh.TASKER_RECOVER_FRESH_SEC + 1)):
+        report = dict(base, tasker_recover_age=value)
+        assert fh.tasker_recover_stale(report)
+        assert fh.evaluate_health(report) == []
+
+
+def test_summarize_includes_tasker_recover_age():
+    s = fh.summarize({"tasker_recover_age": "missing"}, [])
+    assert "tasker_recover_age=missing" in s
