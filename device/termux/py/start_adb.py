@@ -270,6 +270,8 @@ def try_sv_up_sshd() -> bool:
     env = dict(os.environ, SVDIR=svdir)
     try:
         if subprocess.run(["pgrep", "-x", "runsvdir"], capture_output=True, timeout=5).returncode != 0:
+            # The services' svlogd needs LOGDIR (see boot/00-start-services.sh).
+            os.environ.setdefault("LOGDIR", os.path.join(PREFIX, "var", "log"))
             _run_bg(["runsvdir", svdir], log_path=None)
             time.sleep(2)
         r = subprocess.run([sv, "up", "sshd"], capture_output=True, timeout=10, env=env)

@@ -254,7 +254,9 @@ def sv_up_sshd():
     if not (os.access(sv, os.X_OK) and os.path.isdir(os.path.join(svdir, "sshd"))):
         return False
     if run(["pgrep", "-x", "runsvdir"])[0] != 0:
-        run(["sh", "-c", "setsid runsvdir %s >/dev/null 2>&1 &" % svdir])
+        # LOGDIR: the services' svlogd needs it (see boot/00-start-services.sh).
+        logdir = os.path.join(PREFIX, "var", "log")
+        run(["sh", "-c", "LOGDIR=%s setsid runsvdir %s >/dev/null 2>&1 &" % (logdir, svdir)])
         time.sleep(2)
     env_svdir = os.environ.get("SVDIR")
     os.environ["SVDIR"] = svdir

@@ -12,9 +12,10 @@
 export PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 export PATH="$PREFIX/bin:$PATH"
 export SVDIR="$PREFIX/var/service"
-LOGDIR="$HOME/.stayturgid/logs"
-LOG="$LOGDIR/sshd-selfheal.log"
-mkdir -p "$LOGDIR" 2>/dev/null
+# For the services' svlogd (see boot/00-start-services.sh), not for this script.
+export LOGDIR="$PREFIX/var/log"
+LOG="$HOME/.stayturgid/logs/sshd-selfheal.log"
+mkdir -p "$HOME/.stayturgid/logs" 2>/dev/null
 
 if ! pgrep -x runsvdir >/dev/null 2>&1; then
   setsid runsvdir "$SVDIR" >/dev/null 2>&1 &

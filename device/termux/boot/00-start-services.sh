@@ -5,6 +5,10 @@
 # Without this ordering, startup_sshd() starts a bare sshd at boot and the
 # first login shell's runsvdir then flaps against it for port 8022 forever.
 export PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+# termux-services' per-service log/run scripts write to $LOGDIR/sv/<service>.
+# Only a login shell's profile.d exports it; without it svlogd dies on
+# "/sv/sshd", the log service stays down and sshd's output pipe has no reader.
+export SVDIR="$PREFIX/var/service" LOGDIR="$PREFIX/var/log"
 if ! pgrep -x runsvdir >/dev/null 2>&1; then
   setsid "$PREFIX/bin/runsvdir" "$PREFIX/var/service" >/dev/null 2>&1 &
 fi
