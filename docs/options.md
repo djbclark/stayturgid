@@ -148,7 +148,8 @@ fleet-health self-tests the broadcast when that stamp is missing or older than
 daily until it works. The native-agent leg is coded in agent 0.9.12
 (`SshdRecover.kt`: on two consecutive `sshd=down` co-monitor probes the agent
 sends RUN_COMMAND itself, 5-minute cooldown; the deploy grants it the
-permission) but that APK is not yet built, released or verified on a phone.
+permission), released as `agent-v0.9.12` and running on s24. The recovery
+itself has not yet fired on a device: sshd has not been down since.
 
 #### 45 — Termux `sshd -D` if freeze returns (agent) · Risk: **Latent / Medium** · Trigger: sshd freeze
 
