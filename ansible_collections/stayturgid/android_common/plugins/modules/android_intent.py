@@ -44,7 +44,7 @@ options:
     type: bool
     default: true
   extras:
-    description: String extras (C(--es key value)).
+    description: Extras. A YAML boolean is sent as C(--ez key value), anything else as a string (C(--es key value)).
     type: dict
     default: {}
 """
@@ -86,7 +86,11 @@ def build_am_start(action, data, mime_type, component, extras):
     if component:
         parts += ["-n", "'%s'" % component]
     for key, value in sorted((extras or {}).items()):
-        parts += ["--es", "'%s'" % key, "'%s'" % value]
+        if isinstance(value, bool):
+            # A receiver calling getBooleanExtra() reads a string extra as false.
+            parts += ["--ez", "'%s'" % key, "true" if value else "false"]
+        else:
+            parts += ["--es", "'%s'" % key, "'%s'" % value]
     return " ".join(parts)
 
 

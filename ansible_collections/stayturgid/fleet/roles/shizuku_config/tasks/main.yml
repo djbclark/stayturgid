@@ -89,6 +89,18 @@
   delegate_to: localhost
   when: _shizuku_fleet_tmp.path is defined
 
+# ShizukuTendCF refuses a profile outside its own files dirs ("Profile must be
+# under ..."), so copy the pushed file there and apply from that path.
+- name: Copy Shizuku fleet profile into the app's files dir
+  ansible.builtin.shell: |
+    {{ stayturgid_adb_bin | default('adb') }} -s \
+      "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}" \
+      shell "mkdir -p /sdcard/Android/data/moe.shizuku.privileged.api/files && cp {{
+        '/sdcard/Download' if (stayturgid_no_local_adb | default(false) | bool) else '/data/local/tmp'
+      }}/shizuku-fleet.json /sdcard/Android/data/moe.shizuku.privileged.api/files/shizuku-fleet.json"
+  changed_when: false
+  delegate_to: localhost
+
 - name: Apply Shizuku fleet profile via intent
   stayturgid.android_common.android_intent:
     device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
@@ -96,8 +108,8 @@
     action: moe.shizuku.privileged.api.APPLY_FLEET_PROFILE
     component: moe.shizuku.privileged.api/af.shizuku.manager.fleet.FleetProfileActivity
     extras:
-      profile_path: /data/local/tmp/shizuku-fleet.json
-      silent: "true"
+      profile_path: /sdcard/Android/data/moe.shizuku.privileged.api/files/shizuku-fleet.json
+      silent: true
   changed_when: false
   delegate_to: localhost
   when: not (stayturgid_no_local_adb | default(false) | bool)
@@ -109,8 +121,8 @@
     action: moe.shizuku.privileged.api.APPLY_FLEET_PROFILE
     component: moe.shizuku.privileged.api/af.shizuku.manager.fleet.FleetProfileActivity
     extras:
-      profile_path: /sdcard/Download/shizuku-fleet.json
-      silent: "true"
+      profile_path: /sdcard/Android/data/moe.shizuku.privileged.api/files/shizuku-fleet.json
+      silent: true
   changed_when: false
   delegate_to: localhost
   when: stayturgid_no_local_adb | default(false) | bool

@@ -84,6 +84,11 @@ HEADLESS_STATUS = "moe.shizuku.privileged.api.HEADLESS_STATUS"
 APPLY_FLEET = "moe.shizuku.privileged.api.APPLY_FLEET_PROFILE"
 FLEET_ACTIVITY = "moe.shizuku.privileged.api/af.shizuku.manager.fleet.FleetProfileActivity"
 FLEET_PROFILE_PATH = "/data/local/tmp/shizuku-fleet.json"
+# ShizukuTendCF only reads a profile from its own files dirs (it refuses any
+# other path with "Profile must be under ..."), so the pushed file is copied
+# here before the apply. adb shell can write this dir; other apps cannot.
+FLEET_APPLY_DIR = "/sdcard/Android/data/%s/files" % SHIZUKU_PKG
+FLEET_APPLY_PATH = FLEET_APPLY_DIR + "/shizuku-fleet.json"
 
 DEFAULT_FLEET_PROFILE = {
     "mode": "adb",
@@ -189,6 +194,13 @@ def push_fleet_profile(module, device, profile):
     rc, _out, err = adb_shell(module.run_command, device, "chmod 644 %s" % FLEET_PROFILE_PATH)
     if rc != 0:
         return False, "chmod fleet profile failed"
+    rc, _out, err = adb_shell(
+        module.run_command,
+        device,
+        "mkdir -p %s && cp %s %s" % (FLEET_APPLY_DIR, FLEET_PROFILE_PATH, FLEET_APPLY_PATH),
+    )
+    if rc != 0:
+        return False, "copy fleet profile into the app's files dir failed: %s" % normalize_adb_output(err)
     return True, "ok"
 
 
@@ -196,8 +208,10 @@ def apply_fleet_profile(run_command, device):
     rc, _out, _err = adb_shell(
         run_command,
         device,
-        "am start --user 0 -a %s -e profile_path %s -e silent true -n %s"
-        % (APPLY_FLEET, FLEET_PROFILE_PATH, FLEET_ACTIVITY),
+        # --ez: the activity reads `silent` as a boolean; a string extra reads
+        # as false and the result toast pops up on the phone.
+        "am start --user 0 -a %s -e profile_path %s --ez silent true -n %s"
+        % (APPLY_FLEET, FLEET_APPLY_PATH, FLEET_ACTIVITY),
     )
     return rc == 0
 
