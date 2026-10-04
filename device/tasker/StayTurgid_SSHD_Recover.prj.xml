@@ -1,0 +1,44 @@
+<TaskerData sr="" dvi="1" tv="6.6.20">
+	<Profile sr="prof8022" ve="2">
+		<cdate>1791072000000</cdate>
+		<clp>true</clp>
+		<id>8022</id>
+		<mid0>8023</mid0>
+		<nme>StayTurgid SSHD Recover</nme>
+		<Event sr="con0" ve="2">
+			<code>599</code>
+			<pri>0</pri>
+			<Str sr="arg0" ve="3">com.stayturgid.SSHD_RECOVER</Str>
+			<Int sr="arg1" val="0"/>
+			<Int sr="arg2" val="0"/>
+			<Str sr="arg3" ve="3"/>
+			<Str sr="arg4" ve="3"/>
+		</Event>
+	</Profile>
+	<Project sr="proj0" ve="2">
+		<cdate>1791072000000</cdate>
+		<n>StayTurgid SSHD Recover</n>
+		<pids>8022</pids>
+		<tids>8023</tids>
+	</Project>
+	<Task sr="task8023">
+		<cdate>1791072000000</cdate>
+		<id>8023</id>
+		<nme>StayTurgid SSHD Recover Run</nme>
+		<pri>100</pri>
+		<Action sr="act0" ve="7">
+			<code>877</code>
+			<label>Termux RUN_COMMAND sshd-recover-tasker.sh</label>
+			<Str sr="arg0" ve="3">com.termux.RUN_COMMAND</Str>
+			<Int sr="arg1" val="0"/>
+			<Str sr="arg2" ve="3"/>
+			<Str sr="arg3" ve="3"/>
+			<Str sr="arg4" ve="3">com.termux.RUN_COMMAND_PATH:/data/data/com.termux/files/home/.termux/tasker/sshd-recover-tasker.sh</Str>
+			<Str sr="arg5" ve="3">com.termux.RUN_COMMAND_BACKGROUND:true</Str>
+			<Str sr="arg6" ve="3"/>
+			<Str sr="arg7" ve="3">com.termux</Str>
+			<Str sr="arg8" ve="3">com.termux.app.RunCommandService</Str>
+			<Int sr="arg9" val="2"/>
+		</Action>
+	</Task>
+</TaskerData>

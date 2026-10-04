@@ -117,7 +117,10 @@ Tasker holds it. Background: [docs/options.md](docs/options.md) item 44.
 `just deploy` installs Termux:Tasker, the `~/.termux/tasker/` scripts and
 `allow-external-apps=true`, and grants Tasker the `RUN_COMMAND` permission
 (`control/lib/fleet_app_profiles.json`). The profile is manual, once per phone,
-in the Tasker app:
+in the Tasker app. Quickest: import
+[`device/tasker/StayTurgid_SSHD_Recover.prj.xml`](device/tasker/StayTurgid_SSHD_Recover.prj.xml)
+(copy it to `/sdcard/Tasker/projects/`, then long-press a project tab →
+Import Project). By hand it is:
 
 1. **Profile:** Event → System → Intent Received, Action `com.stayturgid.SSHD_RECOVER`.
 2. **Task:** System → Send Intent with
