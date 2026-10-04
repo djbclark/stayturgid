@@ -99,10 +99,10 @@ more than a day or two old.
   committing, or the commit will fail on style, not content.
 - `device/native-agent/agent-release.jks` (the release signing keystore) must
   never be tracked in git. Check `git status` before any broad `git add`.
-- `/Users/djbclark/src/Shizuku` has an intentionally dirty nested `api`
-  submodule from pre-existing user work. Preserve it; inspect `git diff -- api`
-  before any cleanup. Its fork `master` is ahead of upstream `origin/master`
-  by design.
+- `/Users/djbclark/src/Shizuku` (and `/Users/djbclark/src/ShizukuTendCF`, the
+  current fork) has an intentionally dirty nested `api` submodule from
+  pre-existing user work. Preserve it; inspect `git diff -- api` before any
+  cleanup. Its fork `master` is ahead of upstream `origin/master` by design.
 - The sibling private repo `${OPS_ROOT:-~/ops}/site-djbclark` may have its own uncommitted
   operator-authored files (e.g. `human/F2-BREW-SERVICES-DECISIONS.md`) — leave
   those alone unless the operator asks you to touch them.
@@ -112,7 +112,10 @@ more than a day or two old.
 1. Answer the seven ownership questions in the private #50 audit before any
    repository moves.
 2. Decide the F1 consent-surface phasing question ([#46](https://github.com/djbclark/stayturgid/issues/46)).
-3. Decide whether to publish Shizuku release20 through the normal APK path.
+3. ~~Decide whether to publish Shizuku release20 through the normal APK
+   path.~~ Resolved 2026-10-03: the fleet is pinned to ShizukuTendCF Drop-In
+   r2781 in the bootstrap APK lock (`resign: false`, in-place upgrade on the
+   release key; validated on s24).
 4. Retest p7a only after firerpa/lamda#147 publishes a compatible runtime.
 5. Remove (or authorize removal of) the stray `~/stayturgid` file.
 

@@ -22,7 +22,7 @@ The Shizuku catastrophic recovery path (`device/autojs6/lib/shizuku.js`) uses a 
 
 - Shizuku (official RikkaApps) has no hidden intent/API to restart its daemon or toggle wireless debugging. The only headless path is `/sdcard/Android/data/moe.shizuku.privileged.api/start.sh`, which requires a working ADB/root shell — the exact resource being re-established (chicken-and-egg).
 - `settings put global adb_wifi_enabled 1` does not stick on Fire OS, leaving UI tap as the only recovery path on those devices.
-- Community forks (timschneeb/ShizukuExt-SystemUID, thedjchi/Shizuku) add start/stop intents, but switching forks is a separate fleet decision with its own risk assessment.
+- Community forks (timschneeb/ShizukuExt-SystemUID, thedjchi/Shizuku) add start/stop intents. The fleet now runs frdminc/ShizukuTendCF (Drop-In flavor), which carries these intents; the af.shizuku.manager component namespace and the -p requirement on HEADLESS_* broadcasts are specific to it.
 
 **Why shell path was improved:**
 

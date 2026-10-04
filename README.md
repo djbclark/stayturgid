@@ -48,7 +48,7 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 
 ## Full stack (quick path)
 
-1. Shizuku (thedjchi fork) — TCP mode, wireless debugging
+1. Shizuku (ShizukuTendCF / frdminc fork) — TCP mode, wireless debugging
 2. Termux + Termux:Boot + Termux:API — [docs/architecture/components/termux.md](docs/architecture/components/termux.md) or `./control/bin/deploy_termux.py <host>`
 3. Native agent — `just agent-rollout <host>` (`device/native-agent/`, Kotlin APK)
 4. Control node — [docs/architecture/components/control.md](docs/architecture/components/control.md) (ADB reconnect + access monitor)
@@ -129,4 +129,4 @@ stayturgid/
 
 - Google Pixel 7a, Samsung Galaxy S24 (SM-S921U1), Android 16
 - Amazon Kindle Fire HD 8 (Fire OS 11) — see [docs/handoff.md](docs/handoff.md) for fireos-device quirks
-- Shizuku thedjchi fork (djbclark fork) · native-agent (Kotlin) · Termux GitHub-debug stack
+- Shizuku ShizukuTendCF (frdminc fork) · native-agent (Kotlin) · Termux GitHub-debug stack
