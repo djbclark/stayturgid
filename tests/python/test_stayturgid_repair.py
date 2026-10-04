@@ -347,3 +347,43 @@ def test_sv_up_sshd_uses_runit_and_restores_svdir(monkeypatch, tmp_path):
     assert any(c[0] == "sh" and "runsvdir" in c[2] for c in calls)
     assert [str(sv), "up", "sshd"] in calls
     assert "SVDIR" not in repair.os.environ
+
+
+def _watchdog_shell(script_on_device, running=True):
+    calls = []
+
+    def sh_adb(cmd):
+        calls.append(cmd)
+        if cmd.startswith("pgrep -f "):
+            return (0, "17845\n") if running else (1, "")
+        if cmd.startswith("cat "):
+            return (0, script_on_device)
+        return (0, "")
+
+    return calls, sh_adb
+
+
+def test_watchdog_current_loop_is_left_alone(monkeypatch):
+    calls, sh_adb = _watchdog_shell(repair._WATCHDOG_SCRIPT_BODY)
+    monkeypatch.setattr(repair, "sh_adb", sh_adb)
+    assert repair.ensure_shizuku_watchdog() == "already running"
+    assert not any(c.startswith("kill") or "setsid" in c for c in calls)
+
+
+def test_watchdog_stale_loop_is_killed_and_replaced(monkeypatch):
+    stale = repair._WATCHDOG_SCRIPT_BODY.replace("[s]hizuku_(plus_)?server", "[s]hizuku_server")
+    assert stale != repair._WATCHDOG_SCRIPT_BODY
+    calls, sh_adb = _watchdog_shell(stale)
+    monkeypatch.setattr(repair, "sh_adb", sh_adb)
+    assert repair.ensure_shizuku_watchdog() == "replaced stale loop"
+    assert "kill -9 17845" in calls
+    kill_at = calls.index("kill -9 17845")
+    assert any("base64 -d" in c for c in calls[kill_at:])
+    assert any("setsid sh" in c for c in calls[kill_at:])
+
+
+def test_watchdog_not_running_is_spawned(monkeypatch):
+    calls, sh_adb = _watchdog_shell("", running=False)
+    monkeypatch.setattr(repair, "sh_adb", sh_adb)
+    assert repair.ensure_shizuku_watchdog() == "spawned"
+    assert not any(c.startswith("kill") for c in calls)

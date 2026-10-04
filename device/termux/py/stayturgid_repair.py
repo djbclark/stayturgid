@@ -319,9 +319,20 @@ def ensure_shizuku_watchdog():
     # own command line literally contains the search string). Same trick
     # already used correctly elsewhere in this file for shizuku_server.
     watchdog_pgrep_pattern = _WATCHDOG_SCRIPT_PATH.replace("/s", "/[s]", 1)
-    rc, _ = sh_adb("pgrep -f " + watchdog_pgrep_pattern)
+    rc, pids = sh_adb("pgrep -f " + watchdog_pgrep_pattern)
+    replaced = False
     if rc == 0:
-        return "already running"
+        # A loop left over from an older deploy keeps running its old body
+        # forever. When the server's process name changed (ShizukuTendCF's
+        # shizuku_plus_server) the old loop could no longer see the server
+        # and launched the starter every 60 s, each attempt crashing a second
+        # server (p7a logged 177). Only a loop running the current body may stay.
+        _rc, current = sh_adb("cat " + _WATCHDOG_SCRIPT_PATH)
+        if current.strip() == _WATCHDOG_SCRIPT_BODY.strip():
+            return "already running"
+        # SIGKILL: the s24 loop ignored a plain kill while parked in sleep.
+        sh_adb("kill -9 " + " ".join(pids.split()))
+        replaced = True
     encoded = base64.b64encode(_WATCHDOG_SCRIPT_BODY.encode("utf-8")).decode("ascii")
     rc, out = sh_adb(
         "echo {b64} | base64 -d > {path} && chmod 755 {path}".format(b64=encoded, path=_WATCHDOG_SCRIPT_PATH)
@@ -329,7 +340,9 @@ def ensure_shizuku_watchdog():
     if rc != 0:
         return "spawn FAILED (write): " + out.strip()
     rc, out = sh_adb("setsid sh {path} > {log} 2>&1 &".format(path=_WATCHDOG_SCRIPT_PATH, log=_WATCHDOG_LOG))
-    return "spawned" if rc == 0 else "spawn FAILED (exec): " + out.strip()
+    if rc != 0:
+        return "spawn FAILED (exec): " + out.strip()
+    return "replaced stale loop" if replaced else "spawned"
 
 
 def read_device_profile():
