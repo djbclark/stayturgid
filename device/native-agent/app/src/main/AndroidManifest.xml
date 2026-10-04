@@ -9,12 +9,16 @@
     <!-- Peer-start: the agent opens a TCP socket to a peer Fire device's adbd
          (5555) over Tailscale to start Shizuku without the Mac (issue #61). -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- sshd-recover: send Termux RUN_COMMAND intent to recover sshd (OPTIONS #44). -->
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
 
     <!-- Package-visibility (API 30+): SetupActivity's "Open Shizuku" guided-setup step launches
          Shizuku directly via getLaunchIntentForPackage(), which returns null for an installed
-         but not-visible package without this declaration. -->
+         but not-visible package without this declaration. sshd-recover also needs Termux visible
+         to send RUN_COMMAND intent (OPTIONS #44). -->
     <queries>
         <package android:name="moe.shizuku.privileged.api" />
+        <package android:name="com.termux" />
     </queries>
 
     <application

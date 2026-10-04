@@ -13,7 +13,8 @@
       "description": "Native Kotlin agent handling co-monitor, Tailscale relaunch, and catastrophic Shizuku repair without a11y UI dependencies",
       "files": [
         "device/native-agent/app/src/main/kotlin/org/stayturgid/agent/HostService.kt",
-        "device/native-agent/app/src/main/kotlin/org/stayturgid/agent/CatastrophicRepair.kt"
+        "device/native-agent/app/src/main/kotlin/org/stayturgid/agent/CatastrophicRepair.kt",
+        "device/native-agent/app/src/main/kotlin/org/stayturgid/agent/SshdRecover.kt"
       ]
     },
     "cfengine": {
@@ -59,7 +60,7 @@
   "desired_states": {
     "SSHD-RUNNING": {
       "description": "sshd running on port 8022",
-      "must_cover": ["termux_repair", "cfengine", "firerpa"],
+      "must_cover": ["termux_repair", "cfengine", "firerpa", "native_agent"],
       "should_cover": ["ansible_deploy"]
     },
     "PORT5555-OPEN": {

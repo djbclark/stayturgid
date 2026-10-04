@@ -256,7 +256,7 @@ object CatastrophicRepair {
         }
     }
 
-    private fun appendLog(line: String) {
+    fun appendLog(line: String) {
         try {
             val f = java.io.File("/sdcard/stayturgid/logs/agent.log")
             f.parentFile?.mkdirs()
