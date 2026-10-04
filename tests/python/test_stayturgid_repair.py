@@ -351,15 +351,20 @@ def test_sv_up_sshd_uses_runit_and_restores_svdir(monkeypatch, tmp_path):
     assert "SVDIR" not in repair.os.environ
 
 
-def _watchdog_shell(script_on_device, running=True):
+def _watchdog_shell(script_on_device, running=True, spawn_stays_up=True):
     calls = []
+    state = {"running": running}
 
     def sh_adb(cmd):
         calls.append(cmd)
         if cmd.startswith("pgrep -f "):
-            return (0, "17845\n") if running else (1, "")
+            return (0, "17845\n") if state["running"] else (1, "")
         if cmd.startswith("cat "):
             return (0, script_on_device)
+        if cmd.startswith("kill -9 "):
+            state["running"] = False
+        if "nohup setsid sh" in cmd:
+            state["running"] = spawn_stays_up
         return (0, "")
 
     return calls, sh_adb
@@ -381,7 +386,16 @@ def test_watchdog_stale_loop_is_killed_and_replaced(monkeypatch):
     assert "kill -9 17845" in calls
     kill_at = calls.index("kill -9 17845")
     assert any("base64 -d" in c for c in calls[kill_at:])
-    assert any("setsid sh" in c for c in calls[kill_at:])
+    assert any("nohup setsid sh" in c and "</dev/null" in c for c in calls[kill_at:])
+
+
+def test_watchdog_uses_explicit_headless_start_without_native_starter():
+    body = repair._WATCHDOG_SCRIPT_BODY
+    assert "/data/local/tmp/shizuku_starter" not in body
+    assert ".HEADLESS_STATUS -n " in body
+    assert ".HEADLESS_START -n " in body
+    assert "result=0" in body
+    assert "sleep 60" in body
 
 
 class _FakeShellLib:
@@ -609,6 +623,14 @@ def test_watchdog_not_running_is_spawned(monkeypatch):
     assert not any(c.startswith("kill") for c in calls)
 
 
+def test_watchdog_spawn_that_is_reaped_fails_loudly(monkeypatch):
+    calls, sh_adb = _watchdog_shell("", running=False, spawn_stays_up=False)
+    monkeypatch.setattr(repair, "sh_adb", sh_adb)
+    monkeypatch.setattr(repair.time, "sleep", lambda _s: None)
+    assert repair.ensure_shizuku_watchdog().startswith("spawn FAILED (did not stay up)")
+    assert any("nohup setsid sh" in c for c in calls)
+
+
 # ── Stale Shizuku server (2026-10-04: r2785 server kept running under an r2787 APK) ──
 
 STALENESS_MODULE = (
@@ -763,3 +785,38 @@ def test_stale_shizuku_that_does_not_come_back_fails_loudly(monkeypatch, tmp_pat
     assert repair.restart_stale_shizuku() == "FAILED"
     assert logs[-1][1] == repair.ERR
     assert "did not come back" in logs[-1][0]
+
+
+def test_failed_stale_restart_is_retried_cold_on_next_pass(monkeypatch, tmp_path):
+    shell = _FakeShizukuShell(STALE_OUT, start_works=False)
+    _setup_stale(monkeypatch, tmp_path, shell)
+
+    assert repair.repair_shizuku("Broadcast completed: result=1\n") == ("down", False)
+    assert sum("HEADLESS_START" in call for call in shell.calls) == 1
+    assert not shell.alive
+
+    shell.start_works = True
+    assert repair.repair_shizuku("Broadcast completed: result=4\n") == ("down", True)
+    assert sum("HEADLESS_START" in call for call in shell.calls) == 2
+    assert shell.alive
+
+
+def test_stale_restart_cooldown_does_not_block_cold_retry(monkeypatch, tmp_path):
+    shell = _FakeShizukuShell(STALE_OUT)
+    shell.alive = False
+    _setup_stale(monkeypatch, tmp_path, shell)
+    stamp = tmp_path / "state" / "shizuku-stale-restart"
+    stamp.parent.mkdir(parents=True)
+    stamp.write_text(str(int(time.time())))
+
+    assert repair.repair_shizuku("Broadcast completed: result=4\n") == ("down", True)
+    assert shell.alive
+    assert not any(call == repair.SHIZUKU_STALENESS_PROBE for call in shell.calls)
+
+
+def test_starting_state_does_not_send_another_headless_start(monkeypatch):
+    shell = _FakeShizukuShell("", start_works=True)
+    shell.alive = False
+    monkeypatch.setattr(repair, "sh_adb", shell)
+    assert repair.repair_shizuku("Broadcast completed: result=0\n") == ("starting", False)
+    assert not any("HEADLESS_START" in call for call in shell.calls)

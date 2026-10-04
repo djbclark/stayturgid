@@ -90,6 +90,16 @@ def test_shizuku_running_down():
     assert mod.shizuku_running(run, "dev") is False
 
 
+def test_shizuku_state_reports_starting_without_a_server():
+    run = fake_run(
+        [
+            ("HEADLESS_STATUS", (0, "Broadcast completed: result=0\n", "")),
+            ("pgrep -f '[s]hizuku_(plus_)?server'", (1, "", "")),
+        ]
+    )
+    assert mod.shizuku_state(run, "dev") == "starting"
+
+
 def test_port5555_open():
     run = fake_run(
         [
@@ -124,8 +134,28 @@ def test_resolve_libdir_not_installed():
 
 
 def test_send_headless_start():
-    run = fake_run([("HEADLESS_START", (0, "Broadcast completed: result=0\n", ""))])
+    calls = []
+
+    def run(cmd, *a, **kw):
+        calls.append(" ".join(cmd))
+        return (0, "Broadcast completed: result=0\n", "")
+
     assert mod.send_headless_start(run, "dev") is True
+    assert "-n %s" % mod.HEADLESS_RECEIVER in calls[-1]
+
+
+def test_headless_status_uses_explicit_receiver():
+    calls = []
+
+    def run(cmd, *a, **kw):
+        joined = " ".join(cmd)
+        calls.append(joined)
+        if "HEADLESS_STATUS" in joined:
+            return (0, "Broadcast completed: result=1\n", "")
+        return (1, "", "")
+
+    assert mod.shizuku_running(run, "dev") is True
+    assert "-n %s" % mod.HEADLESS_RECEIVER in calls[0]
 
 
 def test_device_epoch():
@@ -383,7 +413,7 @@ def test_module_check_mode_would_start(mocker):
             _ansible_check_mode=True,
         ),
         cmd_results=[
-            ("HEADLESS_STATUS", (0, "Broadcast completed: result=0\n", "")),
+            ("HEADLESS_STATUS", (0, "Broadcast completed: result=4\n", "")),
             ("pgrep -f '[s]hizuku_(plus_)?server'", (1, "", "")),
         ],
     )
@@ -403,11 +433,11 @@ def test_module_starts_with_headless(mocker):
         cmd_results=[
             # installed check
             ("pm path", (0, "package:/data/app/.../base.apk\n", "")),
-            # not running initially: HEADLESS_STATUS→result=0, pgrep→down
+            # not running initially: HEADLESS_STATUS→result=4, pgrep→down
             (
                 "HEADLESS_STATUS",
                 [
-                    (0, "Broadcast completed: result=0\n", ""),
+                    (0, "Broadcast completed: result=4\n", ""),
                     # second call after headless start: running
                     (0, "Broadcast completed: result=1\n", ""),
                     # third call during verification poll: running
@@ -439,7 +469,7 @@ def test_module_cold_start_still_fails_on_failed_apply(mocker):
             (
                 "HEADLESS_STATUS",
                 [
-                    (0, "Broadcast completed: result=0\n", ""),
+                    (0, "Broadcast completed: result=4\n", ""),
                     (0, "Broadcast completed: result=1\n", ""),
                 ],
             ),
@@ -477,8 +507,8 @@ def test_module_native_fallback(mocker):
             (
                 "HEADLESS_STATUS",
                 [
-                    (0, "Broadcast completed: result=0\n", ""),
-                    (0, "Broadcast completed: result=0\n", ""),
+                    (0, "Broadcast completed: result=4\n", ""),
+                    (0, "Broadcast completed: result=4\n", ""),
                     # verification poll: running after native launch
                     (0, "Broadcast completed: result=1\n", ""),
                 ],
@@ -501,6 +531,23 @@ def test_module_native_fallback(mocker):
     assert out["shizuku"] == "up"
     assert out["start_method"] == "native"
     assert out["port5555"] == "open"
+
+
+def test_module_does_not_restart_while_headless_status_is_starting(mocker):
+    _no_sleep(mocker)
+    calls = []
+    out = run_module(
+        mocker,
+        dict(device="dev", connect=False, start_timeout=1),
+        cmd_results=[
+            ("HEADLESS_STATUS", (0, "Broadcast completed: result=0\n", "")),
+            ("pgrep -f '[s]hizuku_(plus_)?server'", (1, "", "")),
+        ],
+        calls=calls,
+    )
+    assert out.get("failed") is True
+    assert "still STARTING" in out["msg"]
+    assert not any(" -a %s " % mod.HEADLESS_START in call for call in calls)
 
 
 # --- stale server (2026-10-04: r2785 server kept running under an r2787 APK) ---

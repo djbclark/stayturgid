@@ -54,12 +54,13 @@ changed:
   description: True when Shizuku was started or a stale server was restarted.
   type: bool
 shizuku:
-  description: Final Shizuku state (up / down / already_up / up_no_port).
+  description: Final Shizuku state (up / down / starting / already_up / up_no_port).
   type: str
 start_method:
   description: >-
     How Shizuku was started (headless / native / already_up /
-    restarted_stale; in check mode would_start / would_restart_stale).
+    already_starting / restarted_stale; in check mode would_start /
+    would_restart_stale).
   type: str
 server_stale:
   description: >-
@@ -111,6 +112,7 @@ from ansible_collections.stayturgid.android_common.plugins.module_utils.shizuku_
 )
 
 SHIZUKU_PKG = "moe.shizuku.privileged.api"
+HEADLESS_RECEIVER = SHIZUKU_PKG + "/af.shizuku.manager.receiver.HeadlessStartStopReceiver"
 HEADLESS_START = "moe.shizuku.privileged.api.HEADLESS_START"
 HEADLESS_STOP = "moe.shizuku.privileged.api.HEADLESS_STOP"
 HEADLESS_STATUS = "moe.shizuku.privileged.api.HEADLESS_STATUS"
@@ -146,15 +148,30 @@ def shizuku_installed(run_command, device, pkg=SHIZUKU_PKG):
     return "package:" in normalize_adb_output(out)
 
 
-def shizuku_running(run_command, device):
+def shizuku_state(run_command, device):
     rc, out, _err = adb_shell(
-        run_command, device, "am broadcast -a %s -p %s 2>/dev/null" % (HEADLESS_STATUS, SHIZUKU_PKG)
+        run_command, device, "am broadcast -a %s -n %s 2>/dev/null" % (HEADLESS_STATUS, HEADLESS_RECEIVER)
     )
     text = normalize_adb_output(out)
     if rc == 0 and "result=1" in text:
-        return True
+        return "up"
     rc, out, _err = adb_shell(run_command, device, "pgrep -f '[s]hizuku_(plus_)?server' >/dev/null && echo up")
-    return rc == 0 and "up" in normalize_adb_output(out)
+    if rc == 0 and "up" in normalize_adb_output(out):
+        return "up"
+    return "starting" if "result=0" in text else "down"
+
+
+def shizuku_running(run_command, device):
+    return shizuku_state(run_command, device) == "up"
+
+
+def wait_while_starting(run_command, device, timeout, state="starting"):
+    for _ in range(max(0, timeout)):
+        if state != "starting":
+            break
+        time.sleep(1)
+        state = shizuku_state(run_command, device)
+    return state
 
 
 def port5555_open(run_command, device):
@@ -163,9 +180,8 @@ def port5555_open(run_command, device):
 
 
 def send_headless_start(run_command, device):
-    # Since API 26 an implicit broadcast to a manifest receiver is dropped;
-    # the TendCF receiver requires the package to be named (-p).
-    rc, out, _err = adb_shell(run_command, device, "am broadcast -a %s -p %s" % (HEADLESS_START, SHIZUKU_PKG))
+    # Since API 26 an implicit broadcast to a manifest receiver is dropped.
+    rc, out, _err = adb_shell(run_command, device, "am broadcast -a %s -n %s" % (HEADLESS_START, HEADLESS_RECEIVER))
     normalize_adb_output(out)
     return rc == 0
 
@@ -201,7 +217,7 @@ def stop_server(run_command, device, timeout=None):
     shell can end it directly in that case.
     """
     timeout = STOP_TIMEOUT if timeout is None else timeout
-    adb_shell(run_command, device, "am broadcast -a %s -p %s" % (HEADLESS_STOP, SHIZUKU_PKG))
+    adb_shell(run_command, device, "am broadcast -a %s -n %s" % (HEADLESS_STOP, HEADLESS_RECEIVER))
     if wait_stopped(run_command, device, timeout):
         return True
     adb_shell(run_command, device, "pkill -f '[s]hizuku_(plus_)?server'")
@@ -406,7 +422,8 @@ def main():
         adb_connect(module.run_command, device)
 
     if module.check_mode:
-        running = shizuku_running(module.run_command, device)
+        state = shizuku_state(module.run_command, device)
+        running = state == "up"
         if running:
             staleness = server_staleness(module.run_command, device, pkg)
             if staleness["stale"] == STALE_YES:
@@ -424,6 +441,13 @@ def main():
                 port5555="unknown",
                 **staleness_fields(staleness),
             )
+        if state == "starting":
+            module.exit_json(
+                changed=False,
+                shizuku="starting",
+                start_method="already_starting",
+                port5555="unknown",
+            )
         module.exit_json(changed=True, shizuku="down", start_method="would_start", port5555="unknown")
 
     if not shizuku_installed(module.run_command, device, pkg):
@@ -431,7 +455,14 @@ def main():
 
     profile = module.params["fleet_profile"] or DEFAULT_FLEET_PROFILE
 
-    running = shizuku_running(module.run_command, device)
+    state = shizuku_state(module.run_command, device)
+    if state == "starting":
+        state = wait_while_starting(module.run_command, device, module.params["start_timeout"], state)
+        if state == "starting":
+            module.fail_json(
+                msg="Shizuku is still STARTING; not sending another start while authorisation may be pending"
+            )
+    running = state == "up"
     staleness = server_staleness(module.run_command, device, pkg) if running else parse_staleness("")
     stale = staleness_fields(staleness)
     restarted_stale = False
@@ -479,8 +510,13 @@ def main():
 
     send_headless_start(module.run_command, device)
     time.sleep(3)
-    if shizuku_running(module.run_command, device):
+    state = wait_while_starting(
+        module.run_command, device, module.params["start_timeout"], shizuku_state(module.run_command, device)
+    )
+    if state == "up":
         start_method = "headless"
+    elif state == "starting":
+        module.fail_json(msg="Shizuku is still STARTING; not falling back while authorisation may be pending", **stale)
     else:
         libdir = resolve_libdir(module.run_command, device, pkg)
         if libdir:

@@ -318,7 +318,15 @@ _WATCHDOG_LOG = "/data/local/tmp/stayturgid_shizuku_watchdog.log"
 _WATCHDOG_SCRIPT_BODY = (
     "#!/system/bin/sh\n"
     "while true; do\n"
-    '  pgrep -f "[s]hizuku_(plus_)?server" >/dev/null || /data/local/tmp/shizuku_starter >/dev/null 2>&1\n'
+    "  status=$(am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS "
+    "-n moe.shizuku.privileged.api/af.shizuku.manager.receiver.HeadlessStartStopReceiver 2>/dev/null)\n"
+    '  if ! pgrep -f "[s]hizuku_(plus_)?server" >/dev/null; then\n'
+    '    case "$status" in\n'
+    '      *"result=0"*) ;;\n'
+    "      *) am broadcast -a moe.shizuku.privileged.api.HEADLESS_START "
+    "-n moe.shizuku.privileged.api/af.shizuku.manager.receiver.HeadlessStartStopReceiver >/dev/null 2>&1 ;;\n"
+    "    esac\n"
+    "  fi\n"
     "  sleep 60\n"
     "done\n"
 )
@@ -372,9 +380,15 @@ def ensure_shizuku_watchdog():
     )
     if rc != 0:
         return "spawn FAILED (write): " + out.strip()
-    rc, out = sh_adb("setsid sh {path} > {log} 2>&1 &".format(path=_WATCHDOG_SCRIPT_PATH, log=_WATCHDOG_LOG))
+    rc, out = sh_adb(
+        "nohup setsid sh {path} </dev/null >>{log} 2>&1 &".format(path=_WATCHDOG_SCRIPT_PATH, log=_WATCHDOG_LOG)
+    )
     if rc != 0:
         return "spawn FAILED (exec): " + out.strip()
+    time.sleep(2)
+    rc, out = sh_adb("pgrep -f " + watchdog_pgrep_pattern)
+    if rc != 0:
+        return "spawn FAILED (did not stay up): " + out.strip()
     return "replaced stale loop" if replaced else "spawned"
 
 
@@ -436,6 +450,35 @@ def _shizuku_running():
     return sh_adb("pgrep -f '[s]hizuku_(plus_)?server'")[0] == 0
 
 
+def _shizuku_state(status_out=None):
+    if status_out is None:
+        _rc, status_out = sh_adb(
+            "am broadcast -a %s.HEADLESS_STATUS -n %s 2>/dev/null" % (SHIZUKU_PKG, _SHIZUKU_RECEIVER)
+        )
+    if "result=1" in status_out:
+        return "up"
+    if sh_adb("pgrep -f '[s]hizuku_(plus_)?server'")[0] == 0:
+        return "up"
+    return "starting" if "result=0" in status_out else "down"
+
+
+def _send_headless_start():
+    sh_adb("am broadcast -a %s.HEADLESS_START -n %s" % (SHIZUKU_PKG, _SHIZUKU_RECEIVER))
+
+
+def repair_shizuku(status_out):
+    """Restart stale Shizuku or send one cold start when it is fully down."""
+    state = _shizuku_state(status_out)
+    restart_failed = False
+    if state == "up" and restart_stale_shizuku() == "FAILED":
+        state = _shizuku_state()
+        restart_failed = True
+    if state == "down" and not restart_failed:
+        _send_headless_start()
+        return state, True
+    return state, False
+
+
 def _wait_shizuku(running, timeout):
     deadline = time.time() + timeout
     while _shizuku_running() != running:
@@ -486,7 +529,7 @@ def restart_stale_shizuku():
         if not _wait_shizuku(False, SHIZUKU_STOP_TIMEOUT):
             log("stale Shizuku server did not stop (HEADLESS_STOP, then SIGTERM) (%s)" % detail, ERR)
             return "FAILED"
-    sh_adb("am broadcast -a %s.HEADLESS_START -n %s" % (SHIZUKU_PKG, _SHIZUKU_RECEIVER))
+    _send_headless_start()
     if not _wait_shizuku(True, SHIZUKU_START_TIMEOUT):
         log("stale Shizuku server stopped but did not come back after HEADLESS_START (%s)" % detail, ERR)
         return "FAILED"
@@ -1288,41 +1331,17 @@ def main():
         else:
             log("5555 CLOSED / no privileged shell — escalate to native-agent catastrophic repair or reboot", ERR)
 
+    shizuku_start_sent = False
     # --- 3. shizuku (via privileged shell; watchdog handles restart) ---
     if expect_shell and have_sh:
         _, shizuku_out = sh_adb(
-            "am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS -p moe.shizuku.privileged.api 2>/dev/null"
+            "am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS "
+            "-n moe.shizuku.privileged.api/af.shizuku.manager.receiver.HeadlessStartStopReceiver 2>/dev/null"
         )
-        if "result=1" in shizuku_out:
-            shizuku = "up"
-        else:
-            # NOTE: was previously `rc, _ = sh_adb(...)`, silently clobbering
-            # the overall health rc (e.g. erasing an earlier sshd-failure
-            # rc=1 if this check happened to pass) — fixed to a properly
-            # namespaced variable, matching the convention used everywhere
-            # else in this file (_rc / shizuku_rc).
-            shizuku_rc, _ = sh_adb("pgrep -f '[s]hizuku_(plus_)?server'")
-            shizuku = "up" if shizuku_rc == 0 else "down"
-        if shizuku == "up" and restart_stale_shizuku() == "FAILED":
-            # Either still the old server (logged ERR, not down) or none, in
-            # which case step 8 re-sends HEADLESS_START.
-            shizuku = "up" if _shizuku_running() else "down"
+        shizuku, shizuku_start_sent = repair_shizuku(shizuku_out)
         if shizuku == "down":
             rc = 1
             log("shizuku_server not running (adb shell still reachable)", WARNING)
-        # Ensure the detached UID-2000 watchdog is running while we have
-        # privileged shell — this is what actually restarts shizuku_server
-        # if it dies later, independent of Shizuku's own app-level
-        # WatchdogService (which is just a regular Android process, subject
-        # to the same OS battery/OOM killing as anything else). Idempotent.
-        watchdog_status = ensure_shizuku_watchdog()
-        if watchdog_status != "already running":
-            log("shizuku watchdog: " + watchdog_status, INFO if watchdog_status == "spawned" else WARNING)
-        if watchdog_status.startswith("spawn FAILED"):
-            # The watchdog is a safeguard, not just a nice-to-have — if it
-            # can't even be spawned, that's a real problem worth surfacing
-            # as an unhealthy exit code, not just a log line nobody reads.
-            rc = 1
     elif expect_shell:
         # Port 5555 is down — can't use adb shell, so we're on Termux's own
         # unprivileged UID. Only pgrep-based liveness detection is possible;
@@ -1368,6 +1387,17 @@ def main():
                 "once already); escalate to native-agent/USB/physical recovery",
                 ERR,
             )
+
+    if expect_shell and have_sh:
+        # Run after the closed-port recovery above, so every pass that obtains
+        # uid shell verifies the detached loop rather than only the passes that
+        # entered with a working transport.
+        watchdog_status = ensure_shizuku_watchdog()
+        if watchdog_status.startswith("spawn FAILED"):
+            log("shizuku watchdog: " + watchdog_status, ERR)
+            rc = 1
+        elif watchdog_status != "already running":
+            log("shizuku watchdog: " + watchdog_status, INFO if watchdog_status == "spawned" else WARNING)
 
     # AutoJs6 was fully uninstalled fleet-wide during the K1 native-agent
     # cutover verification (2026-07-25, issue #43) and is not expected to
@@ -1447,7 +1477,6 @@ def main():
     device_profile = "present"
     if expect_shell and have_sh:
         auto_profile = "retired"
-        # Shizuku: only re-apply when Shizuku is down.
         _, sf_out = sh_adb("[ -f /data/local/tmp/shizuku-fleet.json ] && echo ok || echo missing")
         if "missing" in sf_out:
             _, sf_out2 = sh_adb("[ -f /sdcard/Download/shizuku-fleet.json ] && echo ok || echo missing")
@@ -1456,14 +1485,7 @@ def main():
 
         if "ok" in sf_out:
             shizuku_profile = "present"
-            if shizuku != "up":
-                # A shell-UID ADB session can use Shizuku's exported headless
-                # receiver. FleetProfileActivity is UI-only and must not be
-                # launched from unattended repair (#199).
-                sh_adb(
-                    "am broadcast -a moe.shizuku.privileged.api.HEADLESS_START "
-                    "-n moe.shizuku.privileged.api/af.shizuku.manager.receiver.HeadlessStartStopReceiver"
-                )
+            if shizuku_start_sent:
                 sh_adb("settings put global adb_wifi_enabled 1")
                 time.sleep(0.5)
                 shizuku_profile = "applied"
