@@ -117,7 +117,7 @@ stayturgid_bootstrap_apks:
     gh_tag: "13.7.0.r2795"
     gh_pattern: "ShizukuTendCF-Drop-In-13.7.0.r2795.apk"
     version_name: "ShizukuTendCF 13.7.0.r2795"
-    checksum: "sha256:9240395e177c7c0122bc29af1cf98bafcbcff146eee3c267bd8d7887e285167e"
+    checksum: "sha256:7063c79c149f33ad900f6eaf77272129258ea3c36d4a15edf168ce3b0f55711f"
     resign: false
     monkey: true
     battery_unrestricted: true
