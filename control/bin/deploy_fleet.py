@@ -10,6 +10,11 @@ the fleet site playbook. Ansible ``--limit`` is device hosts only, so localhost
 (control node) would otherwise be skipped — Mac agents/launchd must still refresh.
 Pass ``--devices-only`` (#57) to skip that second pass when iterating on one device.
 
+Before Ansible it re-renders the site's generated/stayturgid/ copy (site-sync) and
+activates the vector serverapp (control/lib/site_preflight.py); CHECK=1 only
+reports what either would change. Exit 4 means site-sync changed generated
+content: commit it in the site checkout, then re-run.
+
 Usage:
   deploy_fleet.py [host ...]              # full site deploy
   deploy_fleet.py --scope fdroid oneui-device      # F-Droid roles only
@@ -51,6 +56,9 @@ from control.lib.fleet_deploy_lock import FleetLockHeld, fleet_lock
 from control.lib.fleet_targets import FLEET_STATUS_VAR, offline_hosts, parse_inventory_hosts
 from control.lib.fleet_targets import inventory_list as _inventory_list
 from control.lib.secretspec_exec import secretspec_run
+from control.lib.site_preflight import SitePreflightError
+from control.lib.site_preflight import apply as apply_site_preflight
+from control.lib.site_preflight import preview as preview_site_preflight
 
 SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "site.yml"
 MAC_SITE_PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "control_node" / "site.yml"
@@ -302,6 +310,16 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0, dev
             file=sys.stderr,
         )
     with fleet_lock(label):
+        # The playbooks read the site's generated/ copy, so it is refreshed (and
+        # Vector given its fragments) before Ansible starts. Vector is Mac-side,
+        # so --devices-only skips it just as it skips the control_node pass.
+        preflight_rc = 0
+        if check:
+            preflight_rc = preview_site_preflight(
+                context.site_dir, REPO_ROOT, resolved_env(REPO_ROOT), activate_vector=not devices_only
+            )
+        else:
+            apply_site_preflight(context.site_dir, REPO_ROOT, resolved_env(REPO_ROOT), activate_vector=not devices_only)
         rc = run_playbook(
             SITE_PLAYBOOK,
             limit=targets,
@@ -314,7 +332,7 @@ def deploy(scope: Scope, hosts: list[str], *, check: bool, verbose: int = 0, dev
         # agent role includes privileged /etc configuration, and its normal deploy is
         # independent of the device host check below.
         if check:
-            return rc
+            return rc if rc != 0 else preflight_rc
         if devices_only:
             # #57: the caller only wants the device playbook (e.g. iterating on
             # one device) — skip the second ansible-playbook launch entirely.
@@ -388,6 +406,9 @@ def main(argv: list[str] | None = None) -> int:
     except FleetLockHeld as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 3
+    except SitePreflightError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return exc.exit_code
     print_footer(rc, scope, check=check)
     return rc
 

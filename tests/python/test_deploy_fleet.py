@@ -2,6 +2,8 @@
 
 import os
 import sys
+from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -234,14 +236,28 @@ def test_resolve_hosts_all_offline_returns_empty(monkeypatch):
     assert df.resolve_hosts([]) == []
 
 
-def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0):
+def _stub_deploy_deps(monkeypatch, calls, *, playbook_rc=0, preflight=None):
     monkeypatch.setattr(df, "require_ansible", lambda: None)
     monkeypatch.setattr(df, "warn_prerequisites", lambda scope: None)
     monkeypatch.setattr(df, "install_collections", lambda: None)
-    monkeypatch.setattr(df, "resolve_ansible_context", lambda root, environ=None: object())
+    monkeypatch.setattr(
+        df, "resolve_ansible_context", lambda root, environ=None: SimpleNamespace(site_dir=Path("/site"))
+    )
     monkeypatch.setattr(df, "require_inventory", lambda context: None)
     monkeypatch.setattr(df, "require_fresh_checkout", lambda root, environ=None: None)
     monkeypatch.setattr(df, "require_limit_hosts", lambda context, limit: limit.split(","))
+    monkeypatch.setattr(df, "resolved_env", lambda root, environ=None: {"PATH": "/bin"})
+    seen = preflight if preflight is not None else []
+
+    def apply_site_preflight(site_dir, repo_root, env, *, activate_vector):
+        seen.append(("apply", site_dir, activate_vector))
+
+    def preview_site_preflight(site_dir, repo_root, env, *, activate_vector):
+        seen.append(("preview", site_dir, activate_vector))
+        return 0
+
+    monkeypatch.setattr(df, "apply_site_preflight", apply_site_preflight)
+    monkeypatch.setattr(df, "preview_site_preflight", preview_site_preflight)
 
     def run_playbook(playbook, *, limit=None, check, tags, skip_tags=None, extra_vars=None, verbose=0):
         calls.append(("playbook", tags, check, skip_tags))
@@ -339,6 +355,69 @@ def test_deploy_all_hosts_offline_refuses_not_all_fallback(monkeypatch, capsys):
     assert rc == 1
     assert calls == []
     assert "every fleet host is marked offline" in capsys.readouterr().err
+
+
+def test_deploy_runs_site_preflight_before_playbook(monkeypatch):
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls, preflight=calls)
+    rc = df.deploy(df.Scope.FULL, ["oneui-device"], check=False)
+    assert rc == 0
+    assert calls[0] == ("apply", Path("/site"), True)
+    assert calls[1] == ("playbook", None, False, "bootstrap")
+
+
+def test_deploy_devices_only_syncs_but_skips_vector(monkeypatch):
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls, preflight=calls)
+    df.deploy(df.Scope.FULL, ["oneui-device"], check=False, devices_only=True)
+    assert calls[0] == ("apply", Path("/site"), False)
+
+
+def test_deploy_check_only_previews_site_preflight(monkeypatch):
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls, preflight=calls)
+    rc = df.deploy(df.Scope.FULL, ["oneui-device"], check=True)
+    assert rc == 0
+    assert calls == [
+        ("preview", Path("/site"), True),
+        ("playbook", None, True, "bootstrap"),
+    ]
+
+
+def test_deploy_check_reports_preflight_failure_after_playbook(monkeypatch):
+    """A dry run still shows the Ansible plan, but must not exit green when a
+    real deploy would have stopped at site-sync."""
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls)
+    monkeypatch.setattr(df, "preview_site_preflight", lambda *a, **k: 2)
+    rc = df.deploy(df.Scope.FULL, ["oneui-device"], check=True)
+    assert rc == 2
+    assert calls == [("playbook", None, True, "bootstrap")]
+
+
+def test_deploy_site_preflight_error_stops_before_ansible(monkeypatch):
+    calls = []
+    _stub_deploy_deps(monkeypatch, calls)
+
+    def fail(*_args, **_kwargs):
+        raise df.SitePreflightError("site-sync refreshed 1 generated file(s)", exit_code=4)
+
+    monkeypatch.setattr(df, "apply_site_preflight", fail)
+    with pytest.raises(df.SitePreflightError):
+        df.deploy(df.Scope.FULL, ["oneui-device"], check=False)
+    assert calls == []
+
+
+def test_main_reports_site_preflight_error_without_footer(monkeypatch, capsys):
+    def fail(*_args, **_kwargs):
+        raise df.SitePreflightError("site-sync refreshed 1 generated file(s)", exit_code=4)
+
+    monkeypatch.setattr(df, "deploy", fail)
+    rc = df.main(["oneui-device"])
+    assert rc == 4
+    out = capsys.readouterr()
+    assert "ERROR: site-sync refreshed 1 generated file(s)" in out.err
+    assert "Fleet deploy" not in out.out + out.err
 
 
 def test_run_playbook_timeout_returns_124(monkeypatch):
