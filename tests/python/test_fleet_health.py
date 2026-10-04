@@ -705,6 +705,234 @@ def test_summarize_includes_tasker_recover_age():
     assert "tasker_recover_age=missing" in s
 
 
+def test_summarize_includes_tasker_result_and_monitor():
+    s = fh.summarize({"tasker_recover_result": "failed", "tasker_monitor": "stopped"}, [])
+    assert "tasker_recover_result=failed" in s
+    assert "tasker_monitor=stopped" in s
+
+
+def test_health_gather_includes_tasker_body():
+    import inspect
+
+    assert fh._TASKER_BODY in fh.HEALTH_GATHER
+    assert "tasker-sshd-recover.result" in fh._TASKER_BODY
+    assert "dumpsys activity services net.dinglisch.android.taskerm" in fh._TASKER_BODY
+    assert "tasker_recover_result" not in inspect.getsource(fh.adb_health)
+
+
+_TASKER_PKG = "package:/data/app/~~x/net.dinglisch.android.taskerm-1/base.apk\r\n"
+_DUMP_RUNNING = (
+    "ACTIVITY MANAGER SERVICES (dumpsys activity services)\r\n"
+    "  User 0 active services:\r\n"
+    "  * ServiceRecord{2f3a1b u0 net.dinglisch.android.taskerm/.MonitorService}\r\n"
+)
+_DUMP_ONLY_A11Y = (
+    "ACTIVITY MANAGER SERVICES (dumpsys activity services)\r\n"
+    "  * ServiceRecord{9c u0 net.dinglisch.android.taskerm/.MyAccessibilityService}\r\n"
+)
+_DUMP_NOTHING = "ACTIVITY MANAGER SERVICES (dumpsys activity services)\r\n  (nothing)\r\n"
+
+
+def _run_tasker_body(tmp_path, *, pkg: str = "", dump: str = "", marker=None, result=None) -> dict[str, str]:
+    """Run _TASKER_BODY under bash against a temp HOME with stubbed adb/pm."""
+    import subprocess
+
+    home = tmp_path / "home"
+    state = home / ".stayturgid" / "state"
+    state.mkdir(parents=True)
+    if marker is not None:
+        (state / "tasker-sshd-recover.ts").write_text(marker)
+    if result is not None:
+        (state / "tasker-sshd-recover.result").write_text(result)
+    (tmp_path / "pkg.txt").write_text(pkg)
+    (tmp_path / "dump.txt").write_text(dump)
+    # Shell functions, not PATH shims: see _run_fleet_profile_body.
+    stubs = 'adb() { case "$*" in *"pm path"*) cat "%s" ;; *dumpsys*) cat "%s" ;; esac; }\npm() { :; }\n' % (
+        tmp_path / "pkg.txt",
+        tmp_path / "dump.txt",
+    )
+    env = {k: v for k, v in os.environ.items() if k != "BASH_ENV"}
+    env["HOME"] = str(home)
+    r = subprocess.run(["bash", "-c", stubs + fh._TASKER_BODY], capture_output=True, text=True, env=env, timeout=10)
+    assert r.returncode == 0, r.stderr
+    return fh.parse_kv(r.stdout)
+
+
+def test_tasker_body_without_tasker(tmp_path):
+    out = _run_tasker_body(tmp_path)
+    assert out == {
+        "tasker_recover_age": "notasker",
+        "tasker_recover_result": "missing",
+        "tasker_monitor": "notasker",
+    }
+
+
+def test_tasker_body_reads_marker_line1_and_ok_result(tmp_path):
+    now = int(datetime.datetime.now().timestamp())
+    out = _run_tasker_body(
+        tmp_path,
+        pkg=_TASKER_PKG,
+        dump=_DUMP_RUNNING,
+        marker="%d\n" % (now - 100),
+        result="end=%d\nexit=0\nstep.10-sshd=0\nsv_sshd=run: sshd: (pid 1) 5s\ntty=not a tty\n" % now,
+    )
+    assert 95 <= int(out["tasker_recover_age"]) <= 160
+    assert out["tasker_recover_result"] == "ok"
+    assert out["tasker_monitor"] == "running"
+
+
+def test_tasker_body_failed_result(tmp_path):
+    out = _run_tasker_body(tmp_path, pkg=_TASKER_PKG, result="end=1\nexit=1\nstep.10-sshd=1\n")
+    assert out["tasker_recover_result"] == "failed"
+
+
+def test_tasker_body_unparseable_result_is_missing(tmp_path):
+    out = _run_tasker_body(tmp_path, pkg=_TASKER_PKG, result="garbage\nexit=\n")
+    assert out["tasker_recover_result"] == "missing"
+
+
+def test_tasker_body_monitor_stopped(tmp_path):
+    for dump in (_DUMP_NOTHING, _DUMP_ONLY_A11Y):
+        assert _run_tasker_body(tmp_path / str(len(dump)), pkg=_TASKER_PKG, dump=dump)["tasker_monitor"] == "stopped"
+
+
+def test_tasker_body_monitor_unknown_without_a_dump(tmp_path):
+    assert _run_tasker_body(tmp_path, pkg=_TASKER_PKG, dump="")["tasker_monitor"] == "unknown"
+
+
+def test_tasker_result_and_monitor_are_advisory_only():
+    base = {
+        "ssh_echo": "ok",
+        "sshd": "ok",
+        "bootloop": "ok",
+        "shell5555": "ok",
+        "repair_age": "200",
+        "agent_heartbeat_age": "60",
+        "a11y": "ok",
+        "port": "open",
+        "shizuku": "up",
+    }
+    report = dict(base, tasker_recover_result="failed", tasker_monitor="stopped")
+    assert fh.tasker_recover_failed(report)
+    assert fh.tasker_monitor_stopped(report)
+    assert fh.evaluate_health(report) == []
+
+
+def test_tasker_failed_and_stopped_unknown_never_nag():
+    for value in ("ok", "missing", "", None):
+        assert not fh.tasker_recover_failed({"tasker_recover_result": value})
+    for value in ("running", "unknown", "notasker", "", None):
+        assert not fh.tasker_monitor_stopped({"tasker_monitor": value})
+
+
+# ── Tasker SSHD_RECOVER broadcast during a real outage (SSHD-RUNNING) ──────
+
+_ADB_FALLBACK_REPORT = {
+    "ssh_echo": "skip",
+    "sshd": "unknown",
+    "bootloop": "unknown",
+    "shell5555": "skip",
+    "repair_age": "10",
+    "agent_heartbeat_age": "60",
+}
+
+
+def _sshd_heal_env(tmp_path, monkeypatch, path: str, report: dict):
+    import adb_cli
+
+    monkeypatch.setattr(fhm, "STATE_DIR", str(tmp_path / "fleet-health"))
+    monkeypatch.setattr(fhm, "SSHD_RECOVER_HEAL_STATE_DIR", str(tmp_path / "sshd-recover-heal"))
+    monkeypatch.setattr(fhm, "TASKER_RECOVER_PROBE_STATE_DIR", str(tmp_path / "probe"))
+    monkeypatch.setattr(fhm, "TASKER_RECOVER_NAG_STATE_DIR", str(tmp_path / "nag"))
+    monkeypatch.setattr(fhm, "TASKER_RESULT_NAG_STATE_DIR", str(tmp_path / "result-nag"))
+    monkeypatch.setattr(fhm, "TASKER_MONITOR_NAG_STATE_DIR", str(tmp_path / "monitor-nag"))
+    monkeypatch.setattr(fhm, "SKIP_HEALTH", False)
+    monkeypatch.setattr(fhm, "SKIP_WATCHDOG_HEAL", False)
+    monkeypatch.setattr(fhm.fh, "probe_device", lambda name, ts, lan: (path, dict(report)))
+    monkeypatch.setattr(fhm.dev, "resolve_adb", lambda name: None)
+    for fn in ("_scrape_device_errors", "maybe_heal_repair_stale", "maybe_heal_agent", "notify"):
+        monkeypatch.setattr(fhm, fn, lambda *a, **k: None)
+    logs: list[str] = []
+    monkeypatch.setattr(fhm, "_fleet_log", lambda _level, message: logs.append(message))
+    monkeypatch.setattr(fhm, "_stats_event", lambda *a, **k: None)
+    calls: list[tuple] = []
+
+    class R:
+        returncode = 0
+        stdout = "Broadcast completed: result=0"
+        stderr = ""
+
+    def fake_adb(serial, *args, **kwargs):
+        calls.append((serial, args))
+        return R()
+
+    monkeypatch.setattr(adb_cli, "adb", fake_adb)
+    return calls, logs
+
+
+_BROADCAST = ("shell", "am", "broadcast", "-a", "com.stayturgid.SSHD_RECOVER")
+
+
+def test_ssh_down_adb_up_fires_sshd_recover_broadcast(tmp_path, monkeypatch):
+    calls, logs = _sshd_heal_env(tmp_path, monkeypatch, "adb:1.1.1.1:5555", _ADB_FALLBACK_REPORT)
+    fhm.check_device("p7a", "100.1", "192.1")
+    assert calls == [("1.1.1.1:5555", _BROADCAST)]
+    assert any("sshd-recover broadcast" in m and "rc=0" in m for m in logs)
+
+
+def test_sshd_recover_broadcast_cooldown(tmp_path, monkeypatch):
+    calls, logs = _sshd_heal_env(tmp_path, monkeypatch, "adb:1.1.1.1:5555", _ADB_FALLBACK_REPORT)
+    fhm.check_device("p7a", "100.1", "192.1")
+    fhm.check_device("p7a", "100.1", "192.1")
+    assert len(calls) == 1
+    assert any("cooldown" in m for m in logs)
+    stamp = tmp_path / "sshd-recover-heal" / "p7a"
+    old = datetime.datetime.now().timestamp() - fhm.SSHD_RECOVER_HEAL_COOLDOWN_SEC - 1
+    os.utime(stamp, (old, old))
+    fhm.check_device("p7a", "100.1", "192.1")
+    assert len(calls) == 2
+
+
+def test_sshd_down_over_ssh_fires_broadcast(tmp_path, monkeypatch):
+    report = dict(_ADB_FALLBACK_REPORT, ssh_echo="ok", sshd="down")
+    calls, _ = _sshd_heal_env(tmp_path, monkeypatch, "adb:1.1.1.1:5555", report)
+    fhm.check_device("p7a", "100.1", "192.1")
+    assert calls == [("1.1.1.1:5555", _BROADCAST)]
+
+
+def test_healthy_ssh_over_adb_path_does_not_broadcast(tmp_path, monkeypatch):
+    # resolve_path prefers adb, so an adb: path alone does not mean SSH failed.
+    report = dict(_ADB_FALLBACK_REPORT, ssh_echo="ok", sshd="ok")
+    calls, _ = _sshd_heal_env(tmp_path, monkeypatch, "adb:1.1.1.1:5555", report)
+    fhm.check_device("p7a", "100.1", "192.1")
+    assert calls == []
+
+
+def test_sshd_recover_broadcast_honours_skip_watchdog_heal(tmp_path, monkeypatch):
+    calls, _ = _sshd_heal_env(tmp_path, monkeypatch, "adb:1.1.1.1:5555", _ADB_FALLBACK_REPORT)
+    monkeypatch.setattr(fhm, "SKIP_WATCHDOG_HEAL", True)
+    fhm.check_device("p7a", "100.1", "192.1")
+    assert calls == []
+
+
+def test_sshd_recover_broadcast_error_never_raises(tmp_path, monkeypatch):
+    import adb_cli
+
+    _, logs = _sshd_heal_env(tmp_path, monkeypatch, "adb:1.1.1.1:5555", _ADB_FALLBACK_REPORT)
+
+    def boom(*a, **k):
+        raise OSError("adb missing")
+
+    monkeypatch.setattr(adb_cli, "adb", boom)
+    fhm.check_device("p7a", "100.1", "192.1")
+    assert any("sshd-recover broadcast error" in m for m in logs)
+
+
+def test_monitor_declares_it_heals_sshd_running():
+    head = (REPO / "control" / "bin" / "fleet_health_monitor.py").read_text().splitlines()[:5]
+    assert any(line.startswith("# @heals:") and "SSHD-RUNNING" in line for line in head)
+
+
 def _run_fleet_profile_body(tmp_path, adb_stdout: str) -> dict[str, str]:
     """Run _FLEET_PROFILE_BODY under bash with a fake adb that prints *adb_stdout*."""
     import subprocess

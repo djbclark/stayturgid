@@ -151,6 +151,20 @@ sends RUN_COMMAND itself, 5-minute cooldown; the deploy grants it the
 permission), released as `agent-v0.9.12` and running on s24. The recovery
 itself has not yet fired on a device: sshd has not been down since.
 
+**Dispatcher (2026-10-04):** the Tasker project is now imported on all three
+phones and must never need editing again, so `sshd-recover-tasker.sh` is a
+frozen-name dispatcher rather than a wrapper. It stamps the marker (line 1, bare
+epoch), takes a `mkdir` lock with a 30 s minimum interval, takes the Termux wake
+lock, runs every executable in `~/.termux/tasker/recover.d/` in name order (each
+with its own timeout; a failure does not stop the rest; `10-sshd` runs
+`sshd-recover.sh`), and writes `~/.stayturgid/state/tasker-sshd-recover.result`
+(end epoch, overall exit, per-step exit codes, `sv status sshd`, `tty`).
+**The remaining legs of this item (agent and Shizuku kickers) become new
+`recover.d/` files, not new Tasker profiles.** fleet-health now fires the
+broadcast during a real outage (SSH down, adb up; 10-minute cooldown) and nags
+on a failed last result or a stopped Tasker MonitorService. Still untested: the
+case it exists for (all Termux processes dead, phone locked and dozing).
+
 #### 45 — Termux `sshd -D` if freeze returns (agent) · Risk: **Latent / Medium** · Trigger: sshd freeze
 
 If sshd freezes again (TCP up but `ssh_echo` fails in health log), try

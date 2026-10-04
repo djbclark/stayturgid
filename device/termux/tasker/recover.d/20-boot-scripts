@@ -1,0 +1,21 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Run by sshd-recover-tasker.sh after 10-sshd. A kill that takes sshd down
+# takes the Termux:Boot daemons with it (start_adb.py's boot loop, which runs
+# the 5-minute repair cycle, and the repair bridge), and restarting sshd alone
+# leaves the phone reachable but no longer self-healing (seen on s24,
+# 2026-10-04). Re-run the boot scripts the way Termux:Boot would, detached so
+# they outlive this run; skip when the boot loop is already up.
+export PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
+export PATH="$PREFIX/bin:$PATH"
+if pgrep -f "start_adb[.]py" >/dev/null 2>&1; then
+  exit 0
+fi
+cd "$HOME" || exit 1
+started=0
+for f in "$HOME/.termux/boot"/*; do
+  [ -f "$f" ] || continue
+  setsid nohup bash "$f" >/dev/null 2>&1 </dev/null &
+  started=$((started + 1))
+done
+echo "boot scripts started: $started"
+[ "$started" -gt 0 ]

@@ -26,7 +26,7 @@
       "files": ["control/bin/firerpa_heal.py"]
     },
     "fleet_health": {
-      "description": "Mac launchd fleet-health observation and auto-heals (native-agent restart, HD8 stack, ET reconcile, repair restart)",
+      "description": "Mac launchd fleet-health observation and auto-heals (native-agent restart, HD8 stack, ET reconcile, repair restart, Tasker SSHD_RECOVER broadcast when SSH fails but adb works)",
       "files": [
         "control/bin/fleet_health_monitor.py",
         "control/lib/fleet_health.py",
@@ -60,7 +60,7 @@
   "desired_states": {
     "SSHD-RUNNING": {
       "description": "sshd running on port 8022",
-      "must_cover": ["termux_repair", "cfengine", "firerpa", "native_agent"],
+      "must_cover": ["termux_repair", "cfengine", "firerpa", "native_agent", "fleet_health"],
       "should_cover": ["ansible_deploy"]
     },
     "PORT5555-OPEN": {

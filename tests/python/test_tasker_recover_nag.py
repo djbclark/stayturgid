@@ -31,6 +31,8 @@ def env(monkeypatch, tmp_path):
     nag_dir = tmp_path / "tasker-recover-nag"
     monkeypatch.setattr(monitor, "TASKER_RECOVER_PROBE_STATE_DIR", str(probe_dir))
     monkeypatch.setattr(monitor, "TASKER_RECOVER_NAG_STATE_DIR", str(nag_dir))
+    monkeypatch.setattr(monitor, "TASKER_RESULT_NAG_STATE_DIR", str(tmp_path / "tasker-result-nag"))
+    monkeypatch.setattr(monitor, "TASKER_MONITOR_NAG_STATE_DIR", str(tmp_path / "tasker-monitor-nag"))
     monkeypatch.setattr(monitor, "SKIP_WATCHDOG_HEAL", False)
     monkeypatch.setattr(monitor, "_fleet_log", lambda *a, **k: None)
 
@@ -44,6 +46,8 @@ def env(monkeypatch, tmp_path):
     monkeypatch.setattr(monitor, "notify", lambda *a, **k: calls["notify"].append(a))
     calls["probe"] = probe_dir / "hd8"
     calls["nag"] = nag_dir / "hd8"
+    calls["result_nag"] = tmp_path / "tasker-result-nag" / "hd8"
+    calls["monitor_nag"] = tmp_path / "tasker-monitor-nag" / "hd8"
     return calls
 
 
@@ -150,3 +154,64 @@ def test_unexpected_error_never_raises(env, monkeypatch):
 
     monkeypatch.setattr(fh, "tasker_recover_stale", boom)
     monitor.maybe_nag_tasker_recover("hd8", STALE, TARGET)
+
+
+FRESH_OK = {"tasker_recover_age": "60", "tasker_recover_result": "ok", "tasker_monitor": "running"}
+
+
+def test_healthy_result_and_monitor_do_not_nag(env):
+    monitor.maybe_nag_tasker_recover("hd8", FRESH_OK, TARGET)
+    assert env["notify"] == []
+
+
+def test_failed_result_nags_daily(env):
+    report = dict(FRESH_OK, tasker_recover_result="failed")
+    monitor.maybe_nag_tasker_recover("hd8", report, TARGET)
+    monitor.maybe_nag_tasker_recover("hd8", report, TARGET)
+    assert len(env["notify"]) == 1
+    title, message = env["notify"][0]
+    assert title == "stayturgid: action needed"
+    assert "hd8" in message and "tasker-sshd-recover.result" in message
+    # The marker is fresh, so the profile path itself was not re-tested.
+    assert env["adb"] == []
+    _age(env["result_nag"], monitor.TASKER_RECOVER_NAG_COOLDOWN_SEC + 1)
+    monitor.maybe_nag_tasker_recover("hd8", report, TARGET)
+    assert len(env["notify"]) == 2
+
+
+def test_missing_result_does_not_nag(env):
+    monitor.maybe_nag_tasker_recover("hd8", dict(FRESH_OK, tasker_recover_result="missing"), TARGET)
+    assert env["notify"] == []
+
+
+def test_stopped_monitor_nags_daily(env):
+    report = dict(FRESH_OK, tasker_monitor="stopped")
+    monitor.maybe_nag_tasker_recover("hd8", report, TARGET)
+    monitor.maybe_nag_tasker_recover("hd8", report, TARGET)
+    assert len(env["notify"]) == 1
+    assert "monitor" in env["notify"][0][1]
+    _age(env["monitor_nag"], monitor.TASKER_RECOVER_NAG_COOLDOWN_SEC + 1)
+    monitor.maybe_nag_tasker_recover("hd8", report, TARGET)
+    assert len(env["notify"]) == 2
+
+
+def test_unknown_or_absent_monitor_does_not_nag(env):
+    for value in ("unknown", "notasker"):
+        monitor.maybe_nag_tasker_recover("hd8", dict(FRESH_OK, tasker_monitor=value), TARGET)
+    monitor.maybe_nag_tasker_recover("hd8", {"tasker_recover_age": "60"}, TARGET)
+    assert env["notify"] == []
+
+
+def test_result_and_monitor_nags_have_separate_cooldowns(env):
+    report = dict(FRESH_OK, tasker_recover_result="failed", tasker_monitor="stopped")
+    monitor.maybe_nag_tasker_recover("hd8", report, TARGET)
+    assert len(env["notify"]) == 2
+
+
+def test_advisory_error_does_not_block_the_selftest(env, monkeypatch):
+    def boom(_report):
+        raise RuntimeError("bad report")
+
+    monkeypatch.setattr(fh, "tasker_recover_failed", boom)
+    monitor.maybe_nag_tasker_recover("hd8", STALE, TARGET)
+    assert len(env["adb"]) == 1

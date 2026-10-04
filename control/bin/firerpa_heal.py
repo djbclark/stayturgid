@@ -114,7 +114,8 @@ def restart_sshd(device: Device) -> str:
         "'export PREFIX=/data/data/com.termux/files/usr HOME=/data/data/com.termux/files/home; "
         '"$PREFIX/bin/sh" "$HOME/.termux/tasker/sshd-recover.sh"\' 2>/dev/null'
     )
-    _exec_stdout(device, recover)
+    # sshd-recover.sh now waits (bounded) for runit to report sshd running.
+    _exec_stdout(device, recover, timeout=20)
     time.sleep(3)
     if is_sshd_alive(device):
         _log(NOTICE, "sshd alive after run-as recovery")

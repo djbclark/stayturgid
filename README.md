@@ -109,18 +109,38 @@ Requires SSH keys on the Mac control node (`~/.ssh/*.pub` auto-synced to every d
 When Android kills every Termux process and the keyguard is locked, the only
 recovery that needs no unlock is a broadcast from the Mac:
 `adb shell am broadcast -a com.stayturgid.SSHD_RECOVER` → Tasker profile →
-Termux `RunCommandService` → `~/.termux/tasker/sshd-recover-tasker.sh` →
-`sshd-recover.sh` (starts `runsvdir` if dead, then `sv up sshd`). Tasker is in
-the middle because the adb shell UID lacks `com.termux.permission.RUN_COMMAND`;
-Tasker holds it. Background: [docs/options.md](docs/options.md) item 44.
+Termux `RunCommandService` → `~/.termux/tasker/sshd-recover-tasker.sh` (the
+dispatcher) → every executable in `~/.termux/tasker/recover.d/`, of which
+`10-sshd` runs `sshd-recover.sh` (starts `runsvdir` if dead, then `sv up sshd`).
+Tasker is in the middle because the adb shell UID lacks
+`com.termux.permission.RUN_COMMAND`; Tasker holds it. Background:
+[docs/options.md](docs/options.md) item 44.
+
+`fleet_health_monitor.py` fires the broadcast itself whenever SSH fails but adb
+still answers (or the probe sees `sshd=down`), at most every 10 minutes, and
+logs `sshd-recover broadcast` in `~/.config/stayturgid/logs/fleet-health.log`.
+`STAYTURGID_SKIP_WATCHDOG_HEAL=1` turns that off.
 
 `just deploy` installs Termux:Tasker, the `~/.termux/tasker/` scripts and
 `allow-external-apps=true`, and grants Tasker the `RUN_COMMAND` permission
-(`control/lib/fleet_app_profiles.json`). The profile is manual, once per phone,
-in the Tasker app. Quickest: import
-[`device/tasker/StayTurgid_SSHD_Recover.prj.xml`](device/tasker/StayTurgid_SSHD_Recover.prj.xml)
-(copy it to `/sdcard/Tasker/projects/`, then long-press a project tab →
-Import Project). By hand it is:
+(`control/lib/fleet_app_profiles.json`).
+
+**Manual step, once per phone: install the Tasker project.** Nothing in the
+deploy can do this; until it is done the recovery does not work and
+fleet-health nags daily.
+
+1. Copy [`device/tasker/StayTurgid_SSHD_Recover.prj.xml`](device/tasker/StayTurgid_SSHD_Recover.prj.xml)
+   to `/sdcard/Tasker/projects/` (`adb push` works).
+2. In Tasker, long-press a project tab → Import Project → pick the file. If no
+   project tabs show, turn off Preferences → UI → Beginner Mode.
+3. Check the profile "StayTurgid SSHD Recover" is switched on, then leave
+   Tasker (it applies changes, and runs profiles, only once its editor is closed).
+4. Run the test below.
+
+The project never needs re-importing: the script it calls is a frozen
+dispatcher, and new recoveries are added as files in `recover.d/`.
+
+To build the same thing by hand instead of importing:
 
 1. **Profile:** Event → System → Intent Received, Action `com.stayturgid.SSHD_RECOVER`.
 2. **Task:** System → Send Intent with
@@ -131,13 +151,42 @@ Import Project). By hand it is:
    - Extra: `com.termux.RUN_COMMAND_BACKGROUND:true`
    - Target: Service
 
-Point it at the wrapper `sshd-recover-tasker.sh`, not `sshd-recover.sh`: the
-wrapper stamps `~/.stayturgid/state/tasker-sshd-recover.ts` first, which is how
-the Mac knows the Tasker path specifically works.
+Point it at the dispatcher `sshd-recover-tasker.sh`, not `sshd-recover.sh`: it
+stamps `~/.stayturgid/state/tasker-sshd-recover.ts` first, which is how the Mac
+knows the Tasker path specifically works.
+
+**Once imported, the Tasker project never changes.** Both script names are a
+frozen interface: the Tasker task names `sshd-recover-tasker.sh`, and the native
+agent APK and `firerpa_heal.py` name `sshd-recover.sh`. Deploys never delete, so
+a renamed script would leave old phones running a stale copy;
+`tests/python/test_tasker_frozen_paths.py` fails if either name changes. Each
+run of the dispatcher:
+
+1. writes line 1 of `tasker-sshd-recover.ts` as a bare epoch (the Mac reads
+   line 1 only);
+2. takes a `mkdir` lock (stale once its owner is dead or 15 minutes old) and
+   skips the run if the last one started under 30 seconds ago, since any app
+   can send the broadcast;
+3. takes the Termux wake lock (`timeout 5 termux-wake-lock`), which nothing
+   else restores after Android kills Termux;
+4. runs every executable in `recover.d/` in name order, each under its own
+   60-second timeout, and a failing entry does not stop the rest;
+5. writes `~/.stayturgid/state/tasker-sshd-recover.result`: `end=` epoch,
+   overall `exit=`, one `step.<name>=` exit code per entry, `sv_sshd=` (the
+   `sv status sshd` line) and `tty=` (a pty there means Termux ignored
+   `RUN_COMMAND_BACKGROUND`). Its log is `~/.stayturgid/logs/tasker-recover.log`.
+
+**Add future recoveries as `recover.d/` files, never as new Tasker profiles.**
+Drop an idempotent executable (mode 0755 in git) into
+`device/termux/tasker/recover.d/` named `NN-what`; `just deploy` ships it and
+prunes entries removed from the repo. `sshd-recover.sh` itself exits non-zero
+unless `sv status sshd` shows `run:` after a bounded wait, and serialises its
+`runsvdir` check-then-start with the boot script through the shared
+`recover-lock.sh`.
 
 **Test:** `adb -s <serial> shell am broadcast -a com.stayturgid.SSHD_RECOVER`,
 then on the phone `cat ~/.stayturgid/state/tasker-sshd-recover.ts` shows a fresh
-epoch and `~/.stayturgid/logs/sshd-selfheal.log` gains a line.
+epoch and `cat ~/.stayturgid/state/tasker-sshd-recover.result` shows `exit=0`.
 
 **Nag:** `control/bin/fleet_health_monitor.py` (every 5 min) reports the stamp's
 age as `tasker_recover_age`. If it is missing or older than 7 days on a phone
@@ -145,7 +194,11 @@ with Tasker installed, the monitor fires the broadcast itself (at most hourly);
 if the stamp is still stale on a later pass, it posts a macOS notification
 "stayturgid: action needed" and a WARNING in
 `~/.config/stayturgid/logs/fleet-health.log`, at most daily, until the profile
-works. Advisory only: it does not count as a health issue.
+works. It nags the same way, also at most daily, when
+`tasker_recover_result=failed` (the last dispatcher run reached Termux but a
+recovery failed) and when `tasker_monitor=stopped` (Tasker is installed but
+its MonitorService is not running, so the broadcast is silently dropped).
+All of these are advisory only: none counts as a health issue.
 
 The native agent (0.9.12+) has its own leg that needs no Tasker profile: when
 its co-monitor sees `sshd=down` on two consecutive probes it sends the same

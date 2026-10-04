@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # @heals: A11Y-AUTOJS6 AGENT-FRESH NATIVE-AGENT-RUNNING REPAIRLOG-FRESH ET-CONFIG
 # @heals: HD8-DOZE-WHITELIST HD8-GSF-PINNED HD8-GMS-PINNED
+# @heals: SSHD-RUNNING
 """Dedicated Mac fleet soft-health monitor (launchd every 5 min).
 
 Scrapes watchdog/repair/a11y/sshd/bootloop/shell5555 when a device is
@@ -10,6 +11,9 @@ after CONSECUTIVE_LIMIT consecutive soft failures (~10 min).
 When ``agent_stale`` persists (native agent, OPTIONS K1 — the current
 mechanism post-cutover), restarts the Kotlin HostService via
 ``control/tools/native-agent/start_agent.py`` (rate-limited).
+
+When SSH fails but adb works, fires the Tasker SSHD_RECOVER broadcast
+(rate-limited), the keyguard-proof recovery path.
 
 Legacy watchdog and AutoJs6 accessibility fields remain in telemetry while
 fleet-state verification is incomplete, but they do not create health issues
@@ -76,6 +80,13 @@ TASKER_RECOVER_PROBE_STATE_DIR = os.path.join(ROOT, "state", "tasker-recover-pro
 TASKER_RECOVER_PROBE_COOLDOWN_SEC = 60 * 60
 TASKER_RECOVER_NAG_STATE_DIR = os.path.join(ROOT, "state", "tasker-recover-nag")
 TASKER_RECOVER_NAG_COOLDOWN_SEC = 24 * 60 * 60
+TASKER_RESULT_NAG_STATE_DIR = os.path.join(ROOT, "state", "tasker-result-nag")
+TASKER_MONITOR_NAG_STATE_DIR = os.path.join(ROOT, "state", "tasker-monitor-nag")
+SSHD_RECOVER_ACTION = "com.stayturgid.SSHD_RECOVER"
+SSHD_RECOVER_HEAL_STATE_DIR = os.path.join(ROOT, "state", "sshd-recover-heal")
+# Two monitor passes: the pass after a broadcast shows whether sshd came back
+# before another one is sent.
+SSHD_RECOVER_HEAL_COOLDOWN_SEC = 10 * 60
 
 
 def _stats_event(event_type: str, device: str, **details: str | int | float) -> None:
@@ -615,14 +626,83 @@ def _report_device_log_failures(name: str, report: dict) -> None:
             write_state(state_path, newest)
 
 
+def maybe_heal_sshd_via_tasker(name: str, path: str, report: dict, target: str | None) -> None:
+    """SSHD-RUNNING: fire the Tasker SSHD_RECOVER broadcast during a real outage.
+
+    Runs when SSH failed but adb answered (adb_health's ssh_echo=skip) or the
+    probe saw sshd down. That broadcast is the one recovery that still works
+    after a GID-kill behind a locked keyguard, and without this nothing sends
+    it except the weekly self-test, which needs a healthy phone. Never raises.
+    """
+    if SKIP_WATCHDOG_HEAL or SKIP_HEALTH:
+        return
+    try:
+        adb_fallback = path.startswith("adb:") and report.get("ssh_echo") == "skip"
+        if not adb_fallback and report.get("sshd") != "down":
+            return
+        serial = path.split(":", 1)[1] if path.startswith("adb:") else target
+        if not serial:
+            return
+        if not _heal_cooldown_ok_dir(name, SSHD_RECOVER_HEAL_STATE_DIR, SSHD_RECOVER_HEAL_COOLDOWN_SEC):
+            _fleet_log(INFO, "%s sshd-recover broadcast skipped (cooldown)" % name)
+            return
+        # Stamped before sending: a broadcast that hangs or errors is still
+        # rate-limited.
+        _touch_heal_dir(name, SSHD_RECOVER_HEAL_STATE_DIR)
+        import adb_cli
+
+        r = adb_cli.adb(serial, "shell", "am", "broadcast", "-a", SSHD_RECOVER_ACTION, timeout=15)
+        detail = ((r.stdout or "") + (r.stderr or "")).strip().replace("\n", " | ")
+        _fleet_log(
+            NOTICE,
+            "%s sshd-recover broadcast (ssh_echo=%s sshd=%s) rc=%s %s"
+            % (name, report.get("ssh_echo"), report.get("sshd"), r.returncode, detail[:200]),
+        )
+        if r.returncode == 0:
+            _stats_event("heal_triggered", name, heal="sshd_tasker")
+    except Exception as e:
+        _fleet_log(WARNING, "%s sshd-recover broadcast error: %s" % (name, e))
+
+
+def _maybe_nag_tasker_advisory(name: str, report: dict) -> None:
+    """Daily nags for a recovery that ran and failed, and for a dead Tasker monitor."""
+    if fh.tasker_recover_failed(report) and _heal_cooldown_ok_dir(
+        name, TASKER_RESULT_NAG_STATE_DIR, TASKER_RECOVER_NAG_COOLDOWN_SEC
+    ):
+        _fleet_log(WARNING, "%s: Tasker SSHD_RECOVER ran but its last recovery failed" % name)
+        notify(
+            "stayturgid: action needed",
+            "%s: the last Tasker SSHD_RECOVER run failed. See ~/.stayturgid/state/tasker-sshd-recover.result "
+            "and ~/.stayturgid/logs/tasker-recover.log on the phone." % name,
+            sound="Basso",
+        )
+        _touch_heal_dir(name, TASKER_RESULT_NAG_STATE_DIR)
+    if fh.tasker_monitor_stopped(report) and _heal_cooldown_ok_dir(
+        name, TASKER_MONITOR_NAG_STATE_DIR, TASKER_RECOVER_NAG_COOLDOWN_SEC
+    ):
+        _fleet_log(WARNING, "%s: Tasker is installed but its MonitorService is not running" % name)
+        notify(
+            "stayturgid: action needed",
+            "%s: Tasker's monitor is not running, so SSHD_RECOVER broadcasts are dropped. "
+            "Open Tasker once and check it is enabled." % name,
+            sound="Basso",
+        )
+        _touch_heal_dir(name, TASKER_MONITOR_NAG_STATE_DIR)
+
+
 def maybe_nag_tasker_recover(name: str, report: dict, target: str | None) -> None:
     """Keep complaining until the Tasker SSHD_RECOVER path is proven on *name*.
 
     A stale or missing marker first gets a self-test broadcast; a phone with a
     working profile refreshes the marker and the next pass sees it fresh. Only
     a broadcast from an earlier pass that is still unanswered notifies the
-    operator (at most daily). Advisory: never an issue, never raises.
+    operator (at most daily). A failed last recovery and a stopped Tasker
+    monitor each nag daily too. Advisory: never an issue, never raises.
     """
+    try:
+        _maybe_nag_tasker_advisory(name, report)
+    except Exception as e:
+        _fleet_log(WARNING, "%s: tasker advisory check failed: %s" % (name, e))
     try:
         if not fh.tasker_recover_stale(report):
             return
@@ -642,7 +722,7 @@ def maybe_nag_tasker_recover(name: str, report: dict, target: str | None) -> Non
             try:
                 import adb_cli
 
-                r = adb_cli.adb(target, "shell", "am", "broadcast", "-a", "com.stayturgid.SSHD_RECOVER", timeout=15)
+                r = adb_cli.adb(target, "shell", "am", "broadcast", "-a", SSHD_RECOVER_ACTION, timeout=15)
                 if r.returncode == 0:
                     _touch_heal_dir(name, TASKER_RECOVER_PROBE_STATE_DIR)
                     _fleet_log(INFO, "%s: tasker SSHD_RECOVER self-test broadcast sent" % name)
@@ -729,6 +809,8 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
             "%s: State divergence! Watchdog reports CLOSED_NO_SHELL but ADB is reachable." % name,
             sound="Basso",
         )
+
+    maybe_heal_sshd_via_tasker(name, path, report, target)
 
     if name == "fireos-device":
         maybe_heal_hd8_google_stack(name)

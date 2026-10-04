@@ -476,6 +476,18 @@
     perms: true
     checksum: true
 
+# sshd-recover-tasker.sh runs everything executable in recover.d/, so an entry
+# dropped from the repo has to leave the phone too. delete is scoped to
+# recover.d: the parent directory may hold the operator's own Termux:Tasker
+# scripts.
+- name: Prune recover.d entries no longer in the repo
+  ansible.posix.synchronize:
+    src: "{{ stayturgid_repo_root }}/device/termux/tasker/recover.d/"
+    dest: "{{ termux_home }}/.termux/tasker/recover.d/"
+    perms: true
+    checksum: true
+    delete: true
+
 # sv-enable equivalent: a runit service with no down file auto-starts when
 # runsvdir does. The repair/boot scripts also delete a stale down file, but
 # converging it at deploy time keeps a freshly provisioned device correct

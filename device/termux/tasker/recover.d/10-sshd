@@ -1,0 +1,4 @@
+#!/data/data/com.termux/files/usr/bin/sh
+# Run by sshd-recover-tasker.sh (the Tasker dispatcher) in name order with the
+# other recover.d entries. sshd-recover.sh exits non-zero unless sshd is up.
+exec "$(dirname "$0")/../sshd-recover.sh"

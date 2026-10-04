@@ -127,6 +127,48 @@ else
 fi
 """
 
+# Keyguard-proof sshd recovery (Tasker SSHD_RECOVER -> sshd-recover-tasker.sh).
+# All three fields are advisory: maybe_nag_tasker_recover reads them, never
+# evaluate_health.
+# tasker_recover_age: only the dispatcher writes the marker, so its age proves
+#   the Tasker path reached Termux (see TASKER_RECOVER_FRESH_SEC). Line 1 is a
+#   bare epoch; anything else reads as missing.
+# tasker_recover_result: the dispatcher's last overall exit code, i.e. whether
+#   the recoveries it ran then worked.
+# tasker_monitor: Tasker's Intent Received receiver only exists while its
+#   MonitorService runs; with it gone the broadcast is silently dropped and
+#   `am broadcast` still exits 0.
+_TASKER_BODY = r"""
+_tasker_pkg=$(adb -s localhost:5555 shell pm path net.dinglisch.android.taskerm 2>/dev/null </dev/null | tr -d '\r')
+if [ -z "$_tasker_pkg" ]; then
+  _tasker_pkg=$(pm path net.dinglisch.android.taskerm 2>/dev/null | tr -d '\r')
+fi
+_tasker_recover_age() {
+  case "$_tasker_pkg" in *package:*) ;; *) echo notasker; return ;; esac
+  ts=$(head -n 1 ~/.stayturgid/state/tasker-sshd-recover.ts 2>/dev/null | tr -d '[:space:]')
+  case "$ts" in ""|*[!0-9]*) echo missing; return ;; esac
+  echo $(($(date +%s) - ts))
+}
+echo "tasker_recover_age=$(_tasker_recover_age)"
+_tasker_result=$(sed -n 's/^exit=//p' ~/.stayturgid/state/tasker-sshd-recover.result 2>/dev/null | head -n 1 | tr -d '[:space:]')
+case "$_tasker_result" in
+  0) echo "tasker_recover_result=ok" ;;
+  ""|*[!0-9]*) echo "tasker_recover_result=missing" ;;
+  *) echo "tasker_recover_result=failed" ;;
+esac
+_tasker_monitor() {
+  case "$_tasker_pkg" in *package:*) ;; *) echo notasker; return ;; esac
+  svc=$(adb -s localhost:5555 shell dumpsys activity services net.dinglisch.android.taskerm 2>/dev/null </dev/null | tr -d '\r')
+  # No recognisable dump (shell5555 down, adb missing) is unknown, never stopped.
+  case "$svc" in *"ACTIVITY MANAGER SERVICES"*) ;; *) echo unknown; return ;; esac
+  case "$svc" in
+    *"net.dinglisch.android.taskerm/.MonitorService"*|*"net.dinglisch.android.taskerm/net.dinglisch.android.taskerm.MonitorService"*) echo running ;;
+    *) echo stopped ;;
+  esac
+}
+echo "tasker_monitor=$(_tasker_monitor)"
+"""
+
 HEALTH_GATHER = (
     r"""
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
@@ -226,21 +268,8 @@ else
     *) echo "autojs6_a11y=missing" ;;
   esac
 fi
-# Keyguard-proof sshd recovery: only sshd-recover-tasker.sh (the target of the
-# Tasker SSHD_RECOVER profile) writes this marker, so its age proves the
-# Tasker path ran. See TASKER_RECOVER_FRESH_SEC.
-_tasker_recover_age() {
-  tasker=$(adb -s localhost:5555 shell pm path net.dinglisch.android.taskerm 2>/dev/null </dev/null | tr -d '\r')
-  if [ -z "$tasker" ]; then
-    tasker=$(pm path net.dinglisch.android.taskerm 2>/dev/null | tr -d '\r')
-  fi
-  case "$tasker" in *package:*) ;; *) echo notasker; return ;; esac
-  ts=$(head -n 1 ~/.stayturgid/state/tasker-sshd-recover.ts 2>/dev/null | tr -d '[:space:]')
-  case "$ts" in ""|*[!0-9]*) echo missing; return ;; esac
-  echo $(($(date +%s) - ts))
-}
-echo "tasker_recover_age=$(_tasker_recover_age)"
 """
+    + _TASKER_BODY
     + _FLEET_PROFILE_BODY
     + r"""
 # CFEngine self-heal: scrape last line of its repair log for visibility.
@@ -412,6 +441,23 @@ def tasker_recover_stale(report: dict[str, Any]) -> bool:
     return age is not None and age > TASKER_RECOVER_FRESH_SEC
 
 
+def tasker_recover_failed(report: dict[str, Any]) -> bool:
+    """True when the dispatcher's last run reached Termux but a recovery failed.
+
+    Advisory only. "missing" (never run, or a dispatcher older than the result
+    file) is unknown, not failed.
+    """
+    return report.get("tasker_recover_result") == "failed"
+
+
+def tasker_monitor_stopped(report: dict[str, Any]) -> bool:
+    """True when Tasker is installed but its MonitorService is not running.
+
+    Advisory only. "notasker", "unknown" and an absent field never nag.
+    """
+    return report.get("tasker_monitor") == "stopped"
+
+
 def summarize(report: dict[str, Any], issues: list[str]) -> str:
     bits = [
         "sshd=%s" % report.get("sshd", "?"),
@@ -428,6 +474,8 @@ def summarize(report: dict[str, Any], issues: list[str]) -> str:
         "a11y=%s" % report.get("a11y", "?"),
         "autojs6_a11y=%s" % report.get("autojs6_a11y", "?"),
         "tasker_recover_age=%s" % report.get("tasker_recover_age", "?"),
+        "tasker_recover_result=%s" % report.get("tasker_recover_result", "?"),
+        "tasker_monitor=%s" % report.get("tasker_monitor", "?"),
         "fleet_profile=%s" % report.get("fleet_profile", "?"),
         "fleet_profile_age=%s" % report.get("fleet_profile_age", "?"),
         "cfengine=%s" % report.get("cfengine", "?"),
