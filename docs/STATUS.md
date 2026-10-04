@@ -114,7 +114,7 @@ more than a day or two old.
 2. Decide the F1 consent-surface phasing question ([#46](https://github.com/djbclark/stayturgid/issues/46)).
 3. ~~Decide whether to publish Shizuku release20 through the normal APK
    path.~~ Resolved 2026-10-03: the fleet is pinned to ShizukuTendCF Drop-In
-   r2785 in the bootstrap APK lock (`resign: false`, in-place upgrade on the
+   r2787 in the bootstrap APK lock (`resign: false`, in-place upgrade on the
    release key; validated on s24).
 4. Retest p7a only after firerpa/lamda#147 publishes a compatible runtime.
 5. Remove (or authorize removal of) the stray `~/stayturgid` file.
