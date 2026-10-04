@@ -6,6 +6,7 @@ align with tests/device_tier.py. Never mutates the phone.
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import re
 import socket
@@ -126,6 +127,40 @@ else
   echo "fleet_profile_age=missing"
 fi
 """
+
+
+def _shizuku_staleness_probe() -> str:
+    """The deploy's own staleness probe, so Mac, deploy and phone share one rule."""
+    path = _REPO / "ansible_collections/stayturgid/android_common/plugins/module_utils/shizuku_staleness.py"
+    spec = importlib.util.spec_from_file_location("_shizuku_staleness", path)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.staleness_probe()
+
+
+# @heals: SHIZUKU-SERVER-CURRENT (detection only; deploy and Termux repair restart it)
+# A Shizuku server older than its installed APK keeps running the old code
+# (`adb install -r` does not kill the uid-shell server). The probe prints the
+# verdict; only an explicit "yes" becomes an issue. Fire/split-storage hosts
+# have no localhost:5555 shell: unknown.
+_SHIZUKU_STALE_BODY = (
+    r"""
+if [ "$FIRE" = 1 ]; then
+  echo "shizuku_server_stale=unknown"
+else
+  _stale=$(adb -s localhost:5555 shell '"""
+    + _shizuku_staleness_probe()
+    + r"""' 2>/dev/null </dev/null | tr -d '\r')
+  printf '%s\n' "$_stale" | grep -E '^shizuku_(server_start|pkg_update)=[0-9a-z]+$' || true
+  case "$_stale" in
+    *shizuku_server_stale=yes*) echo "shizuku_server_stale=yes" ;;
+    *shizuku_server_stale=no*) echo "shizuku_server_stale=no" ;;
+    *) echo "shizuku_server_stale=unknown" ;;
+  esac
+fi
+"""
+)
 
 # Keyguard-proof sshd recovery (Tasker SSHD_RECOVER -> sshd-recover-tasker.sh).
 # All three fields are advisory: maybe_nag_tasker_recover reads them, never
@@ -271,6 +306,7 @@ fi
 """
     + _TASKER_BODY
     + _FLEET_PROFILE_BODY
+    + _SHIZUKU_STALE_BODY
     + r"""
 # CFEngine self-heal: scrape last line of its repair log for visibility.
 cf_line=$(tail -1 "$HOME/.stayturgid/logs/repair-cfengine.log" 2>/dev/null)
@@ -421,6 +457,9 @@ def evaluate_health(report: dict[str, Any], *, alias: str | None = None) -> list
     if report.get("fleet_profile") == "failed":
         issues.append("fleet_profile_failed")
 
+    if report.get("shizuku_server_stale") == "yes":
+        issues.append("shizuku_server_stale")
+
     # CFEngine is complementary (not critical). Report down but don't alert.
     if report.get("cfengine") == "down":
         issues.append("cfengine_down")
@@ -478,6 +517,7 @@ def summarize(report: dict[str, Any], issues: list[str]) -> str:
         "tasker_monitor=%s" % report.get("tasker_monitor", "?"),
         "fleet_profile=%s" % report.get("fleet_profile", "?"),
         "fleet_profile_age=%s" % report.get("fleet_profile_age", "?"),
+        "shizuku_server_stale=%s" % report.get("shizuku_server_stale", "?"),
         "cfengine=%s" % report.get("cfengine", "?"),
     ]
     if report.get("a11y_missing_n"):

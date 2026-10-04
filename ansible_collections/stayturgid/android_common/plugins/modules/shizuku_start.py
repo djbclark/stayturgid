@@ -1,5 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+# @heals: SHIZUKU-SERVER-CURRENT
 
 from __future__ import absolute_import, division, print_function
 
@@ -15,6 +16,9 @@ description:
   - Falls back to direct libshizuku.so native launch.
   - Applies the fleet profile after start and reconciles it on every run.
   - Verifies the daemon is running and port 5555 is reachable.
+  - Restarts a running server that started before the installed package was
+    last updated (C(adb install -r) leaves the uid-shell server running the
+    old code).
   - Idempotent with respect to the Shizuku daemon itself.
 options:
   device:
@@ -47,14 +51,27 @@ EXAMPLES = r"""
 
 RETURN = r"""
 changed:
-  description: True when Shizuku was started.
+  description: True when Shizuku was started or a stale server was restarted.
   type: bool
 shizuku:
   description: Final Shizuku state (up / down / already_up / up_no_port).
   type: str
 start_method:
-  description: How Shizuku was started (headless / native / already_up).
+  description: >-
+    How Shizuku was started (headless / native / already_up /
+    restarted_stale; in check mode would_start / would_restart_stale).
   type: str
+server_stale:
+  description: >-
+    Whether the server found running started before the package's
+    lastUpdateTime (yes / no / unknown). Unknown never restarts anything.
+  type: str
+server_started:
+  description: Epoch seconds the running server started, by the phone's clock, or null.
+  type: int
+package_updated:
+  description: Epoch seconds of the package's lastUpdateTime, by the phone's clock, or null.
+  type: int
 port5555:
   description: Whether port 5555 is open after start.
   type: str
@@ -87,10 +104,17 @@ from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_shel
     adb_shell,
     normalize_adb_output,
 )
+from ansible_collections.stayturgid.android_common.plugins.module_utils.shizuku_staleness import (
+    STALE_YES,
+    parse_staleness,
+    staleness_probe,
+)
 
 SHIZUKU_PKG = "moe.shizuku.privileged.api"
 HEADLESS_START = "moe.shizuku.privileged.api.HEADLESS_START"
+HEADLESS_STOP = "moe.shizuku.privileged.api.HEADLESS_STOP"
 HEADLESS_STATUS = "moe.shizuku.privileged.api.HEADLESS_STATUS"
+STOP_TIMEOUT = 10
 APPLY_FLEET = "moe.shizuku.privileged.api.APPLY_FLEET_PROFILE"
 FLEET_ACTIVITY = "moe.shizuku.privileged.api/af.shizuku.manager.fleet.FleetProfileActivity"
 FLEET_PROFILE_PATH = "/data/local/tmp/shizuku-fleet.json"
@@ -144,6 +168,44 @@ def send_headless_start(run_command, device):
     rc, out, _err = adb_shell(run_command, device, "am broadcast -a %s -p %s" % (HEADLESS_START, SHIZUKU_PKG))
     normalize_adb_output(out)
     return rc == 0
+
+
+def server_staleness(run_command, device, pkg=SHIZUKU_PKG):
+    """parse_staleness() of the on-device probe; all unknown if adb fails."""
+    rc, out, _err = adb_shell(run_command, device, staleness_probe(pkg))
+    return parse_staleness(normalize_adb_output(out) if rc == 0 else "")
+
+
+def staleness_fields(staleness):
+    return dict(
+        server_stale=staleness["stale"],
+        server_started=staleness["server_start"],
+        package_updated=staleness["package_updated"],
+    )
+
+
+def wait_stopped(run_command, device, timeout):
+    deadline = time.time() + timeout
+    while shizuku_running(run_command, device):
+        if time.time() >= deadline:
+            return False
+        time.sleep(1)
+    return True
+
+
+def stop_server(run_command, device, timeout=None):
+    """HEADLESS_STOP, then SIGTERM if the server outlives it. True once it is gone.
+
+    The receiver only stops a server the manager believes is running and
+    answers NOT_RUNNING otherwise; the server runs as uid shell, so the adb
+    shell can end it directly in that case.
+    """
+    timeout = STOP_TIMEOUT if timeout is None else timeout
+    adb_shell(run_command, device, "am broadcast -a %s -p %s" % (HEADLESS_STOP, SHIZUKU_PKG))
+    if wait_stopped(run_command, device, timeout):
+        return True
+    adb_shell(run_command, device, "pkill -f '[s]hizuku_(plus_)?server'")
+    return wait_stopped(run_command, device, timeout)
 
 
 def resolve_libdir(run_command, device, pkg=SHIZUKU_PKG):
@@ -346,7 +408,22 @@ def main():
     if module.check_mode:
         running = shizuku_running(module.run_command, device)
         if running:
-            module.exit_json(changed=False, shizuku="already_up", start_method="already_up", port5555="unknown")
+            staleness = server_staleness(module.run_command, device, pkg)
+            if staleness["stale"] == STALE_YES:
+                module.exit_json(
+                    changed=True,
+                    shizuku="already_up",
+                    start_method="would_restart_stale",
+                    port5555="unknown",
+                    **staleness_fields(staleness),
+                )
+            module.exit_json(
+                changed=False,
+                shizuku="already_up",
+                start_method="already_up",
+                port5555="unknown",
+                **staleness_fields(staleness),
+            )
         module.exit_json(changed=True, shizuku="down", start_method="would_start", port5555="unknown")
 
     if not shizuku_installed(module.run_command, device, pkg):
@@ -355,6 +432,21 @@ def main():
     profile = module.params["fleet_profile"] or DEFAULT_FLEET_PROFILE
 
     running = shizuku_running(module.run_command, device)
+    staleness = server_staleness(module.run_command, device, pkg) if running else parse_staleness("")
+    stale = staleness_fields(staleness)
+    restarted_stale = False
+    if running and staleness["stale"] == STALE_YES:
+        # Stopped here, started again by the cold-start path below, which
+        # already knows how to fall back to a native launch.
+        if not stop_server(module.run_command, device):
+            module.fail_json(
+                msg="Shizuku server (started %s) is older than its package (updated %s, epoch seconds) "
+                "and did not stop (HEADLESS_STOP, then SIGTERM)"
+                % (staleness["server_start"], staleness["package_updated"]),
+                **stale,
+            )
+        running = False
+        restarted_stale = True
     port_open = port5555_open(module.run_command, device) if running else False
 
     if running and port_open:
@@ -367,6 +459,7 @@ def main():
             start_method="already_up",
             port5555="open",
             fleet_profile_reconciled=reconciled,
+            **stale,
         )
 
     if running and not port_open:
@@ -379,6 +472,7 @@ def main():
             start_method="already_up",
             port5555="closed",
             fleet_profile_reconciled=reconciled,
+            **stale,
         )
 
     start_method = "none"
@@ -395,7 +489,9 @@ def main():
             if shizuku_running(module.run_command, device):
                 start_method = "native"
             else:
-                module.fail_json(msg="Shizuku failed to start via both HEADLESS_START and native launch")
+                module.fail_json(msg="Shizuku failed to start via both HEADLESS_START and native launch", **stale)
+    if restarted_stale:
+        start_method = "restarted_stale"
 
     reconciled, fleet_result = reconcile_fleet_profile(module, device, profile)
     time.sleep(1)
@@ -419,6 +515,7 @@ def main():
             start_method=start_method,
             port5555=final_port,
             fleet_profile_reconciled=reconciled,
+            **stale,
         )
     elif final_running:
         module.warn("Shizuku is running but port 5555 is closed — fleet profile may need a second apply")
@@ -430,11 +527,14 @@ def main():
             start_method=start_method,
             port5555="closed",
             fleet_profile_reconciled=reconciled,
+            **stale,
         )
     else:
         module.fail_json(
             msg="Shizuku failed to come up within %ds timeout" % module.params["start_timeout"],
             fleet_profile_result=fleet_result,
+            start_method=start_method,
+            **stale,
         )
 
 

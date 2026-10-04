@@ -534,6 +534,7 @@ def _record_soft_health_snapshot(
         bootloop=report.get("bootloop") or "unknown",
         fleet_profile=report.get("fleet_profile") or "unknown",
         fleet_profile_age=_age_field(report.get("fleet_profile_age")),
+        shizuku_server_stale=report.get("shizuku_server_stale") or "unknown",
         issues=",".join(issues) if issues else "none",
         issue_count=len(issues),
     )

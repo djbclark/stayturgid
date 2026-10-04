@@ -7,6 +7,8 @@ import os
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "control" / "lib"))
 sys.path.insert(0, str(REPO / "control" / "bin"))
@@ -1009,6 +1011,106 @@ def test_summarize_includes_fleet_profile():
     assert "fleet_profile=failed" in s
     assert "fleet_profile_age=42" in s
     assert "issues=fleet_profile_failed" in s
+
+
+def _run_shizuku_stale_body(tmp_path, adb_stdout: str, fire: str = "") -> tuple[dict[str, str], str]:
+    """Run _SHIZUKU_STALE_BODY under bash; the fake adb records the command it was handed."""
+    import subprocess
+
+    (tmp_path / "out.txt").write_text(adb_stdout)
+    argv = tmp_path / "argv.txt"
+    script = "FIRE=%s\nadb() { printf '%%s' \"$4\" > '%s'; cat '%s'; }\n%s" % (
+        fire,
+        argv,
+        tmp_path / "out.txt",
+        fh._SHIZUKU_STALE_BODY,
+    )
+    env = {k: v for k, v in os.environ.items() if k != "BASH_ENV"}
+    r = subprocess.run(["bash", "-c", script], capture_output=True, text=True, env=env, timeout=10)
+    assert r.returncode == 0, r.stderr
+    return fh.parse_kv(r.stdout), (argv.read_text() if argv.exists() else "")
+
+
+def _staleness_module():
+    import importlib.util
+
+    path = REPO / "ansible_collections/stayturgid/android_common/plugins/module_utils/shizuku_staleness.py"
+    spec = importlib.util.spec_from_file_location("shizuku_staleness_t", path)
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_health_gather_includes_shizuku_stale_probe():
+    import subprocess
+
+    assert fh._SHIZUKU_STALE_BODY in fh.HEALTH_GATHER
+    assert _staleness_module().staleness_probe() in fh._SHIZUKU_STALE_BODY
+    # The probe is spliced into single quotes; a stray quote would break the whole gather.
+    r = subprocess.run(["bash", "-n"], input=fh.HEALTH_GATHER, capture_output=True, text=True, timeout=10)
+    assert r.returncode == 0, r.stderr
+
+
+def test_shizuku_stale_body_passes_the_probe_through_intact(tmp_path):
+    out, argv = _run_shizuku_stale_body(
+        tmp_path, "shizuku_server_start=996000\r\nshizuku_pkg_update=998000\r\nshizuku_server_stale=yes\r\n"
+    )
+    assert argv == _staleness_module().staleness_probe()
+    assert out == {
+        "shizuku_server_start": "996000",
+        "shizuku_pkg_update": "998000",
+        "shizuku_server_stale": "yes",
+    }
+
+
+@pytest.mark.parametrize(
+    "adb_stdout,verdict",
+    [
+        ("shizuku_server_stale=no\n", "no"),
+        ("shizuku_server_stale=unknown\n", "unknown"),
+        ("", "unknown"),
+        ("error: device offline\n", "unknown"),
+    ],
+)
+def test_shizuku_stale_body_verdicts(tmp_path, adb_stdout, verdict):
+    assert _run_shizuku_stale_body(tmp_path, adb_stdout)[0]["shizuku_server_stale"] == verdict
+
+
+def test_shizuku_stale_body_skips_hosts_without_a_local_shell(tmp_path):
+    out, argv = _run_shizuku_stale_body(tmp_path, "shizuku_server_stale=yes\n", fire="1")
+    assert out == {"shizuku_server_stale": "unknown"}
+    assert argv == ""
+
+
+def test_evaluate_shizuku_server_stale_only_on_explicit_yes():
+    report = {
+        "ssh_echo": "ok",
+        "sshd": "ok",
+        "repair_age": "200",
+        "agent_heartbeat_age": "60",
+        "a11y": "ok",
+        "port": "open",
+        "shizuku": "up",
+    }
+    assert fh.evaluate_health(dict(report, shizuku_server_stale="yes")) == ["shizuku_server_stale"]
+    for value in ("no", "unknown", None):
+        r = dict(report) if value is None else dict(report, shizuku_server_stale=value)
+        assert fh.evaluate_health(r) == []
+
+
+def test_summarize_includes_shizuku_server_stale():
+    assert "shizuku_server_stale=yes" in fh.summarize({"shizuku_server_stale": "yes"}, ["shizuku_server_stale"])
+    assert "shizuku_server_stale=?" in fh.summarize({}, [])
+
+
+def test_soft_health_snapshot_carries_shizuku_server_stale(monkeypatch):
+    events = []
+    monkeypatch.setattr(fhm, "_stats_event", lambda etype, device, **d: events.append((etype, device, d)))
+    fhm._record_soft_health_snapshot("p7a", "ssh", {"shizuku_server_stale": "yes"}, ["shizuku_server_stale"])
+    fhm._record_soft_health_snapshot("p7a", "adb:x", {}, [])
+    assert events[0][2]["shizuku_server_stale"] == "yes"
+    assert events[1][2]["shizuku_server_stale"] == "unknown"
 
 
 def test_soft_health_snapshot_carries_fleet_profile(monkeypatch):

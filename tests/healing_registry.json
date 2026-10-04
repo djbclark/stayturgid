@@ -44,6 +44,7 @@
         "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml",
         "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/native_agent.yml",
         "ansible_collections/stayturgid/obtainium/plugins/modules/obtainium_app.py",
+        "ansible_collections/stayturgid/android_common/plugins/modules/shizuku_start.py",
         "ansible_collections/stayturgid/firerpa/roles/firerpa/tasks/configure.yml",
         "ansible_collections/stayturgid/firerpa/roles/firerpa/tasks/service.yml",
         "ansible/playbooks/site.yml"
@@ -137,6 +138,11 @@
       "description": "Shizuku fleet profile applied when Shizuku is down",
       "must_cover": ["termux_repair"],
       "should_cover": []
+    },
+    "SHIZUKU-SERVER-CURRENT": {
+      "description": "The running Shizuku server was started after the installed package was last updated (adb install -r leaves the uid-shell server on the old code)",
+      "must_cover": ["termux_repair", "ansible_deploy"],
+      "should_cover": ["fleet_health"]
     },
     "DEVICE-JSON": {
       "description": "device.json profile present in stayturgid catalog",

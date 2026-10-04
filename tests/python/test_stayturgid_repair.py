@@ -6,6 +6,8 @@ import importlib.util
 import time
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[2]
 MODULE_PATH = ROOT / "device" / "termux" / "py" / "stayturgid_repair.py"
 SPEC = importlib.util.spec_from_file_location("stayturgid_repair", MODULE_PATH)
@@ -387,3 +389,159 @@ def test_watchdog_not_running_is_spawned(monkeypatch):
     monkeypatch.setattr(repair, "sh_adb", sh_adb)
     assert repair.ensure_shizuku_watchdog() == "spawned"
     assert not any(c.startswith("kill") for c in calls)
+
+
+# ── Stale Shizuku server (2026-10-04: r2785 server kept running under an r2787 APK) ──
+
+STALENESS_MODULE = (
+    ROOT / "ansible_collections" / "stayturgid" / "android_common" / "plugins" / "module_utils" / "shizuku_staleness.py"
+)
+STALE_OUT = "shizuku_server_start=996000\nshizuku_pkg_update=998000\nshizuku_server_stale=yes\n"
+
+
+def test_staleness_probe_matches_the_collection_copy():
+    spec = importlib.util.spec_from_file_location("shizuku_staleness", STALENESS_MODULE)
+    assert spec and spec.loader
+    staleness = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(staleness)
+    assert repair.SHIZUKU_STALENESS_PROBE == staleness.staleness_probe(repair.SHIZUKU_PKG)
+
+
+class _FakeShizukuShell:
+    """sh_adb fake with a live/dead server that HEADLESS_STOP/pkill/HEADLESS_START act on."""
+
+    def __init__(self, probe_out, stop_works=True, kill_works=True, start_works=True):
+        self.probe_out = probe_out
+        self.alive = True
+        self.stop_works = stop_works
+        self.kill_works = kill_works
+        self.start_works = start_works
+        self.calls = []
+
+    def __call__(self, cmd, timeout=15):
+        self.calls.append(cmd)
+        if cmd == repair.SHIZUKU_STALENESS_PROBE:
+            return 0, self.probe_out
+        if "HEADLESS_STATUS" in cmd:
+            return 0, "Broadcast completed: result=%d\n" % (1 if self.alive else 3)
+        if cmd.startswith("pgrep -f '[s]hizuku_(plus_)?server'"):
+            return (0, "4242\n") if self.alive else (1, "")
+        if "HEADLESS_STOP" in cmd:
+            self.alive = self.alive and not self.stop_works
+        elif cmd.startswith("pkill -f '[s]hizuku_(plus_)?server'"):
+            self.alive = self.alive and not self.kill_works
+        elif "HEADLESS_START" in cmd:
+            self.alive = self.alive or self.start_works
+        return 0, ""
+
+    def index(self, needle):
+        return next(i for i, c in enumerate(self.calls) if needle in c)
+
+
+def _setup_stale(monkeypatch, tmp_path, shell, capture_log=True):
+    logs = []
+    monkeypatch.setattr(repair, "sh_adb", shell)
+    if capture_log:
+        monkeypatch.setattr(repair, "log", lambda msg, level=repair.INFO: logs.append((msg, level)))
+    monkeypatch.setattr(repair, "SHIZUKU_STALE_RESTART_STAMP", str(tmp_path / "state" / "shizuku-stale-restart"))
+    monkeypatch.setattr(repair, "SHIZUKU_STOP_TIMEOUT", 0)
+    monkeypatch.setattr(repair, "SHIZUKU_START_TIMEOUT", 0)
+    monkeypatch.setattr(repair.time, "sleep", lambda _s: None)
+    return logs
+
+
+def test_shizuku_staleness_parses_the_probe(monkeypatch):
+    monkeypatch.setattr(repair, "sh_adb", lambda cmd, timeout=15: (0, STALE_OUT))
+    assert repair.shizuku_staleness() == ("yes", 996000, 998000)
+    monkeypatch.setattr(repair, "sh_adb", lambda cmd, timeout=15: (255, STALE_OUT))
+    assert repair.shizuku_staleness() == ("unknown", None, None)
+    monkeypatch.setattr(repair, "sh_adb", lambda cmd, timeout=15: (0, "shizuku_server_stale=perhaps\n"))
+    assert repair.shizuku_staleness() == ("unknown", None, None)
+
+
+def test_stale_shizuku_is_stopped_then_started_with_notice(monkeypatch, tmp_path):
+    shell = _FakeShizukuShell(STALE_OUT)
+    logs = _setup_stale(monkeypatch, tmp_path, shell)
+    assert repair.restart_stale_shizuku() == "restarted"
+    assert shell.index("HEADLESS_STOP") < shell.index("HEADLESS_START")
+    assert not any(c.startswith("pkill") for c in shell.calls)
+    assert shell.alive
+    assert logs == [
+        (
+            "restarted stale Shizuku server (server started %s, package updated %s)"
+            % (repair._fmt_epoch(996000), repair._fmt_epoch(998000)),
+            repair.NOTICE,
+        )
+    ]
+    assert (tmp_path / "state" / "shizuku-stale-restart").is_file()
+
+
+def test_stale_shizuku_notice_line_format(monkeypatch, tmp_path):
+    _setup_stale(monkeypatch, tmp_path, _FakeShizukuShell(STALE_OUT), capture_log=False)
+    log_path = tmp_path / "repair.log"
+    for name in ("LOG", "SDLOG", "SDCARD_WATCHDOG_LOG"):
+        monkeypatch.setattr(repair, name, str(log_path))
+    for name in ("LOG_JSONL", "SDLOG_JSONL", "SDCARD_WATCHDOG_JSONL"):
+        monkeypatch.setattr(repair, name, str(tmp_path / "repair.jsonl"))
+    assert repair.restart_stale_shizuku() == "restarted"
+    expected = "[repair] NOTICE: restarted stale Shizuku server (server started %s, package updated %s)" % (
+        repair._fmt_epoch(996000),
+        repair._fmt_epoch(998000),
+    )
+    assert expected in log_path.read_text()
+
+
+def test_stale_shizuku_restart_respects_cooldown(monkeypatch, tmp_path):
+    shell = _FakeShizukuShell(STALE_OUT)
+    logs = _setup_stale(monkeypatch, tmp_path, shell)
+    stamp = tmp_path / "state" / "shizuku-stale-restart"
+    stamp.parent.mkdir(parents=True)
+    stamp.write_text(str(int(time.time()) - 60))
+    assert repair.restart_stale_shizuku() == "cooldown"
+    assert not any("HEADLESS_STOP" in c or "HEADLESS_START" in c for c in shell.calls)
+    assert logs and logs[0][1] == repair.WARNING
+    # Past the 30-minute cooldown it acts again.
+    stamp.write_text(str(int(time.time()) - repair.SHIZUKU_STALE_RESTART_COOLDOWN_SEC - 1))
+    assert repair.restart_stale_shizuku() == "restarted"
+
+
+@pytest.mark.parametrize(
+    "probe_out,expected",
+    [
+        ("shizuku_server_start=999000\nshizuku_pkg_update=998000\nshizuku_server_stale=no\n", "current"),
+        ("shizuku_server_start=unknown\nshizuku_pkg_update=998000\nshizuku_server_stale=unknown\n", "unknown"),
+        ("", "unknown"),
+    ],
+)
+def test_current_or_unreadable_shizuku_is_left_alone(monkeypatch, tmp_path, probe_out, expected):
+    shell = _FakeShizukuShell(probe_out)
+    logs = _setup_stale(monkeypatch, tmp_path, shell)
+    assert repair.restart_stale_shizuku() == expected
+    assert shell.calls == [repair.SHIZUKU_STALENESS_PROBE]
+    assert logs == []
+    assert not (tmp_path / "state" / "shizuku-stale-restart").exists()
+
+
+def test_stale_shizuku_that_ignores_headless_stop_is_killed(monkeypatch, tmp_path):
+    shell = _FakeShizukuShell(STALE_OUT, stop_works=False)
+    _setup_stale(monkeypatch, tmp_path, shell)
+    assert repair.restart_stale_shizuku() == "restarted"
+    assert shell.index("HEADLESS_STOP") < shell.index("pkill") < shell.index("HEADLESS_START")
+
+
+def test_stale_shizuku_that_will_not_stop_fails_loudly(monkeypatch, tmp_path):
+    shell = _FakeShizukuShell(STALE_OUT, stop_works=False, kill_works=False)
+    logs = _setup_stale(monkeypatch, tmp_path, shell)
+    assert repair.restart_stale_shizuku() == "FAILED"
+    assert not any("HEADLESS_START" in c for c in shell.calls)
+    assert logs[-1][1] == repair.ERR
+    # Stamped anyway, so the next cycle waits out the cooldown instead of retrying.
+    assert (tmp_path / "state" / "shizuku-stale-restart").is_file()
+
+
+def test_stale_shizuku_that_does_not_come_back_fails_loudly(monkeypatch, tmp_path):
+    shell = _FakeShizukuShell(STALE_OUT, start_works=False)
+    logs = _setup_stale(monkeypatch, tmp_path, shell)
+    assert repair.restart_stale_shizuku() == "FAILED"
+    assert logs[-1][1] == repair.ERR
+    assert "did not come back" in logs[-1][0]

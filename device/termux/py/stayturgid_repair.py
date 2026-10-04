@@ -1,5 +1,5 @@
 #!/data/data/com.termux/files/usr/bin/python
-# @heals: SSHD-RUNNING PORT5555-OPEN SHIZUKU-HEADLESS A11Y-AUTOJS6 MIRROR-PINNED PATH-CLEAN ET-CONFIG OS-RELEASE PKG-UPGRADE AUTOJS6-PROFILE SHIZUKU-PROFILE DEVICE-JSON ENV-FILE TAILSCALE-VPN TAILSCALE-ALWAYSON
+# @heals: SSHD-RUNNING PORT5555-OPEN SHIZUKU-HEADLESS A11Y-AUTOJS6 MIRROR-PINNED PATH-CLEAN ET-CONFIG OS-RELEASE PKG-UPGRADE AUTOJS6-PROFILE SHIZUKU-PROFILE DEVICE-JSON ENV-FILE TAILSCALE-VPN TAILSCALE-ALWAYSON SHIZUKU-SERVER-CURRENT
 """stayturgid-repair.py — Termux-side self-heal (deployed as ~/stayturgid_repair.py,
 reached via the ~/stayturgid_repair.py compat shim).
 
@@ -346,6 +346,122 @@ def ensure_shizuku_watchdog():
     if rc != 0:
         return "spawn FAILED (exec): " + out.strip()
     return "replaced stale loop" if replaced else "spawned"
+
+
+SHIZUKU_PKG = "moe.shizuku.privileged.api"
+_SHIZUKU_RECEIVER = SHIZUKU_PKG + "/af.shizuku.manager.receiver.HeadlessStartStopReceiver"
+# Byte-identical to staleness_probe() in
+# ansible_collections/stayturgid/android_common/plugins/module_utils/shizuku_staleness.py,
+# which documents how it measures; this file runs on the phone, where the
+# collection is not installed. tests/python/test_stayturgid_repair.py keeps the
+# two equal.
+SHIZUKU_STALENESS_PROBE = (
+    'isnum() { case "$1" in ""|*[!0-9]*) return 1;; esac; return 0; }; '
+    "now=$(date +%s); start=; upd=; "
+    'p=$(pgrep -o -f "[s]hizuku_(plus_)?server"); '
+    'if isnum "$p"; then '
+    'ticks=$(cut -d " " -f 22 /proc/$p/stat 2>/dev/null); '
+    "up=$(cat /proc/uptime 2>/dev/null); up=${up%%.*}; "
+    'hz=$(getconf CLK_TCK 2>/dev/null); isnum "$hz" || hz=100; '
+    'if isnum "$ticks" && isnum "$up" && isnum "$now" && [ "$hz" -gt 0 ]; then '
+    "start=$((now - up + ticks / hz)); fi; "
+    "fi; "
+    't=$(dumpsys package moe.shizuku.privileged.api 2>/dev/null | sed -n "s/^ *lastUpdateTime=//p" | head -n 1); '
+    'if [ -n "$t" ]; then upd=$(date -d "$t" +%s 2>/dev/null || date -D "%Y-%m-%d %H:%M:%S" -d "$t" +%s 2>/dev/null); fi; '
+    "v=unknown; "
+    'if isnum "$start" && isnum "$upd" && isnum "$now" '
+    '&& [ "$upd" -le $((now + 30)) ] && [ "$start" -le $((now + 30)) ]; then '
+    'if [ $((start + 30)) -lt "$upd" ]; then v=yes; else v=no; fi; '
+    "fi; "
+    'echo "shizuku_server_start=${start:-unknown}"; '
+    'echo "shizuku_pkg_update=${upd:-unknown}"; '
+    'echo "shizuku_server_stale=$v"'
+)
+# A restart that does not take (or a misread clock) must not cycle the server
+# every 5-minute repair pass.
+SHIZUKU_STALE_RESTART_COOLDOWN_SEC = 1800
+SHIZUKU_STALE_RESTART_STAMP = os.path.join(STG, "state", "shizuku-stale-restart")
+SHIZUKU_STOP_TIMEOUT = 10
+SHIZUKU_START_TIMEOUT = 20
+
+
+def shizuku_staleness():
+    """Run the staleness probe: (yes|no|unknown, server_start, package_updated)."""
+    rc, out = sh_adb(SHIZUKU_STALENESS_PROBE, timeout=20)
+    fields = {}
+    for line in out.splitlines() if rc == 0 else []:
+        key, sep, value = line.strip().partition("=")
+        if sep:
+            fields[key] = value.strip()
+    stale = fields.get("shizuku_server_stale")
+    epochs = [fields.get(k, "") for k in ("shizuku_server_start", "shizuku_pkg_update")]
+    started, updated = [int(v) if v.isdigit() else None for v in epochs]
+    return (stale if stale in ("yes", "no") else "unknown"), started, updated
+
+
+def _shizuku_running():
+    _rc, out = sh_adb("am broadcast -a %s.HEADLESS_STATUS -p %s 2>/dev/null" % (SHIZUKU_PKG, SHIZUKU_PKG))
+    if "result=1" in out:
+        return True
+    return sh_adb("pgrep -f '[s]hizuku_(plus_)?server'")[0] == 0
+
+
+def _wait_shizuku(running, timeout):
+    deadline = time.time() + timeout
+    while _shizuku_running() != running:
+        if time.time() >= deadline:
+            return False
+        time.sleep(1)
+    return True
+
+
+def _fmt_epoch(epoch):
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(epoch)) if epoch else "unknown"
+
+
+def restart_stale_shizuku():
+    """Restart a Shizuku server that started before its APK was last updated.
+
+    `adb install -r` kills the app's processes but not the uid-shell server,
+    which keeps running the old code (2026-10-04, p7a and t2: an r2785 server
+    under an r2787 APK for hours). Only an explicit "yes" from the probe acts;
+    unknown never restarts. Requires the privileged shell.
+
+    Returns "current", "unknown", "cooldown", "restarted" or "FAILED".
+    """
+    stale, started, updated = shizuku_staleness()
+    if stale != "yes":
+        return "current" if stale == "no" else "unknown"
+    detail = "server started %s, package updated %s" % (_fmt_epoch(started), _fmt_epoch(updated))
+    now = time.time()
+    try:
+        with open(SHIZUKU_STALE_RESTART_STAMP) as f:
+            last = float(f.read().strip() or 0)
+    except (OSError, ValueError):
+        last = 0.0
+    if 0 <= now - last < SHIZUKU_STALE_RESTART_COOLDOWN_SEC:
+        log("Shizuku server is still older than its package (%s); restart cooldown" % detail, WARNING)
+        return "cooldown"
+    # Stamped before acting, so a restart that hangs or fails still waits out the cooldown.
+    try:
+        with open(ensure_parent(SHIZUKU_STALE_RESTART_STAMP), "w") as f:
+            f.write(str(int(now)))
+    except OSError:
+        pass
+    sh_adb("am broadcast -a %s.HEADLESS_STOP -n %s" % (SHIZUKU_PKG, _SHIZUKU_RECEIVER))
+    if not _wait_shizuku(False, SHIZUKU_STOP_TIMEOUT):
+        # HEADLESS_STOP answers NOT_RUNNING when the manager has lost track of
+        # the server; it runs as uid shell, so this shell can end it.
+        sh_adb("pkill -f '[s]hizuku_(plus_)?server'")
+        if not _wait_shizuku(False, SHIZUKU_STOP_TIMEOUT):
+            log("stale Shizuku server did not stop (HEADLESS_STOP, then SIGTERM) (%s)" % detail, ERR)
+            return "FAILED"
+    sh_adb("am broadcast -a %s.HEADLESS_START -n %s" % (SHIZUKU_PKG, _SHIZUKU_RECEIVER))
+    if not _wait_shizuku(True, SHIZUKU_START_TIMEOUT):
+        log("stale Shizuku server stopped but did not come back after HEADLESS_START (%s)" % detail, ERR)
+        return "FAILED"
+    log("restarted stale Shizuku server (%s)" % detail, NOTICE)
+    return "restarted"
 
 
 def read_device_profile():
@@ -1149,6 +1265,10 @@ def main():
             # else in this file (_rc / shizuku_rc).
             shizuku_rc, _ = sh_adb("pgrep -f '[s]hizuku_(plus_)?server'")
             shizuku = "up" if shizuku_rc == 0 else "down"
+        if shizuku == "up" and restart_stale_shizuku() == "FAILED":
+            # Either still the old server (logged ERR, not down) or none, in
+            # which case step 8 re-sends HEADLESS_START.
+            shizuku = "up" if _shizuku_running() else "down"
         if shizuku == "down":
             rc = 1
             log("shizuku_server not running (adb shell still reachable)", WARNING)
