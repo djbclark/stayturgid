@@ -183,7 +183,7 @@ def check_shizuku():
     if rc == 0 and "result=1" in out:
         return True, "Shizuku HEADLESS_STATUS=1"
     # pgrep fallback
-    rc2, _, _ = _shell("adb -s localhost:5555 shell pgrep -f '[s]hizuku_server' 2>/dev/null", timeout=8)
+    rc2, _, _ = _shell("adb -s localhost:5555 shell pgrep -f '[s]hizuku_(plus_)?server' 2>/dev/null", timeout=8)
     if rc2 == 0:
         return True, "Shizuku server running (pgrep)"
     return False, "Shizuku not detected"

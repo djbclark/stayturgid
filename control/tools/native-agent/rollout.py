@@ -173,7 +173,7 @@ def _rollout_one(label: str, serial: str) -> bool:
         print("  WARN grant failed — continue start attempt")
     time.sleep(4)
     srv = _run(
-        ["adb", "-s", serial, "shell", "pgrep -f shizuku_server"],
+        ["adb", "-s", serial, "shell", "pgrep -f '[s]hizuku_(plus_)?server'"],
         timeout=10,
     )
     if not (srv.stdout or "").strip():

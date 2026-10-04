@@ -283,7 +283,7 @@ _WATCHDOG_LOG = "/data/local/tmp/stayturgid_shizuku_watchdog.log"
 _WATCHDOG_SCRIPT_BODY = (
     "#!/system/bin/sh\n"
     "while true; do\n"
-    '  pgrep -f "[s]hizuku_server" >/dev/null || /data/local/tmp/shizuku_starter >/dev/null 2>&1\n'
+    '  pgrep -f "[s]hizuku_(plus_)?server" >/dev/null || /data/local/tmp/shizuku_starter >/dev/null 2>&1\n'
     "  sleep 60\n"
     "done\n"
 )
@@ -588,7 +588,7 @@ def duplicate_branch():
         if "result=1" in shizuku_out:
             shizuku = "up"
         else:
-            shizuku_rc, _ = sh_adb("pgrep -f '[s]hizuku_server'")
+            shizuku_rc, _ = sh_adb("pgrep -f '[s]hizuku_(plus_)?server'")
             shizuku = "up" if shizuku_rc == 0 else "down"
         wifi = "up" if sh_adb("settings get global adb_wifi_enabled")[1].strip() in ("1", "true") else "down"
         before = sh_adb("settings get secure enabled_accessibility_services")[1].strip()
@@ -596,7 +596,7 @@ def duplicate_branch():
     else:
         # Port 5555 down — fall back to Termux-native pgrep for Shizuku.
         port, sh = "CLOSED_NO_SHELL", False
-        rc, _ = run(["pgrep", "-f", "[s]hizuku_server"])
+        rc, _ = run(["pgrep", "-f", "[s]hizuku_(plus_)?server"])
         shizuku = "up" if rc == 0 else "down"
         wifi, a11y = "unknown", "unknown"
     # Contention path never mutates SSH config; report presence only.
@@ -1129,7 +1129,7 @@ def main():
             # rc=1 if this check happened to pass) — fixed to a properly
             # namespaced variable, matching the convention used everywhere
             # else in this file (_rc / shizuku_rc).
-            shizuku_rc, _ = sh_adb("pgrep -f '[s]hizuku_server'")
+            shizuku_rc, _ = sh_adb("pgrep -f '[s]hizuku_(plus_)?server'")
             shizuku = "up" if shizuku_rc == 0 else "down"
         if shizuku == "down":
             rc = 1
@@ -1160,7 +1160,7 @@ def main():
         # privileged Shizuku-UserService path, or an adb-shell-based Mac
         # trigger (when a transport is reachable), don't already cover. See
         # docs/operations/sessions/session-2026-07-25-k1-verification.md.
-        shizuku_rc, _ = run(["pgrep", "-f", "[s]hizuku_server"])
+        shizuku_rc, _ = run(["pgrep", "-f", "[s]hizuku_(plus_)?server"])
         if shizuku_rc == 0:
             shizuku = "up"
             # Shizuku is up, so its installed rish client can restore TCP

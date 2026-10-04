@@ -102,11 +102,13 @@ def shizuku_installed(run_command, device, pkg=SHIZUKU_PKG):
 
 
 def shizuku_running(run_command, device):
-    rc, out, _err = adb_shell(run_command, device, "am broadcast -a %s 2>/dev/null" % HEADLESS_STATUS)
+    rc, out, _err = adb_shell(
+        run_command, device, "am broadcast -a %s -p %s 2>/dev/null" % (HEADLESS_STATUS, SHIZUKU_PKG)
+    )
     text = normalize_adb_output(out)
     if rc == 0 and "result=1" in text:
         return True
-    rc, out, _err = adb_shell(run_command, device, "pgrep -f '[s]hizuku_server' >/dev/null && echo up")
+    rc, out, _err = adb_shell(run_command, device, "pgrep -f '[s]hizuku_(plus_)?server' >/dev/null && echo up")
     return rc == 0 and "up" in normalize_adb_output(out)
 
 

@@ -50,7 +50,7 @@ class PeerStartCommandsTest {
 
     @Test
     fun runningCheckUsesBracketTrickAndEmitsUpDown() {
-        assertTrue(PeerStartCommands.SHIZUKU_RUNNING_CHECK.contains("[s]hizuku_server"))
+        assertTrue(PeerStartCommands.SHIZUKU_RUNNING_CHECK.contains("[s]hizuku_(plus_)?server"))
         assertTrue(PeerStartCommands.SHIZUKU_RUNNING_CHECK.contains("echo up"))
         assertTrue(PeerStartCommands.SHIZUKU_RUNNING_CHECK.contains("echo down"))
     }

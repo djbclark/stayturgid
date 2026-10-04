@@ -66,7 +66,7 @@ case "$*" in
       [ -n "${ADB_WALLPAPER_FILE:-}" ] && cat "$ADB_WALLPAPER_FILE"
       exit 0 ;;
   *"shell id -u"*) printf '%s\n' "${ADB_SHELL_UID-2000}"; exit 0 ;;
-  *hizuku_server*) exit "${ADB_SHIZUKU_RC:-0}" ;;
+  *hizuku_*server*) exit "${ADB_SHIZUKU_RC:-0}" ;;
   *"settings get global zen_mode"*) printf '%s\n' "${ADB_ZEN:-0}"; exit 0 ;;
   *"dumpsys notification"*) printf 'mInterruptionFilter=%s\n' "${ADB_INTERRUPT:-ALL}"; exit 0 ;;
   *"cmd audio get-ringer-mode"*) printf '%s\n' "${ADB_RINGER:-2}"; exit 0 ;;

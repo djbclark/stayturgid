@@ -100,7 +100,10 @@ object CatastrophicRepair {
                 } catch (_: Throwable) {
                     continue
                 }
-            if (cmdline.contains("shizuku_server")) return true
+            // ShizukuTendCF (rebased on ShizukuPlus) names its server shizuku_plus_server.
+            if (cmdline.contains("shizuku_server") || cmdline.contains("shizuku_plus_server")) {
+                return true
+            }
         }
         return false
     }

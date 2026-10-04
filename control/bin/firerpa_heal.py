@@ -82,7 +82,7 @@ def is_port_5555_alive(device: Device) -> bool:
 
 
 def is_shizuku_alive(device: Device) -> bool:
-    out = _exec_stdout(device, "pgrep -f '[s]hizuku_server' 2>/dev/null")
+    out = _exec_stdout(device, "pgrep -f '[s]hizuku_(plus_)?server' 2>/dev/null")
     return bool(out)
 
 

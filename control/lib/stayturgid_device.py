@@ -330,7 +330,7 @@ class PrivShell:
         rc, out = self.sh("am broadcast -a %s -p moe.shizuku.privileged.api 2>/dev/null" % self.HEADLESS_STATUS)
         if rc == 0 and "result=1" in out:
             return True
-        rc, out = self.sh("pgrep -f '[s]hizuku_server' >/dev/null && echo up")
+        rc, out = self.sh("pgrep -f '[s]hizuku_(plus_)?server' >/dev/null && echo up")
         return rc == 0 and "up" in out
 
     def resolve_shizuku_libdir(self, pkg=None):

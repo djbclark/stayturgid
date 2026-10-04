@@ -251,11 +251,11 @@ object PeerStartCommands {
     const val ADB_WIFI_ENABLED_REASSERT = "settings put global adb_wifi_enabled 1"
 
     /**
-     * `[s]hizuku_server` (bracket trick) so the pgrep pattern never matches its own process. Emits
-     * `up`/`down` so the reader is unambiguous.
+     * `[s]hizuku_(plus_)?server` (bracket trick) so the pgrep pattern never matches its own
+     * process. Emits `up`/`down` so the reader is unambiguous.
      */
     const val SHIZUKU_RUNNING_CHECK =
-        "pgrep -f '[s]hizuku_server' >/dev/null 2>&1 && echo up || echo down"
+        "pgrep -f '[s]hizuku_(plus_)?server' >/dev/null 2>&1 && echo up || echo down"
 
     fun pmPath(pkg: String): String = "pm path $pkg"
 

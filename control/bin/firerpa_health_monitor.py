@@ -81,7 +81,7 @@ def check_device(alias: str, ip: str, port: int = 65000) -> dict:
         if isinstance(stdout, bytes):
             stdout = stdout.decode(errors="replace")
         port_5555 = ":5555" in (stdout or "")
-        out2 = d.execute_script("pgrep -f '[s]hizuku_server' 2>/dev/null", timeout=5)
+        out2 = d.execute_script("pgrep -f '[s]hizuku_(plus_)?server' 2>/dev/null", timeout=5)
         stdout2 = getattr(out2, "stdout", b"")
         if isinstance(stdout2, bytes):
             stdout2 = stdout2.decode(errors="replace")
