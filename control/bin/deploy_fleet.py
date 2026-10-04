@@ -12,8 +12,9 @@ Pass ``--devices-only`` (#57) to skip that second pass when iterating on one dev
 
 Before Ansible it re-renders the site's generated/stayturgid/ copy (site-sync) and
 activates the vector serverapp (control/lib/site_preflight.py); CHECK=1 only
-reports what either would change. Exit 4 means site-sync changed generated
-content: commit it in the site checkout, then re-run.
+reports what either would change. When site-sync changes generated content
+the deploy commits and pushes generated/stayturgid in the site checkout itself
+(STAYTURGID_SITE_AUTOCOMMIT=0 turns that off).
 
 Usage:
   deploy_fleet.py [host ...]              # full site deploy

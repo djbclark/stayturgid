@@ -10,6 +10,10 @@ fragments had never gone live.
 Both steps shell out to the product's own ``just site-sync`` /
 ``just site-serverapps`` recipes so this module inherits their interpreter
 selection, refusals and exit codes instead of re-implementing them.
+
+Afterwards it commits and pushes whatever site-sync left under
+``generated/stayturgid/`` in the site checkout, and only that path: the
+checkout is shared with other sessions whose uncommitted work must stay put.
 """
 
 from __future__ import annotations
@@ -33,6 +37,13 @@ PREFLIGHT_TIMEOUT_SECONDS = int(os.environ.get("STAYTURGID_SITE_PREFLIGHT_TIMEOU
 # Deploy stopped because site-sync rewrote generated content that should be
 # reviewed and committed before it reaches devices. Distinct from 1/2/3/124.
 EXIT_GENERATED_CHANGED = 4
+AUTOCOMMIT_ENV = "STAYTURGID_SITE_AUTOCOMMIT"
+GENERATED_PATHSPEC = f"generated/{PRODUCT}"
+# Commit hooks and a push over the network run while the fleet lock is held.
+GIT_TIMEOUT_SECONDS = int(os.environ.get("STAYTURGID_SITE_GIT_TIMEOUT_SECONDS", "120"))
+# Files git keeps in the git dir while a merge, rebase, cherry-pick or revert is
+# unfinished; committing on top of one would fold the deploy into it.
+_IN_PROGRESS_MARKERS = ("MERGE_HEAD", "rebase-merge", "rebase-apply", "CHERRY_PICK_HEAD", "REVERT_HEAD")
 
 # format_plan() in control/site_contract/serverapps.py prints "  create  <plist>"
 # only when the site-namespace launchd plist does not exist yet, i.e. Vector was
@@ -115,6 +126,131 @@ def _run_recipe(
     return result.returncode, output
 
 
+def _git(cwd: Path, env: Mapping[str, str], *args: str) -> tuple[int, str]:
+    """Run ``git -C cwd args``; return (exit code, stdout on success or the error text)."""
+    # A push that wants credentials must fail now, not wait on a prompt nobody sees.
+    child_env = {**env, "GIT_TERMINAL_PROMPT": "0"}
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(cwd), *args],
+            env=child_env,
+            text=True,
+            capture_output=True,
+            timeout=GIT_TIMEOUT_SECONDS,
+        )
+    except subprocess.TimeoutExpired:
+        return 124, f"git {args[0]} exceeded {GIT_TIMEOUT_SECONDS}s"
+    except OSError as exc:
+        return 127, f"cannot run git: {exc}"
+    if result.returncode == 0:
+        return 0, result.stdout or ""
+    return result.returncode, (result.stderr or result.stdout or "").strip()
+
+
+def autocommit_blocker(site_dir: Path, env: Mapping[str, str]) -> str | None:
+    """Return why generated/ changes must not be committed automatically, or None."""
+    if env.get(AUTOCOMMIT_ENV, "").strip() == "0":
+        return f"{AUTOCOMMIT_ENV}=0"
+    rc, git_dir = _git(site_dir, env, "rev-parse", "--absolute-git-dir")
+    if rc != 0:
+        return f"{site_dir} is not a git checkout"
+    if _git(site_dir, env, "symbolic-ref", "-q", "HEAD")[0] != 0:
+        return f"{site_dir} has a detached HEAD"
+    busy = [marker for marker in _IN_PROGRESS_MARKERS if (Path(git_dir.strip()) / marker).exists()]
+    if busy:
+        return f"a merge or rebase is in progress in {site_dir} ({busy[0]})"
+    return None
+
+
+def commit_message(repo_root: Path, env: Mapping[str, str]) -> str:
+    rc, short = _git(repo_root, env, "rev-parse", "--short", "HEAD")
+    suffix = f" {short.strip()}" if rc == 0 and short.strip() else ""
+    return f"chore(generated): sync from {PRODUCT}{suffix}"
+
+
+def _manual_commit(site_dir: Path, message: str) -> str:
+    return (
+        f"  git -C {site_dir} add -- {GENERATED_PATHSPEC} && "
+        f"git -C {site_dir} commit -m '{message}' -- {GENERATED_PATHSPEC} && git -C {site_dir} push"
+    )
+
+
+def _pending_generated(site_dir: Path, env: Mapping[str, str]) -> tuple[int, list[str]]:
+    rc, out = _git(site_dir, env, "status", "--porcelain", "--", GENERATED_PATHSPEC)
+    if rc != 0:
+        return rc, [out]
+    return 0, [line for line in out.splitlines() if line.strip()]
+
+
+def autocommit_generated(site_dir: Path, repo_root: Path, env: Mapping[str, str]) -> None:
+    """Commit and push site-sync's output under generated/<product>/ and nothing else.
+
+    Never raises: the files on disk are already what this deploy reads, so a
+    failed commit or push is left for the operator rather than stopping phones.
+    """
+    reason = autocommit_blocker(site_dir, env)
+    if reason:
+        print(f"site preflight: not committing {GENERATED_PATHSPEC} ({reason})", file=sys.stderr)
+        return
+    message = commit_message(repo_root, env)
+    rc, pending = _pending_generated(site_dir, env)
+    if rc != 0:
+        print(
+            f"WARNING: site preflight: git status failed in {site_dir} ({pending[0]}); "
+            f"commit any {GENERATED_PATHSPEC} changes by hand:\n{_manual_commit(site_dir, message)}",
+            file=sys.stderr,
+        )
+        return
+    if not pending:
+        return
+    # The pathspec on commit as well as add matters: a bare `git commit` would
+    # also take anything another session had already staged in this checkout.
+    for args in (("add", "--", GENERATED_PATHSPEC), ("commit", "-m", message, "--", GENERATED_PATHSPEC)):
+        rc, out = _git(site_dir, env, *args)
+        if rc != 0:
+            print(
+                f"WARNING: site preflight: `git {args[0]}` failed in {site_dir} (exit {rc}): {out}\n"
+                f"Deploy continues; commit and push by hand:\n{_manual_commit(site_dir, message)}",
+                file=sys.stderr,
+            )
+            return
+    print(
+        f"site preflight: committed {len(pending)} path(s) under {GENERATED_PATHSPEC} in {site_dir}: {message}",
+        file=sys.stderr,
+    )
+    rc, out = _git(site_dir, env, "push")
+    if rc != 0:
+        print(
+            f"WARNING: site preflight: `git push` failed in {site_dir} (exit {rc}): {out}\n"
+            f"Deploy continues; the commit is local only. Push by hand:\n"
+            f"  git -C {site_dir} pull --rebase && git -C {site_dir} push",
+            file=sys.stderr,
+        )
+        return
+    print(f"site preflight: pushed {site_dir}", file=sys.stderr)
+
+
+def preview_autocommit(site_dir: Path, env: Mapping[str, str]) -> None:
+    """CHECK=1: say what a real deploy would commit; read-only git only."""
+    reason = autocommit_blocker(site_dir, env)
+    if reason:
+        print(
+            f"site preflight (dry run): a real deploy would not commit {GENERATED_PATHSPEC} ({reason})",
+            file=sys.stderr,
+        )
+        return
+    rc, pending = _pending_generated(site_dir, env)
+    if rc != 0:
+        print(f"WARNING: site preflight (dry run): git status failed in {site_dir} ({pending[0]})", file=sys.stderr)
+        return
+    already = "".join(f"\n  {line}" for line in pending)
+    print(
+        f"site preflight (dry run): a real deploy commits and pushes whatever site-sync changes under "
+        f"{GENERATED_PATHSPEC} in {site_dir}" + (f"; already uncommitted there:{already}" if pending else ""),
+        file=sys.stderr,
+    )
+
+
 def preview(site_dir: Path, repo_root: Path, env: Mapping[str, str], *, activate_vector: bool) -> int:
     """CHECK=1: report what site-sync and the vector serverapp would change; write nothing."""
     reason = should_skip(site_dir, repo_root, env)
@@ -131,6 +267,7 @@ def preview(site_dir: Path, repo_root: Path, env: Mapping[str, str], *, activate
         if rc != 0:
             print(f"WARNING: vector serverapp dry run exited {rc} — a real deploy would stop here.", file=sys.stderr)
             worst = worst or rc
+    preview_autocommit(site_dir, env)
     return worst
 
 
@@ -158,7 +295,7 @@ def apply(site_dir: Path, repo_root: Path, env: Mapping[str, str], *, activate_v
     if changed and not content:
         print(
             f"site preflight: site-sync restamped {generated / LOCKFILE_NAME} to the current product "
-            "commit (no rendered file changed); commit it with your next site change.",
+            "commit (no rendered file changed).",
             file=sys.stderr,
         )
 
@@ -201,13 +338,10 @@ def apply(site_dir: Path, repo_root: Path, env: Mapping[str, str], *, activate_v
 
     if content:
         # Not a stop: the refreshed files are already on disk and are what this
-        # deploy reads, and a dirty site checkout does not block a deploy. Say
-        # what changed so it gets committed, and carry on.
+        # deploy reads, and a dirty site checkout does not block a deploy.
         listing = "\n".join(f"  {generated / path}" for path in content)
         print(
-            f"site preflight: site-sync refreshed {len(content)} generated file(s) this deploy reads:\n{listing}\n"
-            f"Commit them in {site_dir} afterwards:\n"
-            f"  git -C {site_dir} add generated/{PRODUCT} && git -C {site_dir} commit -m "
-            f"'chore(generated): sync from {PRODUCT}'",
+            f"site preflight: site-sync refreshed {len(content)} generated file(s) this deploy reads:\n{listing}",
             file=sys.stderr,
         )
+    autocommit_generated(site_dir, repo_root, env)
