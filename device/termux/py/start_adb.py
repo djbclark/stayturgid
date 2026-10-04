@@ -320,17 +320,46 @@ def startup_cfserverd() -> None:
         _boot_log(f"cf-serverd started (pid {pid})")
 
 
+ADB_UNAUTHORISED = "adb-unauthorised"
+
+
+def _adb_connect() -> str:
+    """Gated localhost:5555 connect: "device", "waiting" or "down".
+
+    Shared with repair, the guards and the Mac's ssh health gather
+    (stayturgid_shell.adb_connect), so an unauthorised Termux key gets one
+    "Allow USB debugging?" dialog rather than one per caller per cycle.
+    """
+    try:
+        import stayturgid_shell as sh
+    except ImportError:
+        return "device" if _run(["adb", "connect", "localhost:5555"], timeout=5) == 0 else "down"
+    return sh.adb_connect(timeout=5)
+
+
+def _localhost_adb_state() -> str:
+    """ "ok" (uid-2000 shell), "waiting" (Termux's key unauthorised) or "down"."""
+    state = _adb_connect()
+    if state != "device":
+        return state
+    rc, output = _capture(["adb", "-s", "localhost:5555", "shell", "id -u"], timeout=5)
+    return "ok" if rc == 0 and output.strip() == "2000" else "down"
+
+
 # @heals: FIRERPA-SECURE-RUNNING
 def _localhost_adb_available() -> bool:
-    _run(["adb", "connect", "localhost:5555"], timeout=5)
-    rc, output = _capture(["adb", "-s", "localhost:5555", "shell", "id -u"], timeout=5)
-    return rc == 0 and output.strip() == "2000"
+    return _localhost_adb_state() == "ok"
 
 
 def _shell_transport() -> tuple[list[str] | None, str]:
     """Return persistent shell-UID ADB, recovering adbd through rish if needed."""
-    if _localhost_adb_available():
+    state = _localhost_adb_state()
+    if state == "ok":
         return ["adb", "-s", "localhost:5555", "shell"], "localhost-adb"
+    if state == "waiting":
+        # adbd is up and showing the dialog for Termux's key. A rish restart
+        # drops that connection, and adb's automatic re-dial raises another.
+        return None, ADB_UNAUTHORISED
 
     # A FIRERPA child launched directly inside a Shizuku rish session is killed
     # when that binder shell closes, even with nohup/setsid. Use rish only to
@@ -341,11 +370,14 @@ def _shell_transport() -> tuple[list[str] | None, str]:
             restart = "setprop service.adb.tcp.port 5555; setprop ctl.restart adbd"
             if _run([RISH, "-c", restart], timeout=10) == 0:
                 for _ in range(8):
-                    if _localhost_adb_available():
+                    state = _localhost_adb_state()
+                    if state == "ok":
                         return (
                             ["adb", "-s", "localhost:5555", "shell"],
                             "localhost-adb-rish-recovered",
                         )
+                    if state == "waiting":
+                        return None, ADB_UNAUTHORISED
                     time.sleep(1)
 
     return None, "unavailable"
@@ -375,6 +407,9 @@ def _launch_firerpa_via_shell(reason: str) -> bool:
     rc, transport = _shell_run(test_cmd, timeout=8)
     if transport == "unavailable":
         _boot_log(f"FIRERPA {reason}: privileged shell unavailable")
+        return False
+    if transport == ADB_UNAUTHORISED:
+        _boot_log(f"FIRERPA {reason}: adb unauthorised, waiting for the user")
         return False
     if rc != 0:
         _boot_log(f"FIRERPA {reason}: runtime, lifecycle wrapper, or certificate missing via {transport}")
@@ -434,8 +469,14 @@ def daemon_loop() -> None:
         settle = 30.0
     time.sleep(settle)
 
-    _run(["adb", "connect", "127.0.0.1:5555"])
-    _run(["adb", "tcpip", "5555"])
+    # One serial only: adb treats 127.0.0.1:5555 and localhost:5555 as two
+    # transports, and re-dials each on its own when adbd drops them, so a
+    # revoke raised a dialog per alias. localhost:5555 reaches the same adbd.
+    if _adb_connect() != "waiting":
+        # Shizuku's TCP mode normally opens 5555 at boot. This still covers a
+        # Termux adb server whose one transport is a Wireless-debugging one.
+        # Not while a dialog is pending: restarting adbd under it raises another.
+        _run(["adb", "tcpip", "5555"])
 
     while True:
         try:

@@ -384,6 +384,224 @@ def test_watchdog_stale_loop_is_killed_and_replaced(monkeypatch):
     assert any("setsid sh" in c for c in calls[kill_at:])
 
 
+class _FakeShellLib:
+    ADB_AUTH_WAITING_MSG = "adb unauthorised, waiting for the user"
+
+    def __init__(self, state):
+        self.state = state
+        self.calls = 0
+
+    def adb_connect(self):
+        self.calls += 1
+        return self.state
+
+
+def _gated(monkeypatch, state):
+    lib = _FakeShellLib(state)
+    monkeypatch.setattr(repair, "_shell_lib", lambda: lib)
+    monkeypatch.setitem(repair._adb_auth_state, "last", None)
+    return lib
+
+
+def _no_bare_adb_connect(monkeypatch, extra=None):
+    ran = []
+
+    def fake_run(args, timeout=15):
+        if args[:2] == ["adb", "connect"]:
+            raise AssertionError("bare adb connect bypassed the gate")
+        ran.append(list(args))
+        return (0, "")
+
+    monkeypatch.setattr(repair, "run", fake_run)
+    return ran
+
+
+def test_privileged_shell_stands_down_while_unauthorised(monkeypatch):
+    _gated(monkeypatch, "waiting")
+    _no_bare_adb_connect(monkeypatch)
+    monkeypatch.setattr(repair, "sh_adb", lambda *_a, **_k: pytest.fail("no shell while waiting for the user"))
+
+    assert repair.privileged_shell() is False
+    assert repair.adb_auth_waiting() is True
+
+
+def test_privileged_shell_authorised_path_unchanged(monkeypatch):
+    lib = _gated(monkeypatch, "device")
+    monkeypatch.setattr(repair, "sh_adb", lambda cmd, timeout=15: (0, "2000\n") if cmd == "id -u" else (1, ""))
+
+    assert repair.privileged_shell() is True
+    assert repair.adb_auth_waiting() is False
+    assert lib.calls == 1
+
+
+def test_wireless_debugging_unreachable_shell_reconnects_through_gate(monkeypatch):
+    lib = _gated(monkeypatch, "device")
+    _no_bare_adb_connect(monkeypatch)
+    monkeypatch.setattr(repair.time, "sleep", lambda *_: None)
+    answers = iter([(1, ""), (0, "1\n")])
+    monkeypatch.setattr(repair, "sh_adb", lambda *_a, **_k: next(answers))
+
+    assert repair.ensure_wireless_debugging() == "up"
+    assert lib.calls == 1
+
+
+def test_wireless_debugging_while_unauthorised_is_no_shell_without_error(monkeypatch):
+    _gated(monkeypatch, "waiting")
+    _no_bare_adb_connect(monkeypatch)
+    logs = []
+    monkeypatch.setattr(repair, "log", lambda msg, level=repair.INFO: logs.append((msg, level)))
+    shells = []
+    monkeypatch.setattr(repair, "sh_adb", lambda cmd, timeout=15: shells.append(cmd) or (1, ""))
+
+    assert repair.ensure_wireless_debugging() == "NO_SHELL"
+    # One probe before the gate, none after it: nothing retried, nothing put.
+    assert shells == ["settings get global adb_wifi_enabled"]
+    assert not any(level <= repair.ERR for _msg, level in logs)
+
+
+def _main_with_closed_shell(monkeypatch, tmp_path, gate_state, phone=None):
+    """Run main() down the no-privileged-shell branch with Shizuku up and rish present.
+
+    With *phone*, the real stayturgid_shell gate runs against it instead of a
+    stub returning *gate_state*.
+    """
+    if phone is None:
+        _gated(monkeypatch, gate_state)
+        ran = _no_bare_adb_connect(monkeypatch)
+        sh_adb = lambda *_a, **_k: (1, "")  # noqa: E731
+        sleep = lambda *_: None  # noqa: E731
+    else:
+        ran = phone.install(monkeypatch, tmp_path)
+        sh_adb = phone.sh_adb
+        sleep = phone.sleep
+    logs = []
+    statuses = []
+    rish = tmp_path / ".stayturgid" / "bin" / "rish"
+    rish.parent.mkdir(parents=True)
+    rish.write_text("#!/bin/sh\n")
+    rish.chmod(0o755)
+    monkeypatch.setattr(repair, "STG", str(tmp_path / ".stayturgid"))
+    monkeypatch.setattr(repair, "TMPDIR", str(tmp_path / "tmp"))
+    monkeypatch.setattr(repair, "acquire_lock", lambda: object())
+    monkeypatch.setattr(repair, "trim_log", lambda *_a, **_k: None)
+    monkeypatch.setattr(repair, "log", lambda msg, level=repair.INFO: logs.append((msg, level)))
+    monkeypatch.setattr(repair, "_write_status", statuses.append)
+    monkeypatch.setattr(repair, "ensure_sshd_down_file", lambda: None)
+    monkeypatch.setattr(repair, "sshd_up", lambda: True)
+    monkeypatch.setattr(repair, "privileged_shell_expected", lambda: True)
+    monkeypatch.setattr(repair, "sh_adb", sh_adb)
+    for name in ("ensure_shell_profile_path", "ensure_termux_mirror", "maybe_notify_error_rate"):
+        monkeypatch.setattr(repair, name, lambda: None)
+    for name in ("ensure_control_et_ssh_config", "ensure_os_release", "ensure_pkg_upgrade_daily"):
+        monkeypatch.setattr(repair, name, lambda: "skip")
+    monkeypatch.setattr(repair, "ensure_tailscale", lambda have_sh=False: "skip")
+    monkeypatch.setattr(repair, "_tailscale_status", lambda have_sh=False: ("skip", "skip"))
+    monkeypatch.setattr(repair.time, "sleep", sleep)
+    rc = repair.main()
+    return rc, ran, logs, statuses
+
+
+class _FakePhone:
+    """adbd behind Termux's adb server on a virtual clock: an authorised key,
+    5555 closed (row "offline"), and a rish restart that leaves the row
+    offline for one second before it comes back as "device"."""
+
+    def __init__(self):
+        self.clock = 0.0
+        self.restarted_at = None
+        self.restarts = 0
+        self.connects = 0
+
+    def state(self):
+        if self.restarted_at is not None and self.clock >= self.restarted_at + 1:
+            return "device"
+        return "offline"
+
+    def sleep(self, seconds):
+        self.clock += seconds
+
+    def adb(self, args, timeout=60, input_text=None):
+        import subprocess
+
+        sub = args[1] if len(args) > 1 else ""
+        if sub == "devices":
+            return subprocess.CompletedProcess(
+                args, 0, "List of devices attached\nlocalhost:5555\t%s\n" % self.state(), ""
+            )
+        if sub == "connect":
+            self.connects += 1
+            return subprocess.CompletedProcess(args, 0, "already connected to localhost:5555\n", "")
+        return subprocess.CompletedProcess(args, 0, "", "")
+
+    def sh_adb(self, cmd, timeout=15):
+        if self.state() != "device":
+            return 1, ""
+        if cmd == "id -u":
+            return 0, "2000\n"
+        if cmd == "settings get global adb_wifi_enabled":
+            return 0, "1\n"
+        return 0, ""
+
+    def install(self, monkeypatch, tmp_path):
+        import sys
+
+        sys.path.insert(0, str(MODULE_PATH.parent))
+        import stayturgid_shell
+
+        self.lib = stayturgid_shell
+        monkeypatch.setattr(stayturgid_shell, "STG", str(tmp_path / "gate"))
+        monkeypatch.setattr(stayturgid_shell, "_boot_epoch", lambda: None, raising=False)
+        monkeypatch.setattr(stayturgid_shell, "run", self.adb)
+        monkeypatch.setitem(repair._adb_auth_state, "last", None)
+        ran = []
+
+        def fake_run(args, timeout=15):
+            if args[:2] == ["adb", "connect"]:
+                raise AssertionError("bare adb connect bypassed the gate")
+            ran.append(list(args))
+            if args[-1:] and "ctl.restart adbd" in args[-1]:
+                self.restarts += 1
+                self.restarted_at = self.clock
+            return (0, "")
+
+        monkeypatch.setattr(repair, "run", fake_run)
+        return ran
+
+
+def test_main_offline_transport_still_restores_via_rish(monkeypatch, tmp_path):
+    """Review findings 1 and 5: "offline" is what an authorised transport shows
+    with 5555 closed and while adbd restarts. Through the real gate, repair
+    must restart adbd once via rish and end with a uid-2000 shell, with no
+    back-off marker left to block the next cycle."""
+    phone = _FakePhone()
+    rc, ran, logs, statuses = _main_with_closed_shell(monkeypatch, tmp_path, None, phone=phone)
+
+    assert phone.restarts == 1
+    assert phone.connects >= 1
+    assert "port=open" in statuses[-1]
+    assert "shell=yes" in statuses[-1]
+    assert any("port 5555 restored" in msg for msg, _level in logs)
+    assert not any("waiting for the user" in msg for msg, _level in logs)
+    assert not Path(phone.lib.adb_auth_marker()).exists()
+
+
+def test_main_unauthorised_never_restarts_adbd(monkeypatch, tmp_path):
+    rc, ran, logs, statuses = _main_with_closed_shell(monkeypatch, tmp_path, "waiting")
+
+    assert rc == 1
+    assert not any("ctl.restart" in " ".join(args) for args in ran)
+    assert any("adb unauthorised, waiting for the user" in msg for msg, _level in logs)
+    assert not any("escalate to native-agent" in msg for msg, _level in logs)
+    assert "port=CLOSED_NO_SHELL" in statuses[-1]
+
+
+def test_main_closed_port_still_restores_via_rish(monkeypatch, tmp_path):
+    _rc, ran, logs, _statuses = _main_with_closed_shell(monkeypatch, tmp_path, "down")
+
+    assert any("ctl.restart adbd" in " ".join(args) for args in ran)
+    assert any("escalate to native-agent" in msg for msg, _level in logs)
+
+
 def test_watchdog_not_running_is_spawned(monkeypatch):
     calls, sh_adb = _watchdog_shell("", running=False)
     monkeypatch.setattr(repair, "sh_adb", sh_adb)

@@ -74,8 +74,7 @@ def adb_shell(*cmd):
     # Fire OS: Termux cannot reach localhost:5555 — skip rather than hang.
     if _no_local_adb():
         return ""
-    r = run(["adb", "connect", "localhost:5555"], timeout=5)
-    if not r or r.returncode != 0:
+    if not sh.connect(timeout=5):
         return ""
     r = run(["adb", "-s", "localhost:5555", "shell"] + list(cmd))
     return (r.stdout if r else "").replace("\r", "").strip()

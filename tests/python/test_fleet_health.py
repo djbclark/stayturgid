@@ -43,6 +43,118 @@ def test_health_gather_tails_devlog_failures():
     assert r"\[repair\] (ERR|WARNING):" in fh.HEALTH_GATHER
 
 
+_FAKE_ADB = """#!/bin/bash
+echo "$*" >> "$ADB_LOG"
+case "$1" in
+  devices)
+    echo "List of devices attached"
+    st=$(cat "$ADB_STATE" 2>/dev/null)
+    [ -n "$st" ] && printf 'localhost:5555\\t%s\\n' "$st"
+    exit 0 ;;
+  connect)
+    [ -n "${ADB_AFTER_CONNECT:-}" ] && echo "$ADB_AFTER_CONNECT" > "$ADB_STATE"
+    if [ "$(cat "$ADB_STATE" 2>/dev/null)" = unauthorized ]; then
+      echo "failed to authenticate to localhost:5555"; exit 1
+    fi
+    echo "connected to localhost:5555"; exit 0 ;;
+  disconnect) : > "$ADB_STATE"; exit 0 ;;
+esac
+exit 1
+"""
+
+
+def _gate_sandbox(tmp_path, state, *, helper=True, after_connect=""):
+    """HOME + PATH where `adb` is a fake and python3 is this interpreter."""
+    import shutil
+
+    home = tmp_path / "home"
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "adb").write_text(_FAKE_ADB)
+    (bin_dir / "adb").chmod(0o755)
+    (bin_dir / "python3").symlink_to(sys.executable)
+    if helper:
+        stg_bin = home / ".stayturgid" / "bin"
+        stg_bin.mkdir(parents=True)
+        shutil.copy(REPO / "device" / "termux" / "py" / "stayturgid_shell.py", stg_bin / "stayturgid_shell.py")
+    else:
+        home.mkdir()
+    (tmp_path / "state").write_text(state + "\n" if state else "")
+    env = {
+        "HOME": str(home),
+        "PATH": "%s:/usr/bin:/bin" % bin_dir,
+        "ADB_LOG": str(tmp_path / "adb.log"),
+        "ADB_STATE": str(tmp_path / "state"),
+        "ADB_AFTER_CONNECT": after_connect,
+    }
+    return env
+
+
+def _run_gate(env):
+    import subprocess
+
+    r = subprocess.run(["bash", "-c", fh._ADB_GATE_BODY], env=env, capture_output=True, text=True, timeout=60)
+    log = Path(env["ADB_LOG"])
+    calls = log.read_text().splitlines() if log.exists() else []
+    return fh.parse_kv(r.stdout).get("adb_auth"), calls
+
+
+def test_health_gather_connects_only_through_the_gate():
+    assert fh._ADB_GATE_BODY in fh.HEALTH_GATHER
+    # The one remaining bare connect is the pre-gate fallback, behind its
+    # own "not listed" check.
+    assert fh.HEALTH_GATHER.count("adb connect localhost:5555") == 1
+
+
+def test_health_gather_gate_unauthorised_never_reconnects(tmp_path):
+    env = _gate_sandbox(tmp_path, "unauthorized")
+    for _ in range(3):
+        state, calls = _run_gate(env)
+        assert state == "waiting"
+    assert not [c for c in calls if c.split()[0] in ("connect", "reconnect", "disconnect", "kill-server")]
+
+
+def test_health_gather_gate_after_revoke_offers_key_once(tmp_path):
+    """Three 5-minute gathers after a revoke: the first offers Termux's key,
+    the next two find the dialog outstanding and leave it alone."""
+    env = _gate_sandbox(tmp_path, "", after_connect="unauthorized")
+    states = [_run_gate(env)[0] for _ in range(3)]
+    _state, calls = _run_gate(env)
+    assert states == ["waiting"] * 3
+    assert [c for c in calls if c.startswith("connect")] == ["connect localhost:5555"]
+    assert (tmp_path / "home" / ".stayturgid" / "state" / "adb-auth-wait").is_file()
+
+
+def test_health_gather_gate_authorised_is_unchanged(tmp_path):
+    env = _gate_sandbox(tmp_path, "device")
+    state, calls = _run_gate(env)
+    assert state == "device"
+    assert calls == ["devices"]
+
+
+@pytest.mark.parametrize("helper", [True, False])
+def test_health_gather_gate_offline_still_connects(tmp_path, helper):
+    """offline is a closed 5555 or an adbd restart, not a dialog: the gather
+    keeps master's connect, and no back-off marker is written."""
+    env = _gate_sandbox(tmp_path, "offline", helper=helper, after_connect="device")
+    state, calls = _run_gate(env)
+    assert state == ("device" if helper else "unknown")
+    assert "connect localhost:5555" in calls
+    assert not (tmp_path / "home" / ".stayturgid" / "state" / "adb-auth-wait").exists()
+
+
+def test_health_gather_gate_fallback_for_pre_gate_deploy(tmp_path):
+    env = _gate_sandbox(tmp_path, "unauthorized", helper=False)
+    state, calls = _run_gate(env)
+    assert state == "waiting"
+    assert calls == ["devices"]
+
+    env = _gate_sandbox(tmp_path / "absent", "", helper=False, after_connect="device")
+    state, calls = _run_gate(env)
+    assert state == "unknown"
+    assert calls == ["devices", "connect localhost:5555"]
+
+
 def test_extract_devlog_lines_splits_markers_and_keeps_rest():
     text = (
         "sshd=ok\n"

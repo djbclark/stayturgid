@@ -273,9 +273,39 @@ def sv_up_sshd():
     return rc == 0
 
 
+_adb_auth_state = {"last": None}
+
+
+def _shell_lib():
+    """stayturgid_shell, deployed beside this script; owns the adb auth gate."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    import stayturgid_shell
+
+    return stayturgid_shell
+
+
+def adb_connect():
+    """Gated ``adb connect localhost:5555`` → "device", "waiting" or "down".
+
+    Shared with every other caller of Termux's adb server so that, while
+    Termux's key is unauthorised, one dialog is outstanding rather than one
+    per caller (see stayturgid_shell.adb_connect).
+    """
+    state = _shell_lib().adb_connect()
+    _adb_auth_state["last"] = state
+    return state
+
+
+def adb_auth_waiting():
+    """True when this run's last gated connect stood down for the user."""
+    return _adb_auth_state["last"] == "waiting"
+
+
 def privileged_shell():
     """Return True if localhost:5555 gives a uid-2000 shell."""
-    if run(["adb", "connect", "localhost:5555"])[0] != 0:
+    if adb_connect() != "device":
         return False
     _rc, out = sh_adb("id -u")
     return out.strip() == "2000"
@@ -672,7 +702,9 @@ def ensure_wireless_debugging():
     wifi = raw.strip()
     if wifi in ("null", ""):
         # ADB likely disconnected — reconnect and retry.
-        run(["adb", "connect", "localhost:5555"])
+        if adb_connect() == "waiting":
+            # main() reports the unanswered dialog; no shell is not a toggle fault.
+            return "NO_SHELL"
         time.sleep(1)
         _rc, raw = sh_adb("settings get global adb_wifi_enabled")
         wifi = raw.strip()
@@ -1248,7 +1280,13 @@ def main():
         port = "CLOSED_NO_SHELL"
         wifi = "unknown"
         rc = 1
-        log("5555 CLOSED / no privileged shell — escalate to native-agent catastrophic repair or reboot", ERR)
+        if adb_auth_waiting():
+            log(
+                _shell_lib().ADB_AUTH_WAITING_MSG + " (localhost:5555 not reconnected; accept the prompt on the phone)",
+                WARNING,
+            )
+        else:
+            log("5555 CLOSED / no privileged shell — escalate to native-agent catastrophic repair or reboot", ERR)
 
     # --- 3. shizuku (via privileged shell; watchdog handles restart) ---
     if expect_shell and have_sh:
@@ -1305,14 +1343,19 @@ def main():
             # adbd headlessly. Never launch FleetProfileActivity here: that
             # foregrounds Shizuku over the operator's current app (#199).
             rish = os.path.join(STG, "bin", "rish")
-            if os.access(rish, os.X_OK):
+            if adb_auth_waiting():
+                # 5555 is open and adbd is showing the dialog. Restarting it
+                # drops that connection, and adb's automatic re-dial raises
+                # another dialog on top.
+                pass
+            elif os.access(rish, os.X_OK):
                 log("shizuku_server running but port 5555 closed — restoring via rish", WARNING)
                 run([rish, "-c", "setprop service.adb.tcp.port 5555; setprop ctl.restart adbd"])
                 time.sleep(1)
             else:
                 log("shizuku_server running but port 5555 closed and rish is unavailable — cannot restore", WARNING)
             # Re-check if the profile re-apply alone was enough.
-            if privileged_shell():
+            if not adb_auth_waiting() and privileged_shell():
                 have_sh = True
                 port = "open"
                 log("port 5555 restored via fleet profile re-apply from Termux", NOTICE)

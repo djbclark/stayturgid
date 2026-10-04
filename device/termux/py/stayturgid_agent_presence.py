@@ -118,7 +118,7 @@ def adb_shell(*cmd):
     # Fire OS / hosts without Termux→5555: skip rather than hang on connect.
     if os.environ.get("STAYTURGID_NO_LOCAL_ADB") == "1":
         return ""
-    if run(["adb", "connect", "localhost:5555"], timeout=5) is None:
+    if not sh.connect(timeout=5):
         return ""
     r = run(["adb", "-s", "localhost:5555", "shell"] + list(cmd), timeout=15)
     return (r.stdout if r else "").replace("\r", "")

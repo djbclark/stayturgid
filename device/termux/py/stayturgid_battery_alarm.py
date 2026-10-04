@@ -103,8 +103,7 @@ def out_of(args):
 def adb_shell(*cmd):
     if _no_local_adb():
         return ""
-    r = run(["adb", "connect", "localhost:5555"], timeout=5)
-    if not r or r.returncode != 0:
+    if not sh.connect(timeout=5):
         return ""
     return out_of(["adb", "-s", "localhost:5555", "shell"] + list(cmd))
 
@@ -170,8 +169,7 @@ def backup_wallpaper_once():
     if _no_local_adb():
         return
     os.makedirs(os.path.dirname(WALLPAPER_BACKUP), exist_ok=True)
-    r = run(["adb", "connect", "localhost:5555"], timeout=5)
-    if r and r.returncode == 0:
+    if sh.connect(timeout=5):
         # exec-out keeps the image byte-exact
         rr = run(["adb", "-s", "localhost:5555", "exec-out", "cmd", "wallpaper", "get-image"], text=False)
         if rr is not None:

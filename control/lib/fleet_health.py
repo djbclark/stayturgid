@@ -204,6 +204,29 @@ _tasker_monitor() {
 echo "tasker_monitor=$(_tasker_monitor)"
 """
 
+# This gather runs every 5 minutes through Termux's own adb server, whose key
+# the phone may not have authorised (e.g. after "Revoke USB debugging
+# authorisations"). A bare `adb connect` from here then queued one more
+# "Allow USB debugging?" dialog each time. Go through the device's shared gate
+# (stayturgid_shell.py adb-connect), which stands down while a dialog is
+# outstanding. A deploy whose stayturgid_shell.py predates the gate prints
+# nothing, so the same rule runs inline: never reconnect a transport that is
+# waiting on the user. offline/connecting are not that; they get the connect.
+_ADB_GATE_BODY = r"""
+adb_auth=$(python3 ~/.stayturgid/bin/stayturgid_shell.py adb-connect 2>/dev/null </dev/null)
+case "$adb_auth" in
+  device|waiting|down) ;;
+  *)
+    _row=$(adb devices 2>/dev/null </dev/null | grep '^localhost:5555[[:space:]]' | tr -s '[:space:]' ' ')
+    case "$(printf '%s' "$_row" | cut -d' ' -f2)" in
+      device) adb_auth=device ;;
+      unauthorized|authorizing) adb_auth=waiting ;;
+      *) adb connect localhost:5555 >/dev/null 2>&1 </dev/null; adb_auth=unknown ;;
+    esac ;;
+esac
+echo "adb_auth=$adb_auth"
+"""
+
 HEALTH_GATHER = (
     r"""
 export PATH=/data/data/com.termux/files/usr/bin:$PATH
@@ -218,7 +241,9 @@ pgrep -f 'start_adb\.py' >/dev/null 2>&1 && echo "bootloop=ok" || echo "bootloop
 if [ "$FIRE" = 1 ]; then
   echo "shell5555=skip"
 else
-  adb connect localhost:5555 >/dev/null 2>&1 </dev/null
+"""
+    + _ADB_GATE_BODY
+    + r"""
   uid=$(adb -s localhost:5555 shell id -u 2>/dev/null </dev/null | tr -d "\r")
   [ "$uid" = "2000" ] && echo "shell5555=ok" || echo "shell5555=down"
 fi
