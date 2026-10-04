@@ -336,7 +336,7 @@ def test_sv_up_sshd_uses_runit_and_restores_svdir(monkeypatch, tmp_path):
 
     def fake_run(args, timeout=15):
         calls.append(list(args))
-        if args[:2] == ["pgrep", "-x"]:
+        if args[:2] == ["pgrep", "-f"] and "unsvdir" in args[2]:
             return (1, "")  # runsvdir not running
         return (0, "")
 

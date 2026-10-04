@@ -253,7 +253,10 @@ def sv_up_sshd():
     svdir = os.path.join(PREFIX, "var", "service")
     if not (os.access(sv, os.X_OK) and os.path.isdir(os.path.join(svdir, "sshd"))):
         return False
-    if run(["pgrep", "-x", "runsvdir"])[0] != 0:
+    # -f with the service dir, not -x: a runsvdir started by absolute path
+    # shows a truncated path as its process name, so -x misses it and a second
+    # supervisor gets started.
+    if run(["pgrep", "-f", "[r]unsvdir " + svdir])[0] != 0:
         # LOGDIR: the services' svlogd needs it (see boot/00-start-services.sh).
         logdir = os.path.join(PREFIX, "var", "log")
         run(["sh", "-c", "LOGDIR=%s setsid runsvdir %s >/dev/null 2>&1 &" % (logdir, svdir)])

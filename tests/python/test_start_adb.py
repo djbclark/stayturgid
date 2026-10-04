@@ -148,7 +148,7 @@ def test_try_sv_up_sshd_starts_runsvdir_then_sv_up(monkeypatch, tmp_path):
 
     def fake_run(cmd, **kwargs):
         calls.append(("run", cmd, kwargs.get("env")))
-        if cmd[:2] == ["pgrep", "-x"]:
+        if cmd[:2] == ["pgrep", "-f"] and "unsvdir" in cmd[2]:
             return _Result(1)  # runsvdir not running yet
         return _Result(0)
 

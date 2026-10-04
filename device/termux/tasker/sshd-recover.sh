@@ -17,7 +17,10 @@ export LOGDIR="$PREFIX/var/log"
 LOG="$HOME/.stayturgid/logs/sshd-selfheal.log"
 mkdir -p "$HOME/.stayturgid/logs" 2>/dev/null
 
-if ! pgrep -x runsvdir >/dev/null 2>&1; then
+# pgrep -f, not -x: a runsvdir started by absolute path shows a truncated path
+# as its process name here, so -x misses it and a second supervisor gets
+# started (seen on all three phones, 2026-10-04).
+if ! pgrep -f "[r]unsvdir $SVDIR" >/dev/null 2>&1; then
   setsid runsvdir "$SVDIR" >/dev/null 2>&1 &
   echo "$(date -Iseconds) runsvdir started by sshd-recover" >>"$LOG"
   sleep 2

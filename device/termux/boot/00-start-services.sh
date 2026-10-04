@@ -9,8 +9,11 @@ export PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 # Only a login shell's profile.d exports it; without it svlogd dies on
 # "/sv/sshd", the log service stays down and sshd's output pipe has no reader.
 export SVDIR="$PREFIX/var/service" LOGDIR="$PREFIX/var/log"
-if ! pgrep -x runsvdir >/dev/null 2>&1; then
-  setsid "$PREFIX/bin/runsvdir" "$PREFIX/var/service" >/dev/null 2>&1 &
+# pgrep -f, not -x: a runsvdir started by absolute path shows a truncated path
+# as its process name here, so -x misses it and a second supervisor gets
+# started (seen on all three phones, 2026-10-04).
+if ! pgrep -f "[r]unsvdir $SVDIR" >/dev/null 2>&1; then
+  setsid "$PREFIX/bin/runsvdir" "$SVDIR" >/dev/null 2>&1 &
 fi
 # Give runsv a moment to claim the service dirs (and sshd its port) before
 # the later boot scripts run their own checks.

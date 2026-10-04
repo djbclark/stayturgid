@@ -269,7 +269,8 @@ def try_sv_up_sshd() -> bool:
         return False
     env = dict(os.environ, SVDIR=svdir)
     try:
-        if subprocess.run(["pgrep", "-x", "runsvdir"], capture_output=True, timeout=5).returncode != 0:
+        # -f with the service dir, not -x: see stayturgid_repair.try_sv_up_sshd.
+        if subprocess.run(["pgrep", "-f", "[r]unsvdir " + svdir], capture_output=True, timeout=5).returncode != 0:
             # The services' svlogd needs LOGDIR (see boot/00-start-services.sh).
             os.environ.setdefault("LOGDIR", os.path.join(PREFIX, "var", "log"))
             _run_bg(["runsvdir", svdir], log_path=None)
