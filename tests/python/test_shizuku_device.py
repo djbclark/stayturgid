@@ -230,29 +230,19 @@ def test_read_shizuku_json_cat_failure_aborts():
     assert ok is False
 
 
-def _priv_shell(status):
+def test_restart_shizuku_if_running_ignores_unanswered_marker():
+    # The starter runs from an already-authorised adb shell and offers no key.
     shell = dev.PrivShell.__new__(dev.PrivShell)
     calls = []
 
-    def fake_sh(cmd, timeout=None):
+    def fake_sh(cmd, timeout=15):
         calls.append(cmd)
         if "HEADLESS_STATUS" in cmd:
-            return 0, status
+            return 0, 'Broadcast completed: result=1, data="RUNNING AUTH_UNANSWERED"'
         if cmd.startswith("pm path"):
-            return 0, "package:/data/app/~~x/moe.shizuku.privileged.api/base.apk\n"
+            return 0, "package:/data/app/~~x/moe.shizuku.privileged.api/base.apk"
         return 0, ""
 
     shell.sh = fake_sh
-    return shell, calls
-
-
-def test_restart_shizuku_withheld_while_auth_unanswered():
-    shell, calls = _priv_shell('Broadcast completed: result=1, data="RUNNING AUTH_UNANSWERED"')
-    assert shell.restart_shizuku_if_running() == (False, dev.PrivShell.RESTART_WITHHELD)
-    assert not any("libshizuku" in c for c in calls)
-
-
-def test_restart_shizuku_unchanged_without_marker():
-    shell, calls = _priv_shell("Broadcast completed: result=1")
     assert shell.restart_shizuku_if_running() == (True, True)
-    assert any("libshizuku" in c for c in calls)
+    assert any("libshizuku.so" in c for c in calls)

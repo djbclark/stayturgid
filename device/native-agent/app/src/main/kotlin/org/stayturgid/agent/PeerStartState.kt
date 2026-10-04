@@ -33,8 +33,6 @@ object PeerStartState {
 
     fun anyAuthPending(context: Context): Boolean = pendingTargets(context).isNotEmpty()
 
-    fun latest(context: Context): Map<String, PeerStarter.Outcome> = load(context)
-
     private fun load(context: Context): Map<String, PeerStarter.Outcome> {
         val raw = prefs(context).getString(KEY_LATEST, "").orEmpty()
         if (raw.isBlank()) return emptyMap()

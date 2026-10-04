@@ -14,11 +14,14 @@ description:
   - Starts the Shizuku daemon on an Android device over ADB.
   - First tries HEADLESS_START broadcast.
   - Falls back to direct libshizuku.so native launch.
-  - Never starts, restarts or falls back while Shizuku reports that its own
-    ADB authorisation dialog went unanswered (HEADLESS_STATUS ends with
-    C(AUTH_UNANSWERED), or HEADLESS_START answers result 4). It returns
-    C(auth_unanswered=true) and warns instead; clearing that state is for an
-    operator at the phone (tap Attempt now).
+  - While Shizuku reports that its own ADB authorisation dialog went
+    unanswered (HEADLESS_STATUS ends with C(AUTH_UNANSWERED), or
+    HEADLESS_START answers result 4) HEADLESS_START is withheld, so the module
+    skips it and goes straight to the native launch, which runs from the
+    already-authorised adb shell and offers no key. It never sends
+    C(--ez force true). The run returns C(auth_unanswered=true) with the real
+    outcome and warns, because Shizuku cannot recover by itself until an
+    operator at the phone taps Attempt now.
   - Applies the fleet profile after start and reconciles it on every run.
   - Verifies the daemon is running and port 5555 is reachable.
   - Restarts a running server that started before the installed package was
@@ -47,8 +50,8 @@ options:
     default: 15
   fail_on_auth_unanswered:
     description: >-
-      Fail the task, rather than warn, when the start is withheld because
-      Shizuku's ADB authorisation dialog went unanswered.
+      Fail the task, rather than warn, when Shizuku reports its ADB
+      authorisation dialog unanswered, whatever the server's state.
     type: bool
     default: false
 """
@@ -70,13 +73,14 @@ shizuku:
 start_method:
   description: >-
     How Shizuku was started (headless / native / already_up /
-    already_starting / restarted_stale / withheld; in check mode would_start /
-    would_restart_stale / would_withhold).
+    already_starting / restarted_stale; in check mode would_start /
+    would_restart_stale).
   type: str
 auth_unanswered:
   description: >-
-    True when Shizuku reported that its ADB authorisation dialog went
-    unanswered, so no start or stale restart was attempted.
+    True when Shizuku reported its ADB authorisation dialog unanswered during
+    the run. Any start was native; the server may well be up, but Shizuku's
+    own recovery stays withheld until an operator taps Attempt now.
   type: bool
 server_stale:
   description: >-
@@ -170,7 +174,8 @@ def shizuku_installed(run_command, device, pkg=SHIZUKU_PKG):
     return "package:" in normalize_adb_output(out)
 
 
-_last_status = {"text": None}
+# Set by any status or start reply carrying the marker; main() resets it.
+_auth = {"unanswered": False}
 
 
 def shizuku_status(run_command, device):
@@ -179,7 +184,8 @@ def shizuku_status(run_command, device):
         run_command, device, "am broadcast -a %s -n %s 2>/dev/null" % (HEADLESS_STATUS, HEADLESS_RECEIVER)
     )
     text = normalize_adb_output(out) if rc == 0 else ""
-    _last_status["text"] = text
+    if status_auth_unanswered(text):
+        _auth["unanswered"] = True
     return text
 
 
@@ -216,6 +222,7 @@ def send_headless_start(run_command, device):
     # Since API 26 an implicit broadcast to a manifest receiver is dropped.
     rc, out, _err = adb_shell(run_command, device, "am broadcast -a %s -n %s" % (HEADLESS_START, HEADLESS_RECEIVER))
     if start_withheld(normalize_adb_output(out)):
+        _auth["unanswered"] = True
         return START_WITHHELD
     return "sent" if rc == 0 else "failed"
 
@@ -429,30 +436,26 @@ def reconcile_fleet_profile(module, device, profile):
     return not fleet_result_failed(result), result
 
 
-def finish(module, fleet_result, **result):
-    """exit_json, or fail_json when the app recorded a failed apply."""
-    result["fleet_profile_result"] = fleet_result
-    result.setdefault("auth_unanswered", False)
-    if fleet_result_failed(fleet_result):
-        module.fail_json(msg="fleet profile apply failed on the device: %s" % fleet_result.get("message"), **result)
+def report(module, device, **result):
+    """exit_json with ``auth_unanswered``; warns (or fails, when asked) while it is set."""
+    result["auth_unanswered"] = _auth["unanswered"]
+    if _auth["unanswered"]:
+        module.warn("%s: %s" % (device, SHIZUKU_START_WITHHELD_MSG))
+        if module.params.get("fail_on_auth_unanswered"):
+            module.fail_json(msg="%s: %s" % (device, SHIZUKU_START_WITHHELD_MSG), **result)
     module.exit_json(**result)
 
 
-def auth_unanswered_now(run_command, device):
-    """Marker check from the latest HEADLESS_STATUS reply; every caller reads one just before."""
-    text = _last_status["text"]
-    if text is None:
-        text = shizuku_status(run_command, device)
-    return status_auth_unanswered(text)
-
-
-def withhold(module, device, **result):
-    """Stand down: Shizuku's ADB authorisation dialog went unanswered. No fallback."""
-    module.warn("%s: %s" % (device, SHIZUKU_START_WITHHELD_MSG))
-    result.update(auth_unanswered=True, start_method=result.get("start_method", START_WITHHELD))
-    if module.params.get("fail_on_auth_unanswered"):
-        module.fail_json(msg="%s: %s" % (device, SHIZUKU_START_WITHHELD_MSG), **result)
-    module.exit_json(changed=False, **result)
+def finish(module, device, fleet_result, **result):
+    """report(), or fail_json when the app recorded a failed apply."""
+    result["fleet_profile_result"] = fleet_result
+    if fleet_result_failed(fleet_result):
+        module.fail_json(
+            msg="fleet profile apply failed on the device: %s" % fleet_result.get("message"),
+            auth_unanswered=_auth["unanswered"],
+            **result,
+        )
+    report(module, device, **result)
 
 
 def main():
@@ -470,61 +473,45 @@ def main():
 
     device = module.params["device"]
     pkg = module.params["shizuku_pkg"]
-    _last_status["text"] = None
+    _auth["unanswered"] = False
 
     if module.params["connect"] and not module.check_mode:
         adb_connect(module.run_command, device)
 
     if module.check_mode:
-        status = shizuku_status(module.run_command, device)
-        state = shizuku_state(module.run_command, device, status)
-        unanswered = status_auth_unanswered(status)
+        state = shizuku_state(module.run_command, device)
         running = state == "up"
         if running:
             staleness = server_staleness(module.run_command, device, pkg)
             if staleness["stale"] == STALE_YES:
-                if unanswered:
-                    module.warn("%s: %s" % (device, SHIZUKU_START_WITHHELD_MSG))
-                    module.exit_json(
-                        changed=False,
-                        shizuku="already_up",
-                        start_method="would_withhold",
-                        port5555="unknown",
-                        auth_unanswered=True,
-                        **staleness_fields(staleness),
-                    )
-                module.exit_json(
+                report(
+                    module,
+                    device,
                     changed=True,
                     shizuku="already_up",
                     start_method="would_restart_stale",
                     port5555="unknown",
-                    auth_unanswered=False,
                     **staleness_fields(staleness),
                 )
-            module.exit_json(
+            report(
+                module,
+                device,
                 changed=False,
                 shizuku="already_up",
                 start_method="already_up",
                 port5555="unknown",
-                auth_unanswered=False,
                 **staleness_fields(staleness),
             )
         if state == "starting":
-            module.exit_json(
+            report(
+                module,
+                device,
                 changed=False,
                 shizuku="starting",
                 start_method="already_starting",
                 port5555="unknown",
-                auth_unanswered=False,
             )
-        if unanswered:
-            module.warn("%s: %s" % (device, SHIZUKU_START_WITHHELD_MSG))
-            module.exit_json(
-                changed=False, shizuku="down", start_method="would_withhold", port5555="unknown", auth_unanswered=True
-            )
-        module.exit_json(
-            changed=True, shizuku="down", start_method="would_start", port5555="unknown", auth_unanswered=False
-        )
+        report(module, device, changed=True, shizuku="down", start_method="would_start", port5555="unknown")
 
     if not shizuku_installed(module.run_command, device, pkg):
         module.fail_json(msg="Shizuku (%s) is not installed on %s" % (pkg, device))
@@ -536,18 +523,14 @@ def main():
         state = wait_while_starting(module.run_command, device, module.params["start_timeout"], state)
         if state == "starting":
             module.fail_json(
-                msg="Shizuku is still STARTING; not sending another start while authorisation may be pending"
+                msg="Shizuku is still STARTING; not sending another start while authorisation may be pending",
+                auth_unanswered=_auth["unanswered"],
             )
     running = state == "up"
     staleness = server_staleness(module.run_command, device, pkg) if running else parse_staleness("")
     stale = staleness_fields(staleness)
     restarted_stale = False
-    auth_unanswered = False
-    if running and staleness["stale"] == STALE_YES and auth_unanswered_now(module.run_command, device):
-        # A stale server still beats none; stopping it now would leave nothing.
-        module.warn("%s: %s" % (device, SHIZUKU_START_WITHHELD_MSG))
-        auth_unanswered = True
-    elif running and staleness["stale"] == STALE_YES:
+    if running and staleness["stale"] == STALE_YES:
         # Stopped here, started again by the cold-start path below, which
         # already knows how to fall back to a native launch.
         if not stop_server(module.run_command, device):
@@ -555,6 +538,7 @@ def main():
                 msg="Shizuku server (started %s) is older than its package (updated %s, epoch seconds) "
                 "and did not stop (HEADLESS_STOP, then SIGTERM)"
                 % (staleness["server_start"], staleness["package_updated"]),
+                auth_unanswered=_auth["unanswered"],
                 **stale,
             )
         running = False
@@ -565,13 +549,13 @@ def main():
         reconciled, fleet_result = reconcile_fleet_profile(module, device, profile)
         finish(
             module,
+            device,
             fleet_result,
             changed=False,
             shizuku="already_up",
             start_method="already_up",
             port5555="open",
             fleet_profile_reconciled=reconciled,
-            auth_unanswered=auth_unanswered,
             **stale,
         )
 
@@ -579,33 +563,35 @@ def main():
         reconciled, fleet_result = reconcile_fleet_profile(module, device, profile)
         finish(
             module,
+            device,
             fleet_result,
             changed=False,
             shizuku="up_no_port",
             start_method="already_up",
             port5555="closed",
             fleet_profile_reconciled=reconciled,
-            auth_unanswered=auth_unanswered,
             **stale,
         )
 
     start_method = "none"
 
-    if auth_unanswered_now(module.run_command, device):
-        withhold(module, device, shizuku="down", port5555="unknown", **stale)
-    if send_headless_start(module.run_command, device) == START_WITHHELD:
-        withhold(module, device, shizuku="down", port5555="unknown", **stale)
-    time.sleep(3)
-    state = wait_while_starting(
-        module.run_command, device, module.params["start_timeout"], shizuku_state(module.run_command, device)
-    )
+    # A withheld HEADLESS_START is never retried: the native launch below runs
+    # from this already-authorised adb shell and offers Shizuku's key to nobody.
+    state = "down"
+    if not _auth["unanswered"] and send_headless_start(module.run_command, device) != START_WITHHELD:
+        time.sleep(3)
+        state = wait_while_starting(
+            module.run_command, device, module.params["start_timeout"], shizuku_state(module.run_command, device)
+        )
     if state == "up":
         start_method = "headless"
     elif state == "starting":
-        module.fail_json(msg="Shizuku is still STARTING; not falling back while authorisation may be pending", **stale)
+        module.fail_json(
+            msg="Shizuku is still STARTING; not falling back while authorisation may be pending",
+            auth_unanswered=_auth["unanswered"],
+            **stale,
+        )
     else:
-        if auth_unanswered_now(module.run_command, device):
-            withhold(module, device, shizuku="down", port5555="unknown", **stale)
         libdir = resolve_libdir(module.run_command, device, pkg)
         if libdir:
             rc, _out, _err = start_native(module.run_command, device, libdir, pkg)
@@ -613,13 +599,18 @@ def main():
             if shizuku_running(module.run_command, device):
                 start_method = "native"
             else:
-                module.fail_json(msg="Shizuku failed to start via both HEADLESS_START and native launch", **stale)
+                module.fail_json(
+                    msg="Shizuku failed to start via both HEADLESS_START and native launch",
+                    auth_unanswered=_auth["unanswered"],
+                    **stale,
+                )
     if restarted_stale:
         start_method = "restarted_stale"
 
     reconciled, fleet_result = reconcile_fleet_profile(module, device, profile)
     time.sleep(1)
-    second_start = send_headless_start(module.run_command, device)
+    if not _auth["unanswered"]:
+        send_headless_start(module.run_command, device)
 
     deadline = time.time() + module.params["start_timeout"]
     while time.time() < deadline:
@@ -633,6 +624,7 @@ def main():
     if final_running and final_port == "open":
         finish(
             module,
+            device,
             fleet_result,
             changed=True,
             shizuku="up",
@@ -645,6 +637,7 @@ def main():
         module.warn("Shizuku is running but port 5555 is closed — fleet profile may need a second apply")
         finish(
             module,
+            device,
             fleet_result,
             changed=True,
             shizuku="up_no_port",
@@ -653,13 +646,12 @@ def main():
             fleet_profile_reconciled=reconciled,
             **stale,
         )
-    elif second_start == START_WITHHELD:
-        withhold(module, device, shizuku="down", port5555=final_port, fleet_profile_result=fleet_result, **stale)
     else:
         module.fail_json(
             msg="Shizuku failed to come up within %ds timeout" % module.params["start_timeout"],
             fleet_profile_result=fleet_result,
             start_method=start_method,
+            auth_unanswered=_auth["unanswered"],
             **stale,
         )
 

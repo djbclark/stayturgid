@@ -325,6 +325,9 @@ SHIZUKU_AUTH_UNANSWERED = "AUTH_UNANSWERED"
 SHIZUKU_START_WITHHELD_MSG = (
     "shizuku start withheld: ADB authorisation dialog unanswered; operator: tap Attempt now on the phone"
 )
+SHIZUKU_NATIVE_START_MSG = "shizuku started natively (ADB authorisation dialog unanswered)"
+# While HEADLESS_START is withheld the loop, already uid shell, runs the
+# installed APK's own starter: no manager app involved, so no key is offered.
 _WATCHDOG_SCRIPT_BODY = (
     "#!/system/bin/sh\n"
     "withheld=0\n"
@@ -343,11 +346,23 @@ _WATCHDOG_SCRIPT_BODY = (
     '         case "$reply" in *AUTH_UNANSWERED*|*"result=4"*) unanswered=1 ;; esac ;;\n'
     "    esac\n"
     "  fi\n"
+    '  if [ "$unanswered" = 1 ] && [ "${status#*result=0}" = "$status" ] '
+    '&& ! pgrep -f "[s]hizuku_(plus_)?server" >/dev/null; then\n'
+    '    d=$(pm path moe.shizuku.privileged.api 2>/dev/null | sed -n "s/^package://p" | head -n 1)\n'
+    "    d=${d%/*}/lib/arm64\n"
+    '    if [ -x "$d/libshizuku.so" ]; then\n'
+    '      LD_LIBRARY_PATH=$d "$d/libshizuku.so" >/dev/null 2>&1\n'
+    "      sleep 2\n"
+    '      if pgrep -f "[s]hizuku_(plus_)?server" >/dev/null; then\n'
+    '        echo "$(date "+%Y-%m-%d %H:%M:%S") [shizuku-watchdog] NOTICE: ' + SHIZUKU_NATIVE_START_MSG + '"\n'
+    "      fi\n"
+    "    fi\n"
+    "  fi\n"
     '  if [ "$unanswered" != "$withheld" ]; then\n'
     '    if [ "$unanswered" = 1 ]; then\n'
     '      echo "$(date "+%Y-%m-%d %H:%M:%S") [shizuku-watchdog] WARNING: ' + SHIZUKU_START_WITHHELD_MSG + '"\n'
     "    else\n"
-    '      echo "$(date "+%Y-%m-%d %H:%M:%S") [shizuku-watchdog] NOTICE: ADB authorisation answered; starts resume"\n'
+    '      echo "$(date "+%Y-%m-%d %H:%M:%S") [shizuku-watchdog] NOTICE: ADB authorisation answered; HEADLESS_START resumes"\n'
     "    fi\n"
     "    withheld=$unanswered\n"
     "  fi\n"
@@ -521,15 +536,56 @@ def note_shizuku_auth(auth):
     if auth == "unanswered":
         log(SHIZUKU_START_WITHHELD_MSG, WARNING)
     else:
-        log("Shizuku ADB authorisation dialog no longer unanswered; unattended starts resume", NOTICE)
+        log("Shizuku ADB authorisation dialog no longer unanswered; HEADLESS_START resumes", NOTICE)
+
+
+_native_start = {"tried": False}
+
+
+def _peer_help_lib():
+    """stayturgid_peer_help, deployed beside this script; owns the direct starter."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    import stayturgid_peer_help
+
+    return stayturgid_peer_help
+
+
+def start_shizuku_natively():
+    """Run Shizuku's starter through this pass's privileged shell, at most once a pass.
+
+    The starter runs from an adb shell that is already authorised and never
+    goes through the manager app, so it offers Shizuku's key to nobody: the
+    way up while HEADLESS_START is withheld. True when shizuku_server came up.
+    """
+    if _native_start["tried"]:
+        return False
+    _native_start["tried"] = True
+    try:
+        peer_help = _peer_help_lib()
+    except ImportError:
+        log("shizuku native start unavailable: stayturgid_peer_help.py is not deployed", WARNING)
+        return False
+
+    def shell(cmd, timeout):
+        rc, out = sh_adb(cmd, timeout=timeout)
+        return rc, out, ""
+
+    ok, detail = peer_help.start_shizuku_native(shell)
+    if ok:
+        log(SHIZUKU_NATIVE_START_MSG, NOTICE)
+    else:
+        log("shizuku native start failed (ADB authorisation dialog unanswered): " + detail, WARNING)
+    return ok
 
 
 def repair_shizuku(status_out):
-    """Restart stale Shizuku or send one cold start when it is fully down.
+    """Restart stale Shizuku or start it once when it is fully down.
 
     Returns (state, start_sent, auth); auth is "unanswered" when Shizuku's
-    authorisation dialog went unanswered, which no unattended path may retry
-    or work around.
+    authorisation dialog went unanswered. HEADLESS_START is then withheld and
+    never retried or forced; the server is started natively instead.
     """
     unanswered = shizuku_auth_unanswered(status_out)
     state = _shizuku_state(status_out)
@@ -539,13 +595,15 @@ def repair_shizuku(status_out):
         if restarted == "FAILED":
             state = _shizuku_state()
             restart_failed = True
-        elif restarted == "withheld":
+        elif restarted == "restarted_native":
             unanswered = True
-            state = _shizuku_state()
-    if state == "down" and not restart_failed and not unanswered:
-        if _send_headless_start() == "withheld":
-            return state, False, "unanswered"
-        return state, True, "ok"
+    if state == "down" and not restart_failed:
+        if not unanswered:
+            if _send_headless_start() != "withheld":
+                return state, True, "ok"
+            unanswered = True
+        if start_shizuku_natively():
+            state = "up"
     return state, False, "unanswered" if unanswered else "ok"
 
 
@@ -570,16 +628,15 @@ def restart_stale_shizuku(auth_unanswered=False):
     under an r2787 APK for hours). Only an explicit "yes" from the probe acts;
     unknown never restarts. Requires the privileged shell.
 
-    A stale server is left running while Shizuku's authorisation dialog is
-    unanswered: the start half of the restart would be withheld.
+    While Shizuku's authorisation dialog is unanswered the start half is the
+    native starter (start_shizuku_natively), not a withheld HEADLESS_START.
 
-    Returns "current", "unknown", "cooldown", "restarted", "withheld" or "FAILED".
+    Returns "current", "unknown", "cooldown", "restarted", "restarted_native"
+    or "FAILED".
     """
     stale, started, updated = shizuku_staleness()
     if stale != "yes":
         return "current" if stale == "no" else "unknown"
-    if auth_unanswered:
-        return "withheld"
     detail = "server started %s, package updated %s" % (_fmt_epoch(started), _fmt_epoch(updated))
     now = time.time()
     try:
@@ -604,8 +661,12 @@ def restart_stale_shizuku(auth_unanswered=False):
         if not _wait_shizuku(False, SHIZUKU_STOP_TIMEOUT):
             log("stale Shizuku server did not stop (HEADLESS_STOP, then SIGTERM) (%s)" % detail, ERR)
             return "FAILED"
-    if _send_headless_start() == "withheld":
-        return "withheld"
+    if auth_unanswered or _send_headless_start() == "withheld":
+        if not start_shizuku_natively():
+            log("stale Shizuku server stopped but did not come back after a native start (%s)" % detail, ERR)
+            return "FAILED"
+        log("restarted stale Shizuku server natively (%s)" % detail, NOTICE)
+        return "restarted_native"
     if not _wait_shizuku(True, SHIZUKU_START_TIMEOUT):
         log("stale Shizuku server stopped but did not come back after HEADLESS_START (%s)" % detail, ERR)
         return "FAILED"
@@ -1426,11 +1487,10 @@ def main():
             "am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS "
             "-n moe.shizuku.privileged.api/af.shizuku.manager.receiver.HeadlessStartStopReceiver 2>/dev/null"
         )
+        _native_start["tried"] = False
         shizuku, shizuku_start_sent, shizuku_auth = repair_shizuku(shizuku_out)
         note_shizuku_auth(shizuku_auth)
-        # Withheld for the operator is not a repair failure: no rc, no ERR line
-        # for the error-rate notification to count.
-        if shizuku == "down" and shizuku_auth != "unanswered":
+        if shizuku == "down":
             rc = 1
             log("shizuku_server not running (adb shell still reachable)", WARNING)
     elif expect_shell:

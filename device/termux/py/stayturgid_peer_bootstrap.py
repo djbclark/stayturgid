@@ -34,13 +34,6 @@ FLEET_KEY = os.path.join(HOME, ".ssh", "id_ed25519_fleet")
 PEERHELP_KEY = os.path.join(HOME, ".ssh", "id_ed25519_peerhelp")
 DEFAULT_SSH_PORT = 8022
 DEFAULT_SSH_USER = os.environ.get("STAYTURGID_PEER_SSH_USER", "termux")
-# stayturgid_peer_help.py / fire_peer_help.py exit code for a start withheld
-# because this phone's Shizuku authorisation dialog went unanswered.
-EXIT_AUTH_UNANSWERED = 3
-WITHHELD_PREFIX = "withheld: "
-SHIZUKU_START_WITHHELD_MSG = (
-    "shizuku start withheld: ADB authorisation dialog unanswered; operator: tap Attempt now on the phone"
-)
 
 
 def enabled() -> bool:
@@ -263,10 +256,6 @@ def bootstrap_shizuku(peers_path: str = PEERS_PATH) -> tuple[bool, str]:
                         name,
                         (r.stdout or "").strip(),
                     )
-                if r.returncode == EXIT_AUTH_UNANSWERED:
-                    # This phone's own dialog is waiting on the operator; another
-                    # peer or address would only be the same workaround.
-                    return False, WITHHELD_PREFIX + "via %s" % name
     return False, "all peers failed"
 
 
@@ -304,9 +293,6 @@ def main(argv=None) -> int:
         return 2
     if verb == "shizuku":
         ok, detail = bootstrap_shizuku()
-        if detail.startswith(WITHHELD_PREFIX):
-            print("WITHHELD: %s (%s)" % (SHIZUKU_START_WITHHELD_MSG, detail[len(WITHHELD_PREFIX) :]))
-            return EXIT_AUTH_UNANSWERED
     else:
         ok, detail = bootstrap_handsets(port=port)
     print(("OK" if ok else "FAIL") + ": " + detail)

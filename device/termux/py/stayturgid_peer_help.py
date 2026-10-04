@@ -29,14 +29,6 @@ STG = os.path.join(HOME, ".stayturgid")
 DEFAULT_JAR = os.path.join(STG, "lib", "hs.jar")
 REMOTE_JAR = "/data/local/tmp/hs.jar"
 SHIZUKU_PKG = "moe.shizuku.privileged.api"
-HEADLESS_STATUS = SHIZUKU_PKG + ".HEADLESS_STATUS"
-HEADLESS_RECEIVER = SHIZUKU_PKG + "/af.shizuku.manager.receiver.HeadlessStartStopReceiver"
-AUTH_UNANSWERED = "AUTH_UNANSWERED"
-SHIZUKU_START_WITHHELD_MSG = (
-    "shizuku start withheld: ADB authorisation dialog unanswered; operator: tap Attempt now on the phone"
-)
-# Distinct from a failed start (1): callers must not retry or escalate it.
-EXIT_AUTH_UNANSWERED = 3
 # Shared fleet identity — do NOT overwrite ~/.android/adbkey (breaks localhost:5555).
 FLEET_ADBKEY = os.environ.get("STAYTURGID_FLEET_ADBKEY", os.path.join(STG, "adbkey-fleet"))
 
@@ -168,47 +160,51 @@ def cmd_handsets_start(target: str, port: int) -> int:
     return 1
 
 
-def shizuku_auth_unanswered(target: str) -> bool:
-    """True when the target's Shizuku says its authorisation dialog went unanswered.
+def start_shizuku_native(shell) -> tuple[bool, str]:
+    """Run Shizuku's own starter (libshizuku.so next to the APK, else start.sh).
 
-    A direct starter launch never goes through HEADLESS_START, so it would
-    ignore that marker; ask first. Builds that predate the marker never report
-    it, and keep today's behaviour.
+    ``shell(cmd, timeout)`` runs one command in an adb shell that is already
+    authorised on the target and returns ``(rc, stdout, stderr)``. The starter
+    never goes through the manager app, so it offers Shizuku's ADB key to
+    nobody and raises no dialog. Returns ``(ok, detail)``; ``detail`` is the
+    failure reason when ``ok`` is False.
     """
-    r = _shell(target, "am broadcast -a %s -n %s 2>/dev/null" % (HEADLESS_STATUS, HEADLESS_RECEIVER), timeout=15)
-    return AUTH_UNANSWERED in (r.stdout or "")
-
-
-def cmd_shizuku_start(target: str) -> int:
-    _ensure_connected(target)
-    if shizuku_auth_unanswered(target):
-        print("WITHHELD target=%s: %s" % (target, SHIZUKU_START_WITHHELD_MSG))
-        return EXIT_AUTH_UNANSWERED
-    # Resolve libshizuku.so next to the APK (arm64).
-    r = _shell(target, "pm path %s" % SHIZUKU_PKG, timeout=15)
+    _rc, out, _err = shell("pm path %s" % SHIZUKU_PKG, 15)
     apk = ""
-    for line in (r.stdout or "").splitlines():
+    for line in (out or "").splitlines():
         line = line.strip().replace("\r", "")
         if line.startswith("package:"):
             apk = line.split(":", 1)[1]
             break
     if not apk:
-        print("FAIL Shizuku not installed", file=sys.stderr)
-        return 1
+        return False, "Shizuku not installed"
     libdir = shlex.quote(apk.rsplit("/", 1)[0] + "/lib/arm64")
     start = (
         "test -x %s/libshizuku.so && "
         "LD_LIBRARY_PATH=%s %s/libshizuku.so || "
         "sh /storage/emulated/0/Android/data/%s/start.sh" % (libdir, libdir, libdir, shlex.quote(SHIZUKU_PKG))
     )
-    out = _shell(target, start, timeout=30)
-    text = ((out.stdout or "") + (out.stderr or "")).replace("\r", "")
+    _rc, out, err = shell(start, 30)
+    text = ((out or "") + (err or "")).replace("\r", "")
     time.sleep(1.5)
-    check = _shell(target, "pgrep -f '[s]hizuku_(plus_)?server' >/dev/null && echo up", timeout=10)
-    if "up" in (check.stdout or ""):
+    _rc, check, _err = shell("pgrep -f '[s]hizuku_(plus_)?server' >/dev/null && echo up", 10)
+    if "up" in (check or ""):
+        return True, ""
+    return False, "shizuku start: %s" % text.strip()[:500]
+
+
+def cmd_shizuku_start(target: str) -> int:
+    _ensure_connected(target)
+
+    def shell(cmd: str, timeout: float) -> tuple[int, str, str]:
+        r = _shell(target, cmd, timeout=timeout)
+        return r.returncode, r.stdout or "", r.stderr or ""
+
+    ok, detail = start_shizuku_native(shell)
+    if ok:
         print("OK shizuku_server target=%s" % target)
         return 0
-    print("FAIL shizuku start: %s" % text.strip()[:500], file=sys.stderr)
+    print("FAIL %s" % detail, file=sys.stderr)
     return 1
 
 

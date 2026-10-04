@@ -653,7 +653,9 @@ def test_staleness_probe_matches_the_collection_copy():
 class _FakeShizukuShell:
     """sh_adb fake with a live/dead server that HEADLESS_STOP/pkill/HEADLESS_START act on."""
 
-    def __init__(self, probe_out, stop_works=True, kill_works=True, start_works=True, unanswered=False):
+    def __init__(
+        self, probe_out, stop_works=True, kill_works=True, start_works=True, unanswered=False, native_works=True
+    ):
         self.probe_out = probe_out
         self.alive = True
         self.stop_works = stop_works
@@ -661,6 +663,7 @@ class _FakeShizukuShell:
         self.start_works = start_works
         # ShizukuTendCF's unanswered-dialog marker: STATUS says so, START is withheld.
         self.unanswered = unanswered
+        self.native_works = native_works
         self.calls = []
 
     def __call__(self, cmd, timeout=15):
@@ -671,8 +674,14 @@ class _FakeShizukuShell:
             data = ', data="%s AUTH_UNANSWERED"' % ("RUNNING" if self.alive else "STOPPED") if self.unanswered else ""
             return 0, "Broadcast completed: result=%d%s\n" % (1 if self.alive else 3, data)
         if cmd.startswith("pgrep -f '[s]hizuku_(plus_)?server'"):
-            return (0, "4242\n") if self.alive else (1, "")
-        if "HEADLESS_STOP" in cmd:
+            if not self.alive:
+                return 1, ""
+            return 0, "up\n" if cmd.endswith("echo up") else "4242\n"
+        if cmd.startswith("pm path"):
+            return 0, "package:/data/app/~~a==/moe.shizuku.privileged.api-b==/base.apk\n"
+        if "libshizuku.so" in cmd:
+            self.alive = self.alive or self.native_works
+        elif "HEADLESS_STOP" in cmd:
             self.alive = self.alive and not self.stop_works
         elif cmd.startswith("pkill -f '[s]hizuku_(plus_)?server'"):
             self.alive = self.alive and not self.kill_works
@@ -695,6 +704,7 @@ def _setup_stale(monkeypatch, tmp_path, shell, capture_log=True):
     monkeypatch.setattr(repair, "SHIZUKU_STOP_TIMEOUT", 0)
     monkeypatch.setattr(repair, "SHIZUKU_START_TIMEOUT", 0)
     monkeypatch.setattr(repair.time, "sleep", lambda _s: None)
+    monkeypatch.setitem(repair._native_start, "tried", False)
     return logs
 
 
@@ -835,12 +845,6 @@ def test_starting_state_does_not_send_another_headless_start(monkeypatch):
 STATUS_UNANSWERED = 'Broadcast completed: result=3, data="STOPPED AUTH_UNANSWERED"\n'
 
 
-def _starts(shell):
-    return [
-        c for c in shell.calls if "HEADLESS_START" in c or "HEADLESS_STOP" in c or "libshizuku" in c or "pkill" in c
-    ]
-
-
 def test_status_marker_detection_ignores_crashed_result_code():
     assert repair.shizuku_auth_unanswered(STATUS_UNANSWERED) is True
     # HEADLESS_STATUS result codes are state ordinals: 4 is CRASHED, not the marker.
@@ -852,38 +856,83 @@ def test_status_marker_detection_ignores_crashed_result_code():
     assert repair.shizuku_start_withheld("Broadcast completed: result=0") is False
 
 
-def test_down_with_marker_sends_no_start(monkeypatch, tmp_path):
+def _natives(shell):
+    return [c for c in shell.calls if "libshizuku.so" in c]
+
+
+def test_down_with_marker_starts_natively_without_headless_start(monkeypatch, tmp_path):
     shell = _FakeShizukuShell("", unanswered=True)
     shell.alive = False
-    _setup_stale(monkeypatch, tmp_path, shell)
-    assert repair.repair_shizuku(STATUS_UNANSWERED) == ("down", False, "unanswered")
-    assert _starts(shell) == []
+    logs = _setup_stale(monkeypatch, tmp_path, shell)
+    assert repair.repair_shizuku(STATUS_UNANSWERED) == ("up", False, "unanswered")
+    assert not any("HEADLESS_START" in c for c in shell.calls)
+    assert len(_natives(shell)) == 1
+    assert shell.alive
+    assert (repair.SHIZUKU_NATIVE_START_MSG, repair.NOTICE) in logs
+    assert repair.SHIZUKU_NATIVE_START_MSG == "shizuku started natively (ADB authorisation dialog unanswered)"
 
 
-def test_withheld_start_reply_is_not_retried(monkeypatch, tmp_path):
+def test_withheld_start_reply_is_not_retried_and_falls_back_natively(monkeypatch, tmp_path):
     # An older STATUS reply without the marker, then START says withheld.
     shell = _FakeShizukuShell("", unanswered=True)
     shell.alive = False
-    _setup_stale(monkeypatch, tmp_path, shell)
-    assert repair.repair_shizuku("Broadcast completed: result=3\n") == ("down", False, "unanswered")
+    logs = _setup_stale(monkeypatch, tmp_path, shell)
+    assert repair.repair_shizuku("Broadcast completed: result=3\n") == ("up", False, "unanswered")
     starts = [c for c in shell.calls if "HEADLESS_START" in c]
     assert len(starts) == 1
     assert "force" not in starts[0]
-    assert not any("libshizuku" in c or "settings put" in c for c in shell.calls)
+    assert len(_natives(shell)) == 1
+    assert shell.index("HEADLESS_START") < shell.index("libshizuku.so")
+    assert not any("settings put" in c for c in shell.calls)
+    assert (repair.SHIZUKU_NATIVE_START_MSG, repair.NOTICE) in logs
 
 
-def test_stale_server_is_left_running_while_auth_unanswered(monkeypatch, tmp_path):
+def test_native_fallback_runs_once_per_pass(monkeypatch, tmp_path):
+    shell = _FakeShizukuShell("", unanswered=True, native_works=False)
+    shell.alive = False
+    logs = _setup_stale(monkeypatch, tmp_path, shell)
+    assert repair.repair_shizuku(STATUS_UNANSWERED) == ("down", False, "unanswered")
+    # Same pass: no second starter launch, whoever asks.
+    assert repair.start_shizuku_natively() is False
+    assert repair.repair_shizuku(STATUS_UNANSWERED) == ("down", False, "unanswered")
+    assert len(_natives(shell)) == 1
+    assert not any("HEADLESS_START" in c for c in shell.calls)
+    assert not any(level == repair.ERR for _msg, level in logs)
+    # main() starts each pass with a fresh allowance.
+    monkeypatch.setitem(repair._native_start, "tried", False)
+    shell.native_works = True
+    assert repair.repair_shizuku(STATUS_UNANSWERED) == ("up", False, "unanswered")
+    assert len(_natives(shell)) == 2
+
+
+def test_native_fallback_without_peer_help_stays_withheld(monkeypatch, tmp_path):
+    shell = _FakeShizukuShell("", unanswered=True)
+    shell.alive = False
+    logs = _setup_stale(monkeypatch, tmp_path, shell)
+
+    def missing():
+        raise ImportError("no stayturgid_peer_help")
+
+    monkeypatch.setattr(repair, "_peer_help_lib", missing)
+    assert repair.repair_shizuku(STATUS_UNANSWERED) == ("down", False, "unanswered")
+    assert _natives(shell) == []
+    assert any("not deployed" in msg and level == repair.WARNING for msg, level in logs)
+
+
+def test_stale_server_is_restarted_natively_while_auth_unanswered(monkeypatch, tmp_path):
     shell = _FakeShizukuShell(STALE_OUT, unanswered=True)
     logs = _setup_stale(monkeypatch, tmp_path, shell)
     status = 'Broadcast completed: result=1, data="RUNNING AUTH_UNANSWERED"\n'
     assert repair.repair_shizuku(status) == ("up", False, "unanswered")
-    assert _starts(shell) == []
+    assert not any("HEADLESS_START" in c for c in shell.calls)
+    assert shell.index("HEADLESS_STOP") < shell.index("libshizuku.so")
+    assert len(_natives(shell)) == 1
     assert shell.alive
-    assert logs == []
-    assert not (tmp_path / "state" / "shizuku-stale-restart").exists()
+    assert any(msg.startswith("restarted stale Shizuku server natively") for msg, _level in logs)
+    assert (tmp_path / "state" / "shizuku-stale-restart").exists()
 
 
-def test_stale_restart_start_half_withheld(monkeypatch, tmp_path):
+def test_stale_restart_start_half_withheld_restarts_natively(monkeypatch, tmp_path):
     shell = _FakeShizukuShell(STALE_OUT)
     logs = _setup_stale(monkeypatch, tmp_path, shell)
     real = shell.__call__
@@ -895,8 +944,9 @@ def test_stale_restart_start_half_withheld(monkeypatch, tmp_path):
         return real(cmd, timeout)
 
     monkeypatch.setattr(repair, "sh_adb", withhold_start)
-    assert repair.restart_stale_shizuku() == "withheld"
+    assert repair.restart_stale_shizuku() == "restarted_native"
     assert sum("HEADLESS_START" in c for c in shell.calls) == 1
+    assert len(_natives(shell)) == 1
     assert not any(level == repair.ERR for _msg, level in logs)
 
 
@@ -927,30 +977,49 @@ def test_note_shizuku_auth_logs_once_per_change(monkeypatch, tmp_path):
     assert len(logs) == 2 and logs[1][1] == repair.NOTICE
 
 
-def test_watchdog_loop_stands_down_on_unanswered_marker():
+def test_watchdog_loop_handles_unanswered_marker():
     body = repair._WATCHDOG_SCRIPT_BODY
     assert "*AUTH_UNANSWERED*) unanswered=1" in body
     assert '*AUTH_UNANSWERED*|*"result=4"*) unanswered=1' in body
     assert "WARNING: " + repair.SHIZUKU_START_WITHHELD_MSG in body
+    assert "NOTICE: " + repair.SHIZUKU_NATIVE_START_MSG in body
     assert "force" not in body
-    assert "libshizuku" not in body
+    # The installed APK's starter, never the stale /data/local/tmp copy.
+    assert "pm path moe.shizuku.privileged.api" in body
+    assert "shizuku_starter" not in body
 
 
-def _run_watchdog_once(tmp_path, status, start_reply, running=False):
-    """Run one loop pass under sh with am/pgrep/sleep stubbed; return (am calls, output)."""
+def _run_watchdog_once(tmp_path, status, start_reply, running=False, starter=None):
+    """Run the loop under sh with am/pm/pgrep/sleep stubbed until its second 60 s sleep.
+
+    ``starter``: None installs no libshizuku.so; True one that brings the
+    server up; False one that runs but leaves it down.
+    Returns (am calls, starter launches, output).
+    """
     bindir = tmp_path / "bin"
     bindir.mkdir()
     calls = tmp_path / "am-calls"
+    started = tmp_path / "started"
+    launches = tmp_path / "launches"
     (bindir / "am").write_text(
         "#!/bin/sh\n"
         'echo "$*" >> %s\n'
         'case "$*" in *HEADLESS_STATUS*) printf %%s %s ;; *HEADLESS_START*) printf %%s %s ;; esac\n'
         % (calls, shlex.quote(status), shlex.quote(start_reply))
     )
-    (bindir / "pgrep").write_text("#!/bin/sh\nexit %d\n" % (0 if running else 1))
-    # Two passes, then stop the loop.
+    apkdir = tmp_path / "app"
+    (bindir / "pm").write_text("#!/bin/sh\necho package:%s/base.apk\n" % apkdir)
+    if starter is not None:
+        libdir = apkdir / "lib" / "arm64"
+        libdir.mkdir(parents=True)
+        lib = libdir / "libshizuku.so"
+        lib.write_text("#!/bin/sh\necho x >> %s\n%s" % (launches, "touch %s\n" % started if starter else ""))
+        lib.chmod(0o755)
+    (bindir / "pgrep").write_text("#!/bin/sh\n[ -f %s ] && exit 0\nexit %d\n" % (started, 0 if running else 1))
+    # Two loop passes (the starter's own `sleep 2` does not count), then stop.
     (bindir / "sleep").write_text(
-        "#!/bin/sh\nn=$(cat %s/n 2>/dev/null || echo 0); n=$((n+1)); echo $n > %s/n; [ $n -ge 2 ] && kill $PPID\n"
+        '#!/bin/sh\n[ "$1" = 60 ] || exit 0\n'
+        "n=$(cat %s/n 2>/dev/null || echo 0); n=$((n+1)); echo $n > %s/n; [ $n -ge 2 ] && kill $PPID\n"
         % (tmp_path, tmp_path)
     )
     for f in bindir.iterdir():
@@ -960,22 +1029,55 @@ def _run_watchdog_once(tmp_path, status, start_reply, running=False):
     env = dict(os.environ, PATH="%s:%s" % (bindir, os.environ["PATH"]))
     r = subprocess.run(["sh", str(script)], capture_output=True, text=True, env=env, timeout=20)
     am = calls.read_text().splitlines() if calls.exists() else []
-    return am, r.stdout
+    n_launches = len(launches.read_text().splitlines()) if launches.exists() else 0
+    return am, n_launches, r.stdout
 
 
-def test_watchdog_loop_does_not_start_while_status_reports_unanswered(tmp_path):
-    am, out = _run_watchdog_once(tmp_path, STATUS_UNANSWERED.strip(), "")
+def test_watchdog_loop_starts_natively_while_status_reports_unanswered(tmp_path):
+    am, launches, out = _run_watchdog_once(tmp_path, STATUS_UNANSWERED.strip(), "", starter=True)
     assert not any("HEADLESS_START" in c for c in am)
+    assert launches == 1
+    assert out.count("NOTICE: " + repair.SHIZUKU_NATIVE_START_MSG) == 1
     assert out.count("WARNING: " + repair.SHIZUKU_START_WITHHELD_MSG) == 1
 
 
-def test_watchdog_loop_logs_withheld_start_once_and_never_forces(tmp_path):
-    am, out = _run_watchdog_once(
-        tmp_path, "Broadcast completed: result=3", 'Broadcast completed: result=4, data="AUTH_UNANSWERED"'
+def test_watchdog_loop_withheld_start_falls_back_natively_and_never_forces(tmp_path):
+    am, launches, out = _run_watchdog_once(
+        tmp_path,
+        "Broadcast completed: result=3",
+        'Broadcast completed: result=4, data="AUTH_UNANSWERED"',
+        starter=True,
     )
     starts = [c for c in am if "HEADLESS_START" in c]
-    assert starts and all("force" not in c for c in starts)
+    assert len(starts) == 1 and "force" not in starts[0]
+    assert launches == 1
+    assert out.count("NOTICE: " + repair.SHIZUKU_NATIVE_START_MSG) == 1
     assert out.count("WARNING: " + repair.SHIZUKU_START_WITHHELD_MSG) == 1
+
+
+def test_watchdog_loop_failed_native_start_is_quiet(tmp_path):
+    am, launches, out = _run_watchdog_once(tmp_path, STATUS_UNANSWERED.strip(), "", starter=False)
+    assert not any("HEADLESS_START" in c for c in am)
+    assert launches == 2
+    assert repair.SHIZUKU_NATIVE_START_MSG not in out
+    assert out.count("WARNING: " + repair.SHIZUKU_START_WITHHELD_MSG) == 1
+
+
+def test_watchdog_loop_leaves_a_running_server_alone_while_unanswered(tmp_path):
+    am, launches, out = _run_watchdog_once(
+        tmp_path, 'Broadcast completed: result=1, data="RUNNING AUTH_UNANSWERED"', "", running=True, starter=True
+    )
+    assert not any("HEADLESS_START" in c for c in am)
+    assert launches == 0
+    assert out.count("WARNING: " + repair.SHIZUKU_START_WITHHELD_MSG) == 1
+
+
+def test_watchdog_loop_no_native_start_while_starting(tmp_path):
+    am, launches, _out = _run_watchdog_once(
+        tmp_path, 'Broadcast completed: result=0, data="STARTING AUTH_UNANSWERED"', "", starter=True
+    )
+    assert launches == 0
+    assert not any("HEADLESS_START" in c for c in am)
 
 
 def test_error_rate_notification_names_the_real_log(tmp_path, monkeypatch):

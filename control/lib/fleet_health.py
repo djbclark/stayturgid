@@ -426,8 +426,8 @@ def a11y_profile_missing(alias: str, a11y_list: str | None) -> list[str]:
 
 ISSUE_HINTS = {
     "shizuku_auth_unanswered": (
-        "Shizuku's ADB authorisation dialog went unanswered, so every unattended start is withheld; "
-        "on the phone open Shizuku and tap Attempt now"
+        "Shizuku's ADB authorisation dialog went unanswered, so Shizuku cannot recover by itself "
+        "(the fleet starts it natively meanwhile); on the phone open Shizuku and tap Attempt now"
     ),
 }
 

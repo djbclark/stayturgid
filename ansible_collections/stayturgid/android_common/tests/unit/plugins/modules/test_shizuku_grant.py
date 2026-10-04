@@ -112,6 +112,27 @@ def test_shizuku_grant_restarts_when_shizuku_running(mocker):
     assert out["restarted"] is True
 
 
+def test_shizuku_grant_restarts_even_while_auth_unanswered(mocker):
+    # The starter runs from an already-authorised adb shell: the marker does not apply.
+    out = run_module(
+        mocker,
+        dict(device="localhost:5555", package="com.machiav3lli.fdroid", connect=False),
+        cmd_results=[
+            (
+                "am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS",
+                (0, 'Broadcast completed: result=1, data="RUNNING AUTH_UNANSWERED"', ""),
+            ),
+            (
+                "pm path moe.shizuku.privileged.api",
+                (0, "package:/data/app/~~x/moe.shizuku.privileged.api/base.apk", ""),
+            ),
+            ("libshizuku.so", (0, "", "")),
+        ],
+    )
+    assert out.get("failed") is not True, out
+    assert out["restarted"] is True
+
+
 def test_shizuku_grant_warns_when_restart_attempted_but_fails(mocker):
     out = run_module(
         mocker,
@@ -150,29 +171,3 @@ def test_shizuku_grant_fails_when_pm_grant_fails(mocker):
         expect_fail=True,
     )
     assert "pm grant" in out.get("msg", "")
-
-
-def test_shizuku_grant_skips_restart_while_auth_unanswered(mocker):
-    warnings = []
-    mocker.patch("ansible.module_utils.basic.AnsibleModule.warn", lambda self, msg: warnings.append(msg))
-    out = run_module(
-        mocker,
-        dict(device="localhost:5555", package="com.machiav3lli.fdroid", connect=False),
-        cmd_results=[
-            (
-                "am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS",
-                (0, 'Broadcast completed: result=1, data="RUNNING AUTH_UNANSWERED"', ""),
-            ),
-            ("libshizuku.so", (1, "", "must not run the starter")),
-        ],
-    )
-    assert out.get("failed") is not True, out
-    assert out["changed"] is True
-    assert out["restarted"] is False
-    assert out["auth_unanswered"] is True
-    assert len(warnings) == 1 and mod.SHIZUKU_START_WITHHELD_MSG in warnings[0]
-
-
-def test_shizuku_grant_reports_auth_answered_normally(mocker):
-    out = run_module(mocker, dict(device="localhost:5555", package="com.machiav3lli.fdroid", connect=False))
-    assert out["auth_unanswered"] is False

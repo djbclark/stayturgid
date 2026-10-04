@@ -47,12 +47,6 @@ object PeerStarter {
          * yet.
          */
         AUTH_PENDING,
-
-        /**
-         * Target's Shizuku reports its own ADB authorisation dialog unanswered: the start is
-         * withheld (no starter binary) until an operator taps Attempt now on that phone.
-         */
-        AUTH_UNANSWERED,
         FAILED,
         UNREACHABLE,
         NOT_INSTALLED,
@@ -93,12 +87,6 @@ object PeerStarter {
             record(context, result.handsets)
         }
         val shizukuResults = results.map { it.shizuku }
-        val before = PeerStartState.latest(context)
-        shizukuResults.forEach { r ->
-            PeerStartCommands.authChangeLine(r.target, before[r.target], r.outcome)?.let {
-                recordLine(context, it)
-            }
-        }
         PeerStartState.update(context, shizukuResults)
         return shizukuResults
     }
@@ -190,9 +178,6 @@ object PeerStarter {
     private fun ensureShizuku(target: PeerTarget, shizukuPkg: String, client: AdbClient): Result {
         val name = target.toString()
         if (isShizukuUp(client)) return Result(name, Outcome.ALREADY_UP)
-        if (ShizukuAuth.statusUnanswered(exec(client, ShizukuAuth.STATUS_COMMAND))) {
-            return Result(name, Outcome.AUTH_UNANSWERED, ShizukuAuth.WITHHELD_MSG)
-        }
         val apkPath =
             PeerStartCommands.parseApkPath(exec(client, PeerStartCommands.pmPath(shizukuPkg)))
                 ?: return Result(name, Outcome.NOT_INSTALLED, "pkg=$shizukuPkg")
@@ -245,10 +230,7 @@ object PeerStarter {
 
     private fun record(context: Context, result: Result) {
         val ts = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
-        recordLine(context, result.line(ts))
-    }
-
-    private fun recordLine(context: Context, line: String) {
+        val line = result.line(ts)
         Log.i(TAG, line)
         try {
             val dir = context.getExternalFilesDir(null) ?: context.filesDir
@@ -276,20 +258,6 @@ object PeerStartCommands {
         "pgrep -f '[s]hizuku_(plus_)?server' >/dev/null 2>&1 && echo up || echo down"
 
     fun pmPath(pkg: String): String = "pm path $pkg"
-
-    /** One line when a target enters or leaves [PeerStarter.Outcome.AUTH_UNANSWERED], else null. */
-    fun authChangeLine(
-        target: String,
-        before: PeerStarter.Outcome?,
-        now: PeerStarter.Outcome,
-    ): String? {
-        if (target == "-") return null
-        val was = before == PeerStarter.Outcome.AUTH_UNANSWERED
-        val isNow = now == PeerStarter.Outcome.AUTH_UNANSWERED
-        return ShizukuAuth.ChangeTracker(was).observe(isNow)?.let {
-            "[agent] PEERSTART target=$target $it"
-        }
-    }
 
     /** First `package:<path>` line from `pm path` output, or null if absent. */
     fun parseApkPath(pmOutput: String): String? {

@@ -57,11 +57,6 @@ uid:
 restarted:
   description: True when a Shizuku server restart was attempted as part of this run.
   type: bool
-auth_unanswered:
-  description: >-
-    True when the restart was skipped because Shizuku's own ADB authorisation
-    dialog went unanswered (the starter would bypass that marker).
-  type: bool
 """
 
 from ansible.module_utils.basic import AnsibleModule
@@ -76,8 +71,6 @@ from ansible_collections.stayturgid.android_common.plugins.module_utils.shizuku 
     parse_uid,
 )
 from ansible_collections.stayturgid.android_common.plugins.module_utils.shizuku_lifecycle import (
-    RESTART_WITHHELD,
-    SHIZUKU_START_WITHHELD_MSG,
     restart_shizuku_if_running,
 )
 
@@ -120,19 +113,13 @@ def main():
         module.fail_json(msg="pm grant %s %s failed: %s" % (pkg, SHIZUKU_PERMISSION, err))
 
     attempted, restart_ok = restart_shizuku_if_running(module.run_command, device)
-    auth_unanswered = restart_ok == RESTART_WITHHELD
-    if auth_unanswered:
-        module.warn(
-            "%s: granted %s but did not restart the Shizuku server — %s. The grant takes "
-            "effect on the next restart" % (device, pkg, SHIZUKU_START_WITHHELD_MSG)
-        )
-    elif attempted and not restart_ok:
+    if attempted and not restart_ok:
         module.warn(
             "granted %s but the Shizuku server restart failed — the grant "
             "will only take effect on the next natural restart" % pkg
         )
 
-    module.exit_json(changed=True, uid=uid, restarted=attempted, auth_unanswered=auth_unanswered)
+    module.exit_json(changed=True, uid=uid, restarted=attempted)
 
 
 if __name__ == "__main__":

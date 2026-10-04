@@ -52,11 +52,6 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     attempted, restart_ok = shell.restart_shizuku_if_running()
-    if restart_ok == shell.RESTART_WITHHELD:
-        print(f"WARN: granted {pkg} (uid={uid}) but left the Shizuku server running: Shizuku's")
-        print("      ADB authorisation dialog is unanswered (tap Attempt now on the phone);")
-        print("      the grant takes effect on the next restart")
-        return 0
     if attempted and not restart_ok:
         print(f"WARN: granted {pkg} (uid={uid}) but the Shizuku server restart failed")
         print("      grant will only take effect on the next natural restart")

@@ -324,16 +324,11 @@ class PrivShell:
     # ----------------------------------------------------------------------
     SHIZUKU_PKG = "moe.shizuku.privileged.api"
     HEADLESS_STATUS = "moe.shizuku.privileged.api.HEADLESS_STATUS"
-    RESTART_WITHHELD = "withheld"
 
-    def shizuku_status_text(self):
-        rc, out = self.sh("am broadcast -a %s -p moe.shizuku.privileged.api 2>/dev/null" % self.HEADLESS_STATUS)
-        return out if rc == 0 else ""
-
-    def shizuku_running(self, status_text=None):
+    def shizuku_running(self):
         """True if the Shizuku server process is currently alive on device."""
-        out = self.shizuku_status_text() if status_text is None else status_text
-        if "result=1" in out:
+        rc, out = self.sh("am broadcast -a %s -p moe.shizuku.privileged.api 2>/dev/null" % self.HEADLESS_STATUS)
+        if rc == 0 and "result=1" in out:
             return True
         rc, out = self.sh("pgrep -f '[s]hizuku_(plus_)?server' >/dev/null && echo up")
         return rc == 0 and "up" in out
@@ -356,16 +351,11 @@ class PrivShell:
 
         Returns (attempted, ok). A permission change made while Shizuku isn't
         running needs no action -- the next natural start already reconciles
-        from the real `pm grant` state. While Shizuku's authorisation dialog
-        is unanswered (HEADLESS_STATUS ends with AUTH_UNANSWERED) the starter,
-        which bypasses that marker, is not run: (False, RESTART_WITHHELD).
+        from the real `pm grant` state.
         """
         pkg = pkg or self.SHIZUKU_PKG
-        status = self.shizuku_status_text()
-        if not self.shizuku_running(status):
+        if not self.shizuku_running():
             return False, True
-        if "AUTH_UNANSWERED" in status:
-            return False, self.RESTART_WITHHELD
         libdir = self.resolve_shizuku_libdir(pkg)
         if not libdir:
             return True, False

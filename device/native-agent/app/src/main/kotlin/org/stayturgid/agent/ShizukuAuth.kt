@@ -4,9 +4,10 @@ package org.stayturgid.agent
  * ShizukuTendCF's "ADB authorisation dialog went unanswered" contract, as unattended starters see
  * it. While the marker is set a plain HEADLESS_START answers result 4 / `AUTH_UNANSWERED` and
  * HEADLESS_STATUS data ends with ` AUTH_UNANSWERED`. Only an operator at the phone clears it (`--ez
- * force true`, i.e. "Attempt now"), so nothing here ever sends force and nothing falls back to the
- * starter binary. Builds that predate the contract never emit the marker, which reads as
- * "answered".
+ * force true`, i.e. "Attempt now"), so nothing here ever sends force. The marker only gates the
+ * manager app's own start: a starter launched from an already-authorised adb shell offers no key,
+ * so [PeerStarter] ignores it. Builds that predate the contract never emit the marker, which reads
+ * as "answered".
  */
 object ShizukuAuth {
     const val MARKER = "AUTH_UNANSWERED"
@@ -14,15 +15,7 @@ object ShizukuAuth {
         "shizuku start withheld: ADB authorisation dialog unanswered; " +
             "operator: tap Attempt now on the phone"
 
-    /** HEADLESS_STATUS on a target, by explicit receiver (implicit broadcasts are dropped). */
-    const val STATUS_COMMAND =
-        "am broadcast -a moe.shizuku.privileged.api.HEADLESS_STATUS " +
-            "-n moe.shizuku.privileged.api/af.shizuku.manager.receiver.HeadlessStartStopReceiver"
-
     private val START_RESULT_WITHHELD = Regex("""\bresult=4\b""")
-
-    /** STATUS result codes are state ordinals (4 = CRASHED), so only the marker text counts. */
-    fun statusUnanswered(statusOut: String?): Boolean = statusOut?.contains(MARKER) == true
 
     fun startWithheld(startOut: String?): Boolean =
         startOut != null &&

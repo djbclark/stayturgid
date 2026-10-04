@@ -1,7 +1,9 @@
-"""shizuku_lifecycle: the unanswered-dialog marker stops the native restart."""
+"""shizuku_lifecycle: the unanswered-dialog marker, and why the starter ignores it."""
 
 import os
 import sys
+
+import pytest
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
 sys.path.insert(0, os.path.join(ROOT, "plugins", "module_utils"))
@@ -34,15 +36,15 @@ def test_marker_detection():
     assert lc.start_withheld('result=0, data="AUTH_UNANSWERED"') is True
 
 
-def test_restart_is_withheld_while_dialog_unanswered():
-    run, calls = fake_run('Broadcast completed: result=1, data="RUNNING AUTH_UNANSWERED"')
-    assert lc.restart_shizuku_if_running(run, "dev") == (False, lc.RESTART_WITHHELD)
-    assert not any("libshizuku" in c for c in calls)
-
-
-def test_restart_unchanged_without_marker():
-    run, calls = fake_run("Broadcast completed: result=1")
+@pytest.mark.parametrize(
+    "status",
+    ["Broadcast completed: result=1", 'Broadcast completed: result=1, data="RUNNING AUTH_UNANSWERED"'],
+)
+def test_restart_runs_the_starter_regardless_of_marker(status):
+    # The starter runs from an already-authorised adb shell and offers no key.
+    run, calls = fake_run(status)
     restarted, ok = lc.restart_shizuku_if_running(run, "dev")
     assert restarted is True
     assert ok is True
     assert any("libshizuku" in c for c in calls)
+    assert not any("force" in c for c in calls)

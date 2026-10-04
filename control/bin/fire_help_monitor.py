@@ -95,27 +95,6 @@ def write_state(host: str, n: int) -> None:
         pass
 
 
-def note_shizuku_auth(host: str, unanswered: bool) -> None:
-    """Log the withheld-start warning once per state change, not every cycle."""
-    p = STATE_DIR / (host + ".shizuku-auth")
-    state = "unanswered" if unanswered else "ok"
-    try:
-        previous = p.read_text().strip() or "ok"
-    except OSError:
-        previous = "ok"
-    if state == previous:
-        return
-    try:
-        STATE_DIR.mkdir(parents=True, exist_ok=True)
-        p.write_text(state)
-    except OSError:
-        pass
-    if unanswered:
-        log("WARNING: %s %s" % (host, fph.SHIZUKU_START_WITHHELD_MSG))
-    else:
-        log("%s Shizuku ADB authorisation no longer unanswered; peer starts resume" % host)
-
-
 def adb_targets(name: str, ts_ip: str, lan_ip: str) -> list[str]:
     """Ordered adb endpoints: shared resolve_adb first (USB / mDNS wireless-debug),
     then classic LAN/TS :5555. Fire often only has wireless-debugging (random port).
@@ -214,22 +193,15 @@ def help_host(name: str, ts_ip: str, lan_ip: str) -> None:
         return
 
     actions = ["wifi=%s" % wifi]
-    withheld = False
     if need_sh:
         rc = fph.cmd_shizuku_start(target)
-        withheld = rc == fph.EXIT_AUTH_UNANSWERED
-        note_shizuku_auth(name, withheld)
-        actions.append("shizuku=%s" % ("withheld" if withheld else "ok" if rc == 0 else "fail"))
+        actions.append("shizuku=%s" % ("ok" if rc == 0 else "fail"))
     if need_hs:
         rc = fph.cmd_handsets_start(target, HANDSETS_PORT)
         actions.append("handsets=%s" % ("ok" if rc == 0 else "fail"))
-    if not (withheld and not need_hs):
-        log("%s help via %s: %s" % (name, target, " ".join(actions)))
+    log("%s help via %s: %s" % (name, target, " ".join(actions)))
     # Re-check
     need_sh2, need_hs2 = needs_help(target)
-    if withheld:
-        # Waiting on the operator, not a failed repair: never escalates.
-        need_sh2 = False
     if need_sh2 or need_hs2:
         write_state(name, read_state(name) + 1)
     else:

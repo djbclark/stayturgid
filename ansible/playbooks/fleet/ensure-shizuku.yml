@@ -2,9 +2,10 @@
 # Start Shizuku and apply fleet profile over ADB — runs before SSH bootstrap.
 # Uses HEADLESS_START broadcast + native libshizuku.so launch as fallback.
 # Idempotent: skips when Shizuku is already running with port 5555 open.
-# Withholds every start (no fallback) while Shizuku reports its ADB
-# authorisation dialog unanswered; the play warns and carries on. Set
-# shizuku_fail_on_auth_unanswered=true to fail the host instead.
+# While Shizuku reports its ADB authorisation dialog unanswered, HEADLESS_START
+# is withheld and the module goes straight to the native launch; the play
+# warns (Shizuku cannot recover by itself until someone taps Attempt now) and
+# carries on. Set shizuku_fail_on_auth_unanswered=true to fail the host instead.
 #
 #   ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook \
 #     ansible/playbooks/fleet/ensure-shizuku.yml --limit oneui-device
