@@ -311,6 +311,25 @@ def test_get_summary_counts():
     assert summary["unregistered_up"] == 1
     assert summary["registered_down"] == 2  # 9090 and herdr
     assert summary["catalog_unreachable"] == 1  # 9091
+    assert summary["expected_offline"] == 0
+
+
+def test_get_summary_counts_expected_offline_devices():
+    result = {
+        "services": [
+            {"url": "ssh://p7a:8022", "reachable": False, "group": "devices"},
+            {"url": "http://localhost:9090", "reachable": False},
+        ]
+    }
+    summary = discover.get_summary_counts(
+        result,
+        {8022: "p7a ssh", 9090: "must"},
+        set(),
+        set(),
+        expected_down=lambda s: s.get("group") in {"devices", "android"},
+    )
+    assert summary["registered_down"] == 1
+    assert summary["expected_offline"] == 1
 
 
 def test_main_health_check(mock_env, monkeypatch):
@@ -815,3 +834,49 @@ def test_scan_localhost_ipv6_loopback_is_flagged(monkeypatch):
 
     assert len(services) == 1
     assert services[0].get("loopback_only") is True
+
+
+def test_health_check_ignores_expected_offline_but_pages_must_be_up(monkeypatch):
+    must_be_up = {4097: "127.0.0.1", 9119: "100.1.2.3"}
+    listening = {("127.0.0.1", 4097)}
+    monkeypatch.setattr(discover, "_tcp_probe", lambda host, port, timeout=2.0: (host, port) in listening)
+    expected_down = discover.make_expected_down(must_be_up)
+    registered = {4097, 9119, 8022, 5555, 6463, 65000}
+    base = {
+        "services": [
+            {"url": "ssh://p7a.example.ts.net:8022", "reachable": False, "group": "devices"},  # offline phone
+            {"url": "http://p7a.example.ts.net:65000", "reachable": False, "group": "devices"},
+            {"url": "http://127.0.0.1:6463", "reachable": False, "group": "mac"},  # unmanaged app
+            {"url": "http://127.0.0.1:4097", "reachable": False, "group": "mac"},  # HTTP 4xx, port listening
+        ]
+    }
+    summary = discover.get_summary_counts(base, registered, set(), None, expected_down)
+    assert summary["registered_down"] == 0
+    assert summary["expected_offline"] == 4
+
+    down = {
+        "services": [*base["services"], {"url": "http://mac.example.ts.net:9119", "reachable": False, "group": "mac"}]
+    }
+    assert discover.get_summary_counts(down, registered, set(), None, expected_down)["registered_down"] == 1
+    launchd = {"services": [{"url": "launchd://homebrew.mxcl.herdr", "reachable": False}]}
+    assert (
+        discover.get_summary_counts(launchd, set(), set(), {"launchd://homebrew.mxcl.herdr"}, expected_down)[
+            "registered_down"
+        ]
+        == 1
+    )
+
+
+def test_load_must_be_up_ports(tmp_path):
+    reg = tmp_path / "ports.yml"
+    reg.write_text(
+        "hosts:\n  mac:\n    ports:\n"
+        '      - {port: 1, bind: "127.0.0.1", owner: site, service: a, status: active}\n'
+        '      - {port: 2, bind: "100.1.2.3", owner: stayturgid, service: b, status: active}\n'
+        '      - {port: 3, bind: "*", owner: unmanaged, service: c, status: active}\n'
+        '      - {port: 4, bind: "*", owner: site, service: d, status: default-claim}\n'
+        '      - {port: 5, bind: "*", owner: site, service: e, status: active, must_be_up: false}\n'
+        "  vps-primary:\n    ports:\n"
+        '      - {port: 6, bind: "*", owner: site, service: f, status: active}\n'
+    )
+    assert discover.load_must_be_up_ports(reg) == {1: "127.0.0.1", 2: "100.1.2.3"}

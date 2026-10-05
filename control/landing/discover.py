@@ -15,6 +15,7 @@ import socket
 import subprocess
 import sys
 from collections.abc import Callable, Mapping
+from concurrent.futures import ThreadPoolExecutor
 from html.parser import HTMLParser
 from http.client import HTTPException
 from pathlib import Path
@@ -1089,12 +1090,18 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
     hidden = set(existing.get("hidden", []))
     services: list[dict] = []
     static_urls = {ks["url"] for ks in _known_services_for_site(site_dir)}
-    for url, s in sorted(known_urls.items()):
+    ordered = sorted(known_urls.items())
+    for url, s in ordered:
         s["url"] = url
         for field in ("content_ok", "health_problems"):
             s.pop(field, None)
         s.update(_service_health_config(s))
-        health = _service_health(url, s, public_host=public_host)
+    # Probe concurrently: each dead host (offline phone, KVM guest) costs a full
+    # connect timeout, and serially ~30 of them took 90 s and hung Jobber.
+    workers = min(PROBE_WORKERS, max(1, len(ordered)))
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        probed = list(pool.map(lambda item: _service_health(item[0], item[1], public_host=public_host), ordered))
+    for (url, s), health in zip(ordered, probed, strict=True):
         s.update(health)
         if health["health"] != "unreachable":
             s["last_seen"] = now
@@ -1115,14 +1122,6 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
                 # Prune unreachable dynamic/ephemeral ports
                 continue
 
-            if s.get("last_seen") is None:
-                # Might just be down temporarily; also try TCP
-                host = url.split("://")[1].split(":")[0]
-                if url_port is None:
-                    url_port = 80
-                if _tcp_probe(host, url_port):
-                    s["reachable"] = False
-
             if url not in hidden:
                 services.append(s)
 
@@ -1141,18 +1140,82 @@ def discover(environ: Mapping[str, str] | None = None) -> dict:
     return output
 
 
+PROBE_WORKERS = 16
+# Registry host whose listeners this machine must be running.
+LOCAL_REGISTRY_HOST = "mac"
+EXPECTED_OFFLINE_GROUPS = {"devices", "android"}
+
+
+def load_must_be_up_ports(registry_path: Path | None = None, *, site_dir: Path | None = None) -> dict[int, str]:
+    """Return ``port -> address to connect to`` for listeners the local host must run.
+
+    Only active, site/stayturgid-owned entries of ``LOCAL_REGISTRY_HOST`` qualify.
+    Observed ``unmanaged`` apps, planned/default-claim rows, and entries with
+    ``must_be_up: false`` (ephemeral or deliberately disabled) are excluded.
+    """
+    doc = _load_registry_doc(registry_path, site_dir)
+    hosts = doc.get("hosts") if isinstance(doc, dict) else None
+    host = hosts.get(LOCAL_REGISTRY_HOST) if isinstance(hosts, dict) else None
+    entries = host.get("ports") if isinstance(host, dict) else None
+    out: dict[int, str] = {}
+    for e in entries if isinstance(entries, list) else []:
+        if not isinstance(e, dict) or not isinstance(e.get("port"), int):
+            continue
+        if e.get("status") != "active" or e.get("owner") not in ("site", "stayturgid"):
+            continue
+        if e.get("must_be_up") is False:
+            continue
+        bind = str(e.get("bind") or "127.0.0.1")
+        out[e["port"]] = "127.0.0.1" if bind in LOOPBACK_HOSTS or bind in ("*", "0.0.0.0") else bind
+    return out
+
+
+def make_expected_down(must_be_up: Mapping[int, str]) -> Callable[[dict], bool]:
+    """Build the ``expected_down`` predicate for get_summary_counts.
+
+    A down registered service still fails the check only if it is a launchd
+    job, or a must-be-up Mac listener whose port does not accept a TCP
+    connection (an HTTP 4xx on a listening port is not an outage).
+    """
+
+    def expected_down(service: dict) -> bool:
+        url = service["url"]
+        if service.get("group") in EXPECTED_OFFLINE_GROUPS:
+            return True
+        if url.startswith("launchd://"):
+            return False
+        try:
+            port = int(url.split("://", 1)[1].split("/", 1)[0].rsplit(":", 1)[1])
+        except (IndexError, ValueError):
+            return True
+        addr = must_be_up.get(port)
+        if addr is None:
+            return True
+        return _tcp_probe(addr, port, timeout=1.0)
+
+    return expected_down
+
+
 def get_summary_counts(
     result: dict,
     registered: set[int] | dict[int, str],
     static_urls: set[str],
     dashboard_urls: set[str] | None = None,
+    expected_down: Callable[[dict], bool] | None = None,
 ) -> dict[str, int]:
+    """Count reachable/registered-down services.
+
+    ``expected_down(service)`` marks a down registered service that must not
+    fail a health check (offline phone, optional app, a port that is in fact
+    listening); such services are tallied as ``expected_offline`` instead.
+    """
     dashboard_urls = dashboard_urls or set()
     reachable = 0
     total = len(result["services"])
     unregistered_up = 0
     registered_down = 0
     catalog_unreachable = 0
+    expected_offline = 0
 
     for s in result["services"]:
         is_up = s.get("reachable", False)
@@ -1175,7 +1238,10 @@ def get_summary_counts(
         if is_cat and not is_up:
             catalog_unreachable += 1
         elif is_reg and not is_up:
-            registered_down += 1
+            if expected_down is not None and expected_down(s):
+                expected_offline += 1
+            else:
+                registered_down += 1
 
         if s.get("unregistered") and is_up:
             unregistered_up += 1
@@ -1186,6 +1252,7 @@ def get_summary_counts(
         "unregistered_up": unregistered_up,
         "registered_down": registered_down,
         "catalog_unreachable": catalog_unreachable,
+        "expected_offline": expected_offline,
     }
 
 
@@ -1212,7 +1279,8 @@ def main(argv=None):
     dashboard_services = load_dashboard_brew_services(site_dir=selection.path)
     dashboard_urls = {f"launchd://{label}" for label in dashboard_services}
 
-    summary = get_summary_counts(result, registered, static_urls, dashboard_urls)
+    expected_down = make_expected_down(load_must_be_up_ports(site_dir=selection.path)) if args.health_check else None
+    summary = get_summary_counts(result, registered, static_urls, dashboard_urls, expected_down)
 
     reachable = summary["reachable"]
     total = summary["total"]
@@ -1220,12 +1288,48 @@ def main(argv=None):
     unregistered_up = summary["unregistered_up"]
     catalog_unreachable = summary["catalog_unreachable"]
 
-    print(f"Discovery complete: {reachable}/{total} services reachable")
-    print(
-        f"Summary: {registered_down} registered-down, {unregistered_up} unregistered-up, {catalog_unreachable} catalog-unreachable"
-    )
+    headlines = [
+        f"Discovery complete: {reachable}/{total} services reachable",
+        (
+            f"Summary: {registered_down} registered-down, {unregistered_up} unregistered-up, "
+            f"{catalog_unreachable} catalog-unreachable"
+        ),
+    ]
+    if summary.get("expected_offline"):
+        headlines.append(
+            f"Expected-offline: {summary['expected_offline']} down registered service(s) ignored by health check"
+        )
     if unregistered_up:
-        print(f"Registry drift: {unregistered_up} unregistered listener(s) (not in registry/ports.yml)")
+        headlines.append(f"Registry drift: {unregistered_up} unregistered listener(s) (not in registry/ports.yml)")
+    for line in headlines:
+        print(line)
+        if args.health_check:
+            # Jobber notifyOnError is stderr-only; keep the page useful.
+            print(line, file=sys.stderr)
+    if args.health_check and registered_down:
+        paging_hdr = "Registered-down (paging):"
+        print(paging_hdr)
+        print(paging_hdr, file=sys.stderr)
+        for s in result["services"]:
+            if s.get("reachable"):
+                continue
+            if expected_down is not None and expected_down(s):
+                continue
+            url = s["url"]
+            port = None
+            try:
+                if "://" in url:
+                    part = url.split("://", 1)[1].split("/", 1)[0]
+                    if ":" in part:
+                        port = int(part.split(":")[-1])
+            except ValueError:
+                pass
+            is_reg = (port is not None and port in registered) or url in dashboard_urls
+            if not is_reg:
+                continue
+            line = f"  {url} — {s.get('label', '')}"
+            print(line)
+            print(line, file=sys.stderr)
     for s in result["services"]:
         status = "✓" if s.get("reachable") else "✗"
         badge = " [unregistered]" if s.get("unregistered") else ""

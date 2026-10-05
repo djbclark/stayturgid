@@ -438,3 +438,17 @@ read every 10 s (never `adb connect`); when `localhost:5555` is `device` again
 the gate clears the marker and one ordinary repair pass runs, stamped in
 `~/.stayturgid/state/adb-reauth-repair` so the same wait never triggers twice.
 Without a marker the sleep only stats the file once a minute.
+
+## Control-node Jobber landing-health
+
+Hourly `landing-health` pages Telegram on `--health-check` exit 1. That is **not** "any registered port is down".
+
+**What went wrong:** serial SSH to offline phones (p7a/hd8) hung Jobber ~90s; every registered device port counted as `registered-down`; Jobber's notify snippet is stderr-only so the page was three `site directory` announce lines.
+
+**How to apply:**
+
+1. Read [docs/notes/landing-health.md](landing-health.md) before changing `control/landing/discover.py` or `~/.local/bin/landing-health`.
+2. Probe concurrently. Treat `group: devices`/`android` and `must_be_up: false` as expected-offline.
+3. Fail only on must-be-up Mac listeners that do not accept TCP, or down `dashboard: true` launchd jobs.
+4. Keep the Jobber wrapper dropping `site directory` from stderr so the page is the Summary line.
+5. Do not disable the Jobber job to silence a hang.
