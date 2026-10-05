@@ -27,6 +27,7 @@ _LIB = os.path.join(_REPO, "control", "lib")
 for _p in (_REPO, _LIB):
     if _p not in sys.path:
         sys.path.insert(0, _p)
+import control.lib.hermes_notify as hermes_notify
 from control.lib.site_logging import (
     NOTICE,
     WARNING,
@@ -58,21 +59,9 @@ def _access_log(level: int, msg: str) -> None:
     log(LOG_NAME, level, msg, also_print=False)
 
 
-def _applescript_escape(s):
-    return str(s).replace("\\", "\\\\").replace('"', '\\"')
-
-
 def notify(title, message, sound=None):
-    script = 'display notification "%s" with title "%s"' % (
-        _applescript_escape(message),
-        _applescript_escape(title),
-    )
-    if sound:
-        script += ' sound name "%s"' % _applescript_escape(sound)
-    try:
-        subprocess.run(["osascript", "-e", script], capture_output=True, timeout=10)
-    except (OSError, subprocess.TimeoutExpired):
-        pass
+    # Hermes only (no macOS notification); `sound` is accepted for old callers and ignored.
+    hermes_notify.notify(title, message)
 
 
 def read_devices(conf_path):

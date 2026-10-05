@@ -29,6 +29,8 @@ import sys
 _LIB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib")
 if _LIB not in sys.path:
     sys.path.insert(0, _LIB)
+import hermes_notify
+
 try:
     from stayturgid_device import adb_bin as _adb_bin
 
@@ -46,10 +48,6 @@ IP_PORT_RE = re.compile(r"\d+\.\d+\.\d+\.\d+:\d+")
 
 def ts():
     return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-
-def _applescript_escape(s):
-    return str(s).replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _ensure(path):
@@ -177,14 +175,8 @@ def build_candidates(cached, current_ip, mdns_addr, tailscale_ip):
 
 
 def notify(msg):
-    try:
-        subprocess.run(
-            ["osascript", "-e", 'display notification "%s" with title "stayturgid"' % _applescript_escape(msg)],
-            capture_output=True,
-            timeout=10,
-        )
-    except (OSError, subprocess.TimeoutExpired):
-        pass
+    # Hermes only (no macOS notification).
+    hermes_notify.notify("stayturgid", msg)
 
 
 def main(argv=None):

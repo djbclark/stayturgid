@@ -6,6 +6,7 @@ from typing import Any
 from mcp.server.fastmcp import Context
 from pydantic import BaseModel, Field
 
+from control.lib import hermes_notify
 from control.lib.site_logging import WARNING, log
 
 FIRERPA_HEAL_COUNTDOWN_SEC = 10
@@ -57,10 +58,8 @@ class HealSession:
             _log(WARNING, f"Failed to remove device notification for {self.alias}: {e}")
 
         if self.actions:
-            mac_msg = f"healed {self.alias}: {', '.join(self.actions)} ({len(self.actions)} actions)"
-            subprocess.run(
-                ["osascript", "-e", f'display notification "{mac_msg}" with title "FIRERPA Heal"'],
-                check=False,
+            hermes_notify.notify(
+                "FIRERPA Heal", f"healed {self.alias}: {', '.join(self.actions)} ({len(self.actions)} actions)"
             )
 
 

@@ -40,6 +40,7 @@ for _p in (_LIB, _REPO):
         sys.path.append(_p)
 import fleet_health as fh
 import hd8_google_stack as hgs
+import hermes_notify
 import stayturgid_device as dev
 
 import control.lib.stats as stats
@@ -75,6 +76,9 @@ REPAIR_HEAL_COOLDOWN_SEC = 30 * 60
 REPAIR_HEAL_AFTER = 2
 DEBUGGING_DIALOG_STATE_DIR = os.path.join(ROOT, "state", "debugging-dialog-notify")
 DEBUGGING_DIALOG_NOTIFY_COOLDOWN_SEC = 30 * 60
+# The divergence alert repeats every run while it lasts; one Telegram notice per 6 h is enough.
+DIVERGENCE_STATE_DIR = os.path.join(ROOT, "state", "divergence-notify")
+DIVERGENCE_NOTIFY_COOLDOWN_SEC = 6 * 60 * 60
 DEVLOG_STATE_DIR = os.path.join(ROOT, "state", "device-log-failure")
 TASKER_RECOVER_PROBE_STATE_DIR = os.path.join(ROOT, "state", "tasker-recover-probe")
 TASKER_RECOVER_PROBE_COOLDOWN_SEC = 60 * 60
@@ -105,16 +109,8 @@ def _error_log(level: int, msg: str) -> None:
 
 
 def notify(title: str, message: str, sound: str | None = None) -> None:
-    # Escape quotes for AppleScript.
-    message = message.replace("\\", "\\\\").replace('"', '\\"')
-    title = title.replace("\\", "\\\\").replace('"', '\\"')
-    script = 'display notification "%s" with title "%s"' % (message, title)
-    if sound:
-        script += ' sound name "%s"' % sound
-    try:
-        subprocess.run(["osascript", "-e", script], capture_output=True, timeout=10)
-    except (OSError, subprocess.TimeoutExpired):
-        pass
+    # Hermes only (no macOS notification); `sound` is accepted for old callers and ignored.
+    hermes_notify.notify(title, message)
 
 
 def read_devices(conf_path: str):
@@ -826,11 +822,13 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
             WARNING,
             "%s: ALERT - state divergence detected! Mac reached ADB but watchdog log reports CLOSED_NO_SHELL" % name,
         )
-        notify(
-            "stayturgid alert",
-            "%s: State divergence! Watchdog reports CLOSED_NO_SHELL but ADB is reachable." % name,
-            sound="Basso",
-        )
+        if _heal_cooldown_ok_dir(name, DIVERGENCE_STATE_DIR, DIVERGENCE_NOTIFY_COOLDOWN_SEC):
+            notify(
+                "stayturgid alert",
+                "%s: State divergence! Watchdog reports CLOSED_NO_SHELL but ADB is reachable." % name,
+                sound="Basso",
+            )
+            _touch_heal_dir(name, DIVERGENCE_STATE_DIR)
 
     maybe_heal_sshd_via_tasker(name, path, report, target)
 
