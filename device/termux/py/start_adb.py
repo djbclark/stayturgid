@@ -167,6 +167,10 @@ def _rotate_logs() -> None:
 
 def _boot_log(msg: str) -> None:
     try:
+        # Created here, not only by the loop's _ensure_dirs(): a second start that
+        # finds the loop already running logs that and returns before the loop's own
+        # child has made logs/, and the line was then dropped (test-unit 115 flake).
+        os.makedirs(os.path.dirname(BOOTLOG), exist_ok=True)
         with open(BOOTLOG, "a") as f:
             f.write(f"[{time.strftime('%H:%M:%S')}] {msg}\n")
     except OSError:
