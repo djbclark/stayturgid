@@ -63,20 +63,32 @@ def installed() -> bool:
 
 
 def install(*, force: bool = False) -> str:
-    """Extract dex + write wrapper. Returns path to ``rish`` wrapper."""
-    if installed() and not force:
-        return WRAPPER
+    """Extract dex + write wrapper. Returns path to ``rish`` wrapper.
+
+    Re-extracts whenever the installed APK's dex differs from the one on disk: the dex's
+    loader names a class inside the manager APK, so a dex left over from an older build
+    fails with "Class not found" after an app update (seen fleet-wide 2026-10-06).
+    """
     apk = shizuku_apk_path()
     if not apk:
+        if installed() and not force:
+            return WRAPPER
         raise RuntimeError("Shizuku APK not found (pm path %s) — install Shizuku first" % SHIZUKU_PKG)
-    os.makedirs(RISH_DIR, mode=0o755, exist_ok=True)
-    os.makedirs(BIN, mode=0o755, exist_ok=True)
-    dex_dest = os.path.join(RISH_DIR, DEX_NAME)
     with zipfile.ZipFile(apk, "r") as zf:
         try:
             data = zf.read("assets/" + DEX_NAME)
         except KeyError as e:
             raise RuntimeError("Shizuku APK missing assets/%s" % DEX_NAME) from e
+    dex_dest = os.path.join(RISH_DIR, DEX_NAME)
+    if installed() and not force:
+        try:
+            with open(dex_dest, "rb") as f:
+                if f.read() == data:
+                    return WRAPPER
+        except OSError:
+            pass
+    os.makedirs(RISH_DIR, mode=0o755, exist_ok=True)
+    os.makedirs(BIN, mode=0o755, exist_ok=True)
     # Android 14+: app_process refuses writable dex — write then chmod 400.
     tmp = dex_dest + ".tmp"
     with open(tmp, "wb") as f:

@@ -33,3 +33,36 @@ def test_install_writes_dex_and_wrapper(tmp_path, monkeypatch):
     assert Path(rish.RISH_DIR, "rish_shizuku.dex").read_bytes() == b"dexdata"
     assert Path(path).stat().st_mode & 0o111
     assert rish.installed()
+
+
+def _point_at(tmp_path, monkeypatch, apk):
+    monkeypatch.setattr(rish, "HOME", str(tmp_path / "home"))
+    monkeypatch.setattr(rish, "STG", str(tmp_path / "home" / ".stayturgid"))
+    monkeypatch.setattr(rish, "BIN", str(tmp_path / "home" / ".stayturgid" / "bin"))
+    monkeypatch.setattr(rish, "RISH_DIR", str(tmp_path / "home" / ".stayturgid" / "lib" / "rish"))
+    monkeypatch.setattr(rish, "WRAPPER", str(tmp_path / "home" / ".stayturgid" / "bin" / "rish"))
+    monkeypatch.setattr(rish, "shizuku_apk_path", lambda: str(apk))
+
+
+def test_install_replaces_a_stale_dex_after_an_app_update(tmp_path, monkeypatch):
+    apk = tmp_path / "base.apk"
+    with zipfile.ZipFile(apk, "w") as zf:
+        zf.writestr("assets/rish_shizuku.dex", b"old")
+    _point_at(tmp_path, monkeypatch, apk)
+    rish.install(force=True)
+    with zipfile.ZipFile(apk, "w") as zf:
+        zf.writestr("assets/rish_shizuku.dex", b"new")
+    rish.install()
+    assert Path(rish.RISH_DIR, "rish_shizuku.dex").read_bytes() == b"new"
+
+
+def test_install_leaves_a_current_dex_alone(tmp_path, monkeypatch):
+    apk = tmp_path / "base.apk"
+    with zipfile.ZipFile(apk, "w") as zf:
+        zf.writestr("assets/rish_shizuku.dex", b"same")
+    _point_at(tmp_path, monkeypatch, apk)
+    rish.install(force=True)
+    dex = Path(rish.RISH_DIR, "rish_shizuku.dex")
+    before = dex.stat().st_mtime_ns
+    rish.install()
+    assert dex.stat().st_mtime_ns == before
