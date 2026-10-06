@@ -73,8 +73,10 @@ options:
     default: false
   clean_on_incompatible:
     description:
-      - If an in-place upgrade fails with an Android package/signature/version
+      - If an in-place upgrade fails with an Android package or signature
         incompatibility, uninstall the stale package and retry once.
+      - Never for a version downgrade (the device holds a newer build than the
+        pin); that fails the install instead of losing the app's data.
       - This makes an immutable version lock convergent from packages installed
         through a different signing lineage. The fallback removes application
         data and runs only after the ordinary preserving upgrade has failed.
@@ -324,7 +326,13 @@ def resign_apk(module, apk_path):
 
 
 def incompatible_install_failure(reason):
-    """Return whether a clean retry can resolve an installed-package conflict."""
+    """Return whether a clean retry can resolve an installed-package conflict.
+
+    A version downgrade is deliberately not one: the device holds a newer build
+    than the pin, and uninstalling it would throw away app data to go backwards.
+    On 2026-10-06 that wiped Shizuku's ADB key and every grant on t2e (it ran a
+    newer test build than a stale pin); the install now fails instead.
+    """
 
     return any(
         marker in reason
@@ -332,7 +340,6 @@ def incompatible_install_failure(reason):
             "INSTALL_FAILED_DUPLICATE_PACKAGE",
             "INSTALL_FAILED_SHARED_USER_INCOMPATIBLE",
             "INSTALL_FAILED_UPDATE_INCOMPATIBLE",
-            "INSTALL_FAILED_VERSION_DOWNGRADE",
         )
     )
 
@@ -505,6 +512,12 @@ def main():
             % install_timeout
         )
     if rc != 0 or not ok:
+        if "INSTALL_FAILED_VERSION_DOWNGRADE" in reason:
+            module.fail_json(
+                msg="adb install failed: %s: the device has a newer %s than the pinned APK; "
+                "not uninstalling it (that would lose its data). Update the pin, or downgrade by hand."
+                % (reason, package)
+            )
         module.fail_json(msg="adb install failed: %s" % reason)
 
     if module.params["work_profile"]:
