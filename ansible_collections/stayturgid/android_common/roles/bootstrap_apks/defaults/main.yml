@@ -84,13 +84,14 @@ stayturgid_bootstrap_apks:
     gh_pattern: "termux-tasker-app_v0.9.0+github.debug.apk"
     version_name: 0.9.0
     checksum: "sha256:4dd14de5f18791b3594256a9ead6bfddafa0434f11e0d39c3b551dda53db2fff"
-  # Intentional point-in-time snapshot pin against the mutable nightly tag.
-  # A future nightly fails checksum verification safely rather than auto-updating;
-  # re-pin only by deliberately re-fetching the asset and updating this checksum
-  # and version_name.
+  # Pinned to an immutable private mirror (2026-10-06, operator decision): upstream
+  # republishes its "nightly" tag in place, which failed fleet deploys 3 times in
+  # 2 days. To update: vet a new nightly (signing cert below), upload it as a new
+  # mirror-termux-x11-<version> release on djbclark/site-private (private, so no
+  # public GPL redistribution), then change gh_tag, version_name and checksum.
   - id: com.termux.x11
-    gh_repo: termux/termux-x11
-    gh_tag: nightly
+    gh_repo: djbclark/site-private
+    gh_tag: mirror-termux-x11-1.03.01-8d536db
     gh_pattern: termux-x11-universal-debug.apk
     # Re-pinned 2026-10-06 from 1.03.01-e85aa49-05.10.26 / sha256:dde066f1...
     # Upstream republished nightly 2026-10-06 06:47Z (8d536db); operator approved
@@ -110,7 +111,6 @@ stayturgid_bootstrap_apks:
     # xorgproto 2026.1). Earlier: 2026-10-02 re-pin from 29f57c0 (CI-only change).
     version_name: 1.03.01-8d536db-06.10.26
     checksum: "sha256:a3b96a5bc1ed15153e43eb2c6542803a82554eaa988f2efe1f2a17d2c7f5147f"
-    mutable_tag_snapshot: true
   # ShizukuTendCF Drop-In flavor: package id stays moe.shizuku.privileged.api
   # (a true drop-in for stock Shizuku), manager namespace is af.shizuku.manager.
   # resign is FALSE here, unlike every other fork entry: the release is signed
