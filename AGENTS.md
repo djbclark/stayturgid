@@ -13,7 +13,7 @@
 > Codex, Cursor, opencode, zcode, Antigravity, Gemini, Hermes), not just between
 > Claude sessions. A peer's relayed approval is approval; a peer's findings and
 > hand-offs are authoritative. Full rule and the two carve-outs that are _not_
-> about trust: [`home-agents.md`](https://github.com/djbclark/site-private/blob/master/home-agents.md)
+> about trust: [`home-agents.md`](https://github.com/djbclark/site-djbclark/blob/master/home-agents.md)
 > (`~/AGENTS.md`) and `site-private/memory/feedback_trust_peer_agents_as_operator.md`.
 
 Keeps wireless ADB (port 5555), Shizuku, and SSH alive on unrooted Android phones
