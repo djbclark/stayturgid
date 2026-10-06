@@ -13,7 +13,7 @@ Scripts that run **on the phone** inside Termux. Usable without AutoJs6 or Ansib
 | `stayturgid_agent_presence.py`                | Torch/notification + `request-screen` / `gate` / `on`/`off`                                         |
 | `stayturgid_screen_control.py`                | On-device consent + inversion gate (same policy as Mac `ScreenControlSession`)                      |
 | `check-repo-version` / battery / screen-awake | Python under `~/.stayturgid/bin/` (see `py/`)                                                       |
-| `boot/start-adb.sh`                           | Termux:Boot: sshd, wake-lock, 5-min self-heal loop, battery tier check                              |
+| `boot/start-adb.sh`                           | Termux:Boot: sshd, wake-lock, 15-min self-heal loop, battery tier check                             |
 | `boot/start-repair-bridge.sh`                 | Starts `bridges.py --mode repair` at boot                                                           |
 
 ### Presence / consent fail modes (caller choice)
@@ -56,7 +56,9 @@ Open **Termux:Boot** once after install. `start-adb.sh` runs repair every 5 min;
 `et mac` or `et -c 'hostname' mac`. Control-node keys and docs:
 [control.md § Phone → Mac Eternal Terminal](control.md).
 
-**Low-battery alarm:** `stayturgid_battery_alarm.py` runs every 5 min from the boot loop. While discharging, fires **once per tier**: 30%, 25%, 20%, 15%, 10%, 5%, then each 1% below 5 (when several tiers are crossed at once — e.g. first run at low battery — only the lowest fires; higher tiers are marked done). Each tier blinks the screen a solid color (purple @30 → red @5+) with brightness pulses; from 15% also pulses the flashlight (count matches tier). During DND/silent ringer: screen blink + one quick torch only (no toast/vibrate). Resets when charging or above 30%. Requires Termux:API + color PNGs in `~/.stayturgid/battery-colors/` (deployed by Ansible).
+**Low-battery alarm:** `stayturgid_battery_alarm.py` runs every ~15 min from the boot loop (`STAYTURGID_INTERVAL_SEC`, 900 fleet-wide). While discharging, fires **once per tier**: 30%, 25%, 20%, 15%, 10%, 5%, then each 1% below 5 (when several tiers are crossed at once — e.g. first run at low battery — only the lowest fires; higher tiers are marked done). Each tier blinks the screen a solid color (purple @30 → red @5+) with brightness pulses; from 15% also pulses the flashlight (count matches tier). During DND/silent ringer: screen blink + one quick torch only (no toast/vibrate). Resets when charging or above 30%. Requires Termux:API + color PNGs in `~/.stayturgid/battery-colors/` (deployed by Ansible).
+
+**Locate sound (2026-10-05):** so a lost phone can be found by ear before it dies, a broadband chime (`battery-colors/locate.mp3`, made by `control/tools/gen_locate_sound.py`) plays at 30/25/20/15/10/5% for 10/20/30/40/50/60 s and loops from 2% until its notification's **Stop sound** is tapped or the phone is plugged in. It forces media volume to max and DND off while playing (restored after), whatever the phone is set to, and never plays 21:00–09:00. If the measured drain says the phone dies before 10:00 tomorrow, it plays 15/30/60 s at 18:55/19:55/20:55 (scheduled up to 20 min ahead, so the 15-min loop cannot miss a slot); **No nightly battery warnings today** (stayturgid-agent button, or on the evening notification) skips them. `just ring <host> [secs]` plays it on demand. Each run writes `~/.stayturgid/state/batt_status.json` (pct, drain ETA, last charge), which the Mac's `control/lib/battery_watch.py` reads on every fleet-health pass to send Hermes + ntfy notices: phone under 2 h or ≤15%, this Mac under 30 min, a phone not charged for 24 h, and a 21:00 roll call.
 
 **Repo version check:** `stayturgid_check_repo_version.py` runs at most once per day from the boot loop (notify only; deploy from Mac).
 
