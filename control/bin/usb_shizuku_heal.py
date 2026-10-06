@@ -216,6 +216,9 @@ def heal(
         rc, out = run(["-s", serial, "shell", "am broadcast -a %s -p %s" % (START_ACTION, PKG)], 30)
         steps.append("HEADLESS_START rc=%s" % rc)
     if ts_ip and ts_ip != "-":
+        # Drop a transport adb may still hold from before the heal: "already connected"
+        # would otherwise keep a dead link until adb notices.
+        run(["disconnect", "%s:%d" % (ts_ip, PORT)], 10)
         rc, out = run(["connect", "%s:%d" % (ts_ip, PORT)], 15)
         steps.append("connect: %s" % (out.strip().splitlines() or ["?"])[-1][:80])
     waited = 0

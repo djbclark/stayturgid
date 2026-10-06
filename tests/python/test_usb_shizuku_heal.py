@@ -33,6 +33,8 @@ class FakePhone:
             return 0, "List of devices attached\n" + rows
         if args[0] == "connect":
             return 0, "connected to %s" % args[1]
+        if args[0] == "disconnect":
+            return 0, "disconnected %s" % args[1]
         assert args[:2] == ["-s", SERIAL]
         assert self.usb == "device", "acted on a non-authorised device"
         rest = args[2:]
@@ -171,7 +173,8 @@ def test_full_heal_this_mornings_case(env):
     i_tcpip = next(i for i, c in enumerate(ordered) if " tcpip 5555" in c)
     i_start = next(i for i, c in enumerate(ordered) if uh.START_ACTION in c)
     i_conn = next(i for i, c in enumerate(ordered) if c.startswith("connect 100.0.0.11:5555"))
-    assert i_tcpip < i_start < i_conn
+    i_disc = next(i for i, c in enumerate(ordered) if c.startswith("disconnect 100.0.0.11:5555"))
+    assert i_tcpip < i_start < i_disc < i_conn
     assert len(env["notices"]) == 1 and "restored" in env["notices"][0]
 
 
