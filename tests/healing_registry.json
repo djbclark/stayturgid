@@ -25,6 +25,10 @@
       "description": "FIRERPA gRPC heal (out-of-band, independent transport)",
       "files": ["control/bin/firerpa_heal.py"]
     },
+    "usb_heal": {
+      "description": "Mac-side heal over USB adb when an authorised USB phone has 5555 closed or Shizuku down (tcpip 5555 + HEADLESS_START; run by adb_reconnect.py)",
+      "files": ["control/bin/usb_shizuku_heal.py"]
+    },
     "fleet_health": {
       "description": "Mac launchd fleet-health observation and auto-heals (native-agent restart, HD8 stack, ET reconcile, repair restart, Tasker SSHD_RECOVER broadcast when SSH fails but adb works)",
       "files": [
@@ -67,12 +71,12 @@
     "PORT5555-OPEN": {
       "description": "Privileged shell on localhost:5555 (wireless debug enabled, uid 2000)",
       "must_cover": ["termux_repair", "native_agent"],
-      "should_cover": ["firerpa"]
+      "should_cover": ["firerpa", "usb_heal"]
     },
     "SHIZUKU-HEADLESS": {
       "description": "Shizuku headless server running (HEADLESS_STATUS + pgrep)",
       "must_cover": ["termux_repair", "firerpa", "native_agent"],
-      "should_cover": []
+      "should_cover": ["usb_heal"]
     },
     "A11Y-AUTOJS6": {
       "description": "AutoJs6 accessibility service enabled (detection-only; user must enable manually)",

@@ -452,3 +452,13 @@ Hourly `landing-health` pages Telegram on `--health-check` exit 1. That is **not
 3. Fail only on must-be-up Mac listeners that do not accept TCP, or down `dashboard: true` launchd jobs.
 4. Keep the Jobber wrapper dropping `site directory` from stderr so the page is the Summary line.
 5. Do not disable the Jobber job to silence a hang.
+
+## A phone on USB with 5555 closed is healed from the Mac, not the phone
+
+On 2026-10-06 s24 sat for 3 h with port 5555 closed, wireless debugging off and Shizuku down. The phone's own repair has no privileged shell in that state and can only log `CLOSED_NO_SHELL`; plugging USB into the Mac did nothing either, because nothing on the Mac acted on a USB-visible phone.
+
+**How to apply:**
+
+1. `control/bin/usb_shizuku_heal.py` runs from `adb_reconnect.py` (launchd, every 5 min per alias). It acts only when the phone's devices.conf serial is listed as `device` (authorised) and either nothing listens on 5555 (read from `/proc/net/tcp{,6}` over USB, so a Mac-side network problem never triggers an adbd restart) or HEADLESS_STATUS is not RUNNING.
+2. Steps: `tcpip 5555` (only if not listening), HEADLESS_START (only if not RUNNING), `adb connect <tailscale>:5555`, verify. One attempt per phone per 10 min; log in `~/.config/stayturgid/logs/usb-shizuku-heal.log`; one Hermes notice per heal (failures once per streak).
+3. It never touches `unauthorized` devices, dialogs, adb_keys, or hd8/Fire OS rows. `--dry-run [alias ...]` prints the decision; `STAYTURGID_SKIP_USB_HEAL=1` disables it.

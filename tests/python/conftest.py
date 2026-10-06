@@ -48,6 +48,12 @@ def _host_env_guard() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def _no_live_usb_heal(monkeypatch) -> None:
+    """adb_reconnect.main() runs usb_shizuku_heal against real adb unless this is set."""
+    monkeypatch.setenv("STAYTURGID_SKIP_USB_HEAL", "1")
+
+
+@pytest.fixture(autouse=True)
 def _fleet_lock_path(tmp_path, monkeypatch) -> None:
     """Point the shared fleet-deploy flock at a per-test tmp path.
 

@@ -9,6 +9,9 @@ Python replacement for adb-reconnect.sh: deterministic parsing of
 `adb devices`/`adb mdns services`, regex IP extraction, and cache handling
 that behave identically on macOS and Linux.
 
+In alias mode it first runs usb_shizuku_heal.py for the phone (a no-op unless
+the phone is on USB as an authorised device with 5555 closed or Shizuku down).
+
 Usage: adb_reconnect.py <alias>                       (conf-driven, preferred)
        adb_reconnect.py <serial> <ip:port> [ts:port]  (legacy positional)
 
@@ -179,6 +182,16 @@ def notify(msg):
     hermes_notify.notify("stayturgid", msg)
 
 
+def usb_heal(alias):
+    """Phone on USB with 5555 closed or Shizuku down: heal it over USB (usb_shizuku_heal.py)."""
+    try:
+        import usb_shizuku_heal
+
+        usb_shizuku_heal.run_alias(alias)
+    except Exception as e:  # a heal problem must never stop the reconnect
+        log(alias, "usb heal error: %s" % e)
+
+
 def main(argv=None):
     argv = argv if argv is not None else sys.argv[1:]
     if not os.path.exists(ADB):
@@ -187,6 +200,8 @@ def main(argv=None):
 
     device_file = os.path.join(ROOT, "state", "device_ip_%s" % serial)
     trim_log()
+    if len(argv) == 1:
+        usb_heal(argv[0])
 
     try:
         with open(device_file) as f:
