@@ -21,11 +21,16 @@ def test_every_github_apk_is_immutably_locked():
         assert re.fullmatch(r"sha256:[0-9a-f]{64}", apk["checksum"])
 
 
-def test_only_x11_has_the_explicit_mutable_tag_snapshot_exception():
-    mutable_aliases = {"nightly"}
-    snapshots = [apk for apk in _catalog() if apk["gh_tag"] in mutable_aliases]
-    assert snapshots == [next(apk for apk in _catalog() if apk["id"] == "com.termux.x11")]
-    assert snapshots[0]["mutable_tag_snapshot"] is True
+def test_no_apk_pins_a_mutable_tag():
+    # termux-x11's nightly tag was republished in place three times in two days
+    # (2026-10-05/06), each time failing fleet deploys; it now comes from an
+    # immutable private mirror release.
+    mutable_aliases = {"nightly", "latest"}
+    assert [apk["id"] for apk in _catalog() if apk["gh_tag"] in mutable_aliases] == []
+    assert [apk["id"] for apk in _catalog() if apk.get("mutable_tag_snapshot")] == []
+    x11 = next(apk for apk in _catalog() if apk["id"] == "com.termux.x11")
+    assert x11["gh_repo"] == "djbclark/site-private"
+    assert x11["gh_tag"].startswith("mirror-termux-x11-")
 
 
 def test_x11_snapshot_policy_is_limited_and_verified_on_every_deploy():
