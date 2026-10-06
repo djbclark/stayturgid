@@ -38,6 +38,7 @@ _LIB = os.path.join(_REPO, "control", "lib")
 for _p in (_LIB, _REPO):
     if _p not in sys.path:
         sys.path.append(_p)
+import battery_watch
 import fleet_health as fh
 import hd8_google_stack as hgs
 import hermes_notify
@@ -1041,7 +1042,8 @@ def main() -> int:
     trim_log(os.path.join(ROOT, "logs", "errors.log"), max_age_days=30, max_lines=2000)
     maybe_ensure_et_mac()
     refresh_lan_ips()
-    for name, ts_ip, lan_ip in read_devices(CONF):
+    devices = list(read_devices(CONF))
+    for name, ts_ip, lan_ip in devices:
         try:
             check_device(name, ts_ip, lan_ip)
         except Exception as e:
@@ -1049,6 +1051,10 @@ def main() -> int:
                 ERR,
                 "%s via none: sshd=unknown issues=probe_error probe_error=%s" % (name, str(e).replace(" ", "_")[:120]),
             )
+    try:  # low-battery / not-charged / roll-call notices (Hermes + ntfy)
+        battery_watch.run([name for name, _ts, _lan in devices])
+    except Exception as e:
+        _fleet_log(ERR, "battery_watch failed: %s" % str(e)[:200])
     return 0
 
 

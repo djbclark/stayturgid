@@ -206,6 +206,7 @@ stayturgid_battery_color_assets:
   - orange.png
   - red.png
   - black.png
+  - locate.mp3  # battery locate sound (control/tools/gen_locate_sound.py)
 
 stayturgid_allow_external_apps: true
 

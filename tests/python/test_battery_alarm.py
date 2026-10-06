@@ -79,3 +79,114 @@ def test_malformed_battery_json_exits_zero(monkeypatch):
     monkeypatch.setattr(alarm, "out_of", lambda args: '{"status": "DISCHARGING"}')
     # no percentage => clean exit 0, no crash
     assert alarm.main() == 0
+
+
+# --- locate sound / evening warnings / Mac-hub status (2026-10-05) ----------------------
+
+D = alarm.datetime.datetime
+
+
+@pytest.fixture
+def state(tmp_path, monkeypatch):
+    for name in ("STATUS_JSON", "SOUND_PID", "SOUND_STOP", "CONT_DISMISSED", "SKIP_NIGHT", "EVENING_DONE", "BATT_LOG"):
+        monkeypatch.setattr(alarm, name, str(tmp_path / name.lower()))
+    sounds, runs = [], []
+    monkeypatch.setattr(alarm, "start_sound", lambda secs, why: sounds.append(secs) or True)
+    monkeypatch.setattr(alarm, "run", lambda args, **kw: runs.append(args))
+    return tmp_path, sounds, runs
+
+
+def _log_lines(path, rows):
+    with open(path, "w") as f:
+        for ts, pct, status in rows:
+            f.write("%s [batt] pct=%d%% status=%s plugged=UNPLUGGED\n" % (ts, pct, status))
+
+
+@pytest.mark.parametrize("hour,quiet", [(8, True), (9, False), (20, False), (21, True), (0, True)])
+def test_quiet_hours(hour, quiet):
+    assert alarm.quiet_hours(D(2026, 10, 5, hour, 30)) is quiet
+
+
+def test_drain_rate_uses_current_discharge_only(state):
+    _log_lines(
+        alarm.BATT_LOG,
+        [
+            ("2026-10-05 10:00:00", 60, "DISCHARGING"),
+            ("2026-10-05 10:30:00", 50, "CHARGING"),
+            ("2026-10-05 11:00:00", 40, "DISCHARGING"),
+            ("2026-10-05 12:00:00", 36, "DISCHARGING"),
+        ],
+    )
+    assert alarm.drain_per_hour(D(2026, 10, 5, 12, 0)) == pytest.approx(4.0)
+
+
+def test_drain_rate_none_without_enough_history(state):
+    _log_lines(alarm.BATT_LOG, [("2026-10-05 11:50:00", 40, "DISCHARGING"), ("2026-10-05 12:00:00", 39, "DISCHARGING")])
+    assert alarm.drain_per_hour(D(2026, 10, 5, 12, 0)) is None
+
+
+def test_evening_warns_only_when_predicted_dead_before_10am(state):
+    _, sounds, runs = state
+    # 30% at 2%/h lasts 15 h: 18:50 + 15 h = 09:50 tomorrow -> warn with 15 s
+    alarm.evening_check(30, 2.0, D(2026, 10, 5, 18, 50))
+    assert sounds == [15]
+    assert any("No nightly warnings today" in a for a in runs[-1])
+    # same slot again: already done
+    alarm.evening_check(30, 2.0, D(2026, 10, 5, 18, 58))
+    assert sounds == [15]
+    # 19:55 slot, healthy battery (90% at 2%/h) -> no sound
+    alarm.evening_check(90, 2.0, D(2026, 10, 5, 19, 55))
+    assert sounds == [15]
+    # 20:55 slot, dying -> 60 s
+    alarm.evening_check(10, 2.0, D(2026, 10, 5, 20, 52))
+    assert sounds == [15, 60]
+
+
+def test_evening_unknown_rate_assumes_idle_drain(state):
+    _, sounds, _ = state
+    alarm.evening_check(12, None, D(2026, 10, 5, 19, 50))  # 12 h at 1%/h -> 07:50
+    assert sounds == [30]
+
+
+def test_skip_tonight_suppresses_evening(state):
+    _, sounds, _ = state
+    alarm._write(alarm.SKIP_NIGHT, "2026-10-05")
+    alarm.evening_check(5, 2.0, D(2026, 10, 5, 18, 55))
+    assert sounds == []
+    alarm.evening_check(5, 2.0, D(2026, 10, 6, 18, 55))  # next day it's back
+    assert sounds == [15]
+
+
+def test_outside_slots_nothing(state):
+    _, sounds, _ = state
+    alarm.evening_check(5, 2.0, D(2026, 10, 5, 18, 30))
+    alarm.evening_check(5, 2.0, D(2026, 10, 5, 21, 1))
+    assert sounds == []
+
+
+def test_status_json_tracks_last_charged(state):
+    alarm.write_status({"plugged": "PLUGGED_AC"}, 80, "CHARGING", None)
+    first = alarm.json.loads(open(alarm.STATUS_JSON).read())
+    assert first["last_charged"] and first["eta_min"] is None
+    alarm.write_status({"plugged": "UNPLUGGED"}, 50, "DISCHARGING", 5.0)
+    st = alarm.json.loads(open(alarm.STATUS_JSON).read())
+    assert st["last_charged"] == first["last_charged"]
+    assert st["eta_min"] == 600
+
+
+def test_tier_sound_seconds():
+    assert alarm.TIER_SOUND_SEC == {30: 10, 25: 20, 20: 30, 15: 40, 10: 50, 5: 60}
+    assert alarm.CONTINUOUS_PCT == 2
+
+
+def test_stop_sound_dismisses_loop(state, monkeypatch):
+    monkeypatch.setattr(alarm, "_sound_pid_mode", lambda: (123, "loop"))
+    alarm.stop_sound()
+    assert alarm.os.path.exists(alarm.CONT_DISMISSED)
+    assert alarm.os.path.exists(alarm.SOUND_STOP)
+
+
+def test_stop_sound_timed_does_not_dismiss_loop(state, monkeypatch):
+    monkeypatch.setattr(alarm, "_sound_pid_mode", lambda: (123, "timed"))
+    alarm.stop_sound()
+    assert not alarm.os.path.exists(alarm.CONT_DISMISSED)
