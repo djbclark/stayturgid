@@ -63,8 +63,8 @@ SOUND_CLIP_SEC = 4.0
 TIER_SOUND_SEC = {30: 10, 25: 20, 20: 30, 15: 40, 10: 50, 5: 60}
 CONTINUOUS_PCT = 2
 QUIET_START_H, QUIET_END_H = 21, 9
-# Evening warnings, only if the phone is predicted dead before 10:00 tomorrow. Each
-# slot may fire from 10 min before to 5 min after, so the ~5 min boot loop can't miss it.
+# Evening warnings, only if the phone is predicted dead before 10:00 tomorrow. The boot
+# loop runs every ~15 min, so a pass up to 20 min early schedules the sound for the slot.
 EVENING_SLOTS = [((18, 55), 15), ((19, 55), 30), ((20, 55), 60)]
 EVENING_DEADLINE_H = 10
 IDLE_DRAIN_PER_H = 1.0  # assumed when battery.log has too little history to measure
@@ -326,9 +326,9 @@ def _sound_pid_mode():
         return None, None
 
 
-def start_sound(secs, why):
+def start_sound(secs, why, delay=0):
     """Detach a player: secs > 0 plays about that long; 0 loops until dismissed,
-    plugged in, or quiet hours. Posts a notification whose button stops it."""
+    plugged in, or quiet hours. It waits `delay` seconds first (stoppable meanwhile)."""
     if not os.path.exists(SOUND_FILE):
         _log("no %s; sound skipped (%s)" % (SOUND_FILE, why))
         return False
@@ -339,7 +339,7 @@ def start_sound(secs, why):
     _log("SOUND %s (%s)" % ("loop" if secs <= 0 else "%ds" % secs, why))
     try:
         subprocess.Popen(
-            [sys.executable, os.path.abspath(__file__), "sound", str(int(secs))],
+            [sys.executable, os.path.abspath(__file__), "sound", str(int(secs)), str(int(delay)), why],
             stdin=subprocess.DEVNULL,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -347,14 +347,6 @@ def start_sound(secs, why):
         )
     except OSError:
         return False
-    run(
-        [
-            "termux-notification", "--id", "stayturgid-batt-sound", "--priority", "max",
-            "--title", "stayturgid: locate sound playing (%s)" % why,
-            "--content", "Tap Stop sound once you have found the device.",
-            "--button1", "Stop sound", "--button1-action", _self_cmd("stop-sound"),
-        ]
-    )  # fmt: skip
     return True
 
 
@@ -386,12 +378,26 @@ def _force_audible():
     return lambda: [u() for u in undo]
 
 
-def sound_loop(secs):
-    """The detached player itself (`sound <secs>`)."""
+def sound_loop(secs, delay=0, why="ring"):
+    """The detached player itself (`sound <secs> [delay] [why]`)."""
     _write(SOUND_PID, "%d %s" % (os.getpid(), "loop" if secs <= 0 else "timed"))
-    restore = _force_audible()
-    end = time.time() + secs
+    restore = lambda: None  # noqa: E731
+    wake = time.time() + delay
     try:
+        while time.time() < wake and not os.path.exists(SOUND_STOP):
+            time.sleep(min(5.0, max(0.1, wake - time.time())))
+        if os.path.exists(SOUND_STOP):
+            return
+        run(
+            [
+                "termux-notification", "--id", "stayturgid-batt-sound", "--priority", "max",
+                "--title", "stayturgid: locate sound playing (%s)" % why,
+                "--content", "Tap Stop sound once you have found the device.",
+                "--button1", "Stop sound", "--button1-action", _self_cmd("stop-sound"),
+            ]
+        )  # fmt: skip
+        restore = _force_audible()
+        end = time.time() + secs
         while not os.path.exists(SOUND_STOP):
             if secs > 0 and time.time() >= end:
                 break
@@ -418,7 +424,7 @@ def evening_check(pct, rate, now=None):
     for (h, m), secs in EVENING_SLOTS:
         slot = now.replace(hour=h, minute=m, second=0, microsecond=0)
         key = "%02d%02d" % (h, m)
-        if key in done or not (slot - datetime.timedelta(minutes=10) <= now < slot + datetime.timedelta(minutes=5)):
+        if key in done or not (slot - datetime.timedelta(minutes=20) <= now < slot + datetime.timedelta(minutes=5)):
             continue
         done.append(key)
         _write(EVENING_DONE, " ".join(done))
@@ -430,7 +436,7 @@ def evening_check(pct, rate, now=None):
             _log("evening %s: ok until %s" % (key, dead_at.strftime("%a %H:%M")))
             continue
         _log("evening %s: predicted dead ~%s" % (key, dead_at.strftime("%a %H:%M")))
-        start_sound(secs, "evening %s" % key)
+        start_sound(secs, "evening %s" % key, delay=max(0, (slot - now).total_seconds()))
         run(
             [
                 "termux-notification", "--id", "stayturgid-batt-night", "--priority", "max",
@@ -553,7 +559,9 @@ def on_signal(_sig, _frm):
 def main(argv=()):
     cmd = argv[0] if argv else ""
     if cmd == "sound":  # the detached player
-        sound_loop(int(argv[1]) if len(argv) > 1 else 0)
+        secs = int(argv[1]) if len(argv) > 1 else 0
+        delay = int(argv[2]) if len(argv) > 2 else 0
+        sound_loop(secs, delay, argv[3] if len(argv) > 3 else "ring")
         return 0
     if cmd == "ring":  # on demand (control/bin/ring_device.py): ignores quiet hours
         start_sound(int(argv[1]) if len(argv) > 1 else 60, "ring")

@@ -90,9 +90,12 @@ D = alarm.datetime.datetime
 def state(tmp_path, monkeypatch):
     for name in ("STATUS_JSON", "SOUND_PID", "SOUND_STOP", "CONT_DISMISSED", "SKIP_NIGHT", "EVENING_DONE", "BATT_LOG"):
         monkeypatch.setattr(alarm, name, str(tmp_path / name.lower()))
-    sounds, runs = [], []
-    monkeypatch.setattr(alarm, "start_sound", lambda secs, why: sounds.append(secs) or True)
+    sounds, runs, delays = [], [], []
+    monkeypatch.setattr(
+        alarm, "start_sound", lambda secs, why, delay=0: sounds.append(secs) or delays.append(delay) or True
+    )
     monkeypatch.setattr(alarm, "run", lambda args, **kw: runs.append(args))
+    monkeypatch.setattr(alarm, "_test_delays", delays, raising=False)
     return tmp_path, sounds, runs
 
 
@@ -130,6 +133,7 @@ def test_evening_warns_only_when_predicted_dead_before_10am(state):
     # 30% at 2%/h lasts 15 h: 18:50 + 15 h = 09:50 tomorrow -> warn with 15 s
     alarm.evening_check(30, 2.0, D(2026, 10, 5, 18, 50))
     assert sounds == [15]
+    assert alarm._test_delays == [300]  # scheduled for 18:55 exactly
     assert any("No nightly warnings today" in a for a in runs[-1])
     # same slot again: already done
     alarm.evening_check(30, 2.0, D(2026, 10, 5, 18, 58))
@@ -159,7 +163,7 @@ def test_skip_tonight_suppresses_evening(state):
 
 def test_outside_slots_nothing(state):
     _, sounds, _ = state
-    alarm.evening_check(5, 2.0, D(2026, 10, 5, 18, 30))
+    alarm.evening_check(5, 2.0, D(2026, 10, 5, 18, 30))  # 25 min early: too soon
     alarm.evening_check(5, 2.0, D(2026, 10, 5, 21, 1))
     assert sounds == []
 

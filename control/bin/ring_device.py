@@ -27,7 +27,7 @@ def main(argv):
             "-o",
             "ConnectTimeout=8",
             host,
-            "python ~/stayturgid_battery_alarm.py ring %d" % secs,
+            "python ~/.stayturgid/bin/stayturgid_battery_alarm.py ring %d" % secs,
         ],
         timeout=60,
     )
