@@ -67,10 +67,11 @@ def test_rollcall_once_at_21():
         "p7a": phone(ts=at21, pct=80),
         "t2e": phone(ts=at21, pct=20, status="CHARGING"),
         "hd8": None,
+        "new": {},  # reachable, no status file yet: not listed
     }
     mem = {}
     call = bw.rollcall(statuses, mem, at21)
     assert "s24: 40%" in call and "hd8: unreachable" in call
-    assert "p7a" not in call and "t2e" not in call
+    assert "p7a" not in call and "t2e" not in call and "new" not in call
     assert bw.rollcall(statuses, mem, at21 + 600) is None
     assert bw.rollcall(statuses, {}, NOW) is None  # 15:00

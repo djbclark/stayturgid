@@ -45,6 +45,7 @@ STALE_MIN = 45  # a status older than this is "last seen", not current
 
 
 def device_status(host: str) -> Status | None:
+    """The phone's batt_status.json; None if unreachable, {} if it has none yet."""
     try:
         r = subprocess.run(
             [
@@ -62,8 +63,12 @@ def device_status(host: str) -> Status | None:
             text=True,
             timeout=20,
         )
-        return json.loads(r.stdout) if r.returncode == 0 else None
-    except (OSError, subprocess.TimeoutExpired, ValueError):
+        if r.returncode == 255:  # ssh could not connect
+            return None
+        return json.loads(r.stdout) if r.returncode == 0 else {}  # {}: no status file yet
+    except ValueError:
+        return {}
+    except (OSError, subprocess.TimeoutExpired):
         return None
 
 
@@ -141,8 +146,9 @@ def rollcall(statuses: dict[str, Status | None], mem: dict[str, Any], now: float
     mem["rollcall"] = today
     lines = []
     for name, st in statuses.items():
-        if st is None:
-            lines.append("%s: unreachable" % name)
+        if not st:
+            if st is None:
+                lines.append("%s: unreachable" % name)
         elif now - st.get("ts", 0) > STALE_MIN * 60:
             seen = datetime.datetime.fromtimestamp(st["ts"]).strftime("%a %H:%M")
             lines.append("%s: %d%% when last seen %s" % (name, st.get("pct", 0), seen))
@@ -197,7 +203,7 @@ def run(hosts: list[str], now: float | None = None, *, dry: bool = False) -> lis
     msgs: list[str] = []
     for host in hosts:
         st = statuses[host] = device_status(host)
-        if st is None:
+        if not st:
             continue
         devices.setdefault("_last", {})[host] = st  # last known, for the roll call
         msgs += evaluate(host, st, devices, now)
