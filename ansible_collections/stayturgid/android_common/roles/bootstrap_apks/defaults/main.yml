@@ -92,6 +92,12 @@ stayturgid_bootstrap_apks:
     gh_repo: termux/termux-x11
     gh_tag: nightly
     gh_pattern: termux-x11-universal-debug.apk
+    # Re-pinned 2026-10-06 from 1.03.01-e85aa49-05.10.26 / sha256:dde066f1...
+    # Upstream republished nightly 2026-10-06 06:47Z (8d536db); operator approved
+    # after the signing cert was checked (same b6da0148... CN=APK Signer). Changes
+    # e85aa49...8d536db: 2c56cb6 + 9a2dd63 (sharedUid flavor only: components in
+    # com.termux; build guard) and 8d536db (MainActivity skips lifecycle callbacks
+    # after redirecting to the tagged window).
     # Re-pinned 2026-10-05 from 1.03.01-0e1ebb4-01.10.26 / sha256:97e1c5d4...
     # Upstream republished the nightly tag on 2026-10-05 (target d55f1b7), so the
     # old digest failed deploys fleet-wide. Checked before accepting (operator
@@ -102,8 +108,8 @@ stayturgid_bootstrap_apks:
     # separate Android windows; AndroidManifest.xml changes), 88073aa (GPU fence
     # waits bounded to 100 ms instead of forever) and e85aa49 (libxfont 2.0.9,
     # xorgproto 2026.1). Earlier: 2026-10-02 re-pin from 29f57c0 (CI-only change).
-    version_name: 1.03.01-e85aa49-05.10.26
-    checksum: "sha256:dde066f1d1510ffe45fcfa019c8baf0236d6115265e83e9418b7a10c83e349b0"
+    version_name: 1.03.01-8d536db-06.10.26
+    checksum: "sha256:a3b96a5bc1ed15153e43eb2c6542803a82554eaa988f2efe1f2a17d2c7f5147f"
     mutable_tag_snapshot: true
   # ShizukuTendCF Drop-In flavor: package id stays moe.shizuku.privileged.api
   # (a true drop-in for stock Shizuku), manager namespace is af.shizuku.manager.
