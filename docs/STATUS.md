@@ -114,7 +114,7 @@ more than a day or two old.
 2. Decide the F1 consent-surface phasing question ([#46](https://github.com/djbclark/stayturgid/issues/46)).
 3. ~~Decide whether to publish Shizuku release20 through the normal APK
    path.~~ Resolved 2026-10-03: the fleet is pinned to ShizukuTendCF Drop-In
-   r2848 (stable release since 2026-10-06: root mode asks before granting; rish fixed (#28), status names the listening port; restores its own ADB TCP port after a reboot through wireless debugging, heals from silent locked refusals on mesh Wi-Fi, fix C for Plus-library attach) in the bootstrap APK lock (`resign: false`, in-place upgrade on the
+   r2850 (stable release since 2026-10-06: uses the TCP port when it returns without Wi-Fi; root mode asks before granting; rish fixed (#28), status names the listening port; restores its own ADB TCP port after a reboot through wireless debugging, heals from silent locked refusals on mesh Wi-Fi, fix C for Plus-library attach) in the bootstrap APK lock (`resign: false`, in-place upgrade on the
    release key; validated on s24).
 4. Retest p7a only after firerpa/lamda#147 publishes a compatible runtime.
 5. Remove (or authorize removal of) the stray `~/stayturgid` file.

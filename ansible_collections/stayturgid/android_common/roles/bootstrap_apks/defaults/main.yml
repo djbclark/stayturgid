@@ -121,10 +121,10 @@ stayturgid_bootstrap_apks:
   # every grant. Asset name + checksum from the release's SHA256SUMS.
   - id: moe.shizuku.privileged.api
     gh_repo: frdminc/ShizukuTendCF
-    gh_tag: "13.7.0.r2848"
-    gh_pattern: "ShizukuTendCF-Drop-In-13.7.0.r2848.apk"
-    version_name: "ShizukuTendCF 13.7.0.r2848"
-    checksum: "sha256:dbfc43db450cd1b26c21eadb2dbffb81c868fc191e92e20ab57127c1da4dfaff"
+    gh_tag: "13.7.0.r2850"
+    gh_pattern: "ShizukuTendCF-Drop-In-13.7.0.r2850.apk"
+    version_name: "ShizukuTendCF 13.7.0.r2850"
+    checksum: "sha256:7eb7eeaf130e3a1c041170c15ff05e43ede9d6b548828f1b5aea7028bdea3b10"
     resign: false
     monkey: true
     battery_unrestricted: true
