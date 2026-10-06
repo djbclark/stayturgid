@@ -10,3 +10,4 @@
 *.aab
 app/build/
 .DS_Store
+.kotlin/

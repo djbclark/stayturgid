@@ -9,6 +9,7 @@
     <string name="notification_text_no_shizuku">Shizuku permission missing — open app</string>
     <string name="main_status_heading">Runtime diagnostics</string>
     <string name="main_copy_diagnostics">Copy diagnostics</string>
+    <string name="main_skip_nightly_battery">No nightly battery warnings today</string>
     <string name="main_start">Start host service</string>
     <string name="main_stop">Stop host service</string>
     <string name="main_request_shizuku">Request Shizuku permission</string>

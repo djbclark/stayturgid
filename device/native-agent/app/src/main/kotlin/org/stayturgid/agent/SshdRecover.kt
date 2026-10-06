@@ -61,28 +61,39 @@ object SshdRecover {
 /**
  * Asks Termux to run sshd-recover.sh under its own UID via the RUN_COMMAND intent. The send needs
  * no adb or unlocked keyguard, so it still works after a permission-change GID-kill has taken down
- * every Termux process (detection still rides the Shizuku-bound co-monitor). The fleet grants
- * com.termux.permission.RUN_COMMAND over adb (control/lib/fleet_app_profiles.json); Termux also
- * needs allow-external-apps=true.
+ * every Termux process (detection still rides the Shizuku-bound co-monitor).
  */
 object SshdRecoverIntent {
-    private const val TAG = "StayTurgidSshdRec"
-    private const val PERMISSION = "com.termux.permission.RUN_COMMAND"
-
     // The plain script, not sshd-recover-tasker.sh: that wrapper's marker must only move when
     // the Tasker path ran.
     private const val SCRIPT_PATH =
         "/data/data/com.termux/files/home/.termux/tasker/sshd-recover.sh"
 
     /** Returns the outcome for agent.log; failures contain "FAILED" for the Mac-side scraper. */
-    fun send(context: Context): String {
+    fun send(context: Context): String = TermuxRunCommand.send(context, SCRIPT_PATH)
+}
+
+/**
+ * Runs a command in Termux under its own UID via the RUN_COMMAND intent. The fleet grants
+ * com.termux.permission.RUN_COMMAND over adb (control/lib/fleet_app_profiles.json); Termux also
+ * needs allow-external-apps=true.
+ */
+object TermuxRunCommand {
+    private const val TAG = "StayTurgidTermuxRun"
+    private const val PERMISSION = "com.termux.permission.RUN_COMMAND"
+    const val PYTHON = "/data/data/com.termux/files/usr/bin/python"
+    const val HOME = "/data/data/com.termux/files/home"
+
+    /** Returns the outcome; failures start with "FAILED". */
+    fun send(context: Context, path: String, vararg args: String): String {
         if (context.checkSelfPermission(PERMISSION) != PackageManager.PERMISSION_GRANTED) {
             return "FAILED $PERMISSION not granted"
         }
         val intent =
             Intent("com.termux.RUN_COMMAND").apply {
                 component = ComponentName("com.termux", "com.termux.app.RunCommandService")
-                putExtra("com.termux.RUN_COMMAND_PATH", SCRIPT_PATH)
+                putExtra("com.termux.RUN_COMMAND_PATH", path)
+                if (args.isNotEmpty()) putExtra("com.termux.RUN_COMMAND_ARGUMENTS", arrayOf(*args))
                 putExtra("com.termux.RUN_COMMAND_BACKGROUND", true)
             }
         return try {
