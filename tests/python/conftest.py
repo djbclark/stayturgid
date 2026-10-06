@@ -17,6 +17,10 @@ REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 sys.path.insert(0, os.path.join(REPO, "control", "lib"))
 sys.path.insert(0, os.path.join(REPO, "control", "bin"))
 sys.path.insert(0, os.path.join(REPO, "device", "termux", "py"))
+# The secretspec fixture below imports `control.lib.*`; without the repo root a
+# single test file run on its own errors in every test.
+if REPO not in sys.path:
+    sys.path.append(REPO)
 
 # device/termux/py/start_adb.py mutates os.environ at import time (Termux
 # PREFIX/TMPDIR/HOME). Pytest collection imports that module, which would
