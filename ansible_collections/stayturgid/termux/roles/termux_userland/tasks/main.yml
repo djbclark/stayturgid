@@ -58,6 +58,11 @@
     force_confold: true
     _termux_prefix: "{{ termux_prefix }}"
   register: pkg_upgrade
+  # A running sshd hands its host keys to the newly installed sshd-session, which
+  # rejects them after an openssh upgrade ("parse_hostkeys: unexpected internal
+  # error"), so every login drops before the banner (s24/t2e, 2026-10-08). HUP
+  # makes sshd re-exec its new binary.
+  notify: reload sshd
   when: >-
     ((_now_epoch.stdout | trim | float) - (_pkg_upgrade_epoch | float)) > 86400
 

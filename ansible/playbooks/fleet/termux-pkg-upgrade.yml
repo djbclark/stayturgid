@@ -51,6 +51,16 @@
         content: "deb {{ _st_termux_mirror }} stable main\n"
         mode: "0644"
 
+    # A running sshd hands its host keys to the newly installed sshd-session, which
+    # rejects them after an openssh upgrade ("parse_hostkeys: unexpected internal
+    # error"), so every login drops before the banner (s24/t2e, 2026-10-08). HUP makes
+    # the runit-supervised listener re-exec its new binary.
+    - name: Reload sshd after an upgrade
+      ansible.builtin.command: "{{ termux_prefix }}/bin/sv hup {{ termux_prefix }}/var/service/sshd"
+      when: stayturgid_termux_pkg_nightly is changed
+      changed_when: true
+      failed_when: false
+
     - name: Report nightly Termux pkg result
       ansible.builtin.debug:
         msg: >-

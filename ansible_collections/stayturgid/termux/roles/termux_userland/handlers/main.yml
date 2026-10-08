@@ -60,6 +60,9 @@
   args:
     executable: "{{ termux_prefix }}/bin/bash"
 
+# HUP the runit-supervised listener, not `pkill -HUP sshd`: that also hits the
+# sshd-session children, and misses a listener that already re-exec'd once (its
+# name becomes the full path, "/data/data/com.").
 - name: reload sshd
-  ansible.builtin.command: pkill -HUP sshd
+  ansible.builtin.command: "{{ termux_prefix }}/bin/sv hup {{ termux_prefix }}/var/service/sshd"
   changed_when: true
