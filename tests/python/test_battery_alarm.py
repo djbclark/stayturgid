@@ -190,7 +190,59 @@ def test_stop_sound_dismisses_loop(state, monkeypatch):
     assert alarm.os.path.exists(alarm.SOUND_STOP)
 
 
+# --- agent player: built-in speaker only, vibrating (2026-10-08) ---------------------------
+
+
+@pytest.mark.parametrize(
+    "out,expected",
+    [
+        ("package:org.stayturgid.agent versionCode:33\n", True),
+        ("package:org.stayturgid.agent.debug versionCode:40\npackage:org.stayturgid.agent versionCode:32", False),
+        ("package:org.stayturgid.agent versionCode:34\nError: Shell does not have permission", True),
+        ("", False),  # no local adb: fall back to termux-media-player
+    ],
+)
+def test_agent_plays_sound_needs_versioncode_33(monkeypatch, out, expected):
+    monkeypatch.setattr(alarm, "adb_shell", lambda *cmd: out)
+    assert alarm.agent_plays_sound() is expected
+
+
+def _sound_loop_runs(state, monkeypatch, agent):
+    _, _, runs = state
+    monkeypatch.setattr(alarm, "agent_plays_sound", lambda: agent)
+    monkeypatch.setattr(alarm, "_force_audible", lambda music=True: runs.append(["force", music]) or (lambda: None))
+    monkeypatch.setattr(alarm.time, "sleep", lambda s: None)
+    clock = iter(range(0, 1000, 5))
+    monkeypatch.setattr(alarm.time, "time", lambda: next(clock))
+    alarm.sound_loop(10)
+    return runs
+
+
+def test_sound_loop_leases_the_agent_and_stops_it(state, monkeypatch):
+    runs = _sound_loop_runs(state, monkeypatch, agent=True)
+    assert ["force", False] in runs  # the agent sets the alarm volume; media volume untouched
+    leases = [r[r.index("secs") + 1] for r in runs if r[:2] == ["am", "broadcast"]]
+    assert leases and set(leases[:-1]) == {str(alarm.AGENT_LEASE_SEC)} and leases[-1] == "0"
+    assert not any(r[0] == "termux-media-player" and r[1] == "play" for r in runs)
+
+
+def test_sound_loop_falls_back_to_termux_player_and_vibrates(state, monkeypatch):
+    runs = _sound_loop_runs(state, monkeypatch, agent=False)
+    assert ["force", True] in runs
+    assert ["termux-media-player", "play", alarm.SOUND_FILE] in runs
+    assert any(r[0] == "termux-vibrate" for r in runs)
+    assert not any(r[:2] == ["am", "broadcast"] for r in runs)
+
+
 def test_stop_sound_timed_does_not_dismiss_loop(state, monkeypatch):
     monkeypatch.setattr(alarm, "_sound_pid_mode", lambda: (123, "timed"))
     alarm.stop_sound()
     assert not alarm.os.path.exists(alarm.CONT_DISMISSED)
+
+
+def test_agent_ships_the_same_clip():
+    root = alarm.os.path.join(alarm.os.path.dirname(__file__), "..", "..")
+    termux = alarm.os.path.join(root, "device/termux/assets/battery-colors/locate.mp3")
+    agent = alarm.os.path.join(root, "device/native-agent/app/src/main/res/raw/locate.mp3")
+    with open(termux, "rb") as a, open(agent, "rb") as b:
+        assert a.read() == b.read(), "rerun control/tools/gen_locate_sound.py"

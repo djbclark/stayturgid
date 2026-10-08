@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Generate the battery "locate me" clip: device/termux/assets/battery-colors/locate.mp3.
+"""Generate the battery "locate me" clip: device/termux/assets/battery-colors/locate.mp3,
+plus the copy stayturgid-agent plays (app/src/main/res/raw/locate.mp3, 2026-10-08).
 
 Design (2026-10-05): broadband sounds with sharp onsets are much easier to locate than
 pure tones, which the ear localizes worst between 1 and 4 kHz (IRSST / University of
@@ -12,6 +13,7 @@ onset is a fresh localization cue. 4.0 s long; the player loops it.
     python3 control/tools/gen_locate_sound.py   # needs numpy + ffmpeg (libmp3lame)
 """
 
+import shutil
 import subprocess
 import tempfile
 import wave
@@ -21,7 +23,9 @@ import numpy as np
 
 SR = 44100
 CLIP_SEC = 4.0  # keep in sync with SOUND_CLIP_SEC in stayturgid_battery_alarm.py
-OUT = Path(__file__).resolve().parents[2] / "device/termux/assets/battery-colors/locate.mp3"
+ROOT = Path(__file__).resolve().parents[2]
+OUT = ROOT / "device/termux/assets/battery-colors/locate.mp3"
+AGENT_COPY = ROOT / "device/native-agent/app/src/main/res/raw/locate.mp3"
 NOTES = [659.25, 830.61, 987.77, 1318.5]  # E5 G#5 B5 E6
 PARTIALS = [(1.0, 1.0, 0.9), (2.0, 0.5, 0.5), (3.0, 0.35, 0.35), (4.07, 0.3, 0.22), (6.8, 0.2, 0.12)]
 
@@ -58,7 +62,8 @@ def main():
             ["ffmpeg", "-y", "-loglevel", "error", "-i", str(wav), "-codec:a", "libmp3lame", "-b:a", "128k", str(OUT)],
             check=True,
         )
-    print(OUT)
+    shutil.copyfile(OUT, AGENT_COPY)
+    print(OUT, AGENT_COPY)
 
 
 if __name__ == "__main__":

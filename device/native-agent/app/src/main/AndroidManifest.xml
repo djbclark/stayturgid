@@ -11,6 +11,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- sshd-recover: send Termux RUN_COMMAND intent to recover sshd (OPTIONS #44). -->
     <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
+    <!-- Battery locate sound: vibrate for as long as it plays (LocateSoundReceiver). -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- Package-visibility (API 30+): SetupActivity's "Open Shizuku" guided-setup step launches
          Shizuku directly via getLaunchIntentForPackage(), which returns null for an installed
@@ -91,6 +93,20 @@
             android:enabled="true">
             <intent-filter>
                 <action android:name="org.stayturgid.agent.action.HANDSETS_START_NOW" />
+            </intent-filter>
+        </receiver>
+
+        <!-- nosemgrep: java.android.security.exported_receiver.exported_receiver -->
+        <!-- Battery locate sound, driven by Termux's stayturgid_battery_alarm.py with
+             `am broadcast` (Termux runs under its own UID, so this must be exported). The
+             sound is lease-bounded (at most 120 s per broadcast); same risk profile as
+             PeerStartReceiver above. -->
+        <receiver
+            android:name=".LocateSoundReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="org.stayturgid.agent.action.LOCATE_SOUND" />
             </intent-filter>
         </receiver>
 

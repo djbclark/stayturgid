@@ -69,6 +69,13 @@ EVENING_SLOTS = [((18, 55), 15), ((19, 55), 30), ((20, 55), 60)]
 EVENING_DEADLINE_H = 10
 IDLE_DRAIN_PER_H = 1.0  # assumed when battery.log has too little history to measure
 ZEN_TO_DND = {"1": "priority", "2": "none", "3": "alarms"}  # zen_mode -> set_dnd arg
+# stayturgid-agent 0.9.15+ (versionCode 33) plays the clip itself (2026-10-08): only on the
+# built-in speaker, never a connected Bluetooth device, at full alarm volume, vibrating the
+# whole time. Each clip renews a lease, so the sound stops by itself if this player dies.
+# Older agents, or no local adb to check the version: termux-media-player + termux-vibrate.
+AGENT_PKG = "org.stayturgid.agent"
+AGENT_SOUND_VERSION = 33
+AGENT_LEASE_SEC = 15
 STATE_DIR = os.path.join(STG, "state")
 STATUS_JSON = os.path.join(STATE_DIR, "batt_status.json")  # read by the Mac hub
 SOUND_PID = os.path.join(STATE_DIR, "batt_sound.pid")
@@ -350,6 +357,23 @@ def start_sound(secs, why, delay=0):
     return True
 
 
+def agent_plays_sound():
+    """True if the installed stayturgid-agent has the locate-sound receiver."""
+    out = adb_shell("cmd", "package", "list", "packages", "--user", "0", "--show-versioncode", AGENT_PKG)
+    m = re.search(r"^package:%s versionCode:(\d+)" % re.escape(AGENT_PKG), out, re.M)
+    return bool(m) and int(m.group(1)) >= AGENT_SOUND_VERSION
+
+
+def agent_sound(secs):
+    """Have the agent play for `secs` more seconds (a lease renewal); 0 stops it."""
+    run(
+        [
+            "am", "broadcast", "-a", AGENT_PKG + ".action.LOCATE_SOUND", "--ei", "secs", str(int(secs)),
+            "-n", AGENT_PKG + "/.LocateSoundReceiver",
+        ]
+    )  # fmt: skip
+
+
 def stop_sound(dismiss=True):
     """Stop the player; dismissing a loop keeps it off until the next charge."""
     pid, mode = _sound_pid_mode()
@@ -358,17 +382,19 @@ def stop_sound(dismiss=True):
     _write(SOUND_STOP, "1")
     if dismiss and mode == "loop":
         _write(CONT_DISMISSED, "1")
+    agent_sound(0)
     run(["termux-media-player", "stop"])
 
 
-def _force_audible():
-    """Max media volume and DND off while the sound plays; returns the undo."""
+def _force_audible(music=True):
+    """DND off (and max media volume for termux-media-player) while the sound plays;
+    returns the undo. The agent sets the alarm volume itself."""
     undo = []
     try:
-        streams = json.loads(out_of(["termux-volume"]) or "[]")
-        music = next(s for s in streams if s.get("stream") == "music")
-        run(["termux-volume", "music", str(music["max_volume"])])
-        undo.append(lambda v=str(music["volume"]): run(["termux-volume", "music", v]))
+        streams = json.loads(out_of(["termux-volume"]) or "[]") if music else []
+        vol = next(s for s in streams if s.get("stream") == "music")
+        run(["termux-volume", "music", str(vol["max_volume"])])
+        undo.append(lambda v=str(vol["volume"]): run(["termux-volume", "music", v]))
     except (ValueError, StopIteration, KeyError, TypeError, AttributeError):
         pass
     zen = adb_shell("settings", "get", "global", "zen_mode")
@@ -382,6 +408,7 @@ def sound_loop(secs, delay=0, why="ring"):
     """The detached player itself (`sound <secs> [delay] [why]`)."""
     _write(SOUND_PID, "%d %s" % (os.getpid(), "loop" if secs <= 0 else "timed"))
     restore = lambda: None  # noqa: E731
+    agent = False
     wake = time.time() + delay
     try:
         while time.time() < wake and not os.path.exists(SOUND_STOP):
@@ -396,16 +423,23 @@ def sound_loop(secs, delay=0, why="ring"):
                 "--button1", "Stop sound", "--button1-action", _self_cmd("stop-sound"),
             ]
         )  # fmt: skip
-        restore = _force_audible()
+        agent = agent_plays_sound()
+        restore = _force_audible(music=not agent)
         end = time.time() + secs
         while not os.path.exists(SOUND_STOP):
             if secs > 0 and time.time() >= end:
                 break
             if secs <= 0 and quiet_hours():
                 break
-            run(["termux-media-player", "play", SOUND_FILE])
+            if agent:
+                agent_sound(AGENT_LEASE_SEC)
+            else:
+                run(["termux-media-player", "play", SOUND_FILE])
+                run(["termux-vibrate", "-f", "-d", str(int(SOUND_CLIP_SEC * 1000))])
             time.sleep(SOUND_CLIP_SEC)
     finally:
+        if agent:
+            agent_sound(0)
         run(["termux-media-player", "stop"])
         restore()
         _rm(SOUND_PID, SOUND_STOP)
