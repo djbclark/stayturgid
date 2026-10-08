@@ -136,8 +136,19 @@ object PeerStarter {
             AdbClient(target.host, target.port, key).use { client ->
                 client.connect()
                 // This only preserves the toggle when adbd is already reachable and authorized;
-                // it cannot restore adbd or port 5555 after they are fully dead.
-                exec(client, PeerStartCommands.ADB_WIFI_ENABLED_REASSERT)
+                // it cannot restore adbd or port 5555 after they are fully dead. ShizukuTendCF
+                // r2842+ owns the toggle (one network prompt per boot): a write from here would
+                // re-raise that prompt, so leave it to the app. Unknown and older builds keep it.
+                val versionOut = exec(client, ShizukuWirelessOwner.versionNameCommand(shizukuPkg))
+                val revision = ShizukuWirelessOwner.parseRevision(versionOut)
+                if (ShizukuWirelessOwner.appOwnsWirelessRestore(revision)) {
+                    Log.i(
+                        TAG,
+                        "peer services $target: adb_wifi_enabled left to ShizukuTendCF r$revision",
+                    )
+                } else {
+                    exec(client, PeerStartCommands.ADB_WIFI_ENABLED_REASSERT)
+                }
                 clearTargetReminder(client)
                 val shizuku = ensureShizuku(target, shizukuPkg, client)
                 val handsets = ensureHandsetsIsolated(context, target, client)
