@@ -462,3 +462,13 @@ On 2026-10-06 s24 sat for 3 h with port 5555 closed, wireless debugging off and 
 1. `control/bin/usb_shizuku_heal.py` runs from `adb_reconnect.py` (launchd, every 5 min per alias). It acts only when the phone's devices.conf serial is listed as `device` (authorised) and either nothing listens on 5555 (read from `/proc/net/tcp{,6}` over USB, so a Mac-side network problem never triggers an adbd restart) or HEADLESS_STATUS is not RUNNING.
 2. Steps: `tcpip 5555` (only if not listening), HEADLESS_START (only if not RUNNING), `adb connect <tailscale>:5555`, verify. One attempt per phone per 10 min; log in `~/.config/stayturgid/logs/usb-shizuku-heal.log`; one Hermes notice per heal (failures once per streak).
 3. It never touches `unauthorized` devices, dialogs, adb_keys, or hd8/Fire OS rows. `--dry-run [alias ...]` prints the decision; `STAYTURGID_SKIP_USB_HEAL=1` disables it.
+
+## An openssh upgrade leaves the running sshd refusing every login
+
+On 2026-10-08 the 04:15 nightly `apt-get full-upgrade` took openssh 10.5p1 to 10.6p1 on s24 and t2e. The still-running listener handed its host keys to the newly installed `sshd-session`, which logged `parse_hostkeys: parse pubkey: unexpected internal error` and closed every connection before the banner (`kex_exchange_identification: read: Connection reset by peer`). Port 8022 stayed open, so every "is sshd up" probe passed and fleet-watch showed the phones down for about 5 h.
+
+**How to apply:**
+
+1. Both upgrade paths (the nightly `termux-pkg-upgrade.yml` and the `termux_userland` upgrade task) now HUP sshd after an upgrade, so it re-execs the new binary.
+2. Signal the listener with `sv hup $PREFIX/var/service/sshd`, never `pkill -HUP sshd`: once sshd has re-exec'd, its process name becomes its full path (truncated to `/data/data/com.`), so `pkill sshd` misses the listener, and it hits the `sshd-session` children instead.
+3. To fix it by hand without ssh: `adb shell "run-as com.termux sh -c 'PATH=/data/data/com.termux/files/usr/bin sv restart /data/data/com.termux/files/usr/var/service/sshd'"` (the fleet's Termux is debuggable).
