@@ -43,10 +43,10 @@ stayturgid_debug_key_alias: "androiddebugkey"
 stayturgid_bootstrap_apks:
   - id: org.stayturgid.agent
     gh_repo: djbclark/stayturgid
-    gh_tag: agent-v0.9.14
+    gh_tag: agent-v0.9.15
     gh_pattern: app-release.apk
-    version_name: 0.9.14-battery-night
-    checksum: "sha256:d6548a89c5ffd70c3e4c43c4d843364752b3a01da08ebaedbe43c92e1222bc48"
+    version_name: 0.9.15-locate-speaker
+    checksum: "sha256:4b81a28e50e7390650090e7f67d143d6a4d61dfa86e345a2039061f74b9596ea"
     resign: false
     start_broadcast_action: org.stayturgid.agent.action.PEER_START_NOW
     start_broadcast_component: org.stayturgid.agent/org.stayturgid.agent.PeerStartReceiver
