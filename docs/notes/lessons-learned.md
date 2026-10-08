@@ -472,3 +472,13 @@ On 2026-10-08 the 04:15 nightly `apt-get full-upgrade` took openssh 10.5p1 to 10
 1. Both upgrade paths (the nightly `termux-pkg-upgrade.yml` and the `termux_userland` upgrade task) now HUP sshd after an upgrade, so it re-execs the new binary.
 2. Signal the listener with `sv hup $PREFIX/var/service/sshd`, never `pkill -HUP sshd`: once sshd has re-exec'd, its process name becomes its full path (truncated to `/data/data/com.`), so `pkill sshd` misses the listener, and it hits the `sshd-session` children instead.
 3. To fix it by hand without ssh: `adb shell "run-as com.termux sh -c 'PATH=/data/data/com.termux/files/usr/bin sv restart /data/data/com.termux/files/usr/var/service/sshd'"` (the fleet's Termux is debuggable).
+
+## A Termux sshd that stops accepting looks like a network timeout, not a refusal
+
+On 2026-10-08 s24's `deploy-apks` ended "Termux SSH unavailable": port 8022 timed out from the Mac (Tailscale and LAN) while adb on 5555 worked. `/proc/net/tcp` on the phone showed the 8022 listener with 129 connections queued unaccepted, and `ps` showed `runsv` zombies appearing every few seconds. `sv restart sshd` only logged "got TERM" and changed nothing.
+
+**How to apply:**
+
+1. Look at the listener's queue before blaming the network: `adb shell "grep -i ':1F56 ' /proc/net/tcp /proc/net/tcp6"` (state `0A`, the fifth column is tx:rx queue; a non-zero rx queue means nobody is accepting).
+2. `bootstrap_ssh.py` hangs on its `ssh localhost` probe in that state; stop it rather than wait.
+3. What healed it: `adb shell am force-stop com.termux`, then `adb shell "run-as com.termux sh -c 'export HOME=/data/data/com.termux/files/home PATH=/data/data/com.termux/files/usr/bin; setsid sh \$HOME/.termux/boot/00-start-services.sh >/dev/null 2>&1 </dev/null &'"`. The root cause (the zombie `runsv` spawn loop) is not found.
