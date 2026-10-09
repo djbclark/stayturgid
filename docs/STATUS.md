@@ -6,13 +6,13 @@
 > table for what belongs in this file versus elsewhere.
 
 **Last verified:** 2026-07-26 (normal fleet-deploy convergence proven on p7a;
-coordinated `ops-v1.0.2` currently deployed;
 VLM/UI-TARS cleanup and the full quality gate repaired, see
 [release handoff](operations/sessions/handoff-2026-07-26-release-vlm-cleanup.md);
 peer-start built into agent APK + guided activation UX, see #61 row;
 Tailscale-GUI-foreground false positive fixed,
 [#64](https://github.com/djbclark/stayturgid/issues/64); OpenObserve<->Vector
-auth fixed 2026-07-25).
+auth fixed 2026-07-25). This header is not re-verified; later sections carry
+their own dates (fleet health was last checked 2026-10-03).
 Read this first; it links
 everywhere else. If a
 claim here looks stale, trust `git log`, `just health`, and the
@@ -21,13 +21,13 @@ and update this file in the same commit.
 
 ## Repo
 
-- `master` == `origin/master`. Normal-deploy convergence is open in
-  [#72](https://github.com/djbclark/stayturgid/pull/72), paired with private
-  site PR #17; no long-lived branches.
-- Coordinated ops releases use the same annotated `ops-vMAJOR.MINOR.PATCH`
-  tag and `ops-release.json` version in all three repositories. Deploy
-  checkouts advance only through the release gate owned by `site-djbclark`;
-  the current deployed release is `ops-v1.0.2`.
+- `master` == `origin/master`; no long-lived branches. Normal-deploy
+  convergence landed in [#72](https://github.com/djbclark/stayturgid/pull/72)
+  (merged 2026-07-26, paired with site-djbclark PR #17 merged the same day).
+- Versioned `ops-v*` releases were retired on 2026-08-23: work lands as
+  ordinary commits to `master` in `${OPS_ROOT:-~/ops}`, which running
+  deployments read directly. A release is optional; see `AGENTS.md`,
+  "Versioned deploy releases — retired".
 - Session/handoff docs: [docs/operations/sessions/](operations/sessions/)
   (chronological, newest last-modified). Superseded plans and old sessions
   live in [docs/archive/](archive/) — read-only history, do not treat as

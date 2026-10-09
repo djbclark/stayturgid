@@ -51,7 +51,6 @@ section — it's a snapshot, not updated every commit.
 ## Quick start
 
 ```bash
-cd ${OPS_ROOT:-~/ops}/site-djbclark && just ops-release-status
 cd ${OPS_ROOT:-~/ops}/stayturgid
 just health && just firerpa-health
 ```
