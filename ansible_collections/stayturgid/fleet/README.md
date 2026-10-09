@@ -1,6 +1,6 @@
 # stayturgid.fleet (meta-collection)
 
-**New to stayturgid Ansible modules?** Start at [../README.md](../../../control/lib/README.md).
+**New to stayturgid Ansible modules?** Start at [../../README.md](../../README.md).
 
 Domain modules were split into installable collections so other sites can depend
 on only what they need:
