@@ -2,6 +2,12 @@
 
 # The Hardened "O-V-G-O" Stack Architecture
 
+> **Historical research (July 2026), not current behaviour.** Current state is
+> in [docs/STATUS.md](../STATUS.md); the current architecture is
+> [multi-site-topology.md](../architecture/multi-site-topology.md), with
+> [platform-architecture.md](../architecture/platform-architecture.md) as its
+> draft successor. Labelled 2026-10-09 (#137 audit, B36).
+
 ```text
 [Android Fleet (Termux)]
    └── Logcat Daemon Script ──> local file ──> Vector (aarch64)
