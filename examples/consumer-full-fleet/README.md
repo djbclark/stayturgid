@@ -2,7 +2,7 @@
 
 Mirrors `ansible/playbooks/site.yml` for a site that vendors this repo (or
 installs collections from Git tags). Requires a **full stayturgid checkout**
-(AutoJs6 project, Termux scripts, shared profiles).
+(Termux scripts, shared profiles, the bootstrap APK lock).
 
 ## Quick start
 
@@ -12,22 +12,24 @@ installs collections from Git tags). Requires a **full stayturgid checkout**
 4. `export ANSIBLE_CONFIG=ansible.cfg && ansible-playbook playbook.yml`
 
 `playbook.yml` imports `ansible/playbooks/site.yml` from the checkout:
-**preflight** → bootstrap (tagged) → fleet → post-ui → app-stores re-pass → **validate**.
+ensure-bootstrap-apks → verify-bootstrap-apks → ensure-shizuku → **preflight** →
+bootstrap (tagged) → fleet → firerpa → post-ui → **validate** → control_node.
 
 ## Collections pinned
 
 See `requirements.yml` — `stayturgid.fleet-1.5.0` pulls domain collections.
 
-## App stores (Neo / Aurora)
+## Play sideload (optional)
 
 Production fleet parks app stores by default (`stayturgid_app_stores_enabled: false`).
-The example inventory leaves F-Droid / Play roles gated the same way. Re-enable:
+The example inventory leaves the Play role gated the same way. Re-enable the
+optional apkeep/gplaycli sideload:
 
 ```yaml
 stayturgid_app_stores_enabled: true
-stayturgid_ensure_neo_store: true
-stayturgid_ensure_aurora_store: true
 ```
+
+Neo Store, Aurora Store and F-Droid automation were removed (#119, #145).
 
 See [docs/architecture/components/play.md](../../docs/architecture/components/play.md).
 
