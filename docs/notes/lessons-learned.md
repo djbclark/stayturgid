@@ -236,8 +236,10 @@ formatting mismatch on regeneration is fine to note, not a blocking must-fix.
 At the end of every substantial session, leave enough context/tokens to
 complete these steps before running out:
 
-1. Update `docs/STATUS.md` (or the relevant session doc) with current project
-   status — what's done, what's next, any architecture changes.
+1. Update `docs/STATUS.md` with current project status — what's done, what's
+   next, any architecture changes. Session handoffs go to the operator's
+   handoff tooling outside this repo, not to `docs/operations/sessions/`
+   (frozen 2026-08-03).
 2. Push all changes to GitHub.
 3. If a device screen was used, change the Android keyboard back to an
    interactive human-use keyboard (default: GBoard —

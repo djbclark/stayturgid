@@ -29,7 +29,8 @@ and update this file in the same commit.
   deployments read directly. A release is optional; see `AGENTS.md`,
   "Versioned deploy releases — retired".
 - Session/handoff docs: [docs/operations/sessions/](operations/sessions/)
-  (chronological, newest last-modified). Superseded plans and old sessions
+  is a frozen archive as of 2026-08-03; new handoffs are kept outside this
+  repository by the operator's tooling. Superseded plans and old sessions
   live in [docs/archive/](archive/) — read-only history, do not treat as
   current state.
 - Open work: tracked as [GitHub issues](https://github.com/djbclark/stayturgid/issues)
@@ -126,6 +127,6 @@ more than a day or two old.
 | Always-on agent rules (self-heal, screen-control)         | [docs/rules/](rules/)                                          |
 | Strategic/deferred work menu (stable IDs)                 | [docs/options.md](options.md)                                  |
 | Discrete bugs and ops follow-ups                          | [GitHub issues](https://github.com/djbclark/stayturgid/issues) |
-| Session-by-session history                                | [docs/operations/sessions/](operations/sessions/)              |
+| Session history (frozen 2026-08-03)                       | [docs/operations/sessions/](operations/sessions/)              |
 | Superseded plans and old sessions                         | [docs/archive/](archive/)                                      |
 | Repo/doc index                                            | [docs/README.md](README.md)                                    |
