@@ -100,7 +100,8 @@ retries, state transitions, structured output, and error classification.
 - **Shell:** acceptable for a small, clearer wrapper or direct pipeline. Do not put
   complex control flow, parsing, retries, or duplicated Python behavior into shell.
 - **`just`:** command runners must remain thin entry points. Substantive behavior
-  belongs in Python or Ansible. Follow the [`just` migration plan](archive/plans/just-migration-plan.md).
+  belongs in Python or Ansible. Follow the recipe conventions in
+  [just_standards.md](just_standards.md) and [commands.md](commands.md).
 
 When touching an existing substantial shell implementation, consider migrating it to
 Python as part of the scoped task. Do not inflate a small fix into an unrelated rewrite.

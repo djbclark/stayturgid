@@ -416,11 +416,12 @@ ssh -i ~/.ssh/termux_key -p 8022 localhost
 
 ### Resume current work before choosing a task
 
-Maintainers and AI agents must first read [the coding rules](coding-rules.md),
-[the handoff](handoff.md), [the open-work menu](options.md), and the
-[ordered outstanding-fix plan](archive/plans/outstanding-fix-priorities-2026-07-13.md).
-That plan contains the current execution order, acceptance gates, rollback rules,
-and a copy-paste junior-agent prompt. Reliability work takes precedence over optional
+Maintainers and AI agents must first read [the coding rules](coding-rules.md)
+and [docs/STATUS.md](STATUS.md), then pick from the open
+[GitHub issues](https://github.com/djbclark/stayturgid/issues) or
+[the open-work menu](options.md) unless the operator names an item. The July
+2026 outstanding-fix plan is archived history, not the current order.
+Reliability work takes precedence over optional
 Galaxy, LLM, FIRERPA MCP/WebRTC/MITM, and task-runner enhancements.
 
 Prefer Python for substantial orchestration, parsing, retries, and validation. Keep
@@ -769,12 +770,12 @@ docs/operations/plans/                             — accepted execution and mi
 README.md                               — user-facing setup guide
 ```
 
-## Current maintenance plans (2026-07-13)
+## Past maintenance plans (archived, history only)
 
-- [Outstanding Fix Priorities](archive/plans/outstanding-fix-priorities-2026-07-13.md) —
-  current ordered work, safety/completion gates, and junior-agent resume prompt.
-- [GNU Make to `just` Migration Plan](archive/plans/just-migration-plan.md) — staged tooling
-  work after the reliability priorities are stable.
+- [Outstanding Fix Priorities (2026-07-13)](archive/plans/outstanding-fix-priorities-2026-07-13.md) —
+  the July 2026 ordered work list; superseded by STATUS.md, GitHub issues and options.md.
+- [GNU Make to `just` Migration Plan](archive/plans/just-migration-plan.md) — completed; the
+  Makefile is gone and recipe conventions are in [just_standards.md](just_standards.md).
 
 Live completion/blocker status remains in [docs/options.md](options.md). Update it
 with evidence whenever an item is completed or blocked.
