@@ -27,7 +27,11 @@ serverapp_grafana_serve_from_sub_path: false
 # Referenced by both grafana.ini.j2 and this role's Alerting API task (single
 # source, not duplicated) — brew default; operator should change if exposed.
 serverapp_grafana_admin_user: admin
-serverapp_grafana_admin_password: admin
+# From secretspec (run the playbook under `sudo-secretspec run`). Grafana reads
+# admin_password from grafana.ini only on first start; after that the role uses it
+# to log in to the API, so it must match the live password. Falls back to the
+# brew default for a fresh install with no secret set.
+serverapp_grafana_admin_password: "{{ lookup('env', 'GRAFANA_ADMIN_PASSWORD') | default('admin', true) }}"
 # Telegram contact point for blackbox_exporter alert rules (see
 # sync_templates/fragments/grafana/alerting/rules.yaml.j2 — deliberately NOT
 # file-provisioned; Grafana hard-fails startup if a file-provisioned
