@@ -3,6 +3,19 @@
 **Status:** Accepted (2026-07-09)  
 **Context:** Portfolio 2 — Ansible-forward consolidation (`site.yml`, thin `deploy_fleet.py`)
 
+> **2026-10-09 K1/#162 addendum:** The tables below describe the accepted
+> pre-cutover design. AutoJs6 was retired in K1 (2026-07-22); its `main.js`
+> watchdog role now belongs to the native agent and the Termux repair loop.
+> Obtainium, F-Droid and Aurora automation were removed (#119, #145), and the
+> `android_ui` module was deleted in #162 (see
+> [ADR 002](002-ansible-ui-tasks.md)); `post_ui` is now only the screen-unlock
+> gate. The current `site.yml` order is ensure-bootstrap-apks →
+> verify-bootstrap-apks → ensure-shizuku → preflight → bootstrap → fleet →
+> firerpa → post-ui → validate → control_node/site (there is no app-stores
+> re-pass). The "rebuilding logic in Tasker" non-goal predates the Tasker
+> keyguard-proof sshd recovery profile ([README](../../../README.md)), a
+> deliberate exception. The 80/20 boundary itself still applies.
+
 ## Decision
 
 Fleet **declarative state** is managed by Ansible (collections, roles, composed
@@ -49,7 +62,7 @@ starts via **peer bootstrap** (SSH to oneui-device/stock-android-device → remo
 - `harden_fleet_apps.py` is redundant with `app_privileges` role; CLI kept for ad-hoc use only.
 - New fleet features: default to module/role first; script only when UI or runtime requires it.
 - UI automation: see [002-ansible-ui-tasks.md](002-ansible-ui-tasks.md) — named UI tasks, not per-tap modules.
-- `make verify` / `device_tier.py` remain the deep TAP harness; `stayturgid.fleet.validate` is the Ansible smoke path.
+- `just verify` / `device_tier.py` remain the deep TAP harness; `stayturgid.fleet.validate` is the Ansible smoke path.
 
 ## Non-goals
 
