@@ -30,7 +30,12 @@ is forced, building a command raises :class:`BoundaryUnavailable` and the
 dependent work stops.  A broken broker is a repair job, not a licence to read
 secrets from some other manifest or provider.  For the same reason this seam
 refuses the SecretSpec selectors that point at an alternate manifest
-(``--file``/``-f`` and ``SECRETSPEC_FILE``) on every path.
+(``--file``/``-f`` and ``SECRETSPEC_FILE``) on every path.  The
+``SECRETSPEC_FILE`` check reads this process's inherited environment
+(``os.environ``); a caller that passes its own ``env=`` to the child must
+derive it from ``os.environ`` (every caller does today) or the guard does not
+see what the child gets.  On the brokered path this is moot: the companion
+purges ``SECRETSPEC_*`` before it execs.
 
 Replaced the ``stayturgid-secretspec-wrapper.sh`` boundary, retired 2026-08-15
 when the vault moved to ``/var/db/sudo-secretspec``.  The wrapper ran as the
@@ -115,7 +120,8 @@ def _reject_alternate_manifest(args: tuple[str, ...]) -> None:
     """
     own = args[: args.index("--")] if "--" in args else args
     for arg in own:
-        if arg in ALTERNATE_MANIFEST_FLAGS or arg.startswith("--file="):
+        # `-fPATH` is clap's attached short form of `-f PATH`.
+        if arg in ALTERNATE_MANIFEST_FLAGS or arg.startswith(("--file=", "-f")):
             raise ValueError(f"alternate SecretSpec manifest selector {arg!r} is not allowed")
 
 

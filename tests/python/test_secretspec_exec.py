@@ -257,6 +257,7 @@ def test_operator_uid_cannot_bypass_a_broken_broker_with_another_manifest(monkey
     [
         ("--file", "other.toml", "get", "X"),
         ("-f", "other.toml", "check"),
+        ("-fother.toml", "check"),
         ("--file=other.toml", "run", "--", "ansible-playbook", "site.yml"),
         ("run", "--file", "other.toml", "--", "ansible-playbook", "site.yml"),
     ],
