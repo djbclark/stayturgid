@@ -18,6 +18,12 @@
         "-t",
         "stdio"
       ]
+    },
+    "maestro": {
+      "command": "/Users/djbclark/.maestro/bin/maestro",
+      "args": [
+        "mcp"
+      ]
     }
   }
 }
