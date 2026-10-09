@@ -19,14 +19,20 @@ def _hermes_bin() -> str:
     return shutil.which("hermes") or os.path.expanduser("~/.local/bin/hermes")
 
 
-def notify(title: str, message: str) -> None:
-    """Send one notice; never raises (a dead transport must not break a monitor)."""
+def notify(title: str, message: str) -> bool:
+    """Send one notice; never raises (a dead transport must not break a monitor).
+
+    Returns True when ``hermes send`` exited 0. Callers that remember what they
+    already announced must record it only on True, or a gateway outage loses
+    the alert; fire-and-forget callers can ignore the result.
+    """
     try:
-        subprocess.run(
+        result = subprocess.run(
             [_hermes_bin(), "send", "-t", HERMES_TARGET, "%s: %s" % (title, message)],
             capture_output=True,
             timeout=30,
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
-        pass
+        return False
+    return result.returncode == 0

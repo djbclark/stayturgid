@@ -16,7 +16,12 @@ Telemetry (#310): one ``termux_pkg_error`` record per failed or unreachable
 host in ~/.config/stayturgid/stats/termux_pkg.jsonl (Vector -> OpenObserve
 stream ``termux_pkg``), and a Hermes notice when the set of failing hosts
 changes. The playbook runs with ``ignore_unreachable``, so an offline phone
-leaves ansible at rc=0; it is found in the output instead.
+leaves ansible at rc=0; it is found in the output instead. A run that fails
+before any host reports (rc != 0, no host lines) sends a run-level notice
+instead, once per distinct failure. Only whole-fleet, non-check runs notify
+or touch the notice state: a ``--limit``/``HOSTS=`` run says nothing about
+the hosts it skipped. The state records a notice only after Hermes accepted
+it, so a gateway outage retries on the next run instead of losing the alert.
 """
 
 from __future__ import annotations
@@ -45,8 +50,9 @@ CHECK_UPDATES = REPO_ROOT / "control" / "bin" / "check_termux_pkg_updates.py"
 LOG_DIR = Path.home() / ".config" / "stayturgid" / "logs"
 LOG = LOG_DIR / "termux-pkg-nightly.log"
 MAX_LOG_LINES = 4000
-# Last notified per-host failure set, so Hermes hears about a change (a new
-# failure, a different one, or recovery), not the same offline phone nightly.
+# Last notified per-host failure set (and run-level failure, if any), so Hermes
+# hears about a change (a new failure, a different one, or recovery), not the
+# same offline phone nightly.
 STATE_PATH = Path.home() / ".local" / "state" / "stayturgid" / "termux-pkg-nightly.json"
 
 # `fatal: [s24]: UNREACHABLE! => {...}` / `fatal: [s24]: FAILED! => {...}`
@@ -129,34 +135,64 @@ def _failure_keys(failures: dict[str, dict[str, str]]) -> list[str]:
     return sorted("%s:%s" % (host, info["status"]) for host, info in failures.items())
 
 
-def _previous_failure_keys() -> list[str] | None:
+def _read_state() -> dict | None:
     try:
         data = json.loads(STATE_PATH.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    keys = data.get("failing") if isinstance(data, dict) else None
+    return data if isinstance(data, dict) else None
+
+
+def _previous_failure_keys(state: dict | None) -> list[str] | None:
+    keys = state.get("failing") if state else None
     return [str(k) for k in keys] if isinstance(keys, list) else None
 
 
-def _write_failure_state(keys: list[str]) -> None:
+def _previous_run_failure(state: dict | None) -> str | None:
+    value = state.get("run_failed") if state else None
+    return value if isinstance(value, str) and value else None
+
+
+def _write_state(keys: list[str], run_failed: str | None = None) -> None:
+    payload: dict[str, object] = {"checked_at": ts(), "failing": keys}
+    if run_failed:
+        payload["run_failed"] = run_failed
     tmp = STATE_PATH.with_suffix(".json.tmp")
     try:
         STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        tmp.write_text(json.dumps({"checked_at": ts(), "failing": keys}, indent=2) + "\n", encoding="utf-8")
+        tmp.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
         os.replace(tmp, STATE_PATH)
     except OSError as exc:
         log("WARN: could not write %s: %s" % (STATE_PATH, exc))
 
 
+def _send(message: str) -> bool:
+    """One Hermes notice; True only when it was accepted. Never raises."""
+    try:
+        sent = hermes_notify.notify("stayturgid termux-pkg", message)
+    except Exception as exc:  # noqa: BLE001 - a dead transport must not fail the job
+        log("WARN: hermes notify failed: %s" % exc)
+        return False
+    if not sent:
+        log("WARN: hermes notify failed; the notice will be retried on the next run")
+        return False
+    return True
+
+
 def notify_failure_change(failures: dict[str, dict[str, str]]) -> bool:
     """Hermes-notify when the failing-host set differs from the last one sent.
 
-    Returns True when a notice went out. Never raises: like the telemetry
-    writer, the notice must not be able to break the upgrade job.
+    Call only for a whole-fleet run that completed (the per-host set is
+    meaningful). Also announces that the job runs again after a notified
+    run-level failure. Returns True when a notice went out; the state is
+    written only then. Never raises: like the telemetry writer, the notice
+    must not be able to break the upgrade job.
     """
+    state = _read_state()
     keys = _failure_keys(failures)
-    previous = _previous_failure_keys()
-    if keys == (previous or []):
+    previous = _previous_failure_keys(state)
+    run_failed = _previous_run_failure(state)
+    if keys == (previous or []) and not run_failed:
         return False
     if keys:
         lines = [
@@ -164,14 +200,38 @@ def notify_failure_change(failures: dict[str, dict[str, str]]) -> bool:
             for host, info in sorted(failures.items())
         ]
         message = "nightly pkg upgrade problems on %d host(s):\n%s" % (len(failures), "\n".join(lines))
+    elif previous:
+        message = "nightly pkg upgrade OK again on every reachable host (was: %s)" % ", ".join(previous)
     else:
-        message = "nightly pkg upgrade OK again on every reachable host (was: %s)" % ", ".join(previous or [])
-    try:
-        hermes_notify.notify("stayturgid termux-pkg", message)
-    except Exception as exc:  # noqa: BLE001 - a dead transport must not fail the job
-        log("WARN: hermes notify failed: %s" % exc)
+        message = "nightly pkg upgrade OK on every reachable host"
+    if run_failed:
+        message = "nightly pkg upgrade runs again (was: %s)\n%s" % (run_failed, message)
+    if not _send(message):
         return False
-    _write_failure_state(keys)
+    _write_state(keys)
+    return True
+
+
+def _run_failure_summary(phase: str, error: str) -> str:
+    lines = [line.strip() for line in error.splitlines() if line.strip()]
+    pick = next((line for line in lines if "ERROR" in line), lines[-1] if lines else "no output")
+    return "%s: %s" % (phase, pick[:200])
+
+
+def notify_run_failure(phase: str, error: str) -> bool:
+    """Hermes-notify a whole-fleet run that failed before any host reported.
+
+    Not an "OK again": the per-host set from the last completed run is kept.
+    Sent once per distinct failure (phase plus its ERROR line); the state is
+    written only when Hermes accepted the notice. Never raises.
+    """
+    state = _read_state()
+    summary = _run_failure_summary(phase, error)
+    if _previous_run_failure(state) == summary:
+        return False
+    if not _send("nightly pkg upgrade did not complete (%s)" % summary):
+        return False
+    _write_state(_previous_failure_keys(state) or [], run_failed=summary)
     return True
 
 
@@ -288,7 +348,9 @@ def main(argv: list[str] | None = None) -> int:
         # small enough for one JSON line.
         tail = "\n".join(out.splitlines()[-20:]) if out else "ansible-playbook rc=%s" % r.returncode
         record_termux_pkg_error("upgrade", tail, rc=r.returncode)
-    if not check:
+        if not check and not args.limit and notify_run_failure("upgrade", tail):
+            log("hermes: notified run-level failure")
+    elif not check and not args.limit:
         if notify_failure_change(failures):
             log("hermes: notified failing-host set change")
     trim_log()

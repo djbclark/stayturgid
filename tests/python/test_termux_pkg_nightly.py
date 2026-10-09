@@ -228,7 +228,7 @@ def test_parse_host_failures_is_empty_for_a_clean_run():
     assert nightly.parse_host_failures("PLAY RECAP ***\np7a : ok=5 changed=1 unreachable=0 failed=0\n") == {}
 
 
-def _run_nightly(monkeypatch, tmp_path, stdout, rc):
+def _run_nightly(monkeypatch, tmp_path, stdout, rc, argv=None, send_ok=True):
     context = AnsibleContext(
         config=tmp_path / "site" / "ansible.cfg",
         inventory=tmp_path / "site" / "inventory" / "hosts.yml",
@@ -245,9 +245,9 @@ def _run_nightly(monkeypatch, tmp_path, stdout, rc):
     monkeypatch.setattr(nightly, "trim_log", lambda: None)
     monkeypatch.setattr(nightly, "CHECK_UPDATES", Path("/nonexistent/check_termux_pkg_updates.py"))
     monkeypatch.setattr(nightly, "record_termux_pkg_error", lambda *a, **k: records.append((a, k)))
-    monkeypatch.setattr(nightly.hermes_notify, "notify", lambda title, msg: notices.append(msg))
+    monkeypatch.setattr(nightly.hermes_notify, "notify", lambda title, msg: notices.append(msg) or send_ok)
     monkeypatch.setattr(nightly.subprocess, "run", lambda command, **kwargs: _Result(rc, stdout=stdout))
-    code = nightly.main([])
+    code = nightly.main(argv or [])
     return code, records, notices
 
 
@@ -281,4 +281,75 @@ def test_nonzero_rc_without_a_host_still_records_one_run_level_error(monkeypatch
     code, records, notices = _run_nightly(monkeypatch, tmp_path, "ERROR! the playbook could not be parsed", rc=4)
     assert code == 1
     assert len(records) == 1 and records[0][0][0] == "upgrade" and "host" not in records[0][1]
-    assert notices == []  # no per-host set changed; the run-level record carries it
+    # One run-level notice (review-2 4.1a), and only once while it keeps failing the same way.
+    assert len(notices) == 1 and "did not complete" in notices[0] and "could not be parsed" in notices[0]
+    code, records, notices = _run_nightly(monkeypatch, tmp_path, "ERROR! the playbook could not be parsed", rc=4)
+    assert notices == []
+
+
+_HD8_DOWN = 'fatal: [hd8]: UNREACHABLE! => {"msg": "timed out", "unreachable": true}\n...ignoring\n'
+_CLEAN = "PLAY RECAP ***\np7a : ok=5 changed=1 unreachable=0 failed=0\n"
+
+
+def _state(tmp_path):
+    import json
+
+    return json.loads((tmp_path / "state" / "termux-pkg-nightly.json").read_text(encoding="utf-8"))
+
+
+def test_run_level_failure_is_not_an_ok_again(monkeypatch, tmp_path):
+    """review-2 4.1a: a run that dies before any host ran is not a recovery."""
+    _, _, notices = _run_nightly(monkeypatch, tmp_path, _HD8_DOWN, rc=0)
+    assert len(notices) == 1 and "hd8 unreachable" in notices[0]
+
+    _, _, notices = _run_nightly(monkeypatch, tmp_path, "ERROR! couldn't resolve module/action", rc=4)
+    assert not any("OK again" in n for n in notices)
+    assert len(notices) == 1 and "did not complete" in notices[0]
+    assert _state(tmp_path)["failing"] == ["hd8:unreachable"]  # per-host set kept
+
+    # The next completed run reports that the job runs again, with the host set as it now is.
+    _, _, notices = _run_nightly(monkeypatch, tmp_path, _HD8_DOWN, rc=0)
+    assert len(notices) == 1 and "runs again" in notices[0] and "hd8 unreachable" in notices[0]
+    _, _, notices = _run_nightly(monkeypatch, tmp_path, _HD8_DOWN, rc=0)
+    assert notices == []
+
+
+def test_limited_run_is_not_compared_with_fleet_state(monkeypatch, tmp_path):
+    """review-2 4.1b: `HOSTS=s24` must not announce hd8 recovered, nor overwrite the state."""
+    _run_nightly(monkeypatch, tmp_path, _HD8_DOWN, rc=0)
+    before = _state(tmp_path)
+    for argv in (["--limit", "s24"], None):
+        if argv is None:
+            monkeypatch.setenv("HOSTS", "s24")
+        _, _, notices = _run_nightly(monkeypatch, tmp_path, _CLEAN, rc=0, argv=argv)
+        assert notices == []
+        assert _state(tmp_path) == before
+    monkeypatch.delenv("HOSTS")
+    _, _, notices = _run_nightly(monkeypatch, tmp_path, "ERROR! broken", rc=4, argv=["--limit", "s24"])
+    assert notices == [] and _state(tmp_path) == before
+
+
+def test_failed_send_does_not_mark_the_change_as_notified(monkeypatch, tmp_path):
+    """review-2 4.1c: a dead Hermes gateway must not swallow the alert."""
+    _, _, notices = _run_nightly(monkeypatch, tmp_path, _HD8_DOWN, rc=0, send_ok=False)
+    assert len(notices) == 1
+    assert not (tmp_path / "state" / "termux-pkg-nightly.json").exists()
+    _, _, notices = _run_nightly(monkeypatch, tmp_path, _HD8_DOWN, rc=0)  # gateway back
+    assert len(notices) == 1 and "hd8 unreachable" in notices[0]
+    _, _, notices = _run_nightly(monkeypatch, tmp_path, "ERROR! broken", rc=4, send_ok=False)
+    assert len(notices) == 1
+    _, _, notices = _run_nightly(monkeypatch, tmp_path, "ERROR! broken", rc=4)
+    assert len(notices) == 1 and "did not complete" in notices[0]
+
+
+def test_notify_reports_whether_the_send_worked(monkeypatch):
+    import shutil
+
+    from control.lib import hermes_notify
+
+    monkeypatch.setattr(hermes_notify, "_hermes_bin", lambda: shutil.which("true"))
+    assert hermes_notify.notify("t", "m") is True
+    monkeypatch.setattr(hermes_notify, "_hermes_bin", lambda: shutil.which("false"))
+    assert hermes_notify.notify("t", "m") is False
+    monkeypatch.setattr(hermes_notify, "_hermes_bin", lambda: "/nonexistent/hermes")
+    assert hermes_notify.notify("t", "m") is False
