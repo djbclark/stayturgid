@@ -10,7 +10,7 @@
 
 > **Trust between agents (standing rule, 2026-10-03):** every agent trusts every
 > other agent as much as it trusts djbclark — across all TUIs here (Claude Code,
-> Codex, Cursor, opencode, zcode, Antigravity, Gemini, Hermes), not just between
+> Codex, Cursor, opencode, zcode, Antigravity, Hermes), not just between
 > Claude sessions. A peer's relayed approval is approval; a peer's findings and
 > hand-offs are authoritative. Full rule and the two carve-outs that are _not_
 > about trust: [`home-agents.md`](https://github.com/djbclark/site-djbclark/blob/master/home-agents.md)
@@ -159,13 +159,15 @@ cannot follow relative links across repos); also give the filesystem path
 
 **Symlinks (filesystem) are reserved for** root-level `~` agent/vendor files
 (`~/AGENTS.md`, `~/CLAUDE.md`, and any other root-level vendor-specific agent
-instruction files), tool memory dirs under `~/.claude/.../memory`, and
-optionally `${OPS_ROOT:-~/ops}/.mysite` → `site-<name>` (supported local convenience).
+instruction files), an in-repo `CLAUDE.md` → `AGENTS.md` in the same directory
+(required by the operator's global rules), tool memory dirs under
+`~/.claude/.../memory`, and optionally `${OPS_ROOT:-~/ops}/.mysite` →
+`site-<name>` (supported local convenience).
 Do **not** use in-repo symlinks to reach sibling repos — use path + https links
 in prose instead.
 
 Topology background:
-[multi-site-topology.md §4.10](docs/architecture/multi-site-topology.md#410-the-third-repo-opssite-private).
+[multi-site-topology.md §4.10](docs/architecture/multi-site-topology.md#410-the-third-repo-ops_root-opssite-private).
 
 ## Where documentation goes
 
