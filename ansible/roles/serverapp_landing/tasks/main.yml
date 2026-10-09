@@ -193,7 +193,8 @@
 # same drift 919ace1 corrected in serverapp_victoriametrics. A changed plist
 # needs bootout + bootstrap. landing renders no own-mode config separately from
 # its plists, so — like serverapp_openobserve — there is no config-only change
-# left for a kickstart to serve, and it has no kickstart task at all.
+# left for a kickstart to serve. Its only kickstarts are the code-change ones
+# further down (#224), which never fire on a plist change.
 - name: Boot out site-namespace landing when its launchd plist changed
   ansible.builtin.command:
     cmd: launchctl bootout gui/{{ serverapp_landing_uid }}/{{ serverapp_landing_label }}
@@ -236,6 +237,66 @@
   retries: 5
   delay: 1
 
+# #224: both agents run Python straight out of the product checkout, so a
+# deploy that changes only control/landing/ (no plist diff) left landing.py
+# serving the old code for hours under KeepAlive. Hash the tracked files the
+# agents execute and kickstart whichever agent was not already restarted by the
+# plist path above. The hash is recorded only after health passes, so a failed
+# restart is retried on the next deploy. This probe only reads, so it runs in
+# check mode too and `deploy-check` reports a pending code restart as changed.
+- name: Hash landing code the agents execute from the product checkout
+  ansible.builtin.shell:
+    cmd: |
+      {% raw %}
+      set -euo pipefail
+      # Tracked files only, so runtime junk (__pycache__) never looks like a
+      # code change; plain find when the product root is not a git checkout.
+      list_code() {
+        if git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+          git -C "$REPO_ROOT" ls-files -z -- "$CODE_DIR"
+        else
+          (cd "$REPO_ROOT" && find "$CODE_DIR" -type f ! -path '*/__pycache__/*' ! -name '*.pyc' -print0 | sort -z)
+        fi
+      }
+      new=$(list_code \
+        | (cd "$REPO_ROOT" && xargs -0 shasum -a 256) \
+        | shasum -a 256 | awk '{print $1}')
+      old=""
+      [ -f "$STATE_FILE" ] && old=$(cat "$STATE_FILE")
+      echo "$new"
+      if [ "$new" != "$old" ]; then
+        echo changed
+      else
+        echo unchanged
+      fi
+      {% endraw %}
+    executable: /bin/bash
+  environment:
+    REPO_ROOT: "{{ serverapp_landing_repo_root }}"
+    CODE_DIR: control/landing
+    STATE_FILE: "{{ serverapp_landing_code_state_file }}"
+  register: _landing_code
+  changed_when: _landing_code.stdout_lines | last == 'changed'
+  check_mode: false
+
+- name: Kickstart site-namespace landing when only its code changed
+  ansible.builtin.command:
+    cmd: launchctl kickstart -k gui/{{ serverapp_landing_uid }}/{{ serverapp_landing_label }}
+  when:
+    - _landing_code is changed
+    - not (_landing_plist.changed | default(false))
+    - not (_landing_bootstrap.changed | default(false))
+  register: _landing_code_kickstart
+
+- name: Kickstart site-namespace landing-discover when only its code changed
+  ansible.builtin.command:
+    cmd: launchctl kickstart -k gui/{{ serverapp_landing_uid }}/{{ serverapp_landing_discover_label }}
+  when:
+    - _landing_code is changed
+    - not (_landing_discover_plist.changed | default(false))
+    - not (_landing_discover_bootstrap.changed | default(false))
+  register: _landing_discover_code_kickstart
+
 - name: Wait for landing health endpoint
   ansible.builtin.uri:
     url: "{{ serverapp_landing_health_url }}"
@@ -244,3 +305,10 @@
   until: _landing_health.status == 200
   retries: 30
   delay: 1
+
+- name: Record the landing code hash the running agents were started from
+  ansible.builtin.copy:
+    content: "{{ _landing_code.stdout_lines | first }}\n"
+    dest: "{{ serverapp_landing_code_state_file }}"
+    mode: "0644"
+  when: _landing_code is changed
