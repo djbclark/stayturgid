@@ -155,10 +155,35 @@ def test_falls_back_to_direct_secretspec_without_the_boundary(force_direct):
     assert secretspec_exec.secretspec_command("get", "some_secret") == ["secretspec", "get", "some_secret"]
 
 
-def test_force_direct_env_var_overrides_a_provisioned_control_node(monkeypatch):
+def _real_boundary(monkeypatch, *, vault, companion):
+    """Swap the conftest stub for the real check, with a fake vault and PATH."""
     real = REAL_BOUNDARY_AVAILABLE
     monkeypatch.setattr(secretspec_exec, "boundary_available", real)
     real.cache_clear()
+    monkeypatch.setattr(
+        secretspec_exec.shutil, "which", lambda _: "/opt/homebrew/bin/sudo-secretspec" if companion else None
+    )
+    monkeypatch.setattr(secretspec_exec, "VAULT_DIR", str(vault))
+    return real
+
+
+def test_force_direct_env_var_is_refused_on_a_provisioned_control_node(monkeypatch, tmp_path):
+    """#287: an operator-UID process must not opt out of the broker by env var."""
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    real = _real_boundary(monkeypatch, vault=vault, companion=True)
+    monkeypatch.setenv(secretspec_exec.FORCE_DIRECT_ENV, "1")
+    try:
+        with pytest.raises(secretspec_exec.BoundaryUnavailable, match="refused on a provisioned"):
+            real()
+        with pytest.raises(secretspec_exec.BoundaryUnavailable):
+            secretspec_exec.secretspec_run("ansible-playbook", "site.yml")
+    finally:
+        real.cache_clear()
+
+
+def test_force_direct_env_var_selects_direct_where_no_vault_exists(monkeypatch, tmp_path):
+    real = _real_boundary(monkeypatch, vault=tmp_path / "absent-vault", companion=True)
     monkeypatch.setenv(secretspec_exec.FORCE_DIRECT_ENV, "1")
     try:
         assert real() is False
@@ -180,20 +205,134 @@ def test_missing_companion_is_silent_when_no_vault_exists(monkeypatch, capsys, t
         real.cache_clear()
 
 
-def test_half_installed_boundary_warns_before_falling_back(monkeypatch, capsys, tmp_path):
-    real = REAL_BOUNDARY_AVAILABLE
-    monkeypatch.setattr(secretspec_exec, "boundary_available", real)
-    real.cache_clear()
-    monkeypatch.delenv(secretspec_exec.FORCE_DIRECT_ENV, raising=False)
+def test_half_installed_boundary_stops_instead_of_falling_back(monkeypatch, capsys, tmp_path):
+    """#287: a broker failure stops dependent work; it never authorizes another provider."""
     vault = tmp_path / "vault"
     vault.mkdir()
-    monkeypatch.setattr(secretspec_exec.shutil, "which", lambda _: None)
-    monkeypatch.setattr(secretspec_exec, "VAULT_DIR", str(vault))
+    real = _real_boundary(monkeypatch, vault=vault, companion=False)
+    monkeypatch.delenv(secretspec_exec.FORCE_DIRECT_ENV, raising=False)
     try:
-        assert real() is False
-        assert "without privilege separation" in capsys.readouterr().err
+        with pytest.raises(secretspec_exec.BoundaryUnavailable, match="Refusing to fall back"):
+            real()
+        for build in (
+            lambda: secretspec_exec.secretspec_run("ansible-playbook", "site.yml"),
+            lambda: secretspec_exec.secretspec_command("get", "SOME_SECRET"),
+            lambda: secretspec_exec.secretspec_token_command(secretspec_exec.APPROVED_SECRET),
+        ):
+            with pytest.raises(secretspec_exec.BoundaryUnavailable):
+                build()
     finally:
         real.cache_clear()
+
+
+def test_operator_uid_cannot_bypass_a_broken_broker_with_another_manifest(monkeypatch, tmp_path):
+    """#287 adversarial case: broker unavailable, caller writes its own manifest.
+
+    Whatever the caller does in its own directory or environment, the seam
+    still refuses to build a direct command on a provisioned node.
+    """
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    rogue = tmp_path / "rogue"
+    rogue.mkdir()
+    (rogue / "secretspec.toml").write_text('[project]\nname = "rogue"\n')
+    monkeypatch.chdir(rogue)
+    monkeypatch.setenv(secretspec_exec.ALTERNATE_MANIFEST_ENV, str(rogue / "secretspec.toml"))
+    real = _real_boundary(monkeypatch, vault=vault, companion=False)
+    try:
+        for force in (None, "1"):
+            if force:
+                monkeypatch.setenv(secretspec_exec.FORCE_DIRECT_ENV, force)
+            real.cache_clear()
+            with pytest.raises(secretspec_exec.BoundaryUnavailable):
+                secretspec_exec.secretspec_run("ansible-playbook", "site.yml")
+            with pytest.raises((ValueError, secretspec_exec.BoundaryUnavailable)):
+                secretspec_exec.secretspec_command("--file", str(rogue / "secretspec.toml"), "get", "X")
+    finally:
+        real.cache_clear()
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ("--file", "other.toml", "get", "X"),
+        ("-f", "other.toml", "check"),
+        ("--file=other.toml", "run", "--", "ansible-playbook", "site.yml"),
+        ("run", "--file", "other.toml", "--", "ansible-playbook", "site.yml"),
+    ],
+)
+def test_alternate_manifest_flags_are_refused_on_every_path(monkeypatch, args, force_direct):
+    with pytest.raises(ValueError, match="alternate SecretSpec manifest"):
+        secretspec_exec.secretspec_command(*args)
+    force_brokered(monkeypatch)
+    with pytest.raises(ValueError, match="alternate SecretSpec manifest"):
+        secretspec_exec.secretspec_command(*args)
+
+
+def test_target_command_flags_after_the_separator_are_not_selectors(force_direct):
+    # `-f` after `--` is ansible-playbook's fork count, not a SecretSpec flag.
+    assert secretspec_exec.secretspec_run("ansible-playbook", "-f", "5", "site.yml")[-3:] == ["-f", "5", "site.yml"]
+
+
+def test_secretspec_file_env_is_refused_on_the_direct_path(monkeypatch, force_direct):
+    monkeypatch.setenv(secretspec_exec.ALTERNATE_MANIFEST_ENV, "/tmp/other.toml")
+    with pytest.raises(ValueError, match="SECRETSPEC_FILE"):
+        secretspec_exec.secretspec_run("ansible-playbook", "site.yml")
+    with pytest.raises(ValueError, match="SECRETSPEC_FILE"):
+        secretspec_exec.secretspec_token_command(secretspec_exec.APPROVED_SECRET)
+
+
+def test_secretspec_file_env_is_harmless_on_the_brokered_path(monkeypatch):
+    # The companion purges every SECRETSPEC_* variable before it execs.
+    force_brokered(monkeypatch)
+    monkeypatch.setenv(secretspec_exec.ALTERNATE_MANIFEST_ENV, "/tmp/other.toml")
+    assert secretspec_exec.secretspec_run("ansible-playbook", "site.yml")[0] == "sudo-secretspec"
+
+
+def test_no_alternate_manifest_or_env_store_is_tracked_or_selected():
+    """#287 static gate: nothing in this repo is a second source of secret truth.
+
+    Fails on a tracked SecretSpec manifest or `.env` store (templates and
+    `.example` files are declarations, not stores), and on executable code that
+    selects an alternate manifest via SECRETSPEC_FILE or `secretspec --file`.
+    """
+    import re
+    import subprocess
+    from pathlib import Path
+
+    root = Path(__file__).parents[2]
+    try:
+        tracked = subprocess.run(
+            ["git", "-C", str(root), "ls-files"], capture_output=True, text=True, check=True, timeout=60
+        ).stdout.splitlines()
+    except (OSError, subprocess.SubprocessError):
+        pytest.skip("not a git checkout")
+
+    stores = []
+    for rel in tracked:
+        name = rel.rsplit("/", 1)[-1]
+        if name.endswith((".j2", ".example")):
+            continue
+        if name == "secretspec.toml" or name == ".env" or re.fullmatch(r"\.env\.[^.]+", name):
+            stores.append(rel)
+    assert stores == [], f"tracked secret manifests/stores: {stores}"
+
+    selector = re.compile(r"SECRETSPEC_FILE|\bsecretspec\b[^\n]*\s(--file|-f)\b")
+    offenders = []
+    for rel in tracked:
+        if not rel.startswith(("control/", "just/", "device/", "ansible/", "ansible_collections/")):
+            continue
+        if not rel.endswith((".py", ".sh", ".just", ".j2", ".yml", ".yaml")) and rel != "justfile":
+            continue
+        path = root / rel
+        if path.is_symlink() or not path.is_file():
+            continue
+        code = _executable_source(path) if rel.endswith((".py", ".sh")) else path.read_text(errors="replace")
+        if rel == "control/lib/secretspec_exec.py":
+            continue  # the module that names the selectors in order to refuse them
+        if selector.search(code):
+            offenders.append(rel)
+    assert offenders == [], f"code selecting an alternate SecretSpec manifest: {offenders}"
 
 
 def test_conftest_alone_makes_both_module_spellings_importable():

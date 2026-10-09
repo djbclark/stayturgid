@@ -66,6 +66,22 @@ chowned that vault away from its owner on the first `source-publish` — which
 Consumers now build their argv through `control/lib/secretspec_exec.py`, which
 still admits only `run -- ansible-playbook ...` and one named token fetch.
 
+## No fallback on a provisioned node (#287)
+
+On a machine where `/var/db/sudo-secretspec` exists, `secretspec_exec.py`
+never builds a direct `secretspec` command. If `sudo-secretspec` is missing
+from `PATH`, or `STAYTURGID_SECRETSPEC_DIRECT=1` is set, it raises
+`BoundaryUnavailable` and the deploy, nightly or helper that asked stops. A
+broken broker is a repair job (`sudo-secretspec doctor`, then the steps
+below); it never licenses another manifest or provider. The direct path is
+only for machines that were never provisioned, such as CI.
+
+The seam also refuses `--file`/`-f` before `--` on every path, and
+`SECRETSPEC_FILE` on the direct path (the companion purges it on the brokered
+path). `tests/python/test_secretspec_exec.py` fails if a `secretspec.toml` or
+`.env` store is tracked in this repo, or if executable code selects an
+alternate manifest.
+
 ## Applying safely
 
 1. Install the companion: `brew install frdminc/sudo-secretspec/sudo-secretspec`.
