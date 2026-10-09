@@ -7,6 +7,20 @@
         "--transport",
         "stdio"
       ]
+    },
+    "grafana": {
+      "command": "/usr/local/bin/sudo-secretspec",
+      "args": [
+        "run",
+        "--reason",
+        "grafana mcp server for claude code",
+        "--",
+        "/usr/bin/env",
+        "GRAFANA_URL=http://127.0.0.1:3000",
+        "/opt/homebrew/bin/mcp-grafana",
+        "-t",
+        "stdio"
+      ]
     }
   }
 }
