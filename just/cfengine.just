@@ -29,7 +29,7 @@ cfbs-build: cfbs-validate
 # Run CFEngine repair bundles on inventory-derived SSH aliases.  Default
 # targeting excludes hosts marked stayturgid_fleet_status: offline; naming a
 # host explicitly remains the operator override (matching deploy_fleet.py).
-# Usage: just cf-run [hosts="p7a s24"]
+# Usage: [hosts="p7a s24"] just cf-run
 cf-run:
     #!/usr/bin/env bash
     set -euo pipefail

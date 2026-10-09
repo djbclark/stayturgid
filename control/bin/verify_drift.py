@@ -3,7 +3,7 @@
 
 Usage:
   python3 control/bin/verify_drift.py [--host oneui-device] [--all]
-  just verify-drift HOSTS=oneui-device
+  just verify-drift oneui-device
 """
 
 from __future__ import annotations
