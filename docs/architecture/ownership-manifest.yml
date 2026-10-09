@@ -1,0 +1,625 @@
+# stayturgid ownership manifest (issue #50). Proposed, not yet operator-approved.
+# Generated from source at master 0c6047b (2026-10-08); see
+# docs/architecture/adr/007-core-site-ownership-boundary.md for the rules.
+#
+# Each concern maps git pathspec globs (relative to the repo root; `dir/**` is
+# everything under dir) to one disposition:
+#   core             reusable fleet capability with generic example configuration
+#   site             one site's identity, allocations, services or workflow
+#   private          private or Mac-wide operator material
+#   shared-contract  generic schema/resolver/generator; concrete data lives in the site
+#   retire           obsolete; remove after a caller scan
+#   core+site-data   generic mechanism stays upstream; the data it consumes moves to the site
+#   split            one file or role mixes core and site concerns and must be divided
+#   decision-needed  waits on an operator decision (D1-D7 in ADR 007)
+#
+# tests/python/test_ownership_manifest.py checks this file. Every tracked file
+# under ansible/, ansible_collections/, control/, device/, examples/, just/ and
+# the root justfile must belong to exactly one concern.
+---
+- concern: adb-resolution
+  title: "Inventory-independent ADB resolution, device identity and fleet targeting"
+  paths:
+    - control/lib/adb_cli.py
+    - control/lib/resolve_adb.py
+    - control/lib/stayturgid_device.py
+    - control/lib/fleet_targets.py
+    - control/lib/lan_ips.py
+    - ansible_collections/stayturgid/android_common/plugins/lookup/adb_device.py
+    - ansible_collections/stayturgid/android_common/plugins/module_utils/adb_resolve.py
+    - ansible_collections/stayturgid/android_common/plugins/module_utils/adb_shell.py
+    - ansible_collections/stayturgid/android_common/plugins/module_utils/adb_timeout.py
+  disposition: shared-contract
+  note: "Resolver and schema stay upstream; aliases, serials and addresses come from the site inventory and fail closed when unknown."
+
+- concern: inventory-capability-groups
+  title: "Example inventory and generic vendor/model/OS capability group_vars"
+  paths:
+    - ansible/inventory/**
+  disposition: core+site-data
+  note: "Capability groups and examples are product; host membership and per-host facts live only in the site inventory."
+
+- concern: fleet-orchestration
+  title: "Fleet deploy, preflight, validate, verify-drift, post-UI and root composition playbooks"
+  paths:
+    - ansible/ansible.cfg
+    - ansible/requirements.yml
+    - ansible/README.md
+    - ansible/playbooks/site.yml
+    - ansible/playbooks/fleet/fleet.yml
+    - ansible/playbooks/fleet/bootstrap.yml
+    - ansible/playbooks/fleet/preflight.yml
+    - ansible/playbooks/fleet/validate.yml
+    - ansible/playbooks/fleet/verify-drift.yml
+    - ansible/playbooks/fleet/post-ui.yml
+    - ansible_collections/README.md
+    - ansible_collections/stayturgid/fleet/README.md
+    - ansible_collections/stayturgid/fleet/CHANGELOG.md
+    - ansible_collections/stayturgid/fleet/galaxy.yml
+    - ansible_collections/stayturgid/fleet/meta/**
+    - ansible_collections/stayturgid/fleet/plugins/**
+    - ansible_collections/stayturgid/fleet/roles/post_ui/**
+    - ansible_collections/stayturgid/fleet/roles/validate/**
+    - control/bin/deploy_fleet.py
+    - control/bin/verify_drift.py
+    - control/lib/fleet_deploy_lock.py
+    - control/lib/post_ui_remote.py
+    - just/fleet.just
+  disposition: core
+  note: >-
+    Generic orchestration fed by site data; just/fleet.just also holds the *-legacy aliases (see legacy-aliases in the report, not a file-level
+    concern).
+
+- concern: android-modules
+  title: "Generic Android Ansible modules (APK, appops, intent, settings) and the android_common collection shell"
+  paths:
+    - ansible_collections/stayturgid/android_common/README.md
+    - ansible_collections/stayturgid/android_common/CHANGELOG.md
+    - ansible_collections/stayturgid/android_common/galaxy.yml
+    - ansible_collections/stayturgid/android_common/plugins/modules/android_apk.py
+    - ansible_collections/stayturgid/android_common/plugins/modules/android_appops.py
+    - ansible_collections/stayturgid/android_common/plugins/modules/android_intent.py
+    - ansible_collections/stayturgid/android_common/plugins/modules/android_settings.py
+    - ansible_collections/stayturgid/android_common/plugins/module_utils/apk_install.py
+    - ansible_collections/stayturgid/android_common/plugins/module_utils/adb_packages.py
+    - ansible_collections/stayturgid/android_common/plugins/lookup/android_packages.py
+    - ansible_collections/stayturgid/android_common/plugins/lookup/fdroid_client.py
+  disposition: core
+  note: "fdroid_client lookup survives the F-Droid collection removal because android_packages imports it."
+
+- concern: a11y-services
+  title: "Accessibility-service enforcement module and per-device a11y profiles"
+  paths:
+    - ansible_collections/stayturgid/android_common/plugins/modules/android_a11y_services.py
+    - ansible_collections/stayturgid/android_common/plugins/module_utils/a11y_services_util.py
+    - control/lib/a11y_services.py
+    - control/lib/a11y_profiles.json
+  disposition: split
+  note: "Generic module is core; the profile data and has_autojs6 helpers still name the retired AutoJs6 service and should be retired or replaced."
+
+- concern: app-privileges
+  title: "App privilege policy (runtime grants, battery policy) and package profiles"
+  paths:
+    - ansible_collections/stayturgid/android_common/roles/app_privileges/**
+    - ansible_collections/stayturgid/android_common/plugins/modules/android_app_privileges.py
+    - ansible_collections/stayturgid/android_common/plugins/module_utils/fleet_privileges.py
+    - control/lib/fleet_app_profiles.json
+    - control/bin/harden_fleet_apps.py
+  disposition: core+site-data
+  decision: D5
+  note: "Module and profile schema upstream; the concrete package list is an operator choice unless D5 declares it a recommended default."
+
+- concern: bootstrap-apks
+  title: "Bootstrap APK pin/lock, install, verify and update-lag check"
+  paths:
+    - ansible_collections/stayturgid/android_common/roles/bootstrap_apks/**
+    - ansible/playbooks/fleet/ensure-bootstrap-apks.yml
+    - ansible/playbooks/fleet/verify-bootstrap-apks.yml
+    - control/bin/check_apk_updates.py
+  disposition: core+site-data
+  decision: D5
+  note: >-
+    Installer and lock mechanism upstream; the pinned catalog (incl. the Shizuku fork channel) is site-selected unless D5 makes it the default set.
+
+- concern: ensure-apps
+  title: "Generic app-presence role with an empty default list"
+  paths:
+    - ansible_collections/stayturgid/android_common/roles/ensure_apps/**
+  disposition: core+site-data
+  note: "Default list is already empty; sites supply entries."
+
+- concern: tailscale
+  title: "Tailscale VPN configuration role"
+  paths:
+    - ansible_collections/stayturgid/android_common/roles/tailscale_vpn/**
+  disposition: core
+  note: "No tailnet identity upstream; addresses come from inventory."
+
+- concern: play-store
+  title: "Google Play adapter (play_apps module, play_store role, gplaycli/AAS helpers)"
+  paths:
+    - ansible_collections/stayturgid/play/README.md
+    - ansible_collections/stayturgid/play/CHANGELOG.md
+    - ansible_collections/stayturgid/play/galaxy.yml
+    - ansible_collections/stayturgid/play/plugins/**
+    - ansible_collections/stayturgid/play/roles/**
+    - ansible/playbooks/fleet/play_store.yml
+    - control/tools/play/**
+  disposition: core+site-data
+  decision: D5
+  note: "Aurora automation was removed (#145); account material is the GPLAY_* SecretSpec requirements, owned by the site."
+
+- concern: shizuku
+  title: "Shizuku install, fleet profile, grant/start modules, lifecycle and USB heal"
+  paths:
+    - ansible/playbooks/fleet/ensure-shizuku.yml
+    - ansible_collections/stayturgid/fleet/roles/shizuku_config/**
+    - ansible_collections/stayturgid/android_common/plugins/modules/shizuku_grant.py
+    - ansible_collections/stayturgid/android_common/plugins/modules/shizuku_start.py
+    - ansible_collections/stayturgid/android_common/plugins/module_utils/shizuku.py
+    - ansible_collections/stayturgid/android_common/plugins/module_utils/shizuku_lifecycle.py
+    - ansible_collections/stayturgid/android_common/plugins/module_utils/shizuku_staleness.py
+    - control/bin/usb_shizuku_heal.py
+  disposition: core
+  note: "Detects both upstream Shizuku and the ShizukuTendCF fork; which fork release is pinned is site data in bootstrap-apks."
+
+- concern: native-agent
+  title: "Native Kotlin stayturgid agent (APK), its config module, build recipes and rollout tools"
+  paths:
+    - device/native-agent/**
+    - ansible_collections/stayturgid/android_common/plugins/modules/native_agent_config.py
+    - control/tools/native-agent/README.md
+    - control/tools/native-agent/grant_shizuku.py
+    - control/tools/native-agent/rollout.py
+    - control/tools/native-agent/start_agent.py
+    - just/kotlin.just
+  disposition: core
+  note: >-
+    Replaced AutoJs6 (cutover 2026-07-22, removal #168); signing material (DEBUG_KEYSTORE*) stays site/private; the bundled Handsets hs.jar is MIT
+    with its licence file beside it (#121).
+
+- concern: termux-userland
+  title: "Termux userland role, packages, SSH bootstrap, boot scripts and on-device runtime scripts"
+  paths:
+    - ansible_collections/stayturgid/termux/README.md
+    - ansible_collections/stayturgid/termux/CHANGELOG.md
+    - ansible_collections/stayturgid/termux/galaxy.yml
+    - ansible_collections/stayturgid/termux/plugins/module_utils/**
+    - ansible_collections/stayturgid/termux/plugins/modules/termux_pkg.py
+    - ansible_collections/stayturgid/termux/plugins/modules/termux_ssh_bootstrap.py
+    - ansible_collections/stayturgid/termux/plugins/modules/termux_sshd.py
+    - ansible_collections/stayturgid/termux/roles/termux_userland/defaults/**
+    - ansible_collections/stayturgid/termux/roles/termux_userland/handlers/**
+    - ansible_collections/stayturgid/termux/roles/termux_userland/meta/**
+    - ansible_collections/stayturgid/termux/roles/termux_userland/tasks/main.yml
+    - ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ssh_keys.yml
+    - ansible_collections/stayturgid/termux/roles/termux_userland/tasks/fleet_adbkey.yml
+    - ansible_collections/stayturgid/termux/roles/termux_userland/tasks/rish.yml
+    - ansible_collections/stayturgid/termux/roles/termux_userland/templates/device.json.j2
+    - ansible/playbooks/fleet/termux-userland.yml
+    - ansible/playbooks/fleet/termux-pkg-upgrade.yml
+    - device/termux/boot/**
+    - device/termux/py/start_adb.py
+    - device/termux/py/stayturgid_shell.py
+    - device/termux/py/stayturgid_rish.py
+    - device/termux/py/stayturgid_bridges.py
+    - device/termux/py/stayturgid_agent_presence.py
+    - device/termux/py/stayturgid_handsets.py
+    - control/bin/deploy_termux.py
+    - control/bin/bootstrap_ssh.py
+    - control/bin/check_termux_pkg_updates.py
+    - control/lib/termux_api.py
+    - control/lib/termux_ssh_bootstrap.py
+  disposition: core+site-data
+  note: "Generic framework upstream; the package selection and SSH key references are site data (SSH_TERMUX_KEY, FLEET_ADBKEY)."
+
+- concern: sshd-recovery
+  title: "GUI-less SSHD recovery via Tasker project and runit-style recover.d hooks"
+  paths:
+    - device/tasker/**
+    - device/termux/tasker/**
+  disposition: core
+  note: "New since 2026-07-24; triggered by fleet-health over adb when SSH fails."
+
+- concern: edge-telemetry
+  title: "On-device OpenTelemetry collector (otelcol) deploy and pinned artifact cache"
+  paths:
+    - ansible_collections/stayturgid/termux/roles/termux_userland/tasks/otelcol.yml
+    - ansible_collections/stayturgid/termux/roles/termux_userland/templates/otel-config.yaml.j2
+    - ansible_collections/stayturgid/termux/roles/termux_userland/templates/start-otelcol.sh.j2
+    - control/bin/cache_otelcol.py
+  disposition: core+site-data
+  note: "Collector and pinning are product; the sink endpoint (the site's Vector/OpenObserve) is site data."
+
+- concern: device-repair
+  title: "On-device repair/healing state machine and its Ansible repair check"
+  paths:
+    - device/termux/py/stayturgid_repair.py
+    - ansible_collections/stayturgid/termux/plugins/modules/stayturgid_repair_check.py
+  disposition: core
+  note: "Registry and coverage gate are tests/healing_registry.json + tests/check_healing_coverage.py (outside the manifest roots)."
+
+- concern: screen-safety
+  title: "Screen lease, screen control, UI clearance and UI guard safety contract"
+  paths:
+    - control/bin/screen_lease.py
+    - control/lib/device_screen_lease.py
+    - control/lib/screen_control.py
+    - control/lib/ui_clearance.py
+    - control/lib/ui_guard.py
+    - device/termux/py/stayturgid_screen_control.py
+    - device/termux/py/stayturgid_screen_awake_guard.py
+  disposition: core
+  note: "Must remain the upstream safety contract for every UI-touching caller."
+
+- concern: ui-drivers
+  title: "Generic UI driver and UI dump parsing"
+  paths:
+    - control/lib/ui_driver.py
+    - control/lib/ui_parse.py
+  disposition: core
+  note: "Still carries AutoJs6 selectors/comments to prune; no site selectors or credentials."
+
+- concern: battery-locate
+  title: "Battery watch/alarm tiers, ring-device and locate-sound asset"
+  paths:
+    - control/lib/battery_watch.py
+    - control/bin/ring_device.py
+    - control/tools/gen_locate_sound.py
+    - device/termux/py/stayturgid_battery_alarm.py
+    - device/termux/assets/**
+  disposition: core
+  note: "New since 2026-07-24 (locate sound); thresholds are generic defaults."
+
+- concern: fireos-workarounds
+  title: "Fire OS Google-stack repair and platform quirks"
+  paths:
+    - control/bin/fix_hd8_google_stack.py
+    - control/lib/hd8_google_stack.py
+  disposition: split
+  note: "Fire OS detection/recovery is core; whether a site installs the Google stack is site choice."
+
+- concern: firerpa
+  title: "FIRERPA optional adapter, lifecycle, heal, health monitor, MCP server and non-root example"
+  paths:
+    - ansible_collections/stayturgid/firerpa/**
+    - ansible/playbooks/fleet/firerpa.yml
+    - ansible/roles/control_node/tasks/firerpa_venv.yml
+    - ansible/roles/control_node/templates/firerpa-health.plist.j2
+    - ansible/roles/control_node/templates/firerpa-mcp.plist.j2
+    - control/requirements-firerpa-venv.txt
+    - control/bin/firerpa_heal.py
+    - control/bin/firerpa_health_monitor.py
+    - control/bin/firerpa_mcp.py
+    - control/lib/firerpa_auth.py
+    - control/lib/firerpa_consent.py
+    - control/lib/firerpa_fleet.py
+    - examples/firerpa-nonroot/**
+  disposition: core+site-data
+  note: >-
+    Generic integration upstream (never vend the closed server); enablement, certificate and API key (FIRERPA_*) are site policy; firerpa-mcp is new
+    since 2026-07-24.
+
+- concern: et-ssh-ca
+  title: "Eternal Terminal control link and SSH CA signing"
+  paths:
+    - ansible/playbooks/fleet/control-et.yml
+    - ansible_collections/stayturgid/termux/roles/termux_userland/tasks/control_et.yml
+    - ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ca.yml
+    - ansible_collections/stayturgid/termux/roles/termux_userland/templates/ssh_config_control_et.j2
+    - control/lib/et_mac.py
+    - control/lib/ssh_marked_block.py
+    - control/bin/ensure_et_mac.py
+    - control/bin/check_et_mac.py
+  disposition: decision-needed
+  decision: D2
+  note: "Reusable transport or this site's remote-access workflow; SSH_CA_KEY requirement follows the decision."
+
+- concern: peer-help
+  title: "Peer-help protocol, ForceCommand wrapper, peer topology templates and peer provisioning"
+  paths:
+    - ansible/playbooks/fleet/peerhelp-force.yml
+    - ansible_collections/stayturgid/termux/roles/termux_userland/templates/peers.json.j2
+    - ansible_collections/stayturgid/termux/roles/termux_userland/templates/known_hosts_mesh.j2
+    - device/termux/bin/**
+    - device/termux/py/stayturgid_peer_help.py
+    - device/termux/py/stayturgid_peer_bootstrap.py
+    - device/termux/py/stayturgid_peer_keepalive.py
+    - control/bin/fire_peer_help.py
+    - control/tools/native-agent/provision_peer.py
+  disposition: decision-needed
+  decision: D7
+  note: "ADR 006 moved peer-start into the native agent (push model); stayturgid_peer_bootstrap.py (the dropped pull model) is still deployed."
+
+- concern: cfengine
+  title: "CFEngine device policy, cf-runagent control template, cf-run wrapper and pinned Mac formula"
+  paths:
+    - device/termux/cfengine/**
+    - control/cfengine/**
+    - control/bin/cf-run.sh
+    - control/bin/cf_run.py
+    - ansible/roles/control_node/templates/cf-runagent.cf.j2
+    - just/cfengine.just
+    - packaging/homebrew/**
+  disposition: decision-needed
+  decision: D3
+  note: >-
+    Still a must_cover mechanism for SSHD-RUNNING and OTELCOL-RUNNING in tests/healing_registry.json and actively fixed through 2026-10; never the
+    sole mechanism for any state.
+
+- concern: ansible-context
+  title: "Ansible context, site discovery, root resolution, site identity and preflight"
+  paths:
+    - control/bin/ansible_exec.py
+    - control/bin/validate_site_identity.py
+    - control/lib/ansible_context.py
+    - control/lib/site_discovery.py
+    - control/lib/stayturgid_root.py
+    - control/lib/site_identity.py
+    - control/lib/site_preflight.py
+  disposition: shared-contract
+  note: "Must stay upstream and keep precedence and fail-closed behaviour."
+
+- concern: secretspec
+  title: "SecretSpec execution helper and boundary verifier"
+  paths:
+    - control/lib/secretspec_exec.py
+    - control/bin/publish_secrets.sh
+  disposition: split
+  note: "Requirement interface is product; each service owner declares its requirement names; values stay in the local sudo-secretspec store."
+
+- concern: site-contract
+  title: "Site Contract schema, map/init/sync engine, registry sources, serverapp adapter engine, templates"
+  paths:
+    - control/site_contract/**
+    - just/site.just
+  disposition: shared-contract
+  note: "Sites own their map and generated/<product> output; never hand-edit generated files."
+
+- concern: control-node-prereqs
+  title: "Control-node prerequisites playbooks and role scaffolding"
+  paths:
+    - ansible/playbooks/control_node/prereqs.yml
+    - ansible/playbooks/control_node/site.yml
+    - ansible/roles/control_node/defaults/main.yml
+    - ansible/roles/control_node/meta/main.yml
+    - ansible/roles/control_node/tasks/prereqs.yml
+  disposition: split
+  note: "Minimal toolchain is product; operator-selected Mac packages and service defaults (Hermes, OpenCode, dashboard) in defaults/main.yml are site."
+
+- concern: launchd-agents
+  title: "Control-node launchd agent rendering and generic ensure helper"
+  paths:
+    - ansible/playbooks/control_node/agents.yml
+    - ansible/playbooks/control_node/agents-ensure.yml
+    - ansible/roles/control_node/tasks/agents.yml
+    - ansible/roles/control_node/tasks/agents_ensure.yml
+    - ansible/roles/control_node/tasks/launchd_ensure.yml
+    - ansible/roles/control_node/templates/devices.conf.j2
+    - ansible/roles/control_node/templates/ssh_config_stayturgid.j2
+  disposition: split
+  note: "tasks/agents.yml renders core agents and site services (update-monitor, OpenCode, dashboard, Hermes) in one file; split by owning layer."
+
+- concern: adb-reconnect
+  title: "ADB reconnect launchd agent"
+  paths:
+    - control/bin/adb_reconnect.py
+    - ansible/roles/control_node/templates/adb-reconnect.plist.j2
+  disposition: core+site-data
+  note: "Generic agent; the per-host target list comes from the rendered devices.conf."
+
+- concern: fleet-health
+  title: "Fleet health, access and Fire help monitors, stats and logging library"
+  paths:
+    - control/bin/fleet_health_monitor.py
+    - control/bin/check_fleet_health.py
+    - control/bin/access_monitor.py
+    - control/bin/fire_help_monitor.py
+    - control/lib/fleet_health.py
+    - control/lib/stats.py
+    - control/lib/site_logging.py
+    - ansible/roles/control_node/templates/fleet-health.plist.j2
+    - ansible/roles/control_node/templates/access-monitor.plist.j2
+    - ansible/roles/control_node/templates/fire-help.plist.j2
+  disposition: core+site-data
+  note: "Probes and status model upstream; schedules and alert destinations are site data; fleet_health.py still has many AutoJs6 references."
+
+- concern: operator-notify
+  title: "Operator notification adapter used by control scripts"
+  paths:
+    - control/lib/hermes_notify.py
+  disposition: split
+  note: "A notify hook belongs upstream, but it is hard-wired to this operator's Hermes/Telegram inbox; make the destination site-injected."
+
+- concern: termux-pkg-nightly
+  title: "Unattended nightly Termux package upgrade job"
+  paths:
+    - control/bin/termux_pkg_nightly.py
+    - ansible/roles/control_node/templates/termux-pkg-nightly.plist.j2
+  disposition: site
+  note: "Product exposes termux-pkg-upgrade; the unattended schedule is site policy."
+
+- concern: update-monitor
+  title: "Homebrew and GitHub-release update monitor posting metrics to VictoriaMetrics"
+  paths:
+    - control/bin/update_monitor.py
+    - ansible/roles/control_node/templates/update-monitor.plist.j2
+  disposition: site
+  note: "New since 2026-07-24; monitors Mac software and depends on the site metrics store."
+
+- concern: dashboard
+  title: "Fleet dashboard web UI and its launchd agent"
+  paths:
+    - control/bin/dashboard.py
+    - control/templates/**
+    - control/static/**
+    - ansible/roles/control_node/templates/dashboard.plist.j2
+  disposition: decision-needed
+  decision: D1
+  note: "Core device-health surface with injectable site links, or move all web UI to the site."
+
+- concern: hermes-gateway
+  title: "Hermes gateway control-node service"
+  paths:
+    - ansible/roles/control_node/tasks/hermes.yml
+    - ansible/roles/control_node/templates/hermes-gateway.plist.j2
+  disposition: site
+  note: "Move with its TELEGRAM_* and model-provider SecretSpec requirement names; the old control_node/hermes.yml playbook no longer exists."
+
+- concern: opencode-web
+  title: "OpenCode web launchd service"
+  paths:
+    - ansible/roles/control_node/templates/opencode-web.plist.j2
+  disposition: site
+  note: "No Android product dependency; tasks live inside control_node/tasks/agents.yml."
+
+- concern: services-recipes
+  title: "Just recipes for control-node services (Hermes, OpenCode, dashboard, landing, FIRERPA MCP, system SSH PATH)"
+  paths:
+    - just/services.just
+  disposition: split
+  note: "Split recipes by the owning concern once the services move."
+
+- concern: ops-memory-link
+  title: "Control-node task that links the operator's agent-memory path into the private companion repo"
+  paths:
+    - ansible/roles/control_node/tasks/ops_memory_link.yml
+  disposition: private
+  note: "Operator agent-session housekeeping, not fleet behaviour; new since 2026-07-24."
+
+- concern: system-homebrew-path
+  title: "Mac-wide sshd PATH configuration for Homebrew"
+  paths:
+    - control/bin/configure_system_homebrew_path.py
+  disposition: private
+  note: "Mac-wide administration, not fleet product behaviour."
+
+- concern: landing
+  title: "Landing / service-discovery portal and its serverapp role"
+  paths:
+    - control/landing/**
+    - ansible/playbooks/serverapps/landing.yml
+    - ansible/roles/serverapp_landing/**
+  disposition: site
+  note: "services.json is site registry data (uses placeholder hosts); keep only a generic registry interface upstream."
+
+- concern: serverapp-caddy
+  title: "Caddy reverse proxy"
+  paths:
+    - control/caddy/**
+    - ansible/playbooks/serverapps/caddy.yml
+    - ansible/roles/serverapp_caddy/**
+  disposition: site
+  note: "Product exposes no mandatory reverse proxy."
+
+- concern: serverapp-victoriametrics
+  title: "VictoriaMetrics metrics store"
+  paths:
+    - ansible/playbooks/serverapps/victoriametrics.yml
+    - ansible/roles/serverapp_victoriametrics/**
+  disposition: site
+  note: "Preserve the generated health schema during the move."
+
+- concern: serverapp-vector
+  title: "Vector log pipeline"
+  paths:
+    - ansible/playbooks/serverapps/vector.yml
+    - ansible/roles/serverapp_vector/**
+  disposition: site
+  note: "VECTOR_INGESTION_TOKEN requirement moves with it."
+
+- concern: serverapp-openobserve
+  title: "OpenObserve log store and soft-health re-ingest tool"
+  paths:
+    - ansible/playbooks/serverapps/openobserve.yml
+    - ansible/roles/serverapp_openobserve/**
+    - control/tools/native-agent/reingest_soft_health.py
+  disposition: site
+  note: "OPENOBSERVE_ROOT_PASSWORD requirement moves with it; the re-ingest tool sits under native-agent tools but only targets OpenObserve."
+
+- concern: serverapp-grafana
+  title: "Grafana dashboards and alerting"
+  paths:
+    - ansible/playbooks/serverapps/grafana.yml
+    - ansible/roles/serverapp_grafana/**
+  disposition: site
+  note: "Keep datasource/alert parity and a rollback launchd job."
+
+- concern: serverapp-blackbox
+  title: "Blackbox exporter probes"
+  paths:
+    - ansible/playbooks/serverapps/blackbox_exporter.yml
+    - ansible/roles/serverapp_blackbox_exporter/**
+  disposition: site
+  note: "Probe targets and schedules are site-owned."
+
+- concern: serverapp-olivetin
+  title: "OliveTin operator actions"
+  paths:
+    - ansible/playbooks/serverapps/olivetin.yml
+    - ansible/roles/serverapp_olivetin/**
+  disposition: site
+  note: "The generic projection (control/site_contract/olivetin_projection.py) stays in site-contract."
+
+- concern: serverapp-launchd-common
+  title: "Shared serverapp launchd role and binary-state helper"
+  paths:
+    - ansible/roles/serverapp_launchd/**
+    - ansible/files/serverapp_binary_state.sh
+  disposition: site
+  note: "New since 2026-07-24; moves with the serverapps that include it."
+
+- concern: consumer-examples
+  title: "Generic consumer examples (full fleet, Termux-only)"
+  paths:
+    - examples/consumer-full-fleet/**
+    - examples/consumer-termux-only/**
+  disposition: core
+  note: "Acceptance proof that upstream works without the site repo; consumer-fdroid-only was removed with #143."
+
+- concern: collection-tests
+  title: "Collection unit tests"
+  paths:
+    - ansible_collections/stayturgid/android_common/tests/**
+    - ansible_collections/stayturgid/fleet/tests/**
+    - ansible_collections/stayturgid/play/tests/**
+    - ansible_collections/stayturgid/termux/tests/**
+  disposition: core
+  note: "Tests move with their implementation; contract tests stay on both sides."
+
+- concern: dev-tooling
+  title: "Justfile root, test/lint recipes and web-check helper tools"
+  paths:
+    - justfile
+    - just/tests.just
+    - just/tools/**
+    - control/lib/README.md
+    - configure
+  disposition: core
+  note: "The justfile also has personal review helpers (ocr, ocr-scan, agent-review) that are site/private, and build-ts still formats docs/research."
+
+- concern: release-identity
+  title: "Product version file read by site-sync"
+  paths:
+    - version.json
+  disposition: shared-contract
+  note: >-
+    Versioned releases were retired (2026-08-23) but site_sync.py reads version.json for product_version; decide whether it stays a contract field.
+
+- concern: retired-release-regime
+  title: "Suite release marker and on-device repo-version notifier"
+  paths:
+    - ops-release.json
+    - device/termux/py/stayturgid_check_repo_version.py
+  disposition: retire
+  note: "ops-release.json has no code caller; the notifier still ships in stayturgid_py_scripts and polls a placeholder-owner version.json URL."
+
+- concern: parked-diagnostics
+  title: "Parked or stub one-off tools"
+  paths:
+    - control/bin/h2_confirm_ui.py
+    - control/bin/watch_battery_percent.py
+    - control/tools/fdroid/**
+  disposition: retire
+  note: >-
+    h2_confirm_ui is marked PARKED with no caller; watch_battery_percent is issue-16 evidence capture; grant_neo_store_shizuku.py is a REMOVED stub.
