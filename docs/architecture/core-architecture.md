@@ -4,14 +4,16 @@ stayturgid is organized around **where code runs**, not around Ansible alone.
 
 ## Top-level split
 
-| Tree                                | Runs on          | Purpose                                                  |
-| ----------------------------------- | ---------------- | -------------------------------------------------------- |
-| `control/`                          | Mac control node | Operator scripts, shared Python, per-domain deploy tools |
-| `device/`                           | Android phones   | Termux runtime + native-agent Kotlin APK                 |
-| `catalogs/`                         | Repo data        | Obtainium JSON catalogs (no executable code)             |
-| `ansible/` + `ansible_collections/` | Mac (deploy)     | Idempotent fleet provisioning via Galaxy collections     |
-| `docs/`                             | —                | Narrative docs, ADRs, module guides                      |
-| `tests/`                            | Mac CI           | Unit tests and device-tier harness                       |
+| Tree                                | Runs on          | Purpose                                                   |
+| ----------------------------------- | ---------------- | --------------------------------------------------------- |
+| `control/`                          | Mac control node | Operator scripts, shared Python, per-domain deploy tools  |
+| `device/`                           | Android phones   | Termux runtime + native-agent Kotlin APK                  |
+| `ansible/` + `ansible_collections/` | Mac (deploy)     | Idempotent fleet provisioning via Galaxy collections      |
+| `just/` + `justfile`                | Mac control node | Operator recipes (`just --list`)                          |
+| `packaging/`                        | Mac control node | Homebrew pins and packaging notes                         |
+| `examples/`                         | Consumer repos   | Example consumer sites (termux-only, full-fleet, FIRERPA) |
+| `docs/`                             | —                | Narrative docs, ADRs, module guides                       |
+| `tests/`                            | Mac CI           | Unit tests and device-tier harness                        |
 
 ## `control/`
 

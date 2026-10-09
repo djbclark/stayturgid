@@ -728,28 +728,21 @@ If port 5555 is not open after 60s:
 
 ---
 
-## Part 6b — F-Droid / Neo Store + Play / Aurora (parked)
+## Part 6b — App stores (parked; F-Droid, Aurora and Obtainium removed)
 
-**Not** part of active `./control/bin/deploy_fleet.py` (2026-07-09). Set
-`stayturgid_app_stores_enabled: true` to re-enable. Apps may remain on devices;
-optional Obtainium catalog: `catalogs/obtainium/app-stores-optional.json`.
+The F-Droid / Neo Store, Aurora and Obtainium automation was removed in July
+2026 (#119, #145); the `stayturgid.fdroid` and `stayturgid.obtainium`
+collections and the `catalogs/` directory no longer exist. Fleet apps come from
+the checksummed `bootstrap_apks` lock that every `just deploy` applies.
 
-When re-enabled, the single `fleet.yml` pass installs and configures the
-F-Droid/Play sources; `post-ui.yml` runs only the Aurora first-run UI. Obtainium
-catalog import is headless and belongs to the main fleet pass, so a normal
-deploy does not require an unlocked screen when app stores are parked.
+The only app-store path left is the optional Play sideload
+(`stayturgid.play.play_store`, apkeep or gplaycli). It is off unless
+`stayturgid_app_stores_enabled: true` is set in the inventory.
 
-| Command                           | Scope                                | Mac tools                       |
-| --------------------------------- | ------------------------------------ | ------------------------------- |
-| `just deploy [<host>]`            | Full `site.yml` (includes preflight) | fdroidcl, apkeep when stores on |
-| `scope=fdroid just deploy <host>` | F-Droid tags only                    | fdroidcl                        |
-| `scope=play just deploy <host>`   | Play + post-ui Aurora                | apkeep                          |
-
-**Default repos** (`ansible_collections/stayturgid/fdroid/roles/fdroid_repos/defaults/main.yml`):
-
-| Name        | URL                                   | SHA-256 fingerprint                                                |
-| ----------- | ------------------------------------- | ------------------------------------------------------------------ |
-| IzzyOnDroid | `https://apt.izzysoft.de/fdroid/repo` | `3BF0D6ABFEAE2F401707B6D966BE743BF0EEE49C2561B9BA39073711F628937A` |
+| Command                         | Scope                                | Mac tools                 |
+| ------------------------------- | ------------------------------------ | ------------------------- |
+| `just deploy [<host>]`          | Full `site.yml` (includes preflight) | apkeep when stores are on |
+| `scope=play just deploy <host>` | Play sideload only                   | apkeep                    |
 
 ---
 
