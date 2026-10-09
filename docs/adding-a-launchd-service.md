@@ -112,8 +112,7 @@ my-agent-deploy args="":
       --tags agents -e stayturgid_my_agent_enabled=true {{ args }}
 
 my-agent-status:
-    @just landing-page-status "{{ stayturgid_my_agent_label }}" 2>/dev/null || \
-      launchctl list | grep {{ stayturgid_my_agent_label }}
+    @launchctl list {{ stayturgid_my_agent_label }} 2>/dev/null || echo "  not loaded"
 ```
 
 ---
