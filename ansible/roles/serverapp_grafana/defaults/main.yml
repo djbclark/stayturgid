@@ -25,7 +25,7 @@ serverapp_grafana_domain: "localhost"
 serverapp_grafana_root_url: "http://127.0.0.1:{{ serverapp_grafana_http_port }}/"
 serverapp_grafana_serve_from_sub_path: false
 # Referenced by both grafana.ini.j2 and this role's Alerting API task (single
-# source, not duplicated) — brew default; operator should change if exposed.
+# source, not duplicated).
 serverapp_grafana_admin_user: admin
 # From secretspec (run the playbook under `sudo-secretspec run`). Grafana reads
 # admin_password from grafana.ini only on first start; after that the role uses it
