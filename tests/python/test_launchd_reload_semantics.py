@@ -220,6 +220,11 @@ def test_landing_code_hash_flips_only_on_a_tracked_code_edit(tmp_path: Path) -> 
     code.mkdir(parents=True)
     (code / "landing.py").write_text("print('v1')\n")
     (code / "services.json").write_text("{}\n")
+    lib = repo / "control" / "lib"
+    lib.mkdir()
+    (lib / "ansible_context.py").write_text("v1\n")
+    (lib / "fleet_targets.py").write_text("v1\n")
+    (lib / "unrelated.py").write_text("v1\n")
     git = [
         "git",
         "-C",
@@ -235,7 +240,12 @@ def test_landing_code_hash_flips_only_on_a_tracked_code_edit(tmp_path: Path) -> 
     subprocess.run([*git, "add", "."], check=True)
     subprocess.run([*git, "commit", "-q", "-m", "v1"], check=True)
     state = tmp_path / "landing-code.sha256"
-    env = {**os.environ, "REPO_ROOT": str(repo), "CODE_DIR": "control/landing", "STATE_FILE": str(state)}
+    env = {
+        **os.environ,
+        "REPO_ROOT": str(repo),
+        "CODE_PATHS": "control/landing control/lib/ansible_context.py control/lib/fleet_targets.py",
+        "STATE_FILE": str(state),
+    }
 
     def probe() -> tuple[str, str]:
         out = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, check=True)
@@ -254,6 +264,19 @@ def test_landing_code_hash_flips_only_on_a_tracked_code_edit(tmp_path: Path) -> 
     assert verdict == "changed"  # the incident: code edited, plist untouched
     state.write_text(digest + "\n")
     assert probe()[1] == "unchanged"
+    # review-2 2.1a: landing.py imports these at run time, so they count too.
+    (lib / "fleet_targets.py").write_text("v2\n")
+    digest, verdict = probe()
+    assert verdict == "changed"
+    state.write_text(digest + "\n")
+    (lib / "unrelated.py").write_text("v2\n")
+    assert probe()[1] == "unchanged"  # control/lib code landing never imports
+    # review-2 2.1c: a tracked file deleted mid-edit fails with a clear message.
+    (lib / "ansible_context.py").unlink()
+    out = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True)
+    assert out.returncode != 0
+    assert "missing from the working tree" in out.stderr
+    assert "control/lib/ansible_context.py" in out.stderr
 
 
 def test_landing_code_hash_works_outside_a_git_checkout(tmp_path: Path) -> None:
@@ -268,10 +291,13 @@ def test_landing_code_hash_works_outside_a_git_checkout(tmp_path: Path) -> None:
     code = tmp_path / "control" / "landing"
     code.mkdir(parents=True)
     (code / "landing.py").write_text("print('v1')\n")
+    for name in ("ansible_context.py", "fleet_targets.py"):
+        (tmp_path / "control" / "lib").mkdir(exist_ok=True)
+        (tmp_path / "control" / "lib" / name).write_text("v1\n")
     env = {
         **os.environ,
         "REPO_ROOT": str(tmp_path),
-        "CODE_DIR": "control/landing",
+        "CODE_PATHS": "control/landing control/lib/ansible_context.py control/lib/fleet_targets.py",
         "STATE_FILE": str(tmp_path / "state"),
         "GIT_CEILING_DIRECTORIES": str(tmp_path.parent),
     }

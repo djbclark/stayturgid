@@ -242,22 +242,41 @@
 # serving the old code for hours under KeepAlive. Hash the tracked files the
 # agents execute and kickstart whichever agent was not already restarted by the
 # plist path above. The hash is recorded only after health passes, so a failed
-# restart is retried on the next deploy. This probe only reads, so it runs in
-# check mode too and `deploy-check` reports a pending code restart as changed.
+# restart is retried on the next deploy. The hash covers control/landing/ plus
+# the control/lib modules the long-lived landing.py imports at run time
+# (control/landing/state.py lazily imports ansible_context and fleet_targets);
+# keep CODE_PATHS in step when landing grows a new control/lib import.
+# landing-discover is a StartInterval one-shot that would pick up new code on
+# its next run anyway; it is still kickstarted so the page shows a discovery
+# pass from the new code at deploy time instead of up to an interval later.
+# This probe only reads, so check_mode: false is safe. No current path runs
+# this role under --check, though: the serverapps dry run returns before
+# ansible-playbook, and the launchctl probes above are not check-mode-safe.
 - name: Hash landing code the agents execute from the product checkout
   ansible.builtin.shell:
     cmd: |
       {% raw %}
       set -euo pipefail
+      read -r -a code_paths <<< "$CODE_PATHS"
       # Tracked files only, so runtime junk (__pycache__) never looks like a
       # code change; plain find when the product root is not a git checkout.
       list_code() {
         if git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
-          git -C "$REPO_ROOT" ls-files -z -- "$CODE_DIR"
+          git -C "$REPO_ROOT" ls-files -z -- "${code_paths[@]}"
         else
-          (cd "$REPO_ROOT" && find "$CODE_DIR" -type f ! -path '*/__pycache__/*' ! -name '*.pyc' -print0 | sort -z)
+          (cd "$REPO_ROOT" && find "${code_paths[@]}" -type f ! -path '*/__pycache__/*' ! -name '*.pyc' -print0 | sort -z)
         fi
       }
+      # A tracked file deleted in the working tree (an edit in progress in the
+      # product checkout) would otherwise fail below as an opaque shasum error.
+      if git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+        deleted=$(git -C "$REPO_ROOT" ls-files --deleted -- "${code_paths[@]}")
+        if [ -n "$deleted" ]; then
+          echo "landing code hash: tracked file(s) missing from the working tree of $REPO_ROOT" \
+            "(checkout mid-edit?); restore or commit the deletion, then redeploy:" $deleted >&2
+          exit 1
+        fi
+      fi
       new=$(list_code \
         | (cd "$REPO_ROOT" && xargs -0 shasum -a 256) \
         | shasum -a 256 | awk '{print $1}')
@@ -273,7 +292,7 @@
     executable: /bin/bash
   environment:
     REPO_ROOT: "{{ serverapp_landing_repo_root }}"
-    CODE_DIR: control/landing
+    CODE_PATHS: control/landing control/lib/ansible_context.py control/lib/fleet_targets.py
     STATE_FILE: "{{ serverapp_landing_code_state_file }}"
   register: _landing_code
   changed_when: _landing_code.stdout_lines | last == 'changed'
