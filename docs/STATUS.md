@@ -89,9 +89,6 @@ more than a day or two old.
 
 ## Known gotchas (read before you hit these)
 
-- `~/stayturgid` is a stray, root-owned, 0-byte file — **not** the repo. The
-  repo is `${OPS_ROOT:-~/ops}/stayturgid`. Removing the stray file needs sudo; ask the
-  operator rather than working around it silently.
 - `just firerpa-health` exits 1 with **no stdout** by design
   (`also_print=False`). That is not a crash — read
   `~/.config/stayturgid/logs/firerpa-health.log` for the actual result.
@@ -100,11 +97,11 @@ more than a day or two old.
   committing, or the commit will fail on style, not content.
 - `device/native-agent/agent-release.jks` (the release signing keystore) must
   never be tracked in git. Check `git status` before any broad `git add`.
-- `/Users/djbclark/src/Shizuku` (and `/Users/djbclark/src/ShizukuTendCF`, the
-  current fork) has an intentionally dirty nested `api` submodule from
+- `/Users/djbclark/src/ShizukuTendCF` (the current fork; the older
+  `~/src/Shizuku` checkout is gone) may have a dirty nested `api` submodule (clean on 2026-10-09) from
   pre-existing user work. Preserve it; inspect `git diff -- api` before any
   cleanup. Its fork `master` is ahead of upstream `origin/master` by design.
-- The sibling private repo `${OPS_ROOT:-~/ops}/site-djbclark` may have its own uncommitted
+- The sibling repo `${OPS_ROOT:-~/ops}/site-djbclark` (public) may have its own uncommitted
   operator-authored files (e.g. `human/F2-BREW-SERVICES-DECISIONS.md`) — leave
   those alone unless the operator asks you to touch them.
 
@@ -116,7 +113,6 @@ more than a day or two old.
    path.~~ Resolved 2026-10-03: the fleet is pinned to ShizukuTendCF Drop-In
    r2851 (stable release since 2026-10-08: a grant records its signers and is revoked when another key takes its UID; uses the TCP port when it returns without Wi-Fi; root mode asks before granting; rish fixed (#28), status names the listening port; restores its own ADB TCP port after a reboot through wireless debugging, heals from silent locked refusals on mesh Wi-Fi, fix C for Plus-library attach) in the bootstrap APK lock (`resign: false`, in-place upgrade on the
    release key; validated on s24).
-3. Remove (or authorize removal of) the stray `~/stayturgid` file.
 
 ## Where things are documented
 

@@ -43,7 +43,6 @@ bugs/follow-ups) for what's actually available to pick up next.
 **Operator-action queue (things only a human can do):**
 
 1. Physically check offline fleet devices (Tailscale unreachable).
-2. Remove (or authorize removal of) a stray `~/stayturgid` file — the real repo is `${OPS_ROOT:-~/ops}/stayturgid`.
 
 If any of this looks stale, trust `docs/STATUS.md` and `git log` over this
 section — it's a snapshot, not updated every commit.
