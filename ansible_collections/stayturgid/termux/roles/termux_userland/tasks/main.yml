@@ -407,10 +407,12 @@
 
 # One round-trip for every retired path instead of one `file: state=absent`
 # per entry (#166: this loop alone cost ~12 s on an idempotent s24 run, where
-# every entry is already gone). Paths are relative to $HOME; the script refuses
-# an absolute path or a `..` component, so a bad list entry cannot reach
-# outside it. Check mode runs the script with DRY_RUN=1, which reports what
-# would go without deleting anything.
+# every entry is already gone). Paths are relative to $HOME. The script fails
+# the task on an empty entry, an absolute path, an empty, `.` or `..`
+# component, or a trailing `/`, so a bad list entry can neither reach outside
+# $HOME nor name a directory such as `.stayturgid/bin/` itself (an empty
+# py-script name renders to exactly that). Check mode runs the script with
+# DRY_RUN=1, which reports what would go without deleting anything.
 - name: Remove retired scripts from the device
   ansible.builtin.shell:
     cmd: |
@@ -421,9 +423,13 @@
       # subshell, and an entry is never expanded as a pattern.
       IFS='
       '
+      # Word splitting drops empty lines, so look for one before the loop.
+      case "$IFS$RETIRED$IFS" in
+        *"$IFS$IFS"*) echo "refusing unsafe retired path: empty entry" >&2; exit 2 ;;
+      esac
       for rel in $RETIRED; do
         case "/$rel/" in
-          //*|*/../*) echo "refusing unsafe retired path: $rel" >&2; exit 2 ;;
+          //*|*//*|*/./*|*/../*) echo "refusing unsafe retired path: $rel" >&2; exit 2 ;;
         esac
         if [ -e "$rel" ] || [ -L "$rel" ]; then
           [ "$DRY_RUN" = 1 ] || rm -rf -- "$rel"

@@ -95,3 +95,37 @@ def test_refuses_paths_that_escape_home(tmp_path: Path, bad: str) -> None:
     assert result.returncode == 2
     assert "refusing unsafe retired path" in result.stderr
     assert outside.exists()
+
+
+# review-2 3.1a: an entry that names a directory itself rather than a file in it.
+# `.stayturgid/bin/` (an empty py-script name after the prefix) used to pass the
+# guard, so `rm -rf` took the whole on-device runtime bin directory.
+@pytest.mark.parametrize(
+    "bad",
+    [".stayturgid/bin/", ".stayturgid/bin/.", ".stayturgid/bin/..", ".", "..", "/", "x/", "a//b", "a/./b"],
+)
+def test_refuses_directory_like_entries(tmp_path: Path, bad: str) -> None:
+    bin_dir = tmp_path / ".stayturgid/bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "keep.py").write_text("x")
+    (tmp_path / "x").mkdir()
+    (tmp_path / "a/b").mkdir(parents=True)
+    result = _run(tmp_path, bad, dry_run=False)
+    assert result.returncode == 2, (result.stdout, result.stderr)
+    assert "refusing unsafe retired path" in result.stderr
+    assert (bin_dir / "keep.py").exists()
+    assert (tmp_path / "x").is_dir() and (tmp_path / "a/b").is_dir()
+
+
+@pytest.mark.parametrize("key", ["stayturgid_retired_scripts", "stayturgid_retired_py_scripts"])
+@pytest.mark.parametrize("bad", ["", ".", ".."])
+def test_refuses_empty_or_dot_list_entries(tmp_path: Path, defaults: dict, key: str, bad: str) -> None:
+    """An empty, `.` or `..` entry in either list fails the task instead of deleting a directory."""
+    bin_dir = tmp_path / ".stayturgid/bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "keep.py").write_text("x")
+    bad_defaults = {**defaults, key: [*defaults[key], bad]}
+    result = _run(tmp_path, _retired(bad_defaults), dry_run=False)
+    assert result.returncode == 2, (result.stdout, result.stderr)
+    assert "refusing" in result.stderr
+    assert (bin_dir / "keep.py").exists()
