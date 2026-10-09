@@ -5,6 +5,16 @@
 site/machine management (private site repo), decided with the operator while
 standing up `site-djbclark`.
 
+> **2026-10-09 addendum (#137 audit, items 7a and A33):** `site-djbclark` is
+> now a public repository (the GitHub API reports `visibility: public`), so
+> "private" below describes the reference site as it was in July 2026; a
+> site overlay's visibility is the operator's choice
+> ([multi-site-topology.md §4.10](../multi-site-topology.md#410-the-third-repo-ops_root-opssite-private)).
+> A third, always-private repository also exists: `site-private`, a
+> private companion that is never a site overlay (same section). The
+> "exactly two repo kinds" decision below is about product versus site
+> overlay, and stays in force for that split.
+
 ## Decision
 
 Exactly **two repo kinds**, following the pattern every mature config-management
@@ -31,7 +41,7 @@ nested inside a public repo's working tree** (allowlist-.gitignore schemes are
 rejected: `git add -f`, allowlist drift, or `git clean -ffdx` could expose or
 destroy site data).
 
-The reference site is `site-djbclark` (private). Its
+The reference site is `site-djbclark` (private when this ADR was written, public now). Its
 `docs/plans/site-djbclark-step1-segmentation-architecture-v1.md` carries the
 full architecture, decision log, and research citations; its `registry/` is
 the authority for ports and path ownership across the site.

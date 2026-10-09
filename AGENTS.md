@@ -152,7 +152,7 @@ cannot follow relative links across repos); also give the filesystem path
 - Non-sensitive site practice others might still benefit from → that operator's
   `${OPS_ROOT:-~/ops}/site-<name>` (example for this machine:
   [`${OPS_ROOT:-~/ops}/site-djbclark/AGENTS.md`](https://github.com/djbclark/site-djbclark/blob/master/AGENTS.md)
-  — private repo; expect 404 if you are not the owner).
+  — a public repo).
 - Private / Mac-wide / not-for-public extras →
   [`${OPS_ROOT:-~/ops}/site-private/AGENTS.md`](https://github.com/djbclark/site-private/blob/master/AGENTS.md)
   (always private; expect 404 for other readers).
