@@ -235,6 +235,20 @@ def notify_run_failure(phase: str, error: str) -> bool:
     return True
 
 
+def _run_failed(phase: str, error: str, rc: int, *, notify: bool, notice: str | None = None) -> int:
+    """Record a run that ended before any host reported, and tell Hermes once.
+
+    Every early return goes through here (review-2 4.1d): preflight, lock,
+    missing binary and timeout used to record telemetry only, so a nightly
+    that never ran stayed silent. ``notice`` is a stable text for the Hermes
+    dedup when ``error`` varies run to run (the lock holder's pid).
+    """
+    record_termux_pkg_error(phase, error, rc=rc)
+    if notify and notify_run_failure(phase, notice or error):
+        log("hermes: notified run-level failure")
+    return rc
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
@@ -249,18 +263,18 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = ap.parse_args(argv)
     check = args.check or os.environ.get("CHECK", "0") == "1"
+    # Only a whole-fleet, real run speaks for the fleet (review-2 4.1b).
+    notify = not check and not args.limit
 
     if not PLAYBOOK.is_file():
         log("ERROR: missing playbook %s" % PLAYBOOK)
-        record_termux_pkg_error("preflight", "missing playbook %s" % PLAYBOOK, rc=2)
-        return 2
+        return _run_failed("preflight", "missing playbook %s" % PLAYBOOK, 2, notify=notify)
     try:
         context = resolve_ansible_context(REPO_ROOT)
         require_inventory(context)
     except AnsibleConfigError as exc:
         log("ERROR: %s" % exc)
-        record_termux_pkg_error("preflight", str(exc), rc=2)
-        return 2
+        return _run_failed("preflight", str(exc), 2, notify=notify)
 
     try:
         cmd = secretspec_run(
@@ -274,10 +288,7 @@ def main(argv: list[str] | None = None) -> int:
         # Under launchd an uncaught traceback would only reach the .err.log,
         # failing silently every night: record it and tell Hermes once.
         log("ERROR: %s" % exc)
-        record_termux_pkg_error("preflight", str(exc), rc=2)
-        if not check and not args.limit and notify_run_failure("preflight", str(exc)):
-            log("hermes: notified run-level failure")
-        return 2
+        return _run_failed("preflight", str(exc), 2, notify=notify)
     if args.limit:
         cmd.extend(["--limit", args.limit])
     if check:
@@ -331,16 +342,19 @@ def main(argv: list[str] | None = None) -> int:
             )
     except FleetLockHeld as exc:
         log("ERROR: %s" % exc)
-        record_termux_pkg_error("lock", str(exc), rc=3)
-        return 3
+        return _run_failed(
+            "lock",
+            str(exc),
+            3,
+            notify=notify,
+            notice="the fleet lock was held by another run; tonight's upgrade was skipped",
+        )
     except FileNotFoundError:
         log("ERROR: secretspec or ansible-playbook not found on PATH=%s" % env.get("PATH"))
-        record_termux_pkg_error("preflight", "secretspec or ansible-playbook not found on PATH", rc=2)
-        return 2
+        return _run_failed("preflight", "secretspec or ansible-playbook not found on PATH", 2, notify=notify)
     except subprocess.TimeoutExpired:
         log("ERROR: ansible-playbook timed out")
-        record_termux_pkg_error("upgrade", "ansible-playbook timed out", rc=2)
-        return 2
+        return _run_failed("upgrade", "ansible-playbook timed out", 2, notify=notify)
 
     out = ((r.stdout or "") + (r.stderr or "")).strip()
     if out:
@@ -357,10 +371,8 @@ def main(argv: list[str] | None = None) -> int:
         # failure summary; the full run stays in the human log. Keep the record
         # small enough for one JSON line.
         tail = "\n".join(out.splitlines()[-20:]) if out else "ansible-playbook rc=%s" % r.returncode
-        record_termux_pkg_error("upgrade", tail, rc=r.returncode)
-        if not check and not args.limit and notify_run_failure("upgrade", tail):
-            log("hermes: notified run-level failure")
-    elif not check and not args.limit:
+        _run_failed("upgrade", tail, r.returncode, notify=notify)
+    elif notify:
         if notify_failure_change(failures):
             log("hermes: notified failing-host set change")
     trim_log()

@@ -370,3 +370,79 @@ def test_broken_secretspec_boundary_is_recorded_and_notified(monkeypatch, tmp_pa
     assert len(notices) == 1 and "did not complete (preflight:" in notices[0]
     _, records, notices = _run_nightly(monkeypatch, tmp_path, "", rc=0)
     assert len(records) == 1 and notices == []  # telemetry nightly, Hermes once
+
+
+def test_every_early_return_records_and_notifies_once(monkeypatch, tmp_path):
+    """review-2 4.1d: lock, timeout, missing binary and preflight paths used to
+    record telemetry only, so a nightly that never ran stayed silent."""
+    import subprocess as sp
+
+    from control.lib.ansible_context import AnsibleConfigError
+
+    def raising(exc):
+        def run(command, **kwargs):
+            raise exc
+
+        return run
+
+    cases = {
+        "timeout": (raising(sp.TimeoutExpired("ansible-playbook", 1)), 2, "upgrade", "timed out"),
+        "missing": (raising(FileNotFoundError("ansible-playbook")), 2, "preflight", "not found on PATH"),
+    }
+    for name, (run, want_rc, phase, text) in cases.items():
+        state_dir = tmp_path / name
+        for attempt in (1, 2):
+            context = AnsibleContext(
+                config=state_dir / "ansible.cfg",
+                inventory=state_dir / "hosts.yml",
+                collections_path=state_dir / "collections",
+                source="site overlay",
+            )
+            records, notices = [], []
+            monkeypatch.setattr(nightly, "resolve_ansible_context", lambda repo, c=context: c)
+            monkeypatch.setattr(nightly, "resolved_env", lambda repo: {"PATH": "/usr/bin:/bin"})
+            monkeypatch.setattr(nightly, "require_inventory", lambda selected: None)
+            monkeypatch.setattr(nightly, "LOG_DIR", state_dir / "logs")
+            monkeypatch.setattr(nightly, "LOG", state_dir / "logs" / "nightly.log")
+            monkeypatch.setattr(nightly, "STATE_PATH", state_dir / "state.json")
+            monkeypatch.setattr(nightly, "trim_log", lambda: None)
+            monkeypatch.setattr(nightly, "CHECK_UPDATES", Path("/nonexistent/check_termux_pkg_updates.py"))
+            monkeypatch.setattr(nightly, "record_termux_pkg_error", lambda *a, **k: records.append((a, k)))
+            monkeypatch.setattr(nightly.hermes_notify, "notify", lambda title, msg: notices.append(msg) or True)
+            monkeypatch.setattr(nightly.subprocess, "run", run)
+            assert nightly.main([]) == want_rc, name
+            assert len(records) == 1 and records[0][0][0] == phase, name
+            if attempt == 1:
+                assert len(notices) == 1 and "did not complete" in notices[0] and text in notices[0], name
+            else:
+                assert notices == [], name  # same failure again: telemetry only
+
+    # Preflight: a broken site config.
+    def bad_context(repo):
+        raise AnsibleConfigError("no inventory for this site")
+
+    code, records, notices = _run_nightly(monkeypatch, tmp_path, "", rc=0)  # seed a clean state
+    monkeypatch.setattr(nightly, "resolve_ansible_context", bad_context)
+    assert notices == []
+    assert nightly.main([]) == 2
+    assert len(notices) == 1 and "did not complete (preflight:" in notices[0] and "no inventory" in notices[0]
+    assert records[-1][0][0] == "preflight"
+
+    # A limited or check run stays quiet, as for the other run-level failures.
+    notices.clear()
+    monkeypatch.setattr(nightly, "STATE_PATH", tmp_path / "quiet" / "state.json")
+    assert nightly.main(["--limit", "s24"]) == 2
+    assert nightly.main(["--check"]) == 2
+    assert notices == []
+
+
+def test_lock_held_nightly_notifies_once_with_a_stable_text(monkeypatch, tmp_path):
+    """review-2 4.1d: the lock message names the holder; the notice must not."""
+    notices = []
+    _run_nightly(monkeypatch, tmp_path, _CLEAN, rc=0)
+    monkeypatch.setattr(nightly.hermes_notify, "notify", lambda title, msg: notices.append(msg) or True)
+    for holder in ("deploy_fleet.py s24", "deploy_fleet.py p7a"):
+        with nightly.fleet_lock(holder):
+            assert nightly.main([]) == 3
+    assert len(notices) == 1 and "lock" in notices[0] and "skipped" in notices[0]
+    assert "s24" not in notices[0]
