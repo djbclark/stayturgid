@@ -1,7 +1,9 @@
 # Site-contract scaffolding
 
-This directory implements Phase C of the site contract in
-`docs/architecture/site-contract.md`.
+This directory implements Phases C and D of the site contract in
+`docs/architecture/site-contract.md` (both shipped). Notes below that name a
+phase (C3, C4) describe the limits of that phase when it landed; Phase D added
+the serverapp adapters described under [site-serverapps](#site-serverapps).
 
 - Product-root `SITE-CONTRACT.md` is the human-readable contract and Entangled
   literate source for the non-registry C1 scaffold templates (spec §7).
@@ -26,6 +28,10 @@ This directory implements Phase C of the site contract in
   `generated/<product>/` that `site-sync` owns).
 - `sync_templates/` holds Jinja2 sources for those generated files.
 - `site_sync.py` is the `site-sync` CLI (apply / dry-run / docs + lockfile).
+- `serverapps.py` is the `site-serverapps` CLI: the Phase D serverapp adapters
+  (apply / dry-run, per spec §5).
+- `olivetin_projection.py` projects the live OliveTin config from the product
+  fragment plus the site's own action file (Phase D6, spec §5.3).
 
 ## site-init
 
@@ -110,3 +116,12 @@ entangled tangle --force
 `annotation = "naked"` keeps tangled bytes identical to the fenced sources.
 Entangled's local `.entangled/` state is gitignored; the parity check uses the
 API and does not require a committed filedb.
+
+## site-serverapps
+
+- `just site-serverapps [args]` activates serverapp adapters (own / inject /
+  off) for a site overlay, using `serverapps.py`.
+- `just serverapps-upgrade <app>` upgrades one Tier-1 pinned serverapp formula (the serverapp roles pin and never upgrade, so this is an explicit operator action); `site-serverapps`
+  then restarts it and checks that it runs the new binary.
+- Exit codes match site-sync: `0` success/no-op; `1` precondition or execution
+  failure; `2` would touch user-owned content.
