@@ -3,6 +3,12 @@
 The operator reads alerts in the Hermes Telegram Inbox topic (2026-10-05: "I want only
 hermes"), so every control script sends its notices through here rather than osascript.
 Callers keep their own gating (cooldowns, state transitions): each call is one message.
+
+Why ``hermes send`` and not ``hermes-ping``: the operator rule "use hermes-ping, never a
+bare hermes send" (2026-10-06) is for agent sessions. hermes-ping's value is naming the
+interface, workspace/tab/pane and session the ping came from; a launchd job has none of
+those, and hermes-ping lives in the operator's site-djbclark checkout, which this product
+repo must not depend on. The title argument says which control job sent the notice.
 """
 
 from __future__ import annotations
