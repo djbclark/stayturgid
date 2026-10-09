@@ -1,5 +1,9 @@
 # obtainium_app
 
+> **Archived 2026-10-09.** The `stayturgid.obtainium` collection this module belonged to
+> was deleted on 2026-07-30 ([#119](https://github.com/djbclark/stayturgid/issues/119)).
+> Fleet apps now come from the checksummed `android_common.bootstrap_apks` lock.
+
 **FQCN:** `stayturgid.obtainium.obtainium_app`  
 **Runs on:** device (Termux over SSH)
 
