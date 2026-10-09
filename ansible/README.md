@@ -1,6 +1,6 @@
 # Ansible — Termux userland
 
-Idempotent deploy of the **Termux layer only** over SSH: packages, scripts, boot hooks, `termux.properties`, optional mode/device files. No AutoJs6, Obtainium, or Shizuku automation in this playbook.
+Idempotent deploy of the **Termux layer only** over SSH: packages, scripts, boot hooks, `termux.properties`, optional mode/device files. No Shizuku automation in this playbook.
 
 **Full project:** [../README.md](../README.md) · **Docs index:** [../docs/README.md](../docs/README.md)
 
@@ -11,7 +11,7 @@ You need only:
 - Ansible on the Mac (`brew install ansible`)
 - `ansible-galaxy collection install -r ansible/requirements.yml` (once; deploy scripts do this)
 - Termux with `sshd` on port 8022 and your SSH public key in `~/.ssh/authorized_keys` (bootstrap via `./control/bin/bootstrap_ssh.py`, `ansible/playbooks/fleet/bootstrap.yml`, or auto from `control/bin/deploy_termux.py` / `deploy_fleet.py`; fleet deploy keeps keys in sync)
-- Inventory host pointing at the device (copy `inventory/hosts.yml` pattern; trim to one host)
+- Inventory host pointing at the device (copy the `inventory/hosts.yml.example` pattern; trim to one host)
 
 ```bash
 # Custom host — no stayturgid fleet vars required:
@@ -25,7 +25,7 @@ Omit `stayturgid_device_id` if not using device override files.
 
 Copy [inventory/example-standalone.yml](inventory/example-standalone.yml) as a starting point for a single phone.
 
-**Out of scope** (configure separately): Shizuku pairing, AutoJs6 install, Obtainium bootstrap, `WRITE_SECURE_SETTINGS`. Fleet app permissions, battery-unrestricted, and unused-app restrictions are automated via `stayturgid.android_common.app_privileges` (or ad-hoc `./control/bin/harden_fleet_apps.py`). SSH **bootstrap** before the first Ansible connection: `./control/bin/bootstrap_ssh.py` (adb + `run-as com.termux` on debuggable Termux); ongoing key distribution uses `ansible.posix.authorized_key` plus private-key sync in the `termux_userland` role (`control_node` role renders Mac `~/.ssh/config.d/stayturgid`). Keys live on the control node only — never in git.
+**Out of scope** (configure separately): Shizuku pairing, `WRITE_SECURE_SETTINGS`. Fleet app permissions, battery-unrestricted, and unused-app restrictions are automated via `stayturgid.android_common.app_privileges` (or ad-hoc `./control/bin/harden_fleet_apps.py`). SSH **bootstrap** before the first Ansible connection: `./control/bin/bootstrap_ssh.py` (adb + `run-as com.termux` on debuggable Termux); ongoing key distribution uses `ansible.posix.authorized_key` plus private-key sync in the `termux_userland` role (`control_node` role renders Mac `~/.ssh/config.d/stayturgid`). Keys live on the control node only — never in git.
 
 The deployed `~/.stayturgid/bin/stayturgid_agent_presence.py` includes the consent `gate` action ([docs/architecture/components/termux.md](../docs/architecture/components/termux.md)).
 
@@ -74,9 +74,11 @@ CHECK=1 ./control/bin/deploy_fleet.py oneui-device      # dry run
 ansible-playbook ansible/playbooks/site.yml --limit oneui-device   # direct
 ```
 
-`site.yml` chains: `fleet/preflight.yml` → `fleet/bootstrap.yml` (tagged; skipped by
-`deploy_fleet.py` on live deploy) → one `fleet/fleet.yml` convergence pass →
-optional `fleet/post-ui.yml` → `fleet/validate.yml`. See
+`site.yml` chains: `fleet/ensure-bootstrap-apks.yml` → `fleet/verify-bootstrap-apks.yml`
+→ `fleet/ensure-shizuku.yml` → `fleet/preflight.yml` → `fleet/bootstrap.yml` (tagged;
+skipped by `deploy_fleet.py` on live deploy) → one `fleet/fleet.yml` convergence pass →
+`fleet/firerpa.yml` → optional `fleet/post-ui.yml` → `fleet/validate.yml` →
+`control_node/site.yml`. See
 [docs/architecture/adr/001-ansible-boundary.md](../docs/architecture/adr/001-ansible-boundary.md).
 
 ## Run (Termux only)
@@ -103,7 +105,8 @@ STATUS port=open shizuku=up sshd=up shell=yes
 | `stock-android-device` | `100.0.0.12:8022` | Pixel 7a                                    |
 | `fireos-device`        | `100.0.0.13:8022` | Kindle Fire HD 8 (Mac adb for native-agent) |
 
-Both hosts are defined in `inventory/hosts.yml`.
+All three hosts are defined in the site overlay's inventory; the tracked pattern is
+`inventory/hosts.yml.example`.
 
 Termux currently needs an explicit Python interpreter in inventory:
 
@@ -111,12 +114,12 @@ Termux currently needs an explicit Python interpreter in inventory:
 ansible_python_interpreter: /data/data/com.termux/files/usr/bin/python
 ```
 
-**Termux package policy:** the playbook always runs `pkg update && pkg upgrade -y` first, then installs only missing packages (with another `pkg update && pkg upgrade -y` immediately before any `pkg install`). Same rule applies to manual Termux work — see `docs/handoff.md` tooling rules.
+**Termux package policy:** the playbook always runs `pkg update && pkg upgrade -y` first, then installs only missing packages (with another `pkg update && pkg upgrade -y` immediately before any `pkg install`). Same rule applies to manual Termux work.
 
 ## Collections
 
 Reusable modules live in domain collections under `ansible_collections/stayturgid/`
-(`termux`, `obtainium`, `fdroid`, `play`, `android_common`). See
+(`android_common`, `firerpa`, `fleet`, `play`, `termux`). See
 [../ansible_collections/README.md](../ansible_collections/README.md) for install
 and adoption docs. In development, `ansible.cfg` discovers collections from
 `../ansible_collections` — no separate `ansible-galaxy install` for stayturgid
@@ -130,7 +133,7 @@ Playbooks reference collection roles by FQCN (e.g. `stayturgid.termux.termux_use
 ansible/
   ansible.cfg
   requirements.yml               — ansible.posix + community.general
-  inventory/hosts.yml
+  inventory/hosts.yml.example    — pattern; the real inventory is in the site overlay
   roles/control_node/            — Mac control-node role (defaults, tasks, templates)
   playbooks/site.yml             — top-level orchestrator
   playbooks/control_node/        — localhost: prereqs, agents, agents-ensure
@@ -141,8 +144,8 @@ ansible_collections/stayturgid/  — modules + roles (incl. fleet.post_ui, valid
 
 ## After playbook (first-time / edge cases)
 
-Full `site.yml` deploy covers Termux, the headless Obtainium catalog import,
-app privileges, optional app-store UI setup, and validate smoke.
+Full `site.yml` deploy covers the bootstrap APK lock, Shizuku, Termux,
+app privileges, FIRERPA, optional app-store UI setup, and validate smoke.
 
 **First-time on a blank phone** may still need:
 
@@ -151,8 +154,8 @@ app privileges, optional app-store UI setup, and validate smoke.
 3. Open Termux:Boot once after fresh install
 4. Fire HD (`fireos-device`): USB/wireless adb for native-agent rollout when not on USB
 
-**Routine updates** after deploying a coordinated version with the sibling
-`site-djbclark` `just ops-release-deploy` recipe:
+**Routine updates** (versioned ops releases have been optional since 2026-08-23): pull
+master in the `~/ops/stayturgid` checkout, then:
 
 ```bash
 ./control/bin/deploy_fleet.py          # or ansible-playbook ansible/playbooks/site.yml
