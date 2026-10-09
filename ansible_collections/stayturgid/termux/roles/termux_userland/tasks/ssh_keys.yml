@@ -132,6 +132,11 @@
 # of these is one round-trip for the whole set instead of one per key (#166:
 # ~10 s on an idempotent s24 run). exclusive stays false: keys added by hand
 # or by another role are left alone, exactly as the per-key loop did.
+# Trade-off when reading a failure: one malformed key now fails the whole
+# batched task and installs none of the set, where the old loop installed the
+# good keys before failing on the bad one. Find the bad entry in
+# stayturgid_ssh_keys_dir (control-node keys) or the failing host's
+# stayturgid_device_ssh_pubkey (mesh keys); the existing keys stay in place.
 - name: Install fleet SSH public keys from control node (ansible.posix.authorized_key)
   ansible.posix.authorized_key:
     user: "{{ _termux_ssh_account.stdout }}"
