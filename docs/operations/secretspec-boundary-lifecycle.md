@@ -25,13 +25,16 @@ sudo-secretspec run --reason WHY -- COMMAND [ARGS...]
 sudo-secretspec doctor
 ```
 
-`add` changes the runtime schema and creates no secret value; mirror the
-declaration into the tracked `site-private/secretspec.toml.example` from a task
-worktree, then release it. `set` prompts for the value without placing it in
-chat. `delete` removes the provider value while retaining the declaration.
-`get` and `export` are explicit audited reads. `template-check` reports only
-whether the runtime manifest and the tracked declaration template are
-byte-identical; it never prints either file. `doctor` verifies the boundary
+`add` changes the runtime schema and creates no secret value; the runtime
+manifest in the canonical store is the only record (the tracked
+`secretspec.toml.example` mirror was retired 2026-08-16, so there is nothing to
+mirror and no release step; see
+[secretspec-secrets-management.md](secretspec-secrets-management.md)). `set`
+prompts for the value without placing it in chat. `delete` removes the provider
+value while retaining the declaration. `get` and `export` are explicit audited
+reads. `template-check` still exists in the client but is no longer part of the
+routine flow: it compares the runtime manifest against the retired tracked
+declaration template and never prints either file. `doctor` verifies the boundary
 itself — vault ownership and mode, sudoers policy, installed-artifact hashes —
 and needs no reason because it reads no secret.
 
