@@ -363,7 +363,7 @@ This runs `adb connect` every 60 seconds, handles DHCP IP changes, and sends a m
 
 **Current (Ansible-generated):** `just deploy` / `site.yml` ends with `control_node/site.yml`
 (Homebrew prereqs, `devices.conf`, `com.stayturgid.*` launchd agents). Partial deploys
-(`just deploy HOSTS=oneui-device`) also refresh Mac config via `deploy_fleet.py`. Agents launch
+(`just deploy oneui-device`) also refresh Mac config via `deploy_fleet.py`. Agents launch
 `control/bin/adb_reconnect.py` + `control/bin/access_monitor.py`. Logs + state live under
 `~/.config/stayturgid/{logs,state}/`.
 
@@ -487,7 +487,7 @@ stdin pipe), never bare `ssh host '<commands>'` through the login shell.
   **`ansible-test units`** for domain collections (`stayturgid.termux`, `play` under `ansible_collections/stayturgid/`). `just test` runs all
   three.
 - **Tier c (device, read-only):** `just verify` / `tests/run.sh device`.
-- **Drift detection:** `just verify-drift [HOSTS=oneui-device]` — Ansible-based declarative state verification (complements TAP verify). `just verify-heal [HOSTS=oneui-device]` runs verify + auto-heal.
+- **Drift detection:** `just verify-drift [oneui-device]` — Ansible-based declarative state verification (complements TAP verify). `[hosts=oneui-device] just verify-heal` runs verify + auto-heal.
 
 Setup once: `just test-venv` (builds `.venv-test` with ansible-core + pytest +
 pytest-mock + pytest-ansible). CI runs `just test` on every push
@@ -544,7 +544,7 @@ GitHub `master` is the source of truth; updates are pushed to devices from the M
 4. Deploy to the fleet:
    ```bash
    just deploy                    # full site.yml (recommended)
-   just verify HOSTS=oneui-device          # optional TAP after deploy
+   hosts=oneui-device just verify          # optional TAP after deploy
    ```
    Granular: `just deploy-termux`, `just deploy-apks` (bootstrap-apks scope only, #166), `just agent-rollout <host>` (USB recovery on Fire).
 
@@ -739,11 +739,11 @@ F-Droid/Play sources; `post-ui.yml` runs only the Aurora first-run UI. Obtainium
 catalog import is headless and belongs to the main fleet pass, so a normal
 deploy does not require an unlocked screen when app stores are parked.
 
-| Command                            | Scope                                | Mac tools                       |
-| ---------------------------------- | ------------------------------------ | ------------------------------- |
-| `just deploy [HOSTS=…]`            | Full `site.yml` (includes preflight) | fdroidcl, apkeep when stores on |
-| `just deploy SCOPE=fdroid HOSTS=…` | F-Droid tags only                    | fdroidcl                        |
-| `just deploy SCOPE=play HOSTS=…`   | Play + post-ui Aurora                | apkeep                          |
+| Command                           | Scope                                | Mac tools                       |
+| --------------------------------- | ------------------------------------ | ------------------------------- |
+| `just deploy [<host>]`            | Full `site.yml` (includes preflight) | fdroidcl, apkeep when stores on |
+| `scope=fdroid just deploy <host>` | F-Droid tags only                    | fdroidcl                        |
+| `scope=play just deploy <host>`   | Play + post-ui Aurora                | apkeep                          |
 
 **Default repos** (`ansible_collections/stayturgid/fdroid/roles/fdroid_repos/defaults/main.yml`):
 

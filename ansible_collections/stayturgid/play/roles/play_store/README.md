@@ -10,8 +10,8 @@ Ensures optional app sideload via Play backend.
 ## Deploy
 
 ```bash
-just deploy HOSTS=oneui-device     # full fleet (when app stores enabled)
-just deploy SCOPE=play HOSTS=oneui-device
+just deploy oneui-device              # full deploy of one host (when app stores enabled)
+scope=play just deploy oneui-device   # Play scope only
 ```
 
 See [docs/handoff.md](../../../../../docs/handoff.md) for fleet status and [docs/architecture/components/play.md](../../../../../docs/architecture/components/play.md).

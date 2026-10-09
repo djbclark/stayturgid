@@ -97,7 +97,7 @@ python3 control/bin/termux_pkg_nightly.py
 
 ```bash
 just termux-pkg-upgrade              # run now, all hosts
-just --set hosts oneui-device termux-pkg-upgrade    # one host
+just termux-pkg-upgrade oneui-device    # one host
 just termux-pkg-upgrade (--check via just)      # dry run
 just deploy-mac                      # install/reload the launchd agent
 ```

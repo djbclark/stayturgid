@@ -189,8 +189,8 @@ to the change:
 ```bash
 just check                 # code syntax, lint, collection and parser checks
 just test                  # device-free unit suites
-just --set hosts oneui-device verify      # read-only live tier when device behavior changed
-just --set hosts oneui-device deploy-check
+hosts=oneui-device just verify      # read-only live tier when device behavior changed
+just deploy-check oneui-device
 ```
 
 - Add a regression test that would fail on the old defect.

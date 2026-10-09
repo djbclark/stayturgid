@@ -1,7 +1,10 @@
 # stayturgid — operator commands (run `just` or `just --list`).
 #
 # Variables (optional on most recipes):
-#   hosts=oneui-device       Limit to one or more inventory hosts: just deploy hosts=oneui-device fireos-device
+#   hosts=oneui-device       Limit to one or more inventory hosts, as an env var:
+#                            hosts="oneui-device fireos-device" just deploy
+#                            (or one host positionally: just deploy oneui-device).
+#                            `just --set hosts …` does NOT reach nested recipes.
 #   scope=full      Deploy scope: full | fdroid | play | app-stores
 #   devices_only=1  Skip the Mac control_node pass (#57) — for iterating on one device
 #
@@ -9,7 +12,7 @@
 #   just help           → show this listing
 #   just check          → syntax / import checks
 #   just test           → full test suite
-#   just --set hosts oneui-device deploy  → fleet deploy
+#   just deploy oneui-device  → deploy one host (omit the host for the whole fleet)
 
 set shell := ["bash", "-uc"]
 

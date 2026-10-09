@@ -37,8 +37,9 @@ Launchd agents and `devices.conf` are rendered by `ansible/playbooks/control_nod
 ## Fleet deploy
 
 ```bash
-# just --set hosts oneui-device deploy                # whole fleet (recommended)
-# just --set hosts oneui-device deploy-check          # dry run
+# just deploy                                         # whole fleet (recommended)
+# just deploy oneui-device                            # one host
+# just deploy-check oneui-device                      # dry run, one host
 ./control/bin/bootstrap_ssh.py oneui-device             # first SSH key (when Ansible cannot connect yet)
 ./control/bin/deploy_fleet.py oneui-device              # same as just deploy
 CHECK=1 ./control/bin/deploy_fleet.py oneui-device      # same as just deploy-check

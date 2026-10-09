@@ -552,9 +552,9 @@ Flask dashboard's "write" functionality.
   [GitHub](https://github.com/OliveTin/OliveTin).
 - **Configuration:** `config.yaml` is generated from inventory (§4.3). Each
   device gets buttons for common operations:
-  - `just --set hosts <alias> deploy`
-  - `just --set hosts <alias> verify-heal`
-  - `just --set hosts <alias> firerpa-heal`
+  - `just deploy <alias>`
+  - `hosts=<alias> just verify-heal`
+  - `just firerpa-heal <alias>`
   - `just health`
 - **Security best practices** (from
   [OliveTin docs](https://docs.olivetin.app/)):
