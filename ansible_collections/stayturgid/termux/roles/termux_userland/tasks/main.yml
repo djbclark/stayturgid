@@ -405,18 +405,48 @@
     mode: "0644"
   loop: "{{ stayturgid_ui_data_files | default([]) }}"
 
-- name: Remove retired scripts from the old home-root location
-  ansible.builtin.file:
-    path: "{{ termux_home }}/{{ item }}"
-    state: absent
-  loop: "{{ stayturgid_retired_scripts | default([]) }}"
-
-- name: Remove retired Python scripts from device
-  ansible.builtin.file:
-    path: "{{ termux_home }}/.stayturgid/bin/{{ item }}"
-    state: absent
-  loop: "{{ stayturgid_retired_py_scripts | default([]) }}"
-  when: stayturgid_retired_py_scripts | default([]) | length > 0
+# One round-trip for every retired path instead of one `file: state=absent`
+# per entry (#166: this loop alone cost ~12 s on an idempotent s24 run, where
+# every entry is already gone). Paths are relative to $HOME; the script refuses
+# an absolute path or a `..` component, so a bad list entry cannot reach
+# outside it. Check mode runs the script with DRY_RUN=1, which reports what
+# would go without deleting anything.
+- name: Remove retired scripts from the device
+  ansible.builtin.shell:
+    cmd: |
+      set -euf
+      cd "$TERMUX_HOME"
+      gone=""
+      # Newline-split with globbing off (set -f): no heredoc temp file, no
+      # subshell, and an entry is never expanded as a pattern.
+      IFS='
+      '
+      for rel in $RETIRED; do
+        case "/$rel/" in
+          //*|*/../*) echo "refusing unsafe retired path: $rel" >&2; exit 2 ;;
+        esac
+        if [ -e "$rel" ] || [ -L "$rel" ]; then
+          [ "$DRY_RUN" = 1 ] || rm -rf -- "$rel"
+          gone="$gone $rel"
+        fi
+      done
+      if [ -n "$gone" ]; then echo "removed:$gone"; else echo "none"; fi
+    executable: "{{ termux_prefix }}/bin/bash"
+  environment:
+    TERMUX_HOME: "{{ termux_home }}"
+    DRY_RUN: "{{ '1' if ansible_check_mode else '0' }}"
+    RETIRED: >-
+      {{
+        ((stayturgid_retired_scripts | default([]))
+         + (stayturgid_retired_py_scripts | default([]) | map('regex_replace', '^', '.stayturgid/bin/') | list))
+        | join('\n')
+      }}
+  register: _retired_scripts_removed
+  changed_when: _retired_scripts_removed.stdout is search('^removed:', multiline=True)
+  check_mode: false
+  when: >-
+    (stayturgid_retired_scripts | default([]) | length > 0)
+    or (stayturgid_retired_py_scripts | default([]) | length > 0)
 
 # One rsync connection instead of one round-trip per PNG (#166 item 1). No
 # --chmod: see the note on the Python runtime scripts sync above -- relies
