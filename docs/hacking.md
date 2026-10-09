@@ -11,7 +11,7 @@ This document gets a developer from a clean Android + macOS install to a fully w
 | Android device          | Runs stayturgid-agent, Shizuku, Termux — the managed stack          |
 | macOS (Mac)             | Development workstation; runs ADB, Ansible, AI coding agent         |
 | stayturgid-agent        | Native Android agent (Kotlin/Shizuku UserService)                   |
-| Shizuku (thedjchi fork) | Shell-privileged adbd on port 5555 via Wireless Debugging (no root) |
+| Shizuku (ShizukuTendCF) | Shell-privileged adbd on port 5555 via Wireless Debugging (no root) |
 | Termux                  | Linux environment on Android — runs sshd, adb, the boot script      |
 
 ---
@@ -23,8 +23,8 @@ This document gets a developer from a clean Android + macOS install to a fully w
 | App                     | Package                      | Version                    | Source             |
 | ----------------------- | ---------------------------- | -------------------------- | ------------------ |
 | Android                 | —                            | 16 (SDK 36)                | —                  |
-| stayturgid-agent        | `com.stayturgid.agent`       | current                    | Built from source  |
-| Shizuku (thedjchi fork) | `moe.shizuku.privileged.api` | 13.6.0.r1349-thedjchi-beta | GitHub (see below) |
+| stayturgid-agent        | `org.stayturgid.agent`       | current                    | Built from source  |
+| Shizuku (ShizukuTendCF) | `moe.shizuku.privileged.api` | locked in `bootstrap_apks` | GitHub (see below) |
 | Termux                  | `com.termux`                 | 0.118.3                    | GitHub             |
 | Termux:Boot             | `com.termux.boot`            | 0.8.1                      | F-Droid / GitHub   |
 | Termux:API (app)        | `com.termux.api`             | 0.53.0                     | F-Droid / GitHub   |
@@ -70,17 +70,18 @@ This document gets a developer from a clean Android + macOS install to a fully w
 
 Install the following apps.
 
-#### Shizuku — thedjchi fork (CRITICAL: must be this fork)
+#### Shizuku — ShizukuTendCF (the fleet's pinned fork)
 
-The standard Shizuku from Play Store **does not have TCP mode**. You need thedjchi's fork which adds automatic boot-time TCP (port 5555) support via Wireless Debugging.
+The standard Shizuku from Play Store **does not have TCP mode**. The fleet uses
+[ShizukuTendCF](https://github.com/frdminc/ShizukuTendCF) (the frdminc fork, a
+drop-in for `moe.shizuku.privileged.api`), which adds automatic boot-time TCP
+(port 5555) support via Wireless Debugging. It replaced the thedjchi fork
+earlier docs named.
 
-**Source:** https://github.com/thedjchi/Shizuku/releases
-
-**Source:** https://github.com/thedjchi/Shizuku/releases
-
-Select: "GitHub Releases" -> filter for `.apk`.
-
-Install the latest `app-release.apk` from the releases page. Current version: **13.6.0.r1349-thedjchi-beta**.
+Do not install it by hand: `just deploy` installs the exact release pinned in
+`ansible_collections/stayturgid/android_common/roles/bootstrap_apks/defaults/main.yml`
+(the `moe.shizuku.privileged.api` entry: tag, asset name, `version_name` and
+checksum). The pin is the source of truth for the current version.
 
 #### Termux (install from F-Droid or Google Play)
 
@@ -122,7 +123,7 @@ After install: sign in, and in Tailscale settings consider enabling **VPN On-Dem
 
 ---
 
-### 1.3 Configure Shizuku (thedjchi fork)
+### 1.3 Configure Shizuku (ShizukuTendCF)
 
 Open Shizuku → **Settings (gear icon)**. Set:
 

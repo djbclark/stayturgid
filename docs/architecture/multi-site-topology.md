@@ -62,7 +62,7 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 
 ### 2.2 Each new Android device
 
-1. **Hardware / OS prep** — Termux debug build, Termux:Boot, Shizuku (thedjchi fork),
+1. **Hardware / OS prep** — Termux debug build, Termux:Boot, Shizuku (ShizukuTendCF, installed by `just deploy`),
    Tailscale (recommended), wireless debugging — [docs/hacking.md](../hacking.md) Part 1.
 2. **Add host** to your site repo’s `inventory/hosts.yml` + taxonomy groups.
 3. **First SSH** (USB or wireless adb required once):
