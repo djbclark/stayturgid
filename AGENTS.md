@@ -37,16 +37,11 @@ bugs/follow-ups) for what's actually available to pick up next.
   fleet-wide now) but the forced `CLOSED_NO_SHELL` soak still hasn't run.
   Tracked in [#43](https://github.com/djbclark/stayturgid/issues/43) and
   [#45](https://github.com/djbclark/stayturgid/issues/45).
-- OpenObserve↔Vector auth **fixed 2026-07-25**, pending 24h clean-log
-  verification before closing. Tracked in
-  [#44](https://github.com/djbclark/stayturgid/issues/44) — see
-  [docs/STATUS.md](docs/STATUS.md) for the root cause.
 
 **Operator-action queue (things only a human can do):**
 
 1. Physically check offline fleet devices (Tailscale unreachable).
-2. Decide the F1 consent-surface phasing question ([#46](https://github.com/djbclark/stayturgid/issues/46)).
-3. Remove (or authorize removal of) a stray `~/stayturgid` file — the real repo is `${OPS_ROOT:-~/ops}/stayturgid`.
+2. Remove (or authorize removal of) a stray `~/stayturgid` file — the real repo is `${OPS_ROOT:-~/ops}/stayturgid`.
 
 If any of this looks stale, trust `docs/STATUS.md` and `git log` over this
 section — it's a snapshot, not updated every commit.
