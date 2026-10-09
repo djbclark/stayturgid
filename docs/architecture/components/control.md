@@ -133,7 +133,7 @@ Disable: `-e stayturgid_hermes_enabled=false` or `stayturgid_hermes_gateway_enab
 
 **Soft health** (`fleet_health_monitor.py`): when reachable, scrapes watchdog/repair
 ages, STATUS `port`/`shizuku`/`a11y`, AutoJs6 + profile a11y drift, boot loop,
-`localhost:5555` shell. Always logs; macOS notify after ~10 min debounce.
+`localhost:5555` shell. Always logs; sends a Hermes notice after ~10 min debounce.
 Also rate-limits `ensure_et_mac.py` (phone→Mac fleet keys). Disable with
 `STAYTURGID_SKIP_HEALTH=1` or `STAYTURGID_SKIP_ET_MAC=1`. Does not mutate devices
 except ET authorized_keys reconcile + existing watchdog/Google heals.

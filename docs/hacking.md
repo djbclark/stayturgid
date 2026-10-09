@@ -360,7 +360,7 @@ ssh termux
 
 ### 2.5 Install the Mac-side launchd keepalive
 
-This runs `adb connect` every 60 seconds, handles DHCP IP changes, and sends a macOS notification on reconnect or failure.
+This runs `adb connect` every 60 seconds, handles DHCP IP changes, and sends a Hermes notice on reconnect (failure alerts come from `access_monitor.py`, debounced).
 
 **Current (Ansible-generated):** `just deploy` / `site.yml` ends with `control_node/site.yml`
 (Homebrew prereqs, `devices.conf`, `com.stayturgid.*` launchd agents). Partial deploys

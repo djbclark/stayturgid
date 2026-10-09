@@ -191,7 +191,7 @@ epoch and `cat ~/.stayturgid/state/tasker-sshd-recover.result` shows `exit=0`.
 **Nag:** `control/bin/fleet_health_monitor.py` (every 5 min) reports the stamp's
 age as `tasker_recover_age`. If it is missing or older than 7 days on a phone
 with Tasker installed, the monitor fires the broadcast itself (at most hourly);
-if the stamp is still stale on a later pass, it posts a macOS notification
+if the stamp is still stale on a later pass, it sends a Hermes notice
 "stayturgid: action needed" and a WARNING in
 `~/.config/stayturgid/logs/fleet-health.log`, at most daily, until the profile
 works. It nags the same way, also at most daily, when
