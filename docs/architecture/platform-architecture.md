@@ -180,8 +180,9 @@ The following active files contain hardcoded production literals (`oneui-device`
 ### 3.1 Schema
 
 The site Ansible inventory is the **sole authority** for non-secret, declared
-site identity. The file is
-[`ansible/inventory/hosts.yml`](../../ansible/inventory/hosts.yml).
+site identity. The file is `ansible/inventory/hosts.yml` in the site overlay
+(this repo tracks only the pattern,
+[`hosts.yml.example`](../../ansible/inventory/hosts.yml.example)).
 
 **Per-device required fields:**
 
@@ -1168,7 +1169,7 @@ Scan performed 2026-07-14 across the full repository. Production aliases
 
 ### Authoritative Files (Inventory and Schema)
 
-- [`ansible/inventory/hosts.yml`](../../ansible/inventory/hosts.yml) —
+- `ansible/inventory/hosts.yml` (site overlay; not tracked here) —
   Production site inventory (the Single Source of Truth).
 - [`ansible/inventory/hosts.yml.example`](../../ansible/inventory/hosts.yml.example)
   — Generic example inventory with RFC 5737 addresses.

@@ -126,7 +126,7 @@ just deploy-mac
 # or: ansible-playbook ansible/playbooks/control_node/site.yml --tags hermes,agents-ensure
 ```
 
-Site allowlist (Telegram numeric user ids) lives in `ansible/inventory/hosts.yml`
+Site allowlist (Telegram numeric user ids) lives in the site overlay's inventory (`inventory/hosts.yml`)
 (`stayturgid_hermes_telegram_allowed_users`). Pairing: `hermes pairing approve telegram CODE`.
 
 Disable: `-e stayturgid_hermes_enabled=false` or `stayturgid_hermes_gateway_enabled=false`.

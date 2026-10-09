@@ -34,7 +34,7 @@ stable ID. Current fleet/workstream state lives in
 > recovers without a manual one-shot next time. Rule:
 > [docs/rules/fleet-health-self-heal.md](rules/fleet-health-self-heal.md).
 >
-> Human-only tasks: [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md). Operator
+> Human-only tasks: the operator-action queue in [docs/STATUS.md](STATUS.md). Operator
 > answers: `human/RESPONSES.md` (gitignored). Session context:
 > [docs/STATUS.md](STATUS.md). Coding and completion rules:
 > [docs/coding-rules.md](coding-rules.md).
