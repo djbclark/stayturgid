@@ -194,3 +194,41 @@ def test_half_installed_boundary_warns_before_falling_back(monkeypatch, capsys, 
         assert "without privilege separation" in capsys.readouterr().err
     finally:
         real.cache_clear()
+
+
+def test_conftest_alone_makes_both_module_spellings_importable():
+    """Regression for #312: a single test file must run on its own.
+
+    The autouse `_secretspec_boundary_present` fixture imports both
+    `secretspec_exec` and `control.lib.secretspec_exec`. The second spelling
+    needs the repo root on sys.path. It used to arrive only because some other
+    collected test file happened to add it, so `pytest <one file>` errored at
+    fixture setup while the full suite stayed green. Load conftest in a fresh
+    interpreter with nothing else on the path and import both spellings.
+    """
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    tests_dir = Path(__file__).resolve().parent
+    probe = (
+        "import importlib.util, sys\n"
+        f"spec = importlib.util.spec_from_file_location('conftest', {str(tests_dir / 'conftest.py')!r})\n"
+        "mod = importlib.util.module_from_spec(spec)\n"
+        "spec.loader.exec_module(mod)\n"
+        "import secretspec_exec\n"
+        "import control.lib.secretspec_exec\n"
+        "print('ok')\n"
+    )
+    env = {k: v for k, v in os.environ.items() if k != "PYTHONPATH"}
+    result = subprocess.run(
+        [sys.executable, "-I", "-c", probe],
+        cwd="/",
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "ok"
