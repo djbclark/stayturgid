@@ -353,3 +353,20 @@ def test_notify_reports_whether_the_send_worked(monkeypatch):
     assert hermes_notify.notify("t", "m") is False
     monkeypatch.setattr(hermes_notify, "_hermes_bin", lambda: "/nonexistent/hermes")
     assert hermes_notify.notify("t", "m") is False
+
+
+def test_broken_secretspec_boundary_is_recorded_and_notified(monkeypatch, tmp_path):
+    """review-2 1.1a: BoundaryUnavailable used to escape as a bare traceback,
+    with no termux_pkg_error record and no Hermes notice."""
+    from control.lib import secretspec_exec as boundary
+
+    def broken():
+        raise boundary.BoundaryUnavailable("/var/db/sudo-secretspec exists but sudo-secretspec is not on PATH.")
+
+    monkeypatch.setattr(boundary, "boundary_available", broken)
+    code, records, notices = _run_nightly(monkeypatch, tmp_path, "", rc=0)
+    assert code == 2
+    assert len(records) == 1 and records[0][0][0] == "preflight" and "not on PATH" in records[0][0][1]
+    assert len(notices) == 1 and "did not complete (preflight:" in notices[0]
+    _, records, notices = _run_nightly(monkeypatch, tmp_path, "", rc=0)
+    assert len(records) == 1 and notices == []  # telemetry nightly, Hermes once

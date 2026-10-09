@@ -42,7 +42,7 @@ if str(REPO_ROOT) not in sys.path:
 from control.lib import hermes_notify
 from control.lib.ansible_context import AnsibleConfigError, require_inventory, resolve_ansible_context, resolved_env
 from control.lib.fleet_deploy_lock import FleetLockHeld, fleet_lock
-from control.lib.secretspec_exec import secretspec_run
+from control.lib.secretspec_exec import BoundaryUnavailable, secretspec_run
 from control.lib.stats import record_termux_pkg_error
 
 PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "fleet" / "termux-pkg-upgrade.yml"
@@ -262,12 +262,22 @@ def main(argv: list[str] | None = None) -> int:
         record_termux_pkg_error("preflight", str(exc), rc=2)
         return 2
 
-    cmd = secretspec_run(
-        "ansible-playbook",
-        str(PLAYBOOK),
-        "-e",
-        "stayturgid_repo_root=%s" % REPO_ROOT,
-    )
+    try:
+        cmd = secretspec_run(
+            "ansible-playbook",
+            str(PLAYBOOK),
+            "-e",
+            "stayturgid_repo_root=%s" % REPO_ROOT,
+        )
+    except BoundaryUnavailable as exc:
+        # A provisioned node whose sudo-secretspec broke (#287 fails closed).
+        # Under launchd an uncaught traceback would only reach the .err.log,
+        # failing silently every night: record it and tell Hermes once.
+        log("ERROR: %s" % exc)
+        record_termux_pkg_error("preflight", str(exc), rc=2)
+        if not check and not args.limit and notify_run_failure("preflight", str(exc)):
+            log("hermes: notified run-level failure")
+        return 2
     if args.limit:
         cmd.extend(["--limit", args.limit])
     if check:
