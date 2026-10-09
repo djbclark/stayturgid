@@ -11,10 +11,10 @@ List installed packages on an adb target (control node).
 _all: "{{ lookup('stayturgid.android_common.android_packages', adb_target) }}"
 
 # Regex filter (second term)
-_fdroid: "{{ lookup('stayturgid.android_common.android_packages', adb_target, 'fdroid|droidify') }}"
+_termux: "{{ lookup('stayturgid.android_common.android_packages', adb_target, 'termux') }}"
 
 # Membership test
-_has_neo: "{{ neo_store_package in lookup('stayturgid.android_common.android_packages', adb_target) }}"
+_has_agent: "{{ 'org.stayturgid.agent' in lookup('stayturgid.android_common.android_packages', adb_target) }}"
 ```
 
-Replaces shell `pm list packages` tasks in fdroid and play roles.
+Replaces shell `pm list packages` tasks in roles (for example `fleet.validate`).

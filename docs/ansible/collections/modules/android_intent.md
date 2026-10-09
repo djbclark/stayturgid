@@ -22,11 +22,14 @@ app versions), optionally falls back to an implicit intent.
 ## Example
 
 ```yaml
-- name: Push F-Droid repo to Neo Store
+# As used by the fleet.shizuku_config role
+- name: Apply Shizuku fleet profile via intent
   stayturgid.android_common.android_intent:
     device: "{{ adb_target }}"
-    data: "fdroidrepos://apt.izzysoft.de/fdroid/repo?fingerprint=3BF0..."
-    component: com.machiav3lli.fdroid/.NeoActivity
+    action: moe.shizuku.privileged.api.APPLY_FLEET_PROFILE
+    component: moe.shizuku.privileged.api/af.shizuku.manager.fleet.FleetProfileActivity
+    extras:
+      profile_path: /sdcard/Android/data/moe.shizuku.privileged.api/files/shizuku-fleet.json
   delegate_to: localhost
   changed_when: false
 ```
