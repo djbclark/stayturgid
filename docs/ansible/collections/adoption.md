@@ -45,13 +45,13 @@ Or call the module directly:
    key paths) in your inventory or group_vars. The role copies scripts from
    `stayturgid_repo_root/device/termux/` — set that to this repo path or your fork.
 
-## F-Droid / Play modules (control-node adb)
+## Play and other control-node (adb) modules
 
 These modules run on `localhost` and need:
 
 1. `adb` on PATH
 2. Optional `~/.config/stayturgid/devices.conf` (alias → USB serial / Tailscale IP)
-3. `brew install fdroidcl` (fdroid) or `apkeep` / `gplaycli` (play)
+3. `apkeep` or `gplaycli` for the optional Play sideload
 
 Use the lookup plugin instead of inline Python in your roles:
 
@@ -59,36 +59,33 @@ Use the lookup plugin instead of inline Python in your roles:
 - ansible.builtin.set_fact:
     adb_target: "{{ lookup('stayturgid.android_common.adb_device', 'myphone') }}"
 
-- stayturgid.fdroid.fdroid_repos:
-    repos: "{{ my_fdroid_repos }}"
+- stayturgid.android_common.android_settings:
     device: "{{ adb_target }}"
+    settings:
+      - { namespace: global, key: stay_on_while_plugged_in, value: "3" }
   delegate_to: localhost
 ```
 
-Install `stayturgid.android_common` automatically when you install `stayturgid.fdroid`
-or `stayturgid.play` (declared in `galaxy.yml` dependencies).
+Installing `stayturgid.play` installs `stayturgid.android_common` automatically
+(declared in its `galaxy.yml` dependencies). The `stayturgid.fdroid` and
+`stayturgid.obtainium` collections, and the Aurora automation in `play_store`,
+were deleted in July 2026 (#119, #145); fleet apps now come from the
+checksummed `bootstrap_apks` lock.
 
 Companion roles ship in each collection:
 
-| Collection role FQCN                      | Purpose                                                                                                                                                                                                             |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `stayturgid.termux.termux_userland`       | Termux bootstrap over SSH                                                                                                                                                                                           |
-| `stayturgid.obtainium.obtainium_apps`     | Render Obtainium catalog on device                                                                                                                                                                                  |
-| `stayturgid.fdroid.fdroid_repos`          | fdroidcl + Neo Store repo push                                                                                                                                                                                      |
-| `stayturgid.play.play_store`              | Aurora Shizuku grant + `play_apps`                                                                                                                                                                                  |
-| `stayturgid.android_common.tailscale_vpn` | Always-on VPN secure settings                                                                                                                                                                                       |
-| `stayturgid.fleet.post_ui`                | Post-deploy UI tasks (screen-unlock gate for app-stores; the `android_ui` module it used to call was deleted in #162 — its only dispatch entry, the AutoJs6 Shizuku drawer task, was already removed independently) |
-| `stayturgid.fleet.validate`               | Post-deploy repair/a11y smoke (role; wired by `validate.yml`)                                                                                                                                                       |
-
-## Obtainium (on-device over SSH)
-
-`stayturgid.obtainium.obtainium_app` renders JSON on the device via Termux SSH.
-Catalog import previously ran via an `android_ui` screen-control task
-(`import_obtainium_catalog`); that module was deleted in #162 (its only
-remaining dispatch entry was the unrelated, already-dead AutoJs6 Shizuku
-drawer task — this Obtainium entry point may need its own separate
-follow-up if catalog import is still needed). Legacy Mac-only path:
-`control/tools/obtainium/import_catalog.py`.
+| Collection role FQCN                       | Purpose                                                                                                                                                                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stayturgid.termux.termux_userland`        | Termux bootstrap over SSH                                                                                                                                                                                           |
+| `stayturgid.android_common.bootstrap_apks` | Install the locked bootstrap APKs over ADB (exact tag, version and checksum)                                                                                                                                        |
+| `stayturgid.android_common.ensure_apps`    | Per-app ensure that dispatches each spec to the Play or APK module                                                                                                                                                  |
+| `stayturgid.android_common.app_privileges` | Battery-unrestricted, unused-app restrictions off, runtime grants for fleet apps                                                                                                                                    |
+| `stayturgid.android_common.tailscale_vpn`  | Always-on VPN secure settings                                                                                                                                                                                       |
+| `stayturgid.fleet.shizuku_config`          | Shizuku headless configuration                                                                                                                                                                                      |
+| `stayturgid.firerpa.firerpa`               | FIRERPA server install and configuration (when `firerpa_enabled`)                                                                                                                                                   |
+| `stayturgid.play.play_store`               | Optional apkeep/gplaycli sideload, gated by `stayturgid_app_stores_enabled` (default false)                                                                                                                         |
+| `stayturgid.fleet.post_ui`                 | Post-deploy UI tasks (screen-unlock gate for app-stores; the `android_ui` module it used to call was deleted in #162 — its only dispatch entry, the AutoJs6 Shizuku drawer task, was already removed independently) |
+| `stayturgid.fleet.validate`                | Post-deploy repair/a11y smoke (role; wired by `validate.yml`)                                                                                                                                                       |
 
 ## Backward-compatible FQCNs
 
