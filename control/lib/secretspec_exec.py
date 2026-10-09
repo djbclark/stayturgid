@@ -22,7 +22,20 @@ commands are rejected by the broker and by this selector.
 
 CI and other machines without the boundary use direct ``secretspec`` with their
 normal provider configuration.  Set ``STAYTURGID_SECRETSPEC_DIRECT=1`` to
-exercise that path deliberately.
+exercise that path deliberately on such a machine.
+
+A *provisioned* control node (one where the canonical vault directory exists)
+never falls back (#287): if the companion is missing there, or the direct path
+is forced, building a command raises :class:`BoundaryUnavailable` and the
+dependent work stops.  A broken broker is a repair job, not a licence to read
+secrets from some other manifest or provider.  For the same reason this seam
+refuses the SecretSpec selectors that point at an alternate manifest
+(``--file``/``-f`` and ``SECRETSPEC_FILE``) on every path.  The
+``SECRETSPEC_FILE`` check reads this process's inherited environment
+(``os.environ``); a caller that passes its own ``env=`` to the child must
+derive it from ``os.environ`` (every caller does today) or the guard does not
+see what the child gets.  On the brokered path this is moot: the companion
+purges ``SECRETSPEC_*`` before it execs.
 
 Replaced the ``stayturgid-secretspec-wrapper.sh`` boundary, retired 2026-08-15
 when the vault moved to ``/var/db/sudo-secretspec``.  The wrapper ran as the
@@ -35,7 +48,6 @@ from __future__ import annotations
 
 import os
 import shutil
-import sys
 from functools import lru_cache
 
 BOUNDARY_BIN = "sudo-secretspec"
@@ -53,21 +65,64 @@ RUN_REASON = "stayturgid approved ansible automation"
 TOKEN_REASON = "stayturgid firerpa mcp bearer token"
 
 
+# SecretSpec's own ways of pointing at a manifest other than the one the
+# broker resolves. Neither has a legitimate use from automation in this repo.
+ALTERNATE_MANIFEST_ENV = "SECRETSPEC_FILE"
+ALTERNATE_MANIFEST_FLAGS = ("--file", "-f")
+
+REPAIR_HINT = "See docs/operations/secretspec-boundary-lifecycle.md to repair."
+
+
+class BoundaryUnavailable(RuntimeError):
+    """The managed SecretSpec boundary is provisioned here but not usable.
+
+    Raised instead of falling back to direct ``secretspec``: on a provisioned
+    control node a broker failure stops dependent work (#287).
+    """
+
+
+def _provisioned() -> bool:
+    """True when this machine carries the canonical vault."""
+    return os.path.isdir(VAULT_DIR)
+
+
 @lru_cache(maxsize=1)
 def boundary_available() -> bool:
-    """True when the privilege-separated SecretSpec path is usable here."""
+    """True when the privilege-separated SecretSpec path is usable here.
+
+    False only on a machine that was never provisioned with the vault (CI, a
+    fresh checkout elsewhere). On a provisioned control node this either
+    returns True or raises :class:`BoundaryUnavailable`; it never selects the
+    direct path there.
+    """
     if os.environ.get(FORCE_DIRECT_ENV) == "1":
+        if _provisioned():
+            raise BoundaryUnavailable(
+                f"{FORCE_DIRECT_ENV}=1 is refused on a provisioned control node: "
+                f"{VAULT_DIR} is the only secret store here. Unset it to use {BOUNDARY_BIN}."
+            )
         return False
     if shutil.which(BOUNDARY_BIN) is not None:
         return True
-    if os.path.isdir(VAULT_DIR):
-        print(
-            f"WARNING: {VAULT_DIR} exists but {BOUNDARY_BIN} is not on PATH — "
-            "falling back to direct secretspec, without privilege separation. "
-            "See docs/operations/secretspec-secrets-management.md to repair.",
-            file=sys.stderr,
+    if _provisioned():
+        raise BoundaryUnavailable(
+            f"{VAULT_DIR} exists but {BOUNDARY_BIN} is not on PATH. Refusing to fall "
+            f"back to direct secretspec or any other manifest. {REPAIR_HINT}"
         )
     return False
+
+
+def _reject_alternate_manifest(args: tuple[str, ...]) -> None:
+    """Refuse SecretSpec-level selectors for a different manifest.
+
+    Only the arguments before ``--`` belong to SecretSpec; anything after it is
+    the target command's own argv (``ansible-playbook -f 5`` is a fork count).
+    """
+    own = args[: args.index("--")] if "--" in args else args
+    for arg in own:
+        # `-fPATH` is clap's attached short form of `-f PATH`.
+        if arg in ALTERNATE_MANIFEST_FLAGS or arg.startswith(("--file=", "-f")):
+            raise ValueError(f"alternate SecretSpec manifest selector {arg!r} is not allowed")
 
 
 def _approved_automation(command: tuple[str, ...]) -> bool:
@@ -82,13 +137,19 @@ def secretspec_command(*args: str) -> list[str]:
     """
     if not args:
         raise ValueError("SecretSpec command cannot be empty")
+    _reject_alternate_manifest(args)
+    brokered = boundary_available()
+    if not brokered and os.environ.get(ALTERNATE_MANIFEST_ENV):
+        # The companion purges SECRETSPEC_* before exec, so this only matters on
+        # the direct path, where secretspec would honour it.
+        raise ValueError(f"{ALTERNATE_MANIFEST_ENV} selects an alternate SecretSpec manifest; unset it")
     if args[:2] != ("run", "--"):
-        if boundary_available():
+        if brokered:
             raise ValueError("arbitrary SecretSpec subcommands are unavailable through the boundary")
         return ["secretspec", *args]
 
     command = tuple(args[2:])
-    if boundary_available():
+    if brokered:
         if not _approved_automation(command):
             raise ValueError("only ansible-playbook is approved through the boundary")
         # The broker audits the target by basename and refuses anything
@@ -119,4 +180,6 @@ def secretspec_token_command(name: str) -> list[str]:
         raise ValueError(f"only {APPROVED_SECRET} is available through the boundary")
     if boundary_available():
         return [BOUNDARY_BIN, "get", APPROVED_SECRET, "--reason", TOKEN_REASON]
+    if os.environ.get(ALTERNATE_MANIFEST_ENV):
+        raise ValueError(f"{ALTERNATE_MANIFEST_ENV} selects an alternate SecretSpec manifest; unset it")
     return ["secretspec", "get", name]

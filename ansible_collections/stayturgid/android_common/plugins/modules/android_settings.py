@@ -40,6 +40,24 @@ options:
   require_package:
     description: When set, skip all changes if this package is not installed.
     type: str
+  lockdown_management_host:
+    description:
+      - Address the control node manages this device through (normally C(ansible_host)).
+      - Used by the always-on VPN lockdown interlock, see I(notes).
+    type: str
+  lockdown_management_port:
+    description: TCP port on I(lockdown_management_host) the interlock must reach (Termux sshd by default).
+    type: int
+    default: 8022
+notes:
+  - "Lockdown interlock (stayturgid#289): a request for C(secure/always_on_vpn_lockdown=1)
+    is honoured only when (1) a tunN/tailscale interface on the device holds an IPv4 in
+    100.64.0.0/10, so Tailscale is logged in and connected, (2) I(lockdown_management_host)
+    is that same tailnet address, so Ansible already reaches the device over the VPN, and
+    (3) a TCP connect from the control node to that host and I(lockdown_management_port)
+    succeeds. Otherwise lockdown is written as C(0), a warning names the failed check,
+    and C(lockdown_interlock.blocked) is true. Blocking traffic outside a VPN that is not
+    up would sever ADB-over-TCP and Termux SSH, and recovery is physical."
 """
 
 EXAMPLES = r"""
@@ -67,12 +85,19 @@ skipped:
 results:
   description: Per-setting outcomes.
   type: list
+lockdown_interlock:
+  description: Present when lockdown=1 was requested. C(blocked), C(reason), C(device_tailnet_ip).
+  type: dict
 """
+
+import socket
 
 from ansible.module_utils.basic import AnsibleModule
 
 from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_shell import (
     adb_connect,
+    device_tailnet_ipv4,
+    is_tailnet_ipv4,
     normalize_adb_output,
     package_installed,
     settings_get,
@@ -91,6 +116,80 @@ def ensure_setting(run_command, device, namespace, key, value, check_mode):
     if rc == 0:
         return True, "set"
     return False, normalize_adb_output(err) or "failed"
+
+
+LOCKDOWN_NAMESPACE = "secure"
+LOCKDOWN_KEY = "always_on_vpn_lockdown"
+MANAGEMENT_CONNECT_TIMEOUT = 5
+
+
+def tcp_reachable(host, port, timeout=MANAGEMENT_CONNECT_TIMEOUT):
+    try:
+        sock = socket.create_connection((host, int(port)), timeout=timeout)
+    except (OSError, ValueError):
+        return False
+    sock.close()
+    return True
+
+
+def lockdown_interlock(run_command, device, management_host, management_port, reachable=tcp_reachable):
+    """Return (allowed, reason, device_tailnet_ip) for enabling VPN lockdown (#289)."""
+    tailnet_ip = device_tailnet_ipv4(run_command, device)
+    if not tailnet_ip:
+        return (
+            False,
+            "Tailscale is not logged in and connected on the device (no 100.64.0.0/10 address on a tun interface)",
+            None,
+        )
+    if not management_host:
+        return False, "no management host given, so the management path cannot be verified", tailnet_ip
+    if not is_tailnet_ipv4(management_host):
+        return (
+            False,
+            "the control node manages this device through %s, which is not a tailnet address; lockdown would cut that path"
+            % management_host,
+            tailnet_ip,
+        )
+    if management_host != tailnet_ip:
+        return (
+            False,
+            "management host %s is not the device's tailnet address %s" % (management_host, tailnet_ip),
+            tailnet_ip,
+        )
+    if not reachable(management_host, management_port):
+        return (
+            False,
+            "management path %s:%s is not reachable from the control node over the tailnet"
+            % (management_host, management_port),
+            tailnet_ip,
+        )
+    return True, "verified", tailnet_ip
+
+
+def apply_lockdown_interlock(module, device, settings):
+    """Rewrite a lockdown=1 request to 0 unless the interlock passes. Returns the interlock report or None."""
+    wants_lockdown = [
+        item
+        for item in settings
+        if item["namespace"] == LOCKDOWN_NAMESPACE and item["key"] == LOCKDOWN_KEY and item["value"] == "1"
+    ]
+    if not wants_lockdown:
+        return None
+    allowed, reason, tailnet_ip = lockdown_interlock(
+        module.run_command,
+        device,
+        module.params.get("lockdown_management_host"),
+        module.params.get("lockdown_management_port"),
+        reachable=tcp_reachable,
+    )
+    if not allowed:
+        for item in wants_lockdown:
+            item["value"] = "0"
+        module.warn(
+            "always_on_vpn_lockdown=1 refused, left at 0 (stayturgid#289 interlock): %s. "
+            "Log in to Tailscale on the device and manage it through its tailnet address first." % reason
+        )
+    return dict(blocked=not allowed, reason=reason, device_tailnet_ip=tailnet_ip)
 
 
 def main():
@@ -113,6 +212,8 @@ def main():
                 ),
             ),
             require_package=dict(type="str"),
+            lockdown_management_host=dict(type="str"),
+            lockdown_management_port=dict(type="int", default=8022),
         ),
         supports_check_mode=True,
     )
@@ -130,6 +231,8 @@ def main():
     if require_package and not package_installed(module.run_command, device, require_package):
         skipped = True
         module.exit_json(changed=False, skipped=True, results=[])
+
+    interlock = apply_lockdown_interlock(module, device, settings)
 
     for item in settings:
         item_changed, status = ensure_setting(
@@ -150,7 +253,8 @@ def main():
             )
         )
 
-    module.exit_json(changed=changed, skipped=skipped, results=results)
+    extra = {} if interlock is None else dict(lockdown_interlock=interlock)
+    module.exit_json(changed=changed, skipped=skipped, results=results, **extra)
 
 
 if __name__ == "__main__":

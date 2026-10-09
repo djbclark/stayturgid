@@ -16,3 +16,6 @@ serverapp_landing_health_url: "http://127.0.0.1:8088/health"
 # No default for serverapp_landing_uid — always supplied as an extra-var by
 # control/site_contract/serverapps.py (os.getuid()); fail closed otherwise.
 serverapp_landing_discover_interval: "3600"
+# Hash of the tracked control/landing/ files the running agents were started
+# from (#224); a mismatch kickstarts them on the next deploy.
+serverapp_landing_code_state_file: "{{ serverapp_landing_home }}/.config/{{ site_ns }}/landing-code.sha256"

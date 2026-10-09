@@ -40,9 +40,17 @@ except ImportError:
 
 
 def get_bearer_token() -> str | None:
+    """Fetch the bearer token; None when it does not resolve.
+
+    A broken SecretSpec boundary is not "the token is undeclared": building
+    the command raises ``BoundaryUnavailable`` before the ``try``, so the
+    caller can report the real repair instead of telling the operator to
+    declare a secret that may already exist.
+    """
+    cmd = secretspec_token_command(APPROVED_SECRET)
     try:
         res = subprocess.run(
-            secretspec_token_command(APPROVED_SECRET),
+            cmd,
             capture_output=True,
             text=True,
             check=True,
@@ -252,7 +260,11 @@ def main():
         # no authentication at all -- and because the log line is a WARNING on
         # an otherwise healthy service, nothing surfaced it. It ran that way
         # from 2026-08-01 to 2026-08-15.
-        token = get_bearer_token()
+        try:
+            token = get_bearer_token()
+        except secretspec_exec.BoundaryUnavailable as exc:
+            _log(ERROR, f"Refusing to start HTTP transport: SecretSpec boundary unavailable: {exc}")
+            return 78  # EX_CONFIG
         if not token:
             _log(
                 ERROR,
