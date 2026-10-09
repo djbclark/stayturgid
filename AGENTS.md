@@ -90,7 +90,8 @@ server (Maestro 2.6.1, `~/.maestro/bin/maestro mcp`, about 170 MB per session).
 2. Its driver takes the device's UiAutomation slot, so it cannot run beside
    Handsets, uiautomator2 or FireRPA's own UI layer.
 3. Never use its `*_cloud*` tools, which run on the paid Maestro Cloud.
-   Both servers are set up in `.mcp.json`.
+
+Both servers are set up in `.mcp.json`.
 
 ## Environment
 
