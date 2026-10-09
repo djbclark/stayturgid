@@ -51,13 +51,16 @@ duplicated (by necessity — Kotlin/CFEngine/Python can't share a literal
 constant) in three places, all cross-referencing each other in comments:
 `HeartbeatWriter.HEARTBEAT_INTERVAL_MS`, `stayturgid.cf`'s `freshness_sec`,
 `fleet_health.py`'s `AGENT_HEARTBEAT_FRESH_SEC`. Worst-case detection latency
-for a genuinely dead agent: 420s + one local boot-loop cycle (≤300s,
-`STAYTURGID_INTERVAL_SEC`) ≈ 12 minutes; a Mac-hailed cf-runagent run can catch
+for a genuinely dead agent: 420s + one local boot-loop cycle (≤900s
+as deployed: `STAYTURGID_INTERVAL_SEC` is rendered from
+`stayturgid_interval_sec: 900`; `start_adb.py`'s 300s default applies only
+when it is unset) ≈ 22 minutes (corrected 2026-10-09, #201/#18; this note
+first said ≤300s and ≈12 minutes); a Mac-hailed cf-runagent run can catch
 it sooner since it runs the bundle on demand.
 
 **Reboot escalation is alert-only — this bundle never executes a reboot.**
-After `reboot_after=3` consecutive not-alive checks (~15 min at the 5-minute
-boot-loop cadence) despite both restart attempts, `check_stayturgid_agent`
+After `reboot_after=3` consecutive not-alive checks (~45 min at the deployed 15-minute
+boot-loop cadence; first written as ~15 min at 5 minutes) despite both restart attempts, `check_stayturgid_agent`
 writes a state file (`$(s)/state/agent_reboot_candidate`) and nothing more.
 `fleet_health.py` surfaces it as an `agent_reboot_candidate` issue tag, which
 flows into the _existing_ `notify()` desktop-alert path in
@@ -191,12 +194,12 @@ this PR does not do that.
 
 ## 6. Freshness/threshold numbers, for quick reference
 
-| Constant                        | Value                                    | Where                                                                                                |
-| ------------------------------- | ---------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Heartbeat write interval        | 120s                                     | `HeartbeatWriter.HEARTBEAT_INTERVAL_MS`                                                              |
-| Freshness threshold             | 420s (3× + 60s jitter)                   | `stayturgid.cf` `freshness_sec`, `fleet_health.py` `AGENT_HEARTBEAT_FRESH_SEC` — **must stay equal** |
-| Reboot-candidate threshold      | 3 consecutive not-alive checks (~15 min) | `stayturgid.cf` `reboot_after`                                                                       |
-| Worst-case dead-agent detection | ≈12 min (420s + ≤300s boot-loop cycle)   | derived                                                                                              |
+| Constant                        | Value                                                | Where                                                                                                |
+| ------------------------------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Heartbeat write interval        | 120s                                                 | `HeartbeatWriter.HEARTBEAT_INTERVAL_MS`                                                              |
+| Freshness threshold             | 420s (3× + 60s jitter)                               | `stayturgid.cf` `freshness_sec`, `fleet_health.py` `AGENT_HEARTBEAT_FRESH_SEC` — **must stay equal** |
+| Reboot-candidate threshold      | 3 consecutive not-alive checks (~45 min as deployed) | `stayturgid.cf` `reboot_after`                                                                       |
+| Worst-case dead-agent detection | ≈22 min (420s + ≤900s boot-loop cycle as deployed)   | derived                                                                                              |
 
 ## 7. Status / next steps
 
