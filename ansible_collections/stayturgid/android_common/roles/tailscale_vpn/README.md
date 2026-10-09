@@ -7,7 +7,7 @@ Defaults (`group_vars/all.yml`):
 - `stayturgid_always_on_vpn: true`
 - `stayturgid_always_on_vpn_lockdown: false` — do **not** enable "Block connections without VPN" (breaks LAN ADB when tun0 is down)
 
-Included in `fleet.yml` after `obtainium_apps` (Tailscale must be installed).
+Included in `fleet.yml` after `shizuku_config` (Tailscale must be installed; the bootstrap APK lock installs it).
 
 ```bash
 ./control/bin/deploy_fleet.py          # all hosts
