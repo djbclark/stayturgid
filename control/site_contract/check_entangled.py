@@ -43,6 +43,17 @@ class EntangledCheckError(Exception):
     """Parity or inventory failure."""
 
 
+class EntangledMissing(EntangledCheckError):
+    """entangled-cli is not importable: an environment problem, not parity drift.
+
+    Kept apart from parity problems so ``main`` never answers a missing
+    dependency with the "edit SITE-CONTRACT.md then entangled tangle" hint,
+    which sent a worker editing the document for a venv problem.
+    """
+
+    MESSAGE = "entangled-cli missing: run `just test-venv` (installs tests/python/requirements.txt)"
+
+
 def _require_entangled():
     try:
         from entangled.config import AnnotationMethod  # noqa: F401
@@ -50,10 +61,7 @@ def _require_entangled():
         from entangled.io import TransactionMode, transaction  # noqa: F401
         from entangled.io.virtual import FileCache  # noqa: F401
     except ModuleNotFoundError as exc:  # pragma: no cover - env-dependent
-        raise EntangledCheckError(
-            "entangled-cli is required for site-contract parity "
-            "(install via tests/python/requirements.txt / just test-venv)"
-        ) from exc
+        raise EntangledMissing(EntangledMissing.MESSAGE) from exc
 
 
 def expected_literate_contents(*, repo_root: Path | None = None) -> dict[str, str]:
@@ -125,6 +133,8 @@ def check_parity(*, repo_root: Path | None = None) -> list[str]:
 
     try:
         expected = expected_literate_contents(repo_root=root)
+    except EntangledMissing:
+        raise  # environment problem: main() reports it without the parity hint
     except EntangledCheckError as exc:
         return [str(exc)]
 
@@ -174,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
     os.chdir(REPO_ROOT)
     try:
         problems = check_parity(repo_root=REPO_ROOT)
-    except EntangledCheckError as exc:
+    except EntangledCheckError as exc:  # includes EntangledMissing: no parity hint
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
