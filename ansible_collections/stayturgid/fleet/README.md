@@ -11,8 +11,10 @@ on only what they need:
 | [stayturgid.play](../../../docs/architecture/components/play.md)     | `play_apps`                                                | apkeep/gplaycli + adb install |
 | [stayturgid.android_common](../android_common/README.md)             | `android_a11y_services`, `shizuku_grant`, `android_apk`, … | ADB + a11y tasks (ADR 002)    |
 
-**Fleet roles:** `stayturgid.fleet.post_ui` (post-deploy screen-control);
-`stayturgid.fleet.validate` (repair/sshd/a11y smoke + optional a11y drift merge).
+**Fleet roles:** `stayturgid.fleet.post_ui` (post-deploy screen-unlock gate;
+the `android_ui` module it used to call was deleted in #162);
+`stayturgid.fleet.validate` (repair/sshd/a11y smoke + warn-only legacy AutoJs6
+a11y probe).
 
 ## Backward compatibility
 
