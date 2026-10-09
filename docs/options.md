@@ -380,16 +380,20 @@ always-on Ollama in Termux:Boot; **any Inferno/`emu`/Styx work** (parked under
 install/configure/service/uninstall; playbook (`fleet/firerpa.yml`); Python heal script
 (`firerpa_heal.py`); launchd health monitor (`firerpa_health_monitor.py` every 10 min);
 Termux boot integration in Python `start_adb.py`. Deployed on oneui-device +
-stock-android-device (v10.9 :65000). fireos-device blocked by Fire OS SELinux
-(peer-bootstrap covers it; no plan to fix).
+stock-android-device (v10.9 :65000). fireos-device (hd8) runs FIRERPA 10.0
+through control-node ADB rather than the on-device shell bridge, and a plain
+`just deploy` now converges it to the pinned version
+([#311](https://github.com/djbclark/stayturgid/issues/311), closed
+2026-10-03); see [docs/STATUS.md](STATUS.md).
 
 **Known limitations (by design, not open work):** FIRERPA inbound SSH is
 enabled as user `shell` with a private custom service certificate. After
 reboot the server archive still needs a UID-2000 bridge: `start_adb.py` first
 tries localhost ADB; when needed it uses authorized Shizuku `rish` to restart
 adbd, waits for localhost:5555, then launches through persistent ADB.
-Built-in ADB needs root (stayturgid uses the shell bridge); fireos-device
-remains unsupported. Architecture docs:
+Built-in ADB needs root (stayturgid uses the shell bridge); fireos-device has
+no on-device shell bridge (Fire OS clears TCP ADB and wireless-debugging state
+across reboot), so it depends on control-node ADB. Architecture docs:
 `docs/research/evaluations/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md`,
 `docs/research/evaluations/firerpa-nonroot-redundancy-deepseek-pro-2026-07-12.md`,
 `docs/research/evaluations/firerpa-install-map-2026-07-12.md`.
