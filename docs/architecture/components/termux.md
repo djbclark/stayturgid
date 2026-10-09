@@ -136,4 +136,4 @@ ssh oneui-device '~/.stayturgid/bin/stayturgid_agent_presence.py status'
 - [docs/hacking.md §1.4](../../hacking.md) — manual Termux setup
 - [docs/handoff.md](../../handoff.md) — repair architecture
 - [docs/research/experiments/on-device-llm.md](../../research/experiments/on-device-llm.md) — optional shell-gpt escalation (not hot-path)
-- [docs/architecture/components/autojs6.md](autojs6.md) — watchdog layer
+- [docs/architecture/components/autojs6.md](autojs6.md) — retired AutoJs6 watchdog layer (history; the native agent replaced it in K1)

@@ -5,11 +5,11 @@ replaced this watchdog fleet-wide with the Kotlin APK `device/native-agent/`
 (OPTIONS **K1**), which now owns inject + co-monitor + shell catastrophic
 recovery. The `autojs6_watchdog` Ansible role was retired in the same commit.
 **Do not add new fleet-facing AutoJs6 automation** — this code is kept as
-reference only. See [docs/STATUS.md](../../STATUS.md) for the current,
-**not yet fully verified**, cutover state (AutoJs6 uninstall on some devices
-is unconfirmed) and
+reference only. AutoJs6 was confirmed absent (`pm list packages`) on all
+three fleet devices on 2026-07-31 (see [docs/options.md](../../options.md)
+K1 and [docs/STATUS.md](../../STATUS.md)). See
 [handoff-2026-07-23-native-agent-k1.md](../../operations/sessions/handoff-2026-07-23-native-agent-k1.md)
-for what remains.
+for the cutover history.
 
 **2026-07-31 update:** the code this document describes has been deleted
 entirely (issue #162) — `device/autojs6/`, `control/tools/autojs6/`,
