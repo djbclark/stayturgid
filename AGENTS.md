@@ -84,7 +84,7 @@ Day to day: `just health`, `just errors`, `just firerpa-health`, `just test`.
 **Driving a device from an agent (2026-10-09):** use the `firerpa` MCP server first.
 It is the remote bridge on `100.113.53.87:8000`; never run the local stdio bridge,
 which is too heavy. If it is down or unreachable, fall back to the `maestro` MCP
-server (Maestro 2.6.1, `~/.maestro/bin/maestro mcp`, about 170 MB per session).
+server (Maestro 2.11.0, `~/.maestro/bin/maestro mcp`, about 220 MB per session).
 
 1. Maestro only sees devices attached to this Mac's adb (`adb devices`).
 2. Its driver takes the device's UiAutomation slot, so it cannot run beside
