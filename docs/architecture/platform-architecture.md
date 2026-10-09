@@ -169,7 +169,7 @@ The following active files contain hardcoded production literals (`oneui-device`
 | `control/bin/cf-run.sh`                    | Embedded `oneui-device`, `stock-android-device`, `fireos-device` aliases | `violation` — Require explicit target host argument                |
 | `control/bin/firerpa_heal.py`              | Reference to production aliases and IPs                                  | `violation` — Resolve addresses dynamically using `resolve_adb`    |
 | `control/bin/firerpa_health_monitor.py`    | Reference to production aliases and IPs                                  | `violation` — Resolve addresses dynamically                        |
-| `control/tools/obtainium/*.py`             | Reference to production aliases                                          | `violation` — Require CLI arguments                                |
+| `control/tools/obtainium/*.py` (removed)   | Reference to production aliases                                          | `resolved` — directory removed with Obtainium (#119)               |
 | `control/tools/play/*.py`                  | Reference to production aliases                                          | `violation` — Require CLI arguments                                |
 | `device/termux/py/stayturgid_peer_help.py` | References to sibling hostnames                                          | `violation` — Read peers list from `peers.json` projection         |
 

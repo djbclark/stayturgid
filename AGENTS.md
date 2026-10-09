@@ -120,7 +120,7 @@ unless the job genuinely needs local machine access; never raw `cron`.
 - Announce before device interaction: 🚨📱🚨 USING — host — why — ~N min
 - Screen control requires `ScreenControlSession` (fail-closed).
 - Accessibility is detection-only. Never `settings put` accessibility services automatically.
-- Logging uses syslog severity levels (EMERG..DEBUG). See `control/lib/logging.py`.
+- Logging uses syslog severity levels (EMERG..DEBUG). See `control/lib/site_logging.py`.
 - Every desired state gets a unique ID in `tests/healing_registry.json`. Pre-flight
   `just test` fails if a `must_cover` ID is missing from any healing mechanism.
 - Follow multi-agent protocol at bottom of AGENTS.md (fetch-pull before edits).
