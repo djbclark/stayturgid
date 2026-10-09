@@ -53,7 +53,7 @@ stays scannable. Current fleet/workstream snapshot: [docs/STATUS.md](STATUS.md).
 `H5` denotes two different items (open: Galaxy token; closed: pre-commit/typos
 tooling). `H1`/`H3` denote two different items (open: fireos-device Python
 deploy/Ansible push; closed 2026-07-09: an earlier, unrelated scope in the
-trailing ledger). `F1` denotes two different items (open: MCP bridge; closed:
+trailing ledger). `F1` denotes two different items (MCP bridge, shipped and closed 2026-07-29; also closed:
 "Fire F1–F5" in the 2026-07-09 ledger). Check the surrounding track/date when
 an ID is ambiguous.
 
