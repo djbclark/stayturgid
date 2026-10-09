@@ -194,12 +194,14 @@ AGENTS.md or coding-rules.md — that's the split this table encodes.
 
 ## Multi-Agent Protocol
 
-Before any edit in a source task worktree:
+Before any edit in the checkout (`${OPS_ROOT:-~/ops}/stayturgid`; separate task
+worktrees and deploy checkouts went away with the release retirement):
 `git fetch origin --prune && git pull --ff-only origin master`.
 Always commit and push when done. Leave no uncommitted changes.
 If `git pull` fails with a merge conflict, STOP and report it.
 Verify changes are yours before editing — if a file has unrelated modifications
-from another agent, leave it alone and report it.
+from another agent, leave it alone and report it: never stash, add or reset
+their files, and never `git commit -a` (stage exact paths).
 
 ## CFEngine reference book — query it, don't guess (2026-10-03)
 
