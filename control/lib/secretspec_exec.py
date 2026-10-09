@@ -169,12 +169,10 @@ def secretspec_run(*command: str) -> list[str]:
 def secretspec_token_command(name: str) -> list[str]:
     """Return the fixed FIRERPA token fetch; no caller-selected ``get``.
 
-    NOTE: ``FIRERPA_MCP_TOKEN`` is not declared in the tracked manifest, so this
-    resolves to nothing on the control node today and
-    ``control/bin/firerpa_mcp.py`` falls back to starting its HTTP transport
-    unauthenticated. That predates this module's rewrite -- the retired wrapper
-    asked for a lowercase ``firerpa_mcp_token`` that was equally undeclared --
-    and declaring the secret is what fixes it, not a change here.
+    If the token does not resolve, ``control/bin/firerpa_mcp.py`` refuses to
+    start its HTTP transport (exit 78) rather than serve unauthenticated, as it
+    did from 2026-08-01 to 2026-08-15. The fix for that is declaring and setting
+    the secret through ``sudo-secretspec``, not a change here.
     """
     if name != APPROVED_SECRET:
         raise ValueError(f"only {APPROVED_SECRET} is available through the boundary")

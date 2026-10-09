@@ -31,6 +31,7 @@ this is read only when needed.
 | `just vnu`                                   | W3C Nu HTML Checker on rendered pages (requires :4097)                                                                                                                 |
 | `just lighthouse`                            | Full-page Lighthouse audit (requires Chrome/Chromium on PATH)                                                                                                          |
 | `just secretspec-check`                      | Verify all required secrets are set                                                                                                                                    |
+| `just secretspec-drift`                      | Static gate: no tracked secret store, alternate manifest, plain `secretspec` call or retired artifact                                                                  |
 | `just ruff`                                  | Python lint + format check (ruff)                                                                                                                                      |
 | `just biome`                                 | JavaScript/CSS lint + format check (Biome)                                                                                                                             |
 | `just shfmt`                                 | Shell script format check (shfmt)                                                                                                                                      |
