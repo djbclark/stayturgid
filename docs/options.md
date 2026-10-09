@@ -93,8 +93,9 @@ Best done during cold-device end-to-end (B64) or with an idle device.
 
 #### B64 — Full cold-device end-to-end (agent) · Risk: **Medium** · Needs: virgin device
 
-Run `just deploy --limit <new_device>` from a device with only USB debugging
-enabled. Validates the entire bootstrap chain: APK install → Termux:Boot
+Run `just deploy <new_device>` from a device with only USB debugging
+enabled. Termux's first launch is an unmodelled precondition on this path
+([#290](https://github.com/djbclark/stayturgid/issues/290)). Validates the entire bootstrap chain: APK install → Termux:Boot
 launch → Shizuku start → SSH bootstrap → fleet deploy. This is the only way
 to test all links in the chain together. Prefer a factory-reset device or one
 not in active fleet use.
@@ -249,8 +250,8 @@ session on hd8, including once triggered simply by restarting
 `shizuku_server` locally, with no OS reboot or app reinstall involved.
 Tracked as its own issue, [#158](https://github.com/djbclark/stayturgid/issues/158)
 (patch the `frdminc/Shizuku` fork to make `org.stayturgid.agent`'s grant
-permanent). **Still open**: the forced `CLOSED_NO_SHELL` soak test has not
-run.
+permanent). As of 2026-07-31 the forced `CLOSED_NO_SHELL` soak test had not
+run; it ran on 2026-08-01 and failed (next paragraph).
 
 **2026-08-01 release25 soak:** hd8 was rebooted with Shizuku
 `13.7.0-thedjchi+stayturgid-release25` installed and AutoJs6 absent, then
@@ -263,7 +264,8 @@ never appeared. No manual recovery was issued. Thus the soak was run but did
 before the agent can classify or repair `CLOSED_NO_SHELL`. The remaining four
 acceptance items remain verified; issue
 [#43](https://github.com/djbclark/stayturgid/issues/43) stays open for this
-Fire-OS boot-path failure.
+Fire-OS boot-path failure, which [#188](https://github.com/djbclark/stayturgid/issues/188) ("hd8: shizuku_server never
+starts after reboot") tracks in detail.
 
 ---
 

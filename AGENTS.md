@@ -34,8 +34,10 @@ bugs/follow-ups) for what's actually available to pick up next.
 
 - K1 native-agent cutover (2026-07-22) is **not fully verified** — AutoJs6
   removal was live-checked 2026-07-25 (the cutover's claim was false; fixed
-  fleet-wide now) but the forced `CLOSED_NO_SHELL` soak still hasn't run.
-  Tracked in [#43](https://github.com/djbclark/stayturgid/issues/43) and
+  fleet-wide now). The forced `CLOSED_NO_SHELL` soak ran on hd8 on
+  2026-08-01 and **failed**: Shizuku never started after the reboot, so the
+  agent could not reach the repair. The live failure is [#188](https://github.com/djbclark/stayturgid/issues/188);
+  also tracked in [#43](https://github.com/djbclark/stayturgid/issues/43) and
   [#45](https://github.com/djbclark/stayturgid/issues/45).
 
 **Operator-action queue (things only a human can do):**
