@@ -5,31 +5,33 @@ modules could replace custom code.
 
 ## Already using Ansible builtins / collection modules
 
-| Task                           | Module / lookup                              | Role                             |
-| ------------------------------ | -------------------------------------------- | -------------------------------- |
-| SSH public keys (steady state) | `ansible.posix.authorized_key`               | `termux_userland`                |
-| SSH bootstrap (pre-SSH, adb)   | `stayturgid.termux.termux_ssh_bootstrap`     | `preflight.yml`, `bootstrap.yml` |
-| sshd config + restart          | `stayturgid.termux.termux_sshd`              | `termux_userland`                |
-| Package mirror / scripts       | `ansible.builtin.copy`                       | `termux_userland`                |
-| Termux packages                | `stayturgid.termux.termux_pkg`               | `termux_userland`                |
-| ADB alias resolve              | `stayturgid.android_common.adb_device`       | fdroid, play, tailscale          |
-| Package detection              | `stayturgid.android_common.android_packages` | fdroid, play                     |
-| F-Droid client component       | `stayturgid.android_common.fdroid_client`    | fdroid (via `fdroid_repo_push`)  |
-| Unified app ensure             | `stayturgid.android_common.ensure_apps`      | fleet (optional)                 |
+| Task                           | Module / lookup                              | Role                                                                         |
+| ------------------------------ | -------------------------------------------- | ---------------------------------------------------------------------------- |
+| SSH public keys (steady state) | `ansible.posix.authorized_key`               | `termux_userland`                                                            |
+| SSH bootstrap (pre-SSH, adb)   | `stayturgid.termux.termux_ssh_bootstrap`     | `preflight.yml`, `bootstrap.yml`                                             |
+| sshd config + restart          | `stayturgid.termux.termux_sshd`              | `termux_userland`                                                            |
+| Package mirror / scripts       | `ansible.builtin.copy`                       | `termux_userland`                                                            |
+| Termux packages                | `stayturgid.termux.termux_pkg`               | `termux_userland`                                                            |
+| ADB alias resolve              | `stayturgid.android_common.adb_device`       | play, shizuku_config, app_privileges, post_ui, validate, bootstrap playbooks |
+| Package detection              | `stayturgid.android_common.android_packages` | validate                                                                     |
+| F-Droid client component       | `stayturgid.android_common.fdroid_client`    | none (legacy; F-Droid automation removed in #119)                            |
+| Unified app ensure             | `stayturgid.android_common.ensure_apps`      | fleet (optional)                                                             |
 
 ## Custom modules (required — no upstream equivalent)
 
-| Module                                                                 | Why custom                                      |
-| ---------------------------------------------------------------------- | ----------------------------------------------- |
-| `termux_pkg`                                                           | Termux pkg/apt, not system apt                  |
-| `obtainium_app`                                                        | No Obtainium API                                |
-| `fdroid_repos` / `fdroid_install` / `fdroid_apps` / `fdroid_repo_push` | fdroidcl wrapper                                |
-| `play_apps`                                                            | apkeep/gplaycli + adb install                   |
-| `android_appops` / `android_settings`                                  | adb grants/settings                             |
-| `android_a11y_services`                                                | merge-only a11y list backup/restore             |
-| `shizuku_grant`                                                        | pm grant + conditional Shizuku server restart   |
-| `android_apk` / `android_intent`                                       | adb install / intents                           |
-| `termux_ssh_bootstrap`                                                 | Pre-SSH adb + `run-as` key install (no SSH yet) |
+| Module                                | Why custom                                         |
+| ------------------------------------- | -------------------------------------------------- |
+| `termux_pkg`                          | Termux pkg/apt, not system apt                     |
+| `play_apps`                           | apkeep/gplaycli + adb install                      |
+| `android_appops` / `android_settings` | adb grants/settings                                |
+| `android_a11y_services`               | merge-only a11y list backup/restore                |
+| `shizuku_grant`                       | pm grant + conditional Shizuku server restart      |
+| `android_apk` / `android_intent`      | adb install / intents                              |
+| `termux_ssh_bootstrap`                | Pre-SSH adb + `run-as` key install (no SSH yet)    |
+| `android_app_privileges`              | adb privilege grants for the `app_privileges` role |
+| `native_agent_config`                 | Native-agent peer configuration over ADB           |
+| `shizuku_start`                       | Start Shizuku over ADB and apply the fleet profile |
+| `stayturgid_verify`                   | Device state verification and drift detection      |
 
 ## Shell tasks — remaining
 
