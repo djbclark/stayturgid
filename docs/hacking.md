@@ -492,9 +492,11 @@ stdin pipe), never bare `ssh host '<commands>'` through the login shell.
 - **Drift detection:** `just verify-drift [oneui-device]` — Ansible-based declarative state verification (complements TAP verify). `[hosts=oneui-device] just verify-heal` runs verify + auto-heal.
 
 Setup once: `just test-venv` (builds `.venv-test` with ansible-core + pytest +
-pytest-mock + pytest-ansible). CI runs `just test` on every push
-(`.github/workflows/test.yml`). `just lint` = shellcheck + ansible-lint +
-yamllint. Deploy the fleet with `./control/bin/deploy_fleet.py` (Ansible;
+pytest-mock + pytest-ansible). Tests run locally and through pre-commit; there
+is no PR-gating CI (the `test.yml` workflow was removed in 2e3a6ef). The only
+workflows build collections on tag pushes (`collection-build.yml`, which runs
+`just ansible-test`) and check Termux:X11 releases. `just lint` = shellcheck +
+ansible-lint + yamllint and the other fast checks. Deploy the fleet with `./control/bin/deploy_fleet.py` (Ansible;
 `CHECK=1` for a dry run).
 
 Cheap pre-commit gates (if not running the full `just test`): `bash -n` each
