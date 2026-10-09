@@ -215,7 +215,9 @@ def main(argv: list[str] | None = None) -> int:
         issues = issues_from_rest(rest)
         n = consec.get(host, 0)
         age_min = (dt.datetime.now() - ts).total_seconds() / 60.0
-        stale_scrape = age_min > 20  # launchd is 5 min; >20 min = agent stuck
+        # fleet-health runs every 15 min (stayturgid_interval_sec: 900), so
+        # 20 min is little more than one interval: one late run reads as stuck.
+        stale_scrape = age_min > 20
         if not stale_scrape:
             currently_reachable.add(host)
         if issues == ["maintenance"]:

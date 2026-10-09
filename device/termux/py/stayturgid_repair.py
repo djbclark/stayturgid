@@ -1377,9 +1377,10 @@ def ensure_pkg_upgrade_daily():
 # threshold, not a general anomaly detector.
 ERROR_RATE_WINDOW_SEC = 3600  # rolling window: last hour
 # ensure_tailscale (and other checks) log a fresh ERR every repair cycle
-# (~STAYTURGID_INTERVAL_SEC=300s in start_adb.py) they still see the same
-# failure, so a *sustained* problem produces ~12 ERR lines/hour. Threshold=3
-# (~15 min of consecutive failing cycles) is high enough that one or two
+# (STAYTURGID_INTERVAL_SEC: 900s as deployed by the termux_userland role;
+# start_adb.py falls back to 300s only when it is unset) they still see the same
+# failure, so a *sustained* problem produces ~4 ERR lines/hour. Threshold=3
+# (~30-45 min of consecutive failing cycles at 900s) is high enough that one or two
 # transient blips don't page a human, low enough to catch a real outage well
 # before the old "nobody happened to SSH in today" discovery path.
 ERROR_RATE_THRESHOLD = 3
