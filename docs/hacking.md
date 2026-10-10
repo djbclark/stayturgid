@@ -40,6 +40,45 @@ This document gets a developer from a clean Android + macOS install to a fully w
 | curl                | 8.21.0    |
 | wget                | 1.25.0-1  |
 
+### Termux Python packages (pip): none, unmanaged by policy (proposed, #309)
+
+The fleet installs **no** on-device pip packages, and nothing in this repo
+declares, pins, upgrades or audits one. That is deliberate rather than a gap,
+as long as the facts below stay true. **Status: proposed; the operator has not
+yet ratified it** ([#309](https://github.com/djbclark/stayturgid/issues/309)).
+
+Evidence (re-checked 2026-10-09 against the branch carrying this section):
+
+1. **Device-side Python is stdlib-only.** An `ast` walk over every Python file
+   the role ships (`stayturgid_py_scripts` and `stayturgid_lib_files` in
+   `termux_userland/defaults/main.yml`, plus the firerpa role's `files/*.py`;
+   21 files) finds no third-party import. The only non-stdlib names are
+   guarded fallbacks to repo-local modules (`shared.ui_clearance`,
+   `control.lib.site_logging`).
+2. **The only pip packages on the fleet were hand-installed.** On t2e
+   (2026-10-03, read-only probe in the #309 thread) one `pip install termux-ai`
+   pulled in `requests`, `urllib3`, `certifi`, `idna` and `charset-normalizer`.
+   `proot-distro` is the apt package, not pip. s24 and p7a carry only `pip`.
+3. **Nothing would notice a pip package going stale.** The nightly upgrade
+   (`control/bin/termux_pkg_nightly.py`) and the update checker
+   (`control/bin/check_termux_pkg_updates.py`) see only apt.
+
+What the policy means in practice:
+
+- Device code stays stdlib-only. A change that needs a third-party package on
+  the device must first prefer the Termux **apt** package (`python-requests`
+  and similar), added to `stayturgid_termux_packages`, so the nightly upgrade
+  and the update checker cover it for free.
+- Only if apt lacks it does a pip layer get built, as a sibling of the apt
+  layer: a declared list, a check-mode-safe convergence step and a
+  `pip list --outdated` pass in the checker. The design options are in the
+  #309 thread; the custom-module shape is the one that keeps `deploy-check`
+  honest.
+- Hand-installed pip packages on a device are outside the policy. Removing
+  t2e's (`pip uninstall termux-ai requests urllib3 certifi idna
+charset-normalizer`) restores parity with s24/p7a; that is the operator's
+  call and has not been done.
+
 ### macOS development tools
 
 | Tool                              | Version                  | Install                                                  |
