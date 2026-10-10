@@ -5,6 +5,10 @@
   hosts: localhost
   connection: local
   gather_facts: true
+  # Only platform/distribution/env facts are read (os_family, architecture,
+  # ansible_env.HOME); the hardware/network/virtual collectors cost several
+  # seconds on a loaded Mac for nothing (#166).
+  gather_subset: [min]
   tags: [mac, agents-ensure, always]
   tasks:
     - name: Skip launchd ensure on non-macOS

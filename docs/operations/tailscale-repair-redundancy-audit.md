@@ -1,11 +1,13 @@
 # Tailscale repair redundancy audit (issue #201)
 
-Source-derived audit, 2026-10-09. Answers the first half of
-[#201](https://github.com/djbclark/stayturgid/issues/201): what the native
-agent and the Termux repair loop each do for Tailscale, where they overlap, and
-what consolidation would cost. The issue's second half (watch a real boot and
-compare timings) still needs a device and is listed under "Field verification"
-below. No code was changed.
+Source-derived audit, 2026-10-09 (ClaudeHelm night run; evening run added
+sections 7 to 9 and the exact field-verification commands). Answers the first
+half of [#201](https://github.com/djbclark/stayturgid/issues/201): what the
+native agent and the Termux repair loop each do for Tailscale, where they
+disagree, which should own what, and what consolidation would cost. The issue's
+second half (watch a real boot and compare timings) still needs a device and is
+listed under "Field verification" below with the commands to run. The only code
+change is the no-risk constant consolidation in section 8.
 
 Context: [agent-apk-migration-candidates.md](agent-apk-migration-candidates.md)
 ("Tailscale repair (Termux copy) — Audit redundancy only").
@@ -17,19 +19,19 @@ Healing-registry IDs `TAILSCALE-VPN` and `TAILSCALE-ALWAYSON`
 `ansible_deploy` as **must_cover**. So the redundancy is currently enforced by
 the pre-flight test, not accidental.
 
-| Aspect                                         | Native agent                                                                                                                                                   | Termux repair                                                                                                                              | Ansible deploy                                                                                                               |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
-| Code                                           | `CatastrophicRepair.repairTailscale()` in `device/native-agent/app/src/main/kotlin/org/stayturgid/agent/CatastrophicRepair.kt`, probes in `ComonitorProbes.kt` | `ensure_tailscale()` and `_tailscale_status()` in `device/termux/py/stayturgid_repair.py`                                                  | role `stayturgid.android_common.tailscale_vpn`                                                                               |
-| Trigger                                        | `HostService.callComonitor()` sees `tailscale=down` or `tailscale_policy=down` in the agent STATUS line                                                        | Every repair pass (step 10 of `main()`), unconditionally                                                                                   | Fleet deploy                                                                                                                 |
-| Cadence                                        | Once after the Shizuku bind succeeds (bind retried for up to 5 min after boot), then every 20 min plus a per-device stagger (`COMONTOR_INTERVAL_MS`)           | 30 s boot settle (`STAYTURGID_BOOT_SETTLE_SEC`), then every 300 s (`STAYTURGID_INTERVAL_SEC`), plus one pass after an ADB re-authorisation | On demand                                                                                                                    |
-| Privilege                                      | uid 2000 via the Shizuku UserService, so it works on Fire OS and split-storage hosts                                                                           | Needs localhost:5555 adbd (`have_sh`); returns `unknown` and does nothing without it (PR #179)                                             | ADB from the Mac                                                                                                             |
-| Policy written                                 | `always_on_vpn_app=com.tailscale.ipn`, `always_on_vpn_lockdown=0`, written on every call before probing                                                        | Same two settings, same hard-coded `0`                                                                                                     | `always_on_vpn_app`, and lockdown from `stayturgid_always_on_vpn_lockdown`; skipped when `stayturgid_always_on_vpn` is false |
-| Runtime probe                                  | Tunnel interface (`tailscale0` or `tunN`) in `/proc/net/dev` and one ping to `controlplane.tailscale.com`                                                      | Same interface regex read through `sh_adb`, two pings                                                                                      | None                                                                                                                         |
-| Reconnect                                      | `CONNECT_VPN` broadcast to `IPNReceiver`, then 4 polls at 2 s                                                                                                  | Same broadcast, then 3 polls at 2 s                                                                                                        | None                                                                                                                         |
-| Never launches MainActivity                    | Yes (agent 0.9.8, #64)                                                                                                                                         | Yes (#199)                                                                                                                                 | n/a                                                                                                                          |
-| Honors `device.json` `tailscaleEnabled: false` | **No.** `ComonitorProbes` skips only when the package is not installed                                                                                         | Yes, returns `skip`                                                                                                                        | n/a (`stayturgid_tailscale_enabled` only feeds `device.json`)                                                                |
-| Failure signal                                 | `agent.log` line "tailscale still down after CONNECT_VPN" (picked up by `control/lib/fleet_health.py`)                                                         | `watchdog.log` ERR line, `rc=1`, counted by the on-device error-rate notifier                                                              | Task failure                                                                                                                 |
-| Tests                                          | `ComonitorProbesTest.kt` covers the interface parser only; `repairTailscale()` itself has no unit test                                                         | `tests/python/test_stayturgid_repair.py` covers up, repaired, FAILED and the no-shell `unknown` case                                       | Module unit tests for `android_settings`                                                                                     |
+| Aspect                                         | Native agent                                                                                                                                                   | Termux repair                                                                                                                                                                                                                                                      | Ansible deploy                                                                                                               |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| Code                                           | `CatastrophicRepair.repairTailscale()` in `device/native-agent/app/src/main/kotlin/org/stayturgid/agent/CatastrophicRepair.kt`, probes in `ComonitorProbes.kt` | `ensure_tailscale()` and `_tailscale_status()` in `device/termux/py/stayturgid_repair.py`                                                                                                                                                                          | role `stayturgid.android_common.tailscale_vpn`                                                                               |
+| Trigger                                        | `HostService.callComonitor()` sees `tailscale=down` or `tailscale_policy=down` in the agent STATUS line                                                        | Every repair pass (step 10 of `main()`), unconditionally                                                                                                                                                                                                           | Fleet deploy                                                                                                                 |
+| Cadence                                        | Once after the Shizuku bind succeeds (bind retried for up to 5 min after boot), then every 20 min plus a per-device stagger (`COMONTOR_INTERVAL_MS`)           | 30 s boot settle (`STAYTURGID_BOOT_SETTLE_SEC`), then every 900 s as deployed (`STAYTURGID_INTERVAL_SEC`, rendered from `stayturgid_interval_sec: 900`; `start_adb.py`'s 300 s default applies only when it is unset), plus one pass after an ADB re-authorisation | On demand                                                                                                                    |
+| Privilege                                      | uid 2000 via the Shizuku UserService, so it works on Fire OS and split-storage hosts                                                                           | Needs localhost:5555 adbd (`have_sh`); returns `unknown` and does nothing without it (PR #179)                                                                                                                                                                     | ADB from the Mac                                                                                                             |
+| Policy written                                 | `always_on_vpn_app=com.tailscale.ipn`, `always_on_vpn_lockdown=0`, written on every call before probing                                                        | Same two settings, same hard-coded `0`                                                                                                                                                                                                                             | `always_on_vpn_app`, and lockdown from `stayturgid_always_on_vpn_lockdown`; skipped when `stayturgid_always_on_vpn` is false |
+| Runtime probe                                  | Tunnel interface (`tailscale0` or `tunN`) in `/proc/net/dev` and one ping to `controlplane.tailscale.com`                                                      | Same interface regex read through `sh_adb`, two pings                                                                                                                                                                                                              | None                                                                                                                         |
+| Reconnect                                      | `CONNECT_VPN` broadcast to `IPNReceiver`, then 4 polls at 2 s                                                                                                  | Same broadcast, then 3 polls at 2 s                                                                                                                                                                                                                                | None                                                                                                                         |
+| Never launches MainActivity                    | Yes (agent 0.9.8, #64)                                                                                                                                         | Yes (#199)                                                                                                                                                                                                                                                         | n/a                                                                                                                          |
+| Honors `device.json` `tailscaleEnabled: false` | **No.** `ComonitorProbes` skips only when the package is not installed                                                                                         | Yes, returns `skip`                                                                                                                                                                                                                                                | n/a (`stayturgid_tailscale_enabled` only feeds `device.json`)                                                                |
+| Failure signal                                 | `agent.log` line "tailscale still down after CONNECT_VPN" (picked up by `control/lib/fleet_health.py`)                                                         | `watchdog.log` ERR line, `rc=1`, counted by the on-device error-rate notifier                                                                                                                                                                                      | Task failure                                                                                                                 |
+| Tests                                          | `ComonitorProbesTest.kt` covers the interface parser only; `repairTailscale()` itself has no unit test                                                         | `tests/python/test_stayturgid_repair.py` covers up, repaired, FAILED and the no-shell `unknown` case                                                                                                                                                               | Module unit tests for `android_settings`                                                                                     |
 
 ## 2. What is duplicated
 
@@ -52,10 +54,12 @@ out on hosts that have a privileged shell:
 1. **Termux fires first after boot.** Its first pass runs 30 s after the boot
    loop starts. The agent's first check waits for the Shizuku bind, which the
    agent itself retries for up to 5 minutes.
-2. **Termux fires more often in steady state.** 5 minutes against the agent's
-   20 minutes. On a shell-capable host the agent only acts if a drop happens
-   and is still present at its next tick, after Termux has already had up to
-   four chances.
+2. **Termux fires somewhat more often in steady state.** 15 minutes as
+   deployed (`stayturgid_interval_sec: 900`) against the agent's 20 minutes
+   plus stagger. On a shell-capable host the agent only acts if a drop happens
+   and is still present at its next tick, after Termux has already had one or
+   two chances. The lead is small, so the field timing below matters more
+   than the nominal cadences.
 3. **On Fire OS and split-storage hosts the agent is the only working copy.**
    Termux has no uid-2000 shell there and correctly reports `unknown`.
 
@@ -102,7 +106,8 @@ reviewable change:
    - Shell-capable hosts: keep Termux as the fast detector and repairer, or
      shorten the agent's Tailscale check to match. The agent's 20-minute
      co-monitor cadence is the obstacle to making it sole owner. Running the
-     cheap Tailscale probe on the 5-minute ping loop would remove it.
+     cheap Tailscale probe on the agent's 5-minute ping loop (`PING_INTERVAL_MS`),
+     which is already faster than the 15-minute Termux loop, would remove it.
 3. **Only after the field verification below shows the agent repairing within
    one Termux interval**, reduce the Termux copy to a probe that reports status
    and leaves repair to the agent, then drop `termux_repair` from the two
@@ -126,15 +131,111 @@ reviewable change:
 
 ## 6. Field verification still required (the issue's ask)
 
-On one shell-capable phone and one Fire OS tablet:
+Needs a device and the operator's go-ahead, so it was not run. One
+shell-capable phone first (test order s24, hd8, p7a), then one Fire OS tablet.
+Announce the device use first. `H` is the inventory host, `S` its USB serial;
+all reads are over USB so a Tailscale drop cannot take the observer with it.
 
-1. Reboot, then record the timestamps of the first Termux `STATUS` line in
-   `watchdog.log`, the first agent `STATUS` line in `agent.log`, and the first
-   `tailscale=up` in each.
-2. With the device up, disconnect Tailscale from its notification and record
-   which copy logs the reconnect first and how long the tunnel stays down.
-3. On a host with `tailscaleEnabled: false` and Tailscale installed, confirm
-   whether the agent rewrites `always_on_vpn_app` (divergence 1).
+```bash
+H=s24; S=<usb-serial>
+TERMUX_LOG=/sdcard/stayturgid/logs/watchdog.log   # Termux repair loop
+AGENT_LOG=/sdcard/stayturgid/logs/agent.log       # native agent co-monitor
+```
 
-This needs device access and the operator's go-ahead, so it was not run during
-the audit.
+1. **Boot race.** `adb -s $S reboot`, wait for `adb -s $S wait-for-device`, then
+   after ten minutes pull both logs (`adb -s $S pull $TERMUX_LOG`,
+   `adb -s $S pull $AGENT_LOG`) and record, from the reboot time: the first
+   Termux `STATUS` line, the first `[agent] STATUS` line, and the first
+   `tailscale=up` in each. Also record the first Termux line that says
+   "Tailscale runtime/policy restored" or "Tailscale still down", and the first
+   `repairTailscale`/`tailscale restored` line from the agent, if either copy
+   acted. Whichever copy acted first, and how long after boot, is the answer to
+   the issue's question.
+2. **Mid-day drop.** With the device up, disconnect Tailscale from its
+   notification (or the app's toggle), note the time, and poll
+   `adb -s $S shell "grep -oE '(tailscale0|tun[0-9]+)' /proc/net/dev | sort -u"`
+   every 30 s until an interface is back. Then pull both logs again and record
+   which copy logged the reconnect first (Termux "restored via" / agent
+   "restored via CONNECT_VPN") and the total time the tunnel was down. Expect
+   up to 15 min (Termux) or 20 min plus stagger (agent).
+3. **Divergence 1 (agent ignores `tailscaleEnabled: false`).** Only on a host
+   whose `device.json` has `"tailscaleEnabled": false` and Tailscale installed:
+   `adb -s $S shell settings get secure always_on_vpn_app` before and after the
+   agent's next co-monitor tick (watch `$AGENT_LOG`). If it changes to
+   `com.tailscale.ipn`, the divergence is confirmed live.
+4. **Fire OS.** Repeat step 1 on hd8 and confirm the Termux copy logs
+   `unknown` for Tailscale (no uid-2000 shell) while the agent reports a real
+   state.
+
+Record the four results in a comment on #201; they decide between sections 5
+and 7.
+
+## 7. Which copy should own what (recommendation, reconciled)
+
+Two readings of the same code were posted on #201 the night before this
+section was written: the one above (agent authoritative, thin Termux in
+stages) and a second comment (keep both until the agent checks Tailscale at
+about the Termux cadence). They agree on every fact and differ only on
+sequencing, so the recommendation is:
+
+| Concern                                                          | Owner                                                                                           | Why                                                                                                                    |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Always-on policy (`always_on_vpn_app`, `always_on_vpn_lockdown`) | **Ansible** sets it; the device copies only re-assert what `device.json` says                   | One source of truth. Today both device copies hard-code lockdown `0` (divergence 2) and so override the deploy         |
+| Runtime repair on Fire OS / split-storage                        | **Agent only**                                                                                  | Already true in practice: Termux has no uid-2000 shell and reports `unknown`                                           |
+| Runtime repair on shell-capable hosts                            | **Agent**, once its Tailscale check runs on the 5-minute ping loop; **Termux stays** until then | The agent is the only copy that works everywhere, but today Termux is the faster responder (15 min vs 20 plus stagger) |
+| Detection / fleet-health signal                                  | **Both**, always                                                                                | The Termux STATUS line is read by the Mac's fleet health; it costs nothing to keep after the repair action is removed  |
+| Reconnect action after thinning                                  | Agent                                                                                           | Termux becomes probe-only (keep `_tailscale_status`, drop the `settings put` and the broadcast)                        |
+
+Order of work, each its own reviewable change:
+
+1. Render `stayturgid_always_on_vpn` and `stayturgid_always_on_vpn_lockdown`
+   into `device.json` and have both device copies read them (divergence 2).
+   Do this **only** after the #289 interlock has been verified on a device
+   ([tailscale-lockdown-interlock.md](deep-dives/tailscale-lockdown-interlock.md)
+   section 6) and with Tailscale key expiry disabled for fleet nodes, because
+   it is what makes `lockdown=1` durable.
+2. Make the agent honour `tailscaleEnabled: false` (divergence 1).
+3. Run the agent's Tailscale probe on its 5-minute ping loop.
+4. Run the field verification in section 6.
+5. If step 4 shows the agent repairing within one Termux interval, make the
+   Termux copy probe-only and move `termux_repair` from `must_cover` to
+   `should_cover` on `TAILSCALE-VPN` and `TAILSCALE-ALWAYSON` in
+   `tests/healing_registry.json` in the same commit.
+
+Keep both until step 5. Nothing is deleted on the strength of code reading
+alone.
+
+## 8. No-risk consolidation done in this audit
+
+1. `device/termux/py/stayturgid_repair.py`: the `CONNECT_VPN` broadcast action
+   was the one Tailscale literal not held in a constant; it is now
+   `TAILSCALE_CONNECT_ACTION`, the same name the agent uses
+   (`CatastrophicRepair.TAILSCALE_CONNECT_ACTION`). Behaviour unchanged;
+   `tests/python/test_stayturgid_repair.py` covers the broadcast.
+2. `ansible/inventory/group_vars/all.yml`: the comment on
+   `stayturgid_tailscale_enabled` still said "AutoJs6 watchdog"; it now names
+   the Termux loop and notes that the agent ignores the flag (landed with the
+   #289 commit).
+
+Looked at and left alone:
+
+1. `tailscale_activity` / `tailscaleActivity` in `device.json`: nothing reads
+   it, but the template comment says the descriptive keys are kept on purpose
+   so the file explains itself on the phone. Removing it is a decision, not
+   dead-code cleanup.
+2. The Kotlin side has `"com.tailscale.ipn"` as a literal in
+   `CatastrophicRepair.repairTailscale()` and as a private
+   `ComonitorProbes.TAILSCALE_PACKAGE`. Deduplicating needs a Gradle build to
+   verify, and a build was already running on the machine (one at a time), so
+   the two-line patch is queued, not applied.
+
+## 9. Interaction with the #289 lockdown interlock
+
+The Ansible role now refuses `always_on_vpn_lockdown=1` unless Tailscale is
+authenticated and the management path is healthy, and backs off to `0` if the
+path dies right after the write. The device copies then write `0` again on
+their next cycle regardless. So until step 1 of section 7 lands, the fleet
+has three writers of the same setting and only the device copies win. That
+is safe (lockdown stays off) but it means the interlock cannot be verified
+end-to-end for more than one cycle; the verification steps in the interlock
+note account for it.

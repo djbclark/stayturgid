@@ -93,14 +93,29 @@ Find the appropriate sub-list (e.g. `_core_launchd_agents`) and append:
 - name: "{{ stayturgid_my_agent_label }}"
   plist: "{{ stayturgid_my_agent_plist }}"
   # health_url: optional HTTP health check (KeepAlive servers only)
+  # code_paths: optional, KeepAlive agents that run checkout code (see below)
 ```
+
+**KeepAlive agents that run Python out of the checkout** (dashboard,
+firerpa-mcp) also need `code_paths`: the entry script plus every `control/`
+module it imports at run time, as a list in `defaults/main.yml`
+(`stayturgid_my_agent_code_paths`). `launchd_ensure.yml` hashes those tracked
+files against `~/.config/stayturgid/state/launchd-code/<label>.sha256` and
+restarts the agent when they differ, so a deploy that changed only the code
+(no plist diff) no longer leaves the old process running (#224).
+`tests/python/test_launchd_code_restart.py` computes the import closure from
+the sources and fails when the list falls behind a new import, so add the
+defaults key to `CONTROL_NODE_AGENTS` there. StartInterval jobs pick up new
+code on their next run and need no entry; agents that run an external binary
+(Hermes gateway, OpenCode web) are not checkout code and need none either.
 
 Respect the existing grouping: core agents first, then feature-flagged agents
 with their `when:` condition. The concatenation at the top of the file builds
 the full `_mac_launchd_ensure_services` list automatically.
 
-The `launchd_ensure.yml` sub-task handles the rest: probe → reload changed →
-load unloaded → restart anomalies → health probe.
+The `launchd_ensure.yml` sub-task handles the rest: probe → hash `code_paths` →
+reload changed → load unloaded → restart anomalies → restart stale code →
+health probe → record the code hash.
 
 ### 4. just target (optional)
 

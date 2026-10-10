@@ -40,6 +40,85 @@ This document gets a developer from a clean Android + macOS install to a fully w
 | curl                | 8.21.0    |
 | wget                | 1.25.0-1  |
 
+### Termux Python packages (pip): none, unmanaged by policy (proposed, #309)
+
+The fleet installs **no** on-device pip packages, and nothing in this repo
+declares, pins, upgrades or audits one. That is deliberate rather than a gap,
+as long as the facts below stay true. **Status: proposed; the operator has not
+yet ratified it** ([#309](https://github.com/djbclark/stayturgid/issues/309)).
+
+Evidence (re-checked 2026-10-09 against the branch carrying this section):
+
+1. **Device-side Python is stdlib-only.** An `ast` walk over every Python file
+   the role ships (`stayturgid_py_scripts` and `stayturgid_lib_files` in
+   `termux_userland/defaults/main.yml`, plus the firerpa role's `files/*.py`;
+   21 files) finds no third-party import. The only non-stdlib names are
+   guarded fallbacks to repo-local modules (`shared.ui_clearance`,
+   `control.lib.site_logging`).
+2. **The only pip packages on the fleet were hand-installed.** On t2e
+   (2026-10-03, read-only probe in the #309 thread) one `pip install termux-ai`
+   pulled in `requests`, `urllib3`, `certifi`, `idna` and `charset-normalizer`.
+   `proot-distro` is the apt package, not pip. s24 and p7a carry only `pip`.
+3. **Nothing would notice a pip package going stale.** The nightly upgrade
+   (`control/bin/termux_pkg_nightly.py`) sees only apt. The update checker
+   (`control/bin/check_termux_pkg_updates.py`) now reports a pip package that
+   is present without being declared (below), but nothing checks a declared
+   one for updates; with none declared, that gap is empty.
+
+What the policy means in practice:
+
+- Device code stays stdlib-only. A change that needs a third-party package on
+  the device must first prefer the Termux **apt** package (`python-requests`
+  and similar), added to `stayturgid_termux_packages`, so the nightly upgrade
+  and the update checker cover it for free.
+- Only if apt lacks it does a pip layer get built, as a sibling of the apt
+  layer: a declared list, a check-mode-safe convergence step and a
+  `pip list --outdated` pass in the checker. The design options are in the
+  #309 thread; the custom-module shape is the one that keeps `deploy-check`
+  honest.
+- Hand-installed pip packages on a device are outside the policy. Removing
+  t2e's (`pip uninstall termux-ai requests urllib3 certifi idna
+charset-normalizer`) restores parity with s24/p7a; that is the operator's
+  call and has not been done.
+
+How the repo holds the policy in place:
+
+- **One declared source.** `device/termux/requirements.txt` lists the pip
+  packages a device may carry. It is empty today. Nothing installs from it
+  yet: a role step that does would change device state, so it waits for the
+  operator to ratify the policy.
+- **A guard on the premise.** `tests/python/test_termux_device_python_stdlib_only.py`
+  fails when a Python file the roles ship (the `stayturgid_py_scripts` and
+  `stayturgid_lib_files` lists, plus the firerpa role's `files/*.py`) imports
+  anything beyond the standard library or its shipped siblings. Guarded
+  fallbacks to `shared` and `control` are allowed.
+- **Drift is reported.** `check_termux_pkg_updates.py` already SSHes to each
+  device before the nightly upgrade. In the same session it lists the
+  `*.dist-info` and `*.egg-info` directories, in the prefix's and the user's
+  (`pip install --user`) site-packages, that no dpkg package owns: packages
+  pip put there. Any that `requirements.txt` does not declare goes into the
+  Hermes notice, once per change, and is retried if Hermes did not accept
+  it. apt's own Python packages (`python-pip`, `proot-distro`) are owned by
+  dpkg and stay quiet. Editable installs (`.pth` only) are not seen.
+
+Every pip install the repo performs or documents targets the Mac control node
+or a research note, never a device (inventory 2026-10-09, `rg` over the tree
+outside `docs/archive/` and session logs):
+
+| Where it installs                | Source of truth                                                     | Installed by                             |
+| -------------------------------- | ------------------------------------------------------------------- | ---------------------------------------- |
+| Test venv `.venv-test`           | `tests/python/requirements.txt`                                     | `just test-venv`                         |
+| Collection unit tests            | `ansible_collections/stayturgid/*/tests/unit/requirements.txt`      | `ansible-test units`                     |
+| FIRERPA venv                     | `control/requirements-firerpa-venv.txt`                             | `control_node` role (`firerpa_venv.yml`) |
+| Hermes venv                      | inline `python-telegram-bot>=21`, `qrcode[pil]`                     | `control_node` role (`hermes.yml`)       |
+| `uv tool` CLIs                   | `stayturgid_mac_uv_tools` (uiautomator2, mypy, bandit, cfbs)        | `control_node` role (`prereqs.yml`)      |
+| Play token venv, firerpa example | docs only (`browser-cookie3`; `cryptography`, lamda client)         | by hand                                  |
+| Termux (device)                  | none; `docs/research/experiments/on-device-llm.md` proposes a spike | nobody                                   |
+
+The FIRERPA venv already has the shape a device pip layer would copy: one
+requirements file in the repo, converged by a role. The Hermes venv and the
+`uv tool` list are unpinned, which is a control-node question outside #309.
+
 ### macOS development tools
 
 | Tool                              | Version                  | Install                                                  |

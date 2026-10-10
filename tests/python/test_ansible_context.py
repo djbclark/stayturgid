@@ -282,6 +282,21 @@ def test_resolved_env_enables_profile_tasks_callback(tmp_path):
     assert env["ANSIBLE_CALLBACKS_ENABLED"] == "ansible.posix.profile_tasks"
 
 
+def test_resolved_env_defaults_to_smart_fact_gathering(tmp_path):
+    """#166: the three localhost plays at the end of site.yml gather facts once."""
+    site = tmp_path / "site"
+    site.mkdir()
+    config = write_config(site)
+    (site / "inventory").mkdir()
+    (site / "inventory" / "hosts.yml").write_text("all: {}\n", encoding="utf-8")
+
+    env = ac.resolved_env(tmp_path, {"ANSIBLE_CONFIG": str(config)})
+    assert env["ANSIBLE_GATHERING"] == "smart"
+
+    env = ac.resolved_env(tmp_path, {"ANSIBLE_CONFIG": str(config), "ANSIBLE_GATHERING": "explicit"})
+    assert env["ANSIBLE_GATHERING"] == "explicit"  # a caller's choice wins
+
+
 def test_resolved_env_preserves_additional_callbacks(tmp_path):
     """A caller-configured callback list keeps its entries alongside profile_tasks."""
     site = tmp_path / "site"

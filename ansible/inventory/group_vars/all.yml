@@ -17,12 +17,22 @@ stayturgid_wireless_debug_ui_fallback: false
 # Shared-storage root for logs/state/autojs6. Default Android path; Fire OS
 # overrides in vendor_amazon.yml (Termux cannot write /sdcard without broken perms).
 stayturgid_sd_root: /sdcard/stayturgid
-# Tailscale health checks in AutoJs6 watchdog only when ansible_host is a tailnet IP.
+# Device-side Tailscale checks (Termux repair loop; the native agent ignores
+# this, see docs/operations/tailscale-repair-redundancy-audit.md) only when
+# ansible_host is a tailnet IP.
 stayturgid_tailscale_enabled: "{{ ansible_host is match('^100\\.') }}"
 stayturgid_tailscale_ip: "{{ ansible_host if ansible_host is match('^100\\.') else none }}"
 # Push Android always-on VPN for Tailscale on fleet deploy (lockdown off = LAN ADB safe).
 stayturgid_always_on_vpn: true
+# Lockdown ("block connections without VPN") is interlocked on Tailscale auth
+# and the management path (#289): the android_settings module writes 0 and
+# warns when the checks fail, and reverts to 0 if a path dies right after the
+# write. Note the device-side repairers still force lockdown 0 every cycle, so
+# true is not yet effective fleet-wide; see
+# docs/operations/deep-dives/tailscale-lockdown-interlock.md before enabling.
 stayturgid_always_on_vpn_lockdown: false
+# true = a refused/reverted lockdown fails that host's play instead of warning.
+stayturgid_always_on_vpn_lockdown_strict: false
 
 # GNU rsync (Homebrew) for the local side of termux_userland's
 # ansible.posix.synchronize tasks, preferred over macOS's ancient system

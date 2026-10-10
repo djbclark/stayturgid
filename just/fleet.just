@@ -25,6 +25,15 @@ deploy host="":
 deploy-apks:
     python3 control/bin/deploy_fleet.py {{ deploy_args }} --scope bootstrap-apks --devices-only
 
+# ---------- Deploy (scripts scope only — on-device code push, #166) ----------
+# Only the termux_userland tasks tagged `scripts`: ~/.stayturgid/bin, lib,
+# boot and tasker syncs, retired-file cleanup, repair-script check. The
+# boot-loop restart handler still fires when a synced script changed. Skips
+# packages, SSH keys, CFEngine, otelcol, Shizuku, APKs and the Mac pass.
+# Usage: hosts=s24 just deploy-scripts
+deploy-scripts:
+    python3 control/bin/deploy_fleet.py {{ deploy_args }} --scope scripts --devices-only
+
 # ---------- Deploy Check (dry‑run) ----------
 # Ansible --check only: no APK installs, no device writes. A green recap is
 # NOT fleet convergence (#184). Apply with `just deploy`.
@@ -103,6 +112,10 @@ ensure-shizuku:
 # ---------- Secretspec Check ----------
 secretspec-check:
     sudo-secretspec check --reason "just secretspec-check"
+
+# Static gate: no second secret store, alternate manifest, plain CLI or retired artifact (#287)
+secretspec-drift:
+    python3 control/bin/check_secretspec_drift.py
 
 # ---------- Health ----------
 _health_impl:

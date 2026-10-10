@@ -127,3 +127,40 @@ stayturgid_opencode_web_label: com.stayturgid.opencode-web
 stayturgid_dashboard_enabled: true
 stayturgid_dashboard_port: 4097
 stayturgid_dashboard_label: com.stayturgid.dashboard
+
+# ── Code-change restarts for KeepAlive agents (#224) ───────────────────────
+# A KeepAlive agent that runs Python straight out of the product checkout keeps
+# serving the code it started with: a deploy that changes only that code (no
+# plist diff) never restarted it, so the dashboard and landing served pre-fix
+# code for hours (2026-08-03). launchd_ensure.yml hashes the tracked files
+# listed in a service entry's `code_paths` against a per-label state file under
+# this directory and restarts the agent when they differ; the hash is recorded
+# only after the restart (and the health wait, when the entry has a
+# health_url) passed, so a failed restart is retried on the next deploy.
+#
+# Each list is the entry script plus every control/ module it imports at run
+# time, transitively; tests/python/test_launchd_code_restart.py computes that
+# closure from the sources and fails when a new import is missing here.
+# StartInterval agents pick up new code on their next run and need no entry.
+# Agents that run an external binary (Hermes gateway, OpenCode web) are not
+# checkout code and have no entry either.
+stayturgid_launchd_code_state_dir: "{{ conf_dir }}/state/launchd-code"
+stayturgid_dashboard_code_paths:
+  - control/bin/dashboard.py
+  - control/bin/check_fleet_health.py
+  - control/lib/a11y_services.py
+  - control/lib/fleet_health.py
+  - control/lib/stats.py
+  - control/lib/stayturgid_device.py
+  - control/lib/ui_parse.py
+stayturgid_firerpa_mcp_code_paths:
+  - control/bin/firerpa_mcp.py
+  - control/bin/firerpa_heal.py
+  - control/lib/ansible_context.py
+  - control/lib/firerpa_auth.py
+  - control/lib/firerpa_consent.py
+  - control/lib/firerpa_fleet.py
+  - control/lib/hermes_notify.py
+  - control/lib/secretspec_exec.py
+  - control/lib/site_discovery.py
+  - control/lib/site_logging.py

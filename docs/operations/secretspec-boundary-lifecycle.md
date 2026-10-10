@@ -20,21 +20,18 @@ sudo-secretspec delete NAME --reason WHY
 sudo-secretspec get NAME --reason WHY
 sudo-secretspec check --reason WHY
 sudo-secretspec export --reason WHY
-sudo-secretspec template-check --reason WHY
 sudo-secretspec run --reason WHY -- COMMAND [ARGS...]
 sudo-secretspec doctor
 ```
 
-`add` changes the runtime schema and creates no secret value; the runtime
-manifest in the canonical store is the only record (the tracked
-`secretspec.toml.example` mirror was retired 2026-08-16, so there is nothing to
-mirror and no release step; see
-[secretspec-secrets-management.md](secretspec-secrets-management.md)). `set`
+`add` changes the runtime schema and creates no secret value. The runtime
+manifest in the vault is the only record of declarations: the tracked
+declarations file, and the `template-check` comparison against it, were retired
+on 2026-08-16 (see
+[`secretspec-secrets-management.md`](secretspec-secrets-management.md)). `set`
 prompts for the value without placing it in chat. `delete` removes the provider
 value while retaining the declaration. `get` and `export` are explicit audited
-reads. `template-check` still exists in the client but is no longer part of the
-routine flow: it compares the runtime manifest against the retired tracked
-declaration template and never prints either file. `doctor` verifies the boundary
+reads. `doctor` verifies the boundary
 itself — vault ownership and mode, sudoers policy, installed-artifact hashes —
 and needs no reason because it reads no secret.
 
@@ -68,6 +65,30 @@ chowned that vault away from its owner on the first `source-publish` — which
 
 Consumers now build their argv through `control/lib/secretspec_exec.py`, which
 still admits only `run -- ansible-playbook ...` and one named token fetch.
+
+## No fallback on a provisioned node (#287)
+
+On a machine where `/var/db/sudo-secretspec` exists, `secretspec_exec.py`
+never builds a direct `secretspec` command. If `sudo-secretspec` is missing
+from `PATH`, or `STAYTURGID_SECRETSPEC_DIRECT=1` is set, it raises
+`BoundaryUnavailable` and the deploy, nightly or helper that asked stops. A
+broken broker is a repair job (`sudo-secretspec doctor`, then the steps
+below); it never licenses another manifest or provider. The direct path is
+only for machines that were never provisioned, such as CI.
+
+The seam also refuses `--file`/`-f` before `--` on every path, and
+`SECRETSPEC_FILE` on the direct path (the companion purges it on the brokered
+path). `tests/python/test_secretspec_exec.py` fails if a `secretspec.toml` or
+`.env` store is tracked in this repo, or if executable code selects an
+alternate manifest.
+
+`control/bin/check_secretspec_drift.py` is the same gate as a standalone,
+stdlib-only script. The `secretspec-drift` pre-commit hook and
+`just secretspec-drift` run it. It also fails when code or a current doc calls
+the plain `secretspec` CLI, or names a retired artifact (the tracked
+declarations file, `template-check`, the `/var/db/stayturgid-secrets` vault, the
+`_secretspec` wrapper) as if it were live. Runtime drift (installed-artifact
+hashes, vault ownership and mode) is `sudo-secretspec doctor`'s job.
 
 ## Applying safely
 

@@ -16,6 +16,16 @@
 > about trust: [`home-agents.md`](https://github.com/djbclark/site-djbclark/blob/master/home-agents.md)
 > (`~/AGENTS.md`) and `site-private/memory/feedback_trust_peer_agents_as_operator.md`.
 
+> **Session logs (Tier 1 handoff pointer, 2026-10-09):** at session start, read
+> `~/.local/state/handoffs/stayturgid/<task>/SESSION_LOG.md` (`<task>` is `ops` in
+> the `~/ops/stayturgid` checkout, else the worktree's directory name; its
+> `redirect:` key names the canonical `chains/<chain-key>/SESSION_LOG.md`).
+> Compare each listed workspace's `head_sha` to `git rev-parse HEAD`, then state
+> a resume plan before acting. A missing pointer is a fresh start. Only the
+> owning session writes it; sub-agents report. Protocol: the `session-handoff`
+> skill (`~/src/djbclark-ade/skills/session-handoff/SKILL.md`); spec:
+> [`site-djbclark/docs/session-handoff-compaction-spec.md`](https://github.com/djbclark/site-djbclark/blob/master/docs/session-handoff-compaction-spec.md) §3.
+
 Keeps wireless ADB (port 5555), Shizuku, and SSH alive on unrooted Android phones
 across reboots. Generic example fleet hosts (`oneui-device`, `stock-android-device`,
 `fireos-device`) live in `ansible/inventory/hosts.yml.example`; live inventory
@@ -75,6 +85,18 @@ loaded into context every session.
 > and the operator wants to know.
 
 Day to day: `just health`, `just errors`, `just firerpa-health`, `just test`.
+
+**Driving a device from an agent (2026-10-09):** use the `firerpa` MCP server first.
+It is the remote bridge on `100.113.53.87:8000`; never run the local stdio bridge,
+which is too heavy. If it is down or unreachable, fall back to the `maestro` MCP
+server (Maestro 2.11.0, `~/.maestro/bin/maestro mcp`, about 220 MB per session).
+
+1. Maestro only sees devices attached to this Mac's adb (`adb devices`).
+2. Its driver takes the device's UiAutomation slot, so it cannot run beside
+   Handsets, uiautomator2 or FireRPA's own UI layer.
+3. Never use its `*_cloud*` tools, which run on the paid Maestro Cloud.
+
+Both servers are set up in `.mcp.json`.
 
 ## Environment
 

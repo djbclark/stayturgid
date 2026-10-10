@@ -147,7 +147,9 @@ bundle agent check_bootloop(s) {
 # same file with the same threshold so the on-device and Mac-side checks
 # cannot disagree (unify rule, #86). Worst-case detection latency for a
 # genuinely dead agent is FRESHNESS_SEC (420s) + one local boot-loop cycle
-# (<=300s, STAYTURGID_INTERVAL_SEC in start_adb.py) =~ 12 minutes; a
+# (<=900s as deployed: the termux_userland role renders STAYTURGID_INTERVAL_SEC
+# from stayturgid_interval_sec: 900; start_adb.py's own default of 300s applies
+# only when the variable is unset) =~ 22 minutes; a
 # Mac-hailed cf-runagent run (Tier 3a) can catch it sooner since it runs this
 # bundle on demand.
 #
@@ -158,8 +160,8 @@ bundle agent check_bootloop(s) {
 # and through an already-authorized loopback ADB shell.
 #
 # Reboot escalation is alert-only, on purpose: this bundle never executes a
-# reboot itself. After REBOOT_AFTER=3 consecutive checks (~15 min at the
-# 5-minute local boot-loop cadence) still find the agent not alive despite
+# reboot itself. After REBOOT_AFTER=3 consecutive checks (~45 min at the
+# deployed 15-minute local boot-loop cadence) still find the agent not alive despite
 # both restart attempts, it writes a state file
 # ($(s)/state/agent_reboot_candidate) and nothing more.
 # control/lib/fleet_health.py surfaces that as an `agent_reboot_candidate`

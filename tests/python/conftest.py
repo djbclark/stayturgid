@@ -70,6 +70,22 @@ def _fleet_lock_path(tmp_path, monkeypatch) -> None:
 
 
 @pytest.fixture(autouse=True)
+def _stats_dir(tmp_path, monkeypatch) -> None:
+    """Point control/lib/stats.py at a per-test directory.
+
+    Vector tails the real ~/.config/stayturgid/stats/*.jsonl into OpenObserve,
+    so a test that reaches a record_* call wrote fake telemetry there: by
+    2026-10-09 every one of the 70 rows in the live termux_pkg stream was the
+    lock test's "deploy_fleet.py s24" holder (stayturgid#310). Both module
+    spellings are patched, for the reason given in the secretspec fixture.
+    """
+    import importlib
+
+    for name in ("stats", "control.lib.stats"):
+        monkeypatch.setattr(importlib.import_module(name), "STATS_DIR", tmp_path / "stats")
+
+
+@pytest.fixture(autouse=True)
 def _secretspec_boundary_present(monkeypatch) -> Iterator[None]:
     """Pin secretspec_exec to the privilege-separated boundary path.
 

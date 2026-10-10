@@ -65,6 +65,25 @@ handle_path /litellm/* {
 }
 {% endif %}
 
+{% if 'collie-bridge' in ports %}
+# Collie, the Herdr phone UI (site-owned, optional; omitted on sites without
+# it). The bridge serves under /collie (COLLIE_BASE_PATH=/collie in its .env)
+# and accepts the prefix stripped or not; handle_path matches Collie's own
+# docs. Nothing behind Caddy injects Tailscale identity headers, so strip any
+# a tailnet client sends: Collie's gate here is device pairing (always on from
+# Collie 1.18.0), not COLLIE_TRUSTED_USER. Caddy forwards Host unchanged,
+# which COLLIE_PUBLIC_HOSTS must list.
+@collie_bare path /collie
+redir @collie_bare /collie/ 308
+handle_path /collie/* {
+	reverse_proxy 127.0.0.1:{{ ports['collie-bridge'] }} {
+		header_up -Tailscale-User-Login
+		header_up -Tailscale-User-Name
+		header_up -Tailscale-User-Profile-Pic
+	}
+}
+{% endif %}
+
 # Fleet stats (same backend as dashboard; unlike /dashboard/* this must
 # preserve the "stats" segment — the backend's own /stats route needs it,
 # handle_path stripped it down to "/" and landed on the dashboard's route
