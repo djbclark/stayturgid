@@ -35,13 +35,19 @@ object ComonitorProbes {
         val tailscale: String,
         val tailscalePolicy: String,
         val reason: String,
+        /** [SshdWedge.tag]: set by [runAndLog], "skip" for a bare [probe]. */
+        val sshdWedge: String = SshdWedge.SKIP,
     ) {
         fun line(ts: String): String =
-            "[agent] STATUS port=$port shizuku=$shizuku sshd=$sshd a11y=$a11y shell=$shell wifi=$wifi tailscale=$tailscale tailscale_policy=$tailscalePolicy reason=$reason ts=$ts uid=${Process.myUid()}"
+            "[agent] STATUS port=$port shizuku=$shizuku sshd=$sshd a11y=$a11y shell=$shell " +
+                "wifi=$wifi tailscale=$tailscale tailscale_policy=$tailscalePolicy " +
+                "sshd_wedge=$sshdWedge reason=$reason ts=$ts uid=${Process.myUid()}"
     }
 
     fun runAndLog(): String {
-        val st = probe()
+        val probed = probe()
+        // Debounced wedge probe and heal: blocks only when the first connect-and-read fails.
+        val st = probed.copy(sshdWedge = SshdWedge.check(probed.sshd))
         val ts = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())
         val line = st.line(ts)
         appendLog(line)
