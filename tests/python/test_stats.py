@@ -118,6 +118,25 @@ def test_record_termux_pkg_error_appends_rather_than_truncating(tmp_path, monkey
     assert [r["phase"] for r in rows] == ["lock", "upgrade"]
 
 
+def test_result_and_run_rows_share_the_stream_and_a_run_id(tmp_path, monkeypatch):
+    """Healthy hosts get a row too, and each run a heartbeat (#310 part 2)."""
+    monkeypatch.setattr(stats, "STATS_DIR", tmp_path / "stats")
+
+    stats.record_termux_pkg_result(
+        "p7a", "changed", run_id="abc123", changed=True, upgraded_packages=["openssh 10.2p1-1"], duration_s=90.04, rc=0
+    )
+    stats.record_termux_pkg_result("hd8", "unreachable", run_id="abc123", error="timed out", rc=0)
+    stats.record_termux_pkg_run("abc123", rc=0, duration_s=301.26, statuses={"changed": 1, "unreachable": 1})
+
+    p7a, hd8, run = _read_jsonl(tmp_path / "stats" / "termux_pkg.jsonl")
+    assert p7a["type"] == "termux_pkg_result" and p7a["status"] == "changed"
+    assert p7a["upgraded_packages"] == ["openssh 10.2p1-1"] and p7a["package_count"] == 1
+    assert p7a["duration_s"] == 90.0 and p7a["index_update_failed"] is False
+    assert hd8["status"] == "unreachable" and hd8["error"] == "timed out" and "duration_s" not in hd8
+    assert run["type"] == "termux_pkg_run" and run["run_id"] == p7a["run_id"] == "abc123"
+    assert run["hosts"] == 2 and run["duration_s"] == 301.3 and run["limit"] == ""
+
+
 def test_record_termux_pkg_error_never_raises(tmp_path, monkeypatch):
     """Telemetry must not be able to break the upgrade job it reports on."""
     monkeypatch.setattr(stats, "ROOT", tmp_path)

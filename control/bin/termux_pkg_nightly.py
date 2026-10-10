@@ -31,8 +31,13 @@ import datetime as dt
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
+import time
+import uuid
+from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -43,7 +48,7 @@ from control.lib import hermes_notify
 from control.lib.ansible_context import AnsibleConfigError, require_inventory, resolve_ansible_context, resolved_env
 from control.lib.fleet_deploy_lock import FleetLockHeld, fleet_lock
 from control.lib.secretspec_exec import BoundaryUnavailable, secretspec_run
-from control.lib.stats import record_termux_pkg_error
+from control.lib.stats import record_termux_pkg_error, record_termux_pkg_result, record_termux_pkg_run
 
 PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "fleet" / "termux-pkg-upgrade.yml"
 CHECK_UPDATES = REPO_ROOT / "control" / "bin" / "check_termux_pkg_updates.py"
@@ -55,11 +60,16 @@ MAX_LOG_LINES = 4000
 # same offline phone nightly.
 STATE_PATH = Path.home() / ".local" / "state" / "stayturgid" / "termux-pkg-nightly.json"
 
-# `fatal: [s24]: UNREACHABLE! => {...}` / `fatal: [s24]: FAILED! => {...}`
-_FATAL_RE = re.compile(r"^fatal: \[([^\]]+)\]: (UNREACHABLE|FAILED)! => (.*)$")
+# `fatal: [s24]: UNREACHABLE! => {...}` / `fatal: [s24]: FAILED! => {...}`.
+_FATAL_RE = re.compile(r"^fatal: \[([^\]\s]+)\]: (UNREACHABLE|FAILED)! => (.*)$")
+# `fatal: [s24 -> localhost]: ...` is the delegated telemetry write, the only
+# delegated task in the playbook: it says nothing about the upgrade on s24 and
+# must not page as a failed or unreachable host (adversary re-review N1).
+_DELEGATED_FATAL_RE = re.compile(r"^fatal: \[([^\]\s]+) -> [^\]]+\]: ")
 # `s24                        : ok=5    changed=1    unreachable=0    failed=1 ...`
 _RECAP_RE = re.compile(r"^(\S+)\s+:\s+ok=\d+\s+changed=\d+\s+unreachable=(\d+)\s+failed=(\d+)")
 _MAX_ERROR_CHARS = 500
+STALE_INDEX_ERROR = "pkg update failed; upgraded against cached indexes (mirror unreachable or dead?)"
 
 
 def ts() -> str:
@@ -110,6 +120,10 @@ def parse_host_failures(output: str) -> dict[str, dict[str, str]]:
     failures: dict[str, dict[str, str]] = {}
     for line in output.splitlines():
         line = line.strip()
+        d = _DELEGATED_FATAL_RE.match(line)
+        if d:
+            log("WARN: telemetry write for %s failed on the control node: %s" % (d.group(1), line[:200]))
+            continue
         m = _FATAL_RE.match(line)
         if m:
             host, kind, payload = m.groups()
@@ -129,6 +143,104 @@ def parse_host_failures(output: str) -> dict[str, dict[str, str]]:
             elif unreachable and host not in failures:
                 failures[host] = {"status": "unreachable", "error": "unreachable=%d in PLAY RECAP" % unreachable}
     return failures
+
+
+def parse_recap_hosts(output: str) -> list[str]:
+    """Every host named in the PLAY RECAP, in order: the hosts the play covered."""
+    hosts: list[str] = []
+    for line in output.splitlines():
+        m = _RECAP_RE.match(line.strip())
+        if m and m.group(1) not in hosts:
+            hosts.append(m.group(1))
+    return hosts
+
+
+def read_host_results(result_dir: Path | None) -> dict[str, dict]:
+    """The per-host result files the playbook wrote (#310); bad files are skipped."""
+    results: dict[str, dict] = {}
+    if result_dir is None:
+        return results
+    try:
+        paths = sorted(result_dir.glob("*.json"))
+    except OSError:
+        return results
+    for path in paths:
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            log("WARN: unreadable result file %s" % path.name)
+            continue
+        if isinstance(data, dict):
+            results[str(data.get("host") or path.stem)] = data
+    return results
+
+
+def _duration_s(result: dict) -> float | None:
+    try:
+        started = dt.datetime.strptime(str(result["started"]), "%Y-%m-%dT%H:%M:%SZ")
+        finished = dt.datetime.strptime(str(result["finished"]), "%Y-%m-%dT%H:%M:%SZ")
+    except (KeyError, ValueError):
+        return None
+    return max(0.0, (finished - started).total_seconds())
+
+
+@dataclass
+class HostOutcome:
+    status: str
+    changed: bool = False
+    upgraded_packages: list[str] = field(default_factory=list)
+    index_update_failed: bool = False
+    duration_s: float | None = None
+    error: str = ""
+
+
+def host_outcomes(
+    hosts: list[str], results: dict[str, dict], failures: dict[str, dict[str, str]]
+) -> dict[str, HostOutcome]:
+    """One outcome per host the run covered.
+
+    A parsed failure wins over a result file (the play stops for a failed
+    host, and an unreachable one writes none). A host in the recap with
+    neither is ``skipped``: it finished the play without reaching the result
+    task. A host with ``stayturgid_termux_pkg_upgrade_enabled: false`` ends
+    before anything is counted, so ansible leaves it out of the recap and it
+    gets no row at all.
+    """
+    outcomes: dict[str, HostOutcome] = {}
+    for host in sorted(set(hosts) | set(results) | set(failures)):
+        result = results.get(host, {})
+        packages = result.get("upgraded_packages")
+        o = HostOutcome(
+            status="skipped",
+            changed=bool(result.get("changed")),
+            upgraded_packages=[str(p) for p in packages] if isinstance(packages, list) else [],
+            index_update_failed=bool(result.get("index_update_failed")),
+            duration_s=_duration_s(result) if result else None,
+        )
+        if host in failures:
+            o.status = failures[host]["status"]
+            o.error = failures[host]["error"]
+        elif result:
+            o.status = "changed" if o.changed else "ok"
+            if o.index_update_failed:
+                o.error = STALE_INDEX_ERROR
+        outcomes[host] = o
+    return outcomes
+
+
+def stale_index_hosts(outcomes: dict[str, HostOutcome]) -> dict[str, dict[str, str]]:
+    """Hosts that upgraded but could not refresh their indexes, as notice entries.
+
+    termux_pkg tolerates a failed ``pkg update`` (a mirror sync is routine),
+    so such a host reports ok while it may be upgrading against a dead mirror
+    for weeks: the case #310 names. It joins the Hermes failing set, which
+    already alerts once per change, not nightly.
+    """
+    return {
+        host: {"status": "stale_index", "error": STALE_INDEX_ERROR}
+        for host, o in outcomes.items()
+        if o.status in ("ok", "changed") and o.index_update_failed
+    }
 
 
 def _failure_keys(failures: dict[str, dict[str, str]]) -> list[str]:
@@ -330,6 +442,29 @@ def main(argv: list[str] | None = None) -> int:
         except (OSError, subprocess.TimeoutExpired) as exc:
             log("WARN: pre-check failed (continuing upgrade): %s" % exc)
 
+    # Each host that finishes writes <dir>/<host>.json (#310). A dry run
+    # upgrades nothing, so it records no results.
+    result_dir: Path | None = None
+    if not check:
+        try:
+            result_dir = Path(tempfile.mkdtemp(prefix="termux-pkg-nightly-"))
+        except OSError as exc:
+            # Telemetry must not stop the upgrade (adversary review L1): run
+            # it without per-host rows rather than crash under launchd.
+            log("WARN: no per-host telemetry this run, could not create a temp dir: %s" % exc)
+    if result_dir is not None:
+        cmd.extend(["-e", json.dumps({"stayturgid_termux_pkg_result_dir": str(result_dir)})])
+    try:
+        return _run_and_report(cmd, env, label, limit=args.limit or "", notify=notify, result_dir=result_dir)
+    finally:
+        if result_dir is not None:
+            shutil.rmtree(result_dir, ignore_errors=True)
+
+
+def _run_and_report(
+    cmd: list[str], env: dict[str, str], label: str, *, limit: str, notify: bool, result_dir: Path | None
+) -> int:
+    started = time.monotonic()
     try:
         with fleet_lock(label):
             r = subprocess.run(
@@ -355,6 +490,7 @@ def main(argv: list[str] | None = None) -> int:
     except subprocess.TimeoutExpired:
         log("ERROR: ansible-playbook timed out")
         return _run_failed("upgrade", "ansible-playbook timed out", 2, notify=notify)
+    duration = time.monotonic() - started
 
     out = ((r.stdout or "") + (r.stderr or "")).strip()
     if out:
@@ -366,6 +502,32 @@ def main(argv: list[str] | None = None) -> int:
         log("host %s %s: %s" % (host, info["status"], info["error"].splitlines()[0] if info["error"] else ""))
         phase = "unreachable" if info["status"] == "unreachable" else "upgrade"
         record_termux_pkg_error(phase, info["error"], host=host, rc=r.returncode)
+
+    stale: dict[str, dict[str, str]] = {}
+    if result_dir is not None:
+        outcomes = host_outcomes(parse_recap_hosts(r.stdout or ""), read_host_results(result_dir), failures)
+        stale = stale_index_hosts(outcomes)
+        for host in sorted(stale):
+            log("host %s stale_index: %s" % (host, STALE_INDEX_ERROR))
+            record_termux_pkg_error("update", STALE_INDEX_ERROR, host=host, rc=r.returncode)
+        run_id = uuid.uuid4().hex[:12]
+        statuses: dict[str, int] = {}
+        for host, o in outcomes.items():
+            statuses[o.status] = statuses.get(o.status, 0) + 1
+            record_termux_pkg_result(
+                host,
+                o.status,
+                run_id=run_id,
+                changed=o.changed,
+                upgraded_packages=o.upgraded_packages,
+                index_update_failed=o.index_update_failed,
+                duration_s=o.duration_s,
+                error=o.error,
+                rc=r.returncode,
+            )
+        record_termux_pkg_run(run_id, rc=r.returncode, duration_s=duration, limit=limit, statuses=statuses)
+        log("results: run %s %s" % (run_id, " ".join("%s=%d" % kv for kv in sorted(statuses.items())) or "no hosts"))
+
     if r.returncode != 0 and not failures:
         # Nothing per-host to attribute it to. Last 20 lines carry the ansible
         # failure summary; the full run stays in the human log. Keep the record
@@ -373,11 +535,12 @@ def main(argv: list[str] | None = None) -> int:
         tail = "\n".join(out.splitlines()[-20:]) if out else "ansible-playbook rc=%s" % r.returncode
         _run_failed("upgrade", tail, r.returncode, notify=notify)
     elif notify:
-        if notify_failure_change(failures):
+        if notify_failure_change({**stale, **failures}):
             log("hermes: notified failing-host set change")
     trim_log()
     # Unreachable-only runs stay rc=0: an offline phone is expected and is now
-    # recorded per host, while a real upgrade failure keeps ansible's rc.
+    # recorded per host, while a real upgrade failure keeps ansible's rc. A
+    # stale index stays rc=0 too: the upgrade itself ran.
     return 0 if r.returncode == 0 else 1
 
 

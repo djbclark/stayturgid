@@ -108,6 +108,72 @@ def record_termux_pkg_error(
     _append_jsonl_line(termux_pkg_path(), event)
 
 
+def record_termux_pkg_result(
+    host: str,
+    status: str,
+    *,
+    run_id: str,
+    changed: bool = False,
+    upgraded_packages: list[str] | None = None,
+    index_update_failed: bool = False,
+    duration_s: float | None = None,
+    error: str = "",
+    rc: int | None = None,
+) -> None:
+    """Record one host's outcome of one nightly run (stayturgid#310).
+
+    ``status`` is ``changed``, ``ok``, ``failed``, ``unreachable`` or
+    ``skipped`` (in the play recap but no result written). Unlike ``termux_pkg_error`` this row is written for healthy
+    hosts too, so "quiet because fine" and "quiet because it never ran" are
+    different queries. Never raises.
+    """
+    packages = list(upgraded_packages or [])
+    event: dict[str, object] = {
+        "ts": ts(),
+        "type": "termux_pkg_result",
+        "run_id": run_id,
+        "host": host,
+        "status": status,
+        "changed": bool(changed),
+        "upgraded_packages": packages,
+        "package_count": len(packages),
+        "index_update_failed": bool(index_update_failed),
+        "error": error,
+    }
+    if duration_s is not None:
+        event["duration_s"] = round(duration_s, 1)
+    if rc is not None:
+        event["rc"] = rc
+    _append_jsonl_line(termux_pkg_path(), event)
+
+
+def record_termux_pkg_run(
+    run_id: str,
+    *,
+    rc: int,
+    duration_s: float,
+    limit: str = "",
+    statuses: dict[str, int] | None = None,
+) -> None:
+    """One heartbeat row per nightly run that reached ansible (stayturgid#310).
+
+    Its absence for more than a day means the job did not run at all (Mac
+    asleep, launchd agent unloaded), which no error row can say. ``limit`` is
+    empty for a whole-fleet run. Never raises.
+    """
+    event: dict[str, object] = {
+        "ts": ts(),
+        "type": "termux_pkg_run",
+        "run_id": run_id,
+        "rc": rc,
+        "duration_s": round(duration_s, 1),
+        "limit": limit,
+        "statuses": dict(statuses or {}),
+        "hosts": sum((statuses or {}).values()),
+    }
+    _append_jsonl_line(termux_pkg_path(), event)
+
+
 def ts() -> str:
     return datetime.datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
