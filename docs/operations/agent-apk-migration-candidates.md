@@ -125,6 +125,10 @@ Summary table first; each row is expanded below with ownership detail.
 - **Effort / risk:** Field verification — does agent FGS repair fire before
   Termux's 5‑min loop matters after boot? Do not "port"; optionally thin
   Termux once agent preemption is proven.
+- **Audit (2026-10-09, #201):** [tailscale-repair-redundancy-audit.md](tailscale-repair-redundancy-audit.md)
+  — from source, Termux (30 s after boot, then every 5 min) acts before the
+  agent (after the Shizuku bind, then every 20 min) on shell-capable hosts;
+  the agent ignores `tailscaleEnabled: false`. Field verification still open.
 
 ### Detail: don't move
 

@@ -1,0 +1,11 @@
+# Python packages a Termux fleet device may carry from pip (#309).
+#
+# Empty by policy: device-side code is stdlib only (tests/python/
+# test_termux_device_python_stdlib_only.py), and a third-party package goes
+# to the Termux apt package first (python-requests and similar, added to
+# stayturgid_termux_packages), so the nightly upgrade and the update checker
+# cover it. Declare a package here only when apt lacks it.
+#
+# Read today by control/bin/check_termux_pkg_updates.py: a pip-installed
+# package (one no apt package owns) that is not listed here is reported to
+# Hermes. Nothing installs from this file yet; see docs/hacking.md.

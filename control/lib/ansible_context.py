@@ -193,6 +193,13 @@ def resolved_env(repo_root: Path, environ: Mapping[str, str] | None = None) -> d
     env["ANSIBLE_CALLBACKS_ENABLED"] = ",".join(
         dict.fromkeys(name for name in ("ansible.posix.profile_tasks", *configured_callbacks.split(",")) if name)
     )
+    # site.yml ends with three localhost plays that each gather facts; smart
+    # gathering reuses the first play's facts for the other two within a run
+    # (#166). Device plays set gather_facts: false and are unaffected. A
+    # caller's ANSIBLE_GATHERING in the environment wins, but this env var
+    # beats any `gathering` in the selected ansible.cfg, so a site that wants
+    # another mode must set the env var, not the cfg key.
+    env.setdefault("ANSIBLE_GATHERING", "smart")
     return env
 
 

@@ -6,9 +6,15 @@
 # We only load when unloaded, reload when plist templates changed this run, and
 # restart on abnormal exit or failed HTTP health (keepalive services).
 #
+# A KeepAlive agent that runs Python out of the product checkout also needs a
+# restart when only that code changed (#224): an entry's optional code_paths
+# lists the tracked files it executes, hashed against a per-label state file.
+#
 # Vars:
-#   mac_launchd_ensure_services — list of {name, plist, health_url?}
+#   mac_launchd_ensure_services — list of {name, plist, health_url?, code_paths?}
 #   mac_launchd_reload_labels   — labels needing reloaded after plist template change
+#   mac_launchd_code_repo_root  — checkout the code_paths are relative to
+#   mac_launchd_code_state_dir  — where <label>.sha256 records the running code hash
 - name: Stat configured launchd plists
   ansible.builtin.stat:
     path: "{{ item.plist }}"
@@ -52,6 +58,113 @@
   changed_when: false
   loop_control:
     label: "{{ item.name }}"
+
+# #224: a KeepAlive agent started from the checkout keeps running the code it
+# started with, so a deploy that changed only that code (no plist diff) left
+# the dashboard serving pre-fix code for hours. Hash the tracked files each
+# entry's code_paths names and compare with the hash recorded after its last
+# restart. Tracked files only (git ls-files), so __pycache__ and other runtime
+# junk never look like a code change; plain find when the checkout is not a
+# git repository. The probe only reads, so it runs in check mode too and a
+# dry run reports the pending restart as changed. A probe that fails (a listed
+# file deleted mid-edit in the checkout) must not stop the reload, load and
+# health-restart tasks below, so it never fails the play: its label is left
+# out of the code restart and the hash record, and a warning names it.
+- name: Ensure the launchd code-hash state directory exists
+  ansible.builtin.file:
+    path: "{{ mac_launchd_code_state_dir }}"
+    state: directory
+    mode: "0755"
+  when: _mac_launchd_installed | selectattr('code_paths', 'defined') | list | length > 0
+
+- name: Hash the checkout code each KeepAlive launchd agent executes
+  ansible.builtin.shell:
+    cmd: |
+      {% raw %}
+      set -euo pipefail
+      read -r -a code_paths <<< "$CODE_PATHS"
+      list_code() {
+        if git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+          git -C "$REPO_ROOT" ls-files -z -- "${code_paths[@]}"
+        else
+          (cd "$REPO_ROOT" && find "${code_paths[@]}" -type f ! -path '*/__pycache__/*' ! -name '*.pyc' -print0 | sort -z)
+        fi
+      }
+      # A tracked file deleted in the working tree (an edit in progress in the
+      # checkout) would otherwise fail below as an opaque shasum error.
+      if git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+        deleted=$(git -C "$REPO_ROOT" ls-files --deleted -- "${code_paths[@]}")
+        if [ -n "$deleted" ]; then
+          echo "$LABEL code hash: tracked file(s) missing from the working tree of $REPO_ROOT" \
+            "(checkout mid-edit?); restore or commit the deletion, then redeploy:" $deleted >&2
+          exit 1
+        fi
+      fi
+      new=$(list_code \
+        | (cd "$REPO_ROOT" && xargs -0 shasum -a 256) \
+        | shasum -a 256 | awk '{print $1}')
+      old=""
+      [ -f "$STATE_FILE" ] && old=$(cat "$STATE_FILE")
+      echo "$new"
+      if [ "$new" != "$old" ]; then
+        echo changed
+      else
+        echo unchanged
+      fi
+      {% endraw %}
+    executable: /bin/bash
+  environment:
+    LABEL: "{{ item.name }}"
+    REPO_ROOT: "{{ mac_launchd_code_repo_root }}"
+    CODE_PATHS: "{{ item.code_paths | join(' ') }}"
+    STATE_FILE: "{{ mac_launchd_code_state_dir }}/{{ item.name }}.sha256"
+  loop: "{{ _mac_launchd_installed | selectattr('code_paths', 'defined') | list }}"
+  register: _mac_launchd_code_probes
+  changed_when: >-
+    _mac_launchd_code_probes.rc == 0
+    and (_mac_launchd_code_probes.stdout_lines | last | default('')) == 'changed'
+  failed_when: false
+  check_mode: false
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Collect launchd agents whose checkout code changed since they started
+  ansible.builtin.set_fact:
+    _mac_launchd_code_stale: >-
+      {{
+        _mac_launchd_code_probes.results
+        | default([])
+        | selectattr('rc', 'defined')
+        | selectattr('rc', 'equalto', 0)
+        | selectattr('changed')
+        | map(attribute='item.name')
+        | list
+      }}
+
+- name: Warn about launchd agents whose code-hash probe failed
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: code-hash probe failed for {{ item.item.name }} (rc={{ item.rc | default('n/a') }}),
+      so its code restart is skipped this run and no hash is recorded:
+      {{ item.stderr | default(item.msg | default('')) | trim }}
+  loop: >-
+    {{
+      _mac_launchd_code_probes.results
+      | default([])
+      | rejectattr('rc', 'equalto', 0)
+      | list
+    }}
+  loop_control:
+    label: "{{ item.item.name }}"
+
+# The explicit signal #224 asked for: a human reading the recap sees which
+# agents were stale and what the manual equivalent is.
+- name: Report launchd agents running code older than the checkout
+  ansible.builtin.debug:
+    msg: >-
+      Code changed since start, restarting: {{ _mac_launchd_code_stale | join(', ') }}
+      (manual equivalent: launchctl kickstart -k gui/$(id -u)/<label>)
+  when: _mac_launchd_code_stale | length > 0
 
 - name: Reload launchd agents after plist template changes
   community.general.launchd:
@@ -132,6 +245,29 @@
   loop_control:
     label: "{{ item.name }}"
 
+# A label already restarted or (re)loaded above runs the new code now, so it
+# is skipped here; its hash is still recorded below.
+- name: Restart launchd agents whose checkout code changed since they started
+  community.general.launchd:
+    name: "{{ item }}"
+    state: restarted
+    enabled: true
+  loop: "{{ _mac_launchd_code_stale }}"
+  vars:
+    _restarted_this_run: >-
+      {{
+        (_mac_launchd_load_results.results | default([])
+         | selectattr('changed') | map(attribute='item.item.name') | list)
+        + (_mac_launchd_unknown_restart_results.results | default([])
+           | selectattr('changed') | map(attribute='item.item.name') | list)
+        + (_mac_launchd_health_restart_results.results | default([])
+           | selectattr('changed') | map(attribute='item.name') | list)
+      }}
+  when:
+    - item not in (mac_launchd_reload_labels | default([]))
+    - item not in _restarted_this_run
+  register: _mac_launchd_code_restart_results
+
 - name: Wait for HTTP health on keepalive launchd agents
   ansible.builtin.uri:
     url: "{{ item.health_url }}"
@@ -155,13 +291,34 @@
          | length) > 0
       }}
     _was_reloaded: "{{ item.name in (mac_launchd_reload_labels | default([])) }}"
+    _code_restarted: "{{ item.name in (_mac_launchd_code_stale | default([])) }}"
   when:
     - _health_restarted
       or (_health_probe.status | default(0)) != 200
       or _was_reloaded
+      or _code_restarted
   register: _mac_launchd_health_wait
   until: _mac_launchd_health_wait.status == 200
   retries: 120
   delay: 2
   loop_control:
     label: "{{ item.name }}"
+
+# Recorded only now, after the restart and the health wait passed, so a failed
+# restart is retried on the next deploy instead of being marked current.
+- name: Record the checkout code hash each launchd agent now runs
+  ansible.builtin.copy:
+    content: "{{ item.stdout_lines | first }}\n"
+    dest: "{{ mac_launchd_code_state_dir }}/{{ item.item.name }}.sha256"
+    mode: "0644"
+  loop: >-
+    {{
+      _mac_launchd_code_probes.results
+      | default([])
+      | selectattr('rc', 'defined')
+      | selectattr('rc', 'equalto', 0)
+      | selectattr('changed')
+      | list
+    }}
+  loop_control:
+    label: "{{ item.item.name }}"

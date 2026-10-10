@@ -36,6 +36,24 @@ options:
     default: true
 """
 
+RETURN = r"""
+upgraded_packages:
+  description:
+    - C(name version) for each package apt set up during the upgrade step
+      (upgraded or newly pulled in), from its C(Setting up) lines. Empty in
+      check mode and when nothing was upgraded. Capped at 200 entries.
+  returned: always
+  type: list
+  elements: str
+index_update_failed:
+  description:
+    - True when C(pkg update) failed and the module continued with the cached
+      package indexes. A host that keeps reporting this is upgrading against a
+      stale or dead mirror (stayturgid#310).
+  returned: always
+  type: bool
+"""
+
 EXAMPLES = r"""
 - name: Ensure Termux packages
   termux_pkg:
@@ -72,6 +90,21 @@ def _pkg_list(module, names):
     return list(names)
 
 
+# `Setting up openssh (10.2p1-1) ...` — one line per package apt configured.
+_SETTING_UP_RE = re.compile(r"^Setting up (\S+) \(([^)]+)\)", re.MULTILINE)
+_MAX_UPGRADED = 200
+
+
+def _setting_up(output):
+    """`name version` for each package apt set up, in order, without repeats."""
+    seen = []
+    for name, version in _SETTING_UP_RE.findall(output or ""):
+        entry = "%s %s" % (name, version)
+        if entry not in seen:
+            seen.append(entry)
+    return seen[:_MAX_UPGRADED]
+
+
 def _installed(module, pkg):
     rc, out, err = _shell(
         module,
@@ -97,6 +130,8 @@ def main():
     state = module.params["state"]
     changed = False
     messages = []
+    # Reported on every exit so the nightly can record them per host (#310).
+    report = {"upgraded_packages": [], "index_update_failed": False}
 
     # update/upgrade mutate the device — skip both in check mode.
     if module.params["update_cache"] and not module.check_mode:
@@ -107,6 +142,7 @@ def main():
             # and continue — a truly unusable cache fails at install below.
             module.warn("pkg update failed (rc=%s, mirror sync?) — continuing with cached package indexes" % rc)
             messages.append("pkg update failed; used cached indexes")
+            report["index_update_failed"] = True
         elif "Fetched" in out or "Get:" in out:
             changed = True
 
@@ -116,13 +152,14 @@ def main():
             "apt-get -y $APT_OPTS full-upgrade 2>&1 || pkg upgrade -y",
         )
         if rc != 0:
-            module.fail_json(msg="pkg upgrade failed", rc=rc, stdout=out, stderr=err)
+            module.fail_json(msg="pkg upgrade failed", rc=rc, stdout=out, stderr=err, **report)
+        report["upgraded_packages"] = _setting_up(out)
         if re.search(r"[1-9][0-9]* upgraded", out):
             changed = True
             messages.append("upgraded packages")
 
     if not names:
-        module.exit_json(changed=changed, msg=messages or "update/upgrade complete")
+        module.exit_json(changed=changed, msg=messages or "update/upgrade complete", **report)
 
     if state == "absent":
         for pkg in names:
@@ -134,16 +171,16 @@ def main():
                 if rc != 0:
                     module.fail_json(msg="failed to remove %s" % pkg, stdout=out, stderr=err)
                 changed = True
-        module.exit_json(changed=changed, msg=messages)
+        module.exit_json(changed=changed, msg=messages, **report)
 
     missing = [p for p in names if not _installed(module, p)]
     need_upgrade = state == "latest"
 
     if not missing and not need_upgrade:
-        module.exit_json(changed=changed, msg="All requested packages already installed")
+        module.exit_json(changed=changed, msg="All requested packages already installed", **report)
 
     if module.check_mode:
-        module.exit_json(changed=True, would_install=missing)
+        module.exit_json(changed=True, would_install=missing, **report)
 
     if missing or need_upgrade:
         # Cache was already refreshed above when update_cache is set — no
@@ -155,7 +192,7 @@ def main():
         changed = True
         messages.append("installed: %s" % install_list)
 
-    module.exit_json(changed=changed, msg=messages)
+    module.exit_json(changed=changed, msg=messages, **report)
 
 
 if __name__ == "__main__":

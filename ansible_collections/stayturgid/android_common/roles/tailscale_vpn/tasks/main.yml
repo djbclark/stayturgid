@@ -12,6 +12,14 @@
   stayturgid.android_common.android_settings:
     device: "{{ _tailscale_adb_target }}"
     require_package: "{{ tailscale_package }}"
+    # #289 interlock: lockdown=1 is written only when Tailscale is logged in on
+    # the device, the adb target is USB or that tailnet address, and Ansible
+    # already reaches the device over that tailnet address; otherwise the
+    # module writes 0 and warns. After a real write it re-probes and reverts
+    # to 0 if either path stopped answering. Design and failure modes:
+    # docs/operations/deep-dives/tailscale-lockdown-interlock.md
+    lockdown_management_host: "{{ ansible_host | default(omit) }}"
+    lockdown_management_port: "{{ ansible_port | default(8022) }}"
     settings:
       - namespace: secure
         key: always_on_vpn_app
@@ -20,3 +28,11 @@
         key: always_on_vpn_lockdown
         value: "{{ stayturgid_always_on_vpn_lockdown | bool | ternary('1', '0') }}"
   delegate_to: localhost
+  register: _tailscale_vpn_settings
+  # Strict mode (#289 "fail loudly"): a refused or reverted lockdown fails this
+  # host's play instead of warning. Off by default so one unauthenticated device
+  # still gets the rest of its deploy.
+  failed_when: >-
+    (_tailscale_vpn_settings.failed | default(false))
+    or (stayturgid_always_on_vpn_lockdown_strict | default(false) | bool
+        and _tailscale_vpn_settings.lockdown_interlock.blocked | default(false))

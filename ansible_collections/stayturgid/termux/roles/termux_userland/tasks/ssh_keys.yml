@@ -128,33 +128,86 @@
     - _termux_home_stat.stat.exists
     - stayturgid_ssh_mesh_known_hosts | bool
 
+# authorized_key takes several newline-separated keys in one `key`, so each
+# of these is one round-trip for the whole set instead of one per key (#166:
+# ~10 s on an idempotent s24 run). exclusive stays false: keys added by hand
+# or by another role are left alone, exactly as the per-key loop did.
+# Trade-off when reading a failure: one malformed key now fails the whole
+# batched task and installs none of the set, where the old loop installed the
+# good keys before failing on the bad one. Find the bad entry in
+# stayturgid_ssh_keys_dir (control-node keys) or the failing host's
+# stayturgid_device_ssh_pubkey (mesh keys); the existing keys stay in place.
 - name: Install fleet SSH public keys from control node (ansible.posix.authorized_key)
   ansible.posix.authorized_key:
     user: "{{ _termux_ssh_account.stdout }}"
     path: "{{ termux_home }}/.ssh/authorized_keys"
     manage_dir: false
-    key: "{{ lookup('file', item) }}"
+    key: "{{ query('file', *_stayturgid_ssh_public_key_paths) | map('trim') | join('\n') }}"
     state: present
     exclusive: false
-  loop: "{{ _stayturgid_ssh_public_key_paths }}"
   when:
     - _termux_home_stat.stat.exists
     - _stayturgid_ssh_public_key_paths | length > 0
+
+# Mesh pubkeys come from device-published hostvars and are joined into one
+# authorized_key call, so a value that is not exactly one "<type> <base64>
+# [comment]" line (several lines, or leading options such as command= or
+# from=) would land extra keys or options on every peer. Such values are
+# skipped, with a line naming the host, instead of joined in.
+- name: Validate fleet device SSH public keys for the mesh (one key line each)
+  ansible.builtin.set_fact:
+    _stayturgid_mesh_pubkeys: >-
+      {{
+        _stayturgid_mesh_published
+        | map(attribute='stayturgid_device_ssh_pubkey')
+        | select('match', _stayturgid_ssh_key_line_re)
+        | map('trim')
+        | list
+      }}
+    _stayturgid_mesh_pubkey_rejects: >-
+      {{
+        _stayturgid_mesh_published
+        | rejectattr('stayturgid_device_ssh_pubkey', 'match', _stayturgid_ssh_key_line_re)
+        | map(attribute='inventory_hostname')
+        | list
+      }}
+  vars:
+    _stayturgid_ssh_key_line_re: '^\s*(ssh-ed25519|ecdsa-sha2-nistp256|ssh-rsa) [A-Za-z0-9+/=]+( [^\r\n]*)?\s*$'
+    _stayturgid_mesh_published: >-
+      {{
+        groups[stayturgid_ssh_mesh_group]
+        | map('extract', hostvars)
+        | selectattr('stayturgid_device_ssh_pubkey', 'defined')
+        | selectattr('stayturgid_device_ssh_pubkey', 'string')
+        | list
+      }}
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ssh_mesh_device_identity | bool
+
+- name: Report fleet device SSH public keys skipped for the mesh
+  ansible.builtin.debug:
+    msg: >-
+      Skipping {{ item }}'s stayturgid_device_ssh_pubkey for mesh authorized_keys:
+      it is not a single "<type> <base64> [comment]" line (types ssh-ed25519,
+      ecdsa-sha2-nistp256, ssh-rsa; no key options, no extra lines).
+  loop: "{{ _stayturgid_mesh_pubkey_rejects | default([]) }}"
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ssh_mesh_device_identity | bool
 
 - name: Install fleet device SSH public keys (mesh authorized_keys)
   ansible.posix.authorized_key:
     user: "{{ _termux_ssh_account.stdout }}"
     path: "{{ termux_home }}/.ssh/authorized_keys"
     manage_dir: false
-    key: "{{ hostvars[item].stayturgid_device_ssh_pubkey }}"
+    key: "{{ _stayturgid_mesh_pubkeys | join('\n') }}"
     state: present
     exclusive: false
-  loop: "{{ groups[stayturgid_ssh_mesh_group] }}"
   when:
     - _termux_home_stat.stat.exists
     - stayturgid_ssh_mesh_device_identity | bool
-    - hostvars[item].stayturgid_device_ssh_pubkey is defined
-    - hostvars[item].stayturgid_device_ssh_pubkey | length > 0
+    - _stayturgid_mesh_pubkeys | default([]) | length > 0
 
 - name: Install fleet SSH private keys on device
   ansible.builtin.copy:
