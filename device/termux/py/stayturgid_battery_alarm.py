@@ -2,7 +2,7 @@
 """Low-battery tier alerts (Python) — deployed as ~/stayturgid_battery_alarm.py.
 
 Migrated from stayturgid-battery-alarm.sh; unit-tested via tests/test-unit.sh
-(battery_suite). Called from the boot loop each ~5 min while discharging.
+(battery_suite). Called from the boot loop each ~15 min (900 s as deployed) while discharging.
 
 Python is guaranteed on-device: it's in stayturgid_termux_packages and Ansible
 itself requires it (ansible_python_interpreter).

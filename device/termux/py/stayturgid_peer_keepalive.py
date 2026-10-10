@@ -19,7 +19,8 @@ import time
 HOME = os.environ.get("HOME", "/data/data/com.termux/files/home")
 STG = os.path.join(HOME, ".stayturgid")
 STATE = os.path.join(STG, "state")
-# Min seconds between peer attempts per verb (boot loop is 300s; allow each cycle
+# Min seconds between peer attempts per verb (boot loop is 900s as deployed,
+# 300s only when STAYTURGID_INTERVAL_SEC is unset; allow each cycle
 # but skip if a recent success/attempt stamp is too fresh for failures).
 MIN_INTERVAL_SEC = int(os.environ.get("STAYTURGID_PEER_KEEPALIVE_SEC", "240"))
 

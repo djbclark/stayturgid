@@ -204,7 +204,8 @@ _tasker_monitor() {
 echo "tasker_monitor=$(_tasker_monitor)"
 """
 
-# This gather runs every 5 minutes through Termux's own adb server, whose key
+# This gather runs every fleet-health cycle (15 minutes: StartInterval from
+# stayturgid_interval_sec: 900) through Termux's own adb server, whose key
 # the phone may not have authorised (e.g. after "Revoke USB debugging
 # authorisations"). A bare `adb connect` from here then queued one more
 # "Allow USB debugging?" dialog each time. Go through the device's shared gate
