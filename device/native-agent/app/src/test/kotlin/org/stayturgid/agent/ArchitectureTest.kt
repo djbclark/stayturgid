@@ -43,4 +43,19 @@ class ArchitectureTest {
     fun `no source file should exceed 800 lines`() {
         Konsist.scopeFromProject().files.assertTrue { it.text.lines().size < 800 }
     }
+
+    /**
+     * The co-monitor call blocks on Binder IPC and, when sshd is wedged, for tens of seconds of
+     * probing, so it must never run on the Main-dispatched service scope.
+     */
+    @Test
+    fun `callComonitor is only called from the IO dispatcher`() {
+        val host = Konsist.scopeFromProject().files.first { it.name == "HostService" }.text.lines()
+        val calls =
+            host.filter { it.contains("callComonitor()") && !it.contains("fun callComonitor") }
+        assert(calls.isNotEmpty()) { "no callComonitor() call sites found" }
+        assert(calls.all { it.contains("withContext(Dispatchers.IO)") }) {
+            "callComonitor() must be wrapped in withContext(Dispatchers.IO): $calls"
+        }
+    }
 }

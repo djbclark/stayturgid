@@ -45,7 +45,8 @@ class HostService : Service() {
     private var bindWatchdogJob: Job? = null
     private var peerStartJob: Job? = null
     private val serviceRef = AtomicReference<IStayTurgidService?>(null)
-    private var bound = false
+
+    @Volatile private var bound = false
 
     /** elapsedRealtime of the outstanding bindUserService request, 0 when none is pending. */
     @Volatile private var bindRequestedAtMs = 0L
@@ -179,7 +180,7 @@ class HostService : Service() {
             ACTION_PING_NOW -> {
                 scope.launch {
                     callPingAwake()
-                    callComonitor()
+                    withContext(Dispatchers.IO) { callComonitor() }
                 }
             }
             ACTION_REPAIR_NOW -> {
@@ -354,7 +355,7 @@ class HostService : Service() {
                     delay(INITIAL_BIND_POLL_MS)
                     waited += INITIAL_BIND_POLL_MS
                 }
-                callComonitor()
+                withContext(Dispatchers.IO) { callComonitor() }
                 // One-time per-device phase stagger (ADR-006) so fleet devices
                 // don't all run co-monitor at the same instant. The first check
                 // above stays prompt; only the steady-state phase shifts.
@@ -362,7 +363,7 @@ class HostService : Service() {
                 while (isActive) {
                     delay(COMONTOR_INTERVAL_MS)
                     ensureBound()
-                    callComonitor()
+                    withContext(Dispatchers.IO) { callComonitor() }
                 }
             }
     }
