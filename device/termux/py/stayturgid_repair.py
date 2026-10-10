@@ -81,6 +81,8 @@ A11Y_SVC = "org.autojs.autojs6/org.autojs.autojs.core.accessibility.Accessibilit
 TAILSCALE_PACKAGE = "com.tailscale.ipn"
 TAILSCALE_CONTROL_HOST = "controlplane.tailscale.com"
 TAILSCALE_RECEIVER = "com.tailscale.ipn/com.tailscale.ipn.IPNReceiver"
+# Same action the native agent broadcasts (CatastrophicRepair.TAILSCALE_CONNECT_ACTION).
+TAILSCALE_CONNECT_ACTION = "com.tailscale.ipn.CONNECT_VPN"
 
 
 def ts():
@@ -854,7 +856,7 @@ def ensure_tailscale(have_sh=False):
             "broadcast",
             "--include-stopped-packages",
             "-a",
-            "com.tailscale.ipn.CONNECT_VPN",
+            TAILSCALE_CONNECT_ACTION,
             "-n",
             TAILSCALE_RECEIVER,
         ],
