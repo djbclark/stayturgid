@@ -13,6 +13,8 @@ recorded after its last restart. These tests pin down:
 3. The task shapes: the restart skips labels another path already restarted
    this run, the health wait covers a code restart, and the hash is recorded
    only after that wait.
+4. A probe that fails (a listed file deleted mid-edit) never fails the play:
+   its label is left out of the restart and the record, and a warning names it.
 """
 
 from __future__ import annotations
@@ -137,7 +139,10 @@ def _control_node_tasks() -> list[dict]:
 def _hash_script() -> str:
     task = _find(_control_node_tasks(), "Hash the checkout code each KeepAlive launchd agent executes")
     assert task.get("check_mode") is False  # read-only probe: a dry run still reports the pending restart
-    assert task["changed_when"] == "_mac_launchd_code_probes.stdout_lines | last == 'changed'"
+    assert task["changed_when"] == (
+        "_mac_launchd_code_probes.rc == 0 and (_mac_launchd_code_probes.stdout_lines | last | default('')) == 'changed'"
+    )
+    assert task["failed_when"] is False  # a failed probe must not stop the reload/load/heal tasks
     return "\n".join(
         line
         for line in task["ansible.builtin.shell"]["cmd"].splitlines()
@@ -190,6 +195,87 @@ def test_control_node_code_hash_flips_only_on_a_tracked_code_edit(tmp_path: Path
     assert out.returncode != 0
     assert "com.example.dashboard code hash: tracked file(s) missing" in out.stderr
     assert "control/lib/fleet_health.py" in out.stderr
+
+
+def _render(expr: str, **variables) -> str:
+    """Render a task's Jinja expression the way Ansible would, with plain jinja2 builtins."""
+    import jinja2
+
+    env = jinja2.Environment(undefined=jinja2.StrictUndefined)
+    text = expr.strip()
+    if "{{" not in text:  # a bare conditional (changed_when) rather than a template
+        text = "{{ " + text + " }}"
+    return env.from_string(text).render(**variables)
+
+
+def _inner(expr: str) -> str:
+    """The expression inside a ``{{ ... }}`` template, so a test can append filters to it."""
+    text = expr.strip()
+    assert text.startswith("{{") and text.endswith("}}"), text
+    return text[2:-2].strip()
+
+
+def test_control_node_missing_code_file_skips_that_label_and_warns(tmp_path: Path) -> None:
+    """Reviewer M on #316: a listed file deleted mid-edit used to fail the probe and stop localhost."""
+    script = _hash_script()
+    repo = tmp_path / "repo"
+    (repo / "control" / "lib").mkdir(parents=True)
+    (repo / "control" / "lib" / "stats.py").write_text("v1\n")
+    (repo / "control" / "lib" / "fleet_health.py").write_text("v1\n")
+    git = ["git", "-C", str(repo), "-c", "user.email=t@example.com", "-c", "user.name=t"]
+    subprocess.run([*git, "init", "-q"], check=True)
+    subprocess.run([*git, "add", "."], check=True)
+    subprocess.run([*git, "commit", "-q", "-m", "v1"], check=True)
+    (repo / "control" / "lib" / "stats.py").unlink()  # the agent mid-refactor
+
+    def run_probe(label: str, code_paths: str) -> dict:
+        env = {
+            **os.environ,
+            "LABEL": label,
+            "REPO_ROOT": str(repo),
+            "CODE_PATHS": code_paths,
+            "STATE_FILE": str(tmp_path / f"{label}.sha256"),
+        }
+        out = subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True)
+        return {
+            "item": {"name": label},
+            "rc": out.returncode,
+            "stdout_lines": out.stdout.splitlines(),
+            "stderr": out.stderr,
+        }
+
+    broken = run_probe("com.example.dashboard", "control/lib/stats.py control/lib/fleet_health.py")
+    healthy = run_probe("com.example.firerpa-mcp", "control/lib/fleet_health.py")
+    assert broken["rc"] != 0 and broken["stdout_lines"] == []
+    assert healthy["rc"] == 0
+
+    tasks = _control_node_tasks()
+    probe_task = _find(tasks, "Hash the checkout code each KeepAlive launchd agent executes")
+    for result in (broken, healthy):
+        result["changed"] = _render(probe_task["changed_when"], _mac_launchd_code_probes=result) == "True"
+    assert broken["changed"] is False  # no restart is driven by a probe that failed
+    assert healthy["changed"] is True  # no state file yet
+
+    registered = {"results": [broken, healthy]}
+    collect = _find(tasks, "Collect launchd agents whose checkout code changed")
+    stale = _render(collect["ansible.builtin.set_fact"]["_mac_launchd_code_stale"], _mac_launchd_code_probes=registered)
+    assert stale == "['com.example.firerpa-mcp']"
+
+    record = _find(tasks, "Record the checkout code hash each launchd agent now runs")
+    recorded = _render(
+        _inner(record["loop"]) + " | map(attribute='item.name') | list", _mac_launchd_code_probes=registered
+    )
+    assert "com.example.dashboard" not in recorded
+    assert "com.example.firerpa-mcp" in recorded
+
+    warn = _find(tasks, "Warn about launchd agents whose code-hash probe failed")
+    warned = _render(_inner(warn["loop"]) + " | map(attribute='item.name') | list", _mac_launchd_code_probes=registered)
+    assert warned == "['com.example.dashboard']"
+    msg = _render(warn["ansible.builtin.debug"]["msg"], item=broken)
+    assert "com.example.dashboard" in msg and "control/lib/stats.py" in msg
+    # The warning comes before every reload/load/heal task, so it never gates them.
+    names = [t["name"] for t in tasks]
+    assert names.index(warn["name"]) < names.index("Reload launchd agents after plist template changes")
 
 
 # ── task shapes ───────────────────────────────────────────────────────────

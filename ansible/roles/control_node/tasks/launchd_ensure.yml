@@ -66,7 +66,10 @@
 # restart. Tracked files only (git ls-files), so __pycache__ and other runtime
 # junk never look like a code change; plain find when the checkout is not a
 # git repository. The probe only reads, so it runs in check mode too and a
-# dry run reports the pending restart as changed.
+# dry run reports the pending restart as changed. A probe that fails (a listed
+# file deleted mid-edit in the checkout) must not stop the reload, load and
+# health-restart tasks below, so it never fails the play: its label is left
+# out of the code restart and the hash record, and a warning names it.
 - name: Ensure the launchd code-hash state directory exists
   ansible.builtin.file:
     path: "{{ mac_launchd_code_state_dir }}"
@@ -117,7 +120,10 @@
     STATE_FILE: "{{ mac_launchd_code_state_dir }}/{{ item.name }}.sha256"
   loop: "{{ _mac_launchd_installed | selectattr('code_paths', 'defined') | list }}"
   register: _mac_launchd_code_probes
-  changed_when: _mac_launchd_code_probes.stdout_lines | last == 'changed'
+  changed_when: >-
+    _mac_launchd_code_probes.rc == 0
+    and (_mac_launchd_code_probes.stdout_lines | last | default('')) == 'changed'
+  failed_when: false
   check_mode: false
   loop_control:
     label: "{{ item.name }}"
@@ -128,10 +134,28 @@
       {{
         _mac_launchd_code_probes.results
         | default([])
+        | selectattr('rc', 'defined')
+        | selectattr('rc', 'equalto', 0)
         | selectattr('changed')
         | map(attribute='item.name')
         | list
       }}
+
+- name: Warn about launchd agents whose code-hash probe failed
+  ansible.builtin.debug:
+    msg: >-
+      WARNING: code-hash probe failed for {{ item.item.name }} (rc={{ item.rc | default('n/a') }}),
+      so its code restart is skipped this run and no hash is recorded:
+      {{ item.stderr | default(item.msg | default('')) | trim }}
+  loop: >-
+    {{
+      _mac_launchd_code_probes.results
+      | default([])
+      | rejectattr('rc', 'equalto', 0)
+      | list
+    }}
+  loop_control:
+    label: "{{ item.item.name }}"
 
 # The explicit signal #224 asked for: a human reading the recap sees which
 # agents were stale and what the manual equivalent is.
@@ -287,6 +311,14 @@
     content: "{{ item.stdout_lines | first }}\n"
     dest: "{{ mac_launchd_code_state_dir }}/{{ item.item.name }}.sha256"
     mode: "0644"
-  loop: "{{ _mac_launchd_code_probes.results | default([]) | selectattr('changed') | list }}"
+  loop: >-
+    {{
+      _mac_launchd_code_probes.results
+      | default([])
+      | selectattr('rc', 'defined')
+      | selectattr('rc', 'equalto', 0)
+      | selectattr('changed')
+      | list
+    }}
   loop_control:
     label: "{{ item.item.name }}"
