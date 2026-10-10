@@ -16,6 +16,7 @@
       ignore_unreachable: true
       failed_when: false
       when: not ansible_check_mode
+      timeout: 10
 
     - name: Record SSH probe result
       ansible.builtin.set_fact:
@@ -34,6 +35,38 @@
   vars:
     stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
   tasks:
+    - name: Check for wedged accept queue (ss -ltn)
+      ansible.builtin.shell: |
+        adb -s {{ lookup('stayturgid.android_common.adb_device', inventory_hostname) | quote }} shell ss -ltn |
+          awk '$1=="LISTEN" && $4 ~ /:8022$/ && $2>0 && $2>=$3 {print "WEDGED"}'
+      delegate_to: localhost
+      register: _preflight_wedge_check
+      changed_when: false
+      failed_when: false
+      when:
+        - not ansible_check_mode
+        - not (_ssh_preflight_ok | default(false) | bool)
+      timeout: 10
+
+    - name: Force-stop Termux to recover from wedged sshd
+      ansible.builtin.command:
+        argv:
+          - adb
+          - -s
+          - "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+          - shell
+          - am
+          - force-stop
+          - com.termux
+      delegate_to: localhost
+      changed_when: true
+      when:
+        - not ansible_check_mode
+        - not (_ssh_preflight_ok | default(false) | bool)
+        - >-
+            (_preflight_ssh_probe.msg | default('') is match('.*Timed out.*')) or
+            (_preflight_wedge_check.stdout | default('') == 'WEDGED')
+
     # Best-effort (#103): a fully backgrounded/killed Termux can leave `pkg`
     # and other userland commands unusable via plain `run-as` until the app's
     # own activity has run at least once since it was last killed — matching
@@ -90,6 +123,7 @@
       when:
         - not ansible_check_mode
         - not (_ssh_preflight_ok | default(false) | bool)
+      timeout: 10
 
     - name: Assert Termux SSH is reachable
       ansible.builtin.assert:
@@ -102,6 +136,9 @@
             )
         fail_msg: >-
           Termux SSH unavailable on {{ inventory_hostname }} after adb bootstrap.
+          {% if (_preflight_ssh_probe.msg | default('') is match('.*Timed out.*')) or (_preflight_wedge_check.stdout | default('') == 'WEDGED') %}
+          (Failed after attempting to recover from a wedged Termux sshd)
+          {% endif %}
           Try: ./control/bin/bootstrap_ssh.py {{ inventory_hostname }}
         quiet: true
       when: not ansible_check_mode

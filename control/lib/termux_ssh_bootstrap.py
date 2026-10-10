@@ -19,7 +19,19 @@ if str(_COLLECTION_UTILS) not in sys.path:
 import termux_run_as as tr
 from secretspec_exec import secretspec_run
 
-SSH_OPTS = ["-o", "BatchMode=yes", "-o", "LogLevel=ERROR"]
+# Hard cap on one SSH probe (2026-10-10: a wedged sshd hung bootstrap_ssh.py for 56 minutes).
+SSH_PROBE_TIMEOUT_S = 15
+
+SSH_OPTS = [
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "LogLevel=ERROR",
+    "-o",
+    "ConnectTimeout=5",
+    "-o",
+    "ServerAliveInterval=2",
+]
 
 # Re-export discovery helpers for tests and callers.
 default_keys_dir = tr.default_keys_dir
@@ -44,6 +56,26 @@ def _run_command(cmd):
     return result.returncode, result.stdout or "", result.stderr or ""
 
 
+def is_wedged(serial: str) -> bool:
+    """True when sshd's listener has connections waiting that it never accepts.
+
+    A healthy listener has Recv-Q 0; a wedged Termux sshd (seen on t2e 2026-10-10)
+    sits at Recv-Q above its backlog, so every new connection times out.
+    """
+    rc, stdout, _ = _adb_run(["adb", "-s", serial, "shell", "ss", "-ltn"])
+    if rc != 0:
+        return False
+    for line in stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 4 and parts[0] == "LISTEN" and parts[3].endswith(":8022"):
+            try:
+                if int(parts[1]) > 0 and int(parts[1]) >= int(parts[2]):
+                    return True
+            except ValueError:
+                continue
+    return False
+
+
 def forward_local_ssh(serial: str) -> None:
     subprocess.run(["adb", "-s", serial, "forward", "tcp:8022", "tcp:8022"], check=True)
 
@@ -65,6 +97,7 @@ def verify_ssh_local(private_key: Path) -> bool:
         ],
         capture_output=True,
         text=True,
+        timeout=SSH_PROBE_TIMEOUT_S,
     )
     return result.returncode == 0 and "termux_ssh_ok" in (result.stdout or "")
 
@@ -74,6 +107,7 @@ def verify_ssh_alias(host: str) -> bool:
         ["ssh", *SSH_OPTS, host, "echo", "termux_ssh_ok"],
         capture_output=True,
         text=True,
+        timeout=SSH_PROBE_TIMEOUT_S,
     )
     return result.returncode == 0 and "termux_ssh_ok" in (result.stdout or "")
 
@@ -97,24 +131,56 @@ def bootstrap_serial(
 ) -> None:
     paths = pubkey_paths if pubkey_paths is not None else discover_pubkey_paths(keys_dir)
     lines = read_pubkey_lines([str(p) for p in paths])
-    tr.bootstrap_device(
-        _run_command,
-        serial,
-        lines,
-        connect=True,
-        install_openssh_pkg=install_openssh,
-        start_sshd_service=True,
-    )
 
-    local_ok = False
+    def _do_bootstrap():
+        tr.bootstrap_device(
+            _run_command,
+            serial,
+            lines,
+            connect=True,
+            install_openssh_pkg=install_openssh,
+            start_sshd_service=True,
+        )
+
+    _do_bootstrap()
+
+    def _probe(key: Path | None) -> tuple[bool, bool, bool]:
+        """(local_ok, alias_ok, timed_out); a probe that times out counts as failed."""
+        local_ok = alias_ok = timed_out = False
+        if forward and key:
+            try:
+                local_ok = verify_ssh_local(key)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+        if verify_alias:
+            try:
+                alias_ok = verify_ssh_alias(verify_alias)
+            except subprocess.TimeoutExpired:
+                timed_out = True
+        return local_ok, alias_ok, timed_out
+
+    key = None
     if forward:
         forward_local_ssh(serial)
         key = pick_private_key(keys_dir)
-        if key:
-            local_ok = verify_ssh_local(key)
+    local_ok, alias_ok, timed_out = _probe(key)
+
+    if not local_ok and not alias_ok and (timed_out or is_wedged(serial)):
+        # Wedged sshd: listening, never accepting. One force-stop of Termux, one
+        # re-bootstrap (restarts sshd), one re-probe; never a loop.
+        print("sshd on %s looks wedged: force-stopping Termux once" % serial)
+        subprocess.run(
+            ["adb", "-s", serial, "shell", "am", "force-stop", "com.termux"],
+            check=False,
+            timeout=30,
+        )
+        _do_bootstrap()
+        local_ok, alias_ok, timed_out = _probe(key)
+        if not local_ok and not alias_ok:
+            raise RuntimeError("Termux sshd is wedged on %s and recovery failed" % serial)
 
     if verify_alias:
-        if not verify_ssh_alias(verify_alias) and not local_ok:
+        if not alias_ok and not local_ok:
             raise RuntimeError("SSH to %s failed after bootstrap" % verify_alias)
     elif forward and not local_ok:
         raise RuntimeError("SSH via adb forward tcp:8022 failed after bootstrap")

@@ -75,10 +75,17 @@ def main(argv: list[str] | None = None) -> int:
             return rc
         for host in args.hosts:
             alias = ac.resolve_ssh(host) or host
-            if args.no_tailscale_verify or boot.verify_ssh_alias(alias):
+            if args.no_tailscale_verify:
                 print("OK: %s — SSH bootstrapped (run deploy_fleet.py for full mesh sync)" % host)
-            else:
-                print("FAIL: %s — bootstrap playbook ran but SSH to %s failed" % (host, alias), file=sys.stderr)
+                continue
+            try:
+                if boot.verify_ssh_alias(alias):
+                    print("OK: %s — SSH bootstrapped (run deploy_fleet.py for full mesh sync)" % host)
+                else:
+                    print("FAIL: %s — bootstrap playbook ran but SSH to %s failed" % (host, alias), file=sys.stderr)
+                    failed += 1
+            except boot.subprocess.TimeoutExpired:
+                print("FAIL: %s — bootstrap playbook ran but SSH to %s timed out" % (host, alias), file=sys.stderr)
                 failed += 1
         return 1 if failed else 0
 

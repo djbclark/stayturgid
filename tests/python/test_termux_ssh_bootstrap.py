@@ -1,6 +1,7 @@
 """Unit tests for termux_run_as helpers and CLI wrapper."""
 
 import os
+import subprocess
 import sys
 
 sys.path.insert(
@@ -16,7 +17,9 @@ _COLLECTION_UTILS = os.path.join(
 )
 sys.path.insert(0, _COLLECTION_UTILS)
 
+import pytest
 import termux_run_as as tr
+import termux_ssh_bootstrap as boot
 
 
 def test_discover_pubkey_paths_explicit(tmp_path):
@@ -96,3 +99,83 @@ def test_bootstrap_device_requires_run_as(monkeypatch):
         assert False, "expected RuntimeError"
     except RuntimeError as exc:
         assert "run-as" in str(exc)
+
+
+def _fake_runner(run_log, *, ssh_fails_until=0, ss_line="LISTEN 129 128 [::]:8022 *:*"):
+    """subprocess.run fake: the first `ssh_fails_until` ssh probes hang, adb ss shows a wedge."""
+    ssh_calls = []
+
+    def fake_run(cmd, **kwargs):
+        run_log.append(cmd)
+        if cmd[0] == "ssh":
+            ssh_calls.append(cmd)
+            if len(ssh_calls) <= ssh_fails_until:
+                raise subprocess.TimeoutExpired(cmd, kwargs.get("timeout", 0))
+            return subprocess.CompletedProcess(cmd, 0, "termux_ssh_ok", "")
+        if "ss" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, ss_line, "")
+        return subprocess.CompletedProcess(cmd, 0, "", "")
+
+    return fake_run
+
+
+def _patch_bootstrap(monkeypatch, fake_run):
+    monkeypatch.setattr(boot.subprocess, "run", fake_run)
+    monkeypatch.setattr(boot, "_run_command", lambda c: (0, "", ""))
+    monkeypatch.setattr(boot, "pick_private_key", lambda d: "key")
+    monkeypatch.setattr(boot.tr, "bootstrap_device", lambda *a, **k: None)
+
+
+def test_ssh_probe_has_hard_timeout(monkeypatch):
+    seen = {}
+
+    def fake_run(cmd, **kwargs):
+        seen["timeout"] = kwargs.get("timeout")
+        return subprocess.CompletedProcess(cmd, 0, "termux_ssh_ok", "")
+
+    monkeypatch.setattr(boot.subprocess, "run", fake_run)
+    assert boot.verify_ssh_local("key")
+    assert seen["timeout"] == boot.SSH_PROBE_TIMEOUT_S
+    assert boot.verify_ssh_alias("host")
+    assert seen["timeout"] == boot.SSH_PROBE_TIMEOUT_S
+
+
+def test_is_wedged_reads_accept_queue(monkeypatch):
+    wedged = "LISTEN 129 128 [::]:8022 *:*"
+    healthy = "LISTEN 0 128 [::]:8022 *:*"
+    other_port = "LISTEN 129 128 [::]:18022 *:*"
+    for line, want in ((wedged, True), (healthy, False), (other_port, False)):
+        monkeypatch.setattr(boot, "_adb_run", lambda cmd, line=line: (0, line, ""))
+        assert boot.is_wedged("serial") is want
+
+
+def test_wedge_recovery_is_one_shot(monkeypatch):
+    run_log = []
+    _patch_bootstrap(monkeypatch, _fake_runner(run_log, ssh_fails_until=1))
+    monkeypatch.setattr(boot, "_adb_run", lambda cmd: (0, "LISTEN 129 128 [::]:8022 *:*", ""))
+
+    boot.bootstrap_serial("serial", forward=True, verify_alias="", install_openssh=False)
+
+    assert len([c for c in run_log if "force-stop" in c]) == 1
+    assert len([c for c in run_log if c[0] == "ssh"]) == 2
+
+
+def test_wedge_second_failure_is_reported_not_looped(monkeypatch):
+    run_log = []
+    _patch_bootstrap(monkeypatch, _fake_runner(run_log, ssh_fails_until=99))
+    monkeypatch.setattr(boot, "_adb_run", lambda cmd: (0, "LISTEN 129 128 [::]:8022 *:*", ""))
+
+    with pytest.raises(RuntimeError, match="wedged"):
+        boot.bootstrap_serial("serial", forward=True, verify_alias="", install_openssh=False)
+
+    assert len([c for c in run_log if "force-stop" in c]) == 1
+    assert len([c for c in run_log if c[0] == "ssh"]) == 2
+
+
+def test_healthy_ssh_never_force_stops(monkeypatch):
+    run_log = []
+    _patch_bootstrap(monkeypatch, _fake_runner(run_log))
+
+    boot.bootstrap_serial("serial", forward=True, verify_alias="", install_openssh=False)
+
+    assert not [c for c in run_log if "force-stop" in c]
