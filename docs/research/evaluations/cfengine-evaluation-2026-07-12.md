@@ -112,6 +112,21 @@ CFEngine runs on Linux, macOS, Windows, AIX, Solaris, HP-UX. The `configure.ac` 
 
 ## Hard blockers for stayturgid integration (Revised)
 
+> **Correction, 2026-08-13 (operator):** most of what follows was this
+> analyst's (DeepSeek V4 Pro) own inferred constraints, not the operator's
+> actual requirements — never corrected because nobody checked. Real
+> status: older pre-built Android binaries already exist (slightly behind
+> current source, but usable) and building current ones is trivial; there
+> is **no requirement for SSH or a push model** — pull is fine; policy-
+> server infrastructure is fine, and CFEngine is lightweight enough that
+> policy could be distributed via git with a server running on every
+> client (no dedicated central policy host needed at all); GPLv3 is not a
+> concern. #1, #2, #4, and #5 below are **not actually blockers** for this
+> project. #3 (separate policy language) and #6 (binary footprint) stand,
+> though #3 is exactly what a Nix→CFEngine-promises compiler (fleetopia
+> docs/architecture, D12/§4.3) would resolve — see
+> `djbclark/fleetopia` for that thread.
+
 ### #1: Source code supports Android, but no pre-built binaries exist
 
 **Correction from initial analysis:** CFEngine DOES have first-class Android support in the C source code. Evidence found:
