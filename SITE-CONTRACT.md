@@ -67,7 +67,6 @@ site-example/
   registry/
     ports.yml                # product port defaults (generator-owned seeds)
     paths.yml                # product path defaults (generator-owned seeds)
-  secretspec.toml            # secret *declarations* only (values in a provider)
   generated/
     stayturgid/              # site-sync owned; committed; never hand-edit
   docs/                      # operator notes (user area)
@@ -92,8 +91,8 @@ Optional `site-map.yml` at the site root remaps contract path keys
 4. Copy non-`.j2` files byte-for-byte (including empty-dir `.gitkeep` files).
 5. Install registry seeds from the product's checked-in
    `control/site_contract/templates/registry/{ports,paths}.yml` (see §6).
-6. Edit inventory and registries for this site; provide secret values via a
-   secretspec provider; never commit secret values.
+6. Edit inventory and registries for this site. Declare and set secrets with
+   `sudo-secretspec` on the control node; never commit a manifest or a value.
 
 After that, product upgrades use `site-sync` for `generated/stayturgid/` only.
 
@@ -167,8 +166,9 @@ __pycache__/
 # site-{{ site_name }}
 
 This is a private site overlay for the **stayturgid** product. It holds site
-inventory, allocation registries, secret declarations, and operator notes;
-secret values live in a provider and never in this repository.
+inventory, allocation registries, and operator notes. Secrets are declared and
+set through `sudo-secretspec` on the control node and never live in this
+repository, as a value or as a manifest.
 
 This README is generated once by `site-init`. After creation it is user-owned:
 product syncs never replace or modify it. Everything outside
@@ -181,8 +181,9 @@ otherwise.
   RFC 5737 addresses, example aliases, and placeholder serials before deploy.
 - `{{ registry_ports_path }}` and `{{ registry_paths_path }}` contain product defaults to
   reconcile with this site's actual allocations.
-- `secretspec.toml` declares the stayturgid secret profile without storing any
-  values.
+- No secret manifest lives here. Secrets are declared and set through
+  `sudo-secretspec add`/`set` against the control node's vault; see the
+  product's `docs/operations/secretspec-boundary-lifecycle.md`.
 - `generated/stayturgid/` is committed, reviewable output owned by
   `site-sync`; never hand-edit it.
 - `docs/` is available for operator-owned notes.
@@ -248,16 +249,15 @@ inventory-check:
 {% endraw %}
 ```
 
-### `secretspec.toml.j2` — secretspec.toml declarations (Jinja2; values never stored here)
+### Secret names the product reads (reference only)
 
-```{.j2 file="control/site_contract/templates/secretspec.toml.j2"}
-[project]
-name = "site-{{ site_name }}"
-revision = "1.0"
+Site scaffolds no longer carry a `secretspec.toml` (#287): a tracked manifest in a
+checkout is a second source of secret truth that the plain `secretspec` CLI would
+pick up from the working directory. The control node's `sudo-secretspec` vault is
+the only store. Declare a name there with `sudo-secretspec add NAME --reason WHY`
+and set it with `sudo-secretspec set`. The names and descriptions the product reads:
 
-# The site's default profile declares stayturgid's secret inputs. Values live in a secretspec
-# provider, never in this repository or generated/stayturgid/.
-[profiles.default]
+```text
 TELEGRAM_BOT_TOKEN = { description = "Telegram bot token for Hermes agent notifications", required = true }
 TELEGRAM_ALLOWED_USERS = { description = "Comma-separated Telegram user IDs allowed to interact with Hermes", required = false }
 TELEGRAM_HOME_CHANNEL = { description = "Telegram channel ID for Hermes notifications", required = false }
@@ -377,7 +377,7 @@ all:
    serials with this site's values.
 2. Reconcile `registry/ports.yml` and `registry/paths.yml` with local
    allocations (site inventory remains authoritative for the live site).
-3. Provide secret _values_ via a secretspec provider (never commit them).
+3. Declare and set secrets with `sudo-secretspec add`/`set` (never commit them).
 4. Point product tooling at the site via `STAYTURGID_SITE_DIR` or
    `ANSIBLE_CONFIG`, or place the site as the sole `site-*` checkout under
    `$OPS_ROOT`.

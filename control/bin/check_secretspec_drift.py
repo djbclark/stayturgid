@@ -6,8 +6,9 @@ The canonical secret store is the ``sudo-secretspec`` vault at
 source of truth or tell a reader to use one. This checker fails when:
 
 ``store``
-    a SecretSpec manifest or ``.env`` store is tracked (templates ending in
-    ``.j2`` and ``.example`` files are declarations, not stores);
+    a SecretSpec manifest or ``.env`` store is tracked, or a scaffold template
+    under ``templates/`` would render one into a site (``.example`` files are
+    declarations, not stores);
 ``selector``
     executable code points SecretSpec at an alternate manifest
     (``SECRETSPEC_FILE``, ``secretspec --file``/``-f``);
@@ -108,11 +109,18 @@ def tracked_files(root: Path) -> list[str]:
     return [p for p in out.split("\0") if p]
 
 
-def is_store(rel: str) -> bool:
-    name = rel.rsplit("/", 1)[-1]
-    if name.endswith((".j2", ".example")):
-        return False
+def _store_name(name: str) -> bool:
     return name in ("secretspec.toml", ".env") or re.fullmatch(r"\.env\.[^.]+", name) is not None
+
+
+def is_store(rel: str) -> bool:
+    """A tracked store, or a scaffold template that renders one into a site."""
+    name = rel.rsplit("/", 1)[-1]
+    if name.endswith(".example"):
+        return False
+    if name.endswith(".j2"):
+        return "/templates/" in f"/{rel}" and _store_name(name[: -len(".j2")])
+    return _store_name(name)
 
 
 def is_code(rel: str) -> bool:

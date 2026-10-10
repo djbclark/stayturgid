@@ -58,7 +58,6 @@ site-<name>/
   registry/
     ports.yml                # seeded with the product's port claims
     paths.yml                # seeded with the product's prefix claims
-  secretspec.toml            # product's secret declarations, site profile
   generated/
     <product>/
       .lockfile.yml          # see §4

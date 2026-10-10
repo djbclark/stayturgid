@@ -9,7 +9,6 @@ import os
 import shutil
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 import pytest
@@ -33,7 +32,6 @@ EXPECTED_RELATIVE = {
     "justfile",
     "registry/paths.yml",
     "registry/ports.yml",
-    "secretspec.toml",
 }
 
 
@@ -153,9 +151,7 @@ def test_apply_creates_section3_scaffold_and_second_apply_is_noop(tmp_path: Path
     assert ansible_config["defaults"]["inventory"] == "inventory/hosts.yml"
     assert ansible_config["defaults"]["roles_path"] == f"{ROOT}/ansible/roles"
 
-    secret_spec = tomllib.loads((dest / "secretspec.toml").read_text(encoding="utf-8"))
-    assert secret_spec["project"]["name"] == "site-example"
-    assert "OPENOBSERVE_ROOT_PASSWORD" in secret_spec["profiles"]["default"]
+    assert not (dest / "secretspec.toml").exists()  # #287: the vault is the only store
 
     readme = (dest / "README.md").read_text(encoding="utf-8")
     assert "site-example" in readme

@@ -31,7 +31,6 @@ EXPECTED_TEMPLATES = {
     "justfile.j2",
     "registry/paths.yml",
     "registry/ports.yml",
-    "secretspec.toml.j2",
 }
 
 LITERATE_TEMPLATES = EXPECTED_TEMPLATES - ce.REGISTRY_SEED_RELATIVE

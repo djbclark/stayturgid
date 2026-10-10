@@ -3,7 +3,6 @@ from __future__ import annotations
 import configparser
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 import yaml
@@ -40,7 +39,6 @@ def test_complete_site_layout_templates_exist_and_load() -> None:
         "justfile.j2",
         "registry/paths.yml",
         "registry/ports.yml",
-        "secretspec.toml.j2",
     }
     actual = {str(path.relative_to(TEMPLATES)) for path in TEMPLATES.rglob("*") if path.is_file()}
     assert actual == expected
@@ -57,10 +55,6 @@ def test_rendered_structured_templates_parse() -> None:
     ansible_config.read_string(_render("ansible.cfg.j2"))
     assert ansible_config["defaults"]["inventory"] == "inventory/hosts.yml"
     assert ansible_config["defaults"]["roles_path"] == "/srv/products/stayturgid/ansible/roles"
-
-    secret_spec = tomllib.loads(_render("secretspec.toml.j2"))
-    assert secret_spec["project"]["name"] == "site-example"
-    assert "OPENOBSERVE_ROOT_PASSWORD" in secret_spec["profiles"]["default"]
 
 
 def test_rendered_justfile_parses(tmp_path: Path) -> None:

@@ -38,9 +38,15 @@ def test_tracked_store_is_flagged(tmp_path, name):
     assert (name, "store") in _rules(tmp_path, {name: "x\n"})
 
 
-@pytest.mark.parametrize("name", [".env.example", "examples/x/.env.example", "t/secretspec.toml.j2"])
-def test_declarations_and_templates_are_not_stores(tmp_path, name):
+@pytest.mark.parametrize("name", [".env.example", "examples/x/.env.example", "roles/x/secretspec.toml.j2"])
+def test_declarations_and_non_scaffold_templates_are_not_stores(tmp_path, name):
     assert _rules(tmp_path, {name: "x\n"}) == []
+
+
+@pytest.mark.parametrize("name", ["control/site_contract/templates/secretspec.toml.j2", "templates/.env.j2"])
+def test_scaffold_template_that_renders_a_store_is_flagged(tmp_path, name):
+    """#287: a template that drops a manifest into every new site is a store."""
+    assert (name, "store") in _rules(tmp_path, {name: "x\n"})
 
 
 @pytest.mark.parametrize(
