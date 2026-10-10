@@ -166,6 +166,7 @@ def test_main_notifies_on_updates(monkeypatch: pytest.MonkeyPatch, tmp_path: Pat
             {
                 "s24": [{"name": "curl", "current": "1", "latest": "2"}],
             },
+            {},
             [],
         )
 
@@ -186,7 +187,7 @@ def test_main_does_not_notify_when_current(monkeypatch: pytest.MonkeyPatch, tmp_
     state_path = tmp_path / "termux-pkg-updates.json"
     monkeypatch.setattr(ctu, "STATE_PATH", str(state_path))
     monkeypatch.setattr(ctu, "list_hosts", lambda limit=None: ["s24"])
-    monkeypatch.setattr(ctu, "collect_updates", lambda hosts, *, refresh=True: ({}, []))
+    monkeypatch.setattr(ctu, "collect_updates", lambda hosts, *, refresh=True: ({}, {}, []))
 
     called: list[str] = []
     monkeypatch.setattr(ctu, "hermes_notify", lambda msg: called.append(msg))
@@ -206,6 +207,7 @@ def test_main_dry_run_skips_hermes(monkeypatch: pytest.MonkeyPatch, tmp_path: Pa
         "collect_updates",
         lambda hosts, *, refresh=True: (
             {"s24": [{"name": "git", "current": "a", "latest": "b"}]},
+            {},
             [],
         ),
     )
@@ -224,7 +226,7 @@ def test_main_all_hosts_failed_exits_1(monkeypatch: pytest.MonkeyPatch, tmp_path
     monkeypatch.setattr(
         ctu,
         "collect_updates",
-        lambda hosts, *, refresh=True: ({}, ["s24: down", "p7a: down"]),
+        lambda hosts, *, refresh=True: ({}, {}, ["s24: down", "p7a: down"]),
     )
     monkeypatch.setattr(ctu, "hermes_notify", lambda msg: None)
     assert ctu.main([]) == 1
@@ -255,6 +257,7 @@ def test_main_skips_repeat_telegram(monkeypatch: pytest.MonkeyPatch, tmp_path: P
         "collect_updates",
         lambda hosts, *, refresh=True: (
             {"s24": [{"name": "git", "current": "a", "latest": "b"}]},
+            {},
             [],
         ),
     )
@@ -264,3 +267,112 @@ def test_main_skips_repeat_telegram(monkeypatch: pytest.MonkeyPatch, tmp_path: P
     assert len(called) == 1
     assert ctu.main([]) == 0
     assert len(called) == 1
+
+
+# --- #309: pip-only packages (not from apt, not declared) ----------------------
+
+
+def test_parse_pip_only_reads_dist_info_names() -> None:
+    text = "termux_ai-0.5.2.dist-info\ncharset_normalizer-3.5.1.dist-info\nnoise\n-1.0.dist-info\n"
+    assert ctu.parse_pip_only(text) == [
+        {"name": "termux_ai", "version": "0.5.2"},
+        {"name": "charset_normalizer", "version": "3.5.1"},
+    ]
+
+
+def test_declared_pip_packages_normalizes_names(tmp_path: Path) -> None:
+    req = tmp_path / "requirements.txt"
+    req.write_text("# comment\n\nCharset_Normalizer>=3  # why\nrequests[socks]==2.34\n-r other.txt\n", encoding="utf-8")
+    assert ctu.declared_pip_packages(req) == {"charset-normalizer", "requests"}
+    assert ctu.declared_pip_packages(tmp_path / "missing.txt") == set()
+
+
+def test_repo_requirements_file_declares_nothing_today() -> None:
+    """The policy (#309): device code is stdlib only, so no pip package is declared.
+    Adding one is a deliberate change that this test makes visible."""
+    assert ctu.DEVICE_REQUIREMENTS.is_file()
+    assert ctu.declared_pip_packages() == set()
+
+
+def test_build_pip_lines_skips_declared() -> None:
+    pip_by_host = {"t2e": [{"name": "termux_ai", "version": "0.5.2"}, {"name": "requests", "version": "2.34.2"}]}
+    assert ctu.build_pip_lines(pip_by_host, {"requests"}) == ["t2e: pip-only termux_ai 0.5.2"]
+
+
+def test_remote_script_lists_only_unowned_dist_info(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """Run the real remote script under bash against a fake Termux prefix:
+    apt's own packages (dpkg owns their dist-info) must not be reported."""
+    import shutil
+    import subprocess
+
+    if shutil.which("bash") is None:
+        pytest.skip("bash not available")
+    prefix = tmp_path / "usr"
+    site = prefix / "lib" / "python3.13" / "site-packages"
+    for d in ("pip-26.2.1.dist-info", "termux_ai-0.5.2.dist-info", "requests-2.34.2.dist-info"):
+        (site / d).mkdir(parents=True)
+    (prefix / "bin").mkdir()
+    (prefix / "tmp").mkdir()
+    (prefix / "bin" / "apt").write_text(
+        "#!/bin/bash\necho 'Listing...'\necho 'curl/stable 2.0 aarch64 [upgradable from: 1.0]'\n", encoding="utf-8"
+    )
+    owned = site / "pip-26.2.1.dist-info"
+    (prefix / "bin" / "dpkg").write_text(
+        f'#!/bin/bash\nfor p in "${{@:2}}"; do [ "$p" = \'{owned}\' ] && echo "python-pip: $p" '
+        '|| echo "dpkg-query: no path found matching pattern $p" >&2; done\nexit 1\n',
+        encoding="utf-8",
+    )
+    for tool in ("apt", "dpkg"):
+        (prefix / "bin" / tool).chmod(0o755)
+
+    seen: dict[str, str] = {}
+    real_run = subprocess.run  # ctu.subprocess is this module: keep the real one
+
+    def fake_run(args, **kwargs):
+        seen["remote"] = args[-1].replace(ctu.TERMUX_PREFIX, str(prefix))
+        return real_run(["bash", "-c", seen["remote"]], **kwargs)
+
+    monkeypatch.setattr(ctu.subprocess, "run", fake_run)
+    monkeypatch.setattr(ctu.dev, "resolve_ssh_host", lambda h, conf_path=None: h)
+    apt, pip_only, err = ctu.ssh_probe("t2e", refresh=False)
+    assert err is None
+    assert apt == [{"name": "curl", "latest": "2.0", "current": "1.0"}]
+    assert sorted(p["name"] for p in pip_only) == ["requests", "termux_ai"]
+
+
+def test_remote_script_keeps_apt_failure_as_the_exit_status(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    import subprocess
+
+    prefix = tmp_path / "usr"
+    (prefix / "bin").mkdir(parents=True)
+    (prefix / "bin" / "apt").write_text("#!/bin/bash\necho 'E: broken' >&2\nexit 100\n", encoding="utf-8")
+    (prefix / "bin" / "apt").chmod(0o755)
+
+    real_run = subprocess.run
+
+    def fake_run(args, **kwargs):
+        return real_run(["bash", "-c", args[-1].replace(ctu.TERMUX_PREFIX, str(prefix))], **kwargs)
+
+    monkeypatch.setattr(ctu.subprocess, "run", fake_run)
+    monkeypatch.setattr(ctu.dev, "resolve_ssh_host", lambda h, conf_path=None: h)
+    apt, pip_only, err = ctu.ssh_probe("s24", refresh=False)
+    assert err is not None and "s24" in err
+
+
+def test_main_reports_pip_only_packages_once(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    state_path = tmp_path / "termux-pkg-updates.json"
+    monkeypatch.setattr(ctu, "STATE_PATH", str(state_path))
+    monkeypatch.setattr(ctu, "list_hosts", lambda limit=None: ["t2e", "s24"])
+    monkeypatch.setattr(
+        ctu,
+        "collect_updates",
+        lambda hosts, *, refresh=True: ({}, {"t2e": [{"name": "termux_ai", "version": "0.5.2"}]}, []),
+    )
+    sent: list[str] = []
+    monkeypatch.setattr(ctu, "hermes_notify", lambda msg: sent.append(msg))
+
+    assert ctu.main([]) == 0
+    assert len(sent) == 1 and "t2e: pip-only termux_ai 0.5.2" in sent[0] and "#309" in sent[0]
+    assert json.loads(state_path.read_text())["pip_only"] == ["t2e: pip-only termux_ai 0.5.2"]
+    assert ctu.main([]) == 0
+    assert len(sent) == 1, "unchanged pip drift must not page again"

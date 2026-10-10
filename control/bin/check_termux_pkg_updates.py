@@ -12,6 +12,14 @@ Why a separate checker (not only the nightly upgrade log):
     the operator sees what is pending even if the nightly job is disabled,
     fails, or has not run yet.
 
+The same SSH session also lists Python packages that pip, not apt, put on the
+device: ``*.dist-info`` directories under site-packages that no dpkg package
+owns. Device-side pip is unmanaged by policy (#309): device code is stdlib
+only, and ``device/termux/requirements.txt`` declares the pip packages a
+device may carry (none today). Any other pip-only package is reported once,
+with the apt updates, so a hand-run ``pip install`` (t2e, 2026-09-19) is seen
+instead of drifting silently.
+
 Usage:
   python3 control/bin/check_termux_pkg_updates.py
   python3 control/bin/check_termux_pkg_updates.py --limit s24,p7a
@@ -44,6 +52,9 @@ HERMES_TARGET = "telegram:838808636:22158"
 STATE_PATH = os.path.expanduser("~/.local/state/stayturgid/termux-pkg-updates.json")
 
 TERMUX_PREFIX = "/data/data/com.termux/files/usr"
+# The device pip set this repo allows (#309); the checker reads only names.
+DEVICE_REQUIREMENTS = _REPO / "device" / "termux" / "requirements.txt"
+_PIP_MARKER = "@@stayturgid-pip-only@@"
 SSH_TIMEOUT_SEC = int(os.environ.get("STAYTURGID_TERMUX_PKG_CHECK_TIMEOUT", "180"))
 
 # apt list --upgradable line, e.g.:
@@ -72,6 +83,51 @@ def parse_apt_upgradable(text: str) -> list[dict[str, str]]:
     return found
 
 
+def normalize_pip_name(name: str) -> str:
+    """PEP 503 form, so `charset_normalizer` and `Charset-Normalizer` match."""
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def parse_pip_only(text: str) -> list[dict[str, str]]:
+    """Parse the remote list of unowned ``<name>-<version>.dist-info`` basenames."""
+    found: list[dict[str, str]] = []
+    for line in (text or "").splitlines():
+        line = line.strip()
+        if not line.endswith(".dist-info"):
+            continue
+        name, _, version = line[: -len(".dist-info")].rpartition("-")
+        if name and version:
+            found.append({"name": name, "version": version})
+    return found
+
+
+def declared_pip_packages(path: Path = DEVICE_REQUIREMENTS) -> set[str]:
+    """Normalized names in device/termux/requirements.txt (missing file: none)."""
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return set()
+    names: set[str] = set()
+    for raw in text.splitlines():
+        line = raw.split("#", 1)[0].strip()
+        if not line or line.startswith("-"):
+            continue
+        m = re.match(r"[A-Za-z0-9][A-Za-z0-9._-]*", line)
+        if m:
+            names.add(normalize_pip_name(m.group(0)))
+    return names
+
+
+def build_pip_lines(pip_by_host: dict[str, list[dict[str, str]]], declared: set[str]) -> list[str]:
+    """One line per pip-only package that the requirements file does not declare."""
+    lines: list[str] = []
+    for host in sorted(pip_by_host):
+        for pkg in sorted(pip_by_host[host], key=lambda p: normalize_pip_name(p["name"])):
+            if normalize_pip_name(pkg["name"]) not in declared:
+                lines.append(f"{host}: pip-only {pkg['name']} {pkg['version']}")
+    return lines
+
+
 def format_package_line(pkg: dict[str, str]) -> str:
     return f"{pkg['name']}: {pkg['current']} -> {pkg['latest']}"
 
@@ -85,11 +141,13 @@ def list_hosts(limit: str | None = None) -> list[str]:
     return [h for h in all_hosts if h in wanted]
 
 
-def ssh_upgradable(host: str, *, refresh: bool = True) -> tuple[list[dict[str, str]], str | None]:
-    """SSH to *host* and return (upgradable packages, error_or_None).
+def ssh_probe(host: str, *, refresh: bool = True) -> tuple[list[dict[str, str]], list[dict[str, str]], str | None]:
+    """SSH to *host* once: (upgradable apt packages, pip-only packages, error).
 
     When *refresh* is True (default), runs ``pkg update`` first so the check
-    sees current indexes — same first step as the nightly upgrade path.
+    sees current indexes — same first step as the nightly upgrade path. The
+    exit status stays apt's, so a broken apt is still an error; the pip pass
+    is best effort and read-only (``dpkg -S`` over site-packages).
     """
     ssh_host = dev.resolve_ssh_host(host) or host
     refresh_cmd = "pkg update -y >/dev/null 2>&1 || true\n" if refresh else ""
@@ -99,6 +157,14 @@ def ssh_upgradable(host: str, *, refresh: bool = True) -> tuple[list[dict[str, s
         "export DEBIAN_FRONTEND=noninteractive\n"
         f"{refresh_cmd}"
         "apt list --upgradable 2>/dev/null\n"
+        "apt_rc=$?\n"
+        f"echo '{_PIP_MARKER}'\n"
+        f"set -- {TERMUX_PREFIX}/lib/python3*/site-packages/*.dist-info\n"
+        'if [ -d "$1" ]; then\n'
+        "  owned=$(dpkg -S \"$@\" 2>/dev/null | sed 's/^[^:]*: //')\n"
+        '  for d in "$@"; do printf \'%s\\n\' "$owned" | grep -qxF "$d" || basename "$d"; done\n'
+        "fi\n"
+        'exit "$apt_rc"\n'
     )
     try:
         result = subprocess.run(
@@ -108,35 +174,52 @@ def ssh_upgradable(host: str, *, refresh: bool = True) -> tuple[list[dict[str, s
             timeout=SSH_TIMEOUT_SEC,
         )
     except subprocess.TimeoutExpired:
-        return [], f"{host}: ssh timed out after {SSH_TIMEOUT_SEC}s"
+        return [], [], f"{host}: ssh timed out after {SSH_TIMEOUT_SEC}s"
     except OSError as exc:
-        return [], f"{host}: ssh failed: {exc}"
+        return [], [], f"{host}: ssh failed: {exc}"
 
     if result.returncode != 0:
         err = (result.stderr or result.stdout or "").strip().splitlines()
         detail = err[-1] if err else f"rc={result.returncode}"
-        return [], f"{host}: ssh/apt failed ({detail})"
+        return [], [], f"{host}: ssh/apt failed ({detail})"
 
-    return parse_apt_upgradable(result.stdout or ""), None
+    apt_lines: list[str] = []
+    pip_lines: list[str] = []
+    target = apt_lines
+    for line in (result.stdout or "").splitlines():
+        if line.strip() == _PIP_MARKER:
+            target = pip_lines
+            continue
+        target.append(line)
+    return parse_apt_upgradable("\n".join(apt_lines)), parse_pip_only("\n".join(pip_lines)), None
+
+
+def ssh_upgradable(host: str, *, refresh: bool = True) -> tuple[list[dict[str, str]], str | None]:
+    """SSH to *host* and return (upgradable packages, error_or_None)."""
+    packages, _pip_only, err = ssh_probe(host, refresh=refresh)
+    return packages, err
 
 
 def collect_updates(
     hosts: list[str],
     *,
     refresh: bool = True,
-) -> tuple[dict[str, list[dict[str, str]]], list[str]]:
-    """Probe each host. Returns (host -> packages, error messages)."""
+) -> tuple[dict[str, list[dict[str, str]]], dict[str, list[dict[str, str]]], list[str]]:
+    """Probe each host. Returns (host -> apt updates, host -> pip-only packages, errors)."""
     by_host: dict[str, list[dict[str, str]]] = {}
+    pip_by_host: dict[str, list[dict[str, str]]] = {}
     errors: list[str] = []
     for host in hosts:
-        packages, err = ssh_upgradable(host, refresh=refresh)
+        packages, pip_only, err = ssh_probe(host, refresh=refresh)
         if err:
             errors.append(err)
             print(err, file=sys.stderr)
             continue
         if packages:
             by_host[host] = packages
-    return by_host, errors
+        if pip_only:
+            pip_by_host[host] = pip_only
+    return by_host, pip_by_host, errors
 
 
 def build_update_lines(by_host: dict[str, list[dict[str, str]]]) -> list[str]:
@@ -180,6 +263,7 @@ def write_state(
     errors: list[str],
     hosts_checked: list[str],
     last_notified: list[str] | None = None,
+    pip_only: list[str] | None = None,
 ) -> None:
     """Write state atomically; failures are non-fatal so notify can still run."""
     payload = {
@@ -188,6 +272,7 @@ def write_state(
         "updates": updates,
         "last_notified": last_notified if last_notified is not None else updates,
         "by_host": {h: [dict(p) for p in pkgs] for h, pkgs in by_host.items()},
+        "pip_only": pip_only or [],
         "errors": errors,
     }
     tmp = f"{path}.tmp"
@@ -233,10 +318,13 @@ def main(argv: list[str] | None = None) -> int:
         print("No hosts to check (empty devices.conf or --limit matched nothing)", file=sys.stderr)
         return 2
 
-    by_host, errors = collect_updates(hosts, refresh=not args.no_refresh)
+    by_host, pip_by_host, errors = collect_updates(hosts, refresh=not args.no_refresh)
     updates = build_update_lines(by_host)
-    notify = should_notify(STATE_PATH, updates)
-    last_notified = updates if notify else (previous_notified_updates(STATE_PATH) or [])
+    pip_only = build_pip_lines(pip_by_host, declared_pip_packages())
+    # One notice covers both, sent when either set changes.
+    keys = updates + pip_only
+    notify = should_notify(STATE_PATH, keys)
+    last_notified = keys if notify else (previous_notified_updates(STATE_PATH) or [])
     write_state(
         STATE_PATH,
         updates=updates,
@@ -244,10 +332,19 @@ def main(argv: list[str] | None = None) -> int:
         errors=errors,
         hosts_checked=hosts,
         last_notified=last_notified,
+        pip_only=pip_only,
     )
 
+    sections: list[str] = []
     if updates:
-        message = "Stayturgid Termux package updates available:\n" + "\n".join(updates)
+        sections.append("Stayturgid Termux package updates available:\n" + "\n".join(updates))
+    if pip_only:
+        sections.append(
+            "Termux pip packages outside policy (not from apt, not in device/termux/requirements.txt; #309):\n"
+            + "\n".join(pip_only)
+        )
+    if sections:
+        message = "\n\n".join(sections)
         print(message)
         if notify and not args.dry_run:
             hermes_notify(message)
