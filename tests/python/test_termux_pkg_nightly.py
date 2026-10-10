@@ -588,3 +588,16 @@ def test_limited_run_still_records_results_with_its_limit(monkeypatch, tmp_path)
     assert [a[0] for a, _ in rows["result"]] == ["p7a"]
     assert rows["run"][0][1]["limit"] == "p7a"
     assert notices == [], "a limited run never notifies"
+
+
+def test_no_temp_dir_still_runs_the_upgrade(monkeypatch, tmp_path):
+    """Adversary review L1: a failed mkdtemp used to crash before the upgrade."""
+
+    def no_tmp(*a, **k):
+        raise OSError("No space left on device")
+
+    monkeypatch.setattr(nightly.tempfile, "mkdtemp", no_tmp)
+    code, seen, rows, _ = _run_with_results(monkeypatch, tmp_path, _TWO_HOSTS_OK, {"p7a": {"changed": True}})
+    assert code == 0 and "command" in seen, "ansible-playbook still ran"
+    assert not any("stayturgid_termux_pkg_result_dir" in a for a in seen["command"])
+    assert rows["result"] == [] and rows["run"] == []

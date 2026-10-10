@@ -68,36 +68,28 @@ def _prefix(root: Path, name: str, *, dead_mirror: bool = False) -> Path:
     return prefix
 
 
-@pytest.mark.skipif(not ANSIBLE_PLAYBOOK.exists(), reason="ansible-playbook not installed beside this python")
-@pytest.mark.skipif(shutil.which("ssh") is None, reason="needs an ssh client for the unreachable host")
-def test_playbook_writes_one_result_per_finished_host(tmp_path):
-    local = {"ansible_connection": "local", "ansible_python_interpreter": sys.executable}
-    hosts = {
-        "fakeok": {**local, "termux_prefix": str(_prefix(tmp_path, "fakeok"))},
-        "fakestale": {**local, "termux_prefix": str(_prefix(tmp_path, "fakestale", dead_mirror=True))},
-        "fakedisabled": {
-            **local,
-            "termux_prefix": str(_prefix(tmp_path, "fakedisabled")),
-            "stayturgid_termux_pkg_upgrade_enabled": False,
-        },
-        # Port 1 on loopback refuses at once: unreachable without a timeout.
-        "fakeoff": {
-            "ansible_connection": "ssh",
-            "ansible_host": "127.0.0.1",
-            "ansible_port": 1,
-            "ansible_user": "nobody",
-            "termux_prefix": "/nonexistent",
-        },
+_needs_ansible = pytest.mark.skipif(
+    not ANSIBLE_PLAYBOOK.exists(), reason="ansible-playbook not installed beside this python"
+)
+
+
+def _local(tmp_path: Path, name: str, **extra: object) -> dict[str, object]:
+    return {
+        "ansible_connection": "local",
+        "ansible_python_interpreter": sys.executable,
+        "termux_prefix": str(_prefix(tmp_path, name, dead_mirror=bool(extra.pop("dead_mirror", False)))),
+        **extra,
     }
+
+
+def _run_playbook(tmp_path: Path, hosts: dict[str, dict[str, object]], result_dir: Path) -> subprocess.CompletedProcess:
+    utf8 = _utf8_locale() or ""
+    if not utf8:
+        pytest.skip("no UTF-8 locale available for ansible")
     inventory = tmp_path / "hosts.json"
     inventory.write_text(json.dumps({"stayturgid": {"hosts": hosts}}), encoding="utf-8")
     config = tmp_path / "ansible.cfg"
     config.write_text("", encoding="utf-8")
-    results = tmp_path / "results"
-    results.mkdir()
-    utf8 = _utf8_locale()
-    if utf8 is None:
-        pytest.skip("no UTF-8 locale available for ansible")
     env = {
         **os.environ,
         "LC_ALL": utf8,
@@ -108,15 +100,14 @@ def test_playbook_writes_one_result_per_finished_host(tmp_path):
         "ANSIBLE_LOCAL_TEMP": str(tmp_path / "ansible-local"),
         "ANSIBLE_REMOTE_TEMP": str(tmp_path / "ansible-remote"),
     }
-
-    run = subprocess.run(
+    return subprocess.run(
         [
             str(ANSIBLE_PLAYBOOK),
             "-i",
             str(inventory),
             str(PLAYBOOK),
             "-e",
-            json.dumps({"stayturgid_termux_pkg_result_dir": str(results)}),
+            json.dumps({"stayturgid_termux_pkg_result_dir": str(result_dir)}),
         ],
         cwd=str(REPO),
         env=env,
@@ -124,7 +115,29 @@ def test_playbook_writes_one_result_per_finished_host(tmp_path):
         text=True,
         timeout=300,
     )
+
+
+@_needs_ansible
+@pytest.mark.skipif(shutil.which("ssh") is None, reason="needs an ssh client for the unreachable host")
+def test_playbook_writes_one_result_per_finished_host(tmp_path):
+    hosts = {
+        "fakeok": _local(tmp_path, "fakeok"),
+        "fakestale": _local(tmp_path, "fakestale", dead_mirror=True),
+        "fakedisabled": _local(tmp_path, "fakedisabled", stayturgid_termux_pkg_upgrade_enabled=False),
+        # Port 1 on loopback refuses at once: unreachable without a timeout.
+        "fakeoff": {
+            "ansible_connection": "ssh",
+            "ansible_host": "127.0.0.1",
+            "ansible_port": 1,
+            "ansible_user": "nobody",
+            "termux_prefix": "/nonexistent",
+        },
+    }
+    results = tmp_path / "results"
+    results.mkdir()
+    run = _run_playbook(tmp_path, hosts, results)
     assert run.returncode == 0, run.stdout[-3000:] + run.stderr[-2000:]
+    assert "telemetry write failed" not in run.stdout
 
     written = {p.stem: json.loads(p.read_text(encoding="utf-8")) for p in results.glob("*.json")}
     assert set(written) == {"fakeok", "fakestale"}, "unreachable and disabled hosts must write no result"
@@ -143,3 +156,15 @@ def test_playbook_writes_one_result_per_finished_host(tmp_path):
     }
     assert all(o.duration_s is not None for h, o in outcomes.items() if h != "fakeoff")
     assert list(nightly.stale_index_hosts(outcomes)) == ["fakestale"]
+
+
+@_needs_ansible
+def test_a_failed_telemetry_write_does_not_fail_the_host(tmp_path):
+    """Adversary review M1: the delegated write failing (here: its directory
+    is missing) must leave the upgrade green, not mark the host failed."""
+    run = _run_playbook(tmp_path, {"fakeok": _local(tmp_path, "fakeok")}, tmp_path / "missing" / "dir")
+    assert run.returncode == 0, run.stdout[-3000:] + run.stderr[-2000:]
+    assert nightly.parse_host_failures(run.stdout) == {}
+    assert "telemetry write failed" in run.stdout
+    outcomes = nightly.host_outcomes(nightly.parse_recap_hosts(run.stdout), {}, {})
+    assert {h: o.status for h, o in outcomes.items()} == {"fakeok": "skipped"}

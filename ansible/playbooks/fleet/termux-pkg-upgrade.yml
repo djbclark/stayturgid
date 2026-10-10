@@ -97,6 +97,21 @@
       # A local temp file, not device state: write it in check mode too so a
       # dry run exercises the same path.
       check_mode: false
+      # Telemetry must not fail the upgrade it reports on: a failed write would
+      # print `fatal: [host -> localhost]` and count a cleanly upgraded host as
+      # failed. Without its file the wrapper records the host as `skipped`.
+      register: _st_pkg_record
+      failed_when: false
       when:
         - (stayturgid_termux_pkg_result_dir | default('')) | length > 0
         - stayturgid_termux_pkg_nightly is not unreachable
+
+    - name: Warn when this host's telemetry file could not be written
+      ansible.builtin.debug:
+        msg: "telemetry write failed: {{ _st_pkg_record.msg | default('unknown') }}"
+      # failed_when: false clears `failed`, and a failed copy still returns a
+      # checksum (ansible-core 2.21), so test for the `dest` that only a
+      # successful copy returns. A skipped record task has none either.
+      when:
+        - _st_pkg_record is not skipped
+        - _st_pkg_record.dest is not defined

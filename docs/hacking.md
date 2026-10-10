@@ -94,10 +94,12 @@ How the repo holds the policy in place:
   fallbacks to `shared` and `control` are allowed.
 - **Drift is reported.** `check_termux_pkg_updates.py` already SSHes to each
   device before the nightly upgrade. In the same session it lists the
-  `*.dist-info` directories under site-packages that no dpkg package owns,
-  which are packages pip put there. Any that `requirements.txt` does not
-  declare goes into the Hermes notice, once per change. apt's own Python
-  packages (`python-pip`, `proot-distro`) are owned by dpkg and stay quiet.
+  `*.dist-info` and `*.egg-info` directories, in the prefix's and the user's
+  (`pip install --user`) site-packages, that no dpkg package owns: packages
+  pip put there. Any that `requirements.txt` does not declare goes into the
+  Hermes notice, once per change, and is retried if Hermes did not accept
+  it. apt's own Python packages (`python-pip`, `proot-distro`) are owned by
+  dpkg and stay quiet. Editable installs (`.pth` only) are not seen.
 
 Every pip install the repo performs or documents targets the Mac control node
 or a research note, never a device (inventory 2026-10-09, `rg` over the tree

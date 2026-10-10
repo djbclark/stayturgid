@@ -437,7 +437,14 @@ def main(argv: list[str] | None = None) -> int:
 
     # Each host that finishes writes <dir>/<host>.json (#310). A dry run
     # upgrades nothing, so it records no results.
-    result_dir = None if check else Path(tempfile.mkdtemp(prefix="termux-pkg-nightly-"))
+    result_dir: Path | None = None
+    if not check:
+        try:
+            result_dir = Path(tempfile.mkdtemp(prefix="termux-pkg-nightly-"))
+        except OSError as exc:
+            # Telemetry must not stop the upgrade (adversary review L1): run
+            # it without per-host rows rather than crash under launchd.
+            log("WARN: no per-host telemetry this run, could not create a temp dir: %s" % exc)
     if result_dir is not None:
         cmd.extend(["-e", json.dumps({"stayturgid_termux_pkg_result_dir": str(result_dir)})])
     try:

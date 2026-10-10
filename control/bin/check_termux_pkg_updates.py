@@ -48,13 +48,19 @@ for _p in (str(_LIB), str(_REPO)):
 
 import stayturgid_device as dev  # noqa: E402
 
-HERMES_TARGET = "telegram:838808636:22158"
+from control.lib import hermes_notify as _hermes  # noqa: E402
+
 STATE_PATH = os.path.expanduser("~/.local/state/stayturgid/termux-pkg-updates.json")
 
 TERMUX_PREFIX = "/data/data/com.termux/files/usr"
 # The device pip set this repo allows (#309); the checker reads only names.
 DEVICE_REQUIREMENTS = _REPO / "device" / "termux" / "requirements.txt"
 _PIP_MARKER = "@@stayturgid-pip-only@@"
+# Device-supplied names reach a Telegram message: accept only sane metadata
+# directory names and cap what one host can add (adversary review L3).
+_META_RE = re.compile(r"^([A-Za-z0-9][A-Za-z0-9._]*)-([A-Za-z0-9.+!_]+?)(?:-py[0-9.]+)?\.(?:dist|egg)-info$")
+_MAX_PIP_LINES_PER_HOST = 20
+_MAX_MESSAGE_CHARS = 3500
 SSH_TIMEOUT_SEC = int(os.environ.get("STAYTURGID_TERMUX_PKG_CHECK_TIMEOUT", "180"))
 
 # apt list --upgradable line, e.g.:
@@ -89,15 +95,13 @@ def normalize_pip_name(name: str) -> str:
 
 
 def parse_pip_only(text: str) -> list[dict[str, str]]:
-    """Parse the remote list of unowned ``<name>-<version>.dist-info`` basenames."""
+    """Parse the remote list of unowned ``<name>-<version>.dist-info`` (or
+    ``.egg-info``) basenames; anything else is ignored."""
     found: list[dict[str, str]] = []
     for line in (text or "").splitlines():
-        line = line.strip()
-        if not line.endswith(".dist-info"):
-            continue
-        name, _, version = line[: -len(".dist-info")].rpartition("-")
-        if name and version:
-            found.append({"name": name, "version": version})
+        m = _META_RE.match(line.strip())
+        if m:
+            found.append({"name": m.group(1), "version": m.group(2)})
     return found
 
 
@@ -122,9 +126,15 @@ def build_pip_lines(pip_by_host: dict[str, list[dict[str, str]]], declared: set[
     """One line per pip-only package that the requirements file does not declare."""
     lines: list[str] = []
     for host in sorted(pip_by_host):
-        for pkg in sorted(pip_by_host[host], key=lambda p: normalize_pip_name(p["name"])):
-            if normalize_pip_name(pkg["name"]) not in declared:
-                lines.append(f"{host}: pip-only {pkg['name']} {pkg['version']}")
+        extra = [
+            pkg
+            for pkg in sorted(pip_by_host[host], key=lambda p: normalize_pip_name(p["name"]))
+            if normalize_pip_name(pkg["name"]) not in declared
+        ]
+        for pkg in extra[:_MAX_PIP_LINES_PER_HOST]:
+            lines.append(f"{host}: pip-only {pkg['name']} {pkg['version']}")
+        if len(extra) > _MAX_PIP_LINES_PER_HOST:
+            lines.append(f"{host}: pip-only and {len(extra) - _MAX_PIP_LINES_PER_HOST} more")
     return lines
 
 
@@ -159,8 +169,15 @@ def ssh_probe(host: str, *, refresh: bool = True) -> tuple[list[dict[str, str]],
         "apt list --upgradable 2>/dev/null\n"
         "apt_rc=$?\n"
         f"echo '{_PIP_MARKER}'\n"
-        f"set -- {TERMUX_PREFIX}/lib/python3*/site-packages/*.dist-info\n"
-        'if [ -d "$1" ]; then\n'
+        # Both the prefix and `pip install --user`, wheels and legacy eggs.
+        "set --\n"
+        f"for d in {TERMUX_PREFIX}/lib/python3*/site-packages/*.dist-info"
+        f" {TERMUX_PREFIX}/lib/python3*/site-packages/*.egg-info"
+        ' "$HOME"/.local/lib/python3*/site-packages/*.dist-info'
+        ' "$HOME"/.local/lib/python3*/site-packages/*.egg-info; do\n'
+        '  [ -e "$d" ] && set -- "$@" "$d"\n'
+        "done\n"
+        'if [ "$#" -gt 0 ]; then\n'
         "  owned=$(dpkg -S \"$@\" 2>/dev/null | sed 's/^[^:]*: //')\n"
         '  for d in "$@"; do printf \'%s\\n\' "$owned" | grep -qxF "$d" || basename "$d"; done\n'
         "fi\n"
@@ -290,8 +307,18 @@ def write_state(
             pass
 
 
-def hermes_notify(message: str) -> None:
-    subprocess.run(["hermes", "send", "-t", HERMES_TARGET, message], check=False)
+def hermes_notify(message: str) -> bool:
+    """One notice; True only when Hermes accepted it. Never raises.
+
+    Goes through control/lib/hermes_notify, which finds ~/.local/bin/hermes:
+    the nightly runs this checker under launchd's PATH, where a bare `hermes`
+    raised FileNotFoundError (3 of 6 nights to 2026-10-09; adversary review H1).
+    """
+    try:
+        return bool(_hermes.notify("stayturgid termux-pkg", message[:_MAX_MESSAGE_CHARS]))
+    except Exception as exc:  # noqa: BLE001 - a dead transport must not crash the check
+        print(f"WARN: hermes notify failed: {exc}", file=sys.stderr)
+        return False
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -324,16 +351,7 @@ def main(argv: list[str] | None = None) -> int:
     # One notice covers both, sent when either set changes.
     keys = updates + pip_only
     notify = should_notify(STATE_PATH, keys)
-    last_notified = keys if notify else (previous_notified_updates(STATE_PATH) or [])
-    write_state(
-        STATE_PATH,
-        updates=updates,
-        by_host=by_host,
-        errors=errors,
-        hosts_checked=hosts,
-        last_notified=last_notified,
-        pip_only=pip_only,
-    )
+    previous = previous_notified_updates(STATE_PATH) or []
 
     sections: list[str] = []
     if updates:
@@ -343,15 +361,31 @@ def main(argv: list[str] | None = None) -> int:
             "Termux pip packages outside policy (not from apt, not in device/termux/requirements.txt; #309):\n"
             + "\n".join(pip_only)
         )
+    # A set counts as notified only once Hermes accepted it; a dry run or a
+    # failed send leaves the previous one, so the next real run retries.
+    notified = False
     if sections:
         message = "\n\n".join(sections)
         print(message)
         if notify and not args.dry_run:
-            hermes_notify(message)
+            notified = hermes_notify(message)
+            if not notified:
+                print("WARN: hermes send failed; the notice will be retried on the next run", file=sys.stderr)
         elif not notify:
             print("(unchanged since last notify; Telegram skipped)")
     else:
+        # The set emptied: nothing to send, and nothing left to retry.
+        notified = notify and not args.dry_run
         print("No Termux package updates available on %s" % (", ".join(hosts) if hosts else "(none)"))
+    write_state(
+        STATE_PATH,
+        updates=updates,
+        by_host=by_host,
+        errors=errors,
+        hosts_checked=hosts,
+        last_notified=keys if notified else previous,
+        pip_only=pip_only,
+    )
 
     # Errors contacting hosts are non-fatal for the "updates available" path
     # (same spirit as check_apk_updates treating one bad GitHub repo as skip),
