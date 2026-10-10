@@ -2,7 +2,7 @@
 #
 # Variables (optional on most recipes):
 #   hosts=oneui-device       Limit to one or more inventory hosts: just deploy hosts=oneui-device fireos-device
-#   scope=full      Deploy scope: full | fdroid | play | app-stores
+#   scope=full      Deploy scope: full | fdroid | play | app-stores | bootstrap-apks | scripts
 #   devices_only=1  Skip the Mac control_node pass (#57) — for iterating on one device
 #
 # Quick start:

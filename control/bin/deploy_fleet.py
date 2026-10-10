@@ -22,6 +22,7 @@ Usage:
   deploy_fleet.py --scope play oneui-device        # Play roles
   deploy_fleet.py --devices-only oneui-device      # skip the redundant Mac control_node pass
   deploy_fleet.py --scope bootstrap-apks --devices-only oneui-device
+  deploy_fleet.py --scope scripts --devices-only oneui-device   # on-device code only
                                                     # APK ensure/verify/Shizuku-start only (#166) --
                                                     # skips termux_userland/post-ui/validate/control_node
                                                     # entirely; use for a pure app version bump
@@ -83,6 +84,11 @@ class Scope(str, Enum):
     PLAY = "play"
     APP_STORES = "app-stores"
     BOOTSTRAP_APKS = "bootstrap-apks"
+    # On-device code only: the ~/.stayturgid/bin, lib, boot and tasker syncs,
+    # retired-file cleanup and the repair-script check (#166). Tagged in
+    # stayturgid.termux.termux_userland; the boot-loop restart handler still
+    # fires when a synced script changed.
+    SCRIPTS = "scripts"
 
     @property
     def ansible_tags(self) -> str | None:

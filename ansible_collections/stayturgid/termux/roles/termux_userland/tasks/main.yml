@@ -5,6 +5,7 @@
 # template reference and gets passed to rsync as literal "{{ ... }}" text.
 # set_fact resolves eagerly into a concrete string, sidestepping this.
 - name: Resolve local rsync path for termux_userland synchronize tasks
+  tags: [always]
   ansible.builtin.set_fact:
     ansible_rsync_path: "{{ stayturgid_local_rsync_path }}"
 
@@ -168,10 +169,17 @@
   ansible.builtin.include_tasks: control_et.yml
   when: _termux_home_stat.stat.exists
 
+# `scripts` tag (#166): `just deploy-scripts` (deploy_fleet.py --scope scripts)
+# runs only the tasks that put on-device code in place -- the bin/lib/boot/
+# tasker syncs, retired-file cleanup and the repair check -- so a code-only
+# push costs ~20 round trips instead of the whole role. Tag a new task that
+# ships code the boot loop or repair script executes; config renders and
+# package/SSH/CFEngine convergence stay untagged on purpose.
 # Single-root layout: all stayturgid files live under ~/.stayturgid (private)
 # and /sdcard/stayturgid (shared). Create the tree up front; every runtime
 # writer also mkdir -p's on demand so a user-deleted dir self-heals.
 - name: Ensure stayturgid home directory tree
+  tags: [scripts]
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
@@ -278,6 +286,7 @@
     - _termux_home_stat.stat.exists
 
 - name: Deploy shell scripts / shims to ~/.stayturgid/bin
+  tags: [scripts]
   ansible.builtin.copy:
     src: "{{ stayturgid_repo_root }}/device/termux/{{ item }}"
     dest: "{{ termux_home }}/.stayturgid/bin/{{ item }}"
@@ -299,6 +308,7 @@
 # on-device with plain openrsync. If a script is added to
 # stayturgid_py_scripts without `chmod +x` + `git add`, it will land 0644.
 - name: Deploy Python runtime scripts to ~/.stayturgid/bin
+  tags: [scripts]
   ansible.posix.synchronize:
     src: "{{ stayturgid_repo_root }}/device/termux/py/"
     dest: "{{ termux_home }}/.stayturgid/bin/"
@@ -329,18 +339,21 @@
     - not (stayturgid_no_local_adb | default(false) | bool)
 
 - name: Ensure on-device lib directory exists
+  tags: [scripts]
   ansible.builtin.file:
     path: "{{ termux_home }}/.stayturgid/lib"
     state: directory
     mode: "0755"
 
 - name: Ensure on-device catalog directory exists
+  tags: [scripts]
   ansible.builtin.file:
     path: "{{ termux_home }}/.stayturgid/catalog"
     state: directory
     mode: "0755"
 
 - name: Ensure on-device autojs6 directory exists
+  tags: [scripts]
   ansible.builtin.file:
     path: "{{ termux_home }}/.stayturgid/autojs6"
     state: directory
@@ -353,6 +366,7 @@
 # that renames on copy fails loudly here instead of silently shipping under
 # the wrong name (or, worse, silently shipping the whole directory).
 - name: Assert on-device lib files are a flat 1:1 basename mapping (synchronize safety)
+  tags: [scripts]
   ansible.builtin.assert:
     that:
       - item.dest == (item.src | basename)
@@ -369,6 +383,7 @@
 # sync above -- relies on the source files' git-tracked mode (100644, no +x
 # needed here) via `perms: true`.
 - name: Deploy shared libs to ~/.stayturgid/lib
+  tags: [scripts]
   ansible.posix.synchronize:
     src: "{{ stayturgid_repo_root }}/control/lib/"
     dest: "{{ termux_home }}/.stayturgid/lib/"
@@ -399,6 +414,7 @@
   when: stayturgid_install_rish | default(true) | bool
 
 - name: Deploy on-device UI data files
+  tags: [scripts]
   ansible.builtin.copy:
     src: "{{ stayturgid_repo_root }}/{{ item.src }}"
     dest: "{{ termux_home }}/.stayturgid/{{ item.dest }}"
@@ -414,6 +430,7 @@
 # py-script name renders to exactly that). Check mode runs the script with
 # DRY_RUN=1, which reports what would go without deleting anything.
 - name: Remove retired scripts from the device
+  tags: [scripts]
   ansible.builtin.shell:
     cmd: |
       set -euf
@@ -458,6 +475,7 @@
 # --chmod: see the note on the Python runtime scripts sync above -- relies
 # on the source PNGs' git-tracked mode (100644, no +x needed) via `perms: true`.
 - name: Deploy battery color assets
+  tags: [scripts]
   ansible.posix.synchronize:
     src: "{{ stayturgid_repo_root }}/device/termux/assets/battery-colors/"
     dest: "{{ termux_home }}/.stayturgid/battery-colors/"
@@ -471,6 +489,7 @@
   when: (stayturgid_battery_color_assets | default([])) | length > 0
 
 - name: Ensure Termux boot directory exists
+  tags: [scripts]
   ansible.builtin.file:
     path: "{{ termux_home }}/.termux/boot"
     state: directory
@@ -481,6 +500,7 @@
 # on the source scripts' git-tracked mode (100755, already correct) via
 # `perms: true`.
 - name: Deploy boot scripts
+  tags: [scripts]
   ansible.posix.synchronize:
     src: "{{ stayturgid_repo_root }}/device/termux/boot/"
     dest: "{{ termux_home }}/.termux/boot/"
@@ -495,6 +515,7 @@
   notify: restart boot loop
 
 - name: Remove retired boot scripts from device
+  tags: [scripts]
   ansible.builtin.file:
     path: "{{ termux_home }}/.termux/boot/{{ item }}"
     state: absent
@@ -506,12 +527,14 @@
 # is what a Tasker Send-Intent RUN_COMMAND task or any shell invokes. See
 # sshd-recover.sh for why this survives a GID-kill behind a locked keyguard.
 - name: Ensure Termux tasker script directory exists
+  tags: [scripts]
   ansible.builtin.file:
     path: "{{ termux_home }}/.termux/tasker"
     state: directory
     mode: "0700"
 
 - name: Deploy tasker recovery scripts
+  tags: [scripts]
   ansible.posix.synchronize:
     src: "{{ stayturgid_repo_root }}/device/termux/tasker/"
     dest: "{{ termux_home }}/.termux/tasker/"
@@ -523,6 +546,7 @@
 # recover.d: the parent directory may hold the operator's own Termux:Tasker
 # scripts.
 - name: Prune recover.d entries no longer in the repo
+  tags: [scripts]
   ansible.posix.synchronize:
     src: "{{ stayturgid_repo_root }}/device/termux/tasker/recover.d/"
     dest: "{{ termux_home }}/.termux/tasker/recover.d/"
@@ -597,12 +621,14 @@
   when: stayturgid_automation_mode is defined and stayturgid_automation_mode | length > 0
 
 - name: Verify the repair script runs
+  tags: [scripts]
   stayturgid.termux.stayturgid_repair_check:
     repair_script: "{{ termux_home }}/.stayturgid/bin/stayturgid_repair.py"
     termux_prefix: "{{ termux_prefix }}"
   register: repair_check
 
 - name: Show repair STATUS line
+  tags: [scripts]
   ansible.builtin.debug:
     msg: "{{ repair_check.status_line }}"
   when: repair_check.status_line is defined and repair_check.status_line | length > 0
