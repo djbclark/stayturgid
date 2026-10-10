@@ -104,6 +104,10 @@ ensure-shizuku:
 secretspec-check:
     sudo-secretspec check --reason "just secretspec-check"
 
+# Static gate: no second secret store, alternate manifest, plain CLI or retired artifact (#287)
+secretspec-drift:
+    python3 control/bin/check_secretspec_drift.py
+
 # ---------- Health ----------
 _health_impl:
     python3 control/bin/check_fleet_health.py

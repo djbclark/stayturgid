@@ -20,9 +20,9 @@ serve_from_sub_path = {{ serverapp_grafana_serve_from_sub_path | bool | lower }}
 enable_gzip = true
 
 [security]
-# Local loopback only; admin still required for UI. No secrets in this file.
+# Local loopback only; admin still required for UI. File is 0600.
 admin_user = {{ serverapp_grafana_admin_user }}
-# Default brew password; operator should change on first login if exposed.
+# GRAFANA_ADMIN_PASSWORD from secretspec (brew default 'admin' if unset); first start only.
 admin_password = {{ serverapp_grafana_admin_password }}
 disable_gravatar = true
 

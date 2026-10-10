@@ -136,6 +136,15 @@ repos:
         pass_filenames: false
         files: '^(SITE-CONTRACT\.md|entangled\.toml|control/site_contract/)'
 
+  - repo: local
+    hooks:
+      - id: secretspec-drift
+        name: SecretSpec source-of-truth drift (#287)
+        entry: python3 control/bin/check_secretspec_drift.py
+        language: system
+        pass_filenames: false
+        always_run: true
+
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.38.0
     hooks:

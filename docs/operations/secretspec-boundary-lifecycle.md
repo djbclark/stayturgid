@@ -20,18 +20,18 @@ sudo-secretspec delete NAME --reason WHY
 sudo-secretspec get NAME --reason WHY
 sudo-secretspec check --reason WHY
 sudo-secretspec export --reason WHY
-sudo-secretspec template-check --reason WHY
 sudo-secretspec run --reason WHY -- COMMAND [ARGS...]
 sudo-secretspec doctor
 ```
 
-`add` changes the runtime schema and creates no secret value; mirror the
-declaration into the tracked `site-private/secretspec.toml.example` from a task
-worktree, then release it. `set` prompts for the value without placing it in
-chat. `delete` removes the provider value while retaining the declaration.
-`get` and `export` are explicit audited reads. `template-check` reports only
-whether the runtime manifest and the tracked declaration template are
-byte-identical; it never prints either file. `doctor` verifies the boundary
+`add` changes the runtime schema and creates no secret value. The runtime
+manifest in the vault is the only record of declarations: the tracked
+declarations file, and the `template-check` comparison against it, were retired
+on 2026-08-16 (see
+[`secretspec-secrets-management.md`](secretspec-secrets-management.md)). `set`
+prompts for the value without placing it in chat. `delete` removes the provider
+value while retaining the declaration. `get` and `export` are explicit audited
+reads. `doctor` verifies the boundary
 itself — vault ownership and mode, sudoers policy, installed-artifact hashes —
 and needs no reason because it reads no secret.
 
@@ -81,6 +81,14 @@ The seam also refuses `--file`/`-f` before `--` on every path, and
 path). `tests/python/test_secretspec_exec.py` fails if a `secretspec.toml` or
 `.env` store is tracked in this repo, or if executable code selects an
 alternate manifest.
+
+`control/bin/check_secretspec_drift.py` is the same gate as a standalone,
+stdlib-only script. The `secretspec-drift` pre-commit hook and
+`just secretspec-drift` run it. It also fails when code or a current doc calls
+the plain `secretspec` CLI, or names a retired artifact (the tracked
+declarations file, `template-check`, the `/var/db/stayturgid-secrets` vault, the
+`_secretspec` wrapper) as if it were live. Runtime drift (installed-artifact
+hashes, vault ownership and mode) is `sudo-secretspec doctor`'s job.
 
 ## Applying safely
 

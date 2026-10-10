@@ -81,6 +81,18 @@ loaded into context every session.
 
 Day to day: `just health`, `just errors`, `just firerpa-health`, `just test`.
 
+**Driving a device from an agent (2026-10-09):** use the `firerpa` MCP server first.
+It is the remote bridge on `100.113.53.87:8000`; never run the local stdio bridge,
+which is too heavy. If it is down or unreachable, fall back to the `maestro` MCP
+server (Maestro 2.11.0, `~/.maestro/bin/maestro mcp`, about 220 MB per session).
+
+1. Maestro only sees devices attached to this Mac's adb (`adb devices`).
+2. Its driver takes the device's UiAutomation slot, so it cannot run beside
+   Handsets, uiautomator2 or FireRPA's own UI layer.
+3. Never use its `*_cloud*` tools, which run on the paid Maestro Cloud.
+
+Both servers are set up in `.mcp.json`.
+
 ## Environment
 
 - **Orchestration:** `just` (command runner, replaces `make`). The Makefile was migrated to a `justfile` in July 2026. Install: `brew install just`. Run `just --list` to see all targets or `just` for categorized help.

@@ -1,11 +1,28 @@
 {
   "mcpServers": {
     "firerpa": {
-      "command": "/Users/djbclark/.venv-stayturgid-firerpa/bin/python",
+      "type": "http",
+      "url": "http://100.113.53.87:8000/mcp",
+      "headersHelper": "printf '{\"Authorization\":\"Bearer %s\"}' \"$(/usr/local/bin/sudo-secretspec get --reason 'firerpa mcp headers for claude code' FIRERPA_MCP_TOKEN)\""
+    },
+    "grafana": {
+      "command": "/usr/local/bin/sudo-secretspec",
       "args": [
-        "control/bin/firerpa_mcp.py",
-        "--transport",
+        "run",
+        "--reason",
+        "grafana mcp server for claude code",
+        "--",
+        "/usr/bin/env",
+        "GRAFANA_URL=http://127.0.0.1:3000",
+        "/opt/homebrew/bin/mcp-grafana",
+        "-t",
         "stdio"
+      ]
+    },
+    "maestro": {
+      "command": "/Users/djbclark/.maestro/bin/maestro",
+      "args": [
+        "mcp"
       ]
     }
   }

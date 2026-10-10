@@ -269,8 +269,8 @@ def main():
             _log(
                 ERROR,
                 f"Refusing to start HTTP transport: {secretspec_exec.APPROVED_SECRET} "
-                "did not resolve. Declare it in site-private/secretspec.toml.example "
-                "and set it with `sudo-secretspec set` before starting this service.",
+                "did not resolve. Declare it with `sudo-secretspec add` and set it with "
+                "`sudo-secretspec set` before starting this service.",
             )
             return 78  # EX_CONFIG
 
