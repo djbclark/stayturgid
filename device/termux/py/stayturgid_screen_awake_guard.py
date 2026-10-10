@@ -3,7 +3,7 @@
 
 While the screen is held awake (stay-on setting, an app wakelock like Wakey,
 or a very long screen_off_timeout), keep a notification up offering one tap to
-restore normal screen lock. Called with `check` every 5 min from the boot loop;
+restore normal screen lock. Called with `check` each boot-loop cycle (900 s as deployed);
 `restore [ms]` applies a timeout. Migrated from screen-awake-guard.sh;
 unit-tested via tests/test-unit.sh (guard_suite).
 

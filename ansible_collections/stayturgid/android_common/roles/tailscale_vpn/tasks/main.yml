@@ -12,6 +12,11 @@
   stayturgid.android_common.android_settings:
     device: "{{ _tailscale_adb_target }}"
     require_package: "{{ tailscale_package }}"
+    # #289 interlock: lockdown=1 is written only when Tailscale is logged in on
+    # the device and Ansible already reaches it over that tailnet address;
+    # otherwise the module writes 0 and warns.
+    lockdown_management_host: "{{ ansible_host | default(omit) }}"
+    lockdown_management_port: "{{ ansible_port | default(8022) }}"
     settings:
       - namespace: secure
         key: always_on_vpn_app

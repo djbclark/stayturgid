@@ -81,3 +81,92 @@ def test_android_settings_skips_missing_package(mocker):
     )
     assert out["skipped"] is True
     assert out["changed"] is False
+
+
+# --- #289 lockdown interlock -------------------------------------------------
+
+LOCKDOWN_ARGS = dict(
+    device="100.101.1.2:5555",
+    connect=False,
+    require_package="com.tailscale.ipn",
+    lockdown_management_host="100.101.1.2",
+    settings=[
+        dict(namespace="secure", key="always_on_vpn_app", value="com.tailscale.ipn"),
+        dict(namespace="secure", key="always_on_vpn_lockdown", value="1"),
+    ],
+)
+TUN_UP = (0, "1: lo    inet 127.0.0.1/8 scope host lo\n27: tun0    inet 100.101.1.2/32 scope global tun0\n", "")
+TUN_DOWN = (0, "1: lo    inet 127.0.0.1/8 scope host lo\n3: wlan0    inet 192.168.1.20/24 scope global wlan0\n", "")
+
+
+def _puts(mocker, args, ip_result, reachable=True):
+    mocker.patch.object(mod, "tcp_reachable", lambda host, port, timeout=5: reachable)
+    puts = []
+    warnings = []
+    mocker.patch("ansible.module_utils.basic.AnsibleModule.warn", lambda self, msg: warnings.append(msg))
+
+    out = run_module(mocker, args, cmd_results=[("ip -4 -o addr show", ip_result)])
+    for r in out["results"]:
+        puts.append((r["key"], r["value"]))
+    return out, dict(puts), warnings
+
+
+def test_lockdown_refused_when_tailscale_not_logged_in(mocker):
+    """Reproduces #289: lockdown=1 on an unauthenticated device used to be written as 1."""
+    out, values, warnings = _puts(mocker, LOCKDOWN_ARGS, TUN_DOWN)
+    assert values["always_on_vpn_lockdown"] == "0"
+    assert values["always_on_vpn_app"] == "com.tailscale.ipn"
+    assert out["lockdown_interlock"]["blocked"] is True
+    assert "not logged in" in out["lockdown_interlock"]["reason"]
+    assert warnings and "#289" in warnings[0]
+
+
+def test_lockdown_refused_when_managed_over_lan(mocker):
+    args = dict(LOCKDOWN_ARGS, lockdown_management_host="192.168.1.20")
+    out, values, _ = _puts(mocker, args, TUN_UP)
+    assert values["always_on_vpn_lockdown"] == "0"
+    assert "not a tailnet address" in out["lockdown_interlock"]["reason"]
+
+
+def test_lockdown_refused_without_management_host(mocker):
+    args = {k: v for k, v in LOCKDOWN_ARGS.items() if k != "lockdown_management_host"}
+    out, values, _ = _puts(mocker, args, TUN_UP)
+    assert values["always_on_vpn_lockdown"] == "0"
+    assert out["lockdown_interlock"]["blocked"] is True
+
+
+def test_lockdown_refused_when_management_host_is_another_tailnet_ip(mocker):
+    args = dict(LOCKDOWN_ARGS, lockdown_management_host="100.101.9.9")
+    out, values, _ = _puts(mocker, args, TUN_UP)
+    assert values["always_on_vpn_lockdown"] == "0"
+    assert "is not the device's tailnet address" in out["lockdown_interlock"]["reason"]
+
+
+def test_lockdown_refused_when_management_path_unreachable(mocker):
+    out, values, _ = _puts(mocker, LOCKDOWN_ARGS, TUN_UP, reachable=False)
+    assert values["always_on_vpn_lockdown"] == "0"
+    assert "not reachable" in out["lockdown_interlock"]["reason"]
+
+
+def test_lockdown_allowed_when_authenticated_and_path_verified(mocker):
+    out, values, warnings = _puts(mocker, LOCKDOWN_ARGS, TUN_UP)
+    assert values["always_on_vpn_lockdown"] == "1"
+    assert out["lockdown_interlock"] == dict(blocked=False, reason="verified", device_tailnet_ip="100.101.1.2")
+    assert warnings == []
+
+
+def test_lockdown_zero_request_skips_interlock(mocker):
+    args = dict(LOCKDOWN_ARGS)
+    args["settings"] = [dict(namespace="secure", key="always_on_vpn_lockdown", value="0")]
+    out, values, _ = _puts(mocker, args, TUN_DOWN)
+    assert values["always_on_vpn_lockdown"] == "0"
+    assert "lockdown_interlock" not in out
+
+
+def test_parse_tailnet_ipv4_accepts_any_tun_index_and_rejects_non_cgnat():
+    from ansible_collections.stayturgid.android_common.plugins.module_utils import adb_shell
+
+    assert adb_shell.parse_tailnet_ipv4("9: tun3    inet 100.64.0.7/32 scope global tun3") == "100.64.0.7"
+    assert adb_shell.parse_tailnet_ipv4("9: tun0    inet 100.128.0.7/32 scope global tun0") is None
+    assert adb_shell.parse_tailnet_ipv4("9: wlan0    inet 100.100.0.7/24 scope global wlan0") is None
+    assert adb_shell.parse_tailnet_ipv4("") is None

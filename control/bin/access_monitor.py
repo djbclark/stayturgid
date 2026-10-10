@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Dead-man's switch: alert when a device is unreachable on ALL access paths.
 
-Runs every 5 minutes via launchd (installed by ansible/playbooks/control_node/agents.yml).
+Runs every 15 minutes via launchd (StartInterval from stayturgid_interval_sec: 900;
+installed by ansible/playbooks/control_node/agents.yml).
 For each device it checks every known address for (a) an ADB connection and
 (b) an open SSH port. Only when every path fails for CONSECUTIVE_LIMIT
 consecutive runs does it fire a macOS notification — one per outage, not one

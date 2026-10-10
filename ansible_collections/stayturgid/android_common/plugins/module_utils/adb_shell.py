@@ -269,3 +269,52 @@ def settings_put(run_command, device, namespace, key, value):
         device,
         "settings put %s %s %s" % (namespace, key, value),
     )
+
+
+TAILNET_PREFIX_FIRST_OCTET = 100
+TAILNET_SECOND_OCTET_RANGE = range(64, 128)  # 100.64.0.0/10, Tailscale's CGNAT block
+
+
+def is_tailnet_ipv4(addr):
+    """True when ``addr`` is a dotted IPv4 inside 100.64.0.0/10."""
+    parts = (addr or "").strip().split(".")
+    if len(parts) != 4:
+        return False
+    try:
+        octets = [int(p) for p in parts]
+    except ValueError:
+        return False
+    if any(o < 0 or o > 255 for o in octets):
+        return False
+    return octets[0] == TAILNET_PREFIX_FIRST_OCTET and octets[1] in TAILNET_SECOND_OCTET_RANGE
+
+
+def parse_tailnet_ipv4(ip_addr_output):
+    """Tailnet IPv4 held by a tunN/tailscaleN interface in ``ip -4 -o addr show`` output.
+
+    Android gives Tailscale's VpnService whatever TUN index is free, so any tunN
+    (or tailscale0) counts. Returns None when no such interface holds an address
+    in 100.64.0.0/10, which is the state of an installed but never-logged-in or
+    disconnected client.
+    """
+    for line in normalize_adb_output(ip_addr_output).splitlines():
+        fields = line.split()
+        if "inet" not in fields:
+            continue
+        idx = fields.index("inet")
+        if idx < 1 or idx + 1 >= len(fields):
+            continue
+        iface = fields[idx - 1]
+        if not (iface.startswith("tun") or iface.startswith("tailscale")):
+            continue
+        addr = fields[idx + 1].split("/", 1)[0]
+        if is_tailnet_ipv4(addr):
+            return addr
+    return None
+
+
+def device_tailnet_ipv4(run_command, device):
+    rc, out, _err = adb_shell(run_command, device, "ip -4 -o addr show 2>/dev/null")
+    if rc != 0:
+        return None
+    return parse_tailnet_ipv4(out)
