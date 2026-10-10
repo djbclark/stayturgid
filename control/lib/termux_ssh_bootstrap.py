@@ -21,6 +21,9 @@ from secretspec_exec import secretspec_run
 
 # Hard cap on one SSH probe (2026-10-10: a wedged sshd hung bootstrap_ssh.py for 56 minutes).
 SSH_PROBE_TIMEOUT_S = 15
+ADB_TIMEOUT_S = 30
+# `pkg install openssh` runs through _run_command and can take minutes.
+BOOTSTRAP_CMD_TIMEOUT_S = 900
 
 SSH_OPTS = [
     "-o",
@@ -48,11 +51,12 @@ def termux_installed(serial):
 
 
 def _adb_run(cmd):
-    return subprocess.run(cmd, capture_output=True, text=True).returncode, "", ""
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=ADB_TIMEOUT_S)
+    return result.returncode, result.stdout or "", result.stderr or ""
 
 
 def _run_command(cmd):
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=BOOTSTRAP_CMD_TIMEOUT_S)
     return result.returncode, result.stdout or "", result.stderr or ""
 
 
@@ -74,6 +78,23 @@ def is_wedged(serial: str) -> bool:
             except ValueError:
                 continue
     return False
+
+
+WEDGE_DIAGNOSTICS = [
+    "dumpsys activity processes | grep -i -A10 com.termux",
+    "ps -A -o PID,PPID,STAT,WCHAN,NAME | grep -E 'sshd|termux'",
+    "ss -ltn | grep 8022",
+]
+
+
+def capture_wedge_diagnostics(serial: str) -> None:
+    """Print what a force-stop is about to destroy (cached-app freezer hypothesis, 2026-10-10)."""
+    for cmd in WEDGE_DIAGNOSTICS:
+        try:
+            _, out, _ = _adb_run(["adb", "-s", serial, "shell", cmd])
+        except subprocess.TimeoutExpired:
+            out = "(timed out)"
+        print("wedge-diagnostic %s:\n%s" % (cmd, "\n".join(out.splitlines()[:30])))
 
 
 def forward_local_ssh(serial: str) -> None:
@@ -169,6 +190,7 @@ def bootstrap_serial(
         # Wedged sshd: listening, never accepting. One force-stop of Termux, one
         # re-bootstrap (restarts sshd), one re-probe; never a loop.
         print("sshd on %s looks wedged: force-stopping Termux once" % serial)
+        capture_wedge_diagnostics(serial)
         subprocess.run(
             ["adb", "-s", serial, "shell", "am", "force-stop", "com.termux"],
             check=False,

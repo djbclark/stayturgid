@@ -179,3 +179,22 @@ def test_healthy_ssh_never_force_stops(monkeypatch):
     boot.bootstrap_serial("serial", forward=True, verify_alias="", install_openssh=False)
 
     assert not [c for c in run_log if "force-stop" in c]
+
+
+def test_adb_run_returns_real_output(monkeypatch):
+    """is_wedged reads `ss` output through _adb_run; stdout must not be discarded."""
+    monkeypatch.setattr(
+        boot.subprocess,
+        "run",
+        lambda cmd, **kw: subprocess.CompletedProcess(cmd, 0, "LISTEN 129 128 [::]:8022 *:*", ""),
+    )
+    assert boot.is_wedged("serial") is True
+
+
+def test_wedge_diagnostics_are_printed_before_force_stop(monkeypatch, capsys):
+    run_log = []
+    _patch_bootstrap(monkeypatch, _fake_runner(run_log, ssh_fails_until=1))
+
+    boot.bootstrap_serial("serial", forward=True, verify_alias="", install_openssh=False)
+
+    assert "wedge-diagnostic" in capsys.readouterr().out
