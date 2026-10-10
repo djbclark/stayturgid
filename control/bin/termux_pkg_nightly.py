@@ -60,9 +60,12 @@ MAX_LOG_LINES = 4000
 # same offline phone nightly.
 STATE_PATH = Path.home() / ".local" / "state" / "stayturgid" / "termux-pkg-nightly.json"
 
-# `fatal: [s24]: UNREACHABLE! => {...}` / `fatal: [s24]: FAILED! => {...}`, and
-# `fatal: [s24 -> localhost]: FAILED!` for a delegated task: the host is s24.
-_FATAL_RE = re.compile(r"^fatal: \[([^\]\s]+)(?: -> [^\]]+)?\]: (UNREACHABLE|FAILED)! => (.*)$")
+# `fatal: [s24]: UNREACHABLE! => {...}` / `fatal: [s24]: FAILED! => {...}`.
+_FATAL_RE = re.compile(r"^fatal: \[([^\]\s]+)\]: (UNREACHABLE|FAILED)! => (.*)$")
+# `fatal: [s24 -> localhost]: ...` is the delegated telemetry write, the only
+# delegated task in the playbook: it says nothing about the upgrade on s24 and
+# must not page as a failed or unreachable host (adversary re-review N1).
+_DELEGATED_FATAL_RE = re.compile(r"^fatal: \[([^\]\s]+) -> [^\]]+\]: ")
 # `s24                        : ok=5    changed=1    unreachable=0    failed=1 ...`
 _RECAP_RE = re.compile(r"^(\S+)\s+:\s+ok=\d+\s+changed=\d+\s+unreachable=(\d+)\s+failed=(\d+)")
 _MAX_ERROR_CHARS = 500
@@ -117,6 +120,10 @@ def parse_host_failures(output: str) -> dict[str, dict[str, str]]:
     failures: dict[str, dict[str, str]] = {}
     for line in output.splitlines():
         line = line.strip()
+        d = _DELEGATED_FATAL_RE.match(line)
+        if d:
+            log("WARN: telemetry write for %s failed on the control node: %s" % (d.group(1), line[:200]))
+            continue
         m = _FATAL_RE.match(line)
         if m:
             host, kind, payload = m.groups()

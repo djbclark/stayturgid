@@ -460,11 +460,19 @@ def test_conftest_keeps_telemetry_out_of_the_live_stats_dir(tmp_path):
     assert stats_pkg.termux_pkg_path() == tmp_path / "stats" / "termux_pkg.jsonl"
 
 
-def test_parse_host_failures_names_the_host_of_a_delegated_task():
-    out = 'fatal: [s24 -> localhost]: FAILED! => {"msg": "Destination directory does not exist"}\n'
-    assert nightly.parse_host_failures(out) == {
-        "s24": {"status": "failed", "error": "Destination directory does not exist"}
-    }
+def test_a_failed_telemetry_write_is_not_a_host_failure(monkeypatch, tmp_path):
+    """The delegated result write is the only delegated task; when it cannot
+    run (disk full, unwritable ansible tmp) ansible prints it as the host's
+    fatal line, but the upgrade on that host was fine (re-review N1)."""
+    monkeypatch.setattr(nightly, "LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(nightly, "LOG", tmp_path / "logs" / "nightly.log")
+    out = (
+        'fatal: [s24 -> localhost]: UNREACHABLE! => {"msg": "Failed to create temporary directory"}\n'
+        "...ignoring\n"
+        'fatal: [s24 -> localhost]: FAILED! => {"msg": "Destination directory does not exist"}\n'
+    )
+    assert nightly.parse_host_failures(out) == {}
+    assert "telemetry write for s24 failed" in (tmp_path / "logs" / "nightly.log").read_text()
 
 
 def test_parse_recap_hosts_lists_every_covered_host():

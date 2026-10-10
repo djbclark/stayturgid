@@ -292,14 +292,28 @@ def test_parse_pip_only_reads_dist_info_names() -> None:
         {"name": "termux_ai", "version": "0.5.2"},
         {"name": "charset_normalizer", "version": "3.5.1"},
         {"name": "oldpkg", "version": "0.1"},
+        {"name": "unrecognised-metadata-entries", "version": "3"},
     ]
 
 
-def test_build_pip_lines_caps_what_one_host_can_add() -> None:
+def test_message_caps_lines_per_host_but_dedup_sees_them_all() -> None:
     pkgs = [{"name": f"p{i:02d}", "version": "1"} for i in range(25)]
-    lines = ctu.build_pip_lines({"t2e": pkgs}, set())
-    assert len(lines) == ctu._MAX_PIP_LINES_PER_HOST + 1
-    assert lines[-1] == "t2e: pip-only and 5 more"
+    lines = ctu.build_pip_lines({"t2e": pkgs, "s24": pkgs[:2]}, set())
+    assert len(lines) == 27, "the dedup key and state keep every package"
+    shown = ctu.cap_lines_per_host(lines)
+    assert len(shown) == 2 + ctu._MAX_PIP_LINES_PER_HOST + 1
+    assert shown[-1] == "t2e: pip-only and 5 more"
+    swapped = ctu.build_pip_lines({"t2e": [*pkgs[:24], {"name": "zz", "version": "1"}], "s24": pkgs[:2]}, set())
+    assert sorted(swapped) != sorted(lines), "a change past the cap is still a change"
+
+
+def test_unrecognised_metadata_entries_are_counted_not_dropped() -> None:
+    found = ctu.parse_pip_only("ok-1.0.dist-info\nbad name-1.dist-info\nevil\x1b-2.dist-info\n")
+    assert found == [{"name": "ok", "version": "1.0"}, {"name": "unrecognised-metadata-entries", "version": "2"}]
+
+
+def test_apt_lines_lose_control_characters() -> None:
+    assert ctu.format_package_line({"name": "cu\x1b[31mrl", "current": "1", "latest": "2"}) == "cu?[31mrl: 1 -> 2"
 
 
 def test_hermes_notify_never_raises_and_reports_failure(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -316,7 +330,7 @@ def test_hermes_notify_never_raises_and_reports_failure(monkeypatch: pytest.Monk
 
     monkeypatch.setattr(ctu._hermes, "notify", accept)
     assert ctu.hermes_notify("y" * 9000) is True
-    assert len(seen["m"]) == ctu._MAX_MESSAGE_CHARS
+    assert len(seen["m"]) == ctu._MAX_MESSAGE_CHARS and seen["m"].endswith("(truncated)")
 
 
 def _pip_main(monkeypatch, tmp_path, send_ok):

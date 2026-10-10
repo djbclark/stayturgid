@@ -96,12 +96,21 @@ def normalize_pip_name(name: str) -> str:
 
 def parse_pip_only(text: str) -> list[dict[str, str]]:
     """Parse the remote list of unowned ``<name>-<version>.dist-info`` (or
-    ``.egg-info``) basenames; anything else is ignored."""
+    ``.egg-info``) basenames. Entries whose name does not look like package
+    metadata are counted, not dropped, so a check never fails open on them."""
     found: list[dict[str, str]] = []
+    odd = 0
     for line in (text or "").splitlines():
-        m = _META_RE.match(line.strip())
+        line = line.strip()
+        if not line:
+            continue
+        m = _META_RE.match(line)
         if m:
             found.append({"name": m.group(1), "version": m.group(2)})
+        elif line.endswith((".dist-info", ".egg-info")):
+            odd += 1
+    if odd:
+        found.append({"name": "unrecognised-metadata-entries", "version": str(odd)})
     return found
 
 
@@ -123,23 +132,39 @@ def declared_pip_packages(path: Path = DEVICE_REQUIREMENTS) -> set[str]:
 
 
 def build_pip_lines(pip_by_host: dict[str, list[dict[str, str]]], declared: set[str]) -> list[str]:
-    """One line per pip-only package that the requirements file does not declare."""
+    """One line per pip-only package that the requirements file does not
+    declare. The full list: it is the dedup key and the state, so a change
+    past the message cap still counts as a change (re-review N2)."""
     lines: list[str] = []
     for host in sorted(pip_by_host):
-        extra = [
-            pkg
-            for pkg in sorted(pip_by_host[host], key=lambda p: normalize_pip_name(p["name"]))
-            if normalize_pip_name(pkg["name"]) not in declared
-        ]
-        for pkg in extra[:_MAX_PIP_LINES_PER_HOST]:
-            lines.append(f"{host}: pip-only {pkg['name']} {pkg['version']}")
-        if len(extra) > _MAX_PIP_LINES_PER_HOST:
-            lines.append(f"{host}: pip-only and {len(extra) - _MAX_PIP_LINES_PER_HOST} more")
+        for pkg in sorted(pip_by_host[host], key=lambda p: normalize_pip_name(p["name"])):
+            if normalize_pip_name(pkg["name"]) not in declared:
+                lines.append(f"{host}: pip-only {pkg['name']} {pkg['version']}")
     return lines
 
 
+def cap_lines_per_host(lines: list[str], limit: int = _MAX_PIP_LINES_PER_HOST) -> list[str]:
+    """The message view of ``host: ...`` lines: at most *limit* per host."""
+    shown: list[str] = []
+    counts: dict[str, int] = {}
+    for line in lines:
+        host = line.split(":", 1)[0]
+        counts[host] = counts.get(host, 0) + 1
+        if counts[host] <= limit:
+            shown.append(line)
+    for host, n in counts.items():
+        if n > limit:
+            shown.append(f"{host}: pip-only and {n - limit} more")
+    return shown
+
+
+def _printable(text: str) -> str:
+    """Device-supplied text bound for a chat message: no control characters."""
+    return re.sub(r"[^\x20-\x7e]", "?", text)
+
+
 def format_package_line(pkg: dict[str, str]) -> str:
-    return f"{pkg['name']}: {pkg['current']} -> {pkg['latest']}"
+    return _printable(f"{pkg['name']}: {pkg['current']} -> {pkg['latest']}")
 
 
 def list_hosts(limit: str | None = None) -> list[str]:
@@ -315,7 +340,9 @@ def hermes_notify(message: str) -> bool:
     raised FileNotFoundError (3 of 6 nights to 2026-10-09; adversary review H1).
     """
     try:
-        return bool(_hermes.notify("stayturgid termux-pkg", message[:_MAX_MESSAGE_CHARS]))
+        if len(message) > _MAX_MESSAGE_CHARS:
+            message = message[: _MAX_MESSAGE_CHARS - 12] + "\n(truncated)"
+        return bool(_hermes.notify("stayturgid termux-pkg", message))
     except Exception as exc:  # noqa: BLE001 - a dead transport must not crash the check
         print(f"WARN: hermes notify failed: {exc}", file=sys.stderr)
         return False
@@ -359,7 +386,7 @@ def main(argv: list[str] | None = None) -> int:
     if pip_only:
         sections.append(
             "Termux pip packages outside policy (not from apt, not in device/termux/requirements.txt; #309):\n"
-            + "\n".join(pip_only)
+            + "\n".join(cap_lines_per_host(pip_only))
         )
     # A set counts as notified only once Hermes accepted it; a dry run or a
     # failed send leaves the previous one, so the next real run retries.
