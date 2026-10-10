@@ -11,6 +11,7 @@ refuses SSH, and one with the upgrade disabled. No device, no network.
 from __future__ import annotations
 
 import json
+import locale
 import os
 import shutil
 import subprocess
@@ -36,6 +37,23 @@ case "$2" in
 esac
 exit 0
 """
+
+
+def _utf8_locale() -> str | None:
+    """A UTF-8 locale this system accepts: ansible refuses to start without one,
+    and agent shells and CI runners often export none (C.UTF-8 is absent on
+    macOS, en_US.UTF-8 on some minimal Linux images)."""
+    saved = locale.setlocale(locale.LC_CTYPE)
+    try:
+        for name in ("C.UTF-8", "en_US.UTF-8", "UTF-8"):
+            try:
+                locale.setlocale(locale.LC_CTYPE, name)
+            except locale.Error:
+                continue
+            return name
+    finally:
+        locale.setlocale(locale.LC_CTYPE, saved)
+    return None
 
 
 def _prefix(root: Path, name: str, *, dead_mirror: bool = False) -> Path:
@@ -77,8 +95,13 @@ def test_playbook_writes_one_result_per_finished_host(tmp_path):
     config.write_text("", encoding="utf-8")
     results = tmp_path / "results"
     results.mkdir()
+    utf8 = _utf8_locale()
+    if utf8 is None:
+        pytest.skip("no UTF-8 locale available for ansible")
     env = {
         **os.environ,
+        "LC_ALL": utf8,
+        "LANG": utf8,
         "ANSIBLE_CONFIG": str(config),
         "ANSIBLE_COLLECTIONS_PATH": str(REPO),
         "ANSIBLE_HOST_KEY_CHECKING": "False",
