@@ -16,8 +16,8 @@ android {
         applicationId = "org.stayturgid.agent"
         minSdk = 26
         targetSdk = 36
-        versionCode = 34
-        versionName = "0.9.16-wireless-gate"
+        versionCode = 35
+        versionName = "0.9.17-sshd-wedge-heal"
         val buildTimeUtc =
             System.getenv("SOURCE_DATE_EPOCH")?.toLongOrNull()?.let { Instant.ofEpochSecond(it) }
                 ?: Instant.now().truncatedTo(ChronoUnit.SECONDS)
