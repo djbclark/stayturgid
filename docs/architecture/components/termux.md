@@ -111,6 +111,36 @@ just deploy-mac                      # install/reload the launchd agent
 
 Logs: `~/.config/stayturgid/logs/termux-pkg-nightly.log`.
 
+**Telemetry (#310).** Every nightly appends JSON lines to
+`~/.config/stayturgid/stats/termux_pkg.jsonl`, which Vector ships to the
+OpenObserve stream `termux_pkg` (`control/lib/stats.py`). Three row types share
+the stream:
+
+| `type`              | When                                        | Key fields                                                                                      |
+| ------------------- | ------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `termux_pkg_run`    | Once per run that reached ansible           | `run_id`, `rc`, `duration_s`, `limit` (empty = whole fleet), `statuses`                         |
+| `termux_pkg_result` | Once per host per run, healthy hosts too    | `run_id`, `host`, `status`, `changed`, `upgraded_packages`, `index_update_failed`, `duration_s` |
+| `termux_pkg_error`  | Each failure, per host or for the whole run | `phase` (`preflight`, `lock`, `upgrade`, `unreachable`, `update`), `host`, `error`, `rc`        |
+
+`status` is `changed`, `ok`, `failed`, `unreachable` or `skipped` (in the
+play but wrote no result). A host with `stayturgid_termux_pkg_upgrade_enabled:
+false` gets no row: ansible leaves it out of the recap. A host whose `pkg update`
+failed still upgrades from cached indexes, so it reports `ok` with
+`index_update_failed: true` and an `update` error row: a dead mirror shows up
+instead of looking healthy. A dry run (`--check`) writes no result or run rows.
+Hermes hears about a change in the set of failed, unreachable or stale-index
+hosts, not every night.
+
+Useful OpenObserve queries:
+
+```sql
+-- did the nightly run at all? (no row for >1 day = Mac asleep or agent unloaded)
+SELECT max(_timestamp) FROM termux_pkg WHERE type = 'termux_pkg_run' AND limit = ''
+-- a host that has not upgraded cleanly lately
+SELECT host, status, count(*) FROM termux_pkg
+ WHERE type = 'termux_pkg_result' GROUP BY host, status
+```
+
 On-device cron/`termux-job-scheduler` is **not** used: fleet control is already
 Mac→SSH Ansible, which keeps mirror pinning and failure logs in one place.
 

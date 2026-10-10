@@ -10,6 +10,13 @@
 #   python3 control/bin/termux_pkg_nightly.py
 #
 # Scheduled via Mac launchd com.stayturgid.termux-pkg-nightly (see control_node).
+#
+# Telemetry (#310): when termux_pkg_nightly.py passes
+# stayturgid_termux_pkg_result_dir, each host that finished the upgrade writes
+# <dir>/<host>.json on the control node (changed, packages set up, whether
+# `pkg update` failed, start/finish). The wrapper turns those, plus the
+# unreachable/failed hosts it parses from the output, into termux_pkg.jsonl
+# rows. Unset (plain `just termux-pkg-upgrade`), nothing is written.
 - name: stayturgid Termux package update/upgrade
   hosts: stayturgid
   gather_facts: false
@@ -22,6 +29,10 @@
     - name: Skip when nightly Termux pkg upgrade disabled on host
       ansible.builtin.meta: end_host
       when: not (stayturgid_termux_pkg_upgrade_enabled | default(true) | bool)
+
+    - name: Note when this host's upgrade started
+      ansible.builtin.set_fact:
+        _st_pkg_started: "{{ now(utc=true, fmt='%Y-%m-%dT%H:%M:%SZ') }}"
 
     - name: Resolve Termux package mirror URL
       ansible.builtin.set_fact:
@@ -66,3 +77,26 @@
         msg: >-
           {{ inventory_hostname }}: changed={{ stayturgid_termux_pkg_nightly.changed }}
           {{ stayturgid_termux_pkg_nightly.msg | default('') }}
+
+    # Unreachable hosts reach this task too (ignore_unreachable), so skip them:
+    # the wrapper records those from the output, and a result file here would
+    # make an offline phone look upgraded.
+    - name: Record this host's result on the control node for telemetry
+      ansible.builtin.copy:
+        dest: "{{ stayturgid_termux_pkg_result_dir }}/{{ inventory_hostname }}.json"
+        content: >-
+          {{ {'host': inventory_hostname,
+              'changed': stayturgid_termux_pkg_nightly.changed | default(false) | bool,
+              'msg': stayturgid_termux_pkg_nightly.msg | default(''),
+              'upgraded_packages': stayturgid_termux_pkg_nightly.upgraded_packages | default([]),
+              'index_update_failed': stayturgid_termux_pkg_nightly.index_update_failed | default(false) | bool,
+              'started': _st_pkg_started,
+              'finished': now(utc=true, fmt='%Y-%m-%dT%H:%M:%SZ')} | to_json }}
+        mode: "0600"
+      delegate_to: localhost
+      # A local temp file, not device state: write it in check mode too so a
+      # dry run exercises the same path.
+      check_mode: false
+      when:
+        - (stayturgid_termux_pkg_result_dir | default('')) | length > 0
+        - stayturgid_termux_pkg_nightly is not unreachable

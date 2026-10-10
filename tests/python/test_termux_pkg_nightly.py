@@ -446,3 +446,145 @@ def test_lock_held_nightly_notifies_once_with_a_stable_text(monkeypatch, tmp_pat
             assert nightly.main([]) == 3
     assert len(notices) == 1 and "lock" in notices[0] and "skipped" in notices[0]
     assert "s24" not in notices[0]
+
+
+# ── #310 part 2: per-host result rows, a run heartbeat, a stale index ─────
+
+
+def test_conftest_keeps_telemetry_out_of_the_live_stats_dir(tmp_path):
+    import stats
+
+    from control.lib import stats as stats_pkg
+
+    assert stats.STATS_DIR == tmp_path / "stats"
+    assert stats_pkg.termux_pkg_path() == tmp_path / "stats" / "termux_pkg.jsonl"
+
+
+def test_parse_host_failures_names_the_host_of_a_delegated_task():
+    out = 'fatal: [s24 -> localhost]: FAILED! => {"msg": "Destination directory does not exist"}\n'
+    assert nightly.parse_host_failures(out) == {
+        "s24": {"status": "failed", "error": "Destination directory does not exist"}
+    }
+
+
+def test_parse_recap_hosts_lists_every_covered_host():
+    assert nightly.parse_recap_hosts(_UNREACHABLE_AND_FAILED) == ["hd8", "p7a", "s24"]
+
+
+def test_host_outcomes_failure_wins_and_disabled_hosts_are_skipped():
+    results = {
+        "p7a": {
+            "changed": True,
+            "upgraded_packages": ["openssh 10.2p1-1"],
+            "started": "2026-10-09T08:15:00Z",
+            "finished": "2026-10-09T08:16:30Z",
+        },
+        "s24": {"changed": False},
+        "t2e": {"changed": False, "index_update_failed": True},
+    }
+    failures = {"s24": {"status": "failed", "error": "boom"}, "hd8": {"status": "unreachable", "error": "timed out"}}
+    out = nightly.host_outcomes(["hd8", "p7a", "s24", "t2e", "x1"], results, failures)
+    assert {h: o.status for h, o in out.items()} == {
+        "hd8": "unreachable",
+        "p7a": "changed",
+        "s24": "failed",
+        "t2e": "ok",
+        "x1": "skipped",
+    }
+    assert out["p7a"].duration_s == 90.0 and out["p7a"].upgraded_packages == ["openssh 10.2p1-1"]
+    assert out["s24"].error == "boom"
+    assert out["t2e"].error == nightly.STALE_INDEX_ERROR
+    assert nightly.stale_index_hosts(out) == {"t2e": {"status": "stale_index", "error": nightly.STALE_INDEX_ERROR}}
+
+
+_TWO_HOSTS_OK = (
+    "PLAY RECAP ***\np7a : ok=7 changed=1 unreachable=0 failed=0\nt2e : ok=7 changed=0 unreachable=0 failed=0\n"
+)
+
+
+def _run_with_results(monkeypatch, tmp_path, stdout, files, argv=None, rc=0):
+    """Like _run_nightly, but the fake ansible-playbook writes result files the
+    way the playbook's last task does, into the dir the wrapper passed."""
+    import json
+
+    seen = {}
+    rows = {"error": [], "result": [], "run": []}
+
+    def fake_run(command, **kwargs):
+        seen["command"] = command
+        extra = [json.loads(a) for a in command if a.startswith("{") and "stayturgid_termux_pkg_result_dir" in a]
+        if extra:
+            seen["dir"] = Path(extra[0]["stayturgid_termux_pkg_result_dir"])
+            for host, data in files.items():
+                (seen["dir"] / f"{host}.json").write_text(json.dumps({"host": host, **data}), encoding="utf-8")
+        return _Result(rc, stdout=stdout)
+
+    context = AnsibleContext(
+        config=tmp_path / "site" / "ansible.cfg",
+        inventory=tmp_path / "site" / "inventory" / "hosts.yml",
+        collections_path=tmp_path / "collections",
+        source="site overlay",
+    )
+    monkeypatch.setattr(nightly, "resolve_ansible_context", lambda repo: context)
+    monkeypatch.setattr(nightly, "resolved_env", lambda repo: {"PATH": "/usr/bin:/bin"})
+    monkeypatch.setattr(nightly, "require_inventory", lambda selected: None)
+    monkeypatch.setattr(nightly, "LOG_DIR", tmp_path / "logs")
+    monkeypatch.setattr(nightly, "LOG", tmp_path / "logs" / "nightly.log")
+    monkeypatch.setattr(nightly, "STATE_PATH", tmp_path / "state" / "termux-pkg-nightly.json")
+    monkeypatch.setattr(nightly, "trim_log", lambda: None)
+    monkeypatch.setattr(nightly, "CHECK_UPDATES", Path("/nonexistent/check_termux_pkg_updates.py"))
+    monkeypatch.setattr(nightly.subprocess, "run", fake_run)
+    monkeypatch.setattr(nightly, "record_termux_pkg_error", lambda *a, **k: rows["error"].append((a, k)))
+    monkeypatch.setattr(nightly, "record_termux_pkg_result", lambda *a, **k: rows["result"].append((a, k)))
+    monkeypatch.setattr(nightly, "record_termux_pkg_run", lambda *a, **k: rows["run"].append((a, k)))
+    notices: list[str] = []
+    monkeypatch.setattr(nightly.hermes_notify, "notify", lambda title, msg: notices.append(msg) or True)
+    code = nightly.main(argv or [])
+    return code, seen, rows, notices
+
+
+def test_every_host_gets_a_result_row_and_the_run_a_heartbeat(monkeypatch, tmp_path):
+    files = {
+        "p7a": {"changed": True, "upgraded_packages": ["openssh 10.2p1-1"], "index_update_failed": False},
+        "t2e": {"changed": False, "upgraded_packages": [], "index_update_failed": False},
+    }
+    code, seen, rows, notices = _run_with_results(monkeypatch, tmp_path, _TWO_HOSTS_OK, files)
+    assert code == 0
+    by_host = {a[0]: (a[1], k["changed"], k["upgraded_packages"]) for a, k in rows["result"]}
+    assert by_host == {"p7a": ("changed", True, ["openssh 10.2p1-1"]), "t2e": ("ok", False, [])}
+    assert len({k["run_id"] for _, k in rows["result"]}) == 1
+    ((run_args, run_kw),) = rows["run"]
+    assert run_args[0] == rows["result"][0][1]["run_id"]
+    assert run_kw["statuses"] == {"changed": 1, "ok": 1} and run_kw["limit"] == "" and run_kw["rc"] == 0
+    assert rows["error"] == []
+    assert not seen["dir"].exists(), "the per-run result dir must be removed"
+
+
+def test_stale_index_is_recorded_and_notified_once(monkeypatch, tmp_path):
+    files = {
+        "p7a": {"changed": False, "index_update_failed": False},
+        "t2e": {"changed": False, "index_update_failed": True},
+    }
+    code, _, rows, notices = _run_with_results(monkeypatch, tmp_path, _TWO_HOSTS_OK, files)
+    assert code == 0, "a stale index is not an upgrade failure"
+    assert [(a[0], k["host"]) for a, k in rows["error"]] == [("update", "t2e")]
+    assert len(notices) == 1 and "t2e stale_index" in notices[0]
+
+    code, _, rows, notices = _run_with_results(monkeypatch, tmp_path, _TWO_HOSTS_OK, files)
+    assert len(rows["error"]) == 1 and notices == [], "same stale host the next night: row again, no notice"
+
+
+def test_check_run_passes_no_result_dir_and_writes_no_rows(monkeypatch, tmp_path):
+    code, seen, rows, _ = _run_with_results(monkeypatch, tmp_path, _TWO_HOSTS_OK, {}, argv=["--check"])
+    assert code == 0
+    assert "dir" not in seen and not any("stayturgid_termux_pkg_result_dir" in a for a in seen["command"])
+    assert rows["result"] == [] and rows["run"] == []
+
+
+def test_limited_run_still_records_results_with_its_limit(monkeypatch, tmp_path):
+    files = {"p7a": {"changed": False}}
+    out = "PLAY RECAP ***\np7a : ok=7 changed=0 unreachable=0 failed=0\n"
+    code, _, rows, notices = _run_with_results(monkeypatch, tmp_path, out, files, argv=["--limit", "p7a"])
+    assert [a[0] for a, _ in rows["result"]] == ["p7a"]
+    assert rows["run"][0][1]["limit"] == "p7a"
+    assert notices == [], "a limited run never notifies"

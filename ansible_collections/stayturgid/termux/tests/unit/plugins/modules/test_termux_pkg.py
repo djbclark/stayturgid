@@ -121,3 +121,56 @@ def test_already_installed_no_change(mocker):
     )
     assert res.get("changed") is False
     assert count(scripts, "pkg install") == 0
+
+
+# ── #310: what the nightly records per host ───────────────────────────────
+
+_UPGRADE_OUT = """\
+Reading package lists...
+The following packages will be upgraded:
+  libcurl openssh
+2 upgraded, 0 newly installed, 0 to remove and 0 not upgraded.
+Unpacking openssh (10.2p1-1) over (10.1p1-3) ...
+Setting up libcurl (8.17.0) ...
+Setting up openssh (10.2p1-1) ...
+Setting up openssh (10.2p1-1) ...
+"""
+
+
+def test_upgrade_reports_the_packages_it_set_up(mocker):
+    res, _ = run_module(
+        mocker,
+        {"name": [], "update_cache": True, "upgrade": True},
+        rc_map=[("pkg update", (0, "Get:1 repo", "")), ("full-upgrade", (0, _UPGRADE_OUT, ""))],
+    )
+    assert res["changed"] is True
+    assert res["upgraded_packages"] == ["libcurl 8.17.0", "openssh 10.2p1-1"]
+    assert res["index_update_failed"] is False
+
+
+def test_failed_index_update_is_reported_not_hidden(mocker):
+    # The module tolerates a dead mirror (warns, uses cached indexes); the
+    # nightly must still be able to see it, or a host upgrades against stale
+    # indexes forever while looking healthy.
+    res, _ = run_module(
+        mocker,
+        {"name": [], "update_cache": True, "upgrade": True},
+        rc_map=[("pkg update", (100, "", "E: Failed to fetch")), ("full-upgrade", (0, "0 upgraded", ""))],
+    )
+    assert res["failed"] is False
+    assert res["index_update_failed"] is True
+    assert res["upgraded_packages"] == []
+
+
+def test_check_mode_reports_empty_telemetry(mocker):
+    res, _ = run_module(mocker, {"name": [], "update_cache": True, "upgrade": True}, check=True)
+    assert res["upgraded_packages"] == [] and res["index_update_failed"] is False
+
+
+def test_failed_upgrade_still_reports_index_state(mocker):
+    res, _ = run_module(
+        mocker,
+        {"name": [], "update_cache": True, "upgrade": True},
+        rc_map=[("pkg update", (100, "", "")), ("full-upgrade", (100, "E: dpkg was interrupted", ""))],
+    )
+    assert res["failed"] is True and res["index_update_failed"] is True
