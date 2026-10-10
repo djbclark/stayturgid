@@ -54,8 +54,10 @@ notes:
     is honoured only when (1) a tunN/tailscale interface on the device holds an IPv4 in
     100.64.0.0/10, so Tailscale is logged in and connected, (2) I(device) is a USB serial
     or that same tailnet address, so lockdown cannot cut the adb path used to write and
-    revert the setting, (3) I(lockdown_management_host) is that same tailnet address, so
-    Ansible already reaches the device over the VPN, and (4) a TCP connect from the
+    revert the setting (an mDNS wireless-debugging id such as
+    C(adb-SERIAL-xxxx._adb-tls-connect._tcp) is a LAN path, not USB, and is refused),
+    (3) I(lockdown_management_host) is that same tailnet address, so Ansible already
+    reaches the device over the VPN, and (4) a TCP connect from the
     control node to that host and I(lockdown_management_port) succeeds. Otherwise lockdown
     is written as C(0), a warning names the failed check, and C(lockdown_interlock.blocked)
     is true. Blocking traffic outside a VPN that is not up would sever ADB-over-TCP and
@@ -135,6 +137,9 @@ MANAGEMENT_CONNECT_TIMEOUT = 5
 # Android applies the lockdown firewall rules shortly after the setting lands;
 # probe after a short settle so a pass is not just the old rules still in place.
 LOCKDOWN_SETTLE_SECONDS = 2
+# A wireless-debugging id from mDNS discovery (Android 11+), e.g.
+# "adb-SERIAL-JIE0Dg (2)._adb-tls-connect._tcp". It has no colon but is a LAN path.
+MDNS_ADB_MARKERS = ("._adb-tls-connect", "._adb-tls-pairing", "._tcp")
 
 
 def tcp_reachable(host, port, timeout=MANAGEMENT_CONNECT_TIMEOUT):
@@ -149,9 +154,14 @@ def tcp_reachable(host, port, timeout=MANAGEMENT_CONNECT_TIMEOUT):
 def adb_target_kind(device):
     """Classify the adb target: ``usb`` (bare serial), ``tailnet`` (100.64/10 host:port) or ``other``.
 
-    Every wireless target the adb_device lookup returns (LAN :5555, mDNS
-    ip:port, tailnet :5555) is ``host:port``; only a USB serial has no colon.
+    Wireless targets the adb_device lookup returns are either ``host:port``
+    (LAN :5555, mDNS ip:port, tailnet :5555) or an mDNS service id such as
+    ``adb-SERIAL-xxxx (2)._adb-tls-connect._tcp``. The service id has no colon
+    but is a LAN wireless-debugging path, so it is ``other``. Only a bare
+    serial with neither marker is ``usb``.
     """
+    if any(marker in device for marker in MDNS_ADB_MARKERS):
+        return "other"
     if ":" not in device:
         return "usb"
     host = device.rpartition(":")[0]

@@ -222,6 +222,29 @@ def test_lockdown_allowed_over_usb_serial(mocker):
     assert warnings == []
 
 
+MDNS_ADB_ID = "adb-EXAMPLE-SERIAL-STOCK-JIE0Dg (2)._adb-tls-connect._tcp"
+
+
+def test_adb_target_kind_mdns_service_id_is_not_usb():
+    """The adb_device lookup returns colon-less mDNS ids (see test_adb_resolve.py); they are LAN paths."""
+    assert mod.adb_target_kind(MDNS_ADB_ID) == "other"
+    assert mod.adb_target_kind("adb-R5CX1234ABC-a1b2c3._adb-tls-pairing._tcp") == "other"
+    assert mod.adb_target_kind("R5CX1234ABC") == "usb"
+    assert mod.adb_target_kind("100.101.1.2:5555") == "tailnet"
+    assert mod.adb_target_kind("192.168.1.20:5555") == "other"
+
+
+def test_lockdown_refused_when_adb_target_is_mdns_wireless_debugging(mocker):
+    """An mDNS wireless-debugging id has no colon but is not USB; lockdown could sever it."""
+    args = dict(LOCKDOWN_ARGS, device=MDNS_ADB_ID)
+    out, values, warnings = _puts(mocker, args, TUN_UP)
+    assert values["always_on_vpn_lockdown"] == "0"
+    assert out["lockdown_interlock"]["blocked"] is True
+    assert out["lockdown_interlock"]["stage"] == "precheck"
+    assert "LAN or mDNS path" in out["lockdown_interlock"]["reason"]
+    assert warnings and "#289" in warnings[0]
+
+
 def test_lockdown_reverted_when_management_path_dies_after_write(mocker):
     out, values, warnings = _puts_seq(mocker, LOCKDOWN_ARGS, TUN_UP, reachable_answers=[True, False])
     assert values["always_on_vpn_lockdown"] == ("0", "reverted")
