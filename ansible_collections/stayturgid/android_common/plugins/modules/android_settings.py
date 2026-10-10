@@ -62,9 +62,10 @@ notes:
     is written as C(0), a warning names the failed check, and C(lockdown_interlock.blocked)
     is true. Blocking traffic outside a VPN that is not up would sever ADB-over-TCP and
     Termux SSH, and recovery is physical."
-  - "After lockdown C(1) is actually written (not in check mode), the module waits a moment,
-    re-reads the device's tailnet address over adb and re-probes the management path. If
-    either check fails it writes lockdown C(0) back, warns, and reports
+  - "After lockdown C(1) is actually written (not in check mode), the module probes twice,
+    about 2 s and 6 s after the write: each time it re-reads the device's tailnet address
+    over adb and re-probes the management path. Both rounds must pass. If any check fails
+    it writes lockdown C(0) back, warns, and reports
     C(lockdown_interlock.stage=post_write). If that revert itself fails the module fails
     the task with recovery instructions, because the device may now be unreachable."
 """
@@ -135,8 +136,9 @@ LOCKDOWN_NAMESPACE = "secure"
 LOCKDOWN_KEY = "always_on_vpn_lockdown"
 MANAGEMENT_CONNECT_TIMEOUT = 5
 # Android applies the lockdown firewall rules shortly after the setting lands;
-# probe after a short settle so a pass is not just the old rules still in place.
-LOCKDOWN_SETTLE_SECONDS = 2
+# probe at each of these offsets (seconds after the write) so a pass is not just
+# the old rules still in place. Every round must pass.
+LOCKDOWN_PROBE_AT_SECONDS = (2, 6)
 # A wireless-debugging id from mDNS discovery (Android 11+), e.g.
 # "adb-SERIAL-JIE0Dg (2)._adb-tls-connect._tcp". It has no colon but is a LAN path.
 MDNS_ADB_MARKERS = ("._adb-tls-connect", "._adb-tls-pairing", "._tcp")
@@ -248,23 +250,30 @@ def apply_lockdown_interlock(module, device, settings):
 
 
 def verify_lockdown_after_write(run_command, device, management_host, management_port, reachable=tcp_reachable):
-    """Re-probe once lockdown=1 has landed. Returns (ok, reason).
+    """Re-probe after lockdown=1 has landed, once per LOCKDOWN_PROBE_AT_SECONDS. Returns (ok, reason).
 
     The pre-check proves the paths were healthy before the write; this proves
     they survived it. Both probes go the same way the control node manages the
     device, so a failure here is exactly the severed-channel hazard of #289,
     caught while the adb path (USB or tailnet, per the pre-check) can still
-    revert it.
+    revert it. Two rounds catch firewall rules that Android applies a few
+    seconds late; every round must pass.
     """
-    time.sleep(LOCKDOWN_SETTLE_SECONDS)
-    if not device_tailnet_ipv4(run_command, device):
-        return False, "the device's tailnet address was gone, or adb stopped answering, after lockdown was enabled"
-    if not reachable(management_host, management_port):
-        return (
-            False,
-            "management path %s:%s stopped answering from the control node after lockdown was enabled"
-            % (management_host, management_port),
-        )
+    elapsed = 0
+    for at in LOCKDOWN_PROBE_AT_SECONDS:
+        time.sleep(at - elapsed)
+        elapsed = at
+        if not device_tailnet_ipv4(run_command, device):
+            return (
+                False,
+                "the device's tailnet address was gone, or adb stopped answering, %s s after lockdown was enabled" % at,
+            )
+        if not reachable(management_host, management_port):
+            return (
+                False,
+                "management path %s:%s stopped answering from the control node %s s after lockdown was enabled"
+                % (management_host, management_port, at),
+            )
     return True, "verified"
 
 

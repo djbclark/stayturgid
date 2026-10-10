@@ -320,3 +320,25 @@ def test_adb_target_kind():
     assert mod.adb_target_kind("100.101.1.2:5555") == "tailnet"
     assert mod.adb_target_kind("192.168.1.20:5555") == "other"
     assert mod.adb_target_kind("192.0.2.68:39081") == "other"
+
+
+def test_lockdown_reverted_when_management_path_dies_at_second_probe(mocker):
+    """Rules Android applies late pass the 2 s probe; the 6 s probe must still catch them."""
+    out, values, warnings = _puts_seq(mocker, LOCKDOWN_ARGS, TUN_UP, reachable_answers=[True, True, False])
+    assert values["always_on_vpn_lockdown"] == ("0", "reverted")
+    assert out["lockdown_interlock"]["stage"] == "post_write"
+    assert "6 s after lockdown was enabled" in out["lockdown_interlock"]["reason"]
+    assert warnings and "reverted to 0" in warnings[-1]
+
+
+def test_lockdown_verified_only_after_both_probes(mocker):
+    sleeps = []
+    probes = []
+    mocker.patch.object(mod, "tcp_reachable", lambda host, port, timeout=5: probes.append((host, port)) or True)
+    mocker.patch.object(mod.time, "sleep", sleeps.append)
+    mocker.patch("ansible.module_utils.basic.AnsibleModule.warn", lambda self, msg: None)
+    out = run_module(mocker, LOCKDOWN_ARGS, cmd_results=[("ip -4 -o addr show", TUN_UP)])
+    assert out["lockdown_interlock"]["stage"] == "verified"
+    # probes at 2 s and 6 s after the write: one pre-check probe plus two post-write rounds
+    assert sleeps == [2, 4]
+    assert len(probes) == 3
