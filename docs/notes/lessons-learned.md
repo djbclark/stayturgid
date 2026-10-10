@@ -38,31 +38,29 @@ unnoticed in the past; missing ones can mean a dead watchdog.
 --noredact` filtered for stayturgid/termux/autojs6/tasker records; compare
 against what the current device state should show.
 
-### Obtainium over Play Store / F-Droid
+### GitHub-signed builds over Play Store / F-Droid (Obtainium part historical)
 
-For the stayturgid Android devices, **always prefer Obtainium (GitHub
-sources) over both Google Play Store and F-Droid** wherever it makes sense.
-If an app was installed from Play or F-Droid, re-install it via Obtainium
-without asking — every time, proactively.
+For the stayturgid Android devices, **prefer the GitHub-signed builds pinned
+in the `bootstrap_apks` lock** (exact tag, version and checksum in
+`ansible_collections/stayturgid/android_common/roles/bootstrap_apks/defaults/main.yml`)
+over Google Play Store and F-Droid builds. A plain `just deploy` installs and
+upgrades them. Do not install or re-add apps through Obtainium: it was dropped
+as a fleet dependency on 2026-07-30 (#119, PR #143), and the earlier
+"re-install via Obtainium every time, proactively" instruction is retired.
 
-**Why:** consistency and control. Concretely for Termux: the Play Store
-Termux build lacks a working `termux-api`, and mixing sources breaks the
-ecosystem — all `com.termux` apps that share `sharedUserId="com.termux"`
-(api, boot, tasker, styling, widget, window/float, gui — NOT x11, NOT
-third-party intent apps) MUST share one signature or the install fails with
-`INSTALL_FAILED_SHARED_USER_INCOMPATIBLE`. GitHub-via-Obtainium builds are
-consistently signed and match each other. Third-party Termux apps
-(`io.github.*`, etc.) don't share the uid and can stay wherever they are.
+**Why (still true):** the Play Store Termux build lacks a working
+`termux-api`, and mixing sources breaks the ecosystem — all `com.termux` apps
+that share `sharedUserId="com.termux"` (api, boot, tasker, styling, widget,
+window/float, gui — NOT x11, NOT third-party intent apps) MUST share one
+signature or the install fails with `INSTALL_FAILED_SHARED_USER_INCOMPATIBLE`.
+GitHub builds are consistently signed and match each other. Third-party Termux
+apps (`io.github.*`, etc.) don't share the uid and can stay wherever they are.
 
-**How to apply:** uninstall the Play/F-Droid build and install the GitHub
-build via Obtainium (deep link
-`obtainium://add/https://github.com/<owner>/<repo>`; Obtainium is a Flutter
-app — tap by coordinate, its AX tree is sparse). Replacing Termux wipes
-`/data/data/com.termux` — back up `$HOME` first (SSH keys, `.termux/boot`),
-reinstall pkgs, restore. ADB-over-Tailscale via Shizuku survives the swap
-(safety net). Even when the initial install is via `adb install` (e.g. to
-bypass Play Protect's biometric gate on old-`targetSdk` APKs), **always add
-the app to Obtainium afterward** so future updates auto-install.
+**How to apply:** if a device has a Play/F-Droid build of a locked app, ask
+before replacing it, then let `just deploy <host>` install the locked GitHub
+build. Replacing Termux wipes `/data/data/com.termux` — back up `$HOME` first
+(SSH keys, `.termux/boot`), reinstall pkgs, restore. ADB-over-Tailscale via
+Shizuku survives the swap (safety net).
 
 ### AutoInput crash-loop root cause (resolved 2026-07-05, historical)
 
@@ -238,8 +236,10 @@ formatting mismatch on regeneration is fine to note, not a blocking must-fix.
 At the end of every substantial session, leave enough context/tokens to
 complete these steps before running out:
 
-1. Update `docs/STATUS.md` (or the relevant session doc) with current project
-   status — what's done, what's next, any architecture changes.
+1. Update `docs/STATUS.md` with current project status — what's done, what's
+   next, any architecture changes. Session handoffs go to the operator's
+   handoff tooling outside this repo, not to `docs/operations/sessions/`
+   (frozen 2026-08-03).
 2. Push all changes to GitHub.
 3. If a device screen was used, change the Android keyboard back to an
    interactive human-use keyboard (default: GBoard —

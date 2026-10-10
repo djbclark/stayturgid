@@ -1,65 +1,67 @@
-# Just Command Standards
+# Just recipe conventions
 
-## Overview
+How the fleet recipes in `justfile` and `just/*.just` take their targets.
+Rewritten 2026-10-09 to match the code (issue #137 audit, finding A2); the
+earlier text described wrappers, `--set` shims and uppercase overrides that
+never existed. Per-recipe usage lives in [commands.md](commands.md).
 
-This document defines the **standard interface** for all `just` recipes in the StayTurgid project. It enforces a **POSIX‑style positional‑argument** syntax while preserving backward compatibility via **legacy shims** and supporting **environment‑variable overrides** for global configuration.
+## Variables
 
-## Goals
+The root `justfile` reads three lowercase settings from the environment with
+`env_var_or_default`: `hosts` (default empty, meaning the whole fleet),
+`scope` (default `full`) and `devices_only` (default empty). `deploy_args`,
+`deploy_scope_arg`, `deploy_devices_only_arg` and `limit_flag` are derived
+from them and can also be set directly. `mac_site`, `venv` and `collections`
+are constants. There is no `set export`, and uppercase names (`HOSTS=`,
+`SCOPE=`) are not read: an exported `HOSTS` is ignored, and `just HOSTS=x`
+fails with "variable `HOSTS` overridden on the command line but not present
+in justfile".
 
-- **Uniformity**: All fleet recipes accept optional `host` and `scope` arguments in a consistent way.
-- **Backward Compatibility**: Existing scripts that use the historic `just --set hosts … <recipe>` form continue to work through automatically generated _legacy_ recipes (`<name>-legacy`). These appear in `just --list`.
-- **Configurability**: Every global variable (`hosts`, `scope`, `mac_site`, `venv`, `collections`, `deploy_args`, `deploy_scope_arg`, `limit_flag`) can be overridden via environment variables using `env_var_or_default`.
+## Public recipe, private implementation
 
-## Naming Conventions
-
-- Private implementation recipes are prefixed with an underscore, e.g. `_deploy_impl`.
-- Legacy shims are named `<recipe>-legacy` and simply invoke the private implementation.
-- Public wrappers use the original recipe name with optional positional arguments, e.g. `deploy +host?: +scope?:`.
-
-## Positional Wrappers
-
-```just
-# Example wrapper
-deploy +host?: +scope?:
-    @just --set hosts {{host}} {{ if scope != "" }} --set scope {{scope}} {{ endif }} deploy-legacy
-```
-
-- `+host?` and `+scope?` are optional. When omitted, the recipe falls back to any values supplied via environment variables.
-- The wrapper forwards the values to the legacy shim which calls the private implementation.
-
-## Environment Variable Overrides (Root justfile)
+Each fleet recipe is a public wrapper that re-invokes a private
+implementation in a nested `just` process:
 
 ```just
-hosts := env_var_or_default("hosts", "")
-scope := env_var_or_default("scope", "full")
-mac_site := env_var_or_default("MAC_SITE", "ansible/playbooks/control_node/site.yml")
-venv := env_var_or_default("VENV", ".venv-test")
-collections := env_var_or_default("COLLECTIONS", "android_common termux obtainium fdroid play")
-deploy_args := env_var_or_default("DEPLOY_ARGS", if hosts == "" { "" } else { hosts })
-deploy_scope_arg := env_var_or_default("DEPLOY_SCOPE_ARG", if scope == "full" { "" } else { "--scope " + scope })
-limit_flag := env_var_or_default("LIMIT_FLAG", if hosts == "" { "" } else { "-l " + hosts })
+_deploy_impl host="":
+    python3 control/bin/deploy_fleet.py {{ deploy_args }} {{ host }} {{ deploy_scope_arg }} {{ deploy_devices_only_arg }}
+
+deploy host="":
+    @just _deploy_impl {{ host }}
 ```
 
-- Any of these can be set in the shell before invoking `just`, e.g. `HOSTS=oneui-device just deploy`.
+The nested process re-reads the justfile and sees only the environment. A
+positional argument and an environment variable reach it; `just --set hosts x
+deploy` and `just hosts=x deploy` do not, so those forms run against the whole
+fleet.
 
-## Legacy Shims
+## Targeting hosts
 
-- Appear in `just --list` and maintain the original recipe names with a `-legacy` suffix.
-- Provide a smooth migration path for existing automation, CI pipelines, and documentation.
+1. **Positional:** `deploy`, `deploy-check`, `verify-drift`,
+   `termux-pkg-upgrade`, `bootstrap-ssh`, `deploy-termux` and `firerpa-heal`
+   take one host, e.g. `just deploy oneui-device`.
+2. **Environment:** `hosts=<host> just <recipe>` works for every recipe that
+   reads `hosts`, except `firerpa-heal`, which overwrites it with its own
+   (empty) argument.
+   Several hosts go in one quoted value:
+   `hosts="oneui-device fireos-device" just deploy`. `firerpa-deploy` passes
+   the value to `ansible-playbook -l`, so use commas there.
+3. **`verify` and `verify-heal`** declare a positional parameter but ignore
+   it; use the environment form.
+4. **Scope:** `scope=<scope> just deploy <host>`.
 
-## Updating Existing Recipes
+Check any new form with `just --dry-run`, and dry-run the nested call it
+prints as well, before documenting it.
 
-1. Rename the original recipe to a private implementation (`_<name>_impl`).
-2. Add a legacy shim (`<name>-legacy`).
-3. Add a positional wrapper (`<name> +host?: +scope?:`).
+## Legacy shims
 
-All fleet recipes have been refactored accordingly (see `just/fleet.just`).
+`<name>-legacy` recipes (`deploy-legacy`, `verify-drift-legacy`, …) call the
+private implementation with no host argument. They exist for old automation,
+honour only the environment form, and are not a way to make `--set` work.
 
-## Future Contributions
+## Adding a recipe
 
-- New recipes should follow the same three‑step pattern.
-- Consult this document when adding or modifying fleet commands.
-
----
-
-_This file is part of the repository and should be kept up‑to‑date._
+1. Put the work in a private `_<name>_impl` recipe.
+2. If it takes a host, declare `host=""` on both the wrapper and the
+   implementation and pass it through (`@just _<name>_impl {{ host }}`).
+3. Document the working forms in [commands.md](commands.md) after a dry run.

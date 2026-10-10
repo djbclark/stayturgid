@@ -161,7 +161,12 @@ mkdir -p "$WORK" "$PWD/certs"
 chmod 700 "$PWD/certs"
 ```
 
-Download and verify the upstream arm64 server:
+Download and verify the upstream arm64 server. Upstream has deleted old
+releases before (v10.0 and v10.2 are gone), so if these URLs return 404 use
+the stayturgid fork mirror that the `stayturgid.firerpa` role uses:
+`https://github.com/djbclark/lamda/releases/download/v10.9-binaries/` holds
+`lamda-server-arm64-v8a.tar.gz` and its `.sha256sum` (checked 2026-10-09; the
+Python client archive is not mirrored there).
 
 ```bash
 curl -fL -o "$WORK/lamda-server-arm64-v8a.tar.gz" \

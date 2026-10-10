@@ -35,7 +35,7 @@ See collection docs and human handoff for token acquisition. Do not commit secre
 4. Deploy:
 
    ```bash
-   just --set scope play --set hosts oneui-device deploy
+   scope=play just deploy oneui-device
    ./control/bin/deploy_fleet.py --scope play oneui-device
    ```
 

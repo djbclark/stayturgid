@@ -97,7 +97,7 @@ python3 control/bin/termux_pkg_nightly.py
 
 ```bash
 just termux-pkg-upgrade              # run now, all hosts
-just --set hosts oneui-device termux-pkg-upgrade    # one host
+just termux-pkg-upgrade oneui-device    # one host
 just termux-pkg-upgrade (--check via just)      # dry run
 just deploy-mac                      # install/reload the launchd agent
 ```
@@ -166,4 +166,4 @@ ssh oneui-device '~/.stayturgid/bin/stayturgid_agent_presence.py status'
 - [docs/hacking.md §1.4](../../hacking.md) — manual Termux setup
 - [docs/handoff.md](../../handoff.md) — repair architecture
 - [docs/research/experiments/on-device-llm.md](../../research/experiments/on-device-llm.md) — optional shell-gpt escalation (not hot-path)
-- [docs/architecture/components/autojs6.md](autojs6.md) — watchdog layer
+- [docs/architecture/components/autojs6.md](autojs6.md) — retired AutoJs6 watchdog layer (history; the native agent replaced it in K1)

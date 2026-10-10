@@ -18,10 +18,13 @@ Python 3.5+, but on this Mac Python 3.12 is the known-compatible choice:
 uv tool install --python /opt/homebrew/bin/python3.12 'cfbs==5.5.6'
 ```
 
-CFEngine Core (for `cf-promises` policy validation) is supplied by Homebrew:
+CFEngine Core (for `cf-promises` policy validation) is supplied by Homebrew,
+pinned to `cfengine@3.27.1` (see
+[packaging/homebrew/README.md](../../../packaging/homebrew/README.md)); plain
+`brew install cfengine` would install the unpinned formula that the pin removes:
 
 ```bash
-brew install cfengine
+just cfengine-pin
 ```
 
 ## Build and validate

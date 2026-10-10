@@ -19,9 +19,9 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 | **Termux runtime**            | `device/termux/`                                                           | Yes — repair, boot loop, presence                | [docs/architecture/components/termux.md](docs/architecture/components/termux.md)                                           |
 | **Ansible deploy**            | `ansible/`                                                                 | Yes — Termux over SSH only                       | [ansible/README.md](ansible/README.md)                                                                                     |
 | **Control node**              | `control/bin/`                                                             | Yes — launchd reconnect + outage alert           | [docs/architecture/components/control.md](docs/architecture/components/control.md)                                         |
-| **Native agent**              | `device/native-agent/`                                                     | Yes — Kotlin APK, Shizuku-gated                  | [docs/architecture/components/autojs6.md](docs/architecture/components/autojs6.md) (K1 cutover context)                    |
+| **Native agent**              | `device/native-agent/`                                                     | Yes — Kotlin APK, Shizuku-gated                  | [device/native-agent/README.md](device/native-agent/README.md)                                                             |
 | **FIRERPA failsafe**          | `ansible_collections/stayturgid/firerpa/`                                  | Yes — optional gRPC backup channel               | [docs/research/evaluations/firerpa-install-map-2026-07-12.md](docs/research/evaluations/firerpa-install-map-2026-07-12.md) |
-| **SSH Certificate Authority** | `ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ca.yml` | Yes — fleet host-key trust                       | [docs/handoff.md § Major changes](docs/handoff.md)                                                                         |
+| **SSH Certificate Authority** | `ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ca.yml` | Yes — fleet host-key trust                       | [tasks/ca.yml](ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ca.yml); `just ca-status`                 |
 | **Play**                      | `stayturgid.play` collection                                               | Parked — manual / `--scope play` when re-enabled | [docs/architecture/components/play.md](docs/architecture/components/play.md)                                               |
 | **Shared libraries**          | `control/lib/`                                                             | Yes — `resolve-adb`, UI parse, fleet health      | [control/lib/README.md](control/lib/README.md)                                                                             |
 
@@ -38,7 +38,6 @@ Keeps wireless ADB (port 5555), Shizuku, and SSH alive on **unrooted Android pho
 | [docs/hacking.md](docs/hacking.md)                                                           | Developer setup, clean install, Termux swap                                                                                                |
 | [docs/coding-rules.md](docs/coding-rules.md)                                                 | Durable coding, safety, testing, Git, and completion rules                                                                                 |
 | [docs/rules/](docs/rules/)                                                                   | AI agent policies (always-on) - normal-deploy convergence, self-heal, screen-control hold, GitHub-issues hygiene                           |
-| [human/HANDOFF-HUMAN.md](human/HANDOFF-HUMAN.md)                                             | Operator tasks (credentials, deploy approval) - human-only                                                                                 |
 | [docs/options.md](docs/options.md)                                                           | Strategic/deferred work menu with stable IDs (discrete bugs live in GitHub issues)                                                         |
 | [dashboard-framework research prompt](docs/research/prompts/dashboard-framework-research.md) | Self-contained brief for evaluating dashboard / ops frameworks                                                                             |
 | [docs/archive/](docs/archive/)                                                               | Superseded plans and old sessions - historical record only, not current work order                                                         |
@@ -191,7 +190,7 @@ epoch and `cat ~/.stayturgid/state/tasker-sshd-recover.result` shows `exit=0`.
 **Nag:** `control/bin/fleet_health_monitor.py` (every 5 min) reports the stamp's
 age as `tasker_recover_age`. If it is missing or older than 7 days on a phone
 with Tasker installed, the monitor fires the broadcast itself (at most hourly);
-if the stamp is still stale on a later pass, it posts a macOS notification
+if the stamp is still stale on a later pass, it sends a Hermes notice
 "stayturgid: action needed" and a WARNING in
 `~/.config/stayturgid/logs/fleet-health.log`, at most daily, until the profile
 works. It nags the same way, also at most daily, when
@@ -231,5 +230,5 @@ stayturgid/
 ## Tested on
 
 - Google Pixel 7a, Samsung Galaxy S24 (SM-S921U1), Android 16
-- Amazon Kindle Fire HD 8 (Fire OS 11) — see [docs/handoff.md](docs/handoff.md) for fireos-device quirks
+- Amazon Kindle Fire HD 8 (Fire OS 11) — see [docs/research/fire-os-local-adb.md](docs/research/fire-os-local-adb.md) for fireos-device quirks
 - Shizuku ShizukuTendCF (frdminc fork) · native-agent (Kotlin) · Termux GitHub-debug stack

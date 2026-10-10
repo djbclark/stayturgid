@@ -2,9 +2,11 @@
 
 **Created:** 2026-07-22 · **Decisions resolved:** 2026-07-23
 
-**Status:** Decisions D1–D3 resolved with the operator (§4). Implementation is
-ready to begin. One sub-point remains open for operator veto: the **consent /
-notification surface** for remote (Tailscale) callers (§4.1, flagged ⚑).
+**Status:** Implemented. The bridge shipped as `control/bin/firerpa_mcp.py`
+(`just firerpa-mcp`, `just firerpa-mcp-stdio`) and
+[#46](https://github.com/djbclark/stayturgid/issues/46) closed 2026-07-29.
+This plan is kept as the design record. Decisions D1–D3 were resolved with the
+operator (§4); the consent-surface sub-point (§4.1, ⚑) was tracked in #46, now closed.
 
 **Priority:** [Priority 7 / F1](../../archive/plans/outstanding-fix-priorities-2026-07-13.md#priority-7--firerpa-native-mcp-bridge-f1)
 

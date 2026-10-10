@@ -2,6 +2,12 @@
 
 # Mobile-First Observability Stack & stayturgid Platform Context
 
+> **Historical research (July 2026), not current behaviour.** Current state is
+> in [docs/STATUS.md](../STATUS.md); the current architecture is
+> [multi-site-topology.md](../architecture/multi-site-topology.md), with
+> [platform-architecture.md](../architecture/platform-architecture.md) as its
+> draft successor. Labelled 2026-10-09 (#137 audit, B36).
+
 ## 1. stayturgid Platform Context & Current Implementation Details
 
 This document integrates the **Mobile-First Observability Stack** design with the specific runtime environment and constraints of the **stayturgid** fleet.

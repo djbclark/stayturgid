@@ -34,7 +34,7 @@ stable ID. Current fleet/workstream state lives in
 > recovers without a manual one-shot next time. Rule:
 > [docs/rules/fleet-health-self-heal.md](rules/fleet-health-self-heal.md).
 >
-> Human-only tasks: [human/HANDOFF-HUMAN.md](../human/HANDOFF-HUMAN.md). Operator
+> Human-only tasks: the operator-action queue in [docs/STATUS.md](STATUS.md). Operator
 > answers: `human/RESPONSES.md` (gitignored). Session context:
 > [docs/STATUS.md](STATUS.md). Coding and completion rules:
 > [docs/coding-rules.md](coding-rules.md).
@@ -53,7 +53,7 @@ stays scannable. Current fleet/workstream snapshot: [docs/STATUS.md](STATUS.md).
 `H5` denotes two different items (open: Galaxy token; closed: pre-commit/typos
 tooling). `H1`/`H3` denote two different items (open: fireos-device Python
 deploy/Ansible push; closed 2026-07-09: an earlier, unrelated scope in the
-trailing ledger). `F1` denotes two different items (open: MCP bridge; closed:
+trailing ledger). `F1` denotes two different items (MCP bridge, shipped and closed 2026-07-29; also closed:
 "Fire F1–F5" in the 2026-07-09 ledger). Check the surrounding track/date when
 an ID is ambiguous.
 
@@ -93,8 +93,9 @@ Best done during cold-device end-to-end (B64) or with an idle device.
 
 #### B64 — Full cold-device end-to-end (agent) · Risk: **Medium** · Needs: virgin device
 
-Run `just deploy --limit <new_device>` from a device with only USB debugging
-enabled. Validates the entire bootstrap chain: APK install → Termux:Boot
+Run `just deploy <new_device>` from a device with only USB debugging
+enabled. Termux's first launch is an unmodelled precondition on this path
+([#290](https://github.com/djbclark/stayturgid/issues/290)). Validates the entire bootstrap chain: APK install → Termux:Boot
 launch → Shizuku start → SSH bootstrap → fleet deploy. This is the only way
 to test all links in the chain together. Prefer a factory-reset device or one
 not in active fleet use.
@@ -249,8 +250,8 @@ session on hd8, including once triggered simply by restarting
 `shizuku_server` locally, with no OS reboot or app reinstall involved.
 Tracked as its own issue, [#158](https://github.com/djbclark/stayturgid/issues/158)
 (patch the `frdminc/Shizuku` fork to make `org.stayturgid.agent`'s grant
-permanent). **Still open**: the forced `CLOSED_NO_SHELL` soak test has not
-run.
+permanent). As of 2026-07-31 the forced `CLOSED_NO_SHELL` soak test had not
+run; it ran on 2026-08-01 and failed (next paragraph).
 
 **2026-08-01 release25 soak:** hd8 was rebooted with Shizuku
 `13.7.0-thedjchi+stayturgid-release25` installed and AutoJs6 absent, then
@@ -263,7 +264,8 @@ never appeared. No manual recovery was issued. Thus the soak was run but did
 before the agent can classify or repair `CLOSED_NO_SHELL`. The remaining four
 acceptance items remain verified; issue
 [#43](https://github.com/djbclark/stayturgid/issues/43) stays open for this
-Fire-OS boot-path failure.
+Fire-OS boot-path failure, which [#188](https://github.com/djbclark/stayturgid/issues/188) ("hd8: shizuku_server never
+starts after reboot") tracks in detail.
 
 ---
 
@@ -378,16 +380,20 @@ always-on Ollama in Termux:Boot; **any Inferno/`emu`/Styx work** (parked under
 install/configure/service/uninstall; playbook (`fleet/firerpa.yml`); Python heal script
 (`firerpa_heal.py`); launchd health monitor (`firerpa_health_monitor.py` every 10 min);
 Termux boot integration in Python `start_adb.py`. Deployed on oneui-device +
-stock-android-device (v10.9 :65000). fireos-device blocked by Fire OS SELinux
-(peer-bootstrap covers it; no plan to fix).
+stock-android-device (v10.9 :65000). fireos-device (hd8) runs FIRERPA 10.0
+through control-node ADB rather than the on-device shell bridge, and a plain
+`just deploy` now converges it to the pinned version
+([#311](https://github.com/djbclark/stayturgid/issues/311), closed
+2026-10-03); see [docs/STATUS.md](STATUS.md).
 
 **Known limitations (by design, not open work):** FIRERPA inbound SSH is
 enabled as user `shell` with a private custom service certificate. After
 reboot the server archive still needs a UID-2000 bridge: `start_adb.py` first
 tries localhost ADB; when needed it uses authorized Shizuku `rish` to restart
 adbd, waits for localhost:5555, then launches through persistent ADB.
-Built-in ADB needs root (stayturgid uses the shell bridge); fireos-device
-remains unsupported. Architecture docs:
+Built-in ADB needs root (stayturgid uses the shell bridge); fireos-device has
+no on-device shell bridge (Fire OS clears TCP ADB and wireless-debugging state
+across reboot), so it depends on control-node ADB. Architecture docs:
 `docs/research/evaluations/firerpa-lamda-code-audit-deepseek-pro-2026-07-12.md`,
 `docs/research/evaluations/firerpa-nonroot-redundancy-deepseek-pro-2026-07-12.md`,
 `docs/research/evaluations/firerpa-install-map-2026-07-12.md`.

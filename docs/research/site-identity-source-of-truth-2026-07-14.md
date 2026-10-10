@@ -15,7 +15,7 @@ behind SecretSpec providers.
 
 Do not create another hand-maintained `fleet.toml`, JSON device list, Python dictionary,
 CFEngine list, dashboard list, or SSH list. That would merely move the duplication.
-The repository already says that [`ansible/inventory/hosts.yml`](../../ansible/inventory/hosts.yml)
+The repository already says that `ansible/inventory/hosts.yml` (now in the site overlay; pattern: [`hosts.yml.example`](../../ansible/inventory/hosts.yml.example))
 is the only place person/device-specific facts live, and the control-node role already
 generates `devices.conf` and SSH configuration from it. The correct next step is to
 finish enforcing that architecture.
@@ -56,7 +56,7 @@ Read these completely before implementation:
 
 - [Architecture](../architecture/core-architecture.md), [other-site design](../architecture/multi-site-topology.md), and
   [ADR 001](../architecture/adr/001-ansible-boundary.md)
-- [Live inventory](../../ansible/inventory/hosts.yml),
+- Live inventory (now in the site overlay; pattern: [`hosts.yml.example`](../../ansible/inventory/hosts.yml.example)),
   [example inventory](../../ansible/inventory/hosts.yml.example), and all files under
   `ansible/inventory/group_vars/`
 - [Control-node agent tasks](../../ansible/roles/control_node/tasks/agents.yml),
@@ -64,7 +64,7 @@ Read these completely before implementation:
   and [SSH template](../../ansible/roles/control_node/templates/ssh_config_stayturgid.j2)
 - [`stayturgid_device.py`](../../control/lib/stayturgid_device.py), which is the shared
   consumer of generated `devices.conf`
-- [`secretspec.toml`](../../secretspec.toml), [coding rules](../coding-rules.md),
+- `secretspec.toml` (no longer tracked; site template: [`secretspec.toml.j2`](../../control/site_contract/templates/secretspec.toml.j2)), [coding rules](../coding-rules.md),
   [handoff](../handoff.md), and [options](../options.md)
 
 GitHub equivalents:

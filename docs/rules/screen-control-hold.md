@@ -22,10 +22,11 @@ the session held.
   extends the presence lease every ~45s while held.
 - Emit **USING** once when you first take the screen; **FREE** only when done
   with that phone until the next user reply.
-- At a **batch endpoint** (session `__exit__`), let the session restore the
-  foreground activity that was showing when you started. Do not force
-  `KEYCODE_HOME` at the end of a multi-step script unless you intentionally want
-  the launcher.
+- At a **batch endpoint** (session `__exit__`), leave the screen as you found
+  it yourself: the session does **not** restore the prior foreground activity
+  (automatic save/restore was disabled 2026-07-14 as unreliable, options H9).
+  Do not force `KEYCODE_HOME` at the end of a multi-step script unless you
+  intentionally want the launcher.
 
 ## Don't
 
@@ -34,8 +35,9 @@ the session held.
   session for "toggle filter") — that is how the user's foreground app reappears
   mid-batch.
 - Use `STAYTURGID_SKIP_PRESENCE=1` to avoid holding a real session (debug only).
-- Leave the user on Aurora/Neo/Settings after a batch finishes when they had
-  something else open — restore is the default.
+- Leave the user on Settings (or any app you opened) after a batch finishes
+  when they had something else open — restore is not automatic, so put it back
+  by hand.
 
 ## Exception
 

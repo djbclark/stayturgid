@@ -14,8 +14,8 @@ ADB connection) is available.
   deploy cannot reproduce from inventory and versioned product defaults.
 - Factory-reset installation and routine upgrades use the same desired-state
   catalog. Do not maintain a separate "first install" version source.
-- A coordinated `ops-v*` release must lock external artifacts by exact release
-  tag, asset name, installed version, and checksum. Never resolve mutable
+- The artifact lock must pin external artifacts by exact release tag, asset
+  name, installed version, and checksum. Never resolve mutable
   repository-wide "Latest" during deployment.
 - Post-install requirements—conflicting package removal, permissions,
   configuration files, service start, and verification—are part of the
@@ -31,9 +31,12 @@ bypass or weaken the consent mechanism.
 
 ## Release discipline
 
-Artifact pins advance only in a versioned ops release. Publishing an
-independent application release does not silently alter deployed state; update
-the lock, test a normal deploy, and cut the next coordinated ops release.
+Artifact pins advance only by a commit that updates the lock and passes a
+normal deploy. Publishing an independent application release does not silently
+alter deployed state: update the lock, test a normal deploy, then commit. The
+versioned `ops-v*` release gate that used to wrap this was retired on
+2026-08-23 (`AGENTS.md`, "Versioned deploy releases — retired"); a release is
+now optional.
 
 ## Regression requirements
 

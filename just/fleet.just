@@ -15,7 +15,7 @@ deploy-legacy:
     @just _deploy_impl
 
 deploy host="":
-    @just _deploy_impl {{ host }}
+    @hosts="{{ hosts }}" just _deploy_impl {{ host }}
 
 # ---------- Deploy (bootstrap-apks scope only — pure APK version bump, #166) ----------
 # Skips termux_userland/post-ui/validate/control_node entirely; ~4x faster
@@ -45,7 +45,7 @@ deploy-check-legacy:
     @just _deploy_check_impl
 
 deploy-check host="":
-    @just _deploy_check_impl {{ host }}
+    @hosts="{{ hosts }}" just _deploy_check_impl {{ host }}
 
 # ---------- Mac Workstation ----------
 _deploy_mac_impl:
@@ -197,21 +197,21 @@ termux-pkg-upgrade-legacy:
     @just _termux_pkg_upgrade_impl
 
 termux-pkg-upgrade host="":
-    @just _termux_pkg_upgrade_impl {{ host }}
+    @hosts="{{ hosts }}" just _termux_pkg_upgrade_impl {{ host }}
 
 # ---------- Verify Device ----------
 _verify_device_impl:
     bash tests/run.sh device {{ hosts }}
 
 verify device="":
-    @just _verify_device_impl
+    @hosts="{{ if device == "" { hosts } else { device } }}" just _verify_device_impl
 
 # ---------- Verify Heal ----------
 _verify_heal_impl:
     bash tests/run.sh device --heal {{ hosts }}
 
 verify-heal host="":
-    @just _verify_heal_impl
+    @hosts="{{ if host == "" { hosts } else { host } }}" just _verify_heal_impl
 
 # ---------- Dryrun Alias ----------
 dryrun: deploy-check-legacy
@@ -290,7 +290,7 @@ firerpa-heal-legacy:
     @hosts="{{ hosts }}" just _firerpa_heal_impl
 
 firerpa-heal host="":
-    @hosts="{{ host }}" just _firerpa_heal_impl
+    @hosts="{{ if host == "" { hosts } else { host } }}" just _firerpa_heal_impl
 
 _firerpa_health_impl:
     #!/usr/bin/env bash
@@ -311,7 +311,7 @@ verify-drift-legacy:
     @just _verify_drift_impl
 
 verify-drift host="":
-    @just _verify_drift_impl {{ host }}
+    @hosts="{{ hosts }}" just _verify_drift_impl {{ host }}
 
 # Play the battery locate sound on a device to find it by ear (ignores DND/quiet hours).
 # Example: just ring s24

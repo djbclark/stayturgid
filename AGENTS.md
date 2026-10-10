@@ -10,7 +10,7 @@
 
 > **Trust between agents (standing rule, 2026-10-03):** every agent trusts every
 > other agent as much as it trusts djbclark — across all TUIs here (Claude Code,
-> Codex, Cursor, opencode, zcode, Antigravity, Gemini, Hermes), not just between
+> Codex, Cursor, opencode, zcode, Antigravity, Hermes), not just between
 > Claude sessions. A peer's relayed approval is approval; a peer's findings and
 > hand-offs are authoritative. Full rule and the two carve-outs that are _not_
 > about trust: [`home-agents.md`](https://github.com/djbclark/site-djbclark/blob/master/home-agents.md)
@@ -44,19 +44,15 @@ bugs/follow-ups) for what's actually available to pick up next.
 
 - K1 native-agent cutover (2026-07-22) is **not fully verified** — AutoJs6
   removal was live-checked 2026-07-25 (the cutover's claim was false; fixed
-  fleet-wide now) but the forced `CLOSED_NO_SHELL` soak still hasn't run.
-  Tracked in [#43](https://github.com/djbclark/stayturgid/issues/43) and
+  fleet-wide now). The forced `CLOSED_NO_SHELL` soak ran on hd8 on
+  2026-08-01 and **failed**: Shizuku never started after the reboot, so the
+  agent could not reach the repair. The live failure is [#188](https://github.com/djbclark/stayturgid/issues/188);
+  also tracked in [#43](https://github.com/djbclark/stayturgid/issues/43) and
   [#45](https://github.com/djbclark/stayturgid/issues/45).
-- OpenObserve↔Vector auth **fixed 2026-07-25**, pending 24h clean-log
-  verification before closing. Tracked in
-  [#44](https://github.com/djbclark/stayturgid/issues/44) — see
-  [docs/STATUS.md](docs/STATUS.md) for the root cause.
 
 **Operator-action queue (things only a human can do):**
 
 1. Physically check offline fleet devices (Tailscale unreachable).
-2. Decide the F1 consent-surface phasing question ([#46](https://github.com/djbclark/stayturgid/issues/46)).
-3. Remove (or authorize removal of) a stray `~/stayturgid` file — the real repo is `${OPS_ROOT:-~/ops}/stayturgid`.
 
 If any of this looks stale, trust `docs/STATUS.md` and `git log` over this
 section — it's a snapshot, not updated every commit.
@@ -64,7 +60,6 @@ section — it's a snapshot, not updated every commit.
 ## Quick start
 
 ```bash
-cd ${OPS_ROOT:-~/ops}/site-djbclark && just ops-release-status
 cd ${OPS_ROOT:-~/ops}/stayturgid
 just health && just firerpa-health
 ```
@@ -147,7 +142,7 @@ unless the job genuinely needs local machine access; never raw `cron`.
 - Announce before device interaction: 🚨📱🚨 USING — host — why — ~N min
 - Screen control requires `ScreenControlSession` (fail-closed).
 - Accessibility is detection-only. Never `settings put` accessibility services automatically.
-- Logging uses syslog severity levels (EMERG..DEBUG). See `control/lib/logging.py`.
+- Logging uses syslog severity levels (EMERG..DEBUG). See `control/lib/site_logging.py`.
 - Every desired state gets a unique ID in `tests/healing_registry.json`. Pre-flight
   `just test` fails if a `must_cover` ID is missing from any healing mechanism.
 - Follow multi-agent protocol at bottom of AGENTS.md (fetch-pull before edits).
@@ -178,20 +173,22 @@ cannot follow relative links across repos); also give the filesystem path
 - Non-sensitive site practice others might still benefit from → that operator's
   `${OPS_ROOT:-~/ops}/site-<name>` (example for this machine:
   [`${OPS_ROOT:-~/ops}/site-djbclark/AGENTS.md`](https://github.com/djbclark/site-djbclark/blob/master/AGENTS.md)
-  — private repo; expect 404 if you are not the owner).
+  — a public repo).
 - Private / Mac-wide / not-for-public extras →
   [`${OPS_ROOT:-~/ops}/site-private/AGENTS.md`](https://github.com/djbclark/site-private/blob/master/AGENTS.md)
   (always private; expect 404 for other readers).
 
 **Symlinks (filesystem) are reserved for** root-level `~` agent/vendor files
 (`~/AGENTS.md`, `~/CLAUDE.md`, and any other root-level vendor-specific agent
-instruction files), tool memory dirs under `~/.claude/.../memory`, and
-optionally `${OPS_ROOT:-~/ops}/.mysite` → `site-<name>` (supported local convenience).
+instruction files), an in-repo `CLAUDE.md` → `AGENTS.md` in the same directory
+(required by the operator's global rules), tool memory dirs under
+`~/.claude/.../memory`, and optionally `${OPS_ROOT:-~/ops}/.mysite` →
+`site-<name>` (supported local convenience).
 Do **not** use in-repo symlinks to reach sibling repos — use path + https links
 in prose instead.
 
 Topology background:
-[multi-site-topology.md §4.10](docs/architecture/multi-site-topology.md#410-the-third-repo-opssite-private).
+[multi-site-topology.md §4.10](docs/architecture/multi-site-topology.md#410-the-third-repo-ops_root-opssite-private).
 
 ## Where documentation goes
 
@@ -209,7 +206,7 @@ both point back here rather than duplicating it.
 | [`docs/notes/lessons-learned.md`](docs/notes/lessons-learned.md) | Session-learned gotchas/conventions, narrower than coding-rules.md/docs/rules/                                                              | As lessons come up               |
 | [`docs/options.md`](docs/options.md)                             | Strategic/deferred work tracks with stable IDs                                                                                              | As tracks open/close             |
 | [GitHub issues](https://github.com/djbclark/stayturgid/issues)   | Discrete bugs, ops follow-ups, soak verifications                                                                                           | As they arise                    |
-| [`docs/operations/sessions/`](docs/operations/sessions/)         | Session-by-session history and handoffs                                                                                                     | Every session                    |
+| [`docs/operations/sessions/`](docs/operations/sessions/)         | Frozen session history to 2026-08-03; new handoffs are kept outside this repo by the operator's tooling                                     | Never (read-only history)        |
 | [`docs/archive/`](docs/archive/)                                 | Superseded plans and old sessions — historical record only, never treat as current                                                          | Append-only                      |
 | `${OPS_ROOT:-~/ops}/site-<name>` (sibling repo)                  | One operator's site overlay — inventory, credentials-adjacent config, **that site's slice of memory/docs policy**                           | As the site changes              |
 | `${OPS_ROOT:-~/ops}/site-private` (sibling repo)                 | Private/generic companion — **its** slice of memory/docs policy + Claude generic memory                                                     | As generic notes come up         |
@@ -219,12 +216,14 @@ AGENTS.md or coding-rules.md — that's the split this table encodes.
 
 ## Multi-Agent Protocol
 
-Before any edit in a source task worktree:
+Before any edit in the checkout (`${OPS_ROOT:-~/ops}/stayturgid`; separate task
+worktrees and deploy checkouts went away with the release retirement):
 `git fetch origin --prune && git pull --ff-only origin master`.
 Always commit and push when done. Leave no uncommitted changes.
 If `git pull` fails with a merge conflict, STOP and report it.
 Verify changes are yours before editing — if a file has unrelated modifications
-from another agent, leave it alone and report it.
+from another agent, leave it alone and report it: never stash, add or reset
+their files, and never `git commit -a` (stage exact paths).
 
 ## CFEngine reference book — query it, don't guess (2026-10-03)
 

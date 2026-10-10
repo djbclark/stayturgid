@@ -1,22 +1,22 @@
 # Quality Toolchain
 
 The standard toolchain used across stayturgid and derived projects. Every layer
-(local edits, pre-commit hooks, CI) runs the same tools with the same configs.
+(local edits and pre-commit hooks) runs the same tools with the same configs.
+There is no PR-gating CI: the `test.yml` workflow was removed in 2e3a6ef.
 
 ## Architecture (N+1 pattern)
 
-Every tool appears in four places — changing one means updating all four:
+Every tool appears in three places — changing one means updating all three:
 
-| Layer      | File                                                  | Purpose                                            |
-| ---------- | ----------------------------------------------------- | -------------------------------------------------- |
-| Manual     | `justfile`                                            | `just check` / `just lint` / `just format` recipes |
-| Pre-commit | `.pre-commit-config.yaml`                             | Automatic gate on `git commit`                     |
-| Config     | `pyproject.toml`, `package.json`, standalone dotfiles | Tool-specific settings                             |
-| CI         | `.github/workflows/`                                  | Runs the same `just` recipes                       |
+| Layer      | File                                                  | Purpose                            |
+| ---------- | ----------------------------------------------------- | ---------------------------------- |
+| Manual     | `justfile`                                            | `just check` / `just lint` recipes |
+| Pre-commit | `.pre-commit-config.yaml`                             | Automatic gate on `git commit`     |
+| Config     | `pyproject.toml`, `package.json`, standalone dotfiles | Tool-specific settings             |
 
 This intentionally duplicates command lines across justfile and pre-commit —
 they must stay in sync, but the payoff is that `just check` matches `pre-commit`
-exactly, and CI can be `just lint`.
+exactly.
 
 ## Tool Inventory
 
@@ -181,7 +181,7 @@ just-check:
 # Fast, deterministic checks (runs on every commit via pre-commit)
 check: test ruff mypy yamllint markdownlint prettier typos just-check
 
-# Full lint + security suite (runs in CI, slower)
+# Full lint + security suite (local, slower)
 lint: check bandit gitleaks
 
 # Apply auto-fixers (run before committing)
@@ -304,16 +304,9 @@ The above is the **core** toolchain. Projects add domain-specific hooks:
    just check                    # Verify everything passes
    ```
 
-## CI Integration
+## Full lint
 
-GitHub Actions workflow entry (from `.github/workflows/test.yml`):
-
-```yaml
-- name: Full lint + security
-  run: just lint
-```
-
-`just lint` runs `check` (test + all fast checks) then `bandit gitleaks`.
+Run it locally before pushing; no workflow runs it for you. `just lint` runs `check` (test + all fast checks) then `bandit gitleaks`.
 The fast checks run first so security tools don't waste time on broken code.
 
 ## Bumping Versions

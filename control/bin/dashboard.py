@@ -260,7 +260,7 @@ HUMAN_ACTIONS = {
     ),
     "a11y_profile_drift": (
         "Expected accessibility services are missing from this device. "
-        "Run: just verify-heal HOSTS=<host> to merge-restore the profile."
+        "Run: hosts=<host> just verify-heal to merge-restore the profile."
     ),
     "port_closed": (
         "ADB wireless debugging port 5555 is closed. On the device, open "
@@ -274,7 +274,7 @@ HUMAN_ACTIONS = {
     "repair_stale": (
         "The Termux repair loop has not cycled in over 45 minutes. "
         "The self-heal monitor will attempt to restart it. "
-        "If persistent, run: just verify-heal HOSTS=<host>"
+        "If persistent, run: hosts=<host> just verify-heal"
     ),
     "repair_missing": "No repair log found. The Termux boot loop may not be running. Run: just deploy-termux <host>",
     "shizuku_down": (
@@ -287,11 +287,11 @@ HUMAN_ACTIONS = {
         "The self-heal monitor attempts to restart it via ADB. "
         "If persistent, the AutoJs6 JavaScript task may be stuck — "
         "force-stop the AutoJs6 app in Android Settings, then run: "
-        "just verify-heal HOSTS=<host>"
+        "hosts=<host> just verify-heal"
     ),
     "watchdog_missing": (
         "No AutoJs6 watchdog log entries found. The AutoJs6 app may not "
-        "be running. Run: just verify-heal HOSTS=<host> to attempt restart."
+        "be running. Run: hosts=<host> just verify-heal to attempt restart."
     ),
     "bootloop_down": (
         "The Termux boot loop (start-adb.sh) was not detected at probe time. "
@@ -301,7 +301,7 @@ HUMAN_ACTIONS = {
     "shell5555_down": (
         "Termux cannot reach ADB on localhost:5555. Wireless debugging "
         "may be off or Shizuku's ADB service needs restart. "
-        "Run: just verify-heal HOSTS=<host>"
+        "Run: hosts=<host> just verify-heal"
     ),
     "probe_error": (
         "The fleet-health monitor could not probe this device (ADB missing, "

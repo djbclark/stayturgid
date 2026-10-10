@@ -2,16 +2,21 @@
 
 # Master Architecture & Identity Strategy
 
-**Status:** Authoritative architecture for stayturgid.
-**Audience:** Maintainers, autonomous agents, and operators.
+> **Historical research (July 2026), not current behaviour.** Current state is
+> in [docs/STATUS.md](../STATUS.md); the current architecture is
+> [multi-site-topology.md](../architecture/multi-site-topology.md), with
+> [platform-architecture.md](../architecture/platform-architecture.md) as its
+> draft successor. Labelled 2026-10-09 (#137 audit, B36).
+
+**Status (original, superseded):** architecture synthesis, 2026-07.
 
 This document serves as the definitive guide to both the platform's **runtime topology** (the O-V-G-O stack) and its **configuration management strategy** (Single Source of Truth / Private Site Overlay).
 
 **Related Documents:**
 
-- [Agent Implementation Plan](../archive/plans/agent-ovgo-implementation.md): Specific instructions for autonomous agents deploying this architecture.
+- [Agent Implementation Plan](../archive/plans/agent-ovgo-implementation.md) (archived): the July 2026 implementation plan; history only.
 - [Coding Rules](../coding-rules.md) and [AGENTS.md](../../AGENTS.md): Strict policies and multi-agent protocols that must be followed.
-- [Handoff](../handoff.md): Current session context and state.
+- [Handoff](../handoff.md): pointer to current state (STATUS.md).
 
 ---
 

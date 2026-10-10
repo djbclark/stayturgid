@@ -29,7 +29,7 @@ From `${OPS_ROOT:-~/ops}/stayturgid`:
 
 ```bash
 git fetch origin --prune
-git pull --ff-only origin master  # source task worktree only; never a deploy checkout
+git pull --ff-only origin master  # the ~/ops checkout is the only one; running deployments read it
 just health
 just firerpa-health
 python3 control/bin/screen_lease.py status
@@ -100,7 +100,8 @@ retries, state transitions, structured output, and error classification.
 - **Shell:** acceptable for a small, clearer wrapper or direct pipeline. Do not put
   complex control flow, parsing, retries, or duplicated Python behavior into shell.
 - **`just`:** command runners must remain thin entry points. Substantive behavior
-  belongs in Python or Ansible. Follow the [`just` migration plan](archive/plans/just-migration-plan.md).
+  belongs in Python or Ansible. Follow the recipe conventions in
+  [just_standards.md](just_standards.md) and [commands.md](commands.md).
 
 When touching an existing substantial shell implementation, consider migrating it to
 Python as part of the scoped task. Do not inflate a small fix into an unrelated rewrite.
@@ -189,8 +190,8 @@ to the change:
 ```bash
 just check                 # code syntax, lint, collection and parser checks
 just test                  # device-free unit suites
-just --set hosts oneui-device verify      # read-only live tier when device behavior changed
-just --set hosts oneui-device deploy-check
+hosts=oneui-device just verify      # read-only live tier when device behavior changed
+just deploy-check oneui-device
 ```
 
 - Add a regression test that would fail on the old defect.

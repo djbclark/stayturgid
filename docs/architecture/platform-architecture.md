@@ -169,7 +169,7 @@ The following active files contain hardcoded production literals (`oneui-device`
 | `control/bin/cf-run.sh`                    | Embedded `oneui-device`, `stock-android-device`, `fireos-device` aliases | `violation` — Require explicit target host argument                |
 | `control/bin/firerpa_heal.py`              | Reference to production aliases and IPs                                  | `violation` — Resolve addresses dynamically using `resolve_adb`    |
 | `control/bin/firerpa_health_monitor.py`    | Reference to production aliases and IPs                                  | `violation` — Resolve addresses dynamically                        |
-| `control/tools/obtainium/*.py`             | Reference to production aliases                                          | `violation` — Require CLI arguments                                |
+| `control/tools/obtainium/*.py` (removed)   | Reference to production aliases                                          | `resolved` — directory removed with Obtainium (#119)               |
 | `control/tools/play/*.py`                  | Reference to production aliases                                          | `violation` — Require CLI arguments                                |
 | `device/termux/py/stayturgid_peer_help.py` | References to sibling hostnames                                          | `violation` — Read peers list from `peers.json` projection         |
 
@@ -180,8 +180,9 @@ The following active files contain hardcoded production literals (`oneui-device`
 ### 3.1 Schema
 
 The site Ansible inventory is the **sole authority** for non-secret, declared
-site identity. The file is
-[`ansible/inventory/hosts.yml`](../../ansible/inventory/hosts.yml).
+site identity. The file is `ansible/inventory/hosts.yml` in the site overlay
+(this repo tracks only the pattern,
+[`hosts.yml.example`](../../ansible/inventory/hosts.yml.example)).
 
 **Per-device required fields:**
 
@@ -552,9 +553,9 @@ Flask dashboard's "write" functionality.
   [GitHub](https://github.com/OliveTin/OliveTin).
 - **Configuration:** `config.yaml` is generated from inventory (§4.3). Each
   device gets buttons for common operations:
-  - `just --set hosts <alias> deploy`
-  - `just --set hosts <alias> verify-heal`
-  - `just --set hosts <alias> firerpa-heal`
+  - `just deploy <alias>`
+  - `hosts=<alias> just verify-heal`
+  - `just firerpa-heal <alias>`
   - `just health`
 - **Security best practices** (from
   [OliveTin docs](https://docs.olivetin.app/)):
@@ -1168,7 +1169,7 @@ Scan performed 2026-07-14 across the full repository. Production aliases
 
 ### Authoritative Files (Inventory and Schema)
 
-- [`ansible/inventory/hosts.yml`](../../ansible/inventory/hosts.yml) —
+- `ansible/inventory/hosts.yml` (site overlay; not tracked here) —
   Production site inventory (the Single Source of Truth).
 - [`ansible/inventory/hosts.yml.example`](../../ansible/inventory/hosts.yml.example)
   — Generic example inventory with RFC 5737 addresses.

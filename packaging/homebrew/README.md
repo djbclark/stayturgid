@@ -20,8 +20,8 @@ a naive `@3.27` source build fails at `make install`).
 
 The control-node deploy applies this automatically: the `control_node` role's
 `prereqs.yml` installs + pins `cfengine@3.27.1` (idempotent, macOS-only). That
-runs via `just deploy-mac`, which is currently blocked by stayturgid#85 — until
-that is fixed, apply it manually:
+runs via `just deploy-mac` (stayturgid#85, which blocked it, closed 2026-07-27).
+To apply it on its own:
 
 ```bash
 just cfengine-pin            # tap + install cfengine@3.27.1 + brew pin + drop plain cfengine

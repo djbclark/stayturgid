@@ -37,8 +37,9 @@ Launchd agents and `devices.conf` are rendered by `ansible/playbooks/control_nod
 ## Fleet deploy
 
 ```bash
-# just --set hosts oneui-device deploy                # whole fleet (recommended)
-# just --set hosts oneui-device deploy-check          # dry run
+# just deploy                                         # whole fleet (recommended)
+# just deploy oneui-device                            # one host
+# just deploy-check oneui-device                      # dry run, one host
 ./control/bin/bootstrap_ssh.py oneui-device             # first SSH key (when Ansible cannot connect yet)
 ./control/bin/deploy_fleet.py oneui-device              # same as just deploy
 CHECK=1 ./control/bin/deploy_fleet.py oneui-device      # same as just deploy-check
@@ -125,14 +126,14 @@ just deploy-mac
 # or: ansible-playbook ansible/playbooks/control_node/site.yml --tags hermes,agents-ensure
 ```
 
-Site allowlist (Telegram numeric user ids) lives in `ansible/inventory/hosts.yml`
+Site allowlist (Telegram numeric user ids) lives in the site overlay's inventory (`inventory/hosts.yml`)
 (`stayturgid_hermes_telegram_allowed_users`). Pairing: `hermes pairing approve telegram CODE`.
 
 Disable: `-e stayturgid_hermes_enabled=false` or `stayturgid_hermes_gateway_enabled=false`.
 
 **Soft health** (`fleet_health_monitor.py`): when reachable, scrapes watchdog/repair
 ages, STATUS `port`/`shizuku`/`a11y`, AutoJs6 + profile a11y drift, boot loop,
-`localhost:5555` shell. Always logs; macOS notify after ~10 min debounce.
+`localhost:5555` shell. Always logs; sends a Hermes notice after ~10 min debounce.
 Also rate-limits `ensure_et_mac.py` (phone→Mac fleet keys). Disable with
 `STAYTURGID_SKIP_HEALTH=1` or `STAYTURGID_SKIP_ET_MAC=1`. Does not mutate devices
 except ET authorized_keys reconcile + existing watchdog/Google heals.
@@ -175,7 +176,7 @@ Do **not** use `et --macserver` on Apple Silicon Homebrew (wrong
 `STAYTURGID_SSH_KNOWN_HOSTS=~/.ssh/known_hosts_stayturgid` (see `control/lib/et_mac.py`).
 
 **Agents — session start:** `just health` — if exit ≠ 0,
-surface host/`issues=` to the operator immediately (see HANDOFF § Mac fleet health).
+surface host/`issues=` to the operator immediately (see [docs/STATUS.md](../../STATUS.md)).
 Any health fix must also update self-heal (Termux / native-agent liveness / this
 monitor's `maybe_heal_watchdog`) — see `docs/rules/fleet-health-self-heal.md`.
 

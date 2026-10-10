@@ -18,3 +18,4 @@ original dates.
 | ------------ | ------------------------------------------------------------------- |
 | `plans/`     | Completed or superseded implementation plans and priority orderings |
 | `sessions/`  | Old session logs and superseded handoffs                            |
+| `ansible/`   | Reference pages for modules of deleted Ansible collections          |

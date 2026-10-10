@@ -97,13 +97,14 @@ The reboot also exposed two supervisor bugs that are now fixed in Python:
 
 ```bash
 # Deploy/redeploy the certificate-authenticated service
-make firerpa-deploy HOSTS=oneui-device,stock-android-device
+hosts=oneui-device,stock-android-device just firerpa-deploy
 
 # Validate both transports
 ssh oneui-device-firerpa 'id'
 ssh stock-android-device-firerpa 'id'
-make firerpa-heal HOSTS=oneui-device,stock-android-device
-make firerpa-health
+just firerpa-heal oneui-device
+just firerpa-heal stock-android-device
+just firerpa-health
 
 # Inspect the on-device supervisor's decisions
 ssh oneui-device 'tail -n 100 ~/.stayturgid/logs/boot.log'

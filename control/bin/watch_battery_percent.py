@@ -21,7 +21,7 @@ Usage:
   control/bin/watch_battery_percent.py <host> -- <command...>
 
 Example:
-  control/bin/watch_battery_percent.py p7a -- just deploy hosts=p7a
+  control/bin/watch_battery_percent.py p7a -- just deploy p7a
 
 Writes a JSON evidence record to artifacts/battery-percent-watch/, and exits
 with the wrapped command's return code (0/1 changed-state is only reported,

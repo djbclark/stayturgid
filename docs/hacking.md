@@ -11,7 +11,7 @@ This document gets a developer from a clean Android + macOS install to a fully w
 | Android device          | Runs stayturgid-agent, Shizuku, Termux — the managed stack          |
 | macOS (Mac)             | Development workstation; runs ADB, Ansible, AI coding agent         |
 | stayturgid-agent        | Native Android agent (Kotlin/Shizuku UserService)                   |
-| Shizuku (thedjchi fork) | Shell-privileged adbd on port 5555 via Wireless Debugging (no root) |
+| Shizuku (ShizukuTendCF) | Shell-privileged adbd on port 5555 via Wireless Debugging (no root) |
 | Termux                  | Linux environment on Android — runs sshd, adb, the boot script      |
 
 ---
@@ -23,8 +23,8 @@ This document gets a developer from a clean Android + macOS install to a fully w
 | App                     | Package                      | Version                    | Source             |
 | ----------------------- | ---------------------------- | -------------------------- | ------------------ |
 | Android                 | —                            | 16 (SDK 36)                | —                  |
-| stayturgid-agent        | `com.stayturgid.agent`       | current                    | Built from source  |
-| Shizuku (thedjchi fork) | `moe.shizuku.privileged.api` | 13.6.0.r1349-thedjchi-beta | GitHub (see below) |
+| stayturgid-agent        | `org.stayturgid.agent`       | current                    | Built from source  |
+| Shizuku (ShizukuTendCF) | `moe.shizuku.privileged.api` | locked in `bootstrap_apks` | GitHub (see below) |
 | Termux                  | `com.termux`                 | 0.118.3                    | GitHub             |
 | Termux:Boot             | `com.termux.boot`            | 0.8.1                      | F-Droid / GitHub   |
 | Termux:API (app)        | `com.termux.api`             | 0.53.0                     | F-Droid / GitHub   |
@@ -149,17 +149,18 @@ requirements file in the repo, converged by a role. The Hermes venv and the
 
 Install the following apps.
 
-#### Shizuku — thedjchi fork (CRITICAL: must be this fork)
+#### Shizuku — ShizukuTendCF (the fleet's pinned fork)
 
-The standard Shizuku from Play Store **does not have TCP mode**. You need thedjchi's fork which adds automatic boot-time TCP (port 5555) support via Wireless Debugging.
+The standard Shizuku from Play Store **does not have TCP mode**. The fleet uses
+[ShizukuTendCF](https://github.com/frdminc/ShizukuTendCF) (the frdminc fork, a
+drop-in for `moe.shizuku.privileged.api`), which adds automatic boot-time TCP
+(port 5555) support via Wireless Debugging. It replaced the thedjchi fork
+earlier docs named.
 
-**Source:** https://github.com/thedjchi/Shizuku/releases
-
-**Source:** https://github.com/thedjchi/Shizuku/releases
-
-Select: "GitHub Releases" -> filter for `.apk`.
-
-Install the latest `app-release.apk` from the releases page. Current version: **13.6.0.r1349-thedjchi-beta**.
+Do not install it by hand: `just deploy` installs the exact release pinned in
+`ansible_collections/stayturgid/android_common/roles/bootstrap_apks/defaults/main.yml`
+(the `moe.shizuku.privileged.api` entry: tag, asset name, `version_name` and
+checksum). The pin is the source of truth for the current version.
 
 #### Termux (install from F-Droid or Google Play)
 
@@ -201,7 +202,7 @@ After install: sign in, and in Tailscale settings consider enabling **VPN On-Dem
 
 ---
 
-### 1.3 Configure Shizuku (thedjchi fork)
+### 1.3 Configure Shizuku (ShizukuTendCF)
 
 Open Shizuku → **Settings (gear icon)**. Set:
 
@@ -438,11 +439,11 @@ ssh termux
 
 ### 2.5 Install the Mac-side launchd keepalive
 
-This runs `adb connect` every 60 seconds, handles DHCP IP changes, and sends a macOS notification on reconnect or failure.
+This runs `adb connect` every 60 seconds, handles DHCP IP changes, and sends a Hermes notice on reconnect (failure alerts come from `access_monitor.py`, debounced).
 
 **Current (Ansible-generated):** `just deploy` / `site.yml` ends with `control_node/site.yml`
 (Homebrew prereqs, `devices.conf`, `com.stayturgid.*` launchd agents). Partial deploys
-(`just deploy HOSTS=oneui-device`) also refresh Mac config via `deploy_fleet.py`. Agents launch
+(`just deploy oneui-device`) also refresh Mac config via `deploy_fleet.py`. Agents launch
 `control/bin/adb_reconnect.py` + `control/bin/access_monitor.py`. Logs + state live under
 `~/.config/stayturgid/{logs,state}/`.
 
@@ -494,11 +495,12 @@ ssh -i ~/.ssh/termux_key -p 8022 localhost
 
 ### Resume current work before choosing a task
 
-Maintainers and AI agents must first read [the coding rules](coding-rules.md),
-[the handoff](handoff.md), [the open-work menu](options.md), and the
-[ordered outstanding-fix plan](archive/plans/outstanding-fix-priorities-2026-07-13.md).
-That plan contains the current execution order, acceptance gates, rollback rules,
-and a copy-paste junior-agent prompt. Reliability work takes precedence over optional
+Maintainers and AI agents must first read [the coding rules](coding-rules.md)
+and [docs/STATUS.md](STATUS.md), then pick from the open
+[GitHub issues](https://github.com/djbclark/stayturgid/issues) or
+[the open-work menu](options.md) unless the operator names an item. The July
+2026 outstanding-fix plan is archived history, not the current order.
+Reliability work takes precedence over optional
 Galaxy, LLM, FIRERPA MCP/WebRTC/MITM, and task-runner enhancements.
 
 Prefer Python for substantial orchestration, parsing, retries, and validation. Keep
@@ -566,12 +568,14 @@ stdin pipe), never bare `ssh host '<commands>'` through the login shell.
   **`ansible-test units`** for domain collections (`stayturgid.termux`, `play` under `ansible_collections/stayturgid/`). `just test` runs all
   three.
 - **Tier c (device, read-only):** `just verify` / `tests/run.sh device`.
-- **Drift detection:** `just verify-drift [HOSTS=oneui-device]` — Ansible-based declarative state verification (complements TAP verify). `just verify-heal [HOSTS=oneui-device]` runs verify + auto-heal.
+- **Drift detection:** `just verify-drift [oneui-device]` — Ansible-based declarative state verification (complements TAP verify). `[hosts=oneui-device] just verify-heal` runs verify + auto-heal.
 
 Setup once: `just test-venv` (builds `.venv-test` with ansible-core + pytest +
-pytest-mock + pytest-ansible). CI runs `just test` on every push
-(`.github/workflows/test.yml`). `just lint` = shellcheck + ansible-lint +
-yamllint. Deploy the fleet with `./control/bin/deploy_fleet.py` (Ansible;
+pytest-mock + pytest-ansible). Tests run locally and through pre-commit; there
+is no PR-gating CI (the `test.yml` workflow was removed in 2e3a6ef). The only
+workflows build collections on tag pushes (`collection-build.yml`, which runs
+`just ansible-test`) and check Termux:X11 releases. `just lint` = shellcheck +
+ansible-lint + yamllint and the other fast checks. Deploy the fleet with `./control/bin/deploy_fleet.py` (Ansible;
 `CHECK=1` for a dry run).
 
 Cheap pre-commit gates (if not running the full `just test`): `bash -n` each
@@ -623,7 +627,7 @@ GitHub `master` is the source of truth; updates are pushed to devices from the M
 4. Deploy to the fleet:
    ```bash
    just deploy                    # full site.yml (recommended)
-   just verify HOSTS=oneui-device          # optional TAP after deploy
+   hosts=oneui-device just verify          # optional TAP after deploy
    ```
    Granular: `just deploy-termux`, `just deploy-apks` (bootstrap-apks scope only, #166), `just agent-rollout <host>` (USB recovery on Fire).
 
@@ -807,28 +811,21 @@ If port 5555 is not open after 60s:
 
 ---
 
-## Part 6b — F-Droid / Neo Store + Play / Aurora (parked)
+## Part 6b — App stores (parked; F-Droid, Aurora and Obtainium removed)
 
-**Not** part of active `./control/bin/deploy_fleet.py` (2026-07-09). Set
-`stayturgid_app_stores_enabled: true` to re-enable. Apps may remain on devices;
-optional Obtainium catalog: `catalogs/obtainium/app-stores-optional.json`.
+The F-Droid / Neo Store, Aurora and Obtainium automation was removed in July
+2026 (#119, #145); the `stayturgid.fdroid` and `stayturgid.obtainium`
+collections and the `catalogs/` directory no longer exist. Fleet apps come from
+the checksummed `bootstrap_apks` lock that every `just deploy` applies.
 
-When re-enabled, the single `fleet.yml` pass installs and configures the
-F-Droid/Play sources; `post-ui.yml` runs only the Aurora first-run UI. Obtainium
-catalog import is headless and belongs to the main fleet pass, so a normal
-deploy does not require an unlocked screen when app stores are parked.
+The only app-store path left is the optional Play sideload
+(`stayturgid.play.play_store`, apkeep or gplaycli). It is off unless
+`stayturgid_app_stores_enabled: true` is set in the inventory.
 
-| Command                            | Scope                                | Mac tools                       |
-| ---------------------------------- | ------------------------------------ | ------------------------------- |
-| `just deploy [HOSTS=…]`            | Full `site.yml` (includes preflight) | fdroidcl, apkeep when stores on |
-| `just deploy SCOPE=fdroid HOSTS=…` | F-Droid tags only                    | fdroidcl                        |
-| `just deploy SCOPE=play HOSTS=…`   | Play + post-ui Aurora                | apkeep                          |
-
-**Default repos** (`ansible_collections/stayturgid/fdroid/roles/fdroid_repos/defaults/main.yml`):
-
-| Name        | URL                                   | SHA-256 fingerprint                                                |
-| ----------- | ------------------------------------- | ------------------------------------------------------------------ |
-| IzzyOnDroid | `https://apt.izzysoft.de/fdroid/repo` | `3BF0D6ABFEAE2F401707B6D966BE743BF0EEE49C2561B9BA39073711F628937A` |
+| Command                         | Scope                                | Mac tools                 |
+| ------------------------------- | ------------------------------------ | ------------------------- |
+| `just deploy [<host>]`          | Full `site.yml` (includes preflight) | apkeep when stores are on |
+| `scope=play just deploy <host>` | Play sideload only                   | apkeep                    |
 
 ---
 
@@ -854,12 +851,12 @@ docs/operations/plans/                             — accepted execution and mi
 README.md                               — user-facing setup guide
 ```
 
-## Current maintenance plans (2026-07-13)
+## Past maintenance plans (archived, history only)
 
-- [Outstanding Fix Priorities](archive/plans/outstanding-fix-priorities-2026-07-13.md) —
-  current ordered work, safety/completion gates, and junior-agent resume prompt.
-- [GNU Make to `just` Migration Plan](archive/plans/just-migration-plan.md) — staged tooling
-  work after the reliability priorities are stable.
+- [Outstanding Fix Priorities (2026-07-13)](archive/plans/outstanding-fix-priorities-2026-07-13.md) —
+  the July 2026 ordered work list; superseded by STATUS.md, GitHub issues and options.md.
+- [GNU Make to `just` Migration Plan](archive/plans/just-migration-plan.md) — completed; the
+  Makefile is gone and recipe conventions are in [just_standards.md](just_standards.md).
 
 Live completion/blocker status remains in [docs/options.md](options.md). Update it
 with evidence whenever an item is completed or blocked.

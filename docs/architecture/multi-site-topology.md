@@ -62,17 +62,17 @@ realistic target for Debian/Ubuntu after a modest port (see §6).
 
 ### 2.2 Each new Android device
 
-1. **Hardware / OS prep** — Termux debug build, Termux:Boot, Shizuku (thedjchi fork),
+1. **Hardware / OS prep** — Termux debug build, Termux:Boot, Shizuku (ShizukuTendCF, installed by `just deploy`),
    Tailscale (recommended), wireless debugging — [docs/hacking.md](../hacking.md) Part 1.
 2. **Add host** to your site repo’s `inventory/hosts.yml` + taxonomy groups.
 3. **First SSH** (USB or wireless adb required once):
    ```bash
-   just bootstrap-ssh HOSTS=<alias>
+   just bootstrap-ssh <alias>
    # or: python3 control/bin/bootstrap_ssh.py <alias>
    ```
 4. **Deploy:**
    ```bash
-   just deploy hosts=<alias>
+   just deploy <alias>
    ```
 5. **One-time UI** on device if prompted: Shizuku start (post-ui playbooks).
 
@@ -275,8 +275,8 @@ stayturgid-site-acme/
 export STAYTURGID_ROOT=~/src/stayturgid
 export ANSIBLE_CONFIG=$PWD/ansible.cfg   # site repo cfg → inventory here, playbooks in upstream
 ansible-playbook "$STAYTURGID_ROOT/ansible/playbooks/site.yml"
-# or: just -d "$STAYTURGID_ROOT" deploy hosts=oneui-device \
-#       ANSIBLE_CONFIG=$PWD/ansible.cfg
+# or: ANSIBLE_CONFIG=$PWD/ansible.cfg \
+#       just --justfile "$STAYTURGID_ROOT/justfile" deploy oneui-device
 ```
 
 `ansible.cfg` in the site repo sets `inventory` to the site tree and `collections_path` to
@@ -616,8 +616,8 @@ export STAYTURGID_ADB=/usr/bin/adb
 ansible-playbook ansible/playbooks/site.yml --skip-tags mac
 
 # One device bootstrap + deploy
-just bootstrap-ssh hosts=oneui-device
-just deploy hosts=oneui-device
+just bootstrap-ssh oneui-device
+just deploy oneui-device
 
 # Termux-only consumer
 cd examples/consumer-termux-only && ansible-playbook playbook.yml

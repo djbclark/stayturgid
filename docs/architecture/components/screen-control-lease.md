@@ -101,7 +101,7 @@ Sibling project on the same Mac — implements DSCL v1 without forking the libra
 | `STAYTURGID_SCREEN_PURPOSE`     | `qss-qa`                                                    |
 | Lease preflight                 | `scripts/device_qa_qss.py` → `preflight_screen_lease()`     |
 | Session acquire                 | `ScreenControlSession` from `control/lib/screen_control.py` |
-| Operator check                  | `make lease-status` in RevengeQuickSwitcher repo            |
+| Operator check                  | `just lease-status` in RevengeQuickSwitcher repo            |
 
 QSS imports `device_screen_lease` from `stayturgid/control/lib` via `STAYTURGID_REPO`.
 Foreign holds surface as `screen_lease_foreign_hold` in QA `report.json`.

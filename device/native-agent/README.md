@@ -1,6 +1,6 @@
 # stayturgid-agent (native Kotlin)
 
-OPTIONS **K1** replaces AutoJs6 with a purpose-built APK
+OPTIONS **K1** replaced AutoJs6 (retired 2026-07-22) with a purpose-built APK
 that binds a **Shizuku UserService** (UID 2000) and injects silent input via
 `InputManager.injectInputEvent` — **no** shell spawn, **no** Accessibility.
 
@@ -11,8 +11,11 @@ successful only after both are re-probed as healthy. It also restores the config
 non-lockdown always-on VPN policy. Termux remains the primary sshd and routine
 repair owner.
 
-Plan: [`docs/archive/plans/autojs6-to-native-apk-plan.md`](../../docs/archive/plans/autojs6-to-native-apk-plan.md)  
-Checkpoint: [`docs/operations/sessions/session-2026-07-22-native-agent.md`](../../docs/operations/sessions/session-2026-07-22-native-agent.md)
+History (K1 cutover): plan
+[`docs/archive/plans/autojs6-to-native-apk-plan.md`](../../docs/archive/plans/autojs6-to-native-apk-plan.md),
+checkpoint
+[`docs/operations/sessions/session-2026-07-22-native-agent.md`](../../docs/operations/sessions/session-2026-07-22-native-agent.md).
+Current status: [docs/STATUS.md](../../docs/STATUS.md).
 
 ## Package
 
@@ -64,7 +67,9 @@ just agent-grant p7a
 just agent-start p7a
 ```
 
-Live fleet status: [docs/archive/plans/native-agent-status-2026-07-22.md](../../docs/archive/plans/native-agent-status-2026-07-22.md).
+Live fleet status: [docs/STATUS.md](../../docs/STATUS.md). The 2026-07-22
+snapshot is archived at
+[docs/archive/plans/native-agent-status-2026-07-22.md](../../docs/archive/plans/native-agent-status-2026-07-22.md).
 
 ## Install / pilot
 
@@ -94,7 +99,9 @@ adb logcat -s StayTurgidHost:I StayTurgidUS:I StayTurgidMain:I StayTurgidApp:I S
 - `CatastrophicRepair` — requests Tailscale reconnect through the app's
   exported receiver, falls back to its activity, and fails honestly when an
   app/runtime incompatibility still requires operator input
-- Composite build: `dev.rikka.shizuku:api` / `:provider` from local fork
+- Shizuku API: `dev.rikka.shizuku:api` / `:provider` from Maven Central by
+  default; optional composite build against a local fork
+  (`-Pshizuku.composite=true`)
 - `HandsetsStarter`/`HandsetsStartCommands` — peer-start the Handsets UI
   daemon on a Fire-OS device over external ADB (issue #121), the same
   no-Mac-dependency shape as `PeerStarter`'s Shizuku peer-start (issue #61)

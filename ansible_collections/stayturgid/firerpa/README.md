@@ -17,13 +17,13 @@ on-device failsafe daemon on stayturgid-managed Android devices.
 test -f ~/.config/stayturgid/firerpa.pem
 
 # Deploy to oneui-device
-just firerpa-deploy HOSTS=oneui-device
+hosts=oneui-device just firerpa-deploy
 
 # Use FIRERPA's certificate-authenticated backup SSH transport
 ssh oneui-device-firerpa
 
 # Remove from oneui-device
-just firerpa-remove HOSTS=oneui-device
+hosts=oneui-device just firerpa-remove
 
 # Or via Ansible directly:
 ansible-playbook ansible/playbooks/fleet/firerpa.yml -l oneui-device -e firerpa_enabled=true

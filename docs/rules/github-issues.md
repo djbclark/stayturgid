@@ -38,9 +38,10 @@ Because this repo is public and the fleet is a live personal deployment:
 
 ## What GitHub does not replace
 
-- Session handoffs and continuation checkpoints still belong in
-  [docs/operations/sessions/](../operations/sessions/) — an issue tracks one
-  discrete item, a session doc captures what an agent did and what a
-  successor should read first.
+- Session handoffs and continuation checkpoints are not issues: an issue
+  tracks one discrete item, a handoff captures what an agent did and what a
+  successor should read first. New handoffs are kept outside this repository
+  by the operator's tooling; [docs/operations/sessions/](../operations/sessions/)
+  is a frozen archive as of 2026-08-03.
 - Live operator credentials, device inventory, and site-specific facts still
   belong in the private site overlay repo, never in an issue.
