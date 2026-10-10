@@ -10,6 +10,7 @@ this is read only when needed.
 | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `just dotenv-lint`                           | .env file lint check (dotenv-linter)                                                                                                                                   |
 | `just --set hosts oneui-device deploy`       | Full fleet deploy; first runs site-sync and the vector serverapp, then commits & pushes only `generated/stayturgid/` in the site (off: `STAYTURGID_SITE_AUTOCOMMIT=0`) |
+| `hosts=oneui-device just deploy-scripts`     | On-device code only (bin/lib/boot/tasker syncs + repair check); skips packages, SSH, CFEngine, APKs and the Mac pass (#166)                                            |
 | `just --set hosts oneui-device deploy-check` | Dry-run deploy                                                                                                                                                         |
 | `just --set hosts oneui-device verify`       | Device tier checks                                                                                                                                                     |
 | `just --set hosts oneui-device verify-drift` | Ansible-based drift detect                                                                                                                                             |

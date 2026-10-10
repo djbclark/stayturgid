@@ -243,7 +243,7 @@ def test_landing_code_hash_flips_only_on_a_tracked_code_edit(tmp_path: Path) -> 
     env = {
         **os.environ,
         "REPO_ROOT": str(repo),
-        "CODE_PATHS": "control/landing control/lib/ansible_context.py control/lib/fleet_targets.py",
+        "CODE_PATHS": "control/landing control/lib/ansible_context.py control/lib/fleet_targets.py control/lib/site_discovery.py",
         "STATE_FILE": str(state),
     }
 
@@ -291,13 +291,13 @@ def test_landing_code_hash_works_outside_a_git_checkout(tmp_path: Path) -> None:
     code = tmp_path / "control" / "landing"
     code.mkdir(parents=True)
     (code / "landing.py").write_text("print('v1')\n")
-    for name in ("ansible_context.py", "fleet_targets.py"):
+    for name in ("ansible_context.py", "fleet_targets.py", "site_discovery.py"):
         (tmp_path / "control" / "lib").mkdir(exist_ok=True)
         (tmp_path / "control" / "lib" / name).write_text("v1\n")
     env = {
         **os.environ,
         "REPO_ROOT": str(tmp_path),
-        "CODE_PATHS": "control/landing control/lib/ansible_context.py control/lib/fleet_targets.py",
+        "CODE_PATHS": "control/landing control/lib/ansible_context.py control/lib/fleet_targets.py control/lib/site_discovery.py",
         "STATE_FILE": str(tmp_path / "state"),
         "GIT_CEILING_DIRECTORIES": str(tmp_path.parent),
     }

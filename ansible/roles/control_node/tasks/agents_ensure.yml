@@ -75,7 +75,8 @@
         [{
           'name': stayturgid_dashboard_label,
           'plist': agents_dir ~ '/' ~ stayturgid_dashboard_label ~ '.plist',
-          'health_url': 'http://127.0.0.1:' ~ (stayturgid_dashboard_port | string) ~ '/health'
+          'health_url': 'http://127.0.0.1:' ~ (stayturgid_dashboard_port | string) ~ '/health',
+          'code_paths': stayturgid_dashboard_code_paths
         }] if (
           (stayturgid_dashboard_enabled | default(true) | bool)
           and (_dashboard_plist_stat.stat.exists | default(false))
@@ -94,7 +95,8 @@
       {{
         [{
           'name': 'com.stayturgid.firerpa-mcp',
-          'plist': agents_dir ~ '/com.stayturgid.firerpa-mcp.plist'
+          'plist': agents_dir ~ '/com.stayturgid.firerpa-mcp.plist',
+          'code_paths': stayturgid_firerpa_mcp_code_paths
         }] if (
           (stayturgid_firerpa_mcp_enabled | default(true) | bool)
           and (_firerpa_mcp_plist_stat.stat.exists | default(false))
@@ -119,3 +121,5 @@
   vars:
     mac_launchd_ensure_services: "{{ _mac_launchd_ensure_services }}"
     mac_launchd_reload_labels: "{{ _mac_launchd_reload_labels | default([]) }}"
+    mac_launchd_code_repo_root: "{{ stayturgid_repo_root | realpath }}"
+    mac_launchd_code_state_dir: "{{ stayturgid_launchd_code_state_dir }}"

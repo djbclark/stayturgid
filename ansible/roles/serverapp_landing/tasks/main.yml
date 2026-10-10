@@ -292,7 +292,7 @@
     executable: /bin/bash
   environment:
     REPO_ROOT: "{{ serverapp_landing_repo_root }}"
-    CODE_PATHS: control/landing control/lib/ansible_context.py control/lib/fleet_targets.py
+    CODE_PATHS: control/landing control/lib/ansible_context.py control/lib/fleet_targets.py control/lib/site_discovery.py
     STATE_FILE: "{{ serverapp_landing_code_state_file }}"
   register: _landing_code
   changed_when: _landing_code.stdout_lines | last == 'changed'
