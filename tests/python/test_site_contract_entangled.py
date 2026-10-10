@@ -86,6 +86,38 @@ def test_planted_template_drift_fails_closed() -> None:
     assert ce.check_parity(repo_root=ROOT) == []
 
 
+ENTANGLED_MODULES = ("entangled.config", "entangled.interface", "entangled.io", "entangled.io.virtual")
+
+
+def test_missing_entangled_says_run_test_venv_not_tangle(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """A missing entangled-cli is a venv problem; the hint must not send anyone to edit the document."""
+    for name in ENTANGLED_MODULES:
+        monkeypatch.setitem(sys.modules, name, None)  # import -> ModuleNotFoundError
+    with pytest.raises(ce.EntangledMissing):
+        ce.check_parity(repo_root=ROOT)
+    assert ce.main([]) == 1
+    err = capsys.readouterr().err
+    assert "entangled-cli missing: run `just test-venv`" in err
+    assert "entangled tangle" not in err
+    assert "parity failed" not in err
+
+
+def test_real_parity_failure_keeps_tangle_hint(capsys: pytest.CaptureFixture[str]) -> None:
+    target = TEMPLATES / ".gitignore"
+    original = target.read_bytes()
+    try:
+        target.write_bytes(original + b"\n# HINT-DRIFT\n")
+        assert ce.main([]) == 1
+    finally:
+        target.write_bytes(original)
+    err = capsys.readouterr().err
+    assert "parity failed" in err
+    assert "entangled tangle --force" in err
+    assert "test-venv" not in err
+
+
 def test_all_c1_scaffold_templates_present_and_byte_correct() -> None:
     actual = {path.relative_to(TEMPLATES).as_posix() for path in TEMPLATES.rglob("*") if path.is_file()}
     assert actual == EXPECTED_TEMPLATES
