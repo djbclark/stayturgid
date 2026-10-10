@@ -149,6 +149,53 @@
     - _termux_home_stat.stat.exists
     - _stayturgid_ssh_public_key_paths | length > 0
 
+# Mesh pubkeys come from device-published hostvars and are joined into one
+# authorized_key call, so a value that is not exactly one "<type> <base64>
+# [comment]" line (several lines, or leading options such as command= or
+# from=) would land extra keys or options on every peer. Such values are
+# skipped, with a line naming the host, instead of joined in.
+- name: Validate fleet device SSH public keys for the mesh (one key line each)
+  ansible.builtin.set_fact:
+    _stayturgid_mesh_pubkeys: >-
+      {{
+        _stayturgid_mesh_published
+        | map(attribute='stayturgid_device_ssh_pubkey')
+        | select('match', _stayturgid_ssh_key_line_re)
+        | map('trim')
+        | list
+      }}
+    _stayturgid_mesh_pubkey_rejects: >-
+      {{
+        _stayturgid_mesh_published
+        | rejectattr('stayturgid_device_ssh_pubkey', 'match', _stayturgid_ssh_key_line_re)
+        | map(attribute='inventory_hostname')
+        | list
+      }}
+  vars:
+    _stayturgid_ssh_key_line_re: '^\s*(ssh-ed25519|ecdsa-sha2-nistp256|ssh-rsa) [A-Za-z0-9+/=]+( [^\r\n]*)?\s*$'
+    _stayturgid_mesh_published: >-
+      {{
+        groups[stayturgid_ssh_mesh_group]
+        | map('extract', hostvars)
+        | selectattr('stayturgid_device_ssh_pubkey', 'defined')
+        | selectattr('stayturgid_device_ssh_pubkey', 'string')
+        | list
+      }}
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ssh_mesh_device_identity | bool
+
+- name: Report fleet device SSH public keys skipped for the mesh
+  ansible.builtin.debug:
+    msg: >-
+      Skipping {{ item }}'s stayturgid_device_ssh_pubkey for mesh authorized_keys:
+      it is not a single "<type> <base64> [comment]" line (types ssh-ed25519,
+      ecdsa-sha2-nistp256, ssh-rsa; no key options, no extra lines).
+  loop: "{{ _stayturgid_mesh_pubkey_rejects | default([]) }}"
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_ssh_mesh_device_identity | bool
+
 - name: Install fleet device SSH public keys (mesh authorized_keys)
   ansible.posix.authorized_key:
     user: "{{ _termux_ssh_account.stdout }}"
@@ -157,21 +204,10 @@
     key: "{{ _stayturgid_mesh_pubkeys | join('\n') }}"
     state: present
     exclusive: false
-  vars:
-    _stayturgid_mesh_pubkeys: >-
-      {{
-        groups[stayturgid_ssh_mesh_group]
-        | map('extract', hostvars, 'stayturgid_device_ssh_pubkey')
-        | select('defined')
-        | select('string')
-        | map('trim')
-        | select
-        | list
-      }}
   when:
     - _termux_home_stat.stat.exists
     - stayturgid_ssh_mesh_device_identity | bool
-    - _stayturgid_mesh_pubkeys | length > 0
+    - _stayturgid_mesh_pubkeys | default([]) | length > 0
 
 - name: Install fleet SSH private keys on device
   ansible.builtin.copy:
