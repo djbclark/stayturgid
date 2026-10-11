@@ -6,8 +6,7 @@
     <string>{{ stayturgid_dashboard_label }}</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/env</string>
-        <string>python3</string>
+        <string>{{ stayturgid_repo_root | realpath }}/.venv/bin/python</string>
         <string>{{ stayturgid_repo_root | realpath }}/control/bin/dashboard.py</string>
         <string>--port</string>
         <string>{{ stayturgid_dashboard_port | string }}</string>

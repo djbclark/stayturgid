@@ -9,6 +9,10 @@ dependencies = [
   # it here, `uv sync` silently bypasses the pin that `uv pip install -r
   # tests/python/requirements.txt` honours.
   "ansible-core>=2.16,<2.22",
+  # The fleet dashboard (`control/bin/dashboard.py`, port 4097) imports flask
+  # and markupsafe; undeclared until 2026-10-11, so its LaunchAgent died with
+  # ModuleNotFoundError and the control_node health check aborted the deploy.
+  "flask>=3",
   "pytest>=7",
   "pytest-mock>=3",
   "pytest-ansible>=2",
