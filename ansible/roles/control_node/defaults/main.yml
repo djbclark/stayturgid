@@ -120,7 +120,19 @@ stayturgid_opencode_web_port: 4096
 # com.stayturgid.opencode-web LaunchAgent exec'd nothing (EX_CONFIG,
 # perpetual restart loop, port 4096 never listening). Confirmed real
 # 2026-08-03.
-stayturgid_opencode_path: "{{ lookup('env', 'HOME') }}/.opencode/bin/opencode"
+#
+# Revised 2026-10-11: the situation flipped. ~/.opencode/bin/opencode is now a
+# stale v1 standalone (1.18.32) whose `web` subcommand dies immediately with
+# `ServeError` after the v2 migration, so the LaunchAgent could never report
+# started and `just deploy-mac` / `just deploy` aborted at
+# control_node/tasks/launchd_ensure.yml ("Unable to start
+# 'com.stayturgid.opencode-web'"). The current CLI is the v2 one at
+# ~/.local/bin/opencode (a symlink into the @opencode/cli package, so updates
+# keep it current), and v2 dropped `web` in favour of `serve` -- the server
+# TUIs and clients attach to. The template now runs `serve`; note that it
+# prints a generated server password on stdout, which lands in
+# {{ conf_dir }}/logs/opencode-web.log.
+stayturgid_opencode_path: "{{ lookup('env', 'HOME') }}/.local/bin/opencode"
 stayturgid_opencode_web_label: com.stayturgid.opencode-web
 
 # ── Fleet dashboard (Flask + HTMX web UI, port 4097) ──────────────────────
