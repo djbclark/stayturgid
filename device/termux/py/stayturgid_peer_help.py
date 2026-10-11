@@ -37,6 +37,22 @@ SHIZUKU_PKG = "moe.shizuku.privileged.api"
 # Shared fleet identity — do NOT overwrite ~/.android/adbkey (breaks localhost:5555).
 FLEET_ADBKEY = os.environ.get("STAYTURGID_FLEET_ADBKEY", os.path.join(STG, "adbkey-fleet"))
 
+# On-device native-starter resolution, POSIX sh (toybox/mksh) only — no
+# bash-isms: prefer the device's primary ABI's lib dir, else the first
+# executable <apkdir>/lib/*/libshizuku.so. ``@APKDIR@`` is replaced with a
+# shlex.quote()d apk dir. No shared-storage start.sh fallback; a missing
+# starter fails the command.
+_SHIZUKU_NATIVE_START = (
+    "d=@APKDIR@; "
+    "abi=$(getprop ro.product.cpu.abi 2>/dev/null); "
+    'case "$abi" in arm64-v8a) abi=arm64;; armeabi-v7a) abi=arm;; x86_64) abi=x86_64;; x86) abi=x86;; *) abi= ;; esac; '
+    "libdir=; "
+    'if [ -n "$abi" ] && [ -x "$d/lib/$abi/libshizuku.so" ]; then libdir=$d/lib/$abi; '
+    'else for e in "$d"/lib/*/libshizuku.so; do if [ -x "$e" ]; then libdir=${e%/*}; break; fi; done; fi; '
+    'if [ -n "$libdir" ]; then LD_LIBRARY_PATH=$libdir "$libdir/libshizuku.so"; '
+    'else echo "shizuku native starter not found" >&2; exit 1; fi'
+)
+
 
 def _adb_env() -> dict[str, str]:
     env = os.environ.copy()
@@ -169,13 +185,15 @@ def cmd_handsets_start(target: str, port: int) -> int:
 
 
 def start_shizuku_native(shell) -> tuple[bool, str]:
-    """Run Shizuku's own starter (libshizuku.so next to the APK, else start.sh).
+    """Run Shizuku's own starter (libshizuku.so, resolved on the device).
 
     ``shell(cmd, timeout)`` runs one command in an adb shell that is already
     authorised on the target and returns ``(rc, stdout, stderr)``. The starter
     never goes through the manager app, so it offers Shizuku's ADB key to
-    nobody and raises no dialog. Returns ``(ok, detail)``; ``detail`` is the
-    failure reason when ``ok`` is False.
+    nobody and raises no dialog. The native lib dir is resolved from the
+    installed APK (the device's primary ABI) rather than assumed arm64; there
+    is no shared-storage ``start.sh`` fallback. Returns ``(ok, detail)``;
+    ``detail`` is the failure reason when ``ok`` is False.
     """
     _rc, out, _err = shell("pm path %s" % SHIZUKU_PKG, 15)
     apk = ""
@@ -186,12 +204,7 @@ def start_shizuku_native(shell) -> tuple[bool, str]:
             break
     if not apk:
         return False, "Shizuku not installed"
-    libdir = shlex.quote(apk.rsplit("/", 1)[0] + "/lib/arm64")
-    start = (
-        "test -x %s/libshizuku.so && "
-        "LD_LIBRARY_PATH=%s %s/libshizuku.so || "
-        "sh /storage/emulated/0/Android/data/%s/start.sh" % (libdir, libdir, libdir, shlex.quote(SHIZUKU_PKG))
-    )
+    start = _SHIZUKU_NATIVE_START.replace("@APKDIR@", shlex.quote(apk.rsplit("/", 1)[0]))
     _rc, out, err = shell(start, 30)
     text = ((out or "") + (err or "")).replace("\r", "")
     time.sleep(1.5)

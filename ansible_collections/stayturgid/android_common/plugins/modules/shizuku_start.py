@@ -127,6 +127,8 @@ from ansible_collections.stayturgid.android_common.plugins.module_utils.adb_shel
 )
 from ansible_collections.stayturgid.android_common.plugins.module_utils.shizuku_lifecycle import (
     SHIZUKU_START_WITHHELD_MSG,
+    resolve_apk,
+    start_native,
     start_withheld,
     status_auth_unanswered,
 )
@@ -263,27 +265,6 @@ def stop_server(run_command, device, timeout=None):
         return True
     adb_shell(run_command, device, "pkill -f '[s]hizuku_(plus_)?server'")
     return wait_stopped(run_command, device, timeout)
-
-
-def resolve_libdir(run_command, device, pkg=SHIZUKU_PKG):
-    rc, out, _err = adb_shell(run_command, device, "pm path %s" % pkg)
-    if rc != 0:
-        return None
-    for line in normalize_adb_output(out).splitlines():
-        line = line.strip()
-        if line.startswith("package:"):
-            apk = line.split(":", 1)[1]
-            return apk.rsplit("/", 1)[0] + "/lib/arm64"
-    return None
-
-
-def start_native(run_command, device, libdir, pkg=SHIZUKU_PKG):
-    cmd = (
-        "test -x %s/libshizuku.so && "
-        "LD_LIBRARY_PATH=%s %s/libshizuku.so || "
-        "sh /storage/emulated/0/Android/data/%s/start.sh"
-    ) % (libdir, libdir, libdir, pkg)
-    return adb_shell(run_command, device, cmd)
 
 
 try:
@@ -592,9 +573,9 @@ def main():
             **stale,
         )
     else:
-        libdir = resolve_libdir(module.run_command, device, pkg)
-        if libdir:
-            rc, _out, _err = start_native(module.run_command, device, libdir, pkg)
+        apk = resolve_apk(module.run_command, device, pkg)
+        if apk:
+            rc, _out, _err = start_native(module.run_command, device, apk, pkg)
             time.sleep(2)
             if shizuku_running(module.run_command, device):
                 start_method = "native"

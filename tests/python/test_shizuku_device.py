@@ -246,3 +246,5 @@ def test_restart_shizuku_if_running_ignores_unanswered_marker():
     shell.sh = fake_sh
     assert shell.restart_shizuku_if_running() == (True, True)
     assert any("libshizuku.so" in c for c in calls)
+    assert not any("lib/arm64" in c or "start.sh" in c for c in calls)
+    assert any("getprop ro.product.cpu.abi" in c for c in calls)

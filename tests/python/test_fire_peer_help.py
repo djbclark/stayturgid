@@ -77,6 +77,8 @@ def test_shizuku_start_runs_the_starter_regardless_of_marker(monkeypatch, module
     monkeypatch.setattr(module.time, "sleep", lambda _s: None)
     assert module.cmd_shizuku_start("192.0.2.13:5555") == 0
     assert any("libshizuku.so" in c for c in calls)
+    assert not any("lib/arm64" in c or "start.sh" in c for c in calls)
+    assert any("getprop ro.product.cpu.abi" in c for c in calls)
     assert not any("HEADLESS_STATUS" in c or "HEADLESS_START" in c for c in calls)
     assert "OK shizuku_server target=192.0.2.13:5555" in capsys.readouterr().out
 
@@ -102,4 +104,8 @@ def test_start_shizuku_native_takes_any_authorised_shell(monkeypatch):
         return r.returncode, r.stdout, r.stderr
 
     assert dph.start_shizuku_native(shell) == (True, "")
-    assert [c.split()[0] for c in calls] == ["pm", "test", "pgrep"]
+    words = [c.split()[0] for c in calls]
+    assert words[0] == "pm"
+    assert words[1].startswith("d=")
+    assert words[2] == "pgrep"
+    assert not any("lib/arm64" in c or "start.sh" in c for c in calls)

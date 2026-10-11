@@ -987,6 +987,12 @@ def test_watchdog_loop_handles_unanswered_marker():
     # The installed APK's starter, never the stale /data/local/tmp copy.
     assert "pm path moe.shizuku.privileged.api" in body
     assert "shizuku_starter" not in body
+    # The native lib dir is resolved on device, never assumed arm64; no
+    # shared-storage start.sh fallback.
+    assert "lib/arm64" not in body
+    assert "start.sh" not in body
+    assert "getprop ro.product.cpu.abi" in body
+    assert "lib/*/libshizuku.so" in body
 
 
 def _run_watchdog_once(tmp_path, status, start_reply, running=False, starter=None):

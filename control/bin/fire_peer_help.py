@@ -30,6 +30,21 @@ REMOTE_JAR = "/data/local/tmp/hs.jar"
 SHIZUKU_PKG = "moe.shizuku.privileged.api"
 ADB = os.environ.get("STAYTURGID_ADB", "/opt/homebrew/bin/adb")
 
+# On-device native-starter resolution, POSIX sh (toybox/mksh) only — no
+# bash-isms: prefer the device's primary ABI's lib dir, else the first
+# executable <apkdir>/lib/*/libshizuku.so. No shared-storage start.sh fallback;
+# a missing starter fails the command. Kept faithful to stayturgid_device.py.
+_SHIZUKU_NATIVE_START = (
+    "d=@APKDIR@; "
+    "abi=$(getprop ro.product.cpu.abi 2>/dev/null); "
+    'case "$abi" in arm64-v8a) abi=arm64;; armeabi-v7a) abi=arm;; x86_64) abi=x86_64;; x86) abi=x86;; *) abi= ;; esac; '
+    "libdir=; "
+    'if [ -n "$abi" ] && [ -x "$d/lib/$abi/libshizuku.so" ]; then libdir=$d/lib/$abi; '
+    'else for e in "$d"/lib/*/libshizuku.so; do if [ -x "$e" ]; then libdir=${e%/*}; break; fi; done; fi; '
+    'if [ -n "$libdir" ]; then LD_LIBRARY_PATH=$libdir "$libdir/libshizuku.so"; '
+    'else echo "shizuku native starter not found" >&2; exit 1; fi'
+)
+
 
 def _adb_env() -> dict[str, str]:
     env = os.environ.copy()
@@ -156,12 +171,7 @@ def cmd_shizuku_start(target: str) -> int:
     if not apk:
         print("FAIL Shizuku not installed", file=sys.stderr)
         return 1
-    libdir = apk.rsplit("/", 1)[0] + "/lib/arm64"
-    start = (
-        "test -x %s/libshizuku.so && "
-        "LD_LIBRARY_PATH=%s %s/libshizuku.so || "
-        "sh /storage/emulated/0/Android/data/%s/start.sh" % (libdir, libdir, libdir, SHIZUKU_PKG)
-    )
+    start = _SHIZUKU_NATIVE_START.replace("@APKDIR@", apk.rsplit("/", 1)[0])
     out = _shell(target, start, timeout=30)
     text = ((out.stdout or "") + (out.stderr or "")).replace("\r", "")
     time.sleep(1.5)

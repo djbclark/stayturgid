@@ -21,8 +21,8 @@ import org.stayturgid.agent.adb.PreferenceAdbKeyStore
  * on-device [AdbKey] (authorized once on the target's adbd via "Always allow").
  *
  * The wire steps mirror `control/bin/fire_peer_help.py` (`shizuku-start`), which proved the path
- * this session: `pm path` → `<apkdir>/lib/arm64/libshizuku.so` under `LD_LIBRARY_PATH`, falling
- * back to the app's `start.sh`.
+ * this session: `pm path` → the executable `<apkdir>/lib/<abi>/libshizuku.so` (the device's primary
+ * ABI), run under `LD_LIBRARY_PATH`. No shared-storage `start.sh` fallback.
  */
 object PeerStarter {
     private const val TAG = "StayTurgidPeer"
@@ -193,10 +193,7 @@ object PeerStarter {
             PeerStartCommands.parseApkPath(exec(client, PeerStartCommands.pmPath(shizukuPkg)))
                 ?: return Result(name, Outcome.NOT_INSTALLED, "pkg=$shizukuPkg")
         val out =
-            exec(
-                client,
-                PeerStartCommands.starterCommand(PeerStartCommands.libDirFor(apkPath), shizukuPkg),
-            )
+            exec(client, PeerStartCommands.starterCommand(PeerStartCommands.apkDirFor(apkPath)))
         Log.i(TAG, "starter output for $name: ${out.trim().take(400)}")
         Thread.sleep(START_SETTLE_MS)
         return if (isShizukuUp(client)) {
@@ -282,16 +279,29 @@ object PeerStartCommands {
         return null
     }
 
-    /** `<apkdir>/lib/arm64` — where extractNativeLibs=true puts `libshizuku.so`. */
-    fun libDirFor(apkPath: String): String = apkPath.substringBeforeLast('/') + "/lib/arm64"
+    /** `<apkdir>` — parent of base.apk; the ABI-specific lib dir is resolved on the device. */
+    fun apkDirFor(apkPath: String): String = apkPath.substringBeforeLast('/')
 
     /**
-     * Run the extracted `libshizuku.so` under `LD_LIBRARY_PATH`, falling back to the app's bundled
-     * `start.sh`. Paths single-quoted — install dirs contain `~~`/`==` (Android randomized app
-     * dirs) that must stay literal.
+     * Resolve the APK's native lib dir on the device and run the extracted `libshizuku.so` under
+     * `LD_LIBRARY_PATH`. The lib dir depends on the device's primary ABI, so it is resolved here
+     * (prefer the ABI-matching dir, else the first executable `libshizuku.so` under
+     * `<apkdir>/lib/`) rather than assumed arm64. Paths single-quoted — install dirs contain
+     * `~~`/`==` (Android randomized app dirs) that must stay literal. No shared-storage `start.sh`
+     * fallback: a missing starter fails.
      */
-    fun starterCommand(libDir: String, shizukuPkg: String): String =
-        "test -x '$libDir/libshizuku.so' && " +
-            "LD_LIBRARY_PATH='$libDir' '$libDir/libshizuku.so' || " +
-            "sh /storage/emulated/0/Android/data/$shizukuPkg/start.sh"
+    fun starterCommand(apkDir: String): String =
+        "d='$apkDir'; " +
+            "abi=\$(getprop ro.product.cpu.abi 2>/dev/null); " +
+            "case \"\$abi\" in " +
+            "arm64-v8a) abi=arm64;; armeabi-v7a) abi=arm;; " +
+            "x86_64) abi=x86_64;; x86) abi=x86;; *) abi= ;; " +
+            "esac; libdir=; " +
+            "if [ -n \"\$abi\" ] && [ -x \"\$d/lib/\$abi/libshizuku.so\" ]; " +
+            "then libdir=\$d/lib/\$abi; " +
+            "else for e in \"\$d\"/lib/*/libshizuku.so; " +
+            "do if [ -x \"\$e\" ]; then libdir=\${e%/*}; break; fi; done; fi; " +
+            "if [ -n \"\$libdir\" ]; " +
+            "then LD_LIBRARY_PATH=\$libdir \"\$libdir/libshizuku.so\"; " +
+            "else echo \"shizuku native starter not found\" >&2; exit 1; fi"
 }

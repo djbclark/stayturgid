@@ -250,6 +250,21 @@ def _run(args, **kw):
 # Fire OS / aliases without Termux→localhost:5555 — Mac adb is authoritative.
 MAC_ADB_PRIV_ALIASES = frozenset({"fireos-device"})
 
+# On-device native-starter resolution, POSIX sh (toybox/mksh) only — no
+# bash-isms: prefer the device's primary ABI's lib dir, else the first
+# executable <apkdir>/lib/*/libshizuku.so. No shared-storage start.sh fallback;
+# a missing starter fails the command. Mirrors shizuku_lifecycle.py.
+_SHIZUKU_NATIVE_START = (
+    "d=@APKDIR@; "
+    "abi=$(getprop ro.product.cpu.abi 2>/dev/null); "
+    'case "$abi" in arm64-v8a) abi=arm64;; armeabi-v7a) abi=arm;; x86_64) abi=x86_64;; x86) abi=x86;; *) abi= ;; esac; '
+    "libdir=; "
+    'if [ -n "$abi" ] && [ -x "$d/lib/$abi/libshizuku.so" ]; then libdir=$d/lib/$abi; '
+    'else for e in "$d"/lib/*/libshizuku.so; do if [ -x "$e" ]; then libdir=${e%/*}; break; fi; done; fi; '
+    'if [ -n "$libdir" ]; then LD_LIBRARY_PATH=$libdir "$libdir/libshizuku.so"; '
+    'else echo "shizuku native starter not found" >&2; exit 1; fi'
+)
+
 
 class PrivShell:
     """Run privileged shell commands on a device.
@@ -333,8 +348,12 @@ class PrivShell:
         rc, out = self.sh("pgrep -f '[s]hizuku_(plus_)?server' >/dev/null && echo up")
         return rc == 0 and "up" in out
 
-    def resolve_shizuku_libdir(self, pkg=None):
-        """Resolve the installed Shizuku APK's native lib dir via `pm path`."""
+    def resolve_shizuku_apk(self, pkg=None):
+        """Return the installed Shizuku APK path via `pm path`, or None.
+
+        The native lib dir is resolved on the device at start time (the APK
+        only ships the ABIs it was built for); callers only need the APK path.
+        """
         pkg = pkg or self.SHIZUKU_PKG
         rc, out = self.sh("pm path %s" % pkg)
         if rc != 0:
@@ -342,8 +361,7 @@ class PrivShell:
         for line in out.splitlines():
             line = line.strip()
             if line.startswith("package:"):
-                apk = line.split(":", 1)[1]
-                return apk.rsplit("/", 1)[0] + "/lib/arm64"
+                return line.split(":", 1)[1]
         return None
 
     def restart_shizuku_if_running(self, pkg=None):
@@ -356,11 +374,11 @@ class PrivShell:
         pkg = pkg or self.SHIZUKU_PKG
         if not self.shizuku_running():
             return False, True
-        libdir = self.resolve_shizuku_libdir(pkg)
-        if not libdir:
+        apk = self.resolve_shizuku_apk(pkg)
+        if not apk:
             return True, False
         rc, _out = self.sh(
-            "test -x %s/libshizuku.so && LD_LIBRARY_PATH=%s %s/libshizuku.so" % (libdir, libdir, libdir),
+            _SHIZUKU_NATIVE_START.replace("@APKDIR@", apk.rsplit("/", 1)[0]),
             timeout=30,
         )
         return True, rc == 0

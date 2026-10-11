@@ -118,19 +118,35 @@ def test_port5555_closed():
     assert mod.port5555_open(run, "dev") is False
 
 
-def test_resolve_libdir():
+def test_resolve_apk():
     run = fake_run(
         [
             ("pm path", (0, "package:/data/app/~~aaa==/moe.shizuku.privileged.api-bbb==/base.apk\n", "")),
         ]
     )
-    path = mod.resolve_libdir(run, "dev", "moe.shizuku.privileged.api")
-    assert path == "/data/app/~~aaa==/moe.shizuku.privileged.api-bbb==/lib/arm64"
+    path = mod.resolve_apk(run, "dev", "moe.shizuku.privileged.api")
+    assert path == "/data/app/~~aaa==/moe.shizuku.privileged.api-bbb==/base.apk"
 
 
-def test_resolve_libdir_not_installed():
+def test_resolve_apk_not_installed():
     run = fake_run([("pm path", (1, "", "not found"))])
-    assert mod.resolve_libdir(run, "dev") is None
+    assert mod.resolve_apk(run, "dev") is None
+
+
+def test_start_native_resolves_libdir_on_device():
+    calls = []
+
+    def run(cmd, *a, **kw):
+        calls.append(" ".join(cmd) if isinstance(cmd, (list, tuple)) else str(cmd))
+        return (0, "", "")
+
+    mod.start_native(run, "dev", "/data/app/~~aaa==/moe.shizuku.privileged.api-bbb==/base.apk")
+    cmd = calls[-1]
+    assert "lib/arm64" not in cmd
+    assert "start.sh" not in cmd
+    assert "getprop ro.product.cpu.abi" in cmd
+    assert "lib/*/libshizuku.so" in cmd
+    assert 'LD_LIBRARY_PATH=$libdir "$libdir/libshizuku.so"' in cmd
 
 
 def test_send_headless_start():
@@ -520,7 +536,7 @@ def test_module_native_fallback(mocker):
                 "pm path",
                 [
                     (0, "package:/data/app/.../base.apk\n", ""),
-                    # resolve_libdir call
+                    # resolve_apk call
                     (0, "package:/data/app/~~aaa==/moe.shizuku.privileged.api-bbb==/base.apk\n", ""),
                 ],
             ),

@@ -1,6 +1,7 @@
 package org.stayturgid.agent
 
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
@@ -30,22 +31,23 @@ class PeerStartCommandsTest {
     }
 
     @Test
-    fun libDirIsArm64UnderApkDir() {
+    fun apkDirIsParentOfBaseApk() {
         assertEquals(
-            "/data/app/~~aB==/moe.shizuku.privileged.api-xY==/lib/arm64",
-            PeerStartCommands.libDirFor("/data/app/~~aB==/moe.shizuku.privileged.api-xY==/base.apk"),
+            "/data/app/~~aB==/moe.shizuku.privileged.api-xY==",
+            PeerStartCommands.apkDirFor("/data/app/~~aB==/moe.shizuku.privileged.api-xY==/base.apk"),
         )
     }
 
     @Test
-    fun starterCommandQuotesLibDirAndFallsBack() {
-        val libDir = "/data/app/~~aB==/moe.shizuku.privileged.api-xY==/lib/arm64"
-        val cmd = PeerStartCommands.starterCommand(libDir, "moe.shizuku.privileged.api")
-        assertTrue(cmd.contains("LD_LIBRARY_PATH='$libDir' '$libDir/libshizuku.so'"))
-        assertTrue(cmd.contains("test -x '$libDir/libshizuku.so'"))
-        assertTrue(
-            cmd.contains("sh /storage/emulated/0/Android/data/moe.shizuku.privileged.api/start.sh")
-        )
+    fun starterCommandResolvesLibDirWithoutStartShFallback() {
+        val apkDir = "/data/app/~~aB==/moe.shizuku.privileged.api-xY=="
+        val cmd = PeerStartCommands.starterCommand(apkDir)
+        assertTrue(cmd.startsWith("d='$apkDir'; "))
+        assertTrue(cmd.contains("getprop ro.product.cpu.abi"))
+        assertTrue(cmd.contains("lib/*/libshizuku.so"))
+        assertTrue(cmd.contains("LD_LIBRARY_PATH=\$libdir \"\$libdir/libshizuku.so\""))
+        assertFalse(cmd.contains("lib/arm64"))
+        assertFalse(cmd.contains("start.sh"))
     }
 
     @Test

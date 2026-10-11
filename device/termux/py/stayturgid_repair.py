@@ -359,9 +359,25 @@ _WATCHDOG_SCRIPT_BODY = (
     '  if [ "$unanswered" = 1 ] && [ "${status#*result=0}" = "$status" ] '
     '&& ! pgrep -f "[s]hizuku_(plus_)?server" >/dev/null; then\n'
     '    d=$(pm path moe.shizuku.privileged.api 2>/dev/null | sed -n "s/^package://p" | head -n 1)\n'
-    "    d=${d%/*}/lib/arm64\n"
-    '    if [ -x "$d/libshizuku.so" ]; then\n'
-    '      LD_LIBRARY_PATH=$d "$d/libshizuku.so" >/dev/null 2>&1\n'
+    "    d=${d%/*}\n"
+    "    abi=$(getprop ro.product.cpu.abi 2>/dev/null)\n"
+    '    case "$abi" in\n'
+    "      arm64-v8a) abi=arm64 ;;\n"
+    "      armeabi-v7a) abi=arm ;;\n"
+    "      x86_64) abi=x86_64 ;;\n"
+    "      x86) abi=x86 ;;\n"
+    "      *) abi= ;;\n"
+    "    esac\n"
+    "    libdir=\n"
+    '    if [ -n "$abi" ] && [ -x "$d/lib/$abi/libshizuku.so" ]; then\n'
+    "      libdir=$d/lib/$abi\n"
+    "    else\n"
+    '      for e in "$d"/lib/*/libshizuku.so; do\n'
+    '        if [ -x "$e" ]; then libdir=${e%/*}; break; fi\n'
+    "      done\n"
+    "    fi\n"
+    '    if [ -n "$libdir" ]; then\n'
+    '      LD_LIBRARY_PATH=$libdir "$libdir/libshizuku.so" >/dev/null 2>&1\n'
     "      sleep 2\n"
     '      if pgrep -f "[s]hizuku_(plus_)?server" >/dev/null; then\n'
     '        echo "$(date "+%Y-%m-%d %H:%M:%S") [shizuku-watchdog] NOTICE: ' + SHIZUKU_NATIVE_START_MSG + '"\n'
