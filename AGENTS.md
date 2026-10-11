@@ -26,6 +26,12 @@
 > skill (`~/src/djbclark-ade/skills/session-handoff/SKILL.md`); spec:
 > [`site-djbclark/docs/session-handoff-compaction-spec.md`](https://github.com/djbclark/site-djbclark/blob/master/docs/session-handoff-compaction-spec.md) §3.
 
+> **Agent toolchain (2026-10-11):** orchestration, delegation and routing tools
+> live in [`~/src/djbclark-ade`](https://github.com/djbclark/djbclark-ade): the
+> shared skills, `acp-dispatch`/`acp-run`, `route_agent.py`, and
+> `docs/orchestration-practices.md`. Use them before hand-rolling anything; a
+> harness failure gets its fix there.
+
 Keeps wireless ADB (port 5555), Shizuku, and SSH alive on unrooted Android phones
 across reboots. Generic example fleet hosts (`oneui-device`, `stock-android-device`,
 `fireos-device`) live in `ansible/inventory/hosts.yml.example`; live inventory
