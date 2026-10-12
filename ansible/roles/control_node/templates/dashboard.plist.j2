@@ -6,7 +6,12 @@
     <string>{{ stayturgid_dashboard_label }}</string>
     <key>ProgramArguments</key>
     <array>
-        <string>{{ stayturgid_repo_root | realpath }}/.venv/bin/python</string>
+        <string>{{ stayturgid_homebrew_prefix }}/bin/uv</string>
+        <string>run</string>
+        <string>--locked</string>
+        <string>--project</string>
+        <string>{{ stayturgid_repo_root | realpath }}</string>
+        <string>python</string>
         <string>{{ stayturgid_repo_root | realpath }}/control/bin/dashboard.py</string>
         <string>--port</string>
         <string>{{ stayturgid_dashboard_port | string }}</string>
