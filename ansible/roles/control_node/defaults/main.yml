@@ -111,28 +111,28 @@ stayturgid_hermes_telegram_home_channel: ""
 # Prefer writing the token once into ~/.hermes/.env by hand.
 stayturgid_hermes_telegram_bot_token: ""
 
-# ── OpenCode web (control-node web UI reachable from fleet devices) ─────────
-stayturgid_opencode_web_enabled: true
-stayturgid_opencode_web_port: 4096
-# opencode's own installer/self-update relocated its binary from
-# ~/.local/bin/opencode to ~/.opencode/bin/opencode at some point -- this
-# default silently pointed at the old, now-missing path, so the
-# com.stayturgid.opencode-web LaunchAgent exec'd nothing (EX_CONFIG,
-# perpetual restart loop, port 4096 never listening). Confirmed real
-# 2026-08-03.
+# ── OpenCode web (DISABLED ON PURPOSE -- do not re-enable or "repair") ──────
+# djbclark does not use the OpenCode web interface (stated 2026-10-06; see
+# site-private memory project_opencode_web_daemon_disabled_on_purpose.md).
+# Keeping this false stops the play from rendering the plist, health-checking
+# 127.0.0.1:4096 and aborting `just deploy-mac` at launchd_ensure.yml
+# ("Unable to start 'com.stayturgid.opencode-web'"), and the disabled branch in
+# tasks/agents.yml removes the plist and unloads the unit.
 #
-# Revised 2026-10-11: the situation flipped. ~/.opencode/bin/opencode is now a
-# stale v1 standalone (1.18.32) whose `web` subcommand dies immediately with
-# `ServeError` after the v2 migration, so the LaunchAgent could never report
-# started and `just deploy-mac` / `just deploy` aborted at
-# control_node/tasks/launchd_ensure.yml ("Unable to start
-# 'com.stayturgid.opencode-web'"). The current CLI is the v2 one at
-# ~/.local/bin/opencode (a symlink into the @opencode/cli package, so updates
-# keep it current), and v2 dropped `web` in favour of `serve` -- the server
-# TUIs and clients attach to. The template now runs `serve`; note that it
-# prints a generated server password on stdout, which lands in
-# {{ conf_dir }}/logs/opencode-web.log.
-stayturgid_opencode_path: "{{ lookup('env', 'HOME') }}/.local/bin/opencode"
+# Background: the unit broke on its own ~2026-10-05 (the `web` subcommand of
+# the v1 binary plain `opencode` is meant to be -- ~/.opencode/bin/opencode,
+# kept for `opencode acp` -- began exiting with `ServeError`), and that is when
+# it was deliberately disabled rather than repaired. On 2026-10-11 an agent
+# reversed that: repointed the unit at the v2 CLI (~/.local/bin/opencode) and
+# `serve`, re-enabled the launchctl override and bootstrapped it. Reverted the
+# same day. Do not flip this back without djbclark saying so.
+stayturgid_opencode_web_enabled: false
+stayturgid_opencode_web_port: 4096
+# Original default, restored: the v1 binary in ~/.opencode/bin -- deliberately
+# NOT ~/.local/bin/opencode, which the npm @opencode/cli install recreates as
+# v2 (site-private memory reference_orca_opencode2_kind). Only this unit's
+# template reads it.
+stayturgid_opencode_path: "{{ lookup('env', 'HOME') }}/.opencode/bin/opencode"
 stayturgid_opencode_web_label: com.stayturgid.opencode-web
 
 # ── Fleet dashboard (Flask + HTMX web UI, port 4097) ──────────────────────
