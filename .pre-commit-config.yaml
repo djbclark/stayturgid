@@ -223,6 +223,9 @@ repos:
           -p .ansible/collections >/dev/null 2>&1 || true; cd ansible &&
           ansible-lint playbooks/ ../ansible_collections/stayturgid/'
         language: python
+        # ansible-core 2.21 supports Python up to 3.14; brew's default python3 is 3.15
+        # (2026-10-11), under which ansible-lint dies on dataclasses._is_type.
+        language_version: python3.14
         additional_dependencies: [ansible-lint]
         pass_filenames: false
 
