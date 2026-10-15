@@ -103,13 +103,14 @@
   ansible.builtin.shell:
     cmd: |
       {% raw %}
+      export PATH="/opt/homebrew/bin:$PATH"
       set -eu
       shopt -s nullglob
       files=($FRAGMENT_GLOB)
       if [ ${#files[@]} -eq 0 ]; then
         new="no-fragments"
       else
-        new=$(shasum -a 256 -- "${files[@]}" | sort | shasum -a 256 | awk '{print $1}')
+        new=$(shasum -a 256 -- "${files[@]}" | gsort | shasum -a 256 | gawk '{print $1}')
       fi
       old=""
       [ -f "$STATE_FILE" ] && old=$(cat "$STATE_FILE")

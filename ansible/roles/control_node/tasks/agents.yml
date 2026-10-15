@@ -14,9 +14,10 @@
 
 - name: Check system Homebrew PATH configuration (report-only)
   ansible.builtin.shell: >-
+    export PATH="/opt/homebrew/bin:$PATH";
     printf '%s\n%s\n' '{{ stayturgid_homebrew_prefix }}/bin'
     '{{ stayturgid_homebrew_prefix }}/sbin' | cmp -s - /etc/paths.d/homebrew &&
-    grep -Fxq
+    ggrep -Fxq
     "SetEnv PATH={{ stayturgid_homebrew_prefix }}/bin:{{ stayturgid_homebrew_prefix }}/sbin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
     /etc/ssh/sshd_config.d/50-stayturgid-homebrew-path.conf
   register: _system_homebrew_path_check

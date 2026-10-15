@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export PATH="/opt/homebrew/bin:$PATH"
 # Report whether a launchd-managed Homebrew serverapp is running the binary
 # that is currently linked, or a stale one left behind by a `brew upgrade`.
 #
@@ -25,14 +26,14 @@ bin="${3:-}"
   exit 0
 }
 
-want="$(readlink -f "$bin" 2>/dev/null || true)"
+want="$(greadlink -f "$bin" 2>/dev/null || true)"
 [ -n "$want" ] || {
   echo unknown
   exit 0
 }
 
 pid="$(launchctl print "gui/${uid}/${label}" 2>/dev/null |
-  awk '/^[[:space:]]*pid = /{print $3; exit}')"
+  gawk '/^[[:space:]]*pid = /{print $3; exit}')"
 # Not loaded or not running: there is no stale process to replace, and the
 # bootstrap task already covers bringing it up.
 [ -n "${pid:-}" ] || {
@@ -40,7 +41,7 @@ pid="$(launchctl print "gui/${uid}/${label}" 2>/dev/null |
   exit 0
 }
 
-have="$(lsof -p "$pid" -a -d txt -Fn 2>/dev/null | sed -n 's/^n//p' | head -1)"
+have="$(lsof -p "$pid" -a -d txt -Fn 2>/dev/null | gsed -n 's/^n//p' | ghead -1)"
 # lsof can come back empty (permissions, process exiting mid-probe). Report
 # unknown rather than guessing, so a probe failure never triggers a restart.
 [ -n "$have" ] || {

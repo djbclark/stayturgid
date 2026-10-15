@@ -284,9 +284,10 @@
 
 - name: Probe whether legacy openobserve label is persistently disabled
   ansible.builtin.shell: |
+    export PATH="/opt/homebrew/bin:$PATH"
     set -eu
     if launchctl print-disabled "gui/{{ serverapp_openobserve_uid }}" 2>/dev/null \
-      | grep -Eq '"com\.stayturgid\.openobserve" => (true|disabled)'; then
+      | ggrep -Eq '"com\.stayturgid\.openobserve" => (true|disabled)'; then
       echo disabled
     else
       echo enabled

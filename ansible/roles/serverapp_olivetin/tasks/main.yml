@@ -302,9 +302,10 @@
 
 - name: Probe whether legacy olivetin label is persistently disabled
   ansible.builtin.shell: |
+    export PATH="/opt/homebrew/bin:$PATH"
     set -eu
     if launchctl print-disabled "gui/{{ serverapp_olivetin_uid }}" 2>/dev/null \
-      | grep -Eq '"com\.stayturgid\.olivetin" => (true|disabled)'; then
+      | ggrep -Eq '"com\.stayturgid\.olivetin" => (true|disabled)'; then
       echo disabled
     else
       echo enabled

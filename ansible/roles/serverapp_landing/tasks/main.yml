@@ -138,9 +138,10 @@
 
 - name: Probe whether legacy landing label is persistently disabled
   ansible.builtin.shell: |
+    export PATH="/opt/homebrew/bin:$PATH"
     set -eu
     if launchctl print-disabled "gui/{{ serverapp_landing_uid }}" 2>/dev/null \
-      | grep -Eq '"com\.stayturgid\.landing" => (true|disabled)'; then
+      | ggrep -Eq '"com\.stayturgid\.landing" => (true|disabled)'; then
       echo disabled
     else
       echo enabled
@@ -166,9 +167,10 @@
 
 - name: Probe whether legacy landing-discover label is persistently disabled
   ansible.builtin.shell: |
+    export PATH="/opt/homebrew/bin:$PATH"
     set -eu
     if launchctl print-disabled "gui/{{ serverapp_landing_uid }}" 2>/dev/null \
-      | grep -Eq '"com\.stayturgid\.landing-discover" => (true|disabled)'; then
+      | ggrep -Eq '"com\.stayturgid\.landing-discover" => (true|disabled)'; then
       echo disabled
     else
       echo enabled
@@ -256,6 +258,7 @@
   ansible.builtin.shell:
     cmd: |
       {% raw %}
+      export PATH="/opt/homebrew/bin:$PATH"
       set -euo pipefail
       read -r -a code_paths <<< "$CODE_PATHS"
       # Tracked files only, so runtime junk (__pycache__) never looks like a
@@ -264,7 +267,7 @@
         if git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
           git -C "$REPO_ROOT" ls-files -z -- "${code_paths[@]}"
         else
-          (cd "$REPO_ROOT" && find "${code_paths[@]}" -type f ! -path '*/__pycache__/*' ! -name '*.pyc' -print0 | sort -z)
+          (cd "$REPO_ROOT" && gfind "${code_paths[@]}" -type f ! -path '*/__pycache__/*' ! -name '*.pyc' -print0 | gsort -z)
         fi
       }
       # A tracked file deleted in the working tree (an edit in progress in the
@@ -278,8 +281,8 @@
         fi
       fi
       new=$(list_code \
-        | (cd "$REPO_ROOT" && xargs -0 shasum -a 256) \
-        | shasum -a 256 | awk '{print $1}')
+        | (cd "$REPO_ROOT" && gxargs -0 shasum -a 256) \
+        | shasum -a 256 | gawk '{print $1}')
       old=""
       [ -f "$STATE_FILE" ] && old=$(cat "$STATE_FILE")
       echo "$new"

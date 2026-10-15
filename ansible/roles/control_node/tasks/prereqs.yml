@@ -24,9 +24,10 @@
 # Mirrors `just cfengine-pin`; see packaging/homebrew/README.md.
 - name: Pin control-node CFEngine to the fleet version (3.27.1)
   ansible.builtin.shell: |
+    export PATH="/opt/homebrew/bin:$PATH"
     set -uo pipefail
-    if cf-runagent --version 2>/dev/null | grep -q "3\.27\.1" \
-       && brew list --pinned 2>/dev/null | grep -qx "cfengine@3.27.1"; then
+    if cf-runagent --version 2>/dev/null | ggrep -q "3\.27\.1" \
+       && brew list --pinned 2>/dev/null | ggrep -qx "cfengine@3.27.1"; then
       echo "ALREADY_PINNED"; exit 0
     fi
     tap="cfengine-local/cfengine"

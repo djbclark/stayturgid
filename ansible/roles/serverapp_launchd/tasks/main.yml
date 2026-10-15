@@ -100,9 +100,10 @@
 
 - name: "Probe whether the legacy label is persistently disabled for {{ sl_app }}"
   ansible.builtin.shell: |
+    export PATH="/opt/homebrew/bin:$PATH"
     set -eu
     if launchctl print-disabled "gui/{{ sl_uid }}" 2>/dev/null \
-      | grep -Eq '"com\.stayturgid\.{{ sl_app }}" => (true|disabled)'; then
+      | ggrep -Eq '"com\.stayturgid\.{{ sl_app }}" => (true|disabled)'; then
       echo disabled
     else
       echo enabled

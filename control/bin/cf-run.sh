@@ -1,4 +1,5 @@
 #!/opt/homebrew/bin/bash
+export PATH="/opt/homebrew/bin:$PATH"
 # cf-run — SSH-based replacement for cf-runagent on fleet devices.
 # cf-serverd can't bind ports on Termux/Android (seccomp blocks).
 # Runs cf-agent on one or more devices via SSH, bypassing cf-serverd.
@@ -17,6 +18,6 @@ for host in $HOSTS; do
   echo "=== $host ==="
   ssh -o ConnectTimeout=8 -o BatchMode=yes "$host" \
     "export PATH=\"/data/data/com.termux/files/usr/bin:\$PATH\"; $CF_AGENT -Kf $CF -D $CLASSES 2>&1" |
-    grep -E "^R:|^   error:|^   notice:" | head -10
+    ggrep -E "^R:|^   error:|^   notice:" | ghead -10
   echo "---"
 done

@@ -114,7 +114,7 @@ dashboard-disable:
 
 # tail -f dashboard.log.
 dashboard-logs:
-    tail -f "{{ env_var("HOME") }}/.config/stayturgid/logs/dashboard.log"
+    gtail -f "{{ env_var("HOME") }}/.config/stayturgid/logs/dashboard.log"
 
 # ── Network landing page (service directory on http://localhost:8088) ──────
 # Phase D4: default remains legacy for non-migrated sites; migrated sites set

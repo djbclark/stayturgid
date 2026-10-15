@@ -14,8 +14,8 @@ cfengine-pin:
     brew uninstall --ignore-dependencies cfengine >/dev/null 2>&1 || true
     brew link --overwrite cfengine@3.27.1 >/dev/null 2>&1 || true
     brew pin cfengine@3.27.1 >/dev/null 2>&1 || true
-    echo "pinned: $(brew list --pinned | grep cfengine || echo NONE)"
-    cf-runagent --version | head -1
+    echo "pinned: $(brew list --pinned | ggrep cfengine || echo NONE)"
+    cf-runagent --version | ghead -1
 
 cfbs-validate:
     cd device/termux/cfengine && cfbs validate

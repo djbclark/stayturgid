@@ -67,6 +67,11 @@ stayturgid_mac_brew_packages_base:
   - ansible
   - scrcpy
   - gitleaks
+  - coreutils
+  - findutils
+  - gawk
+  - gnu-sed
+  - grep
   # Hermes Agent: installed via canonical git+uv method (see tasks/hermes.yml)
   # The brew formula is unsupported by upstream and pins Python 3.14 which breaks
   # DaemonThreadPoolExecutor (upstream requires-python caps at <3.14).
