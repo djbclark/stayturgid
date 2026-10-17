@@ -153,3 +153,18 @@ def test_ansible_cfg_sources_keep_ten_minute_control_persist():
         # Ansible's default ssh_args, with ControlPersist 60s -> 10m and nothing dropped.
         assert section["ssh_args"] == "-C -o ControlMaster=auto -o ControlPersist=10m", path
         assert section["pipelining"] == "True", path
+
+
+def test_termux_appops_also_granted_through_the_control_node_adb():
+    tasks = _tasks("main.yml")
+    block = next(
+        t
+        for t in tasks
+        if t.get("name") == "Grant Termux appops and notification permissions via the control node's adb"
+    )
+    grant = _by_name(block["block"], "Grant Termux permissions through the control-node adb when missing")
+    assert grant["delegate_to"] == "localhost"
+    assert grant["stayturgid.android_common.android_appops"]["appops"] == "{{ _termux_appops_grants }}"
+    assert "rescue" in block
+    names = [t.get("name") for t in tasks]
+    assert names.index("Build Termux overlay appops grant list") < names.index(block["name"])

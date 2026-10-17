@@ -215,6 +215,33 @@
         | list
       }}
 
+# A freshly installed Termux's own adb key is "unauthorized" until the operator
+# taps "Always allow", so the on-device grant below cannot run yet and
+# `just verify` items 12/13 (WRITE_SETTINGS, overlay) fail. The control node's adb
+# already holds shell privileges, so the same grants go through it first
+# (idempotent, state read before every change; found 2026-10-17, s24 and t2e).
+# An unreachable control-node adb is reported, never fatal.
+- name: Grant Termux appops and notification permissions via the control node's adb
+  block:
+    - name: Grant Termux permissions through the control-node adb when missing
+      stayturgid.android_common.android_appops:
+        device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+        connect: true
+        appops: "{{ _termux_appops_grants }}"
+        permissions:
+          - package: com.termux
+            permission: android.permission.POST_NOTIFICATIONS
+          - package: com.termux.api
+            permission: android.permission.POST_NOTIFICATIONS
+      delegate_to: localhost
+  rescue:
+    - name: Report that the control-node appops grant could not run
+      ansible.builtin.debug:
+        msg: >-
+          Could not grant Termux appops on {{ inventory_hostname }} through the control
+          node's adb ({{ ansible_failed_result.msg | default('unknown error') }});
+          the on-device grant below still runs if Termux's adb key is authorized.
+
 # Termux:API WRITE_SETTINGS, overlay ops, and POST_NOTIFICATIONS require the
 # privileged adb shell (uid 2000) on localhost:5555 — Termux cannot self-grant.
 - name: Grant Termux permissions via privileged shell
