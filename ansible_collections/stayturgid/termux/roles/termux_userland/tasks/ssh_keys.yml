@@ -227,6 +227,8 @@
 # Mac out of the transfer, subdirectories (cm/, agent/) included, so rsync stays
 # recursive but descends nowhere. Never set recursive: false here: rsync then
 # skips the source directory and copies nothing (caught live on s24, 2026-10-17).
+# --omit-dir-times: the earlier tasks of a run rewrite authorized_keys, which bumps
+# ~/.ssh's mtime, and rsync would report that as a change on every run.
 # Missing source files are skipped by rsync and caught by the verify task below.
 - name: Install fleet SSH private keys on device
   ansible.posix.synchronize:
@@ -237,7 +239,7 @@
     rsync_opts: >-
       {{
         (_stayturgid_ssh_private_key_names | map('regex_replace', '^', '--include=/') | list)
-        + ['--exclude=*']
+        + ['--omit-dir-times', '--exclude=*']
       }}
   when:
     - _termux_home_stat.stat.exists

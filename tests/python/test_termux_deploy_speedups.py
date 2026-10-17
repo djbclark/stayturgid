@@ -68,6 +68,8 @@ def test_private_keys_move_in_one_synchronize_and_verify_in_one_task():
     assert "loop" not in install
     sync_args = install["ansible.posix.synchronize"]
     assert "--exclude=*" in sync_args["rsync_opts"]
+    # ~/.ssh's mtime moves whenever authorized_keys is rewritten earlier in the run.
+    assert "--omit-dir-times" in sync_args["rsync_opts"]
     # recursive: false makes rsync skip the source directory and copy nothing.
     assert sync_args.get("recursive", True) is True
     verify = _by_name(tasks, "Verify fleet SSH private keys on device (present, mode 0600)")
