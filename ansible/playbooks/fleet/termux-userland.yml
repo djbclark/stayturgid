@@ -50,6 +50,19 @@
   roles:
     - role: stayturgid.termux.termux_userland
 
+# `just deploy-termux` is the other path (besides deploy-apks) that a fresh
+# install/reinstall goes through without ever hitting fleet.yml's
+# app_privileges play — so the agent's RUN_COMMAND grant (and the rest of
+# fleet_app_profiles.json) never got applied. Re-run it here too: delegate_to
+# localhost over adb, no SSH needed, idempotent.
+- name: stayturgid fleet app privileges (termux-userland deploy)
+  hosts: stayturgid
+  gather_facts: false
+  roles:
+    - role: stayturgid.android_common.app_privileges
+      vars:
+        target_device: "{{ inventory_hostname }}"
+
 # F5: helpers get ForceCommand keys after Fire published peerhelp pubs.
 - name: Import peer-help ForceCommand install
   import_playbook: peerhelp-force.yml

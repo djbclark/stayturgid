@@ -1,10 +1,13 @@
-"""`just deploy-apks` must apply the fleet app privilege profiles.
+"""`just deploy-apks` and `just deploy-termux` must apply the fleet app
+privilege profiles.
 
 deploy-apks runs site.yml with `--tags bootstrap-apks`. On 2026-10-17 the
 agent was installed before a reinstalled Termux on s24 and t2e, so it never got
 com.termux.permission.RUN_COMMAND, and the quiet buttons could not reach
 Termux. The app_privileges role (which grants it from fleet_app_profiles.json)
-only ran in the full deploy.
+only ran in the full deploy. deploy-termux (ansible/playbooks/fleet/termux-userland.yml,
+invoked directly by control/bin/deploy_termux.py, never through site.yml/fleet.yml)
+had the same gap.
 """
 
 import json
@@ -20,6 +23,12 @@ def test_app_privileges_runs_under_bootstrap_apks_tag():
     roles = [r for play in plays for r in play.get("roles", []) if isinstance(r, dict)]
     role = next(r for r in roles if r.get("role") == "stayturgid.android_common.app_privileges")
     assert "bootstrap-apks" in role["tags"]
+
+
+def test_app_privileges_runs_in_termux_userland_playbook():
+    plays = yaml.safe_load((REPO / "ansible/playbooks/fleet/termux-userland.yml").read_text())
+    roles = [r for play in plays for r in play.get("roles", []) if isinstance(r, dict)]
+    assert any(r.get("role") == "stayturgid.android_common.app_privileges" for r in roles)
 
 
 def test_agent_profile_grants_termux_run_command():
