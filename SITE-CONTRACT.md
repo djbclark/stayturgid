@@ -212,6 +212,10 @@ interpreter_python = auto_silent
 
 [ssh_connection]
 pipelining = True
+# Ansible's default ssh_args with ControlPersist=10m instead of 60s: the master
+# connection survives Mac-side stretches and the gaps between ansible-playbook
+# runs of one deploy, so they reuse one SSH login instead of paying a new one.
+ssh_args = -C -o ControlMaster=auto -o ControlPersist=10m
 ```
 
 ### `justfile.j2` — Site justfile wrappers (Jinja2; {% raw %} protects just syntax)
