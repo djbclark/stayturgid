@@ -47,13 +47,25 @@
          | join(',') }}
   when: _termux_home_stat.stat.exists
 
+# Re-signs whenever the cached cert is for another key. A reinstalled Termux has
+# new host keys; a `creates:` guard here kept deploying the old cert, and sshd
+# printed "No matching private key for certificate" (t2e, 2026-10-17).
 - name: Sign host key with CA (delegated to control node)
-  ansible.builtin.command:
-    cmd: >-
-      ssh-keygen -s {{ stayturgid_ca_key_path | default(lookup('env', 'HOME') ~ '/.ssh/stayturgid_ca') }}
-      -I {{ inventory_hostname }} -h -n {{ _stg_cert_principals_str }}
-      {{ stayturgid_ca_tmpdir }}/{{ inventory_hostname }}_host_key.pub
-    creates: "{{ stayturgid_ca_tmpdir }}/{{ inventory_hostname }}_host_key-cert.pub"
+  ansible.builtin.shell:
+    cmd: |
+      set -eu
+      pub={{ (stayturgid_ca_tmpdir ~ '/' ~ inventory_hostname ~ '_host_key.pub') | quote }}
+      cert={{ (stayturgid_ca_tmpdir ~ '/' ~ inventory_hostname ~ '_host_key-cert.pub') | quote }}
+      want=$(ssh-keygen -lf "$pub" | awk '{print $2}')
+      if [ -f "$cert" ] && [ "$(ssh-keygen -Lf "$cert" | awk '/Public key:/ {print $NF}')" = "$want" ]; then
+        exit 0
+      fi
+      rm -f "$cert"
+      ssh-keygen -s {{ (stayturgid_ca_key_path | default(lookup('env', 'HOME') ~ '/.ssh/stayturgid_ca')) | quote }} \
+        -I {{ inventory_hostname | quote }} -h -n {{ _stg_cert_principals_str | quote }} "$pub"
+      echo signed
+  register: _stg_ca_sign
+  changed_when: "'signed' in _stg_ca_sign.stdout"
   delegate_to: localhost
   when:
     - _termux_home_stat.stat.exists
