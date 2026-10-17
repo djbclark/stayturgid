@@ -160,9 +160,36 @@ by the repo's tools alone. Hit in order on t2e:
    kill the newer one by PID.
 7. **Termux's new adb key is `unauthorized`** until the human taps "Always allow"
    on the system "Allow USB debugging?" dialog (see the Fire OS note above).
+   Until then `just health` reports `shell5555_down` for the host.
+8. **No shared-storage access on the new Termux.** `deploy-termux` fails at
+   "Ensure shared-storage stayturgid directory tree" (`/sdcard` mkdir
+   "Permission denied"). Before it, run
+   `pm grant com.termux android.permission.READ_EXTERNAL_STORAGE`, the same for
+   `WRITE_EXTERNAL_STORAGE`, and `appops set com.termux MANAGE_EXTERNAL_STORAGE allow`
+   (found 2026-10-17, s24; `fleet_app_profiles.json` has no `com.termux` entry).
+9. **`bootstrap-ssh` needs an unlocked, awake screen**: it types `sshd` into the
+   Termux app, and on a keyguard-locked phone it fails with "sshd did not start
+   from the Termux app". The first run after a fresh install also fails while
+   `pkg` installs openssh; rerun with Termux in the foreground and the phone
+   unlocked (a PIN-locked phone relocks within minutes; a human must unlock it).
+10. **`deploy-apks` stops at the first downgrade.** After Termux and the agent are
+    in, the pinned Tailscale (s24) or Shizuku (t2e) APK fails with
+    `INSTALL_FAILED_VERSION_DOWNGRADE` because the device has a newer one. The
+    run exits 2, but Termux and the agent are already installed; fix the pin.
+11. **`deploy-termux` refuses a checkout with staged or modified files** (another
+    agent's staged hunk counts). Never stash theirs; if the change cannot affect a
+    device deploy, `STAYTURGID_SKIP_FRESHNESS_CHECK=1` bypasses it.
 
-Tooling to fix: steps 3-6 belong in `bootstrap_ssh.py` / the `termux_userland`
+Tooling to fix: steps 3-6 and 8 belong in `bootstrap_ssh.py` / the `termux_userland`
 role.
+
+Why the packages vanished again: not found 2026-10-17. On s24 and t2e, `pm list
+packages -u` showed no `com.termux` or `org.stayturgid.agent` (data gone too),
+logcat on both held no removal record (t2e's buffer starts at its 12:23 boot),
+no repo code removes `com.termux`, and the only uninstalls are the agent
+variant swap in `rollout.py` / `remove_packages` and a `pm uninstall` of the
+other agent build. Neither phone had a device owner (s24: Samsung Secure Folder,
+t2e: Island profile owner in user 10).
 
 ## Repo / PR review notes
 
