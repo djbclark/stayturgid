@@ -1,0 +1,121 @@
+---
+# Put sshd under runit on a fresh Termux (found 2026-10-17, s24 and t2e).
+#
+# `just bootstrap-ssh` starts a BARE `sshd` from the Termux app (a run-as sshd has
+# no /sdcard), and runit is not running yet: no runsvdir, so `sv status sshd`
+# fails ("unable to change to service directory" / "runsv not running") and the
+# `reload sshd` handler (`sv hup`) fails the whole play. The reinstall agent fixed
+# it by hand: run ~/.termux/boot/00-start-services.sh (one runsvdir), kill the bare
+# sshd, let runit's `sshd -D -e` take port 8022. This file does that.
+#
+# Healthy device (runit already supervising sshd): the probe finds it, the fix is
+# skipped, nothing changes.
+#
+# Rules the fix follows:
+#   1. One runsvdir, never two: it is started only when `pgrep` finds none (the
+#      boot script checks again under the recovery lock).
+#   2. Only the bare listener is killed: an `sshd` process (argv[0] is exactly
+#      "sshd", so not "sshd-session: ..." or "sshd: user [priv]" children) whose
+#      parent is not runsv. Running sessions, Ansible's included, survive a
+#      listener's death in any case.
+#   3. The kill is detached (setsid + nohup, after a delay) so the task returns and
+#      the SSH channel closes normally; the play then resets its connection and
+#      waits for SSH to answer again before the verify task.
+- name: Probe whether runit supervises sshd
+  ansible.builtin.shell: |
+    export PREFIX={{ termux_prefix | quote }}
+    export SVDIR="$PREFIX/var/service"
+    if "$PREFIX/bin/sv" status sshd >/dev/null 2>&1; then echo supervised; else echo unsupervised; fi
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  register: _stayturgid_runit_sshd_probe
+  changed_when: false
+  check_mode: false
+
+- name: Start runit and hand port 8022 from the bare sshd to runit's sshd
+  ansible.builtin.shell: |
+    set -u
+    export PREFIX={{ termux_prefix | quote }}
+    export SVDIR="$PREFIX/var/service" LOGDIR="$PREFIX/var/log"
+    boot="$HOME/.termux/boot/00-start-services.sh"
+    if [ ! -x "$boot" ]; then
+      echo "$boot is not deployed or not executable" >&2
+      exit 1
+    fi
+    if ! pgrep -f "[r]unsvdir $SVDIR" >/dev/null 2>&1; then
+      "$boot" </dev/null >/dev/null 2>&1
+      echo "started runsvdir via 00-start-services.sh"
+    fi
+    n=0
+    until "$PREFIX/bin/sv" status sshd >/dev/null 2>&1; do
+      n=$((n + 1))
+      if [ "$n" -gt 20 ]; then
+        echo "runit still does not supervise sshd after 20 s" >&2
+        exit 1
+      fi
+      sleep 1
+    done
+    # Bare listeners: argv[0] exactly "sshd" and a parent that is not runsv.
+    bare=""
+    for d in /proc/[0-9]*; do
+      pid="${d#/proc/}"
+      argv0="$(tr '\0' '\n' < "$d/cmdline" 2>/dev/null | head -n 1)"
+      [ "${argv0##*/}" = sshd ] || continue
+      stat="$(cat "$d/stat" 2>/dev/null)" || continue
+      rest="${stat##*) }"
+      set -- $rest
+      ppid="$2"
+      [ "$(cat "/proc/$ppid/comm" 2>/dev/null)" = runsv ] && continue
+      bare="$bare $pid"
+    done
+    if [ -z "$bare" ]; then
+      echo "no bare sshd listener to retire"
+      exit 0
+    fi
+    setsid nohup bash -c "sleep 3; kill $bare" >/dev/null 2>&1 < /dev/null &
+    echo "retiring bare sshd listener(s):$bare (detached, in 3 s)"
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  register: _stayturgid_runit_sshd_fix
+  changed_when: _stayturgid_runit_sshd_fix.stdout | length > 0
+  when: _stayturgid_runit_sshd_probe.stdout | trim == 'unsupervised'
+
+- name: Reconnect after sshd moved under runit
+  ansible.builtin.meta: reset_connection
+  when: _stayturgid_runit_sshd_fix is changed
+
+- name: Wait for SSH on the runit-supervised sshd
+  ansible.builtin.wait_for_connection:
+    delay: 5
+    timeout: 120
+  when: _stayturgid_runit_sshd_fix is changed
+
+# runit's sshd must hold the port: sv reports run, exactly one runsvdir, and
+# every sshd listener's parent is runsv.
+- name: Verify sshd is supervised by runit (one runsvdir, listener under runsv)
+  ansible.builtin.shell: |
+    export PREFIX={{ termux_prefix | quote }}
+    export SVDIR="$PREFIX/var/service"
+    "$PREFIX/bin/sv" status sshd | grep -q '^run:' || { echo "sv status sshd is not run"; exit 1; }
+    dirs="$(pgrep -f "[r]unsvdir $SVDIR" | wc -l)"
+    [ "$dirs" = 1 ] || { echo "runsvdir count: $dirs"; exit 1; }
+    seen=0
+    for d in /proc/[0-9]*; do
+      argv0="$(tr '\0' '\n' < "$d/cmdline" 2>/dev/null | head -n 1)"
+      [ "${argv0##*/}" = sshd ] || continue
+      stat="$(cat "$d/stat" 2>/dev/null)" || continue
+      rest="${stat##*) }"
+      set -- $rest
+      [ "$(cat "/proc/$2/comm" 2>/dev/null)" = runsv ] || { echo "sshd ${d#/proc/} has parent $2, not runsv"; exit 1; }
+      seen=1
+    done
+    [ "$seen" = 1 ] || { echo "no sshd listener"; exit 1; }
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  register: _stayturgid_runit_sshd_verify
+  changed_when: false
+  check_mode: false
+  retries: 10
+  delay: 3
+  until: _stayturgid_runit_sshd_verify.rc == 0
+  when: _stayturgid_runit_sshd_fix is changed

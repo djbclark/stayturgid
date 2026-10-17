@@ -549,6 +549,14 @@
   loop: "{{ stayturgid_retired_boot_scripts | default([]) }}"
   when: stayturgid_retired_boot_scripts | default([]) | length > 0
 
+# After the boot scripts (it runs 00-start-services.sh) and before any handler:
+# `reload sshd` (`sv hup`) needs runit, which a fresh Termux does not run yet.
+- name: Ensure runit supervises sshd (fresh-Termux fixup)
+  ansible.builtin.include_tasks: runit_sshd.yml
+  when:
+    - _termux_home_stat.stat.exists
+    - "'00-start-services.sh' in (stayturgid_boot_scripts | default([]))"
+
 # Recovery entrypoints runnable without a GUI session: ~/.termux/tasker/ is
 # where the Termux:Tasker plugin looks up scripts by name, and the same path
 # is what a Tasker Send-Intent RUN_COMMAND task or any shell invokes. See
