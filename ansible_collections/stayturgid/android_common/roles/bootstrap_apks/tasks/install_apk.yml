@@ -82,6 +82,7 @@
         checksum: "{{ _apk.checksum }}"
         resign: "{{ _apk.resign | default(false) }}"
         clean: "{{ _apk.clean | default(false) }}"
+        detached_install: "{{ _apk.detached_install | default(false) }}"
         force: "{{ stayturgid_bootstrap_apks_force | default(false) }}"
         verify_on_current: "{{ _apk.mutable_tag_snapshot | default(false) }}"
         version_name: "{{ _apk.version_name }}"

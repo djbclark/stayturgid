@@ -573,3 +573,188 @@ def test_download_gh_release_falls_back_to_gh_and_retries(tmp_path):
     assert mod.download_gh_release(module, "o/r", "app-*.apk", "v1").endswith("app-1.apk")
     assert len(attempts) == 2
     assert module.warnings and "falling back to gh" in module.warnings[0]
+
+
+# --- detached_install: an APK that carries the adb transport (Tailscale) ---
+
+TS_DEVICE = "100.64.0.1:5555"
+TS_LOG_PATH = "/data/local/tmp/stayturgid-com.tailscale.ipn.log"
+TS_OK_LOG = "Performing Streamed Install\nSuccess\nstayturgid-pm-rc=0\n"
+
+
+class DetachedDevice:
+    """A fake device: offline for the first reads of the log, then the script's log."""
+
+    def __init__(self, log, offline_reads=1, push_rc=0, version_after="2.0.0"):
+        self.log = log
+        self.offline_reads = offline_reads
+        self.push_rc = push_rc
+        self.version_after = version_after
+        self.seen = []
+        self.script_started = False
+        self.done = False
+
+    def __call__(self, cmd):
+        joined = " ".join(cmd)
+        self.seen.append(joined)
+        if " push " in joined:
+            return (self.push_rc, "", "" if self.push_rc == 0 else "adb: error: failed to copy")
+        if "nohup" in joined:
+            self.script_started = True
+            return (0, "", "")
+        if "cat " + TS_LOG_PATH in joined:
+            if self.offline_reads > 0:
+                self.offline_reads -= 1
+                return (1, "", "error: device offline")
+            self.done = True
+            return (0, self.log, "")
+        if "pm list packages" in joined:
+            return (0, "package:com.tailscale.ipn\n", "")
+        if "dumpsys package" in joined:
+            return (0, "versionName=%s\n" % (self.version_after if self.done else "1.0.0"), "")
+        if "settings get global verifier_verify_adb_installs" in joined:
+            return (0, "1\n", "")
+        if "settings get global package_verifier_enable" in joined:
+            return (0, "null\n", "")
+        return (0, "", "")
+
+
+@pytest.fixture
+def fake_clock(mocker):
+    clock = {"t": 0}
+    mocker.patch.object(mod, "_now", lambda: clock["t"])
+    mocker.patch.object(mod, "_sleep", lambda seconds: clock.__setitem__("t", clock["t"] + seconds))
+    return clock
+
+
+def detached_args(tmp_path, **extra):
+    apk = tmp_path / "ts.apk"
+    apk.write_bytes(b"PK")
+    return dict(
+        device=TS_DEVICE,
+        package="com.tailscale.ipn",
+        apk_path=str(apk),
+        version_name="2.0.0",
+        detached_install=True,
+        **extra,
+    )
+
+
+def test_detached_install_pushes_starts_script_and_survives_offline_read(mocker, tmp_path, fake_clock):
+    device = DetachedDevice(TS_OK_LOG, offline_reads=1)
+    out = run_module(mocker, detached_args(tmp_path), command_fn=device)
+    assert out.get("failed") is not True, out
+    assert out["changed"] is True
+    assert out["reason"] == "Success"
+
+    seen = device.seen
+    push = next(i for i, c in enumerate(seen) if " push " in c)
+    assert seen[push].endswith("/data/local/tmp/stayturgid-com.tailscale.ipn.apk")
+    start = next(i for i, c in enumerate(seen) if "nohup" in c)
+    script = seen[start]
+    assert push < start
+    assert "pm install -r --user 0 /data/local/tmp/stayturgid-com.tailscale.ipn.apk" in script
+    # The verifier goes off and back on inside the script, restored to its values from before.
+    assert script.index("settings put global verifier_verify_adb_installs 0") < script.index("pm install")
+    assert script.index("pm install") < script.index("settings put global verifier_verify_adb_installs 1")
+    assert script.index("pm install") < script.index("settings delete global package_verifier_enable")
+    assert "rm -f /data/local/tmp/stayturgid-com.tailscale.ipn.apk" in script
+    # Nothing on the Mac side touches the verifier or runs a plain adb install.
+    assert not [c for c in seen if "settings put" in c and "nohup" not in c]
+    assert not [c for c in seen if " install " in c and "pm install" not in c]
+    # Two log reads (offline, then ready), each preceded by a reconnect.
+    reads = [i for i, c in enumerate(seen) if "cat " + TS_LOG_PATH in c]
+    assert len(reads) == 2
+    connects = [i for i, c in enumerate(seen) if " connect " in c and i > start]
+    assert len(connects) >= 2
+    assert any("rm -f " + TS_LOG_PATH in c for c in seen[reads[-1] :])
+    assert fake_clock["t"] == mod.DETACHED_POLL_SECONDS
+
+
+def test_detached_install_failure_log_fails(mocker, tmp_path, fake_clock):
+    log = "Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE]\nstayturgid-pm-rc=1\n"
+    device = DetachedDevice(log, offline_reads=0)
+    out = run_module(mocker, detached_args(tmp_path), command_fn=device)
+    assert out["failed"] is True
+    assert "INSTALL_FAILED_UPDATE_INCOMPATIBLE" in out["msg"]
+    # No clean fallback in detached mode: nothing uninstalls the package.
+    assert not [c for c in device.seen if "uninstall" in c]
+
+
+def test_detached_install_downgrade_is_not_uninstalled(mocker, tmp_path, fake_clock):
+    log = "Failure [INSTALL_FAILED_VERSION_DOWNGRADE]\nstayturgid-pm-rc=1\n"
+    out = run_module(mocker, detached_args(tmp_path), command_fn=DetachedDevice(log, offline_reads=0))
+    assert out["failed"] is True
+    assert "newer com.tailscale.ipn" in out["msg"]
+
+
+def test_detached_install_timeout_fails_with_message(mocker, tmp_path, fake_clock):
+    device = DetachedDevice(TS_OK_LOG, offline_reads=10**6)
+    out = run_module(mocker, detached_args(tmp_path, detached_timeout=20), command_fn=device)
+    assert out["failed"] is True
+    assert "device did not come back within 20 s" in out["msg"]
+    assert "check versionName" in out["msg"]
+
+
+def test_detached_install_wrong_version_after_success_fails(mocker, tmp_path, fake_clock):
+    device = DetachedDevice(TS_OK_LOG, offline_reads=0, version_after="1.5.0")
+    out = run_module(mocker, detached_args(tmp_path), command_fn=device)
+    assert out["failed"] is True
+    assert "1.5.0" in out["msg"] and "2.0.0" in out["msg"]
+
+
+def test_detached_install_push_failure_never_starts_script(mocker, tmp_path, fake_clock):
+    device = DetachedDevice(TS_OK_LOG, push_rc=1)
+    out = run_module(mocker, detached_args(tmp_path), command_fn=device)
+    assert out["failed"] is True
+    assert "adb push failed" in out["msg"]
+    assert device.script_started is False
+
+
+@pytest.mark.parametrize("option", ["clean", "work_profile"])
+def test_detached_install_refuses_unsupported_combinations(mocker, tmp_path, option):
+    out = run_module(mocker, detached_args(tmp_path, **{option: True}))
+    assert out["failed"] is True
+    assert option in out["msg"]
+
+
+def test_detached_script_runs_under_sh(tmp_path):
+    """Run the rendered script against stub pm/settings: quoting and order hold."""
+    import subprocess
+    import time
+
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    state = tmp_path / "state"
+    state.mkdir()
+    (bindir / "pm").write_text('#!/bin/sh\necho "pm $*" >> %s/calls\necho Success\n' % state)
+    (bindir / "settings").write_text('#!/bin/sh\necho "settings $*" >> %s/calls\n' % state)
+    for stub in bindir.iterdir():
+        stub.chmod(0o755)
+    remote = tmp_path / "remote"
+    remote.mkdir()
+    script = mod.detached_script(
+        "com.tailscale.ipn",
+        "0",
+        "com.android.vending",
+        [],
+        {"verifier_verify_adb_installs": "1", "package_verifier_enable": "null"},
+    ).replace("/data/local/tmp", str(remote))
+    (remote / "stayturgid-com.tailscale.ipn.apk").write_bytes(b"PK")
+    env = dict(os.environ, PATH="%s:%s" % (bindir, os.environ["PATH"]))
+    subprocess.run(["/bin/sh", "-c", script], env=env, check=True, timeout=10)
+    log = remote / "stayturgid-com.tailscale.ipn.log"
+    deadline = time.monotonic() + 10
+    while not log.exists() and time.monotonic() < deadline:
+        time.sleep(0.05)
+    text = log.read_text()
+    assert mod.DETACHED_DONE_RE.search(text) and mod.DETACHED_DONE_RE.search(text).group(1) == "0"
+    assert "Success" in text
+    assert not (remote / "stayturgid-com.tailscale.ipn.apk").exists()
+    calls = (state / "calls").read_text().splitlines()
+    assert calls[0] == "settings put global verifier_verify_adb_installs 0"
+    assert calls[2].startswith("pm install -r --user 0 -i com.android.vending ")
+    assert calls[3:] == [
+        "settings put global verifier_verify_adb_installs 1",
+        "settings delete global package_verifier_enable",
+    ]

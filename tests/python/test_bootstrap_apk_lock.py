@@ -79,6 +79,18 @@ def test_monkey_launch_is_limited_to_a_real_install():
     assert "_apk_install.changed | default(false)" in monkey["when"]
 
 
+def test_tailscale_installs_detached_because_it_carries_the_adb_transport():
+    # The adb target is a tailnet address: replacing the app mid-`adb install`
+    # cut the connection and left t2e off the tailnet (2026-10-17).
+    tailscale = next(apk for apk in _catalog() if apk["id"] == "com.tailscale.ipn")
+    assert tailscale["detached_install"] is True
+    assert [apk["id"] for apk in _catalog() if apk.get("detached_install")] == ["com.tailscale.ipn"]
+    tasks = (
+        ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml"
+    ).read_text(encoding="utf-8")
+    assert 'detached_install: "{{ _apk.detached_install | default(false) }}"' in tasks
+
+
 def test_locked_version_check_has_no_mutable_latest_lookup():
     tasks = ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks"
     combined = "\n".join(path.read_text(encoding="utf-8") for path in tasks.glob("*.yml"))

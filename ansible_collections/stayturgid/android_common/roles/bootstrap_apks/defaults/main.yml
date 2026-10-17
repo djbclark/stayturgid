@@ -25,6 +25,8 @@
 #   start_broadcast_* — headless application-context trigger after install
 #   service_component — foreground service to verify after the trigger
 #   remove_packages — mutually exclusive package variants to remove
+#   detached_install — install through a detached on-device script (default false);
+#                 for an APK that carries the adb transport itself (Tailscale)
 #
 # Override via inventory group_vars only to replace the complete lock:
 #   stayturgid_bootstrap_apks
@@ -151,3 +153,9 @@ stayturgid_bootstrap_apks:
     # they match. Same signer and versionCode as the Play Store build.
     version_name: "1.104.1-t7f4efe814-g6d75bd403"
     checksum: "sha256:b3a1a81b52d1437769e5570c89a95f5824518a6b376d10c39eb64af213a625b6"
+    # The adb target is a Tailscale address, so replacing this app cuts the adb
+    # connection mid-install (t2e, 2026-10-17: a plain `adb install -r` died with
+    # "failed to install" and left the phone off the tailnet). Push the APK and
+    # let an on-device script run the install and restore Play Protect, then
+    # reconnect and read its log.
+    detached_install: true

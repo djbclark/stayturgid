@@ -121,6 +121,30 @@ options:
       forever — this ansible-core's C(run_command) has no timeout of its own.
     type: int
     default: 180
+  detached_install:
+    description:
+      - Install through a detached on-device script, for an APK that carries the
+        adb transport itself (Tailscale over a C(host:5555) tailnet target).
+        Replacing that app drops the adb connection mid-install, which a plain
+        C(adb install -r) reports as a bare failure and which, with the Play
+        Protect verifier switched off from the Mac, would leave it off.
+      - The APK is pushed to C(/data/local/tmp/stayturgid-<package>.apk), then one
+        C(adb shell) starts a C(nohup) script that disables the verifier settings,
+        runs C(pm install -r --user), restores the verifier settings to their
+        pre-install values, deletes the APK and writes the C(pm) output to
+        C(/data/local/tmp/stayturgid-<package>.log). The module then reconnects
+        and polls that log for up to I(detached_timeout) seconds.
+      - Refused together with I(clean) and I(work_profile). The
+        I(clean_on_incompatible) fallback is not run: it would need a second
+        detached step, so an incompatible upgrade fails the install instead.
+    type: bool
+    default: false
+  detached_timeout:
+    description: >-
+      Seconds to keep reconnecting and polling for the detached install's log
+      before giving up. Ignored unless I(detached_install=true).
+    type: int
+    default: 300
 """
 
 EXAMPLES = r"""
@@ -162,8 +186,11 @@ import fnmatch
 import hashlib
 import json
 import os
+import re
+import shlex
 import sys
 import tempfile
+import time
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.urls import fetch_url
@@ -205,6 +232,143 @@ def write_verifier_settings(run_command, device, values):
             adb_shell(run_command, device, "settings delete global %s" % key)
         else:
             adb_shell(run_command, device, "settings put global %s %s" % (key, value))
+
+
+DETACHED_PACKAGE_RE = re.compile(r"^[A-Za-z0-9_.]+$")
+DETACHED_DONE_RE = re.compile(r"^stayturgid-pm-rc=(\d+)\s*$", re.M)
+DETACHED_POLL_SECONDS = 5
+DETACHED_PROBE_TIMEOUT = 15
+DETACHED_VERSION_ATTEMPTS = 3
+
+
+def _now():
+    return time.monotonic()
+
+
+def _sleep(seconds):
+    time.sleep(seconds)
+
+
+def detached_script(package, user, installer, extra_args, verifier_before):
+    """The on-device script for a detached install, as one sh command line.
+
+    Order matters: the verifier restore and the APK removal run before the log
+    appears, so a log on the device means the device state is final. The log is
+    written aside and moved into place, so a reader never sees a partial one.
+    """
+
+    apk = "/data/local/tmp/stayturgid-%s.apk" % package
+    log = "/data/local/tmp/stayturgid-%s.log" % package
+    install = ["pm", "install", "-r", "--user", user]
+    if installer:
+        install += ["-i", installer]
+    install += list(extra_args) + [apk]
+    steps = ["settings put global %s 0" % key for key in ADB_INSTALL_VERIFIER_KEYS]
+    steps.append("%s > %s.part 2>&1; rc=$?" % (" ".join(shlex.quote(a) for a in install), shlex.quote(log)))
+    for key, value in verifier_before.items():
+        if value == "null":
+            steps.append("settings delete global %s" % key)
+        else:
+            steps.append("settings put global %s %s" % (key, shlex.quote(value)))
+    steps.append("rm -f %s" % shlex.quote(apk))
+    steps.append('echo "stayturgid-pm-rc=$rc" >> %s.part' % shlex.quote(log))
+    steps.append("mv -f %s.part %s" % (shlex.quote(log), shlex.quote(log)))
+    # setsid, where the device has it, moves the script out of adbd's process
+    # group so a dropped connection cannot signal it; nohup covers SIGHUP.
+    return "nohup $(command -v setsid) sh -c %s </dev/null >/dev/null 2>&1 &" % shlex.quote("; ".join(steps))
+
+
+def install_detached(module, device, package, apk, user, install_timeout):
+    """Install apk through a detached on-device script; returns the reason string."""
+
+    if not DETACHED_PACKAGE_RE.match(package):
+        module.fail_json(msg="detached_install: package %r is not a plain package id" % package)
+    remote_apk = "/data/local/tmp/stayturgid-%s.apk" % package
+    remote_log = "/data/local/tmp/stayturgid-%s.log" % package
+    run_command = module.run_command
+    timeout = module.params["detached_timeout"]
+
+    rc, _out, err = adb_shell(run_command, device, "rm -f %s %s.part" % (remote_log, remote_log))
+    if rc != 0:
+        module.fail_json(msg="detached install: could not clear the old log on %s: %s" % (device, err.strip()))
+
+    verifier_before = read_verifier_settings(run_command, device)
+    sys.stderr.write("🚨📱🚨 USING — %s — detached install %s — ~%d min\n" % (device, package, max(timeout // 60, 1)))
+    rc, out, err = run_command_with_timeout(
+        run_command,
+        ["adb", "-s", device, "push", apk, remote_apk],
+        timeout=install_timeout,
+        get_bin_path_fn=module.get_bin_path,
+    )
+    if rc != 0:
+        sys.stderr.write("🟢📱🟢 FREE — %s — detached install aborted\n" % device)
+        module.fail_json(msg="detached install: adb push failed (rc=%d): %s" % (rc, normalize_adb_output(out + err)))
+
+    script = detached_script(package, user, module.params["installer"], module.params["extra_args"], verifier_before)
+    # The connection may drop the moment the script's pm install replaces the
+    # app, so a non-zero rc here is not proof that the script never started.
+    start_rc, _out, start_err = adb_shell(run_command, device, script)
+    if start_rc != 0:
+        module.warn(
+            "detached install: starting the script returned rc=%d (%s); polling anyway" % (start_rc, start_err.strip())
+        )
+
+    deadline = _now() + timeout
+    log = None
+    while True:
+        if ":" in device:
+            adb_connect(run_command, device, timeout=DETACHED_PROBE_TIMEOUT)
+        rc, out, _err = adb_shell(run_command, device, "cat %s" % remote_log, timeout=DETACHED_PROBE_TIMEOUT)
+        if rc == 0 and DETACHED_DONE_RE.search(normalize_adb_output(out)):
+            log = normalize_adb_output(out)
+            break
+        if _now() >= deadline:
+            break
+        _sleep(DETACHED_POLL_SECONDS)
+    sys.stderr.write("🟢📱🟢 FREE — %s — detached install finished\n" % device)
+
+    if log is None:
+        module.fail_json(
+            msg="detached install: device did not come back within %d s; the install may still have completed: "
+            "check versionName (script start rc=%d)" % (timeout, start_rc)
+        )
+
+    pm_rc = int(DETACHED_DONE_RE.search(log).group(1))
+    ok, reason = parse_install_result(DETACHED_DONE_RE.sub("", log))
+    adb_shell(run_command, device, "rm -f %s" % remote_log)
+    if pm_rc != 0 or not ok:
+        fail_install(module, package, reason)
+
+    after = read_verifier_settings(run_command, device)
+    if after != verifier_before:
+        module.warn(
+            "detached install: verifier settings %s differ from before (%s); restoring" % (after, verifier_before)
+        )
+        write_verifier_settings(run_command, device, verifier_before)
+
+    expected = module.params["version_name"]
+    if expected:
+        current = None
+        for attempt in range(DETACHED_VERSION_ATTEMPTS):
+            current = installed_version(run_command, device, package)
+            if current is not None:
+                break
+            _sleep(DETACHED_POLL_SECONDS)
+        if current != expected:
+            module.fail_json(
+                msg="detached install reported Success but %s is at versionName %r, not %r"
+                % (package, current, expected)
+            )
+    return reason
+
+
+def fail_install(module, package, reason):
+    if "INSTALL_FAILED_VERSION_DOWNGRADE" in reason:
+        module.fail_json(
+            msg="adb install failed: %s: the device has a newer %s than the pinned APK; "
+            "not uninstalling it (that would lose its data). Update the pin, or downgrade by hand." % (reason, package)
+        )
+    module.fail_json(msg="adb install failed: %s" % reason)
 
 
 def installed_version(run_command, device, package):
@@ -429,6 +593,8 @@ def main():
             keystore_pass=dict(type="str", default="android", no_log=True),
             key_alias=dict(type="str", default="androiddebugkey"),
             install_timeout=dict(type="int", default=180),
+            detached_install=dict(type="bool", default=False),
+            detached_timeout=dict(type="int", default=300),
         ),
         required_one_of=[["apk_path", "url", "gh_repo"]],
         mutually_exclusive=[["apk_path", "url", "gh_repo"]],
@@ -437,6 +603,11 @@ def main():
 
     device = module.params["device"]
     package = module.params["package"]
+
+    if module.params["detached_install"]:
+        for option in ("clean", "work_profile"):
+            if module.params[option]:
+                module.fail_json(msg="detached_install cannot be combined with %s" % option)
 
     if module.params["connect"] and not module.check_mode:
         adb_connect(module.run_command, device)
@@ -491,6 +662,10 @@ def main():
     # here instead of quietly reintroducing the hang risk.
     module.get_bin_path("timeout", required=True)
     install_timeout = module.params["install_timeout"]
+
+    if module.params["detached_install"]:
+        reason = install_detached(module, device, package, apk, user, install_timeout)
+        module.exit_json(changed=True, reason=reason)
 
     # Clean reinstall: uninstall before install so the installer re-extracts
     # native libs. Fire OS 8 does not re-extract libs on an in-place upgrade
@@ -569,13 +744,7 @@ def main():
             % install_timeout
         )
     if rc != 0 or not ok:
-        if "INSTALL_FAILED_VERSION_DOWNGRADE" in reason:
-            module.fail_json(
-                msg="adb install failed: %s: the device has a newer %s than the pinned APK; "
-                "not uninstalling it (that would lose its data). Update the pin, or downgrade by hand."
-                % (reason, package)
-            )
-        module.fail_json(msg="adb install failed: %s" % reason)
+        fail_install(module, package, reason)
 
     if module.params["work_profile"]:
         wp_cmd = [
