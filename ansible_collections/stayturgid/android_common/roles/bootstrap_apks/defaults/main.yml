@@ -144,9 +144,10 @@ stayturgid_bootstrap_apks:
 
   - id: com.tailscale.ipn
     gh_repo: tailscale/tailscale-android
-    gh_tag: "1.102.4-t3caf7d9e7-g8fbef364a"
-    gh_pattern: tailscale-android-universal-1.102.4.apk
-    # Installed versionName's trailing g-commit differs from the release tag
-    # (build vs tag commit) — version_name below is what aapt/dumpsys report.
-    version_name: "1.102.4-t3caf7d9e7-g1b32d3caa"
-    checksum: "sha256:7ecfb863e08f5fbd1ecd70235d8c34ba135a4124bdd8e166b9d6fb962782e0b5"
+    gh_tag: "1.104.1-t7f4efe814-g6d75bd403"
+    gh_pattern: tailscale-android-universal-1.104.1.apk
+    # version_name is what aapt/dumpsys report; for 1.102.4 its trailing
+    # g-commit differed from the release tag (build vs tag commit), for 1.104.1
+    # they match. Same signer and versionCode as the Play Store build.
+    version_name: "1.104.1-t7f4efe814-g6d75bd403"
+    checksum: "sha256:b3a1a81b52d1437769e5570c89a95f5824518a6b376d10c39eb64af213a625b6"
