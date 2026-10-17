@@ -186,6 +186,15 @@ def ensure_openssh(run_command, device, check_mode=False, termux_sshd=TERMUX_SSH
     return True
 
 
+INVERSION_KEY = "accessibility_display_inversion_enabled"
+
+
+def inversion_state(run_command, device):
+    """The secure setting as text ("1", "0", "null"), or '' if it cannot be read."""
+    rc, out, _err = adb_cmd(run_command, device, "shell", "settings", "get", "secure", INVERSION_KEY)
+    return (out or "").strip() if rc == 0 else ""
+
+
 def sshd_domain(run_command, device):
     """SELinux domain of the running sshd ('' if none / unknown)."""
     rc, out, _err = adb_cmd(run_command, device, "shell", "ps", "-A", "-Z")
@@ -204,11 +213,23 @@ def start_sshd_from_app(run_command, device, termux_pkg=TERMUX_PKG, attempts=10)
     sshd started via run-as lives in runas_app, which has no /sdcard mount, so
     every SSH session through it fails on shared storage (#306). Type ``sshd``
     into the app's own terminal instead. Needs an unlocked screen.
+
+    Typing is screen control, so the display is inverted while it happens (the
+    visible "agent has the glass" signal, docs/rules/screen-control-hold.md),
+    and nothing is typed unless inversion is confirmed on.
     """
-    adb_cmd(run_command, device, "shell", "am", "start", "-n", TERMUX_ACTIVITY)
-    time.sleep(2)
-    adb_cmd(run_command, device, "shell", "input", "text", "sshd")
-    adb_cmd(run_command, device, "shell", "input", "keyevent", "66")
+    before = inversion_state(run_command, device)
+    adb_cmd(run_command, device, "shell", "settings", "put", "secure", INVERSION_KEY, "1")
+    try:
+        if inversion_state(run_command, device) != "1":
+            raise RuntimeError("refusing to type sshd into Termux: display inversion did not turn on")
+        adb_cmd(run_command, device, "shell", "am", "start", "-n", TERMUX_ACTIVITY)
+        time.sleep(2)
+        adb_cmd(run_command, device, "shell", "input", "text", "sshd")
+        adb_cmd(run_command, device, "shell", "input", "keyevent", "66")
+    finally:
+        if before != "1":
+            adb_cmd(run_command, device, "shell", "settings", "put", "secure", INVERSION_KEY, before or "0")
     for _ in range(attempts):
         time.sleep(1)
         if sshd_domain(run_command, device):

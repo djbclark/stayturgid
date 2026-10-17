@@ -139,3 +139,42 @@ def test_termux_ssh_bootstrap_idempotent_when_present(mocker, tmp_path):
     # the Termux app's terminal, and no pkill of the existing one.
     assert not [c for c in calls if "input text sshd" in c]
     assert not [c for c in calls if "pkill -x sshd" in c]
+
+
+def fake_adb(inversion_after_put):
+    """run_command stand-in tracking the inversion setting; sshd shows up once typed."""
+    state = {"inv": "0", "typed": False}
+    calls = []
+
+    def run(cmd):
+        joined = " ".join(cmd)
+        calls.append(joined)
+        if "settings put secure " + tr.INVERSION_KEY in joined:
+            state["inv"] = cmd[-1] if cmd[-1] != "1" else inversion_after_put
+        elif "settings get secure " + tr.INVERSION_KEY in joined:
+            return (0, state["inv"] + "\n", "")
+        elif "input text sshd" in joined:
+            state["typed"] = state["inv"] == "1"
+        elif "ps -A -Z" in joined and state["typed"]:
+            return (0, "u:r:untrusted_app:s0 u0_a601 4321 1 sshd\n", "")
+        return (0, "", "")
+
+    return run, state, calls
+
+
+def test_start_sshd_from_app_types_only_while_inverted(mocker):
+    mocker.patch.object(tr.time, "sleep")
+    run, state, calls = fake_adb(inversion_after_put="1")
+    assert tr.start_sshd_from_app(run, "dev") is True
+    assert state["typed"] is True
+    assert state["inv"] == "0"  # restored to what it was
+    typed = next(i for i, c in enumerate(calls) if "input text sshd" in c)
+    assert any("settings put secure %s 1" % tr.INVERSION_KEY in c for c in calls[:typed])
+
+
+def test_start_sshd_from_app_refuses_without_inversion(mocker):
+    mocker.patch.object(tr.time, "sleep")
+    run, state, calls = fake_adb(inversion_after_put="0")
+    with pytest.raises(RuntimeError, match="display inversion"):
+        tr.start_sshd_from_app(run, "dev")
+    assert not [c for c in calls if " input " in c]
