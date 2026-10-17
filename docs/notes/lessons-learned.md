@@ -151,8 +151,9 @@ by the repo's tools alone. Hit in order on t2e:
    interpreter ... not found"; nothing installs it. Pin the mirror, then
    `apt-get -y -o Dpkg::Options::=--force-confold install python rsync`
    (plain `pkg install` stops at an `openssl.cnf` conffile prompt).
-4. **The first run fails at the `restart boot loop` handler** (otelcol tasks flush
-   it before `start-adb.sh` is deployed). Rerun; the second pass proceeds.
+4. **The first run failed at the `restart boot loop` handler** (otelcol tasks flush
+   it before `start-adb.sh` is deployed). Fixed 2026-10-17: the handler skips
+   until the script exists and the boot-script deploy notifies it again.
 5. **`sv hup sshd` fails until runit is up.** Run `~/.termux/boot/00-start-services.sh`,
    then kill the bare `sshd` that `bootstrap_ssh.py` started so the runit one
    takes port 8022.
@@ -161,12 +162,12 @@ by the repo's tools alone. Hit in order on t2e:
 7. **Termux's new adb key is `unauthorized`** until the human taps "Always allow"
    on the system "Allow USB debugging?" dialog (see the Fire OS note above).
    Until then `just health` reports `shell5555_down` for the host.
-8. **No shared-storage access on the new Termux.** `deploy-termux` fails at
-   "Ensure shared-storage stayturgid directory tree" (`/sdcard` mkdir
-   "Permission denied"). Before it, run
-   `pm grant com.termux android.permission.READ_EXTERNAL_STORAGE`, the same for
-   `WRITE_EXTERNAL_STORAGE`, and `appops set com.termux MANAGE_EXTERNAL_STORAGE allow`
-   (found 2026-10-17, s24; `fleet_app_profiles.json` has no `com.termux` entry).
+8. **No shared-storage access on the new Termux** (found 2026-10-17, s24;
+   `fleet_app_profiles.json` has no `com.termux` entry): `/sdcard` mkdir failed
+   with "Permission denied". Automated 2026-10-17: the first play of
+   `termux-userland.yml` runs `pm grant` READ/WRITE_EXTERNAL_STORAGE and
+   `appops set com.termux MANAGE_EXTERNAL_STORAGE allow` over the control node's
+   adb before SSH, checking the current state first (#320).
 9. **`bootstrap-ssh` needs an unlocked, awake screen**: it types `sshd` into the
    Termux app, and on a keyguard-locked phone it fails with "sshd did not start
    from the Termux app". The first run after a fresh install also fails while
@@ -180,8 +181,15 @@ by the repo's tools alone. Hit in order on t2e:
     agent's staged hunk counts). Never stash theirs; if the change cannot affect a
     device deploy, `STAYTURGID_SKIP_FRESHNESS_CHECK=1` bypasses it.
 
-Tooling to fix: steps 3-6 and 8 belong in `bootstrap_ssh.py` / the `termux_userland`
-role.
+Tooling to fix: steps 3-6 belong in `bootstrap_ssh.py` / the `termux_userland`
+role (steps 4 and 8 are done).
+
+**Deploy transfers are slow over the Tailscale address (measured 2026-10-17, s24).**
+`ansible_host` is the 100.x Tailscale IP: 20 MB of random data took 32.5 s there
+(0.6 MB/s) and 0.73 s (27 MB/s) to the LAN IP, although `tailscale status` shows
+the path as direct. Anything that moves bytes (the 97 MB otelcol archive: 105 s for
+transfer plus unpack) is bound by that, so a deploy from the home network should
+prefer `device_lan_ip` when it answers. Not done yet.
 
 Why the packages vanished again: not found 2026-10-17. On s24 and t2e, `pm list
 packages -u` showed no `com.termux` or `org.stayturgid.agent` (data gone too),
