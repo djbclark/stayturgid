@@ -77,6 +77,7 @@ REPAIR_HEAL_COOLDOWN_SEC = 30 * 60
 REPAIR_HEAL_AFTER = 2
 DEBUGGING_DIALOG_STATE_DIR = os.path.join(ROOT, "state", "debugging-dialog-notify")
 DEBUGGING_DIALOG_NOTIFY_COOLDOWN_SEC = 30 * 60
+APP_COMPAT_DIALOG_STATE_DIR = os.path.join(ROOT, "state", "app-compat-dialog-notify")
 # The divergence alert repeats every run while it lasts; one Telegram notice per 6 h is enough.
 DIVERGENCE_STATE_DIR = os.path.join(ROOT, "state", "divergence-notify")
 DIVERGENCE_NOTIFY_COOLDOWN_SEC = 6 * 60 * 60
@@ -805,7 +806,22 @@ def check_device(name: str, ts_ip: str, lan_ip: str) -> None:
                         sound="Basso",
                     )
                     _touch_heal_dir(name, DEBUGGING_DIALOG_STATE_DIR)
-            adb_cli.dismiss_app_compatibility_dialog(target)
+            if adb_cli.app_compatibility_dialog_present(target):
+                dismissed = adb_cli.dismiss_app_compatibility_dialog(target)
+                _fleet_log(INFO, "%s: App Compatibility (16 KB) dialog, dismissed=%s" % (name, dismissed))
+                if _heal_cooldown_ok_dir(name, APP_COMPAT_DIALOG_STATE_DIR, DEBUGGING_DIALOG_NOTIFY_COOLDOWN_SEC):
+                    notify(
+                        "stayturgid: App Compatibility dialog",
+                        "%s: 16 KB App Compatibility dialog %s."
+                        % (
+                            name,
+                            "dismissed (OK pressed with the screen inverted)"
+                            if dismissed
+                            else "is waiting for a human tap (OK)",
+                        ),
+                        sound="Basso",
+                    )
+                    _touch_heal_dir(name, APP_COMPAT_DIALOG_STATE_DIR)
         except Exception as e:
             _fleet_log(WARNING, "%s: debugging-dialog check failed: %s" % (name, e))
     path, report = fh.probe_device(name, ts_ip, lan_ip)

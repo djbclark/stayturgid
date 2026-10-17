@@ -128,27 +128,46 @@ def debugging_dialog_present(serial: str) -> bool:
     return "UsbDebuggingActivity" in text or "WifiDebuggingActivity" in text
 
 
-def dismiss_app_compatibility_dialog(serial: str) -> bool:
-    """Dismiss the 'Android App Compatibility' 16 KB alignment dialog.
+INVERSION_KEY = "accessibility_display_inversion_enabled"
+
+
+def _inversion_state(serial: str) -> str:
+    result = adb(serial, "shell", "settings", "get", "secure", INVERSION_KEY, check=False)
+    return (result.stdout or "").strip() if result.returncode == 0 else ""
+
+
+def app_compatibility_dialog_present(serial: str) -> bool:
+    """Detect the 'Android App Compatibility' 16 KB alignment dialog.
 
     Android 16 shows this for debuggable apps with unaligned native libraries.
-    The dialog has [OK] and [Don't Show Again] buttons. Returns True if found
-    and dismissed.
     """
     text = _dump_activities(serial)
-    if "AppCompatibility" not in text and "16 KB" not in text:
-        return False
+    return "AppCompatibility" in text or "16 KB" in text
 
-    # Tap OK (default focused) to dismiss. ENTER clicks the focused button.
-    run(["adb", "-s", serial, "shell", "input", "keyevent", "KEYCODE_ENTER"], check=False)
-    time.sleep(0.3)
-    # Verify it's gone.
-    check = run(
-        ["adb", "-s", serial, "shell", "dumpsys", "activity", "activities"],
-        check=False,
-    )
-    check_text = (check.stdout or "") + (check.stderr or "")
-    if "AppCompatibility" not in check_text and "16 KB" not in check_text:
+
+def dismiss_app_compatibility_dialog(serial: str) -> bool:
+    """Press OK on the 16 KB alignment dialog, with the display inverted.
+
+    Pressing a key is screen control, so the display is inverted around it (the
+    visible "agent has the glass" signal, docs/rules/screen-control-hold.md) and
+    nothing is pressed unless inversion reads back on. Returns True if the
+    dialog was dismissed; the caller notifies a human either way.
+    """
+    if not app_compatibility_dialog_present(serial):
+        return False
+    before = _inversion_state(serial)
+    adb(serial, "shell", "settings", "put", "secure", INVERSION_KEY, "1", check=False)
+    try:
+        if _inversion_state(serial) != "1":
+            print("Not pressing OK on %s: display inversion did not turn on." % serial)
+            return False
+        # Tap OK (default focused) to dismiss. ENTER clicks the focused button.
+        adb(serial, "shell", "input", "keyevent", "KEYCODE_ENTER", check=False)
+        time.sleep(0.3)
+    finally:
+        if before != "1":
+            adb(serial, "shell", "settings", "put", "secure", INVERSION_KEY, before or "0", check=False)
+    if not app_compatibility_dialog_present(serial):
         print("Dismissed App Compatibility (16 KB) dialog on %s." % serial)
         return True
     return False
