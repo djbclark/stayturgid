@@ -6,6 +6,44 @@
 #   ansible-playbook -i ansible/inventory/hosts.yml ansible/playbooks/fleet/termux-userland.yml --limit oneui-device
 #
 # Requires: SSH to Termux on port 8022 (Tailscale or USB forward).
+# A fresh Termux has no shared-storage access, and the role's /sdcard tasks fail
+# with "Permission denied" until it does (found 2026-10-17, s24 and t2e). These
+# are the grants the operator ran by hand over adb: pm grant READ/WRITE_EXTERNAL_STORAGE
+# and appops MANAGE_EXTERNAL_STORAGE allow. They go through the control node's adb
+# before the first SSH connection to the device, android_appops checks the current
+# state first (no change when already granted), and a skipped Termux (not installed)
+# or an unreachable adb never fails the deploy: the /sdcard task then names the cause.
+- name: Termux shared-storage access (control-node adb, before SSH)
+  hosts: stayturgid
+  gather_facts: false
+  tags: [storage]
+  tasks:
+    - name: Ensure Termux has shared-storage access
+      block:
+        - name: Grant Termux shared-storage permissions when missing
+          stayturgid.android_common.android_appops:
+            device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+            connect: true
+            appops:
+              - package: com.termux
+                op: MANAGE_EXTERNAL_STORAGE
+                mode: allow
+            permissions:
+              - package: com.termux
+                permission: android.permission.READ_EXTERNAL_STORAGE
+              - package: com.termux
+                permission: android.permission.WRITE_EXTERNAL_STORAGE
+          delegate_to: localhost
+      rescue:
+        - name: Report that the shared-storage grant could not run
+          ansible.builtin.debug:
+            msg: >-
+              Could not grant Termux shared-storage access on {{ inventory_hostname }}
+              through the control node's adb ({{ ansible_failed_result.msg | default('unknown error') }}).
+              If the deploy then fails creating /sdcard/stayturgid, run
+              pm grant com.termux android.permission.READ_EXTERNAL_STORAGE and WRITE_EXTERNAL_STORAGE,
+              then appops set com.termux MANAGE_EXTERNAL_STORAGE allow.
+
 - name: stayturgid Termux userland
   hosts: stayturgid
   gather_facts: false
