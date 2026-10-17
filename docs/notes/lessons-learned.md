@@ -154,9 +154,12 @@ by the repo's tools alone. Hit in order on t2e:
 4. **The first run failed at the `restart boot loop` handler** (otelcol tasks flush
    it before `start-adb.sh` is deployed). Fixed 2026-10-17: the handler skips
    until the script exists and the boot-script deploy notifies it again.
-5. **`sv hup sshd` fails until runit is up.** Run `~/.termux/boot/00-start-services.sh`,
-   then kill the bare `sshd` that `bootstrap_ssh.py` started so the runit one
-   takes port 8022.
+5. **`sv hup sshd` fails until runit is up.** Automated 2026-10-17
+   (`termux_userland/tasks/runit_sshd.yml`): when `sv status sshd` fails the deploy
+   runs `~/.termux/boot/00-start-services.sh` (one runsvdir), retires the bare
+   `sshd` that `bootstrap_ssh.py` started (detached, only the listener whose parent
+   is not runsv) and verifies runit owns port 8022; live-tested on t2e. A
+   supervised device is untouched.
 6. **A second `runsvdir` can appear** and spawn dead `runsv` children forever;
    kill the newer one by PID.
 7. **Termux's new adb key is `unauthorized`** until the human taps "Always allow"
