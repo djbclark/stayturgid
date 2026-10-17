@@ -14,7 +14,9 @@ if str(REPO_ROOT / "control" / "lib") not in sys.path:
 
 import stayturgid_device as dev
 
-SSH_OPTS = ["-o", "BatchMode=yes", "-o", "LogLevel=ERROR"]
+# IdentityAgent=none + IdentitiesOnly=yes: never reach the 1Password agent (Touch ID prompt
+# for unrelated keys, e.g. vps-primary, t2e 2026-10-17); bare-IP/localhost targets match no Host block.
+SSH_OPTS = ["-o", "BatchMode=yes", "-o", "LogLevel=ERROR", "-o", "IdentityAgent=none", "-o", "IdentitiesOnly=yes"]
 
 _SDCARD_DEFAULT = "/sdcard"
 

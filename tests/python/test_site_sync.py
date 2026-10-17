@@ -47,6 +47,7 @@ MANAGED_PATHS = {
     "generated/stayturgid/inventory/group_vars/vendor_amazon.yml",
     "generated/stayturgid/inventory/group_vars/vendor_google.yml",
     "generated/stayturgid/inventory/group_vars/vendor_samsung.yml",
+    "generated/stayturgid/inventory/group_vars/stayturgid.yml",
 }
 LOCKFILE = "generated/stayturgid/.lockfile.yml"
 

@@ -25,7 +25,13 @@ ADB_TIMEOUT_S = 30
 # `pkg install openssh` runs through _run_command and can take minutes.
 BOOTSTRAP_CMD_TIMEOUT_S = 900
 
+# IdentityAgent=none + IdentitiesOnly=yes: never reach the 1Password agent (Touch ID prompt
+# for unrelated keys, e.g. vps-primary, t2e 2026-10-17); bare-IP/localhost targets match no Host block.
 SSH_OPTS = [
+    "-o",
+    "IdentityAgent=none",
+    "-o",
+    "IdentitiesOnly=yes",
     "-o",
     "BatchMode=yes",
     "-o",

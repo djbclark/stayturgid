@@ -15,7 +15,20 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 PLAYBOOK = REPO_ROOT / "ansible" / "playbooks" / "fleet" / "termux-userland.yml"
 REQUIREMENTS = REPO_ROOT / "ansible" / "requirements.yml"
-SSH_OPTS = ["-o", "BatchMode=yes", "-o", "ConnectTimeout=8", "-o", "LogLevel=ERROR"]
+# IdentityAgent=none + IdentitiesOnly=yes: never reach the 1Password agent (Touch ID prompt
+# for unrelated keys, e.g. vps-primary, t2e 2026-10-17); bare-IP/localhost targets match no Host block.
+SSH_OPTS = [
+    "-o",
+    "BatchMode=yes",
+    "-o",
+    "ConnectTimeout=8",
+    "-o",
+    "LogLevel=ERROR",
+    "-o",
+    "IdentityAgent=none",
+    "-o",
+    "IdentitiesOnly=yes",
+]
 
 sys.path.insert(0, str(REPO_ROOT / "control" / "lib"))
 import adb_cli as ac

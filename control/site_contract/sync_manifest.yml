@@ -57,3 +57,5 @@ files:
     template: inventory/group_vars/vendor_google.yml.j2
   - path: generated/stayturgid/inventory/group_vars/vendor_samsung.yml
     template: inventory/group_vars/vendor_samsung.yml.j2
+  - path: generated/stayturgid/inventory/group_vars/stayturgid.yml
+    template: inventory/group_vars/stayturgid.yml.j2

@@ -20,7 +20,9 @@ DEVICES_CONF = os.environ.get(
     "STAYTURGID_DEVICES_CONF",
     os.path.join(os.path.expanduser("~"), ".config", "stayturgid", "devices.conf"),
 )
-SSH_OPTS = ["-o", "BatchMode=yes", "-o", "LogLevel=ERROR"]
+# IdentityAgent=none + IdentitiesOnly=yes: never reach the 1Password agent (Touch ID prompt
+# for unrelated keys, e.g. vps-primary, t2e 2026-10-17); bare-IP/localhost targets match no Host block.
+SSH_OPTS = ["-o", "BatchMode=yes", "-o", "LogLevel=ERROR", "-o", "IdentityAgent=none", "-o", "IdentitiesOnly=yes"]
 
 # Cached absolute adb path — launchd agents often have no Homebrew on PATH.
 _ADB_BIN: str | None = None

@@ -1,0 +1,12 @@
+---
+# Every stayturgid device (Termux sshd, key-only) is reached with the
+# passphrase-less fleet key and nothing else. ansible_host is a bare IP, which
+# matches no `Host <alias>` block in ~/.ssh/config, so without these options
+# ssh falls through to a global `Host *` IdentityAgent (the 1Password agent)
+# and offers every key in it, raising a Touch ID prompt for keys unrelated to
+# the device (t2e deploy, 2026-10-17: the vps-primary key).
+# IdentityAgent=none + IdentitiesOnly=yes: only `ansible_ssh_private_key_file`
+# (the inventory's termux_key) is ever offered. Command-line -o options beat
+# ssh_config, so this holds on any control node. Also applies to the rsync
+# that ansible.posix.synchronize runs over this connection.
+ansible_ssh_common_args: "-o IdentityAgent=none -o IdentitiesOnly=yes"

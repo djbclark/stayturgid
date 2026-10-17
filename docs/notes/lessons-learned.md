@@ -95,6 +95,19 @@ blocks must sit ABOVE `Host *` (first-match wins) and set
 Never route the phones through the 1Password agent — other hosts (github,
 etc.) can keep using it.
 
+**The bare IP is not the alias (2026-10-17).** Ansible, rsync and
+`bootstrap_ssh.py` connect to `ansible_host` (an IP) or `localhost` (the adb
+forward), which match no `Host <alias>` block, so ssh fell through to
+`Host *` and the 1Password agent offered every key in it. On the t2e deploy
+that raised a Touch ID prompt for the vps-primary (Hetzner) key. Three
+layers now prevent it: (1) the generated `~/.ssh/config.d/stayturgid` blocks
+are `Host <alias> <ansible_host>` and name only `termux_key` (passphrase-less),
+re-rendered alone with the `ssh-config` tag of `agents.yml`; (2)
+`group_vars/stayturgid.yml` sets `ansible_ssh_common_args: -o IdentityAgent=none
+-o IdentitiesOnly=yes` for every device; (3) every Python `SSH_OPTS` carries the
+same two options. `tests/python/test_ssh_identity_pin.py` guards all three.
+A step that truly needs a Touch ID key must stop and ask, never trigger it.
+
 Termux sshd authenticates by key and ignores the login username. Device
 `authorized_keys` needs the matching public key; if `run-as` is blocked
 (non-debuggable Termux), deploy via `/sdcard` +

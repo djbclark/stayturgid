@@ -71,6 +71,7 @@
     stayturgid_live_lan_ips: >-
       {{ (lookup('ansible.builtin.file', conf_dir ~ '/state/lan_ips.json', errors='ignore') or '{}') | from_json }}
   run_once: true
+  tags: [ssh-config]
 
 - name: Render devices.conf from inventory (alias usb_serial tailscale_ip lan_ip)
   ansible.builtin.template:
@@ -86,30 +87,29 @@
     dest: "{{ conf_dir }}/cfengine/cf-runagent.cf"
     mode: "0644"
 
-- name: Resolve Mac SSH identity files from control-node keyring
+# Pinned to the one passphrase-less fleet key. The device blocks used to list
+# every id_* key in the keyring, which let ssh try keys behind a Touch ID /
+# passphrase prompt (t2e deploy, 2026-10-17). A missing termux_key yields an
+# empty list, so ssh fails closed instead of falling back to other keys.
+- name: Resolve Mac SSH identity file (passphrase-less fleet key only)
   ansible.builtin.set_fact:
     stayturgid_ssh_identity_files: >-
-      {{
-        (
-          query('fileglob', stayturgid_ssh_keys_dir ~ '/id_*')
-          | reject('search', '\\.pub$')
-          | list
-          + query('fileglob', stayturgid_ssh_keys_dir ~ '/termux_key')
-          | list
-        ) | unique | sort
-      }}
+      {{ query('fileglob', stayturgid_ssh_keys_dir ~ '/termux_key') | list }}
+  tags: [ssh-config]
 
 - name: Ensure ssh config.d directory exists
   ansible.builtin.file:
     path: "{{ ssh_config_dir }}/config.d"
     state: directory
     mode: "0700"
+  tags: [ssh-config]
 
-- name: Render fleet SSH config fragment (all identities, all hosts)
+- name: Render fleet SSH config fragment (pinned identity, all hosts)
   ansible.builtin.template:
     src: ssh_config_stayturgid.j2
     dest: "{{ ssh_config_fragment }}"
     mode: "0600"
+  tags: [ssh-config]
 
 - name: Ensure main ssh config includes stayturgid fragment
   ansible.builtin.lineinfile:
@@ -119,6 +119,7 @@
     line: "Include ~/.ssh/config.d/stayturgid"
     insertbefore: BOF
     regexp: '^Include ~/.ssh/config\.d/stayturgid\s*$'
+  tags: [ssh-config]
 
 - name: Scan fleet SSH host keys from Mac
   ansible.builtin.command:
