@@ -33,7 +33,7 @@ OUT = pathlib.Path("device/native-agent/app/build/outputs/apk/release")
 PREFIX = "agent-ci-"
 
 
-def call(method, path, body=None, data=None, content_type=None):
+def call(method, path, body=None, data=None, content_type=None, missing_ok=False):
     headers = {"Authorization": f"token {TOKEN}", "Accept": "application/json"}
     if body is not None:
         data = json.dumps(body).encode()
@@ -45,6 +45,8 @@ def call(method, path, body=None, data=None, content_type=None):
         with urllib.request.urlopen(req, timeout=120) as r:  # nosec B310 - https API URL from the runner env
             payload = r.read()
     except urllib.error.HTTPError as e:
+        if missing_ok and e.code == 404:
+            return None
         sys.exit(f"agent_release: {method} {path}: HTTP {e.code}: {e.read().decode()[:500]}")
     return json.loads(payload) if payload.strip() else None
 
@@ -96,6 +98,11 @@ def main():
     sha8 = SHA[:8]
     tag = f"{PREFIX}{version}-{sha8}"
     name = f"stayturgid-agent-{version}-{sha8}-release-unsigned.apk"
+    # A workflow_dispatch rerun of an already released commit has nothing new to publish.
+    existing = call("GET", f"/releases/tags/{urllib.parse.quote(tag, safe='')}", missing_ok=True)
+    if existing:
+        print(f"{tag} already released: {existing['html_url']}")
+        return
     apk = apk_path.read_bytes()
     digest = hashlib.sha256(apk).hexdigest()
     run_url = f"{SERVER}/{REPO}/actions/runs/{os.environ['GITHUB_RUN_NUMBER']}"
