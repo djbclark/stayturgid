@@ -32,8 +32,17 @@
 # loop that had in fact started fine. Requiring new != old also closes a false
 # pass: within the old window the pidfile could still hold the previous pid,
 # whose /proc entry had not yet disappeared.
+# On a fresh Termux the otelcol tasks (the first thing the role does) flush this
+# handler before "Deploy boot scripts" has put start-adb.sh on the device, and
+# the setsid below failed the whole play (found 2026-10-17, s24 and t2e). With no
+# script there is no loop to restart: skip, because "Deploy boot scripts" is
+# changed on that same run and notifies this handler again once the script exists.
 - name: restart boot loop
   ansible.builtin.shell: |
+    if [ ! -x "$HOME/.termux/boot/start-adb.sh" ]; then
+      echo "start-adb.sh not deployed yet; the boot-script deploy will notify this handler again"
+      exit 0
+    fi
     pidf="$HOME/.stayturgid/run/bootloop.pid"
     old="$(cat "$pidf" 2>/dev/null || true)"
     [ -n "$old" ] && kill "$old" 2>/dev/null || true
