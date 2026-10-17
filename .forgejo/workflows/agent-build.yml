@@ -16,7 +16,8 @@ jobs:
   build:
     runs-on: ubuntu
     container:
-      # ci-image-plektra: android-sdk 36, JDK 17, node 18 (for actions/checkout), gcc.
+      # ci-image-plektra: android-sdk 36, JDK 17, node 18 (for actions/checkout), gcc and
+      # /usr/local/lib/portshim.so.
       image: ghcr.io/djbclark/ci-image-plektra@sha256:90a5de59e4a7efaa70b4de6af3221023151a2087cfb2689cecfe18a6a1cf602e
 
     steps:
@@ -25,6 +26,12 @@ jobs:
 
       - name: Workspace and Gradle home on an ext4 loop image
         run: bash .forgejo/scripts/fast-disk.sh
+
+      - name: Loopback shim
+        # Gradle's client reaches its daemon over loopback, and a port-0 listener is unreachable
+        # under libkrun TSI (libkrun#818): without the shim, run 1 failed with "Could not connect
+        # to the Gradle daemon". --no-daemon does not help (it still forks a single-use daemon).
+        run: echo /usr/local/lib/portshim.so >> /etc/ld.so.preload
 
       - name: Test, detekt and assemble the unsigned release APK
         timeout-minutes: 45
