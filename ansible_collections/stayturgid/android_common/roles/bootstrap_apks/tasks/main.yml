@@ -67,9 +67,14 @@
     loop_var: _locked_apk
   delegate_to: localhost
 
+- name: Report bootstrap APKs held at the installed version on this host
+  ansible.builtin.debug:
+    msg: "Held (not reconciled): {{ stayturgid_bootstrap_apks_hold | default([]) | join(', ') }}"
+  when: stayturgid_bootstrap_apks_hold | default([]) | length > 0
+
 - name: Install each bootstrap APK with version check
   ansible.builtin.include_tasks: install_apk.yml
-  loop: "{{ stayturgid_bootstrap_apks }}"
+  loop: "{{ stayturgid_bootstrap_apks | rejectattr('id', 'in', stayturgid_bootstrap_apks_hold | default([])) | list }}"
   loop_control:
     label: "{{ _apk.id }}"
     loop_var: _apk

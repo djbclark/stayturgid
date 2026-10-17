@@ -22,7 +22,7 @@
 
     - name: Check each bootstrap APK version
       ansible.builtin.include_tasks: ../../../ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/check_apk.yml
-      loop: "{{ stayturgid_bootstrap_apks }}"
+      loop: "{{ stayturgid_bootstrap_apks | rejectattr('id', 'in', stayturgid_bootstrap_apks_hold | default([])) | list }}"
       loop_control:
         label: "{{ _apk.id }}"
         loop_var: _apk

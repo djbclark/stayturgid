@@ -30,6 +30,15 @@
 #   stayturgid_bootstrap_apks
 
 stayturgid_bootstrap_apks_force: false
+
+# Package ids a host keeps at whatever it has installed, skipping the lock: a
+# device running a newer test build than the fleet pin (the install would fail
+# with INSTALL_FAILED_VERSION_DOWNGRADE, and uninstalling loses its data). Set
+# per host in inventory with the reason; remove once the pin catches up.
+# Deliberately not defined here: verify-bootstrap-apks.yml loads this file with
+# include_vars, which would override the inventory value. Read it with
+# `| default([])`.
+# stayturgid_bootstrap_apks_hold: [moe.shizuku.privileged.api]
 stayturgid_native_agent_package: org.stayturgid.agent
 stayturgid_native_agent_peer_targets: null
 stayturgid_native_agent_shizuku_package: moe.shizuku.privileged.api
