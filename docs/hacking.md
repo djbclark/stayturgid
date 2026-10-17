@@ -261,8 +261,11 @@ conditional bootstrap instead of the full `bootstrap` tag.
   `ansible.posix.authorized_key`. Every device also gets every peer's sshd host
   key in `~/.ssh/known_hosts` via `ansible.builtin.known_hosts` (aliases:
   inventory name, Tailscale IP, LAN IP).
-- **Private keys:** matching `id_*` (without `.pub`) and `termux_key` are copied
-  from the Mac to each device's `~/.ssh/`. Keys are never committed to git.
+- **Private keys:** only the names in `stayturgid_ssh_private_key_names` (default
+  `termux_key`) are copied from the Mac to each device's `~/.ssh/`, in one rsync.
+  The old `id_*` glob also shipped personal keys (MIT, GitHub, OpenAFS Gerrit) to
+  every phone; the role now removes those from devices by name
+  (`stayturgid_ssh_retired_private_key_names`). Keys are never committed to git.
 - **Mac client:** `ansible/playbooks/control_node/agents.yml` renders `~/.ssh/config.d/stayturgid`
   and trusts each fleet host's sshd key in `~/.ssh/known_hosts`.
 

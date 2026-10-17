@@ -446,7 +446,7 @@ Ordered by impact for “minimal effort” on Debian/Ubuntu.
 flowchart TB
   subgraph control [Control node]
     CN_PUB["All ~/.ssh/*.pub"]
-    CN_PRIV["id_* + termux_key privates copied to every device"]
+    CN_PRIV["termux_key (explicit allowlist) copied to every device"]
     ADBKEY["~/.config/stayturgid/adbkey"]
     CN_SSH["SSH client fragment + known_hosts"]
   end
@@ -468,9 +468,11 @@ flowchart TB
    ([ssh_keys.yml](../../ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ssh_keys.yml)).
 2. **Device → device:** Per-host `id_ed25519_fleet` pubkey installed on all peers in
    `groups[stayturgid_ssh_mesh_group]` (default `stayturgid`).
-3. **Private keys on devices:** All control-node private keys (`id_*`, `termux_key`)
-   copied to **every** device when `stayturgid_ssh_distribute_private_keys: true` —
-   so any device can SSH as the operator to any peer.
+3. **Private keys on devices:** The explicit list `stayturgid_ssh_private_key_names`
+   (default `termux_key`, the passphrase-less fleet key) is copied to **every** device
+   when `stayturgid_ssh_distribute_private_keys: true`. Personal keys (`id_ed25519*`,
+   `id_rsa*`) are never copied (changed 2026-10-17; earlier role versions globbed
+   `id_*`) and are removed from devices by name.
 4. **known_hosts:** Full mesh of sshd host keys (inventory name, Tailscale IP, LAN IP).
 5. **ADB:** Single shared `adbkey-fleet` on all devices for peer ADB help.
 6. **Fire peer-help:** Restricted **second** channel — Fire’s `id_ed25519_peerhelp` may

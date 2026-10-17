@@ -11,18 +11,30 @@
         else (query('fileglob', stayturgid_ssh_keys_dir ~ '/*.pub') | sort | list)
       }}
 
-- name: Resolve fleet SSH private key paths
+# Private keys on the phones are an explicit list, never a glob of the control
+# node's ~/.ssh: that glob once shipped the operator's personal MIT, GitHub and
+# OpenAFS Gerrit keys to every device. Device-side code only ever uses the
+# device's own id_ed25519_fleet / id_ed25519_peerhelp (generated on the device)
+# and the passphrase-less termux_key; see stayturgid_ssh_private_key_names.
+- name: Resolve fleet SSH private key names
   ansible.builtin.set_fact:
-    _stayturgid_ssh_private_key_paths: >-
+    _stayturgid_ssh_private_key_names: >-
       {{
-        (
-          query('fileglob', stayturgid_ssh_keys_dir ~ '/id_*')
-          | reject('search', '\\.pub$')
-          | list
-          + query('fileglob', stayturgid_ssh_keys_dir ~ '/termux_key')
-          | list
-        ) | unique | sort
+        stayturgid_ssh_private_key_names
+        | default([])
+        | select('string')
+        | list
       }}
+  when: stayturgid_ssh_distribute_private_keys | bool
+
+- name: Reject private key names that are not plain file names
+  ansible.builtin.assert:
+    that:
+      - _stayturgid_ssh_private_key_names | reject('match', '^[A-Za-z0-9_][A-Za-z0-9._-]*$') | list | length == 0
+    fail_msg: >-
+      stayturgid_ssh_private_key_names must be plain file names under
+      {{ stayturgid_ssh_keys_dir }}: {{ _stayturgid_ssh_private_key_names }}
+    quiet: true
   when: stayturgid_ssh_distribute_private_keys | bool
 
 - name: Warn when no SSH public keys were found on the control node
@@ -209,35 +221,105 @@
     - stayturgid_ssh_mesh_device_identity | bool
     - _stayturgid_mesh_pubkeys | default([]) | length > 0
 
+# One rsync connection for the whole list (the old per-key `copy` loop plus a
+# stat loop cost 20-30 s and 6-14 s per run on an idempotent s24). The include
+# list is the allowlist; `--exclude=*` keeps everything else in ~/.ssh on the
+# Mac out of the transfer. Missing source files are skipped by rsync and caught
+# by the verify task below.
 - name: Install fleet SSH private keys on device
-  ansible.builtin.copy:
-    src: "{{ item }}"
-    dest: "{{ termux_home }}/.ssh/{{ item | basename }}"
-    mode: "0600"
-  loop: "{{ _stayturgid_ssh_private_key_paths | default([]) }}"
-  no_log: true
+  ansible.posix.synchronize:
+    src: "{{ stayturgid_ssh_keys_dir }}/"
+    dest: "{{ termux_home }}/.ssh/"
+    perms: true
+    checksum: true
+    recursive: false
+    rsync_opts: >-
+      {{
+        (_stayturgid_ssh_private_key_names | map('regex_replace', '^', '--include=/') | list)
+        + ['--exclude=*']
+      }}
   when:
     - _termux_home_stat.stat.exists
     - stayturgid_ssh_distribute_private_keys | bool
-    - (_stayturgid_ssh_private_key_paths | default([]) | length) > 0
+    - (_stayturgid_ssh_private_key_names | default([]) | length) > 0
 
-- name: Verify fleet SSH private keys exist after copy
-  ansible.builtin.stat:
-    path: "{{ termux_home }}/.ssh/{{ item | basename }}"
-  loop: "{{ _stayturgid_ssh_private_key_paths | default([]) }}"
-  register: _stayturgid_ssh_key_stat
+# One task, not a stat loop: every listed key exists on the device with mode
+# 0600 (rsync carries the control node's mode; sshd and ssh refuse looser keys).
+- name: Verify fleet SSH private keys on device (present, mode 0600)
+  ansible.builtin.shell: |
+    set -u
+    rc=0
+    for key in {{ _stayturgid_ssh_private_key_names | map('quote') | join(' ') }}; do
+      f={{ (termux_home ~ '/.ssh') | quote }}/"$key"
+      if [ ! -f "$f" ]; then echo "missing: $key"; rc=1; continue; fi
+      [ "$(stat -c %a "$f")" = 600 ] || { echo "mode not 0600: $key"; rc=1; }
+    done
+    exit "$rc"
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  register: _stayturgid_ssh_key_verify
+  changed_when: false
+  failed_when: _stayturgid_ssh_key_verify.rc != 0
+  check_mode: false
   when:
     - _termux_home_stat.stat.exists
     - stayturgid_ssh_distribute_private_keys | bool
-    - (_stayturgid_ssh_private_key_paths | default([]) | length) > 0
+    - (_stayturgid_ssh_private_key_names | default([]) | length) > 0
 
-- name: Fail if SSH private key missing after copy
-  ansible.builtin.fail:
-    msg: "SSH private key {{ item.item | basename }} NOT found on {{ inventory_hostname }} after copy"
-  loop: "{{ _stayturgid_ssh_key_stat.results | default([]) }}"
-  when:
-    - item is defined
-    - not (item.stat.exists | default(false))
+# Earlier role versions copied every control-node id_* (and its .pub) to every
+# phone. Remove those copies by name. The device's own identities
+# (id_ed25519_fleet, id_ed25519_peerhelp) and anything generated on the device
+# are never in either list. id_ed25519 is the one name a device user could have
+# generated, so it goes only when its public half equals the control node's.
+# "name=<type> <base64>": the control node's public half of each key that is
+# removed only when the device copy is provably the control node's (a missing
+# or unreadable .pub gives an empty value, which never matches).
+- name: Resolve control-node public halves of the copy-only-if-identical retired keys
+  ansible.builtin.set_fact:
+    _stayturgid_retired_if_copied_pubs: >-
+      {{
+        _stayturgid_retired_if_copied_pubs | default([])
+        + [
+          item ~ '='
+          ~ (
+            lookup('ansible.builtin.file', stayturgid_ssh_keys_dir ~ '/' ~ item ~ '.pub', errors='ignore')
+            | default('', true)
+            | trim
+            | split(' ')
+            | list
+            | batch(2)
+            | first
+            | join(' ')
+          )
+        ]
+      }}
+  loop: "{{ stayturgid_ssh_retired_if_copied_private_key_names }}"
+
+- name: Remove private keys no longer distributed to the device
+  ansible.builtin.shell: |
+    set -u
+    ssh_dir={{ (termux_home ~ '/.ssh') | quote }}
+    for key in {{ stayturgid_ssh_retired_private_key_names | map('quote') | join(' ') }}; do
+      for f in "$ssh_dir/$key" "$ssh_dir/$key.pub"; do
+        if [ -e "$f" ]; then rm -f "$f" && echo "removed: $f"; fi
+      done
+    done
+    # "name=<type> <base64>" pairs: the control-node public half of each key.
+    for pair in {{ _stayturgid_retired_if_copied_pubs | map('quote') | join(' ') }}; do
+      key="${pair%%=*}"
+      want="${pair#*=}"
+      have="$(cut -d' ' -f1,2 "$ssh_dir/$key.pub" 2>/dev/null || true)"
+      if [ -n "$want" ] && [ "$have" = "$want" ]; then
+        for f in "$ssh_dir/$key" "$ssh_dir/$key.pub"; do
+          if [ -e "$f" ]; then rm -f "$f" && echo "removed: $f"; fi
+        done
+      fi
+    done
+  args:
+    executable: "{{ termux_prefix }}/bin/bash"
+  register: _stayturgid_ssh_retired_removal
+  changed_when: "'removed:' in _stayturgid_ssh_retired_removal.stdout"
+  when: _termux_home_stat.stat.exists
 
 - name: Install fleet SSH known_hosts mesh entries
   ansible.builtin.known_hosts:

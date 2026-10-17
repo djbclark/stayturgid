@@ -52,7 +52,10 @@ stayturgid_otelcol_archive_url: >-
 stayturgid_otelcol_archive_sha256: ecf6a917e2b53beb1703b19a84bc4e112a2fcaba549639cf6b0ba58446bfd7d2
 stayturgid_otelcol_cache_dir: >-
   {{ lookup('env', 'HOME') }}/.cache/stayturgid/otelcol-contrib/{{ stayturgid_otelcol_version }}
+stayturgid_otelcol_cached_archive: "{{ stayturgid_otelcol_cache_dir }}/{{ stayturgid_otelcol_archive_name }}"
 stayturgid_otelcol_cached_binary: "{{ stayturgid_otelcol_cache_dir }}/otelcol-contrib"
+# Unpack scratch dir on the device: under the Termux home (never /sdcard), removed after install.
+stayturgid_otelcol_unpack_dir: "{{ termux_home }}/.stayturgid/tmp/otelcol-unpack"
 stayturgid_otelcol_supported_uname_arches:
   - aarch64
   - arm64
@@ -212,12 +215,28 @@ stayturgid_allow_external_apps: true
 
 # Fleet SSH keyring on the Ansible control node (never commit keys to git).
 # By default every *.pub under this directory is installed on every device via
-# ansible.posix.authorized_key; matching private keys (id_* without .pub,
-# termux_key) are copied to each device's ~/.ssh/ for device-to-device SSH.
+# ansible.posix.authorized_key. Private keys are NOT globbed: only the names in
+# stayturgid_ssh_private_key_names are copied to each device's ~/.ssh/ (one
+# rsync). Device-side code uses the device's own id_ed25519_fleet and
+# id_ed25519_peerhelp (generated on the device) plus the passphrase-less
+# termux_key; nothing on a phone uses the operator's personal keys.
 stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
 # Non-empty list overrides auto-discovery (paths on the control node).
 stayturgid_ssh_public_key_files: []
 stayturgid_ssh_distribute_private_keys: true
+stayturgid_ssh_private_key_names:
+  - termux_key
+# Removed from every device (with their .pub) by name. These are what the old
+# `id_*` glob copied from the operator's Mac: personal MIT, GitHub and OpenAFS
+# Gerrit keys. Never list a device's own identity here.
+stayturgid_ssh_retired_private_key_names:
+  - id_ed25519_mit
+  - id_ed25519-djbclark-github
+  - id_rsa_gerrit_openafs
+# Same removal, but only when the device's .pub equals the control node's: a
+# user may have generated their own id_ed25519 in Termux.
+stayturgid_ssh_retired_if_copied_private_key_names:
+  - id_ed25519
 
 # Fleet SSH mesh: per-device ed25519 identity + full known_hosts across the
 # stayturgid inventory group (authorized_key via ansible.posix; known_hosts
