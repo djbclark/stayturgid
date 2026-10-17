@@ -92,6 +92,11 @@ loaded into context every session.
 
 Day to day: `just health`, `just errors`, `just firerpa-health`, `just test`.
 
+**stayturgid-agent is built on Forgejo CI only (2026-10-17):** push `master` to the
+`forgejo` remote, then `just agent-ci-fetch` signs the CI APK on the Mac. Never run
+its Gradle build locally; details in
+[device/native-agent/README.md](device/native-agent/README.md), Build.
+
 **Driving a device from an agent (2026-10-09):** use the `firerpa` MCP server first.
 It is the remote bridge on `100.113.53.87:8000`; never run the local stdio bridge,
 which is too heavy. If it is down or unreachable, fall back to the `maestro` MCP

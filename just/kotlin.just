@@ -43,8 +43,24 @@ kt-detekt-generate-config:
     @echo "Full default config written to {{_agent_dir}}/config/detekt/detekt.yml"
     @echo "(Your custom overrides are merged via buildUponDefaultConfig = true)"
 
-# Run native-agent unit tests.
-kt-test: _kt-sdk
+# stayturgid-agent is built and tested only on Forgejo CI, never on this Mac (djbclark,
+# 2026-10-17): push master to the forgejo remote, then `just agent-ci-fetch`. Formatting and
+# detekt (above) stay local; they are what the pre-commit hooks run.
+_kt-ci-only:
+    #!/usr/bin/env bash
+    if [[ "${STAYTURGID_LOCAL_GRADLE:-0}" != 1 ]]; then
+      echo "stayturgid-agent builds and tests run on Forgejo CI only (forgejo.mit.edu/djbclark/stayturgid)." >&2
+      echo "Push: git-forgejo -C {{ repo }} push forgejo master; then: just agent-ci-fetch" >&2
+      echo "See device/native-agent/README.md, Build." >&2
+      exit 3
+    fi
+
+# Fetch the CI-built APK for HEAD (or SHA) from Forgejo and sign it with the release key.
+agent-ci-fetch sha="":
+    python3 "{{ repo }}/control/tools/native-agent/ci_fetch_sign.py" {{ sha }}
+
+# Run native-agent unit tests (Forgejo CI only; see _kt-ci-only).
+kt-test: _kt-ci-only _kt-sdk
     cd {{_agent_dir}} && JAVA_HOME={{_java_home}} ./gradlew test
 
 # Install the compileSdk platform into the SDK local.properties points at, if
@@ -62,9 +78,9 @@ _kt-sdk:
     fi
 
 # Assemble debug APK.
-kt-build-debug: _kt-sdk
+kt-build-debug: _kt-ci-only _kt-sdk
     cd {{_agent_dir}} && JAVA_HOME={{_java_home}} ./gradlew assembleDebug
 
-# Assemble release APK (signed).
-kt-build-release: _kt-sdk
+# Assemble release APK (signed; Forgejo CI only, see _kt-ci-only and agent-ci-fetch).
+kt-build-release: _kt-ci-only _kt-sdk
     cd {{_agent_dir}} && JAVA_HOME={{_java_home}} ./gradlew assembleRelease

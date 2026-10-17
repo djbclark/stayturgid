@@ -388,7 +388,7 @@ validate-identity-strict:
 # Assemble stayturgid-agent debug APK (device/native-agent).
 # composite=true builds against ~/src/Shizuku/api instead of Maven Central.
 # Prefers Homebrew OpenJDK 21 if present (AGP rejects JDK 25+).
-agent-assemble composite="false":
+agent-assemble composite="false": _kt-ci-only
     #!/usr/bin/env bash
     set -euo pipefail
     cd "{{ repo }}/device/native-agent"

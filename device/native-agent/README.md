@@ -27,7 +27,24 @@ Current status: [docs/STATUS.md](../../docs/STATUS.md).
 
 ## Build
 
-Requires Android SDK (`ANDROID_HOME` or `local.properties` `sdk.dir`) and
+**Built on Forgejo CI only, never on the Mac (djbclark, 2026-10-17).** A push of
+`master` to the private copy `forgejo.mit.edu/djbclark/stayturgid` (remote
+`forgejo`; push with `~/src/djbclark-ade/skills/forgejo/scripts/git-forgejo -C
+~/ops/stayturgid push forgejo master`) that touches `device/native-agent/` runs
+[`.forgejo/workflows/agent-build.yml`](../../.forgejo/workflows/agent-build.yml)
+on SIPB's Hyades runner: unit tests, detekt and an **unsigned** release APK,
+published as the Forgejo prerelease `agent-ci-<versionName>-<sha8>`. Then
+`just agent-ci-fetch` downloads it, checks its SHA-256, signs it with
+`agent-release.jks` (which never leaves the Mac) and checks the signer, writing
+`app/build/outputs/apk/release/app-release.apk`. A fleet release is that file
+uploaded as the GitHub release `agent-v<version>` and pinned in
+`bootstrap_apks/defaults/main.yml`. `just kt-test`, `kt-build-*` and
+`agent-assemble` refuse to run locally; spotless and detekt (the pre-commit
+hooks) stay local. The CI job needs the loopback shim (Gradle cannot reach its
+daemon under libkrun TSI otherwise); runner notes:
+https://forgejo.mit.edu/djbclark/loopback-port-shim.
+
+The local build below is kept for reference only. It requires Android SDK (`ANDROID_HOME` or `local.properties` `sdk.dir`) and
 **JDK 17 or 21** (AGP 8.10 rejects JDK 25+). On this Mac:
 
 ```bash
