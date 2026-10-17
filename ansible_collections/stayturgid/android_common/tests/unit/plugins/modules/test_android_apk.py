@@ -502,3 +502,74 @@ def test_android_apk_incompatible_upgrade_can_fail_without_data_loss(mocker, tmp
     commands = [" ".join(command) for command in seen]
     assert captured["failed"] is True
     assert not any(" uninstall " in f" {command} " for command in commands)
+
+
+class FakeDownloadModule:
+    """Just enough AnsibleModule for download_gh_release."""
+
+    def __init__(self, tmpdir, run, bins=("gh", "aria2c")):
+        self.tmpdir = str(tmpdir)
+        self.bins = bins
+        self.run = run
+        self.calls = []
+        self.warnings = []
+
+    def get_bin_path(self, name, required=False):
+        return "/usr/bin/" + name if name in self.bins or name == "timeout" else None
+
+    def run_command(self, cmd, *a, **kw):
+        self.calls.append(cmd)
+        return self.run(cmd)
+
+    def warn(self, msg):
+        self.warnings.append(msg)
+
+    def fail_json(self, **kw):
+        raise AssertionError(kw)
+
+
+ASSETS = json.dumps({"assets": [{"name": "app-1.apk", "url": "https://example.invalid/app-1.apk"}]})
+
+
+def tool(cmd, name):
+    return any(str(part).endswith("/" + name) for part in cmd)
+
+
+def test_download_gh_release_uses_aria2c(tmp_path):
+    def run(cmd):
+        if tool(cmd, "gh") and "view" in cmd:
+            return (0, ASSETS, "")
+        if tool(cmd, "aria2c"):
+            out = cmd[cmd.index("--dir") + 1]
+            with open(os.path.join(out, cmd[cmd.index("--out") + 1]), "wb") as f:
+                f.write(b"PK")
+            return (0, "", "")
+        raise AssertionError("unexpected %r" % cmd)
+
+    module = FakeDownloadModule(tmp_path, run)
+    path = mod.download_gh_release(module, "o/r", "app-*.apk", "v1")
+    assert path.endswith("app-1.apk")
+    assert not [c for c in module.calls if tool(c, "gh") and "download" in c]
+
+
+def test_download_gh_release_falls_back_to_gh_and_retries(tmp_path):
+    attempts = []
+
+    def run(cmd):
+        if tool(cmd, "gh") and "view" in cmd:
+            return (0, ASSETS, "")
+        if tool(cmd, "aria2c"):
+            return (1, "", "connection reset")
+        if tool(cmd, "gh") and "download" in cmd:
+            attempts.append(cmd)
+            if len(attempts) < 2:
+                return (1, "", "unexpected EOF")
+            with open(os.path.join(cmd[cmd.index("--dir") + 1], "app-1.apk"), "wb") as f:
+                f.write(b"PK")
+            return (0, "", "")
+        raise AssertionError("unexpected %r" % cmd)
+
+    module = FakeDownloadModule(tmp_path, run)
+    assert mod.download_gh_release(module, "o/r", "app-*.apk", "v1").endswith("app-1.apk")
+    assert len(attempts) == 2
+    assert module.warnings and "falling back to gh" in module.warnings[0]

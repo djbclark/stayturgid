@@ -158,7 +158,9 @@ reason:
   type: str
 """
 
+import fnmatch
 import hashlib
+import json
 import os
 import sys
 import tempfile
@@ -247,21 +249,76 @@ except ImportError:
     )
 
 
-def download_gh_release(module, repo, pattern, tag):
-    gh = module.get_bin_path("gh", required=True)
-    destdir = tempfile.mkdtemp(dir=module.tmpdir)
-    cmd = [gh, "release", "download"]
-    if tag:
-        cmd.append(tag)
-    cmd += ["--repo", repo, "--pattern", pattern or "*.apk", "--dir", destdir]
-    rc, _out, err = run_command_with_timeout(
+# GitHub's release CDN cuts single-stream downloads short ("unexpected EOF") and
+# stalls them: on 2026-10-17 gh failed on Termux and curl twice stalled on the
+# 105 MB Tailscale APK, where aria2c over 8 connections fetched it first time.
+ARIA2C_ARGS = [
+    "--quiet",
+    "--max-connection-per-server=8",
+    "--split=8",
+    "--min-split-size=4M",
+    "--max-tries=10",
+    "--retry-wait=3",
+    "--lowest-speed-limit=20K",
+    "--timeout=30",
+    "--file-allocation=none",
+]
+GH_DOWNLOAD_ATTEMPTS = 3
+
+
+def gh_asset(module, gh, repo, tag, pattern):
+    """(name, url) of the one release asset matching pattern, or None."""
+    rc, out, _err = run_command_with_timeout(
         module.run_command,
-        cmd,
-        timeout=DEFAULT_SLOW_TIMEOUT,
+        [gh, "release", "view", tag, "--repo", repo, "--json", "assets"],
+        timeout=60,
         get_bin_path_fn=module.get_bin_path,
     )
     if rc != 0:
-        module.fail_json(msg="gh release download failed: %s" % err.strip())
+        return None
+    try:
+        assets = json.loads(out)["assets"]
+    except (ValueError, KeyError, TypeError):
+        return None
+    matches = [a for a in assets if fnmatch.fnmatch(a.get("name", ""), pattern or "*.apk")]
+    if len(matches) != 1 or not matches[0].get("url"):
+        return None
+    return matches[0]["name"], matches[0]["url"]
+
+
+def download_gh_release(module, repo, pattern, tag):
+    gh = module.get_bin_path("gh", required=True)
+    destdir = tempfile.mkdtemp(dir=module.tmpdir)
+    aria2c = module.get_bin_path("aria2c")
+    asset = gh_asset(module, gh, repo, tag, pattern) if aria2c and tag else None
+    if asset:
+        name, url = asset
+        rc, _out, err = run_command_with_timeout(
+            module.run_command,
+            [aria2c] + ARIA2C_ARGS + ["--dir", destdir, "--out", name, url],
+            timeout=DEFAULT_SLOW_TIMEOUT,
+            get_bin_path_fn=module.get_bin_path,
+        )
+        if rc == 0 and os.path.isfile(os.path.join(destdir, name)):
+            return os.path.join(destdir, name)
+        module.warn("aria2c download of %s failed (%s); falling back to gh" % (url, err.strip()[:200]))
+        for leftover in os.listdir(destdir):
+            os.remove(os.path.join(destdir, leftover))
+    cmd = [gh, "release", "download"]
+    if tag:
+        cmd.append(tag)
+    cmd += ["--repo", repo, "--pattern", pattern or "*.apk", "--dir", destdir, "--clobber"]
+    for attempt in range(1, GH_DOWNLOAD_ATTEMPTS + 1):
+        rc, _out, err = run_command_with_timeout(
+            module.run_command,
+            cmd,
+            timeout=DEFAULT_SLOW_TIMEOUT,
+            get_bin_path_fn=module.get_bin_path,
+        )
+        if rc == 0:
+            break
+        if attempt == GH_DOWNLOAD_ATTEMPTS:
+            module.fail_json(msg="gh release download failed: %s" % err.strip())
     apks = sorted(f for f in os.listdir(destdir) if f.lower().endswith(".apk"))
     if not apks:
         module.fail_json(msg="no .apk asset matched %r in %s" % (pattern, repo))
