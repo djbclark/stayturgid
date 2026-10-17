@@ -100,13 +100,15 @@
         <!-- Battery locate sound, driven by Termux's stayturgid_battery_alarm.py with
              `am broadcast` (Termux runs under its own UID, so this must be exported). The
              sound is lease-bounded (at most 120 s per broadcast); same risk profile as
-             PeerStartReceiver above. -->
+             PeerStartReceiver above. TORCH_OFF (end of a flashlight alarm) can only turn
+             the flashlight off. -->
         <receiver
             android:name=".LocateSoundReceiver"
             android:exported="true"
             android:enabled="true">
             <intent-filter>
                 <action android:name="org.stayturgid.agent.action.LOCATE_SOUND" />
+                <action android:name="org.stayturgid.agent.action.TORCH_OFF" />
             </intent-filter>
         </receiver>
 

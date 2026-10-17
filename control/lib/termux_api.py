@@ -137,6 +137,28 @@ def torch(state: str, *, timeout: float = 2.0):
     return run_ff(["termux-torch", state], timeout=timeout)
 
 
+AGENT_PKGS = ("org.stayturgid.agent", "org.stayturgid.agent.debug")
+AGENT_TORCH_OFF = "org.stayturgid.agent.action.TORCH_OFF"
+
+
+def ensure_torch_off(*, settle_s: float = 0.5, timeout: float = 2.0) -> None:
+    """End of a flashlight alarm: off, off again after a settle (an on/off pair can race or a
+    Termux:API call can be lost), then stayturgid-agent 0.9.18+ checks the real torch state."""
+    torch("off", timeout=timeout)
+    time.sleep(settle_s)
+    torch("off", timeout=timeout)
+    for pkg in AGENT_PKGS:
+        try:
+            subprocess.run(
+                ["am", "broadcast", "-a", AGENT_TORCH_OFF, "-p", pkg],
+                capture_output=True,
+                timeout=timeout + 4,
+                start_new_session=True,
+            )
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+
+
 def pulse_torch(
     n: int = 1,
     *,
@@ -144,8 +166,11 @@ def pulse_torch(
     off_s: float = 0.18,
     torch_timeout: float = 2.0,
 ) -> None:
-    for _ in range(max(0, n)):
-        torch("on", timeout=torch_timeout)
-        time.sleep(on_s)
-        torch("off", timeout=torch_timeout)
-        time.sleep(off_s)
+    try:
+        for _ in range(max(0, n)):
+            torch("on", timeout=torch_timeout)
+            time.sleep(on_s)
+            torch("off", timeout=torch_timeout)
+            time.sleep(off_s)
+    finally:
+        ensure_torch_off(timeout=torch_timeout)

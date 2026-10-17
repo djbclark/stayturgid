@@ -10,6 +10,7 @@ import importlib
 import pytest
 
 alarm = importlib.import_module("stayturgid_battery_alarm")
+REAL_START_SOUND = alarm.start_sound  # the `state` fixture stubs it
 
 
 @pytest.mark.parametrize(
@@ -88,13 +89,14 @@ D = alarm.datetime.datetime
 
 @pytest.fixture
 def state(tmp_path, monkeypatch):
-    for name in ("STATUS_JSON", "SOUND_PID", "SOUND_STOP", "CONT_DISMISSED", "SKIP_NIGHT", "EVENING_DONE", "BATT_LOG"):
+    for name in ("STATUS_JSON", "SOUND_PID", "SOUND_STOP", "CONT_DISMISSED", "QUIET_UNTIL", "EVENING_DONE", "BATT_LOG"):
         monkeypatch.setattr(alarm, name, str(tmp_path / name.lower()))
     sounds, runs, delays = [], [], []
     monkeypatch.setattr(
         alarm, "start_sound", lambda secs, why, delay=0: sounds.append(secs) or delays.append(delay) or True
     )
     monkeypatch.setattr(alarm, "run", lambda args, **kw: runs.append(args))
+    monkeypatch.setattr(alarm.time, "sleep", lambda s: None)
     monkeypatch.setattr(alarm, "_test_delays", delays, raising=False)
     return tmp_path, sounds, runs
 
@@ -134,7 +136,7 @@ def test_evening_warns_only_when_predicted_dead_before_10am(state):
     alarm.evening_check(30, 2.0, D(2026, 10, 5, 18, 50))
     assert sounds == [15]
     assert alarm._test_delays == [300]  # scheduled for 18:55 exactly
-    assert any("No nightly warnings today" in a for a in runs[-1])
+    assert any("Quiet until morning" in a for a in runs[-1])
     # same slot again: already done
     alarm.evening_check(30, 2.0, D(2026, 10, 5, 18, 58))
     assert sounds == [15]
@@ -152,13 +154,85 @@ def test_evening_unknown_rate_assumes_idle_drain(state):
     assert sounds == [30]
 
 
-def test_skip_tonight_suppresses_evening(state):
+def test_quiet_mode_suppresses_evening_until_morning(state):
     _, sounds, _ = state
-    alarm._write(alarm.SKIP_NIGHT, "2026-10-05")
+    alarm._write(alarm.QUIET_UNTIL, str(int(D(2026, 10, 6, 9, 0).timestamp())))
     alarm.evening_check(5, 2.0, D(2026, 10, 5, 18, 55))
     assert sounds == []
-    alarm.evening_check(5, 2.0, D(2026, 10, 6, 18, 55))  # next day it's back
+    alarm.evening_check(5, 2.0, D(2026, 10, 6, 18, 55))  # next evening it's back
     assert sounds == [15]
+
+
+@pytest.mark.parametrize(
+    "now,hour,expected",
+    [
+        (D(2026, 10, 17, 14, 30), 9, D(2026, 10, 18, 9, 0)),
+        (D(2026, 10, 17, 14, 30), 10, D(2026, 10, 18, 10, 0)),
+        (D(2026, 10, 17, 23, 59), 9, D(2026, 10, 18, 9, 0)),
+        (D(2026, 10, 17, 1, 0), 9, D(2026, 10, 17, 9, 0)),
+        (D(2026, 10, 17, 8, 59), 10, D(2026, 10, 17, 10, 0)),
+        (D(2026, 10, 17, 9, 30), 10, D(2026, 10, 18, 10, 0)),
+    ],
+)
+def test_morning_after_sleep_matches_agent(now, hour, expected):
+    # Same cases as QuietModeTest.kt: the agent and Termux must agree on "morning".
+    assert alarm.morning_after_sleep(now, hour) == expected
+
+
+def test_quiet_until_expires_and_survives_garbage(state):
+    assert alarm.quiet_until() is None
+    alarm._write(alarm.QUIET_UNTIL, "not a number")
+    assert alarm.quiet_until() is None
+    alarm._write(alarm.QUIET_UNTIL, str(int(D(2026, 10, 18, 9, 0).timestamp())))
+    assert alarm.quiet_until(D(2026, 10, 17, 22, 0)) == D(2026, 10, 18, 9, 0)
+    assert alarm.quiet_until(D(2026, 10, 18, 9, 0)) is None
+
+
+def test_quiet_buttons_stop_sound_and_torch(state, monkeypatch):
+    _, _, runs = state
+    stopped = []
+    monkeypatch.setattr(alarm, "stop_sound", lambda dismiss=True: stopped.append(dismiss) or False)
+    until = D(2099, 1, 1, 10, 0)
+    assert alarm.main(["quiet-until", str(int(until.timestamp()))]) == 0
+    assert alarm.quiet_until() == until
+    assert stopped == [True]
+    assert runs.count(["termux-torch", "off"]) == 2
+    assert ["am", "broadcast", "-a", alarm.AGENT_TORCH_OFF, "-p", "org.stayturgid.agent"] in runs
+    assert ["am", "broadcast", "-a", alarm.AGENT_TORCH_OFF, "-p", "org.stayturgid.agent.debug"] in runs
+    assert alarm.main(["quiet-off"]) == 0
+    assert alarm.quiet_until() is None
+
+
+def test_old_agent_skip_tonight_means_quiet_until_morning(state, monkeypatch):
+    monkeypatch.setattr(alarm, "stop_sound", lambda dismiss=True: False)
+    assert alarm.main(["skip-tonight"]) == 0
+    assert alarm.quiet_until() == alarm.morning_after_sleep()
+
+
+def test_quiet_mode_refuses_sound_but_not_ring(state, monkeypatch):
+    clip = state[0] / "locate.mp3"
+    clip.write_bytes(b"x")
+    monkeypatch.setattr(alarm, "SOUND_FILE", str(clip))
+    spawned = []
+    monkeypatch.setattr(alarm.subprocess, "Popen", lambda args, **kw: spawned.append(args))
+    alarm._write(alarm.QUIET_UNTIL, str(int(D(2099, 1, 1).timestamp())))
+    assert REAL_START_SOUND(10, "battery 20%") is False
+    assert REAL_START_SOUND(60, "ring") is True  # an explicit ring still plays
+    assert len(spawned) == 1
+
+
+def test_stop_sound_button_turns_torch_off_even_without_a_player(state, monkeypatch):
+    _, _, runs = state
+    monkeypatch.setattr(alarm, "_sound_pid_mode", lambda: (None, None))
+    assert alarm.main(["stop-sound"]) == 0
+    assert runs.count(["termux-torch", "off"]) == 2
+
+
+def test_charging_cycle_leaves_the_torch_alone(state, monkeypatch):
+    _, _, runs = state
+    monkeypatch.setattr(alarm, "_sound_pid_mode", lambda: (None, None))
+    alarm.stop_sound(dismiss=False)  # what main() does every cycle on the charger
+    assert ["termux-torch", "off"] not in runs
 
 
 def test_outside_slots_nothing(state):
@@ -221,7 +295,7 @@ def _sound_loop_runs(state, monkeypatch, agent):
 def test_sound_loop_leases_the_agent_and_stops_it(state, monkeypatch):
     runs = _sound_loop_runs(state, monkeypatch, agent=True)
     assert ["force", False] in runs  # the agent sets the alarm volume; media volume untouched
-    leases = [r[r.index("secs") + 1] for r in runs if r[:2] == ["am", "broadcast"]]
+    leases = [r[r.index("secs") + 1] for r in runs if r[:2] == ["am", "broadcast"] and "secs" in r]
     assert leases and set(leases[:-1]) == {str(alarm.AGENT_LEASE_SEC)} and leases[-1] == "0"
     assert not any(r[0] == "termux-media-player" and r[1] == "play" for r in runs)
 
@@ -231,7 +305,8 @@ def test_sound_loop_falls_back_to_termux_player_and_vibrates(state, monkeypatch)
     assert ["force", True] in runs
     assert ["termux-media-player", "play", alarm.SOUND_FILE] in runs
     assert any(r[0] == "termux-vibrate" for r in runs)
-    assert not any(r[:2] == ["am", "broadcast"] for r in runs)
+    assert not any(r[:2] == ["am", "broadcast"] and "secs" in r for r in runs)
+    assert runs.count(["termux-torch", "off"]) == 2  # the loop's end double-checks the torch
 
 
 def test_stop_sound_timed_does_not_dismiss_loop(state, monkeypatch):

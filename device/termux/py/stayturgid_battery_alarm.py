@@ -76,12 +76,18 @@ ZEN_TO_DND = {"1": "priority", "2": "none", "3": "alarms"}  # zen_mode -> set_dn
 AGENT_PKG = "org.stayturgid.agent"
 AGENT_SOUND_VERSION = 33
 AGENT_LEASE_SEC = 15
+AGENT_PKGS = (AGENT_PKG, AGENT_PKG + ".debug")
+AGENT_TORCH_OFF = AGENT_PKG + ".action.TORCH_OFF"
 STATE_DIR = os.path.join(STG, "state")
 STATUS_JSON = os.path.join(STATE_DIR, "batt_status.json")  # read by the Mac hub
 SOUND_PID = os.path.join(STATE_DIR, "batt_sound.pid")
 SOUND_STOP = os.path.join(STATE_DIR, "batt_sound_stop")
 CONT_DISMISSED = os.path.join(STATE_DIR, "batt_continuous_dismissed")
-SKIP_NIGHT = os.path.join(STATE_DIR, "batt_skip_night")
+# Quiet mode (2026-10-17): epoch seconds until which every audio alert stays off. Set by the
+# agent's "Quiet until morning" / "Quiet until 10:00 tomorrow" buttons (`quiet-until <epoch>`) or
+# the evening notification's button; an explicit `ring` still plays.
+QUIET_UNTIL = os.path.join(STATE_DIR, "quiet_until")
+LATE_MORNING_H = 10
 EVENING_DONE = os.path.join(STATE_DIR, "batt_evening_done")
 _LOG_RE = re.compile(r"^(\S+ \S+) \[batt\] pct=(\d+)% status=(\S+)")
 
@@ -262,6 +268,38 @@ def quiet_hours(now=None):
     return h >= QUIET_START_H or h < QUIET_END_H
 
 
+def morning_after_sleep(now=None, hour=QUIET_END_H):
+    """hour:00 on the morning that ends the current or next sleeping window (QuietMode.kt twin)."""
+    now = now or datetime.datetime.now()
+    day = now.date() if now.hour < QUIET_END_H else now.date() + datetime.timedelta(days=1)
+    return datetime.datetime.combine(day, datetime.time(hour))
+
+
+def quiet_until(now=None):
+    """The quiet-mode deadline as a datetime, or None when audio alerts are on."""
+    try:
+        until = datetime.datetime.fromtimestamp(int(_read(QUIET_UNTIL)))
+    except (ValueError, OverflowError, OSError):
+        return None
+    return until if until > (now or datetime.datetime.now()) else None
+
+
+def set_quiet(until):
+    """Audio alerts off until `until` (a datetime): stop what is playing, flashlight off."""
+    _write(QUIET_UNTIL, str(int(until.timestamp())))
+    _log("QUIET until %s" % until.strftime("%Y-%m-%d %H:%M"))
+    if not stop_sound():
+        torch_off()
+    run(["termux-notification-remove", "stayturgid-batt-night"])
+    run(["termux-toast", "stayturgid: audio alerts off until %s" % until.strftime("%a %H:%M")])
+
+
+def quiet_off():
+    _rm(QUIET_UNTIL)
+    _log("QUIET off")
+    run(["termux-toast", "stayturgid: audio alerts back on"])
+
+
 def drain_per_hour(now=None, window_min=120):
     """%/hour over the current discharge (last 2 h of battery.log); None if too little history."""
     now = now or datetime.datetime.now()
@@ -311,6 +349,7 @@ def write_status(batt, pct, status, rate):
         "plugged": plugged,
         "eta_min": int(pct / rate * 60) if rate and not on_charger else None,
         "last_charged": now if on_charger else prev.get("last_charged"),
+        "quiet_until": int(q.timestamp()) if (q := quiet_until()) else None,
     }
     try:
         _write(STATUS_JSON, json.dumps(st))
@@ -339,6 +378,9 @@ def start_sound(secs, why, delay=0):
     if not os.path.exists(SOUND_FILE):
         _log("no %s; sound skipped (%s)" % (SOUND_FILE, why))
         return False
+    if why != "ring" and quiet_until():
+        _log("quiet mode; sound skipped (%s)" % why)
+        return False
     if _sound_pid_mode()[0]:
         _log("sound already playing; %s skipped" % why)
         return False
@@ -364,26 +406,39 @@ def agent_plays_sound():
     return bool(m) and int(m.group(1)) >= AGENT_SOUND_VERSION
 
 
-def agent_sound(secs):
-    """Have the agent play for `secs` more seconds (a lease renewal); 0 stops it."""
+def agent_sound(secs, force=False):
+    """Have the agent play for `secs` more seconds (a lease renewal); 0 stops it. The agent
+    refuses while its quiet mode lasts unless `force` (an explicit ring)."""
     run(
         [
             "am", "broadcast", "-a", AGENT_PKG + ".action.LOCATE_SOUND", "--ei", "secs", str(int(secs)),
-            "-n", AGENT_PKG + "/.LocateSoundReceiver",
+            "--ez", "force", "true" if force else "false", "-n", AGENT_PKG + "/.LocateSoundReceiver",
         ]
     )  # fmt: skip
 
 
+def torch_off():
+    """End of a flashlight alarm: termux-torch off twice (an on/off pair can race), then the
+    agent's check, which reads the real torch state through CameraManager (0.9.18+)."""
+    run(["termux-torch", "off"])
+    time.sleep(0.5)
+    run(["termux-torch", "off"])
+    for pkg in AGENT_PKGS:
+        run(["am", "broadcast", "-a", AGENT_TORCH_OFF, "-p", pkg])
+
+
 def stop_sound(dismiss=True):
-    """Stop the player; dismissing a loop keeps it off until the next charge."""
+    """Stop the player; dismissing a loop keeps it off until the next charge. True if one ran."""
     pid, mode = _sound_pid_mode()
     if not pid:
-        return
+        return False
     _write(SOUND_STOP, "1")
     if dismiss and mode == "loop":
         _write(CONT_DISMISSED, "1")
     agent_sound(0)
     run(["termux-media-player", "stop"])
+    torch_off()
+    return True
 
 
 def _force_audible(music=True):
@@ -431,8 +486,10 @@ def sound_loop(secs, delay=0, why="ring"):
                 break
             if secs <= 0 and quiet_hours():
                 break
+            if why != "ring" and quiet_until():
+                break
             if agent:
-                agent_sound(AGENT_LEASE_SEC)
+                agent_sound(AGENT_LEASE_SEC, force=why == "ring")
             else:
                 run(["termux-media-player", "play", SOUND_FILE])
                 run(["termux-vibrate", "-f", "-d", str(int(SOUND_CLIP_SEC * 1000))])
@@ -441,6 +498,7 @@ def sound_loop(secs, delay=0, why="ring"):
         if agent:
             agent_sound(0)
         run(["termux-media-player", "stop"])
+        torch_off()
         restore()
         _rm(SOUND_PID, SOUND_STOP)
         run(["termux-notification-remove", "stayturgid-batt-sound"])
@@ -450,7 +508,7 @@ def evening_check(pct, rate, now=None):
     """18:55/19:55/20:55 warnings when the phone is predicted dead before 10:00 tomorrow."""
     now = now or datetime.datetime.now()
     today = now.strftime("%Y-%m-%d")
-    if _read(SKIP_NIGHT) == today:
+    if quiet_until(now):
         return
     done = _read(EVENING_DONE).split()
     if done[:1] != [today]:
@@ -476,17 +534,10 @@ def evening_check(pct, rate, now=None):
                 "termux-notification", "--id", "stayturgid-batt-night", "--priority", "max",
                 "--title", "stayturgid: battery %d%% — likely dead by ~%s" % (pct, dead_at.strftime("%H:%M")),
                 "--content", "Plug in before bed.",
-                "--button1", "No nightly warnings today",
-                "--button1-action", _self_cmd("skip-tonight"),
+                "--button1", "Quiet until morning",
+                "--button1-action", _self_cmd("quiet-morning"),
             ]
         )  # fmt: skip
-
-
-def skip_tonight():
-    _write(SKIP_NIGHT, datetime.datetime.now().strftime("%Y-%m-%d"))
-    stop_sound()
-    run(["termux-notification-remove", "stayturgid-batt-night"])
-    run(["termux-toast", "stayturgid: no nightly battery warnings today"])
 
 
 def blink_screen_color(color, count, quiet):
@@ -520,6 +571,13 @@ def blink_screen_color(color, count, quiet):
 
 
 def pulse_torch(n, quiet):
+    try:
+        _pulse_torch(n, quiet)
+    finally:
+        torch_off()
+
+
+def _pulse_torch(n, quiet):
     if tapi is not None:
         if quiet:
             tapi.pulse_torch(1, on_s=0.06, off_s=0.0, torch_timeout=2.0)
@@ -600,11 +658,18 @@ def main(argv=()):
     if cmd == "ring":  # on demand (control/bin/ring_device.py): ignores quiet hours
         start_sound(int(argv[1]) if len(argv) > 1 else 60, "ring")
         return 0
-    if cmd == "stop-sound":  # notification button
-        stop_sound()
+    if cmd == "stop-sound":  # notification button: the flashlight goes off either way
+        if not stop_sound():
+            torch_off()
         return 0
-    if cmd == "skip-tonight":  # stayturgid-agent button / evening notification button
-        skip_tonight()
+    if cmd == "quiet-until":  # stayturgid-agent quiet buttons: epoch seconds
+        set_quiet(datetime.datetime.fromtimestamp(int(argv[1])))
+        return 0
+    if cmd in ("quiet-morning", "skip-tonight"):  # evening notification; agents before 0.9.18
+        set_quiet(morning_after_sleep())
+        return 0
+    if cmd == "quiet-off":  # stayturgid-agent "Turn audio alerts back on"
+        quiet_off()
         return 0
 
     signal.signal(signal.SIGINT, on_signal)
@@ -642,7 +707,7 @@ def main(argv=()):
         clear_alert_state()
         return 0
 
-    quiet = dnd_or_sleep_quiet()
+    quiet = bool(quiet_until()) or dnd_or_sleep_quiet()
 
     applicable = [t for t in TIERS if pct <= t]
     if not applicable:

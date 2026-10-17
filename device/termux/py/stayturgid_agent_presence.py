@@ -202,11 +202,15 @@ def pulse(n):
     if tapi is not None:
         tapi.pulse_torch(n, on_s=0.25, off_s=0.20, torch_timeout=2.0)
         return
-    for _ in range(n):
-        run(["termux-torch", "on"], timeout=3)
-        time.sleep(0.25)
+    try:
+        for _ in range(n):
+            run(["termux-torch", "on"], timeout=3)
+            time.sleep(0.25)
+            run(["termux-torch", "off"], timeout=3)
+            time.sleep(0.20)
+    finally:  # never leave the flashlight on (tapi.pulse_torch does the same)
+        time.sleep(0.5)
         run(["termux-torch", "off"], timeout=3)
-        time.sleep(0.20)
 
 
 def _vibrate(ms: int) -> None:

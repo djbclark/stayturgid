@@ -26,6 +26,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var status: TextView
     private lateinit var actionBanner: TextView
     private lateinit var authorizeButton: Button
+    private val quietControls by lazy { QuietModeControls(this) }
 
     private var updateView: TextView? = null
 
@@ -100,7 +101,7 @@ class MainActivity : ComponentActivity() {
             }
         )
         root.addView(status)
-        root.addView(buildSkipNightlyBatteryButton())
+        quietControls.addTo(root)
         root.addView(
             Button(this).apply {
                 text = getString(R.string.main_copy_diagnostics)
@@ -219,28 +220,6 @@ class MainActivity : ComponentActivity() {
         maybeAutoLaunchGuidedSetup()
     }
 
-    /** stayturgid_battery_alarm.py skips tonight's 18:55-20:55 low-battery sounds. */
-    private fun buildSkipNightlyBatteryButton(): Button =
-        Button(this).apply {
-            text = getString(R.string.main_skip_nightly_battery)
-            setOnClickListener {
-                val result =
-                    TermuxRunCommand.send(
-                        this@MainActivity,
-                        TermuxRunCommand.PYTHON,
-                        "${TermuxRunCommand.HOME}/.stayturgid/bin/stayturgid_battery_alarm.py",
-                        "skip-tonight",
-                    )
-                val msg =
-                    if (result.startsWith("FAILED")) {
-                        result
-                    } else {
-                        "No nightly battery warnings today"
-                    }
-                Toast.makeText(this@MainActivity, msg, Toast.LENGTH_SHORT).show()
-            }
-        }
-
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
@@ -248,6 +227,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        quietControls.refresh()
         refreshActionState()
         refreshUpdateStatus()
     }

@@ -114,6 +114,17 @@ Elliot Gao) so the agent can push it without the Mac having a copy; the
 required license/copyright notice ships alongside it as the companion asset
 `app/src/main/assets/hs.jar.LICENSE.txt`.
 
+Quiet mode (0.9.18): the launcher shows "Audio alerts: ON" or "OFF until
+<time>", with **Quiet until morning (09:00)** (the end of the usual 21:00-09:00
+sleeping window), **Quiet until 10:00 tomorrow** (this replaced the old "No
+nightly battery warnings today" button) and **Turn audio alerts back on**.
+Quiet buttons stop a locate sound that is playing and turn the flashlight off.
+`QuietMode` keeps the deadline, `LocateSound` refuses to play while it lasts
+(an explicit `ring` still plays), and the agent hands the same deadline to
+`stayturgid_battery_alarm.py quiet-until <epoch>`. At the end of every
+flashlight alarm, Termux sends `org.stayturgid.agent.action.TORCH_OFF` and
+`Torch` checks the real torch state through `CameraManager`.
+
 The launcher UI shows the version name/code, UTC build time, source revision,
 application ID, build type, Android/device identity, and live Shizuku state.
 The full diagnostic block is selectable and can be copied with one button.

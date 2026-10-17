@@ -25,21 +25,35 @@ import android.util.Log
  * ```
  *
  * `secs` > 0 plays (or keeps playing) until that many seconds after the last renewal, so a dead
- * Termux can't leave it on; `secs` 0 stops at once. The agent plays it rather than
- * termux-media-player because only an app can pin the output to the built-in speaker (never a
- * connected Bluetooth device) and vibrate alongside. Exported like [PeerStartReceiver]: the worst a
- * stranger can do is ring the phone for [MAX_LEASE_SEC].
+ * Termux can't leave it on; `secs` 0 stops at once. While [QuietMode] lasts it refuses to play
+ * unless `--ez force true` (an explicit ring). The agent plays it rather than termux-media-player
+ * because only an app can pin the output to the built-in speaker (never a connected Bluetooth
+ * device) and vibrate alongside. Exported like [PeerStartReceiver]: the worst a stranger can do is
+ * ring the phone for [MAX_LEASE_SEC].
+ *
+ * [ACTION_TORCH_OFF] (2026-10-17) is the end of every flashlight alarm: [Torch.off].
  */
 class LocateSoundReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
-        if (intent?.action != ACTION_LOCATE_SOUND) return
-        val secs = intent.getIntExtra(EXTRA_SECS, 0).coerceIn(0, MAX_LEASE_SEC)
-        if (secs > 0) LocateSound.play(context.applicationContext, secs) else LocateSound.stop()
+        when (intent?.action) {
+            ACTION_TORCH_OFF -> Torch.off(context.applicationContext)
+            ACTION_LOCATE_SOUND -> {
+                val secs = intent.getIntExtra(EXTRA_SECS, 0).coerceIn(0, MAX_LEASE_SEC)
+                val force = intent.getBooleanExtra(EXTRA_FORCE, false)
+                if (secs > 0) {
+                    LocateSound.play(context.applicationContext, secs, force)
+                } else {
+                    LocateSound.stop()
+                }
+            }
+        }
     }
 
     companion object {
         const val ACTION_LOCATE_SOUND = "org.stayturgid.agent.action.LOCATE_SOUND"
+        const val ACTION_TORCH_OFF = "org.stayturgid.agent.action.TORCH_OFF"
         const val EXTRA_SECS = "secs"
+        const val EXTRA_FORCE = "force"
         const val MAX_LEASE_SEC = 120
     }
 }
@@ -62,7 +76,12 @@ object LocateSound {
     private var vibrator: Vibrator? = null
     private var restore: (() -> Unit)? = null
 
-    fun play(context: Context, secs: Int) {
+    fun play(context: Context, secs: Int, force: Boolean = false) {
+        if (!force && QuietMode.isQuiet(context)) {
+            Log.i(TAG, "quiet mode: not playing")
+            stop()
+            return
+        }
         handler.removeCallbacks(stopRunnable)
         handler.postDelayed(stopRunnable, secs * MS_PER_SEC)
         if (player != null) return
