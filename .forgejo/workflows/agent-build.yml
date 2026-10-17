@@ -33,19 +33,6 @@ jobs:
         # to the Gradle daemon". --no-daemon does not help (it still forks a single-use daemon).
         run: echo /usr/local/lib/portshim.so >> /etc/ld.so.preload
 
-      - name: Gradle wrapper and dependency cache
-        # Served by the runner on the Hyades host, not the tailnet-only vps-primary build cache.
-        # Only downloads are cached: BuildConfig stamps the build time and revision, so task
-        # outputs would miss anyway. Paths are fast-disk.sh's GRADLE_USER_HOME.
-        uses: https://github.com/actions/cache@v4
-        with:
-          path: |
-            /mnt/fast/gradle/wrapper/dists
-            /mnt/fast/gradle/caches/modules-2/files-2.1
-            /mnt/fast/gradle/caches/modules-2/metadata-*
-          key: agent-gradle-${{ hashFiles('device/native-agent/gradle/wrapper/gradle-wrapper.properties', 'device/native-agent/**/*.gradle.kts') }}
-          restore-keys: agent-gradle-
-
       - name: Test, detekt and assemble the unsigned release APK
         timeout-minutes: 45
         run: |
