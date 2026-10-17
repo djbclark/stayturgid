@@ -70,9 +70,12 @@ android {
 
     testOptions { unitTests.all { it.useJUnitPlatform() } }
 
+    // The release key lives only on the Mac (gitignored). Without it (Forgejo CI) assembleRelease
+    // writes app-release-unsigned.apk, which the Mac signs with apksigner.
+    val releaseKeystore = file("../agent-release.jks")
     signingConfigs {
         create("release") {
-            storeFile = file("../agent-release.jks")
+            storeFile = releaseKeystore
             storePassword = "stayturgid"
             keyAlias = "agent"
             keyPassword = "stayturgid"
@@ -92,7 +95,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
-            signingConfig = signingConfigs.getByName("release")
+            if (releaseKeystore.isFile) signingConfig = signingConfigs.getByName("release")
         }
     }
 

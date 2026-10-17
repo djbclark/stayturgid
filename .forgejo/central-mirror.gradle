@@ -1,0 +1,29 @@
+// Gradle init script for the fork's forgejo.mit.edu jobs: fetch Maven Central artifacts from
+// Google's public mirror of Central instead. Every Hyades job downloads its dependencies afresh
+// from the runner's shared address, and Central rate-limits that address: on 2026-10-16 every
+// job failed dependency resolution with 429 Too Many Requests for over an hour. The build files
+// still declare mavenCentral(); only the URL changes, and only in these jobs. Robolectric fetches
+// its android-all jars from Central at test time, outside Gradle, so it gets the mirror too.
+def mirror = 'https://maven-central.storage-download.googleapis.com/maven2/'
+def central = ['https://repo.maven.apache.org/maven2', 'https://repo1.maven.org/maven2']
+
+def useMirror = { RepositoryHandler repos ->
+    repos.withType(MavenArtifactRepository).configureEach { repo ->
+        if (central.any { repo.url.toString().startsWith(it) }) {
+            repo.url = mirror
+        }
+    }
+}
+
+gradle.beforeSettings { settings ->
+    useMirror(settings.buildscript.repositories)
+    useMirror(settings.pluginManagement.repositories)
+    useMirror(settings.dependencyResolutionManagement.repositories)
+}
+
+gradle.allprojects {
+    tasks.withType(Test).configureEach {
+        systemProperty 'robolectric.dependency.repo.url', mirror
+        systemProperty 'robolectric.dependency.repo.id', 'central-mirror'
+    }
+}

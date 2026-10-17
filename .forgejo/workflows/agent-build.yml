@@ -1,0 +1,47 @@
+name: stayturgid-agent build
+
+# Builds device/native-agent on SIPB's Hyades runner (forgejo.mit.edu, private repo
+# djbclark/stayturgid) so the Mac does not run the Gradle build: unit tests, detekt, and an
+# unsigned release APK published as a Forgejo prerelease (agent-ci-<version>-<sha8>). The release
+# key never leaves the Mac, which signs the APK with apksigner before the GitHub release that
+# bootstrap_apks pins. Runner, image and disk notes: https://forgejo.mit.edu/djbclark/loopback-port-shim
+
+on:
+  push:
+    branches: [master]
+    paths: ['device/native-agent/**', '.forgejo/**']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu
+    container:
+      # ci-image-plektra: android-sdk 36, JDK 17, node 18 (for actions/checkout), gcc.
+      image: ghcr.io/djbclark/ci-image-plektra@sha256:90a5de59e4a7efaa70b4de6af3221023151a2087cfb2689cecfe18a6a1cf602e
+
+    steps:
+      - name: Checkout
+        uses: https://github.com/actions/checkout@v4
+
+      - name: Workspace and Gradle home on an ext4 loop image
+        run: bash .forgejo/scripts/fast-disk.sh
+
+      - name: Test, detekt and assemble the unsigned release APK
+        timeout-minutes: 45
+        run: |
+          set -euo pipefail
+          # Hyades ignores working-directory: and starts every step under fast-disk.sh's mount.
+          cd "$GITHUB_WORKSPACE/device/native-agent"
+          java -version
+          echo "BENCHSTEP gradle-start $(date +%s)"
+          ./gradlew --no-daemon --init-script "$GITHUB_WORKSPACE/.forgejo/central-mirror.gradle" \
+            :app:test :app:detekt :app:assembleRelease
+          echo "BENCHSTEP gradle-end $(date +%s)"
+          ls -l app/build/outputs/apk/release/
+
+      - name: Publish the Forgejo prerelease
+        env:
+          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          python3 .forgejo/scripts/agent_release.py
