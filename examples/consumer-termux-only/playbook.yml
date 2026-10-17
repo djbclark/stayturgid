@@ -5,7 +5,7 @@
   gather_facts: false
   vars:
     stayturgid_repo_root: "{{ playbook_dir }}/../.."   # stayturgid checkout (for script copy)
-    # Auto-discover all ~/.ssh/*.pub; override with an explicit list if needed:
+    # Only ~/.ssh/termux_key.pub is installed by default; replace the list to allow more:
     # stayturgid_ssh_public_key_files:
     #   - "{{ lookup('env', 'HOME') }}/.ssh/termux_key.pub"
   roles:

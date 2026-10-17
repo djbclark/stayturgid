@@ -214,15 +214,44 @@ stayturgid_battery_color_assets:
 stayturgid_allow_external_apps: true
 
 # Fleet SSH keyring on the Ansible control node (never commit keys to git).
-# By default every *.pub under this directory is installed on every device via
-# ansible.posix.authorized_key. Private keys are NOT globbed: only the names in
+# Public keys: only the explicit list below is installed in every device's
+# authorized_keys (ansible.posix.authorized_key, additive). Nothing globs
+# stayturgid_ssh_keys_dir: the old `*.pub` glob put the operator's personal MIT,
+# GitHub, OpenAFS Gerrit, signing, 1Password and VPS keys on every phone.
+# Who logs in to a phone, and with what:
+#   1. The control node (Ansible, ssh, fleet health, bootstrap): termux_key.
+#   2. Another phone: that phone's own id_ed25519_fleet (generated on the device),
+#      installed on every peer by the mesh task from the published hostvars, and
+#      termux_key (its private half is distributed to every device below).
+#   3. A Fire helper's id_ed25519_peerhelp, with a ForceCommand
+#      (playbooks/fleet/peerhelp-force.yml).
+# The mesh and peer-help keys come from the devices, not from this list. The
+# stayturgid CA public key signs host certificates only (known_hosts
+# @cert-authority); no sshd here trusts it for user logins.
+# Private keys are NOT globbed either: only the names in
 # stayturgid_ssh_private_key_names are copied to each device's ~/.ssh/ (one
 # rsync). Device-side code uses the device's own id_ed25519_fleet and
 # id_ed25519_peerhelp (generated on the device) plus the passphrase-less
 # termux_key; nothing on a phone uses the operator's personal keys.
 stayturgid_ssh_keys_dir: "{{ lookup('env', 'HOME') }}/.ssh"
-# Non-empty list overrides auto-discovery (paths on the control node).
-stayturgid_ssh_public_key_files: []
+# Paths on the control node. Replace this list to allow more operator keys.
+stayturgid_ssh_public_key_files:
+  - "{{ stayturgid_ssh_keys_dir }}/termux_key.pub"
+# Removed from every device's authorized_keys (state: absent, by key body, read
+# from <keys_dir>/<name>.pub): the keys the old glob installed. Non-exclusive on
+# purpose: the fleet mesh keys come from the other devices' hostvars, which a
+# `--limit` run does not have, so exclusive management would drop them; keys added
+# by hand stay too. Never list termux_key or a device's own identity here.
+stayturgid_ssh_retired_public_key_names:
+  - 1password_agent
+  - athena_tgt_push
+  - git_signing_key
+  - id_ed25519
+  - id_ed25519-djbclark-github
+  - id_ed25519_mit
+  - id_rsa_gerrit_openafs
+  - stayturgid_ca
+  - vps_primary_key
 stayturgid_ssh_distribute_private_keys: true
 stayturgid_ssh_private_key_names:
   - termux_key

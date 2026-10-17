@@ -34,4 +34,4 @@ ansible-playbook ansible/playbooks/fleet/bootstrap.yml --limit fireos-device
 
 - `adb` on control node with device reachable (USB or wireless debugging)
 - Debuggable Termux (`run-as com.termux`) for key install
-- `~/.ssh/*.pub` on control node (same as `bootstrap.yml`)
+- `~/.ssh/termux_key.pub` on control node (same as `bootstrap.yml`)

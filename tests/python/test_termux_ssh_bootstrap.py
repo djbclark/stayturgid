@@ -36,6 +36,13 @@ def test_discover_pubkey_paths_glob(tmp_path):
     assert len(tr.discover_pubkey_paths(keys_dir=str(tmp_path))) == 2
 
 
+def test_discover_pubkey_paths_prefers_the_fleet_key_over_personal_keys(tmp_path):
+    (tmp_path / "termux_key.pub").write_text("ssh-ed25519 T t\n", encoding="utf-8")
+    (tmp_path / "id_ed25519_mit.pub").write_text("ssh-ed25519 M m\n", encoding="utf-8")
+    (tmp_path / "id_rsa_gerrit_openafs.pub").write_text("ssh-rsa G g\n", encoding="utf-8")
+    assert tr.discover_pubkey_paths(keys_dir=str(tmp_path)) == [str(tmp_path / "termux_key.pub")]
+
+
 def test_read_pubkey_lines_skips_comments(tmp_path):
     pub = tmp_path / "k.pub"
     pub.write_text("# comment\nssh-ed25519 AAA one\n\nssh-ed25519 BBB two\n", encoding="utf-8")

@@ -99,7 +99,7 @@ After each cold reboot and PIN unlock:
 ssh oneui-device    # or: ssh stock-android-device
 ```
 
-Requires SSH keys on the Mac control node (`~/.ssh/*.pub` auto-synced to every device; bootstrap with `./control/bin/bootstrap_ssh.py` when SSH is not up yet). Tailscale or `adb forward tcp:8022 tcp:8022`. See [docs/hacking.md](docs/hacking.md).
+Requires SSH keys on the Mac control node (`~/.ssh/termux_key.pub` auto-synced to every device; bootstrap with `./control/bin/bootstrap_ssh.py` when SSH is not up yet). Tailscale or `adb forward tcp:8022 tcp:8022`. See [docs/hacking.md](docs/hacking.md).
 
 ---
 

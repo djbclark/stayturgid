@@ -28,12 +28,12 @@ options:
     type: bool
     default: true
   keys_dir:
-    description: Directory of C(*.pub) files on the control node when
-      C(public_key_files) and C(public_keys) are omitted.
+    description: Directory searched for C(termux_key.pub) (every C(*.pub) when it
+      is absent) when C(public_key_files) and C(public_keys) are omitted.
     type: path
     default: "~/.ssh"
   public_key_files:
-    description: Explicit public key file paths on the control node (overrides C(keys_dir) glob).
+    description: Explicit public key file paths on the control node (overrides C(keys_dir) discovery).
     type: list
     elements: path
     default: []

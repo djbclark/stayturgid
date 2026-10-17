@@ -26,6 +26,9 @@ TERMUX_ENV = (
 ) % (TERMUX_PREFIX, TERMUX_PREFIX, TERMUX_HOME, TERMUX_PREFIX, TERMUX_PREFIX, TERMUX_PREFIX)
 
 
+FLEET_PUBKEY_NAME = "termux_key.pub"
+
+
 def default_keys_dir():
     return os.environ.get("STAYTURGID_SSH_KEYS_DIR", os.path.expanduser("~/.ssh"))
 
@@ -36,6 +39,12 @@ def discover_pubkey_paths(keys_dir=None, explicit=None):
     root = keys_dir or default_keys_dir()
     if hasattr(root, "expanduser"):
         root = os.fspath(root)
+    # The fleet key alone: a glob of the operator's ~/.ssh once put their personal
+    # MIT, GitHub and OpenAFS keys on every phone. Without a termux_key.pub (a
+    # consumer that names its key otherwise) the glob is the fallback.
+    fleet_key = os.path.join(root, FLEET_PUBKEY_NAME)
+    if os.path.isfile(fleet_key):
+        return [fleet_key]
     return sorted(glob.glob(os.path.join(root, "*.pub")))
 
 

@@ -445,7 +445,7 @@ Ordered by impact for “minimal effort” on Debian/Ubuntu.
 ```mermaid
 flowchart TB
   subgraph control [Control node]
-    CN_PUB["All ~/.ssh/*.pub"]
+    CN_PUB["termux_key.pub (explicit list)"]
     CN_PRIV["termux_key (explicit allowlist) copied to every device"]
     ADBKEY["~/.config/stayturgid/adbkey"]
     CN_SSH["SSH client fragment + known_hosts"]
@@ -463,8 +463,9 @@ flowchart TB
 
 **Layers:**
 
-1. **Operator → device:** Every `*.pub` under `stayturgid_ssh_keys_dir` (default
-   `~/.ssh`) installed on every device
+1. **Operator → device:** The explicit list `stayturgid_ssh_public_key_files` (default
+   `termux_key.pub` under `stayturgid_ssh_keys_dir`) installed on every device; the
+   personal keys the old `*.pub` glob installed are removed by name
    ([ssh_keys.yml](../../ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ssh_keys.yml)).
 2. **Device → device:** Per-host `id_ed25519_fleet` pubkey installed on all peers in
    `groups[stayturgid_ssh_mesh_group]` (default `stayturgid`).
@@ -506,7 +507,7 @@ everything; **bob** and **alice** are isolated from each other’s devices.
 | -------------------------------- | ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Inventory**                    | Flat `stayturgid` group              | Add `trust_group` host var and/or child groups: `trust_sysadmin`, `trust_bob`, `trust_alice`; hosts may be in one user group                             |
 | **`ssh_keys.yml` mesh loop**     | `loop: "{{ groups['stayturgid'] }}"` | Loop only peers in **trust closure** of host (e.g. bob + sysadmin + control, not alice)                                                                  |
-| **Control node pub keys**        | All `*.pub` → all devices            | Map keys to groups: sysadmin keys everywhere; `bob_key.pub` only on bob + sysadmin hosts                                                                 |
+| **Control node pub keys**        | `termux_key.pub` → all devices       | Map keys to groups: sysadmin keys everywhere; `bob_key.pub` only on bob + sysadmin hosts                                                                 |
 | **Private key distribution**     | All privates → all devices           | **Stop** distributing operator privates to devices except sysadmin break-glass; devices only need their own `id_ed25519_fleet` + maybe one peer-help key |
 | **`stayturgid_ssh_mesh_group`**  | Single group name                    | Per-host computed group or Jinja filter `trust_peers(host)`                                                                                              |
 | **`known_hosts_mesh.j2`**        | All peers                            | Same trust closure filter                                                                                                                                |

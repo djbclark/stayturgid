@@ -842,8 +842,9 @@ export ANSIBLE_CONFIG=$PWD/ansible.cfg
 
 The current deployment uses a **full-mesh SSH trust model**:
 
-- Every `*.pub` under `stayturgid_ssh_keys_dir` (default `~/.ssh/`) is
-  installed on every device.
+- The explicit list `stayturgid_ssh_public_key_files` (default `termux_key.pub`
+  under `stayturgid_ssh_keys_dir`) is installed on every device; the operator's
+  other public keys are removed from `authorized_keys` by name.
 - Each device's `id_ed25519_fleet` public key is installed on all peers.
 - When `stayturgid_ssh_distribute_private_keys: true`, control-node private
   keys are copied to every device.

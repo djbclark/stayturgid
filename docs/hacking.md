@@ -253,9 +253,12 @@ verifies over USB forward (`adb forward tcp:8022 tcp:8022`) or Tailscale SSH
 alias. Live fleet deploy uses **`preflight.yml`** (start of `site.yml`) for
 conditional bootstrap instead of the full `bootstrap` tag.
 
-- **Public keys:** every `*.pub` under `stayturgid_ssh_keys_dir` (default
-  `~/.ssh` on the Mac) is installed on every device via
-  `ansible.posix.authorized_key`.
+- **Public keys:** only the explicit list `stayturgid_ssh_public_key_files`
+  (default `~/.ssh/termux_key.pub` on the Mac) is installed on every device via
+  `ansible.posix.authorized_key`. The old `*.pub` glob also put personal keys
+  (MIT, GitHub, OpenAFS Gerrit, signing, 1Password, VPS) on every phone; the role
+  removes those by name (`stayturgid_ssh_retired_public_key_names`, additive, so
+  the mesh and peer-help keys stay).
 - **Device mesh:** each device gets a per-host `id_ed25519_fleet` keypair; every
   fleet member's pubkey is installed on every other device via
   `ansible.posix.authorized_key`. Every device also gets every peer's sshd host
@@ -269,8 +272,8 @@ conditional bootstrap instead of the full `bootstrap` tag.
 - **Mac client:** `ansible/playbooks/control_node/agents.yml` renders `~/.ssh/config.d/stayturgid`
   and trusts each fleet host's sshd key in `~/.ssh/known_hosts`.
 
-Override discovery with `stayturgid_ssh_public_key_files` or
-`stayturgid_ssh_keys_dir` in inventory `group_vars`. Disable mesh pieces with
+Allow more operator keys by replacing `stayturgid_ssh_public_key_files` (or move
+`stayturgid_ssh_keys_dir`) in inventory `group_vars`. Disable mesh pieces with
 `stayturgid_ssh_mesh_device_identity` / `stayturgid_ssh_mesh_known_hosts`.
 
 **Start sshd and test it (from Mac):**

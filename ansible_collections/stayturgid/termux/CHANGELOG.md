@@ -1,5 +1,15 @@
 # Changelog — stayturgid.termux
 
+## Unreleased
+
+- `termux_userland` puts sshd under runit on a fresh Termux (`tasks/runit_sshd.yml`):
+  when `sv status sshd` fails it starts one runsvdir and retires only the bare
+  listener (detached), then verifies; a supervised device is unchanged.
+- Phones' `authorized_keys` get only `stayturgid_ssh_public_key_files` (default
+  `termux_key.pub`), no longer every `*.pub` of the control node; the operator's
+  personal keys are removed by name (`stayturgid_ssh_retired_public_key_names`).
+  `termux_ssh_bootstrap` likewise defaults to `termux_key.pub`.
+
 ## 1.8.0 (2026-07-09)
 
 - `termux_ssh_bootstrap` module and `termux_run_as` module_utils — pre-SSH

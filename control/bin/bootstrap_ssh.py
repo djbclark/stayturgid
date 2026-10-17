@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bootstrap Termux SSH keys over adb (replaces manual ssh-copy-id).
 
-Installs every control-node ``*.pub`` into Termux ``~/.ssh/authorized_keys``,
+Installs the control node's ``termux_key.pub`` (every ``*.pub`` when there is none) into Termux ``~/.ssh/authorized_keys``,
 starts ``sshd``, and verifies SSH (USB forward and/or inventory SSH alias).
 
 Requires a debuggable Termux build with working ``run-as com.termux`` (fleet

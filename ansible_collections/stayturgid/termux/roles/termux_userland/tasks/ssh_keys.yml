@@ -2,14 +2,64 @@
 # Fleet SSH mesh: public keys via ansible.posix.authorized_key, private keys
 # copied from the control-node keyring (never stored in git). Per-device fleet
 # identities and ansible.builtin.known_hosts complete the device-to-device mesh.
-- name: Resolve fleet SSH public key paths
+# Public keys are an explicit list too (stayturgid_ssh_public_key_files, default
+# termux_key.pub), never a glob of the control node's ~/.ssh. A listed file that
+# does not exist is skipped with a warning, so it is the warning below, not a
+# missing-file error, that says the list resolved to nothing.
+- name: Resolve fleet SSH public keys to install
   ansible.builtin.set_fact:
-    _stayturgid_ssh_public_key_paths: >-
+    _stayturgid_ssh_public_key_paths: "{{ stayturgid_ssh_public_key_files | default([]) | list }}"
+    _stayturgid_ssh_public_keys: >-
       {{
-        stayturgid_ssh_public_key_files
-        if (stayturgid_ssh_public_key_files | default([]) | length) > 0
-        else (query('fileglob', stayturgid_ssh_keys_dir ~ '/*.pub') | sort | list)
+        (
+          query('ansible.builtin.file', *(stayturgid_ssh_public_key_files | default([])), errors='warn')
+          if (stayturgid_ssh_public_key_files | default([]) | length) > 0
+          else []
+        )
+        | map('trim')
+        | list
       }}
+
+# The keys the old `*.pub` glob installed, read from the control node by name; a
+# name whose file is gone is skipped, since there is nothing left to match on.
+# (No regex back-references: Jinja decodes "\1" inside a string literal to chr(1).)
+- name: Resolve retired fleet SSH public keys to remove
+  ansible.builtin.set_fact:
+    _stayturgid_ssh_retired_public_keys: >-
+      {{
+        (
+          query(
+            'ansible.builtin.file',
+            *(
+              stayturgid_ssh_retired_public_key_names
+              | map('regex_replace', '^', stayturgid_ssh_keys_dir ~ '/')
+              | map('regex_replace', '$', '.pub')
+              | list
+            ),
+            errors='ignore'
+          )
+          if (stayturgid_ssh_retired_public_key_names | default([]) | length) > 0
+          else []
+        )
+        | map('trim')
+        | list
+      }}
+
+# A key in both lists would be installed and removed on every run. Compared by
+# "<type> <base64>", so a differing comment does not hide it.
+- name: Reject a public key that is both installed and retired
+  ansible.builtin.assert:
+    that:
+      - >-
+        (_stayturgid_ssh_public_keys | join('\n') | regex_findall(_stayturgid_ssh_key_body_re) | list)
+        | intersect(_stayturgid_ssh_retired_public_keys | join('\n') | regex_findall(_stayturgid_ssh_key_body_re) | list)
+        | length == 0
+    fail_msg: >-
+      stayturgid_ssh_public_key_files and stayturgid_ssh_retired_public_key_names
+      name the same public key.
+    quiet: true
+  vars:
+    _stayturgid_ssh_key_body_re: '(?m)^(?:ssh|ecdsa|sk)-\S+ \S+'
 
 # Private keys on the phones are an explicit list, never a glob of the control
 # node's ~/.ssh: that glob once shipped the operator's personal MIT, GitHub and
@@ -37,12 +87,12 @@
     quiet: true
   when: stayturgid_ssh_distribute_private_keys | bool
 
-- name: Warn when no SSH public keys were found on the control node
+- name: Warn when no SSH public key could be read on the control node
   ansible.builtin.debug:
     msg: >-
-      No public keys in {{ stayturgid_ssh_keys_dir }} (*.pub).
-      Bootstrap still needs ./control/bin/bootstrap_ssh.py or ssh-copy-id once; add keys on the Mac and re-run deploy.
-  when: _stayturgid_ssh_public_key_paths | length == 0
+      None of stayturgid_ssh_public_key_files could be read ({{ _stayturgid_ssh_public_key_paths }}).
+      Bootstrap still needs ./control/bin/bootstrap_ssh.py or ssh-copy-id once; create the key on the Mac and re-run deploy.
+  when: _stayturgid_ssh_public_keys | length == 0
 
 - name: Resolve Termux account for authorized_keys
   ansible.builtin.command: id -un
@@ -154,12 +204,27 @@
     user: "{{ _termux_ssh_account.stdout }}"
     path: "{{ termux_home }}/.ssh/authorized_keys"
     manage_dir: false
-    key: "{{ query('file', *_stayturgid_ssh_public_key_paths) | map('trim') | join('\n') }}"
+    key: "{{ _stayturgid_ssh_public_keys | join('\n') }}"
     state: present
     exclusive: false
   when:
     - _termux_home_stat.stat.exists
-    - _stayturgid_ssh_public_key_paths | length > 0
+    - _stayturgid_ssh_public_keys | length > 0
+
+# The operator's personal keys the old glob put on every phone. state: absent by
+# key body, non-exclusive: see stayturgid_ssh_retired_public_key_names for why the
+# mesh and peer-help keys must not be swept by an exclusive list.
+- name: Remove retired operator SSH public keys from authorized_keys
+  ansible.posix.authorized_key:
+    user: "{{ _termux_ssh_account.stdout }}"
+    path: "{{ termux_home }}/.ssh/authorized_keys"
+    manage_dir: false
+    key: "{{ _stayturgid_ssh_retired_public_keys | join('\n') }}"
+    state: absent
+    exclusive: false
+  when:
+    - _termux_home_stat.stat.exists
+    - _stayturgid_ssh_retired_public_keys | length > 0
 
 # Mesh pubkeys come from device-published hostvars and are joined into one
 # authorized_key call, so a value that is not exactly one "<type> <base64>

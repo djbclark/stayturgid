@@ -104,8 +104,9 @@ This repo currently installs from Git paths; Galaxy publication is optional foll
    start of `site.yml`), `./control/bin/bootstrap_ssh.py`, or `./control/bin/deploy_fleet.py`
    (runs `site.yml`, which starts with `preflight.yml`). Requires debuggable
    Termux with `run-as com.termux`.
-2. **Ongoing:** `ansible.posix.authorized_key` in `termux_userland` installs every
-   `*.pub` from `stayturgid_ssh_keys_dir` (default `~/.ssh` on the control node);
+2. **Ongoing:** `ansible.posix.authorized_key` in `termux_userland` installs the
+   `stayturgid_ssh_public_key_files` list (default `termux_key.pub` under
+   `stayturgid_ssh_keys_dir`, `~/.ssh` on the control node);
    matching private keys are copied to each device. `termux_sshd` applies
    `PerSourcePenalties no` and detached sshd restart. Keys are never in git.
 
