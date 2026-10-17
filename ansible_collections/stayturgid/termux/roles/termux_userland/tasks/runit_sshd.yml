@@ -19,8 +19,9 @@
 #      parent is not runsv. Running sessions, Ansible's included, survive a
 #      listener's death in any case.
 #   3. The kill is detached (setsid + nohup, after a delay) so the task returns and
-#      the SSH channel closes normally; the play then resets its connection and
-#      waits for SSH to answer again before the verify task.
+#      the SSH channel closes normally; the play then waits for SSH to answer
+#      again (a fresh TCP connection from the control node, then Ansible's own)
+#      before the verify task.
 - name: Probe whether runit supervises sshd
   ansible.builtin.shell: |
     export PREFIX={{ termux_prefix | quote }}
@@ -80,13 +81,23 @@
   changed_when: _stayturgid_runit_sshd_fix.stdout | length > 0
   when: _stayturgid_runit_sshd_probe.stdout | trim == 'unsupervised'
 
-- name: Reconnect after sshd moved under runit
-  ansible.builtin.meta: reset_connection
+# meta: reset_connection ignores `when` (Ansible warns and runs it every time), so a
+# healthy device would reconnect for nothing. The running sessions survive the
+# listener's death, so the open connection stays usable: wait_for confirms from
+# the control node that a NEW TCP connection is accepted again after the handover
+# (the detached kill fires 3 s after the task returns), wait_for_connection that
+# Ansible still gets through.
+- name: Wait for the control node to reach sshd on the new listener
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host | default(inventory_hostname) }}"
+    port: "{{ ansible_port | default(22) }}"
+    delay: 5
+    timeout: 120
+  delegate_to: localhost
   when: _stayturgid_runit_sshd_fix is changed
 
 - name: Wait for SSH on the runit-supervised sshd
   ansible.builtin.wait_for_connection:
-    delay: 5
     timeout: 120
   when: _stayturgid_runit_sshd_fix is changed
 

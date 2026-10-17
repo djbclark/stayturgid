@@ -63,7 +63,7 @@ def test_healthy_device_skips_the_fix_and_reports_no_change():
     assert fix["when"] == "_stayturgid_runit_sshd_probe.stdout | trim == 'unsupervised'"
     # Everything after the fix keys off the fix having changed something.
     for name in (
-        "Reconnect after sshd moved under runit",
+        "Wait for the control node to reach sshd on the new listener",
         "Wait for SSH on the runit-supervised sshd",
         "Verify sshd is supervised by runit (one runsvdir, listener under runsv)",
     ):
@@ -93,13 +93,16 @@ def test_only_the_bare_listener_is_killed_and_detached():
     assert "killall" not in script
 
 
-def test_play_reconnects_then_verifies_one_runsvdir_and_runsv_parent():
+def test_play_waits_for_a_new_connection_then_verifies_one_runsvdir_and_runsv_parent():
     tasks = _tasks("runit_sshd.yml")
     names = [t["name"] for t in tasks]
-    assert names.index(FIX) < names.index("Reconnect after sshd moved under runit")
-    assert _by_name(tasks, "Reconnect after sshd moved under runit")["ansible.builtin.meta"] == "reset_connection"
-    wait = _by_name(tasks, "Wait for SSH on the runit-supervised sshd")["ansible.builtin.wait_for_connection"]
-    assert wait["delay"] >= 4  # past the detached kill's 3 s delay
+    # meta: reset_connection ignores `when`, so it must not be used here.
+    assert not [t for t in tasks if "ansible.builtin.meta" in t]
+    reach = "Wait for the control node to reach sshd on the new listener"
+    assert names.index(FIX) < names.index(reach) < names.index("Wait for SSH on the runit-supervised sshd")
+    wait = _by_name(tasks, reach)
+    assert wait["delegate_to"] == "localhost"
+    assert wait["ansible.builtin.wait_for"]["delay"] >= 4  # past the detached kill's 3 s delay
     verify = _by_name(tasks, "Verify sshd is supervised by runit (one runsvdir, listener under runsv)")
     script = _script(verify)
     assert "grep -q '^run:'" in script
