@@ -163,6 +163,47 @@
     - stayturgid_otelcol_enabled | bool
     - not ansible_check_mode
 
+# A probe that fails with `unexpected e_type: 2` is usually the exec context,
+# not the phone: a child of a Termux `sh` inside the run-as SELinux domain
+# (runas_app) gets that message from the static non-PIE otelcol-contrib that the
+# same process runs fine under the app's own domain (untrusted_app). Twice
+# misread as "this model cannot run it" (t2e 2026-09-20, s24 2026-10-03), which
+# switched otelcol off for weeks. So read the session's domain on a failure and
+# say so, and leave a working boot integration alone.
+- name: Read the SELinux context of this session after an otelcol-contrib probe failure
+  ansible.builtin.command:
+    argv:
+      - cat
+      - "{{ stayturgid_selinux_context_file }}"
+  register: _otelcol_session_context
+  check_mode: false
+  changed_when: false
+  failed_when: false
+  when:
+    - stayturgid_otelcol_enabled | bool
+    - not ansible_check_mode
+    - _otelcol_runtime_probe.rc != 0
+
+- name: Fail an otelcol-contrib probe that ran under the run-as sshd with the real cause
+  ansible.builtin.fail:
+    msg: >-
+      otelcol-contrib {{ stayturgid_otelcol_version }} could not be probed on
+      {{ inventory_hostname }} (rc={{ _otelcol_runtime_probe.rc }}, error={{
+        _otelcol_runtime_probe.stderr_lines | default([]) | first | default('no stderr')
+      }}), and this session runs in the SELinux domain
+      {{ _otelcol_session_context.stdout | default('') | trim }}: sshd was started
+      through `adb shell run-as com.termux`, where Termux child processes get
+      "unexpected e_type: 2" from a binary that runs fine from the Termux app.
+      This is not a model incompatibility. Restart sshd from the Termux app
+      (start_sshd_from_app, run `just bootstrap-ssh {{ inventory_hostname }}`) and
+      deploy again; `--skip-tags otelcol` deploys the rest meanwhile. The boot
+      integration was left in place.
+  when:
+    - stayturgid_otelcol_enabled | bool
+    - not ansible_check_mode
+    - _otelcol_runtime_probe.rc != 0
+    - "'runas_app' in (_otelcol_session_context.stdout | default(''))"
+
 - name: Remove otelcol-contrib boot integration after runtime incompatibility
   ansible.builtin.file:
     path: "{{ stayturgid_otelcol_boot_script }}"

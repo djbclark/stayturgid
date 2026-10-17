@@ -64,6 +64,8 @@ stayturgid_otelcol_config: "{{ termux_home }}/.stayturgid/otel-config.yaml"
 stayturgid_otelcol_state_dir: "{{ termux_home }}/.stayturgid/state/otelcol"
 stayturgid_otelcol_pid_file: "{{ termux_home }}/.stayturgid/run/otelcol.pid"
 stayturgid_otelcol_boot_script: "{{ termux_home }}/.termux/boot/start-otelcol.sh"
+# Where a process reads its own SELinux context (tests point this at a file).
+stayturgid_selinux_context_file: /proc/self/attr/current
 stayturgid_otelcol_endpoint: "http://{{ stayturgid_control_tailscale_ip }}:4318"
 # Idle-CPU budget on the phone. The collector is the single largest CPU
 # consumer on a quiet device: measured 2026-10-02 on t2e it burned ~5 CPU
