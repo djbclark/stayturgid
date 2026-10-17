@@ -66,7 +66,10 @@ def test_private_keys_move_in_one_synchronize_and_verify_in_one_task():
     install = _by_name(tasks, "Install fleet SSH private keys on device")
     assert "ansible.posix.synchronize" in install
     assert "loop" not in install
-    assert "--exclude=*" in install["ansible.posix.synchronize"]["rsync_opts"]
+    sync_args = install["ansible.posix.synchronize"]
+    assert "--exclude=*" in sync_args["rsync_opts"]
+    # recursive: false makes rsync skip the source directory and copy nothing.
+    assert sync_args.get("recursive", True) is True
     verify = _by_name(tasks, "Verify fleet SSH private keys on device (present, mode 0600)")
     assert "loop" not in verify
     assert not [t for t in tasks if t.get("name", "").startswith("Fail if SSH private key missing")]

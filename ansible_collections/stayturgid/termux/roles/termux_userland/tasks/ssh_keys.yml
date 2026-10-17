@@ -224,15 +224,16 @@
 # One rsync connection for the whole list (the old per-key `copy` loop plus a
 # stat loop cost 20-30 s and 6-14 s per run on an idempotent s24). The include
 # list is the allowlist; `--exclude=*` keeps everything else in ~/.ssh on the
-# Mac out of the transfer. Missing source files are skipped by rsync and caught
-# by the verify task below.
+# Mac out of the transfer, subdirectories (cm/, agent/) included, so rsync stays
+# recursive but descends nowhere. Never set recursive: false here: rsync then
+# skips the source directory and copies nothing (caught live on s24, 2026-10-17).
+# Missing source files are skipped by rsync and caught by the verify task below.
 - name: Install fleet SSH private keys on device
   ansible.posix.synchronize:
     src: "{{ stayturgid_ssh_keys_dir }}/"
     dest: "{{ termux_home }}/.ssh/"
     perms: true
     checksum: true
-    recursive: false
     rsync_opts: >-
       {{
         (_stayturgid_ssh_private_key_names | map('regex_replace', '^', '--include=/') | list)
