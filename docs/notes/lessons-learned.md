@@ -135,6 +135,35 @@ LD_LIBRARY_PATH=$PREFIX/lib; sshd`. Recovery is painful — competing boot
    Tailscale/LAN-only sshds — the penalty protects nothing here). Device tier
    asserts it.
 
+### Reinstalling Termux on a device that already had it (found 2026-10-17, t2e)
+
+`bootstrap-apks` installs `com.termux`, but a fresh Termux is not deployable
+by the repo's tools alone. Hit in order on t2e:
+
+1. **Launch it once** (`am start -n com.termux/.app.TermuxActivity`): `usr/` and
+   `home/` do not exist until the activity extracts its bootstrap.
+2. **Host key changed.** sshd regenerates its key, so strict `known_hosts`
+   rejects it. Compare the fingerprint with the phone's
+   `run-as com.termux cat files/usr/etc/ssh/ssh_host_ed25519_key.pub` before
+   dropping the old line. `ssh-keygen -R` refuses to rewrite a `known_hosts`
+   with any malformed line; delete the single stale line with `gsed` instead.
+3. **No Python on the device.** `deploy_termux.py` fails with "module
+   interpreter ... not found"; nothing installs it. Pin the mirror, then
+   `apt-get -y -o Dpkg::Options::=--force-confold install python rsync`
+   (plain `pkg install` stops at an `openssl.cnf` conffile prompt).
+4. **The first run fails at the `restart boot loop` handler** (otelcol tasks flush
+   it before `start-adb.sh` is deployed). Rerun; the second pass proceeds.
+5. **`sv hup sshd` fails until runit is up.** Run `~/.termux/boot/00-start-services.sh`,
+   then kill the bare `sshd` that `bootstrap_ssh.py` started so the runit one
+   takes port 8022.
+6. **A second `runsvdir` can appear** and spawn dead `runsv` children forever;
+   kill the newer one by PID.
+7. **Termux's new adb key is `unauthorized`** until the human taps "Always allow"
+   on the system "Allow USB debugging?" dialog (see the Fire OS note above).
+
+Tooling to fix: steps 3-6 belong in `bootstrap_ssh.py` / the `termux_userland`
+role.
+
 ## Repo / PR review notes
 
 ### CFEngine `processes:` promises do not work on Android
