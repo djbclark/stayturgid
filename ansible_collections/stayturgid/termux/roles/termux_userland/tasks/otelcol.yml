@@ -85,13 +85,70 @@
     - "{{ termux_home }}/.termux/boot"
   when: stayturgid_otelcol_enabled | bool
 
-- name: Install cached otelcol-contrib binary
-  ansible.builtin.copy:
-    src: "{{ stayturgid_otelcol_cached_binary }}"
-    dest: "{{ stayturgid_otelcol_binary }}"
-    mode: "0755"
-  notify: restart otelcol
+# The 380 MB unpacked binary used to be copied over SSH (154 s on a fresh t2e).
+# The ~100 MB archive is copied and unpacked on the device instead, and only
+# when the installed binary is not already the pinned version.
+- name: Probe installed otelcol-contrib version
+  ansible.builtin.command:
+    argv:
+      - "{{ stayturgid_otelcol_binary }}"
+      - --version
+  register: _otelcol_installed_probe
+  check_mode: false
+  changed_when: false
+  failed_when: false
   when: stayturgid_otelcol_enabled | bool
+
+# "otelcol-contrib version 0.162.0": the last word is the version.
+- name: Decide whether otelcol-contrib needs installing
+  ansible.builtin.set_fact:
+    _otelcol_needs_install: >-
+      {{
+        _otelcol_installed_probe.rc | default(1) != 0
+        or ((_otelcol_installed_probe.stdout | default('') | trim).split() | last | default(''))
+          != (stayturgid_otelcol_version | string)
+      }}
+  when: stayturgid_otelcol_enabled | bool
+
+- name: Install otelcol-contrib from the cached archive
+  when:
+    - stayturgid_otelcol_enabled | bool
+    - _otelcol_needs_install | bool
+  block:
+    - name: Start from an empty otelcol-contrib unpack directory
+      ansible.builtin.file:
+        path: "{{ stayturgid_otelcol_unpack_dir }}"
+        state: "{{ item }}"
+        mode: "0700"
+      loop:
+        - absent
+        - directory
+
+    # unarchive copies the archive to the device's remote tmp, unpacks it there
+    # with the device's tar and deletes the transfer copy.
+    - name: Unpack the cached otelcol-contrib archive on the device
+      ansible.builtin.unarchive:
+        src: "{{ stayturgid_otelcol_cached_archive }}"
+        dest: "{{ stayturgid_otelcol_unpack_dir }}"
+        include:
+          - otelcol-contrib
+
+    # mv within one filesystem: an atomic replace, no second 380 MB copy.
+    - name: Move the unpacked otelcol-contrib binary into place
+      ansible.builtin.shell: |
+        set -e
+        chmod 0755 {{ (stayturgid_otelcol_unpack_dir ~ '/otelcol-contrib') | quote }}
+        mv -f {{ (stayturgid_otelcol_unpack_dir ~ '/otelcol-contrib') | quote }} {{ stayturgid_otelcol_binary | quote }}
+      args:
+        executable: "{{ termux_prefix }}/bin/bash"
+      notify: restart otelcol
+      changed_when: true
+  always:
+    - name: Remove the otelcol-contrib unpack directory
+      ansible.builtin.file:
+        path: "{{ stayturgid_otelcol_unpack_dir }}"
+        state: absent
+      changed_when: false
 
 - name: Probe installed otelcol-contrib runtime compatibility
   ansible.builtin.command:
