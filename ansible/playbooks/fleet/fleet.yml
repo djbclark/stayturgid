@@ -27,8 +27,11 @@
     - role: stayturgid.android_common.ensure_apps
       tags: [ensure_apps]
       when: stayturgid_ensure_apps | default([]) | length > 0
+    # Also under bootstrap-apks, so `just deploy-apks` grants what the APKs it
+    # just installed need: an agent installed before a reinstalled Termux never
+    # gets com.termux.permission.RUN_COMMAND otherwise (s24/t2e, 2026-10-17).
     - role: stayturgid.android_common.app_privileges
-      tags: [app-privileges, full]
+      tags: [app-privileges, full, bootstrap-apks]
       vars:
         target_device: "{{ inventory_hostname }}"
 
