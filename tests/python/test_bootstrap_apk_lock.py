@@ -105,3 +105,18 @@ def test_optional_github_apks_require_the_same_lock_fields():
     )
     for field in ("gh_tag", "version_name", "checksum"):
         assert f"item.{field} is defined" in tasks
+
+
+def test_paseo_is_release_locked_and_gets_a_long_install_timeout():
+    paseo = next(apk for apk in _catalog() if apk["id"] == "sh.paseo")
+    assert paseo["gh_repo"] == "getpaseo/paseo"
+    assert paseo["gh_tag"] == "v0.11.4"
+    assert paseo["gh_pattern"] == "paseo-v0.11.4-android.apk"
+    assert paseo["version_name"] == "0.11.4"
+    assert paseo["resign"] is False
+    # 263 MB asset: the module's 180 s adb install default is too short.
+    assert paseo["install_timeout"] > 180
+    install = (
+        ROOT / "ansible_collections/stayturgid/android_common/roles/bootstrap_apks/tasks/install_apk.yml"
+    ).read_text(encoding="utf-8")
+    assert 'install_timeout: "{{ _apk.install_timeout | default(omit) }}"' in install
