@@ -34,6 +34,19 @@
     serverapp_landing_python: /opt/homebrew/bin/python3
   when: _landing_brew_python.stat.exists | default(false)
 
+# The product checkout's uv venv has flask (pyproject.toml). Homebrew's python3 does not once brew moves
+# it to a new minor version: on 2026-10-18 python3 became 3.15, landing exited 1 on `import flask` and
+# launchd restarted it ~6,000 times, adding to that day's load spike.
+- name: Resolve the product checkout's venv python
+  ansible.builtin.stat:
+    path: "{{ serverapp_landing_repo_root }}/.venv/bin/python"
+  register: _landing_venv_python
+
+- name: Prefer the venv python (has flask) over Homebrew's
+  ansible.builtin.set_fact:
+    serverapp_landing_python: "{{ serverapp_landing_repo_root }}/.venv/bin/python"
+  when: _landing_venv_python.stat.exists | default(false)
+
 - name: Render landing launchd plist under site namespace
   ansible.builtin.template:
     src: landing.plist.j2
