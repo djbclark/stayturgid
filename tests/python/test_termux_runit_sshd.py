@@ -175,3 +175,14 @@ def test_pidfile_fix_leaves_the_pidfile_alone_when_no_runsvdir_runs(tmp_path, sh
     pidfile, out = _source_pidfix(tmp_path, shell, "exit 1")
     assert not pidfile.exists()
     assert "leak=unset" in out
+
+
+def test_no_runsvdir_guard_uses_pgrep_x():
+    # `pgrep -x runsvdir` misses a runsvdir started by absolute path (t2e,
+    # 2026-10-17): the CFEngine sshd bundle used it and started a second one on
+    # every brief sshd gap. Every starter must use -f on the service dir.
+    tracked = subprocess.run(
+        ["git", "ls-files", "device"], cwd=REPO, text=True, capture_output=True, check=True
+    ).stdout.split()
+    offenders = [f for f in tracked if "pgrep -x runsvdir" in (REPO / f).read_text(errors="ignore")]
+    assert offenders == []
