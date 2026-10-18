@@ -161,7 +161,13 @@ by the repo's tools alone. Hit in order on t2e:
    is not runsv) and verifies runit owns port 8022; live-tested on t2e. A
    supervised device is untouched.
 6. **A second `runsvdir` can appear** and spawn dead `runsv` children forever;
-   kill the newer one by PID.
+   kill the newer one by PID. Cause (t2e had 8): termux-services'
+   `$PREFIX/etc/profile.d/start-services.sh` runs `service-daemon start` in every
+   login shell, and that trusts only `$PREFIX/var/run/service-daemon.pid`, which our
+   own runsvdir starters never write. Fixed 2026-10-17: `termux_userland` deploys
+   `device/termux/profile.d/runsvdir-pidfile.sh`, which sorts first and points the
+   pidfile at the running runsvdir (their file is a dpkg conffile: editing it would
+   stop `pkg upgrade` at a prompt).
 7. **Termux's new adb key is `unauthorized`** until the human taps "Always allow"
    on the system "Allow USB debugging?" dialog (see the Fire OS note above).
    Until then `just health` reports `shell5555_down` for the host. Two fixes

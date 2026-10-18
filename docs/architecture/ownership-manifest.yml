@@ -194,12 +194,14 @@
     - ansible_collections/stayturgid/termux/roles/termux_userland/meta/**
     - ansible_collections/stayturgid/termux/roles/termux_userland/tasks/main.yml
     - ansible_collections/stayturgid/termux/roles/termux_userland/tasks/ssh_keys.yml
+    - ansible_collections/stayturgid/termux/roles/termux_userland/tasks/runit_sshd.yml
     - ansible_collections/stayturgid/termux/roles/termux_userland/tasks/fleet_adbkey.yml
     - ansible_collections/stayturgid/termux/roles/termux_userland/tasks/rish.yml
     - ansible_collections/stayturgid/termux/roles/termux_userland/templates/device.json.j2
     - ansible/playbooks/fleet/termux-userland.yml
     - ansible/playbooks/fleet/termux-pkg-upgrade.yml
     - device/termux/boot/**
+    - device/termux/profile.d/**
     - device/termux/py/start_adb.py
     - device/termux/py/stayturgid_shell.py
     - device/termux/py/stayturgid_rish.py

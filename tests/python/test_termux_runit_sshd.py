@@ -8,9 +8,11 @@ only the bare listener (detached), reconnects and verifies. A healthy device
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO = Path(__file__).resolve().parents[2]
@@ -120,3 +122,56 @@ def test_shell_blocks_parse_as_bash():
             ["bash", "-n"], input=_rendered(_script(task)), text=True, capture_output=True, check=False
         )
         assert proc.returncode == 0, (task["name"], proc.stderr)
+
+
+# termux-services' profile.d/start-services.sh trusts only service-daemon.pid, which
+# our runsvdir starters never write: every login shell added a runsvdir (t2e had 8).
+PIDFIX = REPO / "device/termux/profile.d/runsvdir-pidfile.sh"
+
+
+def test_pidfile_fix_is_deployed_into_profile_d_and_sorts_before_start_services():
+    assert PIDFIX.name < "start-services.sh"
+    task = _by_name(_tasks("main.yml"), "Deploy the runsvdir pidfile fix for termux-services")
+    copy = task["ansible.builtin.copy"]
+    assert copy["src"].endswith("/device/termux/profile.d/runsvdir-pidfile.sh")
+    assert copy["dest"] == "{{ termux_prefix }}/etc/profile.d/runsvdir-pidfile.sh"
+    assert copy["mode"] == "0644"
+
+
+def _source_pidfix(tmp_path: Path, shell: str, pgrep_body: str) -> tuple[Path, str]:
+    stubs = tmp_path / "bin"
+    stubs.mkdir()
+    pgrep = stubs / "pgrep"
+    pgrep.write_text(f'#!/bin/sh\necho "$*" >"{tmp_path}/pgrep.args"\n{pgrep_body}\n')
+    pgrep.chmod(0o755)
+    prefix = tmp_path / "usr"
+    prefix.mkdir()
+    env = {"PATH": f"{stubs}:/usr/bin:/bin", "PREFIX": str(prefix)}
+    proc = subprocess.run(
+        [shell, "-c", f'. "{PIDFIX}"; echo "leak=${{_stayturgid_rsv-unset}}"'],
+        env=env,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+    return prefix / "var/run/service-daemon.pid", proc.stdout
+
+
+@pytest.mark.parametrize("shell", ["sh", "bash", "dash"])
+def test_pidfile_fix_points_service_daemon_at_the_running_runsvdir(tmp_path, shell):
+    if shutil.which(shell) is None:
+        pytest.skip(f"{shell} not installed")
+    pidfile, out = _source_pidfix(tmp_path, shell, "echo 7750")
+    assert pidfile.read_text() == "7750\n"
+    assert "leak=unset" in out
+    args = (tmp_path / "pgrep.args").read_text()
+    assert args.startswith("-o -f [r]unsvdir ") and args.rstrip().endswith("/usr/var/service$")
+
+
+@pytest.mark.parametrize("shell", ["sh", "bash", "dash"])
+def test_pidfile_fix_leaves_the_pidfile_alone_when_no_runsvdir_runs(tmp_path, shell):
+    if shutil.which(shell) is None:
+        pytest.skip(f"{shell} not installed")
+    pidfile, out = _source_pidfix(tmp_path, shell, "exit 1")
+    assert not pidfile.exists()
+    assert "leak=unset" in out

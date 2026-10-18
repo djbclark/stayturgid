@@ -594,6 +594,20 @@
   loop: "{{ stayturgid_retired_boot_scripts | default([]) }}"
   when: stayturgid_retired_boot_scripts | default([]) | length > 0
 
+# 00-start-services.sh starts runsvdir without service-daemon's pidfile, so every
+# login shell's start-services.sh (termux-services) started another one. Our own
+# profile.d file, not an edit to theirs: that is a dpkg conffile, and a modified
+# one stops `pkg upgrade` at a prompt.
+- name: Deploy the runsvdir pidfile fix for termux-services
+  tags: [scripts]
+  ansible.builtin.copy:
+    src: "{{ stayturgid_repo_root }}/device/termux/profile.d/runsvdir-pidfile.sh"
+    dest: "{{ termux_prefix }}/etc/profile.d/runsvdir-pidfile.sh"
+    mode: "0644"
+  when:
+    - _termux_home_stat.stat.exists
+    - "'00-start-services.sh' in (stayturgid_boot_scripts | default([]))"
+
 # After the boot scripts (it runs 00-start-services.sh) and before any handler:
 # `reload sshd` (`sv hup`) needs runit, which a fresh Termux does not run yet.
 - name: Ensure runit supervises sshd (fresh-Termux fixup)
