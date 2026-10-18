@@ -276,6 +276,12 @@ stayturgid_ssh_mesh_group: stayturgid
 stayturgid_ssh_mesh_device_identity: true
 stayturgid_ssh_device_identity_key: id_ed25519_fleet
 stayturgid_ssh_mesh_known_hosts: true
+# Control-node directory of per-host sshd host-key records (<host>.json: key,
+# known_hosts aliases, port), written by every deploy and read by
+# known_hosts_mesh.j2 for peers outside the play, so `--limit` deploys still
+# install the full mesh and learn a reinstalled phone's new host key. Sits
+# beside the other control-node state in ~/.local/state/stayturgid/.
+stayturgid_ssh_mesh_host_keys_dir: "{{ lookup('env', 'HOME') }}/.local/state/stayturgid/ssh-host-keys"
 
 # Phone → Mac Eternal Terminal (et). SSH config + optional et package.
 # IPs/user from inventory: stayturgid_control_* or stayturgid_mac_peer.

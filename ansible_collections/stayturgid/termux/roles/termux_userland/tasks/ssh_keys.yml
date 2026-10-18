@@ -183,6 +183,40 @@
       }}
   when: _termux_home_stat.stat.exists
 
+# hostvars only hold the peers in this play, so a `--limit` deploy used to see
+# no peers at all. Each deploy records this host's sshd host key (type + base64,
+# no comment), aliases and port on the control node; known_hosts_mesh.j2 reads
+# the records of peers outside the play. to_nice_json sorts keys, so an
+# unchanged key rewrites identical bytes and the copy reports ok, not changed.
+- name: Ensure SSH mesh host-key directory on control node
+  ansible.builtin.file:
+    path: "{{ stayturgid_ssh_mesh_host_keys_dir }}"
+    state: directory
+    mode: "0700"
+  delegate_to: localhost
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_sshd_host_pubkey | default('') | trim | length > 0
+
+- name: Record this device's sshd host key on control node (SSH mesh)
+  ansible.builtin.copy:
+    content: >
+      {{
+        {
+          'host': inventory_hostname,
+          'key': (stayturgid_sshd_host_pubkey | trim | split)[:2] | join(' '),
+          'aliases': stayturgid_ssh_known_host_aliases | default([inventory_hostname, ansible_host]),
+          'port': ansible_port | default(8022) | int
+        }
+        | to_nice_json
+      }}
+    dest: "{{ stayturgid_ssh_mesh_host_keys_dir }}/{{ inventory_hostname }}.json"
+    mode: "0644"
+  delegate_to: localhost
+  when:
+    - _termux_home_stat.stat.exists
+    - stayturgid_sshd_host_pubkey | default('') | trim | length > 0
+
 - name: Build SSH known_hosts mesh entries for this device
   ansible.builtin.set_fact:
     _stayturgid_known_hosts_mesh_entries: "{{ lookup('template', 'known_hosts_mesh.j2') | from_json }}"

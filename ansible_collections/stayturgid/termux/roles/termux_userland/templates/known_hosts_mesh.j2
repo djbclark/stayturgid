@@ -1,23 +1,38 @@
 {# Build known_hosts entries: every alias for every peer in the mesh group.
    ansible.builtin.known_hosts requires key in known_hosts format:
-   "<name> <keytype> <base64>" — name must match the name parameter. #}
+   "<name> <keytype> <base64>" — name must match the name parameter.
+   A peer's key comes from its hostvars when it is in this play (fresh from this
+   run), else from the record it wrote on the control node at its last deploy
+   (stayturgid_ssh_mesh_host_keys_dir/<peer>.json), so a --limit run still
+   builds the whole mesh. Only hosts in the mesh group are read, so a record
+   left behind by a host removed from the group is ignored. #}
 {% set entries = [] %}
-{% for peer in groups[stayturgid_ssh_mesh_group] %}
-{%   if peer != inventory_hostname and hostvars[peer].stayturgid_sshd_host_pubkey is defined and hostvars[peer].stayturgid_sshd_host_pubkey | trim | length > 0 %}
-{%     set aliases = hostvars[peer].stayturgid_ssh_known_host_aliases | default([hostvars[peer].inventory_hostname, hostvars[peer].ansible_host]) %}
-{%     set pub_parts = hostvars[peer].stayturgid_sshd_host_pubkey | trim | split %}
-{%     if pub_parts | length >= 2 %}
-{%       set key_body = pub_parts[0] ~ ' ' ~ pub_parts[1] %}
-{%       for alias in aliases %}
-{%         if alias is defined and alias | string | trim | length > 0 %}
-{%           set hostport = '[' ~ alias ~ ']:' ~ (hostvars[peer].ansible_port | default(8022) | string) %}
-{%           set _ = entries.append({
-                'name': hostport,
-                'key': hostport ~ ' ' ~ key_body
-              }) %}
-{%         endif %}
-{%       endfor %}
-{%     endif %}
+{% for peer in groups[stayturgid_ssh_mesh_group] if peer != inventory_hostname %}
+{%   set hv = hostvars[peer] %}
+{%   set record_path = stayturgid_ssh_mesh_host_keys_dir ~ '/' ~ peer ~ '.json' %}
+{%   if hv.stayturgid_sshd_host_pubkey is defined and hv.stayturgid_sshd_host_pubkey | trim | length > 0 %}
+{%     set rec = {
+         'key': hv.stayturgid_sshd_host_pubkey,
+         'aliases': hv.stayturgid_ssh_known_host_aliases | default([hv.inventory_hostname, hv.ansible_host]),
+         'port': hv.ansible_port | default(8022)
+       } %}
+{%   elif record_path is file %}
+{%     set rec = lookup('ansible.builtin.file', record_path) | from_json %}
+{%   else %}
+{%     set rec = {} %}
+{%   endif %}
+{%   set pub_parts = rec.key | default('') | string | trim | split %}
+{%   if pub_parts | length >= 2 %}
+{%     set key_body = pub_parts[0] ~ ' ' ~ pub_parts[1] %}
+{%     for alias in rec.aliases | default([peer]) %}
+{%       if alias is defined and alias is not none and alias | string | trim | length > 0 %}
+{%         set hostport = '[' ~ alias ~ ']:' ~ (rec.port | default(8022) | string) %}
+{%         set _ = entries.append({
+              'name': hostport,
+              'key': hostport ~ ' ' ~ key_body
+            }) %}
+{%       endif %}
+{%     endfor %}
 {%   endif %}
 {% endfor %}
 {{ entries | to_json }}
