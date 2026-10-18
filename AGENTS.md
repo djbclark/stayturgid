@@ -92,8 +92,8 @@ loaded into context every session.
 
 Day to day: `just health`, `just errors`, `just firerpa-health`, `just test`.
 
-**stayturgid-agent is built on Forgejo CI only (2026-10-17):** push `master` to the
-`forgejo` remote, then `just agent-ci-fetch` signs the CI APK on the Mac. Never run
+**stayturgid-agent is built on GitHub CI only (free runners; 2026-10-18, Forgejo before):** push `master` to
+`origin`, `just agent-ci-run` (overlays `ci/base`), then `just agent-ci-fetch` signs the CI APK on the Mac. Never run
 its Gradle build locally; details in
 [device/native-agent/README.md](device/native-agent/README.md), Build.
 

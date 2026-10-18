@@ -43,23 +43,33 @@ kt-detekt-generate-config:
     @echo "Full default config written to {{_agent_dir}}/config/detekt/detekt.yml"
     @echo "(Your custom overrides are merged via buildUponDefaultConfig = true)"
 
-# stayturgid-agent is built and tested only on Forgejo CI, never on this Mac (djbclark,
-# 2026-10-17): push master to the forgejo remote, then `just agent-ci-fetch`. Formatting and
-# detekt (above) stay local; they are what the pre-commit hooks run.
+# stayturgid-agent is built and tested only on GitHub CI (free runners), never on this Mac
+# (djbclark, 2026-10-17 Forgejo, 2026-10-18 GitHub): push master to origin, `just agent-ci-run`,
+# then `just agent-ci-fetch`. Formatting and detekt (above) stay local; they are what the
+# pre-commit hooks run.
 _kt-ci-only:
     #!/usr/bin/env bash
     if [[ "${STAYTURGID_LOCAL_GRADLE:-0}" != 1 ]]; then
-      echo "stayturgid-agent builds and tests run on Forgejo CI only (forgejo.mit.edu/djbclark/stayturgid)." >&2
-      echo "Push: git-forgejo -C {{ repo }} push forgejo master; then: just agent-ci-fetch" >&2
+      echo "stayturgid-agent builds and tests run on GitHub CI only (github.com/djbclark/stayturgid, ci/base)." >&2
+      echo "Push: git -C {{ repo }} push origin master; then: just agent-ci-run; then: just agent-ci-fetch" >&2
       echo "See device/native-agent/README.md, Build." >&2
       exit 3
     fi
 
-# Fetch the CI-built APK for HEAD (or SHA) from Forgejo and sign it with the release key.
+# Run the GitHub CI build of REF (default origin/master): overlay ci/base, push ci/run/<slug>, print the run URL.
+agent-ci-run ref="origin/master":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    git -C "{{ repo }}" fetch origin ci/base master
+    tmp="$(mktemp -t github-ci-run.XXXXXX)"
+    git -C "{{ repo }}" show origin/ci/base:scripts/github-ci-run > "$tmp"
+    cd "{{ repo }}" && bash "$tmp" --no-wait "{{ ref }}"
+
+# Fetch the CI-built APK for HEAD (or SHA) from GitHub releases and sign it with the release key.
 agent-ci-fetch sha="":
     python3 "{{ repo }}/control/tools/native-agent/ci_fetch_sign.py" {{ sha }}
 
-# Run native-agent unit tests (Forgejo CI only; see _kt-ci-only).
+# Run native-agent unit tests (GitHub CI only; see _kt-ci-only).
 kt-test: _kt-ci-only _kt-sdk
     cd {{_agent_dir}} && JAVA_HOME={{_java_home}} ./gradlew test
 
@@ -81,6 +91,6 @@ _kt-sdk:
 kt-build-debug: _kt-ci-only _kt-sdk
     cd {{_agent_dir}} && JAVA_HOME={{_java_home}} ./gradlew assembleDebug
 
-# Assemble release APK (signed; Forgejo CI only, see _kt-ci-only and agent-ci-fetch).
+# Assemble release APK (signed; GitHub CI only, see _kt-ci-only and agent-ci-fetch).
 kt-build-release: _kt-ci-only _kt-sdk
     cd {{_agent_dir}} && JAVA_HOME={{_java_home}} ./gradlew assembleRelease

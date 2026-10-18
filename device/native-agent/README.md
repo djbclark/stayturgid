@@ -27,22 +27,22 @@ Current status: [docs/STATUS.md](../../docs/STATUS.md).
 
 ## Build
 
-**Built on Forgejo CI only, never on the Mac (djbclark, 2026-10-17).** A push of
-`master` to the private copy `forgejo.mit.edu/djbclark/stayturgid` (remote
-`forgejo`; push with `~/src/djbclark-ade/skills/forgejo/scripts/git-forgejo -C
-~/ops/stayturgid push forgejo master`) that touches `device/native-agent/` runs
-[`.forgejo/workflows/agent-build.yml`](../../.forgejo/workflows/agent-build.yml)
-on SIPB's Hyades runner: unit tests, detekt and an **unsigned** release APK,
-published as the Forgejo prerelease `agent-ci-<versionName>-<sha8>`. Then
-`just agent-ci-fetch` downloads it, checks its SHA-256, signs it with
+**Built on GitHub CI only, never on the Mac (djbclark, 2026-10-18; it was Forgejo
+CI on SIPB's Hyades from 2026-10-17).** After `git push origin master`, `just
+agent-ci-run` (the `scripts/github-ci-run` wrapper from the `ci/base` branch)
+overlays `ci/base` onto the commit and pushes `ci/run/<slug>`, which runs
+`.github/workflows/agent-ci.yml` (it exists only on `ci/base`; see its
+`docs/ci-github.md`) on a free GitHub-hosted runner: unit tests, detekt and an
+**unsigned** release APK, published as the GitHub prerelease
+`agent-ci-<versionName>-<sha8>` on `djbclark/stayturgid`. Then
+`just agent-ci-fetch` downloads it (with `gh`), checks its SHA-256, signs it with
 `agent-release.jks` (which never leaves the Mac) and checks the signer, writing
 `app/build/outputs/apk/release/app-release.apk`. A fleet release is that file
 uploaded as the GitHub release `agent-v<version>` and pinned in
 `bootstrap_apks/defaults/main.yml`. `just kt-test`, `kt-build-*` and
 `agent-assemble` refuse to run locally; spotless and detekt (the pre-commit
-hooks) stay local. The CI job needs the loopback shim (Gradle cannot reach its
-daemon under libkrun TSI otherwise); runner notes:
-https://forgejo.mit.edu/djbclark/loopback-port-shim.
+hooks) stay local. GitHub runners need no loopback shim; that is a Hyades
+(libkrun) workaround. `.forgejo/` in this repo is the retired Forgejo flow.
 
 The local build below is kept for reference only. It requires Android SDK (`ANDROID_HOME` or `local.properties` `sdk.dir`) and
 **JDK 17 or 21** (AGP 8.10 rejects JDK 25+). On this Mac:
