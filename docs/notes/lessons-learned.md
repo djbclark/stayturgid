@@ -167,7 +167,11 @@ by the repo's tools alone. Hit in order on t2e:
    own runsvdir starters never write. Fixed 2026-10-17: `termux_userland` deploys
    `device/termux/profile.d/runsvdir-pidfile.sh`, which sorts first and points the
    pidfile at the running runsvdir (their file is a dpkg conffile: editing it would
-   stop `pkg upgrade` at a prompt).
+   stop `pkg upgrade` at a prompt). Second cause, same day: CFEngine's `check_sshd`
+   guarded with `pgrep -x runsvdir`, which misses a runsvdir started by absolute
+   path, so every brief sshd gap (a deploy's reload) started one more. It now uses
+   `pgrep -f "[r]unsvdir $SVDIR"` like every other starter
+   (`test_no_runsvdir_guard_uses_pgrep_x`).
 7. **Termux's new adb key is `unauthorized`** until the human taps "Always allow"
    on the system "Allow USB debugging?" dialog (see the Fire OS note above).
    Until then `just health` reports `shell5555_down` for the host. Two fixes
