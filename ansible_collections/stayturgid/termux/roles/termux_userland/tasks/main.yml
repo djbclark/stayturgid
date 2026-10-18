@@ -596,8 +596,8 @@
 
 # 00-start-services.sh starts runsvdir without service-daemon's pidfile, so every
 # login shell's start-services.sh (termux-services) started another one. Our own
-# profile.d file, not an edit to theirs: that is a dpkg conffile, and a modified
-# one stops `pkg upgrade` at a prompt.
+# profile.d file, not an edit to theirs: termux-services owns that file (it ships
+# no conffiles), so the next `pkg upgrade` would silently overwrite an edit.
 - name: Deploy the runsvdir pidfile fix for termux-services
   tags: [scripts]
   ansible.builtin.copy:

@@ -166,8 +166,8 @@ by the repo's tools alone. Hit in order on t2e:
    login shell, and that trusts only `$PREFIX/var/run/service-daemon.pid`, which our
    own runsvdir starters never write. Fixed 2026-10-17: `termux_userland` deploys
    `device/termux/profile.d/runsvdir-pidfile.sh`, which sorts first and points the
-   pidfile at the running runsvdir (their file is a dpkg conffile: editing it would
-   stop `pkg upgrade` at a prompt). Second cause, same day: CFEngine's `check_sshd`
+   pidfile at the running runsvdir (their file is package-owned, not a conffile, so
+   a `pkg upgrade` would silently overwrite an edit). Second cause, same day: CFEngine's `check_sshd`
    guarded with `pgrep -x runsvdir`, which misses a runsvdir started by absolute
    path, so every brief sshd gap (a deploy's reload) started one more. It now uses
    `pgrep -f "[r]unsvdir $SVDIR"` like every other starter
