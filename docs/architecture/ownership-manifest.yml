@@ -169,6 +169,7 @@
     - device/native-agent/**
     - ansible_collections/stayturgid/android_common/plugins/modules/native_agent_config.py
     - control/tools/native-agent/README.md
+    - control/tools/native-agent/ci_fetch_sign.py
     - control/tools/native-agent/grant_shizuku.py
     - control/tools/native-agent/rollout.py
     - control/tools/native-agent/start_agent.py
@@ -211,6 +212,7 @@
     - control/bin/deploy_termux.py
     - control/bin/bootstrap_ssh.py
     - control/bin/check_termux_pkg_updates.py
+    - device/termux/requirements.txt
     - control/bin/termux_adbkey.py
     - control/lib/termux_adbkey.py
     - control/lib/termux_api.py
@@ -370,6 +372,7 @@
   paths:
     - control/lib/secretspec_exec.py
     - control/bin/publish_secrets.sh
+    - control/bin/check_secretspec_drift.py
   disposition: split
   note: "Requirement interface is product; each service owner declares its requirement names; values stay in the local sudo-secretspec store."
 
