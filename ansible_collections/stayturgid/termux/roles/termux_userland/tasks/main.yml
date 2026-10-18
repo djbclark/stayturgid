@@ -627,6 +627,8 @@
     state: directory
     mode: "0700"
 
+# perms: true would copy the checkout's 0755 onto the 0700 directory above, and
+# the two tasks undid each other on every run; D0700 keeps them in agreement.
 - name: Deploy tasker recovery scripts
   tags: [scripts]
   ansible.posix.synchronize:
@@ -634,6 +636,7 @@
     dest: "{{ termux_home }}/.termux/tasker/"
     perms: true
     checksum: true
+    rsync_opts: ["--chmod=D0700"]
 
 # sshd-recover-tasker.sh runs everything executable in recover.d/, so an entry
 # dropped from the repo has to leave the phone too. delete is scoped to
@@ -647,6 +650,7 @@
     perms: true
     checksum: true
     delete: true
+    rsync_opts: ["--chmod=D0700"]
 
 # sv-enable equivalent: a runit service with no down file auto-starts when
 # runsvdir does. The repair/boot scripts also delete a stale down file, but

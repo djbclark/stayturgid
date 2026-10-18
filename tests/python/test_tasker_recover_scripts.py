@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 
 import pytest
+import yaml
 
 REPO = Path(__file__).resolve().parents[2]
 SRC = REPO / "device" / "termux" / "tasker"
@@ -334,3 +335,17 @@ def test_boot_script_leaves_a_live_holders_lock_alone(phone):
     lock = phone.hold_lock("runsvdir-start.lock", os.getpid(), int(time.time()))
     phone.source(BOOT_SCRIPT, SUPERVISOR_STUBS)
     assert lock.exists()
+
+
+def test_role_keeps_the_tasker_directories_at_0700_on_every_run():
+    # perms: true copied the checkout's 0755 over the 0700 directory task, so the
+    # directory task and both syncs reported a change on every deploy.
+    tasks = yaml.safe_load(
+        (REPO / "ansible_collections/stayturgid/termux/roles/termux_userland/tasks/main.yml").read_text()
+    )
+    by_name = {t.get("name"): t for t in tasks}
+    assert by_name["Ensure Termux tasker script directory exists"]["ansible.builtin.file"]["mode"] == "0700"
+    for name in ("Deploy tasker recovery scripts", "Prune recover.d entries no longer in the repo"):
+        sync = by_name[name]["ansible.posix.synchronize"]
+        assert sync["perms"] is True
+        assert "--chmod=D0700" in sync["rsync_opts"], name
