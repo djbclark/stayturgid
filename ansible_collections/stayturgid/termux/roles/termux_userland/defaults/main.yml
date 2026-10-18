@@ -127,6 +127,7 @@ stayturgid_py_scripts:
   - stayturgid_screen_awake_guard.py
   - stayturgid_agent_presence.py
   - stayturgid_battery_alarm.py
+  - stayturgid_battery_use.py
   - stayturgid_repair.py
   - stayturgid_bridges.py
   - start_adb.py

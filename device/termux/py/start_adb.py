@@ -521,6 +521,7 @@ def daemon_loop() -> None:
                     tapi.run_ff(["termux-api-start"])
 
             _run_guard("stayturgid_battery_alarm.py")
+            _run_battery_use()
             _run_guard("stayturgid_screen_awake_guard.py", extra_args=["check"])
             _run_guard("stayturgid_agent_presence.py", extra_args=["guard"])
 
@@ -645,6 +646,31 @@ def _cmd_exists(name: str) -> bool:
     import shutil
 
     return shutil.which(name) is not None
+
+
+def _run_battery_use() -> None:
+    """Fork the battery-use sampler only when its own interval has elapsed.
+
+    The 5-minute pass is already awake for the alarm. Starting another
+    interpreter every pass would be part of the drain the sampler measures.
+    An attempt is recorded before the fork so a dump killed by the guard's
+    60s timeout waits out the interval instead of retrying next pass.
+    """
+    path = os.path.join(BIN, "stayturgid_battery_use.py")
+    if not os.access(path, os.X_OK):
+        return
+    try:
+        import stayturgid_battery_use as battery_use
+    except Exception:
+        return
+    try:
+        if not battery_use.fork_due():
+            return
+        battery_use.mark_attempt()
+    except Exception as exc:
+        _boot_log(f"battery-use gate failed: {type(exc).__name__}: {exc}")
+        return
+    _run_guard("stayturgid_battery_use.py")
 
 
 def _run_guard(script_name: str, extra_args: list[str] | None = None) -> None:

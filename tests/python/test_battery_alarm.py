@@ -243,9 +243,17 @@ def test_outside_slots_nothing(state):
 
 
 def test_status_json_tracks_last_charged(state):
-    alarm.write_status({"plugged": "PLUGGED_AC"}, 80, "CHARGING", None)
+    alarm.write_status(
+        {"plugged": "PLUGGED_AC", "current": -1500, "charge_counter": 3000000, "temperature": 29.5},
+        80,
+        "CHARGING",
+        None,
+    )
     first = alarm.json.loads(open(alarm.STATUS_JSON).read())
     assert first["last_charged"] and first["eta_min"] is None
+    assert first["current"] == -1500
+    assert first["charge_counter"] == 3000000
+    assert first["temperature"] == 29.5
     alarm.write_status({"plugged": "UNPLUGGED"}, 50, "DISCHARGING", 5.0)
     st = alarm.json.loads(open(alarm.STATUS_JSON).read())
     assert st["last_charged"] == first["last_charged"]

@@ -351,6 +351,12 @@ def write_status(batt, pct, status, rate):
         "last_charged": now if on_charger else prev.get("last_charged"),
         "quiet_until": int(q.timestamp()) if (q := quiet_until()) else None,
     }
+    # Fuel-gauge fields termux-battery-status already fetched. The use sampler
+    # reads them from this file instead of calling the API a second time.
+    # current is BatteryManager's signed microamps; do not invert it here.
+    for key in ("current", "current_average", "charge_counter", "energy", "temperature", "voltage"):
+        if batt.get(key) is not None:
+            st[key] = batt[key]
     try:
         _write(STATUS_JSON, json.dumps(st))
     except OSError:
