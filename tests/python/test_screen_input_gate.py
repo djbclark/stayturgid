@@ -26,8 +26,9 @@ GATE_MODULES = {
 
 # path -> number of raw input calls expected there, and why each is allowed.
 ALLOWED = {
-    # Inverts the display around the keystrokes and refuses if it stays off.
-    "ansible_collections/stayturgid/termux/plugins/module_utils/termux_run_as.py": 2,
+    # Inverts the display around the keystrokes and refuses if it stays off;
+    # clear_termux_line's two keyevents run only inside that inverted block.
+    "ansible_collections/stayturgid/termux/plugins/module_utils/termux_run_as.py": 4,
     "control/lib/adb_cli.py": 1,
     # Called only from inside a held ScreenControlSession.
     "control/lib/ui_clearance.py": 3,

@@ -178,3 +178,74 @@ def test_start_sshd_from_app_refuses_without_inversion(mocker):
     with pytest.raises(RuntimeError, match="display inversion"):
         tr.start_sshd_from_app(run, "dev")
     assert not [c for c in calls if " input " in c]
+
+
+def fake_typing_adb(up_after_typing):
+    """Inversion always turns on; sshd shows in `ps -A -Z` from the Nth typing on (None: never)."""
+    state = {"inv": "0", "typings": 0}
+    calls = []
+
+    def run(cmd):
+        joined = " ".join(cmd)
+        calls.append(joined)
+        if "settings put secure " + tr.INVERSION_KEY in joined:
+            state["inv"] = cmd[-1]
+        elif "settings get secure " + tr.INVERSION_KEY in joined:
+            return (0, state["inv"] + "\n", "")
+        elif "input text sshd" in joined:
+            assert state["inv"] == "1"
+            state["typings"] += 1
+        elif "ps -A -Z" in joined and up_after_typing and state["typings"] >= up_after_typing:
+            return (0, "u:r:untrusted_app:s0 u0_a601 4321 1 sshd\n", "")
+        return (0, "", "")
+
+    return run, state, calls
+
+
+def typed_and_cleared(calls):
+    """Event list: 'type' per `input text sshd`, 'clear' per End+backspaces pair."""
+    events = []
+    for i, c in enumerate(calls):
+        if "input text sshd" in c:
+            events.append("type")
+        elif c.endswith("input keyevent KEYCODE_MOVE_END"):
+            assert "KEYCODE_DEL" in calls[i + 1]
+            events.append("clear")
+    return events
+
+
+def test_start_sshd_from_app_first_try_types_once(mocker):
+    mocker.patch.object(tr.time, "sleep")
+    run, state, calls = fake_typing_adb(up_after_typing=1)
+    assert tr.start_sshd_from_app(run, "dev") is True
+    assert typed_and_cleared(calls) == ["type"]
+    assert state["inv"] == "0"
+
+
+def test_start_sshd_from_app_clears_and_retypes_after_failed_probe(mocker):
+    mocker.patch.object(tr.time, "sleep")
+    run, state, calls = fake_typing_adb(up_after_typing=2)
+    assert tr.start_sshd_from_app(run, "dev") is True
+    assert typed_and_cleared(calls) == ["type", "clear", "type"]
+    # The first typing got its full probe window before the line was cleared.
+    first_clear = next(i for i, c in enumerate(calls) if "KEYCODE_MOVE_END" in c)
+    assert sum("ps -A -Z" in c for c in calls[:first_clear]) == tr.SSHD_PROBE_POLLS
+    assert state["inv"] == "0"
+
+
+def test_start_sshd_from_app_gives_up_after_three_typings(mocker):
+    sleep = mocker.patch.object(tr.time, "sleep")
+    run, state, calls = fake_typing_adb(up_after_typing=None)
+    with pytest.raises(RuntimeError, match="after typing `sshd` 3 times"):
+        tr.start_sshd_from_app(run, "dev")
+    assert typed_and_cleared(calls) == ["type", "clear", "type", "clear", "type"]
+    assert state["inv"] == "0"  # restored even on failure
+    # Bounded: the 2 s settle after `am start` plus one 1 s sleep per probe poll.
+    assert sleep.call_count == 1 + 3 * tr.SSHD_PROBE_POLLS
+
+
+def test_ensure_sshd_surfaces_typing_failure(mocker):
+    mocker.patch.object(tr.time, "sleep")
+    run, _state, _calls = fake_typing_adb(up_after_typing=None)
+    with pytest.raises(RuntimeError, match="3 times"):
+        tr.ensure_sshd(run, "dev")

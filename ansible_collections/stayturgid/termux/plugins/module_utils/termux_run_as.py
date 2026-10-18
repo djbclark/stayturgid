@@ -350,7 +350,26 @@ def sshd_domain(run_command, device):
     return ""
 
 
-def start_sshd_from_app(run_command, device, termux_pkg=TERMUX_PKG, attempts=10, host=None):
+# The keyboard's suggestion bar sometimes doubles what `input text` types
+# (`sshdsshd`, s24 2026-10-17), and a retry worked. Between typings the line is
+# cleared with End then a run of backspaces: Termux maps KEYCODE_MOVE_END to the
+# End escape (readline end-of-line) and KEYCODE_DEL to 0x7f (backward-delete),
+# and both are plain keyevents every Android `input` accepts. Ctrl+U would need
+# a Ctrl meta state, which `input keyevent` cannot send before `input
+# keycombination` (Android 13). Backspace on an empty prompt only rings the bell.
+SSHD_TYPINGS = 3
+SSHD_PROBE_POLLS = 5
+CLEAR_LINE_DELS = 32
+
+
+def clear_termux_line(run_command, device, dels=CLEAR_LINE_DELS):
+    adb_cmd(run_command, device, "shell", "input", "keyevent", "KEYCODE_MOVE_END")
+    adb_cmd(run_command, device, "shell", "input", "keyevent", *(["KEYCODE_DEL"] * dels))
+
+
+def start_sshd_from_app(
+    run_command, device, termux_pkg=TERMUX_PKG, probe_polls=SSHD_PROBE_POLLS, typings=SSHD_TYPINGS, host=None
+):
     """Start sshd inside the Termux app process (untrusted_app domain).
 
     sshd started via run-as lives in runas_app, which has no /sdcard mount, so
@@ -359,7 +378,10 @@ def start_sshd_from_app(run_command, device, termux_pkg=TERMUX_PKG, attempts=10,
 
     Typing is screen control, so the display is inverted while it happens (the
     visible "agent has the glass" signal, docs/rules/screen-control-hold.md),
-    and nothing is typed unless inversion is confirmed on.
+    and nothing is typed unless inversion is confirmed on. Each typing is
+    followed by up to ``probe_polls`` one-second sshd_domain checks; when none
+    sees sshd the line is cleared and retyped, ``typings`` times in all, then
+    it raises RuntimeError. Returns True once sshd is up.
     """
     wait_for_unlocked_screen(run_command, device, host=host, purpose="bootstrap-ssh (typing sshd into Termux)")
     before = inversion_state(run_command, device)
@@ -369,16 +391,23 @@ def start_sshd_from_app(run_command, device, termux_pkg=TERMUX_PKG, attempts=10,
             raise RuntimeError("refusing to type sshd into Termux: display inversion did not turn on")
         adb_cmd(run_command, device, "shell", "am", "start", "-n", TERMUX_ACTIVITY)
         time.sleep(2)
-        adb_cmd(run_command, device, "shell", "input", "text", "sshd")
-        adb_cmd(run_command, device, "shell", "input", "keyevent", "66")
+        for typing in range(typings):
+            if typing:
+                clear_termux_line(run_command, device)
+            adb_cmd(run_command, device, "shell", "input", "text", "sshd")
+            adb_cmd(run_command, device, "shell", "input", "keyevent", "66")
+            for _ in range(probe_polls):
+                time.sleep(1)
+                if sshd_domain(run_command, device):
+                    return True
     finally:
         if before != "1":
             adb_cmd(run_command, device, "shell", "settings", "put", "secure", INVERSION_KEY, before or "0")
-    for _ in range(attempts):
-        time.sleep(1)
-        if sshd_domain(run_command, device):
-            return True
-    return False
+    raise RuntimeError(
+        "sshd did not start from the Termux app after typing `sshd` %d times (line cleared between tries, "
+        "%d s of `ps -A -Z` checks after each): look at the Termux screen, unlock the device and retry"
+        % (typings, probe_polls)
+    )
 
 
 def ensure_sshd(run_command, device, check_mode=False, host=None):
@@ -391,8 +420,7 @@ def ensure_sshd(run_command, device, check_mode=False, host=None):
         # Wrong-domain sshd (adb shell cannot kill it; run-as can).
         run_as_termux(run_command, device, TERMUX_ENV + "pkill -x sshd || true\n")
         time.sleep(1)
-    if not start_sshd_from_app(run_command, device, host=host):
-        raise RuntimeError("sshd did not start from the Termux app; unlock the device and retry")
+    start_sshd_from_app(run_command, device, host=host)
     if "runas_app" in sshd_domain(run_command, device):
         raise RuntimeError("sshd is running in the run-as SELinux domain (no /sdcard access)")
     return True
