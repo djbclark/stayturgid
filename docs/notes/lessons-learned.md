@@ -249,6 +249,23 @@ cannot match the shell that carries it, and prefer `-f` over `-x`: `pgrep -x
 otelcol-contrib` does not match on Termux's procps-ng 4.0.7 even though
 `/proc/<pid>/comm` is exactly `otelcol-contrib`.
 
+### `sys.os_name_human` is "Unknown" on Termux until CFEngine 3.29
+
+Every Termux `cf-agent`/`cf-promises` run warns "Operating System not properly
+recognized, setting sys.os_name_human to "Unknown"" (52 of 208 lines in t2e's
+`repair-cfengine.log`, 2026-10-17). The `termux` class and `sys.flavor=termux`
+are set correctly; 3.28.0 just predates the fix: CFE-4427,
+[cfengine/core#6225](https://github.com/cfengine/core/pull/6225) (master,
+merged 2026-07-13, four days after the 3.28.0 tag) and
+[#6233](https://github.com/cfengine/core/pull/6233) (3.27.x, in 3.27.2).
+
+**How to apply:** nothing to fix locally. Policy cannot override a `sys.`
+variable, Android has no writable `/etc/os-release` (CFEngine reads only
+`/etc/os-release` and `/usr/lib/os-release`), and raising the log level would
+hide every other warning. It goes away when Termux packages 3.29.0. Context and
+the queued termux-packages request:
+[djbclark/core#50](https://github.com/djbclark/core/issues/50).
+
 ### otelcol-contrib idle CPU is a battery item, not a rounding error
 
 Measured on t2e 2026-10-02: with upstream defaults the collector burned ~5 CPU
