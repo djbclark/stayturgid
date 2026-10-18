@@ -112,3 +112,88 @@ def test_dismiss_app_compatibility_dialog_refuses_without_inversion(monkeypatch)
     assert ac.dismiss_app_compatibility_dialog("serial") is False
     assert state["dialog"] is True
     assert not any("keyevent" in part for cmd in sent for part in cmd)
+
+
+PENDING_LOGCAT = (
+    "1760760000.123  1234  1250 I adbd    : adbd_auth: received public key\n"
+    "1760760000.456  1234  1250 I adbd    : adbd_auth: prompt currently pending, skipping\n"
+)
+NORMAL_LOGCAT = (
+    "1760760000.123  1234  1250 I adbd    : adbd_auth: received public key\n"
+    "1760760001.000   800   900 I ActivityTaskManager: START u0 {cmp=com.termux/.app.TermuxActivity}\n"
+)
+
+
+def fake_auth_phone(monkeypatch, logcat, dialog, logcat_rc=0):
+    """run() stand-in: logcat returns `logcat`, dumpsys shows the debugging dialog if `dialog`."""
+    sent = []
+
+    def fake_run(cmd, **kwargs):
+        sent.append(cmd)
+        out, rc = "", 0
+        if "logcat" in cmd[-1]:
+            out, rc = logcat, logcat_rc
+        elif "dumpsys" in cmd and dialog:
+            out = "...com.android.systemui/.wifi.WifiDebuggingActivity..."
+        return subprocess.CompletedProcess(cmd, rc, stdout=out, stderr="")
+
+    monkeypatch.setattr(ac, "run", fake_run)
+    monkeypatch.setattr(ac, "adb_bin", lambda: "adb")
+    return sent
+
+
+def restarts(sent):
+    return [cmd for cmd in sent if "ctl.restart" in cmd[-1]]
+
+
+def test_adb_prompt_pending_in_detects_pending_line():
+    assert ac.adb_prompt_pending_in(PENDING_LOGCAT) is True
+
+
+def test_adb_prompt_pending_in_ignores_normal_output():
+    assert ac.adb_prompt_pending_in(NORMAL_LOGCAT) is False
+    assert ac.adb_prompt_pending_in("") is False
+
+
+def test_check_adb_prompt_ok_on_normal_logcat(monkeypatch):
+    sent = fake_auth_phone(monkeypatch, NORMAL_LOGCAT, dialog=False)
+    assert ac.check_adb_prompt("serial", restart_adbd=True) == "ok"
+    assert not restarts(sent)
+
+
+def test_check_adb_prompt_unknown_when_logcat_fails(monkeypatch):
+    sent = fake_auth_phone(monkeypatch, PENDING_LOGCAT, dialog=False, logcat_rc=1)
+    assert ac.check_adb_prompt("serial", restart_adbd=True) == "unknown"
+    assert not restarts(sent)
+
+
+def test_check_adb_prompt_reads_a_device_clock_window(monkeypatch):
+    sent = fake_auth_phone(monkeypatch, NORMAL_LOGCAT, dialog=False)
+    ac.check_adb_prompt("serial", window_s=300)
+    assert sent[0][:4] == ["adb", "-s", "serial", "shell"]
+    assert sent[0][4] == 'logcat -d -v epoch -t "$(( $(date +%s) - 300 )).0"'
+
+
+def test_check_adb_prompt_offers_hint_by_default(monkeypatch, capsys):
+    sent = fake_auth_phone(monkeypatch, PENDING_LOGCAT, dialog=False)
+    assert ac.check_adb_prompt("serial") == "stuck"
+    assert not restarts(sent)
+    assert "stuck prompt" in capsys.readouterr().out
+
+
+def test_check_adb_prompt_refuses_restart_while_dialog_showing(monkeypatch):
+    sent = fake_auth_phone(monkeypatch, PENDING_LOGCAT, dialog=True)
+    assert ac.check_adb_prompt("serial", restart_adbd=True) == "dialog"
+    assert not restarts(sent)
+    assert not any(part in ("am", "start", "keyevent", "input") for cmd in sent for part in cmd)
+
+
+def test_check_adb_prompt_opt_in_issues_only_a_detached_restart(monkeypatch):
+    sent = fake_auth_phone(monkeypatch, PENDING_LOGCAT, dialog=False)
+    assert ac.check_adb_prompt("serial", restart_adbd=True) == "restarted"
+    assert restarts(sent) == [["adb", "-s", "serial", "shell", ac.ADBD_RESTART_DETACHED]]
+    assert ac.ADBD_RESTART_DETACHED.startswith("nohup setsid ")
+    assert ac.ADBD_RESTART_DETACHED.endswith(" &")
+    # Read logcat, read activities, restart: nothing else reaches the phone.
+    assert len(sent) == 3
+    assert not any(" am " in " %s " % " ".join(cmd) or "keyevent" in " ".join(cmd) for cmd in sent)

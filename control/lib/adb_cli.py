@@ -128,6 +128,69 @@ def debugging_dialog_present(serial: str) -> bool:
     return "UsbDebuggingActivity" in text or "WifiDebuggingActivity" in text
 
 
+# adbd logs this when a new key connects while it believes an "Allow debugging?"
+# prompt is already up; it raises no new dialog until adbd restarts.
+ADB_PROMPT_PENDING_MARKER = "prompt currently pending, skipping"
+
+# Same restart the fleet already issues through rish (start_adb.py,
+# stayturgid_repair.py), wrapped in the nohup setsid detach used for on-device
+# scripts, so `adb shell` returns before adbd (and this connection) goes away.
+# service.adb.tcp.port survives an adbd restart, so the TCP listener is kept.
+# SELinux denies ctl.restart to shell on Fire OS (session-2026-07-25-k1-verification.md).
+ADBD_RESTART_DETACHED = "nohup setsid sh -c 'sleep 2; setprop ctl.restart adbd' </dev/null >/dev/null 2>&1 &"
+
+
+def adb_prompt_pending_in(logcat_text: str) -> bool:
+    """True if logcat text carries adbd's 'prompt currently pending' line."""
+    return ADB_PROMPT_PENDING_MARKER in (logcat_text or "")
+
+
+def _recent_logcat(serial: str, window_s: int) -> str | None:
+    """Last window_s seconds of logcat by the device's own clock, or None if unreadable."""
+    script = 'logcat -d -v epoch -t "$(( $(date +%%s) - %d )).0"' % window_s
+    result = adb(serial, "shell", script, check=False, timeout=30)
+    return (result.stdout or "") if result.returncode == 0 else None
+
+
+def check_adb_prompt(serial: str, *, restart_adbd: bool = False, window_s: int = 600) -> str:
+    """Detect a stuck adb authorization prompt; restart adbd only when asked.
+
+    Stuck means adbd logged ADB_PROMPT_PENDING_MARKER in the last window_s
+    seconds while no UsbDebuggingActivity/WifiDebuggingActivity is showing, so
+    no new key can be authorized until adbd restarts. By default this only
+    prints the recovery hint. With restart_adbd=True it issues
+    ADBD_RESTART_DETACHED and nothing else: no activity is started, and it
+    refuses while the debugging dialog is showing, since a restart then drops
+    the connection a human is about to allow and adb's re-dial raises another.
+
+    Returns "unknown" (logcat unreadable), "ok" (nothing pending), "dialog"
+    (the dialog is up: a human must tap it), "stuck" (hint printed),
+    "restarted" or "restart-failed". After "restarted" the caller must
+    re-`adb connect` a TCP serial.
+    """
+    text = _recent_logcat(serial, window_s)
+    if text is None:
+        return "unknown"
+    if not adb_prompt_pending_in(text):
+        return "ok"
+    if debugging_dialog_present(serial):
+        print("%s: adb auth prompt pending and the debugging dialog is showing; a human must tap it." % serial)
+        return "dialog"
+    if not restart_adbd:
+        print(
+            "%s: adbd says an auth prompt is pending but no debugging dialog is showing (stuck prompt). "
+            'Recover with: adb -s %s shell "%s" (Fire OS denies this: toggle USB/Wireless debugging '
+            "off and on by hand)." % (serial, serial, ADBD_RESTART_DETACHED)
+        )
+        return "stuck"
+    result = adb(serial, "shell", ADBD_RESTART_DETACHED, check=False, timeout=15)
+    if result.returncode != 0:
+        print("%s: detached adbd restart did not start (rc=%d)." % (serial, result.returncode))
+        return "restart-failed"
+    print("%s: stuck adb auth prompt; detached adbd restart issued." % serial)
+    return "restarted"
+
+
 INVERSION_KEY = "accessibility_display_inversion_enabled"
 
 
