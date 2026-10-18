@@ -63,7 +63,12 @@ def installed() -> bool:
 
 
 def install(*, force: bool = False) -> str:
-    """Extract dex + write wrapper. Returns path to ``rish`` wrapper.
+    """Extract dex + write wrapper. Returns path to ``rish`` wrapper."""
+    return install_changed(force=force)[0]
+
+
+def install_changed(*, force: bool = False) -> tuple[str, bool]:
+    """Like :func:`install`, plus whether anything was written (Ansible's changed_when).
 
     Re-extracts whenever the installed APK's dex differs from the one on disk: the dex's
     loader names a class inside the manager APK, so a dex left over from an older build
@@ -72,7 +77,7 @@ def install(*, force: bool = False) -> str:
     apk = shizuku_apk_path()
     if not apk:
         if installed() and not force:
-            return WRAPPER
+            return WRAPPER, False
         raise RuntimeError("Shizuku APK not found (pm path %s) — install Shizuku first" % SHIZUKU_PKG)
     with zipfile.ZipFile(apk, "r") as zf:
         try:
@@ -84,7 +89,7 @@ def install(*, force: bool = False) -> str:
         try:
             with open(dex_dest, "rb") as f:
                 if f.read() == data:
-                    return WRAPPER
+                    return WRAPPER, False
         except OSError:
             pass
     os.makedirs(RISH_DIR, mode=0o755, exist_ok=True)
@@ -99,7 +104,7 @@ def install(*, force: bool = False) -> str:
     with open(WRAPPER, "w") as f:
         f.write(body)
     os.chmod(WRAPPER, 0o755)  # nosemgrep  # nosec B103  # wrapper is a shell script that must be executable
-    return WRAPPER
+    return WRAPPER, True
 
 
 def status() -> dict:
@@ -119,8 +124,8 @@ def main(argv=None) -> int:
     cmd = argv[0]
     force = "--force" in argv[1:]
     if cmd == "install":
-        path = install(force=force)
-        print("rish installed: %s" % path)
+        path, changed = install_changed(force=force)
+        print(("rish installed: %s" if changed else "rish up to date: %s") % path)
         return 0
     if cmd == "status":
         import json

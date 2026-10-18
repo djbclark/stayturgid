@@ -4,7 +4,8 @@
   ansible.builtin.command:
     cmd: "{{ termux_prefix }}/bin/python {{ termux_home }}/.stayturgid/bin/stayturgid_rish.py install"
   register: _rish_install
-  changed_when: "'installed' in (_rish_install.stdout | default(''))"
+  # "rish up to date: ..." when the dex on disk already matches the APK's.
+  changed_when: "'rish installed:' in (_rish_install.stdout | default(''))"
   when: stayturgid_install_rish | default(true) | bool
 
 - name: Verify rish installed correctly

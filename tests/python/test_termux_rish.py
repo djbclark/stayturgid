@@ -6,6 +6,8 @@ import sys
 import zipfile
 from pathlib import Path
 
+import yaml
+
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "device" / "termux" / "py"))
 
@@ -66,3 +68,18 @@ def test_install_leaves_a_current_dex_alone(tmp_path, monkeypatch):
     before = dex.stat().st_mtime_ns
     rish.install()
     assert dex.stat().st_mtime_ns == before
+
+
+def test_install_command_reports_a_change_only_when_it_writes(tmp_path, monkeypatch, capsys):
+    apk = tmp_path / "base.apk"
+    with zipfile.ZipFile(apk, "w") as zf:
+        zf.writestr("assets/rish_shizuku.dex", b"same")
+    _point_at(tmp_path, monkeypatch, apk)
+    assert rish.main(["install"]) == 0
+    assert capsys.readouterr().out.startswith("rish installed: ")
+    assert rish.main(["install"]) == 0
+    assert capsys.readouterr().out.startswith("rish up to date: ")
+    # The role's changed_when keys on the first form only (rish.yml).
+    role = REPO / "ansible_collections/stayturgid/termux/roles/termux_userland"
+    task = yaml.safe_load((role / "tasks/rish.yml").read_text())[0]
+    assert task["changed_when"] == "'rish installed:' in (_rish_install.stdout | default(''))"
