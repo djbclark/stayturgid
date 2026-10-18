@@ -147,6 +147,11 @@ by the repo's tools alone. Hit in order on t2e:
    `run-as com.termux cat files/usr/etc/ssh/ssh_host_ed25519_key.pub` before
    dropping the old line. `ssh-keygen -R` refuses to rewrite a `known_hosts`
    with any malformed line; delete the single stale line with `gsed` instead.
+   The malformed lines on the Mac (`[h]:8022 [h]:8022 ssh-ed25519 ...` for the
+   s24/p7a/hd8 MagicDNS names, removed 2026-10-18) came from a one-off agent
+   command on 2026-07-13, `echo "[$host]:8022 $line" >> ~/.ssh/known_hosts`
+   with `$line` from `ssh-keyscan -p 8022`, which already starts with
+   `[$host]:8022`. No repo code writes them. Append `ssh-keyscan` output as is.
 3. **No Python on the device.** `deploy_termux.py` fails with "module
    interpreter ... not found"; nothing installs it. Pin the mirror, then
    `apt-get -y -o Dpkg::Options::=--force-confold install python rsync`
