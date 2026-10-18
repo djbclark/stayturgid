@@ -125,6 +125,9 @@ for f in sorted(root.iterdir()):
 PYN
 )
 
+# Record the target SHA for release naming (shallow checkout has no parents).
+printf '%s\n' "$target_sha" > "$GIT_WORK_TREE/.ci-target-sha"
+
 found=0
 for k in linux-ci.yml agent-ci.yml; do
   [ -f "$GIT_WORK_TREE/.github/workflows/$k" ] && found=1

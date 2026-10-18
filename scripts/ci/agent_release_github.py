@@ -21,7 +21,12 @@ TOKEN = os.environ["GITHUB_TOKEN"]
 
 
 def resolve_sha() -> str:
-    """Prefer the overlay's first parent (the target ref) so agent-ci-fetch matches HEAD."""
+    """Prefer .ci-target-sha written by scripts/github-ci-run (overlay target)."""
+    marker = pathlib.Path(".ci-target-sha")
+    if marker.is_file():
+        value = marker.read_text().strip()
+        if value:
+            return value
     import subprocess
 
     head = os.environ["GITHUB_SHA"]
