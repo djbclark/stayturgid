@@ -17,8 +17,26 @@ import urllib.request
 import base64
 
 REPO = os.environ["GITHUB_REPOSITORY"]
-SHA = os.environ["GITHUB_SHA"]
 TOKEN = os.environ["GITHUB_TOKEN"]
+
+
+def resolve_sha() -> str:
+    """Prefer the overlay's first parent (the target ref) so agent-ci-fetch matches HEAD."""
+    import subprocess
+
+    head = os.environ["GITHUB_SHA"]
+    try:
+        msg = subprocess.check_output(["git", "log", "-1", "--format=%s", head], text=True).strip()
+        if msg.startswith("ci: overlay"):
+            parent = subprocess.check_output(["git", "rev-parse", f"{head}^"], text=True).strip()
+            if parent:
+                return parent
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    return head
+
+
+SHA = resolve_sha()
 API = f"https://api.github.com/repos/{REPO}"
 UPLOAD = f"https://uploads.github.com/repos/{REPO}"
 OUT = pathlib.Path("device/native-agent/app/build/outputs/apk/release")
