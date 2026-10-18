@@ -5,7 +5,8 @@ Secrets live in the canonical vault at ``/var/db/sudo-secretspec`` and are
 reached through the ``sudo-secretspec`` companion, which brokers every
 operation through a root-owned, allowlisted binary and records it in a
 hash-chained audit ledger.  This module keeps the caller-side interface narrow:
-only ``run -- ansible-playbook ...`` is approved here.
+only ``run -- ansible-playbook ...`` is approved here, plus the fixed token fetch and
+the per-host adb key secrets (``secretspec_adbkey_command``).
 
 The companion elevates itself -- it invokes the NOPASSWD broker path
 internally -- so call sites must NOT wrap it in ``sudo``.  It fetches the
@@ -47,6 +48,7 @@ vault, and its ``sync_source`` would have chowned that vault away from
 from __future__ import annotations
 
 import os
+import re
 import shutil
 from functools import lru_cache
 
@@ -63,6 +65,17 @@ APPROVED_SECRET = "FIRERPA_MCP_TOKEN"
 # Recorded verbatim in the broker's audit ledger for every approved operation.
 RUN_REASON = "stayturgid approved ansible automation"
 TOKEN_REASON = "stayturgid firerpa mcp bearer token"
+
+# One secret per phone holding Termux's device-native adb key (control/lib/termux_adbkey.py),
+# restored after a reinstall so Android accepts it without a dialog. The name is
+# a fixed prefix plus the fleet host, and only get, set and add of such a name pass.
+ADBKEY_SECRET_PATTERN = re.compile(r"^TERMUX_ADBKEY_[A-Z0-9_]+$")
+ADBKEY_ACTIONS = ("get", "set", "add")
+ADBKEY_REASON = "stayturgid termux adb key backup"
+ADBKEY_DESCRIPTION = (
+    "Termux device-native adb key (adbkey and adbkey.pub, packed) of one fleet phone; "
+    "restored on a Termux reinstall so Android accepts it without a dialog"
+)
 
 
 # SecretSpec's own ways of pointing at a manifest other than the one the
@@ -181,3 +194,32 @@ def secretspec_token_command(name: str) -> list[str]:
     if os.environ.get(ALTERNATE_MANIFEST_ENV):
         raise ValueError(f"{ALTERNATE_MANIFEST_ENV} selects an alternate SecretSpec manifest; unset it")
     return ["secretspec", "get", name]
+
+
+def adbkey_secret_name(host: str) -> str:
+    """``TERMUX_ADBKEY_<HOST>`` for a fleet host name (``t2e`` -> ``TERMUX_ADBKEY_T2E``)."""
+    name = "TERMUX_ADBKEY_" + re.sub(r"[^A-Z0-9]+", "_", host.upper()).strip("_")
+    if not ADBKEY_SECRET_PATTERN.match(name) or name == "TERMUX_ADBKEY_":
+        raise ValueError(f"no adb key secret name for host {host!r}")
+    return name
+
+
+def secretspec_adbkey_command(action: str, name: str) -> list[str]:
+    """Return the fixed get/set/add of one ``TERMUX_ADBKEY_<HOST>`` secret.
+
+    ``set`` reads the value from stdin; ``get`` prints it, so a caller must capture
+    it and never echo it. ``add`` declares the name as optional (only phones that
+    run Termux have one). Any other name or action is refused, so this seam cannot
+    become a general ``get``. Without the boundary (CI) there is no vault to use,
+    and no direct-secretspec fallback is offered for these.
+    """
+    if action not in ADBKEY_ACTIONS:
+        raise ValueError(f"only {', '.join(ADBKEY_ACTIONS)} are available for adb key secrets")
+    if not ADBKEY_SECRET_PATTERN.match(name):
+        raise ValueError(f"only TERMUX_ADBKEY_<HOST> secrets are available here, not {name!r}")
+    if not boundary_available():
+        raise ValueError(f"no {BOUNDARY_BIN} boundary on this machine; the adb key backup is unavailable")
+    command = [BOUNDARY_BIN, action, name]
+    if action == "add":
+        command += ["--description", ADBKEY_DESCRIPTION, "--optional"]
+    return [*command, "--reason", ADBKEY_REASON]

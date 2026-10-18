@@ -7,6 +7,10 @@
   hosts: stayturgid
   gather_facts: false
   tags: [always, preflight]
+  vars:
+    # STAYTURGID_ROOT is set by the deploy wrappers; this playbook otherwise lives at
+    # <repo>/ansible/playbooks/fleet/ (ANSIBLE_CONFIG may name a site overlay).
+    stayturgid_repo_root: "{{ lookup('env', 'STAYTURGID_ROOT') | default(playbook_dir | dirname | dirname | dirname, true) }}"
   tasks:
     - name: Probe Termux SSH
       ansible.builtin.command:
@@ -98,11 +102,40 @@
         - not ansible_check_mode
         - not (_ssh_preflight_ok | default(false) | bool)
 
+    # A reinstalled Termux has no ~/.android/adbkey and generates a new one, which adbd
+    # greets with a fresh "Allow USB debugging?" dialog; the phone's own stored key goes
+    # back first, only when it has none (control/lib/termux_adbkey.py). A missing vault
+    # or backup only warns.
+    - name: Restore Termux's own adb key from the vault when the phone has none
+      ansible.builtin.command:
+        argv:
+          - python3
+          - "{{ stayturgid_repo_root }}/control/bin/termux_adbkey.py"
+          - restore
+          - "{{ inventory_hostname }}"
+          - --device
+          - "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
+      delegate_to: localhost
+      register: _termux_adbkey_restore
+      changed_when: "'restore: restored' in _termux_adbkey_restore.stdout"
+      failed_when: false
+      when:
+        - not ansible_check_mode
+        - not (_ssh_preflight_ok | default(false) | bool)
+
+    - name: Report an adb key restore that could not run
+      ansible.builtin.debug:
+        msg: "adb key restore skipped on {{ inventory_hostname }}: {{ (_termux_adbkey_restore.stderr | default('', true)) | trim }}"
+      when:
+        - _termux_adbkey_restore is not skipped
+        - _termux_adbkey_restore.rc | default(0) != 0
+
     - name: Bootstrap Termux authorized_keys and sshd over adb
       stayturgid.termux.termux_ssh_bootstrap:
         device: "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname) }}"
         keys_dir: "{{ stayturgid_ssh_keys_dir }}"
         public_key_files: "{{ stayturgid_ssh_public_key_files | default([]) }}"
+        host: "{{ inventory_hostname }}"
       delegate_to: localhost
       # A module failure here (#103: e.g. `pkg: inaccessible` on a Termux that
       # was fully backgrounded) must not end the play with that raw error —

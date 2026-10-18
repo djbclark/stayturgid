@@ -64,7 +64,10 @@ chowned that vault away from its owner on the first `source-publish` — which
 `publish_secrets.sh` called as its first action.
 
 Consumers now build their argv through `control/lib/secretspec_exec.py`, which
-still admits only `run -- ansible-playbook ...` and one named token fetch.
+still admits only `run -- ansible-playbook ...`, one named token fetch and, since
+2026-10-17, `get`/`set`/`add` of `TERMUX_ADBKEY_<HOST>` secrets (one per phone,
+Termux's own adb key: `control/lib/termux_adbkey.py`; the value goes in on stdin and
+is never printed, put in argv or written to disk).
 
 ## No fallback on a provisioned node (#287)
 

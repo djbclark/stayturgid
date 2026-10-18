@@ -186,6 +186,7 @@
     - ansible_collections/stayturgid/termux/galaxy.yml
     - ansible_collections/stayturgid/termux/plugins/module_utils/**
     - ansible_collections/stayturgid/termux/plugins/modules/termux_pkg.py
+    - ansible_collections/stayturgid/termux/plugins/modules/termux_screen_ready.py
     - ansible_collections/stayturgid/termux/plugins/modules/termux_ssh_bootstrap.py
     - ansible_collections/stayturgid/termux/plugins/modules/termux_sshd.py
     - ansible_collections/stayturgid/termux/roles/termux_userland/defaults/**
@@ -208,6 +209,8 @@
     - control/bin/deploy_termux.py
     - control/bin/bootstrap_ssh.py
     - control/bin/check_termux_pkg_updates.py
+    - control/bin/termux_adbkey.py
+    - control/lib/termux_adbkey.py
     - control/lib/termux_api.py
     - control/lib/termux_ssh_bootstrap.py
   disposition: core+site-data

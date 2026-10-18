@@ -164,7 +164,17 @@ by the repo's tools alone. Hit in order on t2e:
    kill the newer one by PID.
 7. **Termux's new adb key is `unauthorized`** until the human taps "Always allow"
    on the system "Allow USB debugging?" dialog (see the Fire OS note above).
-   Until then `just health` reports `shell5555_down` for the host.
+   Until then `just health` reports `shell5555_down` for the host. Two fixes
+   (2026-10-17): (a) the dialog is lost when Termux's first `adb connect` happens
+   on a locked Samsung screen (`startConfirmation: isLockScreenMode`; s24 waited 2 h
+   10 min for it), so `bootstrap-ssh` and `deploy-termux` wait for an awake, unlocked
+   screen first (one `hermes-ping "stayturgid: unlock <host> for bootstrap-ssh"`,
+   10 minute wait; `termux_run_as.wait_for_unlocked_screen`, the
+   `termux_screen_ready` module); (b) Android never revokes an old key, so the
+   authorised key is kept in the secret vault (`TERMUX_ADBKEY_<HOST>`,
+   `control/bin/termux_adbkey.py`: `deploy-termux` captures it once adbd holds it,
+   `bootstrap-ssh` restores it before Termux's first adb call when the phone has none)
+   and a reinstall asks nobody. A phone with no stored key still needs the one tap.
 8. **No shared-storage access on the new Termux** (found 2026-10-17, s24;
    `fleet_app_profiles.json` has no `com.termux` entry): `/sdcard` mkdir failed
    with "Permission denied". Automated 2026-10-17: the first play of
@@ -172,10 +182,12 @@ by the repo's tools alone. Hit in order on t2e:
    `appops set com.termux MANAGE_EXTERNAL_STORAGE allow` over the control node's
    adb before SSH, checking the current state first (#320).
 9. **`bootstrap-ssh` needs an unlocked, awake screen**: it types `sshd` into the
-   Termux app, and on a keyguard-locked phone it fails with "sshd did not start
-   from the Termux app". The first run after a fresh install also fails while
-   `pkg` installs openssh; rerun with Termux in the foreground and the phone
-   unlocked (a PIN-locked phone relocks within minutes; a human must unlock it).
+   Termux app, and on a keyguard-locked phone it used to fail with "sshd did not
+   start from the Termux app". It now checks first (`dumpsys window`
+   isKeyguardShowing, `dumpsys power` mWakefulness), pings once and waits up to 10
+   minutes for a human to unlock (item 7). The first run after a fresh install also
+   fails while `pkg` installs openssh; rerun with Termux in the foreground and the
+   phone unlocked (a PIN-locked phone relocks within minutes).
 10. **`deploy-apks` stops at the first downgrade.** After Termux and the agent are
     in, the pinned Tailscale (s24) or Shizuku (t2e) APK fails with
     `INSTALL_FAILED_VERSION_DOWNGRADE` because the device has a newer one. The

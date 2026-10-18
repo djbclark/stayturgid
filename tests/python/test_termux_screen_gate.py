@@ -341,12 +341,15 @@ def test_deploy_gate_task_precedes_the_first_termux_adb_connect():
     assert "stayturgid_no_local_adb" in task["when"]
 
 
-def test_bootstrap_playbook_passes_the_host_name_for_the_ping():
+def test_bootstrap_playbooks_pass_the_host_name_for_the_ping():
     import yaml
 
-    play = yaml.safe_load((REPO / "ansible/playbooks/fleet/bootstrap.yml").read_text())[0]
-    params = play["tasks"][0]["stayturgid.termux.termux_ssh_bootstrap"]
-    assert params["host"] == "{{ inventory_hostname }}"
+    for name in ("bootstrap.yml", "preflight.yml"):
+        plays = yaml.safe_load((REPO / "ansible/playbooks/fleet" / name).read_text())
+        tasks = [task for play in plays for task in play["tasks"] if "stayturgid.termux.termux_ssh_bootstrap" in task]
+        assert [t["stayturgid.termux.termux_ssh_bootstrap"]["host"] for t in tasks] == ["{{ inventory_hostname }}"], (
+            name
+        )
 
 
 def test_hermes_ping_default_is_the_user_bin_script():

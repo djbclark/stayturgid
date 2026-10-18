@@ -16,6 +16,7 @@ _COLLECTION_UTILS = REPO_ROOT / "ansible_collections" / "stayturgid" / "termux" 
 if str(_COLLECTION_UTILS) not in sys.path:
     sys.path.insert(0, str(_COLLECTION_UTILS))
 
+import termux_adbkey
 import termux_run_as as tr
 from secretspec_exec import secretspec_run
 
@@ -147,6 +148,21 @@ def pick_private_key(keys_dir: Path | None = None) -> Path | None:
     return None
 
 
+def restore_adbkey(serial: str, host: str | None) -> None:
+    """Put the phone's own stored Termux adb key back before Termux first calls adb.
+
+    A reinstall wipes ~/.android/adbkey; adbd still authorises the old key, so
+    restoring it means no "Allow USB debugging?" dialog (see termux_adbkey). A
+    missing vault, backup or run-as only prints why: it never blocks the bootstrap.
+    """
+    if not host:
+        return
+    try:
+        print(termux_adbkey.restore(host, serial))
+    except (RuntimeError, ValueError, OSError, subprocess.SubprocessError) as exc:
+        print("restore: adb key not restored on %s: %s" % (host, exc))
+
+
 def bootstrap_serial(
     serial: str,
     *,
@@ -171,6 +187,7 @@ def bootstrap_serial(
             host=host,
         )
 
+    restore_adbkey(serial, host)
     _do_bootstrap()
 
     def _probe(key: Path | None) -> tuple[bool, bool, bool]:

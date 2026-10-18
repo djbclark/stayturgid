@@ -270,6 +270,38 @@
   register: termux_perm_grant
   when: not (stayturgid_no_local_adb | default(false) | bool)
 
+# Termux's adb key is wiped by a reinstall, and the new one needs a human tap. Once
+# adbd's key store holds this phone's key, copy it into the secret vault
+# (TERMUX_ADBKEY_<HOST>) so bootstrap-ssh can put it back after the next reinstall
+# and nobody is asked (control/lib/termux_adbkey.py). Idempotent; only a key that
+# adbd already authorises is stored. The script reads the key and talks to the vault
+# itself, so nothing secret passes through Ansible variables or output (no no_log
+# needed). A broken vault warns and never fails the deploy.
+- name: Back up Termux's adb key to the secret vault once it is authorised
+  ansible.builtin.command:
+    argv:
+      - python3
+      - "{{ stayturgid_repo_root }}/control/bin/termux_adbkey.py"
+      - capture
+      - "{{ inventory_hostname }}"
+      - --device
+      - "{{ lookup('stayturgid.android_common.adb_device', inventory_hostname, errors='ignore') | default('', true) }}"
+  delegate_to: localhost
+  register: _termux_adbkey_capture
+  changed_when: "'capture: stored' in _termux_adbkey_capture.stdout"
+  failed_when: false
+  check_mode: false
+  when:
+    - not (stayturgid_no_local_adb | default(false) | bool)
+    - not ansible_check_mode
+
+- name: Report an adb key backup that could not run
+  ansible.builtin.debug:
+    msg: "adb key backup skipped on {{ inventory_hostname }}: {{ (_termux_adbkey_capture.stderr | default('', true)) | trim }}"
+  when:
+    - _termux_adbkey_capture is not skipped
+    - _termux_adbkey_capture.rc | default(0) != 0
+
 - name: Render stayturgid environment (STAYTURGID_SD for boot/repair scripts)
   ansible.builtin.copy:
     dest: "{{ termux_home }}/.stayturgid/env"

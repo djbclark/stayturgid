@@ -14,6 +14,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -53,8 +54,12 @@ def _run_probe(tmp_path: Path, context: str) -> tuple[int, str, Path]:
             ]
         )
     )
+    utf8 = "en_US.UTF-8" if sys.platform == "darwin" else "C.UTF-8"
     env = {
         **os.environ,
+        # Ansible refuses to start without a UTF-8 locale, and other tests clear it.
+        "LC_ALL": utf8,
+        "LANG": utf8,
         "ANSIBLE_CALLBACK_RESULT_FORMAT": "json",
         "ANSIBLE_LOCALHOST_WARNING": "False",
         "ANSIBLE_INVENTORY_UNPARSED_WARNING": "False",
@@ -85,7 +90,7 @@ def test_run_as_session_gets_the_real_cause_and_keeps_the_boot_integration(tmp_p
     rc, stdout, boot_script = _run_probe(tmp_path, "u:r:runas_app:s0:c127,c257,c512,c768\n")
     message = _failure_message(stdout)
     assert rc != 0
-    assert "SELinux domain u:r:runas_app:s0:c127" in message
+    assert "SELinux domain u:r:runas_app:s0:c127" in message, stdout[-1500:]
     assert "run-as" in message and "bootstrap-ssh" in message and "start_sshd_from_app" in message
     assert "not a model incompatibility" in message
     assert "cannot run on" not in message
@@ -96,7 +101,7 @@ def test_app_context_probe_failure_keeps_the_incompatibility_message_and_removes
     rc, stdout, boot_script = _run_probe(tmp_path, "u:r:untrusted_app_27:s0:c127,c257,c512,c768\n")
     message = _failure_message(stdout)
     assert rc != 0
-    assert "cannot run on" in message
+    assert "cannot run on" in message, stdout[-1500:]
     assert "run-as" not in message
     assert not boot_script.exists()
 
