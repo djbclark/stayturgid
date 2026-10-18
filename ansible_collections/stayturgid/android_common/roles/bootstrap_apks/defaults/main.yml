@@ -29,6 +29,8 @@
 #                 for an APK that carries the adb transport itself (Tailscale)
 #   install_timeout — seconds before `adb install` is killed (module default 180);
 #                 raise it for a very large APK (Paseo, 263 MB)
+#   download_timeout — seconds per download attempt (module default 180); raise it
+#                 likewise. Verified APKs are cached once in ~/.cache/stayturgid/apks
 #
 # Override via inventory group_vars only to replace the complete lock:
 #   stayturgid_bootstrap_apks
@@ -178,3 +180,4 @@ stayturgid_bootstrap_apks:
     checksum: "sha256:ec393de7aebfb144b3fe519453fdf168988fefda6ac08b714ffc2bcd82daba08"
     resign: false
     install_timeout: 900
+    download_timeout: 900

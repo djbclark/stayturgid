@@ -121,6 +121,13 @@ options:
       forever — this ansible-core's C(run_command) has no timeout of its own.
     type: int
     default: 180
+  download_timeout:
+    description: >-
+      Seconds each download attempt (aria2c, then C(gh release download)) may take.
+      Raise it for a very large APK (Paseo, 263 MB: 180 s was not enough on a loaded
+      control node, 2026-10-18).
+    type: int
+    default: 180
   detached_install:
     description:
       - Install through a detached on-device script, for an APK that carries the
@@ -182,12 +189,14 @@ reason:
   type: str
 """
 
+import fcntl
 import fnmatch
 import hashlib
 import json
 import os
 import re
 import shlex
+import shutil
 import sys
 import tempfile
 import time
@@ -460,7 +469,7 @@ def download_gh_release(module, repo, pattern, tag):
         rc, _out, err = run_command_with_timeout(
             module.run_command,
             [aria2c] + ARIA2C_ARGS + ["--dir", destdir, "--out", name, url],
-            timeout=DEFAULT_SLOW_TIMEOUT,
+            timeout=module.params["download_timeout"],
             get_bin_path_fn=module.get_bin_path,
         )
         if rc == 0 and os.path.isfile(os.path.join(destdir, name)):
@@ -476,7 +485,7 @@ def download_gh_release(module, repo, pattern, tag):
         rc, _out, err = run_command_with_timeout(
             module.run_command,
             cmd,
-            timeout=DEFAULT_SLOW_TIMEOUT,
+            timeout=module.params["download_timeout"],
             get_bin_path_fn=module.get_bin_path,
         )
         if rc == 0:
@@ -489,18 +498,58 @@ def download_gh_release(module, repo, pattern, tag):
     return os.path.join(destdir, apks[0])
 
 
-def verify_sha256(module, apk_path, expected):
-    if not expected:
-        return
+def _wanted_sha256(expected):
     wanted = expected.strip()
     if wanted.startswith("sha256:"):
         wanted = wanted[len("sha256:") :]
-    wanted = wanted.lower()
+    return wanted.lower()
+
+
+def _sha256_of(path):
     digest = hashlib.sha256()
-    with open(apk_path, "rb") as stream:
+    with open(path, "rb") as stream:
         for chunk in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(chunk)
-    actual = digest.hexdigest()
+    return digest.hexdigest()
+
+
+APK_CACHE_DIR = os.path.expanduser("~/.cache/stayturgid/apks")
+
+
+def cached_download(module, fetch):
+    """Return a private copy of the checksum-pinned APK, downloading it at most once.
+
+    Every host in a play runs this task at once on the control node, so a 263 MB APK used to be
+    downloaded four times in parallel and timed out (2026-10-18). The verified file is kept as
+    <sha256>.apk; a lock makes the other hosts wait for the first download. Each caller gets its own
+    copy because resign_apk rewrites the file in place. Without a checksum there is no safe key.
+    """
+    expected = module.params["checksum"]
+    if not expected:
+        return fetch()
+    wanted = _wanted_sha256(expected)
+    if not re.match(r"^[0-9a-f]{64}$", wanted):
+        return fetch()
+    if not os.path.isdir(APK_CACHE_DIR):
+        os.makedirs(APK_CACHE_DIR)
+    cached = os.path.join(APK_CACHE_DIR, wanted + ".apk")
+    with open(cached + ".lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if not (os.path.isfile(cached) and _sha256_of(cached) == wanted):
+            apk = fetch()
+            verify_sha256(module, apk, expected)
+            shutil.copyfile(apk, cached + ".part")
+            os.rename(cached + ".part", cached)
+    copy = os.path.join(tempfile.mkdtemp(dir=module.tmpdir), wanted + ".apk")
+    shutil.copyfile(cached, copy)
+    return copy
+
+
+def verify_sha256(module, apk_path, expected):
+    if not expected:
+        return
+    wanted = _wanted_sha256(expected)
+    actual = _sha256_of(apk_path)
     if actual != wanted:
         module.fail_json(msg="APK checksum mismatch: expected sha256:%s, got sha256:%s" % (wanted, actual))
 
@@ -593,6 +642,7 @@ def main():
             keystore_pass=dict(type="str", default="android", no_log=True),
             key_alias=dict(type="str", default="androiddebugkey"),
             install_timeout=dict(type="int", default=180),
+            download_timeout=dict(type="int", default=180),
             detached_install=dict(type="bool", default=False),
             detached_timeout=dict(type="int", default=300),
         ),
@@ -632,13 +682,16 @@ def main():
         if not os.path.isfile(apk):
             module.fail_json(msg="apk_path not found: %s" % apk)
     elif module.params["url"]:
-        apk = download_url(module, module.params["url"])
+        apk = cached_download(module, lambda: download_url(module, module.params["url"]))
     else:
-        apk = download_gh_release(
+        apk = cached_download(
             module,
-            module.params["gh_repo"],
-            module.params["gh_pattern"],
-            module.params["gh_tag"],
+            lambda: download_gh_release(
+                module,
+                module.params["gh_repo"],
+                module.params["gh_pattern"],
+                module.params["gh_tag"],
+            ),
         )
 
     verify_sha256(module, apk, module.params["checksum"])
